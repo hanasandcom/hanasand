@@ -20,11 +20,11 @@ export default async function layout({ children }: { children: ReactNode }) {
     const Cookies = await cookies()
     const Headers = await headers()
     const accessToken = Cookies.get('access_token')?.value || ''
-    const token = Boolean(accessToken)
+    const id = Cookies.get('id')?.value || ''
+    const token = Boolean(accessToken && id)
     const themeCookie = Cookies.get('theme')?.value
     const theme = themeCookie === 'light' ? 'light' : 'dark'
     const path = Headers.get('x-current-path') || ''
-    const id = Cookies.get('id')?.value || ''
     const tokenValue = Cookies.get('access_token')?.value || ''
     const username = token && id && tokenValue ? id : ''
     const initialMode = Cookies.get('dashboard_view_mode')?.value === 'compact' ? 'compact' : 'normal'

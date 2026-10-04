@@ -8,6 +8,7 @@ import type { ProfileStats } from '@/utils/profile/getProfileStats'
 const DAY_MS = 24 * 60 * 60 * 1000
 const dateKey = (date: Date) => date.toISOString().slice(0, 10)
 const dayLabel = new Intl.DateTimeFormat('en', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
+const tooltipDateLabel = (date: Date) => `${String(date.getUTCDate()).padStart(2, '0')}.${String(date.getUTCMonth() + 1).padStart(2, '0')}.${String(date.getUTCFullYear()).slice(-2)}`
 const monthLabel = new Intl.DateTimeFormat('en', { month: 'short', timeZone: 'UTC' })
 
 function LoginActivity({ loginDays }: { loginDays: ProfileStats['loginDays'] }) {
@@ -70,22 +71,29 @@ function LoginActivity({ loginDays }: { loginDays: ProfileStats['loginDays'] }) 
                             <span>Sun</span><span></span><span>Tue</span><span></span><span>Thu</span><span></span><span>Sat</span>
                         </div>
                         <div className='grid grid-flow-col grid-rows-7 gap-[3px]' style={{ gridTemplateColumns }}>
-                            {weeks.flat().map(date => {
+                            {weeks.flat().map((date, index) => {
                                 const key = dateKey(date)
                                 const count = activity.get(key) || 0
                                 const level = count === 0 ? 0 : count === 1 ? 1 : count <= 3 ? 2 : count <= 6 ? 3 : 4
                                 const label = count
                                     ? `${count} login${count === 1 ? '' : 's'} on ${dayLabel.format(date)}`
                                     : `No logins on ${dayLabel.format(date)}`
-                                const cellClass = 'h-2.5 w-2.5 rounded-xs ' + levels[level]
+                                const column = Math.floor(index / 7)
+                                const horizontal = column < 3 ? 'left-0' : column >= weekCount - 3 ? 'right-0' : 'left-1/2 -translate-x-1/2'
+                                const vertical = date.getUTCDay() >= 5 ? 'bottom-full mb-2' : 'top-full mt-2'
+                                const cellClass = 'group relative z-0 h-2.5 w-2.5 rounded-xs ' + levels[level]
                                 return (
                                     <button
                                         key={key}
                                         type='button'
-                                        title={label}
                                         aria-label={label}
-                                        className={cellClass + ' cursor-default border-0 p-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ui-primary'}
-                                    />
+                                        className={cellClass + ' cursor-default border-0 p-0 hover:z-50 focus-visible:z-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ui-primary'}
+                                    >
+                                        <span aria-hidden='true' className={`pointer-events-none invisible absolute ${vertical} ${horizontal} z-50 grid w-max gap-0.5 rounded-md border border-ui-border bg-ui-panel px-2.5 py-1.5 text-left text-xs font-medium leading-4 text-ui-text opacity-0 shadow-lg transition-opacity group-hover:visible group-hover:opacity-100 group-focus-visible:visible group-focus-visible:opacity-100`}>
+                                            <span>{tooltipDateLabel(date)}</span>
+                                            <span>{count} login{count === 1 ? '' : 's'}</span>
+                                        </span>
+                                    </button>
                                 )
                             })}
                         </div>

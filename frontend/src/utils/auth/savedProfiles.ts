@@ -1,6 +1,7 @@
 import { getCookie, removeCookies, setCookieWithExpiresAt } from '@/utils/cookies/cookies'
 
 const STORAGE_KEY = 'hanasand:saved-profiles:v1'
+const RECENT_USERS_KEY = 'hanasand:recent-users:v1'
 const MAX_SAVED_PROFILES = 20
 
 export type SavedProfile = {
@@ -9,6 +10,13 @@ export type SavedProfile = {
     avatar: string | null
     token: string
     expiresAt: string | null
+    lastUsedAt: string
+}
+
+export type RecentUser = {
+    id: string
+    name: string
+    avatar: string | null
     lastUsedAt: string
 }
 
@@ -32,6 +40,67 @@ export function readSavedProfiles(): SavedProfile[] {
     } catch {
         return []
     }
+}
+
+export function readRecentUsers(): RecentUser[] {
+    const users = new Map<string, RecentUser>()
+    const addUser = (user: RecentUser) => {
+        const current = users.get(user.id)
+        if (!current || user.lastUsedAt >= current.lastUsedAt) users.set(user.id, user)
+    }
+
+    for (const profile of readSavedProfiles()) {
+        addUser({ id: profile.id, name: profile.name, avatar: profile.avatar, lastUsedAt: profile.lastUsedAt })
+    }
+
+    try {
+        const value = JSON.parse(window.localStorage.getItem(RECENT_USERS_KEY) || '[]')
+        if (Array.isArray(value)) {
+            for (const user of value) {
+                if (!user || typeof user !== 'object' || typeof user.id !== 'string' || !user.id.trim()) continue
+                const id = user.id.trim().slice(0, 254)
+                addUser({
+                    id,
+                    name: typeof user.name === 'string' && user.name.trim() ? user.name.trim().slice(0, 254) : id,
+                    avatar: typeof user.avatar === 'string' ? user.avatar.slice(0, 4096) : null,
+                    lastUsedAt: typeof user.lastUsedAt === 'string' ? user.lastUsedAt.slice(0, 64) : '',
+                })
+            }
+        }
+    } catch {
+        // The header can still show profiles stored by the account switcher.
+    }
+
+    return [...users.values()].sort((a, b) => b.lastUsedAt.localeCompare(a.lastUsedAt)).slice(0, MAX_SAVED_PROFILES)
+}
+
+export function readAvailableProfiles(): SavedProfile[] {
+    const profiles = readSavedProfiles()
+    const knownIds = new Set(profiles.map(profile => profile.id))
+    for (const user of readRecentUsers()) {
+        if (knownIds.has(user.id)) continue
+        profiles.push({ ...user, token: '', expiresAt: null })
+    }
+    return profiles.sort((a, b) => b.lastUsedAt.localeCompare(a.lastUsedAt)).slice(0, MAX_SAVED_PROFILES)
+}
+
+export function rememberCurrentUser(): RecentUser | null {
+    const id = getCookie('id')?.trim()
+    if (!id) return null
+
+    const user = {
+        id: id.slice(0, 254),
+        name: (getCookie('name') || id).trim().slice(0, 254),
+        avatar: getCookie('avatar') || null,
+        lastUsedAt: new Date().toISOString(),
+    }
+    const users = readRecentUsers().filter(recent => recent.id !== user.id)
+    try {
+        window.localStorage.setItem(RECENT_USERS_KEY, JSON.stringify([user, ...users].slice(0, MAX_SAVED_PROFILES)))
+    } catch {
+        // Keep sign-in usable when browser storage is disabled.
+    }
+    return user
 }
 
 export function rememberCurrentProfile(): SavedProfile | null {
@@ -91,6 +160,7 @@ export function restoreSavedProfile(profile: SavedProfile) {
 export function clearSavedProfiles() {
     try {
         window.localStorage.removeItem(STORAGE_KEY)
+        window.localStorage.removeItem(RECENT_USERS_KEY)
     } catch {
         // Continue signing out even if browser storage is unavailable.
     }

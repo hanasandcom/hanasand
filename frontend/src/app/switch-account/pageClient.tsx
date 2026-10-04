@@ -6,6 +6,7 @@ import {
     clearSavedProfileSession,
     clearSavedProfiles,
     isSavedSessionExpired,
+    readAvailableProfiles,
     readSavedProfiles,
     rememberCurrentProfile,
     restoreSavedProfile,
@@ -29,7 +30,7 @@ export default function SwitchAccountPage() {
     useEffect(() => {
         const current = rememberCurrentProfile()
         setCurrentProfile(current)
-        setProfiles(readSavedProfiles())
+        setProfiles(readAvailableProfiles())
         setReady(true)
     }, [])
 
