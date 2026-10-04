@@ -6,6 +6,7 @@ import run, { closeDatabase, withTransaction } from '#db'
 const pageBatchSize = Math.min(50_000, Math.max(1, Number(process.env.SERVICE_LOG_REFERENCE_BATCH_PAGES) || 5_000))
 let total = 0
 let batches = 0
+const deferredPages: number[] = []
 
 async function processRange(startPage: number, endPage: number, attempt = 0): Promise<void> {
     try {
@@ -34,7 +35,10 @@ async function processRange(startPage: number, endPage: number, attempt = 0): Pr
             await processRange(middlePage, endPage)
             return
         }
-        if (attempt >= 3) throw error
+        if (attempt >= 3) {
+            deferredPages.push(startPage)
+            return
+        }
         await Bun.sleep(1000 * (attempt + 1))
         await processRange(startPage, endPage, attempt + 1)
     }
@@ -50,6 +54,13 @@ try {
         await processRange(startPage, endPage)
         console.log(JSON.stringify({ removed: total, batches, pages: `${endPage}/${pageCount}` }))
     }
+    for (let retry = 1; deferredPages.length && retry <= 12; retry++) {
+        const pending = deferredPages.splice(0)
+        console.log(JSON.stringify({ retry, deferredPages: pending.length, removed: total }))
+        await Bun.sleep(5000)
+        for (const page of pending) await processRange(page, page + 1)
+    }
+    if (deferredPages.length) throw new Error(`Could not update ${deferredPages.length} event heap pages after retries`)
     console.log(JSON.stringify({ complete: true, removed: total, batches }))
 } finally {
     await closeDatabase()
