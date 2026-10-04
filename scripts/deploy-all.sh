@@ -264,6 +264,7 @@ wait_for_healthy() {
         fi
         if test -n "$state" && test "$state" != running; then
             echo "$service stopped during startup (state: $state)." >&2
+            docker logs --tail 100 "$container" >&2 || true
             return 1
         fi
         sleep 5
