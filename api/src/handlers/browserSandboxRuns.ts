@@ -65,6 +65,7 @@ type PrepareBrowserRunInput = {
 type BrowserReportParams = { id: string }
 type BrowserReportQuery = { clientId?: string; token?: string }
 type BrowserReportBody = { clientId?: string; report?: unknown }
+type BrowserRunDeleteBody = { clientId?: string; ids?: string[]; clear?: boolean }
 
 export const maxBrowserReportBytes = 32_000_000
 let browserRunStatsCache: { expiresAt: number; value: BrowserRunStats } | null = null
@@ -104,6 +105,7 @@ export async function getBrowserRuns(req: FastifyRequest<{ Querystring: { client
             const result = await run(`
                 SELECT id, target, network, status, title, created_at, metadata - 'report' AS metadata
                 FROM browser_runs WHERE ${scope}
+                    AND metadata->>'historyDeletedAt' IS NULL
                 ORDER BY created_at DESC, id DESC
                 LIMIT 51 OFFSET $${params.length + 1}
             `, [...params, offset])
@@ -119,8 +121,9 @@ export async function getBrowserRuns(req: FastifyRequest<{ Querystring: { client
                     id, target, network, status, title, created_at, metadata - 'report' AS metadata,
                     COUNT(*) OVER (PARTITION BY result_id)::int AS check_count
                 FROM browser_runs
-                WHERE owner_id = $1
-                   OR ($2::text IS NOT NULL AND client_id_hash = $2)
+                WHERE (owner_id = $1
+                   OR ($2::text IS NOT NULL AND client_id_hash = $2))
+                  AND metadata->>'historyDeletedAt' IS NULL
                 ORDER BY result_id, created_at DESC
             ) latest_runs
             ORDER BY created_at DESC
@@ -133,6 +136,7 @@ export async function getBrowserRuns(req: FastifyRequest<{ Querystring: { client
                     COUNT(*) OVER (PARTITION BY result_id)::int AS check_count
                 FROM browser_runs
                 WHERE client_id_hash = $1
+                  AND metadata->>'historyDeletedAt' IS NULL
                 ORDER BY result_id, created_at DESC
             ) latest_runs
             ORDER BY created_at DESC
@@ -146,6 +150,57 @@ export async function getBrowserRuns(req: FastifyRequest<{ Querystring: { client
     } catch (error) {
         req.log.error(error)
         return res.status(500).send({ error: 'Failed to load browser runs.' })
+    }
+}
+
+export async function deleteBrowserRuns(req: FastifyRequest<{ Body: BrowserRunDeleteBody }>, res: FastifyReply) {
+    try {
+        const user = await tokenWrapper(req, res)
+        const clientId = cleanClientId(req.body?.clientId)
+        const identity = user.valid && user.id
+            ? await browserRunIdentityForUser(user.id, clientId)
+            : browserRunIdentityForClient(clientId)
+
+        if (!identity || (!identity.ownerId && !identity.clientIdHash)) {
+            return res.status(400).send({ error: 'A browser history identity is required.' })
+        }
+
+        const scope = identity.ownerId
+            ? '(owner_id = $1 OR ($2::text IS NOT NULL AND client_id_hash = $2))'
+            : 'client_id_hash = $1'
+        const scopeParams = identity.ownerId ? [identity.ownerId, identity.clientIdHash] : [identity.clientIdHash]
+        const ids = req.body?.ids
+        if (ids !== undefined) {
+            if (!Array.isArray(ids) || ids.length < 1 || ids.length > 12 || ids.some(id => !isBrowserRunId(id))) {
+                return res.status(400).send({ error: 'Select between 1 and 12 valid browser runs.' })
+            }
+            const idParam = scopeParams.length + 1
+            const result = await run(`
+                WITH selected_results AS (
+                    SELECT DISTINCT result_id FROM browser_runs
+                    WHERE id = ANY($${idParam}::uuid[]) AND ${scope}
+                )
+                UPDATE browser_runs
+                SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object('historyDeletedAt', NOW()), updated_at = NOW()
+                WHERE ${scope}
+                  AND metadata->>'historyDeletedAt' IS NULL
+                  AND result_id IN (SELECT result_id FROM selected_results)
+                RETURNING id
+            `, [...scopeParams, ids])
+            return res.header('cache-control', 'private, no-store').send({ deleted: result.rows.length })
+        }
+        if (req.body?.clear !== true) return res.status(400).send({ error: 'Choose runs to delete or clear browser history.' })
+
+        const result = await run(`
+            UPDATE browser_runs
+            SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object('historyDeletedAt', NOW()), updated_at = NOW()
+            WHERE ${scope} AND metadata->>'historyDeletedAt' IS NULL
+            RETURNING id
+        `, scopeParams)
+        return res.header('cache-control', 'private, no-store').send({ deleted: result.rows.length })
+    } catch (error) {
+        req.log.error(error)
+        return res.status(500).send({ error: 'Failed to delete browser history.' })
     }
 }
 
@@ -365,7 +420,7 @@ function providerResultsValue(value: unknown): Record<string, BrowserProviderRun
 async function loadAccessibleBrowserRun(req: FastifyRequest, id: string, clientId?: string, token?: string) {
     const result = await run('SELECT * FROM browser_runs WHERE id = $1 LIMIT 1', [id])
     const row = result.rows[0] as (Record<string, any> & { metadata?: Record<string, any> }) | undefined
-    if (!row) return null
+    if (!row || row.metadata?.historyDeletedAt) return null
     if (token && row.metadata?.reportToken === token) return row
 
     const user = await tokenWrapper(req, {} as FastifyReply).catch(() => ({ valid: false, id: '' }))
@@ -404,6 +459,7 @@ export async function getBrowserResult(req: FastifyRequest<{ Params: { id: strin
         const clientId = cleanClientId(req.query?.clientId)
         const rows = await run(`SELECT id, target, network, status, created_at, title FROM browser_runs
             WHERE result_id = $1::uuid AND (owner_id = $2 OR client_id_hash = $3)
+              AND metadata->>'historyDeletedAt' IS NULL
             ORDER BY created_at DESC, id DESC`, [req.params.id, user.valid ? user.id ?? null : null, clientId ? hashValue(clientId) : null])
         const selected = req.query?.run ? rows.rows.find(row => row.id === req.query.run) : rows.rows[0]
         if (!selected) return res.status(404).send({ error: 'Result not found or unavailable to this account.' })
@@ -420,6 +476,10 @@ export async function getBrowserResult(req: FastifyRequest<{ Params: { id: strin
         req.log.error(error)
         return res.status(500).send({ error: 'Could not load the saved browser result.' })
     }
+}
+
+function isBrowserRunId(value: unknown): value is string {
+    return typeof value === 'string' && /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(value)
 }
 
 export function buildStoredBrowserReport(selected: Record<string, any>, saved: any, events: Record<string, any>[], versions: Record<string, any>[]) {
