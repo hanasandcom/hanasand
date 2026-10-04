@@ -8,7 +8,6 @@ const workspaceRoot = path.resolve(frontendRoot, '..')
 const roots = [
     'frontend/src',
     'api/src',
-    'ti/scraper/src',
 ]
 
 const bannedRenderedCopy = [

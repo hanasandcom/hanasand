@@ -3,7 +3,7 @@ import path from 'node:path'
 import { scheduledJobRegistryGuardrailEntries } from '../src/utils/systemCron.ts'
 
 const repoRoot = path.resolve(import.meta.dir, '..', '..')
-const scanRoots = ['api/src', 'ti/scraper/src', 'docker-compose.yml']
+const scanRoots = ['api/src', 'docker-compose.yml']
 const schedulerPattern = /\b(schedule\s*\(|setInterval\s*\(|startCanaryCollectionLoop\b|runDue[A-Za-z0-9_]*\b|cron\b|crontab\b)/i
 const ignoredPattern = /(^|\/)(tests?|fixtures?|docs?|node_modules)(\/|$)/
 const registeredSources = new Set(scheduledJobRegistryGuardrailEntries().map(entry => normalize(entry.source)))
@@ -69,10 +69,5 @@ function isAllowedIncidentalSchedulerFile(file: string) {
         'api/src/handlers/systemCron.ts',
         'api/src/handlers/traffic/legacy.ts',
         'api/src/utils/auth/tokenWrapper.ts',
-        'ti/scraper/src/api/server.ts',
-        'ti/scraper/src/runtime/startup.ts',
-        'ti/scraper/src/ops/canaryActivation.ts',
-        'ti/scraper/src/api/canaryRoutes.ts',
-        'ti/scraper/src/registry/sourceReconciliation.ts',
     ].includes(file)
 }

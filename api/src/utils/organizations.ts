@@ -602,7 +602,7 @@ export type OrganizationSharedWatchlistDownstreamProof = {
             organizationId: string
             tenantId: string
             sourceFamily: 'organization_watchlist'
-            storageModule: 'ti/scraper/src/storage/dwmAlertRepository.ts'
+            storageModule: 'scraper/src/storage/dwmAlertRepository.ts'
             upsertFunction: 'upsertDwmAlert'
             requiredInputFields: string[]
             persistedAlertFields: string[]
@@ -793,7 +793,7 @@ export type OrganizationSharedWatchlistDownstreamProof = {
         queueContract: {
             route: 'GET /v1/dwm/alerts'
             requiredQueryFields: Array<'organizationId'>
-            storageModule: 'ti/scraper/src/storage/dwmAlertRepository.ts'
+            storageModule: 'scraper/src/storage/dwmAlertRepository.ts'
             itemFields: Array<'alertId' | 'organizationId' | 'watchlistItemIds' | 'severity' | 'status' | 'casePath' | 'updatedAt' | 'allowedActions'>
             state: 'ready' | 'blocked'
             blockerCodes: string[]
@@ -873,9 +873,9 @@ export type OrganizationSharedWatchlistDownstreamProof = {
             webhookPayload: Array<'captureIds' | 'sourceFamily' | 'casePath' | 'watchlistItemIds' | 'auditEventContracts'>
         }
         propagation: {
-            alertRepository: 'ti/scraper/src/storage/dwmAlertRepository.ts'
-            caseRoute: 'ti/scraper/src/api/caseRoutes.ts'
-            webhookRoute: 'ti/scraper/src/api/dwmWorkflowRoutes.ts'
+            alertRepository: 'scraper/src/storage/dwmAlertRepository.ts'
+            caseRoute: 'scraper/src/api/caseRoutes.ts'
+            webhookRoute: 'scraper/src/api/dwmWorkflowRoutes.ts'
             requiredCorrelationFields: Array<'organizationId' | 'tenantId' | 'watchlistItemIds' | 'alertGeneratorKeys' | 'captureIds' | 'sourceIds' | 'casePath'>
         }
         redaction: {
@@ -1105,7 +1105,7 @@ export type OrganizationSharedWatchlistAlertQueueVisibility = {
         blockerCodes: Array<'watchlist_paused' | 'watchlist_archived'>
     }
     persistedAlertContract: {
-        storageModule: 'ti/scraper/src/storage/dwmAlertRepository.ts'
+        storageModule: 'scraper/src/storage/dwmAlertRepository.ts'
         requiredFields: string[]
         workflowContextFields: string[]
         persistedAlertFields: string[]
@@ -1343,7 +1343,7 @@ export type OrganizationWatchlistAlertTermsExport = {
         sourceFamily: 'organization_watchlist'
         alertPersistenceContract: 'organization.watchlist_alert_persistence_contract.v1'
         caseWorkflowContract: 'organization.watchlist_case_workflow_contract.v1'
-        storageModule: 'ti/scraper/src/storage/dwmAlertRepository.ts'
+        storageModule: 'scraper/src/storage/dwmAlertRepository.ts'
         alertUpsertFunction: 'upsertDwmAlert'
         alertRoute: 'organization_watchlist'
         caseRoute: 'POST /v1/cases'
@@ -3599,7 +3599,7 @@ export function organizationSharedWatchlistDownstreamProof(
                 organizationId: organization.id,
                 tenantId: organization.id,
                 sourceFamily: 'organization_watchlist',
-                storageModule: 'ti/scraper/src/storage/dwmAlertRepository.ts',
+                storageModule: 'scraper/src/storage/dwmAlertRepository.ts',
                 upsertFunction: 'upsertDwmAlert',
                 requiredInputFields: [
                     'organizationId',
@@ -3946,12 +3946,12 @@ export function organizationSharedWatchlistDownstreamProof(
             proofCommand: 'cd api && bun scripts/smoke-organizations-api.ts',
             routeHandlers: [
                 'api/src/handlers/organizations.ts',
-                'ti/scraper/src/api/dwmWorkflowRoutes.ts',
-                'ti/scraper/src/api/caseRoutes.ts',
+                'scraper/src/api/dwmWorkflowRoutes.ts',
+                'scraper/src/api/caseRoutes.ts',
             ],
             storageModules: [
                 'api/src/utils/organizations.ts',
-                'ti/scraper/src/storage/dwmAlertRepository.ts',
+                'scraper/src/storage/dwmAlertRepository.ts',
             ],
             nonmemberEnumeration: false,
             containsRawTerms: false,
@@ -4145,7 +4145,7 @@ function organizationSharedWatchlistMonitoringWorkflow(input: {
                 id: 'alert_upsert',
                 ownerLane: 'dwm_alert_workflow',
                 route: 'POST /v1/dwm/alerts/rebuild',
-                storageModule: 'ti/scraper/src/storage/dwmAlertRepository.ts',
+                storageModule: 'scraper/src/storage/dwmAlertRepository.ts',
                 requiredPayloadFields: ['organizationId', 'tenantId', 'watchlistItemIds', 'workflowContext.alertGeneratorKeys', 'workflowContext.visibilityDecision', 'casePath'],
                 requiredAuditActions: ['organization_watchlist_alert_terms_exported'],
                 allowedRoles: input.alertAllowedRoles,
@@ -4157,7 +4157,7 @@ function organizationSharedWatchlistMonitoringWorkflow(input: {
                 id: 'alert_queue_visibility',
                 ownerLane: 'dwm_alert_workflow',
                 route: 'GET /v1/dwm/alerts',
-                storageModule: 'ti/scraper/src/storage/dwmAlertRepository.ts',
+                storageModule: 'scraper/src/storage/dwmAlertRepository.ts',
                 requiredPayloadFields: ['organizationId', 'workflowContext.organizationId', 'workflowContext.alertGeneratorKeys', 'workflowContext.allowedActions'],
                 requiredAuditActions: ['organization_watchlist_alert_terms_exported', 'organization_watchlist_alert_terms_export_denied'],
                 allowedRoles: input.alertAllowedRoles,
@@ -4169,7 +4169,7 @@ function organizationSharedWatchlistMonitoringWorkflow(input: {
                 id: 'case_link',
                 ownerLane: 'case_workflow',
                 route: 'POST /v1/cases',
-                storageModule: 'ti/scraper/src/api/caseRoutes.ts',
+                storageModule: 'scraper/src/api/caseRoutes.ts',
                 requiredPayloadFields: ['organizationId', 'tenantId', 'alertId', 'casePath', 'watchlistItemIds', 'evidence.provenance'],
                 requiredAuditActions: ['organization_watchlist_alert_terms_exported'],
                 allowedRoles: ['owner', 'admin', 'editor', 'analyst'],
@@ -4181,7 +4181,7 @@ function organizationSharedWatchlistMonitoringWorkflow(input: {
                 id: 'webhook_delivery',
                 ownerLane: 'webhook_delivery',
                 route: 'POST /v1/dwm/webhooks/deliver',
-                storageModule: 'ti/scraper/src/api/dwmWorkflowRoutes.ts',
+                storageModule: 'scraper/src/api/dwmWorkflowRoutes.ts',
                 requiredPayloadFields: ['organizationId', 'destinationId', 'alert.dedupeKey', 'casePath', 'watchlistItemIds', 'auditEventContracts'],
                 requiredAuditActions: ['organization_watchlist_alert_terms_exported'],
                 allowedRoles: ['owner', 'admin'],
@@ -4263,7 +4263,7 @@ function organizationSharedWatchlistAnalystPortalWorkflow(input: {
         queueContract: {
             route: 'GET /v1/dwm/alerts',
             requiredQueryFields: ['organizationId'],
-            storageModule: 'ti/scraper/src/storage/dwmAlertRepository.ts',
+            storageModule: 'scraper/src/storage/dwmAlertRepository.ts',
             itemFields: ['alertId', 'organizationId', 'watchlistItemIds', 'severity', 'status', 'casePath', 'updatedAt', 'allowedActions'],
             state: input.alertReadAllowed ? 'ready' : 'blocked',
             blockerCodes: input.alertReadAllowed ? [] : ['role_not_allowed'],
@@ -4407,9 +4407,9 @@ function organizationSharedWatchlistEnrichmentProvenance(input: {
             webhookPayload: ['captureIds', 'sourceFamily', 'casePath', 'watchlistItemIds', 'auditEventContracts'],
         },
         propagation: {
-            alertRepository: 'ti/scraper/src/storage/dwmAlertRepository.ts',
-            caseRoute: 'ti/scraper/src/api/caseRoutes.ts',
-            webhookRoute: 'ti/scraper/src/api/dwmWorkflowRoutes.ts',
+            alertRepository: 'scraper/src/storage/dwmAlertRepository.ts',
+            caseRoute: 'scraper/src/api/caseRoutes.ts',
+            webhookRoute: 'scraper/src/api/dwmWorkflowRoutes.ts',
             requiredCorrelationFields: ['organizationId', 'tenantId', 'watchlistItemIds', 'alertGeneratorKeys', 'captureIds', 'sourceIds', 'casePath'],
         },
         redaction: {
