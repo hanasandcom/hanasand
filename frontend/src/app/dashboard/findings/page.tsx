@@ -28,13 +28,15 @@ export default async function DashboardDwmPage({
     }
 
     const organizationId = await activeOrganizationId()
+    const view = normalizeDwmView(firstParam(params?.panel))
     if (firstParam(params?.panel) === 'alerts') {
         const sharedOrg = firstParam(params?.org) || firstParam(params?.organizationId) || firstParam(params?.orgId)
         redirect(sharedOrg ? `/cases?org=${encodeURIComponent(sharedOrg)}` : '/cases')
     }
     const tenantId = organizationId || identityId
-    const session = await tokenIsValid(token, identityId, cookieStore.get('impersonation_token')?.value)
-    const isAdmin = session.valid && session.canViewInternalPages === true
+    // This view has no internal-page controls, so it does not need the extra admin-access lookup.
+    const session = view === 'watchlists' ? null : await tokenIsValid(token, identityId, cookieStore.get('impersonation_token')?.value)
+    const isAdmin = session?.valid === true && session.canViewInternalPages === true
     const initialAlertId = firstParam(params?.alert)
     const publicTiHandoff = firstParam(params?.handoff) === PUBLIC_TI_HANDOFF_SOURCE
         ? decodePublicTiHandoffPayload(firstParam(params?.payload), firstParam(params?.intent))
@@ -54,7 +56,7 @@ export default async function DashboardDwmPage({
                 initialAlertId={initialAlertId}
                 publicTiHandoff={publicTiHandoff}
                 isAdmin={isAdmin}
-                view={normalizeDwmView(firstParam(params?.panel))}
+                view={view}
             />
         </DashboardPage>
     )

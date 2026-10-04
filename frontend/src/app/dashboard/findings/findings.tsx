@@ -164,14 +164,28 @@ type WatchlistItem = {
     status: 'active' | 'paused' | string
 }
 
-type WatchlistsState = {
-    status: 'loading' | 'ready' | 'error'
-    items: WatchlistItem[]
+type WatchlistOverview = {
+    tenantId: string
+    organizationId?: string
+    watchlists: WatchlistItem[]
+    watchlistCount: number
+    watchedTermCount: number
+    findingsCount: number
+    caseCount?: number
+    destinationsCount?: number
 }
 
-type DestinationsState = {
+type WatchlistOverviewState = {
     status: 'loading' | 'ready' | 'error'
-    count: number
+    data?: WatchlistOverview
+    error?: string
+}
+
+const watchlistOverviewCache = new Map<string, { expiresAt: number, data: WatchlistOverview }>()
+const WATCHLIST_OVERVIEW_CACHE_TTL_MS = 30_000
+
+function watchlistOverviewCacheKey(tenantId: string, organizationId?: string) {
+    return `${tenantId}\u0000${organizationId ?? ''}`
 }
 
 type PortalProps = {
@@ -243,8 +257,12 @@ export function Findings({
     const [dataHealth, setDataHealth] = useState(initialDataHealth)
     const [actionMessage, setActionMessage] = useState<{ ok: boolean, text: string } | null>(null)
     const [casesState, setCasesState] = useState<CasesState>(() => ({ status: view === 'cases' || view === 'watchlists' ? 'loading' : 'ready', rows: [] }))
-    const [watchlistsState, setWatchlistsState] = useState<WatchlistsState>(() => ({ status: view === 'watchlists' ? 'loading' : 'ready', items: [] }))
-    const [destinationsState, setDestinationsState] = useState<DestinationsState>(() => ({ status: view === 'watchlists' ? 'loading' : 'ready', count: 0 }))
+    const [watchlistOverviewState, setWatchlistOverviewState] = useState<WatchlistOverviewState>(() => {
+        const cached = watchlistOverviewCache.get(watchlistOverviewCacheKey(tenantId, organizationId))
+        return view === 'watchlists'
+            ? cached ? { status: 'ready', data: cached.data } : { status: 'loading' }
+            : { status: 'ready' }
+    })
     const [selectedId, setSelectedId] = useState(initialAlertId && alerts.some(alert => alert.id === initialAlertId) ? initialAlertId : alerts[0]?.id ?? '')
     const [busyAction, setBusyAction] = useState<string | null>(null)
     const [localDeliveries, setLocalDeliveries] = useState<DeliveryItem[]>(initialDeliveries)
@@ -261,7 +279,8 @@ export function Findings({
     const sharedCaptureCount = operations?.counts.captureCount ?? latestCaptures.length
     const tenantRunCaptureCount = operations?.latestRun?.captureCount || operations?.counts.captureCount || 0
     const watchlistMatchCount = operations?.counts.watchlistMatchCount || latestCaptureWatchlistMatchCount(latestCaptures) || alertWatchlistMatchCount(alerts)
-    const watchTermCount = snapshot.watchlist.length
+    const watchlistEditorTarget = watchlistOverviewState.data?.watchlists.find(item => item.name === 'Default company exposure watchlist') ?? watchlistOverviewState.data?.watchlists[0]
+    const watchlistEditorTerms = view === 'watchlists' ? watchlistEditorTarget?.terms.map(term => term.value) ?? [] : snapshot.watchlist.map(term => term.value)
     const webhookState = deliverySummaryLabel(localDeliveries)
     const workflowTelemetry = {
         activeSourceCount,
@@ -276,10 +295,11 @@ export function Findings({
     const workflowActions = view === 'cases' ? null : (
         <DwmWorkflowActions
             headingLevel={view === 'actions' ? 1 : 2}
-            key={`${tenantId}:${snapshot.watchlist.map(term => term.value).join('\u0000')}`}
+            key={`${tenantId}:${watchlistEditorTarget?.id ?? ''}:${watchlistEditorTerms.join('\u0000')}`}
             tenantId={tenantId}
             organizationId={view === 'watchlists' ? organizationId : selectedOrganizationId}
-            initialTerms={snapshot.watchlist.map(term => term.value)}
+            initialTerms={watchlistEditorTerms}
+            watchlistId={view === 'watchlists' ? watchlistEditorTarget?.id : undefined}
             telemetry={workflowTelemetry}
             variant={view === 'watchlists' ? 'watchlist-editor' : 'workflow'}
             onSaved={view === 'watchlists' ? () => setRefreshVersion(version => version + 1) : undefined}
@@ -302,6 +322,31 @@ export function Findings({
     useEffect(() => {
         const controller = new AbortController()
         const params = dwmScopeSearchParams(tenantId, organizationId)
+        if (view === 'watchlists') {
+            const key = watchlistOverviewCacheKey(tenantId, organizationId)
+            const cached = watchlistOverviewCache.get(key)
+            if (refreshVersion === 0 && cached && cached.expiresAt > Date.now()) {
+                setWatchlistOverviewState({ status: 'ready', data: cached.data })
+                return () => controller.abort()
+            }
+            if (cached) setWatchlistOverviewState({ status: 'loading', data: cached.data })
+            else setWatchlistOverviewState(current => ({ status: 'loading', data: current.data }))
+            void (async () => {
+                try {
+                    const response = await fetch(`/api/findings/watchlist-overview?${params.toString()}`, { cache: 'no-store', signal: controller.signal })
+                    if (!response.ok) throw new Error(await responseProblem(response))
+                    const data = await response.json() as WatchlistOverview
+                    watchlistOverviewCache.set(key, { expiresAt: Date.now() + WATCHLIST_OVERVIEW_CACHE_TTL_MS, data })
+                    setWatchlistOverviewState({ status: 'ready', data })
+                } catch (error) {
+                    if (isAbortError(error)) return
+                    setWatchlistOverviewState(current => current.data
+                        ? { status: 'ready', data: current.data, error: requestFailureDetail(error) }
+                        : { status: 'error', error: requestFailureDetail(error) })
+                }
+            })()
+            return () => controller.abort()
+        }
         if (view === 'cases') {
             void refreshCases(params, controller.signal, setCasesState)
             void refreshDwmOperations(params, controller.signal, setOperations, setDataHealth)
@@ -311,11 +356,6 @@ export function Findings({
             void refreshDwmOperations(params, controller.signal, setOperations, setDataHealth)
             void refreshDwmAlerts(params, controller.signal, setAlerts, setDataHealth)
             void refreshDwmDeliveries(params, controller.signal, setLocalDeliveries, setDataHealth)
-        }
-        if (view === 'watchlists') {
-            void refreshCases(params, controller.signal, setCasesState)
-            void refreshDwmWatchlists(params, controller.signal, setWatchlistsState)
-            void refreshDwmDestinations(organizationId || tenantId, controller.signal, setDestinationsState)
         }
         return () => {
             controller.abort()
@@ -374,12 +414,14 @@ export function Findings({
     }
 
     if (view === 'watchlists') {
-        const summaryCards = [
-            { label: 'Watchlists', value: watchlistsState.status === 'ready' ? String(watchlistsState.items.length) : '—' },
-            { label: 'Watched terms', value: dataHealth.snapshot.state === 'live' ? String(watchTermCount) : '—' },
-            { label: 'Findings', value: dataHealth.alerts.state === 'live' ? String(alerts.length) : '—' },
-            { label: 'Destinations', value: destinationsState.status === 'ready' ? String(destinationsState.count) : '—' },
-            { label: 'Cases', value: casesState.status === 'ready' ? String(casesState.total ?? casesState.rows.length) : '—' },
+        const overview = watchlistOverviewState.data
+        const unavailable = watchlistOverviewState.status === 'error' ? 'Unavailable' : '…'
+        const summaryCards: Array<{ label: string, value: string, href?: string }> = [
+            { label: 'Watchlists', value: overview ? String(overview.watchlistCount) : unavailable },
+            { label: 'Watched terms', value: overview ? String(overview.watchedTermCount) : unavailable },
+            { label: 'Findings', value: overview ? String(overview.findingsCount) : unavailable, href: '/findings' },
+            { label: 'Destinations', value: overview?.destinationsCount === undefined ? unavailable : String(overview.destinationsCount), href: '/findings/delivery' },
+            { label: 'Cases', value: overview?.caseCount === undefined ? unavailable : String(overview.caseCount), href: '/cases' },
         ]
         return (
             <div className='grid gap-4'>
@@ -401,8 +443,8 @@ export function Findings({
                                 <p className='mt-2 text-2xl font-semibold tabular-nums text-ui-text'>{card.value}</p>
                             </>
                         )
-                        return card.label === 'Cases' ? (
-                            <Link key={card.label} href='/cases' className='block rounded-lg border border-ui-border bg-ui-panel p-3 text-left shadow-sm transition-colors hover:bg-ui-raised focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-primary'>
+                        return card.href ? (
+                            <Link key={card.label} href={card.href} className='block rounded-lg border border-ui-border bg-ui-panel p-3 text-left shadow-sm transition-colors hover:bg-ui-raised focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-primary'>
                                 {contents}
                             </Link>
                         ) : (
@@ -417,12 +459,12 @@ export function Findings({
                     <div className='border-b border-ui-border px-4 py-3'>
                         <h2 className='text-base font-semibold text-ui-text'>Watchlists</h2>
                     </div>
-                    {watchlistsState.status === 'loading' ? <p className='px-4 py-5 text-sm text-ui-muted'>Loading…</p> : null}
-                    {watchlistsState.status === 'error' ? <p className='px-4 py-5 text-sm text-ui-muted'>Watchlists unavailable.</p> : null}
-                    {watchlistsState.status === 'ready' && !watchlistsState.items.length ? <p className='px-4 py-5 text-sm text-ui-muted'>No watchlists yet.</p> : null}
-                    {watchlistsState.status === 'ready' && watchlistsState.items.length ? (
+                    {watchlistOverviewState.status === 'loading' && !overview ? <p className='px-4 py-5 text-sm text-ui-muted'>Loading…</p> : null}
+                    {watchlistOverviewState.status === 'error' && !overview ? <p className='px-4 py-5 text-sm text-ui-muted'>Watchlists unavailable. {watchlistOverviewState.error}</p> : null}
+                    {overview && !overview.watchlists.length ? <p className='px-4 py-5 text-sm text-ui-muted'>No watchlists yet.</p> : null}
+                    {overview?.watchlists.length ? (
                         <div className='divide-y divide-ui-border'>
-                            {watchlistsState.items.map(watchlist => (
+                            {overview.watchlists.map(watchlist => (
                                 <details key={watchlist.id} className='group px-4'>
                                     <summary className='flex cursor-pointer list-none flex-wrap items-center gap-x-4 gap-y-1 py-3 text-sm marker:hidden'>
                                         <span aria-hidden='true' className='text-ui-muted transition-transform group-open:rotate-90'>›</span>
@@ -790,37 +832,6 @@ async function refreshDwmDeliveries(
         setDataHealth(current => ({ ...current, deliveries: { state: 'live', label: 'Deliveries live', detail: `${deliveries.length} delivery attempt(s).` } }))
     } catch (error) {
         if (!isAbortError(error)) setDataHealth(current => ({ ...current, deliveries: { state: 'error', label: 'Deliveries unavailable', detail: requestFailureDetail(error) } }))
-    }
-}
-
-async function refreshDwmWatchlists(
-    params: URLSearchParams,
-    signal: AbortSignal,
-    setState: Dispatch<SetStateAction<WatchlistsState>>,
-) {
-    try {
-        const response = await fetch(`/api/findings/watchlists?${params.toString()}`, { cache: 'no-store', signal })
-        if (!response.ok) throw new Error(await responseProblem(response))
-        const payload = await response.json() as { watchlists?: WatchlistItem[] }
-        setState({ status: 'ready', items: Array.isArray(payload.watchlists) ? payload.watchlists : [] })
-    } catch (error) {
-        if (!isAbortError(error)) setState({ status: 'error', items: [] })
-    }
-}
-
-async function refreshDwmDestinations(
-    scopeId: string,
-    signal: AbortSignal,
-    setState: Dispatch<SetStateAction<DestinationsState>>,
-) {
-    try {
-        const response = await fetch(`/api/organizations/${encodeURIComponent(scopeId)}/webhooks`, { cache: 'no-store', signal })
-        if (!response.ok) throw new Error(await responseProblem(response))
-        const payload = await response.json() as { destinations?: Array<{ id?: string, status?: string }> }
-        const destinations = Array.isArray(payload.destinations) ? payload.destinations : []
-        setState({ status: 'ready', count: destinations.filter(item => item.status !== 'archived').length })
-    } catch (error) {
-        if (!isAbortError(error)) setState({ status: 'error', count: 0 })
     }
 }
 

@@ -121,16 +121,19 @@ export async function listCases(url: URL, options: ApiServerOptions, request?: R
   if (scope.error) return scope.error;
   const access = authorizeCaseAccess({ options, scope, request, url, mode: "read" });
   if (access.error) return access.error;
+  const summaryOnly = url.searchParams.get("summary") === "true";
+  const limit = summaryOnly ? 1 : Math.max(1, Math.min(200, Number(url.searchParams.get("limit") ?? 50)));
   const filters = caseFiltersFromUrl(url);
-  const rawCursor = paginationCursor(url.searchParams, Math.max(1, Math.min(200, Number(url.searchParams.get("limit") ?? 50))));
+  const rawCursor = summaryOnly ? undefined : paginationCursor(url.searchParams, limit);
   const page = typeof (options.store as any).queryWorkflowRecordsPage === "function"
-    ? await (options.store as any).queryWorkflowRecordsPage({ recordType: "case", tenantId: scope.tenantId, limit: url.searchParams.get("limit") ?? 50, offset: legacyOffset(rawCursor), cursor: decodeKeysetCursor(rawCursor) ? rawCursor : undefined })
+    ? await (options.store as any).queryWorkflowRecordsPage({ recordType: "case", tenantId: scope.tenantId, organizationId: scope.organizationId, limit, offset: legacyOffset(rawCursor), cursor: decodeKeysetCursor(rawCursor) ? rawCursor : undefined })
     : undefined;
   const cases = (page?.records ?? (options.store as any).listCases?.() ?? [])
     .filter((row: AnalystCase) => row.tenantId === scope.tenantId)
     .filter((row: AnalystCase) => caseMatchesOrganizationScope(row, scope.organizationId))
     .filter((row: AnalystCase) => caseMatchesFilters(row, filters, options))
     .sort((a: AnalystCase, b: AnalystCase) => sortCaseQueue(a, b));
+  if (summaryOnly) return json({ schemaVersion: "analyst.case_list.v1", total: page?.total ?? cases.length });
   const items = cases.map((caseRecord: AnalystCase) => caseListItem(caseRecord, options, access));
   return json({
     schemaVersion: "analyst.case_list.v1",

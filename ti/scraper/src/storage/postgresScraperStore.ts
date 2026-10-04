@@ -2418,7 +2418,7 @@ export class PostgresScraperStore extends InMemoryScraperStore {
     const last = rows.at(-1) as { id?: string, updated_at?: string } | undefined;
     return { records, total, nextCursor: hasNext ? encodeKeysetCursor(last?.updated_at, last?.id) : undefined };
   }
-  async queryWorkflowRecordsPage(input: { recordType: string; tenantId?: string; limit?: number; cursor?: string; offset?: number } ) {
+  async queryWorkflowRecordsPage(input: { recordType: string; tenantId?: string; organizationId?: string; limit?: number; cursor?: string; offset?: number } ) {
     const table = input.recordType === "alert"
       ? "(SELECT 'alert'::text AS record_type, id, tenant_id, updated_at, record FROM threat_intel.alerts) AS durable_alerts"
       : "threat_intel.workflow_records";
@@ -2433,10 +2433,21 @@ export class PostgresScraperStore extends InMemoryScraperStore {
     const limitParam = input.tenantId === undefined ? (cursor ? "$4" : "$2") : (cursor ? "$5" : "$3");
     const cursorWhere = cursor ? ` AND (updated_at, id) < (${cursorParams[0]}::timestamptz, ${cursorParams[1]}::text)` : "";
     values.push(Math.max(0, Math.floor(input.offset ?? 0)));
-    const rows = await this.sql.unsafe(`SELECT record, id, updated_at FROM ${table} WHERE ${tenantWhere} AND record_type = ${typeParam}${cursorWhere} ORDER BY updated_at DESC, id DESC LIMIT ${limitParam} OFFSET $${values.length}`, values);
+    const offsetParam = `$${values.length}`;
+    const organizationParam = input.recordType === "case" && input.organizationId ? `$${values.length + 1}` : undefined;
+    const organizationWhere = organizationParam
+      ? ` AND (record->>'organizationId' IS NULL OR record->>'organizationId' = ${organizationParam}::text)`
+      : "";
+    if (organizationParam) values.push(input.organizationId!);
+    const rows = await this.sql.unsafe(`SELECT record, id, updated_at FROM ${table} WHERE ${tenantWhere} AND record_type = ${typeParam}${organizationWhere}${cursorWhere} ORDER BY updated_at DESC, id DESC LIMIT ${limitParam} OFFSET ${offsetParam}`, values);
     const countValues = input.tenantId === undefined ? [input.recordType] : [input.tenantId, input.recordType];
     const countTypeParam = input.tenantId === undefined ? "$1" : "$2";
-    const countRows = await this.sql.unsafe(`SELECT count(*)::int AS total FROM ${table} WHERE ${tenantWhere} AND record_type = ${countTypeParam}`, countValues);
+    const countOrganizationParam = input.recordType === "case" && input.organizationId ? `$${countValues.length + 1}` : undefined;
+    const countOrganizationWhere = countOrganizationParam
+      ? ` AND (record->>'organizationId' IS NULL OR record->>'organizationId' = ${countOrganizationParam}::text)`
+      : "";
+    if (countOrganizationParam) countValues.push(input.organizationId!);
+    const countRows = await this.sql.unsafe(`SELECT count(*)::int AS total FROM ${table} WHERE ${tenantWhere} AND record_type = ${countTypeParam}${countOrganizationWhere}`, countValues);
     const hasNext = rows.length > limit;
     const pageRows = hasNext ? rows.slice(0, limit) : rows;
     const last = pageRows.at(-1) as { id?: string, updated_at?: string } | undefined;

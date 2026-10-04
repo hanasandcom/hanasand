@@ -39,7 +39,7 @@ type WorkflowRouteSummary = {
     deliveryState?: string
 }
 
-export function DwmWorkflowActions({ tenantId, organizationId, initialTerms, telemetry, headingLevel = 2, variant = 'workflow', onSaved }: { headingLevel?: 1 | 2, tenantId: string, organizationId?: string, initialTerms: string[], telemetry?: WorkflowTelemetry, variant?: 'workflow' | 'watchlist-editor', onSaved?: () => void }) {
+export function DwmWorkflowActions({ tenantId, organizationId, initialTerms, watchlistId, telemetry, headingLevel = 2, variant = 'workflow', onSaved }: { headingLevel?: 1 | 2, tenantId: string, organizationId?: string, initialTerms: string[], watchlistId?: string, telemetry?: WorkflowTelemetry, variant?: 'workflow' | 'watchlist-editor', onSaved?: () => void }) {
     const Heading = headingLevel === 1 ? 'h1' : 'h2'
     const router = useRouter()
     const webhookInputRef = useRef<HTMLInputElement>(null)
@@ -63,32 +63,26 @@ export function DwmWorkflowActions({ tenantId, organizationId, initialTerms, tel
     function saveWatchlistTerms(nextTerms: string) {
         return postJson('/api/findings/watchlists', {
             ...scope,
+            ...(variant === 'watchlist-editor' && watchlistId ? { id: watchlistId } : {}),
             name: 'Default company exposure watchlist',
             terms: nextTerms,
             webhookUrl: webhookUrl.trim() || undefined,
         })
     }
 
-    async function saveAndRebuildWatchlist() {
+    async function saveWatchlistFromCommand() {
         setBusyAction('watchlist')
         setResult(null)
         const nextTerms = workflowTerms(terms)
 
         try {
-            const create = await saveWatchlistTerms(nextTerms)
-            if (!create.ok) throw new Error(create.message)
-
-            const rebuild = await alertRebuildFromWatchlistOrRequest(create, scope)
-            const savedAlertCount = typeof rebuild.savedAlertCount === 'number' ? rebuild.savedAlertCount : 0
+            const saved = await saveWatchlistTerms(nextTerms)
+            if (!saved.ok) throw new Error(saved.message)
             setTerms(nextTerms)
-            setResult({
-                ok: rebuild.ok,
-                message: rebuild.ok ? `Watchlist saved. Matched ${savedAlertCount} alert${savedAlertCount === 1 ? '' : 's'}.` : rebuild.message,
-            })
+            setResult({ ok: true, message: 'Watchlist terms saved. New findings will be checked against them.' })
             setLastRoute({
                 label: 'Watchlist',
                 watchTerms: countTerms(nextTerms),
-                alertCount: savedAlertCount,
             })
             refreshWorkspace()
             onSaved?.()
@@ -111,7 +105,7 @@ export function DwmWorkflowActions({ tenantId, organizationId, initialTerms, tel
 
             setTerms(nextTerms)
             setResult({ ok: true, message: 'Watchlist terms saved.' })
-            refreshWorkspace()
+            if (variant !== 'watchlist-editor') refreshWorkspace()
             onSaved?.()
         } catch (error) {
             setResult({ ok: false, message: error instanceof Error ? error.message : String(error) })
@@ -691,10 +685,10 @@ export function DwmWorkflowActions({ tenantId, organizationId, initialTerms, tel
             state: termCount ? `${termCount} terms` : 'terms needed',
             detail: termCount ? 'Save your watchlist and find matching events.' : 'Add company names, domains, brands or products to monitor.',
             tone: effectiveTermCount ? 'ok' : 'warn',
-            command: termCount ? 'Save and rebuild' : 'Add terms',
+            command: termCount ? 'Save terms' : 'Add terms',
             busy: busyAction === 'watchlist',
             disabled: busy,
-            onClick: termCount ? saveAndRebuildWatchlist : focusWatchlistInput,
+            onClick: termCount ? saveWatchlistFromCommand : focusWatchlistInput,
         },
         {
             id: 'capture',

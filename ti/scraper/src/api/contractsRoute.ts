@@ -90,6 +90,7 @@ export function contractIndex() {
     route("GET", "/v1/ops/product-slo"),
     route("GET", "/v1/contracts"),
     route("GET", "/v1/dwm/watchlists"),
+    route("GET", "/v1/dwm/watchlists/overview"),
     route("POST", "/v1/dwm/watchlists"),
     route("POST", "/v1/dwm/collection-requests"),
     route("GET", "/v1/dwm/collection-requests/:requestId"),

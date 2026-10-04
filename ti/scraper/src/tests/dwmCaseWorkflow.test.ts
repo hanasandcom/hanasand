@@ -169,8 +169,7 @@ describe("dwm case workflow", () => {
         name: "Case watchlist",
         status: "active"
       });
-      expect(watchlistPayload.watchlist.workflowContext).toMatchObject({ alertCount: 1, activeForAlertGeneration: true });
-      expect(watchlistPayload.watchlist.workflowContext.alertIds[0]).toMatch(/^dwm_alert_/);
+      expect(watchlistPayload.watchlist.workflowContext).toMatchObject({ alertCount: 0, alertIds: [], activeForAlertGeneration: true });
       const watchlistId = watchlistPayload.watchlist.id;
 
       const viewerWatchlistListResponse = await handleApiRequest(new Request(`http://127.0.0.1/v1/dwm/watchlists?organizationId=${organizationId}`, {
@@ -275,12 +274,7 @@ describe("dwm case workflow", () => {
         webhookDestinationIds: [webhookPayload.destination.id],
         visibilityPolicy: "members"
       });
-      expect((store as any).listDwmAlerts()).toHaveLength(1);
-      expect((store as any).listDwmAlerts()[0]).toMatchObject({
-        organizationId,
-        watchlistIds: [watchlistId],
-        sourceFamily: "telegram_public"
-      });
+      expect((store as any).listDwmAlerts()).toHaveLength(0);
 
       const analystReadinessResponse = await handleApiRequest(new Request(`http://127.0.0.1/v1/dwm/alerts/generation-readiness?organizationId=${organizationId}`, {
         headers: { "x-actor-id": "analyst-1" }

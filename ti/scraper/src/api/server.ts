@@ -4,7 +4,7 @@ import { paginationCursor } from "./pagination.ts";
 import { buildDarkwebIndexStatus, searchDarkwebIndex } from "../adapters/darkwebIndex.ts";
 import { getOrganizationEntitlementReadiness, getOrganizationEntitlements, upsertOrganizationEntitlements } from "./dwmEntitlementRoutes.ts";
 import { buildDwmSourcePackWorkerReadinessSnapshot, createDwmSourceRequest } from "./dwmSourceRequestRoute.ts";
-import { authorizeDwmWorkflowAccess, createDwmWatchlist, deliverDwmWebhooks, disableDwmWatchlist, getDwmAlertDetail, getDwmAlertGenerationReadiness, getDwmWatchlistDetail, listDwmAlerts, listDwmWatchlists, listDwmWebhookDeliveries, rebuildDwmAlerts, replayDwmAlert, storedWatchlistTerms, testDwmWebhook, updateDwmAlert, updateDwmWatchlist } from "./dwmWorkflowRoutes.ts";
+import { authorizeDwmWorkflowAccess, createDwmWatchlist, deliverDwmWebhooks, disableDwmWatchlist, getDwmAlertDetail, getDwmAlertGenerationReadiness, getDwmWatchlistDetail, getDwmWatchlistOverview, listDwmAlerts, listDwmWatchlists, listDwmWebhookDeliveries, rebuildDwmAlerts, replayDwmAlert, storedWatchlistTerms, testDwmWebhook, updateDwmAlert, updateDwmWatchlist } from "./dwmWorkflowRoutes.ts";
 import { buildDwmProductSnapshot, normalizeWatchlist } from "../product/dwmProduct.ts";
 import { sanitizeDwmApiPayload } from "../product/dwmCustomerDisplay.ts";
 import { buildDwmOperationsSnapshot } from "../product/dwmOperations.ts";
@@ -350,6 +350,7 @@ export async function handleApiRequest(request: Request, options: ApiServerOptio
       });
     }
     if (url.pathname === "/v1/dwm/watchlists" && request.method === "GET") return listDwmWatchlists(url, options, request);
+    if (url.pathname === "/v1/dwm/watchlists/overview" && request.method === "GET") return getDwmWatchlistOverview(url, options, request);
     if (url.pathname === "/v1/dwm/watchlists" && request.method === "POST") return createDwmWatchlist(request, options);
     if (url.pathname === "/v1/dwm/collection-requests" && request.method === "POST") return createDwmCollectionRequest(request, options);
     if (/^\/v1\/dwm\/collection-requests\/[^/]+$/.test(url.pathname) && request.method === "GET") return getDwmCollectionRequest(request, options, url.pathname.split("/").pop()!);

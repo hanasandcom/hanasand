@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import requireApiSession, { type ApiSessionIdentity } from '@/utils/proxy/requireApiSession'
+import { invalidateTiAdminSourceOperationsCache } from '@/utils/tiAdmin/ops'
 
 export const dynamic = 'force-dynamic'
 
@@ -134,7 +135,9 @@ export async function POST(request: NextRequest) {
         if (typeof body.sourceId !== 'string' || !body.sourceId.trim() || !['active', 'paused'].includes(body.status || '') || (body.tenantId !== undefined && (typeof body.tenantId !== 'string' || !/^[A-Za-z0-9_.:-]{1,200}$/.test(body.tenantId)))) {
             return NextResponse.json({ ok: false, error: { message: 'A source and valid status are required.' } }, { status: 400 })
         }
-        return forward(base, `/v1/sources/${encodeURIComponent(body.sourceId)}`, { status: body.status, ...(body.tenantId ? { tenantId: body.tenantId } : {}) }, identity, 'PATCH')
+        const response = await forward(base, `/v1/sources/${encodeURIComponent(body.sourceId)}`, { status: body.status, ...(body.tenantId ? { tenantId: body.tenantId } : {}) }, identity, 'PATCH')
+        if (response.ok) invalidateTiAdminSourceOperationsCache()
+        return response
     }
 
     const query = body.query?.trim() || 'APT29'
