@@ -1,7 +1,13 @@
 import { beforeEach, expect, mock, test } from 'bun:test'
-let stored: Record<string, any> = {}, findings: any[] = [], fail = false, findingWrites = 0, eventUpdates = 0, pendingLookups = 0, completedLookups = 0
+let stored: Record<string, any> = {}, findings: any[] = [], fail = false, findingWrites = 0, eventUpdates = 0, pendingLookups = 0, completedLookups = 0, deletedLogins: string[] = [], receipts: unknown[][] = [], retentionRules: any[] = []
 let authRechecks: Array<{ sql: string, params: any[] }> = []
 const query = async (sql: string, p: any[] = []): Promise<any> => {
+    if (sql.includes('SELECT r.rule_id AS id')) return { rows: retentionRules }
+    if (sql.includes('SELECT id,log_key,normalized FROM events')) return { rows: Object.values(stored).filter(row => p[1].includes(row.log_key)) }
+    if (sql.includes('SELECT event_ids FROM findings')) return { rows: [] }
+    if (sql.includes('DELETE FROM login_events')) { deletedLogins = [...p[0]]; return { rows: p[0].map((id: string) => ({ id })) } }
+    if (sql.includes('DELETE FROM events WHERE organization_id')) { for (const row of Object.values(stored)) if (p[1].includes(row.log_key)) delete stored[row.id]; return { rows: [] } }
+    if (sql.includes('INSERT INTO log_analyze_receipts')) { receipts.push(p); return { rows: [] } }
     if (sql.includes('WITH later_users AS')) { authRechecks.push({ sql, params: p }); return { rows: [] } }
     if (sql.includes('SELECT id, event_timestamp, outcome, source_country, normalized')) return { rows: [] }
     if (sql.includes('SELECT id, user_id, event_timestamp, normalized')) return { rows: [] }
@@ -24,7 +30,7 @@ const { BUILTIN_RULES, defaultRuleDefinition } = await import('../src/handlers/e
 const { securityRules } = await import('../src/utils/events/securityRules.ts')
 const rules = () => BUILTIN_RULES.map(rule => ({...rule,enabled:true,source:'hanasand' as const,definition:defaultRuleDefinition(rule.id)}))
 const log = (executable='/usr/bin/whoami',command='whoami') => ({id:'real-log',service:'audit',host:'inspur',level:'info',message:command,created_at:'2026-09-19T10:00:00Z',metadata:{process:{executable,command_line:command}}})
-beforeEach(()=>{stored={};findings=[];fail=false;findingWrites=0;eventUpdates=0;pendingLookups=0;completedLookups=0;authRechecks=[]})
+beforeEach(()=>{stored={};findings=[];fail=false;findingWrites=0;eventUpdates=0;pendingLookups=0;completedLookups=0;authRechecks=[];deletedLogins=[];receipts=[];retentionRules=[]})
 test('an info-level whoami executes Event and persists high severity plus evidence',async()=>{
     await processLog(log(),'org-a',rules())
     const row: any=Object.values(stored)[0]
@@ -89,6 +95,28 @@ test('login events keep their pending correlation lookup', async () => {
     await processLogBatch([login], 'org-a', [])
     expect(pendingLookups).toBe(1); expect(completedLookups).toBe(1)
     expect(Object.values(stored)[0].processing_status).toBe('processed')
+})
+
+test('a successful matching login-monitor source is dropped before auth correlation', async () => {
+    const { authenticationAuditStoreRule } = await import('../src/utils/events/eventProtection.ts')
+    retentionRules = [
+        { id: authenticationAuditStoreRule.id, organization_id: 'org-a', version: '1', source: 'owned', enabled: true, definition: authenticationAuditStoreRule.definition },
+        { id: 'custom.login-monitor.v1', organization_id: 'org-a', version: '1', source: 'owned', enabled: true,
+            definition: { stage: 'analyze', action: 'drop', conditions: [
+                { path: 'user.id', operator: 'regex', value: '^login_monitor' },
+                { path: 'source.ip', operator: 'equals', value: '127.0.0.1' },
+                { path: 'metadata.user_agent', operator: 'regex', value: '^Bun/' },
+                { path: 'outcome', operator: 'equals', value: 'success' },
+            ] } },
+    ]
+    const login = { id: 'login_events:2756', service: 'hanasand-auth', host: 'hanasand.com', level: 'info',
+        message: 'Successful sign-in', created_at: '2026-07-03T02:18:39Z', metadata: { category: 'authentication', action: 'login', outcome: 'success',
+            user: { id: 'login_monitor_20260703021420' }, source: { ip: '127.0.0.1' }, user_agent: 'Bun/1.2.3' } }
+    await processLogBatch([login], 'org-a', [])
+    expect(deletedLogins).toEqual(['2756'])
+    expect(receipts).toHaveLength(1)
+    expect(stored).toEqual({})
+    expect(pendingLookups).toBe(0)
 })
 
 test('late authentication rechecks use bounded user and source-IP index lanes', async () => {

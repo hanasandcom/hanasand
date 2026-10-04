@@ -1,6 +1,6 @@
 import { applicationErrorRuleId } from './applicationError.ts'
 import run from '#db'
-import { matchesEventProtection, normalizeEventProtection, type EventProtectionPolicy } from './eventProtection.ts'
+import { authenticationAuditStoreRule, matchesEventProtection, normalizeEventProtection, type EventProtectionPolicy } from './eventProtection.ts'
 import { matchesRule, type Condition } from './conditions.ts'
 import { createHash, randomUUID } from 'node:crypto'
 
@@ -41,6 +41,11 @@ export async function recordCustomDropReceipts(event: Record<string, unknown>, r
 export function retentionStoreMatches(event: Record<string, unknown>, rules: RetentionRule[], scope: 'custom_drop' | 'all' = 'custom_drop'): boolean {
     return rules.some(rule => {
         if (rule.enabled === false || rule.definition?.stage !== 'analyze' || rule.definition.action !== 'keep') return false
+        // Successful local Bun logins from the dedicated login monitor are
+        // synthetic volume. Permit an explicit matching Drop rule for this
+        // narrowly identified stream while retaining all other auth evidence.
+        if (rule.id === authenticationAuditStoreRule.id && isSuccessfulLoginMonitorEvent(event)
+            && matchingCustomDropRules(event, rules).length) return false
         if (rule.definition.protection) {
             const { protection } = normalizeEventProtection(rule.definition.protection)
             // An unreadable active protection rule cannot authorize dropping evidence.
@@ -48,6 +53,15 @@ export function retentionStoreMatches(event: Record<string, unknown>, rules: Ret
         }
         return (scope === 'custom_drop' || rule.definition.storeScope !== 'custom_drop') && rule.source === 'owned' && Boolean(rule.definition.conditions?.length) && matchesRule(event, rule.definition.conditions!)
     })
+}
+
+function isSuccessfulLoginMonitorEvent(event: Record<string, unknown>) {
+    const user = event.user && typeof event.user === 'object' ? event.user as Record<string, unknown> : {}
+    const source = event.source && typeof event.source === 'object' ? event.source as Record<string, unknown> : {}
+    const metadata = event.metadata && typeof event.metadata === 'object' ? event.metadata as Record<string, unknown> : {}
+    return event.event_type === 'authentication' && event.action === 'login' && event.outcome === 'success'
+        && String(user.id || '').startsWith('login_monitor') && source.ip === '127.0.0.1'
+        && String(metadata.user_agent || '').startsWith('Bun/')
 }
 
 export async function loadLogRetentionRules(organizationId: string | null, query: typeof run = run): Promise<RetentionRule[]> {

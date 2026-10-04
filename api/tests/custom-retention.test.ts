@@ -114,10 +114,27 @@ test('persisted scope preserves lossless compaction while all-scope Store takes 
 
 test('authentication Store scope protects custom Drop without blocking lossless compaction', () => {
     const event = { event_type: 'authentication', severity: 'low' }
-    const store = { source: 'owned', enabled: true, definition: authenticationAuditStoreRule.definition } as any
+    const store = { id: authenticationAuditStoreRule.id, source: 'owned', enabled: true, definition: authenticationAuditStoreRule.definition } as any
     const authDrop = { ...drop, definition: { ...drop.definition, conditions: [{ path: 'event_type', operator: 'equals', value: 'authentication' }] } } as any
     expect(customRetentionAction(event, [store])).toBeUndefined()
     expect(customRetentionAction(event, [authDrop, store])).toBeUndefined()
     expect(customRetentionAction(event, [authDrop, { ...store, enabled: false }])).toBe('drop')
     expect(customRetentionAction(event, [{ ...store, definition: { ...store.definition, storeScope: 'all' } }])).toBe('keep')
+})
+
+test('successful local login-monitor events can match an explicit Drop while failed and other auth events stay stored', () => {
+    const store = { id: authenticationAuditStoreRule.id, source: 'owned', enabled: true, definition: authenticationAuditStoreRule.definition } as any
+    const conditions = [
+        { path: 'user.id', operator: 'regex', value: '^login_monitor' },
+        { path: 'source.ip', operator: 'equals', value: '127.0.0.1' },
+        { path: 'metadata.user_agent', operator: 'regex', value: '^Bun/' },
+        { path: 'outcome', operator: 'equals', value: 'success' },
+    ]
+    const drop = { source: 'owned', enabled: true, definition: { stage: 'analyze', action: 'drop', conditions } } as any
+    const event = { event_type: 'authentication', action: 'login', outcome: 'success',
+        user: { id: 'login_monitor_20260703021420' }, source: { ip: '127.0.0.1' }, metadata: { user_agent: 'Bun/1.2.3' } }
+    expect(customRetentionAction(event, [store, drop])).toBe('drop')
+    expect(customRetentionAction({ ...event, outcome: 'failure' }, [store, drop])).not.toBe('drop')
+    expect(customRetentionAction({ ...event, source: { ip: '203.0.113.10' } }, [store, drop])).not.toBe('drop')
+    expect(customRetentionAction(event, [store])).toBeUndefined()
 })
