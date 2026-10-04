@@ -1,0 +1,11 @@
+*
+!.git/
+!.git/HEAD
+!ops/
+!ops/ai-model-client/
+!ops/ai-model-client/**
+!api/
+!api/src/
+!api/src/utils/
+!api/src/utils/logs/
+!api/src/utils/logs/redact.ts

@@ -286,121 +286,39 @@ export default async function runSyntheticMonitor() {
         }, { degraded: 3_000, down: 10_000 }),
         check('dark-web-monitoring', 'Watchlist processing', async () => {
             const [result, scraper] = await Promise.all([run(`
-                SELECT
-                  (SELECT count(DISTINCT item.organization_id)::int
-                   FROM public.organization_watchlist_items item
-                   JOIN public.organizations organization ON organization.id = item.organization_id
-                   WHERE item.status = 'active' AND item.archived_at IS NULL AND organization.status = 'active') AS configured_organizations,
-                  (SELECT count(DISTINCT record->>'organizationId')::int
-                   FROM threat_intel.workflow_records
-                   WHERE record_type = 'dwm_watchlist'
-                     AND record->>'orgSharedWatchlist' = 'true'
-                     AND record->>'status' = 'active') AS runtime_organizations
-            `), fetchJson('/v1/health', {}, scraperBase)])
-            const row = result.rows[0] as { configured_organizations?: number; runtime_organizations?: number } | undefined
+                SELECT count(DISTINCT item.organization_id)::int AS configured_organizations
+                FROM public.organization_watchlist_items item
+                JOIN public.organizations organization ON organization.id = item.organization_id
+                WHERE item.status = 'active' AND item.archived_at IS NULL AND organization.status = 'active'
+            `), fetchJson('/v1/internal/processing-backlog', {
+                headers: { 'x-hanasand-service-token': process.env.TI_SCRAPER_SERVICE_TOKEN || '' },
+            }, scraperBase)])
+            if (scraper.response.status !== 200) throw new Error(`TI service returned ${scraper.response.status}`)
+            const row = result.rows[0] as { configured_organizations?: number } | undefined
             const configured = Number(row?.configured_organizations ?? 0)
-            const runtime = Number(row?.runtime_organizations ?? 0)
+            const runtime = Number(object(scraper.body)?.runtime_organizations ?? 0)
             return watchlistProcessingStatus(configured, runtime, scraper.response.status === 200)
         }),
         check('threat-intelligence', 'Processing backlog', async () => {
-            const result = await run(`
-                WITH pending_review_ids AS (
-                  SELECT DISTINCT record->>'id' AS review_id
-                  FROM threat_intel.workflow_records
-                  WHERE record_type = 'analyst_metadata_review_task'
-                    AND record->>'recordKind' = 'automatic_intelligence_review_task'
-                    AND record->>'state' IN ('queued', 'running', 'retrying')
-                    AND record->>'promptVersion' NOT IN (
-                      'ti.automatic_intelligence_review.prompt.v1',
-                      'ti.automatic_intelligence_review.prompt.v2',
-                      'ti.automatic_intelligence_review.prompt.v3'
-                    )
-                ), latest_review_tasks AS (
-                  SELECT latest.*
-                  FROM pending_review_ids pending
-                  CROSS JOIN LATERAL (
-                    SELECT record->>'state' AS state, record->>'promptVersion' AS prompt_version, updated_at
-                    FROM threat_intel.workflow_records
-                    WHERE record_type = 'analyst_metadata_review_task'
-                      AND record->>'recordKind' = 'automatic_intelligence_review_task'
-                      AND ((record->>'id') = pending.review_id
-                        OR ((record->>'id') IS NULL AND pending.review_id IS NULL))
-                    ORDER BY updated_at DESC
-                    LIMIT 1
-                  ) latest
-                )
-                SELECT
-                  (SELECT count(*)::int FROM latest_review_tasks
-                    WHERE state IN ('queued', 'running', 'retrying')
-                      AND prompt_version NOT IN (
-                        'ti.automatic_intelligence_review.prompt.v1',
-                        'ti.automatic_intelligence_review.prompt.v2',
-                        'ti.automatic_intelligence_review.prompt.v3'
-                      )
-                      AND updated_at < NOW() - INTERVAL '30 minutes'
-                  ) AS stale_reviews,
-                  COALESCE(
-                    EXTRACT(EPOCH FROM (NOW() - (SELECT MIN(updated_at) FROM latest_review_tasks
-                      WHERE state IN ('queued', 'running', 'retrying')
-                        AND prompt_version NOT IN (
-                          'ti.automatic_intelligence_review.prompt.v1',
-                          'ti.automatic_intelligence_review.prompt.v2',
-                          'ti.automatic_intelligence_review.prompt.v3'
-                        ))) / 60)::int,
-                    0
-                  ) AS oldest_review_age_minutes,
-                  (SELECT count(*)::int FROM threat_intel.workflow_records
-                    WHERE record_type = 'collection_plan'
-                      AND id LIKE 'source-feed-discovery-plan_%'
-                      AND record->>'status' = 'failed'
-                      AND COALESCE((record->>'consecutiveFailureCount')::int, 0) > 0
-                      AND NULLIF(record->>'nextEligibleAt', '')::timestamptz < NOW()
-                      AND NOT EXISTS (
-                        SELECT 1 FROM threat_intel.sources parent
-                        WHERE parent.id = workflow_records.record->>'parentSourceId'
-                          AND parent.tenant_id IS NOT DISTINCT FROM workflow_records.tenant_id
-                          AND parent.record->>'status' = 'retired'
-                      )
-                  ) AS overdue_discovery,
-                  (SELECT count(*)::int FROM threat_intel.workflow_records
-                    WHERE record_type = 'evaluation_benchmark'
-                      AND record->>'status' = 'annotating'
-                      AND record->'protocol'->>'version' = 'ti.independent_extraction_benchmark.v4'
-                      AND updated_at < NOW() - INTERVAL '4 hours'
-                  ) AS stalled_evaluations,
-                  (
-                    SELECT count(*)::int
-                    FROM threat_intel.sources source
-                    WHERE source.collection_executable
-                      AND (
-                        source.record->'metadata'->'sourcePortfolioVerification' IS NOT NULL
-                        OR source.record->'metadata'->'sourceFeedDiscovery' IS NOT NULL
-                      )
-                      AND COALESCE(source.record->'metadata'->'automaticSourceReview'->>'state', '') <> 'approved'
-                      AND CASE WHEN source.tenant_id IS NULL THEN EXISTS (
-                        SELECT 1 FROM threat_intel.captures capture
-                        WHERE capture.tenant_id IS NULL AND capture.source_id = source.id
-                      ) ELSE EXISTS (
-                        SELECT 1 FROM threat_intel.captures capture
-                        WHERE capture.tenant_id = source.tenant_id AND capture.source_id = source.id
-                      ) END
-                  ) AS unreviewed_sources,
-                  (
-                    SELECT count(*)::int
+            const [scraper, deliveries] = await Promise.all([
+                fetchJson('/v1/internal/processing-backlog', {
+                    headers: { 'x-hanasand-service-token': process.env.TI_SCRAPER_SERVICE_TOKEN || '' },
+                }, scraperBase),
+                run(`
+                    SELECT count(*)::int AS recent_delivery_failures
                     FROM public.dwm_webhook_deliveries failed
                     WHERE failed.status = 'failed'
                       AND failed.updated_at >= NOW() - INTERVAL '24 hours'
                       AND NOT EXISTS (
-                        SELECT 1
-                        FROM public.dwm_webhook_deliveries recovered
+                        SELECT 1 FROM public.dwm_webhook_deliveries recovered
                         WHERE recovered.destination_id IS NOT DISTINCT FROM failed.destination_id
                           AND recovered.idempotency_key = failed.idempotency_key
-                          AND recovered.status = 'delivered'
-                          AND recovered.updated_at > failed.updated_at
+                          AND recovered.status = 'delivered' AND recovered.updated_at > failed.updated_at
                       )
-                  ) AS recent_delivery_failures
-            `, [], 'processing-backlog-v1')
-            const counts = result.rows[0] || {}
+                `, [], 'processing-backlog-v1'),
+            ])
+            if (scraper.response.status !== 200) throw new Error(`TI service returned ${scraper.response.status}`)
+            const counts = { ...object(scraper.body), ...deliveries.rows[0] }
             const staleReviews = Number(counts.stale_reviews ?? 0)
             const oldestReviewAgeMinutes = Number(counts.oldest_review_age_minutes ?? 0)
             const overdueDiscovery = Number(counts.overdue_discovery ?? 0)

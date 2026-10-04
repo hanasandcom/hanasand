@@ -24,6 +24,7 @@ import { recordHttpErrorResponse } from '#utils/logs/httpErrors.ts'
 import { provisionExistingMailAccounts } from '#utils/mail/accounts.ts'
 import { isAllowedApiOrigin, TRUSTED_API_PROXIES } from '#utils/http/publicBoundary.ts'
 import publicTiApi from './handlers/ti/publicApi.ts'
+import tiInternalApi from './handlers/ti/internal.ts'
 import { randomUUID } from 'node:crypto'
 import { ingestEvent } from './handlers/events.ts'
 
@@ -101,6 +102,7 @@ if (!browserWorkerOnly) {
         await recordTraffic(req, res, !recoveryReadOnly() && process.env.RECOVERY_ESSENTIAL_ONLY !== '1')
     })
     fastify.register(publicTiApi, { prefix: '/api/v1' })
+    fastify.register(tiInternalApi, { prefix: '/api/internal/ti' })
     fastify.register(apiRoutes, { prefix: '/api' })
     fastify.post('/mill', ingestEvent)
 }

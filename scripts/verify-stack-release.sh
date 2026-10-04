@@ -40,7 +40,7 @@ verify_image_revision() {
 
 for service in $preserved_services; do
     case "$service" in
-        onion-tor|ai-parser-bridge|ti-scraper) ;;
+        onion-tor) ;;
         *)
             echo "Unknown preserved Hanasand service: $service" >&2
             exit 1
@@ -48,7 +48,7 @@ for service in $preserved_services; do
     esac
 done
 
-containers='hanasand hanasand_api hanasand_auth_primary hanasand_auth_secondary hanasand_database_backup hanasand_onion_tor hanasand_ai_parser_bridge hanasand_ai_model_client hanasand_ti_scraper hanasand_browsers hanasand_ovh_host_metrics_tunnel'
+containers='hanasand hanasand_api hanasand_auth_primary hanasand_auth_secondary hanasand_database_backup hanasand_onion_tor hanasand_ai_model_client hanasand_browsers hanasand_ovh_host_metrics_tunnel'
 for container in $containers; do
     test "$(docker inspect -f '{{.State.Running}}' "$container" 2>/dev/null || true)" = true || {
         echo "Required Hanasand container is not running: $container" >&2
@@ -68,8 +68,6 @@ for container in $containers; do
     expected_container_release=$release
     case "$container" in
         hanasand_onion_tor) preserved_service=onion-tor ;;
-        hanasand_ai_parser_bridge) preserved_service=ai-parser-bridge ;;
-        hanasand_ti_scraper) preserved_service=ti-scraper ;;
         hanasand_browsers)
             independent_release=1
             expected_container_release=$image_release
@@ -246,27 +244,6 @@ for slot in 0 1 2 3 4; do
         exit 1
     fi
 done
-
-ti_release=$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' hanasand_ti_scraper \
-    | sed -n 's/^HANASAND_RELEASE_COMMIT=//p' | head -1)
-ti_source=$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/app/ti/scraper"}}{{.Source}}{{end}}{{end}}' hanasand_ti_scraper)
-test "$ti_source" = "/home/hanasand/hanasand/ops/runtime/ti-releases/$ti_release" || {
-    echo "hanasand_ti_scraper is not mounted from its immutable release directory." >&2
-    exit 1
-}
-test "$(cat "$ti_source/.hanasand-release")" = "$ti_release" || {
-    echo "hanasand_ti_scraper source marker does not match the container release." >&2
-    exit 1
-}
-ti_api_source=$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/app/api"}}{{.Source}}{{end}}{{end}}' hanasand_ti_scraper)
-test "$ti_api_source" = "/home/hanasand/hanasand/ops/runtime/ti-releases/$ti_release/api" || {
-    echo "hanasand_ti_scraper API utility mount is not from the immutable release directory." >&2
-    exit 1
-}
-test -f "$ti_api_source/src/utils/alerts/discordWebhookFile.ts" && test -f "$ti_api_source/src/utils/dwm/customerOutputSafety.ts" || {
-    echo "hanasand_ti_scraper API utility mount is incomplete." >&2
-    exit 1
-}
 
 api_health=$(curl --fail --silent --show-error --max-time 10 http://127.0.0.1:8082/health)
 case "$api_health" in *'"ok":true'*"\"release\":\"$release\""*) ;; *)

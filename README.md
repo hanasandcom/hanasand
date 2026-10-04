@@ -8,9 +8,8 @@ Hanasand combines threat intelligence, AI development tools, and infrastructure 
 | --- | --- | --- |
 | Frontend | `frontend/` | Public pages, dashboard, AI editor, shared projects, articles, notes and thesis |
 | API | `api/` | Authentication, organizations, permissions, billing, AI requests, project storage, infrastructure and public API |
-| Threat intelligence | `ti/scraper/` | Source collection, parsing, search, alerts and monitoring; separate storage and migrations |
-| AI model client | `ti/ai-model-client/` | Connects an inference server to the API over WebSockets |
-| AI parser bridge | `ti/ai-parser-bridge/` | Makes AI parsing available to the collector |
+| Threat intelligence | [TI repository](https://github.com/eirikhanasand/ti) | Source collection, parsing, search, alerts and monitoring; runs with a dedicated database |
+| AI model client | `ops/ai-model-client/` | Connects an inference server to the API over WebSockets |
 | Model runtime | `gpt/` | Model launch scripts and inference server code |
 | Browser services | `ops/browser-worker/`, `ops/onion-tor/` | Isolated browser sessions, WebRTC transport and Tor access |
 | Database | `db/`, `api/src/utils/db/` | Initial schema and application schema updates |
@@ -120,7 +119,7 @@ The real website browser test is `frontend/tests/generated-website.spec.ts`. Poi
 
 The old share-chat story suites were removed: minimum file counts, required document phrases and test-authored preview pages did not verify generated application behavior.
 
-The collector has its own `bun run test` and `bun run check` commands in `ti/scraper/`.
+The collector has its own `bun run test` and `bun run check` commands in the TI repository's `scraper/` directory.
 
 ## Production deployment
 
@@ -146,9 +145,9 @@ After deployment, check the affected page or endpoint, service logs and `docker 
 
 ## Data and operations
 
-PostgreSQL, API state, prompt submissions, collected evidence and mail are persistent. `db/init.sql` initializes a new database; application schema updates run through `api/src/utils/db/ensureSchema.ts`. Collector migrations are maintained under `ti/scraper/migrations/`.
+PostgreSQL, API state, prompt submissions and mail are persistent. `db/init.sql` initializes the application database; application schema updates run through `api/src/utils/db/ensureSchema.ts`. TI source records and evidence use the separate TI database and its repository migrations.
 
-Database backups are configured through `DB_BACKUP_*` variables. Defaults schedule a daily backup and retain 14 days in the API state volume. Keep an independent copy and verify restoration; a backup on the same host does not cover host loss. Collector backup tools are under `ops/threat-intel-backup/`. Do not delete volumes during deployment.
+Database backups are configured through `DB_BACKUP_*` variables. Defaults schedule a daily backup and retain 14 days in the API state volume. Keep an independent copy and verify restoration; a backup on the same host does not cover host loss. TI backup tools are maintained in the TI repository. Do not delete volumes during deployment.
 
 Start diagnosis with `docker compose ps` and `docker compose logs --tail=100 <service>`. `/api/health` checks the API process; `/api/ai/models` checks model connections. Use the dashboard status page for collection, processing and dependency failures. A healthy container does not imply that its external dependencies work.
 

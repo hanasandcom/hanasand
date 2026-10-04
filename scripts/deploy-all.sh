@@ -102,7 +102,7 @@ if test -n "$running_api_release" \
     && git diff --quiet "$running_api_release" "$release" -- . \
         ':(exclude)scripts/deploy-all.sh' ':(exclude)scripts/verify-stack-release.sh'; then
     if HANASAND_VERIFY_LIVE_RELEASE_ONLY=1 \
-        sh "$root/scripts/verify-stack-release.sh" "$running_api_release" "" "onion-tor ai-parser-bridge ti-scraper"; then
+        sh "$root/scripts/verify-stack-release.sh" "$running_api_release" "" "onion-tor"; then
         running_api_health=$(curl --fail --silent --show-error --max-time 10 http://127.0.0.1:8082/health)
         running_frontend_health=$(curl --fail --silent --show-error --max-time 10 http://127.0.0.1:3100/api/health)
         case "$running_api_health" in *'"ok":true'*"\"release\":\"$running_api_release\""*) ;; *)
@@ -185,40 +185,7 @@ if test -f "$build_dir/.env"; then
     else
         printf 'BROWSER_SANDBOX_WORKER_IMAGE=%s\n' "$BROWSER_SANDBOX_WORKER_IMAGE" >> "$build_dir/.env"
     fi
-    printf 'HANASAND_TI_SCRAPER_SOURCE=%s\n' "$root/ops/runtime/ti-releases/$release" >> "$build_dir/.env"
-    printf 'HANASAND_TI_API_SOURCE=%s\n' "$root/ops/runtime/ti-releases/$release/api" >> "$build_dir/.env"
 fi
-
-test -d "$root/ti/scraper/node_modules" || {
-    echo "TI dependencies are missing on the deploy host; refusing an unverified source mount." >&2
-    exit 1
-}
-ln -s "$root/ti/scraper/node_modules" "$build_dir/ti/scraper/node_modules"
-(cd "$build_dir/ti/scraper" && PATH="/home/hanasand/.local/bin:$PATH" /home/hanasand/.local/bin/bun run check)
-rm "$build_dir/ti/scraper/node_modules"
-
-ti_release_dir="$root/ops/runtime/ti-releases/$release"
-if test -e "$ti_release_dir"; then
-    test -f "$ti_release_dir/.hanasand-release" && test "$(cat "$ti_release_dir/.hanasand-release")" = "$release" || {
-        echo "TI release directory exists for a different revision: $ti_release_dir" >&2
-        exit 1
-    }
-else
-    mkdir -p "$root/ops/runtime/ti-releases"
-    mkdir "$ti_release_dir"
-    cp -a "$build_dir/ti/scraper/." "$ti_release_dir/"
-    mkdir -p "$ti_release_dir/api/src/utils/alerts" "$ti_release_dir/api/src/utils/dwm"
-    cp "$build_dir/api/src/utils/alerts/discordWebhookFile.ts" "$ti_release_dir/api/src/utils/alerts/"
-    cp "$build_dir/api/src/utils/dwm/customerOutputSafety.ts" "$ti_release_dir/api/src/utils/dwm/"
-    printf '%s\n' "$release" > "$ti_release_dir/.hanasand-release"
-fi
-if ! test -f "$ti_release_dir/api/src/utils/alerts/discordWebhookFile.ts" || ! test -f "$ti_release_dir/api/src/utils/dwm/customerOutputSafety.ts"; then
-    mkdir -p "$ti_release_dir/api/src/utils/alerts" "$ti_release_dir/api/src/utils/dwm"
-    cp "$build_dir/api/src/utils/alerts/discordWebhookFile.ts" "$ti_release_dir/api/src/utils/alerts/"
-    cp "$build_dir/api/src/utils/dwm/customerOutputSafety.ts" "$ti_release_dir/api/src/utils/dwm/"
-fi
-export HANASAND_TI_SCRAPER_SOURCE="$ti_release_dir"
-export HANASAND_TI_API_SOURCE="$ti_release_dir/api"
 
 compose_release() {
     if test -f "$build_dir/.env"; then
@@ -415,15 +382,8 @@ preserve_unchanged_service() {
 
     running_config_hash=$(docker inspect -f '{{index .Config.Labels "com.docker.compose.config-hash"}}' \
         "$container_name" 2>/dev/null) || return 1
-    if test "$service_name" = ti-scraper; then
-        desired_config_hash=$(HANASAND_RELEASE_COMMIT="$service_release" \
-            HANASAND_TI_SCRAPER_SOURCE="$root/ops/runtime/ti-releases/$service_release" \
-            HANASAND_TI_API_SOURCE="$root/ops/runtime/ti-releases/$service_release/api" \
-            compose_release config --hash "$service_name" 2>/dev/null | awk '{print $NF}')
-    else
-        desired_config_hash=$(HANASAND_RELEASE_COMMIT="$service_release" \
-            compose_release config --hash "$service_name" 2>/dev/null | awk '{print $NF}')
-    fi
+    desired_config_hash=$(HANASAND_RELEASE_COMMIT="$service_release" \
+        compose_release config --hash "$service_name" 2>/dev/null | awk '{print $NF}')
     test -n "$running_config_hash" && test "$running_config_hash" = "$desired_config_hash" || return 1
 
     services=$(printf '%s\n' "$services" | sed "/^$service_name\$/d")
@@ -432,9 +392,6 @@ preserve_unchanged_service() {
 }
 
 preserve_unchanged_service onion-tor hanasand_onion_tor ops/onion-tor || true
-preserve_unchanged_service ai-parser-bridge hanasand_ai_parser_bridge ti/ai-parser-bridge || true
-preserve_unchanged_service ti-scraper hanasand_ti_scraper \
-    ti/scraper api/src/utils/alerts/discordWebhookFile.ts api/src/utils/dwm/customerOutputSafety.ts || true
 
 wait_for_database_backups
 # Compose service names are controlled by docker-compose.yml and contain no

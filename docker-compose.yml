@@ -512,46 +512,13 @@ services:
       deploy-path-guard:
         condition: service_healthy
 
-  ai-parser-bridge:
-    container_name: hanasand_ai_parser_bridge
-    image: hanasand_ai_parser_bridge
-    restart: always
-    build:
-      context: .
-      dockerfile: ./ti/ai-parser-bridge/Dockerfile
-      args:
-        HANASAND_RELEASE_COMMIT: ${HANASAND_RELEASE_COMMIT:-unknown}
-    env_file:
-      - ${HANASAND_DEPLOY_ENV_FILE:-.env}
-    environment:
-      HANASAND_AI_BRIDGE_PORT: ${HANASAND_AI_BRIDGE_PORT:-18181}
-      HANASAND_AI_TRANSPORT: ${HANASAND_AI_TRANSPORT:-tools-ai}
-      HANASAND_AI_TOOLS_API: ${HANASAND_AI_TOOLS_API:-http://api:8080/api/tools/ai}
-      HANASAND_AI_MODELS_URL: ${HANASAND_AI_MODELS_URL:-http://api:8080/api/ai/models}
-      HANASAND_AI_OPENAI_BASE: ${HANASAND_AI_OPENAI_BASE:-http://127.0.0.1:18081}
-      HANASAND_AI_MODEL: ${HANASAND_AI_MODEL:-hanasand}
-      HANASAND_RELEASE_COMMIT: ${HANASAND_RELEASE_COMMIT:-unknown}
-    ports:
-      # Host-network query replicas use the same parser bridge as the collector.
-      - "127.0.0.1:18181:${HANASAND_AI_BRIDGE_PORT:-18181}"
-    healthcheck:
-      test: ["CMD-SHELL", "wget -T 2 -t 1 -qO- http://127.0.0.1:${HANASAND_AI_BRIDGE_PORT:-18181}/health"]
-      interval: 10s
-      retries: 5
-      start_period: 10s
-    networks:
-      - hanasandnet
-    depends_on:
-      deploy-path-guard:
-        condition: service_healthy
-
   ai-model-client:
     container_name: hanasand_ai_model_client
     image: hanasand_ai_model_client
     restart: always
     build:
       context: .
-      dockerfile: ./ti/ai-model-client/Dockerfile
+      dockerfile: ./ops/ai-model-client/Dockerfile
       args:
         HANASAND_RELEASE_COMMIT: ${HANASAND_RELEASE_COMMIT:-unknown}
     env_file:
@@ -579,101 +546,6 @@ services:
       deploy-path-guard:
         condition: service_healthy
       api:
-        condition: service_healthy
-
-  ti-scraper:
-    container_name: hanasand_ti_scraper
-    image: hanasand_ti_scraper
-    mem_limit: 24g
-    cpus: "8.0"
-    restart: always
-    stop_grace_period: 10m
-    build:
-      context: ./ti/scraper
-      dockerfile: Dockerfile
-      args:
-        HANASAND_RELEASE_COMMIT: ${HANASAND_RELEASE_COMMIT:-unknown}
-    environment:
-      SCRAPER_PORT: 8097
-      SCRAPER_HEALTH_PORT: 8098
-      SCRAPER_ENV: production
-      SCRAPER_MEMORY_TARGET_MB: 8192
-      SCRAPER_MEMORY_CEILING_MB: 20480
-      SCRAPER_MAX_REQUEST_TASKS: 500
-      SCRAPER_DARKNET_METADATA_ONLY: "true"
-      SCRAPER_HIGH_RISK_REQUIRES_APPROVAL: "true"
-      PGHOST: hanasand_database
-      PGPORT: 5432
-      PGUSER: ${DB_USER:-hanasand}
-      PGPASSWORD: ${DB_PASSWORD}
-      PGDATABASE: ${DB:-hanasand}
-      TI_EVIDENCE_ROOT: /var/lib/ti-scraper/evidence
-      TI_EVIDENCE_METADATA_PATH: /var/lib/ti-scraper/evidence/metadata/scraper-store.json
-      TI_EVIDENCE_OBJECT_DIR: /var/lib/ti-scraper/evidence/objects
-      TI_CANARY_ENABLED: "true"
-      TI_CANARY_AUTO_ACTIVATE: "false"
-      TI_CANARY_INTERVAL_SECONDS: 300
-      TI_CANARY_MAX_TASKS: 1200
-      TI_CANARY_MAX_SOURCES: 1200
-      TI_CANARY_MAX_CONCURRENT_TASKS: ${TI_CANARY_MAX_CONCURRENT_TASKS:-16}
-      TI_CANARY_TIMEOUT_MS: 8000
-      TI_CANARY_MAX_ITEMS_PER_TASK: 2
-      TI_RANSOMWARELIVE_MAX_ITEMS: 24
-      TI_CANARY_MAX_QUEUE_SIZE: 10000
-      TI_CANARY_BUDGET_TASKS: 1200
-      TI_CANARY_BUDGET_BYTES: 768000000
-      TI_PRODUCTION_SOURCE_FAMILY: ${TI_PRODUCTION_SOURCE_FAMILY:-}
-      TI_SOURCE_SEED_ACTIVATE: "true"
-      TI_SOURCE_SEED_PATHS: /app/ti/scraper/seeds/public_cti_sources.json,/app/ti/scraper/seeds/verified_long_lived_sources.json,/app/ti/scraper/seeds/verified_query_providers.json,/app/ti/scraper/seeds/public_cti_starter_pack.json,/app/ti/scraper/seeds/public_telegram_channel_packs.json,/app/ti/scraper/seeds/restricted_metadata_source_packs.json,/app/ti/scraper/seeds/production_exposure_sources.json,/app/ti/scraper/seeds/source_portfolio_clear_web.json,/app/ti/scraper/seeds/source_portfolio_lawful_dark_web.json,/app/ti/scraper/seeds/source_portfolio_public_telegram.json
-      TI_SOURCE_PORTFOLIO_PRODUCTION: "true"
-      TI_IMPORT_RESTRICTED_METADATA_SOURCES: ${TI_IMPORT_RESTRICTED_METADATA_SOURCES:-true}
-      TI_RESTRICTED_METADATA_ENABLED: ${TI_RESTRICTED_METADATA_ENABLED:-true}
-      TI_RESTRICTED_METADATA_INTERVAL_SECONDS: ${TI_RESTRICTED_METADATA_INTERVAL_SECONDS:-900}
-      TI_RESTRICTED_METADATA_MAX_SOURCES: ${TI_RESTRICTED_METADATA_MAX_SOURCES:-300}
-      TI_TOR_METADATA_PROXY: http://onion-tor:8118
-      TI_IMPORT_CREDENTIAL_REQUIRED_SOURCES: ${TI_IMPORT_CREDENTIAL_REQUIRED_SOURCES:-false}
-      HANASAND_AI_API_BASE: ${HANASAND_AI_API_BASE:-http://ai-parser-bridge:18181}
-      HANASAND_AI_HEALTH_PATH: ${HANASAND_AI_HEALTH_PATH:-/health}
-      HANASAND_AI_EXPOSURE_PARSE_PATH: ${HANASAND_AI_EXPOSURE_PARSE_PATH:-/v1/parse/exposure-claim}
-      HANASAND_AI_PARSE_TIMEOUT_MS: ${HANASAND_AI_PARSE_TIMEOUT_MS:-12000}
-      HANASAND_AI_EVALUATION_API: ${HANASAND_AI_EVALUATION_API:-http://api:8080/api/tools/ai}
-      HANASAND_AI_EVALUATION_MODEL_VERSION: ${HANASAND_AI_EVALUATION_MODEL_VERSION:-hanasand}
-      HANASAND_AI_EVALUATION_TIMEOUT_MS: ${HANASAND_AI_EVALUATION_TIMEOUT_MS:-30000}
-      HANASAND_AI_REVIEW_CONCURRENCY: ${HANASAND_AI_REVIEW_CONCURRENCY:-3}
-      HANASAND_AI_REVIEW_MAX_TASKS_PER_CYCLE: ${HANASAND_AI_REVIEW_MAX_TASKS_PER_CYCLE:-10}
-      TI_AUTOMATIC_EVALUATION_ENABLED: ${TI_AUTOMATIC_EVALUATION_ENABLED:-false}
-      TI_AUTOMATIC_EVALUATION_ALLOW_PRODUCTION: ${TI_AUTOMATIC_EVALUATION_ALLOW_PRODUCTION:-false}
-      TI_AUTOMATIC_EVALUATION_INTERVAL_SECONDS: ${TI_AUTOMATIC_EVALUATION_INTERVAL_SECONDS:-60}
-      TI_AUTOMATIC_EVALUATION_MAX_TASKS_PER_CYCLE: ${TI_AUTOMATIC_EVALUATION_MAX_TASKS_PER_CYCLE:-2}
-      TI_AUTOMATIC_EVALUATION_SAMPLE_SIZE: ${TI_AUTOMATIC_EVALUATION_SAMPLE_SIZE:-50}
-      # Use the stable container alias on the shared application network.
-      HANASAND_AUTH_API_BASE: ${HANASAND_AUTH_API_BASE:-http://hanasand_api:8080/api}
-      TI_SCRAPER_SERVICE_TOKEN: ${TI_SCRAPER_SERVICE_TOKEN:-}
-      HANASAND_RELEASE_COMMIT: ${HANASAND_RELEASE_COMMIT:-unknown}
-    volumes:
-      - ti_scraper_evidence:/var/lib/ti-scraper/evidence
-      - ${HANASAND_TI_SCRAPER_SOURCE:-/home/hanasand/hanasand/ti/scraper}:/app/ti/scraper:ro
-      - ${HANASAND_TI_API_SOURCE:-/home/hanasand/hanasand/ops/runtime/ti-releases/api}:/app/api:ro
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    expose:
-      - "8097"
-      - "8098"
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8098/v1/health"]
-      start_period: 90s
-      interval: 5s
-      retries: 5
-    networks:
-      - hanasandnet
-    depends_on:
-      deploy-path-guard:
-        condition: service_healthy
-      ai-parser-bridge:
-        condition: service_started
-      postgres:
-        condition: service_healthy
-      onion-tor:
         condition: service_healthy
 
   postgres:
@@ -829,9 +701,6 @@ volumes:
   postgres_data:
     external: true
     name: hanasand_postgres_data
-  ti_scraper_evidence:
-    external: true
-    name: hanasand_ti_scraper_evidence
 
 networks:
   pwnednet:

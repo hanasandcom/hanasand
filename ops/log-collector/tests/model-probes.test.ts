@@ -6,7 +6,7 @@ import { modelFixture, testKey } from '../../../api/tests/analyze-model-discover
 import { modelProofMac, verifyModelDiscoveryEvidence } from '../../../api/src/utils/events/analyzeModelDiscovery';
 import { enrichModelProbe, ownsModelListener } from '../model-probes';
 import type { LogEvent } from './core';
-import { signModelProof } from '../../../ti/ai-model-client/model-probe.mjs';
+import { signModelProof } from '../../../ops/ai-model-client/model-probe.mjs';
 
 test('collector binds native proof to exact log and live listener; absent, ambiguous and wrong-process evidence keeps', () => {
   const directory = mkdtempSync(join(tmpdir(), 'model-enrichment-')), proc = join(directory, 'proc'), keyFile = join(directory, 'key.json');

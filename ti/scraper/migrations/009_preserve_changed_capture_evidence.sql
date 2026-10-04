@@ -1,1 +1,0 @@
-DROP INDEX IF EXISTS threat_intel.threat_intel_captures_source_url_published_uq;
