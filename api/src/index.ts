@@ -17,6 +17,7 @@ import ensureRepositoryUpToDate from '#utils/git/ensureRepositoryUpToDate.ts'
 import ensureSchema from '#utils/db/ensureSchema.ts'
 import { loadCachedLogMetrics, startLogMetricsRefresh } from './handlers/logs/metrics.ts'
 import { loadCachedMostActiveServices, startMostActiveServicesRefresh } from './handlers/logs/mostActive.ts'
+import { startLogTuningSnapshotRefresh } from './handlers/logs/tuning.ts'
 import recordLog from '#utils/logs/recordLog.ts'
 import recordTraffic from '#utils/traffic/recordTraffic.ts'
 import { recordHttpErrorResponse } from '#utils/logs/httpErrors.ts'
@@ -216,6 +217,10 @@ async function start() {
         if (!browserWorkerOnly && !httpWorkerOnly) {
             const stopAnalytics = await startBackgroundAnalytics(fastify.log)
             fastify.addHook('onClose', async () => { stopAnalytics() })
+        }
+        if (!browserWorkerOnly && !httpWorkerOnly && process.env.AUTH_SERVICE_ONLY !== '1') {
+            const stopLogTuningRefresh = startLogTuningSnapshotRefresh(fastify.log)
+            fastify.addHook('onClose', async () => { stopLogTuningRefresh() })
         }
         await fastify.listen({ port, host: process.env.LISTEN_HOST || '0.0.0.0' })
         if (browserWorkerOnly || httpWorkerOnly) return

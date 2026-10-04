@@ -10,6 +10,7 @@ import ensureSupportAiSchema from '#utils/support/schema.ts'
 import ensureContentOrganizationSchema from './contentOrganizationSchema.ts'
 import ensureOrganizationRolesSchema from './organizationRolesSchema.ts'
 import ensureLogDimensionsSchema from './logDimensionsSchema.ts'
+import ensureLogTuningSchema from './logTuningSchema.ts'
 import ensureSharedMailSchema from './sharedMailSchema.ts'
 import ensureVmOrganizationSchema from './vmOrganizationSchema.ts'
 import { ensureFailoverSchema } from '../vms/failover.ts'
@@ -1521,7 +1522,7 @@ async function applySchema() {
     await run('DROP TABLE IF EXISTS log_proxy_requests')
     await run('DROP TABLE IF EXISTS service_logs')
     await run('DROP FUNCTION IF EXISTS enqueue_process_logs()')
-    await run("DELETE FROM log_processing_cursors WHERE name IN ('service_logs', 'process_logs_recovery')")
+    await run('DELETE FROM log_processing_cursors WHERE name IN (\'service_logs\', \'process_logs_recovery\')')
     await run('CREATE TABLE IF NOT EXISTS log_processing_cursors (name TEXT PRIMARY KEY, last_id BIGINT NOT NULL DEFAULT 0, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), last_error TEXT)')
     await ensureColumn(run, 'log_processing_cursors', 'recent_id', 'ALTER TABLE log_processing_cursors ADD COLUMN IF NOT EXISTS recent_id BIGINT')
     await ensureLogCatchupSchema()
@@ -1531,6 +1532,7 @@ async function applySchema() {
     await run(`CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_auth_failure_source_time ON events(organization_id, md5(source_ip), event_timestamp DESC)
         WHERE event_type = 'authentication' AND action = 'login' AND outcome = 'failure'`)
     await ensureLogDimensionsSchema()
+    await ensureLogTuningSchema()
     await run(`
         CREATE TABLE IF NOT EXISTS rules (
             id TEXT PRIMARY KEY,
