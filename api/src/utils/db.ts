@@ -196,6 +196,7 @@ export async function queryOnce(query: string, params?: SQLParamType, name?: str
     let timer: ReturnType<typeof setTimeout> | undefined
     const onlineIndex = /^\s*(?:CREATE\s+(?:UNIQUE\s+)?INDEX|DROP\s+INDEX)\s+CONCURRENTLY\b/i.test(query)
     const pendingEventsIndex = /^\s*(?:CREATE\s+INDEX\s+CONCURRENTLY\s+IF\s+NOT\s+EXISTS|DROP\s+INDEX\s+CONCURRENTLY\s+IF\s+EXISTS)\s+idx_events_logs_pending\b/i.test(query)
+    const legacyEventKeyCleanup = /^\s*(?:DROP\s+INDEX\s+CONCURRENTLY\s+IF\s+EXISTS\s+idx_events_log_key|ALTER\s+TABLE\s+events\s+DROP\s+COLUMN\s+IF\s+EXISTS\s+log_key)\b/i.test(query)
     const largeServiceLogDrop = /^\s*DROP\s+TABLE\s+IF\s+EXISTS\s+service_logs\b/i.test(query)
     const trafficHistorySchema = /^\s*CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+traffic_history_state\b/i.test(query)
     try {
@@ -209,6 +210,9 @@ export async function queryOnce(query: string, params?: SQLParamType, name?: str
             // Old event searches can keep this partial index pinned. The online
             // rebuild does not block ingestion, so let active readers drain.
             if (pendingEventsIndex) await client.query("SET lock_timeout = '5min'; SET statement_timeout = 0")
+            // Readers may still be finishing queries against the legacy key. Both
+            // operations are bounded and do not rewrite the events heap.
+            if (legacyEventKeyCleanup) await client.query("SET lock_timeout = '5min'; SET statement_timeout = '6min'")
             // Traffic history replaces a view that live dashboard queries can hold
             // open. Bound the wait, but let this small schema batch complete.
             if (trafficHistorySchema) await client.query("SET lock_timeout = '30s'; SET statement_timeout = '60s'")
@@ -220,7 +224,7 @@ export async function queryOnce(query: string, params?: SQLParamType, name?: str
         const pending = name
             ? client.query({ name, text: query, values: params ?? [] })
             : client.query(query, params ?? [])
-        if (!schemaWork.getStore() || onlineIndex || largeServiceLogDrop || trafficHistorySchema) return await pending
+        if (!schemaWork.getStore() || onlineIndex || largeServiceLogDrop || trafficHistorySchema || legacyEventKeyCleanup) return await pending
         // A simple-protocol SQL batch is one implicit transaction. PostgreSQL's
         // statement_timeout applies separately to each statement in that batch.
         return await Promise.race([pending, new Promise<never>((_resolve, reject) => {
