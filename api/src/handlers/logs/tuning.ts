@@ -107,6 +107,9 @@ async function queryLogTuning(): Promise<TuningLog[]> {
         // Keep the full-history refresh from consuming unbounded disk space.
         await query('SET LOCAL temp_file_limit = \'20GB\'')
         await query('SET LOCAL max_parallel_workers_per_gather = 0')
+        // Prefer an in-memory hash aggregate over sorting every wide event row.
+        await query('SET LOCAL work_mem = \'32GB\'')
+        await query('SET LOCAL enable_sort = off')
         const result = await query(`SELECT
                 COALESCE(normalized->>'message', '') AS message,
                 COALESCE(NULLIF(normalized->>'ip', ''), NULLIF(normalized #>> '{source,ip}', ''), '') AS ip,
