@@ -195,6 +195,7 @@ export async function queryOnce(query: string, params?: SQLParamType, name?: str
     let expired = false
     let timer: ReturnType<typeof setTimeout> | undefined
     const onlineIndex = /^\s*CREATE\s+(?:UNIQUE\s+)?INDEX\s+CONCURRENTLY\b/i.test(query)
+    const largeServiceLogDrop = /^\s*DROP\s+TABLE\s+IF\s+EXISTS\s+service_logs\b/i.test(query)
     try {
         if (schemaWork.getStore()) {
             await client.query(`SET lock_timeout = '${schemaLockTimeout}'; SET statement_timeout = '5s'`)
@@ -203,11 +204,15 @@ export async function queryOnce(query: string, params?: SQLParamType, name?: str
             if (onlineIndex) {
                 await client.query("SET lock_timeout = '30s'; SET statement_timeout = 0")
             }
+            // Dropping the duplicated 48 GB heap and its indexes can take
+            // longer than a normal schema statement while unlinking files.
+            // Keep lock acquisition fail-fast, but let the actual drop finish.
+            if (largeServiceLogDrop) await client.query("SET statement_timeout = '60s'")
         }
         const pending = name
             ? client.query({ name, text: query, values: params ?? [] })
             : client.query(query, params ?? [])
-        if (!schemaWork.getStore() || onlineIndex) return await pending
+        if (!schemaWork.getStore() || onlineIndex || largeServiceLogDrop) return await pending
         // A simple-protocol SQL batch is one implicit transaction. PostgreSQL's
         // statement_timeout applies separately to each statement in that batch.
         return await Promise.race([pending, new Promise<never>((_resolve, reject) => {
