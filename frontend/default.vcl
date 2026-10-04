@@ -30,10 +30,10 @@ sub vcl_recv {
         return (pass);
     }
 
-    if (req.url ~ "^/dashboard(?:[/?#]|$)"
+    if (req.url ~ "^/(?:dashboard|browser)(?:[/?#]|$)"
         || req.url ~ "^/(?:scanner|vms|db/backups|automation/health)(?:[/?#]|$)") {
-        # Authenticated dashboard HTML and its public route aliases are safe to
-        # cache only when the complete session cookie is part of the hash. API
+        # Authenticated HTML routes and their public aliases are safe to cache
+        # only when the complete session cookie is part of the hash. API
         # requests remain uncached.
         if (!(req.http.Cookie ~ "(^|; )access_token=") || !(req.http.Cookie ~ "(^|; )id=")) {
             return (pass);
@@ -70,9 +70,9 @@ Expires: 2027-10-04T00:00:00Z
 sub vcl_hash {
     # Hashes theme and the complete authenticated session. This prevents one
     # tenant, impersonation target, or role set from receiving another user's
-    # rendered dashboard response.
+    # rendered page response.
     hash_data(req.http.X-Theme);
-    if (req.url ~ "^/dashboard(?:[/?#]|$)"
+    if (req.url ~ "^/(?:dashboard|browser)(?:[/?#]|$)"
         || req.url ~ "^/(?:scanner|vms|db/backups|automation/health)(?:[/?#]|$)") {
         hash_data(req.http.Cookie);
     }
@@ -100,10 +100,10 @@ sub vcl_backend_response {
         set beresp.ttl = 15s;
         set beresp.grace = 52w;
         return (deliver);
-    } else if ((bereq.url ~ "^/dashboard(?:[/?#]|$)"
+    } else if ((bereq.url ~ "^/(?:dashboard|browser)(?:[/?#]|$)"
         || bereq.url ~ "^/(?:scanner|vms|db/backups)(?:[/?#]|$)")
         && beresp.status == 200) {
-        # Next marks cookie-aware dynamic pages private. They are still safe
+        # Next marks cookie-aware dynamic pages private. These pages are safe
         # here because vcl_hash includes the complete authenticated cookie.
         # Set-Cookie is safe to replay only for that same session key.
         set beresp.ttl = 5s;
