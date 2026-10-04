@@ -741,19 +741,21 @@ export default function BrowserPageClient({ initialData, resultId, resultRunId }
     }, [refreshHistory])
 
     useEffect(() => {
-        try {
-            const cached = JSON.parse(window.localStorage.getItem(statsStorageKey) || 'null') as { stats?: BrowserRunStats; cachedAt?: number } | null
-            if (cached?.stats && Number.isFinite(cached.cachedAt) && Date.now() - Number(cached.cachedAt) < 60_000
-                && Number.isFinite(cached.stats.runs24h) && Number.isFinite(cached.stats.darkwebRuns24h)) {
-                setRunStats(cached.stats)
+        if (!initialData.stats) {
+            try {
+                const cached = JSON.parse(window.localStorage.getItem(statsStorageKey) || 'null') as { stats?: BrowserRunStats; cachedAt?: number } | null
+                if (cached?.stats && Number.isFinite(cached.cachedAt) && Date.now() - Number(cached.cachedAt) < 60_000
+                    && Number.isFinite(cached.stats.runs24h) && Number.isFinite(cached.stats.darkwebRuns24h)) {
+                    setRunStats(cached.stats)
+                }
+            } catch {
+                // A missing or outdated cache must not block a fresh stats request.
             }
-        } catch {
-            // A missing or outdated cache must not block a fresh stats request.
         }
         void refreshRunStats().catch(() => undefined)
         const timer = window.setInterval(() => { void refreshRunStats() }, 30_000)
         return () => window.clearInterval(timer)
-    }, [refreshRunStats])
+    }, [initialData.stats, refreshRunStats])
 
     useEffect(() => {
         getOrCreateBrowserClientId()
