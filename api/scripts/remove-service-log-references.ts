@@ -12,7 +12,7 @@ async function processRange(startPage: number, endPage: number, attempt = 0): Pr
     try {
         const result = await withTransaction(async query => {
             await query("SET LOCAL lock_timeout = '2s'")
-            await query("SET LOCAL statement_timeout = '90s'")
+            await query("SET LOCAL statement_timeout = '300s'")
             const result = await query(`UPDATE events
                     SET original=original-'service_log_id'
                     WHERE ctid >= ('(' || $1::text || ',0)')::tid
