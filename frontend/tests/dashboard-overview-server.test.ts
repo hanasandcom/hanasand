@@ -51,12 +51,9 @@ test('rejects data for a different organization', async () => {
     expect(await loadOverview('id=user-a', 'org-b')).toEqual({ status: 'error', message: 'Organization monitoring returned an unexpected tenant scope.' })
 })
 
-let currentPath = '/dashboard'
-mock.module('next/headers', () => ({ headers: async () => new Headers({ 'x-current-path': currentPath }) }))
 const { default: Loading } = await import('../src/app/loading')
-test('dashboard refresh has no generic loading panel while other pages keep theirs', async () => {
-    currentPath = '/dashboard'
-    expect(await Loading()).toBeNull()
-    currentPath = '/browser'
-    expect(renderToStaticMarkup(await Loading())).toContain('Loading')
+test('app loading fallback renders synchronously for every route', () => {
+    const fallback = Loading()
+    expect(fallback).not.toBeInstanceOf(Promise)
+    expect(renderToStaticMarkup(createElement(() => fallback))).toContain('Loading')
 })
