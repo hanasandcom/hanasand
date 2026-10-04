@@ -1,5 +1,5 @@
 import { browserResultId } from '../ws/browserResultIdentity.ts'
-import { ensureColumn, ensureIndex, ensureRuleSourceConstraint } from './existingSchema.ts'
+import { ensureColumn, ensureColumnNullable, ensureConstraint, ensureIndex, ensureRuleSourceConstraint } from './existingSchema.ts'
 import ensureAuditAcknowledgmentsSchema from './auditAcknowledgmentsSchema.ts'
 import ensureLogAnalyzeSchema from './logAnalyzeSchema.ts'
 import ensureRuleReprocessSchema from './ruleReprocessSchema.ts'
@@ -307,8 +307,8 @@ async function applySchema() {
               AND EXISTS (SELECT 1 FROM vm_details d WHERE LOWER(d.name) = LOWER(v.name))
         `)
     }
-    await run('ALTER TABLE vm_details DROP CONSTRAINT IF EXISTS vm_details_name_fkey')
-    await run('ALTER TABLE vm_details ADD CONSTRAINT vm_details_name_fkey FOREIGN KEY (name) REFERENCES vms(name) ON DELETE CASCADE ON UPDATE CASCADE')
+    await ensureConstraint(run, 'vm_details', 'vm_details_name_fkey', 'FOREIGN KEY (name) REFERENCES vms(name) ON UPDATE CASCADE ON DELETE CASCADE',
+        'ALTER TABLE vm_details DROP CONSTRAINT IF EXISTS vm_details_name_fkey; ALTER TABLE vm_details ADD CONSTRAINT vm_details_name_fkey FOREIGN KEY (name) REFERENCES vms(name) ON DELETE CASCADE ON UPDATE CASCADE')
     await run(`
         INSERT INTO users (id, name, password, avatar, active, reserved)
         SELECT id, name, crypt(gen_random_uuid()::text, gen_salt('bf')), '', FALSE, TRUE
@@ -949,22 +949,22 @@ async function applySchema() {
             updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
     `)
-    await ensureColumn(run, 'organizations', 'status', 'ALTER TABLE organizations ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT \'active\'')
-    await run('ALTER TABLE organizations ADD COLUMN IF NOT EXISTS default_webhook_policy TEXT NOT NULL DEFAULT \'active_destinations\'')
-    await run('ALTER TABLE organizations ADD COLUMN IF NOT EXISTS alert_visibility_policy TEXT NOT NULL DEFAULT \'members\'')
-    await run('ALTER TABLE organizations ADD COLUMN IF NOT EXISTS retention_days INT NOT NULL DEFAULT 365')
-    await run('ALTER TABLE organizations ADD COLUMN IF NOT EXISTS audit_safe_metadata JSONB NOT NULL DEFAULT \'{}\'::jsonb')
-    await run('ALTER TABLE organizations ALTER COLUMN created_by DROP NOT NULL')
-    await run('ALTER TABLE organizations DROP CONSTRAINT IF EXISTS organizations_created_by_fkey')
-    await run('ALTER TABLE organizations ADD CONSTRAINT organizations_created_by_fkey FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL')
-    await run('ALTER TABLE organizations DROP CONSTRAINT IF EXISTS organizations_default_webhook_policy_check')
-    await run('ALTER TABLE organizations DROP CONSTRAINT IF EXISTS organizations_status_check')
-    await run(`SET lock_timeout = '2s'; ALTER TABLE organizations ADD CONSTRAINT organizations_status_check CHECK (status IN ('active', 'archived', 'deleted'))`)
-    await run('ALTER TABLE organizations ADD CONSTRAINT organizations_default_webhook_policy_check CHECK (default_webhook_policy IN (\'active_destinations\', \'manual_selection\', \'disabled\'))')
-    await run('ALTER TABLE organizations DROP CONSTRAINT IF EXISTS organizations_alert_visibility_policy_check')
-    await run('ALTER TABLE organizations ADD CONSTRAINT organizations_alert_visibility_policy_check CHECK (alert_visibility_policy IN (\'members\', \'admins\', \'owners\'))')
-    await run('ALTER TABLE organizations DROP CONSTRAINT IF EXISTS organizations_retention_days_check')
-    await run('ALTER TABLE organizations ADD CONSTRAINT organizations_retention_days_check CHECK (retention_days BETWEEN 30 AND 2555)')
+    await ensureColumn(run, 'organizations', 'status', 'ALTER TABLE organizations ADD COLUMN status TEXT NOT NULL DEFAULT \'active\'')
+    await ensureColumn(run, 'organizations', 'default_webhook_policy', 'ALTER TABLE organizations ADD COLUMN default_webhook_policy TEXT NOT NULL DEFAULT \'active_destinations\'')
+    await ensureColumn(run, 'organizations', 'alert_visibility_policy', 'ALTER TABLE organizations ADD COLUMN alert_visibility_policy TEXT NOT NULL DEFAULT \'members\'')
+    await ensureColumn(run, 'organizations', 'retention_days', 'ALTER TABLE organizations ADD COLUMN retention_days INT NOT NULL DEFAULT 365')
+    await ensureColumn(run, 'organizations', 'audit_safe_metadata', 'ALTER TABLE organizations ADD COLUMN audit_safe_metadata JSONB NOT NULL DEFAULT \'{}\'::jsonb')
+    await ensureColumnNullable(run, 'organizations', 'created_by', 'ALTER TABLE organizations ALTER COLUMN created_by DROP NOT NULL')
+    await ensureConstraint(run, 'organizations', 'organizations_created_by_fkey', 'FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL',
+        'ALTER TABLE organizations DROP CONSTRAINT IF EXISTS organizations_created_by_fkey; ALTER TABLE organizations ADD CONSTRAINT organizations_created_by_fkey FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL')
+    await ensureConstraint(run, 'organizations', 'organizations_default_webhook_policy_check', 'CHECK ((default_webhook_policy = ANY (ARRAY[\'active_destinations\'::text, \'manual_selection\'::text, \'disabled\'::text])))',
+        'ALTER TABLE organizations DROP CONSTRAINT IF EXISTS organizations_default_webhook_policy_check; ALTER TABLE organizations ADD CONSTRAINT organizations_default_webhook_policy_check CHECK (default_webhook_policy IN (\'active_destinations\', \'manual_selection\', \'disabled\'))')
+    await ensureConstraint(run, 'organizations', 'organizations_status_check', 'CHECK ((status = ANY (ARRAY[\'active\'::text, \'archived\'::text, \'deleted\'::text])))',
+        'ALTER TABLE organizations DROP CONSTRAINT IF EXISTS organizations_status_check; SET lock_timeout = \'2s\'; ALTER TABLE organizations ADD CONSTRAINT organizations_status_check CHECK (status IN (\'active\', \'archived\', \'deleted\'))')
+    await ensureConstraint(run, 'organizations', 'organizations_alert_visibility_policy_check', 'CHECK ((alert_visibility_policy = ANY (ARRAY[\'members\'::text, \'admins\'::text, \'owners\'::text])))',
+        'ALTER TABLE organizations DROP CONSTRAINT IF EXISTS organizations_alert_visibility_policy_check; ALTER TABLE organizations ADD CONSTRAINT organizations_alert_visibility_policy_check CHECK (alert_visibility_policy IN (\'members\', \'admins\', \'owners\'))')
+    await ensureConstraint(run, 'organizations', 'organizations_retention_days_check', 'CHECK (((retention_days >= 30) AND (retention_days <= 2555)))',
+        'ALTER TABLE organizations DROP CONSTRAINT IF EXISTS organizations_retention_days_check; ALTER TABLE organizations ADD CONSTRAINT organizations_retention_days_check CHECK (retention_days BETWEEN 30 AND 2555)')
     await run(`
         CREATE TABLE IF NOT EXISTS organization_members (
             organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,

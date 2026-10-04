@@ -14,6 +14,17 @@ export async function ensureIndex(query: typeof run, index: string, statement: s
     if (!existing) await query(statement)
 }
 
+export async function ensureConstraint(query: typeof run, table: string, name: string, definition: string, statement: string) {
+    const existing = (await query('SELECT pg_get_constraintdef(oid) AS definition,convalidated FROM pg_constraint WHERE conrelid=to_regclass($1) AND conname=$2', [table, name])).rows[0]
+    if (existing?.convalidated && existing.definition === definition) return
+    await query(statement)
+}
+
+export async function ensureColumnNullable(query: typeof run, table: string, column: string, statement: string) {
+    const existing = (await query('SELECT attnotnull FROM pg_attribute WHERE attrelid=to_regclass($1) AND attname=$2 AND attnum>0 AND NOT attisdropped', [table, column])).rows[0]
+    if (existing?.attnotnull) await query(statement)
+}
+
 export async function ensureRuleSourceConstraint(query: typeof run) {
     const existing = (await query('SELECT pg_get_constraintdef(oid) AS definition,convalidated FROM pg_constraint WHERE conrelid=to_regclass(\'rules\') AND conname=\'rules_source_check\'')).rows[0]
     const expected = 'CHECK ((source = ANY (ARRAY[\'owned\'::text, \'open_source\'::text, \'hanasand\'::text])))'
