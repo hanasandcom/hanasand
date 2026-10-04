@@ -1503,7 +1503,7 @@ async function applySchema() {
     await run('CREATE INDEX IF NOT EXISTS idx_events_org_time ON events(organization_id, event_timestamp DESC)')
     await run(`CREATE INDEX IF NOT EXISTS idx_events_native_pending ON events(event_timestamp, id)
         WHERE ingestion_id <> 'logs' AND processing_status = 'pending'`)
-    const pendingEventsIndex = await queryOnce(`SELECT index_class.indisvalid
+    const pendingEventsIndex = await queryOnce(`SELECT pg_index.indisvalid
         FROM pg_index
         JOIN pg_class AS index_class ON index_class.oid = pg_index.indexrelid
         JOIN pg_class AS table_class ON table_class.oid = pg_index.indrelid
