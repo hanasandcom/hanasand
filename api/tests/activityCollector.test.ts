@@ -41,6 +41,12 @@ describe('quiet latest activity', () => {
         }
     })
     test('retained-record loss remains a failure during quiet periods', () => {
+        const possibleDrop = activityCountDrop(2000, { status: 'up', message: 'Latest customer activity returned 5,000 retained records.' })
+        expect(possibleDrop).toEqual({ status: 'down', message: '2000 retained records; possible drop from 5000.' })
+        const confirmedDrop = activityCountDrop(2000, { status: 'down', message: possibleDrop?.message })
+        expect(confirmedDrop).toEqual({ status: 'down', message: '2000 retained records; confirmed drop from 5000.' })
+        expect(activityCountDrop(2000, { status: 'down', message: confirmedDrop?.message })).toEqual(confirmedDrop)
+        expect(activityCountDrop(5000, { status: 'down', message: confirmedDrop?.message })).toBeUndefined()
         expect(activityCountDrop(1000, { status: 'up', message: 'Latest activity returned 3221 retained records. Sources were checked successfully; no new activity.' })?.status).toBe('down')
     })
 })

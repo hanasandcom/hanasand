@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { check, fetchJson } from '../src/utils/status/monitor.ts'
-import { addMissingRequiredChecks, notificationEvent, watchlistProcessingStatus } from '../src/utils/status/monitorPolicy.ts'
+import { addMissingRequiredChecks, latencyStatus, notificationEvent, watchlistProcessingStatus } from '../src/utils/status/monitorPolicy.ts'
 
 describe('production monitor notification transitions', () => {
     test('status history SQL avoids reserved PostgreSQL window identifier', async () => {
@@ -159,6 +159,20 @@ describe('production monitor notification transitions', () => {
         expect(notificationEvent('degraded', ['up'])).toBe('alert')
         expect(notificationEvent('degraded', ['degraded', 'up'])).toBeUndefined()
         expect(notificationEvent('degraded', ['up', 'up', 'up'])).toBe('alert')
+        expect(notificationEvent('down', ['up', 'up'])).toBe('alert')
+        expect(notificationEvent('down', [])).toBe('alert')
+        expect(notificationEvent('down', ['down', 'up'])).toBeUndefined()
+        expect(notificationEvent('down', ['down', 'down'])).toBeUndefined()
+        expect(notificationEvent('up', ['down', 'up', 'up'])).toBeUndefined()
+        expect(notificationEvent('up', ['up', 'down'])).toBeUndefined()
+        expect(notificationEvent('up', ['up', 'down', 'down'])).toBe('recovered')
+    })
+
+    test('latency thresholds change status at their configured boundaries', () => {
+        const thresholds = { degraded: 3_000, down: 10_000 }
+        expect(latencyStatus(2_999, thresholds)).toBe('up')
+        expect(latencyStatus(3_000, thresholds)).toBe('degraded')
+        expect(latencyStatus(10_000, thresholds)).toBe('down')
     })
 
     test('does not report overall health without the required latest-activity check', () => {

