@@ -476,7 +476,7 @@ export default function BrowserPageClient({ initialData, resultId, resultRunId }
     }, [])
 
     const refreshRunStats = useCallback(async () => {
-        const response = await fetch('/api/backend/browser/stats', { credentials: 'include' })
+        const response = await fetch('/api/browser/stats')
         if (!response.ok) return
         const value = await response.json() as Partial<BrowserRunStats>
         if (Number.isFinite(value.runs24h) && Number.isFinite(value.darkwebRuns24h)) {
