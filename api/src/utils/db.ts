@@ -201,7 +201,7 @@ export async function queryOnce(query: string, params?: SQLParamType, name?: str
             // Cancelling an online index build leaves an invalid index behind.
             // It allows normal reads/writes, so retain only its lock-wait limit.
             if (onlineIndex) {
-                await client.query('SET statement_timeout = 0')
+                await client.query("SET lock_timeout = '30s'; SET statement_timeout = 0")
             }
         }
         const pending = name
