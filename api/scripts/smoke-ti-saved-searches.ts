@@ -4,16 +4,15 @@ import { readFile } from 'node:fs/promises'
 const [handler, routes, schema] = await Promise.all([
     readFile(new URL('../src/handlers/ti/savedSearches.ts', import.meta.url), 'utf8'),
     readFile(new URL('../src/routes.ts', import.meta.url), 'utf8'),
-    readFile(new URL('../src/utils/db/ensureSchema.ts', import.meta.url), 'utf8'),
 ])
 
-assert.match(handler, /ON CONFLICT \(user_id, query\)/)
-assert.match(handler, /LIMIT 8/)
 assert.match(handler, /tokenWrapper/)
 assert.match(routes, /fastify\.get\('\/ti\/saved-searches'/)
 assert.match(routes, /fastify\.post\('\/ti\/saved-searches'/)
 assert.match(routes, /fastify\.delete\('\/ti\/saved-searches'/)
-assert.match(schema, /CREATE TABLE IF NOT EXISTS ti_saved_searches/)
-assert.match(schema, /idx_ti_saved_searches_user_saved_at/)
+assert.match(handler, /\/v1\/internal\/saved-searches/)
+assert.match(handler, /x-hanasand-service-token/)
+assert.match(handler, /TI_SCRAPER_API_BASE/)
+assert.doesNotMatch(handler, /\b(?:queryOnce|CREATE TABLE|ON CONFLICT)\b/)
 
-console.log(JSON.stringify({ ok: true, checked: ['authenticated_saved_search_routes', 'deduplicated_searches', 'bounded_saved_search_limit', 'user_cascade_schema'] }, null, 2))
+console.log(JSON.stringify({ ok: true, checked: ['authenticated_saved_search_routes', 'service_token_proxy', 'no_core_database_storage'] }, null, 2))

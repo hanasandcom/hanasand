@@ -24,13 +24,12 @@ describe('production monitor notification transitions', () => {
         expect(stdout).toContain('persisted evidence survives restart and database failure')
     })
 
-    test('processing backlog deduplicates current review tasks by their persisted id', async () => {
+    test('processing backlog is read from the separately deployed TI service', async () => {
         const source = await readFile(path.join(import.meta.dir, '../src/utils/status/monitor.ts'), 'utf8')
-        expect(source).toContain('SELECT DISTINCT record->>\'id\' AS review_id')
-        expect(source).toContain('CROSS JOIN LATERAL')
-        expect(source).toContain('(record->>\'id\') = pending.review_id')
-        expect(source).toMatch(/ORDER BY updated_at DESC\s+LIMIT 1/)
-        expect(source).not.toContain('SELECT DISTINCT ON (record->>\'taskId\') record, updated_at')
+        const backlog = source.slice(source.indexOf("check('threat-intelligence', 'Processing backlog'"))
+        expect(backlog).toContain("fetchJson('/v1/internal/processing-backlog'")
+        expect(backlog).toContain("'x-hanasand-service-token'")
+        expect(backlog).not.toContain('threat_intel.')
     })
 
     test('source collection has a persisted monitor with defined thresholds', async () => {

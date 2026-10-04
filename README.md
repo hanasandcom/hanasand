@@ -8,7 +8,7 @@ Hanasand combines threat intelligence, AI development tools, and infrastructure 
 | --- | --- | --- |
 | Frontend | `frontend/` | Public pages, dashboard, AI editor, shared projects, articles, notes and thesis |
 | API | `api/` | Authentication, organizations, permissions, billing, AI requests, project storage, infrastructure and public API |
-| Threat intelligence | [TI repository](https://github.com/eirikhanasand/ti) | Source collection, parsing, search, alerts and monitoring; runs with a dedicated database |
+| Threat intelligence | [TI repository](https://github.com/eirikhanasand/ti) | Source collection, evidence, search, alerts and investigation cases; runs with a dedicated database |
 | AI model client | `ops/ai-model-client/` | Connects an inference server to the API over WebSockets |
 | Model runtime | `gpt/` | Model launch scripts and inference server code |
 | Browser services | `ops/browser-worker/`, `ops/onion-tor/` | Isolated browser sessions, WebRTC transport and Tor access |

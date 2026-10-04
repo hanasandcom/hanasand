@@ -1,9 +1,12 @@
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
+import pg from 'pg'
 import { queryOnce, withTransaction, closeDatabase } from '../src/utils/db.ts'
 import { issueToken } from '../src/utils/auth/session.ts'
 
 if (process.env.RECOVERY_LIVE_CHECK !== '1') throw new Error('Explicit recovery fixture check required')
+if (!process.env.TI_DATABASE_URL) throw new Error('TI_DATABASE_URL must point to the standalone TI database')
+const tiPool = new pg.Pool({ connectionString: process.env.TI_DATABASE_URL, max: 1, application_name: 'hanasand-ti-recovery-check' })
 const id = `recovery_probe_${randomUUID().replaceAll('-', '')}`
 const caseId = `case_${id}`
 const alertId = `alert_${id}`
@@ -18,9 +21,9 @@ try {
     assert(session)
     const at = new Date().toISOString()
     const record = { id: caseId, tenantId: id, sourceType: 'manual', sourceId: 'recovery_validation', title: marker, summary: 'Temporary replication and recovery fixture', priority: 'low', status: 'open', assignedOwner: id, createdAt: at, updatedAt: at, workflowEvents: [{ id: `event_${id}`, at, actor: id, action: 'created', note: marker }], lastDecision: marker }
-    await queryOnce('INSERT INTO threat_intel.workflow_records (record_type, id, tenant_id, record) VALUES (\'case\', $1, $2, $3::jsonb)', [caseId, id, JSON.stringify(record)])
+    await tiPool.query('INSERT INTO threat_intel.workflow_records (record_type, id, tenant_id, record) VALUES (\'case\', $1, $2, $3::jsonb)', [caseId, id, JSON.stringify(record)])
     const alert = { id: alertId, tenantId: id, title: marker, company: marker, eventType: 'darkweb.monitoring.match', matchedTerm: { value: marker, kind: 'company' }, severity: 'low', confidence: 0.5, reviewState: 'needs_review', deliveryState: 'pending', createdAt: at, updatedAt: at, firstSeenAt: at, lastSeenAt: at, evidence: [], sourceCount: 0, sourceFamily: 'public_advisory', artifactType: 'mention', assertionKind: 'observed_mention', observedMatchSummary: marker, claimSummary: marker, confidenceReasoning: ['Temporary recovery fixture'], provenance: { generatedAt: at, sourceIds: [], captureIds: [], matchedEvidenceIds: [], sourceFamilies: [], metadataOnly: true }, customerState: { state: 'newly_collected', label: 'Newly collected', reason: 'Temporary validation fixture' }, dedupeKey: alertId, matchContext: { normalizedTerm: marker.toLowerCase(), termKind: 'company', matchType: 'bounded_text_or_metadata', matchedFieldHints: [] }, evidenceSummary: { evidenceCount: 0, sourceFamilyCounts: {}, metadataOnlyCount: 0, publicSafeCount: 0 }, routingContext: { queue: 'analyst_review', urgency: 'watch', customerVisibleEvidence: 'metadata_only', reason: 'Temporary validation fixture' }, recommendedAction: 'Review fixture', recommendedRoute: 'analyst_review', webhookDelivery: { recommendedRoute: 'analyst_review', payloadHash: alertId, dedupeKey: alertId } }
-    await queryOnce('INSERT INTO threat_intel.alerts (id, tenant_id, dedupe_key, severity, confidence, review_state, delivery_state, first_seen_at, last_seen_at, updated_at, record) VALUES ($1,$2,$1,\'low\',0.5,\'needs_review\',\'pending\',NOW(),NOW(),NOW(),$3::jsonb)', [alertId, id, JSON.stringify(alert)])
+    await tiPool.query('INSERT INTO threat_intel.alerts (id, tenant_id, dedupe_key, severity, confidence, review_state, delivery_state, first_seen_at, last_seen_at, updated_at, record) VALUES ($1,$2,$1,\'low\',0.5,\'needs_review\',\'pending\',NOW(),NOW(),NOW(),$3::jsonb)', [alertId, id, JSON.stringify(alert)])
     const headers = { cookie: `id=${id}; access_token=${session.token}`, authorization: `Bearer ${session.token}`, id }
     await Bun.sleep(20000)
     const deadline = Date.now() + Number(process.env.RECOVERY_CHECK_SECONDS || 120) * 1000
@@ -56,14 +59,18 @@ try {
     if (process.env.RECOVERY_REQUIRE_READ_ONLY === '1') assert(readOnlyChecks > 0, 'The drill must actually exercise read-only recovery')
     console.log(JSON.stringify({ caseAndTimelineChecks: checks, alertChecks: checks, searchChecks: checks, readOnlyChecks }))
 } finally {
-    await withTransaction(async query => {
-        await query('SET LOCAL statement_timeout = \'120s\'')
-        await query('DELETE FROM threat_intel.workflow_records WHERE record_type=\'case\' AND id=$1 AND tenant_id=$2', [caseId, id])
-        await query('DELETE FROM threat_intel.alerts WHERE id=$1 AND tenant_id=$2', [alertId, id])
-        await query('DELETE FROM tokens WHERE id=$1', [id])
-        await query('DELETE FROM login_events WHERE user_id=$1', [id])
-        await query('DELETE FROM attempts WHERE id=$1', [id])
-        await query('DELETE FROM users WHERE id=$1', [id])
-    })
-    await closeDatabase()
+    const cleanup = await Promise.allSettled([
+        tiPool.query('DELETE FROM threat_intel.workflow_records WHERE record_type=\'case\' AND id=$1 AND tenant_id=$2', [caseId, id])
+            .then(() => tiPool.query('DELETE FROM threat_intel.alerts WHERE id=$1 AND tenant_id=$2', [alertId, id])),
+        withTransaction(async query => {
+            await query('SET LOCAL statement_timeout = \'120s\'')
+            await query('DELETE FROM tokens WHERE id=$1', [id])
+            await query('DELETE FROM login_events WHERE user_id=$1', [id])
+            await query('DELETE FROM attempts WHERE id=$1', [id])
+            await query('DELETE FROM users WHERE id=$1', [id])
+        }),
+    ])
+    await Promise.all([tiPool.end(), closeDatabase()])
+    const failed = cleanup.find((result): result is PromiseRejectedResult => result.status === 'rejected')
+    if (failed) throw failed.reason
 }
