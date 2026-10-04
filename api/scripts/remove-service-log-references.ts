@@ -3,7 +3,7 @@ import run, { closeDatabase, withTransaction } from '#db'
 // Remove the old service_logs pointer without rewriting the entire events table
 // in one transaction. CTID page ranges avoid sorting the full table for every
 // batch and only visit each heap page once.
-const pageBatchSize = Math.min(50_000, Math.max(1, Number(process.env.SERVICE_LOG_REFERENCE_BATCH_PAGES) || 5_000))
+const pageBatchSize = Math.min(50_000, Math.max(1, Number(process.env.SERVICE_LOG_REFERENCE_BATCH_PAGES) || 10_000))
 let total = 0
 let batches = 0
 const deferredPages: number[] = []
@@ -13,15 +13,12 @@ async function processRange(startPage: number, endPage: number, attempt = 0): Pr
         const result = await withTransaction(async query => {
             await query("SET LOCAL lock_timeout = '2s'")
             await query("SET LOCAL statement_timeout = '90s'")
-            const { rows: [batch] } = await query(`WITH updated AS (
-                    UPDATE events
+            const result = await query(`UPDATE events
                     SET original=original-'service_log_id'
                     WHERE ctid >= ('(' || $1::text || ',0)')::tid
                       AND ctid < ('(' || $2::text || ',0)')::tid
-                      AND original ? 'service_log_id'
-                    RETURNING 1
-                ) SELECT count(*)::int AS count FROM updated`, [startPage, endPage])
-            return batch as { count: number }
+                      AND original ? 'service_log_id'`, [startPage, endPage])
+            return { count: result.rowCount || 0 }
         })
         total += result.count
         batches++
