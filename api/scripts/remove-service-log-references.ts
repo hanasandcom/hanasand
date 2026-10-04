@@ -6,13 +6,9 @@ import run, { closeDatabase, withTransaction } from '#db'
 const pageBatchSize = Math.min(50_000, Math.max(1, Number(process.env.SERVICE_LOG_REFERENCE_BATCH_PAGES) || 5_000))
 let total = 0
 let batches = 0
-try {
-    const { rows: [size] } = await run(`SELECT (pg_relation_size('events') / current_setting('block_size')::int)::bigint AS pages`)
-    const pageCount = Number(size?.pages || 0)
-    if (!Number.isSafeInteger(pageCount) || pageCount < 0) throw new Error(`Invalid events heap page count: ${size?.pages}`)
 
-    for (let startPage = 0; startPage < pageCount; startPage += pageBatchSize) {
-        const endPage = Math.min(pageCount, startPage + pageBatchSize)
+async function processRange(startPage: number, endPage: number, attempt = 0): Promise<void> {
+    try {
         const result = await withTransaction(async query => {
             await query("SET LOCAL lock_timeout = '2s'")
             await query("SET LOCAL statement_timeout = '90s'")
@@ -28,6 +24,30 @@ try {
         })
         total += result.count
         batches++
+        return
+    } catch (error) {
+        const code = (error as { code?: string }).code
+        if (code !== '55P03' && code !== '57014') throw error
+        if (endPage - startPage > 1) {
+            const middlePage = startPage + Math.floor((endPage - startPage) / 2)
+            await processRange(startPage, middlePage)
+            await processRange(middlePage, endPage)
+            return
+        }
+        if (attempt >= 3) throw error
+        await Bun.sleep(1000 * (attempt + 1))
+        await processRange(startPage, endPage, attempt + 1)
+    }
+}
+
+try {
+    const { rows: [size] } = await run(`SELECT (pg_relation_size('events') / current_setting('block_size')::int)::bigint AS pages`)
+    const pageCount = Number(size?.pages || 0)
+    if (!Number.isSafeInteger(pageCount) || pageCount < 0) throw new Error(`Invalid events heap page count: ${size?.pages}`)
+
+    for (let startPage = 0; startPage < pageCount; startPage += pageBatchSize) {
+        const endPage = Math.min(pageCount, startPage + pageBatchSize)
+        await processRange(startPage, endPage)
         console.log(JSON.stringify({ removed: total, batches, pages: `${endPage}/${pageCount}` }))
     }
     console.log(JSON.stringify({ complete: true, removed: total, batches }))
