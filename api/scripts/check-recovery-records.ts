@@ -16,6 +16,9 @@ const statusUrl = process.env.RECOVERY_STATUS || 'http://127.0.0.1:19911/status'
 let checks = 0
 let readOnlyChecks = 0
 try {
+    const tiDatabase = await tiPool.query<{ name: string }>('SELECT current_database() AS name')
+    const applicationDatabase = process.env.DB || 'hanasand'
+    if (tiDatabase.rows[0]?.name === applicationDatabase) throw new Error('TI_DATABASE_URL resolves to the application database; refusing to write TI fixtures there')
     await queryOnce('INSERT INTO users (id, name, password, avatar, active) VALUES ($1, $2, $3, $4, true)', [id, 'Temporary recovery validation', 'disabled-test-login', ''])
     const session = await issueToken({ id, ip: '127.0.0.1', userAgent: 'Recovery validation' })
     assert(session)
