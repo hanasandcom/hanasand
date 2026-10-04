@@ -104,6 +104,9 @@ async function queryLogTuning(): Promise<TuningLog[]> {
         // This all-time aggregation can take several minutes. It runs in a
         // background worker and never holds open the page's HTTP request.
         await query('SET LOCAL statement_timeout = \'15min\'')
+        // Keep the full-history refresh from consuming unbounded disk space.
+        await query('SET LOCAL temp_file_limit = \'20GB\'')
+        await query('SET LOCAL max_parallel_workers_per_gather = 0')
         const result = await query(`SELECT
                 COALESCE(normalized->>'message', '') AS message,
                 COALESCE(NULLIF(normalized->>'ip', ''), NULLIF(normalized #>> '{source,ip}', ''), '') AS ip,
