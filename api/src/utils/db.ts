@@ -194,7 +194,7 @@ export async function queryOnce(query: string, params?: SQLParamType, name?: str
     let failure: Error | undefined
     let expired = false
     let timer: ReturnType<typeof setTimeout> | undefined
-    const onlineIndex = /^\s*CREATE\s+(?:UNIQUE\s+)?INDEX\s+CONCURRENTLY\b/i.test(query)
+    const onlineIndex = /^\s*(?:CREATE\s+(?:UNIQUE\s+)?INDEX|DROP\s+INDEX)\s+CONCURRENTLY\b/i.test(query)
     const largeServiceLogDrop = /^\s*DROP\s+TABLE\s+IF\s+EXISTS\s+service_logs\b/i.test(query)
     try {
         if (schemaWork.getStore()) {
@@ -206,8 +206,8 @@ export async function queryOnce(query: string, params?: SQLParamType, name?: str
             }
             // Dropping the duplicated 48 GB heap and its indexes can take
             // longer than a normal schema statement while unlinking files.
-            // Keep lock acquisition fail-fast, but let the actual drop finish.
-            if (largeServiceLogDrop) await client.query("SET statement_timeout = '60s'")
+            // Give the table lock a bounded wait and let the large file removal finish.
+            if (largeServiceLogDrop) await client.query("SET lock_timeout = '30s'; SET statement_timeout = '60s'")
         }
         const pending = name
             ? client.query({ name, text: query, values: params ?? [] })

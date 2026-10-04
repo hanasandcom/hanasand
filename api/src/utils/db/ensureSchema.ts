@@ -1568,7 +1568,7 @@ async function applySchema() {
     await ensureRuleSourceConstraint(run)
     await run('CREATE INDEX IF NOT EXISTS idx_rules_org_enabled ON rules(organization_id, enabled, updated_at DESC)')
     await ensureLogAnalyzeSchema()
-    await run('DROP INDEX IF EXISTS idx_events_log_key')
+    await run('DROP INDEX CONCURRENTLY IF EXISTS idx_events_log_key')
     await run('ALTER TABLE events DROP COLUMN IF EXISTS log_key')
     await ensureRuleReprocessSchema()
     await run(`

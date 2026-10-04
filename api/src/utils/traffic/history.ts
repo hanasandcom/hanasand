@@ -3,6 +3,7 @@ import { recoveryReadOnly } from '../recovery.ts'
 
 export async function ensureTrafficHistorySchema() {
     await queryOnce(`
+        SET lock_timeout = '2s';
         CREATE TABLE IF NOT EXISTS traffic_history_state (
             singleton boolean PRIMARY KEY DEFAULT true CHECK (singleton),
             covered_before timestamptz NOT NULL
