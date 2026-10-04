@@ -22,7 +22,7 @@ type LogPattern = {
     event_count: string
     storage_bytes: string
 }
-type TuningData = { organizationId: string, generatedAt: string, logs: LogPattern[] }
+type TuningData = { organizationId: string, generatedAt: string, logs: LogPattern[], pending?: boolean }
 
 const rowFields: Array<[keyof LogPattern, string]> = [
     ['message', 'message'], ['service', 'service'], ['host', 'host'], ['level', 'level'],
@@ -51,15 +51,23 @@ export default function TuningPage() {
     const [selected, setSelected] = useState<LogPattern | null>(null)
     const [createdRule, setCreatedRule] = useState<Rule | null>(null)
     const [error, setError] = useState('')
+    const [pending, setPending] = useState(false)
     const canManage = organizations.some(organization => organization.id === data?.organizationId
         && ['owner', 'admin', 'editor'].includes(organization.role?.toLowerCase() || ''))
     const refresh = useCallback(async (signal?: AbortSignal) => {
         if (document.visibilityState !== 'visible') return
         try {
             const payload = await requestJson<TuningData>('/api/backend/logs/tuning', { cache: 'no-store', signal })
-            if (!signal?.aborted) { setData(payload); setError('') }
+            if (!signal?.aborted) {
+                setPending(Boolean(payload.pending))
+                if (payload.pending) { setError(''); return }
+                setData(payload); setError('')
+            }
         } catch (cause) {
-            if (!signal?.aborted) setError(cause instanceof Error ? cause.message : 'Log patterns could not be loaded.')
+            if (!signal?.aborted) {
+                setPending(false)
+                setError(cause instanceof Error ? cause.message : 'Log patterns could not be loaded.')
+            }
         }
     }, [])
     const completeReprocessing = useCallback(() => { void refresh() }, [refresh])
@@ -67,11 +75,11 @@ export default function TuningPage() {
     useEffect(() => {
         const controller = new AbortController()
         void refresh(controller.signal)
-        const interval = window.setInterval(() => void refresh(), 30_000)
+        const interval = window.setInterval(() => void refresh(), pending ? 15_000 : 30_000)
         const onVisible = () => { if (document.visibilityState === 'visible') void refresh() }
         document.addEventListener('visibilitychange', onVisible)
         return () => { controller.abort(); window.clearInterval(interval); document.removeEventListener('visibilitychange', onVisible) }
-    }, [refresh])
+    }, [refresh, pending])
 
     const preset = useMemo(() => selected ? rulePreset(selected) : undefined, [selected])
     const displayedAt = data ? new Date(data.generatedAt).toLocaleTimeString() : ''
@@ -89,7 +97,7 @@ export default function TuningPage() {
         <DashboardPanel className='min-w-0 overflow-hidden'>
             <div className='flex flex-wrap items-center justify-between gap-2 border-b border-ui-border px-4 py-3'>
                 <h2 className='font-semibold'>Stored log patterns</h2>
-                <p className='text-xs text-ui-muted'>{data ? `Updated ${displayedAt}` : 'Loading patterns…'}</p>
+                <p className='text-xs text-ui-muted'>{data ? `Updated ${displayedAt}` : pending ? 'Preparing the all-time summary…' : 'Loading patterns…'}</p>
             </div>
             <div className='overflow-x-auto'>
                 <table className='w-full min-w-[52rem] table-fixed text-left text-sm'>
@@ -107,11 +115,11 @@ export default function TuningPage() {
                             <td className='px-4 py-3 text-right'><button type='button' disabled={!canManage || !tunable} onClick={() => { setSelected(log); setCreatedRule(null) }} className='rounded-md border border-ui-border px-2.5 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-50' title={allProtected ? 'Failure or detection evidence is kept by the existing protection rule.' : !tunableFields ? 'This log is missing fields needed for an exact rule.' : canManage ? undefined : 'An Hanasand editor is required to create a suppression rule'}>Tune</button></td>
                         </tr>
                     })}
-                    {!data?.logs.length && <tr><td colSpan={5} className='px-4 py-10 text-center text-sm text-ui-muted'>{data ? 'No stored log patterns.' : 'Loading patterns…'}</td></tr>}</tbody>
+                    {!data?.logs.length && <tr><td colSpan={5} className='px-4 py-10 text-center text-sm text-ui-muted'>{data ? 'No stored log patterns.' : pending ? 'Preparing the all-time summary…' : error ? 'Log patterns could not be loaded.' : 'Loading patterns…'}</td></tr>}</tbody>
                 </table>
             </div>
         </DashboardPanel>
-        <p className='text-xs text-ui-muted'>Row data estimates include each stored event row; PostgreSQL indexes and free space are excluded. This list refreshes every 30 seconds.</p>
+        <p className='text-xs text-ui-muted'>Row data estimates include each stored event row; PostgreSQL indexes and free space are excluded. The all-time summary is cached for up to five minutes.</p>
 
         {selected && data && preset && <CreateRuleDialog key={`${selected.service}:${selected.host}:${selected.message}`} category='analysis' organizationId={data.organizationId} canManage={canManage} canManageRetention={canManage} rules={[]} initialPreset={preset} onClose={() => setSelected(null)} onCreated={rule => {
             setSelected(null); setCreatedRule(rule); setError(''); void refresh()

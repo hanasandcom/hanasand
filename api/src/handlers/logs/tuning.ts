@@ -4,7 +4,8 @@ import hasHanasandInternalRouteAccess, { HANASAND_ORGANIZATION_ID } from '#utils
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import { cachedLogQuery } from '#utils/logs/cache.ts'
 
-const TUNING_CACHE_MS = 30_000
+const TUNING_CACHE_MS = 5 * 60_000
+const TUNING_RESPONSE_WAIT_MS = 8_000
 
 export async function getLogTuning(req: FastifyRequest, res: FastifyReply) {
     const { valid } = await tokenWrapper(req, res)
@@ -12,7 +13,23 @@ export async function getLogTuning(req: FastifyRequest, res: FastifyReply) {
     if (!(await hasHanasandInternalRouteAccess(req)).valid) return res.status(403).send({ error: 'Active Hanasand organization owner or editor access is required.' })
 
     try {
-        return res.send(await cachedLogQuery('top-log-tuning', TUNING_CACHE_MS, queryLogTuning))
+        const loading = cachedLogQuery('top-log-tuning', TUNING_CACHE_MS, queryLogTuning).then(
+            data => ({ kind: 'ready' as const, data }),
+            error => ({ kind: 'failed' as const, error }),
+        )
+        let timer: ReturnType<typeof setTimeout> | undefined
+        const outcome = await Promise.race([
+            loading,
+            new Promise<{ kind: 'pending' }>(resolve => {
+                timer = setTimeout(() => resolve({ kind: 'pending' }), TUNING_RESPONSE_WAIT_MS)
+            }),
+        ])
+        if (timer) clearTimeout(timer)
+        if (outcome.kind === 'pending') {
+            return res.header('retry-after', '15').status(202).send({ pending: true })
+        }
+        if (outcome.kind === 'failed') throw outcome.error
+        return res.send(outcome.data)
     } catch (error) {
         req.log?.error?.({ error }, 'Log tuning summary failed')
         return res.status(503).send({ error: 'Log tuning data is temporarily unavailable. Try again shortly.' })
