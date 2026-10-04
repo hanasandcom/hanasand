@@ -353,6 +353,19 @@ const initialBundle: OrgBundle = {
     loadErrors: [],
 }
 
+const organizationBundleKeysByPage: Record<OrganizationPage, readonly string[]> = {
+    overview: ['settings', 'members', 'invites', 'watchlists', 'alertTerms', 'alerts', 'cases', 'webhooks', 'deliveries'],
+    settings: ['settings'],
+    team: ['members', 'invites'],
+    watchlists: ['members', 'watchlists', 'alertTerms', 'alerts', 'webhooks', 'deliveries'],
+    destinations: ['webhooks', 'deliveries'],
+    'api-keys': ['apiKeys'],
+    privacy: ['settings', 'privacy'],
+    delivery: ['webhooks', 'deliveries'],
+    alerts: ['alertTerms', 'alerts', 'cases', 'deliveries', 'members', 'watchlists', 'webhooks', 'alertCaseVisibility'],
+    activity: ['settings', 'members', 'invites', 'watchlists', 'alertTerms', 'alerts', 'cases', 'webhooks', 'deliveries'],
+}
+
 const roleOptions: OrganizationRole[] = ['admin', 'editor', 'reader']
 const watchlistKinds: WatchlistKind[] = ['company', 'domain', 'vendor', 'actor', 'keyword']
 const watchlistTemplates: Array<{ label: string, kind: WatchlistKind, notes: string }> = [
@@ -761,7 +774,8 @@ export default function OrganizationWorkspaceClient({ initialOrganizations, page
             ['webhooks', `/api/organizations/${encodeURIComponent(organizationId)}/webhooks`],
             ['deliveries', `/api/findings/webhooks/deliveries?organizationId=${encodeURIComponent(organizationId)}`],
         ] as const
-        const permittedEndpoints = endpoints.filter(([key]) => mayManage || !['apiKeys', 'invites'].includes(key))
+        const requiredKeys = new Set(organizationBundleKeysByPage[activePage])
+        const permittedEndpoints = endpoints.filter(([key]) => requiredKeys.has(key) && (mayManage || !['apiKeys', 'invites'].includes(key)))
         const results = await Promise.allSettled(permittedEndpoints.map(([, url]) => requestJson<Record<string, unknown>>(url)))
         if (!mountedRef.current || bundleLoadRef.current !== requestId) return
         const nextBundle: OrgBundle = { ...initialBundle, loadErrors: [] }
@@ -831,7 +845,7 @@ export default function OrganizationWorkspaceClient({ initialOrganizations, page
         setSelectedActivitySubject(nextSubject)
         if (switchFocus) replaceOrganizationWorkspaceSelectionUrl(organizationId, nextSubject)
         setBusy('')
-    }, [organizations, requestedAlertId, requestedCaseId, requestedDeliveryId, requestedDestinationId, requestedFocus, requestedInviteId, requestedMemberId, requestedWatchlistId])
+    }, [activePage, organizations, requestedAlertId, requestedCaseId, requestedDeliveryId, requestedDestinationId, requestedFocus, requestedInviteId, requestedMemberId, requestedWatchlistId])
 
     const selectOrganization = useCallback((organizationId: string) => {
         organizationSwitchFocusRef.current = focusForSubjectType(selectedActivitySubject.type) || workspaceFocusRef.current || currentOrganizationFocus() || requestedFocus

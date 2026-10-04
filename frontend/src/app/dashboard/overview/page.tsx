@@ -32,7 +32,6 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Re
 
     const params = searchParams ? await searchParams : {}
     const organizationId = await activeOrganizationId()
-    const overview = loadOverview(sessionCookies.toString(), organizationId)
     const accessDenied = params.notAllowed === 'true'
     const membership = accessDenied ? await organizationMembership() : null
     const notice = membership === 'none'
@@ -40,8 +39,6 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Re
         : membership === 'member'
             ? { title: 'You don’t have access to this page.', description: 'If you need access, contact your administrator.', action: 'View organizations', href: '/organizations' }
             : { title: 'We couldn’t check your organization access.', description: 'Try again, or open your organizations to check your membership.', action: 'View organizations', href: '/organizations' }
-
-    const overviewState = await overview
 
     return (
         <DashboardPage>
@@ -68,13 +65,20 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Re
                 </div>
             ) : null}
 
-            <DwmOverviewPanel organizationId={organizationId} state={overviewState} />
+            <Suspense fallback={<div className='min-h-40 rounded-lg border border-ui-border bg-ui-panel' aria-hidden='true' />}>
+                <OverviewContent cookieHeader={sessionCookies.toString()} organizationId={organizationId} />
+            </Suspense>
 
             <Suspense fallback={null}>
                 <AuthorizedServiceHealth token={token} id={id || ''} impersonationToken={sessionCookies.get('impersonation_token')?.value} />
             </Suspense>
         </DashboardPage>
     )
+}
+
+async function OverviewContent({ cookieHeader, organizationId }: { cookieHeader: string, organizationId?: string }) {
+    const state = await loadOverview(cookieHeader, organizationId)
+    return <DwmOverviewPanel organizationId={organizationId} state={state} />
 }
 
 async function organizationMembership(): Promise<'member' | 'none' | 'unavailable'> {
