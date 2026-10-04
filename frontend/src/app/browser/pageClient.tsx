@@ -162,7 +162,7 @@ type BrowserRunStats = {
 export type BrowserInitialData = {
     history: BrowserRunHistory[]
     quota: BrowserQuota | null
-    stats: BrowserRunStats
+    stats: BrowserRunStats | null
 }
 type SandboxEvidence = {
     url?: string
@@ -199,6 +199,7 @@ type SandboxEvidence = {
 }
 const storageKey = 'hanasand:browser:profiles:v1'
 const historyStorageKey = 'hanasand:browser:history:v1'
+const statsStorageKey = 'hanasand:browser:stats:v1'
 const clientIdStorageKey = 'hanasand:browser:client-id:v1'
 const profileApiPath = '/api/backend/browser/profiles'
 const historyApiPath = '/api/backend/browser/runs'
@@ -417,7 +418,8 @@ export default function BrowserPageClient({ initialData, resultId, resultRunId }
     const [capacity, setCapacity] = useState<SandboxCapacity | null>(null)
     const [history, setHistory] = useState<BrowserRunHistory[]>(() => sanitizeHistory(initialData.history))
     const [quota, setQuota] = useState<BrowserQuota | null>(() => quotaValue(initialData.quota))
-    const [runStats, setRunStats] = useState<BrowserRunStats>(() => initialData.stats)
+    const [runStats, setRunStats] = useState<BrowserRunStats | null>(() => initialData.stats)
+    const [historyReady, setHistoryReady] = useState(() => initialData.history.length > 0)
     const [showStoredResult, setShowStoredResult] = useState(Boolean(resultId))
     const [resultClientId, setResultClientId] = useState('')
     useEffect(() => { setResultClientId(getOrCreateBrowserClientId()) }, [])
@@ -474,11 +476,17 @@ export default function BrowserPageClient({ initialData, resultId, resultRunId }
     }, [])
 
     const refreshRunStats = useCallback(async () => {
-        const response = await fetch('/api/backend/browser/stats', { credentials: 'include', cache: 'no-store' })
+        const response = await fetch('/api/backend/browser/stats', { credentials: 'include' })
         if (!response.ok) return
         const value = await response.json() as Partial<BrowserRunStats>
         if (Number.isFinite(value.runs24h) && Number.isFinite(value.darkwebRuns24h)) {
-            setRunStats({ runs24h: Number(value.runs24h), darkwebRuns24h: Number(value.darkwebRuns24h) })
+            const stats = { runs24h: Number(value.runs24h), darkwebRuns24h: Number(value.darkwebRuns24h) }
+            setRunStats(stats)
+            try {
+                window.localStorage.setItem(statsStorageKey, JSON.stringify({ stats, cachedAt: Date.now() }))
+            } catch {
+                // The live response remains usable when browser storage is unavailable.
+            }
         }
     }, [])
 
@@ -729,11 +737,20 @@ export default function BrowserPageClient({ initialData, resultId, resultRunId }
     }, [activeSandboxTab, selectedProfile.tools])
 
     useEffect(() => {
-        void refreshHistory().catch(() => undefined)
+        void refreshHistory().then(() => setHistoryReady(true)).catch(() => setHistoryReady(true))
     }, [refreshHistory])
 
     useEffect(() => {
-        void refreshRunStats()
+        try {
+            const cached = JSON.parse(window.localStorage.getItem(statsStorageKey) || 'null') as { stats?: BrowserRunStats; cachedAt?: number } | null
+            if (cached?.stats && Number.isFinite(cached.cachedAt) && Date.now() - Number(cached.cachedAt) < 60_000
+                && Number.isFinite(cached.stats.runs24h) && Number.isFinite(cached.stats.darkwebRuns24h)) {
+                setRunStats(cached.stats)
+            }
+        } catch {
+            // A missing or outdated cache must not block a fresh stats request.
+        }
+        void refreshRunStats().catch(() => undefined)
         const timer = window.setInterval(() => { void refreshRunStats() }, 30_000)
         return () => window.clearInterval(timer)
     }, [refreshRunStats])
@@ -741,10 +758,16 @@ export default function BrowserPageClient({ initialData, resultId, resultRunId }
     useEffect(() => {
         getOrCreateBrowserClientId()
         try {
-            const stored = JSON.parse(window.localStorage.getItem(historyStorageKey) || '[]')
-            if (Array.isArray(stored) && !history.length) setHistory(sanitizeHistory(stored))
+            const savedHistory = window.localStorage.getItem(historyStorageKey)
+            if (savedHistory) {
+                const stored = JSON.parse(savedHistory)
+                if (Array.isArray(stored)) {
+                    if (!history.length) setHistory(sanitizeHistory(stored))
+                    setHistoryReady(true)
+                }
+            }
         } catch {
-            // Server-prefetched history remains authoritative.
+            // The history request marks the view ready when storage is unavailable.
         }
     }, [history.length])
 
@@ -1338,8 +1361,8 @@ export default function BrowserPageClient({ initialData, resultId, resultRunId }
                         </p>
                         <div className='grid max-w-xl gap-2 text-sm text-ui-muted sm:grid-cols-3'>
                             <span className='rounded-lg border border-ui-border bg-ui-panel px-3 py-2'><strong className='text-ui-text'>{capacity?.activeSessions ?? 0}/{capacity?.maxSessions ?? 100}</strong> browsers active</span>
-                            <span className='rounded-lg border border-ui-border bg-ui-panel px-3 py-2'>{runStats?.runs24h ?? 0} runs today</span>
-                            <span className='rounded-lg border border-ui-border bg-ui-panel px-3 py-2'>{runStats?.darkwebRuns24h ?? 0} darkweb runs today</span>
+                            <span className='rounded-lg border border-ui-border bg-ui-panel px-3 py-2'>{runStats?.runs24h ?? '—'} runs today</span>
+                            <span className='rounded-lg border border-ui-border bg-ui-panel px-3 py-2'>{runStats?.darkwebRuns24h ?? '—'} darkweb runs today</span>
                         </div>
                     </div>
                     <div className='grid max-h-full min-h-0 min-w-0 gap-3 overflow-y-auto'>
@@ -1437,7 +1460,7 @@ export default function BrowserPageClient({ initialData, resultId, resultRunId }
                                     />
                                 </div>
                             </details>
-                            <HistoryPanel history={history} quota={quota} embedded onDelete={deleteHistory} onShare={shareFinding} />
+                            <HistoryPanel history={history} quota={quota} embedded historyReady={historyReady} onDelete={deleteHistory} onShare={shareFinding} />
                         </form>
                     </div>
                 </section>
@@ -1838,10 +1861,11 @@ function ProfilePicker({ paid, profiles, selectedProfileId, onSelect, onDelete }
     )
 }
 
-function HistoryPanel({ history, quota, embedded = false, onDelete, onShare }: {
+function HistoryPanel({ history, quota, embedded = false, historyReady, onDelete, onShare }: {
     history: BrowserRunHistory[]
     quota: BrowserQuota | null
     embedded?: boolean
+    historyReady: boolean
     onDelete: (ids?: string[]) => Promise<void>
     onShare: (run: BrowserRunHistory) => Promise<string>
 }) {
@@ -1924,7 +1948,7 @@ function HistoryPanel({ history, quota, embedded = false, onDelete, onShare }: {
                         </div>
                     </article>
                 ))}
-                {!visibleHistory.length ? <div className='rounded-md border border-dashed border-ui-border p-3 text-xs text-ui-muted'>No browser runs recorded yet.</div> : null}
+                {!visibleHistory.length ? <div className='rounded-md border border-dashed border-ui-border p-3 text-xs text-ui-muted'>{historyReady ? 'No browser runs recorded yet.' : 'Loading browser runs…'}</div> : null}
             </div>
         </section>
     )

@@ -69,6 +69,7 @@ type BrowserRunDeleteBody = { clientId?: string; ids?: string[]; clear?: boolean
 
 export const maxBrowserReportBytes = 32_000_000
 let browserRunStatsCache: { expiresAt: number; value: BrowserRunStats } | null = null
+const browserRunStatsCacheTtlMs = 60_000
 
 export async function getBrowserRuns(req: FastifyRequest<{ Querystring: { clientId?: string; history?: string; offset?: string } }>, res: FastifyReply) {
     try {
@@ -206,7 +207,7 @@ export async function deleteBrowserRuns(req: FastifyRequest<{ Body: BrowserRunDe
 
 export async function getBrowserRunStats(_req: FastifyRequest, res: FastifyReply) {
     const now = Date.now()
-    if (browserRunStatsCache && browserRunStatsCache.expiresAt > now) return res.header('cache-control', 'public, max-age=5').send(browserRunStatsCache.value)
+    if (browserRunStatsCache && browserRunStatsCache.expiresAt > now) return res.header('cache-control', 'public, max-age=10, s-maxage=60, stale-while-revalidate=300').send(browserRunStatsCache.value)
 
     try {
         const result = await run(`
@@ -220,8 +221,8 @@ export async function getBrowserRunStats(_req: FastifyRequest, res: FastifyReply
             runs24h: Number(result.rows[0]?.runs_24h || 0),
             darkwebRuns24h: Number(result.rows[0]?.darkweb_runs_24h || 0),
         } satisfies BrowserRunStats
-        browserRunStatsCache = { expiresAt: now + 5_000, value }
-        return res.header('cache-control', 'public, max-age=5').send(value)
+        browserRunStatsCache = { expiresAt: now + browserRunStatsCacheTtlMs, value }
+        return res.header('cache-control', 'public, max-age=10, s-maxage=60, stale-while-revalidate=300').send(value)
     } catch (error) {
         _req.log.error(error)
         return res.status(500).send({ error: 'Failed to load browser run stats.' })
@@ -288,6 +289,7 @@ export async function prepareBrowserRun(input: PrepareBrowserRunInput): Promise<
         `, [input.id, identity.ownerId, identity.quotaIdentity, identity.quotaPlan, identity.clientIdHash, input.target, input.network,
             JSON.stringify({ identityKind: identity.identityKind, leaseExpiresAt: new Date(Date.now() + 120_000).toISOString() }), browserResultId(input.target)])
         if (!result.rows.length) return { allowed: false as const, quota, reason: 'run_exists' as const }
+        browserRunStatsCache = null
         return { allowed: true as const, run: rowToRunRecord(result.rows[0]), quota: { ...quota, active: quota.active + 1, used: quota.used + 1 } }
     })
 }
