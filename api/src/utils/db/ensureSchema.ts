@@ -667,8 +667,8 @@ async function applySchema() {
     if (!await columnExists('traffic_events', 'country_iso')) {
         await run('ALTER TABLE traffic_events ADD COLUMN country_iso TEXT NOT NULL DEFAULT \'\'')
     }
-    await run('CREATE INDEX IF NOT EXISTS idx_traffic_events_created_at ON traffic_events(created_at DESC)')
-    await run('CREATE INDEX IF NOT EXISTS idx_traffic_events_domain_created_at ON traffic_events(domain, created_at DESC)')
+    await run('CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_traffic_events_created_at ON traffic_events(created_at DESC)')
+    await run('CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_traffic_events_domain_created_at ON traffic_events(domain, created_at DESC)')
     await ensureTrafficHistorySchema()
     await run(`
         CREATE TABLE IF NOT EXISTS desktop_agent_presence (
