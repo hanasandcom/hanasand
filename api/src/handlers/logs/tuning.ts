@@ -103,7 +103,7 @@ async function queryLogTuning(): Promise<TuningLog[]> {
     return withTransaction(async query => {
         // This all-time aggregation can take several minutes. It runs in a
         // background worker and never holds open the page's HTTP request.
-        await query('SET LOCAL statement_timeout = \'240s\'')
+        await query('SET LOCAL statement_timeout = \'15min\'')
         const result = await query(`SELECT
                 COALESCE(normalized->>'message', '') AS message,
                 COALESCE(NULLIF(normalized->>'ip', ''), NULLIF(normalized #>> '{source,ip}', ''), '') AS ip,
