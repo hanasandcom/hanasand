@@ -3,10 +3,10 @@ let stored: Record<string, any> = {}, findings: any[] = [], fail = false, findin
 let authRechecks: Array<{ sql: string, params: any[] }> = []
 const query = async (sql: string, p: any[] = []): Promise<any> => {
     if (sql.includes('SELECT r.rule_id AS id')) return { rows: retentionRules }
-    if (sql.includes('SELECT id,log_key,normalized FROM events')) return { rows: Object.values(stored).filter(row => p[1].includes(row.log_key)) }
+    if (sql.includes('SELECT id,normalized FROM events WHERE organization_id')) return { rows: Object.values(stored).filter(row => p[1].includes(row.id)) }
     if (sql.includes('SELECT event_ids FROM findings')) return { rows: [] }
     if (sql.includes('DELETE FROM login_events')) { deletedLogins = [...p[0]]; return { rows: p[0].map((id: string) => ({ id })) } }
-    if (sql.includes('DELETE FROM events WHERE organization_id')) { for (const row of Object.values(stored)) if (p[1].includes(row.log_key)) delete stored[row.id]; return { rows: [] } }
+    if (sql.includes('DELETE FROM events WHERE organization_id')) { for (const row of Object.values(stored)) if (p[1].includes(row.id)) delete stored[row.id]; return { rows: [] } }
     if (sql.includes('INSERT INTO log_analyze_receipts')) { receipts.push(p); return { rows: [] } }
     if (sql.includes('WITH later_users AS')) { authRechecks.push({ sql, params: p }); return { rows: [] } }
     if (sql.includes('SELECT id, event_timestamp, outcome, source_country, normalized')) return { rows: [] }

@@ -162,27 +162,27 @@ export async function processLogBatch(logs: LogInput[], organizationId: string, 
 
 async function pruneLoginMonitorEvents(logs: LogInput[], organizationId: string, rules: Awaited<ReturnType<typeof loadConfiguredRules>>) {
     const candidates = logs.flatMap(log => String(log.id).startsWith('login_events:')
-        ? [{ log, key: `service:${log.id}`, event: normalizeLogEvent(log, rules) }] : [])
+        ? [{ log, eventId: log.eventId || createHash('sha256').update(`service:${log.id}`).digest('hex'), event: normalizeLogEvent(log, rules) }] : [])
     if (!candidates.length) return new Set<string>()
     const retention = await loadLogRetentionRules(organizationId)
     const matching = candidates.filter(item => customRetentionAction(item.event, retention) === 'drop')
     if (!matching.length) return new Set<string>()
     return withTransaction(async query => {
-        const existing = await query('SELECT id,log_key,normalized FROM events WHERE organization_id=$1 AND log_key=ANY($2::text[]) FOR UPDATE',
-            [organizationId, matching.map(item => item.key)])
+        const existing = await query('SELECT id,normalized FROM events WHERE organization_id=$1 AND id=ANY($2::text[]) FOR UPDATE',
+            [organizationId, matching.map(item => item.eventId)])
         const ids = existing.rows.map(row => row.id)
         const findings = ids.length ? await query('SELECT event_ids FROM findings WHERE event_ids && $1::text[]', [ids]) : { rows: [] as Array<{ event_ids: string[] }> }
         const protectedIds = new Set(findings.rows.flatMap(row => row.event_ids))
-        const protectedKeys = new Set(existing.rows.filter(row => protectedIds.has(row.id)
-            || ['medium', 'high', 'critical'].includes(row.normalized?.severity) || row.normalized?.detections?.length).map(row => row.log_key))
-        const safe = matching.filter(item => !protectedKeys.has(item.key))
+        const protectedEventIds = new Set(existing.rows.filter(row => protectedIds.has(row.id)
+            || ['medium', 'high', 'critical'].includes(row.normalized?.severity) || row.normalized?.detections?.length).map(row => row.id))
+        const safe = matching.filter(item => !protectedEventIds.has(item.eventId))
         if (!safe.length) return new Set<string>()
         const sourceIds = safe.map(item => String(item.log.id).slice('login_events:'.length))
         const removed = await query('DELETE FROM login_events WHERE id=ANY($1::bigint[]) AND status=\'success\' RETURNING id', [sourceIds])
         const removedIds = new Set(removed.rows.map(row => String(row.id)))
         const deleted = safe.filter(item => removedIds.has(String(item.log.id).slice('login_events:'.length)))
-        for (const item of deleted) await recordCustomDropReceipts(item.event, retention, item.key, organizationId, query)
-        if (deleted.length) await query('DELETE FROM events WHERE organization_id=$1 AND log_key=ANY($2::text[])', [organizationId, deleted.map(item => item.key)])
+        for (const item of deleted) await recordCustomDropReceipts(item.event, retention, `service:${item.log.id}`, organizationId, query)
+        if (deleted.length) await query('DELETE FROM events WHERE organization_id=$1 AND id=ANY($2::text[])', [organizationId, deleted.map(item => item.eventId)])
         return new Set(deleted.map(item => String(item.log.id)))
     })
 }
