@@ -1,4 +1,4 @@
-FROM stalwartlabs/stalwart@sha256:cea39417b45fb32fad05cdf96ff89892f9ed48ff69aa5aca76c35d0372625d81
+FROM stalwartlabs/stalwart:v0.15.5@sha256:dcf575db2d53d9ef86d6ced8abe4ba491984659a0f8862cc6079ee7b41c3c568
 
 USER root
 RUN apt-get update \
