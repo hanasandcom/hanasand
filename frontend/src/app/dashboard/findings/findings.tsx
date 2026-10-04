@@ -388,18 +388,29 @@ export function Findings({
                     <div className='flex flex-wrap items-center gap-2'>
                         <CreateCase organizationId={organizationId} />
                         <WatchlistActionLink href='/ti/sources?scope=global&available=true'>Add source</WatchlistActionLink>
-                        <WatchlistActionLink href='/findings'>Go to findings</WatchlistActionLink>
-                        <WatchlistActionLink href='/findings/delivery'>Go to delivery</WatchlistActionLink>
+                        <WatchlistActionLink href='/findings'>Findings</WatchlistActionLink>
+                        <WatchlistActionLink href='/findings/delivery'>Delivery</WatchlistActionLink>
                     </div>
                 </header>
 
                 <section aria-label='Watchlist summary' className='grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5'>
-                    {summaryCards.map(card => (
-                        <article key={card.label} className='rounded-lg border border-ui-border bg-ui-panel p-3 shadow-sm'>
-                            <h2 className='text-sm font-medium text-ui-muted'>{card.label}</h2>
-                            <p className='mt-2 text-2xl font-semibold tabular-nums text-ui-text'>{card.value}</p>
-                        </article>
-                    ))}
+                    {summaryCards.map(card => {
+                        const contents = (
+                            <>
+                                <h2 className='text-sm font-medium text-ui-muted'>{card.label}</h2>
+                                <p className='mt-2 text-2xl font-semibold tabular-nums text-ui-text'>{card.value}</p>
+                            </>
+                        )
+                        return card.label === 'Cases' ? (
+                            <Link key={card.label} href='/cases' className='block rounded-lg border border-ui-border bg-ui-panel p-3 text-left shadow-sm transition-colors hover:bg-ui-raised focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-primary'>
+                                {contents}
+                            </Link>
+                        ) : (
+                            <article key={card.label} className='rounded-lg border border-ui-border bg-ui-panel p-3 shadow-sm'>
+                                {contents}
+                            </article>
+                        )
+                    })}
                 </section>
 
                 <section id='watchlists' className='overflow-hidden rounded-lg border border-ui-border bg-ui-panel shadow-sm'>

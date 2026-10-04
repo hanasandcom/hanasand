@@ -101,7 +101,23 @@ export function DwmWorkflowActions({ tenantId, organizationId, initialTerms, tel
 
     async function saveWatchlist(event: SyntheticEvent<HTMLFormElement>) {
         event.preventDefault()
-        await saveAndRebuildWatchlist()
+        setBusyAction('watchlist')
+        setResult(null)
+        const nextTerms = workflowTerms(terms)
+
+        try {
+            const watchlist = await saveWatchlistTerms(nextTerms)
+            if (!watchlist.ok) throw new Error(watchlist.message)
+
+            setTerms(nextTerms)
+            setResult({ ok: true, message: 'Watchlist terms saved.' })
+            refreshWorkspace()
+            onSaved?.()
+        } catch (error) {
+            setResult({ ok: false, message: error instanceof Error ? error.message : String(error) })
+        } finally {
+            setBusyAction(null)
+        }
     }
 
     async function ingestPublicAdvisory(event: SyntheticEvent<HTMLFormElement>) {
@@ -659,8 +675,8 @@ export function DwmWorkflowActions({ tenantId, organizationId, initialTerms, tel
                 />
                 <div className='flex flex-wrap items-center gap-3'>
                     <button disabled={busy || Boolean(watchlistDisabledReason)} className='inline-flex h-10 items-center gap-2 rounded-lg bg-ui-primary px-4 text-sm font-semibold text-ui-on-primary transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60'>
-                        {busyAction === 'watchlist' ? <Loader2 className='h-4 w-4 animate-spin' /> : <RefreshCw className='h-4 w-4' />}
-                        Save and rebuild
+                        {busyAction === 'watchlist' ? <Loader2 className='h-4 w-4 animate-spin' /> : null}
+                        Save terms
                     </button>
                     {result ? <p role='status' className={`text-sm ${result.ok ? 'text-ui-success' : 'text-ui-danger'}`}>{result.message}</p> : null}
                 </div>
