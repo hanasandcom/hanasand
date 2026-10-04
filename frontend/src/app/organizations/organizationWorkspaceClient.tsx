@@ -622,9 +622,9 @@ function firstDomainCandidate(value: string) {
     return match?.[0]
 }
 
-export default function OrganizationWorkspaceClient({ initialOrganizations, page = 'overview' }: { initialOrganizations?: OrganizationSummary[], page?: OrganizationPage } = {}) {
+export default function OrganizationWorkspaceClient({ page = 'overview' }: { page?: OrganizationPage } = {}) {
     const searchParams = useSearchParams()
-    const { organizationId: requestedOrganizationId, switchOrganization } = useWorkspace()
+    const { organizationId: requestedOrganizationId, organizations: workspaceOrganizations, loading: workspaceLoading, switchOrganization } = useWorkspace()
     const requestedWatchlistId = searchParams.get('watchlistItemId')?.trim() || searchParams.get('watchlistId')?.trim() || ''
     const requestedDestinationId = searchParams.get('destinationId')?.trim() || ''
     const requestedDeliveryId = searchParams.get('deliveryId')?.trim() || ''
@@ -634,10 +634,10 @@ export default function OrganizationWorkspaceClient({ initialOrganizations, page
     const requestedMemberId = searchParams.get('memberId')?.trim() || ''
     const requestedFocus = searchParams.get('focus')?.trim() || ''
     const activePage = page === 'overview' ? organizationPageForFocus(requestedFocus || (requestedInviteId || requestedMemberId ? 'team' : requestedWatchlistId ? 'watchlists' : requestedDestinationId ? 'destinations' : requestedDeliveryId ? 'delivery' : requestedAlertId || requestedCaseId ? 'alerts' : 'overview')) : page
-    const [organizations, setOrganizations] = useState<OrganizationSummary[]>(initialOrganizations || [])
+    const [organizations, setOrganizations] = useState<OrganizationSummary[]>(workspaceOrganizations as OrganizationSummary[])
     const [selectedId, setSelectedId] = useState(() => requestedOrganizationId)
     const [bundle, setBundle] = useState<OrgBundle>(initialBundle)
-    const [loading, setLoading] = useState(initialOrganizations === undefined)
+    const [loading, setLoading] = useState(workspaceLoading)
     const [busy, setBusy] = useState('')
     const [error, setError] = useState('')
     const [message, setMessage] = useState('')
@@ -862,8 +862,15 @@ export default function OrganizationWorkspaceClient({ initialOrganizations, page
     }, [selectedId, selectedOrganization?.id])
 
     useEffect(() => {
-        if (initialOrganizations === undefined) void loadOrganizations()
-    }, [initialOrganizations, loadOrganizations])
+        const nextOrganizations = workspaceOrganizations as OrganizationSummary[]
+        setOrganizations(nextOrganizations)
+        setLoading(workspaceLoading)
+        setSelectedId(current => {
+            if (nextOrganizations.some(item => item.id === current)) return current
+            if (workspaceLoading) return requestedOrganizationId
+            return nextOrganizations.find(item => item.id === requestedOrganizationId)?.id || nextOrganizations[0]?.id || ''
+        })
+    }, [requestedOrganizationId, workspaceLoading, workspaceOrganizations])
 
     useEffect(() => {
         if (selectedOrganization?.id) {
@@ -1437,7 +1444,7 @@ export default function OrganizationWorkspaceClient({ initialOrganizations, page
                                 <Search className='h-4 w-4' /><span className='hidden sm:inline'>Search</span><kbd className='rounded border border-ui-border bg-ui-canvas px-1.5 py-0.5 text-[11px] dark:border-ui-border dark:bg-ui-canvas'>⌘J</kbd>
                             </button>
                         </>}
-                        <button type='button' className={primaryButtonClass} aria-expanded={createFormOpen || organizations.length === 0} aria-controls='org-create-primary' onClick={() => organizations.length === 0 ? createNameRef.current?.focus() : setCreateFormOpen(current => !current)}>
+                        <button type='button' className={primaryButtonClass} aria-expanded={createFormOpen || (!loading && organizations.length === 0)} aria-controls='org-create-primary' disabled={loading} onClick={() => organizations.length === 0 ? createNameRef.current?.focus() : setCreateFormOpen(current => !current)}>
                             <Building2 className='h-4 w-4' />Create organization
                         </button>
                         {organizations.length > 0 && <>
@@ -1477,7 +1484,7 @@ export default function OrganizationWorkspaceClient({ initialOrganizations, page
                     </div>
                 )}
 
-                {(createFormOpen || organizations.length === 0) && createOrganizationPanel}
+                {(createFormOpen || (!loading && organizations.length === 0)) && createOrganizationPanel}
 
                 {(selectedOrganization || organizations.length > 0 || (!loading && organizations.length === 0)) && <main className='min-w-0'>
                     {selectedOrganization ? (
