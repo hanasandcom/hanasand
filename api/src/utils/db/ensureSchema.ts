@@ -949,7 +949,7 @@ async function applySchema() {
             updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
     `)
-    await run('ALTER TABLE organizations ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT \'active\'')
+    await ensureColumn(run, 'organizations', 'status', 'ALTER TABLE organizations ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT \'active\'')
     await run('ALTER TABLE organizations ADD COLUMN IF NOT EXISTS default_webhook_policy TEXT NOT NULL DEFAULT \'active_destinations\'')
     await run('ALTER TABLE organizations ADD COLUMN IF NOT EXISTS alert_visibility_policy TEXT NOT NULL DEFAULT \'members\'')
     await run('ALTER TABLE organizations ADD COLUMN IF NOT EXISTS retention_days INT NOT NULL DEFAULT 365')
