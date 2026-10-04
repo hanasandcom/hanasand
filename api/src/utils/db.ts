@@ -195,6 +195,7 @@ export async function queryOnce(query: string, params?: SQLParamType, name?: str
     let expired = false
     let timer: ReturnType<typeof setTimeout> | undefined
     const onlineIndex = /^\s*(?:CREATE\s+(?:UNIQUE\s+)?INDEX|DROP\s+INDEX)\s+CONCURRENTLY\b/i.test(query)
+    const pendingEventsIndex = /^\s*(?:CREATE\s+INDEX\s+CONCURRENTLY\s+IF\s+NOT\s+EXISTS|DROP\s+INDEX\s+CONCURRENTLY\s+IF\s+EXISTS)\s+idx_events_logs_pending\b/i.test(query)
     const largeServiceLogDrop = /^\s*DROP\s+TABLE\s+IF\s+EXISTS\s+service_logs\b/i.test(query)
     const trafficHistorySchema = /^\s*CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+traffic_history_state\b/i.test(query)
     try {
@@ -205,6 +206,9 @@ export async function queryOnce(query: string, params?: SQLParamType, name?: str
             if (onlineIndex) {
                 await client.query("SET lock_timeout = '30s'; SET statement_timeout = 0")
             }
+            // Old event searches can keep this partial index pinned. The online
+            // rebuild does not block ingestion, so let active readers drain.
+            if (pendingEventsIndex) await client.query("SET lock_timeout = '5min'; SET statement_timeout = 0")
             // Traffic history replaces a view that live dashboard queries can hold
             // open. Bound the wait, but let this small schema batch complete.
             if (trafficHistorySchema) await client.query("SET lock_timeout = '30s'; SET statement_timeout = '60s'")
