@@ -110,17 +110,15 @@ export default function TuningPage() {
                 <p className='text-xs text-ui-muted'>{data?.refreshing ? `Refreshing in background${displayedAt ? ` · showing snapshot from ${displayedAt}` : ''}…` : displayedAt ? `Updated ${displayedAt}` : pending ? 'Preparing the summary in the background…' : 'Loading patterns…'}</p>
             </div>
             <div className='overflow-x-auto'>
-                <table className='w-full min-w-[70rem] table-fixed text-left text-sm'>
+                <table className='w-full min-w-[60rem] table-fixed text-left text-sm'>
                     <thead className='bg-ui-raised text-xs text-ui-muted'><tr><th className='w-[32%] px-4 py-2'>Log</th><th className='w-[14%] px-4 py-2'>IP</th><th className='w-[25%] px-4 py-2'>User agent</th><th className='w-[11%] px-4 py-2 text-right'>Count</th><th className='w-[18%] px-4 py-2 text-right'>Row data</th></tr></thead>
                     <tbody>{(data?.logs || []).map(log => {
                         const protectedCount = Number(log.protected_event_count)
-                        const allProtected = protectedCount >= Number(log.event_count)
                         const tunableFields = log.message.length > 0 && log.message.length <= 200
                             && (!log.ip_path || log.ip.length <= 200)
                             && (!log.user_agent_path || log.user_agent.length <= 200)
-                        const tunable = tunableFields && !allProtected
                         return <tr key={JSON.stringify([log.message, log.ip, log.user_agent])} className='border-t border-ui-border align-top'>
-                            <td className='px-4 py-3'><code className='block whitespace-pre-wrap wrap-break-word text-xs'>{log.message}</code>{protectedCount > 0 && <p className='mt-1 text-xs text-ui-warning'>{numberFormat.format(protectedCount)} failure or detection events are protected</p>}<button type='button' disabled={!canManage || !tunable} onClick={() => { setSelected(log); setCreatedRule(null) }} className='mt-2 rounded-md border border-ui-border px-2.5 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-50' title={allProtected ? 'Failure or detection evidence is kept by the existing protection rule.' : !tunableFields ? 'This log message or a rule field is too long for an exact condition.' : canManage ? undefined : 'An Hanasand editor is required to create a suppression rule'}>Tune</button></td>
+                            <td className='px-4 py-3'><code className='block whitespace-pre-wrap wrap-break-word text-xs'>{log.message}</code>{protectedCount > 0 && <p className='mt-1 text-xs text-ui-warning'>{numberFormat.format(protectedCount)} failure or detection events — review before suppressing</p>}<button type='button' disabled={!canManage || !tunableFields} onClick={() => { setSelected(log); setCreatedRule(null) }} className='mt-2 rounded-md border border-ui-border px-2.5 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-50' title={!tunableFields ? 'This log message or a rule field is too long for an exact condition.' : canManage ? undefined : 'An Hanasand editor is required to create a suppression rule'}>Tune</button></td>
                             <td className='px-4 py-3 text-xs'><span className='wrap-break-word'>{log.ip || '—'}</span></td>
                             <td className='px-4 py-3 text-xs'><span className='wrap-break-word'>{log.user_agent || '—'}</span></td>
                             <td className='px-4 py-3 text-right tabular-nums'>{numberFormat.format(Number(log.event_count))}</td>
