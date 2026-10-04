@@ -162,7 +162,7 @@ export async function processLogBatch(logs: LogInput[], organizationId: string, 
 
 async function pruneLoginMonitorEvents(logs: LogInput[], organizationId: string, rules: Awaited<ReturnType<typeof loadConfiguredRules>>) {
     const candidates = logs.flatMap(log => String(log.id).startsWith('login_events:')
-        ? [{ log, key: `service:${log.id}`, eventId: log.eventId || createHash('sha256').update(`service:${log.id}`).digest('hex'), event: normalizeLogEvent(log, rules) }] : [])
+        ? [{ log, eventId: log.eventId || createHash('sha256').update(`service:${log.id}`).digest('hex'), event: normalizeLogEvent(log, rules) }] : [])
     if (!candidates.length) return new Set<string>()
     const retention = await loadLogRetentionRules(organizationId)
     const matching = candidates.filter(item => customRetentionAction(item.event, retention) === 'drop')
@@ -181,7 +181,7 @@ async function pruneLoginMonitorEvents(logs: LogInput[], organizationId: string,
         const removed = await query('DELETE FROM login_events WHERE id=ANY($1::bigint[]) AND status=\'success\' RETURNING id', [sourceIds])
         const removedIds = new Set(removed.rows.map(row => String(row.id)))
         const deleted = safe.filter(item => removedIds.has(String(item.log.id).slice('login_events:'.length)))
-        for (const item of deleted) await recordCustomDropReceipts(item.event, retention, item.key, organizationId, query)
+        for (const item of deleted) await recordCustomDropReceipts(item.event, retention, `service:${item.log.id}`, organizationId, query)
         if (deleted.length) await query('DELETE FROM events WHERE organization_id=$1 AND id=ANY($2::text[])', [organizationId, deleted.map(item => item.eventId)])
         return new Set(deleted.map(item => String(item.log.id)))
     })
