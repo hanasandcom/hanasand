@@ -1593,38 +1593,6 @@ export class PostgresScraperStore extends InMemoryScraperStore {
     return { schemaVersion: "ti.source_operations_summary.v1", generatedAt: input.generatedAt, tenantId: input.tenantId ?? "global", summary: row?.summary ?? {} };
   }
 
-  async queryPublicCoverageSummary(input: { generatedAt: string }) {
-    const timeoutMs = Math.max(250, Math.min(15_000, Number(Bun.env.TI_PUBLIC_COVERAGE_TIMEOUT_MS || 5_000)));
-    const operationsPromise = typeof this.sql.begin === "function"
-      ? this.sql.begin(async (transaction: any) => {
-        await transaction.unsafe(`SET LOCAL statement_timeout = '${timeoutMs}ms'`);
-        return this.querySourceOperationalSummary({ generatedAt: input.generatedAt, executableOnly: true }, transaction);
-      })
-      : this.querySourceOperationalSummary({ generatedAt: input.generatedAt, executableOnly: true });
-    const [registryRows, operations] = await Promise.all([
-      this.sql`
-        SELECT count(*)::int AS source_count,
-          count(*) FILTER (WHERE collection_executable)::int AS executable_source_count,
-          count(*) FILTER (WHERE NOT collection_executable)::int AS inactive_source_count
-        FROM threat_intel.sources
-        WHERE tenant_id IS NULL
-      `,
-      operationsPromise
-    ]);
-    const registry = registryRows[0] ?? {};
-    const summary = operations.summary ?? {};
-    return {
-      ...operations,
-      summary: {
-        ...summary,
-        sourceCount: Number(registry?.source_count ?? 0),
-        retainedSourceCount: Number(registry?.executable_source_count ?? 0),
-        activeSourceCount: Number(registry?.executable_source_count ?? 0),
-        inactiveSourceCount: Number(registry?.inactive_source_count ?? 0)
-      }
-    };
-  }
-
   private deliverySnapshotWorker?: Worker;
   private deliverySnapshotRequests = new Map<string, { resolve: (value: any) => void; reject: (error: Error) => void }>();
   enableDeliverySnapshotWorker() {
@@ -1740,56 +1708,6 @@ export class PostgresScraperStore extends InMemoryScraperStore {
       captures: rows.map((r: any) => readRecord({ record: r.capture })).filter(Boolean), incidents: rows.map((r: any) => readRecord({ record: r.incident })).filter(Boolean),
       sources: rows.map((r: any) => readRecord({ record: r.source })).filter(Boolean), validationRecords: validations.map(readRecord)
     } };
-  }
-
-  async queryPublicCoverageLatency() {
-    const [row] = await this.sql`
-      SELECT count(*)::int AS sample_count,
-        percentile_cont(0.5) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (alerted_at - first_reported_at))) AS median_seconds,
-        percentile_cont(0.95) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (alerted_at - first_reported_at))) AS p95_seconds
-      FROM threat_intel.timeliness_records
-      WHERE tenant_id IS NULL
-        AND first_reported_at IS NOT NULL
-        AND first_reported_kind IS DISTINCT FROM 'server_first_seen'
-        AND alerted_at IS NOT NULL
-        AND alerted_at >= first_reported_at
-    `;
-    return {
-      status: Number(row?.sample_count ?? 0) ? "observed" : "not_enough_observations",
-      sampleCount: Number(row?.sample_count ?? 0),
-      medianSeconds: row?.median_seconds == null ? null : Number(row.median_seconds),
-      p95Seconds: row?.p95_seconds == null ? null : Number(row.p95_seconds)
-    };
-  }
-
-  async queryPublicCoverageCadence() {
-    const [row] = await this.sql`
-      WITH cadence AS (
-        SELECT CASE
-          WHEN COALESCE(record->>'crawlFrequencySeconds', '') ~ '^[0-9]+(?:\\.[0-9]+)?$'
-            THEN (record->>'crawlFrequencySeconds')::double precision
-          WHEN COALESCE(record->>'crawlFrequencyMinutes', '') ~ '^[0-9]+(?:\\.[0-9]+)?$'
-            THEN (record->>'crawlFrequencyMinutes')::double precision * 60
-          ELSE NULL
-        END AS seconds
-        FROM threat_intel.sources
-        WHERE tenant_id IS NULL
-      )
-      SELECT count(*)::int AS source_count,
-        min(seconds) AS minimum_seconds,
-        percentile_cont(0.5) WITHIN GROUP (ORDER BY seconds) AS median_seconds,
-        max(seconds) AS maximum_seconds
-      FROM cadence
-      WHERE seconds IS NOT NULL
-    `;
-    const sourceCount = Number(row?.source_count ?? 0);
-    return {
-      status: sourceCount ? "observed" : "not_measured",
-      sourceCount,
-      minimumSeconds: row?.minimum_seconds == null ? null : Number(row.minimum_seconds),
-      medianSeconds: row?.median_seconds == null ? null : Number(row.median_seconds),
-      maximumSeconds: row?.maximum_seconds == null ? null : Number(row.maximum_seconds)
-    };
   }
 
   override async listActorProfilesForOwnership(): Promise<any[]> {

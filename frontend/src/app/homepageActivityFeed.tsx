@@ -15,7 +15,7 @@ const CACHE_SIZE = 100
 const CACHE_KEY = 'hanasand-home-exposure-queue-v1'
 const REFRESH_MS = 300_000
 
-export default function HomeExposureQueueClient({ initialQueue }: Props) {
+export default function HomepageActivityFeed({ initialQueue }: Props) {
     const [queue, setQueue] = useState(initialQueue)
     const [items, setItems] = useState(() => dedupeItems(initialQueue.items))
     const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)

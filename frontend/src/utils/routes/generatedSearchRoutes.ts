@@ -91,12 +91,6 @@ export const generatedSearchRoutes = [
         href: '/cookies',
     },
     {
-        id: 'route:/coverage',
-        title: 'Coverage',
-        detail: 'Page · /coverage',
-        href: '/coverage',
-    },
-    {
         id: 'route:/dashboard',
         title: 'Dashboard',
         detail: 'Page · /dashboard',
@@ -535,18 +529,6 @@ export const generatedSearchRoutes = [
         href: '/developers',
     },
     {
-        id: 'route:/eirik',
-        title: 'Eirik',
-        detail: 'Page · /eirik',
-        href: '/eirik',
-    },
-    {
-        id: 'route:/eirik/motivation',
-        title: 'Eirik · Motivation',
-        detail: 'Page · /eirik/motivation',
-        href: '/eirik/motivation',
-    },
-    {
         id: 'route:/faq',
         title: 'Faq',
         detail: 'Page · /faq',
@@ -635,12 +617,6 @@ export const generatedSearchRoutes = [
         title: 'Pwned',
         detail: 'Page · /pwned',
         href: '/pwned',
-    },
-    {
-        id: 'route:/quotes',
-        title: 'Quotes',
-        detail: 'Page · /quotes',
-        href: '/quotes',
     },
     {
         id: 'route:/register',
@@ -751,18 +727,6 @@ export const generatedSearchRoutes = [
         href: '/thesis',
     },
     {
-        id: 'route:/thought',
-        title: 'Thought',
-        detail: 'Page · /thought',
-        href: '/thought',
-    },
-    {
-        id: 'route:/thoughts',
-        title: 'Thoughts',
-        detail: 'Page · /thoughts',
-        href: '/thoughts',
-    },
-    {
         id: 'route:/ti',
         title: 'Ti',
         detail: 'Page · /ti',
@@ -779,12 +743,6 @@ export const generatedSearchRoutes = [
         title: 'Ti · Profiles',
         detail: 'Page · /ti/profiles',
         href: '/ti/profiles',
-    },
-    {
-        id: 'route:/trust',
-        title: 'Trust',
-        detail: 'Page · /trust',
-        href: '/trust',
     },
     {
         id: 'route:/upload',

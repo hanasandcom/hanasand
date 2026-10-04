@@ -6,8 +6,6 @@ export const publicRoutes = [
     '/cookie-settings',
     '/cookies',
     '/developers',
-    '/eirik',
-    '/eirik/motivation',
     '/pwned',
     '/pricing',
     '/privacy',
@@ -18,11 +16,6 @@ export const publicRoutes = [
     '/status',
     '/terms',
     '/ti',
-    '/trust',
-    '/trust/security-overview',
-    '/trust/dpa-and-data',
-    '/trust/subprocessors',
-    '/trust/sla-onboarding',
 ]
 
 export const articleRoutes = [

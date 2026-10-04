@@ -7,7 +7,7 @@ import LogoutClient from '@/components/logout/logoutClient'
 import { exposureQueueFallback } from './exposureQueue'
 import { buildRouteMetadata } from './seo'
 import { homepageFaqs } from './faqData'
-import HomeExposureQueueClient from './homeExposureQueueClient'
+import HomepageActivityFeed from './homepageActivityFeed'
 
 export const revalidate = 300
 
@@ -28,7 +28,6 @@ const consoleActions = [
 const solutions = [
     { title: 'Monitoring', href: '/ti' },
     { title: 'Isolated browser', href: '/browser' },
-    { title: 'Trust center', href: '/trust' },
     { title: 'Shared reports', href: '/contact?intent=reports' },
 ]
 
@@ -83,7 +82,7 @@ export default function Page() {
                             Open activity <ArrowRight className='h-4 w-4' />
                         </Link>
                     </div>
-                    <HomeExposureQueueClient initialQueue={exposureQueue} />
+                    <HomepageActivityFeed initialQueue={exposureQueue} />
                 </div>
             </section>
 

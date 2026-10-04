@@ -54,9 +54,6 @@ export default function AboutPage() {
                             <Link href='/contact' className='inline-flex h-11 items-center gap-2 rounded-lg border border-ui-border bg-ui-raised px-4 text-sm font-semibold text-ui-text transition hover:border-ui-primary'>
                                 Contact sales
                             </Link>
-                            <Link href='/trust' className='inline-flex h-11 items-center gap-2 rounded-lg border border-ui-border bg-ui-raised px-4 text-sm font-semibold text-ui-text transition hover:border-ui-primary'>
-                                Trust center
-                            </Link>
                         </div>
                     </div>
 

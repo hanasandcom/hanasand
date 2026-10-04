@@ -3,8 +3,6 @@ import assert from 'node:assert/strict'
 const baseUrl = (process.env.PUBLIC_ARCHIVE_BASE_URL || process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3000').replace(/\/$/, '')
 
 const htmlRoutes = [
-    '/eirik',
-    '/eirik/motivation',
     '/articles/readme',
     '/articles/theme',
 ]
@@ -26,8 +24,6 @@ assert.match(robots, /Disallow:\s*\/dashboard\//, 'robots.txt should keep dashbo
 
 const sitemap = await text('/sitemap.xml')
 for (const route of [
-    '/eirik',
-    '/eirik/motivation',
     '/articles/bot',
     '/articles/cache',
     '/articles/event',

@@ -11,7 +11,6 @@ test('pricing and subscription use one truthful commercial access contract', asy
     const loadTesting = await readFile(path.join(root, 'src/app/dashboard/load-testing/page.tsx'), 'utf8')
     const homepage = await readFile(path.join(root, 'src/app/page.tsx'), 'utf8')
     const contact = await readFile(path.join(root, 'src/components/contact/contact.tsx'), 'utf8')
-    const trust = await readFile(path.join(root, 'src/app/trust/trustArtifacts.ts'), 'utf8')
 
     expect(pricing).toContain('import { commercialAccessPlans } from \'@/utils/commercialAccess\'')
     expect(subscription).toContain('import { commercialAccessPlans } from \'@/utils/commercialAccess\'')
@@ -37,8 +36,6 @@ test('pricing and subscription use one truthful commercial access contract', asy
     }
     expect(contact).not.toContain('[\'email\', \'Email\']')
     expect(contact).not.toContain('webhook / email / API')
-    expect(trust).not.toContain('webhook/API/email delivery')
-    expect(trust).not.toContain('Delivery route: email')
 })
 
 test('contact requests use the durable idempotent API intake', async () => {

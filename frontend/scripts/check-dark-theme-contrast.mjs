@@ -35,8 +35,7 @@ const workspaceSearchPanel = readFileSync(path.join(frontendRoot, 'src/component
 const metadataPanel = readFileSync(path.join(frontendRoot, 'src/components/share/metadata.tsx'), 'utf8')
 const referencePanel = readFileSync(path.join(frontendRoot, 'src/components/share/referencePanel.tsx'), 'utf8')
 const terminalPanel = readFileSync(path.join(frontendRoot, 'src/components/share/terminal.tsx'), 'utf8')
-const homeExposureQueueClient = readFileSync(path.join(frontendRoot, 'src/app/homeExposureQueueClient.tsx'), 'utf8')
-const eirikPage = readFileSync(path.join(frontendRoot, 'src/app/eirik/page.tsx'), 'utf8')
+const homepageActivityFeed = readFileSync(path.join(frontendRoot, 'src/app/homepageActivityFeed.tsx'), 'utf8')
 const dwmWorkflowActions = readFileSync(path.join(frontendRoot, 'src/app/dashboard/findings/workflow-actions.tsx'), 'utf8')
 const recentScans = readFileSync(path.join(frontendRoot, 'src/components/test/recentScans.tsx'), 'utf8')
 const pricingPage = readFileSync(path.join(frontendRoot, 'src/app/pricing/page.tsx'), 'utf8')
@@ -550,34 +549,14 @@ for (const required of [
     'text-ui-warning',
     'text-ui-danger',
 ]) {
-    if (!homeExposureQueueClient.includes(required)) {
+    if (!homepageActivityFeed.includes(required)) {
         violations.push(`home latest activity panel should use shared palette class ${required}`)
     }
 }
 
-const bannedHomeExposureQueueColor = /#[0-9a-fA-F]{3,8}|\b(?:bg|text|border|ring|outline)-\[#|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue)\b|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue)\//g
-if (bannedHomeExposureQueueColor.test(homeExposureQueueClient)) {
+const bannedHomepageActivityColor = /#[0-9a-fA-F]{3,8}|\b(?:bg|text|border|ring|outline)-\[#|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue)\b|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue)\//g
+if (bannedHomepageActivityColor.test(homepageActivityFeed)) {
     violations.push('home latest activity panel should not use one-off public homepage color utilities after palette migration')
-}
-
-for (const required of [
-    'bg-ui-canvas',
-    'bg-ui-panel',
-    'bg-ui-raised',
-    'border-ui-border',
-    'text-ui-text',
-    'text-ui-muted',
-    'text-ui-primary',
-    'text-ui-canvas',
-]) {
-    if (!eirikPage.includes(required)) {
-        violations.push(`personal Eirik page should use shared palette class ${required}`)
-    }
-}
-
-const bannedEirikPageColor = /#[0-9a-fA-F]{3,8}|\b(?:bg|text|border|ring|outline)-\[#|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|slate|zinc|neutral|gray)\b|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|slate|zinc|neutral|gray)\//g
-if (bannedEirikPageColor.test(eirikPage)) {
-    violations.push('personal Eirik page should not use one-off public page color utilities after palette migration')
 }
 
 for (const required of [

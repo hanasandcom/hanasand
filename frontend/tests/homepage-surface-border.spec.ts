@@ -5,7 +5,7 @@ import path from 'node:path'
 const root = process.cwd()
 
 test('homepage exposure queue empty state reads like monitoring product copy', async () => {
-    const source = await readFile(path.join(root, 'src/app/homeExposureQueueClient.tsx'), 'utf8')
+    const source = await readFile(path.join(root, 'src/app/homepageActivityFeed.tsx'), 'utf8')
 
     expect(source).toContain('className=\'w-full min-w-[56rem]\'')
     expect(source).toContain('border-b border-ui-border px-4 py-3 text-sm last:border-b-0')

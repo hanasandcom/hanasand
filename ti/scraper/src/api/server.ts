@@ -31,7 +31,6 @@ import { searchResponse } from "./searchRoute.ts";
 import type { ApiServerHandle, ApiServerOptions } from "./serverTypes.ts";
 import { metrics, productSlo } from "./sloRoute.ts";
 import { createSource, listSources, sourceAtlas, updateSource } from "./sourceRoutes.ts";
-import { publicCoverage } from "./publicCoverage.ts";
 import { handleStructuredIntelRequest } from "./structuredIntelRoutes.ts";
 import { resolveTenantScope } from "./tenantScope.ts";
 import { InMemoryOrgAlertCaseActionLedgerRepository } from "../storage/orgAlertCaseActionLedgerPostgres.ts";
@@ -69,8 +68,7 @@ async function handleDurableApiRequest(request: Request, options: ApiServerOptio
   const readOnlyRequest = ["GET", "HEAD", "OPTIONS"].includes(request.method);
   const readOnlyExposureQueue = request.method === "GET" && ["/v1/dwm/exposure-queue", "/api/dwm/exposure-queue"].includes(pathname);
   const readOnlySourceOperations = request.method === "GET" && pathname === "/v1/intel/source-operations";
-  const readOnlyPublicCoverage = request.method === "GET" && pathname === "/v1/public/coverage";
-  if (readOnlyRequest || (request.method === "GET" && pathname === "/v1/health") || ["/v1/intel/search", "/api/ti/search"].includes(pathname) || readOnlyExposureQueue || readOnlySourceOperations || readOnlyPublicCoverage) return response;
+  if (readOnlyRequest || (request.method === "GET" && pathname === "/v1/health") || ["/v1/intel/search", "/api/ti/search"].includes(pathname) || readOnlyExposureQueue || readOnlySourceOperations) return response;
   try {
     await (options.store as any).flush?.();
     return response;
@@ -123,13 +121,6 @@ export async function handleApiRequest(request: Request, options: ApiServerOptio
       const databaseAvailable = reportedStorage.databaseAvailable !== false;
       const healthy = databaseAvailable && !reportedStorage.lastWriteError && !storageBacklogged;
       return json({ ok: healthy, service: "ti-scraper", version: "v1", storage: reportedStorage, search: { status: searchReady ? "ready" : "starting", ready: searchReady }, collection: { public: (options.canaryLoop as any)?.getState?.(), publicDefault: (options.defaultCanaryLoop as any)?.getState?.(), restrictedMetadata: (options.restrictedMetadataLoop as any)?.getState?.() }, ...runtime, generatedAt: nowIso() }, healthy ? 200 : 503);
-    }
-    if (url.pathname === "/v1/public/coverage" && request.method === "GET") {
-      try {
-        return json(await publicCoverage(options));
-      } catch (caught) {
-        return error("coverage_unavailable", caught instanceof Error ? caught.message : String(caught), 503);
-      }
     }
     if (url.pathname === "/v1/auth/integration-notes" && request.method === "GET") {
       return json({

@@ -5,8 +5,6 @@ import path from 'node:path'
 const root = process.cwd()
 
 const enterpriseFacingSources = [
-    'src/app/trust/page.tsx',
-    'src/app/trust/trustArtifacts.ts',
     'src/app/pricing/page.tsx',
     'src/app/developers/page.tsx',
 ] as const
@@ -31,17 +29,6 @@ test('public enterprise pages avoid casual competitive and procurement copy', as
         for (const pattern of bannedVisibleTone) {
             expect(source, `${sourcePath} should avoid ${pattern}`).not.toMatch(pattern)
         }
-    }
-})
-
-test('public trust page leads with verified product value', async () => {
-    const trust = await readFile(path.join(root, 'src/app/trust/page.tsx'), 'utf8')
-
-    expect(trust).toContain('Threat intelligence your team can act on.')
-    expect(trust).toContain('Evidence-backed monitoring')
-    expect(trust).toContain('How trust works in practice')
-    for (const phrase of ['Current assurance state', 'Not certified', 'Not published', 'Scoped deal', 'SOC 2 / ISO', 'DPA / MSA', 'SSO / SCIM']) {
-        expect(trust, `public trust page should not expose ${phrase}`).not.toContain(phrase)
     }
 })
 
@@ -93,7 +80,6 @@ test('global footer keeps enterprise diligence ahead of personal notebook links'
     const companyGroup = footer.slice(footer.indexOf('title: \'Company\''), footer.indexOf('title: \'Legal\''))
 
     expect(companyGroup).toContain('label: \'About\'')
-    expect(companyGroup).toContain('label: \'Trust Center\'')
     expect(companyGroup).toContain('label: \'Contact\'')
     expect(companyGroup).toContain('label: \'Pricing\'')
     expect(companyGroup).not.toContain('label: \'Eirik\'')

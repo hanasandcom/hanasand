@@ -4,7 +4,7 @@ import config from '@/config'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { Activity, ArrowUpRight, BellRing, BookOpen, Code2, FileText, Gauge, LockKeyhole, Network, Radar, ShieldCheck, Waypoints } from 'lucide-react'
+import { Activity, ArrowUpRight, BellRing, BookOpen, Code2, Gauge, LockKeyhole, Network, Radar, ShieldCheck, Waypoints } from 'lucide-react'
 import isSharePath from '@/utils/routes/isSharePath'
 import BrandLogo from '@/components/brand/brandLogo'
 import type { ServiceStatus } from '@/utils/status/getStatus'
@@ -40,7 +40,6 @@ const footerGroups = [
         title: 'Company',
         links: [
             { label: 'About', href: '/about', icon: BookOpen },
-            { label: 'Trust Center', href: '/trust', icon: FileText },
             { label: 'Contact', href: '/contact', icon: ArrowUpRight },
             { label: 'Pricing', href: '/pricing', icon: Gauge },
         ],
