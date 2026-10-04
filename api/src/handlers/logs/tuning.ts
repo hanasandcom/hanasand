@@ -38,7 +38,10 @@ export async function getLogTuning(req: FastifyRequest, res: FastifyReply) {
 
 async function queryLogTuning() {
     const result = await withTransaction(async query => {
-        await query('SET LOCAL statement_timeout = \'30s\'')
+        // This all-time grouping scans the stored log history. The HTTP route
+        // returns a pending response while the cache warms, so bound the DB
+        // work separately from the short frontend proxy timeout.
+        await query('SET LOCAL statement_timeout = \'180s\'')
         return query(`SELECT
                 COALESCE(normalized->>'message', '') AS message,
                 COALESCE(normalized->>'service', '') AS service,
