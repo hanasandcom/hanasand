@@ -319,7 +319,7 @@ compose_candidates() {
 
 warm_dashboard_pages() {
     port=$1
-    for page_path in /scanner /vms /db/backups /automation/health /browser; do
+    for page_path in /scanner /vms /db/backups /automation/health; do
         page_cookie='id=dashboard-render-proof-user; access_token=local-dashboard-render-proof-token; dashboard_view_mode=normal'
         curl --fail --silent --show-error --max-time 15 --output /dev/null \
             -H "Cookie: $page_cookie" \
@@ -338,6 +338,25 @@ warm_dashboard_pages() {
             return 1
         fi
         printf '%s first byte %.1f ms\n' "$page_path" "$(awk -v elapsed="$elapsed" 'BEGIN { print elapsed * 1000 }')"
+    done
+}
+
+warm_browser_stats() {
+    port=$1
+    response_file="$build_dir/browser-page.html"
+    for request in 1 2; do
+        response=$(curl --fail --silent --show-error --max-time 15 --output "$response_file" \
+            --write-out '%{http_code} %{time_starttransfer}' "http://127.0.0.1:$port/browser")
+        status=${response%% *}
+        elapsed=${response#* }
+        if [ "$status" != "200" ] \
+            || ! grep -Eq '>[0-9]+<!-- --> runs today' "$response_file" \
+            || ! grep -Eq '>[0-9]+<!-- --> darkweb runs today' "$response_file"; then
+            echo "/browser did not server-render both run counts (status $status)." >&2
+            return 1
+        fi
+        printf 'Browser stats preloaded in HTML (request %s first byte %.1f ms).\n' \
+            "$request" "$(awk -v elapsed="$elapsed" 'BEGIN { print elapsed * 1000 }')"
     done
 }
 
@@ -424,6 +443,7 @@ case "$candidate_frontend_health" in *'"ok":true'*"\"release\":\"$release\""*"\"
     ;;
 esac
 warm_dashboard_pages "$HANASAND_FRONTEND_CANDIDATE_PORT"
+warm_browser_stats "$HANASAND_FRONTEND_CANDIDATE_PORT"
 
 upstream_file=/home/hanasand/openresty/nginx/conf.d/hanasand-upstreams.conf
 test -w "$upstream_file" || {
@@ -552,6 +572,7 @@ case "$canonical_api_health" in *'"ok":true'*"\"release\":\"$release\""*) ;; *)
     ;;
 esac
 warm_dashboard_pages 3100
+warm_browser_stats 3100
 candidate_safe_to_remove=0
 switch_upstreams 3100 8082 canonical
 if wait_for_proxy_workers_to_drain "$last_proxy_workers"; then
