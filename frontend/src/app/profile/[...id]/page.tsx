@@ -27,15 +27,16 @@ export default async function Page(props: { params: Promise<{ id: string[] }> })
     if (!userId || !token) notFound()
     if (section === 'certificates') redirect(`/profile/${encodeURIComponent(profileId)}/ssh-keys`)
 
-    const isSelfSessionsPage = section === 'sessions' && profileId === userId
+    const isSelfProfile = profileId === userId
+    const isSelfSessionsPage = section === 'sessions' && isSelfProfile
     const [profile, initialSessions] = await Promise.all([
-        isSelfSessionsPage ? Promise.resolve(null) : fetchUser(profileId, { id: userId, token }),
+        isSelfProfile ? Promise.resolve(null) : fetchUser(profileId, { id: userId, token }),
         isSelfSessionsPage ? loadSessionsForRender(userId, token) : Promise.resolve(undefined),
     ])
-    if (!profile && !isSelfSessionsPage) notFound()
+    if (!profile && !isSelfProfile) notFound()
 
     const username = profile?.username || profile?.id || profileId
-    const isSelf = isSelfSessionsPage || profile?.id === userId
+    const isSelf = isSelfProfile || profile?.id === userId
     if (profile && profileId !== username) redirect(`/profile/${encodeURIComponent(username)}${section === 'profile' ? '' : `/${section}`}`)
 
     if (!isSelf && profile) return <DashboardPage><OrganizationProfile key={username} profile={profile} username={username} /></DashboardPage>
