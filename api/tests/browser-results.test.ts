@@ -8,8 +8,14 @@ const records = [
 ]
 let inserted: unknown[] = []
 let historyQuery: { sql: string; params: any[] } | null = null
+let deleteQuery: { sql: string; params: any[] } | null = null
 mock.module('#db', () => ({ default: async (sql: string, params: any[]) => {
     if (sql.includes('quota_identity = $1')) return { rows: [{ used: 0, active: 0 }] }
+    if (sql.includes('billing_entitlements')) return { rows: [{ paid: false, legacy_plan: null }] }
+    if (sql.includes('WITH selected_results') || sql.includes('jsonb_build_object(\'historyDeletedAt\'')) {
+        deleteQuery = { sql, params }
+        return { rows: [{ id: 'one' }, { id: 'two' }] }
+    }
     if (sql.includes('LIMIT 51 OFFSET')) {
         historyQuery = { sql, params }
         return { rows: Array.from({ length: params.at(-1) === 0 ? 51 : 2 }, (_, index) => ({ ...records[0], id: String(index + params.at(-1)) })) }
@@ -24,9 +30,9 @@ mock.module('#db', () => ({ default: async (sql: string, params: any[]) => {
     throw new Error(sql)
 }, withTransaction: async () => {} }))
 mock.module('#utils/auth/tokenWrapper.ts', () => ({ default: async () => ({ valid: Boolean(userId), id: userId }) }))
-const { getBrowserRuns, getBrowserResult, buildStoredBrowserReport, persistBrowserRunEvidence } = await import('../src/handlers/browserSandboxRuns.ts')
+const { deleteBrowserRuns, getBrowserRuns, getBrowserResult, buildStoredBrowserReport, persistBrowserRunEvidence } = await import('../src/handlers/browserSandboxRuns.ts')
 const response = () => ({ code: 200, body: null as any, status(code: number) { this.code = code; return this }, header() { return this }, send(body: any) { this.body = body; return this } })
-beforeEach(() => { userId = 'owner'; inserted = [] })
+beforeEach(() => { userId = 'owner'; inserted = []; deleteQuery = null })
 
 test('equivalent URLs have one stable identity; paths and queries remain distinct', () => {
     expect(browserResultId('https://vg.no/')).toBe('979b6683-b76b-87fc-95e8-02baa94ae619')
@@ -84,6 +90,30 @@ test('full history includes repeated URLs, paginates and keeps client ownership 
     }
     const invalid = response()
     await getBrowserRuns({ query: { clientId: 'history-test-client', history: 'all', offset: '-1' }, log: { error: console.error } } as any, invalid as any)
+    expect(invalid.code).toBe(400)
+})
+
+test('deleting a selected run hides every saved version of its result without removing usage rows', async () => {
+    const res = response()
+    await deleteBrowserRuns({ body: { clientId: 'history-test-client', ids: ['979b6683-b76b-87fc-95e8-02baa94ae619'] }, log: { error: console.error } } as any, res as any)
+    expect(res.code).toBe(200)
+    expect(res.body).toEqual({ deleted: 2 })
+    expect(deleteQuery!.sql).toContain('SELECT DISTINCT result_id FROM browser_runs')
+    expect(deleteQuery!.sql).toContain('jsonb_build_object(\'historyDeletedAt\', NOW())')
+    expect(deleteQuery!.sql).not.toContain('DELETE FROM browser_runs')
+    expect(deleteQuery!.params[0]).toBe('owner')
+    expect(deleteQuery!.params[2]).toEqual(['979b6683-b76b-87fc-95e8-02baa94ae619'])
+})
+
+test('clear history is scoped to the signed-in owner and rejects empty selection requests', async () => {
+    const cleared = response()
+    await deleteBrowserRuns({ body: { clientId: 'history-test-client', clear: true }, log: { error: console.error } } as any, cleared as any)
+    expect(cleared.code).toBe(200)
+    expect(deleteQuery!.sql).toContain('(owner_id = $1 OR ($2::text IS NOT NULL AND client_id_hash = $2))')
+    expect(deleteQuery!.sql).toContain('metadata->>\'historyDeletedAt\' IS NULL')
+
+    const invalid = response()
+    await deleteBrowserRuns({ body: { clientId: 'history-test-client', ids: [] }, log: { error: console.error } } as any, invalid as any)
     expect(invalid.code).toBe(400)
 })
 

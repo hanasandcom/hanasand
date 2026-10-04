@@ -208,7 +208,7 @@ import {
     putDwmWebhookDestination,
 } from './handlers/dwm/webhooks.ts'
 import { getBrowserSandboxProfiles, putBrowserSandboxProfiles } from './handlers/browserSandboxProfiles.ts'
-import { getBrowserResult, getBrowserRunReport, getBrowserRuns, getBrowserRunStats, maxBrowserReportBytes, postBrowserRunReport } from './handlers/browserSandboxRuns.ts'
+import { deleteBrowserRuns, getBrowserResult, getBrowserRunReport, getBrowserRuns, getBrowserRunStats, maxBrowserReportBytes, postBrowserRunReport } from './handlers/browserSandboxRuns.ts'
 import { publicSupportChat } from './handlers/publicSupportChat.ts'
 import { getMySupportTickets, getSupportMessages, getSupportTickets, postSupportMessage, postSupportTicket, postSupportStatus, postSupportFeedback, postSupportDiscordLinkCode } from './handlers/supportChat.ts'
 import { getDiscordSupportTickets, postDiscordSupportAction } from './handlers/supportDiscord.ts'
@@ -338,6 +338,7 @@ export default async function apiRoutes(fastify: FastifyInstance, options: Fasti
     fastify.put('/browser-sandbox/profiles', putBrowserSandboxProfiles)
     fastify.get('/browser/stats', getBrowserRunStats)
     fastify.get('/browser/runs', getBrowserRuns)
+    fastify.delete('/browser/runs', deleteBrowserRuns)
     fastify.get('/browser/results/:id', getBrowserResult)
     fastify.get('/browser/runs/:id/report', getBrowserRunReport)
     fastify.post('/browser/runs/:id/report', { bodyLimit: maxBrowserReportBytes + 4096 }, postBrowserRunReport)

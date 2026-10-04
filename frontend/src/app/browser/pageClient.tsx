@@ -6,7 +6,7 @@ import BrowserDebug from './BrowserDebug'
 import BrowserHistory from './BrowserHistory'
 import BrowserReportPageClient from './report/pageClient'
 import { BrowserControlSocket } from './controlSocket'
-import { ArrowLeft, ArrowUp, Check, ChevronDown, Clipboard, Download, Globe2, LoaderCircle, PackageCheck, Play, Plus, Share2, ShieldCheck, SlidersHorizontal, Square, Trash2 } from 'lucide-react'
+import { ArrowLeft, ArrowUp, Check, ChevronDown, Clipboard, Download, Globe2, ListChecks, LoaderCircle, MoreHorizontal, PackageCheck, Play, Plus, Share2, ShieldCheck, SlidersHorizontal, Square, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { type KeyboardEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -417,7 +417,7 @@ export default function BrowserPageClient({ initialData, resultId, resultRunId }
     const [capacity, setCapacity] = useState<SandboxCapacity | null>(null)
     const [history, setHistory] = useState<BrowserRunHistory[]>(() => sanitizeHistory(initialData.history))
     const [quota, setQuota] = useState<BrowserQuota | null>(() => quotaValue(initialData.quota))
-    const [runStats] = useState<BrowserRunStats>(() => initialData.stats)
+    const [runStats, setRunStats] = useState<BrowserRunStats>(() => initialData.stats)
     const [showStoredResult, setShowStoredResult] = useState(Boolean(resultId))
     const [resultClientId, setResultClientId] = useState('')
     useEffect(() => { setResultClientId(getOrCreateBrowserClientId()) }, [])
@@ -463,6 +463,67 @@ export default function BrowserPageClient({ initialData, resultId, resultRunId }
     const viewportFrame = streamUrl ? streamFrame || browserMetadata : activeToolCapture?.frameWidth && activeToolCapture?.frameHeight ? { width: activeToolCapture.frameWidth, height: activeToolCapture.frameHeight } : activeFrame
     const runRemainingSeconds = runTiming ? Math.max(0, Math.ceil((new Date(runTiming.expiresAt).getTime() - clockNow) / 1000)) : 0
     const paidBrowserPlan = Boolean(quota?.paid)
+
+    const refreshHistory = useCallback(async () => {
+        const clientId = getOrCreateBrowserClientId()
+        const response = await fetch(`${historyApiPath}?clientId=${encodeURIComponent(clientId)}`, { credentials: 'include', cache: 'no-store' })
+        if (!response.ok) throw new Error('Could not refresh browser history.')
+        const payload = await response.json() as { runs?: unknown[]; quota?: unknown }
+        setHistory(persistHistory(sanitizeHistory(payload.runs)))
+        setQuota(quotaValue(payload.quota))
+    }, [])
+
+    const refreshRunStats = useCallback(async () => {
+        const response = await fetch('/api/backend/browser/stats', { credentials: 'include', cache: 'no-store' })
+        if (!response.ok) return
+        const value = await response.json() as Partial<BrowserRunStats>
+        if (Number.isFinite(value.runs24h) && Number.isFinite(value.darkwebRuns24h)) {
+            setRunStats({ runs24h: Number(value.runs24h), darkwebRuns24h: Number(value.darkwebRuns24h) })
+        }
+    }, [])
+
+    const deleteHistory = useCallback(async (ids?: string[]) => {
+        const response = await fetch(historyApiPath, {
+            method: 'DELETE',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ clientId: getOrCreateBrowserClientId(), ...(ids ? { ids } : { clear: true }) }),
+        })
+        const payload = await response.json() as { error?: string }
+        if (!response.ok) throw new Error(payload.error || 'Could not delete browser history.')
+        await refreshHistory()
+    }, [refreshHistory])
+
+    const shareFinding = useCallback(async (run: BrowserRunHistory) => {
+        let reportUrl = run.reportUrl ? new URL(run.reportUrl, window.location.origin).toString() : ''
+        if (!reportUrl) {
+            if (!run.resultId) throw new Error('This run does not have a saved finding to share.')
+            const clientId = getOrCreateBrowserClientId()
+            const resultResponse = await fetch(`/api/backend/browser/results/${encodeURIComponent(run.resultId)}?clientId=${encodeURIComponent(clientId)}&run=${encodeURIComponent(run.id)}`, { credentials: 'include', cache: 'no-store' })
+            const report = await resultResponse.json()
+            if (!resultResponse.ok) throw new Error(report?.error || 'Could not load this finding.')
+            const response = await fetch(`${historyApiPath}/${encodeURIComponent(run.id)}/report`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ clientId, report }),
+            })
+            const payload = await response.json() as { reportUrl?: string; error?: string }
+            if (!response.ok || !payload.reportUrl) throw new Error(payload.error || 'Could not create a share link.')
+            reportUrl = new URL(payload.reportUrl, window.location.origin).toString()
+            setHistory(current => persistHistory(current.map(item => item.id === run.id ? { ...item, reportUrl } : item)))
+        }
+        if (typeof navigator.share === 'function') {
+            await navigator.share({ title: `Browser finding: ${run.target}`, url: reportUrl })
+            return 'Finding shared.'
+        }
+        if (navigator.clipboard) {
+            await navigator.clipboard.writeText(reportUrl)
+            return 'Share link copied.'
+        }
+        window.prompt('Copy this finding link', reportUrl)
+        return 'Share link ready.'
+    }, [])
     const runIsActive = sessionState === 'queued' || sessionState === 'connecting' || sessionState === 'live'
     const metricEvent = sessionState === 'ended' ? stoppedRunRef.current ? 'Stopped' : 'Completed' : sessionState === 'failed' ? 'Failed' : compactBrowserEvent(events[0] || sessionStateLabel(sessionState))
     const runMetrics = { ...streamStats, capacity, event: metricEvent }
@@ -668,14 +729,14 @@ export default function BrowserPageClient({ initialData, resultId, resultRunId }
     }, [activeSandboxTab, selectedProfile.tools])
 
     useEffect(() => {
-        const clientId = getOrCreateBrowserClientId()
-        const controller = new AbortController()
-        void fetch(`${historyApiPath}?clientId=${encodeURIComponent(clientId)}`, { credentials: 'include', signal: controller.signal })
-            .then(response => response.ok ? response.json() : null)
-            .then(payload => { if (payload?.runs?.length) setHistory(persistHistory(payload.runs)) })
-            .catch(() => undefined)
-        return () => controller.abort()
-    }, [])
+        void refreshHistory().catch(() => undefined)
+    }, [refreshHistory])
+
+    useEffect(() => {
+        void refreshRunStats()
+        const timer = window.setInterval(() => { void refreshRunStats() }, 30_000)
+        return () => window.clearInterval(timer)
+    }, [refreshRunStats])
 
     useEffect(() => {
         getOrCreateBrowserClientId()
@@ -849,6 +910,7 @@ export default function BrowserPageClient({ initialData, resultId, resultRunId }
             }
             if (payload.type === 'ready') {
                 setCapacity(capacityValue(payload.capacity) || null)
+                void refreshRunStats()
                 const runRecord = runHistoryValue(payload.run) || {
                     id,
                     target: url,
@@ -1021,7 +1083,7 @@ export default function BrowserPageClient({ initialData, resultId, resultRunId }
                 pushEvent(String(payload.message || 'Sandbox navigation failed.'))
             }
         }
-    }, [browserMetadata, pushConsoleEvent, pushEvent, selectedProfile.tools, quota?.advancedAnalysis, quota?.sessionSeconds, target])
+    }, [browserMetadata, pushConsoleEvent, pushEvent, refreshRunStats, selectedProfile.tools, quota?.advancedAnalysis, quota?.sessionSeconds, target])
 
     const selectSandboxTab = useCallback((tabId: string) => {
         const tool = selectedProfile.tools.find(item => item.id === tabId)
@@ -1272,7 +1334,7 @@ export default function BrowserPageClient({ initialData, resultId, resultRunId }
                         <p className='text-xs font-semibold uppercase text-ui-primary'>Browser sandbox</p>
                         <h1 className='max-w-xl text-4xl font-semibold tracking-normal text-ui-text md:text-6xl'>Browser</h1>
                         <p className='max-w-xl text-base leading-7 text-ui-muted'>
-                            Check unknown URLs in a sandbox. Onion addresses are also supported.
+                            Investigate domains quickly. Onion addresses are also supported.
                         </p>
                         <div className='grid max-w-xl gap-2 text-sm text-ui-muted sm:grid-cols-3'>
                             <span className='rounded-lg border border-ui-border bg-ui-panel px-3 py-2'><strong className='text-ui-text'>{capacity?.activeSessions ?? 0}/{capacity?.maxSessions ?? 100}</strong> browsers active</span>
@@ -1375,7 +1437,7 @@ export default function BrowserPageClient({ initialData, resultId, resultRunId }
                                     />
                                 </div>
                             </details>
-                            <HistoryPanel history={history} quota={quota} embedded />
+                            <HistoryPanel history={history} quota={quota} embedded onDelete={deleteHistory} onShare={shareFinding} />
                         </form>
                     </div>
                 </section>
@@ -1776,7 +1838,34 @@ function ProfilePicker({ paid, profiles, selectedProfileId, onSelect, onDelete }
     )
 }
 
-function HistoryPanel({ history, quota, embedded = false }: { history: BrowserRunHistory[]; quota: BrowserQuota | null; embedded?: boolean }) {
+function HistoryPanel({ history, quota, embedded = false, onDelete, onShare }: {
+    history: BrowserRunHistory[]
+    quota: BrowserQuota | null
+    embedded?: boolean
+    onDelete: (ids?: string[]) => Promise<void>
+    onShare: (run: BrowserRunHistory) => Promise<string>
+}) {
+    const [selectionMode, setSelectionMode] = useState(false)
+    const [selectedIds, setSelectedIds] = useState<string[]>([])
+    const [openMenuId, setOpenMenuId] = useState('')
+    const [busyId, setBusyId] = useState('')
+    const [busyClear, setBusyClear] = useState(false)
+    const [message, setMessage] = useState('')
+    const visibleHistory = history.filter(run => run.resultId)
+    const toggleSelected = (id: string) => setSelectedIds(current => current.includes(id) ? current.filter(item => item !== id) : [...current, id])
+    const runAction = async (action: () => Promise<void>, busy: string, success?: string) => {
+        setBusyId(busy)
+        setMessage('')
+        try {
+            await action()
+            if (success) setMessage(success)
+        } catch (error) {
+            setMessage(error instanceof Error ? error.message : 'The action failed.')
+        } finally {
+            setBusyId('')
+        }
+    }
+
     return (
         <section className={embedded ? 'grid gap-3 border-t border-ui-border pt-3' : 'grid gap-3 rounded-lg border border-ui-border bg-ui-panel p-4'}>
             <div className='flex flex-wrap items-start justify-between gap-3'>
@@ -1785,16 +1874,57 @@ function HistoryPanel({ history, quota, embedded = false }: { history: BrowserRu
                     {!quota?.paid ? <Link href='/pricing#browser' className='text-xs font-semibold text-ui-primary'>Upgrade for 30-minute runs and 3 simultaneous browsers</Link> : null}
                     <p className='mt-1 text-xs text-ui-muted'>{`${Math.round((quota?.sessionSeconds || 300) / 60)} minutes per run · ${quota?.concurrentLimit || 1} simultaneous browser${(quota?.concurrentLimit || 1) > 1 ? 's' : ''}`}</p>
                 </div>
+                <div className='flex items-center gap-1.5'>
+                    {selectionMode && selectedIds.length ? <button type='button' disabled={Boolean(busyId) || busyClear} onClick={() => void runAction(async () => { await onDelete(selectedIds); setSelectedIds([]) }, 'selected', 'Selected runs deleted.')} className='rounded-md border border-ui-border px-2.5 py-1.5 text-xs font-semibold text-ui-text hover:border-ui-primary disabled:opacity-50'>Delete selected ({selectedIds.length})</button> : null}
+                    <button type='button' disabled={!visibleHistory.length || Boolean(busyId) || busyClear} onClick={() => {
+                        setBusyClear(true)
+                        setMessage('')
+                        void onDelete().then(() => { setSelectedIds([]); setSelectionMode(false); setMessage('Recent runs cleared.') })
+                            .catch(error => setMessage(error instanceof Error ? error.message : 'Could not clear browser history.'))
+                            .finally(() => setBusyClear(false))
+                    }} className='rounded-md border border-ui-border px-2.5 py-1.5 text-xs font-semibold text-ui-text hover:border-ui-primary disabled:opacity-50'>Clear</button>
+                    <button type='button' disabled={!visibleHistory.length} onClick={() => {
+                        setSelectionMode(current => !current)
+                        setSelectedIds([])
+                        setMessage('')
+                    }} className={`grid h-8 w-8 place-items-center rounded-md border border-ui-border text-ui-muted hover:border-ui-primary hover:text-ui-text disabled:opacity-50 ${selectionMode ? 'border-ui-primary text-ui-primary' : ''}`} aria-label={selectionMode ? 'Done selecting runs' : 'Select runs'} title={selectionMode ? 'Done selecting' : 'Select runs'}>
+                        <ListChecks className='h-4 w-4' />
+                    </button>
+                </div>
             </div>
+            {message ? <p role='status' className='text-xs text-ui-muted'>{message}</p> : null}
             <div className='grid max-h-[10.75rem] gap-2 overflow-y-auto pr-1'>
-                {history.filter(run => run.resultId).map(run => (
-                    <Link key={run.id} href={`/browser/${run.resultId}`} className='grid gap-2 rounded-md border border-ui-border bg-ui-raised p-2 text-xs transition hover:border-ui-primary focus-visible:outline-2 focus-visible:outline-ui-primary md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-center'>
-                        <span className='min-w-0 truncate text-left font-mono text-ui-text'>{run.target}</span>
-                        <ProviderRunBadges run={run} />
-                        <span className='whitespace-nowrap text-ui-muted'>{new Date(run.startedAt).toLocaleString()}</span>
-                    </Link>
+                {visibleHistory.map(run => (
+                    <article key={run.id} className='relative flex min-w-0 items-center gap-2 rounded-md border border-ui-border bg-ui-raised p-2 text-xs transition hover:border-ui-primary'>
+                        {selectionMode ? <button type='button' onClick={() => toggleSelected(run.id)} className='grid h-7 w-7 shrink-0 place-items-center rounded text-ui-muted hover:text-ui-text' aria-label={`${selectedIds.includes(run.id) ? 'Deselect' : 'Select'} ${run.target}`} aria-pressed={selectedIds.includes(run.id)}>
+                            {selectedIds.includes(run.id) ? <Check className='h-4 w-4 text-ui-primary' /> : <Square className='h-4 w-4' />}
+                        </button> : null}
+                        <Link href={`/browser/${run.resultId}`} className='grid min-w-0 flex-1 gap-2 focus-visible:outline-2 focus-visible:outline-ui-primary md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-center'>
+                            <span className='min-w-0 truncate text-left font-mono text-ui-text'>{run.target}</span>
+                            <ProviderRunBadges run={run} />
+                            <span className='whitespace-nowrap text-ui-muted'>{new Date(run.startedAt).toLocaleString()}</span>
+                        </Link>
+                        <button type='button' disabled={Boolean(busyId) || busyClear} onClick={() => {
+                            void runAction(async () => { setMessage(await onShare(run)) }, `share-${run.id}`)
+                        }} className='grid h-7 w-7 shrink-0 place-items-center rounded text-ui-muted hover:text-ui-text disabled:opacity-50' aria-label={`Share finding for ${run.target}`} title='Share finding'>
+                            {busyId === `share-${run.id}` ? <LoaderCircle className='h-4 w-4 animate-spin' /> : <Share2 className='h-4 w-4' />}
+                        </button>
+                        <div className='relative shrink-0'>
+                            <button type='button' disabled={Boolean(busyId) || busyClear} onClick={() => setOpenMenuId(current => current === run.id ? '' : run.id)} className='grid h-7 w-7 place-items-center rounded text-ui-muted hover:text-ui-text disabled:opacity-50' aria-label={`More options for ${run.target}`} aria-expanded={openMenuId === run.id} title='More options'>
+                                <MoreHorizontal className='h-4 w-4' />
+                            </button>
+                            {openMenuId === run.id ? <div className='absolute right-0 top-8 z-20 min-w-28 rounded-md border border-ui-border bg-ui-panel p-1 shadow-lg'>
+                                <button type='button' onClick={() => {
+                                    setOpenMenuId('')
+                                    void runAction(() => onDelete([run.id]), `delete-${run.id}`, 'Run deleted.')
+                                }} className='flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs text-ui-text hover:bg-ui-raised'>
+                                    <Trash2 className='h-3.5 w-3.5' /> Delete
+                                </button>
+                            </div> : null}
+                        </div>
+                    </article>
                 ))}
-                {!history.length ? <div className='rounded-md border border-dashed border-ui-border p-3 text-xs text-ui-muted'>No browser runs recorded yet.</div> : null}
+                {!visibleHistory.length ? <div className='rounded-md border border-dashed border-ui-border p-3 text-xs text-ui-muted'>No browser runs recorded yet.</div> : null}
             </div>
         </section>
     )
