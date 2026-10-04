@@ -17,7 +17,10 @@ export default async function DashboardDwmPage({
     const [params, cookieStore] = await Promise.all([searchParams, cookies()])
     const identityId = cookieStore.get('id')?.value
     const token = cookieStore.get('access_token')?.value
-    if (!identityId || !token) redirect('/login?path=%2Ffindings')
+    if (!identityId || !token) {
+        const returnPath = firstParam(params?.panel) === 'watchlists' ? '/watchlists' : '/findings'
+        redirect(`/login?path=${encodeURIComponent(returnPath)}`)
+    }
 
     if (firstParam(params?.panel) === 'actions') {
         const sharedOrg = firstParam(params?.org) || firstParam(params?.organizationId) || firstParam(params?.orgId)

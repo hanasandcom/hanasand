@@ -39,7 +39,7 @@ type WorkflowRouteSummary = {
     deliveryState?: string
 }
 
-export function DwmWorkflowActions({ tenantId, organizationId, initialTerms, telemetry, headingLevel = 2 }: { headingLevel?: 1 | 2, tenantId: string, organizationId?: string, initialTerms: string[], telemetry?: WorkflowTelemetry }) {
+export function DwmWorkflowActions({ tenantId, organizationId, initialTerms, telemetry, headingLevel = 2, variant = 'workflow', onSaved }: { headingLevel?: 1 | 2, tenantId: string, organizationId?: string, initialTerms: string[], telemetry?: WorkflowTelemetry, variant?: 'workflow' | 'watchlist-editor', onSaved?: () => void }) {
     const Heading = headingLevel === 1 ? 'h1' : 'h2'
     const router = useRouter()
     const webhookInputRef = useRef<HTMLInputElement>(null)
@@ -91,6 +91,7 @@ export function DwmWorkflowActions({ tenantId, organizationId, initialTerms, tel
                 alertCount: savedAlertCount,
             })
             refreshWorkspace()
+            onSaved?.()
         } catch (error) {
             setResult({ ok: false, message: error instanceof Error ? error.message : String(error) })
         } finally {
@@ -644,6 +645,29 @@ export function DwmWorkflowActions({ tenantId, organizationId, initialTerms, tel
     const claimDisabledReason = claimReady ? '' : 'Add the actor, affected company, exposure details, and an HTTPS source URL.'
     const webhookTestDisabledReason = webhookConfigured ? '' : 'Enter an HTTPS webhook URL before testing delivery.'
     const webhookSendDisabledReason = webhookConfigured || organizationId ? '' : 'Enter an HTTPS webhook URL or open an organization with a saved delivery destination before sending queued events.'
+
+    if (variant === 'watchlist-editor') {
+        return (
+            <form onSubmit={saveWatchlist} className='grid gap-3'>
+                <textarea
+                    ref={watchlistInputRef}
+                    aria-label='Watchlist terms'
+                    value={terms}
+                    onChange={event => setTerms(event.target.value)}
+                    placeholder='One term per line'
+                    className='min-h-24 w-full resize-y rounded-lg border border-ui-border bg-ui-panel px-3 py-2 text-sm text-ui-text outline-none transition placeholder:text-ui-muted focus:border-ui-primary focus:ring-2 focus:ring-ui-primary/20'
+                />
+                <div className='flex flex-wrap items-center gap-3'>
+                    <button disabled={busy || Boolean(watchlistDisabledReason)} className='inline-flex h-10 items-center gap-2 rounded-lg bg-ui-primary px-4 text-sm font-semibold text-ui-on-primary transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60'>
+                        {busyAction === 'watchlist' ? <Loader2 className='h-4 w-4 animate-spin' /> : <RefreshCw className='h-4 w-4' />}
+                        Save and rebuild
+                    </button>
+                    {result ? <p role='status' className={`text-sm ${result.ok ? 'text-ui-success' : 'text-ui-danger'}`}>{result.message}</p> : null}
+                </div>
+            </form>
+        )
+    }
+
     const routeQueue = [
         {
             id: 'watchlist',

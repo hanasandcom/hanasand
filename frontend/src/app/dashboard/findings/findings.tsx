@@ -4,10 +4,11 @@ import { Fragment, useEffect, useMemo, useRef, useState, type Dispatch, type Rea
 import Link from '@/components/organizations/workspaceLink'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { CheckCircle2, Clock3, Copy, FolderOpen, Loader2, MessageSquareText, Play, RotateCcw, Send, ShieldCheck, SlidersHorizontal, UserRound, XCircle } from 'lucide-react'
-import type { DwmAlert, DwmAlertAnalystAction, DwmProductSnapshot } from '@/utils/dwm/product'
+import type { DwmAlert, DwmAlertAnalystAction, DwmProductSnapshot, DwmWatchTerm } from '@/utils/dwm/product'
 import { customerAlertSummary, safeAlertSummary, safeEvidenceExcerpt } from '@/utils/dwm/display'
 import { dwmNextOperatorAction, type DwmNextOperatorActionKind } from '@/utils/dwm/nextOperatorAction'
 import type { PublicTiHandoffDecodeResult } from '@/utils/ti/actorWorkbench'
+import { CreateCase } from '../cases/create-case'
 import { DwmWorkflowActions } from './workflow-actions'
 import { ActorDirectory, MonitoringOverview } from './monitoring-overview'
 
@@ -152,7 +153,25 @@ type CaseListItem = {
 type CasesState = {
     status: 'loading' | 'ready' | 'error'
     rows: CaseListItem[]
+    total?: number
     error?: string
+}
+
+type WatchlistItem = {
+    id: string
+    name: string
+    terms: DwmWatchTerm[]
+    status: 'active' | 'paused' | string
+}
+
+type WatchlistsState = {
+    status: 'loading' | 'ready' | 'error'
+    items: WatchlistItem[]
+}
+
+type DestinationsState = {
+    status: 'loading' | 'ready' | 'error'
+    count: number
 }
 
 type PortalProps = {
@@ -223,7 +242,9 @@ export function Findings({
     const [alerts, setAlerts] = useState(initialAlerts)
     const [dataHealth, setDataHealth] = useState(initialDataHealth)
     const [actionMessage, setActionMessage] = useState<{ ok: boolean, text: string } | null>(null)
-    const [casesState, setCasesState] = useState<CasesState>(() => ({ status: view === 'cases' ? 'loading' : 'ready', rows: [] }))
+    const [casesState, setCasesState] = useState<CasesState>(() => ({ status: view === 'cases' || view === 'watchlists' ? 'loading' : 'ready', rows: [] }))
+    const [watchlistsState, setWatchlistsState] = useState<WatchlistsState>(() => ({ status: view === 'watchlists' ? 'loading' : 'ready', items: [] }))
+    const [destinationsState, setDestinationsState] = useState<DestinationsState>(() => ({ status: view === 'watchlists' ? 'loading' : 'ready', count: 0 }))
     const [selectedId, setSelectedId] = useState(initialAlertId && alerts.some(alert => alert.id === initialAlertId) ? initialAlertId : alerts[0]?.id ?? '')
     const [busyAction, setBusyAction] = useState<string | null>(null)
     const [localDeliveries, setLocalDeliveries] = useState<DeliveryItem[]>(initialDeliveries)
@@ -257,9 +278,11 @@ export function Findings({
             headingLevel={view === 'actions' ? 1 : 2}
             key={`${tenantId}:${snapshot.watchlist.map(term => term.value).join('\u0000')}`}
             tenantId={tenantId}
-            organizationId={selectedOrganizationId}
+            organizationId={view === 'watchlists' ? organizationId : selectedOrganizationId}
             initialTerms={snapshot.watchlist.map(term => term.value)}
             telemetry={workflowTelemetry}
+            variant={view === 'watchlists' ? 'watchlist-editor' : 'workflow'}
+            onSaved={view === 'watchlists' ? () => setRefreshVersion(version => version + 1) : undefined}
         />
     )
 
@@ -288,6 +311,11 @@ export function Findings({
             void refreshDwmOperations(params, controller.signal, setOperations, setDataHealth)
             void refreshDwmAlerts(params, controller.signal, setAlerts, setDataHealth)
             void refreshDwmDeliveries(params, controller.signal, setLocalDeliveries, setDataHealth)
+        }
+        if (view === 'watchlists') {
+            void refreshCases(params, controller.signal, setCasesState)
+            void refreshDwmWatchlists(params, controller.signal, setWatchlistsState)
+            void refreshDwmDestinations(organizationId || tenantId, controller.signal, setDestinationsState)
         }
         return () => {
             controller.abort()
@@ -346,17 +374,70 @@ export function Findings({
     }
 
     if (view === 'watchlists') {
+        const summaryCards = [
+            { label: 'Watchlists', value: watchlistsState.status === 'ready' ? String(watchlistsState.items.length) : '—' },
+            { label: 'Watched terms', value: dataHealth.snapshot.state === 'live' ? String(watchTermCount) : '—' },
+            { label: 'Findings', value: dataHealth.alerts.state === 'live' ? String(alerts.length) : '—' },
+            { label: 'Destinations', value: destinationsState.status === 'ready' ? String(destinationsState.count) : '—' },
+            { label: 'Cases', value: casesState.status === 'ready' ? String(casesState.total ?? casesState.rows.length) : '—' },
+        ]
         return (
             <div className='grid gap-4'>
-                <section className='overflow-hidden rounded-lg border border-ui-border bg-ui-panel'>
-                    <div className='flex flex-col gap-1 border-b border-ui-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between'>
-                        <div>
-                            <p className='text-[10px] font-semibold uppercase text-ui-primary'>Dark web monitoring</p>
-                            <h1 className='mt-1 text-lg font-semibold text-ui-text'>Watchlists</h1>
-                        </div>
-                        <p className='text-xs font-medium text-ui-muted'>{watchTermCount} terms · {activeSourceCount}/{sourceCount} shared sources active</p>
+                <header className='flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between'>
+                    <h1 className='text-xl font-semibold text-ui-text'>Watchlists</h1>
+                    <div className='flex flex-wrap items-center gap-2'>
+                        <CreateCase organizationId={organizationId} />
+                        <WatchlistActionLink href='/ti/sources?scope=global&available=true'>Add source</WatchlistActionLink>
+                        <WatchlistActionLink href='/findings'>Go to findings</WatchlistActionLink>
+                        <WatchlistActionLink href='/findings/delivery'>Go to delivery</WatchlistActionLink>
                     </div>
-                    <div className='p-3'>{workflowActions}</div>
+                </header>
+
+                <section aria-label='Watchlist summary' className='grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5'>
+                    {summaryCards.map(card => (
+                        <article key={card.label} className='rounded-lg border border-ui-border bg-ui-panel p-3 shadow-sm'>
+                            <h2 className='text-sm font-medium text-ui-muted'>{card.label}</h2>
+                            <p className='mt-2 text-2xl font-semibold tabular-nums text-ui-text'>{card.value}</p>
+                        </article>
+                    ))}
+                </section>
+
+                <section id='watchlists' className='overflow-hidden rounded-lg border border-ui-border bg-ui-panel shadow-sm'>
+                    <div className='border-b border-ui-border px-4 py-3'>
+                        <h2 className='text-base font-semibold text-ui-text'>Watchlists</h2>
+                    </div>
+                    {watchlistsState.status === 'loading' ? <p className='px-4 py-5 text-sm text-ui-muted'>Loading…</p> : null}
+                    {watchlistsState.status === 'error' ? <p className='px-4 py-5 text-sm text-ui-muted'>Watchlists unavailable.</p> : null}
+                    {watchlistsState.status === 'ready' && !watchlistsState.items.length ? <p className='px-4 py-5 text-sm text-ui-muted'>No watchlists yet.</p> : null}
+                    {watchlistsState.status === 'ready' && watchlistsState.items.length ? (
+                        <div className='divide-y divide-ui-border'>
+                            {watchlistsState.items.map(watchlist => (
+                                <details key={watchlist.id} className='group px-4'>
+                                    <summary className='flex cursor-pointer list-none flex-wrap items-center gap-x-4 gap-y-1 py-3 text-sm marker:hidden'>
+                                        <span aria-hidden='true' className='text-ui-muted transition-transform group-open:rotate-90'>›</span>
+                                        <span className='min-w-0 flex-1 font-medium text-ui-text'>{watchlist.name}</span>
+                                        <span className='text-ui-muted'>{watchlist.terms.length} terms</span>
+                                        <span className='rounded-full border border-ui-border px-2 py-0.5 text-xs capitalize text-ui-muted'>{watchlist.status}</span>
+                                    </summary>
+                                    {watchlist.terms.length ? (
+                                        <ul className='grid gap-2 pb-4 pl-7 sm:grid-cols-2 lg:grid-cols-3'>
+                                            {watchlist.terms.map((term, index) => (
+                                                <li key={`${watchlist.id}:${term.kind}:${term.value}:${index}`} className='flex min-w-0 items-center justify-between gap-3 rounded-md bg-ui-raised px-3 py-2 text-sm'>
+                                                    <span className='min-w-0 truncate text-ui-text'>{term.value}</span>
+                                                    <span className='shrink-0 text-xs capitalize text-ui-muted'>{term.kind}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    ) : <p className='pb-4 pl-7 text-sm text-ui-muted'>No terms.</p>}
+                                </details>
+                            ))}
+                        </div>
+                    ) : null}
+                </section>
+
+                <section id='watchlist-editor' className='rounded-lg border border-ui-border bg-ui-panel p-4 shadow-sm'>
+                    <h2 className='mb-3 text-base font-semibold text-ui-text'>Add watchlist terms</h2>
+                    {workflowActions}
                 </section>
             </div>
         )
@@ -532,6 +613,10 @@ function CoverageFact({ label, value, tone = 'normal' }: { label: string, value:
     )
 }
 
+function WatchlistActionLink({ href, children }: { href: string, children: ReactNode }) {
+    return <Link href={href} className='inline-flex min-h-10 items-center justify-center rounded-lg border border-ui-border bg-ui-panel px-3 text-sm font-medium text-ui-text transition-colors hover:bg-ui-raised'>{children}</Link>
+}
+
 function DwmPanelPage({ title, meta, children }: { title: string, meta?: ReactNode, children: ReactNode }) {
     return (
         <div className='grid gap-4'>
@@ -645,9 +730,10 @@ async function refreshCases(
                 setCasesState(current => ({ status: 'error', rows: current.rows, error }))
                 return
             }
-            const payload = await response.json() as { items?: CaseListItem[], cases?: CaseListItem[] }
+            const payload = await response.json() as { items?: CaseListItem[], cases?: CaseListItem[], total?: number }
             const rows = Array.isArray(payload.items) ? payload.items : Array.isArray(payload.cases) ? payload.cases : []
-            setCasesState({ status: 'ready', rows })
+            const total = Number.isFinite(payload.total) ? Math.max(rows.length, Number(payload.total)) : rows.length
+            setCasesState({ status: 'ready', rows, total })
             return
         } catch (error) {
             if (isAbortError(error)) return
@@ -693,6 +779,37 @@ async function refreshDwmDeliveries(
         setDataHealth(current => ({ ...current, deliveries: { state: 'live', label: 'Deliveries live', detail: `${deliveries.length} delivery attempt(s).` } }))
     } catch (error) {
         if (!isAbortError(error)) setDataHealth(current => ({ ...current, deliveries: { state: 'error', label: 'Deliveries unavailable', detail: requestFailureDetail(error) } }))
+    }
+}
+
+async function refreshDwmWatchlists(
+    params: URLSearchParams,
+    signal: AbortSignal,
+    setState: Dispatch<SetStateAction<WatchlistsState>>,
+) {
+    try {
+        const response = await fetch(`/api/findings/watchlists?${params.toString()}`, { cache: 'no-store', signal })
+        if (!response.ok) throw new Error(await responseProblem(response))
+        const payload = await response.json() as { watchlists?: WatchlistItem[] }
+        setState({ status: 'ready', items: Array.isArray(payload.watchlists) ? payload.watchlists : [] })
+    } catch (error) {
+        if (!isAbortError(error)) setState({ status: 'error', items: [] })
+    }
+}
+
+async function refreshDwmDestinations(
+    scopeId: string,
+    signal: AbortSignal,
+    setState: Dispatch<SetStateAction<DestinationsState>>,
+) {
+    try {
+        const response = await fetch(`/api/organizations/${encodeURIComponent(scopeId)}/webhooks`, { cache: 'no-store', signal })
+        if (!response.ok) throw new Error(await responseProblem(response))
+        const payload = await response.json() as { destinations?: Array<{ id?: string, status?: string }> }
+        const destinations = Array.isArray(payload.destinations) ? payload.destinations : []
+        setState({ status: 'ready', count: destinations.filter(item => item.status !== 'archived').length })
+    } catch (error) {
+        if (!isAbortError(error)) setState({ status: 'error', count: 0 })
     }
 }
 
