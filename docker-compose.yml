@@ -123,7 +123,9 @@ services:
     env_file:
       - ${HANASAND_DEPLOY_ENV_FILE:-.env}
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Mount the directory so a Docker daemon restart can replace docker.sock
+      # without leaving this container attached to the deleted socket inode.
+      - /run:/host/run:ro
       - /var/snap/lxd/common/lxd/unix.socket:/var/snap/lxd/common/lxd/unix.socket
       - /var/spool/cron/crontabs:/host/cron/crontabs
       - /var/lib/hanasand:/host/var/lib/hanasand:ro
@@ -145,6 +147,7 @@ services:
       HANASAND_APP_UPDATE_DIR: /srv/hanasand/app-updates
       HOST_CONSOLE_SSH_KEY_PATH: /run/secrets/host-console
       HOST_CONSOLE_KNOWN_HOSTS_PATH: /run/secrets/host-console-known-hosts
+      DOCKER_SOCKET_PATH: /host/run/docker.sock
       HOST_CONSOLE_INSPUR_HOST: ${HOST_CONSOLE_INSPUR_HOST:-128.39.142.218}
       HOST_CONSOLE_INSPUR_PORT: ${HOST_CONSOLE_INSPUR_PORT:-222}
       HOST_CONSOLE_OVH_HOST: ${HOST_CONSOLE_OVH_HOST:-192.99.32.185}
