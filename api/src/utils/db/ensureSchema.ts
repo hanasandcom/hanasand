@@ -1500,8 +1500,8 @@ async function applySchema() {
         )
     `)
     await ensureColumn(run, 'events', 'parser_version', 'ALTER TABLE events ADD COLUMN IF NOT EXISTS parser_version TEXT NOT NULL DEFAULT \'event.v1\'')
-    await run('CREATE INDEX IF NOT EXISTS idx_events_org_time ON events(organization_id, event_timestamp DESC)')
-    await run(`CREATE INDEX IF NOT EXISTS idx_events_native_pending ON events(event_timestamp, id)
+    await run('CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_events_org_time ON events(organization_id, event_timestamp DESC)')
+    await run(`CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_events_native_pending ON events(event_timestamp, id)
         WHERE ingestion_id <> 'logs' AND processing_status = 'pending'`)
     const pendingEventsIndex = await queryOnce(`SELECT pg_index.indisvalid, pg_get_indexdef(index_class.oid) AS definition
         FROM pg_index
@@ -1522,10 +1522,10 @@ async function applySchema() {
     await run('CREATE TABLE IF NOT EXISTS log_processing_cursors (name TEXT PRIMARY KEY, last_id BIGINT NOT NULL DEFAULT 0, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), last_error TEXT)')
     await ensureColumn(run, 'log_processing_cursors', 'recent_id', 'ALTER TABLE log_processing_cursors ADD COLUMN IF NOT EXISTS recent_id BIGINT')
     await ensureLogCatchupSchema()
-    await run('CREATE INDEX IF NOT EXISTS idx_events_logs_skipped ON events(id) WHERE ingestion_id = \'logs\' AND processing_status = \'skipped\'')
-    await run('CREATE INDEX IF NOT EXISTS idx_events_logs_time ON events(event_timestamp DESC, id DESC) WHERE ingestion_id = \'logs\' AND processing_status = \'processed\'')
-    await run('CREATE INDEX IF NOT EXISTS idx_events_org_user_time ON events(organization_id, user_id, event_timestamp DESC)')
-    await run(`CREATE INDEX IF NOT EXISTS idx_auth_failure_source_time ON events(organization_id, md5(source_ip), event_timestamp DESC)
+    await run('CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_events_logs_skipped ON events(id) WHERE ingestion_id = \'logs\' AND processing_status = \'skipped\'')
+    await run('CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_events_logs_time ON events(event_timestamp DESC, id DESC) WHERE ingestion_id = \'logs\' AND processing_status = \'processed\'')
+    await run('CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_events_org_user_time ON events(organization_id, user_id, event_timestamp DESC)')
+    await run(`CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_auth_failure_source_time ON events(organization_id, md5(source_ip), event_timestamp DESC)
         WHERE event_type = 'authentication' AND action = 'login' AND outcome = 'failure'`)
     await ensureLogDimensionsSchema()
     await run(`
@@ -1600,9 +1600,9 @@ async function applySchema() {
     await run('CREATE INDEX IF NOT EXISTS idx_findings_event_ids ON findings USING GIN(event_ids)')
     await ensureRuleHitCountSchema()
     await ensureLegacyHealthRuleHitMigration()
-    await run('CREATE INDEX IF NOT EXISTS idx_logs_severity_time ON events ((normalized->>\'severity\'), event_timestamp DESC) WHERE ingestion_id = \'logs\'')
-    await run('CREATE INDEX IF NOT EXISTS idx_logs_type_time ON events ((normalized->>\'log_type\'), event_timestamp DESC) WHERE ingestion_id = \'logs\'')
-    await run(`CREATE INDEX IF NOT EXISTS idx_logs_executable_suffix ON events
+    await run('CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_logs_severity_time ON events ((normalized->>\'severity\'), event_timestamp DESC) WHERE ingestion_id = \'logs\'')
+    await run('CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_logs_type_time ON events ((normalized->>\'log_type\'), event_timestamp DESC) WHERE ingestion_id = \'logs\'')
+    await run(`CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_logs_executable_suffix ON events
         (left(reverse(lower(COALESCE(normalized#>>'{process,executable}', ''))), 512) text_pattern_ops)
         WHERE ingestion_id = 'logs' AND processing_status = 'processed'`)
     await run(`CREATE STATISTICS IF NOT EXISTS stat_logs_executable_suffix ON
