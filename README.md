@@ -6,7 +6,7 @@ Hanasand combines threat intelligence, AI development tools, and infrastructure 
 
 | Component | Source | Responsibility |
 | --- | --- | --- |
-| Frontend | `frontend/` | Public pages, dashboard, AI editor, shared projects, articles, notes, mail and thesis |
+| Frontend | `frontend/` | Public pages, dashboard, AI editor, shared projects, articles, notes and thesis |
 | API | `api/` | Authentication, organizations, permissions, billing, AI requests, project storage, infrastructure and public API |
 | Threat intelligence | `ti/scraper/` | Source collection, parsing, search, alerts and monitoring; separate storage and migrations |
 | AI model client | `ti/ai-model-client/` | Connects an inference server to the API over WebSockets |
@@ -14,7 +14,8 @@ Hanasand combines threat intelligence, AI development tools, and infrastructure 
 | Model runtime | `gpt/` | Model launch scripts and inference server code |
 | Browser services | `ops/browser-worker/`, `ops/onion-tor/` | Isolated browser sessions, WebRTC transport and Tor access |
 | Database | `db/`, `api/src/utils/db/` | Initial schema and application schema updates |
-| Mail | `mail/` | Stalwart configuration and persistent mail data |
+| Mail service | `mail/` | Stalwart configuration and persistent mail data |
+| Mail client | [mail repository](https://github.com/eirikhanasand/mail) | Standalone webmail at `mail.hanasand.com`; mailbox data stays in the Hanasand API |
 | Client apps | `app/` | Mobile and desktop clients; see [desktop setup](app/desktop/README.md) |
 | Operations | `ops/`, `scripts/` | Deployment, backups, maintenance and service checks |
 

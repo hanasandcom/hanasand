@@ -12,7 +12,6 @@ import { getDashboardNavigation, navigationLinks, pinnedNavigation, type Navigat
 import { useWorkspace } from '@/components/organizations/workspaceProvider'
 import { getThesisNavigation, subscribeThesisNavigation } from '@/utils/layout/thesisNavigation'
 import { canManageHanasandOrganizations, canViewHanasandInternalPages } from '@/utils/organizations/internalPageAccess'
-import { fetchHasUnreadMail } from '@/utils/mail/client'
 import config from '@/config'
 import { hasUnreadSupportMessages, supportReadStateKey, SUPPORT_READ_STATE_EVENT, SUPPORT_TICKETS_UPDATED_EVENT, type SupportUnreadTicket } from '@/utils/supportUnread'
 
@@ -68,10 +67,7 @@ export default function DashboardSidebar({ initialPreferences = { expanded: {}, 
     const [supportQueue, setSupportQueue] = useState<{ userId: string; scope: string; tickets: SupportUnreadTicket[]; hasUnread: boolean } | null>(null)
     const hasOpenSupportChats = supportQueue?.userId === access.id && supportQueue.tickets.some(ticket => ticket.status === 'open')
     const hasUnreadSupport = supportQueue?.userId === access.id && supportQueue.hasUnread
-    const [mailQueue, setMailQueue] = useState<{ userId: string; hasUnread: boolean } | null>(null)
-    const hasUnreadMail = mailQueue?.userId === access.id && mailQueue.hasUnread
     const pendingCommunicationItems = [
-        hasUnreadMail ? 'unread mail' : null,
         hasUnreadSupport ? 'unread support chats' : null,
     ].filter((item): item is string => item !== null)
     const communicationSummary = pendingCommunicationItems.join(' and ')
@@ -210,33 +206,6 @@ export default function DashboardSidebar({ initialPreferences = { expanded: {}, 
             socket?.close()
         }
     }, [access.id, hasOpenSupportChats, pathname])
-    useEffect(() => {
-        let disposed = false
-        let requestInFlight = false
-        const refresh = async () => {
-            if (requestInFlight) return
-            requestInFlight = true
-            try {
-                const hasUnread = await fetchHasUnreadMail()
-                if (!disposed) {
-                    setMailQueue({
-                        userId: access.id,
-                        hasUnread,
-                    })
-                }
-            } catch { /* Mail access can be unavailable for some dashboard users. */ }
-            finally { requestInFlight = false }
-        }
-        void refresh()
-        const refreshWhenVisible = () => { if (!document.hidden) void refresh() }
-        window.addEventListener('focus', refresh)
-        document.addEventListener('visibilitychange', refreshWhenVisible)
-        return () => {
-            disposed = true
-            window.removeEventListener('focus', refresh)
-            document.removeEventListener('visibilitychange', refreshWhenVisible)
-        }
-    }, [access.id])
     const hasHanasandOrganization = access.hasHanasandOrganization === true || organizations.some(organization => organization.slug?.toLowerCase() === 'hanasand' && organization.lifecycleStatus === 'active')
     const canViewInternalPages = access.canViewInternalPages === true || canViewHanasandInternalPages(organizations)
     const canManageOrganizations = access.canManageOrganizations === true || canManageHanasandOrganizations(organizations)
@@ -304,7 +273,7 @@ export default function DashboardSidebar({ initialPreferences = { expanded: {}, 
 
     function renderLink(item: { label: string, href: string }, key = item.href) {
         const pinned = preferences.pinned.includes(item.href)
-        const pendingLabel = pendingLabelForHref(item.href, hasUnreadMail, hasUnreadSupport)
+        const pendingLabel = pendingLabelForHref(item.href, hasUnreadSupport)
         return (
             <div key={key} className='group flex min-w-0 items-center rounded-md hover:bg-ui-canvas'>
                 <Link href={item.href} aria-current={active?.href === item.href ? 'page' : undefined}
@@ -423,7 +392,7 @@ export default function DashboardSidebar({ initialPreferences = { expanded: {}, 
                     </div>
                 </div>
             }
-            const pendingLabel = item.href ? pendingLabelForHref(item.href, hasUnreadMail, hasUnreadSupport) : null
+            const pendingLabel = item.href ? pendingLabelForHref(item.href, hasUnreadSupport) : null
             return item.href ? <Link key={item.href} href={item.href} onClick={() => setPreview(null)} aria-current={active?.href === item.href ? 'page' : undefined}
                 aria-label={pendingLabel ? `${item.label}, ${pendingLabel}` : undefined}
                 className={`flex items-center gap-2 rounded-md py-2 pr-3 text-sm leading-5 hover:bg-ui-canvas focus-visible:outline-2 focus-visible:outline-ui-primary ${active?.href === item.href ? 'bg-ui-primary/10 font-semibold text-ui-primary' : 'text-ui-text'}`}
@@ -513,8 +482,7 @@ export default function DashboardSidebar({ initialPreferences = { expanded: {}, 
     )
 }
 
-function pendingLabelForHref(href: string, hasUnreadMail: boolean, hasUnreadSupport: boolean) {
-    if (href === '/mail' && hasUnreadMail) return 'unread messages'
+function pendingLabelForHref(href: string, hasUnreadSupport: boolean) {
     if (href === '/support' && hasUnreadSupport) return 'unread messages'
     return null
 }

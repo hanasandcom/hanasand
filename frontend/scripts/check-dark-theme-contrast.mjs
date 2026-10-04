@@ -26,9 +26,6 @@ const dbBackupPage = readFileSync(path.join(frontendRoot, 'src/app/dashboard/db/
 const trafficClient = readFileSync(path.join(frontendRoot, 'src/app/dashboard/traffic/pageClient.tsx'), 'utf8')
 const logsClient = readFileSync(path.join(frontendRoot, 'src/app/dashboard/logs/pageClient.tsx'), 'utf8')
 const loadTestingClient = readFileSync(path.join(frontendRoot, 'src/app/dashboard/load-testing/pageClient.tsx'), 'utf8')
-const mailWorkspace = readFileSync(path.join(frontendRoot, 'src/components/mail/mailWorkspace.tsx'), 'utf8')
-const mailWorkspaceParts = readFileSync(path.join(frontendRoot, 'src/components/mail/mailWorkspaceParts.tsx'), 'utf8')
-const mailUtils = readFileSync(path.join(frontendRoot, 'src/components/mail/utils.tsx'), 'utf8')
 const testContent = readFileSync(path.join(frontendRoot, 'src/components/test/testContent.tsx'), 'utf8')
 const gitPlugin = readFileSync(path.join(frontendRoot, 'src/components/share/gitPlugin.tsx'), 'utf8')
 const workspaceSearchPanel = readFileSync(path.join(frontendRoot, 'src/components/share/workspaceSearchPanel.tsx'), 'utf8')
@@ -372,44 +369,6 @@ for (const required of [
 const bannedLoadTestingClientColor = /\b(?:bg|text|border|ring|outline)-\[#|\b(?:bg|text|border|ring|outline)-(?:white|black)\//g
 if (bannedLoadTestingClientColor.test(loadTestingClient)) {
     violations.push('load testing dashboard client should not use one-off color Tailwind utilities after palette migration')
-}
-
-for (const [label, source] of [
-    ['mail workspace', mailWorkspace],
-    ['mail workspace parts', mailWorkspaceParts],
-    ['mail utils', mailUtils],
-]) {
-    for (const required of [
-        'bg-ui-panel',
-        'bg-ui-raised',
-        'border-ui-border',
-        'text-ui-text',
-        'text-ui-muted',
-    ]) {
-        if (!source.includes(required)) {
-            violations.push(`${label} should use shared palette class ${required}`)
-        }
-    }
-
-    const bannedMailColor = /\b(?:bg|text|border|ring|outline)-\[#|\b(?:bg|text|border|ring|outline)-(?:white|black|bright|orange|emerald|amber|red)\b|\b(?:bg|text|border|ring|outline)-(?:white|black|bright|orange|emerald|amber|red)\//g
-    if (bannedMailColor.test(source)) {
-        violations.push(`${label} should not use one-off mail color utilities after palette migration`)
-    }
-}
-
-const mailCluster = [mailWorkspace, mailWorkspaceParts, mailUtils].join('\n')
-for (const required of [
-    'bg-ui-canvas',
-    'bg-ui-primary',
-    'text-ui-canvas',
-    'text-ui-primary',
-    'text-ui-success',
-    'text-ui-warning',
-    'text-ui-danger',
-]) {
-    if (!mailCluster.includes(required)) {
-        violations.push(`mail workspace cluster should use shared palette class ${required}`)
-    }
 }
 
 for (const required of [
