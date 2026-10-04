@@ -10,6 +10,14 @@ sub vcl_recv {
         return (pass);
     }
 
+    if (req.url ~ "^/\.well-known(?:/security\.txt)?(?:\?.*)?$") {
+        return (synth(308, "Permanent Redirect"));
+    }
+
+    if (req.url ~ "^/security\.txt(?:\?.*)?$") {
+        return (synth(200, "OK"));
+    }
+
     if (req.url ~ "^/api(?:[/?#]|$)") {
         return (pass);
     }
@@ -38,6 +46,25 @@ sub vcl_recv {
         set req.http.X-Theme = regsub(req.http.Cookie, ".*theme=([^;]+);?.*", "\1");
     }
     return (hash);
+}
+
+sub vcl_synth {
+    if (req.url ~ "^/\.well-known(?:/security\.txt)?(?:\?.*)?$") {
+        set resp.http.Location = "https://hanasand.com/security.txt";
+        set resp.http.Cache-Control = "public, max-age=31449600";
+        return (deliver);
+    }
+
+    if (req.url ~ "^/security\.txt(?:\?.*)?$") {
+        set resp.http.Content-Type = "text/plain; charset=utf-8";
+        set resp.http.Cache-Control = "public, max-age=31449600";
+        synthetic({"Contact: mailto:security@hanasand.com
+Canonical: https://hanasand.com/security.txt
+Preferred-Languages: en
+Expires: 2027-10-04T00:00:00Z
+"});
+        return (deliver);
+    }
 }
 
 sub vcl_hash {

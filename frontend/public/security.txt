@@ -1,0 +1,4 @@
+Contact: mailto:security@hanasand.com
+Canonical: https://hanasand.com/security.txt
+Preferred-Languages: en
+Expires: 2027-10-04T00:00:00Z

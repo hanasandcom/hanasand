@@ -10,6 +10,24 @@ const nextConfig = {
     async headers() {
         return [
             {
+                source: '/security.txt',
+                headers: [
+                    {
+                        key: 'Cache-Control',
+                        value: 'public, max-age=31449600',
+                    },
+                ],
+            },
+            {
+                source: '/.well-known/security.txt',
+                headers: [
+                    {
+                        key: 'Cache-Control',
+                        value: 'public, max-age=31449600',
+                    },
+                ],
+            },
+            {
                 source: '/:path*',
                 headers: [
                     {
@@ -47,6 +65,8 @@ const nextConfig = {
     },
     async redirects() {
         return [
+            { source: '/.well-known/security.txt', destination: '/security.txt', permanent: true },
+            { source: '/.well-known', destination: '/security.txt', permanent: true },
             { source: '/findings/watchlists', destination: '/watchlists', permanent: true },
             { source: '/ti/enrichment', destination: '/ti/profiles', permanent: true },
             { source: '/ti/domains/:path*', destination: '/ti/sources', permanent: true },
