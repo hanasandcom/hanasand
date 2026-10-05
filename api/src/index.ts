@@ -15,6 +15,7 @@ import rateLimit from './plugins/rateLimit.ts'
 import fp from '#utils/refresh/fp.ts'
 import ensureRepositoryUpToDate from '#utils/git/ensureRepositoryUpToDate.ts'
 import ensureSchema from '#utils/db/ensureSchema.ts'
+import ensureLogSearchIndexes from './utils/db/logSearchIndexes.ts'
 import { loadCachedLogMetrics, startLogMetricsRefresh } from './handlers/logs/metrics.ts'
 import { loadCachedMostActiveServices, startMostActiveServicesRefresh } from './handlers/logs/mostActive.ts'
 import { startLogTuningSnapshotRefresh } from './handlers/logs/tuning.ts'
@@ -185,6 +186,7 @@ async function start() {
         // serve traffic, while API_HTTP_ONLY keeps it from running duplicate
         // production workers beside the active API.
         if (!browserWorkerOnly && (!httpWorkerOnly || deploymentCandidateOnly)) await ensureSchema()
+        if (!browserWorkerOnly && !httpWorkerOnly) await ensureLogSearchIndexes()
         if (!browserWorkerOnly && !httpWorkerOnly && process.env.SKIP_MAIL_PROVISIONING !== '1') {
             await provisionExistingMailAccounts().catch(error => {
                 if (isMailAdminConfigError(error)) {
