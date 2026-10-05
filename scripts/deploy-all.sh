@@ -382,6 +382,29 @@ service_compose_block() {
 }
 
 preserved_services=
+auth_service_environment_matches() {
+    service_name=$1
+    container_name=$2
+
+    desired_environment=$(compose_release config --format json 2>/dev/null \
+        | jq -ce --arg service "$service_name" '.services[$service].environment // {}') || return 1
+    running_environment=$(docker inspect -f '{{json .Config.Env}}' "$container_name" 2>/dev/null \
+        | jq -ce 'map(capture("^(?<key>[^=]+)=(?<value>.*)$")) | from_entries') || return 1
+
+    # Compose's service hash includes the temporary env-file path and release
+    # label. Compare the resolved runtime settings instead, while ignoring
+    # image defaults that Compose does not explicitly configure for this service.
+    jq -en \
+        --argjson desired "$desired_environment" \
+        --argjson running "$running_environment" '
+            ($desired | del(.HANASAND_RELEASE_COMMIT, .HANASAND_DEPLOY_ENV_FILE)) as $wanted
+            | ($running
+                | del(.HANASAND_RELEASE_COMMIT, .HANASAND_DEPLOY_ENV_FILE)
+                | with_entries(select(.key as $key | $wanted | has($key)))) as $actual
+            | $actual == $wanted
+        ' >/dev/null
+}
+
 preserve_unchanged_service() {
     service_name=$1
     container_name=$2
@@ -405,11 +428,18 @@ preserve_unchanged_service() {
         "$container_name" 2>/dev/null) || return 1
     desired_config_hash=$(HANASAND_RELEASE_COMMIT="$service_release" \
         compose_release config --hash "$service_name" 2>/dev/null | awk '{print $NF}')
-    test -n "$running_config_hash" && test "$running_config_hash" = "$desired_config_hash" || return 1
+    if test -z "$running_config_hash" || test "$running_config_hash" != "$desired_config_hash"; then
+        case "$service_name" in
+            auth-primary|auth-secondary)
+                auth_service_environment_matches "$service_name" "$container_name" || return 1
+                ;;
+            *) return 1 ;;
+        esac
+    fi
 
     services=$(printf '%s\n' "$services" | sed "/^$service_name\$/d")
     preserved_services="${preserved_services}${preserved_services:+ }$service_name"
-    echo "Keeping healthy $container_name from $service_release; its code and Compose settings are unchanged."
+    echo "Keeping healthy $container_name from $service_release; its code and effective settings are unchanged."
 }
 
 preserve_unchanged_service onion-tor hanasand_onion_tor ops/onion-tor || true
