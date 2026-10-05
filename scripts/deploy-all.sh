@@ -593,8 +593,12 @@ echo "OpenResty now serves the healthy frontend and API candidates for $release.
 compose_live up -d --no-build --no-deps deploy-path-guard
 wait_for_healthy hanasand-deploy-path-guard-1 "Deploy path guard" 30
 services=$(printf '%s\n' "$services" | sed '/^deploy-path-guard$/d')
-# shellcheck disable=SC2086
-compose_live up -d --no-build --no-deps --remove-orphans $services
+if test -n "$services"; then
+    # shellcheck disable=SC2086
+    compose_live up -d --no-build --no-deps --remove-orphans $services
+else
+    echo "No dependent services need recreation."
+fi
 
 compose_live up -d --no-build --no-deps api frontend
 # The browser egress rules allow the current API container IP. Compose replaces
