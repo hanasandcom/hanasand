@@ -365,7 +365,7 @@ warm_browser_stats() {
 # The API candidate owns schema setup. Do not restart the shared database during
 # an application release; its recovery period interrupts authenticated traffic.
 services=$(compose_live config --services \
-    | sed '/^api$/d; /^frontend$/d; /^auth-primary$/d; /^auth-secondary$/d; /^postgres$/d')
+    | sed '/^api$/d; /^frontend$/d; /^auth-primary$/d; /^auth-secondary$/d; /^postgres$/d; /^browsers$/d')
 if test "$pgbouncer_config_changed" = 0; then
     services=$(printf '%s\n' "$services" | sed '/^pgbouncer$/d')
 fi
@@ -411,12 +411,6 @@ preserve_unchanged_service() {
 }
 
 preserve_unchanged_service onion-tor hanasand_onion_tor ops/onion-tor || true
-
-wait_for_database_backups
-# Compose service names are controlled by docker-compose.yml and contain no
-# shell metacharacters, so split the list into its individual arguments.
-# shellcheck disable=SC2086
-compose_live up -d --no-build --no-deps browsers
 
 # Start an isolated release-matched connection pool and API/frontend pair
 # before touching any live dependencies. The API candidate applies additive
