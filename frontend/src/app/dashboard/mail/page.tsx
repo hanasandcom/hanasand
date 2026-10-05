@@ -1,7 +1,6 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { DashboardHeader, DashboardPage } from '@/components/dashboard/ui'
-import MailClient from './mailClient'
+import { DashboardPage } from '@/components/dashboard/ui'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,10 +14,15 @@ export default async function Page(props: { searchParams: Promise<{ mailboxUser?
         redirect('/logout?path=/login%3Fpath%3D/mail%26expired=true')
     }
 
-    return (
-        <DashboardPage>
-            <DashboardHeader eyebrow='Personal' title='Mail' description='Read and send mail from your Hanasand account.' />
-            <MailClient mailboxUser={searchParams.mailboxUser || null} />
-        </DashboardPage>
-    )
+    const embedUrl = new URL('https://mail.hanasand.com/embed')
+    if (searchParams.mailboxUser) embedUrl.searchParams.set('mailboxUser', searchParams.mailboxUser)
+
+    return <DashboardPage className='!gap-0 !px-0 !py-0'>
+        <iframe
+            title='Hanasand Mail'
+            src={embedUrl.toString()}
+            className='h-full min-h-[680px] w-full border-0'
+            allow='clipboard-write'
+        />
+    </DashboardPage>
 }
