@@ -10,7 +10,7 @@ type Organization = { id: string, name: string, slug: string, status: string, me
 type SortKey = 'created' | 'lastActive' | 'members' | 'name' | 'slug' | 'status'
 
 export default function OrganizationList({ organizations }: { organizations: Organization[] }) {
-    const { organizations: accessibleOrganizations, canSwitchOrganization } = useWorkspace()
+    const { organizationId, organizations: accessibleOrganizations, canSwitchOrganization } = useWorkspace()
     const [search, setSearch] = useState('')
     const [searchOpen, setSearchOpen] = useState(false)
     const [sort, setSort] = useState<{ key: SortKey, direction: 'asc' | 'desc' }>({ key: 'name', direction: 'asc' })
@@ -93,7 +93,7 @@ export default function OrganizationList({ organizations }: { organizations: Org
                     <td className='px-3 py-3'>{org.member_count}</td>
                     <td className='whitespace-nowrap px-3 py-3'>{new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC' }).format(new Date(org.created_at))}</td>
                     <td className='whitespace-nowrap px-3 py-3'>{org.last_active_at ? <time dateTime={org.last_active_at}>{new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', dateStyle: 'medium', timeStyle: 'short' }).format(new Date(org.last_active_at))}</time> : 'No recorded activity'}</td>
-                    <td className='px-3 py-2 text-right'>{canSwitchOrganization && org.status === 'active' && accessibleOrganizationIds.has(org.id) ? <Link href={`/organizations?org=${encodeURIComponent(org.id)}`} aria-label={`Switch to ${org.name}`} title={`Switch to ${org.name}`} className='ml-auto grid h-8 w-8 place-items-center rounded-lg text-ui-muted transition hover:bg-ui-raised hover:text-ui-text'>
+                    <td className='px-3 py-2 text-right'>{org.id === organizationId ? <span aria-current='true' className='whitespace-nowrap rounded-md border border-ui-border px-2 py-1 text-xs font-medium text-ui-muted'>Current</span> : canSwitchOrganization && org.status === 'active' && accessibleOrganizationIds.has(org.id) ? <Link href={`/organizations?org=${encodeURIComponent(org.id)}`} aria-label={`Switch to ${org.name}`} title={`Switch to ${org.name}`} className='ml-auto grid h-8 w-8 place-items-center rounded-lg text-ui-muted transition hover:bg-ui-raised hover:text-ui-text'>
                         <ArrowLeftRight className='h-4 w-4' />
                     </Link> : null}</td>
                 </tr>)}</tbody>
