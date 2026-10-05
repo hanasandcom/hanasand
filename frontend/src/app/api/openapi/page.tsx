@@ -11,7 +11,9 @@ export const metadata: Metadata = { title: 'OpenAPI JSON | Hanasand' }
 export default async function OpenApiPage() {
     const session = await cookies()
     if (!session.get('id')?.value || !session.get('access_token')?.value) redirect('/logout?path=/login%3Fpath%3D/api/openapi%26expired=true')
-    const response = await fetch(`${process.env.TI_PUBLIC_BASE_URL || 'https://ti.hanasand.com'}/api/openapi/ti`, { cache: 'no-store' }).catch(() => null)
+    const tiPublicBaseUrl = process.env.TI_PUBLIC_BASE_URL || 'https://ti.hanasand.com'
+    const openApiUrl = new URL('/api/openapi/ti', tiPublicBaseUrl).toString()
+    const response = await fetch(openApiUrl, { cache: 'no-store' }).catch(() => null)
     const document = response?.ok ? await response.json().catch(() => null) : null
 
     return <DashboardPage className='min-w-0'>
@@ -20,7 +22,7 @@ export default async function OpenApiPage() {
                 <Link href='/api' className='text-xs font-semibold text-ui-primary hover:underline'>API docs</Link>
                 <h1 className='mt-1 text-xl font-semibold'>OpenAPI JSON</h1>
             </div>
-            <Link prefetch={false} href='/api/openapi/ti' target='_blank' rel='noopener noreferrer' aria-label='Open raw JSON in a new tab' title='Open raw JSON in a new tab' className='inline-flex h-9 items-center gap-2 rounded-md border border-ui-border bg-ui-raised px-3 text-xs font-semibold text-ui-text transition hover:border-ui-primary'>
+            <Link prefetch={false} href={openApiUrl} target='_blank' rel='noopener noreferrer' aria-label='Open raw JSON in a new tab' title='Open raw JSON in a new tab' className='inline-flex h-9 items-center gap-2 rounded-md border border-ui-border bg-ui-raised px-3 text-xs font-semibold text-ui-text transition hover:border-ui-primary'>
                 Raw JSON <ArrowUpRight className='h-4 w-4' aria-hidden='true' />
             </Link>
         </header>

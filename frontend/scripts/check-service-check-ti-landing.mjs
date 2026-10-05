@@ -9,9 +9,6 @@ const testPage = readSource('src/app/test/page.tsx')
 const testClient = readSource('src/app/test/pageClient.tsx')
 const loadTestingPage = readSource('src/app/dashboard/load-testing/page.tsx')
 const loadTestingClient = readSource('src/app/dashboard/load-testing/pageClient.tsx')
-const tiClient = readSource('src/app/ti/components/ti-page-client.tsx')
-const tiControls = readSource('src/app/ti/components/search-workspace-controls.tsx')
-const emptyState = readSource('src/app/ti/components/empty-state.tsx')
 
 assertIncludes(testClient, 'Check a service before users do', 'public service check page must lead with the primary workflow')
 assertIncludes(testClient, 'Run an owned HTTP endpoint through a measured scenario with latency, failure-rate, logs, and a shareable result link.', 'public service check page must explain the concrete evidence produced')
@@ -47,24 +44,7 @@ assertExcludes(loadTestingClient, 'Next: run more jobs', 'dashboard command cent
 assertExcludes(loadTestingClient, 'needs proof', 'dashboard command center must not ship blocker-style placeholder copy')
 assertExcludes(loadTestingClient, 'needs work', 'dashboard command center must not ship blocker-style placeholder copy')
 
-const searchFormStart = tiControls.indexOf('<form onSubmit={onSubmit}')
-const resultsGate = tiClient.indexOf('{busy ? <SearchLoading')
-assert.ok(searchFormStart >= 0, 'TI search controls were not found')
-assert.ok(resultsGate >= 0, 'TI page result visibility gate was not found')
-const landingForm = tiControls.slice(searchFormStart)
-
-assertIncludes(landingForm, 'Search threat intelligence', 'TI landing must use a concise search-focused heading')
-assertIncludes(landingForm, 'Find current intelligence about any threat actor, company, domain, CVE, or malware family.', 'TI landing must use one short blue helper line')
-assertIncludes(tiClient, 'max-w-[45rem] place-content-center gap-5 py-10', 'TI landing must center the search workflow before a result exists')
-assertIncludes(emptyState, 'APT29', 'TI empty state may keep compact query chips')
-assertIncludes(emptyState, 'LockBit', 'TI empty state may keep compact query chips')
-assertIncludes(emptyState, 'microsoft.com', 'TI empty state may keep compact query chips')
-assertExcludes(emptyState, 'Threat intelligence workspace', 'TI empty state must not restore the old text-heavy workspace copy')
-assertExcludes(emptyState, 'Investigation view', 'TI empty state must not restore the old text-heavy workspace copy')
-assertExcludes(emptyState, 'Handoff status', 'TI empty state must not restore the old text-heavy workspace copy')
-assertExcludes(emptyState, 'Source coverage', 'TI empty state must not restore the old text-heavy workspace copy')
-
-console.log('[service-check-ti-landing] service check and TI landing UX guard passed')
+console.log('[service-check] service check UX guard passed')
 
 function readSource(relativePath) {
     return readFileSync(path.join(root, relativePath), 'utf8')

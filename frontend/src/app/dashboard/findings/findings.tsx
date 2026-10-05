@@ -915,13 +915,6 @@ function WorkflowRouteStrip({ watchTermCount, activeSourceCount, sourceCount, ca
     )
 }
 
-function inferTermKind(value: string) {
-    if (value.includes('@')) return 'email'
-    if (/^(?:[a-z0-9-]+\.)+[a-z]{2,}$/i.test(value)) return 'domain'
-    if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(value)) return 'ip'
-    return 'term'
-}
-
 function uniqueStrings(values: Array<string | null | undefined>) {
     return Array.from(new Set(values.map(value => value?.trim() || '').filter(Boolean)))
 }

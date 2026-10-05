@@ -71,12 +71,19 @@ try {
     assert(!html.includes('href="/api/openapi" target="_blank"'), 'Browsing the spec must stay in the same tab')
     mock.module('next/headers', () => ({ cookies: async () => ({ get: () => ({ value: 'docs-test' }) }) }))
     const { default: Preview } = await import('../src/app/api/openapi/page')
+    const tiPublicBaseUrl = process.env.TI_PUBLIC_BASE_URL || 'https://ti.hanasand.com'
+    const openApiUrl = new URL('/api/openapi/ti', tiPublicBaseUrl).toString()
+    let requestedOpenApiUrl = ''
+    globalThis.fetch = (async input => {
+        requestedOpenApiUrl = String(input)
+        return Response.json(current)
+    }) as typeof fetch
     const preview = await new Response(await renderToReadableStream(await Preview())).text()
     assert(preview.includes('aria-label="OpenAPI specification"'))
     assert(!preview.includes('nextCursor'))
-    const { GET } = await import('../src/app/api/openapi/ti/route')
-    assert.deepEqual(await (await GET()).json(), current, 'Raw JSON and preview use the same current contract')
-    const rawLink = preview.match(/<a[^>]*href="\/api\/openapi\/ti"[^>]*>/)?.[0] || ''
+    assert.equal(requestedOpenApiUrl, openApiUrl, 'The preview reads OpenAPI JSON from the dedicated TI app')
+    const rawLink = preview.match(/<a[^>]*aria-label="Open raw JSON in a new tab"[^>]*>/)?.[0] || ''
+    assert.ok(rawLink.includes(`href="${openApiUrl}"`), `Raw JSON opens on the dedicated TI app: ${rawLink}`)
     assert(rawLink.includes('target="_blank"'))
     assert(rawLink.includes('rel="noopener noreferrer"'))
     assert(preview.includes('Open raw JSON in a new tab'))

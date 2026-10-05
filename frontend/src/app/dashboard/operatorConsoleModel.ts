@@ -2549,14 +2549,6 @@ function sourceGrowthReady(input: SourceGrowthReadiness | undefined) {
     return Boolean(input?.proxyExposed && input.inventoryReachable !== false && input.sourcePacksReachable !== false && input.status === 'ready' && input.workerStatus === 'ready')
 }
 
-function actionLabel(action: string | undefined) {
-    if (action === 'create_watchlist') return 'create watchlist'
-    if (action === 'rebuild_alerts') return 'rebuild alerts'
-    if (action === 'open_case') return 'open case'
-    if (action === 'queue_enrichment') return 'add context'
-    return 'public TI handoff'
-}
-
 export function buildReadinessCases(input: {
     backendConfigured: boolean
     scope: OperatorScope

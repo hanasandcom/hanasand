@@ -203,13 +203,13 @@ export default function MailClient({ mailboxUser }: { mailboxUser: string | null
                         {!activeMessage && <div className='flex h-full min-h-56 items-center justify-center text-center text-sm text-slate-500'>{loading ? 'Loading message…' : 'Choose a message to read.'}</div>}
                         {activeMessage && <>
                             <div className='flex flex-wrap items-start justify-between gap-3 border-b border-white/10 pb-5'>
-                                <div className='min-w-0'><h2 className='break-words text-xl font-semibold text-white'>{activeMessage.subject || '(no subject)'}</h2><p className='mt-2 text-sm text-slate-400'>From {activeMessage.from.map(address => address.name ? `${address.name} <${address.email}>` : address.email).join(', ')}</p><p className='mt-1 text-xs text-slate-500'>To {activeMessage.to.map(address => address.email).join(', ')}</p></div>
+                                <div className='min-w-0'><h2 className='wrap-break-word text-xl font-semibold text-white'>{activeMessage.subject || '(no subject)'}</h2><p className='mt-2 text-sm text-slate-400'>From {activeMessage.from.map(address => address.name ? `${address.name} <${address.email}>` : address.email).join(', ')}</p><p className='mt-1 text-xs text-slate-500'>To {activeMessage.to.map(address => address.email).join(', ')}</p></div>
                                 <div className='flex shrink-0 gap-2'>
                                     <button disabled={busy} onClick={() => void action(activeMessage, activeMessage.isRead ? 'unread' : 'read')} className='rounded-lg border border-white/10 px-3 py-2 text-xs text-slate-300 hover:bg-white/5'>{activeMessage.isRead ? 'Mark unread' : 'Mark read'}</button>
                                     <button disabled={busy} onClick={() => void action(activeMessage, 'archive')} className='rounded-lg border border-white/10 px-3 py-2 text-xs text-slate-300 hover:bg-white/5'>Archive</button>
                                 </div>
                             </div>
-                            <pre className='whitespace-pre-wrap break-words pt-5 font-sans text-sm leading-6 text-slate-200'>{activeMessage.textBody || activeMessage.preview || 'This message has no plain-text body.'}</pre>
+                            <pre className='whitespace-pre-wrap wrap-break-word pt-5 font-sans text-sm leading-6 text-slate-200'>{activeMessage.textBody || activeMessage.preview || 'This message has no plain-text body.'}</pre>
                         </>}
                     </article>
                 </div>
