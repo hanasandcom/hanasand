@@ -471,8 +471,10 @@ if test "$candidate_start_status" -ne 0; then
     echo "Could not start both release candidates." >&2
     exit 1
 fi
-wait_for_healthy_pair "$HANASAND_API_CANDIDATE_CONTAINER" "API release candidate" 600 \
-    "$HANASAND_FRONTEND_CANDIDATE_CONTAINER" "Frontend release candidate" 180
+# Frontend health proxies the candidate API, so waiting for both at once can
+# expire the shorter frontend timeout while the API is still applying schema.
+wait_for_healthy "$HANASAND_API_CANDIDATE_CONTAINER" "API release candidate" 600
+wait_for_healthy "$HANASAND_FRONTEND_CANDIDATE_CONTAINER" "Frontend release candidate" 180
 candidate_api_health=$(curl --fail --silent --show-error --max-time 10 "http://127.0.0.1:$HANASAND_API_CANDIDATE_PORT/health")
 case "$candidate_api_health" in *'"ok":true'*"\"release\":\"$release\""*) ;; *)
     echo "API release candidate did not report release $release." >&2
