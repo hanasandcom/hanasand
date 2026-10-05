@@ -7,12 +7,13 @@ import AccountActions from '@/components/profile/accountActions'
 import SessionsPanel from '@/components/profile/sessions'
 import SupportTickets from '@/components/profile/supportTickets'
 import { DashboardPanel, DashboardPage } from '@/components/dashboard/ui'
-import { getProfileSshKeys } from '@/utils/sshKeys'
 import fetchUser from '@/utils/users/fetchUser'
 import OrganizationProfile from '@/components/profile/organizationProfile'
 import { cookies } from 'next/headers'
 import config from '@/config'
 import type { AuthSession } from '@/utils/auth/sessions'
+import { Suspense } from 'react'
+import { getProfileSshKeys } from '@/utils/sshKeys'
 
 export default async function Page(props: { params: Promise<{ id: string[] }> }) {
     const params = await props.params
@@ -44,8 +45,6 @@ export default async function Page(props: { params: Promise<{ id: string[] }> })
 
     const displayName = profile?.name || name || profileId
     const stats = section === 'profile' ? await getProfileStats(userId, token) : null
-    const sshKeys = isSelf && section === 'ssh-keys' ? await getProfileSshKeys(userId, token) : null
-
     return (
         <DashboardPage>
             {section === 'profile' ? (
@@ -59,11 +58,24 @@ export default async function Page(props: { params: Promise<{ id: string[] }> })
             ) : <p className='px-1 text-xs text-ui-muted'>@{username}</p>}
             {section === 'profile' && <ProfileOverview stats={stats} />}
             {section === 'sessions' && <SessionsPanel isSelf initialSessions={initialSessions ?? undefined} />}
-            {section === 'ssh-keys' && <SshKeys initialKeys={sshKeys} />}
+            {section === 'ssh-keys' && <Suspense fallback={<SshKeysLoading />}><ProfileSshKeys id={userId} token={token} /></Suspense>}
             {section === 'support' && <SupportTickets />}
             {section === 'security' && <AccountActions isSelf />}
         </DashboardPage>
     )
+}
+
+async function ProfileSshKeys({ id, token }: { id: string, token: string }) {
+    const keys = await getProfileSshKeys(id, token)
+    return <SshKeys initialKeys={keys} />
+}
+
+function SshKeysLoading() {
+    return <DashboardPanel className='h-fit p-4'>
+        <h1 className='text-base font-semibold text-ui-text'>SSH Keys</h1>
+        <p className='mt-1 text-sm text-ui-muted'>Loading keys…</p>
+        <p role='status' aria-busy='true' className='mt-4 rounded-lg border border-ui-border bg-ui-raised p-4 text-sm text-ui-muted'>Loading SSH keys…</p>
+    </DashboardPanel>
 }
 
 async function loadSessionsForRender(id: string, token: string): Promise<AuthSession[] | null> {

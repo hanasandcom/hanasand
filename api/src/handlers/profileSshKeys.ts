@@ -1,5 +1,4 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
-import config from '#constants'
 import run, { withDatabaseAdvisoryLock, withTransaction } from '#db'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import { applyManagedHostSshKeys, normalizeHostPublicKey } from '#utils/hostSsh.ts'
@@ -10,6 +9,7 @@ import { recordSystemEvent } from '#utils/systemEvent.ts'
 type ProfileSshKey = { id: number, name: string, public_key: string, added_at: string }
 type ProfileSshKeyUsage = { fingerprint: string, last_used_at: string | Date }
 const PROFILE_SSH_KEY_USAGE_CACHE_PREFIX = 'profile-ssh-key-usage:'
+const PROFILE_SSH_KEY_CACHE_TTL_MS = 5 * 60 * 1000
 
 async function authorizeSelf(req: FastifyRequest, res: FastifyReply) {
     res.header('Cache-Control', 'private, no-store')
@@ -41,7 +41,7 @@ async function profileKeyUsage(fingerprints: string[]) {
     const organizationId = process.env.PLATFORM_LOG_ORGANIZATION_ID || null
     const uniqueFingerprints = [...new Set(fingerprints)].sort()
     const cacheKey = `${PROFILE_SSH_KEY_USAGE_CACHE_PREFIX}${organizationId || 'hanasand'}:${uniqueFingerprints.join(',')}`
-    return cachedRead(cacheKey, config.CACHE_TTL_HOT, async () => {
+    return cachedRead(cacheKey, PROFILE_SSH_KEY_CACHE_TTL_MS, async () => {
         const result = await run(`
             SELECT requested.fingerprint, latest.event_timestamp AS last_used_at
             FROM unnest($1::text[]) AS requested(fingerprint)
@@ -124,7 +124,7 @@ export async function getProfileSshKeys(req: FastifyRequest, res: FastifyReply) 
     const userId = await authorizeSelf(req, res)
     if (!userId) return
     try {
-        const keys = await cachedRead(profileSshKeysResponseCacheKey(userId), config.CACHE_TTL_HOT, async () => {
+        const keys = await cachedRead(profileSshKeysResponseCacheKey(userId), PROFILE_SSH_KEY_CACHE_TTL_MS, async () => {
             const normalizedKeys = (await profileKeys(userId)).flatMap(key => {
                 const normalized = normalizeHostPublicKey(key.public_key)
                 return normalized ? [{ key, normalized }] : []

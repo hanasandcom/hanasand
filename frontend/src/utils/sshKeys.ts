@@ -43,6 +43,7 @@ export async function getProfileSshKeys(id: string, token: string): Promise<Prof
         const response = await fetch(`${config.url.api}/user/self/ssh-keys`, {
             cache: 'no-store',
             headers: { Authorization: `Bearer ${token}`, id },
+            signal: AbortSignal.timeout(config.abortTimeout),
         })
         if (!response.ok) return null
         const data = await response.json()
