@@ -39,7 +39,7 @@ export async function searchLogs(req: FastifyRequest, res: FastifyReply) {
             where.push(`normalized->>'severity' = ${bind(input.severity)}`)
         }
         const result = await withLogSearchTransaction(async query => {
-            await query('SET LOCAL statement_timeout = \'8s\'')
+            await query(search.length >= 12 ? 'SET LOCAL statement_timeout = \'60s\'' : 'SET LOCAL statement_timeout = \'8s\'')
             const result = paginate ? await searchLogPage(query, { where, params, order: compiled.order, limit: pageLimit, cursor: input.cursor,
                 recentFirst: Boolean(search), preferTextIndex: search.length >= 12 }) : compiled.summarize
                 ? await query(`SELECT ${compiled.fields[compiled.summarize]} AS value, COUNT(*)::int AS count FROM events WHERE ${where.join(' AND ')} GROUP BY 1 ORDER BY count DESC LIMIT ${compiled.limit}`, params)

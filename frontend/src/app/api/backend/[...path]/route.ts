@@ -38,6 +38,8 @@ async function handler(req: NextRequest, context: Context) {
     const path = pathSegments.map(segment => encodeURIComponent(segment)).join('/')
     const target = new URL(`${config.url.api}/${path}`)
     target.search = req.nextUrl.search
+    const longLogSearch = pathSegments[0] === 'logs' && pathSegments[1] === 'search'
+        && (target.searchParams.get('search')?.trim().length || 0) >= 12
     if (['events', 'rules'].includes(pathSegments[0]) && !target.searchParams.has('organizationId')) {
         const organizationId = await activeOrganizationId()
         if (organizationId) target.searchParams.set('organizationId', organizationId)
@@ -72,7 +74,7 @@ async function handler(req: NextRequest, context: Context) {
             body,
             duplex: 'half',
             cache: 'no-store',
-            signal: AbortSignal.timeout(BACKEND_PROXY_TIMEOUT_MS),
+            signal: AbortSignal.timeout(longLogSearch ? Math.max(BACKEND_PROXY_TIMEOUT_MS, 120_000) : BACKEND_PROXY_TIMEOUT_MS),
         } as RequestInit & { duplex: 'half' })
     } catch (error) {
         const isTimeout = error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError')

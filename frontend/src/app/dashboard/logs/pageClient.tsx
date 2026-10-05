@@ -159,7 +159,8 @@ export default function LogsPageClient({ initialServices = [], initialErrors, in
         const debounce = sameQuery && refresh === 0 ? undefined : setTimeout(() => void load(), 250)
         if (sameQuery && refresh === 0) void load()
         loadMore.current = cursor => void load(cursor)
-        const interval = view !== 'errors' ? setInterval(() => void load(), view === 'search' || view === 'realtime' ? 10_000 : 5000) : undefined
+        const interval = view !== 'errors' && view !== 'search'
+            ? setInterval(() => void load(), view === 'realtime' ? 10_000 : 5000) : undefined
         return () => { controller.abort(); clearTimeout(debounce); clearInterval(interval); loadMore.current = () => {} }
     }, [view, service, search, table, advanced, appliedHql, hours, severity, refresh, initialData])
     useEffect(() => {
