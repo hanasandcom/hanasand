@@ -72,6 +72,18 @@ test('stored log estimates scope processed logs and use the trigram candidate in
     expect(params).toContain('ovhcloud')
     expect(params).not.toContain('GET')
 })
+test('stored previews with an exact message use the newest-first event index path', async () => {
+    let sql = ''
+    await scan('org-a', true, { ...input, action: 'keep', conditions: [
+        { path: 'message', operator: 'equals', value: 'failed exec: /usr/sbin/xsel' },
+        { path: 'process.executable', operator: 'equals', value: '/usr/sbin/xsel' },
+        { path: 'metadata.collector', operator: 'equals', value: 'auditd' },
+    ] }, (async (query: string) => { sql = query; return { rows: [] } }) as any, { storedLogsOnly: true })
+    expect(sql).toContain('ORDER BY event_timestamp DESC, id DESC LIMIT')
+    expect(sql).toContain('normalized #>>')
+    expect(sql).not.toContain('translate(lower(normalized::text)')
+    expect(sql).not.toContain('left(reverse(lower(COALESCE(normalized')
+})
 test('complete count is independent of bounded random sample; cursors preserve microseconds', async () => {
     const query = async () => ({ rows: Array.from({ length: 2000 }, (_, index) => row(index)) })
     const page = await scanRulePreview('org-a', true, { ...input, sample: true }, query as any)

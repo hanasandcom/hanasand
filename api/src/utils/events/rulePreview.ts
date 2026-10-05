@@ -64,8 +64,16 @@ async function scanRulePreviewUncached(organizationId: string, canReadLogs: bool
 
 function storageEstimatePredicate(conditions: Condition[], params: (string | string[] | number | boolean | null)[]) {
     const predicates = [previewPredicate(conditions, params)]
-    const executable = processExecutableCandidatePredicate(conditions, value => { params.push(value); return `$${params.length}` })
-    if (executable) predicates.push(executable)
+    // For an exact message selector, walk the existing newest-first log index
+    // and apply the equality before paging. The trigram and executable indexes
+    // return a large bitmap that must be sorted, which is slower for common
+    // messages and can make the first preview page time out. The exact SQL
+    // predicate above remains a safe candidate filter; JS still decides matches.
+    const hasExactMessage = conditions.some(condition => condition.path === 'message' && condition.operator === 'equals')
+    if (!hasExactMessage) {
+        const executable = processExecutableCandidatePredicate(conditions, value => { params.push(value); return `$${params.length}` })
+        if (executable) predicates.push(executable)
+    }
     // The existing GIN index covers processed logs. One safe, selective literal
     // from this conjunction is enough to exclude non-candidates before paging.
     // The residual predicate and JS matcher still determine exact membership.
@@ -76,7 +84,7 @@ function storageEstimatePredicate(conditions: Condition[], params: (string | str
         return [{ values, shortest: Math.min(...values.map(value => value.length)) }]
     }).sort((left, right) => right.shortest - left.shortest || right.values.reduce((sum, value) => sum + value.length, 0)
         - left.values.reduce((sum, value) => sum + value.length, 0))
-    if (groups[0]) {
+    if (groups[0] && !hasExactMessage) {
         const alternatives = groups[0].values.map(value => {
             params.push(value)
             return logFieldTextCandidates(`$${params.length}`)
