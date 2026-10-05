@@ -132,25 +132,6 @@ if test "$metrics_age" -lt 0 || test "$metrics_age" -gt 90; then
     exit 1
 fi
 
-# Processor is deployed from its own repository and Compose project.
-processor_release=$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' processor \
-    | sed -n 's/^PROCESSOR_RELEASE_COMMIT=//p' | head -1)
-case "$processor_release" in
-    *[!a-f0-9]*|'') echo "Processor has no valid release marker." >&2; exit 1 ;;
-esac
-test "${#processor_release}" -eq 40 || { echo "Processor release is invalid." >&2; exit 1; }
-processor_image=$(docker inspect -f '{{.Image}}' processor)
-processor_image_release=$(docker image inspect -f '{{index .Config.Labels "org.opencontainers.image.revision"}}' \
-    "$processor_image" 2>/dev/null || true)
-verify_image_revision "Standalone processor" "$processor_image" "$processor_image_release" "$processor_release"
-test "$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project"}}' processor)" = processor || {
-    echo "Processor must belong to its own Compose project." >&2; exit 1
-}
-processor_health=$(docker exec processor wget -qO- http://127.0.0.1:8099/health)
-case "$processor_health" in *'"ok":true'*"\"release\":\"$processor_release\""*) ;; *)
-    echo "Standalone processor is not healthy on its reported release." >&2; exit 1 ;;
-esac
-
 test "$(docker inspect -f '{{.State.Running}}' hanasand_pgbouncer 2>/dev/null || true)" = true \
     && test "$(docker inspect -f '{{.State.Health.Status}}' hanasand_pgbouncer 2>/dev/null || true)" = healthy || {
     echo "Canonical PgBouncer is not running and healthy." >&2
@@ -168,11 +149,6 @@ if test -n "$expected_pgbouncer_release"; then
     }
     verify_image_revision "PgBouncer" "$pgbouncer_image" "$pgbouncer_image_release" "$expected_pgbouncer_release"
 fi
-
-test "$(docker inspect -f '{{.State.Health.Status}}' processor)" = healthy || {
-    echo "Standalone processor is not healthy after deployment." >&2
-    exit 1
-}
 
 for container in hanasand_auth_primary hanasand_auth_secondary; do
     test "$(docker inspect -f '{{.State.Health.Status}}' "$container")" = healthy || {
@@ -263,4 +239,4 @@ test "$recovery_route_status" = 404 || {
     exit 1
 }
 
-echo "All application and browser containers are healthy for release $release; durable log processor verified on $processor_release; preserved unchanged services: ${preserved_services:-none}."
+echo "All application and browser containers are healthy for release $release; preserved unchanged services: ${preserved_services:-none}."

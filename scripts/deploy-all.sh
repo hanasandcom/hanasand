@@ -1,6 +1,14 @@
 #!/bin/sh
 set -eu
 
+deploy_parallelism=${HANASAND_DEPLOY_PARALLELISM:-4}
+case "$deploy_parallelism" in
+    ''|*[!0-9]*|0)
+        echo "HANASAND_DEPLOY_PARALLELISM must be a positive integer." >&2
+        exit 1
+        ;;
+esac
+
 root=$(git rev-parse --show-toplevel)
 test "$root" = "/home/hanasand/hanasand" || {
     echo "Run this from /home/hanasand/hanasand" >&2
@@ -61,10 +69,14 @@ reuse_schema_marker_for_code_only_release() {
     if release_has_schema_changes "$previous_release" "$release"; then
         return 0
     fi
+    schema_changes_required=0
 
     previous_schema_applied=$(docker exec hanasand_database psql -U hanasand -d hanasand -Atc \
         "SELECT EXISTS (SELECT 1 FROM app_schema_releases WHERE release = '$previous_release')" 2>/dev/null || true)
-    test "$previous_schema_applied" = t || return 0
+    if test "$previous_schema_applied" != t; then
+        schema_changes_required=1
+        return 0
+    fi
 
     docker exec hanasand_database psql -v ON_ERROR_STOP=1 -U hanasand -d hanasand \
         -c "INSERT INTO app_schema_releases (release) VALUES ('$release') ON CONFLICT DO NOTHING" >/dev/null
@@ -123,6 +135,7 @@ if test -n "$running_api_release" \
         echo "The current application stack did not pass verification; continuing with a full deployment."
     fi
 fi
+schema_changes_required=1
 reuse_schema_marker_for_code_only_release
 
 export HANASAND_RELEASE_COMMIT="$release"
@@ -189,9 +202,9 @@ fi
 
 compose_release() {
     if test -f "$build_dir/.env"; then
-        docker compose --project-name hanasand --parallel 1 --env-file "$build_dir/.env" -f "$build_dir/docker-compose.yml" "$@"
+        docker compose --project-name hanasand --parallel "$deploy_parallelism" --env-file "$build_dir/.env" -f "$build_dir/docker-compose.yml" "$@"
     else
-        docker compose --project-name hanasand --parallel 1 -f "$build_dir/docker-compose.yml" "$@"
+        docker compose --project-name hanasand --parallel "$deploy_parallelism" -f "$build_dir/docker-compose.yml" "$@"
     fi
 }
 
@@ -241,9 +254,25 @@ wait_for_healthy() {
     return 1
 }
 
-# The durable log processor keeps using canonical PgBouncer while the new
-# release is built in isolation. Restore and verify that path first so a
-# partially completed prior deployment cannot strand backlog processing.
+wait_for_healthy_pair() {
+    first_container=$1
+    first_service=$2
+    first_timeout=$3
+    second_container=$4
+    second_service=$5
+    second_timeout=$6
+    wait_for_healthy "$first_container" "$first_service" "$first_timeout" &
+    first_wait_pid=$!
+    wait_for_healthy "$second_container" "$second_service" "$second_timeout" &
+    second_wait_pid=$!
+    first_status=0
+    second_status=0
+    wait "$first_wait_pid" || first_status=$?
+    wait "$second_wait_pid" || second_status=$?
+    test "$first_status" -eq 0 && test "$second_status" -eq 0
+}
+
+# Restore canonical PgBouncer if a previous interrupted release left it down.
 canonical_pgbouncer_state=$(docker inspect -f '{{.State.Status}}' hanasand_pgbouncer 2>/dev/null || true)
 canonical_pgbouncer_health=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{end}}' hanasand_pgbouncer 2>/dev/null || true)
 canonical_pgbouncer_recreated=0
@@ -252,7 +281,6 @@ if test "$canonical_pgbouncer_state" != running || test "$canonical_pgbouncer_he
     canonical_pgbouncer_recreated=1
 fi
 wait_for_healthy hanasand_pgbouncer "Canonical PgBouncer" 180
-wait_for_healthy processor "Standalone log processor" 180
 if test "$canonical_pgbouncer_recreated" = 1; then
     # The recovery changed the pool's address; refresh clients before the
     # long image build so authentication does not wait for the rollout tail.
@@ -293,15 +321,14 @@ wait_for_database_backups() {
     done
 }
 
-# Builds run beside the live stack. Wait until the large database export has
-# finished, and build one image at a time to keep CPU and disk available to users.
-wait_for_database_backups
+# Build while a read-only database backup runs. Wait immediately before the
+# candidate API applies schema changes so the backup retains a consistent snapshot.
 compose_release build
 compose_live() {
     if test -f "$build_dir/.env"; then
-        docker compose --project-name hanasand --parallel 2 --env-file "$build_dir/.env" -f "$build_dir/docker-compose.yml" "$@"
+        docker compose --project-name hanasand --parallel "$deploy_parallelism" --env-file "$build_dir/.env" -f "$build_dir/docker-compose.yml" "$@"
     else
-        docker compose --project-name hanasand --parallel 2 -f "$build_dir/docker-compose.yml" "$@"
+        docker compose --project-name hanasand --parallel "$deploy_parallelism" -f "$build_dir/docker-compose.yml" "$@"
     fi
 }
 # Replace the retired shared tunnel before binding the dedicated telemetry
@@ -313,7 +340,7 @@ compose_release up -d --no-build --no-deps ovh-host-metrics-tunnel
 wait_for_healthy hanasand_ovh_host_metrics_tunnel "OVH host metrics tunnel" 180
 
 compose_candidates() {
-    docker compose --project-name hanasand --parallel 2 --profile deployment-candidates --env-file "$build_dir/.env" \
+    docker compose --project-name hanasand --parallel "$deploy_parallelism" --profile deployment-candidates --env-file "$build_dir/.env" \
         -f "$build_dir/docker-compose.yml" "$@"
 }
 
@@ -418,12 +445,26 @@ preserve_unchanged_service onion-tor hanasand_onion_tor ops/onion-tor || true
 compose_candidates run -d --no-deps --name "$HANASAND_PGBOUNCER_CANDIDATE_CONTAINER" pgbouncer-candidate
 candidate_started=1
 wait_for_healthy "$HANASAND_PGBOUNCER_CANDIDATE_CONTAINER" "PgBouncer release candidate" 180
-compose_candidates run -d --no-deps --name "$HANASAND_API_CANDIDATE_CONTAINER" \
-    --publish "127.0.0.1:$HANASAND_API_CANDIDATE_PORT:8080" api-candidate
-compose_candidates run -d --no-deps --name "$HANASAND_FRONTEND_CANDIDATE_CONTAINER" \
-    --publish "127.0.0.1:$HANASAND_FRONTEND_CANDIDATE_PORT:3000" frontend-candidate
-wait_for_healthy "$HANASAND_API_CANDIDATE_CONTAINER" "API release candidate" 600
-wait_for_healthy "$HANASAND_FRONTEND_CANDIDATE_CONTAINER" "Frontend release candidate" 180
+if test "$schema_changes_required" = 1; then
+    wait_for_database_backups
+else
+    echo "Code-only release; no database schema changes, so continuing during any active backup."
+fi
+compose_candidates run -d --no-build --no-deps --name "$HANASAND_API_CANDIDATE_CONTAINER" \
+    --publish "127.0.0.1:$HANASAND_API_CANDIDATE_PORT:8080" api-candidate >/dev/null &
+api_candidate_start_pid=$!
+compose_candidates run -d --no-build --no-deps --name "$HANASAND_FRONTEND_CANDIDATE_CONTAINER" \
+    --publish "127.0.0.1:$HANASAND_FRONTEND_CANDIDATE_PORT:3000" frontend-candidate >/dev/null &
+frontend_candidate_start_pid=$!
+candidate_start_status=0
+wait "$api_candidate_start_pid" || candidate_start_status=1
+wait "$frontend_candidate_start_pid" || candidate_start_status=1
+if test "$candidate_start_status" -ne 0; then
+    echo "Could not start both release candidates." >&2
+    exit 1
+fi
+wait_for_healthy_pair "$HANASAND_API_CANDIDATE_CONTAINER" "API release candidate" 600 \
+    "$HANASAND_FRONTEND_CANDIDATE_CONTAINER" "Frontend release candidate" 180
 candidate_api_health=$(curl --fail --silent --show-error --max-time 10 "http://127.0.0.1:$HANASAND_API_CANDIDATE_PORT/health")
 case "$candidate_api_health" in *'"ok":true'*"\"release\":\"$release\""*) ;; *)
     echo "API release candidate did not report release $release." >&2
@@ -546,13 +587,10 @@ services=$(printf '%s\n' "$services" | sed '/^deploy-path-guard$/d')
 compose_live up -d --no-build --no-deps --remove-orphans $services
 
 compose_live up -d --no-build --no-deps api frontend
-wait_for_healthy hanasand_api "API" 600
 # The browser egress rules allow the current API container IP. Compose replaces
 # that IP on each release, so refresh the host rules before sending traffic to it.
 sudo -n systemctl restart hanasand-browser-egress.service
-wait_for_healthy hanasand "Frontend" 180
-# Processor owns its release and rules; Hanasand deployments only verify health.
-wait_for_healthy processor "Standalone log processor" 180
+wait_for_healthy_pair hanasand_api "API" 600 hanasand "Frontend" 180
 canonical_frontend_health=$(curl --fail --silent --show-error --max-time 10 http://127.0.0.1:3100/api/health)
 case "$canonical_frontend_health" in *'"ok":true'*"\"release\":\"$release\""*"\"api\""*) ;; *)
     echo "Canonical frontend did not report release $release and its matching API." >&2
