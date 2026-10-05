@@ -1,7 +1,7 @@
 import { Suspense } from 'react'
 import { DashboardDataFallback, DashboardHeader, DashboardPage } from '@/components/dashboard/ui'
 import BackupPage from './backupPage'
-import { getBackupFiles, getBackupServices } from '@/utils/db/internal'
+import { getBackupDashboard } from '@/utils/db/internal'
 
 export default function DatabaseBackupsPage() {
     return (
@@ -19,8 +19,8 @@ export default function DatabaseBackupsPage() {
 }
 
 async function BackupData() {
-    const [backups, files] = await Promise.all([getBackupServices(), getBackupFiles()])
-    const errors = [typeof backups === 'string' ? backups : '', typeof files === 'string' ? files : ''].filter(Boolean).join(' ')
+    const data = await getBackupDashboard()
+    const errors = typeof data === 'string' ? data : data.errors.join(' ')
 
-    return <BackupPage backups={typeof backups === 'string' ? [] : backups} files={typeof files === 'string' ? [] : files} loadError={errors} />
+    return <BackupPage backups={typeof data === 'string' ? [] : data.backups} files={typeof data === 'string' ? [] : data.files} loadError={errors} />
 }

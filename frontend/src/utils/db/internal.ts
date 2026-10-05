@@ -146,6 +146,12 @@ export type BackupFile = {
     releaseCommit?: string | null
 }
 
+export type BackupDashboard = {
+    backups: BackupService[]
+    files: BackupFile[]
+    errors: string[]
+}
+
 export type DatabaseQueryResult = {
     rows: Record<string, unknown>[]
     rowCount: number
@@ -207,6 +213,10 @@ export async function getDatabaseRows(schema: string, table: string, limit: numb
 
 export async function getBackupServices() {
     return await requestService<BackupService[]>('internal', 'backup', undefined, backupDataCache)
+}
+
+export async function getBackupDashboard() {
+    return await requestService<BackupDashboard>('internal', 'backup/dashboard', undefined, backupDataCache)
 }
 
 export async function getBackupFiles(service?: string, date?: string) {

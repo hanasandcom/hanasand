@@ -43,6 +43,30 @@ export async function getDatabaseBackups(req: FastifyRequest, res: FastifyReply)
     }
 }
 
+export async function getDatabaseBackupDashboard(req: FastifyRequest, res: FastifyReply) {
+    if (!await requireBackupAccess(req, res)) return
+
+    const [backupsResult, filesResult] = await Promise.allSettled([
+        collectDatabaseBackupServices(),
+        listDatabaseBackupFiles(),
+    ])
+    const errors: string[] = []
+    if (backupsResult.status === 'rejected') {
+        req.log.error(backupsResult.reason)
+        errors.push(sanitizeBackupError(backupsResult.reason))
+    }
+    if (filesResult.status === 'rejected') {
+        req.log.error(filesResult.reason)
+        errors.push(sanitizeBackupError(filesResult.reason))
+    }
+
+    return res.send({
+        backups: backupsResult.status === 'fulfilled' ? backupsResult.value : [],
+        files: filesResult.status === 'fulfilled' ? filesResult.value : [],
+        errors,
+    })
+}
+
 export async function postDatabaseBackup(req: FastifyRequest, res: FastifyReply) {
     const actorId = await requireBackupAccess(req, res)
     if (!actorId) return
