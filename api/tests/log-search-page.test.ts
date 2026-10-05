@@ -91,7 +91,7 @@ test('searches expand through disjoint recent windows and stop once they find a 
     expect(result.rows.map(row => row.id)).toEqual(['c', 'b'])
     expect(result.next_cursor).toBeString()
 })
-test('sparse long-phrase searches use the trigram bitmap path on the historical fallback', async () => {
+test('trigram-backed searches skip recent timestamp walks', async () => {
     const calls: string[] = []
     const query = (async (sql: string) => {
         calls.push(sql)
@@ -100,12 +100,11 @@ test('sparse long-phrase searches use the trigram bitmap path on the historical 
     }) as unknown as typeof queryOnce
     const result = await searchLogPage(query, { ...input, recentFirst: true, preferTextIndex: true })
     const selects = calls.filter(sql => sql.startsWith('SELECT'))
-    expect(selects).toHaveLength(2)
-    expect(calls).toContain('SET LOCAL enable_bitmapscan = off')
-    expect(calls).toContain('SET LOCAL enable_bitmapscan = DEFAULT')
+    expect(selects).toHaveLength(1)
+    expect(calls).not.toContain('SET LOCAL enable_bitmapscan = off')
+    expect(calls).not.toContain('SET LOCAL enable_bitmapscan = DEFAULT')
     expect(calls).toContain('SET LOCAL enable_indexscan = off')
-    expect(selects[0]).toContain('event_timestamp >= $5::timestamptz')
-    expect(selects[1]).not.toContain('event_timestamp >= $5::timestamptz')
+    expect(selects[0]).not.toContain('event_timestamp >= $5::timestamptz')
     expect(calls.at(-1)).toBe('SET LOCAL enable_indexscan = DEFAULT')
     expect(result.rows.map(row => row.id)).toEqual(['older'])
 })

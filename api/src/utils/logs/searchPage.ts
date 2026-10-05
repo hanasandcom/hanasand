@@ -29,12 +29,8 @@ export async function searchLogPage(query: typeof queryOnce, input: Input) {
     // full page, no older window can change which events belong on that page.
     // This avoids sorting a million trigram matches just to return 200 rows.
     let result: Awaited<ReturnType<typeof query>> | undefined
-    if (input.recentFirst) {
-        // For searchable text, cap the timestamp-first probe at 15 minutes.
-        // Sparse phrases should reach the trigram index before a multi-hour walk.
-        const windows = input.preferTextIndex
-            ? [15 * 60_000]
-            : [15, 45, 60, 60, ...Array(17).fill(4 * 60), 60].map(minutes => minutes * 60_000)
+    if (input.recentFirst && !input.preferTextIndex) {
+        const windows = [15, 45, 60, 60, ...Array(17).fill(4 * 60), 60].map(minutes => minutes * 60_000)
         let segmentEnd = Date.parse(cursor?.time || until)
         let firstSegment = true
         const matches: Awaited<ReturnType<typeof query>>['rows'] = []
