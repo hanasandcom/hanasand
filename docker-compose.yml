@@ -131,8 +131,9 @@ services:
       DB_POOL_HOST: pgbouncer
       DB_POOL_PORT: ${DB_POOL_PORT:-18505}
       HANASAND_IDENTITY_SERVICE_URL: ${HANASAND_IDENTITY_SERVICE_URL:-http://identity:8081}
-      DB_MAX_CONN: ${DB_MAX_CONN:-1000}
-      DB_POOL_WARMUP_CONN: ${DB_POOL_WARMUP_CONN:-1000}
+      # Match PgBouncer's 40-server budget and avoid a startup connection burst.
+      DB_MAX_CONN: ${DB_MAX_CONN:-32}
+      DB_POOL_WARMUP_CONN: ${DB_POOL_WARMUP_CONN:-8}
       LOG_CATCHUP_WORKER_DISABLED: "1"
       API_CORS_ALLOWED_ORIGINS: ${API_CORS_ALLOWED_ORIGINS:-https://hanasand.com,https://www.hanasand.com}
       MAIL_INTERNAL_URL: ${MAIL_INTERNAL_URL:-http://stalwart:8080}
