@@ -32,6 +32,15 @@ try {
     await client.query('ALTER TABLE events ADD COLUMN organization_id text DEFAULT \'active\'')
     await client.query('CREATE TEMP TABLE organizations(id text, status text)')
     await client.query('INSERT INTO organizations VALUES (\'active\',\'active\'),(\'disabled\',\'inactive\')')
+    const pageStartedAt = performance.now()
+    const messagePage = await searchLogPage(client.query.bind(client) as unknown as typeof queryOnce, {
+        where: [logMessageSearchPredicate('$1'), 'event_timestamp >= NOW() - INTERVAL \'90 days\''],
+        params: ['runc init'], order: 'event_timestamp DESC, id DESC', limit: 20, recentFirst: true, preferTextIndex: true,
+    })
+    const messagePageMs = performance.now() - pageStartedAt
+    assert.equal(messagePage.rows.length, 20)
+    assert.ok(messagePage.rows.every(row => row.id.startsWith('old-message-')))
+    assert.ok(messagePageMs < 100, `Sparse phrase page should use the trigram fallback promptly (${messagePageMs.toFixed(1)}ms)`)
     const active = 'organization_id = ANY(ARRAY(SELECT o.id FROM organizations o WHERE o.status = \'active\'))'
     const legacyActive = 'EXISTS(SELECT 1 FROM organizations o WHERE o.id=events.organization_id AND o.status=\'active\')'
     const scopeCases = await client.query(`SELECT organization_id AS id, (${active}) IS TRUE AS allowed, (${legacyActive}) IS TRUE AS legacy FROM (VALUES ('active'),('disabled'),(NULL),('unknown')) events(organization_id)`)
@@ -66,7 +75,7 @@ try {
         comparison.push({ name, execution_ms: plan['Execution Time'], shared_hit_blocks: plan.Plan['Shared Hit Blocks'] || 0,
             shared_read_blocks: plan.Plan['Shared Read Blocks'] || 0, plan: plan.Plan })
     }
-    console.log(JSON.stringify({ profiles, message_search_comparison: comparison, sizes }))
+    console.log(JSON.stringify({ profiles, message_search_comparison: comparison, sparse_message_page_ms: messagePageMs, sizes }))
     assert.ok(JSON.stringify(comparison[1].plan).includes('new_phrase'), 'Historical message search must use the existing trigram index')
     assert.ok(profiles[1].execution_ms < 20, 'Phrase query should finish under 20ms on this representative local corpus')
     assert.ok(comparison[1].execution_ms < comparison[0].execution_ms, 'Message trigram search should beat scanning recent rows for an old sparse match')

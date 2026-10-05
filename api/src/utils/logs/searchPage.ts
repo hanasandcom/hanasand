@@ -30,7 +30,11 @@ export async function searchLogPage(query: typeof queryOnce, input: Input) {
     // This avoids sorting a million trigram matches just to return 200 rows.
     let result: Awaited<ReturnType<typeof query>> | undefined
     if (input.recentFirst) {
-        const windows = [15, 45, 60, 60, ...Array(17).fill(4 * 60), 60].map(minutes => minutes * 60_000)
+        // For searchable text, cap the timestamp-first probe at 15 minutes.
+        // Sparse phrases should reach the trigram index before a multi-hour walk.
+        const windows = input.preferTextIndex
+            ? [15 * 60_000]
+            : [15, 45, 60, 60, ...Array(17).fill(4 * 60), 60].map(minutes => minutes * 60_000)
         let segmentEnd = Date.parse(cursor?.time || until)
         let firstSegment = true
         const matches: Awaited<ReturnType<typeof query>>['rows'] = []
