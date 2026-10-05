@@ -4,6 +4,9 @@ import run from '#db'
 
 const SESSION_TTL_HOURS = 24
 const DESKTOP_SESSION_TTL_HOURS = 24 * 30
+const SESSION_TOUCH_INTERVAL_MS = 30_000
+const MAX_SESSION_TOUCH_ATTEMPTS = 10_000
+const sessionTouchAttempts = new Map<number, number>()
 
 type SessionRow = {
     token_id: number
@@ -38,6 +41,31 @@ function isSessionFresh(session: SessionRow) {
 
     const ttlMs = sessionTTLHours(session.user_agent) * 60 * 60 * 1000
     return Date.now() - lastSeen <= ttlMs
+}
+
+function scheduleSessionTouch(userId: string, token: string, tokenId: number, now: number) {
+    const lastAttempt = sessionTouchAttempts.get(tokenId)
+    if (lastAttempt !== undefined && now - lastAttempt < SESSION_TOUCH_INTERVAL_MS) return
+
+    sessionTouchAttempts.set(tokenId, now)
+    if (sessionTouchAttempts.size > MAX_SESSION_TOUCH_ATTEMPTS) {
+        for (const [id, attemptedAt] of sessionTouchAttempts) {
+            if (now - attemptedAt >= SESSION_TOUCH_INTERVAL_MS) sessionTouchAttempts.delete(id)
+        }
+        while (sessionTouchAttempts.size > MAX_SESSION_TOUCH_ATTEMPTS) {
+            const oldest = sessionTouchAttempts.keys().next().value
+            if (oldest === undefined) break
+            sessionTouchAttempts.delete(oldest)
+        }
+    }
+
+    void run(`
+        UPDATE tokens
+        SET timestamp = NOW()
+        WHERE id = $1
+          AND token = $2
+          AND timestamp <= NOW() - INTERVAL '30 seconds'
+    `, [userId, token]).catch(() => undefined)
 }
 
 export async function issueToken({ id, ip, userAgent = '' }: { id: string, ip: string, userAgent?: string }) {
@@ -97,18 +125,13 @@ export async function validateSession({ id, token, organizationSlug }: { id?: st
     const ttlHours = sessionTTLHours(session.user_agent)
 
     const readOnly = recoveryReadOnly() || session.database_read_only === true
-    // Recheck access on every request, but avoid a durable timestamp write for
-    // every parallel dashboard fetch. The SQL guard also covers concurrent touches.
-    if (!readOnly && Date.now() - new Date(session.timestamp).getTime() >= 30_000) {
-        const touched = await run(`
-            UPDATE tokens
-            SET timestamp = NOW()
-            WHERE id = $1
-              AND token = $2
-              AND timestamp <= NOW() - INTERVAL '30 seconds'
-            RETURNING timestamp
-        `, [userId, token])
-        if (touched.rows[0]?.timestamp) session.timestamp = touched.rows[0].timestamp
+    // Keep validating revocation and account state on every request. The
+    // last-seen write is auxiliary; queue it without making parallel requests
+    // wait on the same token row during a dashboard burst.
+    const now = Date.now()
+    if (!readOnly && now - new Date(session.timestamp).getTime() >= SESSION_TOUCH_INTERVAL_MS) {
+        session.timestamp = new Date(now).toISOString()
+        scheduleSessionTouch(userId, token, session.token_id, now)
     }
 
     return {

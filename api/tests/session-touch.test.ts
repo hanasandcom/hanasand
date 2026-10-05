@@ -1,8 +1,7 @@
 import { beforeEach, expect, mock, test } from 'bun:test'
 import { randomUUID } from 'node:crypto'
-let row: any, readOnly = false
+let row: any, readOnly = false, token: string, tokenId = 0
 const queries: Array<{ sql: string, values?: unknown[] }> = []
-const token = randomUUID()
 mock.module('#db', () => ({ default: async (sql: string, values?: unknown[]) => {
     queries.push({ sql, values })
     if (sql.includes('UPDATE tokens')) return { rows: [{ timestamp: new Date().toISOString() }] }
@@ -12,7 +11,8 @@ mock.module('../src/utils/recovery.ts', () => ({ recoveryReadOnly: () => readOnl
 const { validateSession } = await import('../src/utils/auth/session.ts')
 beforeEach(() => {
     queries.length = 0; readOnly = false
-    row = { token_id: 1, id: 'member', token, user_agent: '', timestamp: new Date(Date.now() - 10000).toISOString(), session_user: { id: 'member', active: true } }
+    token = randomUUID()
+    row = { token_id: ++tokenId, id: 'member', token, user_agent: '', timestamp: new Date(Date.now() - 10000).toISOString(), session_user: { id: 'member', active: true } }
 })
 test('parallel fresh requests still validate access without repeating timestamp writes', async () => {
     const result = await Promise.all(Array.from({ length: 10 }, () => validateSession({ id: 'member', token })))
@@ -39,9 +39,12 @@ test('organization membership is checked by the session query', async () => {
 })
 test('older active sessions refresh with an atomic age guard; expired and read-only sessions never write', async () => {
     row.timestamp = new Date(Date.now() - 60000).toISOString()
-    const result = await validateSession({ id: 'member', token })
-    expect(queries[1].sql).toContain('timestamp <= NOW() - INTERVAL \'30 seconds\'')
-    expect(Date.parse(result!.refreshed.expires_at)).toBeGreaterThan(Date.now() + 86399000)
+    const results = await Promise.all(Array.from({ length: 10 }, () => validateSession({ id: 'member', token })))
+    expect(results.every(Boolean)).toBe(true)
+    const touches = queries.filter(({ sql }) => sql.includes('UPDATE tokens'))
+    expect(touches).toHaveLength(1)
+    expect(touches[0].sql).toContain('timestamp <= NOW() - INTERVAL \'30 seconds\'')
+    expect(Date.parse(results[0]!.refreshed.expires_at)).toBeGreaterThan(Date.now() + 86399000)
     queries.length = 0; readOnly = true
     await validateSession({ id: 'member', token })
     expect(queries).toHaveLength(1)
