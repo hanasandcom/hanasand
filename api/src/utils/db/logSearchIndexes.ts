@@ -2,7 +2,7 @@ import run, { withDatabaseAdvisoryLock } from '#db'
 import { logPhraseSearchExpression } from '../logs/searchText.ts'
 
 const logSearchIndexNames = [
-    'idx_logs_phrase_trgm', 'idx_logs_service_time', 'idx_log_dimensions_service_time', 'idx_logs_realtime_page_time',
+    'idx_logs_phrase_trgm', 'idx_logs_service_time', 'idx_logs_exact_message_time', 'idx_log_dimensions_service_time', 'idx_logs_realtime_page_time',
     'idx_events_log_http_error_summary', 'idx_events_ssh_key_usage',
 ] as const
 
@@ -14,6 +14,9 @@ export const logSearchIndexes = [
         WHERE ingestion_id = 'logs' AND processing_status = 'processed'`,
     `CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_logs_service_time ON events
         ((normalized->>'service'), event_timestamp DESC, id DESC)
+        WHERE ingestion_id = 'logs' AND processing_status = 'processed'`,
+    `CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_logs_exact_message_time ON events
+        (organization_id, (normalized->>'message'), event_timestamp DESC, id DESC)
         WHERE ingestion_id = 'logs' AND processing_status = 'processed'`,
     `CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_logs_realtime_page_time ON events
         (event_timestamp DESC, id DESC)

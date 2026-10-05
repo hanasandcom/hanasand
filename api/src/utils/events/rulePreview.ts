@@ -64,13 +64,15 @@ async function scanRulePreviewUncached(organizationId: string, canReadLogs: bool
 
 function storageEstimatePredicate(conditions: Condition[], params: (string | string[] | number | boolean | null)[]) {
     const predicates = [previewPredicate(conditions, params)]
-    // For an exact message selector, walk the existing newest-first log index
-    // and apply the equality before paging. The trigram and executable indexes
-    // return a large bitmap that must be sorted, which is slower for common
-    // messages and can make the first preview page time out. The exact SQL
-    // predicate above remains a safe candidate filter; JS still decides matches.
-    const hasExactMessage = conditions.some(condition => condition.path === 'message' && condition.operator === 'equals')
-    if (!hasExactMessage) {
+    // For a case-sensitive exact message selector, use the matching ordered
+    // B-tree candidate instead of combining broad trigram/executable bitmaps.
+    // This lets PostgreSQL seek directly to the message and return its newest
+    // rows without sorting a large match set. JS still decides exact matches.
+    const exactMessage = conditions.find(condition => condition.path === 'message' && condition.operator === 'equals' && condition.caseSensitive === true)
+    if (exactMessage) {
+        params.push(exactMessage.value)
+        predicates.push(`normalized->>'message' = $${params.length}`)
+    } else {
         const executable = processExecutableCandidatePredicate(conditions, value => { params.push(value); return `$${params.length}` })
         if (executable) predicates.push(executable)
     }
@@ -84,7 +86,7 @@ function storageEstimatePredicate(conditions: Condition[], params: (string | str
         return [{ values, shortest: Math.min(...values.map(value => value.length)) }]
     }).sort((left, right) => right.shortest - left.shortest || right.values.reduce((sum, value) => sum + value.length, 0)
         - left.values.reduce((sum, value) => sum + value.length, 0))
-    if (groups[0] && !hasExactMessage) {
+    if (groups[0] && !exactMessage) {
         const alternatives = groups[0].values.map(value => {
             params.push(value)
             return logFieldTextCandidates(`$${params.length}`)

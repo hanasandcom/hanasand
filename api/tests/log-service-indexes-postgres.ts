@@ -26,6 +26,8 @@ try {
         ('pending', 'active','logs','pending',NOW(), '{"service":"rare"}'),
         ('native', 'active','native','processed',NOW(), '{"service":"rare"}'),
         ('old', 'active','logs','processed',NOW()-INTERVAL '91 days', '{"service":"rare"}')`)
+    await client.query(`INSERT INTO events SELECT 'message-'||n, 'active', 'logs', 'processed', NOW()-n*INTERVAL '1 second',
+        jsonb_build_object('message','frequent selector') FROM generate_series(1,100000) n`)
     await client.query(`INSERT INTO log_dimensions SELECT id,organization_id,event_timestamp,
         normalized->>'severity',normalized->>'service',normalized->>'log_type'
         FROM events WHERE ingestion_id='logs' AND processing_status='processed'`)
@@ -41,6 +43,9 @@ try {
         AND organization_id=ANY(ARRAY(SELECT o.id FROM organizations o WHERE o.status='active'))
         AND normalized->>'severity' IN ('high','critical') AND event_timestamp <= NOW()
         ORDER BY event_timestamp DESC,id DESC LIMIT 51`
+    const exactMessageRows = `SELECT id FROM events WHERE organization_id=$1 AND ingestion_id='logs'
+        AND processing_status='processed' AND normalized->>'message'=$2
+        ORDER BY event_timestamp DESC,id DESC LIMIT 200`
     const groups = `SELECT severity,count(*)::int AS count FROM log_dimensions d
         WHERE service=$1 AND event_timestamp>=NOW()-INTERVAL '24 hours'
         AND EXISTS(SELECT 1 FROM organizations o WHERE o.id=d.organization_id AND o.status='active')
@@ -58,6 +63,9 @@ try {
     const realtimePlan = (await client.query('EXPLAIN (ANALYZE, FORMAT JSON) '+realtimeRows)).rows[0]['QUERY PLAN']
     assert.ok(JSON.stringify(realtimePlan).includes('idx_logs_realtime_page_time'), 'Realtime pages should use the partial ordered index')
     console.log(JSON.stringify({index:'idx_logs_realtime_page_time',execution_ms:realtimePlan[0]['Execution Time']}))
+    const exactMessagePlan = (await client.query('EXPLAIN (ANALYZE, FORMAT JSON) '+exactMessageRows,['active','frequent selector'])).rows[0]['QUERY PLAN']
+    assert.ok(JSON.stringify(exactMessagePlan).includes('idx_logs_exact_message_time'), 'Exact message previews should seek and page in timestamp order')
+    console.log(JSON.stringify({index:'idx_logs_exact_message_time',execution_ms:exactMessagePlan[0]['Execution Time']}))
     console.log('PASS: rare/absent services, exact counts, deterministic ordering, time/status/organization isolation')
 } finally {
     await client.query('ROLLBACK')
