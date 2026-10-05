@@ -397,9 +397,11 @@ auth_service_environment_matches() {
     jq -en \
         --argjson desired "$desired_environment" \
         --argjson running "$running_environment" '
-            ($desired | del(.HANASAND_RELEASE_COMMIT, .HANASAND_DEPLOY_ENV_FILE)) as $wanted
+            # API_SSH_KEY is injected from the shared env file but is not used
+            # by the auth runtime; changing it must not bounce login workers.
+            ($desired | del(.HANASAND_RELEASE_COMMIT, .HANASAND_DEPLOY_ENV_FILE, .API_SSH_KEY)) as $wanted
             | ($running
-                | del(.HANASAND_RELEASE_COMMIT, .HANASAND_DEPLOY_ENV_FILE)
+                | del(.HANASAND_RELEASE_COMMIT, .HANASAND_DEPLOY_ENV_FILE, .API_SSH_KEY)
                 | with_entries(select(.key as $key | $wanted | has($key)))) as $actual
             | $actual == $wanted
         ' >/dev/null
