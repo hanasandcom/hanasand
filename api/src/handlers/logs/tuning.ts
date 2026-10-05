@@ -2,9 +2,11 @@ import type { FastifyReply, FastifyRequest } from 'fastify'
 import run, { tryWithDatabaseAdvisoryLock, withTransaction } from '#db'
 import hasHanasandInternalRouteAccess, { HANASAND_ORGANIZATION_ID } from '#utils/auth/organizationPageAccess.ts'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
+import { cachedRead, invalidateReadCache } from '../../utils/readCache.ts'
 
-const REFRESH_INTERVAL_MS = 60 * 60_000
+const REFRESH_INTERVAL_MS = 15 * 60_000
 const REFRESH_CHECK_INTERVAL_MS = 5 * 60_000
+const TUNING_SNAPSHOT_CACHE_KEY = `log-tuning-snapshot:${HANASAND_ORGANIZATION_ID}`
 
 type TuningLog = {
     message: string
@@ -12,7 +14,8 @@ type TuningLog = {
     ip_path: string | null
     user_agent: string
     user_agent_path: string | null
-    protected_event_count: string
+    last_triggered: string | null
+    last_24h_count: string
     event_count: string
     storage_bytes: string
 }
@@ -33,18 +36,21 @@ export async function getLogTuning(req: FastifyRequest, res: FastifyReply) {
     if (!(await hasHanasandInternalRouteAccess(req)).valid) return res.status(403).send({ error: 'Active Hanasand organization owner or editor access is required.' })
 
     try {
-        const result = await run(`SELECT generated_at::text AS generated_at, logs,
-                (generated_at IS NULL OR refresh_requested_at > generated_at) AS refreshing
-            FROM log_tuning_snapshots WHERE organization_id = $1`, [HANASAND_ORGANIZATION_ID])
-        const row = result.rows[0]
-        const generatedAt = row?.generated_at ? new Date(row.generated_at).toISOString() : null
-        return res.send({
-            organizationId: HANASAND_ORGANIZATION_ID,
-            generatedAt,
-            logs: Array.isArray(row?.logs) ? row.logs : [],
-            pending: !generatedAt,
-            refreshing: Boolean(row?.refreshing),
-        } satisfies TuningSnapshot)
+        const snapshot = await cachedRead<TuningSnapshot>(TUNING_SNAPSHOT_CACHE_KEY, 10_000, async() => {
+            const result = await run(`SELECT generated_at::text AS generated_at, logs,
+                    (generated_at IS NULL OR refresh_requested_at > generated_at) AS refreshing
+                FROM log_tuning_snapshots WHERE organization_id = $1`, [HANASAND_ORGANIZATION_ID])
+            const row = result.rows[0]
+            const generatedAt = row?.generated_at ? new Date(row.generated_at).toISOString() : null
+            return {
+                organizationId: HANASAND_ORGANIZATION_ID,
+                generatedAt,
+                logs: Array.isArray(row?.logs) ? row.logs : [],
+                pending: !generatedAt,
+                refreshing: Boolean(row?.refreshing),
+            } satisfies TuningSnapshot
+        })
+        return res.send(snapshot)
     } catch (error) {
         req.log?.error?.({ error }, 'Log tuning snapshot read failed')
         return res.status(503).send({ error: 'Log tuning data is temporarily unavailable. Try again shortly.' })
@@ -60,6 +66,7 @@ export async function postLogTuningRefresh(req: FastifyRequest, res: FastifyRepl
         await run(`INSERT INTO log_tuning_snapshots (organization_id, logs, refresh_requested_at)
             VALUES ($1, '[]'::jsonb, NOW())
             ON CONFLICT (organization_id) DO UPDATE SET refresh_requested_at = NOW()`, [HANASAND_ORGANIZATION_ID])
+        invalidateReadCache(TUNING_SNAPSHOT_CACHE_KEY)
         void refreshLogTuningSnapshot().catch(error => req.log?.warn?.({ error }, 'Log tuning background refresh failed'))
         return res.header('retry-after', '15').status(202).send({ refreshing: true })
     } catch (error) {
@@ -81,11 +88,13 @@ export function startLogTuningSnapshotRefresh(logger: { warn: (context: { error:
 function refreshLogTuningSnapshot() {
     if (refreshInFlight) return refreshInFlight
     refreshInFlight = tryWithDatabaseAdvisoryLock('log-tuning-snapshot-refresh', async() => {
-        const existing = (await run(`SELECT generated_at::text AS generated_at, refresh_requested_at::text AS refresh_requested_at
+        const existing = (await run(`SELECT generated_at::text AS generated_at, refresh_requested_at::text AS refresh_requested_at, logs
             FROM log_tuning_snapshots WHERE organization_id = $1`, [HANASAND_ORGANIZATION_ID])).rows[0]
         const generatedAt = existing?.generated_at ? Date.parse(existing.generated_at) : 0
         const requestedAt = existing?.refresh_requested_at ? Date.parse(existing.refresh_requested_at) : 0
-        if (generatedAt && requestedAt <= generatedAt && Date.now() - generatedAt < REFRESH_INTERVAL_MS) return 'current'
+        const hasCurrentMetrics = Array.isArray(existing?.logs) && existing.logs.every((log: unknown) => log !== null
+            && typeof log === 'object' && Object.hasOwn(log, 'last_triggered') && Object.hasOwn(log, 'last_24h_count'))
+        if (generatedAt && hasCurrentMetrics && requestedAt <= generatedAt && Date.now() - generatedAt < REFRESH_INTERVAL_MS) return 'current'
 
         const startedAt = new Date().toISOString()
         const result = await queryLogTuning()
@@ -94,6 +103,7 @@ function refreshLogTuningSnapshot() {
             ON CONFLICT (organization_id) DO UPDATE SET logs = EXCLUDED.logs, generated_at = EXCLUDED.generated_at,
                 refresh_requested_at = GREATEST(log_tuning_snapshots.refresh_requested_at, EXCLUDED.refresh_requested_at)`,
         [HANASAND_ORGANIZATION_ID, JSON.stringify(result), startedAt])
+        invalidateReadCache(TUNING_SNAPSHOT_CACHE_KEY)
         return 'refreshed'
     }).finally(() => { refreshInFlight = undefined })
     return refreshInFlight
@@ -118,8 +128,8 @@ async function queryLogTuning(): Promise<TuningLog[]> {
                 COALESCE(NULLIF(normalized->>'user_agent', ''), NULLIF(normalized #>> '{metadata,user_agent}', ''), '') AS user_agent,
                 CASE WHEN NULLIF(normalized->>'user_agent', '') IS NOT NULL THEN 'user_agent'
                     WHEN NULLIF(normalized #>> '{metadata,user_agent}', '') IS NOT NULL THEN 'metadata.user_agent' END AS user_agent_path,
-                COUNT(*) FILTER (WHERE normalized->>'outcome' IN ('failure', 'failed', 'error', 'denied', 'blocked', 'timeout', 'timed_out')
-                    OR CASE WHEN jsonb_typeof(normalized->'detections') = 'array' THEN jsonb_array_length(normalized->'detections') > 0 ELSE FALSE END)::text AS protected_event_count,
+                MAX(event_timestamp)::text AS last_triggered,
+                COUNT(*) FILTER (WHERE event_timestamp >= NOW() - INTERVAL '24 hours')::text AS last_24h_count,
                 COUNT(*)::text AS event_count,
                 SUM(pg_column_size(event))::text AS storage_bytes
             FROM events event

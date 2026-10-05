@@ -3,11 +3,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { RefreshCw, SlidersHorizontal } from 'lucide-react'
 import { DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
+import SortIndicator from '@/components/dashboard/sort-indicator'
 import { useWorkspace } from '@/components/organizations/workspaceProvider'
 import { requestJson, type Rule } from '../detection-rules'
 import CreateRuleDialog from '../create-rule-dialog'
 import ReprocessRule from '../reprocess-rule'
 import type { Condition } from '../condition-builder'
+import { useSmoothedCount } from '../use-smoothed-count'
 
 type LogPattern = {
     message: string
@@ -15,11 +17,22 @@ type LogPattern = {
     ip_path: string | null
     user_agent: string
     user_agent_path: string | null
-    protected_event_count: string
+    last_triggered: string | null
+    last_24h_count: string
     event_count: string
     storage_bytes: string
 }
 type TuningData = { organizationId: string, generatedAt: string | null, logs: LogPattern[], pending: boolean, refreshing: boolean }
+type SortField = 'message' | 'ip' | 'user_agent' | 'event_count' | 'storage_bytes'
+type SortDirection = 'asc' | 'desc'
+
+const sortFields: { value: SortField, label: string }[] = [
+    { value: 'message', label: 'Log' },
+    { value: 'ip', label: 'IP' },
+    { value: 'user_agent', label: 'User agent' },
+    { value: 'event_count', label: 'Count' },
+    { value: 'storage_bytes', label: 'Row data' },
+]
 
 const numberFormat = new Intl.NumberFormat('en')
 
@@ -51,6 +64,8 @@ export default function TuningPage() {
     const [createdRule, setCreatedRule] = useState<Rule | null>(null)
     const [error, setError] = useState('')
     const [pending, setPending] = useState(false)
+    const [sortField, setSortField] = useState<SortField>('event_count')
+    const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
     const canManage = organizations.some(organization => organization.id === data?.organizationId
         && ['owner', 'admin', 'editor'].includes(organization.role?.toLowerCase() || ''))
 
@@ -85,7 +100,7 @@ export default function TuningPage() {
     useEffect(() => {
         const controller = new AbortController()
         void refresh(controller.signal)
-        const interval = window.setInterval(() => void refresh(), pending ? 15_000 : 30_000)
+        const interval = window.setInterval(() => void refresh(), pending ? 15_000 : 10_000)
         const onVisible = () => { if (document.visibilityState === 'visible') void refresh() }
         document.addEventListener('visibilitychange', onVisible)
         return () => { controller.abort(); window.clearInterval(interval); document.removeEventListener('visibilitychange', onVisible) }
@@ -93,6 +108,15 @@ export default function TuningPage() {
 
     const preset = useMemo(() => selected ? rulePreset(selected) : undefined, [selected])
     const displayedAt = data?.generatedAt ? new Date(data.generatedAt).toLocaleString() : ''
+    const totalStorageBytes = useMemo(() => (data?.logs || []).reduce((total, log) => total + Number(log.storage_bytes || 0), 0), [data?.logs])
+    const sortedLogs = useMemo(() => [...(data?.logs || [])].sort((a, b) => {
+        const left = a[sortField], right = b[sortField]
+        const compared = sortField === 'message' || sortField === 'ip' || sortField === 'user_agent'
+            ? String(left).localeCompare(String(right), undefined, { numeric: true, sensitivity: 'base' })
+            : Number(left) - Number(right)
+        return sortDirection === 'asc' ? compared : -compared
+    }), [data?.logs, sortDirection, sortField])
+    const sortLabel = sortFields.find(field => field.value === sortField)?.label || 'Count'
 
     return <DashboardPage className='!gap-5 !px-2 !py-4'>
         <header className='flex flex-wrap items-center justify-between gap-3'>
@@ -107,32 +131,58 @@ export default function TuningPage() {
         <DashboardPanel className='min-w-0 overflow-hidden'>
             <div className='flex flex-wrap items-center justify-between gap-2 border-b border-ui-border px-4 py-3'>
                 <h2 className='font-semibold'>Stored log patterns</h2>
-                <p className='text-xs text-ui-muted'>{data?.refreshing ? `Refreshing in background${displayedAt ? ` · showing snapshot from ${displayedAt}` : ''}…` : displayedAt ? `Updated ${displayedAt}` : pending ? 'Preparing the summary in the background…' : 'Loading patterns…'}</p>
+                <div className='flex flex-wrap items-center justify-end gap-2'>
+                    <p className='text-xs text-ui-muted'>{data?.refreshing ? `Refreshing in background${displayedAt ? ` · showing snapshot from ${displayedAt}` : ''}…` : displayedAt ? `Updated ${displayedAt}` : pending ? 'Preparing the summary in the background…' : 'Loading patterns…'}{data && <> · {formatBytes(totalStorageBytes)} total</>}</p>
+                    <details className='relative'>
+                        <summary className='flex cursor-pointer list-none items-center gap-1.5 rounded-lg border border-ui-border px-2.5 py-1.5 text-xs font-medium text-ui-text hover:bg-ui-raised focus-visible:outline focus-visible:outline-2 focus-visible:outline-ui-primary'><SlidersHorizontal size={14} aria-hidden />Filter</summary>
+                        <div className='absolute right-0 z-10 mt-2 w-56 rounded-lg border border-ui-border bg-ui-panel p-3 shadow-lg'>
+                            <label className='block text-xs font-medium text-ui-muted' htmlFor='tuning-sort-field'>Sort by</label>
+                            <select id='tuning-sort-field' value={sortField} onChange={event => setSortField(event.target.value as SortField)} className='mt-1 w-full rounded-md border border-ui-border bg-ui-bg px-2 py-1.5 text-sm text-ui-text'>
+                                {sortFields.map(field => <option key={field.value} value={field.value}>{field.label}</option>)}
+                            </select>
+                            <div className='mt-3 flex gap-2' role='group' aria-label={`Sort ${sortLabel}`}>
+                                {(['asc', 'desc'] as const).map(direction => <button key={direction} type='button' aria-pressed={sortDirection === direction} onClick={() => setSortDirection(direction)} className='inline-flex flex-1 items-center justify-center gap-1 rounded-md border border-ui-border px-2 py-1.5 text-xs hover:bg-ui-raised aria-pressed:border-ui-primary aria-pressed:text-ui-primary'>
+                                    {direction === 'asc' ? 'Ascending' : 'Descending'}<SortIndicator active={sortDirection === direction} direction={direction} />
+                                </button>)}
+                            </div>
+                        </div>
+                    </details>
+                </div>
             </div>
             <div className='overflow-x-auto'>
-                <table className='w-full min-w-[60rem] table-fixed text-left text-sm'>
-                    <thead className='bg-ui-raised text-xs text-ui-muted'><tr><th className='w-[32%] px-4 py-2'>Log</th><th className='w-[14%] px-4 py-2'>IP</th><th className='w-[25%] px-4 py-2'>User agent</th><th className='w-[11%] px-4 py-2 text-right'>Count</th><th className='w-[18%] px-4 py-2 text-right'>Row data</th></tr></thead>
-                    <tbody>{(data?.logs || []).map(log => {
-                        const protectedCount = Number(log.protected_event_count)
+                <table className='w-full min-w-[82rem] table-fixed text-left text-sm'>
+                    <thead className='bg-ui-raised text-xs text-ui-muted'><tr><th className='w-[24%] px-4 py-2'>Log</th><th className='w-[10%] px-4 py-2'>IP</th><th className='w-[20%] px-4 py-2'>User agent</th><th className='w-[9%] px-4 py-2 text-right'>Count</th><th className='w-[12%] px-4 py-2'>Last triggered</th><th className='w-[11%] px-4 py-2 text-right'>Triggers (24h)</th><th className='w-[14%] px-4 py-2 text-right'>Row data</th></tr></thead>
+                    <tbody>{sortedLogs.map(log => {
+                        const parsedLastTriggered = log.last_triggered ? new Date(log.last_triggered) : null
+                        const lastTriggered = parsedLastTriggered && Number.isFinite(parsedLastTriggered.getTime()) ? parsedLastTriggered : null
+                        const lastTriggeredLabel = lastTriggered?.toLocaleString() || '—'
                         const tunableFields = log.message.length > 0 && log.message.length <= 200
                             && (!log.ip_path || log.ip.length <= 200)
                             && (!log.user_agent_path || log.user_agent.length <= 200)
                         return <tr key={JSON.stringify([log.message, log.ip, log.user_agent])} className='border-t border-ui-border align-top'>
-                            <td className='px-4 py-3'><code className='block whitespace-pre-wrap wrap-break-word text-xs'>{log.message}</code>{protectedCount > 0 && <p className='mt-1 text-xs text-ui-warning'>{numberFormat.format(protectedCount)} failure or detection events — review before suppressing</p>}<button type='button' disabled={!canManage || !tunableFields} onClick={() => { setSelected(log); setCreatedRule(null) }} className='mt-2 rounded-md border border-ui-border px-2.5 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-50' title={!tunableFields ? 'This log message or a rule field is too long for an exact condition.' : canManage ? undefined : 'An Hanasand editor is required to create a suppression rule'}>Tune</button></td>
+                            <td className='px-4 py-3'><code className='block whitespace-pre-wrap wrap-break-word text-xs'>{log.message}</code><button type='button' disabled={!canManage || !tunableFields} onClick={() => { setSelected(log); setCreatedRule(null) }} className='mt-2 rounded-md border border-ui-border px-2.5 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-50' title={!tunableFields ? 'This log message or a rule field is too long for an exact condition.' : canManage ? undefined : 'An Hanasand editor is required to create a suppression rule'}>Tune</button></td>
                             <td className='px-4 py-3 text-xs'><span className='wrap-break-word'>{log.ip || '—'}</span></td>
                             <td className='px-4 py-3 text-xs'><span className='wrap-break-word'>{log.user_agent || '—'}</span></td>
-                            <td className='px-4 py-3 text-right tabular-nums'>{numberFormat.format(Number(log.event_count))}</td>
+                            <td className='px-4 py-3 text-right tabular-nums'><SmoothedCount value={log.event_count} /></td>
+                            <td className='px-4 py-3 text-xs tabular-nums' title={lastTriggered?.toISOString()}>{lastTriggeredLabel}</td>
+                            <td className='px-4 py-3 text-right tabular-nums'><SmoothedCount value={log.last_24h_count} /></td>
                             <td className='px-4 py-3 text-right tabular-nums' title={`${numberFormat.format(Number(log.storage_bytes))} bytes`}>{formatBytes(Number(log.storage_bytes))}</td>
                         </tr>
                     })}
-                    {!data?.logs.length && <tr><td colSpan={5} className='px-4 py-10 text-center text-sm text-ui-muted'>{data ? 'No stored log patterns.' : pending ? 'Preparing the summary in the background…' : error ? 'Log patterns could not be loaded.' : 'Loading patterns…'}</td></tr>}</tbody>
+                    {!data?.logs.length && <tr><td colSpan={7} className='px-4 py-10 text-center text-sm text-ui-muted'>{data ? 'No stored log patterns.' : pending ? 'Preparing the summary in the background…' : error ? 'Log patterns could not be loaded.' : 'Loading patterns…'}</td></tr>}</tbody>
                 </table>
             </div>
         </DashboardPanel>
-        <p className='text-xs text-ui-muted'>Row data sums the stored event row sizes; PostgreSQL indexes and free space are excluded. The saved summary refreshes in the background, and opening this page only reads the latest snapshot.</p>
+        <p className='text-xs text-ui-muted'>Row data sums the stored event row sizes; PostgreSQL indexes and free space are excluded.</p>
 
         {selected && data && preset && <CreateRuleDialog key={JSON.stringify([selected.message, selected.ip, selected.user_agent])} category='analysis' organizationId={data.organizationId} canManage={canManage} canManageRetention={canManage} rules={[]} initialPreset={preset} onClose={() => setSelected(null)} onCreated={rule => {
             setSelected(null); setCreatedRule(rule); setError('')
         }} />}
     </DashboardPage>
+}
+
+function SmoothedCount({ value }: { value?: string }) {
+    const parsed = value ? Number(value) : Number.NaN
+    const count = useSmoothedCount(Number.isFinite(parsed) ? parsed : null, 10_000)
+    return <>{count == null ? '—' : numberFormat.format(count)}</>
 }
