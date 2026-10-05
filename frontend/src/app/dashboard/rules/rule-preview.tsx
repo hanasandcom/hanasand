@@ -26,7 +26,7 @@ export function diverseEvents(pool: Event[], count = 5) {
     return chosen
 }
 
-export default function RulePreview({ organizationId, conditions, action, range, onReady }: { organizationId: string, conditions: Condition[], action: string, range: string, onReady: (ready: boolean) => void }) {
+export default function RulePreview({ organizationId, conditions, action, range, onReady, storedLogsOnly = false }: { organizationId: string, conditions: Condition[], action: string, range: string, onReady: (ready: boolean) => void, storedLogsOnly?: boolean }) {
     const [count, setCount] = useState(0), [scanned, setScanned] = useState(0), [complete, setComplete] = useState(false), [limited, setLimited] = useState(false)
     const [events, setEvents] = useState<Event[]>([]), [error, setError] = useState('')
     const [attempt, setAttempt] = useState(0)
@@ -36,7 +36,7 @@ export default function RulePreview({ organizationId, conditions, action, range,
     const window = useRef({ until: new Date().toISOString(), from: range === 'all' ? null : new Date(Date.now() - Number(range) * 3600_000).toISOString() })
     const controller = useRef(new AbortController())
     const endpoint = `/api/backend/rules/preview?organizationId=${encodeURIComponent(organizationId)}`
-    const read = (next: Cursor, sample: boolean, limit: 1000 | 2000) => requestJson<Page>(endpoint, { method: 'POST', signal: controller.current.signal, body: JSON.stringify({ ...window.current, conditions, action, cursor: next, sample, limit }) })
+    const read = (next: Cursor, sample: boolean, limit: 1000 | 2000) => requestJson<Page>(endpoint, { method: 'POST', signal: controller.current.signal, body: JSON.stringify({ ...window.current, conditions, action, cursor: next, sample, limit, storedLogsOnly }) })
     useEffect(() => {
         setError(''); setCount(0); setScanned(0); setComplete(false); setLimited(false); setMore(true); setOffset(0); setEvents([])
         browsing.current = false; rows.current = []; cursor.current = null; seen.current = new Set(); busy.current = false

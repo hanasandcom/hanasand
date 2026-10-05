@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import type { queryOnce } from '#db'
 
-type Input = { where: string[], params: NonNullable<Parameters<typeof queryOnce>[1]>, order: string, limit: number, cursor?: string, recentFirst?: boolean }
+type Input = { where: string[], params: NonNullable<Parameters<typeof queryOnce>[1]>, order: string, limit: number, cursor?: string, recentFirst?: boolean, preferTextIndex?: boolean }
 type Cursor = { time: string, id: string, until: string, scope: string }
 
 export async function searchLogPage(query: typeof queryOnce, input: Input) {
@@ -30,7 +30,15 @@ export async function searchLogPage(query: typeof queryOnce, input: Input) {
     // Otherwise fall back to the complete search, never a partial result set.
     let result = input.recentFirst ? await query(select([...where, `event_timestamp >= $${params.length + 1}::timestamptz`]),
         [...params, new Date(Date.parse(cursor?.time || until) - 15 * 60_000).toISOString()]) : undefined
-    if (!result || result.rows.length < input.limit + 1) result = await query(select(where), params)
+    if (!result || result.rows.length < input.limit + 1) {
+        // A sparse long phrase can have its newest match well behind the
+        // timestamp cursor. Prefer the trigram bitmap index for that fallback
+        // instead of walking the entire type/time index and testing every row.
+        const useTextIndex = input.preferTextIndex && !cursor
+        if (useTextIndex) await query('SET LOCAL enable_indexscan = off')
+        result = await query(select(where), params)
+        if (useTextIndex) await query('SET LOCAL enable_indexscan = DEFAULT')
+    }
     const page = result.rows.slice(0, input.limit)
     const last = page.at(-1)
     const next = result.rows.length > input.limit && last

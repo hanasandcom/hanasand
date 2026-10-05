@@ -268,7 +268,9 @@ export async function postRulePreview(req: FastifyRequest, res: FastifyReply) {
         const role = await hasHanasandInternalRouteAccess(req)
         if (res.sent) return res
         const canReadLogs = role.valid
-        return res.send(await scanRulePreview(access.organizationId, canReadLogs, { ...body, conditions: normalized.conditions }))
+        const storedLogsOnly = body.storedLogsOnly === true
+        if (storedLogsOnly && !canReadLogs) return res.status(403).send({ error: 'Log access is required to preview stored log matches.' })
+        return res.send(await scanRulePreview(access.organizationId, canReadLogs, { ...body, conditions: normalized.conditions }, undefined, { storedLogsOnly }))
     } catch (error) {
         if (res.sent) return res
         if (error instanceof PreviewRegexTimeout) return res.status(400).send({ error: error.message })

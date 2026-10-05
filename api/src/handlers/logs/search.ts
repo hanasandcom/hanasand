@@ -15,6 +15,7 @@ export async function searchLogs(req: FastifyRequest, res: FastifyReply) {
     if (!(await hasHanasandInternalRouteAccess(req)).valid) return res.status(403).send({ error: 'Active Hanasand organization owner or editor access is required.' })
     const input = req.query as { hql?: string, kql?: string, search?: string, service?: string, severity?: string, hours?: string, stats?: string, paginate?: string, cursor?: string, realtime?: string }
     try {
+        const search = input.search?.trim() || ''
         const compiled = compileLogQuery(input.hql || input.kql || 'Logs | take 200')
         const paginate = input.paginate === '1'
         if ((paginate && (compiled.summarize || compiled.order !== 'event_timestamp DESC, id DESC' || input.stats === '1')) || (input.cursor && !paginate)) throw new Error('Pagination requires a newest-first event search without counters.')
@@ -30,7 +31,7 @@ export async function searchLogs(req: FastifyRequest, res: FastifyReply) {
         const where = ['ingestion_id = \'logs\'', 'processing_status = \'processed\'', timeWhere, ...compiled.where,
             'organization_id = ANY(ARRAY(SELECT o.id FROM organizations o WHERE o.status = \'active\'))']
         if (realtime) where.push('normalized->>\'severity\' IN (\'high\', \'critical\')')
-        if (input.search) where.push(basicLogSearchPredicate(bind(input.search)))
+        if (search) where.push(basicLogSearchPredicate(bind(search)))
         if (input.service) where.push(`normalized->>'service' = ${bind(input.service)}`)
         if (input.severity === 'high,critical') where.push('normalized->>\'severity\' IN (\'high\', \'critical\')')
         else if (input.severity) {
@@ -39,7 +40,8 @@ export async function searchLogs(req: FastifyRequest, res: FastifyReply) {
         }
         const result = await withLogSearchTransaction(async query => {
             await query('SET LOCAL statement_timeout = \'8s\'')
-            const result = paginate ? await searchLogPage(query, { where, params, order: compiled.order, limit: pageLimit, cursor: input.cursor, recentFirst: Boolean(input.search) }) : compiled.summarize
+            const result = paginate ? await searchLogPage(query, { where, params, order: compiled.order, limit: pageLimit, cursor: input.cursor,
+                recentFirst: Boolean(search), preferTextIndex: search.length >= 12 }) : compiled.summarize
                 ? await query(`SELECT ${compiled.fields[compiled.summarize]} AS value, COUNT(*)::int AS count FROM events WHERE ${where.join(' AND ')} GROUP BY 1 ORDER BY count DESC LIMIT ${compiled.limit}`, params)
                 : await query(`SELECT id, normalized, event_timestamp, organization_id FROM events WHERE ${where.join(' AND ')} ORDER BY ${compiled.order} LIMIT ${compiled.limit}`, params)
             if (realtime) {

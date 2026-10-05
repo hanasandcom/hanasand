@@ -65,3 +65,16 @@ test('sparse and exactly full recent pages fall back to the entire original rang
         expect(result.next_cursor).toBeString()
     }
 })
+test('sparse long-phrase searches use the trigram bitmap path on the historical fallback', async () => {
+    const calls: string[] = []
+    const query = (async (sql: string) => {
+        calls.push(sql)
+        return { rows: sql.startsWith('SELECT') ? [{ id: 'older', cursor_time: '2026-09-19 12:00:00+00' }] : [] }
+    }) as unknown as typeof queryOnce
+    const result = await searchLogPage(query, { ...input, recentFirst: true, preferTextIndex: true })
+    expect(calls[0]).toContain("event_timestamp >= $")
+    expect(calls[1]).toBe('SET LOCAL enable_indexscan = off')
+    expect(calls[2]).not.toContain('event_timestamp >= $4::timestamptz')
+    expect(calls[3]).toBe('SET LOCAL enable_indexscan = DEFAULT')
+    expect(result.rows.map(row => row.id)).toEqual(['older'])
+})

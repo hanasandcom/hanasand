@@ -1,5 +1,6 @@
 import { backupWorkerCall } from './backupWorkerClient.ts'
-export { BackupOperationError } from './backupOperationError.ts'
+import { BackupOperationError } from './backupOperationError.ts'
+export { BackupOperationError }
 
 type BackupLocation = 'local'
 type BackupOperationKind = 'backup' | 'verify' | 'restore_drill' | 'restore_live'

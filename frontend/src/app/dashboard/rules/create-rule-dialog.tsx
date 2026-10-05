@@ -7,7 +7,7 @@ import ConditionBuilder, { conditionError, fieldValues, ruleInput, type Conditio
 
 type RulePreset = { name: string, explanation: string, stage: string, action: string, conditions: Condition[] }
 
-export default function CreateRuleDialog({ category, organizationId, canManage, canManageRetention, rules, onClose, onCreated, initialPreset }: { category: RuleCategory, organizationId: string, canManage: boolean, canManageRetention: boolean, rules: Rule[], onClose: () => void, onCreated: (rule: Rule) => void, initialPreset?: RulePreset }) {
+export default function CreateRuleDialog({ category, organizationId, canManage, canManageRetention, rules, onClose, onCreated, initialPreset, storedLogsOnly = false }: { category: RuleCategory, organizationId: string, canManage: boolean, canManageRetention: boolean, rules: Rule[], onClose: () => void, onCreated: (rule: Rule) => void, initialPreset?: RulePreset, storedLogsOnly?: boolean }) {
     const dialog = useRef<HTMLDialogElement>(null)
     const active = useRef(true)
     const [name, setName] = useState(initialPreset?.name || ''), [explanation, setExplanation] = useState(initialPreset?.explanation || ''), [severity, setSeverity] = useState('medium')
@@ -16,9 +16,12 @@ export default function CreateRuleDialog({ category, organizationId, canManage, 
     const [busy, setBusy] = useState(false), [error, setError] = useState(''), [options, setOptions] = useState(fieldValues)
     const [editingJson, setEditingJson] = useState(false)
     const [range, setRange] = useState('24')
-    const [readyPreview, setReadyPreview] = useState('')
+    const [readyPreview, setReadyPreview] = useState(''), [checkRequestedFor, setCheckRequestedFor] = useState(''), [previewRun, setPreviewRun] = useState(0)
     const previewKey = JSON.stringify({ organizationId, conditions, action, stage, range, editingJson })
-    const previewReady = useCallback((ready: boolean) => setReadyPreview(ready ? previewKey : ''), [previewKey])
+    const previousPreviewKey = useRef(previewKey)
+    const currentCheckKey = `${previewKey}:${previewRun}`
+    const checkingRequested = checkRequestedFor === currentCheckKey
+    const previewReady = useCallback((ready: boolean) => setReadyPreview(ready ? currentCheckKey : ''), [currentCheckKey])
     const [suggestionError, setSuggestionError] = useState('')
     useEffect(() => {
         active.current = true
@@ -26,6 +29,12 @@ export default function CreateRuleDialog({ category, organizationId, canManage, 
         element?.showModal()
         return () => { active.current = false; element?.close() }
     }, [])
+    useEffect(() => {
+        if (previousPreviewKey.current !== previewKey) {
+            previousPreviewKey.current = previewKey
+            setCheckRequestedFor('')
+        }
+    }, [previewKey])
     useEffect(() => {
         const controller = new AbortController()
         const next = Object.fromEntries(Object.entries(fieldValues).map(([key, values]) => [key, [...values]]))
@@ -57,12 +66,18 @@ export default function CreateRuleDialog({ category, organizationId, canManage, 
     const permitted = canManage && (stage !== 'analyze' || canManageRetention)
     const invalid = conditionError(conditions)
     async function submit() {
-        if (busy || !permitted || editingJson || invalid || readyPreview !== previewKey) return
+        if (busy || !permitted || editingJson || invalid || (checkingRequested && readyPreview !== currentCheckKey)) return
         setBusy(true); setError('')
         try {
             const result = await requestJson<{ rule: Rule }>(`/api/backend/rules?organizationId=${encodeURIComponent(organizationId)}`, { method: 'POST', body: JSON.stringify(signature) })
             if (active.current) onCreated(result.rule)
         } catch (cause) { if (!active.current) return; setError(cause instanceof Error ? cause.message : 'Could not create rule.'); setBusy(false) }
+    }
+    function toggleMatchCheck() {
+        if (checkingRequested && readyPreview !== currentCheckKey) { setCheckRequestedFor(''); return }
+        const nextRun = previewRun + 1
+        setPreviewRun(nextRun)
+        setCheckRequestedFor(`${previewKey}:${nextRun}`)
     }
     return <dialog ref={dialog} id='event-rule-create' aria-labelledby='create-rule-title' onCancel={event => { event.preventDefault(); if (!busy) onClose() }} className='m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-5xl overflow-y-auto rounded-xl border border-ui-border bg-ui-panel p-5 text-ui-text shadow-2xl backdrop:bg-ui-backdrop sm:p-6'>
         <header className='mb-5 flex items-center justify-between gap-3'><h2 id='create-rule-title' className='text-xl font-semibold'>Create rule</h2><button type='button' aria-label='Close create rule' disabled={busy} onClick={onClose} className='rounded-md border border-ui-border px-3 py-2 text-sm'>Close</button></header>
@@ -83,11 +98,11 @@ export default function CreateRuleDialog({ category, organizationId, canManage, 
                 </div>
                 <aside className='min-w-0 rounded-lg border border-ui-border bg-ui-raised p-4 lg:sticky lg:top-0 lg:self-start'><h3 className='mb-3 text-sm font-semibold'>Rule JSON</h3><pre aria-label='Rule JSON preview' className='max-h-[65vh] overflow-auto whitespace-pre-wrap wrap-break-word font-mono text-xs leading-6'>{JSON.stringify(signature, null, 2)}</pre></aside>
             </fieldset>
-            <label className='flex items-center gap-3 text-sm'>Preview range<select aria-label='Preview range' className={ruleInput + ' max-w-48'} value={range} onChange={event => setRange(event.target.value)}><option value='1'>Last hour</option><option value='24'>Last 24 hours</option><option value='168'>Last 7 days</option><option value='all'>All stored events</option></select></label>
-            {!invalid && !editingJson && <RulePreview key={previewKey} organizationId={organizationId} conditions={conditions} action={action} range={range} onReady={previewReady} />}
+            <div className='flex flex-wrap items-center gap-3'><label className='flex items-center gap-3 text-sm'>Preview range<select aria-label='Preview range' className={ruleInput + ' max-w-48'} value={range} onChange={event => setRange(event.target.value)}><option value='1'>Last hour</option><option value='24'>Last 24 hours</option><option value='168'>Last 7 days</option><option value='all'>All stored events</option></select></label><button type='button' disabled={busy || Boolean(invalid) || editingJson} onClick={toggleMatchCheck} className='rounded-md border border-ui-border px-3 py-2 text-sm disabled:opacity-50'>{checkingRequested ? readyPreview === currentCheckKey ? 'Check again' : 'Skip check' : 'Check matches'}</button></div>
+            {!invalid && !editingJson && checkingRequested && <RulePreview key={currentCheckKey} organizationId={organizationId} conditions={conditions} action={action} range={range} storedLogsOnly={storedLogsOnly} onReady={previewReady} />}
             <footer className='flex flex-wrap items-center justify-between gap-3 border-t border-ui-border pt-4'>
                 <p className='text-xs text-ui-muted'>{!permitted ? 'An active Hanasand organization editor or owner is required.' : ''}</p>
-                <button type='submit' disabled={busy || !permitted || editingJson || readyPreview !== previewKey || Boolean(invalid) || name.trim().length < 2 || explanation.trim().length < 10} className='rounded-md bg-ui-primary px-4 py-2 text-sm font-semibold text-ui-on-primary disabled:opacity-50'>{busy ? 'Creating…' : 'Create rule'}</button>
+                <button type='submit' disabled={busy || !permitted || editingJson || Boolean(invalid) || (checkingRequested && readyPreview !== currentCheckKey) || name.trim().length < 2 || explanation.trim().length < 10} className='rounded-md bg-ui-primary px-4 py-2 text-sm font-semibold text-ui-on-primary disabled:opacity-50'>{busy ? 'Creating…' : 'Create rule'}</button>
             </footer>
             {conditions.some(condition => condition.operator === 'regex' && condition.value) && invalid && <p role='alert' className='text-sm text-ui-text'>{invalid}</p>}
         </form>

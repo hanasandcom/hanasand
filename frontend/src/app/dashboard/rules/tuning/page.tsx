@@ -179,8 +179,8 @@ export default function TuningPage() {
         </DashboardPanel>
         <p className='text-xs text-ui-muted'>Row data sums the stored event row sizes; PostgreSQL indexes and free space are excluded.</p>
 
-        {selected && data && preset && <CreateRuleDialog key={JSON.stringify([selected.message, selected.ip, selected.user_agent])} category='analysis' organizationId={data.organizationId} canManage={canManage} canManageRetention={canManage} rules={[]} initialPreset={preset} onClose={() => setSelected(null)} onCreated={rule => {
-            setSelected(null); setCreatedRule(rule); setError('')
+        {selected && data && preset && <CreateRuleDialog key={JSON.stringify([selected.message, selected.ip, selected.user_agent])} category='analysis' organizationId={data.organizationId} canManage={canManage} canManageRetention={canManage} rules={[]} initialPreset={preset} storedLogsOnly onClose={() => setSelected(null)} onCreated={rule => {
+            setSelected(null); setCreatedRule(rule); setError(''); void refresh()
         }} />}
     </DashboardPage>
 }
