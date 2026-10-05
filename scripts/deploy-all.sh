@@ -453,10 +453,10 @@ if test "$schema_changes_required" = 1; then
 else
     echo "Code-only release; no database schema changes, so continuing during any active backup."
 fi
-compose_candidates run -d --no-build --no-deps --name "$HANASAND_API_CANDIDATE_CONTAINER" \
+compose_candidates run -d --no-deps --name "$HANASAND_API_CANDIDATE_CONTAINER" \
     --publish "127.0.0.1:$HANASAND_API_CANDIDATE_PORT:8080" api-candidate >/dev/null &
 api_candidate_start_pid=$!
-compose_candidates run -d --no-build --no-deps --name "$HANASAND_FRONTEND_CANDIDATE_CONTAINER" \
+compose_candidates run -d --no-deps --name "$HANASAND_FRONTEND_CANDIDATE_CONTAINER" \
     --publish "127.0.0.1:$HANASAND_FRONTEND_CANDIDATE_PORT:3000" frontend-candidate >/dev/null &
 frontend_candidate_start_pid=$!
 candidate_start_status=0
