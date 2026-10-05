@@ -392,7 +392,7 @@ warm_browser_stats() {
 # The API candidate owns schema setup. Do not restart the shared database during
 # an application release; its recovery period interrupts authenticated traffic.
 services=$(compose_live config --services \
-    | sed '/^api$/d; /^frontend$/d; /^auth-primary$/d; /^auth-secondary$/d; /^postgres$/d; /^browsers$/d')
+    | sed '/^api$/d; /^frontend$/d; /^auth-primary$/d; /^auth-secondary$/d; /^postgres$/d; /^browsers$/d; /^browser-turn$/d')
 if test "$pgbouncer_config_changed" = 0; then
     services=$(printf '%s\n' "$services" | sed '/^pgbouncer$/d')
 fi
