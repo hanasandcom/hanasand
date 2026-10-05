@@ -68,4 +68,38 @@ fetchResult = new Response('', { status: 403 })
 const forbidden = await proxy(request('access_token=forbidden; id=user'))
 assert.equal(forbidden.status, 307)
 assert.match(forbidden.headers.get('set-cookie') || '', /session_expires_at=/)
+
+const originalFetch = globalThis.fetch
+const originalNow = Date.now
+let testNow = originalNow()
+let serviceValidationCalls = 0
+let serviceValidationStatus = 200
+globalThis.fetch = async () => {
+    serviceValidationCalls += 1
+    return Response.json({ id: 'svc-db-monitor', pages: ['/db'] }, { status: serviceValidationStatus })
+}
+Date.now = () => testNow
+try {
+    const [serviceAccount, concurrentServiceAccount] = await Promise.all([
+        tokenIsValid('hsk_test_service_key', 'svc-db-monitor'),
+        tokenIsValid('hsk_test_service_key', 'svc-db-monitor'),
+    ])
+    assert.equal(serviceAccount.valid, true)
+    assert.deepEqual(serviceAccount.servicePages, ['/db'])
+    assert.deepEqual(concurrentServiceAccount.servicePages, ['/db'])
+    assert.equal(serviceValidationCalls, 1, 'Concurrent requests should share one live service-scope lookup')
+
+    serviceValidationStatus = 403
+    const cachedServiceAccount = await tokenIsValid('hsk_test_service_key', 'svc-db-monitor')
+    assert.equal(cachedServiceAccount.valid, true, 'The short cache avoids repeating the service scope query on every navigation')
+    assert.equal(serviceValidationCalls, 1)
+
+    testNow += 5_001
+    const revokedServiceAccount = await tokenIsValid('hsk_test_service_key', 'svc-db-monitor')
+    assert.equal(revokedServiceAccount.state, 'invalid', 'Revoked service scopes are rechecked after the same five-second window used for human sessions')
+    assert.equal(serviceValidationCalls, 2)
+} finally {
+    globalThis.fetch = originalFetch
+    Date.now = originalNow
+}
 console.log('Auth recovery passed: immediate revalidation, HTML page fallback, preserved cookies, API errors and revoked-session rejection.')

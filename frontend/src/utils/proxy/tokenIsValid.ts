@@ -19,16 +19,16 @@ const validationCache = new Map<string, { expiresAt: number; result: TokenValida
 const validationRequests = new Map<string, Promise<TokenValidationResult>>()
 
 export default async function tokenIsValid(token: string, id: string, impersonationToken?: string): Promise<TokenValidationResult> {
-    // Service keys use their own live endpoint permissions, never a human session.
-    if (token.startsWith('hsk_')) return validateServiceToken(token, id)
-    const key = `${id}:${token}:${impersonationToken || ''}`
+    const serviceKey = token.startsWith('hsk_')
+    // Service keys keep their own endpoint scopes, with the same short freshness window as human sessions.
+    const key = serviceKey ? `service:${id}:${token}` : `${id}:${token}:${impersonationToken || ''}`
     const cached = validationCache.get(key)
     if (cached && cached.expiresAt > Date.now()) return cached.result
 
     const pending = validationRequests.get(key)
     if (pending) return pending
 
-    const request = validateToken(token, id, impersonationToken)
+    const request = serviceKey ? validateServiceToken(token, id) : validateToken(token, id, impersonationToken)
     validationRequests.set(key, request)
     try {
         const result = await request
