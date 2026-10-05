@@ -40,7 +40,7 @@ verify_image_revision() {
 
 for service in $preserved_services; do
     case "$service" in
-        onion-tor) ;;
+        onion-tor|auth-primary|auth-secondary) ;;
         *)
             echo "Unknown preserved Hanasand service: $service" >&2
             exit 1
@@ -68,6 +68,8 @@ for container in $containers; do
     expected_container_release=$release
     case "$container" in
         hanasand_onion_tor) preserved_service=onion-tor ;;
+        hanasand_auth_primary) preserved_service=auth-primary ;;
+        hanasand_auth_secondary) preserved_service=auth-secondary ;;
         hanasand_browsers)
             independent_release=1
             expected_container_release=$image_release

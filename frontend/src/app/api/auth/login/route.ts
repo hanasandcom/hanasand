@@ -13,6 +13,8 @@ type AuthFailureInput = {
     upstreamStatus?: number
 }
 
+const LOGIN_AUTH_TIMEOUT_MS = 15_000
+
 export async function POST(req: NextRequest) {
     const { body, redirectPath, wantsRedirect } = await parseAuthBody(req)
     const id = body?.id?.trim()
@@ -26,27 +28,38 @@ export async function POST(req: NextRequest) {
     }
 
     const requestId = requestIdFor(req)
-    const upstream = await fetch(`${authApiUrl()}/auth/login/${encodeURIComponent(id)}`, {
-        method: 'POST',
-        headers: { ...clientHeaders(req.headers), 'Content-Type': 'application/json', 'x-request-id': requestId },
-        body: JSON.stringify({ password }),
-        cache: 'no-store',
-    }).catch(() => null)
-    if (!upstream) {
+    const timeoutSignal = AbortSignal.timeout(LOGIN_AUTH_TIMEOUT_MS)
+    let upstream: Response
+    let responseText: string
+    try {
+        upstream = await fetch(`${authApiUrl()}/auth/login/${encodeURIComponent(id)}`, {
+            method: 'POST',
+            headers: { ...clientHeaders(req.headers), 'Content-Type': 'application/json', 'x-request-id': requestId },
+            body: JSON.stringify({ password }),
+            cache: 'no-store',
+            signal: timeoutSignal,
+        })
+        responseText = await upstream.text()
+    } catch (error) {
+        const timedOut = timeoutSignal.aborted || (error as { name?: unknown } | null)?.name === 'TimeoutError'
+        const statusCode = timedOut ? 504 : 502
+        const errorCode = timedOut ? 'auth_service_timeout' : 'auth_service_unavailable'
+        const message = timedOut
+            ? 'Authentication service timed out. Please try again.'
+            : 'Authentication service is unavailable.'
         await recordFrontendAuthFailure({
             req,
             id,
             redirectPath,
-            statusCode: 502,
-            errorCode: 'auth_service_unavailable',
-            message: 'Authentication service is unavailable.',
+            statusCode,
+            errorCode,
+            message,
         })
         if (wantsRedirect) {
-            return authRedirect(req, redirectPath, 'Authentication service is unavailable.')
+            return authRedirect(req, redirectPath, message)
         }
-        return NextResponse.json({ error: 'Authentication service is unavailable.' }, { status: 502 })
+        return NextResponse.json({ error: message, code: errorCode }, { status: statusCode })
     }
-    const responseText = await upstream.text()
     const data = parseJson(responseText)
 
     if (!upstream.ok) {

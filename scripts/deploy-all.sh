@@ -411,7 +411,6 @@ preserve_unchanged_service() {
     container_name=$2
     shift 2
 
-    printf '%s\n' "$services" | grep -qx "$service_name" || return 1
     test "$(docker inspect -f '{{.State.Running}}' "$container_name" 2>/dev/null || true)" = true || return 1
     test "$(docker inspect -f '{{.State.Health.Status}}' "$container_name" 2>/dev/null || true)" = healthy || return 1
 
@@ -438,6 +437,10 @@ preserve_unchanged_service() {
 }
 
 preserve_unchanged_service onion-tor hanasand_onion_tor ops/onion-tor || true
+if test "$canonical_pgbouncer_recreated" = 0; then
+    preserve_unchanged_service auth-primary hanasand_auth_primary api db .dockerignore || true
+    preserve_unchanged_service auth-secondary hanasand_auth_secondary api db .dockerignore || true
+fi
 
 # Start an isolated release-matched connection pool and API/frontend pair
 # before touching any live dependencies. The API candidate applies additive
@@ -623,10 +626,20 @@ else
     echo "OpenResty still has connections to the release candidates; keeping them online."
 fi
 echo "Frontend and API health verified."
-compose_live up -d --no-build --no-deps --force-recreate auth-secondary
-wait_for_healthy hanasand_auth_secondary "Secondary auth worker" 180
-compose_live up -d --no-build --no-deps --force-recreate auth-primary
-wait_for_healthy hanasand_auth_primary "Primary auth worker" 180
+case " $preserved_services " in
+    *" auth-secondary "*) ;;
+    *)
+        compose_live up -d --no-build --no-deps --force-recreate auth-secondary
+        wait_for_healthy hanasand_auth_secondary "Secondary auth worker" 180
+        ;;
+esac
+case " $preserved_services " in
+    *" auth-primary "*) ;;
+    *)
+        compose_live up -d --no-build --no-deps --force-recreate auth-primary
+        wait_for_healthy hanasand_auth_primary "Primary auth worker" 180
+        ;;
+esac
 
 # Remove containers left by the retired cross-site recovery stack. Preserve
 # anonymous volumes so this cleanup cannot delete data.

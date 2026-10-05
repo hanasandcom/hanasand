@@ -72,6 +72,11 @@ const tasks: TestTask[] = [
         requires: 'playwright',
     },
     {
+        id: 'auth-login-timeout',
+        title: 'Login handles auth timeouts',
+        command: [bun, 'tests/auth-login-timeout.test.ts'],
+    },
+    {
         id: 'auth-validation-recovery',
         title: 'Authentication failure and recovery',
         command: [bun, 'tests/auth-validation-recovery.test.ts'],
