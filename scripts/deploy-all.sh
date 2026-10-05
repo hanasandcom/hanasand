@@ -41,12 +41,17 @@ release_has_schema_changes() {
     # Other API source changes only trigger it when their diff changes DDL;
     # replaying idempotent ALTERs on every code-only release can hold candidate
     # startup behind long-running production transactions.
-    if ! git diff --quiet "$previous_release" "$target_release" -- api/src/utils/db db; then
+    if ! git diff --quiet "$previous_release" "$target_release" -- \
+        db \
+        api/src/utils/db/ensureSchema.ts \
+        api/src/utils/db/existingSchema.ts \
+        ':(glob)api/src/utils/db/*Schema.ts'; then
         return 0
     fi
     for path in $(git diff --name-only "$previous_release" "$target_release" -- api/src); do
+        test "$path" = api/src/utils/db/logSearchIndexes.ts && continue
         if git diff --unified=0 "$previous_release" "$target_release" -- "$path" \
-            | grep -Eiq '^[+-].*([^[:alnum:]_])(CREATE|ALTER|DROP|TRUNCATE|REINDEX|GRANT|REVOKE)([[:space:]]|$)'; then
+            | grep -Eiq '^\+[^+].*([^[:alnum:]_])(CREATE|ALTER|DROP|TRUNCATE|REINDEX|GRANT|REVOKE)([[:space:]]|$)'; then
             return 0
         fi
     done
