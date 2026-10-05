@@ -140,7 +140,7 @@ reuse_schema_marker_for_code_only_release
 
 export HANASAND_RELEASE_COMMIT="$release"
 export BROWSER_SANDBOX_WORKER_IMAGE="hanasand_browsers:latest"
-candidate_suffix=$(printf '%s' "$release" | cut -c1-12)
+candidate_suffix=$(printf '%s-%s' "$(printf '%s' "$release" | cut -c1-12)" "$$")
 candidate_offset=$(printf '%s' "$release" | cksum | awk '{ print $1 % 5000 }')
 candidate_attempt=0
 while test "$candidate_attempt" -lt 5000; do
