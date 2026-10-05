@@ -24,6 +24,7 @@ export class ReadAdmissionError extends Error {
 export function invalidateReadCache(prefix?: string) {
     cacheGeneration += 1
     for (const key of entries.keys()) if (!prefix || key.startsWith(prefix)) entries.delete(key)
+    for (const key of pending.keys()) if (!prefix || key.startsWith(prefix)) pending.delete(key)
 }
 
 function acquire(lane: Lane): Promise<() => void> {

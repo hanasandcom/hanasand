@@ -4,6 +4,7 @@ import run, { withDatabaseAdvisoryLock, withTransaction } from '#db'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import { applyManagedHostSshKeys, normalizeHostPublicKey } from '#utils/hostSsh.ts'
 import { cachedRead } from '#utils/readCache.ts'
+import { invalidateProfileSshKeysResponseCache, profileSshKeysResponseCacheKey } from '#utils/profileSshKeyCache.ts'
 import { recordSystemEvent } from '#utils/systemEvent.ts'
 
 type ProfileSshKey = { id: number, name: string, public_key: string, added_at: string }
@@ -123,18 +124,21 @@ export async function getProfileSshKeys(req: FastifyRequest, res: FastifyReply) 
     const userId = await authorizeSelf(req, res)
     if (!userId) return
     try {
-        const keys = (await profileKeys(userId)).flatMap(key => {
-            const normalized = normalizeHostPublicKey(key.public_key)
-            return normalized ? [{ key, normalized }] : []
+        const keys = await cachedRead(profileSshKeysResponseCacheKey(userId), config.CACHE_TTL_COLD, async () => {
+            const normalizedKeys = (await profileKeys(userId)).flatMap(key => {
+                const normalized = normalizeHostPublicKey(key.public_key)
+                return normalized ? [{ key, normalized }] : []
+            })
+            const fingerprints = normalizedKeys.map(({ normalized }) => normalized.fingerprint)
+            let usage = new Map<string, string>()
+            try {
+                usage = await profileKeyUsage(fingerprints)
+            } catch (error) {
+                req.log.error({ err: error }, 'Unable to load profile SSH key usage.')
+            }
+            return normalizedKeys.map(({ key, normalized }) => responseKey(key, usage.get(normalized.fingerprint) || null))
         })
-        const fingerprints = keys.map(({ normalized }) => normalized.fingerprint)
-        let usage = new Map<string, string>()
-        try {
-            usage = await profileKeyUsage(fingerprints)
-        } catch (error) {
-            req.log.error({ err: error }, 'Unable to load profile SSH key usage.')
-        }
-        return res.send({ keys: keys.map(({ key, normalized }) => responseKey(key, usage.get(normalized.fingerprint) || null)) })
+        return res.send({ keys })
     } catch (error) {
         req.log.error({ err: error }, 'Unable to list profile SSH keys.')
         return res.status(500).send({ error: 'Unable to load SSH keys.' })
@@ -184,6 +188,7 @@ export async function postProfileSshKey(req: FastifyRequest, res: FastifyReply) 
                 req.log.error({ err: error, certificateId: created.id }, 'Unable to apply a profile SSH key to all hosts.')
                 return res.status(503).send({ error: 'Unable to apply this key on both hosts. No change was saved.' })
             }
+            invalidateProfileSshKeysResponseCache(userId)
             await writeAudit(req, userId, 'user.ssh_key.added', created.id, key.fingerprint)
             return res.status(201).send({
                 key: responseKey({ id: created.id, name, public_key: key.publicKey, added_at: String(created.addedAt) }),
@@ -230,6 +235,7 @@ export async function deleteProfileSshKey(req: FastifyRequest, res: FastifyReply
                 await applyManagedHostSshKeys(before).catch(rollbackError => req.log.error({ err: rollbackError }, 'Unable to restore host SSH keys after a profile database failure.'))
                 throw error
             }
+            invalidateProfileSshKeysResponseCache(userId)
             await writeAudit(req, userId, 'user.ssh_key.removed', certificateId, fingerprint)
             return res.send({ ok: true })
         })

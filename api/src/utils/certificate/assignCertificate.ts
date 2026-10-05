@@ -1,4 +1,5 @@
 import run from '#utils/db.ts'
+import { invalidateProfileSshKeysResponseCache } from '#utils/profileSshKeyCache.ts'
 
 type AssignCertificateProps = {
     name: string,
@@ -33,6 +34,7 @@ export default async function assignCertificate({
             VALUES ($1, $2)
         `
         await run(assignQuery, [user_id, certificateId])
+        invalidateProfileSshKeysResponseCache(user_id)
 
         return certificateId
     } catch (error) {
