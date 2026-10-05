@@ -46,11 +46,21 @@ function formatBytes(value: number) {
 
 function rulePreset(log: LogPattern) {
     const conditions: Condition[] = [{ path: 'message', operator: 'equals', value: log.message, caseSensitive: true }]
+    const failedExecutable = /^failed exec: (\/\S+)$/.exec(log.message)?.[1]
+    if (failedExecutable) conditions.push(
+        { path: 'metadata.collector', operator: 'equals', value: 'auditd', caseSensitive: true },
+        { path: 'event_type', operator: 'equals', value: 'process', caseSensitive: true },
+        { path: 'action', operator: 'equals', value: 'exec', caseSensitive: true },
+        { path: 'outcome', operator: 'equals', value: 'failure', caseSensitive: true },
+        { path: 'process.executable', operator: 'equals', value: failedExecutable, caseSensitive: true },
+    )
     if (log.ip_path && log.ip) conditions.push({ path: log.ip_path, operator: 'equals', value: log.ip, caseSensitive: true })
     if (log.user_agent_path && log.user_agent) conditions.push({ path: log.user_agent_path, operator: 'equals', value: log.user_agent, caseSensitive: true })
     return {
         name: `Suppress: ${log.message}`.slice(0, 120),
-        explanation: 'Suppress this repeated stored log pattern using the message and available IP and user agent fields.',
+        explanation: failedExecutable
+            ? 'Suppress this auditd failed-exec pattern for the attempted executable and retain only matching process-exec failures.'
+            : 'Suppress this repeated stored log pattern using the message and available IP and user agent fields.',
         stage: 'analyze',
         action: 'drop',
         conditions,

@@ -15,7 +15,7 @@ export default function CreateRuleDialog({ category, organizationId, canManage, 
     const [action, setAction] = useState(initialPreset?.action || 'keep'), [conditions, setConditions] = useState<Condition[]>(initialPreset?.conditions || [{ path: 'event_type', operator: 'equals', value: '' }])
     const [busy, setBusy] = useState(false), [error, setError] = useState(''), [options, setOptions] = useState(fieldValues)
     const [editingJson, setEditingJson] = useState(false)
-    const [range, setRange] = useState('24')
+    const [range, setRange] = useState(initialPreset && storedLogsOnly ? 'all' : '24')
     const [readyPreview, setReadyPreview] = useState(''), [checkRequestedFor, setCheckRequestedFor] = useState(''), [previewRun, setPreviewRun] = useState(0)
     const previewKey = JSON.stringify({ organizationId, conditions, action, stage, range, editingJson })
     const previousPreviewKey = useRef(previewKey)
