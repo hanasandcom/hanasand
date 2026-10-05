@@ -24,32 +24,6 @@ services:
       interval: 5s
       retries: 3
 
-  ovh-host-metrics-tunnel:
-    container_name: hanasand_ovh_host_metrics_tunnel
-    image: hanasand_ovh_host_metrics_tunnel
-    restart: unless-stopped
-    build:
-      context: .
-      dockerfile: ./ops/ovh-host-metrics-tunnel/Dockerfile
-      args:
-        HANASAND_RELEASE_COMMIT: ${HANASAND_RELEASE_COMMIT:-unknown}
-    environment:
-      HANASAND_RELEASE_COMMIT: ${HANASAND_RELEASE_COMMIT:-unknown}
-    network_mode: host
-    volumes:
-      - /home/hanasand/hanasand/ops/secrets/private/reverse-tunnel-key:/run/key:ro
-      - /home/hanasand/hanasand/ops/secrets/private/ovh-known-hosts:/run/known_hosts:ro
-    command:
-      - -L
-      - 127.0.0.1:19911:127.0.0.1:19901
-      - ubuntu@192.99.32.185
-    healthcheck:
-      test: ["CMD-SHELL", "pgrep -x ssh && wget -q -O /dev/null -T 5 http://127.0.0.1:19911/status"]
-      interval: 10s
-      timeout: 7s
-      retries: 3
-      start_period: 20s
-
   frontend:
     container_name: hanasand
     image: hanasand
@@ -183,12 +157,9 @@ services:
       BROWSER_SANDBOX_PREWARM: "0"
       BROWSER_SANDBOX_WORKER_IMAGE: ${BROWSER_SANDBOX_WORKER_IMAGE:-hanasand_browsers:latest}
       VULNERABILITY_SCAN_STATE_PATH: ${VULNERABILITY_SCAN_STATE_PATH:-/var/lib/hanasand/vulnerability-scan.json}
-      DB_BACKUP_WORKER_SOCKET: /var/lib/hanasand/backups/database/.worker.sock
-      DB_BACKUP_DIR: ${DB_BACKUP_DIR:-/var/lib/hanasand/backups/database}
-      DB_BACKUP_STATE_PATH: ${DB_BACKUP_STATE_PATH:-/var/lib/hanasand/backups/database/.backup-state.json}
-      DB_BACKUP_SCHEDULE: ${DB_BACKUP_SCHEDULE:-23 2 * * *}
-      DB_BACKUP_RETENTION_DAYS: ${DB_BACKUP_RETENTION_DAYS:-63}
-      DB_BACKUP_ENABLED: ${DB_BACKUP_ENABLED:-true}
+      DB_BACKUP_WORKER_URL: ${DB_BACKUP_WORKER_URL:-http://hanasand_database_backup:18190}
+      DB_BACKUP_WORKER_TOKEN: ${DB_BACKUP_WORKER_TOKEN:-}
+      HANASAND_MODEL_CLIENT_HEALTH_BASE: ${HANASAND_MODEL_CLIENT_HEALTH_BASE:-http://host.docker.internal:18182}
       HANASAND_RELEASE_COMMIT: ${HANASAND_RELEASE_COMMIT:-unknown}
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health"]
@@ -208,8 +179,6 @@ services:
         condition: service_healthy
       pgbouncer:
         condition: service_healthy
-      stalwart:
-        condition: service_started
       onion-tor:
         condition: service_started
 
@@ -354,39 +323,6 @@ services:
       pgbouncer:
         condition: service_healthy
 
-  database-backup:
-    container_name: hanasand_database_backup
-    image: hanasand_api
-    restart: unless-stopped
-    command: ["bun", "src/backupWorker.ts"]
-    cpus: "0.5"
-    mem_limit: 512m
-    blkio_config:
-      weight: 100
-    env_file: ${HANASAND_DEPLOY_ENV_FILE:-.env}
-    environment:
-      DB_BACKUP_WORKER: "1"
-      DB_BACKUP_WORKER_SOCKET: /var/lib/hanasand/backups/database/.worker.sock
-      DB_BACKUP_DIR: ${DB_BACKUP_DIR:-/var/lib/hanasand/backups/database}
-      DB_BACKUP_STATE_PATH: ${DB_BACKUP_STATE_PATH:-/var/lib/hanasand/backups/database/.backup-state.json}
-      DB_BACKUP_SCHEDULE: ${DB_BACKUP_SCHEDULE:-23 2 * * *}
-      DB_BACKUP_RETENTION_DAYS: ${DB_BACKUP_RETENTION_DAYS:-63}
-      DB_BACKUP_ENABLED: ${DB_BACKUP_ENABLED:-true}
-      HANASAND_RELEASE_COMMIT: ${HANASAND_RELEASE_COMMIT:-unknown}
-    volumes:
-      - api_state:/var/lib/hanasand
-    healthcheck:
-      test: ["CMD-SHELL", "curl -fsS --max-time 3 --unix-socket /var/lib/hanasand/backups/database/.worker.sock http://localhost/health"]
-      interval: 15s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
-    networks:
-      - hanasandnet
-    depends_on:
-      postgres:
-        condition: service_healthy
-
   browsers:
     container_name: hanasand_browsers
     image: ${BROWSER_SANDBOX_WORKER_IMAGE:-hanasand_browsers:latest}
@@ -512,42 +448,6 @@ services:
       deploy-path-guard:
         condition: service_healthy
 
-  ai-model-client:
-    container_name: hanasand_ai_model_client
-    image: hanasand_ai_model_client
-    restart: always
-    build:
-      context: .
-      dockerfile: ./ops/ai-model-client/Dockerfile
-      args:
-        HANASAND_RELEASE_COMMIT: ${HANASAND_RELEASE_COMMIT:-unknown}
-    env_file:
-      - ${HANASAND_DEPLOY_ENV_FILE:-.env}
-    environment:
-      MODEL_PROBE_PROOF_DIR: /model-probe-receipts
-      HANASAND_AI_CLIENT_API_WS: ${HANASAND_AI_CLIENT_API_WS:-ws://127.0.0.1:8080/api/client/ws/gpt}
-      HANASAND_AI_OPENAI_BASE: ${HANASAND_AI_OPENAI_BASE:-http://127.0.0.1:18081}
-      HANASAND_AI_MODEL: ${HANASAND_AI_MODEL:-hanasand}
-      HANASAND_AI_CLIENT_NAME: ${HANASAND_AI_CLIENT_NAME:-hanasand-inspur}
-      HANASAND_AI_CLIENT_HEALTH_PORT: ${HANASAND_AI_CLIENT_HEALTH_PORT:-18182}
-      HANASAND_RELEASE_COMMIT: ${HANASAND_RELEASE_COMMIT:-unknown}
-    volumes:
-      - /var/lib/hanasand/model-probe-receipts:/model-probe-receipts
-      - /var/lib/hanasand/model-probe-config:/model-probe-config:ro
-      - /var/lib/hanasand/metrics:/host-metrics:ro
-      - /var/lib/hanasand/ai-power:/power-state
-    healthcheck:
-      test: ["CMD-SHELL", "wget -T 2 -t 1 -qO- http://127.0.0.1:${HANASAND_AI_CLIENT_HEALTH_PORT:-18182}/health"]
-      interval: 10s
-      retries: 5
-      start_period: 10s
-    network_mode: host
-    depends_on:
-      deploy-path-guard:
-        condition: service_healthy
-      api:
-        condition: service_healthy
-
   postgres:
     image: postgres:15
     container_name: hanasand_database
@@ -662,37 +562,6 @@ services:
     container_name: ${HANASAND_PGBOUNCER_CANDIDATE_CONTAINER:-hanasand_pgbouncer_candidate}
     ports: !override []
     profiles: [deployment-candidates]
-
-  stalwart:
-    image: hanasand_stalwart
-    container_name: hanasand_mail
-    mem_limit: 1g
-    cpus: "2.0"
-    restart: always
-    build:
-      context: .
-      dockerfile: ./ops/stalwart/Dockerfile
-    command: ["--config", "/opt/stalwart/etc/config.json"]
-    healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/healthz/live"]
-      interval: 15s
-      timeout: 5s
-      retries: 3
-      start_period: 30s
-    volumes:
-      # The deployment Compose file is extracted into a temporary release directory.
-      # Keep mailbox state and configuration on the stable project path instead.
-      - ${HANASAND_STALWART_STATE_DIR:-./mail/stalwart}:/opt/stalwart
-    ports:
-      - "127.0.0.1:${MAIL_HTTP_LOCAL_PORT:-8081}:8080"
-      - "127.0.0.1:${MAIL_SMTP_LOCAL_PORT:-2525}:25"
-      - "127.0.0.1:${MAIL_SMTPS_LOCAL_PORT:-2465}:465"
-      - "127.0.0.1:${MAIL_SUBMISSION_LOCAL_PORT:-2587}:587"
-      - "127.0.0.1:${MAIL_IMAP_LOCAL_PORT:-2143}:143"
-      - "127.0.0.1:${MAIL_IMAPS_LOCAL_PORT:-2993}:993"
-      - "127.0.0.1:${MAIL_MANAGESIEVE_LOCAL_PORT:-4191}:4190"
-    networks:
-      - hanasandnet
 
 volumes:
   discord_bot_state:

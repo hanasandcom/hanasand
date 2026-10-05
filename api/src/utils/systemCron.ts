@@ -342,7 +342,7 @@ const apiBackgroundJobDefinitions: Array<{
         category: 'Backup/Database',
         schedule: 'Persisted daily UTC schedule (checked every minute)',
         cadenceSeconds: null,
-        source: 'api/src/utils/db/backups.ts',
+        source: 'https://github.com/hanasandcom/database-backup',
         controls: ['pause', 'resume', 'run_now'],
     },
     {

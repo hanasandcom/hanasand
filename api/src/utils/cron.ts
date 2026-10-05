@@ -1,4 +1,3 @@
-import { usesBackupWorker } from './db/backupWorkerClient.ts'
 import { RAW_LOG_RETENTION_JOB_ID, retainRawLogs, retainTrafficLogs } from './events/rawLogRetention.ts'
 import { deliverCases, CASE_DELIVERY_JOB_ID } from './caseDelivery.ts'
 import { maintainDeletedVms } from './vms/deletion.ts'
@@ -118,7 +117,6 @@ export default function cron() {
                 runDueApiCronJob(CASE_DELIVERY_JOB_ID),
                 runDueApiCronJob('api-vm-deletion'),
                 runDueApiCronJob(VULNERABILITY_SCAN_JOB_ID),
-                ...(usesBackupWorker() ? [] : [runDueApiCronJob(DATABASE_BACKUP_JOB_ID)]),
                 runDueApiCronJob('api-agent-automations'),
                 runDueApiCronJob(ORGANIZATION_RETENTION_JOB_ID),
                 runDueApiCronJob(RULE_STORAGE_ESTIMATE_JOB_ID),

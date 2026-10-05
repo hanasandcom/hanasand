@@ -1,34 +1,33 @@
 import { afterAll, expect, test } from 'bun:test'
 import { createServer } from 'node:http'
-import { mkdtemp, rm } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
 import { backupWorkerCall } from '../src/utils/db/backupWorkerClient.ts'
 
-const root = await mkdtemp(join(tmpdir(), 'backup-socket-'))
-const socket = join(root, 'worker.sock')
-const previousWorkerSetting = process.env.DB_BACKUP_WORKER
+const previousUrl = process.env.DB_BACKUP_WORKER_URL
+const previousToken = process.env.DB_BACKUP_WORKER_TOKEN
 const targetDatabase = process.env.DB || 'hanasand'
-process.env.DB_BACKUP_WORKER_SOCKET = socket
-process.env.DB_BACKUP_WORKER = '0'
+const testPort = 18191
+process.env.DB_BACKUP_WORKER_URL = 'http://127.0.0.1:18190'
+process.env.DB_BACKUP_WORKER_TOKEN = 'unit-test-database-backup-token'
 const calls: unknown[] = []
 const server = createServer(async (req, res) => {
     let body = ''
     for await (const chunk of req) body += chunk
     const input = JSON.parse(body)
     calls.push(input)
+    expect(req.headers.authorization).toBe(`Bearer ${process.env.DB_BACKUP_WORKER_TOKEN}`)
     if (input.method === 'create') {
         res.writeHead(409).end(JSON.stringify({ error: 'Another backup is running.' }))
     } else if (input.method === 'restore-live') res.end(JSON.stringify({ value: { kind: 'restore_live', file: 'verified.dump' } }))
     else res.end(JSON.stringify({ value: [{ file: 'verified.dump' }] }))
 })
-await new Promise<void>(resolve => server.listen(socket, resolve))
+await new Promise<void>((resolve, reject) => { server.once('error', reject); server.listen(testPort, '127.0.0.1', resolve) })
+process.env.DB_BACKUP_WORKER_URL = `http://127.0.0.1:${testPort}/`
 afterAll(async () => {
     await new Promise<void>(resolve => server.close(() => resolve()))
-    delete process.env.DB_BACKUP_WORKER_SOCKET
-    if (previousWorkerSetting === undefined) delete process.env.DB_BACKUP_WORKER
-    else process.env.DB_BACKUP_WORKER = previousWorkerSetting
-    await rm(root, { recursive: true })
+    if (previousUrl === undefined) delete process.env.DB_BACKUP_WORKER_URL
+    else process.env.DB_BACKUP_WORKER_URL = previousUrl
+    if (previousToken === undefined) delete process.env.DB_BACKUP_WORKER_TOKEN
+    else process.env.DB_BACKUP_WORKER_TOKEN = previousToken
 })
 test('API delegates backup reads without touching worker state', async () => {
     const { listDatabaseBackupFiles } = await import('../src/utils/db/backups.ts')

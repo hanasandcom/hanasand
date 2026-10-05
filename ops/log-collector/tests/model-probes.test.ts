@@ -6,7 +6,6 @@ import { modelFixture, testKey } from '../../../api/tests/analyze-model-discover
 import { modelProofMac, verifyModelDiscoveryEvidence } from '../../../api/src/utils/events/analyzeModelDiscovery';
 import { enrichModelProbe, ownsModelListener } from '../model-probes';
 import type { LogEvent } from './core';
-import { signModelProof } from '../../../ops/ai-model-client/model-probe.mjs';
 
 test('collector binds native proof to exact log and live listener; absent, ambiguous and wrong-process evidence keeps', () => {
   const directory = mkdtempSync(join(tmpdir(), 'model-enrichment-')), proc = join(directory, 'proc'), keyFile = join(directory, 'key.json');
@@ -20,7 +19,7 @@ test('collector binds native proof to exact log and live listener; absent, ambig
     expect(ownsModelListener('1143552', 18082, proc)).toBe(false);
     const enriched = modelFixture() as LogEvent, cursor = enriched.metadata.cursor as string;
     const proof = { ...(enriched.metadata.model_probe as object), serverPid: null, logSha256: null } as Record<string, unknown>;
-    proof.mac = signModelProof(proof, testKey);
+    proof.mac = modelProofMac(proof, testKey);
     expect(proof.mac).toBe(modelProofMac(proof, testKey));
     const log = structuredClone(enriched);
     delete log.metadata.cursor; delete log.metadata.model_probe;

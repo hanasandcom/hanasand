@@ -1,29 +1,25 @@
-import { request } from 'node:http'
+import { BackupOperationError } from './backupOperationError.ts'
 
 export function usesBackupWorker() {
-    return Boolean(process.env.DB_BACKUP_WORKER_SOCKET) && process.env.DB_BACKUP_WORKER !== '1'
+    return Boolean(process.env.DB_BACKUP_WORKER_URL)
 }
 
-// The socket lives in the private backup directory. Existing HTTP authorization
-// remains in the API; no backup control port is exposed on the network.
 export async function backupWorkerCall<T>(method: string, args: unknown[]): Promise<T> {
-    return new Promise((resolve, reject) => {
-        const req = request({ socketPath: process.env.DB_BACKUP_WORKER_SOCKET,
-            path: '/', method: 'POST', headers: { 'Content-Type': 'application/json' } }, res => {
-            let body = ''
-            res.setEncoding('utf8')
-            res.on('data', chunk => { body += chunk })
-            res.on('error', reject)
-            res.on('end', () => {
-                try {
-                    const result = JSON.parse(body)
-                    if (res.statusCode !== 200) {
-                        reject(Object.assign(new Error(result.error || 'Backup worker request failed.'), { statusCode: res.statusCode }))
-                    } else resolve(result.value as T)
-                } catch (error) { reject(error) }
-            })
+    const baseUrl = process.env.DB_BACKUP_WORKER_URL?.replace(/\/$/, '')
+    const token = process.env.DB_BACKUP_WORKER_TOKEN
+    if (!baseUrl || !token) throw new BackupOperationError('The database backup service is not configured.', 503)
+    try {
+        const response = await fetch(baseUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ method, args }),
+            signal: AbortSignal.timeout(30 * 60 * 1000),
         })
-        req.on('error', () => reject(Object.assign(new Error('The backup worker is unavailable.'), { statusCode: 503 })))
-        req.end(JSON.stringify({ method, args }))
-    })
+        const body = await response.json() as { value?: T, error?: string }
+        if (!response.ok) throw new BackupOperationError(body.error || 'Backup operation failed.', response.status)
+        return body.value as T
+    } catch (error) {
+        if (error instanceof BackupOperationError) throw error
+        throw new BackupOperationError('The database backup service is unavailable. Try again shortly.', 503)
+    }
 }

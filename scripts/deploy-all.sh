@@ -14,11 +14,6 @@ test "$root" = "/home/hanasand/hanasand" || {
     echo "Run this from /home/hanasand/hanasand" >&2
     exit 1
 }
-test -d "$root/mail/stalwart" || {
-    echo "Persistent Stalwart state is missing: $root/mail/stalwart" >&2
-    exit 1
-}
-export HANASAND_STALWART_STATE_DIR="$root/mail/stalwart"
 export HANASAND_DEPLOY_GUARD_ROOT="$root"
 
 # Run each deployment in its own process group and serialize requests. Builds
@@ -305,24 +300,8 @@ if test "$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' hanasan
     fi
 fi
 
-wait_for_database_backups() {
-    while :; do
-        active_backups=$(docker exec hanasand_database psql -U hanasand -d hanasand -Atc \
-            "SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND application_name = 'pg_dump'")
-        case "$active_backups" in
-            ''|*[!0-9]*)
-                echo "Could not read active database backup count: $active_backups" >&2
-                return 1
-                ;;
-        esac
-        test "$active_backups" -gt 0 || return 0
-        echo "Waiting for $active_backups active database backup(s) before deployment work."
-        sleep 30
-    done
-}
-
-# Build while a read-only database backup runs. Wait immediately before the
-# candidate API applies schema changes so the backup retains a consistent snapshot.
+# Backup work belongs to the independent database-backup service. Application
+# deploys never wait for it; pg_dump uses a consistent PostgreSQL snapshot.
 compose_release build
 compose_live() {
     if test -f "$build_dir/.env"; then
@@ -331,14 +310,6 @@ compose_live() {
         docker compose --project-name hanasand --parallel "$deploy_parallelism" -f "$build_dir/docker-compose.yml" "$@"
     fi
 }
-# Replace the retired shared tunnel before binding the dedicated telemetry
-# tunnel to its loopback port.
-if docker inspect hanasand-tunnel >/dev/null 2>&1; then
-    docker rm -f hanasand-tunnel
-fi
-compose_release up -d --no-build --no-deps ovh-host-metrics-tunnel
-wait_for_healthy hanasand_ovh_host_metrics_tunnel "OVH host metrics tunnel" 180
-
 compose_candidates() {
     docker compose --project-name hanasand --parallel "$deploy_parallelism" --profile deployment-candidates --env-file "$build_dir/.env" \
         -f "$build_dir/docker-compose.yml" "$@"
@@ -479,9 +450,7 @@ fi
 compose_candidates run -d --no-deps --name "$HANASAND_PGBOUNCER_CANDIDATE_CONTAINER" pgbouncer-candidate
 candidate_started=1
 wait_for_healthy "$HANASAND_PGBOUNCER_CANDIDATE_CONTAINER" "PgBouncer release candidate" 180
-if test "$schema_changes_required" = 1; then
-    wait_for_database_backups
-else
+if test "$schema_changes_required" != 1; then
     echo "Code-only release; no database schema changes, so continuing during any active backup."
 fi
 compose_candidates run -d --no-deps --name "$HANASAND_API_CANDIDATE_CONTAINER" \

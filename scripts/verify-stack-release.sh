@@ -48,7 +48,7 @@ for service in $preserved_services; do
     esac
 done
 
-containers='hanasand hanasand_api hanasand_auth_primary hanasand_auth_secondary hanasand_database_backup hanasand_onion_tor hanasand_ai_model_client hanasand_browsers hanasand_ovh_host_metrics_tunnel'
+containers='hanasand hanasand_api hanasand_auth_primary hanasand_auth_secondary hanasand_onion_tor'
 for container in $containers; do
     test "$(docker inspect -f '{{.State.Running}}' "$container" 2>/dev/null || true)" = true || {
         echo "Required Hanasand container is not running: $container" >&2

@@ -9,14 +9,16 @@ Hanasand combines threat intelligence, AI development tools, and infrastructure 
 | Frontend | `frontend/` | Public pages, dashboard, AI editor, shared projects, articles, notes and thesis |
 | API | `api/` | Authentication, organizations, permissions, billing, AI requests, project storage, infrastructure and public API |
 | Threat intelligence | [TI repository](https://github.com/eirikhanasand/ti) | Source collection, evidence, search, alerts and investigation cases; runs with a dedicated database |
-| AI model client | `ops/ai-model-client/` | Connects an inference server to the API over WebSockets |
+| AI model client | [AI repository](https://github.com/hanasandcom/ai) | Connects the Inspur inference server to the API over WebSockets; deployed separately |
 | Model runtime | `gpt/` | Model launch scripts and inference server code |
 | Browser services | `ops/browser-worker/`, `ops/onion-tor/` | Isolated browser sessions, WebRTC transport and Tor access |
 | Database | `db/`, `api/src/utils/db/` | Initial schema and application schema updates |
-| Mail service | `mail/` | Stalwart configuration and persistent mail data |
+| Mail service | [Mail repository](https://github.com/eirikhanasand/mail), `compose.stalwart.yml` | Stalwart runtime and mail management tools; deployed separately on Inspur and OVH |
+| Database backup worker | [Database backup repository](https://github.com/hanasandcom/database-backup) | PostgreSQL backups, retention and restore workflows; runs separately from API releases |
 | Mail client | [mail repository](https://github.com/eirikhanasand/mail) | Standalone webmail at `mail.hanasand.com`; mailbox data stays in the Hanasand API |
 | Client apps | `app/` | Mobile and desktop clients; see [desktop setup](app/desktop/README.md) |
-| Operations | `ops/`, `scripts/` | Deployment, backups, maintenance and service checks |
+| Operations integrations | [Ops repository](https://github.com/hanasandcom/ops) | OVH host metrics tunnel and related host integrations; deployed separately |
+| Application operations | `ops/`, `scripts/` | Hanasand application deployment, maintenance and service checks |
 
 `docker-compose.yml` defines service connections, ports, volumes and health checks. OpenResty terminates public HTTPS outside this Compose project. The API also integrates with external VM hosts, password lookup and other configured services.
 
@@ -147,7 +149,7 @@ After deployment, check the affected page or endpoint, service logs and `docker 
 
 PostgreSQL, API state, prompt submissions and mail are persistent. `db/init.sql` initializes the application database; application schema updates run through `api/src/utils/db/ensureSchema.ts`. TI source records and evidence use the separate TI database and its repository migrations.
 
-Database backups are configured through `DB_BACKUP_*` variables. Defaults schedule a daily backup and retain 14 days in the API state volume. Keep an independent copy and verify restoration; a backup on the same host does not cover host loss. TI backup tools are maintained in the TI repository. Do not delete volumes during deployment.
+Database backups run in the independent database-backup Compose project. They use the persistent `hanasand_api_state` volume for archives and audit state; application releases neither rebuild nor restart the worker. Keep an independent copy and verify restoration; a backup on the same host does not cover host loss. TI backup tools are maintained in the TI repository. Do not delete volumes during deployment.
 
 Start diagnosis with `docker compose ps` and `docker compose logs --tail=100 <service>`. `/api/health` checks the API process; `/api/ai/models` checks model connections. Use the dashboard status page for collection, processing and dependency failures. A healthy container does not imply that its external dependencies work.
 
