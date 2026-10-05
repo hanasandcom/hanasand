@@ -2297,7 +2297,7 @@ function DestinationPanel({ destinations, deliveries, canManage, busy, rowMessag
                         <div className='grid gap-2 md:grid-cols-[minmax(0,1fr)_8rem]'>
                             <label className='grid gap-1 text-sm font-medium text-ui-text dark:text-ui-muted'>
                                 Name
-                <input value={createDraft.name} disabled={Boolean(busy)} onChange={event => setCreateDraft({ ...createDraft, name: event.target.value })} className={inputClass} placeholder='Security events' />
+                                <input value={createDraft.name} disabled={Boolean(busy)} onChange={event => setCreateDraft({ ...createDraft, name: event.target.value })} className={inputClass} placeholder='Security events' />
                                 {createNameDuplicate && <span className='text-xs font-semibold text-ui-text dark:text-ui-text'>Name already in use.</span>}
                             </label>
                             <SelectField label='Type' value={createDraft.kind} options={destinationKinds} disabled={Boolean(busy)} onChange={value => setCreateDraft({ ...createDraft, kind: value as DestinationCreateDraft['kind'] })} />

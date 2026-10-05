@@ -39,7 +39,7 @@ test('public workflow reliability contracts are not demo-only', async () => {
 
     expect(contact).toContain('submitContactRequest({')
     expect(contact).toContain('Ticket <span')
-    expect(contact).toContain("<h1 className='text-4xl font-semibold tracking-normal md:text-5xl'>Contact us</h1>")
+    expect(contact).toContain('<h1 className=\'text-4xl font-semibold tracking-normal md:text-5xl\'>Contact us</h1>')
     expect(contact).not.toContain('intent')
     expect(contact).not.toContain('securityReview')
     expect(contact).not.toContain('window.location.href = mailtoLink')
