@@ -17,7 +17,8 @@ export const logSearchIndexes = [
         WHERE ingestion_id = 'logs' AND processing_status = 'processed'`,
     `CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_logs_exact_message_time ON events
         (organization_id, (normalized->>'message'), event_timestamp DESC, id DESC)
-        WHERE ingestion_id = 'logs' AND processing_status = 'processed'`,
+        WHERE ingestion_id = 'logs' AND processing_status = 'processed'
+            AND octet_length(normalized->>'message') <= 2048`,
     `CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_logs_realtime_page_time ON events
         (event_timestamp DESC, id DESC)
         WHERE ingestion_id = 'logs' AND processing_status = 'processed'

@@ -82,6 +82,7 @@ test('stored previews with an exact message use the newest-first event index pat
     ] }, (async (query: string, values: unknown[]) => { sql = query; params = values; return { rows: [] } }) as any, { storedLogsOnly: true })
     expect(sql).toContain('ORDER BY event_timestamp DESC, id DESC LIMIT')
     expect(sql).toContain("normalized->>'message' = $")
+    expect(sql).toContain("octet_length(normalized->>'message') <= 2048")
     expect(sql).toContain('normalized #>>')
     expect(sql).not.toContain('translate(lower(normalized::text)')
     expect(sql).not.toContain('left(reverse(lower(COALESCE(normalized')

@@ -68,10 +68,11 @@ function storageEstimatePredicate(conditions: Condition[], params: (string | str
     // B-tree candidate instead of combining broad trigram/executable bitmaps.
     // This lets PostgreSQL seek directly to the message and return its newest
     // rows without sorting a large match set. JS still decides exact matches.
-    const exactMessage = conditions.find(condition => condition.path === 'message' && condition.operator === 'equals' && condition.caseSensitive === true)
+    const exactMessage = conditions.find(condition => condition.path === 'message' && condition.operator === 'equals'
+        && condition.caseSensitive === true && Buffer.byteLength(condition.value, 'utf8') <= 2048)
     if (exactMessage) {
         params.push(exactMessage.value)
-        predicates.push(`normalized->>'message' = $${params.length}`)
+        predicates.push(`normalized->>'message' = $${params.length} AND octet_length(normalized->>'message') <= 2048`)
     } else {
         const executable = processExecutableCandidatePredicate(conditions, value => { params.push(value); return `$${params.length}` })
         if (executable) predicates.push(executable)
