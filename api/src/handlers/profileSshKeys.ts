@@ -41,7 +41,7 @@ async function profileKeyUsage(fingerprints: string[]) {
     const organizationId = process.env.PLATFORM_LOG_ORGANIZATION_ID || null
     const uniqueFingerprints = [...new Set(fingerprints)].sort()
     const cacheKey = `${PROFILE_SSH_KEY_USAGE_CACHE_PREFIX}${organizationId || 'hanasand'}:${uniqueFingerprints.join(',')}`
-    return cachedRead(cacheKey, config.CACHE_TTL_COLD, async () => {
+    return cachedRead(cacheKey, config.CACHE_TTL_HOT, async () => {
         const result = await run(`
             SELECT requested.fingerprint, latest.event_timestamp AS last_used_at
             FROM unnest($1::text[]) AS requested(fingerprint)
@@ -124,7 +124,7 @@ export async function getProfileSshKeys(req: FastifyRequest, res: FastifyReply) 
     const userId = await authorizeSelf(req, res)
     if (!userId) return
     try {
-        const keys = await cachedRead(profileSshKeysResponseCacheKey(userId), config.CACHE_TTL_COLD, async () => {
+        const keys = await cachedRead(profileSshKeysResponseCacheKey(userId), config.CACHE_TTL_HOT, async () => {
             const normalizedKeys = (await profileKeys(userId)).flatMap(key => {
                 const normalized = normalizeHostPublicKey(key.public_key)
                 return normalized ? [{ key, normalized }] : []
