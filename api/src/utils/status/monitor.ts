@@ -229,9 +229,9 @@ export default async function runSyntheticMonitor() {
             }
             return `Hanasand AI model service is ready (${String(health.model ?? 'unknown')}).`
         }),
-        check('browser-sandbox', 'Browser workspace', async () => {
-            const { response, body } = await fetchPage('/browser')
-            if (response.status !== 200 || !body.includes('Browser')) throw new Error(`Unexpected browser workspace response ${response.status}`)
+        check('browser-sandbox', 'Sandbox', async () => {
+            const { response, body } = await fetchPage('/sandbox')
+            if (response.status !== 200 || !body.includes('Sandbox')) throw new Error(`Unexpected sandbox response ${response.status}`)
             return 'The browser investigation workspace rendered successfully.'
         }),
         check('dark-web-monitoring', 'Monitoring workspace', async () => {

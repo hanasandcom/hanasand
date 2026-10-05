@@ -115,7 +115,7 @@ export default function BrowserReportPageClient({ runId = '', token = '', result
             <section className='mx-auto grid max-w-6xl gap-4'>
                 <header className='rounded-lg border border-ui-border bg-ui-panel p-4'>
                     <div className='flex flex-wrap items-center justify-between gap-3'>
-                        <Link href='/browser' className='rounded-md border border-ui-border px-3 py-2 text-sm font-semibold text-ui-text hover:border-ui-primary'>Back to browser</Link>
+                        <Link href='/sandbox' className='rounded-md border border-ui-border px-3 py-2 text-sm font-semibold text-ui-text hover:border-ui-primary'>Back to sandbox</Link>
                         <div className='flex flex-wrap items-center gap-2'>
                             <ReportStatistics metrics={{ ...report.status?.metrics, event: report.status?.metrics?.event || report.status?.run, capacity: report.status?.capacity }} />
                             {onRerun && report.target ? <div className='flex flex-wrap gap-2'>{clientId ? <BrowserHistory clientId={clientId} /> : null}<button type='button' onClick={() => onRerun(report.target!, true)} className='ui-button ui-button-secondary px-3 py-2 text-sm'>Quick run</button><button type='button' onClick={() => onRerun(report.target!)} className='ui-button ui-button-secondary px-3 py-2 text-sm'>Run again</button></div> : null}

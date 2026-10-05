@@ -61,18 +61,6 @@ export const generatedSearchRoutes = [
         href: '/articles',
     },
     {
-        id: 'route:/browser',
-        title: 'Browser',
-        detail: 'Page · /browser',
-        href: '/browser',
-    },
-    {
-        id: 'route:/browser-sandbox',
-        title: 'Browser Sandbox',
-        detail: 'Page · /browser-sandbox',
-        href: '/browser-sandbox',
-    },
-    {
         id: 'route:/contact',
         title: 'Contact',
         detail: 'Page · /contact',
@@ -217,12 +205,6 @@ export const generatedSearchRoutes = [
         href: '/dashboard/findings/sources',
     },
     {
-        id: 'route:/watchlists',
-        title: 'Watchlists',
-        detail: 'Page · /watchlists',
-        href: '/watchlists',
-    },
-    {
         id: 'route:/dashboard/helpdesk',
         title: 'Dashboard · Helpdesk',
         detail: 'Page · /dashboard/helpdesk',
@@ -335,6 +317,12 @@ export const generatedSearchRoutes = [
         title: 'Dashboard · Rules · Match',
         detail: 'Page · /dashboard/rules/match',
         href: '/dashboard/rules/match',
+    },
+    {
+        id: 'route:/dashboard/rules/tuning',
+        title: 'Dashboard · Rules · Tuning',
+        detail: 'Page · /dashboard/rules/tuning',
+        href: '/dashboard/rules/tuning',
     },
     {
         id: 'route:/dashboard/scanner',
@@ -649,6 +637,12 @@ export const generatedSearchRoutes = [
         href: '/s',
     },
     {
+        id: 'route:/sandbox',
+        title: 'Sandbox',
+        detail: 'Page · /sandbox',
+        href: '/sandbox',
+    },
+    {
         id: 'route:/secure-account',
         title: 'Secure Account',
         detail: 'Page · /secure-account',
@@ -761,5 +755,11 @@ export const generatedSearchRoutes = [
         title: 'Users',
         detail: 'Page · /users',
         href: '/users',
+    },
+    {
+        id: 'route:/watchlists',
+        title: 'Watchlists',
+        detail: 'Page · /watchlists',
+        href: '/watchlists',
     }
 ] as const

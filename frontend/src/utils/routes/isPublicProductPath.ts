@@ -14,6 +14,8 @@ export default function isPublicProductPath(path: string | null | undefined) {
     return pathname === '/'
         || pathname === '/pricing'
         || pathname === '/findings'
+        || pathname === '/sandbox'
+        || pathname.startsWith('/sandbox/')
         || pathname === '/browser'
         || pathname.startsWith('/browser/')
         || pathname === '/browser-sandbox'

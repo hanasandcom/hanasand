@@ -22,7 +22,7 @@ const footerGroups = [
     {
         title: 'Solutions',
         links: [
-            { label: 'Browser', href: '/browser', icon: Network },
+            { label: 'Sandbox', href: '/sandbox', icon: Network },
             { label: 'API docs', href: '/developers', icon: Code2 },
             { label: 'Pricing', href: '/pricing', icon: Activity },
         ],

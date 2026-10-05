@@ -21,7 +21,7 @@ const productItems = [
     { title: 'Security Monitoring', detail: 'Find suspicious logins and other security events.', href: '/solutions/security-monitoring', icon: ShieldAlert },
     { title: 'Security Scanner', detail: 'Safe validation scans for approved Hanasand assets.', href: '/solutions/scanner', icon: ShieldAlert },
     { title: 'Threat Search', detail: 'Search companies, groups, source changes, and alert context.', href: '/ti', icon: Radar },
-    { title: 'Browser', detail: 'Open suspicious sites in isolated browsers and save the results.', href: '/browser', icon: Network },
+    { title: 'Sandbox', detail: 'Investigate domains in an isolated browser.', href: '/sandbox', icon: Network },
     { title: 'Organizations', detail: 'Manage members, shared watchlists, alert scope, and destinations.', href: '/organizations', icon: ShieldCheck },
 ]
 

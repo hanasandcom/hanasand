@@ -522,7 +522,7 @@ export default function BrowserPageClient({ initialData, resultId, resultRunId }
             setHistory(current => persistHistory(current.map(item => item.id === run.id ? { ...item, reportUrl } : item)))
         }
         if (typeof navigator.share === 'function') {
-            await navigator.share({ title: `Browser finding: ${run.target}`, url: reportUrl })
+            await navigator.share({ title: `Sandbox finding: ${run.target}`, url: reportUrl })
             return 'Finding shared.'
         }
         if (navigator.clipboard) {
@@ -952,7 +952,7 @@ export default function BrowserPageClient({ initialData, resultId, resultRunId }
                         const stored = runs.find(run => run.id === id)
                         if (stored?.resultId && socketRef.current === socket) {
                             setHistory(persistHistory(runs))
-                            window.history.replaceState(null, '', `/browser/${stored.resultId}`)
+                            window.history.replaceState(null, '', `/sandbox/${stored.resultId}`)
                         }
                     }).catch(() => undefined)
                 const nextQuota = quotaValue(payload.quota)
@@ -1157,7 +1157,7 @@ export default function BrowserPageClient({ initialData, resultId, resultRunId }
     const resetRun = useCallback(() => {
         stoppedRunRef.current = true
         if (runIsActive) socketRef.current?.send(JSON.stringify({ type: 'end' }))
-        window.history.replaceState(null, '', '/browser')
+        window.history.replaceState(null, '', '/sandbox')
         setShowStoredResult(false)
         if (replacementRef.current) clearTimeout(replacementRef.current)
         replacementRef.current = null
@@ -1356,8 +1356,7 @@ export default function BrowserPageClient({ initialData, resultId, resultRunId }
             <main data-browser-landing className='flex h-full min-h-0 flex-col overflow-hidden bg-ui-canvas text-ui-text'>
                 <section className='mx-auto grid min-h-0 w-full max-w-7xl flex-1 grid-rows-[auto_minmax(0,1fr)] gap-4 px-4 py-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(32rem,1.1fr)] lg:grid-rows-1 lg:items-center lg:gap-8'>
                     <div className='grid gap-4'>
-                        <p className='text-xs font-semibold uppercase text-ui-primary'>Browser sandbox</p>
-                        <h1 className='max-w-xl text-4xl font-semibold tracking-normal text-ui-text md:text-6xl'>Browser</h1>
+                        <h1 className='max-w-xl text-4xl font-semibold tracking-normal text-ui-text md:text-6xl'>Sandbox</h1>
                         <p className='max-w-xl text-base leading-7 text-ui-muted'>
                             Investigate domains quickly. Onion addresses are also supported.
                         </p>
@@ -1925,7 +1924,7 @@ function HistoryPanel({ history, quota, embedded = false, historyReady, onDelete
                         {selectionMode ? <button type='button' onClick={() => toggleSelected(run.id)} className='grid h-7 w-7 shrink-0 place-items-center rounded text-ui-muted hover:text-ui-text' aria-label={`${selectedIds.includes(run.id) ? 'Deselect' : 'Select'} ${run.target}`} aria-pressed={selectedIds.includes(run.id)}>
                             {selectedIds.includes(run.id) ? <Check className='h-4 w-4 text-ui-primary' /> : <Square className='h-4 w-4' />}
                         </button> : null}
-                        <Link href={`/browser/${run.resultId}`} className='grid min-w-0 flex-1 gap-2 focus-visible:outline-2 focus-visible:outline-ui-primary md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-center'>
+                        <Link href={`/sandbox/${run.resultId}`} className='grid min-w-0 flex-1 gap-2 focus-visible:outline-2 focus-visible:outline-ui-primary md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-center'>
                             <span className='min-w-0 truncate text-left font-mono text-ui-text'>{run.target}</span>
                             <ProviderRunBadges run={run} />
                             <span className='whitespace-nowrap text-ui-muted'>{new Date(run.startedAt).toLocaleString()}</span>
@@ -2704,7 +2703,7 @@ function buildShareableAnalystReport(input: Parameters<typeof buildExportReport>
     return {
         ...report,
         markdown: [
-            '# Browser sandbox report',
+            '# Sandbox report',
             `Target: ${report.target}`,
             `Final URL: ${report.finalUrl}`,
             `Verdict: ${report.verdict}`,

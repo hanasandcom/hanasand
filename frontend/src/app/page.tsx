@@ -27,7 +27,7 @@ const consoleActions = [
 
 const solutions = [
     { title: 'Monitoring', href: '/ti' },
-    { title: 'Isolated browser', href: '/browser' },
+    { title: 'Sandbox', href: '/sandbox' },
     { title: 'Shared reports', href: '/contact?intent=reports' },
 ]
 

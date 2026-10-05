@@ -12,7 +12,7 @@ import isPublicProductPath from '@/utils/routes/isPublicProductPath'
 export default function RouteFrame({ children, serverPath, token, sidebar, banner }: { children: ReactNode, serverPath: string, token: boolean, sidebar: ReactNode, banner: ReactNode }) {
     const mobile = useMobileNavigation()
     const pathname = usePathname() || serverPath
-    const isBrowserLanding = pathname === '/browser'
+    const isBrowserLanding = pathname === '/sandbox'
     const isShare = isSharePath(pathname)
     const isDashboard = isInternalAppPath(pathname)
     const isAccountSwitcher = pathname === '/switch-account'

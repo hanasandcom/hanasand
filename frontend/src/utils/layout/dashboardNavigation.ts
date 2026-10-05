@@ -36,7 +36,7 @@ export function getDashboardNavigation(access: NavigationAccess): NavigationItem
             group('Investigations', [
                 link('Cases', '/cases'),
                 link('Threat Search', '/ti'),
-                link('Browser', '/browser'),
+                link('Sandbox', '/sandbox'),
             ]),
             group('Intelligence', [
                 link('Latest Activity', '/ti/activity', isAdmin),

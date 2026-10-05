@@ -24,7 +24,7 @@ export async function proxy(req: NextRequest) {
     }
     if (visiblePath === '/browser/report'
         && (!req.nextUrl.searchParams.get('run') || !req.nextUrl.searchParams.get('token'))) {
-        return NextResponse.redirect(new URL('/browser', req.url))
+        return NextResponse.redirect(new URL('/sandbox', req.url))
     }
     const path = appPagePath(visiblePath)
     const pathWithSearch = `${visiblePath}${req.nextUrl.search}`

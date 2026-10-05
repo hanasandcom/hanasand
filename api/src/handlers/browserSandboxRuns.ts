@@ -231,7 +231,7 @@ export async function getBrowserRunStats(_req: FastifyRequest, res: FastifyReply
 
 export async function getBrowserRunReport(req: FastifyRequest<{ Params: BrowserReportParams, Querystring: BrowserReportQuery }>, res: FastifyReply) {
     try {
-        const row = await loadAccessibleBrowserRun(req, req.params.id, req.query?.clientId, req.query?.token)
+        const row = await loadAccessibleBrowserRun(req, res, req.params.id, req.query?.clientId, req.query?.token)
         if (!row) return res.status(404).send({ error: 'Report not found.' })
         const report = row.metadata?.report
         if (!report) return res.status(404).send({ error: 'Report not saved.' })
@@ -244,7 +244,7 @@ export async function getBrowserRunReport(req: FastifyRequest<{ Params: BrowserR
 
 export async function postBrowserRunReport(req: FastifyRequest<{ Params: BrowserReportParams, Body: BrowserReportBody }>, res: FastifyReply) {
     try {
-        const row = await loadAccessibleBrowserRun(req, req.params.id, req.body?.clientId)
+        const row = await loadAccessibleBrowserRun(req, res, req.params.id, req.body?.clientId)
         if (!row) return res.status(404).send({ error: 'Run not found.' })
         const report = req.body?.report
         const encoded = JSON.stringify(report)
@@ -419,13 +419,13 @@ function providerResultsValue(value: unknown): Record<string, BrowserProviderRun
     return Object.keys(out).length ? out : undefined
 }
 
-async function loadAccessibleBrowserRun(req: FastifyRequest, id: string, clientId?: string, token?: string) {
+async function loadAccessibleBrowserRun(req: FastifyRequest, res: FastifyReply, id: string, clientId?: string, token?: string) {
     const result = await run('SELECT * FROM browser_runs WHERE id = $1 LIMIT 1', [id])
     const row = result.rows[0] as (Record<string, any> & { metadata?: Record<string, any> }) | undefined
     if (!row || row.metadata?.historyDeletedAt) return null
     if (token && row.metadata?.reportToken === token) return row
 
-    const user = await tokenWrapper(req, {} as FastifyReply).catch(() => ({ valid: false, id: '' }))
+    const user = await tokenWrapper(req, res).catch(() => ({ valid: false, id: '' }))
     if (user.valid && user.id && row.owner_id === user.id) return row
     const clientHash = cleanClientId(clientId) ? hashValue(cleanClientId(clientId)) : ''
     if (clientHash && row.client_id_hash === clientHash) return row
@@ -446,7 +446,7 @@ function hashValue(value: string) {
 }
 
 function browserReportViewerUrl(id: string, token: string) {
-    return `/browser/report?run=${encodeURIComponent(id)}&token=${encodeURIComponent(token)}`
+    return `/sandbox/report?run=${encodeURIComponent(id)}&token=${encodeURIComponent(token)}`
 }
 
 export async function persistBrowserRunEvidence(id: string, payload: Record<string, any>) {

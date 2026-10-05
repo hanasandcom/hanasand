@@ -43,7 +43,7 @@ export default function BrowserHistory({ clientId }: { clientId: string }) {
                 <button type='button' onClick={() => dialog.current?.close()} aria-label='Close history' className='rounded-md p-2 hover:bg-ui-raised'><X className='h-5 w-5' /></button>
             </div>
             <div className='grid gap-2'>
-                {runs.map(run => <a key={run.id} href={`/browser/${run.resultId}?run=${encodeURIComponent(run.id)}`} className='grid gap-1 rounded-md border border-ui-border p-3 text-sm hover:border-ui-primary focus-visible:outline-2 focus-visible:outline-ui-primary'>
+                {runs.map(run => <a key={run.id} href={`/sandbox/${run.resultId}?run=${encodeURIComponent(run.id)}`} className='grid gap-1 rounded-md border border-ui-border p-3 text-sm hover:border-ui-primary focus-visible:outline-2 focus-visible:outline-ui-primary'>
                     <span className='break-all font-mono'>{run.target}</span>
                     <span className='text-xs text-ui-muted'>{new Date(run.startedAt).toLocaleString()} · {run.status === 'ended' ? 'Complete' : run.status}</span>
                 </a>)}

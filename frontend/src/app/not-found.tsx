@@ -32,9 +32,9 @@ const recoveryLinks = [
         icon: ShieldCheck,
     },
     {
-        title: 'Browser',
+        title: 'Sandbox',
         body: 'Open suspicious sites in an isolated browser.',
-        href: '/browser',
+        href: '/sandbox',
         icon: Network,
     },
 ]

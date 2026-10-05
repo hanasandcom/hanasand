@@ -114,7 +114,7 @@ function publicStatusLabel(value: string) {
         user_creation: 'Account creation',
         vm: 'Workspace runtime',
         websocket: 'Realtime delivery',
-        'browser-sandbox': 'Browser sandbox',
+        'browser-sandbox': 'Sandbox',
         'dark-web-monitoring': 'Dark web monitoring',
         'threat-intelligence': 'Threat intelligence',
     }
