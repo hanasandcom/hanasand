@@ -38,7 +38,8 @@ async function profileKeys(userId: string) {
 async function profileKeyUsage(fingerprints: string[]) {
     if (!fingerprints.length) return new Map<string, string>()
     const organizationId = process.env.PLATFORM_LOG_ORGANIZATION_ID || null
-    const cacheKey = `${PROFILE_SSH_KEY_USAGE_CACHE_PREFIX}${organizationId || 'hanasand'}:${[...new Set(fingerprints)].sort().join(',')}`
+    const uniqueFingerprints = [...new Set(fingerprints)].sort()
+    const cacheKey = `${PROFILE_SSH_KEY_USAGE_CACHE_PREFIX}${organizationId || 'hanasand'}:${uniqueFingerprints.join(',')}`
     return cachedRead(cacheKey, config.CACHE_TTL_COLD, async () => {
         const result = await run(`
             SELECT fingerprint, MAX(event_timestamp) AS last_used_at
@@ -50,7 +51,7 @@ async function profileKeyUsage(fingerprints: string[]) {
                     SELECT id
                     FROM organizations
                     WHERE status = 'active'
-                      AND (id = $3 OR ($3::text IS NULL AND lower(name) = 'hanasand'))
+                      AND (id = $2 OR ($2::text IS NULL AND lower(name) = 'hanasand'))
                     ORDER BY created_at
                     LIMIT 1
                 )
@@ -60,12 +61,12 @@ async function profileKeyUsage(fingerprints: string[]) {
                   AND e.action = 'login'
                   AND e.outcome = 'success'
                   AND e.normalized->>'service' = 'sshd'
-                  AND e.normalized->>'host' = ANY($1::text[])
+                  AND e.normalized->>'host' IN ('inspur', 'ovhcloud')
                   AND e.normalized->>'message' LIKE 'Accepted publickey for % ssh2: % SHA256:%'
             ) accepted_keys
-            WHERE fingerprint = ANY($2::text[])
+            WHERE fingerprint = ANY($1::text[])
             GROUP BY fingerprint
-        `, [['inspur', 'ovhcloud'], fingerprints, organizationId])
+        `, [uniqueFingerprints, organizationId])
         return new Map((result.rows as ProfileSshKeyUsage[]).map(row => [
             row.fingerprint,
             row.last_used_at instanceof Date ? row.last_used_at.toISOString() : row.last_used_at,
