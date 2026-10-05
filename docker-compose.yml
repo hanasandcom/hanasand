@@ -35,6 +35,7 @@ services:
       dockerfile: ./frontend/Dockerfile
       args:
         HANASAND_RELEASE_COMMIT: ${HANASAND_RELEASE_COMMIT:-unknown}
+        FRONTEND_INTERNAL_API: ${FRONTEND_INTERNAL_API:-http://api:8080/api}
     env_file:
       - ${HANASAND_DEPLOY_ENV_FILE:-.env}
     environment:

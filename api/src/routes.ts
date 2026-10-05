@@ -167,6 +167,7 @@ import {
 } from './handlers/adminSupport.ts'
 import { deleteProject, deleteShare, getProject, getShare, getShareTree, getUserProjects, getUserShares, postShare, putShare, setShareLock } from './handlers/share.ts'
 import postTiSearch from './handlers/ti/search.ts'
+import { getTiScraperControl, postTiScraperControl } from './handlers/ti/scraperControl.ts'
 import { getTiEnrichment, postTiEnrichmentRun } from './handlers/ti/enrichment.ts'
 import {
     deleteOrganizationWatchlist,
@@ -317,6 +318,8 @@ export default async function apiRoutes(fastify: FastifyInstance, options: Fasti
 
     // Threat intelligence
     fastify.post('/ti/search', postTiSearch)
+    fastify.get('/ti/scraper/control', getTiScraperControl)
+    fastify.post('/ti/scraper/control', postTiScraperControl)
     fastify.get('/ti/enrichment', getTiEnrichment)
     fastify.post('/ti/enrichment/run', postTiEnrichmentRun)
 

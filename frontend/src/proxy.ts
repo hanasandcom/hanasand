@@ -47,6 +47,10 @@ export async function proxy(req: NextRequest) {
 
     requestHeaders.set('x-theme', theme)
     requestHeaders.set('x-current-path', visiblePath)
+    if (canonicalPath === '/api/ti/scraper/control' && tokenCookie?.value && idCookie?.value) {
+        requestHeaders.set('authorization', `Bearer ${tokenCookie.value}`)
+        requestHeaders.set('id', idCookie.value)
+    }
     if (impersonationToken) {
         requestHeaders.set('x-impersonation-token', impersonationToken)
     }

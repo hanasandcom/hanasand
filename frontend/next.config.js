@@ -52,8 +52,10 @@ const nextConfig = {
     },
     // The canonical Findings route maps to the dashboard/findings page folder via appRoutes.json.
     async rewrites() {
+        const tiApiBase = (process.env.FRONTEND_INTERNAL_API || process.env.FRONTEND_AUTH_API || process.env.NEXT_PUBLIC_API || 'https://api.hanasand.com/api').replace(/\/$/, '')
         return {
             beforeFiles: [
+                { source: '/api/ti/scraper/control', destination: `${tiApiBase}/ti/scraper/control` },
                 { source: '/api/dwm', destination: '/api/findings' },
                 { source: '/api/dwm/:path*', destination: '/api/findings/:path*' },
                 ...appRoutes

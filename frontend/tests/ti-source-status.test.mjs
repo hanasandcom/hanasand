@@ -1,15 +1,12 @@
 import assert from 'node:assert/strict'
-import { mock, test } from 'bun:test'
-import { NextRequest, NextResponse } from 'next/server'
+import { existsSync, readFileSync } from 'node:fs'
+import { test } from 'bun:test'
 
-mock.module('@/utils/proxy/requireApiSession', () => ({
-    default: async () => ({ response: NextResponse.json({ error: 'Session required.' }, { status: 401 }) }),
-}))
-
-const { GET, POST } = await import('../src/app/api/ti/scraper/control/route')
-const request = (method) => new NextRequest('http://frontend.test/api/ti/scraper/control', { method })
-
-test('TI scraper control requires an authenticated session', async () => {
-    assert.equal((await GET(request('GET'))).status, 401)
-    assert.equal((await POST(request('POST'))).status, 401)
+test('the main frontend does not own TI scraper control', () => {
+    const route = new URL('../src/app/api/ti/scraper/control/route.ts', import.meta.url)
+    assert.equal(existsSync(route), false)
+    const backendHandler = new URL('../../api/src/handlers/ti/scraperControl.ts', import.meta.url)
+    const backendRoutes = new URL('../../api/src/routes.ts', import.meta.url)
+    assert.equal(existsSync(backendHandler), true)
+    assert.match(readFileSync(backendRoutes, 'utf8'), /fastify\.(?:get|post)\('\/ti\/scraper\/control'/)
 })
