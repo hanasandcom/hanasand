@@ -35,7 +35,7 @@ const tasks: TestTask[] = [
     { id: 'dashboard-overview-server', title: 'Dashboard monitoring server rendering', command: [bun, 'test', 'tests/dashboard-overview-server.test.ts'] },
     { id: 'service-account-boundary', title: 'Scoped service account browser access', command: [bun, 'tests/service-account-boundary.test.ts'] },
     { id: 'numbered-pagination', title: 'Numbered page navigation', command: [bun, 'test', 'tests/numbered-pagination.test.tsx'] },
-    { id: 'source-status', title: 'TI source control ownership boundary', command: [bun, 'test', 'tests/ti-source-status.test.mjs'] },
+    { id: 'source-status', title: 'TI scraper control session authentication', command: [bun, 'test', 'tests/ti-source-status.test.mjs'] },
     { id: 'source-activation', title: 'Source activation controls', command: [bun, 'scripts/check-source-activation.mjs'], requires: 'playwright' },
     { id: 'traffic-locations', title: 'Recorded traffic locations', command: [bun, 'tests/traffic-locations.test.ts'] },
     { id: 'traffic-stream-proxy', title: 'Traffic live stream proxy', command: [bun, 'tests/traffic-stream-proxy.test.ts'] },

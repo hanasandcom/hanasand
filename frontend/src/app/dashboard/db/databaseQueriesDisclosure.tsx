@@ -40,7 +40,7 @@ export default function DatabaseQueriesDisclosure({
     }
 
     const detail = `${count} shown · ${longRunningCount} long-running · Longest ${formatTime(longestDurationSeconds)} · Threshold ${formatTime(thresholdSeconds)} · Checked ${formatDateTime(checkedAt)}`
-    return <details className='group min-w-0 rounded-lg border border-ui-border bg-ui-panel' onToggle={event => { if (event.currentTarget.open) void loadQueries() }}>
+    return <details id='active-queries' className='group min-w-0 rounded-lg border border-ui-border bg-ui-panel' onToggle={event => { if (event.currentTarget.open) void loadQueries() }}>
         <summary className='flex cursor-pointer list-none flex-wrap items-center gap-3 p-5 focus-visible:outline-ui-primary [&::-webkit-details-marker]:hidden'>
             <ChevronDown aria-hidden className='h-4 w-4 text-ui-muted transition group-open:rotate-180' />
             <h2 className='text-base font-semibold'>Queries</h2>
