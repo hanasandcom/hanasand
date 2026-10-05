@@ -50,6 +50,8 @@ export async function getLogTuning(req: FastifyRequest, res: FastifyReply) {
                 refreshing: Boolean(row?.refreshing),
             } satisfies TuningSnapshot
         })
+        res.header('vary', 'Cookie')
+        res.header('cache-control', snapshot.refreshing ? 'private, no-store' : 'private, max-age=60')
         return res.send(snapshot)
     } catch (error) {
         req.log?.error?.({ error }, 'Log tuning snapshot read failed')

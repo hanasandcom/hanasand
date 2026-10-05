@@ -64,15 +64,17 @@ export default function TuningPage() {
     const [createdRule, setCreatedRule] = useState<Rule | null>(null)
     const [error, setError] = useState('')
     const [pending, setPending] = useState(false)
+    const [cacheBuster, setCacheBuster] = useState(0)
     const [sortField, setSortField] = useState<SortField>('event_count')
     const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
     const canManage = organizations.some(organization => organization.id === data?.organizationId
         && ['owner', 'admin', 'editor'].includes(organization.role?.toLowerCase() || ''))
 
-    const refresh = useCallback(async (signal?: AbortSignal) => {
+    const refresh = useCallback(async (signal?: AbortSignal, cache: RequestCache = 'default', version = cacheBuster) => {
         if (document.visibilityState !== 'visible') return
         try {
-            const payload = await requestJson<TuningData>('/api/backend/logs/tuning', { cache: 'no-store', signal })
+            const path = version ? `/api/backend/logs/tuning?refresh=${version}` : '/api/backend/logs/tuning'
+            const payload = await requestJson<TuningData>(path, { cache, signal })
             if (!signal?.aborted) {
                 setPending(Boolean(payload.pending))
                 setData(payload)
@@ -84,13 +86,15 @@ export default function TuningPage() {
                 setError(cause instanceof Error ? cause.message : 'Log patterns could not be loaded.')
             }
         }
-    }, [])
+    }, [cacheBuster])
 
     const requestRefresh = useCallback(async () => {
         try {
             await requestJson<{ refreshing: boolean }>('/api/backend/logs/tuning/refresh', { method: 'POST' })
+            const version = Date.now()
+            setCacheBuster(version)
             setError('')
-            await refresh()
+            await refresh(undefined, 'no-store', version)
         } catch (cause) {
             setError(cause instanceof Error ? cause.message : 'The background refresh could not be queued.')
         }
