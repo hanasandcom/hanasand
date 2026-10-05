@@ -121,7 +121,7 @@ test('regular browser sandbox route and broker contract are wired', () => {
     assert(clientSource.includes('Remote console:'), 'client should surface remote console output in the event stream.')
     assert(clientSource.includes('capacity_busy'), 'client should react to backend capacity-busy events.')
     assert(clientSource.includes('capacity_admitted'), 'client should react when a queued sandbox is admitted.')
-    assert(clientSource.includes('durationSeconds: quota?.sessionSeconds || 300'), 'browser runs should use the server plan duration with a five-minute free default.')
+    assert(clientSource.includes('durationSeconds: quota?.sessionSeconds || 90'), 'browser runs should use the server plan duration with a ninety-second free default.')
     assert(stopRunSource.includes('type: \'end\'') && !stopRunSource.includes('.close()'), 'Stop should wait for the worker ended acknowledgement instead of racing the websocket closed.')
     assert(!socketErrorSource.includes('setSessionState(\'failed\')'), 'a transport error alone must not misclassify a completed browser run as failed.')
     assert(clientSource.includes('payload.type === \'ended\'') && clientSource.includes('current === \'failed\' || current === \'unreachable\' ? current : failed ? \'failed\' : \'ended\''), 'the worker ended message should authoritatively complete the frontend run.')

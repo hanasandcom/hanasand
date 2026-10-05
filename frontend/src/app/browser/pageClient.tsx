@@ -800,7 +800,7 @@ export default function BrowserPageClient({ initialData, resultId, resultRunId }
             setQuickRun(Boolean(override?.quick))
             if (override?.quick) setSelectedProfileId('triage-default')
             recoveryAttemptsRef.current = 0
-            recoveryDeadlineRef.current = Date.now() + (quota?.sessionSeconds || 300) * 1000
+            recoveryDeadlineRef.current = Date.now() + (quota?.sessionSeconds || 90) * 1000
             scrollRouteFrameToTop('auto')
         }
         const id = sessionId()
@@ -1897,7 +1897,7 @@ function HistoryPanel({ history, quota, embedded = false, historyReady, onDelete
                 <div>
                     <h2 className='text-sm font-semibold text-ui-text'>Recent browser runs</h2>
                     {!quota?.paid ? <Link href='/pricing#browser' className='text-xs font-semibold text-ui-primary'>Upgrade for 30-minute runs and 3 simultaneous browsers</Link> : null}
-                    <p className='mt-1 text-xs text-ui-muted'>{`${Math.round((quota?.sessionSeconds || 300) / 60)} minutes per run · ${quota?.concurrentLimit || 1} simultaneous browser${(quota?.concurrentLimit || 1) > 1 ? 's' : ''}`}</p>
+                    <p className='mt-1 text-xs text-ui-muted'>{`${runDurationLabel(quota?.sessionSeconds || 90)} per run · ${quota?.concurrentLimit || 1} simultaneous browser${(quota?.concurrentLimit || 1) > 1 ? 's' : ''}`}</p>
                 </div>
                 <div className='flex items-center gap-1.5'>
                     {selectionMode && selectedIds.length ? <button type='button' disabled={Boolean(busyId) || busyClear} onClick={() => void runAction(async () => { await onDelete(selectedIds); setSelectedIds([]) }, 'selected', 'Selected runs deleted.')} className='rounded-md border border-ui-border px-2.5 py-1.5 text-xs font-semibold text-ui-text hover:border-ui-primary disabled:opacity-50'>Delete selected ({selectedIds.length})</button> : null}
@@ -3152,7 +3152,7 @@ function quotaValue(value: unknown): BrowserQuota | null {
         plan: stringValue(record.plan) || 'anonymous',
         paid: record.paid === true,
         advancedAnalysis: record.advancedAnalysis === true,
-        sessionSeconds: finiteNumber(record.sessionSeconds) || 300,
+        sessionSeconds: finiteNumber(record.sessionSeconds) || 90,
         concurrentLimit: finiteNumber(record.concurrentLimit) || 1,
         active: finiteNumber(record.active) || 0,
         limit,
@@ -3161,6 +3161,14 @@ function quotaValue(value: unknown): BrowserQuota | null {
         resetsAt: stringValue(record.resetsAt) || null,
         identityKind: stringValue(record.identityKind) || 'anonymous',
     }
+}
+
+function runDurationLabel(seconds: number) {
+    const minutes = Math.floor(seconds / 60)
+    const remainingSeconds = seconds % 60
+    if (!remainingSeconds) return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`
+    if (!minutes) return `${remainingSeconds} seconds`
+    return `${minutes} min ${remainingSeconds} sec`
 }
 
 function runHistoryValue(value: unknown): BrowserRunHistory | null {

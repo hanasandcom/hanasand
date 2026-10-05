@@ -28,7 +28,7 @@ export const commercialAccessPlans = [
         name: 'Browser',
         priceNok: 99,
         quota: '30-minute runs · 3 simultaneous browsers',
-        summary: 'Browse free for 5 minutes per run. Upgrade for longer sessions and automated analysis.',
+        summary: 'Browse free for 1 min 30 sec per run. Upgrade for longer sessions and automated analysis.',
         features: ['30-minute browser sessions', '3 simultaneous browsers', 'Automated analysis profiles', 'Evidence capture and run history'],
     },
 ] as const

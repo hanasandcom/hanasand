@@ -10,7 +10,7 @@ const paidConcurrency: Record<string, number> = { browser: 3, starter: 3, team: 
 export function browserAccess(plan: string): BrowserAccess {
     const concurrentLimit = Object.hasOwn(paidConcurrency, plan) ? paidConcurrency[plan] : 0
     const paid = Boolean(concurrentLimit)
-    return { paid, concurrentLimit: concurrentLimit || 1, sessionSeconds: paid ? 1800 : 300, advancedAnalysis: paid }
+    return { paid, concurrentLimit: concurrentLimit || 1, sessionSeconds: paid ? 1800 : 90, advancedAnalysis: paid }
 }
 
 export function browserStartOptions(message: Record<string, unknown>, access: BrowserAccess) {

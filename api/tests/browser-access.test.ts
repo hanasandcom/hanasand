@@ -1,9 +1,9 @@
 import { expect, test } from 'bun:test'
 import { browserAccess, browserStartOptions } from '../src/utils/ws/browserAccess.ts'
 
-test('free browsing stays available with one five-minute browser', () => {
+test('free browsing stays available with one ninety-second browser', () => {
     for (const plan of ['free', 'anonymous', 'unknown', 'constructor', '__proto__']) {
-        expect(browserAccess(plan)).toEqual({ paid: false, concurrentLimit: 1, sessionSeconds: 300, advancedAnalysis: false })
+        expect(browserAccess(plan)).toEqual({ paid: false, concurrentLimit: 1, sessionSeconds: 90, advancedAnalysis: false })
     }
 })
 test('current and legacy subscriptions retain paid access', () => {
@@ -13,7 +13,7 @@ test('current and legacy subscriptions retain paid access', () => {
 })
 test('client flags cannot buy analysis, extensions or longer sessions', () => {
     const options = browserStartOptions({ type: 'start', durationSeconds: 99999, durationMinutes: 999, profileTools: [{ id: 'triage' }], paidAuthorized: true, paid: true }, browserAccess('free'))
-    expect(options.durationSeconds).toBe(300)
+    expect(options.durationSeconds).toBe(90)
     expect(options.durationMinutes).toBeUndefined()
     expect(options.profileTools).toEqual([])
     expect(options.paidAuthorized).toBe(false)
