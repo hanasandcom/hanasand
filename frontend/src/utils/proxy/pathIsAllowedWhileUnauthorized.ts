@@ -1,5 +1,9 @@
 export default function pathIsAllowedWhileUnauthorized(path: string) {
-    if (path.startsWith('/dashboard') || path.startsWith('/admin') || path.startsWith('/editor') || path.startsWith('/organizations')) {
+    if (path === '/api/db/queries'
+        || path.startsWith('/dashboard')
+        || path.startsWith('/admin')
+        || path.startsWith('/editor')
+        || path.startsWith('/organizations')) {
         return false
     }
 
