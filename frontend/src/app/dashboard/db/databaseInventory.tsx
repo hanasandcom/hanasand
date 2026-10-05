@@ -1,6 +1,7 @@
 'use client'
 
 import { Fragment, useContext, useEffect, useRef, useState } from 'react'
+import { Check, Copy } from 'lucide-react'
 import type { DatabaseOverview } from '@/utils/db/internal'
 import SortIndicator from '@/components/dashboard/sort-indicator'
 import { DatabaseFullscreenContext } from './databaseStoragePanel'
@@ -161,6 +162,8 @@ function RowPreview({ instance, database, item }: { instance: string, database: 
     const [done, setDone] = useState(false)
     const [totalRows, setTotalRows] = useState<number | null>(null)
     const [busy, setBusy] = useState(true)
+    const [copyStatus, setCopyStatus] = useState<{ key: string, result: 'copied' | 'failed' } | null>(null)
+    const copyTimer = useRef<number | null>(null)
     const sentinel = useRef<HTMLDivElement>(null)
     const viewport = useRef<HTMLDivElement>(null)
     const consume = useRef<() => void>(() => {})
@@ -202,11 +205,36 @@ function RowPreview({ instance, database, item }: { instance: string, database: 
         observer.observe(sentinel.current)
         return () => observer.disconnect()
     }, [busy, done, error, rows])
+    useEffect(() => () => { if (copyTimer.current !== null) window.clearTimeout(copyTimer.current) }, [])
+    async function copyCell(key: string, value: string) {
+        let result: 'copied' | 'failed' = 'copied'
+        try {
+            await navigator.clipboard.writeText(value)
+        } catch {
+            const input = document.createElement('textarea')
+            input.value = value
+            input.style.position = 'fixed'
+            input.style.opacity = '0'
+            document.body.appendChild(input)
+            input.select()
+            const copied = document.execCommand('copy')
+            input.remove()
+            if (!copied) result = 'failed'
+        }
+        setCopyStatus({ key, result })
+        if (copyTimer.current !== null) window.clearTimeout(copyTimer.current)
+        copyTimer.current = window.setTimeout(() => setCopyStatus(null), 1600)
+    }
     const total = done ? rows.length : totalRows === null ? null : Math.max(rows.length, totalRows)
     return <div className='min-w-0'>
         <div ref={viewport} className='min-w-0 max-w-full max-h-80 overflow-auto rounded border border-ui-border' tabIndex={0} aria-label={`${item.name} rows`}>
             <table className='min-w-full text-left text-xs'><thead className='sticky top-0 bg-ui-raised text-ui-muted'><tr>{fields.map(field => <th key={field} className='whitespace-nowrap px-3 py-2 font-medium'>{field}</th>)}</tr></thead><tbody className='divide-y divide-ui-border'>
-                {rows.map((row, index) => <tr key={index}>{fields.map(field => <td key={field} className='max-w-80 px-3 py-2 align-top'><pre className='max-w-80 whitespace-pre-wrap [overflow-wrap:anywhere] font-mono'>{cell(row[field])}</pre></td>)}</tr>)}
+                {rows.map((row, index) => <tr key={index}>{fields.map(field => {
+                    const key = `${index}:${field}`
+                    const value = cell(row[field])
+                    const status = copyStatus?.key === key ? copyStatus.result : null
+                    return <td key={field} className='align-top'><button type='button' onClick={() => void copyCell(key, value)} aria-label={`${status === 'copied' ? 'Copied' : 'Copy'} ${field} value`} title={status === 'failed' ? 'Copy failed' : 'Click to copy · Scroll to see full value'} className='flex w-full min-w-0 items-center gap-1.5 px-3 py-2 text-left font-mono'><span className='block w-[6ch] shrink-0 overflow-x-auto whitespace-nowrap'>{value}</span>{status === 'copied' ? <Check aria-hidden className='h-3.5 w-3.5 shrink-0 text-ui-success' /> : <Copy aria-hidden className='h-3.5 w-3.5 shrink-0 text-ui-muted' />}<span className='sr-only' aria-live='polite'>{status === 'copied' ? `${field} copied` : status === 'failed' ? `${field} copy failed` : ''}</span></button></td>
+                })}</tr>)}
             </tbody></table>
             <div ref={sentinel} className='h-px' />
         </div>
