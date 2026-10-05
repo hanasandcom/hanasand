@@ -143,7 +143,7 @@ export function getDashboardNavigation(access: NavigationAccess): NavigationItem
                 link('Integrations', '/findings/delivery'),
             ]),
             group('Monitoring & activity', [
-                link('Alerts & Cases', '/organizations/alerts'),
+                link('Events & Cases', '/organizations/events'),
                 link('Activity', '/organizations/activity'),
             ]),
         ]),

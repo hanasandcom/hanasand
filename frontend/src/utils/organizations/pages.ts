@@ -7,7 +7,7 @@ export const organizationPages = [
     { id: 'api-keys', label: 'API keys', href: '/organizations/api-keys' },
     { id: 'privacy', label: 'Privacy & retention', href: '/organizations/privacy' },
     { id: 'delivery', label: 'Delivery history', href: '/organizations/delivery' },
-    { id: 'alerts', label: 'Alerts & cases', href: '/organizations/alerts' },
+    { id: 'events', label: 'Events & cases', href: '/organizations/events' },
     { id: 'activity', label: 'Activity', href: '/organizations/activity' },
 ] as const
 export const organizationNavigationPages = organizationPages.filter(page => page.id !== 'destinations' && page.id !== 'delivery')
@@ -17,7 +17,7 @@ export function organizationPageForFocus(focus: string): OrganizationPage {
     if (focus.startsWith('watchlist')) return 'watchlists'
     if (focus.startsWith('destination')) return 'destinations'
     if (focus.startsWith('delivery')) return 'delivery'
-    if (/^(alerts?|cases?|scope)$/.test(focus)) return 'alerts'
+    if (/^(alerts?|events?|cases?|scope)$/.test(focus)) return 'events'
     if (focus === 'audit') return 'activity'
     return organizationPages.find(page => page.id === focus)?.id || 'overview'
 }

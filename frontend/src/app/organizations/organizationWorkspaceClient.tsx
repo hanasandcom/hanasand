@@ -184,7 +184,13 @@ type OrgBundle = {
     deliveries: DeliveryRow[]
     alertCaseVisibility: Record<string, unknown> | null
     apiKeys: OrganizationApiKey[]
-    loadErrors: string[]
+    loadErrors: OrganizationLoadError[]
+}
+
+type OrganizationLoadError = {
+    endpoint: string
+    message: string
+    serviceUnavailable: boolean
 }
 
 type DeliveryRow = {
@@ -354,16 +360,16 @@ const initialBundle: OrgBundle = {
 }
 
 const organizationBundleKeysByPage: Record<OrganizationPage, readonly string[]> = {
-    overview: ['settings', 'members', 'invites', 'watchlists', 'alertTerms', 'alerts', 'cases', 'webhooks', 'deliveries'],
+    overview: ['settings', 'members', 'invites', 'watchlists', 'alertTerms', 'events', 'cases', 'webhooks', 'deliveries'],
     settings: ['settings'],
     team: ['members', 'invites'],
-    watchlists: ['members', 'watchlists', 'alertTerms', 'alerts', 'webhooks', 'deliveries'],
+    watchlists: ['members', 'watchlists', 'alertTerms', 'events', 'webhooks', 'deliveries'],
     destinations: ['webhooks', 'deliveries'],
     'api-keys': ['apiKeys'],
     privacy: ['settings', 'privacy'],
     delivery: ['webhooks', 'deliveries'],
-    alerts: ['alertTerms', 'alerts', 'cases', 'deliveries', 'members', 'watchlists', 'webhooks', 'alertCaseVisibility'],
-    activity: ['settings', 'members', 'invites', 'watchlists', 'alertTerms', 'alerts', 'cases', 'webhooks', 'deliveries'],
+    events: ['alertTerms', 'events', 'cases', 'deliveries', 'members', 'watchlists', 'webhooks', 'alertCaseVisibility'],
+    activity: ['settings', 'members', 'invites', 'watchlists', 'alertTerms', 'events', 'cases', 'webhooks', 'deliveries'],
 }
 
 const roleOptions: OrganizationRole[] = ['admin', 'editor', 'reader']
@@ -400,10 +406,10 @@ function organizationDeliveryErrorText(value: unknown) {
 function deliveryFailureSummary(delivery: DeliveryRow) {
     const errorClass = String(delivery.errorClass || '').toLowerCase()
     const raw = organizationDeliveryErrorText(delivery.error || delivery.errorClass || delivery.responseSummary)
-    if (errorClass.includes('missing_webhook_url') || errorClass.includes('destination_unavailable')) return 'No active Discord or webhook destination is configured for this alert.'
+    if (errorClass.includes('missing_webhook_url') || errorClass.includes('destination_unavailable')) return 'No active Discord or webhook destination is configured for this event.'
     if (errorClass.includes('unsupported_destination')) return 'Destination type is not supported for Discord/webhook delivery.'
     if (errorClass.includes('permission') || errorClass.includes('access')) return 'Your role cannot test or replay this destination.'
-    if (errorClass.includes('disabled') || errorClass.includes('paused')) return 'Destination is disabled. Enable it before replaying alert delivery.'
+    if (errorClass.includes('disabled') || errorClass.includes('paused')) return 'Destination is disabled. Enable it before replaying event delivery.'
     if (errorClass.includes('dedupe') || errorClass.includes('idempot')) return 'Replay was skipped because this idempotency key already delivered.'
     if (raw && raw !== 'Delivery error redacted.') return raw
     return 'Delivery failed before Discord/webhook accepted the request.'
@@ -438,7 +444,7 @@ function deliveryRetryText(delivery: DeliveryRow) {
 function replayBlockedReason(delivery: DeliveryRow, destinations: WebhookDestination[] = []) {
     const watchlistId = deliveryWatchlistId(delivery)
     if (!(deliveryDestinationIds(delivery, destinations)[0] || watchlistId)) return 'Replay needs a destination or saved watchlist route.'
-    if (!(delivery.alertId || delivery.caseId || watchlistId || delivery.actionId)) return 'Replay needs alert, case, or watchlist context.'
+    if (!(delivery.alertId || delivery.caseId || watchlistId || delivery.actionId)) return 'Replay needs event, case, or watchlist context.'
     return 'Replay is not available for this delivery row.'
 }
 
@@ -633,7 +639,7 @@ export default function OrganizationWorkspaceClient({ page = 'overview' }: { pag
     const requestedInviteId = searchParams.get('inviteId')?.trim() || ''
     const requestedMemberId = searchParams.get('memberId')?.trim() || ''
     const requestedFocus = searchParams.get('focus')?.trim() || ''
-    const activePage = page === 'overview' ? organizationPageForFocus(requestedFocus || (requestedInviteId || requestedMemberId ? 'team' : requestedWatchlistId ? 'watchlists' : requestedDestinationId ? 'destinations' : requestedDeliveryId ? 'delivery' : requestedAlertId || requestedCaseId ? 'alerts' : 'overview')) : page
+    const activePage = page === 'overview' ? organizationPageForFocus(requestedFocus || (requestedInviteId || requestedMemberId ? 'team' : requestedWatchlistId ? 'watchlists' : requestedDestinationId ? 'destinations' : requestedDeliveryId ? 'delivery' : requestedAlertId || requestedCaseId ? 'events' : 'overview')) : page
     const [organizations, setOrganizations] = useState<OrganizationSummary[]>(workspaceOrganizations as OrganizationSummary[])
     const [selectedId, setSelectedId] = useState(() => requestedOrganizationId)
     const [bundle, setBundle] = useState<OrgBundle>(initialBundle)
@@ -769,7 +775,7 @@ export default function OrganizationWorkspaceClient({ page = 'overview' }: { pag
             ['watchlists', `/api/organizations/${encodeURIComponent(organizationId)}/watchlists`],
             ['alertTerms', `/api/organizations/${encodeURIComponent(organizationId)}/watchlists/alert-terms`],
             ['alertCaseVisibility', `/api/organizations/${encodeURIComponent(organizationId)}/alert-case-visibility`],
-            ['alerts', `/api/findings/alerts?organizationId=${encodeURIComponent(organizationId)}`],
+            ['events', `/api/findings/alerts?organizationId=${encodeURIComponent(organizationId)}`],
             ['cases', `/api/cases?organizationId=${encodeURIComponent(organizationId)}`],
             ['webhooks', `/api/organizations/${encodeURIComponent(organizationId)}/webhooks`],
             ['deliveries', `/api/findings/webhooks/deliveries?organizationId=${encodeURIComponent(organizationId)}`],
@@ -783,7 +789,11 @@ export default function OrganizationWorkspaceClient({ page = 'overview' }: { pag
         results.forEach((result, index) => {
             const [key, url] = permittedEndpoints[index]
             if (result.status === 'rejected') {
-                nextBundle.loadErrors.push(`${readableEndpoint(key)}: ${endpointErrorMessage(result.reason)}`)
+                nextBundle.loadErrors.push({
+                    endpoint: key,
+                    message: endpointErrorMessage(result.reason),
+                    serviceUnavailable: isServerUnavailable(result.reason),
+                })
                 return
             }
             const payload = result.value
@@ -812,7 +822,7 @@ export default function OrganizationWorkspaceClient({ page = 'overview' }: { pag
             if (key === 'alertCaseVisibility') {
                 nextBundle.alertCaseVisibility = payload
             }
-            if (key === 'alerts') {
+            if (key === 'events') {
                 nextBundle.alerts = arrayValue<ScopedAlert>(payload.alerts ?? payload.items ?? payload.results)
             }
             if (key === 'cases') {
@@ -1312,7 +1322,7 @@ export default function OrganizationWorkspaceClient({ page = 'overview' }: { pag
         return draft.status === 'active' ? `${name} destination updated.` : `${name} destination disabled.`
     }, `destination-${destination.id}`)
 
-    const refreshOrganizationAlerts = () => selectedOrganization && runAction('refresh-alerts', async () => {
+    const refreshOrganizationAlerts = () => selectedOrganization && runAction('refresh-events', async () => {
         requireEdit()
         const payload = await requestJson<{ savedAlertCount?: number, alertIds?: string[] }>('/api/findings/alerts/rebuild', {
             method: 'POST',
@@ -1324,7 +1334,7 @@ export default function OrganizationWorkspaceClient({ page = 'overview' }: { pag
         })
         await loadOrganizationBundle(selectedOrganization.id)
         const count = Number(payload.savedAlertCount || payload.alertIds?.length || 0)
-        return count ? `${count} alert${count === 1 ? '' : 's'} refreshed from captures.` : 'No matching alert was found in the available captures.'
+        return count ? `${count} event${count === 1 ? '' : 's'} refreshed from captures.` : 'No matching event was found in the available captures.'
     }, 'watchlist-refresh')
 
     const requestFreshCollection = () => selectedOrganization && runAction('fresh-collection', async () => {
@@ -1344,7 +1354,7 @@ export default function OrganizationWorkspaceClient({ page = 'overview' }: { pag
         setCollectionRequest(next)
         await loadOrganizationBundle(selectedOrganization.id)
         collectionRequestKeyRef.current = null
-        return next ? `Fresh collection ${next.status}; ${next.captureCount || 0} captures and ${next.alertCount || 0} alerts reported.` : 'Collection request accepted.'
+        return next ? `Fresh collection ${next.status}; ${next.captureCount || 0} captures and ${next.alertCount || 0} events reported.` : 'Collection request accepted.'
     }, 'fresh-collection')
 
     const refreshCollectionStatus = () => selectedOrganization && collectionRequest && runAction('collection-status', async () => {
@@ -1352,7 +1362,7 @@ export default function OrganizationWorkspaceClient({ page = 'overview' }: { pag
         const next = payload.collectionRequest || collectionRequest
         setCollectionRequest(next)
         if (next.status === 'completed' || next.status === 'failed') await loadOrganizationBundle(selectedOrganization.id)
-        return `Fresh collection ${next.status}; ${next.captureCount || 0} captures and ${next.alertCount || 0} alerts reported.`
+        return `Fresh collection ${next.status}; ${next.captureCount || 0} captures and ${next.alertCount || 0} events reported.`
     }, 'collection-status')
 
     const rotateDestinationSigningSecret = (destination: WebhookDestination) => selectedOrganization && runAction('rotate-destination-secret', async () => {
@@ -1480,7 +1490,7 @@ export default function OrganizationWorkspaceClient({ page = 'overview' }: { pag
                     <div className='grid gap-2'>
                         {error && <StatusBanner tone='error' text={error} />}
                         {message && <StatusBanner tone={messageTone} text={message} />}
-                        {bundle.loadErrors.map(item => <StatusBanner key={item} tone='warning' text={item} />)}
+                        {organizationLoadErrorsForDisplay(bundle.loadErrors).map(item => <OrganizationLoadErrorBanner key={`${item.endpoint}:${item.message}`} error={item} cases={bundle.cases} organizationId={selectedOrganization?.id} />)}
                     </div>
                 )}
 
@@ -1540,7 +1550,7 @@ export default function OrganizationWorkspaceClient({ page = 'overview' }: { pag
                                     rowMessages={rowMessages}
                                     onReplay={delivery => void replayDelivery(delivery)}
                                 />}
-                                {activePage === 'alerts' && <ScopePanel alertTerms={bundle.alertTerms} alerts={bundle.alerts} cases={bundle.cases} deliveries={bundle.deliveries} members={bundle.members} watchlists={bundle.watchlists} webhooks={bundle.webhooks} alertCaseVisibility={bundle.alertCaseVisibility} organizationId={selectedOrganization.id} />}
+                                {activePage === 'events' && <ScopePanel alertTerms={bundle.alertTerms} alerts={bundle.alerts} cases={bundle.cases} deliveries={bundle.deliveries} members={bundle.members} watchlists={bundle.watchlists} webhooks={bundle.webhooks} alertCaseVisibility={bundle.alertCaseVisibility} organizationId={selectedOrganization.id} />}
                                 {activePage === 'activity' && <ActivityPanel organization={selectedOrganization} bundle={bundle} activity={activityRows} selectedSubject={selectedActivitySubject} onSelectSubject={selectActivitySubject} />}
                             </>}
                         </div>
@@ -1596,7 +1606,7 @@ function WorkspaceHealthStrip({ organization, bundle }: { organization: Organiza
             label: 'Cases',
             value: `${openCases.length} open case${openCases.length === 1 ? '' : 's'}`,
             detail: 'View cases',
-            href: openCases[0] ? `/organizations/alerts#case-record-${encodeURIComponent(openCases[0].id)}` : '/organizations/alerts',
+            href: openCases[0] ? `/organizations/events#case-record-${encodeURIComponent(openCases[0].id)}` : '/organizations/events',
         },
     ] as const
 
@@ -1639,7 +1649,7 @@ function WorkspaceHealthStrip({ organization, bundle }: { organization: Organiza
 function EmptyWorkspacePreview() {
     return (
         <ul className='grid w-full gap-3 text-sm font-normal text-ui-muted sm:grid-cols-3 sm:justify-items-center dark:text-ui-muted' aria-label='Organization benefits' data-org-empty-focused-create='true'>
-            {['Dark web monitoring', 'Shared browser runs', 'Team alert and case workflows'].map(benefit => (
+            {['Dark web monitoring', 'Shared browser runs', 'Team event and case workflows'].map(benefit => (
                 <li key={benefit} className='flex items-center gap-2'>
                     <CheckCircle2 className='h-4 w-4 shrink-0 text-ui-success' />
                     <span>{benefit}</span>
@@ -1754,7 +1764,7 @@ function SettingsPanel({ settingsDraft, setSettingsDraft, settingsDirty, canMana
     return (
         <details id='settings' open className='overflow-hidden rounded-lg border border-ui-border bg-ui-panel shadow-sm dark:border-ui-border dark:bg-ui-panel' data-org-settings-disclosure>
             <summary className='flex cursor-pointer list-none flex-col gap-3 p-4 outline-none transition hover:bg-ui-raised focus-visible:ring-2 focus-visible:ring-ui-primary/25 dark:hover:bg-ui-panel sm:flex-row sm:items-center sm:justify-between [&::-webkit-details-marker]:hidden'>
-                <SectionTitle icon={<Settings className='h-4 w-4' />} title='Settings' detail={canManage ? 'Name, lifecycle, webhook policy, alert access.' : ''} />
+                <SectionTitle icon={<Settings className='h-4 w-4' />} title='Settings' detail={canManage ? 'Name, lifecycle, webhook policy, event access.' : ''} />
                 <span className='shrink-0 rounded-md border border-ui-border bg-ui-raised px-2 py-1 text-xs font-semibold text-ui-muted dark:border-ui-border dark:bg-ui-canvas dark:text-ui-muted'>
                     {settingsDirty ? 'Unsaved changes' : 'Settings'}
                 </span>
@@ -1763,7 +1773,7 @@ function SettingsPanel({ settingsDraft, setSettingsDraft, settingsDirty, canMana
                 <Field label='Name' value={settingsDraft.name || ''} disabled={!canManage} onChange={value => setSettingsDraft({ ...settingsDraft, name: value })} />
                 <Field label='Slug' value={settingsDraft.slug || ''} disabled={!canManage} onChange={value => setSettingsDraft({ ...settingsDraft, slug: slugifyOrganizationName(value) })} />
                 <SelectField label='Webhook policy' value={settingsDraft.defaultWebhookPolicy || 'active_destinations'} options={webhookPolicies} disabled={!canManage} onChange={value => setSettingsDraft({ ...settingsDraft, defaultWebhookPolicy: value })} />
-                <SelectField label='Alert visibility' value={settingsDraft.alertVisibilityPolicy || 'members'} options={alertPolicies} disabled={!canManage} onChange={value => setSettingsDraft({ ...settingsDraft, alertVisibilityPolicy: value })} />
+                <SelectField label='Event visibility' value={settingsDraft.alertVisibilityPolicy || 'members'} options={alertPolicies} disabled={!canManage} onChange={value => setSettingsDraft({ ...settingsDraft, alertVisibilityPolicy: value })} />
                 <SelectField label='Lifecycle' value={settingsDraft.lifecycleStatus || 'active'} options={lifecycleStatuses} disabled={!canManage} onChange={value => setSettingsDraft({ ...settingsDraft, lifecycleStatus: value })} />
                 <Field label='Retention days' type='number' value={String(settingsDraft.retentionDays || 365)} disabled={!canManage} onChange={value => setSettingsDraft({ ...settingsDraft, retentionDays: Number(value) || 365 })} />
                 {canManage && settingsDirty && validationMessage && <p className='rounded-md bg-ui-raised/10 px-3 py-2 text-xs font-semibold text-ui-text dark:bg-ui-raised/10 dark:text-ui-text md:col-span-2'>{validationMessage}</p>}
@@ -1798,7 +1808,7 @@ export function PrivacyLifecyclePanel({ organization, privacy, retentionDays, ca
     const failedCount = privacyNumber(latestRun, 'failed_count')
     const retriedCount = privacyNumber(latestRun, 'retried_count')
     const requestStatus = privacyText(latestRequest, 'status')
-    const explanation = cleanString(privacy?.protection?.explanation) || 'Legal holds and immutable audit, alert, case, claim, and analyst evidence remain protected.'
+    const explanation = cleanString(privacy?.protection?.explanation) || 'Legal holds and immutable audit, event, case, claim, and analyst evidence remain protected.'
     const deleting = busy === 'delete-organization-data'
     const running = busy === 'run-retention'
     const exporting = busy === 'export-privacy'
@@ -2287,7 +2297,7 @@ function DestinationPanel({ destinations, deliveries, canManage, busy, rowMessag
                         <div className='grid gap-2 md:grid-cols-[minmax(0,1fr)_8rem]'>
                             <label className='grid gap-1 text-sm font-medium text-ui-text dark:text-ui-muted'>
                                 Name
-                                <input value={createDraft.name} disabled={Boolean(busy)} onChange={event => setCreateDraft({ ...createDraft, name: event.target.value })} className={inputClass} placeholder='Security alerts' />
+                <input value={createDraft.name} disabled={Boolean(busy)} onChange={event => setCreateDraft({ ...createDraft, name: event.target.value })} className={inputClass} placeholder='Security events' />
                                 {createNameDuplicate && <span className='text-xs font-semibold text-ui-text dark:text-ui-text'>Name already in use.</span>}
                             </label>
                             <SelectField label='Type' value={createDraft.kind} options={destinationKinds} disabled={Boolean(busy)} onChange={value => setCreateDraft({ ...createDraft, kind: value as DestinationCreateDraft['kind'] })} />
@@ -2518,15 +2528,15 @@ function WatchlistPanel({ watchlists, activeTerms, members, canManage, canCleanu
     return (
         <section id='watchlists' className='rounded-lg border border-ui-border bg-ui-panel p-4 shadow-sm dark:border-ui-border dark:bg-ui-panel'>
             <div className='flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between'>
-                <SectionTitle icon={<BellRing className='h-4 w-4' />} title='Shared watchlists' detail='Customer-owned terms that drive DWM alerts, cases, and delivery destinations.' />
+                <SectionTitle icon={<BellRing className='h-4 w-4' />} title='Shared watchlists' detail='Customer-owned terms that drive events, cases, and delivery destinations.' />
                 <div className='flex flex-wrap gap-2'>
                     <button type='button' className={secondaryButtonClass} disabled={!canManage || Boolean(busy) || activeTerms.length === 0} onClick={onRequestFreshCollection} title='Request a real source collection for the active organization watchlist terms'>
                         <RefreshCw className='h-4 w-4' />
                         Collect fresh evidence
                     </button>
-                    <button type='button' className={secondaryButtonClass} disabled={!canManage || Boolean(busy) || activeTerms.length === 0} onClick={onRefreshAlerts} title='Rebuild alerts from already collected evidence'>
+                    <button type='button' className={secondaryButtonClass} disabled={!canManage || Boolean(busy) || activeTerms.length === 0} onClick={onRefreshAlerts} title='Rebuild events from already collected evidence'>
                         <RefreshCw className='h-4 w-4' />
-                        Refresh alerts
+                        Refresh events
                     </button>
                     <button type='button' className={secondaryButtonClass} disabled={!canCleanup || archivedCount === 0 || Boolean(busy)} onClick={onCleanup}>
                         <Archive className='h-4 w-4' />
@@ -2545,7 +2555,7 @@ function WatchlistPanel({ watchlists, activeTerms, members, canManage, canCleanu
             <p className='text-xs leading-5 text-ui-muted'>Refresh checks the latest retained captures for these terms; it does not claim a new source collection run.</p>
             {collectionRequest && <div className='mt-2 flex flex-wrap items-center gap-2 rounded-md border border-ui-border bg-ui-raised px-3 py-2 text-xs dark:border-ui-border dark:bg-ui-canvas' data-org-collection-request='true'>
                 <span className='font-semibold capitalize text-ui-text dark:text-ui-text'>Fresh collection: {collectionRequest.status}</span>
-                <span className='text-ui-muted dark:text-ui-muted'>{collectionRequest.captureCount || 0} captures · {collectionRequest.alertCount || 0} alerts</span>
+                <span className='text-ui-muted dark:text-ui-muted'>{collectionRequest.captureCount || 0} captures · {collectionRequest.alertCount || 0} events</span>
                 {['queued', 'running'].includes(collectionRequest.status) && <button type='button' className='font-semibold text-ui-primary hover:underline' disabled={Boolean(busy)} onClick={onRefreshCollectionStatus}>Check status</button>}
                 {collectionRequest.errors?.[0] && <span className='text-ui-text dark:text-ui-text'>{collectionRequest.errors[0]}</span>}
             </div>}
@@ -2614,7 +2624,7 @@ function WatchlistPanel({ watchlists, activeTerms, members, canManage, canCleanu
                                 disabled={Boolean(busy)}
                                 onChange={event => setWatchlistQuery(event.target.value)}
                                 className={inputClass}
-                                placeholder='Domain, supplier, owner, alert ref'
+                                placeholder='Domain, supplier, owner, event ref'
                             />
                         </label>
                         <SelectField
@@ -2665,7 +2675,7 @@ function WatchlistPanel({ watchlists, activeTerms, members, canManage, canCleanu
                     const activeAlertTerm = activeTermForWatchlist(item, activeTerms)
                     const status = item.status.toLowerCase()
                     const lifecycleLabel = status === 'active' ? 'Active routes' : status === 'paused' ? 'Paused excluded' : status === 'archived' ? 'Archived closed' : `${item.status} state`
-                    const alertTermLabel = activeAlertTerm ? 'Alert term active' : status === 'active' ? 'Alert term pending' : 'Alert term excluded'
+                    const alertTermLabel = activeAlertTerm ? 'Event term active' : status === 'active' ? 'Event term pending' : 'Event term excluded'
                     const selected = selectedSubject.type === 'watchlist' && selectedSubject.id === item.id
                     return (
                         <div
@@ -2725,7 +2735,7 @@ function WatchlistPanel({ watchlists, activeTerms, members, canManage, canCleanu
                                                 <span className='truncate'>Org: {organizationDisplayName(organization)}</span>
                                                 <span className='truncate'>Owner: {organizationMemberLabel(item.updatedBy || item.createdBy, members)}</span>
                                                 <span className='truncate'>Ref: {compactReference(activeAlertTerm?.alertGenerationRef || item.alertGenerationRef || item.id, 'watch')}</span>
-                                                <span className='truncate'>Alerts: {alertsForWatchlist(item, alerts).length}</span>
+                                                <span className='truncate'>Events: {alertsForWatchlist(item, alerts).length}</span>
                                                 {activeAlertTerm?.matchReason && <span className='truncate'>Match: {sanitizeOrganizationDisplayCopy(activeAlertTerm.matchReason)}</span>}
                                                 {activeAlertTerm?.provenanceHash && <span className='truncate'>Provenance: {compactReference(activeAlertTerm.provenanceHash, 'hash')}</span>}
                                             </div>
@@ -2758,7 +2768,7 @@ function WatchlistPanel({ watchlists, activeTerms, members, canManage, canCleanu
             </div>
 
             <div className='mt-4 rounded-lg border border-ui-success/35 bg-ui-success/10 p-3 text-sm text-ui-success dark:border-ui-success/35 dark:bg-ui-success/10 dark:text-ui-success'>
-                <strong>{activeTerms.length}</strong> active watch term{activeTerms.length === 1 ? '' : 's'} routing alerts for this organization.
+                <strong>{activeTerms.length}</strong> active watch term{activeTerms.length === 1 ? '' : 's'} routing events for this organization.
             </div>
         </section>
     )
@@ -2848,7 +2858,7 @@ function DeliveryPayloadPreview({ delivery, compact = false }: { delivery: Deliv
             {context.matchReason && !compact && <p className='line-clamp-2 text-ui-muted dark:text-ui-muted'>Match: {sanitizeOrganizationDisplayCopy(context.matchReason)}</p>}
             {route && (
                 <a href={route} className='w-fit rounded-md border border-ui-border bg-ui-panel px-2 py-1 font-semibold text-ui-primary hover:bg-ui-canvas dark:border-ui-border dark:bg-ui-panel dark:text-ui-primary dark:hover:bg-ui-raised'>
-                    {context.casePath ? 'Open case' : 'Open alert'}
+                    {context.casePath ? 'Open case' : 'Open event'}
                 </a>
             )}
         </div>
@@ -2917,7 +2927,7 @@ function DeliveryHistoryPanel({ organization, deliveries, destinations, selected
                                 <tr>
                                     <th className='border-b border-ui-border px-3 py-2 dark:border-ui-border'>State</th>
                                     <th className='border-b border-ui-border px-3 py-2 dark:border-ui-border'>Target</th>
-                                    <th className='border-b border-ui-border px-3 py-2 dark:border-ui-border'>Alert / case</th>
+                                    <th className='border-b border-ui-border px-3 py-2 dark:border-ui-border'>Event / case</th>
                                     <th className='border-b border-ui-border px-3 py-2 dark:border-ui-border'>Retry</th>
                                     <th className='border-b border-ui-border px-3 py-2 dark:border-ui-border'>When</th>
                                     <th className='border-b border-ui-border px-3 py-2 dark:border-ui-border'>Action</th>
@@ -3035,9 +3045,9 @@ function DeliveryReference({ delivery, organizationId, destinations }: { deliver
     return (
         <div className='grid gap-1 text-xs'>
             {delivery.caseId ? <a href={caseHref} className='truncate font-semibold text-ui-primary hover:text-ui-primary dark:text-ui-primary'>{compactReference(delivery.caseId, 'Case')}</a> : null}
-            {delivery.alertId ? <a href={alertHref} className='truncate font-semibold text-ui-primary hover:text-ui-primary dark:text-ui-primary'>{compactReference(delivery.alertId, 'Alert')}</a> : null}
+            {delivery.alertId ? <a href={alertHref} className='truncate font-semibold text-ui-primary hover:text-ui-primary dark:text-ui-primary'>{compactReference(delivery.alertId, 'Event')}</a> : null}
             {destinationId ? <Link href={`/organizations/destinations#destination-${encodeURIComponent(destinationId)}`} className='truncate font-semibold text-ui-primary hover:text-ui-primary dark:text-ui-primary'>{compactReference(destinationId, 'Destination')}</Link> : null}
-            {!delivery.caseId && !delivery.alertId ? <span className='truncate text-ui-muted dark:text-ui-muted'>Attach alert after replay</span> : null}
+            {!delivery.caseId && !delivery.alertId ? <span className='truncate text-ui-muted dark:text-ui-muted'>Attach event after replay</span> : null}
             {watchlistId
                 ? <Link href={`/organizations/watchlists#watchlist-${encodeURIComponent(watchlistId)}`} className='truncate font-semibold text-ui-primary hover:text-ui-primary dark:text-ui-primary'>{compactReference(watchlistId, 'Watchlist')}</Link>
                 : <span className='truncate text-ui-muted dark:text-ui-muted'>{compactReference(delivery.actionId, 'Action') || 'Route context pending'}</span>}
@@ -3055,14 +3065,14 @@ function ScopePanel({ alertTerms, alerts, cases, deliveries, members, watchlists
     if (!hasScopeRows) {
         return (
             <section className='rounded-lg border border-ui-border bg-ui-panel p-4 shadow-sm dark:border-ui-border dark:bg-ui-panel' data-org-scope-empty='true'>
-                <SectionTitle icon={<ExternalLink className='h-4 w-4' />} title='Monitoring records' detail='Alerts, cases, destinations.' />
+                <SectionTitle icon={<ExternalLink className='h-4 w-4' />} title='Monitoring records' detail='Events, cases, destinations.' />
                 <div className='mt-4 grid gap-3 rounded-lg border border-dashed border-ui-border bg-ui-raised p-4 dark:border-ui-border dark:bg-ui-canvas sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center'>
                     <div className='min-w-0'>
                         <p className='text-sm font-semibold text-ui-text dark:text-ui-text'>No monitoring records yet</p>
                         <div className='mt-2 flex flex-wrap gap-2 text-xs font-semibold text-ui-muted dark:text-ui-muted'>
                             <span className='rounded-md border border-ui-border bg-ui-panel px-2 py-1 dark:border-ui-border dark:bg-ui-panel'>Add watchlist</span>
                             <span className='rounded-md border border-ui-border bg-ui-panel px-2 py-1 dark:border-ui-border dark:bg-ui-panel'>Save destination</span>
-                            <span className='rounded-md border border-ui-border bg-ui-panel px-2 py-1 dark:border-ui-border dark:bg-ui-panel'>Route alert</span>
+                            <span className='rounded-md border border-ui-border bg-ui-panel px-2 py-1 dark:border-ui-border dark:bg-ui-panel'>Route event</span>
                         </div>
                     </div>
                     <div className='flex flex-wrap gap-2'>
@@ -3075,30 +3085,30 @@ function ScopePanel({ alertTerms, alerts, cases, deliveries, members, watchlists
     }
     return (
         <section className='rounded-lg border border-ui-border bg-ui-panel p-4 shadow-sm dark:border-ui-border dark:bg-ui-panel' data-org-scope-records='true'>
-            <SectionTitle icon={<ExternalLink className='h-4 w-4' />} title='Alert, case, and destination records' detail='Matched records for this organization.' />
+            <SectionTitle icon={<ExternalLink className='h-4 w-4' />} title='Event, case, and destination records' detail='Matched records for this organization.' />
             <div className='mt-3 flex flex-wrap gap-2' data-org-scope-record-counts='true'>
                 <span className='rounded-md border border-ui-border bg-ui-raised px-2 py-1 text-xs font-semibold text-ui-muted dark:border-ui-border dark:bg-ui-canvas dark:text-ui-muted'>Terms: {alertTerms.length}</span>
-                <span className='rounded-md border border-ui-border bg-ui-raised px-2 py-1 text-xs font-semibold text-ui-muted dark:border-ui-border dark:bg-ui-canvas dark:text-ui-muted'>Alerts: {alerts.length}</span>
+                <span className='rounded-md border border-ui-border bg-ui-raised px-2 py-1 text-xs font-semibold text-ui-muted dark:border-ui-border dark:bg-ui-canvas dark:text-ui-muted'>Events: {alerts.length}</span>
                 <span className='rounded-md border border-ui-border bg-ui-raised px-2 py-1 text-xs font-semibold text-ui-muted dark:border-ui-border dark:bg-ui-canvas dark:text-ui-muted'>Cases: {cases.length}</span>
                 <span className='rounded-md border border-ui-border bg-ui-raised px-2 py-1 text-xs font-semibold text-ui-muted dark:border-ui-border dark:bg-ui-canvas dark:text-ui-muted'>Destinations: {configuredDestinations}</span>
                 <span className='rounded-md border border-ui-border bg-ui-raised px-2 py-1 text-xs font-semibold text-ui-muted dark:border-ui-border dark:bg-ui-canvas dark:text-ui-muted'>Failures: {failedDeliveries}</span>
             </div>
             <div className='mt-4 grid gap-3 lg:grid-cols-2'>
-                <ScopeColumn icon={<BellRing className='h-4 w-4' />} title='Alert terms' route={`${route}/watchlists/alert-terms`} rows={alertTerms.map(term => ({
+                <ScopeColumn icon={<BellRing className='h-4 w-4' />} title='Watchlist terms' route={`${route}/watchlists/alert-terms`} rows={alertTerms.map(term => ({
                     id: term.watchlistItemId || term.watchlistId || term.alertGenerationRef || term.term || term.value || 'term',
                     primary: term.term || term.value || 'Watchlist term',
                     secondary: term.matchReason || compactReference(term.alertGenerationRef, 'watch') || term.kind || term.family || 'Shared watchlist match',
                     href: term.watchlistItemId || term.watchlistId ? `/organizations/watchlists#watchlist-${encodeURIComponent(term.watchlistItemId || term.watchlistId || '')}` : undefined,
-                }))} empty='Add an active shared watchlist term to create organization alert terms.' />
-                <ScopeColumn icon={<CircleAlert className='h-4 w-4' />} title='Alerts' route={`/api/findings/alerts?organizationId=${encodeURIComponent(organizationId)}`} rows={alerts.map(alert => {
+                }))} empty='Add an active shared watchlist term to create organization terms.' />
+                <ScopeColumn icon={<CircleAlert className='h-4 w-4' />} title='Events' route={`/api/findings/alerts?organizationId=${encodeURIComponent(organizationId)}`} rows={alerts.map(alert => {
                     const matchReason = matchReasonForRecord(alert.id, deliveries)
                     return {
                         id: alert.id,
-                        primary: alert.title || compactReference(alert.id, 'alert') || 'Alert',
+                        primary: alert.title || compactReference(alert.id, 'event') || 'Event',
                         secondary: [alert.severity || 'severity', alert.status || 'status', compactReference(alert.watchlistItemId || alert.watchlistItemIds?.[0] || alert.watchlistIds?.[0], 'watchlist'), matchReason ? `Match: ${matchReason}` : undefined].filter(Boolean).join(' · '),
                         href: `/ti/workbench?alertId=${encodeURIComponent(alert.id)}&organizationId=${encodeURIComponent(organizationId)}`,
                     }
-                })} empty='Alerts appear after a live capture matches an active org watchlist term.' rowPrefix='alert-record' />
+                })} empty='Events appear after a live capture matches an active org watchlist term.' rowPrefix='event-record' />
                 <ScopeColumn icon={<ShieldCheck className='h-4 w-4' />} title='Cases' route={`/api/cases?organizationId=${encodeURIComponent(organizationId)}`} rows={cases.map(item => {
                     const matchReason = matchReasonForRecord(item.id, deliveries)
                     return {
@@ -3107,8 +3117,8 @@ function ScopePanel({ alertTerms, alerts, cases, deliveries, members, watchlists
                         secondary: [item.status || 'status', organizationMemberLabel(item.assignedOwner, members), matchReason ? `Match: ${matchReason}` : undefined].filter(Boolean).join(' · '),
                         href: `/cases/${encodeURIComponent(item.id)}?organizationId=${encodeURIComponent(organizationId)}`,
                     }
-                })} empty='Cases appear after an alert is opened from exposure monitoring.' rowPrefix='case-record' />
-                <ScopeColumn icon={<ShieldCheck className='h-4 w-4' />} title='Visibility' route={`${route}/alert-case-visibility`} rows={visibility} empty='Visibility decisions appear after alerts are reviewed or opened as cases.' />
+                })} empty='Cases appear after an event is opened from exposure monitoring.' rowPrefix='case-record' />
+                <ScopeColumn icon={<ShieldCheck className='h-4 w-4' />} title='Visibility' route={`${route}/alert-case-visibility`} rows={visibility} empty='Visibility decisions appear after events are reviewed or opened as cases.' />
                 <ScopeColumn icon={<Webhook className='h-4 w-4' />} title='Destinations' route={`${route}/webhooks`} rows={[
                     ...webhooks.map(destination => ({
                         id: destination.id,
@@ -3371,7 +3381,39 @@ function StatusPill({ status }: { status: string }) {
     return <span className={`rounded-md px-2 py-1 text-xs font-semibold ${tone}`}>{status}</span>
 }
 
-function StatusBanner({ tone, text }: { tone: 'error' | 'warning' | 'success', text: string }) {
+function OrganizationLoadErrorBanner({ error, cases, organizationId }: { error: OrganizationLoadError, cases: ScopedCase[], organizationId?: string }) {
+    const caseId = error.serviceUnavailable ? organizationMonitoringCaseId(cases) : undefined
+    const caseHref = caseId && organizationId
+        ? `/cases/${encodeURIComponent(caseId)}?organizationId=${encodeURIComponent(organizationId)}`
+        : undefined
+    const text = error.serviceUnavailable
+        ? 'Organization service is temporarily unavailable.'
+        : `${organizationLoadErrorLabel(error.endpoint)}: ${error.message}`
+    return <StatusBanner tone='warning' text={text} leadingLink={caseHref && caseId ? { label: caseId, href: caseHref } : undefined} />
+}
+
+function organizationLoadErrorsForDisplay(errors: OrganizationLoadError[]) {
+    const firstUnavailableIndex = errors.findIndex(error => error.serviceUnavailable)
+    return errors.filter((error, index) => !error.serviceUnavailable || index === firstUnavailableIndex)
+}
+
+function organizationMonitoringCaseId(cases: ScopedCase[]) {
+    const terminalStatuses = new Set(['closed', 'resolved', 'false_positive', 'suppressed'])
+    return cases.find(item => /^HA-[1-9]\d*$/.test(item.id) && !terminalStatuses.has((item.status || 'open').toLowerCase()))?.id
+}
+
+function organizationLoadErrorLabel(endpoint: string) {
+    if (endpoint === 'events') return 'Events'
+    if (endpoint === 'alertTerms') return 'Watchlist terms'
+    if (endpoint === 'alertCaseVisibility') return 'Event visibility'
+    return readableEndpoint(endpoint)
+}
+
+function isServerUnavailable(error: unknown) {
+    return Boolean(error && typeof error === 'object' && 'status' in error && typeof error.status === 'number' && error.status >= 500)
+}
+
+function StatusBanner({ tone, text, leadingLink }: { tone: 'error' | 'warning' | 'success', text: string, leadingLink?: { label: string, href: string } }) {
     const classes = tone === 'error'
         ? 'border-ui-danger/35 bg-ui-raised/10 text-ui-text dark:border-ui-danger/35 dark:bg-ui-raised/10 dark:text-ui-text'
         : tone === 'warning'
@@ -3381,7 +3423,7 @@ function StatusBanner({ tone, text }: { tone: 'error' | 'warning' | 'success', t
     return (
         <div className={`flex items-start gap-2 rounded-lg border px-4 py-3 text-sm font-medium ${classes}`} role={tone === 'error' ? 'alert' : 'status'} aria-live={tone === 'error' ? 'assertive' : 'polite'}>
             <Icon className='mt-0.5 h-4 w-4 shrink-0' />
-            <span>{sanitizeOrganizationDisplayCopy(text) || text}</span>
+            <span>{leadingLink && <><Link className='font-semibold underline underline-offset-2' href={leadingLink.href}>{leadingLink.label}</Link>: </>}{sanitizeOrganizationDisplayCopy(text) || text}</span>
         </div>
     )
 }
@@ -3626,7 +3668,7 @@ function visibilityRows(payload: Record<string, unknown> | null) {
     if (!payload) return []
     const visibility = objectValue(payload.visibility) || objectValue(payload.alertCaseVisibility) || objectValue(payload.caseVisibility)
     const rows = [
-        ['Alert visibility', visibility?.alertReadAllowed ?? visibility?.allowed ?? payload.allowed],
+        ['Event visibility', visibility?.alertReadAllowed ?? visibility?.allowed ?? payload.allowed],
         ['Case assignment', visibility?.caseAssignmentAllowed ?? visibility?.canAssignCase],
         ['Case link', visibility?.caseRoute ?? payload.caseRoute ?? '/api/cases'],
     ]
@@ -3639,21 +3681,21 @@ function visibilityRows(payload: Record<string, unknown> | null) {
 
 function organizationActivityRows(local: ActivityItem[], bundle: OrgBundle, organizationId?: string) {
     const localRows = organizationId ? local.filter(item => item.organizationId === organizationId) : []
-    const alertRows: ActivityItem[] = bundle.alerts.map(alert => {
+    const eventRows: ActivityItem[] = bundle.alerts.map(alert => {
         const delivery = bundle.deliveries.find(item => item.alertId === alert.id)
         const watchlistId = alert.watchlistItemId || alert.watchlistItemIds?.[0] || alert.watchlistIds?.[0] || (delivery ? deliveryWatchlistId(delivery) : '')
         const destinationIds = delivery ? deliveryDestinationIds(delivery, bundle.webhooks) : []
         return {
-            id: `alert-${alert.id}`,
+            id: `event-${alert.id}`,
             at: alert.updatedAt || new Date(0).toISOString(),
-            title: 'Alert',
-            detail: `${alert.title || compactReference(alert.id, 'alert')} · ${alert.severity || 'severity'} · ${alert.status || 'status'}`,
+            title: 'Event',
+            detail: `${alert.title || compactReference(alert.id, 'event')} · ${alert.severity || 'severity'} · ${alert.status || 'status'}`,
             ok: alert.status?.toLowerCase() !== 'failed' && alert.status?.toLowerCase() !== 'suppressed',
             subjectType: 'alert',
             subjectId: alert.id,
             relatedSubjectIds: [watchlistId, ...destinationIds, alert.watchlistItemId, ...(alert.watchlistItemIds || []), ...(alert.watchlistIds || [])].filter(Boolean) as string[],
             metadata: compactMetadata([
-                ['Alert', compactReference(alert.id, 'alert')],
+                ['Event', compactReference(alert.id, 'event')],
                 ['Severity', alert.severity],
                 ['Status', alert.status],
                 ['Watchlist', compactReference(watchlistId, 'watchlist')],
@@ -3689,7 +3731,7 @@ function organizationActivityRows(local: ActivityItem[], bundle: OrgBundle, orga
         return {
             id: `delivery-${delivery.id}`,
             at: delivery.attemptedAt || delivery.updatedAt || delivery.createdAt || new Date(0).toISOString(),
-            title: delivery.dryRun ? 'Destination tested' : 'Alert delivery recorded',
+            title: delivery.dryRun ? 'Destination tested' : 'Event delivery recorded',
             detail: `${delivery.status || 'delivery'} · ${compactReference(watchlistId || delivery.alertId, 'watchlist') || 'Watchlist pending'}`,
             ok: !delivery.error && delivery.status?.toLowerCase() !== 'failed',
             subjectType: destinationIds[0] ? 'destination' : watchlistId ? 'watchlist' : 'alert',
@@ -3707,7 +3749,7 @@ function organizationActivityRows(local: ActivityItem[], bundle: OrgBundle, orga
             metadata: compactMetadata([
                 ['Destination', destinationDisplayState(delivery)],
                 ['Saved route', destinationIds.length || watchlistId ? 'Available' : undefined],
-                ['Alert', compactReference(delivery.alertId, 'alert')],
+                ['Event', compactReference(delivery.alertId, 'event')],
                 ['Case', compactReference(delivery.caseId, 'case')],
                 ['Watchlist', compactReference(watchlistId, 'watchlist')],
                 ['Kind', delivery.deliveryKind],
@@ -3773,7 +3815,7 @@ function organizationActivityRows(local: ActivityItem[], bundle: OrgBundle, orga
             ['Ref', compactReference(destination.id, 'dest')],
         ]),
     }))
-    return [...localRows, ...alertRows, ...caseRows, ...deliveryRows, ...inviteRows, ...memberRows, ...watchlistRows, ...destinationRows]
+    return [...localRows, ...eventRows, ...caseRows, ...deliveryRows, ...inviteRows, ...memberRows, ...watchlistRows, ...destinationRows]
         .sort((left, right) => Date.parse(right.at) - Date.parse(left.at))
 }
 
@@ -3808,7 +3850,7 @@ function requestedSubjectFromSearch(input: {
     if (input.focus === 'invites' && bundle.invites[0]?.id) return { type: 'invite', id: bundle.invites[0].id }
     if (input.focus === 'members' && bundle.members[0]?.userId) return { type: 'member', id: bundle.members[0].userId }
     if (input.focus === 'cases' && bundle.cases[0]?.id) return { type: 'case', id: bundle.cases[0].id }
-    if (input.focus === 'alerts' && bundle.alerts[0]?.id) return { type: 'alert', id: bundle.alerts[0].id }
+    if ((input.focus === 'alerts' || input.focus === 'events') && bundle.alerts[0]?.id) return { type: 'alert', id: bundle.alerts[0].id }
     if ((input.focus === 'destinations' || input.focus === 'webhooks') && bundle.webhooks[0]?.id) return { type: 'destination', id: bundle.webhooks[0].id }
     if (input.focus === 'destinations' || input.focus === 'webhooks') {
         const watchlistRoute = watchlistsWithOwnDestination(bundle.watchlists, bundle.webhooks)[0]
@@ -3868,7 +3910,7 @@ function organizationWorkspaceSelectionHref(organizationId: string, subject: Act
         url.searchParams.set('focus', 'destinations')
         url.searchParams.set('destinationId', subject.id)
     } else if (subject.type === 'alert') {
-        url.searchParams.set('focus', 'alerts')
+        url.searchParams.set('focus', 'events')
         url.searchParams.set('alertId', subject.id)
     } else if (subject.type === 'case') {
         url.searchParams.set('focus', 'cases')
@@ -3918,7 +3960,7 @@ function selectedSubjectLabel(subject: ActivitySubject, organization: Organizati
     }
     if (subject.type === 'alert') {
         const alert = bundle.alerts.find(item => item.id === subject.id)
-        return alert?.title || compactReference(alert?.id || subject.id, 'alert') || 'Alert'
+        return alert?.title || compactReference(alert?.id || subject.id, 'event') || 'Event'
     }
     if (subject.type === 'case') {
         const item = bundle.cases.find(row => row.id === subject.id)
@@ -3973,7 +4015,7 @@ function selectedContextRows(subject: ActivitySubject, organization: Organizatio
         const alert = bundle.alerts.find(item => item.id === subject.id)
         const matchReason = matchReasonForRecord(subject.id, bundle.deliveries)
         return compactMetadata([
-            ['Alert', alert?.title || compactReference(alert?.id || subject.id, 'alert')],
+            ['Event', alert?.title || compactReference(alert?.id || subject.id, 'event')],
             ['Severity', alert?.severity],
             ['Status', alert?.status],
             ['Watchlist', compactReference(alert?.watchlistItemId || alert?.watchlistItemIds?.[0] || alert?.watchlistIds?.[0], 'watchlist')],
@@ -4015,7 +4057,7 @@ function selectedContextRows(subject: ActivitySubject, organization: Organizatio
         ['Watchlist', item?.value || compactReference(item?.id || subject.id, 'watchlist')],
         ['Term', item?.value],
         ['Status', item?.status],
-        ['Alert term', activeAlertTerm ? 'Active' : item?.status?.toLowerCase() === 'active' ? 'Pending' : 'Excluded'],
+        ['Event term', activeAlertTerm ? 'Active' : item?.status?.toLowerCase() === 'active' ? 'Pending' : 'Excluded'],
         ['Owner', organizationMemberLabel(item?.updatedBy || item?.createdBy, bundle.members)],
         ['Destination', item ? destinationDisplayState(item) : destinationDisplayState(delivery)],
         ['Endpoint', sanitizeOrganizationDisplayCopy(item?.webhookEndpointHint) || compactReference(item?.webhookEndpointHash, 'route')],
@@ -4023,7 +4065,7 @@ function selectedContextRows(subject: ActivitySubject, organization: Organizatio
         ['Ref', compactReference(activeAlertTerm?.alertGenerationRef || item?.alertGenerationRef || item?.id || subject.id, 'watch')],
         ['Provenance', compactReference(activeAlertTerm?.provenanceHash, 'hash')],
         ['Last delivery', delivery?.status],
-        ['Alerts', String(alertCount)],
+        ['Events', String(alertCount)],
     ])
 }
 
@@ -4063,7 +4105,7 @@ function selectedSubjectActions(subject: ActivitySubject, organization: Organiza
             { label: 'Watchlist', href: `/organizations/watchlists#watchlist-${watchlistId}` },
             { label: 'Destination', href: destinationHref },
             { label: 'Delivery', href: deliveryId ? `/organizations/delivery#delivery-${encodeURIComponent(deliveryId)}` : '/organizations/delivery#delivery-history' },
-            { label: 'Open alert workspace', href: `/ti/workbench?organizationId=${organizationId}&watchlistId=${watchlistId}` },
+            { label: 'Open event workspace', href: `/ti/workbench?organizationId=${organizationId}&watchlistId=${watchlistId}` },
         ]
     }
     if (subject.type === 'destination') {
@@ -4082,8 +4124,8 @@ function selectedSubjectActions(subject: ActivitySubject, organization: Organiza
         const destinationId = selectedSubjectDestinationId(subject, bundle)
         const deliveryId = selectedSubjectDeliveryId(subject, bundle)
         return [
-            { label: 'Alert', href: `/ti/workbench?alertId=${alertId}&organizationId=${organizationId}` },
-            { label: 'Record', href: `/organizations/alerts#alert-record-${alertId}` },
+            { label: 'Event', href: `/ti/workbench?alertId=${alertId}&organizationId=${organizationId}` },
+            { label: 'Record', href: `/organizations/events#event-record-${alertId}` },
             ...(watchlistId ? [{ label: 'Watchlist', href: `/organizations/watchlists#watchlist-${encodeURIComponent(watchlistId)}` }] : []),
             ...(destinationId ? [{ label: 'Destination', href: `/organizations/destinations#destination-${encodeURIComponent(destinationId)}` }] : []),
             { label: 'Delivery', href: deliveryId ? `/organizations/delivery#delivery-${encodeURIComponent(deliveryId)}` : '/organizations/delivery#delivery-history' },
@@ -4097,7 +4139,7 @@ function selectedSubjectActions(subject: ActivitySubject, organization: Organiza
         const deliveryId = selectedSubjectDeliveryId(subject, bundle)
         return [
             { label: 'Case', href: `/cases/${caseId}?organizationId=${organizationId}` },
-            { label: 'Record', href: `/organizations/alerts#case-record-${caseId}` },
+            { label: 'Record', href: `/organizations/events#case-record-${caseId}` },
             ...(watchlistId ? [{ label: 'Watchlist', href: `/organizations/watchlists#watchlist-${encodeURIComponent(watchlistId)}` }] : []),
             ...(destinationId ? [{ label: 'Destination', href: `/organizations/destinations#destination-${encodeURIComponent(destinationId)}` }] : []),
             { label: 'Delivery', href: deliveryId ? `/organizations/delivery#delivery-${encodeURIComponent(deliveryId)}` : '/organizations/delivery#delivery-history' },
@@ -4624,7 +4666,7 @@ function payloadPreviewFromPayload(payload: unknown, delivery: DeliveryRow): Del
 
 function watchlistMutationMessage(bridge: DwmAlertBridgeResult | undefined, fallback: string) {
     if (!bridge) return fallback
-    if (bridge.skipped) return { message: `${fallback} Alert sync skipped: ${humanizeBridgeReason(bridge.reason)}.`, warning: true }
+    if (bridge.skipped) return { message: `${fallback} Event sync skipped: ${humanizeBridgeReason(bridge.reason)}.`, warning: true }
     if (bridge.savedAlertCount && bridge.savedAlertCount > 0) {
         const firstAlert = bridge.firstAlert
         const matched = firstAlert?.matchedTerm || bridge.matchedTerms?.[0]
@@ -4633,7 +4675,7 @@ function watchlistMutationMessage(bridge: DwmAlertBridgeResult | undefined, fall
         const route = firstAlert?.recommendedRoute
         return [
             fallback,
-            `${bridge.savedAlertCount} alert${bridge.savedAlertCount === 1 ? '' : 's'} generated`,
+            `${bridge.savedAlertCount} event${bridge.savedAlertCount === 1 ? '' : 's'} generated`,
             matched ? `term ${matched}` : undefined,
             family ? `source ${family}` : undefined,
             evidence ? `${evidence} evidence item${evidence === 1 ? '' : 's'}` : undefined,
@@ -4644,7 +4686,7 @@ function watchlistMutationMessage(bridge: DwmAlertBridgeResult | undefined, fall
         const terms = bridge.matchedTerms?.length ? ` for ${bridge.matchedTerms.join(', ')}` : ''
         return `${fallback} No matching captures found${terms}.`
     }
-    return { message: `${fallback} Alert sync did not complete${bridge.reason ? `: ${humanizeBridgeReason(bridge.reason)}` : ''}.`, warning: true }
+    return { message: `${fallback} Event sync did not complete${bridge.reason ? `: ${humanizeBridgeReason(bridge.reason)}` : ''}.`, warning: true }
 }
 
 function humanizeBridgeReason(value: unknown) {

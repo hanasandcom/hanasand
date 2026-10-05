@@ -28,10 +28,17 @@ const organizations = [
 ]
 const calls = []
 let settingsError = false
+let eventsError = false
 let destinationRemoved = false
 const api = Bun.serve({ port: await availablePort(), hostname: '127.0.0.1', async fetch(request) {
     const url = new URL(request.url)
     calls.push({ path: url.pathname, method: request.method })
+    if (url.pathname === '/v1/dwm/alerts') return eventsError
+        ? Response.json({ error: { message: 'Upstream unavailable.' } }, { status: 502 })
+        : Response.json({ alerts: [] })
+    if (url.pathname === '/api/cases') return Response.json({ cases: [
+        { id: 'HA-47750', status: 'open', organizationId: 'hanasand', updatedAt: '2026-10-05T12:00:00Z' },
+    ] })
     if (url.pathname.includes('/auth/token/')) return Response.json({ name: 'Fixture owner' })
     if (url.pathname === '/api/auth/social/providers') return Response.json({ providers: [] })
     if (url.pathname === '/api/auth/social/connections') return Response.json({ connections: [] })
@@ -50,10 +57,15 @@ const api = Bun.serve({ port: await availablePort(), hostname: '127.0.0.1', asyn
         }
         return Response.json({ organizations })
     }
-    if (url.pathname.startsWith('/api/dwm/webhook-destinations') && (url.searchParams.get('orgId') === 'research-mnemonic' || url.pathname.endsWith('/editor-target'))) {
+    if (url.pathname.startsWith('/api/dwm/webhook-destinations')) {
+        if (eventsError && url.searchParams.get('orgId') === 'hanasand') return Response.json({ error: { message: 'Upstream unavailable.' } }, { status: 503 })
+        if (url.searchParams.get('orgId') !== 'research-mnemonic' && !url.pathname.endsWith('/editor-target')) return Response.json({ destinations: [] })
         if (request.method === 'DELETE') { destinationRemoved = true; return Response.json({}) }
         return Response.json({ destinations: destinationRemoved ? [] : [{ id: 'editor-target', name: 'Editor target', kind: 'webhook', status: 'active', endpointHint: 'example.test', url: 'https://example.test/hook', events: ['dwm.alert.created'] }] })
     }
+    if (url.pathname === '/api/dwm/webhook-deliveries') return eventsError
+        ? Response.json({ error: { message: 'Upstream unavailable.' } }, { status: 502 })
+        : Response.json({ items: [] })
     const [, orgId, resource] = url.pathname.match(/^\/api\/organizations\/([^/]+)(?:\/([^/]+))?/) || []
     const organization = organizations.find(item => item.id === orgId)
     if (organization) {
@@ -137,16 +149,24 @@ try {
     console.log('Verified save and reload')
 
     const nav = page.getByRole('navigation', { name: 'Organization pages' })
-    for (const [label, selector] of [['Team', '#members'], ['Watchlists', '#watchlists'], ['Destinations', '#destinations'], ['API keys', '#event-api-key'], ['Privacy & retention', '#privacy'], ['Delivery history', '#delivery-history'], ['Alerts & cases', '[data-org-scope-empty], [data-org-scope-records]'], ['Activity', '#audit']]) {
+    for (const [label, selector] of [['Team', '#members'], ['Watchlists', '#watchlists'], ['Destinations', '#destinations'], ['API keys', '#event-api-key'], ['Privacy & retention', '#privacy'], ['Delivery history', '#delivery-history'], ['Events & cases', '[data-org-scope-empty], [data-org-scope-records]'], ['Activity', '#audit']]) {
         console.log('Checking section:', label)
         await nav.getByRole('link', { name: label, exact: true }).click()
         await expect(page.locator(selector)).toBeVisible()
+        if (label === 'Events & cases') await expect(page.getByText(/\balerts?\b/i)).toHaveCount(0)
         await expect(page.locator('[data-org-workspace-summary]')).toHaveCount(0)
         await expect(page.locator('#settings')).toHaveCount(0)
         await expect(nav.getByRole('link', { name: label, exact: true })).toHaveAttribute('aria-current', 'page')
     }
+    eventsError = true
     await nav.getByRole('link', { name: 'Overview', exact: true }).click()
     await expect(page.locator('[data-org-workspace-summary]')).toBeVisible()
+    const outageBanner = page.locator('div[role="status"]').filter({ hasText: 'Organization service is temporarily unavailable.' })
+    await expect(outageBanner).toHaveCount(1)
+    await expect(outageBanner).toHaveText('HA-47750: Organization service is temporarily unavailable.')
+    await expect(outageBanner.getByRole('link', { name: 'HA-47750', exact: true })).toHaveAttribute('href', '/cases/HA-47750?organizationId=hanasand')
+    await expect(page.getByText(/alerts: Organization service is temporarily unavailable/)).toHaveCount(0)
+    eventsError = false
     await expect(page.getByRole('heading', { name: 'Overview', exact: true, level: 2 })).toBeVisible()
     await expect(page.getByText('Pilot measurement', { exact: true })).toHaveCount(0)
     await expect(page.locator('#privacy, #settings, #members, #watchlists')).toHaveCount(0)
