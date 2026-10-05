@@ -56,7 +56,7 @@ async function queryErrorEvents(query: ErrorQuery) {
               AND ($1::text IS NULL OR normalized->'metadata'->>'surface' = $1)
               AND ($2::int IS NULL OR NULLIF(normalized->'metadata'->>'status_code', '')::int = $2)
               AND ($3::text IS NULL OR normalized->'metadata'->>'error_code' = $3)
-              AND ($4::text IS NULL OR normalized->>'message' ILIKE '%' || $4 || '%' OR normalized->'metadata'::text ILIKE '%' || $4 || '%')
+              AND ($4::text IS NULL OR normalized->>'message' ILIKE '%' || $4 || '%' OR (normalized->'metadata')::text ILIKE '%' || $4 || '%')
               AND ($5::boolean OR NOT COALESCE(${expectedHttpProbePredicate("normalized->'metadata'")}, FALSE))
               AND ($5::boolean OR NOT COALESCE(${scannerHttpProbePredicate("normalized->'metadata'")}, FALSE))
             ORDER BY event_timestamp DESC
