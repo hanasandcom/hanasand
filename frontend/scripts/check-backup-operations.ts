@@ -52,6 +52,7 @@ assert.match(apiRoutes, /fastify\.post\('\/backup\/restore', postDatabaseBackupR
 assert.match(apiHandler, /hasHanasandInternalRouteAccess\(req\)/)
 assert.match(apiHandler, /targetDatabase: req\.body\.targetDatabase/)
 assert.match(apiCore, /open\(lock, 'wx'/, 'overlapping operations must use an exclusive persisted lock')
+assert.doesNotMatch(apiCore, /pg_database_size/, 'loading backup status must not query the full live database size')
 assert.match(apiCore, /checksumSha256/)
 assert.match(apiCore, /pg_restore', \['--list'/, 'archives must be verified with PostgreSQL native tooling')
 assert.match(apiCore, /restore_drill_/)

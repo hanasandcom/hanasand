@@ -88,16 +88,6 @@ type BackupCandidate = {
     metadata: BackupMetadata | null
 }
 
-type DatabaseProbe = {
-    ok: true
-    database: string
-    sizeBytes: number | null
-} | {
-    ok: false
-    database: string
-    error: string
-}
-
 export type BackupServiceStatus = {
     id: string
     name: string
@@ -162,7 +152,6 @@ export async function collectDatabaseBackupServices(): Promise<BackupServiceStat
     await ensureInitialized()
     const database = databaseName()
     const state = await readState()
-    const probe = await probeDatabase()
     const files = filterServiceFiles(await listBackupCandidates(), database)
     const latest = files[0] || null
     const storageSize = files.reduce((sum, file) => sum + file.sizeBytes, 0)
@@ -174,7 +163,7 @@ export async function collectDatabaseBackupServices(): Promise<BackupServiceStat
     const lastRetention = operations.find(operation => operation.kind === 'backup' && operation.retention)?.retention || null
     const currentOperation = operations.find(operation => operation.status === 'running') || null
     const scheduleError = state.configuration.scheduleError
-    const error = probe.ok ? scheduleError : probe.error
+    const error = scheduleError
 
     return [{
         id: `${slug(database)}_database`,
@@ -182,7 +171,6 @@ export async function collectDatabaseBackupServices(): Promise<BackupServiceStat
         database,
         status: currentOperation ? 'Running' : error ? 'Unavailable' : latest?.metadata ? 'Healthy' : latest ? 'Needs verification' : 'Available',
         error,
-        dbSize: probe.ok && probe.sizeBytes !== null ? formatBytes(probe.sizeBytes) : undefined,
         totalStorage: formatBytes(storageSize),
         lastBackup: lastBackup?.finishedAt || latest?.metadata?.createdAt || null,
         lastAttempt: lastAttempt?.startedAt || null,
@@ -829,18 +817,6 @@ async function writeJsonAtomic(file: string, value: unknown) {
     await chmod(file, 0o600)
 }
 
-async function probeDatabase(): Promise<DatabaseProbe> {
-    const database = databaseName()
-    try {
-        const { queryOnce } = await import('#db')
-        const result = await queryOnce('SELECT current_database() AS database, pg_database_size(current_database())::text AS size_bytes')
-        const row = result.rows[0] as { database?: string, size_bytes?: string | number | null } | undefined
-        return { ok: true, database: row?.database || database, sizeBytes: toNumber(row?.size_bytes) }
-    } catch (error) {
-        return { ok: false, database, error: sanitizeBackupError(error) }
-    }
-}
-
 async function listBackupCandidates() {
     const dir = backupDirectory()
     const entries = await readdir(dir, { withFileTypes: true }).catch(error => {
@@ -1250,12 +1226,6 @@ function formatDuration(ms: number) {
     if (ms < 1000) return `${ms}ms`
     if (ms < 60000) return `${Math.round(ms / 1000)}s`
     return `${Math.round(ms / 60000)}m`
-}
-
-function toNumber(value: string | number | null | undefined) {
-    if (value === null || value === undefined) return null
-    const number = Number(value)
-    return Number.isFinite(number) ? number : null
 }
 
 function isCode(error: unknown, code: string) {
