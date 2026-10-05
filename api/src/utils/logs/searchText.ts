@@ -14,6 +14,12 @@ export function basicLogSearchPredicate(parameter: string) {
     return `(${logPhraseSearchExpression} LIKE '%' || ${literal} || '%' ESCAPE '!' AND strpos(lower(normalized::text), lower(${parameter}::text)) > 0)`
 }
 
+// Reuse the existing JSON trigram index to find candidates, then require the
+// literal phrase to occur in the message field itself.
+export function logMessageSearchPredicate(parameter: string) {
+    return `(${logFieldTextCandidates(parameter)} AND strpos(lower(COALESCE(normalized->>'message', '')), lower(${parameter}::text)) > 0)`
+}
+
 export function logFieldTextCandidates(parameter: string) {
     const needle = `lower(${parameter}::text)`
     const encoded = `to_jsonb(${needle})::text`

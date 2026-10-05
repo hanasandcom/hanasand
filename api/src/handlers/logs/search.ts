@@ -4,7 +4,7 @@ import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import hasHanasandInternalRouteAccess from '#utils/auth/organizationPageAccess.ts'
 import { compileLogQuery } from '#utils/logs/kql.ts'
 import { readPendingProcessLogs } from '#utils/events/processQueue.ts'
-import { basicLogSearchPredicate } from '#utils/logs/searchText.ts'
+import { logMessageSearchPredicate } from '#utils/logs/searchText.ts'
 import { searchLogPage } from '#utils/logs/searchPage.ts'
 import { dimensionLogWhere, foldLogCounts } from '#utils/logs/dimensions.ts'
 import { rollupLogCountsSql } from '#utils/logs/counts.ts'
@@ -31,7 +31,7 @@ export async function searchLogs(req: FastifyRequest, res: FastifyReply) {
         const where = ['ingestion_id = \'logs\'', 'processing_status = \'processed\'', timeWhere, ...compiled.where,
             'organization_id = ANY(ARRAY(SELECT o.id FROM organizations o WHERE o.status = \'active\'))']
         if (realtime) where.push('normalized->>\'severity\' IN (\'high\', \'critical\')')
-        if (search) where.push(basicLogSearchPredicate(bind(search)))
+        if (search) where.push(logMessageSearchPredicate(bind(search)))
         if (input.service) where.push(`normalized->>'service' = ${bind(input.service)}`)
         if (input.severity === 'high,critical') where.push('normalized->>\'severity\' IN (\'high\', \'critical\')')
         else if (input.severity) {
@@ -41,7 +41,7 @@ export async function searchLogs(req: FastifyRequest, res: FastifyReply) {
         const result = await withLogSearchTransaction(async query => {
             await query(search.length >= 12 ? 'SET LOCAL statement_timeout = \'60s\'' : 'SET LOCAL statement_timeout = \'8s\'')
             const result = paginate ? await searchLogPage(query, { where, params, order: compiled.order, limit: pageLimit, cursor: input.cursor,
-                recentFirst: Boolean(search), preferTextIndex: search.length >= 12 }) : compiled.summarize
+                recentFirst: Boolean(search), preferTextIndex: search.length >= 3 }) : compiled.summarize
                 ? await query(`SELECT ${compiled.fields[compiled.summarize]} AS value, COUNT(*)::int AS count FROM events WHERE ${where.join(' AND ')} GROUP BY 1 ORDER BY count DESC LIMIT ${compiled.limit}`, params)
                 : await query(`SELECT id, normalized, event_timestamp, organization_id FROM events WHERE ${where.join(' AND ')} ORDER BY ${compiled.order} LIMIT ${compiled.limit}`, params)
             if (realtime) {
