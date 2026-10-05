@@ -52,7 +52,8 @@ async function queryErrorEvents(query: ErrorQuery) {
                 normalized->>'level' AS level,
                 event_timestamp AS created_at
             FROM events
-            WHERE ingestion_id='logs' AND normalized->'metadata'->>'category' IN ('http_response_error', 'application_error')
+            WHERE ingestion_id='logs' AND processing_status='processed'
+              AND normalized->'metadata'->>'category' IN ('http_response_error', 'application_error')
               AND ($1::text IS NULL OR normalized->'metadata'->>'surface' = $1)
               AND ($2::int IS NULL OR NULLIF(normalized->'metadata'->>'status_code', '')::int = $2)
               AND ($3::text IS NULL OR normalized->'metadata'->>'error_code' = $3)
@@ -136,7 +137,8 @@ async function queryErrorEvents(query: ErrorQuery) {
             WITH raw_events AS NOT MATERIALIZED (
                 SELECT normalized->'metadata'->>'surface' AS surface, NULLIF(normalized->'metadata'->>'status_code', '')::int AS status_code, normalized->'metadata'->>'error_code' AS error_code, normalized->'metadata'->>'path' AS path, event_timestamp AS created_at
                 FROM events
-                WHERE ingestion_id='logs' AND normalized->'metadata'->>'category' IN ('http_response_error', 'application_error')
+                WHERE ingestion_id='logs' AND processing_status='processed'
+                  AND normalized->'metadata'->>'category' IN ('http_response_error', 'application_error')
                   AND ($1::boolean OR NOT COALESCE(${expectedHttpProbePredicate("normalized->'metadata'")}, FALSE))
                 UNION ALL
                 SELECT 'auth', CASE

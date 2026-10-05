@@ -25,7 +25,7 @@ async function queryLogServices() {
         await query('SET LOCAL statement_timeout = \'30s\'')
         return query(`
         SELECT normalized->>'service' AS service, MAX(event_timestamp) AS last_seen, COUNT(*)::int AS entries
-        FROM events WHERE ingestion_id='logs'
+        FROM events WHERE ingestion_id='logs' AND processing_status='processed'
         GROUP BY normalized->>'service'
         ORDER BY service ASC
         `)
@@ -72,7 +72,8 @@ async function queryLogs(query: LogQuery) {
             normalized->>'level' AS level, normalized->>'message' AS message,
             normalized->'metadata' AS metadata, event_timestamp AS created_at
         FROM events
-        WHERE ingestion_id='logs' AND ($1::text IS NULL OR normalized->>'service' = $1)
+        WHERE ingestion_id='logs' AND processing_status='processed'
+          AND ($1::text IS NULL OR normalized->>'service' = $1)
           AND ($2::text IS NULL OR normalized->>'level' = $2)
           AND ($3::text IS NULL OR normalized->>'message' ILIKE '%' || $3 || '%')
         ORDER BY event_timestamp DESC
