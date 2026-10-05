@@ -4,7 +4,6 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { ArrowUpRight } from 'lucide-react'
 import { DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
-import { GET as getOpenApi } from './ti/route'
 
 export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'OpenAPI JSON | Hanasand' }
@@ -12,8 +11,8 @@ export const metadata: Metadata = { title: 'OpenAPI JSON | Hanasand' }
 export default async function OpenApiPage() {
     const session = await cookies()
     if (!session.get('id')?.value || !session.get('access_token')?.value) redirect('/logout?path=/login%3Fpath%3D/api/openapi%26expired=true')
-    const response = await getOpenApi()
-    const document = response.ok ? await response.json() : null
+    const response = await fetch(`${process.env.TI_PUBLIC_BASE_URL || 'https://ti.hanasand.com'}/api/openapi/ti`, { cache: 'no-store' }).catch(() => null)
+    const document = response?.ok ? await response.json().catch(() => null) : null
 
     return <DashboardPage className='min-w-0'>
         <header className='flex flex-wrap items-center justify-between gap-3'>

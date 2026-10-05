@@ -65,6 +65,10 @@ const nextConfig = {
     },
     async redirects() {
         return [
+            { source: '/ti', destination: 'https://ti.hanasand.com/ti', permanent: false },
+            { source: '/ti/:path*', destination: 'https://ti.hanasand.com/ti/:path*', permanent: false },
+            { source: '/dashboard/ti', destination: 'https://ti.hanasand.com/dashboard/ti', permanent: false },
+            { source: '/dashboard/ti/:path*', destination: 'https://ti.hanasand.com/dashboard/ti/:path*', permanent: false },
             { source: '/.well-known/security.txt', destination: '/security.txt', permanent: true },
             { source: '/.well-known', destination: '/security.txt', permanent: true },
             { source: '/findings/watchlists', destination: '/watchlists', permanent: true },

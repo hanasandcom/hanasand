@@ -108,6 +108,7 @@ describe('public TI API boundary', () => {
     test('allows only configured browser origins', () => {
         expect(isAllowedApiOrigin(undefined)).toBe(true)
         expect(isAllowedApiOrigin('https://hanasand.com')).toBe(true)
+        expect(isAllowedApiOrigin('https://ti.hanasand.com')).toBe(true)
         expect(isAllowedApiOrigin('https://customer.example', 'https://customer.example')).toBe(true)
         expect(isAllowedApiOrigin('https://attacker.example')).toBe(false)
     })
