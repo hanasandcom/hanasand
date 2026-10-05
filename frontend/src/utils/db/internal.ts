@@ -160,7 +160,7 @@ export type DatabaseHealth = {
 }
 
 export async function getDatabaseOverview() {
-    return await requestService<DatabaseOverview>('internal', 'db')
+    return await requestService<DatabaseOverview>('internal', 'db', { cache: 'no-store' })
 }
 
 export async function getDatabaseHealth() {

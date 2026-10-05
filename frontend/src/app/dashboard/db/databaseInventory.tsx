@@ -231,9 +231,10 @@ function RowPreview({ instance, database, item }: { instance: string, database: 
             <table className='min-w-full text-left text-xs'><thead className='sticky top-0 bg-ui-raised text-ui-muted'><tr>{fields.map(field => <th key={field} className='whitespace-nowrap px-3 py-2 font-medium'>{field}</th>)}</tr></thead><tbody className='divide-y divide-ui-border'>
                 {rows.map((row, index) => <tr key={index}>{fields.map(field => {
                     const key = `${index}:${field}`
-                    const value = cell(row[field])
+                    const fullValue = cell(row[field])
+                    const value = displayCell(field, fullValue)
                     const status = copyStatus?.key === key ? copyStatus.result : null
-                    return <td key={field} className='align-top'><button type='button' onClick={() => void copyCell(key, value)} aria-label={`${status === 'copied' ? 'Copied' : 'Copy'} ${field} value`} title={status === 'failed' ? 'Copy failed' : 'Click to copy · Scroll to see full value'} className='flex w-full min-w-0 items-center gap-1.5 px-3 py-2 text-left font-mono'><span className='block w-[6ch] shrink-0 overflow-x-auto whitespace-nowrap'>{value}</span>{status === 'copied' ? <Check aria-hidden className='h-3.5 w-3.5 shrink-0 text-ui-success' /> : <Copy aria-hidden className='h-3.5 w-3.5 shrink-0 text-ui-muted' />}<span className='sr-only' aria-live='polite'>{status === 'copied' ? `${field} copied` : status === 'failed' ? `${field} copy failed` : ''}</span></button></td>
+                    return <td key={field} className='align-top'><button type='button' onClick={() => void copyCell(key, fullValue)} aria-label={`${status === 'copied' ? 'Copied' : 'Copy'} ${field} value`} title={status === 'failed' ? 'Copy failed' : 'Click to copy · Scroll to see full value'} className='flex w-full min-w-0 items-center gap-1.5 px-3 py-2 text-left font-mono'><span className='noscroll block w-[6ch] shrink-0 overflow-x-auto whitespace-nowrap'>{value}</span>{status === 'copied' ? <Check aria-hidden className='h-3.5 w-3.5 shrink-0 text-ui-success' /> : <Copy aria-hidden className='h-3.5 w-3.5 shrink-0 text-ui-muted' />}<span className='sr-only' aria-live='polite'>{status === 'copied' ? `${field} copied` : status === 'failed' ? `${field} copy failed` : ''}</span></button></td>
                 })}</tr>)}
             </tbody></table>
             <div ref={sentinel} className='h-px' />
@@ -245,6 +246,7 @@ function RowPreview({ instance, database, item }: { instance: string, database: 
 }
 
 function cell(value: unknown) { return value == null ? 'null' : typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value) }
+function displayCell(field: string, value: string) { return field.toLowerCase() === 'id' ? value.replace(/^0+(?=.)/, '') : value }
 function bytes(value: number | null) {
     if (value === null) return '—'
     const units = ['B', 'KB', 'MB', 'GB', 'TB']; let index = 0

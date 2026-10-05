@@ -33,9 +33,8 @@ export default function DatabaseStoragePanel({ stale, actions, children }: { sta
                 </div>
                 <div className='flex flex-wrap items-center gap-2'>
                     {actions}
-                    <button type='button' onClick={() => setFullscreen(value => !value)} aria-label={fullscreen ? 'Exit fullscreen database view' : 'Open fullscreen database view'} aria-pressed={fullscreen} title={fullscreen ? 'Exit fullscreen' : 'Fullscreen'} className='ui-button ui-button-secondary ui-button-md !px-3'>
+                    <button type='button' onClick={() => setFullscreen(value => !value)} aria-label={fullscreen ? 'Minimize database view' : 'Open fullscreen database view'} aria-pressed={fullscreen} title={fullscreen ? 'Minimize database view' : 'Fullscreen'} className='ui-button ui-button-secondary ui-button-md !px-3'>
                         {fullscreen ? <Minimize2 aria-hidden className='h-4 w-4' /> : <Maximize2 aria-hidden className='h-4 w-4' />}
-                        {fullscreen && <span>Exit fullscreen</span>}
                     </button>
                 </div>
             </div>

@@ -29,7 +29,7 @@ export async function requestService<T>(service: ServiceName, path: string, init
                 ...(id ? { id } : {}),
                 ...(init?.headers || {}),
             },
-            ...(init?.method && init.method !== 'GET' ? { cache: 'no-store' as const } : { next: { revalidate: cacheOptions?.revalidate ?? 5, ...(cacheOptions?.tags ? { tags: cacheOptions.tags } : {}) } }),
+            ...((init?.method && init.method !== 'GET') || init?.cache === 'no-store' ? { cache: 'no-store' as const } : { next: { revalidate: cacheOptions?.revalidate ?? 5, ...(cacheOptions?.tags ? { tags: cacheOptions.tags } : {}) } }),
             signal: init?.signal || controller.signal,
         })
 
