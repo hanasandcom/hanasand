@@ -72,7 +72,7 @@ import putVmHostFeatures from './handlers/vms/putHostFeatures.ts'
 import postVmFailover from './handlers/vms/postFailover.ts'
 import getMetrics from './handlers/metrics/getMetrics.ts'
 import getDatabaseOverview from './handlers/database/getOverview.ts'
-import { getDatabaseBackupDashboard, getDatabaseBackupFiles, getDatabaseBackups, postDatabaseBackup, postDatabaseBackupRestore, postDatabaseBackupRestoreLive, postDatabaseBackupVerify } from './handlers/database/backups.ts'
+import { getDatabaseBackupDashboard, getDatabaseBackupFiles, getDatabaseBackups, postDatabaseBackup, postDatabaseBackupDelete, postDatabaseBackupRestore, postDatabaseBackupRestoreLive, postDatabaseBackupVerify } from './handlers/database/backups.ts'
 import { getDatabaseHealth, getDatabaseRows, postDatabaseQuery } from './handlers/database/query.ts'
 import getDatabaseBrowse from './handlers/database/browse.ts'
 import getDocker from './handlers/docker/getDocker.ts'
@@ -497,6 +497,7 @@ export default async function apiRoutes(fastify: FastifyInstance, options: Fasti
     fastify.post('/backup', postDatabaseBackup)
     fastify.get('/backup/files', getDatabaseBackupFiles)
     fastify.post('/backup/verify', postDatabaseBackupVerify)
+    fastify.post('/backup/delete', postDatabaseBackupDelete)
     fastify.post('/backup/restore', postDatabaseBackupRestore)
     fastify.post('/backup/restore-live', postDatabaseBackupRestoreLive)
     fastify.get('/status', getStatus)

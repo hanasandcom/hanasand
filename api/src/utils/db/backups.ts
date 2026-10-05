@@ -3,7 +3,7 @@ import { BackupOperationError } from './backupOperationError.ts'
 export { BackupOperationError }
 
 type BackupLocation = 'local'
-type BackupOperationKind = 'backup' | 'verify' | 'restore_drill' | 'restore_live'
+type BackupOperationKind = 'backup' | 'verify' | 'delete' | 'restore_drill' | 'restore_live'
 type BackupOperationStatus = 'running' | 'succeeded' | 'failed' | 'interrupted'
 
 type IntegritySummary = {
@@ -135,6 +135,7 @@ export const collectDatabaseBackupServices = () => backupWorkerCall<BackupServic
 export const listDatabaseBackupFiles = (service?: string, date?: string) => backupWorkerCall<BackupFileEntry[]>('files', [service ?? null, date ?? null])
 export const createDatabaseBackup = (options: { actorId?: string, trigger?: 'manual' | 'schedule' } = {}) => backupWorkerCall<BackupOperation>('create', [options])
 export const verifyDatabaseBackupFile = (file: string, actorId = 'system') => backupWorkerCall<BackupOperation>('verify', [file, actorId])
+export const deleteDatabaseBackupFile = (file: string, actorId = 'system') => backupWorkerCall<BackupOperation>('delete', [file, actorId])
 export const restoreDatabaseBackupFile = (input: { file: string, targetDatabase: string, confirmation: string, actorId?: string }) => backupWorkerCall<BackupOperation>('restore', [input])
 export const restoreDatabaseBackupToLive = (input: { file: string, confirmation: string, actorId?: string }) => backupWorkerCall<BackupOperation>('restore-live', [input])
 export const runDueDatabaseBackup = (now = new Date()) => backupWorkerCall<BackupOperation | null>('due', [now.toISOString()])

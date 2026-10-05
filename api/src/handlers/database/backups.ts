@@ -5,6 +5,7 @@ import {
     BackupOperationError,
     collectDatabaseBackupServices,
     createDatabaseBackup,
+    deleteDatabaseBackupFile,
     listDatabaseBackupFiles,
     restoreDatabaseBackupToLive,
     restoreDatabaseBackupFile,
@@ -24,6 +25,10 @@ type RestoreBody = {
 }
 
 type VerifyBody = {
+    file?: string
+}
+
+type DeleteBody = {
     file?: string
 }
 
@@ -105,6 +110,23 @@ export async function postDatabaseBackupVerify(req: FastifyRequest<{ Body: Verif
     try {
         const operation = await verifyDatabaseBackupFile(req.body.file, actorId)
         return res.send({ message: `Backup verified: ${operation.file}.`, operation })
+    } catch (error) {
+        req.log.error(error)
+        const statusCode = error instanceof BackupOperationError ? error.statusCode : (error as { statusCode?: number })?.statusCode || 503
+        return res.status(statusCode).send({ message: sanitizeBackupError(error) })
+    }
+}
+
+export async function postDatabaseBackupDelete(req: FastifyRequest<{ Body: DeleteBody }>, res: FastifyReply) {
+    const actorId = await requireBackupAccess(req, res)
+    if (!actorId) return
+    if (!req.body?.file) {
+        return res.status(400).send({ message: 'Deletion requires a backup filename from the configured backup directory.' })
+    }
+
+    try {
+        const operation = await deleteDatabaseBackupFile(req.body.file, actorId)
+        return res.send({ message: `Backup deleted: ${operation.file}.`, operation })
     } catch (error) {
         req.log.error(error)
         const statusCode = error instanceof BackupOperationError ? error.statusCode : (error as { statusCode?: number })?.statusCode || 503

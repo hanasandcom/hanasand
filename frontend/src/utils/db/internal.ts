@@ -113,7 +113,7 @@ export type BackupIntegrity = {
 
 export type BackupOperation = {
     id: string
-    kind: 'backup' | 'verify' | 'restore_drill' | 'restore_live'
+    kind: 'backup' | 'verify' | 'delete' | 'restore_drill' | 'restore_live'
     trigger: 'manual' | 'schedule'
     actorId: string
     status: 'running' | 'succeeded' | 'failed' | 'interrupted'
@@ -240,8 +240,8 @@ export async function triggerDatabaseBackup() {
     })
 }
 
-export async function verifyDatabaseBackup(file: string) {
-    return await requestService<{ message: string, operation: BackupOperation }>('internal', 'backup/verify', {
+export async function deleteDatabaseBackup(file: string) {
+    return await requestService<{ message: string, operation: BackupOperation }>('internal', 'backup/delete', {
         method: 'POST',
         body: JSON.stringify({ file }),
     })

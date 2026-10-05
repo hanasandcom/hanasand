@@ -6,7 +6,7 @@ import { useEffect, useState, useTransition } from 'react'
 import { ChevronDown, RefreshCw, ShieldCheck } from 'lucide-react'
 import type { BackupFile, BackupOperation, BackupService } from '@/utils/db/internal'
 import formatUtcDateTime from '@/utils/date/formatUtcDateTime'
-import { triggerBackupAction, verifyBackupAction } from '../actions'
+import { deleteBackupAction, triggerBackupAction } from '../actions'
 
 type BackupPageProps = {
     backups: BackupService[]
@@ -20,7 +20,7 @@ export default function BackupPage({ backups, files, loadError = '' }: BackupPag
     const [isPending, startTransition] = useTransition()
     const [message, setMessage] = useState('')
     const [error, setError] = useState('')
-    const [verifying, setVerifying] = useState('')
+    const [deleting, setDeleting] = useState('')
 
     useEffect(() => {
         if (!service?.currentOperation) return
@@ -44,16 +44,22 @@ export default function BackupPage({ backups, files, loadError = '' }: BackupPag
         router.push(`/db/restore?${params.toString()}`)
     }
 
-    function verify(file: string) {
+    function remove(file: string) {
+        if (!window.confirm(`Permanently delete ${file} and its verification metadata? This cannot be undone.`)) return
         setMessage('')
         setError('')
-        setVerifying(file)
+        setDeleting(file)
         startTransition(async() => {
-            const response = await verifyBackupAction(file)
-            if (typeof response === 'string') setError(response)
-            else setMessage(response.message)
-            setVerifying('')
-            router.refresh()
+            try {
+                const response = await deleteBackupAction(file)
+                if (typeof response === 'string') setError(response)
+                else setMessage(response.message)
+            } catch {
+                setError('The delete request did not return a result. Refresh the backup list to confirm its state.')
+            } finally {
+                setDeleting('')
+                router.refresh()
+            }
         })
     }
 
@@ -115,11 +121,11 @@ export default function BackupPage({ backups, files, loadError = '' }: BackupPag
                                     <td className='px-4 py-3'>{file.verified ? <span className='inline-flex items-center gap-1 text-ui-success'><ShieldCheck className='h-4 w-4' /> {shortHash(file.checksumSha256)}</span> : <span className='text-ui-warning'>Unverified</span>}</td>
                                     <td className='px-4 py-3 text-right'>
                                         <div className='flex justify-end gap-2'>
-                                            <button type='button' disabled={busy} onClick={() => verify(file.file)} className='min-h-9 rounded-md border border-ui-border px-3 font-semibold hover:bg-ui-raised disabled:opacity-50'>
-                                                {verifying === file.file ? 'Verifying…' : 'Verify checksum'}
-                                            </button>
                                             <button type='button' disabled={busy} onClick={() => restore(file.file)} className='min-h-9 rounded-md border border-ui-border px-3 font-semibold hover:bg-ui-raised disabled:opacity-50'>
                                                 Restore
+                                            </button>
+                                            <button type='button' disabled={busy} onClick={() => remove(file.file)} className='min-h-9 rounded-md border border-ui-danger/40 px-3 font-semibold text-ui-danger hover:bg-ui-danger/10 disabled:opacity-50'>
+                                                {deleting === file.file ? 'Deleting…' : 'Delete'}
                                             </button>
                                         </div>
                                     </td>
@@ -180,6 +186,9 @@ function backupErrorMessage(value?: string | null) {
     if (value === 'The backup worker restarted before this operation reached a terminal state.') {
         return 'The backup worker restarted before the backup finished.'
     }
+    if (value === 'The backup service needs attention. Check API logs for the database backup operation.') {
+        return 'The previous backup failure did not retain its cause. Backups remain paused until the database size is reduced.'
+    }
     return value || undefined
 }
 
@@ -205,7 +214,9 @@ function retentionLabel(service?: BackupService) {
 function operationLabel(operation: BackupOperation) {
     if (operation.kind === 'restore_drill') return `Restore drill → ${operation.targetDatabase || 'isolated target'}`
     if (operation.kind === 'restore_live') return `Live restore · ${operation.trigger}`
-    return `${operation.kind === 'backup' ? 'Backup' : 'Checksum verification'} · ${operation.trigger}`
+    if (operation.kind === 'delete') return `Delete backup · ${operation.trigger}`
+    if (operation.kind === 'verify') return `Checksum verification · ${operation.trigger}`
+    return `Backup · ${operation.trigger}`
 }
 
 function stageLabel(value: string) {

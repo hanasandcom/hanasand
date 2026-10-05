@@ -1,7 +1,7 @@
 'use server'
 
 import { updateTag } from 'next/cache'
-import { getDatabaseHealth, getDatabaseRows, restoreDatabaseBackup, restoreDatabaseBackupToLive, runDatabaseSql, triggerDatabaseBackup, verifyDatabaseBackup } from '@/utils/db/internal'
+import { deleteDatabaseBackup, getDatabaseHealth, getDatabaseRows, restoreDatabaseBackup, restoreDatabaseBackupToLive, runDatabaseSql, triggerDatabaseBackup } from '@/utils/db/internal'
 
 function refreshBackupData<T>(response: T | string) {
     if (typeof response !== 'string') updateTag('database-backups')
@@ -12,8 +12,8 @@ export async function triggerBackupAction() {
     return refreshBackupData(await triggerDatabaseBackup())
 }
 
-export async function verifyBackupAction(file: string) {
-    return refreshBackupData(await verifyDatabaseBackup(file))
+export async function deleteBackupAction(file: string) {
+    return refreshBackupData(await deleteDatabaseBackup(file))
 }
 
 export async function restoreBackupAction(file: string, targetDatabase: string, confirmation: string) {
