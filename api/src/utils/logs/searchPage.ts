@@ -34,6 +34,10 @@ export async function searchLogPage(query: typeof queryOnce, input: Input) {
         let segmentEnd = Date.parse(cursor?.time || until)
         let firstSegment = true
         const matches: Awaited<ReturnType<typeof query>>['rows'] = []
+        // The trigram bitmap path scans and sorts every matching row in a
+        // dense window. Keep these bounded scans on the descending time index
+        // so PostgreSQL can stop as soon as it finds a page.
+        await query('SET LOCAL enable_bitmapscan = off')
         for (const duration of windows) {
             const segmentStart = segmentEnd - duration
             const endParameter = `$${params.length + 1}`
@@ -49,6 +53,7 @@ export async function searchLogPage(query: typeof queryOnce, input: Input) {
             }
             segmentEnd = segmentStart
         }
+        await query('SET LOCAL enable_bitmapscan = DEFAULT')
     }
     if (!result || result.rows.length < input.limit + 1) {
         // A sparse long phrase can have its newest match well behind the
