@@ -131,7 +131,7 @@ export default function BrowserHistory({ clientId, onShare }: { clientId: string
     return <>
         <button type='button' onClick={() => {
             dialog.current?.showModal()
-            if (!runs.length || Date.now() - lastLoadedAt.current > 30_000) void load(0)
+            if (!lastLoadedAt.current || Date.now() - lastLoadedAt.current > 30_000) void load(0)
         }} disabled={!clientId} className='inline-flex items-center gap-2 rounded-md border border-ui-border bg-ui-panel px-4 py-2 text-sm font-semibold text-ui-text hover:border-ui-primary' aria-haspopup='dialog'>
             <History className='h-4 w-4' />History
         </button>
