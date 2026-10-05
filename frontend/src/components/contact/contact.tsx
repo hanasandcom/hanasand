@@ -1,7 +1,7 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { Building2, CheckCircle2, Clock3, FileCheck2, LoaderCircle, Mail, MessageSquareText, Route, Send, ShieldCheck, UserRound } from 'lucide-react'
+import { Building2, CheckCircle2, LoaderCircle, Mail, MessageSquareText, Send, UserRound } from 'lucide-react'
 import { useFormik } from 'formik'
 import * as Yup from 'yup'
 import ErrorNotice from '@/components/error/errorNotice'
@@ -10,59 +10,23 @@ import { submitContactRequest } from '@/utils/contact/submitContactRequest'
 
 const fieldClassName = 'w-full rounded-lg border border-ui-border bg-ui-panel px-3 py-3 text-sm text-ui-text outline-none transition placeholder:text-ui-muted focus:border-ui-primary focus:ring-4 focus:ring-ui-primary/15'
 
-type ContactIntent = {
-    subject: string
-    message: string
-    eyebrow: string
-    heading: string
-    detail: string
-}
-
 type ContactResult = {
     ticketId: string
     nextStep: string
 }
 
-const deliveryOptions = [
-    ['webhook', 'Webhook'],
-    ['case', 'Case workflow'],
-    ['api', 'API'],
-    ['review-link', 'Review link'],
-    ['not-sure', 'Not sure yet'],
-]
-
-const replyWindowOptions = [
-    ['same-day', 'Same day'],
-    ['two-business-days', 'Two business days'],
-    ['this-week', 'This week'],
-    ['planning', 'Planning ahead'],
-]
-
-const intakeSteps = [
-    ['Coverage fit', 'Confirm whether the names, domains, suppliers, or actors are sensible to monitor now.'],
-    ['Delivery path', 'Confirm whether first alerts should go to webhook destinations, case queues, or organization API consumers.'],
-    ['Security review', 'Package DPA, subprocessors, SLA notes, identity requirements, and current control gaps.'],
-]
-
-const reviewRows = [
-    ['Pilot scope', 'Watched names, domains, suppliers, alert owner, and first-month success criteria.'],
-    ['Delivery setup', 'Webhook, case, or organization API path with the fields your team needs.'],
-    ['Security review', 'DPA notes, subprocessors, SLA expectations, identity requirements, and current certification limits.'],
-]
-
 export default function Contact({ plan = '', intent = '' }: { plan?: string; intent?: string }) {
-    const contactIntent = getContactIntent(plan, intent)
     const [submitting, setSubmitting] = useState(false)
     const [submitError, setSubmitError] = useState('')
     const [result, setResult] = useState<ContactResult | null>(null)
     const validationSchema = Yup.object().shape({
         name: Yup.string().required('Name is required'),
         email: Yup.string().email('Invalid email').required('Email is required'),
-        company: Yup.string().when('securityReview', {
-            is: true,
-            then: schema => schema.required('Company is required for security review requests'),
-            otherwise: schema => schema,
-        }),
+        company: Yup.string().test(
+            'security-review-company',
+            'Company is required for security review requests',
+            value => !isSecurityReview(intent) || Boolean(value?.trim()),
+        ),
         type: Yup.string().min(5, 'Subject must be at least 5 characters').required('Subject is required'),
         message: Yup.string().min(20, 'Message must be at least 20 characters').required('Message is required'),
     })
@@ -72,11 +36,8 @@ export default function Contact({ plan = '', intent = '' }: { plan?: string; int
             name: '',
             email: '',
             company: '',
-            type: contactIntent.subject,
-            message: contactIntent.message,
-            deliveryPreference: 'not-sure',
-            replyWindow: normalizedContactReplyWindow(intent),
-            securityReview: normalizedSecurityIntent(intent),
+            type: contactSubject(plan, intent),
+            message: '',
         },
         enableReinitialize: true,
         validationSchema,
@@ -93,14 +54,12 @@ export default function Contact({ plan = '', intent = '' }: { plan?: string; int
                     message: values.message,
                     intent,
                     plan,
-                    deliveryPreference: values.deliveryPreference,
-                    replyWindow: values.replyWindow,
-                    securityReview: values.securityReview,
+                    securityReview: isSecurityReview(intent),
                     source: window.location.href,
                 })
                 setResult({
                     ticketId: payload.ticketId || 'received',
-                    nextStep: payload.nextStep || 'We received the request and will reply by email.',
+                    nextStep: payload.nextStep || 'We received your request and will reply by email.',
                 })
                 formik.resetForm({ values })
             } catch (error) {
@@ -115,15 +74,16 @@ export default function Contact({ plan = '', intent = '' }: { plan?: string; int
 
     return (
         <section className='min-h-app-viewport bg-ui-canvas px-4 py-12 text-ui-text md:px-8 md:py-18'>
-            <div className='mx-auto grid max-w-6xl gap-8 lg:grid-cols-[0.82fr_1.18fr] lg:items-start'>
-                <ContactOverview intent={contactIntent} />
+            <div className='mx-auto grid max-w-5xl gap-8 lg:grid-cols-[0.65fr_1.35fr] lg:items-start'>
+                <div className='grid gap-3'>
+                    <p className='text-sm font-semibold uppercase text-ui-primary'>Contact</p>
+                    <h1 className='text-4xl font-semibold tracking-normal md:text-5xl'>Get in touch.</h1>
+                    <a href='mailto:contact@hanasand.com' className='inline-flex w-fit items-center gap-2 text-sm font-semibold text-ui-primary hover:text-ui-primary/80'>
+                        <Mail className='h-4 w-4' /> contact@hanasand.com
+                    </a>
+                </div>
 
-                <form className='grid gap-5 rounded-lg border border-ui-border bg-ui-panel p-5 shadow-lg md:p-7' onSubmit={formik.handleSubmit} title={contactIntent.eyebrow}>
-                    <div className='grid gap-1'>
-                        <h2 className='text-xl font-semibold'>Start a conversation</h2>
-                        <p className='text-sm text-ui-muted'>Send the request here so it can be tracked. Direct email stays available as a fallback.</p>
-                    </div>
-
+                <form className='grid gap-5 rounded-lg border border-ui-border bg-ui-panel p-5 shadow-lg md:p-7' onSubmit={formik.handleSubmit}>
                     {result ? (
                         <div className='rounded-lg border border-ui-success/35 bg-ui-success/10 p-4 text-sm leading-6 text-ui-success'>
                             <div className='flex items-center gap-2 font-semibold'>
@@ -131,117 +91,29 @@ export default function Contact({ plan = '', intent = '' }: { plan?: string; int
                                 Request received
                             </div>
                             <p className='mt-2'>Ticket <span className='font-mono font-semibold'>{result.ticketId}</span>. {result.nextStep}</p>
-                            <p className='mt-1 text-xs font-semibold uppercase tracking-normal'>Route: {deliveryLabel(formik.values.deliveryPreference)} · Reply: {replyWindowLabel(formik.values.replyWindow)}</p>
                         </div>
                     ) : null}
 
                     <ErrorNotice compact message={submitError} />
 
-                    <Field
-                        icon={<UserRound className='h-4 w-4 text-ui-muted' />}
-                        label='Name'
-                        error={formik.touched.name ? formik.errors.name : undefined}
-                    >
-                        <input
-                            type='text'
-                            className={fieldClassName}
-                            {...formik.getFieldProps('name')}
-                            placeholder='Name'
-                        />
+                    <Field icon={<UserRound className='h-4 w-4 text-ui-muted' />} label='Name' error={formik.touched.name ? formik.errors.name : undefined}>
+                        <input type='text' className={fieldClassName} {...formik.getFieldProps('name')} placeholder='Name' autoComplete='name' />
                     </Field>
 
-                    <Field
-                        icon={<Mail className='h-4 w-4 text-ui-muted' />}
-                        label='Work email'
-                        error={formik.touched.email ? formik.errors.email : undefined}
-                    >
-                        <input
-                            type='email'
-                            className={fieldClassName}
-                            {...formik.getFieldProps('email')}
-                            placeholder='name@company.com'
-                        />
+                    <Field icon={<Mail className='h-4 w-4 text-ui-muted' />} label='Email' error={formik.touched.email ? formik.errors.email : undefined}>
+                        <input type='email' className={fieldClassName} {...formik.getFieldProps('email')} placeholder='name@company.com' autoComplete='email' />
                     </Field>
 
-                    <Field
-                        icon={<Building2 className='h-4 w-4 text-ui-muted' />}
-                        label='Company or team'
-                        error={formik.touched.company ? formik.errors.company : undefined}
-                    >
-                        <input
-                            type='text'
-                            className={fieldClassName}
-                            {...formik.getFieldProps('company')}
-                            placeholder='Acme Security'
-                            autoComplete='organization'
-                            required={formik.values.securityReview}
-                        />
+                    <Field icon={<Building2 className='h-4 w-4 text-ui-muted' />} label='Company or team' error={formik.touched.company ? formik.errors.company : undefined}>
+                        <input type='text' className={fieldClassName} {...formik.getFieldProps('company')} placeholder={isSecurityReview(intent) ? 'Company' : 'Optional'} autoComplete='organization' required={isSecurityReview(intent)} />
                     </Field>
 
-                    <div className='grid gap-4 md:grid-cols-2' data-contact-intake-routing='true'>
-                        <Field
-                            icon={<Route className='h-4 w-4 text-ui-muted' />}
-                            label='Preferred delivery'
-                            error={formik.touched.deliveryPreference ? formik.errors.deliveryPreference : undefined}
-                        >
-                            <select
-                                className={fieldClassName}
-                                {...formik.getFieldProps('deliveryPreference')}
-                            >
-                                {deliveryOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                            </select>
-                        </Field>
-
-                        <Field
-                            icon={<Clock3 className='h-4 w-4 text-ui-muted' />}
-                            label='Reply window'
-                            error={formik.touched.replyWindow ? formik.errors.replyWindow : undefined}
-                        >
-                            <select
-                                className={fieldClassName}
-                                {...formik.getFieldProps('replyWindow')}
-                            >
-                                {replyWindowOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                            </select>
-                        </Field>
-                    </div>
-
-                    <label className='flex items-start gap-3 rounded-lg border border-ui-border bg-ui-raised px-3 py-3 text-sm leading-6 text-ui-text' data-contact-security-review='true'>
-                        <input
-                            type='checkbox'
-                            className='mt-1 h-4 w-4 rounded border-ui-border text-ui-primary focus:ring-ui-primary/20'
-                            checked={formik.values.securityReview}
-                            onChange={event => formik.setFieldValue('securityReview', event.target.checked)}
-                        />
-                        <span className='grid gap-1'>
-                            <span className='flex items-center gap-2 font-semibold'><FileCheck2 className='h-4 w-4 text-ui-muted' /> Include security review material</span>
-                            <span className='text-xs leading-5 text-ui-muted'>DPA notes, subprocessors, SLA expectations, identity requirements, and current certification limits.</span>
-                        </span>
-                    </label>
-
-                    <Field
-                        icon={<MessageSquareText className='h-4 w-4 text-ui-muted' />}
-                        label='Subject'
-                        error={formik.touched.type ? formik.errors.type : undefined}
-                    >
-                        <input
-                            type='text'
-                            className={fieldClassName}
-                            {...formik.getFieldProps('type')}
-                            placeholder='Threat monitoring for Acme'
-                        />
+                    <Field icon={<MessageSquareText className='h-4 w-4 text-ui-muted' />} label='Subject' error={formik.touched.type ? formik.errors.type : undefined}>
+                        <input type='text' className={fieldClassName} {...formik.getFieldProps('type')} placeholder='What is this about?' />
                     </Field>
 
-                    <Field
-                        icon={<MessageSquareText className='h-4 w-4 text-ui-muted' />}
-                        label='Message'
-                        error={formik.touched.message ? formik.errors.message : undefined}
-                    >
-                        <textarea
-                            {...formik.getFieldProps('message')}
-                            placeholder='Tell me what you want monitored and how quickly you need to know.'
-                            className={`${fieldClassName} min-h-44 resize-y`}
-                        />
+                    <Field icon={<MessageSquareText className='h-4 w-4 text-ui-muted' />} label='Message' error={formik.touched.message ? formik.errors.message : undefined}>
+                        <textarea {...formik.getFieldProps('message')} placeholder='How can we help?' className={`${fieldClassName} min-h-44 resize-y`} />
                     </Field>
 
                     <button
@@ -252,86 +124,13 @@ export default function Contact({ plan = '', intent = '' }: { plan?: string; int
                         {submitting ? <LoaderCircle className='h-4 w-4 animate-spin' /> : <Send className='h-4 w-4' />}
                         {submitting ? 'Sending' : 'Send request'}
                     </button>
-                    <a href='mailto:contact@hanasand.com' className='text-center text-sm font-semibold text-ui-primary hover:text-ui-primary/80'>
-                        Email contact@hanasand.com instead
-                    </a>
                 </form>
             </div>
         </section>
     )
 }
 
-function ContactOverview({ intent }: { intent: ContactIntent }) {
-    return (
-        <div className='grid gap-6'>
-            <div className='grid gap-4'>
-                <p className='text-sm font-semibold uppercase text-ui-primary'>{intent.eyebrow}</p>
-                <h1 className='text-4xl font-semibold tracking-normal md:text-5xl'>{intent.heading}</h1>
-                <p className='max-w-xl text-base leading-7 text-ui-muted'>{intent.detail}</p>
-            </div>
-
-            <div className='grid gap-3'>
-                <ContactPoint icon={<ShieldCheck className='h-4.5 w-4.5' />} title='Threat monitoring' detail='Company and supplier exposure alerts from recent actor activity.' />
-                <ContactPoint icon={<Building2 className='h-4.5 w-4.5' />} title='Buyer fit' detail='Best for teams that need fast notification, clean fields, and reviewable context.' />
-                <ContactPoint icon={<MessageSquareText className='h-4.5 w-4.5' />} title='Procurement review' detail='Request DPA, subprocessor details, SLA notes, security questionnaire, and identity requirements.' />
-                <ContactPoint icon={<Mail className='h-4.5 w-4.5' />} title='Direct email' detail='contact@hanasand.com' />
-            </div>
-
-            <div className='grid gap-3 rounded-lg border border-ui-border bg-ui-panel p-4 shadow-sm'>
-                <p className='text-sm font-semibold uppercase text-ui-primary'>What happens next</p>
-                <div className='grid gap-3'>
-                    {intakeSteps.map(([title, detail]) => (
-                        <div key={title} className='grid gap-1 rounded-lg border border-ui-border bg-ui-raised p-3'>
-                            <span className='text-sm font-semibold text-ui-text'>{title}</span>
-                            <span className='text-sm leading-6 text-ui-muted'>{detail}</span>
-                        </div>
-                    ))}
-                </div>
-            </div>
-
-            <div className='overflow-hidden rounded-lg border border-ui-border bg-ui-panel shadow-sm'>
-                <div className='border-b border-ui-border bg-ui-raised px-4 py-3'>
-                    <p className='text-sm font-semibold uppercase text-ui-primary'>Security review</p>
-                    <p className='mt-1 text-sm leading-6 text-ui-muted'>A good request should leave with a concrete pilot shape, not a generic sales thread.</p>
-                </div>
-                <div className='divide-y divide-ui-border'>
-                    {reviewRows.map(([label, detail]) => (
-                        <div key={label} className='grid gap-1 px-4 py-3 text-sm sm:grid-cols-[8rem_1fr] sm:gap-4'>
-                            <span className='font-semibold text-ui-text'>{label}</span>
-                            <span className='leading-6 text-ui-muted'>{detail}</span>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        </div>
-    )
-}
-
-function ContactPoint({ icon, title, detail }: { icon: ReactNode, title: string, detail: string }) {
-    return (
-        <div className='grid grid-cols-[2.75rem_1fr] gap-3 rounded-lg border border-ui-border bg-ui-panel p-4 shadow-sm'>
-            <span className='grid h-11 w-11 place-items-center rounded-lg border border-ui-border bg-ui-raised text-ui-primary'>
-                {icon}
-            </span>
-            <span className='grid gap-1'>
-                <span className='font-semibold text-ui-text'>{title}</span>
-                <span className='text-sm leading-6 text-ui-muted'>{detail}</span>
-            </span>
-        </div>
-    )
-}
-
-function Field({
-    label,
-    icon,
-    error,
-    children
-}: {
-    label: string
-    icon: ReactNode
-    error?: string
-    children: ReactNode
-}) {
+function Field({ label, icon, error, children }: { label: string, icon: ReactNode, error?: string, children: ReactNode }) {
     return (
         <label className='grid gap-2'>
             <span className='flex items-center gap-2 text-sm font-semibold text-ui-text'>
@@ -344,125 +143,27 @@ function Field({
     )
 }
 
-function normalizedContactReplyWindow(intent: string) {
+function isSecurityReview(intent: string) {
+    return ['procurement', 'enterprise', 'enterprise-procurement', 'security'].includes(intent.trim().toLowerCase())
+}
+
+function contactSubject(plan: string, intent: string) {
     const normalizedIntent = intent.trim().toLowerCase()
-    if (normalizedIntent === 'support') return 'same-day'
-    if (normalizedIntent === 'procurement' || normalizedIntent === 'enterprise' || normalizedIntent === 'security') return 'this-week'
-    return 'two-business-days'
-}
-
-function normalizedSecurityIntent(intent: string) {
-    const normalizedIntent = intent.trim().toLowerCase()
-    return normalizedIntent === 'procurement' || normalizedIntent === 'enterprise' || normalizedIntent === 'enterprise-procurement' || normalizedIntent === 'security'
-}
-
-function deliveryLabel(value: string) {
-    return deliveryOptions.find(([option]) => option === value)?.[1] || 'Not sure yet'
-}
-
-function replyWindowLabel(value: string) {
-    return replyWindowOptions.find(([option]) => option === value)?.[1] || 'Two business days'
-}
-
-function getContactIntent(plan: string, intent: string): ContactIntent {
     const normalizedPlan = plan.trim().toLowerCase()
-    const normalizedIntent = intent.trim().toLowerCase()
-
-    if (normalizedIntent === 'dwm') {
-        return {
-            subject: 'Start dark web monitoring',
-            message: 'I want to monitor company, vendor, and domain mentions across recent ransomware and extortion activity.\n\nWatchlist size:\nDelivery preference: webhook / case / API\nTeam or company context:',
-            eyebrow: 'Dark web monitoring',
-            heading: 'Start monitoring the names that matter.',
-            detail: 'Send the companies, domains, suppliers, product names, or executive names you want watched. The reply can cover coverage, alert delivery, and the fastest path to a pilot.',
-        }
+    const subjects: Record<string, string> = {
+        dwm: 'Dark web monitoring',
+        sales: 'Sales inquiry',
+        reports: 'Shared reports',
+        api: 'API access',
+        support: 'Support request',
+        procurement: 'Security review',
+        enterprise: 'Security review',
+        'enterprise-procurement': 'Security review',
+        security: 'Security review',
     }
-
-    if (normalizedIntent === 'sales') {
-        return {
-            subject: 'Threat monitoring sales request',
-            message: 'I want to discuss Hanasand monitoring for company, vendor, domain, or portfolio exposure.\n\nWhat I want watched:\nDelivery preference:\nTimeline:',
-            eyebrow: 'Contact sales',
-            heading: 'Talk through monitoring for your company, customers, or portfolio.',
-            detail: 'Send the company names, domains, actor concerns, or supplier watchlist you care about. The reply can cover coverage, pricing, and how the alert data would be delivered.',
-        }
-    }
-
-    if (normalizedIntent === 'reports') {
-        return {
-            subject: 'Shared monitoring reports',
-            message: 'I want to package monitoring results into customer-ready review links or follow-up workflows.\n\nWhat needs to be shared:\nWho reviews it:\nDelivery preference:',
-            eyebrow: 'Shared reports',
-            heading: 'Turn exposure findings into a clean customer report.',
-            detail: 'Send the kind of monitoring result you want to share and who needs to review it. The reply can map webhook alerts, review links, and follow-up workflow into one buyer-ready report.',
-        }
-    }
-
-    if (normalizedIntent === 'api') {
-        return {
-            subject: 'Monitoring API access',
-            message: 'I want API or webhook access for company exposure alerts.\n\nSystem to connect:\nFields needed:\nExpected watchlist size:\nDelivery timeline:',
-            eyebrow: 'API access',
-            heading: 'Connect Hanasand alerts to your workflow.',
-            detail: 'Send the system you want to connect, the fields you need, and how the alerts should be delivered. The reply can cover webhook setup, payload shape, and pricing.',
-        }
-    }
-
-    if (normalizedIntent === 'support') {
-        return {
-            subject: 'Support request',
-            message: 'I need help with Hanasand.\n\nPage or feature:\nWhat happened:\nWhat I expected:\nAccount email, if relevant:',
-            eyebrow: 'Support',
-            heading: 'Get help with an account, webhook, API, or terms question.',
-            detail: 'Send the route, account email, webhook, or API workflow you need help with. Support can help with access, billing questions, endpoint changes, and terms-of-service questions.',
-        }
-    }
-
-    if (normalizedIntent === 'procurement' || normalizedIntent === 'enterprise' || normalizedIntent === 'enterprise-procurement' || normalizedIntent === 'security') {
-        return {
-            subject: 'Enterprise security and procurement review',
-            message: 'I need the Hanasand enterprise security review.\n\nOrganization:\nVendor portal or questionnaire link:\nJurisdiction / DPA requirements:\nSecurity controls required:\nSSO / SCIM requirements:\nSLA or support requirements:\nProcurement deadline:',
-            eyebrow: 'Enterprise review',
-            heading: 'Request security, DPA, SLA, and procurement material.',
-            detail: 'Send the vendor portal, required controls, deadline, identity requirements, and contract needs. The reply can cover DPA, subprocessors, SLA/support terms, security questionnaire responses, and onboarding scope.',
-        }
-    }
-
-    if (normalizedPlan === 'evaluation') {
-        return {
-            subject: 'Hanasand evaluation request',
-            message: 'I want to evaluate Hanasand before scoping monitored coverage.\n\nproduct process to evaluate:\nNames/domains of interest:\nTimeline:',
-            eyebrow: 'Evaluation',
-            heading: 'Evaluate the product before monitored activation.',
-            detail: 'Create a console account for self-serve evaluation, or send the workflow you need to validate before a managed monitoring setup.',
-        }
-    }
-
-    if (normalizedPlan === 'monitoring') {
-        return {
-            subject: 'Monitoring access request',
-            message: 'I want to scope monitored coverage for company, subsidiary, vendor, or executive-name exposure.\n\nApproximate watchlist size:\nWebhook or case workflow:\nRetention/support needs:\nMain risk concerns:',
-            eyebrow: 'Monitoring access',
-            heading: 'Scope monitoring for your company and vendors.',
-            detail: 'Send the watchlist shape, delivery workflow, retention, and support needs. The reply can put coverage, limits, and price into an order form.',
-        }
-    }
-
-    if (normalizedPlan === 'integration') {
-        return {
-            subject: 'Monitoring integration request',
-            message: 'I want to connect Hanasand monitoring and threat intelligence to an existing workflow.\n\nSystem to connect:\nAPI routes or webhook events needed:\nExpected request budget:\nSecurity/procurement needs:',
-            eyebrow: 'Integration access',
-            heading: 'Connect monitoring and threat intelligence to your workflow.',
-            detail: 'Send the routes, webhook events, request budget, and security requirements. The reply can scope API keys, delivery, limits, and procurement review.',
-        }
-    }
-
-    return {
-        subject: '',
-        message: '',
-        eyebrow: 'Contact',
-        heading: 'Send a product, support, or monitoring request.',
-        detail: 'Use this page for monitoring questions, support requests, API setup, webhook changes, or account help.',
-    }
+    if (subjects[normalizedIntent]) return subjects[normalizedIntent]
+    if (normalizedPlan === 'evaluation') return 'Product evaluation'
+    if (normalizedPlan === 'monitoring') return 'Monitoring'
+    if (normalizedPlan === 'integration') return 'Integration'
+    return ''
 }
