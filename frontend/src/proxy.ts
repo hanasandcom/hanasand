@@ -79,7 +79,10 @@ export async function proxy(req: NextRequest) {
             }
 
             if (auth.servicePages) {
-                if (!['GET', 'HEAD'].includes(req.method) || !auth.servicePages.includes(canonicalPath)) {
+                const canLoadDatabaseQueries = canonicalPath === '/api/db/queries'
+                    && req.method === 'GET'
+                    && auth.servicePages.includes('/db')
+                if (!['GET', 'HEAD'].includes(req.method) || (!auth.servicePages.includes(canonicalPath) && !canLoadDatabaseQueries)) {
                     return NextResponse.json({ error: 'This service account cannot access this page or action.' }, { status: 403, headers: { 'Cache-Control': 'no-store' } })
                 }
                 return response

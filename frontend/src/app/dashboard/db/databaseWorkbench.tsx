@@ -13,7 +13,7 @@ type TableOption = {
     database: string
 }
 
-export default function DatabaseWorkbench({ overview, serviceAccount = false, children }: { overview: DatabaseOverview, serviceAccount?: boolean, children?: ReactNode }) {
+export default function DatabaseWorkbench({ overview, serviceAccount = false, children }: { overview: Pick<DatabaseOverview, 'status' | 'generatedAt' | 'clusters' | 'health'>, serviceAccount?: boolean, children?: ReactNode }) {
     const tables = useMemo<TableOption[]>(() => overview.clusters.flatMap(cluster =>
         cluster.databases.flatMap(database => (database.tables || []).map(table => ({
             schema: table.schema,

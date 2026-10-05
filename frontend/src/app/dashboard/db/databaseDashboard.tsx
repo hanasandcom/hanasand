@@ -1,4 +1,4 @@
-import { AlertTriangle, ArchiveRestore, CheckCircle2, ChevronDown, Clock3, DatabaseBackup, HardDrive, TrendingUp } from 'lucide-react'
+import { AlertTriangle, ArchiveRestore, CheckCircle2, Clock3, DatabaseBackup, HardDrive, TrendingUp } from 'lucide-react'
 import type { ReactNode } from 'react'
 import Button from '@/components/misc/button'
 import { DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
@@ -7,7 +7,7 @@ import DatabaseWorkbench from './databaseWorkbench'
 import DatabaseRefresh from './databaseRefresh'
 import DatabaseInventory from './databaseInventory'
 import DatabaseStoragePanel from './databaseStoragePanel'
-import QueryCard from './queryCard'
+import DatabaseQueriesDisclosure from './databaseQueriesDisclosure'
 
 
 export function DatabaseDashboard({ overview, serviceAccount = false }: { overview: DatabaseOverview, serviceAccount?: boolean }) {
@@ -17,11 +17,16 @@ export function DatabaseDashboard({ overview, serviceAccount = false }: { overvi
     const issues = storage?.instances.filter(instance => instance.status !== 'healthy') || []
     const daily = disk?.dailyGrowthBytes
     const days = disk?.daysUntilFull
+    const querySummary = overview.querySummary || {
+        count: overview.queries.length,
+        longRunningCount: overview.queries.filter(query => query.isLongRunning).length,
+        longestDurationSeconds: overview.longestQuery?.durationSeconds ?? null,
+    }
 
 
     return <DashboardPage>
         <DatabaseRefresh />
-        <DatabaseWorkbench overview={overview} serviceAccount={serviceAccount}>
+        <DatabaseWorkbench overview={{ status: overview.status, generatedAt: overview.generatedAt, clusters: overview.clusters, health: overview.health }} serviceAccount={serviceAccount}>
             <section className='grid gap-3 sm:grid-cols-2 xl:grid-cols-4' aria-label='Storage health' data-db-monitor-metrics data-clusters={overview.clusterCount} data-databases={overview.databaseCount} data-storage-bytes={overview.totalSizeBytes}>
                 <MetricCard icon={<HardDrive />} label='Disk free' value={disk ? formatBytes(disk.availableBytes) : 'Unavailable'} detail={disk ? `${formatBytes(disk.totalBytes)} total · ${storage?.host}` : 'Storage measurements unavailable'} />
                 <MetricCard icon={<TrendingUp />} label='Growth / day' value={daily == null ? 'Measuring' : `${daily < 0 ? '−' : '+'}${formatBytes(Math.abs(daily))}`} detail={disk ? `Net disk change · ${Math.min(24, disk.sampleSeconds / 3600).toFixed(1)}h sampled` : 'No recent measurement'} />
@@ -35,21 +40,14 @@ export function DatabaseDashboard({ overview, serviceAccount = false }: { overvi
         </DatabaseStoragePanel>
 
 
-        <Disclosure title='Queries' id='active-queries' detail={`${overview.queries.length} shown · ${overview.queries.filter(q => q.isLongRunning).length} long-running · Long-running after ${formatTime(overview.longRunningThresholdSeconds)} · Checked ${formatDateTime(overview.generatedAt)}`}>
-            {overview.queries.length ? <div className='space-y-5 divide-y divide-ui-border [&>details+details]:pt-5'>{overview.queries.map((query, index) => <QueryCard key={`${query.database}-${query.user}-${query.query}-${index}`} query={query} duration={formatTime(query.durationSeconds)} collapsible />)}</div> : <p className='text-sm text-ui-muted'>{overview.status === 'unavailable' ? 'Query activity unavailable.' : 'No active queries.'}</p>}
-        </Disclosure>
-        <Disclosure title='Longest running query' detail={overview.longestQuery ? formatTime(overview.longestQuery.durationSeconds) : 'None'}>
-            {overview.longestQuery ? <QueryCard query={overview.longestQuery} duration={formatTime(overview.longestQuery.durationSeconds)} /> : <p className='text-sm text-ui-muted'>No query to show.</p>}
-        </Disclosure>
+        <DatabaseQueriesDisclosure
+            count={querySummary.count}
+            longRunningCount={querySummary.longRunningCount}
+            longestDurationSeconds={querySummary.longestDurationSeconds}
+            thresholdSeconds={overview.longRunningThresholdSeconds}
+            checkedAt={overview.generatedAt}
+        />
     </DashboardPage>
-}
-
-function Disclosure({ title, detail, id, children }: { title: string, detail: string, id?: string, children: ReactNode }) {
-    return <details id={id} className='group min-w-0 rounded-lg border border-ui-border bg-ui-panel'>
-        <summary className='flex cursor-pointer list-none flex-wrap items-center gap-3 p-5 focus-visible:outline-ui-primary [&::-webkit-details-marker]:hidden'>
-            <ChevronDown aria-hidden className='h-4 w-4 text-ui-muted transition group-open:rotate-180' /><h2 className='text-base font-semibold'>{title}</h2><span className='ml-auto text-xs text-ui-muted'>{detail}</span>
-        </summary><div className='min-w-0 border-t border-ui-border p-5'>{children}</div>
-    </details>
 }
 
 export function DatabaseActions() {
@@ -79,13 +77,6 @@ function formatBytes(bytes: number | null) {
         index++
     }
     return `${value.toFixed(index === 0 ? 0 : 2)} ${units[index]}`
-}
-
-function formatTime(value?: number | null) {
-    if (!Number.isFinite(value ?? NaN) || !value) return '0s'
-    if (value < 60) return `${Math.round(value)}s`
-    if (value < 3600) return `${Math.round(value / 60)}m`
-    return `${Math.round(value / 3600)}h`
 }
 
 function formatDateTime(value: string) {

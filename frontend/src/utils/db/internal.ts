@@ -27,6 +27,7 @@ export type DatabaseOverview = {
     longRunningThresholdSeconds: number
     longestQuery?: DatabaseQueryActivity | null
     queries: DatabaseQueryActivity[]
+    querySummary?: { count: number, longRunningCount: number, longestDurationSeconds: number | null }
     health: {
         message: string
         detail?: string
@@ -171,7 +172,7 @@ let refreshingDatabaseOverview: Promise<DatabaseOverview | string> | null = null
 
 function refreshDatabaseOverview() {
     if (refreshingDatabaseOverview) return refreshingDatabaseOverview
-    const refresh = requestService<DatabaseOverview>('internal', 'db', { cache: 'no-store' }).then(value => {
+    const refresh = requestService<DatabaseOverview>('internal', 'db?summary=1', { cache: 'no-store' }).then(value => {
         if (typeof value !== 'string' && value.status === 'healthy') {
             cachedDatabaseOverview = { value, refreshedAt: Date.now() }
         }
@@ -193,6 +194,10 @@ export async function getDatabaseOverview() {
     }
 
     return cachedDatabaseOverview.value
+}
+
+export async function getDatabaseQueries() {
+    return await requestService<Pick<DatabaseOverview, 'queries' | 'longestQuery'>>('internal', 'db', { cache: 'no-store' })
 }
 
 export async function getDatabaseHealth() {
