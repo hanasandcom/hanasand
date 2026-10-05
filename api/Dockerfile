@@ -37,7 +37,9 @@ ARG HANASAND_RELEASE_COMMIT=unknown
 ARG TRIVY_VERSION=0.72.0
 LABEL org.opencontainers.image.revision=$HANASAND_RELEASE_COMMIT
 RUN apk add --no-cache varnish git openssh-client docker-cli curl tar postgresql-client \
-    && curl -fsSL "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" \
+    && curl --fail --silent --show-error --location \
+        --connect-timeout 10 --max-time 180 --retry 3 --retry-all-errors --retry-delay 2 \
+        "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" \
         | tar -xz -C /usr/local/bin trivy \
     && chmod +x /usr/local/bin/trivy
 
