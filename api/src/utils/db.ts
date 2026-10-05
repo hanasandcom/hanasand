@@ -260,13 +260,14 @@ export async function queryOnce(query: string, params?: SQLParamType, name?: str
     }
 }
 
-export async function withDatabaseAdvisoryLock<T>(key: string, work: () => Promise<T>): Promise<T> {
+export async function withDatabaseAdvisoryLock<T>(key: string, work: (query: (sql: string, params?: SQLParamType) => Promise<pg.QueryResult>) => Promise<T>): Promise<T> {
     // A session advisory lock must keep using the same PostgreSQL backend until
     // it is unlocked. Transaction pooling can assign a different backend per query.
     const client = await connectDatabase(DB_POOL_HOST ? directPool : activePool())
     try {
         await client.query('SELECT pg_advisory_lock(hashtextextended($1, 0))', [key])
-        return await work()
+        const query = (sql: string, params?: SQLParamType) => client.query(sql, params ?? [])
+        return await work(query)
     } finally {
         await client.query('SELECT pg_advisory_unlock(hashtextextended($1, 0))', [key]).catch(() => {})
         client.release()

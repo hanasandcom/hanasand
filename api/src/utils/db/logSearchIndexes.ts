@@ -1,4 +1,4 @@
-import run, { withDatabaseAdvisoryLock } from '#db'
+import { withDatabaseAdvisoryLock } from '#db'
 import { logPhraseSearchExpression } from '../logs/searchText.ts'
 
 const logSearchIndexNames = [
@@ -51,16 +51,16 @@ async function buildLogSearchIndexes() {
     // Concurrent index builds cannot run inside the schema transaction. Serialize
     // the build, but keep the API startup path independent of a large one-time
     // index build so health checks do not report the service as unavailable.
-    await withDatabaseAdvisoryLock('event:log-search-indexes', async () => {
+    await withDatabaseAdvisoryLock('event:log-search-indexes', async query => {
         const indexNames = [...logSearchIndexNames]
-        const invalid = await run(`SELECT c.relname FROM pg_index i JOIN pg_class c ON c.oid = i.indexrelid
+        const invalid = await query(`SELECT c.relname FROM pg_index i JOIN pg_class c ON c.oid = i.indexrelid
             WHERE c.relname = ANY($1::text[]) AND NOT i.indisvalid`, [indexNames])
         for (const row of invalid.rows) {
             const name = String(row.relname)
-            if (logSearchIndexNames.includes(name as typeof logSearchIndexNames[number])) await run(`DROP INDEX CONCURRENTLY IF EXISTS ${name}`)
+            if (logSearchIndexNames.includes(name as typeof logSearchIndexNames[number])) await query(`DROP INDEX CONCURRENTLY IF EXISTS ${name}`)
         }
-        for (const statement of logSearchIndexes) await run(statement)
-        const remainingInvalid = await run(`SELECT c.relname FROM pg_index i JOIN pg_class c ON c.oid = i.indexrelid
+        for (const statement of logSearchIndexes) await query(statement)
+        const remainingInvalid = await query(`SELECT c.relname FROM pg_index i JOIN pg_class c ON c.oid = i.indexrelid
             WHERE c.relname = ANY($1::text[])
               AND NOT i.indisvalid`, [indexNames])
         if (remainingInvalid.rows.length) throw new Error('Log search index build is incomplete: ' + remainingInvalid.rows.map(row => row.relname).join(', '))
