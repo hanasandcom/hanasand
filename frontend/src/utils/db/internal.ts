@@ -159,8 +159,34 @@ export type DatabaseHealth = {
     message?: string
 }
 
+const DATABASE_OVERVIEW_CACHE_MS = 10_000
+let cachedDatabaseOverview: { value: DatabaseOverview, refreshedAt: number } | null = null
+let refreshingDatabaseOverview: Promise<DatabaseOverview | string> | null = null
+
+function refreshDatabaseOverview() {
+    if (refreshingDatabaseOverview) return refreshingDatabaseOverview
+    const refresh = requestService<DatabaseOverview>('internal', 'db', { cache: 'no-store' }).then(value => {
+        if (typeof value !== 'string' && value.status === 'healthy') {
+            cachedDatabaseOverview = { value, refreshedAt: Date.now() }
+        }
+        return value
+    }).finally(() => {
+        if (refreshingDatabaseOverview === refresh) refreshingDatabaseOverview = null
+    })
+    refreshingDatabaseOverview = refresh
+    return refresh
+}
+
 export async function getDatabaseOverview() {
-    return await requestService<DatabaseOverview>('internal', 'db', { cache: 'no-store' })
+    if (!cachedDatabaseOverview) return refreshDatabaseOverview()
+
+    const age = Date.now() - cachedDatabaseOverview.refreshedAt
+    if (age >= DATABASE_OVERVIEW_CACHE_MS) {
+        // Page authorization runs in the proxy for every request; reuse this shared telemetry while it refreshes.
+        void refreshDatabaseOverview().catch(() => undefined)
+    }
+
+    return cachedDatabaseOverview.value
 }
 
 export async function getDatabaseHealth() {
