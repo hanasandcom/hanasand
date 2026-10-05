@@ -1,11 +1,14 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
+import config from '#constants'
 import run, { withDatabaseAdvisoryLock, withTransaction } from '#db'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import { applyManagedHostSshKeys, normalizeHostPublicKey } from '#utils/hostSsh.ts'
+import { cachedRead } from '#utils/readCache.ts'
 import { recordSystemEvent } from '#utils/systemEvent.ts'
 
 type ProfileSshKey = { id: number, name: string, public_key: string, added_at: string }
 type ProfileSshKeyUsage = { fingerprint: string, last_used_at: string | Date }
+const PROFILE_SSH_KEY_USAGE_CACHE_PREFIX = 'profile-ssh-key-usage:'
 
 async function authorizeSelf(req: FastifyRequest, res: FastifyReply) {
     res.header('Cache-Control', 'private, no-store')
@@ -34,36 +37,40 @@ async function profileKeys(userId: string) {
 
 async function profileKeyUsage(fingerprints: string[]) {
     if (!fingerprints.length) return new Map<string, string>()
-    const result = await run(`
-        SELECT fingerprint, MAX(event_timestamp) AS last_used_at
-        FROM (
-            SELECT e.event_timestamp,
-                   substring(e.normalized->>'message' FROM '(SHA256:[A-Za-z0-9+/]{43})') AS fingerprint
-            FROM events e
-            WHERE e.organization_id = (
-                SELECT id
-                FROM organizations
-                WHERE status = 'active'
-                  AND (id = $3 OR ($3::text IS NULL AND lower(name) = 'hanasand'))
-                ORDER BY created_at
-                LIMIT 1
-            )
-              AND e.ingestion_id = 'logs'
-              AND e.processing_status = 'processed'
-              AND e.event_type = 'authentication'
-              AND e.action = 'login'
-              AND e.outcome = 'success'
-              AND e.normalized->>'service' = 'sshd'
-              AND e.normalized->>'host' = ANY($1::text[])
-              AND e.normalized->>'message' LIKE 'Accepted publickey for % ssh2: % SHA256:%'
-        ) accepted_keys
-        WHERE fingerprint = ANY($2::text[])
-        GROUP BY fingerprint
-    `, [['inspur', 'ovhcloud'], fingerprints, process.env.PLATFORM_LOG_ORGANIZATION_ID || null])
-    return new Map((result.rows as ProfileSshKeyUsage[]).map(row => [
-        row.fingerprint,
-        row.last_used_at instanceof Date ? row.last_used_at.toISOString() : row.last_used_at,
-    ]))
+    const organizationId = process.env.PLATFORM_LOG_ORGANIZATION_ID || null
+    const cacheKey = `${PROFILE_SSH_KEY_USAGE_CACHE_PREFIX}${organizationId || 'hanasand'}:${[...new Set(fingerprints)].sort().join(',')}`
+    return cachedRead(cacheKey, config.CACHE_TTL_HOT, async () => {
+        const result = await run(`
+            SELECT fingerprint, MAX(event_timestamp) AS last_used_at
+            FROM (
+                SELECT e.event_timestamp,
+                       substring(e.normalized->>'message' FROM '(SHA256:[A-Za-z0-9+/]{43})') AS fingerprint
+                FROM events e
+                WHERE e.organization_id = (
+                    SELECT id
+                    FROM organizations
+                    WHERE status = 'active'
+                      AND (id = $3 OR ($3::text IS NULL AND lower(name) = 'hanasand'))
+                    ORDER BY created_at
+                    LIMIT 1
+                )
+                  AND e.ingestion_id = 'logs'
+                  AND e.processing_status = 'processed'
+                  AND e.event_type = 'authentication'
+                  AND e.action = 'login'
+                  AND e.outcome = 'success'
+                  AND e.normalized->>'service' = 'sshd'
+                  AND e.normalized->>'host' = ANY($1::text[])
+                  AND e.normalized->>'message' LIKE 'Accepted publickey for % ssh2: % SHA256:%'
+            ) accepted_keys
+            WHERE fingerprint = ANY($2::text[])
+            GROUP BY fingerprint
+        `, [['inspur', 'ovhcloud'], fingerprints, organizationId])
+        return new Map((result.rows as ProfileSshKeyUsage[]).map(row => [
+            row.fingerprint,
+            row.last_used_at instanceof Date ? row.last_used_at.toISOString() : row.last_used_at,
+        ]))
+    })
 }
 
 async function currentHostKeys(exclude?: { userId: string, certificateId: number }) {
