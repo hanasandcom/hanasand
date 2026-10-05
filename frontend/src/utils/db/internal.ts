@@ -2,6 +2,8 @@
 
 import { requestService } from '@/utils/monitoring/serviceApi'
 
+const backupDataCache = { revalidate: 30, tags: ['database-backups'] }
+
 export type DatabaseOverview = {
     storage?: {
         sampledAt: string
@@ -178,7 +180,7 @@ export async function getDatabaseRows(schema: string, table: string, limit: numb
 }
 
 export async function getBackupServices() {
-    return await requestService<BackupService[]>('internal', 'backup')
+    return await requestService<BackupService[]>('internal', 'backup', undefined, backupDataCache)
 }
 
 export async function getBackupFiles(service?: string, date?: string) {
@@ -186,7 +188,7 @@ export async function getBackupFiles(service?: string, date?: string) {
     if (service) params.set('service', service)
     if (date) params.set('date', date)
     const suffix = params.toString()
-    return await requestService<BackupFile[]>('internal', `backup/files${suffix ? `?${suffix}` : ''}`)
+    return await requestService<BackupFile[]>('internal', `backup/files${suffix ? `?${suffix}` : ''}`, undefined, backupDataCache)
 }
 
 export async function triggerDatabaseBackup() {

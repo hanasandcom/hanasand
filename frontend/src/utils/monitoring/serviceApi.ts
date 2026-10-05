@@ -4,12 +4,13 @@ import config from '@/config'
 import { cookies } from 'next/headers'
 
 type ServiceName = 'cdn' | 'internal'
+type ServiceCacheOptions = { revalidate?: number | false, tags?: string[] }
 
 function getBaseUrl(service: ServiceName) {
     return service === 'cdn' ? config.url.cdn : config.url.internal
 }
 
-export async function requestService<T>(service: ServiceName, path: string, init?: RequestInit): Promise<T | string> {
+export async function requestService<T>(service: ServiceName, path: string, init?: RequestInit, cacheOptions?: ServiceCacheOptions): Promise<T | string> {
     const cookieStore = await cookies()
     const rawToken = cookieStore.get('access_token')?.value || ''
     const token = rawToken ? safeDecode(rawToken) : ''
@@ -28,7 +29,7 @@ export async function requestService<T>(service: ServiceName, path: string, init
                 ...(id ? { id } : {}),
                 ...(init?.headers || {}),
             },
-            ...(init?.method && init.method !== 'GET' ? { cache: 'no-store' as const } : { next: { revalidate: 5 } }),
+            ...(init?.method && init.method !== 'GET' ? { cache: 'no-store' as const } : { next: { revalidate: cacheOptions?.revalidate ?? 5, ...(cacheOptions?.tags ? { tags: cacheOptions.tags } : {}) } }),
             signal: init?.signal || controller.signal,
         })
 
