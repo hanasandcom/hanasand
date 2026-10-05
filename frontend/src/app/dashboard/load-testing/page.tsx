@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 
 const allowances = [
     { name: 'Evaluation', availability: 'Active', checks: '5 total', operation: 'Manual', cta: 'Start check', href: '/test' },
-    { name: 'Higher allowance', availability: 'Sales scoped', checks: 'Written scope', operation: 'Provisioned', cta: 'Request access', href: '/contact?intent=load-testing' },
+    { name: 'Higher allowance', availability: 'Sales scoped', checks: 'Written scope', operation: 'Provisioned', cta: 'Request access', href: '/contact' },
 ]
 
 export default function LoadTestingPage() {

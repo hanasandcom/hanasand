@@ -12,11 +12,6 @@ type ContactBody = {
     company?: unknown
     subject?: unknown
     message?: unknown
-    intent?: unknown
-    plan?: unknown
-    deliveryPreference?: unknown
-    replyWindow?: unknown
-    securityReview?: unknown
     source?: unknown
 }
 
@@ -26,11 +21,6 @@ type ContactInput = {
     company: string | null
     subject: string
     message: string
-    intent: string | null
-    plan: string | null
-    deliveryPreference: string | null
-    replyWindow: string | null
-    securityReview: boolean
     source: string
 }
 
@@ -107,9 +97,7 @@ export async function handleCommercialContactRequest(
         delivery: notificationStatus === 'notified' ? 'notified' : 'stored',
         replayed: !persisted.inserted,
         requestId: req.id,
-        nextStep: normalized.input.securityReview
-            ? 'We received the request. Expect a reply by email with coverage fit, setup steps, and security review material.'
-            : 'We received the request. Expect a reply by email with coverage fit, setup steps, or support follow-up.',
+        nextStep: 'We received your message and will reply by email.',
     })
 }
 
@@ -123,8 +111,7 @@ export async function getCommercialContactRequests(req: FastifyRequest<{ Queryst
     const limit = Number(req.query?.limit || 50)
     if (!Number.isInteger(limit) || limit < 1 || limit > 100) return res.status(400).send({ error: 'limit must be an integer from 1 to 100.' })
     const result = await run(`
-        SELECT ticket_id, name, email, company, subject, message, intent, plan,
-               delivery_preference, reply_window, security_review, source, status,
+        SELECT ticket_id, name, email, company, subject, message, source, status,
                notification_status, created_at, updated_at
         FROM commercial_contact_requests
         ORDER BY created_at DESC
@@ -134,7 +121,7 @@ export async function getCommercialContactRequests(req: FastifyRequest<{ Queryst
 }
 
 export function normalizeCommercialContactRequest(body: ContactBody | undefined): { ok: true, input: ContactInput } | { ok: false, error: string } {
-    const limits = { name: 200, email: 320, company: 300, subject: 300, message: 8_000, intent: 100, plan: 100, deliveryPreference: 60, replyWindow: 60, source: 1_000 } as const
+    const limits = { name: 200, email: 320, company: 300, subject: 300, message: 8_000, source: 1_000 } as const
     const oversized = Object.entries(limits).find(([field, max]) => {
         const value = body?.[field as keyof ContactBody]
         return typeof value === 'string' && value.trim().length > max
@@ -146,18 +133,10 @@ export function normalizeCommercialContactRequest(body: ContactBody | undefined)
     const company = text(body?.company, 300)
     const subject = text(body?.subject, 300)
     const message = text(body?.message, 8_000)
-    const intent = text(body?.intent, 100)
-    const plan = text(body?.plan, 100)
-    const deliveryPreference = text(body?.deliveryPreference, 60)
-    const replyWindow = text(body?.replyWindow, 60)
-    const securityReview = body?.securityReview === true || body?.securityReview === 'true' || body?.securityReview === 'on'
-
     if (!name || !email || !subject || !message) return { ok: false, error: 'Name, email, subject, and message are required.' }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, error: 'Use a valid email address.' }
     if (!isExternalContactAddress(email)) return { ok: false, error: 'Use your own external email address. Hanasand addresses cannot be used on this public form.' }
     if (message.length < 20) return { ok: false, error: 'Message must be at least 20 characters.' }
-    if (securityReview && !company) return { ok: false, error: 'Company is required for security review requests.' }
-
     return {
         ok: true,
         input: {
@@ -166,11 +145,6 @@ export function normalizeCommercialContactRequest(body: ContactBody | undefined)
             company: company || null,
             subject,
             message,
-            intent: intent || null,
-            plan: plan || null,
-            deliveryPreference: deliveryPreference || null,
-            replyWindow: replyWindow || null,
-            securityReview,
             source: safeSource(text(body?.source, 1_000)),
         },
     }
@@ -181,16 +155,14 @@ async function persistContactRequest(input: ContactInput, idempotencyKey: string
     const inserted = await run(`
         INSERT INTO commercial_contact_requests (
             ticket_id, idempotency_key, payload_hash, name, email, company, subject,
-            message, intent, plan, delivery_preference, reply_window, security_review,
-            source, request_id
+            message, source, request_id
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         ON CONFLICT (idempotency_key) DO NOTHING
         RETURNING ticket_id, created_at, payload_hash, notification_status
     `, [
         ticketId, idempotencyKey, payloadHash, input.name, input.email, input.company,
-        input.subject, input.message, input.intent, input.plan, input.deliveryPreference,
-        input.replyWindow, input.securityReview, input.source, requestId,
+        input.subject, input.message, input.source, requestId,
     ])
     const row = inserted.rows[0] || (await run(`
         SELECT ticket_id, created_at, payload_hash, notification_status
@@ -218,11 +190,6 @@ async function notifyCommercialOwner(input: ContactInput, ticketId: string) {
             `Name: ${input.name}`,
             `Email: ${input.email}`,
             `Company: ${input.company || 'not provided'}`,
-            `Intent: ${input.intent || 'not provided'}`,
-            `Plan: ${input.plan || 'not provided'}`,
-            `Preferred delivery: ${input.deliveryPreference || 'not provided'}`,
-            `Reply window: ${input.replyWindow || 'not provided'}`,
-            `Security review: ${input.securityReview ? 'yes' : 'no'}`,
             '',
             input.message,
         ].join('\n'),

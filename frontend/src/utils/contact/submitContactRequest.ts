@@ -8,11 +8,6 @@ export type CommercialContactRequest = {
     company?: string
     subject: string
     message: string
-    intent?: string
-    plan?: string
-    deliveryPreference?: string
-    replyWindow?: string
-    securityReview?: boolean
     source?: string
 }
 
@@ -29,4 +24,3 @@ export async function submitContactRequest(payload: CommercialContactRequest) {
     if (!response.ok || body.error) throw new Error(body.error || 'Contact intake is temporarily unavailable.')
     return body
 }
-

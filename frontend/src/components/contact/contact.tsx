@@ -15,18 +15,14 @@ type ContactResult = {
     nextStep: string
 }
 
-export default function Contact({ plan = '', intent = '' }: { plan?: string; intent?: string }) {
+export default function Contact() {
     const [submitting, setSubmitting] = useState(false)
     const [submitError, setSubmitError] = useState('')
     const [result, setResult] = useState<ContactResult | null>(null)
     const validationSchema = Yup.object().shape({
         name: Yup.string().required('Name is required'),
         email: Yup.string().email('Invalid email').required('Email is required'),
-        company: Yup.string().test(
-            'security-review-company',
-            'Company is required for security review requests',
-            value => !isSecurityReview(intent) || Boolean(value?.trim()),
-        ),
+        company: Yup.string(),
         type: Yup.string().min(5, 'Subject must be at least 5 characters').required('Subject is required'),
         message: Yup.string().min(20, 'Message must be at least 20 characters').required('Message is required'),
     })
@@ -36,10 +32,9 @@ export default function Contact({ plan = '', intent = '' }: { plan?: string; int
             name: '',
             email: '',
             company: '',
-            type: contactSubject(plan, intent),
+            type: '',
             message: '',
         },
-        enableReinitialize: true,
         validationSchema,
         onSubmit: async (values) => {
             setSubmitting(true)
@@ -52,10 +47,7 @@ export default function Contact({ plan = '', intent = '' }: { plan?: string; int
                     company: values.company,
                     subject: values.type,
                     message: values.message,
-                    intent,
-                    plan,
-                    securityReview: isSecurityReview(intent),
-                    source: window.location.href,
+                    source: window.location.pathname,
                 })
                 setResult({
                     ticketId: payload.ticketId || 'received',
@@ -76,8 +68,7 @@ export default function Contact({ plan = '', intent = '' }: { plan?: string; int
         <section className='min-h-app-viewport bg-ui-canvas px-4 py-12 text-ui-text md:px-8 md:py-18'>
             <div className='mx-auto grid max-w-5xl gap-8 lg:grid-cols-[0.65fr_1.35fr] lg:items-start'>
                 <div className='grid gap-3'>
-                    <p className='text-sm font-semibold uppercase text-ui-primary'>Contact</p>
-                    <h1 className='text-4xl font-semibold tracking-normal md:text-5xl'>Get in touch.</h1>
+                    <h1 className='text-4xl font-semibold tracking-normal md:text-5xl'>Contact us</h1>
                     <a href='mailto:contact@hanasand.com' className='inline-flex w-fit items-center gap-2 text-sm font-semibold text-ui-primary hover:text-ui-primary/80'>
                         <Mail className='h-4 w-4' /> contact@hanasand.com
                     </a>
@@ -105,7 +96,7 @@ export default function Contact({ plan = '', intent = '' }: { plan?: string; int
                     </Field>
 
                     <Field icon={<Building2 className='h-4 w-4 text-ui-muted' />} label='Company or team' error={formik.touched.company ? formik.errors.company : undefined}>
-                        <input type='text' className={fieldClassName} {...formik.getFieldProps('company')} placeholder={isSecurityReview(intent) ? 'Company' : 'Optional'} autoComplete='organization' required={isSecurityReview(intent)} />
+                        <input type='text' className={fieldClassName} {...formik.getFieldProps('company')} placeholder='Optional' autoComplete='organization' />
                     </Field>
 
                     <Field icon={<MessageSquareText className='h-4 w-4 text-ui-muted' />} label='Subject' error={formik.touched.type ? formik.errors.type : undefined}>
@@ -141,29 +132,4 @@ function Field({ label, icon, error, children }: { label: string, icon: ReactNod
             {error && <ErrorNotice compact message={error} />}
         </label>
     )
-}
-
-function isSecurityReview(intent: string) {
-    return ['procurement', 'enterprise', 'enterprise-procurement', 'security'].includes(intent.trim().toLowerCase())
-}
-
-function contactSubject(plan: string, intent: string) {
-    const normalizedIntent = intent.trim().toLowerCase()
-    const normalizedPlan = plan.trim().toLowerCase()
-    const subjects: Record<string, string> = {
-        dwm: 'Dark web monitoring',
-        sales: 'Sales inquiry',
-        reports: 'Shared reports',
-        api: 'API access',
-        support: 'Support request',
-        procurement: 'Security review',
-        enterprise: 'Security review',
-        'enterprise-procurement': 'Security review',
-        security: 'Security review',
-    }
-    if (subjects[normalizedIntent]) return subjects[normalizedIntent]
-    if (normalizedPlan === 'evaluation') return 'Product evaluation'
-    if (normalizedPlan === 'monitoring') return 'Monitoring'
-    if (normalizedPlan === 'integration') return 'Integration'
-    return ''
 }

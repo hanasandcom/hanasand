@@ -54,8 +54,8 @@ export default function NotFound() {
                             Search threat intelligence
                             <ArrowRight className='h-4 w-4 text-ui-danger' />
                         </Link>
-                        <Link href='/contact?intent=dwm' className='inline-flex h-11 items-center gap-2 rounded-lg border border-ui-border bg-ui-panel px-4 text-sm font-semibold text-ui-text transition hover:border-ui-primary'>
-                            Contact sales
+                        <Link href='/contact' className='inline-flex h-11 items-center gap-2 rounded-lg border border-ui-border bg-ui-panel px-4 text-sm font-semibold text-ui-text transition hover:border-ui-primary'>
+                            Contact
                         </Link>
                     </div>
                 </div>

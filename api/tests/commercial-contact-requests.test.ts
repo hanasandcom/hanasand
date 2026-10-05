@@ -8,19 +8,17 @@ const body = {
     company: 'Acme Security',
     subject: 'Monitoring access request',
     message: 'We need company and supplier monitoring with webhook delivery.',
-    plan: 'monitoring',
-    securityReview: true,
 }
 
 describe('commercial contact intake', () => {
-    test('validates the commercial trust boundary', () => {
+    test('validates a direct contact request without routing categories', () => {
         expect(normalizeCommercialContactRequest({ ...body, email: 'not-an-email' })).toEqual({ ok: false, error: 'Use a valid email address.' })
-        expect(normalizeCommercialContactRequest({ ...body, company: '' })).toEqual({ ok: false, error: 'Company is required for security review requests.' })
+        expect(normalizeCommercialContactRequest({ ...body, company: '' })).toMatchObject({ ok: true, input: { company: null } })
         expect(normalizeCommercialContactRequest({ ...body, subject: 'x'.repeat(301) })).toEqual({ ok: false, error: 'subject exceeds the 300 character limit.' })
         for (const email of ['eirik@hanasand.com', 'NOREPLY@HANASAND.COM', 'admin@sub.hanasand.com', 'a,b@example.com']) {
             expect(normalizeCommercialContactRequest({ ...body, email }).ok).toBe(false)
         }
-        expect(normalizeCommercialContactRequest(body)).toMatchObject({ ok: true, input: { email: 'avery@acme.test', plan: 'monitoring', securityReview: true } })
+        expect(normalizeCommercialContactRequest(body)).toMatchObject({ ok: true, input: { email: 'avery@acme.test', company: 'Acme Security', subject: body.subject } })
     })
 
     test('stores once, notifies once, and rejects conflicting idempotent replays', async () => {
