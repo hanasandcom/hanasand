@@ -2,16 +2,15 @@
 import { test } from 'bun:test'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
-import path from 'node:path'
 
 test('scraper control preserves auth and reports unavailable health as failure', async () => {
-    const source = await readFile(path.join(process.cwd(), 'src/app/api/ti/scraper/control/route.ts'), 'utf8')
+    const source = await readFile(new URL('../../api/src/handlers/ti/scraperControl.ts', import.meta.url), 'utf8')
 
-    assert.match(source, /requireApiSession\(request\)/)
-    assert.match(source, /organization_access_required/)
-    assert.match(source, /authorization: `Bearer \$\{identity\.token\}`/)
+    assert.match(source, /tokenWrapper\(request, reply\)/)
+    assert.match(source, /if \(!auth\.valid \|\| !auth\.id\)/)
+    assert.match(source, /authorization: `Bearer \$\{actor\.token\}`/)
     assert.match(source, /tenantId: 'default'/)
     assert.match(source, /const scraperUnavailable = !health\.ok/)
     assert.match(source, /ok: !scraperUnavailable/)
-    assert.match(source, /status: scraperUnavailable \? 503 : 200/)
+    assert.match(source, /reply\.code\(scraperUnavailable \? 503 : 200\)/)
 })
