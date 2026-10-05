@@ -1,6 +1,7 @@
 import { activeOrganizationId } from '@/utils/organizations/serverWorkspace'
 import { DashboardPage } from '@/components/dashboard/ui'
 import type { DwmProductSnapshot } from '@/utils/dwm/product'
+import { decodePublicTiHandoffPayload, PUBLIC_TI_HANDOFF_SOURCE } from '@/utils/ti/actorWorkbench'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import tokenIsValid from '@/utils/proxy/tokenIsValid'
@@ -37,6 +38,9 @@ export default async function DashboardDwmPage({
     const session = view === 'watchlists' ? null : await tokenIsValid(token, identityId, cookieStore.get('impersonation_token')?.value)
     const isAdmin = session?.valid === true && session.canViewInternalPages === true
     const initialAlertId = firstParam(params?.alert)
+    const publicTiHandoff = firstParam(params?.handoff) === PUBLIC_TI_HANDOFF_SOURCE
+        ? decodePublicTiHandoffPayload(firstParam(params?.payload), firstParam(params?.intent))
+        : null
 
     return (
         <DashboardPage className='gap-2 sm:gap-3'>
@@ -50,6 +54,7 @@ export default async function DashboardDwmPage({
                 deliveries={[]}
                 dataHealth={loadingDataHealth()}
                 initialAlertId={initialAlertId}
+                publicTiHandoff={publicTiHandoff}
                 isAdmin={isAdmin}
                 view={view}
             />

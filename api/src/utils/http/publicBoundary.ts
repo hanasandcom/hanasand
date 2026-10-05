@@ -3,7 +3,6 @@ import type { FastifyRequest } from 'fastify'
 const DEFAULT_API_ORIGINS = [
     'https://hanasand.com',
     'https://www.hanasand.com',
-    'https://ti.hanasand.com',
     ...(process.env.NODE_ENV === 'production' ? [] : ['http://localhost:3000', 'http://127.0.0.1:3000']),
 ]
 

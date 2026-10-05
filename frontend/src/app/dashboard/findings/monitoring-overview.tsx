@@ -5,16 +5,13 @@ import { Loader2 } from 'lucide-react'
 import Link from '@/components/organizations/workspaceLink'
 import type { DwmActorOverview } from '@/utils/dwm/product'
 import { customerAlertSummary, safeEvidenceExcerpt } from '@/utils/dwm/display'
+import { actorProfileHref } from '@/utils/ti/actorProfileRoute'
 import type { DwmDataHealth, PortalAlert } from './findings'
 
 const panel = 'min-w-0 rounded-lg border border-ui-border bg-ui-panel'
 const control = 'rounded-md border border-ui-border bg-ui-canvas px-3 py-2 text-sm text-ui-text'
 const link = 'text-sm font-semibold text-ui-primary underline-offset-2 hover:underline'
 const pageSize = 20
-
-function actorProfileHref(actor: string) {
-    return `https://ti.hanasand.com/ti/${encodeURIComponent(actor)}`
-}
 const needsReview = (alert: PortalAlert) => !['resolved', 'closed', 'false_positive', 'suppressed'].includes(alert.reviewState) && alert.deliveryState !== 'muted'
 const label = (value: string) => value.replaceAll('_', ' ')
 

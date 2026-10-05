@@ -35,7 +35,8 @@ const tasks: TestTask[] = [
     { id: 'dashboard-overview-server', title: 'Dashboard monitoring server rendering', command: [bun, 'test', 'tests/dashboard-overview-server.test.ts'] },
     { id: 'service-account-boundary', title: 'Scoped service account browser access', command: [bun, 'tests/service-account-boundary.test.ts'] },
     { id: 'numbered-pagination', title: 'Numbered page navigation', command: [bun, 'test', 'tests/numbered-pagination.test.tsx'] },
-    { id: 'ti-app-boundary', title: 'Threat intelligence app ownership boundary', command: [bun, 'test', 'tests/ti-app-boundary.test.ts'] },
+    { id: 'source-status', title: 'TI source control ownership boundary', command: [bun, 'test', 'tests/ti-source-status.test.mjs'] },
+    { id: 'source-activation', title: 'Source activation controls', command: [bun, 'scripts/check-source-activation.mjs'], requires: 'playwright' },
     { id: 'traffic-locations', title: 'Recorded traffic locations', command: [bun, 'tests/traffic-locations.test.ts'] },
     { id: 'traffic-stream-proxy', title: 'Traffic live stream proxy', command: [bun, 'tests/traffic-stream-proxy.test.ts'] },
     { id: 'traffic-streaming', title: 'Traffic independent loading', command: [bun, 'tests/traffic-streaming.test.tsx'] },
@@ -163,8 +164,8 @@ const tasks: TestTask[] = [
         command: [bun, 'scripts/check-vulnerability-dashboard.ts'],
     },
     {
-        id: 'service-check',
-        title: 'Service check UX contract',
+        id: 'service-check-ti-landing',
+        title: 'Service check and TI landing UX contract',
         command: [bun, 'scripts/check-service-check-ti-landing.mjs'],
     },
     {
@@ -173,9 +174,19 @@ const tasks: TestTask[] = [
         command: [bun, 'scripts/check-shared-exposure-activity.ts'],
     },
     {
+        id: 'ti-actor-intelligence',
+        title: 'TI actor intelligence shaping',
+        command: [bun, 'scripts/check-ti-actor-intelligence.ts'],
+    },
+    {
         id: 'ti-varnish-freshness',
         title: 'TI public cache freshness',
         command: [bun, 'scripts/check-ti-varnish-freshness.mjs'],
+    },
+    {
+        id: 'dwm-analyst-brief',
+        title: 'DWM analyst brief',
+        command: [bun, 'scripts/check-dwm-analyst-brief.mjs'],
     },
     {
         id: 'organization-customer-boundaries',
