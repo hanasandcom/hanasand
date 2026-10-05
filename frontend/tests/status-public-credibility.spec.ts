@@ -24,7 +24,7 @@ test('public status does not claim operational health without fresh public check
         'Threat intelligence',
         'Threat intelligence',
         'Threat intelligence',
-        'Browser sandbox',
+        'Sandbox',
         'Dark web monitoring',
         'Dark web monitoring',
     ])

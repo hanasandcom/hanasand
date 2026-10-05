@@ -48,11 +48,11 @@ assert(!orgManager.some(item => item.href === '/management/users'))
 for (const permissions of [access, memberAccess]) {
     const links = navigationLinks(getDashboardNavigation(permissions))
     assert(!links.some(item => item.href === '/solutions'), 'Marketing catalog must not appear in the internal menu')
-    for (const href of ['/findings', '/cases', '/rules/match', '/rules/analysis', '/rules/detection', '/ti', '/browser', '/organizations', '/pwned', '/test']) assert(links.some(item => item.href === href), `Missing product destination: ${href}`)
+    for (const href of ['/findings', '/cases', '/rules/match', '/rules/analysis', '/rules/detection', '/ti', '/sandbox', '/organizations', '/pwned', '/test']) assert(links.some(item => item.href === href), `Missing product destination: ${href}`)
     assert(links.some(item => item.label === 'Security Scanner' && item.href === (permissions.canManageSystem ? '/scanner' : '/solutions/scanner')))
     for (const category of ['match', 'analysis', 'detection']) assert.deepEqual(links.find(item => item.href === `/rules/${category}`)?.ancestors, ['Logs & rules', 'Rules'])
 }
-for (const path of ['/browser', '/browser/report', '/solutions/scanner', '/solutions/security-monitoring', '/pwned', '/test']) assert(hasAppSidebar(path), `Product loses the signed-in sidebar: ${path}`)
+for (const path of ['/sandbox', '/sandbox/report', '/solutions/scanner', '/solutions/security-monitoring', '/pwned', '/test']) assert(hasAppSidebar(path), `Product loses the signed-in sidebar: ${path}`)
 assert(!hasAppSidebar('/browser-unrelated'))
 
 // Exercise the real component; only Next routing is replaced.

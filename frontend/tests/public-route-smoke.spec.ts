@@ -125,18 +125,21 @@ test.describe('public website routes', () => {
     test('browser report route redirects bare URLs and keeps shared reports out of discovery', async ({ page, request }) => {
         const redirect = await request.get('/browser/report', { maxRedirects: 0 })
         expect(redirect.status()).toBe(307)
-        expect(redirect.headers().location).toBe('/browser')
+        expect(redirect.headers().location).toBe('/sandbox')
 
         await page.goto('/browser/report')
-        await expect(page).toHaveURL(/\/browser$/)
+        await expect(page).toHaveURL(/\/sandbox$/)
 
         const sharedReport = await request.get('/browser/report?run=fixture&token=fixture')
-        expect(sharedReport.status()).toBe(200)
-        const sharedReportHtml = await sharedReport.text()
+        expect(sharedReport.status()).toBe(307)
+        expect(sharedReport.headers().location).toBe('/sandbox/report?run=fixture&token=fixture')
+        const canonicalReport = await request.get('/sandbox/report?run=fixture&token=fixture')
+        expect(canonicalReport.status()).toBe(200)
+        const sharedReportHtml = await canonicalReport.text()
         expect(sharedReportHtml).toMatch(/<meta name="robots" content="noindex, ?nofollow"/)
-        expect(sharedReportHtml).not.toContain('rel="canonical" href="https://hanasand.com/browser/report"')
+        expect(sharedReportHtml).not.toContain('rel="canonical" href="https://hanasand.com/sandbox/report"')
 
         const sitemap = await request.get('/sitemap.xml')
-        expect(await sitemap.text()).not.toContain('<loc>https://hanasand.com/browser/report</loc>')
+        expect(await sitemap.text()).not.toContain('<loc>https://hanasand.com/sandbox/report</loc>')
     })
 })

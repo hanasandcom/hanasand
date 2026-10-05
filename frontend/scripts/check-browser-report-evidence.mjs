@@ -61,7 +61,7 @@ for (const token of [
 }
 
 assert.ok(!liveClient.includes('RunDetailModal'), 'history must not retain its removed popup')
-assertIncludes(liveClient, 'href={`/browser/${run.resultId}`}', 'history rows must link to stable result pages')
+assertIncludes(liveClient, 'href={`/sandbox/${run.resultId}`}', 'history rows must link to stable result pages')
 assertIncludes(backendProxy, 'pathSegments[1] === \'results\'', 'anonymous results still pass through to API ownership checks')
 assertIncludes(reportClient, '<NetworkTable', 'saved report must use the unified network table')
 assertIncludes(reportClient, '<ReportExport report={report}', 'exports must retain the complete report evidence')

@@ -35,7 +35,7 @@ const server = Bun.serve({ port: 0, fetch(request) {
 } })
 const build = await Bun.build({ entrypoints: ['browser-test-entry'], target: 'browser', define: { 'process.env': JSON.stringify({ NEXT_PUBLIC_API: `${server.url}api` }) }, plugins: [{ name: 'browser-fixture', setup(builder) {
     builder.onResolve({ filter: /^(browser-test-entry|next\/(link|image))$/ }, args => ({ path: args.path, namespace: 'fixture' }))
-    builder.onLoad({ filter: /.*/, namespace: 'fixture' }, args => ({ loader: 'tsx', resolveDir: process.cwd(), contents: args.path === 'next/link' ? 'export default function Link(props){return <a {...props}/>}' : args.path === 'next/image' ? 'export default function Image({unoptimized,...props}){return <img {...props}/>}' : 'import {createRoot} from \'react-dom/client\'; import Browser from \'./src/app/browser/pageClient\'; import Report from \'./src/app/browser/report/pageClient\'; createRoot(document.getElementById(\'root\')).render(location.pathname === \'/saved\' ? <Report runId="fixture" token="fixture"/> : <Browser resultRunId={new URLSearchParams(location.search).get(\'run\') || undefined} resultId={location.pathname.startsWith(\'/browser/\') ? location.pathname.split(\'/\')[2] : undefined} initialData={{history:[],quota:null,stats:{runs24h:0,darkwebRuns24h:0}}}/>);' }))
+    builder.onLoad({ filter: /.*/, namespace: 'fixture' }, args => ({ loader: 'tsx', resolveDir: process.cwd(), contents: args.path === 'next/link' ? 'export default function Link(props){return <a {...props}/>}' : args.path === 'next/image' ? 'export default function Image({unoptimized,...props}){return <img {...props}/>}' : 'import {createRoot} from \'react-dom/client\'; import Browser from \'./src/app/browser/pageClient\'; import Report from \'./src/app/browser/report/pageClient\'; createRoot(document.getElementById(\'root\')).render(location.pathname === \'/saved\' ? <Report runId="fixture" token="fixture"/> : <Browser resultRunId={new URLSearchParams(location.search).get(\'run\') || undefined} resultId={location.pathname.startsWith(\'/sandbox/\') ? location.pathname.split(\'/\')[2] : undefined} initialData={{history:[],quota:null,stats:{runs24h:0,darkwebRuns24h:0}}}/>);' }))
 } }] })
 assert(build.success, build.logs.join('\n'))
 bundle = await build.outputs[0].text()
@@ -258,7 +258,7 @@ try {
     savedReport.analystReport.resourceUrls = ['https://example.com/', 'https://example.com/unvisited']
     const savedPage = await browser.newPage()
     await savedPage.goto(new URL('/saved', server.url).toString())
-    assert.equal(await savedPage.getByRole('link', { name: 'Back to browser', exact: true }).getAttribute('href'), '/browser')
+    assert.equal(await savedPage.getByRole('link', { name: 'Back to sandbox', exact: true }).getAttribute('href'), '/sandbox')
     const summaryPanel = savedPage.locator('summary').filter({ hasText: /^Summary$/ })
     const beforeStatistics = await summaryPanel.boundingBox()
     await savedPage.getByRole('button', { name: 'Statistics', exact: true }).click()
@@ -317,7 +317,7 @@ try {
     }
     if (process.env.BROWSER_WORKSPACE_SCREENSHOT) await page.screenshot({ path: process.env.BROWSER_WORKSPACE_SCREENSHOT, fullPage: true })
     await page.getByRole('button', { name: 'Run another' }).click()
-    assert.equal(new URL(page.url()).pathname, '/browser')
+    assert.equal(new URL(page.url()).pathname, '/sandbox')
     assert(await page.getByRole('button', { name: 'History', exact: true }).isVisible(), 'Return shows the landing page')
     await page.getByRole('button', { name: 'Start', exact: true }).click()
     await loading.waitFor()
@@ -390,7 +390,7 @@ try {
     await page.goto(server.url.toString())
     assert.equal(await page.getByRole('button', { name: 'Run again', exact: true }).count(), 0, 'History has no rerun button')
     const historyRow = page.getByRole('link', { name: /https:\/\/example.com/ })
-    assert.equal(await historyRow.getAttribute('href'), `/browser/${storedRun.resultId}`)
+    assert.equal(await historyRow.getAttribute('href'), `/sandbox/${storedRun.resultId}`)
     await historyRow.click()
     await page.getByRole('heading', { name: 'https://example.com', exact: true }).waitFor()
     assert.equal(await page.getByRole('dialog').count(), 0, 'Stored evidence is a page, not a popup')
