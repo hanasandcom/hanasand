@@ -57,8 +57,6 @@ try {
     assert.equal(positions.length, 3)
     assert.ok(positions.every(row => row.last_id === '1' && row.recent_id === '201' && row.checked_count === 2))
     const { withLogBatch } = await import('../src/utils/events/logBatch.ts')
-    const observer = new pg.Client(options)
-    await observer.connect()
     let release!: () => void
     const gate = new Promise<void>(ok => { release = ok })
     const order: string[] = []
@@ -67,21 +65,19 @@ try {
         try { const result = await work((sql: string, values: unknown[] = []) => client.query(sql, values)); await client.query('COMMIT'); return result }
         catch (error) { await client.query('ROLLBACK'); throw error }
     }
-    await cursors.query('SET lock_timeout=\'5s\'')
-    const secondPid = (await cursors.query('SELECT pg_backend_pid() AS pid')).rows[0].pid
     const first = withLogBatch(async () => { order.push('first'); await gate; order.push('first-complete') }, tx(source))
     while (!order.length) await Bun.sleep(1)
-    const second = withLogBatch(async () => { order.push('second') }, tx(cursors))
+    let secondTransactionStarted = false
+    const secondTransaction = async (work: any) => {
+        secondTransactionStarted = true
+        return tx(cursors)(work)
+    }
+    const second = withLogBatch(async () => { order.push('second') }, secondTransaction)
     try {
-        let waiting = false
-        for (let attempt = 0; attempt < 50; attempt++) {
-            waiting = (await observer.query('SELECT wait_event_type FROM pg_stat_activity WHERE pid=$1', [secondPid])).rows[0]?.wait_event_type === 'Lock'
-            if (waiting) break
-            await Bun.sleep(2)
-        }
-        assert.equal(waiting, true, 'Concurrent live and catch-up pages wait on the shared detection lock')
+        await Bun.sleep(20)
+        assert.equal(secondTransactionStarted, false, 'Queued pages do not hold database transactions while waiting locally')
         assert.deepEqual(order, ['first'])
-    } finally { release(); await Promise.all([first, second]); await observer.end() }
+    } finally { release(); await Promise.all([first, second]) }
     assert.deepEqual(order, ['first', 'first-complete', 'second'])
     await assert.rejects(withLogBatch(async () => { throw new Error('interrupted page') }, tx(source)), /interrupted page/)
     await withLogBatch(async () => { order.push('after-rollback') }, tx(cursors))
