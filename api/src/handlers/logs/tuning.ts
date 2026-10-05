@@ -1,10 +1,10 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
-import run, { tryWithDatabaseAdvisoryLock, withTransaction } from '#db'
+import run, { isDatabaseLowLoad, tryWithDatabaseAdvisoryLock, withTransaction } from '#db'
 import hasHanasandInternalRouteAccess, { HANASAND_ORGANIZATION_ID } from '#utils/auth/organizationPageAccess.ts'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import { cachedRead, invalidateReadCache } from '../../utils/readCache.ts'
 
-const REFRESH_INTERVAL_MS = 15 * 60_000
+const REFRESH_INTERVAL_MS = 24 * 60 * 60_000
 const REFRESH_CHECK_INTERVAL_MS = 5 * 60_000
 const TUNING_SNAPSHOT_CACHE_KEY = `log-tuning-snapshot:${HANASAND_ORGANIZATION_ID}`
 
@@ -97,6 +97,10 @@ function refreshLogTuningSnapshot() {
         const hasCurrentMetrics = Array.isArray(existing?.logs) && existing.logs.every((log: unknown) => log !== null
             && typeof log === 'object' && Object.hasOwn(log, 'last_triggered') && Object.hasOwn(log, 'last_24h_count'))
         if (generatedAt && hasCurrentMetrics && requestedAt <= generatedAt && Date.now() - generatedAt < REFRESH_INTERVAL_MS) return 'current'
+        // This full-history aggregation reads and groups the entire stored-log
+        // corpus. Let request traffic take priority instead of competing with
+        // previews and other foreground database work.
+        if (!(await isDatabaseLowLoad(2))) return 'busy'
 
         const startedAt = new Date().toISOString()
         const result = await queryLogTuning()
