@@ -7,11 +7,16 @@ Hanasand combines threat intelligence, AI development tools, and infrastructure 
 | Component | Source | Responsibility |
 | --- | --- | --- |
 | Frontend | `frontend/` | Public pages, dashboard, AI editor, shared projects, articles, notes and thesis |
-| API | `api/` | Authentication, organizations, permissions, billing, AI requests, project storage, infrastructure and public API |
+| API | `api/` | Authorization, organizations, permissions, billing, AI requests, project storage, infrastructure and public API |
+| Identity | [Identity repository](https://github.com/hanasandcom/identity) | Login, sessions, password reset, passkeys, social/SSO and signup; separate workers, using the existing account database through PgBouncer |
 | Threat intelligence | [TI repository](https://github.com/eirikhanasand/ti) | Source collection, evidence, search, alerts and investigation cases; runs with a dedicated database |
 | AI model client | [AI repository](https://github.com/hanasandcom/ai) | Connects the Inspur inference server to the API over WebSockets; deployed separately |
+| Parser | [Parser repository](https://github.com/hanasandcom/parser) | AI parsing HTTP service; deployed separately |
+| Scraper | [Scraper repository](https://github.com/hanasandcom/scraper) | Threat-intelligence collection service; deployed separately |
 | Model runtime | `gpt/` | Model launch scripts and inference server code |
-| Browser services | `ops/browser-worker/`, `ops/onion-tor/` | Isolated browser sessions, WebRTC transport and Tor access |
+| Browser services | `ops/browser-worker/` | Isolated browser sessions and WebRTC transport |
+| Onion proxy | [Onion repository](https://github.com/hanasandcom/onion) | Tor and Privoxy endpoint for browser and application traffic; deployed separately |
+| PgBouncer | [PgBouncer repository](https://github.com/hanasandcom/pgbouncer) | Primary and rolling-release PostgreSQL connection pools; deployed separately |
 | Database | `db/`, `api/src/utils/db/` | Initial schema and application schema updates |
 | Mail service | [Mail repository](https://github.com/eirikhanasand/mail), `compose.stalwart.yml` | Stalwart runtime and mail management tools; deployed separately on Inspur and OVH |
 | Database backup worker | [Database backup repository](https://github.com/hanasandcom/database-backup) | PostgreSQL backups, retention and restore workflows; runs separately from API releases |
@@ -20,7 +25,9 @@ Hanasand combines threat intelligence, AI development tools, and infrastructure 
 | Operations integrations | [Ops repository](https://github.com/hanasandcom/ops) | OVH host metrics tunnel and related host integrations; deployed separately |
 | Application operations | `ops/`, `scripts/` | Hanasand application deployment, maintenance and service checks |
 
-`docker-compose.yml` defines service connections, ports, volumes and health checks. OpenResty terminates public HTTPS outside this Compose project. The API also integrates with external VM hosts, password lookup and other configured services.
+`docker-compose.yml` defines service connections, ports, volumes and health checks. OpenResty terminates public HTTPS outside this Compose project. The root API forwards authentication routes to Identity over a private network, while the existing PostgreSQL records and public API paths stay in place. The API also integrates with external VM hosts, password lookup and other configured services.
+
+PgBouncer and Onion run from their own repositories on the established Hanasand networks. The root release checks their health but does not build or recreate them.
 
 ## Monitoring issues
 

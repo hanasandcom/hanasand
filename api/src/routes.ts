@@ -10,14 +10,13 @@ import { caseRepositoryWebhooks, getCaseDevelopment, getCaseRepositories, postCa
 import { getServiceAccounts, postServiceAccount, patchServiceAccount, deleteServiceAccount, serviceAccountSelf } from './handlers/serviceAccounts.ts'
 import getHostOverview from './handlers/hostOverview.ts'
 import { getProfileSshKeys, postProfileSshKey, deleteProfileSshKey } from './handlers/profileSshKeys.ts'
-import authRoutes from './authRoutes.ts'
+import proxyIdentityRequest from './utils/identityProxy.ts'
 import { getMonitoringCases, updateMonitoringCase } from './handlers/monitoringCases.ts'
 import { postPushMonitoringEvent, postPushMonitoringKey } from './handlers/pushMonitoring.ts'
 import type { FastifyInstance, FastifyPluginOptions } from 'fastify'
 import indexHandler from './handlers/index.ts'
 import getUser from './handlers/user/get.ts'
 import { getProfileStats } from './handlers/profileStats.ts'
-import postUser from './handlers/user/post.ts'
 import postPwned from './handlers/pwned/post.ts'
 import getArticles, { getArticle } from './handlers/articles/get.ts'
 import postArticle from './handlers/articles/post.ts'
@@ -246,7 +245,7 @@ export default async function apiRoutes(fastify: FastifyInstance, options: Fasti
     fastify.get('/app/download', downloadAppUpdate)
     fastify.get('/app/download/:name', downloadNamedAppUpdate)
 
-    await fastify.register(authRoutes)
+    fastify.all('/auth/*', proxyIdentityRequest)
     await fastify.register(caseRepositoryWebhooks)
     fastify.get('/cases/development', getCaseDevelopment)
     fastify.get('/cases/development/commits', getCaseCommits)
@@ -302,7 +301,7 @@ export default async function apiRoutes(fastify: FastifyInstance, options: Fasti
     fastify.get('/user/:id/profile-stats', getProfileStats)
     fastify.get('/user/:id', getUser)
     fastify.get('/user/full/:id', authorizedUserHandler)
-    fastify.post('/user', postUser)
+    fastify.post('/user', proxyIdentityRequest)
     fastify.put('/user/:id', putUser)
     fastify.put('/user/:id/active', deactivateUser)
     fastify.put('/user/self', putSelf)

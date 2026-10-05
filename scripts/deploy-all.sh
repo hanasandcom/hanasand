@@ -114,7 +114,7 @@ if test -n "$running_api_release" \
     && git diff --quiet "$running_api_release" "$release" -- . \
         ':(exclude)scripts/deploy-all.sh' ':(exclude)scripts/verify-stack-release.sh'; then
     if HANASAND_VERIFY_LIVE_RELEASE_ONLY=1 \
-        sh "$root/scripts/verify-stack-release.sh" "$running_api_release" "" "onion-tor"; then
+        sh "$root/scripts/verify-stack-release.sh" "$running_api_release"; then
         running_api_health=$(curl --fail --silent --show-error --max-time 10 http://127.0.0.1:8082/health)
         running_frontend_health=$(curl --fail --silent --show-error --max-time 10 http://127.0.0.1:3100/api/health)
         case "$running_api_health" in *'"ok":true'*"\"release\":\"$running_api_release\""*) ;; *)
@@ -159,7 +159,6 @@ test "$candidate_attempt" -lt 5000 || {
 }
 export HANASAND_API_CANDIDATE_CONTAINER="hanasand_api_candidate_$candidate_suffix"
 export HANASAND_FRONTEND_CANDIDATE_CONTAINER="hanasand_frontend_candidate_$candidate_suffix"
-export HANASAND_PGBOUNCER_CANDIDATE_CONTAINER="hanasand_pgbouncer_candidate_$candidate_suffix"
 export HANASAND_API_CANDIDATE_PORT=$candidate_api_port
 export HANASAND_FRONTEND_CANDIDATE_PORT=$candidate_frontend_port
 build_dir=$(mktemp -d "/tmp/hanasand-release-build.XXXXXX")
@@ -170,8 +169,7 @@ cleanup() {
     status=$?
     if test "$status" -ne 0 && test "$candidate_started" = 1 \
         && test "$proxy_target" != candidate && test "$candidate_safe_to_remove" = 1; then
-        docker rm -f "$HANASAND_FRONTEND_CANDIDATE_CONTAINER" "$HANASAND_API_CANDIDATE_CONTAINER" \
-            "$HANASAND_PGBOUNCER_CANDIDATE_CONTAINER" >/dev/null 2>&1 || true
+        docker rm -f "$HANASAND_FRONTEND_CANDIDATE_CONTAINER" "$HANASAND_API_CANDIDATE_CONTAINER" >/dev/null 2>&1 || true
     fi
     rm -rf "$build_dir"
     return "$status"
@@ -208,28 +206,6 @@ compose_release() {
     fi
 }
 
-# HANASAND_RELEASE_COMMIT changes on every application release. Do not roll
-# the shared pool just for that label: long-lived clients resolve its container
-# address once and would keep using the old address after a replacement.
-pgbouncer_config_changed=1
-pgbouncer_release=$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' hanasand_pgbouncer 2>/dev/null \
-    | sed -n 's/^HANASAND_RELEASE_COMMIT=//p' | head -1)
-case "$pgbouncer_release" in
-    *[!a-f0-9]*|'') ;;
-    *)
-        if test "${#pgbouncer_release}" -eq 40 \
-            && git diff --quiet "$pgbouncer_release" "$release" -- ops/pgbouncer; then
-            running_config_hash=$(docker inspect -f '{{index .Config.Labels "com.docker.compose.config-hash"}}' \
-                hanasand_pgbouncer 2>/dev/null || true)
-            desired_config_hash=$(HANASAND_RELEASE_COMMIT="$pgbouncer_release" \
-                compose_release config --hash pgbouncer 2>/dev/null | awk '{print $NF}')
-            if test -n "$running_config_hash" && test "$running_config_hash" = "$desired_config_hash"; then
-                pgbouncer_config_changed=0
-            fi
-        fi
-        ;;
-esac
-
 wait_for_healthy() {
     container=$1
     service=$2
@@ -254,6 +230,22 @@ wait_for_healthy() {
     return 1
 }
 
+require_healthy_container() {
+    container=$1
+    service=$2
+    expected_project=$3
+    expected_service=$4
+    state=$(docker inspect -f '{{.State.Status}}' "$container" 2>/dev/null || true)
+    health=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{end}}' "$container" 2>/dev/null || true)
+    project=$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project"}}' "$container" 2>/dev/null || true)
+    actual_service=$(docker inspect -f '{{index .Config.Labels "com.docker.compose.service"}}' "$container" 2>/dev/null || true)
+    if test "$state" != running || test "$health" != healthy || test "$project" != "$expected_project" || test "$actual_service" != "$expected_service"; then
+        echo "$service must be healthy as $expected_service in independent Compose project $expected_project before this release (state=$state health=$health project=$project service=$actual_service)." >&2
+        return 1
+    fi
+    echo "$service is healthy in $expected_project."
+}
+
 wait_for_healthy_pair() {
     first_container=$1
     first_service=$2
@@ -272,34 +264,17 @@ wait_for_healthy_pair() {
     test "$first_status" -eq 0 && test "$second_status" -eq 0
 }
 
-# Restore canonical PgBouncer if a previous interrupted release left it down.
-canonical_pgbouncer_state=$(docker inspect -f '{{.State.Status}}' hanasand_pgbouncer 2>/dev/null || true)
-canonical_pgbouncer_health=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{end}}' hanasand_pgbouncer 2>/dev/null || true)
-canonical_pgbouncer_recreated=0
-if test "$canonical_pgbouncer_state" != running || test "$canonical_pgbouncer_health" != healthy; then
-    compose_release up -d --no-build --no-deps --force-recreate pgbouncer
-    canonical_pgbouncer_recreated=1
-fi
-wait_for_healthy hanasand_pgbouncer "Canonical PgBouncer" 180
-if test "$canonical_pgbouncer_recreated" = 1; then
-    # The recovery changed the pool's address; refresh clients before the
-    # long image build so authentication does not wait for the rollout tail.
-    compose_release up -d --no-build --no-deps --force-recreate auth-secondary
-    wait_for_healthy hanasand_auth_secondary "Secondary auth worker" 180
-    compose_release up -d --no-build --no-deps --force-recreate auth-primary
-    wait_for_healthy hanasand_auth_primary "Primary auth worker" 180
-fi
-if test "$pgbouncer_config_changed" = 0; then
-    echo "Keeping healthy PgBouncer from $pgbouncer_release in place for this code-only release."
-fi
+require_healthy_container hanasand_pgbouncer "Independent PgBouncer" hanasand-pgbouncer pgbouncer
+require_healthy_container hanasand_pgbouncer_candidate "Independent PgBouncer candidate" hanasand-pgbouncer pgbouncer-candidate
+require_healthy_container hanasand_onion_tor "Independent Onion proxy" hanasand-onion onion-tor
+require_healthy_container hanasand_auth_primary "Identity primary" hanasand-identity identity-primary
+require_healthy_container hanasand_auth_secondary "Identity secondary" hanasand-identity identity-secondary
 
 if test "$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' hanasand 2>/dev/null \
     | sed -n 's/^HANASAND_RELEASE_COMMIT=//p' | head -1)" = "$release" \
     && test "$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' hanasand_api 2>/dev/null \
     | sed -n 's/^HANASAND_RELEASE_COMMIT=//p' | head -1)" = "$release"; then
-    expected_pgbouncer_release=
-    if test "$pgbouncer_config_changed" = 1; then expected_pgbouncer_release=$release; fi
-    if sh "$root/scripts/verify-stack-release.sh" "$release" "$expected_pgbouncer_release"; then
+    if sh "$root/scripts/verify-stack-release.sh" "$release"; then
         echo "Release $release is already deployed and verified; skipping this queued duplicate."
         exit 0
     fi
@@ -307,7 +282,7 @@ fi
 
 # Backup work belongs to the independent database-backup service. Application
 # deploys never wait for it; pg_dump uses a consistent PostgreSQL snapshot.
-compose_release build
+compose_release build frontend api
 compose_live() {
     if test -f "$build_dir/.env"; then
         docker compose --project-name hanasand --parallel "$deploy_parallelism" --env-file "$build_dir/.env" -f "$build_dir/docker-compose.yml" "$@"
@@ -363,138 +338,16 @@ warm_browser_stats() {
     done
 }
 
-# Keep authentication replicas untouched until the rest of the release passes
-# its health checks.
+# Recreate root-owned dependencies only after the release candidates are healthy.
 # The API candidate owns schema setup. Do not restart the shared database during
 # an application release; its recovery period interrupts authenticated traffic.
 services=$(compose_live config --services \
-    | sed '/^api$/d; /^frontend$/d; /^auth-primary$/d; /^auth-secondary$/d; /^postgres$/d; /^browsers$/d; /^browser-turn$/d')
-if test "$pgbouncer_config_changed" = 0; then
-    services=$(printf '%s\n' "$services" | sed '/^pgbouncer$/d')
-fi
+    | sed '/^api$/d; /^frontend$/d; /^postgres$/d; /^browsers$/d; /^browser-turn$/d')
 
-service_compose_block() {
-    git show "$1:docker-compose.yml" | awk -v wanted="$2" '
-        $0 == "  " wanted ":" { capture = 1 }
-        capture && /^  [[:alnum:]_-]+:/ && $0 != "  " wanted ":" { exit }
-        capture { print }
-    '
-}
-
-preserved_services=
-auth_service_environment_matches() {
-    service_name=$1
-    container_name=$2
-
-    desired_environment=$(compose_release config --format json 2>/dev/null \
-        | jq -ce --arg service "$service_name" '.services[$service].environment // {}') || return 1
-    running_environment=$(docker inspect -f '{{json .Config.Env}}' "$container_name" 2>/dev/null \
-        | jq -ce 'map(capture("^(?<key>[^=]+)=(?<value>.*)$")) | from_entries') || return 1
-
-    # Compose's service hash includes the temporary env-file path and release
-    # label. Compare the resolved runtime settings instead, while ignoring
-    # image defaults that Compose does not explicitly configure for this service.
-    jq -en \
-        --argjson desired "$desired_environment" \
-        --argjson running "$running_environment" '
-            # API_SSH_KEY is injected from the shared env file but is not used
-            # by the auth runtime; changing it must not bounce login workers.
-            ($desired | del(.HANASAND_RELEASE_COMMIT, .HANASAND_DEPLOY_ENV_FILE, .API_SSH_KEY)) as $wanted
-            | ($running
-                | del(.HANASAND_RELEASE_COMMIT, .HANASAND_DEPLOY_ENV_FILE, .API_SSH_KEY)
-                | with_entries(select(.key as $key | $wanted | has($key)))) as $actual
-            | $actual == $wanted
-        ' >/dev/null
-}
-
-preserve_unchanged_service() {
-    service_name=$1
-    container_name=$2
-    shift 2
-
-    test "$(docker inspect -f '{{.State.Running}}' "$container_name" 2>/dev/null || true)" = true || return 1
-    case "$service_name" in
-        auth-primary|auth-secondary)
-            # Auth readiness checks the shared database. A transient DB or host
-            # overload should not bounce an unchanged login worker.
-            ;;
-        *)
-            test "$(docker inspect -f '{{.State.Health.Status}}' "$container_name" 2>/dev/null || true)" = healthy || return 1
-            ;;
-    esac
-
-    service_release=$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$container_name" 2>/dev/null \
-        | sed -n 's/^HANASAND_RELEASE_COMMIT=//p' | head -1)
-    case "$service_release" in *[!a-f0-9]*|'') return 1 ;; esac
-    test "${#service_release}" -eq 40 || return 1
-    git merge-base --is-ancestor "$service_release" "$release" || return 1
-    git diff --quiet "$service_release" "$release" -- "$@" || return 1
-
-    previous_service_config=$(service_compose_block "$service_release" "$service_name" 2>/dev/null)
-    current_service_config=$(service_compose_block "$release" "$service_name" 2>/dev/null)
-    test -n "$previous_service_config" && test "$previous_service_config" = "$current_service_config" || return 1
-
-    running_config_hash=$(docker inspect -f '{{index .Config.Labels "com.docker.compose.config-hash"}}' \
-        "$container_name" 2>/dev/null) || return 1
-    desired_config_hash=$(HANASAND_RELEASE_COMMIT="$service_release" \
-        compose_release config --hash "$service_name" 2>/dev/null | awk '{print $NF}')
-    if test -z "$running_config_hash" || test "$running_config_hash" != "$desired_config_hash"; then
-        case "$service_name" in
-            auth-primary|auth-secondary)
-                auth_service_environment_matches "$service_name" "$container_name" || return 1
-                ;;
-            *) return 1 ;;
-        esac
-    fi
-
-    services=$(printf '%s\n' "$services" | sed "/^$service_name\$/d")
-    preserved_services="${preserved_services}${preserved_services:+ }$service_name"
-    echo "Keeping healthy $container_name from $service_release; its code and effective settings are unchanged."
-}
-
-preserve_unchanged_service onion-tor hanasand_onion_tor ops/onion-tor || true
-preserve_unchanged_auth_service() {
-    # This follows Bun's authServer import graph; unrelated API endpoints do not
-    # need to replace the authentication workers.
-    preserve_unchanged_service "$1" "$2" \
-        api/src/authRoutes.ts \
-        api/src/authServer.ts \
-        api/src/constants.ts \
-        api/src/handlers/auth \
-        api/src/handlers/user/post.ts \
-        api/src/plugins/rateLimit.ts \
-        api/src/utils/auth \
-        api/src/utils/crypto \
-        api/src/utils/db.ts \
-        api/src/utils/http/publicBoundary.ts \
-        api/src/utils/mail \
-        api/src/utils/publicMonitoringRequest.ts \
-        api/src/utils/pwned \
-        api/src/utils/rateLimit/config.ts \
-        api/src/utils/recovery.ts \
-        api/src/utils/support/config.ts \
-        api/src/utils/systemEvent.ts \
-        api/package.json \
-        api/bun.lock \
-        api/bunfig.toml \
-        api/Dockerfile \
-        api/Dockerfile.dockerignore \
-        api/scripts/check-session-network.ts \
-        api/scripts/download-session-geo.ts \
-        db \
-        .dockerignore
-}
-if test "$canonical_pgbouncer_recreated" = 0; then
-    preserve_unchanged_auth_service auth-primary hanasand_auth_primary || true
-    preserve_unchanged_auth_service auth-secondary hanasand_auth_secondary || true
-fi
-
-# Start an isolated release-matched connection pool and API/frontend pair
+# Start the API/frontend candidates against the independent candidate pool
 # before touching any live dependencies. The API candidate applies additive
 # schema setup but suppresses duplicate production workers.
-compose_candidates run -d --no-deps --name "$HANASAND_PGBOUNCER_CANDIDATE_CONTAINER" pgbouncer-candidate
 candidate_started=1
-wait_for_healthy "$HANASAND_PGBOUNCER_CANDIDATE_CONTAINER" "PgBouncer release candidate" 180
 if test "$schema_changes_required" != 1; then
     echo "Code-only release; no database schema changes, so continuing during any active backup."
 fi
@@ -625,9 +478,9 @@ switch_upstreams "$HANASAND_FRONTEND_CANDIDATE_PORT" "$HANASAND_API_CANDIDATE_PO
 wait_for_proxy_workers_to_drain "$last_proxy_workers"
 echo "OpenResty now serves the healthy frontend and API candidates for $release."
 
-# Recreate dependent services only after traffic is on the isolated candidates.
-# The candidate API continues using its candidate pool while canonical PgBouncer
-# and the rest of the stack are updated. Authentication replicas stay online.
+# Recreate root-owned dependent services only after traffic is on the isolated
+# candidates. PgBouncer, Onion and Identity run in separate Compose projects
+# and remain available during the application handoff.
 # Compose can leave the shared health-gated guard in `created` during this
 # no-deps update, so start and verify it before recreating dependent services.
 compose_live up -d --no-build --no-deps deploy-path-guard
@@ -666,9 +519,7 @@ if wait_for_proxy_workers_to_drain "$last_proxy_workers"; then
     for candidate in $(docker ps -aq --filter label=com.docker.compose.project=hanasand \
         --filter label=com.docker.compose.service=api-candidate) \
         $(docker ps -aq --filter label=com.docker.compose.project=hanasand \
-        --filter label=com.docker.compose.service=frontend-candidate) \
-        $(docker ps -aq --filter label=com.docker.compose.project=hanasand \
-        --filter label=com.docker.compose.service=pgbouncer-candidate); do
+        --filter label=com.docker.compose.service=frontend-candidate); do
         docker rm -f "$candidate" >/dev/null
     done
 else
@@ -677,21 +528,6 @@ else
     echo "OpenResty still has connections to the release candidates; keeping them online."
 fi
 echo "Frontend and API health verified."
-case " $preserved_services " in
-    *" auth-secondary "*) ;;
-    *)
-        compose_live up -d --no-build --no-deps --force-recreate auth-secondary
-        wait_for_healthy hanasand_auth_secondary "Secondary auth worker" 180
-        ;;
-esac
-case " $preserved_services " in
-    *" auth-primary "*) ;;
-    *)
-        compose_live up -d --no-build --no-deps --force-recreate auth-primary
-        wait_for_healthy hanasand_auth_primary "Primary auth worker" 180
-        ;;
-esac
-
 # Remove containers left by the retired cross-site recovery stack. Preserve
 # anonymous volumes so this cleanup cannot delete data.
 for container in $(docker ps -aq --filter label=com.docker.compose.project=hanasand-recovery); do
@@ -700,7 +536,5 @@ done
 for container in hanasand-tunnel hanasand-tunnel-database hanasand-tunnel-intelligence hanasand-tunnel-web hanasand-tunnel-monitor hanasand-tunnel-replication hanasand-tunnel-support hanasand-tunnel-ai hanasand-proxy-1 hanasand-proxy-2 log-catchup-pg-check; do
     if docker inspect "$container" >/dev/null 2>&1; then docker rm -f "$container"; fi
 done
-expected_pgbouncer_release=
-if test "$pgbouncer_config_changed" = 1; then expected_pgbouncer_release=$release; fi
-sh "$root/scripts/verify-stack-release.sh" "$release" "$expected_pgbouncer_release" "$preserved_services"
+sh "$root/scripts/verify-stack-release.sh" "$release"
 echo "Hanasand stack deployed from main at $release."

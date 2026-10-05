@@ -1,6 +1,0 @@
-*
-!.git/
-!.git/HEAD
-!ops/
-!ops/pgbouncer/
-!ops/pgbouncer/**

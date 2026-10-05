@@ -7,10 +7,6 @@
 !api
 !api/**
 !ops
-!ops/onion-tor
-!ops/onion-tor/**
-!ops/pgbouncer
-!ops/pgbouncer/**
 !docker-compose.yml
 !.dockerignore
 

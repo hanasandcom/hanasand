@@ -130,6 +130,7 @@ services:
       HOST_CONSOLE_OVH_USER: ${HOST_CONSOLE_OVH_USER:-ubuntu}
       DB_POOL_HOST: pgbouncer
       DB_POOL_PORT: ${DB_POOL_PORT:-18505}
+      HANASAND_IDENTITY_SERVICE_URL: ${HANASAND_IDENTITY_SERVICE_URL:-http://identity:8081}
       DB_MAX_CONN: ${DB_MAX_CONN:-1000}
       DB_POOL_WARMUP_CONN: ${DB_POOL_WARMUP_CONN:-1000}
       LOG_CATCHUP_WORKER_DISABLED: "1"
@@ -173,15 +174,12 @@ services:
         gw_priority: 1
       pwnednet: {}
       browsernet: {}
+      identity-proxy: {}
     depends_on:
       deploy-path-guard:
         condition: service_healthy
       postgres:
         condition: service_healthy
-      pgbouncer:
-        condition: service_healthy
-      onion-tor:
-        condition: service_started
 
   api-candidate:
     extends:
@@ -190,7 +188,7 @@ services:
     environment:
       API_HTTP_ONLY: "1"
       DEPLOYMENT_CANDIDATE_ONLY: "1"
-      DB_POOL_HOST: ${HANASAND_PGBOUNCER_CANDIDATE_CONTAINER:-hanasand_pgbouncer_candidate}
+      DB_POOL_HOST: hanasand_pgbouncer_candidate
     ports: !override
       - "127.0.0.1:${HANASAND_API_CANDIDATE_PORT:-8083}:8080"
     profiles: [deployment-candidates]
@@ -237,92 +235,6 @@ services:
       api:
         condition: service_healthy
     profiles: [discord]
-
-  auth-primary:
-    container_name: hanasand_auth_primary
-    image: hanasand_auth
-    mem_limit: 512m
-    cpus: "1.0"
-    restart: always
-    build:
-      context: .
-      additional_contexts:
-        database_schema: ./db
-      dockerfile: ./api/Dockerfile
-      target: auth-runtime
-      args:
-        HANASAND_RELEASE_COMMIT: ${HANASAND_RELEASE_COMMIT:-unknown}
-    ports:
-      - "127.0.0.1:8183:8081"
-    env_file:
-      - ${HANASAND_DEPLOY_ENV_FILE:-.env}
-    environment:
-      AUTH_SERVICE_ONLY: "1"
-      PORT: 8081
-      DB_POOL_HOST: pgbouncer
-      DB_POOL_PORT: ${DB_POOL_PORT:-18505}
-      DB_MAX_CONN: 5
-      DB_TIMEOUT_MS: 2000
-      MAIL_INTERNAL_URL: ${MAIL_INTERNAL_URL:-http://stalwart:8080}
-      MAIL_SMTP_INTERNAL_PORT: ${MAIL_SMTP_INTERNAL_PORT:-587}
-      AUTH_TRUSTED_PROXY: ${AUTH_TRUSTED_PROXY:-}
-      HANASAND_RELEASE_COMMIT: ${HANASAND_RELEASE_COMMIT:-unknown}
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- -T 8 http://127.0.0.1:8081/ready"]
-      interval: 10s
-      timeout: 9s
-      retries: 3
-      start_period: 10s
-    networks:
-      - hanasandnet
-    depends_on:
-      deploy-path-guard:
-        condition: service_healthy
-      pgbouncer:
-        condition: service_healthy
-
-  auth-secondary:
-    container_name: hanasand_auth_secondary
-    image: hanasand_auth
-    mem_limit: 512m
-    cpus: "1.0"
-    restart: always
-    build:
-      context: .
-      additional_contexts:
-        database_schema: ./db
-      dockerfile: ./api/Dockerfile
-      target: auth-runtime
-      args:
-        HANASAND_RELEASE_COMMIT: ${HANASAND_RELEASE_COMMIT:-unknown}
-    ports:
-      - "127.0.0.1:8184:8081"
-    env_file:
-      - ${HANASAND_DEPLOY_ENV_FILE:-.env}
-    environment:
-      AUTH_SERVICE_ONLY: "1"
-      PORT: 8081
-      DB_POOL_HOST: pgbouncer
-      DB_POOL_PORT: ${DB_POOL_PORT:-18505}
-      DB_MAX_CONN: 5
-      DB_TIMEOUT_MS: 2000
-      MAIL_INTERNAL_URL: ${MAIL_INTERNAL_URL:-http://stalwart:8080}
-      MAIL_SMTP_INTERNAL_PORT: ${MAIL_SMTP_INTERNAL_PORT:-587}
-      AUTH_TRUSTED_PROXY: ${AUTH_TRUSTED_PROXY:-}
-      HANASAND_RELEASE_COMMIT: ${HANASAND_RELEASE_COMMIT:-unknown}
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- -T 8 http://127.0.0.1:8081/ready"]
-      interval: 10s
-      timeout: 9s
-      retries: 3
-      start_period: 10s
-    networks:
-      - hanasandnet
-    depends_on:
-      deploy-path-guard:
-        condition: service_healthy
-      pgbouncer:
-        condition: service_healthy
 
   browsers:
     container_name: hanasand_browsers
@@ -382,8 +294,6 @@ services:
     depends_on:
       deploy-path-guard:
         condition: service_healthy
-      onion-tor:
-        condition: service_started
 
   browser-turn:
     container_name: hanasand_browser_turn
@@ -421,33 +331,6 @@ services:
       - no-new-privileges
     networks:
       - browsernet
-
-  onion-tor:
-    container_name: hanasand_onion_tor
-    image: hanasand_onion_tor
-    restart: always
-    build:
-      context: .
-      dockerfile: ./ops/onion-tor/Dockerfile
-      args:
-        HANASAND_RELEASE_COMMIT: ${HANASAND_RELEASE_COMMIT:-unknown}
-    expose:
-      - "8118"
-      - "9050"
-    healthcheck:
-      test: ["CMD", "/usr/local/bin/onion-proxy-healthcheck"]
-      interval: 10s
-      timeout: 5s
-      retries: 60
-      start_period: 20s
-    networks:
-      - hanasandnet
-      - browsernet
-    environment:
-      HANASAND_RELEASE_COMMIT: ${HANASAND_RELEASE_COMMIT:-unknown}
-    depends_on:
-      deploy-path-guard:
-        condition: service_healthy
 
   postgres:
     image: postgres:15
@@ -517,53 +400,6 @@ services:
       deploy-path-guard:
         condition: service_healthy
 
-  pgbouncer:
-    container_name: hanasand_pgbouncer
-    image: hanasand_pgbouncer
-    build:
-      context: .
-      dockerfile: ./ops/pgbouncer/Dockerfile
-      args:
-        HANASAND_RELEASE_COMMIT: ${HANASAND_RELEASE_COMMIT:-unknown}
-    ports:
-      - "127.0.0.1:${DB_POOL_PORT:-18505}:18505"
-    restart: always
-    mem_limit: 256m
-    cpus: "1.0"
-    ulimits:
-      nofile:
-        soft: 8192
-        hard: 8192
-    environment:
-      DB_USER: ${DB_USER:-hanasand}
-      DB: ${DB:-hanasand}
-      DB_PASSWORD: ${DB_PASSWORD}
-      DB_AUTH_EXTRA_USER: ${DB_AUTH_EXTRA_USER:-}
-      DB_AUTH_EXTRA_PASSWORD: ${DB_AUTH_EXTRA_PASSWORD:-}
-      DB_DIRECT_HOST: hanasand_database
-      DB_DIRECT_PORT: "5432"
-      HANASAND_RELEASE_COMMIT: ${HANASAND_RELEASE_COMMIT:-unknown}
-    healthcheck:
-      test: ["CMD-SHELL", "PGPASSWORD=\"$$DB_PASSWORD\" psql -X -w -h 127.0.0.1 -p 18505 -U \"$$DB_USER\" -d hanasand -Atqc 'SELECT 1' | grep -qx 1"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-      start_period: 10s
-    depends_on:
-      postgres:
-        condition: service_healthy
-      deploy-path-guard:
-        condition: service_healthy
-    networks:
-      - hanasandnet
-
-  pgbouncer-candidate:
-    extends:
-      service: pgbouncer
-    container_name: ${HANASAND_PGBOUNCER_CANDIDATE_CONTAINER:-hanasand_pgbouncer_candidate}
-    ports: !override []
-    profiles: [deployment-candidates]
-
 volumes:
   discord_bot_state:
   api_state:
@@ -580,3 +416,6 @@ networks:
   browsernet:
     name: hanasand_browsernet
     driver: bridge
+  identity-proxy:
+    external: true
+    name: hanasand_identity_proxy

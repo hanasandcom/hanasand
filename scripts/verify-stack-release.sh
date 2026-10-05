@@ -2,20 +2,11 @@
 set -eu
 
 release=${1:-$(git rev-parse HEAD)}
-expected_pgbouncer_release=${2:-}
-preserved_services=${3:-}
 current_branch=$(git branch --show-current)
 current_release=$(git rev-parse HEAD)
 test "$current_branch" = main && git merge-base --is-ancestor "$release" "$current_release" || {
     echo "Release must be checked out on main or be an ancestor of its current commit: $release" >&2
     exit 1
-}
-
-is_preserved_service() {
-    case " $preserved_services " in
-        *" $1 "*) return 0 ;;
-        *) return 1 ;;
-    esac
 }
 
 verify_image_revision() {
@@ -38,17 +29,7 @@ verify_image_revision() {
     }
 }
 
-for service in $preserved_services; do
-    case "$service" in
-        onion-tor|auth-primary|auth-secondary) ;;
-        *)
-            echo "Unknown preserved Hanasand service: $service" >&2
-            exit 1
-            ;;
-    esac
-done
-
-containers='hanasand hanasand_api hanasand_auth_primary hanasand_auth_secondary hanasand_onion_tor'
+containers='hanasand hanasand_api'
 for container in $containers; do
     test "$(docker inspect -f '{{.State.Running}}' "$container" 2>/dev/null || true)" = true || {
         echo "Required Hanasand container is not running: $container" >&2
@@ -60,63 +41,13 @@ for container in $containers; do
     }
     env_release=$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$container" \
         | sed -n 's/^HANASAND_RELEASE_COMMIT=//p' | head -1)
+    test "$env_release" = "$release" || {
+        echo "$container has release $env_release, expected $release" >&2
+        exit 1
+    }
     image=$(docker inspect -f '{{.Image}}' "$container")
     image_release=$(docker image inspect -f '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$image" 2>/dev/null || true)
-
-    preserved_service=
-    independent_release=0
-    expected_container_release=$release
-    case "$container" in
-        hanasand_onion_tor) preserved_service=onion-tor ;;
-        hanasand_auth_primary) preserved_service=auth-primary ;;
-        hanasand_auth_secondary) preserved_service=auth-secondary ;;
-        hanasand_browsers)
-            independent_release=1
-            expected_container_release=$image_release
-            case "$image_release" in
-                *[!a-f0-9]*|'')
-                    echo "The browser image has no valid browser repository revision." >&2
-                    exit 1
-                    ;;
-            esac
-            test "${#image_release}" -eq 40 || {
-                echo "The browser image has no valid browser repository revision." >&2
-                exit 1
-            }
-            ;;
-        *) preserved_service= ;;
-    esac
-    if test -n "$preserved_service" && is_preserved_service "$preserved_service"; then
-        expected_container_release=$env_release
-    fi
-    if test "$expected_container_release" != "$release"; then
-        case "$expected_container_release" in *[!a-f0-9]*|'')
-            echo "$container has an invalid preserved release $expected_container_release." >&2
-            exit 1
-            ;;
-        esac
-        test "${#expected_container_release}" -eq 40 || {
-            echo "$container has an invalid preserved release $expected_container_release." >&2
-            exit 1
-        }
-        if test "$independent_release" != 1; then
-            git merge-base --is-ancestor "$expected_container_release" "$release" || {
-                echo "$container's preserved release is not an ancestor of $release." >&2
-                exit 1
-            }
-        fi
-    fi
-    if test "$container" != hanasand_browsers; then
-        test "$env_release" = "$expected_container_release" || {
-            echo "$container has release $env_release, expected $expected_container_release" >&2
-            exit 1
-        }
-    fi
-    allow_missing_image=0
-    if test -n "$preserved_service" && is_preserved_service "$preserved_service"; then
-        allow_missing_image=1
-    fi
-    verify_image_revision "$container" "$image" "$image_release" "$expected_container_release" "$allow_missing_image"
+    verify_image_revision "$container" "$image" "$image_release" "$release"
 done
 
 systemctl is-active --quiet hanasand-ovh-host-metrics.timer || {
@@ -134,30 +65,25 @@ if test "$metrics_age" -lt 0 || test "$metrics_age" -gt 90; then
     exit 1
 fi
 
-test "$(docker inspect -f '{{.State.Running}}' hanasand_pgbouncer 2>/dev/null || true)" = true \
-    && test "$(docker inspect -f '{{.State.Health.Status}}' hanasand_pgbouncer 2>/dev/null || true)" = healthy || {
-    echo "Canonical PgBouncer is not running and healthy." >&2
-    exit 1
+verify_independent_container() {
+    container=$1
+    expected_project=$2
+    expected_service=$3
+    state=$(docker inspect -f '{{.State.Status}}' "$container" 2>/dev/null || true)
+    health=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{end}}' "$container" 2>/dev/null || true)
+    project=$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project"}}' "$container" 2>/dev/null || true)
+    service=$(docker inspect -f '{{index .Config.Labels "com.docker.compose.service"}}' "$container" 2>/dev/null || true)
+    if test "$state" != running || test "$health" != healthy || test "$project" != "$expected_project" || test "$service" != "$expected_service"; then
+        echo "$container must be healthy as $expected_service in independent Compose project $expected_project (state=$state health=$health project=$project service=$service)." >&2
+        return 1
+    fi
 }
-if test -n "$expected_pgbouncer_release"; then
-    pgbouncer_env_release=$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' hanasand_pgbouncer \
-        | sed -n 's/^HANASAND_RELEASE_COMMIT=//p' | head -1)
-    pgbouncer_image=$(docker inspect -f '{{.Image}}' hanasand_pgbouncer)
-    pgbouncer_image_release=$(docker image inspect -f '{{index .Config.Labels "org.opencontainers.image.revision"}}' \
-        "$pgbouncer_image" 2>/dev/null || true)
-    test "$pgbouncer_env_release" = "$expected_pgbouncer_release" || {
-        echo "PgBouncer does not match its requested release $expected_pgbouncer_release." >&2
-        exit 1
-    }
-    verify_image_revision "PgBouncer" "$pgbouncer_image" "$pgbouncer_image_release" "$expected_pgbouncer_release"
-fi
 
-for container in hanasand_auth_primary hanasand_auth_secondary; do
-    test "$(docker inspect -f '{{.State.Health.Status}}' "$container")" = healthy || {
-        echo "$container is not healthy after deployment." >&2
-        exit 1
-    }
-done
+verify_independent_container hanasand_pgbouncer hanasand-pgbouncer pgbouncer
+verify_independent_container hanasand_pgbouncer_candidate hanasand-pgbouncer pgbouncer-candidate
+verify_independent_container hanasand_onion_tor hanasand-onion onion-tor
+verify_independent_container hanasand_auth_primary hanasand-identity identity-primary
+verify_independent_container hanasand_auth_secondary hanasand-identity identity-secondary
 
 for container in $(docker ps -aq --filter label=com.docker.compose.project=hanasand-recovery) \
     hanasand-tunnel hanasand-tunnel-database hanasand-tunnel-intelligence hanasand-tunnel-web \
@@ -241,4 +167,4 @@ test "$recovery_route_status" = 404 || {
     exit 1
 }
 
-echo "All application and browser containers are healthy for release $release; preserved unchanged services: ${preserved_services:-none}."
+echo "Application, browser, and independent service health checks passed for release $release."

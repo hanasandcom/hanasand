@@ -91,6 +91,8 @@ async function enforceRateLimit(req: FastifyRequest, res: FastifyReply, database
         || !path.startsWith('/api')
         || isTrustedStatusIngest(req, path)
     ) return true
+    // Identity is the sole rate-limit owner for routes forwarded to its service.
+    if (path.startsWith('/api/auth/') || req.method === 'POST' && path === '/api/user') return true
 
     let phaseStarted = performance.now()
     if (path === '/api/system/events') req.auditBoundaryTiming = []
