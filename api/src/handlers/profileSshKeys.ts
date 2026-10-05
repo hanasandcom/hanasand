@@ -39,7 +39,7 @@ async function profileKeyUsage(fingerprints: string[]) {
     if (!fingerprints.length) return new Map<string, string>()
     const organizationId = process.env.PLATFORM_LOG_ORGANIZATION_ID || null
     const cacheKey = `${PROFILE_SSH_KEY_USAGE_CACHE_PREFIX}${organizationId || 'hanasand'}:${[...new Set(fingerprints)].sort().join(',')}`
-    return cachedRead(cacheKey, config.CACHE_TTL_HOT, async () => {
+    return cachedRead(cacheKey, config.CACHE_TTL_COLD, async () => {
         const result = await run(`
             SELECT fingerprint, MAX(event_timestamp) AS last_used_at
             FROM (
