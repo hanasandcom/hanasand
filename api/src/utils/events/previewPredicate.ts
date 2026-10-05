@@ -1,5 +1,12 @@
 import type { Condition } from './conditions.ts'
 
+export const exactMessageIndexMaxBytes = 2048
+
+export function exactCaseSensitiveMessage(conditions: Condition[]) {
+    return conditions.find(condition => condition.path === 'message' && condition.operator === 'equals'
+        && condition.caseSensitive === true && Buffer.byteLength(condition.value, 'utf8') <= exactMessageIndexMaxBytes)
+}
+
 // Expand only anchored finite regexes made from literal characters, alternation,
 // groups, and small character classes. Anything else stays with the JS matcher.
 export function finiteRegexAlternatives(expression: string, limit = 64): string[] | null {

@@ -4,7 +4,7 @@ import run, { withTransaction } from '#db'
 import { loadLogRetentionRules, retentionStoreMatches } from './customRetention.ts'
 import { collectEventFindings, loadConfiguredRules, normalizeEvent } from '../../handlers/events.ts'
 import { matchRulePage } from './rulePreview.ts'
-import { messageCandidatePredicate, processExecutableCandidatePredicate } from './previewPredicate.ts'
+import { exactCaseSensitiveMessage, exactMessageIndexMaxBytes, messageCandidatePredicate, processExecutableCandidatePredicate } from './previewPredicate.ts'
 import type { Condition } from './conditions.ts'
 import { builtinReprocessable, reprocessBuiltinPage } from './builtinReprocess.ts'
 
@@ -20,14 +20,14 @@ const eventCandidateColumns: Record<string, string> = {
     action: 'action', outcome: 'outcome', user_id: 'user_id', source_ip: 'source_ip',
 }
 
-function eventFieldCandidatePredicate(conditions: Condition[], bind: (value: string) => string) {
+function eventFieldCandidatePredicate(conditions: Condition[], bind: (value: string) => string, includeExecutable = true) {
     const scalar = conditions.flatMap(condition => {
         const column = eventCandidateColumns[condition.path]
         if (!column || condition.operator !== 'equals') return []
         const value = bind(condition.value)
         return [condition.caseSensitive ? `${column} = ${value}` : `lower(${column}) = lower(${value})`]
     })
-    const executable = processExecutableCandidatePredicate(conditions, bind)
+    const executable = includeExecutable ? processExecutableCandidatePredicate(conditions, bind) : null
     return [...scalar, executable].filter((predicate): predicate is string => Boolean(predicate)).join(' AND ')
 }
 
@@ -74,10 +74,16 @@ export async function processRuleReprocessJob() {
                 const lowerMs = windowed ? Math.max(fromMs, upperMs - 60 * 60 * 1000) : 0
                 const lower = windowed ? new Date(lowerMs).toISOString() : job.from_time
                 const params: (string | number | null)[] = [job.organization_id, upper, lower]
-                const candidate = [
-                    eventFieldCandidatePredicate(rule.definition.conditions, value => { params.push(value); return `$${params.length}` }),
-                    messageCandidatePredicate(rule.definition.conditions, 'normalized->>\'message\'', value => { params.push(value); return `$${params.length}` }),
-                ].filter(Boolean).join(' AND ') || 'TRUE'
+                const bind = (value: string) => { params.push(value); return `$${params.length}` }
+                const exactMessage = exactCaseSensitiveMessage(rule.definition.conditions)
+                const candidate = exactMessage
+                    ? [
+                        eventFieldCandidatePredicate(rule.definition.conditions, bind, false),
+                        `normalized->>'message' = ${bind(exactMessage.value)} AND octet_length(normalized->>'message') <= ${exactMessageIndexMaxBytes}`,
+                    ].filter(Boolean).join(' AND ')
+                    : [eventFieldCandidatePredicate(rule.definition.conditions, bind),
+                        messageCandidatePredicate(rule.definition.conditions, 'normalized->>\'message\'', bind),
+                    ].filter(Boolean).join(' AND ') || 'TRUE'
                 const ownedLogScope = rule.source === 'owned' ? 'AND ingestion_id=\'logs\' AND processing_status=\'processed\'' : ''
                 const cursorTimeParam = params.push(windowed && cursor.windowEnd ? cursor.time || null : cursor.time || null)
                 const cursorIdParam = params.push(cursor.id || '')

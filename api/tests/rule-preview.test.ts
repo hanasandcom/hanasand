@@ -1,6 +1,6 @@
 import { expect, mock, test } from 'bun:test'
 import { eventProtectionDefinition } from '../src/utils/events/eventProtection.ts'
-import { finiteRegexAlternatives, messageCandidatePredicate } from '../src/utils/events/previewPredicate.ts'
+import { exactCaseSensitiveMessage, finiteRegexAlternatives, messageCandidatePredicate } from '../src/utils/events/previewPredicate.ts'
 mock.module('#db', () => ({ default: async () => ({ rows: [] }) }))
 const { scanRulePreview: scan, validPreviewWindow } = await import('../src/utils/events/rulePreview.ts')
 test('historical message candidate filtering leaves unsupported expressions for the full matcher', () => {
@@ -15,6 +15,12 @@ test('finite anchored regexes produce safe index candidates', () => {
         .toEqual(['http-traffic', 'cdn', 'hanasand-api', 'hanasand_api', 'api', 'hanasand-api-1', 'hanasand-api-2', 'hanasand-api-3', 'hanasand-api-4'])
     expect(finiteRegexAlternatives('^service-[1-3]$')).toEqual(['service-1', 'service-2', 'service-3'])
     expect(finiteRegexAlternatives('^service-.*$')).toBeNull()
+})
+test('exact-message index selector is limited to short case-sensitive equalities', () => {
+    const exact = { path: 'message', operator: 'equals' as const, value: 'failed exec: /usr/sbin/xsel', caseSensitive: true }
+    expect(exactCaseSensitiveMessage([exact])).toEqual(exact)
+    expect(exactCaseSensitiveMessage([{ ...exact, caseSensitive: false }])).toBeUndefined()
+    expect(exactCaseSensitiveMessage([{ ...exact, value: '€'.repeat(683) }])).toBeUndefined()
 })
 test('event message candidates use the existing log trigram index for literal prefixes', () => {
     const values: string[] = []

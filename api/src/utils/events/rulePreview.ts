@@ -4,7 +4,7 @@ import { Worker } from 'node:worker_threads'
 import { matchesRule, type Condition } from './conditions.ts'
 import { loadLogRetentionRules, retentionStoreMatches, type RetentionRule } from './customRetention.ts'
 import { cachedRead, ReadAdmissionError } from '../readCache.ts'
-import { finiteRegexAlternatives, previewPredicate, processExecutableCandidatePredicate } from './previewPredicate.ts'
+import { exactCaseSensitiveMessage, exactMessageIndexMaxBytes, finiteRegexAlternatives, previewPredicate, processExecutableCandidatePredicate } from './previewPredicate.ts'
 import { logFieldTextCandidates } from '../logs/searchText.ts'
 
 export type PreviewEvent = { id: string, timestamp: string, normalized: Record<string, unknown>, rank: number, bytes?: number }
@@ -68,11 +68,10 @@ function storageEstimatePredicate(conditions: Condition[], params: (string | str
     // B-tree candidate instead of combining broad trigram/executable bitmaps.
     // This lets PostgreSQL seek directly to the message and return its newest
     // rows without sorting a large match set. JS still decides exact matches.
-    const exactMessage = conditions.find(condition => condition.path === 'message' && condition.operator === 'equals'
-        && condition.caseSensitive === true && Buffer.byteLength(condition.value, 'utf8') <= 2048)
+    const exactMessage = exactCaseSensitiveMessage(conditions)
     if (exactMessage) {
         params.push(exactMessage.value)
-        predicates.push(`normalized->>'message' = $${params.length} AND octet_length(normalized->>'message') <= 2048`)
+        predicates.push(`normalized->>'message' = $${params.length} AND octet_length(normalized->>'message') <= ${exactMessageIndexMaxBytes}`)
     } else {
         const executable = processExecutableCandidatePredicate(conditions, value => { params.push(value); return `$${params.length}` })
         if (executable) predicates.push(executable)
