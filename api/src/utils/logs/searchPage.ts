@@ -25,11 +25,31 @@ export async function searchLogPage(query: typeof queryOnce, input: Input) {
     where.push(`event_timestamp <= ${snapshot}`)
     if (cursor) where.push(`(event_timestamp, id) < (${bind(cursor.time)}::timestamptz, ${bind(cursor.id)}::text)`)
     const select = (clauses: string[]) => `SELECT id, normalized, event_timestamp, organization_id, event_timestamp::text AS cursor_time FROM events WHERE ${clauses.join(' AND ')} ORDER BY ${input.order} LIMIT ${input.limit + 1}`
-    // Common phrases can match tens of thousands of events. A full page from
-    // the newest fifteen minutes is already the correct page for the entire range.
-    // Otherwise fall back to the complete search, never a partial result set.
-    let result = input.recentFirst ? await query(select([...where, `event_timestamp >= $${params.length + 1}::timestamptz`]),
-        [...params, new Date(Date.parse(cursor?.time || until) - 15 * 60_000).toISOString()]) : undefined
+    // Read disjoint recent windows in descending time order. Once we have a
+    // full page, no older window can change which events belong on that page.
+    // This avoids sorting a million trigram matches just to return 200 rows.
+    let result: Awaited<ReturnType<typeof query>> | undefined
+    if (input.recentFirst) {
+        const windows = [15, 45, 3 * 60, 12 * 60, 24 * 60, 32 * 60].map(minutes => minutes * 60_000)
+        let segmentEnd = Date.parse(cursor?.time || until)
+        let firstSegment = true
+        const matches: Awaited<ReturnType<typeof query>>['rows'] = []
+        for (const duration of windows) {
+            const segmentStart = segmentEnd - duration
+            const endParameter = `$${params.length + 1}`
+            const startParameter = `$${params.length + 2}`
+            const endClause = firstSegment ? `event_timestamp <= ${endParameter}::timestamptz` : `event_timestamp < ${endParameter}::timestamptz`
+            const segment = await query(select([...where, endClause, `event_timestamp >= ${startParameter}::timestamptz`]),
+                [...params, firstSegment ? cursor?.time || until : new Date(segmentEnd).toISOString(), new Date(segmentStart).toISOString()])
+            firstSegment = false
+            matches.push(...segment.rows)
+            if (matches.length >= input.limit + 1) {
+                result = { ...segment, rows: matches.slice(0, input.limit + 1) }
+                break
+            }
+            segmentEnd = segmentStart
+        }
+    }
     if (!result || result.rows.length < input.limit + 1) {
         // A sparse long phrase can have its newest match well behind the
         // timestamp cursor. Prefer the trigram bitmap index for that fallback

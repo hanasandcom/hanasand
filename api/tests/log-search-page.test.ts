@@ -42,39 +42,56 @@ test('a complete recent page avoids scanning older matches and preserves the cur
     expect(first.rows.map(row => row.id)).toEqual(['c', 'b'])
     expect(first.next_cursor).toBeString()
     expect(calls[0].sql).toContain('o.status = \'active\'')
-    expect(calls[0].sql).toContain('event_timestamp >= $4::timestamptz')
-    expect(Date.parse(calls[0].params[2] as string) - Date.parse(calls[0].params[3] as string)).toBe(900_000)
+    expect(calls[0].sql).toContain('event_timestamp <= $4::timestamptz')
+    expect(calls[0].sql).toContain('event_timestamp >= $5::timestamptz')
+    expect(Date.parse(calls[0].params[2] as string) - Date.parse(calls[0].params[4] as string)).toBe(900_000)
     await searchLogPage(query, { ...input, recentFirst: true, cursor: first.next_cursor! })
     expect(calls[1].sql).toContain('(event_timestamp, id) < ($4::timestamptz, $5::text)')
-    expect(calls[1].params[3]).toBe('2026-09-20 00:00:00.123456+00')
-    expect(calls[1].params[5]).toBe('2026-09-19T23:45:00.123Z')
+    expect(calls[1].sql).toContain('event_timestamp <= $6::timestamptz')
+    expect(calls[1].params[5]).toBe('2026-09-20 00:00:00.123456+00')
 })
-test('sparse and exactly full recent pages fall back to the entire original range', async () => {
+test('sparse recent windows fall back to the entire original range', async () => {
     for (const recent of [[], [{ id: 'c' }], [{ id: 'c' }, { id: 'b' }]]) {
         const calls: Array<{ sql: string, params: unknown[] }> = []
         const query = (async (sql: string, params: unknown[]) => {
             calls.push({ sql, params })
-            return { rows: calls.length === 1 ? recent : [{ id: 'c' }, { id: 'b' }, { id: 'older', cursor_time: '2026-09-19 12:00:00+00' }] }
+            return { rows: calls.length === 1 ? recent : calls.length === 7 ? [{ id: 'c' }, { id: 'b' }, { id: 'older', cursor_time: '2026-09-19 12:00:00+00' }] : [] }
         }) as unknown as typeof queryOnce
         const result = await searchLogPage(query, { ...input, recentFirst: true })
-        expect(calls).toHaveLength(2)
-        expect(calls[1].params).toEqual(calls[0].params.slice(0, -1))
-        expect(calls[1].sql).not.toContain('event_timestamp >= $4::timestamptz')
-        expect(calls[1].sql).toContain('event_timestamp >= $3::timestamptz - $1 * INTERVAL \'1 hour\'')
+        expect(calls).toHaveLength(7)
+        expect(calls[6].sql).not.toContain('event_timestamp >= $5::timestamptz')
+        expect(calls[6].sql).toContain('event_timestamp >= $3::timestamptz - $1 * INTERVAL \'1 hour\'')
         expect(result.rows.map(row => row.id)).toEqual(['c', 'b'])
         expect(result.next_cursor).toBeString()
     }
+})
+test('searches expand through disjoint recent windows and stop once they find a full page', async () => {
+    const calls: Array<{ sql: string, params: unknown[] }> = []
+    const rows = ['c', 'b', 'a'].map(id => ({ id, normalized: {}, cursor_time: '2026-09-19 12:00:00+00' }))
+    const query = (async (sql: string, params: unknown[]) => {
+        calls.push({ sql, params })
+        return { rows: calls.length === 6 ? rows : [] }
+    }) as unknown as typeof queryOnce
+    const result = await searchLogPage(query, { ...input, recentFirst: true })
+    expect(calls).toHaveLength(6)
+    expect(calls[0].sql).toContain('event_timestamp <= $4::timestamptz')
+    expect(calls.slice(1).every(({ sql }) => sql.includes('event_timestamp < $4::timestamptz'))).toBe(true)
+    expect(calls[1].params[3]).toBe(calls[0].params[4])
+    expect(result.rows.map(row => row.id)).toEqual(['c', 'b'])
+    expect(result.next_cursor).toBeString()
 })
 test('sparse long-phrase searches use the trigram bitmap path on the historical fallback', async () => {
     const calls: string[] = []
     const query = (async (sql: string) => {
         calls.push(sql)
-        return { rows: sql.startsWith('SELECT') ? [{ id: 'older', cursor_time: '2026-09-19 12:00:00+00' }] : [] }
+        return { rows: sql.startsWith('SELECT') && !sql.includes('event_timestamp >= $5::timestamptz')
+            ? [{ id: 'older', cursor_time: '2026-09-19 12:00:00+00' }] : [] }
     }) as unknown as typeof queryOnce
     const result = await searchLogPage(query, { ...input, recentFirst: true, preferTextIndex: true })
-    expect(calls[0]).toContain("event_timestamp >= $")
-    expect(calls[1]).toBe('SET LOCAL enable_indexscan = off')
-    expect(calls[2]).not.toContain('event_timestamp >= $4::timestamptz')
-    expect(calls[3]).toBe('SET LOCAL enable_indexscan = DEFAULT')
+    expect(calls).toHaveLength(9)
+    expect(calls.slice(0, 6).every(sql => sql.startsWith('SELECT'))).toBe(true)
+    expect(calls[6]).toBe('SET LOCAL enable_indexscan = off')
+    expect(calls[7]).not.toContain('event_timestamp <= $4::timestamptz')
+    expect(calls[8]).toBe('SET LOCAL enable_indexscan = DEFAULT')
     expect(result.rows.map(row => row.id)).toEqual(['older'])
 })
