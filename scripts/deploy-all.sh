@@ -411,7 +411,15 @@ preserve_unchanged_service() {
     shift 2
 
     test "$(docker inspect -f '{{.State.Running}}' "$container_name" 2>/dev/null || true)" = true || return 1
-    test "$(docker inspect -f '{{.State.Health.Status}}' "$container_name" 2>/dev/null || true)" = healthy || return 1
+    case "$service_name" in
+        auth-primary|auth-secondary)
+            # Auth readiness checks the shared database. A transient DB or host
+            # overload should not bounce an unchanged login worker.
+            ;;
+        *)
+            test "$(docker inspect -f '{{.State.Health.Status}}' "$container_name" 2>/dev/null || true)" = healthy || return 1
+            ;;
+    esac
 
     service_release=$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$container_name" 2>/dev/null \
         | sed -n 's/^HANASAND_RELEASE_COMMIT=//p' | head -1)
