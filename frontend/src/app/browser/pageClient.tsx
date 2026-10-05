@@ -1465,7 +1465,7 @@ export default function BrowserPageClient({ initialData, resultId, resultRunId }
                         </form>
                     </div>
                 </section>
-                <div className='mx-auto flex w-full max-w-7xl shrink-0 justify-end px-4 pb-4'><BrowserHistory clientId={resultClientId} /></div>
+                <div className='mx-auto flex w-full max-w-7xl shrink-0 justify-end px-4 pb-4'><BrowserHistory clientId={resultClientId} onShare={shareFinding} /></div>
             </main>
         )
     }

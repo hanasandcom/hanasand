@@ -95,7 +95,6 @@ export async function getBrowserRuns(req: FastifyRequest<{ Querystring: { client
             })
         }
 
-        const quota = await loadBrowserQuota(identity)
         const params = identity.ownerId
             ? [identity.ownerId, identity.clientIdHash]
             : [identity.clientIdHash]
@@ -104,17 +103,22 @@ export async function getBrowserRuns(req: FastifyRequest<{ Querystring: { client
             if (!Number.isSafeInteger(offset) || offset < 0) return res.status(400).send({ error: 'Invalid history offset.' })
             const scope = identity.ownerId ? '(owner_id = $1 OR ($2::text IS NOT NULL AND client_id_hash = $2))' : 'client_id_hash = $1'
             const result = await run(`
-                SELECT id, target, network, status, title, created_at, metadata - 'report' AS metadata
+                SELECT id, target, network, status, created_at,
+                    jsonb_strip_nulls(jsonb_build_object(
+                        'virustotal', metadata #> '{providerResults,virustotal}',
+                        'urlquery', metadata #> '{providerResults,urlquery}'
+                    )) AS provider_results
                 FROM browser_runs WHERE ${scope}
                     AND metadata->>'historyDeletedAt' IS NULL
                 ORDER BY created_at DESC, id DESC
                 LIMIT 51 OFFSET $${params.length + 1}
             `, [...params, offset])
             return res.header('cache-control', 'private, no-store').send({
-                runs: result.rows.slice(0, 50).map(rowToRunRecord),
+                runs: result.rows.slice(0, 50).map(rowToHistoryRecord),
                 nextOffset: result.rows.length > 50 ? offset + 50 : null,
             })
         }
+        const quota = await loadBrowserQuota(identity)
         const result = await run(identity.ownerId ? `
             SELECT *
             FROM (
@@ -404,6 +408,18 @@ function rowToRunRecord(row: Record<string, any>): BrowserRunRecord {
         title: String(row.title || ''),
         providerResults: providerResultsValue(row.metadata?.providerResults),
         reportUrl: reportToken ? browserReportViewerUrl(String(row.id || ''), String(reportToken)) : undefined,
+    }
+}
+
+function rowToHistoryRecord(row: Record<string, any>) {
+    return {
+        id: String(row.id || ''),
+        resultId: browserResultId(String(row.target || '')),
+        target: String(row.target || ''),
+        network: row.network === 'tor' ? 'tor' as const : 'regular' as const,
+        status: String(row.status || 'running'),
+        startedAt: new Date(row.created_at || Date.now()).toISOString(),
+        providerResults: providerResultsValue(row.provider_results),
     }
 }
 
