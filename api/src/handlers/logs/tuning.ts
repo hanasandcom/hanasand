@@ -100,7 +100,10 @@ function refreshLogTuningSnapshot() {
         // This full-history aggregation reads and groups the entire stored-log
         // corpus. Let request traffic take priority instead of competing with
         // previews and other foreground database work.
-        if (!(await isDatabaseLowLoad(2))) return 'busy'
+        // This full-history aggregation must not overlap any active database
+        // work such as an online index build; one extra scan can exhaust the
+        // PgBouncer server pool and make foreground API requests time out.
+        if (!(await isDatabaseLowLoad(0))) return 'busy'
 
         const startedAt = new Date().toISOString()
         const result = await queryLogTuning()
