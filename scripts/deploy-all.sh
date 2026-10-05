@@ -346,13 +346,13 @@ warm_browser_stats() {
     response_file="$build_dir/browser-page.html"
     for request in 1 2; do
         response=$(curl --fail --silent --show-error --max-time 15 --output "$response_file" \
-            --write-out '%{http_code} %{time_starttransfer}' "http://127.0.0.1:$port/browser")
+            --write-out '%{http_code} %{time_starttransfer}' "http://127.0.0.1:$port/sandbox")
         status=${response%% *}
         elapsed=${response#* }
         if [ "$status" != "200" ] \
             || ! grep -Eq '>[0-9]+<!-- --> runs today' "$response_file" \
             || ! grep -Eq '>[0-9]+<!-- --> darkweb runs today' "$response_file"; then
-            echo "/browser did not server-render both run counts (status $status)." >&2
+            echo "/sandbox did not server-render both run counts (status $status)." >&2
             return 1
         fi
         printf 'Browser stats preloaded in HTML (request %s first byte %.1f ms).\n' \
