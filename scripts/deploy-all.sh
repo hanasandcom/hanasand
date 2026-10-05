@@ -437,9 +437,40 @@ preserve_unchanged_service() {
 }
 
 preserve_unchanged_service onion-tor hanasand_onion_tor ops/onion-tor || true
+preserve_unchanged_auth_service() {
+    # This follows Bun's authServer import graph; unrelated API endpoints do not
+    # need to replace the authentication workers.
+    preserve_unchanged_service "$1" "$2" \
+        api/src/authRoutes.ts \
+        api/src/authServer.ts \
+        api/src/constants.ts \
+        api/src/handlers/auth \
+        api/src/handlers/user/post.ts \
+        api/src/plugins/rateLimit.ts \
+        api/src/utils/auth \
+        api/src/utils/crypto \
+        api/src/utils/db.ts \
+        api/src/utils/http/publicBoundary.ts \
+        api/src/utils/mail \
+        api/src/utils/publicMonitoringRequest.ts \
+        api/src/utils/pwned \
+        api/src/utils/rateLimit/config.ts \
+        api/src/utils/recovery.ts \
+        api/src/utils/support/config.ts \
+        api/src/utils/systemEvent.ts \
+        api/package.json \
+        api/bun.lock \
+        api/bunfig.toml \
+        api/Dockerfile \
+        api/Dockerfile.dockerignore \
+        api/scripts/check-session-network.ts \
+        api/scripts/download-session-geo.ts \
+        db \
+        .dockerignore
+}
 if test "$canonical_pgbouncer_recreated" = 0; then
-    preserve_unchanged_service auth-primary hanasand_auth_primary api db .dockerignore || true
-    preserve_unchanged_service auth-secondary hanasand_auth_secondary api db .dockerignore || true
+    preserve_unchanged_auth_service auth-primary hanasand_auth_primary || true
+    preserve_unchanged_auth_service auth-secondary hanasand_auth_secondary || true
 fi
 
 # Start an isolated release-matched connection pool and API/frontend pair
