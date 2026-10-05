@@ -42,10 +42,10 @@ async function profileKeyUsage(fingerprints: string[]) {
     const cacheKey = `${PROFILE_SSH_KEY_USAGE_CACHE_PREFIX}${organizationId || 'hanasand'}:${uniqueFingerprints.join(',')}`
     return cachedRead(cacheKey, config.CACHE_TTL_COLD, async () => {
         const result = await run(`
-            SELECT fingerprint, MAX(event_timestamp) AS last_used_at
-            FROM (
-                SELECT e.event_timestamp,
-                       substring(e.normalized->>'message' FROM '(SHA256:[A-Za-z0-9+/]{43})') AS fingerprint
+            SELECT requested.fingerprint, latest.event_timestamp AS last_used_at
+            FROM unnest($1::text[]) AS requested(fingerprint)
+            CROSS JOIN LATERAL (
+                SELECT e.event_timestamp
                 FROM events e
                 WHERE e.organization_id = (
                     SELECT id
@@ -63,9 +63,10 @@ async function profileKeyUsage(fingerprints: string[]) {
                   AND e.normalized->>'service' = 'sshd'
                   AND e.normalized->>'host' IN ('inspur', 'ovhcloud')
                   AND e.normalized->>'message' LIKE 'Accepted publickey for % ssh2: % SHA256:%'
-            ) accepted_keys
-            WHERE fingerprint = ANY($1::text[])
-            GROUP BY fingerprint
+                  AND substring(e.normalized->>'message' FROM '(SHA256:[A-Za-z0-9+/]{43})') = requested.fingerprint
+                ORDER BY e.event_timestamp DESC
+                LIMIT 1
+            ) latest
         `, [uniqueFingerprints, organizationId])
         return new Map((result.rows as ProfileSshKeyUsage[]).map(row => [
             row.fingerprint,
