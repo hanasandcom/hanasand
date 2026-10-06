@@ -40,6 +40,7 @@ const maxWaitingConnections = Math.max(8, Math.min(64, maxConnections * 2))
 // Reserve those clients inside the configured total instead of adding a second budget.
 const directConnections = DB_POOL_HOST ? Math.min(8, maxConnections) : 0
 const dedicatedLogProcessor = process.env.LOG_PROCESSOR_ONLY === '1'
+const httpOnlyApi = process.env.API_HTTP_ONLY === '1' && process.env.AUTH_SERVICE_ONLY !== '1'
 const primaryReserve = dedicatedLogProcessor ? Math.min(4, Math.max(0, maxConnections - directConnections)) : 0
 // Keep a small pool available for new logs while the durable history pass is busy.
 const priorityEventConnections = dedicatedLogProcessor
@@ -49,8 +50,8 @@ const priorityEventConnections = dedicatedLogProcessor
 // for independent event writes instead of creating an unused read pool.
 const readConnections = dedicatedLogProcessor
     ? 0
-    : process.env.API_HTTP_ONLY !== '1' && process.env.AUTH_SERVICE_ONLY !== '1'
-        && maxConnections >= 16 ? Math.min(4, Math.max(2, Math.floor(maxConnections / 5))) : 0
+    : process.env.AUTH_SERVICE_ONLY !== '1' && maxConnections >= 16
+        ? Math.min(4, Math.max(2, Math.floor(maxConnections / 5))) : 0
 // Reserve worker capacity without increasing its total connection budget.
 // Event holds cursor and batch locks while committing evidence on another client.
 const eventConnections = process.env.LOG_PROCESSOR_ONLY === '1'
@@ -59,12 +60,12 @@ const eventConnections = process.env.LOG_PROCESSOR_ONLY === '1'
         && maxConnections >= 12 ? 8 : 0
 const primaryConnections = Math.max(0, maxConnections - eventConnections - priorityEventConnections - readConnections - directConnections)
 const warmupBudget = Math.max(0, Math.min(maxConnections, Math.floor(Number(process.env.DB_POOL_WARMUP_CONN) || 0)))
-const primaryWarmup = Math.min(primaryConnections, warmupBudget)
+const httpReadWarmup = httpOnlyApi ? Math.min(readConnections, warmupBudget) : 0
+const primaryWarmup = Math.min(primaryConnections, Math.max(0, warmupBudget - httpReadWarmup))
 const priorityEventWarmup = Math.min(priorityEventConnections, Math.max(0, warmupBudget - primaryWarmup))
 const eventWarmup = Math.min(eventConnections, Math.max(0, warmupBudget - primaryWarmup - priorityEventWarmup))
-const readWarmup = Math.min(readConnections, Math.max(0, warmupBudget - primaryWarmup - priorityEventWarmup - eventWarmup))
+const readWarmup = Math.max(httpReadWarmup, Math.min(readConnections, Math.max(0, warmupBudget - primaryWarmup - priorityEventWarmup - eventWarmup)))
 const directWarmup = Math.min(directConnections, Math.max(0, warmupBudget - primaryWarmup - priorityEventWarmup - eventWarmup - readWarmup))
-const httpOnlyApi = process.env.API_HTTP_ONLY === '1' && process.env.AUTH_SERVICE_ONLY !== '1'
 const configuredIdleTimeout = Number(DB_IDLE_TIMEOUT_MS) || (
     process.env.AUTH_SERVICE_ONLY === '1' ? 5000 : 120_000
 )
