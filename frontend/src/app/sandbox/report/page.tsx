@@ -19,6 +19,6 @@ export const metadata: Metadata = {
 
 export default async function SandboxReportPage(props: { searchParams: Promise<{ run?: string; token?: string }> }) {
     const searchParams = await props.searchParams
-    if (!searchParams.run || !searchParams.token) redirect('/sandbox')
+    if (!searchParams.run) redirect('/sandbox')
     return <BrowserReportPageClient runId={searchParams.run} token={searchParams.token} />
 }

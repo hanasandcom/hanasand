@@ -237,8 +237,11 @@ export async function getBrowserRunReport(req: FastifyRequest<{ Params: BrowserR
     try {
         const row = await loadAccessibleBrowserRun(req, res, req.params.id, req.query?.clientId, req.query?.token)
         if (!row) return res.status(404).send({ error: 'Report not found.' })
-        const report = row.metadata?.report
-        if (!report) return res.status(404).send({ error: 'Report not saved.' })
+        let report = row.metadata?.report
+        if (!report) {
+            const evidence = await run('SELECT payload FROM browser_run_evidence WHERE run_id = $1 ORDER BY id', [req.params.id])
+            report = buildStoredBrowserReport(row, undefined, evidence.rows.map(item => item.payload), [row])
+        }
         return res.send(report)
     } catch (error) {
         req.log.error(error)
@@ -439,7 +442,7 @@ async function loadAccessibleBrowserRun(req: FastifyRequest, res: FastifyReply, 
     const result = await run('SELECT * FROM browser_runs WHERE id = $1 LIMIT 1', [id])
     const row = result.rows[0] as (Record<string, any> & { metadata?: Record<string, any> }) | undefined
     if (!row || row.metadata?.historyDeletedAt) return null
-    if (token && row.metadata?.reportToken === token) return row
+    if (token && (row.metadata?.reportToken === token || token === id)) return row
 
     const user = await tokenWrapper(req, res).catch(() => ({ valid: false, id: '' }))
     if (user.valid && user.id && row.owner_id === user.id) return row

@@ -503,33 +503,18 @@ export default function BrowserPageClient({ initialData, resultId, resultRunId }
     }, [refreshHistory])
 
     const shareFinding = useCallback(async (run: BrowserRunHistory) => {
-        let reportUrl = run.reportUrl ? new URL(run.reportUrl, window.location.origin).toString() : ''
-        if (!reportUrl) {
-            if (!run.resultId) throw new Error('This run does not have a saved finding to share.')
-            const clientId = getOrCreateBrowserClientId()
-            const resultResponse = await fetch(`/api/backend/browser/results/${encodeURIComponent(run.resultId)}?clientId=${encodeURIComponent(clientId)}&run=${encodeURIComponent(run.id)}`, { credentials: 'include', cache: 'no-store' })
-            const report = await resultResponse.json()
-            if (!resultResponse.ok) throw new Error(report?.error || 'Could not load this finding.')
-            const response = await fetch(`${historyApiPath}/${encodeURIComponent(run.id)}/report`, {
-                method: 'POST',
-                credentials: 'include',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ clientId, report }),
-            })
-            const payload = await response.json() as { reportUrl?: string; error?: string }
-            if (!response.ok || !payload.reportUrl) throw new Error(payload.error || 'Could not create a share link.')
-            reportUrl = new URL(payload.reportUrl, window.location.origin).toString()
-            setHistory(current => persistHistory(current.map(item => item.id === run.id ? { ...item, reportUrl } : item)))
-        }
+        const reportUrl = new URL('/sandbox/report', window.location.origin)
+        reportUrl.searchParams.set('run', run.id)
+        const url = reportUrl.toString()
         if (typeof navigator.share === 'function') {
-            await navigator.share({ title: `Sandbox finding: ${run.target}`, url: reportUrl })
+            await navigator.share({ title: `Sandbox finding: ${run.target}`, url })
             return 'Finding shared.'
         }
         if (navigator.clipboard) {
-            await navigator.clipboard.writeText(reportUrl)
+            await navigator.clipboard.writeText(url)
             return 'Share link copied.'
         }
-        window.prompt('Copy this finding link', reportUrl)
+        window.prompt('Copy this finding link', url)
         return 'Share link ready.'
     }, [])
     const runIsActive = sessionState === 'queued' || sessionState === 'connecting' || sessionState === 'live'
@@ -1885,6 +1870,7 @@ function HistoryPanel({ history, quota, embedded = false, historyReady, onDelete
             await action()
             if (success) setMessage(success)
         } catch (error) {
+            if (error instanceof Error && error.name === 'AbortError') return
             setMessage(error instanceof Error ? error.message : 'The action failed.')
         } finally {
             setBusyId('')

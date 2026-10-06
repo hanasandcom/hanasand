@@ -68,18 +68,9 @@ export default function BrowserHistory({ clientId, onShare }: { clientId: string
 
     const share = async (run: HistoryRun) => {
         if (onShare) return onShare(run)
-        const resultResponse = await fetch(`/api/backend/browser/results/${encodeURIComponent(run.resultId)}?clientId=${encodeURIComponent(clientId)}&run=${encodeURIComponent(run.id)}`, { credentials: 'include' })
-        const report = await resultResponse.json()
-        if (!resultResponse.ok) throw new Error(report?.error || 'Could not load this finding.')
-        const response = await fetch(`/api/backend/browser/runs/${encodeURIComponent(run.id)}/report`, {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ clientId, report }),
-        })
-        const payload = await response.json() as { reportUrl?: string; error?: string }
-        if (!response.ok || !payload.reportUrl) throw new Error(payload.error || 'Could not create a share link.')
-        const url = new URL(payload.reportUrl, window.location.origin).toString()
+        const reportUrl = new URL('/sandbox/report', window.location.origin)
+        reportUrl.searchParams.set('run', run.id)
+        const url = reportUrl.toString()
         if (typeof navigator.share === 'function') {
             await navigator.share({ title: `Sandbox finding: ${run.target}`, url })
             return 'Finding shared.'
@@ -122,6 +113,7 @@ export default function BrowserHistory({ clientId, onShare }: { clientId: string
         try {
             setMessage(await share(run))
         } catch (cause) {
+            if (cause instanceof Error && cause.name === 'AbortError') return
             setError(cause instanceof Error ? cause.message : 'Could not share this finding.')
         } finally {
             setBusyId('')

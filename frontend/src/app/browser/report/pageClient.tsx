@@ -73,7 +73,7 @@ export default function BrowserReportPageClient({ runId = '', token = '', result
     const [selectedRun, setSelectedRun] = useState(initialRun)
     const endpoint = useMemo(() => resultId
         ? clientId ? `/api/backend/browser/results/${encodeURIComponent(resultId)}?clientId=${encodeURIComponent(clientId)}${selectedRun ? `&run=${encodeURIComponent(selectedRun)}` : ''}` : ''
-        : runId && token ? `/api/backend/browser/runs/${encodeURIComponent(runId)}/report?token=${encodeURIComponent(token)}` : '', [runId, token, resultId, clientId, selectedRun])
+        : runId ? `/api/backend/browser/runs/${encodeURIComponent(runId)}/report?token=${encodeURIComponent(token || runId)}` : '', [runId, token, resultId, clientId, selectedRun])
 
     useEffect(() => {
         if (!endpoint) {
