@@ -1,5 +1,6 @@
 import pg from 'pg'
 import { supportConnection } from './db.ts'
+import { clearSupportReadCache } from './readCache.ts'
 
 export type SupportChange = { id: string; visitor: string | null; user: string | null; channel: string }
 
@@ -29,7 +30,11 @@ export function supportNotifications(onError: (error: Error) => void) {
         next.on('end', () => reconnect())
         next.on('notification', event => {
             if (event.channel !== 'support_changed' || !event.payload) return
-            try { const change = JSON.parse(event.payload); for (const listener of listeners) listener(change) } catch { /* Invalid events cannot address a socket. */ }
+            try {
+                const change = JSON.parse(event.payload)
+                clearSupportReadCache()
+                for (const listener of listeners) listener(change)
+            } catch { /* Invalid events cannot address a socket. */ }
         })
         try {
             await next.connect()

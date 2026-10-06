@@ -22,7 +22,7 @@ function localDateKey(value: string) {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
-type InitialChat = { tickets: Ticket[]; isSupport: boolean; selectedId: string; messages: Message[]; realtime: boolean }
+type InitialChat = { tickets: Ticket[]; isSupport: boolean; selectedId: string; messages: Message[]; messagesLoaded: boolean; realtime: boolean }
 
 export default function SupportChat({ embedded = false, initialChat }: { embedded?: boolean; initialChat?: InitialChat }) {
     const [tickets, setTickets] = useState<Ticket[]>(initialChat?.tickets || [])
@@ -35,6 +35,7 @@ export default function SupportChat({ embedded = false, initialChat }: { embedde
     const creating = useRef(false)
     const drafts = useRef<Record<string, string>>({})
     const log = useRef<HTMLDivElement>(null)
+    const initialMessagesLoaded = useRef(false)
     const [messages, setMessages] = useState<Message[]>(initialChat?.messages || [])
     const [readSelectedId, setReadSelectedId] = useState('')
     const [input, setInput] = useState('')
@@ -124,6 +125,13 @@ export default function SupportChat({ embedded = false, initialChat }: { embedde
     }, [dateFrom, dateTo, feedbackFilter, filterText, isSupport, loadTickets, starFilter])
     useEffect(() => {
         const controller = new AbortController()
+        if (!initialMessagesLoaded.current) {
+            initialMessagesLoaded.current = true
+            if (initialChat?.selectedId === selectedId && initialChat.messagesLoaded) {
+                setSyncedId(selectedId)
+                return () => controller.abort()
+            }
+        }
         if (initialChat?.selectedId !== selectedId) setMessages([])
         setSyncedId('')
         const refresh = () => { void loadMessages(selectedId, controller.signal).then(() => { if (!controller.signal.aborted) { setError(''); setSyncedId(selectedId) } }).catch(error => { if (!controller.signal.aborted) setError(error.message) }) }
@@ -294,7 +302,7 @@ export default function SupportChat({ embedded = false, initialChat }: { embedde
                                     </div> : null}
                                 </div> : null}
                                 <button type='button' disabled={discordLinkBusy} onClick={() => void createDiscordLinkCode()} aria-label={discordLinkBusy ? 'Creating Discord link code' : 'Connect Discord'} title='Connect Discord' className='inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-ui-border transition hover:bg-ui-panel focus-visible:outline-2 focus-visible:outline-ui-primary disabled:opacity-50'>
-                                    <Image src='/images/assets/social/discord.png' alt='' aria-hidden='true' width={16} height={16} className='h-4 w-4 object-contain' />
+                                    <Image src='/images/assets/social/discord.svg' alt='' aria-hidden='true' width={16} height={16} className='h-4 w-4 object-contain' />
                                 </button>
                             </div>
                         </div>

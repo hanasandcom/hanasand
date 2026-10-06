@@ -8,6 +8,7 @@ import { validateSupportSession } from '#utils/support/auth.ts'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import { matchApiKeyScope, validateApiKey } from '#utils/auth/apiKeys.ts'
 import { hasHanasandInternalPageAccess } from '#utils/auth/organizationPageAccess.ts'
+import { cachedSupportRead, clearSupportReadCache } from '#utils/support/readCache.ts'
 
 type SupportBody = { subject?: string; message?: string; requestId?: string }
 const actors = new WeakMap<FastifyRequest, { id: string; support: boolean }>()
@@ -98,7 +99,7 @@ export async function getSupportTickets(req: FastifyRequest<{ Querystring: Suppo
         const support = await isSupport(userId, req)
         const filters = supportTicketFilters(support ? req.query : {})
         if (!filters) return res.status(400).send({ error: 'Invalid support ticket filters.' })
-        const result = await listSupportTickets(userId, support, filters)
+        const result = await cachedSupportRead(`tickets:${userId}:${support}:${JSON.stringify(filters)}`, () => listSupportTickets(userId, support, filters))
         return res.send({ isSupport: support, tickets: result.rows, realtime: true })
     } catch (error) {
         req.log.error(error)
@@ -110,7 +111,8 @@ export async function getMySupportTickets(req: FastifyRequest, res: FastifyReply
     const userId = await auth(req, res)
     if (!userId) return
     try {
-        const result = await listSupportTickets(userId, false, { search: '', from: '', to: '', stars: 'all', feedback: 'all' })
+        const filters = { search: '', from: '', to: '', stars: 'all', feedback: 'all' }
+        const result = await cachedSupportRead(`tickets:${userId}:false:${JSON.stringify(filters)}`, () => listSupportTickets(userId, false, filters))
         return res.send({ isSupport: false, tickets: result.rows, realtime: true })
     } catch (error) {
         req.log.error(error)
@@ -130,6 +132,7 @@ export async function postSupportTicket(req: FastifyRequest<{ Body: SupportBody 
             await query('INSERT INTO support_tickets (id, user_id, subject) VALUES ($1, $2, $3)', [ticketId, userId, subject || 'Support question'])
             await query('INSERT INTO support_messages (id, ticket_id, sender_id, body) VALUES ($1, $2, $3, $4)', [randomUUID(), ticketId, userId, message])
         })
+        clearSupportReadCache()
         return res.status(201).send({ id: ticketId })
     } catch (error) {
         req.log.error(error)
@@ -168,12 +171,12 @@ export async function getSupportMessages(req: FastifyRequest<{ Params: { id: str
         const support = await isSupport(userId, req)
         const access = await run('SELECT EXISTS (SELECT 1 FROM support_tickets WHERE id = $1 AND ($2::boolean OR user_id = $3)) AS allowed', [req.params.id, support, userId])
         if (!access.rows[0]?.allowed) return res.status(404).send({ error: 'Support ticket not found.' })
-        const result = await run(`
+        const result = await cachedSupportRead(`messages:${userId}:${support}:${req.params.id}`, () => run(`
             SELECT m.id, m.sender_id, m.sender_kind, m.body, m.created_at,
                    CASE WHEN m.sender_kind = 'assistant' THEN 'Hanasand AI' WHEN m.sender_kind = 'system' THEN 'Support' ELSE COALESCE(m.sender_display_name,u.name, 'Visitor') END AS sender_name
             FROM support_messages m LEFT JOIN users u ON u.id = m.sender_id
             WHERE m.ticket_id = $1 ORDER BY m.created_at ASC, m.id
-        `, [req.params.id])
+        `, [req.params.id]))
         return res.send({ messages: result.rows })
     } catch (error) {
         req.log.error(error)
@@ -221,6 +224,7 @@ export async function postSupportMessage(req: FastifyRequest<{ Params: { id: str
                 ai_pending_at = CASE WHEN $3 THEN NULL ELSE ai_pending_at END WHERE id = $1`, [req.params.id, 'open', support])
             return savedId || messageId
         })
+        clearSupportReadCache()
         return res.send({ ok: true, messageId: savedMessageId })
     } catch (error) {
         if (error instanceof SupportStateError) return res.status(error.status).send({ error: error.message })
@@ -236,6 +240,7 @@ export async function postSupportStatus(req: FastifyRequest<{ Params: { id: stri
     try {
         if (!await isSupport(userId, req)) return res.status(403).send({ error: 'Only support agents can resolve or reopen chats.' })
         const result = await setSupportStatus(req.params.id, req.body.status as 'open' | 'closed', userId)
+        clearSupportReadCache()
         return res.send({ ok: true, ...result })
     } catch (error) {
         if (error instanceof SupportStateError) return res.status(error.status).send({ error: error.message })
@@ -250,6 +255,7 @@ export async function postSupportFeedback(req: FastifyRequest<{ Params: { id: st
     if (!supportIdPattern.test(req.params.id)) return res.status(400).send({ error: 'Invalid conversation.' })
     try {
         await saveSupportFeedback(req.params.id, { user: userId }, req.body?.rating, req.body?.comment ?? '', req.body?.resolutionVersion)
+        clearSupportReadCache()
         return res.send({ ok: true })
     } catch (error) {
         if (error instanceof SupportStateError) return res.status(error.status).send({ error: error.message })

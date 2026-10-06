@@ -5,6 +5,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify'
 import { consumeSharedRateLimitBucket } from '#utils/rateLimit/config.ts'
 import { queryOnce } from '#utils/support/db.ts'
 import { readSupportConversation, sendSupportChat, supportSessionHash, supportIdPattern, SupportConversationNotFound } from '#utils/support/conversation.ts'
+import { cachedSupportRead, clearSupportReadCache } from '#utils/support/readCache.ts'
 
 type ChatBody = { requestId?: unknown; message?: unknown; handoff?: unknown; conversationId?: unknown; action?: unknown; rating?: unknown; comment?: unknown; resolutionVersion?: unknown; foundWhatLookingFor?: unknown; reason?: unknown }
 
@@ -17,14 +18,16 @@ export async function publicSupportChat(req: FastifyRequest<{ Body: ChatBody; Qu
         if (req.method === 'GET') {
             const id = req.query.conversationId
             if (id && !supportIdPattern.test(id)) return res.status(400).send({ error: 'Invalid conversation.' })
-            return res.send(await readSupportConversation(hash, id))
+            return res.send(await cachedSupportRead(`visitor:${hash}:${id || 'latest'}`, () => readSupportConversation(hash, id)))
         }
         if (req.body?.action === 'resolve') {
             const { conversationId } = req.body
             if (typeof conversationId !== 'string' || !supportIdPattern.test(conversationId)) return res.status(400).send({ error: 'Invalid conversation.' })
             const quota = await consumeSharedRateLimitBucket({ key: `support-resolve:${hash}`, rule: { windowMs: 60_000, maxRequests: 10 } }, queryOnce)
             if (!quota.allowed) return res.status(429).send({ error: 'Please wait before closing this conversation.' })
-            return res.send({ ok: true, ...await closeVisitorSupportConversation(conversationId, hash) })
+            const result = await closeVisitorSupportConversation(conversationId, hash)
+            clearSupportReadCache()
+            return res.send({ ok: true, ...result })
         }
         if (req.body?.action === 'connect') {
             const quota = await consumeSharedRateLimitBucket({ key: `support-connect:${hash}`, rule: { windowMs: 60_000, maxRequests: 30 } }, queryOnce)
@@ -40,6 +43,7 @@ export async function publicSupportChat(req: FastifyRequest<{ Body: ChatBody; Qu
             const quota = await consumeSharedRateLimitBucket({ key: `support-feedback:${hash}`, rule: { windowMs: 60_000, maxRequests: 20 } }, queryOnce)
             if (!quota.allowed) return res.status(429).send({ error: 'Please wait before submitting feedback again.' })
             await saveSupportFeedback(conversationId, { visitor: hash }, rating, comment ?? '', resolutionVersion, 4)
+            clearSupportReadCache()
             return res.send({ ok: true })
         }
         if (req.body?.action === 'close-feedback') {
@@ -48,6 +52,7 @@ export async function publicSupportChat(req: FastifyRequest<{ Body: ChatBody; Qu
             const quota = await consumeSharedRateLimitBucket({ key: `support-feedback:${hash}`, rule: { windowMs: 60_000, maxRequests: 20 } }, queryOnce)
             if (!quota.allowed) return res.status(429).send({ error: 'Please wait before submitting feedback again.' })
             await saveVisitorCloseFeedback(conversationId, hash, resolutionVersion, foundWhatLookingFor, reason)
+            clearSupportReadCache()
             return res.send({ ok: true })
         }
         const { requestId, message, handoff, conversationId } = req.body || {}
@@ -75,6 +80,7 @@ export async function publicSupportChat(req: FastifyRequest<{ Body: ChatBody; Qu
         }
         const result = await sendSupportChat(hash, { requestId, message: body || 'I\'d like to speak with a human.', handoff: handoff === true, conversationId: conversationId as string | undefined }, undefined,
             error => req.log.error({ err: error }, 'Support AI completion failed'))
+        clearSupportReadCache()
         return res.send(result)
     } catch (error) {
         if (error instanceof SupportStateError) return res.status(error.status).send({ error: error.message })
