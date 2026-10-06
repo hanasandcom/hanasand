@@ -1,6 +1,6 @@
 import { expect, mock, test } from 'bun:test'
 import { eventProtectionDefinition } from '../src/utils/events/eventProtection.ts'
-import { exactCaseSensitiveMessage, finiteRegexAlternatives, messageCandidatePredicate } from '../src/utils/events/previewPredicate.ts'
+import { exactCaseSensitiveMessage, finiteRegexAlternatives, hasPostgresRegexCandidate, messageCandidatePredicate } from '../src/utils/events/previewPredicate.ts'
 mock.module('#db', () => ({ default: async () => ({ rows: [] }) }))
 const { scanRulePreview: scan, validPreviewWindow } = await import('../src/utils/events/rulePreview.ts')
 test('historical message candidate filtering leaves unsupported expressions for the full matcher', () => {
@@ -32,14 +32,17 @@ test('event message candidates use the existing log trigram index for literal pr
     expect(values[0]).toBe('%runc0%')
 })
 test('replay can keep the authoritative message regex without forcing a broad trigram bitmap', () => {
+    const condition = { path: 'message', operator: 'regex' as const, value: '^sleep\\s+(?:[0-9]|[1-5][0-9])(?:\\.\\d+)?$', caseSensitive: true }
     const values: string[] = []
-    const predicate = messageCandidatePredicate([{ path: 'message', operator: 'regex', value: '^sleep\\s+(?:[0-9]|[1-5][0-9])(?:\\.\\d+)?$' }], 'normalized->>\'message\'', value => {
+    const predicate = messageCandidatePredicate([condition], 'normalized->>\'message\'', value => {
         values.push(value)
         return `$${values.length}`
     }, { useTrigram: false })
-    expect(predicate).toContain("normalized->>'message' COLLATE \"C\" ~* $1")
+    expect(predicate).toContain("normalized->>'message' COLLATE \"C\" ~ $1")
     expect(predicate).not.toContain('translate(lower(normalized::text)')
     expect(values).toEqual(['^sleep[[:space:]]+([0-9]|[1-5][0-9])(\\.[0-9]+)?'])
+    expect(hasPostgresRegexCandidate(condition)).toBe(true)
+    expect(hasPostgresRegexCandidate({ ...condition, value: '(?=sleep)sleep' })).toBe(false)
 })
 const scanRulePreview: typeof scan = (org, canReadLogs, input, query) => scan(org, canReadLogs, input,
     (async (sql: string, params: any) => sql.includes('FROM rules')

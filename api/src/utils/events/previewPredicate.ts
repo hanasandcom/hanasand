@@ -106,6 +106,10 @@ function regexCandidate(expression: string): string | null {
     return pattern
 }
 
+export function hasPostgresRegexCandidate(condition: Condition) {
+    return condition.path === 'message' && condition.operator === 'regex' && regexCandidate(condition.value) !== null
+}
+
 const scalarColumns: Record<string, string> = {
     service: 'normalized->>\'service\'',
     event_type: 'event_type',

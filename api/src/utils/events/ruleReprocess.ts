@@ -4,7 +4,7 @@ import run, { withTransaction } from '#db'
 import { loadLogRetentionRules, retentionStoreMatches } from './customRetention.ts'
 import { collectEventFindings, loadConfiguredRules, normalizeEvent } from '../../handlers/events.ts'
 import { matchRulePage } from './rulePreview.ts'
-import { exactCaseSensitiveMessage, exactMessageIndexMaxBytes, messageCandidatePredicate, processExecutableCandidatePredicate } from './previewPredicate.ts'
+import { exactCaseSensitiveMessage, exactMessageIndexMaxBytes, hasPostgresRegexCandidate, messageCandidatePredicate, processExecutableCandidatePredicate } from './previewPredicate.ts'
 import type { Condition } from './conditions.ts'
 import { builtinReprocessable, reprocessBuiltinPage } from './builtinReprocess.ts'
 
@@ -37,6 +37,13 @@ export function reprocessableRule(rule: Rule | undefined): rule is Rule {
         && rule.definition.action === 'drop' && rule.definition.conditions?.length)
 }
 
+function usesTimeOrderedMessageScan(conditions: Condition[]) {
+    return conditions.some(condition => condition.path === 'message' && condition.caseSensitive
+        && hasPostgresRegexCandidate(condition) && /^\^[A-Za-z0-9 _:/@,=-]{5,}/.test(condition.value))
+        && conditions.some(condition => condition.path === 'event_type' && condition.operator === 'equals' && condition.caseSensitive)
+        && conditions.some(condition => condition.path === 'service' && condition.operator === 'equals' && condition.caseSensitive)
+}
+
 export async function processRuleReprocessJob() {
     let jobId: string | undefined
     try {
@@ -63,6 +70,8 @@ export async function processRuleReprocessJob() {
                 return true
             }
             if (rule.source === 'hanasand') return reprocessBuiltinPage(job, query)
+            const timeOrderedMessageScan = rule.source === 'owned' && usesTimeOrderedMessageScan(rule.definition.conditions)
+            if (timeOrderedMessageScan) await query('SET LOCAL statement_timeout=\'60s\'')
             const cursor = { ...job.cursor }
             let items: Item[], scanned: number
             const windowedPhase = cursor.phase === 0 && Boolean(job.from_time)
@@ -86,10 +95,7 @@ export async function processRuleReprocessJob() {
                             // For anchored command patterns paired with exact process/service fields,
                             // walk this organization's time index and recheck the regex. The broad
                             // trigram bitmap finds a large set, then sorts it again for every page.
-                            useTrigram: !rule.definition.conditions.some(condition => condition.path === 'message'
-                                && condition.operator === 'regex' && /^\^[A-Za-z0-9 _:/@,=-]{5,}/.test(condition.value))
-                                || !rule.definition.conditions.some(condition => condition.path === 'event_type' && condition.operator === 'equals' && condition.caseSensitive)
-                                || !rule.definition.conditions.some(condition => condition.path === 'service' && condition.operator === 'equals' && condition.caseSensitive),
+                            useTrigram: !timeOrderedMessageScan,
                         }),
                     ].filter(Boolean).join(' AND ') || 'TRUE'
                 const ownedLogScope = rule.source === 'owned' ? 'AND ingestion_id=\'logs\' AND processing_status=\'processed\'' : ''
