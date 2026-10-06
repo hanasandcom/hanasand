@@ -30,7 +30,7 @@ sub vcl_recv {
         return (pass);
     }
 
-    if (req.url ~ "^/(?:dashboard|browser)(?:[/?#]|$)"
+    if (req.url ~ "^/(?:dashboard|browser|profile)(?:[/?#]|$)"
         || req.url ~ "^/(?:scanner|vms|db/backups|automation/health)(?:[/?#]|$)") {
         # Authenticated HTML routes and their public aliases are safe to cache
         # only when the complete session cookie is part of the hash. API
@@ -38,7 +38,7 @@ sub vcl_recv {
         if (!(req.http.Cookie ~ "(^|; )access_token=") || !(req.http.Cookie ~ "(^|; )id=")) {
             return (pass);
         }
-    } else if (req.http.Cookie ~ "(^|; )access_token=" || req.http.Cookie ~ "(^|; )id=" || req.url ~ "^/(profile|role|ai)(/|$)") {
+    } else if (req.http.Cookie ~ "(^|; )access_token=" || req.http.Cookie ~ "(^|; )id=" || req.url ~ "^/(role|ai)(/|$)") {
         return (pass);
     }
 
@@ -72,7 +72,7 @@ sub vcl_hash {
     # tenant, impersonation target, or role set from receiving another user's
     # rendered page response.
     hash_data(req.http.X-Theme);
-    if (req.url ~ "^/(?:dashboard|browser)(?:[/?#]|$)"
+    if (req.url ~ "^/(?:dashboard|browser|profile)(?:[/?#]|$)"
         || req.url ~ "^/(?:scanner|vms|db/backups|automation/health)(?:[/?#]|$)") {
         hash_data(req.http.Cookie);
     }
@@ -100,7 +100,7 @@ sub vcl_backend_response {
         set beresp.ttl = 15s;
         set beresp.grace = 52w;
         return (deliver);
-    } else if ((bereq.url ~ "^/(?:dashboard|browser)(?:[/?#]|$)"
+    } else if ((bereq.url ~ "^/(?:dashboard|browser|profile)(?:[/?#]|$)"
         || bereq.url ~ "^/(?:scanner|vms|db/backups)(?:[/?#]|$)")
         && beresp.status == 200) {
         # Next marks cookie-aware dynamic pages private. These pages are safe
