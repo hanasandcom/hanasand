@@ -24,7 +24,7 @@ export async function ensureIdentityDataBoundary() {
     // postgres_fdw sets remote session state; a transaction pooler can leak
     // that state to unrelated clients, so keep this bounded connection direct.
     const fdwHost = process.env.HANASAND_IDENTITY_FDW_HOST || 'identity-postgres'
-    const fdwPort = Number(process.env.HANASAND_IDENTITY_FDW_PORT || 18505)
+    const fdwPort = Number(process.env.HANASAND_IDENTITY_FDW_PORT || 5432)
     const fdwDatabase = process.env.IDENTITY_DB_NAME || 'identity'
     if (!password) throw new Error('DB_PASSWORD is required to connect Hanasand API PostgreSQL to Identity PostgreSQL.')
 

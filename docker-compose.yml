@@ -130,6 +130,8 @@ services:
       HOST_CONSOLE_OVH_USER: ${HOST_CONSOLE_OVH_USER:-ubuntu}
       DB_POOL_HOST: pgbouncer
       DB_POOL_PORT: ${DB_POOL_PORT:-18505}
+      HANASAND_IDENTITY_FDW_HOST: identity-postgres
+      HANASAND_IDENTITY_FDW_PORT: "5432"
       HANASAND_IDENTITY_SERVICE_URL: ${HANASAND_IDENTITY_SERVICE_URL:-http://identity:8081}
       # Match PgBouncer's 40-server budget and avoid a startup connection burst.
       DB_MAX_CONN: ${DB_MAX_CONN:-32}

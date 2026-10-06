@@ -35,7 +35,7 @@ export default async function ensureSchema() {
         try {
             const result = await queryOnce('SELECT 1 FROM app_schema_releases WHERE release = $1', [release!])
             if (result.rowCount) {
-                if (!deploymentCandidate) await withSchemaLockTimeout(ensureIdentityDataBoundary)
+                if (!deploymentCandidate) await ensureIdentityDataBoundaryWithRetry()
                 return
             }
         } catch (error) {
@@ -45,7 +45,7 @@ export default async function ensureSchema() {
     for (;;) {
         try {
             await withSchemaLockTimeout(applySchema)
-            if (!deploymentCandidate) await withSchemaLockTimeout(ensureIdentityDataBoundary)
+            if (!deploymentCandidate) await ensureIdentityDataBoundaryWithRetry()
             if (tracked) await withSchemaLockTimeout(async () => {
                 await queryOnce('CREATE TABLE IF NOT EXISTS app_schema_releases (release TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW())')
                 await queryOnce('INSERT INTO app_schema_releases (release) VALUES ($1) ON CONFLICT DO NOTHING', [release!])
@@ -55,6 +55,20 @@ export default async function ensureSchema() {
             const code = (error as { code?: string })?.code
             if (code !== '55P03' && code !== '57014') throw error
             console.warn('Schema update deferred because it exceeded its lock or execution limit; retrying in 30 seconds.')
+            await new Promise(resolve => setTimeout(resolve, 30_000))
+        }
+    }
+}
+
+async function ensureIdentityDataBoundaryWithRetry() {
+    for (;;) {
+        try {
+            await withSchemaLockTimeout(ensureIdentityDataBoundary)
+            return
+        } catch (error) {
+            const code = (error as { code?: string })?.code
+            if (code !== '55P03' && code !== '57014') throw error
+            console.warn('Identity data boundary is waiting for database locks; retrying in 30 seconds.')
             await new Promise(resolve => setTimeout(resolve, 30_000))
         }
     }
