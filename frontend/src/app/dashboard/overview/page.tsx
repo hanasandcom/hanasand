@@ -11,8 +11,8 @@ import getStatus from '@/utils/status/getStatus'
 import tokenIsValid from '@/utils/proxy/tokenIsValid'
 import { toPublicServiceStatus } from '@/utils/status/publicStatus'
 import { DashboardHeader, DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
-import DwmOverviewPanel from './overviewPanel'
-import { loadOverview } from './loadOverview'
+import DwmOverviewPanel, { OpenCasesMetric } from './overviewPanel'
+import { loadOpenCases, loadOverview } from './loadOverview'
 
 export const dynamic = 'force-dynamic'
 
@@ -77,8 +77,13 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Re
 }
 
 async function OverviewContent({ cookieHeader, organizationId }: { cookieHeader: string, organizationId?: string }) {
+    const openCases = loadOpenCases(cookieHeader, organizationId)
     const state = await loadOverview(cookieHeader, organizationId)
-    return <DwmOverviewPanel organizationId={organizationId} state={state} />
+    return <DwmOverviewPanel organizationId={organizationId} state={state} openCases={<Suspense fallback={<OpenCasesMetric count={null} loading />}><OpenCasesCount result={openCases} /></Suspense>} />
+}
+
+async function OpenCasesCount({ result }: { result: Promise<number | null> }) {
+    return <OpenCasesMetric count={await result} />
 }
 
 async function organizationMembership(): Promise<'member' | 'none' | 'unavailable'> {

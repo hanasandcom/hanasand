@@ -3,11 +3,11 @@ import { AlertTriangle, ArrowRight, BellRing, CheckCircle2, FileText, Radar, Shi
 
 import type { OverviewState } from './loadOverview'
 
-export default function DwmOverviewPanel({ organizationId, state }: { organizationId?: string, state: OverviewState }) {
+export default function DwmOverviewPanel({ organizationId, state, openCases }: { organizationId?: string, state: OverviewState, openCases: React.ReactNode }) {
     const scopeLabel = organizationId ? 'Organization monitoring' : 'Personal monitoring'
     if (state.status === 'error') return <section className='rounded-lg border border-ui-warning/40 bg-ui-panel p-4 shadow-sm' aria-label={scopeLabel}><div className='flex items-center gap-2 text-sm font-semibold text-ui-text'><AlertTriangle className='h-4 w-4 text-ui-warning' />{scopeLabel} needs review</div><p className='mt-2 text-sm text-ui-muted'>{state.message}</p><Link href={organizationId ? `/findings?organizationId=${encodeURIComponent(organizationId)}` : '/findings'} className='mt-3 inline-flex text-sm font-semibold text-ui-primary hover:underline'>Open DWM</Link></section>
 
-    const { snapshot, openCases } = state
+    const { snapshot } = state
     const healthySources = snapshot.sourceCoverage.filter(source => source.health === 'healthy').length
     const hasWatchlist = snapshot.watchlist.length > 0
     if (!hasWatchlist) {
@@ -54,7 +54,7 @@ export default function DwmOverviewPanel({ organizationId, state }: { organizati
             <Metric icon={<Radar className='h-4 w-4' />} label='Active watch terms' value={snapshot.watchlist.length} detail='companies, domains, brands, and vendors' />
             <Metric icon={<ShieldAlert className='h-4 w-4' />} label='New matches · 7 days' value={recentMatches} detail={recentMatches ? 'relevant activity found' : 'no new matches'} />
             <Metric icon={<BellRing className='h-4 w-4' />} label='Open alerts' value={openAlerts.length} detail={openAlerts.length ? 'ready to review' : 'no new alerts'} />
-            <Metric icon={<Ticket className='h-4 w-4' />} label='Open cases' value={openCases ?? '—'} detail={openCases === null ? 'case data unavailable' : openCases ? 'active customer work' : 'no open cases'} />
+            {openCases}
             <Metric icon={<CheckCircle2 className='h-4 w-4' />} label='Source health' value={snapshot.sourceCoverage.length ? `${healthySources}/${snapshot.sourceCoverage.length}` : '—'} detail={snapshot.sourceCoverage.length ? 'healthy source families' : 'No source coverage yet'} />
             <Metric icon={<FileText className='h-4 w-4' />} label='Latest evidence' value={latestEvidence ? 'Available' : 'None yet'} detail={latestEvidence?.sourceName || 'No retained evidence'} />
         </div>
@@ -66,7 +66,12 @@ export default function DwmOverviewPanel({ organizationId, state }: { organizati
     </section>
 }
 
-function Metric({ icon, label, value, detail }: { icon: React.ReactNode, label: string, value: number | string, detail: string }) {
+export function OpenCasesMetric({ count, loading = false }: { count: number | null, loading?: boolean }) {
+    const detail = loading ? 'Loading cases…' : count === null ? 'Case data unavailable' : count ? 'active customer work' : 'no open cases'
+    return <Metric icon={<Ticket className='h-4 w-4' />} label='Open cases' value={count ?? '—'} detail={detail} />
+}
+
+function Metric({ icon, label, value, detail }: { icon: React.ReactNode, label: string, value: React.ReactNode, detail: React.ReactNode }) {
     return <div className='rounded-md border border-ui-border bg-ui-canvas p-3'><div className='flex items-center justify-between gap-2 text-ui-muted'><span className='text-xs font-semibold uppercase tracking-[0.08em]'>{label}</span>{icon}</div><p className='mt-2 text-2xl font-semibold text-ui-text'>{value}</p><p className='mt-1 text-xs text-ui-muted'>{detail}</p></div>
 }
 

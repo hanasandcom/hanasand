@@ -16,6 +16,15 @@ type DwmRequestScope = {
     error?: string
 }
 
+type DwmProductCacheEntry = { payload: unknown, expiresAt: number, staleUntil: number }
+type DwmProductFetch = { payload: unknown, status: number }
+
+const dwmProductSnapshots = new Map<string, DwmProductCacheEntry>()
+const dwmProductRefreshes = new Map<string, Promise<DwmProductFetch>>()
+const DWM_PRODUCT_CACHE_TTL_MS = 10_000
+const DWM_PRODUCT_STALE_MS = 2 * 60_000
+const DWM_PRODUCT_CACHE_MAX_ENTRIES = 64
+
 export async function proxyTiRequest(request: NextRequest, path: string, options: ProxyOptions = {}) {
     const session = await requireApiSession(request)
     if ('response' in session) return session.response
@@ -71,6 +80,19 @@ export async function proxyTiRequest(request: NextRequest, path: string, options
             init.body = JSON.stringify(withDwmRequestScope(body || {}, scope))
         }
 
+        if (method === 'GET' && path.replace(/^\/+/, '') === 'v1/dwm/product') {
+            const cacheKey = target.toString()
+            const cached = dwmProductSnapshots.get(cacheKey)
+            if (cached && cached.staleUntil > Date.now()) {
+                touchDwmProductSnapshot(cacheKey, cached)
+                if (cached.expiresAt <= Date.now()) void fetchDwmProductSnapshot(cacheKey, target, init).catch(() => undefined)
+                return NextResponse.json(cached.payload, { headers: { 'cache-control': 'no-store' } })
+            }
+
+            const fetched = await fetchDwmProductSnapshot(cacheKey, target, init)
+            return NextResponse.json(fetched.payload, { status: fetched.status, headers: { 'cache-control': 'no-store' } })
+        }
+
         const response = await fetch(target, init)
         const text = await response.text()
         const payload = text ? JSON.parse(text) as unknown : {}
@@ -82,6 +104,37 @@ export async function proxyTiRequest(request: NextRequest, path: string, options
                 message: error instanceof Error ? error.message : String(error),
             },
         }, { status: 502 })
+    }
+}
+
+function touchDwmProductSnapshot(key: string, entry: DwmProductCacheEntry) {
+    dwmProductSnapshots.delete(key)
+    dwmProductSnapshots.set(key, entry)
+}
+
+async function fetchDwmProductSnapshot(key: string, target: URL, init: RequestInit): Promise<DwmProductFetch> {
+    const existing = dwmProductRefreshes.get(key)
+    if (existing) return existing
+
+    const pending = (async () => {
+        const response = await fetch(target, init)
+        const text = await response.text()
+        const payload = text ? JSON.parse(text) as unknown : {}
+        if (response.ok) {
+            const now = Date.now()
+            touchDwmProductSnapshot(key, { payload, expiresAt: now + DWM_PRODUCT_CACHE_TTL_MS, staleUntil: now + DWM_PRODUCT_STALE_MS })
+            while (dwmProductSnapshots.size > DWM_PRODUCT_CACHE_MAX_ENTRIES) {
+                dwmProductSnapshots.delete(dwmProductSnapshots.keys().next().value!)
+            }
+        }
+        return { payload, status: response.status }
+    })()
+
+    dwmProductRefreshes.set(key, pending)
+    try {
+        return await pending
+    } finally {
+        if (dwmProductRefreshes.get(key) === pending) dwmProductRefreshes.delete(key)
     }
 }
 
