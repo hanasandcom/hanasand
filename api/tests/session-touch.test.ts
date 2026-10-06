@@ -25,15 +25,18 @@ test('parallel fresh requests still validate access without repeating timestamp 
     expect(await validateSession({ id: 'member', token })).toBeNull()
 })
 test('organization membership is checked by the session query', async () => {
-    row.organization_member = true
+    row.organization_membership = {
+        organizationId: 'platform', organizationStatus: 'active', membershipStatus: 'active', role: 'editor',
+    }
     const member = await validateSession({ id: 'member', token, organizationSlug: 'hanasand' })
     expect(member?.organizationMember).toBe(true)
+    expect(member?.organizationMembership).toEqual(row.organization_membership)
     expect(queries).toHaveLength(1)
-    expect(queries[0].sql).toContain('EXISTS (')
+    expect(queries[0].sql).toContain('organization_membership')
     expect(queries[0].values).toEqual(['member', token, 'hanasand'])
 
     queries.length = 0
-    row.organization_member = false
+    row.organization_membership = { ...row.organization_membership, membershipStatus: 'removed' }
     expect((await validateSession({ id: 'member', token, organizationSlug: 'hanasand' }))?.organizationMember).toBe(false)
     expect(queries).toHaveLength(1)
 })

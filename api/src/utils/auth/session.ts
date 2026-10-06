@@ -19,6 +19,13 @@ type SessionRow = {
     database_read_only?: boolean
 }
 
+export type SessionOrganizationMembership = {
+    organizationId: string
+    organizationStatus: string
+    membershipStatus: string
+    role: string
+}
+
 type SessionUser = {
     id: string
     name: string
@@ -98,12 +105,18 @@ export async function issueToken({ id, ip, userAgent = '' }: { id: string, ip: s
 
 export async function validateSession({ id, token, organizationSlug }: { id?: string, token: string, organizationSlug?: string }) {
     const organizationMemberSelect = organizationSlug ? `,
-            EXISTS (
-                SELECT 1 FROM organization_members m
+            (
+                SELECT json_build_object(
+                    'organizationId', o.id,
+                    'organizationStatus', o.status,
+                    'membershipStatus', m.status,
+                    'role', m.role
+                )
+                FROM organization_members m
                 JOIN organizations o ON o.id = m.organization_id
-                WHERE m.user_id = t.id AND m.status = 'active'
-                  AND o.slug = $3 AND o.status = 'active'
-            ) AS organization_member` : ''
+                WHERE m.user_id = t.id AND o.slug = $3
+                LIMIT 1
+            ) AS organization_membership` : ''
     const tokenResult = await run(`
         SELECT t.token_id, t.id, t.token, t.ip, t.user_agent, t.created_at, t.timestamp,
             pg_is_in_recovery() AS database_read_only,
@@ -117,10 +130,15 @@ export async function validateSession({ id, token, organizationSlug }: { id?: st
         LIMIT 1
     `, organizationSlug ? [id ?? null, token, organizationSlug] : [id ?? null, token])
 
-    const row = tokenResult.rows[0] as (SessionRow & { session_user: SessionUser, organization_member?: boolean }) | undefined
+    const row = tokenResult.rows[0] as (SessionRow & {
+        session_user: SessionUser
+        organization_membership?: SessionOrganizationMembership | null
+    }) | undefined
     if (!row || !isSessionFresh(row)) return null
 
-    const { session_user: user, organization_member: organizationMember, ...session } = row
+    const { session_user: user, organization_membership: organizationMembership, ...session } = row
+    const organizationMember = organizationMembership?.organizationStatus === 'active'
+        && organizationMembership.membershipStatus === 'active'
     const userId = session.id
     const ttlHours = sessionTTLHours(session.user_agent)
 
@@ -137,7 +155,10 @@ export async function validateSession({ id, token, organizationSlug }: { id?: st
     return {
         user,
         session,
-        ...(organizationSlug ? { organizationMember: organizationMember === true } : {}),
+        ...(organizationSlug ? {
+            organizationMember,
+            organizationMembership: organizationMembership || null,
+        } : {}),
         refreshed: {
             token,
             expires_at: new Date(new Date(session.timestamp).getTime() + ttlHours * 60 * 60 * 1000).toISOString(),

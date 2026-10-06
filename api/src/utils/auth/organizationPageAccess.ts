@@ -16,6 +16,16 @@ export async function hasHanasandInternalRouteAccess(req: FastifyRequest): Promi
     if (!canViewHanasandInternalRoute(req.method, route)) return { valid: false }
     const id = apiKeyAuth?.ownerId || req.headers.id
     if (typeof id !== 'string') return { valid: false }
+    const cachedSession = (req as FastifyRequest & {
+        rateLimitSession?: {
+            user?: { id?: string }
+            organizationMembership?: Parameters<typeof canAccessHanasandInternalPageRoute>[1] | null
+        }
+    }).rateLimitSession
+    if (cachedSession?.user?.id === id && Object.hasOwn(cachedSession, 'organizationMembership')) {
+        const membership = cachedSession.organizationMembership
+        return { valid: Boolean(membership && canAccessHanasandInternalPageRoute(req.method, membership)) }
+    }
     const membership = await getHanasandInternalMembership(id)
     return { valid: Boolean(membership && canAccessHanasandInternalPageRoute(req.method, membership)) }
 }

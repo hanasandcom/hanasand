@@ -6,6 +6,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest, RouteOptions } from
 import { matchApiKeyScope, organizationPublicApiScopes, validateApiKey } from '#utils/auth/apiKeys.ts'
 import { validateSession } from '#utils/auth/session.ts'
 import { hasHanasandInternalPageAccess, HANASAND_ORGANIZATION_ID } from '#utils/auth/organizationPageAccess.ts'
+import { canEditHanasandInternalPages } from '#utils/auth/organizationPagePolicy.ts'
 import {
     consumeSharedRateLimitBucket,
     consumeSharedRateLimitPair,
@@ -259,16 +260,21 @@ export async function resolveRateLimitActor(
     if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
         const token = authHeader.split(' ')[1]
         const headerId = Array.isArray(req.headers.id) ? req.headers.id[0] : req.headers.id
+        const organizationSlug = normalizeRequestPath(req) === '/api/logs/tuning' ? 'hanasand' : undefined
         const session = await withReadDatabase(() => validateUserSession({
             id: typeof headerId === 'string' ? headerId : undefined,
             token,
+            ...(organizationSlug ? { organizationSlug } : {}),
         }))
 
         if (session) {
             ;(req as FastifyRequest & { rateLimitSession?: typeof session }).rateLimitSession = session
+            const hasInternalPageAccess = session.organizationMembership !== undefined
+                ? Boolean(session.organizationMembership && canEditHanasandInternalPages(session.organizationMembership))
+                : await withReadDatabase(() => hasHanasandInternalPageAccess(session.user.id))
 
             return {
-                scope: await withReadDatabase(() => hasHanasandInternalPageAccess(session.user.id)) ? 'internal' : 'authenticated',
+                scope: hasInternalPageAccess ? 'internal' : 'authenticated',
                 identifier: `user:${session.user.id}`,
             }
         }
