@@ -19,6 +19,18 @@ export type VulnerabilityDetail = {
     fixedVersion: string | null
     description: string | null
     references: string[]
+    scanners: ScannerEngine[]
+}
+
+export type ScannerEngine = 'trivy' | 'dockerScout'
+
+export type EngineScanReport = {
+    status: 'success' | 'error' | 'not_run'
+    scannedAt: string | null
+    totalVulnerabilities: number
+    severity: SeverityCount
+    error: string | null
+    quickview?: string | null
 }
 
 export type ImageVulnerabilityReport = {
@@ -29,9 +41,10 @@ export type ImageVulnerabilityReport = {
     groups: VulnerabilityGroup[]
     vulnerabilities: VulnerabilityDetail[]
     scanError: string | null
+    engines: Record<ScannerEngine, EngineScanReport>
 }
 
-export type DockerScoutScanStatus = {
+export type ImageScannerStatus = {
     isRunning: boolean
     startedAt: string | null
     finishedAt: string | null
@@ -63,7 +76,8 @@ export type GetVulnerabilities = {
     generatedAt: string | null
     imageCount: number
     images: ImageVulnerabilityReport[]
-    scanStatus: DockerScoutScanStatus
+    scanStatus: ImageScannerStatus
+    legacyImportComplete?: boolean
 }
 
 export type WebScanSeverity = 'critical' | 'high' | 'medium' | 'low' | 'info'

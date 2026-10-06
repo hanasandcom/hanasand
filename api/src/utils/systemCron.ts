@@ -8,7 +8,7 @@ import { getBackgroundJobRuntime, type BackgroundJobRuntime } from './background
 import { canRunApiCronJobNow, HOST_UPDATE_MONITOR_JOB_ID, isApiCronJobPaused, runApiCronJobNow, setApiCronJobPaused } from './cron.ts'
 import { ORGANIZATION_RETENTION_JOB_ID } from './organizationPrivacy.ts'
 import { RULE_STORAGE_ESTIMATE_JOB_ID } from './events/ruleStorageEstimateWorker.ts'
-import { getVulnerabilityReport, isVulnerabilityScanActive, setVulnerabilityScannerPaused, startTrackedVulnerabilityScan, VULNERABILITY_SCAN_CADENCE_SECONDS, VULNERABILITY_SCAN_JOB_ID } from './vulnerabilities/scanner.ts'
+import { getVulnerabilityReport, setVulnerabilityScannerPaused, startTrackedVulnerabilityScan, VULNERABILITY_SCAN_CADENCE_SECONDS, VULNERABILITY_SCAN_JOB_ID } from './vulnerabilities/scanner.ts'
 import { collectDatabaseBackupServices, createDatabaseBackup, DATABASE_BACKUP_JOB_ID, setDatabaseBackupSchedulePaused } from './db/backups.ts'
 
 const execFileAsync = promisify(execFile)
@@ -328,11 +328,11 @@ const apiBackgroundJobDefinitions: Array<{
     {
         id: VULNERABILITY_SCAN_JOB_ID,
         name: 'Vulnerability image scanner',
-        description: 'Discovers running container images, runs CVE scans, persists results, and exposes exact scanner blockers.',
+        description: 'Scans running container images with Trivy and Docker Scout, then stores reports in the standalone Scanner service.',
         category: 'Other/System',
         schedule: secondsSchedule(VULNERABILITY_SCAN_CADENCE_SECONDS),
         cadenceSeconds: VULNERABILITY_SCAN_CADENCE_SECONDS,
-        source: 'api/src/utils/vulnerabilities/scanner.ts',
+        source: 'https://github.com/hanasandcom/scanner',
         controls: ['pause', 'resume', 'run_now'],
     },
     {
@@ -651,7 +651,7 @@ async function vulnerabilityScannerJob(definition: typeof apiBackgroundJobDefini
     const report = await getVulnerabilityReport()
     const scan = report.scanStatus
     const enabled = scan.enabled && !scan.paused
-    const running = telemetry.running || scan.isRunning || isVulnerabilityScanActive()
+    const running = telemetry.running || scan.isRunning
     const issue = scan.blocker || scan.lastError || scan.staleReason || telemetry.lastError
     return {
         id: definition.id,
@@ -659,7 +659,7 @@ async function vulnerabilityScannerJob(definition: typeof apiBackgroundJobDefini
         description: definition.description,
         category: definition.category,
         source: definition.source,
-        service: 'hanasand-api',
+        service: 'hanasand-scanner',
         schedule: scan.schedule || definition.schedule,
         cadenceSeconds: scan.cadenceSeconds || definition.cadenceSeconds,
         enabled,
@@ -679,15 +679,15 @@ async function vulnerabilityScannerJob(definition: typeof apiBackgroundJobDefini
         resourceUsage: {
             scope: 'service',
             cpuPercent: null,
-            memoryRssMb: mb(process.memoryUsage().rss),
-            memoryUsedMb: mb(process.memoryUsage().heapUsed),
+            memoryRssMb: null,
+            memoryUsedMb: null,
             queueDepth: scan.targetCount,
-            note: 'API process memory plus discovered image target count; per-scan CPU is not available without a scanner worker wrapper.',
+            note: 'Scanner service CPU is capped by its Compose container; image-level CPU is not exposed by Docker Scout or Trivy.',
         },
-        costEstimate: costEstimate(20, 'Estimated shared API process plus scanner subprocess draw while scheduled; exact scanner power is not metered per job.'),
+        costEstimate: costEstimate(20, 'Estimated Scanner service draw while scheduled; exact scanner power is not metered per job.'),
         assumptions: [
-            'Pause/resume toggles the persisted scanner schedule flag; already-running scans are allowed to finish.',
-            scan.blockerAction || scan.staleReason || 'Trivy must be available inside the API container for package-level CVE details.',
+            'Pause/resume updates the Scanner service schedule; an already-running scan is allowed to finish.',
+            scan.blockerAction || scan.staleReason || 'Trivy and Docker Scout scan local images from the Docker Engine.',
         ],
     }
 }

@@ -90,9 +90,25 @@ function normalizeImageReport(image: Partial<ImageVulnerabilityReport>): ImageVu
                 fixedVersion: vulnerability.fixedVersion || null,
                 description: vulnerability.description || null,
                 references: Array.isArray(vulnerability.references) ? vulnerability.references : [],
+                scanners: Array.isArray(vulnerability.scanners) ? vulnerability.scanners : ['trivy'],
             }))
             : [],
         scanError,
+        engines: {
+            trivy: normalizeEngine(image.engines?.trivy),
+            dockerScout: normalizeEngine(image.engines?.dockerScout),
+        },
+    }
+}
+
+function normalizeEngine(engine: Partial<ImageVulnerabilityReport['engines']['trivy']> | undefined): ImageVulnerabilityReport['engines']['trivy'] {
+    return {
+        status: engine?.status === 'success' || engine?.status === 'error' || engine?.status === 'not_run' ? engine.status : 'not_run',
+        scannedAt: engine?.scannedAt || null,
+        totalVulnerabilities: Number(engine?.totalVulnerabilities) || 0,
+        severity: normalizeSeverity(engine?.severity),
+        error: engine?.error || null,
+        quickview: engine?.quickview || null,
     }
 }
 

@@ -11,7 +11,6 @@ import purgeDeletedAccounts from './auth/purgeDeletedAccounts.ts'
 import ensureAlwaysRunningVms from './vms/ensureAlwaysRunning.ts'
 import { runDueAutomations } from './automations.ts'
 import { runTrackedBackgroundJob } from './backgroundJobRuntime.ts'
-import { runDueVulnerabilityScan, VULNERABILITY_SCAN_JOB_ID } from './vulnerabilities/scanner.ts'
 import { DATABASE_BACKUP_JOB_ID, runDueDatabaseBackup } from './db/backups.ts'
 import run, { queryOnce } from '#db'
 import { ORGANIZATION_RETENTION_JOB_ID, runOrganizationRetentionWorker } from './organizationPrivacy.ts'
@@ -43,7 +42,6 @@ const apiCronRunners: Record<string, () => Promise<unknown> | unknown> = {
     'api-vm-ensure-running': ensureAlwaysRunningVms,
     [CASE_DELIVERY_JOB_ID]: deliverCases,
     'api-vm-deletion': maintainDeletedVms,
-    [VULNERABILITY_SCAN_JOB_ID]: runDueVulnerabilityScan,
     [DATABASE_BACKUP_JOB_ID]: runDueDatabaseBackup,
     'api-agent-automations': runDueAutomations,
     'api-mail-account-provisioning': provisionExistingMailAccounts,
@@ -116,7 +114,6 @@ export default function cron() {
                 runDueApiCronJob('api-vm-ensure-running'),
                 runDueApiCronJob(CASE_DELIVERY_JOB_ID),
                 runDueApiCronJob('api-vm-deletion'),
-                runDueApiCronJob(VULNERABILITY_SCAN_JOB_ID),
                 runDueApiCronJob('api-agent-automations'),
                 runDueApiCronJob(ORGANIZATION_RETENTION_JOB_ID),
                 runDueApiCronJob(RULE_STORAGE_ESTIMATE_JOB_ID),

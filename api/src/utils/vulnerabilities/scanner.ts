@@ -1,15 +1,10 @@
-import { execFile } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
-import path from 'node:path'
-import { promisify } from 'node:util'
+import { readFile } from 'node:fs/promises'
 import { runTrackedBackgroundJob } from '../backgroundJobRuntime.ts'
-import { listRuntimeContainers } from '../docker/engine.ts'
-
-const execFileAsync = promisify(execFile)
 
 export type SeverityLevel = 'critical' | 'high' | 'medium' | 'low' | 'unknown'
 export type SeverityCount = Record<SeverityLevel, number>
+export type ScannerEngine = 'trivy' | 'dockerScout'
 
 export type VulnerabilityDetail = {
     id: string
@@ -22,6 +17,16 @@ export type VulnerabilityDetail = {
     fixedVersion: string | null
     description: string | null
     references: string[]
+    scanners: ScannerEngine[]
+}
+
+export type EngineScanReport = {
+    status: 'success' | 'error' | 'not_run'
+    scannedAt: string | null
+    totalVulnerabilities: number
+    severity: SeverityCount
+    error: string | null
+    quickview?: string | null
 }
 
 export type ImageVulnerabilityReport = {
@@ -32,6 +37,7 @@ export type ImageVulnerabilityReport = {
     groups: Array<{ source: string, total: number, severity: SeverityCount }>
     vulnerabilities: VulnerabilityDetail[]
     scanError: string | null
+    engines: Record<ScannerEngine, EngineScanReport>
 }
 
 export type VulnerabilityScanLog = {
@@ -40,7 +46,7 @@ export type VulnerabilityScanLog = {
     message: string
 }
 
-export type DockerScoutScanStatus = {
+export type ImageScannerStatus = {
     isRunning: boolean
     startedAt: string | null
     finishedAt: string | null
@@ -68,574 +74,113 @@ export type VulnerabilityReport = {
     generatedAt: string | null
     imageCount: number
     images: ImageVulnerabilityReport[]
-    scanStatus: DockerScoutScanStatus
+    scanStatus: ImageScannerStatus
+    legacyImportComplete?: boolean
 }
 
-type StoredScannerState = VulnerabilityReport & {
-    paused: boolean
-    failureCount: number
-    nextRunAt: string | null
-    logs: VulnerabilityScanLog[]
-}
+export const VULNERABILITY_SCAN_JOB_ID = 'api-vulnerability-scanner'
+export const VULNERABILITY_SCAN_CADENCE_SECONDS = Number(process.env.SCANNER_INTERVAL_SECONDS || process.env.VULNERABILITY_SCAN_INTERVAL_SECONDS || 3600)
+const scannerUrl = (process.env.HANASAND_SCANNER_URL || '').trim().replace(/\/$/, '')
+const serviceToken = process.env.HANASAND_SCANNER_SERVICE_TOKEN || ''
+const legacyStatePath = process.env.VULNERABILITY_SCAN_STATE_PATH || '/var/lib/hanasand/vulnerability-scan.json'
+const requestTimeoutMs = 5_000
+let legacyImportInProgress = false
 
-const SCAN_JOB_ID = 'api-vulnerability-scanner'
-export const VULNERABILITY_SCAN_JOB_ID = SCAN_JOB_ID
-export const VULNERABILITY_SCAN_CADENCE_SECONDS = Number(process.env.VULNERABILITY_SCAN_INTERVAL_SECONDS || 3600)
-const STALE_AFTER_MS = Number(process.env.VULNERABILITY_SCAN_STALE_AFTER_SECONDS || VULNERABILITY_SCAN_CADENCE_SECONDS * 2) * 1000
-const STATE_PATH = process.env.VULNERABILITY_SCAN_STATE_PATH || '/var/lib/hanasand/vulnerability-scan.json'
-const DEFAULT_LOGS: VulnerabilityScanLog[] = [{
-    at: new Date(0).toISOString(),
-    level: 'info',
-    message: '[vuln] Vulnerability scanner state initialized; waiting for the first scheduled scan.',
-}]
-
-let activeScan: Promise<VulnerabilityReport> | null = null
-
-export async function getVulnerabilityReport(): Promise<VulnerabilityReport> {
-    const state = await readState()
-    const targetImages = await discoverTargetImages().catch(() => null)
-
-    return withDerivedStatus({
-        ...state,
-        imageCount: state.images.length,
+function emptyReport(error?: string): VulnerabilityReport {
+    const now = new Date().toISOString()
+    const schedule = VULNERABILITY_SCAN_CADENCE_SECONDS % 3600 === 0
+        ? `Every ${VULNERABILITY_SCAN_CADENCE_SECONDS / 3600} hour${VULNERABILITY_SCAN_CADENCE_SECONDS === 3600 ? '' : 's'}`
+        : `Every ${Math.max(1, Math.round(VULNERABILITY_SCAN_CADENCE_SECONDS / 60))} minutes`
+    const log = error
+        ? { at: now, level: 'error' as const, message: error }
+        : { at: new Date(0).toISOString(), level: 'info' as const, message: 'Waiting for Scanner service.' }
+    return {
+        generatedAt: null,
+        imageCount: 0,
+        images: [],
         scanStatus: {
-            ...state.scanStatus,
-            targetCount: targetImages?.length ?? state.scanStatus.targetCount,
-        },
-    }, targetImages)
-}
-
-export async function runDueVulnerabilityScan() {
-    const state = await readState()
-    if (state.paused || state.scanStatus.isRunning) return withDerivedStatus(state)
-
-    const nextRunAt = state.nextRunAt ? new Date(state.nextRunAt).getTime() : 0
-    if (Number.isFinite(nextRunAt) && nextRunAt > Date.now()) {
-        return withDerivedStatus(state)
-    }
-
-    return runVulnerabilityScan()
-}
-
-export async function runVulnerabilityScan(): Promise<VulnerabilityReport> {
-    if (activeScan) return activeScan
-
-    activeScan = runVulnerabilityScanInternal().finally(() => {
-        activeScan = null
-    })
-
-    return activeScan
-}
-
-export function startTrackedVulnerabilityScan() {
-    return runTrackedBackgroundJob(VULNERABILITY_SCAN_JOB_ID, runVulnerabilityScan)
-}
-
-export function isVulnerabilityScanActive() {
-    return Boolean(activeScan)
-}
-
-export async function setVulnerabilityScannerPaused(paused: boolean) {
-    const state = await readState()
-    const nextRunAt = paused ? null : nextScheduledAt(new Date())
-    const next = await persistState({
-        ...state,
-        paused,
-        nextRunAt,
-        scanStatus: {
-            ...state.scanStatus,
-            enabled: !paused,
-            paused,
-            nextRunAt,
-        },
-        logs: appendLog(state.logs, 'info', paused
-            ? '[vuln] Vulnerability scanner paused from Cron Jobs dashboard.'
-            : '[vuln] Vulnerability scanner resumed from Cron Jobs dashboard.'),
-    })
-    return withDerivedStatus(next)
-}
-
-async function runVulnerabilityScanInternal(): Promise<VulnerabilityReport> {
-    const startedAt = new Date()
-    const previous = await readState()
-    const startedState = await persistState({
-        ...previous,
-        scanStatus: {
-            ...previous.scanStatus,
-            isRunning: true,
-            startedAt: startedAt.toISOString(),
+            isRunning: false,
+            startedAt: null,
             finishedAt: null,
-            lastError: null,
+            lastSuccessAt: null,
+            lastError: error || null,
             totalImages: null,
             completedImages: 0,
             currentImage: null,
             estimatedCompletionAt: null,
-            stale: false,
-            staleReason: null,
-            blocker: null,
-            blockerAction: null,
-        },
-        logs: appendLog(previous.logs, 'info', '[vuln] Vulnerability scanning is enabled; discovering running container images.'),
-    })
-
-    let targets: string[]
-    try {
-        targets = await discoverTargetImages()
-    } catch (error) {
-        const blocker = errorMessage(error)
-        return finishScan(startedState, isScannerSetupError(blocker) ? startedState.images : [], blocker, 'Mount /var/run/docker.sock into the API container and verify Docker API access.')
-    }
-
-    if (!targets.length) {
-        return finishScan(startedState, [], null, null, '[vuln] No running container images were discovered for vulnerability scanning.')
-    }
-
-    const reports: ImageVulnerabilityReport[] = []
-    let currentState = startedState
-    for (const [index, image] of targets.entries()) {
-        currentState = await persistState({
-            ...currentState,
-            scanStatus: {
-                ...currentState.scanStatus,
-                totalImages: targets.length,
-                completedImages: index,
-                currentImage: image,
-                estimatedCompletionAt: estimateCompletion(startedAt, index, targets.length),
-            },
-        })
-        reports.push(await scanImage(image))
-    }
-
-    const activeTargets = await discoverTargetImages().catch(() => targets)
-    const activeReports = filterCurrentImageReports(reports, activeTargets)
-    const failed = activeReports.filter(report => report.scanError).length
-    const blocker = activeReports.length && failed === activeReports.length
-        ? activeReports[0]?.scanError || 'Every image scan failed.'
-        : null
-    const blockerAction = blocker
-        ? 'Install Trivy in the API container, verify Docker socket access, or configure a supported image scanner service.'
-        : null
-
-    return finishScan(currentState, isScannerSetupError(blocker) ? currentState.images : activeReports, blocker, blockerAction)
-}
-
-async function finishScan(
-    state: StoredScannerState,
-    images: ImageVulnerabilityReport[],
-    blocker: string | null,
-    blockerAction: string | null,
-    successLog = '[vuln] Vulnerability scan completed.'
-) {
-    const finishedAt = new Date().toISOString()
-    const isFailure = Boolean(blocker)
-    const failed = images.filter(image => image.scanError).length
-    const next = await persistState({
-        ...state,
-        generatedAt: finishedAt,
-        images,
-        imageCount: images.length,
-        failureCount: failed || (isFailure ? 1 : 0),
-        nextRunAt: state.paused ? null : nextScheduledAt(new Date()),
-        scanStatus: {
-            ...state.scanStatus,
-            isRunning: false,
-            finishedAt,
-            lastSuccessAt: isFailure ? state.scanStatus.lastSuccessAt : finishedAt,
-            lastError: blocker,
-            totalImages: images.length,
-            completedImages: images.length,
-            currentImage: null,
-            estimatedCompletionAt: null,
-            targetCount: images.length,
-            failureCount: failed || (isFailure ? 1 : 0),
-            blocker,
-            blockerAction,
-        },
-        logs: appendLog(state.logs, isFailure ? 'error' : 'info', blocker || successLog),
-    })
-    return withDerivedStatus(next)
-}
-
-async function scanImage(image: string): Promise<ImageVulnerabilityReport> {
-    const scannedAt = new Date().toISOString()
-    try {
-        const { stdout } = await execFileAsync('trivy', ['image', '--image-src', 'docker', '--scanners', 'vuln', '--format', 'json', '--quiet', '--parallel', '1', '--cache-dir', '/var/lib/hanasand/trivy-cache', image], {
-            timeout: Number(process.env.VULNERABILITY_SCAN_IMAGE_TIMEOUT_MS || 120000),
-            maxBuffer: 8 * 1024 * 1024,
-        })
-        const vulnerabilities = parseTrivy(stdout)
-        return {
-            image,
-            scannedAt,
-            totalVulnerabilities: vulnerabilities.length,
-            severity: countSeverity(vulnerabilities),
-            groups: groupFindings(vulnerabilities),
-            vulnerabilities,
-            scanError: null,
-        }
-    } catch (error) {
-        return emptyImageReport(image, scannedAt, scannerError(error))
-    }
-}
-
-async function discoverTargetImages() {
-    const containers = await listRuntimeContainers()
-    return [...new Set(containers
-        .filter(isScannableContainer)
-        .map(container => container.image)
-        .filter(image => image && image !== '<none>' && image !== 'unknown'))]
-        .sort()
-}
-
-export function isScannableContainer(container: { id: string, name: string, image: string, state: string, health?: string }) {
-    const name = container.name.trim()
-    const image = container.image.trim()
-    return container.state === 'running'
-        && container.health !== 'starting'
-        && container.health !== 'unhealthy'
-        && Boolean(name && image && image !== '<none>' && image !== 'unknown'
-            && !/^(?:sha256:)?[a-f0-9]{12,64}$/i.test(image)
-            && name !== container.id && name !== container.id.slice(0, 12))
-}
-
-function parseTrivy(raw: string): VulnerabilityDetail[] {
-    const parsed = JSON.parse(raw) as Record<string, unknown>
-    const details: VulnerabilityDetail[] = []
-
-    for (const result of Array.isArray(parsed.Results) ? parsed.Results as Array<Record<string, unknown>> : []) {
-        const target = stringValue(result.Target)
-        const type = stringValue(result.Type)
-        for (const vulnerability of Array.isArray(result.Vulnerabilities) ? result.Vulnerabilities as Array<Record<string, unknown>> : []) {
-            const id = stringValue(vulnerability.VulnerabilityID) || 'unknown'
-            details.push({
-                id,
-                title: stringValue(vulnerability.Title) || id,
-                severity: normalizeSeverity(stringValue(vulnerability.Severity)),
-                source: target || 'Trivy',
-                packageName: stringValue(vulnerability.PkgName),
-                packageType: type,
-                installedVersion: stringValue(vulnerability.InstalledVersion),
-                fixedVersion: stringValue(vulnerability.FixedVersion),
-                description: stringValue(vulnerability.Description),
-                references: arrayOfStrings(vulnerability.References),
-            })
-        }
-    }
-
-    return dedupeFindings(details)
-}
-
-function emptyImageReport(image: string, scannedAt: string, scanError: string): ImageVulnerabilityReport {
-    return {
-        image,
-        scannedAt,
-        totalVulnerabilities: 0,
-        severity: emptySeverity(),
-        groups: [],
-        vulnerabilities: [],
-        scanError,
-    }
-}
-
-function scannerError(error: unknown) {
-    const message = errorMessage(error)
-    if (/ENOENT|not found|executable file/i.test(message)) {
-        return 'Trivy is unavailable in the API container.'
-    }
-    if (/unknown command.*scout|docker:.*scout|unknown flag: --format/i.test(message)) {
-        return 'Docker CLI is installed but the Docker Scout plugin is unavailable.'
-    }
-    if (/docker.*not found|Cannot connect to the Docker daemon|permission denied|connect: permission/i.test(message)) {
-        return 'Docker socket permission denied or unavailable for the API container.'
-    }
-    if (/permission denied|connect: permission/i.test(message)) {
-        return 'Docker socket permission denied for the API container.'
-    }
-    return message
-}
-
-function withDerivedStatus(state: StoredScannerState, targetImages: string[] | null = null): VulnerabilityReport {
-    const status = state.scanStatus
-    const currentImages = filterCurrentImageReports(state.images, targetImages)
-    const images = hasOnlyScannerSetupReports(currentImages) ? [] : currentImages
-    const currentFailureCount = images.filter(image => image.scanError).length || (status.blocker ? state.failureCount : 0)
-    const lastFinishedAt = status.finishedAt || latestImageScanAt(images)
-    const staleReason = computeStaleReason(state, lastFinishedAt)
-    const generatedAt = state.generatedAt || lastFinishedAt
-
-    return {
-        generatedAt,
-        imageCount: images.length,
-        images,
-        scanStatus: {
-            ...status,
-            enabled: !state.paused,
-            paused: state.paused,
-            schedule: secondsSchedule(VULNERABILITY_SCAN_CADENCE_SECONDS),
+            enabled: true,
+            paused: false,
+            schedule,
             cadenceSeconds: VULNERABILITY_SCAN_CADENCE_SECONDS,
-            nextRunAt: state.paused ? null : state.nextRunAt || nextScheduledAt(new Date()),
-            failureCount: currentFailureCount,
-            stale: Boolean(staleReason),
-            staleReason,
-            logs: state.logs,
+            nextRunAt: null,
+            targetCount: 0,
+            failureCount: error ? 1 : 0,
+            stale: true,
+            staleReason: error || 'No vulnerability scan has completed yet.',
+            blocker: error || null,
+            blockerAction: error ? 'Check that the standalone Scanner service is running and reachable.' : null,
+            logs: [log],
         },
     }
 }
 
-export function filterCurrentImageReports(images: ImageVulnerabilityReport[], targetImages: string[] | null) {
-    if (!targetImages) return images
-    const targets = new Set(targetImages)
-    return images.filter(image => targets.has(image.image))
-}
-
-async function readState(): Promise<StoredScannerState> {
-    if (existsSync(STATE_PATH)) {
-        try {
-            return normalizeState(JSON.parse(await readFile(STATE_PATH, 'utf8')))
-        } catch {
-            // Fall through to a clean state; the next write repairs the file.
-        }
-    }
-    return normalizeState({})
-}
-
-async function persistState(state: StoredScannerState) {
-    const normalized = normalizeState(state)
-    await mkdir(path.dirname(STATE_PATH), { recursive: true })
-    await writeFile(STATE_PATH, JSON.stringify(normalized, null, 2), 'utf8')
-    return normalized
-}
-
-function normalizeState(value: unknown): StoredScannerState {
-    const input = record(value)
-    const scanStatus = record(input.scanStatus)
-    const paused = typeof input.paused === 'boolean'
-        ? input.paused
-        : Boolean(scanStatus.paused)
-    const storedNextRunAt = stringValue(input.nextRunAt ?? scanStatus.nextRunAt)
-    const nextRunAt = storedNextRunAt || new Date().toISOString()
-    const storedRunning = Boolean(scanStatus.isRunning)
-    const interrupted = storedRunning && !activeScan
-    const interruptedMessage = 'Previous vulnerability scan was interrupted before completion.'
-    const logs = normalizeLogs(input.logs ?? scanStatus.logs)
-    const repairedLogs = interrupted && !logs.some(log => log.message === interruptedMessage)
-        ? appendLog(logs, 'error', interruptedMessage)
-        : logs
-    return {
-        generatedAt: stringValue(input.generatedAt),
-        imageCount: Array.isArray(input.images) ? input.images.length : 0,
-        images: Array.isArray(input.images) ? input.images.map(normalizeImageReport) : [],
-        paused,
-        failureCount: numberValue(input.failureCount ?? scanStatus.failureCount) || 0,
-        nextRunAt,
-        logs: repairedLogs,
-        scanStatus: {
-            isRunning: storedRunning && !interrupted,
-            startedAt: stringValue(scanStatus.startedAt),
-            finishedAt: stringValue(scanStatus.finishedAt),
-            lastSuccessAt: stringValue(scanStatus.lastSuccessAt),
-            lastError: interrupted ? interruptedMessage : stringValue(scanStatus.lastError),
-            totalImages: numberValue(scanStatus.totalImages),
-            completedImages: numberValue(scanStatus.completedImages) || 0,
-            currentImage: interrupted ? null : stringValue(scanStatus.currentImage),
-            estimatedCompletionAt: interrupted ? null : stringValue(scanStatus.estimatedCompletionAt),
-            enabled: !paused,
-            paused,
-            schedule: secondsSchedule(VULNERABILITY_SCAN_CADENCE_SECONDS),
-            cadenceSeconds: VULNERABILITY_SCAN_CADENCE_SECONDS,
-            nextRunAt,
-            targetCount: numberValue(scanStatus.targetCount) || 0,
-            failureCount: numberValue(input.failureCount ?? scanStatus.failureCount) || 0,
-            stale: false,
-            staleReason: null,
-            blocker: interrupted ? interruptedMessage : stringValue(scanStatus.blocker),
-            blockerAction: interrupted
-                ? 'Run the scan again from Vulnerabilities or Cron Jobs; check API restarts if this repeats.'
-                : stringValue(scanStatus.blockerAction),
-            logs: repairedLogs,
-        },
-    }
-}
-
-function normalizeImageReport(input: unknown): ImageVulnerabilityReport {
-    const image = record(input)
-    return {
-        image: stringValue(image.image) || 'unknown',
-        scannedAt: stringValue(image.scannedAt) || '',
-        totalVulnerabilities: numberValue(image.totalVulnerabilities) || 0,
-        severity: normalizeSeverityCount(image.severity),
-        groups: Array.isArray(image.groups) ? image.groups.map(group => {
-            const item = record(group)
-            return {
-                source: stringValue(item.source) || 'unknown',
-                total: numberValue(item.total) || 0,
-                severity: normalizeSeverityCount(item.severity),
+export async function getVulnerabilityReport(): Promise<VulnerabilityReport> {
+    try {
+        let report = await requestScanner<VulnerabilityReport>('/v1/report')
+        if (!report.legacyImportComplete && !legacyImportInProgress) {
+            legacyImportInProgress = true
+            try {
+                let state: unknown = null
+                if (existsSync(legacyStatePath)) {
+                    try {
+                        state = JSON.parse(await readFile(legacyStatePath, 'utf8'))
+                    } catch {
+                        // A malformed legacy file must not keep the new service unavailable.
+                    }
+                }
+                await requestScanner('/v1/legacy-state', { method: 'POST', body: { state } })
+                report = await requestScanner<VulnerabilityReport>('/v1/report')
+            } finally {
+                legacyImportInProgress = false
             }
-        }) : [],
-        vulnerabilities: Array.isArray(image.vulnerabilities) ? image.vulnerabilities.map(normalizeVulnerability) : [],
-        scanError: stringValue(image.scanError),
-    }
-}
-
-function normalizeVulnerability(input: unknown): VulnerabilityDetail {
-    const item = record(input)
-    return {
-        id: stringValue(item.id) || 'unknown',
-        title: stringValue(item.title) || 'Untitled finding',
-        severity: normalizeSeverity(stringValue(item.severity)),
-        source: stringValue(item.source) || 'unknown',
-        packageName: stringValue(item.packageName),
-        packageType: stringValue(item.packageType),
-        installedVersion: stringValue(item.installedVersion),
-        fixedVersion: stringValue(item.fixedVersion),
-        description: stringValue(item.description),
-        references: arrayOfStrings(item.references),
-    }
-}
-
-function normalizeLogs(value: unknown) {
-    const logs = Array.isArray(value) ? value.map(log => {
-        const item = record(log)
-        return {
-            at: stringValue(item.at) || new Date().toISOString(),
-            level: normalizeLogLevel(stringValue(item.level)),
-            message: stringValue(item.message) || '',
         }
-    }).filter(log => log.message) : DEFAULT_LOGS
-    return logs.slice(-8)
-}
-
-function appendLog(logs: VulnerabilityScanLog[], level: VulnerabilityScanLog['level'], message: string) {
-    return [...logs, { at: new Date().toISOString(), level, message }].slice(-8)
-}
-
-function computeStaleReason(state: StoredScannerState, lastFinishedAt: string | null) {
-    if (state.scanStatus.isRunning) return null
-    if (state.paused) return 'Scanner is paused from Cron Jobs.'
-    if (state.scanStatus.blocker || state.scanStatus.lastError) return state.scanStatus.blocker || state.scanStatus.lastError
-    if (!lastFinishedAt) return 'No vulnerability scan has completed yet.'
-    if (Date.now() - new Date(lastFinishedAt).getTime() > STALE_AFTER_MS) {
-        return `Last completed scan is older than ${secondsSchedule(Math.round(STALE_AFTER_MS / 1000))}.`
+        return report
+    } catch (error) {
+        return emptyReport(`Scanner service is temporarily unavailable: ${errorMessage(error)}`)
     }
-    return null
 }
 
-function latestImageScanAt(images: ImageVulnerabilityReport[]) {
-    const timestamps = images.map(image => new Date(image.scannedAt).getTime()).filter(Number.isFinite)
-    if (!timestamps.length) return null
-    return new Date(Math.max(...timestamps)).toISOString()
-}
-
-function nextScheduledAt(from: Date) {
-    return new Date(from.getTime() + VULNERABILITY_SCAN_CADENCE_SECONDS * 1000).toISOString()
-}
-
-function estimateCompletion(startedAt: Date, completed: number, total: number) {
-    if (completed <= 0 || total <= completed) return null
-    const elapsed = Date.now() - startedAt.getTime()
-    const perImage = elapsed / completed
-    return new Date(Date.now() + perImage * (total - completed)).toISOString()
-}
-
-function countSeverity(vulnerabilities: VulnerabilityDetail[]) {
-    const count = emptySeverity()
-    for (const vulnerability of vulnerabilities) count[vulnerability.severity] += 1
-    return count
-}
-
-function groupFindings(vulnerabilities: VulnerabilityDetail[]) {
-    const groups = new Map<string, VulnerabilityDetail[]>()
-    for (const vulnerability of vulnerabilities) {
-        const key = vulnerability.source || 'unknown'
-        groups.set(key, [...(groups.get(key) || []), vulnerability])
-    }
-    return [...groups.entries()].map(([source, findings]) => ({
-        source,
-        total: findings.length,
-        severity: countSeverity(findings),
-    }))
-}
-
-function dedupeFindings(findings: VulnerabilityDetail[]) {
-    const seen = new Set<string>()
-    return findings.filter(finding => {
-        const key = `${finding.id}:${finding.packageName || ''}:${finding.installedVersion || ''}`
-        if (seen.has(key)) return false
-        seen.add(key)
-        return true
+export async function startTrackedVulnerabilityScan() {
+    return runTrackedBackgroundJob(VULNERABILITY_SCAN_JOB_ID, async () => {
+        const response = await requestScanner<{ report?: VulnerabilityReport }>('/v1/scan', { method: 'POST' })
+        return response.report || getVulnerabilityReport()
     })
 }
 
-function normalizeSeverity(value: string | null): SeverityLevel {
-    const normalized = (value || '').toLowerCase()
-    if (normalized.includes('critical')) return 'critical'
-    if (normalized.includes('high') || Number(normalized) >= 7) return 'high'
-    if (normalized.includes('medium') || Number(normalized) >= 4) return 'medium'
-    if (normalized.includes('low') || Number(normalized) > 0) return 'low'
-    return 'unknown'
+export async function setVulnerabilityScannerPaused(paused: boolean) {
+    return requestScanner<VulnerabilityReport>('/v1/schedule', { method: 'PUT', body: { enabled: !paused } })
 }
 
-function normalizeSeverityCount(value: unknown): SeverityCount {
-    const input = record(value)
-    return {
-        critical: numberValue(input.critical) || 0,
-        high: numberValue(input.high) || 0,
-        medium: numberValue(input.medium) || 0,
-        low: numberValue(input.low) || 0,
-        unknown: numberValue(input.unknown) || 0,
+async function requestScanner<T>(route: string, options: { method?: string, body?: unknown } = {}): Promise<T> {
+    if (!scannerUrl) throw new Error('HANASAND_SCANNER_URL is not configured.')
+    if (!serviceToken) throw new Error('HANASAND_SCANNER_SERVICE_TOKEN is not configured.')
+    const response = await fetch(`${scannerUrl}${route}`, {
+        method: options.method || 'GET',
+        headers: {
+            'x-hanasand-service-token': serviceToken,
+            ...(options.body === undefined ? {} : { 'content-type': 'application/json' }),
+        },
+        body: options.body === undefined ? undefined : JSON.stringify(options.body),
+        signal: AbortSignal.timeout(requestTimeoutMs),
+    })
+    if (!response.ok) {
+        const body = await response.text().catch(() => '')
+        throw new Error(body.slice(0, 300) || `Scanner service returned HTTP ${response.status}.`)
     }
-}
-
-function emptySeverity(): SeverityCount {
-    return { critical: 0, high: 0, medium: 0, low: 0, unknown: 0 }
-}
-
-function secondsSchedule(seconds: number) {
-    if (seconds % 3600 === 0) return `Every ${seconds / 3600} hour${seconds === 3600 ? '' : 's'}`
-    if (seconds % 60 === 0) return `Every ${seconds / 60} minute${seconds === 60 ? '' : 's'}`
-    return `Every ${seconds} seconds`
-}
-
-function record(value: unknown): Record<string, unknown> {
-    return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
-}
-
-function stringValue(value: unknown) {
-    return typeof value === 'string' && value.trim() ? value : null
-}
-
-function numberValue(value: unknown) {
-    const number = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN
-    return Number.isFinite(number) ? number : null
-}
-
-function arrayOfStrings(value: unknown) {
-    return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []
-}
-
-function normalizeLogLevel(value: string | null): VulnerabilityScanLog['level'] {
-    if (value === 'error' || value === 'warn' || value === 'info') return value
-    return 'info'
-}
-
-function isScannerSetupError(value: string | null) {
-    return Boolean(value && /Trivy|Docker (?:CLI|Scout|socket)|unknown flag: --format|unknown command.*scout|Log in with your Docker ID/i.test(value))
-}
-
-function hasOnlyScannerSetupReports(images: ImageVulnerabilityReport[]) {
-    return Boolean(images.length && images.every(image =>
-        image.totalVulnerabilities === 0
-        && image.vulnerabilities.length === 0
-        && isScannerSetupError(image.scanError)
-    ))
+    return response.json() as Promise<T>
 }
 
 function errorMessage(error: unknown) {
-    if (error instanceof Error) {
-        const output = record(error)
-        const stderr = stringValue(output.stderr)
-        const stdout = stringValue(output.stdout)
-        return stderr || stdout || error.message
-    }
+    if (error instanceof Error) return error.name === 'TimeoutError' ? 'Request timed out.' : error.message
     return String(error)
 }
