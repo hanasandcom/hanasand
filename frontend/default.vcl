@@ -68,13 +68,26 @@ Expires: 2027-10-04T00:00:00Z
 }
 
 sub vcl_hash {
-    # Hashes theme and the complete authenticated session. This prevents one
-    # tenant, impersonation target, or role set from receiving another user's
-    # rendered page response.
+    # Hash theme and the complete authenticated session for general pages so
+    # cached HTML cannot cross users, tenants, impersonation targets or roles.
     hash_data(req.http.X-Theme);
-    if (req.url ~ "^/(?:dashboard|browser|profile)(?:[/?#]|$)"
+    if (req.url ~ "^/(?:dashboard|browser)(?:[/?#]|$)"
         || req.url ~ "^/(?:scanner|vms|db/backups|automation/health)(?:[/?#]|$)") {
         hash_data(req.http.Cookie);
+    } else if (req.url ~ "^/profile(?:[/?#]|$)") {
+        # Profile SSR reads these cookies. Ignore unrelated browser cookies
+        # that can change between otherwise identical page requests.
+        hash_data(regsub(req.http.Cookie + "; id=__cache_missing__", "(^|; )id=([^;]*)", "\2"));
+        hash_data(regsub(req.http.Cookie + "; access_token=__cache_missing__", "(^|; )access_token=([^;]*)", "\2"));
+        hash_data(regsub(req.http.Cookie + "; name=__cache_missing__", "(^|; )name=([^;]*)", "\2"));
+        hash_data(regsub(req.http.Cookie + "; avatar=__cache_missing__", "(^|; )avatar=([^;]*)", "\2"));
+        hash_data(regsub(req.http.Cookie + "; roles=__cache_missing__", "(^|; )roles=([^;]*)", "\2"));
+        hash_data(regsub(req.http.Cookie + "; dashboard_view_mode=__cache_missing__", "(^|; )dashboard_view_mode=([^;]*)", "\2"));
+        hash_data(regsub(req.http.Cookie + "; dashboard_navigation=__cache_missing__", "(^|; )dashboard_navigation=([^;]*)", "\2"));
+        hash_data(regsub(req.http.Cookie + "; hanasand_workspace=__cache_missing__", "(^|; )hanasand_workspace=([^;]*)", "\2"));
+        hash_data(regsub(req.http.Cookie + "; impersonation_token=__cache_missing__", "(^|; )impersonation_token=([^;]*)", "\2"));
+        hash_data(regsub(req.http.Cookie + "; impersonating_id=__cache_missing__", "(^|; )impersonating_id=([^;]*)", "\2"));
+        hash_data(regsub(req.http.Cookie + "; impersonating_name=__cache_missing__", "(^|; )impersonating_name=([^;]*)", "\2"));
     }
 }
 
