@@ -55,7 +55,7 @@ async function profileKeyUsage(keys: string[]) {
                             SELECT id
                             FROM organizations
                             WHERE status = 'active'
-                              AND (id = $3 OR ($3::text IS NULL AND lower(name) = 'hanasand'))
+                              AND (id = $2 OR ($2::text IS NULL AND lower(name) = 'hanasand'))
                             ORDER BY created_at
                             LIMIT 1
                         )
@@ -79,7 +79,7 @@ async function profileKeyUsage(keys: string[]) {
                             SELECT id
                             FROM organizations
                             WHERE status = 'active'
-                              AND (id = $3 OR ($3::text IS NULL AND lower(name) = 'hanasand'))
+                              AND (id = $2 OR ($2::text IS NULL AND lower(name) = 'hanasand'))
                             ORDER BY created_at
                             LIMIT 1
                         )

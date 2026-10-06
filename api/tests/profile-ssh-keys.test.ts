@@ -12,6 +12,10 @@ const query = async (sql: string, params: unknown[] = []) => {
     if (sql.includes('FROM unnest($1::text[])')) {
         usageQuery = sql
         usageParams = params
+        const highestParameter = Math.max(...Array.from(sql.matchAll(/\$(\d+)/g), match => Number(match[1])))
+        if (highestParameter > params.length) {
+            throw new Error(`bind message supplies ${params.length} parameters, but prepared statement requires ${highestParameter}`)
+        }
         return { rows: usageRows }
     }
     throw new Error(`Unexpected SQL: ${sql}`)
@@ -51,7 +55,7 @@ async function getKeys() {
         status() { return this },
         send(body: unknown) { this.body = body; return body },
     }
-    await getProfileSshKeys({} as never, reply as never)
+    await getProfileSshKeys({ log: { error() {} } } as never, reply as never)
     return reply.body as { keys: Array<{ addedAt: string, fingerprint: string, lastUsedAt: string | null }> }
 }
 
