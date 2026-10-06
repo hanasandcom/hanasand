@@ -507,7 +507,7 @@ export function Findings({
     if (view === 'delivery') {
         return (
             <DwmPanelPage title='Integrations' meta={selectedOrganizationId ? `${localDeliveries.length} delivery attempts · webhook ${webhookState}` : undefined}>
-                <DeliveryPanel alert={selectedAlert} deliveries={localDeliveries} busyAction={busyAction} onTest={testDelivery} onSend={sendAlert} />
+                <DeliveryPanel organizationId={organizationId} alert={selectedAlert} deliveries={localDeliveries} busyAction={busyAction} onTest={testDelivery} onSend={sendAlert} />
             </DwmPanelPage>
         )
     }
@@ -2321,9 +2321,9 @@ function SourcePosture({ snapshot, operations }: { snapshot: DwmProductSnapshot,
     )
 }
 
-function DeliveryPanel({ alert, deliveries, busyAction, onTest, onSend }: { alert?: PortalAlert, deliveries: DeliveryItem[], busyAction: string | null, onTest: (alertId: string) => Promise<void>, onSend: (alertId: string) => Promise<void> }) {
+function DeliveryPanel({ organizationId, alert, deliveries, busyAction, onTest, onSend }: { organizationId?: string, alert?: PortalAlert, deliveries: DeliveryItem[], busyAction: string | null, onTest: (alertId: string) => Promise<void>, onSend: (alertId: string) => Promise<void> }) {
     const visible = orderDeliveries(alert ? deliveries.filter(delivery => delivery.alertId === alert.id || delivery.alertId === 'webhook_test') : deliveries)
-    const orgId = alert ? alertOrganizationId(alert) : undefined
+    const orgId = alert ? alertOrganizationId(alert, organizationId) : organizationId
     const caseId = alert ? alertCaseId(alert) : undefined
     const caseHref = alert && caseId ? caseDetailHref(caseId, alert.id, orgId, 'delivery_history') : undefined
     const latestDelivery = visible[0]
