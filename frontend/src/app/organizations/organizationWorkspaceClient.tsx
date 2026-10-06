@@ -262,15 +262,6 @@ type DeliveryPayloadPreviewData = {
     }
 }
 
-type DeliveryResult = {
-    ok?: boolean
-    dryRun?: boolean
-    deliveredAt?: string
-    attemptedCount?: number
-    delivery?: DeliveryRow
-    deliveries?: DeliveryRow[]
-}
-
 type DwmAlertBridgeResult = {
     ok?: boolean
     skipped?: boolean
@@ -288,22 +279,6 @@ type DwmAlertBridgeResult = {
         evidenceCount?: number
         lastSeenAt?: string
     }
-}
-
-type DestinationDraft = {
-    kind: 'discord' | 'webhook'
-    url: string
-}
-
-type DestinationCreateDraft = DestinationDraft & {
-    name: string
-}
-
-type DestinationEditDraft = {
-    name: string
-    kind: 'discord' | 'webhook'
-    url: string
-    status: string
 }
 
 type ActivityItem = {
@@ -364,10 +339,8 @@ const organizationBundleKeysByPage: Record<OrganizationPage, readonly string[]> 
     settings: ['settings'],
     team: ['members', 'invites'],
     watchlists: ['members', 'watchlists', 'alertTerms', 'events', 'webhooks', 'deliveries'],
-    destinations: ['webhooks', 'deliveries'],
     'api-keys': ['apiKeys'],
     privacy: ['settings', 'privacy'],
-    delivery: ['webhooks', 'deliveries'],
     events: ['alertTerms', 'events', 'cases', 'deliveries', 'members', 'watchlists', 'webhooks', 'alertCaseVisibility'],
     activity: ['settings', 'members', 'invites', 'watchlists', 'alertTerms', 'events', 'cases', 'webhooks', 'deliveries'],
 }
@@ -380,7 +353,6 @@ const watchlistTemplates: Array<{ label: string, kind: WatchlistKind, notes: str
     { label: 'Company name', kind: 'company', notes: 'Legal entity or operating brand used in source matching.' },
     { label: 'Actor keyword', kind: 'actor', notes: 'Threat actor, leak site, or campaign label relevant to this organization.' },
 ]
-const destinationKinds: DestinationDraft['kind'][] = ['discord', 'webhook']
 const webhookPolicies = ['active_destinations', 'manual_selection', 'disabled']
 const alertPolicies = ['members', 'admins', 'owners']
 const lifecycleStatuses = ['active', 'archived']
@@ -397,55 +369,6 @@ function sanitizeOrganizationDisplayCopy(value: unknown) {
         .replace(new RegExp('read' + 'iness', 'gi'), 'status')
         .replace(/https:\/\/[^\s"'<>]*(?:webhook|hooks)[^\s"'<>]*/gi, 'redacted endpoint')
         .replace(/\b(?:token|inviteToken|webhookUrl|endpointUrl)=['"]?[^\s"'&<>]+/gi, 'secret=redacted')
-}
-
-function organizationDeliveryErrorText(value: unknown) {
-    return sanitizeOrganizationDisplayCopy(value) || 'Delivery error redacted.'
-}
-
-function deliveryFailureSummary(delivery: DeliveryRow) {
-    const errorClass = String(delivery.errorClass || '').toLowerCase()
-    const raw = organizationDeliveryErrorText(delivery.error || delivery.errorClass || delivery.responseSummary)
-    if (errorClass.includes('missing_webhook_url') || errorClass.includes('destination_unavailable')) return 'No active Discord or webhook destination is configured for this event.'
-    if (errorClass.includes('unsupported_destination')) return 'Destination type is not supported for Discord/webhook delivery.'
-    if (errorClass.includes('permission') || errorClass.includes('access')) return 'Your role cannot test or replay this destination.'
-    if (errorClass.includes('disabled') || errorClass.includes('paused')) return 'Destination is disabled. Enable it before replaying event delivery.'
-    if (errorClass.includes('dedupe') || errorClass.includes('idempot')) return 'Replay was skipped because this idempotency key already delivered.'
-    if (raw && raw !== 'Delivery error redacted.') return raw
-    return 'Delivery failed before Discord/webhook accepted the request.'
-}
-
-function deliveryOutcomeSummary(delivery: DeliveryRow) {
-    if (delivery.status === 'failed' || delivery.error) return deliveryFailureSummary(delivery)
-    if (delivery.status === 'skipped') return delivery.responseSummary || deliveryFailureSummary(delivery)
-    if (delivery.dryRun) return 'Dry-run rendered the Discord/webhook payload without sending externally.'
-    if (delivery.httpStatus || delivery.responseStatus) return `Destination responded with HTTP ${delivery.httpStatus ?? delivery.responseStatus}.`
-    if (delivery.responseSummary) return sanitizeOrganizationDisplayCopy(delivery.responseSummary) || delivery.responseSummary
-    return 'Delivery attempt recorded.'
-}
-
-function deliveryActionResultSummary(delivery: DeliveryRow | null | undefined, fallback: string) {
-    if (!delivery) throw new Error(`No durable delivery result was returned for ${fallback}.`)
-    const trace = deliveryTraceLabel(delivery)
-    const traceText = trace ? ` ${trace}.` : ''
-    if (delivery.status === 'failed' || delivery.error) return `${deliveryFailureSummary(delivery)}${traceText}`
-    if (delivery.status === 'skipped') return `${deliveryOutcomeSummary(delivery)}${traceText}`
-    if (delivery.dryRun || delivery.status === 'dry_run') return `Dry-run rendered the Discord/webhook payload without sending externally.${traceText}`
-    return `${deliveryOutcomeSummary(delivery)}${traceText}`
-}
-
-function deliveryRetryText(delivery: DeliveryRow) {
-    const attempts = delivery.attemptCount ?? delivery.retryCount ?? 0
-    if (delivery.nextRetryAt) return `Retry scheduled ${formatDate(delivery.nextRetryAt)} after ${attempts} attempt${attempts === 1 ? '' : 's'}`
-    if (delivery.status === 'failed' || delivery.error) return `No retry scheduled after ${attempts} attempt${attempts === 1 ? '' : 's'}`
-    return `${attempts} attempt${attempts === 1 ? '' : 's'}`
-}
-
-function replayBlockedReason(delivery: DeliveryRow, destinations: WebhookDestination[] = []) {
-    const watchlistId = deliveryWatchlistId(delivery)
-    if (!(deliveryDestinationIds(delivery, destinations)[0] || watchlistId)) return 'Replay needs a destination or saved watchlist route.'
-    if (!(delivery.alertId || delivery.caseId || watchlistId || delivery.actionId)) return 'Replay needs event, case, or watchlist context.'
-    return 'Replay is not available for this delivery row.'
 }
 
 function destinationDisplayState(input?: Pick<WebhookDestination, 'endpointHash' | 'endpointHint' | 'deliveryReady' | 'status'> | Pick<WatchlistItem, 'webhookEndpointHash' | 'webhookEndpointHint' | 'webhookUrlConfigured'> | Pick<DeliveryRow, 'endpointHash' | 'endpointHint' | 'webhookDestinationId' | 'watchlistId' | 'watchlistItemId' | 'watchlistIds' | 'watchlistItemIds'> | null) {
@@ -539,34 +462,6 @@ function inviteSearchText(invite: OrganizationInvite) {
     ].filter(value => value !== undefined && value !== null).join(' ').toLowerCase()
 }
 
-function destinationSearchText(destination: WebhookDestination, destinationDeliveries: DeliveryRow[] = []) {
-    const deliveryFields = destinationDeliveries.flatMap(delivery => [
-        delivery.status,
-        delivery.deliveryKind,
-        delivery.alertId,
-        delivery.caseId,
-        delivery.watchlistId,
-        delivery.requestId,
-        delivery.auditEventId,
-        delivery.dedupeKey,
-        delivery.payloadHash,
-        delivery.errorClass,
-        delivery.error,
-        delivery.nextRetryAt,
-    ])
-    return [
-        destination.id,
-        destination.name,
-        destination.kind,
-        destination.type,
-        destination.status,
-        destination.endpointHint,
-        destination.endpointHash,
-        destination.deliveryReady ? 'delivery configured' : undefined,
-        ...deliveryFields,
-    ].filter(value => value !== undefined && value !== null).join(' ').toLowerCase()
-}
-
 function normalizeOrganizationName(value: string) {
     return value.trim().replace(/\s+/g, ' ')
 }
@@ -639,7 +534,7 @@ export default function OrganizationWorkspaceClient({ page = 'overview' }: { pag
     const requestedInviteId = searchParams.get('inviteId')?.trim() || ''
     const requestedMemberId = searchParams.get('memberId')?.trim() || ''
     const requestedFocus = searchParams.get('focus')?.trim() || ''
-    const activePage = page === 'overview' ? organizationPageForFocus(requestedFocus || (requestedInviteId || requestedMemberId ? 'team' : requestedWatchlistId ? 'watchlists' : requestedDestinationId ? 'destinations' : requestedDeliveryId ? 'delivery' : requestedAlertId || requestedCaseId ? 'events' : 'overview')) : page
+    const activePage = page === 'overview' ? (requestedDestinationId || requestedDeliveryId ? 'activity' : organizationPageForFocus(requestedFocus || (requestedInviteId || requestedMemberId ? 'team' : requestedWatchlistId ? 'watchlists' : requestedAlertId || requestedCaseId ? 'events' : 'overview'))) : page
     const [organizations, setOrganizations] = useState<OrganizationSummary[]>(workspaceOrganizations as OrganizationSummary[])
     const [selectedId, setSelectedId] = useState(() => requestedOrganizationId)
     const [bundle, setBundle] = useState<OrgBundle>(initialBundle)
@@ -649,7 +544,6 @@ export default function OrganizationWorkspaceClient({ page = 'overview' }: { pag
     const [message, setMessage] = useState('')
     const [messageTone, setMessageTone] = useState<'success' | 'warning'>('success')
     const [newApiKeySecret, setNewApiKeySecret] = useState('')
-    const [newWebhookSigningSecret, setNewWebhookSigningSecret] = useState('')
     const [createName, setCreateName] = useState('')
     const [createFormOpen, setCreateFormOpen] = useState(false)
     const createNameRef = useRef<HTMLInputElement>(null)
@@ -680,8 +574,6 @@ export default function OrganizationWorkspaceClient({ page = 'overview' }: { pag
     const [watchlistDraft, setWatchlistDraft] = useState({ kind: 'domain' as WatchlistKind, value: '', notes: '' })
     const [settingsDraft, setSettingsDraft] = useState<OrganizationSettings>({})
     const [editingWatchlist, setEditingWatchlist] = useState<Record<string, { kind: WatchlistKind, value: string, notes: string }>>({})
-    const [destinationCreateDraft, setDestinationCreateDraft] = useState<DestinationCreateDraft>({ name: '', kind: 'discord', url: '' })
-    const [editingDestinations, setEditingDestinations] = useState<Record<string, DestinationEditDraft>>({})
     const [rowMessages, setRowMessages] = useState<Record<string, RowMessage>>({})
     const [activity, setActivity] = useState<ActivityItem[]>([])
     const [collectionRequest, setCollectionRequest] = useState<CollectionRequest | null>(null)
@@ -1242,86 +1134,6 @@ export default function OrganizationWorkspaceClient({ page = 'overview' }: { pag
         return count === undefined ? 'Archived watchlists cleaned up.' : `${count} archived watchlist${count === 1 ? '' : 's'} cleaned up.`
     }, 'watchlists-cleanup')
 
-    const testSavedDestination = (destination: WebhookDestination) => selectedOrganization && runAction('test-destination', async () => {
-        requireEdit()
-        const result = await requestJson<DeliveryResult>(`/api/organizations/${encodeURIComponent(selectedOrganization.id)}/webhooks/test`, {
-            method: 'POST',
-            body: JSON.stringify({
-                destinationId: destination.id,
-                organizationId: selectedOrganization.id,
-                tenantId: selectedOrganization.tenantId || 'default',
-                dryRun: true,
-                requestId: `org-ui-${Date.now()}`,
-            }),
-        })
-        const delivery = firstDelivery(result)
-        return deliveryActionResultSummary(delivery, 'destination test')
-    }, `destination-${destination.id}`)
-
-    const replayDelivery = (delivery: DeliveryRow) => selectedOrganization && runAction('replay-delivery', async () => {
-        requireEdit()
-        if (!canReplayDelivery(delivery, bundle.webhooks)) throw new Error('Delivery replay needs a destination or saved watchlist route.')
-        const result = await requestJson<DeliveryResult>('/api/findings/webhooks/deliver', {
-            method: 'POST',
-            body: JSON.stringify({
-                organizationId: selectedOrganization.id,
-                deliveryId: delivery.id,
-            }),
-        })
-        const nextDelivery = firstDelivery(result)
-        return deliveryActionResultSummary(nextDelivery, 'delivery replay')
-    }, `delivery-${delivery.id}`, activitySubjectForDelivery(delivery, bundle.webhooks))
-
-    const createSavedDestination = () => selectedOrganization && runAction('create-destination', async () => {
-        requireEdit()
-        const url = destinationCreateDraft.url.trim()
-        if (!validDestinationUrl(url)) throw new Error('Enter a valid HTTPS destination URL.')
-        const kind = destinationCreateDraft.kind
-        const name = normalizeDestinationName(destinationCreateDraft.name) || defaultDestinationName(kind)
-        if (destinationNameInUse(bundle.webhooks, name)) throw new Error('Destination name already exists.')
-        const payload = await requestJson<{ destination?: WebhookDestination }>(`/api/organizations/${encodeURIComponent(selectedOrganization.id)}/webhooks`, {
-            method: 'POST',
-            body: JSON.stringify({
-                name,
-                kind,
-                endpointUrl: url,
-                webhookUrl: url,
-                status: 'active',
-                requestId: `org-ui-${Date.now()}`,
-            }),
-        })
-        if (payload.destination?.signingSecret) setNewWebhookSigningSecret(payload.destination.signingSecret)
-        setDestinationCreateDraft({ name: '', kind: 'discord', url: '' })
-        return `${name} destination added.`
-    }, 'destination-create')
-
-    const updateSavedDestination = (destination: WebhookDestination, draft: DestinationEditDraft) => selectedOrganization && runAction('update-destination', async () => {
-        requireEdit()
-        const url = draft.url.trim()
-        if (url && !validDestinationUrl(url)) throw new Error('Enter a valid HTTPS destination URL.')
-        if (!destinationEditChanged(destination, draft)) return 'No destination changes.'
-        const name = normalizeDestinationName(draft.name) || destination.name || destination.id
-        if (destinationNameInUse(bundle.webhooks, name, destination.id)) throw new Error('Destination name already exists.')
-        const body: Record<string, unknown> = {
-            name,
-            kind: draft.kind,
-            status: draft.status,
-            requestId: `org-ui-${Date.now()}`,
-        }
-        if (url) body.endpointUrl = url
-        const payload = await requestJson<{ destination?: WebhookDestination }>(`/api/organizations/${encodeURIComponent(selectedOrganization.id)}/webhooks/${encodeURIComponent(destination.id)}`, {
-            method: 'PATCH',
-            body: JSON.stringify(body),
-        })
-        if (payload.destination?.signingSecret) setNewWebhookSigningSecret(payload.destination.signingSecret)
-        setEditingDestinations(current => {
-            const next = { ...current }
-            delete next[destination.id]
-            return next
-        })
-        return draft.status === 'active' ? `${name} destination updated.` : `${name} destination disabled.`
-    }, `destination-${destination.id}`)
-
     const refreshOrganizationAlerts = () => selectedOrganization && runAction('refresh-events', async () => {
         requireEdit()
         const payload = await requestJson<{ savedAlertCount?: number, alertIds?: string[] }>('/api/findings/alerts/rebuild', {
@@ -1364,24 +1176,6 @@ export default function OrganizationWorkspaceClient({ page = 'overview' }: { pag
         if (next.status === 'completed' || next.status === 'failed') await loadOrganizationBundle(selectedOrganization.id)
         return `Fresh collection ${next.status}; ${next.captureCount || 0} captures and ${next.alertCount || 0} events reported.`
     }, 'collection-status')
-
-    const rotateDestinationSigningSecret = (destination: WebhookDestination) => selectedOrganization && runAction('rotate-destination-secret', async () => {
-        requireEdit()
-        const payload = await requestJson<{ destination?: WebhookDestination }>(`/api/organizations/${encodeURIComponent(selectedOrganization.id)}/webhooks/${encodeURIComponent(destination.id)}`, {
-            method: 'PATCH',
-            body: JSON.stringify({ rotateSigningSecret: true, requestId: `org-ui-${Date.now()}` }),
-        })
-        if (payload.destination?.signingSecret) setNewWebhookSigningSecret(payload.destination.signingSecret)
-        return `${destination.name || destination.id} signing secret rotated.`
-    }, `destination-${destination.id}`)
-
-    const deleteSavedDestination = (destination: WebhookDestination) => selectedOrganization && runAction('delete-destination', async () => {
-        requireEdit()
-        await requestJson(`/api/organizations/${encodeURIComponent(selectedOrganization.id)}/webhooks/${encodeURIComponent(destination.id)}`, {
-            method: 'DELETE',
-        })
-        return `${destination.name || destination.id} destination removed.`
-    }, `destination-${destination.id}`)
 
     const createInviteParsedEmails = parseInviteEmails(createInviteEmails)
     const createInviteInvalidEmails = invalidInviteEmails(createInviteEmails)
@@ -1537,19 +1331,8 @@ export default function OrganizationWorkspaceClient({ page = 'overview' }: { pag
                                     selectedSubject={selectedActivitySubject}
                                     onSelectSubject={selectActivitySubject}
                                 />}
-                                {activePage === 'destinations' && <DestinationPanel destinations={bundle.webhooks} deliveries={bundle.deliveries} canManage={canEdit} busy={busy} rowMessages={rowMessages} selectedSubject={selectedActivitySubject} createDraft={destinationCreateDraft} setCreateDraft={setDestinationCreateDraft} editing={editingDestinations} setEditing={setEditingDestinations} onSelectSubject={selectActivitySubject} onCreate={() => void createSavedDestination()} onTest={destination => void testSavedDestination(destination)} onUpdate={(destination, draft) => void updateSavedDestination(destination, draft)} onRotateSigningSecret={destination => void rotateDestinationSigningSecret(destination)} onDelete={destination => void deleteSavedDestination(destination)} signingSecret={newWebhookSigningSecret} onClearSigningSecret={() => setNewWebhookSigningSecret('')} />}
                                 {activePage === 'api-keys' && (canManage ? <EventApiKeyPanel key={selectedOrganization.id} apiKeys={bundle.apiKeys} secret={newApiKeySecret} canManage={canManage} busy={busy} rowMessage={rowMessages['event-api-key']} onCreate={name => void createEventApiKey(name)} onRevoke={key => void revokeEventApiKey(key)} onClearSecret={() => setNewApiKeySecret('')} /> : <p className='rounded-lg border border-ui-border bg-ui-panel p-4 text-sm text-ui-muted'>Only this organization’s owners and admins can manage API keys.</p>)}
                                 {activePage === 'privacy' && <PrivacyLifecyclePanel organization={selectedOrganization} privacy={bundle.privacy} retentionDays={Number(bundle.settings?.retentionDays || 365)} canManage={canManage} busy={busy} rowMessage={rowMessages.privacy} onRun={() => void runRetention()} onExport={() => void exportPrivacyData()} onDelete={(confirmation, currentPassword) => void requestPrivacyDeletion(confirmation, currentPassword)} />}
-                                {activePage === 'delivery' && <DeliveryHistoryPanel
-                                    organization={selectedOrganization}
-                                    deliveries={bundle.deliveries}
-                                    destinations={bundle.webhooks}
-                                    selectedSubject={selectedActivitySubject}
-                                    canManage={canEdit}
-                                    busy={busy}
-                                    rowMessages={rowMessages}
-                                    onReplay={delivery => void replayDelivery(delivery)}
-                                />}
                                 {activePage === 'events' && <ScopePanel alertTerms={bundle.alertTerms} alerts={bundle.alerts} cases={bundle.cases} deliveries={bundle.deliveries} members={bundle.members} watchlists={bundle.watchlists} webhooks={bundle.webhooks} alertCaseVisibility={bundle.alertCaseVisibility} organizationId={selectedOrganization.id} />}
                                 {activePage === 'activity' && <ActivityPanel organization={selectedOrganization} bundle={bundle} activity={activityRows} selectedSubject={selectedActivitySubject} onSelectSubject={selectActivitySubject} />}
                             </>}
@@ -1577,7 +1360,6 @@ function WorkspaceHealthStrip({ organization, bundle }: { organization: Organiza
     const activeTerms = bundle.alertTerms.filter(term => (term.status || 'active').toLowerCase() === 'active')
     const configuredDestinations = organizationConfiguredDestinationCount(bundle)
     const openCases = bundle.cases.filter(item => !['closed', 'resolved', 'false_positive', 'suppressed'].includes((item.status || 'open').toLowerCase()))
-    const caseDelivery = [...bundle.deliveries].reverse().find(delivery => delivery.caseId)
     const lastActivityAt = organizationLastActivityAt(organization, bundle)
     const rows = [
         {
@@ -1595,11 +1377,11 @@ function WorkspaceHealthStrip({ organization, bundle }: { organization: Organiza
             href: '/organizations/watchlists#watchlists',
         },
         {
-            id: 'delivery',
-            label: 'Delivery',
+            id: 'integrations',
+            label: 'Integrations',
             value: `${configuredDestinations} location${configuredDestinations === 1 ? '' : 's'}`,
             detail: `${bundle.deliveries.length} notification${bundle.deliveries.length === 1 ? '' : 's'}`,
-            href: caseDelivery?.caseId ? `/cases/${encodeURIComponent(caseDelivery.caseId)}?organizationId=${encodeURIComponent(organization.id)}${caseDelivery.alertId ? `&alertId=${encodeURIComponent(caseDelivery.alertId)}` : ''}` : '/organizations/delivery#delivery-history',
+            href: '/findings/delivery',
         },
         {
             id: 'cases',
@@ -2246,266 +2028,6 @@ function MemberPanel({ members, canManage, busy, rowMessages, selectedSubject, o
     )
 }
 
-function DestinationPanel({ destinations, deliveries, canManage, busy, rowMessages, selectedSubject, createDraft, setCreateDraft, editing, setEditing, onSelectSubject, onCreate, onTest, onUpdate, onRotateSigningSecret, onDelete, signingSecret, onClearSigningSecret }: { destinations: WebhookDestination[], deliveries: DeliveryRow[], canManage: boolean, busy: string, rowMessages: Record<string, RowMessage>, selectedSubject: ActivitySubject, createDraft: DestinationCreateDraft, setCreateDraft: (next: DestinationCreateDraft) => void, editing: Record<string, DestinationEditDraft>, setEditing: (next: Record<string, DestinationEditDraft> | ((current: Record<string, DestinationEditDraft>) => Record<string, DestinationEditDraft>)) => void, onSelectSubject: (subject: ActivitySubject) => void, onCreate: () => void, onTest: (destination: WebhookDestination) => void, onUpdate: (destination: WebhookDestination, draft: DestinationEditDraft) => void, onRotateSigningSecret: (destination: WebhookDestination) => void, onDelete: (destination: WebhookDestination) => void, signingSecret: string, onClearSigningSecret: () => void }) {
-    const [destinationQuery, setDestinationQuery] = useState('')
-    const [destinationStatusFilter, setDestinationStatusFilter] = useState('all')
-    const [destinationKindFilter, setDestinationKindFilter] = useState('all')
-    const createUrl = createDraft.url.trim()
-    const createUrlInvalid = Boolean(createUrl) && !validDestinationUrl(createUrl)
-    const createNameDuplicate = destinationNameInUse(destinations, normalizeDestinationName(createDraft.name) || defaultDestinationName(createDraft.kind))
-    const busyLabel = destinationBusyLabel(busy)
-    const activeDestinationCount = destinations.filter(destination => ['active', 'configured'].includes((destination.status || (destination.deliveryReady ? 'active' : '')).toLowerCase())).length
-    const pausedDestinationCount = destinations.filter(destination => (destination.status || '').toLowerCase() === 'paused').length
-    const failedDeliveryCount = deliveries.filter(delivery => delivery.status?.toLowerCase() === 'failed' || Boolean(delivery.error)).length
-    const normalizedDestinationQuery = destinationQuery.trim().toLowerCase()
-    const visibleDestinations = destinations.filter(destination => {
-        const destinationStatus = (destination.status || (destination.deliveryReady ? 'active' : 'configured')).toLowerCase()
-        const destinationDeliveries = deliveriesForDestination(destination, deliveries)
-        const statusMatches = destinationStatusFilter === 'all' || destinationStatus === destinationStatusFilter
-        if (!statusMatches) return false
-        const destinationKind = (destination.kind || destination.type || 'webhook').toLowerCase()
-        const kindMatches = destinationKindFilter === 'all' || destinationKind === destinationKindFilter
-        if (!kindMatches) return false
-        if (!normalizedDestinationQuery) return true
-        return destinationSearchText(destination, destinationDeliveries).includes(normalizedDestinationQuery)
-    })
-    const destinationFiltersActive = Boolean(destinationQuery.trim()) || destinationStatusFilter !== 'all' || destinationKindFilter !== 'all'
-    return (
-        <details id='destinations' open className='overflow-hidden rounded-lg border border-ui-border bg-ui-panel shadow-sm dark:border-ui-border dark:bg-ui-panel' data-org-destinations-disclosure>
-            <summary className='flex cursor-pointer list-none flex-col gap-3 p-4 outline-none transition hover:bg-ui-raised focus-visible:ring-2 focus-visible:ring-ui-primary/25 dark:hover:bg-ui-panel sm:flex-row sm:items-center sm:justify-between [&::-webkit-details-marker]:hidden'>
-                <SectionTitle icon={<Webhook className='h-4 w-4' />} title='Saved destinations' detail='' />
-                <span className='shrink-0 rounded-md border border-ui-border bg-ui-raised px-2 py-1 text-xs font-semibold text-ui-muted dark:border-ui-border dark:bg-ui-canvas dark:text-ui-muted'>
-                    {visibleDestinations.length}/{destinations.length} destination{destinations.length === 1 ? '' : 's'}
-                </span>
-            </summary>
-            <div className='grid gap-2 border-t border-ui-border p-4 dark:border-ui-border'>
-                {busyLabel && <InlineBusy label={busyLabel} marker='data-org-destination-busy' />}
-                {signingSecret && <WebhookSigningSecret secret={signingSecret} onClear={onClearSigningSecret} />}
-                {destinations.length > 0 && (
-                    <div className='flex flex-wrap gap-2' data-org-destination-status-counts='true'>
-                        <span className='rounded-md border border-ui-border bg-ui-raised px-2 py-1 text-xs font-semibold text-ui-muted dark:border-ui-border dark:bg-ui-canvas dark:text-ui-muted'>Configured: {activeDestinationCount}</span>
-                        <span className='rounded-md border border-ui-border bg-ui-raised px-2 py-1 text-xs font-semibold text-ui-muted dark:border-ui-border dark:bg-ui-canvas dark:text-ui-muted'>Paused: {pausedDestinationCount}</span>
-                        <span className='rounded-md border border-ui-border bg-ui-raised px-2 py-1 text-xs font-semibold text-ui-muted dark:border-ui-border dark:bg-ui-canvas dark:text-ui-muted'>Failed: {failedDeliveryCount}</span>
-                    </div>
-                )}
-                {canManage && (
-                    <div className='grid gap-2 rounded-lg border border-ui-border bg-ui-raised p-3 dark:border-ui-border dark:bg-ui-canvas' data-org-destination-create='true'>
-                        <div className='grid gap-2 md:grid-cols-[minmax(0,1fr)_8rem]'>
-                            <label className='grid gap-1 text-sm font-medium text-ui-text dark:text-ui-muted'>
-                                Name
-                                <input value={createDraft.name} disabled={Boolean(busy)} onChange={event => setCreateDraft({ ...createDraft, name: event.target.value })} className={inputClass} placeholder='Security events' />
-                                {createNameDuplicate && <span className='text-xs font-semibold text-ui-text dark:text-ui-text'>Name already in use.</span>}
-                            </label>
-                            <SelectField label='Type' value={createDraft.kind} options={destinationKinds} disabled={Boolean(busy)} onChange={value => setCreateDraft({ ...createDraft, kind: value as DestinationCreateDraft['kind'] })} />
-                        </div>
-                        <div className='grid gap-2 md:grid-cols-[minmax(12rem,1fr)_auto] md:items-end'>
-                            <label className='grid gap-1 text-sm font-medium text-ui-text dark:text-ui-muted'>
-                                URL
-                                <input value={createDraft.url} disabled={Boolean(busy)} onChange={event => setCreateDraft({ ...createDraft, url: event.target.value })} className={inputClass} placeholder='https://discord.com/api/webhooks/...' />
-                                {createUrlInvalid && <span className='text-xs font-semibold text-ui-text dark:text-ui-text'>Use a valid HTTPS URL.</span>}
-                            </label>
-                            <button type='button' className={primaryButtonClass} disabled={!createUrl || createUrlInvalid || createNameDuplicate || Boolean(busy)} onClick={onCreate}>
-                                <CheckCircle2 className='h-4 w-4' />
-                                Add destination
-                            </button>
-                        </div>
-                        <RowStatus message={rowMessages['destination-create']} />
-                    </div>
-                )}
-                {destinations.length === 0 && <EmptyLine text={canManage ? 'Add a Discord or webhook destination to enable delivery tests.' : 'Maintainers can add destinations'} />}
-                {destinations.length > 0 && (
-                    <div className='grid gap-2 rounded-lg border border-ui-border bg-ui-raised p-3 dark:border-ui-border dark:bg-ui-canvas md:grid-cols-[minmax(0,1fr)_8rem_8rem_auto]' data-org-destination-filter-strip='true'>
-                        <label className='grid min-w-0 gap-1 text-sm font-medium text-ui-text dark:text-ui-muted'>
-                            Find destination
-                            <input
-                                value={destinationQuery}
-                                disabled={Boolean(busy)}
-                                onChange={event => setDestinationQuery(event.target.value)}
-                                className={inputClass}
-                                placeholder='Name, status, hash, delivery'
-                            />
-                        </label>
-                        <SelectField
-                            label='Status'
-                            value={destinationStatusFilter}
-                            options={['all', 'active', 'paused', 'configured']}
-                            disabled={Boolean(busy)}
-                            onChange={setDestinationStatusFilter}
-                        />
-                        <SelectField
-                            label='Type'
-                            value={destinationKindFilter}
-                            options={['all', ...destinationKinds]}
-                            disabled={Boolean(busy)}
-                            onChange={setDestinationKindFilter}
-                        />
-                        <div className='grid content-end gap-1'>
-                            <span className='rounded-md border border-ui-border bg-ui-panel px-2 py-2 text-center text-xs font-semibold text-ui-muted dark:border-ui-border dark:bg-ui-panel dark:text-ui-muted' data-org-destination-filter-count='true'>
-                                {visibleDestinations.length}/{destinations.length} shown
-                            </span>
-                            <button
-                                type='button'
-                                className={secondaryButtonClass}
-                                disabled={!destinationFiltersActive || Boolean(busy)}
-                                onClick={() => {
-                                    setDestinationQuery('')
-                                    setDestinationStatusFilter('all')
-                                    setDestinationKindFilter('all')
-                                }}
-                            >
-                                Clear
-                            </button>
-                        </div>
-                    </div>
-                )}
-                {destinations.length > 0 && visibleDestinations.length === 0 && <EmptyLine text='Adjust filters to see matching destinations.' />}
-                {visibleDestinations.map(destination => {
-                    const draft = editing[destination.id]
-                    const currentKind = (destination.kind || destination.type || 'webhook') === 'discord' ? 'discord' : 'webhook'
-                    const destinationName = normalizeDestinationName(destination.name || '') || defaultDestinationName(currentKind)
-                    const destinationStatus = destination.status || (destination.deliveryReady ? 'active' : 'configured')
-                    const destinationEnabled = ['active', 'configured'].includes(destinationStatus.toLowerCase())
-                    const destinationDeliveries = deliveriesForDestination(destination, deliveries)
-                    const latestDelivery = destinationDeliveries.sort((left, right) => deliveryTime(right) - deliveryTime(left))[0] || null
-                    const failedDeliveryCount = destinationDeliveries.filter(delivery => delivery.status?.toLowerCase() === 'failed' || Boolean(delivery.error)).length
-                    const dryRunCount = destinationDeliveries.filter(delivery => delivery.dryRun).length
-                    const draftUrl = draft?.url.trim() || ''
-                    const draftUrlInvalid = Boolean(draftUrl) && !validDestinationUrl(draftUrl)
-                    const draftNameDuplicate = draft ? destinationNameInUse(destinations, normalizeDestinationName(draft.name) || destinationName, destination.id) : false
-                    const draftChanged = draft ? destinationEditChanged(destination, draft) : false
-                    const selected = selectedSubject.type === 'destination' && selectedSubject.id === destination.id
-                    const testDisabledReason = !canManage ? 'Editor access required' : ''
-                    const destinationManageReason = !canManage ? 'Editor access required' : ''
-                    const routeLabel = sanitizeOrganizationDisplayCopy(destination.endpointHint) || compactReference(destination.endpointHash, 'route') || (destination.deliveryReady ? 'Saved route' : 'Route pending')
-                    return (
-                        <div
-                            role='button'
-                            tabIndex={0}
-                            aria-pressed={selected}
-                            id={`destination-${encodeURIComponent(destination.id)}`}
-                            key={destination.id}
-                            onClick={() => onSelectSubject({ type: 'destination', id: destination.id })}
-                            onKeyDown={event => {
-                                if (event.key === 'Enter' || event.key === ' ') {
-                                    event.preventDefault()
-                                    onSelectSubject({ type: 'destination', id: destination.id })
-                                }
-                            }}
-                            className={`grid min-w-0 gap-3 rounded-lg border p-3 text-left transition ${selected ? 'border-ui-primary/35 bg-ui-primary/10 dark:border-ui-primary/35 dark:bg-ui-panel' : 'border-ui-border hover:bg-ui-raised dark:border-ui-border dark:hover:bg-ui-panel'}`}
-                        >
-                            <span className='flex min-w-0 items-start justify-between gap-2'>
-                                <span className='min-w-0'>
-                                    <span className='block truncate text-sm font-semibold text-ui-text dark:text-ui-text'>{sanitizeOrganizationDisplayCopy(destinationName)}</span>
-                                    <span className='mt-1 block truncate text-xs text-ui-muted dark:text-ui-muted'>{destinationDisplayState(destination)}</span>
-                                </span>
-                                <StatusPill status={destinationStatus} />
-                            </span>
-                            {draft ? (
-                                <div className='grid gap-2 md:grid-cols-[minmax(0,1fr)_8rem_8rem]' onClick={event => event.stopPropagation()} onKeyDown={stopRowSelectionKeys}>
-                                    <label className='grid gap-1 text-sm font-medium text-ui-text dark:text-ui-muted'>
-                                        Name
-                                        <input value={draft.name} disabled={!canManage || Boolean(busy)} onChange={event => setEditing(current => ({ ...current, [destination.id]: { ...draft, name: event.target.value } }))} className={inputClass} />
-                                        {draftNameDuplicate && <span className='text-xs font-semibold text-ui-text dark:text-ui-text'>Name already in use.</span>}
-                                    </label>
-                                    <SelectField label='Type' value={draft.kind} options={destinationKinds} disabled={!canManage || Boolean(busy)} onChange={value => setEditing(current => ({ ...current, [destination.id]: { ...draft, kind: value as DestinationEditDraft['kind'] } }))} />
-                                    <SelectField label='Status' value={draft.status} options={['active', 'paused']} disabled={!canManage || Boolean(busy)} onChange={value => setEditing(current => ({ ...current, [destination.id]: { ...draft, status: value } }))} />
-                                    <label className='grid gap-1 text-sm font-medium text-ui-text dark:text-ui-muted md:col-span-3'>
-                                        Rotate URL
-                                        <input value={draft.url} disabled={!canManage || Boolean(busy)} onChange={event => setEditing(current => ({ ...current, [destination.id]: { ...draft, url: event.target.value } }))} className={inputClass} placeholder='Leave blank to keep the stored redacted endpoint' />
-                                        {draftUrlInvalid && <span className='text-xs font-semibold text-ui-text dark:text-ui-text'>Use a valid HTTPS URL.</span>}
-                                    </label>
-                                    {!draftUrlInvalid && !draftNameDuplicate && !draftChanged && <p className='rounded-md bg-ui-raised px-3 py-2 text-xs font-semibold text-ui-muted dark:bg-ui-canvas dark:text-ui-muted md:col-span-3'>Destination settings are current.</p>}
-                                    <div className='flex flex-wrap gap-2 md:col-span-3' onClick={event => event.stopPropagation()} onKeyDown={stopRowSelectionKeys}>
-                                        <button type='button' className={primaryButtonClass} disabled={!canManage || draftUrlInvalid || draftNameDuplicate || !draftChanged || Boolean(busy)} onClick={() => onUpdate(destination, draft)}>
-                                            <CheckCircle2 className='h-4 w-4' />
-                                            Save
-                                        </button>
-                                        <button type='button' className={secondaryButtonClass} disabled={Boolean(busy)} onClick={() => setEditing(current => {
-                                            const next = { ...current }
-                                            delete next[destination.id]
-                                            return next
-                                        })}>Cancel</button>
-                                        <RowStatus message={rowMessages[`destination-${destination.id}`]} />
-                                    </div>
-                                </div>
-                            ) : (
-                                <>
-                                    <span className='grid gap-1 text-xs text-ui-muted dark:text-ui-muted'>
-                                        <span className='truncate'>Type: {destination.kind || destination.type || 'webhook'}</span>
-                                        <span className='truncate'>Destination: {destinationDisplayState(destination)}</span>
-                                        <span className='truncate' data-org-destination-route='true'>Route: {routeLabel}</span>
-                                        <span className={`truncate ${destination.signingConfigured ? 'text-ui-success' : 'text-ui-warning'}`}>Signing: {destination.signingConfigured ? 'HMAC v1 configured' : 'Secret rotation required'}</span>
-                                        <span className='truncate' data-org-destination-history-count='true'>History: {destinationDeliveries.length} event{destinationDeliveries.length === 1 ? '' : 's'} · {dryRunCount} test{dryRunCount === 1 ? '' : 's'} · {failedDeliveryCount} failed</span>
-                                    </span>
-                                    <DestinationDeliverySummary delivery={latestDelivery} />
-                                    {latestDelivery && <DeliveryPayloadPreview delivery={latestDelivery} compact />}
-                                    <span className='flex flex-wrap items-center gap-2' onClick={event => event.stopPropagation()} onKeyDown={stopRowSelectionKeys}>
-                                        <button type='button' className={secondaryButtonClass} disabled={!canManage || Boolean(busy)} title={testDisabledReason || undefined} aria-label={testDisabledReason ? `Test destination: ${testDisabledReason}` : 'Test destination'} onClick={() => onTest(destination)}>
-                                            <RefreshCw className='h-4 w-4' />
-                                            Test
-                                        </button>
-                                        <button type='button' aria-label={destinationManageReason ? `Edit destination: ${destinationManageReason}` : 'Edit destination'} title={destinationManageReason || 'Edit destination'} className={secondaryButtonClass} disabled={!canManage || Boolean(busy)} onClick={() => setEditing(current => ({ ...current, [destination.id]: { name: destinationName, kind: currentKind, url: '', status: destinationEnabled ? 'active' : 'paused' } }))}>
-                                            <Pencil className='h-4 w-4' />
-                                            Edit
-                                        </button>
-                                        {!destination.signingConfigured && destinationEnabled && <button type='button' className={secondaryButtonClass} disabled={!canManage || Boolean(busy)} title={destinationManageReason || 'Generate a customer signing secret'} aria-label={destinationManageReason ? `Secure destination: ${destinationManageReason}` : 'Generate signing secret'} onClick={() => onRotateSigningSecret(destination)}>
-                                            <KeyRound className='h-4 w-4' />
-                                            Secure
-                                        </button>}
-                                        {destinationEnabled ? (
-                                            <button type='button' className={secondaryButtonClass} disabled={!canManage || Boolean(busy)} title={destinationManageReason || 'Disable destination'} aria-label={destinationManageReason ? `Disable destination: ${destinationManageReason}` : 'Disable destination'} onClick={() => onUpdate(destination, { name: destinationName, kind: currentKind, url: '', status: 'paused' })}>
-                                                <Pause className='h-4 w-4' />
-                                                Disable
-                                            </button>
-                                        ) : (
-                                            <button type='button' className={secondaryButtonClass} disabled={!canManage || Boolean(busy)} title={destinationManageReason || 'Enable destination'} aria-label={destinationManageReason ? `Enable destination: ${destinationManageReason}` : 'Enable destination'} onClick={() => onUpdate(destination, { name: destinationName, kind: currentKind, url: '', status: 'active' })}>
-                                                <Play className='h-4 w-4' />
-                                                Enable
-                                            </button>
-                                        )}
-                                        <ConfirmActionButton ariaLabel='Remove destination' title={destinationManageReason || 'Remove destination'} disabled={!canManage || Boolean(busy)} onConfirm={() => onDelete(destination)} icon={<Trash2 className='h-4 w-4' />} />
-                                        <RowStatus message={rowMessages[`destination-${destination.id}`]} />
-                                    </span>
-                                </>
-                            )}
-                        </div>
-                    )
-                })}
-            </div>
-        </details>
-    )
-}
-
-function WebhookSigningSecret({ secret, onClear }: { secret: string, onClear: () => void }) {
-    const [copied, setCopied] = useState(false)
-    const copy = async () => {
-        try {
-            await navigator.clipboard.writeText(secret)
-            setCopied(true)
-            window.setTimeout(() => setCopied(false), 1800)
-        } catch {
-            setCopied(false)
-        }
-    }
-    return (
-        <div role='alert' className='grid gap-2 rounded-lg border border-ui-warning/40 bg-ui-warning/10 p-3 text-sm dark:border-ui-warning/40 dark:bg-ui-warning/10' data-org-webhook-signing-secret='true'>
-            <div className='flex flex-wrap items-start justify-between gap-2'>
-                <div>
-                    <p className='font-semibold text-ui-text dark:text-ui-text'>Save this signing secret now</p>
-                    <p className='mt-1 text-xs leading-5 text-ui-muted dark:text-ui-muted'>Hanasand signs live deliveries with HMAC-SHA256. The secret is shown only after create or URL rotation; use the v1 signature headers to verify the raw request body.</p>
-                    <code className='mt-2 block overflow-x-auto rounded-md border border-ui-border bg-ui-canvas px-2 py-2 text-[11px] leading-5 text-ui-muted dark:border-ui-border dark:bg-ui-canvas dark:text-ui-muted'>HMAC(secret, `${'{'}destinationUrl{'}'}\n${'{'}x-hanasand-signature-timestamp{'}'}\n${'{'}rawBody{'}'}`) === x-hanasand-delivery-signature</code>
-                </div>
-                <button type='button' className={secondaryButtonClass} onClick={onClear}>Dismiss</button>
-            </div>
-            <code className='break-all rounded-md border border-ui-border bg-ui-canvas px-3 py-2 text-xs text-ui-text dark:border-ui-border dark:bg-ui-canvas dark:text-ui-text'>{secret}</code>
-            <div className='flex flex-wrap gap-2 text-xs'>
-                <button type='button' className={secondaryButtonClass} onClick={() => void copy()}><Copy className='h-4 w-4' />{copied ? 'Copied' : 'Copy secret'}</button>
-                <span className='rounded-md border border-ui-border bg-ui-panel px-3 py-2 font-mono text-ui-muted dark:border-ui-border dark:bg-ui-panel dark:text-ui-muted'>signature · timestamp · version v1</span>
-            </div>
-        </div>
-    )
-}
-
 function WatchlistPanel({ watchlists, activeTerms, members, canManage, canCleanup, busy, draft, setDraft, suggestions, editing, setEditing, onCreate, onSave, onAction, onDelete, organization, alerts, deliveries, onCleanup, onRefreshAlerts, onRequestFreshCollection, onRefreshCollectionStatus, collectionRequest, rowMessages, draftDuplicate, selectedSubject, onSelectSubject }: { watchlists: WatchlistItem[], activeTerms: AlertTerm[], members: OrganizationMember[], canManage: boolean, canCleanup: boolean, busy: string, draft: { kind: WatchlistKind, value: string, notes: string }, setDraft: (next: { kind: WatchlistKind, value: string, notes: string }) => void, suggestions: WatchlistSuggestion[], editing: Record<string, { kind: WatchlistKind, value: string, notes: string }>, setEditing: (next: Record<string, { kind: WatchlistKind, value: string, notes: string }> | ((current: Record<string, { kind: WatchlistKind, value: string, notes: string }>) => Record<string, { kind: WatchlistKind, value: string, notes: string }>)) => void, onCreate: () => void, onSave: (item: WatchlistItem) => void, onAction: (item: WatchlistItem, action: 'pause' | 'resume' | 'archive' | 'restore') => void, onDelete: (item: WatchlistItem) => void, organization: OrganizationSummary, alerts: ScopedAlert[], deliveries: DeliveryRow[], onCleanup: () => void, onRefreshAlerts: () => void, onRequestFreshCollection: () => void, onRefreshCollectionStatus: () => void, collectionRequest: CollectionRequest | null, rowMessages: Record<string, RowMessage>, draftDuplicate: boolean, selectedSubject: ActivitySubject, onSelectSubject: (subject: ActivitySubject) => void }) {
     const [watchlistQuery, setWatchlistQuery] = useState('')
     const [watchlistStatusFilter, setWatchlistStatusFilter] = useState('all')
@@ -2782,271 +2304,10 @@ function WatchlistDestinationSummary({ item, delivery }: { item: WatchlistItem, 
             {endpoint && <span className='truncate text-ui-muted dark:text-ui-muted'>Route: {endpoint}</span>}
             <span className='truncate text-ui-muted dark:text-ui-muted'>{delivery ? `Last ${delivery.dryRun ? 'test' : 'delivery'} ${delivery.status || 'attempted'}` : 'No delivery history yet'}</span>
             <span className='truncate text-ui-muted dark:text-ui-muted'>History: {delivery ? formatDate(delivery.attemptedAt || delivery.updatedAt || delivery.createdAt) : 'waiting for test'}</span>
-            <Link href='/organizations/destinations#destinations' className='mt-1 inline-flex min-h-9 items-center justify-center gap-2 rounded-md border border-ui-border bg-ui-raised px-3 text-sm font-semibold text-ui-text transition hover:border-ui-primary dark:border-ui-border dark:bg-ui-canvas dark:text-ui-text' onClick={event => event.stopPropagation()}>
+            <Link href='/findings/delivery' className='mt-1 inline-flex min-h-9 items-center justify-center gap-2 rounded-md border border-ui-border bg-ui-raised px-3 text-sm font-semibold text-ui-text transition hover:border-ui-primary dark:border-ui-border dark:bg-ui-canvas dark:text-ui-text' onClick={event => event.stopPropagation()}>
                 <Webhook className='h-4 w-4' />
-                Configure delivery
+                Open integrations
             </Link>
-        </div>
-    )
-}
-
-function DestinationDeliverySummary({ delivery }: { delivery?: DeliveryRow | null }) {
-    if (!delivery) {
-        return (
-            <div className='grid gap-1 rounded-md bg-ui-raised px-3 py-2 text-xs text-ui-muted dark:bg-ui-canvas dark:text-ui-muted' data-org-destination-latest='empty'>
-                <span>Test destination to start history.</span>
-                <span>Run a dry test or replay from delivery history.</span>
-            </div>
-        )
-    }
-    const failed = delivery.status === 'failed' || Boolean(delivery.error)
-    return (
-        <div className={`grid gap-1 rounded-md px-3 py-2 text-xs ${failed ? 'bg-ui-warning/10 text-ui-warning dark:bg-ui-warning/10 dark:text-ui-warning' : 'bg-ui-raised text-ui-muted dark:bg-ui-canvas dark:text-ui-muted'}`} data-org-destination-latest='true'>
-            <span className='flex flex-wrap items-center gap-2'>
-                <span className='font-semibold text-ui-text dark:text-ui-text'>Last {delivery.dryRun ? 'test' : 'delivery'}:</span>
-                <StatusPill status={delivery.status || 'attempt'} />
-                <span>{formatDate(delivery.attemptedAt || delivery.updatedAt || delivery.createdAt)}</span>
-            </span>
-            <span className='truncate'>{deliveryOutcomeSummary(delivery)}</span>
-            <span className='truncate'>{deliveryTraceLabel(delivery)}</span>
-            {(delivery.nextRetryAt || delivery.attemptCount !== undefined || delivery.retryCount !== undefined) && (
-                <span className='truncate'>Retry: {deliveryRetryText(delivery)}</span>
-            )}
-        </div>
-    )
-}
-
-function DeliveryPayloadPreview({ delivery, compact = false }: { delivery: DeliveryRow, compact?: boolean }) {
-    const preview = payloadPreviewForDelivery(delivery)
-    if (!preview) return null
-    const context = preview.context || {}
-    const fields = (preview.fields || []).slice(0, compact ? 2 : 4)
-    const fieldNames = preview.fieldNames?.slice(0, compact ? 3 : 6) || []
-    const route = safeDeliveryRoute(context.casePath || context.alertUrl)
-
-    return (
-        <div className='grid gap-2 rounded-md border border-ui-border bg-ui-raised px-3 py-2 text-xs dark:border-ui-border dark:bg-ui-canvas' data-org-delivery-payload-preview='true'>
-            <div className='flex min-w-0 flex-wrap items-center justify-between gap-2'>
-                <span className='truncate font-semibold text-ui-text dark:text-ui-text'>{sanitizeOrganizationDisplayCopy(preview.title || context.alertTitle || 'Discord payload preview')}</span>
-                <span className='shrink-0 rounded-md border border-ui-border bg-ui-panel px-2 py-0.5 font-semibold text-ui-muted dark:border-ui-border dark:bg-ui-panel dark:text-ui-muted'>
-                    {delivery.dryRun ? 'dry run' : delivery.deliveryKind || 'webhook'}
-                </span>
-            </div>
-            {preview.descriptionPreview && <p className='line-clamp-2 text-ui-muted dark:text-ui-muted'>{sanitizeOrganizationDisplayCopy(preview.descriptionPreview)}</p>}
-            <div className='grid gap-1 sm:grid-cols-2'>
-                {context.orgName && <span className='truncate'>Org: {sanitizeOrganizationDisplayCopy(context.orgName)}</span>}
-                {context.watchlistName && <span className='truncate'>Watchlist: {sanitizeOrganizationDisplayCopy(context.watchlistName)}</span>}
-                {context.severity && <span className='truncate'>Severity: {sanitizeOrganizationDisplayCopy(context.severity)}</span>}
-                {context.sourceFamily && <span className='truncate'>Source: {sanitizeOrganizationDisplayCopy(context.sourceFamily)}</span>}
-                {context.evidenceCount !== undefined && context.evidenceCount !== null && <span className='truncate'>Evidence: {context.evidenceCount}</span>}
-                {context.deliveryState && <span className='truncate'>State: {sanitizeOrganizationDisplayCopy(context.deliveryState)}</span>}
-            </div>
-            {fields.length > 0 && (
-                <div className='grid gap-1'>
-                    {fields.map(field => (
-                        <p key={`${field.name}-${field.valuePreview}`} className='line-clamp-1 text-ui-muted dark:text-ui-muted'>
-                            <span className='font-semibold text-ui-text dark:text-ui-text'>{sanitizeOrganizationDisplayCopy(field.name || 'Field')}:</span> {sanitizeOrganizationDisplayCopy(field.valuePreview || '')}
-                        </p>
-                    ))}
-                </div>
-            )}
-            {fields.length === 0 && fieldNames.length > 0 && <p className='truncate text-ui-muted dark:text-ui-muted'>Fields: {fieldNames.map(sanitizeOrganizationDisplayCopy).join(', ')}</p>}
-            {context.matchReason && !compact && <p className='line-clamp-2 text-ui-muted dark:text-ui-muted'>Match: {sanitizeOrganizationDisplayCopy(context.matchReason)}</p>}
-            {route && (
-                <a href={route} className='w-fit rounded-md border border-ui-border bg-ui-panel px-2 py-1 font-semibold text-ui-primary hover:bg-ui-canvas dark:border-ui-border dark:bg-ui-panel dark:text-ui-primary dark:hover:bg-ui-raised'>
-                    {context.casePath ? 'Open case' : 'Open event'}
-                </a>
-            )}
-        </div>
-    )
-}
-
-function safeDeliveryRoute(value?: string | null) {
-    const route = value?.trim() || ''
-    return route.startsWith('/') || /^https?:\/\//.test(route) ? route : ''
-}
-
-function DeliveryHistoryPanel({ organization, deliveries, destinations, selectedSubject, canManage, busy, rowMessages, onReplay }: { organization: OrganizationSummary, deliveries: DeliveryRow[], destinations: WebhookDestination[], selectedSubject: ActivitySubject, canManage: boolean, busy: string, rowMessages: Record<string, RowMessage>, onReplay: (delivery: DeliveryRow) => void }) {
-    const [showAll, setShowAll] = useState(false)
-    const matchingDeliveries = deliveries
-        .filter(delivery => deliveryMatchesSubject(delivery, selectedSubject, destinations))
-        .sort((left, right) => deliveryTime(right) - deliveryTime(left))
-    const scopedDeliveries = matchingDeliveries
-        .slice(0, showAll ? matchingDeliveries.length : 8)
-    const totalFailures = matchingDeliveries.filter(delivery => delivery.status === 'failed' || delivery.error).length
-    const dryRunCount = matchingDeliveries.filter(delivery => delivery.dryRun).length
-    const liveDeliveryCount = matchingDeliveries.length - dryRunCount
-    const retryCount = matchingDeliveries.filter(delivery => Boolean(delivery.nextRetryAt)).length
-    const hiddenDeliveryCount = Math.max(0, matchingDeliveries.length - scopedDeliveries.length)
-    return (
-        <section id='delivery-history' className='rounded-lg border border-ui-border bg-ui-panel p-4 shadow-sm dark:border-ui-border dark:bg-ui-panel' data-org-delivery-history='true'>
-            <div className='flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between'>
-                <SectionTitle icon={<Webhook className='h-4 w-4' />} title='Delivery history' detail='Recent tests, replays, failures, and retry state for the selected workspace.' />
-                <div className='flex flex-wrap gap-2'>
-                    <StatusPill status={`${matchingDeliveries.length} total`} />
-                    {dryRunCount > 0 && <StatusPill status={`${dryRunCount} test`} />}
-                    {liveDeliveryCount > 0 && <StatusPill status={`${liveDeliveryCount} live`} />}
-                    {hiddenDeliveryCount > 0 && <StatusPill status={`${hiddenDeliveryCount} older`} />}
-                    {totalFailures > 0 && <StatusPill status={`${totalFailures} failed`} />}
-                    {retryCount > 0 && <StatusPill status={`${retryCount} retry`} />}
-                    {matchingDeliveries.length > 8 && (
-                        <button type='button' className={secondaryButtonClass} onClick={() => setShowAll(current => !current)} data-org-delivery-show-all='true'>
-                            {showAll ? 'Show latest' : 'Show all'}
-                        </button>
-                    )}
-                </div>
-            </div>
-            <div className='mt-4 overflow-x-auto rounded-lg border border-ui-border dark:border-ui-border'>
-                {scopedDeliveries.length === 0 ? (
-                    <EmptyLine text={selectedSubject.type === 'organization' ? 'Test or replay a destination to populate delivery history.' : 'Select a row with delivery activity or run a test destination.'} />
-                ) : (
-                    <>
-                        <div aria-hidden='true'>
-                            {scopedDeliveries.map(delivery => <span key={delivery.id} id={`delivery-${encodeURIComponent(delivery.id)}`} className='block h-0 scroll-mt-24' />)}
-                        </div>
-                        <div className='grid gap-2 p-2 md:hidden' data-org-delivery-mobile-list='true'>
-                            {scopedDeliveries.map(delivery => (
-                                <DeliveryHistoryMobileRow
-                                    key={delivery.id}
-                                    delivery={delivery}
-                                    organizationId={organization.id}
-                                    destinations={destinations}
-                                    canManage={canManage}
-                                    busy={busy}
-                                    rowMessage={rowMessages[`delivery-${delivery.id}`]}
-                                    onReplay={onReplay}
-                                />
-                            ))}
-                        </div>
-                        <table className='hidden min-w-full border-separate border-spacing-0 text-left text-sm md:table' data-org-delivery-desktop-table='true'>
-                            <thead className='bg-ui-raised text-xs uppercase tracking-[0.08em] text-ui-muted dark:bg-ui-canvas dark:text-ui-muted'>
-                                <tr>
-                                    <th className='border-b border-ui-border px-3 py-2 dark:border-ui-border'>State</th>
-                                    <th className='border-b border-ui-border px-3 py-2 dark:border-ui-border'>Target</th>
-                                    <th className='border-b border-ui-border px-3 py-2 dark:border-ui-border'>Event / case</th>
-                                    <th className='border-b border-ui-border px-3 py-2 dark:border-ui-border'>Retry</th>
-                                    <th className='border-b border-ui-border px-3 py-2 dark:border-ui-border'>When</th>
-                                    <th className='border-b border-ui-border px-3 py-2 dark:border-ui-border'>Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {scopedDeliveries.map(delivery => {
-                                    const replayable = canReplayDelivery(delivery, destinations)
-                                    const replayLabel = delivery.status === 'failed' || delivery.nextRetryAt ? 'Retry' : 'Replay'
-                                    return (
-                                        <tr key={delivery.id} className='align-top hover:bg-ui-raised dark:hover:bg-ui-panel'>
-                                            <td className='border-b border-ui-border px-3 py-2 dark:border-ui-border'>
-                                                <div className='grid gap-1'>
-                                                    <StatusPill status={delivery.status || 'attempt'} />
-                                                    <span className='text-xs text-ui-muted dark:text-ui-muted'>{delivery.dryRun ? 'dry run' : delivery.deliveryKind || 'webhook'}</span>
-                                                    {delivery.httpStatus !== undefined && <span className='text-xs text-ui-muted dark:text-ui-muted'>HTTP {delivery.httpStatus}</span>}
-                                                </div>
-                                            </td>
-                                            <td className='max-w-56 border-b border-ui-border px-3 py-2 dark:border-ui-border'>
-                                                <p className='truncate text-xs font-semibold text-ui-text dark:text-ui-text'>{destinationDisplayState(delivery)}</p>
-                                                <p className='mt-1 truncate text-xs text-ui-muted dark:text-ui-muted'>{deliveryTargetLabel(delivery, destinations)}</p>
-                                                <p className='mt-1 truncate text-xs text-ui-muted dark:text-ui-muted'>{deliveryTraceLabel(delivery)}</p>
-                                            </td>
-                                            <td className='max-w-64 border-b border-ui-border px-3 py-2 dark:border-ui-border'>
-                                                <DeliveryReference delivery={delivery} organizationId={organization.id} destinations={destinations} />
-                                                {delivery.error && <p className='mt-1 line-clamp-2 rounded-md bg-ui-warning/10 px-2 py-1 text-xs font-medium text-ui-warning dark:bg-ui-warning/10 dark:text-ui-warning'>{deliveryFailureSummary(delivery)}</p>}
-                                                {!delivery.error && delivery.responseSummary && <p className='mt-1 line-clamp-2 text-xs text-ui-muted dark:text-ui-muted'>{sanitizeOrganizationDisplayCopy(delivery.responseSummary) || delivery.responseSummary}</p>}
-                                                <div className='mt-2'>
-                                                    <DeliveryPayloadPreview delivery={delivery} compact />
-                                                </div>
-                                            </td>
-                                            <td className='border-b border-ui-border px-3 py-2 dark:border-ui-border'>
-                                                <div className='grid gap-1 text-xs text-ui-muted dark:text-ui-muted'>
-                                                    <span>{delivery.errorClass ? sanitizeOrganizationDisplayCopy(delivery.errorClass) : delivery.nextRetryAt ? 'scheduled' : 'no retry scheduled'}</span>
-                                                    <span>{deliveryRetryText(delivery)}</span>
-                                                    {delivery.dedupeKey && <span className='max-w-40 truncate'>Deduplicated delivery</span>}
-                                                </div>
-                                            </td>
-                                            <td className='border-b border-ui-border px-3 py-2 text-xs text-ui-muted dark:border-ui-border dark:text-ui-muted'>
-                                                {formatDate(delivery.attemptedAt || delivery.updatedAt || delivery.createdAt)}
-                                            </td>
-                                            <td className='border-b border-ui-border px-3 py-2 dark:border-ui-border'>
-                                                <div className='grid gap-2'>
-                                                    <button type='button' className={secondaryButtonClass} disabled={!canManage || !replayable || Boolean(busy)} onClick={() => onReplay(delivery)}>
-                                                        <RefreshCw className='h-4 w-4' />
-                                                        {replayLabel}
-                                                    </button>
-                                                    {!replayable && <span className='text-xs text-ui-muted dark:text-ui-muted'>{replayBlockedReason(delivery, destinations)}</span>}
-                                                    <RowStatus message={rowMessages[`delivery-${delivery.id}`]} />
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    )
-                                })}
-                            </tbody>
-                        </table>
-                    </>
-                )}
-            </div>
-        </section>
-    )
-}
-
-function DeliveryHistoryMobileRow({ delivery, organizationId, destinations, canManage, busy, rowMessage, onReplay }: {
-    delivery: DeliveryRow
-    organizationId: string
-    destinations: WebhookDestination[]
-    canManage: boolean
-    busy: string
-    rowMessage?: RowMessage
-    onReplay: (delivery: DeliveryRow) => void
-}) {
-    const replayable = canReplayDelivery(delivery, destinations)
-    const replayLabel = delivery.status === 'failed' || delivery.nextRetryAt ? 'Retry' : 'Replay'
-    return (
-        <article className='grid gap-3 rounded-lg border border-ui-border bg-ui-panel p-3 dark:border-ui-border dark:bg-ui-canvas' data-org-delivery-mobile-row='true'>
-            <div className='flex min-w-0 flex-wrap items-center justify-between gap-2'>
-                <StatusPill status={delivery.status || 'attempt'} />
-                <span className='text-xs font-medium text-ui-muted dark:text-ui-muted'>{formatDate(delivery.attemptedAt || delivery.updatedAt || delivery.createdAt)}</span>
-            </div>
-            <div className='min-w-0'>
-                <p className='truncate text-xs font-semibold text-ui-text dark:text-ui-text'>{destinationDisplayState(delivery)}</p>
-                <p className='mt-1 truncate text-xs text-ui-muted dark:text-ui-muted'>{deliveryTargetLabel(delivery, destinations)}</p>
-                <p className='mt-1 truncate text-xs text-ui-muted dark:text-ui-muted'>{deliveryTraceLabel(delivery)}</p>
-                <div className='mt-2'>
-                    <DeliveryReference delivery={delivery} organizationId={organizationId} destinations={destinations} />
-                </div>
-            </div>
-            <div className='grid grid-cols-2 gap-2 text-xs text-ui-muted dark:text-ui-muted'>
-                <span className='truncate'>{delivery.dryRun ? 'dry run' : delivery.deliveryKind || 'webhook'}</span>
-                <span className='truncate text-right'>{deliveryRetryText(delivery)}</span>
-                {delivery.httpStatus !== undefined && <span className='truncate'>HTTP {delivery.httpStatus}</span>}
-                {delivery.errorClass && <span className='truncate text-right'>{sanitizeOrganizationDisplayCopy(delivery.errorClass)}</span>}
-            </div>
-            {delivery.error && <p className='line-clamp-2 rounded-md bg-ui-warning/10 px-2 py-1 text-xs font-medium text-ui-warning dark:bg-ui-warning/10 dark:text-ui-warning'>{deliveryFailureSummary(delivery)}</p>}
-            {!delivery.error && delivery.responseSummary && <p className='line-clamp-2 text-xs text-ui-muted dark:text-ui-muted'>{sanitizeOrganizationDisplayCopy(delivery.responseSummary) || delivery.responseSummary}</p>}
-            <DeliveryPayloadPreview delivery={delivery} compact />
-            <div className='grid gap-2'>
-                <button type='button' className={secondaryButtonClass} disabled={!canManage || !replayable || Boolean(busy)} onClick={() => onReplay(delivery)}>
-                    <RefreshCw className='h-4 w-4' />
-                    {replayLabel}
-                </button>
-                {!replayable && <span className='text-xs text-ui-muted dark:text-ui-muted'>{replayBlockedReason(delivery, destinations)}</span>}
-                <RowStatus message={rowMessage} />
-            </div>
-        </article>
-    )
-}
-
-function DeliveryReference({ delivery, organizationId, destinations }: { delivery: DeliveryRow, organizationId: string, destinations: WebhookDestination[] }) {
-    const caseHref = delivery.caseId ? `/cases/${encodeURIComponent(delivery.caseId)}?organizationId=${encodeURIComponent(organizationId)}${delivery.alertId ? `&alertId=${encodeURIComponent(delivery.alertId)}` : ''}` : ''
-    const alertHref = delivery.alertId ? `/ti/workbench?alertId=${encodeURIComponent(delivery.alertId)}&organizationId=${encodeURIComponent(organizationId)}` : ''
-    const watchlistId = deliveryWatchlistId(delivery)
-    const destinationId = deliveryDestinationIds(delivery, destinations)[0]
-    return (
-        <div className='grid gap-1 text-xs'>
-            {delivery.caseId ? <a href={caseHref} className='truncate font-semibold text-ui-primary hover:text-ui-primary dark:text-ui-primary'>{compactReference(delivery.caseId, 'Case')}</a> : null}
-            {delivery.alertId ? <a href={alertHref} className='truncate font-semibold text-ui-primary hover:text-ui-primary dark:text-ui-primary'>{compactReference(delivery.alertId, 'Event')}</a> : null}
-            {destinationId ? <Link href={`/organizations/destinations#destination-${encodeURIComponent(destinationId)}`} className='truncate font-semibold text-ui-primary hover:text-ui-primary dark:text-ui-primary'>{compactReference(destinationId, 'Destination')}</Link> : null}
-            {!delivery.caseId && !delivery.alertId ? <span className='truncate text-ui-muted dark:text-ui-muted'>Attach event after replay</span> : null}
-            {watchlistId
-                ? <Link href={`/organizations/watchlists#watchlist-${encodeURIComponent(watchlistId)}`} className='truncate font-semibold text-ui-primary hover:text-ui-primary dark:text-ui-primary'>{compactReference(watchlistId, 'Watchlist')}</Link>
-                : <span className='truncate text-ui-muted dark:text-ui-muted'>{compactReference(delivery.actionId, 'Action') || 'Route context pending'}</span>}
         </div>
     )
 }
@@ -3067,13 +2328,13 @@ function ScopePanel({ alertTerms, alerts, cases, deliveries, members, watchlists
                         <p className='text-sm font-semibold text-ui-text dark:text-ui-text'>No monitoring records yet</p>
                         <div className='mt-2 flex flex-wrap gap-2 text-xs font-semibold text-ui-muted dark:text-ui-muted'>
                             <span className='rounded-md border border-ui-border bg-ui-panel px-2 py-1 dark:border-ui-border dark:bg-ui-panel'>Add watchlist</span>
-                            <span className='rounded-md border border-ui-border bg-ui-panel px-2 py-1 dark:border-ui-border dark:bg-ui-panel'>Save destination</span>
+                            <span className='rounded-md border border-ui-border bg-ui-panel px-2 py-1 dark:border-ui-border dark:bg-ui-panel'>Configure integration</span>
                             <span className='rounded-md border border-ui-border bg-ui-panel px-2 py-1 dark:border-ui-border dark:bg-ui-panel'>Route event</span>
                         </div>
                     </div>
                     <div className='flex flex-wrap gap-2'>
                         <ActionAnchor href='/organizations/watchlists#watchlists' icon={<BellRing className='h-4 w-4' />} label='Add watchlist' />
-                        <ActionAnchor href='/organizations/destinations#destinations' icon={<Webhook className='h-4 w-4' />} label='Prepare delivery' />
+                        <ActionAnchor href='/findings/delivery' icon={<Webhook className='h-4 w-4' />} label='Open integrations' />
                     </div>
                 </div>
             </section>
@@ -3120,7 +2381,7 @@ function ScopePanel({ alertTerms, alerts, cases, deliveries, members, watchlists
                         id: destination.id,
                         primary: destination.name || compactReference(destination.id, 'destination') || 'Destination',
                         secondary: `${destination.status || 'unknown'} · ${destinationDisplayState(destination)}`,
-                        href: `/organizations/destinations#destination-${encodeURIComponent(destination.id)}`,
+                        href: '/findings/delivery',
                     })),
                     ...watchlistDestinationRows.map(item => ({
                         id: `watchlist-${item.id}`,
@@ -3623,15 +2884,6 @@ function watchlistBusyLabel(value: string) {
     return ''
 }
 
-function destinationBusyLabel(value: string) {
-    if (value === 'create-destination') return 'Adding destination'
-    if (value === 'test-destination') return 'Testing destination'
-    if (value === 'update-destination') return 'Updating destination'
-    if (value === 'delete-destination') return 'Removing destination'
-    if (value === 'replay-delivery') return 'Replaying delivery'
-    return ''
-}
-
 function formatDate(value: string | undefined) {
     if (!value) return ''
     try {
@@ -4067,6 +3319,7 @@ function selectedContextRows(subject: ActivitySubject, organization: Organizatio
 
 function selectedSubjectActions(subject: ActivitySubject, organization: OrganizationSummary, bundle: OrgBundle) {
     const organizationId = encodeURIComponent(organization.id)
+    const integrations = { label: 'Integrations', href: '/findings/delivery' }
     if (subject.type === 'organization') {
         return [
             { label: 'Settings', href: '/organizations/settings#settings' },
@@ -4074,7 +3327,7 @@ function selectedSubjectActions(subject: ActivitySubject, organization: Organiza
             { label: 'Members', href: '/organizations/team#members' },
             { label: 'Invites', href: '/organizations/team#invites' },
             { label: 'Watchlists', href: '/organizations/watchlists#watchlists' },
-            { label: 'Destinations', href: '/organizations/destinations#destinations' },
+            integrations,
             { label: 'Activity', href: '/organizations/activity#audit' },
         ]
     }
@@ -4094,24 +3347,17 @@ function selectedSubjectActions(subject: ActivitySubject, organization: Organiza
     }
     if (subject.type === 'watchlist') {
         const watchlistId = encodeURIComponent(subject.id)
-        const destinationId = selectedSubjectDestinationId(subject, bundle)
-        const deliveryId = selectedSubjectDeliveryId(subject, bundle)
-        const destinationHref = destinationId ? `/organizations/destinations#destination-${encodeURIComponent(destinationId)}` : `/organizations/watchlists#watchlist-${watchlistId}`
         return [
             { label: 'Watchlist', href: `/organizations/watchlists#watchlist-${watchlistId}` },
-            { label: 'Destination', href: destinationHref },
-            { label: 'Delivery', href: deliveryId ? `/organizations/delivery#delivery-${encodeURIComponent(deliveryId)}` : '/organizations/delivery#delivery-history' },
+            integrations,
             { label: 'Open event workspace', href: `/ti/workbench?organizationId=${organizationId}&watchlistId=${watchlistId}` },
         ]
     }
     if (subject.type === 'destination') {
-        const destinationId = encodeURIComponent(subject.id)
         const watchlistId = selectedSubjectWatchlistId(subject, bundle)
-        const deliveryId = selectedSubjectDeliveryId(subject, bundle)
         return [
-            { label: 'Destination', href: `/organizations/destinations#destination-${destinationId}` },
+            integrations,
             ...(watchlistId ? [{ label: 'Watchlist', href: `/organizations/watchlists#watchlist-${encodeURIComponent(watchlistId)}` }] : []),
-            { label: 'Delivery', href: deliveryId ? `/organizations/delivery#delivery-${encodeURIComponent(deliveryId)}` : '/organizations/delivery#delivery-history' },
         ]
     }
     if (subject.type === 'alert') {
@@ -4123,8 +3369,7 @@ function selectedSubjectActions(subject: ActivitySubject, organization: Organiza
             { label: 'Event', href: `/ti/workbench?alertId=${alertId}&organizationId=${organizationId}` },
             { label: 'Record', href: `/organizations/events#event-record-${alertId}` },
             ...(watchlistId ? [{ label: 'Watchlist', href: `/organizations/watchlists#watchlist-${encodeURIComponent(watchlistId)}` }] : []),
-            ...(destinationId ? [{ label: 'Destination', href: `/organizations/destinations#destination-${encodeURIComponent(destinationId)}` }] : []),
-            { label: 'Delivery', href: deliveryId ? `/organizations/delivery#delivery-${encodeURIComponent(deliveryId)}` : '/organizations/delivery#delivery-history' },
+            ...(destinationId || deliveryId ? [integrations] : []),
             { label: 'Organization activity', href: '/organizations/activity#audit' },
         ]
     }
@@ -4137,8 +3382,7 @@ function selectedSubjectActions(subject: ActivitySubject, organization: Organiza
             { label: 'Case', href: `/cases/${caseId}?organizationId=${organizationId}` },
             { label: 'Record', href: `/organizations/events#case-record-${caseId}` },
             ...(watchlistId ? [{ label: 'Watchlist', href: `/organizations/watchlists#watchlist-${encodeURIComponent(watchlistId)}` }] : []),
-            ...(destinationId ? [{ label: 'Destination', href: `/organizations/destinations#destination-${encodeURIComponent(destinationId)}` }] : []),
-            { label: 'Delivery', href: deliveryId ? `/organizations/delivery#delivery-${encodeURIComponent(deliveryId)}` : '/organizations/delivery#delivery-history' },
+            ...(destinationId || deliveryId ? [integrations] : []),
             { label: 'Organization activity', href: '/organizations/activity#audit' },
         ]
     }
@@ -4323,39 +3567,6 @@ function memberMutationDisabledReason(canManage: boolean, member: OrganizationMe
     return ''
 }
 
-function validDestinationUrl(value: string) {
-    try {
-        const url = new URL(value)
-        return url.protocol === 'https:' && Boolean(url.hostname)
-    } catch {
-        return false
-    }
-}
-
-function defaultDestinationName(kind: DestinationCreateDraft['kind']) {
-    return kind === 'discord' ? 'Discord destination' : 'Webhook destination'
-}
-
-function normalizeDestinationName(value: string) {
-    return value.trim().replace(/\s+/g, ' ').slice(0, 80)
-}
-
-function destinationNameInUse(destinations: WebhookDestination[], name: string, excludeId = '') {
-    const normalized = normalizeDestinationName(name).toLowerCase()
-    if (!normalized) return false
-    return destinations.some(destination => destination.id !== excludeId && normalizeDestinationName(destination.name || destination.id).toLowerCase() === normalized)
-}
-
-function destinationEditChanged(destination: WebhookDestination, draft: DestinationEditDraft) {
-    const currentKind = (destination.kind || destination.type || 'webhook') === 'discord' ? 'discord' : 'webhook'
-    const currentStatus = destination.status || (destination.deliveryReady ? 'active' : 'configured')
-    const currentName = normalizeDestinationName(destination.name || '') || defaultDestinationName(currentKind)
-    return (normalizeDestinationName(draft.name) || currentName) !== currentName
-        || draft.kind !== currentKind
-        || draft.status !== currentStatus
-        || Boolean(draft.url.trim())
-}
-
 function destinationConfigured(item: WatchlistItem) {
     return Boolean(item.webhookUrlConfigured || item.webhookDestinationId || item.webhookEndpointHash || item.webhookEndpointHint)
 }
@@ -4452,52 +3663,9 @@ function deliveryDestinationIds(delivery: DeliveryRow, destinations: WebhookDest
     ].filter(Boolean) as string[]
 }
 
-function deliveryMatchesSubject(delivery: DeliveryRow, subject: ActivitySubject, destinations: WebhookDestination[] = []) {
-    if (subject.type === 'organization') return true
-    if (subject.type === 'destination') {
-        return deliveryDestinationIds(delivery, destinations).includes(subject.id)
-    }
-    if (subject.type === 'watchlist') {
-        return delivery.watchlistId === subject.id
-            || delivery.watchlistItemId === subject.id
-            || delivery.watchlistItemIds?.includes(subject.id)
-            || delivery.watchlistIds?.includes(subject.id)
-    }
-    if (subject.type === 'alert') return delivery.alertId === subject.id
-    if (subject.type === 'case') return delivery.caseId === subject.id
-    return false
-}
-
 function matchReasonForRecord(id: string, deliveries: DeliveryRow[]) {
     const delivery = deliveries.find(item => item.alertId === id || item.caseId === id)
     return sanitizeOrganizationDisplayCopy(delivery ? payloadPreviewForDelivery(delivery)?.context?.matchReason : undefined)
-}
-
-function deliveryTraceLabel(delivery: DeliveryRow) {
-    if (delivery.auditEventId) {
-        const action = delivery.auditAction ? `${stateLabel(delivery.auditAction)} ` : ''
-        return `${action}${compactReference(delivery.auditEventId, 'audit')}`
-    }
-    if (delivery.requestId) return compactReference(delivery.requestId, 'Request') || 'Request pending'
-    if (delivery.id) return compactReference(delivery.id, 'Delivery') || 'Delivery pending'
-    return 'Delivery pending'
-}
-
-function deliveryTargetLabel(delivery: DeliveryRow, destinations: WebhookDestination[]) {
-    const destinationId = deliveryDestinationIds(delivery, destinations)[0]
-    if (destinationId) return compactReference(destinationId, 'Destination') || 'Saved destination'
-    const watchlistId = deliveryWatchlistId(delivery)
-    if (watchlistId) return compactReference(watchlistId, 'Watchlist route') || 'Saved watchlist route'
-    return 'Delivery destination redacted'
-}
-
-function activitySubjectForDelivery(delivery: DeliveryRow, destinations: WebhookDestination[]): ActivitySubject {
-    const destinationId = deliveryDestinationIds(delivery, destinations)[0]
-    const watchlistId = deliveryWatchlistId(delivery)
-    if (watchlistId) return { type: 'watchlist', id: watchlistId }
-    if (destinationId) return { type: 'destination', id: destinationId }
-    if (delivery.caseId) return { type: 'case', id: delivery.caseId }
-    return { type: 'alert', id: delivery.alertId || delivery.id }
 }
 
 function shortTraceId(value: string) {
@@ -4518,14 +3686,6 @@ function compactReference(value: string | undefined | null, label = 'ref') {
 
 function escapeRegExp(value: string) {
     return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}
-
-function canReplayDelivery(delivery: DeliveryRow, destinations: WebhookDestination[] = []) {
-    return delivery.status === 'failed' && Boolean(delivery.id) && Boolean(deliveryDestinationIds(delivery, destinations)[0])
-}
-
-function firstDelivery(result: DeliveryResult) {
-    return result.deliveries?.[0] || result.delivery || null
 }
 
 function normalizedDeliveryRows(payload: Record<string, unknown>): DeliveryRow[] {
