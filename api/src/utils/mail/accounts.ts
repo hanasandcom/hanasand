@@ -1,4 +1,5 @@
 import run from '#db'
+import { upsertMailAccount } from '#utils/db/identityDataWrites.ts'
 import { mailPermissions, MailAccessDenied, sharedMailAccess, sharedMailboxes } from './shared.ts'
 import { mailConfig } from './config.ts'
 import { encryptMailSecret, generateMailSecret, tryDecryptMailSecret } from './crypto.ts'
@@ -99,16 +100,13 @@ export async function ensureMailAccountForUser(userId: string, displayName: stri
         }
     }
 
-    await run(`
-        INSERT INTO mail_accounts (user_id, mail_username, mail_address, mail_password_encrypted, principal_id)
-        VALUES ($1, $2, $3, $4, $5)
-        ON CONFLICT (user_id) DO UPDATE SET
-            mail_username = EXCLUDED.mail_username,
-            mail_address = EXCLUDED.mail_address,
-            mail_password_encrypted = EXCLUDED.mail_password_encrypted,
-            principal_id = EXCLUDED.principal_id,
-        updated_at = NOW()
-    `, [userId, username, address, encryptMailSecret(secret), storedPrincipalId])
+    await upsertMailAccount({
+        userId,
+        username,
+        address,
+        encryptedPassword: encryptMailSecret(secret),
+        principalId: storedPrincipalId,
+    })
 
     return {
         userId,

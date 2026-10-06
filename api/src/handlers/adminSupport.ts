@@ -1,6 +1,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import { randomUUID } from 'crypto'
 import run from '#db'
+import { upsertAdminAccessRecoveryApproval, upsertOrganizationInvite } from '#utils/db/identityDataWrites.ts'
 import { compileAuditQuery } from '#utils/auditQuery.ts'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import { actorHasHanasandInternalAccess, recordSystemEvent, redactAuditValue, requireAuditReason, supportTimelineAuditBridgeEvent } from '#utils/systemEvent.ts'
@@ -2494,21 +2495,11 @@ export async function postSupportOrganizationInvite(req: FastifyRequest<{ Params
 
     const rows: OrganizationInviteRow[] = []
     for (const email of input.emails) {
-        const invite = await run(`
-            INSERT INTO organization_invites (id, organization_id, email, role, invited_by, status, expires_at)
-            VALUES ($1, $2, $3, $4, $5, 'pending', $6)
-            ON CONFLICT (organization_id, email)
-            DO UPDATE SET role = EXCLUDED.role,
-                          invited_by = EXCLUDED.invited_by,
-                          status = 'pending',
-                          revoked_at = NULL,
-                          accepted_at = NULL,
-                          accepted_by = NULL,
-                          expires_at = EXCLUDED.expires_at,
-                          created_at = NOW()
-            RETURNING *
-        `, [randomUUID(), organization.id, email, input.role, actor.id, input.expiresAt])
-        rows.push(invite.rows[0] as OrganizationInviteRow)
+        const invite = await upsertOrganizationInvite({
+            id: randomUUID(), organizationId: organization.id, email,
+            role: input.role, invitedBy: actor.id, expiresAt: input.expiresAt,
+        })
+        rows.push(invite as OrganizationInviteRow)
     }
 
     const inviteIds = rows.map(row => row.id)
@@ -4376,21 +4367,10 @@ export async function postSupportAccessRecovery(req: FastifyRequest<{ Params: Or
         `, [organization.id, targetUserId])
         : { rows: [] }
 
-    const invite = await run(`
-        INSERT INTO organization_invites (id, organization_id, email, role, invited_by, status, expires_at)
-        VALUES ($1, $2, $3, $4, $5, 'pending', $6)
-        ON CONFLICT (organization_id, email)
-        DO UPDATE SET role = EXCLUDED.role,
-                      invited_by = EXCLUDED.invited_by,
-                      status = 'pending',
-                      revoked_at = NULL,
-                      accepted_at = NULL,
-                      accepted_by = NULL,
-                      expires_at = EXCLUDED.expires_at,
-                      created_at = NOW()
-        RETURNING *
-    `, [randomUUID(), organization.id, input.emails[0], input.role, actor.id, input.expiresAt])
-    let inviteRow = invite.rows[0] as OrganizationInviteRow
+    let inviteRow = await upsertOrganizationInvite({
+        id: randomUUID(), organizationId: organization.id, email: input.emails[0],
+        role: input.role, invitedBy: actor.id, expiresAt: input.expiresAt,
+    }) as OrganizationInviteRow
     await run('UPDATE organizations SET updated_at = NOW() WHERE id = $1', [organization.id])
 
     const supportContext = cleanContext(req.body?.context)
@@ -4416,50 +4396,18 @@ export async function postSupportAccessRecovery(req: FastifyRequest<{ Params: Or
         `, [inviteRow.id])
         inviteRow = revokedInvite.rows[0] as OrganizationInviteRow
     }
-    await run(`
-        INSERT INTO admin_access_recovery_approvals (
-            request_id,
-            organization_id,
-            invite_id,
-            target_user_id,
-            requested_by,
-            requested_reason,
-            request_context,
-            approval_required,
-            status,
-            outcome,
-            expires_at
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'success', $10)
-        ON CONFLICT (request_id)
-        DO UPDATE SET organization_id = EXCLUDED.organization_id,
-                      invite_id = EXCLUDED.invite_id,
-                      target_user_id = EXCLUDED.target_user_id,
-                      requested_by = EXCLUDED.requested_by,
-                      requested_reason = EXCLUDED.requested_reason,
-                      request_context = EXCLUDED.request_context,
-                      approval_required = EXCLUDED.approval_required,
-                      status = EXCLUDED.status,
-                      approved_by = NULL,
-                      approved_at = NULL,
-                      denied_by = NULL,
-                      denied_at = NULL,
-                      decision_reason = NULL,
-                      outcome = EXCLUDED.outcome,
-                      expires_at = EXCLUDED.expires_at,
-                      updated_at = NOW()
-    `, [
+    await upsertAdminAccessRecoveryApproval({
         requestId,
-        organization.id,
-        inviteRow.id,
-        targetUserId || null,
-        actor.id,
-        reason,
-        supportContext,
-        approval.approvalRequired,
-        approval.approvalRequired ? 'pending' : 'not_required',
-        inviteRow.expires_at,
-    ])
+        organizationId: organization.id,
+        inviteId: inviteRow.id,
+        targetUserId: targetUserId || null,
+        requestedBy: actor.id,
+        requestedReason: reason,
+        requestContext: supportContext,
+        approvalRequired: approval.approvalRequired,
+        status: approval.approvalRequired ? 'pending' : 'not_required',
+        expiresAt: inviteRow.expires_at,
+    })
     await recordSystemEvent(req, {
         actionType: 'support.organization.access_recovery',
         actorId: actor.id,

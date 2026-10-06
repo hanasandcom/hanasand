@@ -294,6 +294,34 @@ compose_candidates() {
     docker compose --project-name hanasand --parallel "$deploy_parallelism" --profile deployment-candidates --env-file "$build_dir/.env" \
         -f "$build_dir/docker-compose.yml" "$@"
 }
+identity_repo=/home/hanasand/identity
+test -f "$identity_repo/compose.yaml" || {
+    echo "The independent Identity checkout is missing at $identity_repo." >&2
+    exit 1
+}
+test "$(git -C "$identity_repo" branch --show-current)" = main || {
+    echo "The independent Identity checkout must be on main." >&2
+    exit 1
+}
+git -C "$identity_repo" pull --ff-only origin main
+identity_release=$(git -C "$identity_repo" rev-parse HEAD)
+compose_identity() (
+    export HANASAND_RELEASE_COMMIT="$identity_release"
+    docker compose --project-name hanasand-identity --parallel "$deploy_parallelism" --env-file "$build_dir/.env" \
+        -f "$identity_repo/compose.yaml" "$@"
+)
+identity_import_marker() {
+    docker exec hanasand_identity_database sh -lc \
+        'psql -X -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "SELECT EXISTS (SELECT 1 FROM identity_data_migrations WHERE name = '\''legacy_identity_data_v1'\'')"' \
+        2>/dev/null || true
+}
+identity_api_boundary() {
+    docker exec hanasand_database psql -X -U hanasand -d hanasand -Atc \
+        "SELECT to_regclass('public.identity_data_boundary') IS NOT NULL
+            AND EXISTS (SELECT 1 FROM pg_class WHERE oid = to_regclass('public.users') AND relkind = 'v')
+            AND EXISTS (SELECT 1 FROM pg_class WHERE oid = to_regclass('public.organizations') AND relkind = 'v')" \
+        2>/dev/null || true
+}
 
 warm_dashboard_pages() {
     port=$1
@@ -474,6 +502,68 @@ wait_for_proxy_workers_to_drain() {
     return 1
 }
 
+if test "$(identity_api_boundary)" != t; then
+    echo "First Identity PostgreSQL cutover: stopping API and Identity writers for the verified data copy."
+    docker image inspect "hanasand_identity:$identity_release" >/dev/null 2>&1 || compose_identity build identity-primary
+    # Prepare the new database while the current Identity pooler and workers
+    # continue serving from the legacy API database.
+    compose_identity up -d --no-build --wait identity-postgres
+
+    docker rm -f "$HANASAND_FRONTEND_CANDIDATE_CONTAINER" "$HANASAND_API_CANDIDATE_CONTAINER" >/dev/null 2>&1 || true
+    compose_live stop api frontend
+    compose_identity stop identity-primary identity-secondary
+
+    compose_identity --profile operations run --rm --no-deps identity-migrate bun scripts/migrate.ts --refresh
+    test "$(identity_import_marker)" = t || {
+        echo "Identity data import did not record its verified completion marker." >&2
+        exit 1
+    }
+
+    # API startup atomically replaces the old local tables with FDW-backed
+    # views. Identity workers stay stopped until those views are verified.
+    compose_live up -d --no-build --no-deps api
+    wait_for_healthy hanasand_api "API after Identity database cutover" 600
+    test "$(identity_api_boundary)" = t || {
+        echo "The API did not install the Identity database boundary." >&2
+        exit 1
+    }
+    compose_identity up -d --no-build --wait identity-pgbouncer
+    compose_identity up -d --no-build --no-deps --wait identity-secondary
+    compose_identity up -d --no-build --no-deps --wait identity-primary
+
+    compose_live up -d --no-build --no-deps deploy-path-guard
+    wait_for_healthy hanasand-deploy-path-guard-1 "Deploy path guard" 30
+    services=$(printf '%s\n' "$services" | sed '/^deploy-path-guard$/d')
+    if test -n "$services"; then
+        # shellcheck disable=SC2086
+        compose_live up -d --no-build --no-deps --remove-orphans $services
+    else
+        echo "No dependent services need recreation."
+    fi
+
+    # The API address changed during recreation; update its host egress rules
+    # before bringing the frontend back online.
+    sudo -n systemctl restart hanasand-browser-egress.service
+    compose_live up -d --no-build --no-deps frontend
+    wait_for_healthy_pair hanasand_api "API" 600 hanasand "Frontend" 180
+    canonical_frontend_health=$(curl --fail --silent --show-error --max-time 10 http://127.0.0.1:3100/api/health)
+    case "$canonical_frontend_health" in *'"ok":true'*"\"release\":\"$release\""*'"api"'*) ;; *)
+        echo "Canonical frontend did not report release $release and its matching API." >&2
+        exit 1
+        ;;
+    esac
+    canonical_api_health=$(curl --fail --silent --show-error --max-time 10 http://127.0.0.1:8082/health)
+    case "$canonical_api_health" in *'"ok":true'*"\"release\":\"$release\""*) ;; *)
+        echo "Canonical API did not report release $release." >&2
+        exit 1
+        ;;
+    esac
+    warm_dashboard_pages 3100
+    warm_browser_stats 3100
+    candidate_safe_to_remove=1
+    switch_upstreams 3100 8082 canonical
+    wait_for_proxy_workers_to_drain "$last_proxy_workers"
+else
 switch_upstreams "$HANASAND_FRONTEND_CANDIDATE_PORT" "$HANASAND_API_CANDIDATE_PORT" candidate
 wait_for_proxy_workers_to_drain "$last_proxy_workers"
 echo "OpenResty now serves the healthy frontend and API candidates for $release."
@@ -528,6 +618,7 @@ else
     echo "OpenResty still has connections to the release candidates; keeping them online."
 fi
 echo "Frontend and API health verified."
+fi
 # Remove containers left by the retired cross-site recovery stack. Preserve
 # anonymous volumes so this cleanup cannot delete data.
 for container in $(docker ps -aq --filter label=com.docker.compose.project=hanasand-recovery); do

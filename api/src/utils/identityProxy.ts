@@ -41,7 +41,8 @@ export default async function proxyIdentityRequest(request: FastifyRequest, repl
     const method = request.method.toUpperCase()
     let body: BodyInit | undefined
     if (method !== 'GET' && method !== 'HEAD' && request.body !== undefined) {
-        if (typeof request.body === 'string' || Buffer.isBuffer(request.body)) body = request.body
+        if (typeof request.body === 'string') body = request.body
+        else if (Buffer.isBuffer(request.body)) body = request.body.toString('utf8')
         else body = JSON.stringify(request.body)
     }
 

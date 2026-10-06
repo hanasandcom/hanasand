@@ -55,9 +55,15 @@ export async function postSocialCallback(req: FastifyRequest, res: FastifyReply)
     try {
         const identity = await exchangeIdentity(provider, body.code, transaction.nonce, transaction.verifier)
         if (transaction.link_user_id) {
-            const linked = await run(`INSERT INTO user_social_identities (provider, subject, user_id, email)
-                SELECT $1,$2,id,$4 FROM users WHERE id=$3 AND active IS TRUE AND deletion_scheduled_at IS NULL
-                ON CONFLICT DO NOTHING RETURNING user_id`, [provider, identity.subject, transaction.link_user_id, identity.email])
+            let linked
+            try {
+                linked = await run(`INSERT INTO user_social_identities (provider, subject, user_id, email)
+                    SELECT $1,$2,id,$4 FROM users WHERE id=$3 AND active IS TRUE AND deletion_scheduled_at IS NULL
+                    RETURNING user_id`, [provider, identity.subject, transaction.link_user_id, identity.email])
+            } catch (error) {
+                if ((error as { code?: string })?.code !== '23505') throw error
+                linked = { rows: [] }
+            }
             if (!linked.rows.length) {
                 const existing = await run('SELECT 1 FROM user_social_identities WHERE provider=$1 AND subject=$2 AND user_id=$3', [provider, identity.subject, transaction.link_user_id])
                 if (!existing.rows.length) return res.code(409).send({ error: 'This provider is already connected, or the account is unavailable. Use the existing connection.' })

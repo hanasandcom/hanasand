@@ -2,6 +2,7 @@ import { ensureEventProtectionRule } from '#utils/db/analysisPolicySchema.ts'
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import { randomUUID } from 'crypto'
 import run, { withTransaction } from '#db'
+import { upsertOrganizationInvite, upsertOrganizationMember } from '#utils/db/identityDataWrites.ts'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import recordLog from '#utils/logs/recordLog.ts'
 import { recordSystemEvent } from '#utils/systemEvent.ts'
@@ -201,8 +202,6 @@ export async function postOrganization(req: FastifyRequest<{ Body: OrganizationI
             INSERT INTO organization_members (organization_id, user_id, role, status, invited_by)
             SELECT id, $4, 'owner', 'active', $4
             FROM new_organization
-            ON CONFLICT (organization_id, user_id)
-            DO UPDATE SET role = 'owner', status = 'active'
             RETURNING organization_id
         )
         SELECT new_organization.*
@@ -1514,21 +1513,10 @@ export async function postOrganizationInvites(req: FastifyRequest<{ Params: Orga
         }
 
         const existingInvite = await loadInviteForEmail(req.params.id, email)
-        const invite = await run(`
-            INSERT INTO organization_invites (id, organization_id, email, role, invited_by, status, expires_at)
-            VALUES ($1, $2, $3, $4, $5, 'pending', $6)
-            ON CONFLICT (organization_id, email)
-            DO UPDATE SET role = EXCLUDED.role,
-                          invited_by = EXCLUDED.invited_by,
-                          status = 'pending',
-                          revoked_at = NULL,
-                          accepted_at = NULL,
-                          accepted_by = NULL,
-                          expires_at = EXCLUDED.expires_at,
-                          created_at = NOW()
-            RETURNING *
-        `, [randomUUID(), req.params.id, email, input.role, userId, input.expiresAt])
-        const inviteRow = invite.rows[0] as OrganizationInviteRow
+        const inviteRow = await upsertOrganizationInvite({
+            id: randomUUID(), organizationId: req.params.id, email,
+            role: input.role, invitedBy: userId, expiresAt: input.expiresAt,
+        }) as OrganizationInviteRow
         rows.push(inviteRow)
         results.push({
             email,
@@ -1847,73 +1835,59 @@ export async function postOrganizationInviteAccept(req: FastifyRequest<{ Params:
         return res.status(401).send({ error: 'Unauthorized.' })
     }
 
-    const result = await run(`
-        WITH accepted_invite AS (
+    const result = await withTransaction(async query => {
+        const acceptedResult = await query(`
             UPDATE organization_invites
-            SET status = 'accepted',
-                revoked_at = NULL,
-                accepted_at = NOW(),
-                accepted_by = $2
-            WHERE id = $1
-              AND status = 'pending'
-              AND expires_at > NOW()
-              AND EXISTS (
-                  SELECT 1
-                  FROM organizations
-                  WHERE organizations.id = organization_invites.organization_id
-                    AND COALESCE(organizations.status, 'active') = 'active'
-              )
-              AND EXISTS (
-                  SELECT 1
-                  FROM users
-                  WHERE users.id = $2
-                    AND COALESCE(users.active, TRUE) IS TRUE
-              )
-              AND NOT EXISTS (
-                  SELECT 1
-                  FROM organization_members
-                  WHERE organization_members.organization_id = organization_invites.organization_id
-                    AND organization_members.user_id = $2
-                    AND organization_members.status = 'removed'
-              )
+               SET status = 'accepted',
+                   revoked_at = NULL,
+                   accepted_at = NOW(),
+                   accepted_by = $2
+             WHERE id = $1
+               AND status = 'pending'
+               AND expires_at > NOW()
+               AND EXISTS (
+                   SELECT 1 FROM organizations
+                    WHERE organizations.id = organization_invites.organization_id
+                      AND COALESCE(organizations.status, 'active') = 'active'
+               )
+               AND EXISTS (
+                   SELECT 1 FROM users
+                    WHERE users.id = $2 AND COALESCE(users.active, TRUE) IS TRUE
+               )
+               AND NOT EXISTS (
+                   SELECT 1 FROM organization_members
+                    WHERE organization_members.organization_id = organization_invites.organization_id
+                      AND organization_members.user_id = $2
+                      AND organization_members.status = 'removed'
+               )
             RETURNING *
-        ),
-        member AS (
-            INSERT INTO organization_members (organization_id, user_id, role, status, invited_by, joined_at)
-            SELECT organization_id, $2, role, 'active', invited_by, NOW()
-            FROM accepted_invite
-            ON CONFLICT (organization_id, user_id)
-            DO UPDATE SET role = CASE
-                                WHEN organization_members.role = 'owner' THEN 'owner'
-                                WHEN organization_members.role = 'admin' AND EXCLUDED.role IN ('editor', 'reader', 'member', 'viewer') THEN 'admin'
-                                WHEN organization_members.role = 'editor' AND EXCLUDED.role IN ('reader', 'member', 'viewer') THEN 'editor'
-                                ELSE EXCLUDED.role
-                              END,
-                          status = 'active',
-                          removed_at = NULL,
-                          invited_by = EXCLUDED.invited_by,
-                          joined_at = NOW()
-            RETURNING *
-        )
-        SELECT
-            accepted_invite.id AS invite_id,
-            accepted_invite.organization_id,
-            accepted_invite.email,
-            accepted_invite.role AS invite_role,
-            accepted_invite.invited_by,
-            accepted_invite.accepted_by,
-            accepted_invite.status AS invite_status,
-            accepted_invite.created_at AS invite_created_at,
-            accepted_invite.expires_at,
-            accepted_invite.accepted_at,
-            member.user_id,
-            member.role AS member_role,
-            member.status AS member_status,
-            member.joined_at,
-            member.created_at AS member_created_at
-        FROM accepted_invite
-        JOIN member ON member.organization_id = accepted_invite.organization_id
-    `, [req.params.inviteId, userId])
+        `, [req.params.inviteId, userId])
+        const invite = acceptedResult.rows[0] as OrganizationInviteRow | undefined
+        if (!invite) return { rows: [] }
+        const member = await upsertOrganizationMember({
+            organizationId: invite.organization_id,
+            userId,
+            role: invite.role,
+            invitedBy: invite.invited_by,
+        }, query)
+        return { rows: [{
+            invite_id: invite.id,
+            organization_id: invite.organization_id,
+            email: invite.email,
+            invite_role: invite.role,
+            invited_by: invite.invited_by,
+            accepted_by: invite.accepted_by,
+            invite_status: invite.status,
+            invite_created_at: invite.created_at,
+            expires_at: invite.expires_at,
+            accepted_at: invite.accepted_at,
+            user_id: member.user_id,
+            member_role: member.role,
+            member_status: member.status,
+            joined_at: member.joined_at,
+            member_created_at: member.created_at,
+        }] }
+    })
 
     if (!result.rows.length) {
         const inviteResult = await run(`

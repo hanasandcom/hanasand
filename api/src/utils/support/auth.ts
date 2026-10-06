@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { validateSession } from '../auth/session.ts'
 import { isTransientDatabaseError } from '#db'
 import { independentSupport, queryOnce, withTransaction } from './db.ts'
+import { upsertIdentityUserName } from '#utils/db/identityDataWrites.ts'
 
 let retryAuthorityAt = 0
 
@@ -32,7 +33,7 @@ export async function validateSupportSession(auth: Parameters<typeof validateSes
     const snapshot = { ...session, session: { ...session.session, token: undefined }, refreshed: { ...session.refreshed, token: undefined } }
     const expires = new Date(Math.min(Date.parse(session.refreshed.expires_at), Date.now() + 24 * 60 * 60 * 1000))
     await withTransaction(async query => {
-        await query('INSERT INTO users(id,name) VALUES($1,$2) ON CONFLICT(id) DO UPDATE SET name=EXCLUDED.name', [session.user.id, session.user.name])
+        await upsertIdentityUserName(session.user.id, session.user.name, query)
         await query(`INSERT INTO support_auth_sessions(token_hash,user_id,snapshot,expires_at) VALUES($1,$2,$3::jsonb,$4)
             ON CONFLICT(token_hash) DO UPDATE SET snapshot=EXCLUDED.snapshot,expires_at=EXCLUDED.expires_at`, [hash, session.user.id, JSON.stringify(snapshot), expires])
         await query('DELETE FROM support_auth_sessions WHERE expires_at<NOW()')

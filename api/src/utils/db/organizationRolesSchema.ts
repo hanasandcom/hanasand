@@ -1,6 +1,8 @@
 import { withTransaction } from '#db'
+import { identityDataBoundaryReady } from './identityDataBoundary.ts'
 
 export default async function ensureOrganizationRolesSchema() {
+    if (await identityDataBoundaryReady()) return
     await withTransaction(async query => {
         // Keep both tables consistent, including invites accepted during a rolling upgrade.
         await query('LOCK TABLE organization_members, organization_invites IN SHARE ROW EXCLUSIVE MODE')

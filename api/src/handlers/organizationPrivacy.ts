@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import bcrypt from 'bcrypt'
 import { queryOnce } from '#db'
+import { insertOrganizationPrivacyRequestIfAbsent, upsertOrganizationPrivacyDeletionRequest } from '#utils/db/identityDataWrites.ts'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import recordLog from '#utils/logs/recordLog.ts'
 import {
@@ -42,36 +43,31 @@ export async function postOrganizationPrivacy(req: FastifyRequest<{ Params: Para
     if (!requestId) return res.status(400).send({ error: 'Request ID must contain 1 to 200 safe characters.' })
 
     if (action === 'export') {
-        const created = await queryOnce(`
-            INSERT INTO organization_privacy_requests (id, organization_id, request_type, status, requested_by, request_id, started_at)
-            VALUES ($1, $2, 'export', 'running', $3, $4, NOW())
-            ON CONFLICT (organization_id, request_type, request_id) DO NOTHING
-            RETURNING id
-        `, [randomUUID(), req.params.id, access.userId, requestId])
-        if (!created.rows[0]) return res.status(409).send({ error: 'This export request ID has already been used.' })
+        const created = await insertOrganizationPrivacyRequestIfAbsent({
+            id: randomUUID(), organizationId: req.params.id, requestType: 'export',
+            status: 'running', requestedBy: access.userId, requestId, startedAt: new Date(),
+        })
+        if (!created) return res.status(409).send({ error: 'This export request ID has already been used.' })
         try {
             const exported = await exportOrganizationPrivacyData(req.params.id)
-            await queryOnce('UPDATE organization_privacy_requests SET status = \'completed\', result = $2::jsonb, completed_at = NOW(), updated_at = NOW() WHERE id = $1', [created.rows[0].id, JSON.stringify({ checksum: exported.checksum, exportedAt: exported.exportedAt })])
+            await queryOnce('UPDATE organization_privacy_requests SET status = \'completed\', result = $2::jsonb, completed_at = NOW(), updated_at = NOW() WHERE id = $1', [created.id, JSON.stringify({ checksum: exported.checksum, exportedAt: exported.exportedAt })])
             audit(req, action, req.params.id, access.userId, requestId, 'completed')
-            return res.send({ export: exported, request: { id: created.rows[0].id, status: 'completed' } })
+            return res.send({ export: exported, request: { id: created.id, status: 'completed' } })
         } catch (caught) {
             const message = caught instanceof Error ? caught.message : String(caught)
-            await queryOnce('UPDATE organization_privacy_requests SET status = \'failed\', error = $2, completed_at = NOW(), updated_at = NOW() WHERE id = $1', [created.rows[0].id, message])
+            await queryOnce('UPDATE organization_privacy_requests SET status = \'failed\', error = $2, completed_at = NOW(), updated_at = NOW() WHERE id = $1', [created.id, message])
             audit(req, action, req.params.id, access.userId, requestId, 'failed', message)
-            return res.status(502).send({ error: message, request: { id: created.rows[0].id, status: 'failed' } })
+            return res.status(502).send({ error: message, request: { id: created.id, status: 'failed' } })
         }
     }
 
     let deletionRequestId: string | undefined
     if (action === 'delete') {
-        const request = await queryOnce(`
-            INSERT INTO organization_privacy_requests (id, organization_id, request_type, requested_by, request_id)
-            VALUES ($1, $2, 'deletion', $3, $4)
-            ON CONFLICT (organization_id, request_type, request_id)
-            DO UPDATE SET updated_at = organization_privacy_requests.updated_at
-            RETURNING id
-        `, [randomUUID(), req.params.id, access.userId, requestId])
-        deletionRequestId = request.rows[0].id
+        const request = await upsertOrganizationPrivacyDeletionRequest({
+            id: randomUUID(), organizationId: req.params.id, requestedBy: access.userId, requestId,
+        })
+        if (!request) throw new Error('Could not persist the organization deletion request.')
+        deletionRequestId = request.id
     }
     let retentionRun
     try {

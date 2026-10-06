@@ -9,6 +9,7 @@ import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import { matchApiKeyScope, validateApiKey } from '#utils/auth/apiKeys.ts'
 import { hasHanasandInternalPageAccess } from '#utils/auth/organizationPageAccess.ts'
 import { cachedSupportRead, clearSupportReadCache } from '#utils/support/readCache.ts'
+import { upsertIdentityUserName } from '#utils/db/identityDataWrites.ts'
 
 type SupportBody = { subject?: string; message?: string; requestId?: string }
 const actors = new WeakMap<FastifyRequest, { id: string; support: boolean }>()
@@ -26,7 +27,7 @@ async function auth(req: FastifyRequest, res: FastifyReply) {
         // API keys and impersonation remain authoritative in the main authentication database.
         const user = (await primaryQuery('SELECT name FROM users WHERE id=$1', [result.id])).rows[0]
         if (!user) { res.code(401).send({ error: 'Unauthorized.' }); return null }
-        await run('INSERT INTO users(id,name) VALUES($1,$2) ON CONFLICT(id) DO UPDATE SET name=EXCLUDED.name', [result.id, user.name])
+        await upsertIdentityUserName(result.id, user.name, run)
     }
     return result.valid && result.id ? result.id : null
 }

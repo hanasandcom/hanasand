@@ -1,5 +1,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import run from '#db'
+import { upsertIdentityPasskey } from '#utils/db/identityDataWrites.ts'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import { issueToken } from '#utils/auth/session.ts'
 import {
@@ -167,35 +168,15 @@ export async function postPasskeyRegisterVerify(req: FastifyRequest, res: Fastif
             challenge: challenge.challenge,
             config: passkeyConfig(),
         })
-        await run(`
-            INSERT INTO user_passkeys (
-                credential_id,
-                user_id,
-                public_key_cose,
-                sign_count,
-                alg,
-                aaguid,
-                label,
-                last_used_at
-            )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, NULL)
-            ON CONFLICT (credential_id)
-            DO UPDATE SET
-                user_id = EXCLUDED.user_id,
-                public_key_cose = EXCLUDED.public_key_cose,
-                sign_count = EXCLUDED.sign_count,
-                alg = EXCLUDED.alg,
-                aaguid = EXCLUDED.aaguid,
-                label = EXCLUDED.label
-        `, [
-            parsed.credentialId,
-            actor.id,
-            parsed.publicKeyCose,
-            parsed.signCount,
-            parsed.alg,
-            parsed.aaguid,
-            labelForCredential(body.credential, body.label),
-        ])
+        await upsertIdentityPasskey({
+            credentialId: parsed.credentialId,
+            userId: actor.id,
+            publicKeyCose: parsed.publicKeyCose,
+            signCount: parsed.signCount,
+            algorithm: parsed.alg,
+            aaguid: parsed.aaguid,
+            label: labelForCredential(body.credential, body.label),
+        })
 
         return res.send({
             ok: true,

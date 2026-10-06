@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto'
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import bcrypt from 'bcrypt'
 import run from '#db'
+import { insertIdentityUserIfAbsent } from '#utils/db/identityDataWrites.ts'
 import { issueToken } from '#utils/auth/session.ts'
 import { getReservedUsernameReason, normalizeUsername } from '#utils/auth/reservedUsernames.ts'
 import {
@@ -132,18 +133,18 @@ async function findOrProvisionSsoUser(userinfo: OidcUserinfo, autoProvision: boo
     const id = await availableSsoUserId(userinfo)
     const name = String(userinfo.name || userinfo.email || id).trim()
     const password = await bcrypt.hash(randomUUID(), 10)
-    const response = await run(
-        `INSERT INTO users (id, name, password, avatar)
-         VALUES ($1, $2, $3, '')
-         ON CONFLICT (id) DO NOTHING
-         RETURNING id, name, avatar, active, deletion_scheduled_at`,
-        [id, name, password],
-    )
-    if (!response.rows[0]) {
+    const created = await insertIdentityUserIfAbsent({
+        id,
+        name,
+        password,
+        avatar: '',
+    })
+    if (!created) {
         return null
     }
 
-    return response.rows[0] as UserRow
+    const response = await run('SELECT id, name, avatar, active, deletion_scheduled_at FROM users WHERE id = $1', [id])
+    return response.rows[0] as UserRow | undefined ?? null
 }
 
 async function availableSsoUserId(userinfo: OidcUserinfo) {

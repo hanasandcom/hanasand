@@ -1,6 +1,7 @@
 import pg from 'pg'
 import { AsyncLocalStorage } from 'node:async_hooks'
 import config from '#constants'
+import { identityDataTables } from './db/identityDataTables.ts'
 
 type SQLParamType = (string | number | null | boolean | string[] | Date)[]
 type PgError = Error & {
@@ -21,6 +22,9 @@ const {
 } = config
 const { Pool } = pg
 const schemaWork = new AsyncLocalStorage<boolean>()
+let identityDataDetachedState: Promise<boolean> | undefined
+const identityDataTableNames = new Set<string>(identityDataTables)
+const identityDataTablePattern = identityDataTables.join('|')
 
 // A queued schema lock also blocks later reads, including authentication.
 // Fail fast so a busy migration cannot queue site requests behind it.
@@ -183,6 +187,11 @@ export default async function run(query: string, params?: SQLParamType, name?: s
 ;(run as typeof run & { withReadDatabase?: typeof withReadDatabase }).withReadDatabase = withReadDatabase
 
 export async function queryOnce(query: string, params?: SQLParamType, name?: string) {
+    const normalizedQuery = await normalizeIdentitySchemaQuery(query)
+    if (normalizedQuery === null) {
+        return { rows: [], rowCount: 0, command: 'IDENTITY_SCHEMA_OWNED_BY_IDENTITY', oid: 0, fields: [] } as pg.QueryResult
+    }
+    query = normalizedQuery
     const client = await connectDatabase(activePool()).catch(error => {
         // No query has been submitted yet: one retry can survive a brief pool
         // shortage without replaying writes or extending authentication retries.
@@ -208,25 +217,25 @@ export async function queryOnce(query: string, params?: SQLParamType, name?: str
             // Cancelling an online index build leaves an invalid index behind.
             // It allows normal reads/writes, so retain only its lock-wait limit.
             if (onlineIndex) {
-                await client.query("SET lock_timeout = '30s'; SET statement_timeout = 0")
+                await client.query('SET lock_timeout = \'30s\'; SET statement_timeout = 0')
             }
             // Old event searches can keep this partial index pinned. The online
             // rebuild does not block ingestion, so let active readers drain.
-            if (pendingEventsIndex) await client.query("SET lock_timeout = '5min'; SET statement_timeout = 0")
+            if (pendingEventsIndex) await client.query('SET lock_timeout = \'5min\'; SET statement_timeout = 0')
             // Readers may still be finishing queries against the legacy key. Both
             // operations are bounded and do not rewrite the events heap.
-            if (legacyEventKeyCleanup) await client.query("SET lock_timeout = '5min'; SET statement_timeout = '6min'")
+            if (legacyEventKeyCleanup) await client.query('SET lock_timeout = \'5min\'; SET statement_timeout = \'6min\'')
             // Constraint replacement is brief catalog work, but existing queries
             // can hold the table lock longer than the default fail-fast window.
-            if (constraintDrop) await client.query("SET lock_timeout = '5s'; SET statement_timeout = '10s'")
-            if (columnAdd) await client.query("SET lock_timeout = '5s'; SET statement_timeout = '10s'")
+            if (constraintDrop) await client.query('SET lock_timeout = \'5s\'; SET statement_timeout = \'10s\'')
+            if (columnAdd) await client.query('SET lock_timeout = \'5s\'; SET statement_timeout = \'10s\'')
             // Traffic history replaces a view that live dashboard queries can hold
             // open. Bound the wait, but let this small schema batch complete.
-            if (trafficHistorySchema) await client.query("SET lock_timeout = '30s'; SET statement_timeout = '60s'")
+            if (trafficHistorySchema) await client.query('SET lock_timeout = \'30s\'; SET statement_timeout = \'60s\'')
             // Dropping the duplicated 48 GB heap and its indexes can take
             // longer than a normal schema statement while unlinking files.
             // Give the table lock a bounded wait and let the large file removal finish.
-            if (largeServiceLogDrop) await client.query("SET lock_timeout = '30s'; SET statement_timeout = '60s'")
+            if (largeServiceLogDrop) await client.query('SET lock_timeout = \'30s\'; SET statement_timeout = \'60s\'')
         }
         const pending = name
             ? client.query({ name, text: query, values: params ?? [] })
@@ -261,6 +270,42 @@ export async function queryOnce(query: string, params?: SQLParamType, name?: str
     }
 }
 
+export function markIdentityDataDetached() {
+    identityDataDetachedState = Promise.resolve(true)
+}
+
+async function normalizeIdentitySchemaQuery(query: string) {
+    const referencesIdentity = new RegExp(`\\bREFERENCES\\s+(?:public\\.)?(?:${identityDataTablePattern})\\s*\\(`, 'i').test(query)
+    const identityDdl = isIdentityTableDdl(query)
+    if (!referencesIdentity && !identityDdl) return query
+    if (!await identityDataIsDetached()) return query
+
+    if (identityDdl || /^\s*ALTER\s+TABLE\b[\s\S]*\bADD\s+CONSTRAINT\b[\s\S]*\bFOREIGN\s+KEY\b/i.test(query)) return null
+    return query
+        .replace(new RegExp(`\\s+REFERENCES\\s+(?:public\\.)?(?:${identityDataTablePattern})\\s*\\([^)]*\\)(?:\\s+ON\\s+DELETE\\s+(?:CASCADE|RESTRICT|SET\\s+NULL|SET\\s+DEFAULT|NO\\s+ACTION))?(?:\\s+ON\\s+UPDATE\\s+(?:CASCADE|RESTRICT|SET\\s+NULL|SET\\s+DEFAULT|NO\\s+ACTION))?`, 'gi'), '')
+        .replace(new RegExp(`(?:CONSTRAINT\\s+[a-z0-9_]+\\s+)?FOREIGN\\s+KEY\\s*\\([^)]*\\)\\s*REFERENCES\\s+(?:public\\.)?(?:${identityDataTablePattern})\\s*\\([^)]*\\)(?:\\s+ON\\s+(?:DELETE|UPDATE)\\s+(?:CASCADE|RESTRICT|SET\\s+NULL|SET\\s+DEFAULT|NO\\s+ACTION))*\\s*,?`, 'gi'), '')
+}
+
+function isIdentityTableDdl(query: string) {
+    const table = query.match(/^\s*(?:CREATE\s+(?:OR\s+REPLACE\s+)?(?:UNLOGGED\s+)?(?:TABLE|VIEW|FOREIGN\s+TABLE)\s+(?:IF\s+NOT\s+EXISTS\s+)?|ALTER\s+TABLE\s+(?:ONLY\s+)?(?:IF\s+EXISTS\s+)?|DROP\s+(?:TABLE|VIEW)\s+(?:IF\s+EXISTS\s+)?)(?:public\.)?["']?([a-z0-9_]+)/i)
+    if (table && identityDataTableNames.has(table[1].toLowerCase())) return true
+
+    const index = query.match(/^\s*(?:CREATE\s+(?:UNIQUE\s+)?INDEX\s+(?:CONCURRENTLY\s+)?(?:IF\s+NOT\s+EXISTS\s+)?[a-z0-9_]+\s+ON\s+(?:public\.)?|ALTER\s+INDEX\s+(?:IF\s+EXISTS\s+)?(?:public\.)?)([a-z0-9_]+)/i)
+    if (index && identityDataTableNames.has(index[1].toLowerCase())) return true
+    if (/^\s*(?:ALTER|DROP)\s+INDEX\b/i.test(query) && /\b(?:idx_system_events|idx_admin_access_recovery|idx_organization_(?:watchlist|privacy|retention)|idx_(?:users|tokens|login_events|api_keys|api_key_scopes|certificates|user_certificates|host_ssh_keys|impersonation|passkey|password_reset|signup_verification|mail_accounts)[a-z0-9_]*)\b/i.test(query)) return true
+
+    // The legacy audit and impersonation renames are wrapped in DO blocks.
+    return /^\s*DO\b/i.test(query)
+        && new RegExp(`\\b(?:ALTER|CREATE|DROP)\\s+(?:TABLE|INDEX)\\b[\\s\\S]*?\\b(?:${identityDataTablePattern})\\b`, 'i').test(query)
+}
+
+async function identityDataIsDetached() {
+    return identityDataDetachedState ||= pool.query(`
+        SELECT (to_regclass('public.identity_data_boundary') IS NOT NULL)
+            AND EXISTS (SELECT 1 FROM pg_class WHERE oid = to_regclass('public.users') AND relkind = 'v') AS ready
+    `).then(result => result.rows[0]?.ready === true)
+}
+
 export async function withDatabaseAdvisoryLock<T>(key: string, work: (query: (sql: string, params?: SQLParamType) => Promise<pg.QueryResult>) => Promise<T>): Promise<T> {
     // A session advisory lock must keep using the same PostgreSQL backend until
     // it is unlocked. Transaction pooling can assign a different backend per query.
@@ -291,12 +336,14 @@ export async function tryWithDatabaseAdvisoryLock<T>(key: string, work: () => Pr
     }
 }
 
-export async function withTransaction<T>(work: (query: typeof queryOnce) => Promise<T>) {
+export async function withTransaction<T>(work: (query: typeof queryOnce) => Promise<T>, options: { timeoutMs?: number; statementTimeoutMs?: number } = {}) {
     const client = await connectDatabase(activePool())
     const schema = schemaWork.getStore()
+    const transactionTimeoutMs = options.timeoutMs ?? 8000
+    const statementTimeoutMs = options.statementTimeoutMs ?? 5000
     let expired = false
     let timer: ReturnType<typeof setTimeout> | undefined
-    const timeoutError = Object.assign(new Error('Schema transaction exceeded 8 seconds'), { code: '57014' })
+    const timeoutError = Object.assign(new Error(`Database transaction exceeded ${transactionTimeoutMs}ms`), { code: '57014' })
     const query = ((sql: string, params?: SQLParamType, name?: string) => {
         if (expired) return Promise.reject(timeoutError)
         return name
@@ -305,7 +352,7 @@ export async function withTransaction<T>(work: (query: typeof queryOnce) => Prom
     }) as typeof queryOnce
     const execute = async () => {
         await client.query('BEGIN')
-        if (schema) await client.query(`SET LOCAL lock_timeout = '${schemaLockTimeout}'; SET LOCAL statement_timeout = '5s'; SET LOCAL idle_in_transaction_session_timeout = '5s'`)
+        if (schema) await client.query(`SET LOCAL lock_timeout = '${schemaLockTimeout}'; SET LOCAL statement_timeout = '${statementTimeoutMs}ms'; SET LOCAL idle_in_transaction_session_timeout = '5s'`)
         const result = await work(query)
         if (expired) throw timeoutError
         await client.query('COMMIT')
@@ -320,7 +367,7 @@ export async function withTransaction<T>(work: (query: typeof queryOnce) => Prom
                 // releases its locks, even if application code is awaiting I/O.
                 client.release(timeoutError)
                 reject(timeoutError)
-            }, 8000)
+            }, transactionTimeoutMs)
         })])
     } catch (error) {
         if (!expired) await client.query('ROLLBACK')

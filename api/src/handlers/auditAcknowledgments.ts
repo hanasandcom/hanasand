@@ -1,5 +1,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import run from '#db'
+import { upsertSystemEventAcknowledgment } from '#utils/db/identityDataWrites.ts'
 import { requireAdminSupport } from './adminSupport.ts'
 
 type Request = FastifyRequest<{ Params: { id: string } }>
@@ -15,12 +16,7 @@ export async function setAuditAcknowledgment(req: Request, res: FastifyReply) {
         await run('DELETE FROM system_event_acknowledgments WHERE event_id = $1', [id])
         return res.send({ acknowledged_at: null, acknowledged_by: null })
     }
-    const result = await run(`
-        INSERT INTO system_event_acknowledgments (event_id, acknowledged_by)
-        SELECT id, $2 FROM system_events WHERE id = $1
-        ON CONFLICT (event_id) DO UPDATE SET event_id = EXCLUDED.event_id
-        RETURNING acknowledged_at, acknowledged_by
-    `, [id, actor.id])
-    if (!result.rows.length) return res.status(404).send({ error: 'Event not found.' })
-    return res.send(result.rows[0])
+    const result = await upsertSystemEventAcknowledgment(id, actor.id)
+    if (!result) return res.status(404).send({ error: 'Event not found.' })
+    return res.send(result)
 }

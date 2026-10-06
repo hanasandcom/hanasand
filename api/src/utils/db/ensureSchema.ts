@@ -25,14 +25,19 @@ import ensureMonitoringIssuesSchema from './monitoringIssuesSchema.ts'
 import ensurePushMonitoringSchema from './pushMonitoringSchema.ts'
 import ensureThesisSchema from './thesisSchema.ts'
 import { reservedUsernames } from '#utils/auth/reservedUsernames.ts'
+import { ensureIdentityDataBoundary } from './identityDataBoundary.ts'
 
 export default async function ensureSchema() {
     const release = process.env.HANASAND_RELEASE_COMMIT
     const tracked = Boolean(release && /^[a-f0-9]{40}$/.test(release))
+    const deploymentCandidate = process.env.DEPLOYMENT_CANDIDATE_ONLY === '1'
     if (tracked) {
         try {
             const result = await queryOnce('SELECT 1 FROM app_schema_releases WHERE release = $1', [release!])
-            if (result.rowCount) return
+            if (result.rowCount) {
+                if (!deploymentCandidate) await withSchemaLockTimeout(ensureIdentityDataBoundary)
+                return
+            }
         } catch (error) {
             if ((error as { code?: string })?.code !== '42P01') throw error
         }
@@ -40,6 +45,7 @@ export default async function ensureSchema() {
     for (;;) {
         try {
             await withSchemaLockTimeout(applySchema)
+            if (!deploymentCandidate) await withSchemaLockTimeout(ensureIdentityDataBoundary)
             if (tracked) await withSchemaLockTimeout(async () => {
                 await queryOnce('CREATE TABLE IF NOT EXISTS app_schema_releases (release TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW())')
                 await queryOnce('INSERT INTO app_schema_releases (release) VALUES ($1) ON CONFLICT DO NOTHING', [release!])
@@ -69,8 +75,6 @@ async function applySchema() {
         GRANT USAGE ON SCHEMA pgbouncer TO hanasand;
         GRANT EXECUTE ON FUNCTION pgbouncer.get_auth(text) TO hanasand`)
     await run('CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_vm_metrics_name_created ON vm_metrics(name, created_at DESC)')
-    await run('DROP TABLE IF EXISTS user_roles')
-    await run('DROP TABLE IF EXISTS roles')
     await run('DROP TABLE IF EXISTS root')
     await ensureContainerBillingSchema()
     await ensureFailoverSchema()
@@ -314,7 +318,7 @@ async function applySchema() {
         INSERT INTO users (id, name, password, avatar, active, reserved)
         SELECT id, name, crypt(gen_random_uuid()::text, gen_salt('bf')), '', FALSE, TRUE
         FROM unnest($1::text[], $2::text[]) AS reserved(id, name)
-        ON CONFLICT (id) DO NOTHING
+        WHERE NOT EXISTS (SELECT 1 FROM users existing WHERE existing.id = reserved.id)
     `, [
         reservedUsernames,
         reservedUsernames.map(username => `${username} reserved account`),

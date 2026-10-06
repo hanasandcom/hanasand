@@ -1,6 +1,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import bcrypt from 'bcrypt'
 import run from '#db'
+import { incrementIdentityLoginAttempt } from '#utils/db/identityDataWrites.ts'
 import login from '#utils/auth/login.ts'
 import { createAccountRestoreToken } from '#utils/auth/accountDeletion.ts'
 
@@ -52,16 +53,7 @@ export default async function loginHandler(req: FastifyRequest, res: FastifyRepl
 
         const isValid = await bcrypt.compare(password, user.password)
         if (!isValid) {
-            const attemptQuery = `
-            INSERT INTO attempts (id, attempts, ip)
-            VALUES ($1, 1, $2)
-            ON CONFLICT (id)
-            DO UPDATE SET
-                attempts = attempts.attempts + 1,
-                ip = EXCLUDED.ip,
-                timestamp = NOW();
-            `
-            await run(attemptQuery, [userId, ip])
+            await incrementIdentityLoginAttempt(userId, ip)
             await recordLoginEvent(userId, ip, userAgent, 'bad_password')
             req.log.info({ userId, ip, userAgent }, 'Invalid login password')
             return res.status(401).send({ error: 'Incorrect username or password.' })

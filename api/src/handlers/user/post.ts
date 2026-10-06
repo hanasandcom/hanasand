@@ -54,10 +54,11 @@ export default async function postUser(req: FastifyRequest, res: FastifyReply) {
             if (!await consumeSignupCode(query, String(challengeId), String(code || ''), binding)) return null
             await query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [`email:${email}`])
             await query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [`username:${normalizedId}`])
+            const existing = await query('SELECT 1 FROM users WHERE id = $1 OR username = $1 OR email = $2 LIMIT 1', [normalizedId, email])
+            if (existing.rows.length) return { rows: [], rowCount: 0, command: 'SELECT', oid: 0, fields: [] }
             return query(
                 `INSERT INTO users (id,name,password,avatar,username,email,email_verified_at)
-                VALUES ($1,$2,$3,$4,$1,$5,NOW())
-                ON CONFLICT DO NOTHING`,
+                VALUES ($1,$2,$3,$4,$1,$5,NOW())`,
                 [normalizedId, name.trim(), hashedPassword, avatar || '', email]
             )
         })
