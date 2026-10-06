@@ -1,5 +1,5 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
-import run, { withDatabaseAdvisoryLock, withTransaction } from '#db'
+import run, { withDatabaseAdvisoryLock, withReadDatabase, withTransaction } from '#db'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import { applyManagedHostSshKeys, normalizeHostPublicKey } from '#utils/hostSsh.ts'
 import { cachedRead } from '#utils/readCache.ts'
@@ -124,7 +124,7 @@ export async function getProfileSshKeys(req: FastifyRequest, res: FastifyReply) 
     const userId = await authorizeSelf(req, res)
     if (!userId) return
     try {
-        const keys = await cachedRead(profileSshKeysResponseCacheKey(userId), PROFILE_SSH_KEY_CACHE_TTL_MS, async () => {
+        const keys = await cachedRead(profileSshKeysResponseCacheKey(userId), PROFILE_SSH_KEY_CACHE_TTL_MS, () => withReadDatabase(async () => {
             const normalizedKeys = (await profileKeys(userId)).flatMap(key => {
                 const normalized = normalizeHostPublicKey(key.public_key)
                 return normalized ? [{ key, normalized }] : []
@@ -137,7 +137,7 @@ export async function getProfileSshKeys(req: FastifyRequest, res: FastifyReply) 
                 req.log.error({ err: error }, 'Unable to load profile SSH key usage.')
             }
             return normalizedKeys.map(({ key, normalized }) => responseKey(key, usage.get(normalized.fingerprint) || null))
-        })
+        }))
         return res.send({ keys })
     } catch (error) {
         req.log.error({ err: error }, 'Unable to list profile SSH keys.')

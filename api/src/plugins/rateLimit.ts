@@ -15,7 +15,7 @@ import {
 } from '#utils/rateLimit/config.ts'
 import hasInternalToken from '#utils/auth/internalToken.ts'
 import { verifiedClientIp } from '#utils/http/publicBoundary.ts'
-import { withTransaction, isTransientDatabaseError } from '#db'
+import { withReadDatabase, withTransaction, isTransientDatabaseError } from '#db'
 
 // ponytail: per-worker counters during read-only recovery; shared DB limits resume with writes.
 const recoveryBuckets = new Map<string, { count: number; resetAt: number }>()
@@ -259,16 +259,16 @@ export async function resolveRateLimitActor(
     if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
         const token = authHeader.split(' ')[1]
         const headerId = Array.isArray(req.headers.id) ? req.headers.id[0] : req.headers.id
-        const session = await validateUserSession({
+        const session = await withReadDatabase(() => validateUserSession({
             id: typeof headerId === 'string' ? headerId : undefined,
             token,
-        })
+        }))
 
         if (session) {
             ;(req as FastifyRequest & { rateLimitSession?: typeof session }).rateLimitSession = session
 
             return {
-                scope: await hasHanasandInternalPageAccess(session.user.id) ? 'internal' : 'authenticated',
+                scope: await withReadDatabase(() => hasHanasandInternalPageAccess(session.user.id)) ? 'internal' : 'authenticated',
                 identifier: `user:${session.user.id}`,
             }
         }
