@@ -65,7 +65,7 @@ async function profileKeyUsage(keys: string[]) {
                           AND e.action = 'login'
                           AND e.outcome = 'success'
                           AND e.normalized->>'service' = 'sshd'
-                          AND e.normalized->>'host' IN ('inspur', 'ovhcloud')
+                          AND e.normalized->>'host' IN ('inspur', 'hanasand', 'ovhcloud')
                           AND e.normalized->>'message' LIKE 'Accepted publickey for % ssh2: % SHA256:%'
                           AND substring(e.normalized->>'message' FROM '(SHA256:[A-Za-z0-9+/]{43})') = requested.fingerprint
                           ORDER BY e.event_timestamp DESC

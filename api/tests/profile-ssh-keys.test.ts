@@ -84,3 +84,16 @@ test('profile SSH key usage accepts OVH collector host labels and newer events',
     expect(usageQuery).toContain('e.normalized->>\'host\' = \'ovh\'')
     expect(usageParams[0]).toEqual([fingerprint('ovh-key')])
 })
+
+test('profile SSH key usage accepts the current Inspur hostname', async () => {
+    const addedAt = '2026-09-19T11:30:00.214Z'
+    const lastUsedAt = '2026-10-06T11:08:13.919Z'
+    certificateRows = [{ id: 9, name: 'inspur-key', public_key: 'ssh-ed25519 encoded inspur-key', added_at: addedAt }]
+    usageRows = [{ fingerprint: fingerprint('inspur-key'), last_used_at: lastUsedAt }]
+
+    const result = await getKeys()
+
+    expect(result.keys[0]?.lastUsedAt).toBe(lastUsedAt)
+    expect(usageQuery).toContain('e.normalized->>\'host\' IN (\'inspur\', \'hanasand\', \'ovhcloud\')')
+    expect(usageParams).toHaveLength(2)
+})
