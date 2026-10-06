@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import SupportFeedback, { SupportStars, type Feedback } from './supportFeedback'
 import useSupportLive, { SUPPORT_CHAT_OPENED_EVENT } from './useSupportLive'
 import useSupportUnread from './useSupportUnread'
@@ -261,44 +262,48 @@ export default function SupportChat({ embedded = false, initialChat }: { embedde
                     <div className={headingClass}>
                         <div className='flex w-full items-center justify-between gap-2'>
                             <h1 className='text-sm font-semibold text-ui-text'>{isSupport ? 'Support' : 'Your support chats'}</h1>
-                            {isSupport ? <div className='relative'>
-                                <button type='button' aria-label='Filter support chats' aria-expanded={filtersOpen} onClick={() => setFiltersOpen(open => !open)} className={`relative inline-flex h-8 w-8 items-center justify-center rounded-lg border border-ui-border transition hover:bg-ui-panel focus-visible:outline-2 focus-visible:outline-ui-primary ${filtersOpen || hasFilters ? 'text-ui-primary' : 'text-ui-muted'}`}>
-                                    <ListFilter aria-hidden='true' className='h-4 w-4' />
-                                    {hasFilters ? <span className='absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-ui-primary' /> : null}
-                                </button>
-                                {filtersOpen ? <div role='dialog' aria-label='Filter support chats' className='absolute right-0 top-full z-30 mt-2 grid w-[min(20rem,calc(100vw-2rem))] gap-3 rounded-xl border border-ui-border bg-ui-panel p-4 shadow-xl'>
-                                    <label className='grid gap-1.5 text-xs font-medium text-ui-muted'>Search text
-                                        <span className='relative'><Search aria-hidden='true' className='pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ui-muted' /><input aria-label='Search support tickets' type='search' value={filterText} onChange={event => setFilterText(event.target.value)} placeholder='Search conversations…' className={`${fieldClass} w-full pl-9`} /></span>
-                                    </label>
-                                    <label className='grid gap-1.5 text-xs font-medium text-ui-muted'>Stars
-                                        <select aria-label='Filter by stars' value={starFilter} onChange={event => setStarFilter(event.target.value)} className={fieldClass}>
-                                            <option value='all'>Any rating</option><option value='rated'>Has a star rating</option><option value='unrated'>No star rating</option>
-                                            {[5, 4, 3, 2, 1].map(rating => <option key={rating} value={rating}>{rating} stars</option>)}
-                                        </select>
-                                    </label>
-                                    <div className='grid grid-cols-2 gap-2'>
-                                        <label className='grid gap-1.5 text-xs font-medium text-ui-muted'>From<input aria-label='Filter from date' type='date' value={dateFrom} max={dateTo || undefined} onChange={event => setDateFrom(event.target.value)} className={fieldClass} /></label>
-                                        <label className='grid gap-1.5 text-xs font-medium text-ui-muted'>To<input aria-label='Filter to date' type='date' value={dateTo} min={dateFrom || undefined} onChange={event => setDateTo(event.target.value)} className={fieldClass} /></label>
-                                    </div>
-                                    <label className='grid gap-1.5 text-xs font-medium text-ui-muted'>Written feedback
-                                        <select aria-label='Filter by written feedback' value={feedbackFilter} onChange={event => setFeedbackFilter(event.target.value as typeof feedbackFilter)} className={fieldClass}>
-                                            <option value='all'>Any</option><option value='comment'>Has a comment</option><option value='none'>No comment</option>
-                                        </select>
-                                    </label>
-                                    <div className='flex items-center justify-between gap-3 border-t border-ui-border pt-3'>
-                                        <p role='status' className='text-xs text-ui-muted'>{visibleTickets.length} of {tickets.length} chats</p>
-                                        <button type='button' disabled={!hasFilters} onClick={() => { setFilterText(''); setStarFilter('all'); setFeedbackFilter('all'); setDateFrom(''); setDateTo('') }} className='rounded-md px-2 py-1 text-xs font-medium text-ui-primary hover:bg-ui-raised disabled:cursor-not-allowed disabled:opacity-50'>Clear filters</button>
-                                    </div>
+                            <div className='flex shrink-0 items-center gap-1'>
+                                {isSupport ? <div className='relative'>
+                                    <button type='button' aria-label='Filter support chats' aria-expanded={filtersOpen} onClick={() => setFiltersOpen(open => !open)} className={`relative inline-flex h-8 w-8 items-center justify-center rounded-lg border border-ui-border transition hover:bg-ui-panel focus-visible:outline-2 focus-visible:outline-ui-primary ${filtersOpen || hasFilters ? 'text-ui-primary' : 'text-ui-muted'}`}>
+                                        <ListFilter aria-hidden='true' className='h-4 w-4' />
+                                        {hasFilters ? <span className='absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-ui-primary' /> : null}
+                                    </button>
+                                    {filtersOpen ? <div role='dialog' aria-label='Filter support chats' className='absolute right-0 top-full z-30 mt-2 grid w-[min(20rem,calc(100vw-2rem))] gap-3 rounded-xl border border-ui-border bg-ui-panel p-4 shadow-xl'>
+                                        <label className='grid gap-1.5 text-xs font-medium text-ui-muted'>Search text
+                                            <span className='relative'><Search aria-hidden='true' className='pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ui-muted' /><input aria-label='Search support tickets' type='search' value={filterText} onChange={event => setFilterText(event.target.value)} placeholder='Search conversations…' className={`${fieldClass} w-full pl-9`} /></span>
+                                        </label>
+                                        <label className='grid gap-1.5 text-xs font-medium text-ui-muted'>Stars
+                                            <select aria-label='Filter by stars' value={starFilter} onChange={event => setStarFilter(event.target.value)} className={fieldClass}>
+                                                <option value='all'>Any rating</option><option value='rated'>Has a star rating</option><option value='unrated'>No star rating</option>
+                                                {[5, 4, 3, 2, 1].map(rating => <option key={rating} value={rating}>{rating} stars</option>)}
+                                            </select>
+                                        </label>
+                                        <div className='grid grid-cols-2 gap-2'>
+                                            <label className='grid gap-1.5 text-xs font-medium text-ui-muted'>From<input aria-label='Filter from date' type='date' value={dateFrom} max={dateTo || undefined} onChange={event => setDateFrom(event.target.value)} className={fieldClass} /></label>
+                                            <label className='grid gap-1.5 text-xs font-medium text-ui-muted'>To<input aria-label='Filter to date' type='date' value={dateTo} min={dateFrom || undefined} onChange={event => setDateTo(event.target.value)} className={fieldClass} /></label>
+                                        </div>
+                                        <label className='grid gap-1.5 text-xs font-medium text-ui-muted'>Written feedback
+                                            <select aria-label='Filter by written feedback' value={feedbackFilter} onChange={event => setFeedbackFilter(event.target.value as typeof feedbackFilter)} className={fieldClass}>
+                                                <option value='all'>Any</option><option value='comment'>Has a comment</option><option value='none'>No comment</option>
+                                            </select>
+                                        </label>
+                                        <div className='flex items-center justify-between gap-3 border-t border-ui-border pt-3'>
+                                            <p role='status' className='text-xs text-ui-muted'>{visibleTickets.length} of {tickets.length} chats</p>
+                                            <button type='button' disabled={!hasFilters} onClick={() => { setFilterText(''); setStarFilter('all'); setFeedbackFilter('all'); setDateFrom(''); setDateTo('') }} className='rounded-md px-2 py-1 text-xs font-medium text-ui-primary hover:bg-ui-raised disabled:cursor-not-allowed disabled:opacity-50'>Clear filters</button>
+                                        </div>
+                                    </div> : null}
                                 </div> : null}
-                            </div> : null}
+                                <button type='button' disabled={discordLinkBusy} onClick={() => void createDiscordLinkCode()} aria-label={discordLinkBusy ? 'Creating Discord link code' : 'Connect Discord'} title='Connect Discord' className='inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-ui-border transition hover:bg-ui-panel focus-visible:outline-2 focus-visible:outline-ui-primary disabled:opacity-50'>
+                                    <Image src='/images/assets/social/discord.png' alt='' aria-hidden='true' width={16} height={16} className='h-4 w-4 object-contain' />
+                                </button>
+                            </div>
                         </div>
                         {!isSupport ? <p className='text-xs text-ui-muted'>Conversations with the support team.</p> : null}
                     </div>
-                    <div className='grid gap-2 border-b border-ui-border px-4 py-3'>
-                        <button type='button' disabled={discordLinkBusy} onClick={() => void createDiscordLinkCode()} className='w-fit rounded-lg border border-ui-border px-3 py-2 text-xs font-medium text-ui-text hover:bg-ui-panel disabled:opacity-50'>{discordLinkBusy ? 'Creating code…' : 'Connect Discord'}</button>
+                    {discordLinkCode || discordLinkError ? <div className='grid gap-2 border-b border-ui-border px-4 py-3'>
                         {discordLinkCode ? <p role='status' className='text-xs leading-5 text-ui-muted'>In Discord, run <span className='font-medium text-ui-text'>/tickets</span>, choose <span className='font-medium text-ui-text'>Link account</span>, then enter <code className='select-all rounded bg-ui-panel px-1.5 py-0.5 font-mono text-ui-text'>{discordLinkCode}</code>. Code expires {new Date(discordLinkExpiry).toLocaleTimeString()}.</p> : null}
                         {discordLinkError ? <p role='alert' className='text-xs text-ui-text'>{discordLinkError}</p> : null}
-                    </div>
+                    </div> : null}
                     {!isSupport ? <button type='button' onClick={() => selectChat('')} className='mx-4 mb-2 rounded-lg border border-ui-border px-3 py-2 text-xs font-medium text-ui-primary hover:bg-ui-panel'>New chat</button> : null}
                     <div className='max-h-36 overflow-y-auto p-2 lg:max-h-none lg:flex-1'>
                         {orderedVisibleTickets.map(ticket => (

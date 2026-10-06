@@ -13,6 +13,13 @@ for (const width of [390, 1440]) {
         await mockSupportLive(page)
         await page.goto('/support')
         await expect(page.getByRole('heading', { name: 'Support' })).toBeVisible()
+        const discordButton = page.getByRole('button', { name: 'Connect Discord', exact: true })
+        const filterButton = page.getByRole('button', { name: 'Filter support chats', exact: true })
+        await expect(discordButton).toBeVisible()
+        const discordBox = (await discordButton.boundingBox())!
+        const filterBox = (await filterButton.boundingBox())!
+        expect(discordBox.width).toBe(32)
+        expect(Math.abs(discordBox.y - filterBox.y)).toBeLessThan(2)
         await expect(page.getByRole('log')).toContainText(message.body)
         await expect(page.getByLabel('Open support assistant')).toHaveCount(0)
         await expect(page.locator('[data-site-header]')).toBeVisible()
@@ -45,6 +52,17 @@ test('an empty staff queue has no composer', async ({ page, baseURL }) => {
     await page.goto('/support')
     await expect(page.getByText('Select a customer chat to read and reply.')).toBeVisible()
     await expect(page.getByRole('region', { name: 'Support chat', exact: true }).getByLabel('Message', { exact: true })).toHaveCount(0)
+})
+
+test('the Discord icon creates and shows a link code', async ({ page, baseURL }) => {
+    await page.context().addCookies([{ name: 'id', value: 'agent', url: baseURL! }, { name: 'access_token', value: 'local-test', url: baseURL! }])
+    await page.route('**/api/backend/support/tickets', route => route.fulfill({ json: { realtime: true, isSupport: true, tickets: [] } }))
+    await page.route('**/api/backend/support/discord/link-code', route => route.fulfill({ json: { code: '123456', expiresAt: '2026-10-06T15:00:00Z' } }))
+    await mockSupportLive(page)
+    await page.goto('/support')
+    await page.getByRole('button', { name: 'Connect Discord', exact: true }).click()
+    await expect(page.getByRole('status')).toContainText('/tickets')
+    await expect(page.getByRole('status')).toContainText('123456')
 })
 
 
