@@ -83,7 +83,7 @@ export const VULNERABILITY_SCAN_CADENCE_SECONDS = Number(process.env.SCANNER_INT
 const scannerUrl = (process.env.HANASAND_SCANNER_URL || '').trim().replace(/\/$/, '')
 const serviceToken = process.env.HANASAND_SCANNER_SERVICE_TOKEN || ''
 const legacyStatePath = process.env.VULNERABILITY_SCAN_STATE_PATH || '/var/lib/hanasand/vulnerability-scan.json'
-const requestTimeoutMs = 5_000
+const requestTimeoutMs = 30_000
 let legacyImportInProgress = false
 
 function emptyReport(error?: string): VulnerabilityReport {

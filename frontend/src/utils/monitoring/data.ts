@@ -10,7 +10,9 @@ import type {
 import { requestService } from './serviceApi'
 
 export async function getVulnerabilities() {
-    return await requestService<GetVulnerabilities>('internal', 'vulnerabilities')
+    return await requestService<GetVulnerabilities>('internal', 'vulnerabilities', {
+        signal: AbortSignal.timeout(30_000),
+    })
 }
 
 export async function triggerVulnerabilityScan() {
