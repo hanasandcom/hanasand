@@ -28,6 +28,9 @@ export async function proxy(req: NextRequest) {
     }
     const path = appPagePath(visiblePath)
     const pathWithSearch = `${visiblePath}${req.nextUrl.search}`
+    const strictPath = path === '/dashboard/management/organizations'
+        ? undefined
+        : organizationProtectedPaths.find(protectedPath => path.startsWith(protectedPath))
     if ((path === '/profile' || path.startsWith('/profile/'))
         && (!tokenCookie?.value || !idCookie?.value)) {
         return NextResponse.rewrite(new URL('/_not-found', req.url), {
@@ -74,7 +77,9 @@ export async function proxy(req: NextRequest) {
         const id = idCookie.value
         let canViewOrganizationInternalPages = isLocalDashboardRenderProof(req, token, id)
         if (!canViewOrganizationInternalPages) {
-            const auth = await tokenIsValid(token, id, impersonationToken || undefined)
+            const auth = await tokenIsValid(token, id, impersonationToken || undefined, {
+                includeInternalAccess: Boolean(strictPath),
+            })
 
             if (auth.state === 'unavailable') {
                 return authServiceUnavailable(req)
@@ -125,9 +130,6 @@ export async function proxy(req: NextRequest) {
         }
 
         // This page enforces organization membership on the server and in its API.
-        const strictPath = path === '/dashboard/management/organizations'
-            ? undefined
-            : organizationProtectedPaths.find(protectedPath => path.startsWith(protectedPath))
         if (strictPath) {
             if (!canViewOrganizationInternalPages) {
                 const url = new URL('/dashboard', req.url)

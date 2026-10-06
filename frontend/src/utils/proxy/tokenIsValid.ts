@@ -14,21 +14,26 @@ export type TokenValidationResult = {
     canEditInternalPages?: boolean
 }
 
+type TokenValidationOptions = { includeInternalAccess?: boolean }
+
 const TOKEN_VALIDATION_CACHE_MS = 5_000
 const validationCache = new Map<string, { expiresAt: number; result: TokenValidationResult }>()
 const validationRequests = new Map<string, Promise<TokenValidationResult>>()
 
-export default async function tokenIsValid(token: string, id: string, impersonationToken?: string): Promise<TokenValidationResult> {
+export default async function tokenIsValid(token: string, id: string, impersonationToken?: string, options: TokenValidationOptions = {}): Promise<TokenValidationResult> {
     const serviceKey = token.startsWith('hsk_')
+    const includeInternalAccess = options.includeInternalAccess !== false
     // Service keys keep their own endpoint scopes, with the same short freshness window as human sessions.
-    const key = serviceKey ? `service:${id}:${token}` : `${id}:${token}:${impersonationToken || ''}`
+    const key = serviceKey
+        ? `service:${id}:${token}`
+        : `${id}:${token}:${impersonationToken || ''}:${includeInternalAccess ? 'internal' : 'session'}`
     const cached = validationCache.get(key)
     if (cached && cached.expiresAt > Date.now()) return cached.result
 
     const pending = validationRequests.get(key)
     if (pending) return pending
 
-    const request = serviceKey ? validateServiceToken(token, id) : validateToken(token, id, impersonationToken)
+    const request = serviceKey ? validateServiceToken(token, id) : validateToken(token, id, impersonationToken, includeInternalAccess)
     validationRequests.set(key, request)
     try {
         const result = await request
@@ -44,7 +49,7 @@ export default async function tokenIsValid(token: string, id: string, impersonat
     }
 }
 
-async function validateToken(token: string, id: string, impersonationToken?: string): Promise<TokenValidationResult> {
+async function validateToken(token: string, id: string, impersonationToken: string | undefined, includeInternalAccess: boolean): Promise<TokenValidationResult> {
     try {
         const headers = {
             Authorization: `Bearer ${token}`,
@@ -61,13 +66,17 @@ async function validateToken(token: string, id: string, impersonationToken?: str
         }
 
         const data = await response.json()
-        const internalPageAccess = await checkHanasandInternalPageAccess(token, id, impersonationToken)
+        const internalPageAccess = includeInternalAccess
+            ? await checkHanasandInternalPageAccess(token, id, impersonationToken)
+            : null
         return {
             valid: true,
             state: 'valid',
             token: data.token,
-            canViewInternalPages: internalPageAccess.canView,
-            canEditInternalPages: internalPageAccess.canEdit,
+            ...(internalPageAccess ? {
+                canViewInternalPages: internalPageAccess.canView,
+                canEditInternalPages: internalPageAccess.canEdit,
+            } : {}),
             name: data.name,
             avatar: data.avatar,
             expires_at: data.expires_at,
