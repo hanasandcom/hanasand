@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState, useTransition } from 'react'
-import { ChevronDown, RefreshCw, ShieldCheck } from 'lucide-react'
+import { ChevronDown, RefreshCw, ShieldCheck, Trash2 } from 'lucide-react'
 import type { BackupFile, BackupOperation, BackupService } from '@/utils/db/internal'
 import formatUtcDateTime from '@/utils/date/formatUtcDateTime'
 import { deleteBackupAction, triggerBackupAction } from '../actions'
@@ -124,8 +124,8 @@ export default function BackupPage({ backups, files, loadError = '' }: BackupPag
                                             <button type='button' disabled={busy} onClick={() => restore(file.file)} className='min-h-9 rounded-md border border-ui-border px-3 font-semibold hover:bg-ui-raised disabled:opacity-50'>
                                                 Restore
                                             </button>
-                                            <button type='button' disabled={busy} onClick={() => remove(file.file)} className='min-h-9 rounded-md border border-ui-danger/40 px-3 font-semibold text-ui-danger hover:bg-ui-danger/10 disabled:opacity-50'>
-                                                {deleting === file.file ? 'Deleting…' : 'Delete'}
+                                            <button type='button' disabled={busy} onClick={() => remove(file.file)} aria-label={deleting === file.file ? `Deleting backup ${file.file}` : `Delete backup ${file.file}`} title='Delete backup' className='inline-flex h-9 w-9 items-center justify-center rounded-md border border-ui-danger/40 text-ui-danger hover:bg-ui-danger/10 disabled:opacity-50'>
+                                                <Trash2 className='h-4 w-4' aria-hidden='true' />
                                             </button>
                                         </div>
                                     </td>
