@@ -71,7 +71,12 @@ export async function processRuleReprocessJob() {
             }
             if (rule.source === 'hanasand') return reprocessBuiltinPage(job, query)
             const timeOrderedMessageScan = rule.source === 'owned' && usesTimeOrderedMessageScan(rule.definition.conditions)
-            if (timeOrderedMessageScan) await query('SET LOCAL statement_timeout=\'60s\'')
+            if (timeOrderedMessageScan) {
+                await query('SET LOCAL statement_timeout=\'60s\'')
+                // Receipt triggers serialize on this rule's hit-count row while
+                // live log batches commit. Let that short-lived row lock drain.
+                await query('SET LOCAL lock_timeout=\'50s\'')
+            }
             const cursor = { ...job.cursor }
             let items: Item[], scanned: number
             const windowedPhase = cursor.phase === 0 && Boolean(job.from_time)
