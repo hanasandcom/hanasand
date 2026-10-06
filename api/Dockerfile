@@ -10,17 +10,10 @@ WORKDIR /app
 COPY api/package.json api/bun.lock* api/bunfig.toml ./
 RUN bun install
 
-FROM deps AS session-geo
-COPY api/scripts/download-session-geo.ts scripts/download-session-geo.ts
-ARG SESSION_GEOIP_MONTH
-RUN SESSION_GEOIP_MONTH=$SESSION_GEOIP_MONTH bun scripts/download-session-geo.ts
-
 FROM deps AS auth-runtime-base
 ARG HANASAND_RELEASE_COMMIT=unknown
 LABEL org.opencontainers.image.revision=$HANASAND_RELEASE_COMMIT
 COPY --chown=bun:bun api/ .
-COPY --from=session-geo /app/geoip /app/geoip
-RUN bun scripts/check-session-network.ts
 
 FROM auth-runtime-base AS auth-review
 RUN DB_PASSWORD=build-test DB_HOST=localhost VM_API_TOKEN=build-test bun run test --only=auth-service,auth-boundary,social-oidc,social-auth
@@ -45,7 +38,6 @@ ENV NODE_ENV=production
 COPY api/default.vcl /etc/varnish/default.vcl
 COPY --from=deps /app/node_modules /app/node_modules
 COPY api/ .
-COPY --from=session-geo /app/geoip /app/geoip
 
 RUN chmod +x /app/entrypoint.sh
 

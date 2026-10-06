@@ -1,16 +1,49 @@
-import { open, type CityResponse, type AsnResponse } from 'maxmind'
 import { isPublicMonitoringAddress } from '../publicMonitoringRequest.ts'
 import ipaddr from 'ipaddr.js'
-import { join } from 'node:path'
 
-const directory = process.env.SESSION_GEOIP_DIR || join(import.meta.dir, '../../../geoip')
-let databases: Promise<Awaited<ReturnType<typeof loadDatabases>> | null> | undefined
-let retryAt = 0
-async function loadDatabases() {
-    return Promise.all([
-        open<CityResponse>(join(directory, 'city.mmdb')),
-        open<AsnResponse>(join(directory, 'asn.mmdb')),
-    ])
+type Network = {
+    provider: string | null
+    country: string | null
+    country_code: string | null
+    region: string | null
+    city: string | null
+}
+const geoipUrl = (process.env.HANASAND_GEOIP_URL || 'http://geoip:18300').trim().replace(/\/$/, '')
+const serviceToken = process.env.HANASAND_GEOIP_SERVICE_TOKEN || ''
+const pendingLookups = new Map<string, Promise<Network | null>>()
+let nextWarningAt = 0
+
+async function lookupNetwork(ip: string): Promise<Network | null> {
+    if (!geoipUrl || !serviceToken) return null
+    const existing = pendingLookups.get(ip)
+    if (existing) return existing
+
+    const lookup = (async () => {
+        const url = new URL(`${geoipUrl}/v1/lookup`)
+        url.searchParams.set('ip', ip)
+        const response = await fetch(url, {
+            headers: { 'x-hanasand-service-token': serviceToken },
+            signal: AbortSignal.timeout(3_000),
+        })
+        if (!response.ok) throw new Error(`GeoIP service returned HTTP ${response.status}`)
+        const body = await response.json() as { network?: unknown }
+        if (body.network === null) return null
+        if (!body.network || typeof body.network !== 'object') throw new Error('GeoIP service returned an invalid response')
+        const network = body.network as Partial<Network>
+        return {
+            provider: typeof network.provider === 'string' ? network.provider : null,
+            country: typeof network.country === 'string' ? network.country : null,
+            country_code: typeof network.country_code === 'string' ? network.country_code : null,
+            region: typeof network.region === 'string' ? network.region : null,
+            city: typeof network.city === 'string' ? network.city : null,
+        }
+    })()
+    pendingLookups.set(ip, lookup)
+    try {
+        return await lookup
+    } finally {
+        pendingLookups.delete(ip)
+    }
 }
 
 export async function sessionNetwork(value: string) {
@@ -25,26 +58,13 @@ export async function sessionNetwork(value: string) {
         }
         return { ip: null, network: null }
     }
-    if (!databases && Date.now() >= retryAt) {
-        databases = loadDatabases().catch(error => {
-            databases = undefined
-            retryAt = Date.now() + 60_000
-            console.warn('Session location databases unavailable:', error.message)
-            return null
-        })
-    }
-    const readers = await databases
-    if (!readers) return { ip, network: null }
-    const city = readers[0].get(ip)
-    const asn = readers[1].get(ip)
-    return {
-        ip,
-        network: {
-            provider: asn?.autonomous_system_organization || null,
-            country: city?.country?.names?.en || null,
-            country_code: city?.country?.iso_code || null,
-            region: city?.subdivisions?.[0]?.names?.en || null,
-            city: city?.city?.names?.en || null,
-        },
+    try {
+        return { ip, network: await lookupNetwork(ip) }
+    } catch (error) {
+        if (Date.now() >= nextWarningAt) {
+            nextWarningAt = Date.now() + 60_000
+            console.warn('Session location service unavailable:', error instanceof Error ? error.message : error)
+        }
+        return { ip, network: null }
     }
 }

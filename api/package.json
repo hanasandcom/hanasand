@@ -69,7 +69,6 @@
     "gray-matter": "^4.0.3",
     "ipaddr.js": "2.2.0",
     "jose": "6.2.2",
-    "maxmind": "^5.0.7",
     "mongodb": "6.21.0",
     "node-cron": "^4.2.1",
     "nodemailer": "^8.0.5",
