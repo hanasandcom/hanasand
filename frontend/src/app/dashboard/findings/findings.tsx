@@ -2329,7 +2329,7 @@ function DeliveryPanel({ organizationId, alert, deliveries, busyAction, onTest, 
     const latestDelivery = visible[0]
     const lastFailedDelivery = visible.find(delivery => delivery.status === 'failed')
     const lastSuccessfulDelivery = visible.find(delivery => delivery.status === 'delivered' && delivery.dryRun !== true)
-    const orgHref = organizationDeliveryWorkspaceHref({ organizationId: orgId, alertId: alert?.id, caseId, delivery: latestDelivery })
+    const orgHref = organizationDeliveryWorkspaceHref({ organizationId: orgId })
     const testBusy = alert ? busyAction === `test:${alert.id}` : false
     const sendBusy = alert ? busyAction === `send:${alert.id}` : false
     if (!orgId) {
@@ -2391,11 +2391,11 @@ function DeliveryPanel({ organizationId, alert, deliveries, busyAction, onTest, 
                         <p className='mt-1 text-xs text-ui-muted'>Start with a common destination, then test it before sending events.</p>
                     </div>
                     <div className='grid gap-2 sm:grid-cols-3'>
-                        {['Slack', 'Microsoft Teams', 'Webhook'].map(preset => <a key={preset} href={`${orgHref}&preset=${encodeURIComponent(preset.toLowerCase().replaceAll(' ', '_'))}`} className='rounded-lg border border-ui-border bg-ui-panel px-3 py-2 text-xs font-semibold text-ui-text transition hover:border-ui-primary'>{preset}<span className='mt-1 block font-normal text-ui-muted'>Configure preset</span></a>)}
+                        {['Slack', 'Microsoft Teams', 'Webhook'].map(preset => <a key={preset} href={orgHref} className='rounded-lg border border-ui-border bg-ui-panel px-3 py-2 text-xs font-semibold text-ui-text transition hover:border-ui-primary'>{preset}<span className='mt-1 block font-normal text-ui-muted'>Open delivery setup</span></a>)}
                     </div>
                 </div>
                 {visible.slice(0, DWM_DELIVERY_PREVIEW_ROWS).map(delivery => {
-                    const deliveryOrgHref = organizationDeliveryWorkspaceHref({ organizationId: orgId, alertId: alert?.id, caseId, delivery })
+                    const deliveryOrgHref = organizationDeliveryWorkspaceHref({ organizationId: orgId })
                     return (
                         <div key={delivery.id} className='grid gap-2 rounded-lg border border-ui-border bg-ui-raised p-3'>
                             <div className='flex flex-wrap items-center justify-between gap-2'>
@@ -2927,18 +2927,10 @@ function retryStateLabel(delivery: DeliveryItem) {
     return 'no retry scheduled'
 }
 
-function organizationDeliveryWorkspaceHref(input: { organizationId?: string, alertId?: string, caseId?: string, delivery?: DeliveryItem }) {
-    const params = new URLSearchParams()
-    if (input.organizationId) params.set('organizationId', input.organizationId)
-    params.set('focus', 'destinations')
-    if (input.alertId) params.set('alertId', input.alertId)
-    if (input.caseId) params.set('caseId', input.caseId)
-    if (input.delivery?.webhookDestinationId || input.delivery?.destinationId) {
-        params.set('destinationId', input.delivery.webhookDestinationId || input.delivery.destinationId || '')
-    }
-    if (input.delivery?.id) params.set('deliveryId', input.delivery.id)
-    if (input.delivery?.watchlistId) params.set('watchlistId', input.delivery.watchlistId)
-    return `/organizations?${params.toString()}`
+function organizationDeliveryWorkspaceHref(input: { organizationId?: string }) {
+    return input.organizationId
+        ? `/findings/actions?org=${encodeURIComponent(input.organizationId)}`
+        : '/findings/actions'
 }
 
 function caseDetailHref(caseId: string, alertId?: string, organizationId?: string, route?: string) {

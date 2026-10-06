@@ -6,10 +6,15 @@ import DeliveryClient from './deliveryClient'
 
 export const dynamic = 'force-dynamic'
 
-export default async function Page() {
-    const store = await cookies()
+export default async function Page({ searchParams }: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
+    const [store, params] = await Promise.all([cookies(), searchParams])
     const identityId = store.get('impersonating_id')?.value || store.get('id')?.value
     if (!identityId || !store.get('access_token')?.value) redirect('/login?path=%2Ffindings%2Factions')
-    const scopeId = await activeOrganizationId() || identityId
+    const requestedOrganizationId = firstParam(params?.org) || firstParam(params?.organizationId) || firstParam(params?.orgId)
+    const scopeId = requestedOrganizationId || await activeOrganizationId() || identityId
     return <DashboardPage><DeliveryClient key={scopeId} scopeId={scopeId} /></DashboardPage>
+}
+
+function firstParam(value: string | string[] | undefined) {
+    return Array.isArray(value) ? value[0] || undefined : value
 }

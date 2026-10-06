@@ -508,12 +508,8 @@ export function DwmCaseDetailClient({ caseId, tenantId, organizationId, alertId,
     const scopedTenantId = resolvedTenantId(caseRecord, tenantId)
     const scopedOrganizationId = resolvedOrganizationId(caseRecord, organizationId)
     const scopedAlertId = resolvedAlertId(caseRecord, alertContext, alertId)
-    const deliveryHistoryHref = scopedOrganizationId
-        ? `/organizations${queryString({ organizationId: scopedOrganizationId, caseId: caseRecord.id, alertId: scopedAlertId, focus: 'destinations' })}#delivery-history`
-        : '/organizations?focus=destinations#delivery-history'
-    const destinationHref = scopedOrganizationId
-        ? `/organizations${queryString({ organizationId: scopedOrganizationId, caseId: caseRecord.id, alertId: scopedAlertId, destinationId: latestDelivery?.webhookDestinationId || latestDelivery?.destinationId, focus: 'destinations' })}`
-        : '/organizations?focus=destinations'
+    const deliveryHistoryHref = `/findings/delivery${queryString({ org: scopedOrganizationId, alert: scopedAlertId })}`
+    const destinationHref = `/findings/actions${queryString({ org: scopedOrganizationId })}`
     const actionBlockers = actionUnavailableReasons(actions, readOnly)
     const webhookBlockedReason = webhookActionBlockedReason(state.detail, scopedAlertId) || retryBlockedReason || destinationBlockedReason
     const webhookActionDisabled = Boolean(readOnly || busy !== null || webhookBlockedReason)

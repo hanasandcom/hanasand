@@ -27,7 +27,7 @@ export default async function DashboardDwmPage({
         redirect(sharedOrg ? `/findings/actions?org=${encodeURIComponent(sharedOrg)}` : '/findings/actions')
     }
 
-    const organizationId = await activeOrganizationId()
+    const organizationId = firstParam(params?.org) || firstParam(params?.organizationId) || firstParam(params?.orgId) || await activeOrganizationId()
     const view = normalizeDwmView(firstParam(params?.panel))
     if (firstParam(params?.panel) === 'alerts') {
         const sharedOrg = firstParam(params?.org) || firstParam(params?.organizationId) || firstParam(params?.orgId)

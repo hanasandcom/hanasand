@@ -238,7 +238,7 @@ export function DwmWorkflowActions({ tenantId, organizationId, initialTerms, wat
             setResult({
                 ok: !webhookConfigured || deliveryReady,
                 message: `Collected ${accepted} public incident report${accepted === 1 ? '' : 's'}, opened ${caseId || 'a case'}.${deliveryText}`,
-                actionHref: deliveryText && !deliveryReady ? deliverySetupHref(organizationId, alert.id, caseId || undefined) : undefined,
+                actionHref: deliveryText && !deliveryReady ? deliverySetupHref(organizationId) : undefined,
                 actionLabel: deliveryText && !deliveryReady ? 'Configure delivery' : undefined,
             })
             if (caseId) {
@@ -362,7 +362,7 @@ export function DwmWorkflowActions({ tenantId, organizationId, initialTerms, wat
             setResult({
                 ok: true,
                 message: `Added ${advisoryCount} public advisory source(s), collected ${captureCount} capture(s), matched ${savedAlertCount} events, opened ${caseId || 'a case'}.${deliveryReady ? deliveryText : deliveryText ? ' Configure or test a destination before sending customer notification.' : ''}`,
-                actionHref: deliveryText && !deliveryReady ? deliverySetupHref(organizationId, alert.id, caseId || undefined) : undefined,
+                actionHref: deliveryText && !deliveryReady ? deliverySetupHref(organizationId) : undefined,
                 actionLabel: deliveryText && !deliveryReady ? 'Configure delivery' : undefined,
             })
             if (caseId) {
@@ -1003,7 +1003,7 @@ function RouteQueueCard({ action }: { action: RouteQueueAction }) {
 }
 
 function RouteRunSummary({ route, organizationId }: { route: WorkflowRouteSummary, organizationId?: string }) {
-    const destinationHref = organizationId ? organizationDestinationPath(organizationId, route.alertId, route.caseId) : undefined
+    const deliveryHref = organizationId ? deliveryLogHref(organizationId, route.alertId) : undefined
     const cells = [
         { label: 'Watch terms', value: String(route.watchTerms) },
         { label: 'Sources', value: route.sourceCount === undefined ? 'unchanged' : String(route.sourceCount) },
@@ -1025,8 +1025,8 @@ function RouteRunSummary({ route, organizationId }: { route: WorkflowRouteSummar
                             Open case
                         </Link>
                     ) : null}
-                    {destinationHref ? (
-                        <Link href={destinationHref} className='inline-flex h-8 items-center rounded-lg border border-ui-border bg-ui-panel px-3 text-xs font-semibold text-ui-text transition hover:border-ui-primary hover:bg-ui-raised focus:outline-none focus:ring-2 focus:ring-ui-primary/30'>
+                    {deliveryHref ? (
+                        <Link href={deliveryHref} className='inline-flex h-8 items-center rounded-lg border border-ui-border bg-ui-panel px-3 text-xs font-semibold text-ui-text transition hover:border-ui-primary hover:bg-ui-raised focus:outline-none focus:ring-2 focus:ring-ui-primary/30'>
                             Open delivery log
                         </Link>
                     ) : null}
@@ -1046,15 +1046,14 @@ function RouteRunSummary({ route, organizationId }: { route: WorkflowRouteSummar
     )
 }
 
-function organizationDestinationPath(organizationId: string, alertId?: string, caseId?: string) {
-    const params = new URLSearchParams({ organizationId, focus: 'destinations' })
-    if (alertId) params.set('alertId', alertId)
-    if (caseId) params.set('caseId', caseId)
-    return `/organizations?${params.toString()}#delivery-history`
+function deliverySetupHref(organizationId?: string) {
+    return organizationId ? `/findings/actions?org=${encodeURIComponent(organizationId)}` : '#dwm-inline-webhook'
 }
 
-function deliverySetupHref(organizationId?: string, alertId?: string, caseId?: string) {
-    return organizationId ? organizationDestinationPath(organizationId, alertId, caseId) : '#dwm-inline-webhook'
+function deliveryLogHref(organizationId: string, alertId?: string) {
+    const params = new URLSearchParams({ org: organizationId })
+    if (alertId) params.set('alert', alertId)
+    return `/findings/delivery?${params.toString()}`
 }
 
 function RouteStateCard({ label, value, detail, tone }: { label: string, value: string, detail: string, tone: 'ok' | 'warn' | 'bad' | 'neutral' }) {
