@@ -16,14 +16,14 @@ type Rule = { rule_id: string, version: string, source: string, enabled: boolean
 type Item = { id: string, event: Record<string, unknown>, original?: Record<string, unknown> }
 const size = 1000
 const eventCandidateColumns: Record<string, string> = {
-    source_vendor: 'source_vendor', source_product: 'source_product', event_type: 'event_type',
+    source_vendor: 'source_vendor', source_product: 'source_product', event_type: 'event_type', service: 'normalized->>\'service\'',
     action: 'action', outcome: 'outcome', user_id: 'user_id', source_ip: 'source_ip',
 }
 
 function eventFieldCandidatePredicate(conditions: Condition[], bind: (value: string) => string, includeExecutable = true) {
     const scalar = conditions.flatMap(condition => {
         const column = eventCandidateColumns[condition.path]
-        if (!column || condition.operator !== 'equals') return []
+        if (!column || condition.operator !== 'equals' || condition.path === 'service' && !condition.caseSensitive) return []
         const value = bind(condition.value)
         return [condition.caseSensitive ? `${column} = ${value}` : `lower(${column}) = lower(${value})`]
     })
@@ -82,7 +82,15 @@ export async function processRuleReprocessJob() {
                         `normalized->>'message' = ${bind(exactMessage.value)} AND octet_length(normalized->>'message') <= ${exactMessageIndexMaxBytes}`,
                     ].filter(Boolean).join(' AND ')
                     : [eventFieldCandidatePredicate(rule.definition.conditions, bind),
-                        messageCandidatePredicate(rule.definition.conditions, 'normalized->>\'message\'', bind),
+                        messageCandidatePredicate(rule.definition.conditions, 'normalized->>\'message\'', bind, {
+                            // For anchored command patterns paired with exact process/service fields,
+                            // walk this organization's time index and recheck the regex. The broad
+                            // trigram bitmap finds a large set, then sorts it again for every page.
+                            useTrigram: !rule.definition.conditions.some(condition => condition.path === 'message'
+                                && condition.operator === 'regex' && /^\^[A-Za-z0-9 _:/@,=-]{5,}/.test(condition.value))
+                                || !rule.definition.conditions.some(condition => condition.path === 'event_type' && condition.operator === 'equals' && condition.caseSensitive)
+                                || !rule.definition.conditions.some(condition => condition.path === 'service' && condition.operator === 'equals' && condition.caseSensitive),
+                        }),
                     ].filter(Boolean).join(' AND ') || 'TRUE'
                 const ownedLogScope = rule.source === 'owned' ? 'AND ingestion_id=\'logs\' AND processing_status=\'processed\'' : ''
                 const cursorTimeParam = params.push(windowed && cursor.windowEnd ? cursor.time || null : cursor.time || null)

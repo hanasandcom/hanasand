@@ -90,17 +90,17 @@ export function finiteRegexAlternatives(expression: string, limit = 64): string[
 }
 
 function regexCandidate(expression: string): string | null {
-    const token = /(?:[A-Za-z0-9 _:/@,=-]|[.^$*+?()|]|\{\d+(?:,\d*)?\}|\[\^?[A-Za-z0-9 _:/@,=.-]+\]|\\[dDwWsSbB]|\\[.^$*+?()|{}[\]\\])/gy
+    const token = /(?:\(\?:|[A-Za-z0-9 _:/@,=-]|[.^$*+?()|]|\{\d+(?:,\d*)?\}|\[\^?[A-Za-z0-9 _:/@,=.-]+\]|\\[dDwWsSbB]|\\[.^$*+?()|{}[\]\\])/gy
     let offset = 0, pattern = ''
-    if (expression.includes('(?')) return null
     while (offset < expression.length) {
+        if (expression.startsWith('(?', offset) && !expression.startsWith('(?:', offset)) return null
         token.lastIndex = offset
         const match = token.exec(expression)
         if (!match) return null
         const part = match[0]
         // PostgreSQL bounds repetition counts at 255; JavaScript does not.
         if (part.startsWith('{') && part.match(/\d+/g)!.some(count => Number(count) > 255)) return null
-        pattern += ({ '\\d': '[0-9]', '\\D': '[^0-9]', '\\w': '[A-Za-z0-9_]', '\\W': '[^A-Za-z0-9_]', '\\s': '[[:space:]]', '\\S': '[^[:space:]]', '\\b': '\\y', '\\B': '\\Y', '$': '' } as Record<string, string>)[part] ?? part
+        pattern += ({ '(?:': '(', '\\d': '[0-9]', '\\D': '[^0-9]', '\\w': '[A-Za-z0-9_]', '\\W': '[^A-Za-z0-9_]', '\\s': '[[:space:]]', '\\S': '[^[:space:]]', '\\b': '\\y', '\\B': '\\Y', '$': '' } as Record<string, string>)[part] ?? part
         offset = token.lastIndex
     }
     return pattern
@@ -137,9 +137,14 @@ function scalarCandidatePredicate(condition: Condition, column: string, bind: (v
 
 // Only narrow raw replay pages when the message comparison is representable in
 // PostgreSQL. The full rule still runs on every returned candidate.
-export function messageCandidatePredicate(conditions: Condition[], column: string, bind: (value: string) => string) {
+export function messageCandidatePredicate(
+    conditions: Condition[],
+    column: string,
+    bind: (value: string) => string,
+    options: { useTrigram?: boolean } = {},
+) {
     const ascii = `${column} !~ '[^\\x00-\\x7F]'`
-    const trigramNeedles = column === 'normalized->>\'message\'' ? conditions.flatMap(condition => {
+    const trigramNeedles = options.useTrigram !== false && column === 'normalized->>\'message\'' ? conditions.flatMap(condition => {
         if (condition.path !== 'message') return []
         const value = condition.operator === 'regex'
             ? /^\^([A-Za-z0-9 _:/@,=-]{3,})/.exec(condition.value)?.[1]

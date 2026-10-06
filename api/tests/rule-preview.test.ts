@@ -31,6 +31,16 @@ test('event message candidates use the existing log trigram index for literal pr
     expect(predicate).toContain('translate(lower(normalized::text), \' \', \'0\') LIKE $1')
     expect(values[0]).toBe('%runc0%')
 })
+test('replay can keep the authoritative message regex without forcing a broad trigram bitmap', () => {
+    const values: string[] = []
+    const predicate = messageCandidatePredicate([{ path: 'message', operator: 'regex', value: '^sleep\\s+(?:[0-9]|[1-5][0-9])(?:\\.\\d+)?$' }], 'normalized->>\'message\'', value => {
+        values.push(value)
+        return `$${values.length}`
+    }, { useTrigram: false })
+    expect(predicate).toContain("normalized->>'message' COLLATE \"C\" ~* $1")
+    expect(predicate).not.toContain('translate(lower(normalized::text)')
+    expect(values).toEqual(['^sleep[[:space:]]+([0-9]|[1-5][0-9])(\\.[0-9]+)?'])
+})
 const scanRulePreview: typeof scan = (org, canReadLogs, input, query) => scan(org, canReadLogs, input,
     (async (sql: string, params: any) => sql.includes('FROM rules')
         ? { rows: [{ enabled: true, definition: eventProtectionDefinition }] } : query!(sql, params)) as any)
