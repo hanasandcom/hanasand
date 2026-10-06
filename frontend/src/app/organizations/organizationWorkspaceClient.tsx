@@ -2041,14 +2041,8 @@ function MemberPanel({ members, canManage, busy, rowMessages, selectedSubject, o
     const memberCounts = memberStatusCounts(members)
     const memberRoleCounts = memberRoleStatusCounts(members)
     return (
-        <details id='members' open className='overflow-hidden rounded-lg border border-ui-border bg-ui-panel shadow-sm dark:border-ui-border dark:bg-ui-panel' data-org-members-disclosure>
-            <summary className='flex cursor-pointer list-none flex-col gap-3 p-4 outline-none transition hover:bg-ui-raised focus-visible:ring-2 focus-visible:ring-ui-primary/25 dark:hover:bg-ui-panel sm:flex-row sm:items-center sm:justify-between [&::-webkit-details-marker]:hidden'>
-                <SectionTitle icon={<Users className='h-4 w-4' />} title='Members' detail='Roles, status, and removal are available when access needs review.' />
-                <span className='shrink-0 rounded-md border border-ui-border bg-ui-raised px-2 py-1 text-xs font-semibold text-ui-muted dark:border-ui-border dark:bg-ui-canvas dark:text-ui-muted'>
-                    {visibleMembers.length}/{members.length} member{members.length === 1 ? '' : 's'}
-                </span>
-            </summary>
-            <div className='overflow-x-auto border-t border-ui-border p-4 dark:border-ui-border'>
+        <section id='members' className='overflow-hidden rounded-lg border border-ui-border bg-ui-panel shadow-sm dark:border-ui-border dark:bg-ui-panel' data-org-members-panel>
+            <div className='overflow-x-auto p-4'>
                 {busyLabel && <InlineBusy label={busyLabel} marker='data-org-member-busy' />}
                 {members.length === 0 && <EmptyLine text='Invite teammates to populate this access table.' />}
                 {members.length > 0 && (
@@ -2236,7 +2230,9 @@ function MemberPanel({ members, canManage, busy, rowMessages, selectedSubject, o
                                                 </div>
                                             </td>
                                             <td className='border-b border-ui-border py-2 pl-3 text-right dark:border-ui-border'>
-                                                <ConfirmActionButton ariaLabel='Remove member' title={memberMutationReason || 'Remove member'} disabled={!canMutateMember || Boolean(busy)} onConfirm={() => onRemove(member)} icon={<Trash2 className='h-4 w-4' />} />
+                                                <div className='flex items-center justify-end'>
+                                                    <ConfirmActionButton ariaLabel='Remove member' title={memberMutationReason || 'Remove member'} disabled={!canMutateMember || Boolean(busy)} onConfirm={() => onRemove(member)} icon={<Trash2 className='h-4 w-4' />} />
+                                                </div>
                                             </td>
                                         </tr>
                                     )
@@ -2246,7 +2242,7 @@ function MemberPanel({ members, canManage, busy, rowMessages, selectedSubject, o
                     </>
                 )}
             </div>
-        </details>
+        </section>
     )
 }
 
