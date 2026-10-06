@@ -53,26 +53,28 @@ async function refreshOpenCases(cacheKey: string, cookieHeader: string, query: s
     const pending = openCasesRefreshes.get(cacheKey)
     if (pending) return pending
 
-    const request = new NextRequest(`http://localhost/api/cases${query}`, { headers: { cookie: cookieHeader } })
-    let refresh!: Promise<number | null>
-    refresh = (async () => {
-        try {
-            const casesResponse = await getCases(request).catch(() => null)
-            const caseBody = casesResponse?.ok ? await casesResponse.json().catch(() => null) as { items?: CaseRow[], cases?: CaseRow[] } | null : null
-            const cases = Array.isArray(caseBody?.items) ? caseBody.items : Array.isArray(caseBody?.cases) ? caseBody.cases : null
-            if (!cases) return null
-            const count = cases.filter(row => !['closed', 'resolved', 'false_positive', 'suppressed'].includes(String(row.status || '').toLowerCase())).length
-            const now = Date.now()
-            touchOpenCases(cacheKey, { count, expiresAt: now + OPEN_CASES_CACHE_TTL_MS, staleUntil: now + OPEN_CASES_STALE_MS })
-            while (openCasesCache.size > OPEN_CASES_CACHE_MAX_ENTRIES) openCasesCache.delete(openCasesCache.keys().next().value!)
-            return count
-        } catch {
-            return null
-        } finally {
-            if (openCasesRefreshes.get(cacheKey) === refresh) openCasesRefreshes.delete(cacheKey)
-        }
-    })()
-
+    const refresh = fetchOpenCases(cacheKey, cookieHeader, query)
     openCasesRefreshes.set(cacheKey, refresh)
-    return refresh
+    try {
+        return await refresh
+    } finally {
+        if (openCasesRefreshes.get(cacheKey) === refresh) openCasesRefreshes.delete(cacheKey)
+    }
+}
+
+async function fetchOpenCases(cacheKey: string, cookieHeader: string, query: string): Promise<number | null> {
+    try {
+        const request = new NextRequest(`http://localhost/api/cases${query}`, { headers: { cookie: cookieHeader } })
+        const casesResponse = await getCases(request).catch(() => null)
+        const caseBody = casesResponse?.ok ? await casesResponse.json().catch(() => null) as { items?: CaseRow[], cases?: CaseRow[] } | null : null
+        const cases = Array.isArray(caseBody?.items) ? caseBody.items : Array.isArray(caseBody?.cases) ? caseBody.cases : null
+        if (!cases) return null
+        const count = cases.filter(row => !['closed', 'resolved', 'false_positive', 'suppressed'].includes(String(row.status || '').toLowerCase())).length
+        const now = Date.now()
+        touchOpenCases(cacheKey, { count, expiresAt: now + OPEN_CASES_CACHE_TTL_MS, staleUntil: now + OPEN_CASES_STALE_MS })
+        while (openCasesCache.size > OPEN_CASES_CACHE_MAX_ENTRIES) openCasesCache.delete(openCasesCache.keys().next().value!)
+        return count
+    } catch {
+        return null
+    }
 }
