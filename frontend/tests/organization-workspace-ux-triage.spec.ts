@@ -222,7 +222,7 @@ test('organization workspace keeps launch workflow primary and admin controls di
     expect(page).toContain('data-org-member-mobile-list=\'true\'')
     expect(page).toContain('data-org-member-mobile-row=\'true\'')
     expect(page).toContain('data-org-member-desktop-table=\'true\'')
-    expect(page).toContain("className='flex items-center justify-end'")
+    expect(page).toContain('className=\'flex items-center justify-end\'')
     expect(page).toContain('data-org-member-filter-strip')
     expect(page).toContain('data-org-member-filter-count')
     expect(page).toContain('const [memberQuery, setMemberQuery] = useState(\'\')')
