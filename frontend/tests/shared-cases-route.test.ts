@@ -4,10 +4,14 @@ import { NextRequest, NextResponse } from 'next/server'
 
 let intelligence: () => Promise<Response>
 let monitoring: () => Promise<Response>
-mock.module('../src/app/api/findings/_tiProxy', () => ({ proxyTiRequest: () => intelligence() }))
-mock.module('../src/app/api/cases/monitoring/route', () => ({ GET: () => monitoring() }))
+let intelligenceRequest: NextRequest | undefined
+let monitoringRequest: NextRequest | undefined
+mock.module('../src/app/api/findings/_tiProxy', () => ({ proxyTiRequest: (request: NextRequest) => { intelligenceRequest = request; return intelligence() } }))
+mock.module('../src/app/api/cases/monitoring/route', () => ({ GET: (request: NextRequest) => { monitoringRequest = request; return monitoring() } }))
 const { GET } = await import('../src/app/api/cases/route')
 beforeEach(() => {
+    intelligenceRequest = undefined
+    monitoringRequest = undefined
     intelligence = async () => NextResponse.json({ items: [{ id: 'general', updatedAt: '2026-09-06' }], total: 60, nextCursor: 'page-2', access: { readOnly: true } })
     monitoring = async () => NextResponse.json({ items: [{ id: 'HA-3', updatedAt: '2026-09-07' }] })
 })
@@ -46,4 +50,16 @@ test('independent collections preserve authorization and never wait for the othe
     intelligence = async () => NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     expect((await GET(new NextRequest('http://localhost/api/cases?collection=intelligence'))).status).toBe(403)
     expect((await GET(new NextRequest('http://localhost/api/cases?collection=unknown'))).status).toBe(400)
+})
+
+test('open-case summary asks both stores for active counts without loading case rows', async () => {
+    intelligence = async () => NextResponse.json({ total: 12 })
+    monitoring = async () => NextResponse.json({ total: 3 })
+    const result = await GET(new NextRequest('http://localhost/api/cases?summary=true&openOnly=true&organizationId=org-1'))
+    expect(result.status).toBe(200)
+    expect(await result.json()).toMatchObject({ total: 15, warnings: [] })
+    expect(intelligenceRequest?.nextUrl.searchParams.get('summary')).toBe('true')
+    expect(intelligenceRequest?.nextUrl.searchParams.get('openOnly')).toBe('true')
+    expect(monitoringRequest?.nextUrl.searchParams.get('view')).toBe('open-count')
+    expect(monitoringRequest?.nextUrl.searchParams.get('organizationId')).toBe('org-1')
 })

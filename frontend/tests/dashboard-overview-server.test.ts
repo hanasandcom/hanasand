@@ -13,7 +13,7 @@ const { default: Panel, OpenCasesMetric } = await import('../src/app/dashboard/o
 const snapshot = { schemaVersion: 'test', tenantId: 'org-a', watchlist: [], sourceCoverage: [] }
 beforeEach(() => {
     product = async () => Response.json(snapshot)
-    cases = async () => Response.json({ items: [{ status: 'open' }, { status: 'resolved' }] })
+    cases = async () => Response.json({ total: 1 })
 })
 test('monitoring overview is server-loaded without waiting for the cases collection', async () => {
     let releaseCases!: () => void
@@ -29,9 +29,11 @@ test('monitoring overview is server-loaded without waiting for the cases collect
         caseCalls++
         expect(request.cookies.get('id')?.value).toBe('user-a')
         expect(request.nextUrl.searchParams.get('organizationId')).toBe('org-a')
+        expect(request.nextUrl.searchParams.get('summary')).toBe('true')
+        expect(request.nextUrl.searchParams.get('openOnly')).toBe('true')
         casesRequested = true
         await casesGate
-        return Response.json({ items: [{ status: 'open' }, { status: 'closed' }] })
+        return Response.json({ total: 1 })
     }
     const overviewStartedAt = performance.now()
     const state = await loadOverview('id=user-a; access_token=session-a', 'org-a')

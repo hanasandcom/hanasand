@@ -26,12 +26,14 @@ export async function getMonitoringCases(req: FastifyRequest<{ Params: { id?: st
     const organizationId = req.query.organizationId || null
     if (req.query.tenantId && req.query.tenantId !== (organizationId || id)) return res.status(403).send({ error: 'Invalid case scope.' })
     const summary = !caseId && req.query.view === 'summary'
-    if (!caseId && req.query.view === 'count') {
+    if (!caseId && ['count', 'open-count'].includes(req.query.view || '')) {
+        const activeOnly = req.query.view === 'open-count'
         const result = await run(`SELECT count(*)::int AS total
             FROM monitoring_issues i JOIN agent_automations a ON a.id = i.automation_id
             WHERE ${monitoringCaseReadScope('a', '$1', '$2')}
               AND (a.organization_id IS NOT DISTINCT FROM $3::text)
-              AND i.merged_into IS NULL`, [includeAll, id, organizationId])
+              AND i.merged_into IS NULL
+              ${activeOnly ? "AND COALESCE(i.status_override, CASE WHEN i.resolved_at IS NULL THEN 'open' ELSE 'resolved' END) IN ('open', 'in_progress', 'escalated')" : ''}`, [includeAll, id, organizationId])
         res.header('Server-Timing', [...(req.caseBoundaryTiming || []), `count;dur=${(performance.now() - started).toFixed(2)}`].join(', '))
         return res.send({ total: Number(result.rows[0]?.total || 0) })
     }

@@ -8,11 +8,12 @@ export const dynamic = 'force-dynamic'
 export async function GET(request: NextRequest) {
     const collection = request.nextUrl.searchParams.get('collection')
     const summaryOnly = request.nextUrl.searchParams.get('summary') === 'true'
+    const openOnly = summaryOnly && request.nextUrl.searchParams.get('openOnly') === 'true'
     if (collection === 'intelligence') return proxyTiRequest(request, '/v1/cases', { method: 'GET', ...(summaryOnly ? { timeoutMs: 5_000 } : {}) })
-    if (collection === 'monitoring') return monitoringCases(summaryOnly ? withQuery(request, { view: 'count' }) : request)
+    if (collection === 'monitoring') return monitoringCases(summaryOnly ? withQuery(request, { view: openOnly ? 'open-count' : 'count' }) : request)
     if (collection !== null) return NextResponse.json({ error: 'Unknown case collection.' }, { status: 400 })
-    const intelligenceRequest = summaryOnly ? withQuery(request, { summary: 'true' }) : request
-    const monitoringRequest = summaryOnly ? withQuery(request, { view: 'count' }) : request
+    const intelligenceRequest = summaryOnly ? withQuery(request, { summary: 'true', ...(openOnly ? { openOnly: 'true' } : {}) }) : request
+    const monitoringRequest = summaryOnly ? withQuery(request, { view: openOnly ? 'open-count' : 'count' }) : request
     const responses = await Promise.allSettled([
         proxyTiRequest(intelligenceRequest, '/v1/cases', { method: 'GET', ...(summaryOnly ? { timeoutMs: 5_000 } : {}) }), monitoringCases(monitoringRequest),
     ])

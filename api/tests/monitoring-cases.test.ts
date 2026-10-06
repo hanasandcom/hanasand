@@ -1,5 +1,6 @@
 import { beforeEach, expect, mock, test } from 'bun:test'
 import Fastify from 'fastify'
+import type { FastifyReply, FastifyRequest } from 'fastify'
 
 let authorized = true
 let admin = false
@@ -7,16 +8,33 @@ let rows: Record<string, unknown>[] = []
 let values: unknown[] = []
 let sql = ''
 mock.module('../src/utils/auth/tokenWrapper.ts', () => ({ default: async () => ({ valid: authorized, id: authorized ? 'owner' : null }) }))
-mock.module('../src/utils/auth/organizationPageAccess.ts', () => ({ default: async () => ({ valid: admin }) }))
-mock.module('../src/utils/db.ts', () => ({ default: async (query: string, params: unknown[]) => { sql = query; values = params; return { rows } } }))
+mock.module('../src/utils/auth/organizationPageAccess.ts', () => ({ default: async () => ({ valid: admin }), hasHanasandInternalPageAccess: async () => admin, HANASAND_ORGANIZATION_ID: 'test-tuning-org' }))
+mock.module('../src/utils/db.ts', () => ({
+    default: async (query: string, params: unknown[]) => { sql = query; values = params; return { rows } },
+    isDatabaseLowLoad: async () => true,
+    tryWithDatabaseAdvisoryLock: async (_key: string, work: () => Promise<unknown>) => work(),
+    withTransaction: async <T>(work: (query: () => Promise<unknown>) => Promise<T>) => work(async () => ({ rows })),
+}))
 mock.module('../src/utils/monitoringIssues.ts', () => ({ loadMonitoringIssues: async () => [{ caseNumber: 'HA-3', notifications: [{ messageId: 'receipt' }] }] }))
 mock.module('../src/utils/monitoringCaseEvents.ts', () => ({ loadMonitoringRelatedChecks: async () => [], monitoringCheckDetails: () => ({ endpoint: 'https://example.com' }), loadMonitoringCaseEvents: async () => ({ events: [{ id: 'run-1' }], eventTotal: 1, eventPage: 0 }) }))
 const { getMonitoringCases, updateMonitoringCase } = await import('../src/handlers/monitoringCases.ts')
+const { getLogTuning } = await import('../src/handlers/logs/tuning.ts')
 const app = Fastify()
 app.get('/cases/monitoring', getMonitoringCases)
 app.get('/cases/monitoring/:id', getMonitoringCases)
 app.patch('/cases/monitoring/:id', updateMonitoringCase)
 beforeEach(() => { authorized = true; admin = false; rows = []; values = []; sql = '' })
+
+async function readTuningSnapshot() {
+    let body: unknown
+    const reply = {
+        header: () => reply,
+        status: () => reply,
+        send: (value: unknown) => { body = value; return reply },
+    }
+    await getLogTuning({} as FastifyRequest, reply as unknown as FastifyReply)
+    return body
+}
 
 test('authentication is required before querying cases', async () => {
     authorized = false
@@ -49,6 +67,33 @@ test('summary list preserves list fields and scope without loading detail bodies
     expect((await app.inject('/cases/monitoring?view=summary&tenantId=other')).statusCode).toBe(403)
     authorized = false
     expect((await app.inject('/cases/monitoring?view=summary')).statusCode).toBe(401)
+})
+test('open-case count filters resolved and closed monitoring issues in SQL', async () => {
+    rows = [{ total: 3 }]
+    const startedAt = performance.now()
+    const result = await app.inject('/cases/monitoring?view=open-count&organizationId=org-1&tenantId=org-1')
+    const elapsedMs = performance.now() - startedAt
+    expect(result.statusCode).toBe(200)
+    expect(elapsedMs).toBeLessThan(20)
+    expect(result.json()).toEqual({ total: 3 })
+    expect(values).toEqual([false, 'owner', 'org-1'])
+    expect(sql).toContain("COALESCE(i.status_override, CASE WHEN i.resolved_at IS NULL THEN 'open' ELSE 'resolved' END) IN ('open', 'in_progress', 'escalated')")
+    expect(sql).not.toContain('SELECT i.*')
+})
+test('cached tuning snapshot reads stay under 20ms and skip the all-time query', async () => {
+    admin = true
+    const generatedAt = '2026-10-06T10:00:00.000Z'
+    const logs = [{ message: 'failed exec: /usr/sbin/host', event_count: '42', storage_bytes: '8192' }]
+    rows = [{ generated_at: generatedAt, logs, refreshing: false }]
+    const first = await readTuningSnapshot()
+    expect(first).toMatchObject({ organizationId: 'test-tuning-org', generatedAt, logs, pending: false })
+    const queryAfterFirstRead = sql
+    const startedAt = performance.now()
+    const second = await readTuningSnapshot()
+    const elapsedMs = performance.now() - startedAt
+    expect(second).toMatchObject({ generatedAt, logs })
+    expect(sql).toBe(queryAfterFirstRead)
+    expect(elapsedMs).toBeLessThan(20)
 })
 test('default lists and details retain full history even if summary is requested on a detail', async () => {
     rows = [{ id: '3', automation_id: 'monitor', history: [{ id: 'event', at: '2026-09-03T00:00:00Z', note: 'Evidence' }], comments: [{ id: 'comment', body: 'Keep me' }], disk_diagnostics: { host: 'server' } }]
