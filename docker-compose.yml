@@ -136,7 +136,7 @@ services:
       DB_POOL_WARMUP_CONN: ${DB_POOL_WARMUP_CONN:-8}
       LOG_CATCHUP_WORKER_DISABLED: "1"
       API_CORS_ALLOWED_ORIGINS: ${API_CORS_ALLOWED_ORIGINS:-https://hanasand.com,https://www.hanasand.com}
-      MAIL_INTERNAL_URL: ${MAIL_INTERNAL_URL:-http://172.20.0.1:18082}
+      MAIL_INTERNAL_URL: ${MAIL_INTERNAL_URL:-http://stalwart:8080}
       MAIL_HOST: ${MAIL_HOST:-mail.hanasand.com}
       MAIL_DOMAIN: ${MAIL_DOMAIN:-hanasand.com}
       MAIL_ADMIN_USERNAME: ${MAIL_ADMIN_USERNAME:-admin}
