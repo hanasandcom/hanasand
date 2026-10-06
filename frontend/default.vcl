@@ -113,11 +113,16 @@ sub vcl_backend_response {
         set beresp.ttl = 15s;
         set beresp.grace = 52w;
         return (deliver);
-    } else if ((bereq.url ~ "^/(?:dashboard|browser|profile)(?:[/?#]|$)"
+    } else if (bereq.url ~ "^/profile(?:[/?#]|$)" && beresp.status == 200) {
+        # Profile HTML is streamed. Keep it fresh long enough for the complete
+        # response to enter Varnish before the session's next navigation.
+        set beresp.ttl = 1m;
+        return (deliver);
+    } else if ((bereq.url ~ "^/(?:dashboard|browser)(?:[/?#]|$)"
         || bereq.url ~ "^/(?:scanner|vms|db/backups)(?:[/?#]|$)")
         && beresp.status == 200) {
         # Next marks cookie-aware dynamic pages private. These pages are safe
-        # here because vcl_hash includes the complete authenticated cookie.
+        # because vcl_hash includes the authenticated session cookie.
         # Set-Cookie is safe to replay only for that same session key.
         set beresp.ttl = 5s;
         return (deliver);
