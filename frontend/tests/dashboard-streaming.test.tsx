@@ -19,7 +19,7 @@ mock.module('@/utils/status/getStatus', () => ({ default: async (options: { summ
     assert.equal(options.summary, true)
     return new Promise(resolve => { release = resolve })
 } }))
-mock.module('../src/app/dashboard/overview/loadOverview', () => ({ loadOverview: async () => ({ status: 'ready' }) }))
+mock.module('../src/app/dashboard/overview/loadOverview', () => ({ loadOverview: async () => ({ status: 'ready' }), loadOpenCases: async () => 0 }))
 mock.module('../src/app/dashboard/overview/overviewPanel', () => ({ default: () => createElement('p', null, 'Monitoring starts independently') }))
 const { default: Page } = await import('../src/app/dashboard/overview/page')
 const page = await Page({})
