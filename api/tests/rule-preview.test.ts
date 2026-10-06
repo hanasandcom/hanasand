@@ -44,6 +44,20 @@ test('replay can keep the authoritative message regex without forcing a broad tr
     expect(hasPostgresRegexCandidate(condition)).toBe(true)
     expect(hasPostgresRegexCandidate({ ...condition, value: '(?=sleep)sleep' })).toBe(false)
 })
+test('unsupported scalar regexes do not leave unused SQL bind parameters', async () => {
+    let statement = ''
+    let values: unknown[] = []
+    await scanRulePreview('org-a', true, {
+        from: null, until: '2026-09-02T00:00:00Z', action: 'keep',
+        conditions: [{ path: 'service', operator: 'regex', value: '(?=api)api' }],
+    }, (async (sql: string, params: unknown[]) => {
+        statement = sql
+        values = params
+        return { rows: [] }
+    }) as any, { storedLogsOnly: true })
+    const placeholders = [...statement.matchAll(/\$(\d+)/g)].map(match => Number(match[1]))
+    expect([...new Set(placeholders)].sort((left, right) => left - right)).toEqual(Array.from({ length: values.length }, (_, index) => index + 1))
+})
 const scanRulePreview: typeof scan = (org, canReadLogs, input, query) => scan(org, canReadLogs, input,
     (async (sql: string, params: any) => sql.includes('FROM rules')
         ? { rows: [{ enabled: true, definition: eventProtectionDefinition }] } : query!(sql, params)) as any)

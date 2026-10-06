@@ -132,9 +132,11 @@ function scalarCandidatePredicate(condition: Condition, column: string, bind: (v
     const ascii = `${column} !~ '[^\\x00-\\x7F]'`
     const prefix = `${column} IS NULL OR NOT (${ascii}) OR `
     const actual = condition.caseSensitive ? column : `lower(${column} COLLATE "C")`
-    const expected = bind(condition.caseSensitive ? condition.value : condition.value.toLowerCase())
-    if (condition.operator === 'equals') return `(${prefix}${actual} = ${expected})`
-    if (condition.operator === 'contains') return `(${prefix}strpos(${actual}, ${expected}) > 0)`
+    if (condition.operator === 'equals' || condition.operator === 'contains') {
+        const expected = bind(condition.caseSensitive ? condition.value : condition.value.toLowerCase())
+        if (condition.operator === 'equals') return `(${prefix}${actual} = ${expected})`
+        return `(${prefix}strpos(${actual}, ${expected}) > 0)`
+    }
     const expression = regexCandidate(condition.value)
     return expression === null ? null : `(${prefix}${column} COLLATE "C" ~* ${bind(expression)})`
 }
