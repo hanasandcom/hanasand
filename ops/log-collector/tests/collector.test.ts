@@ -81,6 +81,34 @@ test('journal rotation retries saved timestamp and only commits after durable qu
   expect(store.load<unknown>('journal.json', null)).toEqual({ cursor: 'next', since: '2026-09-19T11:23:20.123456+00:00' }); expect(queued()).toHaveLength(1);
   store.send = async () => { throw new Error('disk full'); }; await expect(source.journal(config)).rejects.toThrow('disk full'); expect(store.load<any>('journal.json', {}).cursor).toBe('next');
 });
+test('live journal rebases stale cursors to the recent window', async () => {
+  store.save('journal-live.json', { cursor: 'stale-cursor', since: iso(Date.now() / 1000 - 3600) });
+  const calls: string[][] = [], events = capture();
+  source.commands.stream = async function* (args) {
+    calls.push(args);
+    yield JSON.stringify({ __CURSOR: 'current-cursor', __REALTIME_TIMESTAMP: String(Date.now() * 1000), MESSAGE: 'current ssh login' }) + '\n';
+  };
+
+  await source.journal(config, true);
+
+  const sinceIndex = calls[0]!.indexOf('--since');
+  expect(calls[0]).not.toContain('--after-cursor');
+  expect(Date.parse(calls[0]![sinceIndex + 1]!)).toBeGreaterThan(Date.now() - 61000);
+  expect(events[0]?.message).toBe('current ssh login');
+  expect(store.load<any>('journal-live.json', null).cursor).toBe('current-cursor');
+});
+test('live journal saves its recent cutoff when no rows follow a stale cursor', async () => {
+  store.save('journal-live.json', { cursor: 'stale-cursor', since: iso(Date.now() / 1000 - 3600) });
+  let args: string[] = [];
+  source.commands.stream = async function* (command) { args = command; };
+
+  await source.journal(config, true);
+
+  const checkpoint = store.load<any>('journal-live.json', null);
+  expect(checkpoint.cursor).toBeNull();
+  expect(checkpoint.since).toBe(args[args.indexOf('--since') + 1]);
+  expect(Date.parse(checkpoint.since)).toBeGreaterThan(Date.now() - 61000);
+});
 test('audit failure leaves stable checkpoint; rotation recovery and empty windows advance safely', async () => {
   fs.writeFileSync(store.path('audit.checkpoint'), 'original');
   const calls: string[][] = [];

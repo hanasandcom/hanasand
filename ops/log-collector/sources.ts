@@ -147,9 +147,15 @@ export class Sources {
   }
   async journal(config: Config, live = false) {
     const stateName = live ? 'journal-live.json' : 'journal.json';
-    const checkpoint = this.store.load<string | { cursor: string; since?: string } | null>(stateName, null);
+    const checkpoint = this.store.load<string | { cursor?: string | null; since?: string } | null>(stateName, null);
     let cursor = typeof checkpoint === 'string' ? checkpoint : checkpoint?.cursor;
-    let since = typeof checkpoint === 'object' && checkpoint ? checkpoint.since || config.start! : live ? iso(Date.now() / 1000 - 60) : config.start!;
+    const savedSince = typeof checkpoint === 'object' && checkpoint ? checkpoint.since : undefined;
+    let since = savedSince || (live ? iso(Date.now() / 1000 - 60) : config.start!);
+    const savedSinceAt = Date.parse(savedSince || '');
+    if (live && (!Number.isFinite(savedSinceAt) || Date.now() - savedSinceAt > 60000)) {
+      cursor = undefined;
+      since = iso(Date.now() / 1000 - 60);
+    }
     const args = ['journalctl', '--no-pager', '-o', 'json', '--show-cursor', '--lines=+1000'];
     async function* consume(output: AsyncIterable<string>): AsyncGenerator<LogEvent> {
       for await (const line of output) {
@@ -164,7 +170,7 @@ export class Sources {
     }
     try { await this.store.send(consume(this.commands.stream([...args, ...(cursor ? ['--after-cursor', cursor] : ['--since', since])], { timeout: live ? 5 : 60, attestExecution: true }))); }
     catch (error) { if (!(error instanceof CommandError) || !cursor) throw error; await this.store.send(consume(this.commands.stream([...args, '--since', since], { timeout: live ? 5 : 60 }))); }
-    if (cursor) this.store.save(stateName, { cursor, since });
+    if (cursor || live) this.store.save(stateName, { cursor: cursor || null, since });
   }
   async audit(config: Config, live = false) {
     const prefix = live ? 'audit-live' : 'audit', pending = this.store.path(prefix + '.pending');
