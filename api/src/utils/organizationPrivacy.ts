@@ -493,7 +493,7 @@ async function completePrivacyDeletion(retentionRun: RetentionRun, protection: {
                        'metadata',jsonb_strip_nulls(jsonb_build_object(
                            'category',event.normalized #>> '{metadata,category}','action',event.normalized #>> '{metadata,action}',
                            'organizationId',$1::text,'tenantId',$1::text,'outcome','recorded','privacyDeletionRunId',$2::text))),
-                   original=event.original-'service_log_id'
+                   original=event.original-'service_log_id'-'references'
              WHERE event.ingestion_id='logs' AND (event.normalized #>> '{metadata,organizationId}' = $1
                 OR event.normalized #>> '{metadata,tenantId}' = $1)
             RETURNING id::text id

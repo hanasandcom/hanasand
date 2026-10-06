@@ -1,6 +1,6 @@
 import run, { closeDatabase, withTransaction } from '#db'
 
-// Remove the old service_logs pointer without rewriting the entire events table
+// Remove obsolete source references without rewriting the entire events table
 // in one transaction. CTID page ranges avoid sorting the full table for every
 // batch and only visit each heap page once.
 const pageBatchSize = Math.min(50_000, Math.max(1, Number(process.env.SERVICE_LOG_REFERENCE_BATCH_PAGES) || 10_000))
@@ -14,10 +14,10 @@ async function processRange(startPage: number, endPage: number, attempt = 0): Pr
             await query("SET LOCAL lock_timeout = '2s'")
             await query("SET LOCAL statement_timeout = '300s'")
             const result = await query(`UPDATE events
-                    SET original=original-'service_log_id'
+                    SET original=original-'service_log_id'-'references'
                     WHERE ctid >= ('(' || $1::text || ',0)')::tid
                       AND ctid < ('(' || $2::text || ',0)')::tid
-                      AND original ? 'service_log_id'`, [startPage, endPage])
+                      AND (original ? 'service_log_id' OR original ? 'references')`, [startPage, endPage])
             return { count: result.rowCount || 0 }
         })
         total += result.count
