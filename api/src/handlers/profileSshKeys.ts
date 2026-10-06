@@ -6,10 +6,15 @@ import { cachedRead } from '#utils/readCache.ts'
 import { invalidateProfileSshKeysResponseCache, profileSshKeysResponseCacheKey } from '#utils/profileSshKeyCache.ts'
 import { recordSystemEvent } from '#utils/systemEvent.ts'
 
-type ProfileSshKey = { id: number, name: string, public_key: string, added_at: string }
-type ProfileSshKeyUsage = { fingerprint: string, last_used_at: string | Date }
+type ProfileSshKey = { id: number, name: string, public_key: string, added_at: string | Date }
+type ProfileSshKeyUsage = { fingerprint: string, added_at: string | Date, last_used_at: string | Date }
 const PROFILE_SSH_KEY_USAGE_CACHE_PREFIX = 'profile-ssh-key-usage:'
-const PROFILE_SSH_KEY_CACHE_TTL_MS = 5 * 60 * 1000
+const PROFILE_SSH_KEY_CACHE_TTL_MS = 15 * 1000
+
+function usageCacheIdentity(fingerprint: string, addedAt: string | Date) {
+    const timestamp = addedAt instanceof Date ? addedAt.toISOString() : new Date(addedAt).toISOString()
+    return JSON.stringify([fingerprint, timestamp])
+}
 
 async function authorizeSelf(req: FastifyRequest, res: FastifyReply) {
     res.header('Cache-Control', 'private, no-store')
@@ -36,41 +41,78 @@ async function profileKeys(userId: string) {
     return result.rows as ProfileSshKey[]
 }
 
-async function profileKeyUsage(fingerprints: string[]) {
-    if (!fingerprints.length) return new Map<string, string>()
+async function profileKeyUsage(keys: Array<{ fingerprint: string, addedAt: string | Date }>) {
+    if (!keys.length) return new Map<string, string>()
     const organizationId = process.env.PLATFORM_LOG_ORGANIZATION_ID || null
-    const uniqueFingerprints = [...new Set(fingerprints)].sort()
-    const cacheKey = `${PROFILE_SSH_KEY_USAGE_CACHE_PREFIX}${organizationId || 'hanasand'}:${uniqueFingerprints.join(',')}`
+    const requested = [...new Map(keys.map(key => {
+        const addedAt = key.addedAt instanceof Date ? key.addedAt.toISOString() : new Date(key.addedAt).toISOString()
+        const value = { fingerprint: key.fingerprint, addedAt }
+        return [usageCacheIdentity(value.fingerprint, value.addedAt), value]
+    })).values()].sort((left, right) => left.fingerprint.localeCompare(right.fingerprint) || left.addedAt.localeCompare(right.addedAt))
+    const cacheKey = `${PROFILE_SSH_KEY_USAGE_CACHE_PREFIX}${organizationId || 'hanasand'}:${JSON.stringify(requested)}`
     return cachedRead(cacheKey, PROFILE_SSH_KEY_CACHE_TTL_MS, async () => {
         const result = await run(`
-            SELECT requested.fingerprint, latest.event_timestamp AS last_used_at
-            FROM unnest($1::text[]) AS requested(fingerprint)
+            SELECT requested.fingerprint, requested.added_at, latest.event_timestamp AS last_used_at
+            FROM unnest($1::text[], $2::timestamptz[]) AS requested(fingerprint, added_at)
             CROSS JOIN LATERAL (
-                SELECT e.event_timestamp
-                FROM events e
-                WHERE e.organization_id = (
-                    SELECT id
-                    FROM organizations
-                    WHERE status = 'active'
-                      AND (id = $2 OR ($2::text IS NULL AND lower(name) = 'hanasand'))
-                    ORDER BY created_at
-                    LIMIT 1
-                )
-                  AND e.ingestion_id = 'logs'
-                  AND e.processing_status = 'processed'
-                  AND e.event_type = 'authentication'
-                  AND e.action = 'login'
-                  AND e.outcome = 'success'
-                  AND e.normalized->>'service' = 'sshd'
-                  AND e.normalized->>'host' IN ('inspur', 'ovhcloud')
-                  AND e.normalized->>'message' LIKE 'Accepted publickey for % ssh2: % SHA256:%'
-                  AND substring(e.normalized->>'message' FROM '(SHA256:[A-Za-z0-9+/]{43})') = requested.fingerprint
-                ORDER BY e.event_timestamp DESC
+                SELECT candidate.event_timestamp
+                FROM (
+                    (
+                        SELECT e.event_timestamp
+                        FROM events e
+                        WHERE e.organization_id = (
+                            SELECT id
+                            FROM organizations
+                            WHERE status = 'active'
+                              AND (id = $3 OR ($3::text IS NULL AND lower(name) = 'hanasand'))
+                            ORDER BY created_at
+                            LIMIT 1
+                        )
+                          AND e.ingestion_id = 'logs'
+                          AND e.processing_status = 'processed'
+                          AND e.event_type = 'authentication'
+                          AND e.action = 'login'
+                          AND e.outcome = 'success'
+                          AND e.normalized->>'service' = 'sshd'
+                          AND e.normalized->>'host' IN ('inspur', 'ovhcloud')
+                          AND e.normalized->>'message' LIKE 'Accepted publickey for % ssh2: % SHA256:%'
+                          AND substring(e.normalized->>'message' FROM '(SHA256:[A-Za-z0-9+/]{43})') = requested.fingerprint
+                          AND e.event_timestamp >= requested.added_at
+                        ORDER BY e.event_timestamp DESC
+                        LIMIT 1
+                    )
+                    UNION ALL
+                    (
+                        SELECT e.event_timestamp
+                        FROM events e
+                        WHERE e.organization_id = (
+                            SELECT id
+                            FROM organizations
+                            WHERE status = 'active'
+                              AND (id = $3 OR ($3::text IS NULL AND lower(name) = 'hanasand'))
+                            ORDER BY created_at
+                            LIMIT 1
+                        )
+                          AND e.ingestion_id = 'logs'
+                          AND e.processing_status = 'processed'
+                          AND e.event_type = 'authentication'
+                          AND e.action = 'login'
+                          AND e.outcome = 'success'
+                          AND e.normalized->>'service' = 'sshd'
+                          AND e.normalized->>'host' = 'ovh'
+                          AND e.normalized->>'message' LIKE 'Accepted publickey for % ssh2: % SHA256:%'
+                          AND substring(e.normalized->>'message' FROM '(SHA256:[A-Za-z0-9+/]{43})') = requested.fingerprint
+                          AND e.event_timestamp >= requested.added_at
+                        ORDER BY e.event_timestamp DESC
+                        LIMIT 1
+                    )
+                ) candidate
+                ORDER BY candidate.event_timestamp DESC
                 LIMIT 1
             ) latest
-        `, [uniqueFingerprints, organizationId])
+        `, [requested.map(key => key.fingerprint), requested.map(key => key.addedAt), organizationId])
         return new Map((result.rows as ProfileSshKeyUsage[]).map(row => [
-            row.fingerprint,
+            usageCacheIdentity(row.fingerprint, row.added_at),
             row.last_used_at instanceof Date ? row.last_used_at.toISOString() : row.last_used_at,
         ]))
     })
@@ -110,13 +152,16 @@ async function writeAudit(req: FastifyRequest, actorId: string, actionType: stri
 
 function responseKey(key: ProfileSshKey, lastUsedAt: string | null = null) {
     const normalized = normalizeHostPublicKey(key.public_key)
+    const addedAt = key.added_at instanceof Date ? key.added_at.toISOString() : key.added_at
+    const addedTimestamp = new Date(addedAt).getTime()
+    const usedTimestamp = lastUsedAt ? new Date(lastUsedAt).getTime() : Number.NaN
     return {
         id: key.id,
         name: key.name,
         fingerprint: normalized?.fingerprint || '',
         keyType: normalized?.publicKey.split(' ', 1)[0] || 'SSH key',
-        addedAt: key.added_at,
-        lastUsedAt,
+        addedAt,
+        lastUsedAt: Number.isFinite(addedTimestamp) && usedTimestamp >= addedTimestamp ? lastUsedAt : null,
     }
 }
 
@@ -129,14 +174,14 @@ export async function getProfileSshKeys(req: FastifyRequest, res: FastifyReply) 
                 const normalized = normalizeHostPublicKey(key.public_key)
                 return normalized ? [{ key, normalized }] : []
             })
-            const fingerprints = normalizedKeys.map(({ normalized }) => normalized.fingerprint)
+            const requestedKeys = normalizedKeys.map(({ key, normalized }) => ({ fingerprint: normalized.fingerprint, addedAt: key.added_at }))
             let usage = new Map<string, string>()
             try {
-                usage = await profileKeyUsage(fingerprints)
+                usage = await profileKeyUsage(requestedKeys)
             } catch (error) {
                 req.log.error({ err: error }, 'Unable to load profile SSH key usage.')
             }
-            return normalizedKeys.map(({ key, normalized }) => responseKey(key, usage.get(normalized.fingerprint) || null))
+            return normalizedKeys.map(({ key, normalized }) => responseKey(key, usage.get(usageCacheIdentity(normalized.fingerprint, key.added_at)) || null))
         }))
         return res.send({ keys })
     } catch (error) {
