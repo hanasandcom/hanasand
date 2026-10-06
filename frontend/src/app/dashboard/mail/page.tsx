@@ -17,11 +17,11 @@ export default async function Page(props: { searchParams: Promise<{ mailboxUser?
     const embedUrl = new URL('https://mail.hanasand.com/embed')
     if (searchParams.mailboxUser) embedUrl.searchParams.set('mailboxUser', searchParams.mailboxUser)
 
-    return <DashboardPage className='!gap-0 !px-0 !py-0'>
+    return <DashboardPage style={{ display: 'flex', height: '100%', minHeight: 0, flexDirection: 'column' }} className='!gap-0 !px-0 !py-0'>
         <iframe
             title='Hanasand Mail'
             src={embedUrl.toString()}
-            className='h-full min-h-[680px] w-full border-0'
+            className='min-h-0 w-full flex-1 border-0 bg-ui-canvas'
             allow='clipboard-write'
         />
     </DashboardPage>
