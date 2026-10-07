@@ -4754,17 +4754,20 @@ async function loadOrganizationSupportDetail(organizationId: string) {
     const result = await run(`
         SELECT
             o.*,
-            COUNT(DISTINCT active_members.user_id)::int AS member_count,
-            COUNT(DISTINCT pending_invites.id)::int AS pending_invite_count
+            (
+                SELECT COUNT(*)::int
+                FROM organization_members active_members
+                WHERE active_members.organization_id = o.id
+                  AND active_members.status = 'active'
+            ) AS member_count,
+            (
+                SELECT COUNT(*)::int
+                FROM organization_invites pending_invites
+                WHERE pending_invites.organization_id = o.id
+                  AND pending_invites.status = 'pending'
+            ) AS pending_invite_count
         FROM organizations o
-        LEFT JOIN organization_members active_members
-          ON active_members.organization_id = o.id
-         AND active_members.status = 'active'
-        LEFT JOIN organization_invites pending_invites
-          ON pending_invites.organization_id = o.id
-         AND pending_invites.status = 'pending'
         WHERE o.id = $1
-        GROUP BY o.id
         LIMIT 1
     `, [organizationId])
 
@@ -4828,17 +4831,20 @@ async function loadInspectionOrganizations(input: { q?: string, org: string, use
     const result = await run(`
         SELECT
             o.*,
-            COUNT(DISTINCT active_members.user_id)::int AS member_count,
-            COUNT(DISTINCT pending_invites.id)::int AS pending_invite_count
+            (
+                SELECT COUNT(*)::int
+                FROM organization_members active_members
+                WHERE active_members.organization_id = o.id
+                  AND active_members.status = 'active'
+            ) AS member_count,
+            (
+                SELECT COUNT(*)::int
+                FROM organization_invites pending_invites
+                WHERE pending_invites.organization_id = o.id
+                  AND pending_invites.status = 'pending'
+            ) AS pending_invite_count
         FROM organizations o
-        LEFT JOIN organization_members active_members
-          ON active_members.organization_id = o.id
-         AND active_members.status = 'active'
-        LEFT JOIN organization_invites pending_invites
-          ON pending_invites.organization_id = o.id
-         AND pending_invites.status = 'pending'
         WHERE ${where.join('\n           OR ')}
-        GROUP BY o.id
         ORDER BY o.updated_at DESC
         LIMIT ${add(input.limit)}
     `, values)

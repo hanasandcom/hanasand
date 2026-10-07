@@ -128,11 +128,11 @@ export async function getOrganizations(req: FastifyRequest, res: FastifyReply) {
         SELECT
             o.*,
             om.role,
-            COUNT(DISTINCT active_member_users.id)::int AS member_count,
-            COUNT(DISTINCT active_owner_users.id)::int AS owner_count,
-            COUNT(DISTINCT active_admin_users.id)::int AS admin_count,
-            COUNT(DISTINCT pending_invites.id)::int AS pending_invite_count,
-            COUNT(DISTINCT active_watchlist_items.id)::int AS shared_watchlist_count
+            active_member_counts.member_count,
+            active_member_counts.owner_count,
+            active_member_counts.admin_count,
+            pending_invite_counts.pending_invite_count,
+            watchlist_counts.shared_watchlist_count
         FROM organizations o
         JOIN organization_members om
           ON om.organization_id = o.id
@@ -141,35 +141,32 @@ export async function getOrganizations(req: FastifyRequest, res: FastifyReply) {
         JOIN users current_member_user
           ON current_member_user.id = om.user_id
          AND current_member_user.active = TRUE
-        LEFT JOIN organization_members active_members
-          ON active_members.organization_id = o.id
-         AND active_members.status = 'active'
-        LEFT JOIN users active_member_users
-          ON active_member_users.id = active_members.user_id
-         AND active_member_users.active = TRUE
-        LEFT JOIN organization_members active_owners
-          ON active_owners.organization_id = o.id
-         AND active_owners.status = 'active'
-         AND active_owners.role = 'owner'
-        LEFT JOIN users active_owner_users
-          ON active_owner_users.id = active_owners.user_id
-         AND active_owner_users.active = TRUE
-        LEFT JOIN organization_members active_admins
-          ON active_admins.organization_id = o.id
-         AND active_admins.status = 'active'
-         AND active_admins.role IN ('owner', 'admin')
-        LEFT JOIN users active_admin_users
-          ON active_admin_users.id = active_admins.user_id
-         AND active_admin_users.active = TRUE
-        LEFT JOIN organization_invites pending_invites
-          ON pending_invites.organization_id = o.id
-         AND pending_invites.status = 'pending'
-         AND pending_invites.expires_at > NOW()
-        LEFT JOIN organization_watchlist_items active_watchlist_items
-          ON active_watchlist_items.organization_id = o.id
-         AND active_watchlist_items.archived_at IS NULL
-         AND active_watchlist_items.status = 'active'
-        GROUP BY o.id, om.role
+        LEFT JOIN LATERAL (
+            SELECT
+                COUNT(*)::int AS member_count,
+                COUNT(*) FILTER (WHERE active_members.role = 'owner')::int AS owner_count,
+                COUNT(*) FILTER (WHERE active_members.role IN ('owner', 'admin'))::int AS admin_count
+            FROM organization_members active_members
+            JOIN users active_member_users
+              ON active_member_users.id = active_members.user_id
+             AND active_member_users.active = TRUE
+            WHERE active_members.organization_id = o.id
+              AND active_members.status = 'active'
+        ) active_member_counts ON TRUE
+        LEFT JOIN LATERAL (
+            SELECT COUNT(*)::int AS pending_invite_count
+            FROM organization_invites pending_invites
+            WHERE pending_invites.organization_id = o.id
+              AND pending_invites.status = 'pending'
+              AND pending_invites.expires_at > NOW()
+        ) pending_invite_counts ON TRUE
+        LEFT JOIN LATERAL (
+            SELECT COUNT(*)::int AS shared_watchlist_count
+            FROM organization_watchlist_items active_watchlist_items
+            WHERE active_watchlist_items.organization_id = o.id
+              AND active_watchlist_items.archived_at IS NULL
+              AND active_watchlist_items.status = 'active'
+        ) watchlist_counts ON TRUE
         ORDER BY o.updated_at DESC, o.created_at DESC
     `, [userId])
 
@@ -3282,11 +3279,11 @@ async function loadOrganizationForMember(organizationId: string, userId: string,
         SELECT
             o.*,
             om.role,
-            COUNT(DISTINCT active_member_users.id)::int AS member_count,
-            COUNT(DISTINCT active_owner_users.id)::int AS owner_count,
-            COUNT(DISTINCT active_admin_users.id)::int AS admin_count,
-            COUNT(DISTINCT pending_invites.id)::int AS pending_invite_count,
-            COUNT(DISTINCT active_watchlist_items.id)::int AS shared_watchlist_count
+            active_member_counts.member_count,
+            active_member_counts.owner_count,
+            active_member_counts.admin_count,
+            pending_invite_counts.pending_invite_count,
+            watchlist_counts.shared_watchlist_count
         FROM organizations o
         JOIN organization_members om
           ON om.organization_id = o.id
@@ -3296,36 +3293,33 @@ async function loadOrganizationForMember(organizationId: string, userId: string,
           ON current_member_user.id = om.user_id
          AND current_member_user.active = TRUE
          AND current_member_user.deletion_scheduled_at IS NULL
-        LEFT JOIN organization_members active_members
-          ON active_members.organization_id = o.id
-         AND active_members.status = 'active'
-        LEFT JOIN users active_member_users
-          ON active_member_users.id = active_members.user_id
-         AND active_member_users.active = TRUE
-        LEFT JOIN organization_members active_owners
-          ON active_owners.organization_id = o.id
-         AND active_owners.status = 'active'
-         AND active_owners.role = 'owner'
-        LEFT JOIN users active_owner_users
-          ON active_owner_users.id = active_owners.user_id
-         AND active_owner_users.active = TRUE
-        LEFT JOIN organization_members active_admins
-          ON active_admins.organization_id = o.id
-         AND active_admins.status = 'active'
-         AND active_admins.role IN ('owner', 'admin')
-        LEFT JOIN users active_admin_users
-          ON active_admin_users.id = active_admins.user_id
-         AND active_admin_users.active = TRUE
-        LEFT JOIN organization_invites pending_invites
-          ON pending_invites.organization_id = o.id
-         AND pending_invites.status = 'pending'
-         AND pending_invites.expires_at > NOW()
-        LEFT JOIN organization_watchlist_items active_watchlist_items
-          ON active_watchlist_items.organization_id = o.id
-         AND active_watchlist_items.archived_at IS NULL
-         AND active_watchlist_items.status = 'active'
+        LEFT JOIN LATERAL (
+            SELECT
+                COUNT(*)::int AS member_count,
+                COUNT(*) FILTER (WHERE active_members.role = 'owner')::int AS owner_count,
+                COUNT(*) FILTER (WHERE active_members.role IN ('owner', 'admin'))::int AS admin_count
+            FROM organization_members active_members
+            JOIN users active_member_users
+              ON active_member_users.id = active_members.user_id
+             AND active_member_users.active = TRUE
+            WHERE active_members.organization_id = o.id
+              AND active_members.status = 'active'
+        ) active_member_counts ON TRUE
+        LEFT JOIN LATERAL (
+            SELECT COUNT(*)::int AS pending_invite_count
+            FROM organization_invites pending_invites
+            WHERE pending_invites.organization_id = o.id
+              AND pending_invites.status = 'pending'
+              AND pending_invites.expires_at > NOW()
+        ) pending_invite_counts ON TRUE
+        LEFT JOIN LATERAL (
+            SELECT COUNT(*)::int AS shared_watchlist_count
+            FROM organization_watchlist_items active_watchlist_items
+            WHERE active_watchlist_items.organization_id = o.id
+              AND active_watchlist_items.archived_at IS NULL
+              AND active_watchlist_items.status = 'active'
+        ) watchlist_counts ON TRUE
         WHERE o.id = $1
-        GROUP BY o.id, om.role
         LIMIT 1
     `, [organizationId, userId])
 
