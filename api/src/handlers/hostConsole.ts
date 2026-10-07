@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import WebSocket from 'ws'
-import run, { withDatabaseAdvisoryLock } from '#db'
+import run, { withIdentityAdvisoryLock } from '#db'
 import { validateSession } from '#utils/auth/session.ts'
 import { hasHanasandInternalPageAccess } from '#utils/auth/organizationPageAccess.ts'
 import { recoveryReadOnly } from '#utils/recovery.ts'
@@ -19,7 +19,7 @@ export default function registerHostConsole(fastify: FastifyInstance) {
             || process.env.AUTH_SERVICE_ONLY === '1'
             || process.env.DEPLOYMENT_CANDIDATE_ONLY === '1') return
         try {
-            await withDatabaseAdvisoryLock('profile-ssh-keys-sync', async () => {
+            await withIdentityAdvisoryLock('profile-ssh-keys-sync', async () => {
                 const result = await run(`
                     SELECT DISTINCT c.public_key
                     FROM certificates c

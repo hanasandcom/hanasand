@@ -14,6 +14,7 @@ import { normalizeLogEvent } from '../events/logEvent.ts'
 import { redactLogText, redactLogValue } from './redact.ts'
 import { verifiedAccessFromLog } from '../events/analyzeAccess.ts'
 import { analyzeAccess, analyzeMongoPing } from '../events/analyzeLog.ts'
+import { recordProfileSshKeyUsageFromEvents } from '../sshKeyUsage.ts'
 import { createHash, randomUUID } from 'node:crypto'
 
 type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'fatal'
@@ -168,7 +169,7 @@ async function insertEvents(rows: NonNullable<ReturnType<typeof eventRow>>[], qu
                 'outcome','recorded','privacyDeletionRunId',privacy_deletion_run_id))) ELSE normalized END,
         '{}'::jsonb,'pending'
     FROM target WHERE organization_id IS NOT NULL ON CONFLICT(id) DO NOTHING RETURNING id`,
-        [JSON.stringify(payload), process.env.PLATFORM_LOG_ORGANIZATION_ID || null])
+    [JSON.stringify(payload), process.env.PLATFORM_LOG_ORGANIZATION_ID || null])
     return result.rows.map(row => row.id as string)
 }
 
@@ -186,4 +187,21 @@ export async function recordLogBatch(entries: Parameters<typeof prepareLog>[0][]
     }
     if (!rows.length) return
     await insertEvents(rows, query)
+    if (process.env.NODE_ENV === 'test') return
+    const sshLogins = rows.filter(({ event }) => event.event_type === 'authentication'
+        && event.action === 'login' && event.outcome === 'success'
+        && event.service === 'sshd' && /^Accepted publickey for /.test(event.message)
+        && ['inspur', 'hanasand', 'ovh', 'ovhcloud'].includes(String(event.host).toLowerCase().split('.')[0]))
+    if (!sshLogins.length) return
+    const platformOrganization = await query(`
+        SELECT id FROM organizations
+        WHERE status = 'active'
+          AND (id = $1 OR ($1::text IS NULL AND lower(name) = 'hanasand'))
+        ORDER BY created_at
+        LIMIT 1
+    `, [process.env.PLATFORM_LOG_ORGANIZATION_ID || null])
+    const platformId = platformOrganization.rows[0]?.id
+    if (!platformId) return
+    const platformLogins = sshLogins.filter(row => row.scopeId === null || row.scopeId === platformId)
+    if (platformLogins.length) await recordProfileSshKeyUsageFromEvents(platformLogins.map(row => row.event))
 }

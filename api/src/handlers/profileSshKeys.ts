@@ -1,15 +1,14 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
-import run, { withDatabaseAdvisoryLock, withReadDatabase, withTransaction } from '#db'
+import { identityQueryOnce, withIdentityAdvisoryLock, withIdentityTransaction } from '#db'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import { applyManagedHostSshKeys, normalizeHostPublicKey } from '#utils/hostSsh.ts'
 import { cachedRead } from '#utils/readCache.ts'
 import { invalidateProfileSshKeysResponseCache, profileSshKeysResponseCacheKey } from '#utils/profileSshKeyCache.ts'
+import { invalidateProfileSshKeyUsageIndex } from '#utils/sshKeyUsage.ts'
 import { recordSystemEvent } from '#utils/systemEvent.ts'
 
-type ProfileSshKey = { id: number, name: string, public_key: string, added_at: string | Date }
-type ProfileSshKeyUsage = { fingerprint: string, last_used_at: string | Date }
-const PROFILE_SSH_KEY_USAGE_CACHE_PREFIX = 'profile-ssh-key-usage:'
-const PROFILE_SSH_KEY_CACHE_TTL_MS = 15 * 1000
+type ProfileSshKey = { id: number, name: string, public_key: string, added_at: string | Date, last_used_at: string | Date | null }
+const PROFILE_SSH_KEY_CACHE_TTL_MS = 60 * 1000
 
 async function authorizeSelf(req: FastifyRequest, res: FastifyReply) {
     res.header('Cache-Control', 'private, no-store')
@@ -26,8 +25,11 @@ async function authorizeSelf(req: FastifyRequest, res: FastifyReply) {
 }
 
 async function profileKeys(userId: string) {
-    const result = await run(`
-        SELECT c.id, c.name, c.public_key, uc.assigned_at AS added_at
+    const result = await identityQueryOnce(`
+        SELECT c.id, c.name, c.public_key, uc.assigned_at AS added_at,
+               (SELECT MAX(key_use.last_used_at)
+                FROM ssh_key_usage_latest key_use
+                WHERE key_use.user_id = uc.user_id AND key_use.key_id = c.id) AS last_used_at
         FROM certificates c
         JOIN user_certificates uc ON uc.certificate_id = c.id
         WHERE uc.user_id = $1
@@ -36,79 +38,8 @@ async function profileKeys(userId: string) {
     return result.rows as ProfileSshKey[]
 }
 
-async function profileKeyUsage(keys: string[]) {
-    if (!keys.length) return new Map<string, string>()
-    const organizationId = process.env.PLATFORM_LOG_ORGANIZATION_ID || null
-    const requested = [...new Set(keys)].sort()
-    const cacheKey = `${PROFILE_SSH_KEY_USAGE_CACHE_PREFIX}${organizationId || 'hanasand'}:${JSON.stringify(requested)}`
-    return cachedRead(cacheKey, PROFILE_SSH_KEY_CACHE_TTL_MS, async () => {
-        const result = await run(`
-            SELECT requested.fingerprint, latest.event_timestamp AS last_used_at
-            FROM unnest($1::text[]) AS requested(fingerprint)
-            CROSS JOIN LATERAL (
-                SELECT candidate.event_timestamp
-                FROM (
-                    (
-                        SELECT e.event_timestamp
-                        FROM events e
-                        WHERE e.organization_id = (
-                            SELECT id
-                            FROM organizations
-                            WHERE status = 'active'
-                              AND (id = $2 OR ($2::text IS NULL AND lower(name) = 'hanasand'))
-                            ORDER BY created_at
-                            LIMIT 1
-                        )
-                          AND e.ingestion_id = 'logs'
-                          AND e.processing_status = 'processed'
-                          AND e.event_type = 'authentication'
-                          AND e.action = 'login'
-                          AND e.outcome = 'success'
-                          AND e.normalized->>'service' = 'sshd'
-                          AND e.normalized->>'host' IN ('inspur', 'hanasand', 'ovhcloud')
-                          AND e.normalized->>'message' LIKE 'Accepted publickey for % ssh2: % SHA256:%'
-                          AND substring(e.normalized->>'message' FROM '(SHA256:[A-Za-z0-9+/]{43})') = requested.fingerprint
-                          ORDER BY e.event_timestamp DESC
-                        LIMIT 1
-                    )
-                    UNION ALL
-                    (
-                        SELECT e.event_timestamp
-                        FROM events e
-                        WHERE e.organization_id = (
-                            SELECT id
-                            FROM organizations
-                            WHERE status = 'active'
-                              AND (id = $2 OR ($2::text IS NULL AND lower(name) = 'hanasand'))
-                            ORDER BY created_at
-                            LIMIT 1
-                        )
-                          AND e.ingestion_id = 'logs'
-                          AND e.processing_status = 'processed'
-                          AND e.event_type = 'authentication'
-                          AND e.action = 'login'
-                          AND e.outcome = 'success'
-                          AND e.normalized->>'service' = 'sshd'
-                          AND e.normalized->>'host' = 'ovh'
-                          AND e.normalized->>'message' LIKE 'Accepted publickey for % ssh2: % SHA256:%'
-                          AND substring(e.normalized->>'message' FROM '(SHA256:[A-Za-z0-9+/]{43})') = requested.fingerprint
-                          ORDER BY e.event_timestamp DESC
-                        LIMIT 1
-                    )
-                ) candidate
-                ORDER BY candidate.event_timestamp DESC
-                LIMIT 1
-            ) latest
-        `, [requested, organizationId])
-        return new Map((result.rows as ProfileSshKeyUsage[]).map(row => [
-            row.fingerprint,
-            row.last_used_at instanceof Date ? row.last_used_at.toISOString() : row.last_used_at,
-        ]))
-    })
-}
-
 async function currentHostKeys(exclude?: { userId: string, certificateId: number }) {
-    const result = await run(`
+    const result = await identityQueryOnce(`
         SELECT DISTINCT c.public_key
         FROM certificates c
         JOIN user_certificates uc ON uc.certificate_id = c.id
@@ -125,23 +56,24 @@ async function currentHostKeys(exclude?: { userId: string, certificateId: number
     return [...byFingerprint.values()]
 }
 
-async function writeAudit(req: FastifyRequest, actorId: string, actionType: string, certificateId: number, fingerprint: string) {
+async function writeAudit(req: FastifyRequest, actorId: string, actionType: string, certificateId: number) {
     try {
         await recordSystemEvent(req, {
             actionType,
             actorId,
             targetType: 'user_ssh_key',
             targetId: String(certificateId),
-            context: { fingerprint, hosts: ['inspur', 'ovh'] },
+            context: { hosts: ['inspur', 'ovh'] },
         })
     } catch (error) {
         req.log.error({ err: error, certificateId }, 'Unable to record profile SSH key audit event.')
     }
 }
 
-function responseKey(key: ProfileSshKey, lastUsedAt: string | null = null) {
+function responseKey(key: ProfileSshKey) {
     const normalized = normalizeHostPublicKey(key.public_key)
     const addedAt = key.added_at instanceof Date ? key.added_at.toISOString() : key.added_at
+    const lastUsedAt = key.last_used_at instanceof Date ? key.last_used_at.toISOString() : key.last_used_at
     return {
         id: key.id,
         name: key.name,
@@ -156,20 +88,13 @@ export async function getProfileSshKeys(req: FastifyRequest, res: FastifyReply) 
     const userId = await authorizeSelf(req, res)
     if (!userId) return
     try {
-        const keys = await cachedRead(profileSshKeysResponseCacheKey(userId), PROFILE_SSH_KEY_CACHE_TTL_MS, () => withReadDatabase(async () => {
+        const keys = await cachedRead(profileSshKeysResponseCacheKey(userId), PROFILE_SSH_KEY_CACHE_TTL_MS, async () => {
             const normalizedKeys = (await profileKeys(userId)).flatMap(key => {
                 const normalized = normalizeHostPublicKey(key.public_key)
                 return normalized ? [{ key, normalized }] : []
             })
-            const requestedKeys = normalizedKeys.map(({ normalized }) => normalized.fingerprint)
-            let usage = new Map<string, string>()
-            try {
-                usage = await profileKeyUsage(requestedKeys)
-            } catch (error) {
-                req.log.error({ err: error }, 'Unable to load profile SSH key usage.')
-            }
-            return normalizedKeys.map(({ key, normalized }) => responseKey(key, usage.get(normalized.fingerprint) || null))
-        }))
+            return normalizedKeys.map(({ key }) => responseKey(key))
+        })
         return res.send({ keys })
     } catch (error) {
         req.log.error({ err: error }, 'Unable to list profile SSH keys.')
@@ -188,13 +113,13 @@ export async function postProfileSshKey(req: FastifyRequest, res: FastifyReply) 
     }
 
     try {
-        return await withDatabaseAdvisoryLock('profile-ssh-keys-sync', async () => {
+        return await withIdentityAdvisoryLock('profile-ssh-keys-sync', async () => {
             const existing = await profileKeys(userId)
             if (existing.some(item => normalizeHostPublicKey(item.public_key)?.fingerprint === key.fingerprint)) {
                 return res.status(409).send({ error: 'That SSH key is already on your profile.' })
             }
             const before = await currentHostKeys()
-            const created = await withTransaction(async execute => {
+            const created = await withIdentityTransaction(async execute => {
                 const inserted = await execute(`
                     INSERT INTO certificates (name, public_key, owner, created_by)
                     VALUES ($1, $2, $3, $3)
@@ -212,7 +137,7 @@ export async function postProfileSshKey(req: FastifyRequest, res: FastifyReply) 
             try {
                 await applyManagedHostSshKeys(await currentHostKeys())
             } catch (error) {
-                await withTransaction(async execute => {
+                await withIdentityTransaction(async execute => {
                     await execute('DELETE FROM user_certificates WHERE user_id = $1 AND certificate_id = $2', [userId, created.id])
                     await execute('DELETE FROM certificates WHERE id = $1 AND NOT EXISTS (SELECT 1 FROM user_certificates WHERE certificate_id = $1)', [created.id])
                 }).catch(rollbackError => req.log.error({ err: rollbackError, certificateId: created.id }, 'Unable to roll back a profile SSH key update.'))
@@ -221,9 +146,10 @@ export async function postProfileSshKey(req: FastifyRequest, res: FastifyReply) 
                 return res.status(503).send({ error: 'Unable to apply this key on both hosts. No change was saved.' })
             }
             invalidateProfileSshKeysResponseCache(userId)
-            await writeAudit(req, userId, 'user.ssh_key.added', created.id, key.fingerprint)
+            invalidateProfileSshKeyUsageIndex()
+            await writeAudit(req, userId, 'user.ssh_key.added', created.id)
             return res.status(201).send({
-                key: responseKey({ id: created.id, name, public_key: key.publicKey, added_at: String(created.addedAt) }),
+                key: responseKey({ id: created.id, name, public_key: key.publicKey, added_at: created.addedAt, last_used_at: null }),
             })
         })
     } catch (error) {
@@ -239,11 +165,10 @@ export async function deleteProfileSshKey(req: FastifyRequest, res: FastifyReply
     if (!/^\d{1,10}$/.test(rawId)) return res.status(400).send({ error: 'Invalid SSH key.' })
     const certificateId = Number(rawId)
     try {
-        return await withDatabaseAdvisoryLock('profile-ssh-keys-sync', async () => {
+        return await withIdentityAdvisoryLock('profile-ssh-keys-sync', async () => {
             const existing = (await profileKeys(userId)).find(item => item.id === certificateId)
             const normalized = normalizeHostPublicKey(existing?.public_key)
             if (!existing || !normalized) return res.status(404).send({ error: 'SSH key not found.' })
-            const fingerprint = normalized.fingerprint
             const before = await currentHostKeys()
             const after = await currentHostKeys({ userId, certificateId })
             const afterFingerprints = new Set(after.map(value => normalizeHostPublicKey(value)?.fingerprint).filter(Boolean))
@@ -259,7 +184,7 @@ export async function deleteProfileSshKey(req: FastifyRequest, res: FastifyReply
                 return res.status(503).send({ error: 'Unable to remove this key from both hosts. No change was saved.' })
             }
             try {
-                await withTransaction(async execute => {
+                await withIdentityTransaction(async execute => {
                     await execute('DELETE FROM user_certificates WHERE user_id = $1 AND certificate_id = $2', [userId, certificateId])
                     await execute('DELETE FROM certificates WHERE id = $1 AND NOT EXISTS (SELECT 1 FROM user_certificates WHERE certificate_id = $1)', [certificateId])
                 })
@@ -268,7 +193,8 @@ export async function deleteProfileSshKey(req: FastifyRequest, res: FastifyReply
                 throw error
             }
             invalidateProfileSshKeysResponseCache(userId)
-            await writeAudit(req, userId, 'user.ssh_key.removed', certificateId, fingerprint)
+            invalidateProfileSshKeyUsageIndex()
+            await writeAudit(req, userId, 'user.ssh_key.removed', certificateId)
             return res.send({ ok: true })
         })
     } catch (error) {

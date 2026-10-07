@@ -25,7 +25,11 @@ export default async function Page(props: { params: Promise<{ id: string[] }> })
     const name = Cookies.get('name')?.value
     const userId = Cookies.get('id')?.value
     const token = Cookies.get('access_token')?.value
-    if (!userId || !token) notFound()
+    if (!userId || !token) {
+        if (section !== 'ssh-keys') notFound()
+        const requestedPath = `/profile/${params.id.map(segment => encodeURIComponent(segment)).join('/')}`
+        redirect(`/login?internal=1&path=${encodeURIComponent(requestedPath)}`)
+    }
     if (section === 'certificates') redirect(`/profile/${encodeURIComponent(profileId)}/ssh-keys`)
 
     const isSelfProfile = profileId === userId

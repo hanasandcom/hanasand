@@ -26,6 +26,7 @@ import ensurePushMonitoringSchema from './pushMonitoringSchema.ts'
 import ensureThesisSchema from './thesisSchema.ts'
 import { reservedUsernames } from '#utils/auth/reservedUsernames.ts'
 import { ensureIdentityDataBoundary } from './identityDataBoundary.ts'
+import { ensureProfileSshKeyUsageSchema } from '#utils/sshKeyUsage.ts'
 
 export default async function ensureSchema() {
     const release = process.env.HANASAND_RELEASE_COMMIT
@@ -93,6 +94,7 @@ async function applySchema() {
     await ensureContainerBillingSchema()
     await ensureFailoverSchema()
     await ensureAccountIdentitySchema()
+    await ensureProfileSshKeyUsageSchema()
     await ensureServiceAccountsSchema()
     await ensureThesisSchema()
     await ensureSocialAuthSchema()

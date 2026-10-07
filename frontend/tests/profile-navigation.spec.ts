@@ -37,5 +37,10 @@ test('organization profiles require membership and owner account tools remain pr
         const publicResponse = await publicPage.goto(`/profile/${profile}`)
         expect(publicResponse?.status()).toBe(404)
     }
+    const keyResponse = await publicPage.goto('/profile/eirikhanasand/ssh-keys')
+    expect(keyResponse?.status()).toBe(200)
+    const loginUrl = new URL(publicPage.url())
+    expect(loginUrl.pathname).toBe('/login')
+    expect(loginUrl.searchParams.get('path')).toBe('/profile/eirikhanasand/ssh-keys')
     await visitor.close()
 })

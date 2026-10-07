@@ -33,6 +33,9 @@ export async function proxy(req: NextRequest) {
         : organizationProtectedPaths.find(protectedPath => path.startsWith(protectedPath))
     if ((path === '/profile' || path.startsWith('/profile/'))
         && (!tokenCookie?.value || !idCookie?.value)) {
+        if (/^\/profile\/[^/]+\/ssh-keys\/?$/.test(visiblePath)) {
+            return loginRedirect(req, pathWithSearch, { internal: true })
+        }
         return NextResponse.rewrite(new URL('/_not-found', req.url), {
             headers: { 'Cache-Control': 'private, no-store' },
         })
@@ -239,10 +242,13 @@ function isLocalDashboardRenderProof(req: NextRequest, token: string, id: string
 function loginRedirect(
     req: NextRequest,
     path: string,
-    options: { expired?: boolean, notAllowed?: boolean, clearAuth?: boolean } = {},
+    options: { expired?: boolean, internal?: boolean, notAllowed?: boolean, clearAuth?: boolean } = {},
 ) {
     const url = new URL('/login', req.url)
     url.searchParams.set('path', path)
+    if (options.internal) {
+        url.searchParams.set('internal', '1')
+    }
     if (options.expired) {
         url.searchParams.set('expired', 'true')
     }

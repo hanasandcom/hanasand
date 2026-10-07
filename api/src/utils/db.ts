@@ -102,6 +102,19 @@ const readPool = readConnections ? new Pool({ ...poolOptions, application_name: 
 // Schema startup uses session-scoped SET/RESET and CREATE INDEX CONCURRENTLY.
 // Keep that small, infrequent path on PostgreSQL directly when traffic uses PgBouncer.
 const directPool = DB_POOL_HOST ? new Pool({ ...poolOptions, host: DB_HOST, port: Number(DB_PORT) || 5432, max: directConnections, min: directWarmup }) : pool
+// SSH key data belongs to Identity. Query its PostgreSQL directly instead of
+// sending interactive profile reads through the application DB's FDW views.
+const identityHost = process.env.HANASAND_IDENTITY_FDW_HOST
+const identityPool = identityHost ? new Pool({
+    ...poolOptions,
+    host: identityHost,
+    port: Number(process.env.HANASAND_IDENTITY_FDW_PORT) || 5432,
+    database: process.env.IDENTITY_DB_NAME || 'identity',
+    application_name: 'hanasand-api-identity-data',
+    max: Math.max(1, Math.min(4, Number(process.env.IDENTITY_DB_MAX_CONN) || 4)),
+    min: 1,
+    statement_timeout: 5000,
+}) : null
 
 export async function warmDatabasePools() {
     const targets = new Map([[pool, primaryWarmup], [eventPool, eventWarmup], [priorityEventPool, priorityEventWarmup], [readPool, readWarmup], [directPool, directWarmup]])
@@ -112,6 +125,10 @@ export async function warmDatabasePools() {
             client.release()
         }))
     }))
+    if (identityPool && process.env.AUTH_SERVICE_ONLY !== '1') {
+        const client = await identityPool.connect()
+        client.release()
+    }
 }
 
 export async function isDatabaseLowLoad(maxActiveQueries = 8) {
@@ -156,13 +173,60 @@ function connectDatabase(connectionPool: pg.Pool) {
 }
 
 // Checked-out clients can emit transport errors between queries, outside the pool's idle handler.
-for (const connectionPool of new Set([pool, eventPool, priorityEventPool, readPool, directPool])) {
+for (const connectionPool of new Set([pool, eventPool, priorityEventPool, readPool, directPool, ...(identityPool ? [identityPool] : [])])) {
     connectionPool.on('connect', client => client.on('error', error => console.error('Database connection failed:', error.message)))
     connectionPool.on('error', error => console.error('Idle database connection failed:', error.message))
 }
 
 export async function closeDatabase() {
-    await Promise.all([...new Set([pool, eventPool, priorityEventPool, readPool, directPool])].map(connectionPool => connectionPool.end()))
+    await Promise.all([...new Set([pool, eventPool, priorityEventPool, readPool, directPool, ...(identityPool ? [identityPool] : [])])].map(connectionPool => connectionPool.end()))
+}
+
+export async function identityQueryOnce(query: string, params?: SQLParamType, name?: string) {
+    if (!identityPool) {
+        if (process.env.NODE_ENV === 'production') throw new Error('Identity PostgreSQL is not configured.')
+        return queryOnce(query, params, name)
+    }
+    return name
+        ? identityPool.query({ name, text: query, values: params ?? [] })
+        : identityPool.query(query, params ?? [])
+}
+
+export async function withIdentityAdvisoryLock<T>(key: string, work: () => Promise<T>) {
+    if (!identityPool) {
+        if (process.env.NODE_ENV === 'production') throw new Error('Identity PostgreSQL is not configured.')
+        return withDatabaseAdvisoryLock(key, work)
+    }
+    const client = await identityPool.connect()
+    try {
+        await client.query('SELECT pg_advisory_lock(hashtextextended($1, 0))', [key])
+        return await work()
+    } finally {
+        await client.query('SELECT pg_advisory_unlock(hashtextextended($1, 0))', [key]).catch(() => {})
+        client.release()
+    }
+}
+
+export async function withIdentityTransaction<T>(work: (query: typeof identityQueryOnce) => Promise<T>) {
+    if (!identityPool) {
+        if (process.env.NODE_ENV === 'production') throw new Error('Identity PostgreSQL is not configured.')
+        return withTransaction(work as (query: typeof queryOnce) => Promise<T>)
+    }
+    const client = await identityPool.connect()
+    const query = ((sql: string, params?: SQLParamType, name?: string) => name
+        ? client.query({ name, text: sql, values: params ?? [] })
+        : client.query(sql, params ?? [])) as typeof identityQueryOnce
+    try {
+        await client.query('BEGIN')
+        const result = await work(query)
+        await client.query('COMMIT')
+        return result
+    } catch (error) {
+        await client.query('ROLLBACK').catch(() => {})
+        throw error
+    } finally {
+        client.release()
+    }
 }
 
 export default async function run(query: string, params?: SQLParamType, name?: string) {
