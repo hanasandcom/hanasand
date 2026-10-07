@@ -849,6 +849,11 @@ type NormalizedEvent = {
 
 export function normalizeEvent(event: Event, source: Record<string, unknown>): NormalizedEvent {
     const adapted = adaptVendorEvent(event, source)
+    delete adapted.service_log_id
+    delete adapted.references
+    const original = { ...event }
+    delete original.service_log_id
+    delete original.references
     const user = object(adapted.user)
     const sourceContext = object(adapted.source)
     const timestamp = typeof adapted.timestamp === 'string' && !Number.isNaN(Date.parse(adapted.timestamp)) ? new Date(adapted.timestamp).toISOString() : ''
@@ -870,7 +875,7 @@ export function normalizeEvent(event: Event, source: Record<string, unknown>): N
         sourceProduct: product,
         parserVersion,
         normalized: redact({ ...adapted, source_vendor: vendor, source_product: product, timestamp }),
-        original: redact(event),
+        original: redact(original),
     }
 }
 
