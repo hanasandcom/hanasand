@@ -43,7 +43,8 @@ release_has_schema_changes() {
     if ! git diff --quiet "$previous_release" "$target_release" -- \
         db \
         api/src/utils/db/existingSchema.ts \
-        ':(glob)api/src/utils/db/*Schema.ts'; then
+        ':(glob)api/src/utils/db/*Schema.ts' \
+        ':(exclude)api/src/utils/db/ensureSchema.ts'; then
         return 0
     fi
     for path in $(git diff --name-only "$previous_release" "$target_release" -- api/src); do
