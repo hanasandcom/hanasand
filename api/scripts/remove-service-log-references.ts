@@ -5,6 +5,7 @@ import run, { closeDatabase, withTransaction } from '#db'
 // batch and only visit each heap page once.
 const pageBatchSize = Math.min(50_000, Math.max(1, Number(process.env.SERVICE_LOG_REFERENCE_BATCH_PAGES) || 10_000))
 const workerCount = Math.min(16, Math.max(1, Number(process.env.SERVICE_LOG_REFERENCE_WORKERS) || 8))
+const requestedStartPage = Math.max(0, Math.floor(Number(process.env.SERVICE_LOG_REFERENCE_START_PAGE) || 0))
 let total = 0
 let batches = 0
 const deferredPages: number[] = []
@@ -48,7 +49,7 @@ try {
     const pageCount = Number(size?.pages || 0)
     if (!Number.isSafeInteger(pageCount) || pageCount < 0) throw new Error(`Invalid events heap page count: ${size?.pages}`)
 
-    let nextPage = 0
+    let nextPage = Math.min(requestedStartPage, pageCount)
     const workers = Array.from({ length: workerCount }, async (_, worker) => {
         while (nextPage < pageCount) {
             const startPage = nextPage
