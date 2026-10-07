@@ -4,6 +4,7 @@ import run, { closeDatabase, withTransaction } from '#db'
 // in one transaction. CTID page ranges avoid sorting the full table for every
 // batch and only visit each heap page once.
 const pageBatchSize = Math.min(50_000, Math.max(1, Number(process.env.SERVICE_LOG_REFERENCE_BATCH_PAGES) || 10_000))
+const workerCount = Math.min(16, Math.max(1, Number(process.env.SERVICE_LOG_REFERENCE_WORKERS) || 8))
 let total = 0
 let batches = 0
 const deferredPages: number[] = []
@@ -46,11 +47,20 @@ try {
     const pageCount = Number(size?.pages || 0)
     if (!Number.isSafeInteger(pageCount) || pageCount < 0) throw new Error(`Invalid events heap page count: ${size?.pages}`)
 
-    for (let startPage = 0; startPage < pageCount; startPage += pageBatchSize) {
-        const endPage = Math.min(pageCount, startPage + pageBatchSize)
-        await processRange(startPage, endPage)
-        console.log(JSON.stringify({ removed: total, batches, pages: `${endPage}/${pageCount}` }))
-    }
+    let nextPage = 0
+    const workers = Array.from({ length: workerCount }, async (_, worker) => {
+        while (nextPage < pageCount) {
+            const startPage = nextPage
+            nextPage += pageBatchSize
+            const endPage = Math.min(pageCount, startPage + pageBatchSize)
+            await processRange(startPage, endPage)
+            console.log(JSON.stringify({ worker, removed: total, batches, pages: `${endPage}/${pageCount}` }))
+        }
+    })
+    const outcomes = await Promise.allSettled(workers)
+    const failure = outcomes.find((outcome): outcome is PromiseRejectedResult => outcome.status === 'rejected')
+    if (failure) throw failure.reason
+
     for (let retry = 1; deferredPages.length && retry <= 12; retry++) {
         const pending = deferredPages.splice(0)
         console.log(JSON.stringify({ retry, deferredPages: pending.length, removed: total }))
