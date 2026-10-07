@@ -37,19 +37,19 @@ printf '%s\n' "$$" > "$owner_file"
 release_has_schema_changes() {
     previous_release=$1
     target_release=$2
-    # Re-run schema setup when the schema entry points or SQL files changed.
-    # Other API source changes only trigger it when their diff changes DDL;
-    # replaying idempotent ALTERs on every code-only release can hold candidate
-    # startup behind long-running production transactions.
+    # Re-run main-database schema setup when its SQL files changed. Changes to
+    # ensureSchema.ts are classified by the DDL check below, allowing Identity-
+    # only setup to run before the main database release marker is checked.
     if ! git diff --quiet "$previous_release" "$target_release" -- \
         db \
-        api/src/utils/db/ensureSchema.ts \
         api/src/utils/db/existingSchema.ts \
         ':(glob)api/src/utils/db/*Schema.ts'; then
         return 0
     fi
     for path in $(git diff --name-only "$previous_release" "$target_release" -- api/src); do
         test "$path" = api/src/utils/db/logSearchIndexes.ts && continue
+        # The SSH usage table is provisioned directly in Identity at startup.
+        test "$path" = api/src/utils/sshKeyUsage.ts && continue
         if git diff --unified=0 "$previous_release" "$target_release" -- "$path" \
             | grep -Eiq '^\+[^+].*([^[:alnum:]_])(CREATE|ALTER|DROP|TRUNCATE|REINDEX|GRANT|REVOKE)([[:space:]]|$)'; then
             return 0

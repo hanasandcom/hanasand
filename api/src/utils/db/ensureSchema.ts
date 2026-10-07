@@ -29,6 +29,9 @@ import { ensureIdentityDataBoundary } from './identityDataBoundary.ts'
 import { ensureProfileSshKeyUsageSchema } from '#utils/sshKeyUsage.ts'
 
 export default async function ensureSchema() {
+    // This schema lives in Identity and must be available even for code-only
+    // releases that reuse the main database's applied-schema marker.
+    await ensureProfileSshKeyUsageSchema()
     const release = process.env.HANASAND_RELEASE_COMMIT
     const tracked = Boolean(release && /^[a-f0-9]{40}$/.test(release))
     const deploymentCandidate = process.env.DEPLOYMENT_CANDIDATE_ONLY === '1'
@@ -94,7 +97,6 @@ async function applySchema() {
     await ensureContainerBillingSchema()
     await ensureFailoverSchema()
     await ensureAccountIdentitySchema()
-    await ensureProfileSshKeyUsageSchema()
     await ensureServiceAccountsSchema()
     await ensureThesisSchema()
     await ensureSocialAuthSchema()
