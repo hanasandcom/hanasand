@@ -14,6 +14,7 @@ async function processRange(startPage: number, endPage: number, attempt = 0): Pr
         const result = await withTransaction(async query => {
             await query("SET LOCAL lock_timeout = '2s'")
             await query("SET LOCAL statement_timeout = '300s'")
+            await query("SET LOCAL synchronous_commit = 'off'")
             const result = await query(`UPDATE events
                     SET original=original-'service_log_id'-'references'
                     WHERE ctid >= ('(' || $1::text || ',0)')::tid
