@@ -20,6 +20,8 @@ export async function retainTrafficLogs() {
             JOIN events e ON e.ingestion_id='logs'
               AND e.normalized #>> '{metadata,origin,table}'='traffic_events'
               AND e.normalized #>> '{metadata,origin,id}'=t.id::text
+              -- Narrow candidates through the existing processed-log trigram index.
+              AND translate(lower(e.normalized::text), ' ', '0') LIKE '%traffic_events%'
             WHERE t.created_at < date_trunc('hour', NOW() - INTERVAL '7 days')
               AND t.created_at < (SELECT covered_before FROM traffic_history_state WHERE singleton)
               AND e.ingestion_id = 'logs' AND e.processing_status = 'processed'

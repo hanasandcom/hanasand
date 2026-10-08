@@ -49,7 +49,8 @@ try {
         UPDATE traffic_events SET created_at=date_trunc('hour',now()-interval '7 days')+interval '30 minutes' WHERE id=2;
         INSERT INTO events SELECT 'traffic:'||id,'service:traffic_events:'||id,'logs',
             CASE id WHEN 3 THEN 'pending' WHEN 4 THEN 'skipped' WHEN 5 THEN 'failed' ELSE 'processed' END,
-            '{"message":"traffic evidence"}'::jsonb FROM generate_series(1,6) id;
+            jsonb_build_object('message','traffic evidence','metadata',jsonb_build_object('origin',jsonb_build_object('table','traffic_events','id',id::text)))
+            FROM generate_series(1,6) id;
         UPDATE events SET ingestion_id='other' WHERE id='traffic:6'`)
     const trafficBefore = (await pool.query('SELECT * FROM events WHERE id LIKE \'traffic:%\' ORDER BY id')).rows
     assert.deepEqual(await retainTrafficLogs(), { deleted: 0 }) // Aggregation has not caught up.
