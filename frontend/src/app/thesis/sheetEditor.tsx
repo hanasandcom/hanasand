@@ -37,7 +37,7 @@ function InlineTable({ data, index, active, onSelect, onNavigate, onChange }: { 
         return () => observer.disconnect()
     }, [])
     const naturalWidth = data.cells[0].reduce((sum, _, c) => sum + (data.widths[c] || 180), 0)
-    const scale = availableWidth > 0 ? Math.min(1, availableWidth / naturalWidth) : 1
+    const scale = availableWidth > 0 ? availableWidth / naturalWidth : 1
     const resize = useRef<{ axis: 'row' | 'column', index: number, start: number, size: number, value: number } | null>(null)
     function resizeHandle(axis: 'row' | 'column', index: number) {
         const size = (axis === 'row' ? data.heights[index] : data.widths[index]) || (axis === 'row' ? 48 : 180)
@@ -57,10 +57,10 @@ function InlineTable({ data, index, active, onSelect, onNavigate, onChange }: { 
             onPointerMove={event => {
                 if (!resize.current) return
                 const state = resize.current
-                state.value = Math.max(40, Math.min(1200, state.size + ((axis === 'row' ? event.clientY : event.clientX) - state.start) / scale))
+                state.value = Math.max(40, Math.min(1200, state.size + ((axis === 'row' ? event.clientY : event.clientX) - state.start) / (axis === 'row' ? 1 : scale)))
                 event.currentTarget.setAttribute('aria-valuenow', String(state.value))
                 const table = event.currentTarget.closest('table')!
-                if (axis === 'row') (table.rows[index] as HTMLElement).style.height = `${state.value * scale}px`
+                if (axis === 'row') (table.rows[index] as HTMLElement).style.height = `${state.value}px`
                 else (table.querySelectorAll('col')[index] as HTMLElement).style.width = `${state.value * scale}px`
             }}
             onPointerUp={() => {
@@ -72,10 +72,10 @@ function InlineTable({ data, index, active, onSelect, onNavigate, onChange }: { 
             }} onPointerCancel={() => { resize.current = null }} />
     }
     return <section className='thesis-table-block' aria-label='Inline table'>
-        <div ref={tableScroll} className='thesis-table-scroll' style={{ fontSize: `${Math.max(10, 14 * scale)}px` }}>
-            <table style={{ width: naturalWidth * scale }}>
-                <colgroup>{data.cells[0].map((_, c) => <col key={c} style={{ width: (data.widths[c] || 180) * scale }} />)}</colgroup>
-                <tbody>{data.cells.map((cells, r) => <tr key={r} style={{ height: Math.max(26, (data.heights[r] || 48) * scale) }}>{cells.map((raw, c) => {
+        <div ref={tableScroll} className='thesis-table-scroll'>
+            <table style={{ width: '100%' }}>
+                <colgroup>{data.cells[0].map((_, c) => <col key={c} style={{ width: `${((data.widths[c] || 180) / naturalWidth) * 100}%` }} />)}</colgroup>
+                <tbody>{data.cells.map((cells, r) => <tr key={r} style={{ height: Math.max(26, data.heights[r] || 48) }}>{cells.map((raw, c) => {
                     const Cell = r === 0 ? 'th' : 'td'
                     const address = `${columnName(c)}${r + 1}`
                     const value = cellValue(data.cells, r, c)
@@ -173,6 +173,14 @@ export default function SheetEditor({ sheet, canEdit, onChange, actions, trailin
     const [active, setActive] = useState<Cell | null>(null)
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number } | null>(null)
     const [wholeTable, setWholeTable] = useState<number | null>(null)
+    const [tableDialogOpen, setTableDialogOpen] = useState(false)
+    const [tableColumns, setTableColumns] = useState('2')
+    const [tableRows, setTableRows] = useState('2')
+    const tableDialog = useRef<HTMLDialogElement>(null)
+    useEffect(() => {
+        if (tableDialogOpen) tableDialog.current?.showModal()
+        else if (tableDialog.current?.open) tableDialog.current.close()
+    }, [tableDialogOpen])
     useEffect(() => { setWholeTable(null) }, [sheet.body, active])
     const [pending, setPending] = useState<(PendingTable & { table: number, source: string }) | null>(null)
     const draft = active && canEdit && pending?.source === sheet.body ? pending : null
@@ -295,12 +303,15 @@ export default function SheetEditor({ sheet, canEdit, onChange, actions, trailin
         requestAnimationFrame(() => root.current?.querySelector<HTMLElement>(`[data-sheet-table="${cell.table}"]`)?.focus({ preventScroll: true }))
     }
     function insert() {
+        const columns = Number(tableColumns), rows = Number(tableRows)
+        if (!Number.isInteger(columns) || columns < 1 || columns > 20 || !Number.isInteger(rows) || rows < 1 || rows > 100) return
         const savedSelection = selection.current?.source === sheet.body ? selection.current : null
         const start = cell ? parsed[cell.table].end : savedSelection?.start ?? sheet.body.length
         const end = cell ? start : savedSelection?.end ?? sheet.body.length
-        const value = '\n\n' + writeTable({ cells: [['Task', 'Hours', 'Notes'], ['', '', ''], ['', '', '']], widths: [], heights: [] }) + '\n'
+        const value = '\n\n' + writeTable({ cells: Array.from({ length: rows }, () => Array.from({ length: columns }, () => '')), widths: [], heights: [] }) + '\n'
         onChange('body', sheet.body.slice(0, start) + value + sheet.body.slice(end))
         setActive(null)
+        setTableDialogOpen(false)
     }
     return <div ref={root} className='grid min-w-0 gap-5' onKeyDownCapture={event => { if (event.key === 'Escape') setContextMenu(null) }} onBlurCapture={event => {
         if (!(event.relatedTarget as HTMLElement | null)?.closest('[data-table-cell], [data-table-tools]')) setActive(null)
@@ -318,7 +329,7 @@ export default function SheetEditor({ sheet, canEdit, onChange, actions, trailin
                     <div ref={tableActionsPanel} id={tableActionsId} popover='auto' role='group' className='thesis-table-actions-panel' aria-label='Table actions' onClickCapture={event => {
                         if ((event.target as HTMLElement).closest('button:not(:disabled)')) requestAnimationFrame(() => tableActionsPanel.current?.hidePopover())
                     }}>
-                        {showInsertTable && <button className={sheetButton} onMouseDown={event => event.preventDefault()} onClick={insert}>Insert table</button>}
+                        {showInsertTable && <button className={sheetButton} onMouseDown={event => event.preventDefault()} onClick={() => setTableDialogOpen(true)}>Insert table</button>}
                         {cell && table ? <>
                             <p className='thesis-table-actions-label'>Table {cell.table + 1} · {columnName(cell.col)}{cell.row + 1}</p>
                             <button className={sheetButton} aria-pressed={wholeTable === cell.table} onClick={selectWholeTable}>Select table</button>
@@ -346,6 +357,14 @@ export default function SheetEditor({ sheet, canEdit, onChange, actions, trailin
             </div>}
         </div>
         {beforeContent}
+        {canEdit && <dialog ref={tableDialog} className='thesis-sheet-dialog' aria-labelledby='table-dialog-title' onCancel={event => { event.preventDefault(); setTableDialogOpen(false) }}>
+            <form onSubmit={event => { event.preventDefault(); insert() }} className='grid gap-5'>
+                <h2 id='table-dialog-title' className='text-lg font-semibold'>Insert table</h2>
+                <label className='grid gap-2 text-sm font-medium'>Columns<input type='number' min={1} max={20} required value={tableColumns} onChange={event => setTableColumns(event.target.value)} className='w-full rounded-md border border-ui-border bg-ui-raised px-3 py-2 text-ui-text' /></label>
+                <label className='grid gap-2 text-sm font-medium'>Rows<input type='number' min={1} max={100} required value={tableRows} onChange={event => setTableRows(event.target.value)} className='w-full rounded-md border border-ui-border bg-ui-raised px-3 py-2 text-ui-text' /></label>
+                <div className='flex justify-between gap-3 pt-2'><button type='button' onClick={() => setTableDialogOpen(false)} className='rounded-md border border-ui-border bg-ui-raised px-4 py-2 text-sm font-semibold text-ui-muted hover:text-ui-text'>Cancel</button><button type='submit' disabled={Number(tableColumns) < 1 || Number(tableColumns) > 20 || Number(tableRows) < 1 || Number(tableRows) > 100} className='rounded-md bg-ui-primary px-4 py-2 text-sm font-semibold text-ui-on-primary disabled:opacity-40'>Insert table</button></div>
+            </form>
+        </dialog>}
         {(!compact || writing || sheet.body.trim()) && <div className='min-w-0' onClick={() => setContextMenu(null)} onContextMenu={event => {
             if (!canEdit) return
             const target = event.target as HTMLElement

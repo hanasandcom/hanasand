@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Copy, History, Info, Minus, Plus, Redo2, Settings2, Undo2 } from 'lucide-react'
+import { Copy, History, Info, Menu, Redo2, Settings2, Undo2 } from 'lucide-react'
 import SheetEditor, { sheetButton } from './sheetEditor'
 import TimetableSheet from './timetableSheet'
 import PlanSheet from './planSheet'
@@ -43,6 +43,26 @@ function SheetSettingsMenu({ children }: { children: ReactNode }) {
     return <>
         <button ref={trigger} type='button' popoverTarget={id} aria-label='Sheet settings' title='Sheet settings' className={sheetButton + ' w-10 px-0'} onClick={() => requestAnimationFrame(positionPanel)}><Settings2 size={18} /></button>
         <div ref={panel} id={id} popover='auto' className='thesis-settings-panel' role='group' aria-label='Features on this sheet'>{children}</div>
+    </>
+}
+
+function SheetPageMenu({ onNew, onDelete, deleteDisabled }: { onNew: (trigger: HTMLButtonElement) => void, onDelete: (trigger: HTMLButtonElement) => void, deleteDisabled: boolean }) {
+    const id = useId()
+    const panel = useRef<HTMLDivElement>(null)
+    const trigger = useRef<HTMLButtonElement>(null)
+    function positionPanel() {
+        if (!panel.current || !trigger.current) return
+        const box = trigger.current.getBoundingClientRect()
+        const height = panel.current.offsetHeight || 100
+        panel.current.style.left = `${Math.max(16, Math.min(box.right - 224, window.innerWidth - 240))}px`
+        panel.current.style.top = `${Math.max(16, Math.min(box.bottom + 8, window.innerHeight - height - 16))}px`
+    }
+    return <>
+        <button ref={trigger} type='button' popoverTarget={id} aria-label='Page menu' title='Page menu' className={sheetButton + ' w-10 px-0'} onClick={() => requestAnimationFrame(positionPanel)}><Menu size={18} /></button>
+        <div ref={panel} id={id} popover='auto' className='thesis-page-actions-panel' role='group' aria-label='Page actions'>
+            <button type='button' className={sheetButton} onClick={() => { if (trigger.current) onNew(trigger.current) }}>New page</button>
+            <button type='button' className={sheetButton} disabled={deleteDisabled} onClick={() => { if (trigger.current) onDelete(trigger.current) }}>Delete page</button>
+        </div>
     </>
 }
 
@@ -139,7 +159,7 @@ export default function ThesisClient({ initialDocument, canEdit }: { initialDocu
         if (!canEdit || !sheetDialog) return
         if (sheetDialog.kind === 'add') {
             const name = sheetName.trim()
-            if (!name || name.length > 100) { setDialogError('Enter a sheet name of 1–100 characters.'); return }
+            if (!name || name.length > 100) { setDialogError('Enter a page name of 1–100 characters.'); return }
             const id = crypto.randomUUID()
             const body = writeSheets([...sheets, { id, name, title: `# ${name}`, body: '' }])
             if (body.length > 1_000_000) { setDialogError('The workspace is full.'); return }
@@ -232,8 +252,7 @@ export default function ThesisClient({ initialDocument, canEdit }: { initialDocu
                     actions={(canEdit || codeEnabled) && <>
                         {codeEnabled && <div ref={setCodeToolbar} className='flex' />}
                         {canEdit && <>
-                            <button type='button' disabled={!ready} onClick={event => openSheetDialog({ kind: 'add' }, event.currentTarget)} aria-label='Add sheet' title='Add sheet' className={sheetButton + ' w-10 px-0'}><Plus size={18} /></button>
-                            <button type='button' disabled={!ready || sheets.length === 1} onClick={event => openSheetDialog({ kind: 'delete', id: sheets[active].id, name: sheets[active].name }, event.currentTarget)} aria-label={`Remove ${sheets[active].name} sheet`} title={sheets.length === 1 ? 'Keep at least one sheet' : `Remove ${sheets[active].name}`} className={sheetButton + ' w-10 px-0'}><Minus size={18} /></button>
+                            <SheetPageMenu deleteDisabled={!ready || sheets.length === 1} onNew={trigger => openSheetDialog({ kind: 'add' }, trigger)} onDelete={trigger => openSheetDialog({ kind: 'delete', id: sheets[active].id, name: sheets[active].name }, trigger)} />
                             <button type='button' disabled={!thesis.canUndo || busy} onClick={thesis.undo} aria-label='Undo' title='Undo (Ctrl/⌘ Z)' className={sheetButton + ' w-10 px-0'}><Undo2 size={18} /></button>
                             <button type='button' disabled={!thesis.canRedo || busy} onClick={thesis.redo} aria-label='Redo' title='Redo (Ctrl/⌘ Shift Z)' className={sheetButton + ' w-10 px-0'}><Redo2 size={18} /></button>
                             {settings.history !== false && <button type='button' disabled={busy || !ready} aria-expanded={history !== null} aria-label={history === null ? 'History' : 'Close history'} title={history === null ? 'History' : 'Close history'} onClick={() => history === null ? loadHistory() : setHistory(null)} className={sheetButton + ' w-10 px-0'}>
@@ -246,24 +265,24 @@ export default function ThesisClient({ initialDocument, canEdit }: { initialDocu
             {validationError && <p role='alert' className='text-sm text-ui-text'>{validationError}</p>}
             {canEdit && sheetDialog && <dialog ref={dialogRef} className='thesis-sheet-dialog' aria-labelledby='sheet-dialog-title' onCancel={event => { event.preventDefault(); closeSheetDialog() }}>
                 <form onSubmit={submitSheetDialog} className='grid gap-5'>
-                    <h2 id='sheet-dialog-title' className='text-lg font-semibold'>{sheetDialog.kind === 'add' ? 'Create a new sheet' : 'Are you sure you want to delete?'}</h2>
+                    <h2 id='sheet-dialog-title' className='text-lg font-semibold'>{sheetDialog.kind === 'add' ? 'New page' : 'Delete this page?'}</h2>
                     {sheetDialog.kind === 'delete' && <div className='text-sm leading-6 text-ui-muted'>
-                        <p>This deletes the sheet and its content. Earlier saved versions remain in shared History.</p>
-                        <div id='sheet-name-instruction' className='mt-3'>Enter “<span className='font-semibold text-ui-text'>{sheetDialog.name}</span>” <button type='button' className='inline-flex rounded-md p-2 align-middle text-ui-text hover:bg-ui-raised' aria-label='Copy sheet name' onClick={async() => {
-                            try { await navigator.clipboard.writeText(sheetDialog.name); setCopyMessage('Sheet name copied.') }
-                            catch { setCopyMessage('Could not copy. Select the sheet name above and copy it manually.') }
+                        <p>This deletes the page and its content. Earlier saved versions remain in shared History.</p>
+                        <div id='sheet-name-instruction' className='mt-3'>Enter “<span className='font-semibold text-ui-text'>{sheetDialog.name}</span>” <button type='button' className='inline-flex rounded-md p-2 align-middle text-ui-text hover:bg-ui-raised' aria-label='Copy page name' onClick={async() => {
+                            try { await navigator.clipboard.writeText(sheetDialog.name); setCopyMessage('Page name copied.') }
+                            catch { setCopyMessage('Could not copy. Select the page name above and copy it manually.') }
                         }}><Copy size={16} aria-hidden='true' /></button> below to confirm.</div>
                         <p role='status'>{copyMessage}</p>
                     </div>}
                     <label className='grid gap-2 text-sm font-medium'>
-                        {sheetDialog.kind === 'add' ? 'Sheet name' : 'Confirm sheet name'}
+                        {sheetDialog.kind === 'add' ? 'Page name' : 'Confirm page name'}
                         <input autoFocus value={sheetName} onChange={event => setSheetName(event.target.value)} maxLength={sheetDialog.kind === 'add' ? 100 : undefined} autoComplete='off' aria-describedby={sheetDialog.kind === 'delete' ? 'sheet-name-instruction' : undefined} className='w-full rounded-md border border-ui-border bg-ui-raised px-3 py-2 text-ui-text outline-none focus:border-ui-primary focus:ring-4 focus:ring-ui-primary/15' />
                     </label>
-                    {sheetDialog.kind === 'delete' && (!deleteTarget || sheets.length === 1) && <p role='alert' className='text-sm text-ui-text'>This sheet can no longer be deleted. Close this dialog and check the current sheets.</p>}
+                    {sheetDialog.kind === 'delete' && (!deleteTarget || sheets.length === 1) && <p role='alert' className='text-sm text-ui-text'>This page can no longer be deleted. Close this dialog and check the current pages.</p>}
                     {dialogError && <p role='alert' className='text-sm text-ui-text'>{dialogError}</p>}
                     <div className='flex justify-between gap-3 pt-2'>
                         <button type='button' onClick={closeSheetDialog} className='rounded-md border border-ui-border bg-ui-raised px-4 py-2 text-sm font-semibold text-ui-muted hover:text-ui-text'>Cancel</button>
-                        <button type='submit' disabled={sheetDialog.kind === 'add' ? !sheetName.trim() : !deleteTarget || sheets.length === 1 || sheetName !== sheetDialog.name} className={`rounded-md px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40 ${sheetDialog.kind === 'delete' ? 'bg-ui-raised text-ui-text' : 'bg-ui-primary text-ui-on-primary'}`}>{sheetDialog.kind === 'add' ? 'Create sheet' : 'Delete'}</button>
+                        <button type='submit' disabled={sheetDialog.kind === 'add' ? !sheetName.trim() : !deleteTarget || sheets.length === 1 || sheetName !== sheetDialog.name} className={`rounded-md px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40 ${sheetDialog.kind === 'delete' ? 'bg-ui-raised text-ui-text' : 'bg-ui-primary text-ui-on-primary'}`}>{sheetDialog.kind === 'add' ? 'Create page' : 'Delete page'}</button>
                     </div>
                 </form>
             </dialog>}

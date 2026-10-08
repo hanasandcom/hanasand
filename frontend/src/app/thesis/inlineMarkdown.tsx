@@ -1,6 +1,6 @@
 'use client'
 
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { marked } from 'marked'
@@ -41,6 +41,7 @@ export default function InlineMarkdown({ text, displayText = text, label, single
     onChange: (text: string, group?: string) => void, onSelection?: (start: number, end: number) => void,
 }) {
     const [active, setActive] = useState<number | null>(null)
+    const [editStyle, setEditStyle] = useState<CSSProperties>({})
     const input = useRef<HTMLTextAreaElement>(null)
     const cursor = useRef<number | null>(null)
     const lines = text.split('\n')
@@ -51,17 +52,25 @@ export default function InlineMarkdown({ text, displayText = text, label, single
     useLayoutEffect(() => {
         if (!input.current || line === null) return
         const element = input.current
-        element.style.height = '0px'
+        element.style.height = 'auto'
         element.style.height = `${element.scrollHeight}px`
         if (cursor.current !== null) {
-            element.focus()
+            element.focus({ preventScroll: true })
             element.setSelectionRange(cursor.current, cursor.current)
             cursor.current = null
         }
     }, [text, line])
 
-    function select(next: number, position?: number) {
+    function select(next: number, position?: number, target?: HTMLElement) {
         const selected = Math.max(0, Math.min(next, lines.length - 1))
+        if (target) {
+            const sourceLine = target.closest<HTMLElement>('[data-source-line]')
+            const block = sourceLine?.closest<HTMLElement>('h1, h2, h3, p, li, pre, blockquote') || sourceLine
+            if (block) {
+                const style = window.getComputedStyle(block)
+                setEditStyle({ fontFamily: style.fontFamily, fontSize: style.fontSize, fontWeight: style.fontWeight, fontStyle: style.fontStyle, lineHeight: style.lineHeight, letterSpacing: style.letterSpacing, marginTop: style.marginTop, marginBottom: style.marginBottom })
+            }
+        }
         cursor.current = position ?? lines[selected].length
         setActive(selected)
     }
@@ -90,7 +99,7 @@ export default function InlineMarkdown({ text, displayText = text, label, single
                     const top = code.getBoundingClientRect().top + parseFloat(getComputedStyle(code).paddingTop)
                     selected += 1 + Math.floor(Math.max(0, event.clientY - top) / parseFloat(getComputedStyle(code).lineHeight))
                 }
-                select(selected)
+                select(selected, undefined, target)
             }}>
             <Markdown components={thesisMarkdownComponents} remarkPlugins={[remarkGfm, markdownSpacing, sourceLines]}>{source}</Markdown>
         </div>
@@ -115,7 +124,7 @@ export default function InlineMarkdown({ text, displayText = text, label, single
     }
     return <div className='thesis-inline-document'>
         {render(before, 0, 'before', line ?? lines.length)}
-        {line !== null && <textarea ref={input} aria-label={label} rows={1} className='thesis-inline-input' value={value} placeholder={!singleLine && showEmptyHint ? 'Write here…' : undefined}
+        {line !== null && <textarea ref={input} aria-label={label} rows={1} className='thesis-inline-input' style={editStyle} value={value} placeholder={!singleLine && showEmptyHint ? 'Write here…' : undefined}
             maxLength={singleLine ? 500 : 1_000_000} spellCheck
             onBlur={() => setActive(null)}
             onSelect={event => onSelection?.(start + event.currentTarget.selectionStart, start + event.currentTarget.selectionEnd)}
