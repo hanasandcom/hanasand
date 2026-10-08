@@ -232,6 +232,16 @@ test('history yields to live batches, small files coalesce within 100 events', a
   await server(events => [201, { ok: true, accepted: events.length }], async cfg => { const d = new Delivery(cfg); await d.deliver(store.queuedBatches('live')); expect(store.queuedBatches('live')).toHaveLength(5); await d.deliver(store.queuedBatches('live')); d.close(); });
   expect(store.queuedBatches('history')).toHaveLength(1);
 });
+test('live delivery alternates between sharded and legacy queues', async () => {
+  const old = event(config, 'legacy', 'fixture', 'ready', iso());
+  const legacyDir = join(store.root, 'queue', 'live', 'current'); fs.mkdirSync(legacyDir, { recursive: true });
+  fs.writeFileSync(join(legacyDir, '00000000000000000001.pending'), JSON.stringify({ events: [old] }));
+  await store.send([event(config, 'sharded', 'fixture', 'ready', iso())]);
+  const first = store.queuedBatches('live'), second = store.queuedBatches('live'), third = store.queuedBatches('live');
+  expect(first.every(path => path.includes('/sharded/'))).toBe(true);
+  expect(second.every(path => path.includes('/current/'))).toBe(true);
+  expect(third.every(path => path.includes('/sharded/'))).toBe(true);
+});
 test('a blocked history request does not block live acknowledgement', async () => {
   await store.send([event(config, 'old', 'fixture', 'ready', '2026-01-01T00:00:00Z'), event(config, 'new', 'fixture', 'ready', iso())]);
   let release!: () => void, started!: () => void; const blocked = new Promise<void>(resolve => { started = resolve; }), gate = new Promise<void>(resolve => { release = resolve; });

@@ -103,6 +103,7 @@ export function syncDirectory(path: string) { const fd = fs.openSync(path, 'r');
 export class Store {
   private staged = new Map<string, string>();
   private pendingBatches = 0;
+  private nextLiveQueue: 'sharded' | 'legacy' = 'sharded';
   constructor(public root = process.env.HANASAND_LOG_STATE || '/var/lib/hanasand-log-collector', public persistence?: Persistence) { fs.mkdirSync(root, { recursive: true, mode: 0o700 }); }
   path(name: string) { return join(this.root, name); }
   readRaw(name: string): string | null { return this.staged.get(name) ?? (fs.existsSync(this.path(name)) ? fs.readFileSync(this.path(name), 'utf8') : null); }
@@ -161,7 +162,7 @@ export class Store {
     }
     flush();
   }
-  queuedNames(lane: string, limit: number): string[] {
+  queuedNames(lane: string, limit: number, advanceFairness = true): string[] {
     if (limit <= 0) return [];
     const root = this.path('queue/' + lane);
     const namesIn = (directoryPath: string, pageLimit = limit, includePending = false) => {
@@ -178,26 +179,29 @@ export class Store {
       return names.map(name => join(directoryPath, name));
     };
     const current = join(this.root, 'queue', 'sharded', lane);
-    const currentFiles = namesIn(current);
-    if (currentFiles.length) return currentFiles;
-    if (fs.existsSync(current)) {
+    const sharded = namesIn(current);
+    if (sharded.length < limit && fs.existsSync(current)) {
       const buckets = fs.readdirSync(current).filter(name => isQueueBucket(name)).sort();
-      const sharded: string[] = [];
       for (const bucket of buckets) {
         sharded.push(...namesIn(join(current, bucket), limit - sharded.length));
         if (sharded.length >= limit) break;
       }
-      if (sharded.length) return sharded.sort((a, b) => a.localeCompare(b)).slice(0, limit);
     }
     // Old queue publication could fail after its data barrier because the
     // flat directory index was full. Those .pending files are durable and can
     // be delivered directly while new batches go to the bounded layout.
     const legacyCurrent = join(root, 'current');
     const legacy = namesIn(legacyCurrent, limit, true);
+    if (lane === 'live' && sharded.length && legacy.length) {
+      const selected = this.nextLiveQueue === 'sharded' ? sharded : legacy;
+      if (advanceFairness) this.nextLiveQueue = this.nextLiveQueue === 'sharded' ? 'legacy' : 'sharded';
+      return selected;
+    }
+    if (sharded.length) return sharded.sort((a, b) => a.localeCompare(b)).slice(0, limit);
     if (legacy.length) return legacy;
     return namesIn(root);
   }
-  private queuedCurrentLiveNames(limit: number) { return this.queuedNames('live', limit); }
+  private queuedCurrentLiveNames(limit: number) { return this.queuedNames('live', limit, false); }
   private quarantineQueueFile(path: string) {
     const target = shardedQueuePath(this.path('queue/quarantine'), basename(path) + '.interrupted');
     fs.mkdirSync(dirname(target), { recursive: true, mode: 0o700 });
