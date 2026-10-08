@@ -75,7 +75,7 @@ export default function SshKeys({ initialKeys }: { initialKeys: ProfileSshKey[] 
                                 <td className='whitespace-nowrap px-4 py-3 text-ui-muted'>{formatDate(key.addedAt)}</td>
                                 <td className='max-w-sm px-4 py-3 text-ui-muted'>
                                     <span className='block whitespace-nowrap'>{formatDateTime(key.lastUsedAt)}</span>
-                                    {(key.lastUsedServer || key.lastUsedIp || key.lastUsedUserAgent) && <dl className='mt-1 space-y-0.5 whitespace-normal break-words text-xs'>
+                                    {(key.lastUsedServer || key.lastUsedIp || key.lastUsedUserAgent) && <dl className='mt-1 space-y-0.5 whitespace-normal wrap-break-word text-xs'>
                                         {key.lastUsedServer && <div><dt className='inline font-medium'>Service: </dt><dd className='inline'>{key.lastUsedServer}</dd></div>}
                                         {key.lastUsedIp && <div><dt className='inline font-medium'>IP: </dt><dd className='inline'>{key.lastUsedIp}</dd></div>}
                                         {key.lastUsedUserAgent && <div><dt className='inline font-medium'>User agent: </dt><dd className='inline'>{key.lastUsedUserAgent}</dd></div>}
