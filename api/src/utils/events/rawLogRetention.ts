@@ -15,18 +15,22 @@ export async function retainTrafficLogs() {
         await query('SET LOCAL lock_timeout = \'2s\'')
         const lock = await query('SELECT pg_try_advisory_xact_lock(hashtextextended(\'traffic-log-retention\', 0)) AS acquired')
         if (!lock.rows[0].acquired) return { deleted: 0 }
-        const { rows: [result] } = await query(`WITH eligible AS MATERIALIZED (
-            SELECT t.id FROM traffic_events t
-            JOIN events e ON e.ingestion_id='logs'
+        const { rows: [result] } = await query(`WITH event_matches AS MATERIALIZED (
+            SELECT e.ctid, e.normalized #>> '{metadata,origin,id}' AS traffic_id
+            FROM events e
+            WHERE e.ingestion_id='logs' AND e.processing_status='processed'
               AND e.normalized #>> '{metadata,origin,table}'='traffic_events'
-              AND e.normalized #>> '{metadata,origin,id}'=t.id::text
+              AND e.normalized #>> '{metadata,origin,id}' ~ '^[0-9]+$'
               -- Narrow candidates through the existing processed-log trigram index.
               AND translate(lower(e.normalized::text), ' ', '0') LIKE '%traffic_events%'
+            FOR UPDATE OF e SKIP LOCKED
+        ), eligible AS MATERIALIZED (
+            SELECT t.id FROM event_matches e
+            JOIN traffic_events t ON t.id=e.traffic_id::bigint
             WHERE t.created_at < date_trunc('hour', NOW() - INTERVAL '7 days')
               AND t.created_at < (SELECT covered_before FROM traffic_history_state WHERE singleton)
-              AND e.ingestion_id = 'logs' AND e.processing_status = 'processed'
             ORDER BY t.created_at, t.id LIMIT 5000
-            FOR UPDATE OF t, e SKIP LOCKED
+            FOR UPDATE OF t SKIP LOCKED
         ), removed AS (
             DELETE FROM traffic_events t USING eligible WHERE t.id = eligible.id RETURNING t.id
         ) SELECT count(*)::int AS deleted FROM removed`)
