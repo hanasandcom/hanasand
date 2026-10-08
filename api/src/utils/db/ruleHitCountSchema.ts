@@ -52,4 +52,23 @@ export default async function ensureRuleHitCountSchema() {
             FOR EACH ROW EXECUTE FUNCTION maintain_rule_hit_count()`)
         await query('UPDATE rule_hit_count_state SET initialized=TRUE WHERE id=TRUE')
     })
+    // Concurrent receipt batches can visit rule counters in different orders.
+    // Acquire one transaction lock before any rows in a statement are inserted
+    // so the row-level counter triggers cannot deadlock on those shared rows.
+    await run(`CREATE OR REPLACE FUNCTION serialize_log_analyze_receipt_writes() RETURNS trigger LANGUAGE plpgsql AS $$
+        BEGIN
+            PERFORM pg_advisory_xact_lock(hashtextextended('hanasand:log_analyze_receipts', 0));
+            RETURN NULL;
+        END
+        $$`)
+    await run(`DO $$ BEGIN
+        IF NOT EXISTS (
+            SELECT 1 FROM pg_trigger
+            WHERE tgrelid='log_analyze_receipts'::regclass AND tgname='log_analyze_receipts_write_lock' AND NOT tgisinternal
+        ) THEN
+            CREATE TRIGGER log_analyze_receipts_write_lock
+            BEFORE INSERT OR UPDATE OR DELETE ON log_analyze_receipts
+            FOR EACH STATEMENT EXECUTE FUNCTION serialize_log_analyze_receipt_writes();
+        END IF;
+    END $$`)
 }
