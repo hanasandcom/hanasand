@@ -8,6 +8,9 @@ export type ProfileSshKey = {
     keyType: string
     addedAt: string
     lastUsedAt: string | null
+    lastUsedServer: string | null
+    lastUsedIp: string | null
+    lastUsedUserAgent: string | null
 }
 
 export type HostOverview = {

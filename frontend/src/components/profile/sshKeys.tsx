@@ -73,7 +73,14 @@ export default function SshKeys({ initialKeys }: { initialKeys: ProfileSshKey[] 
                                 </th>
                                 <td className='px-4 py-3 font-mono text-xs text-ui-muted'>{key.fingerprint}</td>
                                 <td className='whitespace-nowrap px-4 py-3 text-ui-muted'>{formatDate(key.addedAt)}</td>
-                                <td className='whitespace-nowrap px-4 py-3 text-ui-muted'>{formatDateTime(key.lastUsedAt)}</td>
+                                <td className='max-w-sm px-4 py-3 text-ui-muted'>
+                                    <span className='block whitespace-nowrap'>{formatDateTime(key.lastUsedAt)}</span>
+                                    {(key.lastUsedServer || key.lastUsedIp || key.lastUsedUserAgent) && <dl className='mt-1 space-y-0.5 whitespace-normal break-words text-xs'>
+                                        {key.lastUsedServer && <div><dt className='inline font-medium'>Service: </dt><dd className='inline'>{key.lastUsedServer}</dd></div>}
+                                        {key.lastUsedIp && <div><dt className='inline font-medium'>IP: </dt><dd className='inline'>{key.lastUsedIp}</dd></div>}
+                                        {key.lastUsedUserAgent && <div><dt className='inline font-medium'>User agent: </dt><dd className='inline'>{key.lastUsedUserAgent}</dd></div>}
+                                    </dl>}
+                                </td>
                                 <td className='px-3 py-3 text-right'>
                                     <button type='button' disabled={busy} onClick={() => void removeKey(key)} aria-label={`Remove ${key.name}`} title='Remove key' className='rounded-lg p-2 text-ui-muted transition hover:bg-ui-danger/10 hover:text-ui-danger disabled:opacity-50'>
                                         <Trash2 className='h-4 w-4' />
@@ -121,5 +128,5 @@ function formatDate(value: string) {
 function formatDateTime(value: string | null) {
     if (!value) return 'Not recorded'
     const date = new Date(value)
-    return Number.isNaN(date.getTime()) ? 'Unknown' : `${date.toISOString().slice(0, 16).replace('T', ' ')} UTC`
+    return Number.isNaN(date.getTime()) ? 'Unknown' : new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(date)
 }

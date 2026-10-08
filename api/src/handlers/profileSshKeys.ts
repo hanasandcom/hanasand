@@ -7,7 +7,16 @@ import { invalidateProfileSshKeysResponseCache, profileSshKeysResponseCacheKey }
 import { invalidateProfileSshKeyUsageIndex } from '#utils/sshKeyUsage.ts'
 import { recordSystemEvent } from '#utils/systemEvent.ts'
 
-type ProfileSshKey = { id: number, name: string, public_key: string, added_at: string | Date, last_used_at: string | Date | null }
+type ProfileSshKey = {
+    id: number
+    name: string
+    public_key: string
+    added_at: string | Date
+    last_used_at: string | Date | null
+    last_used_server_app: string | null
+    last_used_ip_address: string | null
+    last_used_user_agent: string | null
+}
 const PROFILE_SSH_KEY_CACHE_TTL_MS = 60 * 1000
 
 async function authorizeSelf(req: FastifyRequest, res: FastifyReply) {
@@ -27,11 +36,19 @@ async function authorizeSelf(req: FastifyRequest, res: FastifyReply) {
 async function profileKeys(userId: string) {
     const result = await identityQueryOnce(`
         SELECT c.id, c.name, c.public_key, uc.assigned_at AS added_at,
-               (SELECT MAX(key_use.last_used_at)
-                FROM ssh_key_usage_latest key_use
-                WHERE key_use.user_id = uc.user_id AND key_use.key_id = c.id) AS last_used_at
+               latest_use.last_used_at,
+               latest_use.server_app AS last_used_server_app,
+               latest_use.ip_address AS last_used_ip_address,
+               latest_use.user_agent AS last_used_user_agent
         FROM certificates c
         JOIN user_certificates uc ON uc.certificate_id = c.id
+        LEFT JOIN LATERAL (
+            SELECT key_use.last_used_at, key_use.server_app, key_use.ip_address::text AS ip_address, key_use.user_agent
+            FROM ssh_key_usage_latest key_use
+            WHERE key_use.user_id = uc.user_id AND key_use.key_id = c.id
+            ORDER BY key_use.last_used_at DESC, key_use.server_app
+            LIMIT 1
+        ) latest_use ON TRUE
         WHERE uc.user_id = $1
         ORDER BY uc.assigned_at DESC, c.id DESC
     `, [userId])
@@ -81,6 +98,9 @@ function responseKey(key: ProfileSshKey) {
         keyType: normalized?.publicKey.split(' ', 1)[0] || 'SSH key',
         addedAt,
         lastUsedAt,
+        lastUsedServer: key.last_used_server_app,
+        lastUsedIp: key.last_used_ip_address,
+        lastUsedUserAgent: key.last_used_user_agent,
     }
 }
 
@@ -149,7 +169,16 @@ export async function postProfileSshKey(req: FastifyRequest, res: FastifyReply) 
             invalidateProfileSshKeyUsageIndex()
             await writeAudit(req, userId, 'user.ssh_key.added', created.id)
             return res.status(201).send({
-                key: responseKey({ id: created.id, name, public_key: key.publicKey, added_at: created.addedAt, last_used_at: null }),
+                key: responseKey({
+                    id: created.id,
+                    name,
+                    public_key: key.publicKey,
+                    added_at: created.addedAt,
+                    last_used_at: null,
+                    last_used_server_app: null,
+                    last_used_ip_address: null,
+                    last_used_user_agent: null,
+                }),
             })
         })
     } catch (error) {
