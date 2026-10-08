@@ -3,6 +3,7 @@ import * as os from 'node:os';
 import * as http from 'node:http';
 import { once } from 'node:events';
 import { spawnSync } from 'node:child_process';
+import { dirname } from 'node:path';
 import { fs, join, Store, Delivery, DeliveryError, Commands, CommandError, CollectionError, Config, LogEvent, iso, sha, scrub, scrubArguments, scrubMetadata, boundedMetadata, event, recordLines, MAX_RECORD_BYTES, seconds } from '../core';
 import { Sources, parseAudit, dockerEvent, dockerCliStream, localAuditDate, auditEvents } from '../sources';
 import { guestExport, guestAck, jsonEvents } from '../guests';
@@ -219,7 +220,8 @@ test('failed response and lost ACK preserve stable IDs across sender restart', a
   // Restore the identical durable batch to simulate a crash after commit but
   // before unlink. Receiver-side deduplication sees the same sourceEventId.
   await server(events => [201, { ok: true, accepted: events.length }], async (cfg, requests) => {
-    const raw = fs.readFileSync(path); const first = new Delivery(cfg); await first.deliver([path]); first.close(); fs.writeFileSync(path, raw);
+    const raw = fs.readFileSync(path); const first = new Delivery(cfg); await first.deliver([path]); first.close();
+    fs.mkdirSync(dirname(path), { recursive: true }); fs.writeFileSync(path, raw);
     const restarted = new Delivery(cfg); await restarted.deliver([path]); restarted.close(); expect(requests[0][0].sourceEventId).toBe(requests[1][0].sourceEventId);
   });
 });

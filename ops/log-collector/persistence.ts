@@ -3,6 +3,7 @@ import { join, resolve, relative } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import type { MessagePort } from 'node:worker_threads';
+import { isQueueBucket } from './queueLayout';
 
 export const COMMIT_INTERVAL_MS = 1250;
 export type PersistenceRequest =
@@ -140,33 +141,43 @@ export class GroupCommit implements Persistence {
   }
   async recover() {
     for (const lane of ['live', 'history']) {
-      let scanned = 0;
+      const sharded = join(this.root, 'queue', 'sharded', lane);
+      fs.mkdirSync(sharded, { recursive: true, mode: 0o700 });
+      let scanned = 0, published = 0, quarantined = 0;
       const roots = [
-        { path: join(this.root, 'queue', lane, 'current'), recoverPending: true },
-        { path: join(this.root, 'queue', lane), recoverPending: false },
+        sharded,
+        ...fs.readdirSync(sharded).filter(isQueueBucket).map(bucket => join(sharded, bucket)),
       ];
-      for (const { path: root, recoverPending } of roots) {
-        if (!fs.existsSync(root)) continue;
+      for (const root of roots) {
         const directory = fs.opendirSync(root);
         try {
           for (let entry; (entry = directory.readSync());) {
-            if (++scanned % 1000 === 0) await new Promise<void>(resolve => setImmediate(resolve));
-            // Legacy flat queues keep their old cursor until publication, so
-            // source replay can rebuild these batches without renaming into a
-            // directory too large for new writes.
-            if (!recoverPending || !entry.name.endsWith('.pending')) continue;
+            if (!entry.isFile() || !entry.name.endsWith('.pending')) continue;
             const path = join(root, entry.name);
-            // An interrupted, unpublished batch cannot have advanced a durable
-            // cursor. Quarantine it; source replay recovers its stable event IDs.
+            let valid = false;
             try {
               if (fs.statSync(path).size > 512000) throw new Error('Oversized pending batch');
-              const value = JSON.parse(fs.readFileSync(path, 'utf8'));
+              const value = JSON.parse(fs.readFileSync(path, 'utf8')) as { events?: unknown[] };
               if (!Array.isArray(value.events) || !value.events.length) throw new Error('Invalid pending batch');
-              this.queue(path);
-            } catch { fs.renameSync(path, path + '.interrupted'); this.dirty(); }
+              valid = true;
+            } catch { /* Unpublished files can be rebuilt from the old source cursor. */ }
+            if (valid) {
+              fs.renameSync(path, path.slice(0, -'.pending'.length) + '.json');
+              published++;
+            } else {
+              fs.renameSync(path, path + '.interrupted');
+              quarantined++;
+            }
+            if (++scanned % 100000 === 0) {
+              console.log('Collector queue recovery: scanned ' + scanned + ' ' + lane + ' batches');
+              await new Promise<void>(resolve => setImmediate(resolve));
+            }
           }
         } finally { directory.closeSync(); }
       }
+      if (published || quarantined) await this.sync();
+      if (published) console.log('Collector queue recovery complete: published ' + published + ' ' + lane + ' batches');
+      if (quarantined) console.log('Collector queue recovery quarantined ' + quarantined + ' interrupted ' + lane + ' batches');
     }
   }
 }

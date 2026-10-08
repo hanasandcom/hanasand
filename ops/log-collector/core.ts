@@ -6,6 +6,7 @@ import * as http from 'node:http';
 import * as https from 'node:https';
 import { spawn } from 'node:child_process';
 import { recordExecution } from './executions';
+import { isQueueBucket, shardedQueuePath } from './queueLayout';
 import { setTimeout as sleep } from 'node:timers/promises';
 
 export type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
@@ -119,15 +120,16 @@ export class Store {
   }
   async durable() { if (this.persistence) { await this.persistence.barrier(); this.pendingBatches = 0; } }
   queueBatch(batch: LogEvent[], lane: string, atomic = false) {
-    const root = this.path('queue/' + lane + '/current');
-    fs.mkdirSync(root, { recursive: true, mode: 0o700 });
-    if (!this.persistence) { syncDirectory(dirname(root)); syncDirectory(this.root); }
+    const current = this.path('queue/sharded/' + lane);
+    fs.mkdirSync(current, { recursive: true, mode: 0o700 });
     const identity = (BigInt(Date.now()) * 1000000n).toString().padStart(20, '0') + '-' + randomUUID().replaceAll('-', '');
-    const pending = join(root, identity + '.pending'), path = join(root, identity + '.json');
+    const pending = shardedQueuePath(current, identity + '.pending'), path = pending.slice(0, -'.pending'.length) + '.json';
+    fs.mkdirSync(dirname(pending), { recursive: true, mode: 0o700 });
+    if (!this.persistence) { syncDirectory(current); syncDirectory(dirname(current)); syncDirectory(this.root); }
     const fd = fs.openSync(pending, 'wx', 0o600);
     try { fs.writeFileSync(fd, JSON.stringify({ events: batch, ...(atomic ? { atomic: true } : {}) })); if (!this.persistence) fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
     if (this.persistence) { this.persistence.queue(pending); this.pendingBatches++; }
-    else { fs.renameSync(pending, path); syncDirectory(root); }
+    else { fs.renameSync(pending, path); syncDirectory(dirname(pending)); }
   }
   async send(events: Events) {
     const batches: Record<string, LogEvent[]> = { live: [], history: [] }, sizes = { live: 0, history: 0 };
@@ -162,28 +164,61 @@ export class Store {
   queuedNames(lane: string, limit: number): string[] {
     if (limit <= 0) return [];
     const root = this.path('queue/' + lane);
-    const namesIn = (directoryPath: string) => {
+    const namesIn = (directoryPath: string, pageLimit = limit, includePending = false) => {
+      if (pageLimit <= 0) return [];
       if (!fs.existsSync(directoryPath)) return [];
       const names: string[] = [], directory = fs.opendirSync(directoryPath);
       try { for (let entry; (entry = directory.readSync());) {
-        if (!entry.name.endsWith('.json')) continue;
+        if (!entry.isFile() || (!entry.name.endsWith('.json') && !(includePending && entry.name.endsWith('.pending')))) continue;
         // A huge delivery backlog must not turn every poll into a full scan.
         names.push(entry.name);
-        if (names.length >= limit) break;
+        if (names.length >= pageLimit) break;
       } } finally { directory.closeSync(); }
       names.sort();
       return names.map(name => join(directoryPath, name));
     };
-    const current = namesIn(join(root, 'current'));
-    if (current.length) return current;
+    const current = join(this.root, 'queue', 'sharded', lane);
+    const currentFiles = namesIn(current);
+    if (currentFiles.length) return currentFiles;
+    if (fs.existsSync(current)) {
+      const buckets = fs.readdirSync(current).filter(name => isQueueBucket(name)).sort();
+      const sharded: string[] = [];
+      for (const bucket of buckets) {
+        sharded.push(...namesIn(join(current, bucket), limit - sharded.length));
+        if (sharded.length >= limit) break;
+      }
+      if (sharded.length) return sharded.sort((a, b) => a.localeCompare(b)).slice(0, limit);
+    }
+    // Old queue publication could fail after its data barrier because the
+    // flat directory index was full. Those .pending files are durable and can
+    // be delivered directly while new batches go to the bounded layout.
+    const legacyCurrent = join(root, 'current');
+    const legacy = namesIn(legacyCurrent, limit, true);
+    if (legacy.length) return legacy;
     return namesIn(root);
   }
-  private queuedCurrentLiveNames(limit: number) { return this.queuedNames('live/current', limit); }
+  private queuedCurrentLiveNames(limit: number) { return this.queuedNames('live', limit); }
+  private quarantineQueueFile(path: string) {
+    const target = shardedQueuePath(this.path('queue/quarantine'), basename(path) + '.interrupted');
+    fs.mkdirSync(dirname(target), { recursive: true, mode: 0o700 });
+    fs.renameSync(path, target);
+    if (this.persistence) this.persistence.dirty();
+    else { syncDirectory(dirname(path)); syncDirectory(dirname(target)); }
+  }
   queuedBatches(lane: string): string[] {
     if (lane === 'history' && this.queuedCurrentLiveNames(1).length) return [];
     const paths: string[] = []; let size = 0, count = 0;
     for (const path of this.queuedNames(lane, BATCH_COUNT)) {
-      const raw = readBounded(path, 512000), batch = JSON.parse(raw.toString()) as { events: LogEvent[]; atomic?: boolean }, entries = batch.events.length;
+      let raw: Buffer, batch: { events: LogEvent[]; atomic?: boolean };
+      try {
+        raw = readBounded(path, 512000);
+        batch = JSON.parse(raw.toString()) as { events: LogEvent[]; atomic?: boolean };
+        if (!Array.isArray(batch.events) || !batch.events.length) throw new Error('Invalid queued batch');
+      } catch {
+        this.quarantineQueueFile(path);
+        continue;
+      }
+      const entries = batch.events.length;
       if (batch.atomic && paths.length) break;
       if (paths.length && (size + raw.length > BATCH_BYTES || count + entries > BATCH_COUNT)) break;
       paths.push(path); size += raw.length; count += entries;
@@ -252,8 +287,22 @@ export class Delivery {
     } catch (error) { this.close(); throw error; }
     for (const item of events) this.acknowledged.set(item.sourceEventId, Date.now());
     while (this.acknowledged.size > 10000) this.acknowledged.delete(this.acknowledged.keys().next().value!);
-    for (const path of paths) fs.unlinkSync(path);
-    if (paths.length) { if (this.persistence) this.persistence.dirty(); else syncDirectory(dirname(paths[0])); }
+    const removedBuckets = new Set<string>();
+    for (const path of paths) {
+      fs.unlinkSync(path);
+      const bucket = dirname(path);
+      if (isQueueBucket(basename(bucket))) {
+        try { fs.rmdirSync(bucket); removedBuckets.add(bucket); } catch { /* Other queued files can keep a bucket active. */ }
+      }
+    }
+    if (paths.length) {
+      if (this.persistence) this.persistence.dirty();
+      else {
+        const directories = new Set(paths.map(path => dirname(path)));
+        for (const bucket of removedBuckets) { directories.delete(bucket); directories.add(dirname(bucket)); }
+        for (const directory of directories) syncDirectory(directory);
+      }
+    }
     this.eventAgeSeconds = Math.max(0, ...events.map(item => Number.isFinite(Date.parse(item.timestamp)) ? (Date.now() - Date.parse(item.timestamp)) / 1000 : 0));
     return queued.length;
   }

@@ -58,6 +58,7 @@ async function main() {
   // Fail before starting source workers if configuration cannot deliver their queue.
   new Delivery(config).close();
   const persistence = new GroupCommit(store.root); store.persistence = persistence;
+  await persistence.recover();
   let lastPersistenceErrorAt = 0;
   persistence.start(error => {
     if (Date.now() - lastPersistenceErrorAt < 60000) return;
@@ -65,7 +66,6 @@ async function main() {
     const code = error && typeof error === 'object' && 'code' in error ? error.code : undefined;
     console.error(typeof code === 'string' ? 'Collector persistence failed (' + code + ')' : collectionError(error));
   });
-  void persistence.recover().catch(error => console.error('Collector queue recovery failed: ' + collectionError(error)));
   let stopping = false;
   const statuses: Record<string, Status> = {}, workers: Worker[] = [];
   for (const name of ['delivery_live', 'delivery_history', ...sources, 'audit_live', 'journal_live']) {

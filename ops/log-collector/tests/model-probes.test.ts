@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { modelFixture, testKey } from '../../../api/tests/analyze-model-discovery.test';
 import { modelProofMac, verifyModelDiscoveryEvidence } from '../../../api/src/utils/events/analyzeModelDiscovery';
 import { enrichModelProbe, ownsModelListener } from '../model-probes';
-import type { LogEvent } from './core';
+import type { LogEvent } from '../core';
 
 test('collector binds native proof to exact log and live listener; absent, ambiguous and wrong-process evidence keeps', () => {
   const directory = mkdtempSync(join(tmpdir(), 'model-enrichment-')), proc = join(directory, 'proc'), keyFile = join(directory, 'key.json');

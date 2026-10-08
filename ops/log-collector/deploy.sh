@@ -22,6 +22,10 @@ trap cleanup EXIT
 printf '%s\n' "$release" > "$scratch/release"
 rollback() {
     trap - HUP INT TERM
+    if [ -f "$scratch/migration_started" ]; then
+        echo 'Queue recovery has started; keeping the new collector so it can finish safely.' >&2
+        exit 1
+    fi
     root systemctl stop hanasand-log-collector
     root install -m 0755 "$backup/launcher" /usr/local/sbin/hanasand-log-collector
     # install can read the root-only backup without exposing it to the invoking user.
@@ -42,11 +46,13 @@ if ! (
     root install -m 0644 "$base/ovh-memory.conf" "$library/ovh-memory.conf" || exit 1
     root install -m 0644 "$scratch/release" "$library/release" || exit 1
     root install -m 0755 "$base/launcher.sh" /usr/local/sbin/hanasand-log-collector || exit 1
+    : > "$scratch/migration_started"
     root systemctl restart hanasand-log-collector || exit 1
 ); then rollback; fi
 # A running PID alone is insufficient: require fresh collection and an HTTP ACK.
 attempt=0
-while [ "$attempt" -lt 45 ]; do
+# Queue recovery can stream millions of durable batches into bounded shards.
+while [ "$attempt" -lt 3600 ]; do
     sleep 2
     root install -m 0644 /var/lib/hanasand-log-collector/health.json "$scratch/health.json" 2>/dev/null || true
     if node "$base/collector.cjs" --verify-health "$scratch/health.json" "$release" 2>/dev/null

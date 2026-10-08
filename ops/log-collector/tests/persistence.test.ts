@@ -2,12 +2,44 @@ import { test, expect, beforeEach, afterEach } from 'bun:test';
 import * as os from 'node:os';
 import { fs, join, Store, event, iso } from '../core';
 import { GroupCommit } from '../persistence';
+import { isQueueBucket, shardedQueuePath } from '../queueLayout';
 
 let root: string;
 beforeEach(() => { root = fs.mkdtempSync(join(os.tmpdir(), 'collector-commit-')); });
 afterEach(() => fs.rmSync(root, { recursive: true, force: true }));
 const row = (n: number) => event({ host: 'fixture' }, String(n), 'app', 'event-' + n, iso());
 const disk = () => new Store(root);
+
+test('new batches use bounded queue directories', async () => {
+  await disk().send([row(1)]);
+  const path = disk().queuedNames('live', 1)[0];
+  expect(path).toBeDefined();
+  expect(isQueueBucket(path.split('/').at(-2)!)).toBe(true);
+});
+
+test('recovery leaves the flat backlog in place and reads durable pending batches', async () => {
+  const state = disk(), queueRoot = state.path('queue/live'), current = join(queueRoot, 'current');
+  const sharded = state.path('queue/sharded/live');
+  fs.mkdirSync(current, { recursive: true });
+  const completed = '01791000000000000000-' + 'a'.repeat(32) + '.json';
+  const pending = '01791000000000000001-' + 'b'.repeat(32) + '.pending';
+  const legacy = '01791000000000000002-' + 'c'.repeat(32) + '.json';
+  fs.writeFileSync(join(current, completed), JSON.stringify({ events: [row(1)] }));
+  fs.writeFileSync(join(current, pending), JSON.stringify({ events: [row(2)] }));
+  fs.writeFileSync(join(queueRoot, legacy), JSON.stringify({ events: [row(3)] }));
+
+  const group = new GroupCommit(root, async () => {}, 0);
+  await group.recover();
+
+  const paths = state.queuedNames('live', 10);
+  expect(paths).toHaveLength(2);
+  expect(paths).toContain(join(current, completed));
+  expect(paths).toContain(join(current, pending));
+  expect(paths.map(path => JSON.parse(fs.readFileSync(path, 'utf8')).events[0].message).sort()).toEqual(['event-1', 'event-2']);
+  expect(fs.existsSync(join(queueRoot, legacy))).toBe(true);
+  expect(fs.existsSync(sharded)).toBe(true);
+  expect(isQueueBucket(shardedQueuePath(sharded, completed).split('/').at(-2)!)).toBe(true);
+});
 
 test('one barrier commits many sources and coalesces their checkpoints', async () => {
   let calls = 0;
@@ -124,12 +156,19 @@ test('power loss after checkpoint persistence retains its dependent batch', asyn
   expect(new Store(state).load('cursor', -1)).toBe(2); expect(new Store(state).queuedNames('live', 100)).toHaveLength(1);
 });
 
-test('partial unpublished batch is quarantined and leaves its cursor replayable', async () => {
+test('partial unpublished batch is preserved in quarantine and leaves its cursor replayable', async () => {
   const state = new Store(root); state.save('cursor', 0);
-  fs.mkdirSync(state.path('queue/live/current'), { recursive: true }); fs.writeFileSync(state.path('queue/live/current/torn.pending'), '{"events":[');
+  const pending = state.path('queue/live/current/01791000000000000003-' + 'd'.repeat(32) + '.pending');
+  fs.mkdirSync(join(state.path('queue/live'), 'current'), { recursive: true }); fs.writeFileSync(pending, '{"events":[');
   const group = new GroupCommit(root, async () => {}, 0); await group.recover(); await group.flush();
-  expect(fs.existsSync(state.path('queue/live/current/torn.pending.interrupted'))).toBe(true);
-  expect(state.load('cursor', -1)).toBe(0); expect(state.queuedNames('live', 100)).toHaveLength(0);
+  expect(fs.existsSync(pending)).toBe(true);
+  expect(state.queuedBatches('live')).toEqual([]);
+  expect(fs.existsSync(pending)).toBe(false);
+  const quarantine = state.path('queue/quarantine'), bucket = fs.readdirSync(quarantine).find(name => isQueueBucket(name));
+  expect(bucket).toBeDefined();
+  const preserved = join(quarantine, bucket!, fs.readdirSync(join(quarantine, bucket!))[0]);
+  expect(fs.readFileSync(preserved, 'utf8')).toBe('{"events":[');
+  expect(state.load('cursor', -1)).toBe(0);
 });
 
 test('legacy pending batches stay replayable and cannot block current queue recovery', async () => {
