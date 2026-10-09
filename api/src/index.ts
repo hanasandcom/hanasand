@@ -209,7 +209,7 @@ async function start() {
             fastify.addHook('onClose', async () => { stopDatabaseOverviewRefresh() })
         }
         if (!browserWorkerOnly && !httpWorkerOnly && process.env.AUTH_SERVICE_ONLY !== '1') {
-            await loadCachedLogMetrics().catch(error => fastify.log.warn({ error }, 'Failed to warm log throughput metrics cache'))
+            void loadCachedLogMetrics().catch(error => fastify.log.warn({ error }, 'Failed to warm log throughput metrics cache; background refresh will retry'))
             const stopMetricsRefresh = startLogMetricsRefresh()
             fastify.addHook('onClose', async () => { stopMetricsRefresh() })
         }
