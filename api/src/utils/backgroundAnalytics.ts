@@ -25,11 +25,11 @@ export async function startBackgroundAnalytics(logger: Pick<FastifyBaseLogger, '
     // Recovery servers answer requested reads; they must not continuously scan
     // the primary or their recovering replica to populate unused local caches.
     if (process.env.RECOVERY_ESSENTIAL_ONLY === '1') return () => {}
-    await warmLogSnapshots()
+    void warmLogSnapshots().catch(error => logger.warn({ error }, 'Log startup snapshots will retry in the background'))
     const stopLogs = refreshLogSnapshots()
     if (process.env.AUTH_SERVICE_ONLY === '1') return stopLogs
     const stopRuleHits = refreshRuleHitsInBackground(logger)
-    await warmTrafficStatistics().catch(error => logger.warn({ error }, 'Traffic startup snapshots will retry in the background'))
+    void warmTrafficStatistics().catch(error => logger.warn({ error }, 'Traffic startup snapshots will retry in the background'))
     const stopTraffic = refreshTrafficHistory()
     const timer = setInterval(() => {
         void warmTrafficStatistics().catch(error => logger.warn({ error }, 'Traffic snapshot refresh failed'))

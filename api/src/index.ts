@@ -200,11 +200,11 @@ async function start() {
         }
         if (!browserWorkerOnly && !httpWorkerOnly) await warmDatabasePools()
         if (!browserWorkerOnly && process.env.AUTH_SERVICE_ONLY !== '1') {
-            const overview = await warmDatabaseOverview().catch(error => {
+            void warmDatabaseOverview().then(overview => {
+                if (overview?.status === 'unavailable') fastify.log.warn({ message: overview.health.message }, 'Database overview cache started without live metrics')
+            }).catch(error => {
                 fastify.log.warn({ error }, 'Failed to warm cached database overview')
-                return null
             })
-            if (overview?.status === 'unavailable') fastify.log.warn({ message: overview.health.message }, 'Database overview cache started without live metrics')
             const stopDatabaseOverviewRefresh = startDatabaseOverviewRefresh(error => fastify.log.warn({ error }, 'Failed to refresh cached database overview'))
             fastify.addHook('onClose', async () => { stopDatabaseOverviewRefresh() })
         }
