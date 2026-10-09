@@ -4,8 +4,8 @@ import hasHanasandInternalRouteAccess, { HANASAND_ORGANIZATION_ID } from '#utils
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import { cachedRead, invalidateReadCache } from '../../utils/readCache.ts'
 
-const REFRESH_INTERVAL_MS = 24 * 60 * 60_000
-const REFRESH_CHECK_INTERVAL_MS = 5 * 60_000
+const REFRESH_INTERVAL_MS = 60_000
+const REFRESH_CHECK_INTERVAL_MS = 15_000
 const TUNING_SNAPSHOT_CACHE_KEY = `log-tuning-snapshot:${HANASAND_ORGANIZATION_ID}`
 
 type TuningLog = {
@@ -120,28 +120,17 @@ function refreshLogTuningSnapshot() {
 
 async function queryLogTuning(): Promise<TuningLog[]> {
     return withTransaction(async query => {
-        // This all-time aggregation can take several minutes. It runs in a
-        // background worker and never holds open the page's HTTP request.
-        await query('SET LOCAL statement_timeout = \'15min\'')
-        // Keep the full-history refresh from consuming unbounded disk space.
-        await query('SET LOCAL temp_file_limit = \'20GB\'')
-        await query('SET LOCAL max_parallel_workers_per_gather = 0')
-        // Keep this high-cardinality hash aggregate in memory instead of spilling.
-        await query('SET LOCAL work_mem = \'64GB\'')
-        await query('SET LOCAL enable_sort = off')
+        // SYSTEM samples heap pages instead of reading every stored event.
+        await query('SET LOCAL statement_timeout = \'120s\'')
+        await query('SET LOCAL temp_file_limit = \'4GB\'')
+        await query('SET LOCAL work_mem = \'1GB\'')
         const result = await query(`SELECT
-                COALESCE(normalized->>'message', '') AS message,
-                COALESCE(NULLIF(normalized->>'ip', ''), NULLIF(normalized #>> '{source,ip}', ''), '') AS ip,
-                CASE WHEN NULLIF(normalized->>'ip', '') IS NOT NULL THEN 'ip'
-                    WHEN NULLIF(normalized #>> '{source,ip}', '') IS NOT NULL THEN 'source.ip' END AS ip_path,
-                COALESCE(NULLIF(normalized->>'user_agent', ''), NULLIF(normalized #>> '{metadata,user_agent}', ''), '') AS user_agent,
-                CASE WHEN NULLIF(normalized->>'user_agent', '') IS NOT NULL THEN 'user_agent'
-                    WHEN NULLIF(normalized #>> '{metadata,user_agent}', '') IS NOT NULL THEN 'metadata.user_agent' END AS user_agent_path,
-                MAX(event_timestamp)::text AS last_triggered,
-                COUNT(*) FILTER (WHERE event_timestamp >= NOW() - INTERVAL '24 hours')::text AS last_24h_count,
-                COUNT(*)::text AS event_count,
-                SUM(pg_column_size(event))::text AS storage_bytes
-            FROM events event
+                message, ip, ip_path, user_agent, user_agent_path,
+                MAX(last_triggered)::text AS last_triggered,
+                (COUNT(*) FILTER (WHERE event_timestamp >= NOW() - INTERVAL '24 hours') * 100)::numeric::text AS last_24h_count,
+                (COUNT(*) * 100)::numeric::text AS event_count,
+                (SUM(pg_column_size(event)) * 100)::numeric::text AS storage_bytes
+            FROM events TABLESAMPLE SYSTEM (1.0) AS event
             WHERE organization_id = $1
               AND ingestion_id = 'logs'
               AND processing_status = 'processed'

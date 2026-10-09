@@ -135,7 +135,7 @@ export default function TuningPage({ initialData = null, initialError = '' }: { 
     return <DashboardPage className='!gap-5 !px-2 !py-4'>
         <header className='flex flex-wrap items-center justify-between gap-3'>
             <div><h1 className='flex items-center gap-2 text-2xl font-semibold'><SlidersHorizontal size={22} aria-hidden />Log tuning</h1>
-                <p className='mt-1 text-sm text-ui-muted'>The 100 most common stored logs, grouped by message, IP, and user agent.</p></div>
+                <p className='mt-1 text-sm text-ui-muted'>The 100 largest stored log patterns, grouped by message, IP, and user agent. Counts are estimates and refresh about once a minute.</p></div>
             <button type='button' onClick={() => void requestRefresh()} className='inline-flex items-center gap-2 rounded-lg border border-ui-border px-3 py-2 text-sm'><RefreshCw size={15} aria-hidden />Refresh summary</button>
         </header>
 
@@ -165,7 +165,7 @@ export default function TuningPage({ initialData = null, initialError = '' }: { 
             </div>
             <div className='overflow-x-auto'>
                 <table className='w-full min-w-[82rem] table-fixed text-left text-sm'>
-                    <thead className='bg-ui-raised text-xs text-ui-muted'><tr><th className='w-[24%] px-4 py-2'>Log</th><th className='w-[10%] px-4 py-2'>IP</th><th className='w-[20%] px-4 py-2'>User agent</th><th className='w-[9%] px-4 py-2 text-right'>Count</th><th className='w-[12%] px-4 py-2'>Last triggered</th><th className='w-[11%] px-4 py-2 text-right'>Triggers (24h)</th><th className='w-[14%] px-4 py-2 text-right'>Row data</th></tr></thead>
+                    <thead className='bg-ui-raised text-xs text-ui-muted'><tr><th className='w-[24%] px-4 py-2'>Log</th><th className='w-[10%] px-4 py-2'>IP</th><th className='w-[20%] px-4 py-2'>User agent</th><th className='w-[9%] px-4 py-2 text-right'>Count (est.)</th><th className='w-[12%] px-4 py-2'>Last seen in sample</th><th className='w-[11%] px-4 py-2 text-right'>Triggers 24h (est.)</th><th className='w-[14%] px-4 py-2 text-right'>Row data (est.)</th></tr></thead>
                     <tbody>{sortedLogs.map(log => {
                         const parsedLastTriggered = log.last_triggered ? new Date(log.last_triggered) : null
                         const lastTriggered = parsedLastTriggered && Number.isFinite(parsedLastTriggered.getTime()) ? parsedLastTriggered : null
