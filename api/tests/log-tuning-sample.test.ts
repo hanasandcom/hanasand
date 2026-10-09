@@ -41,6 +41,7 @@ test('refresh runs a fast 1% event sample while unrelated database queries are a
     const query = sampleQueries.find(sql => sql.includes('TABLESAMPLE SYSTEM'))
     expect(query).toBeDefined()
     expect(query).toContain('TABLESAMPLE SYSTEM (1.0)')
+    expect(query).toContain('FROM events AS event TABLESAMPLE SYSTEM (1.0)')
     expect(query).toContain('normalized->>\'message\'')
     expect(query).toContain('normalized->>\'ip\'')
     expect(query).toContain('normalized->>\'user_agent\'')

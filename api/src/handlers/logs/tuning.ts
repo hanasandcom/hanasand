@@ -125,7 +125,7 @@ async function queryLogTuning(): Promise<TuningLog[]> {
                 (COUNT(*) FILTER (WHERE event_timestamp >= NOW() - INTERVAL '24 hours') * 100)::numeric::text AS last_24h_count,
                 (COUNT(*) * 100)::numeric::text AS event_count,
                 (SUM(pg_column_size(event)) * 100)::numeric::text AS storage_bytes
-            FROM events TABLESAMPLE SYSTEM (1.0) AS event
+            FROM events AS event TABLESAMPLE SYSTEM (1.0)
             WHERE organization_id = $1
               AND ingestion_id = 'logs'
               AND processing_status = 'processed'
