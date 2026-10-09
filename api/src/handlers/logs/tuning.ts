@@ -50,9 +50,12 @@ export async function getLogTuning(req: FastifyRequest, res: FastifyReply) {
                 refreshing: Boolean(row?.refreshing),
             } satisfies TuningSnapshot
         })
+        const stale = !snapshot.generatedAt || Date.now() - Date.parse(snapshot.generatedAt) >= REFRESH_INTERVAL_MS
+        if (stale) void refreshLogTuningSnapshot().catch(error => req.log?.warn?.({ error }, 'Log tuning background refresh failed'))
+        const response = stale ? { ...snapshot, refreshing: true } : snapshot
         res.header('vary', 'Cookie')
-        res.header('cache-control', snapshot.refreshing ? 'private, no-store' : 'private, max-age=60')
-        return res.send(snapshot)
+        res.header('cache-control', response.refreshing ? 'private, no-store' : 'private, max-age=60')
+        return res.send(response)
     } catch (error) {
         req.log?.error?.({ error }, 'Log tuning snapshot read failed')
         return res.status(503).send({ error: 'Log tuning data is temporarily unavailable. Try again shortly.' })
