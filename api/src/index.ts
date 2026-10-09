@@ -214,7 +214,7 @@ async function start() {
             fastify.addHook('onClose', async () => { stopMetricsRefresh() })
         }
         if (!browserWorkerOnly && process.env.AUTH_SERVICE_ONLY !== '1') {
-            await loadCachedMostActiveServices().catch(error => fastify.log.warn({ error }, 'Failed to warm most active services cache'))
+            void loadCachedMostActiveServices().catch(error => fastify.log.warn({ error }, 'Failed to warm most active services cache; background refresh will retry'))
             const stopMostActiveRefresh = startMostActiveServicesRefresh()
             fastify.addHook('onClose', async () => { stopMostActiveRefresh() })
         }
