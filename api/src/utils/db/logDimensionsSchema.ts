@@ -13,7 +13,6 @@ export const logDimensionsSchema = [
         service TEXT,
         log_type TEXT
     )`,
-    'CREATE INDEX IF NOT EXISTS idx_log_dimensions_time ON log_dimensions(event_timestamp DESC) INCLUDE (organization_id)',
     `CREATE TABLE IF NOT EXISTS log_dimensions_state (
         id BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (id),
         last_event_id TEXT NOT NULL DEFAULT '',

@@ -1437,25 +1437,10 @@ async function applySchema() {
             normalized JSONB NOT NULL DEFAULT '{}'::jsonb,
             original JSONB NOT NULL DEFAULT '{}'::jsonb,
             parser_version TEXT NOT NULL DEFAULT 'event.v1',
-            processing_status TEXT NOT NULL DEFAULT 'processed',
-            UNIQUE (organization_id, ingestion_id, id)
+            processing_status TEXT NOT NULL DEFAULT 'processed'
         )
     `)
     await ensureColumn(run, 'events', 'parser_version', 'ALTER TABLE events ADD COLUMN IF NOT EXISTS parser_version TEXT NOT NULL DEFAULT \'event.v1\'')
-    await run('CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_events_org_time ON events(organization_id, event_timestamp DESC)')
-    await run(`CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_events_native_pending ON events(event_timestamp, id)
-        WHERE ingestion_id <> 'logs' AND processing_status = 'pending'`)
-    const pendingEventsIndex = await queryOnce(`SELECT pg_index.indisvalid, pg_get_indexdef(index_class.oid) AS definition
-        FROM pg_index
-        JOIN pg_class AS index_class ON index_class.oid = pg_index.indexrelid
-        JOIN pg_class AS table_class ON table_class.oid = pg_index.indrelid
-        WHERE table_class.relname = 'events' AND index_class.relname = 'idx_events_logs_pending'`)
-    if (pendingEventsIndex.rows[0] && (pendingEventsIndex.rows[0].indisvalid === false
-        || !pendingEventsIndex.rows[0].definition.includes('(received_at, id)'))) {
-        await run('DROP INDEX CONCURRENTLY IF EXISTS idx_events_logs_pending')
-    }
-    await run(`CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_events_logs_pending ON events(received_at, id)
-        WHERE ingestion_id = 'logs' AND processing_status = 'pending'`)
     await run('DROP TABLE IF EXISTS log_process_queue')
     await run('DROP TABLE IF EXISTS log_proxy_requests')
     await run('DROP TABLE IF EXISTS service_logs')
@@ -1464,11 +1449,6 @@ async function applySchema() {
     await run('CREATE TABLE IF NOT EXISTS log_processing_cursors (name TEXT PRIMARY KEY, last_id BIGINT NOT NULL DEFAULT 0, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), last_error TEXT)')
     await ensureColumn(run, 'log_processing_cursors', 'recent_id', 'ALTER TABLE log_processing_cursors ADD COLUMN IF NOT EXISTS recent_id BIGINT')
     await ensureLogCatchupSchema()
-    await run('CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_events_logs_skipped ON events(id) WHERE ingestion_id = \'logs\' AND processing_status = \'skipped\'')
-    await run('CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_events_logs_time ON events(event_timestamp DESC, id DESC) WHERE ingestion_id = \'logs\' AND processing_status = \'processed\'')
-    await run('CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_events_org_user_time ON events(organization_id, user_id, event_timestamp DESC)')
-    await run(`CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_auth_failure_source_time ON events(organization_id, md5(source_ip), event_timestamp DESC)
-        WHERE event_type = 'authentication' AND action = 'login' AND outcome = 'failure'`)
     await ensureLogDimensionsSchema()
     await ensureLogTuningSchema()
     await run(`
@@ -1543,13 +1523,19 @@ async function applySchema() {
     await run('CREATE INDEX IF NOT EXISTS idx_findings_event_ids ON findings USING GIN(event_ids)')
     await ensureRuleHitCountSchema()
     await ensureLegacyHealthRuleHitMigration()
-    await run('CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_logs_severity_time ON events ((normalized->>\'severity\'), event_timestamp DESC) WHERE ingestion_id = \'logs\'')
-    await run('CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_logs_type_time ON events ((normalized->>\'log_type\'), event_timestamp DESC) WHERE ingestion_id = \'logs\'')
-    await run(`CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_logs_executable_suffix ON events
-        (left(reverse(lower(COALESCE(normalized#>>'{process,executable}', ''))), 512) text_pattern_ops)
-        WHERE ingestion_id = 'logs' AND processing_status = 'processed'`)
-    await run(`CREATE STATISTICS IF NOT EXISTS stat_logs_executable_suffix ON
-        (left(reverse(lower(COALESCE(normalized#>>'{process,executable}', ''))), 512)) FROM events`)
+    // id is already globally unique, so this composite unique constraint adds
+    // no protection and only duplicates a large index.
+    await run('ALTER TABLE events DROP CONSTRAINT IF EXISTS events_organization_id_ingestion_id_id_key')
+    // These indexes served search, correlation, and queue paths outside tuning
+    // and exact-message cleanup; startup removes them and must not recreate them.
+    for (const indexName of [
+        'idx_logs_phrase_trgm', 'idx_logs_phrase_trgm_ram320', 'idx_logs_service_time',
+        'idx_logs_realtime_page_time', 'idx_events_log_http_error_summary', 'idx_events_ssh_key_usage',
+        'idx_events_native_pending', 'idx_events_logs_pending', 'idx_events_logs_skipped', 'idx_events_logs_time',
+        'idx_events_org_time', 'idx_events_org_user_time', 'idx_auth_failure_source_time', 'idx_logs_severity_time', 'idx_logs_type_time',
+        'idx_logs_executable_suffix', 'idx_log_dimensions_time', 'idx_log_dimensions_service_time',
+    ]) await run(`DROP INDEX CONCURRENTLY IF EXISTS ${indexName}`)
+    await run('DROP STATISTICS IF EXISTS stat_logs_executable_suffix')
     await run(`
         CREATE TABLE IF NOT EXISTS mail_accounts (
             user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,

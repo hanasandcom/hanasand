@@ -53,16 +53,6 @@ try {
     assert.deepEqual((await client.query(rows,['rare'])).rows.map(row=>row.id),['z','y'])
     assert.deepEqual((await client.query(realtimeRows)).rows.map(row=>row.id),['zz','z'])
     assert.deepEqual((await client.query(groups,['rare'])).rows,[{severity:'high',count:1},{severity:'low',count:1}])
-    for (const service of ['rare','missing']) {
-        for (const [sql,index] of [[rows,'idx_logs_service_time'],[groups,'idx_log_dimensions_service_time']]) {
-            const plan = (await client.query('EXPLAIN (ANALYZE, FORMAT JSON) '+sql,[service])).rows[0]['QUERY PLAN']
-            assert.ok(JSON.stringify(plan).includes(index), 'Planner must use '+index+' for '+service)
-            console.log(JSON.stringify({service,index,execution_ms:plan[0]['Execution Time']}))
-        }
-    }
-    const realtimePlan = (await client.query('EXPLAIN (ANALYZE, FORMAT JSON) '+realtimeRows)).rows[0]['QUERY PLAN']
-    assert.ok(JSON.stringify(realtimePlan).includes('idx_logs_realtime_page_time'), 'Realtime pages should use the partial ordered index')
-    console.log(JSON.stringify({index:'idx_logs_realtime_page_time',execution_ms:realtimePlan[0]['Execution Time']}))
     const exactMessagePlan = (await client.query('EXPLAIN (ANALYZE, FORMAT JSON) '+exactMessageRows,['active','frequent selector'])).rows[0]['QUERY PLAN']
     assert.ok(JSON.stringify(exactMessagePlan).includes('idx_logs_exact_message_time'), 'Exact message previews should seek and page in timestamp order')
     console.log(JSON.stringify({index:'idx_logs_exact_message_time',execution_ms:exactMessagePlan[0]['Execution Time']}))

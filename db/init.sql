@@ -478,11 +478,8 @@ CREATE TABLE IF NOT EXISTS events (
     normalized JSONB NOT NULL DEFAULT '{}'::jsonb,
     original JSONB NOT NULL DEFAULT '{}'::jsonb,
     parser_version TEXT NOT NULL DEFAULT 'event.v1',
-    processing_status TEXT NOT NULL DEFAULT 'processed',
-    UNIQUE (organization_id, ingestion_id, id)
+    processing_status TEXT NOT NULL DEFAULT 'processed'
 );
-CREATE INDEX IF NOT EXISTS idx_events_org_time ON events(organization_id, event_timestamp DESC);
-CREATE INDEX IF NOT EXISTS idx_events_org_user_time ON events(organization_id, user_id, event_timestamp DESC);
 
 CREATE TABLE IF NOT EXISTS rules (
     id TEXT PRIMARY KEY,
