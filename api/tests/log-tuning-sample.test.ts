@@ -7,7 +7,6 @@ const concurrentQueryCounts: number[] = []
 
 mock.module('../src/utils/db.ts', () => ({
     default: async (sql: string) => { runQueries.push(sql); return { rows: [] } },
-    tryWithDatabaseAdvisoryLock: async (_key: string, work: () => Promise<unknown>) => ({ acquired: true, result: await work() }),
     withTransaction: async <T>(work: (query: (sql: string) => Promise<unknown>) => Promise<T>) => {
         // Represent unrelated application queries that remain active while the sample runs.
         activeQueriesDuringSample = 3

@@ -1,5 +1,5 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
-import run, { tryWithDatabaseAdvisoryLock, withTransaction } from '#db'
+import run, { withTransaction } from '#db'
 import hasHanasandInternalRouteAccess, { HANASAND_ORGANIZATION_ID } from '#utils/auth/organizationPageAccess.ts'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import { cachedRead, invalidateReadCache } from '../../utils/readCache.ts'
@@ -27,8 +27,6 @@ type TuningSnapshot = {
     pending: boolean
     refreshing: boolean
 }
-
-let refreshInFlight: Promise<unknown> | undefined
 
 export async function getLogTuning(req: FastifyRequest, res: FastifyReply) {
     const { valid } = await tokenWrapper(req, res)
@@ -90,27 +88,23 @@ export function startLogTuningSnapshotRefresh(logger: { warn: (context: { error:
     return () => clearInterval(timer)
 }
 
-function refreshLogTuningSnapshot() {
-    if (refreshInFlight) return refreshInFlight
-    refreshInFlight = tryWithDatabaseAdvisoryLock('log-tuning-snapshot-refresh', async() => {
-        const existing = (await run(`SELECT generated_at::text AS generated_at, refresh_requested_at::text AS refresh_requested_at, logs
-            FROM log_tuning_snapshots WHERE organization_id = $1`, [HANASAND_ORGANIZATION_ID])).rows[0]
-        const generatedAt = existing?.generated_at ? Date.parse(existing.generated_at) : 0
-        const requestedAt = existing?.refresh_requested_at ? Date.parse(existing.refresh_requested_at) : 0
-        const hasCurrentMetrics = Array.isArray(existing?.logs) && existing.logs.every((log: unknown) => log !== null
-            && typeof log === 'object' && Object.hasOwn(log, 'last_triggered') && Object.hasOwn(log, 'last_24h_count'))
-        if (generatedAt && hasCurrentMetrics && requestedAt <= generatedAt && Date.now() - generatedAt < REFRESH_INTERVAL_MS) return 'current'
-        const startedAt = new Date().toISOString()
-        const result = await queryLogTuning()
-        await run(`INSERT INTO log_tuning_snapshots (organization_id, logs, generated_at, refresh_requested_at)
-            VALUES ($1, $2::jsonb, $3::timestamptz, $3::timestamptz)
-            ON CONFLICT (organization_id) DO UPDATE SET logs = EXCLUDED.logs, generated_at = EXCLUDED.generated_at,
-                refresh_requested_at = GREATEST(log_tuning_snapshots.refresh_requested_at, EXCLUDED.refresh_requested_at)`,
-        [HANASAND_ORGANIZATION_ID, JSON.stringify(result), startedAt])
-        invalidateReadCache(TUNING_SNAPSHOT_CACHE_KEY)
-        return 'refreshed'
-    }).finally(() => { refreshInFlight = undefined })
-    return refreshInFlight
+async function refreshLogTuningSnapshot() {
+    const existing = (await run(`SELECT generated_at::text AS generated_at, refresh_requested_at::text AS refresh_requested_at, logs
+        FROM log_tuning_snapshots WHERE organization_id = $1`, [HANASAND_ORGANIZATION_ID])).rows[0]
+    const generatedAt = existing?.generated_at ? Date.parse(existing.generated_at) : 0
+    const requestedAt = existing?.refresh_requested_at ? Date.parse(existing.refresh_requested_at) : 0
+    const hasCurrentMetrics = Array.isArray(existing?.logs) && existing.logs.every((log: unknown) => log !== null
+        && typeof log === 'object' && Object.hasOwn(log, 'last_triggered') && Object.hasOwn(log, 'last_24h_count'))
+    if (generatedAt && hasCurrentMetrics && requestedAt <= generatedAt && Date.now() - generatedAt < REFRESH_INTERVAL_MS) return 'current'
+    const startedAt = new Date().toISOString()
+    const result = await queryLogTuning()
+    await run(`INSERT INTO log_tuning_snapshots (organization_id, logs, generated_at, refresh_requested_at)
+        VALUES ($1, $2::jsonb, $3::timestamptz, $3::timestamptz)
+        ON CONFLICT (organization_id) DO UPDATE SET logs = EXCLUDED.logs, generated_at = EXCLUDED.generated_at,
+            refresh_requested_at = GREATEST(log_tuning_snapshots.refresh_requested_at, EXCLUDED.refresh_requested_at)`,
+    [HANASAND_ORGANIZATION_ID, JSON.stringify(result), startedAt])
+    invalidateReadCache(TUNING_SNAPSHOT_CACHE_KEY)
+    return 'refreshed'
 }
 
 async function queryLogTuning(): Promise<TuningLog[]> {
