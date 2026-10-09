@@ -371,7 +371,7 @@ warm_browser_stats() {
 # The API candidate owns schema setup. Do not restart the shared database during
 # an application release; its recovery period interrupts authenticated traffic.
 services=$(compose_live config --services \
-    | sed '/^api$/d; /^frontend$/d; /^postgres$/d; /^browsers$/d; /^browser-turn$/d')
+    | sed '/^api$/d; /^frontend$/d; /^postgres$/d')
 
 # Start the API/frontend candidates against the independent candidate pool
 # before touching any live dependencies. The API candidate applies additive

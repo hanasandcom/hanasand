@@ -84,6 +84,8 @@ verify_independent_container hanasand_pgbouncer_candidate hanasand-pgbouncer pgb
 verify_independent_container hanasand_onion_tor hanasand-onion onion-tor
 verify_independent_container hanasand_auth_primary hanasand-identity identity-primary
 verify_independent_container hanasand_auth_secondary hanasand-identity identity-secondary
+verify_independent_container hanasand_browsers hanasand-browsers browsers
+verify_independent_container hanasand_browser_turn hanasand-browser-turn browser-turn
 
 for container in $(docker ps -aq --filter label=com.docker.compose.project=hanasand-recovery) \
     hanasand-tunnel hanasand-tunnel-database hanasand-tunnel-intelligence hanasand-tunnel-web \
