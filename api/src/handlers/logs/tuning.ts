@@ -100,13 +100,9 @@ function refreshLogTuningSnapshot() {
         const hasCurrentMetrics = Array.isArray(existing?.logs) && existing.logs.every((log: unknown) => log !== null
             && typeof log === 'object' && Object.hasOwn(log, 'last_triggered') && Object.hasOwn(log, 'last_24h_count'))
         if (generatedAt && hasCurrentMetrics && requestedAt <= generatedAt && Date.now() - generatedAt < REFRESH_INTERVAL_MS) return 'current'
-        // This full-history aggregation reads and groups the entire stored-log
-        // corpus. Let request traffic take priority instead of competing with
-        // previews and other foreground database work.
-        // This full-history aggregation must not overlap any active database
-        // work such as an online index build; one extra scan can exhaust the
-        // PgBouncer server pool and make foreground API requests time out.
-        if (!(await isDatabaseLowLoad(0))) return 'busy'
+        // The 1% block sample is cheap enough to run alongside normal traffic,
+        // but pause it while the database is under heavier foreground load.
+        if (!(await isDatabaseLowLoad(12))) return 'busy'
 
         const startedAt = new Date().toISOString()
         const result = await queryLogTuning()
@@ -128,8 +124,14 @@ async function queryLogTuning(): Promise<TuningLog[]> {
         await query('SET LOCAL temp_file_limit = \'4GB\'')
         await query('SET LOCAL work_mem = \'1GB\'')
         const result = await query(`SELECT
-                message, ip, ip_path, user_agent, user_agent_path,
-                MAX(last_triggered)::text AS last_triggered,
+                COALESCE(normalized->>'message', '') AS message,
+                COALESCE(NULLIF(normalized->>'ip', ''), NULLIF(normalized #>> '{source,ip}', ''), '') AS ip,
+                CASE WHEN NULLIF(normalized->>'ip', '') IS NOT NULL THEN 'ip'
+                    WHEN NULLIF(normalized #>> '{source,ip}', '') IS NOT NULL THEN 'source.ip' END AS ip_path,
+                COALESCE(NULLIF(normalized->>'user_agent', ''), NULLIF(normalized #>> '{metadata,user_agent}', ''), '') AS user_agent,
+                CASE WHEN NULLIF(normalized->>'user_agent', '') IS NOT NULL THEN 'user_agent'
+                    WHEN NULLIF(normalized #>> '{metadata,user_agent}', '') IS NOT NULL THEN 'metadata.user_agent' END AS user_agent_path,
+                MAX(event_timestamp)::text AS last_triggered,
                 (COUNT(*) FILTER (WHERE event_timestamp >= NOW() - INTERVAL '24 hours') * 100)::numeric::text AS last_24h_count,
                 (COUNT(*) * 100)::numeric::text AS event_count,
                 (SUM(pg_column_size(event)) * 100)::numeric::text AS storage_bytes
