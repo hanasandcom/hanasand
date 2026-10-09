@@ -28,10 +28,10 @@ This TypeScript bot provides `/info`, `/ping`, `/help`, and `/tickets`. Its nati
 5. Start the service on the Hanasand host:
 
    ```sh
-   docker compose --profile discord up -d --build discord-bot
+   docker compose --env-file ../.env up -d --build
    ```
 
-   The bot stores Discord channel mappings and message de-duplication state in the `discord_bot_state` volume.
+   This starts the bot in its own Compose project, using the shared Hanasand network and the existing `hanasand_discord_bot_state` volume. The main application release will not recreate or remove it.
 
 For local development, copy `.env.example` to `.env` and use `npm run dev`. The minimum supported Node.js version is 24.17, as required by current discord.js.
 

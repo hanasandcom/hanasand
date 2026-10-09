@@ -1,16 +1,16 @@
 FROM node:24-alpine AS dependencies
 WORKDIR /app
-COPY bot/package.json bot/package-lock.json ./
+COPY package.json package-lock.json ./
 RUN npm ci
 
 FROM dependencies AS build
-COPY bot/tsconfig.json ./
-COPY bot/src ./src
+COPY tsconfig.json ./
+COPY src ./src
 RUN npm run build
 
 FROM node:24-alpine AS production-dependencies
 WORKDIR /app
-COPY bot/package.json bot/package-lock.json ./
+COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
 FROM node:24-alpine AS runtime
