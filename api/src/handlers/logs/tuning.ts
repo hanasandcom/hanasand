@@ -1,5 +1,5 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
-import run, { isDatabaseLowLoad, tryWithDatabaseAdvisoryLock, withTransaction } from '#db'
+import run, { tryWithDatabaseAdvisoryLock, withTransaction } from '#db'
 import hasHanasandInternalRouteAccess, { HANASAND_ORGANIZATION_ID } from '#utils/auth/organizationPageAccess.ts'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import { cachedRead, invalidateReadCache } from '../../utils/readCache.ts'
@@ -100,10 +100,6 @@ function refreshLogTuningSnapshot() {
         const hasCurrentMetrics = Array.isArray(existing?.logs) && existing.logs.every((log: unknown) => log !== null
             && typeof log === 'object' && Object.hasOwn(log, 'last_triggered') && Object.hasOwn(log, 'last_24h_count'))
         if (generatedAt && hasCurrentMetrics && requestedAt <= generatedAt && Date.now() - generatedAt < REFRESH_INTERVAL_MS) return 'current'
-        // The 1% block sample is cheap enough to run alongside normal traffic,
-        // but pause it while the database is under heavier foreground load.
-        if (!(await isDatabaseLowLoad(12))) return 'busy'
-
         const startedAt = new Date().toISOString()
         const result = await queryLogTuning()
         await run(`INSERT INTO log_tuning_snapshots (organization_id, logs, generated_at, refresh_requested_at)
