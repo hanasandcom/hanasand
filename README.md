@@ -21,9 +21,9 @@ Hanasand combines threat intelligence, AI development tools, and infrastructure 
 | Onion proxy | [Onion repository](https://github.com/hanasandcom/onion) | Tor and Privoxy endpoint for browser and application traffic; deployed separately |
 | PgBouncer | [PgBouncer repository](https://github.com/hanasandcom/pgbouncer) | Primary and rolling-release PostgreSQL connection pools; deployed separately |
 | Database | `db/`, `api/src/utils/db/` | Initial schema and application schema updates |
-| Mail service and SMTP relay | [Mail repository](https://github.com/hanasandcom/mail), `compose.stalwart.yml` | Stalwart, SMTP relay, connector, health checks and gateway; deployed separately on Inspur and OVH |
+| Mail service and SMTP relay | [Stalwart repository](https://github.com/hanasandcom/stalwart) | Stalwart and host-specific SMTP relay containers, deployed through an independent Compose stack |
 | Database backup worker | [Database backup repository](https://github.com/hanasandcom/database-backup) | PostgreSQL backups, retention and restore workflows; runs separately from API releases |
-| Mail client | [mail repository](https://github.com/hanasandcom/mail) | Standalone webmail at `mail.hanasand.com`; mailbox data stays in the Hanasand API |
+| Mail client | [Mail repository](https://github.com/hanasandcom/mail) | Standalone webmail at `mail.hanasand.com`; mailbox data stays in the Hanasand API |
 | Client apps | `app/` | Mobile and desktop clients; see [desktop setup](app/desktop/README.md) |
 | Operations integrations | [Ops repository](https://github.com/hanasandcom/ops) | OVH host metrics tunnel and related host integrations; deployed separately |
 | Application operations | `ops/`, `scripts/` | Hanasand application deployment, maintenance and service checks |
