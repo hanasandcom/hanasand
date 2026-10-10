@@ -55,7 +55,7 @@ const priorityEventConnections = dedicatedLogProcessor
 const readConnections = dedicatedLogProcessor
     ? 0
     : process.env.AUTH_SERVICE_ONLY !== '1' && maxConnections >= 16
-        ? Math.min(4, Math.max(2, Math.floor(maxConnections / 5))) : 0
+        ? Math.min(10, Math.max(2, Math.floor(maxConnections / 10))) : 0
 // Reserve worker capacity without increasing its total connection budget.
 // Event holds cursor and batch locks while committing evidence on another client.
 const eventConnections = process.env.LOG_PROCESSOR_ONLY === '1'
@@ -160,7 +160,19 @@ export function withReadDatabase<T>(work: () => Promise<T>): Promise<T> {
 
 function activePool() {
     if (schemaWork.getStore()) return directPool
-    if (readWork.getStore()) return readPool
+    if (readWork.getStore()) {
+        // Keep ten read connections in their own pool. When that pool is fully
+        // occupied, let reads borrow idle or not-yet-open primary capacity while
+        // preserving at least 20 primary slots for ordinary API work.
+        const primaryReserve = Math.min(20, primaryConnections)
+        const readPoolAtCapacity = readPool !== pool
+            && readPool.totalCount >= readConnections
+            && readPool.idleCount === 0
+        const primaryHasBorrowableCapacity = pool.idleCount > primaryReserve
+            || pool.totalCount < primaryConnections - primaryReserve
+        if (readPoolAtCapacity && primaryHasBorrowableCapacity) return pool
+        return readPool
+    }
     if (priorityEventWork.getStore()) return priorityEventPool
     return eventWork.getStore() ? eventPool : pool
 }
