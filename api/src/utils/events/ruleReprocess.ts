@@ -106,7 +106,7 @@ export async function processRuleReprocessJob() {
                     ${ownedLogScope}
                     AND ($3::timestamptz IS NULL OR event_timestamp>$3::timestamptz)
                     AND ($${cursorTimeParam}::timestamptz IS NULL OR (event_timestamp,id)<($${cursorTimeParam}::timestamptz,$${cursorIdParam}::text)) AND ${candidate}
-                    ORDER BY event_timestamp DESC,id DESC LIMIT $${limitParam} FOR UPDATE NOWAIT`,
+                    ORDER BY event_timestamp DESC,id DESC LIMIT $${limitParam}`,
                 params)).rows
                 scanned = rows.length
                 items = rows.map(row => ({ id: row.id,
@@ -173,7 +173,7 @@ export async function reprocessRuleItems(items: Item[], job: Pick<ReprocessJob, 
         && !retentionStoreMatches({ ...item.event, retained_original: item.original }, storageRules)
         && !protectedEvent({ ...item.event, retained_original: item.original }))
     const evidence = (await query(`SELECT id,organization_id,source_vendor,source_product,normalized,original FROM events
-        WHERE id=ANY($1::text[]) FOR UPDATE NOWAIT`, [safe.map(item => item.id)])).rows
+        WHERE id=ANY($1::text[])`, [safe.map(item => item.id)])).rows
         .map(row => ({ ...row, normalized: { ...row.normalized, source_vendor: row.source_vendor, source_product: row.source_product } }))
     const findingIds = new Set((await query('SELECT event_ids FROM findings WHERE event_ids && $1::text[]', [evidence.map(row => row.id)])).rows.flatMap(row => row.event_ids))
     for (const keep of keeps) for (const index of await matchRulePage(evidence.map(row => row.normalized), keep.definition!.conditions!)) findingIds.add(evidence[index].id)
