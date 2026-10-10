@@ -1,5 +1,5 @@
 import type { FastifyRequest } from 'fastify'
-import run from '#db'
+import run, { identityQueryOnce } from '#db'
 
 export type SystemEventSeverity = 'info' | 'notice' | 'warning' | 'critical'
 export type SystemEventOutcome = 'success' | 'denied' | 'failed'
@@ -159,8 +159,11 @@ export async function userHasHanasandInternalAccess(userId: string) {
 }
 
 export async function recordSystemEvent(req: FastifyRequest, input: SystemEventInput, query: typeof run = run) {
+    // system_events belongs to Identity. Writing through the API database's
+    // foreign-table view loses the remote sequence default for its BIGSERIAL id.
+    const write = process.env.HANASAND_IDENTITY_FDW_HOST ? identityQueryOnce : query
     const requestId = input.requestId || requestIdFrom(req)
-    await query(`
+    await write(`
         INSERT INTO system_events (
             event_type,
             severity,
