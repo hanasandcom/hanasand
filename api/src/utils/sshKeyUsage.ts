@@ -38,21 +38,6 @@ type UsageRecord = {
     last_used_at: string
 }
 
-export async function ensureProfileSshKeyUsageSchema() {
-    await identityQueryOnce(`
-        CREATE TABLE IF NOT EXISTS ssh_key_usage_latest (
-            user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-            key_id BIGINT NOT NULL REFERENCES certificates(id) ON DELETE CASCADE,
-            server_app TEXT NOT NULL,
-            user_agent TEXT,
-            ip_address INET,
-            last_used_at TIMESTAMPTZ NOT NULL,
-            PRIMARY KEY (user_id, key_id, server_app)
-        )
-    `)
-    await identityQueryOnce('CREATE INDEX IF NOT EXISTS idx_ssh_key_usage_latest_user_key_time ON ssh_key_usage_latest (user_id, key_id, last_used_at DESC)')
-}
-
 export async function recordProfileSshKeyUsageFromEvents(events: SshKeyUsageEvent[], query: IdentityQuery = identityQueryOnce) {
     const accepted = events.flatMap(event => {
         if (event.event_type !== 'authentication' || event.action !== 'login' || event.outcome !== 'success') return []

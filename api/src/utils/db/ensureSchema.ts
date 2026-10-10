@@ -26,12 +26,8 @@ import ensurePushMonitoringSchema from './pushMonitoringSchema.ts'
 import ensureThesisSchema from './thesisSchema.ts'
 import { reservedUsernames } from '#utils/auth/reservedUsernames.ts'
 import { ensureIdentityDataBoundary } from './identityDataBoundary.ts'
-import { ensureProfileSshKeyUsageSchema } from '#utils/sshKeyUsage.ts'
 
 export default async function ensureSchema() {
-    // This schema lives in Identity and must be available even for code-only
-    // releases that reuse the main database's applied-schema marker.
-    await ensureProfileSshKeyUsageSchema()
     // This migration removes the legacy global receipt-write advisory lock.
     // Keep it outside the per-release marker check so an already-applied
     // release cannot leave receipt writers serialized indefinitely.
