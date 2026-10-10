@@ -1,5 +1,5 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
-import { withTransaction } from '#db'
+import { isTransientDatabaseError, withTransaction } from '#db'
 import { hasLogIngestToken } from '#utils/auth/logIngestToken.ts'
 export { hasLogIngestToken } from '#utils/auth/logIngestToken.ts'
 import hasInternalToken from '#utils/auth/internalToken.ts'
@@ -36,10 +36,18 @@ export default async function ingestLog(req: FastifyRequest, res: FastifyReply) 
     }
     activeBatches++
     try {
-        await withTransaction(async query => {
-            await query('SET LOCAL lock_timeout=\'1ms\'')
-            await recordLogBatch(entries.map(entry => ({ ...entry, level: entry.level || 'info' })), query)
-        })
+        try {
+            await withTransaction(async query => {
+                await query('SET LOCAL lock_timeout=\'1ms\'')
+                await recordLogBatch(entries.map(entry => ({ ...entry, level: entry.level || 'info' })), query)
+            })
+        } catch (error) {
+            const code = (error as { code?: string })?.code
+            if (isTransientDatabaseError(error) || code === '55P03' || code === '57014' || code === 'DB_QUEUE_FULL') {
+                return res.header('Retry-After', '1').status(503).send({ code: 'LOG_INGEST_BUSY', error: 'Log ingestion is busy. Retry this batch shortly.' })
+            }
+            throw error
+        }
     } finally {
         activeBatches--
     }

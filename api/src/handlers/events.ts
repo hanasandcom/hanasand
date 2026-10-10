@@ -19,7 +19,7 @@ import { redactLogValue } from '#utils/logs/redact.ts'
 import { securityRules, matchSecurityRules } from '#utils/events/securityRules.ts'
 import { randomUUID } from 'node:crypto'
 import type { FastifyReply, FastifyRequest } from 'fastify'
-import run, { withTransaction } from '#db'
+import run, { isTransientDatabaseError, withTransaction } from '#db'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import { hasHanasandInternalRouteAccess } from '#utils/auth/organizationPageAccess.ts'
 import { matchApiKeyScope, validateApiKey } from '#utils/auth/apiKeys.ts'
@@ -126,7 +126,7 @@ export function normalizeBuiltinDefinition(id: string, value: unknown): { defini
     if (id === applicationErrorRuleId && input.action !== 'keep') return { error: 'Application errors must use Store.' }
     if (defaults.stage) {
         const configuredPolicy = [applicationErrorRuleId, modelDiscoveryRuleId, modelHealthRuleId, readinessAuditRuleId, proxyRuleId, ingestionRuleId, telemetryRuleId, sshWindowRuleId, sshTransportRuleId, collectorRuleId, cdnRefreshRuleId, cdnDeliveryRuleId, postgresRuleId, accessRuleId, mongoRuleId].includes(id)
-    if (input.stage !== 'analyze' || !['drop', 'keep'].includes(String(input.action)) || !Array.isArray(input.conditions) || (!configuredPolicy && input.conditions.length)) return { error: 'Choose Keep or Count and drop. The required safety checks cannot be removed.' }
+        if (input.stage !== 'analyze' || !['drop', 'keep'].includes(String(input.action)) || !Array.isArray(input.conditions) || (!configuredPolicy && input.conditions.length)) return { error: 'Choose Keep or Count and drop. The required safety checks cannot be removed.' }
         definition.action = input.action as 'drop' | 'keep'
     }
     for (const key of ['conditions', ...(defaults.failureConditions ? ['failureConditions'] : [])] as Array<'conditions' | 'failureConditions'>) {
@@ -394,24 +394,29 @@ export async function getRuleStorageEstimate(req: FastifyRequest<{ Params: { id:
 }
 
 export async function postRule(req: FastifyRequest, res: FastifyReply) {
-    const access = await organizationAccess(req, res)
-    if (!access) return
-    if (!canManageRules(access.role)) return res.status(403).send({ error: 'Editor access is required to manage rules.' })
-    const body = req.body as { name?: unknown, explanation?: unknown, severity?: unknown, conditions?: unknown, stage?: unknown, action?: unknown } | undefined
-    const name = typeof body?.name === 'string' ? body.name.trim() : ''
-    const explanation = typeof body?.explanation === 'string' ? body.explanation.trim() : ''
-    const severity = typeof body?.severity === 'string' && ['low', 'medium', 'high', 'critical'].includes(body.severity) ? body.severity : 'medium'
-    const conditionResult = normalizeConditions(body?.conditions)
-    if (name.length < 2 || name.length > 120) return res.status(400).send({ error: 'Rule name must contain 2-120 characters.' })
-    if (explanation.length < 10 || explanation.length > 500) return res.status(400).send({ error: 'Rule explanation must contain 10-500 characters.' })
-    if (!conditionResult.conditions.length || conditionResult.error) return res.status(400).send({ error: conditionResult.error || 'Add at least one valid rule condition.' })
-    const stage = body?.stage ?? 'match'
-    const action = body?.action ?? 'keep'
-    if (!['match', 'analyze', 'detect'].includes(String(stage)) || !['drop', 'keep'].includes(String(action)) || (stage !== 'analyze' && action !== 'keep')) return res.status(400).send({ error: 'Drop requires an Analyze rule.' })
-    if (stage === 'analyze' && !(await hasHanasandInternalRouteAccess(req)).valid) return res.status(403).send({ error: 'Active Hanasand organization owner or editor access is required to change log retention.' })
-    const ruleId = `custom.${randomUUID().replaceAll('-', '').slice(0, 20)}.v1`
-    const rule = await saveRule(req, access, { id: ruleId, version: '1', name, family: 'Custom', severity, explanation, evidence: [], definition: { match: 'all', conditions: conditionResult.conditions, stage: stage as RuleDefinition['stage'], action: action as RuleDefinition['action'] }, source: 'owned', enabled: true }, 'event.rule.created')
-    return res.status(201).send({ rule })
+    try {
+        const access = await organizationAccess(req, res)
+        if (!access) return
+        if (!canManageRules(access.role)) return res.status(403).send({ error: 'Editor access is required to manage rules.' })
+        const body = req.body as { name?: unknown, explanation?: unknown, severity?: unknown, conditions?: unknown, stage?: unknown, action?: unknown } | undefined
+        const name = typeof body?.name === 'string' ? body.name.trim() : ''
+        const explanation = typeof body?.explanation === 'string' ? body.explanation.trim() : ''
+        const severity = typeof body?.severity === 'string' && ['low', 'medium', 'high', 'critical'].includes(body.severity) ? body.severity : 'medium'
+        const conditionResult = normalizeConditions(body?.conditions)
+        if (name.length < 2 || name.length > 120) return res.status(400).send({ error: 'Rule name must contain 2-120 characters.' })
+        if (explanation.length < 10 || explanation.length > 500) return res.status(400).send({ error: 'Rule explanation must contain 10-500 characters.' })
+        if (!conditionResult.conditions.length || conditionResult.error) return res.status(400).send({ error: conditionResult.error || 'Add at least one valid rule condition.' })
+        const stage = body?.stage ?? 'match'
+        const action = body?.action ?? 'keep'
+        if (!['match', 'analyze', 'detect'].includes(String(stage)) || !['drop', 'keep'].includes(String(action)) || (stage !== 'analyze' && action !== 'keep')) return res.status(400).send({ error: 'Drop requires an Analyze rule.' })
+        if (stage === 'analyze' && !(await hasHanasandInternalRouteAccess(req)).valid) return res.status(403).send({ error: 'Active Hanasand organization owner or editor access is required to change log retention.' })
+        const ruleId = `custom.${randomUUID().replaceAll('-', '').slice(0, 20)}.v1`
+        const rule = await saveRule(req, access, { id: ruleId, version: '1', name, family: 'Custom', severity, explanation, evidence: [], definition: { match: 'all', conditions: conditionResult.conditions, stage: stage as RuleDefinition['stage'], action: action as RuleDefinition['action'] }, source: 'owned', enabled: true }, 'event.rule.created')
+        return res.status(201).send({ rule })
+    } catch (error) {
+        if (isRuleDatabaseBusy(error)) return sendRuleDatabaseBusy(res)
+        throw error
+    }
 }
 
 export async function postRulePack(req: FastifyRequest, res: FastifyReply) {
@@ -489,8 +494,18 @@ export async function postRuleAction(req: FastifyRequest<{ Params: { id: string 
         return res.send({ rule: saved })
     } catch (error) {
         if (error instanceof RuleConflict) return res.status(409).send({ error: error.message })
+        if (isRuleDatabaseBusy(error)) return sendRuleDatabaseBusy(res)
         throw error
     }
+}
+
+function isRuleDatabaseBusy(error: unknown) {
+    const code = (error as { code?: string })?.code
+    return isTransientDatabaseError(error) || code === '55P03' || code === '57014' || code === 'DB_QUEUE_FULL'
+}
+
+function sendRuleDatabaseBusy(res: FastifyReply) {
+    return res.header('Retry-After', '2').status(503).send({ error: 'The database is temporarily busy. Retry saving the rule shortly.' })
 }
 
 export async function getRule(req: FastifyRequest<{ Params: { id: string }, Querystring: { organizationId?: string, offset?: string } }>, res: FastifyReply) {
@@ -581,6 +596,7 @@ export async function putRule(req: FastifyRequest<{ Params: { id: string } }>, r
         return res.send({ rule: saved })
     } catch (error) {
         if (error instanceof RuleConflict) return res.status(409).send({ error: error.message })
+        if (isRuleDatabaseBusy(error)) return sendRuleDatabaseBusy(res)
         throw error
     }
 }
