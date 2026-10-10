@@ -2,7 +2,7 @@ import { canonicalReplayKeys } from './replayEvidence.ts'
 import { analyzeCdnDelivery } from './analyzeCdnDeliveryLog.ts'
 import { cdnDeliveryRuleId } from './analyzeCdnDelivery.ts'
 import type run from '#db'
-import { normalizeLogEvent, type LogInput } from './logEvent.ts'
+import { normalizeLogEvent } from './logEvent.ts'
 import { analyzeIngestion, ingestionRuleId } from './analyzeIngestion.ts'
 import { analyzeProxy, proxyRuleId } from './analyzeProxy.ts'
 import { analyzeCollectorExecution } from './analyzeCollectorLog.ts'
@@ -53,7 +53,7 @@ export async function reprocessBuiltinPage(job: ReprocessJob, query: typeof run)
         WHERE ingestion_id='logs' AND organization_id=$1 AND event_timestamp<=$2::timestamptz
           AND ($3::timestamptz IS NULL OR event_timestamp>=$3::timestamptz)
           AND ($4::timestamptz IS NULL OR (event_timestamp,id)<($4::timestamptz,$5::text))
-        ORDER BY event_timestamp DESC,id DESC LIMIT $6 FOR UPDATE NOWAIT`, [job.organization_id, job.until_time, job.from_time,
+        ORDER BY event_timestamp DESC,id DESC LIMIT $6`, [job.organization_id, job.until_time, job.from_time,
         job.cursor.time || null, job.cursor.id || null, limit])).rows
     const projections = rows
     const findings = new Set((await query('SELECT event_ids FROM findings WHERE event_ids && $1::text[]', [projections.map(row => row.id)])).rows.flatMap(row => row.event_ids))

@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto'
 import run, { withTransaction } from '#db'
 import hasHanasandInternalRouteAccess from '#utils/auth/organizationPageAccess.ts'
 import { roleCanEditOrganization } from '#utils/organizationRoles.ts'
-import { reprocessableRule } from '#utils/events/ruleReprocess.ts'
+import { reprocessableRule, ruleReprocessRuleLock, ruleReprocessWorkerLock } from '#utils/events/ruleReprocess.ts'
 import { organizationAccess, ruleSlug } from './events.ts'
 import { scanRulePreview } from '#utils/events/rulePreview.ts'
 
@@ -50,17 +50,23 @@ export async function postRuleReprocess(req: Request, res: FastifyReply) {
     if (!scope) return
     const body = req.body || {}
     if (body.action === 'cancel') {
-        const result = await run(`UPDATE rule_reprocess_jobs SET status='cancelled',updated_at=NOW()
-            WHERE id=$1 AND organization_id=$2 AND regexp_replace(rule_id,'\\.v[0-9]+$','')=$3
-            AND status IN ('queued','running') RETURNING ${columns}`, [String(body.jobId || ''), scope.organizationId, ruleSlug(req.params.id)])
-        return result.rows[0] ? res.send({ job: result.rows[0] }) : res.status(409).send({ error: 'This run is no longer active. Refresh its status.' })
+        return withTransaction(async query => {
+            await query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [ruleReprocessWorkerLock])
+            const result = await query(`UPDATE rule_reprocess_jobs SET status='cancelled',updated_at=NOW()
+                WHERE id=$1 AND organization_id=$2 AND regexp_replace(rule_id,'\\.v[0-9]+$','')=$3
+                AND status IN ('queued','running') RETURNING ${columns}`, [String(body.jobId || ''), scope.organizationId, ruleSlug(req.params.id)])
+            return result.rows[0] ? res.send({ job: result.rows[0] }) : res.status(409).send({ error: 'This run is no longer active. Refresh its status.' })
+        })
     }
     if (body.confirm !== true || typeof body.version !== 'string' || (body.from !== null && (typeof body.from !== 'string'
         || body.from.length > 40 || !Number.isFinite(Date.parse(body.from)) || Date.parse(body.from) > Date.now())))
         return res.status(400).send({ error: 'Confirm deletion and choose a valid time range for the saved rule version.' })
     return withTransaction(async query => {
-        const rule = (await query(`SELECT * FROM rules WHERE organization_id=$1
-            AND regexp_replace(rule_id,'\\.v[0-9]+$','')=$2 FOR UPDATE`, [scope.organizationId, ruleSlug(req.params.id)])).rows[0]
+        const candidate = (await query(`SELECT rule_id FROM rules WHERE organization_id=$1
+            AND regexp_replace(rule_id,'\\.v[0-9]+$','')=$2 ORDER BY version DESC LIMIT 1`, [scope.organizationId, ruleSlug(req.params.id)])).rows[0]
+        if (!candidate) return res.status(400).send({ error: 'Save and enable an Analyze drop rule with stored-log processing before reprocessing.' })
+        await query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [ruleReprocessRuleLock(scope.organizationId, candidate.rule_id)])
+        const rule = (await query('SELECT * FROM rules WHERE organization_id=$1 AND rule_id=$2', [scope.organizationId, candidate.rule_id])).rows[0]
         if (!reprocessableRule(rule)) return res.status(400).send({ error: 'Save and enable an Analyze drop rule with stored-log processing before reprocessing.' })
         if (rule.version !== body.version) return res.status(409).send({ error: 'This rule changed. Reload it before reprocessing.' })
         const existing = (await query(`SELECT ${columns} FROM rule_reprocess_jobs WHERE organization_id=$1 AND rule_id=$2

@@ -15,6 +15,8 @@ export type ReprocessJob = { id: string, organization_id: string, rule_id: strin
 type Rule = { rule_id: string, version: string, source: string, enabled: boolean, definition: { stage: string, action: string, conditions: Condition[] } }
 type Item = { id: string, event: Record<string, unknown>, original?: Record<string, unknown> }
 const size = 1000
+export const ruleReprocessWorkerLock = 'event:rule-reprocess-worker'
+export const ruleReprocessRuleLock = (organizationId: string, ruleId: string) => `event-rule:${organizationId}:${ruleId}`
 const eventCandidateColumns: Record<string, string> = {
     source_vendor: 'source_vendor', source_product: 'source_product', event_type: 'event_type', service: 'normalized->>\'service\'',
     action: 'action', outcome: 'outcome', user_id: 'user_id', source_ip: 'source_ip',
@@ -49,16 +51,21 @@ export async function processRuleReprocessJob() {
     try {
         return await withTransaction(async query => {
             await query('SET LOCAL statement_timeout=\'10s\'')
+            const workerLock = await query('SELECT pg_try_advisory_xact_lock(hashtextextended($1, 0)) AS acquired', [ruleReprocessWorkerLock])
+            if (!workerLock.rows[0].acquired) return false
             const pending = await query('SELECT EXISTS(SELECT 1 FROM rule_reprocess_jobs WHERE status IN (\'queued\',\'running\')) AS pending')
             if (!pending.rows[0].pending) return false
-            // Conflicting event rows fail immediately and retry on the next worker pass.
+            // Event write conflicts fail immediately and retry on the next worker pass.
             await query('SET LOCAL lock_timeout=\'1ms\'')
             const job = (await query(`SELECT * FROM rule_reprocess_jobs WHERE status IN ('queued','running')
-                ORDER BY updated_at,id LIMIT 1 FOR UPDATE SKIP LOCKED`)).rows[0] as ReprocessJob | undefined
+                ORDER BY updated_at,id LIMIT 1`)).rows[0] as ReprocessJob | undefined
             if (!job) return false
             jobId = job.id
+            const ruleLock = await query('SELECT pg_try_advisory_xact_lock(hashtextextended($1, 0)) AS acquired',
+                [ruleReprocessRuleLock(job.organization_id, job.rule_id)])
+            if (!ruleLock.rows[0].acquired) return false
             const rule = (await query(`SELECT r.* FROM rules r JOIN organizations o ON o.id=r.organization_id
-                WHERE r.organization_id=$1 AND r.rule_id=$2 AND o.status='active' FOR SHARE OF r,o NOWAIT`, [job.organization_id, job.rule_id])).rows[0] as Rule | undefined
+                WHERE r.organization_id=$1 AND r.rule_id=$2 AND o.status='active'`, [job.organization_id, job.rule_id])).rows[0] as Rule | undefined
             if (!reprocessableRule(rule) || rule.version !== job.rule_version) {
                 await query('UPDATE rule_reprocess_jobs SET status=\'cancelled\',error=\'The rule changed or was disabled. Start a new run to use its current version.\',updated_at=NOW() WHERE id=$1', [job.id])
                 return true
