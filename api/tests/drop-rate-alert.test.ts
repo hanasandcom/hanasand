@@ -6,7 +6,7 @@ test('a pool-unavailable drop rule creates one high alert above 20 receipts per 
     const insertAlerts: Array<Record<string, unknown>[]> = []
     let count = 20
     const query = (async (sql: string, params?: unknown[]) => {
-        if (sql.includes('jsonb_to_recordset')) {
+        if (sql.includes('WITH patterns AS')) {
             const targets = JSON.parse(String(params?.[0])) as Array<{ conditions: Array<{ value: string }>, min_hits: number, threshold: number }>
             const poolTarget = targets.find(target => target.conditions.some(condition => condition.value === 'Pool currently unavailable, retrying in 5s...'))
             expect(poolTarget?.min_hits).toBe(21)
