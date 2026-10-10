@@ -438,8 +438,11 @@ test "$(git -C "$support_repo" branch --show-current)" = main || {
     echo "The independent Support checkout must be on main." >&2
     exit 1
 }
+run_support_deploy() {
+    (cd "$support_repo" && sh scripts/deploy.sh "$@")
+}
 git -C "$support_repo" pull --ff-only origin main
-sh "$support_repo/scripts/deploy.sh" prepare
+run_support_deploy prepare
 
 upstream_file=/home/hanasand/openresty/nginx/conf.d/hanasand-upstreams.conf
 test -w "$upstream_file" || {
@@ -658,7 +661,7 @@ for container in hanasand-tunnel hanasand-tunnel-database hanasand-tunnel-intell
     if docker inspect "$container" >/dev/null 2>&1; then docker rm -f "$container"; fi
 done
 sh "$root/scripts/verify-stack-release.sh" "$release"
-sh "$support_repo/scripts/deploy.sh" refresh
-sh "$support_repo/scripts/deploy.sh" activate
+run_support_deploy refresh
+run_support_deploy activate
 curl --fail --silent --show-error --max-time 10 http://127.0.0.1:19181/ready
 echo "Hanasand stack deployed from main at $release."
