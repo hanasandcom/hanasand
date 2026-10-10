@@ -268,7 +268,12 @@ sync_one() {
         local password_hash
         password_hash=\$(printf '%s' "\$password" | sha256sum | awk '{print \$1}')
         if [ "\$(cat "\$password_state" 2>/dev/null || true)" != "\$password_hash" ]; then
-            printf '%s:%s\\n' "\$name" "\$password" | chpasswd
+            # Preserve a clear, password-free process marker in auditd EXECVE records.
+            if ! printf '%s:%s\\n' "\$name" "\$password" | (exec -a hanasand-lxd-password-sync /usr/sbin/chpasswd); then
+                logger -t hanasand-lxd-password-sync -- "action=password_update source=lxd account=\$name result=failure" || true
+                return 1
+            fi
+            logger -t hanasand-lxd-password-sync -- "action=password_update source=lxd account=\$name result=success" || true
             printf '%s\\n' "\$password_hash" >"\$password_state"
         fi
     else
