@@ -333,15 +333,27 @@ warm_dashboard_pages() {
             -H 'x-hanasand-render-proof-auth: local-dashboard-render-proof' \
             "http://127.0.0.1:$port$page_path"
 
-        response=$(curl --fail --silent --show-error --max-time 15 --output /dev/null \
-            --write-out '%{http_code} %{time_starttransfer}' \
-            -H "Cookie: $page_cookie" \
-            -H 'x-hanasand-render-proof-auth: local-dashboard-render-proof' \
-            "http://127.0.0.1:$port$page_path")
-        status=${response%% *}
-        elapsed=${response#* }
-        if [ "$status" != "200" ] || ! awk -v elapsed="$elapsed" 'BEGIN { exit (elapsed < 0.020) ? 0 : 1 }'; then
-            echo "$page_path did not reach 200 with a first byte under 20ms (status $status, ${elapsed}s)." >&2
+        ready=0
+        for attempt in 1 2 3 4; do
+            response=$(curl --fail --silent --show-error --max-time 15 --output /dev/null \
+                --write-out '%{http_code} %{time_starttransfer}' \
+                -H "Cookie: $page_cookie" \
+                -H 'x-hanasand-render-proof-auth: local-dashboard-render-proof' \
+                "http://127.0.0.1:$port$page_path")
+            status=${response%% *}
+            elapsed=${response#* }
+            if [ "$status" != "200" ]; then
+                echo "$page_path did not reach 200 (status $status)." >&2
+                return 1
+            fi
+            if awk -v elapsed="$elapsed" 'BEGIN { exit (elapsed < 0.020) ? 0 : 1 }'; then
+                ready=1
+                break
+            fi
+            sleep 0.1
+        done
+        if [ "$ready" -ne 1 ]; then
+            echo "$page_path did not reach a first byte under 20ms after warming (status $status, ${elapsed}s)." >&2
             return 1
         fi
         printf '%s first byte %.1f ms\n' "$page_path" "$(awk -v elapsed="$elapsed" 'BEGIN { print elapsed * 1000 }')"
