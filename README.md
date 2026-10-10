@@ -13,7 +13,7 @@ Hanasand combines threat intelligence, AI development tools, and infrastructure 
 | AI model client | [AI repository](https://github.com/hanasandcom/ai) | Connects the Inspur inference server to the API over WebSockets; deployed separately |
 | Parser | [Parser repository](https://github.com/hanasandcom/parser) | AI parsing HTTP service; deployed separately |
 | Scraper | [Scraper repository](https://github.com/hanasandcom/scraper) | Threat-intelligence collection service; deployed separately |
-| Model runtime | `gpt/` | Model launch scripts and inference server code |
+| Model runtime | [GPT repository](https://github.com/hanasandcom/gpt) | GPU model server and its independent startup service |
 | Browser workers | [Browser repository](https://github.com/hanasandcom/browsers) | Browser worker image and its independent Compose service |
 | Browser TURN | [Browser TURN Compose](https://github.com/hanasandcom/browsers/blob/main/turn/compose.yml) | Coturn relay with an independent Compose deployment |
 | Browser host firewall | `ops/browser-worker/` | Host egress rules for isolated browser sessions |
@@ -84,7 +84,7 @@ The local API defaults to port 8080 and the frontend to 3000. A host process rea
 
 `POST /api/tools/ai` handles AI requests. Common project requests can use built-in generators; other requests go to a connected model. `GET /api/ai/models` reports connected models. An empty list means inference is unavailable, even if the API and parser bridge are healthy.
 
-The model client uses `HANASAND_AI_CLIENT_API_WS`, `HANASAND_AI_OPENAI_BASE` and `HANASAND_AI_MODEL`. Model launch scripts live in `gpt/`. Starting the client alone does not start an inference server.
+The model client uses `HANASAND_AI_CLIENT_API_WS`, `HANASAND_AI_OPENAI_BASE` and `HANASAND_AI_MODEL`. The model runtime is deployed separately from [the GPT repository](https://github.com/hanasandcom/gpt). Starting the client alone does not start an inference server.
 
 Generated projects include source, a README, environment examples, build commands and Docker configuration. Website output includes its page, layout and CSS. These are starting points: API records and worker queues currently use in-memory state, and external integrations require implementation. A generated project or passing source check is not evidence that a production integration works.
 

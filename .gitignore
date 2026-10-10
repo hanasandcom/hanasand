@@ -38,17 +38,20 @@ next-env.d.ts
 # runtime article repository clone
 /api/articles/
 
-# gpts
-/gpt/models/*
+# Preserve local legacy GPT caches without tracking them in this repository.
+/gpt/models/
+/gpt/runtime/
+/gpt/sandbox/
+/gpt/api/runtime/
+/gpt/api/sandbox/
 /gpt/.llama.cpp-src/
 /gpt/.llama.cpp-build/
-/gpt/venv/
 /gpt/.venv-vllm/
-/gpt/api/runtime/orchestration/
-/gpt/api/runtime/
-/gpt/runtime/
-/gpt/api/sandbox/
-/gpt/sandbox/
+/gpt/venv/
+/gpt/api/node_modules/
+/gpt/modules/node_modules/
+
+
 /sandbox/
 /agents/control-plane/
 /agents/references/
