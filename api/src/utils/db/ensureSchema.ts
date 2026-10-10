@@ -1481,6 +1481,10 @@ async function applySchema() {
         )
     `)
     await ensureColumn(run, 'events', 'parser_version', 'ALTER TABLE events ADD COLUMN IF NOT EXISTS parser_version TEXT NOT NULL DEFAULT \'event.v1\'')
+    await ensureIndex(run, 'idx_events_logs_time', `CREATE INDEX IF NOT EXISTS idx_events_logs_time ON events(event_timestamp DESC, id DESC)
+        WHERE ingestion_id = 'logs' AND processing_status = 'processed'`)
+    await ensureIndex(run, 'idx_events_logs_pending', `CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_events_logs_pending ON events(received_at, id) INCLUDE (event_timestamp)
+        WHERE ingestion_id = 'logs' AND processing_status = 'pending'`)
     await run('DROP TABLE IF EXISTS log_process_queue')
     await run('DROP TABLE IF EXISTS log_proxy_requests')
     await run('DROP TABLE IF EXISTS service_logs')
@@ -1571,12 +1575,12 @@ async function applySchema() {
     await run('CREATE INDEX IF NOT EXISTS idx_findings_event_ids ON findings USING GIN(event_ids)')
     await ensureRuleHitCountSchema()
     await ensureLegacyHealthRuleHitMigration()
-    // These indexes served search, correlation, and queue paths outside tuning
-    // and exact-message cleanup; startup removes them and must not recreate them.
+    // Remove obsolete log indexes while retaining the two indexes used by the
+    // live recent-log and pending-queue paths above.
     for (const indexName of [
         'idx_logs_phrase_trgm', 'idx_logs_phrase_trgm_ram320', 'idx_logs_service_time',
         'idx_logs_realtime_page_time', 'idx_events_log_http_error_summary', 'idx_events_ssh_key_usage',
-        'idx_events_native_pending', 'idx_events_logs_pending', 'idx_events_logs_skipped', 'idx_events_logs_time',
+        'idx_events_native_pending', 'idx_events_logs_skipped',
         'idx_events_org_time', 'idx_events_org_user_time', 'idx_auth_failure_source_time', 'idx_logs_severity_time', 'idx_logs_type_time',
         'idx_logs_executable_suffix', 'idx_log_dimensions_time', 'idx_log_dimensions_service_time',
     ]) await run(`DROP INDEX CONCURRENTLY IF EXISTS ${indexName}`)

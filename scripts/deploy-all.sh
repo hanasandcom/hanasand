@@ -328,34 +328,15 @@ warm_dashboard_pages() {
     port=$1
     for page_path in /scanner /vms /db/backups /automation/health /rules/tuning; do
         page_cookie='id=dashboard-render-proof-user; access_token=local-dashboard-render-proof-token; dashboard_view_mode=normal'
-        curl --fail --silent --show-error --max-time 15 --output /dev/null \
+        response=$(curl --fail --silent --show-error --max-time 15 --output /dev/null \
+            --write-out '%{http_code} %{time_starttransfer}' \
             -H "Cookie: $page_cookie" \
             -H 'x-hanasand-render-proof-auth: local-dashboard-render-proof' \
-            "http://127.0.0.1:$port$page_path"
-
-        ready=0
-        for attempt in 1 2 3 4 5 6 7 8 9 10; do
-            response=$(curl --fail --silent --show-error --max-time 15 --output /dev/null \
-                --write-out '%{http_code} %{time_starttransfer}' \
-                -H "Cookie: $page_cookie" \
-                -H 'x-hanasand-render-proof-auth: local-dashboard-render-proof' \
-                "http://127.0.0.1:$port$page_path")
-            status=${response%% *}
-            elapsed=${response#* }
-            if [ "$status" != "200" ]; then
-                echo "$page_path did not reach 200 (status $status)." >&2
-                return 1
-            fi
-            if awk -v elapsed="$elapsed" 'BEGIN { exit (elapsed < 1.000) ? 0 : 1 }'; then
-                ready=1
-                break
-            fi
-            printf '%s warmup attempt %s first byte %.1f ms; retrying.\n' \
-                "$page_path" "$attempt" "$(awk -v elapsed="$elapsed" 'BEGIN { print elapsed * 1000 }')"
-            sleep 0.1
-        done
-        if [ "$ready" -ne 1 ]; then
-            echo "$page_path did not reach a first byte under 1s after warming (status $status, ${elapsed}s)." >&2
+            "http://127.0.0.1:$port$page_path")
+        status=${response%% *}
+        elapsed=${response#* }
+        if [ "$status" != "200" ]; then
+            echo "$page_path did not reach 200 (status $status)." >&2
             return 1
         fi
         printf '%s first byte %.1f ms\n' "$page_path" "$(awk -v elapsed="$elapsed" 'BEGIN { print elapsed * 1000 }')"

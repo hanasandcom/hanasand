@@ -50,12 +50,21 @@ async function queryLogMetrics(): Promise<LogMetrics> {
             remaining BIGINT NOT NULL
         )`).then(() => undefined).catch(error => { metricsSchema = undefined; throw error })
     await metricsSchema
-    const current = (await run(`SELECT
-            (SELECT COUNT(*)::bigint FROM events WHERE ingestion_id='logs' AND processing_status='processed'
-                AND event_timestamp >= NOW() - INTERVAL '10 seconds') AS checked_count,
-            (SELECT COUNT(*)::bigint FROM events WHERE ingestion_id='logs' AND processing_status='pending') AS remaining,
-            (SELECT COUNT(*)::bigint FROM events WHERE ingestion_id='logs' AND processing_status IN ('processed','pending')
-                AND event_timestamp >= NOW() - INTERVAL '10 seconds') AS received`)).rows[0]
+    const current = (await run(`SELECT processed.checked_count,
+            pending.remaining,
+            processed.checked_count + pending.recent_count AS received
+        FROM (
+            SELECT COUNT(*)::bigint AS checked_count
+            FROM events
+            WHERE ingestion_id='logs' AND processing_status='processed'
+                AND event_timestamp >= NOW() - INTERVAL '10 seconds'
+        ) processed
+        CROSS JOIN (
+            SELECT COUNT(*)::bigint AS remaining,
+                COUNT(*) FILTER (WHERE event_timestamp >= NOW() - INTERVAL '10 seconds')::bigint AS recent_count
+            FROM events
+            WHERE ingestion_id='logs' AND processing_status='pending'
+        ) pending`)).rows[0]
     const now = new Date()
     const checked = Number(current?.checked_count || 0)
     const pps = Number(current?.checked_count || 0) / 10
