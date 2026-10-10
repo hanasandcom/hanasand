@@ -18,7 +18,7 @@ const tasks: TestTask[] = [
     { id: 'logs-catchup', title: 'Log catch-up measurements and progress states', command: [bun, 'test', 'tests/log-catchup-progress.test.tsx'] },
     { id: 'rule-count-initial', title: 'Rule counts start from the previous server sample', command: [bun, 'test', 'tests/rule-count-initial.test.tsx'] },
     { id: 'content-workspace', title: 'Content workspace selection and access failures', command: [bun, 'test', 'tests/content-workspace.test.ts'] },
-    { id: 'support-proxy', title: 'Anonymous support session and origin protection', command: [bun, 'test', 'tests/support-proxy.test.ts'] },
+    { id: 'support-session', title: 'Anonymous support session cookie security', command: [bun, 'test', 'tests/support-session.test.ts'] },
     { id: 'support-ui', title: 'AI support, human handoff and internal queue layout', command: [bun, 'x', 'playwright', 'test', 'tests/support-ai.spec.ts', 'tests/support-layout.spec.ts', 'tests/support-floating.spec.ts', 'tests/support-realtime.spec.ts', 'tests/support-resolved.spec.ts', 'tests/support-feedback-speed.spec.ts', '--workers=2'], requires: 'playwright' },
     { id: 'system-upstream', title: 'System internal API routing', command: [bun, 'test', 'tests/system-upstream.test.ts'] },
     { id: 'vm-console-start', title: 'Console startup and permission failures', command: [bun, 'test', 'tests/vm-console-start.test.ts'] },
