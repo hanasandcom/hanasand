@@ -36,11 +36,15 @@ export default async function ensureRuleHitCountSchema() {
             await query('UPDATE rule_hit_count_state SET initialized=TRUE WHERE id=TRUE')
         }
 
-        const installed = await query(`SELECT EXISTS (
-            SELECT 1 FROM pg_trigger WHERE tgrelid='findings'::regclass
-                AND tgname='findings_rule_hit_count_insert' AND NOT tgisinternal
-        ) AS installed`)
-        if (installed.rows[0]?.installed) return
+        const installed = await query(`SELECT
+            count(*) FILTER (WHERE tgname = ANY($1::text[])) AS installed_count,
+            bool_or(tgname IN ('findings_rule_hit_count', 'log_analyze_receipts_rule_hit_count', 'log_analyze_receipts_write_lock')) AS legacy_installed
+            FROM pg_trigger
+            WHERE tgrelid IN ('findings'::regclass, 'log_analyze_receipts'::regclass) AND NOT tgisinternal`, [[
+            'findings_rule_hit_count_insert', 'findings_rule_hit_count_delete', 'findings_rule_hit_count_update',
+            'log_analyze_receipts_rule_hit_count_insert', 'log_analyze_receipts_rule_hit_count_delete', 'log_analyze_receipts_rule_hit_count_update',
+        ]])
+        if (Number(installed.rows[0]?.installed_count) === 6 && !installed.rows[0]?.legacy_installed) return
 
         await query(`CREATE OR REPLACE FUNCTION record_rule_hit_count_delta() RETURNS trigger LANGUAGE plpgsql AS $$
         DECLARE
@@ -73,17 +77,17 @@ export default async function ensureRuleHitCountSchema() {
         await query('DROP TRIGGER IF EXISTS findings_rule_hit_count ON findings')
         await query('DROP TRIGGER IF EXISTS log_analyze_receipts_rule_hit_count ON log_analyze_receipts')
         await query('DROP TRIGGER IF EXISTS log_analyze_receipts_write_lock ON log_analyze_receipts')
-        await query(`CREATE TRIGGER findings_rule_hit_count_insert AFTER INSERT ON findings
+        await query(`CREATE OR REPLACE TRIGGER findings_rule_hit_count_insert AFTER INSERT ON findings
             REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION record_rule_hit_count_delta()`)
-        await query(`CREATE TRIGGER findings_rule_hit_count_delete AFTER DELETE ON findings
+        await query(`CREATE OR REPLACE TRIGGER findings_rule_hit_count_delete AFTER DELETE ON findings
             REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION record_rule_hit_count_delta()`)
-        await query(`CREATE TRIGGER findings_rule_hit_count_update AFTER UPDATE ON findings
+        await query(`CREATE OR REPLACE TRIGGER findings_rule_hit_count_update AFTER UPDATE ON findings
             REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION record_rule_hit_count_delta()`)
-        await query(`CREATE TRIGGER log_analyze_receipts_rule_hit_count_insert AFTER INSERT ON log_analyze_receipts
+        await query(`CREATE OR REPLACE TRIGGER log_analyze_receipts_rule_hit_count_insert AFTER INSERT ON log_analyze_receipts
             REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION record_rule_hit_count_delta()`)
-        await query(`CREATE TRIGGER log_analyze_receipts_rule_hit_count_delete AFTER DELETE ON log_analyze_receipts
+        await query(`CREATE OR REPLACE TRIGGER log_analyze_receipts_rule_hit_count_delete AFTER DELETE ON log_analyze_receipts
             REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION record_rule_hit_count_delta()`)
-        await query(`CREATE TRIGGER log_analyze_receipts_rule_hit_count_update AFTER UPDATE ON log_analyze_receipts
+        await query(`CREATE OR REPLACE TRIGGER log_analyze_receipts_rule_hit_count_update AFTER UPDATE ON log_analyze_receipts
             REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION record_rule_hit_count_delta()`)
         await query('DROP FUNCTION IF EXISTS maintain_rule_hit_count()')
         await query('DROP FUNCTION IF EXISTS serialize_log_analyze_receipt_writes()')

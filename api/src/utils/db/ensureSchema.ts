@@ -32,6 +32,10 @@ export default async function ensureSchema() {
     // This schema lives in Identity and must be available even for code-only
     // releases that reuse the main database's applied-schema marker.
     await ensureProfileSshKeyUsageSchema()
+    // This migration removes the legacy global receipt-write advisory lock.
+    // Keep it outside the per-release marker check so an already-applied
+    // release cannot leave receipt writers serialized indefinitely.
+    await ensureExistingRuleHitCountSchema()
     const release = process.env.HANASAND_RELEASE_COMMIT
     const tracked = Boolean(release && /^[a-f0-9]{40}$/.test(release))
     const deploymentCandidate = process.env.DEPLOYMENT_CANDIDATE_ONLY === '1'
@@ -62,6 +66,16 @@ export default async function ensureSchema() {
             await new Promise(resolve => setTimeout(resolve, 30_000))
         }
     }
+}
+
+async function ensureExistingRuleHitCountSchema() {
+    const relations = (await queryOnce(`SELECT
+        to_regclass('public.findings') IS NOT NULL AS findings,
+        to_regclass('public.log_analyze_receipts') IS NOT NULL AS receipts,
+        to_regclass('public.rule_hit_count_state') IS NOT NULL AS state`)).rows[0]
+    if (!relations?.findings || !relations.receipts || !relations.state) return
+    const initialized = await queryOnce('SELECT initialized FROM rule_hit_count_state WHERE id=TRUE')
+    if (initialized.rows[0]?.initialized) await ensureRuleHitCountSchema()
 }
 
 async function ensureIdentityDataBoundaryWithRetry() {
