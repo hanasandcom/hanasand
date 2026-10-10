@@ -334,7 +334,7 @@ warm_dashboard_pages() {
             "http://127.0.0.1:$port$page_path"
 
         ready=0
-        for attempt in 1 2 3 4; do
+        for attempt in 1 2 3 4 5 6 7 8 9 10; do
             response=$(curl --fail --silent --show-error --max-time 15 --output /dev/null \
                 --write-out '%{http_code} %{time_starttransfer}' \
                 -H "Cookie: $page_cookie" \
@@ -350,6 +350,8 @@ warm_dashboard_pages() {
                 ready=1
                 break
             fi
+            printf '%s warmup attempt %s first byte %.1f ms; retrying.\n' \
+                "$page_path" "$attempt" "$(awk -v elapsed="$elapsed" 'BEGIN { print elapsed * 1000 }')"
             sleep 0.1
         done
         if [ "$ready" -ne 1 ]; then
