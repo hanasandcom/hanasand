@@ -133,8 +133,8 @@ services:
       HANASAND_IDENTITY_FDW_HOST: identity-postgres
       HANASAND_IDENTITY_FDW_PORT: "5432"
       HANASAND_IDENTITY_SERVICE_URL: ${HANASAND_IDENTITY_SERVICE_URL:-http://identity:8081}
-      # Match PgBouncer's 40-server budget and avoid a startup connection burst.
-      DB_MAX_CONN: ${DB_MAX_CONN:-32}
+      # Keep the API pool budget aligned with PostgreSQL's 100-connection cap.
+      DB_MAX_CONN: ${DB_MAX_CONN:-100}
       DB_POOL_WARMUP_CONN: ${DB_POOL_WARMUP_CONN:-8}
       LOG_CATCHUP_WORKER_DISABLED: "1"
       API_CORS_ALLOWED_ORIGINS: ${API_CORS_ALLOWED_ORIGINS:-https://hanasand.com,https://www.hanasand.com}
