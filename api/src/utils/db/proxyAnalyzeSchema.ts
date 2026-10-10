@@ -1,11 +1,12 @@
 import run from '#db'
+import { ensureColumn } from './existingSchema.ts'
 
 export default async function ensureProxyAnalyzeSchema() {
     await run(`CREATE TABLE IF NOT EXISTS log_proxy_receipts (
         key TEXT PRIMARY KEY, organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
         connection_id UUID NOT NULL, canonical_event_id TEXT NOT NULL DEFAULT '', original JSONB NOT NULL,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`)
-    await run('ALTER TABLE log_proxy_receipts ADD COLUMN IF NOT EXISTS canonical_event_id TEXT NOT NULL DEFAULT \'\'')
+    await ensureColumn(run, 'log_proxy_receipts', 'canonical_event_id', 'ALTER TABLE log_proxy_receipts ADD COLUMN canonical_event_id TEXT NOT NULL DEFAULT \'\'')
     const legacy = await run(`SELECT
         EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='events' AND column_name='log_key') AS event_key,
         EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='log_proxy_receipts' AND column_name='canonical_log_key') AS receipt_key`)
