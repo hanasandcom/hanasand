@@ -72,6 +72,14 @@ export default async function ensureMonitoringIssuesSchema() {
         automation_id TEXT NOT NULL REFERENCES agent_automations(id) ON DELETE CASCADE,
         active BOOLEAN NOT NULL, PRIMARY KEY(issue_id, automation_id)
     )`)
-    await run('INSERT INTO monitoring_issue_checks SELECT id, automation_id, resolved_at IS NULL FROM monitoring_issues WHERE merged_into IS NULL ON CONFLICT DO NOTHING')
+    const missingChecks = await run(`SELECT 1 FROM monitoring_issues i WHERE i.merged_into IS NULL
+        AND NOT EXISTS (SELECT 1 FROM monitoring_issue_checks c WHERE c.issue_id=i.id AND c.automation_id=i.automation_id) LIMIT 1`)
+    if (missingChecks.rows.length) {
+        await run(`INSERT INTO monitoring_issue_checks(issue_id, automation_id, active)
+            SELECT i.id, i.automation_id, i.resolved_at IS NULL FROM monitoring_issues i
+            WHERE i.merged_into IS NULL
+                AND NOT EXISTS (SELECT 1 FROM monitoring_issue_checks c WHERE c.issue_id=i.id AND c.automation_id=i.automation_id)
+            ON CONFLICT DO NOTHING`)
+    }
     await ensureIndex(run, 'idx_automation_runs_issue', 'CREATE INDEX idx_automation_runs_issue ON agent_automation_runs(issue_id) WHERE issue_id IS NOT NULL')
 }
