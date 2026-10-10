@@ -40,9 +40,10 @@ export default async function ensureLogAnalyzeSchema() {
         bucket TIMESTAMPTZ NOT NULL, ip INET NOT NULL, hits BIGINT NOT NULL DEFAULT 0,
         PRIMARY KEY (organization_id, bucket, ip))`)
     await run('CREATE INDEX IF NOT EXISTS idx_log_ingest_access_ip_minutes_retention ON log_ingest_access_ip_minutes(organization_id, bucket)')
+    // organizations is an Identity-backed view, so this short-lived counter cannot use a foreign key.
     await run(`CREATE TABLE IF NOT EXISTS log_ingest_access_minute_batches (
         batch_id UUID NOT NULL,
-        organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        organization_id TEXT NOT NULL,
         bucket TIMESTAMPTZ NOT NULL, ip INET NOT NULL, hits BIGINT NOT NULL CHECK (hits > 0),
         PRIMARY KEY (batch_id, organization_id, bucket, ip))`)
     await run('CREATE INDEX IF NOT EXISTS idx_log_ingest_access_minute_batches_window ON log_ingest_access_minute_batches(organization_id, bucket)')
