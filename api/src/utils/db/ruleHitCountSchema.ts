@@ -20,7 +20,7 @@ export default async function ensureRuleHitCountSchema() {
         delta BIGINT NOT NULL CHECK (delta <> 0),
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )`)
-    await run('CREATE INDEX IF NOT EXISTS idx_rule_hit_count_deltas_lookup ON rule_hit_count_deltas(organization_id, source, rule_id)')
+    await run('CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_rule_hit_count_deltas_lookup ON rule_hit_count_deltas(organization_id, source, rule_id)')
     await run('INSERT INTO rule_hit_count_state(id, initialized) VALUES(TRUE, FALSE) ON CONFLICT(id) DO NOTHING')
     await withTransaction(async query => {
         const state = await query('SELECT initialized FROM rule_hit_count_state WHERE id=TRUE FOR UPDATE')
