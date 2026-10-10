@@ -41,6 +41,10 @@ export async function recordCustomDropReceipts(event: Record<string, unknown>, r
 export function retentionStoreMatches(event: Record<string, unknown>, rules: RetentionRule[], scope: 'custom_drop' | 'all' = 'custom_drop'): boolean {
     return rules.some(rule => {
         if (rule.enabled === false || rule.definition?.stage !== 'analyze' || rule.definition.action !== 'keep') return false
+        // This exact no-op audit message is the target of an explicit custom
+        // Drop rule, so the broad authentication/audit Store rule must not
+        // override that rule for this event alone.
+        if (rule.id === authenticationAuditStoreRule.id && event.message === 'usermod: no changes') return false
         // Successful local Bun logins from the dedicated login monitor are
         // synthetic volume. Permit an explicit matching Drop rule for this
         // narrowly identified stream while retaining all other auth evidence.

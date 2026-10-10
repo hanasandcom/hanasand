@@ -2,6 +2,7 @@ import { beforeEach, expect, mock, test } from 'bun:test'
 let reads = 0, writes: unknown[][] = [], insertSqls: string[] = [], receipts: unknown[][] = [], failed = false
 let rules: any[] = []
 const query = async (sql: string, params: any[] = []): Promise<any> => {
+    if (sql.startsWith('SET LOCAL')) return { rows: [] }
     if (sql.includes('FROM rules r')) {
         reads++
         if (failed) throw new Error('Rule lookup unavailable')
@@ -11,7 +12,7 @@ const query = async (sql: string, params: any[] = []): Promise<any> => {
     if (sql.includes('INSERT INTO log_analyze_receipts')) { receipts.push(params); return { rows: [] } }
     throw new Error('Unexpected query')
 }
-mock.module('#db', () => ({ default: query, withTransaction: async (work: any) => work(query) }))
+mock.module('#db', () => ({ default: query, identityQueryOnce: query, withTransaction: async (work: any) => work((sql: string, params: any[] = []) => query(sql, params)) }))
 mock.module('../src/utils/events/analyzeLog.ts', () => ({ analyzeMongoPing: async () => false, analyzeAccess: async () => false }))
 const { default: recordLog, recordLogBatch } = await import('../src/utils/logs/recordLog.ts')
 const { customRetentionAction } = await import('../src/utils/events/customRetention.ts')
@@ -120,6 +121,16 @@ test('authentication Store scope protects custom Drop without blocking lossless 
     expect(customRetentionAction(event, [authDrop, store])).toBeUndefined()
     expect(customRetentionAction(event, [authDrop, { ...store, enabled: false }])).toBe('drop')
     expect(customRetentionAction(event, [{ ...store, definition: { ...store.definition, storeScope: 'all' } }])).toBe('keep')
+})
+
+test('the exact usermod no-op can be dropped while other audit messages remain stored', () => {
+    const store = { id: authenticationAuditStoreRule.id, source: 'owned', enabled: true, definition: authenticationAuditStoreRule.definition } as any
+    const drop = { source: 'owned', enabled: true, definition: { stage: 'analyze', action: 'drop', conditions: [
+        { path: 'message', operator: 'equals', value: 'usermod: no changes', caseSensitive: true },
+    ] } } as any
+    expect(customRetentionAction({ event_type: 'audit', message: 'usermod: no changes' }, [store, drop])).toBe('drop')
+    expect(customRetentionAction({ event_type: 'audit', message: 'usermod: changed account' }, [store, drop])).toBeUndefined()
+    expect(customRetentionAction({ event_type: 'audit', message: 'USermod: no changes' }, [store, drop])).toBeUndefined()
 })
 
 test('successful local login-monitor events can match an explicit Drop while failed and other auth events stay stored', () => {
