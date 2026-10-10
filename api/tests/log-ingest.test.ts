@@ -4,7 +4,7 @@ let stored: unknown[] = [], fail = false, failCommit = false
 let hold: Promise<void> | undefined
 const operations: string[] = []
 const transactionQuery = async () => ({ rows: [] })
-mock.module('#db', () => ({ withTransaction: async (work: (query: typeof transactionQuery) => Promise<void>) => {
+mock.module('#db', () => ({ isTransientDatabaseError: () => false, withTransaction: async (work: (query: typeof transactionQuery) => Promise<void>) => {
     operations.push('begin')
     const start = stored.length
     try {
@@ -40,6 +40,14 @@ test('validates the full batch before storage and only acknowledges durable writ
     fail = true
     expect((await send('Bearer dedicated-log-token')).statusCode).toBe(500)
     expect(stored).toHaveLength(0)
+})
+
+test('replaces PostgreSQL-incompatible NUL characters in log text and nested metadata', async () => {
+    const event = { ...payload, service: 'audit\u0000d', message: 'who\u0000ami', metadata: { note: 'first\u0000second', nested: [{ value: '\u0000' }] } }
+    const response = await send('Bearer dedicated-log-token', event)
+    expect(response.statusCode).toBe(201)
+    expect(stored[0]).toEqual({ ...event, service: 'audit\uFFFDd', message: 'who\uFFFDami', metadata: { note: 'first\uFFFDsecond', nested: [{ value: '\uFFFD' }] }, level: 'info' })
+    expect(JSON.stringify(stored[0])).not.toContain('\u0000')
 })
 
 
