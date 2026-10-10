@@ -597,8 +597,9 @@ export async function runMonitoringCheck(automation: AutomationRow) {
             const healthy = automation.upside_down ? !result.up : automation.expected_down ? !result.up : result.up
             const message = `${automation.monitoring_type.toUpperCase()} check ${healthy ? 'passed' : 'failed'}: ${automation.target_url} ${result.detail}.`
             if (!healthy) throw new MonitoringResponseError(message)
-            const warning = Date.now() - startedAt >= 1000
-            return { provider: 'hanasand-monitoring', model: automation.monitoring_type, message, certificate: certificate!, warning }
+            // A successful HTTP/TCP check is healthy regardless of response latency.
+            // Latency alerts need an explicit per-check threshold, not an implicit warning.
+            return { provider: 'hanasand-monitoring', model: automation.monitoring_type, message, certificate: certificate!, warning: false }
         } catch (error) {
             if (error instanceof MonitoringResponseError) throw Object.assign(error, { certificate: getCertificateFromError(error) ?? certificate })
             lastError = error instanceof DOMException && error.name === 'TimeoutError'

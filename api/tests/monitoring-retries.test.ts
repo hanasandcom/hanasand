@@ -48,6 +48,12 @@ test('a successful first check does not retry or wait', async () => {
     expect(waits).toEqual([])
     expect(timeouts[0]).toBeLessThanOrEqual(5000)
 })
+
+test('a slow successful HTTP response does not become a warning', async () => {
+    requestDuration = 1500
+    expect((await check()).warning).toBe(false)
+    expect(requests).toBe(1)
+})
 test('five failures use 1/2/3/4 second delays with no final delay', async () => {
     unavailable = 5
     await expect(check()).rejects.toThrow('Failed after 5 attempts.')
