@@ -43,7 +43,7 @@ export default async function ingestLog(req: FastifyRequest, res: FastifyReply) 
             })
         } catch (error) {
             const code = (error as { code?: string })?.code
-            if (isTransientDatabaseError(error) || code === '55P03' || code === '57014' || code === 'DB_QUEUE_FULL') {
+            if (isTransientDatabaseError(error) || code === '55P03' || code === '57014' || code === '40P01' || code === '40001' || code === 'DB_QUEUE_FULL') {
                 return res.header('Retry-After', '1').status(503).send({ code: 'LOG_INGEST_BUSY', error: 'Log ingestion is busy. Retry this batch shortly.' })
             }
             throw error

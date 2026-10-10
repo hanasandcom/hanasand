@@ -501,7 +501,7 @@ export async function postRuleAction(req: FastifyRequest<{ Params: { id: string 
 
 function isRuleDatabaseBusy(error: unknown) {
     const code = (error as { code?: string })?.code
-    return isTransientDatabaseError(error) || code === '55P03' || code === '57014' || code === 'DB_QUEUE_FULL'
+    return isTransientDatabaseError(error) || code === '55P03' || code === '57014' || code === '40P01' || code === '40001' || code === 'DB_QUEUE_FULL'
 }
 
 function sendRuleDatabaseBusy(res: FastifyReply) {
