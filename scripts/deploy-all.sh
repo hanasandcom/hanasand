@@ -326,7 +326,7 @@ identity_api_boundary() {
 
 warm_dashboard_pages() {
     port=$1
-    for page_path in /scanner /vms /db/backups /automation/health; do
+    for page_path in /scanner /vms /db/backups /automation/health /rules/tuning; do
         page_cookie='id=dashboard-render-proof-user; access_token=local-dashboard-render-proof-token; dashboard_view_mode=normal'
         curl --fail --silent --show-error --max-time 15 --output /dev/null \
             -H "Cookie: $page_cookie" \

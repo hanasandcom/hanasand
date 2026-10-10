@@ -42,6 +42,7 @@ const scan = {
     schedule: { enabled: true, intervalMinutes: 15, nextRunAt: nextDate, lastRunAt: date, target: 'example.com', scope: 'global' },
     error: null,
 }
+const tuning = { organizationId: 'proof-org', generatedAt: date, logs: [], pending: false, refreshing: false }
 const backups = [{ id: 'backup', name: 'Database backup', status: 'healthy', lastAttempt: date, lastSuccess: date, lastFailure: null,
     nextBackup: nextDate, schedule: '0 2 * * *', scheduleTimezone: 'UTC', scheduleEnabled: true, operations: [] }]
 
@@ -51,6 +52,7 @@ const api = Bun.serve({ port: 0, hostname: '127.0.0.1', async fetch(request) {
     if (path === '/management/organizations' || path === '/management/organizations?access=1') return Response.json({ allowed: false })
     if (path === '/vms/dashboard-render-proof-user') return Response.json(vms)
     if (path === '/vulnerabilities/web-scan') return Response.json(scan)
+    if (path === '/logs/tuning') return Response.json(tuning)
     if (path === '/backup') return Response.json(backups)
     if (path === '/backup/files') return Response.json([{ service: 'backup', file: 'backup.tar', mtime: date, verified: true }])
     if (path === '/automations') return Response.json({ automations: [automation], canManageSystem: false })
@@ -85,6 +87,7 @@ const routes = [
     { path: '/vms', heading: 'Virtual machines' },
     { path: '/db/backups', heading: 'Backups' },
     { path: '/automation/health', heading: 'Server rendered monitor' },
+    { path: '/rules/tuning', heading: 'Log tuning' },
 ]
 
 async function firstByteMs(path) {
@@ -133,7 +136,9 @@ try {
     }).map(([name, value]) => ({ name, value, url: base })))
     await context.route('**/api/backend/**', route => {
         const path = new URL(route.request().url()).pathname
-        const body = path.includes('/vms/') ? vms : path.endsWith('/automations') ? { automations: [automation] } : automationDetail
+        const body = path.endsWith('/logs/tuning') ? tuning
+            : path.includes('/vms/') ? vms
+                : path.endsWith('/automations') ? { automations: [automation] } : automationDetail
         return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) })
     })
 
