@@ -534,6 +534,8 @@ assert.equal(roleCanWriteWatchlist('viewer'), false)
 assert.equal(roleCanWriteWatchlist(undefined), false)
 
 const routes = await readFile(new URL('../src/routes.ts', import.meta.url), 'utf8')
+assert.match(routes, /fastify\.get\('\/management\/organizations', proxyIdentityRequest\)/)
+assert.match(routes, /fastify\.get\('\/organizations', proxyIdentityRequest\)/)
 assert.match(routes, /fastify\.post\('\/organizations'/)
 assert.match(routes, /fastify\.post\('\/organizations\/:id\/invites'/)
 assert.match(routes, /fastify\.post\('\/organizations\/invites\/:inviteId\/accept'/)

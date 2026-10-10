@@ -3,7 +3,6 @@ import systemSnapshot from './handlers/metrics/systemSnapshot.ts'
 import { getDockerStorage, clearDockerStorage } from './handlers/dockerStorage.ts'
 import { searchLogs } from './handlers/logs/search.ts'
 import { getLogMetrics, getPublicLogMetrics } from './handlers/logs/metrics.ts'
-import { getManagementOrganizations } from './handlers/managementOrganizations.ts'
 import assignVmOrganization from './handlers/vms/organization.ts'
 import { getContainerProducts, createContainerCheckout } from './handlers/containerBilling.ts'
 import { caseRepositoryWebhooks, getCaseDevelopment, getCaseRepositories, postCaseRepository, deleteCaseRepository, getCaseCommits, postCaseCommit } from './handlers/caseDevelopment.ts'
@@ -179,7 +178,6 @@ import {
     getOrganizationInvites,
     getOrganizationMembers,
     getOrganizationSettings,
-    getOrganizations,
     getOrganizationWatchlist,
     getOrganizationWatchlistAlertTerms,
     getOrganizationWatchlists,
@@ -404,8 +402,8 @@ export default async function apiRoutes(fastify: FastifyInstance, options: Fasti
     fastify.delete('/ti/saved-searches', deleteSavedSearch)
 
     // Organizations
-    fastify.get('/management/organizations', getManagementOrganizations)
-    fastify.get('/organizations', getOrganizations)
+    fastify.get('/management/organizations', proxyIdentityRequest)
+    fastify.get('/organizations', proxyIdentityRequest)
     fastify.post('/organizations', postOrganization)
     fastify.post('/organizations/invites/:inviteId/accept', postOrganizationInviteAccept)
     fastify.get('/organizations/:id/invites', getOrganizationInvites)

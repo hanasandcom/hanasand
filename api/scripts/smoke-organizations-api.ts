@@ -47,7 +47,6 @@ const handlers = await import('../src/handlers/organizations.ts')
 const orgUtils = await import('../src/utils/organizations.ts')
 const app = Fastify({ logger: false })
 
-app.get('/api/organizations', handlers.getOrganizations)
 app.post('/api/organizations', handlers.postOrganization)
 app.post('/api/organizations/invites/:inviteId/accept', handlers.postOrganizationInviteAccept)
 app.get('/api/organizations/:id/invites', handlers.getOrganizationInvites)

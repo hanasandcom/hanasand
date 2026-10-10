@@ -1,7 +1,7 @@
-import { authApiUrl } from '@/utils/auth/authApiUrl'
+import { identityApiUrl } from '@/utils/auth/authApiUrl'
 type Organization = { slug?: unknown, lifecycleStatus?: unknown }
 export async function isHanasandOrganizationMember(token: string, id: string) {
-    const response = await fetch(`${authApiUrl().replace(/\/$/, '')}/organizations`, { cache: 'no-store', headers: { Authorization: `Bearer ${token}`, id }, signal: AbortSignal.timeout(10000) })
+    const response = await fetch(`${identityApiUrl().replace(/\/$/, '')}/organizations`, { cache: 'no-store', headers: { Authorization: `Bearer ${token}`, id }, signal: AbortSignal.timeout(10000) })
     if (response.status === 401 || response.status === 403) return false
     if (!response.ok) throw new Error('Organization membership could not be checked.')
     const payload = await response.json() as { organizations?: unknown }

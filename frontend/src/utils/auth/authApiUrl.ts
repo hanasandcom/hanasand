@@ -10,6 +10,10 @@ export function authApiUrl() {
         : configured
 }
 
+export function identityApiUrl() {
+    return process.env.FRONTEND_IDENTITY_API || authApiUrl()
+}
+
 function isLoopbackApiUrl(value: string) {
     try {
         const url = new URL(value)

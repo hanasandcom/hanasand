@@ -5,7 +5,7 @@ import { mirrorOrganizationToDwm } from '@/app/api/organizations/_organizationWa
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
-    return proxyOrganizationApiRequest(request, '/organizations', { method: 'GET' })
+    return proxyOrganizationApiRequest(request, '/organizations', { method: 'GET', service: 'identity' })
 }
 
 export async function POST(request: NextRequest) {

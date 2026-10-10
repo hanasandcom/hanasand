@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-import { authApiUrl } from '@/utils/auth/authApiUrl'
+import { authApiUrl, identityApiUrl } from '@/utils/auth/authApiUrl'
 
 type ProxyOptions = {
     method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'
     timeoutMs?: number
+    service?: 'hanasand' | 'identity'
 }
 
 export async function proxyOrganizationApiRequest(request: NextRequest, path: string, options: ProxyOptions = {}) {
@@ -12,7 +13,8 @@ export async function proxyOrganizationApiRequest(request: NextRequest, path: st
         const cookieStore = await cookies()
         const token = cookieStore.get('access_token')?.value || bearerToken(request.headers.get('authorization')) || ''
         const id = cookieStore.get('id')?.value || request.headers.get('id') || ''
-        const target = new URL(`${authApiUrl().replace(/\/$/, '')}${path.startsWith('/') ? path : `/${path}`}`)
+        const baseUrl = options.service === 'identity' ? identityApiUrl() : authApiUrl()
+        const target = new URL(`${baseUrl.replace(/\/$/, '')}${path.startsWith('/') ? path : `/${path}`}`)
         for (const [key, value] of request.nextUrl.searchParams.entries()) {
             target.searchParams.set(key, value)
         }

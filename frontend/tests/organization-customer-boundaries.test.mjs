@@ -5,10 +5,12 @@ import { NextRequest } from 'next/server'
 
 const originalFetch = globalThis.fetch
 const originalAuthApi = process.env.FRONTEND_AUTH_API
+const originalIdentityApi = process.env.FRONTEND_IDENTITY_API
 const originalScraperApi = process.env.TI_SCRAPER_API_BASE
 const cookieValues = new Map()
 
 process.env.FRONTEND_AUTH_API = 'http://auth.test/api'
+process.env.FRONTEND_IDENTITY_API = 'http://identity.test/api'
 process.env.TI_SCRAPER_API_BASE = 'http://scraper.test'
 
 mock.module('next/headers', () => ({
@@ -23,6 +25,8 @@ afterEach(() => {
 afterAll(() => {
     if (originalAuthApi === undefined) delete process.env.FRONTEND_AUTH_API
     else process.env.FRONTEND_AUTH_API = originalAuthApi
+    if (originalIdentityApi === undefined) delete process.env.FRONTEND_IDENTITY_API
+    else process.env.FRONTEND_IDENTITY_API = originalIdentityApi
     if (originalScraperApi === undefined) delete process.env.TI_SCRAPER_API_BASE
     else process.env.TI_SCRAPER_API_BASE = originalScraperApi
 })
@@ -72,6 +76,24 @@ test('organization API-key proxy lists, creates, revokes, and preserves authoriz
         { url: 'http://auth.test/api/organizations/org%2Fproxy/api-keys/key%2F1', method: 'DELETE', body: '' },
     ])
     assert.equal(calls[0].headers.get('authorization'), 'Bearer owner-session')
+})
+
+test('workspace organization list reads from Identity without calling the Hanasand API', async() => {
+    let upstream
+    globalThis.fetch = async(input, init) => {
+        upstream = { url: String(input), init }
+        return Response.json({ organizations: [{ id: 'org_identity', name: 'Identity Org' }] })
+    }
+    const { GET } = await import('../src/app/api/organizations/route')
+    const response = await GET(new NextRequest('http://frontend.test/api/organizations?source=workspace', {
+        headers: { authorization: 'Bearer identity-session', id: 'identity-user' },
+    }))
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(await response.json(), { organizations: [{ id: 'org_identity', name: 'Identity Org' }] })
+    assert.equal(upstream.url, 'http://identity.test/api/organizations?source=workspace')
+    assert.equal(new Headers(upstream.init?.headers).get('authorization'), 'Bearer identity-session')
+    assert.equal(new Headers(upstream.init?.headers).get('id'), 'identity-user')
 })
 
 test('organization watchlist save mirrors the same scope and failed sync is explicit and retryable', async() => {

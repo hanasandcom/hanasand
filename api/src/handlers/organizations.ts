@@ -118,61 +118,6 @@ type BulkInviteResult = {
     reason?: string
 }
 
-export async function getOrganizations(req: FastifyRequest, res: FastifyReply) {
-    const { valid, id: userId } = await tokenWrapper(req, res)
-    if (!valid || !userId) {
-        return res.status(401).send({ error: 'Unauthorized.' })
-    }
-
-    const result = await run(`
-        SELECT
-            o.*,
-            om.role,
-            active_member_counts.member_count,
-            active_member_counts.owner_count,
-            active_member_counts.admin_count,
-            pending_invite_counts.pending_invite_count,
-            watchlist_counts.shared_watchlist_count
-        FROM organizations o
-        JOIN organization_members om
-          ON om.organization_id = o.id
-         AND om.user_id = $1
-         AND om.status = 'active'
-        JOIN users current_member_user
-          ON current_member_user.id = om.user_id
-         AND current_member_user.active = TRUE
-        LEFT JOIN LATERAL (
-            SELECT
-                COUNT(*)::int AS member_count,
-                COUNT(*) FILTER (WHERE active_members.role = 'owner')::int AS owner_count,
-                COUNT(*) FILTER (WHERE active_members.role IN ('owner', 'admin'))::int AS admin_count
-            FROM organization_members active_members
-            JOIN users active_member_users
-              ON active_member_users.id = active_members.user_id
-             AND active_member_users.active = TRUE
-            WHERE active_members.organization_id = o.id
-              AND active_members.status = 'active'
-        ) active_member_counts ON TRUE
-        LEFT JOIN LATERAL (
-            SELECT COUNT(*)::int AS pending_invite_count
-            FROM organization_invites pending_invites
-            WHERE pending_invites.organization_id = o.id
-              AND pending_invites.status = 'pending'
-              AND pending_invites.expires_at > NOW()
-        ) pending_invite_counts ON TRUE
-        LEFT JOIN LATERAL (
-            SELECT COUNT(*)::int AS shared_watchlist_count
-            FROM organization_watchlist_items active_watchlist_items
-            WHERE active_watchlist_items.organization_id = o.id
-              AND active_watchlist_items.archived_at IS NULL
-              AND active_watchlist_items.status = 'active'
-        ) watchlist_counts ON TRUE
-        ORDER BY o.updated_at DESC, o.created_at DESC
-    `, [userId])
-
-    return res.send({ organizations: (result.rows as OrganizationRow[]).map(toOrganization) })
-}
-
 export async function postOrganization(req: FastifyRequest<{ Body: OrganizationInput }>, res: FastifyReply) {
     const { valid, id: userId } = await tokenWrapper(req, res)
     if (!valid || !userId) {
