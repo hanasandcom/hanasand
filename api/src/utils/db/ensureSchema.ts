@@ -1490,7 +1490,10 @@ async function applySchema() {
     await ensureColumn(run, 'rules', 'source', 'ALTER TABLE rules ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT \'owned\'')
     await ensureColumn(run, 'rules', 'source_reference', 'ALTER TABLE rules ADD COLUMN IF NOT EXISTS source_reference TEXT')
     await ensureRuleSourceConstraint(run)
-    await run('CREATE INDEX IF NOT EXISTS idx_rules_org_enabled ON rules(organization_id, enabled, updated_at DESC)')
+    const rulesIndexExists = (await queryOnce(`SELECT EXISTS (
+        SELECT 1 FROM pg_class WHERE relnamespace='public'::regnamespace AND relname='idx_rules_org_enabled' AND relkind='i'
+    ) AS present`)).rows[0]?.present
+    if (!rulesIndexExists) await run('CREATE INDEX idx_rules_org_enabled ON rules(organization_id, enabled, updated_at DESC)')
     await ensureLogAnalyzeSchema()
     const legacyEventKey = (await queryOnce(`SELECT
         EXISTS (SELECT 1 FROM pg_class WHERE relnamespace='public'::regnamespace AND relname='idx_events_log_key' AND relkind='i') AS legacy_index_exists,
