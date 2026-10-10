@@ -281,7 +281,6 @@ export async function queryOnce(query: string, params?: SQLParamType, name?: str
     let expired = false
     let timer: ReturnType<typeof setTimeout> | undefined
     let onlineIndex = /^\s*(?:CREATE\s+(?:UNIQUE\s+)?INDEX|DROP\s+INDEX)\s+CONCURRENTLY\b/i.test(query)
-    const pendingEventsIndex = /^\s*(?:CREATE\s+INDEX\s+CONCURRENTLY\s+IF\s+NOT\s+EXISTS|DROP\s+INDEX\s+CONCURRENTLY\s+IF\s+EXISTS)\s+idx_events_logs_pending\b/i.test(query)
     const legacyEventKeyCleanup = /^\s*(?:DROP\s+INDEX\s+CONCURRENTLY\s+IF\s+EXISTS\s+idx_events_log_key|ALTER\s+TABLE\s+events\s+DROP\s+COLUMN\s+IF\s+EXISTS\s+log_key)\b/i.test(query)
     const columnAdd = /^\s*ALTER\s+TABLE\b[\s\S]*\bADD\s+COLUMN\s+IF\s+NOT\s+EXISTS\b/i.test(query)
     const largeServiceLogDrop = /^\s*DROP\s+TABLE\s+IF\s+EXISTS\s+service_logs\b/i.test(query)
@@ -313,9 +312,6 @@ export async function queryOnce(query: string, params?: SQLParamType, name?: str
             if (onlineIndex) {
                 await client.query('SET lock_timeout = \'30s\'; SET statement_timeout = 0')
             }
-            // Old event searches can keep this partial index pinned. The online
-            // rebuild does not block ingestion, so let active readers drain.
-            if (pendingEventsIndex) await client.query('SET lock_timeout = \'5min\'; SET statement_timeout = 0')
             // Readers may still be finishing queries against the legacy key. Both
             // operations are bounded and do not rewrite the events heap.
             if (legacyEventKeyCleanup) await client.query('SET lock_timeout = \'5min\'; SET statement_timeout = \'6min\'')

@@ -1483,8 +1483,6 @@ async function applySchema() {
     await ensureColumn(run, 'events', 'parser_version', 'ALTER TABLE events ADD COLUMN IF NOT EXISTS parser_version TEXT NOT NULL DEFAULT \'event.v1\'')
     await ensureIndex(run, 'idx_events_logs_time', `CREATE INDEX IF NOT EXISTS idx_events_logs_time ON events(event_timestamp DESC, id DESC)
         WHERE ingestion_id = 'logs' AND processing_status = 'processed'`)
-    await ensureIndex(run, 'idx_events_logs_pending', `CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_events_logs_pending ON events(received_at, id) INCLUDE (event_timestamp)
-        WHERE ingestion_id = 'logs' AND processing_status = 'pending'`)
     await run('DROP TABLE IF EXISTS log_process_queue')
     await run('DROP TABLE IF EXISTS log_proxy_requests')
     await run('DROP TABLE IF EXISTS service_logs')
