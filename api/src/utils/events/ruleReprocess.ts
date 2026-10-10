@@ -1,6 +1,6 @@
 import { canonicalReplayKeys } from './replayEvidence.ts'
 import { createHash } from 'node:crypto'
-import run, { withTransaction } from '#db'
+import run, { identityQueryOnce, withTransaction } from '#db'
 import { loadLogRetentionRules, retentionStoreMatches } from './customRetention.ts'
 import { collectEventFindings, loadConfiguredRules, normalizeEvent } from '../../handlers/events.ts'
 import { matchRulePage } from './rulePreview.ts'
@@ -147,10 +147,14 @@ export async function processRuleReprocessJob() {
             await query(`UPDATE rule_reprocess_jobs SET status=$2,cursor=$3::jsonb,scanned=scanned+$4,
                 matched=matched+$5,protected=protected+$6,removed_events=removed_events+$7,removed_sources=removed_sources+$8,
                 error=NULL,updated_at=NOW() WHERE id=$1`, [job.id, done ? 'completed' : 'running', JSON.stringify(cursor), scanned, result.matched, result.protected, result.removedEvents, result.removedSources])
-            if (done) await query(`INSERT INTO system_events(event_type,source,object_type,object_id,organization_id,context)
-                SELECT 'event.rule.reprocessed','event','event_rule',rule_id,organization_id,
-                    jsonb_build_object('jobId',id,'version',rule_version,'scanned',scanned,'matched',matched,'protected',protected,'removedEvents',removed_events,'removedSources',removed_sources)
-                FROM rule_reprocess_jobs WHERE id=$1`, [job.id])
+            if (done) {
+                const eventId = (await identityQueryOnce(`SELECT nextval(pg_get_serial_sequence('public.system_events','id')) AS id`)).rows[0]?.id
+                if (!eventId) throw new Error('Identity system event ID sequence is unavailable.')
+                await query(`INSERT INTO system_events(id,event_type,source,object_type,object_id,organization_id,context)
+                    SELECT $1,'event.rule.reprocessed','event','event_rule',rule_id,organization_id,
+                        jsonb_build_object('jobId',id,'version',rule_version,'scanned',scanned,'matched',matched,'protected',protected,'removedEvents',removed_events,'removedSources',removed_sources)
+                    FROM rule_reprocess_jobs WHERE id=$2`, [eventId, job.id])
+            }
             return true
         })
     } catch (error) {

@@ -2,6 +2,7 @@ import { canonicalReplayKeys } from './replayEvidence.ts'
 import { analyzeCdnDelivery } from './analyzeCdnDeliveryLog.ts'
 import { cdnDeliveryRuleId } from './analyzeCdnDelivery.ts'
 import type run from '#db'
+import { identityQueryOnce } from '#db'
 import { normalizeLogEvent } from './logEvent.ts'
 import { analyzeIngestion, ingestionRuleId } from './analyzeIngestion.ts'
 import { analyzeProxy, proxyRuleId } from './analyzeProxy.ts'
@@ -107,9 +108,13 @@ export async function reprocessBuiltinPage(job: ReprocessJob, query: typeof run)
         error=NULL,updated_at=NOW() WHERE id=$1`, [job.id, done ? 'completed' : 'running',
         JSON.stringify({ ...job.cursor, time: rows.at(-1)?.cursor_time || job.cursor.time, id: String(rows.at(-1)?.id || job.cursor.id || '') }), rows.length, removed.length,
         protectedCount, events.rowCount || 0, 0])
-    if (done) await query(`INSERT INTO system_events(event_type,source,object_type,object_id,organization_id,context)
-        SELECT 'event.rule.reprocessed','event','event_rule',rule_id,organization_id,
-            jsonb_build_object('jobId',id,'version',rule_version,'scanned',scanned,'matched',matched,'protected',protected,'removedEvents',removed_events,'removedSources',removed_sources)
-        FROM rule_reprocess_jobs WHERE id=$1`, [job.id])
+    if (done) {
+        const eventId = (await identityQueryOnce(`SELECT nextval(pg_get_serial_sequence('public.system_events','id')) AS id`)).rows[0]?.id
+        if (!eventId) throw new Error('Identity system event ID sequence is unavailable.')
+        await query(`INSERT INTO system_events(id,event_type,source,object_type,object_id,organization_id,context)
+            SELECT $1,'event.rule.reprocessed','event','event_rule',rule_id,organization_id,
+                jsonb_build_object('jobId',id,'version',rule_version,'scanned',scanned,'matched',matched,'protected',protected,'removedEvents',removed_events,'removedSources',removed_sources)
+            FROM rule_reprocess_jobs WHERE id=$2`, [eventId, job.id])
+    }
     return true
 }
