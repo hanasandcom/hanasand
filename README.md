@@ -24,7 +24,7 @@ Hanasand combines threat intelligence, AI development tools, and infrastructure 
 | Mail service and SMTP relay | [Stalwart repository](https://github.com/hanasandcom/stalwart) | Stalwart and host-specific SMTP relay containers, deployed through an independent Compose stack |
 | Database backup worker | [Database backup repository](https://github.com/hanasandcom/database-backup) | PostgreSQL backups, retention and restore workflows; runs separately from API releases |
 | Mail client | [Mail repository](https://github.com/hanasandcom/mail) | Standalone webmail at `mail.hanasand.com`; mailbox data stays in the Hanasand API |
-| Client apps | `app/` | Mobile and desktop clients; see [desktop setup](app/desktop/README.md) |
+| Client apps | [Hanasand app repository](https://github.com/hanasandcom/app) | Mobile and desktop clients; see [desktop setup](https://github.com/hanasandcom/app/blob/main/desktop/README.md) |
 | Operations integrations | [Ops repository](https://github.com/hanasandcom/ops) | OVH host metrics tunnel and related host integrations; deployed separately |
 | Application operations | `ops/`, `scripts/` | Hanasand application deployment, maintenance and service checks |
 
