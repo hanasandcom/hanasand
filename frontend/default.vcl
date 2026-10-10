@@ -31,7 +31,7 @@ sub vcl_recv {
     }
 
     if (req.url ~ "^/(?:dashboard|browser|profile)(?:[/?#]|$)"
-        || req.url ~ "^/(?:scanner|vms|db/backups|automation/health)(?:[/?#]|$)") {
+        || req.url ~ "^/(?:scanner|vms|db/backups|automation/health|rules/tuning)(?:[/?#]|$)") {
         # Authenticated HTML routes and their public aliases are safe to cache
         # only when the complete session cookie is part of the hash. API
         # requests remain uncached.
@@ -72,7 +72,7 @@ sub vcl_hash {
     # cached HTML cannot cross users, tenants, impersonation targets or roles.
     hash_data(req.http.X-Theme);
     if (req.url ~ "^/(?:dashboard|browser)(?:[/?#]|$)"
-        || req.url ~ "^/(?:scanner|vms|db/backups|automation/health)(?:[/?#]|$)") {
+        || req.url ~ "^/(?:scanner|vms|db/backups|automation/health|rules/tuning)(?:[/?#]|$)") {
         hash_data(req.http.Cookie);
     } else if (req.url ~ "^/profile(?:[/?#]|$)") {
         # Profile SSR reads these cookies. Ignore unrelated browser cookies
@@ -119,7 +119,7 @@ sub vcl_backend_response {
         set beresp.ttl = 1m;
         return (deliver);
     } else if ((bereq.url ~ "^/(?:dashboard|browser)(?:[/?#]|$)"
-        || bereq.url ~ "^/(?:scanner|vms|db/backups)(?:[/?#]|$)")
+        || bereq.url ~ "^/(?:scanner|vms|db/backups|rules/tuning)(?:[/?#]|$)")
         && beresp.status == 200) {
         # Next marks cookie-aware dynamic pages private. These pages are safe
         # because vcl_hash includes the authenticated session cookie.
