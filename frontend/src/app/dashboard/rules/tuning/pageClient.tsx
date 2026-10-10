@@ -9,7 +9,6 @@ import { requestJson, type Rule } from '../detection-rules'
 import CreateRuleDialog from '../create-rule-dialog'
 import ReprocessRule from '../reprocess-rule'
 import type { Condition } from '../condition-builder'
-import { useSmoothedCount } from '../use-smoothed-count'
 
 type LogPattern = {
     message: string
@@ -197,6 +196,20 @@ export default function TuningPage({ initialData = null, initialError = '' }: { 
 
 function SmoothedCount({ value }: { value?: string }) {
     const parsed = value ? Number(value) : Number.NaN
-    const count = useSmoothedCount(Number.isFinite(parsed) ? parsed : null, 10_000)
-    return <>{count == null ? '—' : numberFormat.format(count)}</>
+    const target = Number.isFinite(parsed) ? parsed : null
+    const [sample, setSample] = useState({ target, displayed: target })
+
+    if (target !== sample.target) {
+        const current = sample.displayed
+        if (target == null) {
+            setSample({ target, displayed: null })
+        } else if (current == null || sample.target == null || target >= sample.target) {
+            setSample({ target, displayed: target })
+        } else {
+            // 1% page samples are noisy, so lower estimates should take several snapshots to catch up.
+            setSample({ target, displayed: current + (target - current) * 0.2 })
+        }
+    }
+
+    return <>{sample.displayed == null ? '—' : numberFormat.format(Math.round(sample.displayed))}</>
 }
