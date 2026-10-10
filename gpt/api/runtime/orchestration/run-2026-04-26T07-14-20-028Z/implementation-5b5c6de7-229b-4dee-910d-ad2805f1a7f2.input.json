@@ -1,0 +1,80 @@
+{
+  "runId": "run-2026-04-26T07-14-20-028Z",
+  "nodeId": "implementation-5b5c6de7-229b-4dee-910d-ad2805f1a7f2",
+  "role": "implementation",
+  "task": "Build a Next.js dashboard, verify Docker startup, and prepare a reviewer handoff. Add extra noise, a blocked verification branch, and contradictory reviewer evidence before deciding whether to ship.",
+  "branchKey": "implementation",
+  "packedContext": {
+    "nodeId": "implementation-5b5c6de7-229b-4dee-910d-ad2805f1a7f2",
+    "role": "implementation",
+    "budgetTokens": 18000,
+    "usedTokens": 17222,
+    "included": [
+      {
+        "id": "segment-d4862d84-9024-43bc-ad58-f1ec9f2f0702",
+        "label": "Task brief",
+        "estimatedTokens": 50,
+        "reason": "role match for implementation, shared global context, hot memory"
+      },
+      {
+        "id": "segment-34de4c61-21a2-430a-977c-eee4dbfa1df4",
+        "label": "Escalated incident brief",
+        "estimatedTokens": 9775,
+        "reason": "role match for implementation, shared global context, hot memory"
+      },
+      {
+        "id": "segment-c0539774-fcc7-4fbb-bdfb-bbbebf750e7e",
+        "label": "Conflicting ship-now request",
+        "estimatedTokens": 6664,
+        "reason": "role match for implementation, shared global context, hot memory"
+      },
+      {
+        "id": "segment-ba5036fc-c96c-4c49-9276-e07028e223be",
+        "label": "Repository constraints",
+        "estimatedTokens": 42,
+        "reason": "role match for implementation, shared global context, warm memory"
+      },
+      {
+        "id": "segment-2abbca96-8fb5-471a-8ccc-226c91fb904f",
+        "label": "Builder stop-ship evidence",
+        "estimatedTokens": 420,
+        "reason": "shared global context, hot memory, compressed high-priority context"
+      },
+      {
+        "id": "segment-bf528aeb-4cf1-414b-a223-b2d63782f0f2",
+        "label": "Reviewer merge constraint",
+        "estimatedTokens": 240,
+        "reason": "shared global context, warm memory, compressed high-priority context"
+      },
+      {
+        "id": "segment-05dc4151-237e-4704-ae9e-ba57909b4228",
+        "label": "Known product gap",
+        "estimatedTokens": 31,
+        "reason": "shared global context, cold memory"
+      }
+    ],
+    "omitted": [
+      {
+        "id": "segment-822f1354-0cd7-47d0-b9e4-1a12cc41e0af",
+        "label": "Noisy thread replay",
+        "estimatedTokens": 18475,
+        "reason": "role match for implementation, shared global context, cold memory"
+      },
+      {
+        "id": "segment-cfaa5708-fa86-403e-ac46-ba73706d0989",
+        "label": "Backlog copy thread",
+        "estimatedTokens": 10179,
+        "reason": "role match for implementation, shared global context, cold memory"
+      }
+    ],
+    "generatedAt": "2026-04-26T07:14:20.041Z"
+  },
+  "scenario": {
+    "id": "delivery_handoff_escalated",
+    "tension": "contested",
+    "contradictionMode": true,
+    "expectedBlockedRoles": [
+      "builder"
+    ]
+  }
+}

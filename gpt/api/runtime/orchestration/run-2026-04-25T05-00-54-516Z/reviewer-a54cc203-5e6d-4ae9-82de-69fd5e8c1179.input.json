@@ -1,0 +1,61 @@
+{
+  "runId": "run-2026-04-25T05-00-54-516Z",
+  "nodeId": "reviewer-a54cc203-5e6d-4ae9-82de-69fd5e8c1179",
+  "role": "reviewer",
+  "task": "Review branch for: Handle a release candidate with too much noisy context, a blocked build branch, and a reviewer that needs a concise final recommendation.",
+  "branchKey": "implementation:reviewer",
+  "packedContext": {
+    "nodeId": "reviewer-a54cc203-5e6d-4ae9-82de-69fd5e8c1179",
+    "role": "reviewer",
+    "budgetTokens": 9000,
+    "usedTokens": 6180,
+    "included": [
+      {
+        "id": "segment-ea65cbcd-dcf4-466b-9cac-155b7a88730f",
+        "label": "Release stop condition",
+        "estimatedTokens": 5832,
+        "reason": "role match for reviewer, shared global context, hot memory"
+      },
+      {
+        "id": "segment-21ba1222-48b5-4ab9-86e2-38f95f965b93",
+        "label": "Repository constraints",
+        "estimatedTokens": 42,
+        "reason": "role match for reviewer, shared global context, warm memory"
+      },
+      {
+        "id": "segment-93f1fa95-0a48-4173-b2c6-18511f0db8b7",
+        "label": "Reviewer synthesis hint",
+        "estimatedTokens": 240,
+        "reason": "role match for reviewer, shared global context, warm memory, compressed high-priority context"
+      },
+      {
+        "id": "segment-5decd5ef-c056-4430-a47f-32a8a18a4913",
+        "label": "Known product gap",
+        "estimatedTokens": 31,
+        "reason": "role match for reviewer, shared global context, cold memory"
+      },
+      {
+        "id": "segment-c7b74e6e-ad30-4910-baf7-dbd19f41d043",
+        "label": "Task brief",
+        "estimatedTokens": 35,
+        "reason": "shared global context, hot memory"
+      }
+    ],
+    "omitted": [
+      {
+        "id": "segment-3ace78fe-95e4-45c6-9d97-61c84b619bc8",
+        "label": "Noisy customer thread",
+        "estimatedTokens": 10793,
+        "reason": "role match for reviewer, shared global context, cold memory"
+      }
+    ],
+    "generatedAt": "2026-04-25T05:00:54.524Z"
+  },
+  "scenario": {
+    "id": "pressure_blocked_release",
+    "tension": "partial_failure",
+    "expectedBlockedRoles": [
+      "builder"
+    ]
+  }
+}

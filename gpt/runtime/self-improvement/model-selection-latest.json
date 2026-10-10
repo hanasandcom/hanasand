@@ -1,0 +1,16 @@
+{
+  "generated_at": "2026-04-30T04:10:33Z",
+  "os": "Darwin",
+  "ram_gb": 64,
+  "backend": "metal",
+  "profile": "default",
+  "model_name": "qwen2.5-coder-32b",
+  "model_repo": "bartowski/Qwen2.5-Coder-32B-Instruct-GGUF",
+  "model_file": "Qwen2.5-Coder-32B-Instruct-Q4_K_M.gguf",
+  "model_path": "/Users/eirikhanasand/Desktop/personal/hanasand/gpt/models/qwen2.5-coder-32b/Qwen2.5-Coder-32B-Instruct-Q4_K_M.gguf",
+  "ctx_size": 24576,
+  "batch_size": 1024,
+  "ubatch_size": 256,
+  "profile_note": "largest local macOS profile",
+  "selection_only": 0
+}

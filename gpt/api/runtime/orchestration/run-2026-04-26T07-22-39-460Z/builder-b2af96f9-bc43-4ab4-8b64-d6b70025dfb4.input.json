@@ -1,0 +1,61 @@
+{
+  "runId": "run-2026-04-26T07-22-39-460Z",
+  "nodeId": "builder-b2af96f9-bc43-4ab4-8b64-d6b70025dfb4",
+  "role": "builder",
+  "task": "Build and verification branch for: Handle a release candidate with too much noisy context, a blocked build branch, and a reviewer that needs a concise final recommendation.",
+  "branchKey": "implementation:builder",
+  "packedContext": {
+    "nodeId": "builder-b2af96f9-bc43-4ab4-8b64-d6b70025dfb4",
+    "role": "builder",
+    "budgetTokens": 10000,
+    "usedTokens": 6180,
+    "included": [
+      {
+        "id": "segment-fd3b2413-81ce-40ae-8159-76a4f3690f46",
+        "label": "Release stop condition",
+        "estimatedTokens": 5832,
+        "reason": "role match for builder, shared global context, hot memory"
+      },
+      {
+        "id": "segment-e6f5bff5-bb8f-4149-8771-66ffbd11557b",
+        "label": "Repository constraints",
+        "estimatedTokens": 42,
+        "reason": "role match for builder, shared global context, warm memory"
+      },
+      {
+        "id": "segment-da73ec66-dbec-4c29-ac3c-1975d4fd36df",
+        "label": "Task brief",
+        "estimatedTokens": 35,
+        "reason": "shared global context, hot memory"
+      },
+      {
+        "id": "segment-b720a5e0-2211-44be-8810-e4e6b5ec66b3",
+        "label": "Reviewer synthesis hint",
+        "estimatedTokens": 240,
+        "reason": "shared global context, warm memory, compressed high-priority context"
+      },
+      {
+        "id": "segment-ccc596a1-c699-4e43-a274-b3c6d9b2640e",
+        "label": "Known product gap",
+        "estimatedTokens": 31,
+        "reason": "shared global context, cold memory"
+      }
+    ],
+    "omitted": [
+      {
+        "id": "segment-274151c6-10fe-417a-998a-45d9f92f662e",
+        "label": "Noisy customer thread",
+        "estimatedTokens": 10793,
+        "reason": "role match for builder, shared global context, cold memory"
+      }
+    ],
+    "generatedAt": "2026-04-26T07:22:39.470Z"
+  },
+  "scenario": {
+    "id": "pressure_blocked_release",
+    "tension": "partial_failure",
+    "expectedBlockedRoles": [
+      "builder"
+    ]
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "generated_at": "2026-04-26T12:25:36.504Z",
+  "benchmark_family": "orchestration_benchmark_v2",
+  "profile_tag": "local-darwin-arm64-64gb",
+  "machine_key": "darwin:arm64:10cpu:64gb",
+  "evidence_bundle_id": "self-edit-2026-04-26-packet-90",
+  "inputArtifacts": {
+    "failureClusters": "benchmark-failure-clusters-latest.json",
+    "evidenceBundle": "benchmark-self-edit-evidence-bundle-latest.json",
+    "scenarioCosts": "benchmark-scenario-costs-latest.json",
+    "trend": "benchmark-trend-latest.json"
+  },
+  "trustedInputs": [
+    "Deduped failure clusters with profile and machine keys.",
+    "The latest self-edit evidence bundle ID and selected packet context.",
+    "Scenario cost attribution for locating expensive pressure points.",
+    "Profile-aware trend signals, only when a matched profile baseline exists."
+  ],
+  "candidate_count": 1,
+  "candidates": [
+    {
+      "rank": 1,
+      "id": "context-packing-omission-pressure",
+      "cause": "Context packing is probably dropping hot evidence under pressure.",
+      "confidence": "high",
+      "score": 100,
+      "evidence": [
+        "cluster=gate:local-darwin-arm64-64gb:darwin:arm64:10cpu:64gb:delivery_handoff_escalated:omission_pressure:warn count=6",
+        "trend omission delta=0",
+        "top cost scenario=Escalated delivery handoff dominant=context:708 packed=35784 omitted=100075",
+        "evidence bundle=self-edit-2026-04-26-packet-90"
+      ],
+      "nextReviewStep": "Open the top-cost scenario replay and inspect which hot context segments were omitted before changing pack budgets or priority rules.",
+      "falsePositiveRisks": [
+        "Omission warnings can repeat because the benchmark intentionally stresses the same pressure path.",
+        "A high context cost can be expected for larger scenarios and is not automatically a regression."
+      ],
+      "humanReviewRequired": "Confirm the omitted segments were actually needed by the worker that produced the warning."
+    }
+  ],
+  "reviewPolicy": [
+    "Treat the shortlist as triage guidance, not automatic permission to edit.",
+    "Prefer the highest-ranked candidate only after checking its cited artifact fields.",
+    "If all candidates are low confidence, collect one more benchmark run before acting."
+  ]
+}

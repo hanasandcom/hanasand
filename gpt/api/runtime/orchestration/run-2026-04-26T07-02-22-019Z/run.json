@@ -1,0 +1,670 @@
+{
+  "id": "run-2026-04-26T07-02-22-019Z",
+  "task": "Handle a release candidate with too much noisy context, a blocked build branch, and a reviewer that needs a concise final recommendation.",
+  "createdAt": "2026-04-26T07:02:22.019Z",
+  "updatedAt": "2026-04-26T07:02:22.165Z",
+  "topology": {
+    "ownerNodeId": "orchestrator-590637b2-6285-4447-826f-1073bff43430",
+    "strategy": "orchestrator -> implementation -> optional builder/reviewer branches",
+    "notes": [
+      "The orchestrator owns steering, branch policy, context packaging, and final upstream reporting.",
+      "The implementation node owns direct task execution and requests specialist branches when needed.",
+      "Builder and reviewer branches are opened through branch-control policy rather than by default.",
+      "Scenario profile: pressure_blocked_release (partial_failure)."
+    ]
+  },
+  "branchPolicy": {
+    "maxBranches": 3,
+    "maxDepth": 2
+  },
+  "nodes": [
+    {
+      "id": "orchestrator-590637b2-6285-4447-826f-1073bff43430",
+      "role": "orchestrator",
+      "label": "Orchestrator",
+      "parentId": null,
+      "branchKey": "root",
+      "depth": 0,
+      "status": "completed",
+      "task": "Handle a release candidate with too much noisy context, a blocked build branch, and a reviewer that needs a concise final recommendation.",
+      "assignedAt": "2026-04-26T07:02:22.019Z",
+      "startedAt": null,
+      "completedAt": "2026-04-26T07:02:22.165Z",
+      "summary": "Closed orchestration run and persisted replay output."
+    },
+    {
+      "id": "implementation-56069b58-0f31-458e-a01a-7ed8cab22b7a",
+      "role": "implementation",
+      "label": "Implementation agent",
+      "parentId": "orchestrator-590637b2-6285-4447-826f-1073bff43430",
+      "branchKey": "implementation",
+      "depth": 1,
+      "status": "completed",
+      "task": "Handle a release candidate with too much noisy context, a blocked build branch, and a reviewer that needs a concise final recommendation.",
+      "assignedAt": "2026-04-26T07:02:22.019Z",
+      "startedAt": "2026-04-26T07:02:22.050Z",
+      "completedAt": "2026-04-26T07:02:22.087Z",
+      "summary": "Implementation worker completed"
+    },
+    {
+      "id": "builder-cd3e602d-5df3-4583-817b-46bf5fafd2a5",
+      "role": "builder",
+      "label": "builder branch",
+      "parentId": "implementation-56069b58-0f31-458e-a01a-7ed8cab22b7a",
+      "branchKey": "implementation:builder",
+      "depth": 2,
+      "status": "blocked",
+      "task": "Build and verification branch for: Handle a release candidate with too much noisy context, a blocked build branch, and a reviewer that needs a concise final recommendation.",
+      "assignedAt": "2026-04-26T07:02:22.024Z",
+      "startedAt": "2026-04-26T07:02:22.088Z",
+      "completedAt": "2026-04-26T07:02:22.128Z",
+      "summary": "Builder worker completed"
+    },
+    {
+      "id": "reviewer-3a09bad6-c2c4-4fb5-9cea-68434bbdc527",
+      "role": "reviewer",
+      "label": "reviewer branch",
+      "parentId": "implementation-56069b58-0f31-458e-a01a-7ed8cab22b7a",
+      "branchKey": "implementation:reviewer",
+      "depth": 2,
+      "status": "completed",
+      "task": "Review branch for: Handle a release candidate with too much noisy context, a blocked build branch, and a reviewer that needs a concise final recommendation.",
+      "assignedAt": "2026-04-26T07:02:22.042Z",
+      "startedAt": "2026-04-26T07:02:22.128Z",
+      "completedAt": "2026-04-26T07:02:22.164Z",
+      "summary": "Reviewer worker completed"
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-0a748cc1-d684-4bac-b557-7176da2569de",
+      "from": "orchestrator-590637b2-6285-4447-826f-1073bff43430",
+      "to": "implementation-56069b58-0f31-458e-a01a-7ed8cab22b7a",
+      "type": "delegates_to",
+      "createdAt": "2026-04-26T07:02:22.019Z",
+      "label": "primary delivery path"
+    },
+    {
+      "id": "edge-6880ad81-2b02-40ff-ae08-ab24b0241a15",
+      "from": "implementation-56069b58-0f31-458e-a01a-7ed8cab22b7a",
+      "to": "orchestrator-590637b2-6285-4447-826f-1073bff43430",
+      "type": "reports_to",
+      "createdAt": "2026-04-26T07:02:22.019Z",
+      "label": "upstream summary"
+    },
+    {
+      "id": "edge-builder-cd3e602d-5df3-4583-817b-46bf5fafd2a5",
+      "from": "implementation-56069b58-0f31-458e-a01a-7ed8cab22b7a",
+      "to": "builder-cd3e602d-5df3-4583-817b-46bf5fafd2a5",
+      "type": "branches_to",
+      "createdAt": "2026-04-26T07:02:22.038Z",
+      "label": "The task mentions build/run/verification work and benefits from a dedicated builder branch."
+    },
+    {
+      "id": "edge-reviewer-3a09bad6-c2c4-4fb5-9cea-68434bbdc527",
+      "from": "implementation-56069b58-0f31-458e-a01a-7ed8cab22b7a",
+      "to": "reviewer-3a09bad6-c2c4-4fb5-9cea-68434bbdc527",
+      "type": "branches_to",
+      "createdAt": "2026-04-26T07:02:22.043Z",
+      "label": "A reviewer branch keeps final reporting and risk assessment separate from direct implementation."
+    }
+  ],
+  "events": [
+    {
+      "id": "event-ac451596-c5dc-4ae1-baef-a19c0cfa7fc5",
+      "runId": "run-2026-04-26T07-02-22-019Z",
+      "nodeId": "implementation-56069b58-0f31-458e-a01a-7ed8cab22b7a",
+      "role": "implementation",
+      "type": "branch_opened",
+      "state": "info",
+      "summary": "Opened builder branch",
+      "detail": "The task mentions build/run/verification work and benefits from a dedicated builder branch.",
+      "artifacts": [],
+      "createdAt": "2026-04-26T07:02:22.041Z",
+      "metadata": {
+        "branchNodeId": "builder-cd3e602d-5df3-4583-817b-46bf5fafd2a5"
+      }
+    },
+    {
+      "id": "event-85bc46aa-8e82-41b1-94bf-9c1065f82c1a",
+      "runId": "run-2026-04-26T07-02-22-019Z",
+      "nodeId": "implementation-56069b58-0f31-458e-a01a-7ed8cab22b7a",
+      "role": "implementation",
+      "type": "branch_opened",
+      "state": "info",
+      "summary": "Opened reviewer branch",
+      "detail": "A reviewer branch keeps final reporting and risk assessment separate from direct implementation.",
+      "artifacts": [],
+      "createdAt": "2026-04-26T07:02:22.044Z",
+      "metadata": {
+        "branchNodeId": "reviewer-3a09bad6-c2c4-4fb5-9cea-68434bbdc527"
+      }
+    },
+    {
+      "id": "event-9e742e98-e9ef-4498-a2e4-faa4e717046e",
+      "runId": "run-2026-04-26T07-02-22-019Z",
+      "nodeId": "orchestrator-590637b2-6285-4447-826f-1073bff43430",
+      "role": "orchestrator",
+      "type": "branch_blocked",
+      "state": "blocked",
+      "summary": "Branch policy blocked additional work",
+      "detail": "Branch limit reached at 3 active branches. Existing branches must close or merge before more work can fork.",
+      "artifacts": [],
+      "createdAt": "2026-04-26T07:02:22.044Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-5884c920-a7e2-4ea3-aca9-f3985a62c935",
+      "runId": "run-2026-04-26T07-02-22-019Z",
+      "nodeId": "implementation-56069b58-0f31-458e-a01a-7ed8cab22b7a",
+      "role": "implementation",
+      "type": "context_packed",
+      "state": "info",
+      "summary": "Packed context for implementation",
+      "detail": "Included 6 segments and omitted 0.",
+      "artifacts": [],
+      "createdAt": "2026-04-26T07:02:22.046Z",
+      "metadata": {
+        "budgetTokens": 18000,
+        "usedTokens": 16973
+      }
+    },
+    {
+      "id": "event-6e2f5025-2cc3-4a5b-9ef1-c98480a3e15a",
+      "runId": "run-2026-04-26T07-02-22-019Z",
+      "nodeId": "builder-cd3e602d-5df3-4583-817b-46bf5fafd2a5",
+      "role": "builder",
+      "type": "context_packed",
+      "state": "info",
+      "summary": "Packed context for builder",
+      "detail": "Included 5 segments and omitted 1.",
+      "artifacts": [],
+      "createdAt": "2026-04-26T07:02:22.048Z",
+      "metadata": {
+        "budgetTokens": 10000,
+        "usedTokens": 6180
+      }
+    },
+    {
+      "id": "event-b383bdd9-ca82-4c15-b215-a90b6786a952",
+      "runId": "run-2026-04-26T07-02-22-019Z",
+      "nodeId": "reviewer-3a09bad6-c2c4-4fb5-9cea-68434bbdc527",
+      "role": "reviewer",
+      "type": "context_packed",
+      "state": "info",
+      "summary": "Packed context for reviewer",
+      "detail": "Included 5 segments and omitted 1.",
+      "artifacts": [],
+      "createdAt": "2026-04-26T07:02:22.049Z",
+      "metadata": {
+        "budgetTokens": 9000,
+        "usedTokens": 6180
+      }
+    },
+    {
+      "id": "event-2665f7e9-76dc-447b-b5b4-909ae5afb35c",
+      "runId": "run-2026-04-26T07-02-22-019Z",
+      "nodeId": "implementation-56069b58-0f31-458e-a01a-7ed8cab22b7a",
+      "role": "implementation",
+      "type": "worker_started",
+      "state": "info",
+      "summary": "Implementation worker started",
+      "detail": "Task: Handle a release candidate with too much noisy context, a blocked build branch, and a reviewer that needs a concise final recommendation.",
+      "artifacts": [],
+      "createdAt": "2026-04-26T07:02:22.080Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-31ca8606-df7c-4124-995b-e4ed564d8b6f",
+      "runId": "run-2026-04-26T07-02-22-019Z",
+      "nodeId": "implementation-56069b58-0f31-458e-a01a-7ed8cab22b7a",
+      "role": "implementation",
+      "type": "status_update",
+      "state": "info",
+      "summary": "Thinking through the requested change set",
+      "detail": "Packed context includes 6 segments using 16973 tokens.",
+      "artifacts": [],
+      "createdAt": "2026-04-26T07:02:22.083Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-fa176c24-72a6-4566-afe6-3e5ef81738dd",
+      "runId": "run-2026-04-26T07-02-22-019Z",
+      "nodeId": "implementation-56069b58-0f31-458e-a01a-7ed8cab22b7a",
+      "role": "implementation",
+      "type": "artifact_produced",
+      "state": "completed",
+      "summary": "Prepared implementation plan artifact",
+      "detail": null,
+      "artifacts": [
+        {
+          "id": "artifact-9aa1adef-7044-49f5-8a6a-7b41bc0ec594",
+          "label": "implementation-plan.md",
+          "kind": "text",
+          "content": "# Implementation plan\n\n- Task: Handle a release candidate with too much noisy context, a blocked build branch, and a reviewer that needs a concise final recommendation.\n- Branch: implementation\n- Scenario tension: partial_failure\n- Recommended stance: proceed with the scoped change\n- Selected context:\n  - Task brief: role match for implementation, shared global context, hot memory\n  - Repository constraints: role match for implementation, shared global context, warm memory\n  - Noisy customer thread: role match for implementation, shared global context, cold memory\n  - Release stop condition: shared global context, hot memory\n  - Reviewer synthesis hint: shared global context, warm memory, compressed high-priority context\n  - Known product gap: shared global context, cold memory\n\n- Omitted context count: 0",
+          "createdAt": "2026-04-26T07:02:22.083Z"
+        }
+      ],
+      "createdAt": "2026-04-26T07:02:22.083Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-29a91f4f-a576-46a6-a39c-1304183c70eb",
+      "runId": "run-2026-04-26T07-02-22-019Z",
+      "nodeId": "implementation-56069b58-0f31-458e-a01a-7ed8cab22b7a",
+      "role": "implementation",
+      "type": "worker_completed",
+      "state": "completed",
+      "summary": "Implementation worker completed",
+      "detail": "Structured upstream reporting emitted successfully.",
+      "artifacts": [],
+      "createdAt": "2026-04-26T07:02:22.083Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-939427fb-3fe9-4e72-81e3-8b6eee4dedda",
+      "runId": "run-2026-04-26T07-02-22-019Z",
+      "nodeId": "builder-cd3e602d-5df3-4583-817b-46bf5fafd2a5",
+      "role": "builder",
+      "type": "worker_started",
+      "state": "info",
+      "summary": "Builder worker started",
+      "detail": "Task: Build and verification branch for: Handle a release candidate with too much noisy context, a blocked build branch, and a reviewer that needs a concise final recommendation.",
+      "artifacts": [],
+      "createdAt": "2026-04-26T07:02:22.118Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-c6762160-3107-4db9-bf19-bdbb4b174aa7",
+      "runId": "run-2026-04-26T07-02-22-019Z",
+      "nodeId": "builder-cd3e602d-5df3-4583-817b-46bf5fafd2a5",
+      "role": "builder",
+      "type": "status_update",
+      "state": "info",
+      "summary": "Preparing builder branch",
+      "detail": "Packed context includes 5 segments using 6180 tokens.",
+      "artifacts": [],
+      "createdAt": "2026-04-26T07:02:22.123Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-c1930fac-727e-41f8-aad0-057254263704",
+      "runId": "run-2026-04-26T07-02-22-019Z",
+      "nodeId": "builder-cd3e602d-5df3-4583-817b-46bf5fafd2a5",
+      "role": "builder",
+      "type": "status_update",
+      "state": "blocked",
+      "summary": "Builder branch hit a partial failure",
+      "detail": "Verification exposed a dependency/runtime issue that needs manual follow-up instead of a false green summary.",
+      "artifacts": [
+        {
+          "id": "artifact-abc208ca-b3e0-41a1-a327-57077f228a25",
+          "label": "builder-failure.log",
+          "kind": "log",
+          "content": "npm install\nnpm run build\ndocker compose up --build -d\nERROR: healthcheck never reached ready state",
+          "createdAt": "2026-04-26T07:02:22.123Z"
+        }
+      ],
+      "createdAt": "2026-04-26T07:02:22.123Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-876ae5ab-cd49-44a3-b1d4-1bbc2eba133d",
+      "runId": "run-2026-04-26T07-02-22-019Z",
+      "nodeId": "builder-cd3e602d-5df3-4583-817b-46bf5fafd2a5",
+      "role": "builder",
+      "type": "artifact_produced",
+      "state": "blocked",
+      "summary": "Prepared blocked build-and-verify log",
+      "detail": null,
+      "artifacts": [
+        {
+          "id": "artifact-86bf56c6-a64a-4913-9bc4-49a9f214bc9d",
+          "label": "builder-commands.log",
+          "kind": "log",
+          "content": "npm install\nnpm run build\nnpm test\ndocker compose up --build -d\nmanual follow-up required after partial failure",
+          "createdAt": "2026-04-26T07:02:22.123Z"
+        }
+      ],
+      "createdAt": "2026-04-26T07:02:22.123Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-700141a8-4a44-430c-bbb7-b5ae36b9621f",
+      "runId": "run-2026-04-26T07-02-22-019Z",
+      "nodeId": "builder-cd3e602d-5df3-4583-817b-46bf5fafd2a5",
+      "role": "builder",
+      "type": "worker_completed",
+      "state": "completed",
+      "summary": "Builder worker completed",
+      "detail": "Structured upstream reporting emitted successfully.",
+      "artifacts": [],
+      "createdAt": "2026-04-26T07:02:22.123Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-3ab1fa3d-003b-4dfb-9c3f-7d3c455fbc26",
+      "runId": "run-2026-04-26T07-02-22-019Z",
+      "nodeId": "reviewer-3a09bad6-c2c4-4fb5-9cea-68434bbdc527",
+      "role": "reviewer",
+      "type": "worker_started",
+      "state": "info",
+      "summary": "Reviewer worker started",
+      "detail": "Task: Review branch for: Handle a release candidate with too much noisy context, a blocked build branch, and a reviewer that needs a concise final recommendation.",
+      "artifacts": [],
+      "createdAt": "2026-04-26T07:02:22.157Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-762471a3-d32d-4695-a7e3-360fb92b134e",
+      "runId": "run-2026-04-26T07-02-22-019Z",
+      "nodeId": "reviewer-3a09bad6-c2c4-4fb5-9cea-68434bbdc527",
+      "role": "reviewer",
+      "type": "status_update",
+      "state": "info",
+      "summary": "Preparing reviewer branch",
+      "detail": "Packed context includes 5 segments using 6180 tokens.",
+      "artifacts": [],
+      "createdAt": "2026-04-26T07:02:22.160Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-21d0bfd2-1361-4652-a14b-e2359841eaf2",
+      "runId": "run-2026-04-26T07-02-22-019Z",
+      "nodeId": "reviewer-3a09bad6-c2c4-4fb5-9cea-68434bbdc527",
+      "role": "reviewer",
+      "type": "review_requested",
+      "state": "completed",
+      "summary": "Prepared reviewer summary",
+      "detail": null,
+      "artifacts": [
+        {
+          "id": "artifact-e0560b04-f21e-4f41-b0af-7f43008ae88c",
+          "label": "review-summary.md",
+          "kind": "text",
+          "content": "# Review summary\n\n- Risk posture: low\n- Notes: review branch confirms the task is still aligned with the requested outcome.\n- Context pack size: 6180 tokens\n- Omitted segments: 1",
+          "createdAt": "2026-04-26T07:02:22.160Z"
+        }
+      ],
+      "createdAt": "2026-04-26T07:02:22.160Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-726dc138-fe83-4b0a-aaf8-7042ae1be797",
+      "runId": "run-2026-04-26T07-02-22-019Z",
+      "nodeId": "reviewer-3a09bad6-c2c4-4fb5-9cea-68434bbdc527",
+      "role": "reviewer",
+      "type": "worker_completed",
+      "state": "completed",
+      "summary": "Reviewer worker completed",
+      "detail": "Structured upstream reporting emitted successfully.",
+      "artifacts": [],
+      "createdAt": "2026-04-26T07:02:22.160Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-02f31d5a-7317-459c-bfd6-403994ac3cf7",
+      "runId": "run-2026-04-26T07-02-22-019Z",
+      "nodeId": "orchestrator-590637b2-6285-4447-826f-1073bff43430",
+      "role": "orchestrator",
+      "type": "run_summary",
+      "state": "completed",
+      "summary": "Orchestrator collected child updates and closed the run.",
+      "detail": "Executed 3 worker nodes with structured upstream events.",
+      "artifacts": [],
+      "createdAt": "2026-04-26T07:02:22.164Z",
+      "metadata": {}
+    }
+  ],
+  "context": {
+    "effectiveCapacityTokens": 10000000,
+    "segments": [
+      {
+        "id": "segment-49c62787-b103-4d18-a3ff-bfb7d74826b4",
+        "label": "Task brief",
+        "kind": "task",
+        "temperature": "hot",
+        "roleAffinity": [
+          "orchestrator",
+          "implementation"
+        ],
+        "branchKey": "root",
+        "content": "Handle a release candidate with too much noisy context, a blocked build branch, and a reviewer that needs a concise final recommendation.",
+        "estimatedTokens": 35,
+        "priority": 5,
+        "createdAt": "2026-04-26T07:02:22.022Z",
+        "metadata": {}
+      },
+      {
+        "id": "segment-637d5c3f-5be4-4aec-97c0-47f7575edb6e",
+        "label": "Repository constraints",
+        "kind": "constraint",
+        "temperature": "warm",
+        "roleAffinity": [
+          "orchestrator",
+          "implementation",
+          "builder",
+          "reviewer"
+        ],
+        "branchKey": null,
+        "content": "Prefer TypeScript and shell scripts. Keep orchestration inspectable and replayable. Treat 10M context as effective retrieval-backed context rather than a single prompt.",
+        "estimatedTokens": 42,
+        "priority": 4,
+        "createdAt": "2026-04-26T07:02:22.022Z",
+        "metadata": {}
+      },
+      {
+        "id": "segment-030c6d2e-9eaa-4ff9-86b7-7cf38f6766dc",
+        "label": "Known product gap",
+        "kind": "memory",
+        "temperature": "cold",
+        "roleAffinity": [
+          "orchestrator",
+          "reviewer"
+        ],
+        "branchKey": null,
+        "content": "Remote VM shell/file-write deploy flow is still incomplete, so orchestration should stay honest about local-only branches.",
+        "estimatedTokens": 31,
+        "priority": 3,
+        "createdAt": "2026-04-26T07:02:22.022Z",
+        "metadata": {}
+      },
+      {
+        "id": "segment-90af366c-6941-4e9c-900c-8ce21f333037",
+        "label": "Release stop condition",
+        "kind": "constraint",
+        "temperature": "hot",
+        "roleAffinity": [
+          "builder",
+          "reviewer"
+        ],
+        "branchKey": null,
+        "content": "The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence. The release must not be marked shippable if the builder cannot prove the healthcheck and rollback evidence.",
+        "estimatedTokens": 5832,
+        "priority": 5,
+        "createdAt": "2026-04-26T07:02:22.022Z",
+        "metadata": {}
+      },
+      {
+        "id": "segment-c1db6f90-5636-42e3-8b22-e301da336cb0",
+        "label": "Noisy customer thread",
+        "kind": "memory",
+        "temperature": "cold",
+        "roleAffinity": [
+          "implementation",
+          "builder",
+          "reviewer"
+        ],
+        "branchKey": null,
+        "content": "Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints. Long customer thread with duplicate symptoms, old screenshots, outdated assumptions, and several irrelevant UI complaints.",
+        "estimatedTokens": 10793,
+        "priority": 1,
+        "createdAt": "2026-04-26T07:02:22.023Z",
+        "metadata": {}
+      },
+      {
+        "id": "segment-c57617d7-e84d-410e-9b5e-550731ef2dcc",
+        "label": "Reviewer synthesis hint",
+        "kind": "artifact",
+        "temperature": "warm",
+        "roleAffinity": [
+          "reviewer"
+        ],
+        "branchKey": null,
+        "content": "Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command. Final answer should separate proven facts, unresolved deploy risk, and the next verification command.",
+        "estimatedTokens": 4131,
+        "priority": 4,
+        "createdAt": "2026-04-26T07:02:22.023Z",
+        "metadata": {}
+      }
+    ],
+    "packs": [
+      {
+        "nodeId": "implementation-56069b58-0f31-458e-a01a-7ed8cab22b7a",
+        "role": "implementation",
+        "budgetTokens": 18000,
+        "usedTokens": 16973,
+        "included": [
+          {
+            "id": "segment-49c62787-b103-4d18-a3ff-bfb7d74826b4",
+            "label": "Task brief",
+            "estimatedTokens": 35,
+            "reason": "role match for implementation, shared global context, hot memory"
+          },
+          {
+            "id": "segment-637d5c3f-5be4-4aec-97c0-47f7575edb6e",
+            "label": "Repository constraints",
+            "estimatedTokens": 42,
+            "reason": "role match for implementation, shared global context, warm memory"
+          },
+          {
+            "id": "segment-c1db6f90-5636-42e3-8b22-e301da336cb0",
+            "label": "Noisy customer thread",
+            "estimatedTokens": 10793,
+            "reason": "role match for implementation, shared global context, cold memory"
+          },
+          {
+            "id": "segment-90af366c-6941-4e9c-900c-8ce21f333037",
+            "label": "Release stop condition",
+            "estimatedTokens": 5832,
+            "reason": "shared global context, hot memory"
+          },
+          {
+            "id": "segment-c57617d7-e84d-410e-9b5e-550731ef2dcc",
+            "label": "Reviewer synthesis hint",
+            "estimatedTokens": 240,
+            "reason": "shared global context, warm memory, compressed high-priority context"
+          },
+          {
+            "id": "segment-030c6d2e-9eaa-4ff9-86b7-7cf38f6766dc",
+            "label": "Known product gap",
+            "estimatedTokens": 31,
+            "reason": "shared global context, cold memory"
+          }
+        ],
+        "omitted": [],
+        "generatedAt": "2026-04-26T07:02:22.046Z"
+      },
+      {
+        "nodeId": "builder-cd3e602d-5df3-4583-817b-46bf5fafd2a5",
+        "role": "builder",
+        "budgetTokens": 10000,
+        "usedTokens": 6180,
+        "included": [
+          {
+            "id": "segment-90af366c-6941-4e9c-900c-8ce21f333037",
+            "label": "Release stop condition",
+            "estimatedTokens": 5832,
+            "reason": "role match for builder, shared global context, hot memory"
+          },
+          {
+            "id": "segment-637d5c3f-5be4-4aec-97c0-47f7575edb6e",
+            "label": "Repository constraints",
+            "estimatedTokens": 42,
+            "reason": "role match for builder, shared global context, warm memory"
+          },
+          {
+            "id": "segment-49c62787-b103-4d18-a3ff-bfb7d74826b4",
+            "label": "Task brief",
+            "estimatedTokens": 35,
+            "reason": "shared global context, hot memory"
+          },
+          {
+            "id": "segment-c57617d7-e84d-410e-9b5e-550731ef2dcc",
+            "label": "Reviewer synthesis hint",
+            "estimatedTokens": 240,
+            "reason": "shared global context, warm memory, compressed high-priority context"
+          },
+          {
+            "id": "segment-030c6d2e-9eaa-4ff9-86b7-7cf38f6766dc",
+            "label": "Known product gap",
+            "estimatedTokens": 31,
+            "reason": "shared global context, cold memory"
+          }
+        ],
+        "omitted": [
+          {
+            "id": "segment-c1db6f90-5636-42e3-8b22-e301da336cb0",
+            "label": "Noisy customer thread",
+            "estimatedTokens": 10793,
+            "reason": "role match for builder, shared global context, cold memory"
+          }
+        ],
+        "generatedAt": "2026-04-26T07:02:22.047Z"
+      },
+      {
+        "nodeId": "reviewer-3a09bad6-c2c4-4fb5-9cea-68434bbdc527",
+        "role": "reviewer",
+        "budgetTokens": 9000,
+        "usedTokens": 6180,
+        "included": [
+          {
+            "id": "segment-90af366c-6941-4e9c-900c-8ce21f333037",
+            "label": "Release stop condition",
+            "estimatedTokens": 5832,
+            "reason": "role match for reviewer, shared global context, hot memory"
+          },
+          {
+            "id": "segment-637d5c3f-5be4-4aec-97c0-47f7575edb6e",
+            "label": "Repository constraints",
+            "estimatedTokens": 42,
+            "reason": "role match for reviewer, shared global context, warm memory"
+          },
+          {
+            "id": "segment-c57617d7-e84d-410e-9b5e-550731ef2dcc",
+            "label": "Reviewer synthesis hint",
+            "estimatedTokens": 240,
+            "reason": "role match for reviewer, shared global context, warm memory, compressed high-priority context"
+          },
+          {
+            "id": "segment-030c6d2e-9eaa-4ff9-86b7-7cf38f6766dc",
+            "label": "Known product gap",
+            "estimatedTokens": 31,
+            "reason": "role match for reviewer, shared global context, cold memory"
+          },
+          {
+            "id": "segment-49c62787-b103-4d18-a3ff-bfb7d74826b4",
+            "label": "Task brief",
+            "estimatedTokens": 35,
+            "reason": "shared global context, hot memory"
+          }
+        ],
+        "omitted": [
+          {
+            "id": "segment-c1db6f90-5636-42e3-8b22-e301da336cb0",
+            "label": "Noisy customer thread",
+            "estimatedTokens": 10793,
+            "reason": "role match for reviewer, shared global context, cold memory"
+          }
+        ],
+        "generatedAt": "2026-04-26T07:02:22.048Z"
+      }
+    ]
+  },
+  "evaluation": {
+    "success": null,
+    "score": null,
+    "summary": null,
+    "checkedAt": null
+  }
+}

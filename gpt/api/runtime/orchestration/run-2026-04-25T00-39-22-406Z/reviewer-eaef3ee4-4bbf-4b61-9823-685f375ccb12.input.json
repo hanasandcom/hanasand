@@ -1,0 +1,35 @@
+{
+  "runId": "run-2026-04-25T00-39-22-406Z",
+  "nodeId": "reviewer-eaef3ee4-4bbf-4b61-9823-685f375ccb12",
+  "role": "reviewer",
+  "task": "Review branch for: Review a risky diff for safety, check ship readiness, and summarize the final recommendation.",
+  "branchKey": "implementation:reviewer",
+  "packedContext": {
+    "nodeId": "reviewer-eaef3ee4-4bbf-4b61-9823-685f375ccb12",
+    "role": "reviewer",
+    "budgetTokens": 9000,
+    "usedTokens": 97,
+    "included": [
+      {
+        "id": "segment-9c6b8f3d-20a2-4f95-8175-e0cbee8b29c4",
+        "label": "Repository constraints",
+        "estimatedTokens": 42,
+        "reason": "role match for reviewer, shared global context, warm memory"
+      },
+      {
+        "id": "segment-d3d9a40a-63f2-4013-9ba2-1b8035090eb7",
+        "label": "Known product gap",
+        "estimatedTokens": 31,
+        "reason": "role match for reviewer, shared global context, cold memory"
+      },
+      {
+        "id": "segment-7368b4a4-f422-4f4a-a0f9-37d59fc69c12",
+        "label": "Task brief",
+        "estimatedTokens": 24,
+        "reason": "shared global context, hot memory"
+      }
+    ],
+    "omitted": [],
+    "generatedAt": "2026-04-25T00:39:22.417Z"
+  }
+}

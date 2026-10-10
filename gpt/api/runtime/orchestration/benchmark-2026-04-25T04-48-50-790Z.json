@@ -1,0 +1,220 @@
+{
+  "generated_at": "2026-04-25T04:48:50.790Z",
+  "suite": "orchestration_benchmark_v2",
+  "average_score": 100,
+  "scenario_count": 4,
+  "passing_scenarios": 4,
+  "warning_scenarios": 0,
+  "failing_scenarios": 0,
+  "weakest_scenario": {
+    "id": "context_pressure_triage",
+    "label": "Context-pressure triage",
+    "score": 99
+  },
+  "scenario_results": [
+    {
+      "id": "delivery_handoff",
+      "label": "Delivery and handoff",
+      "task": "Build a Next.js dashboard, verify Docker startup, and prepare a reviewer handoff.",
+      "runId": "run-2026-04-25T04-48-50-816Z",
+      "replayPath": "/Users/eirikhanasand/Desktop/personal/hanasand/gpt/api/runtime/orchestration/run-2026-04-25T04-48-50-816Z/replay.md",
+      "expectedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "observedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "score": 100,
+      "status": "pass",
+      "metrics": {
+        "roleCoverage": 1,
+        "packCoverage": 1,
+        "evidenceCoverage": 1,
+        "exportGateHealth": 1,
+        "replayExists": true,
+        "exportPassCount": 5,
+        "exportWarnCount": 0,
+        "exportFailCount": 0,
+        "blockedRoleCoverage": 1,
+        "contextPressureCoverage": 1,
+        "contradictionCoverage": 1,
+        "omittedHotSegments": 0,
+        "eventCount": 19,
+        "artifactCount": 3
+      },
+      "failedGates": [],
+      "warningGates": []
+    },
+    {
+      "id": "context_pressure_triage",
+      "label": "Context-pressure triage",
+      "task": "Triage a deployment under heavy context pressure, preserve the hottest constraints, and produce a reviewer handoff.",
+      "runId": "run-2026-04-25T04-48-50-964Z",
+      "replayPath": "/Users/eirikhanasand/Desktop/personal/hanasand/gpt/api/runtime/orchestration/run-2026-04-25T04-48-50-964Z/replay.md",
+      "expectedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "observedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "score": 99,
+      "status": "pass",
+      "metrics": {
+        "roleCoverage": 1,
+        "packCoverage": 1,
+        "evidenceCoverage": 1,
+        "exportGateHealth": 0.9,
+        "replayExists": true,
+        "exportPassCount": 4,
+        "exportWarnCount": 1,
+        "exportFailCount": 0,
+        "blockedRoleCoverage": 1,
+        "contextPressureCoverage": 1,
+        "contradictionCoverage": 1,
+        "omittedHotSegments": 3,
+        "eventCount": 19,
+        "artifactCount": 3
+      },
+      "failedGates": [],
+      "warningGates": [
+        "omission_pressure"
+      ]
+    },
+    {
+      "id": "deploy_diagnosis",
+      "label": "Deploy diagnosis",
+      "task": "Diagnose why Docker compose verification keeps failing, propose fixes, and prepare a final review.",
+      "runId": "run-2026-04-25T04-48-51-144Z",
+      "replayPath": "/Users/eirikhanasand/Desktop/personal/hanasand/gpt/api/runtime/orchestration/run-2026-04-25T04-48-51-144Z/replay.md",
+      "expectedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "observedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "score": 100,
+      "status": "pass",
+      "metrics": {
+        "roleCoverage": 1,
+        "packCoverage": 1,
+        "evidenceCoverage": 1,
+        "exportGateHealth": 1,
+        "replayExists": true,
+        "exportPassCount": 5,
+        "exportWarnCount": 0,
+        "exportFailCount": 0,
+        "blockedRoleCoverage": 1,
+        "contextPressureCoverage": 1,
+        "contradictionCoverage": 1,
+        "omittedHotSegments": 0,
+        "eventCount": 20,
+        "artifactCount": 4
+      },
+      "failedGates": [],
+      "warningGates": []
+    },
+    {
+      "id": "contested_merge_decision",
+      "label": "Contested merge decision",
+      "task": "Review a risky deploy fix where one branch wants to ship and another wants to hold, then justify the final recommendation.",
+      "runId": "run-2026-04-25T04-48-51-458Z",
+      "replayPath": "/Users/eirikhanasand/Desktop/personal/hanasand/gpt/api/runtime/orchestration/run-2026-04-25T04-48-51-458Z/replay.md",
+      "expectedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "observedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "score": 100,
+      "status": "pass",
+      "metrics": {
+        "roleCoverage": 1,
+        "packCoverage": 1,
+        "evidenceCoverage": 1,
+        "exportGateHealth": 1,
+        "replayExists": true,
+        "exportPassCount": 5,
+        "exportWarnCount": 0,
+        "exportFailCount": 0,
+        "blockedRoleCoverage": 1,
+        "contextPressureCoverage": 1,
+        "contradictionCoverage": 1,
+        "omittedHotSegments": 0,
+        "eventCount": 20,
+        "artifactCount": 4
+      },
+      "failedGates": [],
+      "warningGates": []
+    }
+  ],
+  "recommendations": [
+    {
+      "id": "context_pack_omission_budget",
+      "severity": "high",
+      "summary": "Reduce context-pack omission failures under pressure.",
+      "rationale": "The current weakest scenario preserves role coverage but still fails an export quality gate when hot context pressure rises.",
+      "suggestedPacket": 72
+    },
+    {
+      "id": "hard_scenario_corpus",
+      "severity": "medium",
+      "summary": "Add harder orchestration scenarios with context pressure and partial-failure branches.",
+      "rationale": "The suite now validates the real orchestration loop, but more varied pressure cases would make regressions harder to miss.",
+      "suggestedPacket": 73
+    }
+  ],
+  "draft_packets": [
+    {
+      "id": "draft-2026-04-25-context-pack-omission-budget",
+      "priority": 1,
+      "priorityScore": 100,
+      "suggestedPacket": 72,
+      "sourceRecommendation": "context_pack_omission_budget",
+      "severity": "high",
+      "title": "Reduce Context-pack Omission Failures Under Pressure",
+      "slug": "context-pack-omission-budget",
+      "objective": "Reduce context-pack omission failures under pressure.",
+      "rationale": "The current weakest scenario preserves role coverage but still fails an export quality gate when hot context pressure rises.",
+      "benchmarkEvidence": "Weakest scenario: Context-pressure triage (99).",
+      "acceptance": [
+        "The next benchmark run records the changed behavior.",
+        "The result note links the benchmark evidence that motivated the work.",
+        "The packet can be evaluated without rereading chat history."
+      ]
+    },
+    {
+      "id": "draft-2026-04-25-hard-scenario-corpus",
+      "priority": 2,
+      "priorityScore": 65,
+      "suggestedPacket": 73,
+      "sourceRecommendation": "hard_scenario_corpus",
+      "severity": "medium",
+      "title": "Add Harder Orchestration Scenarios With Context Pressure And Partial-failure Branches",
+      "slug": "hard-scenario-corpus",
+      "objective": "Add harder orchestration scenarios with context pressure and partial-failure branches.",
+      "rationale": "The suite now validates the real orchestration loop, but more varied pressure cases would make regressions harder to miss.",
+      "benchmarkEvidence": "Weakest scenario: Context-pressure triage (99).",
+      "acceptance": [
+        "The next benchmark run records the changed behavior.",
+        "The result note links the benchmark evidence that motivated the work.",
+        "The packet can be evaluated without rereading chat history."
+      ]
+    }
+  ]
+}

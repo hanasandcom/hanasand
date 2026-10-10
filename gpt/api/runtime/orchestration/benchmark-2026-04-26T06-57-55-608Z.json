@@ -1,0 +1,701 @@
+{
+  "generated_at": "2026-04-26T06:57:55.608Z",
+  "suite": "orchestration_benchmark_v2",
+  "profile_identity": {
+    "tag": "local-darwin-arm64-64gb",
+    "source": "derived_from_machine",
+    "model": null,
+    "endpoint": null,
+    "machine": {
+      "hostname": "Eiriks-Macbook-Pro.local",
+      "platform": "darwin",
+      "arch": "arm64",
+      "cpuCount": 10,
+      "totalMemoryGb": 64
+    }
+  },
+  "difficulty_profile": {
+    "level": 2,
+    "trigger": "previous benchmark saturated at 100 with 0 warnings",
+    "repeatMultiplier": 1.35,
+    "adaptiveScenarioEnabled": true,
+    "previousAverageScore": 100
+  },
+  "average_score": 100,
+  "scenario_count": 8,
+  "passing_scenarios": 8,
+  "warning_scenarios": 0,
+  "failing_scenarios": 0,
+  "weakest_scenario": {
+    "id": "delivery_handoff_escalated",
+    "label": "Escalated delivery handoff",
+    "score": 99
+  },
+  "scenario_results": [
+    {
+      "id": "delivery_handoff",
+      "label": "Delivery and handoff",
+      "task": "Build a Next.js dashboard, verify Docker startup, and prepare a reviewer handoff.",
+      "runId": "run-2026-04-26T06-57-55-629Z",
+      "replayPath": "/Users/eirikhanasand/Desktop/personal/hanasand/gpt/api/runtime/orchestration/run-2026-04-26T06-57-55-629Z/replay.md",
+      "expectedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "observedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "score": 100,
+      "status": "pass",
+      "metrics": {
+        "roleCoverage": 1,
+        "packCoverage": 1,
+        "evidenceCoverage": 1,
+        "exportGateHealth": 1,
+        "replayExists": true,
+        "exportPassCount": 5,
+        "exportWarnCount": 0,
+        "exportFailCount": 0,
+        "blockedRoleCoverage": 1,
+        "contextPressureCoverage": 1,
+        "contradictionCoverage": 1,
+        "omittedHotSegments": 0,
+        "eventCount": 19,
+        "artifactCount": 3
+      },
+      "cost": {
+        "wallMs": 142,
+        "nodeActiveMs": 99,
+        "packedTokens": 282,
+        "omittedTokens": 0,
+        "totalContextTokens": 282,
+        "contextPackCount": 3,
+        "eventCount": 19,
+        "artifactCount": 3,
+        "artifactBytes": 758,
+        "costScore": 62,
+        "dominantCost": "events:47"
+      },
+      "failedGates": [],
+      "warningGates": []
+    },
+    {
+      "id": "delivery_handoff_pressure_refresh",
+      "label": "Delivery handoff under noisy verification pressure",
+      "task": "Build a Next.js dashboard, verify Docker startup, and prepare a reviewer handoff while noisy side threads and a flaky builder branch compete for attention.",
+      "runId": "run-2026-04-26T06-57-55-774Z",
+      "replayPath": "/Users/eirikhanasand/Desktop/personal/hanasand/gpt/api/runtime/orchestration/run-2026-04-26T06-57-55-774Z/replay.md",
+      "expectedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "observedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "score": 100,
+      "status": "pass",
+      "metrics": {
+        "roleCoverage": 1,
+        "packCoverage": 1,
+        "evidenceCoverage": 1,
+        "exportGateHealth": 1,
+        "replayExists": true,
+        "exportPassCount": 5,
+        "exportWarnCount": 0,
+        "exportFailCount": 0,
+        "blockedRoleCoverage": 1,
+        "contextPressureCoverage": 1,
+        "contradictionCoverage": 1,
+        "omittedHotSegments": 6,
+        "eventCount": 20,
+        "artifactCount": 4
+      },
+      "cost": {
+        "wallMs": 176,
+        "nodeActiveMs": 126,
+        "packedTokens": 35544,
+        "omittedTokens": 83895,
+        "totalContextTokens": 119439,
+        "contextPackCount": 3,
+        "eventCount": 20,
+        "artifactCount": 4,
+        "artifactBytes": 1233,
+        "costScore": 716,
+        "dominantCost": "context:649"
+      },
+      "failedGates": [],
+      "warningGates": []
+    },
+    {
+      "id": "context_pressure_triage",
+      "label": "Context-pressure triage",
+      "task": "Triage a deployment under heavy context pressure, preserve the hottest constraints, and produce a reviewer handoff.",
+      "runId": "run-2026-04-26T06-57-55-956Z",
+      "replayPath": "/Users/eirikhanasand/Desktop/personal/hanasand/gpt/api/runtime/orchestration/run-2026-04-26T06-57-55-956Z/replay.md",
+      "expectedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "observedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "score": 100,
+      "status": "pass",
+      "metrics": {
+        "roleCoverage": 1,
+        "packCoverage": 1,
+        "evidenceCoverage": 1,
+        "exportGateHealth": 1,
+        "replayExists": true,
+        "exportPassCount": 5,
+        "exportWarnCount": 0,
+        "exportFailCount": 0,
+        "blockedRoleCoverage": 1,
+        "contextPressureCoverage": 1,
+        "contradictionCoverage": 1,
+        "omittedHotSegments": 6,
+        "eventCount": 19,
+        "artifactCount": 3
+      },
+      "cost": {
+        "wallMs": 159,
+        "nodeActiveMs": 107,
+        "packedTokens": 36750,
+        "omittedTokens": 46641,
+        "totalContextTokens": 83391,
+        "contextPackCount": 3,
+        "eventCount": 19,
+        "artifactCount": 3,
+        "artifactBytes": 1227,
+        "costScore": 591,
+        "dominantCost": "context:531"
+      },
+      "failedGates": [],
+      "warningGates": []
+    },
+    {
+      "id": "deploy_diagnosis",
+      "label": "Deploy diagnosis",
+      "task": "Diagnose why Docker compose verification keeps failing, propose fixes, and prepare a final review.",
+      "runId": "run-2026-04-26T06-57-56-120Z",
+      "replayPath": "/Users/eirikhanasand/Desktop/personal/hanasand/gpt/api/runtime/orchestration/run-2026-04-26T06-57-56-120Z/replay.md",
+      "expectedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "observedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "score": 100,
+      "status": "pass",
+      "metrics": {
+        "roleCoverage": 1,
+        "packCoverage": 1,
+        "evidenceCoverage": 1,
+        "exportGateHealth": 1,
+        "replayExists": true,
+        "exportPassCount": 5,
+        "exportWarnCount": 0,
+        "exportFailCount": 0,
+        "blockedRoleCoverage": 1,
+        "contextPressureCoverage": 1,
+        "contradictionCoverage": 1,
+        "omittedHotSegments": 0,
+        "eventCount": 20,
+        "artifactCount": 4
+      },
+      "cost": {
+        "wallMs": 145,
+        "nodeActiveMs": 101,
+        "packedTokens": 477,
+        "omittedTokens": 0,
+        "totalContextTokens": 477,
+        "contextPackCount": 3,
+        "eventCount": 20,
+        "artifactCount": 4,
+        "artifactBytes": 1063,
+        "costScore": 69,
+        "dominantCost": "events:52"
+      },
+      "failedGates": [],
+      "warningGates": []
+    },
+    {
+      "id": "pressure_blocked_release",
+      "label": "Pressure plus blocked release",
+      "task": "Handle a release candidate with too much noisy context, a blocked build branch, and a reviewer that needs a concise final recommendation.",
+      "runId": "run-2026-04-26T06-57-56-267Z",
+      "replayPath": "/Users/eirikhanasand/Desktop/personal/hanasand/gpt/api/runtime/orchestration/run-2026-04-26T06-57-56-267Z/replay.md",
+      "expectedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "observedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "score": 100,
+      "status": "pass",
+      "metrics": {
+        "roleCoverage": 1,
+        "packCoverage": 1,
+        "evidenceCoverage": 1,
+        "exportGateHealth": 1,
+        "replayExists": true,
+        "exportPassCount": 5,
+        "exportWarnCount": 0,
+        "exportFailCount": 0,
+        "blockedRoleCoverage": 1,
+        "contextPressureCoverage": 1,
+        "contradictionCoverage": 1,
+        "omittedHotSegments": 2,
+        "eventCount": 20,
+        "artifactCount": 4
+      },
+      "cost": {
+        "wallMs": 166,
+        "nodeActiveMs": 114,
+        "packedTokens": 29333,
+        "omittedTokens": 21586,
+        "totalContextTokens": 50919,
+        "contextPackCount": 3,
+        "eventCount": 20,
+        "artifactCount": 4,
+        "artifactBytes": 1204,
+        "costScore": 435,
+        "dominantCost": "context:369"
+      },
+      "failedGates": [],
+      "warningGates": []
+    },
+    {
+      "id": "delivery_handoff_escalated",
+      "label": "Escalated delivery handoff",
+      "task": "Build a Next.js dashboard, verify Docker startup, and prepare a reviewer handoff. Add extra noise, a blocked verification branch, and contradictory reviewer evidence before deciding whether to ship.",
+      "runId": "run-2026-04-26T06-57-56-442Z",
+      "replayPath": "/Users/eirikhanasand/Desktop/personal/hanasand/gpt/api/runtime/orchestration/run-2026-04-26T06-57-56-442Z/replay.md",
+      "expectedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "observedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "score": 99,
+      "status": "pass",
+      "metrics": {
+        "roleCoverage": 1,
+        "packCoverage": 1,
+        "evidenceCoverage": 1,
+        "exportGateHealth": 0.9,
+        "replayExists": true,
+        "exportPassCount": 4,
+        "exportWarnCount": 1,
+        "exportFailCount": 0,
+        "blockedRoleCoverage": 1,
+        "contextPressureCoverage": 1,
+        "contradictionCoverage": 1,
+        "omittedHotSegments": 7,
+        "eventCount": 20,
+        "artifactCount": 5
+      },
+      "cost": {
+        "wallMs": 255,
+        "nodeActiveMs": 147,
+        "packedTokens": 35784,
+        "omittedTokens": 100075,
+        "totalContextTokens": 135859,
+        "contextPackCount": 3,
+        "eventCount": 20,
+        "artifactCount": 5,
+        "artifactBytes": 1725,
+        "costScore": 784,
+        "dominantCost": "context:708"
+      },
+      "failedGates": [],
+      "warningGates": [
+        "omission_pressure"
+      ]
+    },
+    {
+      "id": "adaptive_noise_escalation",
+      "label": "Adaptive noise escalation",
+      "task": "Handle a benchmark case that intentionally raises context noise after previous high-scoring runs and still preserve the reviewer-critical evidence.",
+      "runId": "run-2026-04-26T06-57-56-699Z",
+      "replayPath": "/Users/eirikhanasand/Desktop/personal/hanasand/gpt/api/runtime/orchestration/run-2026-04-26T06-57-56-699Z/replay.md",
+      "expectedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "observedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "score": 100,
+      "status": "pass",
+      "metrics": {
+        "roleCoverage": 1,
+        "packCoverage": 1,
+        "evidenceCoverage": 1,
+        "exportGateHealth": 1,
+        "replayExists": true,
+        "exportPassCount": 5,
+        "exportWarnCount": 0,
+        "exportFailCount": 0,
+        "blockedRoleCoverage": 1,
+        "contextPressureCoverage": 1,
+        "contradictionCoverage": 1,
+        "omittedHotSegments": 3,
+        "eventCount": 19,
+        "artifactCount": 3
+      },
+      "cost": {
+        "wallMs": 291,
+        "nodeActiveMs": 177,
+        "packedTokens": 14387,
+        "omittedTokens": 47304,
+        "totalContextTokens": 61691,
+        "contextPackCount": 3,
+        "eventCount": 19,
+        "artifactCount": 3,
+        "artifactBytes": 1041,
+        "costScore": 379,
+        "dominantCost": "context:309"
+      },
+      "failedGates": [],
+      "warningGates": []
+    },
+    {
+      "id": "contested_merge_decision",
+      "label": "Contested merge decision",
+      "task": "Review a risky deploy fix where one branch wants to ship and another wants to hold, then justify the final recommendation.",
+      "runId": "run-2026-04-26T06-57-57-020Z",
+      "replayPath": "/Users/eirikhanasand/Desktop/personal/hanasand/gpt/api/runtime/orchestration/run-2026-04-26T06-57-57-020Z/replay.md",
+      "expectedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "observedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "score": 100,
+      "status": "pass",
+      "metrics": {
+        "roleCoverage": 1,
+        "packCoverage": 1,
+        "evidenceCoverage": 1,
+        "exportGateHealth": 1,
+        "replayExists": true,
+        "exportPassCount": 5,
+        "exportWarnCount": 0,
+        "exportFailCount": 0,
+        "blockedRoleCoverage": 1,
+        "contextPressureCoverage": 1,
+        "contradictionCoverage": 1,
+        "omittedHotSegments": 0,
+        "eventCount": 20,
+        "artifactCount": 4
+      },
+      "cost": {
+        "wallMs": 205,
+        "nodeActiveMs": 136,
+        "packedTokens": 468,
+        "omittedTokens": 0,
+        "totalContextTokens": 468,
+        "contextPackCount": 3,
+        "eventCount": 20,
+        "artifactCount": 4,
+        "artifactBytes": 1157,
+        "costScore": 73,
+        "dominantCost": "events:52"
+      },
+      "failedGates": [],
+      "warningGates": []
+    }
+  ],
+  "scenario_costs": {
+    "generated_at": "2026-04-26T06:57:55.608Z",
+    "benchmark_family": "orchestration_benchmark_v2",
+    "profile_identity": {
+      "tag": "local-darwin-arm64-64gb",
+      "source": "derived_from_machine",
+      "model": null,
+      "endpoint": null,
+      "machine": {
+        "hostname": "Eiriks-Macbook-Pro.local",
+        "platform": "darwin",
+        "arch": "arm64",
+        "cpuCount": 10,
+        "totalMemoryGb": 64
+      }
+    },
+    "warmup_context": {
+      "generatedAt": "2026-04-26T06:53:34.683Z",
+      "profileTag": "validation",
+      "baselineKey": "model_warmup:validation",
+      "ok": true,
+      "status": "ready",
+      "totalMs": 61,
+      "propsMs": 25,
+      "slotsMs": 33,
+      "memoryPressure": 0.9645,
+      "memoryUsedGb": 61.728,
+      "memoryFreeGb": 2.272,
+      "memoryDeltaUsedGb": 0.005,
+      "memoryDeltaPressure": 0.0001
+    },
+    "totals": {
+      "scenario_count": 8,
+      "cost_score": 3109,
+      "wall_ms": 1539,
+      "node_active_ms": 1007,
+      "packed_tokens": 153025,
+      "omitted_tokens": 299501,
+      "artifact_bytes": 9408
+    },
+    "highestCostScenarios": [
+      {
+        "id": "delivery_handoff_escalated",
+        "label": "Escalated delivery handoff",
+        "status": "pass",
+        "score": 99,
+        "wallMs": 255,
+        "nodeActiveMs": 147,
+        "packedTokens": 35784,
+        "omittedTokens": 100075,
+        "totalContextTokens": 135859,
+        "contextPackCount": 3,
+        "eventCount": 20,
+        "artifactCount": 5,
+        "artifactBytes": 1725,
+        "costScore": 784,
+        "dominantCost": "context:708",
+        "costShare": 0.2522
+      },
+      {
+        "id": "delivery_handoff_pressure_refresh",
+        "label": "Delivery handoff under noisy verification pressure",
+        "status": "pass",
+        "score": 100,
+        "wallMs": 176,
+        "nodeActiveMs": 126,
+        "packedTokens": 35544,
+        "omittedTokens": 83895,
+        "totalContextTokens": 119439,
+        "contextPackCount": 3,
+        "eventCount": 20,
+        "artifactCount": 4,
+        "artifactBytes": 1233,
+        "costScore": 716,
+        "dominantCost": "context:649",
+        "costShare": 0.2303
+      },
+      {
+        "id": "context_pressure_triage",
+        "label": "Context-pressure triage",
+        "status": "pass",
+        "score": 100,
+        "wallMs": 159,
+        "nodeActiveMs": 107,
+        "packedTokens": 36750,
+        "omittedTokens": 46641,
+        "totalContextTokens": 83391,
+        "contextPackCount": 3,
+        "eventCount": 19,
+        "artifactCount": 3,
+        "artifactBytes": 1227,
+        "costScore": 591,
+        "dominantCost": "context:531",
+        "costShare": 0.1901
+      },
+      {
+        "id": "pressure_blocked_release",
+        "label": "Pressure plus blocked release",
+        "status": "pass",
+        "score": 100,
+        "wallMs": 166,
+        "nodeActiveMs": 114,
+        "packedTokens": 29333,
+        "omittedTokens": 21586,
+        "totalContextTokens": 50919,
+        "contextPackCount": 3,
+        "eventCount": 20,
+        "artifactCount": 4,
+        "artifactBytes": 1204,
+        "costScore": 435,
+        "dominantCost": "context:369",
+        "costShare": 0.1399
+      },
+      {
+        "id": "adaptive_noise_escalation",
+        "label": "Adaptive noise escalation",
+        "status": "pass",
+        "score": 100,
+        "wallMs": 291,
+        "nodeActiveMs": 177,
+        "packedTokens": 14387,
+        "omittedTokens": 47304,
+        "totalContextTokens": 61691,
+        "contextPackCount": 3,
+        "eventCount": 19,
+        "artifactCount": 3,
+        "artifactBytes": 1041,
+        "costScore": 379,
+        "dominantCost": "context:309",
+        "costShare": 0.1219
+      },
+      {
+        "id": "contested_merge_decision",
+        "label": "Contested merge decision",
+        "status": "pass",
+        "score": 100,
+        "wallMs": 205,
+        "nodeActiveMs": 136,
+        "packedTokens": 468,
+        "omittedTokens": 0,
+        "totalContextTokens": 468,
+        "contextPackCount": 3,
+        "eventCount": 20,
+        "artifactCount": 4,
+        "artifactBytes": 1157,
+        "costScore": 73,
+        "dominantCost": "events:52",
+        "costShare": 0.0235
+      },
+      {
+        "id": "deploy_diagnosis",
+        "label": "Deploy diagnosis",
+        "status": "pass",
+        "score": 100,
+        "wallMs": 145,
+        "nodeActiveMs": 101,
+        "packedTokens": 477,
+        "omittedTokens": 0,
+        "totalContextTokens": 477,
+        "contextPackCount": 3,
+        "eventCount": 20,
+        "artifactCount": 4,
+        "artifactBytes": 1063,
+        "costScore": 69,
+        "dominantCost": "events:52",
+        "costShare": 0.0222
+      },
+      {
+        "id": "delivery_handoff",
+        "label": "Delivery and handoff",
+        "status": "pass",
+        "score": 100,
+        "wallMs": 142,
+        "nodeActiveMs": 99,
+        "packedTokens": 282,
+        "omittedTokens": 0,
+        "totalContextTokens": 282,
+        "contextPackCount": 3,
+        "eventCount": 19,
+        "artifactCount": 3,
+        "artifactBytes": 758,
+        "costScore": 62,
+        "dominantCost": "events:47",
+        "costShare": 0.0199
+      }
+    ],
+    "missingInputs": [
+      "No real model prompt/completion token usage is available for these demo workers.",
+      "Wall time includes child process and filesystem overhead, not only worker reasoning.",
+      "Warmup context is read from the latest Mac validation smoke artifact and may predate this benchmark run."
+    ]
+  },
+  "recommendations": [],
+  "draft_packets": [],
+  "difficulty": {
+    "state": "increase",
+    "reason": "All scenarios passed with a near-perfect average score; the next benchmark loop should add harder pressure cases.",
+    "nextScenarioSeed": "Combine context pressure, partial failure, and contradictory reviewer evidence in one run."
+  },
+  "trend": {
+    "status": "stable",
+    "profileTag": "local-darwin-arm64-64gb",
+    "baselineStatus": "matched_profile_baseline",
+    "baselineGeneratedAt": "2026-04-26T06:50:30.176Z",
+    "crossProfileCandidate": null,
+    "regressionRule": "Compare regressions only against the previous benchmark with the same profile tag; withhold regression status when only cross-profile history exists.",
+    "summary": "No regression detected across the current weakest-scenario and omission-pressure checks.",
+    "comparedRunCount": 4,
+    "latestGeneratedAt": "2026-04-26T06:57:55.608Z",
+    "previousGeneratedAt": "2026-04-26T06:50:30.176Z",
+    "averageScoreDelta": 0,
+    "weakestScenarioDelta": {
+      "id": "delivery_handoff_escalated",
+      "label": "Escalated delivery handoff",
+      "currentScore": 99,
+      "previousScore": 99,
+      "delta": 0
+    },
+    "omissionPressureDelta": {
+      "currentOmittedHotSegments": 24,
+      "previousOmittedHotSegments": 24,
+      "delta": 0
+    },
+    "regressionSignals": [],
+    "improvementSignals": [],
+    "historyWindow": [
+      {
+        "generatedAt": "2026-04-26T06:47:12",
+        "profile": "local-darwin-arm64-64gb",
+        "averageScore": 100,
+        "weakestScenario": "Escalated delivery handoff",
+        "omittedHotSegments": 24
+      },
+      {
+        "generatedAt": "2026-04-26T06:49:45",
+        "profile": "local-darwin-arm64-64gb",
+        "averageScore": 100,
+        "weakestScenario": "Escalated delivery handoff",
+        "omittedHotSegments": 24
+      },
+      {
+        "generatedAt": "2026-04-26T06:49:57",
+        "profile": "packet-86-cross-profile-smoke",
+        "averageScore": 100,
+        "weakestScenario": "Escalated delivery handoff",
+        "omittedHotSegments": 24
+      },
+      {
+        "generatedAt": "2026-04-26T06:50:30",
+        "profile": "local-darwin-arm64-64gb",
+        "averageScore": 100,
+        "weakestScenario": "Escalated delivery handoff",
+        "omittedHotSegments": 24
+      },
+      {
+        "generatedAt": "2026-04-26T06:57:55",
+        "profile": "local-darwin-arm64-64gb",
+        "averageScore": 100,
+        "weakestScenario": "Escalated delivery handoff",
+        "omittedHotSegments": 24
+      }
+    ]
+  }
+}

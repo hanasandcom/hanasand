@@ -1,0 +1,633 @@
+{
+  "id": "run-2026-04-25T00-51-13-446Z",
+  "task": "Review a risky deploy fix where one branch wants to ship and another wants to hold, then justify the final recommendation.",
+  "createdAt": "2026-04-25T00:51:13.446Z",
+  "updatedAt": "2026-04-25T00:51:13.571Z",
+  "topology": {
+    "ownerNodeId": "orchestrator-c5b1add2-4b71-40b9-9c09-ccf8e463cb21",
+    "strategy": "orchestrator -> implementation -> optional builder/reviewer branches",
+    "notes": [
+      "The orchestrator owns steering, branch policy, context packaging, and final upstream reporting.",
+      "The implementation node owns direct task execution and requests specialist branches when needed.",
+      "Builder and reviewer branches are opened through branch-control policy rather than by default.",
+      "Scenario profile: contested_merge_decision (contested)."
+    ]
+  },
+  "branchPolicy": {
+    "maxBranches": 3,
+    "maxDepth": 2
+  },
+  "nodes": [
+    {
+      "id": "orchestrator-c5b1add2-4b71-40b9-9c09-ccf8e463cb21",
+      "role": "orchestrator",
+      "label": "Orchestrator",
+      "parentId": null,
+      "branchKey": "root",
+      "depth": 0,
+      "status": "completed",
+      "task": "Review a risky deploy fix where one branch wants to ship and another wants to hold, then justify the final recommendation.",
+      "assignedAt": "2026-04-25T00:51:13.446Z",
+      "startedAt": null,
+      "completedAt": "2026-04-25T00:51:13.571Z",
+      "summary": "Closed orchestration run and persisted replay output."
+    },
+    {
+      "id": "implementation-88cd8b79-6b4a-493a-9a54-cb8ea0c2d3b8",
+      "role": "implementation",
+      "label": "Implementation agent",
+      "parentId": "orchestrator-c5b1add2-4b71-40b9-9c09-ccf8e463cb21",
+      "branchKey": "implementation",
+      "depth": 1,
+      "status": "completed",
+      "task": "Review a risky deploy fix where one branch wants to ship and another wants to hold, then justify the final recommendation.",
+      "assignedAt": "2026-04-25T00:51:13.446Z",
+      "startedAt": "2026-04-25T00:51:13.454Z",
+      "completedAt": "2026-04-25T00:51:13.493Z",
+      "summary": "Implementation worker completed"
+    },
+    {
+      "id": "builder-c06e93ea-6f5c-450e-a5b0-f52e36177137",
+      "role": "builder",
+      "label": "builder branch",
+      "parentId": "implementation-88cd8b79-6b4a-493a-9a54-cb8ea0c2d3b8",
+      "branchKey": "implementation:builder",
+      "depth": 2,
+      "status": "completed",
+      "task": "Build and verification branch for: Review a risky deploy fix where one branch wants to ship and another wants to hold, then justify the final recommendation.",
+      "assignedAt": "2026-04-25T00:51:13.450Z",
+      "startedAt": "2026-04-25T00:51:13.494Z",
+      "completedAt": "2026-04-25T00:51:13.535Z",
+      "summary": "Builder worker completed"
+    },
+    {
+      "id": "reviewer-3d45c8a1-74ee-4024-b6a0-ecf0a9e4a935",
+      "role": "reviewer",
+      "label": "reviewer branch",
+      "parentId": "implementation-88cd8b79-6b4a-493a-9a54-cb8ea0c2d3b8",
+      "branchKey": "implementation:reviewer",
+      "depth": 2,
+      "status": "completed",
+      "task": "Review branch for: Review a risky deploy fix where one branch wants to ship and another wants to hold, then justify the final recommendation.",
+      "assignedAt": "2026-04-25T00:51:13.450Z",
+      "startedAt": "2026-04-25T00:51:13.535Z",
+      "completedAt": "2026-04-25T00:51:13.569Z",
+      "summary": "Reviewer worker completed"
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-3c687fcb-e6c0-4c97-bc12-eb263f50f2b3",
+      "from": "orchestrator-c5b1add2-4b71-40b9-9c09-ccf8e463cb21",
+      "to": "implementation-88cd8b79-6b4a-493a-9a54-cb8ea0c2d3b8",
+      "type": "delegates_to",
+      "createdAt": "2026-04-25T00:51:13.446Z",
+      "label": "primary delivery path"
+    },
+    {
+      "id": "edge-814adc5b-e5cc-4014-999e-2cd0944beacb",
+      "from": "implementation-88cd8b79-6b4a-493a-9a54-cb8ea0c2d3b8",
+      "to": "orchestrator-c5b1add2-4b71-40b9-9c09-ccf8e463cb21",
+      "type": "reports_to",
+      "createdAt": "2026-04-25T00:51:13.446Z",
+      "label": "upstream summary"
+    },
+    {
+      "id": "edge-builder-c06e93ea-6f5c-450e-a5b0-f52e36177137",
+      "from": "implementation-88cd8b79-6b4a-493a-9a54-cb8ea0c2d3b8",
+      "to": "builder-c06e93ea-6f5c-450e-a5b0-f52e36177137",
+      "type": "branches_to",
+      "createdAt": "2026-04-25T00:51:13.450Z",
+      "label": "The task mentions build/run/verification work and benefits from a dedicated builder branch."
+    },
+    {
+      "id": "edge-reviewer-3d45c8a1-74ee-4024-b6a0-ecf0a9e4a935",
+      "from": "implementation-88cd8b79-6b4a-493a-9a54-cb8ea0c2d3b8",
+      "to": "reviewer-3d45c8a1-74ee-4024-b6a0-ecf0a9e4a935",
+      "type": "branches_to",
+      "createdAt": "2026-04-25T00:51:13.451Z",
+      "label": "A reviewer branch keeps final reporting and risk assessment separate from direct implementation."
+    }
+  ],
+  "events": [
+    {
+      "id": "event-60fbd071-89df-4d26-ac64-1b73417c7bfe",
+      "runId": "run-2026-04-25T00-51-13-446Z",
+      "nodeId": "implementation-88cd8b79-6b4a-493a-9a54-cb8ea0c2d3b8",
+      "role": "implementation",
+      "type": "branch_opened",
+      "state": "info",
+      "summary": "Opened builder branch",
+      "detail": "The task mentions build/run/verification work and benefits from a dedicated builder branch.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T00:51:13.450Z",
+      "metadata": {
+        "branchNodeId": "builder-c06e93ea-6f5c-450e-a5b0-f52e36177137"
+      }
+    },
+    {
+      "id": "event-354a6f7d-8562-4db1-8aff-6e72be579f25",
+      "runId": "run-2026-04-25T00-51-13-446Z",
+      "nodeId": "implementation-88cd8b79-6b4a-493a-9a54-cb8ea0c2d3b8",
+      "role": "implementation",
+      "type": "branch_opened",
+      "state": "info",
+      "summary": "Opened reviewer branch",
+      "detail": "A reviewer branch keeps final reporting and risk assessment separate from direct implementation.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T00:51:13.451Z",
+      "metadata": {
+        "branchNodeId": "reviewer-3d45c8a1-74ee-4024-b6a0-ecf0a9e4a935"
+      }
+    },
+    {
+      "id": "event-e9b41ba4-6524-4009-8925-1c8b2fbf9067",
+      "runId": "run-2026-04-25T00-51-13-446Z",
+      "nodeId": "orchestrator-c5b1add2-4b71-40b9-9c09-ccf8e463cb21",
+      "role": "orchestrator",
+      "type": "branch_blocked",
+      "state": "blocked",
+      "summary": "Branch policy blocked additional work",
+      "detail": "Branch limit reached at 3 active branches. Existing branches must close or merge before more work can fork.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T00:51:13.451Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-fd4bdebc-56cd-4ef4-aec7-cf043521021e",
+      "runId": "run-2026-04-25T00-51-13-446Z",
+      "nodeId": "implementation-88cd8b79-6b4a-493a-9a54-cb8ea0c2d3b8",
+      "role": "implementation",
+      "type": "context_packed",
+      "state": "info",
+      "summary": "Packed context for implementation",
+      "detail": "Included 5 segments and omitted 0.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T00:51:13.452Z",
+      "metadata": {
+        "budgetTokens": 18000,
+        "usedTokens": 156
+      }
+    },
+    {
+      "id": "event-d5e7aa28-7688-4a5f-b7b1-198ecc949c13",
+      "runId": "run-2026-04-25T00-51-13-446Z",
+      "nodeId": "builder-c06e93ea-6f5c-450e-a5b0-f52e36177137",
+      "role": "builder",
+      "type": "context_packed",
+      "state": "info",
+      "summary": "Packed context for builder",
+      "detail": "Included 5 segments and omitted 0.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T00:51:13.453Z",
+      "metadata": {
+        "budgetTokens": 10000,
+        "usedTokens": 156
+      }
+    },
+    {
+      "id": "event-75e72266-a6e3-4afa-84ec-69e6bd5d858b",
+      "runId": "run-2026-04-25T00-51-13-446Z",
+      "nodeId": "reviewer-3d45c8a1-74ee-4024-b6a0-ecf0a9e4a935",
+      "role": "reviewer",
+      "type": "context_packed",
+      "state": "info",
+      "summary": "Packed context for reviewer",
+      "detail": "Included 5 segments and omitted 0.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T00:51:13.453Z",
+      "metadata": {
+        "budgetTokens": 9000,
+        "usedTokens": 156
+      }
+    },
+    {
+      "id": "event-a1eb2fc5-aa32-46bf-9d6d-088aea50a854",
+      "runId": "run-2026-04-25T00-51-13-446Z",
+      "nodeId": "implementation-88cd8b79-6b4a-493a-9a54-cb8ea0c2d3b8",
+      "role": "implementation",
+      "type": "worker_started",
+      "state": "info",
+      "summary": "Implementation worker started",
+      "detail": "Task: Review a risky deploy fix where one branch wants to ship and another wants to hold, then justify the final recommendation.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T00:51:13.485Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-181a9c78-3438-4128-a374-86142f6a9853",
+      "runId": "run-2026-04-25T00-51-13-446Z",
+      "nodeId": "implementation-88cd8b79-6b4a-493a-9a54-cb8ea0c2d3b8",
+      "role": "implementation",
+      "type": "status_update",
+      "state": "info",
+      "summary": "Thinking through the requested change set",
+      "detail": "Packed context includes 5 segments using 156 tokens.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T00:51:13.488Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-19cec5b7-a387-41b0-98e5-ae44240adcf4",
+      "runId": "run-2026-04-25T00-51-13-446Z",
+      "nodeId": "implementation-88cd8b79-6b4a-493a-9a54-cb8ea0c2d3b8",
+      "role": "implementation",
+      "type": "artifact_produced",
+      "state": "completed",
+      "summary": "Prepared implementation plan artifact",
+      "detail": null,
+      "artifacts": [
+        {
+          "id": "artifact-aa269d99-43f8-4bf0-a8e0-1fbca56307ab",
+          "label": "implementation-plan.md",
+          "kind": "text",
+          "content": "# Implementation plan\n\n- Task: Review a risky deploy fix where one branch wants to ship and another wants to hold, then justify the final recommendation.\n- Branch: implementation\n- Scenario tension: contested\n- Recommended stance: ship the narrow fix after lightweight verification\n- Selected context:\n  - Task brief: role match for implementation, shared global context, hot memory\n  - Shipping argument: role match for implementation, shared global context, hot memory\n  - Repository constraints: role match for implementation, shared global context, warm memory\n  - Hold argument: shared global context, hot memory\n  - Known product gap: shared global context, cold memory\n\n- Omitted context count: 0",
+          "createdAt": "2026-04-25T00:51:13.489Z"
+        }
+      ],
+      "createdAt": "2026-04-25T00:51:13.489Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-693ed94d-1197-4572-89b9-f4a8843dde00",
+      "runId": "run-2026-04-25T00-51-13-446Z",
+      "nodeId": "implementation-88cd8b79-6b4a-493a-9a54-cb8ea0c2d3b8",
+      "role": "implementation",
+      "type": "worker_completed",
+      "state": "completed",
+      "summary": "Implementation worker completed",
+      "detail": "Structured upstream reporting emitted successfully.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T00:51:13.489Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-56a953aa-d117-4265-915b-ee60065c35ce",
+      "runId": "run-2026-04-25T00-51-13-446Z",
+      "nodeId": "builder-c06e93ea-6f5c-450e-a5b0-f52e36177137",
+      "role": "builder",
+      "type": "worker_started",
+      "state": "info",
+      "summary": "Builder worker started",
+      "detail": "Task: Build and verification branch for: Review a risky deploy fix where one branch wants to ship and another wants to hold, then justify the final recommendation.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T00:51:13.528Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-2e4f81d3-035e-4944-89ad-e799270bbc6f",
+      "runId": "run-2026-04-25T00-51-13-446Z",
+      "nodeId": "builder-c06e93ea-6f5c-450e-a5b0-f52e36177137",
+      "role": "builder",
+      "type": "status_update",
+      "state": "info",
+      "summary": "Preparing builder branch",
+      "detail": "Packed context includes 5 segments using 156 tokens.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T00:51:13.531Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-d6994fb2-6e88-4765-814a-33bf2c09bafb",
+      "runId": "run-2026-04-25T00-51-13-446Z",
+      "nodeId": "builder-c06e93ea-6f5c-450e-a5b0-f52e36177137",
+      "role": "builder",
+      "type": "artifact_produced",
+      "state": "completed",
+      "summary": "Prepared build-and-verify command log",
+      "detail": null,
+      "artifacts": [
+        {
+          "id": "artifact-68f29834-eb35-4955-8f42-ae608204af1d",
+          "label": "builder-commands.log",
+          "kind": "log",
+          "content": "npm install\nnpm run build\nnpm test\ndocker compose up --build -d\nhealthcheck passed",
+          "createdAt": "2026-04-25T00:51:13.531Z"
+        }
+      ],
+      "createdAt": "2026-04-25T00:51:13.531Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-c98eed8e-e643-4cd3-9513-c4166243b7f7",
+      "runId": "run-2026-04-25T00-51-13-446Z",
+      "nodeId": "builder-c06e93ea-6f5c-450e-a5b0-f52e36177137",
+      "role": "builder",
+      "type": "worker_completed",
+      "state": "completed",
+      "summary": "Builder worker completed",
+      "detail": "Structured upstream reporting emitted successfully.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T00:51:13.531Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-ff69d93c-3858-4f51-a5ee-36210b3a1288",
+      "runId": "run-2026-04-25T00-51-13-446Z",
+      "nodeId": "reviewer-3d45c8a1-74ee-4024-b6a0-ecf0a9e4a935",
+      "role": "reviewer",
+      "type": "worker_started",
+      "state": "info",
+      "summary": "Reviewer worker started",
+      "detail": "Task: Review branch for: Review a risky deploy fix where one branch wants to ship and another wants to hold, then justify the final recommendation.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T00:51:13.563Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-ddf4a363-a3d9-49c6-b367-4dd2fbf8d46a",
+      "runId": "run-2026-04-25T00-51-13-446Z",
+      "nodeId": "reviewer-3d45c8a1-74ee-4024-b6a0-ecf0a9e4a935",
+      "role": "reviewer",
+      "type": "status_update",
+      "state": "info",
+      "summary": "Preparing reviewer branch",
+      "detail": "Packed context includes 5 segments using 156 tokens.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T00:51:13.566Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-e7a50cf8-cb5d-4d61-8ba2-62b58b16d675",
+      "runId": "run-2026-04-25T00-51-13-446Z",
+      "nodeId": "reviewer-3d45c8a1-74ee-4024-b6a0-ecf0a9e4a935",
+      "role": "reviewer",
+      "type": "review_requested",
+      "state": "completed",
+      "summary": "Prepared reviewer summary",
+      "detail": null,
+      "artifacts": [
+        {
+          "id": "artifact-f4086376-5604-458d-b5d1-4581da289d9d",
+          "label": "review-summary.md",
+          "kind": "text",
+          "content": "# Review summary\n\n- Risk posture: medium\n- Notes: review branch found disagreement between branches and recommends an explicit merge decision.\n- Context pack size: 156 tokens\n- Omitted segments: 0",
+          "createdAt": "2026-04-25T00:51:13.566Z"
+        }
+      ],
+      "createdAt": "2026-04-25T00:51:13.566Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-49cf1985-2bf2-4463-bcb8-fbe9474a5c65",
+      "runId": "run-2026-04-25T00-51-13-446Z",
+      "nodeId": "reviewer-3d45c8a1-74ee-4024-b6a0-ecf0a9e4a935",
+      "role": "reviewer",
+      "type": "worker_completed",
+      "state": "completed",
+      "summary": "Reviewer worker completed",
+      "detail": "Structured upstream reporting emitted successfully.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T00:51:13.566Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-8a1c8874-e904-4d8d-9ece-9e6ba86aed1f",
+      "runId": "run-2026-04-25T00-51-13-446Z",
+      "nodeId": "orchestrator-c5b1add2-4b71-40b9-9c09-ccf8e463cb21",
+      "role": "orchestrator",
+      "type": "merge_resolved",
+      "state": "completed",
+      "summary": "Resolved contested branch outputs",
+      "detail": "Implementation branch argued for immediate progress, reviewer branch argued for caution. Final merge decision: Hold shipping until the reviewer concern is cleared.",
+      "artifacts": [
+        {
+          "id": "artifact-341ca719-cf93-410f-9b9b-5717b5756acf",
+          "label": "merge-resolution.md",
+          "kind": "text",
+          "content": "# Merge resolution\n\n- Implementation stance: ship narrow fix\n- Reviewer stance: hold for review follow-up\n- Final decision: Hold shipping until the reviewer concern is cleared.",
+          "createdAt": "2026-04-25T00:51:13.570Z"
+        }
+      ],
+      "createdAt": "2026-04-25T00:51:13.570Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-cd7a3f26-2f8c-49ee-9049-801efea4754e",
+      "runId": "run-2026-04-25T00-51-13-446Z",
+      "nodeId": "orchestrator-c5b1add2-4b71-40b9-9c09-ccf8e463cb21",
+      "role": "orchestrator",
+      "type": "run_summary",
+      "state": "completed",
+      "summary": "Orchestrator collected child updates and closed the run.",
+      "detail": "Executed 3 worker nodes with structured upstream events.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T00:51:13.570Z",
+      "metadata": {}
+    }
+  ],
+  "context": {
+    "effectiveCapacityTokens": 10000000,
+    "segments": [
+      {
+        "id": "segment-287f6b84-6147-4b8d-a83d-d78d81f950dd",
+        "label": "Task brief",
+        "kind": "task",
+        "temperature": "hot",
+        "roleAffinity": [
+          "orchestrator",
+          "implementation"
+        ],
+        "branchKey": "root",
+        "content": "Review a risky deploy fix where one branch wants to ship and another wants to hold, then justify the final recommendation.",
+        "estimatedTokens": 31,
+        "priority": 5,
+        "createdAt": "2026-04-25T00:51:13.448Z",
+        "metadata": {}
+      },
+      {
+        "id": "segment-69559dcd-e13e-4b39-b8fb-c314cd012fed",
+        "label": "Repository constraints",
+        "kind": "constraint",
+        "temperature": "warm",
+        "roleAffinity": [
+          "orchestrator",
+          "implementation",
+          "builder",
+          "reviewer"
+        ],
+        "branchKey": null,
+        "content": "Prefer TypeScript and shell scripts. Keep orchestration inspectable and replayable. Treat 10M context as effective retrieval-backed context rather than a single prompt.",
+        "estimatedTokens": 42,
+        "priority": 4,
+        "createdAt": "2026-04-25T00:51:13.449Z",
+        "metadata": {}
+      },
+      {
+        "id": "segment-459cf85a-1aab-49a0-a02d-32b3624dabcc",
+        "label": "Known product gap",
+        "kind": "memory",
+        "temperature": "cold",
+        "roleAffinity": [
+          "orchestrator",
+          "reviewer"
+        ],
+        "branchKey": null,
+        "content": "Remote VM shell/file-write deploy flow is still incomplete, so orchestration should stay honest about local-only branches.",
+        "estimatedTokens": 31,
+        "priority": 3,
+        "createdAt": "2026-04-25T00:51:13.449Z",
+        "metadata": {}
+      },
+      {
+        "id": "segment-4d8d775a-873c-475d-9974-5a62737a1b46",
+        "label": "Shipping argument",
+        "kind": "artifact",
+        "temperature": "hot",
+        "roleAffinity": [
+          "implementation",
+          "builder"
+        ],
+        "branchKey": null,
+        "content": "Implementation notes say the patch is narrowly scoped and likely safe to ship immediately.",
+        "estimatedTokens": 23,
+        "priority": 5,
+        "createdAt": "2026-04-25T00:51:13.449Z",
+        "metadata": {}
+      },
+      {
+        "id": "segment-912f90ae-0292-4d78-8ca0-4ffc3650575e",
+        "label": "Hold argument",
+        "kind": "artifact",
+        "temperature": "hot",
+        "roleAffinity": [
+          "reviewer"
+        ],
+        "branchKey": null,
+        "content": "Reviewer notes say the patch hides an unresolved tenant-boundary side effect and needs a documented merge decision.",
+        "estimatedTokens": 29,
+        "priority": 5,
+        "createdAt": "2026-04-25T00:51:13.449Z",
+        "metadata": {}
+      }
+    ],
+    "packs": [
+      {
+        "nodeId": "implementation-88cd8b79-6b4a-493a-9a54-cb8ea0c2d3b8",
+        "role": "implementation",
+        "budgetTokens": 18000,
+        "usedTokens": 156,
+        "included": [
+          {
+            "id": "segment-287f6b84-6147-4b8d-a83d-d78d81f950dd",
+            "label": "Task brief",
+            "estimatedTokens": 31,
+            "reason": "role match for implementation, shared global context, hot memory"
+          },
+          {
+            "id": "segment-4d8d775a-873c-475d-9974-5a62737a1b46",
+            "label": "Shipping argument",
+            "estimatedTokens": 23,
+            "reason": "role match for implementation, shared global context, hot memory"
+          },
+          {
+            "id": "segment-69559dcd-e13e-4b39-b8fb-c314cd012fed",
+            "label": "Repository constraints",
+            "estimatedTokens": 42,
+            "reason": "role match for implementation, shared global context, warm memory"
+          },
+          {
+            "id": "segment-912f90ae-0292-4d78-8ca0-4ffc3650575e",
+            "label": "Hold argument",
+            "estimatedTokens": 29,
+            "reason": "shared global context, hot memory"
+          },
+          {
+            "id": "segment-459cf85a-1aab-49a0-a02d-32b3624dabcc",
+            "label": "Known product gap",
+            "estimatedTokens": 31,
+            "reason": "shared global context, cold memory"
+          }
+        ],
+        "omitted": [],
+        "generatedAt": "2026-04-25T00:51:13.452Z"
+      },
+      {
+        "nodeId": "builder-c06e93ea-6f5c-450e-a5b0-f52e36177137",
+        "role": "builder",
+        "budgetTokens": 10000,
+        "usedTokens": 156,
+        "included": [
+          {
+            "id": "segment-4d8d775a-873c-475d-9974-5a62737a1b46",
+            "label": "Shipping argument",
+            "estimatedTokens": 23,
+            "reason": "role match for builder, shared global context, hot memory"
+          },
+          {
+            "id": "segment-69559dcd-e13e-4b39-b8fb-c314cd012fed",
+            "label": "Repository constraints",
+            "estimatedTokens": 42,
+            "reason": "role match for builder, shared global context, warm memory"
+          },
+          {
+            "id": "segment-287f6b84-6147-4b8d-a83d-d78d81f950dd",
+            "label": "Task brief",
+            "estimatedTokens": 31,
+            "reason": "shared global context, hot memory"
+          },
+          {
+            "id": "segment-912f90ae-0292-4d78-8ca0-4ffc3650575e",
+            "label": "Hold argument",
+            "estimatedTokens": 29,
+            "reason": "shared global context, hot memory"
+          },
+          {
+            "id": "segment-459cf85a-1aab-49a0-a02d-32b3624dabcc",
+            "label": "Known product gap",
+            "estimatedTokens": 31,
+            "reason": "shared global context, cold memory"
+          }
+        ],
+        "omitted": [],
+        "generatedAt": "2026-04-25T00:51:13.453Z"
+      },
+      {
+        "nodeId": "reviewer-3d45c8a1-74ee-4024-b6a0-ecf0a9e4a935",
+        "role": "reviewer",
+        "budgetTokens": 9000,
+        "usedTokens": 156,
+        "included": [
+          {
+            "id": "segment-912f90ae-0292-4d78-8ca0-4ffc3650575e",
+            "label": "Hold argument",
+            "estimatedTokens": 29,
+            "reason": "role match for reviewer, shared global context, hot memory"
+          },
+          {
+            "id": "segment-69559dcd-e13e-4b39-b8fb-c314cd012fed",
+            "label": "Repository constraints",
+            "estimatedTokens": 42,
+            "reason": "role match for reviewer, shared global context, warm memory"
+          },
+          {
+            "id": "segment-459cf85a-1aab-49a0-a02d-32b3624dabcc",
+            "label": "Known product gap",
+            "estimatedTokens": 31,
+            "reason": "role match for reviewer, shared global context, cold memory"
+          },
+          {
+            "id": "segment-287f6b84-6147-4b8d-a83d-d78d81f950dd",
+            "label": "Task brief",
+            "estimatedTokens": 31,
+            "reason": "shared global context, hot memory"
+          },
+          {
+            "id": "segment-4d8d775a-873c-475d-9974-5a62737a1b46",
+            "label": "Shipping argument",
+            "estimatedTokens": 23,
+            "reason": "shared global context, hot memory"
+          }
+        ],
+        "omitted": [],
+        "generatedAt": "2026-04-25T00:51:13.453Z"
+      }
+    ]
+  },
+  "evaluation": {
+    "success": null,
+    "score": null,
+    "summary": null,
+    "checkedAt": null
+  }
+}

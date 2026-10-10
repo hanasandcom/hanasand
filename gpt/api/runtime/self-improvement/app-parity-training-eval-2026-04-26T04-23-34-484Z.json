@@ -1,0 +1,176 @@
+{
+  "generated_at": "2026-04-26T04:23:34.484Z",
+  "model_api": "http://127.0.0.1:18082",
+  "duration_ms": 63902,
+  "ok": false,
+  "score": {
+    "passed": false,
+    "checks": [
+      {
+        "label": "used repository evidence",
+        "passed": true,
+        "expected": [
+          "read file agents/desktop_app_development.md",
+          "read file frontend/src/utils/share/getusershares.ts"
+        ]
+      },
+      {
+        "label": "website share helpers",
+        "passed": true,
+        "expected": [
+          "frontend/src/utils/share/getusershares.ts",
+          "frontend/src/utils/share/post.ts",
+          "frontend/src/utils/share/put.ts"
+        ]
+      },
+      {
+        "label": "delete/lock/tree helpers",
+        "passed": true,
+        "expected": [
+          "frontend/src/utils/share/delete.ts",
+          "frontend/src/utils/share/lockshare.ts",
+          "frontend/src/utils/share/gettree.ts"
+        ]
+      },
+      {
+        "label": "website share UI",
+        "passed": true,
+        "expected": [
+          "frontend/src/components/share/dashboard/dashboardshare.tsx",
+          "frontend/src/components/share/dashboard/projects.tsx"
+        ]
+      },
+      {
+        "label": "native footholds",
+        "passed": true,
+        "expected": [
+          "app/src/lib/api.ts",
+          "app/src/screens/controlscreen.tsx",
+          "app/src/types.ts"
+        ]
+      },
+      {
+        "label": "core endpoints",
+        "passed": true,
+        "expected": [
+          "get /share/user",
+          "post /share",
+          "put /share"
+        ]
+      },
+      {
+        "label": "delete contract",
+        "passed": true,
+        "expected": [
+          "delete /share",
+          "frontend/src/utils/share/delete.ts"
+        ]
+      },
+      {
+        "label": "lock contract",
+        "passed": true,
+        "expected": [
+          "lock",
+          "unlock"
+        ]
+      },
+      {
+        "label": "auth contract",
+        "passed": true,
+        "expected": [
+          "authorization",
+          "bearer",
+          "id"
+        ]
+      },
+      {
+        "label": "verification commands",
+        "passed": true,
+        "expected": [
+          "npm run typecheck",
+          "npm run lint"
+        ]
+      },
+      {
+        "label": "no spoon-feeding",
+        "passed": false,
+        "expected": [
+          "do not ask",
+          "without asking",
+          "no user guidance",
+          "repository evidence"
+        ]
+      }
+    ]
+  },
+  "training_events": [
+    {
+      "label": "Read file agents/START_HERE.md",
+      "state": "completed"
+    },
+    {
+      "label": "Read file agents/DESKTOP_APP_DEVELOPMENT.md",
+      "state": "completed"
+    },
+    {
+      "label": "Read file agents/training-scenarios/share-functionality-port.md",
+      "state": "completed"
+    },
+    {
+      "label": "Read file frontend/src/utils/share/getUserShares.ts",
+      "state": "completed"
+    },
+    {
+      "label": "Read file frontend/src/utils/share/post.ts",
+      "state": "completed"
+    },
+    {
+      "label": "Read file frontend/src/utils/share/put.ts",
+      "state": "completed"
+    },
+    {
+      "label": "Read file frontend/src/utils/share/delete.ts",
+      "state": "completed"
+    },
+    {
+      "label": "Read file frontend/src/utils/share/lockShare.ts",
+      "state": "completed"
+    },
+    {
+      "label": "Read file frontend/src/utils/share/getTree.ts",
+      "state": "completed"
+    },
+    {
+      "label": "Read file frontend/src/components/share/dashboard/dashboardShare.tsx",
+      "state": "completed"
+    },
+    {
+      "label": "Read file frontend/src/components/share/dashboard/projects.tsx",
+      "state": "completed"
+    },
+    {
+      "label": "Read file app/src/lib/api.ts",
+      "state": "completed"
+    },
+    {
+      "label": "Read file app/src/screens/ControlScreen.tsx",
+      "state": "completed"
+    },
+    {
+      "label": "Read file app/src/types.ts",
+      "state": "completed"
+    }
+  ],
+  "response_preview": "### Implementation Plan for Share Functionality in Hanasand Desktop App\n\n#### Checklist:\n1. **GET /share/user**\n2. **POST /share**\n3. **PUT /share**\n4. **npm run typecheck**\n5. **npm run lint**\n\n#### Steps:\n\n1. **GET /share/user**\n   - **File:** `app/src/lib/api.ts`\n   - **Action:** Implement `fetchUserShares` function to call `GET /share/user/:id`.\n   - **Verification:** Ensure the function is correctly fetching user shares.\n\n2. **POST /share**\n   - **File:** `app/src/lib/api.ts`\n   - **Action:** Implement `createShare` function to call `POST /share`.\n   - **Verification:** Ensure the function correctly creates a share.\n\n3. **PUT /share**\n   - **File:** `app/src/lib/api.ts`\n   - **Action:** Implement `updateShare` function to call `PUT /share/:id`.\n   - **Verification:** Ensure the function correctly updates a share.\n\n4. **npm run typecheck**\n   - **File:** `app/`\n   - **Action:** Run `npm run typecheck` to ensure type safety.\n   - **Verification:** No type errors should be reported.\n\n5. **npm run lint**\n   - **File:** `app/`\n   - **Action:** Run `npm run lint` to ensure code quality.\n   - **Verification:** No linting errors should be reported.\n\n#### Detailed Implementation:\n\n1. **GET /share/user**\n   - **File:** `app/src/lib/api.ts`\n   - **Action:**\n     ```typescript\n     export async function fetchUserShares(userId: string, authToken: string) {\n       const response = await fetch(`/share/user/${userId}`, {\n         headers: {\n           'Authorization': `Bearer ${authToken}`,\n           'id': userId\n         }\n       });\n       return response.json();\n     }\n     ```\n\n2. **POST /share**\n   - **File:** `app/src/lib/api",
+  "timings": {
+    "cache_n": 79,
+    "prompt_n": 435,
+    "prompt_ms": 1707.575,
+    "prompt_per_token_ms": 3.9254597701149425,
+    "prompt_per_second": 254.74722925786568,
+    "predicted_n": 420,
+    "predicted_ms": 62148.315,
+    "predicted_per_token_ms": 147.97217857142857,
+    "predicted_per_second": 6.758027148443205
+  }
+}

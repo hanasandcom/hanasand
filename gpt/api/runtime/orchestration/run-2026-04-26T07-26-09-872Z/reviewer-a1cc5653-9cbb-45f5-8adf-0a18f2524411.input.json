@@ -1,0 +1,54 @@
+{
+  "runId": "run-2026-04-26T07-26-09-872Z",
+  "nodeId": "reviewer-a1cc5653-9cbb-45f5-8adf-0a18f2524411",
+  "role": "reviewer",
+  "task": "Review branch for: Diagnose why Docker compose verification keeps failing, propose fixes, and prepare a final review.",
+  "branchKey": "implementation:reviewer",
+  "packedContext": {
+    "nodeId": "reviewer-a1cc5653-9cbb-45f5-8adf-0a18f2524411",
+    "role": "reviewer",
+    "budgetTokens": 9000,
+    "usedTokens": 159,
+    "included": [
+      {
+        "id": "segment-c7b928e0-bfc0-44bc-b725-e21aefb209c0",
+        "label": "Failing runtime signal",
+        "estimatedTokens": 29,
+        "reason": "role match for reviewer, shared global context, hot memory"
+      },
+      {
+        "id": "segment-c1e14fe7-57ad-4629-9f90-4987116f3ec6",
+        "label": "Repository constraints",
+        "estimatedTokens": 42,
+        "reason": "role match for reviewer, shared global context, warm memory"
+      },
+      {
+        "id": "segment-2f2ae705-fae9-4840-8bfd-87f05186e3d8",
+        "label": "Manual step caveat",
+        "estimatedTokens": 32,
+        "reason": "role match for reviewer, shared global context, warm memory"
+      },
+      {
+        "id": "segment-de0ee2c3-761a-4bf4-ba31-078db52bff32",
+        "label": "Known product gap",
+        "estimatedTokens": 31,
+        "reason": "role match for reviewer, shared global context, cold memory"
+      },
+      {
+        "id": "segment-1b909c59-5465-4d4c-a5e6-35343b4d2928",
+        "label": "Task brief",
+        "estimatedTokens": 25,
+        "reason": "shared global context, hot memory"
+      }
+    ],
+    "omitted": [],
+    "generatedAt": "2026-04-26T07:26:09.881Z"
+  },
+  "scenario": {
+    "id": "deploy_diagnosis",
+    "tension": "partial_failure",
+    "expectedBlockedRoles": [
+      "builder"
+    ]
+  }
+}

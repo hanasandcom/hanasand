@@ -1,0 +1,35 @@
+{
+  "runId": "run-2026-04-25T00-39-49-019Z",
+  "nodeId": "implementation-a7a83b4d-bce2-4f95-8844-88cb167512e9",
+  "role": "implementation",
+  "task": "Review a risky diff for safety, check ship readiness, and summarize the final recommendation.",
+  "branchKey": "implementation",
+  "packedContext": {
+    "nodeId": "implementation-a7a83b4d-bce2-4f95-8844-88cb167512e9",
+    "role": "implementation",
+    "budgetTokens": 18000,
+    "usedTokens": 97,
+    "included": [
+      {
+        "id": "segment-da5816ef-4a32-4d8e-bdf4-4ce289d7b894",
+        "label": "Task brief",
+        "estimatedTokens": 24,
+        "reason": "role match for implementation, shared global context, hot memory"
+      },
+      {
+        "id": "segment-8c606570-2c90-4fc9-a716-253fe1922b6f",
+        "label": "Repository constraints",
+        "estimatedTokens": 42,
+        "reason": "role match for implementation, shared global context, warm memory"
+      },
+      {
+        "id": "segment-b471dabf-152b-4de7-87c9-660bcfeb0bb1",
+        "label": "Known product gap",
+        "estimatedTokens": 31,
+        "reason": "shared global context, cold memory"
+      }
+    ],
+    "omitted": [],
+    "generatedAt": "2026-04-25T00:39:49.034Z"
+  }
+}

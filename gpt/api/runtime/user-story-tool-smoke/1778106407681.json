@@ -1,0 +1,855 @@
+{
+  "ok": true,
+  "createdAt": "2026-05-06T22:26:47.681Z",
+  "smokeRoot": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke",
+  "selectedCasePattern": "461-480-real-world-constraint",
+  "results": [
+    {
+      "id": "vet-clinic-clarity-site",
+      "title": "Vet clinic clarity site",
+      "tool": "scaffoldNextjsDockerApp",
+      "storyPath": "agents/training-scenarios/user_stories/461-480-real-world-constraint-user-stories.md#461-the-vet-clinic-site-makes-people-call-for-everything",
+      "ok": true,
+      "elapsedMs": 15948,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline && NEXT_TELEMETRY_DISABLED=1 ./node_modules/.bin/next build) || (npm install --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/vet-clinic-clarity-site",
+        "exitCode": 0,
+        "stdout": "bun install v1.3.11 (af24e281)\n\n+ @eslint/eslintrc@3.3.5\n+ @types/node@24.12.2 (v25.6.0 available)\n+ @types/react@19.2.14\n+ @types/react-dom@19.2.3\n+ eslint@9.39.4 (v10.3.0 available)\n+ eslint-config-next@15.5.16 (v16.2.5 available)\n+ typescript@5.9.3 (v6.0.3 available)\n+ next@15.5.6\n+ react@19.1.0\n+ react-dom@19.1.0\n\n299 packages installed [318.00ms]\n\nBlocked 1 postinstall. Run `bun pm untrusted` for details.\n   ▲ Next.js 15.5.6\n   - Experiments (use with caution):\n     · cpus: 4\n\n   Creating an optimized production build ...\n ✓ Compiled successfully in 1783ms\n   Linting and checking validity of types ...\n   Collecting page data ...\n   Generating static pages (0/4) ...\n   Generating static pages (1/4) \r\n   Generating static pages (2/4) \r\n   Generating static pages (3/4) \r\n ✓ Generating static pages (4/4)\n   Finalizing page optimization ...\n   Collecting build traces ...\n\nRoute (app)                                 Size  First Load JS\n┌ ○ /                                      120 B         102 kB\n└ ○ /_not-found                            996 B         103 kB\n+ First Load JS shared by all             102 kB\n  ├ chunks/255-cf2e1d3491ac955b.js       45.8 kB\n  ├ chunks/4bd1b696-c023c6e3521b1417.js  54.2 kB\n  └ other shared chunks (total)          1.89 kB\n\n\n○  (Static)  prerendered as static content\n\n",
+        "stderr": "Resolving dependencies\nResolved, downloaded and extracted [0]\nSaved lockfile\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/vet-clinic-clarity-site",
+        "appName": "PawPlain Clinic",
+        "productBrief": "PawPlain Clinic gives pet owners hours, services, urgent-care caveats, preparation notes, records request paths, and warm contact cues without fake booking or medical promises.",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": true,
+        "compose": true,
+        "standaloneNext": true,
+        "appPage": true,
+        "readmeEnv": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "pet-record-request-api",
+      "title": "Pet record request API",
+      "tool": "scaffoldFastifyPostgresApp",
+      "storyPath": "agents/training-scenarios/user_stories/461-480-real-world-constraint-user-stories.md#462-pet-records-are-in-email-threads",
+      "ok": true,
+      "elapsedMs": 1042,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline --ignore-scripts --no-progress && ./node_modules/.bin/tsc -p tsconfig.json --pretty false) || (npm install --ignore-scripts --progress=false --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/pet-record-request-api",
+        "exitCode": 0,
+        "stdout": "bun install v1.3.11 (af24e281)\n\n+ @types/node@24.12.2 (v25.6.0 available)\n+ @types/pg@8.20.0\n+ tsx@4.21.0\n+ typescript@5.9.3 (v6.0.3 available)\n+ fastify@5.8.5\n+ pg@8.20.0\n\n70 packages installed [38.00ms]\n",
+        "stderr": "Saved lockfile\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/pet-record-request-api",
+        "appName": "PetRecords API",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": true,
+        "compose": true,
+        "migrationScript": true,
+        "healthRoutes": true,
+        "postgresCompose": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "pet-record-followup-worker",
+      "title": "Pet record followup worker",
+      "tool": "scaffoldFastifyWorkerRedisApp",
+      "storyPath": "agents/training-scenarios/user_stories/461-480-real-world-constraint-user-stories.md#463-records-followups-need-not-vanish",
+      "ok": true,
+      "elapsedMs": 1833,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline --ignore-scripts --no-progress && ./node_modules/.bin/tsc -p tsconfig.json --pretty false) || (npm install --ignore-scripts --progress=false --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/pet-record-followup-worker",
+        "exitCode": 0,
+        "stdout": "bun install v1.3.11 (af24e281)\n\n+ @types/node@24.12.2 (v25.6.0 available)\n+ tsx@4.21.0\n+ typescript@5.9.3 (v6.0.3 available)\n+ fastify@5.8.5\n+ redis@5.12.1\n\n63 packages installed [77.00ms]\n",
+        "stderr": "Resolving dependencies\nResolved, downloaded and extracted [0]\nSaved lockfile\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/pet-record-followup-worker",
+        "appName": "PetRecordNudge Worker",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": true,
+        "compose": true,
+        "workerEntrypoint": true,
+        "queueRoutes": true,
+        "redisCompose": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "library-events-site",
+      "title": "Library events site",
+      "tool": "scaffoldNextjsDockerApp",
+      "storyPath": "agents/training-scenarios/user_stories/461-480-real-world-constraint-user-stories.md#464-a-library-needs-a-practical-events-page",
+      "ok": true,
+      "elapsedMs": 15818,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline && NEXT_TELEMETRY_DISABLED=1 ./node_modules/.bin/next build) || (npm install --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/library-events-site",
+        "exitCode": 0,
+        "stdout": "bun install v1.3.11 (af24e281)\n\n+ @eslint/eslintrc@3.3.5\n+ @types/node@24.12.2 (v25.6.0 available)\n+ @types/react@19.2.14\n+ @types/react-dom@19.2.3\n+ eslint@9.39.4 (v10.3.0 available)\n+ eslint-config-next@15.5.16 (v16.2.5 available)\n+ typescript@5.9.3 (v6.0.3 available)\n+ next@15.5.6\n+ react@19.1.0\n+ react-dom@19.1.0\n\n299 packages installed [318.00ms]\n\nBlocked 1 postinstall. Run `bun pm untrusted` for details.\n   ▲ Next.js 15.5.6\n   - Experiments (use with caution):\n     · cpus: 4\n\n   Creating an optimized production build ...\n ✓ Compiled successfully in 1794ms\n   Linting and checking validity of types ...\n   Collecting page data ...\n   Generating static pages (0/4) ...\n   Generating static pages (1/4) \r\n   Generating static pages (2/4) \r\n   Generating static pages (3/4) \r\n ✓ Generating static pages (4/4)\n   Finalizing page optimization ...\n   Collecting build traces ...\n\nRoute (app)                                 Size  First Load JS\n┌ ○ /                                      120 B         102 kB\n└ ○ /_not-found                            998 B         103 kB\n+ First Load JS shared by all             102 kB\n  ├ chunks/255-cf2e1d3491ac955b.js       45.8 kB\n  ├ chunks/4bd1b696-c023c6e3521b1417.js  54.2 kB\n  └ other shared chunks (total)          1.89 kB\n\n\n○  (Static)  prerendered as static content\n\n",
+        "stderr": "Resolving dependencies\nResolved, downloaded and extracted [0]\nSaved lockfile\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/library-events-site",
+        "appName": "ShelfEvents",
+        "productBrief": "ShelfEvents organizes library programs by audience, date, room, accessibility notes, signup caveats, and contact paths without fake ticketing.",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": true,
+        "compose": true,
+        "standaloneNext": true,
+        "appPage": true,
+        "readmeEnv": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "library-room-request-api",
+      "title": "Library room request API",
+      "tool": "scaffoldFastifyPostgresApp",
+      "storyPath": "agents/training-scenarios/user_stories/461-480-real-world-constraint-user-stories.md#465-room-bookings-need-basic-order",
+      "ok": true,
+      "elapsedMs": 1083,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline --ignore-scripts --no-progress && ./node_modules/.bin/tsc -p tsconfig.json --pretty false) || (npm install --ignore-scripts --progress=false --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/library-room-request-api",
+        "exitCode": 0,
+        "stdout": "bun install v1.3.11 (af24e281)\n\n+ @types/node@24.12.2 (v25.6.0 available)\n+ @types/pg@8.20.0\n+ tsx@4.21.0\n+ typescript@5.9.3 (v6.0.3 available)\n+ fastify@5.8.5\n+ pg@8.20.0\n\n70 packages installed [57.00ms]\n",
+        "stderr": "Saved lockfile\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/library-room-request-api",
+        "appName": "RoomRequest API",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": true,
+        "compose": true,
+        "migrationScript": true,
+        "healthRoutes": true,
+        "postgresCompose": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "library-setup-reminder-worker",
+      "title": "Library setup reminder worker",
+      "tool": "scaffoldFastifyWorkerRedisApp",
+      "storyPath": "agents/training-scenarios/user_stories/461-480-real-world-constraint-user-stories.md#466-equipment-reminders-should-be-quiet",
+      "ok": true,
+      "elapsedMs": 1824,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline --ignore-scripts --no-progress && ./node_modules/.bin/tsc -p tsconfig.json --pretty false) || (npm install --ignore-scripts --progress=false --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/library-setup-reminder-worker",
+        "exitCode": 0,
+        "stdout": "bun install v1.3.11 (af24e281)\n\n+ @types/node@24.12.2 (v25.6.0 available)\n+ tsx@4.21.0\n+ typescript@5.9.3 (v6.0.3 available)\n+ fastify@5.8.5\n+ redis@5.12.1\n\n63 packages installed [77.00ms]\n",
+        "stderr": "Resolving dependencies\nResolved, downloaded and extracted [0]\nSaved lockfile\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/library-setup-reminder-worker",
+        "appName": "SetupNudge Worker",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": true,
+        "compose": true,
+        "workerEntrypoint": true,
+        "queueRoutes": true,
+        "redisCompose": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "dental-plan-site",
+      "title": "Dental plan site",
+      "tool": "scaffoldNextjsDockerApp",
+      "storyPath": "agents/training-scenarios/user_stories/461-480-real-world-constraint-user-stories.md#467-the-dental-plan-page-is-too-confusing",
+      "ok": true,
+      "elapsedMs": 16100,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline && NEXT_TELEMETRY_DISABLED=1 ./node_modules/.bin/next build) || (npm install --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/dental-plan-site",
+        "exitCode": 0,
+        "stdout": "bun install v1.3.11 (af24e281)\n\n+ @eslint/eslintrc@3.3.5\n+ @types/node@24.12.2 (v25.6.0 available)\n+ @types/react@19.2.14\n+ @types/react-dom@19.2.3\n+ eslint@9.39.4 (v10.3.0 available)\n+ eslint-config-next@15.5.16 (v16.2.5 available)\n+ typescript@5.9.3 (v6.0.3 available)\n+ next@15.5.6\n+ react@19.1.0\n+ react-dom@19.1.0\n\n299 packages installed [308.00ms]\n\nBlocked 1 postinstall. Run `bun pm untrusted` for details.\n   ▲ Next.js 15.5.6\n   - Experiments (use with caution):\n     · cpus: 4\n\n   Creating an optimized production build ...\n ✓ Compiled successfully in 1763ms\n   Linting and checking validity of types ...\n   Collecting page data ...\n   Generating static pages (0/4) ...\n   Generating static pages (1/4) \r\n   Generating static pages (2/4) \r\n   Generating static pages (3/4) \r\n ✓ Generating static pages (4/4)\n   Finalizing page optimization ...\n   Collecting build traces ...\n\nRoute (app)                                 Size  First Load JS\n┌ ○ /                                      120 B         102 kB\n└ ○ /_not-found                            994 B         103 kB\n+ First Load JS shared by all             102 kB\n  ├ chunks/255-cf2e1d3491ac955b.js       45.8 kB\n  ├ chunks/4bd1b696-c023c6e3521b1417.js  54.2 kB\n  └ other shared chunks (total)          1.89 kB\n\n\n○  (Static)  prerendered as static content\n\n",
+        "stderr": "Resolving dependencies\nResolved, downloaded and extracted [0]\nSaved lockfile\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/dental-plan-site",
+        "appName": "SmilePlan Plain",
+        "productBrief": "SmilePlan Plain explains included care, exclusions, pricing caveats, FAQs, and contact paths with compliance-friendly copy and no fake enrollment payment.",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": true,
+        "compose": true,
+        "standaloneNext": true,
+        "appPage": true,
+        "readmeEnv": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "dental-plan-inquiry-api",
+      "title": "Dental plan inquiry API",
+      "tool": "scaffoldFastifyPostgresApp",
+      "storyPath": "agents/training-scenarios/user_stories/461-480-real-world-constraint-user-stories.md#468-plan-questions-need-tracking",
+      "ok": true,
+      "elapsedMs": 1126,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline --ignore-scripts --no-progress && ./node_modules/.bin/tsc -p tsconfig.json --pretty false) || (npm install --ignore-scripts --progress=false --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/dental-plan-inquiry-api",
+        "exitCode": 0,
+        "stdout": "bun install v1.3.11 (af24e281)\n\n+ @types/node@24.12.2 (v25.6.0 available)\n+ @types/pg@8.20.0\n+ tsx@4.21.0\n+ typescript@5.9.3 (v6.0.3 available)\n+ fastify@5.8.5\n+ pg@8.20.0\n\n70 packages installed [70.00ms]\n",
+        "stderr": "Saved lockfile\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/dental-plan-inquiry-api",
+        "appName": "PlanInquiry API",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": true,
+        "compose": true,
+        "migrationScript": true,
+        "healthRoutes": true,
+        "postgresCompose": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "dental-plan-followup-worker",
+      "title": "Dental plan followup worker",
+      "tool": "scaffoldFastifyWorkerRedisApp",
+      "storyPath": "agents/training-scenarios/user_stories/461-480-real-world-constraint-user-stories.md#469-plan-followups-should-be-safe",
+      "ok": true,
+      "elapsedMs": 1848,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline --ignore-scripts --no-progress && ./node_modules/.bin/tsc -p tsconfig.json --pretty false) || (npm install --ignore-scripts --progress=false --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/dental-plan-followup-worker",
+        "exitCode": 0,
+        "stdout": "bun install v1.3.11 (af24e281)\n\n+ @types/node@24.12.2 (v25.6.0 available)\n+ tsx@4.21.0\n+ typescript@5.9.3 (v6.0.3 available)\n+ fastify@5.8.5\n+ redis@5.12.1\n\n63 packages installed [76.00ms]\n",
+        "stderr": "Resolving dependencies\nResolved, downloaded and extracted [0]\nSaved lockfile\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/dental-plan-followup-worker",
+        "appName": "PlanFollowup Worker",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": true,
+        "compose": true,
+        "workerEntrypoint": true,
+        "queueRoutes": true,
+        "redisCompose": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "manufacturer-capability-site",
+      "title": "Manufacturer capability site",
+      "tool": "scaffoldNextjsDockerApp",
+      "storyPath": "agents/training-scenarios/user_stories/461-480-real-world-constraint-user-stories.md#470-a-small-manufacturer-needs-a-capability-page",
+      "ok": true,
+      "elapsedMs": 15837,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline && NEXT_TELEMETRY_DISABLED=1 ./node_modules/.bin/next build) || (npm install --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/manufacturer-capability-site",
+        "exitCode": 0,
+        "stdout": "bun install v1.3.11 (af24e281)\n\n+ @eslint/eslintrc@3.3.5\n+ @types/node@24.12.2 (v25.6.0 available)\n+ @types/react@19.2.14\n+ @types/react-dom@19.2.3\n+ eslint@9.39.4 (v10.3.0 available)\n+ eslint-config-next@15.5.16 (v16.2.5 available)\n+ typescript@5.9.3 (v6.0.3 available)\n+ next@15.5.6\n+ react@19.1.0\n+ react-dom@19.1.0\n\n299 packages installed [359.00ms]\n\nBlocked 1 postinstall. Run `bun pm untrusted` for details.\n   ▲ Next.js 15.5.6\n   - Experiments (use with caution):\n     · cpus: 4\n\n   Creating an optimized production build ...\n ✓ Compiled successfully in 1814ms\n   Linting and checking validity of types ...\n   Collecting page data ...\n   Generating static pages (0/4) ...\n   Generating static pages (1/4) \r\n   Generating static pages (2/4) \r\n   Generating static pages (3/4) \r\n ✓ Generating static pages (4/4)\n   Finalizing page optimization ...\n   Collecting build traces ...\n\nRoute (app)                                 Size  First Load JS\n┌ ○ /                                      120 B         102 kB\n└ ○ /_not-found                            995 B         103 kB\n+ First Load JS shared by all             102 kB\n  ├ chunks/255-cf2e1d3491ac955b.js       45.8 kB\n  ├ chunks/4bd1b696-c023c6e3521b1417.js  54.2 kB\n  └ other shared chunks (total)          1.89 kB\n\n\n○  (Static)  prerendered as static content\n\n",
+        "stderr": "Resolving dependencies\nResolved, downloaded and extracted [0]\nSaved lockfile\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/manufacturer-capability-site",
+        "appName": "ForgeSpec",
+        "productBrief": "ForgeSpec presents capabilities, materials, tolerances, lead-time caveats, quote paths, proof, and practical B2B language without industrial buzzwords.",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": true,
+        "compose": true,
+        "standaloneNext": true,
+        "appPage": true,
+        "readmeEnv": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "manufacturing-quote-api",
+      "title": "Manufacturing quote API",
+      "tool": "scaffoldFastifyPostgresApp",
+      "storyPath": "agents/training-scenarios/user_stories/461-480-real-world-constraint-user-stories.md#471-quotes-need-a-source-of-truth",
+      "ok": true,
+      "elapsedMs": 1047,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline --ignore-scripts --no-progress && ./node_modules/.bin/tsc -p tsconfig.json --pretty false) || (npm install --ignore-scripts --progress=false --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/manufacturing-quote-api",
+        "exitCode": 0,
+        "stdout": "bun install v1.3.11 (af24e281)\n\n+ @types/node@24.12.2 (v25.6.0 available)\n+ @types/pg@8.20.0\n+ tsx@4.21.0\n+ typescript@5.9.3 (v6.0.3 available)\n+ fastify@5.8.5\n+ pg@8.20.0\n\n70 packages installed [41.00ms]\n",
+        "stderr": "Saved lockfile\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/manufacturing-quote-api",
+        "appName": "QuoteSpec API",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": true,
+        "compose": true,
+        "migrationScript": true,
+        "healthRoutes": true,
+        "postgresCompose": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "quote-due-worker",
+      "title": "Quote due worker",
+      "tool": "scaffoldFastifyWorkerRedisApp",
+      "storyPath": "agents/training-scenarios/user_stories/461-480-real-world-constraint-user-stories.md#472-quote-owners-forget-due-dates",
+      "ok": true,
+      "elapsedMs": 1865,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline --ignore-scripts --no-progress && ./node_modules/.bin/tsc -p tsconfig.json --pretty false) || (npm install --ignore-scripts --progress=false --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/quote-due-worker",
+        "exitCode": 0,
+        "stdout": "bun install v1.3.11 (af24e281)\n\n+ @types/node@24.12.2 (v25.6.0 available)\n+ tsx@4.21.0\n+ typescript@5.9.3 (v6.0.3 available)\n+ fastify@5.8.5\n+ redis@5.12.1\n\n63 packages installed [80.00ms]\n",
+        "stderr": "Resolving dependencies\nResolved, downloaded and extracted [0]\nSaved lockfile\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/quote-due-worker",
+        "appName": "QuoteNudge Worker",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": true,
+        "compose": true,
+        "workerEntrypoint": true,
+        "queueRoutes": true,
+        "redisCompose": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "museum-exhibit-site-461",
+      "title": "Museum exhibit site",
+      "tool": "scaffoldNextjsDockerApp",
+      "storyPath": "agents/training-scenarios/user_stories/461-480-real-world-constraint-user-stories.md#473-a-museum-exhibit-page-needs-context",
+      "ok": true,
+      "elapsedMs": 15811,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline && NEXT_TELEMETRY_DISABLED=1 ./node_modules/.bin/next build) || (npm install --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/museum-exhibit-site-461",
+        "exitCode": 0,
+        "stdout": "bun install v1.3.11 (af24e281)\n\n+ @eslint/eslintrc@3.3.5\n+ @types/node@24.12.2 (v25.6.0 available)\n+ @types/react@19.2.14\n+ @types/react-dom@19.2.3\n+ eslint@9.39.4 (v10.3.0 available)\n+ eslint-config-next@15.5.16 (v16.2.5 available)\n+ typescript@5.9.3 (v6.0.3 available)\n+ next@15.5.6\n+ react@19.1.0\n+ react-dom@19.1.0\n\n299 packages installed [357.00ms]\n\nBlocked 1 postinstall. Run `bun pm untrusted` for details.\n   ▲ Next.js 15.5.6\n   - Experiments (use with caution):\n     · cpus: 4\n\n   Creating an optimized production build ...\n ✓ Compiled successfully in 1827ms\n   Linting and checking validity of types ...\n   Collecting page data ...\n   Generating static pages (0/4) ...\n   Generating static pages (1/4) \r\n   Generating static pages (2/4) \r\n   Generating static pages (3/4) \r\n ✓ Generating static pages (4/4)\n   Finalizing page optimization ...\n   Collecting build traces ...\n\nRoute (app)                                 Size  First Load JS\n┌ ○ /                                      120 B         102 kB\n└ ○ /_not-found                            996 B         103 kB\n+ First Load JS shared by all             102 kB\n  ├ chunks/255-cf2e1d3491ac955b.js       45.8 kB\n  ├ chunks/4bd1b696-c023c6e3521b1417.js  54.2 kB\n  └ other shared chunks (total)          1.89 kB\n\n\n○  (Static)  prerendered as static content\n\n",
+        "stderr": "Resolving dependencies\nResolved, downloaded and extracted [0]\nSaved lockfile\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/museum-exhibit-site-461",
+        "appName": "ExhibitPlain",
+        "productBrief": "ExhibitPlain gives visitors dates, themes, highlights, accessibility, ticket caveats, visit information, and refined clear context without fake ticket checkout.",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": true,
+        "compose": true,
+        "standaloneNext": true,
+        "appPage": true,
+        "readmeEnv": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "museum-loan-request-api",
+      "title": "Museum loan request API",
+      "tool": "scaffoldFastifyPostgresApp",
+      "storyPath": "agents/training-scenarios/user_stories/461-480-real-world-constraint-user-stories.md#474-loan-requests-need-tracking",
+      "ok": true,
+      "elapsedMs": 1082,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline --ignore-scripts --no-progress && ./node_modules/.bin/tsc -p tsconfig.json --pretty false) || (npm install --ignore-scripts --progress=false --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/museum-loan-request-api",
+        "exitCode": 0,
+        "stdout": "bun install v1.3.11 (af24e281)\n\n+ @types/node@24.12.2 (v25.6.0 available)\n+ @types/pg@8.20.0\n+ tsx@4.21.0\n+ typescript@5.9.3 (v6.0.3 available)\n+ fastify@5.8.5\n+ pg@8.20.0\n\n70 packages installed [62.00ms]\n",
+        "stderr": "Saved lockfile\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/museum-loan-request-api",
+        "appName": "LoanRequest API",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": true,
+        "compose": true,
+        "migrationScript": true,
+        "healthRoutes": true,
+        "postgresCompose": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "museum-loan-deadline-worker",
+      "title": "Museum loan deadline worker",
+      "tool": "scaffoldFastifyWorkerRedisApp",
+      "storyPath": "agents/training-scenarios/user_stories/461-480-real-world-constraint-user-stories.md#475-loan-deadlines-cannot-slip",
+      "ok": true,
+      "elapsedMs": 1839,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline --ignore-scripts --no-progress && ./node_modules/.bin/tsc -p tsconfig.json --pretty false) || (npm install --ignore-scripts --progress=false --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/museum-loan-deadline-worker",
+        "exitCode": 0,
+        "stdout": "bun install v1.3.11 (af24e281)\n\n+ @types/node@24.12.2 (v25.6.0 available)\n+ tsx@4.21.0\n+ typescript@5.9.3 (v6.0.3 available)\n+ fastify@5.8.5\n+ redis@5.12.1\n\n63 packages installed [80.00ms]\n",
+        "stderr": "Resolving dependencies\nResolved, downloaded and extracted [0]\nSaved lockfile\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/museum-loan-deadline-worker",
+        "appName": "LoanNudge Worker",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": true,
+        "compose": true,
+        "workerEntrypoint": true,
+        "queueRoutes": true,
+        "redisCompose": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "msp-service-site",
+      "title": "MSP service site",
+      "tool": "scaffoldNextjsDockerApp",
+      "storyPath": "agents/training-scenarios/user_stories/461-480-real-world-constraint-user-stories.md#476-an-msp-needs-a-service-page-that-is-not-terrible",
+      "ok": true,
+      "elapsedMs": 15829,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline && NEXT_TELEMETRY_DISABLED=1 ./node_modules/.bin/next build) || (npm install --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/msp-service-site",
+        "exitCode": 0,
+        "stdout": "bun install v1.3.11 (af24e281)\n\n+ @eslint/eslintrc@3.3.5\n+ @types/node@24.12.2 (v25.6.0 available)\n+ @types/react@19.2.14\n+ @types/react-dom@19.2.3\n+ eslint@9.39.4 (v10.3.0 available)\n+ eslint-config-next@15.5.16 (v16.2.5 available)\n+ typescript@5.9.3 (v6.0.3 available)\n+ next@15.5.6\n+ react@19.1.0\n+ react-dom@19.1.0\n\n299 packages installed [363.00ms]\n\nBlocked 1 postinstall. Run `bun pm untrusted` for details.\n   ▲ Next.js 15.5.6\n   - Experiments (use with caution):\n     · cpus: 4\n\n   Creating an optimized production build ...\n ✓ Compiled successfully in 1809ms\n   Linting and checking validity of types ...\n   Collecting page data ...\n   Generating static pages (0/4) ...\n   Generating static pages (1/4) \r\n   Generating static pages (2/4) \r\n   Generating static pages (3/4) \r\n ✓ Generating static pages (4/4)\n   Finalizing page optimization ...\n   Collecting build traces ...\n\nRoute (app)                                 Size  First Load JS\n┌ ○ /                                      120 B         102 kB\n└ ○ /_not-found                            999 B         103 kB\n+ First Load JS shared by all             102 kB\n  ├ chunks/255-cf2e1d3491ac955b.js       45.8 kB\n  ├ chunks/4bd1b696-c023c6e3521b1417.js  54.2 kB\n  └ other shared chunks (total)          1.89 kB\n\n\n○  (Static)  prerendered as static content\n\n",
+        "stderr": "Resolving dependencies\nResolved, downloaded and extracted [0]\nSaved lockfile\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/msp-service-site",
+        "appName": "OpsHarbor IT",
+        "productBrief": "OpsHarbor IT explains managed IT services, response-time caveats, onboarding, security basics, audit requests, and proof without overpromising cyber outcomes.",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": true,
+        "compose": true,
+        "standaloneNext": true,
+        "appPage": true,
+        "readmeEnv": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "msp-ticket-api",
+      "title": "MSP ticket API",
+      "tool": "scaffoldFastifyPostgresApp",
+      "storyPath": "agents/training-scenarios/user_stories/461-480-real-world-constraint-user-stories.md#477-client-tickets-need-a-lightweight-api",
+      "ok": true,
+      "elapsedMs": 1070,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline --ignore-scripts --no-progress && ./node_modules/.bin/tsc -p tsconfig.json --pretty false) || (npm install --ignore-scripts --progress=false --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/msp-ticket-api",
+        "exitCode": 0,
+        "stdout": "bun install v1.3.11 (af24e281)\n\n+ @types/node@24.12.2 (v25.6.0 available)\n+ @types/pg@8.20.0\n+ tsx@4.21.0\n+ typescript@5.9.3 (v6.0.3 available)\n+ fastify@5.8.5\n+ pg@8.20.0\n\n70 packages installed [67.00ms]\n",
+        "stderr": "Saved lockfile\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/msp-ticket-api",
+        "appName": "MSPTicket API",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": true,
+        "compose": true,
+        "migrationScript": true,
+        "healthRoutes": true,
+        "postgresCompose": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "msp-sla-worker",
+      "title": "MSP SLA worker",
+      "tool": "scaffoldFastifyWorkerRedisApp",
+      "storyPath": "agents/training-scenarios/user_stories/461-480-real-world-constraint-user-stories.md#478-sla-breaches-need-visibility",
+      "ok": true,
+      "elapsedMs": 1914,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline --ignore-scripts --no-progress && ./node_modules/.bin/tsc -p tsconfig.json --pretty false) || (npm install --ignore-scripts --progress=false --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/msp-sla-worker",
+        "exitCode": 0,
+        "stdout": "bun install v1.3.11 (af24e281)\n\n+ @types/node@24.12.2 (v25.6.0 available)\n+ tsx@4.21.0\n+ typescript@5.9.3 (v6.0.3 available)\n+ fastify@5.8.5\n+ redis@5.12.1\n\n63 packages installed [76.00ms]\n",
+        "stderr": "Resolving dependencies\nResolved, downloaded and extracted [0]\nSaved lockfile\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/msp-sla-worker",
+        "appName": "SLANudge Worker",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": true,
+        "compose": true,
+        "workerEntrypoint": true,
+        "queueRoutes": true,
+        "redisCompose": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "investor-update-site",
+      "title": "Investor update site",
+      "tool": "scaffoldNextjsDockerApp",
+      "storyPath": "agents/training-scenarios/user_stories/461-480-real-world-constraint-user-stories.md#479-a-founder-needs-a-clean-investor-update-page",
+      "ok": true,
+      "elapsedMs": 16032,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline && NEXT_TELEMETRY_DISABLED=1 ./node_modules/.bin/next build) || (npm install --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/investor-update-site",
+        "exitCode": 0,
+        "stdout": "bun install v1.3.11 (af24e281)\n\n+ @eslint/eslintrc@3.3.5\n+ @types/node@24.12.2 (v25.6.0 available)\n+ @types/react@19.2.14\n+ @types/react-dom@19.2.3\n+ eslint@9.39.4 (v10.3.0 available)\n+ eslint-config-next@15.5.16 (v16.2.5 available)\n+ typescript@5.9.3 (v6.0.3 available)\n+ next@15.5.6\n+ react@19.1.0\n+ react-dom@19.1.0\n\n299 packages installed [371.00ms]\n\nBlocked 1 postinstall. Run `bun pm untrusted` for details.\n   ▲ Next.js 15.5.6\n   - Experiments (use with caution):\n     · cpus: 4\n\n   Creating an optimized production build ...\n ✓ Compiled successfully in 1824ms\n   Linting and checking validity of types ...\n   Collecting page data ...\n   Generating static pages (0/4) ...\n   Generating static pages (1/4) \r\n   Generating static pages (2/4) \r\n   Generating static pages (3/4) \r\n ✓ Generating static pages (4/4)\n   Finalizing page optimization ...\n   Collecting build traces ...\n\nRoute (app)                                 Size  First Load JS\n┌ ○ /                                      120 B         102 kB\n└ ○ /_not-found                            997 B         103 kB\n+ First Load JS shared by all             102 kB\n  ├ chunks/255-cf2e1d3491ac955b.js       45.8 kB\n  ├ chunks/4bd1b696-c023c6e3521b1417.js  54.2 kB\n  └ other shared chunks (total)          1.89 kB\n\n\n○  (Static)  prerendered as static content\n\n",
+        "stderr": "Resolving dependencies\nResolved, downloaded and extracted [0]\nSaved lockfile\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/investor-update-site",
+        "appName": "UpdateBrief",
+        "productBrief": "UpdateBrief presents monthly metrics, wins, risks, asks, runway caveats, and owner notes in a restrained private-ish page without pretending to provide auth.",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": true,
+        "compose": true,
+        "standaloneNext": true,
+        "appPage": true,
+        "readmeEnv": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "investor-update-api",
+      "title": "Investor update API",
+      "tool": "scaffoldFastifyPostgresApp",
+      "storyPath": "agents/training-scenarios/user_stories/461-480-real-world-constraint-user-stories.md#480-investor-updates-need-an-api",
+      "ok": true,
+      "elapsedMs": 2047,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline --ignore-scripts --no-progress && ./node_modules/.bin/tsc -p tsconfig.json --pretty false) || (npm install --ignore-scripts --progress=false --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/investor-update-api",
+        "exitCode": 0,
+        "stdout": "bun install v1.3.11 (af24e281)\n\n+ @types/node@24.12.2 (v25.6.0 available)\n+ @types/pg@8.20.0\n+ tsx@4.21.0\n+ typescript@5.9.3 (v6.0.3 available)\n+ fastify@5.8.5\n+ pg@8.20.0\n\n70 packages installed [1015.00ms]\n",
+        "stderr": "Resolving dependencies\nResolved, downloaded and extracted [11]\nSaved lockfile\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/investor-update-api",
+        "appName": "InvestorUpdate API",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": true,
+        "compose": true,
+        "migrationScript": true,
+        "healthRoutes": true,
+        "postgresCompose": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": true
+      }
+    }
+  ]
+}

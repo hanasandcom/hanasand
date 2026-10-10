@@ -1,0 +1,61 @@
+{
+  "runId": "run-2026-04-26T07-14-19-796Z",
+  "nodeId": "reviewer-2b161a24-a1ae-495b-8b6c-55c498c81e8b",
+  "role": "reviewer",
+  "task": "Review branch for: Handle a release candidate with too much noisy context, a blocked build branch, and a reviewer that needs a concise final recommendation.",
+  "branchKey": "implementation:reviewer",
+  "packedContext": {
+    "nodeId": "reviewer-2b161a24-a1ae-495b-8b6c-55c498c81e8b",
+    "role": "reviewer",
+    "budgetTokens": 9000,
+    "usedTokens": 6180,
+    "included": [
+      {
+        "id": "segment-80aca73e-0676-4b33-ab59-29cdd6cc4b09",
+        "label": "Release stop condition",
+        "estimatedTokens": 5832,
+        "reason": "role match for reviewer, shared global context, hot memory"
+      },
+      {
+        "id": "segment-5de60e8d-4836-4f8c-bbae-61a04dd39fbe",
+        "label": "Repository constraints",
+        "estimatedTokens": 42,
+        "reason": "role match for reviewer, shared global context, warm memory"
+      },
+      {
+        "id": "segment-256b87e4-fa80-474a-9437-6a77540b3530",
+        "label": "Reviewer synthesis hint",
+        "estimatedTokens": 240,
+        "reason": "role match for reviewer, shared global context, warm memory, compressed high-priority context"
+      },
+      {
+        "id": "segment-c8bc84c4-82ee-4f47-a204-d61217364b61",
+        "label": "Known product gap",
+        "estimatedTokens": 31,
+        "reason": "role match for reviewer, shared global context, cold memory"
+      },
+      {
+        "id": "segment-a29c6c78-ac88-4b64-8022-7c3bf27fb299",
+        "label": "Task brief",
+        "estimatedTokens": 35,
+        "reason": "shared global context, hot memory"
+      }
+    ],
+    "omitted": [
+      {
+        "id": "segment-7b250e74-491e-4aa6-add7-fbfe42fb5afa",
+        "label": "Noisy customer thread",
+        "estimatedTokens": 10793,
+        "reason": "role match for reviewer, shared global context, cold memory"
+      }
+    ],
+    "generatedAt": "2026-04-26T07:14:19.812Z"
+  },
+  "scenario": {
+    "id": "pressure_blocked_release",
+    "tension": "partial_failure",
+    "expectedBlockedRoles": [
+      "builder"
+    ]
+  }
+}

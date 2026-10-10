@@ -1,0 +1,50 @@
+{
+  "sampleId": "rustfs-beehive-public-1777523189345:1777523393650",
+  "sampleSource": "runtime_prompt_loop",
+  "profileTag": null,
+  "recordedAt": "2026-04-30T04:29:53.650Z",
+  "conversationId": "rustfs-beehive-public-1777523189345",
+  "clientName": "codex-local-handoff",
+  "modelApi": "http://127.0.0.1:18081",
+  "promptMessages": 1,
+  "maxTokens": 3500,
+  "promptTokens": 318,
+  "generatedTokens": 143,
+  "contextMaxTokens": 24576,
+  "tps": 3.8142319663846136,
+  "stages": {
+    "renderPromptMs": 8,
+    "tokenizePromptMs": 2,
+    "fetchContextMs": 1,
+    "toolLoopMs": 204096,
+    "tokenizeOutputMs": 1,
+    "syncOutputContextMs": 1,
+    "streamEmitMs": 198,
+    "totalMs": 204305
+  },
+  "loop": {
+    "iterations": 4,
+    "completionCalls": 4,
+    "completionMs": 203206,
+    "toolCalls": 3,
+    "toolMs": 887,
+    "totalMs": 204095
+  },
+  "llama": {
+    "cache_n": 4093,
+    "prompt_n": 318,
+    "predicted_n": 143,
+    "predicted_per_second": 3.8142319663846136
+  },
+  "integrity": {
+    "promptTokensSource": "tokenize",
+    "generatedTokensSource": "tokenize",
+    "warnings": []
+  },
+  "derived": {
+    "nonCompletionMs": 1099,
+    "nonCompletionShare": 0.54,
+    "nextOptimizationTarget": "completionMs",
+    "nextOptimizationReason": "Model completion time is the largest measured slice. Reduce completion calls, shrink completion prompts, or improve decode throughput first."
+  }
+}

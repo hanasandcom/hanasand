@@ -1,0 +1,98 @@
+{
+  "generated_at": "2026-04-26T12:25:36.504Z",
+  "benchmark_family": "orchestration_benchmark_v2",
+  "evidence_inputs": {
+    "scenario_costs": "benchmark-scenario-costs-latest.json",
+    "trend_status": "stable",
+    "profile_tag": "local-darwin-arm64-64gb",
+    "warmup_baseline": "model_warmup:validation",
+    "top_cost_scenario": {
+      "id": "delivery_handoff_escalated",
+      "label": "Escalated delivery handoff",
+      "costScore": 780,
+      "costShare": 0.2502,
+      "dominantCost": "context:708"
+    }
+  },
+  "rankedPackets": [
+    {
+      "packet": 90,
+      "title": "Evidence Bundle For Self-Edits",
+      "score": 85,
+      "confidence": "high",
+      "evidence": [
+        "scenario cost score=3118",
+        "top scenario=Escalated delivery handoff share=0.2502",
+        "warmup baseline=model_warmup:validation",
+        "next packet depends directly on ranking evidence"
+      ]
+    },
+    {
+      "packet": 94,
+      "title": "Verified Self-Improvement Candidate Flow",
+      "score": 40,
+      "confidence": "medium",
+      "evidence": [
+        "difficulty=increase",
+        "difficulty reason=All scenarios passed with a near-perfect average score; the next benchmark loop should add harder pressure cases."
+      ]
+    },
+    {
+      "packet": 91,
+      "title": "Cross-Machine Profile Normalization",
+      "score": 30,
+      "confidence": "low",
+      "evidence": [
+        "trend status=stable",
+        "profile=local-darwin-arm64-64gb",
+        "machine=darwin/arm64"
+      ]
+    },
+    {
+      "packet": 93,
+      "title": "Regression Root-Cause Shortlisting",
+      "score": 20,
+      "confidence": "low",
+      "evidence": [
+        "trend status=stable",
+        "highest costs are context dominated"
+      ]
+    },
+    {
+      "packet": 92,
+      "title": "Eval Failure Clustering And Dedup",
+      "score": 15,
+      "confidence": "low",
+      "evidence": [
+        "regression signals=0",
+        "recommendations=0"
+      ]
+    },
+    {
+      "packet": 95,
+      "title": "Reviewed Self-Improvement Release Candidate",
+      "score": 5,
+      "confidence": "low",
+      "evidence": [
+        "release-candidate flow should wait for evidence bundle and candidate generation outputs"
+      ]
+    }
+  ],
+  "selectedPacket": {
+    "packet": 90,
+    "title": "Evidence Bundle For Self-Edits",
+    "score": 85,
+    "confidence": "high",
+    "evidence": [
+      "scenario cost score=3118",
+      "top scenario=Escalated delivery handoff share=0.2502",
+      "warmup baseline=model_warmup:validation",
+      "next packet depends directly on ranking evidence"
+    ]
+  },
+  "manualOverrideNotes": [
+    "Dependency gates still override the numeric score.",
+    "User-directed product work can supersede self-improvement packet ranking.",
+    "Low-confidence candidates should not be implemented without reading their packet file."
+  ]
+}

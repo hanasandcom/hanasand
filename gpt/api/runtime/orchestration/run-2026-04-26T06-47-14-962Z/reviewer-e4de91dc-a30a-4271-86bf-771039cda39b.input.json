@@ -1,0 +1,52 @@
+{
+  "runId": "run-2026-04-26T06-47-14-962Z",
+  "nodeId": "reviewer-e4de91dc-a30a-4271-86bf-771039cda39b",
+  "role": "reviewer",
+  "task": "Review branch for: Review a risky deploy fix where one branch wants to ship and another wants to hold, then justify the final recommendation.",
+  "branchKey": "implementation:reviewer",
+  "packedContext": {
+    "nodeId": "reviewer-e4de91dc-a30a-4271-86bf-771039cda39b",
+    "role": "reviewer",
+    "budgetTokens": 9000,
+    "usedTokens": 156,
+    "included": [
+      {
+        "id": "segment-1090e273-dfbd-4790-b417-6f0cf3474160",
+        "label": "Hold argument",
+        "estimatedTokens": 29,
+        "reason": "role match for reviewer, shared global context, hot memory"
+      },
+      {
+        "id": "segment-54a9848f-5079-4cfc-a835-c79fde8b351f",
+        "label": "Repository constraints",
+        "estimatedTokens": 42,
+        "reason": "role match for reviewer, shared global context, warm memory"
+      },
+      {
+        "id": "segment-42c45029-88ab-4fe2-a8eb-6c5983a1bf30",
+        "label": "Known product gap",
+        "estimatedTokens": 31,
+        "reason": "role match for reviewer, shared global context, cold memory"
+      },
+      {
+        "id": "segment-51d67956-5268-46e1-9ccb-f07c6d822802",
+        "label": "Task brief",
+        "estimatedTokens": 31,
+        "reason": "shared global context, hot memory"
+      },
+      {
+        "id": "segment-a9d2fdbc-dc1e-4838-b443-ba865ac455f1",
+        "label": "Shipping argument",
+        "estimatedTokens": 23,
+        "reason": "shared global context, hot memory"
+      }
+    ],
+    "omitted": [],
+    "generatedAt": "2026-04-26T06:47:14.978Z"
+  },
+  "scenario": {
+    "id": "contested_merge_decision",
+    "tension": "contested",
+    "contradictionMode": true
+  }
+}

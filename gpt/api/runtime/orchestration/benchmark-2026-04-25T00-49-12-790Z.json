@@ -1,0 +1,187 @@
+{
+  "generated_at": "2026-04-25T00:49:12.790Z",
+  "suite": "orchestration_benchmark_v2",
+  "average_score": 108,
+  "scenario_count": 4,
+  "passing_scenarios": 4,
+  "warning_scenarios": 0,
+  "failing_scenarios": 0,
+  "weakest_scenario": {
+    "id": "context_pressure_triage",
+    "label": "Context-pressure triage",
+    "score": 100
+  },
+  "scenario_results": [
+    {
+      "id": "delivery_handoff",
+      "label": "Delivery and handoff",
+      "task": "Build a Next.js dashboard, verify Docker startup, and prepare a reviewer handoff.",
+      "runId": "run-2026-04-25T00-49-12-820Z",
+      "replayPath": "/Users/eirikhanasand/Desktop/personal/hanasand/gpt/api/runtime/orchestration/run-2026-04-25T00-49-12-820Z/replay.md",
+      "expectedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "observedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "score": 110,
+      "status": "pass",
+      "metrics": {
+        "roleCoverage": 1,
+        "packCoverage": 1,
+        "evidenceCoverage": 1,
+        "exportGateHealth": 1,
+        "replayExists": true,
+        "exportPassCount": 5,
+        "exportWarnCount": 0,
+        "exportFailCount": 0,
+        "blockedRoleCoverage": 1,
+        "contextPressureCoverage": 1,
+        "contradictionCoverage": 1,
+        "omittedHotSegments": 0,
+        "eventCount": 19,
+        "artifactCount": 3
+      },
+      "failedGates": [],
+      "warningGates": []
+    },
+    {
+      "id": "context_pressure_triage",
+      "label": "Context-pressure triage",
+      "task": "Triage a deployment under heavy context pressure, preserve the hottest constraints, and produce a reviewer handoff.",
+      "runId": "run-2026-04-25T00-49-13-107Z",
+      "replayPath": "/Users/eirikhanasand/Desktop/personal/hanasand/gpt/api/runtime/orchestration/run-2026-04-25T00-49-13-107Z/replay.md",
+      "expectedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "observedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "score": 100,
+      "status": "pass",
+      "metrics": {
+        "roleCoverage": 1,
+        "packCoverage": 1,
+        "evidenceCoverage": 1,
+        "exportGateHealth": 1,
+        "replayExists": true,
+        "exportPassCount": 5,
+        "exportWarnCount": 0,
+        "exportFailCount": 0,
+        "blockedRoleCoverage": 1,
+        "contextPressureCoverage": 0,
+        "contradictionCoverage": 1,
+        "omittedHotSegments": 0,
+        "eventCount": 19,
+        "artifactCount": 3
+      },
+      "failedGates": [],
+      "warningGates": []
+    },
+    {
+      "id": "deploy_diagnosis",
+      "label": "Deploy diagnosis",
+      "task": "Diagnose why Docker compose verification keeps failing, propose fixes, and prepare a final review.",
+      "runId": "run-2026-04-25T00-49-13-492Z",
+      "replayPath": "/Users/eirikhanasand/Desktop/personal/hanasand/gpt/api/runtime/orchestration/run-2026-04-25T00-49-13-492Z/replay.md",
+      "expectedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "observedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "score": 110,
+      "status": "pass",
+      "metrics": {
+        "roleCoverage": 1,
+        "packCoverage": 1,
+        "evidenceCoverage": 1,
+        "exportGateHealth": 1,
+        "replayExists": true,
+        "exportPassCount": 5,
+        "exportWarnCount": 0,
+        "exportFailCount": 0,
+        "blockedRoleCoverage": 1,
+        "contextPressureCoverage": 1,
+        "contradictionCoverage": 1,
+        "omittedHotSegments": 0,
+        "eventCount": 20,
+        "artifactCount": 4
+      },
+      "failedGates": [],
+      "warningGates": []
+    },
+    {
+      "id": "contested_merge_decision",
+      "label": "Contested merge decision",
+      "task": "Review a risky deploy fix where one branch wants to ship and another wants to hold, then justify the final recommendation.",
+      "runId": "run-2026-04-25T00-49-13-950Z",
+      "replayPath": "/Users/eirikhanasand/Desktop/personal/hanasand/gpt/api/runtime/orchestration/run-2026-04-25T00-49-13-950Z/replay.md",
+      "expectedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "observedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "score": 110,
+      "status": "pass",
+      "metrics": {
+        "roleCoverage": 1,
+        "packCoverage": 1,
+        "evidenceCoverage": 1,
+        "exportGateHealth": 1,
+        "replayExists": true,
+        "exportPassCount": 5,
+        "exportWarnCount": 0,
+        "exportFailCount": 0,
+        "blockedRoleCoverage": 1,
+        "contextPressureCoverage": 1,
+        "contradictionCoverage": 1,
+        "omittedHotSegments": 0,
+        "eventCount": 19,
+        "artifactCount": 3
+      },
+      "failedGates": [],
+      "warningGates": []
+    }
+  ],
+  "recommendations": [
+    {
+      "id": "hard_scenario_corpus",
+      "severity": "high",
+      "summary": "Add harder orchestration scenarios with context pressure and partial-failure branches.",
+      "rationale": "The current suite validates the real orchestration loop, but it still lives close to happy-path worker behavior and low-token context packs.",
+      "suggestedPacket": 69
+    },
+    {
+      "id": "branch_merge_contradictions",
+      "severity": "high",
+      "summary": "Teach branch outputs to disagree, merge, and justify final decisions more explicitly.",
+      "rationale": "Today the builder and reviewer branches mostly confirm success, which under-tests contradiction handling and final reasoning quality.",
+      "suggestedPacket": 70
+    },
+    {
+      "id": "benchmark_autodrafting",
+      "severity": "medium",
+      "summary": "Convert benchmark findings directly into draft packet proposals and priority ordering.",
+      "rationale": "The control plane can ingest benchmark evidence, but selecting the next self-improvement packet still relies too much on manual interpretation.",
+      "suggestedPacket": 71
+    }
+  ]
+}

@@ -1,0 +1,390 @@
+{
+  "id": "run-2026-04-25T00-39-22-406Z",
+  "task": "Review a risky diff for safety, check ship readiness, and summarize the final recommendation.",
+  "createdAt": "2026-04-25T00:39:22.407Z",
+  "updatedAt": "2026-04-25T00:39:22.504Z",
+  "topology": {
+    "ownerNodeId": "orchestrator-ebc74a5d-81f2-4b68-a83d-7d4ae1bb6e3c",
+    "strategy": "orchestrator -> implementation -> optional builder/reviewer branches",
+    "notes": [
+      "The orchestrator owns steering, branch policy, context packaging, and final upstream reporting.",
+      "The implementation node owns direct task execution and requests specialist branches when needed.",
+      "Builder and reviewer branches are opened through branch-control policy rather than by default."
+    ]
+  },
+  "branchPolicy": {
+    "maxBranches": 3,
+    "maxDepth": 2
+  },
+  "nodes": [
+    {
+      "id": "orchestrator-ebc74a5d-81f2-4b68-a83d-7d4ae1bb6e3c",
+      "role": "orchestrator",
+      "label": "Orchestrator",
+      "parentId": null,
+      "branchKey": "root",
+      "depth": 0,
+      "status": "completed",
+      "task": "Review a risky diff for safety, check ship readiness, and summarize the final recommendation.",
+      "assignedAt": "2026-04-25T00:39:22.406Z",
+      "startedAt": null,
+      "completedAt": "2026-04-25T00:39:22.503Z",
+      "summary": "Closed orchestration run and persisted replay output."
+    },
+    {
+      "id": "implementation-2d73fa4d-790c-4b5c-bee1-542e5b1b1f5a",
+      "role": "implementation",
+      "label": "Implementation agent",
+      "parentId": "orchestrator-ebc74a5d-81f2-4b68-a83d-7d4ae1bb6e3c",
+      "branchKey": "implementation",
+      "depth": 1,
+      "status": "completed",
+      "task": "Review a risky diff for safety, check ship readiness, and summarize the final recommendation.",
+      "assignedAt": "2026-04-25T00:39:22.406Z",
+      "startedAt": "2026-04-25T00:39:22.420Z",
+      "completedAt": "2026-04-25T00:39:22.465Z",
+      "summary": "Implementation worker completed"
+    },
+    {
+      "id": "reviewer-eaef3ee4-4bbf-4b61-9823-685f375ccb12",
+      "role": "reviewer",
+      "label": "reviewer branch",
+      "parentId": "implementation-2d73fa4d-790c-4b5c-bee1-542e5b1b1f5a",
+      "branchKey": "implementation:reviewer",
+      "depth": 2,
+      "status": "completed",
+      "task": "Review branch for: Review a risky diff for safety, check ship readiness, and summarize the final recommendation.",
+      "assignedAt": "2026-04-25T00:39:22.411Z",
+      "startedAt": "2026-04-25T00:39:22.465Z",
+      "completedAt": "2026-04-25T00:39:22.503Z",
+      "summary": "Reviewer worker completed"
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-814412f7-c0fc-4947-aa33-3436602410ba",
+      "from": "orchestrator-ebc74a5d-81f2-4b68-a83d-7d4ae1bb6e3c",
+      "to": "implementation-2d73fa4d-790c-4b5c-bee1-542e5b1b1f5a",
+      "type": "delegates_to",
+      "createdAt": "2026-04-25T00:39:22.406Z",
+      "label": "primary delivery path"
+    },
+    {
+      "id": "edge-6363f37b-6c08-4220-948b-dc4f5e3d2c37",
+      "from": "implementation-2d73fa4d-790c-4b5c-bee1-542e5b1b1f5a",
+      "to": "orchestrator-ebc74a5d-81f2-4b68-a83d-7d4ae1bb6e3c",
+      "type": "reports_to",
+      "createdAt": "2026-04-25T00:39:22.406Z",
+      "label": "upstream summary"
+    },
+    {
+      "id": "edge-reviewer-eaef3ee4-4bbf-4b61-9823-685f375ccb12",
+      "from": "implementation-2d73fa4d-790c-4b5c-bee1-542e5b1b1f5a",
+      "to": "reviewer-eaef3ee4-4bbf-4b61-9823-685f375ccb12",
+      "type": "branches_to",
+      "createdAt": "2026-04-25T00:39:22.411Z",
+      "label": "A reviewer branch keeps final reporting and risk assessment separate from direct implementation."
+    }
+  ],
+  "events": [
+    {
+      "id": "event-f07f257b-12c4-40e9-85e2-42134024498d",
+      "runId": "run-2026-04-25T00-39-22-406Z",
+      "nodeId": "implementation-2d73fa4d-790c-4b5c-bee1-542e5b1b1f5a",
+      "role": "implementation",
+      "type": "branch_opened",
+      "state": "info",
+      "summary": "Opened reviewer branch",
+      "detail": "A reviewer branch keeps final reporting and risk assessment separate from direct implementation.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T00:39:22.411Z",
+      "metadata": {
+        "branchNodeId": "reviewer-eaef3ee4-4bbf-4b61-9823-685f375ccb12"
+      }
+    },
+    {
+      "id": "event-71f51c21-420c-49ee-8ab3-a654ccb4c748",
+      "runId": "run-2026-04-25T00-39-22-406Z",
+      "nodeId": "implementation-2d73fa4d-790c-4b5c-bee1-542e5b1b1f5a",
+      "role": "implementation",
+      "type": "context_packed",
+      "state": "info",
+      "summary": "Packed context for implementation",
+      "detail": "Included 3 segments and omitted 0.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T00:39:22.414Z",
+      "metadata": {
+        "budgetTokens": 18000,
+        "usedTokens": 97
+      }
+    },
+    {
+      "id": "event-b2382d3e-2bc6-4f24-b5cd-962ae608f85a",
+      "runId": "run-2026-04-25T00-39-22-406Z",
+      "nodeId": "reviewer-eaef3ee4-4bbf-4b61-9823-685f375ccb12",
+      "role": "reviewer",
+      "type": "context_packed",
+      "state": "info",
+      "summary": "Packed context for reviewer",
+      "detail": "Included 3 segments and omitted 0.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T00:39:22.419Z",
+      "metadata": {
+        "budgetTokens": 9000,
+        "usedTokens": 97
+      }
+    },
+    {
+      "id": "event-dff21d2e-c312-462a-8799-dca2c6a6ea2b",
+      "runId": "run-2026-04-25T00-39-22-406Z",
+      "nodeId": "implementation-2d73fa4d-790c-4b5c-bee1-542e5b1b1f5a",
+      "role": "implementation",
+      "type": "worker_started",
+      "state": "info",
+      "summary": "Implementation worker started",
+      "detail": "Task: Review a risky diff for safety, check ship readiness, and summarize the final recommendation.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T00:39:22.457Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-a3985f19-a901-4b78-95db-17204a772c35",
+      "runId": "run-2026-04-25T00-39-22-406Z",
+      "nodeId": "implementation-2d73fa4d-790c-4b5c-bee1-542e5b1b1f5a",
+      "role": "implementation",
+      "type": "status_update",
+      "state": "info",
+      "summary": "Thinking through the requested change set",
+      "detail": "Packed context includes 3 segments using 97 tokens.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T00:39:22.460Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-40a92f8a-03ba-480f-98b9-e3eed226af71",
+      "runId": "run-2026-04-25T00-39-22-406Z",
+      "nodeId": "implementation-2d73fa4d-790c-4b5c-bee1-542e5b1b1f5a",
+      "role": "implementation",
+      "type": "artifact_produced",
+      "state": "completed",
+      "summary": "Prepared implementation plan artifact",
+      "detail": null,
+      "artifacts": [
+        {
+          "id": "artifact-a1b1c701-53bd-418b-bd0f-f7f89412095f",
+          "label": "implementation-plan.md",
+          "kind": "text",
+          "content": "# Implementation plan\n\n- Task: Review a risky diff for safety, check ship readiness, and summarize the final recommendation.\n- Branch: implementation\n- Selected context:\n  - Task brief: role match for implementation, shared global context, hot memory\n  - Repository constraints: role match for implementation, shared global context, warm memory\n  - Known product gap: shared global context, cold memory",
+          "createdAt": "2026-04-25T00:39:22.461Z"
+        }
+      ],
+      "createdAt": "2026-04-25T00:39:22.461Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-289019a9-ab5b-460a-abb4-c6766e1aac4c",
+      "runId": "run-2026-04-25T00-39-22-406Z",
+      "nodeId": "implementation-2d73fa4d-790c-4b5c-bee1-542e5b1b1f5a",
+      "role": "implementation",
+      "type": "worker_completed",
+      "state": "completed",
+      "summary": "Implementation worker completed",
+      "detail": "Structured upstream reporting emitted successfully.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T00:39:22.461Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-a36470bc-68cc-42bc-a460-c6790c1a41ca",
+      "runId": "run-2026-04-25T00-39-22-406Z",
+      "nodeId": "reviewer-eaef3ee4-4bbf-4b61-9823-685f375ccb12",
+      "role": "reviewer",
+      "type": "worker_started",
+      "state": "info",
+      "summary": "Reviewer worker started",
+      "detail": "Task: Review branch for: Review a risky diff for safety, check ship readiness, and summarize the final recommendation.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T00:39:22.496Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-1da6b42c-f4d0-4428-96a7-dedd7bac7130",
+      "runId": "run-2026-04-25T00-39-22-406Z",
+      "nodeId": "reviewer-eaef3ee4-4bbf-4b61-9823-685f375ccb12",
+      "role": "reviewer",
+      "type": "status_update",
+      "state": "info",
+      "summary": "Preparing reviewer branch",
+      "detail": "Packed context includes 3 segments using 97 tokens.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T00:39:22.500Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-a109f13e-c0d8-4555-99e9-1c0a521772eb",
+      "runId": "run-2026-04-25T00-39-22-406Z",
+      "nodeId": "reviewer-eaef3ee4-4bbf-4b61-9823-685f375ccb12",
+      "role": "reviewer",
+      "type": "review_requested",
+      "state": "completed",
+      "summary": "Prepared reviewer summary",
+      "detail": null,
+      "artifacts": [
+        {
+          "id": "artifact-78ea3145-f0aa-4025-b352-3553d1ca1f61",
+          "label": "review-summary.md",
+          "kind": "text",
+          "content": "# Review summary\n\n- Risk posture: low\n- Notes: review branch confirms the task is still aligned with the requested outcome.\n- Context pack size: 97 tokens",
+          "createdAt": "2026-04-25T00:39:22.500Z"
+        }
+      ],
+      "createdAt": "2026-04-25T00:39:22.500Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-edf7d520-92e0-44cc-b577-09fd56a9c953",
+      "runId": "run-2026-04-25T00-39-22-406Z",
+      "nodeId": "reviewer-eaef3ee4-4bbf-4b61-9823-685f375ccb12",
+      "role": "reviewer",
+      "type": "worker_completed",
+      "state": "completed",
+      "summary": "Reviewer worker completed",
+      "detail": "Structured upstream reporting emitted successfully.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T00:39:22.500Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-9c46668b-17e9-4f46-8f3e-1e146845f511",
+      "runId": "run-2026-04-25T00-39-22-406Z",
+      "nodeId": "orchestrator-ebc74a5d-81f2-4b68-a83d-7d4ae1bb6e3c",
+      "role": "orchestrator",
+      "type": "run_summary",
+      "state": "completed",
+      "summary": "Orchestrator collected child updates and closed the run.",
+      "detail": "Executed 2 worker nodes with structured upstream events.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T00:39:22.503Z",
+      "metadata": {}
+    }
+  ],
+  "context": {
+    "effectiveCapacityTokens": 10000000,
+    "segments": [
+      {
+        "id": "segment-7368b4a4-f422-4f4a-a0f9-37d59fc69c12",
+        "label": "Task brief",
+        "kind": "task",
+        "temperature": "hot",
+        "roleAffinity": [
+          "orchestrator",
+          "implementation"
+        ],
+        "branchKey": "root",
+        "content": "Review a risky diff for safety, check ship readiness, and summarize the final recommendation.",
+        "estimatedTokens": 24,
+        "priority": 5,
+        "createdAt": "2026-04-25T00:39:22.410Z",
+        "metadata": {}
+      },
+      {
+        "id": "segment-9c6b8f3d-20a2-4f95-8175-e0cbee8b29c4",
+        "label": "Repository constraints",
+        "kind": "constraint",
+        "temperature": "warm",
+        "roleAffinity": [
+          "orchestrator",
+          "implementation",
+          "builder",
+          "reviewer"
+        ],
+        "branchKey": null,
+        "content": "Prefer TypeScript and shell scripts. Keep orchestration inspectable and replayable. Treat 10M context as effective retrieval-backed context rather than a single prompt.",
+        "estimatedTokens": 42,
+        "priority": 4,
+        "createdAt": "2026-04-25T00:39:22.410Z",
+        "metadata": {}
+      },
+      {
+        "id": "segment-d3d9a40a-63f2-4013-9ba2-1b8035090eb7",
+        "label": "Known product gap",
+        "kind": "memory",
+        "temperature": "cold",
+        "roleAffinity": [
+          "orchestrator",
+          "reviewer"
+        ],
+        "branchKey": null,
+        "content": "Remote VM shell/file-write deploy flow is still incomplete, so orchestration should stay honest about local-only branches.",
+        "estimatedTokens": 31,
+        "priority": 3,
+        "createdAt": "2026-04-25T00:39:22.410Z",
+        "metadata": {}
+      }
+    ],
+    "packs": [
+      {
+        "nodeId": "implementation-2d73fa4d-790c-4b5c-bee1-542e5b1b1f5a",
+        "role": "implementation",
+        "budgetTokens": 18000,
+        "usedTokens": 97,
+        "included": [
+          {
+            "id": "segment-7368b4a4-f422-4f4a-a0f9-37d59fc69c12",
+            "label": "Task brief",
+            "estimatedTokens": 24,
+            "reason": "role match for implementation, shared global context, hot memory"
+          },
+          {
+            "id": "segment-9c6b8f3d-20a2-4f95-8175-e0cbee8b29c4",
+            "label": "Repository constraints",
+            "estimatedTokens": 42,
+            "reason": "role match for implementation, shared global context, warm memory"
+          },
+          {
+            "id": "segment-d3d9a40a-63f2-4013-9ba2-1b8035090eb7",
+            "label": "Known product gap",
+            "estimatedTokens": 31,
+            "reason": "shared global context, cold memory"
+          }
+        ],
+        "omitted": [],
+        "generatedAt": "2026-04-25T00:39:22.413Z"
+      },
+      {
+        "nodeId": "reviewer-eaef3ee4-4bbf-4b61-9823-685f375ccb12",
+        "role": "reviewer",
+        "budgetTokens": 9000,
+        "usedTokens": 97,
+        "included": [
+          {
+            "id": "segment-9c6b8f3d-20a2-4f95-8175-e0cbee8b29c4",
+            "label": "Repository constraints",
+            "estimatedTokens": 42,
+            "reason": "role match for reviewer, shared global context, warm memory"
+          },
+          {
+            "id": "segment-d3d9a40a-63f2-4013-9ba2-1b8035090eb7",
+            "label": "Known product gap",
+            "estimatedTokens": 31,
+            "reason": "role match for reviewer, shared global context, cold memory"
+          },
+          {
+            "id": "segment-7368b4a4-f422-4f4a-a0f9-37d59fc69c12",
+            "label": "Task brief",
+            "estimatedTokens": 24,
+            "reason": "shared global context, hot memory"
+          }
+        ],
+        "omitted": [],
+        "generatedAt": "2026-04-25T00:39:22.417Z"
+      }
+    ]
+  },
+  "evaluation": {
+    "success": null,
+    "score": null,
+    "summary": null,
+    "checkedAt": null
+  }
+}

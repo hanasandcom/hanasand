@@ -1,0 +1,15 @@
+{
+  "runId": "run-2026-05-16T04-12-38-296Z",
+  "success": true,
+  "score": 86,
+  "summary": "The orchestrated flow produced a real topology, branched worker runs, structured upstream events, context packs, and replay output.",
+  "eventCount": 19,
+  "nodeStatuses": [
+    "completed",
+    "completed",
+    "completed",
+    "completed"
+  ],
+  "replayPath": "/Users/eirikhanasand/Desktop/personal/hanasand/gpt/api/runtime/orchestration/run-2026-05-16T04-12-38-296Z/replay.md",
+  "checkedAt": "2026-05-16T04:12:38.399Z"
+}

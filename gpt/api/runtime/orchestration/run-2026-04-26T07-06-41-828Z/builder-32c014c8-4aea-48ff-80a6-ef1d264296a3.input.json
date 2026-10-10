@@ -1,0 +1,54 @@
+{
+  "runId": "run-2026-04-26T07-06-41-828Z",
+  "nodeId": "builder-32c014c8-4aea-48ff-80a6-ef1d264296a3",
+  "role": "builder",
+  "task": "Build and verification branch for: Diagnose why Docker compose verification keeps failing, propose fixes, and prepare a final review.",
+  "branchKey": "implementation:builder",
+  "packedContext": {
+    "nodeId": "builder-32c014c8-4aea-48ff-80a6-ef1d264296a3",
+    "role": "builder",
+    "budgetTokens": 10000,
+    "usedTokens": 159,
+    "included": [
+      {
+        "id": "segment-a0e112ea-431d-4e90-b63d-19bae2c831c0",
+        "label": "Failing runtime signal",
+        "estimatedTokens": 29,
+        "reason": "role match for builder, shared global context, hot memory"
+      },
+      {
+        "id": "segment-8ebb239c-5610-4725-a897-3ad3003ec5ab",
+        "label": "Repository constraints",
+        "estimatedTokens": 42,
+        "reason": "role match for builder, shared global context, warm memory"
+      },
+      {
+        "id": "segment-31a9b5c0-06b1-4820-af55-51e3bf3a9bfc",
+        "label": "Manual step caveat",
+        "estimatedTokens": 32,
+        "reason": "role match for builder, shared global context, warm memory"
+      },
+      {
+        "id": "segment-c69e8be3-2ebc-4dd0-a81b-7ba9a9ed32fb",
+        "label": "Task brief",
+        "estimatedTokens": 25,
+        "reason": "shared global context, hot memory"
+      },
+      {
+        "id": "segment-902340e3-73b4-4a66-b854-13a701610eaa",
+        "label": "Known product gap",
+        "estimatedTokens": 31,
+        "reason": "shared global context, cold memory"
+      }
+    ],
+    "omitted": [],
+    "generatedAt": "2026-04-26T07:06:41.879Z"
+  },
+  "scenario": {
+    "id": "deploy_diagnosis",
+    "tension": "partial_failure",
+    "expectedBlockedRoles": [
+      "builder"
+    ]
+  }
+}

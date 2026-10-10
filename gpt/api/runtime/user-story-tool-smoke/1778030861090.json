@@ -1,0 +1,814 @@
+{
+  "ok": true,
+  "createdAt": "2026-05-06T01:27:41.090Z",
+  "smokeRoot": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke",
+  "results": [
+    {
+      "id": "fixed-price-client-portal",
+      "title": "Fixed price client portal",
+      "tool": "scaffoldNextjsDockerApp",
+      "storyPath": "agents/training-scenarios/user_stories/01-fixed-price-client-portal.md",
+      "ok": true,
+      "elapsedMs": 69780,
+      "result": {
+        "command": "npm install && npm run build",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/fixed-price-client-portal",
+        "exitCode": 0,
+        "stdout": "\nadded 304 packages, and audited 305 packages in 39s\n\n132 packages are looking for funding\n  run `npm fund` for details\n\n2 vulnerabilities (1 moderate, 1 critical)\n\nTo address all issues, run:\n  npm audit fix --force\n\nRun `npm audit` for details.\n\n> northstar-studio-portal@0.1.0 build\n> next build\n\nAttention: Next.js now collects completely anonymous telemetry regarding usage.\nThis information is used to shape Next.js' roadmap and prioritize features.\nYou can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:\nhttps://nextjs.org/telemetry\n\n   ▲ Next.js 15.5.6\n\n   Creating an optimized production build ...\n ✓ Compiled successfully in 1912ms\n   Linting and checking validity of types ...\n   Collecting page data ...\n   Generating static pages (0/4) ...\n   Generating static pages (1/4) \r\n   Generating static pages (2/4) \r\n   Generating static pages (3/4) \r\n ✓ Generating static pages (4/4)\n   Finalizing page optimization ...\n   Collecting build traces ...\n\nRoute (app)                                 Size  First Load JS\n┌ ○ /                                      120 B         102 kB\n└ ○ /_not-found                            998 B         103 kB\n+ First Load JS shared by all             102 kB\n  ├ chunks/255-cf2e1d3491ac955b.js       45.8 kB\n  ├ chunks/4bd1b696-c023c6e3521b1417.js  54.2 kB\n  └ other shared chunks (total)          1.89 kB\n\n\n○  (Static)  prerendered as static content\n\n",
+        "stderr": "npm warn deprecated next@15.5.6: This version has a security vulnerability. Please upgrade to a patched version. See https://nextjs.org/blog/CVE-2025-66478 for more details.\nnpm notice\nnpm notice New minor version of npm available! 11.12.1 -> 11.13.0\nnpm notice Changelog: https://github.com/npm/cli/releases/tag/v11.13.0\nnpm notice To update run: npm install -g npm@11.13.0\nnpm notice\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/fixed-price-client-portal",
+        "appName": "Northstar Studio Portal",
+        "productBrief": "Northstar Studio Portal helps freelance studios manage client projects, pricing, testimonials, delivery boards, and launch metrics from one portable self-hosted dashboard.",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "build": true,
+        "compose": true,
+        "standaloneNext": true,
+        "appPage": true,
+        "readmeEnv": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "launch-waitlist-admin",
+      "title": "Launch waitlist admin",
+      "tool": "scaffoldFastifyPostgresApp",
+      "storyPath": "agents/training-scenarios/user_stories/02-launch-waitlist-admin.md",
+      "ok": true,
+      "elapsedMs": 11740,
+      "result": {
+        "command": "npm install && npm run build",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/launch-waitlist-admin",
+        "exitCode": 0,
+        "stdout": "\nadded 69 packages, and audited 70 packages in 9s\n\n20 packages are looking for funding\n  run `npm fund` for details\n\nfound 0 vulnerabilities\n\n> signaldesk-launch-api@0.1.0 build\n> tsc -p tsconfig.json\n\n",
+        "stderr": "",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/launch-waitlist-admin",
+        "appName": "SignalDesk Launch API",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "build": true,
+        "compose": true,
+        "migrationScript": true,
+        "healthRoutes": true,
+        "postgresCompose": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "background-jobs-and-queue",
+      "title": "Background jobs and queue",
+      "tool": "scaffoldFastifyWorkerRedisApp",
+      "storyPath": "agents/training-scenarios/user_stories/03-background-jobs-and-queue.md",
+      "ok": true,
+      "elapsedMs": 10121,
+      "result": {
+        "command": "npm install && npm run build",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/background-jobs-and-queue",
+        "exitCode": 0,
+        "stdout": "\nadded 62 packages, and audited 63 packages in 6s\n\n20 packages are looking for funding\n  run `npm fund` for details\n\nfound 0 vulnerabilities\n\n> taskforge-queue@0.1.0 build\n> tsc -p tsconfig.json\n\n",
+        "stderr": "",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/background-jobs-and-queue",
+        "appName": "TaskForge Queue",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "build": true,
+        "compose": true,
+        "workerEntrypoint": true,
+        "queueRoutes": true,
+        "redisCompose": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "vercel-to-vps-migration",
+      "title": "Vercel to VPS migration",
+      "tool": "scaffoldNextjsDockerApp",
+      "storyPath": "agents/training-scenarios/user_stories/04-vercel-to-vps-migration.md",
+      "ok": true,
+      "elapsedMs": 41866,
+      "result": {
+        "command": "npm install && npm run build",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/vercel-to-vps-migration",
+        "exitCode": 0,
+        "stdout": "\nadded 304 packages, and audited 305 packages in 11s\n\n132 packages are looking for funding\n  run `npm fund` for details\n\n2 vulnerabilities (1 moderate, 1 critical)\n\nTo address all issues, run:\n  npm audit fix --force\n\nRun `npm audit` for details.\n\n> harbor-metrics@0.1.0 build\n> next build\n\nAttention: Next.js now collects completely anonymous telemetry regarding usage.\nThis information is used to shape Next.js' roadmap and prioritize features.\nYou can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:\nhttps://nextjs.org/telemetry\n\n   ▲ Next.js 15.5.6\n\n   Creating an optimized production build ...\n ✓ Compiled successfully in 1832ms\n   Linting and checking validity of types ...\n   Collecting page data ...\n   Generating static pages (0/4) ...\n   Generating static pages (1/4) \r\n   Generating static pages (2/4) \r\n   Generating static pages (3/4) \r\n ✓ Generating static pages (4/4)\n   Finalizing page optimization ...\n   Collecting build traces ...\n\nRoute (app)                                 Size  First Load JS\n┌ ○ /                                      120 B         102 kB\n└ ○ /_not-found                            996 B         103 kB\n+ First Load JS shared by all             102 kB\n  ├ chunks/255-cf2e1d3491ac955b.js       45.8 kB\n  ├ chunks/4bd1b696-c023c6e3521b1417.js  54.2 kB\n  └ other shared chunks (total)          1.89 kB\n\n\n○  (Static)  prerendered as static content\n\n",
+        "stderr": "npm warn deprecated next@15.5.6: This version has a security vulnerability. Please upgrade to a patched version. See https://nextjs.org/blog/CVE-2025-66478 for more details.\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/vercel-to-vps-migration",
+        "appName": "Harbor Metrics",
+        "productBrief": "Harbor Metrics is a provider-neutral analytics dashboard designed to migrate from hosted frontend deployment to a VPS with standalone Next.js and Docker Compose.",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "build": true,
+        "compose": true,
+        "standaloneNext": true,
+        "appPage": true,
+        "readmeEnv": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "observable-self-hosted-stack",
+      "title": "Observable self-hosted stack",
+      "tool": "scaffoldFastifyPostgresApp",
+      "storyPath": "agents/training-scenarios/user_stories/05-observable-self-hosted-stack.md",
+      "ok": true,
+      "elapsedMs": 8740,
+      "result": {
+        "command": "npm install && npm run build",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/observable-self-hosted-stack",
+        "exitCode": 0,
+        "stdout": "\nadded 69 packages, and audited 70 packages in 6s\n\n20 packages are looking for funding\n  run `npm fund` for details\n\nfound 0 vulnerabilities\n\n> pulserail-ops@0.1.0 build\n> tsc -p tsconfig.json\n\n",
+        "stderr": "",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/observable-self-hosted-stack",
+        "appName": "PulseRail Ops",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "build": true,
+        "compose": true,
+        "migrationScript": true,
+        "healthRoutes": true,
+        "postgresCompose": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "webhook-ingestion-ledger",
+      "title": "Webhook ingestion ledger",
+      "tool": "scaffoldFastifyPostgresApp",
+      "storyPath": "agents/training-scenarios/user_stories/20-advanced-user-stories.md#06-webhook-ingestion-ledger",
+      "ok": true,
+      "elapsedMs": 7120,
+      "result": {
+        "command": "npm install && npm run build",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/webhook-ingestion-ledger",
+        "exitCode": 0,
+        "stdout": "\nadded 69 packages, and audited 70 packages in 4s\n\n20 packages are looking for funding\n  run `npm fund` for details\n\nfound 0 vulnerabilities\n\n> hookledger-api@0.1.0 build\n> tsc -p tsconfig.json\n\n",
+        "stderr": "",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/webhook-ingestion-ledger",
+        "appName": "HookLedger API",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "build": true,
+        "compose": true,
+        "migrationScript": true,
+        "healthRoutes": true,
+        "postgresCompose": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "invoice-export-worker",
+      "title": "Invoice export worker",
+      "tool": "scaffoldFastifyWorkerRedisApp",
+      "storyPath": "agents/training-scenarios/user_stories/20-advanced-user-stories.md#07-invoice-export-worker",
+      "ok": true,
+      "elapsedMs": 8757,
+      "result": {
+        "command": "npm install && npm run build",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/invoice-export-worker",
+        "exitCode": 0,
+        "stdout": "\nadded 62 packages, and audited 63 packages in 5s\n\n20 packages are looking for funding\n  run `npm fund` for details\n\nfound 0 vulnerabilities\n\n> ledgerlift-exports@0.1.0 build\n> tsc -p tsconfig.json\n\n",
+        "stderr": "",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/invoice-export-worker",
+        "appName": "LedgerLift Exports",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "build": true,
+        "compose": true,
+        "workerEntrypoint": true,
+        "queueRoutes": true,
+        "redisCompose": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "multi-tenant-agency-dashboard",
+      "title": "Multi-tenant agency dashboard",
+      "tool": "scaffoldNextjsDockerApp",
+      "storyPath": "agents/training-scenarios/user_stories/20-advanced-user-stories.md#08-multi-tenant-agency-dashboard",
+      "ok": true,
+      "elapsedMs": 40737,
+      "result": {
+        "command": "npm install && npm run build",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/multi-tenant-agency-dashboard",
+        "exitCode": 0,
+        "stdout": "\nadded 304 packages, and audited 305 packages in 10s\n\n132 packages are looking for funding\n  run `npm fund` for details\n\n2 vulnerabilities (1 moderate, 1 critical)\n\nTo address all issues, run:\n  npm audit fix --force\n\nRun `npm audit` for details.\n\n> tenantscope@0.1.0 build\n> next build\n\nAttention: Next.js now collects completely anonymous telemetry regarding usage.\nThis information is used to shape Next.js' roadmap and prioritize features.\nYou can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:\nhttps://nextjs.org/telemetry\n\n   ▲ Next.js 15.5.6\n\n   Creating an optimized production build ...\n ✓ Compiled successfully in 1905ms\n   Linting and checking validity of types ...\n   Collecting page data ...\n   Generating static pages (0/4) ...\n   Generating static pages (1/4) \r\n   Generating static pages (2/4) \r\n   Generating static pages (3/4) \r\n ✓ Generating static pages (4/4)\n   Finalizing page optimization ...\n   Collecting build traces ...\n\nRoute (app)                                 Size  First Load JS\n┌ ○ /                                      120 B         102 kB\n└ ○ /_not-found                            998 B         103 kB\n+ First Load JS shared by all             102 kB\n  ├ chunks/255-cf2e1d3491ac955b.js       45.8 kB\n  ├ chunks/4bd1b696-c023c6e3521b1417.js  54.2 kB\n  └ other shared chunks (total)          1.89 kB\n\n\n○  (Static)  prerendered as static content\n\n",
+        "stderr": "npm warn deprecated next@15.5.6: This version has a security vulnerability. Please upgrade to a patched version. See https://nextjs.org/blog/CVE-2025-66478 for more details.\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/multi-tenant-agency-dashboard",
+        "appName": "TenantScope",
+        "productBrief": "TenantScope helps agencies monitor client workspaces, launches, usage, pricing risk, and delivery quality from a portable Dockerized Next.js dashboard.",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "build": true,
+        "compose": true,
+        "standaloneNext": true,
+        "appPage": true,
+        "readmeEnv": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "booking-reservation-api",
+      "title": "Booking reservation API",
+      "tool": "scaffoldFastifyPostgresApp",
+      "storyPath": "agents/training-scenarios/user_stories/20-advanced-user-stories.md#09-booking-reservation-api",
+      "ok": true,
+      "elapsedMs": 7506,
+      "result": {
+        "command": "npm install && npm run build",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/booking-reservation-api",
+        "exitCode": 0,
+        "stdout": "\nadded 69 packages, and audited 70 packages in 5s\n\n20 packages are looking for funding\n  run `npm fund` for details\n\nfound 0 vulnerabilities\n\n> slotharbor-api@0.1.0 build\n> tsc -p tsconfig.json\n\n",
+        "stderr": "",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/booking-reservation-api",
+        "appName": "SlotHarbor API",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "build": true,
+        "compose": true,
+        "migrationScript": true,
+        "healthRoutes": true,
+        "postgresCompose": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "image-processing-queue",
+      "title": "Image processing queue",
+      "tool": "scaffoldFastifyWorkerRedisApp",
+      "storyPath": "agents/training-scenarios/user_stories/20-advanced-user-stories.md#10-image-processing-queue",
+      "ok": true,
+      "elapsedMs": 8941,
+      "result": {
+        "command": "npm install && npm run build",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/image-processing-queue",
+        "exitCode": 0,
+        "stdout": "\nadded 62 packages, and audited 63 packages in 5s\n\n20 packages are looking for funding\n  run `npm fund` for details\n\nfound 0 vulnerabilities\n\n> pixelforge-queue@0.1.0 build\n> tsc -p tsconfig.json\n\n",
+        "stderr": "",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/image-processing-queue",
+        "appName": "PixelForge Queue",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "build": true,
+        "compose": true,
+        "workerEntrypoint": true,
+        "queueRoutes": true,
+        "redisCompose": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "uptime-status-page",
+      "title": "Uptime status page",
+      "tool": "scaffoldNextjsDockerApp",
+      "storyPath": "agents/training-scenarios/user_stories/20-advanced-user-stories.md#11-uptime-status-page",
+      "ok": true,
+      "elapsedMs": 68307,
+      "result": {
+        "command": "npm install && npm run build",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/uptime-status-page",
+        "exitCode": 0,
+        "stdout": "\nadded 304 packages, and audited 305 packages in 11s\n\n132 packages are looking for funding\n  run `npm fund` for details\n\n2 vulnerabilities (1 moderate, 1 critical)\n\nTo address all issues, run:\n  npm audit fix --force\n\nRun `npm audit` for details.\n\n> beaconstatus@0.1.0 build\n> next build\n\nAttention: Next.js now collects completely anonymous telemetry regarding usage.\nThis information is used to shape Next.js' roadmap and prioritize features.\nYou can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:\nhttps://nextjs.org/telemetry\n\n   ▲ Next.js 15.5.6\n\n   Creating an optimized production build ...\n ✓ Compiled successfully in 1905ms\n   Linting and checking validity of types ...\n   Collecting page data ...\n   Generating static pages (0/4) ...\n   Generating static pages (1/4) \r\n   Generating static pages (2/4) \r\n   Generating static pages (3/4) \r\n ✓ Generating static pages (4/4)\n   Finalizing page optimization ...\n   Collecting build traces ...\n\nRoute (app)                                 Size  First Load JS\n┌ ○ /                                      120 B         102 kB\n└ ○ /_not-found                            999 B         103 kB\n+ First Load JS shared by all             102 kB\n  ├ chunks/255-cf2e1d3491ac955b.js       45.8 kB\n  ├ chunks/4bd1b696-c023c6e3521b1417.js  54.2 kB\n  └ other shared chunks (total)          1.89 kB\n\n\n○  (Static)  prerendered as static content\n\n",
+        "stderr": "npm warn deprecated next@15.5.6: This version has a security vulnerability. Please upgrade to a patched version. See https://nextjs.org/blog/CVE-2025-66478 for more details.\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/uptime-status-page",
+        "appName": "BeaconStatus",
+        "productBrief": "BeaconStatus gives small SaaS teams a public status page with incident summaries, uptime metrics, customer messaging, and Dockerized self-hosting.",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "build": true,
+        "compose": true,
+        "standaloneNext": true,
+        "appPage": true,
+        "readmeEnv": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "compliance-audit-api",
+      "title": "Compliance audit API",
+      "tool": "scaffoldFastifyPostgresApp",
+      "storyPath": "agents/training-scenarios/user_stories/20-advanced-user-stories.md#12-compliance-audit-api",
+      "ok": true,
+      "elapsedMs": 8416,
+      "result": {
+        "command": "npm install && npm run build",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/compliance-audit-api",
+        "exitCode": 0,
+        "stdout": "\nadded 69 packages, and audited 70 packages in 5s\n\n20 packages are looking for funding\n  run `npm fund` for details\n\nfound 0 vulnerabilities\n\n> audittrail-api@0.1.0 build\n> tsc -p tsconfig.json\n\n",
+        "stderr": "",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/compliance-audit-api",
+        "appName": "AuditTrail API",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "build": true,
+        "compose": true,
+        "migrationScript": true,
+        "healthRoutes": true,
+        "postgresCompose": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "newsletter-dispatch-queue",
+      "title": "Newsletter dispatch queue",
+      "tool": "scaffoldFastifyWorkerRedisApp",
+      "storyPath": "agents/training-scenarios/user_stories/20-advanced-user-stories.md#13-newsletter-dispatch-queue",
+      "ok": true,
+      "elapsedMs": 17990,
+      "result": {
+        "command": "npm install && npm run build",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/newsletter-dispatch-queue",
+        "exitCode": 0,
+        "stdout": "\nadded 62 packages, and audited 63 packages in 7s\n\n20 packages are looking for funding\n  run `npm fund` for details\n\nfound 0 vulnerabilities\n\n> letterrun-queue@0.1.0 build\n> tsc -p tsconfig.json\n\n",
+        "stderr": "",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/newsletter-dispatch-queue",
+        "appName": "LetterRun Queue",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "build": true,
+        "compose": true,
+        "workerEntrypoint": true,
+        "queueRoutes": true,
+        "redisCompose": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "ecommerce-launch-dashboard",
+      "title": "Ecommerce launch dashboard",
+      "tool": "scaffoldNextjsDockerApp",
+      "storyPath": "agents/training-scenarios/user_stories/20-advanced-user-stories.md#14-ecommerce-launch-dashboard",
+      "ok": true,
+      "elapsedMs": 96377,
+      "result": {
+        "command": "npm install && npm run build",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/ecommerce-launch-dashboard",
+        "exitCode": 0,
+        "stdout": "\nadded 304 packages, and audited 305 packages in 1m\n\n132 packages are looking for funding\n  run `npm fund` for details\n\n2 vulnerabilities (1 moderate, 1 critical)\n\nTo address all issues, run:\n  npm audit fix --force\n\nRun `npm audit` for details.\n\n> cartlift-launch@0.1.0 build\n> next build\n\nAttention: Next.js now collects completely anonymous telemetry regarding usage.\nThis information is used to shape Next.js' roadmap and prioritize features.\nYou can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:\nhttps://nextjs.org/telemetry\n\n   ▲ Next.js 15.5.6\n\n   Creating an optimized production build ...\n ✓ Compiled successfully in 1902ms\n   Linting and checking validity of types ...\n   Collecting page data ...\n   Generating static pages (0/4) ...\n   Generating static pages (1/4) \r\n   Generating static pages (2/4) \r\n   Generating static pages (3/4) \r\n ✓ Generating static pages (4/4)\n   Finalizing page optimization ...\n   Collecting build traces ...\n\nRoute (app)                                 Size  First Load JS\n┌ ○ /                                      120 B         102 kB\n└ ○ /_not-found                            998 B         103 kB\n+ First Load JS shared by all             102 kB\n  ├ chunks/255-cf2e1d3491ac955b.js       45.8 kB\n  ├ chunks/4bd1b696-c023c6e3521b1417.js  54.2 kB\n  └ other shared chunks (total)          1.89 kB\n\n\n○  (Static)  prerendered as static content\n\n",
+        "stderr": "npm warn deprecated next@15.5.6: This version has a security vulnerability. Please upgrade to a patched version. See https://nextjs.org/blog/CVE-2025-66478 for more details.\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/ecommerce-launch-dashboard",
+        "appName": "CartLift Launch",
+        "productBrief": "CartLift Launch helps stores coordinate launches, conversion metrics, pricing, testimonials, readiness gates, and campaign tasks in a portable dashboard.",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "build": true,
+        "compose": true,
+        "standaloneNext": true,
+        "appPage": true,
+        "readmeEnv": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "feature-flag-config-api",
+      "title": "Feature flag config API",
+      "tool": "scaffoldFastifyPostgresApp",
+      "storyPath": "agents/training-scenarios/user_stories/20-advanced-user-stories.md#15-feature-flag-config-api",
+      "ok": true,
+      "elapsedMs": 12977,
+      "result": {
+        "command": "npm install && npm run build",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/feature-flag-config-api",
+        "exitCode": 0,
+        "stdout": "\nadded 69 packages, and audited 70 packages in 10s\n\n20 packages are looking for funding\n  run `npm fund` for details\n\nfound 0 vulnerabilities\n\n> flagfoundry-api@0.1.0 build\n> tsc -p tsconfig.json\n\n",
+        "stderr": "",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/feature-flag-config-api",
+        "appName": "FlagFoundry API",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "build": true,
+        "compose": true,
+        "migrationScript": true,
+        "healthRoutes": true,
+        "postgresCompose": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "csv-import-worker",
+      "title": "CSV import worker",
+      "tool": "scaffoldFastifyWorkerRedisApp",
+      "storyPath": "agents/training-scenarios/user_stories/20-advanced-user-stories.md#16-csv-import-worker",
+      "ok": true,
+      "elapsedMs": 9796,
+      "result": {
+        "command": "npm install && npm run build",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/csv-import-worker",
+        "exitCode": 0,
+        "stdout": "\nadded 62 packages, and audited 63 packages in 6s\n\n20 packages are looking for funding\n  run `npm fund` for details\n\nfound 0 vulnerabilities\n\n> importpilot-queue@0.1.0 build\n> tsc -p tsconfig.json\n\n",
+        "stderr": "",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/csv-import-worker",
+        "appName": "ImportPilot Queue",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "build": true,
+        "compose": true,
+        "workerEntrypoint": true,
+        "queueRoutes": true,
+        "redisCompose": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "developer-docs-portal",
+      "title": "Developer docs portal",
+      "tool": "scaffoldNextjsDockerApp",
+      "storyPath": "agents/training-scenarios/user_stories/20-advanced-user-stories.md#17-developer-docs-portal",
+      "ok": true,
+      "elapsedMs": 42384,
+      "result": {
+        "command": "npm install && npm run build",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/developer-docs-portal",
+        "exitCode": 0,
+        "stdout": "\nadded 304 packages, and audited 305 packages in 11s\n\n132 packages are looking for funding\n  run `npm fund` for details\n\n2 vulnerabilities (1 moderate, 1 critical)\n\nTo address all issues, run:\n  npm audit fix --force\n\nRun `npm audit` for details.\n\n> docharbor@0.1.0 build\n> next build\n\nAttention: Next.js now collects completely anonymous telemetry regarding usage.\nThis information is used to shape Next.js' roadmap and prioritize features.\nYou can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:\nhttps://nextjs.org/telemetry\n\n   ▲ Next.js 15.5.6\n\n   Creating an optimized production build ...\n ✓ Compiled successfully in 1811ms\n   Linting and checking validity of types ...\n   Collecting page data ...\n   Generating static pages (0/4) ...\n   Generating static pages (1/4) \r\n   Generating static pages (2/4) \r\n   Generating static pages (3/4) \r\n ✓ Generating static pages (4/4)\n   Finalizing page optimization ...\n   Collecting build traces ...\n\nRoute (app)                                 Size  First Load JS\n┌ ○ /                                      120 B         102 kB\n└ ○ /_not-found                            996 B         103 kB\n+ First Load JS shared by all             102 kB\n  ├ chunks/255-cf2e1d3491ac955b.js       45.8 kB\n  ├ chunks/4bd1b696-c023c6e3521b1417.js  54.2 kB\n  └ other shared chunks (total)          1.89 kB\n\n\n○  (Static)  prerendered as static content\n\n",
+        "stderr": "npm warn deprecated next@15.5.6: This version has a security vulnerability. Please upgrade to a patched version. See https://nextjs.org/blog/CVE-2025-66478 for more details.\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/developer-docs-portal",
+        "appName": "DocHarbor",
+        "productBrief": "DocHarbor is a self-hosted documentation portal with onboarding metrics, pricing tiers, launch checklists, examples, and Dockerized deployment.",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "build": true,
+        "compose": true,
+        "standaloneNext": true,
+        "appPage": true,
+        "readmeEnv": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "customer-feedback-api",
+      "title": "Customer feedback API",
+      "tool": "scaffoldFastifyPostgresApp",
+      "storyPath": "agents/training-scenarios/user_stories/20-advanced-user-stories.md#18-customer-feedback-api",
+      "ok": true,
+      "elapsedMs": 7574,
+      "result": {
+        "command": "npm install && npm run build",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/customer-feedback-api",
+        "exitCode": 0,
+        "stdout": "\nadded 69 packages, and audited 70 packages in 5s\n\n20 packages are looking for funding\n  run `npm fund` for details\n\nfound 0 vulnerabilities\n\n> voiceboard-api@0.1.0 build\n> tsc -p tsconfig.json\n\n",
+        "stderr": "",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/customer-feedback-api",
+        "appName": "VoiceBoard API",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "build": true,
+        "compose": true,
+        "migrationScript": true,
+        "healthRoutes": true,
+        "postgresCompose": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "media-transcoding-queue",
+      "title": "Media transcoding queue",
+      "tool": "scaffoldFastifyWorkerRedisApp",
+      "storyPath": "agents/training-scenarios/user_stories/20-advanced-user-stories.md#19-media-transcoding-queue",
+      "ok": true,
+      "elapsedMs": 12049,
+      "result": {
+        "command": "npm install && npm run build",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/media-transcoding-queue",
+        "exitCode": 0,
+        "stdout": "\nadded 62 packages, and audited 63 packages in 7s\n\n20 packages are looking for funding\n  run `npm fund` for details\n\nfound 0 vulnerabilities\n\n> clipsmith-queue@0.1.0 build\n> tsc -p tsconfig.json\n\n",
+        "stderr": "",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/media-transcoding-queue",
+        "appName": "ClipSmith Queue",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "build": true,
+        "compose": true,
+        "workerEntrypoint": true,
+        "queueRoutes": true,
+        "redisCompose": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "incident-response-command-center",
+      "title": "Incident response command center",
+      "tool": "scaffoldNextjsDockerApp",
+      "storyPath": "agents/training-scenarios/user_stories/20-advanced-user-stories.md#20-incident-response-command-center",
+      "ok": true,
+      "elapsedMs": 41907,
+      "result": {
+        "command": "npm install && npm run build",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/incident-response-command-center",
+        "exitCode": 0,
+        "stdout": "\nadded 304 packages, and audited 305 packages in 12s\n\n132 packages are looking for funding\n  run `npm fund` for details\n\n2 vulnerabilities (1 moderate, 1 critical)\n\nTo address all issues, run:\n  npm audit fix --force\n\nRun `npm audit` for details.\n\n> fireline-command@0.1.0 build\n> next build\n\nAttention: Next.js now collects completely anonymous telemetry regarding usage.\nThis information is used to shape Next.js' roadmap and prioritize features.\nYou can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:\nhttps://nextjs.org/telemetry\n\n   ▲ Next.js 15.5.6\n\n   Creating an optimized production build ...\n ✓ Compiled successfully in 1831ms\n   Linting and checking validity of types ...\n   Collecting page data ...\n   Generating static pages (0/4) ...\n   Generating static pages (1/4) \r\n   Generating static pages (2/4) \r\n   Generating static pages (3/4) \r\n ✓ Generating static pages (4/4)\n   Finalizing page optimization ...\n   Collecting build traces ...\n\nRoute (app)                                 Size  First Load JS\n┌ ○ /                                      120 B         102 kB\n└ ○ /_not-found                            996 B         103 kB\n+ First Load JS shared by all             102 kB\n  ├ chunks/255-cf2e1d3491ac955b.js       45.8 kB\n  ├ chunks/4bd1b696-c023c6e3521b1417.js  54.2 kB\n  └ other shared chunks (total)          1.89 kB\n\n\n○  (Static)  prerendered as static content\n\n",
+        "stderr": "npm warn deprecated next@15.5.6: This version has a security vulnerability. Please upgrade to a patched version. See https://nextjs.org/blog/CVE-2025-66478 for more details.\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/incident-response-command-center",
+        "appName": "Fireline Command",
+        "productBrief": "Fireline Command helps operators coordinate incidents, customer updates, metrics, pricing impact, readiness tasks, and deployment confidence from one self-hosted UI.",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "build": true,
+        "compose": true,
+        "standaloneNext": true,
+        "appPage": true,
+        "readmeEnv": true,
+        "toolSucceeded": true
+      }
+    }
+  ]
+}

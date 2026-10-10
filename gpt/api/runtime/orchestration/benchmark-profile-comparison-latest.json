@@ -1,0 +1,39 @@
+{
+  "generated_at": "2026-04-26T12:25:36.504Z",
+  "current_profile": {
+    "tag": "local-darwin-arm64-64gb",
+    "source": "derived_from_machine",
+    "model": null,
+    "endpoint": null,
+    "machine": {
+      "hostname": "Eiriks-Macbook-Pro.local",
+      "platform": "darwin",
+      "arch": "arm64",
+      "cpuCount": 10,
+      "totalMemoryGb": 64
+    }
+  },
+  "compared_run_count": 6,
+  "profiles": [
+    {
+      "tag": "local-darwin-arm64-64gb",
+      "source": "derived_from_machine",
+      "machineKey": "darwin:arm64:10cpu:64gb",
+      "comparableToCurrentMachine": true,
+      "runCount": 6,
+      "latestGeneratedAt": "2026-04-26T12:25:36.504Z",
+      "latestAverageScore": 100,
+      "bestAverageScore": 100,
+      "worstAverageScore": 100,
+      "latestScenarioCount": 8,
+      "latestWarnings": 0,
+      "latestFailures": 0,
+      "latestWeakestScenario": "Escalated delivery handoff (99)"
+    }
+  ],
+  "normalization": {
+    "rule": "Compare score deltas freely only when profile tag and machine key match; otherwise treat results as adjacent evidence, not a regression baseline.",
+    "currentMachineKey": "darwin:arm64:10cpu:64gb",
+    "crossMachineProfiles": []
+  }
+}

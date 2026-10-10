@@ -1,0 +1,855 @@
+{
+  "ok": true,
+  "createdAt": "2026-05-06T22:44:51.561Z",
+  "smokeRoot": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke",
+  "selectedCasePattern": "501-520-real-world-compression",
+  "results": [
+    {
+      "id": "funeral-first-steps-site",
+      "title": "Funeral first steps site",
+      "tool": "scaffoldNextjsDockerApp",
+      "storyPath": "agents/training-scenarios/user_stories/501-520-real-world-compression-user-stories.md#501-the-funeral-home-site-feels-like-a-sales-funnel",
+      "ok": true,
+      "elapsedMs": 20313,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline && NEXT_TELEMETRY_DISABLED=1 ./node_modules/.bin/next build) || (npm install --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/funeral-first-steps-site",
+        "exitCode": 0,
+        "stdout": "bun install v1.3.11 (af24e281)\n\n+ @eslint/eslintrc@3.3.5\n+ @types/node@24.12.2 (v25.6.0 available)\n+ @types/react@19.2.14\n+ @types/react-dom@19.2.3\n+ eslint@9.39.4 (v10.3.0 available)\n+ eslint-config-next@15.5.16 (v16.2.5 available)\n+ typescript@5.9.3 (v6.0.3 available)\n+ next@15.5.6\n+ react@19.1.0\n+ react-dom@19.1.0\n\n299 packages installed [2.43s]\n\nBlocked 1 postinstall. Run `bun pm untrusted` for details.\n   ▲ Next.js 15.5.6\n   - Experiments (use with caution):\n     · cpus: 4\n\n   Creating an optimized production build ...\n ✓ Compiled successfully in 2.1s\n   Linting and checking validity of types ...\n   Collecting page data ...\n   Generating static pages (0/4) ...\n   Generating static pages (1/4) \r\n   Generating static pages (2/4) \r\n   Generating static pages (3/4) \r\n ✓ Generating static pages (4/4)\n   Finalizing page optimization ...\n   Collecting build traces ...\n\nRoute (app)                                 Size  First Load JS\n┌ ○ /                                      120 B         102 kB\n└ ○ /_not-found                            996 B         103 kB\n+ First Load JS shared by all             102 kB\n  ├ chunks/255-cf2e1d3491ac955b.js       45.8 kB\n  ├ chunks/4bd1b696-c023c6e3521b1417.js  54.2 kB\n  └ other shared chunks (total)          1.89 kB\n\n\n○  (Static)  prerendered as static content\n\n",
+        "stderr": "Resolving dependencies\nResolved, downloaded and extracted [268]\nSaved lockfile\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/funeral-first-steps-site",
+        "appName": "QuietSteps",
+        "productBrief": "QuietSteps gives families first steps, service options, price caveats, document checklists, contact paths, and respectful accessibility-minded copy without sales pressure.",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": true,
+        "compose": true,
+        "standaloneNext": true,
+        "appPage": true,
+        "readmeEnv": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "arrangement-request-api",
+      "title": "Arrangement request API",
+      "tool": "scaffoldFastifyPostgresApp",
+      "storyPath": "agents/training-scenarios/user_stories/501-520-real-world-compression-user-stories.md#502-arrangements-are-tracked-on-paper",
+      "ok": true,
+      "elapsedMs": 2998,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline --ignore-scripts --no-progress && ./node_modules/.bin/tsc -p tsconfig.json --pretty false) || (npm install --ignore-scripts --progress=false --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/arrangement-request-api",
+        "exitCode": 0,
+        "stdout": "bun install v1.3.11 (af24e281)\n\n+ @types/node@24.12.2 (v25.6.0 available)\n+ @types/pg@8.20.0\n+ tsx@4.21.0\n+ typescript@5.9.3 (v6.0.3 available)\n+ fastify@5.8.5\n+ pg@8.20.0\n\n70 packages installed [1.78s]\n",
+        "stderr": "Resolving dependencies\nResolved, downloaded and extracted [55]\nSaved lockfile\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/arrangement-request-api",
+        "appName": "ArrangementRequest API",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": true,
+        "compose": true,
+        "migrationScript": true,
+        "healthRoutes": true,
+        "postgresCompose": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "arrangement-document-worker",
+      "title": "Arrangement document worker",
+      "tool": "scaffoldFastifyWorkerRedisApp",
+      "storyPath": "agents/training-scenarios/user_stories/501-520-real-world-compression-user-stories.md#503-document-followups-must-be-gentle",
+      "ok": true,
+      "elapsedMs": 2437,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline --ignore-scripts --no-progress && ./node_modules/.bin/tsc -p tsconfig.json --pretty false) || (npm install --ignore-scripts --progress=false --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/arrangement-document-worker",
+        "exitCode": 0,
+        "stdout": "bun install v1.3.11 (af24e281)\n\n+ @types/node@24.12.2 (v25.6.0 available)\n+ tsx@4.21.0\n+ typescript@5.9.3 (v6.0.3 available)\n+ fastify@5.8.5\n+ redis@5.12.1\n\n63 packages installed [451.00ms]\n",
+        "stderr": "Resolving dependencies\nResolved, downloaded and extracted [1]\nSaved lockfile\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/arrangement-document-worker",
+        "appName": "ArrangementNudge Worker",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": true,
+        "compose": true,
+        "workerEntrypoint": true,
+        "queueRoutes": true,
+        "redisCompose": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "yoga-studio-practical-site",
+      "title": "Yoga studio practical site",
+      "tool": "scaffoldNextjsDockerApp",
+      "storyPath": "agents/training-scenarios/user_stories/501-520-real-world-compression-user-stories.md#504-the-yoga-studio-page-is-pretty-but-useless",
+      "ok": true,
+      "elapsedMs": 16975,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline && NEXT_TELEMETRY_DISABLED=1 ./node_modules/.bin/next build) || (npm install --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/yoga-studio-practical-site",
+        "exitCode": 0,
+        "stdout": "bun install v1.3.11 (af24e281)\n\n+ @eslint/eslintrc@3.3.5\n+ @types/node@24.12.2 (v25.6.0 available)\n+ @types/react@19.2.14\n+ @types/react-dom@19.2.3\n+ eslint@9.39.4 (v10.3.0 available)\n+ eslint-config-next@15.5.16 (v16.2.5 available)\n+ typescript@5.9.3 (v6.0.3 available)\n+ next@15.5.6\n+ react@19.1.0\n+ react-dom@19.1.0\n\n299 packages installed [415.00ms]\n\nBlocked 1 postinstall. Run `bun pm untrusted` for details.\n   ▲ Next.js 15.5.6\n   - Experiments (use with caution):\n     · cpus: 4\n\n   Creating an optimized production build ...\n ✓ Compiled successfully in 1941ms\n   Linting and checking validity of types ...\n   Collecting page data ...\n   Generating static pages (0/4) ...\n   Generating static pages (1/4) \r\n   Generating static pages (2/4) \r\n   Generating static pages (3/4) \r\n ✓ Generating static pages (4/4)\n   Finalizing page optimization ...\n   Collecting build traces ...\n\nRoute (app)                                 Size  First Load JS\n┌ ○ /                                      120 B         102 kB\n└ ○ /_not-found                            996 B         103 kB\n+ First Load JS shared by all             102 kB\n  ├ chunks/255-cf2e1d3491ac955b.js       45.8 kB\n  ├ chunks/4bd1b696-c023c6e3521b1417.js  54.2 kB\n  └ other shared chunks (total)          1.89 kB\n\n\n○  (Static)  prerendered as static content\n\n",
+        "stderr": "Resolving dependencies\nResolved, downloaded and extracted [0]\nSaved lockfile\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/yoga-studio-practical-site",
+        "appName": "MatPlain Studio",
+        "productBrief": "MatPlain Studio shows class levels, schedule cues, what to bring, pricing caveats, beginner paths, teacher contacts, and calm concrete copy without fake booking.",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": true,
+        "compose": true,
+        "standaloneNext": true,
+        "appPage": true,
+        "readmeEnv": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "class-interest-api",
+      "title": "Class interest API",
+      "tool": "scaffoldFastifyPostgresApp",
+      "storyPath": "agents/training-scenarios/user_stories/501-520-real-world-compression-user-stories.md#505-class-interest-needs-sorting",
+      "ok": true,
+      "elapsedMs": 1133,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline --ignore-scripts --no-progress && ./node_modules/.bin/tsc -p tsconfig.json --pretty false) || (npm install --ignore-scripts --progress=false --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/class-interest-api",
+        "exitCode": 0,
+        "stdout": "bun install v1.3.11 (af24e281)\n\n+ @types/node@24.12.2 (v25.6.0 available)\n+ @types/pg@8.20.0\n+ tsx@4.21.0\n+ typescript@5.9.3 (v6.0.3 available)\n+ fastify@5.8.5\n+ pg@8.20.0\n\n70 packages installed [42.00ms]\n",
+        "stderr": "Saved lockfile\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/class-interest-api",
+        "appName": "ClassInterest API",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": true,
+        "compose": true,
+        "migrationScript": true,
+        "healthRoutes": true,
+        "postgresCompose": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "studio-waitlist-worker",
+      "title": "Studio waitlist worker",
+      "tool": "scaffoldFastifyWorkerRedisApp",
+      "storyPath": "agents/training-scenarios/user_stories/501-520-real-world-compression-user-stories.md#506-waitlist-nudges-should-not-be-weird",
+      "ok": true,
+      "elapsedMs": 1945,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline --ignore-scripts --no-progress && ./node_modules/.bin/tsc -p tsconfig.json --pretty false) || (npm install --ignore-scripts --progress=false --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/studio-waitlist-worker",
+        "exitCode": 0,
+        "stdout": "bun install v1.3.11 (af24e281)\n\n+ @types/node@24.12.2 (v25.6.0 available)\n+ tsx@4.21.0\n+ typescript@5.9.3 (v6.0.3 available)\n+ fastify@5.8.5\n+ redis@5.12.1\n\n63 packages installed [78.00ms]\n",
+        "stderr": "Resolving dependencies\nResolved, downloaded and extracted [0]\nSaved lockfile\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/studio-waitlist-worker",
+        "appName": "StudioWaitlist Worker",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": true,
+        "compose": true,
+        "workerEntrypoint": true,
+        "queueRoutes": true,
+        "redisCompose": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "farm-stand-weekend-site",
+      "title": "Farm stand weekend site",
+      "tool": "scaffoldNextjsDockerApp",
+      "storyPath": "agents/training-scenarios/user_stories/501-520-real-world-compression-user-stories.md#507-a-farm-stand-needs-a-site-before-weekend",
+      "ok": true,
+      "elapsedMs": 16648,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline && NEXT_TELEMETRY_DISABLED=1 ./node_modules/.bin/next build) || (npm install --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/farm-stand-weekend-site",
+        "exitCode": 0,
+        "stdout": "bun install v1.3.11 (af24e281)\n\n+ @eslint/eslintrc@3.3.5\n+ @types/node@24.12.2 (v25.6.0 available)\n+ @types/react@19.2.14\n+ @types/react-dom@19.2.3\n+ eslint@9.39.4 (v10.3.0 available)\n+ eslint-config-next@15.5.16 (v16.2.5 available)\n+ typescript@5.9.3 (v6.0.3 available)\n+ next@15.5.6\n+ react@19.1.0\n+ react-dom@19.1.0\n\n299 packages installed [342.00ms]\n\nBlocked 1 postinstall. Run `bun pm untrusted` for details.\n   ▲ Next.js 15.5.6\n   - Experiments (use with caution):\n     · cpus: 4\n\n   Creating an optimized production build ...\n ✓ Compiled successfully in 1875ms\n   Linting and checking validity of types ...\n   Collecting page data ...\n   Generating static pages (0/4) ...\n   Generating static pages (1/4) \r\n   Generating static pages (2/4) \r\n   Generating static pages (3/4) \r\n ✓ Generating static pages (4/4)\n   Finalizing page optimization ...\n   Collecting build traces ...\n\nRoute (app)                                 Size  First Load JS\n┌ ○ /                                      120 B         102 kB\n└ ○ /_not-found                            996 B         103 kB\n+ First Load JS shared by all             102 kB\n  ├ chunks/255-cf2e1d3491ac955b.js       45.8 kB\n  ├ chunks/4bd1b696-c023c6e3521b1417.js  54.2 kB\n  └ other shared chunks (total)          1.89 kB\n\n\n○  (Static)  prerendered as static content\n\n",
+        "stderr": "Resolving dependencies\nResolved, downloaded and extracted [0]\nSaved lockfile\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/farm-stand-weekend-site",
+        "appName": "FieldBox Stand",
+        "productBrief": "FieldBox Stand gives local shoppers produce availability, hours, parking, seasonal notes, box reservation caveats, and contact paths without fake ecommerce.",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": true,
+        "compose": true,
+        "standaloneNext": true,
+        "appPage": true,
+        "readmeEnv": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "produce-reservation-api",
+      "title": "Produce reservation API",
+      "tool": "scaffoldFastifyPostgresApp",
+      "storyPath": "agents/training-scenarios/user_stories/501-520-real-world-compression-user-stories.md#508-produce-reservations-need-tracking",
+      "ok": true,
+      "elapsedMs": 1202,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline --ignore-scripts --no-progress && ./node_modules/.bin/tsc -p tsconfig.json --pretty false) || (npm install --ignore-scripts --progress=false --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/produce-reservation-api",
+        "exitCode": 0,
+        "stdout": "bun install v1.3.11 (af24e281)\n\n+ @types/node@24.12.2 (v25.6.0 available)\n+ @types/pg@8.20.0\n+ tsx@4.21.0\n+ typescript@5.9.3 (v6.0.3 available)\n+ fastify@5.8.5\n+ pg@8.20.0\n\n70 packages installed [64.00ms]\n",
+        "stderr": "Saved lockfile\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/produce-reservation-api",
+        "appName": "ProduceReservation API",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": true,
+        "compose": true,
+        "migrationScript": true,
+        "healthRoutes": true,
+        "postgresCompose": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "pickup-window-worker",
+      "title": "Pickup window worker",
+      "tool": "scaffoldFastifyWorkerRedisApp",
+      "storyPath": "agents/training-scenarios/user_stories/501-520-real-world-compression-user-stories.md#509-pickup-reminders-should-be-safe",
+      "ok": true,
+      "elapsedMs": 1981,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline --ignore-scripts --no-progress && ./node_modules/.bin/tsc -p tsconfig.json --pretty false) || (npm install --ignore-scripts --progress=false --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/pickup-window-worker",
+        "exitCode": 0,
+        "stdout": "bun install v1.3.11 (af24e281)\n\n+ @types/node@24.12.2 (v25.6.0 available)\n+ tsx@4.21.0\n+ typescript@5.9.3 (v6.0.3 available)\n+ fastify@5.8.5\n+ redis@5.12.1\n\n63 packages installed [79.00ms]\n",
+        "stderr": "Resolving dependencies\nResolved, downloaded and extracted [0]\nSaved lockfile\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/pickup-window-worker",
+        "appName": "PickupNudge Worker",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": true,
+        "compose": true,
+        "workerEntrypoint": true,
+        "queueRoutes": true,
+        "redisCompose": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "security-consulting-site",
+      "title": "Security consulting site",
+      "tool": "scaffoldNextjsDockerApp",
+      "storyPath": "agents/training-scenarios/user_stories/501-520-real-world-compression-user-stories.md#510-a-security-consultant-needs-a-serious-services-page",
+      "ok": true,
+      "elapsedMs": 16501,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline && NEXT_TELEMETRY_DISABLED=1 ./node_modules/.bin/next build) || (npm install --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/security-consulting-site",
+        "exitCode": 0,
+        "stdout": "bun install v1.3.11 (af24e281)\n\n+ @eslint/eslintrc@3.3.5\n+ @types/node@24.12.2 (v25.6.0 available)\n+ @types/react@19.2.14\n+ @types/react-dom@19.2.3\n+ eslint@9.39.4 (v10.3.0 available)\n+ eslint-config-next@15.5.16 (v16.2.5 available)\n+ typescript@5.9.3 (v6.0.3 available)\n+ next@15.5.6\n+ react@19.1.0\n+ react-dom@19.1.0\n\n299 packages installed [335.00ms]\n\nBlocked 1 postinstall. Run `bun pm untrusted` for details.\n   ▲ Next.js 15.5.6\n   - Experiments (use with caution):\n     · cpus: 4\n\n   Creating an optimized production build ...\n ✓ Compiled successfully in 1899ms\n   Linting and checking validity of types ...\n   Collecting page data ...\n   Generating static pages (0/4) ...\n   Generating static pages (1/4) \r\n   Generating static pages (2/4) \r\n   Generating static pages (3/4) \r\n ✓ Generating static pages (4/4)\n   Finalizing page optimization ...\n   Collecting build traces ...\n\nRoute (app)                                 Size  First Load JS\n┌ ○ /                                      120 B         102 kB\n└ ○ /_not-found                            998 B         103 kB\n+ First Load JS shared by all             102 kB\n  ├ chunks/255-cf2e1d3491ac955b.js       45.8 kB\n  ├ chunks/4bd1b696-c023c6e3521b1417.js  54.2 kB\n  └ other shared chunks (total)          1.89 kB\n\n\n○  (Static)  prerendered as static content\n\n",
+        "stderr": "Resolving dependencies\nResolved, downloaded and extracted [0]\nSaved lockfile\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/security-consulting-site",
+        "appName": "ScopeShield",
+        "productBrief": "ScopeShield explains assessments, deliverables, timelines, exclusions, scoped-call paths, and proof without fear marketing or exaggerated security claims.",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": true,
+        "compose": true,
+        "standaloneNext": true,
+        "appPage": true,
+        "readmeEnv": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "assessment-request-api",
+      "title": "Assessment request API",
+      "tool": "scaffoldFastifyPostgresApp",
+      "storyPath": "agents/training-scenarios/user_stories/501-520-real-world-compression-user-stories.md#511-assessment-requests-need-an-api",
+      "ok": true,
+      "elapsedMs": 1126,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline --ignore-scripts --no-progress && ./node_modules/.bin/tsc -p tsconfig.json --pretty false) || (npm install --ignore-scripts --progress=false --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/assessment-request-api",
+        "exitCode": 0,
+        "stdout": "bun install v1.3.11 (af24e281)\n\n+ @types/node@24.12.2 (v25.6.0 available)\n+ @types/pg@8.20.0\n+ tsx@4.21.0\n+ typescript@5.9.3 (v6.0.3 available)\n+ fastify@5.8.5\n+ pg@8.20.0\n\n70 packages installed [40.00ms]\n",
+        "stderr": "Saved lockfile\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/assessment-request-api",
+        "appName": "AssessmentRequest API",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": true,
+        "compose": true,
+        "migrationScript": true,
+        "healthRoutes": true,
+        "postgresCompose": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "scoped-call-followup-worker",
+      "title": "Scoped call followup worker",
+      "tool": "scaffoldFastifyWorkerRedisApp",
+      "storyPath": "agents/training-scenarios/user_stories/501-520-real-world-compression-user-stories.md#512-follow-up-on-scoped-calls",
+      "ok": true,
+      "elapsedMs": 1942,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline --ignore-scripts --no-progress && ./node_modules/.bin/tsc -p tsconfig.json --pretty false) || (npm install --ignore-scripts --progress=false --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/scoped-call-followup-worker",
+        "exitCode": 0,
+        "stdout": "bun install v1.3.11 (af24e281)\n\n+ @types/node@24.12.2 (v25.6.0 available)\n+ tsx@4.21.0\n+ typescript@5.9.3 (v6.0.3 available)\n+ fastify@5.8.5\n+ redis@5.12.1\n\n63 packages installed [84.00ms]\n",
+        "stderr": "Resolving dependencies\nResolved, downloaded and extracted [0]\nSaved lockfile\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/scoped-call-followup-worker",
+        "appName": "ScopedCallNudge Worker",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": true,
+        "compose": true,
+        "workerEntrypoint": true,
+        "queueRoutes": true,
+        "redisCompose": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "daycare-parent-info-site",
+      "title": "Daycare parent info site",
+      "tool": "scaffoldNextjsDockerApp",
+      "storyPath": "agents/training-scenarios/user_stories/501-520-real-world-compression-user-stories.md#513-a-daycare-needs-calm-parent-info",
+      "ok": true,
+      "elapsedMs": 18396,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline && NEXT_TELEMETRY_DISABLED=1 ./node_modules/.bin/next build) || (npm install --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/daycare-parent-info-site",
+        "exitCode": 0,
+        "stdout": "bun install v1.3.11 (af24e281)\n\n+ @eslint/eslintrc@3.3.5\n+ @types/node@24.12.2 (v25.6.0 available)\n+ @types/react@19.2.14\n+ @types/react-dom@19.2.3\n+ eslint@9.39.4 (v10.3.0 available)\n+ eslint-config-next@15.5.16 (v16.2.5 available)\n+ typescript@5.9.3 (v6.0.3 available)\n+ next@15.5.6\n+ react@19.1.0\n+ react-dom@19.1.0\n\n299 packages installed [338.00ms]\n\nBlocked 1 postinstall. Run `bun pm untrusted` for details.\n   ▲ Next.js 15.5.6\n   - Experiments (use with caution):\n     · cpus: 4\n\n   Creating an optimized production build ...\n ✓ Compiled successfully in 2.2s\n   Linting and checking validity of types ...\n   Collecting page data ...\n   Generating static pages (0/4) ...\n   Generating static pages (1/4) \r\n   Generating static pages (2/4) \r\n   Generating static pages (3/4) \r\n ✓ Generating static pages (4/4)\n   Finalizing page optimization ...\n   Collecting build traces ...\n\nRoute (app)                                 Size  First Load JS\n┌ ○ /                                      120 B         102 kB\n└ ○ /_not-found                            995 B         103 kB\n+ First Load JS shared by all             102 kB\n  ├ chunks/255-cf2e1d3491ac955b.js       45.8 kB\n  ├ chunks/4bd1b696-c023c6e3521b1417.js  54.2 kB\n  └ other shared chunks (total)          1.89 kB\n\n\n○  (Static)  prerendered as static content\n\n",
+        "stderr": "Resolving dependencies\nResolved, downloaded and extracted [0]\nSaved lockfile\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/daycare-parent-info-site",
+        "appName": "LittleHarbor Care",
+        "productBrief": "LittleHarbor Care explains age groups, daily rhythm, meals, pickup rules, cost caveats, openings inquiry paths, and trust cues without fake enrollment.",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": true,
+        "compose": true,
+        "standaloneNext": true,
+        "appPage": true,
+        "readmeEnv": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "daycare-waitlist-api",
+      "title": "Daycare waitlist API",
+      "tool": "scaffoldFastifyPostgresApp",
+      "storyPath": "agents/training-scenarios/user_stories/501-520-real-world-compression-user-stories.md#514-openings-need-a-waitlist-api",
+      "ok": true,
+      "elapsedMs": 1410,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline --ignore-scripts --no-progress && ./node_modules/.bin/tsc -p tsconfig.json --pretty false) || (npm install --ignore-scripts --progress=false --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/daycare-waitlist-api",
+        "exitCode": 0,
+        "stdout": "bun install v1.3.11 (af24e281)\n\n+ @types/node@24.12.2 (v25.6.0 available)\n+ @types/pg@8.20.0\n+ tsx@4.21.0\n+ typescript@5.9.3 (v6.0.3 available)\n+ fastify@5.8.5\n+ pg@8.20.0\n\n70 packages installed [86.00ms]\n",
+        "stderr": "Saved lockfile\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/daycare-waitlist-api",
+        "appName": "DaycareWaitlist API",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": true,
+        "compose": true,
+        "migrationScript": true,
+        "healthRoutes": true,
+        "postgresCompose": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "daycare-waitlist-worker",
+      "title": "Daycare waitlist worker",
+      "tool": "scaffoldFastifyWorkerRedisApp",
+      "storyPath": "agents/training-scenarios/user_stories/501-520-real-world-compression-user-stories.md#515-waitlist-followups-need-boundaries",
+      "ok": true,
+      "elapsedMs": 2322,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline --ignore-scripts --no-progress && ./node_modules/.bin/tsc -p tsconfig.json --pretty false) || (npm install --ignore-scripts --progress=false --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/daycare-waitlist-worker",
+        "exitCode": 0,
+        "stdout": "bun install v1.3.11 (af24e281)\n\n+ @types/node@24.12.2 (v25.6.0 available)\n+ tsx@4.21.0\n+ typescript@5.9.3 (v6.0.3 available)\n+ fastify@5.8.5\n+ redis@5.12.1\n\n63 packages installed [90.00ms]\n",
+        "stderr": "Resolving dependencies\nResolved, downloaded and extracted [0]\nSaved lockfile\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/daycare-waitlist-worker",
+        "appName": "DaycareWaitlistNudge Worker",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": true,
+        "compose": true,
+        "workerEntrypoint": true,
+        "queueRoutes": true,
+        "redisCompose": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "theatre-show-site",
+      "title": "Theatre show site",
+      "tool": "scaffoldNextjsDockerApp",
+      "storyPath": "agents/training-scenarios/user_stories/501-520-real-world-compression-user-stories.md#516-a-local-theatre-needs-a-show-page",
+      "ok": true,
+      "elapsedMs": 17810,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline && NEXT_TELEMETRY_DISABLED=1 ./node_modules/.bin/next build) || (npm install --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/theatre-show-site",
+        "exitCode": 0,
+        "stdout": "bun install v1.3.11 (af24e281)\n\n+ @eslint/eslintrc@3.3.5\n+ @types/node@24.12.2 (v25.6.0 available)\n+ @types/react@19.2.14\n+ @types/react-dom@19.2.3\n+ eslint@9.39.4 (v10.3.0 available)\n+ eslint-config-next@15.5.16 (v16.2.5 available)\n+ typescript@5.9.3 (v6.0.3 available)\n+ next@15.5.6\n+ react@19.1.0\n+ react-dom@19.1.0\n\n299 packages installed [432.00ms]\n\nBlocked 1 postinstall. Run `bun pm untrusted` for details.\n   ▲ Next.js 15.5.6\n   - Experiments (use with caution):\n     · cpus: 4\n\n   Creating an optimized production build ...\n ✓ Compiled successfully in 2.1s\n   Linting and checking validity of types ...\n   Collecting page data ...\n   Generating static pages (0/4) ...\n   Generating static pages (1/4) \r\n   Generating static pages (2/4) \r\n   Generating static pages (3/4) \r\n ✓ Generating static pages (4/4)\n   Finalizing page optimization ...\n   Collecting build traces ...\n\nRoute (app)                                 Size  First Load JS\n┌ ○ /                                      120 B         102 kB\n└ ○ /_not-found                            996 B         103 kB\n+ First Load JS shared by all             102 kB\n  ├ chunks/255-cf2e1d3491ac955b.js       45.8 kB\n  ├ chunks/4bd1b696-c023c6e3521b1417.js  54.2 kB\n  └ other shared chunks (total)          1.89 kB\n\n\n○  (Static)  prerendered as static content\n\n",
+        "stderr": "Resolving dependencies\nResolved, downloaded and extracted [0]\nSaved lockfile\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/theatre-show-site",
+        "appName": "StagePlain",
+        "productBrief": "StagePlain shows dates, venue, accessibility, cast notes, ticket caveats, contact paths, sponsor and volunteer cues with lively but uncluttered design.",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": true,
+        "compose": true,
+        "standaloneNext": true,
+        "appPage": true,
+        "readmeEnv": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "volunteer-shift-api",
+      "title": "Volunteer shift API",
+      "tool": "scaffoldFastifyPostgresApp",
+      "storyPath": "agents/training-scenarios/user_stories/501-520-real-world-compression-user-stories.md#517-volunteer-shifts-need-tracking",
+      "ok": true,
+      "elapsedMs": 1124,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline --ignore-scripts --no-progress && ./node_modules/.bin/tsc -p tsconfig.json --pretty false) || (npm install --ignore-scripts --progress=false --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/volunteer-shift-api",
+        "exitCode": 0,
+        "stdout": "bun install v1.3.11 (af24e281)\n\n+ @types/node@24.12.2 (v25.6.0 available)\n+ @types/pg@8.20.0\n+ tsx@4.21.0\n+ typescript@5.9.3 (v6.0.3 available)\n+ fastify@5.8.5\n+ pg@8.20.0\n\n70 packages installed [45.00ms]\n",
+        "stderr": "Saved lockfile\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/volunteer-shift-api",
+        "appName": "VolunteerShift API",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": true,
+        "compose": true,
+        "migrationScript": true,
+        "healthRoutes": true,
+        "postgresCompose": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "shift-reminder-worker",
+      "title": "Shift reminder worker",
+      "tool": "scaffoldFastifyWorkerRedisApp",
+      "storyPath": "agents/training-scenarios/user_stories/501-520-real-world-compression-user-stories.md#518-shift-reminders-should-not-spam",
+      "ok": true,
+      "elapsedMs": 1967,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline --ignore-scripts --no-progress && ./node_modules/.bin/tsc -p tsconfig.json --pretty false) || (npm install --ignore-scripts --progress=false --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/shift-reminder-worker",
+        "exitCode": 0,
+        "stdout": "bun install v1.3.11 (af24e281)\n\n+ @types/node@24.12.2 (v25.6.0 available)\n+ tsx@4.21.0\n+ typescript@5.9.3 (v6.0.3 available)\n+ fastify@5.8.5\n+ redis@5.12.1\n\n63 packages installed [77.00ms]\n",
+        "stderr": "Resolving dependencies\nResolved, downloaded and extracted [0]\nSaved lockfile\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/shift-reminder-worker",
+        "appName": "ShiftNudge Worker",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": true,
+        "compose": true,
+        "workerEntrypoint": true,
+        "queueRoutes": true,
+        "redisCompose": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "tiny-saas-changelog-site",
+      "title": "Tiny SaaS changelog site",
+      "tool": "scaffoldNextjsDockerApp",
+      "storyPath": "agents/training-scenarios/user_stories/501-520-real-world-compression-user-stories.md#519-a-tiny-saas-needs-a-changelog-people-read",
+      "ok": true,
+      "elapsedMs": 16677,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline && NEXT_TELEMETRY_DISABLED=1 ./node_modules/.bin/next build) || (npm install --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/tiny-saas-changelog-site",
+        "exitCode": 0,
+        "stdout": "bun install v1.3.11 (af24e281)\n\n+ @eslint/eslintrc@3.3.5\n+ @types/node@24.12.2 (v25.6.0 available)\n+ @types/react@19.2.14\n+ @types/react-dom@19.2.3\n+ eslint@9.39.4 (v10.3.0 available)\n+ eslint-config-next@15.5.16 (v16.2.5 available)\n+ typescript@5.9.3 (v6.0.3 available)\n+ next@15.5.6\n+ react@19.1.0\n+ react-dom@19.1.0\n\n299 packages installed [391.00ms]\n\nBlocked 1 postinstall. Run `bun pm untrusted` for details.\n   ▲ Next.js 15.5.6\n   - Experiments (use with caution):\n     · cpus: 4\n\n   Creating an optimized production build ...\n ✓ Compiled successfully in 1977ms\n   Linting and checking validity of types ...\n   Collecting page data ...\n   Generating static pages (0/4) ...\n   Generating static pages (1/4) \r\n   Generating static pages (2/4) \r\n   Generating static pages (3/4) \r\n ✓ Generating static pages (4/4)\n   Finalizing page optimization ...\n   Collecting build traces ...\n\nRoute (app)                                 Size  First Load JS\n┌ ○ /                                      120 B         102 kB\n└ ○ /_not-found                            997 B         103 kB\n+ First Load JS shared by all             102 kB\n  ├ chunks/255-cf2e1d3491ac955b.js       45.8 kB\n  ├ chunks/4bd1b696-c023c6e3521b1417.js  54.2 kB\n  └ other shared chunks (total)          1.89 kB\n\n\n○  (Static)  prerendered as static content\n\n",
+        "stderr": "Resolving dependencies\nResolved, downloaded and extracted [0]\nSaved lockfile\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/tiny-saas-changelog-site",
+        "appName": "ChangeTiny",
+        "productBrief": "ChangeTiny presents releases, fixes, known issues, upcoming work, filters, and concise product language without becoming a marketing blog.",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": true,
+        "compose": true,
+        "standaloneNext": true,
+        "appPage": true,
+        "readmeEnv": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "changelog-item-api",
+      "title": "Changelog item API",
+      "tool": "scaffoldFastifyPostgresApp",
+      "storyPath": "agents/training-scenarios/user_stories/501-520-real-world-compression-user-stories.md#520-changelog-items-need-an-api",
+      "ok": true,
+      "elapsedMs": 1128,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline --ignore-scripts --no-progress && ./node_modules/.bin/tsc -p tsconfig.json --pretty false) || (npm install --ignore-scripts --progress=false --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/changelog-item-api",
+        "exitCode": 0,
+        "stdout": "bun install v1.3.11 (af24e281)\n\n+ @types/node@24.12.2 (v25.6.0 available)\n+ @types/pg@8.20.0\n+ tsx@4.21.0\n+ typescript@5.9.3 (v6.0.3 available)\n+ fastify@5.8.5\n+ pg@8.20.0\n\n70 packages installed [61.00ms]\n",
+        "stderr": "Saved lockfile\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/changelog-item-api",
+        "appName": "ChangelogItem API",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": true,
+        "compose": true,
+        "migrationScript": true,
+        "healthRoutes": true,
+        "postgresCompose": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": true
+      }
+    }
+  ]
+}

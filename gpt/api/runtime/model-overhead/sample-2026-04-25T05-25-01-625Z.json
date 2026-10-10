@@ -1,0 +1,53 @@
+{
+  "sampleId": "manual-overhead:1777094701625",
+  "sampleSource": "node_loopback_manual",
+  "profileTag": "validation",
+  "recordedAt": "2026-04-25T05:25:01.625Z",
+  "conversationId": "manual-overhead-1777094701627",
+  "clientName": "packet-84-manual",
+  "modelApi": "http://127.0.0.1:18081",
+  "promptMessages": 1,
+  "maxTokens": 120,
+  "promptTokens": 25,
+  "generatedTokens": 31,
+  "contextMaxTokens": 16384,
+  "tps": 23.17656505362758,
+  "stages": {
+    "renderPromptMs": 11,
+    "tokenizePromptMs": 10,
+    "fetchContextMs": 9,
+    "toolLoopMs": 1627,
+    "tokenizeOutputMs": 11,
+    "syncOutputContextMs": 9,
+    "streamEmitMs": 0,
+    "totalMs": 1679
+  },
+  "loop": {
+    "iterations": 1,
+    "completionCalls": 1,
+    "completionMs": 1627,
+    "toolCalls": 0,
+    "toolMs": 0,
+    "totalMs": 1627
+  },
+  "llama": {
+    "cache_n": 1,
+    "prompt_n": 25,
+    "predicted_n": 31,
+    "predicted_per_second": 23.17656505362758
+  },
+  "integrity": {
+    "promptTokensSource": "llama_timing_fallback",
+    "generatedTokensSource": "llama_timing_fallback",
+    "warnings": [
+      "Prompt token count fell back to llama timings because tokenize returned 0.",
+      "Generated token count fell back to llama timings because tokenize returned 0."
+    ]
+  },
+  "derived": {
+    "nonCompletionMs": 52,
+    "nonCompletionShare": 3.1,
+    "nextOptimizationTarget": "completionMs",
+    "nextOptimizationReason": "Model completion time is the largest measured slice. Reduce completion calls, shrink completion prompts, or improve decode throughput first."
+  }
+}

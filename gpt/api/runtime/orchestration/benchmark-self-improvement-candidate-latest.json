@@ -1,0 +1,78 @@
+{
+  "generated_at": "2026-04-26T12:25:36.504Z",
+  "benchmark_family": "orchestration_benchmark_v2",
+  "profile_tag": "local-darwin-arm64-64gb",
+  "machine_key": "darwin:arm64:10cpu:64gb",
+  "status": "candidate_rejected",
+  "stoppingRule": "Candidate was rejected by review: Packet 96 command validation: no replay inspection was performed, so the release candidate remains unaccepted.",
+  "verificationSignals": [
+    "root cause context-packing-omission-pressure confidence=high score=100",
+    "evidence bundle self-edit-2026-04-26-packet-90 is ready",
+    "top cost target Escalated delivery handoff dominant=context:708",
+    "trend status=stable",
+    "packet selection 90 confidence=high"
+  ],
+  "candidate": {
+    "id": "verified-2026-04-26-context-packing-omission-pressure",
+    "title": "Inspect hot-context omission pressure before changing pack policy",
+    "confidence": "high",
+    "sourceRootCause": {
+      "id": "context-packing-omission-pressure",
+      "cause": "Context packing is probably dropping hot evidence under pressure.",
+      "score": 100
+    },
+    "selectedPacket": {
+      "packet": 90,
+      "title": "Evidence Bundle For Self-Edits",
+      "confidence": "high"
+    },
+    "targetScenario": {
+      "id": "delivery_handoff_escalated",
+      "label": "Escalated delivery handoff",
+      "dominantCost": "context:708",
+      "packedTokens": 35784,
+      "omittedTokens": 100075,
+      "costScore": 780
+    },
+    "nextAction": "Open the top-cost scenario replay and inspect which hot context segments were omitted before changing pack budgets or priority rules.",
+    "proposedChangeBoundary": [
+      "Start with benchmark/replay inspection rather than a broad refactor.",
+      "Only adjust context pack priority, omission budget, or scenario expectation after the cited omitted segments are confirmed useful.",
+      "Rerun the orchestration benchmark and compare the same profile/machine artifacts."
+    ],
+    "requiredEvidence": [
+      "cluster=gate:local-darwin-arm64-64gb:darwin:arm64:10cpu:64gb:delivery_handoff_escalated:omission_pressure:warn count=6",
+      "trend omission delta=0",
+      "top cost scenario=Escalated delivery handoff dominant=context:708 packed=35784 omitted=100075",
+      "evidence bundle=self-edit-2026-04-26-packet-90",
+      "scenario cost artifact=benchmark-scenario-costs-latest.json",
+      "root-cause artifact=benchmark-root-cause-shortlist-latest.json"
+    ],
+    "stopConditions": [
+      "Stop if the omitted segments are irrelevant to the worker output.",
+      "Stop if the same profile baseline no longer reproduces the warning cluster.",
+      "Stop if the candidate requires product behavior changes outside benchmark/orchestration code."
+    ],
+    "humanArbitration": [
+      "Confirm the omitted segments were actually needed by the worker that produced the warning.",
+      "A reviewer should decide whether the benchmark expectation or the orchestration policy is stale."
+    ]
+  },
+  "reviewState": {
+    "state": "matched",
+    "outcome": "rejected",
+    "reviewId": "rc-verified-2026-04-26-context-packing-omission-pressure-rejected-2026-04-26T07-19-40-956Z",
+    "decidedAt": "2026-04-26T07:19:40.956Z",
+    "decidedBy": "codex",
+    "reason": "Packet 96 command validation: no replay inspection was performed, so the release candidate remains unaccepted.",
+    "releaseCandidateId": "rc-verified-2026-04-26-context-packing-omission-pressure",
+    "availableReviewCount": 1
+  },
+  "inputArtifacts": {
+    "rootCauseShortlist": "benchmark-root-cause-shortlist-latest.json",
+    "evidenceBundle": "benchmark-self-edit-evidence-bundle-latest.json",
+    "packetSelection": "benchmark-packet-selection-latest.json",
+    "scenarioCosts": "benchmark-scenario-costs-latest.json",
+    "trend": "benchmark-trend-latest.json"
+  }
+}

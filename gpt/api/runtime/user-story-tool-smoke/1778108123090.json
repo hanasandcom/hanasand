@@ -1,0 +1,50 @@
+{
+  "ok": true,
+  "createdAt": "2026-05-06T22:55:23.089Z",
+  "smokeRoot": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke",
+  "selectedCasePattern": "clinic-request-nudge-worker",
+  "results": [
+    {
+      "id": "clinic-request-nudge-worker",
+      "title": "Clinic reminder worker",
+      "tool": "scaffoldFastifyWorkerRedisApp",
+      "storyPath": "agents/training-scenarios/user_stories/521-540-ambiguous-production-user-stories.md#529-clinic-reminders-need-safety-rails",
+      "ok": true,
+      "elapsedMs": 2694,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline --ignore-scripts --no-progress && ./node_modules/.bin/tsc -p tsconfig.json --pretty false) || (npm install --ignore-scripts --progress=false --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/clinic-request-nudge-worker",
+        "exitCode": 0,
+        "stdout": "bun install v1.3.11 (af24e281)\n\n+ @types/node@24.12.2 (v25.6.0 available)\n+ tsx@4.21.0\n+ typescript@5.9.3 (v6.0.3 available)\n+ fastify@5.8.5\n+ redis@5.12.1\n\n63 packages installed [103.00ms]\n",
+        "stderr": "Resolving dependencies\nResolved, downloaded and extracted [0]\nSaved lockfile\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/clinic-request-nudge-worker",
+        "appName": "ClinicReminder Worker",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": true,
+        "compose": true,
+        "workerEntrypoint": true,
+        "queueRoutes": true,
+        "redisCompose": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": true
+      }
+    }
+  ]
+}

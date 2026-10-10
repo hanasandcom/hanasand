@@ -1,0 +1,35 @@
+{
+  "runId": "run-2026-04-24T23-24-55-724Z",
+  "nodeId": "reviewer-4a17dac7-f588-4048-9fd7-cc244fafd008",
+  "role": "reviewer",
+  "task": "Review branch for: Build a Next.js dashboard, verify Docker startup, and prepare a reviewer handoff.",
+  "branchKey": "implementation:reviewer",
+  "packedContext": {
+    "nodeId": "reviewer-4a17dac7-f588-4048-9fd7-cc244fafd008",
+    "role": "reviewer",
+    "budgetTokens": 9000,
+    "usedTokens": 94,
+    "included": [
+      {
+        "id": "segment-eef402a8-65a9-49a5-b0c3-2ed61bc0965e",
+        "label": "Repository constraints",
+        "estimatedTokens": 42,
+        "reason": "role match for reviewer, shared global context, warm memory"
+      },
+      {
+        "id": "segment-5f850a23-775e-4b55-ad90-43e3bf188c71",
+        "label": "Known product gap",
+        "estimatedTokens": 31,
+        "reason": "role match for reviewer, shared global context, cold memory"
+      },
+      {
+        "id": "segment-76494d86-14d6-4563-8660-47821bc95785",
+        "label": "Task brief",
+        "estimatedTokens": 21,
+        "reason": "shared global context, hot memory"
+      }
+    ],
+    "omitted": [],
+    "generatedAt": "2026-04-24T23:24:55.862Z"
+  }
+}

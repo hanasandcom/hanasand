@@ -1,0 +1,67 @@
+{
+  "runId": "run-2026-04-26T07-22-38-875Z",
+  "nodeId": "implementation-656244cc-2433-40ab-802e-32d8639d2737",
+  "role": "implementation",
+  "task": "Build a Next.js dashboard, verify Docker startup, and prepare a reviewer handoff while noisy side threads and a flaky builder branch compete for attention.",
+  "branchKey": "implementation",
+  "packedContext": {
+    "nodeId": "implementation-656244cc-2433-40ab-802e-32d8639d2737",
+    "role": "implementation",
+    "budgetTokens": 18000,
+    "usedTokens": 17296,
+    "included": [
+      {
+        "id": "segment-45763d0f-cf32-4dc9-9270-62f49b4ce7b2",
+        "label": "Task brief",
+        "estimatedTokens": 39,
+        "reason": "role match for implementation, shared global context, hot memory"
+      },
+      {
+        "id": "segment-fe41cbf8-da49-4819-9629-a38c7509baa5",
+        "label": "Reviewer handoff contract",
+        "estimatedTokens": 8444,
+        "reason": "role match for implementation, shared global context, hot memory"
+      },
+      {
+        "id": "segment-6b874d68-7da6-405e-ae1f-3c7293205446",
+        "label": "Repository constraints",
+        "estimatedTokens": 42,
+        "reason": "role match for implementation, shared global context, warm memory"
+      },
+      {
+        "id": "segment-99035081-fc9f-440d-8112-2bcd6eb89441",
+        "label": "Flaky builder note",
+        "estimatedTokens": 8740,
+        "reason": "shared global context, hot memory"
+      },
+      {
+        "id": "segment-774754b8-8673-4e6b-a560-ac992bea2f8a",
+        "label": "Known product gap",
+        "estimatedTokens": 31,
+        "reason": "shared global context, cold memory"
+      }
+    ],
+    "omitted": [
+      {
+        "id": "segment-b0f98570-644d-4bc7-8d5b-0742f9b0ace7",
+        "label": "Unrelated design polish thread",
+        "estimatedTokens": 15005,
+        "reason": "role match for implementation, shared global context, cold memory"
+      },
+      {
+        "id": "segment-0eb71fb2-cb0b-4ebc-a4ca-8da5081e37b2",
+        "label": "Duplicate QA chatter",
+        "estimatedTokens": 12960,
+        "reason": "role match for implementation, shared global context, cold memory"
+      }
+    ],
+    "generatedAt": "2026-04-26T07:22:38.887Z"
+  },
+  "scenario": {
+    "id": "delivery_handoff_pressure_refresh",
+    "tension": "partial_failure",
+    "expectedBlockedRoles": [
+      "builder"
+    ]
+  }
+}

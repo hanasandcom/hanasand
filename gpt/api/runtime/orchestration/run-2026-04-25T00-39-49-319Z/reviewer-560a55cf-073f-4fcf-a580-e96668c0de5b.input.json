@@ -1,0 +1,35 @@
+{
+  "runId": "run-2026-04-25T00-39-49-319Z",
+  "nodeId": "reviewer-560a55cf-073f-4fcf-a580-e96668c0de5b",
+  "role": "reviewer",
+  "task": "Review branch for: Diagnose why Docker compose verification keeps failing, propose fixes, and prepare a final review.",
+  "branchKey": "implementation:reviewer",
+  "packedContext": {
+    "nodeId": "reviewer-560a55cf-073f-4fcf-a580-e96668c0de5b",
+    "role": "reviewer",
+    "budgetTokens": 9000,
+    "usedTokens": 98,
+    "included": [
+      {
+        "id": "segment-0cd28654-0cf8-4814-9d77-cca4fd0a443b",
+        "label": "Repository constraints",
+        "estimatedTokens": 42,
+        "reason": "role match for reviewer, shared global context, warm memory"
+      },
+      {
+        "id": "segment-81fc30b5-b14f-47a6-a651-dab02fe0fa12",
+        "label": "Known product gap",
+        "estimatedTokens": 31,
+        "reason": "role match for reviewer, shared global context, cold memory"
+      },
+      {
+        "id": "segment-bacfb756-9816-4112-9ca5-2bfede760236",
+        "label": "Task brief",
+        "estimatedTokens": 25,
+        "reason": "shared global context, hot memory"
+      }
+    ],
+    "omitted": [],
+    "generatedAt": "2026-04-25T00:39:49.353Z"
+  }
+}

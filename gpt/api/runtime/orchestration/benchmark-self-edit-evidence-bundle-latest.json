@@ -1,0 +1,78 @@
+{
+  "id": "self-edit-2026-04-26-packet-90",
+  "generated_at": "2026-04-26T12:25:36.504Z",
+  "status": "ready_for_review",
+  "selectedPacket": {
+    "packet": 90,
+    "title": "Evidence Bundle For Self-Edits",
+    "score": 85,
+    "confidence": "high",
+    "evidence": [
+      "scenario cost score=3118",
+      "top scenario=Escalated delivery handoff share=0.2502",
+      "warmup baseline=model_warmup:validation",
+      "next packet depends directly on ranking evidence"
+    ]
+  },
+  "benchmarkFamily": "orchestration_benchmark_v2",
+  "profileTag": "local-darwin-arm64-64gb",
+  "primaryEvidence": [
+    {
+      "kind": "packet_selection",
+      "summary": "Packet 90 ranked first with score 85 and high confidence.",
+      "source": "benchmark-packet-selection-latest.json"
+    },
+    {
+      "kind": "scenario_cost",
+      "summary": "Escalated delivery handoff is the highest-cost scenario at 780 cost score and 0.2502 share.",
+      "source": "benchmark-scenario-costs-latest.json"
+    },
+    {
+      "kind": "profile_trend",
+      "summary": "Profile-aware trend is stable for local-darwin-arm64-64gb.",
+      "source": "benchmark-trend-latest.json"
+    },
+    {
+      "kind": "warmup",
+      "summary": "Warmup baseline is model_warmup:validation with status ready.",
+      "source": "mac-validation-profile-smoke-latest.json"
+    }
+  ],
+  "costContext": {
+    "totalCostScore": 3118,
+    "topScenario": {
+      "id": "delivery_handoff_escalated",
+      "label": "Escalated delivery handoff",
+      "costScore": 780,
+      "costShare": 0.2502,
+      "dominantCost": "context:708",
+      "packedTokens": 35784,
+      "omittedTokens": 100075
+    }
+  },
+  "trendContext": {
+    "status": "stable",
+    "baselineStatus": "matched_profile_baseline",
+    "baselineGeneratedAt": "2026-04-26T07:29:58.478Z",
+    "regressionSignals": [],
+    "improvementSignals": []
+  },
+  "difficultyContext": {
+    "state": "increase",
+    "reason": "All scenarios passed with a near-perfect average score; the next benchmark loop should add harder pressure cases.",
+    "nextScenarioSeed": "Combine context pressure, partial failure, and contradictory reviewer evidence in one run."
+  },
+  "reviewChecklist": [
+    "Confirm the selected packet dependency gate is satisfied.",
+    "Read the selected packet file before editing code.",
+    "Use the linked benchmark artifacts as evidence, not as automatic approval.",
+    "Rerun the benchmark after the self-edit path changes."
+  ],
+  "artifactLinks": {
+    "benchmark": "benchmark-latest.json",
+    "scenarioCosts": "benchmark-scenario-costs-latest.json",
+    "packetSelection": "benchmark-packet-selection-latest.json",
+    "trend": "benchmark-trend-latest.json",
+    "warmup": "runtime/self-improvement/mac-validation-profile-smoke-latest.json"
+  }
+}

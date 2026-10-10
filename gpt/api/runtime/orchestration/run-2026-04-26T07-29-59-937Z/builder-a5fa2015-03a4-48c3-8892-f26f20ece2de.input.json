@@ -1,0 +1,80 @@
+{
+  "runId": "run-2026-04-26T07-29-59-937Z",
+  "nodeId": "builder-a5fa2015-03a4-48c3-8892-f26f20ece2de",
+  "role": "builder",
+  "task": "Build and verification branch for: Build a Next.js dashboard, verify Docker startup, and prepare a reviewer handoff. Add extra noise, a blocked verification branch, and contradictory reviewer evidence before deciding whether to ship.",
+  "branchKey": "implementation:builder",
+  "packedContext": {
+    "nodeId": "builder-a5fa2015-03a4-48c3-8892-f26f20ece2de",
+    "role": "builder",
+    "budgetTokens": 10000,
+    "usedTokens": 10000,
+    "included": [
+      {
+        "id": "segment-e643e39c-0af0-47bb-8cff-81acbd613c0f",
+        "label": "Escalated incident brief",
+        "estimatedTokens": 9775,
+        "reason": "role match for builder, shared global context, hot memory"
+      },
+      {
+        "id": "segment-f99e39e0-b7c3-40e4-bf93-fe11e7bbc3cd",
+        "label": "Builder stop-ship evidence",
+        "estimatedTokens": 225,
+        "reason": "role match for builder, shared global context, hot memory, compressed high-priority context"
+      }
+    ],
+    "omitted": [
+      {
+        "id": "segment-98ba5365-14e0-4747-bd2c-f9bdd3c21908",
+        "label": "Repository constraints",
+        "estimatedTokens": 42,
+        "reason": "role match for builder, shared global context, warm memory"
+      },
+      {
+        "id": "segment-c8a86784-100d-45cf-88fd-85145978e10b",
+        "label": "Noisy thread replay",
+        "estimatedTokens": 18475,
+        "reason": "role match for builder, shared global context, cold memory"
+      },
+      {
+        "id": "segment-5f3174ac-2a8d-4c30-b683-210035cdec59",
+        "label": "Task brief",
+        "estimatedTokens": 50,
+        "reason": "shared global context, hot memory"
+      },
+      {
+        "id": "segment-b11e1e5e-07b3-464b-a094-55a4fda18fdc",
+        "label": "Conflicting ship-now request",
+        "estimatedTokens": 6664,
+        "reason": "shared global context, hot memory"
+      },
+      {
+        "id": "segment-4d5383c8-0edc-448b-8da6-509b076f480f",
+        "label": "Reviewer merge constraint",
+        "estimatedTokens": 7326,
+        "reason": "shared global context, warm memory"
+      },
+      {
+        "id": "segment-85c59835-afe6-439c-81b5-00f42780d1d8",
+        "label": "Known product gap",
+        "estimatedTokens": 31,
+        "reason": "shared global context, cold memory"
+      },
+      {
+        "id": "segment-7dc56a57-566a-48ad-824a-18888e748322",
+        "label": "Backlog copy thread",
+        "estimatedTokens": 10179,
+        "reason": "shared global context, cold memory"
+      }
+    ],
+    "generatedAt": "2026-04-26T07:29:59.950Z"
+  },
+  "scenario": {
+    "id": "delivery_handoff_escalated",
+    "tension": "contested",
+    "contradictionMode": true,
+    "expectedBlockedRoles": [
+      "builder"
+    ]
+  }
+}

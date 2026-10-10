@@ -1,0 +1,245 @@
+{
+  "version": "context_export.v1",
+  "exportedAt": "2026-04-24T23:56:24.873Z",
+  "run": {
+    "id": "run-2026-04-24T23-56-24-756Z",
+    "task": "Build a Next.js dashboard, verify Docker startup, and prepare a reviewer handoff.",
+    "createdAt": "2026-04-24T23:56:24.756Z",
+    "updatedAt": "2026-04-24T23:56:24.858Z",
+    "effectiveCapacityTokens": 10000000
+  },
+  "profile": {
+    "id": "degraded_export",
+    "label": "Degraded export",
+    "mode": "degraded",
+    "notes": [
+      "Drops the last stored pack to simulate partial context persistence.",
+      "Drops the first edge to simulate a disconnected branch."
+    ]
+  },
+  "summary": {
+    "nodeCount": 4,
+    "edgeCount": 3,
+    "eventCount": 19,
+    "segmentCount": 3,
+    "packCount": 2,
+    "artifactCount": 3,
+    "scopeCount": 2,
+    "includedTokens": 376,
+    "omittedTokens": 0,
+    "inclusionRate": 1
+  },
+  "graph": {
+    "edgeTypes": [
+      {
+        "type": "reports_to",
+        "count": 1
+      },
+      {
+        "type": "branches_to",
+        "count": 2
+      }
+    ],
+    "roots": [
+      "implementation-44e2a101-77eb-4bd7-9398-8dd2b7bf8166"
+    ],
+    "leaves": [
+      "orchestrator-a04b1cd9-11f1-4cea-82ac-516ba8ec21de",
+      "builder-4849dd50-19b3-4360-b370-39e83b53a132",
+      "reviewer-13940b64-3002-4e3d-9aac-1562c67eced5"
+    ],
+    "orphanNodes": [
+      "implementation-44e2a101-77eb-4bd7-9398-8dd2b7bf8166"
+    ]
+  },
+  "scopes": [
+    {
+      "id": "all_workers",
+      "label": "All worker branches",
+      "description": "Union of every non-orchestrator context pack for the run.",
+      "roles": [
+        "implementation",
+        "builder"
+      ],
+      "nodeIds": [
+        "implementation-44e2a101-77eb-4bd7-9398-8dd2b7bf8166",
+        "builder-4849dd50-19b3-4360-b370-39e83b53a132"
+      ],
+      "packCount": 2,
+      "budgetTokens": 28000,
+      "usedTokens": 188,
+      "includedTokens": 188,
+      "omittedTokens": 0,
+      "includedCount": 3,
+      "omittedCount": 0,
+      "omissionRate": 0,
+      "included": [
+        {
+          "id": "segment-61c00c08-60ab-43bc-a510-ada08b22638a",
+          "label": "Task brief",
+          "kind": "task",
+          "temperature": "hot",
+          "branchKey": "root",
+          "estimatedTokens": 21,
+          "reasons": [
+            "role match for implementation",
+            "shared global context",
+            "hot memory"
+          ],
+          "preview": "Build a Next.js dashboard, verify Docker startup, and prepare a reviewer handoff."
+        },
+        {
+          "id": "segment-c1b4fe48-4e1c-4f9c-a593-84652a15dacc",
+          "label": "Repository constraints",
+          "kind": "constraint",
+          "temperature": "warm",
+          "branchKey": null,
+          "estimatedTokens": 42,
+          "reasons": [
+            "role match for implementation",
+            "shared global context",
+            "warm memory"
+          ],
+          "preview": "Prefer TypeScript and shell scripts. Keep orchestration inspectable and replayable. Treat 10M context as effective retrieval-backed context rather than a single prompt."
+        },
+        {
+          "id": "segment-58198e86-574b-4eec-87ec-11b59a6fb988",
+          "label": "Known product gap",
+          "kind": "memory",
+          "temperature": "cold",
+          "branchKey": null,
+          "estimatedTokens": 31,
+          "reasons": [
+            "shared global context",
+            "cold memory"
+          ],
+          "preview": "Remote VM shell/file-write deploy flow is still incomplete, so orchestration should stay honest about local-only branches."
+        }
+      ],
+      "omitted": []
+    },
+    {
+      "id": "implementation_focus",
+      "label": "Implementation focus",
+      "description": "Implementation and builder branches only, tuned for the main delivery path.",
+      "roles": [
+        "implementation",
+        "builder"
+      ],
+      "nodeIds": [
+        "implementation-44e2a101-77eb-4bd7-9398-8dd2b7bf8166",
+        "builder-4849dd50-19b3-4360-b370-39e83b53a132"
+      ],
+      "packCount": 2,
+      "budgetTokens": 28000,
+      "usedTokens": 188,
+      "includedTokens": 188,
+      "omittedTokens": 0,
+      "includedCount": 3,
+      "omittedCount": 0,
+      "omissionRate": 0,
+      "included": [
+        {
+          "id": "segment-61c00c08-60ab-43bc-a510-ada08b22638a",
+          "label": "Task brief",
+          "kind": "task",
+          "temperature": "hot",
+          "branchKey": "root",
+          "estimatedTokens": 21,
+          "reasons": [
+            "role match for implementation",
+            "shared global context",
+            "hot memory"
+          ],
+          "preview": "Build a Next.js dashboard, verify Docker startup, and prepare a reviewer handoff."
+        },
+        {
+          "id": "segment-c1b4fe48-4e1c-4f9c-a593-84652a15dacc",
+          "label": "Repository constraints",
+          "kind": "constraint",
+          "temperature": "warm",
+          "branchKey": null,
+          "estimatedTokens": 42,
+          "reasons": [
+            "role match for implementation",
+            "shared global context",
+            "warm memory"
+          ],
+          "preview": "Prefer TypeScript and shell scripts. Keep orchestration inspectable and replayable. Treat 10M context as effective retrieval-backed context rather than a single prompt."
+        },
+        {
+          "id": "segment-58198e86-574b-4eec-87ec-11b59a6fb988",
+          "label": "Known product gap",
+          "kind": "memory",
+          "temperature": "cold",
+          "branchKey": null,
+          "estimatedTokens": 31,
+          "reasons": [
+            "shared global context",
+            "cold memory"
+          ],
+          "preview": "Remote VM shell/file-write deploy flow is still incomplete, so orchestration should stay honest about local-only branches."
+        }
+      ],
+      "omitted": []
+    }
+  ],
+  "qualityGates": [
+    {
+      "id": "pack_coverage",
+      "label": "Pack coverage",
+      "status": "fail",
+      "summary": "Most worker nodes are missing context packs.",
+      "actual": "2/3 nodes",
+      "threshold": "pass >= 1, warn >= 0.67"
+    },
+    {
+      "id": "hot_segment_coverage",
+      "label": "Hot segment coverage",
+      "status": "pass",
+      "summary": "Hot task context is represented across the exported scopes.",
+      "actual": "1/1 hot segments",
+      "threshold": "pass >= 0.75, warn >= 0.4"
+    },
+    {
+      "id": "budget_discipline",
+      "label": "Budget discipline",
+      "status": "pass",
+      "summary": "No stored pack exceeded its token budget.",
+      "actual": "within budget",
+      "threshold": "usedTokens <= budgetTokens for every pack"
+    },
+    {
+      "id": "omission_pressure",
+      "label": "Omission pressure",
+      "status": "pass",
+      "summary": "The average scope kept omission pressure under control.",
+      "actual": "0% omitted",
+      "threshold": "pass >= 0.7, warn >= 0.45"
+    },
+    {
+      "id": "graph_integrity",
+      "label": "Graph integrity",
+      "status": "fail",
+      "summary": "One or more child nodes are disconnected from the orchestration graph.",
+      "actual": "implementation-44e2a101-77eb-4bd7-9398-8dd2b7bf8166",
+      "threshold": "no orphan nodes"
+    }
+  ],
+  "exclusionAccounting": {
+    "omittedByReason": [],
+    "omittedByRole": [
+      {
+        "role": "implementation",
+        "count": 0,
+        "estimatedTokens": 0
+      },
+      {
+        "role": "builder",
+        "count": 0,
+        "estimatedTokens": 0
+      }
+    ],
+    "samples": []
+  }
+}

@@ -1,0 +1,750 @@
+{
+  "id": "run-2026-04-25T04-49-45-657Z",
+  "task": "Triage a deployment under heavy context pressure, preserve the hottest constraints, and produce a reviewer handoff.",
+  "createdAt": "2026-04-25T04:49:45.657Z",
+  "updatedAt": "2026-04-25T04:49:45.818Z",
+  "topology": {
+    "ownerNodeId": "orchestrator-acb03cf6-c05b-4d28-85a6-d098f88c7fb3",
+    "strategy": "orchestrator -> implementation -> optional builder/reviewer branches",
+    "notes": [
+      "The orchestrator owns steering, branch policy, context packaging, and final upstream reporting.",
+      "The implementation node owns direct task execution and requests specialist branches when needed.",
+      "Builder and reviewer branches are opened through branch-control policy rather than by default.",
+      "Scenario profile: context_pressure_triage (context_pressure)."
+    ]
+  },
+  "branchPolicy": {
+    "maxBranches": 3,
+    "maxDepth": 2
+  },
+  "nodes": [
+    {
+      "id": "orchestrator-acb03cf6-c05b-4d28-85a6-d098f88c7fb3",
+      "role": "orchestrator",
+      "label": "Orchestrator",
+      "parentId": null,
+      "branchKey": "root",
+      "depth": 0,
+      "status": "completed",
+      "task": "Triage a deployment under heavy context pressure, preserve the hottest constraints, and produce a reviewer handoff.",
+      "assignedAt": "2026-04-25T04:49:45.657Z",
+      "startedAt": null,
+      "completedAt": "2026-04-25T04:49:45.818Z",
+      "summary": "Closed orchestration run and persisted replay output."
+    },
+    {
+      "id": "implementation-5e5afa5b-f1f1-4aac-b3a0-80a2c5fe4274",
+      "role": "implementation",
+      "label": "Implementation agent",
+      "parentId": "orchestrator-acb03cf6-c05b-4d28-85a6-d098f88c7fb3",
+      "branchKey": "implementation",
+      "depth": 1,
+      "status": "completed",
+      "task": "Triage a deployment under heavy context pressure, preserve the hottest constraints, and produce a reviewer handoff.",
+      "assignedAt": "2026-04-25T04:49:45.657Z",
+      "startedAt": "2026-04-25T04:49:45.676Z",
+      "completedAt": "2026-04-25T04:49:45.735Z",
+      "summary": "Implementation worker completed"
+    },
+    {
+      "id": "builder-74a7ce4c-0e9c-4cc9-9e05-de9fabc957b3",
+      "role": "builder",
+      "label": "builder branch",
+      "parentId": "implementation-5e5afa5b-f1f1-4aac-b3a0-80a2c5fe4274",
+      "branchKey": "implementation:builder",
+      "depth": 2,
+      "status": "completed",
+      "task": "Build and verification branch for: Triage a deployment under heavy context pressure, preserve the hottest constraints, and produce a reviewer handoff.",
+      "assignedAt": "2026-04-25T04:49:45.663Z",
+      "startedAt": "2026-04-25T04:49:45.735Z",
+      "completedAt": "2026-04-25T04:49:45.773Z",
+      "summary": "Builder worker completed"
+    },
+    {
+      "id": "reviewer-20682c9e-0654-49d5-8fb8-818298f6b6a6",
+      "role": "reviewer",
+      "label": "reviewer branch",
+      "parentId": "implementation-5e5afa5b-f1f1-4aac-b3a0-80a2c5fe4274",
+      "branchKey": "implementation:reviewer",
+      "depth": 2,
+      "status": "completed",
+      "task": "Review branch for: Triage a deployment under heavy context pressure, preserve the hottest constraints, and produce a reviewer handoff.",
+      "assignedAt": "2026-04-25T04:49:45.665Z",
+      "startedAt": "2026-04-25T04:49:45.773Z",
+      "completedAt": "2026-04-25T04:49:45.817Z",
+      "summary": "Reviewer worker completed"
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-a98c7e00-0896-4d99-b69a-d36c8264cfee",
+      "from": "orchestrator-acb03cf6-c05b-4d28-85a6-d098f88c7fb3",
+      "to": "implementation-5e5afa5b-f1f1-4aac-b3a0-80a2c5fe4274",
+      "type": "delegates_to",
+      "createdAt": "2026-04-25T04:49:45.657Z",
+      "label": "primary delivery path"
+    },
+    {
+      "id": "edge-1fd26be4-ae84-4a95-b0a9-d9333a37ccef",
+      "from": "implementation-5e5afa5b-f1f1-4aac-b3a0-80a2c5fe4274",
+      "to": "orchestrator-acb03cf6-c05b-4d28-85a6-d098f88c7fb3",
+      "type": "reports_to",
+      "createdAt": "2026-04-25T04:49:45.657Z",
+      "label": "upstream summary"
+    },
+    {
+      "id": "edge-builder-74a7ce4c-0e9c-4cc9-9e05-de9fabc957b3",
+      "from": "implementation-5e5afa5b-f1f1-4aac-b3a0-80a2c5fe4274",
+      "to": "builder-74a7ce4c-0e9c-4cc9-9e05-de9fabc957b3",
+      "type": "branches_to",
+      "createdAt": "2026-04-25T04:49:45.664Z",
+      "label": "The task mentions build/run/verification work and benefits from a dedicated builder branch."
+    },
+    {
+      "id": "edge-reviewer-20682c9e-0654-49d5-8fb8-818298f6b6a6",
+      "from": "implementation-5e5afa5b-f1f1-4aac-b3a0-80a2c5fe4274",
+      "to": "reviewer-20682c9e-0654-49d5-8fb8-818298f6b6a6",
+      "type": "branches_to",
+      "createdAt": "2026-04-25T04:49:45.666Z",
+      "label": "A reviewer branch keeps final reporting and risk assessment separate from direct implementation."
+    }
+  ],
+  "events": [
+    {
+      "id": "event-a6b82f12-c71f-41ac-9b4f-6fb4e7035698",
+      "runId": "run-2026-04-25T04-49-45-657Z",
+      "nodeId": "implementation-5e5afa5b-f1f1-4aac-b3a0-80a2c5fe4274",
+      "role": "implementation",
+      "type": "branch_opened",
+      "state": "info",
+      "summary": "Opened builder branch",
+      "detail": "The task mentions build/run/verification work and benefits from a dedicated builder branch.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T04:49:45.664Z",
+      "metadata": {
+        "branchNodeId": "builder-74a7ce4c-0e9c-4cc9-9e05-de9fabc957b3"
+      }
+    },
+    {
+      "id": "event-435e2f6c-5abc-4488-9d35-c40e53347d16",
+      "runId": "run-2026-04-25T04-49-45-657Z",
+      "nodeId": "implementation-5e5afa5b-f1f1-4aac-b3a0-80a2c5fe4274",
+      "role": "implementation",
+      "type": "branch_opened",
+      "state": "info",
+      "summary": "Opened reviewer branch",
+      "detail": "A reviewer branch keeps final reporting and risk assessment separate from direct implementation.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T04:49:45.666Z",
+      "metadata": {
+        "branchNodeId": "reviewer-20682c9e-0654-49d5-8fb8-818298f6b6a6"
+      }
+    },
+    {
+      "id": "event-3811752a-003b-4c14-a3f1-f6f6ab1de23a",
+      "runId": "run-2026-04-25T04-49-45-657Z",
+      "nodeId": "orchestrator-acb03cf6-c05b-4d28-85a6-d098f88c7fb3",
+      "role": "orchestrator",
+      "type": "branch_blocked",
+      "state": "blocked",
+      "summary": "Branch policy blocked additional work",
+      "detail": "Branch limit reached at 3 active branches. Existing branches must close or merge before more work can fork.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T04:49:45.668Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-7f5d64c9-0047-4304-97e0-aacddd666616",
+      "runId": "run-2026-04-25T04-49-45-657Z",
+      "nodeId": "implementation-5e5afa5b-f1f1-4aac-b3a0-80a2c5fe4274",
+      "role": "implementation",
+      "type": "context_packed",
+      "state": "info",
+      "summary": "Packed context for implementation",
+      "detail": "Included 7 segments and omitted 2.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T04:49:45.670Z",
+      "metadata": {
+        "budgetTokens": 18000,
+        "usedTokens": 17170
+      }
+    },
+    {
+      "id": "event-155e94b6-f3a2-44d2-b1ac-c4806761bd17",
+      "runId": "run-2026-04-25T04-49-45-657Z",
+      "nodeId": "builder-74a7ce4c-0e9c-4cc9-9e05-de9fabc957b3",
+      "role": "builder",
+      "type": "context_packed",
+      "state": "info",
+      "summary": "Packed context for builder",
+      "detail": "Included 5 segments and omitted 4.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T04:49:45.671Z",
+      "metadata": {
+        "budgetTokens": 10000,
+        "usedTokens": 7182
+      }
+    },
+    {
+      "id": "event-ec82661c-9647-461a-b796-ddac9be917b0",
+      "runId": "run-2026-04-25T04-49-45-657Z",
+      "nodeId": "reviewer-20682c9e-0654-49d5-8fb8-818298f6b6a6",
+      "role": "reviewer",
+      "type": "context_packed",
+      "state": "info",
+      "summary": "Packed context for reviewer",
+      "detail": "Included 5 segments and omitted 4.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T04:49:45.673Z",
+      "metadata": {
+        "budgetTokens": 9000,
+        "usedTokens": 7182
+      }
+    },
+    {
+      "id": "event-cd9d0cb8-347e-451a-a294-8b29321aa8a6",
+      "runId": "run-2026-04-25T04-49-45-657Z",
+      "nodeId": "implementation-5e5afa5b-f1f1-4aac-b3a0-80a2c5fe4274",
+      "role": "implementation",
+      "type": "worker_started",
+      "state": "info",
+      "summary": "Implementation worker started",
+      "detail": "Task: Triage a deployment under heavy context pressure, preserve the hottest constraints, and produce a reviewer handoff.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T04:49:45.726Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-59f6b124-cc1d-468b-bd83-f6710c6f7f4e",
+      "runId": "run-2026-04-25T04-49-45-657Z",
+      "nodeId": "implementation-5e5afa5b-f1f1-4aac-b3a0-80a2c5fe4274",
+      "role": "implementation",
+      "type": "status_update",
+      "state": "info",
+      "summary": "Thinking through the requested change set",
+      "detail": "Packed context includes 7 segments using 17170 tokens.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T04:49:45.729Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-bd952144-952d-4f6e-b6a5-cbbf2f9323ee",
+      "runId": "run-2026-04-25T04-49-45-657Z",
+      "nodeId": "implementation-5e5afa5b-f1f1-4aac-b3a0-80a2c5fe4274",
+      "role": "implementation",
+      "type": "artifact_produced",
+      "state": "completed",
+      "summary": "Prepared implementation plan artifact",
+      "detail": null,
+      "artifacts": [
+        {
+          "id": "artifact-1d12bbf0-4817-40e4-a048-98a51226bf48",
+          "label": "implementation-plan.md",
+          "kind": "text",
+          "content": "# Implementation plan\n\n- Task: Triage a deployment under heavy context pressure, preserve the hottest constraints, and produce a reviewer handoff.\n- Branch: implementation\n- Scenario tension: context_pressure\n- Recommended stance: proceed with the scoped change\n- Selected context:\n  - Task brief: role match for implementation, shared global context, hot memory\n  - Hot incident notes: role match for implementation, shared global context, hot memory\n  - Repository constraints: role match for implementation, shared global context, warm memory\n  - Dense repo summary: role match for implementation, shared global context, warm memory\n  - Low-priority backlog 1: role match for implementation, shared global context, cold memory\n  - Rollback guardrails: shared global context, hot memory, compressed high-priority context\n  - Known product gap: shared global context, cold memory\n\n- Omitted context count: 2\n- Follow-up: implementation branch should call out anything dropped from the pack before claiming confidence.",
+          "createdAt": "2026-04-25T04:49:45.729Z"
+        }
+      ],
+      "createdAt": "2026-04-25T04:49:45.729Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-f2a1528b-74b6-44ed-8f2f-892da4bc717f",
+      "runId": "run-2026-04-25T04-49-45-657Z",
+      "nodeId": "implementation-5e5afa5b-f1f1-4aac-b3a0-80a2c5fe4274",
+      "role": "implementation",
+      "type": "worker_completed",
+      "state": "completed",
+      "summary": "Implementation worker completed",
+      "detail": "Structured upstream reporting emitted successfully.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T04:49:45.729Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-33859156-5c62-4871-b627-19883180864e",
+      "runId": "run-2026-04-25T04-49-45-657Z",
+      "nodeId": "builder-74a7ce4c-0e9c-4cc9-9e05-de9fabc957b3",
+      "role": "builder",
+      "type": "worker_started",
+      "state": "info",
+      "summary": "Builder worker started",
+      "detail": "Task: Build and verification branch for: Triage a deployment under heavy context pressure, preserve the hottest constraints, and produce a reviewer handoff.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T04:49:45.764Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-ba9c2f19-cb81-46b9-aa61-d1693eff6c11",
+      "runId": "run-2026-04-25T04-49-45-657Z",
+      "nodeId": "builder-74a7ce4c-0e9c-4cc9-9e05-de9fabc957b3",
+      "role": "builder",
+      "type": "status_update",
+      "state": "info",
+      "summary": "Preparing builder branch",
+      "detail": "Packed context includes 5 segments using 7182 tokens.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T04:49:45.767Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-30607a35-328b-4de9-8a3e-8131ebb0760a",
+      "runId": "run-2026-04-25T04-49-45-657Z",
+      "nodeId": "builder-74a7ce4c-0e9c-4cc9-9e05-de9fabc957b3",
+      "role": "builder",
+      "type": "artifact_produced",
+      "state": "completed",
+      "summary": "Prepared build-and-verify command log",
+      "detail": null,
+      "artifacts": [
+        {
+          "id": "artifact-164760ee-eb76-429c-99c7-aedf1b7471d6",
+          "label": "builder-commands.log",
+          "kind": "log",
+          "content": "npm install\nnpm run build\nnpm test\ndocker compose up --build -d\nhealthcheck passed",
+          "createdAt": "2026-04-25T04:49:45.767Z"
+        }
+      ],
+      "createdAt": "2026-04-25T04:49:45.767Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-cb880acb-3bf7-443c-b09e-9ca6f3fd406d",
+      "runId": "run-2026-04-25T04-49-45-657Z",
+      "nodeId": "builder-74a7ce4c-0e9c-4cc9-9e05-de9fabc957b3",
+      "role": "builder",
+      "type": "worker_completed",
+      "state": "completed",
+      "summary": "Builder worker completed",
+      "detail": "Structured upstream reporting emitted successfully.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T04:49:45.767Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-c013261b-2520-4adb-a518-b58ab0c832cd",
+      "runId": "run-2026-04-25T04-49-45-657Z",
+      "nodeId": "reviewer-20682c9e-0654-49d5-8fb8-818298f6b6a6",
+      "role": "reviewer",
+      "type": "worker_started",
+      "state": "info",
+      "summary": "Reviewer worker started",
+      "detail": "Task: Review branch for: Triage a deployment under heavy context pressure, preserve the hottest constraints, and produce a reviewer handoff.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T04:49:45.810Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-c3d450ca-73f3-4589-bb1b-929a84a579e1",
+      "runId": "run-2026-04-25T04-49-45-657Z",
+      "nodeId": "reviewer-20682c9e-0654-49d5-8fb8-818298f6b6a6",
+      "role": "reviewer",
+      "type": "status_update",
+      "state": "info",
+      "summary": "Preparing reviewer branch",
+      "detail": "Packed context includes 5 segments using 7182 tokens.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T04:49:45.813Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-0950b15b-3721-480f-b59d-f308ae157033",
+      "runId": "run-2026-04-25T04-49-45-657Z",
+      "nodeId": "reviewer-20682c9e-0654-49d5-8fb8-818298f6b6a6",
+      "role": "reviewer",
+      "type": "review_requested",
+      "state": "completed",
+      "summary": "Prepared reviewer summary",
+      "detail": null,
+      "artifacts": [
+        {
+          "id": "artifact-5bda782e-c78f-4f52-8996-2178643dcc61",
+          "label": "review-summary.md",
+          "kind": "text",
+          "content": "# Review summary\n\n- Risk posture: low\n- Notes: review branch confirms the task is still aligned with the requested outcome.\n- Context pack size: 7182 tokens\n- Omitted segments: 4",
+          "createdAt": "2026-04-25T04:49:45.813Z"
+        }
+      ],
+      "createdAt": "2026-04-25T04:49:45.813Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-ab421d2a-b075-4874-aadc-c3eca5b92474",
+      "runId": "run-2026-04-25T04-49-45-657Z",
+      "nodeId": "reviewer-20682c9e-0654-49d5-8fb8-818298f6b6a6",
+      "role": "reviewer",
+      "type": "worker_completed",
+      "state": "completed",
+      "summary": "Reviewer worker completed",
+      "detail": "Structured upstream reporting emitted successfully.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T04:49:45.813Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-b3b2bb01-bb8f-45c8-b2f0-34248ead5221",
+      "runId": "run-2026-04-25T04-49-45-657Z",
+      "nodeId": "orchestrator-acb03cf6-c05b-4d28-85a6-d098f88c7fb3",
+      "role": "orchestrator",
+      "type": "run_summary",
+      "state": "completed",
+      "summary": "Orchestrator collected child updates and closed the run.",
+      "detail": "Executed 3 worker nodes with structured upstream events.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T04:49:45.818Z",
+      "metadata": {}
+    }
+  ],
+  "context": {
+    "effectiveCapacityTokens": 10000000,
+    "segments": [
+      {
+        "id": "segment-04710698-b8c7-47b5-8762-c95921ad1c81",
+        "label": "Task brief",
+        "kind": "task",
+        "temperature": "hot",
+        "roleAffinity": [
+          "orchestrator",
+          "implementation"
+        ],
+        "branchKey": "root",
+        "content": "Triage a deployment under heavy context pressure, preserve the hottest constraints, and produce a reviewer handoff.",
+        "estimatedTokens": 29,
+        "priority": 5,
+        "createdAt": "2026-04-25T04:49:45.660Z",
+        "metadata": {}
+      },
+      {
+        "id": "segment-19d8adbc-d7ff-4e6a-b868-b2301d54f36f",
+        "label": "Repository constraints",
+        "kind": "constraint",
+        "temperature": "warm",
+        "roleAffinity": [
+          "orchestrator",
+          "implementation",
+          "builder",
+          "reviewer"
+        ],
+        "branchKey": null,
+        "content": "Prefer TypeScript and shell scripts. Keep orchestration inspectable and replayable. Treat 10M context as effective retrieval-backed context rather than a single prompt.",
+        "estimatedTokens": 42,
+        "priority": 4,
+        "createdAt": "2026-04-25T04:49:45.660Z",
+        "metadata": {}
+      },
+      {
+        "id": "segment-3065c3c7-936f-4f4e-9878-bea7c368cbdb",
+        "label": "Known product gap",
+        "kind": "memory",
+        "temperature": "cold",
+        "roleAffinity": [
+          "orchestrator",
+          "reviewer"
+        ],
+        "branchKey": null,
+        "content": "Remote VM shell/file-write deploy flow is still incomplete, so orchestration should stay honest about local-only branches.",
+        "estimatedTokens": 31,
+        "priority": 3,
+        "createdAt": "2026-04-25T04:49:45.661Z",
+        "metadata": {}
+      },
+      {
+        "id": "segment-bdf13a53-2e8a-4829-9230-36acda7562b5",
+        "label": "Hot incident notes",
+        "kind": "memory",
+        "temperature": "hot",
+        "roleAffinity": [
+          "implementation",
+          "builder",
+          "reviewer"
+        ],
+        "branchKey": null,
+        "content": "Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window. Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window.",
+        "estimatedTokens": 6480,
+        "priority": 5,
+        "createdAt": "2026-04-25T04:49:45.661Z",
+        "metadata": {}
+      },
+      {
+        "id": "segment-9d20fdb8-87d3-482c-899b-a2fda3cf8771",
+        "label": "Rollback guardrails",
+        "kind": "constraint",
+        "temperature": "hot",
+        "roleAffinity": [
+          "builder",
+          "reviewer"
+        ],
+        "branchKey": null,
+        "content": "Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown. Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown.",
+        "estimatedTokens": 4760,
+        "priority": 5,
+        "createdAt": "2026-04-25T04:49:45.661Z",
+        "metadata": {}
+      },
+      {
+        "id": "segment-3079288e-fc21-4bd7-ae9f-7b6da6dc2607",
+        "label": "Dense repo summary",
+        "kind": "repo_summary",
+        "temperature": "warm",
+        "roleAffinity": [
+          "implementation",
+          "builder"
+        ],
+        "branchKey": null,
+        "content": "Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes. Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes.",
+        "estimatedTokens": 6413,
+        "priority": 4,
+        "createdAt": "2026-04-25T04:49:45.661Z",
+        "metadata": {}
+      },
+      {
+        "id": "segment-0eb615e4-2125-44f5-bbea-b7d6a37eebc2",
+        "label": "Reviewer disagreement note",
+        "kind": "artifact",
+        "temperature": "warm",
+        "roleAffinity": [
+          "reviewer"
+        ],
+        "branchKey": null,
+        "content": "A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete. A previous review approved shipping, but a later note questions whether the verification logs were complete.",
+        "estimatedTokens": 4088,
+        "priority": 4,
+        "createdAt": "2026-04-25T04:49:45.662Z",
+        "metadata": {}
+      },
+      {
+        "id": "segment-3748e6cd-f19e-4c7f-8509-77b5854958c5",
+        "label": "Low-priority backlog 1",
+        "kind": "memory",
+        "temperature": "cold",
+        "roleAffinity": [
+          "implementation"
+        ],
+        "branchKey": null,
+        "content": "Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy. Backlog thread about unrelated naming cleanup in dashboard copy.",
+        "estimatedTokens": 3575,
+        "priority": 1,
+        "createdAt": "2026-04-25T04:49:45.662Z",
+        "metadata": {}
+      },
+      {
+        "id": "segment-56ba7a47-dc4d-48cc-b9dd-74acb193580e",
+        "label": "Low-priority backlog 2",
+        "kind": "memory",
+        "temperature": "cold",
+        "roleAffinity": [
+          "builder"
+        ],
+        "branchKey": null,
+        "content": "Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context. Old package-manager migration note that should not displace hot deploy context.",
+        "estimatedTokens": 4400,
+        "priority": 1,
+        "createdAt": "2026-04-25T04:49:45.663Z",
+        "metadata": {}
+      }
+    ],
+    "packs": [
+      {
+        "nodeId": "implementation-5e5afa5b-f1f1-4aac-b3a0-80a2c5fe4274",
+        "role": "implementation",
+        "budgetTokens": 18000,
+        "usedTokens": 17170,
+        "included": [
+          {
+            "id": "segment-04710698-b8c7-47b5-8762-c95921ad1c81",
+            "label": "Task brief",
+            "estimatedTokens": 29,
+            "reason": "role match for implementation, shared global context, hot memory"
+          },
+          {
+            "id": "segment-bdf13a53-2e8a-4829-9230-36acda7562b5",
+            "label": "Hot incident notes",
+            "estimatedTokens": 6480,
+            "reason": "role match for implementation, shared global context, hot memory"
+          },
+          {
+            "id": "segment-19d8adbc-d7ff-4e6a-b868-b2301d54f36f",
+            "label": "Repository constraints",
+            "estimatedTokens": 42,
+            "reason": "role match for implementation, shared global context, warm memory"
+          },
+          {
+            "id": "segment-3079288e-fc21-4bd7-ae9f-7b6da6dc2607",
+            "label": "Dense repo summary",
+            "estimatedTokens": 6413,
+            "reason": "role match for implementation, shared global context, warm memory"
+          },
+          {
+            "id": "segment-3748e6cd-f19e-4c7f-8509-77b5854958c5",
+            "label": "Low-priority backlog 1",
+            "estimatedTokens": 3575,
+            "reason": "role match for implementation, shared global context, cold memory"
+          },
+          {
+            "id": "segment-9d20fdb8-87d3-482c-899b-a2fda3cf8771",
+            "label": "Rollback guardrails",
+            "estimatedTokens": 600,
+            "reason": "shared global context, hot memory, compressed high-priority context"
+          },
+          {
+            "id": "segment-3065c3c7-936f-4f4e-9878-bea7c368cbdb",
+            "label": "Known product gap",
+            "estimatedTokens": 31,
+            "reason": "shared global context, cold memory"
+          }
+        ],
+        "omitted": [
+          {
+            "id": "segment-0eb615e4-2125-44f5-bbea-b7d6a37eebc2",
+            "label": "Reviewer disagreement note",
+            "estimatedTokens": 4088,
+            "reason": "shared global context, warm memory"
+          },
+          {
+            "id": "segment-56ba7a47-dc4d-48cc-b9dd-74acb193580e",
+            "label": "Low-priority backlog 2",
+            "estimatedTokens": 4400,
+            "reason": "shared global context, cold memory"
+          }
+        ],
+        "generatedAt": "2026-04-25T04:49:45.669Z"
+      },
+      {
+        "nodeId": "builder-74a7ce4c-0e9c-4cc9-9e05-de9fabc957b3",
+        "role": "builder",
+        "budgetTokens": 10000,
+        "usedTokens": 7182,
+        "included": [
+          {
+            "id": "segment-bdf13a53-2e8a-4829-9230-36acda7562b5",
+            "label": "Hot incident notes",
+            "estimatedTokens": 6480,
+            "reason": "role match for builder, shared global context, hot memory"
+          },
+          {
+            "id": "segment-9d20fdb8-87d3-482c-899b-a2fda3cf8771",
+            "label": "Rollback guardrails",
+            "estimatedTokens": 600,
+            "reason": "role match for builder, shared global context, hot memory, compressed high-priority context"
+          },
+          {
+            "id": "segment-19d8adbc-d7ff-4e6a-b868-b2301d54f36f",
+            "label": "Repository constraints",
+            "estimatedTokens": 42,
+            "reason": "role match for builder, shared global context, warm memory"
+          },
+          {
+            "id": "segment-04710698-b8c7-47b5-8762-c95921ad1c81",
+            "label": "Task brief",
+            "estimatedTokens": 29,
+            "reason": "shared global context, hot memory"
+          },
+          {
+            "id": "segment-3065c3c7-936f-4f4e-9878-bea7c368cbdb",
+            "label": "Known product gap",
+            "estimatedTokens": 31,
+            "reason": "shared global context, cold memory"
+          }
+        ],
+        "omitted": [
+          {
+            "id": "segment-3079288e-fc21-4bd7-ae9f-7b6da6dc2607",
+            "label": "Dense repo summary",
+            "estimatedTokens": 6413,
+            "reason": "role match for builder, shared global context, warm memory"
+          },
+          {
+            "id": "segment-56ba7a47-dc4d-48cc-b9dd-74acb193580e",
+            "label": "Low-priority backlog 2",
+            "estimatedTokens": 4400,
+            "reason": "role match for builder, shared global context, cold memory"
+          },
+          {
+            "id": "segment-0eb615e4-2125-44f5-bbea-b7d6a37eebc2",
+            "label": "Reviewer disagreement note",
+            "estimatedTokens": 4088,
+            "reason": "shared global context, warm memory"
+          },
+          {
+            "id": "segment-3748e6cd-f19e-4c7f-8509-77b5854958c5",
+            "label": "Low-priority backlog 1",
+            "estimatedTokens": 3575,
+            "reason": "shared global context, cold memory"
+          }
+        ],
+        "generatedAt": "2026-04-25T04:49:45.671Z"
+      },
+      {
+        "nodeId": "reviewer-20682c9e-0654-49d5-8fb8-818298f6b6a6",
+        "role": "reviewer",
+        "budgetTokens": 9000,
+        "usedTokens": 7182,
+        "included": [
+          {
+            "id": "segment-bdf13a53-2e8a-4829-9230-36acda7562b5",
+            "label": "Hot incident notes",
+            "estimatedTokens": 6480,
+            "reason": "role match for reviewer, shared global context, hot memory"
+          },
+          {
+            "id": "segment-9d20fdb8-87d3-482c-899b-a2fda3cf8771",
+            "label": "Rollback guardrails",
+            "estimatedTokens": 600,
+            "reason": "role match for reviewer, shared global context, hot memory, compressed high-priority context"
+          },
+          {
+            "id": "segment-19d8adbc-d7ff-4e6a-b868-b2301d54f36f",
+            "label": "Repository constraints",
+            "estimatedTokens": 42,
+            "reason": "role match for reviewer, shared global context, warm memory"
+          },
+          {
+            "id": "segment-3065c3c7-936f-4f4e-9878-bea7c368cbdb",
+            "label": "Known product gap",
+            "estimatedTokens": 31,
+            "reason": "role match for reviewer, shared global context, cold memory"
+          },
+          {
+            "id": "segment-04710698-b8c7-47b5-8762-c95921ad1c81",
+            "label": "Task brief",
+            "estimatedTokens": 29,
+            "reason": "shared global context, hot memory"
+          }
+        ],
+        "omitted": [
+          {
+            "id": "segment-0eb615e4-2125-44f5-bbea-b7d6a37eebc2",
+            "label": "Reviewer disagreement note",
+            "estimatedTokens": 4088,
+            "reason": "role match for reviewer, shared global context, warm memory"
+          },
+          {
+            "id": "segment-3079288e-fc21-4bd7-ae9f-7b6da6dc2607",
+            "label": "Dense repo summary",
+            "estimatedTokens": 6413,
+            "reason": "shared global context, warm memory"
+          },
+          {
+            "id": "segment-3748e6cd-f19e-4c7f-8509-77b5854958c5",
+            "label": "Low-priority backlog 1",
+            "estimatedTokens": 3575,
+            "reason": "shared global context, cold memory"
+          },
+          {
+            "id": "segment-56ba7a47-dc4d-48cc-b9dd-74acb193580e",
+            "label": "Low-priority backlog 2",
+            "estimatedTokens": 4400,
+            "reason": "shared global context, cold memory"
+          }
+        ],
+        "generatedAt": "2026-04-25T04:49:45.672Z"
+      }
+    ]
+  },
+  "evaluation": {
+    "success": null,
+    "score": null,
+    "summary": null,
+    "checkedAt": null
+  }
+}

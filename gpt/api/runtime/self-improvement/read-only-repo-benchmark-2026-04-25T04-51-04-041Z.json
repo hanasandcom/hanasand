@@ -1,0 +1,19 @@
+{
+  "generated_at": "2026-04-25T04:52:38.390Z",
+  "started_at": "2026-04-25T04:51:04.042Z",
+  "duration_ms": 94348,
+  "completed": true,
+  "tool_event_count": 2,
+  "tool_events": [
+    {
+      "toolLabel": "Read file frontend/src/components/ai/useAiWorkbench.ts",
+      "toolState": "running"
+    },
+    {
+      "toolLabel": "Read file frontend/src/components/ai/useAiWorkbench.ts",
+      "toolState": "completed"
+    }
+  ],
+  "used_preloaded_read_file": true,
+  "response_preview": "Based on the content of `frontend/src/components/ai/useAiWorkbench.ts`, the top-level helper functions defined after the main exported hook `useAiWorkbench` are:\n\n1. `attachGitHubCredential`\n2. `importGitHubRepository`\n3. `removeGitHubCredential`\n4. `findTreeFileId`\n5. `listTreePaths`"
+}

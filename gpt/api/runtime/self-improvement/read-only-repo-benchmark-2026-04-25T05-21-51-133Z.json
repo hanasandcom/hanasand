@@ -1,0 +1,33 @@
+{
+  "generated_at": "2026-04-25T05:22:24.092Z",
+  "started_at": "2026-04-25T05:21:51.134Z",
+  "duration_ms": 32958,
+  "completed": true,
+  "mode": "local_direct",
+  "tool_event_count": 1,
+  "tool_events": [
+    {
+      "toolLabel": "Read file frontend/src/components/ai/useAiWorkbench.ts",
+      "toolState": "completed"
+    }
+  ],
+  "used_preloaded_read_file": true,
+  "file_line_count": 2171,
+  "excerpt_line_range": {
+    "start": 1856,
+    "end": 2171
+  },
+  "response_preview": "deriveLastToolState\nderiveLastFailure\nchooseNewestToolRun\nchooseNewestFailure\ncreateConversation\nwithRepositorySync\nwithWorkspaceActivity\nappendError\nresolveModelName\nbuildWorkspaceContext\nbuildSystemPrompt\ntoConversationPayload\nparseToolCalls\nstripToolTags\nslugify\ncreateWorkbenchSocket",
+  "max_tokens": 72,
+  "timings": {
+    "cache_n": 0,
+    "prompt_n": 3126,
+    "prompt_ms": 25970.137,
+    "prompt_per_token_ms": 8.30778534868842,
+    "prompt_per_second": 120.36902231205018,
+    "predicted_n": 66,
+    "predicted_ms": 6956.255,
+    "predicted_per_token_ms": 105.39780303030304,
+    "predicted_per_second": 9.487863800277593
+  }
+}

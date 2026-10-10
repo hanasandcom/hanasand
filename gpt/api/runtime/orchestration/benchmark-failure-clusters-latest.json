@@ -1,0 +1,43 @@
+{
+  "generated_at": "2026-04-26T12:25:36.504Z",
+  "benchmark_family": "orchestration_benchmark_v2",
+  "profile_tag": "local-darwin-arm64-64gb",
+  "machine_key": "darwin:arm64:10cpu:64gb",
+  "evidence_bundle_id": "self-edit-2026-04-26-packet-90",
+  "cluster_count": 1,
+  "repeated_cluster_count": 1,
+  "clusters": [
+    {
+      "key": "gate:local-darwin-arm64-64gb:darwin:arm64:10cpu:64gb:delivery_handoff_escalated:omission_pressure:warn",
+      "kind": "gate",
+      "profileTag": "local-darwin-arm64-64gb",
+      "machineKey": "darwin:arm64:10cpu:64gb",
+      "severity": "warning",
+      "count": 6,
+      "latestGeneratedAt": "2026-04-26T12:25:36.504Z",
+      "firstGeneratedAt": "2026-04-26T07:14:18.446Z",
+      "examples": [
+        "Escalated delivery handoff warned gate omission_pressure"
+      ],
+      "sourceRuns": [
+        "2026-04-26T07:14:18.446Z",
+        "2026-04-26T07:16:31.247Z",
+        "2026-04-26T07:22:38.681Z",
+        "2026-04-26T07:26:09.281Z",
+        "2026-04-26T07:29:58.478Z",
+        "2026-04-26T12:25:36.504Z"
+      ],
+      "evidenceBundleId": "self-edit-2026-04-26-packet-90"
+    }
+  ],
+  "clusteringRules": [
+    "Scenario statuses cluster by profile, machine, scenario id, and status.",
+    "Quality gates cluster by profile, machine, scenario id, gate id, and fail/warn state.",
+    "Regression signals cluster by profile, machine, and normalized signal text."
+  ],
+  "limitations": [
+    "Passing high-cost scenarios are not failures and stay in scenario-cost artifacts.",
+    "Text normalization is intentionally conservative; semantically similar but differently worded failures may remain separate.",
+    "Legacy benchmark artifacts without profile identity are grouped under the current fallback identity only when read through this run."
+  ]
+}

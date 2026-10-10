@@ -1,0 +1,635 @@
+{
+  "id": "run-2026-04-25T05-00-54-385Z",
+  "task": "Diagnose why Docker compose verification keeps failing, propose fixes, and prepare a final review.",
+  "createdAt": "2026-04-25T05:00:54.385Z",
+  "updatedAt": "2026-04-25T05:00:54.483Z",
+  "topology": {
+    "ownerNodeId": "orchestrator-3365c1b5-dbf6-4d66-822b-cfa097abc6a0",
+    "strategy": "orchestrator -> implementation -> optional builder/reviewer branches",
+    "notes": [
+      "The orchestrator owns steering, branch policy, context packaging, and final upstream reporting.",
+      "The implementation node owns direct task execution and requests specialist branches when needed.",
+      "Builder and reviewer branches are opened through branch-control policy rather than by default.",
+      "Scenario profile: deploy_diagnosis (partial_failure)."
+    ]
+  },
+  "branchPolicy": {
+    "maxBranches": 3,
+    "maxDepth": 2
+  },
+  "nodes": [
+    {
+      "id": "orchestrator-3365c1b5-dbf6-4d66-822b-cfa097abc6a0",
+      "role": "orchestrator",
+      "label": "Orchestrator",
+      "parentId": null,
+      "branchKey": "root",
+      "depth": 0,
+      "status": "completed",
+      "task": "Diagnose why Docker compose verification keeps failing, propose fixes, and prepare a final review.",
+      "assignedAt": "2026-04-25T05:00:54.385Z",
+      "startedAt": null,
+      "completedAt": "2026-04-25T05:00:54.483Z",
+      "summary": "Closed orchestration run and persisted replay output."
+    },
+    {
+      "id": "implementation-0dfb9d75-71a2-4278-9c10-6ae13741858e",
+      "role": "implementation",
+      "label": "Implementation agent",
+      "parentId": "orchestrator-3365c1b5-dbf6-4d66-822b-cfa097abc6a0",
+      "branchKey": "implementation",
+      "depth": 1,
+      "status": "completed",
+      "task": "Diagnose why Docker compose verification keeps failing, propose fixes, and prepare a final review.",
+      "assignedAt": "2026-04-25T05:00:54.385Z",
+      "startedAt": "2026-04-25T05:00:54.391Z",
+      "completedAt": "2026-04-25T05:00:54.423Z",
+      "summary": "Implementation worker completed"
+    },
+    {
+      "id": "builder-62fed400-61f8-4130-9ffd-3a8f1559d918",
+      "role": "builder",
+      "label": "builder branch",
+      "parentId": "implementation-0dfb9d75-71a2-4278-9c10-6ae13741858e",
+      "branchKey": "implementation:builder",
+      "depth": 2,
+      "status": "blocked",
+      "task": "Build and verification branch for: Diagnose why Docker compose verification keeps failing, propose fixes, and prepare a final review.",
+      "assignedAt": "2026-04-25T05:00:54.388Z",
+      "startedAt": "2026-04-25T05:00:54.423Z",
+      "completedAt": "2026-04-25T05:00:54.453Z",
+      "summary": "Builder worker completed"
+    },
+    {
+      "id": "reviewer-7d42e9e2-ef54-402c-bbc9-be10ff32f5b9",
+      "role": "reviewer",
+      "label": "reviewer branch",
+      "parentId": "implementation-0dfb9d75-71a2-4278-9c10-6ae13741858e",
+      "branchKey": "implementation:reviewer",
+      "depth": 2,
+      "status": "completed",
+      "task": "Review branch for: Diagnose why Docker compose verification keeps failing, propose fixes, and prepare a final review.",
+      "assignedAt": "2026-04-25T05:00:54.389Z",
+      "startedAt": "2026-04-25T05:00:54.453Z",
+      "completedAt": "2026-04-25T05:00:54.482Z",
+      "summary": "Reviewer worker completed"
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-855ffdcb-8179-4067-8de4-4bfd7575b621",
+      "from": "orchestrator-3365c1b5-dbf6-4d66-822b-cfa097abc6a0",
+      "to": "implementation-0dfb9d75-71a2-4278-9c10-6ae13741858e",
+      "type": "delegates_to",
+      "createdAt": "2026-04-25T05:00:54.385Z",
+      "label": "primary delivery path"
+    },
+    {
+      "id": "edge-f109d7a9-44c8-473e-9062-7cfb048ef593",
+      "from": "implementation-0dfb9d75-71a2-4278-9c10-6ae13741858e",
+      "to": "orchestrator-3365c1b5-dbf6-4d66-822b-cfa097abc6a0",
+      "type": "reports_to",
+      "createdAt": "2026-04-25T05:00:54.385Z",
+      "label": "upstream summary"
+    },
+    {
+      "id": "edge-builder-62fed400-61f8-4130-9ffd-3a8f1559d918",
+      "from": "implementation-0dfb9d75-71a2-4278-9c10-6ae13741858e",
+      "to": "builder-62fed400-61f8-4130-9ffd-3a8f1559d918",
+      "type": "branches_to",
+      "createdAt": "2026-04-25T05:00:54.388Z",
+      "label": "The task mentions build/run/verification work and benefits from a dedicated builder branch."
+    },
+    {
+      "id": "edge-reviewer-7d42e9e2-ef54-402c-bbc9-be10ff32f5b9",
+      "from": "implementation-0dfb9d75-71a2-4278-9c10-6ae13741858e",
+      "to": "reviewer-7d42e9e2-ef54-402c-bbc9-be10ff32f5b9",
+      "type": "branches_to",
+      "createdAt": "2026-04-25T05:00:54.389Z",
+      "label": "A reviewer branch keeps final reporting and risk assessment separate from direct implementation."
+    }
+  ],
+  "events": [
+    {
+      "id": "event-2cd84c91-a945-4b86-8d5e-4ac03a4a4c02",
+      "runId": "run-2026-04-25T05-00-54-385Z",
+      "nodeId": "implementation-0dfb9d75-71a2-4278-9c10-6ae13741858e",
+      "role": "implementation",
+      "type": "branch_opened",
+      "state": "info",
+      "summary": "Opened builder branch",
+      "detail": "The task mentions build/run/verification work and benefits from a dedicated builder branch.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T05:00:54.388Z",
+      "metadata": {
+        "branchNodeId": "builder-62fed400-61f8-4130-9ffd-3a8f1559d918"
+      }
+    },
+    {
+      "id": "event-213e45d9-00ab-41ba-be9b-b605488ba507",
+      "runId": "run-2026-04-25T05-00-54-385Z",
+      "nodeId": "implementation-0dfb9d75-71a2-4278-9c10-6ae13741858e",
+      "role": "implementation",
+      "type": "branch_opened",
+      "state": "info",
+      "summary": "Opened reviewer branch",
+      "detail": "A reviewer branch keeps final reporting and risk assessment separate from direct implementation.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T05:00:54.389Z",
+      "metadata": {
+        "branchNodeId": "reviewer-7d42e9e2-ef54-402c-bbc9-be10ff32f5b9"
+      }
+    },
+    {
+      "id": "event-4b229351-c999-46f4-8e92-44eca8fbb89f",
+      "runId": "run-2026-04-25T05-00-54-385Z",
+      "nodeId": "orchestrator-3365c1b5-dbf6-4d66-822b-cfa097abc6a0",
+      "role": "orchestrator",
+      "type": "branch_blocked",
+      "state": "blocked",
+      "summary": "Branch policy blocked additional work",
+      "detail": "Branch limit reached at 3 active branches. Existing branches must close or merge before more work can fork.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T05:00:54.389Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-012ff35f-de3a-4e48-aba2-755d3683fdf3",
+      "runId": "run-2026-04-25T05-00-54-385Z",
+      "nodeId": "implementation-0dfb9d75-71a2-4278-9c10-6ae13741858e",
+      "role": "implementation",
+      "type": "context_packed",
+      "state": "info",
+      "summary": "Packed context for implementation",
+      "detail": "Included 5 segments and omitted 0.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T05:00:54.390Z",
+      "metadata": {
+        "budgetTokens": 18000,
+        "usedTokens": 159
+      }
+    },
+    {
+      "id": "event-4cc232ab-2404-4cf9-8981-50d0172903ec",
+      "runId": "run-2026-04-25T05-00-54-385Z",
+      "nodeId": "builder-62fed400-61f8-4130-9ffd-3a8f1559d918",
+      "role": "builder",
+      "type": "context_packed",
+      "state": "info",
+      "summary": "Packed context for builder",
+      "detail": "Included 5 segments and omitted 0.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T05:00:54.390Z",
+      "metadata": {
+        "budgetTokens": 10000,
+        "usedTokens": 159
+      }
+    },
+    {
+      "id": "event-b194fed6-7295-4734-99a3-ea2ca0790a58",
+      "runId": "run-2026-04-25T05-00-54-385Z",
+      "nodeId": "reviewer-7d42e9e2-ef54-402c-bbc9-be10ff32f5b9",
+      "role": "reviewer",
+      "type": "context_packed",
+      "state": "info",
+      "summary": "Packed context for reviewer",
+      "detail": "Included 5 segments and omitted 0.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T05:00:54.391Z",
+      "metadata": {
+        "budgetTokens": 9000,
+        "usedTokens": 159
+      }
+    },
+    {
+      "id": "event-07c98b4b-0b13-4364-9fcf-4147af46c11f",
+      "runId": "run-2026-04-25T05-00-54-385Z",
+      "nodeId": "implementation-0dfb9d75-71a2-4278-9c10-6ae13741858e",
+      "role": "implementation",
+      "type": "worker_started",
+      "state": "info",
+      "summary": "Implementation worker started",
+      "detail": "Task: Diagnose why Docker compose verification keeps failing, propose fixes, and prepare a final review.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T05:00:54.417Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-55411482-4fca-4efa-a664-281a307e8046",
+      "runId": "run-2026-04-25T05-00-54-385Z",
+      "nodeId": "implementation-0dfb9d75-71a2-4278-9c10-6ae13741858e",
+      "role": "implementation",
+      "type": "status_update",
+      "state": "info",
+      "summary": "Thinking through the requested change set",
+      "detail": "Packed context includes 5 segments using 159 tokens.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T05:00:54.419Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-08a2b581-7646-40f8-9914-96ecd5236a89",
+      "runId": "run-2026-04-25T05-00-54-385Z",
+      "nodeId": "implementation-0dfb9d75-71a2-4278-9c10-6ae13741858e",
+      "role": "implementation",
+      "type": "artifact_produced",
+      "state": "completed",
+      "summary": "Prepared implementation plan artifact",
+      "detail": null,
+      "artifacts": [
+        {
+          "id": "artifact-0cfc3a7a-5af2-4f69-bcde-3469a5e5d84d",
+          "label": "implementation-plan.md",
+          "kind": "text",
+          "content": "# Implementation plan\n\n- Task: Diagnose why Docker compose verification keeps failing, propose fixes, and prepare a final review.\n- Branch: implementation\n- Scenario tension: partial_failure\n- Recommended stance: proceed with the scoped change\n- Selected context:\n  - Task brief: role match for implementation, shared global context, hot memory\n  - Repository constraints: role match for implementation, shared global context, warm memory\n  - Manual step caveat: role match for implementation, shared global context, warm memory\n  - Failing runtime signal: shared global context, hot memory\n  - Known product gap: shared global context, cold memory\n\n- Omitted context count: 0",
+          "createdAt": "2026-04-25T05:00:54.420Z"
+        }
+      ],
+      "createdAt": "2026-04-25T05:00:54.420Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-99f65bc9-1985-41ac-9af0-8a7a4e5fab74",
+      "runId": "run-2026-04-25T05-00-54-385Z",
+      "nodeId": "implementation-0dfb9d75-71a2-4278-9c10-6ae13741858e",
+      "role": "implementation",
+      "type": "worker_completed",
+      "state": "completed",
+      "summary": "Implementation worker completed",
+      "detail": "Structured upstream reporting emitted successfully.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T05:00:54.420Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-b40ef64a-4e61-4fa1-bec2-fc38429c31a9",
+      "runId": "run-2026-04-25T05-00-54-385Z",
+      "nodeId": "builder-62fed400-61f8-4130-9ffd-3a8f1559d918",
+      "role": "builder",
+      "type": "worker_started",
+      "state": "info",
+      "summary": "Builder worker started",
+      "detail": "Task: Build and verification branch for: Diagnose why Docker compose verification keeps failing, propose fixes, and prepare a final review.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T05:00:54.447Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-b1930292-2f58-4c94-a404-afa205ff3676",
+      "runId": "run-2026-04-25T05-00-54-385Z",
+      "nodeId": "builder-62fed400-61f8-4130-9ffd-3a8f1559d918",
+      "role": "builder",
+      "type": "status_update",
+      "state": "info",
+      "summary": "Preparing builder branch",
+      "detail": "Packed context includes 5 segments using 159 tokens.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T05:00:54.450Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-e11285e2-e572-4bdd-9bdc-1c80eb1093f8",
+      "runId": "run-2026-04-25T05-00-54-385Z",
+      "nodeId": "builder-62fed400-61f8-4130-9ffd-3a8f1559d918",
+      "role": "builder",
+      "type": "status_update",
+      "state": "blocked",
+      "summary": "Builder branch hit a partial failure",
+      "detail": "Verification exposed a dependency/runtime issue that needs manual follow-up instead of a false green summary.",
+      "artifacts": [
+        {
+          "id": "artifact-3ec5aee0-fcf3-4a1d-b1b7-9a88bc304a93",
+          "label": "builder-failure.log",
+          "kind": "log",
+          "content": "npm install\nnpm run build\ndocker compose up --build -d\nERROR: healthcheck never reached ready state",
+          "createdAt": "2026-04-25T05:00:54.450Z"
+        }
+      ],
+      "createdAt": "2026-04-25T05:00:54.450Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-814e1cc2-930e-4615-95a8-af59529bb0ba",
+      "runId": "run-2026-04-25T05-00-54-385Z",
+      "nodeId": "builder-62fed400-61f8-4130-9ffd-3a8f1559d918",
+      "role": "builder",
+      "type": "artifact_produced",
+      "state": "blocked",
+      "summary": "Prepared blocked build-and-verify log",
+      "detail": null,
+      "artifacts": [
+        {
+          "id": "artifact-5e26d6bc-a1ec-4794-a7dc-c9069e963aaf",
+          "label": "builder-commands.log",
+          "kind": "log",
+          "content": "npm install\nnpm run build\nnpm test\ndocker compose up --build -d\nmanual follow-up required after partial failure",
+          "createdAt": "2026-04-25T05:00:54.450Z"
+        }
+      ],
+      "createdAt": "2026-04-25T05:00:54.450Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-535f8c25-c1b9-4e2f-8c58-3a878c597f20",
+      "runId": "run-2026-04-25T05-00-54-385Z",
+      "nodeId": "builder-62fed400-61f8-4130-9ffd-3a8f1559d918",
+      "role": "builder",
+      "type": "worker_completed",
+      "state": "completed",
+      "summary": "Builder worker completed",
+      "detail": "Structured upstream reporting emitted successfully.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T05:00:54.450Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-41166669-f15f-4dd1-adeb-d08baf91aca0",
+      "runId": "run-2026-04-25T05-00-54-385Z",
+      "nodeId": "reviewer-7d42e9e2-ef54-402c-bbc9-be10ff32f5b9",
+      "role": "reviewer",
+      "type": "worker_started",
+      "state": "info",
+      "summary": "Reviewer worker started",
+      "detail": "Task: Review branch for: Diagnose why Docker compose verification keeps failing, propose fixes, and prepare a final review.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T05:00:54.477Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-a823f436-dd6d-42c3-9af3-881afcdbf293",
+      "runId": "run-2026-04-25T05-00-54-385Z",
+      "nodeId": "reviewer-7d42e9e2-ef54-402c-bbc9-be10ff32f5b9",
+      "role": "reviewer",
+      "type": "status_update",
+      "state": "info",
+      "summary": "Preparing reviewer branch",
+      "detail": "Packed context includes 5 segments using 159 tokens.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T05:00:54.480Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-29a041fe-ab06-4cda-ac1d-5431c3908000",
+      "runId": "run-2026-04-25T05-00-54-385Z",
+      "nodeId": "reviewer-7d42e9e2-ef54-402c-bbc9-be10ff32f5b9",
+      "role": "reviewer",
+      "type": "review_requested",
+      "state": "completed",
+      "summary": "Prepared reviewer summary",
+      "detail": null,
+      "artifacts": [
+        {
+          "id": "artifact-0f45af93-a085-4c5f-83ff-a4c4477ab6ba",
+          "label": "review-summary.md",
+          "kind": "text",
+          "content": "# Review summary\n\n- Risk posture: low\n- Notes: review branch confirms the task is still aligned with the requested outcome.\n- Context pack size: 159 tokens\n- Omitted segments: 0",
+          "createdAt": "2026-04-25T05:00:54.480Z"
+        }
+      ],
+      "createdAt": "2026-04-25T05:00:54.480Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-0c13d0e5-845e-46d1-adfb-d7c65616930f",
+      "runId": "run-2026-04-25T05-00-54-385Z",
+      "nodeId": "reviewer-7d42e9e2-ef54-402c-bbc9-be10ff32f5b9",
+      "role": "reviewer",
+      "type": "worker_completed",
+      "state": "completed",
+      "summary": "Reviewer worker completed",
+      "detail": "Structured upstream reporting emitted successfully.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T05:00:54.480Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-6d6698d7-a66d-45b1-90de-02254c3a4ae8",
+      "runId": "run-2026-04-25T05-00-54-385Z",
+      "nodeId": "orchestrator-3365c1b5-dbf6-4d66-822b-cfa097abc6a0",
+      "role": "orchestrator",
+      "type": "run_summary",
+      "state": "completed",
+      "summary": "Orchestrator collected child updates and closed the run.",
+      "detail": "Executed 3 worker nodes with structured upstream events.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T05:00:54.483Z",
+      "metadata": {}
+    }
+  ],
+  "context": {
+    "effectiveCapacityTokens": 10000000,
+    "segments": [
+      {
+        "id": "segment-7ef59146-a665-4128-a7d1-b7ae601150bf",
+        "label": "Task brief",
+        "kind": "task",
+        "temperature": "hot",
+        "roleAffinity": [
+          "orchestrator",
+          "implementation"
+        ],
+        "branchKey": "root",
+        "content": "Diagnose why Docker compose verification keeps failing, propose fixes, and prepare a final review.",
+        "estimatedTokens": 25,
+        "priority": 5,
+        "createdAt": "2026-04-25T05:00:54.387Z",
+        "metadata": {}
+      },
+      {
+        "id": "segment-40f82f16-9242-4710-9d23-40ab1a06c9dd",
+        "label": "Repository constraints",
+        "kind": "constraint",
+        "temperature": "warm",
+        "roleAffinity": [
+          "orchestrator",
+          "implementation",
+          "builder",
+          "reviewer"
+        ],
+        "branchKey": null,
+        "content": "Prefer TypeScript and shell scripts. Keep orchestration inspectable and replayable. Treat 10M context as effective retrieval-backed context rather than a single prompt.",
+        "estimatedTokens": 42,
+        "priority": 4,
+        "createdAt": "2026-04-25T05:00:54.387Z",
+        "metadata": {}
+      },
+      {
+        "id": "segment-4b8a5b60-6d61-4288-bb07-91a65d5dd72c",
+        "label": "Known product gap",
+        "kind": "memory",
+        "temperature": "cold",
+        "roleAffinity": [
+          "orchestrator",
+          "reviewer"
+        ],
+        "branchKey": null,
+        "content": "Remote VM shell/file-write deploy flow is still incomplete, so orchestration should stay honest about local-only branches.",
+        "estimatedTokens": 31,
+        "priority": 3,
+        "createdAt": "2026-04-25T05:00:54.387Z",
+        "metadata": {}
+      },
+      {
+        "id": "segment-1095de6c-8cfe-4bb1-abe4-06948179a0ea",
+        "label": "Failing runtime signal",
+        "kind": "artifact",
+        "temperature": "hot",
+        "roleAffinity": [
+          "builder",
+          "reviewer"
+        ],
+        "branchKey": null,
+        "content": "Healthcheck flaps between ready and timeout, and the deployment should stay honest if the root cause is unresolved.",
+        "estimatedTokens": 29,
+        "priority": 5,
+        "createdAt": "2026-04-25T05:00:54.388Z",
+        "metadata": {}
+      },
+      {
+        "id": "segment-ec38ad3d-6b4a-4b91-8fac-8a17df14e401",
+        "label": "Manual step caveat",
+        "kind": "constraint",
+        "temperature": "warm",
+        "roleAffinity": [
+          "implementation",
+          "builder",
+          "reviewer"
+        ],
+        "branchKey": null,
+        "content": "If the build branch cannot prove a fix, the final answer should preserve the blocked state and ask for a narrower next action.",
+        "estimatedTokens": 32,
+        "priority": 4,
+        "createdAt": "2026-04-25T05:00:54.388Z",
+        "metadata": {}
+      }
+    ],
+    "packs": [
+      {
+        "nodeId": "implementation-0dfb9d75-71a2-4278-9c10-6ae13741858e",
+        "role": "implementation",
+        "budgetTokens": 18000,
+        "usedTokens": 159,
+        "included": [
+          {
+            "id": "segment-7ef59146-a665-4128-a7d1-b7ae601150bf",
+            "label": "Task brief",
+            "estimatedTokens": 25,
+            "reason": "role match for implementation, shared global context, hot memory"
+          },
+          {
+            "id": "segment-40f82f16-9242-4710-9d23-40ab1a06c9dd",
+            "label": "Repository constraints",
+            "estimatedTokens": 42,
+            "reason": "role match for implementation, shared global context, warm memory"
+          },
+          {
+            "id": "segment-ec38ad3d-6b4a-4b91-8fac-8a17df14e401",
+            "label": "Manual step caveat",
+            "estimatedTokens": 32,
+            "reason": "role match for implementation, shared global context, warm memory"
+          },
+          {
+            "id": "segment-1095de6c-8cfe-4bb1-abe4-06948179a0ea",
+            "label": "Failing runtime signal",
+            "estimatedTokens": 29,
+            "reason": "shared global context, hot memory"
+          },
+          {
+            "id": "segment-4b8a5b60-6d61-4288-bb07-91a65d5dd72c",
+            "label": "Known product gap",
+            "estimatedTokens": 31,
+            "reason": "shared global context, cold memory"
+          }
+        ],
+        "omitted": [],
+        "generatedAt": "2026-04-25T05:00:54.390Z"
+      },
+      {
+        "nodeId": "builder-62fed400-61f8-4130-9ffd-3a8f1559d918",
+        "role": "builder",
+        "budgetTokens": 10000,
+        "usedTokens": 159,
+        "included": [
+          {
+            "id": "segment-1095de6c-8cfe-4bb1-abe4-06948179a0ea",
+            "label": "Failing runtime signal",
+            "estimatedTokens": 29,
+            "reason": "role match for builder, shared global context, hot memory"
+          },
+          {
+            "id": "segment-40f82f16-9242-4710-9d23-40ab1a06c9dd",
+            "label": "Repository constraints",
+            "estimatedTokens": 42,
+            "reason": "role match for builder, shared global context, warm memory"
+          },
+          {
+            "id": "segment-ec38ad3d-6b4a-4b91-8fac-8a17df14e401",
+            "label": "Manual step caveat",
+            "estimatedTokens": 32,
+            "reason": "role match for builder, shared global context, warm memory"
+          },
+          {
+            "id": "segment-7ef59146-a665-4128-a7d1-b7ae601150bf",
+            "label": "Task brief",
+            "estimatedTokens": 25,
+            "reason": "shared global context, hot memory"
+          },
+          {
+            "id": "segment-4b8a5b60-6d61-4288-bb07-91a65d5dd72c",
+            "label": "Known product gap",
+            "estimatedTokens": 31,
+            "reason": "shared global context, cold memory"
+          }
+        ],
+        "omitted": [],
+        "generatedAt": "2026-04-25T05:00:54.390Z"
+      },
+      {
+        "nodeId": "reviewer-7d42e9e2-ef54-402c-bbc9-be10ff32f5b9",
+        "role": "reviewer",
+        "budgetTokens": 9000,
+        "usedTokens": 159,
+        "included": [
+          {
+            "id": "segment-1095de6c-8cfe-4bb1-abe4-06948179a0ea",
+            "label": "Failing runtime signal",
+            "estimatedTokens": 29,
+            "reason": "role match for reviewer, shared global context, hot memory"
+          },
+          {
+            "id": "segment-40f82f16-9242-4710-9d23-40ab1a06c9dd",
+            "label": "Repository constraints",
+            "estimatedTokens": 42,
+            "reason": "role match for reviewer, shared global context, warm memory"
+          },
+          {
+            "id": "segment-ec38ad3d-6b4a-4b91-8fac-8a17df14e401",
+            "label": "Manual step caveat",
+            "estimatedTokens": 32,
+            "reason": "role match for reviewer, shared global context, warm memory"
+          },
+          {
+            "id": "segment-4b8a5b60-6d61-4288-bb07-91a65d5dd72c",
+            "label": "Known product gap",
+            "estimatedTokens": 31,
+            "reason": "role match for reviewer, shared global context, cold memory"
+          },
+          {
+            "id": "segment-7ef59146-a665-4128-a7d1-b7ae601150bf",
+            "label": "Task brief",
+            "estimatedTokens": 25,
+            "reason": "shared global context, hot memory"
+          }
+        ],
+        "omitted": [],
+        "generatedAt": "2026-04-25T05:00:54.391Z"
+      }
+    ]
+  },
+  "evaluation": {
+    "success": null,
+    "score": null,
+    "summary": null,
+    "checkedAt": null
+  }
+}

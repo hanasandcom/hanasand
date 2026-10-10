@@ -1,0 +1,76 @@
+{
+  "runId": "run-2026-04-25T04-52-52-113Z",
+  "nodeId": "builder-3d4bbd8d-8f20-46ef-b6f5-6c8d3f17df4f",
+  "role": "builder",
+  "task": "Build and verification branch for: Triage a deployment under heavy context pressure, preserve the hottest constraints, and produce a reviewer handoff.",
+  "branchKey": "implementation:builder",
+  "packedContext": {
+    "nodeId": "builder-3d4bbd8d-8f20-46ef-b6f5-6c8d3f17df4f",
+    "role": "builder",
+    "budgetTokens": 10000,
+    "usedTokens": 9750,
+    "included": [
+      {
+        "id": "segment-bce77554-910f-4758-beb5-aaeb37a7ca17",
+        "label": "Hot incident notes",
+        "estimatedTokens": 8748,
+        "reason": "role match for builder, shared global context, hot memory"
+      },
+      {
+        "id": "segment-8a1f2c83-9cef-493e-91ed-b087f7fca422",
+        "label": "Rollback guardrails",
+        "estimatedTokens": 420,
+        "reason": "role match for builder, shared global context, hot memory, compressed high-priority context"
+      },
+      {
+        "id": "segment-f84417e5-8cb0-4c1b-8fcc-db67d09da04f",
+        "label": "Repository constraints",
+        "estimatedTokens": 42,
+        "reason": "role match for builder, shared global context, warm memory"
+      },
+      {
+        "id": "segment-cd6133a5-8f59-4178-a008-8f72b0784bd0",
+        "label": "Dense repo summary",
+        "estimatedTokens": 240,
+        "reason": "role match for builder, shared global context, warm memory, compressed high-priority context"
+      },
+      {
+        "id": "segment-5cfd8503-347f-4dde-aff6-b72e916918db",
+        "label": "Task brief",
+        "estimatedTokens": 29,
+        "reason": "shared global context, hot memory"
+      },
+      {
+        "id": "segment-34647557-7dbc-4c1e-9bd7-68e37a878614",
+        "label": "Reviewer disagreement note",
+        "estimatedTokens": 240,
+        "reason": "shared global context, warm memory, compressed high-priority context"
+      },
+      {
+        "id": "segment-8ec44e15-299e-4539-ad0e-5e9f9354b361",
+        "label": "Known product gap",
+        "estimatedTokens": 31,
+        "reason": "shared global context, cold memory"
+      }
+    ],
+    "omitted": [
+      {
+        "id": "segment-c09ccbc8-3722-4e1f-a096-e8d6ab5ab02f",
+        "label": "Low-priority backlog 2",
+        "estimatedTokens": 5940,
+        "reason": "role match for builder, shared global context, cold memory"
+      },
+      {
+        "id": "segment-15a12d75-e0f1-4bed-9d60-6534cfac4a45",
+        "label": "Low-priority backlog 1",
+        "estimatedTokens": 4826,
+        "reason": "shared global context, cold memory"
+      }
+    ],
+    "generatedAt": "2026-04-25T04:52:52.126Z"
+  },
+  "scenario": {
+    "id": "context_pressure_triage",
+    "tension": "context_pressure"
+  }
+}

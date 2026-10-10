@@ -1,0 +1,176 @@
+{
+  "generated_at": "2026-04-26T04:21:57.969Z",
+  "model_api": "http://127.0.0.1:18082",
+  "duration_ms": 60375,
+  "ok": false,
+  "score": {
+    "passed": false,
+    "checks": [
+      {
+        "label": "used repository evidence",
+        "passed": true,
+        "expected": [
+          "read file agents/desktop_app_development.md",
+          "read file frontend/src/utils/share/getusershares.ts"
+        ]
+      },
+      {
+        "label": "website share helpers",
+        "passed": true,
+        "expected": [
+          "frontend/src/utils/share/getusershares.ts",
+          "frontend/src/utils/share/post.ts",
+          "frontend/src/utils/share/put.ts"
+        ]
+      },
+      {
+        "label": "delete/lock/tree helpers",
+        "passed": true,
+        "expected": [
+          "frontend/src/utils/share/delete.ts",
+          "frontend/src/utils/share/lockshare.ts",
+          "frontend/src/utils/share/gettree.ts"
+        ]
+      },
+      {
+        "label": "website share UI",
+        "passed": true,
+        "expected": [
+          "frontend/src/components/share/dashboard/dashboardshare.tsx",
+          "frontend/src/components/share/dashboard/projects.tsx"
+        ]
+      },
+      {
+        "label": "native footholds",
+        "passed": true,
+        "expected": [
+          "app/src/lib/api.ts",
+          "app/src/screens/controlscreen.tsx",
+          "app/src/types.ts"
+        ]
+      },
+      {
+        "label": "core endpoints",
+        "passed": false,
+        "expected": [
+          "get /share/user",
+          "post /share",
+          "put /share"
+        ]
+      },
+      {
+        "label": "delete contract",
+        "passed": true,
+        "expected": [
+          "delete /share",
+          "frontend/src/utils/share/delete.ts"
+        ]
+      },
+      {
+        "label": "lock contract",
+        "passed": true,
+        "expected": [
+          "lock",
+          "unlock"
+        ]
+      },
+      {
+        "label": "auth contract",
+        "passed": true,
+        "expected": [
+          "authorization",
+          "bearer",
+          "id"
+        ]
+      },
+      {
+        "label": "verification commands",
+        "passed": false,
+        "expected": [
+          "npm run typecheck",
+          "npm run lint"
+        ]
+      },
+      {
+        "label": "no spoon-feeding",
+        "passed": false,
+        "expected": [
+          "do not ask",
+          "without asking",
+          "no user guidance",
+          "repository evidence"
+        ]
+      }
+    ]
+  },
+  "training_events": [
+    {
+      "label": "Read file agents/START_HERE.md",
+      "state": "completed"
+    },
+    {
+      "label": "Read file agents/DESKTOP_APP_DEVELOPMENT.md",
+      "state": "completed"
+    },
+    {
+      "label": "Read file agents/training-scenarios/share-functionality-port.md",
+      "state": "completed"
+    },
+    {
+      "label": "Read file frontend/src/utils/share/getUserShares.ts",
+      "state": "completed"
+    },
+    {
+      "label": "Read file frontend/src/utils/share/post.ts",
+      "state": "completed"
+    },
+    {
+      "label": "Read file frontend/src/utils/share/put.ts",
+      "state": "completed"
+    },
+    {
+      "label": "Read file frontend/src/utils/share/delete.ts",
+      "state": "completed"
+    },
+    {
+      "label": "Read file frontend/src/utils/share/lockShare.ts",
+      "state": "completed"
+    },
+    {
+      "label": "Read file frontend/src/utils/share/getTree.ts",
+      "state": "completed"
+    },
+    {
+      "label": "Read file frontend/src/components/share/dashboard/dashboardShare.tsx",
+      "state": "completed"
+    },
+    {
+      "label": "Read file frontend/src/components/share/dashboard/projects.tsx",
+      "state": "completed"
+    },
+    {
+      "label": "Read file app/src/lib/api.ts",
+      "state": "completed"
+    },
+    {
+      "label": "Read file app/src/screens/ControlScreen.tsx",
+      "state": "completed"
+    },
+    {
+      "label": "Read file app/src/types.ts",
+      "state": "completed"
+    }
+  ],
+  "response_preview": "### Implementation Plan for Share Functionality in Hanasand Desktop App\n\n#### Step 1: Understand Existing Functionality\n- **Review Website Share Helpers**: Examine `frontend/src/utils/share/*.ts` to understand the existing share operations.\n- **Review Website Share UI**: Examine `frontend/src/components/share/dashboard/*.tsx` to understand the UI components.\n\n#### Step 2: Identify Missing Functionality\n- **Check Native Helper Coverage**: Ensure `app/src/lib/api.ts` includes all necessary share operations (`fetchUserShares`, `createShare`, `updateShare`, `deleteShare`, `lockShare`, `getTree`).\n- **Check Native UI**: Ensure `app/src/screens/ControlScreen.tsx` and `app/src/types.ts` are prepared to handle share data and UI components.\n\n#### Step 3: Implement Missing Functionality\n1. **Implement `fetchUserShares` in `app/src/lib/api.ts`**:\n   ```typescript\n   // app/src/lib/api.ts\n   export async function fetchUserShares(userId: string, authToken: string) {\n     const response = await fetch(`/share/user/${userId}`, {\n       headers: {\n         'Authorization': `Bearer ${authToken}`,\n         'id': userId\n       }\n     });\n     return response.json();\n   }\n   ```\n\n2. **Implement `createShare` in `app/src/lib/api.ts`**:\n   ```typescript\n   // app/src/lib/api.ts\n   export async function createShare(payload: any, authToken: string) {\n     const response = await fetch('/share', {\n       method: 'POST',\n       headers: {\n         'Authorization': `Bearer ${authToken}`,\n         'Content-Type': 'application/json'\n       },\n       body: JSON.stringify(payload)\n     });\n     return response.json();\n   }\n   ```\n\n3. **Implement `updateShare` in `app/src/lib/api.ts`**:\n   ```typescript\n   // app/src/lib/api.ts\n   export async function updateShare(shareId: string, payload: any, authToken: string) {\n     const response = await fetch(`/share/${shareId}`, {\n       method: 'PUT',\n       headers: {\n         'Authorization': `Bearer ${authToken}`,\n         'Content-Type': 'application/json'\n       },\n       body: JSON.stringify(payload)\n     });\n     return response.json();\n   }\n   ```\n\n4. **Implement `deleteShare` in `app/src/lib/api.ts`**:\n   ```typescript\n   // app/src/lib/api.ts\n   export async function delete",
+  "timings": {
+    "cache_n": 105,
+    "prompt_n": 355,
+    "prompt_ms": 1465.263,
+    "prompt_per_token_ms": 4.127501408450704,
+    "prompt_per_second": 242.27732495804509,
+    "predicted_n": 520,
+    "predicted_ms": 58574.515,
+    "predicted_per_token_ms": 112.64329807692307,
+    "predicted_per_second": 8.87758097527568
+  }
+}

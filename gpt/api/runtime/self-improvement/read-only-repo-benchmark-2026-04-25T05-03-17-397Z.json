@@ -1,0 +1,32 @@
+{
+  "generated_at": "2026-04-25T05:03:57.795Z",
+  "started_at": "2026-04-25T05:03:17.398Z",
+  "duration_ms": 40397,
+  "completed": true,
+  "mode": "local_direct",
+  "tool_event_count": 1,
+  "tool_events": [
+    {
+      "toolLabel": "Read file frontend/src/components/ai/useAiWorkbench.ts",
+      "toolState": "completed"
+    }
+  ],
+  "used_preloaded_read_file": true,
+  "file_line_count": 2171,
+  "excerpt_line_range": {
+    "start": 1856,
+    "end": 2171
+  },
+  "response_preview": "The top-level helper functions defined after the main exported hook in the `useAiWorkbench.ts` file are:\n\n1. `deriveLastToolState`\n2. `deriveLastFailure`\n3. `chooseNewestToolRun`\n4. `chooseNewestFailure`\n5. `createConversation`\n6. `withRepositorySync`\n7. `withWorkspaceActivity`\n8. `appendError`\n9. `resolveModelName`\n10. `buildWorkspaceContext`\n11. `buildSystemPrompt`\n12. `toConversationPayload`\n13. `parseToolCalls`",
+  "timings": {
+    "cache_n": 0,
+    "prompt_n": 3103,
+    "prompt_ms": 27391.97,
+    "prompt_per_token_ms": 8.827576538833387,
+    "prompt_per_second": 113.28137406692545,
+    "predicted_n": 120,
+    "predicted_ms": 12971.057,
+    "predicted_per_token_ms": 108.09214166666668,
+    "predicted_per_second": 9.251366330438605
+  }
+}

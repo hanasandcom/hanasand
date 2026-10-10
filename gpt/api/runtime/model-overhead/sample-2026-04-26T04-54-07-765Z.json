@@ -1,0 +1,50 @@
+{
+  "sampleId": "desktop-1777179205059-96E161C1:1777179247765",
+  "sampleSource": "runtime_prompt_loop",
+  "profileTag": "validation",
+  "recordedAt": "2026-04-26T04:54:07.765Z",
+  "conversationId": "desktop-1777179205059-96E161C1",
+  "clientName": "Eiriks-Macbook-Pro.local",
+  "modelApi": "http://127.0.0.1:18082",
+  "promptMessages": 2,
+  "maxTokens": 850,
+  "promptTokens": 2,
+  "generatedTokens": 220,
+  "contextMaxTokens": 16384,
+  "tps": 0,
+  "stages": {
+    "renderPromptMs": 91,
+    "tokenizePromptMs": 7,
+    "fetchContextMs": 6,
+    "toolLoopMs": 41274,
+    "tokenizeOutputMs": 9,
+    "syncOutputContextMs": 9,
+    "streamEmitMs": 328,
+    "totalMs": 41711
+  },
+  "loop": {
+    "iterations": 1,
+    "completionCalls": 1,
+    "completionMs": 41259,
+    "toolCalls": 2,
+    "toolMs": 13,
+    "totalMs": 41274
+  },
+  "llama": {
+    "cache_n": 4700,
+    "prompt_n": 2,
+    "predicted_n": 220,
+    "predicted_per_second": 5.369153592716655
+  },
+  "integrity": {
+    "promptTokensSource": "tokenize",
+    "generatedTokensSource": "tokenize",
+    "warnings": []
+  },
+  "derived": {
+    "nonCompletionMs": 452,
+    "nonCompletionShare": 1.08,
+    "nextOptimizationTarget": "completionMs",
+    "nextOptimizationReason": "Model completion time is the largest measured slice. Reduce completion calls, shrink completion prompts, or improve decode throughput first."
+  }
+}

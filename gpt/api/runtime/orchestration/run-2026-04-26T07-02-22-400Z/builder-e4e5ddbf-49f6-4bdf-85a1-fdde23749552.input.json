@@ -1,0 +1,52 @@
+{
+  "runId": "run-2026-04-26T07-02-22-400Z",
+  "nodeId": "builder-e4e5ddbf-49f6-4bdf-85a1-fdde23749552",
+  "role": "builder",
+  "task": "Build and verification branch for: Handle a benchmark case that intentionally raises context noise after previous high-scoring runs and still preserve the reviewer-critical evidence.",
+  "branchKey": "implementation:builder",
+  "packedContext": {
+    "nodeId": "builder-e4e5ddbf-49f6-4bdf-85a1-fdde23749552",
+    "role": "builder",
+    "budgetTokens": 10000,
+    "usedTokens": 530,
+    "included": [
+      {
+        "id": "segment-47978b06-8f14-40e8-a5fc-e6cfddeb7d6a",
+        "label": "Escalated hot deploy thread",
+        "estimatedTokens": 420,
+        "reason": "role match for builder, shared global context, hot memory, compressed high-priority context"
+      },
+      {
+        "id": "segment-07d8c688-4e50-4a26-9130-318bfd98d527",
+        "label": "Repository constraints",
+        "estimatedTokens": 42,
+        "reason": "role match for builder, shared global context, warm memory"
+      },
+      {
+        "id": "segment-0d4e9d97-13df-4985-8deb-33371e1ea01a",
+        "label": "Task brief",
+        "estimatedTokens": 37,
+        "reason": "shared global context, hot memory"
+      },
+      {
+        "id": "segment-99bd0263-b09b-4f84-be8e-de18ff7e5318",
+        "label": "Known product gap",
+        "estimatedTokens": 31,
+        "reason": "shared global context, cold memory"
+      }
+    ],
+    "omitted": [
+      {
+        "id": "segment-ce61807c-b1ed-4b27-88e9-16e0a5e782dd",
+        "label": "Escalated cold chatter",
+        "estimatedTokens": 15768,
+        "reason": "role match for builder, shared global context, cold memory"
+      }
+    ],
+    "generatedAt": "2026-04-26T07:02:22.409Z"
+  },
+  "scenario": {
+    "id": "adaptive_noise_escalation",
+    "tension": "context_pressure"
+  }
+}

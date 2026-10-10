@@ -1,0 +1,855 @@
+{
+  "ok": false,
+  "createdAt": "2026-05-06T20:41:32.104Z",
+  "smokeRoot": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke",
+  "selectedCasePattern": "381-400-real-world-ambiguity",
+  "results": [
+    {
+      "id": "plumber-lead-site",
+      "title": "Plumber lead site",
+      "tool": "scaffoldNextjsDockerApp",
+      "storyPath": "agents/training-scenarios/user_stories/381-400-real-world-ambiguity-user-stories.md#381-make-the-old-site-stop-costing-me-leads",
+      "ok": false,
+      "elapsedMs": 11274,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline && bun run build) || (npm install --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/plumber-lead-site",
+        "exitCode": 1,
+        "stdout": "bun install v1.3.11 (af24e281)\n",
+        "stderr": "error: bun is unable to write files to tempdir: PermissionDenied\nnpm error code ENOTFOUND\nnpm error syscall getaddrinfo\nnpm error errno ENOTFOUND\nnpm error network request to https://registry.npmjs.org/@eslint%2feslintrc failed, reason: getaddrinfo ENOTFOUND registry.npmjs.org\nnpm error network This is a problem related to network connectivity.\nnpm error network In most cases you are behind a proxy or have bad network settings.\nnpm error network\nnpm error network If you are behind a proxy, please make sure that the 'proxy' config is set properly.  See: 'npm help config'\nnpm error A complete log of this run can be found in: /Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/.hanasand/npm-cache/_logs/2026-05-06T20_38_49_747Z-debug-0.log\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/plumber-lead-site",
+        "appName": "ClearPipe Service",
+        "productBrief": "ClearPipe Service turns a vague plumber site rescue into a practical service page with emergency/planned work separation, service area, trust proof, contact path, and no fake booking.",
+        "build": {
+          "exitCode": 127,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": false,
+        "compose": true,
+        "standaloneNext": true,
+        "appPage": true,
+        "readmeEnv": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": false
+      }
+    },
+    {
+      "id": "small-service-leads-api",
+      "title": "Small service leads API",
+      "tool": "scaffoldFastifyPostgresApp",
+      "storyPath": "agents/training-scenarios/user_stories/381-400-real-world-ambiguity-user-stories.md#382-the-leads-are-in-four-places",
+      "ok": false,
+      "elapsedMs": 6980,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline --ignore-scripts --no-progress && bun run build) || (npm install --ignore-scripts --progress=false --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/small-service-leads-api",
+        "exitCode": 1,
+        "stdout": "bun install v1.3.11 (af24e281)\n",
+        "stderr": "error: bun is unable to write files to tempdir: PermissionDenied\nnpm error code ENOTFOUND\nnpm error syscall getaddrinfo\nnpm error errno ENOTFOUND\nnpm error network request to https://registry.npmjs.org/@types%2fnode failed, reason: getaddrinfo ENOTFOUND registry.npmjs.org\nnpm error network This is a problem related to network connectivity.\nnpm error network In most cases you are behind a proxy or have bad network settings.\nnpm error network\nnpm error network If you are behind a proxy, please make sure that the 'proxy' config is set properly.  See: 'npm help config'\nnpm error A complete log of this run can be found in: /Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/.hanasand/npm-cache/_logs/2026-05-06T20_39_01_007Z-debug-0.log\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/small-service-leads-api",
+        "appName": "LeadDesk API",
+        "build": {
+          "exitCode": 127,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": false,
+        "compose": true,
+        "migrationScript": true,
+        "healthRoutes": true,
+        "postgresCompose": true,
+        "elapsedWithinBudget": false,
+        "toolSucceeded": false
+      }
+    },
+    {
+      "id": "callback-reminder-worker",
+      "title": "Callback reminder worker",
+      "tool": "scaffoldFastifyWorkerRedisApp",
+      "storyPath": "agents/training-scenarios/user_stories/381-400-real-world-ambiguity-user-stories.md#383-call-people-back-without-forgetting",
+      "ok": false,
+      "elapsedMs": 5965,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline --ignore-scripts --no-progress && bun run build) || (npm install --ignore-scripts --progress=false --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/callback-reminder-worker",
+        "exitCode": 1,
+        "stdout": "bun install v1.3.11 (af24e281)\n",
+        "stderr": "error: bun is unable to write files to tempdir: PermissionDenied\nnpm error code ENOTFOUND\nnpm error syscall getaddrinfo\nnpm error errno ENOTFOUND\nnpm error network request to https://registry.npmjs.org/@types%2fnode failed, reason: getaddrinfo ENOTFOUND registry.npmjs.org\nnpm error network This is a problem related to network connectivity.\nnpm error network In most cases you are behind a proxy or have bad network settings.\nnpm error network\nnpm error network If you are behind a proxy, please make sure that the 'proxy' config is set properly.  See: 'npm help config'\nnpm error A complete log of this run can be found in: /Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/.hanasand/npm-cache/_logs/2026-05-06T20_39_08_003Z-debug-0.log\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/callback-reminder-worker",
+        "appName": "CallbackQueue Worker",
+        "build": {
+          "exitCode": 127,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": false,
+        "compose": true,
+        "workerEntrypoint": true,
+        "queueRoutes": true,
+        "redisCompose": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": false
+      }
+    },
+    {
+      "id": "warehouse-demo-page",
+      "title": "Warehouse demo page",
+      "tool": "scaffoldNextjsDockerApp",
+      "storyPath": "agents/training-scenarios/user_stories/381-400-real-world-ambiguity-user-stories.md#384-our-demo-is-tomorrow-and-the-page-is-embarrassing",
+      "ok": false,
+      "elapsedMs": 10996,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline && bun run build) || (npm install --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/warehouse-demo-page",
+        "exitCode": 1,
+        "stdout": "bun install v1.3.11 (af24e281)\n",
+        "stderr": "error: bun is unable to write files to tempdir: PermissionDenied\nnpm error code ENOTFOUND\nnpm error syscall getaddrinfo\nnpm error errno ENOTFOUND\nnpm error network request to https://registry.npmjs.org/@eslint%2feslintrc failed, reason: getaddrinfo ENOTFOUND registry.npmjs.org\nnpm error network This is a problem related to network connectivity.\nnpm error network In most cases you are behind a proxy or have bad network settings.\nnpm error network\nnpm error network If you are behind a proxy, please make sure that the 'proxy' config is set properly.  See: 'npm help config'\nnpm error A complete log of this run can be found in: /Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/.hanasand/npm-cache/_logs/2026-05-06T20_39_13_954Z-debug-0.log\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/warehouse-demo-page",
+        "appName": "DockSignal",
+        "productBrief": "DockSignal is a sharp operational demo page for warehouse software with receiving, exceptions, queue visibility, blocker metrics, role proof, and a realistic demo CTA.",
+        "build": {
+          "exitCode": 127,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": false,
+        "compose": true,
+        "standaloneNext": true,
+        "appPage": true,
+        "readmeEnv": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": false
+      }
+    },
+    {
+      "id": "warehouse-receiving-api-381",
+      "title": "Warehouse receiving API",
+      "tool": "scaffoldFastifyPostgresApp",
+      "storyPath": "agents/training-scenarios/user_stories/381-400-real-world-ambiguity-user-stories.md#385-the-ops-team-wants-a-receiving-api",
+      "ok": false,
+      "elapsedMs": 6974,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline --ignore-scripts --no-progress && bun run build) || (npm install --ignore-scripts --progress=false --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/warehouse-receiving-api-381",
+        "exitCode": 1,
+        "stdout": "bun install v1.3.11 (af24e281)\n",
+        "stderr": "error: bun is unable to write files to tempdir: PermissionDenied\nnpm error code ENOTFOUND\nnpm error syscall getaddrinfo\nnpm error errno ENOTFOUND\nnpm error network request to https://registry.npmjs.org/@types%2fnode failed, reason: getaddrinfo ENOTFOUND registry.npmjs.org\nnpm error network This is a problem related to network connectivity.\nnpm error network In most cases you are behind a proxy or have bad network settings.\nnpm error network\nnpm error network If you are behind a proxy, please make sure that the 'proxy' config is set properly.  See: 'npm help config'\nnpm error A complete log of this run can be found in: /Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/.hanasand/npm-cache/_logs/2026-05-06T20_39_24_971Z-debug-0.log\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/warehouse-receiving-api-381",
+        "appName": "ReceivingLedger API",
+        "build": {
+          "exitCode": 127,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": false,
+        "compose": true,
+        "migrationScript": true,
+        "healthRoutes": true,
+        "postgresCompose": true,
+        "elapsedWithinBudget": false,
+        "toolSucceeded": false
+      }
+    },
+    {
+      "id": "safe-label-worker",
+      "title": "Safe label worker",
+      "tool": "scaffoldFastifyWorkerRedisApp",
+      "storyPath": "agents/training-scenarios/user_stories/381-400-real-world-ambiguity-user-stories.md#386-labels-print-twice-and-nobody-knows-why",
+      "ok": false,
+      "elapsedMs": 5963,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline --ignore-scripts --no-progress && bun run build) || (npm install --ignore-scripts --progress=false --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/safe-label-worker",
+        "exitCode": 1,
+        "stdout": "bun install v1.3.11 (af24e281)\n",
+        "stderr": "error: bun is unable to write files to tempdir: PermissionDenied\nnpm error code ENOTFOUND\nnpm error syscall getaddrinfo\nnpm error errno ENOTFOUND\nnpm error network request to https://registry.npmjs.org/@types%2fnode failed, reason: getaddrinfo ENOTFOUND registry.npmjs.org\nnpm error network This is a problem related to network connectivity.\nnpm error network In most cases you are behind a proxy or have bad network settings.\nnpm error network\nnpm error network If you are behind a proxy, please make sure that the 'proxy' config is set properly.  See: 'npm help config'\nnpm error A complete log of this run can be found in: /Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/.hanasand/npm-cache/_logs/2026-05-06T20_39_31_924Z-debug-0.log\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/safe-label-worker",
+        "appName": "LabelGuard Worker",
+        "build": {
+          "exitCode": 127,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": false,
+        "compose": true,
+        "workerEntrypoint": true,
+        "queueRoutes": true,
+        "redisCompose": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": false
+      }
+    },
+    {
+      "id": "readable-policy-page",
+      "title": "Readable policy page",
+      "tool": "scaffoldNextjsDockerApp",
+      "storyPath": "agents/training-scenarios/user_stories/381-400-real-world-ambiguity-user-stories.md#387-a-serious-policy-page-for-people-who-hate-policy-pages",
+      "ok": false,
+      "elapsedMs": 10993,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline && bun run build) || (npm install --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/readable-policy-page",
+        "exitCode": 1,
+        "stdout": "bun install v1.3.11 (af24e281)\n",
+        "stderr": "error: bun is unable to write files to tempdir: PermissionDenied\nnpm error code ENOTFOUND\nnpm error syscall getaddrinfo\nnpm error errno ENOTFOUND\nnpm error network request to https://registry.npmjs.org/@eslint%2feslintrc failed, reason: getaddrinfo ENOTFOUND registry.npmjs.org\nnpm error network This is a problem related to network connectivity.\nnpm error network In most cases you are behind a proxy or have bad network settings.\nnpm error network\nnpm error network If you are behind a proxy, please make sure that the 'proxy' config is set properly.  See: 'npm help config'\nnpm error A complete log of this run can be found in: /Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/.hanasand/npm-cache/_logs/2026-05-06T20_39_37_886Z-debug-0.log\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/readable-policy-page",
+        "appName": "PolicyPlain",
+        "productBrief": "PolicyPlain makes remote work policy readable with categories, recent changes, owner contacts, acknowledgements, employee questions, and a restrained internal interface.",
+        "build": {
+          "exitCode": 127,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": false,
+        "compose": true,
+        "standaloneNext": true,
+        "appPage": true,
+        "readmeEnv": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": false
+      }
+    },
+    {
+      "id": "policy-exception-api-381",
+      "title": "Policy exception API",
+      "tool": "scaffoldFastifyPostgresApp",
+      "storyPath": "agents/training-scenarios/user_stories/381-400-real-world-ambiguity-user-stories.md#388-track-exceptions-before-audit-week",
+      "ok": false,
+      "elapsedMs": 6965,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline --ignore-scripts --no-progress && bun run build) || (npm install --ignore-scripts --progress=false --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/policy-exception-api-381",
+        "exitCode": 1,
+        "stdout": "bun install v1.3.11 (af24e281)\n",
+        "stderr": "error: bun is unable to write files to tempdir: PermissionDenied\nnpm error code ENOTFOUND\nnpm error syscall getaddrinfo\nnpm error errno ENOTFOUND\nnpm error network request to https://registry.npmjs.org/@types%2fnode failed, reason: getaddrinfo ENOTFOUND registry.npmjs.org\nnpm error network This is a problem related to network connectivity.\nnpm error network In most cases you are behind a proxy or have bad network settings.\nnpm error network\nnpm error network If you are behind a proxy, please make sure that the 'proxy' config is set properly.  See: 'npm help config'\nnpm error A complete log of this run can be found in: /Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/.hanasand/npm-cache/_logs/2026-05-06T20_39_48_878Z-debug-0.log\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/policy-exception-api-381",
+        "appName": "ExceptionLedger API",
+        "build": {
+          "exitCode": 127,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": false,
+        "compose": true,
+        "migrationScript": true,
+        "healthRoutes": true,
+        "postgresCompose": true,
+        "elapsedWithinBudget": false,
+        "toolSucceeded": false
+      }
+    },
+    {
+      "id": "exception-expiry-worker",
+      "title": "Exception expiry worker",
+      "tool": "scaffoldFastifyWorkerRedisApp",
+      "storyPath": "agents/training-scenarios/user_stories/381-400-real-world-ambiguity-user-stories.md#389-nudge-owners-before-exceptions-expire",
+      "ok": false,
+      "elapsedMs": 5989,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline --ignore-scripts --no-progress && bun run build) || (npm install --ignore-scripts --progress=false --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/exception-expiry-worker",
+        "exitCode": 1,
+        "stdout": "bun install v1.3.11 (af24e281)\n",
+        "stderr": "error: bun is unable to write files to tempdir: PermissionDenied\nnpm error code ENOTFOUND\nnpm error syscall getaddrinfo\nnpm error errno ENOTFOUND\nnpm error network request to https://registry.npmjs.org/@types%2fnode failed, reason: getaddrinfo ENOTFOUND registry.npmjs.org\nnpm error network This is a problem related to network connectivity.\nnpm error network In most cases you are behind a proxy or have bad network settings.\nnpm error network\nnpm error network If you are behind a proxy, please make sure that the 'proxy' config is set properly.  See: 'npm help config'\nnpm error A complete log of this run can be found in: /Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/.hanasand/npm-cache/_logs/2026-05-06T20_39_55_853Z-debug-0.log\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/exception-expiry-worker",
+        "appName": "ExceptionNudge Worker",
+        "build": {
+          "exitCode": 127,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": false,
+        "compose": true,
+        "workerEntrypoint": true,
+        "queueRoutes": true,
+        "redisCompose": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": false
+      }
+    },
+    {
+      "id": "calm-gallery-site",
+      "title": "Calm gallery site",
+      "tool": "scaffoldNextjsDockerApp",
+      "storyPath": "agents/training-scenarios/user_stories/381-400-real-world-ambiguity-user-stories.md#390-a-gallery-page-that-does-not-feel-like-a-template",
+      "ok": false,
+      "elapsedMs": 11268,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline && bun run build) || (npm install --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/calm-gallery-site",
+        "exitCode": 1,
+        "stdout": "bun install v1.3.11 (af24e281)\n",
+        "stderr": "error: bun is unable to write files to tempdir: PermissionDenied\nnpm error code ENOTFOUND\nnpm error syscall getaddrinfo\nnpm error errno ENOTFOUND\nnpm error network request to https://registry.npmjs.org/@eslint%2feslintrc failed, reason: getaddrinfo ENOTFOUND registry.npmjs.org\nnpm error network This is a problem related to network connectivity.\nnpm error network In most cases you are behind a proxy or have bad network settings.\nnpm error network\nnpm error network If you are behind a proxy, please make sure that the 'proxy' config is set properly.  See: 'npm help config'\nnpm error A complete log of this run can be found in: /Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/.hanasand/npm-cache/_logs/2026-05-06T20_40_01_855Z-debug-0.log\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/calm-gallery-site",
+        "appName": "QuietRoom Gallery",
+        "productBrief": "QuietRoom Gallery is a calm artist show site with artwork availability, show details, inquiry path, visit/shipping notes, proof, and no fake checkout.",
+        "build": {
+          "exitCode": 127,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": false,
+        "compose": true,
+        "standaloneNext": true,
+        "appPage": true,
+        "readmeEnv": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": false
+      }
+    },
+    {
+      "id": "artwork-inventory-api",
+      "title": "Artwork inventory API",
+      "tool": "scaffoldFastifyPostgresApp",
+      "storyPath": "agents/training-scenarios/user_stories/381-400-real-world-ambiguity-user-stories.md#391-artwork-inventory-without-the-spreadsheet-panic",
+      "ok": false,
+      "elapsedMs": 7032,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline --ignore-scripts --no-progress && bun run build) || (npm install --ignore-scripts --progress=false --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/artwork-inventory-api",
+        "exitCode": 1,
+        "stdout": "bun install v1.3.11 (af24e281)\n",
+        "stderr": "error: bun is unable to write files to tempdir: PermissionDenied\nnpm error code ENOTFOUND\nnpm error syscall getaddrinfo\nnpm error errno ENOTFOUND\nnpm error network request to https://registry.npmjs.org/@types%2fnode failed, reason: getaddrinfo ENOTFOUND registry.npmjs.org\nnpm error network This is a problem related to network connectivity.\nnpm error network In most cases you are behind a proxy or have bad network settings.\nnpm error network\nnpm error network If you are behind a proxy, please make sure that the 'proxy' config is set properly.  See: 'npm help config'\nnpm error A complete log of this run can be found in: /Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/.hanasand/npm-cache/_logs/2026-05-06T20_40_13_109Z-debug-0.log\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/artwork-inventory-api",
+        "appName": "ArtworkLedger API",
+        "build": {
+          "exitCode": 127,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": false,
+        "compose": true,
+        "migrationScript": true,
+        "healthRoutes": true,
+        "postgresCompose": true,
+        "elapsedWithinBudget": false,
+        "toolSucceeded": false
+      }
+    },
+    {
+      "id": "collector-followup-worker",
+      "title": "Collector followup worker",
+      "tool": "scaffoldFastifyWorkerRedisApp",
+      "storyPath": "agents/training-scenarios/user_stories/381-400-real-world-ambiguity-user-stories.md#392-follow-up-with-collectors-later",
+      "ok": false,
+      "elapsedMs": 6024,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline --ignore-scripts --no-progress && bun run build) || (npm install --ignore-scripts --progress=false --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/collector-followup-worker",
+        "exitCode": 1,
+        "stdout": "bun install v1.3.11 (af24e281)\n",
+        "stderr": "error: bun is unable to write files to tempdir: PermissionDenied\nnpm error code ENOTFOUND\nnpm error syscall getaddrinfo\nnpm error errno ENOTFOUND\nnpm error network request to https://registry.npmjs.org/@types%2fnode failed, reason: getaddrinfo ENOTFOUND registry.npmjs.org\nnpm error network This is a problem related to network connectivity.\nnpm error network In most cases you are behind a proxy or have bad network settings.\nnpm error network\nnpm error network If you are behind a proxy, please make sure that the 'proxy' config is set properly.  See: 'npm help config'\nnpm error A complete log of this run can be found in: /Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/.hanasand/npm-cache/_logs/2026-05-06T20_40_20_141Z-debug-0.log\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/collector-followup-worker",
+        "appName": "CollectorFollowup Worker",
+        "build": {
+          "exitCode": 127,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": false,
+        "compose": true,
+        "workerEntrypoint": true,
+        "queueRoutes": true,
+        "redisCompose": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": false
+      }
+    },
+    {
+      "id": "cfo-one-screen-dashboard",
+      "title": "CFO one screen dashboard",
+      "tool": "scaffoldNextjsDockerApp",
+      "storyPath": "agents/training-scenarios/user_stories/381-400-real-world-ambiguity-user-stories.md#393-the-cfo-wants-one-screen-not-a-bi-project",
+      "ok": false,
+      "elapsedMs": 11124,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline && bun run build) || (npm install --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/cfo-one-screen-dashboard",
+        "exitCode": 1,
+        "stdout": "bun install v1.3.11 (af24e281)\n",
+        "stderr": "error: bun is unable to write files to tempdir: PermissionDenied\nnpm error code ENOTFOUND\nnpm error syscall getaddrinfo\nnpm error errno ENOTFOUND\nnpm error network request to https://registry.npmjs.org/@eslint%2feslintrc failed, reason: getaddrinfo ENOTFOUND registry.npmjs.org\nnpm error network This is a problem related to network connectivity.\nnpm error network In most cases you are behind a proxy or have bad network settings.\nnpm error network\nnpm error network If you are behind a proxy, please make sure that the 'proxy' config is set properly.  See: 'npm help config'\nnpm error A complete log of this run can be found in: /Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/.hanasand/npm-cache/_logs/2026-05-06T20_40_26_172Z-debug-0.log\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/cfo-one-screen-dashboard",
+        "appName": "CashBrief",
+        "productBrief": "CashBrief gives a CFO one board-safe screen for cash, overdue invoices, risks, owners, weekly changes, and review tasks without pretending to connect live bank feeds.",
+        "build": {
+          "exitCode": 127,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": false,
+        "compose": true,
+        "standaloneNext": true,
+        "appPage": true,
+        "readmeEnv": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": false
+      }
+    },
+    {
+      "id": "invoice-exceptions-api",
+      "title": "Invoice exceptions API",
+      "tool": "scaffoldFastifyPostgresApp",
+      "storyPath": "agents/training-scenarios/user_stories/381-400-real-world-ambiguity-user-stories.md#394-invoice-exceptions-api",
+      "ok": false,
+      "elapsedMs": 6971,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline --ignore-scripts --no-progress && bun run build) || (npm install --ignore-scripts --progress=false --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/invoice-exceptions-api",
+        "exitCode": 1,
+        "stdout": "bun install v1.3.11 (af24e281)\n",
+        "stderr": "error: bun is unable to write files to tempdir: PermissionDenied\nnpm error code ENOTFOUND\nnpm error syscall getaddrinfo\nnpm error errno ENOTFOUND\nnpm error network request to https://registry.npmjs.org/@types%2fnode failed, reason: getaddrinfo ENOTFOUND registry.npmjs.org\nnpm error network This is a problem related to network connectivity.\nnpm error network In most cases you are behind a proxy or have bad network settings.\nnpm error network\nnpm error network If you are behind a proxy, please make sure that the 'proxy' config is set properly.  See: 'npm help config'\nnpm error A complete log of this run can be found in: /Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/.hanasand/npm-cache/_logs/2026-05-06T20_40_37_293Z-debug-0.log\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/invoice-exceptions-api",
+        "appName": "InvoiceException API",
+        "build": {
+          "exitCode": 127,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": false,
+        "compose": true,
+        "migrationScript": true,
+        "healthRoutes": true,
+        "postgresCompose": true,
+        "elapsedWithinBudget": false,
+        "toolSucceeded": false
+      }
+    },
+    {
+      "id": "safe-invoice-export-worker",
+      "title": "Safe invoice export worker",
+      "tool": "scaffoldFastifyWorkerRedisApp",
+      "storyPath": "agents/training-scenarios/user_stories/381-400-real-world-ambiguity-user-stories.md#395-retry-invoice-exports-safely",
+      "ok": false,
+      "elapsedMs": 5997,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline --ignore-scripts --no-progress && bun run build) || (npm install --ignore-scripts --progress=false --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/safe-invoice-export-worker",
+        "exitCode": 1,
+        "stdout": "bun install v1.3.11 (af24e281)\n",
+        "stderr": "error: bun is unable to write files to tempdir: PermissionDenied\nnpm error code ENOTFOUND\nnpm error syscall getaddrinfo\nnpm error errno ENOTFOUND\nnpm error network request to https://registry.npmjs.org/@types%2fnode failed, reason: getaddrinfo ENOTFOUND registry.npmjs.org\nnpm error network This is a problem related to network connectivity.\nnpm error network In most cases you are behind a proxy or have bad network settings.\nnpm error network\nnpm error network If you are behind a proxy, please make sure that the 'proxy' config is set properly.  See: 'npm help config'\nnpm error A complete log of this run can be found in: /Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/.hanasand/npm-cache/_logs/2026-05-06T20_40_44_290Z-debug-0.log\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/safe-invoice-export-worker",
+        "appName": "InvoiceExportGuard Worker",
+        "build": {
+          "exitCode": 127,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": false,
+        "compose": true,
+        "workerEntrypoint": true,
+        "queueRoutes": true,
+        "redisCompose": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": false
+      }
+    },
+    {
+      "id": "warm-clinic-site",
+      "title": "Warm clinic site",
+      "tool": "scaffoldNextjsDockerApp",
+      "storyPath": "agents/training-scenarios/user_stories/381-400-real-world-ambiguity-user-stories.md#396-a-local-clinic-site-that-does-not-sound-like-a-hospital-chain",
+      "ok": false,
+      "elapsedMs": 11055,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline && bun run build) || (npm install --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/warm-clinic-site",
+        "exitCode": 1,
+        "stdout": "bun install v1.3.11 (af24e281)\n",
+        "stderr": "error: bun is unable to write files to tempdir: PermissionDenied\nnpm error code ENOTFOUND\nnpm error syscall getaddrinfo\nnpm error errno ENOTFOUND\nnpm error network request to https://registry.npmjs.org/@eslint%2feslintrc failed, reason: getaddrinfo ENOTFOUND registry.npmjs.org\nnpm error network This is a problem related to network connectivity.\nnpm error network In most cases you are behind a proxy or have bad network settings.\nnpm error network\nnpm error network If you are behind a proxy, please make sure that the 'proxy' config is set properly.  See: 'npm help config'\nnpm error A complete log of this run can be found in: /Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/.hanasand/npm-cache/_logs/2026-05-06T20_40_50_258Z-debug-0.log\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/warm-clinic-site",
+        "appName": "HarborCare Local",
+        "productBrief": "HarborCare Local is a warmer clinic site with services, hours, preparation notes, urgent-care caveats, contact path, accessibility, and no fake medical promises.",
+        "build": {
+          "exitCode": 127,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": false,
+        "compose": true,
+        "standaloneNext": true,
+        "appPage": true,
+        "readmeEnv": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": false
+      }
+    },
+    {
+      "id": "clinic-intake-tracker-api",
+      "title": "Clinic intake tracker API",
+      "tool": "scaffoldFastifyPostgresApp",
+      "storyPath": "agents/training-scenarios/user_stories/381-400-real-world-ambiguity-user-stories.md#397-clinic-intake-tracker",
+      "ok": false,
+      "elapsedMs": 6979,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline --ignore-scripts --no-progress && bun run build) || (npm install --ignore-scripts --progress=false --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/clinic-intake-tracker-api",
+        "exitCode": 1,
+        "stdout": "bun install v1.3.11 (af24e281)\n",
+        "stderr": "error: bun is unable to write files to tempdir: PermissionDenied\nnpm error code ENOTFOUND\nnpm error syscall getaddrinfo\nnpm error errno ENOTFOUND\nnpm error network request to https://registry.npmjs.org/@types%2fnode failed, reason: getaddrinfo ENOTFOUND registry.npmjs.org\nnpm error network This is a problem related to network connectivity.\nnpm error network In most cases you are behind a proxy or have bad network settings.\nnpm error network\nnpm error network If you are behind a proxy, please make sure that the 'proxy' config is set properly.  See: 'npm help config'\nnpm error A complete log of this run can be found in: /Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/.hanasand/npm-cache/_logs/2026-05-06T20_41_01_332Z-debug-0.log\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/clinic-intake-tracker-api",
+        "appName": "IntakeTracker API",
+        "build": {
+          "exitCode": 127,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": false,
+        "compose": true,
+        "migrationScript": true,
+        "healthRoutes": true,
+        "postgresCompose": true,
+        "elapsedWithinBudget": false,
+        "toolSucceeded": false
+      }
+    },
+    {
+      "id": "missing-doc-reminder-worker",
+      "title": "Missing document reminder worker",
+      "tool": "scaffoldFastifyWorkerRedisApp",
+      "storyPath": "agents/training-scenarios/user_stories/381-400-real-world-ambiguity-user-stories.md#398-remind-staff-about-missing-documents",
+      "ok": false,
+      "elapsedMs": 5936,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline --ignore-scripts --no-progress && bun run build) || (npm install --ignore-scripts --progress=false --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/missing-doc-reminder-worker",
+        "exitCode": 1,
+        "stdout": "bun install v1.3.11 (af24e281)\n",
+        "stderr": "error: bun is unable to write files to tempdir: PermissionDenied\nnpm error code ENOTFOUND\nnpm error syscall getaddrinfo\nnpm error errno ENOTFOUND\nnpm error network request to https://registry.npmjs.org/@types%2fnode failed, reason: getaddrinfo ENOTFOUND registry.npmjs.org\nnpm error network This is a problem related to network connectivity.\nnpm error network In most cases you are behind a proxy or have bad network settings.\nnpm error network\nnpm error network If you are behind a proxy, please make sure that the 'proxy' config is set properly.  See: 'npm help config'\nnpm error A complete log of this run can be found in: /Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/.hanasand/npm-cache/_logs/2026-05-06T20_41_08_281Z-debug-0.log\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/missing-doc-reminder-worker",
+        "appName": "DocumentNudge Worker",
+        "build": {
+          "exitCode": 127,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": false,
+        "compose": true,
+        "workerEntrypoint": true,
+        "queueRoutes": true,
+        "redisCompose": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": false
+      }
+    },
+    {
+      "id": "tiny-internal-tool",
+      "title": "Tiny internal tool",
+      "tool": "scaffoldNextjsDockerApp",
+      "storyPath": "agents/training-scenarios/user_stories/381-400-real-world-ambiguity-user-stories.md#399-a-tiny-internal-tool-for-a-boss-who-says-just-make-it-work",
+      "ok": false,
+      "elapsedMs": 11007,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline && bun run build) || (npm install --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/tiny-internal-tool",
+        "exitCode": 1,
+        "stdout": "bun install v1.3.11 (af24e281)\n",
+        "stderr": "error: bun is unable to write files to tempdir: PermissionDenied\nnpm error code ENOTFOUND\nnpm error syscall getaddrinfo\nnpm error errno ENOTFOUND\nnpm error network request to https://registry.npmjs.org/@eslint%2feslintrc failed, reason: getaddrinfo ENOTFOUND registry.npmjs.org\nnpm error network This is a problem related to network connectivity.\nnpm error network In most cases you are behind a proxy or have bad network settings.\nnpm error network\nnpm error network If you are behind a proxy, please make sure that the 'proxy' config is set properly.  See: 'npm help config'\nnpm error A complete log of this run can be found in: /Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/.hanasand/npm-cache/_logs/2026-05-06T20_41_14_227Z-debug-0.log\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/tiny-internal-tool",
+        "appName": "WorkTiny",
+        "productBrief": "WorkTiny gives a small company one useful internal screen for tasks, blockers, owners, shipped work, simple auth seams, and deployment notes without overbuilding.",
+        "build": {
+          "exitCode": 127,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": false,
+        "compose": true,
+        "standaloneNext": true,
+        "appPage": true,
+        "readmeEnv": true,
+        "elapsedWithinBudget": true,
+        "toolSucceeded": false
+      }
+    },
+    {
+      "id": "internal-work-api",
+      "title": "Internal work API",
+      "tool": "scaffoldFastifyPostgresApp",
+      "storyPath": "agents/training-scenarios/user_stories/381-400-real-world-ambiguity-user-stories.md#400-turn-that-internal-tool-into-an-api",
+      "ok": false,
+      "elapsedMs": 6991,
+      "result": {
+        "command": "(command -v bun >/dev/null 2>&1 && mkdir -p .hanasand-tmp && HOME=\"/Users/eirikhanasand\" TMPDIR=\"$PWD/.hanasand-tmp\" bun install --offline --ignore-scripts --no-progress && bun run build) || (npm install --ignore-scripts --progress=false --fetch-retries=1 --fetch-retry-mintimeout=1000 --fetch-retry-maxtimeout=5000 --fetch-timeout=5000 --no-audit --no-fund && npm run build)",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/internal-work-api",
+        "exitCode": 1,
+        "stdout": "bun install v1.3.11 (af24e281)\n",
+        "stderr": "error: bun is unable to write files to tempdir: PermissionDenied\nnpm error code ENOTFOUND\nnpm error syscall getaddrinfo\nnpm error errno ENOTFOUND\nnpm error network request to https://registry.npmjs.org/@types%2fnode failed, reason: getaddrinfo ENOTFOUND registry.npmjs.org\nnpm error network This is a problem related to network connectivity.\nnpm error network In most cases you are behind a proxy or have bad network settings.\nnpm error network\nnpm error network If you are behind a proxy, please make sure that the 'proxy' config is set properly.  See: 'npm help config'\nnpm error A complete log of this run can be found in: /Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/.hanasand/npm-cache/_logs/2026-05-06T20_41_25_234Z-debug-0.log\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/internal-work-api",
+        "appName": "WorkTiny API",
+        "build": {
+          "exitCode": 127,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "readme": true,
+        "readmeOps": true,
+        "readmeConcise": true,
+        "build": false,
+        "compose": true,
+        "migrationScript": true,
+        "healthRoutes": true,
+        "postgresCompose": true,
+        "elapsedWithinBudget": false,
+        "toolSucceeded": false
+      }
+    }
+  ]
+}

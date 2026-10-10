@@ -1,0 +1,179 @@
+{
+  "ok": false,
+  "createdAt": "2026-05-06T01:02:21.232Z",
+  "smokeRoot": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke",
+  "results": [
+    {
+      "id": "fixed-price-client-portal",
+      "title": "Fixed price client portal",
+      "tool": "scaffoldNextjsDockerApp",
+      "ok": false,
+      "elapsedMs": 72463,
+      "result": {
+        "command": "npm install && npm run build",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/fixed-price-client-portal",
+        "exitCode": 0,
+        "stdout": "\nadded 304 packages, and audited 305 packages in 41s\n\n132 packages are looking for funding\n  run `npm fund` for details\n\n2 vulnerabilities (1 moderate, 1 critical)\n\nTo address all issues, run:\n  npm audit fix --force\n\nRun `npm audit` for details.\n\n> northstar-studio-portal@0.1.0 build\n> next build\n\nAttention: Next.js now collects completely anonymous telemetry regarding usage.\nThis information is used to shape Next.js' roadmap and prioritize features.\nYou can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:\nhttps://nextjs.org/telemetry\n\n   ▲ Next.js 15.5.6\n\n   Creating an optimized production build ...\n ✓ Compiled successfully in 1968ms\n   Linting and checking validity of types ...\n   Collecting page data ...\n   Generating static pages (0/4) ...\n   Generating static pages (1/4) \r\n   Generating static pages (2/4) \r\n   Generating static pages (3/4) \r\n ✓ Generating static pages (4/4)\n   Finalizing page optimization ...\n   Collecting build traces ...\n\nRoute (app)                                 Size  First Load JS\n┌ ○ /                                      120 B         102 kB\n└ ○ /_not-found                            998 B         103 kB\n+ First Load JS shared by all             102 kB\n  ├ chunks/255-cf2e1d3491ac955b.js       45.8 kB\n  ├ chunks/4bd1b696-c023c6e3521b1417.js  54.2 kB\n  └ other shared chunks (total)          1.89 kB\n\n\n○  (Static)  prerendered as static content\n\n",
+        "stderr": "npm warn deprecated next@15.5.6: This version has a security vulnerability. Please upgrade to a patched version. See https://nextjs.org/blog/CVE-2025-66478 for more details.\nnpm notice\nnpm notice New minor version of npm available! 11.12.1 -> 11.13.0\nnpm notice Changelog: https://github.com/npm/cli/releases/tag/v11.13.0\nnpm notice To update run: npm install -g npm@11.13.0\nnpm notice\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/fixed-price-client-portal",
+        "appName": "Northstar Studio Portal",
+        "productBrief": "Northstar Studio Portal helps freelance studios manage client projects, pricing, testimonials, delivery boards, and launch metrics from one portable self-hosted dashboard.",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": false,
+        "build": true,
+        "compose": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "launch-waitlist-admin",
+      "title": "Launch waitlist admin",
+      "tool": "scaffoldFastifyPostgresApp",
+      "ok": true,
+      "elapsedMs": 12150,
+      "result": {
+        "command": "npm install && npm run build",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/launch-waitlist-admin",
+        "exitCode": 0,
+        "stdout": "\nadded 69 packages, and audited 70 packages in 9s\n\n20 packages are looking for funding\n  run `npm fund` for details\n\nfound 0 vulnerabilities\n\n> signaldesk-launch-api@0.1.0 build\n> tsc -p tsconfig.json\n\n",
+        "stderr": "",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/launch-waitlist-admin",
+        "appName": "SignalDesk Launch API",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "build": true,
+        "compose": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "background-jobs-and-queue",
+      "title": "Background jobs and queue",
+      "tool": "scaffoldFastifyWorkerRedisApp",
+      "ok": true,
+      "elapsedMs": 10781,
+      "result": {
+        "command": "npm install && npm run build",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/background-jobs-and-queue",
+        "exitCode": 0,
+        "stdout": "\nadded 62 packages, and audited 63 packages in 6s\n\n20 packages are looking for funding\n  run `npm fund` for details\n\nfound 0 vulnerabilities\n\n> taskforge-queue@0.1.0 build\n> tsc -p tsconfig.json\n\n",
+        "stderr": "",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/background-jobs-and-queue",
+        "appName": "TaskForge Queue",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "build": true,
+        "compose": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "vercel-to-vps-migration",
+      "title": "Vercel to VPS migration",
+      "tool": "scaffoldNextjsDockerApp",
+      "ok": false,
+      "elapsedMs": 45417,
+      "result": {
+        "command": "npm install && npm run build",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/vercel-to-vps-migration",
+        "exitCode": 0,
+        "stdout": "\nadded 304 packages, and audited 305 packages in 11s\n\n132 packages are looking for funding\n  run `npm fund` for details\n\n2 vulnerabilities (1 moderate, 1 critical)\n\nTo address all issues, run:\n  npm audit fix --force\n\nRun `npm audit` for details.\n\n> harbor-metrics@0.1.0 build\n> next build\n\nAttention: Next.js now collects completely anonymous telemetry regarding usage.\nThis information is used to shape Next.js' roadmap and prioritize features.\nYou can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:\nhttps://nextjs.org/telemetry\n\n   ▲ Next.js 15.5.6\n\n   Creating an optimized production build ...\n ✓ Compiled successfully in 1917ms\n   Linting and checking validity of types ...\n   Collecting page data ...\n   Generating static pages (0/4) ...\n   Generating static pages (1/4) \r\n   Generating static pages (2/4) \r\n   Generating static pages (3/4) \r\n ✓ Generating static pages (4/4)\n   Finalizing page optimization ...\n   Collecting build traces ...\n\nRoute (app)                                 Size  First Load JS\n┌ ○ /                                      120 B         102 kB\n└ ○ /_not-found                            996 B         103 kB\n+ First Load JS shared by all             102 kB\n  ├ chunks/255-cf2e1d3491ac955b.js       45.8 kB\n  ├ chunks/4bd1b696-c023c6e3521b1417.js  54.2 kB\n  └ other shared chunks (total)          1.89 kB\n\n\n○  (Static)  prerendered as static content\n\n",
+        "stderr": "npm warn deprecated next@15.5.6: This version has a security vulnerability. Please upgrade to a patched version. See https://nextjs.org/blog/CVE-2025-66478 for more details.\n",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/vercel-to-vps-migration",
+        "appName": "Harbor Metrics",
+        "productBrief": "Harbor Metrics is a provider-neutral analytics dashboard designed to migrate from hosted frontend deployment to a VPS with standalone Next.js and Docker Compose.",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": false,
+        "build": true,
+        "compose": true,
+        "toolSucceeded": true
+      }
+    },
+    {
+      "id": "observable-self-hosted-stack",
+      "title": "Observable self-hosted stack",
+      "tool": "scaffoldFastifyPostgresApp",
+      "ok": true,
+      "elapsedMs": 11632,
+      "result": {
+        "command": "npm install && npm run build",
+        "cwd": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/observable-self-hosted-stack",
+        "exitCode": 0,
+        "stdout": "\nadded 69 packages, and audited 70 packages in 9s\n\n20 packages are looking for funding\n  run `npm fund` for details\n\nfound 0 vulnerabilities\n\n> pulserail-ops@0.1.0 build\n> tsc -p tsconfig.json\n\n",
+        "stderr": "",
+        "timedOut": false,
+        "absolutePath": "/Users/eirikhanasand/Desktop/personal/hanasand/sandbox/user-story-tool-smoke/stories/observable-self-hosted-stack",
+        "appName": "PulseRail Ops",
+        "build": {
+          "exitCode": 0,
+          "timedOut": false
+        },
+        "compose": {
+          "exitCode": 0,
+          "timedOut": false
+        }
+      },
+      "checks": {
+        "packageJson": true,
+        "dockerfile": true,
+        "composeFile": true,
+        "envExample": true,
+        "build": true,
+        "compose": true,
+        "toolSucceeded": true
+      }
+    }
+  ]
+}

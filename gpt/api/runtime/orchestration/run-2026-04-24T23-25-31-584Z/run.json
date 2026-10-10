@@ -1,0 +1,544 @@
+{
+  "id": "run-2026-04-24T23-25-31-584Z",
+  "task": "Build a Next.js dashboard, verify Docker startup, and prepare a reviewer handoff.",
+  "createdAt": "2026-04-24T23:25:31.584Z",
+  "updatedAt": "2026-04-24T23:25:31.695Z",
+  "topology": {
+    "ownerNodeId": "orchestrator-b9ff77db-915e-4bea-8d5c-2e4a12793cad",
+    "strategy": "orchestrator -> implementation -> optional builder/reviewer branches",
+    "notes": [
+      "The orchestrator owns steering, branch policy, context packaging, and final upstream reporting.",
+      "The implementation node owns direct task execution and requests specialist branches when needed.",
+      "Builder and reviewer branches are opened through branch-control policy rather than by default."
+    ]
+  },
+  "branchPolicy": {
+    "maxBranches": 3,
+    "maxDepth": 2
+  },
+  "nodes": [
+    {
+      "id": "orchestrator-b9ff77db-915e-4bea-8d5c-2e4a12793cad",
+      "role": "orchestrator",
+      "label": "Orchestrator",
+      "parentId": null,
+      "branchKey": "root",
+      "depth": 0,
+      "status": "completed",
+      "task": "Build a Next.js dashboard, verify Docker startup, and prepare a reviewer handoff.",
+      "assignedAt": "2026-04-24T23:25:31.584Z",
+      "startedAt": null,
+      "completedAt": "2026-04-24T23:25:31.680Z",
+      "summary": "Closed orchestration run and persisted replay output."
+    },
+    {
+      "id": "implementation-a9e566d3-aff7-45ea-81eb-8d3bfd6e0648",
+      "role": "implementation",
+      "label": "Implementation agent",
+      "parentId": "orchestrator-b9ff77db-915e-4bea-8d5c-2e4a12793cad",
+      "branchKey": "implementation",
+      "depth": 1,
+      "status": "completed",
+      "task": "Build a Next.js dashboard, verify Docker startup, and prepare a reviewer handoff.",
+      "assignedAt": "2026-04-24T23:25:31.584Z",
+      "startedAt": "2026-04-24T23:25:31.591Z",
+      "completedAt": "2026-04-24T23:25:31.623Z",
+      "summary": "Implementation worker completed"
+    },
+    {
+      "id": "builder-5ccf73ce-411c-4f3b-aa24-78baf227c282",
+      "role": "builder",
+      "label": "builder branch",
+      "parentId": "implementation-a9e566d3-aff7-45ea-81eb-8d3bfd6e0648",
+      "branchKey": "implementation:builder",
+      "depth": 2,
+      "status": "completed",
+      "task": "Build and verification branch for: Build a Next.js dashboard, verify Docker startup, and prepare a reviewer handoff.",
+      "assignedAt": "2026-04-24T23:25:31.588Z",
+      "startedAt": "2026-04-24T23:25:31.624Z",
+      "completedAt": "2026-04-24T23:25:31.652Z",
+      "summary": "Builder worker completed"
+    },
+    {
+      "id": "reviewer-a42fd644-4f12-4c58-8e52-8ee86264e947",
+      "role": "reviewer",
+      "label": "reviewer branch",
+      "parentId": "implementation-a9e566d3-aff7-45ea-81eb-8d3bfd6e0648",
+      "branchKey": "implementation:reviewer",
+      "depth": 2,
+      "status": "completed",
+      "task": "Review branch for: Build a Next.js dashboard, verify Docker startup, and prepare a reviewer handoff.",
+      "assignedAt": "2026-04-24T23:25:31.588Z",
+      "startedAt": "2026-04-24T23:25:31.652Z",
+      "completedAt": "2026-04-24T23:25:31.680Z",
+      "summary": "Reviewer worker completed"
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-1c4bbc1b-02a8-4488-81cd-d4763fe69be0",
+      "from": "orchestrator-b9ff77db-915e-4bea-8d5c-2e4a12793cad",
+      "to": "implementation-a9e566d3-aff7-45ea-81eb-8d3bfd6e0648",
+      "type": "delegates_to",
+      "createdAt": "2026-04-24T23:25:31.584Z",
+      "label": "primary delivery path"
+    },
+    {
+      "id": "edge-b82f77a8-e86a-4124-ae78-d5840f306bd0",
+      "from": "implementation-a9e566d3-aff7-45ea-81eb-8d3bfd6e0648",
+      "to": "orchestrator-b9ff77db-915e-4bea-8d5c-2e4a12793cad",
+      "type": "reports_to",
+      "createdAt": "2026-04-24T23:25:31.584Z",
+      "label": "upstream summary"
+    },
+    {
+      "id": "edge-builder-5ccf73ce-411c-4f3b-aa24-78baf227c282",
+      "from": "implementation-a9e566d3-aff7-45ea-81eb-8d3bfd6e0648",
+      "to": "builder-5ccf73ce-411c-4f3b-aa24-78baf227c282",
+      "type": "branches_to",
+      "createdAt": "2026-04-24T23:25:31.588Z",
+      "label": "The task mentions build/run/verification work and benefits from a dedicated builder branch."
+    },
+    {
+      "id": "edge-reviewer-a42fd644-4f12-4c58-8e52-8ee86264e947",
+      "from": "implementation-a9e566d3-aff7-45ea-81eb-8d3bfd6e0648",
+      "to": "reviewer-a42fd644-4f12-4c58-8e52-8ee86264e947",
+      "type": "branches_to",
+      "createdAt": "2026-04-24T23:25:31.589Z",
+      "label": "A reviewer branch keeps final reporting and risk assessment separate from direct implementation."
+    }
+  ],
+  "events": [
+    {
+      "id": "event-3a9b69ad-f2c4-42a3-be43-21cf5841d20e",
+      "runId": "run-2026-04-24T23-25-31-584Z",
+      "nodeId": "implementation-a9e566d3-aff7-45ea-81eb-8d3bfd6e0648",
+      "role": "implementation",
+      "type": "branch_opened",
+      "state": "info",
+      "summary": "Opened builder branch",
+      "detail": "The task mentions build/run/verification work and benefits from a dedicated builder branch.",
+      "artifacts": [],
+      "createdAt": "2026-04-24T23:25:31.588Z",
+      "metadata": {
+        "branchNodeId": "builder-5ccf73ce-411c-4f3b-aa24-78baf227c282"
+      }
+    },
+    {
+      "id": "event-e0cf7c96-6c88-42e2-8a59-8b83e818418b",
+      "runId": "run-2026-04-24T23-25-31-584Z",
+      "nodeId": "implementation-a9e566d3-aff7-45ea-81eb-8d3bfd6e0648",
+      "role": "implementation",
+      "type": "branch_opened",
+      "state": "info",
+      "summary": "Opened reviewer branch",
+      "detail": "A reviewer branch keeps final reporting and risk assessment separate from direct implementation.",
+      "artifacts": [],
+      "createdAt": "2026-04-24T23:25:31.589Z",
+      "metadata": {
+        "branchNodeId": "reviewer-a42fd644-4f12-4c58-8e52-8ee86264e947"
+      }
+    },
+    {
+      "id": "event-8c5d66be-af4b-4d9c-80f8-d1dbf1794dcd",
+      "runId": "run-2026-04-24T23-25-31-584Z",
+      "nodeId": "orchestrator-b9ff77db-915e-4bea-8d5c-2e4a12793cad",
+      "role": "orchestrator",
+      "type": "branch_blocked",
+      "state": "blocked",
+      "summary": "Branch policy blocked additional work",
+      "detail": "Branch limit reached at 3 active branches. Existing branches must close or merge before more work can fork.",
+      "artifacts": [],
+      "createdAt": "2026-04-24T23:25:31.589Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-40d3c7c8-889e-46be-b7c8-de970c65685c",
+      "runId": "run-2026-04-24T23-25-31-584Z",
+      "nodeId": "implementation-a9e566d3-aff7-45ea-81eb-8d3bfd6e0648",
+      "role": "implementation",
+      "type": "context_packed",
+      "state": "info",
+      "summary": "Packed context for implementation",
+      "detail": "Included 3 segments and omitted 0.",
+      "artifacts": [],
+      "createdAt": "2026-04-24T23:25:31.590Z",
+      "metadata": {
+        "budgetTokens": 18000,
+        "usedTokens": 94
+      }
+    },
+    {
+      "id": "event-374aec1b-6278-4db6-88b5-43bb820f5f9f",
+      "runId": "run-2026-04-24T23-25-31-584Z",
+      "nodeId": "builder-5ccf73ce-411c-4f3b-aa24-78baf227c282",
+      "role": "builder",
+      "type": "context_packed",
+      "state": "info",
+      "summary": "Packed context for builder",
+      "detail": "Included 3 segments and omitted 0.",
+      "artifacts": [],
+      "createdAt": "2026-04-24T23:25:31.590Z",
+      "metadata": {
+        "budgetTokens": 10000,
+        "usedTokens": 94
+      }
+    },
+    {
+      "id": "event-1c775553-e1ab-4c27-a26b-beffb55e42e7",
+      "runId": "run-2026-04-24T23-25-31-584Z",
+      "nodeId": "reviewer-a42fd644-4f12-4c58-8e52-8ee86264e947",
+      "role": "reviewer",
+      "type": "context_packed",
+      "state": "info",
+      "summary": "Packed context for reviewer",
+      "detail": "Included 3 segments and omitted 0.",
+      "artifacts": [],
+      "createdAt": "2026-04-24T23:25:31.591Z",
+      "metadata": {
+        "budgetTokens": 9000,
+        "usedTokens": 94
+      }
+    },
+    {
+      "id": "event-fe69c98f-4c80-410d-89f3-cc7d4365388c",
+      "runId": "run-2026-04-24T23-25-31-584Z",
+      "nodeId": "implementation-a9e566d3-aff7-45ea-81eb-8d3bfd6e0648",
+      "role": "implementation",
+      "type": "worker_started",
+      "state": "info",
+      "summary": "Implementation worker started",
+      "detail": "Task: Build a Next.js dashboard, verify Docker startup, and prepare a reviewer handoff.",
+      "artifacts": [],
+      "createdAt": "2026-04-24T23:25:31.617Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-22414b16-d58e-4115-9e74-ab5349e3582f",
+      "runId": "run-2026-04-24T23-25-31-584Z",
+      "nodeId": "implementation-a9e566d3-aff7-45ea-81eb-8d3bfd6e0648",
+      "role": "implementation",
+      "type": "status_update",
+      "state": "info",
+      "summary": "Thinking through the requested change set",
+      "detail": "Packed context includes 3 segments using 94 tokens.",
+      "artifacts": [],
+      "createdAt": "2026-04-24T23:25:31.619Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-f7f64af3-2290-4749-ab49-e9e67fa1e6ac",
+      "runId": "run-2026-04-24T23-25-31-584Z",
+      "nodeId": "implementation-a9e566d3-aff7-45ea-81eb-8d3bfd6e0648",
+      "role": "implementation",
+      "type": "artifact_produced",
+      "state": "completed",
+      "summary": "Prepared implementation plan artifact",
+      "detail": null,
+      "artifacts": [
+        {
+          "id": "artifact-d2505665-942b-4145-b672-303d8b33e796",
+          "label": "implementation-plan.md",
+          "kind": "text",
+          "content": "# Implementation plan\n\n- Task: Build a Next.js dashboard, verify Docker startup, and prepare a reviewer handoff.\n- Branch: implementation\n- Selected context:\n  - Task brief: role match for implementation, shared global context, hot memory\n  - Repository constraints: role match for implementation, shared global context, warm memory\n  - Known product gap: shared global context, cold memory",
+          "createdAt": "2026-04-24T23:25:31.619Z"
+        }
+      ],
+      "createdAt": "2026-04-24T23:25:31.619Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-6dd9d4b8-98d3-4bc1-99e3-5bf978d63daa",
+      "runId": "run-2026-04-24T23-25-31-584Z",
+      "nodeId": "implementation-a9e566d3-aff7-45ea-81eb-8d3bfd6e0648",
+      "role": "implementation",
+      "type": "worker_completed",
+      "state": "completed",
+      "summary": "Implementation worker completed",
+      "detail": "Structured upstream reporting emitted successfully.",
+      "artifacts": [],
+      "createdAt": "2026-04-24T23:25:31.619Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-bcb9ca04-366a-4dc2-9102-bc9124fc41bd",
+      "runId": "run-2026-04-24T23-25-31-584Z",
+      "nodeId": "builder-5ccf73ce-411c-4f3b-aa24-78baf227c282",
+      "role": "builder",
+      "type": "worker_started",
+      "state": "info",
+      "summary": "Builder worker started",
+      "detail": "Task: Build and verification branch for: Build a Next.js dashboard, verify Docker startup, and prepare a reviewer handoff.",
+      "artifacts": [],
+      "createdAt": "2026-04-24T23:25:31.647Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-9b2174b0-ed36-465b-a555-7d9f61cff3a8",
+      "runId": "run-2026-04-24T23-25-31-584Z",
+      "nodeId": "builder-5ccf73ce-411c-4f3b-aa24-78baf227c282",
+      "role": "builder",
+      "type": "status_update",
+      "state": "info",
+      "summary": "Preparing builder branch",
+      "detail": "Packed context includes 3 segments using 94 tokens.",
+      "artifacts": [],
+      "createdAt": "2026-04-24T23:25:31.649Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-c6d2893d-5ba8-40bd-9689-cb1f759f1a09",
+      "runId": "run-2026-04-24T23-25-31-584Z",
+      "nodeId": "builder-5ccf73ce-411c-4f3b-aa24-78baf227c282",
+      "role": "builder",
+      "type": "artifact_produced",
+      "state": "completed",
+      "summary": "Prepared build-and-verify command log",
+      "detail": null,
+      "artifacts": [
+        {
+          "id": "artifact-b399fbcc-467b-4201-a102-e144a9e948df",
+          "label": "builder-commands.log",
+          "kind": "log",
+          "content": "npm install\nnpm run build\nnpm test\ndocker compose up --build -d",
+          "createdAt": "2026-04-24T23:25:31.649Z"
+        }
+      ],
+      "createdAt": "2026-04-24T23:25:31.649Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-9018e684-7d8d-4a3d-ba7d-9fa732454542",
+      "runId": "run-2026-04-24T23-25-31-584Z",
+      "nodeId": "builder-5ccf73ce-411c-4f3b-aa24-78baf227c282",
+      "role": "builder",
+      "type": "worker_completed",
+      "state": "completed",
+      "summary": "Builder worker completed",
+      "detail": "Structured upstream reporting emitted successfully.",
+      "artifacts": [],
+      "createdAt": "2026-04-24T23:25:31.649Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-c2ecca9a-4a47-4d02-83df-e966a96e43ba",
+      "runId": "run-2026-04-24T23-25-31-584Z",
+      "nodeId": "reviewer-a42fd644-4f12-4c58-8e52-8ee86264e947",
+      "role": "reviewer",
+      "type": "worker_started",
+      "state": "info",
+      "summary": "Reviewer worker started",
+      "detail": "Task: Review branch for: Build a Next.js dashboard, verify Docker startup, and prepare a reviewer handoff.",
+      "artifacts": [],
+      "createdAt": "2026-04-24T23:25:31.675Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-7b5b3ce3-05d3-4e84-aae6-759fb8369c83",
+      "runId": "run-2026-04-24T23-25-31-584Z",
+      "nodeId": "reviewer-a42fd644-4f12-4c58-8e52-8ee86264e947",
+      "role": "reviewer",
+      "type": "status_update",
+      "state": "info",
+      "summary": "Preparing reviewer branch",
+      "detail": "Packed context includes 3 segments using 94 tokens.",
+      "artifacts": [],
+      "createdAt": "2026-04-24T23:25:31.678Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-9978b521-a9f1-4c5b-90f4-ac50372b00e0",
+      "runId": "run-2026-04-24T23-25-31-584Z",
+      "nodeId": "reviewer-a42fd644-4f12-4c58-8e52-8ee86264e947",
+      "role": "reviewer",
+      "type": "review_requested",
+      "state": "completed",
+      "summary": "Prepared reviewer summary",
+      "detail": null,
+      "artifacts": [
+        {
+          "id": "artifact-5d555ed7-b2aa-4e12-b7e6-8a8975899744",
+          "label": "review-summary.md",
+          "kind": "text",
+          "content": "# Review summary\n\n- Risk posture: low\n- Notes: review branch confirms the task is still aligned with the requested outcome.\n- Context pack size: 94 tokens",
+          "createdAt": "2026-04-24T23:25:31.678Z"
+        }
+      ],
+      "createdAt": "2026-04-24T23:25:31.678Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-46c6a9d3-1972-4d4d-8ca2-68431e693000",
+      "runId": "run-2026-04-24T23-25-31-584Z",
+      "nodeId": "reviewer-a42fd644-4f12-4c58-8e52-8ee86264e947",
+      "role": "reviewer",
+      "type": "worker_completed",
+      "state": "completed",
+      "summary": "Reviewer worker completed",
+      "detail": "Structured upstream reporting emitted successfully.",
+      "artifacts": [],
+      "createdAt": "2026-04-24T23:25:31.678Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-51d14873-c3b5-47a5-a516-0d11587515c7",
+      "runId": "run-2026-04-24T23-25-31-584Z",
+      "nodeId": "orchestrator-b9ff77db-915e-4bea-8d5c-2e4a12793cad",
+      "role": "orchestrator",
+      "type": "run_summary",
+      "state": "completed",
+      "summary": "Orchestrator collected child updates and closed the run.",
+      "detail": "Executed 3 worker nodes with structured upstream events.",
+      "artifacts": [],
+      "createdAt": "2026-04-24T23:25:31.680Z",
+      "metadata": {}
+    }
+  ],
+  "context": {
+    "effectiveCapacityTokens": 10000000,
+    "segments": [
+      {
+        "id": "segment-5cab13d6-aaf5-4814-803b-27035494c613",
+        "label": "Task brief",
+        "kind": "task",
+        "temperature": "hot",
+        "roleAffinity": [
+          "orchestrator",
+          "implementation"
+        ],
+        "branchKey": "root",
+        "content": "Build a Next.js dashboard, verify Docker startup, and prepare a reviewer handoff.",
+        "estimatedTokens": 21,
+        "priority": 5,
+        "createdAt": "2026-04-24T23:25:31.586Z",
+        "metadata": {}
+      },
+      {
+        "id": "segment-ca9a9b6e-2f96-4245-a1e0-fca5201f9027",
+        "label": "Repository constraints",
+        "kind": "constraint",
+        "temperature": "warm",
+        "roleAffinity": [
+          "orchestrator",
+          "implementation",
+          "builder",
+          "reviewer"
+        ],
+        "branchKey": null,
+        "content": "Prefer TypeScript and shell scripts. Keep orchestration inspectable and replayable. Treat 10M context as effective retrieval-backed context rather than a single prompt.",
+        "estimatedTokens": 42,
+        "priority": 4,
+        "createdAt": "2026-04-24T23:25:31.587Z",
+        "metadata": {}
+      },
+      {
+        "id": "segment-acbec53f-090c-4274-9444-4f1f95a5ec32",
+        "label": "Known product gap",
+        "kind": "memory",
+        "temperature": "cold",
+        "roleAffinity": [
+          "orchestrator",
+          "reviewer"
+        ],
+        "branchKey": null,
+        "content": "Remote VM shell/file-write deploy flow is still incomplete, so orchestration should stay honest about local-only branches.",
+        "estimatedTokens": 31,
+        "priority": 3,
+        "createdAt": "2026-04-24T23:25:31.587Z",
+        "metadata": {}
+      }
+    ],
+    "packs": [
+      {
+        "nodeId": "implementation-a9e566d3-aff7-45ea-81eb-8d3bfd6e0648",
+        "role": "implementation",
+        "budgetTokens": 18000,
+        "usedTokens": 94,
+        "included": [
+          {
+            "id": "segment-5cab13d6-aaf5-4814-803b-27035494c613",
+            "label": "Task brief",
+            "estimatedTokens": 21,
+            "reason": "role match for implementation, shared global context, hot memory"
+          },
+          {
+            "id": "segment-ca9a9b6e-2f96-4245-a1e0-fca5201f9027",
+            "label": "Repository constraints",
+            "estimatedTokens": 42,
+            "reason": "role match for implementation, shared global context, warm memory"
+          },
+          {
+            "id": "segment-acbec53f-090c-4274-9444-4f1f95a5ec32",
+            "label": "Known product gap",
+            "estimatedTokens": 31,
+            "reason": "shared global context, cold memory"
+          }
+        ],
+        "omitted": [],
+        "generatedAt": "2026-04-24T23:25:31.589Z"
+      },
+      {
+        "nodeId": "builder-5ccf73ce-411c-4f3b-aa24-78baf227c282",
+        "role": "builder",
+        "budgetTokens": 10000,
+        "usedTokens": 94,
+        "included": [
+          {
+            "id": "segment-ca9a9b6e-2f96-4245-a1e0-fca5201f9027",
+            "label": "Repository constraints",
+            "estimatedTokens": 42,
+            "reason": "role match for builder, shared global context, warm memory"
+          },
+          {
+            "id": "segment-5cab13d6-aaf5-4814-803b-27035494c613",
+            "label": "Task brief",
+            "estimatedTokens": 21,
+            "reason": "shared global context, hot memory"
+          },
+          {
+            "id": "segment-acbec53f-090c-4274-9444-4f1f95a5ec32",
+            "label": "Known product gap",
+            "estimatedTokens": 31,
+            "reason": "shared global context, cold memory"
+          }
+        ],
+        "omitted": [],
+        "generatedAt": "2026-04-24T23:25:31.590Z"
+      },
+      {
+        "nodeId": "reviewer-a42fd644-4f12-4c58-8e52-8ee86264e947",
+        "role": "reviewer",
+        "budgetTokens": 9000,
+        "usedTokens": 94,
+        "included": [
+          {
+            "id": "segment-ca9a9b6e-2f96-4245-a1e0-fca5201f9027",
+            "label": "Repository constraints",
+            "estimatedTokens": 42,
+            "reason": "role match for reviewer, shared global context, warm memory"
+          },
+          {
+            "id": "segment-acbec53f-090c-4274-9444-4f1f95a5ec32",
+            "label": "Known product gap",
+            "estimatedTokens": 31,
+            "reason": "role match for reviewer, shared global context, cold memory"
+          },
+          {
+            "id": "segment-5cab13d6-aaf5-4814-803b-27035494c613",
+            "label": "Task brief",
+            "estimatedTokens": 21,
+            "reason": "shared global context, hot memory"
+          }
+        ],
+        "omitted": [],
+        "generatedAt": "2026-04-24T23:25:31.590Z"
+      }
+    ]
+  },
+  "evaluation": {
+    "success": true,
+    "score": 86,
+    "summary": "The orchestrated flow produced a real topology, branched worker runs, structured upstream events, context packs, and replay output.",
+    "checkedAt": "2026-04-24T23:25:31.694Z"
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "recordedAt": "2026-04-25T04:52:38.181Z",
+  "conversationId": "benchmark-read-only-repo-1777092664042",
+  "clientName": null,
+  "modelApi": "http://127.0.0.1:18081",
+  "promptMessages": 1,
+  "maxTokens": 120,
+  "promptTokens": 0,
+  "generatedTokens": 0,
+  "contextMaxTokens": 24576,
+  "tps": 0,
+  "stages": {
+    "renderPromptMs": 4,
+    "tokenizePromptMs": 2,
+    "fetchContextMs": 2,
+    "toolLoopMs": 90943,
+    "tokenizeOutputMs": 2263,
+    "syncOutputContextMs": 2262,
+    "streamEmitMs": 122,
+    "totalMs": 93335
+  },
+  "loop": {
+    "iterations": 2,
+    "completionCalls": 2,
+    "completionMs": 90938,
+    "toolCalls": 1,
+    "toolMs": 3,
+    "totalMs": 90943
+  },
+  "llama": {
+    "cache_n": 1276,
+    "prompt_n": 2047,
+    "predicted_n": 73,
+    "predicted_per_second": 5.079835883724087
+  },
+  "derived": {
+    "nonCompletionMs": 2397,
+    "nonCompletionShare": 2.57,
+    "nextOptimizationTarget": "completionMs",
+    "nextOptimizationReason": "Model completion time is the largest measured slice. Reduce completion calls, shrink completion prompts, or improve decode throughput first."
+  }
+}

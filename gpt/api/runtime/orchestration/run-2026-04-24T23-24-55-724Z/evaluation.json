@@ -1,0 +1,15 @@
+{
+  "runId": "run-2026-04-24T23-24-55-724Z",
+  "success": false,
+  "score": 42,
+  "summary": "The orchestration evaluation exposed a missing topology, reporting, or worker-execution seam.",
+  "eventCount": 8,
+  "nodeStatuses": [
+    "pending",
+    "pending",
+    "completed",
+    "completed"
+  ],
+  "replayPath": "/Users/eirikhanasand/Desktop/personal/hanasand/gpt/api/runtime/orchestration/run-2026-04-24T23-24-55-724Z/replay.md",
+  "checkedAt": "2026-04-24T23:24:56.002Z"
+}

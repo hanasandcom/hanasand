@@ -1,0 +1,64 @@
+{
+  "status": "stable",
+  "profileTag": "local-darwin-arm64-64gb",
+  "baselineStatus": "matched_profile_baseline",
+  "baselineGeneratedAt": "2026-04-26T07:29:58.478Z",
+  "crossProfileCandidate": null,
+  "regressionRule": "Compare regressions only against the previous benchmark with the same profile tag; withhold regression status when only cross-profile history exists.",
+  "summary": "No regression detected across the current weakest-scenario and omission-pressure checks.",
+  "comparedRunCount": 6,
+  "latestGeneratedAt": "2026-04-26T12:25:36.504Z",
+  "previousGeneratedAt": "2026-04-26T07:29:58.478Z",
+  "averageScoreDelta": 0,
+  "weakestScenarioDelta": {
+    "id": "delivery_handoff_escalated",
+    "label": "Escalated delivery handoff",
+    "currentScore": 99,
+    "previousScore": 99,
+    "delta": 0
+  },
+  "omissionPressureDelta": {
+    "currentOmittedHotSegments": 24,
+    "previousOmittedHotSegments": 24,
+    "delta": 0
+  },
+  "regressionSignals": [],
+  "improvementSignals": [],
+  "historyWindow": [
+    {
+      "generatedAt": "2026-04-26T07:16:31",
+      "profile": "local-darwin-arm64-64gb",
+      "averageScore": 100,
+      "weakestScenario": "Escalated delivery handoff",
+      "omittedHotSegments": 24
+    },
+    {
+      "generatedAt": "2026-04-26T07:22:38",
+      "profile": "local-darwin-arm64-64gb",
+      "averageScore": 100,
+      "weakestScenario": "Escalated delivery handoff",
+      "omittedHotSegments": 24
+    },
+    {
+      "generatedAt": "2026-04-26T07:26:09",
+      "profile": "local-darwin-arm64-64gb",
+      "averageScore": 100,
+      "weakestScenario": "Escalated delivery handoff",
+      "omittedHotSegments": 24
+    },
+    {
+      "generatedAt": "2026-04-26T07:29:58",
+      "profile": "local-darwin-arm64-64gb",
+      "averageScore": 100,
+      "weakestScenario": "Escalated delivery handoff",
+      "omittedHotSegments": 24
+    },
+    {
+      "generatedAt": "2026-04-26T12:25:36",
+      "profile": "local-darwin-arm64-64gb",
+      "averageScore": 100,
+      "weakestScenario": "Escalated delivery handoff",
+      "omittedHotSegments": 24
+    }
+  ]
+}

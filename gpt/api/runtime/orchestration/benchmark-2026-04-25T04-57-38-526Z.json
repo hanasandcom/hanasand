@@ -1,0 +1,334 @@
+{
+  "generated_at": "2026-04-25T04:57:38.526Z",
+  "suite": "orchestration_benchmark_v2",
+  "difficulty_profile": {
+    "level": 2,
+    "trigger": "previous benchmark saturated at 100 with 0 warnings",
+    "repeatMultiplier": 1.35,
+    "adaptiveScenarioEnabled": true,
+    "previousAverageScore": 100
+  },
+  "average_score": 100,
+  "scenario_count": 6,
+  "passing_scenarios": 6,
+  "warning_scenarios": 0,
+  "failing_scenarios": 0,
+  "weakest_scenario": {
+    "id": "delivery_handoff",
+    "label": "Delivery and handoff",
+    "score": 100
+  },
+  "scenario_results": [
+    {
+      "id": "delivery_handoff",
+      "label": "Delivery and handoff",
+      "task": "Build a Next.js dashboard, verify Docker startup, and prepare a reviewer handoff.",
+      "runId": "run-2026-04-25T04-57-38-547Z",
+      "replayPath": "/Users/eirikhanasand/Desktop/personal/hanasand/gpt/api/runtime/orchestration/run-2026-04-25T04-57-38-547Z/replay.md",
+      "expectedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "observedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "score": 100,
+      "status": "pass",
+      "metrics": {
+        "roleCoverage": 1,
+        "packCoverage": 1,
+        "evidenceCoverage": 1,
+        "exportGateHealth": 1,
+        "replayExists": true,
+        "exportPassCount": 5,
+        "exportWarnCount": 0,
+        "exportFailCount": 0,
+        "blockedRoleCoverage": 1,
+        "contextPressureCoverage": 1,
+        "contradictionCoverage": 1,
+        "omittedHotSegments": 0,
+        "eventCount": 19,
+        "artifactCount": 3
+      },
+      "failedGates": [],
+      "warningGates": []
+    },
+    {
+      "id": "context_pressure_triage",
+      "label": "Context-pressure triage",
+      "task": "Triage a deployment under heavy context pressure, preserve the hottest constraints, and produce a reviewer handoff.",
+      "runId": "run-2026-04-25T04-57-38-687Z",
+      "replayPath": "/Users/eirikhanasand/Desktop/personal/hanasand/gpt/api/runtime/orchestration/run-2026-04-25T04-57-38-687Z/replay.md",
+      "expectedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "observedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "score": 100,
+      "status": "pass",
+      "metrics": {
+        "roleCoverage": 1,
+        "packCoverage": 1,
+        "evidenceCoverage": 1,
+        "exportGateHealth": 1,
+        "replayExists": true,
+        "exportPassCount": 5,
+        "exportWarnCount": 0,
+        "exportFailCount": 0,
+        "blockedRoleCoverage": 1,
+        "contextPressureCoverage": 1,
+        "contradictionCoverage": 1,
+        "omittedHotSegments": 6,
+        "eventCount": 19,
+        "artifactCount": 3
+      },
+      "failedGates": [],
+      "warningGates": []
+    },
+    {
+      "id": "deploy_diagnosis",
+      "label": "Deploy diagnosis",
+      "task": "Diagnose why Docker compose verification keeps failing, propose fixes, and prepare a final review.",
+      "runId": "run-2026-04-25T04-57-38-845Z",
+      "replayPath": "/Users/eirikhanasand/Desktop/personal/hanasand/gpt/api/runtime/orchestration/run-2026-04-25T04-57-38-845Z/replay.md",
+      "expectedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "observedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "score": 100,
+      "status": "pass",
+      "metrics": {
+        "roleCoverage": 1,
+        "packCoverage": 1,
+        "evidenceCoverage": 1,
+        "exportGateHealth": 1,
+        "replayExists": true,
+        "exportPassCount": 5,
+        "exportWarnCount": 0,
+        "exportFailCount": 0,
+        "blockedRoleCoverage": 1,
+        "contextPressureCoverage": 1,
+        "contradictionCoverage": 1,
+        "omittedHotSegments": 0,
+        "eventCount": 20,
+        "artifactCount": 4
+      },
+      "failedGates": [],
+      "warningGates": []
+    },
+    {
+      "id": "pressure_blocked_release",
+      "label": "Pressure plus blocked release",
+      "task": "Handle a release candidate with too much noisy context, a blocked build branch, and a reviewer that needs a concise final recommendation.",
+      "runId": "run-2026-04-25T04-57-39-010Z",
+      "replayPath": "/Users/eirikhanasand/Desktop/personal/hanasand/gpt/api/runtime/orchestration/run-2026-04-25T04-57-39-010Z/replay.md",
+      "expectedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "observedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "score": 100,
+      "status": "pass",
+      "metrics": {
+        "roleCoverage": 1,
+        "packCoverage": 1,
+        "evidenceCoverage": 1,
+        "exportGateHealth": 1,
+        "replayExists": true,
+        "exportPassCount": 5,
+        "exportWarnCount": 0,
+        "exportFailCount": 0,
+        "blockedRoleCoverage": 1,
+        "contextPressureCoverage": 1,
+        "contradictionCoverage": 1,
+        "omittedHotSegments": 2,
+        "eventCount": 20,
+        "artifactCount": 4
+      },
+      "failedGates": [],
+      "warningGates": []
+    },
+    {
+      "id": "adaptive_noise_escalation",
+      "label": "Adaptive noise escalation",
+      "task": "Handle a benchmark case that intentionally raises context noise after previous high-scoring runs and still preserve the reviewer-critical evidence.",
+      "runId": "run-2026-04-25T04-57-39-158Z",
+      "replayPath": "/Users/eirikhanasand/Desktop/personal/hanasand/gpt/api/runtime/orchestration/run-2026-04-25T04-57-39-158Z/replay.md",
+      "expectedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "observedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "score": 100,
+      "status": "pass",
+      "metrics": {
+        "roleCoverage": 1,
+        "packCoverage": 1,
+        "evidenceCoverage": 1,
+        "exportGateHealth": 1,
+        "replayExists": true,
+        "exportPassCount": 5,
+        "exportWarnCount": 0,
+        "exportFailCount": 0,
+        "blockedRoleCoverage": 1,
+        "contextPressureCoverage": 1,
+        "contradictionCoverage": 1,
+        "omittedHotSegments": 3,
+        "eventCount": 19,
+        "artifactCount": 3
+      },
+      "failedGates": [],
+      "warningGates": []
+    },
+    {
+      "id": "contested_merge_decision",
+      "label": "Contested merge decision",
+      "task": "Review a risky deploy fix where one branch wants to ship and another wants to hold, then justify the final recommendation.",
+      "runId": "run-2026-04-25T04-57-39-306Z",
+      "replayPath": "/Users/eirikhanasand/Desktop/personal/hanasand/gpt/api/runtime/orchestration/run-2026-04-25T04-57-39-306Z/replay.md",
+      "expectedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "observedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "score": 100,
+      "status": "pass",
+      "metrics": {
+        "roleCoverage": 1,
+        "packCoverage": 1,
+        "evidenceCoverage": 1,
+        "exportGateHealth": 1,
+        "replayExists": true,
+        "exportPassCount": 5,
+        "exportWarnCount": 0,
+        "exportFailCount": 0,
+        "blockedRoleCoverage": 1,
+        "contextPressureCoverage": 1,
+        "contradictionCoverage": 1,
+        "omittedHotSegments": 0,
+        "eventCount": 20,
+        "artifactCount": 4
+      },
+      "failedGates": [],
+      "warningGates": []
+    }
+  ],
+  "recommendations": [
+    {
+      "id": "hard_scenario_corpus",
+      "severity": "medium",
+      "summary": "Add harder orchestration scenarios with context pressure and partial-failure branches.",
+      "rationale": "The suite now validates the real orchestration loop, but more varied pressure cases would make regressions harder to miss.",
+      "suggestedPacket": 73
+    }
+  ],
+  "draft_packets": [
+    {
+      "id": "draft-2026-04-25-hard-scenario-corpus",
+      "priority": 1,
+      "priorityScore": 70,
+      "suggestedPacket": 73,
+      "sourceRecommendation": "hard_scenario_corpus",
+      "severity": "medium",
+      "title": "Add Harder Orchestration Scenarios With Context Pressure And Partial-failure Branches",
+      "slug": "hard-scenario-corpus",
+      "objective": "Add harder orchestration scenarios with context pressure and partial-failure branches.",
+      "rationale": "The suite now validates the real orchestration loop, but more varied pressure cases would make regressions harder to miss.",
+      "benchmarkEvidence": "Weakest scenario: Delivery and handoff (100).",
+      "acceptance": [
+        "The next benchmark run records the changed behavior.",
+        "The result note links the benchmark evidence that motivated the work.",
+        "The packet can be evaluated without rereading chat history."
+      ]
+    }
+  ],
+  "difficulty": {
+    "state": "increase",
+    "reason": "All scenarios passed with a near-perfect average score; the next benchmark loop should add harder pressure cases.",
+    "nextScenarioSeed": "Combine context pressure, partial failure, and contradictory reviewer evidence in one run."
+  },
+  "trend": {
+    "status": "stable",
+    "regressionRule": "Flag a regression if the weakest comparable scenario drops by 2+ points or hot-segment omission increases versus the previous run.",
+    "summary": "No regression detected across the current weakest-scenario and omission-pressure checks.",
+    "comparedRunCount": 6,
+    "latestGeneratedAt": "2026-04-25T04:57:39.426Z",
+    "previousGeneratedAt": "2026-04-25T04:53:41.567Z",
+    "averageScoreDelta": 0,
+    "weakestScenarioDelta": {
+      "id": "delivery_handoff",
+      "label": "Delivery and handoff",
+      "currentScore": 100,
+      "previousScore": 100,
+      "delta": 0
+    },
+    "omissionPressureDelta": {
+      "currentOmittedHotSegments": 11,
+      "previousOmittedHotSegments": 11,
+      "delta": 0
+    },
+    "regressionSignals": [],
+    "improvementSignals": [],
+    "historyWindow": [
+      {
+        "generatedAt": "2026-04-25T04:52:23",
+        "averageScore": 100,
+        "weakestScenario": "Delivery and handoff",
+        "omittedHotSegments": 3
+      },
+      {
+        "generatedAt": "2026-04-25T04:52:51",
+        "averageScore": 100,
+        "weakestScenario": "Delivery and handoff",
+        "omittedHotSegments": 11
+      },
+      {
+        "generatedAt": "2026-04-25T04:53:18",
+        "averageScore": 100,
+        "weakestScenario": "Delivery and handoff",
+        "omittedHotSegments": 11
+      },
+      {
+        "generatedAt": "2026-04-25T04:53:41",
+        "averageScore": 100,
+        "weakestScenario": "Delivery and handoff",
+        "omittedHotSegments": 11
+      },
+      {
+        "generatedAt": "2026-04-25T04:57:39",
+        "averageScore": 100,
+        "weakestScenario": "Delivery and handoff",
+        "omittedHotSegments": 11
+      }
+    ]
+  }
+}

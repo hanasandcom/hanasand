@@ -1,0 +1,113 @@
+{
+  "generated_at": "2026-04-26T12:25:36.504Z",
+  "benchmark_family": "orchestration_benchmark_v2",
+  "profile_tag": "local-darwin-arm64-64gb",
+  "machine_key": "darwin:arm64:10cpu:64gb",
+  "status": "reviewed_rejected",
+  "releaseCandidate": {
+    "id": "rc-verified-2026-04-26-context-packing-omission-pressure",
+    "title": "Inspect hot-context omission pressure before changing pack policy",
+    "status": "awaiting_human_review",
+    "candidateId": "verified-2026-04-26-context-packing-omission-pressure",
+    "confidence": "high",
+    "scope": "benchmark-orchestration-self-improvement",
+    "targetScenario": {
+      "id": "delivery_handoff_escalated",
+      "label": "Escalated delivery handoff",
+      "dominantCost": "context:708",
+      "packedTokens": 35784,
+      "omittedTokens": 100075,
+      "costScore": 780
+    },
+    "proposedChangeBoundary": [
+      "Start with benchmark/replay inspection rather than a broad refactor.",
+      "Only adjust context pack priority, omission budget, or scenario expectation after the cited omitted segments are confirmed useful.",
+      "Rerun the orchestration benchmark and compare the same profile/machine artifacts."
+    ],
+    "requiredEvidence": [
+      "cluster=gate:local-darwin-arm64-64gb:darwin:arm64:10cpu:64gb:delivery_handoff_escalated:omission_pressure:warn count=6",
+      "trend omission delta=0",
+      "top cost scenario=Escalated delivery handoff dominant=context:708 packed=35784 omitted=100075",
+      "evidence bundle=self-edit-2026-04-26-packet-90",
+      "scenario cost artifact=benchmark-scenario-costs-latest.json",
+      "root-cause artifact=benchmark-root-cause-shortlist-latest.json"
+    ],
+    "validationPlan": [
+      "Inspect the cited top-cost replay and omitted hot context segments.",
+      "Implement only the smallest benchmark/orchestration change justified by that inspection.",
+      "Run `cd gpt/api && npm run lint`.",
+      "Run `cd gpt/api && npm run orchestration:benchmark`.",
+      "Compare the same profile and machine artifacts before accepting."
+    ],
+    "rollbackPlan": [
+      "Reject the release candidate if omitted context is irrelevant.",
+      "Reject the release candidate if verification does not reduce the warning cluster or preserve benchmark score.",
+      "Keep the generated artifacts as evidence even when rejected."
+    ]
+  },
+  "reviewPath": {
+    "humanReviewPoint": "A human reviewer must accept or reject after inspecting the cited replay and validation artifacts.",
+    "minimumFields": [
+      "release candidate id",
+      "source candidate id",
+      "target scenario",
+      "required evidence",
+      "validation plan",
+      "rollback or rejection plan",
+      "explicit outcome"
+    ],
+    "acceptOutcome": {
+      "state": "accepted",
+      "requiredReason": "Explain why the evidence proves the proposed change is needed.",
+      "requiredVerification": [
+        "lint passed",
+        "benchmark passed",
+        "same-profile comparison reviewed"
+      ]
+    },
+    "rejectOutcome": {
+      "state": "rejected",
+      "requiredReason": "Explain which evidence failed or why the change boundary is wrong.",
+      "requiredVerification": [
+        "cited artifact reviewed",
+        "stop condition named"
+      ]
+    }
+  },
+  "currentOutcome": {
+    "state": "rejected",
+    "decidedAt": "2026-04-26T07:19:40.956Z",
+    "decidedBy": "codex",
+    "reason": "Packet 96 command validation: no replay inspection was performed, so the release candidate remains unaccepted.",
+    "verification": [
+      "cited artifact reviewed",
+      "stop condition named"
+    ]
+  },
+  "reviewState": {
+    "state": "matched",
+    "availableReviewCount": 1,
+    "latestReviewId": "rc-verified-2026-04-26-context-packing-omission-pressure-rejected-2026-04-26T07-19-40-956Z",
+    "matchedReleaseCandidateId": "rc-verified-2026-04-26-context-packing-omission-pressure",
+    "matchedReviewId": "rc-verified-2026-04-26-context-packing-omission-pressure-rejected-2026-04-26T07-19-40-956Z",
+    "latestReviewOutcome": "rejected"
+  },
+  "evidenceLinks": {
+    "releaseCandidate": "benchmark-self-improvement-release-candidate-latest.json",
+    "selfImprovementCandidate": "benchmark-self-improvement-candidate-latest.json",
+    "rootCauseShortlist": "benchmark-root-cause-shortlist-latest.json",
+    "evidenceBundle": "benchmark-self-edit-evidence-bundle-latest.json",
+    "scenarioCosts": "benchmark-scenario-costs-latest.json",
+    "benchmark": "benchmark-latest.json"
+  },
+  "validationSnapshot": {
+    "evidenceBundle": "self-edit-2026-04-26-packet-90",
+    "rootCauseCount": 1,
+    "totalCostScore": 3118,
+    "topCostScenario": "Escalated delivery handoff"
+  },
+  "missingAutomation": [
+    "The release candidate does not modify code by itself.",
+    "Review history is local artifact state and is not synchronized across machines."
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "runId": "run-2026-04-25T04-49-45-657Z",
+  "nodeId": "reviewer-20682c9e-0654-49d5-8fb8-818298f6b6a6",
+  "role": "reviewer",
+  "task": "Review branch for: Triage a deployment under heavy context pressure, preserve the hottest constraints, and produce a reviewer handoff.",
+  "branchKey": "implementation:reviewer",
+  "packedContext": {
+    "nodeId": "reviewer-20682c9e-0654-49d5-8fb8-818298f6b6a6",
+    "role": "reviewer",
+    "budgetTokens": 9000,
+    "usedTokens": 7182,
+    "included": [
+      {
+        "id": "segment-bdf13a53-2e8a-4829-9230-36acda7562b5",
+        "label": "Hot incident notes",
+        "estimatedTokens": 6480,
+        "reason": "role match for reviewer, shared global context, hot memory"
+      },
+      {
+        "id": "segment-9d20fdb8-87d3-482c-899b-a2fda3cf8771",
+        "label": "Rollback guardrails",
+        "estimatedTokens": 600,
+        "reason": "role match for reviewer, shared global context, hot memory, compressed high-priority context"
+      },
+      {
+        "id": "segment-19d8adbc-d7ff-4e6a-b868-b2301d54f36f",
+        "label": "Repository constraints",
+        "estimatedTokens": 42,
+        "reason": "role match for reviewer, shared global context, warm memory"
+      },
+      {
+        "id": "segment-3065c3c7-936f-4f4e-9878-bea7c368cbdb",
+        "label": "Known product gap",
+        "estimatedTokens": 31,
+        "reason": "role match for reviewer, shared global context, cold memory"
+      },
+      {
+        "id": "segment-04710698-b8c7-47b5-8762-c95921ad1c81",
+        "label": "Task brief",
+        "estimatedTokens": 29,
+        "reason": "shared global context, hot memory"
+      }
+    ],
+    "omitted": [
+      {
+        "id": "segment-0eb615e4-2125-44f5-bbea-b7d6a37eebc2",
+        "label": "Reviewer disagreement note",
+        "estimatedTokens": 4088,
+        "reason": "role match for reviewer, shared global context, warm memory"
+      },
+      {
+        "id": "segment-3079288e-fc21-4bd7-ae9f-7b6da6dc2607",
+        "label": "Dense repo summary",
+        "estimatedTokens": 6413,
+        "reason": "shared global context, warm memory"
+      },
+      {
+        "id": "segment-3748e6cd-f19e-4c7f-8509-77b5854958c5",
+        "label": "Low-priority backlog 1",
+        "estimatedTokens": 3575,
+        "reason": "shared global context, cold memory"
+      },
+      {
+        "id": "segment-56ba7a47-dc4d-48cc-b9dd-74acb193580e",
+        "label": "Low-priority backlog 2",
+        "estimatedTokens": 4400,
+        "reason": "shared global context, cold memory"
+      }
+    ],
+    "generatedAt": "2026-04-25T04:49:45.672Z"
+  },
+  "scenario": {
+    "id": "context_pressure_triage",
+    "tension": "context_pressure"
+  }
+}

@@ -1,0 +1,467 @@
+{
+  "generated_at": "2026-04-26T12:25:36.504Z",
+  "status": "inspection_ready",
+  "targetScenario": {
+    "id": "delivery_handoff_escalated",
+    "label": "Escalated delivery handoff",
+    "score": 99,
+    "status": "pass",
+    "warningGates": [
+      "omission_pressure"
+    ],
+    "failedGates": []
+  },
+  "run": {
+    "id": "run-2026-04-26T12-25-37-508Z",
+    "replayPath": "/Users/eirikhanasand/Desktop/personal/hanasand/gpt/api/runtime/orchestration/run-2026-04-26T12-25-37-508Z/replay.md",
+    "replayExists": true
+  },
+  "contextPressure": {
+    "costScore": 780,
+    "dominantCost": "context:708",
+    "packedTokens": 35784,
+    "omittedTokens": 100075,
+    "omittedHotSegments": 2,
+    "omittedCriticalSegments": 2,
+    "packSummaries": [
+      {
+        "nodeId": "implementation-9956c9b8-ff6f-4cf7-851a-da38b47912ec",
+        "role": "implementation",
+        "budgetTokens": 18000,
+        "usedTokens": 17222,
+        "includedCount": 7,
+        "omittedCount": 2,
+        "omittedTokens": 28654,
+        "omittedHotSegments": 0,
+        "included": [
+          {
+            "id": "segment-06ca0b10-614a-4594-962e-63d7ddd54b4d",
+            "label": "Task brief",
+            "role": "implementation",
+            "estimatedTokens": 50,
+            "reason": "role match for implementation, shared global context, hot memory",
+            "temperature": "hot",
+            "priority": 5
+          },
+          {
+            "id": "segment-54ad49dd-da85-42be-b539-8a0744af5868",
+            "label": "Escalated incident brief",
+            "role": "implementation",
+            "estimatedTokens": 9775,
+            "reason": "role match for implementation, shared global context, hot memory",
+            "temperature": "hot",
+            "priority": 5
+          },
+          {
+            "id": "segment-accf633c-6c52-4862-8bd1-3bb4dd354c8c",
+            "label": "Conflicting ship-now request",
+            "role": "implementation",
+            "estimatedTokens": 6664,
+            "reason": "role match for implementation, shared global context, hot memory",
+            "temperature": "hot",
+            "priority": 5
+          },
+          {
+            "id": "segment-3905db41-2c71-4c6e-87a7-ea0afef56b65",
+            "label": "Repository constraints",
+            "role": "implementation",
+            "estimatedTokens": 42,
+            "reason": "role match for implementation, shared global context, warm memory",
+            "temperature": "warm",
+            "priority": 4
+          },
+          {
+            "id": "segment-571f266b-63d2-4e00-8c27-4ef0848bc597",
+            "label": "Builder stop-ship evidence",
+            "role": "implementation",
+            "estimatedTokens": 420,
+            "reason": "shared global context, hot memory, compressed high-priority context",
+            "temperature": "hot",
+            "priority": 5
+          },
+          {
+            "id": "segment-5e280d5c-02fb-46d3-980c-81be94ccc765",
+            "label": "Reviewer merge constraint",
+            "role": "implementation",
+            "estimatedTokens": 240,
+            "reason": "shared global context, warm memory, compressed high-priority context",
+            "temperature": "warm",
+            "priority": 4
+          },
+          {
+            "id": "segment-ecc58240-6c1b-4e79-8aaf-944c63c3db7b",
+            "label": "Known product gap",
+            "role": "implementation",
+            "estimatedTokens": 31,
+            "reason": "shared global context, cold memory",
+            "temperature": "cold",
+            "priority": 3
+          }
+        ],
+        "omitted": [
+          {
+            "id": "segment-9d4695d3-e087-45e2-a052-dc7cf1e9eba7",
+            "label": "Noisy thread replay",
+            "role": "implementation",
+            "estimatedTokens": 18475,
+            "reason": "role match for implementation, shared global context, cold memory",
+            "temperature": "cold",
+            "priority": 1,
+            "roleAffinity": [
+              "implementation",
+              "builder",
+              "reviewer"
+            ]
+          },
+          {
+            "id": "segment-88d9c8a4-b134-4432-9c0d-0ff29f4ba298",
+            "label": "Backlog copy thread",
+            "role": "implementation",
+            "estimatedTokens": 10179,
+            "reason": "role match for implementation, shared global context, cold memory",
+            "temperature": "cold",
+            "priority": 1,
+            "roleAffinity": [
+              "implementation"
+            ]
+          }
+        ]
+      },
+      {
+        "nodeId": "builder-f40b2932-1776-45b2-ac18-9cad4f359c47",
+        "role": "builder",
+        "budgetTokens": 10000,
+        "usedTokens": 10000,
+        "includedCount": 2,
+        "omittedCount": 7,
+        "omittedTokens": 42767,
+        "omittedHotSegments": 2,
+        "included": [
+          {
+            "id": "segment-54ad49dd-da85-42be-b539-8a0744af5868",
+            "label": "Escalated incident brief",
+            "role": "builder",
+            "estimatedTokens": 9775,
+            "reason": "role match for builder, shared global context, hot memory",
+            "temperature": "hot",
+            "priority": 5
+          },
+          {
+            "id": "segment-571f266b-63d2-4e00-8c27-4ef0848bc597",
+            "label": "Builder stop-ship evidence",
+            "role": "builder",
+            "estimatedTokens": 225,
+            "reason": "role match for builder, shared global context, hot memory, compressed high-priority context",
+            "temperature": "hot",
+            "priority": 5
+          }
+        ],
+        "omitted": [
+          {
+            "id": "segment-3905db41-2c71-4c6e-87a7-ea0afef56b65",
+            "label": "Repository constraints",
+            "role": "builder",
+            "estimatedTokens": 42,
+            "reason": "role match for builder, shared global context, warm memory",
+            "temperature": "warm",
+            "priority": 4,
+            "roleAffinity": [
+              "orchestrator",
+              "implementation",
+              "builder",
+              "reviewer"
+            ]
+          },
+          {
+            "id": "segment-9d4695d3-e087-45e2-a052-dc7cf1e9eba7",
+            "label": "Noisy thread replay",
+            "role": "builder",
+            "estimatedTokens": 18475,
+            "reason": "role match for builder, shared global context, cold memory",
+            "temperature": "cold",
+            "priority": 1,
+            "roleAffinity": [
+              "implementation",
+              "builder",
+              "reviewer"
+            ]
+          },
+          {
+            "id": "segment-06ca0b10-614a-4594-962e-63d7ddd54b4d",
+            "label": "Task brief",
+            "role": "builder",
+            "estimatedTokens": 50,
+            "reason": "shared global context, hot memory",
+            "temperature": "hot",
+            "priority": 5,
+            "roleAffinity": [
+              "orchestrator",
+              "implementation"
+            ]
+          },
+          {
+            "id": "segment-accf633c-6c52-4862-8bd1-3bb4dd354c8c",
+            "label": "Conflicting ship-now request",
+            "role": "builder",
+            "estimatedTokens": 6664,
+            "reason": "shared global context, hot memory",
+            "temperature": "hot",
+            "priority": 5,
+            "roleAffinity": [
+              "implementation",
+              "reviewer"
+            ]
+          },
+          {
+            "id": "segment-5e280d5c-02fb-46d3-980c-81be94ccc765",
+            "label": "Reviewer merge constraint",
+            "role": "builder",
+            "estimatedTokens": 7326,
+            "reason": "shared global context, warm memory",
+            "temperature": "warm",
+            "priority": 4,
+            "roleAffinity": [
+              "reviewer"
+            ]
+          },
+          {
+            "id": "segment-ecc58240-6c1b-4e79-8aaf-944c63c3db7b",
+            "label": "Known product gap",
+            "role": "builder",
+            "estimatedTokens": 31,
+            "reason": "shared global context, cold memory",
+            "temperature": "cold",
+            "priority": 3,
+            "roleAffinity": [
+              "orchestrator",
+              "reviewer"
+            ]
+          },
+          {
+            "id": "segment-88d9c8a4-b134-4432-9c0d-0ff29f4ba298",
+            "label": "Backlog copy thread",
+            "role": "builder",
+            "estimatedTokens": 10179,
+            "reason": "shared global context, cold memory",
+            "temperature": "cold",
+            "priority": 1,
+            "roleAffinity": [
+              "implementation"
+            ]
+          }
+        ]
+      },
+      {
+        "nodeId": "reviewer-e2c64551-5f00-44fc-8849-2215343b6176",
+        "role": "reviewer",
+        "budgetTokens": 9000,
+        "usedTokens": 8562,
+        "includedCount": 7,
+        "omittedCount": 2,
+        "omittedTokens": 28654,
+        "omittedHotSegments": 0,
+        "included": [
+          {
+            "id": "segment-54ad49dd-da85-42be-b539-8a0744af5868",
+            "label": "Escalated incident brief",
+            "role": "reviewer",
+            "estimatedTokens": 420,
+            "reason": "role match for reviewer, shared global context, hot memory, compressed high-priority context",
+            "temperature": "hot",
+            "priority": 5
+          },
+          {
+            "id": "segment-571f266b-63d2-4e00-8c27-4ef0848bc597",
+            "label": "Builder stop-ship evidence",
+            "role": "reviewer",
+            "estimatedTokens": 7359,
+            "reason": "role match for reviewer, shared global context, hot memory",
+            "temperature": "hot",
+            "priority": 5
+          },
+          {
+            "id": "segment-accf633c-6c52-4862-8bd1-3bb4dd354c8c",
+            "label": "Conflicting ship-now request",
+            "role": "reviewer",
+            "estimatedTokens": 420,
+            "reason": "role match for reviewer, shared global context, hot memory, compressed high-priority context",
+            "temperature": "hot",
+            "priority": 5
+          },
+          {
+            "id": "segment-3905db41-2c71-4c6e-87a7-ea0afef56b65",
+            "label": "Repository constraints",
+            "role": "reviewer",
+            "estimatedTokens": 42,
+            "reason": "role match for reviewer, shared global context, warm memory",
+            "temperature": "warm",
+            "priority": 4
+          },
+          {
+            "id": "segment-5e280d5c-02fb-46d3-980c-81be94ccc765",
+            "label": "Reviewer merge constraint",
+            "role": "reviewer",
+            "estimatedTokens": 240,
+            "reason": "role match for reviewer, shared global context, warm memory, compressed high-priority context",
+            "temperature": "warm",
+            "priority": 4
+          },
+          {
+            "id": "segment-ecc58240-6c1b-4e79-8aaf-944c63c3db7b",
+            "label": "Known product gap",
+            "role": "reviewer",
+            "estimatedTokens": 31,
+            "reason": "role match for reviewer, shared global context, cold memory",
+            "temperature": "cold",
+            "priority": 3
+          },
+          {
+            "id": "segment-06ca0b10-614a-4594-962e-63d7ddd54b4d",
+            "label": "Task brief",
+            "role": "reviewer",
+            "estimatedTokens": 50,
+            "reason": "shared global context, hot memory",
+            "temperature": "hot",
+            "priority": 5
+          }
+        ],
+        "omitted": [
+          {
+            "id": "segment-9d4695d3-e087-45e2-a052-dc7cf1e9eba7",
+            "label": "Noisy thread replay",
+            "role": "reviewer",
+            "estimatedTokens": 18475,
+            "reason": "role match for reviewer, shared global context, cold memory",
+            "temperature": "cold",
+            "priority": 1,
+            "roleAffinity": [
+              "implementation",
+              "builder",
+              "reviewer"
+            ]
+          },
+          {
+            "id": "segment-88d9c8a4-b134-4432-9c0d-0ff29f4ba298",
+            "label": "Backlog copy thread",
+            "role": "reviewer",
+            "estimatedTokens": 10179,
+            "reason": "shared global context, cold memory",
+            "temperature": "cold",
+            "priority": 1,
+            "roleAffinity": [
+              "implementation"
+            ]
+          }
+        ]
+      }
+    ],
+    "topOmitted": [
+      {
+        "id": "segment-9d4695d3-e087-45e2-a052-dc7cf1e9eba7",
+        "label": "Noisy thread replay",
+        "role": "implementation",
+        "estimatedTokens": 18475,
+        "reason": "role match for implementation, shared global context, cold memory",
+        "temperature": "cold",
+        "priority": 1,
+        "roleAffinity": [
+          "implementation",
+          "builder",
+          "reviewer"
+        ]
+      },
+      {
+        "id": "segment-9d4695d3-e087-45e2-a052-dc7cf1e9eba7",
+        "label": "Noisy thread replay",
+        "role": "builder",
+        "estimatedTokens": 18475,
+        "reason": "role match for builder, shared global context, cold memory",
+        "temperature": "cold",
+        "priority": 1,
+        "roleAffinity": [
+          "implementation",
+          "builder",
+          "reviewer"
+        ]
+      },
+      {
+        "id": "segment-9d4695d3-e087-45e2-a052-dc7cf1e9eba7",
+        "label": "Noisy thread replay",
+        "role": "reviewer",
+        "estimatedTokens": 18475,
+        "reason": "role match for reviewer, shared global context, cold memory",
+        "temperature": "cold",
+        "priority": 1,
+        "roleAffinity": [
+          "implementation",
+          "builder",
+          "reviewer"
+        ]
+      },
+      {
+        "id": "segment-88d9c8a4-b134-4432-9c0d-0ff29f4ba298",
+        "label": "Backlog copy thread",
+        "role": "implementation",
+        "estimatedTokens": 10179,
+        "reason": "role match for implementation, shared global context, cold memory",
+        "temperature": "cold",
+        "priority": 1,
+        "roleAffinity": [
+          "implementation"
+        ]
+      },
+      {
+        "id": "segment-88d9c8a4-b134-4432-9c0d-0ff29f4ba298",
+        "label": "Backlog copy thread",
+        "role": "builder",
+        "estimatedTokens": 10179,
+        "reason": "shared global context, cold memory",
+        "temperature": "cold",
+        "priority": 1,
+        "roleAffinity": [
+          "implementation"
+        ]
+      },
+      {
+        "id": "segment-88d9c8a4-b134-4432-9c0d-0ff29f4ba298",
+        "label": "Backlog copy thread",
+        "role": "reviewer",
+        "estimatedTokens": 10179,
+        "reason": "shared global context, cold memory",
+        "temperature": "cold",
+        "priority": 1,
+        "roleAffinity": [
+          "implementation"
+        ]
+      },
+      {
+        "id": "segment-5e280d5c-02fb-46d3-980c-81be94ccc765",
+        "label": "Reviewer merge constraint",
+        "role": "builder",
+        "estimatedTokens": 7326,
+        "reason": "shared global context, warm memory",
+        "temperature": "warm",
+        "priority": 4,
+        "roleAffinity": [
+          "reviewer"
+        ]
+      },
+      {
+        "id": "segment-accf633c-6c52-4862-8bd1-3bb4dd354c8c",
+        "label": "Conflicting ship-now request",
+        "role": "builder",
+        "estimatedTokens": 6664,
+        "reason": "shared global context, hot memory",
+        "temperature": "hot",
+        "priority": 5,
+        "roleAffinity": [
+          "implementation",
+          "reviewer"
+        ]
+      }
+    ]
+  },
+  "replayExcerpt": "# Orchestration Replay: run-2026-04-26T12-25-37-508Z\n\n- Task: Build a Next.js dashboard, verify Docker startup, and prepare a reviewer handoff. Add extra noise, a blocked verification branch, and contradictory reviewer evidence before deciding whether to ship.\n- Strategy: orchestrator -> implementation -> optional builder/reviewer branches\n- Effective context capacity: 10,000,000 tokens\n- Evaluation: pending\n\n## Nodes\n- Orchestrator (orchestrator)\n  - status: completed\n  - branch: root\n  - summary: Closed orchestration run and persisted replay output.\n- Implementation agent (implementation)\n  - status: completed\n  - branch: implementation\n  - summary: Implementation worker completed\n- builder branch (builder)\n  - status: blocked\n  - branch: implementation:builder\n  - summary: Builder worker completed\n- reviewer branch (reviewer)\n  - status: completed\n  - branch: implementation:reviewer\n  - summary: Reviewer worker completed\n\n## Timeline\n- 2026-04-26T12:25:37.517Z | implementation | branch_opened | Opened builder branch\n  - The task mentions build/run/verification work and benefits from a dedicated builder branch.\n- 2026-04-26T12:25:37.519Z | implementation | branch_opened | Opened reviewer branch\n  - A reviewer branch keeps final reporting and risk assessment separate from direct implementation.\n- 2026-04-26T12:25:37.523Z | implementation | context_packed | Packed context for implementation\n  - Included 7 segments and omitted 2.\n- 2026-04-26T12:25:37.525Z | builder | context_packed | Packed context for builder\n  - Included 2 segments and omitted 7.\n- 2026-04-26T12:25:37.527Z | reviewer | context_packed | Packed context for reviewer\n  - Included 7 segments and omitted 2.\n- 2026-04-26T12:25:37.563Z | implementation | worker_started | Implementation worker started\n  - Task: Build a Next.js dashboard, verify Docker startup, and prepare a reviewer handoff. Add extra noise, a blocked verification branch, and contradictory reviewer evidence before deciding whether to ship.\n- 2026-04-26T12:25:37.567Z | implementation | status_update | Thinking through the requested change set\n  - Packed context includes 7 segments using 17222 tokens.\n- 2026-04-26T12:25:37.567Z | implementation | artifact_produced | Prepared implementation plan artifact\n  - artifacts: implementation-plan.md\n- 2026-04-26T12:25:37.567Z | implementation | worker_completed | Implementation worker completed\n  - Structured upstream reporting emitted successfully.\n- 2026-04-26T12:25:37.605Z | builder | worker_started | Builder worker started\n  - Task: Build and verification branch for: Build a Next.js dashboard, verify Docker startup, and prepare a reviewer handoff. Add extra noise, a blocked verification branch, and contradictory reviewer evidence before deciding whether to ship.\n- 2026-04-26T12:25:37.609Z | builder | status_update | Preparing builder branch\n  - Packed context includes 2 segments using 10000 tokens.\n- 2026-04-26T12:25:37.609Z | builder | status_update | Builder branch hit a partial failure\n  - Verification exposed a dependency/runtime issue that needs manual follow-up instead of a false green summary.\n  - artifacts: builder-failure.log\n- 2026-04-26T12:25:37.609Z | builder | artifact_produced | Prepared blocked build-and-verify log\n  - artifacts: builder-commands.log\n- 2026-04-26T12:25:37.609Z | builder | worker_completed | Builder worker completed\n  - Structured upstream reporting emitted successfully.\n- 2026-04-26T12:25:37.647Z | reviewer | worker_started | Reviewer worker started\n  - Task: Review branch for: Build a Next.js dashboard, verify Docker startup, and prepare a reviewer handoff. Add extra noise, a blocked verification branch, and contradictory reviewer evidence before deciding whether to ship.\n- 2026-04-26T12:25:37.650Z | reviewer | status_update | Preparing reviewer branch\n  - Packed context includes 7 segments using 8562 tokens.\n- 2026-04-26T12:25:37.650Z | reviewer | review_requested | Prepared reviewer summary\n  - artifacts: review-summary.md\n- 2026-04-26T12:25:37.650Z | reviewer | worker_completed | Reviewer worker completed\n  - Structured upstream reporting emitted successfully.\n- 2026-04-26T12:25:37.657Z | orchestrator | merge_resolved | Resolved contested branch outputs\n  - Implementation branch argued for immediate progress, reviewer branch argued for caution. Final merge decision: Hold shipping until the reviewer concern is cleared.\n  - artifacts: merge-resolution.md\n- 2026-04-26T12:25:37.657Z | orchestrator | run_summary | Orchestrator collected child updates and closed the run.\n  - Executed 3 worker nodes with structured upstream events.\n\n## Context packs\n- implementation-9956c9b8-ff6f-4cf7-851a-da38b47912ec used 17222/18000 tokens\n  - included: Task brief (role match for implementation, shared global context, hot memory); Escalated incident brief (role match for implementation, shared global context, hot memory); Conflicting ship-now request (role match for implementation, shared global context, hot memory); Repository constraints (role match for implementation, shared global context, warm memory); Builder stop-ship evidence (shared global context, hot memory, compressed high-priority context); Reviewer merge constraint (shared global context, warm memory, compressed high-priority context); Known product gap (shared global context, cold memory)\n  - omitted: Noisy thread replay, Backlog copy thread\n- builder-f40b2932-1776-45b2-ac18-9cad4f359c47 used 10000/10000 tokens\n  - included: Escalated incident brief (role match for builder, shared global context, hot memory); Builder stop-ship evidence (role match for builder, shared global context, hot memory, compressed high-priority context)\n  - omitted: Repository constraints, Noisy thread replay, Task brief, Conflicting ship-now request, Reviewer merge constraint, Known product gap, Backlog copy thread\n- reviewer-e2c64551-5f00-44fc-8849-2215343b6176 used 8562/9000 tokens\n  - included: Escalated incident brief (role match for reviewer, shared global context, hot memory, compressed high-priority context); Builder stop-ship evidence (role match for reviewer, shared global context, hot memory); Conflicting ship-now request (role match for reviewer, shared global context, hot memory, compressed high-priority context); Repository constraints (role match for reviewer, shared global context, warm memory); Reviewer merge constraint (role match for reviewer, shared global context, warm memory, compressed high-priority context); Known product gap (role match for reviewer, shared global context, cold memory); Task brief (shared global context, hot memory)\n  - omitted: Noisy thread replay, Backlog copy thread\n",
+  "recommendation": "keep_rejected_until_human_replay_review",
+  "rationale": "A replay inspection artifact now exists, but the existing rejection should remain until a human reviewer decides whether the omitted context was actually needed."
+}

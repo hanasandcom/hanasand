@@ -1,0 +1,48 @@
+{
+  "generated_at": "2026-04-30T06:38:33.417Z",
+  "model_api": "http://127.0.0.1:18081",
+  "profile_tag": "validation",
+  "baseline_key": "model_warmup:validation",
+  "expected_profile": "validation",
+  "expected_model_substring": "qwen2.5-coder-14b",
+  "actual_model_path": "",
+  "actual_context_size": 0,
+  "selection_artifact": {
+    "generated_at": "2026-04-30T04:10:33Z",
+    "os": "Darwin",
+    "ram_gb": 64,
+    "backend": "metal",
+    "profile": "default",
+    "model_name": "qwen2.5-coder-32b",
+    "model_repo": "bartowski/Qwen2.5-Coder-32B-Instruct-GGUF",
+    "model_file": "Qwen2.5-Coder-32B-Instruct-Q4_K_M.gguf",
+    "model_path": "/Users/eirikhanasand/Desktop/personal/hanasand/gpt/models/qwen2.5-coder-32b/Qwen2.5-Coder-32B-Instruct-Q4_K_M.gguf",
+    "ctx_size": 24576,
+    "batch_size": 1024,
+    "ubatch_size": 256,
+    "profile_note": "largest local macOS profile",
+    "selection_only": 0
+  },
+  "warmup": {
+    "status": "failed",
+    "total_ms": 11,
+    "failure": {
+      "name": "Error",
+      "message": "Command failed: curl -sS --max-time 8 -w \n%{http_code} http://127.0.0.1:18081/props\ncurl: (7) Failed to connect to 127.0.0.1 port 18081 after 0 ms: Couldn't connect to server\n",
+      "code": 7,
+      "signal": null,
+      "status": null
+    },
+    "memory_before": null,
+    "memory_after": {
+      "total_gb": 64,
+      "free_gb": 1.062,
+      "used_gb": 62.938,
+      "pressure": 0.9834,
+      "process_rss_mb": 47,
+      "process_heap_used_mb": 5
+    },
+    "memory_delta": null
+  },
+  "ok": false
+}

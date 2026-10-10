@@ -1,0 +1,69 @@
+{
+  "runId": "run-2026-04-24T23-56-24-756Z",
+  "generatedAt": "2026-04-24T23:56:24.873Z",
+  "comparedProfiles": [
+    "healthy_export",
+    "degraded_export"
+  ],
+  "findings": [
+    {
+      "gateId": "pack_coverage",
+      "healthyStatus": "pass",
+      "degradedStatus": "fail",
+      "healthySummary": "Every worker node has a stored context pack.",
+      "degradedSummary": "Most worker nodes are missing context packs."
+    },
+    {
+      "gateId": "hot_segment_coverage",
+      "healthyStatus": "pass",
+      "degradedStatus": "pass",
+      "healthySummary": "Hot task context is represented across the exported scopes.",
+      "degradedSummary": "Hot task context is represented across the exported scopes."
+    },
+    {
+      "gateId": "graph_integrity",
+      "healthyStatus": "pass",
+      "degradedStatus": "fail",
+      "healthySummary": "Every child node has at least one inbound graph edge.",
+      "degradedSummary": "One or more child nodes are disconnected from the orchestration graph."
+    },
+    {
+      "gateId": "omission_pressure",
+      "healthyStatus": "pass",
+      "degradedStatus": "pass",
+      "healthySummary": "The average scope kept omission pressure under control.",
+      "degradedSummary": "The average scope kept omission pressure under control."
+    }
+  ],
+  "scopeComparison": [
+    {
+      "scopeId": "all_workers",
+      "healthyIncludedTokens": 282,
+      "degradedIncludedTokens": 188,
+      "healthyOmissionRate": 0,
+      "degradedOmissionRate": 0
+    },
+    {
+      "scopeId": "implementation_focus",
+      "healthyIncludedTokens": 188,
+      "degradedIncludedTokens": 188,
+      "healthyOmissionRate": 0,
+      "degradedOmissionRate": 0
+    },
+    {
+      "scopeId": "review_focus",
+      "healthyIncludedTokens": 94,
+      "degradedIncludedTokens": 0,
+      "healthyOmissionRate": 0,
+      "degradedOmissionRate": 1
+    }
+  ],
+  "verdict": {
+    "pass": true,
+    "summary": "Healthy export meets the baseline while the degraded export trips stricter gates as expected.",
+    "healthyFailures": 0,
+    "degradedFailures": 2,
+    "healthyWarnings": 0,
+    "degradedWarnings": 0
+  }
+}

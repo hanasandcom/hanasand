@@ -1,0 +1,25 @@
+{
+  "generated_at": "2026-04-25T05:15:40Z",
+  "model_api": "http://127.0.0.1:18082",
+  "expected_profile": "validation",
+  "expected_model_substring": "qwen2.5-coder-14b",
+  "actual_model_path": "/Users/eirikhanasand/Desktop/personal/hanasand/gpt/models/qwen2.5-coder-14b/Qwen2.5-Coder-14B-Instruct-Q4_K_M.gguf",
+  "actual_context_size": 16384,
+  "selection_artifact": {
+    "generated_at": "2026-04-25T05:14:46Z",
+    "os": "Darwin",
+    "ram_gb": 64,
+    "backend": "metal",
+    "profile": "validation",
+    "model_name": "qwen2.5-coder-14b",
+    "model_repo": "bartowski/Qwen2.5-Coder-14B-Instruct-GGUF",
+    "model_file": "Qwen2.5-Coder-14B-Instruct-Q4_K_M.gguf",
+    "model_path": "/Users/eirikhanasand/Desktop/personal/hanasand/gpt/models/qwen2.5-coder-14b/Qwen2.5-Coder-14B-Instruct-Q4_K_M.gguf",
+    "ctx_size": 16384,
+    "batch_size": 1024,
+    "ubatch_size": 256,
+    "profile_note": "stable validation profile for local self-improvement runs on macOS",
+    "selection_only": 0
+  },
+  "ok": true
+}

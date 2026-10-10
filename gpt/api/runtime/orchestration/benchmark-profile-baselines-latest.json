@@ -1,0 +1,20 @@
+{
+  "generated_at": "2026-04-26T12:25:36.504Z",
+  "benchmark_family": "orchestration_benchmark_v2",
+  "current_profile_tag": "local-darwin-arm64-64gb",
+  "current_baseline_key": "orchestration_benchmark_v2:local-darwin-arm64-64gb",
+  "baseline_count": 1,
+  "baselines": [
+    {
+      "key": "orchestration_benchmark_v2:local-darwin-arm64-64gb",
+      "profileTag": "local-darwin-arm64-64gb",
+      "generatedAt": "2026-04-26T12:25:36.504Z",
+      "averageScore": 100,
+      "scenarioCount": 8,
+      "warnings": 0,
+      "failures": 0,
+      "weakestScenario": "Escalated delivery handoff (99)",
+      "source": "derived_from_machine"
+    }
+  ]
+}

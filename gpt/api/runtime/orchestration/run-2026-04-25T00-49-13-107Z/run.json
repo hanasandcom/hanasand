@@ -1,0 +1,747 @@
+{
+  "id": "run-2026-04-25T00-49-13-107Z",
+  "task": "Triage a deployment under heavy context pressure, preserve the hottest constraints, and produce a reviewer handoff.",
+  "createdAt": "2026-04-25T00:49:13.108Z",
+  "updatedAt": "2026-04-25T00:49:13.397Z",
+  "topology": {
+    "ownerNodeId": "orchestrator-97ea2d26-255c-4091-878d-f63193265178",
+    "strategy": "orchestrator -> implementation -> optional builder/reviewer branches",
+    "notes": [
+      "The orchestrator owns steering, branch policy, context packaging, and final upstream reporting.",
+      "The implementation node owns direct task execution and requests specialist branches when needed.",
+      "Builder and reviewer branches are opened through branch-control policy rather than by default.",
+      "Scenario profile: context_pressure_triage (context_pressure)."
+    ]
+  },
+  "branchPolicy": {
+    "maxBranches": 3,
+    "maxDepth": 2
+  },
+  "nodes": [
+    {
+      "id": "orchestrator-97ea2d26-255c-4091-878d-f63193265178",
+      "role": "orchestrator",
+      "label": "Orchestrator",
+      "parentId": null,
+      "branchKey": "root",
+      "depth": 0,
+      "status": "completed",
+      "task": "Triage a deployment under heavy context pressure, preserve the hottest constraints, and produce a reviewer handoff.",
+      "assignedAt": "2026-04-25T00:49:13.108Z",
+      "startedAt": null,
+      "completedAt": "2026-04-25T00:49:13.396Z",
+      "summary": "Closed orchestration run and persisted replay output."
+    },
+    {
+      "id": "implementation-be2d83c9-1bc6-4695-9cee-f2dd6add6a21",
+      "role": "implementation",
+      "label": "Implementation agent",
+      "parentId": "orchestrator-97ea2d26-255c-4091-878d-f63193265178",
+      "branchKey": "implementation",
+      "depth": 1,
+      "status": "completed",
+      "task": "Triage a deployment under heavy context pressure, preserve the hottest constraints, and produce a reviewer handoff.",
+      "assignedAt": "2026-04-25T00:49:13.108Z",
+      "startedAt": "2026-04-25T00:49:13.131Z",
+      "completedAt": "2026-04-25T00:49:13.217Z",
+      "summary": "Implementation worker completed"
+    },
+    {
+      "id": "builder-ffa877c0-78e1-4a70-94e6-ec85d1ffccb8",
+      "role": "builder",
+      "label": "builder branch",
+      "parentId": "implementation-be2d83c9-1bc6-4695-9cee-f2dd6add6a21",
+      "branchKey": "implementation:builder",
+      "depth": 2,
+      "status": "completed",
+      "task": "Build and verification branch for: Triage a deployment under heavy context pressure, preserve the hottest constraints, and produce a reviewer handoff.",
+      "assignedAt": "2026-04-25T00:49:13.119Z",
+      "startedAt": "2026-04-25T00:49:13.218Z",
+      "completedAt": "2026-04-25T00:49:13.298Z",
+      "summary": "Builder worker completed"
+    },
+    {
+      "id": "reviewer-0d07ce2a-5286-4603-ac9a-98e030c6d21c",
+      "role": "reviewer",
+      "label": "reviewer branch",
+      "parentId": "implementation-be2d83c9-1bc6-4695-9cee-f2dd6add6a21",
+      "branchKey": "implementation:reviewer",
+      "depth": 2,
+      "status": "completed",
+      "task": "Review branch for: Triage a deployment under heavy context pressure, preserve the hottest constraints, and produce a reviewer handoff.",
+      "assignedAt": "2026-04-25T00:49:13.121Z",
+      "startedAt": "2026-04-25T00:49:13.299Z",
+      "completedAt": "2026-04-25T00:49:13.394Z",
+      "summary": "Reviewer worker completed"
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-34c4bbc0-5045-4852-9916-e03f029309ba",
+      "from": "orchestrator-97ea2d26-255c-4091-878d-f63193265178",
+      "to": "implementation-be2d83c9-1bc6-4695-9cee-f2dd6add6a21",
+      "type": "delegates_to",
+      "createdAt": "2026-04-25T00:49:13.108Z",
+      "label": "primary delivery path"
+    },
+    {
+      "id": "edge-7f5aa54a-8cb4-49b9-af92-0a5f69eb1a4f",
+      "from": "implementation-be2d83c9-1bc6-4695-9cee-f2dd6add6a21",
+      "to": "orchestrator-97ea2d26-255c-4091-878d-f63193265178",
+      "type": "reports_to",
+      "createdAt": "2026-04-25T00:49:13.108Z",
+      "label": "upstream summary"
+    },
+    {
+      "id": "edge-builder-ffa877c0-78e1-4a70-94e6-ec85d1ffccb8",
+      "from": "implementation-be2d83c9-1bc6-4695-9cee-f2dd6add6a21",
+      "to": "builder-ffa877c0-78e1-4a70-94e6-ec85d1ffccb8",
+      "type": "branches_to",
+      "createdAt": "2026-04-25T00:49:13.119Z",
+      "label": "The task mentions build/run/verification work and benefits from a dedicated builder branch."
+    },
+    {
+      "id": "edge-reviewer-0d07ce2a-5286-4603-ac9a-98e030c6d21c",
+      "from": "implementation-be2d83c9-1bc6-4695-9cee-f2dd6add6a21",
+      "to": "reviewer-0d07ce2a-5286-4603-ac9a-98e030c6d21c",
+      "type": "branches_to",
+      "createdAt": "2026-04-25T00:49:13.121Z",
+      "label": "A reviewer branch keeps final reporting and risk assessment separate from direct implementation."
+    }
+  ],
+  "events": [
+    {
+      "id": "event-17629b80-f684-494c-b13a-0954ca5ab0c6",
+      "runId": "run-2026-04-25T00-49-13-107Z",
+      "nodeId": "implementation-be2d83c9-1bc6-4695-9cee-f2dd6add6a21",
+      "role": "implementation",
+      "type": "branch_opened",
+      "state": "info",
+      "summary": "Opened builder branch",
+      "detail": "The task mentions build/run/verification work and benefits from a dedicated builder branch.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T00:49:13.120Z",
+      "metadata": {
+        "branchNodeId": "builder-ffa877c0-78e1-4a70-94e6-ec85d1ffccb8"
+      }
+    },
+    {
+      "id": "event-b1befd93-43a5-4019-97ae-b17fd5e9b5ab",
+      "runId": "run-2026-04-25T00-49-13-107Z",
+      "nodeId": "implementation-be2d83c9-1bc6-4695-9cee-f2dd6add6a21",
+      "role": "implementation",
+      "type": "branch_opened",
+      "state": "info",
+      "summary": "Opened reviewer branch",
+      "detail": "A reviewer branch keeps final reporting and risk assessment separate from direct implementation.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T00:49:13.122Z",
+      "metadata": {
+        "branchNodeId": "reviewer-0d07ce2a-5286-4603-ac9a-98e030c6d21c"
+      }
+    },
+    {
+      "id": "event-41aa3e2f-b38c-4c84-9dbf-2c5dc162767e",
+      "runId": "run-2026-04-25T00-49-13-107Z",
+      "nodeId": "orchestrator-97ea2d26-255c-4091-878d-f63193265178",
+      "role": "orchestrator",
+      "type": "branch_blocked",
+      "state": "blocked",
+      "summary": "Branch policy blocked additional work",
+      "detail": "Branch limit reached at 3 active branches. Existing branches must close or merge before more work can fork.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T00:49:13.123Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-7da3f89e-2ebc-4837-be2c-b23f6a5a40d5",
+      "runId": "run-2026-04-25T00-49-13-107Z",
+      "nodeId": "implementation-be2d83c9-1bc6-4695-9cee-f2dd6add6a21",
+      "role": "implementation",
+      "type": "context_packed",
+      "state": "info",
+      "summary": "Packed context for implementation",
+      "detail": "Included 9 segments and omitted 0.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T00:49:13.126Z",
+      "metadata": {
+        "budgetTokens": 18000,
+        "usedTokens": 272
+      }
+    },
+    {
+      "id": "event-9d060d1c-0920-4394-82d6-65e1bb3bba16",
+      "runId": "run-2026-04-25T00-49-13-107Z",
+      "nodeId": "builder-ffa877c0-78e1-4a70-94e6-ec85d1ffccb8",
+      "role": "builder",
+      "type": "context_packed",
+      "state": "info",
+      "summary": "Packed context for builder",
+      "detail": "Included 9 segments and omitted 0.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T00:49:13.128Z",
+      "metadata": {
+        "budgetTokens": 10000,
+        "usedTokens": 272
+      }
+    },
+    {
+      "id": "event-d09e9a71-a519-4275-abf0-654ecfa874c4",
+      "runId": "run-2026-04-25T00-49-13-107Z",
+      "nodeId": "reviewer-0d07ce2a-5286-4603-ac9a-98e030c6d21c",
+      "role": "reviewer",
+      "type": "context_packed",
+      "state": "info",
+      "summary": "Packed context for reviewer",
+      "detail": "Included 9 segments and omitted 0.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T00:49:13.130Z",
+      "metadata": {
+        "budgetTokens": 9000,
+        "usedTokens": 272
+      }
+    },
+    {
+      "id": "event-1db1015b-9a4c-4d9f-bd07-7ebae16263b7",
+      "runId": "run-2026-04-25T00-49-13-107Z",
+      "nodeId": "implementation-be2d83c9-1bc6-4695-9cee-f2dd6add6a21",
+      "role": "implementation",
+      "type": "worker_started",
+      "state": "info",
+      "summary": "Implementation worker started",
+      "detail": "Task: Triage a deployment under heavy context pressure, preserve the hottest constraints, and produce a reviewer handoff.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T00:49:13.199Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-997077df-61f6-4433-ba83-16097d03abaa",
+      "runId": "run-2026-04-25T00-49-13-107Z",
+      "nodeId": "implementation-be2d83c9-1bc6-4695-9cee-f2dd6add6a21",
+      "role": "implementation",
+      "type": "status_update",
+      "state": "info",
+      "summary": "Thinking through the requested change set",
+      "detail": "Packed context includes 9 segments using 272 tokens.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T00:49:13.207Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-60851060-b05f-4ad2-9edf-efb4736ff0a2",
+      "runId": "run-2026-04-25T00-49-13-107Z",
+      "nodeId": "implementation-be2d83c9-1bc6-4695-9cee-f2dd6add6a21",
+      "role": "implementation",
+      "type": "artifact_produced",
+      "state": "completed",
+      "summary": "Prepared implementation plan artifact",
+      "detail": null,
+      "artifacts": [
+        {
+          "id": "artifact-2221ecb8-f104-4469-9214-c516de72cc26",
+          "label": "implementation-plan.md",
+          "kind": "text",
+          "content": "# Implementation plan\n\n- Task: Triage a deployment under heavy context pressure, preserve the hottest constraints, and produce a reviewer handoff.\n- Branch: implementation\n- Scenario tension: context_pressure\n- Selected context:\n  - Task brief: role match for implementation, shared global context, hot memory\n  - Hot incident notes: role match for implementation, shared global context, hot memory\n  - Repository constraints: role match for implementation, shared global context, warm memory\n  - Dense repo summary: role match for implementation, shared global context, warm memory\n  - Low-priority backlog 1: role match for implementation, shared global context, cold memory\n  - Rollback guardrails: shared global context, hot memory\n  - Reviewer disagreement note: shared global context, warm memory\n  - Known product gap: shared global context, cold memory\n  - Low-priority backlog 2: shared global context, cold memory\n\n- Omitted context count: 0",
+          "createdAt": "2026-04-25T00:49:13.207Z"
+        }
+      ],
+      "createdAt": "2026-04-25T00:49:13.207Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-bb08fec9-f180-46f2-8abd-0dffd2c5567e",
+      "runId": "run-2026-04-25T00-49-13-107Z",
+      "nodeId": "implementation-be2d83c9-1bc6-4695-9cee-f2dd6add6a21",
+      "role": "implementation",
+      "type": "worker_completed",
+      "state": "completed",
+      "summary": "Implementation worker completed",
+      "detail": "Structured upstream reporting emitted successfully.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T00:49:13.207Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-616e7c86-d4cd-4cbb-9df0-5321f977fb60",
+      "runId": "run-2026-04-25T00-49-13-107Z",
+      "nodeId": "builder-ffa877c0-78e1-4a70-94e6-ec85d1ffccb8",
+      "role": "builder",
+      "type": "worker_started",
+      "state": "info",
+      "summary": "Builder worker started",
+      "detail": "Task: Build and verification branch for: Triage a deployment under heavy context pressure, preserve the hottest constraints, and produce a reviewer handoff.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T00:49:13.284Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-47c93313-0121-4501-b67f-54b31e48fa6f",
+      "runId": "run-2026-04-25T00-49-13-107Z",
+      "nodeId": "builder-ffa877c0-78e1-4a70-94e6-ec85d1ffccb8",
+      "role": "builder",
+      "type": "status_update",
+      "state": "info",
+      "summary": "Preparing builder branch",
+      "detail": "Packed context includes 9 segments using 272 tokens.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T00:49:13.292Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-f8625463-f60c-4296-a387-4a3999736851",
+      "runId": "run-2026-04-25T00-49-13-107Z",
+      "nodeId": "builder-ffa877c0-78e1-4a70-94e6-ec85d1ffccb8",
+      "role": "builder",
+      "type": "artifact_produced",
+      "state": "completed",
+      "summary": "Prepared build-and-verify command log",
+      "detail": null,
+      "artifacts": [
+        {
+          "id": "artifact-284b3fe5-1624-4553-96f3-3cd317a358fe",
+          "label": "builder-commands.log",
+          "kind": "log",
+          "content": "npm install\nnpm run build\nnpm test\ndocker compose up --build -d\nhealthcheck passed",
+          "createdAt": "2026-04-25T00:49:13.292Z"
+        }
+      ],
+      "createdAt": "2026-04-25T00:49:13.292Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-5a555e0d-7918-449d-ab6e-e295c2aaee16",
+      "runId": "run-2026-04-25T00-49-13-107Z",
+      "nodeId": "builder-ffa877c0-78e1-4a70-94e6-ec85d1ffccb8",
+      "role": "builder",
+      "type": "worker_completed",
+      "state": "completed",
+      "summary": "Builder worker completed",
+      "detail": "Structured upstream reporting emitted successfully.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T00:49:13.292Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-71e91a32-b421-44c7-b96a-553dede4d946",
+      "runId": "run-2026-04-25T00-49-13-107Z",
+      "nodeId": "reviewer-0d07ce2a-5286-4603-ac9a-98e030c6d21c",
+      "role": "reviewer",
+      "type": "worker_started",
+      "state": "info",
+      "summary": "Reviewer worker started",
+      "detail": "Task: Review branch for: Triage a deployment under heavy context pressure, preserve the hottest constraints, and produce a reviewer handoff.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T00:49:13.366Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-36a2e8b0-7f87-4e99-816b-33168e7a5672",
+      "runId": "run-2026-04-25T00-49-13-107Z",
+      "nodeId": "reviewer-0d07ce2a-5286-4603-ac9a-98e030c6d21c",
+      "role": "reviewer",
+      "type": "status_update",
+      "state": "info",
+      "summary": "Preparing reviewer branch",
+      "detail": "Packed context includes 9 segments using 272 tokens.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T00:49:13.374Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-c9ac81cd-f400-434f-88ec-b5f0260a0a4d",
+      "runId": "run-2026-04-25T00-49-13-107Z",
+      "nodeId": "reviewer-0d07ce2a-5286-4603-ac9a-98e030c6d21c",
+      "role": "reviewer",
+      "type": "review_requested",
+      "state": "completed",
+      "summary": "Prepared reviewer summary",
+      "detail": null,
+      "artifacts": [
+        {
+          "id": "artifact-45f1d1cf-1641-4af7-97bb-47b43b51fd50",
+          "label": "review-summary.md",
+          "kind": "text",
+          "content": "# Review summary\n\n- Risk posture: low\n- Notes: review branch confirms the task is still aligned with the requested outcome.\n- Context pack size: 272 tokens\n- Omitted segments: 0",
+          "createdAt": "2026-04-25T00:49:13.374Z"
+        }
+      ],
+      "createdAt": "2026-04-25T00:49:13.374Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-90c0dc52-4938-478f-9cb0-da145402d7ed",
+      "runId": "run-2026-04-25T00-49-13-107Z",
+      "nodeId": "reviewer-0d07ce2a-5286-4603-ac9a-98e030c6d21c",
+      "role": "reviewer",
+      "type": "worker_completed",
+      "state": "completed",
+      "summary": "Reviewer worker completed",
+      "detail": "Structured upstream reporting emitted successfully.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T00:49:13.374Z",
+      "metadata": {}
+    },
+    {
+      "id": "event-6c182450-ac22-4c96-8a65-fbfe507b4c08",
+      "runId": "run-2026-04-25T00-49-13-107Z",
+      "nodeId": "orchestrator-97ea2d26-255c-4091-878d-f63193265178",
+      "role": "orchestrator",
+      "type": "run_summary",
+      "state": "completed",
+      "summary": "Orchestrator collected child updates and closed the run.",
+      "detail": "Executed 3 worker nodes with structured upstream events.",
+      "artifacts": [],
+      "createdAt": "2026-04-25T00:49:13.395Z",
+      "metadata": {}
+    }
+  ],
+  "context": {
+    "effectiveCapacityTokens": 10000000,
+    "segments": [
+      {
+        "id": "segment-add5d220-7266-4a94-9f29-7c6bab3de19b",
+        "label": "Task brief",
+        "kind": "task",
+        "temperature": "hot",
+        "roleAffinity": [
+          "orchestrator",
+          "implementation"
+        ],
+        "branchKey": "root",
+        "content": "Triage a deployment under heavy context pressure, preserve the hottest constraints, and produce a reviewer handoff.",
+        "estimatedTokens": 29,
+        "priority": 5,
+        "createdAt": "2026-04-25T00:49:13.112Z",
+        "metadata": {}
+      },
+      {
+        "id": "segment-ba5ff9c7-2b49-495b-b7b3-3cf5951d0908",
+        "label": "Repository constraints",
+        "kind": "constraint",
+        "temperature": "warm",
+        "roleAffinity": [
+          "orchestrator",
+          "implementation",
+          "builder",
+          "reviewer"
+        ],
+        "branchKey": null,
+        "content": "Prefer TypeScript and shell scripts. Keep orchestration inspectable and replayable. Treat 10M context as effective retrieval-backed context rather than a single prompt.",
+        "estimatedTokens": 42,
+        "priority": 4,
+        "createdAt": "2026-04-25T00:49:13.113Z",
+        "metadata": {}
+      },
+      {
+        "id": "segment-e756f075-17bf-4ec2-8a5b-aa97990fa865",
+        "label": "Known product gap",
+        "kind": "memory",
+        "temperature": "cold",
+        "roleAffinity": [
+          "orchestrator",
+          "reviewer"
+        ],
+        "branchKey": null,
+        "content": "Remote VM shell/file-write deploy flow is still incomplete, so orchestration should stay honest about local-only branches.",
+        "estimatedTokens": 31,
+        "priority": 3,
+        "createdAt": "2026-04-25T00:49:13.115Z",
+        "metadata": {}
+      },
+      {
+        "id": "segment-77f09b4c-cc99-4cd6-8c91-b1fab6379bbe",
+        "label": "Hot incident notes",
+        "kind": "memory",
+        "temperature": "hot",
+        "roleAffinity": [
+          "implementation",
+          "builder",
+          "reviewer"
+        ],
+        "branchKey": null,
+        "content": "Incident bridge notes mention three conflicting symptoms, one stale workaround, and a non-negotiable uptime promise for the next deploy window.",
+        "estimatedTokens": 36,
+        "priority": 5,
+        "createdAt": "2026-04-25T00:49:13.115Z",
+        "metadata": {}
+      },
+      {
+        "id": "segment-ccc8e4cf-a24f-4d90-b23f-487b9e00f3cf",
+        "label": "Rollback guardrails",
+        "kind": "constraint",
+        "temperature": "hot",
+        "roleAffinity": [
+          "builder",
+          "reviewer"
+        ],
+        "branchKey": null,
+        "content": "Do not recommend rollback unless the branch can show which state is restorable and which checks remain unknown.",
+        "estimatedTokens": 28,
+        "priority": 5,
+        "createdAt": "2026-04-25T00:49:13.116Z",
+        "metadata": {}
+      },
+      {
+        "id": "segment-b093edfa-29c5-4353-b5b7-87cd1526b226",
+        "label": "Dense repo summary",
+        "kind": "repo_summary",
+        "temperature": "warm",
+        "roleAffinity": [
+          "implementation",
+          "builder"
+        ],
+        "branchKey": null,
+        "content": "Workspace spans frontend, API, deploy scripts, and control-plane docs. Prioritize the files that most directly affect the failing preview route and omit cosmetic changes.",
+        "estimatedTokens": 43,
+        "priority": 4,
+        "createdAt": "2026-04-25T00:49:13.116Z",
+        "metadata": {}
+      },
+      {
+        "id": "segment-c8898a38-cb30-4423-bc12-27f0a1b195e9",
+        "label": "Reviewer disagreement note",
+        "kind": "artifact",
+        "temperature": "warm",
+        "roleAffinity": [
+          "reviewer"
+        ],
+        "branchKey": null,
+        "content": "A previous review approved shipping, but a later note questions whether the verification logs were complete.",
+        "estimatedTokens": 27,
+        "priority": 4,
+        "createdAt": "2026-04-25T00:49:13.117Z",
+        "metadata": {}
+      },
+      {
+        "id": "segment-619ded12-a62b-42a1-8fd3-44c96f969304",
+        "label": "Low-priority backlog 1",
+        "kind": "memory",
+        "temperature": "cold",
+        "roleAffinity": [
+          "implementation"
+        ],
+        "branchKey": null,
+        "content": "Backlog thread about unrelated naming cleanup in dashboard copy.",
+        "estimatedTokens": 16,
+        "priority": 1,
+        "createdAt": "2026-04-25T00:49:13.117Z",
+        "metadata": {}
+      },
+      {
+        "id": "segment-7914a20b-66e7-450e-bb02-1704b48f02b9",
+        "label": "Low-priority backlog 2",
+        "kind": "memory",
+        "temperature": "cold",
+        "roleAffinity": [
+          "builder"
+        ],
+        "branchKey": null,
+        "content": "Old package-manager migration note that should not displace hot deploy context.",
+        "estimatedTokens": 20,
+        "priority": 1,
+        "createdAt": "2026-04-25T00:49:13.118Z",
+        "metadata": {}
+      }
+    ],
+    "packs": [
+      {
+        "nodeId": "implementation-be2d83c9-1bc6-4695-9cee-f2dd6add6a21",
+        "role": "implementation",
+        "budgetTokens": 18000,
+        "usedTokens": 272,
+        "included": [
+          {
+            "id": "segment-add5d220-7266-4a94-9f29-7c6bab3de19b",
+            "label": "Task brief",
+            "estimatedTokens": 29,
+            "reason": "role match for implementation, shared global context, hot memory"
+          },
+          {
+            "id": "segment-77f09b4c-cc99-4cd6-8c91-b1fab6379bbe",
+            "label": "Hot incident notes",
+            "estimatedTokens": 36,
+            "reason": "role match for implementation, shared global context, hot memory"
+          },
+          {
+            "id": "segment-ba5ff9c7-2b49-495b-b7b3-3cf5951d0908",
+            "label": "Repository constraints",
+            "estimatedTokens": 42,
+            "reason": "role match for implementation, shared global context, warm memory"
+          },
+          {
+            "id": "segment-b093edfa-29c5-4353-b5b7-87cd1526b226",
+            "label": "Dense repo summary",
+            "estimatedTokens": 43,
+            "reason": "role match for implementation, shared global context, warm memory"
+          },
+          {
+            "id": "segment-619ded12-a62b-42a1-8fd3-44c96f969304",
+            "label": "Low-priority backlog 1",
+            "estimatedTokens": 16,
+            "reason": "role match for implementation, shared global context, cold memory"
+          },
+          {
+            "id": "segment-ccc8e4cf-a24f-4d90-b23f-487b9e00f3cf",
+            "label": "Rollback guardrails",
+            "estimatedTokens": 28,
+            "reason": "shared global context, hot memory"
+          },
+          {
+            "id": "segment-c8898a38-cb30-4423-bc12-27f0a1b195e9",
+            "label": "Reviewer disagreement note",
+            "estimatedTokens": 27,
+            "reason": "shared global context, warm memory"
+          },
+          {
+            "id": "segment-e756f075-17bf-4ec2-8a5b-aa97990fa865",
+            "label": "Known product gap",
+            "estimatedTokens": 31,
+            "reason": "shared global context, cold memory"
+          },
+          {
+            "id": "segment-7914a20b-66e7-450e-bb02-1704b48f02b9",
+            "label": "Low-priority backlog 2",
+            "estimatedTokens": 20,
+            "reason": "shared global context, cold memory"
+          }
+        ],
+        "omitted": [],
+        "generatedAt": "2026-04-25T00:49:13.124Z"
+      },
+      {
+        "nodeId": "builder-ffa877c0-78e1-4a70-94e6-ec85d1ffccb8",
+        "role": "builder",
+        "budgetTokens": 10000,
+        "usedTokens": 272,
+        "included": [
+          {
+            "id": "segment-77f09b4c-cc99-4cd6-8c91-b1fab6379bbe",
+            "label": "Hot incident notes",
+            "estimatedTokens": 36,
+            "reason": "role match for builder, shared global context, hot memory"
+          },
+          {
+            "id": "segment-ccc8e4cf-a24f-4d90-b23f-487b9e00f3cf",
+            "label": "Rollback guardrails",
+            "estimatedTokens": 28,
+            "reason": "role match for builder, shared global context, hot memory"
+          },
+          {
+            "id": "segment-ba5ff9c7-2b49-495b-b7b3-3cf5951d0908",
+            "label": "Repository constraints",
+            "estimatedTokens": 42,
+            "reason": "role match for builder, shared global context, warm memory"
+          },
+          {
+            "id": "segment-b093edfa-29c5-4353-b5b7-87cd1526b226",
+            "label": "Dense repo summary",
+            "estimatedTokens": 43,
+            "reason": "role match for builder, shared global context, warm memory"
+          },
+          {
+            "id": "segment-7914a20b-66e7-450e-bb02-1704b48f02b9",
+            "label": "Low-priority backlog 2",
+            "estimatedTokens": 20,
+            "reason": "role match for builder, shared global context, cold memory"
+          },
+          {
+            "id": "segment-add5d220-7266-4a94-9f29-7c6bab3de19b",
+            "label": "Task brief",
+            "estimatedTokens": 29,
+            "reason": "shared global context, hot memory"
+          },
+          {
+            "id": "segment-c8898a38-cb30-4423-bc12-27f0a1b195e9",
+            "label": "Reviewer disagreement note",
+            "estimatedTokens": 27,
+            "reason": "shared global context, warm memory"
+          },
+          {
+            "id": "segment-e756f075-17bf-4ec2-8a5b-aa97990fa865",
+            "label": "Known product gap",
+            "estimatedTokens": 31,
+            "reason": "shared global context, cold memory"
+          },
+          {
+            "id": "segment-619ded12-a62b-42a1-8fd3-44c96f969304",
+            "label": "Low-priority backlog 1",
+            "estimatedTokens": 16,
+            "reason": "shared global context, cold memory"
+          }
+        ],
+        "omitted": [],
+        "generatedAt": "2026-04-25T00:49:13.127Z"
+      },
+      {
+        "nodeId": "reviewer-0d07ce2a-5286-4603-ac9a-98e030c6d21c",
+        "role": "reviewer",
+        "budgetTokens": 9000,
+        "usedTokens": 272,
+        "included": [
+          {
+            "id": "segment-77f09b4c-cc99-4cd6-8c91-b1fab6379bbe",
+            "label": "Hot incident notes",
+            "estimatedTokens": 36,
+            "reason": "role match for reviewer, shared global context, hot memory"
+          },
+          {
+            "id": "segment-ccc8e4cf-a24f-4d90-b23f-487b9e00f3cf",
+            "label": "Rollback guardrails",
+            "estimatedTokens": 28,
+            "reason": "role match for reviewer, shared global context, hot memory"
+          },
+          {
+            "id": "segment-ba5ff9c7-2b49-495b-b7b3-3cf5951d0908",
+            "label": "Repository constraints",
+            "estimatedTokens": 42,
+            "reason": "role match for reviewer, shared global context, warm memory"
+          },
+          {
+            "id": "segment-c8898a38-cb30-4423-bc12-27f0a1b195e9",
+            "label": "Reviewer disagreement note",
+            "estimatedTokens": 27,
+            "reason": "role match for reviewer, shared global context, warm memory"
+          },
+          {
+            "id": "segment-e756f075-17bf-4ec2-8a5b-aa97990fa865",
+            "label": "Known product gap",
+            "estimatedTokens": 31,
+            "reason": "role match for reviewer, shared global context, cold memory"
+          },
+          {
+            "id": "segment-add5d220-7266-4a94-9f29-7c6bab3de19b",
+            "label": "Task brief",
+            "estimatedTokens": 29,
+            "reason": "shared global context, hot memory"
+          },
+          {
+            "id": "segment-b093edfa-29c5-4353-b5b7-87cd1526b226",
+            "label": "Dense repo summary",
+            "estimatedTokens": 43,
+            "reason": "shared global context, warm memory"
+          },
+          {
+            "id": "segment-619ded12-a62b-42a1-8fd3-44c96f969304",
+            "label": "Low-priority backlog 1",
+            "estimatedTokens": 16,
+            "reason": "shared global context, cold memory"
+          },
+          {
+            "id": "segment-7914a20b-66e7-450e-bb02-1704b48f02b9",
+            "label": "Low-priority backlog 2",
+            "estimatedTokens": 20,
+            "reason": "shared global context, cold memory"
+          }
+        ],
+        "omitted": [],
+        "generatedAt": "2026-04-25T00:49:13.129Z"
+      }
+    ]
+  },
+  "evaluation": {
+    "success": null,
+    "score": null,
+    "summary": null,
+    "checkedAt": null
+  }
+}

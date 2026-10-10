@@ -1,0 +1,1145 @@
+{
+  "generated_at": "2026-04-26T07:22:38.681Z",
+  "suite": "orchestration_benchmark_v2",
+  "profile_identity": {
+    "tag": "local-darwin-arm64-64gb",
+    "source": "derived_from_machine",
+    "model": null,
+    "endpoint": null,
+    "machine": {
+      "hostname": "Eiriks-Macbook-Pro.local",
+      "platform": "darwin",
+      "arch": "arm64",
+      "cpuCount": 10,
+      "totalMemoryGb": 64
+    }
+  },
+  "difficulty_profile": {
+    "level": 2,
+    "trigger": "previous benchmark saturated at 100 with 0 warnings",
+    "repeatMultiplier": 1.35,
+    "adaptiveScenarioEnabled": true,
+    "previousAverageScore": 100
+  },
+  "average_score": 100,
+  "scenario_count": 8,
+  "passing_scenarios": 8,
+  "warning_scenarios": 0,
+  "failing_scenarios": 0,
+  "weakest_scenario": {
+    "id": "delivery_handoff_escalated",
+    "label": "Escalated delivery handoff",
+    "score": 99
+  },
+  "scenario_results": [
+    {
+      "id": "delivery_handoff",
+      "label": "Delivery and handoff",
+      "task": "Build a Next.js dashboard, verify Docker startup, and prepare a reviewer handoff.",
+      "runId": "run-2026-04-26T07-22-38-702Z",
+      "replayPath": "/Users/eirikhanasand/Desktop/personal/hanasand/gpt/api/runtime/orchestration/run-2026-04-26T07-22-38-702Z/replay.md",
+      "expectedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "observedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "score": 100,
+      "status": "pass",
+      "metrics": {
+        "roleCoverage": 1,
+        "packCoverage": 1,
+        "evidenceCoverage": 1,
+        "exportGateHealth": 1,
+        "replayExists": true,
+        "exportPassCount": 5,
+        "exportWarnCount": 0,
+        "exportFailCount": 0,
+        "blockedRoleCoverage": 1,
+        "contextPressureCoverage": 1,
+        "contradictionCoverage": 1,
+        "omittedHotSegments": 0,
+        "eventCount": 19,
+        "artifactCount": 3
+      },
+      "cost": {
+        "wallMs": 168,
+        "nodeActiveMs": 124,
+        "packedTokens": 282,
+        "omittedTokens": 0,
+        "totalContextTokens": 282,
+        "contextPackCount": 3,
+        "eventCount": 19,
+        "artifactCount": 3,
+        "artifactBytes": 758,
+        "costScore": 64,
+        "dominantCost": "events:47"
+      },
+      "failedGates": [],
+      "warningGates": []
+    },
+    {
+      "id": "delivery_handoff_pressure_refresh",
+      "label": "Delivery handoff under noisy verification pressure",
+      "task": "Build a Next.js dashboard, verify Docker startup, and prepare a reviewer handoff while noisy side threads and a flaky builder branch compete for attention.",
+      "runId": "run-2026-04-26T07-22-38-875Z",
+      "replayPath": "/Users/eirikhanasand/Desktop/personal/hanasand/gpt/api/runtime/orchestration/run-2026-04-26T07-22-38-875Z/replay.md",
+      "expectedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "observedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "score": 100,
+      "status": "pass",
+      "metrics": {
+        "roleCoverage": 1,
+        "packCoverage": 1,
+        "evidenceCoverage": 1,
+        "exportGateHealth": 1,
+        "replayExists": true,
+        "exportPassCount": 5,
+        "exportWarnCount": 0,
+        "exportFailCount": 0,
+        "blockedRoleCoverage": 1,
+        "contextPressureCoverage": 1,
+        "contradictionCoverage": 1,
+        "omittedHotSegments": 6,
+        "eventCount": 20,
+        "artifactCount": 4
+      },
+      "cost": {
+        "wallMs": 183,
+        "nodeActiveMs": 123,
+        "packedTokens": 35544,
+        "omittedTokens": 83895,
+        "totalContextTokens": 119439,
+        "contextPackCount": 3,
+        "eventCount": 20,
+        "artifactCount": 4,
+        "artifactBytes": 1233,
+        "costScore": 716,
+        "dominantCost": "context:649"
+      },
+      "failedGates": [],
+      "warningGates": []
+    },
+    {
+      "id": "context_pressure_triage",
+      "label": "Context-pressure triage",
+      "task": "Triage a deployment under heavy context pressure, preserve the hottest constraints, and produce a reviewer handoff.",
+      "runId": "run-2026-04-26T07-22-39-080Z",
+      "replayPath": "/Users/eirikhanasand/Desktop/personal/hanasand/gpt/api/runtime/orchestration/run-2026-04-26T07-22-39-080Z/replay.md",
+      "expectedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "observedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "score": 100,
+      "status": "pass",
+      "metrics": {
+        "roleCoverage": 1,
+        "packCoverage": 1,
+        "evidenceCoverage": 1,
+        "exportGateHealth": 1,
+        "replayExists": true,
+        "exportPassCount": 5,
+        "exportWarnCount": 0,
+        "exportFailCount": 0,
+        "blockedRoleCoverage": 1,
+        "contextPressureCoverage": 1,
+        "contradictionCoverage": 1,
+        "omittedHotSegments": 6,
+        "eventCount": 19,
+        "artifactCount": 3
+      },
+      "cost": {
+        "wallMs": 203,
+        "nodeActiveMs": 115,
+        "packedTokens": 36750,
+        "omittedTokens": 46641,
+        "totalContextTokens": 83391,
+        "contextPackCount": 3,
+        "eventCount": 19,
+        "artifactCount": 3,
+        "artifactBytes": 1227,
+        "costScore": 594,
+        "dominantCost": "context:531"
+      },
+      "failedGates": [],
+      "warningGates": []
+    },
+    {
+      "id": "deploy_diagnosis",
+      "label": "Deploy diagnosis",
+      "task": "Diagnose why Docker compose verification keeps failing, propose fixes, and prepare a final review.",
+      "runId": "run-2026-04-26T07-22-39-273Z",
+      "replayPath": "/Users/eirikhanasand/Desktop/personal/hanasand/gpt/api/runtime/orchestration/run-2026-04-26T07-22-39-273Z/replay.md",
+      "expectedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "observedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "score": 100,
+      "status": "pass",
+      "metrics": {
+        "roleCoverage": 1,
+        "packCoverage": 1,
+        "evidenceCoverage": 1,
+        "exportGateHealth": 1,
+        "replayExists": true,
+        "exportPassCount": 5,
+        "exportWarnCount": 0,
+        "exportFailCount": 0,
+        "blockedRoleCoverage": 1,
+        "contextPressureCoverage": 1,
+        "contradictionCoverage": 1,
+        "omittedHotSegments": 0,
+        "eventCount": 20,
+        "artifactCount": 4
+      },
+      "cost": {
+        "wallMs": 186,
+        "nodeActiveMs": 136,
+        "packedTokens": 477,
+        "omittedTokens": 0,
+        "totalContextTokens": 477,
+        "contextPackCount": 3,
+        "eventCount": 20,
+        "artifactCount": 4,
+        "artifactBytes": 1063,
+        "costScore": 72,
+        "dominantCost": "events:52"
+      },
+      "failedGates": [],
+      "warningGates": []
+    },
+    {
+      "id": "pressure_blocked_release",
+      "label": "Pressure plus blocked release",
+      "task": "Handle a release candidate with too much noisy context, a blocked build branch, and a reviewer that needs a concise final recommendation.",
+      "runId": "run-2026-04-26T07-22-39-460Z",
+      "replayPath": "/Users/eirikhanasand/Desktop/personal/hanasand/gpt/api/runtime/orchestration/run-2026-04-26T07-22-39-460Z/replay.md",
+      "expectedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "observedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "score": 100,
+      "status": "pass",
+      "metrics": {
+        "roleCoverage": 1,
+        "packCoverage": 1,
+        "evidenceCoverage": 1,
+        "exportGateHealth": 1,
+        "replayExists": true,
+        "exportPassCount": 5,
+        "exportWarnCount": 0,
+        "exportFailCount": 0,
+        "blockedRoleCoverage": 1,
+        "contextPressureCoverage": 1,
+        "contradictionCoverage": 1,
+        "omittedHotSegments": 2,
+        "eventCount": 20,
+        "artifactCount": 4
+      },
+      "cost": {
+        "wallMs": 178,
+        "nodeActiveMs": 127,
+        "packedTokens": 29333,
+        "omittedTokens": 21586,
+        "totalContextTokens": 50919,
+        "contextPackCount": 3,
+        "eventCount": 20,
+        "artifactCount": 4,
+        "artifactBytes": 1204,
+        "costScore": 436,
+        "dominantCost": "context:369"
+      },
+      "failedGates": [],
+      "warningGates": []
+    },
+    {
+      "id": "delivery_handoff_escalated",
+      "label": "Escalated delivery handoff",
+      "task": "Build a Next.js dashboard, verify Docker startup, and prepare a reviewer handoff. Add extra noise, a blocked verification branch, and contradictory reviewer evidence before deciding whether to ship.",
+      "runId": "run-2026-04-26T07-22-39-647Z",
+      "replayPath": "/Users/eirikhanasand/Desktop/personal/hanasand/gpt/api/runtime/orchestration/run-2026-04-26T07-22-39-647Z/replay.md",
+      "expectedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "observedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "score": 99,
+      "status": "pass",
+      "metrics": {
+        "roleCoverage": 1,
+        "packCoverage": 1,
+        "evidenceCoverage": 1,
+        "exportGateHealth": 0.9,
+        "replayExists": true,
+        "exportPassCount": 4,
+        "exportWarnCount": 1,
+        "exportFailCount": 0,
+        "blockedRoleCoverage": 1,
+        "contextPressureCoverage": 1,
+        "contradictionCoverage": 1,
+        "omittedHotSegments": 7,
+        "eventCount": 20,
+        "artifactCount": 5
+      },
+      "cost": {
+        "wallMs": 184,
+        "nodeActiveMs": 120,
+        "packedTokens": 35784,
+        "omittedTokens": 100075,
+        "totalContextTokens": 135859,
+        "contextPackCount": 3,
+        "eventCount": 20,
+        "artifactCount": 5,
+        "artifactBytes": 1725,
+        "costScore": 779,
+        "dominantCost": "context:708"
+      },
+      "failedGates": [],
+      "warningGates": [
+        "omission_pressure"
+      ]
+    },
+    {
+      "id": "adaptive_noise_escalation",
+      "label": "Adaptive noise escalation",
+      "task": "Handle a benchmark case that intentionally raises context noise after previous high-scoring runs and still preserve the reviewer-critical evidence.",
+      "runId": "run-2026-04-26T07-22-39-835Z",
+      "replayPath": "/Users/eirikhanasand/Desktop/personal/hanasand/gpt/api/runtime/orchestration/run-2026-04-26T07-22-39-835Z/replay.md",
+      "expectedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "observedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "score": 100,
+      "status": "pass",
+      "metrics": {
+        "roleCoverage": 1,
+        "packCoverage": 1,
+        "evidenceCoverage": 1,
+        "exportGateHealth": 1,
+        "replayExists": true,
+        "exportPassCount": 5,
+        "exportWarnCount": 0,
+        "exportFailCount": 0,
+        "blockedRoleCoverage": 1,
+        "contextPressureCoverage": 1,
+        "contradictionCoverage": 1,
+        "omittedHotSegments": 3,
+        "eventCount": 19,
+        "artifactCount": 3
+      },
+      "cost": {
+        "wallMs": 197,
+        "nodeActiveMs": 147,
+        "packedTokens": 14387,
+        "omittedTokens": 47304,
+        "totalContextTokens": 61691,
+        "contextPackCount": 3,
+        "eventCount": 19,
+        "artifactCount": 3,
+        "artifactBytes": 1041,
+        "costScore": 373,
+        "dominantCost": "context:309"
+      },
+      "failedGates": [],
+      "warningGates": []
+    },
+    {
+      "id": "contested_merge_decision",
+      "label": "Contested merge decision",
+      "task": "Review a risky deploy fix where one branch wants to ship and another wants to hold, then justify the final recommendation.",
+      "runId": "run-2026-04-26T07-22-40-034Z",
+      "replayPath": "/Users/eirikhanasand/Desktop/personal/hanasand/gpt/api/runtime/orchestration/run-2026-04-26T07-22-40-034Z/replay.md",
+      "expectedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "observedRoles": [
+        "implementation",
+        "builder",
+        "reviewer"
+      ],
+      "score": 100,
+      "status": "pass",
+      "metrics": {
+        "roleCoverage": 1,
+        "packCoverage": 1,
+        "evidenceCoverage": 1,
+        "exportGateHealth": 1,
+        "replayExists": true,
+        "exportPassCount": 5,
+        "exportWarnCount": 0,
+        "exportFailCount": 0,
+        "blockedRoleCoverage": 1,
+        "contextPressureCoverage": 1,
+        "contradictionCoverage": 1,
+        "omittedHotSegments": 0,
+        "eventCount": 20,
+        "artifactCount": 4
+      },
+      "cost": {
+        "wallMs": 140,
+        "nodeActiveMs": 98,
+        "packedTokens": 468,
+        "omittedTokens": 0,
+        "totalContextTokens": 468,
+        "contextPackCount": 3,
+        "eventCount": 20,
+        "artifactCount": 4,
+        "artifactBytes": 1157,
+        "costScore": 69,
+        "dominantCost": "events:52"
+      },
+      "failedGates": [],
+      "warningGates": []
+    }
+  ],
+  "scenario_costs": {
+    "generated_at": "2026-04-26T07:22:38.681Z",
+    "benchmark_family": "orchestration_benchmark_v2",
+    "profile_identity": {
+      "tag": "local-darwin-arm64-64gb",
+      "source": "derived_from_machine",
+      "model": null,
+      "endpoint": null,
+      "machine": {
+        "hostname": "Eiriks-Macbook-Pro.local",
+        "platform": "darwin",
+        "arch": "arm64",
+        "cpuCount": 10,
+        "totalMemoryGb": 64
+      }
+    },
+    "warmup_context": {
+      "generatedAt": "2026-04-26T06:53:34.683Z",
+      "profileTag": "validation",
+      "baselineKey": "model_warmup:validation",
+      "ok": true,
+      "status": "ready",
+      "totalMs": 61,
+      "propsMs": 25,
+      "slotsMs": 33,
+      "memoryPressure": 0.9645,
+      "memoryUsedGb": 61.728,
+      "memoryFreeGb": 2.272,
+      "memoryDeltaUsedGb": 0.005,
+      "memoryDeltaPressure": 0.0001
+    },
+    "totals": {
+      "scenario_count": 8,
+      "cost_score": 3103,
+      "wall_ms": 1439,
+      "node_active_ms": 990,
+      "packed_tokens": 153025,
+      "omitted_tokens": 299501,
+      "artifact_bytes": 9408
+    },
+    "highestCostScenarios": [
+      {
+        "id": "delivery_handoff_escalated",
+        "label": "Escalated delivery handoff",
+        "status": "pass",
+        "score": 99,
+        "wallMs": 184,
+        "nodeActiveMs": 120,
+        "packedTokens": 35784,
+        "omittedTokens": 100075,
+        "totalContextTokens": 135859,
+        "contextPackCount": 3,
+        "eventCount": 20,
+        "artifactCount": 5,
+        "artifactBytes": 1725,
+        "costScore": 779,
+        "dominantCost": "context:708",
+        "costShare": 0.251
+      },
+      {
+        "id": "delivery_handoff_pressure_refresh",
+        "label": "Delivery handoff under noisy verification pressure",
+        "status": "pass",
+        "score": 100,
+        "wallMs": 183,
+        "nodeActiveMs": 123,
+        "packedTokens": 35544,
+        "omittedTokens": 83895,
+        "totalContextTokens": 119439,
+        "contextPackCount": 3,
+        "eventCount": 20,
+        "artifactCount": 4,
+        "artifactBytes": 1233,
+        "costScore": 716,
+        "dominantCost": "context:649",
+        "costShare": 0.2307
+      },
+      {
+        "id": "context_pressure_triage",
+        "label": "Context-pressure triage",
+        "status": "pass",
+        "score": 100,
+        "wallMs": 203,
+        "nodeActiveMs": 115,
+        "packedTokens": 36750,
+        "omittedTokens": 46641,
+        "totalContextTokens": 83391,
+        "contextPackCount": 3,
+        "eventCount": 19,
+        "artifactCount": 3,
+        "artifactBytes": 1227,
+        "costScore": 594,
+        "dominantCost": "context:531",
+        "costShare": 0.1914
+      },
+      {
+        "id": "pressure_blocked_release",
+        "label": "Pressure plus blocked release",
+        "status": "pass",
+        "score": 100,
+        "wallMs": 178,
+        "nodeActiveMs": 127,
+        "packedTokens": 29333,
+        "omittedTokens": 21586,
+        "totalContextTokens": 50919,
+        "contextPackCount": 3,
+        "eventCount": 20,
+        "artifactCount": 4,
+        "artifactBytes": 1204,
+        "costScore": 436,
+        "dominantCost": "context:369",
+        "costShare": 0.1405
+      },
+      {
+        "id": "adaptive_noise_escalation",
+        "label": "Adaptive noise escalation",
+        "status": "pass",
+        "score": 100,
+        "wallMs": 197,
+        "nodeActiveMs": 147,
+        "packedTokens": 14387,
+        "omittedTokens": 47304,
+        "totalContextTokens": 61691,
+        "contextPackCount": 3,
+        "eventCount": 19,
+        "artifactCount": 3,
+        "artifactBytes": 1041,
+        "costScore": 373,
+        "dominantCost": "context:309",
+        "costShare": 0.1202
+      },
+      {
+        "id": "deploy_diagnosis",
+        "label": "Deploy diagnosis",
+        "status": "pass",
+        "score": 100,
+        "wallMs": 186,
+        "nodeActiveMs": 136,
+        "packedTokens": 477,
+        "omittedTokens": 0,
+        "totalContextTokens": 477,
+        "contextPackCount": 3,
+        "eventCount": 20,
+        "artifactCount": 4,
+        "artifactBytes": 1063,
+        "costScore": 72,
+        "dominantCost": "events:52",
+        "costShare": 0.0232
+      },
+      {
+        "id": "contested_merge_decision",
+        "label": "Contested merge decision",
+        "status": "pass",
+        "score": 100,
+        "wallMs": 140,
+        "nodeActiveMs": 98,
+        "packedTokens": 468,
+        "omittedTokens": 0,
+        "totalContextTokens": 468,
+        "contextPackCount": 3,
+        "eventCount": 20,
+        "artifactCount": 4,
+        "artifactBytes": 1157,
+        "costScore": 69,
+        "dominantCost": "events:52",
+        "costShare": 0.0222
+      },
+      {
+        "id": "delivery_handoff",
+        "label": "Delivery and handoff",
+        "status": "pass",
+        "score": 100,
+        "wallMs": 168,
+        "nodeActiveMs": 124,
+        "packedTokens": 282,
+        "omittedTokens": 0,
+        "totalContextTokens": 282,
+        "contextPackCount": 3,
+        "eventCount": 19,
+        "artifactCount": 3,
+        "artifactBytes": 758,
+        "costScore": 64,
+        "dominantCost": "events:47",
+        "costShare": 0.0206
+      }
+    ],
+    "missingInputs": [
+      "No real model prompt/completion token usage is available for these demo workers.",
+      "Wall time includes child process and filesystem overhead, not only worker reasoning.",
+      "Warmup context is read from the latest Mac validation smoke artifact and may predate this benchmark run."
+    ]
+  },
+  "packet_selection": {
+    "generated_at": "2026-04-26T07:22:38.681Z",
+    "benchmark_family": "orchestration_benchmark_v2",
+    "evidence_inputs": {
+      "scenario_costs": "benchmark-scenario-costs-latest.json",
+      "trend_status": "stable",
+      "profile_tag": "local-darwin-arm64-64gb",
+      "warmup_baseline": "model_warmup:validation",
+      "top_cost_scenario": {
+        "id": "delivery_handoff_escalated",
+        "label": "Escalated delivery handoff",
+        "costScore": 779,
+        "costShare": 0.251,
+        "dominantCost": "context:708"
+      }
+    },
+    "rankedPackets": [
+      {
+        "packet": 90,
+        "title": "Evidence Bundle For Self-Edits",
+        "score": 85,
+        "confidence": "high",
+        "evidence": [
+          "scenario cost score=3103",
+          "top scenario=Escalated delivery handoff share=0.251",
+          "warmup baseline=model_warmup:validation",
+          "next packet depends directly on ranking evidence"
+        ]
+      },
+      {
+        "packet": 94,
+        "title": "Verified Self-Improvement Candidate Flow",
+        "score": 40,
+        "confidence": "medium",
+        "evidence": [
+          "difficulty=increase",
+          "difficulty reason=All scenarios passed with a near-perfect average score; the next benchmark loop should add harder pressure cases."
+        ]
+      },
+      {
+        "packet": 91,
+        "title": "Cross-Machine Profile Normalization",
+        "score": 30,
+        "confidence": "low",
+        "evidence": [
+          "trend status=stable",
+          "profile=local-darwin-arm64-64gb",
+          "machine=darwin/arm64"
+        ]
+      },
+      {
+        "packet": 93,
+        "title": "Regression Root-Cause Shortlisting",
+        "score": 20,
+        "confidence": "low",
+        "evidence": [
+          "trend status=stable",
+          "highest costs are context dominated"
+        ]
+      },
+      {
+        "packet": 92,
+        "title": "Eval Failure Clustering And Dedup",
+        "score": 15,
+        "confidence": "low",
+        "evidence": [
+          "regression signals=0",
+          "recommendations=0"
+        ]
+      },
+      {
+        "packet": 95,
+        "title": "Reviewed Self-Improvement Release Candidate",
+        "score": 5,
+        "confidence": "low",
+        "evidence": [
+          "release-candidate flow should wait for evidence bundle and candidate generation outputs"
+        ]
+      }
+    ],
+    "selectedPacket": {
+      "packet": 90,
+      "title": "Evidence Bundle For Self-Edits",
+      "score": 85,
+      "confidence": "high",
+      "evidence": [
+        "scenario cost score=3103",
+        "top scenario=Escalated delivery handoff share=0.251",
+        "warmup baseline=model_warmup:validation",
+        "next packet depends directly on ranking evidence"
+      ]
+    },
+    "manualOverrideNotes": [
+      "Dependency gates still override the numeric score.",
+      "User-directed product work can supersede self-improvement packet ranking.",
+      "Low-confidence candidates should not be implemented without reading their packet file."
+    ]
+  },
+  "self_edit_evidence_bundle": {
+    "id": "self-edit-2026-04-26-packet-90",
+    "generated_at": "2026-04-26T07:22:38.681Z",
+    "status": "ready_for_review",
+    "selectedPacket": {
+      "packet": 90,
+      "title": "Evidence Bundle For Self-Edits",
+      "score": 85,
+      "confidence": "high",
+      "evidence": [
+        "scenario cost score=3103",
+        "top scenario=Escalated delivery handoff share=0.251",
+        "warmup baseline=model_warmup:validation",
+        "next packet depends directly on ranking evidence"
+      ]
+    },
+    "benchmarkFamily": "orchestration_benchmark_v2",
+    "profileTag": "local-darwin-arm64-64gb",
+    "primaryEvidence": [
+      {
+        "kind": "packet_selection",
+        "summary": "Packet 90 ranked first with score 85 and high confidence.",
+        "source": "benchmark-packet-selection-latest.json"
+      },
+      {
+        "kind": "scenario_cost",
+        "summary": "Escalated delivery handoff is the highest-cost scenario at 779 cost score and 0.251 share.",
+        "source": "benchmark-scenario-costs-latest.json"
+      },
+      {
+        "kind": "profile_trend",
+        "summary": "Profile-aware trend is stable for local-darwin-arm64-64gb.",
+        "source": "benchmark-trend-latest.json"
+      },
+      {
+        "kind": "warmup",
+        "summary": "Warmup baseline is model_warmup:validation with status ready.",
+        "source": "mac-validation-profile-smoke-latest.json"
+      }
+    ],
+    "costContext": {
+      "totalCostScore": 3103,
+      "topScenario": {
+        "id": "delivery_handoff_escalated",
+        "label": "Escalated delivery handoff",
+        "costScore": 779,
+        "costShare": 0.251,
+        "dominantCost": "context:708",
+        "packedTokens": 35784,
+        "omittedTokens": 100075
+      }
+    },
+    "trendContext": {
+      "status": "stable",
+      "baselineStatus": "matched_profile_baseline",
+      "baselineGeneratedAt": "2026-04-26T07:16:31.247Z",
+      "regressionSignals": [],
+      "improvementSignals": []
+    },
+    "difficultyContext": {
+      "state": "increase",
+      "reason": "All scenarios passed with a near-perfect average score; the next benchmark loop should add harder pressure cases.",
+      "nextScenarioSeed": "Combine context pressure, partial failure, and contradictory reviewer evidence in one run."
+    },
+    "reviewChecklist": [
+      "Confirm the selected packet dependency gate is satisfied.",
+      "Read the selected packet file before editing code.",
+      "Use the linked benchmark artifacts as evidence, not as automatic approval.",
+      "Rerun the benchmark after the self-edit path changes."
+    ],
+    "artifactLinks": {
+      "benchmark": "benchmark-latest.json",
+      "scenarioCosts": "benchmark-scenario-costs-latest.json",
+      "packetSelection": "benchmark-packet-selection-latest.json",
+      "trend": "benchmark-trend-latest.json",
+      "warmup": "runtime/self-improvement/mac-validation-profile-smoke-latest.json"
+    }
+  },
+  "failure_clusters": {
+    "generated_at": "2026-04-26T07:22:38.681Z",
+    "benchmark_family": "orchestration_benchmark_v2",
+    "profile_tag": "local-darwin-arm64-64gb",
+    "machine_key": "darwin:arm64:10cpu:64gb",
+    "evidence_bundle_id": "self-edit-2026-04-26-packet-90",
+    "cluster_count": 1,
+    "repeated_cluster_count": 1,
+    "clusters": [
+      {
+        "key": "gate:local-darwin-arm64-64gb:darwin:arm64:10cpu:64gb:delivery_handoff_escalated:omission_pressure:warn",
+        "kind": "gate",
+        "profileTag": "local-darwin-arm64-64gb",
+        "machineKey": "darwin:arm64:10cpu:64gb",
+        "severity": "warning",
+        "count": 6,
+        "latestGeneratedAt": "2026-04-26T07:22:38.681Z",
+        "firstGeneratedAt": "2026-04-26T07:06:40.582Z",
+        "examples": [
+          "Escalated delivery handoff warned gate omission_pressure"
+        ],
+        "sourceRuns": [
+          "2026-04-26T07:06:40.582Z",
+          "2026-04-26T07:10:37.095Z",
+          "2026-04-26T07:13:37.736Z",
+          "2026-04-26T07:14:18.446Z",
+          "2026-04-26T07:16:31.247Z",
+          "2026-04-26T07:22:38.681Z"
+        ],
+        "evidenceBundleId": "self-edit-2026-04-26-packet-90"
+      }
+    ],
+    "clusteringRules": [
+      "Scenario statuses cluster by profile, machine, scenario id, and status.",
+      "Quality gates cluster by profile, machine, scenario id, gate id, and fail/warn state.",
+      "Regression signals cluster by profile, machine, and normalized signal text."
+    ],
+    "limitations": [
+      "Passing high-cost scenarios are not failures and stay in scenario-cost artifacts.",
+      "Text normalization is intentionally conservative; semantically similar but differently worded failures may remain separate.",
+      "Legacy benchmark artifacts without profile identity are grouped under the current fallback identity only when read through this run."
+    ]
+  },
+  "root_cause_shortlist": {
+    "generated_at": "2026-04-26T07:22:38.681Z",
+    "benchmark_family": "orchestration_benchmark_v2",
+    "profile_tag": "local-darwin-arm64-64gb",
+    "machine_key": "darwin:arm64:10cpu:64gb",
+    "evidence_bundle_id": "self-edit-2026-04-26-packet-90",
+    "inputArtifacts": {
+      "failureClusters": "benchmark-failure-clusters-latest.json",
+      "evidenceBundle": "benchmark-self-edit-evidence-bundle-latest.json",
+      "scenarioCosts": "benchmark-scenario-costs-latest.json",
+      "trend": "benchmark-trend-latest.json"
+    },
+    "trustedInputs": [
+      "Deduped failure clusters with profile and machine keys.",
+      "The latest self-edit evidence bundle ID and selected packet context.",
+      "Scenario cost attribution for locating expensive pressure points.",
+      "Profile-aware trend signals, only when a matched profile baseline exists."
+    ],
+    "candidate_count": 1,
+    "candidates": [
+      {
+        "rank": 1,
+        "id": "context-packing-omission-pressure",
+        "cause": "Context packing is probably dropping hot evidence under pressure.",
+        "confidence": "high",
+        "score": 100,
+        "evidence": [
+          "cluster=gate:local-darwin-arm64-64gb:darwin:arm64:10cpu:64gb:delivery_handoff_escalated:omission_pressure:warn count=6",
+          "trend omission delta=0",
+          "top cost scenario=Escalated delivery handoff dominant=context:708 packed=35784 omitted=100075",
+          "evidence bundle=self-edit-2026-04-26-packet-90"
+        ],
+        "nextReviewStep": "Open the top-cost scenario replay and inspect which hot context segments were omitted before changing pack budgets or priority rules.",
+        "falsePositiveRisks": [
+          "Omission warnings can repeat because the benchmark intentionally stresses the same pressure path.",
+          "A high context cost can be expected for larger scenarios and is not automatically a regression."
+        ],
+        "humanReviewRequired": "Confirm the omitted segments were actually needed by the worker that produced the warning."
+      }
+    ],
+    "reviewPolicy": [
+      "Treat the shortlist as triage guidance, not automatic permission to edit.",
+      "Prefer the highest-ranked candidate only after checking its cited artifact fields.",
+      "If all candidates are low confidence, collect one more benchmark run before acting."
+    ]
+  },
+  "self_improvement_candidate": {
+    "generated_at": "2026-04-26T07:22:38.681Z",
+    "benchmark_family": "orchestration_benchmark_v2",
+    "profile_tag": "local-darwin-arm64-64gb",
+    "machine_key": "darwin:arm64:10cpu:64gb",
+    "status": "candidate_ready",
+    "stoppingRule": "Candidate is ready for human review before implementation.",
+    "verificationSignals": [
+      "root cause context-packing-omission-pressure confidence=high score=100",
+      "evidence bundle self-edit-2026-04-26-packet-90 is ready",
+      "top cost target Escalated delivery handoff dominant=context:708",
+      "trend status=stable",
+      "packet selection 90 confidence=high"
+    ],
+    "candidate": {
+      "id": "verified-2026-04-26-context-packing-omission-pressure",
+      "title": "Inspect hot-context omission pressure before changing pack policy",
+      "confidence": "high",
+      "sourceRootCause": {
+        "id": "context-packing-omission-pressure",
+        "cause": "Context packing is probably dropping hot evidence under pressure.",
+        "score": 100
+      },
+      "selectedPacket": {
+        "packet": 90,
+        "title": "Evidence Bundle For Self-Edits",
+        "confidence": "high"
+      },
+      "targetScenario": {
+        "id": "delivery_handoff_escalated",
+        "label": "Escalated delivery handoff",
+        "dominantCost": "context:708",
+        "packedTokens": 35784,
+        "omittedTokens": 100075,
+        "costScore": 779
+      },
+      "nextAction": "Open the top-cost scenario replay and inspect which hot context segments were omitted before changing pack budgets or priority rules.",
+      "proposedChangeBoundary": [
+        "Start with benchmark/replay inspection rather than a broad refactor.",
+        "Only adjust context pack priority, omission budget, or scenario expectation after the cited omitted segments are confirmed useful.",
+        "Rerun the orchestration benchmark and compare the same profile/machine artifacts."
+      ],
+      "requiredEvidence": [
+        "cluster=gate:local-darwin-arm64-64gb:darwin:arm64:10cpu:64gb:delivery_handoff_escalated:omission_pressure:warn count=6",
+        "trend omission delta=0",
+        "top cost scenario=Escalated delivery handoff dominant=context:708 packed=35784 omitted=100075",
+        "evidence bundle=self-edit-2026-04-26-packet-90",
+        "scenario cost artifact=benchmark-scenario-costs-latest.json",
+        "root-cause artifact=benchmark-root-cause-shortlist-latest.json"
+      ],
+      "stopConditions": [
+        "Stop if the omitted segments are irrelevant to the worker output.",
+        "Stop if the same profile baseline no longer reproduces the warning cluster.",
+        "Stop if the candidate requires product behavior changes outside benchmark/orchestration code."
+      ],
+      "humanArbitration": [
+        "Confirm the omitted segments were actually needed by the worker that produced the warning.",
+        "A reviewer should decide whether the benchmark expectation or the orchestration policy is stale."
+      ]
+    },
+    "inputArtifacts": {
+      "rootCauseShortlist": "benchmark-root-cause-shortlist-latest.json",
+      "evidenceBundle": "benchmark-self-edit-evidence-bundle-latest.json",
+      "packetSelection": "benchmark-packet-selection-latest.json",
+      "scenarioCosts": "benchmark-scenario-costs-latest.json",
+      "trend": "benchmark-trend-latest.json"
+    }
+  },
+  "self_improvement_release_candidate": {
+    "generated_at": "2026-04-26T07:22:38.681Z",
+    "benchmark_family": "orchestration_benchmark_v2",
+    "profile_tag": "local-darwin-arm64-64gb",
+    "machine_key": "darwin:arm64:10cpu:64gb",
+    "status": "reviewed_rejected",
+    "releaseCandidate": {
+      "id": "rc-verified-2026-04-26-context-packing-omission-pressure",
+      "title": "Inspect hot-context omission pressure before changing pack policy",
+      "status": "awaiting_human_review",
+      "candidateId": "verified-2026-04-26-context-packing-omission-pressure",
+      "confidence": "high",
+      "scope": "benchmark-orchestration-self-improvement",
+      "targetScenario": {
+        "id": "delivery_handoff_escalated",
+        "label": "Escalated delivery handoff",
+        "dominantCost": "context:708",
+        "packedTokens": 35784,
+        "omittedTokens": 100075,
+        "costScore": 779
+      },
+      "proposedChangeBoundary": [
+        "Start with benchmark/replay inspection rather than a broad refactor.",
+        "Only adjust context pack priority, omission budget, or scenario expectation after the cited omitted segments are confirmed useful.",
+        "Rerun the orchestration benchmark and compare the same profile/machine artifacts."
+      ],
+      "requiredEvidence": [
+        "cluster=gate:local-darwin-arm64-64gb:darwin:arm64:10cpu:64gb:delivery_handoff_escalated:omission_pressure:warn count=6",
+        "trend omission delta=0",
+        "top cost scenario=Escalated delivery handoff dominant=context:708 packed=35784 omitted=100075",
+        "evidence bundle=self-edit-2026-04-26-packet-90",
+        "scenario cost artifact=benchmark-scenario-costs-latest.json",
+        "root-cause artifact=benchmark-root-cause-shortlist-latest.json"
+      ],
+      "validationPlan": [
+        "Inspect the cited top-cost replay and omitted hot context segments.",
+        "Implement only the smallest benchmark/orchestration change justified by that inspection.",
+        "Run `cd gpt/api && npm run lint`.",
+        "Run `cd gpt/api && npm run orchestration:benchmark`.",
+        "Compare the same profile and machine artifacts before accepting."
+      ],
+      "rollbackPlan": [
+        "Reject the release candidate if omitted context is irrelevant.",
+        "Reject the release candidate if verification does not reduce the warning cluster or preserve benchmark score.",
+        "Keep the generated artifacts as evidence even when rejected."
+      ]
+    },
+    "reviewPath": {
+      "humanReviewPoint": "A human reviewer must accept or reject after inspecting the cited replay and validation artifacts.",
+      "minimumFields": [
+        "release candidate id",
+        "source candidate id",
+        "target scenario",
+        "required evidence",
+        "validation plan",
+        "rollback or rejection plan",
+        "explicit outcome"
+      ],
+      "acceptOutcome": {
+        "state": "accepted",
+        "requiredReason": "Explain why the evidence proves the proposed change is needed.",
+        "requiredVerification": [
+          "lint passed",
+          "benchmark passed",
+          "same-profile comparison reviewed"
+        ]
+      },
+      "rejectOutcome": {
+        "state": "rejected",
+        "requiredReason": "Explain which evidence failed or why the change boundary is wrong.",
+        "requiredVerification": [
+          "cited artifact reviewed",
+          "stop condition named"
+        ]
+      }
+    },
+    "currentOutcome": {
+      "state": "rejected",
+      "decidedAt": "2026-04-26T07:19:40.956Z",
+      "decidedBy": "codex",
+      "reason": "Packet 96 command validation: no replay inspection was performed, so the release candidate remains unaccepted.",
+      "verification": [
+        "cited artifact reviewed",
+        "stop condition named"
+      ]
+    },
+    "reviewState": {
+      "state": "matched",
+      "latestReviewId": "rc-verified-2026-04-26-context-packing-omission-pressure-rejected-2026-04-26T07-19-40-956Z",
+      "matchedReleaseCandidateId": "rc-verified-2026-04-26-context-packing-omission-pressure",
+      "latestReviewOutcome": "rejected"
+    },
+    "evidenceLinks": {
+      "releaseCandidate": "benchmark-self-improvement-release-candidate-latest.json",
+      "selfImprovementCandidate": "benchmark-self-improvement-candidate-latest.json",
+      "rootCauseShortlist": "benchmark-root-cause-shortlist-latest.json",
+      "evidenceBundle": "benchmark-self-edit-evidence-bundle-latest.json",
+      "scenarioCosts": "benchmark-scenario-costs-latest.json",
+      "benchmark": "benchmark-latest.json"
+    },
+    "validationSnapshot": {
+      "evidenceBundle": "self-edit-2026-04-26-packet-90",
+      "rootCauseCount": 1,
+      "totalCostScore": 3103,
+      "topCostScenario": "Escalated delivery handoff"
+    },
+    "missingAutomation": [
+      "The release candidate does not modify code by itself.",
+      "The benchmark reads only the latest review outcome; historical review searches remain in the review artifact directory."
+    ]
+  },
+  "recommendations": [],
+  "draft_packets": [],
+  "difficulty": {
+    "state": "increase",
+    "reason": "All scenarios passed with a near-perfect average score; the next benchmark loop should add harder pressure cases.",
+    "nextScenarioSeed": "Combine context pressure, partial failure, and contradictory reviewer evidence in one run."
+  },
+  "trend": {
+    "status": "stable",
+    "profileTag": "local-darwin-arm64-64gb",
+    "baselineStatus": "matched_profile_baseline",
+    "baselineGeneratedAt": "2026-04-26T07:16:31.247Z",
+    "crossProfileCandidate": null,
+    "regressionRule": "Compare regressions only against the previous benchmark with the same profile tag; withhold regression status when only cross-profile history exists.",
+    "summary": "No regression detected across the current weakest-scenario and omission-pressure checks.",
+    "comparedRunCount": 6,
+    "latestGeneratedAt": "2026-04-26T07:22:38.681Z",
+    "previousGeneratedAt": "2026-04-26T07:16:31.247Z",
+    "averageScoreDelta": 0,
+    "weakestScenarioDelta": {
+      "id": "delivery_handoff_escalated",
+      "label": "Escalated delivery handoff",
+      "currentScore": 99,
+      "previousScore": 99,
+      "delta": 0
+    },
+    "omissionPressureDelta": {
+      "currentOmittedHotSegments": 24,
+      "previousOmittedHotSegments": 24,
+      "delta": 0
+    },
+    "regressionSignals": [],
+    "improvementSignals": [],
+    "historyWindow": [
+      {
+        "generatedAt": "2026-04-26T07:10:37",
+        "profile": "local-darwin-arm64-64gb",
+        "averageScore": 100,
+        "weakestScenario": "Escalated delivery handoff",
+        "omittedHotSegments": 24
+      },
+      {
+        "generatedAt": "2026-04-26T07:13:37",
+        "profile": "local-darwin-arm64-64gb",
+        "averageScore": 100,
+        "weakestScenario": "Escalated delivery handoff",
+        "omittedHotSegments": 24
+      },
+      {
+        "generatedAt": "2026-04-26T07:14:18",
+        "profile": "local-darwin-arm64-64gb",
+        "averageScore": 100,
+        "weakestScenario": "Escalated delivery handoff",
+        "omittedHotSegments": 24
+      },
+      {
+        "generatedAt": "2026-04-26T07:16:31",
+        "profile": "local-darwin-arm64-64gb",
+        "averageScore": 100,
+        "weakestScenario": "Escalated delivery handoff",
+        "omittedHotSegments": 24
+      },
+      {
+        "generatedAt": "2026-04-26T07:22:38",
+        "profile": "local-darwin-arm64-64gb",
+        "averageScore": 100,
+        "weakestScenario": "Escalated delivery handoff",
+        "omittedHotSegments": 24
+      }
+    ]
+  }
+}
