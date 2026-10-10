@@ -18,7 +18,7 @@ test('anonymous support sessions use secure HttpOnly cookies and reuse valid ses
     const cookies = first.headers.get('set-cookie') || ''
     expect(cookies).toContain('HttpOnly')
     expect(cookies).toContain('Secure')
-    expect(cookies).toContain('SameSite=Lax')
+    expect(cookies.toLowerCase()).toContain('samesite=lax')
     expect(cookies).toContain('Domain=.hanasand.com')
     expect(cookies).toContain('Path=/api/support')
     expect(cookies).toContain('Path=/support')
