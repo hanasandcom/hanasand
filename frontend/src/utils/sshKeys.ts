@@ -41,21 +41,6 @@ async function request(path: string, init: RequestInit = {}) {
     return { response, body }
 }
 
-export async function getProfileSshKeys(id: string, token: string): Promise<ProfileSshKey[] | null> {
-    try {
-        const response = await fetch(`${config.url.api}/user/self/ssh-keys`, {
-            cache: 'no-store',
-            headers: { Authorization: `Bearer ${token}`, id },
-            signal: AbortSignal.timeout(config.abortTimeout),
-        })
-        if (!response.ok) return null
-        const data = await response.json()
-        return Array.isArray(data?.keys) ? data.keys as ProfileSshKey[] : null
-    } catch {
-        return null
-    }
-}
-
 export async function createProfileSshKey(name: string, publicKey: string) {
     const { response, body } = await request('/user/self/ssh-keys', {
         method: 'POST',

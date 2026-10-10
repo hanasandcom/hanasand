@@ -13,7 +13,7 @@ import { cookies } from 'next/headers'
 import config from '@/config'
 import type { AuthSession } from '@/utils/auth/sessions'
 import { Suspense } from 'react'
-import { getProfileSshKeys } from '@/utils/sshKeys'
+import { getProfileSshKeysFromIdentity } from '@/utils/profileSshKeysServer'
 
 export default async function Page(props: { params: Promise<{ id: string[] }> }) {
     const params = await props.params
@@ -70,7 +70,7 @@ export default async function Page(props: { params: Promise<{ id: string[] }> })
 }
 
 async function ProfileSshKeys({ id, token }: { id: string, token: string }) {
-    const keys = await getProfileSshKeys(id, token)
+    const keys = await getProfileSshKeysFromIdentity(id, token)
     return <SshKeys initialKeys={keys} />
 }
 

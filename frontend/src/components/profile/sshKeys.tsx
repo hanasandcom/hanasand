@@ -122,11 +122,11 @@ export default function SshKeys({ initialKeys }: { initialKeys: ProfileSshKey[] 
 
 function formatDate(value: string) {
     const date = new Date(value)
-    return Number.isNaN(date.getTime()) ? 'Unknown' : new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(date)
+    return Number.isNaN(date.getTime()) ? 'Unknown' : new Intl.DateTimeFormat('nb-NO', { dateStyle: 'medium', timeZone: 'Europe/Oslo' }).format(date)
 }
 
 function formatDateTime(value: string | null) {
     if (!value) return 'Not recorded'
     const date = new Date(value)
-    return Number.isNaN(date.getTime()) ? 'Unknown' : new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(date)
+    return Number.isNaN(date.getTime()) ? 'Unknown' : new Intl.DateTimeFormat('nb-NO', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/Oslo' }).format(date)
 }
