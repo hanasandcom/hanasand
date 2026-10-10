@@ -283,7 +283,6 @@ export async function queryOnce(query: string, params?: SQLParamType, name?: str
     let onlineIndex = /^\s*(?:CREATE\s+(?:UNIQUE\s+)?INDEX|DROP\s+INDEX)\s+CONCURRENTLY\b/i.test(query)
     const pendingEventsIndex = /^\s*(?:CREATE\s+INDEX\s+CONCURRENTLY\s+IF\s+NOT\s+EXISTS|DROP\s+INDEX\s+CONCURRENTLY\s+IF\s+EXISTS)\s+idx_events_logs_pending\b/i.test(query)
     const legacyEventKeyCleanup = /^\s*(?:DROP\s+INDEX\s+CONCURRENTLY\s+IF\s+EXISTS\s+idx_events_log_key|ALTER\s+TABLE\s+events\s+DROP\s+COLUMN\s+IF\s+EXISTS\s+log_key)\b/i.test(query)
-    const constraintDrop = /^\s*ALTER\s+TABLE\b[\s\S]*\bDROP\s+CONSTRAINT\b/i.test(query)
     const columnAdd = /^\s*ALTER\s+TABLE\b[\s\S]*\bADD\s+COLUMN\s+IF\s+NOT\s+EXISTS\b/i.test(query)
     const largeServiceLogDrop = /^\s*DROP\s+TABLE\s+IF\s+EXISTS\s+service_logs\b/i.test(query)
     const trafficHistorySchema = /^\s*CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+traffic_history_state\b/i.test(query)
@@ -320,9 +319,6 @@ export async function queryOnce(query: string, params?: SQLParamType, name?: str
             // Readers may still be finishing queries against the legacy key. Both
             // operations are bounded and do not rewrite the events heap.
             if (legacyEventKeyCleanup) await client.query('SET lock_timeout = \'5min\'; SET statement_timeout = \'6min\'')
-            // Constraint replacement is brief catalog work, but existing queries
-            // can hold the table lock longer than the default fail-fast window.
-            if (constraintDrop) await client.query('SET lock_timeout = \'5s\'; SET statement_timeout = \'10s\'')
             if (columnAdd) await client.query('SET lock_timeout = \'5s\'; SET statement_timeout = \'10s\'')
             // Traffic history replaces a view that live dashboard queries can hold
             // open. Bound the wait, but let this small schema batch complete.

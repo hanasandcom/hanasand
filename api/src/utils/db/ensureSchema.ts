@@ -16,7 +16,7 @@ import ensureVmOrganizationSchema from './vmOrganizationSchema.ts'
 import { ensureFailoverSchema } from '../vms/failover.ts'
 import { ensureContainerBillingSchema } from '../../handlers/containerBilling.ts'
 import ensureCaseDevelopmentSchema from './caseDevelopmentSchema.ts'
-import run, { queryOnce, withSchemaLockTimeout } from '#db'
+import run, { queryOnce, withSchemaLockTimeout, withTransaction } from '#db'
 import { ensureTrafficHistorySchema } from '../traffic/history.ts'
 import ensureServiceAccountsSchema from './serviceAccountsSchema.ts'
 import ensureAccountIdentitySchema from './accountIdentitySchema.ts'
@@ -43,6 +43,7 @@ export default async function ensureSchema() {
         try {
             const result = await queryOnce('SELECT 1 FROM app_schema_releases WHERE release = $1', [release!])
             if (result.rowCount) {
+                scheduleLegacyEventConstraintCleanup()
                 if (!deploymentCandidate) await ensureIdentityDataBoundaryWithRetry()
                 return
             }
@@ -58,6 +59,7 @@ export default async function ensureSchema() {
                 await queryOnce('CREATE TABLE IF NOT EXISTS app_schema_releases (release TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW())')
                 await queryOnce('INSERT INTO app_schema_releases (release) VALUES ($1) ON CONFLICT DO NOTHING', [release!])
             })
+            scheduleLegacyEventConstraintCleanup()
             return
         } catch (error) {
             const code = (error as { code?: string })?.code
@@ -66,6 +68,36 @@ export default async function ensureSchema() {
             await new Promise(resolve => setTimeout(resolve, 30_000))
         }
     }
+}
+
+let legacyEventConstraintCleanupScheduled = false
+function scheduleLegacyEventConstraintCleanup() {
+    if (legacyEventConstraintCleanupScheduled) return
+    legacyEventConstraintCleanupScheduled = true
+
+    const attempt = async () => {
+        try {
+            await withTransaction(async query => {
+                await query('SET LOCAL lock_timeout = \'1ms\'')
+                const exists = await query(`SELECT 1 FROM pg_constraint
+                    WHERE conrelid=to_regclass('public.events')
+                      AND conname='events_organization_id_ingestion_id_id_key'`)
+                if (!exists.rowCount) return
+                await query('ALTER TABLE events DROP CONSTRAINT events_organization_id_ingestion_id_id_key')
+            }, { timeoutMs: 3000, statementTimeoutMs: 3000 })
+            return
+        } catch (error) {
+            if ((error as { code?: string })?.code !== '55P03') {
+                console.warn('Deferred redundant events constraint cleanup failed; it will retry.', error)
+            }
+        }
+
+        const timer = setTimeout(attempt, 60_000)
+        timer.unref()
+    }
+
+    const timer = setTimeout(attempt, 60_000)
+    timer.unref()
 }
 
 async function ensureExistingRuleHitCountSchema() {
@@ -1544,14 +1576,6 @@ async function applySchema() {
     await run('CREATE INDEX IF NOT EXISTS idx_findings_event_ids ON findings USING GIN(event_ids)')
     await ensureRuleHitCountSchema()
     await ensureLegacyHealthRuleHitMigration()
-    // id is already globally unique, so this composite unique constraint adds
-    // no protection and only duplicates a large index.
-    const legacyEventConstraint = await run(`SELECT 1 FROM pg_constraint
-        WHERE conrelid = to_regclass('events')
-            AND conname = 'events_organization_id_ingestion_id_id_key'`)
-    if (legacyEventConstraint.rows.length) {
-        await run('ALTER TABLE events DROP CONSTRAINT events_organization_id_ingestion_id_id_key')
-    }
     // These indexes served search, correlation, and queue paths outside tuning
     // and exact-message cleanup; startup removes them and must not recreate them.
     for (const indexName of [
