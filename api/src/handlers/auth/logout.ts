@@ -1,6 +1,5 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
-import run from '#db'
-import { validateSession } from '#utils/auth/session.ts'
+import { revokeToken, validateSession } from '#utils/auth/session.ts'
 
 export default async function logoutHandler(req: FastifyRequest, res: FastifyReply) {
     const { id: suppliedId } = req.params as { id: string }
@@ -24,25 +23,14 @@ export default async function logoutHandler(req: FastifyRequest, res: FastifyRep
             return res.status(401).send({ error: 'Unauthorized.' })
         }
 
-        const query = `
-            UPDATE tokens
-            SET revoked_at = NOW(),
-                revoked_by = $1
-            WHERE id = $1
-              AND token = $2
-              AND revoked_at IS NULL
-            RETURNING token_id;
-        `
-
-        const result = await run(query, [session.user.id, token])
-
-        if (result.rowCount === 0) {
+        const revoked = await revokeToken({ tokenId: session.session.token_id, userId: session.user.id, revokedBy: session.user.id })
+        if (!revoked) {
             return res.status(200).send({ message: 'No active session found.' })
         }
 
         return res.status(200).send({
             message: 'Session logged out successfully.',
-            invalidatedTokens: result.rowCount,
+            invalidatedTokens: 1,
         })
     } catch (error) {
         console.error(`Logout error: ${JSON.stringify(error)}`)

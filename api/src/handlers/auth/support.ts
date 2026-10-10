@@ -60,13 +60,17 @@ export async function authorizeSupport(request: FastifyRequest<{ Body: Input }>,
     const fakeRequest = { headers: fakeHeaders, method: method.toUpperCase(), url: path,
         routeOptions: { url: path }, ip: request.ip, log: request.log } as unknown as FastifyRequest
     let sent = false
+    let statusCode = 200
     const responseHeaders: Record<string, string> = {}
     const fakeReply = {
-        headers: responseHeaders, sent, statusCode: 200, log: request.log,
-        header(name: string, value: string) { responseHeaders[name.toLowerCase()] = value; return this },
-        status(code: number) { this.statusCode = code; return this },
-        code(code: number) { this.statusCode = code; return this },
-        send() { sent = true; this.sent = true; return this },
+        headers: responseHeaders,
+        log: request.log,
+        get sent() { return sent },
+        get statusCode() { return statusCode },
+        header(name: string, value: string) { responseHeaders[name.toLowerCase()] = value; return fakeReply },
+        status(code: number) { statusCode = code; return fakeReply },
+        code(code: number) { statusCode = code; return fakeReply },
+        send() { sent = true; return fakeReply },
     } as unknown as FastifyReply
     const actor = await tokenWrapper(fakeRequest, fakeReply)
     if (!actor.valid || !actor.id) return reply.code(401).send({ valid: false, error: actor.error })

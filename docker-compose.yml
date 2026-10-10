@@ -140,6 +140,7 @@ services:
       SUPPORT_SERVICE_BASE: ${SUPPORT_SERVICE_BASE:-http://support:19181}
       SUPPORT_SERVICE_KEY: ${SUPPORT_SERVICE_KEY:-}
       SUPPORT_MAINTENANCE_FILE: /var/lib/hanasand-support/maintenance
+      HANASAND_IDENTITY_SERVICE_TOKEN: ${HANASAND_IDENTITY_SERVICE_TOKEN:-}
       # Keep the API pool budget aligned with PostgreSQL's 100-connection cap.
       DB_MAX_CONN: ${DB_MAX_CONN:-100}
       DB_POOL_WARMUP_CONN: ${DB_POOL_WARMUP_CONN:-8}

@@ -58,7 +58,7 @@ export default async function deleteSelf(req: FastifyRequest, res: FastifyReply)
             const user = userResult.rows[0] as PendingDeletionUser | undefined
             if (!user) return { blocker: null, user: null }
 
-            await revokeAllTokens({ userId: id, revokedBy: id }, query)
+            await revokeAllTokens({ userId: id, revokedBy: id })
             const address = await query(`
                 SELECT COALESCE(NULLIF(u.email, ''), NULLIF(ma.recovery_email, ''), NULLIF(ma.mail_address, '')) AS email
                 FROM users u LEFT JOIN mail_accounts ma ON ma.user_id = u.id WHERE u.id = $1

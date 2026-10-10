@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { authApiUrl } from '@/utils/auth/authApiUrl'
+import { identityApiUrl } from '@/utils/auth/authApiUrl'
 
 export async function GET(req: NextRequest) {
-    const target = new URL(`${authApiUrl().replace(/\/$/, '')}/auth/passkeys/authenticate/options`)
+    const target = new URL(`${identityApiUrl().replace(/\/$/, '')}/auth/passkeys/authenticate/options`)
     const username = req.nextUrl.searchParams.get('username')
     if (username) {
         target.searchParams.set('username', username)

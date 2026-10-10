@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { authApiUrl } from '@/utils/auth/authApiUrl'
+import { identityApiUrl } from '@/utils/auth/authApiUrl'
 
 export async function GET(req: NextRequest) {
     const redirectPath = safeRedirectPath(req.nextUrl.searchParams.get('redirectPath') || req.nextUrl.searchParams.get('path'))
-    const upstreamUrl = new URL(`${authApiUrl().replace(/\/$/, '')}/auth/sso/start`)
+    const upstreamUrl = new URL(`${identityApiUrl().replace(/\/$/, '')}/auth/sso/start`)
     upstreamUrl.searchParams.set('redirectPath', redirectPath)
 
     const upstream = await fetch(upstreamUrl, { cache: 'no-store', redirect: 'manual' }).catch(() => null)

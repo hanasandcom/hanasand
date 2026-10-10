@@ -3,8 +3,6 @@ import { deliverCases, CASE_DELIVERY_JOB_ID } from './caseDelivery.ts'
 import { maintainDeletedVms } from './vms/deletion.ts'
 import collectVmMetrics, { VM_METRICS_JOB_ID } from './vms/collectMetrics.ts'
 import { schedule } from 'node-cron'
-import invalidateOldTokens from './auth/invalidateOldTokens.ts'
-import invalidateOldAttempts from './auth/invalidateOldAttempts.ts'
 import { provisionExistingMailAccounts } from './mail/accounts.ts'
 import { mailConfig } from './mail/config.ts'
 import purgeDeletedAccounts from './auth/purgeDeletedAccounts.ts'
@@ -23,8 +21,6 @@ export const WEB_SCAN_JOB_ID = 'api-web-security-scanner'
 
 const apiCronRunners: Record<string, () => Promise<unknown> | unknown> = {
     [RAW_LOG_RETENTION_JOB_ID]: async() => ({ service: await retainRawLogs(), traffic: await retainTrafficLogs() }),
-    'api-auth-token-cleanup': invalidateOldTokens,
-    'api-login-attempt-cleanup': invalidateOldAttempts,
     'api-deleted-account-purge': purgeDeletedAccounts,
     'api-cron-health-monitor': async() => (await import('./systemCronMonitor.ts')).monitorSystemCronJobs(),
     [VM_METRICS_JOB_ID]: collectVmMetrics,

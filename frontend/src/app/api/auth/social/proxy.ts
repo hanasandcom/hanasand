@@ -1,7 +1,7 @@
 import { clientHeaders } from '@/utils/auth/clientHeaders'
 import { randomBytes } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
-import { authApiUrl } from '@/utils/auth/authApiUrl'
+import { identityApiUrl } from '@/utils/auth/authApiUrl'
 import { setAuthCookies } from '../_authCookies'
 
 export function socialOrigin() {
@@ -20,7 +20,7 @@ function failure(message: string, path?: string) {
     return response
 }
 async function upstream(path: string, options: RequestInit = {}) {
-    return fetch(`${authApiUrl().replace(/\/$/, '')}/auth/social/${path}`, { ...options, cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(20000) }).catch(() => null)
+    return fetch(`${identityApiUrl().replace(/\/$/, '')}/auth/social/${path}`, { ...options, cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(20000) }).catch(() => null)
 }
 export async function start(req: NextRequest, provider: string) {
     if (!validProvider(provider)) return NextResponse.json({ error: 'Unknown provider.' }, { status: 404 })

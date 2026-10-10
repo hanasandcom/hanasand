@@ -5,6 +5,7 @@ import run, { withTransaction } from '#db'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import hasHanasandInternalRouteAccess from '#utils/auth/organizationPageAccess.ts'
 import { createApiKey, listApiKeys } from '#utils/auth/apiKeys.ts'
+import { revokeAllTokens } from '#utils/auth/session.ts'
 import { serviceAccountEndpoints, validateServiceAccountScopes } from '#utils/auth/serviceAccountScopes.ts'
 import { recordSystemEvent } from '#utils/systemEvent.ts'
 
@@ -92,10 +93,10 @@ export async function deleteServiceAccount(req: FastifyRequest, res: FastifyRepl
         const result = await query('UPDATE users SET active = FALSE, deactivated_at = NOW(), deactivated_by = $2 WHERE id = $1 AND account_type = \'service\' RETURNING id', [id, actorId])
         if (!result.rows.length) return false
         await query('UPDATE api_keys SET enabled = FALSE, updated_at = NOW() WHERE owner_id = $1', [id])
-        await query('UPDATE tokens SET revoked_at = NOW() WHERE id = $1 AND revoked_at IS NULL', [id])
         return true
     })
     if (!deleted) return res.status(404).send({ error: 'Service account not found.' })
+    await revokeAllTokens({ userId: id, revokedBy: actorId })
     await recordSystemEvent(req, { actionType: 'service_account.revoked', actorId, targetType: 'service_account', targetId: id })
     return res.send({ message: 'Service account deleted. Its credentials are revoked; usage history is retained.' })
 }

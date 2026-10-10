@@ -4,6 +4,7 @@ import run from '#db'
 import { incrementIdentityLoginAttempt } from '#utils/db/identityDataWrites.ts'
 import login from '#utils/auth/login.ts'
 import { createAccountRestoreToken } from '#utils/auth/accountDeletion.ts'
+import { revokeAllTokens } from '#utils/auth/session.ts'
 
 export default async function loginHandler(req: FastifyRequest, res: FastifyReply) {
     const { id } = req.params as { id: string } ?? {}
@@ -102,13 +103,7 @@ export default async function loginHandler(req: FastifyRequest, res: FastifyRepl
 }
 
 async function revokeAllUserTokens(userId: string) {
-    await run(`
-        UPDATE tokens
-        SET revoked_at = NOW(),
-            revoked_by = $1
-        WHERE id = $1
-          AND revoked_at IS NULL
-    `, [userId]).catch(() => {})
+    await revokeAllTokens({ userId, revokedBy: userId }).catch(() => 0)
 }
 
 async function recordLoginEvent(userId: string, ip: string, userAgent: string, reason: string) {

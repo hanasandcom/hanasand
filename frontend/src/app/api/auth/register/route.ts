@@ -2,7 +2,7 @@ import { clientHeaders } from '@/utils/auth/clientHeaders'
 import { NextRequest, NextResponse } from 'next/server'
 import { reservedUsernames } from '@/utils/auth/reservedUsernames'
 import { setAuthCookies } from '../_authCookies'
-import { authApiUrl } from '@/utils/auth/authApiUrl'
+import { authApiUrl, identityApiUrl } from '@/utils/auth/authApiUrl'
 
 export async function POST(req: NextRequest) {
     const { body, redirectPath, wantsRedirect } = await parseAuthBody(req)
@@ -113,7 +113,7 @@ function parseJson(text: string) {
 }
 
 async function createLoginSession(req: NextRequest, id: string, password: string) {
-    const upstream = await fetch(`${authApiUrl()}/auth/login/${encodeURIComponent(id)}`, {
+    const upstream = await fetch(`${identityApiUrl()}/auth/login/${encodeURIComponent(id)}`, {
         method: 'POST',
         headers: { ...clientHeaders(req.headers), 'Content-Type': 'application/json' },
         body: JSON.stringify({ password }),

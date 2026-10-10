@@ -1,7 +1,7 @@
 import { clientHeaders } from '@/utils/auth/clientHeaders'
 import { NextRequest, NextResponse } from 'next/server'
 import { setAuthCookies } from '../_authCookies'
-import { authApiUrl } from '@/utils/auth/authApiUrl'
+import { authApiUrl, identityApiUrl } from '@/utils/auth/authApiUrl'
 
 type AuthFailureInput = {
     req: NextRequest
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     let upstream: Response
     let responseText: string
     try {
-        upstream = await fetch(`${authApiUrl()}/auth/login/${encodeURIComponent(id)}`, {
+        upstream = await fetch(`${identityApiUrl()}/auth/login/${encodeURIComponent(id)}`, {
             method: 'POST',
             headers: { ...clientHeaders(req.headers), 'Content-Type': 'application/json', 'x-request-id': requestId },
             body: JSON.stringify({ password }),

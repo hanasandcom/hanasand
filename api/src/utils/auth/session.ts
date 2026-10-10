@@ -1,23 +1,4 @@
-import { recoveryReadOnly } from '../recovery.ts'
-import { randomUUID } from 'crypto'
-import run from '#db'
-
-const SESSION_TTL_HOURS = 24
-const DESKTOP_SESSION_TTL_HOURS = 24 * 30
-const SESSION_TOUCH_INTERVAL_MS = 30_000
-const MAX_SESSION_TOUCH_ATTEMPTS = 10_000
-const sessionTouchAttempts = new Map<number, number>()
-
-type SessionRow = {
-    token_id: number
-    id: string
-    token: string
-    ip: string
-    user_agent: string
-    created_at: string
-    timestamp: string
-    database_read_only?: boolean
-}
+const identityApiUrl = (process.env.HANASAND_IDENTITY_SERVICE_URL || 'http://identity:8081').replace(/\/+$/, '')
 
 export type SessionOrganizationMembership = {
     organizationId: string
@@ -26,193 +7,89 @@ export type SessionOrganizationMembership = {
     role: string
 }
 
-type SessionUser = {
+export type SessionValidation = {
+    user: {
+        id: string
+        name: string
+        avatar: string
+        active: boolean
+        deletion_scheduled_at?: string | null
+    }
+    session: {
+        token_id: number
+        id: string
+        token: string
+        ip: string
+        user_agent: string
+        created_at: string
+        timestamp: string
+        database_read_only?: boolean
+    }
+    organizationMember?: boolean
+    organizationMembership?: SessionOrganizationMembership | null
+    refreshed: { token: string; expires_at: string }
+}
+
+export type SessionListRow = {
+    token_id: number
     id: string
-    name: string
-    avatar: string
-    active: boolean
-    deletion_scheduled_at?: string | null
+    ip: string
+    user_agent: string
+    created_at: string
+    last_seen_at: string
+    revoked_at: string | null
+    current: boolean
 }
 
-function sessionTTLHours(userAgent = '') {
-    return userAgent.startsWith('Hanasand Desktop/')
-        ? DESKTOP_SESSION_TTL_HOURS
-        : SESSION_TTL_HOURS
-}
+async function requestSessionOperation<T>(operation: string, body: Record<string, unknown>): Promise<T | null> {
+    const serviceToken = process.env.HANASAND_IDENTITY_SERVICE_TOKEN
+    if (!serviceToken) throw new Error('Identity service credentials are not configured.')
 
-function isSessionFresh(session: SessionRow) {
-    const lastSeen = new Date(session.timestamp).getTime()
-    if (!Number.isFinite(lastSeen)) {
-        return false
-    }
+    const response = await fetch(`${identityApiUrl}/api/auth/internal/sessions`, {
+        method: 'POST',
+        headers: {
+            Authorization: `Bearer ${encodeURIComponent(serviceToken)}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ ...body, operation }),
+        signal: AbortSignal.timeout(5000),
+    })
 
-    const ttlMs = sessionTTLHours(session.user_agent) * 60 * 60 * 1000
-    return Date.now() - lastSeen <= ttlMs
-}
-
-function scheduleSessionTouch(userId: string, token: string, tokenId: number, now: number) {
-    const lastAttempt = sessionTouchAttempts.get(tokenId)
-    if (lastAttempt !== undefined && now - lastAttempt < SESSION_TOUCH_INTERVAL_MS) return
-
-    sessionTouchAttempts.set(tokenId, now)
-    if (sessionTouchAttempts.size > MAX_SESSION_TOUCH_ATTEMPTS) {
-        for (const [id, attemptedAt] of sessionTouchAttempts) {
-            if (now - attemptedAt >= SESSION_TOUCH_INTERVAL_MS) sessionTouchAttempts.delete(id)
-        }
-        while (sessionTouchAttempts.size > MAX_SESSION_TOUCH_ATTEMPTS) {
-            const oldest = sessionTouchAttempts.keys().next().value
-            if (oldest === undefined) break
-            sessionTouchAttempts.delete(oldest)
-        }
-    }
-
-    void run(`
-        UPDATE tokens
-        SET timestamp = NOW()
-        WHERE id = $1
-          AND token = $2
-          AND timestamp <= NOW() - INTERVAL '30 seconds'
-    `, [userId, token]).catch(() => undefined)
+    if (response.status === 401) return null
+    if (!response.ok) throw new Error(`Identity session operation failed (${response.status}).`)
+    return await response.json() as T
 }
 
 export async function issueToken({ id, ip, userAgent = '' }: { id: string, ip: string, userAgent?: string }) {
-    const account = await run('SELECT account_type FROM users WHERE id = $1', [id])
-    if (account.rows[0]?.account_type === 'service') return null
-    const token = `${randomUUID().replaceAll('-', '')}${randomUUID().replaceAll('-', '')}`
-    const ttlHours = sessionTTLHours(userAgent)
-
-    const loginResult = await run(
-        'INSERT INTO tokens (id, token, ip, user_agent) VALUES ($1, $2, $3, $4) RETURNING token_id, token, timestamp;',
-        [id, token, ip, userAgent]
-    )
-
-    if (!loginResult.rowCount) {
-        return null
-    }
-
-    await run(`
-        INSERT INTO login_events (user_id, token_id, ip, user_agent, status)
-        VALUES ($1, $2, $3, $4, 'success')
-    `, [id, loginResult.rows[0].token_id, ip, userAgent])
-
-    await run('UPDATE users SET last_login_at = NOW() WHERE id = $1', [id])
-
-    return {
-        token,
-        expires_at: new Date(Date.now() + ttlHours * 60 * 60 * 1000).toISOString(),
-    }
+    return requestSessionOperation<{ token: string; expires_at: string }>('issue', { id, ip, userAgent })
 }
 
-export async function validateSession({ id, token, organizationSlug }: { id?: string, token: string, organizationSlug?: string }) {
-    const organizationMemberSelect = organizationSlug ? `,
-            (
-                SELECT json_build_object(
-                    'organizationId', o.id,
-                    'organizationStatus', o.status,
-                    'membershipStatus', m.status,
-                    'role', m.role
-                )
-                FROM organization_members m
-                JOIN organizations o ON o.id = m.organization_id
-                WHERE m.user_id = t.id AND o.slug = $3
-                LIMIT 1
-            ) AS organization_membership` : ''
-    const tokenResult = await run(`
-        SELECT t.token_id, t.id, t.token, t.ip, t.user_agent, t.created_at, t.timestamp,
-            pg_is_in_recovery() AS database_read_only,
-            json_build_object('id', u.id, 'name', u.name, 'avatar', u.avatar,
-                'active', u.active, 'deletion_scheduled_at', u.deletion_scheduled_at) AS session_user
-            ${organizationMemberSelect}
-        FROM tokens t JOIN users u ON u.id = t.id
-        WHERE ($1::text IS NULL OR t.id = $1)
-          AND t.token = $2 AND t.revoked_at IS NULL
-          AND u.active IS TRUE AND u.deletion_scheduled_at IS NULL AND u.account_type = 'user'
-        LIMIT 1
-    `, organizationSlug ? [id ?? null, token, organizationSlug] : [id ?? null, token])
-
-    const row = tokenResult.rows[0] as (SessionRow & {
-        session_user: SessionUser
-        organization_membership?: SessionOrganizationMembership | null
-    }) | undefined
-    if (!row || !isSessionFresh(row)) return null
-
-    const { session_user: user, organization_membership: organizationMembership, ...session } = row
-    const organizationMember = organizationMembership?.organizationStatus === 'active'
-        && organizationMembership.membershipStatus === 'active'
-    const userId = session.id
-    const ttlHours = sessionTTLHours(session.user_agent)
-
-    const readOnly = recoveryReadOnly() || session.database_read_only === true
-    // Keep validating revocation and account state on every request. The
-    // last-seen write is auxiliary; queue it without making parallel requests
-    // wait on the same token row during a dashboard burst.
-    const now = Date.now()
-    if (!readOnly && now - new Date(session.timestamp).getTime() >= SESSION_TOUCH_INTERVAL_MS) {
-        session.timestamp = new Date(now).toISOString()
-        scheduleSessionTouch(userId, token, session.token_id, now)
-    }
-
-    return {
-        user,
-        session,
-        ...(organizationSlug ? {
-            organizationMember,
-            organizationMembership: organizationMembership || null,
-        } : {}),
-        refreshed: {
-            token,
-            expires_at: new Date(new Date(session.timestamp).getTime() + ttlHours * 60 * 60 * 1000).toISOString(),
-        }
-    }
+export async function validateSession({ id, token, organizationSlug }: { id?: string, token: string, organizationSlug?: string }): Promise<SessionValidation | null> {
+    if (!token) return null
+    return requestSessionOperation<SessionValidation>('validate', { id, token, organizationSlug })
 }
 
 export async function revokeToken({ tokenId, userId, revokedBy }: { tokenId: number, userId: string, revokedBy: string }) {
-    const result = await run(`
-        UPDATE tokens
-        SET revoked_at = NOW(),
-            revoked_by = $3
-        WHERE token_id = $1
-          AND id = $2
-          AND revoked_at IS NULL
-        RETURNING token_id
-    `, [tokenId, userId, revokedBy])
-
-    return (result.rowCount ?? 0) > 0
+    const result = await requestSessionOperation<{ revoked: boolean }>('revoke', { tokenId, id: userId, revokedBy })
+    return result?.revoked === true
 }
 
-export async function revokeAllTokens({ userId, revokedBy, exceptToken }: { userId: string, revokedBy: string, exceptToken?: string }, query: typeof run = run) {
-    const result = await query(`
-        UPDATE tokens
-        SET revoked_at = NOW(),
-            revoked_by = $2
-        WHERE id = $1
-          AND revoked_at IS NULL
-          AND ($3::text IS NULL OR token <> $3)
-    `, [userId, revokedBy, exceptToken ?? null])
-
-    return result.rowCount ?? 0
+export async function revokeAllTokens({ userId, revokedBy, exceptToken }: { userId: string, revokedBy: string, exceptToken?: string }) {
+    const result = await requestSessionOperation<{ revoked: number }>('revoke-all', { id: userId, revokedBy, exceptToken })
+    return result?.revoked ?? 0
 }
 
 export async function listSessions(userId: string, currentToken?: string) {
-    const result = await run(`
-        SELECT
-            token_id,
-            id,
-            ip,
-            user_agent,
-            created_at,
-            timestamp AS last_seen_at,
-            revoked_at,
-            token = $2 AS current
-        FROM tokens
-        WHERE id = $1
-          AND revoked_at IS NULL
-          AND timestamp >= NOW() - CASE
-              WHEN user_agent LIKE 'Hanasand Desktop/%' THEN INTERVAL '30 days'
-              ELSE INTERVAL '24 hours'
-          END
-        ORDER BY timestamp DESC
-    `, [userId, currentToken ?? null])
+    return await requestSessionOperation<SessionListRow[]>('list', { id: userId, token: currentToken }) || []
+}
 
-    return result.rows
+export async function purgeDeletedAccounts() {
+    const result = await requestSessionOperation<{ deleted: number }>('purge-deleted-accounts', {})
+    if (!result) throw new Error('Identity session maintenance request was rejected.')
+    return result.deleted
+}
+
+export async function cleanupExpiredSessions() {
+    const result = await requestSessionOperation<{ ok: boolean }>('cleanup-expired-sessions', {})
+    if (!result?.ok) throw new Error('Identity session cleanup request was rejected.')
 }

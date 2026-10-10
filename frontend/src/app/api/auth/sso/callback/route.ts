@@ -1,6 +1,6 @@
 import { clientHeaders } from '@/utils/auth/clientHeaders'
 import { NextRequest, NextResponse } from 'next/server'
-import { authApiUrl } from '@/utils/auth/authApiUrl'
+import { identityApiUrl } from '@/utils/auth/authApiUrl'
 import { setAuthCookies } from '../../_authCookies'
 
 export async function GET(req: NextRequest) {
@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
         return loginRedirect(req, 'Missing SSO callback fields.')
     }
 
-    const upstream = await fetch(`${authApiUrl().replace(/\/$/, '')}/auth/sso/callback`, {
+    const upstream = await fetch(`${identityApiUrl().replace(/\/$/, '')}/auth/sso/callback`, {
         method: 'POST',
         headers: { ...clientHeaders(req.headers), 'Content-Type': 'application/json' },
         body: JSON.stringify({ code, state }),

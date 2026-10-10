@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-import { authApiUrl } from '@/utils/auth/authApiUrl'
+import { identityApiUrl } from '@/utils/auth/authApiUrl'
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ credentialId: string }> }) {
     const { credentialId } = await params
     const cookieStore = await cookies()
     const token = cookieStore.get('access_token')?.value || ''
     const id = cookieStore.get('id')?.value || ''
-    const upstream = await fetch(`${authApiUrl().replace(/\/$/, '')}/auth/passkeys/${encodeURIComponent(credentialId)}`, {
+    const upstream = await fetch(`${identityApiUrl().replace(/\/$/, '')}/auth/passkeys/${encodeURIComponent(credentialId)}`, {
         method: 'PATCH',
         headers: {
             'Content-Type': 'application/json',
@@ -28,7 +28,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     const cookieStore = await cookies()
     const token = cookieStore.get('access_token')?.value || ''
     const id = cookieStore.get('id')?.value || ''
-    const upstream = await fetch(`${authApiUrl().replace(/\/$/, '')}/auth/passkeys/${encodeURIComponent(credentialId)}`, {
+    const upstream = await fetch(`${identityApiUrl().replace(/\/$/, '')}/auth/passkeys/${encodeURIComponent(credentialId)}`, {
         method: 'DELETE',
         headers: {
             ...(token ? { Authorization: `Bearer ${token}` } : {}),

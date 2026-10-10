@@ -1,10 +1,10 @@
 import { clientHeaders } from '@/utils/auth/clientHeaders'
 import { NextRequest, NextResponse } from 'next/server'
-import { authApiUrl } from '@/utils/auth/authApiUrl'
+import { identityApiUrl } from '@/utils/auth/authApiUrl'
 import { setAuthCookies } from '../../../_authCookies'
 
 export async function POST(req: NextRequest) {
-    const upstream = await fetch(`${authApiUrl().replace(/\/$/, '')}/auth/passkeys/authenticate/verify`, {
+    const upstream = await fetch(`${identityApiUrl().replace(/\/$/, '')}/auth/passkeys/authenticate/verify`, {
         method: 'POST',
         headers: { ...clientHeaders(req.headers), 'Content-Type': 'application/json' },
         body: await req.text(),

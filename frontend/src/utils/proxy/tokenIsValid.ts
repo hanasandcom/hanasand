@@ -1,6 +1,6 @@
 import config from '@/config'
 import fetchWithRetry from '@/utils/fetchWithRetry'
-import { authApiUrl } from '@/utils/auth/authApiUrl'
+import { authApiUrl, identityApiUrl } from '@/utils/auth/authApiUrl'
 
 export type TokenValidationResult = {
     valid: boolean
@@ -55,7 +55,7 @@ async function validateToken(token: string, id: string, impersonationToken: stri
             Authorization: `Bearer ${token}`,
             ...(impersonationToken ? { 'x-impersonation-token': impersonationToken } : {}),
         }
-        const response = await fetchWithRetry(`${authApiUrl()}/auth/token/${id}`, {
+        const response = await fetchWithRetry(`${identityApiUrl()}/auth/token/${encodeURIComponent(id)}`, {
             headers,
             timeoutMs: 10000,
             retries: 2,
