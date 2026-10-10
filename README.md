@@ -17,7 +17,7 @@ Hanasand combines threat intelligence, AI development tools, and infrastructure 
 | Browser workers | [Browser repository](https://github.com/hanasandcom/browsers) | Browser worker image and its independent Compose service |
 | Browser TURN | [Browser TURN Compose](https://github.com/hanasandcom/browsers/blob/main/turn/compose.yml) | Coturn relay with an independent Compose deployment |
 | Browser host firewall | `ops/browser-worker/` | Host egress rules for isolated browser sessions |
-| Discord bot | `bot/` | Support tickets and chat bridge; deployed from its own Compose project |
+| Discord bot | [Discord bot repository](https://github.com/hanasandcom/bot) | Support tickets and chat bridge; deployed from its own Compose project |
 | Onion proxy | [Onion repository](https://github.com/hanasandcom/onion) | Tor and Privoxy endpoint for browser and application traffic; deployed separately |
 | PgBouncer | [PgBouncer repository](https://github.com/hanasandcom/pgbouncer) | Primary and rolling-release PostgreSQL connection pools; deployed separately |
 | Database | `db/`, `api/src/utils/db/` | Initial schema and application schema updates |

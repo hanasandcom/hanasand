@@ -2,7 +2,6 @@
 node_modules/
 .cache/npm/
 package-lock.json
-!bot/package-lock.json
 .hanasand
 
 # testing
@@ -75,6 +74,3 @@ android
 __pycache__/
 /api/geoip/
 
-# Discord bot runtime data
-/bot/data/
-/bot/.env
