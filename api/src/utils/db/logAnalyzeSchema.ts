@@ -39,7 +39,13 @@ export default async function ensureLogAnalyzeSchema() {
         organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
         bucket TIMESTAMPTZ NOT NULL, ip INET NOT NULL, hits BIGINT NOT NULL DEFAULT 0,
         PRIMARY KEY (organization_id, bucket, ip))`)
-    await run(`CREATE INDEX IF NOT EXISTS idx_log_ingest_access_ip_minutes_retention ON log_ingest_access_ip_minutes(organization_id, bucket)`)
+    await run('CREATE INDEX IF NOT EXISTS idx_log_ingest_access_ip_minutes_retention ON log_ingest_access_ip_minutes(organization_id, bucket)')
+    await run(`CREATE TABLE IF NOT EXISTS log_ingest_access_minute_batches (
+        batch_id UUID NOT NULL,
+        organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        bucket TIMESTAMPTZ NOT NULL, ip INET NOT NULL, hits BIGINT NOT NULL CHECK (hits > 0),
+        PRIMARY KEY (batch_id, organization_id, bucket, ip))`)
+    await run('CREATE INDEX IF NOT EXISTS idx_log_ingest_access_minute_batches_window ON log_ingest_access_minute_batches(organization_id, bucket)')
     await run(`CREATE TABLE IF NOT EXISTS log_mongo_ping_counts (
         organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
         host TEXT NOT NULL, service TEXT NOT NULL, client_ip INET NOT NULL, database_name TEXT NOT NULL,
