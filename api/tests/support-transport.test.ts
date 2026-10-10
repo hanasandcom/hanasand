@@ -18,12 +18,12 @@ afterAll(async () => {
     await app.close()
 })
 
-test('only conversation endpoints move to the authenticated support boundary', async () => {
+test('all support endpoints move to the authenticated support boundary', async () => {
     process.env.SUPPORT_SERVICE_BASE = 'http://127.0.0.1:19181'
     process.env.SUPPORT_SERVICE_KEY = 'private-test-key'.repeat(4)
     delete process.env.SUPPORT_INTERNAL_SERVICE
-    for (const path of ['/api/support/chat', '/api/support/my-tickets', '/api/support/tickets', '/api/support/tickets/id/messages', '/api/support/tickets/id/status', '/api/support/tickets/id/feedback']) expect(supportRequestPath(path)).toBe(true)
-    for (const path of ['/api/support/model', '/api/admin/support/inspect', '/api/support/tickets/id/secret', '/api/support/chat/extra', '/api/user']) expect(shouldProxySupport(path)).toBe(false)
+    for (const path of ['/api/support/chat', '/api/support/my-tickets', '/api/support/tickets', '/api/support/tickets/id/messages', '/api/support/tickets/id/status', '/api/support/tickets/id/feedback', '/api/support/model']) expect(supportRequestPath(path)).toBe(true)
+    for (const path of ['/api/admin/support/inspect', '/api/user']) expect(shouldProxySupport(path)).toBe(false)
     globalThis.fetch = (async (url: unknown, init: RequestInit) => {
         expect(String(url)).toBe('http://127.0.0.1:19181/api/support/chat')
         const headers = new Headers(init.headers)

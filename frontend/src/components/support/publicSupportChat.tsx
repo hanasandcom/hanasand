@@ -4,6 +4,7 @@ import { ArrowUp, LoaderCircle, UserRound } from 'lucide-react'
 import { GuestSupportFeedback, type Feedback } from './supportFeedback'
 import useSupportLive, { SUPPORT_CHAT_OPENED_EVENT } from './useSupportLive'
 import useSupportUnread from './useSupportUnread'
+import { supportFetch } from '@/utils/support/api'
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 type Message = { id: string; body: string; sender_kind: 'user' | 'assistant' | 'support' | 'system'; sender_name: string; request_id?: string }
@@ -60,7 +61,7 @@ export default function PublicSupportChat({ active = true, onUnreadChange, onRes
 
     const refresh = useCallback(async () => {
         const version = ++revision.current
-        const response = await fetch(`/api/support/chat${selection.current ? `?conversationId=${encodeURIComponent(selection.current)}` : ''}`, { cache: 'no-store' })
+        const response = await supportFetch(`/support/chat${selection.current ? `?conversationId=${encodeURIComponent(selection.current)}` : ''}`)
         const payload = await response.json()
         if (!response.ok) throw new Error(payload.error || 'We could not load your conversation.')
         if (mounted.current && version === revision.current) {
@@ -132,7 +133,7 @@ export default function PublicSupportChat({ active = true, onUnreadChange, onRes
         revision.current += 1
         setError('')
         try {
-            const response = await fetch('/api/support/chat', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(submission) })
+            const response = await supportFetch('/support/chat', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(submission) })
             const payload = await response.json() as PublicSupportConversation
             if (!response.ok) throw new Error(payload.error || 'We could not send your message. Please try again.')
             if (!mounted.current) return
@@ -196,7 +197,7 @@ export default function PublicSupportChat({ active = true, onUnreadChange, onRes
         if (!conversation.id || closing) return
         setClosing(true); setError('')
         try {
-            const response = await fetch('/api/support/chat', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'resolve', conversationId: conversation.id }) })
+            const response = await supportFetch('/support/chat', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'resolve', conversationId: conversation.id }) })
             const payload = await response.json()
             if (!response.ok) throw new Error(payload.error || 'Could not close this conversation.')
             revision.current += 1
@@ -208,7 +209,7 @@ export default function PublicSupportChat({ active = true, onUnreadChange, onRes
     async function sendFeedback(rating: number, comment: string) {
         const id = selectedId, version = conversation.resolution_version
         revision.current += 1
-        const response = await fetch('/api/support/chat', { method: 'POST', keepalive: true, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'feedback', conversationId: id, resolutionVersion: version, rating, comment }) })
+        const response = await supportFetch('/support/chat', { method: 'POST', keepalive: true, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'feedback', conversationId: id, resolutionVersion: version, rating, comment }) })
         const payload = await response.json()
         if (!response.ok) throw new Error(payload.error || 'Could not save feedback.')
         if (mounted.current && selection.current === id) {
@@ -219,7 +220,7 @@ export default function PublicSupportChat({ active = true, onUnreadChange, onRes
     }
     async function sendCloseFeedback(foundWhatLookingFor: boolean, reason?: string) {
         const id = selectedId, version = conversation.resolution_version
-        const response = await fetch('/api/support/chat', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'close-feedback', conversationId: id, resolutionVersion: version, foundWhatLookingFor, reason }) })
+        const response = await supportFetch('/support/chat', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'close-feedback', conversationId: id, resolutionVersion: version, foundWhatLookingFor, reason }) })
         const payload = await response.json()
         if (!response.ok) throw new Error(payload.error || 'Could not save your answer.')
     }

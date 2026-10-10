@@ -26,7 +26,7 @@ async function loadSupportChat(): Promise<InitialSupportChat | undefined> {
     const impersonationToken = cookieStore.get('impersonation_token')?.value
     if (impersonationToken) headers.set('x-impersonation-token', impersonationToken)
     try {
-        const response = await fetch(`${config.url.api}/support/tickets`, { headers, cache: 'no-store', signal: AbortSignal.timeout(12_000) })
+        const response = await fetch(`${config.url.support}/support/tickets`, { headers, cache: 'no-store', signal: AbortSignal.timeout(12_000) })
         if (!response.ok) return undefined
         const payload = await response.json() as { tickets?: SupportTicket[]; isSupport?: boolean; realtime?: boolean }
         const tickets = payload.tickets || []
@@ -34,7 +34,7 @@ async function loadSupportChat(): Promise<InitialSupportChat | undefined> {
         let messages: SupportMessage[] = []
         let messagesLoaded = !selectedId
         if (selectedId) {
-            const messageResponse = await fetch(`${config.url.api}/support/tickets/${encodeURIComponent(selectedId)}/messages`, { headers, cache: 'no-store', signal: AbortSignal.timeout(12_000) })
+            const messageResponse = await fetch(`${config.url.support}/support/tickets/${encodeURIComponent(selectedId)}/messages`, { headers, cache: 'no-store', signal: AbortSignal.timeout(12_000) })
             if (messageResponse.ok) {
                 messages = (await messageResponse.json() as { messages?: SupportMessage[] }).messages || []
                 messagesLoaded = true
@@ -56,7 +56,7 @@ export default async function SupportPage() {
     if (!hasSession && supportSession && /^[a-f0-9]{64}$/.test(supportSession)) {
         try {
             const query = selectedId ? `?conversationId=${encodeURIComponent(selectedId)}` : ''
-            const response = await fetch(`${config.url.api}/support/chat${query}`, { headers: { 'x-support-session': supportSession }, cache: 'no-store', signal: AbortSignal.timeout(5000) })
+            const response = await fetch(`${config.url.support}/support/chat${query}`, { headers: { 'x-support-session': supportSession }, cache: 'no-store', signal: AbortSignal.timeout(5000) })
             if (response.ok) initialConversation = await response.json()
         } catch { /* The guest panel can still load and retry in the browser. */ }
     }

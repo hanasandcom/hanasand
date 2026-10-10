@@ -108,6 +108,7 @@ services:
       - /var/spool/cron/crontabs:/host/cron/crontabs
       - /var/lib/hanasand:/host/var/lib/hanasand:ro
       - /var/lib/hanasand/docker-storage:/var/lib/hanasand/docker-storage
+      - /var/lib/hanasand/support:/var/lib/hanasand-support:ro
       - api_state:/var/lib/hanasand
       - ${HANASAND_APP_UPDATE_DIR:-/srv/hanasand/app-updates}:/srv/hanasand/app-updates
       - ${HOST_CONSOLE_SSH_KEY_FILE:-/home/hanasand/.ssh/host-console}:/run/secrets/host-console:ro
@@ -136,6 +137,9 @@ services:
       HANASAND_IDENTITY_FDW_HOST: identity-postgres
       HANASAND_IDENTITY_FDW_PORT: "5432"
       HANASAND_IDENTITY_SERVICE_URL: ${HANASAND_IDENTITY_SERVICE_URL:-http://identity:8081}
+      SUPPORT_SERVICE_BASE: ${SUPPORT_SERVICE_BASE:-http://support:19181}
+      SUPPORT_SERVICE_KEY: ${SUPPORT_SERVICE_KEY:-}
+      SUPPORT_MAINTENANCE_FILE: /var/lib/hanasand-support/maintenance
       # Keep the API pool budget aligned with PostgreSQL's 100-connection cap.
       DB_MAX_CONN: ${DB_MAX_CONN:-100}
       DB_POOL_WARMUP_CONN: ${DB_POOL_WARMUP_CONN:-8}

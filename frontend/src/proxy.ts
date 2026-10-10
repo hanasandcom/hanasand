@@ -6,10 +6,7 @@ import tokenIsValid from './utils/proxy/tokenIsValid'
 import organizationProtectedPaths from './utils/proxy/organizationProtectedPaths'
 
 export async function proxy(req: NextRequest) {
-    // The support API owns its independent store, authentication and active-site gate.
-    const recoveryAllowedPost = req.method === 'POST' && (req.nextUrl.pathname === '/api/pwned'
-        || req.nextUrl.pathname === '/api/support/chat'
-        || /^\/api\/backend\/support\/tickets(?:\/[^/]+\/(?:messages|status|feedback))?$/.test(req.nextUrl.pathname))
+    const recoveryAllowedPost = req.method === 'POST' && req.nextUrl.pathname === '/api/pwned'
     if (!recoveryAllowedPost && !['GET', 'HEAD', 'OPTIONS'].includes(req.method) && !(req.method === 'POST' && req.nextUrl.pathname === '/api/ti/search') && recoveryReadOnly()) {
         return NextResponse.json({ error: { code: 'recovery_read_only', message: 'Changes are paused during database recovery. Existing records remain available for viewing.' } }, { status: 503, headers: { 'retry-after': '30', 'cache-control': 'no-store' } })
     }

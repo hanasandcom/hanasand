@@ -1,4 +1,5 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
+import { existsSync } from 'node:fs'
 import WebSocket from 'ws'
 import { supportServiceConfigured, shouldProxySupport } from './config.ts'
 export { supportServiceConfigured, shouldProxySupport, supportRequestPath, hasSupportServiceKey } from './config.ts'
@@ -6,6 +7,10 @@ import { recoveryRequestAllowed } from '../recovery.ts'
 
 export async function forwardSupportRequest(req: FastifyRequest, res: FastifyReply) {
     if (!shouldProxySupport(req.url)) return
+    if (process.env.SUPPORT_MAINTENANCE_FILE && existsSync(process.env.SUPPORT_MAINTENANCE_FILE)) {
+        res.code(503).header('Retry-After', '5').send({ error: 'Support is being updated. Please retry shortly.' })
+        return true
+    }
     const headers = new Headers({ 'content-type': 'application/json', 'x-support-service-key': process.env.SUPPORT_SERVICE_KEY!, 'x-support-client-ip': req.ip })
     for (const key of ['authorization', 'id', 'user-agent', 'x-impersonation-token', 'x-support-session', 'x-api-key']) {
         const value = req.headers[key]
@@ -35,6 +40,7 @@ export function forwardSupportSocket(socket: WebSocket) {
     const pending: Buffer[] = []
     let bytes = 0
     const allowed = () => recoveryRequestAllowed('GET', '/api/ws/support')
+        && !(process.env.SUPPORT_MAINTENANCE_FILE && existsSync(process.env.SUPPORT_MAINTENANCE_FILE))
     const timer = setInterval(() => { if (!allowed()) socket.close(1013) }, 1000)
     const close = () => { clearInterval(timer); if (upstream.readyState === WebSocket.CONNECTING) upstream.terminate(); else upstream.close() }
     socket.on('close', close)

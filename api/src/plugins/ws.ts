@@ -6,7 +6,7 @@ import fp from 'fastify-plugin'
 import { proxyModelSocket } from '../utils/ws/proxyModelSocket.ts'
 import { browserStartOptions } from '../utils/ws/browserAccess.ts'
 import { BrowserWarmPool, BROWSER_WARM_MAX_AGE_MS, type WarmWorker, type WarmStatus } from '../utils/ws/browserWarmPool.ts'
-import registerSupportStream from '../handlers/supportStream.ts'
+import registerSupportProxyStream from '../handlers/supportProxyStream.ts'
 import registerSystemStream from '../handlers/metrics/systemStream.ts'
 import registerVmConsole from '../handlers/vms/console.ts'
 import registerHostConsole from '../handlers/hostConsole.ts'
@@ -71,7 +71,7 @@ export default fp(async function wsPlugin(fastify: FastifyInstance) {
     registerVmConsole(fastify)
     registerHostConsole(fastify)
     registerSystemStream(fastify)
-    registerSupportStream(fastify)
+    registerSupportProxyStream(fastify)
 
     fastify.get('/api/ws/thesis', { websocket: true }, (socket, request) => {
         const credentials = thesisCredentials(request)

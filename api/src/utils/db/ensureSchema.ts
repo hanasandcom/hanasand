@@ -6,7 +6,6 @@ import ensureRuleReprocessSchema from './ruleReprocessSchema.ts'
 import ensureRuleHitCountSchema from './ruleHitCountSchema.ts'
 import ensureLegacyHealthRuleHitMigration from './legacyHealthRuleHitMigration.ts'
 import ensureLogCatchupSchema from './logCatchupSchema.ts'
-import ensureSupportAiSchema from '#utils/support/schema.ts'
 import ensureContentOrganizationSchema from './contentOrganizationSchema.ts'
 import ensureOrganizationRolesSchema from './organizationRolesSchema.ts'
 import ensureLogDimensionsSchema from './logDimensionsSchema.ts'
@@ -318,7 +317,6 @@ async function applySchema() {
         )
     `)
     await run('CREATE INDEX IF NOT EXISTS idx_support_messages_ticket_created ON support_messages(ticket_id, created_at ASC)')
-    await ensureSupportAiSchema()
     await run(`
         CREATE TABLE IF NOT EXISTS commercial_contact_requests (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

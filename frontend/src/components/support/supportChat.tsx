@@ -10,6 +10,7 @@ import { PublicSupportPanel } from './publicSupportChat'
 import { BellDot, ListFilter, Loader2, MessageCircle, Search, Send } from 'lucide-react'
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react'
 import { getCookie } from '@/utils/cookies/cookies'
+import { supportFetch } from '@/utils/support/api'
 
 type Ticket = Feedback & { id: string; subject: string; status: string; user_name?: string; last_message?: string; created_at?: string; updated_at: string; agent_name?: string; channel?: string; reply_count?: number }
 type Message = { id: string; sender_id: string | null; sender_kind?: string; sender_name: string; body: string; created_at: string }
@@ -77,8 +78,8 @@ export default function SupportChat({ embedded = false, initialChat }: { embedde
         if (controls.stars !== 'all') params.set('stars', controls.stars)
         if (controls.feedback !== 'all') params.set('feedback', controls.feedback)
         const suffix = params.size ? `?${params.toString()}` : ''
-        const path = `/api/backend/support/tickets${suffix}`
-        const response = await fetch(path, { cache: 'no-store' })
+        const path = `/support/tickets${suffix}`
+        const response = await supportFetch(path)
         setSignedOut(response.status === 401)
         if (!response.ok) throw new Error(response.status === 401 ? 'Sign in to chat with support.' : 'Support is temporarily unavailable.')
         const payload = await response.json() as { tickets?: Ticket[]; isSupport?: boolean; realtime?: boolean }
@@ -103,7 +104,7 @@ export default function SupportChat({ embedded = false, initialChat }: { embedde
     const loadMessages = useCallback(async (id: string, signal?: AbortSignal) => {
         if (!id) return
         const version = ++messageRevision.current
-        const response = await fetch(`/api/backend/support/tickets/${encodeURIComponent(id)}/messages`, { cache: 'no-store', signal })
+        const response = await supportFetch(`/support/tickets/${encodeURIComponent(id)}/messages`, { signal })
         if (!response.ok) throw new Error('We could not load this conversation.')
         const payload = await response.json() as { messages?: Message[] }
         if (!signal?.aborted && selectedRef.current === id && version === messageRevision.current) {
@@ -168,8 +169,8 @@ export default function SupportChat({ embedded = false, initialChat }: { embedde
         setError('')
         try {
             const response = selectedId
-                ? await fetch(`/api/backend/support/tickets/${encodeURIComponent(selectedId)}/messages`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ message: body }) })
-                : await fetch('/api/backend/support/tickets', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ subject: subject.trim() || 'Support question', message: body }) })
+                ? await supportFetch(`/support/tickets/${encodeURIComponent(selectedId)}/messages`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ message: body }) })
+                : await supportFetch('/support/tickets', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ subject: subject.trim() || 'Support question', message: body }) })
             if (!response.ok) throw new Error('We could not send that message. Please try again.')
             const payload = await response.json() as { id?: string }
             setInput('')
@@ -190,7 +191,7 @@ export default function SupportChat({ embedded = false, initialChat }: { embedde
         ++ticketRevision.current
         setStatusChange({ id, status }); setUpdatingStatus(true); setStatusError(null); setError('')
         try {
-            const response = await fetch(`/api/backend/support/tickets/${encodeURIComponent(id)}/status`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ status }) })
+            const response = await supportFetch(`/support/tickets/${encodeURIComponent(id)}/status`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ status }) })
             const payload = await response.json() as { error?: string; ticket?: Partial<Ticket> & { id: string }; message?: Message }
             if (!response.ok) throw new Error(payload.error || 'Could not update this chat.')
             if (payload.ticket?.id === id) {
@@ -212,7 +213,7 @@ export default function SupportChat({ embedded = false, initialChat }: { embedde
     async function sendFeedback(rating: number, comment: string) {
         const id = selectedId, version = tickets.find(ticket => ticket.id === id)?.resolution_version
         ticketRevision.current += 1
-        const response = await fetch(`/api/backend/support/tickets/${encodeURIComponent(id)}/feedback`, { method: 'POST', keepalive: true, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ rating, comment, resolutionVersion: version }) })
+        const response = await supportFetch(`/support/tickets/${encodeURIComponent(id)}/feedback`, { method: 'POST', keepalive: true, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ rating, comment, resolutionVersion: version }) })
         const payload = await response.json()
         if (!response.ok) throw new Error(payload.error || 'Could not save feedback.')
         ticketRevision.current += 1
@@ -226,7 +227,7 @@ export default function SupportChat({ embedded = false, initialChat }: { embedde
         setDiscordLinkError('')
         setDiscordLinkCode('')
         try {
-            const response = await fetch('/api/backend/support/discord/link-code', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
+            const response = await supportFetch('/support/discord/link-code', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
             const payload = await response.json() as { code?: string; expiresAt?: string; error?: string }
             if (!response.ok || !payload.code) throw new Error(payload.error || 'Could not create a Discord link code.')
             setDiscordLinkCode(payload.code)

@@ -207,11 +207,8 @@ import {
 } from './handlers/dwm/webhooks.ts'
 import { getBrowserSandboxProfiles, putBrowserSandboxProfiles } from './handlers/browserSandboxProfiles.ts'
 import { deleteBrowserRuns, getBrowserResult, getBrowserRunReport, getBrowserRuns, getBrowserRunStats, maxBrowserReportBytes, postBrowserRunReport } from './handlers/browserSandboxRuns.ts'
-import { publicSupportChat } from './handlers/publicSupportChat.ts'
-import { getMySupportTickets, getSupportMessages, getSupportTickets, postSupportMessage, postSupportTicket, postSupportStatus, postSupportFeedback, postSupportDiscordLinkCode } from './handlers/supportChat.ts'
-import { getDiscordSupportTickets, postDiscordSupportAction } from './handlers/supportDiscord.ts'
-import { forwardSupportRequest } from './utils/support/transport.ts'
-import { supportModel } from './handlers/supportModel.ts'
+import { forwardSupportRequest, supportServiceConfigured } from './utils/support/transport.ts'
+import { postInternalModelCompletion } from './handlers/internal/modelCompletion.ts'
 import { getCommercialContactRequests, postCommercialContactRequest } from './handlers/commercialContactRequests.ts'
 import { getOrganizationPrivacy, postOrganizationPrivacy } from './handlers/organizationPrivacy.ts'
 import { deleteSavedSearch, getSavedSearches, postSavedSearch } from './handlers/ti/savedSearches.ts'
@@ -342,19 +339,11 @@ export default async function apiRoutes(fastify: FastifyInstance, options: Fasti
     fastify.get('/browser/results/:id', getBrowserResult)
     fastify.get('/browser/runs/:id/report', getBrowserRunReport)
     fastify.post('/browser/runs/:id/report', { bodyLimit: maxBrowserReportBytes + 4096 }, postBrowserRunReport)
-    fastify.get('/support/chat', publicSupportChat)
-    fastify.post('/support/chat', publicSupportChat)
-    fastify.post('/support/model', supportModel)
-    fastify.get('/support/tickets', getSupportTickets)
-    fastify.get('/support/my-tickets', getMySupportTickets)
-    fastify.post('/support/tickets', postSupportTicket)
-    fastify.get('/support/tickets/:id/messages', getSupportMessages)
-    fastify.post('/support/tickets/:id/messages', postSupportMessage)
-    fastify.post('/support/tickets/:id/status', postSupportStatus)
-    fastify.post('/support/tickets/:id/feedback', postSupportFeedback)
-    fastify.post('/support/discord/link-code', postSupportDiscordLinkCode)
-    fastify.get('/support/discord/tickets', getDiscordSupportTickets)
-    fastify.post('/support/discord/action', postDiscordSupportAction)
+    fastify.all('/support/*', async (req, res) => {
+        if (await forwardSupportRequest(req, res)) return
+        return res.code(supportServiceConfigured() ? 503 : 404).send({ error: 'Support is temporarily unavailable.' })
+    })
+    fastify.post('/internal/model/completions', postInternalModelCompletion)
 
     // Article handlers
     fastify.get('/articles', getArticles)

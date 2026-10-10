@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import config from '@/config'
 import { getCookie } from '@/utils/cookies/cookies'
+import { supportFetch } from '@/utils/support/api'
 
 export const SUPPORT_CHAT_OPENED_EVENT = 'hanasand-support-chat-opened'
 
@@ -51,15 +52,15 @@ export default function useSupportLive(refresh: () => Promise<void | boolean>, g
                 if (!initialized || !available) await sync()
                 initialized = true
                 if (!available) { setConnection('idle'); return }
-                let auth: { type: string; ticket?: string; id?: string; token?: string }
+                let auth: { type: string; ticket?: string; id?: string; token?: string; impersonationToken?: string }
                 if (guest) {
-                    const response = await fetch('/api/support/chat', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'connect' }) })
+                    const response = await supportFetch('/support/chat', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'connect' }) })
                     const payload = await response.json()
                     if (!response.ok || !payload.ticket) throw new Error('Connection unavailable')
                     auth = { type: 'auth', ticket: payload.ticket }
-                } else auth = { type: 'auth', id: getCookie('impersonating_id') || getCookie('id') || '', token: getCookie('access_token') || '' }
+                } else auth = { type: 'auth', id: getCookie('id') || '', token: getCookie('access_token') || '', impersonationToken: getCookie('impersonation_token') || undefined }
                 if (disposed) return
-                const next = new WebSocket(`${config.url.api_wss}/support`)
+                const next = new WebSocket(`${config.url.support_wss}/ws/support`)
                 socket = next
                 const deadline = setTimeout(() => { if (!ready) next.close() }, 10000)
                 next.onopen = () => next.send(JSON.stringify(auth))

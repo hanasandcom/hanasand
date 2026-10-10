@@ -1,4 +1,4 @@
-import { shouldProxySupport, hasSupportServiceKey } from '#utils/support/config.ts'
+import { shouldProxySupport } from '#utils/support/config.ts'
 import { hasLogIngestToken } from '#utils/auth/logIngestToken.ts'
 import { recoveryReadOnly } from '#utils/recovery.ts'
 import fp from 'fastify-plugin'
@@ -84,7 +84,7 @@ export default fp(async function rateLimitPlugin(fastify: FastifyInstance) {
 async function enforceRateLimit(req: FastifyRequest, res: FastifyReply, databaseReadOnly = false) {
     let path = normalizeRequestPath(req)
     // The private support service enforces authentication and durable quotas in its own store.
-    if (shouldProxySupport(req.url) || path === '/api/support/model' && hasSupportServiceKey(req)) return true
+    if (shouldProxySupport(req.url)) return true
     if (
         req.headers.upgrade?.toLowerCase() === 'websocket'
         || isInfrastructureWebSocketPath(path)

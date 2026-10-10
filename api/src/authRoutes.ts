@@ -21,9 +21,11 @@ import {
     verifyPasswordResetCode,
 } from './handlers/auth/passwordReset.ts'
 import { getSessions, revokeSession, revokeSessions } from './handlers/auth/sessions.ts'
+import { authorizeSupport } from './handlers/auth/support.ts'
 
 // Shared by the API and the independently deployed authentication workers.
 export default async function authRoutes(fastify: FastifyInstance) {
+    fastify.post('/auth/support/authorize', authorizeSupport)
     fastify.get('/auth/social/providers', getSocialProviders)
     fastify.get('/auth/social/connections', getSocialConnections)
     fastify.post('/auth/social/:provider/start', postSocialStart)

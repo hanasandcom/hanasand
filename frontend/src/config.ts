@@ -1,6 +1,7 @@
 import packagejson from '../package.json'
 
 const defaultPublicApiUrl = 'https://api.hanasand.com/api'
+const defaultSupportApiUrl = 'https://support.hanasand.com/api'
 const defaultPublicCdnUrl = 'https://cdn.hanasand.com/api'
 const configuredPublicApiUrl = process.env.NEXT_PUBLIC_API || defaultPublicApiUrl
 const publicApiUrl = process.env.NODE_ENV === 'production' && isLocalUrl(configuredPublicApiUrl)
@@ -18,6 +19,8 @@ const internalCdnUrl =
 const config = {
     url: {
         api: resolveApiUrl(),
+        support: process.env.NEXT_PUBLIC_SUPPORT_API || defaultSupportApiUrl,
+        support_wss: toWsUrl(process.env.NEXT_PUBLIC_SUPPORT_API || defaultSupportApiUrl).replace(/^http/, 'ws'),
         auth: process.env.FRONTEND_AUTH_API || internalApiUrl,
         api_wss: process.env.NEXT_PUBLIC_API_WS || 'wss://api.hanasand.com/api/ws',
         api_client_wss: toWsUrl(resolveApiUrl()),

@@ -13,6 +13,7 @@ import { useWorkspace } from '@/components/organizations/workspaceProvider'
 import { getThesisNavigation, subscribeThesisNavigation } from '@/utils/layout/thesisNavigation'
 import { canManageHanasandOrganizations, canViewHanasandInternalPages } from '@/utils/organizations/internalPageAccess'
 import config from '@/config'
+import { supportFetch } from '@/utils/support/api'
 import { hasUnreadSupportMessages, supportReadStateKey, SUPPORT_READ_STATE_EVENT, SUPPORT_TICKETS_UPDATED_EVENT, type SupportUnreadTicket } from '@/utils/supportUnread'
 
 const emptyThesisNavigation: ReturnType<typeof getThesisNavigation> = []
@@ -107,7 +108,7 @@ export default function DashboardSidebar({ initialPreferences = { expanded: {}, 
             if (requestInFlight) { refreshRequested = true; return }
             requestInFlight = true
             try {
-                const response = await fetch('/api/backend/support/tickets', { cache: 'no-store', signal: controller.signal })
+                const response = await supportFetch('/support/tickets', { signal: controller.signal })
                 if (!response.ok) return
                 const payload = await response.json() as { tickets?: SupportUnreadTicket[] }
                 if (!controller.signal.aborted) {
@@ -162,8 +163,9 @@ export default function DashboardSidebar({ initialPreferences = { expanded: {}, 
     }, [access.id, pathname])
     useEffect(() => {
         if (!hasOpenSupportChats || pathname === '/support') return
-        const id = getCookie('impersonating_id') || getCookie('id') || access.id
+        const id = getCookie('id') || access.id
         const token = getCookie('access_token') || ''
+        const impersonationToken = getCookie('impersonation_token') || undefined
         if (!id || !token) return
         let disposed = false
         let socket: WebSocket | undefined
@@ -179,9 +181,9 @@ export default function DashboardSidebar({ initialPreferences = { expanded: {}, 
         }
         const connect = () => {
             if (disposed) return
-            const next = new WebSocket(`${config.url.api_wss}/support`)
+            const next = new WebSocket(`${config.url.support_wss}/ws/support`)
             socket = next
-            next.onopen = () => next.send(JSON.stringify({ type: 'auth', id, token }))
+            next.onopen = () => next.send(JSON.stringify({ type: 'auth', id, token, impersonationToken }))
             next.onmessage = event => {
                 try {
                     const message = JSON.parse(event.data)

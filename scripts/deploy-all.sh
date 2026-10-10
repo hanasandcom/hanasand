@@ -412,6 +412,21 @@ esac
 warm_dashboard_pages "$HANASAND_FRONTEND_CANDIDATE_PORT"
 warm_browser_stats "$HANASAND_FRONTEND_CANDIDATE_PORT"
 
+# Freeze the independent Support API and seed its database before routing the
+# release candidates. The final refresh below runs after traffic leaves the
+# old in-process Support implementation.
+support_repo=/home/hanasand/support
+test -f "$support_repo/compose.yaml" || {
+    echo "The independent Support checkout is missing at $support_repo." >&2
+    exit 1
+}
+test "$(git -C "$support_repo" branch --show-current)" = main || {
+    echo "The independent Support checkout must be on main." >&2
+    exit 1
+}
+git -C "$support_repo" pull --ff-only origin main
+sh "$support_repo/scripts/deploy.sh" prepare
+
 upstream_file=/home/hanasand/openresty/nginx/conf.d/hanasand-upstreams.conf
 test -w "$upstream_file" || {
     echo "Cannot update the OpenResty upstream file: $upstream_file" >&2
@@ -629,4 +644,7 @@ for container in hanasand-tunnel hanasand-tunnel-database hanasand-tunnel-intell
     if docker inspect "$container" >/dev/null 2>&1; then docker rm -f "$container"; fi
 done
 sh "$root/scripts/verify-stack-release.sh" "$release"
+sh "$support_repo/scripts/deploy.sh" refresh
+sh "$support_repo/scripts/deploy.sh" activate
+curl --fail --silent --show-error --max-time 10 http://127.0.0.1:19181/ready
 echo "Hanasand stack deployed from main at $release."
