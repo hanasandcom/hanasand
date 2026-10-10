@@ -20,7 +20,6 @@ import {
     startPasswordResetAgain,
     verifyPasswordResetCode,
 } from './handlers/auth/passwordReset.ts'
-import { getSessions, revokeSession, revokeSessions } from './handlers/auth/sessions.ts'
 import { authorizeSupport } from './handlers/auth/support.ts'
 
 // Shared by the API and the independently deployed authentication workers.
@@ -33,7 +32,6 @@ export default async function authRoutes(fastify: FastifyInstance) {
     // Auth handlers
     fastify.get('/auth/logout/:id', logoutHandler)
     fastify.get('/auth/token/:id', tokenHandler)
-    fastify.get('/auth/sessions', getSessions)
     fastify.post('/auth/login/:id', loginHandler)
     fastify.get('/auth/passkeys', getPasskeys)
     fastify.patch('/auth/passkeys/:credentialId', patchPasskey)
@@ -49,6 +47,4 @@ export default async function authRoutes(fastify: FastifyInstance) {
     fastify.post('/auth/password-reset/complete', completePasswordReset)
     fastify.post('/auth/password-reset/lock-account', lockAccountFromPasswordReset)
     fastify.post('/auth/password-reset/start-again', startPasswordResetAgain)
-    fastify.post('/auth/sessions/revoke', revokeSessions)
-    fastify.delete('/auth/sessions/:token_id', revokeSession)
 }

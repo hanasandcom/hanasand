@@ -400,11 +400,6 @@ async function applySchema() {
         WHERE lower(name) = ANY($1::text[])
           AND NOT (lower(id) = ANY($2::text[]))
     `, [obsoleteProbeUserNames, ownerUserIds])
-    await run('ALTER TABLE tokens ADD COLUMN IF NOT EXISTS user_agent TEXT NOT NULL DEFAULT \'\'')
-    await run('ALTER TABLE tokens ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW()')
-    await run('ALTER TABLE tokens ADD COLUMN IF NOT EXISTS revoked_at TIMESTAMPTZ')
-    await run('ALTER TABLE tokens ADD COLUMN IF NOT EXISTS revoked_by TEXT')
-    await run('CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_tokens_active_token ON tokens (token) WHERE revoked_at IS NULL')
     await run(`
         CREATE TABLE IF NOT EXISTS login_events (
             id BIGSERIAL PRIMARY KEY,

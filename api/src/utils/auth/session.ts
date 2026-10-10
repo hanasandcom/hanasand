@@ -82,14 +82,3 @@ export async function revokeAllTokens({ userId, revokedBy, exceptToken }: { user
 export async function listSessions(userId: string, currentToken?: string) {
     return await requestSessionOperation<SessionListRow[]>('list', { id: userId, token: currentToken }) || []
 }
-
-export async function purgeDeletedAccounts() {
-    const result = await requestSessionOperation<{ deleted: number }>('purge-deleted-accounts', {})
-    if (!result) throw new Error('Identity session maintenance request was rejected.')
-    return result.deleted
-}
-
-export async function cleanupExpiredSessions() {
-    const result = await requestSessionOperation<{ ok: boolean }>('cleanup-expired-sessions', {})
-    if (!result?.ok) throw new Error('Identity session cleanup request was rejected.')
-}

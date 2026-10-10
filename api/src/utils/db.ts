@@ -379,7 +379,7 @@ function isIdentityTableDdl(query: string) {
 
     const index = query.match(/^\s*(?:CREATE\s+(?:UNIQUE\s+)?INDEX\s+(?:CONCURRENTLY\s+)?(?:IF\s+NOT\s+EXISTS\s+)?[a-z0-9_]+\s+ON\s+(?:public\.)?|ALTER\s+INDEX\s+(?:IF\s+EXISTS\s+)?(?:public\.)?)([a-z0-9_]+)/i)
     if (index && identityDataTableNames.has(index[1].toLowerCase())) return true
-    if (/^\s*(?:ALTER|DROP)\s+INDEX\b/i.test(query) && /\b(?:idx_system_events|idx_admin_access_recovery|idx_organization_(?:watchlist|privacy|retention)|idx_(?:users|tokens|login_events|api_keys|api_key_scopes|certificates|user_certificates|host_ssh_keys|impersonation|passkey|password_reset|signup_verification|mail_accounts)[a-z0-9_]*)\b/i.test(query)) return true
+    if (/^\s*(?:ALTER|DROP)\s+INDEX\b/i.test(query) && /\b(?:idx_system_events|idx_admin_access_recovery|idx_organization_(?:watchlist|privacy|retention)|idx_(?:users|login_events|api_keys|api_key_scopes|certificates|user_certificates|host_ssh_keys|impersonation|passkey|password_reset|signup_verification|mail_accounts)[a-z0-9_]*)\b/i.test(query)) return true
 
     // The legacy audit and impersonation renames are wrapped in DO blocks.
     return /^\s*DO\b/i.test(query)

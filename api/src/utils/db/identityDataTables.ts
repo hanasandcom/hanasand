@@ -1,5 +1,5 @@
 export const identityDataTables = [
-    'users', 'tokens', 'login_events', 'attempts', 'password_reset_codes',
+    'users', 'login_events', 'attempts', 'password_reset_codes',
     'password_reset_security_actions', 'passkey_challenges', 'user_passkeys',
     'social_auth_transactions', 'user_social_identities', 'roles', 'user_roles',
     'organizations', 'organization_members', 'organization_invites', 'api_keys',
@@ -11,7 +11,7 @@ export const identityDataTables = [
 ] as const
 
 export const identityDataPrimaryKeys = {
-    users: ['id'], organizations: ['id'], roles: ['id'], tokens: ['token_id'],
+    users: ['id'], organizations: ['id'], roles: ['id'],
     login_events: ['id'], attempts: ['id'], password_reset_codes: ['id'],
     password_reset_security_actions: ['id'], passkey_challenges: ['id'],
     user_passkeys: ['credential_id'], social_auth_transactions: ['state_hash'],
