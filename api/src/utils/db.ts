@@ -280,7 +280,7 @@ export async function queryOnce(query: string, params?: SQLParamType, name?: str
     let failure: Error | undefined
     let expired = false
     let timer: ReturnType<typeof setTimeout> | undefined
-    const onlineIndex = /^\s*(?:CREATE\s+(?:UNIQUE\s+)?INDEX|DROP\s+INDEX)\s+CONCURRENTLY\b/i.test(query)
+    let onlineIndex = /^\s*(?:CREATE\s+(?:UNIQUE\s+)?INDEX|DROP\s+INDEX)\s+CONCURRENTLY\b/i.test(query)
     const pendingEventsIndex = /^\s*(?:CREATE\s+INDEX\s+CONCURRENTLY\s+IF\s+NOT\s+EXISTS|DROP\s+INDEX\s+CONCURRENTLY\s+IF\s+EXISTS)\s+idx_events_logs_pending\b/i.test(query)
     const legacyEventKeyCleanup = /^\s*(?:DROP\s+INDEX\s+CONCURRENTLY\s+IF\s+EXISTS\s+idx_events_log_key|ALTER\s+TABLE\s+events\s+DROP\s+COLUMN\s+IF\s+EXISTS\s+log_key)\b/i.test(query)
     const constraintDrop = /^\s*ALTER\s+TABLE\b[\s\S]*\bDROP\s+CONSTRAINT\b/i.test(query)
@@ -289,6 +289,25 @@ export async function queryOnce(query: string, params?: SQLParamType, name?: str
     const trafficHistorySchema = /^\s*CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+traffic_history_state\b/i.test(query)
     try {
         if (schemaWork.getStore()) {
+            const createIndex = !onlineIndex && !name && !params?.length
+                ? query.match(/^\s*CREATE\s+(?:UNIQUE\s+)?INDEX\s+IF\s+NOT\s+EXISTS\s+([^\s;]+)\s+ON\b/i)
+                : null
+            if (createIndex) {
+                const existing = (await client.query(
+                    'SELECT indisvalid,indisready FROM pg_index WHERE indexrelid=to_regclass($1)',
+                    [createIndex[1]],
+                )).rows[0]
+                if (existing) {
+                    if (!existing.indisvalid || !existing.indisready) {
+                        throw new Error(`Existing schema index is not ready: ${createIndex[1]}`)
+                    }
+                    return { command: 'CREATE', rowCount: null, oid: 0, rows: [], fields: [] } as pg.QueryResult
+                }
+                // A missing index is built online so schema setup does not block
+                // normal reads or writes on the indexed table.
+                query = query.replace(/^(\s*CREATE\s+(?:UNIQUE\s+)?INDEX)\s+IF\s+NOT\s+EXISTS\b/i, '$1 CONCURRENTLY IF NOT EXISTS')
+                onlineIndex = true
+            }
             await client.query(`SET lock_timeout = '${schemaLockTimeout}'; SET statement_timeout = '5s'`)
             // Cancelling an online index build leaves an invalid index behind.
             // It allows normal reads/writes, so retain only its lock-wait limit.
