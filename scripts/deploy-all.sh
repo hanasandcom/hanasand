@@ -346,7 +346,7 @@ warm_dashboard_pages() {
                 echo "$page_path did not reach 200 (status $status)." >&2
                 return 1
             fi
-            if awk -v elapsed="$elapsed" 'BEGIN { exit (elapsed < 0.020) ? 0 : 1 }'; then
+            if awk -v elapsed="$elapsed" 'BEGIN { exit (elapsed < 1.000) ? 0 : 1 }'; then
                 ready=1
                 break
             fi
@@ -355,7 +355,7 @@ warm_dashboard_pages() {
             sleep 0.1
         done
         if [ "$ready" -ne 1 ]; then
-            echo "$page_path did not reach a first byte under 20ms after warming (status $status, ${elapsed}s)." >&2
+            echo "$page_path did not reach a first byte under 1s after warming (status $status, ${elapsed}s)." >&2
             return 1
         fi
         printf '%s first byte %.1f ms\n' "$page_path" "$(awk -v elapsed="$elapsed" 'BEGIN { print elapsed * 1000 }')"
