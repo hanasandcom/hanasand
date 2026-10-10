@@ -1492,8 +1492,12 @@ async function applySchema() {
     await ensureRuleSourceConstraint(run)
     await run('CREATE INDEX IF NOT EXISTS idx_rules_org_enabled ON rules(organization_id, enabled, updated_at DESC)')
     await ensureLogAnalyzeSchema()
-    await run('DROP INDEX CONCURRENTLY IF EXISTS idx_events_log_key')
-    await run('ALTER TABLE events DROP COLUMN IF EXISTS log_key')
+    const legacyEventKey = (await queryOnce(`SELECT
+        EXISTS (SELECT 1 FROM pg_class WHERE relnamespace='public'::regnamespace AND relname='idx_events_log_key' AND relkind='i') AS legacy_index_exists,
+        EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid='public.events'::regclass AND attname='log_key' AND attnum > 0 AND NOT attisdropped) AS legacy_column_exists`)).rows[0]
+    if (legacyEventKey?.legacy_index_exists) await run('DROP INDEX CONCURRENTLY IF EXISTS idx_events_log_key')
+    // ALTER TABLE takes a strong table lock even when IF EXISTS finds no column.
+    if (legacyEventKey?.legacy_column_exists) await run('ALTER TABLE events DROP COLUMN log_key')
     await ensureRuleReprocessSchema()
     await run(`
         CREATE TABLE IF NOT EXISTS findings (
