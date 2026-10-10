@@ -2,12 +2,14 @@ import { withDatabaseAdvisoryLock } from '#db'
 
 const logSearchIndexNames = [
     'idx_logs_exact_message_time',
+    'idx_log_dimensions_org_time',
 ] as const
 
-// Exact message predicates used by rule cleanup and reprocessing need a narrow
-// seek. The tuning snapshot is an all-history aggregation and uses the
-// organization/time index created by ensureSchema.
+// Keep recent dashboard aggregates on indexed time ranges instead of scanning
+// all processed log dimensions on every cache refresh.
 export const logSearchIndexes = [
+    `CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_log_dimensions_org_time ON log_dimensions
+        (organization_id, event_timestamp)`,
     `CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_logs_exact_message_time ON events
         (organization_id, (normalized->>'message'), event_timestamp DESC, id DESC)
         WHERE ingestion_id = 'logs' AND processing_status = 'processed'
