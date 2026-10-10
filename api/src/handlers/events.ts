@@ -239,7 +239,7 @@ export async function getEvents(req: FastifyRequest, res: FastifyReply) {
     const role = await hasHanasandInternalRouteAccess(req)
     if (res.sent) return
     const canReadLogs = role.valid
-    const result = await run(`
+    const result = await readDatabase(() => run(`
         SELECT id, ingestion_id, source_vendor, source_product, event_timestamp, received_at,
                event_type, action, outcome, user_id, user_email, source_ip, source_country,
                source_city, device_id, normalized, original, parser_version, processing_status
@@ -247,7 +247,7 @@ export async function getEvents(req: FastifyRequest, res: FastifyReply) {
         WHERE organization_id = $1 AND ($3::boolean OR ingestion_id <> 'logs')
         ORDER BY event_timestamp DESC, received_at DESC
         LIMIT $2
-    `, [access.organizationId, limit, canReadLogs])
+    `, [access.organizationId, limit, canReadLogs]))
     return res.send({ organizationId: access.organizationId, events: result.rows.map(row => ({
         ...row,
         parser_version: normalizeParserVersion(row.parser_version),

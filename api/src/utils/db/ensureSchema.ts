@@ -1441,9 +1441,6 @@ async function applySchema() {
         )
     `)
     await ensureColumn(run, 'events', 'parser_version', 'ALTER TABLE events ADD COLUMN IF NOT EXISTS parser_version TEXT NOT NULL DEFAULT \'event.v1\'')
-    // The recent-events API filters by organization and sorts by event time.
-    // Without this index each request scans and sorts the entire events table.
-    await ensureIndex(run, 'idx_events_org_recent_received', 'CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_events_org_recent_received ON events(organization_id, event_timestamp DESC, received_at DESC)')
     await run('DROP TABLE IF EXISTS log_process_queue')
     await run('DROP TABLE IF EXISTS log_proxy_requests')
     await run('DROP TABLE IF EXISTS service_logs')
