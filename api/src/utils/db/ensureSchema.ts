@@ -119,6 +119,14 @@ async function ensureIdentityDataBoundaryWithRetry() {
     }
 }
 
+async function ensureRecoverableIndex(indexName: string, statement: string) {
+    const existing = (await run('SELECT indisvalid,indisready FROM pg_index WHERE indexrelid=to_regclass($1)', [indexName])).rows[0]
+    if (existing && (!existing.indisvalid || !existing.indisready)) {
+        await run(`DROP INDEX CONCURRENTLY IF EXISTS ${indexName}`)
+    }
+    await ensureIndex(run, indexName, statement)
+}
+
 async function applySchema() {
     await run(`CREATE SCHEMA IF NOT EXISTS pgbouncer AUTHORIZATION hanasand;
         REVOKE ALL ON SCHEMA pgbouncer FROM PUBLIC;
@@ -1476,7 +1484,7 @@ async function applySchema() {
         )
     `)
     await ensureColumn(run, 'events', 'parser_version', 'ALTER TABLE events ADD COLUMN IF NOT EXISTS parser_version TEXT NOT NULL DEFAULT \'event.v1\'')
-    await ensureIndex(run, 'idx_events_logs_time', `CREATE INDEX IF NOT EXISTS idx_events_logs_time ON events(event_timestamp DESC, id DESC)
+    await ensureRecoverableIndex('idx_events_logs_time', `CREATE INDEX IF NOT EXISTS idx_events_logs_time ON events(event_timestamp DESC, id DESC)
         WHERE ingestion_id = 'logs' AND processing_status = 'processed'`)
     await run('DROP TABLE IF EXISTS log_process_queue')
     await run('DROP TABLE IF EXISTS log_proxy_requests')
