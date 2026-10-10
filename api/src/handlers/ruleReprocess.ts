@@ -30,14 +30,9 @@ export async function getRuleReprocess(req: Request, res: FastifyReply) {
     let existing: { count: number, bytes: number } | null = null
     if (!jobs.rows.some(row => ['queued', 'running'].includes(row.status)) && rule?.enabled !== false && rule?.definition?.stage === 'analyze' && rule?.definition?.action === 'drop' && rule?.definition?.conditions?.length) {
         try {
-            let cursor: { time: string, id: string } | null = null, count = 0, bytes = 0
-            do {
-                const page = await scanRulePreview(scope.organizationId, true, { from: null, until: new Date().toISOString(), cursor, action: 'drop', sample: true, conditions: rule.definition.conditions }, run,
-                    { storedLogsOnly: rule.source === 'owned' })
-                count += page.count; bytes += page.bytes
-                cursor = page.cursor
-            } while (cursor)
-            existing = { count, bytes }
+            const page = await scanRulePreview(scope.organizationId, true, { from: null, until: new Date().toISOString(), cursor: null, action: 'drop', sample: true, limit: 2000, conditions: rule.definition.conditions }, run,
+                { storedLogsOnly: rule.source === 'owned' })
+            existing = { count: page.count, bytes: page.bytes }
         } catch {
             // A busy database should not make the rule detail page fail.
         }
