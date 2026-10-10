@@ -27,6 +27,18 @@ describe('Event detection catalog', () => {
         expect(matchesRule({ event_type: 'file', source: { product: 'customer-identity' } }, normalized.conditions)).toBe(false)
     })
 
+    test('matches an explicitly empty optional IP while rejecting populated IPs', () => {
+        const conditions = [
+            { path: 'host', operator: 'regex' as const, value: '^(?:ovh|ovhcloud|inspur|hanasand)$' },
+            { path: 'source.ip', operator: 'regex' as const, value: '^$' },
+            { path: 'message', operator: 'equals' as const, value: 'hanasand-host-metrics.service: Deactivated successfully.' },
+        ]
+        const event = { host: 'inspur', source: {}, message: conditions[2].value }
+        expect(matchesRule(event, conditions)).toBe(true)
+        expect(matchesRule({ ...event, source: { ip: '203.0.113.8' } }, conditions)).toBe(false)
+        expect(matchesRule({ ...event, host: 'external.example' }, conditions)).toBe(false)
+    })
+
     test('evaluates newly created Detection rules before Match rules after Analyze retention', () => {
         const event = normalizeEvent({ timestamp: '2026-09-26T10:00:00Z', event_type: 'application', action: 'log', severity: 'low', message: 'routine' }, { vendor: 'Hanasand', product: 'Logs' })
         const rules = ['match', 'detect'].map(stage => ({ id: `custom.${stage}.v1`, version: '1', name: stage, family: 'Custom',

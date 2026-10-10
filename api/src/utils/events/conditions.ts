@@ -2,7 +2,8 @@ export type Condition = { path: string, operator: 'equals' | 'contains' | 'regex
 export function matchesRule(event: Record<string, unknown>, conditions: Condition[]) {
     return conditions.every(condition => {
         const value = getPath(event, condition.path)
-        if (value === undefined || value === null || typeof value === 'object') return false
+        if (value === undefined || value === null) return condition.operator === 'regex' && condition.value === '^$'
+        if (typeof value === 'object') return false
         const actual = String(value)
         const comparable = condition.caseSensitive ? actual : actual.toLowerCase()
         const expected = condition.caseSensitive ? condition.value : condition.value.toLowerCase()
