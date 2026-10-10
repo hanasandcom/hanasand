@@ -1,4 +1,5 @@
 import run from '#db'
+import { ensureIndex } from './existingSchema.ts'
 
 export default async function ensureMonitoringIssuesSchema() {
     await run(`CREATE TABLE IF NOT EXISTS monitoring_case_vms (
@@ -72,5 +73,5 @@ export default async function ensureMonitoringIssuesSchema() {
         active BOOLEAN NOT NULL, PRIMARY KEY(issue_id, automation_id)
     )`)
     await run('INSERT INTO monitoring_issue_checks SELECT id, automation_id, resolved_at IS NULL FROM monitoring_issues WHERE merged_into IS NULL ON CONFLICT DO NOTHING')
-    await run('CREATE INDEX IF NOT EXISTS idx_automation_runs_issue ON agent_automation_runs(issue_id) WHERE issue_id IS NOT NULL')
+    await ensureIndex(run, 'idx_automation_runs_issue', 'CREATE INDEX idx_automation_runs_issue ON agent_automation_runs(issue_id) WHERE issue_id IS NOT NULL')
 }
