@@ -69,12 +69,15 @@ test('analysis separates configured retention from enabled state', async ({ page
 })
 
 
-test('searchable event types, JSON and Drop creation preserve drafts on failure', async ({ page }) => {
+test('condition values are entered directly and Drop creation preserves drafts on failure', async ({ page }) => {
     let saved: Rule | undefined, attempts = 0
+    let eventReads = 0, definitionReads = 0
+    await page.route('**/api/backend/events?*', async route => { eventReads++; await route.fallback() })
     await page.route('**/api/backend/rules?*', route => {
+        if (new URL(route.request().url()).searchParams.get('view') === 'definitions') definitionReads++
         if (route.request().method() === 'POST') {
             attempts++
-            if (attempts === 1) return route.fulfill({ status: 403, json: { error: 'System administrator access is required.' } })
+            if (attempts === 1) return route.fulfill({ status: 500, json: { error: 'Internal Server Error' } })
             const body = route.request().postDataJSON()
             expect(body).toMatchObject({ severity: 'low', stage: 'analyze', action: 'drop', conditions: [{ path: 'event_type', operator: 'equals', value: 'custom_health' }] })
             saved = { ...rule, ...body, id: 'custom.health.v1', source: 'owned', definition: { stage: body.stage, action: body.action, conditions: body.conditions } }
@@ -84,17 +87,15 @@ test('searchable event types, JSON and Drop creation preserve drafts on failure'
     })
     await page.goto('http://event.test/rules/analysis')
     await page.getByRole('button', { name: 'Create', exact: true }).click()
+    expect(eventReads).toBe(0)
+    expect(definitionReads).toBe(0)
     await page.getByLabel('Rule name', { exact: true }).fill('Drop health events')
     await page.getByLabel('Rule explanation').fill('Discard routine health events from this source.')
     await page.getByLabel('Rule action').selectOption('drop')
-    const value = page.getByRole('combobox', { name: 'Condition 1 value', exact: true })
-    await value.fill('')
-    await expect(page.getByRole('option', { name: 'authentication', exact: true })).toBeVisible()
-    await value.fill('cust')
+    const value = page.getByRole('textbox', { name: 'Condition 1 value', exact: true })
+    await value.fill('custom_health')
     await expect(page.getByRole('option', { name: 'authentication', exact: true })).toHaveCount(0)
-    await expect(page.getByRole('option', { name: 'custom_health', exact: true })).toBeVisible()
-    await value.press('ArrowDown')
-    await value.press('Enter')
+    await expect(page.getByRole('option', { name: 'custom_health', exact: true })).toHaveCount(0)
     await expect(value).toHaveValue('custom_health')
     await page.getByLabel('Condition 1 operator').selectOption('regex')
     await value.fill('[')
@@ -105,8 +106,12 @@ test('searchable event types, JSON and Drop creation preserve drafts on failure'
     await page.getByRole('button', { name: 'Apply JSON' }).click()
     await expect(page.getByLabel('Rule JSON preview')).toContainText('"action": "drop"')
     await page.getByRole('button', { name: 'Create rule', exact: true }).click()
-    await expect(page.getByRole('alert')).toContainText('System administrator')
+    const error = page.getByRole('dialog').locator('footer').getByRole('alert')
+    await expect(error).toHaveText('Internal Server Error')
+    await expect(error.locator('..').getByRole('button', { name: 'Create rule', exact: true })).toBeVisible()
+    await expect(page.getByRole('alert')).toHaveCount(1)
     await expect(value).toHaveValue('custom_health')
+    await expect(error).toHaveCount(0, { timeout: 4000 })
     await page.getByRole('button', { name: 'Create rule', exact: true }).click()
     await expect(page.getByRole('dialog')).toHaveCount(0)
     await expect(page.getByRole('cell', { name: 'Drop', exact: true })).toBeVisible()

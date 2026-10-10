@@ -3,14 +3,7 @@ import { useId, useState } from 'react'
 
 export type Condition = { path: string, operator: string, value: string, caseSensitive?: boolean }
 export const ruleInput = 'w-full min-w-0 rounded-md border border-ui-border bg-ui-canvas px-3 py-2 font-mono text-sm text-ui-text outline-none focus:border-ui-primary disabled:opacity-60'
-export const fieldValues: Record<string, string[]> = {
-    event_type: ['application', 'authentication', 'database', 'network', 'process', 'vulnerability'],
-    action: ['login', 'log', 'exec', 'alert', 'request'], outcome: ['success', 'failure', 'unknown'],
-    level: ['debug', 'info', 'warn', 'error', 'fatal'], 'http.method': ['GET', 'POST', 'PUT', 'DELETE'],
-    'http.status_code': ['200', '201', '400', '401', '403', '404', '500'],
-    service: [], message: [], log_type: [], 'source.ip': [], 'source.country': [], 'user.id': [], 'device.id': [],
-    'process.command_line': [], 'mongo.command': [], 'mongo.database': [],
-}
+const conditionFields = ['event_type', 'action', 'outcome', 'level', 'http.method', 'http.status_code', 'service', 'message', 'log_type', 'source.ip', 'source.country', 'user.id', 'device.id', 'process.command_line', 'mongo.command', 'mongo.database']
 
 export function Suggestions({ label, value, options, onChange, placeholder }: { label: string, value: string, options: string[], onChange: (value: string) => void, placeholder?: string }) {
     const id = useId(), [open, setOpen] = useState(false), [active, setActive] = useState(-1)
@@ -42,22 +35,17 @@ export function conditionError(conditions: Condition[]) {
     return ''
 }
 
-export default function ConditionBuilder({ conditions, onChange, options = fieldValues, label = 'Condition', onEditingJson }: { conditions: Condition[], onChange: (conditions: Condition[]) => void, options?: Record<string, string[]>, label?: string, onEditingJson?: (editing: boolean) => void }) {
+export default function ConditionBuilder({ conditions, onChange, label = 'Condition', onEditingJson }: { conditions: Condition[], onChange: (conditions: Condition[]) => void, label?: string, onEditingJson?: (editing: boolean) => void }) {
     const [json, setJson] = useState<string | null>(null), [jsonError, setJsonError] = useState('')
     function update(index: number, patch: Partial<Condition>) { onChange(conditions.map((condition, i) => i === index ? { ...condition, ...patch } : condition)) }
     return <div className='grid min-w-0 gap-3'>
         {conditions.map((condition, index) => {
-            const examples = options[condition.path] || []
-            const example = examples[0] || 'example'
-            const escaped = example.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-            const samples = condition.operator === 'regex' ? [`^${escaped}$`, `^${escaped}`, `${escaped}$`, `^(${escaped}|other)$`] : examples.slice(0, 4)
             return <section key={index} className='grid min-w-0 gap-3 rounded-lg border border-ui-border p-3'>
                 <div className='grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_8rem]'>
-                    <label className='grid min-w-0 gap-1 text-xs'>Field<Suggestions label={`${label} ${index + 1} field`} value={condition.path} options={Object.keys(options)} onChange={path => update(index, { path })} /></label>
+                    <label className='grid min-w-0 gap-1 text-xs'>Field<Suggestions label={`${label} ${index + 1} field`} value={condition.path} options={conditionFields} onChange={path => update(index, { path })} /></label>
                     <label className='grid gap-1 text-xs'>Operator<select aria-label={`${label} ${index + 1} operator`} className={ruleInput} value={condition.operator} onChange={event => update(index, { operator: event.target.value })}>{['equals', 'contains', 'regex'].map(value => <option key={value}>{value}</option>)}</select></label>
                 </div>
-                <label className='grid gap-1 text-xs'>{condition.path === 'event_type' ? 'Event type' : condition.operator === 'regex' ? 'Pattern' : 'Value'}<Suggestions label={`${label} ${index + 1} value`} value={condition.value} options={condition.operator === 'regex' ? [] : examples} placeholder={condition.operator === 'regex' ? `^${escaped}$` : example} onChange={value => update(index, { value })} /></label>
-                <div className='flex min-w-0 flex-wrap gap-2'>{samples.map(value => <button type='button' key={value} onClick={() => update(index, { value })} className='max-w-full break-all rounded border border-ui-border bg-ui-raised px-2 py-1 font-mono text-xs'>{condition.operator === 'regex' ? `/${value}/i` : JSON.stringify(value)}</button>)}</div>
+                <label className='grid gap-1 text-xs'>{condition.path === 'event_type' ? 'Event type' : condition.operator === 'regex' ? 'Pattern' : 'Value'}<input aria-label={`${label} ${index + 1} value`} autoComplete='off' value={condition.value} placeholder={condition.operator === 'regex' ? '^.*$' : undefined} className={ruleInput} onChange={event => update(index, { value: event.target.value })} /></label>
                 <pre aria-label={`${label} ${index + 1} JSON`} className='overflow-auto rounded bg-ui-raised p-3 font-mono text-xs'>{JSON.stringify(condition, null, 2)}</pre>
                 <button type='button' disabled={conditions.length <= 1} onClick={() => onChange(conditions.filter((_, i) => i !== index))} className='justify-self-end text-xs text-ui-muted disabled:opacity-40'>Remove condition</button>
             </section>
