@@ -493,6 +493,7 @@ export function isTransientDatabaseError(error: unknown) {
     return Boolean(err?.code && retryableCodes.has(err.code))
         || message.includes('connection terminated')
         || message.includes('connection timeout')
+        || message.includes('timeout exceeded when trying to connect')
         || message.includes('timeout expired')
 }
 
