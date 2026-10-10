@@ -1546,7 +1546,12 @@ async function applySchema() {
     await ensureLegacyHealthRuleHitMigration()
     // id is already globally unique, so this composite unique constraint adds
     // no protection and only duplicates a large index.
-    await run('ALTER TABLE events DROP CONSTRAINT IF EXISTS events_organization_id_ingestion_id_id_key')
+    const legacyEventConstraint = await run(`SELECT 1 FROM pg_constraint
+        WHERE conrelid = to_regclass('events')
+            AND conname = 'events_organization_id_ingestion_id_id_key'`)
+    if (legacyEventConstraint.rows.length) {
+        await run('ALTER TABLE events DROP CONSTRAINT events_organization_id_ingestion_id_id_key')
+    }
     // These indexes served search, correlation, and queue paths outside tuning
     // and exact-message cleanup; startup removes them and must not recreate them.
     for (const indexName of [
