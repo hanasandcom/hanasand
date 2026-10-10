@@ -57,7 +57,19 @@ export const logDimensionsSchema = [
 export default async function ensureLogDimensionsSchema() {
     await withTransaction(async query => {
         await query('SELECT pg_advisory_xact_lock(hashtextextended(\'event:log-dimensions-schema\', 0))')
-        for (const statement of logDimensionsSchema) await query(statement)
+        for (const statement of logDimensionsSchema) {
+            const trigger = statement.match(/^CREATE OR REPLACE TRIGGER\s+([a-z_][a-z0-9_]*)/i)
+            if (trigger) {
+                const expected = statement.replace(/^CREATE OR REPLACE TRIGGER/i, 'CREATE TRIGGER')
+                    .replace(/\bON events\b/i, 'ON public.events').replace(/\s+/g, ' ').trim()
+                const installed = await query(`SELECT pg_get_triggerdef(oid) AS definition FROM pg_trigger
+                    WHERE tgrelid='events'::regclass AND tgname=$1 AND NOT tgisinternal`, [trigger[1]])
+                const current = installed.rows[0]?.definition?.replace(/\s+/g, ' ').trim()
+                // Replacing an unchanged trigger waits for active event writers.
+                if (current === expected) continue
+            }
+            await query(statement)
+        }
     })
     await ensureLogSearchIndexes()
     await ensureLogCountsSchema()
