@@ -1,19 +1,15 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
-import { timingSafeEqual } from 'node:crypto'
 import { validateSession } from '#utils/auth/session.ts'
 import { validateApiKey, matchApiKeyScope } from '#utils/auth/apiKeys.ts'
 import { hasHanasandInternalPageAccess } from '#utils/auth/organizationPageAccess.ts'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import { queryOnce } from '#db'
+import { hasTrustedSupportServiceKey } from '#utils/auth/supportServiceKey.ts'
 
 type Input = { method?: unknown; path?: unknown; headers?: unknown; operation?: unknown; userId?: unknown }
 
 function trustedService(request: FastifyRequest, reply: FastifyReply) {
-    const expected = process.env.SUPPORT_AUTH_SERVICE_KEY || process.env.SUPPORT_SERVICE_KEY
-    const received = request.headers['x-support-auth-key']
-    if (!expected || expected.length < 32 || typeof received !== 'string'
-        || Buffer.byteLength(received) !== Buffer.byteLength(expected)
-        || !timingSafeEqual(Buffer.from(received), Buffer.from(expected))) {
+    if (!hasTrustedSupportServiceKey(request.headers)) {
         reply.code(403).send({ valid: false, error: 'Forbidden.' })
         return false
     }

@@ -15,6 +15,7 @@ import {
     resetSharedRateLimitBuckets,
 } from '#utils/rateLimit/config.ts'
 import hasInternalToken from '#utils/auth/internalToken.ts'
+import { hasTrustedSupportServiceKey } from '#utils/auth/supportServiceKey.ts'
 import { verifiedClientIp } from '#utils/http/publicBoundary.ts'
 import { withReadDatabase, withTransaction, isTransientDatabaseError } from '#db'
 
@@ -107,7 +108,10 @@ async function enforceRateLimit(req: FastifyRequest, res: FastifyReply, database
     const logIngest = req.method === 'POST' && path === '/api/logs/ingest' && (hasLogIngestToken(req) || hasInternalToken(req))
     const internalTokenRoute = internalTokenRoutes.get(`${req.method} ${path}`)
     let actor: RateLimitActor
-    if (logIngest) actor = { scope: 'internal', identifier: 'service:log-ingest' }
+    if (req.method === 'POST'
+        && ['/auth/support/authorize', '/api/auth/support/authorize'].includes(path)
+        && hasTrustedSupportServiceKey(req.headers)) actor = { scope: 'internal', identifier: 'service:support-auth' }
+    else if (logIngest) actor = { scope: 'internal', identifier: 'service:log-ingest' }
     else if (internalTokenRoute && hasInternalToken(req)) actor = { scope: 'internal', identifier: internalTokenRoute }
     else if (req.method === 'GET' && path === '/api/thesis/code-reviews' && hasInternalToken(req)) actor = { scope: 'internal', identifier: 'service:code-review' }
     else actor = await resolveRateLimitActor(req)
