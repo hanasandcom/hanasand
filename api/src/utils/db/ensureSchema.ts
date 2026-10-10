@@ -1573,6 +1573,7 @@ async function applySchema() {
     await run('CREATE INDEX IF NOT EXISTS idx_findings_org_status ON findings(organization_id, status, last_observed DESC)')
     await run('CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_findings_org_rule ON findings(organization_id, rule_id)')
     await run('CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_log_analyze_receipts_org_rule ON log_analyze_receipts(organization_id, rule_id)')
+    await run('CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_log_analyze_receipts_org_rule_created ON log_analyze_receipts(organization_id, rule_id, created_at)')
     await run('CREATE INDEX IF NOT EXISTS idx_findings_event_ids ON findings USING GIN(event_ids)')
     await ensureRuleHitCountSchema()
     await ensureLegacyHealthRuleHitMigration()

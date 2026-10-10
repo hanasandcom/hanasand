@@ -20,6 +20,7 @@ import { loadCachedLogMetrics, startLogMetricsRefresh } from './handlers/logs/me
 import { loadCachedMostActiveServices, startMostActiveServicesRefresh } from './handlers/logs/mostActive.ts'
 import { startLogTuningSnapshotRefresh } from './handlers/logs/tuning.ts'
 import { startIngestAccessCounterRefresh } from './utils/events/analyzeIngestAccess.ts'
+import { startDropRateAlertRefresh } from './utils/events/dropRateAlert.ts'
 import { startDatabaseOverviewRefresh, warmDatabaseOverview } from './utils/db/overview.ts'
 import recordLog from '#utils/logs/recordLog.ts'
 import recordTraffic from '#utils/traffic/recordTraffic.ts'
@@ -212,6 +213,8 @@ async function start() {
         if (!browserWorkerOnly && process.env.AUTH_SERVICE_ONLY !== '1') {
             const stopIngestAccessCounterRefresh = startIngestAccessCounterRefresh(fastify.log)
             fastify.addHook('onClose', async () => { await stopIngestAccessCounterRefresh() })
+            const stopDropRateAlertRefresh = startDropRateAlertRefresh(fastify.log)
+            fastify.addHook('onClose', async () => { stopDropRateAlertRefresh() })
         }
         if (!browserWorkerOnly && !httpWorkerOnly && process.env.AUTH_SERVICE_ONLY !== '1') {
             void loadCachedLogMetrics().catch(error => fastify.log.warn({ error }, 'Failed to warm log throughput metrics cache; background refresh will retry'))
