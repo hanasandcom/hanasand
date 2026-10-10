@@ -99,7 +99,9 @@ async function flushPendingIngestAccessCounters() {
         await run(`INSERT INTO log_ingest_access_minute_batches(batch_id,organization_id,bucket,ip,hits)
             SELECT $1::uuid,entry.organization_id,entry.bucket::timestamptz,entry.ip::inet,entry.hits
             FROM jsonb_to_recordset($2::jsonb) AS entry(organization_id text,bucket text,ip text,hits bigint)
-            ON CONFLICT DO NOTHING`, [batch.id, JSON.stringify(batch.rows)])
+            ON CONFLICT DO NOTHING`, [batch.id, JSON.stringify(batch.rows.map(row => ({
+            organization_id: row.organizationId, bucket: row.bucket, ip: row.ip, hits: row.hits,
+        })))])
         pendingBatch = null
     }
 
