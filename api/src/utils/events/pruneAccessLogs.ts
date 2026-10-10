@@ -28,7 +28,10 @@ export function historicalAccess(log: LogInput): AccessEvent | null {
 export async function pruneAccessLogs(logs: LogInput[], organizationId: string, query?: typeof run): Promise<Set<string>> {
     const candidates = logs.map(log => ({ log, access: historicalAccess(log) })).filter(item => item.access && eligibleAccess(item.access, { conditions: [] }))
     if (!candidates.length) return new Set()
-    if (!query) return withTransaction(tx => pruneAccessLogs(logs, organizationId, tx))
+    if (!query) return withTransaction(async tx => {
+        await tx('SET LOCAL lock_timeout=\'1ms\'')
+        return pruneAccessLogs(logs, organizationId, tx)
+    })
     const rule = await platformAccessRule(query)
     if (!rule?.enabled || rule.organization_id !== organizationId || rule.definition?.action !== 'drop' || rule.definition.stage !== 'analyze' || !Array.isArray(rule.definition.conditions)) return new Set()
     const retention = await loadLogRetentionRules(organizationId, query)
@@ -40,7 +43,7 @@ export async function pruneAccessLogs(logs: LogInput[], organizationId: string, 
     if (!entries.length) return new Set()
     // Lock existing evidence before checking findings. Never remove evidence that
     // already produced a detection, regardless of its current finding status.
-    const evidence = await query('SELECT id,normalized FROM events WHERE id=ANY($1::text[]) FOR UPDATE', [entries.map(e => e.eventId)])
+    const evidence = await query('SELECT id,normalized FROM events WHERE id=ANY($1::text[]) FOR UPDATE NOWAIT', [entries.map(e => e.eventId)])
     const findings = await query('SELECT event_ids FROM findings WHERE event_ids && $1::text[]', [evidence.rows.map(row => row.id)])
     const protectedIds = new Set(findings.rows.flatMap(row => row.event_ids))
     const protectedEventIds = new Set(evidence.rows.filter(row => protectedIds.has(row.id) || ['medium', 'high', 'critical'].includes(row.normalized?.severity)

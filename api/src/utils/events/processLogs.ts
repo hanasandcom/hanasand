@@ -8,11 +8,8 @@ import { processAdditionalLogSources } from './storedSources.ts'
 import { backfillLogDimensions } from '../logs/dimensions.ts'
 import { pruneAccessLogs } from './pruneAccessLogs.ts'
 import { accessRuleId } from './analyzeAccess.ts'
-import { withLogBatch } from './logBatch.ts'
 import { customRetentionAction, loadLogRetentionRules, recordCustomDropReceipts } from './customRetention.ts'
 
-let running = false
-// Keep a slow login's correlation work from holding the global lock for a batch.
 const AUTH_CORRELATION_PAGE_SIZE = 1
 const AUTH_CORRELATION_RECHECK_LIMIT = 25
 const DEDICATED_LOG_BATCH_LIMIT = 50
@@ -57,6 +54,7 @@ export async function processLogBatch(logs: LogInput[], organizationId: string, 
     })
     if (!prepared.length) return
     await withTransaction(async query => {
+        await query('SET LOCAL lock_timeout=\'1ms\'')
         const stateless = prepared.filter(item => item.complete)
         if (stateless.length) {
             // Preserve findings from a previously interrupted attempt. New stateless
@@ -168,7 +166,8 @@ async function pruneLoginMonitorEvents(logs: LogInput[], organizationId: string,
     const matching = candidates.filter(item => customRetentionAction(item.event, retention) === 'drop')
     if (!matching.length) return new Set<string>()
     return withTransaction(async query => {
-        const existing = await query('SELECT id,normalized FROM events WHERE organization_id=$1 AND id=ANY($2::text[]) FOR UPDATE',
+        await query('SET LOCAL lock_timeout=\'1ms\'')
+        const existing = await query('SELECT id,normalized FROM events WHERE organization_id=$1 AND id=ANY($2::text[]) FOR UPDATE NOWAIT',
             [organizationId, matching.map(item => item.eventId)])
         const ids = existing.rows.map(row => row.id)
         const findings = ids.length ? await query('SELECT event_ids FROM findings WHERE event_ids && $1::text[]', [ids]) : { rows: [] as Array<{ event_ids: string[] }> }
@@ -229,22 +228,12 @@ function scopedProcessor(platformId: string, onWork: () => void, afterBatch?: ()
                 : DEFAULT_LOG_PAGE_CONCURRENCY
             const processPage = (page: LogInput[]) => processLogBatch(page, target, configured.get(target)!)
             const processPages = async (logs: LogInput[], independent: boolean) => {
-                // Correlation pages hold the shared advisory lock while login
-                // history is evaluated. Bound each hold so a large auth burst
-                // cannot stall the dedicated catch-up worker for minutes.
+                // Keep correlation pages small, but let unrelated identities
+                // progress together. Receipt and finding writes are idempotent.
                 const batchSize = independent ? pageSize : Math.min(pageSize, AUTH_CORRELATION_PAGE_SIZE)
                 const pages = Array.from({ length: Math.ceil(logs.length / batchSize) }, (_, index) => logs.slice(index * batchSize, (index + 1) * batchSize))
-                if (!independent) {
-                    for (const page of pages) {
-                        await withLogBatch(() => processPage(page))
-                        if (!priority) await afterBatch?.()
-                    }
-                    return
-                }
-
-                // Process events are evaluated independently. The dedicated worker
-                // can use its reserved pool for thirty-six bounded pages; API workers
-                // retain their smaller group. Authentication logins remain serialized.
+                // The dedicated worker can use its reserved pool for thirty-six
+                // bounded pages; API workers retain their smaller group.
                 for (let offset = 0; offset < pages.length; offset += pageConcurrency) {
                     const group = pages.slice(offset, offset + pageConcurrency)
                     if (group.length === 1) {
@@ -288,28 +277,22 @@ function scopedProcessor(platformId: string, onWork: () => void, afterBatch?: ()
     return { configured, processScopes }
 }
 
-let liveRunning = false
 export async function processLiveLogs() {
-    if (liveRunning) return false
-    liveRunning = true
-    try {
-        return await withTransaction(async query => {
-            const lock = await query('SELECT pg_try_advisory_xact_lock(hashtextextended(\'event:live-service-logs\', 0)) AS locked')
-            if (!lock.rows[0].locked) return false
-            const logs = await pendingLogEvents(DEDICATED_LOG_FRESH_LIMIT, 10_000)
-            if (!logs.length) return false
-            const platform = await run('SELECT id FROM organizations WHERE status = \'active\' AND (id = $1 OR ($1::text IS NULL AND lower(name) = \'hanasand\')) ORDER BY created_at LIMIT 1', [process.env.PLATFORM_LOG_ORGANIZATION_ID || null])
-            if (!platform.rows[0]) throw new Error('Configure an active platform log organization.')
-            await scopedProcessor(platform.rows[0].id, () => {}).processScopes(logs, true)
-            return true
-        })
-    } finally { liveRunning = false }
+    return withTransaction(async query => {
+        await query('SET LOCAL lock_timeout=\'1ms\'')
+        const logs = await pendingLogEvents(DEDICATED_LOG_FRESH_LIMIT, 10_000, query)
+        if (!logs.length) return false
+        const platform = await run('SELECT id FROM organizations WHERE status = \'active\' AND (id = $1 OR ($1::text IS NULL AND lower(name) = \'hanasand\')) ORDER BY created_at LIMIT 1', [process.env.PLATFORM_LOG_ORGANIZATION_ID || null])
+        if (!platform.rows[0]) throw new Error('Configure an active platform log organization.')
+        await scopedProcessor(platform.rows[0].id, () => {}).processScopes(logs, true)
+        return true
+    })
 }
 
-async function pendingLogEvents(limit: number, recentMs = 0): Promise<LogInput[]> {
+async function pendingLogEvents(limit: number, recentMs = 0, query = run): Promise<LogInput[]> {
     const recent = recentMs ? `AND e.received_at >= statement_timestamp() - ($2 * INTERVAL '1 millisecond')` : ''
     const params = recentMs ? [limit, recentMs] : [limit]
-    const rows = await run(`SELECT e.id, e.event_timestamp, e.normalized FROM events e
+    const rows = await query(`SELECT e.id, e.event_timestamp, e.normalized FROM events e
         WHERE e.ingestion_id='logs' AND e.processing_status='pending' ${recent}
         ORDER BY e.received_at, e.id LIMIT $1`, params)
     return rows.rows.map(row => ({
@@ -322,37 +305,30 @@ async function pendingLogEvents(limit: number, recentMs = 0): Promise<LogInput[]
 }
 
 export async function processStoredLogs() {
-    if (running) return
-    running = true
-    try {
-        const settings = readLogCatchupSettings()
-        const dedicatedWorker = process.env.LOG_PROCESSOR_ONLY === '1'
-        const limit = dedicatedWorker ? Math.min(settings.limit, DEDICATED_LOG_BATCH_LIMIT * DEDICATED_LOG_PAGE_CONCURRENCY) : Math.min(settings.limit, 1000)
-        let didWork = false
-        await withTransaction(async query => {
-            const lock = await query('SELECT pg_try_advisory_xact_lock(hashtextextended(\'event:pending-logs\', 0)) AS locked')
-            if (!lock.rows[0].locked) return
+    const settings = readLogCatchupSettings()
+    const dedicatedWorker = process.env.LOG_PROCESSOR_ONLY === '1'
+    const limit = dedicatedWorker ? Math.min(settings.limit, DEDICATED_LOG_BATCH_LIMIT * DEDICATED_LOG_PAGE_CONCURRENCY) : Math.min(settings.limit, 1000)
+    let didWork = false
+    await withTransaction(async query => {
+        await query('SET LOCAL lock_timeout=\'1ms\'')
+        didWork = true
+        const platform = await run('SELECT id FROM organizations WHERE status = \'active\' AND (id = $1 OR ($1::text IS NULL AND lower(name) = \'hanasand\')) ORDER BY created_at LIMIT 1', [process.env.PLATFORM_LOG_ORGANIZATION_ID || null])
+        if (!platform.rows[0]) throw new Error('Configure an active platform log organization.')
+        const { configured, processScopes } = scopedProcessor(platform.rows[0].id, () => { })
+        const pendingLogs = await pendingLogEvents(limit, 0, query)
+        await processScopes(pendingLogs, true)
+        await processAdditionalLogSources(processScopes, Math.min(settings.historyLimit, 10_000), Math.min(settings.limit, 1000), query)
+        const pending = await query(`SELECT e.* FROM events e JOIN organizations o ON o.id = e.organization_id
+            WHERE e.ingestion_id <> 'logs' AND e.processing_status = 'pending' AND o.status = 'active'
+            ORDER BY e.event_timestamp, e.id LIMIT $1`, [dedicatedWorker ? limit : 100])
+        for (const row of pending.rows) {
             didWork = true
-            const platform = await run('SELECT id FROM organizations WHERE status = \'active\' AND (id = $1 OR ($1::text IS NULL AND lower(name) = \'hanasand\')) ORDER BY created_at LIMIT 1', [process.env.PLATFORM_LOG_ORGANIZATION_ID || null])
-            if (!platform.rows[0]) throw new Error('Configure an active platform log organization.')
-            const { configured, processScopes } = scopedProcessor(platform.rows[0].id, () => { })
-            const pendingLogs = await pendingLogEvents(limit)
-            await processScopes(pendingLogs, true)
-            await processAdditionalLogSources(processScopes, Math.min(settings.historyLimit, 10_000), Math.min(settings.limit, 1000), query)
-            const pending = await run(`SELECT e.* FROM events e JOIN organizations o ON o.id = e.organization_id
-                WHERE e.ingestion_id <> 'logs' AND e.processing_status = 'pending' AND o.status = 'active'
-                ORDER BY e.event_timestamp, e.id LIMIT $1`, [dedicatedWorker ? limit : 100])
-            for (const row of pending.rows) {
-                didWork = true
-                if (!configured.has(row.organization_id)) configured.set(row.organization_id, await loadConfiguredRules(row.organization_id))
-                await createFindings(row.organization_id, row.id, normalizeEvent(row.normalized, { vendor: row.source_vendor, product: row.source_product }), configured.get(row.organization_id)!)
-                await run('UPDATE events SET processing_status = \'processed\' WHERE id = $1 AND organization_id = $2', [row.id, row.organization_id])
-            }
-        })
-        void refreshLogCatchupProgress()
-        void backfillLogDimensions().catch(() => {})
-        return didWork
-    } catch (error) {
-        throw error
-    } finally { running = false }
+            if (!configured.has(row.organization_id)) configured.set(row.organization_id, await loadConfiguredRules(row.organization_id))
+            await createFindings(row.organization_id, row.id, normalizeEvent(row.normalized, { vendor: row.source_vendor, product: row.source_product }), configured.get(row.organization_id)!)
+            await run('UPDATE events SET processing_status = \'processed\' WHERE id = $1 AND organization_id = $2', [row.id, row.organization_id])
+        }
+    })
+    void refreshLogCatchupProgress()
+    void backfillLogDimensions().catch(() => {})
+    return didWork
 }

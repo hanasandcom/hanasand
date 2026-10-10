@@ -51,20 +51,14 @@ export async function processRuleReprocessJob() {
             await query('SET LOCAL statement_timeout=\'10s\'')
             const pending = await query('SELECT EXISTS(SELECT 1 FROM rule_reprocess_jobs WHERE status IN (\'queued\',\'running\')) AS pending')
             if (!pending.rows[0].pending) return false
-            await query('SET LOCAL lock_timeout=\'5s\'')
-            // Join the bounded lock queue: repeatedly probing two busy workers
-            // can starve historical replay even while both keep making progress.
-            await query('SELECT pg_advisory_xact_lock(hashtextextended(\'event:service-logs\',0))')
-            // Live processing also reads raw rows before writing their projection.
-            // Hold both worker locks so a fresh batch cannot recreate deleted rows.
-            await query('SELECT pg_advisory_xact_lock(hashtextextended(\'event:live-service-logs\',0))')
-            await query('SET LOCAL lock_timeout=\'1s\'')
+            // Conflicting event rows fail immediately and retry on the next worker pass.
+            await query('SET LOCAL lock_timeout=\'1ms\'')
             const job = (await query(`SELECT * FROM rule_reprocess_jobs WHERE status IN ('queued','running')
                 ORDER BY updated_at,id LIMIT 1 FOR UPDATE SKIP LOCKED`)).rows[0] as ReprocessJob | undefined
             if (!job) return false
             jobId = job.id
             const rule = (await query(`SELECT r.* FROM rules r JOIN organizations o ON o.id=r.organization_id
-                WHERE r.organization_id=$1 AND r.rule_id=$2 AND o.status='active' FOR SHARE OF r,o`, [job.organization_id, job.rule_id])).rows[0] as Rule | undefined
+                WHERE r.organization_id=$1 AND r.rule_id=$2 AND o.status='active' FOR SHARE OF r,o NOWAIT`, [job.organization_id, job.rule_id])).rows[0] as Rule | undefined
             if (!reprocessableRule(rule) || rule.version !== job.rule_version) {
                 await query('UPDATE rule_reprocess_jobs SET status=\'cancelled\',error=\'The rule changed or was disabled. Start a new run to use its current version.\',updated_at=NOW() WHERE id=$1', [job.id])
                 return true
@@ -73,9 +67,9 @@ export async function processRuleReprocessJob() {
             const timeOrderedMessageScan = rule.source === 'owned' && usesTimeOrderedMessageScan(rule.definition.conditions)
             if (timeOrderedMessageScan) {
                 await query('SET LOCAL statement_timeout=\'60s\'')
-                // Receipt triggers serialize on this rule's hit-count row while
-                // live log batches commit. Let that short-lived row lock drain.
-                await query('SET LOCAL lock_timeout=\'50s\'')
+                // Long scans must still fail fast on conflicting writes and retry
+                // on the next worker pass instead of waiting behind another batch.
+                await query('SET LOCAL lock_timeout=\'1ms\'')
             }
             const cursor = { ...job.cursor }
             let items: Item[], scanned: number
@@ -112,7 +106,7 @@ export async function processRuleReprocessJob() {
                     ${ownedLogScope}
                     AND ($3::timestamptz IS NULL OR event_timestamp>$3::timestamptz)
                     AND ($${cursorTimeParam}::timestamptz IS NULL OR (event_timestamp,id)<($${cursorTimeParam}::timestamptz,$${cursorIdParam}::text)) AND ${candidate}
-                    ORDER BY event_timestamp DESC,id DESC LIMIT $${limitParam} FOR UPDATE`,
+                    ORDER BY event_timestamp DESC,id DESC LIMIT $${limitParam} FOR UPDATE NOWAIT`,
                 params)).rows
                 scanned = rows.length
                 items = rows.map(row => ({ id: row.id,
@@ -153,8 +147,8 @@ export async function processRuleReprocessJob() {
             return true
         })
     } catch (error) {
+        if ((error as { code?: string }).code === '55P03') return false
         if (!jobId) {
-            if ((error as { code?: string }).code === '55P03') return false
             throw error
         }
         // A failed page rolls back its deletes and cursor together. Retry creates a new explicit run.
@@ -179,7 +173,7 @@ export async function reprocessRuleItems(items: Item[], job: Pick<ReprocessJob, 
         && !retentionStoreMatches({ ...item.event, retained_original: item.original }, storageRules)
         && !protectedEvent({ ...item.event, retained_original: item.original }))
     const evidence = (await query(`SELECT id,organization_id,source_vendor,source_product,normalized,original FROM events
-        WHERE id=ANY($1::text[]) FOR UPDATE`, [safe.map(item => item.id)])).rows
+        WHERE id=ANY($1::text[]) FOR UPDATE NOWAIT`, [safe.map(item => item.id)])).rows
         .map(row => ({ ...row, normalized: { ...row.normalized, source_vendor: row.source_vendor, source_product: row.source_product } }))
     const findingIds = new Set((await query('SELECT event_ids FROM findings WHERE event_ids && $1::text[]', [evidence.map(row => row.id)])).rows.flatMap(row => row.event_ids))
     for (const keep of keeps) for (const index of await matchRulePage(evidence.map(row => row.normalized), keep.definition!.conditions!)) findingIds.add(evidence[index].id)

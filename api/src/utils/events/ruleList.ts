@@ -74,8 +74,13 @@ async function loadRuleHitsUncached(organizationId: string, rules: Pick<Rule, 'i
     const receiptIds = ids.filter(id => receiptRules.has(id) || customDropIds.has(id))
     const parameters: (string | string[])[] = [organizationId, findingIds, receiptIds]
     const statements = [
-        `SELECT rule_id, hits::text AS hits FROM rule_hit_counts WHERE organization_id=$1
-            AND ((source='findings' AND rule_id=ANY($2::text[])) OR (source='receipts' AND rule_id=ANY($3::text[])))`,
+        `SELECT rule_id, SUM(hits)::text AS hits FROM (
+            SELECT rule_id, hits FROM rule_hit_counts WHERE organization_id=$1
+                AND ((source='findings' AND rule_id=ANY($2::text[])) OR (source='receipts' AND rule_id=ANY($3::text[])))
+            UNION ALL
+            SELECT rule_id, delta AS hits FROM rule_hit_count_deltas WHERE organization_id=$1
+                AND ((source='findings' AND rule_id=ANY($2::text[])) OR (source='receipts' AND rule_id=ANY($3::text[])))
+        ) counters GROUP BY rule_id`,
     ]
     for (const id of ids) {
         const aggregate = aggregateTables.get(id)

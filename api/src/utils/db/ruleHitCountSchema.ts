@@ -12,63 +12,80 @@ export default async function ensureRuleHitCountSchema() {
         id BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (id),
         initialized BOOLEAN NOT NULL DEFAULT FALSE
     )`)
+    await run(`CREATE TABLE IF NOT EXISTS rule_hit_count_deltas (
+        id BIGSERIAL PRIMARY KEY,
+        organization_id TEXT NOT NULL,
+        source TEXT NOT NULL CHECK (source IN ('findings', 'receipts')),
+        rule_id TEXT NOT NULL,
+        delta BIGINT NOT NULL CHECK (delta <> 0),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`)
+    await run('CREATE INDEX IF NOT EXISTS idx_rule_hit_count_deltas_lookup ON rule_hit_count_deltas(organization_id, source, rule_id)')
     await run('INSERT INTO rule_hit_count_state(id, initialized) VALUES(TRUE, FALSE) ON CONFLICT(id) DO NOTHING')
     await withTransaction(async query => {
         const state = await query('SELECT initialized FROM rule_hit_count_state WHERE id=TRUE FOR UPDATE')
-        if (state.rows[0]?.initialized) return
-        await query('LOCK TABLE findings, log_analyze_receipts IN SHARE ROW EXCLUSIVE MODE')
-        await query(`INSERT INTO rule_hit_counts(organization_id, source, rule_id, hits)
-            SELECT organization_id, source, rule_id, count(*) FROM (
-                SELECT organization_id, 'findings'::text AS source, rule_id FROM findings
-                UNION ALL
-                SELECT organization_id, 'receipts'::text AS source, rule_id FROM log_analyze_receipts
-            ) AS rule_hits GROUP BY organization_id, source, rule_id
-            ON CONFLICT(organization_id, source, rule_id) DO UPDATE SET hits=EXCLUDED.hits`)
-        await query(`CREATE OR REPLACE FUNCTION maintain_rule_hit_count() RETURNS trigger LANGUAGE plpgsql AS $$
-        DECLARE hit_source TEXT := CASE WHEN TG_TABLE_NAME = 'findings' THEN 'findings' ELSE 'receipts' END;
+        if (!state.rows[0]?.initialized) {
+            await query('LOCK TABLE findings, log_analyze_receipts IN SHARE ROW EXCLUSIVE MODE')
+            await query(`INSERT INTO rule_hit_counts(organization_id, source, rule_id, hits)
+                SELECT organization_id, source, rule_id, count(*) FROM (
+                    SELECT organization_id, 'findings'::text AS source, rule_id FROM findings
+                    UNION ALL
+                    SELECT organization_id, 'receipts'::text AS source, rule_id FROM log_analyze_receipts
+                ) AS rule_hits GROUP BY organization_id, source, rule_id
+                ON CONFLICT(organization_id, source, rule_id) DO UPDATE SET hits=EXCLUDED.hits`)
+            await query('UPDATE rule_hit_count_state SET initialized=TRUE WHERE id=TRUE')
+        }
+
+        const installed = await query(`SELECT EXISTS (
+            SELECT 1 FROM pg_trigger WHERE tgrelid='findings'::regclass
+                AND tgname='findings_rule_hit_count_insert' AND NOT tgisinternal
+        ) AS installed`)
+        if (installed.rows[0]?.installed) return
+
+        await query(`CREATE OR REPLACE FUNCTION record_rule_hit_count_delta() RETURNS trigger LANGUAGE plpgsql AS $$
+        DECLARE
+            hit_source TEXT := CASE WHEN TG_TABLE_NAME = 'findings' THEN 'findings' ELSE 'receipts' END;
         BEGIN
             IF TG_OP = 'INSERT' THEN
-                INSERT INTO rule_hit_counts(organization_id, source, rule_id, hits) VALUES(NEW.organization_id, hit_source, NEW.rule_id, 1)
-                ON CONFLICT(organization_id, source, rule_id) DO UPDATE SET hits=rule_hit_counts.hits+1;
-                RETURN NEW;
+                INSERT INTO rule_hit_count_deltas(organization_id, source, rule_id, delta)
+                SELECT organization_id, hit_source, rule_id, count(*)
+                FROM new_rows GROUP BY organization_id, rule_id;
             ELSIF TG_OP = 'DELETE' THEN
-                UPDATE rule_hit_counts SET hits=GREATEST(hits-1, 0)
-                WHERE organization_id=OLD.organization_id AND source=hit_source AND rule_id=OLD.rule_id;
-                RETURN OLD;
-            ELSIF (OLD.organization_id, OLD.rule_id) IS DISTINCT FROM (NEW.organization_id, NEW.rule_id) THEN
-                UPDATE rule_hit_counts SET hits=GREATEST(hits-1, 0)
-                WHERE organization_id=OLD.organization_id AND source=hit_source AND rule_id=OLD.rule_id;
-                INSERT INTO rule_hit_counts(organization_id, source, rule_id, hits) VALUES(NEW.organization_id, hit_source, NEW.rule_id, 1)
-                ON CONFLICT(organization_id, source, rule_id) DO UPDATE SET hits=rule_hit_counts.hits+1;
+                INSERT INTO rule_hit_count_deltas(organization_id, source, rule_id, delta)
+                SELECT organization_id, hit_source, rule_id, -count(*)
+                FROM old_rows GROUP BY organization_id, rule_id;
+            ELSE
+                INSERT INTO rule_hit_count_deltas(organization_id, source, rule_id, delta)
+                SELECT organization_id, hit_source, rule_id, sum(delta)
+                FROM (
+                    SELECT organization_id, rule_id, -count(*) AS delta
+                    FROM old_rows GROUP BY organization_id, rule_id
+                    UNION ALL
+                    SELECT organization_id, rule_id, count(*) AS delta
+                    FROM new_rows GROUP BY organization_id, rule_id
+                ) changes
+                GROUP BY organization_id, rule_id HAVING sum(delta) <> 0;
             END IF;
-            RETURN NEW;
-        END
-        $$`)
-        await query(`CREATE TRIGGER findings_rule_hit_count
-            AFTER INSERT OR UPDATE OR DELETE ON findings
-            FOR EACH ROW EXECUTE FUNCTION maintain_rule_hit_count()`)
-        await query(`CREATE TRIGGER log_analyze_receipts_rule_hit_count
-            AFTER INSERT OR UPDATE OR DELETE ON log_analyze_receipts
-            FOR EACH ROW EXECUTE FUNCTION maintain_rule_hit_count()`)
-        await query('UPDATE rule_hit_count_state SET initialized=TRUE WHERE id=TRUE')
-    })
-    // Concurrent receipt batches can visit rule counters in different orders.
-    // Acquire one transaction lock before any rows in a statement are inserted
-    // so the row-level counter triggers cannot deadlock on those shared rows.
-    await run(`CREATE OR REPLACE FUNCTION serialize_log_analyze_receipt_writes() RETURNS trigger LANGUAGE plpgsql AS $$
-        BEGIN
-            PERFORM pg_advisory_xact_lock(hashtextextended('hanasand:log_analyze_receipts', 0));
             RETURN NULL;
         END
         $$`)
-    await run(`DO $$ BEGIN
-        IF NOT EXISTS (
-            SELECT 1 FROM pg_trigger
-            WHERE tgrelid='log_analyze_receipts'::regclass AND tgname='log_analyze_receipts_write_lock' AND NOT tgisinternal
-        ) THEN
-            CREATE TRIGGER log_analyze_receipts_write_lock
-            BEFORE INSERT OR UPDATE OR DELETE ON log_analyze_receipts
-            FOR EACH STATEMENT EXECUTE FUNCTION serialize_log_analyze_receipt_writes();
-        END IF;
-    END $$`)
+
+        await query('DROP TRIGGER IF EXISTS findings_rule_hit_count ON findings')
+        await query('DROP TRIGGER IF EXISTS log_analyze_receipts_rule_hit_count ON log_analyze_receipts')
+        await query('DROP TRIGGER IF EXISTS log_analyze_receipts_write_lock ON log_analyze_receipts')
+        await query(`CREATE TRIGGER findings_rule_hit_count_insert AFTER INSERT ON findings
+            REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION record_rule_hit_count_delta()`)
+        await query(`CREATE TRIGGER findings_rule_hit_count_delete AFTER DELETE ON findings
+            REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION record_rule_hit_count_delta()`)
+        await query(`CREATE TRIGGER findings_rule_hit_count_update AFTER UPDATE ON findings
+            REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION record_rule_hit_count_delta()`)
+        await query(`CREATE TRIGGER log_analyze_receipts_rule_hit_count_insert AFTER INSERT ON log_analyze_receipts
+            REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION record_rule_hit_count_delta()`)
+        await query(`CREATE TRIGGER log_analyze_receipts_rule_hit_count_delete AFTER DELETE ON log_analyze_receipts
+            REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION record_rule_hit_count_delta()`)
+        await query(`CREATE TRIGGER log_analyze_receipts_rule_hit_count_update AFTER UPDATE ON log_analyze_receipts
+            REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION record_rule_hit_count_delta()`)
+        await query('DROP FUNCTION IF EXISTS maintain_rule_hit_count()')
+        await query('DROP FUNCTION IF EXISTS serialize_log_analyze_receipt_writes()')
+    })
 }

@@ -23,8 +23,6 @@ try {
                 await withTransaction(async query => {
                     await query('SET LOCAL lock_timeout = \'2s\'')
                     await query('SET LOCAL statement_timeout = \'20s\'')
-                    const lock = await query('SELECT pg_try_advisory_xact_lock(hashtextextended(\'event:pending-logs\',0)) AS locked')
-                    if (!lock.rows[0].locked) return
                     const active = await platformAccessRule(query)
                     if (!active?.enabled || active.definition?.action !== 'drop') throw new Error('Analyze rule was disabled or changed to Keep; cleanup stopped.')
                     const cursor = (await query('SELECT last_id,history_end_id FROM log_processing_cursors WHERE name=$1 FOR UPDATE', [cursorName])).rows[0]

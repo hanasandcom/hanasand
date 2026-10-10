@@ -73,8 +73,8 @@ try {
     try {
         await liveWorker.query('BEGIN')
         await liveWorker.query('SELECT pg_advisory_xact_lock(hashtextextended(\'event:live-service-logs\',0))')
-        assert.equal(await processRuleReprocessJob(), false, 'yield to live processing instead of racing its pending writes')
-        assert.equal((await query('SELECT status FROM rule_reprocess_jobs WHERE id=$1', [first.job.id])).rows[0].status, 'queued')
+        assert.equal(await processRuleReprocessJob(), true, 'historical replay proceeds while the former global live-processing lock is held')
+        assert.equal((await query('SELECT status FROM rule_reprocess_jobs WHERE id=$1', [first.job.id])).rows[0].status, 'completed')
     } finally { await liveWorker.query('ROLLBACK'); liveWorker.release() }
     for (let i = 0; i < 10 && await processRuleReprocessJob(); i++) { /* bounded pages */ }
     const done = (await getRuleReprocess(request(), reply() as any)).jobs[0]

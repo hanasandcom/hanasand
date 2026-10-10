@@ -4,6 +4,7 @@ let busy: string | null = null
 let recentId = '100', watermark = '200', historyRows = 1, recentRows = 1, reads: Array<{ sql: string, values: unknown[] }>
 mock.module('../src/utils/events/logWatermark.ts', () => ({ stableLogWatermark: async (source: string) => source === busy ? null : watermark }))
 const query = async (sql: string, values: unknown[] = []) => {
+    if (sql.startsWith('SELECT pg_try_advisory_xact_lock')) return { rows: [{ acquired: true }] }
     if (sql.includes('SELECT last_id, recent_id')) return { rows: [{ last_id: '0', recent_id: recentId, history_end_id: recentId }] }
     if (sql.startsWith('SELECT *')) {
         reads.push({ sql, values })
@@ -59,8 +60,8 @@ test('the caller can commit cursor bookkeeping together without extending source
         cursorStatements.push(sql)
         return query(sql, values) as any
     })
-    expect(cursorStatements).toHaveLength(18)
-    expect(cursorStatements.every(sql => sql.includes('log_processing_cursors'))).toBe(true)
+    expect(cursorStatements).toHaveLength(21)
+    expect(cursorStatements.filter(sql => sql.includes('log_processing_cursors'))).toHaveLength(18)
     expect(reads).toHaveLength(6)
     expect(checkpoints).toHaveLength(6)
 })

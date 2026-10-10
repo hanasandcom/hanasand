@@ -7,7 +7,7 @@ import { analyzeCdnRefresh } from '../events/analyzeCdnRefreshLog.ts'
 import { analyzeRoutineGroupBatch } from '../events/analyzeRoutineGroupBatch.ts'
 import { analyzeCollectorExecution } from '../events/analyzeCollectorLog.ts'
 import { analyzeProxy } from '../events/analyzeProxy.ts'
-import run from '#db'
+import run, { withTransaction } from '#db'
 import { analyzePostgresBatch } from '../events/analyzePostgresBatch.ts'
 import { customRetentionAction, loadLogRetentionRules, recordCustomDropReceipts } from '../events/customRetention.ts'
 import { normalizeLogEvent } from '../events/logEvent.ts'
@@ -121,7 +121,11 @@ function eventRow(values: Awaited<ReturnType<typeof prepareLog>>) {
     return { id, scopeId, event, timestamp: event.timestamp }
 }
 
-export default async function recordLog(entry: Parameters<typeof prepareLog>[0], query: typeof run = run) {
+export default async function recordLog(entry: Parameters<typeof prepareLog>[0], query: typeof run = run): Promise<string | undefined> {
+    if (query === run) return withTransaction(async tx => {
+        await tx('SET LOCAL lock_timeout=\'1ms\'')
+        return recordLog(entry, tx)
+    })
     const values = await prepareLog(preserveUnrecognizedFields(entry), query)
     if (!values) return
     const row = eventRow(values)!

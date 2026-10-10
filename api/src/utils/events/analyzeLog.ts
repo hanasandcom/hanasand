@@ -33,7 +33,7 @@ export async function analyzeAccess(event: AccessEvent, query?: typeof run, hist
     // Backfills contribute daily totals, never contemporary attack alerts.
     if (historical || time < now - windowMs || time > now + 5000) return true
     await query('INSERT INTO log_access_windows(organization_id,ip) VALUES($1,$2) ON CONFLICT DO NOTHING', [rule.organization_id, ip])
-    const state = await query('SELECT recent,alerted_at FROM log_access_windows WHERE organization_id=$1 AND ip=$2 FOR UPDATE', [rule.organization_id, ip])
+    const state = await query('SELECT recent,alerted_at FROM log_access_windows WHERE organization_id=$1 AND ip=$2 FOR UPDATE NOWAIT', [rule.organization_id, ip])
     // Only the newest threshold+1 timestamps are needed to decide if the exact
     // rolling window exceeds the threshold. Total counts remain exact above.
     const recent = [...state.rows[0].recent.map(Number).filter((t: number) => t > now - windowMs), time].sort((a, b) => b - a).slice(0, threshold + 1)

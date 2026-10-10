@@ -58,7 +58,7 @@ export async function analyzeIngestion(log: ProxyLog, query?: typeof run): Promi
     const rule = (await query(`SELECT r.organization_id,r.definition,r.version FROM rules r JOIN organizations o ON o.id=r.organization_id
         WHERE o.status='active' AND (o.id=$1 OR ($1::text IS NULL AND lower(o.name)='hanasand'))
         AND r.rule_id=$2 AND r.enabled AND r.definition->>'stage'='analyze' AND r.definition->>'action'='drop'
-        ORDER BY o.created_at LIMIT 1 FOR SHARE OF r,o`, [process.env.PLATFORM_LOG_ORGANIZATION_ID || null, ingestionRuleId])).rows[0]
+        ORDER BY o.created_at LIMIT 1 FOR SHARE OF r,o NOWAIT`, [process.env.PLATFORM_LOG_ORGANIZATION_ID || null, ingestionRuleId])).rows[0]
     if (!rule?.definition?.conditions?.length) return false
     const { loadConfiguredRules, collectEventFindings, normalizeEvent } = await import('../../handlers/events.ts')
     const rules = await loadConfiguredRules(rule.organization_id, query)
@@ -69,12 +69,12 @@ export async function analyzeIngestion(log: ProxyLog, query?: typeof run): Promi
     // Only a small pointer is created for a first observation; it stays in normal
     // logs. The complete original is backed up here only when a copy is compacted.
     await query('INSERT INTO log_ingestion_canonical(key,organization_id,source_event_id) VALUES($1,$2,$3) ON CONFLICT DO NOTHING', [copy.key, rule.organization_id, log.sourceEventId])
-    const state = (await query('SELECT * FROM log_ingestion_canonical WHERE key=$1 AND organization_id=$2 FOR UPDATE', [copy.key, rule.organization_id])).rows[0]
+    const state = (await query('SELECT * FROM log_ingestion_canonical WHERE key=$1 AND organization_id=$2 FOR UPDATE NOWAIT', [copy.key, rule.organization_id])).rows[0]
     if (!state || state.source_event_id === log.sourceEventId) return false
     let canonical = state.original
     if (!canonical) {
         const eventId = hash(`service:${state.source_event_id}`)
-        const raw = (await query('SELECT normalized FROM events WHERE id=$1 FOR SHARE', [eventId])).rows[0]?.normalized
+        const raw = (await query('SELECT normalized FROM events WHERE id=$1 FOR SHARE NOWAIT', [eventId])).rows[0]?.normalized
         if (!raw) return false // Out of order, same batch, or already expired: keep.
         canonical = { service: raw.service, host: raw.host, level: raw.level, message: raw.message, metadata: raw.metadata,
             sourceEventId: state.source_event_id, timestamp: raw.timestamp }

@@ -14,7 +14,7 @@ export async function analyzeRoutineGroupBatch<T extends RoutineLog>(entries: T[
         ? await query(`SELECT r.definition FROM rules r JOIN organizations o ON o.id=r.organization_id
             WHERE o.status='active' AND (o.id=$1 OR ($1::text IS NULL AND lower(o.name)='hanasand'))
             AND r.rule_id=$2 AND r.enabled AND r.definition->>'stage'='analyze' AND r.definition->>'action'='drop'
-            ORDER BY o.created_at LIMIT 1 FOR SHARE OF r,o`, [process.env.PLATFORM_LOG_ORGANIZATION_ID || null, sshTransportRuleId]) : null
+            ORDER BY o.created_at LIMIT 1 FOR SHARE OF r,o NOWAIT`, [process.env.PLATFORM_LOG_ORGANIZATION_ID || null, sshTransportRuleId]) : null
     const groups = [...completedTelemetryCycles(entries), ...completedSshWindows(entries),
         ...await sshTransportGroups(entries, transport?.rows[0]?.definition?.conditions || [])]
         .filter(group => !options?.historicalReplay || group.ruleId === selected)
@@ -29,7 +29,7 @@ export async function analyzeRoutineGroupBatch<T extends RoutineLog>(entries: T[
         const result = await query(`SELECT r.organization_id,r.version,r.definition FROM rules r JOIN organizations o ON o.id=r.organization_id
             WHERE o.status='active' AND (o.id=$1 OR ($1::text IS NULL AND lower(o.name)='hanasand')) AND r.rule_id=$2
             AND r.enabled AND r.definition->>'stage'='analyze' AND r.definition->>'action'='drop'
-            ORDER BY o.created_at LIMIT 1 FOR SHARE OF r,o`, [process.env.PLATFORM_LOG_ORGANIZATION_ID || null, group.ruleId])
+            ORDER BY o.created_at LIMIT 1 FOR SHARE OF r,o NOWAIT`, [process.env.PLATFORM_LOG_ORGANIZATION_ID || null, group.ruleId])
         const rule = result.rows[0]
         if (!rule) continue
         const parameters = routineGroupParameters(group.ruleId, rule.definition?.parameters)
@@ -40,8 +40,10 @@ export async function analyzeRoutineGroupBatch<T extends RoutineLog>(entries: T[
         if (group.context.some(log => collectEventFindings(rule.organization_id, log.sourceEventId!,
             normalizeEvent(normalizeLogEvent({ ...log, service: log.service!, id: log.sourceEventId!, created_at: log.timestamp! }), { vendor: 'Hanasand', product: 'Logs' }),
             configured.get(rule.organization_id)!).findings.length)) continue
-        // Serialize retries and overlapping groups before checking stored rows.
-        await query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [`routine:${rule.organization_id}:${group.ruleId}:${group.scope}`])
+        // A competing copy of this group can finish later; keep this copy's
+        // original logs when its exact state key is already being processed.
+        const claimed = await query('SELECT pg_try_advisory_xact_lock(hashtextextended($1,0)) AS acquired', [`routine:${rule.organization_id}:${group.ruleId}:${group.scope}`])
+        if (!claimed.rows[0]?.acquired) continue
         const receipts = group.logs.map(log => routineReceipt(group.ruleId, log))
         const replay = await query('SELECT key FROM log_analyze_receipts WHERE organization_id=$1 AND rule_id=$2 AND key=ANY($3::text[])', [rule.organization_id, group.ruleId, receipts])
         if (!options?.historicalReplay) {
@@ -52,7 +54,7 @@ export async function analyzeRoutineGroupBatch<T extends RoutineLog>(entries: T[
             if (stored.rows.length) continue
         }
         await query('INSERT INTO log_routine_group_state(organization_id,rule_id,scope) VALUES($1,$2,$3) ON CONFLICT DO NOTHING', [rule.organization_id, group.ruleId, group.scope])
-        const state = await query('SELECT recent FROM log_routine_group_state WHERE organization_id=$1 AND rule_id=$2 AND scope=$3 FOR UPDATE', [rule.organization_id, group.ruleId, group.scope])
+        const state = await query('SELECT recent FROM log_routine_group_state WHERE organization_id=$1 AND rule_id=$2 AND scope=$3 FOR UPDATE NOWAIT', [rule.organization_id, group.ruleId, group.scope])
         const now = Date.now(), previous = (state.rows[0].recent as number[]).map(Number).filter(t => t >= now - 60_000)
         const recent = [...new Set([...previous, group.started])].sort((a, b) => a - b)
         const batchKey = `${group.ruleId}:${group.scope}`

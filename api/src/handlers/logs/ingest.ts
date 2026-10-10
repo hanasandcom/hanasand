@@ -37,6 +37,7 @@ export default async function ingestLog(req: FastifyRequest, res: FastifyReply) 
     activeBatches++
     try {
         await withTransaction(async query => {
+            await query('SET LOCAL lock_timeout=\'1ms\'')
             await recordLogBatch(entries.map(entry => ({ ...entry, level: entry.level || 'info' })), query)
         })
     } finally {

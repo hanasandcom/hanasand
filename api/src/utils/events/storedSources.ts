@@ -37,10 +37,12 @@ export function storedSourceLog(source: Source, row: StoredRow): LogInput {
 
 // These database-backed streams already have durable IDs. Process them directly
 // instead of creating a second copy of each traffic/sign-in/audit record.
-// The caller owns the shared processing lock across all stream cursors.
+// Claim each cursor independently and skip a busy source without blocking others.
 export async function processAdditionalLogSources(processScopes: (logs: LogInput[]) => Promise<void>, historyLimit = 1000, recentLimit = 1000, cursorQuery = run, beforeHistory?: () => Promise<void>) {
     const cursors: Array<{ source: Source, last_id: string, recent_id: string, history_end_id: string | null, watermark: string | null }> = []
     for (const source of sources) {
+        const claimed = await cursorQuery('SELECT pg_try_advisory_xact_lock(hashtextextended($1,0)) AS acquired', [`event:stored-source:${source}`])
+        if (!claimed.rows[0]?.acquired) continue
         await cursorQuery('INSERT INTO log_processing_cursors (name) VALUES ($1) ON CONFLICT DO NOTHING', [source])
         const watermark = await stableLogWatermark(source)
         if (watermark === null) {

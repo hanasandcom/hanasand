@@ -12,7 +12,7 @@ export async function analyzeModelDiscovery(log: ModelProbeLog, query?: typeof r
     const result = await query(`SELECT r.organization_id,r.version,r.definition FROM rules r JOIN organizations o ON o.id=r.organization_id
         WHERE o.status='active' AND (o.id=$1 OR ($1::text IS NULL AND lower(o.name)='hanasand'))
           AND r.rule_id=$2 AND r.enabled AND r.definition->>'stage'='analyze' AND r.definition->>'action'='drop'
-        ORDER BY o.created_at LIMIT 1 FOR SHARE OF r,o`, [process.env.PLATFORM_LOG_ORGANIZATION_ID || null, modelDiscoveryRuleId])
+        ORDER BY o.created_at LIMIT 1 FOR SHARE OF r,o NOWAIT`, [process.env.PLATFORM_LOG_ORGANIZATION_ID || null, modelDiscoveryRuleId])
     const rule = result.rows[0]
     if (!rule || !eligibleModelDiscovery(log, rule.definition?.parameters)) return false
     const normalized = normalizeLogEvent({ ...log, id: log.sourceEventId!, created_at: log.timestamp! })
@@ -39,7 +39,7 @@ export async function analyzeModelHealthCheck(log: ModelProbeLog, query?: typeof
     const rule = (await query(`SELECT r.organization_id,r.version,r.definition FROM rules r JOIN organizations o ON o.id=r.organization_id
         WHERE o.status='active' AND (o.id=$1 OR ($1::text IS NULL AND lower(o.name)='hanasand'))
           AND r.rule_id=$2 AND r.enabled AND r.definition->>'stage'='analyze' AND r.definition->>'action'='drop'
-        ORDER BY o.created_at LIMIT 1 FOR SHARE OF r,o`, [process.env.PLATFORM_LOG_ORGANIZATION_ID || null, modelHealthRuleId])).rows[0]
+        ORDER BY o.created_at LIMIT 1 FOR SHARE OF r,o NOWAIT`, [process.env.PLATFORM_LOG_ORGANIZATION_ID || null, modelHealthRuleId])).rows[0]
     if (!rule || !Array.isArray(rule.definition?.conditions)) return false
     const normalized = normalizeLogEvent({ ...log, id: log.sourceEventId!, created_at: log.timestamp! })
     if (!await matchesAnalysisPolicy([normalized], rule.definition)) return false

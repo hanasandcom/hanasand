@@ -32,7 +32,7 @@ try {
     assert.equal((await reader.query('SELECT max(id)::text AS id FROM service_logs')).rows[0].id, '2')
     const blockedAt = performance.now()
     assert.equal(await stableLogWatermark('service_logs'), null, 'Uncommitted lower ID must prevent advancing the cursor')
-    assert.ok(performance.now() - blockedAt >= 75, 'Busy writers should receive a bounded wait instead of an immediate skip')
+    assert.ok(performance.now() - blockedAt < 75, 'A busy watermark claim must not wait for the writer')
     await writer.query('COMMIT')
     assert.equal(String(await stableLogWatermark('service_logs')), '2')
     await writer.query('BEGIN')
@@ -47,10 +47,11 @@ try {
     const releaseWriter = writer.query('SELECT pg_sleep(0.025); COMMIT')
     const waitingWatermark = await stableLogWatermark('service_logs')
     await releaseWriter
-    assert.equal(String(waitingWatermark), '4', 'A brief writer should finish inside the wait budget without starving the stream')
+    assert.equal(waitingWatermark, null, 'A writer in progress is skipped rather than waited on')
+    assert.equal(String(await stableLogWatermark('service_logs')), '4')
     await writer.query('INSERT INTO service_logs DEFAULT VALUES')
     assert.equal(String(await stableLogWatermark('service_logs')), '5', 'Queued writer barrier must also release before processing')
-    console.log('PostgreSQL concurrency verification passed: uncommitted lower IDs cannot be skipped and source locks are promptly released.')
+    console.log('PostgreSQL concurrency verification passed: uncommitted lower IDs cannot be skipped and busy watermarks are retried without waiting.')
 } finally {
     await writer.query('ROLLBACK')
     await reader.query(`DROP SCHEMA ${schema} CASCADE`)

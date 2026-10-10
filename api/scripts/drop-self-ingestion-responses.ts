@@ -62,15 +62,14 @@ for (let offset=0;offset<unique.length;offset+=1000) {
     }
     const batch=unique.slice(offset,offset+1000)
     const replay=()=>withTransaction(async query=>{
-        await query('SET LOCAL lock_timeout=\'10s\'')
+        await query('SET LOCAL lock_timeout=\'1ms\'')
         // A crash can only leave a replay batch unapplied; the final synchronous
         // audit flushes all earlier deletes before this command reports success.
         await query('SET LOCAL synchronous_commit=off')
-        for (const lock of ['event:pending-logs','event:live-service-logs']) await query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[lock])
-        const currentRule=(await query('SELECT * FROM rules WHERE organization_id=$1 AND rule_id=$2 FOR SHARE',[organizationId,ruleId])).rows[0]
+        const currentRule=(await query('SELECT * FROM rules WHERE organization_id=$1 AND rule_id=$2 FOR SHARE NOWAIT',[organizationId,ruleId])).rows[0]
         if (!currentRule?.enabled || currentRule.version!==rule.version) throw new Error('Rule changed during replay.')
         const rows=(await query(`SELECT id,normalized AS event,original FROM events
-            WHERE organization_id=$1 AND id=ANY($2::text[]) FOR UPDATE`,[organizationId,batch.map(row=>row.id)])).rows
+            WHERE organization_id=$1 AND id=ANY($2::text[]) FOR UPDATE NOWAIT`,[organizationId,batch.map(row=>row.id)])).rows
         const items: Parameters<typeof reprocessRuleItems>[0]=rows.map(row=>({ id:row.id,event:row.event,original:row.original }))
         const result=await reprocessRuleItems(items,{organization_id:organizationId},currentRule,async (sql,values)=>{
             // Bulk-remove the reporting rows before the FK cascade so their

@@ -13,7 +13,7 @@ export async function analyzePostgresBatch<T extends PostgresLog>(entries: T[], 
     const result = await query(`SELECT r.organization_id,r.version,r.definition FROM rules r JOIN organizations o ON o.id=r.organization_id
         WHERE o.status='active' AND (o.id=$1 OR ($1::text IS NULL AND lower(o.name)='hanasand')) AND r.rule_id=$2
         AND r.enabled AND r.definition->>'stage'='analyze' AND r.definition->>'action'='drop'
-        ORDER BY o.created_at LIMIT 1 FOR SHARE OF r,o`, [process.env.PLATFORM_LOG_ORGANIZATION_ID || null, postgresRuleId])
+        ORDER BY o.created_at LIMIT 1 FOR SHARE OF r,o NOWAIT`, [process.env.PLATFORM_LOG_ORGANIZATION_ID || null, postgresRuleId])
     const rule = result.rows[0]
     if (!rule || !validPostgresParameters(rule.definition?.parameters)) return entries
     const parameters = rule.definition.parameters
@@ -32,7 +32,7 @@ export async function analyzePostgresBatch<T extends PostgresLog>(entries: T[], 
     const dropped = new Set<string>()
     // Serialize only this small analyzer state, not general log ingestion.
     await query('INSERT INTO log_postgres_session_state(organization_id) VALUES($1) ON CONFLICT DO NOTHING', [rule.organization_id])
-    const state = await query('SELECT recent FROM log_postgres_session_state WHERE organization_id=$1 FOR UPDATE', [rule.organization_id])
+    const state = await query('SELECT recent FROM log_postgres_session_state WHERE organization_id=$1 FOR UPDATE NOWAIT', [rule.organization_id])
     const recent = state.rows[0].recent as { key: string, time: number }[]
     const combined = new Map(recent.map(item => [item.key, item]))
     for (const session of eligible) combined.set(session.key, { key: session.key, time: session.started })

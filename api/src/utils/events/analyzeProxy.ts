@@ -52,7 +52,7 @@ export async function analyzeProxy(log: ProxyLog, query?: typeof run): Promise<b
     const rule = (await query(`SELECT r.organization_id,r.definition FROM rules r JOIN organizations o ON o.id=r.organization_id
         WHERE o.status='active' AND (o.id=$1 OR ($1::text IS NULL AND lower(o.name)='hanasand'))
         AND r.rule_id=$2 AND r.enabled AND r.definition->>'stage'='analyze' AND r.definition->>'action'='drop'
-        ORDER BY o.created_at LIMIT 1 FOR SHARE OF r,o`, [process.env.PLATFORM_LOG_ORGANIZATION_ID || null, proxyRuleId])).rows[0]
+        ORDER BY o.created_at LIMIT 1 FOR SHARE OF r,o NOWAIT`, [process.env.PLATFORM_LOG_ORGANIZATION_ID || null, proxyRuleId])).rows[0]
     if (!rule?.definition?.conditions?.length) return false
     const { loadConfiguredRules, collectEventFindings, normalizeEvent } = await import('../../handlers/events.ts')
     const rules = await loadConfiguredRules(rule.organization_id, query)
@@ -67,7 +67,7 @@ export async function analyzeProxy(log: ProxyLog, query?: typeof run): Promise<b
             normalized->'metadata'->'access' AS access, normalized->'metadata' AS metadata,
             normalized->>'level' AS level, normalized->>'message' AS message, event_timestamp AS created_at
         FROM events WHERE ingestion_id='logs' AND normalized #>> '{metadata,proxy,id}'=$1
-        ORDER BY received_at DESC,id LIMIT 1 FOR SHARE`, [connection.id])).rows[0]
+        ORDER BY received_at DESC,id LIMIT 1 FOR SHARE NOWAIT`, [connection.id])).rows[0]
     const logTimestamp = log.timestamp
     const accessTimestamp = proof?.access?.timestamp
     if (!proof || !isDeepStrictEqual(proof.connection, connection) || !safeProxyRequest(proof.access)

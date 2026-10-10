@@ -83,9 +83,8 @@ test.skipIf(!process.env.POSTGRES_FILTER_TEST_PORT)('Event replay removes only p
         try {
             await liveWorker.query('BEGIN')
             await liveWorker.query('SELECT pg_advisory_xact_lock(hashtextextended(\'event:live-service-logs\',0))')
-            const release = (async () => { await Bun.sleep(100); await liveWorker.query('COMMIT') })()
-            const [processed] = await Promise.all([processRuleReprocessJob(), release])
-            expect(processed).toBe(true)
+            expect(await processRuleReprocessJob()).toBe(true)
+            await liveWorker.query('COMMIT')
         } finally { await liveWorker.query('ROLLBACK'); liveWorker.release() }
         const job = (await query('SELECT * FROM rule_reprocess_jobs WHERE id=\'drop\'')).rows[0]
         expect(job.status).toBe('completed')

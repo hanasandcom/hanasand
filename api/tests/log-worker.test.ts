@@ -7,6 +7,7 @@ let failInsert = false
 let additionalRuns = 0
 const query = async (sql: string, params: any[] = []): Promise<any> => {
     statements.push(sql)
+    if (sql.startsWith('SET LOCAL lock_timeout=')) return { rows: [] }
     if (sql.includes('pg_try_advisory_xact_lock')) return { rows: [{ locked: true }] }
     if (sql.startsWith('SELECT id FROM organizations')) return { rows: [{ id: 'platform' }] }
     if (sql.includes('SELECT e.id, e.event_timestamp, e.normalized FROM events')) {
