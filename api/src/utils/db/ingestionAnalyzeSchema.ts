@@ -1,11 +1,12 @@
 import run from '#db'
+import { ensureColumn } from './existingSchema.ts'
 
 export default async function ensureIngestionAnalyzeSchema() {
     await run(`CREATE TABLE IF NOT EXISTS log_ingestion_canonical (
         key TEXT PRIMARY KEY, organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
         source_event_id TEXT NOT NULL, canonical_event_id TEXT, original JSONB,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`)
-    await run('ALTER TABLE log_ingestion_canonical ADD COLUMN IF NOT EXISTS canonical_event_id TEXT')
+    await ensureColumn(run, 'log_ingestion_canonical', 'canonical_event_id', 'ALTER TABLE log_ingestion_canonical ADD COLUMN IF NOT EXISTS canonical_event_id TEXT')
     const legacy = await run(`SELECT
         EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='events' AND column_name='log_key') AS event_key,
         EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='log_ingestion_canonical' AND column_name='canonical_log_key') AS canonical_key`)
