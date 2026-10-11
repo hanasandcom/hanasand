@@ -29,6 +29,40 @@ const targets = [
         summary: 'Database connection pool repeatedly unavailable',
         evidence: { message: 'Pool currently unavailable, retrying in 5s...', host: 'hanasand', service: '3ab01ee97265_hanasand_api' },
     },
+    {
+        conditions: [
+            { path: 'message', operator: 'equals', value: 'POST /api/user → 201', caseSensitive: true },
+            { path: 'host', operator: 'equals', value: '127.0.0.1', caseSensitive: true },
+            { path: 'service', operator: 'equals', value: 'http-traffic', caseSensitive: true },
+            { path: 'log_type', operator: 'equals', value: 'HttpLogs', caseSensitive: true },
+            { path: 'event_type', operator: 'equals', value: 'application', caseSensitive: true },
+            { path: 'action', operator: 'equals', value: 'request', caseSensitive: true },
+            { path: 'outcome', operator: 'equals', value: 'success', caseSensitive: true },
+            { path: 'severity', operator: 'equals', value: 'low', caseSensitive: true },
+            { path: 'source.ip', operator: 'equals', value: '127.0.0.1', caseSensitive: true },
+            { path: 'metadata.user_agent', operator: 'equals', value: 'Bun/1.3.13', caseSensitive: true },
+        ],
+        min_hits: 11,
+        threshold: 10,
+        summary: 'Unusually high rate of successful user creation',
+        evidence: { endpoint: '/api/user', method: 'POST', status: 201, sourceIp: '127.0.0.1', userAgent: 'Bun/1.3.13' },
+    },
+    {
+        conditions: [
+            { path: 'message', operator: 'equals', value: 'GET /api/docker failed with 401 unauthorized.', caseSensitive: true },
+            { path: 'service', operator: 'equals', value: 'hanasand-api', caseSensitive: true },
+            { path: 'log_type', operator: 'equals', value: 'HttpLogs', caseSensitive: true },
+            { path: 'event_type', operator: 'equals', value: 'application', caseSensitive: true },
+            { path: 'action', operator: 'equals', value: 'log', caseSensitive: true },
+            { path: 'outcome', operator: 'equals', value: 'unknown', caseSensitive: true },
+            { path: 'severity', operator: 'equals', value: 'medium', caseSensitive: true },
+            { path: 'metadata.user_agent', operator: 'equals', value: 'hanasand_internal', caseSensitive: true },
+        ],
+        min_hits: 11,
+        threshold: 10,
+        summary: 'Repeated unauthorized requests to the Docker API',
+        evidence: { endpoint: '/api/docker', method: 'GET', response: '401 unauthorized', userAgent: 'hanasand_internal' },
+    },
 ]
 
 type RateWindow = { organization_id: string, rule_id: string, rule_version: string, bucket: Date, hits: string,
@@ -100,6 +134,6 @@ export async function refreshDropRateAlerts(query: typeof run = run) {
             RETURNING finding_key
         )
         INSERT INTO events(id,ingestion_id,organization_id,event_timestamp,event_type,action,outcome,normalized,processing_status)
-        SELECT item.event_id,'logs',item.organization_id,NOW(),'network','alert','unknown',item.normalized,'processed'
+        SELECT item.event_id,'drop-rate-alerts',item.organization_id,NOW(),'network','alert','unknown',item.normalized,'processed'
         FROM input item JOIN inserted_findings finding USING(finding_key)`, [JSON.stringify(alerts)])
 }
