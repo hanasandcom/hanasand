@@ -43,13 +43,13 @@ test('HTTP rate alerts use narrow selectors and create case-deliverable high eve
     const query = (async (sql: string, params?: unknown[]) => {
         if (sql.includes('WITH patterns AS')) {
             const targets = JSON.parse(String(params?.[0])) as Array<{
-                conditions: Array<{ path: string, value: string }>, min_hits: number, threshold: number, summary: string, evidence: Record<string, unknown>
+                conditions: Array<{ path: string, operator: string, value: string, caseSensitive?: boolean }>, min_hits: number, threshold: number, summary: string, evidence: Record<string, unknown>
             }>
             const postUser = targets.find(target => target.conditions.some(condition => condition.value === 'POST /api/user → 201'))
             const dockerUnauthorized = targets.find(target => target.conditions.some(condition => condition.value === 'GET /api/docker failed with 401 unauthorized.'))
             expect(postUser?.min_hits).toBe(11)
             expect(postUser?.threshold).toBe(10)
-            expect(postUser?.conditions).toContainEqual({ path: 'metadata.user_agent', operator: 'equals', value: 'Bun/1.3.13', caseSensitive: true })
+            expect(postUser?.conditions).toContainEqual({ path: 'metadata.user_agent', operator: 'regex', value: '^Bun/1\\.3\\.(11|13)$', caseSensitive: true })
             expect(dockerUnauthorized?.min_hits).toBe(11)
             expect(dockerUnauthorized?.threshold).toBe(10)
             expect(dockerUnauthorized?.conditions).toContainEqual({ path: 'metadata.user_agent', operator: 'equals', value: 'hanasand_internal', caseSensitive: true })

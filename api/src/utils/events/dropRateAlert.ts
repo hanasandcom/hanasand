@@ -32,15 +32,13 @@ const targets = [
     {
         conditions: [
             { path: 'message', operator: 'equals', value: 'POST /api/user → 201', caseSensitive: true },
-            { path: 'host', operator: 'equals', value: '127.0.0.1', caseSensitive: true },
             { path: 'service', operator: 'equals', value: 'http-traffic', caseSensitive: true },
-            { path: 'log_type', operator: 'equals', value: 'HttpLogs', caseSensitive: true },
             { path: 'event_type', operator: 'equals', value: 'application', caseSensitive: true },
             { path: 'action', operator: 'equals', value: 'request', caseSensitive: true },
             { path: 'outcome', operator: 'equals', value: 'success', caseSensitive: true },
             { path: 'severity', operator: 'equals', value: 'low', caseSensitive: true },
             { path: 'source.ip', operator: 'equals', value: '127.0.0.1', caseSensitive: true },
-            { path: 'metadata.user_agent', operator: 'equals', value: 'Bun/1.3.13', caseSensitive: true },
+            { path: 'metadata.user_agent', operator: 'regex', value: '^Bun/1\\.3\\.(11|13)$', caseSensitive: true },
         ],
         min_hits: 11,
         threshold: 10,
