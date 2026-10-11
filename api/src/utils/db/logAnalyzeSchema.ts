@@ -82,8 +82,10 @@ export default async function ensureLogAnalyzeSchema() {
                 const eventId = (await identityQueryOnce(`SELECT nextval(pg_get_serial_sequence('public.system_events','id')) AS id`)).rows[0]?.id
                 if (eventId === undefined || eventId === null) throw new Error('Could not allocate a system event ID for the installed rule.')
                 const context = { ruleId: row.rule_id, after: { version: row.version, name: row.name, explanation: row.explanation, severity: row.severity, enabled: row.enabled, definition: row.definition } }
-                await query(`INSERT INTO system_events(id,event_type,source,object_type,object_id,organization_id,context)
-                    VALUES($1,'event.rule.created','event','event_rule',$2,$3,$4::jsonb)`, [eventId, row.rule_id, row.organization_id, JSON.stringify(context)])
+                await query(`INSERT INTO system_events(id,event_type,severity,source,service,object_type,object_id,organization_id,
+                    outcome,reason,context,ip,user_agent,created_at)
+                    VALUES($1,'event.rule.created','info','event','hanasand-api','event_rule',$2,$3,'success','',$4::jsonb,'','',NOW())`,
+                [eventId, row.rule_id, row.organization_id, JSON.stringify(context)])
             }
         })
         await migrateAnalysisPolicy(rule.id, definition, run)
