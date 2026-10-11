@@ -13,7 +13,7 @@ import { collectorRule, collectorDefinition } from '../events/analyzeCollector.t
 import { proxyRule, proxyDefinition } from '../events/analyzeProxy.ts'
 import ensureProxyAnalyzeSchema from './proxyAnalyzeSchema.ts'
 import { postgresRule, postgresDefinition } from '../events/analyzePostgres.ts'
-import run from '#db'
+import run, { identityQueryOnce, withTransaction } from '#db'
 import { mongoDefinition, mongoRule, mongoReconRule, mongoReconDefinition } from '../events/analyzeMongo.ts'
 import { accessDefinition, accessRule, accountDeleteDefinition, accountDeleteRule } from '../events/analyzeAccess.ts'
 import { ingestAccessDefinition, ingestAccessRule } from '../events/analyzeIngestAccess.ts'
@@ -71,15 +71,21 @@ export default async function ensureLogAnalyzeSchema() {
     // Seed once for the platform organization only. Restarts must never undo a
     // user's later Keep/Disable choice. The first version is included in history.
     for (const [rule, definition] of [[ingestionRule, ingestionDefinition], [cdnRefreshRule, cdnRefreshDefinition], [cdnDeliveryRule, cdnDeliveryDefinition], [modelDiscoveryRule, modelDiscoveryDefinition], [modelHealthRule, modelHealthDefinition], [readinessAuditRule, readinessAuditDefinition], [telemetryRule, telemetryDefinition], [sshWindowRule, sshWindowDefinition], [sshTransportRule, sshTransportDefinition], [collectorRule, collectorDefinition], [proxyRule, proxyDefinition], [postgresRule, postgresDefinition], [accessRule, accessDefinition], [accountDeleteRule, accountDeleteDefinition], [ingestAccessRule, ingestAccessDefinition], [mongoRule, mongoDefinition], [mongoReconRule, mongoReconDefinition]] as const) {
-        await run(`WITH installed AS (
-        INSERT INTO rules(id,organization_id,rule_id,version,name,family,severity,explanation,definition,source,enabled)
-        SELECT gen_random_uuid()::text,o.id,$2,'1',$3,$6,$7,$4,$5::jsonb,$8,$9
-        FROM organizations o WHERE o.status='active' AND (o.id=$1 OR ($1::text IS NULL AND lower(o.name)='hanasand'))
-        ORDER BY o.created_at LIMIT 1 ON CONFLICT(organization_id,rule_id) DO NOTHING RETURNING *)
-        INSERT INTO system_events(event_type,source,object_type,object_id,organization_id,context)
-        SELECT 'event.rule.created','event','event_rule',rule_id,organization_id,
-            jsonb_build_object('ruleId',rule_id,'after',jsonb_build_object('version',version,'name',name,'explanation',explanation,'severity',severity,'enabled',enabled,'definition',definition))
-        FROM installed`, [process.env.PLATFORM_LOG_ORGANIZATION_ID || null, rule.id, rule.name, rule.explanation, JSON.stringify(definition), rule.family, rule.severity, 'source' in rule ? rule.source : 'hanasand', ![modelDiscoveryRuleId, modelHealthRuleId, readinessAuditRuleId, sshTransportRuleId, cdnDeliveryRuleId].includes(rule.id)])
+        await withTransaction(async query => {
+            const installed = await query(`INSERT INTO rules(id,organization_id,rule_id,version,name,family,severity,explanation,definition,source,enabled)
+                SELECT gen_random_uuid()::text,o.id,$2,'1',$3,$6,$7,$4,$5::jsonb,$8,$9
+                FROM organizations o WHERE o.status='active' AND (o.id=$1 OR ($1::text IS NULL AND lower(o.name)='hanasand'))
+                ORDER BY o.created_at LIMIT 1 ON CONFLICT(organization_id,rule_id) DO NOTHING
+                RETURNING rule_id,organization_id,version,name,explanation,severity,enabled,definition`,
+            [process.env.PLATFORM_LOG_ORGANIZATION_ID || null, rule.id, rule.name, rule.explanation, JSON.stringify(definition), rule.family, rule.severity, 'source' in rule ? rule.source : 'hanasand', ![modelDiscoveryRuleId, modelHealthRuleId, readinessAuditRuleId, sshTransportRuleId, cdnDeliveryRuleId].includes(rule.id)])
+            for (const row of installed.rows) {
+                const eventId = (await identityQueryOnce(`SELECT nextval(pg_get_serial_sequence('public.system_events','id')) AS id`)).rows[0]?.id
+                if (eventId === undefined || eventId === null) throw new Error('Could not allocate a system event ID for the installed rule.')
+                const context = { ruleId: row.rule_id, after: { version: row.version, name: row.name, explanation: row.explanation, severity: row.severity, enabled: row.enabled, definition: row.definition } }
+                await query(`INSERT INTO system_events(id,event_type,source,object_type,object_id,organization_id,context)
+                    VALUES($1,'event.rule.created','event','event_rule',$2,$3,$4::jsonb)`, [eventId, row.rule_id, row.organization_id, JSON.stringify(context)])
+            }
+        })
         await migrateAnalysisPolicy(rule.id, definition, run)
     }
 }
