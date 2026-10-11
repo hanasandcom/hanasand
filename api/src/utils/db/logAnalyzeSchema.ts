@@ -15,7 +15,7 @@ import ensureProxyAnalyzeSchema from './proxyAnalyzeSchema.ts'
 import { postgresRule, postgresDefinition } from '../events/analyzePostgres.ts'
 import run from '#db'
 import { mongoDefinition, mongoRule, mongoReconRule, mongoReconDefinition } from '../events/analyzeMongo.ts'
-import { accessDefinition, accessRule } from '../events/analyzeAccess.ts'
+import { accessDefinition, accessRule, accountDeleteDefinition, accountDeleteRule } from '../events/analyzeAccess.ts'
 import { ingestAccessDefinition, ingestAccessRule } from '../events/analyzeIngestAccess.ts'
 
 export default async function ensureLogAnalyzeSchema() {
@@ -32,6 +32,10 @@ export default async function ensureLogAnalyzeSchema() {
         organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
         ip INET NOT NULL, recent DOUBLE PRECISION[] NOT NULL DEFAULT '{}', alerted_at TIMESTAMPTZ,
         PRIMARY KEY (organization_id, ip))`)
+    await run(`CREATE TABLE IF NOT EXISTS log_access_rule_windows (
+        organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        rule_id TEXT NOT NULL, ip INET NOT NULL, recent DOUBLE PRECISION[] NOT NULL DEFAULT '{}', alerted_at TIMESTAMPTZ,
+        PRIMARY KEY (organization_id, rule_id, ip))`)
     await run(`CREATE TABLE IF NOT EXISTS log_ingest_access_state (
         organization_id TEXT PRIMARY KEY REFERENCES organizations(id) ON DELETE CASCADE,
         bucket TIMESTAMPTZ NOT NULL, hits BIGINT NOT NULL DEFAULT 0, alerted BOOLEAN NOT NULL DEFAULT false)`)
@@ -66,7 +70,7 @@ export default async function ensureLogAnalyzeSchema() {
     await ensureEventProtectionRule(run)
     // Seed once for the platform organization only. Restarts must never undo a
     // user's later Keep/Disable choice. The first version is included in history.
-    for (const [rule, definition] of [[ingestionRule, ingestionDefinition], [cdnRefreshRule, cdnRefreshDefinition], [cdnDeliveryRule, cdnDeliveryDefinition], [modelDiscoveryRule, modelDiscoveryDefinition], [modelHealthRule, modelHealthDefinition], [readinessAuditRule, readinessAuditDefinition], [telemetryRule, telemetryDefinition], [sshWindowRule, sshWindowDefinition], [sshTransportRule, sshTransportDefinition], [collectorRule, collectorDefinition], [proxyRule, proxyDefinition], [postgresRule, postgresDefinition], [accessRule, accessDefinition], [ingestAccessRule, ingestAccessDefinition], [mongoRule, mongoDefinition], [mongoReconRule, mongoReconDefinition]] as const) {
+    for (const [rule, definition] of [[ingestionRule, ingestionDefinition], [cdnRefreshRule, cdnRefreshDefinition], [cdnDeliveryRule, cdnDeliveryDefinition], [modelDiscoveryRule, modelDiscoveryDefinition], [modelHealthRule, modelHealthDefinition], [readinessAuditRule, readinessAuditDefinition], [telemetryRule, telemetryDefinition], [sshWindowRule, sshWindowDefinition], [sshTransportRule, sshTransportDefinition], [collectorRule, collectorDefinition], [proxyRule, proxyDefinition], [postgresRule, postgresDefinition], [accessRule, accessDefinition], [accountDeleteRule, accountDeleteDefinition], [ingestAccessRule, ingestAccessDefinition], [mongoRule, mongoDefinition], [mongoReconRule, mongoReconDefinition]] as const) {
         await run(`WITH installed AS (
         INSERT INTO rules(id,organization_id,rule_id,version,name,family,severity,explanation,definition,source,enabled)
         SELECT gen_random_uuid()::text,o.id,$2,'1',$3,$6,$7,$4,$5::jsonb,$8,$9

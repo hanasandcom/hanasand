@@ -3,7 +3,7 @@ import { sshTransportRuleId } from './analyzeSshTransport.ts'
 import { ingestionRuleId } from './analyzeIngestion.ts'
 import type run from '#db'
 import { cachedRead } from '../readCache.ts'
-import { accessRuleId } from './analyzeAccess.ts'
+import { accessRuleId, accountDeleteRuleId } from './analyzeAccess.ts'
 import { mongoRuleId } from './analyzeMongo.ts'
 import { postgresRuleId } from './analyzePostgres.ts'
 import { proxyRuleId } from './analyzeProxy.ts'
@@ -31,7 +31,7 @@ export function listRule(rule: Rule) {
         family: rule.family, severity: rule.severity, source: rule.source, enabled: rule.enabled,
         definition: { stage: rule.definition?.stage, action: rule.definition?.action } }
 }
-const receiptRules = new Set([ingestionRuleId, collectorRuleId, telemetryRuleId, sshWindowRuleId, sshTransportRuleId, cdnRefreshRuleId, cdnDeliveryRuleId, modelHealthRuleId, ingestAccessRuleId])
+const receiptRules = new Set([ingestionRuleId, collectorRuleId, telemetryRuleId, sshWindowRuleId, sshTransportRuleId, cdnRefreshRuleId, cdnDeliveryRuleId, modelHealthRuleId, ingestAccessRuleId, accountDeleteRuleId])
 const aggregateTables = new Map([
     [accessRuleId, ['log_access_counts', 'sum(amount)']], [mongoRuleId, ['log_mongo_ping_counts', 'sum(amount)']],
     [postgresRuleId, ['log_postgres_session_state', 'sum(dropped_records)']], [proxyRuleId, ['log_proxy_counts', 'sum(amount)']],

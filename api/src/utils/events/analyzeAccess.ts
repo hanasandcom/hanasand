@@ -3,10 +3,16 @@ import { matchesRule, type Condition } from './conditions.ts'
 import { isDeepStrictEqual } from 'node:util'
 
 export const accessRuleId = 'http.routine_access.v1'
+export const accountDeleteRuleId = 'http.account_self_delete_burst.v1'
 export const accessRule = {
     id: accessRuleId, version: '1', name: 'Routine successful requests', family: 'HTTP', severity: 'low', enabled: false,
     explanation: 'Count ordinary GET/200 requests by IP and drop the individual logs. Keep bodies, suspicious requests and security activity. Alert above 50 requests in a rolling minute.',
     evidence: ['source IP', 'request count', 'rolling time window'],
+}
+export const accountDeleteRule = {
+    id: accountDeleteRuleId, version: '1', name: 'Repeated account deletion requests', family: 'HTTP', severity: 'high', enabled: true,
+    explanation: 'Drop successful self-account deletion request logs and alert above 10 requests in one minute or 50 in ten minutes from one IP.',
+    evidence: ['source IP', 'request count', 'rolling time windows'],
 }
 export const accessDefinition = { match: 'all' as const, conditions: [
     { path: 'method', operator: 'equals', value: 'GET', caseSensitive: true },
@@ -14,6 +20,14 @@ export const accessDefinition = { match: 'all' as const, conditions: [
     { path: 'service', operator: 'regex', value: '^(?:http-traffic|cdn|hanasand[-_]api|api|hanasand-api-[1-4])$', caseSensitive: true },
     { path: 'originHost', operator: 'regex', value: '^(?:native|inspur|ovhcloud)$', caseSensitive: true },
 ] as Condition[], stage: 'analyze' as const, action: 'drop' as 'drop' | 'keep', parameters: { windowMinutes: 1, requestThreshold: 50 } }
+export const accountDeleteDefinition = { match: 'all' as const, conditions: [
+    { path: 'method', operator: 'equals', value: 'DELETE', caseSensitive: true },
+    { path: 'path', operator: 'equals', value: '/api/user/self', caseSensitive: true },
+    { path: 'status', operator: 'equals', value: '200' },
+    { path: 'service', operator: 'regex', value: '^(?:http-traffic|cdn|hanasand[-_]api|api|hanasand-api-[1-4])$', caseSensitive: true },
+    { path: 'originHost', operator: 'regex', value: '^(?:native|inspur|ovhcloud)$', caseSensitive: true },
+] as Condition[], stage: 'analyze' as const, action: 'drop' as const,
+parameters: { burstWindowMinutes: 1, burstRequestThreshold: 10, windowMinutes: 10, requestThreshold: 50, alertCooldownMinutes: 10 } }
 
 const protectedPath = /(?:^|[/_.-])(?:auth|login|logout|signin|signup|admin|management|organizations|account|password|token|session|support|audit|security|webhook|payment|billing|stripe)(?:[/_.?-]|$)/i
 // eslint-disable-next-line no-control-regex -- Control bytes are unsafe in access metadata.
@@ -41,6 +55,14 @@ export type AccessEvent = { key: string, ip: string, timestamp: string, path: st
 export function accessPolicyContext(event: AccessEvent) { return { ...event, service: event.service || 'http-traffic', originHost: event.originHost || 'native' } }
 export function eligibleAccess(event: AccessEvent, definition: { conditions: Condition[] } = accessDefinition) {
     return validAccessEvidence(event) && matchesRule(accessPolicyContext(event), definition.conditions)
+}
+export function eligibleAccountDeleteAccess(event: AccessEvent, definition: { conditions: Condition[] } = accountDeleteDefinition) {
+    const check = event.inspection
+    return event.method === 'DELETE' && event.path === '/api/user/self' && event.status === 200
+        && typeof event.ip === 'string' && ipaddr.isValid(event.ip) && typeof event.timestamp === 'string'
+        && Boolean(event.key) && Number.isFinite(Date.parse(event.timestamp)) && ordinaryAccessPath(event.path)
+        && check?.version === 1
+        && matchesRule(accessPolicyContext(event), definition.conditions)
 }
 function validAccessEvidence(event: AccessEvent) {
     if (event.protected || typeof event.method !== 'string' || !/^[A-Z]+$/.test(event.method) || !Number.isInteger(event.status) || event.status < 100 || event.status >= 400 || typeof event.ip !== 'string' || typeof event.timestamp !== 'string' || !event.key || !ordinaryAccessPath(event.path)

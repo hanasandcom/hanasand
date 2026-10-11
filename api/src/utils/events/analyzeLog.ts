@@ -3,21 +3,23 @@ import ipaddr from 'ipaddr.js'
 import { eligibleMongoPing, mongoRuleId, type MongoLog } from './analyzeMongo.ts'
 import run, { withTransaction } from '#db'
 import { sessionNetwork } from '#utils/auth/sessionNetwork.ts'
-import { accessDefinition, accessRuleId, eligibleAccess, type AccessEvent } from './analyzeAccess.ts'
+import { accessDefinition, accessRuleId, accountDeleteDefinition, accountDeleteRuleId, eligibleAccess, eligibleAccountDeleteAccess, type AccessEvent } from './analyzeAccess.ts'
 
-export async function platformAccessRule(query: typeof run = run) {
+export async function platformAccessRule(query: typeof run = run, ruleId = accessRuleId) {
     const result = await query(`SELECT o.id AS organization_id, r.enabled, r.version, r.definition, r.created_at, r.severity FROM organizations o
         LEFT JOIN rules r ON r.organization_id=o.id AND r.rule_id=$2
         WHERE o.status='active' AND (o.id=$1 OR ($1::text IS NULL AND lower(o.name)='hanasand'))
-        ORDER BY o.created_at LIMIT 1`, [process.env.PLATFORM_LOG_ORGANIZATION_ID || null, accessRuleId])
-    return result.rows[0] as { organization_id: string, enabled?: boolean, version?: string, definition?: typeof accessDefinition, created_at?: Date, severity?: string } | undefined
+        ORDER BY o.created_at LIMIT 1`, [process.env.PLATFORM_LOG_ORGANIZATION_ID || null, ruleId])
+    return result.rows[0] as { organization_id: string, enabled?: boolean, version?: string, definition?: typeof accessDefinition | typeof accountDeleteDefinition, created_at?: Date, severity?: string } | undefined
 }
 
 // The caller's ingestion transaction covers counting, alert creation and the
 // drop decision. Failure rolls everything back and the collector retries.
 export async function analyzeAccess(event: AccessEvent, query?: typeof run, historical = false): Promise<boolean> {
-    if (!eligibleAccess(event, { conditions: [] })) return false
+    const isAccountDelete = event.method === 'DELETE' && event.path === '/api/user/self' && event.status === 200
+    if (!eligibleAccess(event, { conditions: [] }) && !(isAccountDelete && eligibleAccountDeleteAccess(event, { conditions: [] }))) return false
     if (!query) return withTransaction(tx => analyzeAccess(event, tx, historical))
+    if (isAccountDelete && await analyzeAccountDeleteAccess(event, query, historical)) return true
     const rule = await platformAccessRule(query)
     if (!rule?.enabled || rule.definition?.stage !== 'analyze' || rule.definition.action !== 'drop' || !Array.isArray(rule.definition.conditions) || !eligibleAccess(event, rule.definition)) return false
     const ip = ipaddr.process(event.ip).toString()
@@ -54,6 +56,55 @@ export async function analyzeAccess(event: AccessEvent, query?: typeof run, hist
             VALUES($1,'logs',$2,NOW(),'network','alert','unknown',$3,$4::jsonb,'processed')`, [id, rule.organization_id, ip, JSON.stringify(normalized)])
         await query(`INSERT INTO findings(id,organization_id,finding_key,rule_id,severity,summary,evidence,event_ids)
             VALUES($1,$2,$1,$3,$7,$4,$5::jsonb,$6::text[])`, [findingId, rule.organization_id, accessRuleId, summary, JSON.stringify(evidence), [id], severity])
+    }
+    return true
+}
+
+async function analyzeAccountDeleteAccess(event: AccessEvent, query: typeof run, historical: boolean): Promise<boolean> {
+    const rule = await platformAccessRule(query, accountDeleteRuleId)
+    if (!rule?.enabled || rule.definition?.stage !== 'analyze' || rule.definition.action !== 'drop'
+        || !Array.isArray(rule.definition.conditions) || !eligibleAccountDeleteAccess(event, rule.definition)) return false
+    const key = createHash('sha256').update(`${accountDeleteRuleId}:${event.key}`).digest('hex')
+    const receipt = await query(`INSERT INTO log_analyze_receipts(key,organization_id,rule_id,rule_version)
+        VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING RETURNING key`, [key, rule.organization_id, accountDeleteRuleId, rule.version || '1'])
+    if (!receipt.rowCount) return true
+    const ip = ipaddr.process(event.ip).toString()
+    await query(`INSERT INTO log_access_counts(organization_id,ip,day,amount) VALUES($1,$2,($3::timestamptz AT TIME ZONE 'UTC')::date,1)
+        ON CONFLICT(organization_id,ip,day) DO UPDATE SET amount=log_access_counts.amount+1`, [rule.organization_id, ip, event.timestamp])
+    if (historical) return true
+
+    const parameters = rule.definition.parameters as Record<string, number>
+    const burstWindowMs = Number(parameters.burstWindowMinutes || 1) * 60_000
+    const burstThreshold = Number(parameters.burstRequestThreshold || 10)
+    const windowMs = Number(parameters.windowMinutes || 10) * 60_000
+    const threshold = Number(parameters.requestThreshold || 50)
+    const cooldownMs = Number(parameters.alertCooldownMinutes || 10) * 60_000
+    const now = Date.now(), time = Date.parse(event.timestamp)
+    if (time < now - windowMs || time > now + 5000) return true
+    await query(`INSERT INTO log_access_rule_windows(organization_id,rule_id,ip) VALUES($1,$2,$3) ON CONFLICT DO NOTHING`, [rule.organization_id, accountDeleteRuleId, ip])
+    const state = await query(`SELECT recent,alerted_at FROM log_access_rule_windows WHERE organization_id=$1 AND rule_id=$2 AND ip=$3 FOR UPDATE NOWAIT`, [rule.organization_id, accountDeleteRuleId, ip])
+    const recent = [...state.rows[0].recent.map(Number).filter((t: number) => t > now - windowMs), time]
+        .sort((a, b) => b - a).slice(0, threshold + 1)
+    const burstCount = recent.filter((t: number) => t > now - burstWindowMs).length
+    const exceeded = burstCount > burstThreshold || recent.length > threshold
+    const alert = exceeded && (!state.rows[0].alerted_at || now - new Date(state.rows[0].alerted_at).getTime() >= cooldownMs)
+    await query(`UPDATE log_access_rule_windows SET recent=$4::double precision[],alerted_at=CASE WHEN $5 THEN NOW() ELSE alerted_at END
+        WHERE organization_id=$1 AND rule_id=$2 AND ip=$3`, [rule.organization_id, accountDeleteRuleId, ip, `{${recent.join(',')}}`, alert])
+    if (alert) {
+        const id = randomUUID(), findingId = randomUUID()
+        const triggeredThresholds = [
+            ...(burstCount > burstThreshold ? [{ countAtLeast: burstCount, windowSeconds: burstWindowMs / 1000 }] : []),
+            ...(recent.length > threshold ? [{ countAtLeast: recent.length, windowSeconds: windowMs / 1000 }] : []),
+        ]
+        const evidence = { ip, triggeredThresholds, ruleVersion: rule.version, restrictedLog: true }
+        const summary = 'Repeated account deletion requests'
+        const normalized = { schema_version: 'logs.v1', event_type: 'network', action: 'alert', log_type: 'HttpLogs', severity: 'high',
+            service: 'access-analyzer', message: summary, source: { ip }, evidence,
+            detections: [{ rule_id: accountDeleteRuleId, severity: 'high', summary, event_ids: [id], evidence }] }
+        await query(`INSERT INTO events(id,ingestion_id,organization_id,event_timestamp,event_type,action,outcome,source_ip,normalized,processing_status)
+            VALUES($1,'logs',$2,NOW(),'network','alert','unknown',$3,$4::jsonb,'processed')`, [id, rule.organization_id, ip, JSON.stringify(normalized)])
+        await query(`INSERT INTO findings(id,organization_id,finding_key,rule_id,severity,summary,evidence,event_ids)
+            VALUES($1,$2,$1,$3,'high',$4,$5::jsonb,$6::text[])`, [findingId, rule.organization_id, accountDeleteRuleId, summary, JSON.stringify(evidence), [id]])
     }
     return true
 }

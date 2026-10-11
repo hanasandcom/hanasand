@@ -26,7 +26,7 @@ import { matchApiKeyScope, validateApiKey } from '#utils/auth/apiKeys.ts'
 import { recordSystemEvent } from '#utils/systemEvent.ts'
 import { parse as parseYaml } from 'yaml'
 import { mongoRule, mongoRuleId, mongoDefinition } from '#utils/events/analyzeMongo.ts'
-import { accessRule, accessRuleId, accessDefinition } from '#utils/events/analyzeAccess.ts'
+import { accessRule, accessRuleId, accessDefinition, accountDeleteRule, accountDeleteRuleId, accountDeleteDefinition } from '#utils/events/analyzeAccess.ts'
 
 import { matchesRule, type Condition } from '#utils/events/conditions.ts'
 import { customRetentionAction, recordCustomDropReceipts } from '#utils/events/customRetention.ts'
@@ -62,6 +62,7 @@ export const BUILTIN_RULES: Rule[] = [
     collectorRule,
     postgresRule,
     accessRule,
+    accountDeleteRule,
     proxyRule,
     ingestionRule,
     mongoRule,
@@ -94,6 +95,7 @@ export function defaultRuleDefinition(id: string): RuleDefinition {
     if (id === proxyRuleId) return structuredClone(proxyDefinition)
     if (id === mongoRuleId) return structuredClone(mongoDefinition)
     if (id === accessRuleId) return structuredClone(accessDefinition)
+    if (id === accountDeleteRuleId) return structuredClone(accountDeleteDefinition)
     const parameters: Record<string, number> = {}
     if (['auth.brute_force_success', 'auth.password_spray'].includes(ruleSlug(id))) Object.assign(parameters, { windowMinutes: 15, minimumCount: 3 })
     if (ruleSlug(id) === 'auth.impossible_travel') Object.assign(parameters, { windowMinutes: 720, distanceKm: 500, historyLimit: 30 })
@@ -125,7 +127,7 @@ export function normalizeBuiltinDefinition(id: string, value: unknown): { defini
     }
     if (id === applicationErrorRuleId && input.action !== 'keep') return { error: 'Application errors must use Store.' }
     if (defaults.stage) {
-        const configuredPolicy = [applicationErrorRuleId, modelDiscoveryRuleId, modelHealthRuleId, readinessAuditRuleId, proxyRuleId, ingestionRuleId, telemetryRuleId, sshWindowRuleId, sshTransportRuleId, collectorRuleId, cdnRefreshRuleId, cdnDeliveryRuleId, postgresRuleId, accessRuleId, mongoRuleId].includes(id)
+        const configuredPolicy = [applicationErrorRuleId, modelDiscoveryRuleId, modelHealthRuleId, readinessAuditRuleId, proxyRuleId, ingestionRuleId, telemetryRuleId, sshWindowRuleId, sshTransportRuleId, collectorRuleId, cdnRefreshRuleId, cdnDeliveryRuleId, postgresRuleId, accessRuleId, accountDeleteRuleId, mongoRuleId].includes(id)
         if (input.stage !== 'analyze' || !['drop', 'keep'].includes(String(input.action)) || !Array.isArray(input.conditions) || (!configuredPolicy && input.conditions.length)) return { error: 'Choose Keep or Count and drop. The required safety checks cannot be removed.' }
         definition.action = input.action as 'drop' | 'keep'
     }
@@ -148,7 +150,7 @@ export function normalizeBuiltinDefinition(id: string, value: unknown): { defini
         definition.parameters = parameters as Record<string, number>
         return { definition }
     }
-    const limits: Record<string, [number, number]> = { windowMinutes: [1, defaults.stage ? 5 : 10080], requestThreshold: [1, 1000], minimumCount: [1, 1000], distanceKm: [1, 20040], historyLimit: [1, 1000], maxDurationMs: [1, 60000], minIntervalMs: [1, 3600000], maxIntervalMs: [1, 3600000] }
+    const limits: Record<string, [number, number]> = { windowMinutes: [1, id === accountDeleteRuleId ? 10 : defaults.stage ? 5 : 10080], requestThreshold: [1, 1000], burstWindowMinutes: [1, 10], burstRequestThreshold: [1, 1000], alertCooldownMinutes: [1, 60], minimumCount: [1, 1000], distanceKm: [1, 20040], historyLimit: [1, 1000], maxDurationMs: [1, 60000], minIntervalMs: [1, 3600000], maxIntervalMs: [1, 3600000] }
     for (const key of Object.keys(defaults.parameters!)) {
         if (!limits[key]) return { error: `Unsupported engine parameter: ${key}.` }
         const value = parameters[key], [min, max] = limits[key]
