@@ -14,6 +14,15 @@ import { supportFetch } from '@/utils/support/api'
 
 type Ticket = Feedback & { id: string; subject: string; status: string; user_name?: string; last_message?: string; created_at?: string; updated_at: string; agent_name?: string; channel?: string; reply_count?: number }
 type Message = { id: string; sender_id: string | null; sender_kind?: string; sender_name: string; body: string; created_at: string }
+type StatusFilter = 'open' | 'resolved' | 'all'
+type StarFilter = 'all' | 'rated' | 'unrated' | '1' | '2' | '3' | '4' | '5'
+type FeedbackFilter = 'all' | 'comment' | 'none'
+
+function matchesStatusFilter(ticket: Ticket, filter: StatusFilter) {
+    if (filter === 'open') return ticket.status !== 'closed'
+    if (filter === 'resolved') return ticket.status === 'closed'
+    return true
+}
 
 const fieldClass = 'min-w-0 rounded-lg border border-ui-border bg-ui-canvas px-3 py-2 text-sm text-ui-text outline-none placeholder:text-ui-muted focus:border-ui-primary focus:ring-2 focus:ring-ui-primary/20'
 
@@ -27,7 +36,10 @@ type InitialChat = { tickets: Ticket[]; isSupport: boolean; selectedId: string; 
 
 export default function SupportChat({ embedded = false, initialChat }: { embedded?: boolean; initialChat?: InitialChat }) {
     const [tickets, setTickets] = useState<Ticket[]>(initialChat?.tickets || [])
-    const [selectedId, setSelectedId] = useState(initialChat?.selectedId || '')
+    const initialSelectedId = initialChat?.isSupport
+        ? initialChat.tickets.find(ticket => ticket.id === initialChat.selectedId && ticket.status !== 'closed')?.id || initialChat.tickets.find(ticket => ticket.status !== 'closed')?.id || ''
+        : initialChat?.selectedId || ''
+    const [selectedId, setSelectedId] = useState(initialSelectedId)
     const selectedRef = useRef('')
     const messageRevision = useRef(0)
     const ticketRevision = useRef(0)
@@ -59,12 +71,14 @@ export default function SupportChat({ embedded = false, initialChat }: { embedde
     const [discordLinkError, setDiscordLinkError] = useState('')
     const [filtersOpen, setFiltersOpen] = useState(false)
     const [filterText, setFilterText] = useState('')
-    const [starFilter, setStarFilter] = useState('all')
-    const [feedbackFilter, setFeedbackFilter] = useState<'all' | 'comment' | 'none'>('all')
+    const [statusFilter, setStatusFilter] = useState<StatusFilter>('open')
+    const [starFilter, setStarFilter] = useState<StarFilter>('all')
+    const [feedbackFilter, setFeedbackFilter] = useState<FeedbackFilter>('all')
     const [dateFrom, setDateFrom] = useState('')
     const [dateTo, setDateTo] = useState('')
-    const filterControlsRef = useRef({ search: '', stars: 'all', feedback: 'all', from: '', to: '' })
-    filterControlsRef.current = { search: filterText, stars: starFilter, feedback: feedbackFilter, from: dateFrom, to: dateTo }
+    const [filterSettingsReady, setFilterSettingsReady] = useState(false)
+    const filterControlsRef = useRef({ search: '', status: 'open' as StatusFilter, stars: 'all' as StarFilter, feedback: 'all' as FeedbackFilter, from: '', to: '' })
+    filterControlsRef.current = { search: filterText, status: statusFilter, stars: starFilter, feedback: feedbackFilter, from: dateFrom, to: dateTo }
     const filterControlsInitialized = useRef(false)
 
     const loadTickets = useCallback(async (searchText?: string) => {
@@ -97,7 +111,11 @@ export default function SupportChat({ embedded = false, initialChat }: { embedde
         }))
         if (!supportQueue && updatedTickets.some(ticket => ticket.status === 'open')) window.dispatchEvent(new Event(SUPPORT_CHAT_OPENED_EVENT))
         setIsSupport(supportQueue)
-        setSelectedId(current => creating.current ? current : current || payload.tickets?.[0]?.id || '')
+        setSelectedId(current => {
+            if (creating.current) return current
+            const currentVisible = updatedTickets.some(ticket => ticket.id === current && matchesStatusFilter(ticket, controls.status))
+            return currentVisible ? current : updatedTickets.find(ticket => matchesStatusFilter(ticket, controls.status))?.id || ''
+        })
         return payload.tickets || []
     }, [])
 
@@ -114,16 +132,47 @@ export default function SupportChat({ embedded = false, initialChat }: { embedde
     }, [])
 
     useEffect(() => {
-        setUserId(getCookie('impersonating_id') || getCookie('id') || '')
+        const currentUserId = getCookie('impersonating_id') || getCookie('id') || ''
+        setUserId(currentUserId)
+        try {
+            const saved = localStorage.getItem(`hanasand:support-chat-filters:${currentUserId || 'default'}`)
+            if (saved) {
+                const filters = JSON.parse(saved) as Record<string, unknown>
+                if (typeof filters.search === 'string') setFilterText(filters.search.slice(0, 160))
+                if (filters.status === 'open' || filters.status === 'resolved' || filters.status === 'all') setStatusFilter(filters.status)
+                if (filters.stars === 'all' || filters.stars === 'rated' || filters.stars === 'unrated' || /^[1-5]$/.test(String(filters.stars))) setStarFilter(filters.stars as StarFilter)
+                if (filters.feedback === 'all' || filters.feedback === 'comment' || filters.feedback === 'none') setFeedbackFilter(filters.feedback)
+                if (typeof filters.from === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(filters.from)) setDateFrom(filters.from)
+                if (typeof filters.to === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(filters.to)) setDateTo(filters.to)
+            }
+        } catch { /* Ignore unavailable or invalid local filter settings. */ }
+        setFilterSettingsReady(true)
     }, [])
     useEffect(() => {
+        if (!filterSettingsReady) return
+        try {
+            localStorage.setItem(`hanasand:support-chat-filters:${userId || 'default'}`, JSON.stringify({
+                search: filterText,
+                status: statusFilter,
+                stars: starFilter,
+                feedback: feedbackFilter,
+                from: dateFrom,
+                to: dateTo,
+            }))
+        } catch { /* Filtering still works when browser storage is unavailable. */ }
+    }, [dateFrom, dateTo, feedbackFilter, filterSettingsReady, filterText, starFilter, statusFilter, userId])
+    useEffect(() => {
         if (!isSupport) return
-        if (!filterControlsInitialized.current) { filterControlsInitialized.current = true; return }
+        if (!filterSettingsReady) return
+        if (!filterControlsInitialized.current) {
+            filterControlsInitialized.current = true
+            if (!initialChat?.isSupport) return
+        }
         const timer = window.setTimeout(() => {
             void loadTickets().catch(error => setError(error instanceof Error ? error.message : 'Could not filter support chats.'))
         }, 250)
         return () => window.clearTimeout(timer)
-    }, [dateFrom, dateTo, feedbackFilter, filterText, isSupport, loadTickets, starFilter])
+    }, [dateFrom, dateTo, feedbackFilter, filterSettingsReady, filterText, initialChat?.isSupport, isSupport, loadTickets, starFilter, statusFilter])
     useEffect(() => {
         const controller = new AbortController()
         if (!initialMessagesLoaded.current) {
@@ -245,6 +294,7 @@ export default function SupportChat({ embedded = false, initialChat }: { embedde
     const displayedTickets = tickets.map(ticket => ticket.id === statusChange?.id ? { ...ticket, status: statusChange.status, ...(statusChange.status === 'closed' ? { feedback_rating: null, feedback_comment: null } : {}) } : ticket)
     const query = filterText.trim().toLocaleLowerCase()
     const visibleTickets = displayedTickets.filter(ticket => {
+        if (!matchesStatusFilter(ticket, statusFilter)) return false
         if (starFilter === 'rated' && !ticket.feedback_rating) return false
         if (starFilter === 'unrated' && ticket.feedback_rating) return false
         if (/^[1-5]$/.test(starFilter) && ticket.feedback_rating !== Number(starFilter)) return false
@@ -257,7 +307,7 @@ export default function SupportChat({ embedded = false, initialChat }: { embedde
         }
         return true
     })
-    const hasFilters = Boolean(query || starFilter !== 'all' || feedbackFilter !== 'all' || dateFrom || dateTo)
+    const hasFilters = Boolean(query || statusFilter !== 'open' || starFilter !== 'all' || feedbackFilter !== 'all' || dateFrom || dateTo)
     const orderedVisibleTickets = [...visibleTickets].sort((left, right) => Number(Boolean(unread[right.id])) - Number(Boolean(unread[left.id])))
     const selected = displayedTickets.find(ticket => ticket.id === selectedId)
     const shell = embedded
@@ -267,22 +317,27 @@ export default function SupportChat({ embedded = false, initialChat }: { embedde
     return (
         <section className={shell} aria-label='Support chat'>
             {embedded ? (
-                <aside className='flex min-h-0 min-w-0 flex-col border-b border-ui-border bg-ui-raised lg:border-b-0 lg:border-r'>
+                <aside className='relative flex min-h-0 min-w-0 flex-col border-b border-ui-border bg-ui-raised lg:border-b-0 lg:border-r'>
                     <div className={headingClass}>
                         <div className='flex w-full items-center justify-between gap-2'>
                             <h1 className='text-sm font-semibold text-ui-text'>{isSupport ? 'Support' : 'Your support chats'}</h1>
                             <div className='flex shrink-0 items-center gap-1'>
-                                {isSupport ? <div className='relative'>
+                                {isSupport ? <div>
                                     <button type='button' aria-label='Filter support chats' aria-expanded={filtersOpen} onClick={() => setFiltersOpen(open => !open)} className={`relative inline-flex h-8 w-8 items-center justify-center rounded-lg border border-ui-border transition hover:bg-ui-panel focus-visible:outline-2 focus-visible:outline-ui-primary ${filtersOpen || hasFilters ? 'text-ui-primary' : 'text-ui-muted'}`}>
                                         <ListFilter aria-hidden='true' className='h-4 w-4' />
                                         {hasFilters ? <span className='absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-ui-primary' /> : null}
                                     </button>
-                                    {filtersOpen ? <div role='dialog' aria-label='Filter support chats' className='absolute right-0 top-full z-30 mt-2 grid w-[min(20rem,calc(100vw-2rem))] gap-3 rounded-xl border border-ui-border bg-ui-panel p-4 shadow-xl'>
+                                    {filtersOpen ? <div role='dialog' aria-label='Filter support chats' className='absolute left-2 right-2 top-20 z-30 grid max-h-[calc(100dvh-14rem)] gap-3 overflow-y-auto overscroll-contain rounded-xl border border-ui-border bg-ui-panel p-4 shadow-xl'>
                                         <label className='grid gap-1.5 text-xs font-medium text-ui-muted'>Search text
                                             <span className='relative'><Search aria-hidden='true' className='pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ui-muted' /><input aria-label='Search support tickets' type='search' value={filterText} onChange={event => setFilterText(event.target.value)} placeholder='Search conversations…' className={`${fieldClass} w-full pl-9`} /></span>
                                         </label>
+                                        <label className='grid gap-1.5 text-xs font-medium text-ui-muted'>Status
+                                            <select aria-label='Filter by status' value={statusFilter} onChange={event => setStatusFilter(event.target.value as StatusFilter)} className={fieldClass}>
+                                                <option value='open'>Open</option><option value='resolved'>Resolved</option><option value='all'>All chats</option>
+                                            </select>
+                                        </label>
                                         <label className='grid gap-1.5 text-xs font-medium text-ui-muted'>Stars
-                                            <select aria-label='Filter by stars' value={starFilter} onChange={event => setStarFilter(event.target.value)} className={fieldClass}>
+                                            <select aria-label='Filter by stars' value={starFilter} onChange={event => setStarFilter(event.target.value as StarFilter)} className={fieldClass}>
                                                 <option value='all'>Any rating</option><option value='rated'>Has a star rating</option><option value='unrated'>No star rating</option>
                                                 {[5, 4, 3, 2, 1].map(rating => <option key={rating} value={rating}>{rating} stars</option>)}
                                             </select>
@@ -298,7 +353,7 @@ export default function SupportChat({ embedded = false, initialChat }: { embedde
                                         </label>
                                         <div className='flex items-center justify-between gap-3 border-t border-ui-border pt-3'>
                                             <p role='status' className='text-xs text-ui-muted'>{visibleTickets.length} of {tickets.length} chats</p>
-                                            <button type='button' disabled={!hasFilters} onClick={() => { setFilterText(''); setStarFilter('all'); setFeedbackFilter('all'); setDateFrom(''); setDateTo('') }} className='rounded-md px-2 py-1 text-xs font-medium text-ui-primary hover:bg-ui-raised disabled:cursor-not-allowed disabled:opacity-50'>Clear filters</button>
+                                            <button type='button' disabled={!hasFilters} onClick={() => { setFilterText(''); setStatusFilter('open'); setStarFilter('all'); setFeedbackFilter('all'); setDateFrom(''); setDateTo('') }} className='rounded-md px-2 py-1 text-xs font-medium text-ui-primary hover:bg-ui-raised disabled:cursor-not-allowed disabled:opacity-50'>Clear filters</button>
                                         </div>
                                     </div> : null}
                                 </div> : null}
@@ -323,7 +378,7 @@ export default function SupportChat({ embedded = false, initialChat }: { embedde
                                 <span className='truncate text-xs text-ui-muted'>{ticket.last_message || 'No messages yet'}</span>
                             </button>
                         ))}
-                        {!visibleTickets.length && !loading ? <p className='p-2 text-xs text-ui-muted'>{tickets.length && hasFilters ? 'No chats match these filters.' : 'No support chats yet.'}</p> : null}
+                        {!visibleTickets.length && !loading ? <p className='p-2 text-xs text-ui-muted'>{tickets.length ? 'No chats match these filters.' : 'No support chats yet.'}</p> : null}
                     </div>
                 </aside>
             ) : (
