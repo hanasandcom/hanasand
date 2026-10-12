@@ -11,7 +11,7 @@ export const accessRule = {
 }
 export const accountDeleteRule = {
     id: accountDeleteRuleId, version: '1', name: 'Repeated account deletion requests', family: 'HTTP', severity: 'high', enabled: true,
-    explanation: 'Drop successful self-account deletion request logs and alert above 10 requests in one minute or 50 in ten minutes from one IP.',
+    explanation: 'Drop successful self-account deletion request logs and alert above 10 requests in one minute or ten in ten minutes from one IP.',
     evidence: ['source IP', 'request count', 'rolling time windows'],
 }
 export const accessDefinition = { match: 'all' as const, conditions: [
@@ -27,7 +27,7 @@ export const accountDeleteDefinition = { match: 'all' as const, conditions: [
     { path: 'service', operator: 'regex', value: '^(?:http-traffic|cdn|hanasand[-_]api|api|hanasand-api-[1-4])$', caseSensitive: true },
     { path: 'originHost', operator: 'regex', value: '^(?:native|inspur|ovhcloud)$', caseSensitive: true },
 ] as Condition[], stage: 'analyze' as const, action: 'drop' as const,
-parameters: { burstWindowMinutes: 1, burstRequestThreshold: 10, windowMinutes: 10, requestThreshold: 50, alertCooldownMinutes: 10 } }
+parameters: { burstWindowMinutes: 1, burstRequestThreshold: 10, windowMinutes: 10, requestThreshold: 10, alertCooldownMinutes: 10 } }
 
 const protectedPath = /(?:^|[/_.-])(?:auth|login|logout|signin|signup|admin|management|organizations|account|password|token|session|support|audit|security|webhook|payment|billing|stripe)(?:[/_.?-]|$)/i
 // eslint-disable-next-line no-control-regex -- Control bytes are unsafe in access metadata.
