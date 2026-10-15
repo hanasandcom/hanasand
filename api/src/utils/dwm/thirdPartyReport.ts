@@ -17,7 +17,9 @@ export function validateOutboundThirdPartyReport(value: unknown, binding: {
     const report = value as Record<string, unknown>
     let encoded: string
     try {
-        encoded = JSON.stringify(report)
+        const serialized = canonicalJson(report)
+        if (typeof serialized !== 'string') return { valid: false, error: 'report must be JSON serializable.' }
+        encoded = serialized
     } catch {
         return { valid: false, error: 'report must be JSON serializable.' }
     }
