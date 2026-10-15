@@ -31,6 +31,12 @@ const RESOURCE_ROUTES = {
     '/timeliness': ['timeliness', 'timeliness', publicTimeliness],
 } as const
 
+const SEARCH_UNAVAILABLE = {
+    status: 503,
+    code: 'search_unavailable',
+    message: 'Threat-intelligence search is temporarily unavailable.',
+} as const
+
 export default async function publicTiApi(fastify: FastifyInstance, options: PublicApiOptions) {
     const fetchImpl = options.fetchImpl ?? fetch
     const searchImpl = options.searchImpl ?? searchThreatIntel
@@ -56,7 +62,7 @@ export default async function publicTiApi(fastify: FastifyInstance, options: Pub
         const query = normalizeQueryBody(req.body)
         if (!query) return sendError(reply, req.id, 400, 'invalid_query', 'query must contain 2-200 characters.')
         const result = await executePublicSearch(searchImpl, query)
-        if (result.status === 'unavailable') return sendError(reply, req.id, 503, 'search_unavailable', 'Threat-intelligence search is temporarily unavailable.')
+        if (result.status === 'unavailable') return sendError(reply, req.id, SEARCH_UNAVAILABLE.status, SEARCH_UNAVAILABLE.code, SEARCH_UNAVAILABLE.message)
         return result.value
     })
 
@@ -74,7 +80,7 @@ export default async function publicTiApi(fastify: FastifyInstance, options: Pub
         const results = await mapConcurrent(queries, 3, async query => {
             const result = await executePublicSearch(searchImpl, query)
             if (result.status === 'unavailable') {
-                return { query, status: 'error' as const, error: publicError('search_unavailable', 'Threat-intelligence search is temporarily unavailable.', req.id) }
+                return { query, status: 'error' as const, error: publicError(SEARCH_UNAVAILABLE.code, SEARCH_UNAVAILABLE.message, req.id) }
             }
             return { query, status: 'ok' as const, result: result.value }
         })

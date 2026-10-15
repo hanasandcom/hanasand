@@ -167,7 +167,7 @@ describe('public TI v1', () => {
         const app = await testApp(undefined, async () => ({
             ...searchResult,
             mode: 'unavailable' as const,
-            status: 'unavailable' as const,
+            status: 'ready' as const,
             summary: 'Search unavailable',
             confidence: 0,
             recentActivity: [],
@@ -568,6 +568,11 @@ describe('public TI v1', () => {
         expect(response.json().partial).toBe(true)
         expect(response.json().results[0].status).toBe('ok')
         expect(response.json().results[1]).toMatchObject({ query: 'FAIL', status: 'error', error: { code: 'search_unavailable' } })
+        expect(response.json().results[1].error).toEqual({
+            code: 'search_unavailable',
+            message: 'Threat-intelligence search is temporarily unavailable.',
+            requestId: response.headers['x-request-id'],
+        })
     })
 
     test('reports returned-unavailable batch searches as partial failures', async () => {
