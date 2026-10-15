@@ -1,13 +1,13 @@
 import { afterAll, expect, mock, test } from 'bun:test'
 import Fastify from 'fastify'
 
-const queries: string[] = []
+const queries: Array<{ sql: string, params?: unknown[] }> = []
 let issuedSessions = 0
 let assertionVerifications = 0
 
 mock.module('#db', () => ({
-    default: async (sql: string) => {
-        queries.push(sql)
+    default: async (sql: string, params?: unknown[]) => {
+        queries.push({ sql, params })
         if (sql.includes('UPDATE passkey_challenges')) {
             return { rows: [{ id: 'challenge-a', user_id: 'user-a', purpose: 'authenticate', challenge: 'challenge-value' }] }
         }
@@ -46,7 +46,9 @@ test('a credential owned by another user cannot satisfy a user-bound challenge',
     expect(response.statusCode).toBe(404)
     expect(response.json()).toEqual({ error: 'Passkey credential was not recognized.' })
     expect(queries).toHaveLength(2)
-    expect(queries.some(sql => sql.includes('UPDATE user_passkeys'))).toBe(false)
+    expect(queries[1].sql).toContain('FROM user_passkeys')
+    expect(queries[1].params).toEqual(['credential-b'])
+    expect(queries.some(({ sql }) => sql.includes('UPDATE user_passkeys'))).toBe(false)
     expect(assertionVerifications).toBe(0)
     expect(issuedSessions).toBe(0)
 })
