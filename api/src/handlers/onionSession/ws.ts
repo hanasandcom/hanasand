@@ -1,5 +1,6 @@
 import { watchWebCrackOutput, readWebCrackOutput, submitWebCrackSample } from './webcrack.ts'
 import { browserStartOptions } from '../../utils/ws/browserAccess.ts'
+import { currentBrowserAdmissionStatus, requestBrowserAdmission } from '../../utils/ws/browserAdmission.ts'
 import { createHash } from 'node:crypto'
 import { execFile } from 'node:child_process'
 import { lookup, resolveTxt } from 'node:dns/promises'
@@ -103,30 +104,9 @@ const MAX_DURATION_MS = 60 * 60 * 1000
 const DEFAULT_DURATION_MS = 90 * 1000
 const SUSPICIOUS_DURATION_MS = 3 * 60 * 1000
 const MANUAL_EXTENSION_MS = 5 * 60 * 1000
-const DEFAULT_BROWSER_MAX_SESSIONS = 100
 const asnCache = new Map<string, Promise<string | undefined>>()
 const CHROME_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
 const execFileAsync = promisify(execFile)
-
-type SandboxAdmissionStatus = {
-    activeSessions: number
-    queuedSessions: number
-    maxSessions: number
-    queuePosition?: number
-}
-type SandboxAdmissionRelease = {
-    release: () => void
-    status: SandboxAdmissionStatus
-}
-type SandboxAdmissionRequest = {
-    sessionId: string
-    send: (payload: Record<string, unknown>) => void
-    resolve: (release: SandboxAdmissionRelease) => void
-    cancelled: boolean
-}
-
-let activeBrowserSessions = 0
-const browserSessionQueue: SandboxAdmissionRequest[] = []
 let warmRegularBrowser: Promise<Browser> | null = null
 const prestartedBrowser = new SingleUseBrowser<Browser>()
 const warmClaimFile = '/tmp/hanasand-browser-claimed'
@@ -234,113 +214,6 @@ function assertProductionBrowserWorker() {
 
 if (process.env.NODE_ENV !== 'production' && process.env.BROWSER_SANDBOX_PREWARM !== '0') {
     setTimeout(() => void regularBrowser().catch(() => undefined), 1000).unref()
-}
-
-function browserMaxSessions() {
-    const configured = Number(process.env.BROWSER_SANDBOX_MAX_SESSIONS)
-    if (!Number.isFinite(configured)) return DEFAULT_BROWSER_MAX_SESSIONS
-    return Math.max(1, Math.min(100, Math.floor(configured)))
-}
-
-export function currentBrowserAdmissionStatus(queuePosition?: number): SandboxAdmissionStatus {
-    return {
-        activeSessions: activeBrowserSessions,
-        queuedSessions: browserSessionQueue.length,
-        maxSessions: browserMaxSessions(),
-        queuePosition,
-    }
-}
-
-export function requestBrowserAdmission(sessionId: string, send: (payload: Record<string, unknown>) => void) {
-    const maxSessions = browserMaxSessions()
-    if (activeBrowserSessions < maxSessions) {
-        activeBrowserSessions += 1
-        return {
-            promise: Promise.resolve({
-                release: releaseBrowserAdmission(),
-                status: currentBrowserAdmissionStatus(),
-            }),
-            cancel: () => undefined,
-        }
-    }
-
-    let entry: SandboxAdmissionRequest
-    const promise = new Promise<SandboxAdmissionRelease>((resolve) => {
-        entry = { sessionId, send, resolve, cancelled: false }
-        browserSessionQueue.push(entry)
-        sendBrowserQueueStatus(entry)
-        broadcastBrowserQueuePositions()
-    })
-
-    return {
-        promise,
-        cancel: () => {
-            entry.cancelled = true
-            const index = browserSessionQueue.indexOf(entry)
-            if (index >= 0) {
-                browserSessionQueue.splice(index, 1)
-                broadcastBrowserQueuePositions()
-            }
-        },
-    }
-}
-
-function releaseBrowserAdmission() {
-    let released = false
-    return () => {
-        if (released) return
-        released = true
-        activeBrowserSessions = Math.max(0, activeBrowserSessions - 1)
-        drainBrowserQueue()
-    }
-}
-
-function drainBrowserQueue() {
-    const maxSessions = browserMaxSessions()
-    while (activeBrowserSessions < maxSessions && browserSessionQueue.length) {
-        const entry = browserSessionQueue.shift()
-        if (!entry || entry.cancelled) continue
-        activeBrowserSessions += 1
-        const status = currentBrowserAdmissionStatus()
-        entry.send({
-            type: 'status',
-            state: 'capacity_admitted',
-            sessionId: entry.sessionId,
-            capacity: status,
-            message: 'Sandbox capacity is available. Starting this queued browser now.',
-        })
-        entry.resolve({
-            release: releaseBrowserAdmission(),
-            status,
-        })
-    }
-    broadcastBrowserQueuePositions()
-}
-
-function sendBrowserQueueStatus(entry: SandboxAdmissionRequest) {
-    const position = browserSessionQueue.indexOf(entry) + 1
-    const status = currentBrowserAdmissionStatus(position > 0 ? position : undefined)
-    entry.send({
-        type: 'status',
-        state: 'capacity_busy',
-        sessionId: entry.sessionId,
-        capacity: status,
-        message: `All ${status.maxSessions} sandbox slots are busy. This run is queued at position ${status.queuePosition}.`,
-    })
-}
-
-function broadcastBrowserQueuePositions() {
-    for (const [index, entry] of browserSessionQueue.entries()) {
-        if (entry.cancelled) continue
-        const status = currentBrowserAdmissionStatus(index + 1)
-        entry.send({
-            type: 'status',
-            state: 'capacity_queue_position',
-            sessionId: entry.sessionId,
-            capacity: status,
-            message: `Queued for sandbox capacity. Position ${status.queuePosition} of ${status.queuedSessions}.`,
-        })
-    }
 }
 
 export function handleOnionSessionSocket(connection: WebSocket, sessionId: string, defaultNetwork: 'tor' | 'regular' = 'tor') {

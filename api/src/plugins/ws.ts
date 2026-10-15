@@ -25,7 +25,8 @@ import { removeClient } from '#utils/ws/removeClient.ts'
 import { countGptViewers, gpt, handleGptMessage, sendGptSnapshot, unregisterGptSocket } from '#utils/ws/handleGptMessage.ts'
 import recordLog from '#utils/logs/recordLog.ts'
 import run from '#db'
-import { currentBrowserAdmissionStatus, handleOnionSessionSocket, registerPrestartedBrowser, requestBrowserAdmission } from '../handlers/onionSession/ws.ts'
+import { handleOnionSessionSocket, registerPrestartedBrowser } from '../handlers/onionSession/ws.ts'
+import { currentBrowserAdmissionStatus, requestBrowserAdmission, trackBrowserAdmissionRelease } from '../utils/ws/browserAdmission.ts'
 import { persistBrowserRunEvidence, browserPaidExtensionAllowed, finishBrowserRun, prepareBrowserRun, refreshBrowserRunLease, updateBrowserRunProviderResult, type BrowserProviderRunResult } from '../handlers/browserSandboxRuns.ts'
 import { createRuntimeContainer, getRuntimeContainer, getRuntimeContainerLogs, listRuntimeContainers, renameRuntimeContainer, removeRuntimeContainer, startRuntimeContainer } from '#utils/docker/engine.ts'
 
@@ -373,7 +374,6 @@ function proxyEphemeralBrowserSocket(connection: WebSocket, id: string, route: '
     let deliveredFrame = false
     let sawTerminalMessage = false
     let streamMetricsTimer: NodeJS.Timeout | null = null
-    let releaseAdmission: (() => void) | null = null
     let resolveStreamResolution: (options: { resolution: string; regular: boolean }) => void = () => undefined
     const streamResolution = new Promise<{ resolution: string; regular: boolean }>(resolve => { resolveStreamResolution = resolve })
     const workerResumeToken = randomUUID()
@@ -381,6 +381,7 @@ function proxyEphemeralBrowserSocket(connection: WebSocket, id: string, route: '
     const admission = requestBrowserAdmission(id, payload => {
         if (connection.readyState === WebSocket.OPEN) connection.send(JSON.stringify(payload))
     })
+    const admissionRelease = trackBrowserAdmissionRelease(admission.promise, () => closed)
 
     const closeBoth = () => {
         if (closed) return
@@ -391,8 +392,7 @@ function proxyEphemeralBrowserSocket(connection: WebSocket, id: string, route: '
         if (streamMetricsTimer) clearInterval(streamMetricsTimer)
         if (leaseTimer) clearInterval(leaseTimer)
         admission.cancel()
-        releaseAdmission?.()
-        releaseAdmission = null
+        admissionRelease.release()
         browserStreams.delete(id)
         if (containerId) void (!sawReady || !deliveredFrame ? recordBrowserWorkerLogs(containerId, route, id) : Promise.resolve())
             .finally(() => removeRuntimeContainer(containerId))
@@ -457,7 +457,6 @@ function proxyEphemeralBrowserSocket(connection: WebSocket, id: string, route: '
             slot.release()
             return null
         }
-        releaseAdmission = slot.release
         if (connection.readyState === WebSocket.OPEN) connection.send(JSON.stringify({
             type: 'status',
             state: 'capacity_admitted',
