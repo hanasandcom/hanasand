@@ -37,6 +37,7 @@ type Event = Record<string, unknown>
 type EventBody = { source?: Record<string, unknown>, events?: unknown }
 type RuleDefinition = { match: 'all', conditions: Condition[], storeScope?: 'custom_drop' | 'all', protection?: EventProtectionPolicy, failureConditions?: Condition[], parameters?: Record<string, number>, stage?: 'analyze' | 'match' | 'detect', action?: 'drop' | 'keep' }
 type Rule = { id: string, detectionLogic?: string, recordId?: string, version: string, name: string, family: string, severity: string, explanation: string, evidence: string[], enabled?: boolean, source?: 'hanasand' | 'owned' | 'open_source', sourceReference?: string, definition?: RuleDefinition }
+type FindingInput = [organizationId: string, ruleId: string, severity: string, summary: string, eventIds: string[], evidence: Event]
 
 const platformRetentionRuleIds = new Set([
     accessRuleId, mongoRuleId, postgresRuleId, proxyRuleId, ingestionRuleId,
@@ -716,13 +717,13 @@ function prepareConfiguredFinding(rules: Rule[], organizationId: string, ruleId:
             ruleName: rule?.name,
             ruleExplanation: rule?.explanation,
             detectionDefinition: rule?.definition,
-        }] as Parameters<typeof persistFinding>,
+        }] as FindingInput,
     }
 }
 
 export function collectEventFindings(organizationId: string, eventId: string, event: NormalizedEvent, rules: Rule[], includeRetained = true) {
-    const detectionFindings: Parameters<typeof persistFinding>[] = []
-    const matchFindings: Parameters<typeof persistFinding>[] = []
+    const detectionFindings: FindingInput[] = []
+    const matchFindings: FindingInput[] = []
     const insertFinding = (org: string, id: string, severity: string, summary: string, eventIds: string[], evidence: Event) => {
         const prepared = prepareConfiguredFinding(rules, org, id, severity, summary, eventIds, evidence)
         const destination = prepared.rule && ruleCategory(prepared.rule) === 'match' ? matchFindings : detectionFindings
@@ -770,18 +771,19 @@ export function collectEventFindings(organizationId: string, eventId: string, ev
 }
 
 export async function createFindings(organizationId: string, eventId: string, event: NormalizedEvent, rules: Rule[]) {
-    await createAuthFindings(organizationId, eventId, event, rules, enabledRules(event, rules))
+    const authFindings = await collectAuthFindings(organizationId, eventId, event, rules, enabledRules(event, rules))
     const { detectionFindings, matchFindings } = collectEventFindings(organizationId, eventId, event, rules)
-    await persistEventFindings(detectionFindings)
+    await persistEventFindings([...authFindings, ...detectionFindings])
     await persistEventFindings(matchFindings)
 }
 
-async function createAuthFindings(organizationId: string, eventId: string, event: NormalizedEvent, rules: Rule[], enabled: Set<string>) {
-    const insertFinding = async (org: string, id: string, severity: string, summary: string, eventIds: string[], evidence: Event) => {
-        await persistFinding(...prepareConfiguredFinding(rules, org, id, severity, summary, eventIds, evidence).finding)
+async function collectAuthFindings(organizationId: string, eventId: string, event: NormalizedEvent, rules: Rule[], enabled: Set<string>): Promise<FindingInput[]> {
+    const findings: FindingInput[] = []
+    const insertFinding = (org: string, id: string, severity: string, summary: string, eventIds: string[], evidence: Event) => {
+        findings.push(prepareConfiguredFinding(rules, org, id, severity, summary, eventIds, evidence).finding)
     }
     const parameters = (id: string) => rules.find(rule => rule.id === id)?.definition?.parameters || defaultRuleDefinition(id).parameters!
-    if (event.eventType !== 'authentication' || event.action !== 'login') return
+    if (event.eventType !== 'authentication' || event.action !== 'login') return findings
     const brute = rules.find(rule => rule.id === 'auth.brute_force_success.v1')
     if (enabled.has('auth.brute_force_success.v1') && event.userId && event.outcome === 'success') {
         const { windowMinutes, minimumCount } = parameters('auth.brute_force_success.v1')
@@ -794,19 +796,23 @@ async function createAuthFindings(organizationId: string, eventId: string, event
         const matching = failures.rows.filter((row: { normalized: Event }) => matchesRule(row.normalized, brute?.definition?.failureConditions || []))
         if (matching.length >= minimumCount) {
             const failedEventIds = matching.slice(0, minimumCount).map((row: { id: string }) => row.id)
-            await insertFinding(organizationId, 'auth.brute_force_success.v1', 'high', 'Successful login after repeated failures', [eventId, ...failedEventIds], { successfulEventId: eventId, failedEventIds, windowMinutes, minimumCount, matchedCount: matching.length })
+            insertFinding(organizationId, 'auth.brute_force_success.v1', 'high', 'Successful login after repeated failures', [eventId, ...failedEventIds], { successfulEventId: eventId, failedEventIds, windowMinutes, minimumCount, matchedCount: matching.length })
         }
     }
-    const historyLimit = Math.max(...['auth.new_country.v1', 'auth.new_device.v1', 'auth.impossible_travel.v1'].map(id => parameters(id).historyLimit))
-    const previous = await run(`
-        SELECT id, event_timestamp, outcome, source_country, normalized
-        FROM events
-        WHERE organization_id = $1 AND user_id = $2 AND id <> $3
-          AND event_type = 'authentication' AND action = 'login' AND event_timestamp <= $4::timestamptz
-        ORDER BY event_timestamp DESC
-        LIMIT $5
-    `, [organizationId, event.userId, eventId, event.timestamp, historyLimit])
-    const rows = previous.rows as Array<{ id: string, event_timestamp: string, outcome: string, source_country: string | null, normalized: Event }>
+    const historyRules = ['auth.new_country.v1', 'auth.new_device.v1', 'auth.impossible_travel.v1'].filter(id => enabled.has(id))
+    let rows: Array<{ id: string, event_timestamp: string, outcome: string, source_country: string | null, normalized: Event }> = []
+    if (event.userId && historyRules.length) {
+        const historyLimit = Math.max(...historyRules.map(id => parameters(id).historyLimit))
+        const previous = await run(`
+            SELECT id, event_timestamp, outcome, source_country, normalized
+            FROM events
+            WHERE organization_id = $1 AND user_id = $2 AND id <> $3
+              AND event_type = 'authentication' AND action = 'login' AND event_timestamp <= $4::timestamptz
+            ORDER BY event_timestamp DESC
+            LIMIT $5
+        `, [organizationId, event.userId, eventId, event.timestamp, historyLimit])
+        rows = previous.rows as typeof rows
+    }
     if (enabled.has('auth.password_spray.v1') && event.outcome === 'failure' && event.sourceIp) {
         const { windowMinutes, minimumCount } = parameters('auth.password_spray.v1')
         // Bound imported source text in the index; exact equality remains authoritative.
@@ -822,21 +828,20 @@ async function createAuthFindings(organizationId: string, eventId: string, event
         const sprayRows = (spray.rows as Array<{ id: string, user_id: string | null, normalized: Event }>).filter(row => matchesRule(row.normalized, rules.find(rule => rule.id === 'auth.password_spray.v1')?.definition?.conditions || []))
         const targetUsers = Array.from(new Set([event.userId, ...sprayRows.map(row => row.user_id)].filter(Boolean)))
         if (targetUsers.length >= minimumCount) {
-            await insertFinding(organizationId, 'auth.password_spray.v1', 'high', 'Failed logins for multiple users from one source', [eventId, ...sprayRows.slice(0, 10).map(row => row.id)], { sourceIp: event.sourceIp, userIds: targetUsers, failedEventIds: [eventId, ...sprayRows.slice(0, 10).map(row => row.id)], windowMinutes, minimumCount })
+            insertFinding(organizationId, 'auth.password_spray.v1', 'high', 'Failed logins for multiple users from one source', [eventId, ...sprayRows.slice(0, 10).map(row => row.id)], { sourceIp: event.sourceIp, userIds: targetUsers, failedEventIds: [eventId, ...sprayRows.slice(0, 10).map(row => row.id)], windowMinutes, minimumCount })
         }
     }
-    if (!event.userId) return
-    if (event.outcome !== 'success') return
+    if (!event.userId || event.outcome !== 'success') return findings
     const countryHistory = rows.slice(0, parameters('auth.new_country.v1').historyLimit).filter(row => row.outcome === 'success' && row.source_country)
     const priorSuccess = event.sourceCountry && !countryHistory.some(row => row.source_country === event.sourceCountry) ? countryHistory[0] : undefined
     if (enabled.has('auth.new_country.v1') && priorSuccess) {
-        await insertFinding(organizationId, 'auth.new_country.v1', 'medium', `Login from new country: ${event.sourceCountry}`, [eventId, priorSuccess.id], { currentCountry: event.sourceCountry, previousCountry: priorSuccess.source_country })
+        insertFinding(organizationId, 'auth.new_country.v1', 'medium', `Login from new country: ${event.sourceCountry}`, [eventId, priorSuccess.id], { currentCountry: event.sourceCountry, previousCountry: priorSuccess.source_country })
     }
     const currentDevice = event.deviceId
     const deviceHistory = rows.slice(0, parameters('auth.new_device.v1').historyLimit).filter(row => row.outcome === 'success' && deviceIdFor(row.normalized))
     const priorDevice = currentDevice && !deviceHistory.some(row => deviceIdFor(row.normalized) === currentDevice) ? deviceHistory[0] : undefined
     if (enabled.has('auth.new_device.v1') && priorDevice) {
-        await insertFinding(organizationId, 'auth.new_device.v1', 'medium', 'Successful login from a new device', [eventId, priorDevice.id], { currentDevice, previousDevice: deviceIdFor(priorDevice.normalized) })
+        insertFinding(organizationId, 'auth.new_device.v1', 'medium', 'Successful login from a new device', [eventId, priorDevice.id], { currentDevice, previousDevice: deviceIdFor(priorDevice.normalized) })
     }
     const coordinates = coordinatesFor(event.normalized)
     const priorCoordinates = rows.slice(0, parameters('auth.impossible_travel.v1').historyLimit).map(row => ({ row, coordinates: coordinatesFor(row.normalized) })).find(item => item.row.outcome === 'success' && item.coordinates && coordinates)
@@ -844,18 +849,15 @@ async function createAuthFindings(organizationId: string, eventId: string, event
         const minutes = Math.abs(Date.parse(event.timestamp) - Date.parse(priorCoordinates.row.event_timestamp)) / 60_000
         const distanceKm = distance(coordinates, priorCoordinates.coordinates!)
         if (minutes < parameters('auth.impossible_travel.v1').windowMinutes && distanceKm > parameters('auth.impossible_travel.v1').distanceKm) {
-            await insertFinding(organizationId, 'auth.impossible_travel.v1', 'high', 'Successful logins from geographically incompatible locations', [eventId, priorCoordinates.row.id], { current: coordinates, previous: priorCoordinates.coordinates, distanceKm: Math.round(distanceKm), elapsedMinutes: Math.round(minutes) })
+            insertFinding(organizationId, 'auth.impossible_travel.v1', 'high', 'Successful logins from geographically incompatible locations', [eventId, priorCoordinates.row.id], { current: coordinates, previous: priorCoordinates.coordinates, distanceKm: Math.round(distanceKm), elapsedMinutes: Math.round(minutes) })
         }
     }
-}
-
-async function persistFinding(organizationId: string, ruleId: string, severity: string, summary: string, eventIds: string[], evidence: Event) {
-    await persistEventFindings([[organizationId, ruleId, severity, summary, eventIds, evidence]])
+    return findings
 }
 
 // Preserve the same finding identity and restricted-log flag while committing
 // bounded groups together, rather than fsyncing once for every matched rule.
-export async function persistEventFindings(findings: Parameters<typeof persistFinding>[], query = run) {
+export async function persistEventFindings(findings: FindingInput[], query = run) {
     for (let offset = 0; offset < findings.length; offset += 1000) {
         const rows = findings.slice(offset, offset + 1000).map(([organizationId, ruleId, severity, summary, eventIds, evidence]) => ({
             id: randomUUID(), organization_id: organizationId,

