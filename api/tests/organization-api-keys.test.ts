@@ -65,6 +65,8 @@ describe('organization API key onboarding', () => {
             perDay: 1_000,
         })
         expect(JSON.stringify(created.apiKey)).not.toContain(created.secret)
+        const wrongSecret = `${created.secret.slice(0, -1)}${created.secret.endsWith('0') ? '1' : '0'}`
+        expect(await validateApiKey(wrongSecret, fakeRun as any)).toBeNull()
 
         expect((await validateApiKey(created.secret, fakeRun as any))?.organizationId).toBe('org-a')
         expect((await validateApiKey(second.secret, fakeRun as any))?.organizationId).toBe('org-a')
