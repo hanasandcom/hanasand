@@ -91,13 +91,15 @@ export async function getAiReleaseSupportBundle(req: FastifyRequest, res: Fastif
         return res.status(404).send({ error: 'Release not found.' })
     }
 
-    const trust = releaseTrust(row)
+    const events = row.events || []
+    const requestIds = releaseRequestIds(events)
+    const trust = releaseTrust(row, requestIds)
     return res.send({
         release: toRelease(row),
         bundle: {
             id: `support_${row.id}`,
             generatedAt: new Date().toISOString(),
-            requestIds: releaseRequestIds(row.events || []),
+            requestIds,
             release: {
                 id: row.id,
                 status: row.status,
@@ -114,7 +116,7 @@ export async function getAiReleaseSupportBundle(req: FastifyRequest, res: Fastif
             exports: trust.exports,
             noLockIn: trust.noLockIn,
             sla: trust.sla,
-            events: (row.events || []).slice(-30),
+            events: events.slice(-30),
             failureReason: row.failure_reason || row.notes || null,
         },
     })
@@ -201,10 +203,12 @@ export function toRelease(row: ReleaseRow): AIRelease {
     }
 }
 
-function releaseTrust(row: Pick<ReleaseRow, 'id' | 'conversation_id' | 'deployment_id' | 'vm_name' | 'stack_type' | 'access_policy' | 'status' | 'preview_url' | 'created_at' | 'updated_at' | 'notes'> & Partial<ReleaseBundleRow>): AIReleaseTrust {
+function releaseTrust(
+    row: Pick<ReleaseRow, 'id' | 'conversation_id' | 'deployment_id' | 'vm_name' | 'stack_type' | 'access_policy' | 'status' | 'preview_url' | 'created_at' | 'updated_at' | 'notes'> & Partial<ReleaseBundleRow>,
+    requestIds = releaseRequestIds(row.events || []),
+): AIReleaseTrust {
     const previewUrl = row.deployment_id ? buildAiPreviewUrl(row.deployment_id) : row.preview_url
     const bundleUrl = `/api/ai/releases/${row.id}/support-bundle`
-    const requestIds = releaseRequestIds(row.events || [])
 
     return {
         versionHistory: {
