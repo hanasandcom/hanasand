@@ -7,6 +7,7 @@ let eventRows: Record<string, any>[] = []
 let approvalRows: Record<string, any>[] = []
 let supportDecisionApproval: Record<string, any> | null = null
 let supportOrganization: Record<string, any> | null = null
+let supportUser: Record<string, any> | null = null
 let supportInviteReads = 0
 let inviteActionWrites = 0
 let acceptedInviteWinsRace = false
@@ -39,6 +40,7 @@ async function run(sql: string, values: unknown[] = []) {
         return { rows: supportRecoveryInviteStatus ? [{ id: 'invite-1', status: supportRecoveryInviteStatus, expires_at: supportRecoveryInviteExpiry }] : [] }
     }
     if (sql.includes('FROM organizations o') && supportOrganization) return { rows: [supportOrganization] }
+    if (sql.includes('FROM users') && sql.includes('WHERE id = $1') && !sql.includes('organization_members') && supportUser) return { rows: [supportUser] }
     if (sql.includes('FROM organization_invites') && sql.includes('id = $1') && sql.includes('organization_id = $2')) {
         supportInviteReads += 1
         const invite = {
@@ -128,6 +130,7 @@ const {
     getSupportInspection,
     getSupportReadiness,
     getSupportOrganization,
+    getSupportUser,
     postSupportOrganizationInvite,
     postSupportOrganizationInviteAction,
     postSupportOrganizationMemberRoleRecovery,
@@ -167,6 +170,7 @@ beforeEach(() => {
     approvalRows = []
     supportDecisionApproval = null
     supportOrganization = null
+    supportUser = null
     supportInviteReads = 0
     inviteActionWrites = 0
     acceptedInviteWinsRace = false
@@ -507,6 +511,79 @@ test('support inspection keeps organization member and pending-invite counts in 
         memberCount: 3,
         pendingInviteCount: 2,
     })
+})
+
+test('organization and user inspections keep shared fields and target-specific contracts', async () => {
+    supportOrganization = {
+        id: 'org-1', name: 'Org', slug: 'org', status: 'active',
+        member_count: 3, pending_invite_count: 2,
+    }
+    supportUser = {
+        id: 'user-1', name: 'User One', avatar: null, active: true, reserved: false,
+        deactivated_at: null, deactivated_by: null, deletion_requested_at: null, deletion_scheduled_at: null,
+    }
+
+    const organizationResponse = await request(getSupportOrganization, { params: { id: 'org-1' } })
+    const userResponse = await request(getSupportUser, { params: { id: 'user-1' } })
+
+    expect(organizationResponse.statusCode).toBe(200)
+    expect(userResponse.statusCode).toBe(200)
+    const organization = organizationResponse.body
+    const user = userResponse.body
+    const sharedFields = [
+        'authorization', 'accessStatus', 'accessRecoveryPlan', 'inspectionReceipt',
+        'actionHistoryReceipt', 'actionHistoryExport', 'caseAccessReadiness', 'caseHandoff',
+        'supportActivityRollup', 'recentAuditEvents', 'recentAuditTimeline', 'copyText',
+    ]
+    for (const field of sharedFields) {
+        expect(Object.hasOwn(organization, field)).toBe(true)
+        expect(Object.hasOwn(user, field)).toBe(true)
+    }
+
+    expect(organization).toMatchObject({
+        organization: { id: 'org-1' },
+        inspectionReceipt: { schemaVersion: 'support.organization.inspection_receipt.v1' },
+        caseAccessReadiness: { schemaVersion: 'support.case_access_readiness.v1' },
+        caseHandoff: { schemaVersion: 'support.organization.case_handoff.v1' },
+        supportActivityRollup: { schemaVersion: 'support.organization.activity_rollup.v1' },
+        members: [],
+        invites: [],
+        watchlistItems: [],
+        webhookDestinations: [],
+        recentAuditEvents: [],
+    })
+    expect(organization.copyText).toBe([
+        'Support organization inspection org-1',
+        'Authorization: support role',
+        `Access status: ${organization.accessStatus.overall}`,
+        'Members: 0',
+        'Pending invites: 0',
+        'Audit events: none',
+    ].join('\n'))
+
+    expect(user).toMatchObject({
+        user: { id: 'user-1', name: 'User One' },
+        inspectionReceipt: { schemaVersion: 'support.user.inspection_receipt.v1' },
+        caseAccessReadiness: { schemaVersion: 'support.user_case_access_readiness.v1' },
+        caseHandoff: { schemaVersion: 'support.user.case_handoff.v1' },
+        supportActivityRollup: { schemaVersion: 'support.user.activity_rollup.v1' },
+        memberships: [],
+        pendingInvites: [],
+        approvalRequests: [],
+        recentAuditEvents: [],
+    })
+    expect(user.copyText).toBe([
+        'Support user inspection user-1',
+        'Authorization: support role',
+        `Access status: ${user.accessStatus.overall}`,
+        'Memberships: 0',
+        'Pending invites: 0',
+        'Audit events: none',
+    ].join('\n'))
+    expect(organization.recentAuditEvents).toBe(organization.recentAuditTimeline.events)
+    expect(user.recentAuditEvents).toBe(user.recentAuditTimeline.events)
+    expect(organization).not.toHaveProperty('user')
+    expect(user).not.toHaveProperty('organization')
 })
 
 test('support session can be created, inspected, then revoked through its audit lifecycle', async () => {

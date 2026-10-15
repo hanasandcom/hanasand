@@ -1012,6 +1012,41 @@ export async function postSupportSessionRevoke(req: FastifyRequest<{ Params: Sup
     })
 }
 
+function supportSubjectInspectionResponseFields(input: {
+    kind: SupportSubjectInspectionKind
+    targetId: string
+    authorization: Record<string, any>
+    subjectAccessState: ReturnType<typeof buildSupportSubjectAccessState>
+    receipts: ReturnType<typeof buildSupportSubjectInspectionReceipts>
+    caseAccessReadiness: Record<string, any>
+    caseHandoff: Record<string, any>
+    supportActivityRollup: Record<string, any>
+    recentAuditTimeline: ReturnType<typeof supportRecentAuditTimeline>
+    relatedRecordCount: number
+    pendingInviteCount: number
+}) {
+    const relatedRecordLabel = input.kind === 'organization' ? 'Members' : 'Memberships'
+    return {
+        authorization: input.authorization,
+        accessStatus: input.subjectAccessState.accessStatus,
+        accessRecoveryPlan: input.subjectAccessState.accessRecoveryPlan,
+        ...input.receipts,
+        caseAccessReadiness: input.caseAccessReadiness,
+        caseHandoff: input.caseHandoff,
+        supportActivityRollup: input.supportActivityRollup,
+        recentAuditEvents: input.recentAuditTimeline.events,
+        recentAuditTimeline: input.recentAuditTimeline,
+        copyText: [
+            `Support ${input.kind} inspection ${input.targetId}`,
+            `Authorization: ${input.authorization.supportSessionScoped ? 'scoped support session' : 'support role'}`,
+            `Access status: ${input.subjectAccessState.accessStatus.overall}`,
+            `${relatedRecordLabel}: ${input.relatedRecordCount}`,
+            `Pending invites: ${input.pendingInviteCount}`,
+            `Audit events: ${input.recentAuditTimeline.eventIds.join(', ') || 'none'}`,
+        ].join('\n'),
+    }
+}
+
 export async function getSupportOrganization(req: FastifyRequest<{ Params: OrganizationParams }>, res: FastifyReply) {
     const actor = await requireAdminSupport(req, res)
     if (!actor) return
@@ -1222,7 +1257,7 @@ export async function getSupportOrganization(req: FastifyRequest<{ Params: Organ
         accessStatus: organizationAccessStatus,
         accessRecoveryPlan,
     })
-    const { inspectionReceipt, actionHistoryReceipt, actionHistoryExport } = subjectReceipts
+    const { actionHistoryExport } = subjectReceipts
     const caseHandoff = supportOrganizationCaseHandoff({
         actorId: actor.id,
         organizationId: organization.id,
@@ -1242,17 +1277,10 @@ export async function getSupportOrganization(req: FastifyRequest<{ Params: Organ
     })
     return res.send({
         organization: toOrganization(organization),
-        authorization,
-        accessStatus: organizationAccessStatus,
-        accessRecoveryPlan,
-        inspectionReceipt,
-        actionHistoryReceipt,
-        actionHistoryExport,
         members: members.rows.map(toSupportMember),
         invites: (invites.rows as OrganizationInviteRow[]).map(toInvite),
         watchlistItems: watchlistItems.map(toWatchlistItem),
         webhookDestinations,
-        caseAccessReadiness,
         alertReadiness: {
             schemaVersion: 'support.organization.alert_readiness.v1',
             organizationId: organization.id,
@@ -1271,7 +1299,6 @@ export async function getSupportOrganization(req: FastifyRequest<{ Params: Organ
             },
         },
         webhookDestinationReadiness,
-        caseHandoff,
         supportLinks: {
             inspectUser: '/api/admin/support/users/:id',
             inviteAssist: `/api/admin/support/organizations/${encodeURIComponent(organization.id)}/invites`,
@@ -1280,17 +1307,19 @@ export async function getSupportOrganization(req: FastifyRequest<{ Params: Organ
             webhookAudit: `/api/admin/audit-events?org=${encodeURIComponent(organization.id)}&action=webhook`,
             caseHandoff: `/api/admin/support/organizations/${encodeURIComponent(organization.id)}?include=caseHandoff`,
         },
-        supportActivityRollup,
-        recentAuditEvents: recentAuditTimeline.events,
-        recentAuditTimeline,
-        copyText: [
-            `Support organization inspection ${organization.id}`,
-            `Authorization: ${authorization.supportSessionScoped ? 'scoped support session' : 'support role'}`,
-            `Access status: ${organizationAccessStatus.overall}`,
-            `Members: ${members.rows.length}`,
-            `Pending invites: ${(invites.rows as OrganizationInviteRow[]).filter(row => row.status === 'pending').length}`,
-            `Audit events: ${recentAuditTimeline.eventIds.join(', ') || 'none'}`,
-        ].join('\n'),
+        ...supportSubjectInspectionResponseFields({
+            kind: 'organization',
+            targetId: organization.id,
+            authorization,
+            subjectAccessState,
+            receipts: subjectReceipts,
+            caseAccessReadiness,
+            caseHandoff,
+            supportActivityRollup,
+            recentAuditTimeline,
+            relatedRecordCount: members.rows.length,
+            pendingInviteCount: (invites.rows as OrganizationInviteRow[]).filter(row => row.status === 'pending').length,
+        }),
     })
 }
 
@@ -1435,7 +1464,7 @@ export async function getSupportUser(req: FastifyRequest<{ Params: UserParams }>
         accessStatus: userAccessStatus,
         accessRecoveryPlan,
     })
-    const { inspectionReceipt, actionHistoryReceipt, actionHistoryExport } = subjectReceipts
+    const { actionHistoryExport } = subjectReceipts
     const caseAccessReadiness = supportUserCaseAccessReadiness({
         userId: req.params.id,
         organizationIds,
@@ -1466,28 +1495,22 @@ export async function getSupportUser(req: FastifyRequest<{ Params: UserParams }>
     })
     return res.send({
         user: toSupportUser(userRow),
-        authorization,
-        accessStatus: userAccessStatus,
-        accessRecoveryPlan,
-        inspectionReceipt,
-        actionHistoryReceipt,
-        actionHistoryExport,
-        caseAccessReadiness,
-        caseHandoff,
         memberships: memberships.rows.map(toSupportMembership),
         pendingInvites: invites.rows.map(toSupportInvite),
         approvalRequests: approvalDetails,
-        supportActivityRollup,
-        recentAuditEvents: recentAuditTimeline.events,
-        recentAuditTimeline,
-        copyText: [
-            `Support user inspection ${req.params.id}`,
-            `Authorization: ${authorization.supportSessionScoped ? 'scoped support session' : 'support role'}`,
-            `Access status: ${userAccessStatus.overall}`,
-            `Memberships: ${memberships.rows.length}`,
-            `Pending invites: ${invites.rows.length}`,
-            `Audit events: ${recentAuditTimeline.eventIds.join(', ') || 'none'}`,
-        ].join('\n'),
+        ...supportSubjectInspectionResponseFields({
+            kind: 'user',
+            targetId: req.params.id,
+            authorization,
+            subjectAccessState,
+            receipts: subjectReceipts,
+            caseAccessReadiness,
+            caseHandoff,
+            supportActivityRollup,
+            recentAuditTimeline,
+            relatedRecordCount: memberships.rows.length,
+            pendingInviteCount: invites.rows.length,
+        }),
     })
 }
 
