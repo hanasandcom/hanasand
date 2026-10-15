@@ -1,10 +1,9 @@
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { spawn } from 'node:child_process'
-import { chmod } from 'node:fs/promises'
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import { requireAiUser } from './shared.ts'
+import { runGit } from './gitCommand.ts'
 import { buildTokenHint, getRepoCredential, touchRepoCredentialUsage, toRepoCredentialSummary } from '#utils/ai/repoCredentials.ts'
 import { detectRepositoryStack } from '#utils/ai/stack.ts'
 
@@ -192,53 +191,6 @@ function buildCloneUrl(url: URL, repoParts: string[]) {
     }
 
     return `${url.protocol}//${url.host}/${cleanPath}${cleanPath.endsWith('.git') ? '' : '.git'}`
-}
-
-function runGit(args: string[], cwd?: string, env?: NodeJS.ProcessEnv, timeoutMs = 120_000) {
-    return new Promise<{ stdout: string, stderr: string }>((resolve, reject) => {
-        const child = spawn('git', args, {
-            cwd,
-            stdio: ['ignore', 'pipe', 'pipe'],
-            env,
-        })
-
-        let stdout = ''
-        let stderr = ''
-        let settled = false
-
-        const timeout = setTimeout(() => {
-            if (settled) return
-            settled = true
-            child.kill('SIGTERM')
-            reject(new Error(`git ${args.join(' ')} timed out. Check the repository URL or credentials.`))
-        }, timeoutMs)
-
-        child.stdout.on('data', (chunk) => {
-            stdout += chunk.toString()
-        })
-
-        child.stderr.on('data', (chunk) => {
-            stderr += chunk.toString()
-        })
-
-        child.on('error', (error) => {
-            if (settled) return
-            settled = true
-            clearTimeout(timeout)
-            reject(error)
-        })
-        child.on('close', (code) => {
-            if (settled) return
-            settled = true
-            clearTimeout(timeout)
-            if (code !== 0) {
-                reject(new Error(stderr.trim() || `git ${args.join(' ')} failed with code ${code}`))
-                return
-            }
-
-            resolve({ stdout, stderr })
-        })
-    })
 }
 
 async function createGitAskPass(tempDir: string) {

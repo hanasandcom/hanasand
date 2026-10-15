@@ -1,11 +1,11 @@
 import { chmod, mkdir, rm, stat, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { spawn } from 'node:child_process'
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import run from '#db'
 import { getRepoCredential } from '#utils/ai/repoCredentials.ts'
 import { parseGitInput } from './importRepository.ts'
+import { runGit } from './gitCommand.ts'
 import { requireAiUser } from './shared.ts'
 
 type RepositoryRow = {
@@ -27,54 +27,6 @@ type ShareFileRow = {
 }
 
 const workspaceRoot = path.join(os.tmpdir(), 'hanasand-git-workspaces')
-
-async function runGit(args: string[], cwd?: string, env?: NodeJS.ProcessEnv, timeoutMs = 120_000) {
-    return new Promise<{ stdout: string, stderr: string }>((resolve, reject) => {
-        const child = spawn('git', args, {
-            cwd,
-            stdio: ['ignore', 'pipe', 'pipe'],
-            env: {
-                ...process.env,
-                GIT_TERMINAL_PROMPT: '0',
-                ...(env || {}),
-            },
-        })
-
-        let stdout = ''
-        let stderr = ''
-        let settled = false
-        const timeout = setTimeout(() => {
-            if (settled) return
-            settled = true
-            child.kill('SIGTERM')
-            reject(new Error(`git ${args.join(' ')} timed out. Check the repository URL or credentials.`))
-        }, timeoutMs)
-
-        child.stdout.on('data', (chunk) => {
-            stdout += chunk.toString()
-        })
-        child.stderr.on('data', (chunk) => {
-            stderr += chunk.toString()
-        })
-        child.on('error', (error) => {
-            if (settled) return
-            settled = true
-            clearTimeout(timeout)
-            reject(error)
-        })
-        child.on('close', (code) => {
-            if (settled) return
-            settled = true
-            clearTimeout(timeout)
-            if (code !== 0) {
-                reject(new Error(stderr.trim() || `git ${args.join(' ')} failed with code ${code}`))
-                return
-            }
-
-            resolve({ stdout, stderr })
-        })
-    })
-}
 
 async function createGitAskPass(parentPath: string) {
     await mkdir(parentPath, { recursive: true })
