@@ -1,6 +1,7 @@
 import { watchWebCrackOutput, readWebCrackOutput, submitWebCrackSample } from './webcrack.ts'
 import { browserStartOptions } from '../../utils/ws/browserAccess.ts'
 import { currentBrowserAdmissionStatus, requestBrowserAdmission } from '../../utils/ws/browserAdmission.ts'
+import { browserProfileForMessage, browserViewportForMessage } from './browserProfile.ts'
 import { createHash } from 'node:crypto'
 import { execFile } from 'node:child_process'
 import { lookup, resolveTxt } from 'node:dns/promises'
@@ -105,7 +106,6 @@ const DEFAULT_DURATION_MS = 90 * 1000
 const SUSPICIOUS_DURATION_MS = 3 * 60 * 1000
 const MANUAL_EXTENSION_MS = 5 * 60 * 1000
 const asnCache = new Map<string, Promise<string | undefined>>()
-const CHROME_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
 const execFileAsync = promisify(execFile)
 let warmRegularBrowser: Promise<Browser> | null = null
 const prestartedBrowser = new SingleUseBrowser<Browser>()
@@ -684,33 +684,21 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
             })
 
             ownsBrowser = Boolean(proxy || network !== 'regular' || process.env.BROWSER_SANDBOX_WORKER_ONLY === '1')
-            const viewport = browserViewportForMessage(message)
-            if (process.env.BROWSER_SANDBOX_WORKER_ONLY === '1') await resizeBrowserDisplay(viewport)
+            const profile = browserProfileForMessage(message, network)
+            if (process.env.BROWSER_SANDBOX_WORKER_ONLY === '1') await resizeBrowserDisplay(profile.viewport)
             trace('launch_chromium', { target, network, ownsBrowser })
             if (process.env.BROWSER_SANDBOX_POOL_TOKEN) {
                 if (proxy || network !== 'regular') throw new Error('Prestarted browser requires regular network mode.')
                 browser = prestartedBrowser.take(sessionId)
             } else browser = ownsBrowser ? await chromium.launch(chromiumLaunchOptions(proxy)) : await regularBrowser()
             trace('chromium_launched')
-            context = await browser.newContext({
-                viewport,
-                ignoreHTTPSErrors: true,
-                userAgent: browserUserAgentForMessage(message),
-                locale: browserLocaleForMessage(message),
-                timezoneId: browserTimezoneForMessage(message),
-                extraHTTPHeaders: { 'Accept-Language': acceptLanguageForLocale(browserLocaleForMessage(message)) },
-                isMobile: message.isMobile === true,
-                hasTouch: message.hasTouch === true,
-                acceptDownloads: true,
-                serviceWorkers: 'block',
-                permissions: network === 'regular' ? [] : ['clipboard-read', 'clipboard-write'],
-            })
+            context = await browser.newContext(profile.options)
             trace('context_created')
             await context.exposeBinding('__hanasandRemoteTabSelected', ({ page: selectedPage }) => syncVisibleRemoteTab(selectedPage))
             await context.addInitScript((platform) => {
                 Object.defineProperty(navigator, 'webdriver', { get: () => undefined })
                 if (platform) Object.defineProperty(navigator, 'platform', { get: () => platform })
-            }, browserPlatformForMessage(message))
+            }, profile.platform)
             await context.addInitScript(() => {
                 const reportVisibleTab = () => {
                     if (document.visibilityState !== 'visible') return
@@ -2592,38 +2580,6 @@ function clampNumber(value: unknown, min: number, max: number, fallback: number)
     const numeric = Number(value)
     if (!Number.isFinite(numeric)) return fallback
     return Math.max(min, Math.min(max, Math.round(numeric)))
-}
-
-function browserViewportForMessage(message: Pick<BrokerMessage, 'width' | 'height'>) {
-    const width = clampNumber(message.width, 320, 2400, DEFAULT_WIDTH)
-    const height = clampNumber(message.height, 320, 2160, Math.round(width * 9 / 16))
-    return { width, height }
-}
-
-function browserUserAgentForMessage(message: Pick<BrokerMessage, 'userAgent'>) {
-    const value = typeof message.userAgent === 'string' ? message.userAgent.trim() : ''
-    if (!value || value.length > 512) return CHROME_USER_AGENT
-    return value
-}
-
-function browserLocaleForMessage(message: Pick<BrokerMessage, 'locale'>) {
-    const value = typeof message.locale === 'string' ? message.locale.trim() : ''
-    return /^[a-z]{2,3}(?:-[A-Z]{2})?$/.test(value) ? value : 'en-US'
-}
-
-function browserTimezoneForMessage(message: Pick<BrokerMessage, 'timezoneId'>) {
-    const value = typeof message.timezoneId === 'string' ? message.timezoneId.trim() : ''
-    return /^[A-Za-z_]+\/[A-Za-z0-9_+-]+(?:\/[A-Za-z0-9_+-]+)?$|^UTC$/.test(value) ? value : 'UTC'
-}
-
-function browserPlatformForMessage(message: Pick<BrokerMessage, 'platform'>) {
-    const value = typeof message.platform === 'string' ? message.platform.trim() : ''
-    return value && value.length <= 64 ? value : ''
-}
-
-function acceptLanguageForLocale(locale: string) {
-    const language = locale.split('-')[0]
-    return language && language !== locale ? `${locale},${language};q=0.9` : `${locale};q=0.9,en;q=0.8`
 }
 
 function mouseButton(value: unknown): 'left' | 'right' | 'middle' {
