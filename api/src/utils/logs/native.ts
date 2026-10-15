@@ -211,6 +211,31 @@ async function listJournalLogs(limit: number) {
     }
 }
 
+async function fetchRemoteJson<T>(path: string, params: URLSearchParams): Promise<T | null> {
+    if (!config.internal_api || !config.vm_api_token) {
+        return null
+    }
+
+    try {
+        const response = await fetch(`${config.internal_api}${path}?${params.toString()}`, {
+            headers: {
+                Authorization: `Bearer ${encodeURIComponent(config.vm_api_token || '')}`,
+                'Content-Type': 'application/json',
+                'User-Agent': 'hanasand_api',
+            },
+            signal: AbortSignal.timeout(2000),
+        })
+
+        if (!response.ok) {
+            return null
+        }
+
+        return await response.json() as T
+    } catch {
+        return null
+    }
+}
+
 async function fetchRemoteNativeLogs({
     service,
     level,
@@ -222,69 +247,30 @@ async function fetchRemoteNativeLogs({
     search?: string | null
     limit: number
 }) {
-    if (!config.internal_api || !config.vm_api_token) {
-        return [] as NativeLogEntry[]
-    }
-
     const params = new URLSearchParams({ limit: String(limit) })
     if (service) params.set('service', service)
     if (level) params.set('level', level)
     if (search) params.set('search', search)
 
-    try {
-        const response = await fetch(`${config.internal_api}/logs?${params.toString()}`, {
-            headers: {
-                Authorization: `Bearer ${encodeURIComponent(config.vm_api_token || '')}`,
-                'Content-Type': 'application/json',
-                'User-Agent': 'hanasand_api',
+    const payload = await fetchRemoteJson<{ logs?: NativeLogEntry[] }>('/logs', params)
+    return Array.isArray(payload?.logs)
+        ? payload.logs.map((entry) => ({
+            ...entry,
+            metadata: {
+                ...(entry.metadata || {}),
+                native_source: 'internal_api',
             },
-            signal: AbortSignal.timeout(2000),
-        })
-
-        if (!response.ok) {
-            return []
-        }
-
-        const payload = await response.json() as { logs?: NativeLogEntry[] }
-        return Array.isArray(payload.logs)
-            ? payload.logs.map((entry) => ({
-                ...entry,
-                metadata: {
-                    ...(entry.metadata || {}),
-                    native_source: 'internal_api',
-                },
-                source: 'native' as const,
-            }))
-            : []
-    } catch {
-        return []
-    }
+            source: 'native' as const,
+        }))
+        : []
 }
 
 async function fetchRemoteNativeLogServices(limit: number) {
-    if (!config.internal_api || !config.vm_api_token) {
-        return [] as Array<{ service: string, last_seen: string, entries: number }>
-    }
+    const payload = await fetchRemoteJson<{ services?: Array<{ service: string, last_seen: string, entries: number }> }>(
+        '/logs/services', new URLSearchParams({ limit: String(limit) })
+    )
 
-    try {
-        const response = await fetch(`${config.internal_api}/logs/services?limit=${limit}`, {
-            headers: {
-                Authorization: `Bearer ${encodeURIComponent(config.vm_api_token || '')}`,
-                'Content-Type': 'application/json',
-                'User-Agent': 'hanasand_api',
-            },
-            signal: AbortSignal.timeout(2000),
-        })
-
-        if (!response.ok) {
-            return []
-        }
-
-        const payload = await response.json() as { services?: Array<{ service: string, last_seen: string, entries: number }> }
-        return Array.isArray(payload.services) ? payload.services : []
-    } catch {
-        return []
-    }
+    return Array.isArray(payload?.services) ? payload.services : []
 }
 
 function dedupeLogs(logs: NativeLogEntry[]) {
