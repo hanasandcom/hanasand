@@ -435,51 +435,41 @@ async function recordRelease({
 }
 
 async function fetchJsonWithDeployRetry(url: string, init: RequestInit, events: AIDeploymentEvent[], label: string) {
-    let lastError: unknown = null
-
-    for (let attempt = 1; attempt <= DEPLOY_RETRY_ATTEMPTS; attempt++) {
-        try {
-            const response = await fetch(url, init)
-            const payload = await response.json().catch(() => null)
-            if (!shouldRetryResponse(response, attempt)) {
-                return { response, payload }
-            }
-
-            events.push(deploymentEvent('sync', retryMessage(label, `HTTP ${response.status}`, attempt), new Date().toISOString()))
-        } catch (error) {
-            lastError = error
-            if (attempt >= DEPLOY_RETRY_ATTEMPTS) {
-                throw error
-            }
-
-            events.push(deploymentEvent('sync', retryMessage(label, error instanceof Error ? error.message : 'request failed', attempt), new Date().toISOString()))
-        }
-
-        await delayDeployRetry(attempt)
-    }
-
-    throw lastError instanceof Error ? lastError : new Error(`Unable to reach ${label}.`)
+    const result = await fetchWithDeployRetry(url, init, events, label, 'sync', response => response.json().catch(() => null))
+    return { response: result.response, payload: result.body }
 }
 
 async function fetchTextWithDeployRetry(url: string, init: RequestInit, events: AIDeploymentEvent[], label: string) {
+    const result = await fetchWithDeployRetry(url, init, events, label, 'healthcheck', response => response.text())
+    return { response: result.response, text: result.body }
+}
+
+async function fetchWithDeployRetry<T>(
+    url: string,
+    init: RequestInit,
+    events: AIDeploymentEvent[],
+    label: string,
+    stage: AIDeploymentEvent['stage'],
+    readResponse: (response: Response) => Promise<T>,
+) {
     let lastError: unknown = null
 
     for (let attempt = 1; attempt <= DEPLOY_RETRY_ATTEMPTS; attempt++) {
         try {
             const response = await fetch(url, init)
-            const text = await response.text()
+            const body = await readResponse(response)
             if (!shouldRetryResponse(response, attempt)) {
-                return { response, text }
+                return { response, body }
             }
 
-            events.push(deploymentEvent('healthcheck', retryMessage(label, `HTTP ${response.status}`, attempt), new Date().toISOString()))
+            events.push(deploymentEvent(stage, retryMessage(label, `HTTP ${response.status}`, attempt), new Date().toISOString()))
         } catch (error) {
             lastError = error
             if (attempt >= DEPLOY_RETRY_ATTEMPTS) {
                 throw error
             }
 
-            events.push(deploymentEvent('healthcheck', retryMessage(label, error instanceof Error ? error.message : 'request failed', attempt), new Date().toISOString()))
+            events.push(deploymentEvent(stage, retryMessage(label, error instanceof Error ? error.message : 'request failed', attempt), new Date().toISOString()))
         }
 
         await delayDeployRetry(attempt)
