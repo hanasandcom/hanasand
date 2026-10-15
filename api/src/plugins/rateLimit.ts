@@ -94,7 +94,11 @@ async function enforceRateLimit(req: FastifyRequest, res: FastifyReply, database
         || isTrustedStatusIngest(req, path)
     ) return true
     // Identity is the sole rate-limit owner for routes forwarded to its service.
-    if (path.startsWith('/api/auth/') || req.method === 'POST' && path === '/api/user') return true
+    // Trusted support-service authorization is the exception: it has its own
+    // bounded internal bucket below rather than bypassing this boundary.
+    const supportAuthEndpoint = req.method === 'POST'
+        && ['/auth/support/authorize', '/api/auth/support/authorize'].includes(path)
+    if ((path.startsWith('/api/auth/') && !supportAuthEndpoint) || req.method === 'POST' && path === '/api/user') return true
 
     let phaseStarted = performance.now()
     if (path === '/api/system/events') req.auditBoundaryTiming = []
@@ -108,9 +112,7 @@ async function enforceRateLimit(req: FastifyRequest, res: FastifyReply, database
     const logIngest = req.method === 'POST' && path === '/api/logs/ingest' && (hasLogIngestToken(req) || hasInternalToken(req))
     const internalTokenRoute = internalTokenRoutes.get(`${req.method} ${path}`)
     let actor: RateLimitActor
-    if (req.method === 'POST'
-        && ['/auth/support/authorize', '/api/auth/support/authorize'].includes(path)
-        && hasTrustedSupportServiceKey(req.headers)) actor = { scope: 'internal', identifier: 'service:support-auth' }
+    if (supportAuthEndpoint && hasTrustedSupportServiceKey(req.headers)) actor = { scope: 'internal', identifier: 'service:support-auth' }
     else if (logIngest) actor = { scope: 'internal', identifier: 'service:log-ingest' }
     else if (internalTokenRoute && hasInternalToken(req)) actor = { scope: 'internal', identifier: internalTokenRoute }
     else if (req.method === 'GET' && path === '/api/thesis/code-reviews' && hasInternalToken(req)) actor = { scope: 'internal', identifier: 'service:code-review' }

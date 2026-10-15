@@ -102,17 +102,6 @@ export default fp(async function wsPlugin(fastify: FastifyInstance) {
 
         void import('../handlers/test/follow.ts').then(({ startLoadTestQueue }) => startLoadTestQueue())
 
-        connection.on('message', (msg) => {
-            try {
-                const parsed = JSON.parse(msg.toString()) as { type?: string }
-                if (parsed.type === 'rerun') {
-                    void import('../handlers/test/follow.ts').then(({ enqueueLoadTestRun }) => enqueueLoadTestRun(id, true))
-                }
-            } catch (error) {
-                void recordWebsocketFailure('test-message', id, error)
-            }
-        })
-
         connection.on('error', (error) => {
             void recordWebsocketFailure('test-client', id, error)
         })

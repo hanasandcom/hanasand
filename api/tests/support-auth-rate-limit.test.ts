@@ -49,6 +49,13 @@ test('trusted support auth traffic uses bounded internal rate limits', async () 
     expect(bucketKeys[1]).toContain('service:support-auth:route:internal:POST:/api/auth/support/authorize')
 })
 
+test('trusted support auth is rejected when its internal rate limit is exhausted', async () => {
+    allowed = false
+    const response = await app.inject({ method: 'POST', url: '/api/auth/support/authorize', headers: { 'x-support-auth-key': 'a'.repeat(48) }, payload: {} })
+    expect(response.statusCode).toBe(429)
+    expect(bucketKeys[0]).toContain('service:support-auth:global:internal')
+})
+
 test('invalid support auth keys retain anonymous rate limits', async () => {
     allowed = false
     const response = await app.inject({ method: 'POST', url: '/api/auth/support/authorize', headers: { 'x-support-auth-key': 'wrong' }, payload: {} })
