@@ -1,7 +1,7 @@
 import { getDeliverySummary } from '../../utils/ti/delivery.ts'
 import type { FastifyInstance, FastifyPluginOptions, FastifyReply, FastifyRequest } from 'fastify'
 import { publicTiOpenApi } from '../../contracts/publicTiOpenApi.ts'
-import { normalizeBatchQueries, TI_BATCH_MAX_QUERIES } from './search.ts'
+import { normalizeBatchQueries, normalizeTiSearchQuery, TI_BATCH_MAX_QUERIES } from './search.ts'
 import { searchThreatIntel, type TiSearchResponse } from '#utils/ti/search.ts'
 import { sanitizeCustomerOutboundText } from '../../utils/dwm/customerOutputSafety.ts'
 
@@ -135,8 +135,7 @@ function hasAuthenticatedPrincipal(req: FastifyRequest) {
 
 function normalizeQueryBody(body: { query?: unknown } | undefined) {
     if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).some(key => key !== 'query')) return ''
-    const query = typeof body.query === 'string' ? body.query.trim() : ''
-    return query.length >= 2 && query.length <= 200 ? query : ''
+    return normalizeTiSearchQuery(body.query)
 }
 
 function parseCollectionQuery(query: { q?: unknown, limit?: unknown, page?: unknown, cursor?: unknown }) {

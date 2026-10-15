@@ -20,7 +20,7 @@ export default async function postTiSearch(req: FastifyRequest<{ Body: SearchBod
     if (hasUnexpectedFields(req.body, ['query', 'preferCached'])) {
         return res.status(400).send({ error: 'invalid_request', message: 'search accepts only the query and preferCached fields' })
     }
-    const query = normalizeQuery(req.body?.query)
+    const query = normalizeTiSearchQuery(req.body?.query)
 
     if (!query) {
         return res.status(400).send({ error: 'invalid_query', message: `query must contain 2-${TI_QUERY_MAX_LENGTH} characters` })
@@ -56,13 +56,13 @@ export function normalizeBatchQueries(input?: unknown) {
     if (!Array.isArray(input)) return []
     const queries = new Map<string, string>()
     for (const value of input) {
-        const query = normalizeQuery(value)
+        const query = normalizeTiSearchQuery(value)
         if (query && !queries.has(query.toLowerCase())) queries.set(query.toLowerCase(), query)
     }
     return [...queries.values()]
 }
 
-function normalizeQuery(value: unknown) {
+export function normalizeTiSearchQuery(value: unknown) {
     if (typeof value !== 'string') return ''
     const query = value.trim()
     return query.length >= 2 && query.length <= TI_QUERY_MAX_LENGTH ? query : ''

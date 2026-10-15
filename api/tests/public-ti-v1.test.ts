@@ -146,7 +146,7 @@ describe('public TI v1', () => {
             return searchResult
         })
 
-        const response = await app.inject({ method: 'POST', url: '/api/v1/ti/search', payload: { query: 'APT29' } })
+        const response = await app.inject({ method: 'POST', url: '/api/v1/ti/search', payload: { query: ' APT29 ' } })
         expect(response.statusCode).toBe(200)
         expect(request).toEqual({ query: 'APT29', preflightHealth: true })
         expect(response.json()).toMatchObject({ query: 'APT29', mode: 'scraper', status: 'ready' })

@@ -146,6 +146,10 @@ describe('public TI API boundary', () => {
             expect(singleResult.payload).not.toHaveProperty(field)
         }
 
+        const tooShort = await postTiSearch({ body: { query: ' x ' } } as FastifyRequest<{ Body: { query: string } }>, reply() as unknown as FastifyReply) as any
+        expect(tooShort.statusCode).toBe(400)
+        expect(tooShort.payload.error).toBe('invalid_query')
+
         const unexpected = reply()
         const unexpectedResult = await postTiSearch({ body: { query: 'APT29', tenantId: 'other' } } as any, unexpected as unknown as FastifyReply) as any
         expect(unexpectedResult.statusCode).toBe(400)
