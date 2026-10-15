@@ -1,5 +1,4 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
-import { timingSafeEqual } from 'node:crypto'
 import run from '#db'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import {
@@ -12,6 +11,7 @@ import {
 import { canonicalThirdPartyReportForDelivery } from '#utils/dwm/thirdPartyReportVerification.ts'
 export { canonicalThirdPartyReportForDelivery } from '#utils/dwm/thirdPartyReportVerification.ts'
 import {
+    constantTimeEqual,
     archiveDwmWebhookDestination,
     buildDwmOrgAlertWebhookDeliveryContract,
     buildDwmWebhookAuditEventContracts,
@@ -1106,11 +1106,7 @@ async function authenticatedUserId(req: FastifyRequest, res: FastifyReply) {
 function serviceTokenMatches(value: string | string[] | undefined) {
     const expected = process.env.TI_SCRAPER_SERVICE_TOKEN || ''
     const presented = Array.isArray(value) ? value[0] || '' : value || ''
-    const expectedBytes = Buffer.from(expected)
-    const presentedBytes = Buffer.from(presented)
-    return expectedBytes.length > 0
-        && expectedBytes.length === presentedBytes.length
-        && timingSafeEqual(expectedBytes, presentedBytes)
+    return constantTimeEqual(expected, presented)
 }
 
 async function updatePreview(destinationId: string, userId: string) {

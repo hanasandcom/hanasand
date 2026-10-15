@@ -158,7 +158,7 @@ function ipv4FromMappedIpv6(value: string): string | null {
     return bytes.join('.')
 }
 
-function hashValue(scope: string, value: string) {
+export function hashValue(scope: string, value: string) {
     return `${scope}_${crypto.createHash('sha256').update(value).digest('hex').slice(0, 32)}`
 }
 

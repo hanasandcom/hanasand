@@ -10,6 +10,7 @@ import {
     normalizeWebhookUrl,
     postPublicWebhook,
     signDwmWebhookDeliveryBody,
+    hashValue as hashWebhookValue,
 } from './webhookTransport.ts'
 export { assertPublicWebhookTarget, pinnedWebhookLookup, signDwmWebhookDeliveryBody } from './webhookTransport.ts'
 import run, { withDatabaseAdvisoryLock, withTransaction } from '#db'
@@ -394,6 +395,28 @@ function isLiveDeliveredProof(test: { status?: string | null, dryRun?: boolean |
     return test?.status === 'delivered' && test.dryRun === false && test.live !== false
 }
 
+function webhookVisibilityDecision(visibility: DwmWebhookEvidenceVisibilityInput | null) {
+    return visibility
+        ? organizationVisibilityDecision(visibility)
+        : {
+            allowed: true,
+            reason: null,
+            alertVisibilityPolicy: 'members' as const,
+            allowedRoles: ['owner', 'admin', 'editor', 'reader', 'member', 'viewer'] as OrganizationRole[],
+        }
+}
+
+function normalizeWebhookEvidenceFilters(filters: DwmWebhookDeliveryEvidenceFilters) {
+    return {
+        orgId: clean(filters.orgId) || null,
+        destinationId: clean(filters.destinationId) || null,
+        alertId: clean(filters.alertId) || null,
+        casePath: clean(filters.casePath) || null,
+        dedupeKey: clean(filters.dedupeKey) || null,
+        requestId: clean(filters.requestId) || clean(filters.deliveryId) || null,
+    }
+}
+
 export function normalizeDwmWebhookDestinationInput(
     input: DwmWebhookDestinationInput,
     ownerId: string,
@@ -418,7 +441,7 @@ export function normalizeDwmWebhookDestinationInput(
         endpointUrl,
         endpointEncrypted: endpointUrl && signingSecret ? encryptWebhookTarget(endpointUrl, signingSecret) : null,
         endpointHint: endpointUrl ? redactWebhookEndpoint(endpointUrl) : null,
-        endpointHash: endpointUrl ? hashValue('endpoint', endpointUrl) : null,
+        endpointHash: endpointUrl ? hashWebhookValue('endpoint', endpointUrl) : null,
         signingSecret,
         status,
         events,
@@ -610,6 +633,26 @@ export async function archiveDwmWebhookDestination(ownerId: string, id: string) 
     return toDwmWebhookDestination(destination)
 }
 
+const DWM_WEBHOOK_DELIVERY_AUDIT_SELECT = `
+    SELECT deliveries.*,
+           audit.id AS audit_event_id,
+           audit.action AS audit_action,
+           audit.actor_id AS audit_actor_id,
+           audit.report_validation,
+           audit.report_export_checksum,
+           audit.report_case_id
+    FROM dwm_webhook_deliveries deliveries
+    LEFT JOIN LATERAL (
+        SELECT id, action, actor_id,
+               metadata->>'reportValidation' AS report_validation,
+               metadata->>'reportExportChecksum' AS report_export_checksum,
+               metadata->>'reportCaseId' AS report_case_id
+        FROM dwm_webhook_audit_events
+        WHERE delivery_id = deliveries.id
+        ORDER BY (metadata->>'reportValidation' = 'valid') DESC NULLS LAST, created_at DESC
+        LIMIT 1
+    ) audit ON TRUE`
+
 export async function listDwmWebhookDeliveries(ownerId: string, orgId?: string, filters: {
     alertId?: string
     reportCaseId?: string
@@ -620,24 +663,7 @@ export async function listDwmWebhookDeliveries(ownerId: string, orgId?: string, 
     const reportExportChecksum = clean(filters.reportExportChecksum) || null
     if (orgId && orgId !== ownerId) {
         const result = await run(`
-            SELECT deliveries.*,
-                   audit.id AS audit_event_id,
-                   audit.action AS audit_action,
-                   audit.actor_id AS audit_actor_id,
-                   audit.report_validation,
-                   audit.report_export_checksum,
-                   audit.report_case_id
-            FROM dwm_webhook_deliveries deliveries
-            LEFT JOIN LATERAL (
-                SELECT id, action, actor_id,
-                       metadata->>'reportValidation' AS report_validation,
-                       metadata->>'reportExportChecksum' AS report_export_checksum,
-                       metadata->>'reportCaseId' AS report_case_id
-                FROM dwm_webhook_audit_events
-                WHERE delivery_id = deliveries.id
-                ORDER BY (metadata->>'reportValidation' = 'valid') DESC NULLS LAST, created_at DESC
-                LIMIT 1
-            ) audit ON TRUE
+            ${DWM_WEBHOOK_DELIVERY_AUDIT_SELECT}
             WHERE deliveries.org_id = $1
               AND ($2::TEXT IS NULL OR deliveries.alert_id = $2)
               AND ($3::TEXT IS NULL OR (
@@ -653,24 +679,7 @@ export async function listDwmWebhookDeliveries(ownerId: string, orgId?: string, 
     }
 
     const result = await run(`
-        SELECT deliveries.*,
-               audit.id AS audit_event_id,
-               audit.action AS audit_action,
-               audit.actor_id AS audit_actor_id,
-               audit.report_validation,
-               audit.report_export_checksum,
-               audit.report_case_id
-        FROM dwm_webhook_deliveries deliveries
-        LEFT JOIN LATERAL (
-            SELECT id, action, actor_id,
-                   metadata->>'reportValidation' AS report_validation,
-                   metadata->>'reportExportChecksum' AS report_export_checksum,
-                   metadata->>'reportCaseId' AS report_case_id
-            FROM dwm_webhook_audit_events
-            WHERE delivery_id = deliveries.id
-            ORDER BY (metadata->>'reportValidation' = 'valid') DESC NULLS LAST, created_at DESC
-            LIMIT 1
-        ) audit ON TRUE
+        ${DWM_WEBHOOK_DELIVERY_AUDIT_SELECT}
         WHERE deliveries.owner_id = $1
           AND ($2::TEXT IS NULL OR deliveries.org_id = $2)
           AND ($3::TEXT IS NULL OR deliveries.alert_id = $3)
@@ -711,7 +720,7 @@ export async function listDwmWebhookAuditEvents(ownerId: string, orgId?: string)
     return (result.rows as DwmWebhookAuditRow[]).map(toDwmWebhookAuditEvent)
 }
 
-function constantTimeEqual(expected: string, presented: string) {
+export function constantTimeEqual(expected: string, presented: string) {
     const expectedBytes = Buffer.from(expected)
     const presentedBytes = Buffer.from(presented)
     return expectedBytes.length > 0
@@ -785,8 +794,8 @@ export function validateDwmWebhookReceiverEnvelope(value: unknown) {
         return { valid: false as const, error: reportValidation.error || 'Third-party report validation failed.' }
     }
     const reportPolicy = recordOrEmpty(reportValidation.report?.reportPolicy)
-    const payloadHash = hashValue('payload', payloadBody)
-    const receiptId = hashValue('receiver_receipt', canonicalJson({
+    const payloadHash = hashWebhookValue('payload', payloadBody)
+    const receiptId = hashWebhookValue('receiver_receipt', canonicalJson({
         orgId,
         destinationId,
         idempotencyKey,
@@ -802,7 +811,7 @@ export function validateDwmWebhookReceiverEnvelope(value: unknown) {
             eventType,
             idempotencyKey,
             payloadHash,
-            receiverEndpointHash: hashValue('endpoint', receiverUrl),
+            receiverEndpointHash: hashWebhookValue('endpoint', receiverUrl),
             reportValidation: reportValidation.report ? 'valid' : 'not_applicable',
             reportCaseId: clean(reportPolicy.caseId) || null,
             reportAlertId: clean(reportPolicy.alertId) || clean(alert.id) || null,
@@ -1609,14 +1618,7 @@ export function buildDwmWebhookDeliveryReadinessConsumerProof({
     canManage?: boolean
     visibility?: DwmWebhookEvidenceVisibilityInput | null
 }) {
-    const decision = visibility
-        ? organizationVisibilityDecision(visibility)
-        : {
-            allowed: true,
-            reason: null,
-            alertVisibilityPolicy: 'members' as const,
-            allowedRoles: ['owner', 'admin', 'editor', 'reader', 'member', 'viewer'] as OrganizationRole[],
-        }
+    const decision = webhookVisibilityDecision(visibility)
     const access = {
         role: clean(viewerRole) || null,
         canRead: decision.allowed,
@@ -1624,14 +1626,7 @@ export function buildDwmWebhookDeliveryReadinessConsumerProof({
         canRetry: decision.allowed && canManage,
         memberSafe: decision.allowed && !canManage,
     }
-    const normalizedFilters = {
-        orgId: clean(filters.orgId) || null,
-        destinationId: clean(filters.destinationId) || null,
-        alertId: clean(filters.alertId) || null,
-        casePath: clean(filters.casePath) || null,
-        dedupeKey: clean(filters.dedupeKey) || null,
-        requestId: clean(filters.requestId) || clean(filters.deliveryId) || null,
-    }
+    const normalizedFilters = normalizeWebhookEvidenceFilters(filters)
     const permissionBlocker = retryQueueBlocker('permission_denied', 'Webhook delivery readiness is not visible for this organization membership.', normalizedFilters.destinationId, true)
 
     if (!decision.allowed) {
@@ -2015,14 +2010,7 @@ export function buildDwmWebhookDeliveryReceipts({
     canManage?: boolean
     visibility?: DwmWebhookEvidenceVisibilityInput | null
 }) {
-    const decision = visibility
-        ? organizationVisibilityDecision(visibility)
-        : {
-            allowed: true,
-            reason: null,
-            alertVisibilityPolicy: 'members' as const,
-            allowedRoles: ['owner', 'admin', 'editor', 'reader', 'member', 'viewer'] as OrganizationRole[],
-        }
+    const decision = webhookVisibilityDecision(visibility)
     const access = {
         role: clean(viewerRole) || null,
         canRead: decision.allowed,
@@ -2030,14 +2018,7 @@ export function buildDwmWebhookDeliveryReceipts({
         canRetry: decision.allowed && canManage,
         memberSafe: decision.allowed && !canManage,
     }
-    const normalizedFilters = {
-        orgId: clean(filters.orgId) || null,
-        destinationId: clean(filters.destinationId) || null,
-        alertId: clean(filters.alertId) || null,
-        casePath: clean(filters.casePath) || null,
-        dedupeKey: clean(filters.dedupeKey) || null,
-        requestId: clean(filters.requestId) || clean(filters.deliveryId) || null,
-    }
+    const normalizedFilters = normalizeWebhookEvidenceFilters(filters)
     const permissionBlocker = retryQueueBlocker('permission_denied', 'Webhook delivery receipts are not visible for this organization membership.', normalizedFilters.destinationId, true)
     if (!decision.allowed) {
         return {
@@ -2643,14 +2624,7 @@ export function buildDwmWebhookDeliveryReplayGuard({
     canManage?: boolean
     visibility?: DwmWebhookEvidenceVisibilityInput | null
 }) {
-    const decision = visibility
-        ? organizationVisibilityDecision(visibility)
-        : {
-            allowed: true,
-            reason: null,
-            alertVisibilityPolicy: 'members' as const,
-            allowedRoles: ['owner', 'admin', 'editor', 'reader', 'member', 'viewer'] as OrganizationRole[],
-        }
+    const decision = webhookVisibilityDecision(visibility)
     const access = {
         role: clean(viewerRole) || null,
         canRead: decision.allowed,
@@ -2658,14 +2632,7 @@ export function buildDwmWebhookDeliveryReplayGuard({
         canReplay: decision.allowed && canManage,
         memberSafe: decision.allowed && !canManage,
     }
-    const normalizedFilters = {
-        orgId: clean(filters.orgId) || null,
-        destinationId: clean(filters.destinationId) || null,
-        alertId: clean(filters.alertId) || null,
-        casePath: clean(filters.casePath) || null,
-        dedupeKey: clean(filters.dedupeKey) || null,
-        requestId: clean(filters.requestId) || clean(filters.deliveryId) || null,
-    }
+    const normalizedFilters = normalizeWebhookEvidenceFilters(filters)
     if (!decision.allowed) {
         return {
             schemaVersion: 'dwm.webhook.delivery_replay_guard.v1',
@@ -3007,14 +2974,7 @@ export function buildDwmWebhookDeliveryRetryQueue({
     canManage?: boolean
     visibility?: DwmWebhookEvidenceVisibilityInput | null
 }) {
-    const decision = visibility
-        ? organizationVisibilityDecision(visibility)
-        : {
-            allowed: true,
-            reason: null,
-            alertVisibilityPolicy: 'members' as const,
-            allowedRoles: ['owner', 'admin', 'editor', 'reader', 'member', 'viewer'] as OrganizationRole[],
-        }
+    const decision = webhookVisibilityDecision(visibility)
     const access = {
         role: clean(viewerRole) || null,
         canRead: decision.allowed,
@@ -3435,14 +3395,7 @@ export function buildDwmWebhookDestinationDeliveryMatrix({
     canManage?: boolean
     visibility?: DwmWebhookEvidenceVisibilityInput | null
 }) {
-    const decision = visibility
-        ? organizationVisibilityDecision(visibility)
-        : {
-            allowed: true,
-            reason: null,
-            alertVisibilityPolicy: 'members' as const,
-            allowedRoles: ['owner', 'admin', 'editor', 'reader', 'member', 'viewer'] as OrganizationRole[],
-        }
+    const decision = webhookVisibilityDecision(visibility)
     const access = {
         role: clean(viewerRole) || null,
         canRead: decision.allowed,
@@ -4020,28 +3973,14 @@ export function buildDwmWebhookDeliveryAuditTrail({
     canManage?: boolean
     visibility?: DwmWebhookEvidenceVisibilityInput | null
 }) {
-    const decision = visibility
-        ? organizationVisibilityDecision(visibility)
-        : {
-            allowed: true,
-            reason: null,
-            alertVisibilityPolicy: 'members' as const,
-            allowedRoles: ['owner', 'admin', 'editor', 'reader', 'member', 'viewer'] as OrganizationRole[],
-        }
+    const decision = webhookVisibilityDecision(visibility)
     const access = {
         role: clean(viewerRole) || null,
         canRead: decision.allowed,
         canManage: decision.allowed && canManage,
         memberSafe: decision.allowed && !canManage,
     }
-    const normalizedFilters = {
-        orgId: clean(filters.orgId) || null,
-        destinationId: clean(filters.destinationId) || null,
-        alertId: clean(filters.alertId) || null,
-        casePath: clean(filters.casePath) || null,
-        dedupeKey: clean(filters.dedupeKey) || null,
-        requestId: clean(filters.requestId) || clean(filters.deliveryId) || null,
-    }
+    const normalizedFilters = normalizeWebhookEvidenceFilters(filters)
     const deniedBlocker = auditTrailBlocker('permission_denied', 'Webhook delivery audit trail is not visible for this organization membership.', null, true)
     if (!decision.allowed) {
         return {
@@ -4455,14 +4394,7 @@ export function buildDwmWebhookCustomerSetupProof({
     canManage?: boolean
     visibility?: DwmWebhookEvidenceVisibilityInput | null
 }) {
-    const decision = visibility
-        ? organizationVisibilityDecision(visibility)
-        : {
-            allowed: true,
-            reason: null,
-            alertVisibilityPolicy: 'members' as const,
-            allowedRoles: ['owner', 'admin', 'editor', 'reader', 'member', 'viewer'] as OrganizationRole[],
-        }
+    const decision = webhookVisibilityDecision(visibility)
     const access = {
         role: clean(viewerRole) || null,
         canRead: decision.allowed,
@@ -4728,12 +4660,7 @@ export function buildDwmWebhookDashboardReadinessAdapter({
     orgStatus?: unknown
     watchlistStatus?: unknown
 }) {
-    const visibilityDecision = visibility ? organizationVisibilityDecision(visibility) : {
-        allowed: true,
-        reason: null,
-        alertVisibilityPolicy: 'members',
-        allowedRoles: ['owner', 'admin', 'editor', 'reader', 'member', 'viewer'] as OrganizationRole[],
-    }
+    const visibilityDecision = webhookVisibilityDecision(visibility)
     const orgLifecycleStatus = clean(orgStatus).toLowerCase() || 'active'
     const watchlistLifecycleStatus = clean(watchlistStatus).toLowerCase() || 'active'
     const orgBlocked = ['archived', 'disabled', 'deleted', 'suspended'].includes(orgLifecycleStatus)
@@ -5049,7 +4976,7 @@ export function buildDwmWebhookDestinationCrudContract({
         : endpointValidation.normalizedUrl
             ? parseKind(rawKind, endpointValidation.normalizedUrl, destination?.kind)
             : destination?.kind || 'webhook'
-    const normalizedEndpointHash = endpointValidation.normalizedUrl ? hashValue('endpoint', endpointValidation.normalizedUrl) : destination?.endpointHash || null
+    const normalizedEndpointHash = endpointValidation.normalizedUrl ? hashWebhookValue('endpoint', endpointValidation.normalizedUrl) : destination?.endpointHash || null
     const normalizedEndpointHint = endpointValidation.normalizedUrl ? redactWebhookEndpoint(endpointValidation.normalizedUrl) : destination?.endpointHint || null
     const normalizedOrgId = firstClean(input.orgId, destination?.orgId, ownerId)
     const normalizedLabel = firstClean(input.name, input.label, input.channelName, input.channel_name, input.channel, destination?.name)
@@ -5256,14 +5183,7 @@ export function buildDwmWebhookDestinationAdminProof({
     canManage?: boolean
     visibility?: DwmWebhookEvidenceVisibilityInput | null
 }) {
-    const decision = visibility
-        ? organizationVisibilityDecision(visibility)
-        : {
-            allowed: true,
-            reason: null,
-            alertVisibilityPolicy: 'members' as const,
-            allowedRoles: ['owner', 'admin', 'editor', 'reader', 'member', 'viewer'] as OrganizationRole[],
-        }
+    const decision = webhookVisibilityDecision(visibility)
     const access = {
         role: clean(viewerRole) || null,
         canRead: decision.allowed,
@@ -7060,7 +6980,7 @@ export function buildDwmWebhookDestinationTestContract({
     const latestTestStatus = latestTest?.status || persistedLastTest?.status || null
     const expectedIdempotencyKey = destination ? buildIdempotencyKey('dwm.alert.test', destination.orgId, destination.id, 'webhook_test') : null
     const testRoute = destinationId ? `POST /api/dwm/webhook-destinations/${destinationId}/test` : 'POST /api/dwm/webhook-destinations/:id/test'
-    const expectedPayloadHash = testPayload ? hashValue('payload', JSON.stringify(testPayload)) : null
+    const expectedPayloadHash = testPayload ? hashWebhookValue('payload', JSON.stringify(testPayload)) : null
     const canSendDryRunTest = Boolean(
         canManage
         && destination
@@ -7376,7 +7296,7 @@ export async function retryDwmWebhookDelivery(
 
         const payload = prior.payload
         const payloadBody = canonicalJson(payload)
-        const payloadHash = hashValue('payload', payloadBody)
+        const payloadHash = hashWebhookValue('payload', payloadBody)
         if (payloadHash !== prior.payload_hash) {
             return { ok: false as const, status: 409, code: 'persisted_payload_invalid', error: 'The persisted delivery payload does not match its stored hash.' }
         }
@@ -7687,7 +7607,7 @@ export function buildDwmWebhookDeliveryAttemptContract({
             replay: plan.eventType === 'dwm.alert.replayed',
             dedupeKey: alert.dedupeKey || idempotencyKey,
             idempotencyKey,
-            payloadHash: hashValue('payload', JSON.stringify(payload)),
+            payloadHash: hashWebhookValue('payload', JSON.stringify(payload)),
             sanitizedPayloadPreview: preview,
             redactedDestination: {
                 id: destination.id,
@@ -8786,7 +8706,7 @@ async function deliverToDwmWebhookDestination({
     const payloadBody = canonicalJson(payload)
     const normalizedAlert = normalizeAlert(alert)
     const watchlist = normalizeWatchlist(alert.watchlist)
-    const payloadHash = hashValue('payload', payloadBody)
+    const payloadHash = hashWebhookValue('payload', payloadBody)
     const liveRequested = live && !dryRun && process.env.DWM_WEBHOOK_LIVE_DELIVERY === 'true'
     let status: DwmWebhookDeliveryRow['status'] = dryRun ? 'dry_run' : 'skipped'
     let responseStatus: number | null = null
@@ -8965,7 +8885,7 @@ async function recordSkippedDuplicateDwmWebhookDelivery({
     const payload = buildDwmAlertDeliveryPayload({ destination, alert, eventType, deliveryId })
     const normalizedAlert = normalizeAlert(alert)
     const watchlist = normalizeWatchlist(alert.watchlist)
-    const payloadHash = hashValue('payload', JSON.stringify(payload))
+    const payloadHash = hashWebhookValue('payload', JSON.stringify(payload))
     const idempotencyKey = buildIdempotencyKey(eventType, destination.org_id, destination.id, normalizedAlert.dedupeKey || normalizedAlert.id)
     const error = 'Delivery skipped because this destination already has a delivered attempt for the same idempotency key.'
     const attemptCount = await countDwmWebhookDeliveryAttempts(destination.org_id, destination.id, idempotencyKey)
@@ -9078,7 +8998,7 @@ async function recordSkippedSelectionDwmWebhookDelivery({
     const payload = buildDwmAlertDeliveryPayload({ destination, alert, eventType, deliveryId })
     const normalizedAlert = normalizeAlert(alert)
     const watchlist = normalizeWatchlist(alert.watchlist)
-    const payloadHash = hashValue('payload', JSON.stringify(payload))
+    const payloadHash = hashWebhookValue('payload', JSON.stringify(payload))
     const attemptCount = await countDwmWebhookDeliveryAttempts(destination.org_id, destination.id, intent.idempotencyKey)
     const errorClass = classifyDeliveryError({ status: 'skipped', dryRun, error: intent.error })
     const result = await run(`
@@ -9196,7 +9116,7 @@ async function recordMissingDestinationDwmWebhookDelivery({
         eventType,
         deliveryId,
     })
-    const payloadHash = hashValue('payload', JSON.stringify(payload))
+    const payloadHash = hashWebhookValue('payload', JSON.stringify(payload))
     const attemptCount = await countDwmWebhookDeliveryAttempts(intent.orgId, null, intent.idempotencyKey)
     const errorClass = classifyDeliveryError({ status: 'skipped', dryRun, error: intent.error })
     const result = await run(`
@@ -9236,7 +9156,7 @@ async function recordMissingDestinationDwmWebhookDelivery({
         eventType,
         dryRun,
         intent.requestedDestinationId ? 'requested_destination_not_found' : 'no_webhook_destination',
-        intent.requestedDestinationId ? hashValue('endpoint', intent.requestedDestinationId) : 'no_webhook_destination',
+        intent.requestedDestinationId ? hashWebhookValue('endpoint', intent.requestedDestinationId) : 'no_webhook_destination',
         payloadHash,
         JSON.stringify(payload),
         intent.error,
@@ -9979,7 +9899,7 @@ function destinationLifecycleState({
         && health.lastFailure.errorClass !== 'live_delivery_disabled'
     )
     const verified = isLiveDeliveredProof(health.lastTest)
-    const liveVerified = isLiveDeliveredProof(health.lastTest)
+    const liveVerified = verified
     const liveDeliveryUnverified = health.enabled && endpointPresent && !liveVerified
     const testRequired = health.enabled && endpointPresent && (!verified || secretRotated)
     const states = [
@@ -11751,10 +11671,6 @@ function firstPresent(...values: unknown[]) {
 function cleanList(value: unknown) {
     if (!Array.isArray(value)) return []
     return value.map(clean).filter(Boolean)
-}
-
-function hashValue(scope: string, value: string) {
-    return `${scope}_${crypto.createHash('sha256').update(value).digest('hex').slice(0, 32)}`
 }
 
 function encryptWebhookSecret(value: string) {
