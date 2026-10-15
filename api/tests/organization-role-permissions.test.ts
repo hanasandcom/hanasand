@@ -35,6 +35,10 @@ const query = async (sql: string, params: unknown[] = []) => {
     if (sql.includes('FROM dwm_webhook_destinations')) return { rows: [{ id: 'target', org_id: 'org' }] }
     if (sql.includes('FROM organizations o')) return { rows: params[0] === 'org' && active ? [{ id: 'org', name: 'Organization', slug: 'org', status: 'active', role, owner_count: 1 }] : [] }
     if (sql.includes('FROM organization_members member')) return { rows: active ? [{ role, organization_status: 'active' }] : [] }
+    if (statement.startsWith('UPDATE organization_members')) {
+        const now = new Date().toISOString()
+        return { rows: [{ organization_id: params[0], user_id: params[1], name: 'Teammate', avatar: '', role: params[2], status: 'active', joined_at: now, created_at: now }], rowCount: 1 }
+    }
     if (sql.includes('FROM organization_members')) return { rows: [{ user_id: 'teammate', role: 'reader', status: 'active' }] }
     return { rows: [] }
 }
@@ -124,6 +128,25 @@ test('alert visibility policies allow only the roles named by each policy', () =
     expect(organizationVisibilityDecision({ role: 'editor', status: 'removed', userActive: true }).reason).toBe('member_removed')
     expect(organizationVisibilityDecision({ role: 'editor', status: 'active', userActive: false }).reason).toBe('member_deactivated')
     expect(organizationVisibilityDecision({ status: 'active', userActive: true }).reason).toBe('not_member')
+})
+
+test('member role receipt uses the watchlist handler policy for readers and editors', async () => {
+    role = 'owner'
+    const response = await app.inject({
+        method: 'PATCH',
+        url: '/org/org/members/teammate/role',
+        payload: { role: 'editor', reason: 'Grant watchlist access.' },
+    })
+
+    expect(response.statusCode).toBe(200)
+    const receipt = response.json().roleChange.consumerVisibilityReceipt
+    expect(receipt.before.role).toBe('reader')
+    expect(receipt.before.canMutateSharedWatchlists).toBe(false)
+    expect(receipt.downstreamReadinessReceipt.before.watchlistMutationReady).toBe(false)
+    expect(receipt.after.role).toBe('editor')
+    expect(receipt.after.canMutateSharedWatchlists).toBe(true)
+    expect(receipt.downstreamReadinessReceipt.after.watchlistMutationReady).toBe(true)
+    expect(receipt.downstreamReadinessReceipt.roleGates.mutateWatchlists).toEqual(['owner', 'admin', 'editor'])
 })
 
 test('Editor can remove a delivery target; Reader and legacy roles cannot', async () => {

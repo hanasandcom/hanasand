@@ -1117,6 +1117,8 @@ export async function patchOrganizationMemberRole(req: FastifyRequest<{ Params: 
         },
     })
     const updated = await loadOrganizationForMember(req.params.id, userId)
+    const watchlistWriteRoles = (['owner', 'admin', 'editor', 'reader', 'member', 'viewer'] satisfies OrganizationRole[])
+        .filter(roleCanWriteWatchlist)
     return res.send({
         organization: updated ? toOrganization(updated) : null,
         member: toMember(result.rows[0] as OrganizationMemberRow),
@@ -1158,7 +1160,7 @@ export async function patchOrganizationMemberRole(req: FastifyRequest<{ Params: 
                     role: authorizedTarget.role,
                     canReadSharedWatchlists: true,
                     canExportAlertTerms: ['owner', 'admin'].includes(authorizedTarget.role),
-                    canMutateSharedWatchlists: ['owner', 'admin'].includes(authorizedTarget.role),
+                    canMutateSharedWatchlists: roleCanWriteWatchlist(authorizedTarget.role),
                     canAssignCases: ['owner', 'admin'].includes(authorizedTarget.role),
                     canDryRunWebhookDelivery: ['owner', 'admin'].includes(authorizedTarget.role),
                     canReadWebhookDeliverySummary: true,
@@ -1167,7 +1169,7 @@ export async function patchOrganizationMemberRole(req: FastifyRequest<{ Params: 
                     role: input.role,
                     canReadSharedWatchlists: true,
                     canExportAlertTerms: ['owner', 'admin'].includes(input.role),
-                    canMutateSharedWatchlists: ['owner', 'admin'].includes(input.role),
+                    canMutateSharedWatchlists: roleCanWriteWatchlist(input.role),
                     canAssignCases: ['owner', 'admin'].includes(input.role),
                     canDryRunWebhookDelivery: ['owner', 'admin'].includes(input.role),
                     canReadWebhookDeliverySummary: true,
@@ -1204,7 +1206,7 @@ export async function patchOrganizationMemberRole(req: FastifyRequest<{ Params: 
                     before: {
                         sharedWatchlistReadReady: true,
                         alertGenerationExportReady: ['owner', 'admin'].includes(authorizedTarget.role),
-                        watchlistMutationReady: ['owner', 'admin'].includes(authorizedTarget.role),
+                        watchlistMutationReady: roleCanWriteWatchlist(authorizedTarget.role),
                         caseAssignmentReady: ['owner', 'admin'].includes(authorizedTarget.role),
                         webhookDeliveryReady: ['owner', 'admin'].includes(authorizedTarget.role),
                         deliverySummaryReady: true,
@@ -1212,7 +1214,7 @@ export async function patchOrganizationMemberRole(req: FastifyRequest<{ Params: 
                     after: {
                         sharedWatchlistReadReady: true,
                         alertGenerationExportReady: ['owner', 'admin'].includes(input.role),
-                        watchlistMutationReady: ['owner', 'admin'].includes(input.role),
+                        watchlistMutationReady: roleCanWriteWatchlist(input.role),
                         caseAssignmentReady: ['owner', 'admin'].includes(input.role),
                         webhookDeliveryReady: ['owner', 'admin'].includes(input.role),
                         deliverySummaryReady: true,
@@ -1238,7 +1240,7 @@ export async function patchOrganizationMemberRole(req: FastifyRequest<{ Params: 
                         nonmemberDestinationEnumeration: false,
                     },
                     roleGates: {
-                        mutateWatchlists: ['owner', 'admin'] as const,
+                        mutateWatchlists: watchlistWriteRoles,
                         exportAlertTerms: ['owner', 'admin'] as const,
                         assignCases: ['owner', 'admin', 'editor'] as const,
                         webhookDelivery: ['owner', 'admin'] as const,
