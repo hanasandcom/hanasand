@@ -2,6 +2,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify'
 import run from '#db'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import hasHanasandInternalRouteAccess from '#utils/auth/organizationPageAccess.ts'
+import { isValidMetricValue, isWritableMetricField } from './fields.ts'
 
 export default async function putVMMetrics(req: FastifyRequest, res: FastifyReply) {
     const { valid } = await tokenWrapper(req, res)
@@ -11,19 +12,26 @@ export default async function putVMMetrics(req: FastifyRequest, res: FastifyRepl
     }
 
     const { id } = req.params as { id: string }
-    const data = req.body as any ?? {}
+    const data = req.body as Record<string, unknown> | undefined ?? {}
     if (!id) {
         return res.status(400).send({ error: 'Missing metrics id' })
     }
 
-    if (!data || Object.keys(data).length === 0) {
+    if (!data || typeof data !== 'object' || Array.isArray(data) || Object.keys(data).length === 0) {
         return res.status(400).send({ error: 'No fields to update' })
     }
 
+    const fields = Object.keys(data)
+    if (fields.some((field) => !isWritableMetricField(field))) {
+        return res.status(400).send({ error: 'Invalid metrics field' })
+    }
+    if (fields.some((field) => !isValidMetricValue(field, data[field]))) {
+        return res.status(400).send({ error: 'Invalid metrics value' })
+    }
+
     try {
-        const fields = Object.keys(data)
         const setClause = fields.map((f, i) => `${f} = $${i + 1}`).join(', ')
-        const values: string[] = Object.values(data)
+        const values = fields.map((field) => data[field] as string | number | boolean | null)
 
         const query = `
             UPDATE vm_metrics

@@ -2,6 +2,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify'
 import run from '#db'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import hasHanasandInternalRouteAccess from '#utils/auth/organizationPageAccess.ts'
+import { isValidMetricValue, isWritableMetricField } from './fields.ts'
 
 export default async function postVMMetrics(req: FastifyRequest, res: FastifyReply) {
     const { valid } = await tokenWrapper(req, res)
@@ -10,15 +11,22 @@ export default async function postVMMetrics(req: FastifyRequest, res: FastifyRep
         return res.status(401).send({ error: 'Unauthorized.' })
     }
 
-    const data = req.body as any ?? {}
-    if (!data || !data.name) {
+    const data = req.body as Record<string, unknown> | undefined ?? {}
+    if (!data || typeof data !== 'object' || Array.isArray(data) || !data.name) {
         return res.status(400).send({ error: 'Missing name' })
     }
 
+    const fields = Object.keys(data)
+    if (fields.some((field) => !isWritableMetricField(field))) {
+        return res.status(400).send({ error: 'Invalid metrics field' })
+    }
+    if (fields.some((field) => !isValidMetricValue(field, data[field]))) {
+        return res.status(400).send({ error: 'Invalid metrics value' })
+    }
+
     try {
-        const fields = Object.keys(data)
         const placeholders = fields.map((_, i) => `$${i + 1}`)
-        const values: string[] = Object.values(data)
+        const values = fields.map((field) => data[field] as string | number | boolean | null)
 
         const query = `
             INSERT INTO vm_metrics (${fields.join(',')})
