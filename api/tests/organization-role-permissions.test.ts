@@ -58,6 +58,7 @@ const { deleteDwmWebhookDestination } = await import('../src/handlers/dwm/webhoo
 const app = Fastify()
 app.delete('/targets/:id', deleteDwmWebhookDestination)
 app.put('/org/:id/settings', org.putOrganizationSettings)
+app.post('/org/:id/ownership-transfer', org.postOrganizationOwnershipTransfer)
 app.post('/org/:id/invites', org.postOrganizationInvites)
 app.post('/org/:id/api-keys', org.postOrganizationApiKey)
 app.post('/org/:id/cleanup', org.postOrganizationWatchlistCleanup)
@@ -176,6 +177,19 @@ test('organization owners can create multiple active organization API keys', asy
     expect(first.json().apiKey.organizationId).toBe('org')
     expect(second.json().apiKey.organizationId).toBe('org')
     expect(apiKeys.filter(key => key.organization_id === 'org' && key.enabled)).toHaveLength(2)
+})
+
+test('organization admins cannot transfer ownership', async () => {
+    role = 'admin'
+    const response = await app.inject({
+        method: 'POST',
+        url: '/org/org/ownership-transfer',
+        payload: { targetUserId: 'teammate', reason: 'Transfer to the teammate.' },
+    })
+
+    expect(response.statusCode).toBe(403)
+    expect(response.json().error).toBe('Only organization owners can transfer ownership.')
+    expect(writes).toHaveLength(0)
 })
 
 test('Editor and Reader are denied administrative mutations without domain writes', async () => {
