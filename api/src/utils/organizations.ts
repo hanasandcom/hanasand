@@ -7068,6 +7068,12 @@ export function organizationWatchlistAlertTermsExport(
         downstreamAuthorization
     ).webhookDestinationOwnership
     const canManageWebhookDestinations = roleCanEditOrganization(member.role)
+    const deliveryBlockerCodes = Array.from(new Set([
+        ...alertGeneration.blockedReasons,
+        ...sharedWatchlistIntegrationGuardrails.caseSafety.blockerCodes,
+        ...webhookDestinationOwnership.blockerCodes,
+        ...(canManageWebhookDestinations ? [] : ['role_not_allowed']),
+    ].map(String)))
     const webhookDestinationAccessDecision: OrganizationWebhookDestinationAccessDecision = {
         schemaVersion: 'organization.webhook_destination_access_decision.v1',
         ...organizationTenantIdentity(organization.id, organization.id),
@@ -7238,12 +7244,7 @@ export function organizationWatchlistAlertTermsExport(
                 manualTrigger: webhookDestinationOwnership.roleGates.manualTriggerAllowedRoles,
                 readDeliverySummary: ['owner', 'admin', 'editor', 'reader', 'member', 'viewer'],
             },
-            blockerCodes: Array.from(new Set([
-                ...alertGeneration.blockedReasons,
-                ...sharedWatchlistIntegrationGuardrails.caseSafety.blockerCodes,
-                ...webhookDestinationOwnership.blockerCodes,
-                ...(canManageWebhookDestinations ? [] : ['role_not_allowed']),
-            ].map(String))),
+            blockerCodes: [...deliveryBlockerCodes],
             noLeakFields: [
                 'destination.secret',
                 'destination.endpoint',
@@ -7268,12 +7269,7 @@ export function organizationWatchlistAlertTermsExport(
                 && canManageWebhookDestinations,
             destinationDeliveryReady: webhookDestinationOwnership.blockerCodes.length === 0,
             dryRunReady: canManageWebhookDestinations,
-            blockerReason: Array.from(new Set([
-                ...alertGeneration.blockedReasons,
-                ...sharedWatchlistIntegrationGuardrails.caseSafety.blockerCodes,
-                ...webhookDestinationOwnership.blockerCodes,
-                ...(canManageWebhookDestinations ? [] : ['role_not_allowed']),
-            ].map(String)))[0] ?? null,
+            blockerReason: deliveryBlockerCodes[0] ?? null,
             roleGates: {
                 automaticDelivery: ['owner', 'admin', 'editor'],
                 manualTrigger: webhookDestinationOwnership.roleGates.manualTriggerAllowedRoles,
@@ -7286,12 +7282,6 @@ export function organizationWatchlistAlertTermsExport(
                 nonmemberDestinationEnumeration: webhookDestinationOwnership.nonmemberDestinationEnumeration,
             },
             watchlistMatches: activeTerms.map(term => {
-                const blockerCodes = Array.from(new Set([
-                    ...alertGeneration.blockedReasons,
-                    ...sharedWatchlistIntegrationGuardrails.caseSafety.blockerCodes,
-                    ...webhookDestinationOwnership.blockerCodes,
-                    ...(canManageWebhookDestinations ? [] : ['role_not_allowed']),
-                ].map(String)))
                 const provenanceHash = organizationWatchlistMatchProvenanceHash(term)
                 const matchProjection = organizationWatchlistMatchProjection(term, member)
 
@@ -7307,13 +7297,13 @@ export function organizationWatchlistAlertTermsExport(
                     actorRef: matchProjection.actorRef,
                     sourceRefs: matchProjection.sourceRefs,
                     provenanceHash,
-                    workflowStatus: blockerCodes.length === 0 ? 'ready_for_delivery' as const : 'blocked' as const,
+                    workflowStatus: deliveryBlockerCodes.length === 0 ? 'ready_for_delivery' as const : 'blocked' as const,
                     destinationReadiness: {
                         destinationDeliveryReady: webhookDestinationOwnership.blockerCodes.length === 0,
                         dryRunReady: canManageWebhookDestinations,
                         selectedDestinationOrgField: webhookDestinationOwnership.selectedDestinationOrgField,
                         selectedDestinationIdField: webhookDestinationOwnership.selectedDestinationIdField,
-                        blockerReason: blockerCodes[0] ?? null,
+                        blockerReason: deliveryBlockerCodes[0] ?? null,
                     },
                 }
             }),
@@ -7326,12 +7316,7 @@ export function organizationWatchlistAlertTermsExport(
                 'manual_webhook_selection_required',
                 'role_not_allowed',
             ],
-            blockerCodes: Array.from(new Set([
-                ...alertGeneration.blockedReasons,
-                ...sharedWatchlistIntegrationGuardrails.caseSafety.blockerCodes,
-                ...webhookDestinationOwnership.blockerCodes,
-                ...(canManageWebhookDestinations ? [] : ['role_not_allowed']),
-            ].map(String))),
+            blockerCodes: [...deliveryBlockerCodes],
             noLeakFields: [
                 'destination.secret',
                 'destination.endpoint',
