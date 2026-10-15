@@ -423,6 +423,32 @@ test('rejects a persisted payload whose canonical body no longer matches its has
     }
 })
 
+test('blocks a persisted retry after five live attempts without sending or inserting', async () => {
+    const { retryDwmWebhookDelivery } = await import('../src/utils/dwm/webhooks.ts')
+    persistedDelivery = failedDeliveryFixture('2020-07-23T10:01:00.000Z')
+    ledger.push(...Array.from({ length: 4 }, (_, index) => ({
+        ...persistedDelivery,
+        id: `prior_attempt_${index + 1}`,
+        attempted_at: `2020-07-23T09:5${index}:00.000Z`,
+    })))
+    const previousLive = process.env.DWM_WEBHOOK_LIVE_DELIVERY
+    process.env.DWM_WEBHOOK_LIVE_DELIVERY = 'true'
+    let networkAttempts = 0
+    try {
+        const result = await retryDwmWebhookDelivery('member_2', 'org_1', persistedDelivery.id, async () => {
+            networkAttempts += 1
+            return { status: 204, body: '' }
+        })
+        expect(result).toMatchObject({ ok: false, status: 409, code: 'delivery_retry_limit' })
+        expect(networkAttempts).toBe(0)
+        expect(insertedDelivery).toBeUndefined()
+        expect(ledger).toHaveLength(4)
+    } finally {
+        if (previousLive === undefined) delete process.env.DWM_WEBHOOK_LIVE_DELIVERY
+        else process.env.DWM_WEBHOOK_LIVE_DELIVERY = previousLive
+    }
+})
+
 test('filters exact report receipts in PostgreSQL before the bounded delivery ledger limit', async () => {
     const { listDwmWebhookDeliveries } = await import('../src/utils/dwm/webhooks.ts')
     await listDwmWebhookDeliveries('member_2', 'org_1', {
