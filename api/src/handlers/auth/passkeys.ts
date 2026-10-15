@@ -34,21 +34,19 @@ type CredentialRow = {
 }
 
 export async function getPasskeyRegisterOptions(req: FastifyRequest, res: FastifyReply) {
-    const actor = await tokenWrapper(req, res)
-    if (!actor.valid || !actor.id) {
-        return res.status(401).send({ error: actor.error || 'Unauthorized.' })
-    }
+    const userId = await requirePasskeyUser(req, res)
+    if (!userId) return
 
-    const user = await userForPasskey(actor.id)
+    const user = await userForPasskey(userId)
     if (!user) {
         return res.status(404).send({ error: 'User not found.' })
     }
 
     const config = passkeyConfig()
-    const challenge = await createPasskeyChallenge(actor.id, 'register')
+    const challenge = await createPasskeyChallenge(userId, 'register')
     const existing = await run(
         'SELECT credential_id FROM user_passkeys WHERE user_id = $1 ORDER BY created_at DESC',
-        [actor.id],
+        [userId],
     )
 
     return res.send({
@@ -77,17 +75,15 @@ export async function getPasskeyRegisterOptions(req: FastifyRequest, res: Fastif
 }
 
 export async function getPasskeys(req: FastifyRequest, res: FastifyReply) {
-    const actor = await tokenWrapper(req, res)
-    if (!actor.valid || !actor.id) {
-        return res.status(401).send({ error: actor.error || 'Unauthorized.' })
-    }
+    const userId = await requirePasskeyUser(req, res)
+    if (!userId) return
 
     const result = await run(`
         SELECT credential_id, label, alg, aaguid, sign_count, created_at, last_used_at
         FROM user_passkeys
         WHERE user_id = $1
         ORDER BY last_used_at DESC NULLS LAST, created_at DESC
-    `, [actor.id])
+    `, [userId])
 
     return res.send({
         passkeys: result.rows.map(row => ({
@@ -103,10 +99,8 @@ export async function getPasskeys(req: FastifyRequest, res: FastifyReply) {
 }
 
 export async function deletePasskey(req: FastifyRequest, res: FastifyReply) {
-    const actor = await tokenWrapper(req, res)
-    if (!actor.valid || !actor.id) {
-        return res.status(401).send({ error: actor.error || 'Unauthorized.' })
-    }
+    const userId = await requirePasskeyUser(req, res)
+    if (!userId) return
 
     const { credentialId } = req.params as { credentialId?: string } ?? {}
     if (!credentialId) {
@@ -115,7 +109,7 @@ export async function deletePasskey(req: FastifyRequest, res: FastifyReply) {
 
     const result = await run(
         'DELETE FROM user_passkeys WHERE credential_id = $1 AND user_id = $2 RETURNING credential_id',
-        [credentialId, actor.id],
+        [credentialId, userId],
     )
     if (!result.rows.length) {
         return res.status(404).send({ error: 'Passkey not found.' })
@@ -125,10 +119,8 @@ export async function deletePasskey(req: FastifyRequest, res: FastifyReply) {
 }
 
 export async function patchPasskey(req: FastifyRequest, res: FastifyReply) {
-    const actor = await tokenWrapper(req, res)
-    if (!actor.valid || !actor.id) {
-        return res.status(401).send({ error: actor.error || 'Unauthorized.' })
-    }
+    const userId = await requirePasskeyUser(req, res)
+    if (!userId) return
 
     const { credentialId } = req.params as { credentialId?: string } ?? {}
     const label = cleanPasskeyLabel((req.body as PasskeyBody | undefined)?.label)
@@ -141,7 +133,7 @@ export async function patchPasskey(req: FastifyRequest, res: FastifyReply) {
 
     const result = await run(
         'UPDATE user_passkeys SET label = $3 WHERE credential_id = $1 AND user_id = $2 RETURNING credential_id, label',
-        [credentialId, actor.id, label],
+        [credentialId, userId, label],
     )
     if (!result.rows.length) {
         return res.status(404).send({ error: 'Passkey not found.' })
@@ -151,13 +143,11 @@ export async function patchPasskey(req: FastifyRequest, res: FastifyReply) {
 }
 
 export async function postPasskeyRegisterVerify(req: FastifyRequest, res: FastifyReply) {
-    const actor = await tokenWrapper(req, res)
-    if (!actor.valid || !actor.id) {
-        return res.status(401).send({ error: actor.error || 'Unauthorized.' })
-    }
+    const userId = await requirePasskeyUser(req, res)
+    if (!userId) return
 
     const body = req.body as PasskeyBody ?? {}
-    const challenge = await consumePasskeyChallenge(body.challengeId, 'register', actor.id)
+    const challenge = await consumePasskeyChallenge(body.challengeId, 'register', userId)
     if (!challenge || !body.credential) {
         return res.status(400).send({ error: 'Passkey registration challenge is invalid or expired.' })
     }
@@ -170,7 +160,7 @@ export async function postPasskeyRegisterVerify(req: FastifyRequest, res: Fastif
         })
         await upsertIdentityPasskey({
             credentialId: parsed.credentialId,
-            userId: actor.id,
+            userId,
             publicKeyCose: parsed.publicKeyCose,
             signCount: parsed.signCount,
             algorithm: parsed.alg,
@@ -181,13 +171,22 @@ export async function postPasskeyRegisterVerify(req: FastifyRequest, res: Fastif
         return res.send({
             ok: true,
             credentialId: parsed.credentialId,
-            userId: actor.id,
+            userId,
             signCount: parsed.signCount,
         })
     } catch (error) {
-        req.log.warn({ error, userId: actor.id }, 'Passkey registration verification failed')
+        req.log.warn({ error, userId }, 'Passkey registration verification failed')
         return res.status(400).send({ error: 'Passkey registration could not be verified.' })
     }
+}
+
+async function requirePasskeyUser(req: FastifyRequest, res: FastifyReply) {
+    const actor = await tokenWrapper(req, res)
+    if (!actor.valid || !actor.id) {
+        res.status(401).send({ error: actor.error || 'Unauthorized.' })
+        return null
+    }
+    return actor.id
 }
 
 export async function getPasskeyAuthenticateOptions(req: FastifyRequest, res: FastifyReply) {
