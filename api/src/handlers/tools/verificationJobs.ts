@@ -2,13 +2,12 @@ import type { FastifyReply, FastifyRequest } from 'fastify'
 import run from '#db'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import { recordAiUsageEvent } from '#utils/ai/usage.ts'
+import { extractBrowserPageContent } from './browserTaskAnalysis.ts'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { spawn } from 'node:child_process'
 
-const MAX_STRUCTURE_ITEMS = 20
-const MAX_EXCERPT_LENGTH = 5000
 const MAX_CONCURRENT_JOBS = Number(process.env.VERIFICATION_JOB_CONCURRENCY || 2)
 const CHROMIUM_BIN = process.env.CHROMIUM_BIN || 'chromium-browser'
 
@@ -295,6 +294,7 @@ async function runBrowserJob(job: VerificationJobRow) {
             ? await captureRenderedScreenshots(job.target_url, job.id)
             : []
         const journeyProof = await captureRenderedJourneyProof(job.target_url, job.id)
+        const pageContent = extractBrowserPageContent(text)
         const artifact = {
             id: crypto.randomUUID(),
             type: 'browser_result',
@@ -306,9 +306,7 @@ async function runBrowserJob(job: VerificationJobRow) {
                 statusText: response.statusText,
                 elapsed_ms: Math.round(performance.now() - started),
                 url: response.url || job.target_url,
-                title: extractTitle(text),
-                textExcerpt: extractTextExcerpt(text),
-                structure: extractStructure(text),
+                ...pageContent,
                 screenshotPath: screenshots[0]?.path || null,
                 screenshots,
                 journeyProof,
@@ -385,8 +383,8 @@ async function runDesignJob(job: VerificationJobRow) {
         })
         await updateStep(job.id, 'Scoring design quality')
         const text = await response.text()
-        const structure = extractStructure(text)
-        const excerpt = extractTextExcerpt(text)
+        const pageContent = extractBrowserPageContent(text)
+        const { structure, textExcerpt: excerpt } = pageContent
         const review = reviewDesignQuality(text, excerpt, structure)
         const screenshots = await captureRenderedScreenshots(job.target_url, job.id)
         const journeyProof = await captureRenderedJourneyProof(job.target_url, job.id)
@@ -404,7 +402,7 @@ async function runDesignJob(job: VerificationJobRow) {
                 status: passed ? 'passed' : 'failed',
                 elapsed_ms: Math.round(performance.now() - started),
                 url: response.url || job.target_url,
-                title: extractTitle(text),
+                title: pageContent.title,
                 checks: review.checks,
                 issues: review.issues,
                 criticalIssues: review.criticalIssues,
@@ -922,78 +920,7 @@ function validateHttpUrl(url: string) {
     }
 }
 
-function extractTitle(html: string) {
-    return decodeHtml(html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || '').trim() || null
-}
-
-function extractTextExcerpt(html: string) {
-    const withoutScripts = html
-        .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-        .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-        .replace(/<noscript[\s\S]*?<\/noscript>/gi, ' ')
-    const text = decodeHtml(withoutScripts.replace(/<[^>]+>/g, ' '))
-        .replace(/\s+/g, ' ')
-        .trim()
-    return text.slice(0, MAX_EXCERPT_LENGTH)
-}
-
-function extractStructure(html: string) {
-    return {
-        headings: extractTaggedText(html, /<h[1-3][^>]*>([\s\S]*?)<\/h[1-3]>/gi),
-        links: extractLinks(html),
-        buttons: extractTaggedText(html, /<button[^>]*>([\s\S]*?)<\/button>/gi),
-        inputs: extractInputs(html),
-        forms: extractFormSummaries(html),
-        hasViewportMeta: /<meta\s+[^>]*name=["']viewport["'][^>]*>/i.test(html),
-    }
-}
-
-function extractTaggedText(html: string, pattern: RegExp) {
-    return [...html.matchAll(pattern)]
-        .map((match) => stripTags(match[1] || ''))
-        .filter(Boolean)
-        .slice(0, MAX_STRUCTURE_ITEMS)
-}
-
-function extractLinks(html: string) {
-    return [...html.matchAll(/<a\s+([^>]*?)>([\s\S]*?)<\/a>/gi)]
-        .map((match) => ({
-            text: stripTags(match[2] || ''),
-            href: extractAttribute(match[1] || '', 'href'),
-        }))
-        .filter((link) => link.text || link.href)
-        .slice(0, MAX_STRUCTURE_ITEMS)
-}
-
-function extractInputs(html: string) {
-    return [...html.matchAll(/<(input|textarea|select)\s+([^>]*?)(?:\/?>|>[\s\S]*?<\/\1>)/gi)]
-        .map((match) => {
-            const attrs = match[2] || ''
-            return [
-                extractAttribute(attrs, 'aria-label'),
-                extractAttribute(attrs, 'placeholder'),
-                extractAttribute(attrs, 'name'),
-                extractAttribute(attrs, 'id'),
-                extractAttribute(attrs, 'type'),
-            ].filter(Boolean).join(' / ')
-        })
-        .filter(Boolean)
-        .slice(0, MAX_STRUCTURE_ITEMS)
-}
-
-function extractFormSummaries(html: string) {
-    return [...html.matchAll(/<form\b[^>]*>([\s\S]*?)<\/form>/gi)]
-        .map((match) => {
-            const body = match[1] || ''
-            const inputs = extractInputs(body).slice(0, 8)
-            const buttons = extractTaggedText(body, /<button[^>]*>([\s\S]*?)<\/button>/gi).slice(0, 4)
-            return [...inputs, ...buttons].join(' | ')
-        })
-        .filter(Boolean)
-        .slice(0, 8)
-}
-
-function reviewDesignQuality(html: string, excerpt: string, structure: ReturnType<typeof extractStructure>) {
+function reviewDesignQuality(html: string, excerpt: string, structure: ReturnType<typeof extractBrowserPageContent>['structure']) {
     const lowerHtml = html.toLowerCase()
     const lowerText = excerpt.toLowerCase()
     const genericPhrases = [
@@ -1066,26 +993,4 @@ function reviewDesignQuality(html: string, excerpt: string, structure: ReturnTyp
 
 function countMatches(value: string, pattern: RegExp) {
     return [...value.matchAll(pattern)].length
-}
-
-function extractAttribute(attributes: string, name: string) {
-    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    const match = attributes.match(new RegExp(`${escaped}\\s*=\\s*["']([^"']*)["']`, 'i'))
-    return decodeHtml(match?.[1] || '').trim()
-}
-
-function stripTags(value: string) {
-    return decodeHtml(value.replace(/<[^>]+>/g, ' '))
-        .replace(/\s+/g, ' ')
-        .trim()
-}
-
-function decodeHtml(value: string) {
-    return value
-        .replace(/&nbsp;/g, ' ')
-        .replace(/&amp;/g, '&')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;/g, '\'')
 }

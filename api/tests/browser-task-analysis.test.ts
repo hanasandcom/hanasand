@@ -1,5 +1,40 @@
 import { expect, test } from 'bun:test'
-import { analyzeBrowserPage, emptyBrowserPageAnalysis } from '../src/handlers/tools/browserTaskAnalysis.ts'
+import { analyzeBrowserPage, emptyBrowserPageAnalysis, extractBrowserPageContent } from '../src/handlers/tools/browserTaskAnalysis.ts'
+
+test('shared page content parser extracts title, excerpt, and structure', () => {
+    const html = '<title>Shared &amp; ready</title><h1>Welcome</h1><a href="/next">Next</a><script>hidden()</script>'
+
+    expect(extractBrowserPageContent(html)).toEqual({
+        title: 'Shared & ready',
+        textExcerpt: 'Shared & ready Welcome Next',
+        structure: {
+            headings: ['Welcome'],
+            links: [{ text: 'Next', href: '/next' }],
+            buttons: [],
+            inputs: [],
+            forms: [],
+            hasViewportMeta: false,
+        },
+    })
+
+    expect(Object.keys(analyzeBrowserPage(html, 'https://example.com/'))).toEqual([
+        'title', 'textExcerpt', 'structure', 'quality',
+    ])
+})
+
+test('shared page content parser preserves output limits and decodes attributes', () => {
+    const headings = Array.from({ length: 21 }, (_, index) => `<h2>Heading ${index}</h2>`).join('')
+    const links = Array.from({ length: 21 }, (_, index) => `<a href="/page-${index}">Link ${index}</a>`).join('')
+    const forms = Array.from({ length: 9 }, (_, index) => `<form><button>Save ${index}</button></form>`).join('')
+    const html = `<p>${'x'.repeat(5001)}</p>${headings}${links}${forms}<input placeholder="Name &amp; email">`
+    const result = extractBrowserPageContent(html)
+
+    expect(result.textExcerpt).toHaveLength(5000)
+    expect(result.structure.headings).toHaveLength(20)
+    expect(result.structure.links).toHaveLength(20)
+    expect(result.structure.forms).toHaveLength(8)
+    expect(result.structure.inputs).toEqual(['Name & email'])
+})
 
 test('browser task analysis extracts readable text and page structure', () => {
     const html = `<!doctype html>

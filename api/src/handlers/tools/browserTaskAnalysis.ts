@@ -2,12 +2,18 @@ const MAX_EXCERPT_LENGTH = 5000
 const MAX_STRUCTURE_ITEMS = 20
 
 export function analyzeBrowserPage(html: string, pageUrl: string) {
-    const title = extractTitle(html)
-    const textExcerpt = extractTextExcerpt(html)
-    const structure = extractStructure(html)
+    const { title, textExcerpt, structure } = extractBrowserPageContent(html)
     const quality = inspectPageQuality(html, structure, pageUrl)
 
     return { title, textExcerpt, structure, quality }
+}
+
+export function extractBrowserPageContent(html: string) {
+    return {
+        title: extractTitle(html),
+        textExcerpt: extractTextExcerpt(html),
+        structure: extractStructure(html),
+    }
 }
 
 export function emptyBrowserPageAnalysis() {
