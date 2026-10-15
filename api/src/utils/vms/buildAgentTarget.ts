@@ -1,10 +1,10 @@
 import config from '#constants'
 
-type VMRow = {
+export type AgentTargetVmRow = {
     name: string
     owner: string
     created_by: string
-    organization_id?: string | null
+    organization_id: string | null
     access_users: string[] | null
     status: string
     type: string
@@ -19,7 +19,7 @@ type VMRow = {
 }
 
 type AgentTargetOptions = {
-    vm: VMRow
+    vm: AgentTargetVmRow
     currentUserId: string
     canManage: boolean
 }

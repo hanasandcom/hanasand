@@ -3,25 +3,8 @@ import type { FastifyReply, FastifyRequest } from 'fastify'
 import run from '#db'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import hasHanasandInternalRouteAccess from '#utils/auth/organizationPageAccess.ts'
-import { buildAgentTarget } from '#utils/vms/buildAgentTarget.ts'
+import { buildAgentTarget, type AgentTargetVmRow } from '#utils/vms/buildAgentTarget.ts'
 import { agentTargetSelect } from '#utils/vms/agentTargetQuery.ts'
-
-type VMRow = {
-    name: string
-    owner: string
-    created_by: string
-    access_users: string[] | null
-    status: string
-    type: string
-    architecture: string
-    created: string
-    last_used: string
-    config_image_description: string
-    limits_cpu: string
-    limits_memory: string
-    device_eth0_ipv4_address: string
-    last_checked: string
-}
 
 export default async function getAgentTargets(req: FastifyRequest, res: FastifyReply) {
     const { valid, id } = await tokenWrapper(req, res)
@@ -44,7 +27,7 @@ export default async function getAgentTargets(req: FastifyRequest, res: FastifyR
             `, [id])
 
         const targets = await Promise.all(result.rows.map(async (row) => buildAgentTarget({
-            vm: await withLiveVmStatus(row as VMRow),
+            vm: await withLiveVmStatus(row as AgentTargetVmRow),
             currentUserId: id,
             canManage: isAdmin,
         })))
