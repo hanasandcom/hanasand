@@ -18,6 +18,10 @@ const DEDICATED_LOG_FRESH_LIMIT = 150
 const DEFAULT_LOG_PAGE_CONCURRENCY = 3
 // Stateless results commit atomically with their findings; authentication keeps
 // durable pending history for correlation. Stable identities make retries safe.
+function eventIdForLog(log: Pick<LogInput, 'id' | 'eventId'>) {
+    return log.eventId || createHash('sha256').update(`service:${log.id}`).digest('hex')
+}
+
 export async function processLog(log: LogInput, organizationId: string, rules: Awaited<ReturnType<typeof loadConfiguredRules>>) {
     return processLogBatch([log], organizationId, rules)
 }
@@ -34,14 +38,13 @@ export async function processLogBatch(logs: LogInput[], organizationId: string, 
     }
     // Priority delivery and retry can overlap the historical cursor. Read the
     // acknowledgement before normalization instead of locking completed rows again.
-    const eventIds = logs.map(log => log.eventId || createHash('sha256').update(`service:${log.id}`).digest('hex'))
+    const eventIds = logs.map(eventIdForLog)
     const completed = await run('SELECT id FROM events WHERE id = ANY($1::text[]) AND processing_status = \'processed\'', [eventIds])
     const completedKeys = new Set(completed.rows.map(row => row.id))
-    const prepared = logs.filter(log => !completedKeys.has(log.eventId || createHash('sha256').update(`service:${log.id}`).digest('hex'))).map(log => {
-        const key = `service:${log.id}`
+    const prepared = logs.filter(log => !completedKeys.has(eventIdForLog(log))).map(log => {
         const event = normalizeEvent(normalizeLogEvent(log, rules), { vendor: 'Hanasand', product: 'Logs' })
         if (log.source_event_id) event.normalized.source_event_id = log.source_event_id
-        const id = log.eventId || createHash('sha256').update(key).digest('hex')
+        const id = eventIdForLog(log)
         // Stateless rules can finish before persistence. Login correlation still needs
         // the durable event-time history and retains the retryable pending path.
         const correlates = event.eventType === 'authentication' && event.action === 'login'
@@ -160,7 +163,7 @@ export async function processLogBatch(logs: LogInput[], organizationId: string, 
 
 async function pruneLoginMonitorEvents(logs: LogInput[], organizationId: string, rules: Awaited<ReturnType<typeof loadConfiguredRules>>) {
     const candidates = logs.flatMap(log => String(log.id).startsWith('login_events:')
-        ? [{ log, eventId: log.eventId || createHash('sha256').update(`service:${log.id}`).digest('hex'), event: normalizeLogEvent(log, rules) }] : [])
+        ? [{ log, eventId: eventIdForLog(log), event: normalizeLogEvent(log, rules) }] : [])
     if (!candidates.length) return new Set<string>()
     const retention = await loadLogRetentionRules(organizationId)
     const matching = candidates.filter(item => customRetentionAction(item.event, retention) === 'drop')
@@ -290,7 +293,7 @@ export async function processLiveLogs() {
 }
 
 async function pendingLogEvents(limit: number, recentMs = 0, query = run): Promise<LogInput[]> {
-    const recent = recentMs ? `AND e.received_at >= statement_timestamp() - ($2 * INTERVAL '1 millisecond')` : ''
+    const recent = recentMs ? 'AND e.received_at >= statement_timestamp() - ($2 * INTERVAL \'1 millisecond\')' : ''
     const params = recentMs ? [limit, recentMs] : [limit]
     const rows = await query(`SELECT e.id, e.event_timestamp, e.normalized FROM events e
         WHERE e.ingestion_id='logs' AND e.processing_status='pending' ${recent}
