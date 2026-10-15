@@ -5364,6 +5364,23 @@ async function fakeRun(query: string, params: any[] = []) {
         return rows([invite])
     }
 
+    if (compact.startsWith('UPDATE organization_invites SET status = CASE WHEN $3')) {
+        const [inviteId, organizationId, action, expiresAt] = params
+        const existing = invites.get(inviteId)
+        if (!existing || existing.organization_id !== organizationId || existing.status === 'accepted') return rows([])
+        const updated = {
+            ...existing,
+            status: action === 'resend' ? 'pending' : 'revoked',
+            revoked_at: action === 'revoke' ? iso() : null,
+            accepted_at: null,
+            accepted_by: null,
+            expires_at: action === 'resend' ? expiresAt : existing.expires_at,
+            created_at: action === 'resend' ? iso() : existing.created_at,
+        }
+        invites.set(inviteId, updated)
+        return rows([updated])
+    }
+
     if (compact.startsWith('UPDATE organization_invites SET status = \'pending\'')) {
         const [inviteId, organizationId, expiresAt] = params
         const existing = invites.get(inviteId)
