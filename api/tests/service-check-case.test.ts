@@ -24,6 +24,22 @@ test('missing monitoring owner is a visible error, not a silently dropped case',
     await expect(recordServiceCheckCase('database', 'Database dashboard', { status: 'down', checkedAt: new Date().toISOString(), latencyMs: 0, message: 'Failed' }, (async () => ({ rows: [] })) as never)).rejects.toThrow('Case monitoring is not configured')
 })
 
+test('public search observations keep their stable monitoring identity', async () => {
+    const writes: { sql: string, values: unknown[] }[] = []
+    let outcome: unknown[] = []
+    const query = async (sql: string, values: unknown[] = []) => {
+        writes.push({ sql, values })
+        return { rows: sql.startsWith('SELECT') ? [{ id: 'monitor-public-search', owner_id: 'owner' }] : [] }
+    }
+    await recordServiceCheckCase('threat-intelligence', 'Public search', {
+        status: 'down', checkedAt: '2026-09-19T10:00:00Z', latencyMs: 25, message: 'Search unavailable',
+    }, query as never, async (...args) => { outcome = args })
+    expect(writes[0].values).toEqual(['monitor-public-search'])
+    expect(writes.some(write => write.sql.startsWith('INSERT INTO agent_automations'))).toBe(false)
+    expect(outcome[1]).toBe('public-search:2026-09-19T10:00:00Z')
+    expect(outcome[2]).toBe('failure')
+})
+
 test('scheduled job identity survives display-name changes and uses the system-only target', async () => {
     const writes: unknown[][] = []
     const query = async (sql: string, values: unknown[] = []) => {

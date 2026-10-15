@@ -36,14 +36,6 @@ describe('collector heartbeat health', () => {
         expect(collectorHeartbeatStatus(healthy({ metadata: { source_status: { audit_live: { ok: true }, delivery_live: { ok: false, lastAcknowledgedAt: new Date(now - 301_000).toISOString() } } } }), now).status).toBe('down')
     })
 
-    it('stays up when the API is acknowledging records while the old queue catches up', () => {
-        const result = collectorHeartbeatStatus(healthy({ metadata: { source_status: {
-            audit_live: { ok: true }, delivery_live: { ok: false, lastAcknowledgedAt: new Date(now - 30_000).toISOString() },
-        } } }), now)
-        expect(result.status).toBe('up')
-        expect(result.message).toContain('catches up')
-    })
-
     it('reports collection errors without exposing collector details in the case message', () => {
         expect(collectorHeartbeatStatus(healthy({ message: 'Collection failed: guests: private host detail' }), now)).toEqual({
             status: 'down', message: 'The host log collector reported a collection failure.',

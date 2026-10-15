@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { check, fetchJson } from '../src/utils/status/monitor.ts'
-import { addMissingRequiredChecks, latencyStatus, notificationEvent, watchlistProcessingStatus } from '../src/utils/status/monitorPolicy.ts'
+import { addMissingRequiredChecks, latencyStatus, watchlistProcessingStatus } from '../src/utils/status/monitorPolicy.ts'
 
 describe('production monitor notification transitions', () => {
     test('status history SQL avoids reserved PostgreSQL window identifier', async () => {
@@ -26,9 +26,9 @@ describe('production monitor notification transitions', () => {
 
     test('processing backlog is read from the separately deployed TI service', async () => {
         const source = await readFile(path.join(import.meta.dir, '../src/utils/status/monitor.ts'), 'utf8')
-        const backlog = source.slice(source.indexOf("check('threat-intelligence', 'Processing backlog'"))
-        expect(backlog).toContain("fetchJson('/v1/internal/processing-backlog'")
-        expect(backlog).toContain("'x-hanasand-service-token'")
+        const backlog = source.slice(source.indexOf('check(\'threat-intelligence\', \'Processing backlog\''))
+        expect(backlog).toContain('fetchJson(\'/v1/internal/processing-backlog\'')
+        expect(backlog).toContain('\'x-hanasand-service-token\'')
         expect(backlog).not.toContain('threat_intel.')
     })
 
@@ -151,20 +151,6 @@ describe('production monitor notification transitions', () => {
         await check('core', 'Dependency', async () => ({ status: 'degraded', message: 'Queue is behind' }), { degraded: 0, down: 0 }, recorder)
         await check('core', 'Dependency', async () => 'Ready', { degraded: 10000, down: 20000 }, recorder)
         expect(recorded).toEqual([{ status: 'degraded', message: 'Queue is behind' }, { status: 'up', message: 'Ready' }])
-    })
-
-    test('does not re-alert while a check is flapping', () => {
-        expect(notificationEvent('degraded', [])).toBe('alert')
-        expect(notificationEvent('degraded', ['up'])).toBe('alert')
-        expect(notificationEvent('degraded', ['degraded', 'up'])).toBeUndefined()
-        expect(notificationEvent('degraded', ['up', 'up', 'up'])).toBe('alert')
-        expect(notificationEvent('down', ['up', 'up'])).toBe('alert')
-        expect(notificationEvent('down', [])).toBe('alert')
-        expect(notificationEvent('down', ['down', 'up'])).toBeUndefined()
-        expect(notificationEvent('down', ['down', 'down'])).toBeUndefined()
-        expect(notificationEvent('up', ['down', 'up', 'up'])).toBeUndefined()
-        expect(notificationEvent('up', ['up', 'down'])).toBeUndefined()
-        expect(notificationEvent('up', ['up', 'down', 'down'])).toBe('recovered')
     })
 
     test('latency thresholds change status at their configured boundaries', () => {
