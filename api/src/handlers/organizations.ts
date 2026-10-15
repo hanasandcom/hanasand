@@ -4,6 +4,7 @@ import { randomUUID } from 'crypto'
 import run, { withTransaction } from '#db'
 import { organizationPrivacyDeletionInProgress } from '#utils/organizationLifecycle.ts'
 import { updateOrganizationInviteAction, upsertOrganizationInvite, upsertOrganizationMember } from '#utils/db/identityDataWrites.ts'
+import { activeOrganizationOwnerCount as activeOwnerCount } from '#utils/organizationMemberships.ts'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import recordLog from '#utils/logs/recordLog.ts'
 import { recordSystemEvent } from '#utils/systemEvent.ts'
@@ -1566,13 +1567,13 @@ export async function postOrganizationInviteAction(req: FastifyRequest<{ Params:
         return res.status(404).send({ error: 'Invite not found.' })
     }
 
-    if (existing.status === 'accepted') {
+    const denyAcceptedInviteAction = (invite: OrganizationInviteRow) => {
         const message = 'Accepted invites cannot be revoked or resent; manage the member instead.'
         const denial = organizationInviteActionDenial({
             organizationId: req.params.id,
             actorId: userId,
             actorRole: organization.role,
-            invite: existing,
+            invite,
             action: input.action,
             requestId: input.requestId,
             reason: input.reason,
@@ -1581,7 +1582,7 @@ export async function postOrganizationInviteAction(req: FastifyRequest<{ Params:
         logOrganizationEvent(req, denial.serviceLogAction, req.params.id, userId, {
             requestId: denial.requestId,
             inviteId: req.params.inviteId,
-            role: existing.role,
+            role: invite.role,
             actorRole: organization.role,
             action: input.action,
             blockerCode: denial.blockerCode,
@@ -1589,6 +1590,7 @@ export async function postOrganizationInviteAction(req: FastifyRequest<{ Params:
         })
         return res.status(409).send({ error: message, inviteActionDenial: denial })
     }
+    if (existing.status === 'accepted') return denyAcceptedInviteAction(existing)
 
     const lifecycleBlocker = input.action === 'resend'
         ? inactiveOrganizationMutationBlocker(organization, 'resend invites')
@@ -1606,6 +1608,8 @@ export async function postOrganizationInviteAction(req: FastifyRequest<{ Params:
     }) as OrganizationInviteRow | null
 
     if (!invite) {
+        const currentInvite = await loadInviteById(req.params.id, req.params.inviteId)
+        if (currentInvite?.status === 'accepted') return denyAcceptedInviteAction(currentInvite)
         return res.status(404).send({ error: 'Invite not found.' })
     }
 
@@ -3322,22 +3326,6 @@ async function loadInviteById(organizationId: string, inviteId: string) {
     `, [inviteId, organizationId])
 
     return result.rows[0] as OrganizationInviteRow | undefined
-}
-
-async function activeOwnerCount(organizationId: string, query: typeof run = run) {
-    const result = await query(`
-        SELECT COUNT(*)::int AS owner_count
-        FROM organization_members membership
-        JOIN users owner
-          ON owner.id = membership.user_id
-         AND owner.active IS TRUE
-         AND owner.deletion_scheduled_at IS NULL
-        WHERE membership.organization_id = $1
-          AND membership.status = 'active'
-          AND membership.role = 'owner'
-    `, [organizationId])
-
-    return Number(result.rows[0]?.owner_count ?? 0)
 }
 
 async function uniqueOrganizationSlug(baseSlug: string, currentOrganizationId?: string) {

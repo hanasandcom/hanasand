@@ -2,6 +2,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify'
 import { randomUUID } from 'crypto'
 import run from '#db'
 import { updateOrganizationInviteAction, upsertAdminAccessRecoveryApproval, upsertOrganizationInvite } from '#utils/db/identityDataWrites.ts'
+import { activeOrganizationOwnerCount as activeOwnerCount } from '#utils/organizationMemberships.ts'
 import { compileAuditQuery } from '#utils/auditQuery.ts'
 import { hasOrganizationPrivacyDeletionMarker, organizationPrivacyDeletionInProgress } from '#utils/organizationLifecycle.ts'
 import { cleanContext, headerText, normalizeApprovalStatus, normalizeOption, normalizeSupportPreparationDuration, normalizeSupportPreparationExpiry, normalizeSupportPreparationScope, normalizeSupportSessionActions, normalizeSupportSessionDuration, normalizeSupportSessionExpiry, normalizeSupportSessionScope, supportError, supportInspectionAuditContext, supportInspectionAuditMetadata, supportRequestId, supportSessionIdFromRequest, supportText as text } from '#utils/support/adminSupportInput.ts'
@@ -5555,17 +5556,6 @@ async function loadSupportMemberDetail(organizationId: string, userId: string) {
         LIMIT 1
     `, [organizationId, userId])
     return result.rows[0] as Record<string, unknown> | undefined
-}
-
-async function activeOwnerCount(organizationId: string) {
-    const result = await run(`
-        SELECT COUNT(*)::int AS owner_count
-        FROM organization_members
-        WHERE organization_id = $1
-          AND status = 'active'
-          AND role = 'owner'
-    `, [organizationId])
-    return Number(result.rows[0]?.owner_count ?? 0)
 }
 
 function supportRoleRecoveryPermissionError(currentRole: OrganizationRole, newRole: OrganizationRole, ownerCount: number) {
