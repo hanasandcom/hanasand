@@ -567,19 +567,41 @@ export async function organizationPrivacyState(organizationId: string, page = { 
               (SELECT COUNT(*)::int FROM events WHERE ingestion_id='logs' AND (normalized #>> '{metadata,organizationId}' = $1 OR normalized #>> '{metadata,tenantId}' = $1)) immutable_log_events
         `, [organizationId]),
     ])
-    return {
-        schemaVersion: 'organization.privacy_state.v1',
+    return organizationPrivacyStateReadModel({
         organization: organization.rows[0],
         runs: runs.rows,
         requests: requests.rows,
         items: retentionItems.rows,
+        page,
+        totalRetentionItems: counts.rows[0]?.total_retention_items,
+        protection: counts.rows[0],
+    })
+}
+
+export function organizationPrivacyStateReadModel<TOrganization, TRun, TRequest, TItem, TProtection extends object>(input: {
+    organization: TOrganization
+    runs: TRun[]
+    requests: TRequest[]
+    items: TItem[]
+    page: { itemOffset: number, itemLimit: number }
+    totalRetentionItems: number | string | undefined
+    protection: TProtection | undefined
+}) {
+    return {
+        schemaVersion: 'organization.privacy_state.v1',
+        organization: input.organization,
+        runs: input.runs,
+        requests: input.requests,
+        items: input.items,
         itemPage: {
-            offset: page.itemOffset,
-            limit: page.itemLimit,
-            nextOffset: page.itemOffset + retentionItems.rows.length < Number(counts.rows[0]?.total_retention_items ?? 0) ? page.itemOffset + retentionItems.rows.length : null,
+            offset: input.page.itemOffset,
+            limit: input.page.itemLimit,
+            nextOffset: input.page.itemOffset + input.items.length < Number(input.totalRetentionItems ?? 0)
+                ? input.page.itemOffset + input.items.length
+                : null,
         },
         protection: {
-            ...counts.rows[0],
+            ...input.protection,
             explanation: 'Legal holds and access-recovery evidence remain protected. Immutable audit references are retained; non-held customer configuration, payloads, identifiers, notes, owners, and event content are deleted or privacy-redacted.',
         },
     }
