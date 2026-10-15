@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
 import {
     auditFilterQuery,
+    supportInspectionAuditDetailPacket,
     supportInspectionAuditFilterCoverage,
     supportInspectionOrgBoundaryProof,
     supportInspectionSearchProof,
@@ -64,4 +65,37 @@ test('audit filter coverage preserves supported filters and denial replay', () =
     expect(packet.resultCoverage).toMatchObject({ eventCount: 1, eventIds: [4], actionValues: ['support.inspect'], outcomeValues: ['denied'] })
     expect(packet.replay.denied).toContain('outcome=denied')
     expect(packet.blockers).not.toContain('overbroad_support_inspection')
+})
+
+test('audit detail and coverage packets share unique request replay evidence', () => {
+    const timeline = [
+        {
+            id: 12, requestId: 'request-1', reason: 'private reason', context: { token: 'secret' },
+            links: { detail: '/api/admin/audit-events/12' },
+        },
+        {
+            id: 13, requestId: 'request-2', reason: '', context: { email: 'private@example.com' },
+            links: { detail: '/api/admin/audit-events/13' },
+        },
+    ]
+    const detail = supportInspectionAuditDetailPacket({
+        org: 'org-1', user: 'user-1', email: '', request: 'request-1', supportSession: '',
+        organizationIds: ['org-1'], memberships: [], invites: [], timeline, timelineFilter,
+    })
+    const coverage = supportInspectionAuditFilterCoverage({
+        timelineFilter, timeline, organizationIds: ['org-1'],
+        user: 'user-1', email: '', request: 'request-1', supportSession: '',
+    })
+
+    expect(detail.replayFilters.request).toEqual([
+        '/api/admin/audit-events?request=request-1',
+        '/api/admin/audit-events?request=request-2',
+    ])
+    expect(coverage.replay.byRequest).toEqual(detail.replayFilters.request)
+    expect(detail.detailRoutes).toEqual(['/api/admin/audit-events/12', '/api/admin/audit-events/13'])
+    expect(detail.detailEvents[0]).toMatchObject({ id: 12, reasonPresent: true })
+    expect(detail.detailEvents[0]).not.toHaveProperty('reason')
+    expect(detail.detailEvents[0]).not.toHaveProperty('context')
+    expect(detail.redacted).toBe(true)
+    expect(detail.noMutation).toBe(true)
 })

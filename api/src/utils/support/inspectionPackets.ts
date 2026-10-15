@@ -91,6 +91,10 @@ export function uniqueTimelineValues(values: unknown[]) {
     return Array.from(new Set(values.map(value => text(value)).filter(Boolean))).slice(0, 50)
 }
 
+function supportInspectionRequestIds(request: string, timeline: Array<Record<string, any>>) {
+    return uniqueTimelineValues([request, ...timeline.map(event => event.requestId)])
+}
+
 export function supportInspectionSearchProof(input: {
     q: string
     org: string
@@ -312,10 +316,7 @@ export function supportInspectionAuditDetailPacket(input: {
         ...input.memberships.map(member => member.user_id),
         ...input.invites.map(invite => invite.user_id),
     ])
-    const requestIds = uniqueTimelineValues([
-        input.request,
-        ...input.timeline.map(event => event.requestId),
-    ])
+    const requestIds = supportInspectionRequestIds(input.request, input.timeline)
     return {
         schemaVersion: 'support.inspection.audit_detail_packet.v1',
         generatedAt: new Date().toISOString(),
@@ -627,10 +628,7 @@ export function supportInspectionAuditFilterCoverage(input: {
     const outcomeValues = uniqueTimelineValues(input.timeline.map(event => event.outcome))
     const severityValues = uniqueTimelineValues(input.timeline.map(event => event.severity))
     const entityIds = uniqueTimelineValues(input.timeline.map(event => event.entityId || event.entity?.id))
-    const requestIds = uniqueTimelineValues([
-        input.request,
-        ...input.timeline.map(event => event.requestId),
-    ])
+    const requestIds = supportInspectionRequestIds(input.request, input.timeline)
     return {
         schemaVersion: 'support.inspection.audit_filter_coverage.v1',
         generatedAt: new Date().toISOString(),
