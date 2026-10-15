@@ -1,5 +1,10 @@
 import { normalizeOrganizationRole, roleCanManageOrganization, roleCanEditOrganization, type OrganizationRole } from './organizationRoles.ts'
 export { normalizeOrganizationRole, roleCanManageOrganization, roleCanEditOrganization, type OrganizationRole } from './organizationRoles.ts'
+
+function organizationTenantIdentity<TOrganizationId, TTenantId>(organizationId: TOrganizationId, tenantId: TTenantId) {
+    return { organizationId, tenantId }
+}
+
 export type OrganizationAlertCaseRole = OrganizationRole | 'analyst' | 'support' | 'nonmember'
 export type OrganizationAlertCaseAction =
     | 'create_watchlist'
@@ -2919,8 +2924,7 @@ export function organizationMemberAccessContract(
 
     return {
         schemaVersion: 'organization.member_access_contract.v1' as const,
-        organizationId: organization.id,
-        tenantId: organization.id,
+        ...organizationTenantIdentity(organization.id, organization.id),
         actor: {
             role: actorRole,
             status: organization.status ?? 'active',
@@ -3048,8 +3052,7 @@ export function organizationDownstreamAuthorizationExport(
 
     return {
         schemaVersion: 'organization.downstream_authorization_export.v1',
-        organizationId: organization.id,
-        tenantId: organization.id,
+        ...organizationTenantIdentity(organization.id, organization.id),
         organizationLifecycleState: organizationStatus,
         member: {
             userId: member.userId,
@@ -3182,8 +3185,7 @@ export function organizationAnalystPortalVisibilityAdapter(
 
     return {
         schemaVersion: 'organization.analyst_portal_visibility_adapter.v1',
-        organizationId: proof.organizationId,
-        tenantId: proof.tenantId,
+        ...organizationTenantIdentity(proof.organizationId, proof.tenantId),
         sourceFamily: 'organization_watchlist',
         member: proof.actor,
         routeBindings: {
@@ -3252,8 +3254,7 @@ export function organizationAlertCaseWorkflowState(
 
     return {
         schemaVersion: 'organization.alert_case_workflow_state.v1' as const,
-        organizationId: proof.organizationId,
-        tenantId: proof.tenantId,
+        ...organizationTenantIdentity(proof.organizationId, proof.tenantId),
         sourceFamily: 'organization_watchlist' as const,
         member: downstreamAuthorization.member,
         visibility: downstreamAuthorization.visibility,
@@ -3287,8 +3288,7 @@ export function organizationAlertCaseWorkflowState(
                 replay: alertQueue.routes.replay,
             },
             requiredFilters: {
-                organizationId: proof.organizationId,
-                tenantId: proof.tenantId,
+                ...organizationTenantIdentity(proof.organizationId, proof.tenantId),
                 watchlistItemIds: alertQueue.watchlistScope.watchlistItemIds,
                 alertGeneratorKeys: alertQueue.watchlistScope.alertGeneratorKeys,
                 lifecycleStatuses: ['active'] as const,
@@ -3349,8 +3349,7 @@ export function organizationAlertCaseWorkflowState(
         caseAssignment: {
             schemaVersion: 'organization.case_assignment_visibility.v1' as const,
             route: caseWorkflow.routes.update,
-            organizationId: proof.organizationId,
-            tenantId: proof.tenantId,
+            ...organizationTenantIdentity(proof.organizationId, proof.tenantId),
             sourceFamily: 'organization_watchlist' as const,
             requiredPayloadFields: [
                 'organizationId',
@@ -3401,8 +3400,7 @@ export function organizationAlertCaseWorkflowState(
             schemaVersion: 'organization.webhook_destination_ownership.v1' as const,
             route: proof.webhookBridge.route,
             eventType: proof.webhookBridge.deliveryContract.eventType,
-            organizationId: proof.webhookBridge.deliveryContract.organizationId,
-            tenantId: proof.webhookBridge.deliveryContract.tenantId,
+            ...organizationTenantIdentity(proof.webhookBridge.deliveryContract.organizationId, proof.webhookBridge.deliveryContract.tenantId),
             policy: proof.webhookBridge.deliveryContract.destinationSelection.policy,
             selectedDestinationSource: proof.webhookBridge.deliveryContract.destinationSelection.selectedDestinationSource,
             requiredDestinationOrgId: proof.webhookBridge.deliveryContract.destinationSelection.requiredDestinationOrgId,
@@ -3502,8 +3500,7 @@ export function organizationSharedWatchlistDownstreamProof(
 
     return {
         schemaVersion: 'organization.shared_watchlist_downstream_proof.v1',
-        organizationId: organization.id,
-        tenantId: organization.id,
+        ...organizationTenantIdentity(organization.id, organization.id),
         ownerOrganizationId: organization.id,
         actor: {
             userId: member.userId,
@@ -3589,8 +3586,7 @@ export function organizationSharedWatchlistDownstreamProof(
             dedupeScope: 'organization_watchlist_term',
             persistenceContract: {
                 schemaVersion: 'organization.watchlist_alert_persistence_contract.v1',
-                organizationId: organization.id,
-                tenantId: organization.id,
+                ...organizationTenantIdentity(organization.id, organization.id),
                 sourceFamily: 'organization_watchlist',
                 storageModule: 'scraper/src/storage/dwmAlertRepository.ts',
                 upsertFunction: 'upsertDwmAlert',
@@ -3649,8 +3645,7 @@ export function organizationSharedWatchlistDownstreamProof(
             },
             queueVisibilityContract: {
                 schemaVersion: 'organization.watchlist_alert_visibility_contract.v1',
-                organizationId: organization.id,
-                tenantId: organization.id,
+                ...organizationTenantIdentity(organization.id, organization.id),
                 sourceFamily: 'organization_watchlist',
                 routes: {
                     list: 'GET /v1/dwm/alerts',
@@ -3726,8 +3721,7 @@ export function organizationSharedWatchlistDownstreamProof(
             casePathTemplate: '/dwm?organizationId=:organizationId&watchlistItemId=:watchlistItemId',
             caseWorkflowContract: {
                 schemaVersion: 'organization.watchlist_case_workflow_contract.v1',
-                organizationId: organization.id,
-                tenantId: organization.id,
+                ...organizationTenantIdentity(organization.id, organization.id),
                 sourceFamily: 'organization_watchlist',
                 routes: {
                     open: 'POST /v1/cases',
@@ -3803,8 +3797,7 @@ export function organizationSharedWatchlistDownstreamProof(
             deliveryContract: {
                 schemaVersion: 'organization.watchlist_webhook_delivery_contract.v1',
                 eventType: 'dwm.alert',
-                organizationId: organization.id,
-                tenantId: organization.id,
+                ...organizationTenantIdentity(organization.id, organization.id),
                 sourceFamily: 'organization_watchlist',
                 destinationSelection: {
                     policy: webhookPolicy,
@@ -4110,8 +4103,7 @@ function organizationSharedWatchlistMonitoringWorkflow(input: {
 
     return {
         schemaVersion: 'organization.shared_watchlist_monitoring_workflow.v1',
-        organizationId: input.organizationId,
-        tenantId: input.organizationId,
+        ...organizationTenantIdentity(input.organizationId, input.organizationId),
         sourceFamily: 'organization_watchlist',
         persistenceLevel: 'organization_persisted',
         expectedAdapter: 'organizationSharedWatchlistMonitoringWorkflow',
@@ -4248,8 +4240,7 @@ function organizationSharedWatchlistAnalystPortalWorkflow(input: {
 
     return {
         schemaVersion: 'organization.shared_watchlist_analyst_portal_workflow.v1',
-        organizationId: input.organizationId,
-        tenantId: input.organizationId,
+        ...organizationTenantIdentity(input.organizationId, input.organizationId),
         sourceFamily: 'organization_watchlist',
         expectedAdapter: 'organizationSharedWatchlistAnalystPortalWorkflow',
         proofCommand: 'cd api && bun scripts/smoke-organizations-api.ts',
@@ -4374,8 +4365,7 @@ function organizationSharedWatchlistEnrichmentProvenance(input: {
 
     return {
         schemaVersion: 'organization.shared_watchlist_enrichment_provenance.v1',
-        organizationId: input.organizationId,
-        tenantId: input.organizationId,
+        ...organizationTenantIdentity(input.organizationId, input.organizationId),
         sourceFamily: 'organization_watchlist',
         expectedAdapter: 'organizationSharedWatchlistEnrichmentProvenance',
         proofCommand: 'cd api && bun scripts/smoke-organizations-api.ts',
@@ -4563,8 +4553,7 @@ export function organizationSharedWatchlistIntegrationGuardrails(
     const uniqueBlockers = [...new Set(blockerCodes)]
     return {
         schemaVersion: 'organization.shared_watchlist_integration_guardrails.v1',
-        organizationId: proof.organizationId,
-        tenantId: proof.tenantId,
+        ...organizationTenantIdentity(proof.organizationId, proof.tenantId),
         ok: uniqueBlockers.length === 0,
         checkedContracts: [
             'organization.shared_watchlist_downstream_proof.v1',
@@ -4778,8 +4767,7 @@ export function organizationSharedWatchlistSupportInspection(input: {
 
     return {
         schemaVersion: 'organization.shared_watchlist_support_inspection.v1',
-        organizationId: input.organizationId,
-        tenantId: input.tenantId,
+        ...organizationTenantIdentity(input.organizationId, input.tenantId),
         supportMode: 'redacted_summary_only',
         route: 'GET /api/admin/support/organizations/:id',
         supportActionContract: input.supportVisibility.contract,
@@ -4893,8 +4881,7 @@ export function organizationSharedWatchlistAlertQueueVisibility(
     }
     return {
         schemaVersion: 'organization.shared_watchlist_alert_queue_visibility.v1',
-        organizationId: proof.organizationId,
-        tenantId: proof.tenantId,
+        ...organizationTenantIdentity(proof.organizationId, proof.tenantId),
         sourceFamily: 'organization_watchlist',
         routes: queue.routes,
         requiredQueryFields: queue.requiredQueryFields,
@@ -5109,8 +5096,7 @@ export function organizationWatchlistAlertTermsExportDenial(input: {
     ]
     return {
         schemaVersion: 'organization.watchlist_alert_terms_export_denial.v1',
-        organizationId: input.organizationId,
-        tenantId: input.tenantId ?? input.organizationId,
+        ...organizationTenantIdentity(input.organizationId, input.tenantId ?? input.organizationId),
         member: {
             userId: input.member.userId,
             role: input.member.role,
@@ -5139,8 +5125,7 @@ export function organizationWatchlistAlertTermsExportDenial(input: {
         nonmemberEnumeration: false,
         alertGenerationConsumerDenial: {
             schemaVersion: 'organization.watchlist_alert_generation_consumer_denial.v1',
-            organizationId: input.organizationId,
-            tenantId: input.tenantId ?? input.organizationId,
+            ...organizationTenantIdentity(input.organizationId, input.tenantId ?? input.organizationId),
             repositoryAdapter: 'organizationWatchlistAlertTermsExport',
             route: 'GET /api/organizations/:id/watchlists/alert-terms',
             member: {
@@ -5269,8 +5254,7 @@ export function organizationLifecycleReadiness(row: OrganizationRow): Organizati
 
     return {
         schemaVersion: 'organization.lifecycle_readiness.v1',
-        organizationId: row.id,
-        tenantId: row.id,
+        ...organizationTenantIdentity(row.id, row.id),
         lifecycleStatus,
         actorRole,
         counts: {
@@ -5319,8 +5303,7 @@ export function organizationLifecycleReadiness(row: OrganizationRow): Organizati
         },
         downstreamLifecycleReceipt: {
             schemaVersion: 'organization.lifecycle_downstream_receipt.v1',
-            organizationId: row.id,
-            tenantId: row.id,
+            ...organizationTenantIdentity(row.id, row.id),
             lifecycleStatus,
             blockerCode: lifecycleBlockerCode,
             activeMembershipRequired: true,
@@ -5352,8 +5335,7 @@ export function organizationLifecycleReadiness(row: OrganizationRow): Organizati
         },
         workspaceBoundaryProof: {
             schemaVersion: 'organization.workspace_boundary_readiness.v1',
-            organizationId: row.id,
-            tenantId: row.id,
+            ...organizationTenantIdentity(row.id, row.id),
             lifecycleStatus,
             actorRole,
             routes: {
@@ -5488,8 +5470,7 @@ export function organizationReadinessProof(input: {
 
     return {
         schemaVersion: 'organization.worker3_ui_readiness_proof.v1',
-        organizationId: input.downstreamAuthorization.organizationId,
-        tenantId: input.downstreamAuthorization.tenantId,
+        ...organizationTenantIdentity(input.downstreamAuthorization.organizationId, input.downstreamAuthorization.tenantId),
         actor: {
             role: input.downstreamAuthorization.member.role,
             canExportActiveTerms: actorCanExportActiveTerms,
@@ -5567,8 +5548,7 @@ export function organizationReadinessProof(input: {
                 'organization.shared_watchlist_alert_queue_visibility.v1',
             ],
             route: 'POST /v1/cases/:caseId/assignment',
-            organizationId: input.downstreamAuthorization.organizationId,
-            tenantId: input.downstreamAuthorization.tenantId,
+            ...organizationTenantIdentity(input.downstreamAuthorization.organizationId, input.downstreamAuthorization.tenantId),
             actor: {
                 role: input.downstreamAuthorization.member.role,
                 canAssignCase,
@@ -5705,8 +5685,7 @@ export function organizationReadinessProof(input: {
                 'organization.webhook_destination_readiness_bridge.v1',
             ],
             route: 'POST /v1/dwm/webhooks/deliver',
-            organizationId: input.downstreamAuthorization.organizationId,
-            tenantId: input.downstreamAuthorization.tenantId,
+            ...organizationTenantIdentity(input.downstreamAuthorization.organizationId, input.downstreamAuthorization.tenantId),
             defaultWebhookPolicy: input.downstreamAuthorization.downstream.webhook.defaultPolicy,
             requiredDestinationOrgId: input.downstreamAuthorization.organizationId,
             requiredDestinationOrgField: 'destination.org_id',
@@ -5896,8 +5875,7 @@ export function organizationReadinessProof(input: {
         },
         lifecycleCleanupProof: {
             schemaVersion: 'organization.lifecycle_cleanup_readiness.v1',
-            organizationId: input.downstreamAuthorization.organizationId,
-            tenantId: input.downstreamAuthorization.tenantId,
+            ...organizationTenantIdentity(input.downstreamAuthorization.organizationId, input.downstreamAuthorization.tenantId),
             cleanupRoutes: {
                 revokeInvite: 'POST /api/organizations/:id/invites/:inviteId/actions',
                 removeMember: 'DELETE /api/organizations/:id/members/:userId',
@@ -6001,8 +5979,7 @@ export function organizationReadinessProof(input: {
             route: 'organization_watchlist',
             exportRoute: 'GET /api/organizations/:id/watchlists/alert-terms',
             cleanupRoute: 'POST /api/organizations/:id/watchlists/cleanup',
-            organizationId: input.downstreamAuthorization.organizationId,
-            tenantId: input.downstreamAuthorization.tenantId,
+            ...organizationTenantIdentity(input.downstreamAuthorization.organizationId, input.downstreamAuthorization.tenantId),
             activeTermCount: input.alertGenerationBridge.activeWatchlistTerms.length,
             watchlistItemIds: input.alertGenerationBridge.activeWatchlistTerms.map(term => term.watchlistItemId),
             alertGeneratorKeys: input.alertGenerationBridge.activeWatchlistTerms.map(term => organizationWatchlistAlertGenerationRef(term).dedupe.key),
@@ -6150,8 +6127,7 @@ export function organizationReadinessProof(input: {
         },
         auditTimelineProof: {
             schemaVersion: 'organization.audit_timeline_readiness.v1',
-            organizationId: input.downstreamAuthorization.organizationId,
-            tenantId: input.downstreamAuthorization.tenantId,
+            ...organizationTenantIdentity(input.downstreamAuthorization.organizationId, input.downstreamAuthorization.tenantId),
             source: 'events',
             supportRoute: '/api/admin/support/organizations/:id',
             logQuery: 'GET /api/logs?service=api&message=organization',
@@ -6214,8 +6190,7 @@ export function organizationReadinessProof(input: {
 export function toInvite(row: OrganizationInviteRow) {
     return {
         id: row.id,
-        organizationId: row.organization_id,
-        tenantId: row.organization_id,
+        ...organizationTenantIdentity(row.organization_id, row.organization_id),
         acceptanceToken: row.id,
         acceptancePath: `/api/organizations/invites/${encodeURIComponent(row.id)}/accept`,
         email: row.email,
@@ -6258,8 +6233,7 @@ export function organizationInviteAcceptanceDenial(input: {
 
     return {
         schemaVersion: 'organization.invite_acceptance_denial.v1' as const,
-        organizationId: input.invite?.organization_id ?? null,
-        tenantId: input.invite?.organization_id ?? null,
+        ...organizationTenantIdentity(input.invite?.organization_id ?? null, input.invite?.organization_id ?? null),
         inviteId: input.invite?.id ?? null,
         acceptanceToken: input.invite?.id ?? null,
         inviteStatus: status,
@@ -6332,8 +6306,7 @@ export function organizationInviteActionDenial(input: {
 }) {
     return {
         schemaVersion: 'organization.invite_action_denial.v1' as const,
-        organizationId: input.organizationId,
-        tenantId: input.organizationId,
+        ...organizationTenantIdentity(input.organizationId, input.organizationId),
         actorId: input.actorId,
         actorRole: input.actorRole ?? null,
         inviteId: input.invite.id,
@@ -6400,8 +6373,7 @@ export function organizationMemberMutationDenial(input: {
 }) {
     return {
         schemaVersion: 'organization.member_mutation_denial.v1' as const,
-        organizationId: input.organizationId,
-        tenantId: input.organizationId,
+        ...organizationTenantIdentity(input.organizationId, input.organizationId),
         actorId: input.actorId,
         actorRole: input.actorRole ?? null,
         targetUserId: input.targetUserId,
@@ -6439,8 +6411,7 @@ export function organizationLastOwnerGuard(input: {
 }) {
     return {
         schemaVersion: 'organization.last_owner_guard.v1' as const,
-        organizationId: input.organizationId,
-        tenantId: input.organizationId,
+        ...organizationTenantIdentity(input.organizationId, input.organizationId),
         actorId: input.actorId,
         actorRole: input.actorRole ?? null,
         targetUserId: input.targetUserId,
@@ -6472,8 +6443,7 @@ export function organizationWatchlistMutationDenial(input: {
 }) {
     return {
         schemaVersion: 'organization.watchlist_mutation_denial.v1' as const,
-        organizationId: input.organizationId,
-        tenantId: input.organizationId,
+        ...organizationTenantIdentity(input.organizationId, input.organizationId),
         actorId: input.actorId,
         actorRole: input.actorRole ?? null,
         action: input.action,
@@ -6522,8 +6492,7 @@ export function organizationInviteManagementDenial(input: {
 }) {
     return {
         schemaVersion: 'organization.invite_management_denial.v1' as const,
-        organizationId: input.organizationId,
-        tenantId: input.organizationId,
+        ...organizationTenantIdentity(input.organizationId, input.organizationId),
         actorId: input.actorId,
         actorRole: input.actorRole ?? null,
         action: input.action,
@@ -6572,8 +6541,7 @@ export function organizationSettingsMutationDenial(input: {
     const attemptedFields = [...new Set(input.attemptedFields)].sort()
     return {
         schemaVersion: 'organization.settings_mutation_denial.v1' as const,
-        organizationId: input.organizationId,
-        tenantId: input.organizationId,
+        ...organizationTenantIdentity(input.organizationId, input.organizationId),
         actorId: input.actorId,
         actorRole: input.actorRole ?? null,
         attemptedFields,
@@ -6622,8 +6590,7 @@ export function organizationAccessDenial(input: {
 }) {
     return {
         schemaVersion: 'organization.access_denial.v1' as const,
-        organizationId: input.organizationId,
-        tenantId: input.organizationId,
+        ...organizationTenantIdentity(input.organizationId, input.organizationId),
         actorId: input.actorId,
         route: input.route,
         blockerCode: 'nonmember_denied' as const,
@@ -6676,8 +6643,7 @@ export function toWatchlistItem(row: OrganizationWatchlistRow) {
         id: row.id,
         itemId: row.id,
         watchlistItemId: row.id,
-        organizationId: row.organization_id,
-        tenantId: row.organization_id,
+        ...organizationTenantIdentity(row.organization_id, row.organization_id),
         ownerOrganizationId: row.organization_id,
         kind: row.kind,
         termFamily: row.kind,
@@ -6698,8 +6664,7 @@ export function toWatchlistItem(row: OrganizationWatchlistRow) {
         archivedAt: row.archived_at ?? null,
         alertGenerationReference: {
             schemaVersion: 'organization.watchlist_item_alert_reference.v1',
-            organizationId: row.organization_id,
-            tenantId: row.organization_id,
+            ...organizationTenantIdentity(row.organization_id, row.organization_id),
             watchlistItemId: row.id,
             itemId: row.id,
             termFamily: row.kind,
@@ -6755,8 +6720,7 @@ export function buildOrganizationDwmAlertReference(
     }
     const alertOwnership: OrganizationDwmAlertReference['alertOwnership'] = {
         schemaVersion: 'organization.alert_ownership.v1',
-        organizationId: organization.id,
-        tenantId: organization.id,
+        ...organizationTenantIdentity(organization.id, organization.id),
         ownerOrganizationId: organization.id,
         watchlistItemId: item.id,
         watchlistId: item.id,
@@ -6792,8 +6756,7 @@ export function buildOrganizationDwmAlertReference(
     }
     const ownerContext: OrganizationDwmAlertReference['ownerContext'] = {
         schemaVersion: 'organization.alert_reference_owner_context.v1',
-        organizationId: organization.id,
-        tenantId: organization.id,
+        ...organizationTenantIdentity(organization.id, organization.id),
         ownerOrganizationId: organization.id,
         watchlistItemId: item.id,
         watchlistId: item.id,
@@ -6810,8 +6773,7 @@ export function buildOrganizationDwmAlertReference(
 
     return {
         schemaVersion: 'organization.dwm_alert_bridge.v1',
-        organizationId: organization.id,
-        tenantId: organization.id,
+        ...organizationTenantIdentity(organization.id, organization.id),
         watchlistItemId: item.id,
         watchlistKind: item.kind,
         matchedTerm,
@@ -6846,8 +6808,7 @@ export function buildOrganizationDwmAlertReference(
             dedupeKey,
             alertOwnership,
             workflowContext: {
-                organizationId: organization.id,
-                tenantId: organization.id,
+                ...organizationTenantIdentity(organization.id, organization.id),
                 ownerOrganizationId: organization.id,
                 watchlistItemIds: [item.id],
                 alertGeneratorKeys: [dedupeKey],
@@ -6857,8 +6818,7 @@ export function buildOrganizationDwmAlertReference(
         webhookContract: {
             schemaVersion: 'organization.alert_reference_webhook_contract.v1',
             orgId: organization.id,
-            organizationId: organization.id,
-            tenantId: organization.id,
+            ...organizationTenantIdentity(organization.id, organization.id),
             watchlistId: item.id,
             watchlistName,
             defaultWebhookPolicy: bridgeContext.defaultWebhookPolicy,
@@ -6936,8 +6896,7 @@ export function organizationWatchlistTerms(items: OrganizationWatchlistRow[]): O
         return {
             watchlistItemId: item.id,
             itemId: item.id,
-            organizationId: item.organization_id,
-            tenantId: item.organization_id,
+            ...organizationTenantIdentity(item.organization_id, item.organization_id),
             kind: item.kind,
             termFamily: item.kind,
             family: item.kind,
@@ -6983,8 +6942,7 @@ export function organizationWatchlistAlertGenerationContract(
 
     return {
         schemaVersion: 'organization.watchlist_alert_generation.v1',
-        organizationId: bridgeContext.id,
-        tenantId: bridgeContext.id,
+        ...organizationTenantIdentity(bridgeContext.id, bridgeContext.id),
         ownerOrganizationId: bridgeContext.id,
         visibilityPolicy: bridgeContext.alertVisibilityPolicy,
         allowedViewerRoles: bridgeContext.allowedViewerRoles,
@@ -7012,8 +6970,7 @@ export function organizationWatchlistAlertTermsExport(
             alertGenerationRef,
             ownerContext: {
                 schemaVersion: 'organization.watchlist_term_owner_context.v1' as const,
-                organizationId: term.organizationId,
-                tenantId: term.tenantId,
+                ...organizationTenantIdentity(term.organizationId, term.tenantId),
                 ownerOrganizationId: term.organizationId,
                 watchlistItemId: term.watchlistItemId,
                 itemId: term.itemId,
@@ -7026,8 +6983,7 @@ export function organizationWatchlistAlertTermsExport(
             },
             alertGenerationReference: {
                 schemaVersion: 'organization.watchlist_item_alert_reference.v1' as const,
-                organizationId: term.organizationId,
-                tenantId: term.tenantId,
+                ...organizationTenantIdentity(term.organizationId, term.tenantId),
                 watchlistItemId: term.watchlistItemId,
                 itemId: term.itemId,
                 termFamily: term.termFamily,
@@ -7046,8 +7002,7 @@ export function organizationWatchlistAlertTermsExport(
     const archivedCount = archivedItems.length
     const termLifecycle: OrganizationWatchlistAlertTermsExport['termLifecycle'] = {
         schemaVersion: 'organization.watchlist_term_lifecycle.v1',
-        organizationId: organization.id,
-        tenantId: organization.id,
+        ...organizationTenantIdentity(organization.id, organization.id),
         activeItemIds: activeItems.map(item => item.id),
         pausedItemIds: pausedItems.map(item => item.id),
         archivedItemIds: archivedItems.map(item => item.id),
@@ -7080,8 +7035,7 @@ export function organizationWatchlistAlertTermsExport(
     const activeAdminCount = Number(organization.admin_count ?? organization.owner_count ?? 0)
     const organizationStatus = normalizeOrganizationStatus(organization.status)
     const typedBlockers = organizationWatchlistAlertBridgeBlockers({
-        organizationId: organization.id,
-        tenantId: organization.id,
+        ...organizationTenantIdentity(organization.id, organization.id),
         organizationStatus,
         activeAdminCount,
         activeTermCount: activeTerms.length,
@@ -7095,8 +7049,7 @@ export function organizationWatchlistAlertTermsExport(
         archivedCount,
     })
     const alertCaseProofBlockers = organizationWatchlistAlertCaseProofBlockers({
-        organizationId: organization.id,
-        tenantId: organization.id,
+        ...organizationTenantIdentity(organization.id, organization.id),
         activeAdminCount,
         activeTermCount: activeTerms.length,
         pausedCount,
@@ -7113,8 +7066,7 @@ export function organizationWatchlistAlertTermsExport(
     const canManageWebhookDestinations = roleCanEditOrganization(member.role)
     const webhookDestinationAccessDecision: OrganizationWebhookDestinationAccessDecision = {
         schemaVersion: 'organization.webhook_destination_access_decision.v1',
-        organizationId: organization.id,
-        tenantId: organization.id,
+        ...organizationTenantIdentity(organization.id, organization.id),
         sourceFamily: 'organization_watchlist',
         member: {
             userId: member.userId,
@@ -7150,8 +7102,7 @@ export function organizationWatchlistAlertTermsExport(
         requiredDeliveryFields: webhookDestinationOwnership.requiredDeliveryFields,
         deliveryInputReceipt: {
             schemaVersion: 'organization.webhook_destination_delivery_input.v1',
-            organizationId: organization.id,
-            tenantId: organization.id,
+            ...organizationTenantIdentity(organization.id, organization.id),
             route: webhookDestinationOwnership.route,
             eventType: webhookDestinationOwnership.eventType,
             requiredAlertFields: [
@@ -7186,8 +7137,7 @@ export function organizationWatchlistAlertTermsExport(
         },
         dryRunReceipt: {
             schemaVersion: 'organization.webhook_destination_dry_run_visibility.v1',
-            organizationId: organization.id,
-            tenantId: organization.id,
+            ...organizationTenantIdentity(organization.id, organization.id),
             route: webhookDestinationOwnership.route,
             eventType: webhookDestinationOwnership.eventType,
             actor: {
@@ -7240,8 +7190,7 @@ export function organizationWatchlistAlertTermsExport(
         },
         alertDeliveryReadiness: {
             schemaVersion: 'organization.webhook_alert_delivery_readiness.v1',
-            organizationId: organization.id,
-            tenantId: organization.id,
+            ...organizationTenantIdentity(organization.id, organization.id),
             sourceFamily: 'organization_watchlist',
             route: webhookDestinationOwnership.route,
             eventType: webhookDestinationOwnership.eventType,
@@ -7301,8 +7250,7 @@ export function organizationWatchlistAlertTermsExport(
         },
         deliveryConsumerReceipt: {
             schemaVersion: 'organization.webhook_destination_delivery_consumer.v1',
-            organizationId: organization.id,
-            tenantId: organization.id,
+            ...organizationTenantIdentity(organization.id, organization.id),
             route: webhookDestinationOwnership.route,
             eventType: webhookDestinationOwnership.eventType,
             actor: {
@@ -7344,8 +7292,7 @@ export function organizationWatchlistAlertTermsExport(
                 const matchProjection = organizationWatchlistMatchProjection(term, member)
 
                 return {
-                    organizationId: term.organizationId,
-                    tenantId: term.tenantId,
+                    ...organizationTenantIdentity(term.organizationId, term.tenantId),
                     watchlistId: term.watchlistItemId,
                     watchlistItemId: term.watchlistItemId,
                     watchedEntity: matchProjection.watchedEntity,
@@ -7436,8 +7383,7 @@ export function organizationWatchlistAlertTermsExport(
     }
     const redactedSummary: OrganizationWatchlistAlertBridgeContract['redactedSummary'] = {
         schemaVersion: 'organization.watchlist_alert_bridge_redacted_summary.v1',
-        organizationId: organization.id,
-        tenantId: organization.id,
+        ...organizationTenantIdentity(organization.id, organization.id),
         activeTermCount: activeTerms.length,
         termFamilies: alertGeneration.termFamilies,
         pausedCount,
@@ -7448,8 +7394,7 @@ export function organizationWatchlistAlertTermsExport(
         containsRawTerms: false,
     }
     const sharedWatchlistSupportInspection = organizationSharedWatchlistSupportInspection({
-        organizationId: organization.id,
-        tenantId: organization.id,
+        ...organizationTenantIdentity(organization.id, organization.id),
         redactedSummary,
         supportVisibility,
         supportAccess,
@@ -7464,8 +7409,7 @@ export function organizationWatchlistAlertTermsExport(
     ].map(String)))
     const consumerReadiness: OrganizationSharedWatchlistConsumerReadiness = {
         schemaVersion: 'organization.shared_watchlist_consumer_readiness.v1',
-        organizationId: organization.id,
-        tenantId: organization.id,
+        ...organizationTenantIdentity(organization.id, organization.id),
         sourceFamily: 'organization_watchlist',
         member: {
             userId: member.userId,
@@ -7518,8 +7462,7 @@ export function organizationWatchlistAlertTermsExport(
     }
     const alertGenerationConsumer: OrganizationWatchlistAlertTermsExport['alertGenerationConsumer'] = {
         schemaVersion: 'organization.watchlist_alert_generation_consumer.v1',
-        organizationId: organization.id,
-        tenantId: organization.id,
+        ...organizationTenantIdentity(organization.id, organization.id),
         repositoryAdapter: 'organizationWatchlistAlertTermsExport',
         sourceFamily: 'organization_watchlist',
         route: 'GET /api/organizations/:id/watchlists/alert-terms',
@@ -7534,8 +7477,7 @@ export function organizationWatchlistAlertTermsExport(
             'workflowContext.visibilityDecision',
         ],
         activeTerms: activeTerms.map(term => ({
-            organizationId: term.organizationId,
-            tenantId: term.tenantId,
+            ...organizationTenantIdentity(term.organizationId, term.tenantId),
             watchlistItemId: term.watchlistItemId,
             itemId: term.itemId,
             termFamily: term.termFamily,
@@ -7573,8 +7515,7 @@ export function organizationWatchlistAlertTermsExport(
         },
         matchingInputReceipt: {
             schemaVersion: 'organization.watchlist_alert_matching_input.v1',
-            organizationId: organization.id,
-            tenantId: organization.id,
+            ...organizationTenantIdentity(organization.id, organization.id),
             sourceFamily: 'organization_watchlist',
             matchingRoute: 'organization_watchlist',
             termCount: activeTerms.length,
@@ -7607,8 +7548,7 @@ export function organizationWatchlistAlertTermsExport(
                 const matchProjection = organizationWatchlistMatchProjection(term, member)
 
                 return {
-                    organizationId: term.organizationId,
-                    tenantId: term.tenantId,
+                    ...organizationTenantIdentity(term.organizationId, term.tenantId),
                     watchlistId: term.watchlistItemId,
                     watchlistItemId: term.watchlistItemId,
                     termFamily: term.termFamily,
@@ -7649,8 +7589,7 @@ export function organizationWatchlistAlertTermsExport(
                     },
                     provenance: {
                         schemaVersion: 'organization.watchlist_match_provenance.v1',
-                        organizationId: term.organizationId,
-                        tenantId: term.tenantId,
+                        ...organizationTenantIdentity(term.organizationId, term.tenantId),
                         watchlistId: term.watchlistItemId,
                         watchlistItemId: term.watchlistItemId,
                         alertGeneratorKey: term.alertGeneratorKey,
@@ -7703,8 +7642,7 @@ export function organizationWatchlistAlertTermsExport(
     }
     const termExportDeltaReceipt: OrganizationWatchlistAlertTermsExport['termExportDeltaReceipt'] = {
         schemaVersion: 'organization.watchlist_term_export_delta_receipt.v1',
-        organizationId: organization.id,
-        tenantId: organization.id,
+        ...organizationTenantIdentity(organization.id, organization.id),
         actor: {
             userId: member.userId,
             role: member.role,
@@ -7744,8 +7682,7 @@ export function organizationWatchlistAlertTermsExport(
     }
     const alertCasePersistenceReceipt: OrganizationWatchlistAlertTermsExport['alertCasePersistenceReceipt'] = {
         schemaVersion: 'organization.alert_case_bridge_persistence_receipt.v1',
-        organizationId: organization.id,
-        tenantId: organization.id,
+        ...organizationTenantIdentity(organization.id, organization.id),
         sourceFamily: 'organization_watchlist',
         alertPersistenceContract: sharedWatchlistDownstreamProof.alertBridge.persistenceContract.schemaVersion,
         caseWorkflowContract: sharedWatchlistDownstreamProof.caseBridge.caseWorkflowContract.schemaVersion,
@@ -7774,8 +7711,7 @@ export function organizationWatchlistAlertTermsExport(
     }
     const readinessExport: OrganizationWatchlistAlertTermsExport['readinessExport'] = {
         schemaVersion: 'organization.shared_watchlist_readiness_export.v1',
-        organizationId: organization.id,
-        tenantId: organization.id,
+        ...organizationTenantIdentity(organization.id, organization.id),
         sourceFamily: 'organization_watchlist',
         actor: {
             userId: member.userId,
@@ -7870,8 +7806,7 @@ export function organizationWatchlistAlertTermsExport(
     }
     return {
         schemaVersion: 'organization.watchlist_alert_terms_export.v1',
-        organizationId: organization.id,
-        tenantId: organization.id,
+        ...organizationTenantIdentity(organization.id, organization.id),
         ownerOrganizationId: organization.id,
         member: {
             userId: member.userId,
@@ -7940,8 +7875,7 @@ export function organizationWatchlistAlertTermsExport(
             },
             alertCaseProof: {
                 schemaVersion: 'organization.watchlist_alert_case_proof.v1',
-                organizationId: organization.id,
-                tenantId: organization.id,
+                ...organizationTenantIdentity(organization.id, organization.id),
                 readyForReplay: !alertCaseProofBlockers.some(blocker => blocker.severity === 'blocker'),
                 activeAdminCount,
                 activeTermCount: activeTerms.length,
@@ -8255,8 +8189,7 @@ function organizationWatchlistAlertGenerationRef(term: OrganizationWatchlistTerm
     return {
         schemaVersion: 'organization.watchlist_alert_generation_ref.v1',
         source: 'organization_shared_watchlist',
-        organizationId: term.organizationId,
-        tenantId: term.tenantId,
+        ...organizationTenantIdentity(term.organizationId, term.tenantId),
         ownerOrganizationId: term.organizationId,
         watchlistId: term.watchlistItemId,
         watchlistItemId: term.watchlistItemId,
@@ -8281,8 +8214,7 @@ function organizationWatchlistAlertGenerationRef(term: OrganizationWatchlistTerm
             scope: 'organization_watchlist_term',
             key,
             parts: {
-                organizationId: term.organizationId,
-                tenantId: term.tenantId,
+                ...organizationTenantIdentity(term.organizationId, term.tenantId),
                 watchlistItemId: term.watchlistItemId,
                 termFamily: term.termFamily,
                 normalizedTerm,

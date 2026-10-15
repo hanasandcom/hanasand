@@ -1,5 +1,8 @@
 import { expect, test } from 'bun:test'
-import { organizationWatchlistAlertTermsExport } from '../src/utils/organizations.ts'
+import {
+    organizationWatchlistAlertTermsExport,
+    organizationWatchlistAlertTermsExportDenial,
+} from '../src/utils/organizations.ts'
 
 const organization = {
     id: 'org-1',
@@ -128,4 +131,29 @@ test('alert term export preserves shared per-term projections and excludes inact
     expect(Object.keys(matchingInput.watchedEntity)).toEqual(['type', 'value', 'normalizedValue'])
     expect(Object.keys(matchingInput.actorRef)).toEqual(['userId', 'role', 'source'])
     expect(Object.keys(matchingInput.sourceRefs)).toEqual(['sourceFamily', 'exportRoute', 'caseVisibilityRoute'])
+})
+
+test('alert term export denial preserves explicit tenant identity and fallback order', () => {
+    const input = {
+        organizationId: 'org-1',
+        member: { userId: 'member-1', role: 'reader' as const },
+        visibility: {
+            allowed: false,
+            reason: 'role_not_allowed' as const,
+            alertVisibilityPolicy: 'owners' as const,
+            allowedRoles: ['owner' as const],
+        },
+    }
+
+    const explicitTenant = organizationWatchlistAlertTermsExportDenial({ ...input, tenantId: 'tenant-1' })
+    const nullTenant = organizationWatchlistAlertTermsExportDenial({ ...input, tenantId: null })
+
+    expect(Object.keys(explicitTenant).slice(0, 3)).toEqual(['schemaVersion', 'organizationId', 'tenantId'])
+    expect(explicitTenant).toMatchObject({ organizationId: 'org-1', tenantId: 'tenant-1' })
+    expect(Object.keys(explicitTenant.alertGenerationConsumerDenial).slice(0, 3)).toEqual([
+        'schemaVersion', 'organizationId', 'tenantId',
+    ])
+    expect(explicitTenant.alertGenerationConsumerDenial).toMatchObject({ organizationId: 'org-1', tenantId: 'tenant-1' })
+    expect(nullTenant).toMatchObject({ organizationId: 'org-1', tenantId: 'org-1' })
+    expect(nullTenant.alertGenerationConsumerDenial).toMatchObject({ organizationId: 'org-1', tenantId: 'org-1' })
 })
