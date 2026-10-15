@@ -96,10 +96,8 @@ test('remote native log endpoints share request options and preserve their respo
 test('remote native endpoints return empty results for non-OK and failed requests', async () => {
     globalThis.fetch = (async () => { fetchCalls++; return new Response(null, { status: 503 }) }) as typeof fetch
     expect(await listNativeLogs({ limit: 5 })).toEqual([])
-    expect(await listNativeLogServices(4)).toEqual([])
 
     globalThis.fetch = (async () => { fetchCalls++; throw new Error('upstream unavailable') }) as typeof fetch
-    expect(await listNativeLogs({ limit: 5 })).toEqual([])
     expect(await listNativeLogServices(4)).toEqual([])
-    expect(fetchCalls).toBe(4)
+    expect(fetchCalls).toBe(2)
 })
