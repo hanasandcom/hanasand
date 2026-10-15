@@ -46,20 +46,26 @@ export default async function ensureSchema() {
             if ((error as { code?: string })?.code !== '42P01') throw error
         }
     }
+    await retrySchemaLockTimeout(async() => {
+        await withSchemaLockTimeout(applySchema)
+        if (!deploymentCandidate) await ensureIdentityDataBoundaryWithRetry()
+        if (tracked) await withSchemaLockTimeout(async () => {
+            await queryOnce('CREATE TABLE IF NOT EXISTS app_schema_releases (release TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW())')
+            await queryOnce('INSERT INTO app_schema_releases (release) VALUES ($1) ON CONFLICT DO NOTHING', [release!])
+        })
+        scheduleLegacyEventConstraintCleanup()
+    }, 'Schema update deferred because it exceeded its lock or execution limit')
+}
+
+async function retrySchemaLockTimeout(work: () => Promise<unknown>, context: string) {
     for (;;) {
         try {
-            await withSchemaLockTimeout(applySchema)
-            if (!deploymentCandidate) await ensureIdentityDataBoundaryWithRetry()
-            if (tracked) await withSchemaLockTimeout(async () => {
-                await queryOnce('CREATE TABLE IF NOT EXISTS app_schema_releases (release TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW())')
-                await queryOnce('INSERT INTO app_schema_releases (release) VALUES ($1) ON CONFLICT DO NOTHING', [release!])
-            })
-            scheduleLegacyEventConstraintCleanup()
+            await work()
             return
         } catch (error) {
             const code = (error as { code?: string })?.code
             if (code !== '55P03' && code !== '57014') throw error
-            console.warn('Schema update deferred because it exceeded its lock or execution limit; retrying in 30 seconds.')
+            console.warn(`${context}; retrying in 30 seconds.`)
             await new Promise(resolve => setTimeout(resolve, 30_000))
         }
     }
@@ -106,17 +112,10 @@ async function ensureExistingRuleHitCountSchema() {
 }
 
 async function ensureIdentityDataBoundaryWithRetry() {
-    for (;;) {
-        try {
-            await withSchemaLockTimeout(ensureIdentityDataBoundary)
-            return
-        } catch (error) {
-            const code = (error as { code?: string })?.code
-            if (code !== '55P03' && code !== '57014') throw error
-            console.warn('Identity data boundary is waiting for database locks; retrying in 30 seconds.')
-            await new Promise(resolve => setTimeout(resolve, 30_000))
-        }
-    }
+    await retrySchemaLockTimeout(
+        () => withSchemaLockTimeout(ensureIdentityDataBoundary),
+        'Identity data boundary is waiting for database locks',
+    )
 }
 
 async function ensureRecoverableIndex(indexName: string, statement: string) {
@@ -682,9 +681,7 @@ async function applySchema() {
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
     `)
-    if (!await columnExists('traffic_events', 'country_iso')) {
-        await run('ALTER TABLE traffic_events ADD COLUMN country_iso TEXT NOT NULL DEFAULT \'\'')
-    }
+    await ensureColumn(run, 'public.traffic_events', 'country_iso', 'ALTER TABLE traffic_events ADD COLUMN country_iso TEXT NOT NULL DEFAULT \'\'')
     await run('CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_traffic_events_created_at ON traffic_events(created_at DESC)')
     await run('CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_traffic_events_domain_created_at ON traffic_events(domain, created_at DESC)')
     await ensureTrafficHistorySchema()
@@ -1633,16 +1630,4 @@ async function applySchema() {
     await run('CREATE INDEX IF NOT EXISTS idx_mail_recent_recipients_lookup ON mail_recent_recipients(owner_user_id, mailbox_user, last_used_at DESC)')
     await ensureVmOrganizationSchema()
     await ensureContentOrganizationSchema()
-}
-
-async function columnExists(tableName: string, columnName: string) {
-    const result = await run(`
-        SELECT 1
-        FROM information_schema.columns
-        WHERE table_schema = 'public'
-          AND table_name = $1
-          AND column_name = $2
-        LIMIT 1
-    `, [tableName, columnName])
-    return result.rows.length > 0
 }
