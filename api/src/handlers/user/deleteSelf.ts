@@ -2,7 +2,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify'
 import { withTransaction } from '#db'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import { revokeAllTokens } from '#utils/auth/session.ts'
-import { accountDeletionOrganizationBlocker, createAccountRestoreToken } from '#utils/auth/accountDeletion.ts'
+import { accountDeletionOrganizationBlocker, createAccountRestoreToken, lockAccountDeletionRows } from '#utils/auth/accountDeletion.ts'
 import { accountDeletionMail, deletionRequestLocation } from '#utils/auth/accountDeletionMail.ts'
 import { sendSystemMail } from '#utils/mail/system.ts'
 import { addressForUser } from '#utils/mail/helpers.ts'
@@ -26,20 +26,7 @@ export default async function deleteSelf(req: FastifyRequest, res: FastifyReply)
         const emailRestore = createAccountRestoreToken()
         const location = await deletionRequestLocation(req.ip)
         const outcome = await withTransaction(async query => {
-            await query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [id])
-            await query(`
-                SELECT organization.id
-                FROM organizations organization
-                JOIN organization_members membership
-                  ON membership.organization_id = organization.id
-                 AND membership.user_id = $1
-                 AND membership.role = 'owner'
-                 AND membership.status = 'active'
-                WHERE organization.status = 'active'
-                ORDER BY organization.id
-                FOR UPDATE OF organization
-            `, [id])
-
+            await lockAccountDeletionRows(id, query)
             const blocker = await accountDeletionOrganizationBlocker(id, query)
             if (blocker) return { blocker, user: null }
 

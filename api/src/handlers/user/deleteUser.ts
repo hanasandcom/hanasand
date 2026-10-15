@@ -3,7 +3,7 @@ import { withTransaction } from '#db'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import hasHanasandInternalRouteAccess from '#utils/auth/organizationPageAccess.ts'
 import { revokeAllTokens } from '#utils/auth/session.ts'
-import { accountDeletionOrganizationBlocker } from '#utils/auth/accountDeletion.ts'
+import { accountDeletionOrganizationBlocker, lockAccountDeletionRows } from '#utils/auth/accountDeletion.ts'
 import { recordSystemEvent, userHasHanasandInternalAccess } from '#utils/systemEvent.ts'
 
 export default async function deleteUser(req: FastifyRequest, res: FastifyReply) {
@@ -21,20 +21,7 @@ export default async function deleteUser(req: FastifyRequest, res: FastifyReply)
     try {
         const wasHanasandInternalMember = await userHasHanasandInternalAccess(id)
         const outcome = await withTransaction(async query => {
-            await query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [id])
-            await query(`
-                SELECT organization.id
-                FROM organizations organization
-                JOIN organization_members membership
-                  ON membership.organization_id = organization.id
-                 AND membership.user_id = $1
-                 AND membership.role = 'owner'
-                 AND membership.status = 'active'
-                WHERE organization.status = 'active'
-                ORDER BY organization.id
-                FOR UPDATE OF organization
-            `, [id])
-
+            await lockAccountDeletionRows(id, query)
             const blocker = await accountDeletionOrganizationBlocker(id, query)
             if (blocker) return { blocker, user: null }
 

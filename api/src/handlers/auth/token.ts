@@ -1,15 +1,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import { validateSession } from '#utils/auth/session.ts'
-
-function isTransientDatabaseError(error: unknown) {
-    const value = error as { code?: string, message?: string }
-    const code = value?.code || ''
-    const message = value?.message?.toLowerCase() || ''
-    return ['ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND', 'EAI_AGAIN', '08000', '08001', '08003', '08006', '53300', '57P03'].includes(code)
-        || message.includes('connection terminated')
-        || message.includes('connection timeout')
-        || message.includes('timeout expired')
-}
+import { isTransientDatabaseError } from '#db'
 
 /**
  * Tests if a token is valid for a user

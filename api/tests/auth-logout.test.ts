@@ -10,6 +10,7 @@ const query = async (sql: string, params?: unknown[]) => {
 
 mock.module('#db', () => ({
     default: query,
+    isTransientDatabaseError: () => false,
     identityQueryOnce: query,
     queryOnce: async () => ({ rows: [], rowCount: 0 }),
     closeDatabase: async () => {},

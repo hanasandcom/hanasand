@@ -1,7 +1,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import crypto from 'crypto'
 import { validateSession } from './session.ts'
-import run from '#db'
+import run, { isTransientDatabaseError } from '#db'
 import { recordSystemEvent } from '#utils/systemEvent.ts'
 
 type Valid = {
@@ -29,16 +29,6 @@ type ImpersonationSession = {
 
 function headerValue(value: string | string[] | undefined) {
     return Array.isArray(value) ? value[0] : value
-}
-
-function isTransientDatabaseError(error: unknown) {
-    const value = error as { code?: string, message?: string }
-    const code = value?.code || ''
-    const message = value?.message?.toLowerCase() || ''
-    return ['ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND', 'EAI_AGAIN', '08000', '08001', '08003', '08006', '53300', '57P03'].includes(code)
-        || message.includes('connection terminated')
-        || message.includes('connection timeout')
-        || message.includes('timeout expired')
 }
 
 function hashImpersonationToken(token: string) {

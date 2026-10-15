@@ -10,6 +10,22 @@ export function hashAccountRestoreToken(token: string) {
     return createHash('sha256').update(token).digest('hex')
 }
 
+export async function lockAccountDeletionRows(userId: string, query: typeof run = run) {
+    await query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [userId])
+    await query(`
+        SELECT organization.id
+        FROM organizations organization
+        JOIN organization_members membership
+          ON membership.organization_id = organization.id
+         AND membership.user_id = $1
+         AND membership.role = 'owner'
+         AND membership.status = 'active'
+        WHERE organization.status = 'active'
+        ORDER BY organization.id
+        FOR UPDATE OF organization
+    `, [userId])
+}
+
 export async function accountDeletionOrganizationBlocker(userId: string, query: typeof run = run) {
     const result = await query(`
         SELECT
