@@ -12,7 +12,7 @@ import { getProfileSshKeys, postProfileSshKey, deleteProfileSshKey } from './han
 import proxyIdentityRequest from './utils/identityProxy.ts'
 import { getMonitoringCases, updateMonitoringCase } from './handlers/monitoringCases.ts'
 import { postPushMonitoringEvent, postPushMonitoringKey } from './handlers/pushMonitoring.ts'
-import type { FastifyInstance, FastifyPluginOptions } from 'fastify'
+import type { FastifyInstance } from 'fastify'
 import indexHandler from './handlers/index.ts'
 import getUser from './handlers/user/get.ts'
 import { getProfileStats } from './handlers/profileStats.ts'
@@ -221,13 +221,11 @@ import { createBillingPortal, getBillingSubscription, receiveStripeWebhook } fro
  * Defines the routes available in the API.
  *
  * @param fastify Fastify Instance
- * @param _ Fastify Plugin Options
  */
-export default async function apiRoutes(fastify: FastifyInstance, options: FastifyPluginOptions) {
+export default async function apiRoutes(fastify: FastifyInstance) {
     fastify.addHook('preHandler', (req, res, done) => {
         void forwardSupportRequest(req, res).then(proxied => { if (!proxied) done() }, error => done(error))
     })
-    void options
     if (process.env.API_HTTP_ONLY !== '1') startLoadTestQueue()
 
     // Index handler
