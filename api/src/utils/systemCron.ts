@@ -11,10 +11,9 @@ import { RULE_STORAGE_ESTIMATE_JOB_ID } from './events/ruleStorageEstimateWorker
 import { ACCOUNT_DELETION_PURGE_JOB_ID } from './auth/purgeDeletedAccounts.ts'
 import { getVulnerabilityReport, setVulnerabilityScannerPaused, startTrackedVulnerabilityScan, VULNERABILITY_SCAN_CADENCE_SECONDS, VULNERABILITY_SCAN_JOB_ID } from './vulnerabilities/scanner.ts'
 import { collectDatabaseBackupServices, createDatabaseBackup, DATABASE_BACKUP_JOB_ID, setDatabaseBackupSchedulePaused } from './db/backups.ts'
+import { normalizeSchedule, parseExistingCronEntries, parseManagedBlock, replaceManagedBlock } from './systemCronCrontab.ts'
 
 const execFileAsync = promisify(execFile)
-const BEGIN = '# BEGIN HANASAND MANAGED CRON'
-const END = '# END HANASAND MANAGED CRON'
 
 export type ManagedCronDefinition = {
     id: string
@@ -351,7 +350,7 @@ const apiBackgroundJobDefinitions: Array<{
 export async function listManagedCronJobs(): Promise<ManagedCronJob[]> {
     const crontab = await readCrontab()
     const entries = parseManagedBlock(crontab)
-    const existingEntries = parseExistingCronEntries(crontab)
+    const existingEntries = parseExistingCronEntries(crontab, managedCronDefinitions)
 
     return Promise.all(managedCronDefinitions.map(async(definition) => {
         const entry = entries.get(definition.id) || existingEntries.get(definition.id)
@@ -489,7 +488,7 @@ export async function updateManagedCronJob(id: string, input: ManagedCronUpdate)
         : Boolean(input.enabled)
     const crontab = await readCrontab()
     const entries = parseManagedBlock(crontab)
-    const existingEntries = parseExistingCronEntries(crontab)
+    const existingEntries = parseExistingCronEntries(crontab, managedCronDefinitions)
     for (const [entryId, entry] of existingEntries) {
         if (!entries.has(entryId)) entries.set(entryId, entry)
     }
@@ -499,7 +498,7 @@ export async function updateManagedCronJob(id: string, input: ManagedCronUpdate)
         enabled: enabled ?? current?.enabled ?? true,
     })
 
-    await writeCrontab(replaceManagedBlock(crontab, entries))
+    await writeCrontab(replaceManagedBlock(crontab, entries, managedCronDefinitions))
     return (await listManagedCronJobs()).find(job => job.id === id)!
 }
 
@@ -1074,18 +1073,6 @@ function blockedTiJob(id: string, name: string, description: string, source: str
     }
 }
 
-function normalizeSchedule(value: unknown) {
-    const schedule = String(value || '').trim().replace(/\s+/g, ' ')
-    const fields = schedule.split(' ')
-    if (fields.length !== 5) {
-        throw new Error('Cron schedule must contain exactly five fields.')
-    }
-    if (!fields.every(field => /^[\d*/,-]+$/.test(field))) {
-        throw new Error('Cron schedule contains unsupported characters.')
-    }
-    return schedule
-}
-
 async function readCrontab() {
     const spoolPath = hostCrontabPath()
     if (spoolPath && existsSync(spoolPath)) {
@@ -1128,106 +1115,6 @@ async function writeCrontab(content: string) {
 
 function hostCrontabPath() {
     return CRON_SPOOL_DIR ? `${CRON_SPOOL_DIR}/${CRON_USER}` : ''
-}
-
-function parseManagedBlock(crontab: string) {
-    const entries = new Map<string, { schedule: string, enabled: boolean }>()
-    const block = extractManagedBlock(crontab)
-    if (!block) return entries
-
-    let pendingId = ''
-    for (const rawLine of block.split('\n')) {
-        const line = rawLine.trim()
-        const idMatch = line.match(/^#\s*id=([A-Za-z0-9_-]+)/)
-        if (idMatch) {
-            pendingId = idMatch[1]
-            continue
-        }
-        if (!pendingId || !line) continue
-        const enabled = !line.startsWith('#')
-        const activeLine = enabled ? line : line.replace(/^#\s*/, '')
-        const parts = activeLine.split(/\s+/)
-        if (parts.length < 6) continue
-        entries.set(pendingId, {
-            schedule: parts.slice(0, 5).join(' '),
-            enabled,
-        })
-        pendingId = ''
-    }
-    return entries
-}
-
-function parseExistingCronEntries(crontab: string) {
-    const entries = new Map<string, { schedule: string, enabled: boolean }>()
-    const managedFreeCrontab = removeManagedBlock(crontab)
-
-    for (const rawLine of managedFreeCrontab.split('\n')) {
-        const line = rawLine.trim()
-        if (!line || line.startsWith('#')) continue
-
-        const parts = line.split(/\s+/)
-        if (parts.length < 6) continue
-
-        const schedule = parts.slice(0, 5).join(' ')
-        const command = parts.slice(5).join(' ')
-        const definition = managedCronDefinitions.find(job => job.command === command || job.legacyCommands?.includes(command))
-        if (!definition) continue
-
-        entries.set(definition.id, {
-            schedule,
-            enabled: true,
-        })
-    }
-
-    return entries
-}
-
-function extractManagedBlock(crontab: string) {
-    const start = crontab.indexOf(BEGIN)
-    const end = crontab.indexOf(END)
-    if (start === -1 || end === -1 || end <= start) return ''
-    return crontab.slice(start + BEGIN.length, end)
-}
-
-function replaceManagedBlock(crontab: string, entries: Map<string, { schedule: string, enabled: boolean }>) {
-    const unmanaged = removeManagedCronLines(removeManagedBlock(crontab)).trimEnd()
-    const block = renderManagedBlock(entries)
-    return [unmanaged, block].filter(Boolean).join('\n\n')
-}
-
-function removeManagedCronLines(crontab: string) {
-    const commands = new Set(managedCronDefinitions.flatMap(job => [job.command, ...(job.legacyCommands || [])]))
-    return crontab
-        .split('\n')
-        .filter(rawLine => {
-            const line = rawLine.trim()
-            if (!line || line.startsWith('#')) return true
-            const parts = line.split(/\s+/)
-            if (parts.length < 6) return true
-            return !commands.has(parts.slice(5).join(' '))
-        })
-        .join('\n')
-}
-
-function removeManagedBlock(crontab: string) {
-    const start = crontab.indexOf(BEGIN)
-    const end = crontab.indexOf(END)
-    if (start === -1 || end === -1 || end <= start) return crontab
-    return `${crontab.slice(0, start)}${crontab.slice(end + END.length)}`.trim()
-}
-
-function renderManagedBlock(entries: Map<string, { schedule: string, enabled: boolean }>) {
-    const lines = [BEGIN, '# Managed by Hanasand. Edit from the dashboard or source-controlled defaults.']
-    for (const definition of managedCronDefinitions) {
-        const entry = entries.get(definition.id) || {
-            schedule: definition.defaultSchedule,
-            enabled: false,
-        }
-        lines.push(`# id=${definition.id} name=${definition.name}`)
-        lines.push(`${entry.enabled ? '' : '# '}${entry.schedule} ${definition.command}`)
-    }
-    lines.push(END)
-    return lines.join('\n')
 }
 
 async function readLastLogLine(logPath?: string) {
