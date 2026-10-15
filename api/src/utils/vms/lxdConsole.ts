@@ -64,8 +64,7 @@ async function attachConsoleChannels(result: ExecOperation, onOutput: (data: str
             if (!secret) throw new Error('VM console channel unavailable.')
             const socket = new WebSocket(`ws+unix://${config.lxd_socket_path}:${operation}/websocket?secret=${encodeURIComponent(secret)}`, { handshakeTimeout: 10000 })
             channels.push(socket)
-            socket.on('error', () => { if (!closed) { close(); onExit() } })
-            socket.on('close', () => { if (!closed) { close(); onExit() } })
+            for (const event of ['error', 'close'] as const) socket.on(event, () => { if (!closed) { close(); onExit() } })
             if (fd === '0') socket.on('message', data => onOutput(decoder.write(data as Buffer)))
         }
         await Promise.all(channels.map(socket => new Promise<void>((resolve, reject) => {
