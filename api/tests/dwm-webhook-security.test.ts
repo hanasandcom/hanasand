@@ -329,6 +329,42 @@ describe('DWM webhook network boundary', () => {
         expect(validateOutboundThirdPartyReport(unordered)).toMatchObject({ valid: false, error: 'report evidenceIds must use canonical order.' })
     })
 
+    test('accepts and returns the canonical report with scoped verification context', async () => {
+        const canonical = reportFixture()
+        const previousBase = process.env.TI_SCRAPER_API_BASE
+        const previousToken = process.env.TI_SCRAPER_SERVICE_TOKEN
+        process.env.TI_SCRAPER_API_BASE = 'https://ti.internal.test'
+        process.env.TI_SCRAPER_SERVICE_TOKEN = 'service-secret'
+        try {
+            let request: Request | undefined
+            const result = await canonicalThirdPartyReportForDelivery({
+                submittedReport: reportFixture(),
+                organizationId: 'org_1',
+                alertId: 'alert_1',
+                dedupeKey: canonical.exportChecksum,
+                actorId: 'user_1',
+                authorization: 'Bearer session',
+            }, async (input, init) => {
+                request = new Request(input, init)
+                return Response.json(canonical)
+            })
+
+            expect(result).toMatchObject({ status: 200, report: canonical })
+            expect(request?.url).toContain('/v1/cases/case_1/export?')
+            expect(request?.url).toContain('organizationId=org_1')
+            expect(request?.url).toContain('alertId=alert_1')
+            expect(request?.url).toContain('evidenceId=evidence_1')
+            expect(request?.headers.get('x-hanasand-service-token')).toBe('service-secret')
+            expect(request?.headers.get('x-organization-id')).toBe('org_1')
+            expect(request?.headers.get('id')).toBe('user_1')
+            expect(request?.headers.get('authorization')).toBe('Bearer session')
+            expect(request?.cache).toBe('no-store')
+        } finally {
+            restoreEnv('TI_SCRAPER_API_BASE', previousBase)
+            restoreEnv('TI_SCRAPER_SERVICE_TOKEN', previousToken)
+        }
+    })
+
     test('rejects a self-consistent caller-forged report when canonical TI checksum differs', async () => {
         const canonical = reportFixture()
         const forged = withReportChecksum({
