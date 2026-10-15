@@ -30,7 +30,7 @@ mock.module('../src/utils/db/identityDataWrites.ts', () => ({
     upsertOrganizationInvite: async () => {},
 }))
 
-const { getSystemEvents, getSystemEvent, getSupportAccessRecoveryApprovals } = await import('../src/handlers/adminSupport.ts')
+const { getSystemEvents, getSystemEvent, getSupportAccessRecoveryApprovals, getSupportInspection } = await import('../src/handlers/adminSupport.ts')
 
 function reply() {
     return {
@@ -191,6 +191,40 @@ test('audit detail route redacts stored context and records an inspection event'
         outcome: 'success',
         context: { redactionRequired: true, inspectedEventId: 42 },
     })
+})
+
+test('audit and support inspection filters retain separate validation contracts', async () => {
+    const auditUnsupported = await request(getSystemEvents, { query: { unexpected: 'x' } })
+    expect(auditUnsupported.statusCode).toBe(400)
+    expect(auditUnsupported.body.detail).toMatchObject({ code: 'unsupported_audit_filter' })
+    const inspectionUnsupported = await request(getSupportInspection, { query: { org: 'org-1', unexpected: 'x' } })
+    expect(inspectionUnsupported.statusCode).toBe(400)
+    expect(inspectionUnsupported.body.detail).toMatchObject({ code: 'unsupported_support_filter' })
+
+    const auditInvalidSeverity = await request(getSystemEvents, { query: { severity: 'urgent' } })
+    expect(auditInvalidSeverity.statusCode).toBe(400)
+    expect(auditInvalidSeverity.body.detail).toMatchObject({ code: 'invalid_audit_filter', filter: 'severity' })
+
+    const inspectionInvalidSeverity = await request(getSupportInspection, { query: { org: 'org-1', severity: 'urgent' } })
+    expect(inspectionInvalidSeverity.statusCode).toBe(400)
+    expect(inspectionInvalidSeverity.body.detail).toMatchObject({ code: 'invalid_support_filter', filter: 'severity' })
+
+    const auditInvalidDate = await request(getSystemEvents, { query: { from: 'not-a-date' } })
+    expect(auditInvalidDate.body).toMatchObject({ error: 'Invalid audit start time.' })
+    const inspectionInvalidDate = await request(getSupportInspection, { query: { org: 'org-1', from: 'not-a-date' } })
+    expect(inspectionInvalidDate.body).toMatchObject({ error: 'Invalid audit timeline start time.' })
+
+    const auditInvalidLimit = await request(getSystemEvents, { query: { limit: '' } })
+    expect(auditInvalidLimit.body).toMatchObject({ error: 'Audit limit must be a positive number.' })
+    const inspectionInvalidLimit = await request(getSupportInspection, { query: { org: 'org-1', limit: '' } })
+    expect(inspectionInvalidLimit.body).toMatchObject({ error: 'Support inspection limit must be a positive number.' })
+
+    const overbroadInspection = await request(getSupportInspection, { query: { action: 'support.inspect' } })
+    expect(overbroadInspection.statusCode).toBe(400)
+    expect(overbroadInspection.body.detail.code).toBe('overbroad_support_timeline_filter')
+    const invalidInspectionWithAction = await request(getSupportInspection, { query: { action: 'support.inspect', severity: 'urgent' } })
+    expect(invalidInspectionWithAction.body.detail.code).toBe('invalid_support_filter')
+    expect(queries).toHaveLength(0)
 })
 
 test('access recovery search applies requester, approver, status, outcome, organization, and request filters', async () => {

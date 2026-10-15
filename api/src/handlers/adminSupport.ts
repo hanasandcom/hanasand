@@ -5,6 +5,7 @@ import { upsertAdminAccessRecoveryApproval, upsertOrganizationInvite } from '#ut
 import { compileAuditQuery } from '#utils/auditQuery.ts'
 import { hasOrganizationPrivacyDeletionMarker, organizationPrivacyDeletionInProgress } from '#utils/organizationLifecycle.ts'
 import { cleanContext, headerText, normalizeApprovalStatus, normalizeOption, normalizeSupportSessionActions, normalizeSupportSessionDuration, normalizeSupportSessionExpiry, normalizeSupportSessionScope, supportError, supportInspectionAuditContext, supportInspectionAuditMetadata, supportRequestId, supportSessionIdFromRequest, supportText as text } from '#utils/support/adminSupportInput.ts'
+import { auditFilterValidationError } from '#utils/support/auditFilterValidation.ts'
 import { auditFilterQuery, supportInspectionActionAuditContract, supportInspectionAuditDetailPacket, supportInspectionAuditFilterCoverage, supportInspectionAuthorizationMatrix, supportInspectionFilters, supportInspectionOrgBoundaryProof, supportInspectionRecoveryFixturePacket, supportInspectionSearchProof, uniqueTimelineValues, type SupportTimelineFilter } from '#utils/support/inspectionPackets.ts'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import { actorHasHanasandInternalAccess, recordSystemEvent, redactAuditValue, requireAuditReason, supportTimelineAuditBridgeEvent } from '#utils/systemEvent.ts'
@@ -11193,34 +11194,15 @@ function normalizeSupportPreparationExpiry(value: unknown): { value: string | nu
 }
 
 function supportInspectionFilterError(rawQuery: SupportInspectionQuery, filter: Omit<SupportTimelineFilter, 'unsupported'>) {
-    const unsupported = Object.keys(rawQuery as Record<string, unknown>).filter(key => !supportInspectionFilters.has(key))
-    if (unsupported.length) {
-        return supportError('unsupported_support_filter', `Unsupported support inspection filter: ${unsupported[0]}.`, {
-            unavailableFilters: unsupported,
-            supportedFilters: Array.from(supportInspectionFilters),
-        })
-    }
-    if (rawQuery.severity && !filter.severity) {
-        return supportError('invalid_support_filter', 'Unsupported audit severity filter.', {
-            filter: 'severity',
-            supportedValues: ['info', 'notice', 'warning', 'critical'],
-        })
-    }
-    if (rawQuery.outcome && !filter.outcome) {
-        return supportError('invalid_support_filter', 'Unsupported audit outcome filter.', {
-            filter: 'outcome',
-            supportedValues: ['success', 'denied', 'failed'],
-        })
-    }
-    if (filter.from && Number.isNaN(Date.parse(filter.from))) {
-        return supportError('invalid_support_filter', 'Invalid audit timeline start time.', { filter: 'from' })
-    }
-    if (filter.to && Number.isNaN(Date.parse(filter.to))) {
-        return supportError('invalid_support_filter', 'Invalid audit timeline end time.', { filter: 'to' })
-    }
-    if (rawQuery.limit !== undefined && (!Number.isFinite(Number(rawQuery.limit)) || Number(rawQuery.limit) < 1)) {
-        return supportError('invalid_support_filter', 'Support inspection limit must be a positive number.', { filter: 'limit' })
-    }
+    const validationError = auditFilterValidationError(rawQuery, filter, {
+        supportedFilters: supportInspectionFilters,
+        unsupportedCode: 'unsupported_support_filter',
+        unsupportedLabel: 'support inspection',
+        invalidCode: 'invalid_support_filter',
+        dateLabel: 'audit timeline',
+        limitMessage: 'Support inspection limit must be a positive number.',
+    })
+    if (validationError) return validationError
     const hasTarget = Boolean(filter.q || filter.org || filter.user || filter.email || filter.request || filter.entity || filter.entityType || filter.supportSession || filter.workflow || filter.blocker || filter.reason || filter.scope || filter.context)
     if (!hasTarget && Boolean(filter.action || filter.source || filter.service || filter.severity || filter.outcome || filter.from || filter.to)) {
         return supportError('overbroad_support_timeline_filter', 'Add org, user, email, request, entity, entityType, or supportSession with audit timeline filters.', {
@@ -12597,35 +12579,14 @@ function supportAuditEventActionTemplates(input: {
 }
 
 function systemEventFilterError(rawQuery: AuditQuery, filter: { severity: string, outcome: string, from: string, to: string, limit: number }) {
-    const unsupported = Object.keys(rawQuery as Record<string, unknown>).filter(key => !systemEventFilters.has(key))
-    if (unsupported.length) {
-        return supportError('unsupported_audit_filter', `Unsupported audit filter: ${unsupported[0]}.`, {
-            unavailableFilters: unsupported,
-            supportedFilters: Array.from(systemEventFilters),
-        })
-    }
-    if (rawQuery.severity && !filter.severity) {
-        return supportError('invalid_audit_filter', 'Unsupported audit severity filter.', {
-            filter: 'severity',
-            supportedValues: ['info', 'notice', 'warning', 'critical'],
-        })
-    }
-    if (rawQuery.outcome && !filter.outcome) {
-        return supportError('invalid_audit_filter', 'Unsupported audit outcome filter.', {
-            filter: 'outcome',
-            supportedValues: ['success', 'denied', 'failed'],
-        })
-    }
-    if (filter.from && Number.isNaN(Date.parse(filter.from))) {
-        return supportError('invalid_audit_filter', 'Invalid audit start time.', { filter: 'from' })
-    }
-    if (filter.to && Number.isNaN(Date.parse(filter.to))) {
-        return supportError('invalid_audit_filter', 'Invalid audit end time.', { filter: 'to' })
-    }
-    if (rawQuery.limit !== undefined && (!Number.isFinite(Number(rawQuery.limit)) || Number(rawQuery.limit) < 1)) {
-        return supportError('invalid_audit_filter', 'Audit limit must be a positive number.', { filter: 'limit' })
-    }
-    return null
+    return auditFilterValidationError(rawQuery, filter, {
+        supportedFilters: systemEventFilters,
+        unsupportedCode: 'unsupported_audit_filter',
+        unsupportedLabel: 'audit',
+        invalidCode: 'invalid_audit_filter',
+        dateLabel: 'audit',
+        limitMessage: 'Audit limit must be a positive number.',
+    })
 }
 
 function auditTimelineSummary(timeline: Array<Record<string, any>>) {
