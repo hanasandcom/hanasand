@@ -7348,31 +7348,20 @@ export function organizationWatchlistAlertTermsExport(
                     ...(canManageWebhookDestinations ? [] : ['role_not_allowed']),
                 ].map(String)))
                 const provenanceHash = organizationWatchlistMatchProvenanceHash(term)
+                const matchProjection = organizationWatchlistMatchProjection(term, member)
 
                 return {
                     organizationId: term.organizationId,
                     tenantId: term.tenantId,
                     watchlistId: term.watchlistItemId,
                     watchlistItemId: term.watchlistItemId,
-                    watchedEntity: {
-                        type: term.termFamily,
-                        value: term.term,
-                        normalizedValue: term.alertGenerationRef.normalizedTerm,
-                    },
+                    watchedEntity: matchProjection.watchedEntity,
                     matchReason: {
                         kind: 'shared_watchlist_term' as const,
                         code: 'organization_watchlist_term_match' as const,
                     },
-                    actorRef: {
-                        userId: member.userId,
-                        role: member.role,
-                        source: 'organization_member' as const,
-                    },
-                    sourceRefs: {
-                        sourceFamily: 'organization_watchlist' as const,
-                        exportRoute: 'GET /api/organizations/:id/watchlists/alert-terms' as const,
-                        caseVisibilityRoute: 'GET /api/organizations/:id/alert-case-visibility' as const,
-                    },
+                    actorRef: matchProjection.actorRef,
+                    sourceRefs: matchProjection.sourceRefs,
                     provenanceHash,
                     workflowStatus: blockerCodes.length === 0 ? 'ready_for_delivery' as const : 'blocked' as const,
                     destinationReadiness: {
@@ -7622,6 +7611,7 @@ export function organizationWatchlistAlertTermsExport(
                     ...sharedWatchlistIntegrationGuardrails.caseSafety.blockerCodes,
                     ...webhookDestinationAccessDecision.blockerCodes,
                 ].map(String)))
+                const matchProjection = organizationWatchlistMatchProjection(term, member)
 
                 return {
                     organizationId: term.organizationId,
@@ -7629,26 +7619,14 @@ export function organizationWatchlistAlertTermsExport(
                     watchlistId: term.watchlistItemId,
                     watchlistItemId: term.watchlistItemId,
                     termFamily: term.termFamily,
-                    watchedEntity: {
-                        type: term.termFamily,
-                        value: term.term,
-                        normalizedValue: term.alertGenerationRef.normalizedTerm,
-                    },
+                    watchedEntity: matchProjection.watchedEntity,
                     matchReason: {
                         kind: 'shared_watchlist_term',
                         code: 'organization_watchlist_term_match',
                         field: 'watchedEntity.normalizedValue',
                     },
-                    actorRef: {
-                        userId: member.userId,
-                        role: member.role,
-                        source: 'organization_member',
-                    },
-                    sourceRefs: {
-                        sourceFamily: 'organization_watchlist',
-                        exportRoute: 'GET /api/organizations/:id/watchlists/alert-terms',
-                        caseVisibilityRoute: 'GET /api/organizations/:id/alert-case-visibility',
-                    },
+                    actorRef: matchProjection.actorRef,
+                    sourceRefs: matchProjection.sourceRefs,
                     normalizedTerm: term.alertGenerationRef.normalizedTerm,
                     alertGeneratorKey: term.alertGeneratorKey,
                     provenanceHash,
@@ -8316,6 +8294,29 @@ function organizationWatchlistAlertGenerationRef(term: OrganizationWatchlistTerm
                 termFamily: term.termFamily,
                 normalizedTerm,
             },
+        },
+    }
+}
+
+function organizationWatchlistMatchProjection(
+    term: OrganizationWatchlistAlertTermsExport['activeTerms'][number],
+    member: { userId: string, role: OrganizationRole }
+) {
+    return {
+        watchedEntity: {
+            type: term.termFamily,
+            value: term.term,
+            normalizedValue: term.alertGenerationRef.normalizedTerm,
+        },
+        actorRef: {
+            userId: member.userId,
+            role: member.role,
+            source: 'organization_member' as const,
+        },
+        sourceRefs: {
+            sourceFamily: 'organization_watchlist' as const,
+            exportRoute: 'GET /api/organizations/:id/watchlists/alert-terms' as const,
+            caseVisibilityRoute: 'GET /api/organizations/:id/alert-case-visibility' as const,
         },
     }
 }
