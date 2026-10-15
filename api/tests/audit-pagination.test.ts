@@ -9,7 +9,7 @@ async function run(sql: string, values: unknown[] = []) {
     queries.push({ sql, values })
     return { rows: sql.includes('AS total') ? [{ total: 125 }] : sql.includes('GROUP BY 1') ? [{ value: 'test', count: 12 }] : sql.includes('AS "Action"') ? [{ Action: 'restart', Description: 'matched' }] : eventRows }
 }
-mock.module('../src/utils/db.ts', () => ({ default: run, queryOnce: run, closeDatabase: async () => {} }))
+mock.module('../src/utils/db.ts', () => ({ default: run, queryOnce: run, identityQueryOnce: run, closeDatabase: async () => {} }))
 mock.module('../src/utils/auth/tokenWrapper.ts', () => ({ default: async () => ({ valid: true, id: 'test-admin' }) }))
 const { getSystemEvents } = await import('../src/handlers/adminSupport.ts')
 beforeEach(() => { internalMember = true; eventRows = []; queries.length = 0 })
