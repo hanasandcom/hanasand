@@ -5,7 +5,7 @@ const query = async (sql: string, p: any[] = []) => {
     if (sql.includes('INSERT INTO findings')) { findings.push(...JSON.parse(p[0]).map((item: any) => ({ id: item.rule_id }))); return { rows: [] } }
     throw new Error(sql)
 }
-mock.module('#db', () => ({ default: query, withTransaction: async (work: any) => work(query) }))
+mock.module('#db', () => ({ default: query, identityQueryOnce: query, isTransientDatabaseError: () => false, withTransaction: async (work: any) => work(query) }))
 const { createFindings, BUILTIN_RULES, normalizeEvent, defaultRuleDefinition } = await import('../src/handlers/events.ts')
 const rules = BUILTIN_RULES.filter(rule => ['auth.new_country.v1', 'auth.new_device.v1'].includes(rule.id)).map(rule => ({ ...rule, source: 'hanasand' as const, definition: defaultRuleDefinition(rule.id) }))
 beforeEach(() => { findings = []; previous = [ { id: 'recent', outcome: 'success', source_country: 'US', normalized: { device: { id: 'two' } } }, { id: 'older', outcome: 'success', source_country: 'NO', normalized: { device: { id: 'one' } } } ] })

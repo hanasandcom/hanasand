@@ -1,6 +1,7 @@
 import { expect, mock, test } from 'bun:test'
 mock.module('#constants', () => ({ default: {} }))
-mock.module('#db', () => ({ default: async () => { throw new Error('Unexpected database access') }, withTransaction: async (fn: () => unknown) => fn() }))
+const unexpectedQuery = async () => { throw new Error('Unexpected database access') }
+mock.module('#db', () => ({ default: unexpectedQuery, identityQueryOnce: unexpectedQuery, isTransientDatabaseError: () => false, withTransaction: async (fn: () => unknown) => fn() }))
 const { analyzePostgresBatch } = await import('../src/utils/events/analyzePostgresBatch.ts')
 const { postgresReceipt, postgresRuleId, postgresDefinition } = await import('../src/utils/events/analyzePostgres.ts')
 const { normalizeBuiltinDefinition } = await import('../src/handlers/events.ts')
@@ -17,8 +18,8 @@ function database(options: { enabled?: boolean, existing?: boolean, fail?: strin
         if (sql.startsWith('SELECT key')) return { rows: params[2].filter((key: string) => receipts.has(key)).map((key: string) => ({ key })) }
         if (sql.startsWith('SELECT recent')) return { rows: [{ recent }] }
         if (sql.startsWith('UPDATE log_postgres_session_state SET recent')) recent = JSON.parse(params[1])
-        if (sql.startsWith('SELECT source_event_id')) return { rows: options.existing ? [{ source_event_id: 'old' }] : [] }
-        if (sql.startsWith('INSERT INTO service_logs')) summaries.push(JSON.parse(params[0]))
+        if (sql.startsWith('SELECT id FROM events WHERE id=ANY')) return { rows: options.existing ? params[0].map((id: string) => ({ id })) : [] }
+        if (sql.startsWith('INSERT INTO events(')) summaries.push(JSON.parse(params[6]))
         if (sql.startsWith('INSERT INTO log_analyze_receipts')) {
             const added = params[0].filter((key: string) => !receipts.has(key)); added.forEach((key: string) => receipts.add(key))
             return { rows: added.map((key: string) => ({ key })), rowCount: added.length }
@@ -32,7 +33,7 @@ function database(options: { enabled?: boolean, existing?: boolean, fail?: strin
 test('transactional batch stores full evidence, records hits once and handles split retries', async () => {
     const db = database(), rows = fixture()
     expect(await analyzePostgresBatch(rows, db.query)).toEqual([])
-    expect(db.summaries[0].lifecycle_records).toEqual(rows)
+    expect(db.summaries[0].metadata.lifecycle_records).toEqual(rows)
     expect(db.dropped).toBe(3)
     expect(await analyzePostgresBatch(rows, db.query)).toEqual([])
     expect(await analyzePostgresBatch(rows.slice(0, 1), db.query)).toEqual(rows.slice(0, 1))
@@ -87,7 +88,7 @@ test('retain abnormal rate including concurrent-instance state from previous bat
 })
 
 test('summary and receipt failure must abort collector transaction', async () => {
-    for (const fail of ['INSERT INTO service_logs', 'INSERT INTO log_analyze_receipts', 'dropped_records=dropped_records']) {
+    for (const fail of ['INSERT INTO events', 'INSERT INTO log_analyze_receipts', 'dropped_records=dropped_records']) {
         await expect(analyzePostgresBatch(fixture(), database({ fail }).query)).rejects.toThrow('write failed')
     }
 })
@@ -123,8 +124,8 @@ test('host and application changes are policy decisions, with full original evid
     const definition={...postgresDefinition,conditions:postgresDefinition.conditions.map(condition=>({...condition,value:condition.path==='host'?'other':condition.path==='postgres_session.application'?'custom_probe':condition.value}))}
     const db=database({definition})
     expect(await analyzePostgresBatch(rows,db.query)).toEqual([])
-    expect(db.summaries[0].application).toBe('custom_probe')
-    expect(db.summaries[0].lifecycle_records).toEqual(rows)
+    expect(db.summaries[0].metadata.application).toBe('custom_probe')
+    expect(db.summaries[0].metadata.lifecycle_records).toEqual(rows)
 })
 
 

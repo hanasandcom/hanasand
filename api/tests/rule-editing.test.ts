@@ -47,7 +47,7 @@ const query = async (sql: string, p: any[] = []): Promise<any> => {
     if (sql.includes('INSERT INTO log_analyze_receipts')) return { rows: [] }
     throw new Error(`Unexpected query: ${sql}`)
 }
-mock.module('#db', () => ({ default: query, withTransaction: async (work: any) => {
+mock.module('#db', () => ({ default: query, identityQueryOnce: query, isTransientDatabaseError: () => false, withTransaction: async (work: any) => {
     const beforeRows = structuredClone(rows), beforeAudit = structuredClone(audits)
     try { return await work(query) } catch (error) { rows = beforeRows; audits = beforeAudit; throw error }
 } }))

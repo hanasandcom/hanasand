@@ -1,6 +1,7 @@
 import { expect, mock, test } from 'bun:test'
 mock.module('#constants', () => ({ default: {} }))
-mock.module('#db', () => ({ default: async () => { throw new Error('unexpected database access') }, withTransaction: async (fn: () => unknown) => fn(), withReadDatabase: async (fn: () => unknown) => fn() }))
+const unexpectedQuery = async () => { throw new Error('unexpected database access') }
+mock.module('#db', () => ({ default: unexpectedQuery, identityQueryOnce: unexpectedQuery, isTransientDatabaseError: () => false, withTransaction: async (fn: () => unknown) => fn(), withReadDatabase: async (fn: () => unknown) => fn() }))
 const { analyzeCdnDelivery } = await import('../src/utils/events/analyzeCdnDeliveryLog.ts')
 const { cdnDeliveryRuleId, cdnDeliveryDefinition } = await import('../src/utils/events/analyzeCdnDelivery.ts')
 const { fixture } = await import('./analyze-cdn-delivery.test.ts')

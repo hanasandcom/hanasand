@@ -5,7 +5,7 @@ let failFinding = false
 beforeEach(() => { findings.length = 0; events.length = 0; failFinding = false })
 mock.module('#utils/auth/apiKeys.ts', () => ({ validateApiKey: async () => ({ organizationId: 'org-a', apiKey: { scopes: [] } }), matchApiKeyScope: () => true }))
 mock.module('#utils/auth/tokenWrapper.ts', () => ({ default: async () => ({ valid: true, id: 'analyst' }) }))
-mock.module('#db', () => ({ withTransaction: async () => { throw new Error('Ingestion must not edit rules') }, default: async (sql: string, p: any[] = []) => {
+const query = async (sql: string, p: any[] = []) => {
     if (sql.includes('FROM rules')) return { rows: [] }
     if (sql.includes('INSERT INTO events')) { expect(sql).toContain('\'pending\''); events.push({ ingestion_id: p[1], processing_status: 'pending', id: p[0], organization_id: p[2], source_vendor: p[3], source_product: p[4], event_timestamp: p[5], event_type: p[6], action: p[7], outcome: p[8], normalized: JSON.parse(p[15]) }); return { rows: [] } }
     if (sql.includes('INSERT INTO findings')) {
@@ -31,7 +31,8 @@ mock.module('#db', () => ({ withTransaction: async () => { throw new Error('Inge
     }
     if (sql.includes('SET case_id')) { findings.find(row => row.id === p[0]).case_id = p[1]; return { rows: [] } }
     throw new Error(`Unexpected query: ${sql}`)
-} }))
+}
+mock.module('#db', () => ({ default: query, identityQueryOnce: query, isTransientDatabaseError: () => false, withTransaction: async () => { throw new Error('Ingestion must not edit rules') } }))
 
 test('real detector queues a case, preserves logs and retries a failed delivery without acknowledging it', async () => {
     const { ingestEvent } = await import('../src/handlers/events.ts')

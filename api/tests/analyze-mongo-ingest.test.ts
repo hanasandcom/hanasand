@@ -1,6 +1,7 @@
 import { expect, mock, test } from 'bun:test'
 mock.module('#constants', () => ({ default: {} }))
-mock.module('#db', () => ({ default: async () => { throw new Error('Unexpected database access') }, withTransaction: async (fn: () => unknown) => fn() }))
+const unexpectedQuery = async () => { throw new Error('Unexpected database access') }
+mock.module('#db', () => ({ default: unexpectedQuery, identityQueryOnce: unexpectedQuery, isTransientDatabaseError: () => false, withTransaction: async (fn: () => unknown) => fn() }))
 const { default: recordLog } = await import('../src/utils/logs/recordLog.ts')
 const { mongoDefinition, mongoRuleId, mongoReconDefinition } = await import('../src/utils/events/analyzeMongo.ts')
 const { normalizeBuiltinDefinition, collectEventFindings, normalizeEvent } = await import('../src/handlers/events.ts')

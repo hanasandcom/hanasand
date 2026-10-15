@@ -2,6 +2,9 @@ import { beforeEach, expect, mock, test } from 'bun:test'
 let stored: Record<string, any> = {}, findings: any[] = [], fail = false, findingWrites = 0, eventUpdates = 0, pendingLookups = 0, completedLookups = 0, deletedLogins: string[] = [], receipts: unknown[][] = [], retentionRules: any[] = []
 let authRechecks: Array<{ sql: string, params: any[] }> = []
 const query = async (sql: string, p: any[] = []): Promise<any> => {
+    // Transaction-scoped PostgreSQL settings are accepted by the test transaction
+    // but have no effect in this in-memory database mock.
+    if (sql.startsWith('SET LOCAL ')) return { rows: [] }
     if (sql.includes('SELECT r.rule_id AS id')) return { rows: retentionRules }
     if (sql.includes('SELECT id,normalized FROM events WHERE organization_id')) return { rows: Object.values(stored).filter(row => p[1].includes(row.id)) }
     if (sql.includes('SELECT event_ids FROM findings')) return { rows: [] }
@@ -12,7 +15,7 @@ const query = async (sql: string, p: any[] = []): Promise<any> => {
     if (sql.includes('SELECT id, event_timestamp, outcome, source_country, normalized')) return { rows: [] }
     if (sql.includes('SELECT id, user_id, event_timestamp, normalized')) return { rows: [] }
     if (sql.includes('INSERT INTO events')) { for (const item of JSON.parse(p[0])) stored[item.id] = { id: item.id, processing_status: item.processing_status, normalized: item.normalized }; return { rows: JSON.parse(p[0]).map((item: any) => ({ id: item.id })) } }
-    if (sql.includes('SELECT id FROM events') && sql.includes("processing_status = 'processed'")) { completedLookups++; return { rows: Object.values(stored).filter(row => p[0].includes(row.id) && row.processing_status === 'processed').map(row => ({ id: row.id })) } }
+    if (sql.includes('SELECT id FROM events') && sql.includes('processing_status = \'processed\'')) { completedLookups++; return { rows: Object.values(stored).filter(row => p[0].includes(row.id) && row.processing_status === 'processed').map(row => ({ id: row.id })) } }
     if (sql.includes('SELECT id FROM events')) { pendingLookups++; return { rows: Object.values(stored).filter(row => row.processing_status !== 'processed').map(row => ({ id: row.id })) } }
     if (sql.includes('INSERT INTO findings')) {
         findingWrites++
@@ -24,7 +27,7 @@ const query = async (sql: string, p: any[] = []): Promise<any> => {
     if (sql.includes('UPDATE events')) { eventUpdates++; for (const item of JSON.parse(p[0])) { stored[item.id].normalized = {...stored[item.id].normalized,...item.result};stored[item.id].processing_status='processed' }return { rows: [] } }
     throw new Error('Unexpected SQL '+sql)
 }
-mock.module('#db',()=>({ default:query, withTransaction: async(work: any)=>{ const before=structuredClone({stored,findings});try{return await work(query)}catch(error){stored=before.stored;findings=before.findings;throw error} } }))
+mock.module('#db',()=>({ default:query, identityQueryOnce:query, isTransientDatabaseError: () => false, withTransaction: async(work: any)=>{ const before=structuredClone({stored,findings});try{return await work(query)}catch(error){stored=before.stored;findings=before.findings;throw error} } }))
 const { processLog, processLogBatch } = await import('../src/utils/events/processLogs.ts')
 const { BUILTIN_RULES, defaultRuleDefinition } = await import('../src/handlers/events.ts')
 const { securityRules } = await import('../src/utils/events/securityRules.ts')

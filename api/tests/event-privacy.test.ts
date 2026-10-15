@@ -18,7 +18,7 @@ const query = async (sql: string, p: any[] = []): Promise<any> => {
     }
     throw new Error(sql)
 }
-mock.module('#db', () => ({ default: query, withTransaction: async (work: any) => work(query) }))
+mock.module('#db', () => ({ default: query, identityQueryOnce: query, isTransientDatabaseError: () => false, withTransaction: async (work: any) => work(query) }))
 mock.module('#utils/auth/tokenWrapper.ts', () => ({ default: async () => ({ valid: true, id: 'member' }) }))
 mock.module('#utils/auth/organizationPageAccess.ts', () => ({ hasHanasandInternalRouteAccess: async () => ({ valid: internalMember }) }))
 mock.module('#utils/systemEvent.ts', () => ({ recordSystemEvent: async (_req: any, event: any) => { audited.push(event) } }))
