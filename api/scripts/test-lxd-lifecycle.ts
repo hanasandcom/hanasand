@@ -9,7 +9,7 @@ const calls: Array<{ path: string, method: string }> = []
 const operationLists = [
     {
         running: [{
-            id: 'create-one',
+            id: 'create/one',
             description: 'Creating instance',
             resources: { instances: ['/1.0/instances/busy-vm'] },
         }],
@@ -54,7 +54,7 @@ const restoreRequest = setLxdRequestForTest(async <T>(path: string, options = {}
             status_code: 100,
             status: 'Operation created',
             metadata: {},
-            operation: '/1.0/operations/start-one',
+            operation: '/1.0/operations/start%2Fone',
         } as T
     }
 
@@ -82,9 +82,9 @@ try {
             .filter(call => call.path.includes('/operations/') && call.path.includes('/wait'))
             .map(call => call.path),
         [
-            '/1.0/operations/create-one/wait?timeout=120',
+            '/1.0/operations/create%2Fone/wait?timeout=120',
             '/1.0/operations/create-two/wait?timeout=120',
-            '/1.0/operations/start-one/wait?timeout=90',
+            '/1.0/operations/start%2Fone/wait?timeout=90',
         ],
         'create/clone operations should be drained before retrying start'
     )

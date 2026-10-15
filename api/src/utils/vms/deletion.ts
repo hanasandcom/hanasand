@@ -1,7 +1,7 @@
 import config from '#constants'
 import run from '#db'
 import { vmLifecycleLock } from './lifecycleLock.ts'
-import { getLocalLxdInstance, lxdRequest, setLocalLxdInstanceState } from './lxd.ts'
+import { getLocalLxdInstance, lxdRequest, setLocalLxdInstanceState, waitForLxdOperation } from './lxd.ts'
 
 export const deletionMarker = 'user.hanasand.delete_after'
 const fail = (message: string, statusCode = 409): never => { throw Object.assign(new Error(message), { statusCode }) }
@@ -20,7 +20,8 @@ async function load(name: string) {
 
 async function finish(operation?: string) {
     if (!operation) return
-    const result = await lxdRequest<{ status_code?: number; err?: string }>(operation + '/wait?timeout=90')
+    const result = await waitForLxdOperation<{ status_code?: number; err?: string }>(operation, 90)
+    if (!result) return
     if (result.metadata.err || result.metadata.status_code !== 200) throw new Error(result.metadata.err || 'VM operation did not complete.')
 }
 

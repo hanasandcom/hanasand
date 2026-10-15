@@ -5,16 +5,15 @@ import { vmViewer, requireVmAccess } from '#utils/vms/access.ts'
 
 export default async function getVMMetrics(req: FastifyRequest, res: FastifyReply) {
     const { id, name } = req.params as { id?: string; name?: string }
-    const viewer = id || name ? await requireVmAccess(req, res, (id || name)!) : await vmViewer(req, res)
+    const vmName = id || name
+    const viewer = vmName ? await requireVmAccess(req, res, vmName) : await vmViewer(req, res)
     if (!viewer) return
 
     try {
         let result
 
-        if (id) {
-            result = await run('SELECT * FROM vm_metrics WHERE name = $1 ORDER BY created_at DESC LIMIT 120', [id])
-        } else if (name) {
-            result = await run('SELECT * FROM vm_metrics WHERE name = $1 ORDER BY created_at DESC LIMIT 120', [name])
+        if (vmName) {
+            result = await run('SELECT * FROM vm_metrics WHERE name = $1 ORDER BY created_at DESC LIMIT 120', [vmName])
         } else {
             result = viewer.admin
                 ? await run(await loadSQL('getLatestVmMetrics.sql'))

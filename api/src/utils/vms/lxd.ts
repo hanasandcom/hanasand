@@ -91,7 +91,7 @@ export async function provisionLocalLxdInstance(name: string) {
                 },
             },
         })
-        await waitForOperation(response.operation, 120)
+        await waitForLxdOperation(response.operation, 120)
     }
 
     await setLocalLxdInstanceState(name, 'start', { tolerateAlready: true })
@@ -119,7 +119,7 @@ export async function setLocalLxdInstanceState(name: string, action: 'start' | '
     await waitForInstanceOperations(name, 120)
 
     const response = await requestStateTransition(name, action)
-    await waitForOperation(response.operation, 90)
+    await waitForLxdOperation(response.operation, 90)
     return refreshLocalLxdDetails(name)
 }
 
@@ -134,25 +134,13 @@ export async function refreshLocalLxdDetails(name: string, requireState = false)
     return details
 }
 
-async function waitForOperation(operation: string | undefined, timeoutSeconds: number) {
-    if (!operation) {
-        return
-    }
-
-    const id = operation.split('/').pop()
-    if (!id) {
-        return
-    }
-
-    await lxdRequest(`/1.0/operations/${id}/wait?timeout=${timeoutSeconds}`)
-}
-
-async function waitForOperationId(id: string | undefined, timeoutSeconds: number) {
-    if (!id) {
-        return
-    }
-
-    await lxdRequest(`/1.0/operations/${encodeURIComponent(id)}/wait?timeout=${timeoutSeconds}`)
+export async function waitForLxdOperation<T = unknown>(operation: string | undefined, timeoutSeconds: number) {
+    if (!operation) return
+    const isOperationUrl = operation.includes('/1.0/operations/')
+    const id = isOperationUrl ? operation.split('/').pop() : operation
+    if (!id) return
+    const encodedId = isOperationUrl ? id : encodeURIComponent(id)
+    return lxdRequest<T>(`/1.0/operations/${encodedId}/wait?timeout=${timeoutSeconds}`)
 }
 
 async function waitForInstanceOperations(name: string, timeoutSeconds: number) {
@@ -169,7 +157,7 @@ async function waitForInstanceOperations(name: string, timeoutSeconds: number) {
 
         for (const operation of matches) {
             const remaining = Math.max(1, Math.ceil((deadline - Date.now()) / 1000))
-            await waitForOperationId(operation.id, remaining)
+            await waitForLxdOperation(operation.id, remaining)
         }
         await sleep(250)
     }

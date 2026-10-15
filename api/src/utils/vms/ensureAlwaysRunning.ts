@@ -1,7 +1,7 @@
 import { vmLifecycleLock } from './lifecycleLock.ts'
 import config from '#constants'
 import run from '#db'
-import { getLocalLxdInstance, lxdRequest, setLocalLxdInstanceState } from './lxd.ts'
+import { getLocalLxdInstance, lxdRequest, setLocalLxdInstanceState, waitForLxdOperation } from './lxd.ts'
 
 type AlwaysRunningVm = { name: string, primary_host: string }
 
@@ -18,7 +18,7 @@ export async function applyAlwaysRunning(vm: AlwaysRunningVm, enabled: boolean) 
             method: 'PATCH',
             body: { config: { ...instance.config, 'user.hanasand.always_running': value, 'boot.autostart': value } },
         })
-        if (operation.operation) await lxdRequest(operation.operation + '/wait?timeout=90')
+        await waitForLxdOperation(operation.operation, 90)
     }
     // Read the actual state; the dashboard's cached status may be stale.
     if (enabled) await setLocalLxdInstanceState(vm.name, 'start', { tolerateAlready: true })
