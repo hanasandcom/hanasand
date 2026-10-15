@@ -1,6 +1,6 @@
 import { beforeEach, expect, mock, test } from 'bun:test'
 import Fastify from 'fastify'
-import { normalizeInviteInput, normalizeMemberRoleInput, organizationAlertCaseRoleActions, organizationVisibilityDecision } from '../src/utils/organizations.ts'
+import { normalizeInviteInput, normalizeMemberRoleInput, organizationAlertCaseRoleActions, organizationMemberAccessContract, organizationMemberMutationDenial, organizationVisibilityDecision } from '../src/utils/organizations.ts'
 import { roleCanEditOrganization, roleCanManageOrganization, type OrganizationRole } from '../src/utils/organizationRoles.ts'
 import * as webhooks from '../src/utils/dwm/webhooks.ts'
 
@@ -131,6 +131,31 @@ test('organization roles grant only their documented case and management actions
         expect(organizationAlertCaseRoleActions(role)).toEqual([])
     }
     expect(roleCanEditOrganization('unexpected')).toBe(false)
+})
+
+test('member role targets stay aligned across validation and access contracts', () => {
+    const roleTargets = ['admin', 'editor', 'reader']
+    const access = organizationMemberAccessContract({
+        id: 'org',
+        role: 'owner',
+        status: 'active',
+        alert_visibility_policy: 'members',
+    }, [])
+    const deniedRoleChanges = (['remove_member', 'change_member_role'] as const).map(action => organizationMemberMutationDenial({
+        organizationId: 'org',
+        actorId: 'owner',
+        actorRole: 'owner',
+        targetUserId: 'member',
+        targetRole: 'editor',
+        action,
+        message: 'Member role change is not allowed.',
+    }))
+
+    expect(roleTargets.map(role => normalizeMemberRoleInput({ role, reason: 'Update access.' }).role)).toEqual(roleTargets)
+    expect(access.memberLifecycle.roleTargets).toEqual(roleTargets)
+    expect(access.memberLifecycle.roleChange.ownerCanAssign).toEqual(roleTargets)
+    expect(access.memberLifecycle.roleTargets).not.toBe(access.memberLifecycle.roleChange.ownerCanAssign)
+    expect(deniedRoleChanges.map(denial => denial.allowedTargetRoles)).toEqual([roleTargets, roleTargets])
 })
 
 test('alert visibility policies allow only the roles named by each policy', () => {

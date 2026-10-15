@@ -2636,7 +2636,8 @@ const inviteRoles = new Set<OrganizationRole>(['admin', 'editor', 'reader'])
 const inviteActions = new Set<OrganizationInviteAction>(['revoke', 'resend'])
 const watchlistActions = new Set<OrganizationWatchlistAction>(['pause', 'resume', 'archive', 'restore'])
 const watchlistKinds = new Set<WatchlistKind>(['company', 'domain', 'vendor', 'actor', 'keyword'])
-const memberRoleTargets = new Set<OrganizationRole>(['admin', 'editor', 'reader'])
+const memberRoleTargetRoles: OrganizationRole[] = ['admin', 'editor', 'reader']
+const memberRoleTargets = new Set<OrganizationRole>(memberRoleTargetRoles)
 const defaultWebhookPolicies = new Set<OrganizationDefaultWebhookPolicy>(['active_destinations', 'manual_selection', 'disabled'])
 const alertVisibilityPolicies = new Set<OrganizationAlertVisibilityPolicy>(['members', 'admins', 'owners'])
 const organizationLifecycleStatuses = new Set<OrganizationLifecycleStatus>(['active', 'archived', 'deleted'])
@@ -2968,9 +2969,9 @@ export function organizationMemberAccessContract(
             },
             actorRole,
             allowedMutators: ['owner', 'admin'],
-            roleTargets: ['admin', 'editor', 'reader'],
+            roleTargets: [...memberRoleTargetRoles],
             roleChange: {
-                ownerCanAssign: ['admin', 'editor', 'reader'],
+                ownerCanAssign: [...memberRoleTargetRoles],
                 adminCanAssign: ['editor', 'reader'],
                 memberCanAssign: [],
                 viewerCanAssign: [],
@@ -6388,9 +6389,7 @@ export function organizationMemberMutationDenial(input: {
         message: input.message,
         statusCode: 403,
         allowedRoles: ['owner', 'admin'] as Array<'owner' | 'admin'>,
-        allowedTargetRoles: input.action === 'remove_member'
-            ? ['admin', 'editor', 'reader'] as OrganizationRole[]
-            : ['admin', 'editor', 'reader'] as OrganizationRole[],
+        allowedTargetRoles: [...memberRoleTargetRoles],
         adminAllowedTargetRoles: ['editor', 'reader'] as Array<'editor' | 'reader'>,
         ownerCanMutateOwners: true,
         adminCanMutateOwners: false,
