@@ -115,8 +115,13 @@ export async function postTiScraperControl(request: FastifyRequest<{ Body: Contr
         return reply.code(result.ok ? 200 : 502).send({ ok: result.ok, status: result.status, payload: result.json, error: result.error })
     }
     if (body.action === 'scheduler_run_now' || body.action === 'scheduler_pause' || body.action === 'scheduler_resume') {
+        const action = {
+            scheduler_run_now: 'run_now',
+            scheduler_pause: 'pause',
+            scheduler_resume: 'resume',
+        }[body.action]
         return forward(reply, base, '/v1/ops/collection-scheduler', {
-            action: body.action === 'scheduler_run_now' ? 'run_now' : body.action === 'scheduler_pause' ? 'pause' : 'resume',
+            action,
             approvedBy: 'dashboard/ti/control',
             reason: 'operator source scheduler control',
         }, actor)
