@@ -5,6 +5,7 @@ let deletionScheduledAt: number | null = null
 let mockNow = Date.now()
 let scheduledTick: (() => Promise<void>) | undefined
 let scheduleExpression = ''
+const purgeJobId = 'api-user-account-deletion'
 const revokedUsers: string[] = []
 const deletedFromUsers: string[] = []
 const sqlCalls: string[] = []
@@ -12,6 +13,9 @@ const sqlCalls: string[] = []
 async function query(sql: string, params: unknown[] = []) {
     const normalized = sql.replace(/\s+/g, ' ').trim()
     sqlCalls.push(normalized)
+    if (normalized.startsWith('SELECT status FROM scheduled_job_controls')) {
+        return { rows: [{ status: params[0] === purgeJobId ? 'enabled' : 'paused' }] }
+    }
     if (normalized.startsWith('SELECT id FROM users WHERE id = $1 FOR UPDATE')) return { rows: accountExists ? [{ id: 'expired-user' }] : [] }
     if (normalized.startsWith('UPDATE users') && normalized.includes('deletion_scheduled_at = NOW() + INTERVAL \'30 days\'')) {
         deletionScheduledAt = mockNow + 30 * 24 * 60 * 60 * 1000
@@ -73,7 +77,7 @@ mock.module('../src/utils/mail/helpers.ts', () => ({ addressForUser: () => 'expi
 mock.module('../src/utils/systemEvent.ts', () => ({ recordSystemEvent: async () => {}, userHasHanasandInternalAccess: async () => false }))
 
 const { default: startCron } = await import('../src/utils/cron.ts')
-const { getBackgroundJobRuntime } = await import('../src/utils/backgroundJobRuntime.ts')
+const { getBackgroundJobRuntime, listBackgroundJobRuntime } = await import('../src/utils/backgroundJobRuntime.ts')
 const { ACCOUNT_DELETION_PURGE_JOB_ID } = await import('../src/utils/auth/purgeDeletedAccounts.ts')
 const { default: deleteSelf } = await import('../src/handlers/user/deleteSelf.ts')
 
@@ -115,5 +119,7 @@ test('the minute scheduler runs the real account-purge worker without a login', 
     expect(revokedUsers).toEqual(['expired-user', 'expired-user'])
     expect(sqlCalls.some(sql => sql.startsWith('SELECT user_account.id') && sql.includes('deletion_scheduled_at <= NOW()'))).toBe(true)
     expect(sqlCalls.some(sql => sql.startsWith('DELETE FROM users') && sql.includes('deletion_scheduled_at <= NOW()'))).toBe(true)
+    expect(listBackgroundJobRuntime().filter(job => job.runCount > 0).map(job => job.id)).toEqual([purgeJobId])
+    expect(getBackgroundJobRuntime(purgeJobId).runCount).toBe(2)
     expect(getBackgroundJobRuntime(ACCOUNT_DELETION_PURGE_JOB_ID).lastSuccessAt).toBeTruthy()
 })
