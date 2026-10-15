@@ -1140,64 +1140,21 @@ export async function getSupportOrganization(req: FastifyRequest<{ Params: Organ
         timeline: recentAuditTimeline.events,
     })
     const availabilityByOrg = new Map(availability.map(item => [item.organizationId, item]))
-    const organizationTimelineFilter = supportTimelineFilter({
-        q: '',
-        org: organization.id,
-        user: '',
-        email: '',
-        request: inspectionAudit.requestId,
-        entity: organization.id,
-        entityType: 'organization',
-        supportSession: '',
-        action: 'support.organization',
-        severity: '',
-        outcome: '',
-        source: 'admin',
-        service: 'hanasand-api',
-        blocker: '',
+    const subjectAccessState = buildSupportSubjectAccessState({
+        kind: 'organization',
+        targetId: organization.id,
+        organizationIds: [organization.id],
+        requestId: inspectionAudit.requestId,
         reason: inspectionAudit.reason,
-        context: inspectionAudit.supportContext,
-        from: '',
-        to: '',
-        limit: 25,
-    })
-    const organizationRecoveryEligibility = buildRecoveryEligibility({
-        email: '',
-        user: '',
-        organizationIds: [organization.id],
-        memberships: members.rows as Record<string, unknown>[],
-        users: members.rows as Record<string, unknown>[],
-        availabilityByOrg,
-        invites: invites.rows as Record<string, unknown>[],
-    })
-    const organizationAccessStatus = buildSupportAccessStatus({
-        org: organization.id,
-        user: '',
-        email: '',
-        request: inspectionAudit.requestId,
-        organizationIds: [organization.id],
+        supportContext: inspectionAudit.supportContext,
         users: members.rows as Record<string, unknown>[],
         memberships: members.rows as Record<string, unknown>[],
         invites: invites.rows as Record<string, unknown>[],
         approvalDetails: [],
-        recoveryEligibility: organizationRecoveryEligibility,
         availabilityByOrg,
         timeline: recentAuditTimeline.events,
     })
-    const accessRecoveryPlan = buildSupportAccessRecoveryPlan({
-        org: organization.id,
-        user: '',
-        email: '',
-        request: inspectionAudit.requestId,
-        organizationIds: [organization.id],
-        memberships: members.rows as Record<string, unknown>[],
-        invites: invites.rows as Record<string, unknown>[],
-        approvalDetails: [],
-        recoveryEligibility: organizationRecoveryEligibility,
-        availabilityByOrg,
-        timeline: recentAuditTimeline.events,
-        timelineFilter: organizationTimelineFilter,
-    })
+    const { timelineFilter: organizationTimelineFilter, accessStatus: organizationAccessStatus, accessRecoveryPlan } = subjectAccessState
     const caseAccessReadiness = supportOrganizationCaseAccessReadiness({
         organizationId: organization.id,
         requestId: inspectionAudit.requestId,
@@ -1213,18 +1170,13 @@ export async function getSupportOrganization(req: FastifyRequest<{ Params: Organ
         accessRecoveryPlan,
         timeline: recentAuditTimeline.events,
     })
-    const authorization = buildSupportInspectionAuthorization({
+    const authorization = buildSupportSubjectInspectionAuthorization({
+        kind: 'organization',
         actorId: actor.id,
-        requestedOrg: req.params.id,
-        requestedUser: '',
-        effectiveOrg: organization.id,
-        effectiveUser: '',
-        email: '',
-        request: inspectionAudit.requestId,
-        entity: organization.id,
-        supportSession: '',
-        sessionState: null,
+        requestedId: req.params.id,
+        targetId: organization.id,
         organizationIds: [organization.id],
+        requestId: inspectionAudit.requestId,
     })
     const alertReadinessBridge = supportTimelineAuditBridgeEvent({
         workflow: 'watchlist',
@@ -1249,7 +1201,7 @@ export async function getSupportOrganization(req: FastifyRequest<{ Params: Organ
             generatedAlertReferenceCount: alertReferences.length,
         },
     })
-    const inspectionReceipt = supportOrgUserInspectionReceipt({
+    const subjectReceipts = buildSupportSubjectInspectionReceipts({
         kind: 'organization',
         actorId: actor.id,
         targetId: organization.id,
@@ -1257,60 +1209,13 @@ export async function getSupportOrganization(req: FastifyRequest<{ Params: Organ
         requestId: inspectionAudit.requestId,
         reason: inspectionAudit.reason,
         supportContext: inspectionAudit.supportContext,
+        timelineFilter: organizationTimelineFilter,
+        timeline: recentAuditTimeline.events,
+        supportActivityRollup,
         accessStatus: organizationAccessStatus,
         accessRecoveryPlan,
-        timelineFilter: organizationTimelineFilter,
-        timeline: recentAuditTimeline.events,
-        supportSession: '',
-        nextRoutes: {
-            self: `/api/admin/support/organizations/${encodeURIComponent(organization.id)}`,
-            audit: `/api/admin/audit-events?org=${encodeURIComponent(organization.id)}`,
-            accessRecovery: `/api/admin/support/organizations/${encodeURIComponent(organization.id)}/access-recovery`,
-            inviteAssist: `/api/admin/support/organizations/${encodeURIComponent(organization.id)}/invites`,
-        },
     })
-    const actionHistoryReceipt = supportOrgUserActionHistoryReceipt({
-        kind: 'organization',
-        actorId: actor.id,
-        targetId: organization.id,
-        organizationIds: [organization.id],
-        requestId: inspectionAudit.requestId,
-        reason: inspectionAudit.reason,
-        supportContext: inspectionAudit.supportContext,
-        supportSession: '',
-        timelineFilter: organizationTimelineFilter,
-        timeline: recentAuditTimeline.events,
-        supportActivityRollup,
-        inspectionReceipt,
-        nextRoutes: {
-            self: `/api/admin/support/organizations/${encodeURIComponent(organization.id)}`,
-            audit: `/api/admin/audit-events?org=${encodeURIComponent(organization.id)}`,
-            accessRecovery: `/api/admin/support/organizations/${encodeURIComponent(organization.id)}/access-recovery`,
-            inviteAssist: `/api/admin/support/organizations/${encodeURIComponent(organization.id)}/invites`,
-        },
-    })
-    const actionHistoryExport = supportOrgUserActionHistoryExportReceipt({
-        kind: 'organization',
-        actorId: actor.id,
-        targetId: organization.id,
-        organizationIds: [organization.id],
-        requestId: inspectionAudit.requestId,
-        reason: inspectionAudit.reason,
-        supportContext: inspectionAudit.supportContext,
-        timelineFilter: organizationTimelineFilter,
-        timeline: recentAuditTimeline.events,
-        inspectionReceipt,
-        actionHistoryReceipt,
-        accessRecoveryPlan,
-        supportActivityRollup,
-        nextRoutes: {
-            self: `/api/admin/support/organizations/${encodeURIComponent(organization.id)}`,
-            audit: `/api/admin/audit-events?org=${encodeURIComponent(organization.id)}`,
-            accessRecovery: `/api/admin/support/organizations/${encodeURIComponent(organization.id)}/access-recovery`,
-            inviteAssist: `/api/admin/support/organizations/${encodeURIComponent(organization.id)}/invites`,
-            impersonation: `/api/impersonation/events?org=${encodeURIComponent(organization.id)}`,
-        },
-    })
+    const { inspectionReceipt, actionHistoryReceipt, actionHistoryExport } = subjectReceipts
     const caseHandoff = supportOrganizationCaseHandoff({
         actorId: actor.id,
         organizationId: organization.id,
@@ -1486,78 +1391,30 @@ export async function getSupportUser(req: FastifyRequest<{ Params: UserParams }>
     })
     const availability = organizationIds.length ? await loadOrganizationAvailability(organizationIds) : []
     const availabilityByOrg = new Map(availability.map(item => [item.organizationId, item]))
-    const userTimelineFilter = supportTimelineFilter({
-        q: '',
-        org: '',
-        user: req.params.id,
-        email: '',
-        request: inspectionAudit.requestId,
-        entity: req.params.id,
-        entityType: 'user',
-        supportSession: '',
-        action: 'support.user',
-        severity: '',
-        outcome: '',
-        source: 'admin',
-        service: 'hanasand-api',
-        blocker: '',
+    const subjectAccessState = buildSupportSubjectAccessState({
+        kind: 'user',
+        targetId: req.params.id,
+        organizationIds,
+        requestId: inspectionAudit.requestId,
         reason: inspectionAudit.reason,
-        context: inspectionAudit.supportContext,
-        from: '',
-        to: '',
-        limit: 25,
-    })
-    const userRecoveryEligibility = buildRecoveryEligibility({
-        email: '',
-        user: req.params.id,
-        organizationIds,
-        memberships: memberships.rows as Record<string, unknown>[],
-        users: [userRow],
-        availabilityByOrg,
-        invites: invites.rows as Record<string, unknown>[],
-    })
-    const userAccessStatus = buildSupportAccessStatus({
-        org: '',
-        user: req.params.id,
-        email: '',
-        request: inspectionAudit.requestId,
-        organizationIds,
+        supportContext: inspectionAudit.supportContext,
         users: [userRow],
         memberships: memberships.rows as Record<string, unknown>[],
         invites: invites.rows as Record<string, unknown>[],
         approvalDetails,
-        recoveryEligibility: userRecoveryEligibility,
         availabilityByOrg,
         timeline: recentAuditTimeline.events,
     })
-    const accessRecoveryPlan = buildSupportAccessRecoveryPlan({
-        org: '',
-        user: req.params.id,
-        email: '',
-        request: inspectionAudit.requestId,
-        organizationIds,
-        memberships: memberships.rows as Record<string, unknown>[],
-        invites: invites.rows as Record<string, unknown>[],
-        approvalDetails,
-        recoveryEligibility: userRecoveryEligibility,
-        availabilityByOrg,
-        timeline: recentAuditTimeline.events,
-        timelineFilter: userTimelineFilter,
-    })
-    const authorization = buildSupportInspectionAuthorization({
+    const { timelineFilter: userTimelineFilter, accessStatus: userAccessStatus, accessRecoveryPlan } = subjectAccessState
+    const authorization = buildSupportSubjectInspectionAuthorization({
+        kind: 'user',
         actorId: actor.id,
-        requestedOrg: '',
-        requestedUser: req.params.id,
-        effectiveOrg: '',
-        effectiveUser: req.params.id,
-        email: '',
-        request: inspectionAudit.requestId,
-        entity: req.params.id,
-        supportSession: '',
-        sessionState: null,
+        requestedId: req.params.id,
+        targetId: req.params.id,
         organizationIds,
+        requestId: inspectionAudit.requestId,
     })
-    const inspectionReceipt = supportOrgUserInspectionReceipt({
+    const subjectReceipts = buildSupportSubjectInspectionReceipts({
         kind: 'user',
         actorId: actor.id,
         targetId: req.params.id,
@@ -1565,59 +1422,13 @@ export async function getSupportUser(req: FastifyRequest<{ Params: UserParams }>
         requestId: inspectionAudit.requestId,
         reason: inspectionAudit.reason,
         supportContext: inspectionAudit.supportContext,
+        timelineFilter: userTimelineFilter,
+        timeline: recentAuditTimeline.events,
+        supportActivityRollup,
         accessStatus: userAccessStatus,
         accessRecoveryPlan,
-        timelineFilter: userTimelineFilter,
-        timeline: recentAuditTimeline.events,
-        supportSession: '',
-        nextRoutes: {
-            self: `/api/admin/support/users/${encodeURIComponent(req.params.id)}`,
-            audit: `/api/admin/audit-events?target=${encodeURIComponent(req.params.id)}`,
-            impersonation: '/api/impersonation/start',
-            accessRecovery: organizationIds[0] ? `/api/admin/support/organizations/${encodeURIComponent(organizationIds[0])}/access-recovery` : null,
-        },
     })
-    const actionHistoryReceipt = supportOrgUserActionHistoryReceipt({
-        kind: 'user',
-        actorId: actor.id,
-        targetId: req.params.id,
-        organizationIds,
-        requestId: inspectionAudit.requestId,
-        reason: inspectionAudit.reason,
-        supportContext: inspectionAudit.supportContext,
-        supportSession: '',
-        timelineFilter: userTimelineFilter,
-        timeline: recentAuditTimeline.events,
-        supportActivityRollup,
-        inspectionReceipt,
-        nextRoutes: {
-            self: `/api/admin/support/users/${encodeURIComponent(req.params.id)}`,
-            audit: `/api/admin/audit-events?target=${encodeURIComponent(req.params.id)}`,
-            impersonation: '/api/impersonation/start',
-            accessRecovery: organizationIds[0] ? `/api/admin/support/organizations/${encodeURIComponent(organizationIds[0])}/access-recovery` : null,
-        },
-    })
-    const actionHistoryExport = supportOrgUserActionHistoryExportReceipt({
-        kind: 'user',
-        actorId: actor.id,
-        targetId: req.params.id,
-        organizationIds,
-        requestId: inspectionAudit.requestId,
-        reason: inspectionAudit.reason,
-        supportContext: inspectionAudit.supportContext,
-        timelineFilter: userTimelineFilter,
-        timeline: recentAuditTimeline.events,
-        inspectionReceipt,
-        actionHistoryReceipt,
-        accessRecoveryPlan,
-        supportActivityRollup,
-        nextRoutes: {
-            self: `/api/admin/support/users/${encodeURIComponent(req.params.id)}`,
-            audit: `/api/admin/audit-events?target=${encodeURIComponent(req.params.id)}`,
-            impersonation: `/api/impersonation/events?target=${encodeURIComponent(req.params.id)}`,
-            accessRecovery: organizationIds[0] ? `/api/admin/support/organizations/${encodeURIComponent(organizationIds[0])}/access-recovery` : null,
-        },
-    })
+    const { inspectionReceipt, actionHistoryReceipt, actionHistoryExport } = subjectReceipts
     const caseAccessReadiness = supportUserCaseAccessReadiness({
         userId: req.params.id,
         organizationIds,
@@ -6768,6 +6579,193 @@ function buildRecoveryEligibility(input: {
             adminAvailability: availability,
         }
     })
+}
+
+type SupportSubjectInspectionKind = 'organization' | 'user'
+
+export function buildSupportSubjectAccessState(input: {
+    kind: SupportSubjectInspectionKind
+    targetId: string
+    organizationIds: string[]
+    requestId: string
+    reason: string
+    supportContext: string
+    users: Record<string, unknown>[]
+    memberships: Record<string, unknown>[]
+    invites: Record<string, unknown>[]
+    approvalDetails: Array<Record<string, any>>
+    availabilityByOrg: Map<string, SupportOrganizationAvailability>
+    timeline: Array<Record<string, any>>
+}) {
+    const org = input.kind === 'organization' ? input.targetId : ''
+    const user = input.kind === 'user' ? input.targetId : ''
+    const timelineFilter = supportTimelineFilter({
+        q: '',
+        org,
+        user,
+        email: '',
+        request: input.requestId,
+        entity: input.targetId,
+        entityType: input.kind,
+        supportSession: '',
+        action: `support.${input.kind}`,
+        severity: '',
+        outcome: '',
+        source: 'admin',
+        service: 'hanasand-api',
+        blocker: '',
+        reason: input.reason,
+        context: input.supportContext,
+        from: '',
+        to: '',
+        limit: 25,
+    })
+    const recoveryEligibility = buildRecoveryEligibility({
+        email: '',
+        user,
+        organizationIds: input.organizationIds,
+        memberships: input.memberships,
+        users: input.users,
+        availabilityByOrg: input.availabilityByOrg,
+        invites: input.invites,
+    })
+    const accessStatus = buildSupportAccessStatus({
+        org,
+        user,
+        email: '',
+        request: input.requestId,
+        organizationIds: input.organizationIds,
+        users: input.users,
+        memberships: input.memberships,
+        invites: input.invites,
+        approvalDetails: input.approvalDetails,
+        recoveryEligibility,
+        availabilityByOrg: input.availabilityByOrg,
+        timeline: input.timeline,
+    })
+    const accessRecoveryPlan = buildSupportAccessRecoveryPlan({
+        org,
+        user,
+        email: '',
+        request: input.requestId,
+        organizationIds: input.organizationIds,
+        memberships: input.memberships,
+        invites: input.invites,
+        approvalDetails: input.approvalDetails,
+        recoveryEligibility,
+        availabilityByOrg: input.availabilityByOrg,
+        timeline: input.timeline,
+        timelineFilter,
+    })
+    return { timelineFilter, recoveryEligibility, accessStatus, accessRecoveryPlan }
+}
+
+export function buildSupportSubjectInspectionAuthorization(input: {
+    kind: SupportSubjectInspectionKind
+    actorId: string
+    requestedId: string
+    targetId: string
+    organizationIds: string[]
+    requestId: string
+}) {
+    const organization = input.kind === 'organization'
+    return buildSupportInspectionAuthorization({
+        actorId: input.actorId,
+        requestedOrg: organization ? input.requestedId : '',
+        requestedUser: organization ? '' : input.requestedId,
+        effectiveOrg: organization ? input.targetId : '',
+        effectiveUser: organization ? '' : input.targetId,
+        email: '',
+        request: input.requestId,
+        entity: input.targetId,
+        supportSession: '',
+        sessionState: null,
+        organizationIds: input.organizationIds,
+    })
+}
+
+export function buildSupportSubjectInspectionReceipts(input: {
+    kind: SupportSubjectInspectionKind
+    actorId: string
+    targetId: string
+    organizationIds: string[]
+    requestId: string
+    reason: string
+    supportContext: string
+    timelineFilter: SupportTimelineFilter
+    timeline: Array<Record<string, any>>
+    supportActivityRollup: Record<string, any>
+    accessStatus: Record<string, any>
+    accessRecoveryPlan: Record<string, any>
+}) {
+    const organization = input.kind === 'organization'
+    const encodedTargetId = encodeURIComponent(input.targetId)
+    const inspectionRoutes: Record<string, string | null> = organization ? {
+        self: `/api/admin/support/organizations/${encodedTargetId}`,
+        audit: `/api/admin/audit-events?org=${encodedTargetId}`,
+        accessRecovery: `/api/admin/support/organizations/${encodedTargetId}/access-recovery`,
+        inviteAssist: `/api/admin/support/organizations/${encodedTargetId}/invites`,
+    } : {
+        self: `/api/admin/support/users/${encodedTargetId}`,
+        audit: `/api/admin/audit-events?target=${encodedTargetId}`,
+        impersonation: '/api/impersonation/start',
+        accessRecovery: input.organizationIds[0]
+            ? `/api/admin/support/organizations/${encodeURIComponent(input.organizationIds[0])}/access-recovery`
+            : null,
+    }
+    const exportRoutes: Record<string, string | null> = {
+        ...inspectionRoutes,
+        impersonation: organization
+            ? `/api/impersonation/events?org=${encodedTargetId}`
+            : `/api/impersonation/events?target=${encodedTargetId}`,
+    }
+    const inspectionReceipt = supportOrgUserInspectionReceipt({
+        kind: input.kind,
+        actorId: input.actorId,
+        targetId: input.targetId,
+        organizationIds: input.organizationIds,
+        requestId: input.requestId,
+        reason: input.reason,
+        supportContext: input.supportContext,
+        accessStatus: input.accessStatus,
+        accessRecoveryPlan: input.accessRecoveryPlan,
+        timelineFilter: input.timelineFilter,
+        timeline: input.timeline,
+        supportSession: '',
+        nextRoutes: inspectionRoutes,
+    })
+    const actionHistoryReceipt = supportOrgUserActionHistoryReceipt({
+        kind: input.kind,
+        actorId: input.actorId,
+        targetId: input.targetId,
+        organizationIds: input.organizationIds,
+        requestId: input.requestId,
+        reason: input.reason,
+        supportContext: input.supportContext,
+        supportSession: '',
+        timelineFilter: input.timelineFilter,
+        timeline: input.timeline,
+        supportActivityRollup: input.supportActivityRollup,
+        inspectionReceipt,
+        nextRoutes: inspectionRoutes,
+    })
+    const actionHistoryExport = supportOrgUserActionHistoryExportReceipt({
+        kind: input.kind,
+        actorId: input.actorId,
+        targetId: input.targetId,
+        organizationIds: input.organizationIds,
+        requestId: input.requestId,
+        reason: input.reason,
+        supportContext: input.supportContext,
+        timelineFilter: input.timelineFilter,
+        timeline: input.timeline,
+        inspectionReceipt,
+        actionHistoryReceipt,
+        accessRecoveryPlan: input.accessRecoveryPlan,
+        supportActivityRollup: input.supportActivityRollup,
+        nextRoutes: exportRoutes,
+    })
+    return { inspectionReceipt, actionHistoryReceipt, actionHistoryExport }
 }
 
 function buildSupportInspectionAuthorization(input: {
