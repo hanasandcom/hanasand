@@ -179,6 +179,21 @@ describe('public TI v1', () => {
         expect(response.json().error).toMatchObject({ code: 'search_unavailable' })
     })
 
+    test('maps thrown public search failures to the same safe unavailable response', async () => {
+        const app = await testApp(undefined, async () => { throw new Error('private upstream detail') })
+
+        const response = await app.inject({ method: 'POST', url: '/api/v1/ti/search', payload: { query: 'APT29' } })
+        expect(response.statusCode).toBe(503)
+        expect(response.json()).toEqual({
+            error: {
+                code: 'search_unavailable',
+                message: 'Threat-intelligence search is temporarily unavailable.',
+                requestId: response.headers['x-request-id'],
+            },
+        })
+        expect(response.body).not.toContain('private upstream detail')
+    })
+
     test('serializes scraper results with null or scalar nested entries without failing the request', async () => {
         const app = await testApp(undefined, async () => ({
             ...searchResult,

@@ -55,13 +55,9 @@ export default async function publicTiApi(fastify: FastifyInstance, options: Pub
     fastify.post('/ti/search', async (req: FastifyRequest<{ Body: { query?: unknown } }>, reply) => {
         const query = normalizeQueryBody(req.body)
         if (!query) return sendError(reply, req.id, 400, 'invalid_query', 'query must contain 2-200 characters.')
-        try {
-            const result = await searchImpl({ query, preflightHealth: true })
-            if (result.status === 'unavailable' || result.mode === 'unavailable') return sendError(reply, req.id, 503, 'search_unavailable', 'Threat-intelligence search is temporarily unavailable.')
-            return publicSearchResult(result)
-        } catch {
-            return sendError(reply, req.id, 503, 'search_unavailable', 'Threat-intelligence search is temporarily unavailable.')
-        }
+        const result = await executePublicSearch(searchImpl, query)
+        if (result.status === 'unavailable') return sendError(reply, req.id, 503, 'search_unavailable', 'Threat-intelligence search is temporarily unavailable.')
+        return result.value
     })
 
     fastify.post('/ti/search/batch', async (req: FastifyRequest<{ Body: { queries?: unknown } }>, reply) => {
@@ -76,15 +72,11 @@ export default async function publicTiApi(fastify: FastifyInstance, options: Pub
         if (!queries.length) return sendError(reply, req.id, 400, 'invalid_queries', 'queries must contain values of 2-200 characters.')
 
         const results = await mapConcurrent(queries, 3, async query => {
-            try {
-                const result = await searchImpl({ query, preflightHealth: true })
-                if (result.status === 'unavailable' || result.mode === 'unavailable') {
-                    return { query, status: 'error' as const, error: publicError('search_unavailable', 'Threat-intelligence search is temporarily unavailable.', req.id) }
-                }
-                return { query, status: 'ok' as const, result: publicSearchResult(result) }
-            } catch {
+            const result = await executePublicSearch(searchImpl, query)
+            if (result.status === 'unavailable') {
                 return { query, status: 'error' as const, error: publicError('search_unavailable', 'Threat-intelligence search is temporarily unavailable.', req.id) }
             }
+            return { query, status: 'ok' as const, result: result.value }
         })
         const partial = results.some(result => result.status === 'error')
         return reply.status(partial ? 207 : 200).send({ generatedAt: new Date().toISOString(), count: results.length, partial, results })
@@ -237,6 +229,16 @@ function publicSearchResult(result: TiSearchResponse) {
             watchlistCandidates: records(actionability.watchlistCandidates).map(row => compact({ kind: text(row.kind), value: text(row.value), reason: text(row.reason), confidence: confidence(row.confidence) })),
         }) : undefined,
     })) as ReturnType<typeof compact>
+}
+
+async function executePublicSearch(searchImpl: NonNullable<PublicApiOptions['searchImpl']>, query: string) {
+    try {
+        const result = await searchImpl({ query, preflightHealth: true })
+        if (result.status === 'unavailable' || result.mode === 'unavailable') return { status: 'unavailable' as const }
+        return { status: 'ok' as const, value: publicSearchResult(result) }
+    } catch {
+        return { status: 'unavailable' as const }
+    }
 }
 
 function publicActor(value: unknown) { const row = record(value); return compact({ id: text(row.id), canonicalName: text(row.canonicalName ?? row.actor), normalizedName: text(row.normalizedName), actorType: text(row.actorType), aliases: strings(row.aliases), confidence: confidence(row.confidence), firstSeenAt: iso(row.firstSeenAt), lastSeenAt: iso(row.lastSeenAt), evidenceCount: nonNegativeInteger(row.evidenceCount), sourceIds: strings(row.sourceIds), captureIds: strings(row.captureIds), reviewState: text(row.reviewState), updatedAt: iso(row.updatedAt) }) }
