@@ -157,20 +157,18 @@ export async function postTiScraperControl(request: FastifyRequest<{ Body: Contr
 async function requireActor(request: FastifyRequest, reply: FastifyReply): Promise<Actor | null> {
     const auth = await tokenWrapper(request, reply)
     if (!auth.valid || !auth.id) {
-        reply.header('cache-control', 'no-store, max-age=0')
-        reply.code(401).send({ error: 'authentication_required' })
+        sendAccessError(reply, 401, 'authentication_required')
         return null
     }
     const authorization = headerValue(request.headers.authorization) || ''
     const token = authorization.replace(/^Bearer\s+/i, '').trim()
     if (!token) {
-        reply.code(401).send({ error: 'authentication_required' })
+        sendAccessError(reply, 401, 'authentication_required')
         return null
     }
     const access = await hasHanasandInternalRouteAccess(request)
     if (!access.valid) {
-        reply.header('cache-control', 'no-store, max-age=0')
-        reply.code(403).send({ error: 'internal_access_required' })
+        sendAccessError(reply, 403, 'internal_access_required')
         return null
     }
     return { token, id: auth.id, impersonationToken: headerValue(request.headers['x-impersonation-token']) }
@@ -180,6 +178,9 @@ function scraperBase() { return process.env.TI_SCRAPER_API_BASE?.trim().replace(
 function actorHeaders(actor: Actor) { return { authorization: `Bearer ${actor.token}`, id: actor.id, 'x-actor-id': actor.id, ...(actor.impersonationToken ? { 'x-impersonation-token': actor.impersonationToken } : {}) } }
 function validTenantId(value: unknown) { return typeof value === 'string' && /^[A-Za-z0-9_.:-]{1,200}$/.test(value) }
 function headerValue(value: string | string[] | undefined) { return Array.isArray(value) ? value[0] : value }
+function sendAccessError(reply: FastifyReply, status: 401 | 403, error: 'authentication_required' | 'internal_access_required') {
+    return reply.header('cache-control', 'no-store, max-age=0').code(status).send({ error })
+}
 
 async function forward(reply: FastifyReply, base: string, path: string, body: unknown, actor: Actor, method = 'POST') {
     const result = await fetchJson(base, path, { method, headers: { 'content-type': 'application/json', ...actorHeaders(actor) }, body: JSON.stringify(body) })
