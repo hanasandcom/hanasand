@@ -15,6 +15,7 @@ const checks: Array<{ path: string, method: string, response: Response, body: un
 assertStatus(await capture('/ti/search', 'post', anonymous.POST('/ti/search', { body: { query: 'APT29' } })), 200)
 assertStatus(await capture('/ti/search', 'post', anonymous.POST('/ti/search', { body: { query: 'x' } })), 400)
 assertStatus(await capture('/actors', 'get', anonymous.GET('/actors', { params: { query: { limit: 1 } } })), 401)
+assertStatus(await capture('/actors', 'get', authenticated.GET('/actors', { params: { query: { cursor: '1e1' } } })), 400)
 
 const firstPage = await capture('/actors', 'get', authenticated.GET('/actors', { params: { query: { limit: 1 } } }))
 assertStatus(firstPage, 200)
