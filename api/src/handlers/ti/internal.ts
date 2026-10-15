@@ -7,7 +7,7 @@ type Options = FastifyPluginOptions & { token?: string }
 export default async function tiInternalApi(fastify: FastifyInstance, options: Options) {
     const expectedToken = String(options.token ?? process.env.TI_SCRAPER_SERVICE_TOKEN ?? '').trim()
     fastify.addHook('preHandler', async (request, reply) => {
-        if (!sameSecret(request.headers['x-hanasand-service-token'], expectedToken)) {
+        if (!expectedToken || !sameSecret(request.headers['x-hanasand-service-token'], expectedToken)) {
             return reply.code(401).send({ error: 'authentication_required' })
         }
     })
@@ -74,5 +74,5 @@ export default async function tiInternalApi(fastify: FastifyInstance, options: O
 function sameSecret(presented: string | string[] | undefined, expected: string) {
     const left = Buffer.from(Array.isArray(presented) ? presented[0] ?? '' : presented ?? '')
     const right = Buffer.from(expected)
-    return Boolean(expected) && left.length === right.length && timingSafeEqual(left, right)
+    return left.length === right.length && timingSafeEqual(left, right)
 }
