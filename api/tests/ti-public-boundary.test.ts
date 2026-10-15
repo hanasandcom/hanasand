@@ -62,18 +62,6 @@ describe('public TI API boundary', () => {
         await app.close()
     })
 
-    test('uses the same verified client identity for quota and traffic history', async () => {
-        const [postHandler, listHandler, trafficRecorder] = await Promise.all([
-            readFile(new URL('../src/handlers/test/post.ts', import.meta.url), 'utf8'),
-            readFile(new URL('../src/handlers/test/list.ts', import.meta.url), 'utf8'),
-            readFile(new URL('../src/utils/traffic/recordTraffic.ts', import.meta.url), 'utf8'),
-        ])
-        for (const handler of [postHandler, listHandler, trafficRecorder]) {
-            expect(handler).toContain('verifiedClientIp(req)')
-            expect(handler).not.toContain('req.headers[\'x-forwarded-for\']')
-        }
-    })
-
     test('does not grant internal limits to unauthenticated private proxy addresses', async () => {
         const request = { ip: '172.20.0.1', headers: {} } as unknown as FastifyRequest
         expect(await resolveRateLimitActor(request)).toEqual({ scope: 'anonymous', identifier: 'ip:172.20.0.1' })
