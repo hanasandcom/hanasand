@@ -20,3 +20,17 @@ export function validateServiceAccountScopes(value: unknown): value is { method:
         && value.every(scope => scope && serviceAccountEndpoints.some(endpoint => endpoint.method === scope.method && endpoint.route === scope.route))
         && new Set(value.map(scope => `${scope.method} ${scope.route}`)).size === value.length
 }
+
+export function matchServiceAccountScope(scopes: ApiKeyScopeRule[], method: string, path: string) {
+    const verb = method.toUpperCase()
+    return scopes.find(scope => scope.enabled && scope.method === verb
+        && serviceAccountEndpoints.some(endpoint => endpoint.method === verb && endpoint.route === scope.route && matchesEndpointPath(endpoint.route, path))) || null
+}
+
+function matchesEndpointPath(route: string, path: string) {
+    const routeSegments = route.split('/')
+    const pathSegments = path.split('/')
+    return routeSegments.length === pathSegments.length && routeSegments.every((segment, index) =>
+        segment.startsWith(':') ? pathSegments[index].length > 0 : segment === pathSegments[index]
+    )
+}

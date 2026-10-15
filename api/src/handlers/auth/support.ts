@@ -1,6 +1,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import { validateSession } from '#utils/auth/session.ts'
 import { validateApiKey, matchApiKeyScope } from '#utils/auth/apiKeys.ts'
+import { matchServiceAccountScope } from '#utils/auth/serviceAccountScopes.ts'
 import { hasHanasandInternalPageAccess } from '#utils/auth/organizationPageAccess.ts'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import { queryOnce } from '#db'
@@ -38,7 +39,9 @@ export async function authorizeSupport(request: FastifyRequest<{ Body: Input }>,
             return reply.send({ valid: true, id: credential.ownerId, ownerId: credential.ownerId,
                 serviceAccount: credential.serviceAccount, apiKey: { scopes: credential.apiKey.scopes } })
         }
-        const scope = matchApiKeyScope(credential.apiKey.scopes, method, path)
+        const scope = credential.serviceAccount
+            ? matchServiceAccountScope(credential.apiKey.scopes, method, path)
+            : matchApiKeyScope(credential.apiKey.scopes, method, path)
         if (!scope) return reply.code(403).send({ valid: false })
         const supportQueueScope = credential.serviceAccount && matchApiKeyScope(credential.apiKey.scopes, 'GET', '/api/support/tickets')
         const support = Boolean(supportQueueScope || await hasHanasandInternalPageAccess(credential.ownerId))

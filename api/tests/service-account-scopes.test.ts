@@ -2,7 +2,7 @@ import { describe, expect, mock, test } from 'bun:test'
 mock.module('#db', () => ({ default: async () => { throw new Error('Service accounts must not require a human session') } }))
 const { hasHanasandInternalRouteAccess } = await import('../src/utils/auth/organizationPageAccess.ts')
 const { matchApiKeyScope } = await import('../src/utils/auth/apiKeys.ts')
-const { serviceAccountEndpoints, validateServiceAccountScopes } = await import('../src/utils/auth/serviceAccountScopes.ts')
+const { serviceAccountEndpoints, validateServiceAccountScopes, matchServiceAccountScope } = await import('../src/utils/auth/serviceAccountScopes.ts')
 const scopes = [{ method: 'GET', route: '/api/logs', enabled: true, limits: {}, id: 'scope' }]
 const request = (method = 'GET', route = '/api/logs') => ({ method, url: route, routeOptions: { url: route }, headers: { id: 'administrator' }, apiKeyAuth: { serviceAccount: true, ownerId: 'svc_test', apiKey: { scopes } } })
 describe('service account permissions', () => {
@@ -26,5 +26,13 @@ describe('service account permissions', () => {
     test('disabled scopes and different methods do not match', () => {
         expect(matchApiKeyScope(scopes as any, 'POST', '/api/logs')).toBeNull()
         expect(matchApiKeyScope([{ ...scopes[0], enabled: false }] as any, 'GET', '/api/logs')).toBeNull()
+    })
+    test('service account scopes match concrete support ticket paths and deny other paths', () => {
+        const messageScope = { method: 'GET', route: '/api/support/tickets/:id/messages', enabled: true }
+        expect(matchServiceAccountScope([messageScope] as any, 'GET', '/api/support/tickets/ticket-123/messages')).toBe(messageScope)
+        expect(matchServiceAccountScope([messageScope] as any, 'POST', '/api/support/tickets/ticket-123/messages')).toBeNull()
+        expect(matchServiceAccountScope([messageScope] as any, 'GET', '/api/support/tickets/ticket-123/status')).toBeNull()
+        expect(matchServiceAccountScope([messageScope] as any, 'GET', '/api/support/tickets//messages')).toBeNull()
+        expect(matchServiceAccountScope([{ ...messageScope, enabled: false }] as any, 'GET', '/api/support/tickets/ticket-123/messages')).toBeNull()
     })
 })
