@@ -152,6 +152,14 @@ async function processRetentionRun(retentionRun: RetentionRun) {
         const hasMore = Boolean(ti.hasMore) || publicResult.hasMore
         const deadLetter = failed && retentionRun.attempt_count >= MAX_ATTEMPTS
         const failureError = tiItems.find(item => item.status === 'failed')?.error || publicResult.error || 'One or more retained records failed.'
+        const status = failed
+            ? deadLetter ? 'dead_letter' : 'failed'
+            : hasMore ? 'queued' : 'completed'
+        const error = !failed
+            ? null
+            : deadLetter
+                ? `Retention failed after ${MAX_ATTEMPTS} attempts: ${failureError}`
+                : `${failureError} The run will retry.`
         if (!failed && !hasMore && retentionRun.trigger_type === 'privacy_deletion') {
             await completePrivacyDeletion(retentionRun, {
                 heldAlertIds: strings(ti.heldAlertIds),
@@ -159,8 +167,8 @@ async function processRetentionRun(retentionRun: RetentionRun) {
             })
         }
         await refreshRun(retentionRun, {
-            status: deadLetter ? 'dead_letter' : failed ? 'failed' : hasMore ? 'queued' : 'completed',
-            error: failed ? deadLetter ? `Retention failed after ${MAX_ATTEMPTS} attempts: ${failureError}` : `${failureError} The run will retry.` : null,
+            status,
+            error,
             result: {
                 tenantId: retentionRun.organization_id,
                 cutoffAt: iso(retentionRun.cutoff_at),

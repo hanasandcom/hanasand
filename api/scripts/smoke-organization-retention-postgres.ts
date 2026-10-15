@@ -10,6 +10,7 @@ import ensureSchema from '../src/utils/db/ensureSchema.ts'
 import recordLog from '../src/utils/logs/recordLog.ts'
 import {
     exportOrganizationPrivacyData,
+    organizationRetentionCutoff,
     organizationPrivacyState,
     queueOrganizationRetentionRun,
     runOrganizationRetentionWorker,
@@ -20,6 +21,7 @@ await ensureSchema()
 
 const old = '2020-01-01T00:00:00.000Z'
 const currentPassword = 'retention-owner-password'
+assert.equal(organizationRetentionCutoff(30, new Date('2024-03-31T12:00:00.000Z')), '2024-03-01T12:00:00.000Z')
 const users = [
     'retention_user_a', 'retention_user_b', 'retention_user_c', 'retention_user_removed',
     'retention_user_recovered', 'retention_user_poison', 'retention_user_fair',
@@ -104,7 +106,11 @@ globalThis.fetch = async(input, init) => {
     })
 }
 
-const runA = await queueOrganizationRetentionRun({ organizationId: 'retention_org_a', triggerType: 'manual', requestedBy: users[0], requestId: randomUUID(), retentionDays: 30 })
+const runARequestId = randomUUID()
+const runA = await queueOrganizationRetentionRun({ organizationId: 'retention_org_a', triggerType: 'manual', requestedBy: users[0], requestId: runARequestId, retentionDays: 30 })
+const duplicateRunA = await queueOrganizationRetentionRun({ organizationId: 'retention_org_a', triggerType: 'manual', requestedBy: users[0], requestId: runARequestId, retentionDays: 30 })
+assert.equal(duplicateRunA.id, runA.id, 'replaying a request must return the existing retention run')
+assert.equal((await queryOnce('SELECT COUNT(*)::int count FROM organization_retention_runs WHERE organization_id = $1 AND request_id = $2', ['retention_org_a', runARequestId])).rows[0].count, 1)
 assert.deepEqual(await runOrganizationRetentionWorker(runA.id), { claimed: true, runId: runA.id, failed: false, hasMore: false, deadLetter: false })
 assert.equal((await queryOnce('SELECT COUNT(*)::int count FROM organization_invites WHERE id = \'invite_delete\'')).rows[0].count, 0)
 assert.equal((await queryOnce('SELECT COUNT(*)::int count FROM organization_invites WHERE id = \'invite_hold\'')).rows[0].count, 1)
