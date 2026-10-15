@@ -1,12 +1,13 @@
 import { canonicalReplayKeys } from './replayEvidence.ts'
 import { createHash } from 'node:crypto'
-import run, { identityQueryOnce, withTransaction } from '#db'
+import run, { withTransaction } from '#db'
 import { loadLogRetentionRules, retentionStoreMatches } from './customRetention.ts'
 import { collectEventFindings, loadConfiguredRules, normalizeEvent } from '../../handlers/events.ts'
 import { matchRulePage } from './rulePreview.ts'
 import { exactCaseSensitiveMessage, exactMessageIndexMaxBytes, hasPostgresRegexCandidate, messageCandidatePredicate, processExecutableCandidatePredicate } from './previewPredicate.ts'
 import type { Condition } from './conditions.ts'
 import { builtinReprocessable, reprocessBuiltinPage } from './builtinReprocess.ts'
+import { recordReprocessCompletion } from './ruleReprocessAudit.ts'
 
 type Cursor = { phase: number, time?: string, id?: string, windowEnd?: string }
 export type ReprocessJob = { id: string, organization_id: string, rule_id: string, rule_version: string, status: string,
@@ -148,14 +149,7 @@ export async function processRuleReprocessJob() {
                 matched=matched+$5,protected=protected+$6,removed_events=removed_events+$7,removed_sources=removed_sources+$8,
                 error=NULL,updated_at=NOW() WHERE id=$1`, [job.id, done ? 'completed' : 'running', JSON.stringify(cursor), scanned, result.matched, result.protected, result.removedEvents, result.removedSources])
             if (done) {
-                const eventId = (await identityQueryOnce(`SELECT nextval(pg_get_serial_sequence('public.system_events','id')) AS id`)).rows[0]?.id
-                if (!eventId) throw new Error('Identity system event ID sequence is unavailable.')
-                await query(`INSERT INTO system_events(id,event_type,severity,source,service,actor_id,object_type,object_id,organization_id,
-                    subject_id,request_id,outcome,reason,context,ip,user_agent,created_at)
-                    SELECT $1,'event.rule.reprocessed','info','event','hanasand-api',NULL,'event_rule',rule_id,organization_id,
-                        NULL,NULL,'success','',jsonb_build_object('jobId',id,'version',rule_version,'scanned',scanned,'matched',matched,
-                            'protected',protected,'removedEvents',removed_events,'removedSources',removed_sources),'','',NOW()
-                    FROM rule_reprocess_jobs WHERE id=$2`, [eventId, job.id])
+                await recordReprocessCompletion(job.id, query)
             }
             return true
         })

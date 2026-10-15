@@ -51,7 +51,6 @@ export function normalizeLogEvent(log: LogInput, rules?: Parameters<typeof class
         : String(metadata.outcome || structured.outcome
             || (signin ? log.message.includes('Accepted ') ? 'success' : 'failure'
                 : ['error', 'fatal'].includes(log.level) ? 'failure' : 'unknown'))
-    const httpMethod = metadata.method || request.method || access.method
     const sourceAddress = mongo?.ip || signin?.[2] || source.ip || request.remoteAddress || metadata.source_ip || access.ip
 
     return {
@@ -70,7 +69,7 @@ export function normalizeLogEvent(log: LogInput, rules?: Parameters<typeof class
         message: log.message,
         mongo: mongo ? { command: mongo.name, database: mongo.database, arguments: mongo.command, connection: mongo.connection, clientIp: mongo.ip } : undefined,
         process,
-        http: path ? { path, method: httpMethod, status_code: statusCode } : undefined,
+        http: path ? { path, method, status_code: statusCode } : undefined,
         user: signin ? { ...user, id: `${log.host || 'unknown'}:${signin[1]}`, name: signin[1] } : user,
         source: { ...source, ip: sourceAddress },
         device: metadata.device || structured.device,

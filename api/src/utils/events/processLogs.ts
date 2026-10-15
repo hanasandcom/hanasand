@@ -135,7 +135,6 @@ export async function processLogBatch(logs: LogInput[], organizationId: string, 
     for (const { id, event } of work) {
         if (event.eventType === 'authentication') await createFindings(organizationId, id, event, rules)
     }
-    if (!work.length) return
     const matches = await run('SELECT rule_id, severity, summary, evidence, event_ids FROM findings WHERE organization_id = $1 AND event_ids && $2::text[]', [organizationId, work.map(item => item.id)])
     const byEvent = new Map<string, typeof matches.rows>()
     for (const finding of matches.rows) for (const id of finding.event_ids) byEvent.set(id, [...(byEvent.get(id) || []), finding])
