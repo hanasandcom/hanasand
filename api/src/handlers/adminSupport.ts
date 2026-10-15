@@ -1,6 +1,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import { randomUUID } from 'crypto'
-import run from '#db'
+import run, { withTransaction } from '#db'
 import { updateActiveOrganizationMemberRole, updateOrganizationInviteAction, upsertAdminAccessRecoveryApproval, upsertOrganizationInvite } from '#utils/db/identityDataWrites.ts'
 import { activeOrganizationOwnerCount as activeOwnerCount } from '#utils/organizationMemberships.ts'
 import { compileAuditQuery } from '#utils/auditQuery.ts'
@@ -3681,16 +3681,90 @@ export async function postSupportOrganizationMemberRoleRecovery(req: FastifyRequ
         })
     }
 
-    const updated = await updateActiveOrganizationMemberRole({
-        organizationId: organization.id,
-        userId: req.params.userId,
-        role: input.role,
+    const mutation = await withTransaction(async query => {
+        await query(`
+            SELECT users.id
+            FROM users
+            WHERE users.id = ANY($1::text[])
+               OR EXISTS (
+                    SELECT 1
+                    FROM organization_members membership
+                    WHERE membership.organization_id = $2
+                      AND membership.user_id = users.id
+                      AND membership.status = 'active'
+                      AND membership.role IN ('owner', 'admin')
+                )
+            ORDER BY users.id
+            FOR UPDATE
+        `, [[actor.id, req.params.userId].sort(), organization.id])
+        await query('SELECT id FROM organizations WHERE id = $1 FOR UPDATE', [organization.id])
+        if (await hasOrganizationPrivacyDeletionMarker(organization.id, query)) return { error: 'organization_deletion_in_progress' as const }
+
+        const currentMember = await loadSupportMemberDetail(organization.id, req.params.userId, query, true)
+        if (!currentMember) return { error: 'member_not_found' as const }
+        if (currentMember.status !== 'active') return { error: 'revoked_member' as const, member: currentMember }
+        const currentAvailability = await loadOrganizationAvailability([organization.id], query)
+        if (currentAvailability[0]?.hasAvailableAdmin === true) return { error: 'active_admin_available' as const, member: currentMember }
+
+        const currentOwnerCount = await activeOwnerCount(organization.id, query)
+        const currentPermissionError = supportRoleRecoveryPermissionError(String(currentMember.role) as OrganizationRole, input.role, currentOwnerCount)
+        if (currentPermissionError) return { error: 'permission_denied' as const, member: currentMember, ownerCount: currentOwnerCount, message: currentPermissionError }
+        if (currentMember.role === input.role) return { error: 'member_role_already_set' as const, member: currentMember, ownerCount: currentOwnerCount }
+
+        const updatedMember = await updateActiveOrganizationMemberRole({
+            organizationId: organization.id,
+            userId: req.params.userId,
+            role: input.role,
+        }, query)
+        if (!updatedMember) return { error: 'member_not_found' as const }
+        return { error: null, member: currentMember, ownerCount: currentOwnerCount, updatedMember }
     })
+    if (mutation.error) {
+        if (mutation.error === 'member_not_found') return res.status(404).send({ error: 'Active organization member not found.' })
+        const currentMember = ('member' in mutation && mutation.member) || member
+        const currentSnapshot = membershipSnapshot(currentMember)
+        const blocker = mutation.error === 'permission_denied' ? mutation.message : mutation.error
+        const status = mutation.error === 'permission_denied' ? 403 : 409
+        await recordSupportMemberRoleRecoveryExecutorBlock(req, {
+            actorId: actor.id,
+            organizationId: organization.id,
+            userId: req.params.userId,
+            requestId,
+            reason,
+            blocker,
+            requestedRole: input.role,
+            controls: executorControls,
+            supportContext: cleanContext(req.body?.context),
+            before: currentSnapshot,
+        })
+        const auditEventIds = await loadSystemEventIds({ requestId, actionType, entityId: req.params.userId })
+        return res.status(status).send(supportError(blocker, mutation.error === 'permission_denied' ? mutation.message : 'Member role recovery is no longer permitted in the current organization state.', {
+            executorBlocker: supportMemberRoleRecoveryExecutorDetail({
+                actorId: actor.id,
+                organizationId: organization.id,
+                userId: req.params.userId,
+                requestId,
+                reason,
+                requestedRole: input.role,
+                controls: executorControls,
+                member: currentMember,
+                before: currentSnapshot,
+                after: currentSnapshot,
+                outcome: 'denied',
+                blockers: [blocker],
+                auditEventIds,
+            }),
+        }))
+    }
+    const updated = mutation.updatedMember
     if (!updated) {
         return res.status(404).send({ error: 'Active organization member not found.' })
     }
+    const currentMember = mutation.member
+    const currentOwnerCount = mutation.ownerCount
+    const currentBefore = membershipSnapshot(currentMember)
     const updatedMember = {
-        ...member,
+        ...currentMember,
         ...(updated as Record<string, unknown>),
     }
     const after = membershipSnapshot(updatedMember)
@@ -3703,17 +3777,17 @@ export async function postSupportOrganizationMemberRoleRecovery(req: FastifyRequ
         organizationId: organization.id,
         entityId: req.params.userId,
         requestId,
-        severity: input.role === 'admin' || before.role === 'owner' ? 'warning' : 'notice',
+        severity: input.role === 'admin' || currentBefore.role === 'owner' ? 'warning' : 'notice',
         outcome: 'success',
         reason,
         context: {
             schemaVersion: 'support.member_role_recovery.v1',
             requestId,
             targetUserId: req.params.userId,
-            previousRole: before.role,
+            previousRole: currentBefore.role,
             newRole: after.role,
-            ownerCount,
-            before,
+            ownerCount: currentOwnerCount,
+            before: currentBefore,
             after,
             correlationId: executorControls.correlationId,
             idempotencyKey: executorControls.idempotencyKey,
@@ -3729,7 +3803,7 @@ export async function postSupportOrganizationMemberRoleRecovery(req: FastifyRequ
                 requestedRole: input.role,
                 controls: executorControls,
                 member: updatedMember as Record<string, unknown>,
-                before,
+                before: currentBefore,
                 after,
                 outcome: 'success',
                 blockers: [],
@@ -3748,7 +3822,7 @@ export async function postSupportOrganizationMemberRoleRecovery(req: FastifyRequ
             actorId: actor.id,
             organization: toOrganization(organization),
             member: toSupportMemberDetail(updatedMember),
-            before,
+            before: currentBefore,
             after,
             reason,
             outcome: 'success',
@@ -3765,7 +3839,7 @@ export async function postSupportOrganizationMemberRoleRecovery(req: FastifyRequ
                 requestedRole: input.role,
                 controls: executorControls,
                 member: updatedMember as Record<string, unknown>,
-                before,
+                before: currentBefore,
                 after,
                 outcome: 'success',
                 blockers: [],
@@ -3776,7 +3850,7 @@ export async function postSupportOrganizationMemberRoleRecovery(req: FastifyRequ
                 source: 'admin',
                 service: 'hanasand-api',
                 outcome: 'success',
-                severity: input.role === 'admin' || before.role === 'owner' ? 'warning' : 'notice',
+                severity: input.role === 'admin' || currentBefore.role === 'owner' ? 'warning' : 'notice',
                 eventIds: auditEventIds,
                 query: supportMemberRoleRecoveryAuditQuery({
                     requestId,
@@ -3791,7 +3865,7 @@ export async function postSupportOrganizationMemberRoleRecovery(req: FastifyRequ
             copyText: [
                 `Support member role recovery for ${req.params.userId}`,
                 `Org: ${organization.name} (${organization.id})`,
-                `Role: ${before.role} -> ${after.role}`,
+                `Role: ${currentBefore.role} -> ${after.role}`,
                 `Request: ${requestId}`,
                 `Idempotency: ${executorControls.idempotencyKey}`,
                 `Audit events: ${auditEventIds.join(', ') || 'pending index refresh'}`,
@@ -4207,16 +4281,84 @@ export async function postSupportAccessRecovery(req: FastifyRequest<{ Params: Or
         requestedApprovalRequired: req.body?.approvalRequired,
     })
     if (approval.approvalRequired) {
-        const revokedInvite = await run(`
-            UPDATE organization_invites
-            SET status = 'revoked',
-                revoked_at = NOW(),
-                accepted_at = NULL,
-                accepted_by = NULL
-            WHERE id = $1
-            RETURNING *
-        `, [inviteRow.id])
-        inviteRow = revokedInvite.rows[0] as OrganizationInviteRow
+        const revokedInvite = await updateOrganizationInviteAction({
+            organizationId: organization.id,
+            inviteId: inviteRow.id,
+            action: 'revoke',
+        }) as OrganizationInviteRow | null
+        if (!revokedInvite) {
+            const currentInvite = await run(`
+                SELECT status
+                FROM organization_invites
+                WHERE id = $1 AND organization_id = $2
+                LIMIT 1
+            `, [inviteRow.id, organization.id])
+            const inviteStatus = text(currentInvite.rows[0]?.status)
+            const blocker = inviteStatus === 'accepted'
+                ? 'accepted_invite_not_mutable_by_support_action'
+                : 'support_invite_revoke_failed'
+            const message = inviteStatus === 'accepted'
+                ? 'The invite was accepted before support could hold it for approval.'
+                : 'The invite changed before support could hold it for approval.'
+            await recordSystemEvent(req, {
+                actionType: 'support.organization.access_recovery',
+                actorId: actor.id,
+                targetType: targetUserId ? 'user' : 'invite',
+                targetId: targetUserId || inviteRow.email,
+                organizationId: organization.id,
+                entityId: inviteRow.id,
+                requestId,
+                severity: 'warning',
+                outcome: 'failed',
+                reason,
+                context: {
+                    schemaVersion: 'support.access_recovery.invite_transition.v1',
+                    requestId,
+                    supportSessionId: supportSessionId || null,
+                    targetUserId: targetUserId || null,
+                    inviteId: inviteRow.id,
+                    inviteStatus: inviteStatus || null,
+                    blockerCode: blocker,
+                    approvalRequired: true,
+                    mutation: 'none',
+                    noSilentMembershipMutation: true,
+                    supportContext,
+                    redactionRequired: true,
+                },
+            })
+            const auditEventIds = await loadSystemEventIds({
+                requestId,
+                actionType: 'support.organization.access_recovery',
+                entityId: inviteRow.id,
+            })
+            return res.status(409).send(supportError(blocker, message, {
+                schemaVersion: 'support.access_recovery.invite_transition.v1',
+                outcome: 'failed',
+                requestId,
+                inviteId: inviteRow.id,
+                inviteStatus: inviteStatus || null,
+                auditEventIds,
+                noSilentMembershipMutation: true,
+                executionReceipt: supportAccessRecoveryExecutionReceipt({
+                    actorId: actor.id,
+                    organizationId: organization.id,
+                    requestId,
+                    reason,
+                    supportSessionId,
+                    targetUserId,
+                    email: inviteRow.email,
+                    role: inviteRow.role,
+                    expiresAt: inviteRow.expires_at,
+                    inviteId: inviteRow.id,
+                    inviteStatus: inviteStatus || null,
+                    approval: null,
+                    outcome: 'failed',
+                    auditEventIds,
+                    blockers: [blocker],
+                }),
+            }))
+        }
+        inviteRow = revokedInvite
     }
     await upsertAdminAccessRecoveryApproval({
         requestId,
@@ -4485,51 +4627,118 @@ async function decideSupportAccessRecovery(
         })
     }
 
-    const updatedApproval = decision === 'approved'
-        ? await run(`
-            UPDATE admin_access_recovery_approvals
-            SET status = 'approved',
-                approved_by = $2,
-                approved_at = NOW(),
-                denied_by = NULL,
-                denied_at = NULL,
-                decision_reason = $3,
-                outcome = 'success',
-                updated_at = NOW()
-            WHERE request_id = $1
-            RETURNING *
-        `, [current.request_id, actor.id, reason])
-        : await run(`
-            UPDATE admin_access_recovery_approvals
-            SET status = 'denied',
-                approved_by = NULL,
-                approved_at = NULL,
-                denied_by = $2,
-                denied_at = NOW(),
-                decision_reason = $3,
-                outcome = 'denied',
-                updated_at = NOW()
-            WHERE request_id = $1
-            RETURNING *
-        `, [current.request_id, actor.id, reason])
+    const mutation = await withTransaction(async query => {
+        const lockedApproval = await loadAccessRecoveryApproval(req.params.requestId, query, true)
+        if (!lockedApproval) return { error: 'access_recovery_request_not_found' as const }
+        if (lockedApproval.status !== 'pending') return { error: 'approval_not_pending' as const, approval: lockedApproval }
+        await query('SELECT id FROM organizations WHERE id = $1 FOR UPDATE', [lockedApproval.organization_id])
+        if (await hasOrganizationPrivacyDeletionMarker(lockedApproval.organization_id, query)) {
+            return { error: 'organization_deletion_in_progress' as const, approval: lockedApproval }
+        }
 
-    const invite = await run(`
-        UPDATE organization_invites
-        SET status = $2,
-            revoked_at = CASE WHEN $2 = 'revoked' THEN NOW() ELSE NULL END,
-            accepted_at = NULL,
-            accepted_by = NULL
-        WHERE id = $1
-        RETURNING *
-    `, [current.invite_id, decision === 'approved' ? 'pending' : 'revoked'])
+        const inviteBefore = await query(`
+            SELECT id, status, expires_at
+            FROM organization_invites
+            WHERE id = $1 AND organization_id = $2
+            FOR UPDATE
+        `, [lockedApproval.invite_id, lockedApproval.organization_id])
+        const inviteRow = inviteBefore.rows[0] as { id: string, status: string, expires_at: Date | string | null } | undefined
+        if (!inviteRow) return { error: 'invite_not_found' as const, approval: lockedApproval }
+        if (decision === 'approved' && (!inviteRow.expires_at || new Date(inviteRow.expires_at).getTime() <= Date.now())) {
+            return { error: 'access_recovery_invite_expired' as const, approval: lockedApproval, inviteStatus: inviteRow.status }
+        }
+        const invite = await updateOrganizationInviteAction({
+            organizationId: lockedApproval.organization_id,
+            inviteId: lockedApproval.invite_id,
+            action: decision === 'approved' ? 'resend' : 'revoke',
+            ...(decision === 'approved' ? { expiresAt: inviteRow.expires_at || undefined } : {}),
+        }, query)
+        if (!invite) return { error: 'invite_not_mutable' as const, approval: lockedApproval, inviteStatus: inviteRow.status }
+
+        const updatedApproval = decision === 'approved'
+            ? await query(`
+                UPDATE admin_access_recovery_approvals
+                SET status = 'approved',
+                    approved_by = $2,
+                    approved_at = NOW(),
+                    denied_by = NULL,
+                    denied_at = NULL,
+                    decision_reason = $3,
+                    outcome = 'success',
+                    updated_at = NOW()
+                WHERE request_id = $1 AND status = 'pending'
+                RETURNING *
+            `, [lockedApproval.request_id, actor.id, reason])
+            : await query(`
+                UPDATE admin_access_recovery_approvals
+                SET status = 'denied',
+                    approved_by = NULL,
+                    approved_at = NULL,
+                    denied_by = $2,
+                    denied_at = NOW(),
+                    decision_reason = $3,
+                    outcome = 'denied',
+                    updated_at = NOW()
+                WHERE request_id = $1 AND status = 'pending'
+                RETURNING *
+            `, [lockedApproval.request_id, actor.id, reason])
+        if (!updatedApproval.rows[0]) throw new Error('Locked access recovery approval could not be updated.')
+        return { error: null, approval: lockedApproval, updatedApproval: updatedApproval.rows[0] as AccessRecoveryApprovalRow, invite }
+    })
+    if (mutation.error) {
+        const currentApproval = mutation.approval
+            ? { ...mutation.approval, ...('inviteStatus' in mutation ? { invite_status: mutation.inviteStatus } : {}) }
+            : current
+        const error = mutation.error === 'invite_not_mutable'
+            ? 'accepted_invite_not_mutable_by_support_action'
+            : mutation.error
+        await recordAccessRecoveryDecisionAudit(req, actor.id, currentApproval, decision, 'failed', reason, {
+            error,
+            blockerCode: error,
+            inviteStatus: 'inviteStatus' in mutation ? mutation.inviteStatus : currentApproval.invite_status,
+            mutation: 'none',
+            supportSessionId: supportSessionId || null,
+            supportContext: cleanContext(req.body?.context),
+        })
+        const auditEventIds = await loadSystemEventIds({
+            requestId: currentApproval.request_id,
+            actionType: `support.organization.access_recovery.${decision === 'approved' ? 'approve' : 'deny'}`,
+            entityId: currentApproval.invite_id,
+        })
+        const detail = toAccessRecoveryDecision(currentApproval)
+        return res.status(mutation.error === 'approval_not_pending' ? 409 : mutation.error === 'access_recovery_request_not_found' ? 404 : 409).send({
+            error: mutation.error === 'approval_not_pending'
+                ? `Access recovery request is already ${currentApproval.status}.`
+                : mutation.error === 'access_recovery_request_not_found'
+                    ? 'Access recovery request not found.'
+                    : mutation.error === 'organization_deletion_in_progress'
+                        ? 'Organization deletion is in progress; support writes are blocked.'
+                        : mutation.error === 'access_recovery_invite_expired'
+                            ? 'The access recovery invite has expired; create a fresh recovery request.'
+                            : 'The access recovery invite changed and could not be updated.',
+            decision: detail,
+            decisionReceipt: supportAccessRecoveryDecisionReceipt({
+                actorId: actor.id,
+                decision,
+                approval: detail,
+                reason,
+                supportSessionId,
+                requiredScope,
+                outcome: 'failed',
+                auditEventIds,
+                blockers: [error],
+            }),
+        })
+    }
+    const currentForDecision = mutation.approval
 
     const updated = {
-        ...current,
-        ...(updatedApproval.rows[0] as AccessRecoveryApprovalRow),
-        email: current.email,
-        role: current.role,
-        organization_name: current.organization_name,
-        invite_status: (invite.rows[0] as OrganizationInviteRow | undefined)?.status || current.invite_status,
+        ...currentForDecision,
+        ...mutation.updatedApproval,
+        email: currentForDecision.email,
+        role: currentForDecision.role,
+        organization_name: currentForDecision.organization_name,
+        invite_status: (mutation.invite as OrganizationInviteRow).status || currentForDecision.invite_status,
     } as AccessRecoveryApprovalRow
     const detail = toAccessRecoveryDecision(updated)
     await recordAccessRecoveryDecisionAudit(req, actor.id, updated, decision, decision === 'approved' ? 'success' : 'denied', reason, {
@@ -5487,8 +5696,8 @@ function auditContextInviteIds(context: Record<string, unknown>) {
     return direct.map(id => text(id)).filter(Boolean)
 }
 
-async function loadSupportMemberDetail(organizationId: string, userId: string) {
-    const result = await run(`
+async function loadSupportMemberDetail(organizationId: string, userId: string, query: typeof run = run, lock = false) {
+    const result = await query(`
         SELECT
             om.organization_id,
             organizations.name AS organization_name,
@@ -5509,7 +5718,7 @@ async function loadSupportMemberDetail(organizationId: string, userId: string) {
         JOIN organizations ON organizations.id = om.organization_id
         WHERE om.organization_id = $1
           AND om.user_id = $2
-        LIMIT 1
+        LIMIT 1${lock ? '\n        FOR UPDATE OF om' : ''}
     `, [organizationId, userId])
     return result.rows[0] as Record<string, unknown> | undefined
 }
@@ -5521,8 +5730,8 @@ function supportRoleRecoveryPermissionError(currentRole: OrganizationRole, newRo
     return ''
 }
 
-async function loadOrganizationAvailability(organizationIds: string[]) {
-    const result = await run(`
+async function loadOrganizationAvailability(organizationIds: string[], query: typeof run = run) {
+    const result = await query(`
         SELECT
             om.organization_id,
             COUNT(*) FILTER (WHERE om.role = 'owner' AND om.status = 'active')::int AS owner_count,
@@ -5549,8 +5758,8 @@ async function loadOrganizationAvailability(organizationIds: string[]) {
     }) as SupportOrganizationAvailability[]
 }
 
-async function loadAccessRecoveryApproval(requestId: string) {
-    const result = await run(`
+async function loadAccessRecoveryApproval(requestId: string, query: typeof run = run, lock = false) {
+    const result = await query(`
         SELECT
             approval.*,
             invite.email,
@@ -5561,7 +5770,7 @@ async function loadAccessRecoveryApproval(requestId: string) {
         JOIN organization_invites invite ON invite.id = approval.invite_id
         LEFT JOIN organizations organization ON organization.id = approval.organization_id
         WHERE approval.request_id = $1
-        LIMIT 1
+        LIMIT 1${lock ? '\n        FOR UPDATE OF approval' : ''}
     `, [requestId])
     return result.rows[0] as AccessRecoveryApprovalRow | undefined
 }

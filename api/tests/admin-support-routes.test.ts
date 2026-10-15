@@ -5,10 +5,20 @@ let actor = { valid: true, id: 'support-admin', impersonating: false }
 let internalAccess = true
 let eventRows: Record<string, any>[] = []
 let approvalRows: Record<string, any>[] = []
+let supportDecisionApproval: Record<string, any> | null = null
 let supportOrganization: Record<string, any> | null = null
 let supportInviteReads = 0
 let inviteActionWrites = 0
 let acceptedInviteWinsRace = false
+let supportRecoveryInviteStatus: string | null = null
+let supportRecoveryInviteExpiry: string | null = '2026-11-01T00:00:00.000Z'
+let supportRecoveryInviteUpsert: Record<string, unknown> | null = null
+let supportRecoveryInviteResult: Record<string, unknown> | null = null
+let supportRecoveryApprovalWrites = 0
+let supportMemberRole = 'editor'
+let supportOwnerCounts = [2]
+let supportAvailabilityResults: Record<string, unknown>[][] = []
+const inviteActionInputs: Array<Record<string, unknown>> = []
 let supportSessionEvents: Record<string, unknown>[] = []
 const queries: Array<{ sql: string, values: unknown[] }> = []
 
@@ -21,6 +31,12 @@ async function run(sql: string, values: unknown[] = []) {
     if (sql.includes('FROM system_events e') && sql.includes('e.context->>\'supportSessionId\' = $1')) {
         const sessionId = values[0]
         return { rows: supportSessionEvents.filter(event => event.subject_id === sessionId || (event.context as Record<string, unknown>)?.supportSessionId === sessionId) }
+    }
+    if (sql.includes('SELECT status') && sql.includes('FROM organization_invites') && sql.includes('organization_id = $2')) {
+        return { rows: supportRecoveryInviteStatus ? [{ status: supportRecoveryInviteStatus }] : [] }
+    }
+    if (sql.includes('SELECT id, status, expires_at') && sql.includes('FROM organization_invites')) {
+        return { rows: supportRecoveryInviteStatus ? [{ id: 'invite-1', status: supportRecoveryInviteStatus, expires_at: supportRecoveryInviteExpiry }] : [] }
     }
     if (sql.includes('FROM organizations o') && supportOrganization) return { rows: [supportOrganization] }
     if (sql.includes('FROM organization_invites') && sql.includes('id = $1') && sql.includes('organization_id = $2')) {
@@ -36,12 +52,12 @@ async function run(sql: string, values: unknown[] = []) {
     if (sql.includes('FROM organization_members om') && sql.includes('WHERE om.organization_id = $1') && sql.includes('om.user_id = $2')) {
         return { rows: [{
             organization_id: 'org-1', organization_name: 'Org', organization_slug: 'org', user_id: 'member-1',
-            name: 'Member', avatar: null, active: true, role: 'editor', status: 'active', invited_by: 'owner-1',
+            name: 'Member', avatar: null, active: true, role: supportMemberRole, status: 'active', invited_by: 'owner-1',
             joined_at: '2026-10-01T00:00:00.000Z', created_at: '2026-10-01T00:00:00.000Z',
         }] }
     }
-    if (sql.includes('FROM organization_members membership')) return { rows: [{ owner_count: 2 }] }
-    if (sql.includes('active_admin_count')) return { rows: [] }
+    if (sql.includes('SELECT COUNT(*)::int AS owner_count') && sql.includes('FROM organization_members membership')) return { rows: [{ owner_count: supportOwnerCounts.shift() ?? 2 }] }
+    if (sql.includes('active_admin_count')) return { rows: supportAvailabilityResults.shift() ?? [] }
     if (sql.includes('context->>\'idempotencyKey\'') && sql.includes('outcome = \'success\'')) return { rows: [] }
     if (sql.includes('WHERE request_id = $1') && sql.includes('event_type = $2') && sql.includes('subject_id = $3')) {
         if (String(values[1]).startsWith('support.session.')) {
@@ -52,7 +68,10 @@ async function run(sql: string, values: unknown[] = []) {
     if (sql.includes('UPDATE organization_members') && sql.includes('SET role = $3')) return { rows: [{
         organization_id: 'org-1', user_id: 'member-1', role: 'reader', status: 'active',
     }] }
-    if (sql.includes('FROM admin_access_recovery_approvals approval')) return { rows: approvalRows }
+    if (sql.includes('UPDATE admin_access_recovery_approvals')) {
+        return { rows: supportDecisionApproval ? [{ ...supportDecisionApproval, status: sql.includes('SET status = \'approved\'') ? 'approved' : 'denied' }] : [] }
+    }
+    if (sql.includes('FROM admin_access_recovery_approvals approval')) return { rows: sql.includes('WHERE approval.request_id = $1') && supportDecisionApproval ? [supportDecisionApproval] : approvalRows }
     if (sql.includes('SELECT COUNT(*)::int AS total')) return { rows: [{ total: eventRows.length }] }
     if (sql.includes('FROM system_events e') && sql.includes('WHERE e.id = $1')) return { rows: eventRows }
     if (sql.includes('FROM system_events e')) return { rows: eventRows }
@@ -62,7 +81,7 @@ async function run(sql: string, values: unknown[] = []) {
 const recordedEvents: Array<Record<string, unknown>> = []
 let nextSupportEventId = 100
 const systemEventUtils = await import('../src/utils/systemEvent.ts')
-mock.module('../src/utils/db.ts', () => ({ default: run, queryOnce: run, identityQueryOnce: run, closeDatabase: async () => {} }))
+mock.module('../src/utils/db.ts', () => ({ default: run, queryOnce: run, identityQueryOnce: run, withTransaction: async (work: (query: typeof run) => Promise<unknown>) => work(run), closeDatabase: async () => {} }))
 const identityDataWrites = await import('../src/utils/db/identityDataWrites.ts')
 mock.module('../src/utils/auth/tokenWrapper.ts', () => ({ default: async () => actor }))
 mock.module('../src/utils/systemEvent.ts', () => ({
@@ -92,9 +111,13 @@ mock.module('../src/utils/systemEvent.ts', () => ({
     },
 }))
 mock.module('../src/utils/db/identityDataWrites.ts', () => ({
-    upsertAdminAccessRecoveryApproval: async () => {},
-    upsertOrganizationInvite: async () => {},
-    updateOrganizationInviteAction: async () => { inviteActionWrites += 1; return null },
+    upsertAdminAccessRecoveryApproval: async () => { supportRecoveryApprovalWrites += 1 },
+    upsertOrganizationInvite: async () => supportRecoveryInviteUpsert,
+    updateOrganizationInviteAction: async (input: Record<string, unknown>) => {
+        inviteActionWrites += 1
+        inviteActionInputs.push(input)
+        return supportRecoveryInviteResult
+    },
     updateActiveOrganizationMemberRole: identityDataWrites.updateActiveOrganizationMemberRole,
 }))
 
@@ -109,6 +132,8 @@ const {
     postSupportSession,
     getSupportSession,
     postSupportSessionRevoke,
+    postSupportAccessRecovery,
+    postSupportAccessRecoveryApprove,
 } = await import('../src/handlers/adminSupport.ts')
 
 function reply() {
@@ -134,10 +159,20 @@ beforeEach(() => {
     internalAccess = true
     eventRows = []
     approvalRows = []
+    supportDecisionApproval = null
     supportOrganization = null
     supportInviteReads = 0
     inviteActionWrites = 0
     acceptedInviteWinsRace = false
+    supportRecoveryInviteStatus = null
+    supportRecoveryInviteExpiry = '2026-11-01T00:00:00.000Z'
+    supportRecoveryInviteUpsert = null
+    supportRecoveryInviteResult = null
+    supportRecoveryApprovalWrites = 0
+    supportMemberRole = 'editor'
+    supportOwnerCounts = [2]
+    supportAvailabilityResults = []
+    inviteActionInputs.length = 0
     supportSessionEvents = []
     nextSupportEventId = 100
     queries.length = 0
@@ -404,6 +439,168 @@ test('support session can be created, inspected, then revoked through its audit 
     expect(recordedEvents.filter(event => ['support.session.create', 'support.session.revoke'].includes(String(event.actionType)))).toHaveLength(2)
 })
 
+test('approval-required access recovery holds its invite through the shared revoke contract', async () => {
+    supportOrganization = { id: 'org-1', name: 'Org', slug: 'org', status: 'active' }
+    supportRecoveryInviteUpsert = {
+        id: 'recovery-invite-1', organization_id: 'org-1', email: 'owner@example.test', role: 'admin',
+        status: 'pending', expires_at: '2026-11-01T00:00:00.000Z', accepted_at: null, accepted_by: null,
+        revoked_at: null, invited_by: 'support-admin', created_at: '2026-10-16T00:00:00.000Z',
+    }
+    supportRecoveryInviteResult = {
+        id: 'recovery-invite-1', organization_id: 'org-1', email: 'owner@example.test', role: 'admin',
+        status: 'revoked', expires_at: '2026-11-01T00:00:00.000Z', accepted_at: null, accepted_by: null,
+        revoked_at: '2026-10-16T00:00:00.000Z', invited_by: 'support-admin', created_at: '2026-10-16T00:00:00.000Z',
+    }
+
+    const result = await request(postSupportAccessRecovery, {
+        params: { id: 'org-1' },
+        body: {
+            email: 'owner@example.test',
+            role: 'admin',
+            expiresAt: '2026-11-01T00:00:00.000Z',
+            reason: 'Restore organization access',
+            requestId: 'recovery-request-1',
+            approvalRequired: true,
+        },
+    })
+
+    expect(result.statusCode).toBe(201)
+    expect(result.body.recovery).toMatchObject({
+        requestId: 'recovery-request-1',
+        approvalRequired: true,
+        approvalStatus: 'pending_approval',
+        invite: { id: 'recovery-invite-1', status: 'revoked' },
+    })
+    expect(inviteActionInputs.at(-1)).toEqual({
+        organizationId: 'org-1',
+        inviteId: 'recovery-invite-1',
+        action: 'revoke',
+    })
+    expect(supportRecoveryApprovalWrites).toBe(1)
+})
+
+test('access recovery records a failed audit if an invite is accepted before it can be held', async () => {
+    supportOrganization = { id: 'org-1', name: 'Org', slug: 'org', status: 'active' }
+    supportRecoveryInviteUpsert = {
+        id: 'recovery-invite-1', organization_id: 'org-1', email: 'owner@example.test', role: 'admin',
+        status: 'pending', expires_at: '2026-11-01T00:00:00.000Z', accepted_at: null, accepted_by: null,
+        revoked_at: null, invited_by: 'support-admin', created_at: '2026-10-16T00:00:00.000Z',
+    }
+    supportRecoveryInviteResult = {
+        id: 'recovery-invite-1', organization_id: 'org-1', email: 'owner@example.test', role: 'admin',
+        status: 'revoked', expires_at: '2026-11-01T00:00:00.000Z', accepted_at: null, accepted_by: null,
+        revoked_at: '2026-10-16T00:00:00.000Z', invited_by: 'support-admin', created_at: '2026-10-16T00:00:00.000Z',
+    }
+    supportRecoveryInviteResult = null
+    supportRecoveryInviteStatus = 'accepted'
+
+    const result = await request(postSupportAccessRecovery, {
+        params: { id: 'org-1' },
+        body: {
+            email: 'owner@example.test',
+            role: 'admin',
+            expiresAt: '2026-11-01T00:00:00.000Z',
+            reason: 'Restore organization access',
+            requestId: 'recovery-request-race',
+            approvalRequired: true,
+        },
+    })
+
+    expect(result.statusCode).toBe(409)
+    expect(result.body.detail).toMatchObject({
+        code: 'accepted_invite_not_mutable_by_support_action',
+        outcome: 'failed',
+        inviteStatus: 'accepted',
+        executionReceipt: { outcome: 'failed', inviteStatus: 'accepted' },
+    })
+    expect(supportRecoveryApprovalWrites).toBe(0)
+    expect(recordedEvents.at(-1)).toMatchObject({
+        actionType: 'support.organization.access_recovery',
+        outcome: 'failed',
+        context: { blockerCode: 'accepted_invite_not_mutable_by_support_action', mutation: 'none' },
+    })
+})
+
+test('access recovery approval uses the shared invite transition and keeps approval pending if the invite is accepted', async () => {
+    supportDecisionApproval = {
+        request_id: 'recovery-approve-race', organization_id: 'org-1', invite_id: 'invite-1', target_user_id: 'user-1',
+        requested_by: 'requester', requested_reason: 'Restore account access', request_context: '', approval_required: true,
+        status: 'pending', approved_by: null, approved_at: null, denied_by: null, denied_at: null, decision_reason: null,
+        outcome: 'success', expires_at: '2026-11-01T00:00:00.000Z', created_at: '2026-10-01T00:00:00.000Z',
+        updated_at: '2026-10-01T00:00:00.000Z', email: 'member@example.com', role: 'reader', invite_status: 'revoked', organization_name: 'Org',
+    }
+    supportRecoveryInviteStatus = 'accepted'
+
+    const result = await request(postSupportAccessRecoveryApprove, {
+        params: { requestId: 'recovery-approve-race' },
+        body: { reason: 'Restore organization access' },
+    })
+
+    expect(result.statusCode).toBe(409)
+    expect(result.body.decision.status).toBe('pending_approval')
+    expect(result.body.decision.invite.status).toBe('accepted')
+    expect(inviteActionInputs.at(-1)).toMatchObject({ organizationId: 'org-1', inviteId: 'invite-1', action: 'resend' })
+    expect(queries.some(({ sql }) => sql.includes('UPDATE admin_access_recovery_approvals'))).toBe(false)
+    expect(recordedEvents.at(-1)).toMatchObject({
+        actionType: 'support.organization.access_recovery.approve',
+        outcome: 'failed',
+        context: { error: 'accepted_invite_not_mutable_by_support_action', mutation: 'none' },
+    })
+})
+
+test('access recovery approval commits the shared invite transition with its decision', async () => {
+    supportDecisionApproval = {
+        request_id: 'recovery-approve-1', organization_id: 'org-1', invite_id: 'invite-1', target_user_id: 'user-1',
+        requested_by: 'requester', requested_reason: 'Restore account access', request_context: '', approval_required: true,
+        status: 'pending', approved_by: null, approved_at: null, denied_by: null, denied_at: null, decision_reason: null,
+        outcome: 'success', expires_at: '2026-11-01T00:00:00.000Z', created_at: '2026-10-01T00:00:00.000Z',
+        updated_at: '2026-10-01T00:00:00.000Z', email: 'member@example.com', role: 'reader', invite_status: 'revoked', organization_name: 'Org',
+    }
+    supportRecoveryInviteStatus = 'revoked'
+    supportRecoveryInviteResult = { id: 'invite-1', status: 'pending', expires_at: '2026-11-01T00:00:00.000Z' }
+
+    const result = await request(postSupportAccessRecoveryApprove, {
+        params: { requestId: 'recovery-approve-1' },
+        body: { reason: 'Restore organization access' },
+    })
+
+    expect(result.statusCode).toBe(200)
+    expect(result.body.decision.status).toBe('approved')
+    expect(result.body.decision.invite.status).toBe('pending')
+    expect(inviteActionInputs.at(-1)).toMatchObject({
+        organizationId: 'org-1', inviteId: 'invite-1', action: 'resend', expiresAt: '2026-11-01T00:00:00.000Z',
+    })
+    expect(queries.some(({ sql }) => sql.includes('UPDATE admin_access_recovery_approvals') && sql.includes('status = \'approved\''))).toBe(true)
+})
+
+test('access recovery approval rejects an expired invite without changing its pending decision', async () => {
+    supportDecisionApproval = {
+        request_id: 'recovery-approve-expired', organization_id: 'org-1', invite_id: 'invite-1', target_user_id: 'user-1',
+        requested_by: 'requester', requested_reason: 'Restore account access', request_context: '', approval_required: true,
+        status: 'pending', approved_by: null, approved_at: null, denied_by: null, denied_at: null, decision_reason: null,
+        outcome: 'success', expires_at: '2026-11-01T00:00:00.000Z', created_at: '2026-10-01T00:00:00.000Z',
+        updated_at: '2026-10-01T00:00:00.000Z', email: 'member@example.com', role: 'reader', invite_status: 'revoked', organization_name: 'Org',
+    }
+    supportRecoveryInviteStatus = 'revoked'
+    supportRecoveryInviteExpiry = new Date(Date.now() - 60_000).toISOString()
+
+    const result = await request(postSupportAccessRecoveryApprove, {
+        params: { requestId: 'recovery-approve-expired' },
+        body: { reason: 'Restore organization access' },
+    })
+
+    expect(result.statusCode).toBe(409)
+    expect(result.body.decisionReceipt.blockers).toContain('access_recovery_invite_expired')
+    expect(result.body.decision.status).toBe('pending_approval')
+    expect(inviteActionWrites).toBe(0)
+    expect(queries.some(({ sql }) => sql.includes('UPDATE admin_access_recovery_approvals'))).toBe(false)
+    expect(recordedEvents.at(-1)).toMatchObject({
+        actionType: 'support.organization.access_recovery.approve',
+        outcome: 'failed',
+        context: { error: 'access_recovery_invite_expired', mutation: 'none' },
+    })
+})
+
 test('support invite action returns an audited accepted-invite denial when acceptance wins the update race', async () => {
     supportOrganization = { id: 'org-1', name: 'Org', slug: 'org', status: 'active' }
     acceptedInviteWinsRace = true
@@ -459,6 +656,43 @@ test('support role recovery shares the active-member write and retains its audit
     })
     expect(queries.some(({ sql }) => sql.includes('UPDATE organization_members') && sql.includes('status = \'active\''))).toBe(true)
     expect(queries.some(({ sql }) => sql.includes('UPDATE organizations SET updated_at = NOW()'))).toBe(true)
+})
+
+test('support role recovery rechecks owner protection inside the membership transaction', async () => {
+    supportOrganization = { id: 'org-1', name: 'Org', slug: 'org', status: 'active' }
+    supportMemberRole = 'owner'
+    supportOwnerCounts = [2, 1]
+
+    const result = await request(postSupportOrganizationMemberRoleRecovery, {
+        params: { id: 'org-1', userId: 'member-1' },
+        body: { role: 'reader', reason: 'Restore member access', scope: 'member:role_recovery', requestId: 'role-race-1' },
+    })
+
+    expect(result.statusCode).toBe(403)
+    expect(result.body.detail.code).toBe('Support role recovery cannot demote the last active owner.')
+    expect(result.body.detail.executorBlocker.blockers).toContain('Support role recovery cannot demote the last active owner.')
+    expect(queries.some(({ sql }) => sql.includes('UPDATE organization_members') && sql.includes('SET role = $3'))).toBe(false)
+    expect(recordedEvents.at(-1)).toMatchObject({
+        actionType: 'support.organization.member_role_recovery',
+        outcome: 'denied',
+        context: { mutation: 'none' },
+    })
+    expect(queries.some(({ sql }) => sql.includes('FROM users') && sql.includes('organization_members membership') && sql.includes('FOR UPDATE'))).toBe(true)
+})
+
+test('support role recovery locks active organization admins and rechecks their availability', async () => {
+    supportOrganization = { id: 'org-1', name: 'Org', slug: 'org', status: 'active' }
+    supportAvailabilityResults = [[], [{ organization_id: 'org-1', active_admin_count: 1 }]]
+
+    const result = await request(postSupportOrganizationMemberRoleRecovery, {
+        params: { id: 'org-1', userId: 'member-1' },
+        body: { role: 'reader', reason: 'Restore member access', scope: 'member:role_recovery', requestId: 'role-admin-race-1' },
+    })
+
+    expect(result.statusCode).toBe(409)
+    expect(result.body.detail.code).toBe('active_admin_available')
+    expect(queries.some(({ sql }) => sql.includes('membership.role IN (\'owner\', \'admin\')') && sql.includes('FOR UPDATE'))).toBe(true)
+    expect(queries.some(({ sql }) => sql.includes('UPDATE organization_members') && sql.includes('SET role = $3'))).toBe(false)
 })
 
 test('access recovery search applies requester, approver, status, outcome, organization, and request filters', async () => {
