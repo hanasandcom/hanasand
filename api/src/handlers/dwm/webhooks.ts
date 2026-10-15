@@ -291,17 +291,16 @@ export async function putDwmWebhookDestination(req: FastifyRequest<{ Params: IdP
     }
 
     try {
-        const currentDestinations = await listDwmWebhookDestinations(userId, destinationOrgId)
-        const destinationBefore = currentDestinations.find(item => item.id === req.params.id) || null
-        const action = destinationCrudActionForUpdate(req.body, destinationBefore)
+        const preflight = await loadDestinationCrudContext(userId, destinationOrgId, req.params.id)
+        const action = destinationCrudActionForUpdate(req.body, preflight.destination)
         const preflightCrud = buildDwmWebhookDestinationCrudContract({
             action,
             ownerId: userId,
             input: { ...req.body, orgId: nextOrgId },
-            destination: destinationBefore,
-            destinations: currentDestinations,
-            deliveries: await listDwmWebhookDeliveries(userId, destinationOrgId),
-            auditEvents: await listDwmWebhookAuditEvents(userId, destinationOrgId),
+            destination: preflight.destination,
+            destinations: preflight.destinations,
+            deliveries: preflight.deliveries,
+            auditEvents: preflight.auditEvents,
             viewerRole: 'admin',
             canManage: true,
         })
@@ -318,7 +317,7 @@ export async function putDwmWebhookDestination(req: FastifyRequest<{ Params: IdP
         }
         const deliveries = await listDwmWebhookDeliveries(userId, destination.orgId)
         const auditEvents = await listDwmWebhookAuditEvents(userId, destination.orgId)
-        const destinations = currentDestinations.map(item => item.id === destination.id ? destination : item)
+        const destinations = preflight.destinations.map(item => item.id === destination.id ? destination : item)
         return res.send(buildDwmWebhookDestinationChangeResponse({
             action,
             ownerId: userId,
@@ -347,16 +346,15 @@ export async function deleteDwmWebhookDestination(req: FastifyRequest<{ Params: 
         return res.status(permissionError.status).send({ error: permissionError.message })
     }
 
-    const currentDestinations = await listDwmWebhookDestinations(userId, existing.orgId)
-    const destinationBefore = currentDestinations.find(item => item.id === req.params.id) || null
+    const preflight = await loadDestinationCrudContext(userId, existing.orgId, req.params.id)
     const preflightCrud = buildDwmWebhookDestinationCrudContract({
         action: 'delete',
         ownerId: userId,
         input: { orgId: existing.orgId },
-        destination: destinationBefore,
-        destinations: currentDestinations,
-        deliveries: await listDwmWebhookDeliveries(userId, existing.orgId),
-        auditEvents: await listDwmWebhookAuditEvents(userId, existing.orgId),
+        destination: preflight.destination,
+        destinations: preflight.destinations,
+        deliveries: preflight.deliveries,
+        auditEvents: preflight.auditEvents,
         viewerRole: 'admin',
         canManage: true,
     })
@@ -373,7 +371,7 @@ export async function deleteDwmWebhookDestination(req: FastifyRequest<{ Params: 
     }
     const deliveries = await listDwmWebhookDeliveries(userId, destination.orgId)
     const auditEvents = await listDwmWebhookAuditEvents(userId, destination.orgId)
-    const destinations = [destination, ...currentDestinations.filter(item => item.id !== destination.id)]
+    const destinations = [destination, ...preflight.destinations.filter(item => item.id !== destination.id)]
     return res.send(buildDwmWebhookDestinationChangeResponse({
         action: 'delete',
         ownerId: userId,
@@ -439,18 +437,15 @@ export async function postDwmWebhookDestinationTest(req: FastifyRequest<{ Params
         return res.status(permissionError.status).send({ error: permissionError.message })
     }
 
-    const preflightDestinations = await listDwmWebhookDestinations(userId, existing.orgId)
-    const preflightDestination = preflightDestinations.find(item => item.id === req.params.id) || null
-    const preflightDeliveries = await listDwmWebhookDeliveries(userId, existing.orgId)
-    const preflightAuditEvents = await listDwmWebhookAuditEvents(userId, existing.orgId)
+    const preflight = await loadDestinationCrudContext(userId, existing.orgId, req.params.id)
     const preflightCrud = buildDwmWebhookDestinationCrudContract({
         action: 'test',
         ownerId: userId,
         input: { ...(req.body || {}), orgId: existing.orgId },
-        destination: preflightDestination,
-        destinations: preflightDestinations,
-        deliveries: preflightDeliveries,
-        auditEvents: preflightAuditEvents,
+        destination: preflight.destination,
+        destinations: preflight.destinations,
+        deliveries: preflight.deliveries,
+        auditEvents: preflight.auditEvents,
         viewerRole: 'admin',
         canManage: true,
     })
@@ -1112,6 +1107,14 @@ function destinationCrudActionForUpdate(input: DwmWebhookDestinationInput, desti
     const nextStatus = clean(input.status)
     if (destination && destination.status !== 'active' && nextStatus === 'active') return 'enable' as const
     return 'update' as const
+}
+
+async function loadDestinationCrudContext(ownerId: string, orgId: string, destinationId: string) {
+    const destinations = await listDwmWebhookDestinations(ownerId, orgId)
+    const destination = destinations.find(item => item.id === destinationId) || null
+    const deliveries = await listDwmWebhookDeliveries(ownerId, orgId)
+    const auditEvents = await listDwmWebhookAuditEvents(ownerId, orgId)
+    return { destinations, destination, deliveries, auditEvents }
 }
 
 async function loadOrganizationMembership(orgId: string, userId: string): Promise<Membership | null> {
