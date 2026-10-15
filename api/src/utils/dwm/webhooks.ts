@@ -406,6 +406,25 @@ function webhookVisibilityDecision(visibility: DwmWebhookEvidenceVisibilityInput
         }
 }
 
+function webhookDeliveryVisibilityAccess(
+    visibility: DwmWebhookEvidenceVisibilityInput | null,
+    viewerRole: string | null,
+    canManage: boolean,
+) {
+    const decision = webhookVisibilityDecision(visibility)
+    const canRetry = decision.allowed && canManage
+    return {
+        decision,
+        access: {
+            role: clean(viewerRole) || null,
+            canRead: decision.allowed,
+            canManage: canRetry,
+            canRetry,
+            memberSafe: decision.allowed && !canManage,
+        },
+    }
+}
+
 function normalizeWebhookEvidenceFilters(filters: DwmWebhookDeliveryEvidenceFilters) {
     return {
         orgId: clean(filters.orgId) || null,
@@ -1618,14 +1637,7 @@ export function buildDwmWebhookDeliveryReadinessConsumerProof({
     canManage?: boolean
     visibility?: DwmWebhookEvidenceVisibilityInput | null
 }) {
-    const decision = webhookVisibilityDecision(visibility)
-    const access = {
-        role: clean(viewerRole) || null,
-        canRead: decision.allowed,
-        canManage: decision.allowed && canManage,
-        canRetry: decision.allowed && canManage,
-        memberSafe: decision.allowed && !canManage,
-    }
+    const { decision, access } = webhookDeliveryVisibilityAccess(visibility, viewerRole, canManage)
     const normalizedFilters = normalizeWebhookEvidenceFilters(filters)
     const permissionBlocker = retryQueueBlocker('permission_denied', 'Webhook delivery readiness is not visible for this organization membership.', normalizedFilters.destinationId, true)
 
@@ -2010,14 +2022,7 @@ export function buildDwmWebhookDeliveryReceipts({
     canManage?: boolean
     visibility?: DwmWebhookEvidenceVisibilityInput | null
 }) {
-    const decision = webhookVisibilityDecision(visibility)
-    const access = {
-        role: clean(viewerRole) || null,
-        canRead: decision.allowed,
-        canManage: decision.allowed && canManage,
-        canRetry: decision.allowed && canManage,
-        memberSafe: decision.allowed && !canManage,
-    }
+    const { decision, access } = webhookDeliveryVisibilityAccess(visibility, viewerRole, canManage)
     const normalizedFilters = normalizeWebhookEvidenceFilters(filters)
     const permissionBlocker = retryQueueBlocker('permission_denied', 'Webhook delivery receipts are not visible for this organization membership.', normalizedFilters.destinationId, true)
     if (!decision.allowed) {
@@ -2974,14 +2979,7 @@ export function buildDwmWebhookDeliveryRetryQueue({
     canManage?: boolean
     visibility?: DwmWebhookEvidenceVisibilityInput | null
 }) {
-    const decision = webhookVisibilityDecision(visibility)
-    const access = {
-        role: clean(viewerRole) || null,
-        canRead: decision.allowed,
-        canManage: decision.allowed && canManage,
-        canRetry: decision.allowed && canManage,
-        memberSafe: decision.allowed && !canManage,
-    }
+    const { decision, access } = webhookDeliveryVisibilityAccess(visibility, viewerRole, canManage)
     const deniedBlocker = retryQueueBlocker('permission_denied', 'Webhook delivery retry queue is not visible for this organization membership.', null, true)
     if (!decision.allowed) {
         return {
