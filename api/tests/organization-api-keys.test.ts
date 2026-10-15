@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
-import { readFile } from 'node:fs/promises'
 import {
     createApiKey,
     listOrganizationApiKeys,
@@ -25,8 +24,8 @@ beforeEach(() => {
 describe('organization API key onboarding', () => {
     test('schema retains organizations and their keys when a creator account is removed', async () => {
         const [init, ensureSchema] = await Promise.all([
-            readFile(new URL('../../db/init.sql', import.meta.url), 'utf8'),
-            readFile(new URL('../src/utils/db/ensureSchema.ts', import.meta.url), 'utf8'),
+            Bun.file(new URL('../../db/init.sql', import.meta.url)).text(),
+            Bun.file(new URL('../src/utils/db/ensureSchema.ts', import.meta.url)).text(),
         ])
         expect(init).toContain('created_by TEXT REFERENCES users(id) ON DELETE SET NULL')
         expect(ensureSchema).toContain('ALTER TABLE organizations ALTER COLUMN created_by DROP NOT NULL')

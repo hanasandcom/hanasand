@@ -2637,14 +2637,7 @@ const alertVisibilityPolicies = new Set<OrganizationAlertVisibilityPolicy>(['mem
 const organizationLifecycleStatuses = new Set<OrganizationLifecycleStatus>(['active', 'archived', 'deleted'])
 
 export function normalizeOrganizationInput(body: OrganizationInput | undefined) {
-    const name = cleanText(body?.name)
-    if (!name) {
-        throw new Error('Organization name is required.')
-    }
-
-    if (name.length > 120) {
-        throw new Error('Organization name must be 120 characters or fewer.')
-    }
+    const name = normalizeSettingsName(body?.name)
 
     return {
         name,
@@ -3251,9 +3244,9 @@ export function organizationAnalystPortalVisibilityAdapter(
 
 export function organizationAlertCaseWorkflowState(
     proof: OrganizationSharedWatchlistDownstreamProof,
-    downstreamAuthorization: OrganizationDownstreamAuthorizationExport
+    downstreamAuthorization: OrganizationDownstreamAuthorizationExport,
+    analystPortalAdapter = organizationAnalystPortalVisibilityAdapter(proof, downstreamAuthorization)
 ) {
-    const analystPortalAdapter = organizationAnalystPortalVisibilityAdapter(proof, downstreamAuthorization)
     const alertQueue = proof.alertBridge.queueVisibilityContract
     const caseWorkflow = proof.caseBridge.caseWorkflowContract
 

@@ -121,10 +121,8 @@ type BulkInviteResult = {
 }
 
 export async function postOrganization(req: FastifyRequest<{ Body: OrganizationInput }>, res: FastifyReply) {
-    const { valid, id: userId } = await tokenWrapper(req, res)
-    if (!valid || !userId) {
-        return res.status(401).send({ error: 'Unauthorized.' })
-    }
+    const userId = await authenticateOrganizationRequest(req, res)
+    if (!userId) return
 
     let input: ReturnType<typeof normalizeOrganizationInput>
     try {
@@ -175,26 +173,16 @@ export async function postOrganization(req: FastifyRequest<{ Body: OrganizationI
 }
 
 export async function getOrganization(req: FastifyRequest<{ Params: OrganizationParams }>, res: FastifyReply) {
-    const { valid, id: userId } = await tokenWrapper(req, res)
-    if (!valid || !userId) {
-        return res.status(401).send({ error: 'Unauthorized.' })
-    }
+    const userId = await authenticateOrganizationRequest(req, res)
+    if (!userId) return
 
     const organization = await loadOrganizationForMember(req.params.id, userId)
     if (!organization) {
-        const denial = organizationAccessDenial({
+        return sendOrganizationAccessDenial(req, res, {
             organizationId: req.params.id,
             actorId: userId,
             route: 'GET /api/organizations/:id',
-            requestId: req.headers['x-request-id'] ? String(req.headers['x-request-id']) : null,
         })
-        logOrganizationEvent(req, denial.serviceLogAction, req.params.id, userId, {
-            requestId: denial.requestId,
-            route: denial.route,
-            blockerCode: denial.blockerCode,
-            denialReason: denial.denialReason,
-        })
-        return res.status(denial.statusCode).send({ error: denial.message, organizationAccessDenial: denial })
     }
 
     return res.send({
@@ -205,8 +193,8 @@ export async function getOrganization(req: FastifyRequest<{ Params: Organization
 
 export async function getOrganizationApiKeys(req: FastifyRequest<{ Params: OrganizationParams }>, res: FastifyReply) {
     res.header('Cache-Control', 'no-store')
-    const { valid, id: userId } = await tokenWrapper(req, res)
-    if (!valid || !userId) return res.status(401).send({ error: { code: 'authentication_required', message: 'Sign in to manage organization API keys.' } })
+    const userId = await authenticateOrganizationRequest(req, res, { error: { code: 'authentication_required', message: 'Sign in to manage organization API keys.' } })
+    if (!userId) return
 
     const organization = await loadOrganizationForMember(req.params.id, userId)
     if (!organization) return res.status(404).send({ error: { code: 'organization_not_found', message: 'Organization not found.' } })
@@ -220,8 +208,8 @@ export async function getOrganizationApiKeys(req: FastifyRequest<{ Params: Organ
 
 export async function postOrganizationApiKey(req: FastifyRequest<{ Params: OrganizationParams, Body: { name?: unknown } }>, res: FastifyReply) {
     res.header('Cache-Control', 'no-store')
-    const { valid, id: userId } = await tokenWrapper(req, res)
-    if (!valid || !userId) return res.status(401).send({ error: { code: 'authentication_required', message: 'Sign in to create an organization API key.' } })
+    const userId = await authenticateOrganizationRequest(req, res, { error: { code: 'authentication_required', message: 'Sign in to create an organization API key.' } })
+    if (!userId) return
 
     const organization = await loadOrganizationForMember(req.params.id, userId)
     if (!organization) return res.status(404).send({ error: { code: 'organization_not_found', message: 'Organization not found.' } })
@@ -277,8 +265,8 @@ export async function postOrganizationApiKey(req: FastifyRequest<{ Params: Organ
 
 export async function deleteOrganizationApiKey(req: FastifyRequest<{ Params: OrganizationApiKeyParams }>, res: FastifyReply) {
     res.header('Cache-Control', 'no-store')
-    const { valid, id: userId } = await tokenWrapper(req, res)
-    if (!valid || !userId) return res.status(401).send({ error: { code: 'authentication_required', message: 'Sign in to revoke an organization API key.' } })
+    const userId = await authenticateOrganizationRequest(req, res, { error: { code: 'authentication_required', message: 'Sign in to revoke an organization API key.' } })
+    if (!userId) return
 
     const organization = await loadOrganizationForMember(req.params.id, userId)
     if (!organization) return res.status(404).send({ error: { code: 'organization_not_found', message: 'Organization not found.' } })
@@ -294,10 +282,8 @@ export async function deleteOrganizationApiKey(req: FastifyRequest<{ Params: Org
 }
 
 export async function getOrganizationSettings(req: FastifyRequest<{ Params: OrganizationParams }>, res: FastifyReply) {
-    const { valid, id: userId } = await tokenWrapper(req, res)
-    if (!valid || !userId) {
-        return res.status(401).send({ error: 'Unauthorized.' })
-    }
+    const userId = await authenticateOrganizationRequest(req, res)
+    if (!userId) return
 
     const organization = await loadOrganizationForMember(req.params.id, userId)
     if (!organization) {
@@ -313,10 +299,8 @@ export async function getOrganizationSettings(req: FastifyRequest<{ Params: Orga
 }
 
 export async function putOrganizationSettings(req: FastifyRequest<{ Params: OrganizationParams, Body: OrganizationSettingsInput }>, res: FastifyReply) {
-    const { valid, id: userId } = await tokenWrapper(req, res)
-    if (!valid || !userId) {
-        return res.status(401).send({ error: 'Unauthorized.' })
-    }
+    const userId = await authenticateOrganizationRequest(req, res)
+    if (!userId) return
 
     const organization = await loadOrganizationForMember(req.params.id, userId)
     if (!organization) {
@@ -507,10 +491,8 @@ export async function putOrganizationSettings(req: FastifyRequest<{ Params: Orga
 }
 
 export async function getOrganizationInvites(req: FastifyRequest<{ Params: OrganizationParams, Querystring: { requestId?: string, request_id?: string } }>, res: FastifyReply) {
-    const { valid, id: userId } = await tokenWrapper(req, res)
-    if (!valid || !userId) {
-        return res.status(401).send({ error: 'Unauthorized.' })
-    }
+    const userId = await authenticateOrganizationRequest(req, res)
+    if (!userId) return
 
     const organization = await loadOrganizationForMember(req.params.id, userId)
     if (!organization) {
@@ -543,10 +525,8 @@ export async function getOrganizationInvites(req: FastifyRequest<{ Params: Organ
 }
 
 export async function getOrganizationMembers(req: FastifyRequest<{ Params: OrganizationParams }>, res: FastifyReply) {
-    const { valid, id: userId } = await tokenWrapper(req, res)
-    if (!valid || !userId) {
-        return res.status(401).send({ error: 'Unauthorized.' })
-    }
+    const userId = await authenticateOrganizationRequest(req, res)
+    if (!userId) return
 
     const organization = await loadOrganizationForMember(req.params.id, userId)
     if (!organization) {
@@ -584,10 +564,8 @@ export async function getOrganizationMembers(req: FastifyRequest<{ Params: Organ
 }
 
 export async function deleteOrganizationMember(req: FastifyRequest<{ Params: OrganizationMemberParams }>, res: FastifyReply) {
-    const { valid, id: userId } = await tokenWrapper(req, res)
-    if (!valid || !userId) {
-        return res.status(401).send({ error: 'Unauthorized.' })
-    }
+    const userId = await authenticateOrganizationRequest(req, res)
+    if (!userId) return
 
     const organization = await loadOrganizationForMember(req.params.id, userId)
     if (!organization) {
@@ -954,10 +932,8 @@ export async function deleteOrganizationMember(req: FastifyRequest<{ Params: Org
 }
 
 export async function patchOrganizationMemberRole(req: FastifyRequest<{ Params: OrganizationMemberParams, Body: OrganizationMemberRoleInput }>, res: FastifyReply) {
-    const { valid, id: userId } = await tokenWrapper(req, res)
-    if (!valid || !userId) {
-        return res.status(401).send({ error: 'Unauthorized.' })
-    }
+    const userId = await authenticateOrganizationRequest(req, res)
+    if (!userId) return
 
     const organization = await loadOrganizationForMember(req.params.id, userId)
     if (!organization) {
@@ -1261,10 +1237,8 @@ export async function patchOrganizationMemberRole(req: FastifyRequest<{ Params: 
 }
 
 export async function postOrganizationOwnershipTransfer(req: FastifyRequest<{ Params: OrganizationParams, Body: OrganizationOwnershipTransferInput }>, res: FastifyReply) {
-    const { valid, id: userId } = await tokenWrapper(req, res)
-    if (!valid || !userId) {
-        return res.status(401).send({ error: 'Unauthorized.' })
-    }
+    const userId = await authenticateOrganizationRequest(req, res)
+    if (!userId) return
 
     const organization = await loadOrganizationForMember(req.params.id, userId)
     if (!organization) {
@@ -1384,10 +1358,8 @@ export async function postOrganizationOwnershipTransfer(req: FastifyRequest<{ Pa
 }
 
 export async function postOrganizationInvites(req: FastifyRequest<{ Params: OrganizationParams, Body: InviteInput }>, res: FastifyReply) {
-    const { valid, id: userId } = await tokenWrapper(req, res)
-    if (!valid || !userId) {
-        return res.status(401).send({ error: 'Unauthorized.' })
-    }
+    const userId = await authenticateOrganizationRequest(req, res)
+    if (!userId) return
 
     const organization = await loadOrganizationForMember(req.params.id, userId)
     if (!organization) {
@@ -1523,10 +1495,8 @@ export async function postOrganizationInvites(req: FastifyRequest<{ Params: Orga
 }
 
 export async function postOrganizationInviteAction(req: FastifyRequest<{ Params: OrganizationInviteParams, Body: InviteActionInput }>, res: FastifyReply) {
-    const { valid, id: userId } = await tokenWrapper(req, res)
-    if (!valid || !userId) {
-        return res.status(401).send({ error: 'Unauthorized.' })
-    }
+    const userId = await authenticateOrganizationRequest(req, res)
+    if (!userId) return
 
     const organization = await loadOrganizationForMember(req.params.id, userId)
     if (!organization) {
@@ -1755,10 +1725,8 @@ export async function postOrganizationInviteAction(req: FastifyRequest<{ Params:
 }
 
 export async function postOrganizationInviteAccept(req: FastifyRequest<{ Params: InviteParams }>, res: FastifyReply) {
-    const { valid, id: userId } = await tokenWrapper(req, res)
-    if (!valid || !userId) {
-        return res.status(401).send({ error: 'Unauthorized.' })
-    }
+    const userId = await authenticateOrganizationRequest(req, res)
+    if (!userId) return
 
     const result = await withTransaction(async query => {
         const acceptedResult = await query(`
@@ -2018,26 +1986,16 @@ export async function postOrganizationInviteAccept(req: FastifyRequest<{ Params:
 }
 
 export async function getOrganizationWatchlists(req: FastifyRequest<{ Params: OrganizationParams }>, res: FastifyReply) {
-    const { valid, id: userId } = await tokenWrapper(req, res)
-    if (!valid || !userId) {
-        return res.status(401).send({ error: 'Unauthorized.' })
-    }
+    const userId = await authenticateOrganizationRequest(req, res)
+    if (!userId) return
 
     const organization = await loadOrganizationForMember(req.params.id, userId)
     if (!organization) {
-        const denial = organizationAccessDenial({
+        return sendOrganizationAccessDenial(req, res, {
             organizationId: req.params.id,
             actorId: userId,
             route: 'GET /api/organizations/:id/watchlists',
-            requestId: req.headers['x-request-id'] ? String(req.headers['x-request-id']) : null,
         })
-        logOrganizationEvent(req, denial.serviceLogAction, req.params.id, userId, {
-            requestId: denial.requestId,
-            route: denial.route,
-            blockerCode: denial.blockerCode,
-            denialReason: denial.denialReason,
-        })
-        return res.status(denial.statusCode).send({ error: denial.message, organizationAccessDenial: denial })
     }
 
     const query = req.query as WatchlistQuery | undefined
@@ -2063,10 +2021,8 @@ export async function getOrganizationWatchlists(req: FastifyRequest<{ Params: Or
 }
 
 export async function getOrganizationWatchlist(req: FastifyRequest<{ Params: WatchlistParams }>, res: FastifyReply) {
-    const { valid, id: userId } = await tokenWrapper(req, res)
-    if (!valid || !userId) {
-        return res.status(401).send({ error: 'Unauthorized.' })
-    }
+    const userId = await authenticateOrganizationRequest(req, res)
+    if (!userId) return
 
     const organization = await loadOrganizationForMember(req.params.organizationId, userId)
     if (!organization) {
@@ -2214,26 +2170,16 @@ export async function getOrganizationWatchlist(req: FastifyRequest<{ Params: Wat
 }
 
 export async function getOrganizationAlertReadiness(req: FastifyRequest<{ Params: OrganizationParams }>, res: FastifyReply) {
-    const { valid, id: userId } = await tokenWrapper(req, res)
-    if (!valid || !userId) {
-        return res.status(401).send({ error: 'Unauthorized.' })
-    }
+    const userId = await authenticateOrganizationRequest(req, res)
+    if (!userId) return
 
     const organization = await loadOrganizationForMember(req.params.id, userId)
     if (!organization) {
-        const denial = organizationAccessDenial({
+        return sendOrganizationAccessDenial(req, res, {
             organizationId: req.params.id,
             actorId: userId,
             route: 'GET /api/organizations/:id/alert-readiness',
-            requestId: req.headers['x-request-id'] ? String(req.headers['x-request-id']) : null,
         })
-        logOrganizationEvent(req, denial.serviceLogAction, req.params.id, userId, {
-            requestId: denial.requestId,
-            route: denial.route,
-            blockerCode: denial.blockerCode,
-            denialReason: denial.denialReason,
-        })
-        return res.status(denial.statusCode).send({ error: denial.message, organizationAccessDenial: denial })
     }
 
     const result = await run(`
@@ -2349,26 +2295,16 @@ export async function getOrganizationAlertReadiness(req: FastifyRequest<{ Params
 }
 
 export async function getOrganizationWatchlistAlertTerms(req: FastifyRequest<{ Params: OrganizationParams, Querystring: { requestId?: string, request_id?: string } }>, res: FastifyReply) {
-    const { valid, id: userId } = await tokenWrapper(req, res)
-    if (!valid || !userId) {
-        return res.status(401).send({ error: 'Unauthorized.' })
-    }
+    const userId = await authenticateOrganizationRequest(req, res)
+    if (!userId) return
 
     const organization = await loadOrganizationForMember(req.params.id, userId)
     if (!organization) {
-        const denial = organizationAccessDenial({
+        return sendOrganizationAccessDenial(req, res, {
             organizationId: req.params.id,
             actorId: userId,
             route: 'GET /api/organizations/:id/watchlists/alert-terms',
-            requestId: req.headers['x-request-id'] ? String(req.headers['x-request-id']) : null,
         })
-        logOrganizationEvent(req, denial.serviceLogAction, req.params.id, userId, {
-            requestId: denial.requestId,
-            route: denial.route,
-            blockerCode: denial.blockerCode,
-            denialReason: denial.denialReason,
-        })
-        return res.status(denial.statusCode).send({ error: denial.message, organizationAccessDenial: denial })
     }
 
     const requestId = normalizeWatchlistRequestId(req.query?.requestId ?? req.query?.request_id)
@@ -2431,26 +2367,17 @@ export async function getOrganizationWatchlistAlertTerms(req: FastifyRequest<{ P
 }
 
 export async function getOrganizationAlertCaseVisibility(req: FastifyRequest<{ Params: OrganizationParams, Querystring: { requestId?: string, request_id?: string } }>, res: FastifyReply) {
-    const { valid, id: userId } = await tokenWrapper(req, res)
-    if (!valid || !userId) {
-        return res.status(401).send({ error: 'Unauthorized.' })
-    }
+    const userId = await authenticateOrganizationRequest(req, res)
+    if (!userId) return
 
     const organization = await loadOrganizationForMember(req.params.id, userId)
     if (!organization) {
-        const denial = organizationAccessDenial({
+        return sendOrganizationAccessDenial(req, res, {
             organizationId: req.params.id,
             actorId: userId,
             route: 'GET /api/organizations/:id/alert-case-visibility',
             requestId: req.query?.requestId ?? req.query?.request_id ?? (req.headers['x-request-id'] ? String(req.headers['x-request-id']) : null),
         })
-        logOrganizationEvent(req, denial.serviceLogAction, req.params.id, userId, {
-            requestId: denial.requestId,
-            route: denial.route,
-            blockerCode: denial.blockerCode,
-            denialReason: denial.denialReason,
-        })
-        return res.status(denial.statusCode).send({ error: denial.message, organizationAccessDenial: denial })
     }
 
     const result = await run(`
@@ -2583,7 +2510,8 @@ export async function getOrganizationAlertCaseVisibility(req: FastifyRequest<{ P
 
     const alertQueue = downstreamProof.alertBridge.queueVisibilityContract
     const caseWorkflow = downstreamProof.caseBridge.caseWorkflowContract
-    const alertCaseWorkflowState = organizationAlertCaseWorkflowState(downstreamProof, downstreamAuthorization)
+    const analystPortalAdapter = organizationAnalystPortalVisibilityAdapter(downstreamProof, downstreamAuthorization)
+    const alertCaseWorkflowState = organizationAlertCaseWorkflowState(downstreamProof, downstreamAuthorization, analystPortalAdapter)
     return res.send({
         organization: toOrganization(organization),
         alertCaseVisibility: {
@@ -2599,7 +2527,7 @@ export async function getOrganizationAlertCaseVisibility(req: FastifyRequest<{ P
             routes,
             requiredQueryFields: ['organizationId'],
             allowedActions: downstreamAuthorization.allowedActions,
-            analystPortalAdapter: organizationAnalystPortalVisibilityAdapter(downstreamProof, downstreamAuthorization),
+            analystPortalAdapter,
             workflowState: alertCaseWorkflowState,
             alertQueue: {
                 route: alertQueue.routes.list,
@@ -2737,10 +2665,8 @@ export async function getOrganizationAlertCaseVisibility(req: FastifyRequest<{ P
 }
 
 export async function postOrganizationWatchlist(req: FastifyRequest<{ Params: OrganizationParams, Body: WatchlistInput }>, res: FastifyReply) {
-    const { valid, id: userId } = await tokenWrapper(req, res)
-    if (!valid || !userId) {
-        return res.status(401).send({ error: 'Unauthorized.' })
-    }
+    const userId = await authenticateOrganizationRequest(req, res)
+    if (!userId) return
 
     const organization = await loadOrganizationForMember(req.params.id, userId)
     if (!organization) {
@@ -2851,10 +2777,8 @@ export async function postOrganizationWatchlist(req: FastifyRequest<{ Params: Or
 }
 
 export async function putOrganizationWatchlist(req: FastifyRequest<{ Params: WatchlistParams, Body: WatchlistInput }>, res: FastifyReply) {
-    const { valid, id: userId } = await tokenWrapper(req, res)
-    if (!valid || !userId) {
-        return res.status(401).send({ error: 'Unauthorized.' })
-    }
+    const userId = await authenticateOrganizationRequest(req, res)
+    if (!userId) return
 
     const organization = await loadOrganizationForMember(req.params.organizationId, userId)
     if (!organization) {
@@ -2941,10 +2865,8 @@ export async function putOrganizationWatchlist(req: FastifyRequest<{ Params: Wat
 }
 
 export async function deleteOrganizationWatchlist(req: FastifyRequest<{ Params: WatchlistParams, Body: WatchlistMutationBody, Querystring: { requestId?: string, request_id?: string } }>, res: FastifyReply) {
-    const { valid, id: userId } = await tokenWrapper(req, res)
-    if (!valid || !userId) {
-        return res.status(401).send({ error: 'Unauthorized.' })
-    }
+    const userId = await authenticateOrganizationRequest(req, res)
+    if (!userId) return
 
     const organization = await loadOrganizationForMember(req.params.organizationId, userId)
     if (!organization) {
@@ -3021,10 +2943,8 @@ export async function deleteOrganizationWatchlist(req: FastifyRequest<{ Params: 
 }
 
 export async function postOrganizationWatchlistAction(req: FastifyRequest<{ Params: WatchlistParams, Body: WatchlistActionInput }>, res: FastifyReply) {
-    const { valid, id: userId } = await tokenWrapper(req, res)
-    if (!valid || !userId) {
-        return res.status(401).send({ error: 'Unauthorized.' })
-    }
+    const userId = await authenticateOrganizationRequest(req, res)
+    if (!userId) return
 
     const organization = await loadOrganizationForMember(req.params.organizationId, userId)
     if (!organization) {
@@ -3123,10 +3043,8 @@ export async function postOrganizationWatchlistAction(req: FastifyRequest<{ Para
 }
 
 export async function postOrganizationWatchlistCleanup(req: FastifyRequest<{ Params: OrganizationParams, Body: WatchlistCleanupInput }>, res: FastifyReply) {
-    const { valid, id: userId } = await tokenWrapper(req, res)
-    if (!valid || !userId) {
-        return res.status(401).send({ error: 'Unauthorized.' })
-    }
+    const userId = await authenticateOrganizationRequest(req, res)
+    if (!userId) return
 
     const organization = await loadOrganizationForMember(req.params.id, userId)
     if (!organization) {
@@ -3451,6 +3369,43 @@ function sendOrganizationLifecycleBlocker(req: FastifyRequest, res: FastifyReply
             lifecycleStatus: blocker.status,
         },
     })
+}
+
+async function authenticateOrganizationRequest(
+    req: FastifyRequest,
+    res: FastifyReply,
+    unauthorizedBody: { error: unknown } = { error: 'Unauthorized.' }
+) {
+    const { valid, id: userId } = await tokenWrapper(req, res)
+    if (!valid || !userId) {
+        res.status(401).send(unauthorizedBody)
+        return null
+    }
+
+    return userId
+}
+
+function sendOrganizationAccessDenial(
+    req: FastifyRequest,
+    res: FastifyReply,
+    input: {
+        organizationId: string
+        actorId: string
+        route: Parameters<typeof organizationAccessDenial>[0]['route']
+        requestId?: string | null
+    }
+) {
+    const denial = organizationAccessDenial({
+        ...input,
+        requestId: input.requestId ?? (req.headers['x-request-id'] ? String(req.headers['x-request-id']) : null),
+    })
+    logOrganizationEvent(req, denial.serviceLogAction, input.organizationId, input.actorId, {
+        requestId: denial.requestId,
+        route: denial.route,
+        blockerCode: denial.blockerCode,
+        denialReason: denial.denialReason,
+    })
+    return res.status(denial.statusCode).send({ error: denial.message, organizationAccessDenial: denial })
 }
 
 function organizationSettingsPermissions(role: OrganizationRole | undefined) {
