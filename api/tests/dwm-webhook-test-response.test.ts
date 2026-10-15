@@ -78,6 +78,25 @@ describe('DWM webhook destination change response', () => {
         expect(response.destinationAdminProof.destinations).toHaveLength(1)
         expect(response.auditEventContracts).toEqual([])
 
+        const testResponse = buildDwmWebhookDestinationChangeResponse({
+            action: 'test',
+            ownerId: 'owner_1',
+            input: { orgId: 'org_1' },
+            destination,
+            destinations: [destination, otherDestination],
+            deliveries: [],
+            auditEvents: [],
+            includeDestination: false,
+        })
+        expect(testResponse).not.toHaveProperty('destination')
+        expect(testResponse.destinationCrud).toMatchObject({ action: 'test', ownerId: 'owner_1', orgId: 'org_1' })
+        expect(testResponse.destinationContract).toMatchObject({ id: 'destination_1' })
+        expect(testResponse.destinationHealth).toMatchObject({ destinationId: 'destination_1' })
+        expect(testResponse.customerSetup.summary.destinationCount).toBe(2)
+        expect(testResponse.destinationLifecycle).toMatchObject({ destinationId: 'destination_1' })
+        expect(testResponse.destinationAdminProof.destinations).toHaveLength(1)
+        expect(testResponse.auditEventContracts).toEqual([])
+
         const archivedDestination = { ...destination, status: 'archived' as const }
         const deleteResponse = buildDwmWebhookDestinationChangeResponse({
             action: 'delete',

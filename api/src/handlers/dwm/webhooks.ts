@@ -391,6 +391,7 @@ export function buildDwmWebhookDestinationChangeResponse({
     destinations,
     deliveries,
     auditEvents,
+    includeDestination = true,
 }: {
     action: Parameters<typeof buildDwmWebhookDestinationCrudContract>[0]['action']
     ownerId: string
@@ -399,11 +400,12 @@ export function buildDwmWebhookDestinationChangeResponse({
     destinations: Awaited<ReturnType<typeof listDwmWebhookDestinations>>
     deliveries: Awaited<ReturnType<typeof listDwmWebhookDeliveries>>
     auditEvents: Awaited<ReturnType<typeof listDwmWebhookAuditEvents>>
+    includeDestination?: boolean
 }) {
     const destinationOnly = [destination]
     const viewer = { viewerRole: 'admin' as const, canManage: true }
     return {
-        destination,
+        ...(includeDestination ? { destination } : {}),
         destinationCrud: buildDwmWebhookDestinationCrudContract({
             action,
             ownerId,
@@ -464,28 +466,24 @@ export async function postDwmWebhookDestinationTest(req: FastifyRequest<{ Params
     const destination = destinations.find(item => item.id === req.params.id)
     const deliveries = await listDwmWebhookDeliveries(userId, existing.orgId)
     const auditEvents = await listDwmWebhookAuditEvents(userId, existing.orgId)
+    const destinationChangeResponse = destination
+        ? buildDwmWebhookDestinationChangeResponse({
+            action: 'test',
+            ownerId: userId,
+            input: { ...(req.body || {}), orgId: existing.orgId },
+            destination,
+            destinations,
+            deliveries,
+            auditEvents,
+            includeDestination: false,
+        })
+        : null
     const response = {
         delivery,
         preview: buildDwmWebhookDeliveryPreview(delivery),
-        destinationCrud: destination
-            ? buildDwmWebhookDestinationCrudContract({
-                action: 'test',
-                ownerId: userId,
-                input: { ...(req.body || {}), orgId: existing.orgId },
-                destination,
-                destinations,
-                deliveries,
-                auditEvents,
-                viewerRole: 'admin',
-                canManage: true,
-            })
-            : null,
-        destinationContract: destination
-            ? buildDwmWebhookDestinationContracts({ destinations: [destination], deliveries, auditEvents })[0]
-            : null,
-        destinationHealth: destination
-            ? buildDwmWebhookDestinationHealth({ destinations: [destination], deliveries, auditEvents })[0]
-            : null,
+        destinationCrud: destination ? destinationChangeResponse!.destinationCrud : null,
+        destinationContract: destination ? destinationChangeResponse!.destinationContract : null,
+        destinationHealth: destination ? destinationChangeResponse!.destinationHealth : null,
         destinationTest: destination
             ? buildDwmWebhookDestinationTestContract({
                 destination,
@@ -495,24 +493,20 @@ export async function postDwmWebhookDestinationTest(req: FastifyRequest<{ Params
                 canManage: true,
             })
             : null,
-        customerSetup: buildDwmWebhookCustomerSetupProof({
-            destinations,
-            deliveries,
-            auditEvents,
-            viewerRole: 'admin',
-            canManage: true,
-        }),
-        destinationLifecycle: destination
-            ? buildDwmWebhookDestinationLifecycle({ destinations: [destination], deliveries, auditEvents, viewerRole: 'admin', canManage: true })[0]
-            : null,
-        destinationAdminProof: destination
-            ? buildDwmWebhookDestinationAdminProof({ destinations: [destination], deliveries, auditEvents, viewerRole: 'admin', canManage: true })
-            : null,
-        auditEventContracts: buildDwmWebhookAuditEventContracts({
-            auditEvents,
-            deliveries,
-            destinations: destination ? [destination] : destinations,
-        }),
+        customerSetup: destination
+            ? destinationChangeResponse!.customerSetup
+            : buildDwmWebhookCustomerSetupProof({
+                destinations,
+                deliveries,
+                auditEvents,
+                viewerRole: 'admin',
+                canManage: true,
+            }),
+        destinationLifecycle: destination ? destinationChangeResponse!.destinationLifecycle : null,
+        destinationAdminProof: destination ? destinationChangeResponse!.destinationAdminProof : null,
+        auditEventContracts: destination
+            ? destinationChangeResponse!.auditEventContracts
+            : buildDwmWebhookAuditEventContracts({ auditEvents, deliveries, destinations }),
     }
     const outcome = destinationTestResponseOutcome(delivery)
     return res.status(outcome.status).send(outcome.failed ? { ...response, error: outcome.error, code: outcome.code } : response)
