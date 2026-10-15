@@ -839,6 +839,41 @@ function uniqueImpersonationValues(values: unknown[]) {
     return Array.from(new Set(values.map(value => cleanText(value)).filter(Boolean))).slice(0, 50)
 }
 
+function impersonationLifecycleState(timeline: Array<Record<string, any>>) {
+    const startEvents = timeline.filter(event => event.actionType === 'impersonation.start')
+    const stopEvents = timeline.filter(event => event.actionType === 'impersonation.stop' || event.scope?.revokedAt)
+    const stoppedSessionIds = new Set(stopEvents.map(event => cleanText(event.entity?.id)).filter(Boolean))
+    const activeSessionIds = startEvents
+        .map(event => cleanText(event.entity?.id))
+        .filter(sessionId => sessionId && !stoppedSessionIds.has(sessionId))
+    const missingReasonEventIds = timeline
+        .filter(event => !cleanText(event.reason))
+        .map(event => Number(event.id))
+        .filter(id => Number.isFinite(id))
+    const missingDurationEventIds = startEvents
+        .filter(event => !event.scope?.durationMinutes)
+        .map(event => Number(event.id))
+        .filter(id => Number.isFinite(id))
+    const expiredSessionIds = startEvents
+        .filter(event => {
+            const expires = Date.parse(String(event.scope?.expiresAt || ''))
+            return !Number.isNaN(expires) && expires <= Date.now() && !stoppedSessionIds.has(cleanText(event.entity?.id))
+        })
+        .map(event => cleanText(event.entity?.id))
+        .filter(Boolean)
+
+    return {
+        sessionIds: uniqueImpersonationValues(timeline.map(event => event.entity?.id)),
+        startEvents,
+        stopEvents,
+        stoppedSessionIds,
+        activeSessionIds,
+        missingReasonEventIds,
+        missingDurationEventIds,
+        expiredSessionIds,
+    }
+}
+
 function impersonationTimelineFilterContract(filters: Record<string, unknown>, timeline: Array<Record<string, any>>) {
     return {
         schemaVersion: 'support.impersonation.timeline_filter_contract.v1',
@@ -916,21 +951,7 @@ function impersonationTimelineFilterReadiness(filters: Record<string, unknown>, 
 }
 
 function impersonationTimelineDecisionPacket(filters: Record<string, unknown>, timeline: Array<Record<string, any>>) {
-    const missingReasonEventIds = timeline
-        .filter(event => !cleanText(event.reason))
-        .map(event => Number(event.id))
-        .filter(id => Number.isFinite(id))
-    const missingDurationEventIds = timeline
-        .filter(event => event.actionType === 'impersonation.start' && !event.scope?.durationMinutes)
-        .map(event => Number(event.id))
-        .filter(id => Number.isFinite(id))
-    const stoppedSessionIds = new Set(timeline
-        .filter(event => event.actionType === 'impersonation.stop' || event.scope?.revokedAt)
-        .map(event => cleanText(event.entity?.id))
-        .filter(Boolean))
-    const activeSessionIds = timeline
-        .filter(event => event.actionType === 'impersonation.start' && cleanText(event.entity?.id) && !stoppedSessionIds.has(cleanText(event.entity?.id)))
-        .map(event => cleanText(event.entity?.id))
+    const { startEvents, stopEvents, activeSessionIds, missingReasonEventIds, missingDurationEventIds } = impersonationLifecycleState(timeline)
     const blockers = [
         timeline.length ? '' : 'lifecycle_events_unavailable',
         missingReasonEventIds.length ? 'missing_reason_on_impersonation_event' : '',
@@ -953,8 +974,8 @@ function impersonationTimelineDecisionPacket(filters: Record<string, unknown>, t
         },
         lifecycle: {
             eventCount: timeline.length,
-            startEventIds: timeline.filter(event => event.actionType === 'impersonation.start').map(event => event.id),
-            stopEventIds: timeline.filter(event => event.actionType === 'impersonation.stop').map(event => event.id),
+            startEventIds: startEvents.map(event => event.id),
+            stopEventIds: stopEvents.filter(event => event.actionType === 'impersonation.stop').map(event => event.id),
             activeSessionIds,
             missingReasonEventIds,
             missingDurationEventIds,
@@ -987,30 +1008,10 @@ function impersonationTimelineDecisionPacket(filters: Record<string, unknown>, t
 }
 
 function impersonationCaseReviewPacket(filters: Record<string, unknown>, timeline: Array<Record<string, any>>, guardrailRows: Array<Record<string, any>>) {
-    const sessionIds = uniqueImpersonationValues(timeline.map(event => event.entity?.id))
+    const lifecycle = impersonationLifecycleState(timeline)
+    const { sessionIds, stoppedSessionIds, activeSessionIds, missingReasonEventIds, missingDurationEventIds, expiredSessionIds } = lifecycle
     const actorIds = uniqueImpersonationValues(timeline.map(event => event.actor?.id))
     const targetIds = uniqueImpersonationValues(timeline.map(event => event.target?.id))
-    const startEvents = timeline.filter(event => event.actionType === 'impersonation.start')
-    const stopEvents = timeline.filter(event => event.actionType === 'impersonation.stop' || event.scope?.revokedAt)
-    const stoppedSessionIds = new Set(stopEvents.map(event => cleanText(event.entity?.id)).filter(Boolean))
-    const activeSessionIds = startEvents
-        .map(event => cleanText(event.entity?.id))
-        .filter(sessionId => sessionId && !stoppedSessionIds.has(sessionId))
-    const missingReasonEventIds = timeline
-        .filter(event => !cleanText(event.reason))
-        .map(event => Number(event.id))
-        .filter(id => Number.isFinite(id))
-    const missingDurationEventIds = startEvents
-        .filter(event => !event.scope?.durationMinutes)
-        .map(event => Number(event.id))
-        .filter(id => Number.isFinite(id))
-    const expiredSessionIds = startEvents
-        .filter(event => {
-            const expires = Date.parse(String(event.scope?.expiresAt || ''))
-            return !Number.isNaN(expires) && expires <= Date.now() && !stoppedSessionIds.has(cleanText(event.entity?.id))
-        })
-        .map(event => cleanText(event.entity?.id))
-        .filter(Boolean)
     const guardrailEvents = guardrailRows.map(row => {
         const context = row.context && typeof row.context === 'object' ? row.context as Record<string, unknown> : {}
         return {
@@ -1148,28 +1149,7 @@ function impersonationCaseReviewPacket(filters: Record<string, unknown>, timelin
 }
 
 function impersonationLifecycleReceipt(filters: Record<string, unknown>, timeline: Array<Record<string, any>>) {
-    const sessionIds = Array.from(new Set(timeline.map(event => cleanText(event.entity?.id)).filter(Boolean))).slice(0, 50)
-    const startEvents = timeline.filter(event => event.actionType === 'impersonation.start')
-    const stopEvents = timeline.filter(event => event.actionType === 'impersonation.stop' || event.scope?.revokedAt)
-    const stoppedSessionIds = new Set(stopEvents.map(event => cleanText(event.entity?.id)).filter(Boolean))
-    const activeSessionIds = startEvents
-        .map(event => cleanText(event.entity?.id))
-        .filter(sessionId => sessionId && !stoppedSessionIds.has(sessionId))
-    const missingReasonEventIds = timeline
-        .filter(event => !cleanText(event.reason))
-        .map(event => Number(event.id))
-        .filter(id => Number.isFinite(id))
-    const missingDurationEventIds = startEvents
-        .filter(event => !event.scope?.durationMinutes)
-        .map(event => Number(event.id))
-        .filter(id => Number.isFinite(id))
-    const expiredSessionIds = startEvents
-        .filter(event => {
-            const expires = Date.parse(String(event.scope?.expiresAt || ''))
-            return !Number.isNaN(expires) && expires <= Date.now() && !stoppedSessionIds.has(cleanText(event.entity?.id))
-        })
-        .map(event => cleanText(event.entity?.id))
-        .filter(Boolean)
+    const { sessionIds, startEvents, stopEvents, stoppedSessionIds, activeSessionIds, missingReasonEventIds, missingDurationEventIds, expiredSessionIds } = impersonationLifecycleState(timeline)
     return {
         schemaVersion: 'support.impersonation.lifecycle_receipt.v1',
         generatedAt: new Date().toISOString(),
