@@ -1,4 +1,4 @@
-import { matchesRule, type Condition } from './conditions.ts'
+import { getRulePathValue, matchesRule, type Condition } from './conditions.ts'
 type Scalar = string | number | boolean | null
 type Context = { path: string, operator: 'signal' | 'equals' | 'truthy', value?: Scalar }
 type Check = { keys: string[], operator: 'signal' | 'in' | 'numberAtLeast' | 'equals' | 'objectMismatch', values?: Scalar[], value?: Scalar, expected?: Record<string, Scalar>, whenAny?: Context[], unlessAll?: Condition[], unlessAny?: Condition[][] }
@@ -67,7 +67,7 @@ export function normalizeEventProtection(value: unknown): { protection?: EventPr
 export function matchesEventProtection(event: Record<string, unknown>, policy: EventProtectionPolicy): boolean {
     const checks = policy.checks.filter(check => !(check.unlessAll?.length && matchesRule(event, check.unlessAll))
         && !(check.unlessAny?.some(group => matchesRule(event, group))) && (!check.whenAny || check.whenAny.some(context => {
-        const value = context.path.split('.').reduce<unknown>((row, key) => record(row) ? row[key] : undefined, event)
+        const value = getRulePathValue(event, context.path)
         return context.operator === 'signal' ? signal(value) : context.operator === 'truthy' ? Boolean(value) : equal(value, context.value)
     })))
     const pending: unknown[] = [event], seen = new Set<object>()
