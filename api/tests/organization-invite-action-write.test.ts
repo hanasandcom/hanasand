@@ -23,9 +23,11 @@ test('invite actions share an atomic transition that cannot overwrite acceptance
     expect(values).toEqual(['invite-1', 'org-1', 'resend', '2026-11-01T00:00:00.000Z'])
 })
 
-test('revoking an invite leaves its expiry unchanged', async () => {
+test('revoke preserves the invite expiry in the atomic update', async () => {
+    let sql = ''
     let values: unknown[] = []
-    const query: IdentityQuery = async (_statement, params = []) => {
+    const query: IdentityQuery = async (statement, params = []) => {
+        sql = statement.replace(/\s+/g, ' ').trim()
         values = params
         return { rows: [{ id: 'invite-1', status: 'revoked' }], rowCount: 1 }
     }
@@ -37,5 +39,6 @@ test('revoking an invite leaves its expiry unchanged', async () => {
     }, query)
 
     expect(updated).toEqual({ id: 'invite-1', status: 'revoked' })
+    expect(sql).toContain("expires_at = CASE WHEN $3 = 'resend' THEN $4 ELSE expires_at END")
     expect(values).toEqual(['invite-1', 'org-1', 'revoke', null])
 })
