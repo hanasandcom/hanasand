@@ -121,6 +121,8 @@ type LatestReleaseRow = {
     updated_at: string
 }
 
+type ReadinessStatus = 'operational' | 'evidence_gap' | 'internal_action'
+
 export async function getAiEconomics(req: FastifyRequest, res: FastifyReply) {
     const userId = await requireAiUser(req, res)
     if (!userId) {
@@ -452,7 +454,7 @@ export function buildCommercialReadiness({ reliability, deployment, release, des
             id: 'durable_async_verification',
             priority: 1,
             label: 'Durable async verification jobs',
-            status: hasVerificationSamples && hasQueueTelemetry ? 'operational' : hasVerificationSamples || hasQueueTelemetry ? 'evidence_gap' : 'internal_action',
+            status: readinessStatus(hasVerificationSamples && hasQueueTelemetry, hasVerificationSamples || hasQueueTelemetry),
             evidence: [
                 'Control is wired through ai_verification_jobs: queue position, running state, retry count, cancel time, artifacts, and latency timestamps are persisted.',
                 timingSampleCount > 0
@@ -472,7 +474,7 @@ export function buildCommercialReadiness({ reliability, deployment, release, des
             id: 'deployment_ownership',
             priority: 2,
             label: 'Deployment ownership: domain, env, build, logs, rollback',
-            status: hasDeploymentOwnership && hasTrustRecovery ? 'operational' : deploymentCount || releaseCount ? 'evidence_gap' : 'internal_action',
+            status: readinessStatus(hasDeploymentOwnership && hasTrustRecovery, deploymentCount > 0 || releaseCount > 0),
             evidence: [
                 deploymentCount > 0
                     ? `${formatDeploymentWindow(deploymentCount, recentDeploymentCount)}; ${formatEvidenceParts([
@@ -522,7 +524,7 @@ export function buildCommercialReadiness({ reliability, deployment, release, des
             id: 'verified_outcome_economics',
             priority: 4,
             label: 'Cost and queue metrics tied to verified outcomes',
-            status: hasMeasuredEconomics && (hasQueueTelemetry || hasVerificationSamples) ? 'operational' : hasMeasuredEconomics || hasQueueTelemetry ? 'evidence_gap' : 'internal_action',
+            status: readinessStatus(hasMeasuredEconomics && (hasQueueTelemetry || hasVerificationSamples), hasMeasuredEconomics || hasQueueTelemetry),
             evidence: [
                 `Key metric is verified useful project progress per minute per NOK, currently ${formatNumber(reliability.costPerSuccessfulVerifiedBuildNok)} NOK per successful verified build or deploy check.`,
                 hasMeasuredEconomics
@@ -560,7 +562,7 @@ export function buildCommercialReadiness({ reliability, deployment, release, des
             id: 'design_quality',
             priority: 6,
             label: 'Better design QA and less generic output',
-            status: hasDesignProof && designPassRate >= 0.8 && designAvgScore >= 72 ? 'operational' : hasDesignProof ? 'evidence_gap' : 'internal_action',
+            status: readinessStatus(hasDesignProof && designPassRate >= 0.8 && designAvgScore >= 72, hasDesignProof),
             evidence: [
                 'Design QA worker fetches pages, scores hierarchy/spacing/generic-copy signals, captures mobile and desktop screenshots, and persists design_quality_report artifacts.',
                 hasDesignProof
@@ -596,7 +598,7 @@ export function buildCommercialReadiness({ reliability, deployment, release, des
             id: 'model_routing_after_measurement',
             priority: 8,
             label: 'Stronger model routing only after the pipeline is measurable',
-            status: hasVerificationSamples && hasMeasuredEconomics ? 'operational' : hasVerificationSamples || hasMeasuredEconomics ? 'evidence_gap' : 'internal_action',
+            status: readinessStatus(hasVerificationSamples && hasMeasuredEconomics, hasVerificationSamples || hasMeasuredEconomics),
             evidence: [
                 'Task routing already distinguishes tool-first deterministic paths, small local edits/summaries, and stronger architecture/refactor/bug-hunt work.',
                 hasPromptUxEvidence || hasDeployTimingEvidence
@@ -640,7 +642,7 @@ function readinessItem({ id, priority, label, status, evidence, action, owner, c
     id: string
     priority: number
     label: string
-    status: 'operational' | 'evidence_gap' | 'internal_action'
+    status: ReadinessStatus
     evidence: string[]
     action: string
     owner: string
@@ -660,6 +662,11 @@ function readinessItem({ id, priority, label, status, evidence, action, owner, c
         lastAttempt,
         measurable,
     }
+}
+
+function readinessStatus(isOperational: boolean, hasEvidence: boolean): ReadinessStatus {
+    if (isOperational) return 'operational'
+    return hasEvidence ? 'evidence_gap' : 'internal_action'
 }
 
 function latestAttempt(rows: LatestVerificationJobRow[]) {
