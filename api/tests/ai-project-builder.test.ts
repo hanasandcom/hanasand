@@ -66,3 +66,43 @@ test('shared section presets keep generated output unchanged', () => {
         expect(response.message, prompt).toContain(expectedSection)
     }
 })
+
+test('ordered section rules preserve overlaps and matcher boundaries', () => {
+    const cases = [
+        ['Build a website for a municipal permit residents angry about a municipal service portal', '04ea746b2e51afd310c1fd35a515ff60a8e78a2636793b6442481c356f3edb10', 'Permit categories'],
+        ['Build a website for a healthcare clinic pharmacy recall', '92c2b4815ff64599e7e68e417e0f9c837bc39e1c3c38fa60d7ae10bed6f1de92', 'Recall checklist'],
+        ['Build a website for restaurant allergy recall reservations', '055121110b1a5c568917ea0f7c86c6998faa92e1cadc2f7ff288afd90455bffb', 'Mobile release'],
+        ['Build a website for storm repair dispatch accessibility', '10b0fe826baff93d87a3395cabb9c80fe34df923438b17306a54a522f2056d2e', 'Mobile release'],
+        ['Build a website for rural internet outage signup', '16e3f8d449c150da0caa2553d77162e622ad7deb67b3a2267d2febb0ec633885', 'Mobile release'],
+        ['Build an artist drop website for releasing prints', '64d7344db3383633b1156e54b77856ad78621052f43727796e8e28fe26d5a0da', 'Product bundles'],
+        ['Build an architecture showcase website', 'd3316ce2768805347dc430de6ba64aee86088aed9fcd7976bfc51f87f7fd6fc8', 'Delivery tasks'],
+        ['Build a municipal service portal website with deployment notes', 'dc2b993a8d70b64e0e4b7d64f4b4ac63e9a93bbc71b6a87b07fd8e5fcf9ac9c7', 'Resident quotes'],
+        ['Build a website for design delivery component groups', 'f23f660c06f0c1d190bc97b2c5a25d8fa11538007bae997d9f746524bc1ad5c0', 'Scope and pricing'],
+        ['Build an ecommerce checkout for failed payment recovery', 'c03382f04fd7c46cd5932470c5cdf174032ac910c78501785183588cdbf1000b', 'Shipping notes'],
+        ['Build a creator membership checkout website', 'a908a5cdb5f8672ea6ef92381598289ac2845a490460449130b1d4c86b1d54f7', 'Member benefits'],
+        ['Build a website for support bundle privacy', '4ef61ea5984fdd9cf18786c64f1a4e585dc692d7d9c463b5b64d6780b77101de', 'Data map'],
+        ['Build a website for support escalation', '41a31db9719cae0490a033e44058df4c446cecd95e74c8fbe98ceface15b9a02', 'Escalation paths'],
+        ['Build a website for knowledge base support', 'eb66c7ae18aeaa4d20f67b741befe6f434d3b3baf583d9af41da2f4343752718', 'Quickstart'],
+        ['Build a website for rollback backend contract', '100a992a8bb2276b4d1368294ddddc15d9fbf18ab93fbf455b3af25bc761b780', 'Backend contract'],
+        ['Build a website for rollback mobile refresh', '354d844d4c32b77153300c81779d7ce1a7dfaa2a90fa790ed2944e865c55e971', 'Backend contract'],
+        ['Build a website for services', '8be504a9ea4c57ddedaf63f582fd2a45c88d89dc20a6d69668d4119d6c2fa8f6', 'Services'],
+        ['Build a website for microservices', '98b6988aad6a70a36d39d340992e568fe2f42c9078a3c60068d7a1fb3e926129', 'Overview'],
+        ['Build a simple site', '46cb59f45a30b8f329dad728d4617dc05f383e40b599d028beffdbf58556488e', 'Overview'],
+        ['Build a website for ecommerceX checkoutX', 'bc1c213382bcf39c33d5d8743deb6b44658d713290944d7ac8ee65e96b1ddaa3', 'Overview'],
+    ] as const
+
+    for (const [prompt, expectedHash, expectedSection] of cases) {
+        const response = buildShareProjectResponse(prompt)!
+        const actualHash = createHash('sha256').update(response.message).digest('hex')
+        expect(actualHash, prompt).toBe(expectedHash)
+        expect(response.message, prompt).toContain(expectedSection)
+    }
+})
+
+test('website-specific DNS sections do not leak into later prompts', () => {
+    const withDns = buildShareProjectResponse('Build a website called "Harbor Portal" with DNS')!
+    const withoutDns = buildShareProjectResponse('Build a website called "Harbor Portal"')!
+
+    expect(withDns.message).toContain('DNS checklist')
+    expect(withoutDns.message).not.toContain('DNS checklist')
+})
