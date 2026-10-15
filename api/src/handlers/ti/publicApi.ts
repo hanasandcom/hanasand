@@ -369,9 +369,9 @@ export function normalizeError(payload: unknown, status: number, requestId: stri
     if (typeof payload === 'string') { try { body = JSON.parse(payload) } catch { body = {} } }
     const input = record(body)
     const nested = record(input.error)
-    if (Object.keys(nested).length) return { error: { code: text(nested.code) ?? statusCode(status), message: text(nested.message) ?? statusMessage(status), requestId } }
+    if (Object.keys(nested).length) return { error: publicError(text(nested.code) ?? statusCode(status), text(nested.message) ?? statusMessage(status), requestId) }
     const legacy = text(input.error)
-    return { error: { code: legacy && /^[a-z0-9_]+$/.test(legacy) ? legacy : statusCode(status), message: text(input.message) ?? (legacy && !/^[a-z0-9_]+$/.test(legacy) ? legacy : statusMessage(status)), requestId } }
+    return { error: publicError(legacy && /^[a-z0-9_]+$/.test(legacy) ? legacy : statusCode(status), text(input.message) ?? (legacy && !/^[a-z0-9_]+$/.test(legacy) ? legacy : statusMessage(status)), requestId) }
 }
 
 function statusCode(status: number) { return status === 400 ? 'invalid_request' : status === 401 ? 'authentication_required' : status === 403 ? 'scope_forbidden' : status === 404 ? 'not_found' : status === 429 ? 'rate_limit_exceeded' : status >= 500 ? 'internal_error' : 'request_failed' }
