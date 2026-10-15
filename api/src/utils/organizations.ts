@@ -6194,12 +6194,18 @@ export function organizationReadinessProof(input: {
     }
 }
 
+export function organizationInviteAcceptanceReference(inviteId: string) {
+    return {
+        acceptanceToken: inviteId,
+        acceptancePath: `/api/organizations/invites/${encodeURIComponent(inviteId)}/accept`,
+    }
+}
+
 export function toInvite(row: OrganizationInviteRow) {
     return {
         id: row.id,
         ...organizationTenantIdentity(row.organization_id, row.organization_id),
-        acceptanceToken: row.id,
-        acceptancePath: `/api/organizations/invites/${encodeURIComponent(row.id)}/accept`,
+        ...organizationInviteAcceptanceReference(row.id),
         email: row.email,
         role: row.role ? normalizeOrganizationRole(row.role) : undefined,
         invitedBy: row.invited_by,

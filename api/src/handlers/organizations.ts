@@ -32,6 +32,7 @@ import {
     organizationAlertCaseWorkflowState,
     organizationAccessDenial,
     organizationInviteActionDenial,
+    organizationInviteAcceptanceReference,
     organizationInviteAcceptanceDenial,
     organizationInviteManagementDenial,
     organizationLastOwnerGuard,
@@ -1393,8 +1394,7 @@ export async function postOrganizationInvites(req: FastifyRequest<{ Params: Orga
                 ? 'updated_pending_invite'
                 : 'invited',
             inviteId: inviteRow.id,
-            acceptanceToken: inviteRow.id,
-            acceptancePath: `/api/organizations/invites/${encodeURIComponent(inviteRow.id)}/accept`,
+            ...organizationInviteAcceptanceReference(inviteRow.id),
         })
     }
 
@@ -1573,8 +1573,7 @@ export async function postOrganizationInviteAction(req: FastifyRequest<{ Params:
             reason: input.reason,
             requestId: input.requestId ?? null,
             serviceLogAction,
-            acceptanceToken: invite.id,
-            acceptancePath: `/api/organizations/invites/${encodeURIComponent(invite.id)}/accept`,
+            ...organizationInviteAcceptanceReference(invite.id),
             consumerVisibilityReceipt: {
                 schemaVersion: 'organization.invite_consumer_visibility_receipt.v1',
                 organizationId: req.params.id,
@@ -1849,8 +1848,7 @@ export async function postOrganizationInviteAccept(req: FastifyRequest<{ Params:
             organizationId: row.organization_id,
             tenantId: row.organization_id,
             inviteId: row.invite_id,
-            acceptanceToken: row.invite_id,
-            acceptancePath: `/api/organizations/invites/${encodeURIComponent(row.invite_id)}/accept`,
+            ...organizationInviteAcceptanceReference(row.invite_id),
             acceptedBy: userId,
             invitedBy: row.invited_by,
             inviteRole: row.invite_role,
