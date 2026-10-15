@@ -8,6 +8,12 @@ let instance: any
 let failAt = ''
 let removed = 0
 let starts = 0
+let operationId = ''
+let waitResult: any
+let waitCalls: Array<[string | undefined, number]> = []
+let pendingPatch: any
+let waitGate: Promise<void> | undefined
+let onWaitStarted: (() => void) | undefined
 let tail = Promise.resolve()
 const clone = (value: any) => structuredClone(value)
 mock.module('../src/constants.ts', () => ({ default: { vm_host_id: 'inspur' } }))
@@ -49,8 +55,12 @@ mock.module('../src/utils/vms/lxd.ts', () => ({
             return { metadata: instance ? [{ name: instance.name }] : [] }
         }
         if (options.method === 'PATCH') {
-            Object.assign(instance, options.body)
-            return {}
+            if (!operationId) {
+                Object.assign(instance, options.body)
+                return {}
+            }
+            pendingPatch = options.body
+            return { operation: operationId }
         }
         if (options.method === 'DELETE') {
             if (failAt === 'purge') throw new Error('Disk delete failed')
@@ -58,6 +68,15 @@ mock.module('../src/utils/vms/lxd.ts', () => ({
             return {}
         }
         throw new Error(`Unexpected LXD request: ${path}`)
+    },
+    waitForLxdOperation: async (operation: string | undefined, timeout: number) => {
+        waitCalls.push([operation, timeout])
+        onWaitStarted?.()
+        if (waitGate) await waitGate
+        const result = clone(waitResult)
+        if (result.metadata.status_code === 200 && pendingPatch) Object.assign(instance, pendingPatch)
+        pendingPatch = null
+        return result
     },
 }))
 mock.module('../src/utils/vms/access.ts', () => ({ vmViewer: async (req: any, res: any) => {
@@ -73,6 +92,7 @@ app.post('/vm/:id/restore', restoreVM)
 
 beforeEach(() => {
     now = Date.parse('2026-09-12T12:00:00Z'); removed = 0; starts = 0; failAt = ''
+    operationId = ''; waitResult = { metadata: { status_code: 200 } }; waitCalls = []; pendingPatch = null; waitGate = undefined; onWaitStarted = undefined
     vm = { name: 'cashflow', primary_host: 'inspur', deleted_at: null, delete_after: null, deletion_restore: null }
     instance = { name: 'cashflow', status: 'Running', ephemeral: true, config: { 'boot.autostart': 'true', 'limits.cpu': '2' } }
 })
@@ -99,6 +119,43 @@ test('preserves the disk, disables startup, and retries without extending the 30
     await maintainDeletedVms()
     expect(vm.delete_after).toBe(deadline)
     expect(removed).toBe(0)
+})
+
+test('waits for the LXD configuration operation before stopping the VM', async () => {
+    operationId = 'quarantine-config'
+    let completeWait!: () => void
+    let signalWaitStarted!: () => void
+    waitGate = new Promise(resolve => { completeWait = resolve })
+    const waitStarted = new Promise<void>(resolve => { signalWaitStarted = resolve })
+    onWaitStarted = signalWaitStarted
+
+    const deletion = scheduleVmDeletion('cashflow', 'cashflow')
+    await waitStarted
+    try {
+        expect(waitCalls).toEqual([['quarantine-config', 90]])
+        expect(instance.status).toBe('Running')
+        expect(instance.config['boot.autostart']).toBe('true')
+    } finally {
+        completeWait()
+    }
+    await deletion
+    expect(instance.status).toBe('Stopped')
+    expect(instance.config['boot.autostart']).toBe('false')
+    expect(vm.deletion_error).toBeNull()
+})
+
+test('a failed LXD configuration operation leaves the VM running and scheduled for retry', async () => {
+    operationId = 'failed-quarantine-config'
+    waitResult = { metadata: { status_code: 400, err: 'Configuration update failed.' } }
+
+    await expect(scheduleVmDeletion('cashflow', 'cashflow')).rejects.toThrow('Configuration update failed.')
+
+    expect(waitCalls).toEqual([['failed-quarantine-config', 90]])
+    expect(vm.deleted_at).not.toBeNull()
+    expect(vm.deletion_error).toBe('Configuration update failed.')
+    expect(instance.status).toBe('Running')
+    expect(instance.ephemeral).toBe(true)
+    expect(instance.config['boot.autostart']).toBe('true')
 })
 
 test('one restore request returns the VM to its previous state and cancels expiry', async () => {
