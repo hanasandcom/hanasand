@@ -4571,22 +4571,24 @@ export async function requireAdminSupport(req: FastifyRequest, res: FastifyReply
     return { id: actor.id }
 }
 
+const supportOrganizationSummaryColumns = `
+    (
+        SELECT COUNT(*)::int
+        FROM organization_members active_members
+        WHERE active_members.organization_id = o.id
+          AND active_members.status = 'active'
+    ) AS member_count,
+    (
+        SELECT COUNT(*)::int
+        FROM organization_invites pending_invites
+        WHERE pending_invites.organization_id = o.id
+          AND pending_invites.status = 'pending'
+    ) AS pending_invite_count
+`
+
 async function loadOrganizationSupportDetail(organizationId: string) {
     const result = await run(`
-        SELECT
-            o.*,
-            (
-                SELECT COUNT(*)::int
-                FROM organization_members active_members
-                WHERE active_members.organization_id = o.id
-                  AND active_members.status = 'active'
-            ) AS member_count,
-            (
-                SELECT COUNT(*)::int
-                FROM organization_invites pending_invites
-                WHERE pending_invites.organization_id = o.id
-                  AND pending_invites.status = 'pending'
-            ) AS pending_invite_count
+        SELECT o.*, ${supportOrganizationSummaryColumns}
         FROM organizations o
         WHERE o.id = $1
         LIMIT 1
@@ -4641,20 +4643,7 @@ async function loadInspectionOrganizations(input: { q?: string, org: string, use
     if (!where.length) return []
 
     const result = await run(`
-        SELECT
-            o.*,
-            (
-                SELECT COUNT(*)::int
-                FROM organization_members active_members
-                WHERE active_members.organization_id = o.id
-                  AND active_members.status = 'active'
-            ) AS member_count,
-            (
-                SELECT COUNT(*)::int
-                FROM organization_invites pending_invites
-                WHERE pending_invites.organization_id = o.id
-                  AND pending_invites.status = 'pending'
-            ) AS pending_invite_count
+        SELECT o.*, ${supportOrganizationSummaryColumns}
         FROM organizations o
         WHERE ${where.join('\n           OR ')}
         ORDER BY o.updated_at DESC
