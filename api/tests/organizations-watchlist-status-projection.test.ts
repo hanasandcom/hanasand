@@ -74,4 +74,7 @@ test('downstream contracts share lifecycle ID projections without changing order
     expect(Object.keys(proof.watchlistOwnership).slice(0, 6)).toEqual([
         'activeIds', 'pausedIds', 'archivedIds', 'activeCount', 'pausedCount', 'archivedCount',
     ])
+    expect(proof.watchlistOwnership.activeIds).not.toBe(authorization.watchlists.activeIds)
+    expect(proof.watchlistOwnership.pausedIds).not.toBe(authorization.watchlists.pausedIds)
+    expect(proof.watchlistOwnership.archivedIds).not.toBe(authorization.watchlists.archivedIds)
 })

@@ -3453,7 +3453,9 @@ export function organizationSharedWatchlistDownstreamProof(
 ): OrganizationSharedWatchlistDownstreamProof {
     const watchlistStates = organizationWatchlistTerms(items)
     const activeTerms = alertGeneration.activeWatchlistTerms
-    const { activeIds, pausedIds, archivedIds } = watchlistIdsByLifecycleStatus(watchlistStates)
+    const activeIds = [...downstreamAuthorization.watchlists.activeIds]
+    const pausedIds = [...downstreamAuthorization.watchlists.pausedIds]
+    const archivedIds = [...downstreamAuthorization.watchlists.archivedIds]
     const alertGeneratorKeys = activeTerms.map(term => organizationWatchlistAlertGenerationRef(term).dedupe.key)
     const alertBlockers = Array.from(new Set([
         ...alertGeneration.blockedReasons,
