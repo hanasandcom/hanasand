@@ -32,30 +32,16 @@ type UserRow = {
 }
 
 export async function getSsoStart(req: FastifyRequest, res: FastifyReply) {
-    const config = loadOidcConfig()
-    const missing = oidcConfigMissing(config)
-    if (missing.length > 0) {
-        return res.status(503).send({
-            error: 'SSO is not configured.',
-            code: 'sso_not_configured',
-            missing,
-        })
-    }
+    const config = configuredSso(res)
+    if (!config) return
 
     const query = req.query as { redirectPath?: string } | undefined
     return res.redirect(buildOidcAuthorizationUrl(config, safeRedirectPath(query?.redirectPath)))
 }
 
 export async function postSsoCallback(req: FastifyRequest, res: FastifyReply) {
-    const config = loadOidcConfig()
-    const missing = oidcConfigMissing(config)
-    if (missing.length > 0) {
-        return res.status(503).send({
-            error: 'SSO is not configured.',
-            code: 'sso_not_configured',
-            missing,
-        })
-    }
+    const config = configuredSso(res)
+    if (!config) return
 
     const { code, state } = req.body as SsoCallbackBody ?? {}
     if (!code || !state) {
@@ -108,6 +94,20 @@ export async function postSsoCallback(req: FastifyRequest, res: FastifyReply) {
         req.log.warn({ error }, 'SSO callback failed')
         return res.status(502).send({ error: 'SSO provider could not complete login.', code: 'sso_provider_failed' })
     }
+}
+
+function configuredSso(res: FastifyReply): ReturnType<typeof loadOidcConfig> | null {
+    const config = loadOidcConfig()
+    const missing = oidcConfigMissing(config)
+    if (missing.length > 0) {
+        res.status(503).send({
+            error: 'SSO is not configured.',
+            code: 'sso_not_configured',
+            missing,
+        })
+        return null
+    }
+    return config
 }
 
 async function findOrProvisionSsoUser(userinfo: OidcUserinfo, autoProvision: boolean): Promise<UserRow | null> {
