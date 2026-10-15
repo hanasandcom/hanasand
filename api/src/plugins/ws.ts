@@ -374,14 +374,10 @@ function proxyEphemeralBrowserSocket(connection: WebSocket, id: string, route: '
     let deliveredFrame = false
     let sawTerminalMessage = false
     let streamMetricsTimer: NodeJS.Timeout | null = null
-    let resolveStreamResolution: (options: { resolution: string; regular: boolean }) => void = () => undefined
-    const streamResolution = new Promise<{ resolution: string; regular: boolean }>(resolve => { resolveStreamResolution = resolve })
     const workerResumeToken = randomUUID()
     const streamToken = randomUUID().replaceAll('-', '')
-    const admission = requestBrowserAdmission(id, payload => {
-        if (connection.readyState === WebSocket.OPEN) connection.send(JSON.stringify(payload))
-    })
-    const admissionRelease = trackBrowserAdmissionRelease(admission.promise, () => closed)
+    let cancelAdmission: (() => void) | null = null
+    let admissionRelease: ReturnType<typeof trackBrowserAdmissionRelease> | null = null
 
     const closeBoth = () => {
         if (closed) return
@@ -391,8 +387,10 @@ function proxyEphemeralBrowserSocket(connection: WebSocket, id: string, route: '
         if (upstream && (upstream.readyState === WebSocket.OPEN || upstream.readyState === WebSocket.CONNECTING)) upstream.close()
         if (streamMetricsTimer) clearInterval(streamMetricsTimer)
         if (leaseTimer) clearInterval(leaseTimer)
-        admission.cancel()
-        admissionRelease.release()
+        cancelAdmission?.()
+        cancelAdmission = null
+        admissionRelease?.release()
+        admissionRelease = null
         browserStreams.delete(id)
         if (containerId) void (!sawReady || !deliveredFrame ? recordBrowserWorkerLogs(containerId, route, id) : Promise.resolve())
             .finally(() => removeRuntimeContainer(containerId))
@@ -414,7 +412,7 @@ function proxyEphemeralBrowserSocket(connection: WebSocket, id: string, route: '
                 closeBoth()
             }), 30_000)
             leaseTimer.unref()
-            resolveStreamResolution({ resolution: browserStreamResolution(payload), regular: payload.network !== 'tor' && route !== 'onion-session' })
+            launchWorker({ resolution: browserStreamResolution(payload), regular: payload.network !== 'tor' && route !== 'onion-session' })
         } else if (payload.type === 'start') return
         // Authorization flags are supplied by this authenticated broker only.
         payload = { ...payload, paidAuthorized: false, ...(payload.type === 'start' ? { resumeToken: workerResumeToken } : {}) }
@@ -452,113 +450,121 @@ function proxyEphemeralBrowserSocket(connection: WebSocket, id: string, route: '
         closeBoth()
     })
 
-    void Promise.all([admission.promise, streamResolution]).then(async ([slot, options]) => {
-        if (closed) {
-            slot.release()
-            return null
-        }
-        if (connection.readyState === WebSocket.OPEN) connection.send(JSON.stringify({
-            type: 'status',
-            state: 'capacity_admitted',
-            capacity: slot.status,
-            message: 'Sandbox capacity is available. Starting this browser.',
-        }))
-        assertBrowserWorkerEgress()
-        const warm = options.regular ? await browserWarmPool.take(id).catch(error => {
-            console.error('Browser pool claim failed; starting a fresh worker:', error instanceof Error ? error.message : String(error))
-            return null
-        }) : null
-        if (warm) {
-            sendStatus(connection, 'worker_prestarted', 'Reserved a ready browser.')
-            return warm
-        }
-        sendStatus(connection, 'launching_worker', 'Starting isolated browser worker.')
-        return startEphemeralBrowserWorker(id, options.resolution)
-    })
-        .then(worker => {
-            if (!worker) return
-            const { containerId: nextContainerId, wsUrl, streamIp } = worker
-            if (closed) {
-                void removeRuntimeContainer(nextContainerId).catch(() => undefined)
-                return
-            }
-            containerId = nextContainerId
-            browserStreams.set(id, { token: streamToken, ip: streamIp, containerId, expiresAt: Date.now() + 65 * 60_000 })
-            void announceBrowserStream(connection, id, streamToken, streamIp).then(timer => {
-                if (closed && timer) clearInterval(timer)
-                else streamMetricsTimer = timer
-            })
-            return connectResumableWorker(`${wsUrl.replace(/\/$/, '')}/${route}/${encodeURIComponent(id)}`, startup.signal, workerResumeToken)
+    function launchWorker(options: { resolution: string; regular: boolean }) {
+        if (closed) return
+        const admission = requestBrowserAdmission(id, payload => {
+            if (connection.readyState === WebSocket.OPEN) connection.send(JSON.stringify(payload))
         })
-        .then(nextUpstream => {
-            if (!nextUpstream) return
+        cancelAdmission = admission.cancel
+        admissionRelease = trackBrowserAdmissionRelease(admission.promise, () => closed)
+        void admission.promise.then(async slot => {
             if (closed) {
-                nextUpstream.close()
-                return
+                slot.release()
+                return null
             }
-            upstream = nextUpstream
-            sendStatus(connection, 'worker_connected', 'Isolated browser worker connected.')
-            upstream.on('open', () => {
-                while (pending.length && upstream?.readyState === WebSocket.OPEN) upstream.send(pending.shift()!)
-            })
-            while (pending.length && upstream.readyState === WebSocket.OPEN) upstream.send(pending.shift()!)
-            upstream.on('message', message => {
-                const payload = parseSocketMessage(message)
-                if (payload?.type === 'ready') sawReady = true
-                if (payload?.type === 'frame') deliveredFrame = true
-                if (payload?.type === 'ended') {
-                    sawTerminalMessage = true
-                    if (leaseTimer) clearInterval(leaseTimer)
+            if (connection.readyState === WebSocket.OPEN) connection.send(JSON.stringify({
+                type: 'status',
+                state: 'capacity_admitted',
+                capacity: slot.status,
+                message: 'Sandbox capacity is available. Starting this browser.',
+            }))
+            assertBrowserWorkerEgress()
+            const warm = options.regular ? await browserWarmPool.take(id).catch(error => {
+                console.error('Browser pool claim failed; starting a fresh worker:', error instanceof Error ? error.message : String(error))
+                return null
+            }) : null
+            if (warm) {
+                sendStatus(connection, 'worker_prestarted', 'Reserved a ready browser.')
+                return warm
+            }
+            sendStatus(connection, 'launching_worker', 'Starting isolated browser worker.')
+            return startEphemeralBrowserWorker(id, options.resolution)
+        })
+            .then(worker => {
+                if (!worker) return
+                const { containerId: nextContainerId, wsUrl, streamIp } = worker
+                if (closed) {
+                    void removeRuntimeContainer(nextContainerId).catch(() => undefined)
+                    return
                 }
-                evidenceWrites = evidenceWrites.then(async () => {
-                    const site = payload?.networkSummary?.site
-                    if (site?.ip && site?.url && payload.type === 'frame') {
-                        const location = await sessionNetwork(site.ip).catch(() => null)
-                        payload.networkSummary.site = { ...site, ...location?.network }
-                        if (connection.readyState === WebSocket.OPEN) connection.send(JSON.stringify({ type: 'site_network', site: payload.networkSummary.site }))
-                    }
-                    await persistBrowserRunEvidence(id, payload)
-                }).catch(error => recordWebsocketFailure('browser-evidence-save', id, error))
-                void persistBrowserProviderResult(id, message)
-                void evidenceWrites.then(() => finishProxiedBrowserRun(id, message)).catch(error => recordWebsocketFailure('browser-run-finish', id, error))
-                if (connection.readyState === WebSocket.OPEN) connection.send(payload?.capacity
-                    ? JSON.stringify({ ...payload, capacity: currentBrowserAdmissionStatus() })
-                    : socketMessageText(message))
+                containerId = nextContainerId
+                browserStreams.set(id, { token: streamToken, ip: streamIp, containerId, expiresAt: Date.now() + 65 * 60_000 })
+                void announceBrowserStream(connection, id, streamToken, streamIp).then(timer => {
+                    if (closed && timer) clearInterval(timer)
+                    else streamMetricsTimer = timer
+                })
+                return connectResumableWorker(`${wsUrl.replace(/\/$/, '')}/${route}/${encodeURIComponent(id)}`, startup.signal, workerResumeToken)
             })
-            upstream.on('close', (code, reason) => {
+            .then(nextUpstream => {
+                if (!nextUpstream) return
+                if (closed) {
+                    nextUpstream.close()
+                    return
+                }
+                upstream = nextUpstream
+                sendStatus(connection, 'worker_connected', 'Isolated browser worker connected.')
+                upstream.on('open', () => {
+                    while (pending.length && upstream?.readyState === WebSocket.OPEN) upstream.send(pending.shift()!)
+                })
+                while (pending.length && upstream.readyState === WebSocket.OPEN) upstream.send(pending.shift()!)
+                upstream.on('message', message => {
+                    const payload = parseSocketMessage(message)
+                    if (payload?.type === 'ready') sawReady = true
+                    if (payload?.type === 'frame') deliveredFrame = true
+                    if (payload?.type === 'ended') {
+                        sawTerminalMessage = true
+                        if (leaseTimer) clearInterval(leaseTimer)
+                    }
+                    evidenceWrites = evidenceWrites.then(async () => {
+                        const site = payload?.networkSummary?.site
+                        if (site?.ip && site?.url && payload.type === 'frame') {
+                            const location = await sessionNetwork(site.ip).catch(() => null)
+                            payload.networkSummary.site = { ...site, ...location?.network }
+                            if (connection.readyState === WebSocket.OPEN) connection.send(JSON.stringify({ type: 'site_network', site: payload.networkSummary.site }))
+                        }
+                        await persistBrowserRunEvidence(id, payload)
+                    }).catch(error => recordWebsocketFailure('browser-evidence-save', id, error))
+                    void persistBrowserProviderResult(id, message)
+                    void evidenceWrites.then(() => finishProxiedBrowserRun(id, message)).catch(error => recordWebsocketFailure('browser-run-finish', id, error))
+                    if (connection.readyState === WebSocket.OPEN) connection.send(payload?.capacity
+                        ? JSON.stringify({ ...payload, capacity: currentBrowserAdmissionStatus() })
+                        : socketMessageText(message))
+                })
+                upstream.on('close', (code, reason) => {
+                    if (connection.readyState === WebSocket.OPEN) {
+                        if (!sawReady || !deliveredFrame) void recordBrowserWorkerLogs(containerId, route, id)
+                        void logBrowserRunClosure(id, sawReady, deliveredFrame, sawTerminalMessage, code, reason)
+                        if (sawReady) {
+                            void finishBrowserRun(id, 'ended')
+                            connection.close()
+                        } else {
+                            void logBrowserRunFailure(id, 'worker_closed_before_ready', closeMessage(code, reason))
+                            void finishBrowserRun(id, 'failed')
+                            sendErrorThenClose(connection, 'Isolated browser worker closed before completing the run.')
+                        }
+                    }
+                    else closeBoth()
+                })
+                upstream.on('error', error => {
+                    void recordWebsocketFailure(`browser-session-upstream-${route}`, id, error)
+                    void logBrowserRunFailure(id, 'worker_connection_error', error instanceof Error ? error.message : String(error))
+                    void finishBrowserRun(id, 'failed')
+                    if (connection.readyState === WebSocket.OPEN) sendErrorThenClose(connection, `Isolated browser worker connection failed: ${error instanceof Error ? error.message : String(error)}`)
+                    else closeBoth()
+                })
+            })
+            .catch(error => {
+                const message = error instanceof Error ? error.message : String(error)
                 if (connection.readyState === WebSocket.OPEN) {
-                    if (!sawReady || !deliveredFrame) void recordBrowserWorkerLogs(containerId, route, id)
-                    void logBrowserRunClosure(id, sawReady, deliveredFrame, sawTerminalMessage, code, reason)
-                    if (sawReady) {
-                        void finishBrowserRun(id, 'ended')
-                        connection.close()
-                    } else {
-                        void logBrowserRunFailure(id, 'worker_closed_before_ready', closeMessage(code, reason))
-                        void finishBrowserRun(id, 'failed')
-                        sendErrorThenClose(connection, 'Isolated browser worker closed before completing the run.')
-                    }
+                    sendErrorThenClose(connection, `Failed to start isolated browser worker: ${message}`)
+                } else {
+                    closeBoth()
                 }
-                else closeBoth()
+                void recordWebsocketFailure(`browser-session-create-${route}`, id, error)
+                void logBrowserRunFailure(id, 'worker_start_failed', message)
+                if (runPrepared) void finishBrowserRun(id, 'failed')
             })
-            upstream.on('error', error => {
-                void recordWebsocketFailure(`browser-session-upstream-${route}`, id, error)
-                void logBrowserRunFailure(id, 'worker_connection_error', error instanceof Error ? error.message : String(error))
-                void finishBrowserRun(id, 'failed')
-                if (connection.readyState === WebSocket.OPEN) sendErrorThenClose(connection, `Isolated browser worker connection failed: ${error instanceof Error ? error.message : String(error)}`)
-                else closeBoth()
-            })
-        })
-        .catch(error => {
-            const message = error instanceof Error ? error.message : String(error)
-            if (connection.readyState === WebSocket.OPEN) {
-                sendErrorThenClose(connection, `Failed to start isolated browser worker: ${message}`)
-            } else {
-                closeBoth()
-            }
-            void recordWebsocketFailure(`browser-session-create-${route}`, id, error)
-            void logBrowserRunFailure(id, 'worker_start_failed', message)
-            if (runPrepared) void finishBrowserRun(id, 'failed')
-        })
+    }
 }
 
 async function prepareProxiedBrowserRun(id: string, message: RawData, connection: WebSocket) {
