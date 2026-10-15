@@ -63,9 +63,9 @@ export default async function syncUserCertificatesToVm({ vmName, userIds }: Sync
 
     return {
         ok: true,
-        received: payload.received || certificates.length,
-        added: payload.added || 0,
-        total: payload.total || certificates.length,
+        received: payload.received ?? certificates.length,
+        added: payload.added ?? 0,
+        total: payload.total ?? certificates.length,
         certificates,
     }
 }
