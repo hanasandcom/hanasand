@@ -2,12 +2,17 @@ import assert from 'node:assert/strict'
 import { mock } from 'bun:test'
 
 let databaseAvailable = true
+const previousToken = process.env.HANASAND_IDENTITY_SERVICE_TOKEN
+const previousFetch = globalThis.fetch
+process.env.HANASAND_IDENTITY_SERVICE_TOKEN = 'disposable-auth-service-test-token'
+globalThis.fetch = async () => new Response(null, { status: 401 })
 mock.module('#db', () => ({
     default: async () => ({ rows: [], rowCount: 0 }),
     queryOnce: async () => {
         if (!databaseAvailable) throw new Error('database unavailable')
         return { rows: [{ recovery: false, read_only: 'off' }] }
     },
+    identityQueryOnce: async () => ({ rows: [], rowCount: 0 }),
     closeDatabase: async () => {},
     withTransaction: async () => {},
     withDatabaseAdvisoryLock: async () => {},
@@ -31,4 +36,7 @@ databaseAvailable = true
 await first.close()
 assert.equal((await second.inject('/ready')).statusCode, 200)
 await second.close()
+globalThis.fetch = previousFetch
+if (previousToken === undefined) delete process.env.HANASAND_IDENTITY_SERVICE_TOKEN
+else process.env.HANASAND_IDENTITY_SERVICE_TOKEN = previousToken
 console.log('Authentication worker: independent replicas, route isolation, readiness failure, no-store and invalid-session rejection passed.')
