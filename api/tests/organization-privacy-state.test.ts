@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { organizationPrivacyStateReadModel } from '../src/utils/organizationPrivacy.ts'
+import { organizationRetentionRunOutcome, organizationPrivacyStateReadModel } from '../src/utils/organizationPrivacy.ts'
 
 test('organization privacy read model keeps the page cursor tied to remaining items', () => {
     const page = (itemOffset: number, items: unknown[], totalRetentionItems: number | string) => organizationPrivacyStateReadModel({
@@ -19,4 +19,32 @@ test('organization privacy read model keeps the page cursor tied to remaining it
 
     expect(page(2, [{ id: 'item-c' }], 3).itemPage).toEqual({ offset: 2, limit: 2, nextOffset: null })
     expect(page(0, [], 0).itemPage).toEqual({ offset: 0, limit: 2, nextOffset: null })
+})
+
+test('organization retention outcome selects retry, queue, completion, and dead-letter states', () => {
+    const failureError = 'Privacy runtime unavailable.'
+    expect(organizationRetentionRunOutcome({ failed: true, hasMore: true, attemptCount: 1, failureError })).toEqual({
+        deadLetter: false,
+        status: 'failed',
+        error: `${failureError} The run will retry.`,
+        hasMore: true,
+    })
+    expect(organizationRetentionRunOutcome({ failed: true, hasMore: true, attemptCount: 5, failureError })).toEqual({
+        deadLetter: true,
+        status: 'dead_letter',
+        error: `Retention failed after 5 attempts: ${failureError}`,
+        hasMore: false,
+    })
+    expect(organizationRetentionRunOutcome({ failed: false, hasMore: true, attemptCount: 1, failureError })).toEqual({
+        deadLetter: false,
+        status: 'queued',
+        error: null,
+        hasMore: true,
+    })
+    expect(organizationRetentionRunOutcome({ failed: false, hasMore: false, attemptCount: 1, failureError })).toEqual({
+        deadLetter: false,
+        status: 'completed',
+        error: null,
+        hasMore: false,
+    })
 })

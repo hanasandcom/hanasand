@@ -29,6 +29,29 @@ export function organizationRetentionCutoff(retentionDays: number, now = new Dat
     return new Date(now.getTime() - retentionDays * 86_400_000).toISOString()
 }
 
+export function organizationRetentionRunOutcome(input: {
+    failed: boolean
+    hasMore: boolean
+    attemptCount: number
+    failureError: string
+}) {
+    const deadLetter = input.failed && input.attemptCount >= MAX_ATTEMPTS
+    const status: 'dead_letter' | 'failed' | 'queued' | 'completed' = input.failed
+        ? deadLetter ? 'dead_letter' : 'failed'
+        : input.hasMore ? 'queued' : 'completed'
+    const error = !input.failed
+        ? null
+        : deadLetter
+            ? `Retention failed after ${MAX_ATTEMPTS} attempts: ${input.failureError}`
+            : `${input.failureError} The run will retry.`
+    return {
+        deadLetter,
+        status,
+        error,
+        hasMore: deadLetter ? false : input.hasMore,
+    }
+}
+
 export async function queueOrganizationRetentionRun(input: {
     organizationId: string
     triggerType: 'manual' | 'privacy_deletion'
@@ -150,16 +173,8 @@ async function processRetentionRun(retentionRun: RetentionRun) {
         })
         const failed = tiItems.some(item => item.status === 'failed') || publicResult.failed
         const hasMore = Boolean(ti.hasMore) || publicResult.hasMore
-        const deadLetter = failed && retentionRun.attempt_count >= MAX_ATTEMPTS
         const failureError = tiItems.find(item => item.status === 'failed')?.error || publicResult.error || 'One or more retained records failed.'
-        const status = failed
-            ? deadLetter ? 'dead_letter' : 'failed'
-            : hasMore ? 'queued' : 'completed'
-        const error = !failed
-            ? null
-            : deadLetter
-                ? `Retention failed after ${MAX_ATTEMPTS} attempts: ${failureError}`
-                : `${failureError} The run will retry.`
+        const outcome = organizationRetentionRunOutcome({ failed, hasMore, attemptCount: retentionRun.attempt_count, failureError })
         if (!failed && !hasMore && retentionRun.trigger_type === 'privacy_deletion') {
             await completePrivacyDeletion(retentionRun, {
                 heldAlertIds: strings(ti.heldAlertIds),
@@ -167,8 +182,8 @@ async function processRetentionRun(retentionRun: RetentionRun) {
             })
         }
         await refreshRun(retentionRun, {
-            status,
-            error,
+            status: outcome.status,
+            error: outcome.error,
             result: {
                 tenantId: retentionRun.organization_id,
                 cutoffAt: iso(retentionRun.cutoff_at),
@@ -178,7 +193,7 @@ async function processRetentionRun(retentionRun: RetentionRun) {
                 hasMore,
             },
         })
-        return { claimed: true, runId: retentionRun.id, failed, hasMore: deadLetter ? false : hasMore, deadLetter }
+        return { claimed: true, runId: retentionRun.id, failed, hasMore: outcome.hasMore, deadLetter: outcome.deadLetter }
     } catch (caught) {
         const message = caught instanceof Error ? caught.message : String(caught)
         await saveRetentionItems(retentionRun, [{
