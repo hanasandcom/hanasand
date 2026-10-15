@@ -67,6 +67,7 @@ const {
     getSystemEvent,
     getSupportAccessRecoveryApprovals,
     getSupportInspection,
+    getSupportOrganization,
     postSupportOrganizationInviteAction,
     postSupportOrganizationMemberRoleRecovery,
 } = await import('../src/handlers/adminSupport.ts')
@@ -285,6 +286,31 @@ test('support inspection returns preparation validation errors before database r
     expect(response.statusCode).toBe(400)
     expect(response.body.detail.code).toBe('invalid_duration')
     expect(queries).toHaveLength(0)
+})
+
+test('support inspection keeps organization member and pending-invite counts in its response', async () => {
+    supportOrganization = {
+        id: 'org-1', name: 'Org', slug: 'org', status: 'active',
+        member_count: 3, pending_invite_count: 2,
+    }
+
+    const response = await request(getSupportInspection, { query: { org: 'org-1' } })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.body.inspection.organizations).toHaveLength(1)
+    expect(response.body.inspection.organizations[0]).toMatchObject({
+        id: 'org-1',
+        memberCount: 3,
+        pendingInviteCount: 2,
+    })
+
+    const detail = await request(getSupportOrganization, { params: { id: 'org-1' } })
+    expect(detail.statusCode).toBe(200)
+    expect(detail.body.organization).toMatchObject({
+        id: 'org-1',
+        memberCount: 3,
+        pendingInviteCount: 2,
+    })
 })
 
 test('support invite action returns an audited accepted-invite denial when acceptance wins the update race', async () => {
