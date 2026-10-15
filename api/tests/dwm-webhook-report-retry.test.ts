@@ -318,8 +318,7 @@ test('does not persist a missing-destination outcome for an invalid alert', asyn
 
 test('records HTTP sender outcomes on a live delivery', async () => {
     const { deliverDwmAlertNotification } = await import('../src/utils/dwm/webhooks.ts')
-    const previousLive = process.env.DWM_WEBHOOK_LIVE_DELIVERY
-    process.env.DWM_WEBHOOK_LIVE_DELIVERY = 'true'
+    const restoreLiveDelivery = enableLiveDelivery()
     try {
         const [delivery] = await deliverDwmAlertNotification('owner_1', deliveryInput('http_failure', false), async () => ({
             status: 503,
@@ -333,8 +332,7 @@ test('records HTTP sender outcomes on a live delivery', async () => {
             error: 'Webhook returned HTTP 503.',
         })
     } finally {
-        if (previousLive === undefined) delete process.env.DWM_WEBHOOK_LIVE_DELIVERY
-        else process.env.DWM_WEBHOOK_LIVE_DELIVERY = previousLive
+        restoreLiveDelivery()
     }
 })
 
@@ -399,8 +397,7 @@ test('retries a failed report after persistence reload with the exact stored pay
         created_at: '2026-07-23T10:00:00.000Z',
     }))
     const sentBodies: string[] = []
-    const previousLive = process.env.DWM_WEBHOOK_LIVE_DELIVERY
-    process.env.DWM_WEBHOOK_LIVE_DELIVERY = 'true'
+    const restoreLiveDelivery = enableLiveDelivery()
     try {
         const result = await retryDwmWebhookDelivery('member_2', 'org_1', 'failed_delivery_1', async (_endpoint, body) => {
             sentBodies.push(body)
@@ -425,16 +422,14 @@ test('retries a failed report after persistence reload with the exact stored pay
         expect(String(audit?.params[7])).toContain('"priorDeliveryId":"failed_delivery_1"')
         expect(String(audit?.params[7])).toContain('"exactPersistedPayload":true')
     } finally {
-        if (previousLive === undefined) delete process.env.DWM_WEBHOOK_LIVE_DELIVERY
-        else process.env.DWM_WEBHOOK_LIVE_DELIVERY = previousLive
+        restoreLiveDelivery()
     }
 })
 
 test('records a thrown sender error on a live retry', async () => {
     const { retryDwmWebhookDelivery } = await import('../src/utils/dwm/webhooks.ts')
     persistedDelivery = failedDeliveryFixture('2020-07-23T10:01:00.000Z')
-    const previousLive = process.env.DWM_WEBHOOK_LIVE_DELIVERY
-    process.env.DWM_WEBHOOK_LIVE_DELIVERY = 'true'
+    const restoreLiveDelivery = enableLiveDelivery()
     try {
         const result = await retryDwmWebhookDelivery('member_2', 'org_1', persistedDelivery.id, async () => {
             throw new Error('connection reset')
@@ -447,8 +442,7 @@ test('records a thrown sender error on a live retry', async () => {
             error: 'connection reset',
         })
     } finally {
-        if (previousLive === undefined) delete process.env.DWM_WEBHOOK_LIVE_DELIVERY
-        else process.env.DWM_WEBHOOK_LIVE_DELIVERY = previousLive
+        restoreLiveDelivery()
     }
 })
 
@@ -456,8 +450,7 @@ test('blocks an exact persisted retry until its due timestamp without a network 
     const { retryDwmWebhookDelivery } = await import('../src/utils/dwm/webhooks.ts')
     const nextRetryAt = '2099-07-23T10:01:00.000Z'
     persistedDelivery = failedDeliveryFixture(nextRetryAt)
-    const previousLive = process.env.DWM_WEBHOOK_LIVE_DELIVERY
-    process.env.DWM_WEBHOOK_LIVE_DELIVERY = 'true'
+    const restoreLiveDelivery = enableLiveDelivery()
     let networkAttempts = 0
     try {
         const result = await retryDwmWebhookDelivery('member_2', 'org_1', persistedDelivery.id, async () => {
@@ -473,8 +466,7 @@ test('blocks an exact persisted retry until its due timestamp without a network 
         expect(networkAttempts).toBe(0)
         expect(insertedDelivery).toBeUndefined()
     } finally {
-        if (previousLive === undefined) delete process.env.DWM_WEBHOOK_LIVE_DELIVERY
-        else process.env.DWM_WEBHOOK_LIVE_DELIVERY = previousLive
+        restoreLiveDelivery()
     }
 })
 
@@ -482,8 +474,7 @@ test('rejects retry after the approved destination endpoint changes without a ne
     const { retryDwmWebhookDelivery } = await import('../src/utils/dwm/webhooks.ts')
     persistedDelivery = failedDeliveryFixture('2020-07-23T10:01:00.000Z')
     destinationEndpointHash = 'endpoint_changed'
-    const previousLive = process.env.DWM_WEBHOOK_LIVE_DELIVERY
-    process.env.DWM_WEBHOOK_LIVE_DELIVERY = 'true'
+    const restoreLiveDelivery = enableLiveDelivery()
     let networkAttempts = 0
     try {
         const result = await retryDwmWebhookDelivery('member_2', 'org_1', persistedDelivery.id, async () => {
@@ -498,8 +489,7 @@ test('rejects retry after the approved destination endpoint changes without a ne
         expect(networkAttempts).toBe(0)
         expect(insertedDelivery).toBeUndefined()
     } finally {
-        if (previousLive === undefined) delete process.env.DWM_WEBHOOK_LIVE_DELIVERY
-        else process.env.DWM_WEBHOOK_LIVE_DELIVERY = previousLive
+        restoreLiveDelivery()
     }
 })
 
@@ -511,8 +501,7 @@ test('rejects a tampered payload hash before validating its embedded report', as
         payload: { ...fixture.payload, report: { exportChecksum: 'case_report_invalid' } },
         payload_hash: 'payload_tampered',
     }
-    const previousLive = process.env.DWM_WEBHOOK_LIVE_DELIVERY
-    process.env.DWM_WEBHOOK_LIVE_DELIVERY = 'true'
+    const restoreLiveDelivery = enableLiveDelivery()
     let networkAttempts = 0
     try {
         const result = await retryDwmWebhookDelivery('member_2', 'org_1', persistedDelivery.id, async () => {
@@ -522,8 +511,7 @@ test('rejects a tampered payload hash before validating its embedded report', as
         expect(result).toMatchObject({ ok: false, status: 409, code: 'persisted_payload_invalid' })
         expect(networkAttempts).toBe(0)
     } finally {
-        if (previousLive === undefined) delete process.env.DWM_WEBHOOK_LIVE_DELIVERY
-        else process.env.DWM_WEBHOOK_LIVE_DELIVERY = previousLive
+        restoreLiveDelivery()
     }
 })
 
@@ -532,8 +520,7 @@ test('rejects an invalid persisted report before retrying its payload', async ()
     const fixture = failedDeliveryFixture('2020-07-23T10:01:00.000Z')
     const payload = { ...fixture.payload, report: { exportChecksum: 'case_report_invalid' } }
     persistedDelivery = { ...fixture, payload, payload_hash: payloadHash(canonicalJson(payload)) }
-    const previousLive = process.env.DWM_WEBHOOK_LIVE_DELIVERY
-    process.env.DWM_WEBHOOK_LIVE_DELIVERY = 'true'
+    const restoreLiveDelivery = enableLiveDelivery()
     let networkAttempts = 0
     try {
         const result = await retryDwmWebhookDelivery('member_2', 'org_1', persistedDelivery.id, async () => {
@@ -544,8 +531,7 @@ test('rejects an invalid persisted report before retrying its payload', async ()
         expect(networkAttempts).toBe(0)
         expect(insertedDelivery).toBeUndefined()
     } finally {
-        if (previousLive === undefined) delete process.env.DWM_WEBHOOK_LIVE_DELIVERY
-        else process.env.DWM_WEBHOOK_LIVE_DELIVERY = previousLive
+        restoreLiveDelivery()
     }
 })
 
@@ -557,8 +543,7 @@ test('blocks a persisted retry after five live attempts without sending or inser
         id: `prior_attempt_${index + 1}`,
         attempted_at: `2020-07-23T09:5${index}:00.000Z`,
     })))
-    const previousLive = process.env.DWM_WEBHOOK_LIVE_DELIVERY
-    process.env.DWM_WEBHOOK_LIVE_DELIVERY = 'true'
+    const restoreLiveDelivery = enableLiveDelivery()
     let networkAttempts = 0
     try {
         const result = await retryDwmWebhookDelivery('member_2', 'org_1', persistedDelivery.id, async () => {
@@ -570,12 +555,11 @@ test('blocks a persisted retry after five live attempts without sending or inser
         expect(insertedDelivery).toBeUndefined()
         expect(ledger).toHaveLength(4)
     } finally {
-        if (previousLive === undefined) delete process.env.DWM_WEBHOOK_LIVE_DELIVERY
-        else process.env.DWM_WEBHOOK_LIVE_DELIVERY = previousLive
+        restoreLiveDelivery()
     }
 })
 
-test('filters exact report receipts in PostgreSQL before the bounded delivery ledger limit', async () => {
+test('builds exact report filters into the delivery query before its row limit', async () => {
     const { listDwmWebhookDeliveries } = await import('../src/utils/dwm/webhooks.ts')
     await listDwmWebhookDeliveries('member_2', 'org_1', {
         alertId: 'alert_1',
@@ -726,10 +710,9 @@ test('commits a controlled delivery and exact receiver bind atomically', async (
         recordDwmWebhookReceiverReceipt,
         signDwmWebhookDeliveryBody,
     } = await import('../src/utils/dwm/webhooks.ts')
-    const previousLive = process.env.DWM_WEBHOOK_LIVE_DELIVERY
+    const restoreLiveDelivery = enableLiveDelivery()
     const previousToken = process.env.TI_SCRAPER_SERVICE_TOKEN
     const previousReceiverUrls = process.env.DWM_CONTROLLED_RECEIVER_URLS
-    process.env.DWM_WEBHOOK_LIVE_DELIVERY = 'true'
     process.env.TI_SCRAPER_SERVICE_TOKEN = 'receiver-signature-test'
     process.env.DWM_CONTROLLED_RECEIVER_URLS = controlledReceiverUrl
     destinationEndpointHash = controlledReceiverEndpointHash
@@ -761,8 +744,7 @@ test('commits a controlled delivery and exact receiver bind atomically', async (
         expect(receiverAudits).toHaveLength(1)
         expect(receiverAudits[0].delivery_id).toBeNull()
     } finally {
-        if (previousLive === undefined) delete process.env.DWM_WEBHOOK_LIVE_DELIVERY
-        else process.env.DWM_WEBHOOK_LIVE_DELIVERY = previousLive
+        restoreLiveDelivery()
         if (previousToken === undefined) delete process.env.TI_SCRAPER_SERVICE_TOKEN
         else process.env.TI_SCRAPER_SERVICE_TOKEN = previousToken
         if (previousReceiverUrls === undefined) delete process.env.DWM_CONTROLLED_RECEIVER_URLS
@@ -777,10 +759,9 @@ test('moves a durable lost-ack receipt from the failed attempt to its exact deli
         retryDwmWebhookDelivery,
         signDwmWebhookDeliveryBody,
     } = await import('../src/utils/dwm/webhooks.ts')
-    const previousLive = process.env.DWM_WEBHOOK_LIVE_DELIVERY
+    const restoreLiveDelivery = enableLiveDelivery()
     const previousToken = process.env.TI_SCRAPER_SERVICE_TOKEN
     const previousReceiverUrls = process.env.DWM_CONTROLLED_RECEIVER_URLS
-    process.env.DWM_WEBHOOK_LIVE_DELIVERY = 'true'
     process.env.TI_SCRAPER_SERVICE_TOKEN = 'receiver-signature-test'
     process.env.DWM_CONTROLLED_RECEIVER_URLS = controlledReceiverUrl
     destinationEndpointHash = controlledReceiverEndpointHash
@@ -825,8 +806,7 @@ test('moves a durable lost-ack receipt from the failed attempt to its exact deli
         expect(receiverAudits[0]?.delivery_id).toBe(retried.ok ? retried.delivery.id : '')
         expect(receiverAudits[0]?.metadata.deliveryId).toBe(failed.id)
     } finally {
-        if (previousLive === undefined) delete process.env.DWM_WEBHOOK_LIVE_DELIVERY
-        else process.env.DWM_WEBHOOK_LIVE_DELIVERY = previousLive
+        restoreLiveDelivery()
         if (previousToken === undefined) delete process.env.TI_SCRAPER_SERVICE_TOKEN
         else process.env.TI_SCRAPER_SERVICE_TOKEN = previousToken
         if (previousReceiverUrls === undefined) delete process.env.DWM_CONTROLLED_RECEIVER_URLS
@@ -836,8 +816,7 @@ test('moves a durable lost-ack receipt from the failed attempt to its exact deli
 
 test('serializes the same org destination checksum across two admins', async () => {
     const { deliverDwmAlertNotification } = await import('../src/utils/dwm/webhooks.ts')
-    const previousLive = process.env.DWM_WEBHOOK_LIVE_DELIVERY
-    process.env.DWM_WEBHOOK_LIVE_DELIVERY = 'true'
+    const restoreLiveDelivery = enableLiveDelivery()
     let networkAttempts = 0
     const sender = async () => {
         networkAttempts += 1
@@ -858,15 +837,13 @@ test('serializes the same org destination checksum across two admins', async () 
         ]))
         expect(ledger.filter(row => !row.dry_run && row.attempted_at)).toHaveLength(1)
     } finally {
-        if (previousLive === undefined) delete process.env.DWM_WEBHOOK_LIVE_DELIVERY
-        else process.env.DWM_WEBHOOK_LIVE_DELIVERY = previousLive
+        restoreLiveDelivery()
     }
 })
 
 test('blocks a fresh send after five live failures while preceding dry runs consume no budget', async () => {
     const { deliverDwmAlertNotification } = await import('../src/utils/dwm/webhooks.ts')
-    const previousLive = process.env.DWM_WEBHOOK_LIVE_DELIVERY
-    process.env.DWM_WEBHOOK_LIVE_DELIVERY = 'true'
+    const restoreLiveDelivery = enableLiveDelivery()
     let networkAttempts = 0
     const sender = async () => {
         networkAttempts += 1
@@ -895,8 +872,7 @@ test('blocks a fresh send after five live failures while preceding dry runs cons
             attempted_at: null,
         })
     } finally {
-        if (previousLive === undefined) delete process.env.DWM_WEBHOOK_LIVE_DELIVERY
-        else process.env.DWM_WEBHOOK_LIVE_DELIVERY = previousLive
+        restoreLiveDelivery()
     }
 })
 
@@ -1004,4 +980,13 @@ function payloadHash(body: string) {
 
 function endpointHash(url: string) {
     return `endpoint_${createHash('sha256').update(new URL(url).toString()).digest('hex').slice(0, 32)}`
+}
+
+function enableLiveDelivery() {
+    const previous = process.env.DWM_WEBHOOK_LIVE_DELIVERY
+    process.env.DWM_WEBHOOK_LIVE_DELIVERY = 'true'
+    return () => {
+        if (previous === undefined) delete process.env.DWM_WEBHOOK_LIVE_DELIVERY
+        else process.env.DWM_WEBHOOK_LIVE_DELIVERY = previous
+    }
 }
