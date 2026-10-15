@@ -8,6 +8,7 @@ type SentMail = { to: string, subject: string, textBody: string, htmlBody: strin
 let mail: SentMail | undefined
 const sentMails: SentMail[] = []
 mock.module('../src/utils/auth/tokenWrapper.ts', () => ({ default: async () => ({ valid: true, id: 'recovery-user', authenticatedId: 'recovery-user', impersonating }) }))
+mock.module('../src/utils/auth/organizationPageAccess.ts', () => ({ default: async () => ({ valid: true }) }))
 mock.module('../src/utils/systemEvent.ts', () => ({ recordSystemEvent: async () => {}, userHasAdministrativeRole: async () => false }))
 mock.module('../src/utils/auth/sessionNetwork.ts', () => ({ sessionNetwork: async () => ({ ip: '198.51.100.10', network: { country: 'Norway', city: 'Oslo' } }) }))
 mock.module('../src/utils/mail/system.ts', () => ({ sendSystemMail: async (message: SentMail) => { if (failMail) throw Error('SMTP unavailable'); mail = message; sentMails.push(message) } }))
@@ -15,11 +16,13 @@ mock.module('../src/utils/mail/accounts.ts', () => ({ syncMailPasswordForUser: a
 mock.module('../src/utils/pwned/checkPwned.ts', () => ({ default: async () => ({ ok: true, count: 0 }) }))
 const { queryOnce: query, closeDatabase } = await import('../src/utils/db.ts')
 const { default: deleteSelf } = await import('../src/handlers/user/deleteSelf.ts')
+const { default: deleteUser } = await import('../src/handlers/user/deleteUser.ts')
 const { default: restoreSelf } = await import('../src/handlers/user/restoreSelf.ts')
 const { completePasswordReset } = await import('../src/handlers/auth/passwordReset.ts')
 const { accountDeletionMail } = await import('../src/utils/auth/accountDeletionMail.ts')
 const app = Fastify()
 app.delete('/user', deleteSelf)
+app.delete('/admin/user/:id', deleteUser)
 app.post('/user/restore', restoreSelf)
 app.post('/reset', completePasswordReset)
 afterAll(async () => { await app.close(); await closeDatabase() })
@@ -106,4 +109,21 @@ test('expired and administratively disabled accounts cannot be restored; unknown
     const message = accountDeletionMail({ id: '<script>', restoreToken: 'secret', requestedAt: new Date(), deletionScheduledAt: new Date(), ip: '::1', userAgent: '' })
     expect(message.textBody).toContain('City: Unavailable')
     expect(message.htmlBody).not.toContain('<script>')
+})
+
+test('admin deletion preserves the last active organization owner', async () => {
+    await query('INSERT INTO organizations (id, name, status, created_at) VALUES (\'sole-owner-org\', \'Sole Owner Org\', \'active\', NOW())')
+    await query('INSERT INTO organization_members (organization_id, user_id, role, status) VALUES (\'sole-owner-org\', \'recovery-user\', \'owner\', \'active\')')
+    await query('INSERT INTO api_keys (organization_id, enabled, expires_at) VALUES (\'sole-owner-org\', TRUE, NULL)')
+
+    const blocked = await app.inject({ method: 'DELETE', url: '/admin/user/recovery-user' })
+    expect(blocked.statusCode, blocked.body).toBe(409)
+    expect(blocked.json()).toMatchObject({ code: 'organization_ownership_transfer_required', organization_id: 'sole-owner-org', active_api_key: true })
+    expect((await query('SELECT deletion_scheduled_at FROM users WHERE id = $1', ['recovery-user'])).rows[0].deletion_scheduled_at).toBeNull()
+
+    await query('INSERT INTO users (id, name, active, deletion_scheduled_at) VALUES (\'second-owner\', \'Second Owner\', TRUE, NULL)')
+    await query('INSERT INTO organization_members (organization_id, user_id, role, status) VALUES (\'sole-owner-org\', \'second-owner\', \'owner\', \'active\')')
+    const allowed = await app.inject({ method: 'DELETE', url: '/admin/user/recovery-user' })
+    expect(allowed.statusCode, allowed.body).toBe(200)
+    expect((await query('SELECT deletion_scheduled_at FROM users WHERE id = $1', ['recovery-user'])).rows[0].deletion_scheduled_at).not.toBeNull()
 })

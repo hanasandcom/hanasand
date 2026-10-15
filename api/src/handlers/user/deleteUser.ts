@@ -1,8 +1,9 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
-import run from '#db'
+import { withTransaction } from '#db'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import hasHanasandInternalRouteAccess from '#utils/auth/organizationPageAccess.ts'
 import { revokeAllTokens } from '#utils/auth/session.ts'
+import { accountDeletionOrganizationBlocker } from '#utils/auth/accountDeletion.ts'
 import { recordSystemEvent, userHasHanasandInternalAccess } from '#utils/systemEvent.ts'
 
 export default async function deleteUser(req: FastifyRequest, res: FastifyReply) {
@@ -19,16 +20,46 @@ export default async function deleteUser(req: FastifyRequest, res: FastifyReply)
 
     try {
         const wasHanasandInternalMember = await userHasHanasandInternalAccess(id)
-        const userResult = await run(`
-            UPDATE users
-            SET deletion_requested_at = NOW(),
-                deletion_scheduled_at = NOW() + INTERVAL '30 days',
-                deletion_restore_token_hash = NULL,
-                deletion_email_token_hash = NULL
-            WHERE id = $1
-              AND COALESCE(reserved, FALSE) IS FALSE
-            RETURNING id, name, avatar, active, deletion_requested_at, deletion_scheduled_at
-        `, [id])
+        const outcome = await withTransaction(async query => {
+            await query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [id])
+            await query(`
+                SELECT organization.id
+                FROM organizations organization
+                JOIN organization_members membership
+                  ON membership.organization_id = organization.id
+                 AND membership.user_id = $1
+                 AND membership.role = 'owner'
+                 AND membership.status = 'active'
+                WHERE organization.status = 'active'
+                ORDER BY organization.id
+                FOR UPDATE OF organization
+            `, [id])
+
+            const blocker = await accountDeletionOrganizationBlocker(id, query)
+            if (blocker) return { blocker, user: null }
+
+            const userResult = await query(`
+                UPDATE users
+                SET deletion_requested_at = NOW(),
+                    deletion_scheduled_at = NOW() + INTERVAL '30 days',
+                    deletion_restore_token_hash = NULL,
+                    deletion_email_token_hash = NULL
+                WHERE id = $1
+                  AND COALESCE(reserved, FALSE) IS FALSE
+                RETURNING id, name, avatar, active, deletion_requested_at, deletion_scheduled_at
+            `, [id])
+            return { blocker: null, user: userResult.rows[0] as User | undefined }
+        })
+        if (outcome.blocker) {
+            return res.status(409).send({
+                code: 'organization_ownership_transfer_required',
+                error: `Transfer ownership or archive ${outcome.blocker.name} before deleting your account.`,
+                organization_id: outcome.blocker.id,
+                organization_name: outcome.blocker.name,
+                active_api_key: outcome.blocker.activeApiKey,
+            })
+        }
+        const userResult = { rows: outcome.user ? [outcome.user] : [] }
         if (!userResult.rows.length) {
             return res.status(404).send({ error: `There is no user with id ${id}` })
         }
