@@ -10,6 +10,7 @@ import { SingleUseBrowser } from '../../utils/ws/singleUseBrowser.ts'
 import WebSocket, { type RawData } from 'ws'
 import { chromium, type Browser, type BrowserContext, type Download, type Frame, type Page, type Request } from 'playwright'
 import { fileReputation, inspectDownload, type FileReputation } from './downloads.ts'
+import { providerCaptureMessage, type ProviderCaptureDetails } from './providerCapture.ts'
 import recordLog from '#utils/logs/recordLog.ts'
 import { browserPaidExtensionAllowed, refreshBrowserRunLease, finishBrowserRun, prepareBrowserRun, updateBrowserRunProviderResult, type BrowserProviderRunResult } from '../browserSandboxRuns.ts'
 import {
@@ -980,13 +981,22 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
             const toolUrl = tool.url!.replaceAll('{url}', encodeURIComponent(target)).replaceAll('{rawUrl}', target)
             const webcrackTool = isWebCrackTool(tool, toolUrl)
             const toolId = cleanRemoteTabId(tool.id || safeToolId(tool.name || toolUrl))
+            const sendToolCapture = (
+                url: string,
+                details: ProviderCaptureDetails,
+                id = tool.id || safeToolId(tool.name || toolUrl),
+            ) => send(providerCaptureMessage(sessionId, {
+                id,
+                name: tool.name || toolUrl,
+                url,
+                capturedAt: startedAt,
+                target,
+            }, details))
             const webcrackTasks = webcrackTool ? await webCrackTasks(deobfuscationTasks) : []
             if (webcrackTool && !webcrackTasks.some(task => task.sample || task.decodedPreview)) {
                 const evidence = providerPendingEvidence(toolUrl, tool.name || toolUrl, target)
                 const webcrackLoad = { loaded: false, reason: 'no obfuscated code found on target page' }
-                send({ type: 'tool_capture', sessionId, id: toolId, name: tool.name || toolUrl,
-                    url: toolUrl, capturedAt: startedAt, evidence, target, webcrackLoad,
-                    toolAnalysis: analyzeToolEvidence(tool.name || toolUrl, evidence, webcrackLoad) })
+                sendToolCapture(toolUrl, { evidence, webcrackLoad, toolAnalysis: analyzeToolEvidence(tool.name || toolUrl, evidence, webcrackLoad) }, toolId)
                 return
             }
             const toolPage = await newBackgroundPage(context).catch(() => null)
@@ -1012,16 +1022,9 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
                 })
                 const preparedUrl = providerStartUrl(tool, toolUrl, target)
                 const pendingEvidence = providerPendingEvidence(preparedUrl, tool.name || toolUrl, target)
-                send({
-                    type: 'tool_capture',
-                    sessionId,
-                    id: tool.id || safeToolId(tool.name || toolUrl),
-                    name: tool.name || toolUrl,
-                    url: preparedUrl,
-                    capturedAt: startedAt,
+                sendToolCapture(preparedUrl, {
                     evidence: pendingEvidence,
                     toolAnalysis: analyzeToolEvidence(tool.name || toolUrl, pendingEvidence),
-                    target,
                     error: 'provider_navigation_pending',
                 })
                 let navigationError = await withTimeout(
@@ -1038,18 +1041,11 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
                 const openedScreenshotTimeout = providerScreenshotTimeoutMs(tool, 800)
                 const openedImage = webcrackTool ? null : await withTimeout(toolPage.screenshot({ type: 'jpeg', quality: 56, animations: 'disabled', timeout: openedScreenshotTimeout }), openedScreenshotTimeout, null)
                 const openedEvidence = providerPendingEvidence(toolPage.url() || preparedUrl, tool.name || toolUrl, target)
-                send({
-                    type: 'tool_capture',
-                    sessionId,
-                    id: tool.id || safeToolId(tool.name || toolUrl),
-                    name: tool.name || toolUrl,
-                    url: toolPage.url() || preparedUrl,
+                sendToolCapture(toolPage.url() || preparedUrl, {
                     title: await toolPage.title().catch(() => ''),
-                    capturedAt: startedAt,
                     image: openedImage ? openedImage.toString('base64') : null,
                     evidence: openedEvidence,
                     toolAnalysis: analyzeToolEvidence(tool.name || toolUrl, openedEvidence),
-                    target,
                     error: navigationError || 'Provider tab opened; verdict parsing is still running.',
                 })
                 const providerText = officialProviderKind(preparedUrl)
@@ -1070,29 +1066,23 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
                     const parsedScreenshotTimeout = providerScreenshotTimeoutMs(tool, 1500)
                     const parsedImage = await withTimeout(toolPage.screenshot({ type: 'jpeg', quality: 64, animations: 'disabled', timeout: parsedScreenshotTimeout }), parsedScreenshotTimeout, openedImage)
                     void persistProviderRunResult(parsedAnalysis)
-                    send({
-                        type: 'tool_capture',
-                        sessionId,
-                        id: tool.id || safeToolId(tool.name || toolUrl),
-                        name: tool.name || toolUrl,
-                        url: toolPage.url() || preparedUrl,
+                    sendToolCapture(toolPage.url() || preparedUrl, {
                         title: await toolPage.title().catch(() => ''),
-                        capturedAt: startedAt,
                         image: parsedImage ? parsedImage.toString('base64') : null,
                         evidence: parsedEvidence,
                         toolAnalysis: parsedAnalysis,
-                        target,
                     })
                     if (officialProviderKind(preparedUrl)) return
                 }
                 // An unverified provider page (including search results) is not a verdict.
                 if (officialProviderKind(preparedUrl)) {
                     const evidence = providerPendingEvidence(toolPage.url() || preparedUrl, tool.name || toolUrl, target)
-                    send({ type: 'tool_capture', sessionId, id: toolId, name: tool.name || toolUrl,
-                        url: toolPage.url() || preparedUrl, capturedAt: startedAt, image: openedImage?.toString('base64') || null,
-                        evidence, toolAnalysis: analyzeToolEvidence(tool.name || toolUrl, evidence), target,
+                    sendToolCapture(toolPage.url() || preparedUrl, {
+                        image: openedImage?.toString('base64') || null,
+                        evidence,
+                        toolAnalysis: analyzeToolEvidence(tool.name || toolUrl, evidence),
                         error: navigationError || providerText || 'No verified report returned for the submitted URL within the provider time limit.',
-                    })
+                    }, toolId)
                     return
                 }
                 let webcrackLoad: WebCrackLoadResult | undefined
@@ -1105,19 +1095,12 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
                     const toolAnalysis = analyzeToolEvidence(tool.name || toolUrl, evidence, webcrackLoad)
                     maybeExtendSuspiciousRun(evidence, toolAnalysis)
                     const output = webcrackLoad?.loaded ? await readWebCrackOutput(toolPage) : undefined
-                    send({
-                        type: 'tool_capture',
-                        sessionId,
-                        id: tool.id || safeToolId(tool.name || toolUrl),
-                        name: tool.name || toolUrl,
-                        url: toolPage.url(),
+                    sendToolCapture(toolPage.url(), {
                         title: await toolPage.title().catch(() => ''),
-                        capturedAt: startedAt,
                         deobfuscatedCode: output?.code,
                         evidence,
                         toolAnalysis,
                         webcrackLoad,
-                        target,
                         error: output?.error || (webcrackLoad?.loaded ? navigationError : webcrackLoad?.reason) || undefined,
                     })
                     return
@@ -1137,33 +1120,17 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
                         ],
                     }
                     : initialAnalysis
-                send({
-                    type: 'tool_capture',
-                    sessionId,
-                    id: tool.id || safeToolId(tool.name || toolUrl),
-                    name: tool.name || toolUrl,
-                    url: toolPage.url(),
+                sendToolCapture(toolPage.url(), {
                     title: await toolPage.title().catch(() => ''),
-                    capturedAt: startedAt,
                     image: image ? image.toString('base64') : null,
                     evidence,
                     toolAnalysis,
                     webcrackLoad,
-                    target,
                     error: navigationError || undefined,
                 })
                 void persistProviderRunResult(toolAnalysis, navigationError)
             } catch (error) {
-                send({
-                    type: 'tool_capture',
-                    sessionId,
-                    id: tool.id || safeToolId(tool.name || toolUrl),
-                    name: tool.name || toolUrl,
-                    url: toolUrl,
-                    capturedAt: startedAt,
-                    error: error instanceof Error ? error.message : String(error),
-                    target,
-                })
+                sendToolCapture(toolUrl, { error: error instanceof Error ? error.message : String(error) })
             } finally {
                 await focusRemoteTab()
             }
