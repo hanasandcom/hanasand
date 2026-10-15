@@ -1,5 +1,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
+import hasHanasandInternalRouteAccess from '#utils/auth/organizationPageAccess.ts'
 
 type ControlBody = {
     action?: 'source_status' | 'run_query' | 'public_channel_status' | 'scheduler_run_now' | 'scheduler_pause' | 'scheduler_resume' | 'request_source' | 'source_candidate_action' | 'create_watchlist' | 'rebuild_alerts'
@@ -164,6 +165,12 @@ async function requireActor(request: FastifyRequest, reply: FastifyReply): Promi
     const token = authorization.replace(/^Bearer\s+/i, '').trim()
     if (!token) {
         reply.code(401).send({ error: 'authentication_required' })
+        return null
+    }
+    const access = await hasHanasandInternalRouteAccess(request)
+    if (!access.valid) {
+        reply.header('cache-control', 'no-store, max-age=0')
+        reply.code(403).send({ error: 'internal_access_required' })
         return null
     }
     return { token, id: auth.id, impersonationToken: headerValue(request.headers['x-impersonation-token']) }
