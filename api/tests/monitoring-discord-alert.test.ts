@@ -38,7 +38,18 @@ test('embeds respect case overrides, redact secrets and stay within Discord limi
     expect(embed.description).not.toContain('private')
     expect(embed.fields).toContainEqual({ name: 'Case status', value: 'closed', inline: true })
     expect(embed.fields).toContainEqual({ name: 'Severity', value: 'low', inline: true })
+    expect(embed.color).toBe(0x5865F2)
     expect(embed.title.length + embed.description.length + embed.fields.reduce((sum, field) => sum + field.name.length + field.value.length, 0)).toBeLessThanOrEqual(6000)
+})
+
+test('invalid case timestamps stay readable and warning severity keeps its color', () => {
+    const alert = monitoringCaseDiscordAlert('HA-2', 'Disk usage', 'disk-check', {
+        kind: 'warning', summary: 'Disk usage is near the limit', occurrences: 1,
+        first_seen_at: 'invalid', last_seen_at: 'invalid',
+    })
+    expect(alert.embeds[0]).toMatchObject({ color: 0xFEE75C })
+    expect(alert.embeds[0].fields).toContainEqual({ name: 'First seen', value: 'Unknown', inline: true })
+    expect(alert.embeds[0].fields).toContainEqual({ name: 'Last seen', value: 'Unknown', inline: true })
 })
 
 test('existing text-only callers and disabled mentions are unchanged', async () => {
