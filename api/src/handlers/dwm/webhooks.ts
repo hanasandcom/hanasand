@@ -9,6 +9,8 @@ import {
     type OrganizationAlertVisibilityPolicy,
     type OrganizationRole,
 } from '#utils/organizations.ts'
+import { canonicalThirdPartyReportForDelivery } from '#utils/dwm/thirdPartyReportVerification.ts'
+export { canonicalThirdPartyReportForDelivery } from '#utils/dwm/thirdPartyReportVerification.ts'
 import {
     archiveDwmWebhookDestination,
     buildDwmOrgAlertWebhookDeliveryContract,
@@ -58,7 +60,6 @@ import {
     retryDwmWebhookDelivery,
     testDwmWebhookDestination,
     updateDwmWebhookDestination,
-    validateOutboundThirdPartyReport,
     type DwmAlertNotificationInput,
     type DwmWebhookDestinationInput,
 } from '#utils/dwm/webhooks.ts'
@@ -550,9 +551,9 @@ export async function getDwmWebhookDeliveries(req: FastifyRequest<{ Querystring:
         }
     }
 
-    const alertId = clean(req.query?.alertId) || clean(req.query?.alert_id)
-    const reportCaseId = clean(req.query?.reportCaseId) || clean(req.query?.report_case_id)
-    const reportExportChecksum = clean(req.query?.reportExportChecksum) || clean(req.query?.report_export_checksum)
+    const alertId = firstQueryValue(req.query, 'alertId', 'alert_id')
+    const reportCaseId = firstQueryValue(req.query, 'reportCaseId', 'report_case_id')
+    const reportExportChecksum = firstQueryValue(req.query, 'reportExportChecksum', 'report_export_checksum')
     const deliveries = await listDwmWebhookDeliveries(userId, orgId || undefined, {
         alertId,
         reportCaseId,
@@ -562,18 +563,18 @@ export async function getDwmWebhookDeliveries(req: FastifyRequest<{ Querystring:
     const destinations = await listDwmWebhookDestinations(userId, orgId || undefined)
     const deliveryFilters = {
         orgId,
-        destinationId: clean(req.query?.destinationId) || clean(req.query?.destination_id),
+        destinationId: firstQueryValue(req.query, 'destinationId', 'destination_id'),
         alertId,
-        casePath: clean(req.query?.casePath) || clean(req.query?.case_path),
-        dedupeKey: clean(req.query?.dedupeKey) || clean(req.query?.dedupe_key),
-        requestId: clean(req.query?.requestId) || clean(req.query?.request_id) || clean(req.query?.deliveryId) || clean(req.query?.delivery_id),
-        idempotencyKey: clean(req.query?.idempotencyKey) || clean(req.query?.idempotency_key),
-        action: clean(req.query?.action),
-        status: clean(req.query?.status),
-        timeFrom: clean(req.query?.timeFrom) || clean(req.query?.time_from),
-        timeTo: clean(req.query?.timeTo) || clean(req.query?.time_to),
-        retryState: clean(req.query?.retryState) || clean(req.query?.retry_state),
-        actorId: clean(req.query?.actorId) || clean(req.query?.actor_id),
+        casePath: firstQueryValue(req.query, 'casePath', 'case_path'),
+        dedupeKey: firstQueryValue(req.query, 'dedupeKey', 'dedupe_key'),
+        requestId: firstQueryValue(req.query, 'requestId', 'request_id', 'deliveryId', 'delivery_id'),
+        idempotencyKey: firstQueryValue(req.query, 'idempotencyKey', 'idempotency_key'),
+        action: firstQueryValue(req.query, 'action'),
+        status: firstQueryValue(req.query, 'status'),
+        timeFrom: firstQueryValue(req.query, 'timeFrom', 'time_from'),
+        timeTo: firstQueryValue(req.query, 'timeTo', 'time_to'),
+        retryState: firstQueryValue(req.query, 'retryState', 'retry_state'),
+        actorId: firstQueryValue(req.query, 'actorId', 'actor_id'),
         reportCaseId,
         reportExportChecksum,
     }
@@ -1093,102 +1094,6 @@ async function sendDwmWebhookDeliveryResult(res: FastifyReply, userId: string, o
     return res.status(outcome.status).send(outcome.failed ? { ...response, error: outcome.error, code: outcome.code } : response)
 }
 
-export async function canonicalThirdPartyReportForDelivery(input: {
-    submittedReport: unknown
-    organizationId: string
-    alertId: unknown
-    dedupeKey: unknown
-    actorId: string
-    authorization?: string
-}, fetcher: typeof fetch = fetch) {
-    const submitted = validateOutboundThirdPartyReport(input.submittedReport, {
-        organizationId: input.organizationId,
-        alertId: input.alertId,
-        dedupeKey: input.dedupeKey,
-    })
-    if (!submitted.valid || !submitted.report) {
-        return { status: 400, code: 'invalid_third_party_report', error: submitted.error || 'The submitted report is invalid.' }
-    }
-
-    const policy = submitted.report.reportPolicy as Record<string, unknown>
-    const caseId = clean(policy.caseId)
-    const alertId = clean(policy.alertId)
-    const evidenceIds = Array.isArray(policy.evidenceIds) ? policy.evidenceIds.map(clean).filter(Boolean) : []
-    const format = clean(policy.format) === 'hanasand-json' ? 'json' : 'stix'
-    const base = process.env.TI_SCRAPER_API_BASE?.replace(/\/$/, '')
-    const token = process.env.TI_SCRAPER_SERVICE_TOKEN
-    if (!base || !token) {
-        return { status: 503, code: 'third_party_report_verification_unavailable', error: 'Canonical report verification is not configured.' }
-    }
-
-    let url: URL
-    try {
-        url = new URL(`${base}/v1/cases/${encodeURIComponent(caseId)}/export`)
-    } catch {
-        return { status: 503, code: 'third_party_report_verification_unavailable', error: 'Canonical report verification is not configured.' }
-    }
-    url.searchParams.set('organizationId', input.organizationId)
-    url.searchParams.set('alertId', alertId)
-    url.searchParams.set('report', 'true')
-    url.searchParams.set('format', format)
-    for (const evidenceId of evidenceIds) url.searchParams.append('evidenceId', evidenceId)
-    let response: Response
-    try {
-        response = await fetcher(url, {
-            method: 'GET',
-            headers: {
-                accept: 'application/json',
-                'x-hanasand-service-token': token,
-                'x-organization-id': input.organizationId,
-                id: input.actorId,
-                ...(input.authorization ? { authorization: input.authorization } : {}),
-            },
-            cache: 'no-store',
-            signal: AbortSignal.timeout(20_000),
-        })
-    } catch {
-        return { status: 503, code: 'third_party_report_verification_unavailable', error: 'Canonical report verification is temporarily unavailable.' }
-    }
-    let payload: Record<string, unknown>
-    try {
-        payload = await response.json() as Record<string, unknown>
-    } catch {
-        return { status: 502, code: 'third_party_report_verification_unavailable', error: 'Canonical report verification returned an invalid response.' }
-    }
-    if (!response.ok) {
-        if (response.status >= 500) {
-            return { status: 502, code: 'third_party_report_verification_unavailable', error: 'Canonical report verification is temporarily unavailable.' }
-        }
-        return {
-            status: response.status >= 400 && response.status < 500 ? response.status : 502,
-            code: 'canonical_third_party_report_rejected',
-            error: 'Canonical report verification rejected the requested case evidence.',
-        }
-    }
-    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-        return { status: 502, code: 'third_party_report_verification_unavailable', error: 'Canonical report verification returned an invalid response.' }
-    }
-
-    const canonicalPolicy = payload.reportPolicy as Record<string, unknown>
-    const canonicalChecksum = clean(payload.exportChecksum)
-    const canonical = validateOutboundThirdPartyReport(payload, {
-        organizationId: input.organizationId,
-        alertId,
-        dedupeKey: canonicalChecksum,
-    })
-    const exactSelection = clean(canonicalPolicy.caseId) === caseId
-        && clean(canonicalPolicy.alertId) === alertId
-        && clean(canonicalPolicy.format) === clean(policy.format)
-        && JSON.stringify(canonicalPolicy.evidenceIds) === JSON.stringify(evidenceIds)
-    if (!canonical.valid || !canonical.report || !exactSelection) {
-        return { status: 502, code: 'canonical_third_party_report_invalid', error: canonical.error || 'The canonical report did not match the requested case evidence.' }
-    }
-    if (canonicalChecksum !== clean(submitted.report.exportChecksum)) {
-        return { status: 409, code: 'third_party_report_checksum_mismatch', error: 'The submitted report checksum does not match the canonical case export.' }
-    }
-    return { status: 200, report: canonical.report }
-}
-
 async function authenticatedUserId(req: FastifyRequest, res: FastifyReply) {
     const { valid, id } = await tokenWrapper(req, res)
     if (!valid || !id) {
@@ -1316,7 +1221,15 @@ async function loadOrganizationVisibilityMembership(orgId: string, userId: strin
 }
 
 function orgIdFromQuery(query: OrgQuery | undefined) {
-    return clean(query?.orgId) || clean(query?.org_id)
+    return firstQueryValue(query, 'orgId', 'org_id')
+}
+
+function firstQueryValue(query: OrgQuery | undefined, ...keys: Array<keyof OrgQuery>) {
+    for (const key of keys) {
+        const value = clean(query?.[key])
+        if (value) return value
+    }
+    return ''
 }
 
 function clean(value: unknown) {
