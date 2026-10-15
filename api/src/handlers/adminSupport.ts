@@ -11727,14 +11727,7 @@ function supportUserActivityRollup(input: {
 }
 
 function toSupportAuditTimelineEvent(row: Record<string, unknown>) {
-    const event = row as Record<string, any>
-    const originalContext = event.context && typeof event.context === 'object' ? event.context : {}
-    const context = redactAuditValue(originalContext) as Record<string, unknown>
-    const beforeAfter = auditBeforeAfter(context)
-    const id = Number(event.id)
-    const entityId = event.subject_id || event.object_id || event.organization_id || null
-    const supportSessionId = supportSessionIdFromAuditEvent({ context: originalContext, entityId })
-    const actionEvidence = supportAuditActionEvidence({ event, context, entityId, supportSessionId })
+    const { event, context, beforeAfter, id, entityId, actionEvidence, links } = supportAuditEventProjection(row)
     return {
         id,
         actor: {
@@ -11759,27 +11752,15 @@ function toSupportAuditTimelineEvent(row: Record<string, unknown>) {
         after: beforeAfter.after,
         actionEvidence,
         context,
-        links: {
-            detail: `/api/admin/audit-events/${encodeURIComponent(String(id))}`,
-            request: event.request_id ? `/api/admin/audit-events?request=${encodeURIComponent(String(event.request_id))}` : null,
-            entity: entityId ? `/api/admin/audit-events?entity=${encodeURIComponent(String(entityId))}` : null,
-            supportSession: supportSessionId ? `/api/admin/support/sessions/${encodeURIComponent(supportSessionId)}` : null,
-            entities: supportAuditEntityLinks({ event, context, entityId, supportSessionId }),
-        },
+        links,
         createdAt: event.created_at,
         copyText: `${event.created_at} ${event.severity}/${event.outcome} ${event.event_type} actor=${event.actor_id} entity=${event.subject_id || event.object_id || ''} request=${event.request_id || ''}`,
     }
 }
 
 function toSystemEvent(row: Record<string, unknown>): Record<string, any> {
-    const originalContext = row.context && typeof row.context === 'object' ? row.context : {}
-    const context = redactAuditValue(originalContext) as Record<string, unknown>
-    const event = { ...row, target_name: text(context.targetName) || row.target_name || null } as Record<string, any>
-    const beforeAfter = auditBeforeAfter(context)
-    const id = Number(event.id)
-    const entityId = event.subject_id || event.object_id || event.organization_id || null
-    const supportSessionId = supportSessionIdFromAuditEvent({ context: originalContext, entityId })
-    const actionEvidence = supportAuditActionEvidence({ event, context, entityId, supportSessionId })
+    const { event: sourceEvent, context, beforeAfter, id, entityId, actionEvidence, links } = supportAuditEventProjection(row)
+    const event: Record<string, any> = { ...sourceEvent, target_name: text(context.targetName) || row.target_name || null }
     const timelineEvent = {
         schemaVersion: 'admin.audit.timeline_event.v1',
         id,
@@ -11813,13 +11794,7 @@ function toSystemEvent(row: Record<string, unknown>): Record<string, any> {
         after: beforeAfter.after,
         actionEvidence,
         context,
-        links: {
-            detail: `/api/admin/audit-events/${encodeURIComponent(String(id))}`,
-            request: event.request_id ? `/api/admin/audit-events?request=${encodeURIComponent(String(event.request_id))}` : null,
-            entity: entityId ? `/api/admin/audit-events?entity=${encodeURIComponent(String(entityId))}` : null,
-            supportSession: supportSessionId ? `/api/admin/support/sessions/${encodeURIComponent(supportSessionId)}` : null,
-            entities: supportAuditEntityLinks({ event, context, entityId, supportSessionId }),
-        },
+        links,
     }
     return {
         ...event,
@@ -11864,6 +11839,25 @@ function toSystemEvent(row: Record<string, unknown>): Record<string, any> {
             copyText: `${event.created_at} ${event.severity}/${event.outcome} ${event.event_type} actor=${event.actor_id} target=${event.object_id || ''} org=${event.organization_id || ''} request=${event.request_id || ''} reason=${event.reason || ''}`,
         },
     }
+}
+
+function supportAuditEventProjection(row: Record<string, unknown>) {
+    const event = row as Record<string, any>
+    const originalContext = event.context && typeof event.context === 'object' ? event.context : {}
+    const context = redactAuditValue(originalContext) as Record<string, unknown>
+    const beforeAfter = auditBeforeAfter(context)
+    const id = Number(event.id)
+    const entityId = event.subject_id || event.object_id || event.organization_id || null
+    const supportSessionId = supportSessionIdFromAuditEvent({ context: originalContext, entityId })
+    const actionEvidence = supportAuditActionEvidence({ event, context, entityId, supportSessionId })
+    const links = {
+        detail: `/api/admin/audit-events/${encodeURIComponent(String(id))}`,
+        request: event.request_id ? `/api/admin/audit-events?request=${encodeURIComponent(String(event.request_id))}` : null,
+        entity: entityId ? `/api/admin/audit-events?entity=${encodeURIComponent(String(entityId))}` : null,
+        supportSession: supportSessionId ? `/api/admin/support/sessions/${encodeURIComponent(supportSessionId)}` : null,
+        entities: supportAuditEntityLinks({ event, context, entityId, supportSessionId }),
+    }
+    return { event, context, beforeAfter, id, entityId, supportSessionId, actionEvidence, links }
 }
 
 function supportAuditActionEvidence(input: {
