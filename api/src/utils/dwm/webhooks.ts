@@ -420,8 +420,10 @@ export function normalizeDwmWebhookDestinationInput(
 
     // Internal callers need the original target and signing key for persistence,
     // but enumerable properties can leak when this value is logged or serialized.
-    Object.defineProperty(normalized, 'endpointUrl', { enumerable: false })
-    Object.defineProperty(normalized, 'signingSecret', { enumerable: false })
+    Object.defineProperties(normalized, {
+        endpointUrl: { enumerable: false, writable: true, configurable: true },
+        signingSecret: { enumerable: false, writable: true, configurable: true },
+    })
     return normalized
 }
 
