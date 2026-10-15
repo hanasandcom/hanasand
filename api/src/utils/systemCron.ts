@@ -339,12 +339,10 @@ const apiBackgroundJobDefinitions: Array<{
 ]
 
 export async function listManagedCronJobs(): Promise<ManagedCronJob[]> {
-    const crontab = await readManagedCrontab()
-    const entries = parseManagedBlock(crontab)
-    const existingEntries = parseExistingCronEntries(crontab, managedCronDefinitions)
+    const { entries } = await readManagedCronState()
 
     return Promise.all(managedCronDefinitions.map(async(definition) => {
-        const entry = entries.get(definition.id) || existingEntries.get(definition.id)
+        const entry = entries.get(definition.id)
         const log = await readManagedCronLog(definition.logPath)
 
         return {
@@ -378,17 +376,20 @@ export function hasUnifiedScheduledJobsCache() {
 
 function fastUnifiedScheduledJobs(): UnifiedScheduledJob[] {
     const telemetry = unavailableTelemetry('Live job state is refreshing.')
-    const apiJobs = visibleApiBackgroundJobDefinitions().map(job => ({
-        id: job.id, name: job.name, description: job.description, category: job.category,
-        source: job.source, service: 'hanasand-api', schedule: job.schedule,
-        cadenceSeconds: job.cadenceSeconds, enabled: true, running: false, status: 'unknown' as const,
-        lastRunAt: null, lastSuccessAt: null, lastFinishedAt: null, nextRunAt: null,
-        currentRunDurationMs: null, averageRuntimeMs: null, failureCount: 0, lastError: null,
-        logExcerpt: 'Live state is refreshing.', controls: job.controls,
-        controlMode: job.controls.length ? 'safe_control' as const : 'observable_only' as const,
-        resourceUsage: telemetry, costEstimate: costEstimate(18, 'Live cost estimate is refreshing.'),
-        assumptions: ['This immediate registry snapshot will be replaced by live runtime state.'],
-    }))
+    const apiJobs = visibleApiBackgroundJobDefinitions().map(job => {
+        const controls = apiBackgroundJobControls(job, true, false)
+        return {
+            id: job.id, name: job.name, description: job.description, category: job.category,
+            source: job.source, service: 'hanasand-api', schedule: job.schedule,
+            cadenceSeconds: job.cadenceSeconds, enabled: true, running: false, status: 'unknown' as const,
+            lastRunAt: null, lastSuccessAt: null, lastFinishedAt: null, nextRunAt: null,
+            currentRunDurationMs: null, averageRuntimeMs: null, failureCount: 0, lastError: null,
+            logExcerpt: 'Live state is refreshing.', controls,
+            controlMode: scheduledJobControlMode(controls),
+            resourceUsage: telemetry, costEstimate: costEstimate(18, 'Live cost estimate is refreshing.'),
+            assumptions: ['This immediate registry snapshot will be replaced by live runtime state.'],
+        }
+    })
     const managedJobs = managedCronDefinitions.map(job => ({
         id: job.id, name: job.name, description: job.description, category: job.category || 'Forgejo' as const,
         source: 'api/src/utils/systemCron.ts', service: job.service || 'forgejo', schedule: job.defaultSchedule,
@@ -406,6 +407,16 @@ function fastUnifiedScheduledJobs(): UnifiedScheduledJob[] {
 
 function visibleApiBackgroundJobDefinitions() {
     return apiBackgroundJobDefinitions.filter(job => job.id !== 'api-mail-account-provisioning' || Boolean(process.env.MAIL_ADMIN_PASSWORD))
+}
+
+async function readManagedCronState() {
+    const crontab = await readManagedCrontab()
+    const entries = parseManagedBlock(crontab)
+    const existingEntries = parseExistingCronEntries(crontab, managedCronDefinitions)
+    for (const [id, entry] of existingEntries) {
+        if (!entries.has(id)) entries.set(id, entry)
+    }
+    return { crontab, entries }
 }
 
 async function refreshUnifiedScheduledJobs(): Promise<UnifiedScheduledJob[]> {
@@ -432,19 +443,19 @@ export async function updateManagedCronJob(id: string, input: ManagedCronUpdate)
         if (input.enabled !== undefined) {
             await setVulnerabilityScannerPaused(!input.enabled)
         }
-        return (await listUnifiedScheduledJobs()).find(job => job.id === id)!
+        return updatedScheduledJob(id)
     }
     if (id === 'ti-public-canary-collection') {
         await updateTiCollectionScheduler(input)
-        return (await listUnifiedScheduledJobs()).find(job => job.id === id)!
+        return updatedScheduledJob(id)
     }
     if (id === 'ti-dwm-alert-generation' && input.action === 'run_now') {
         await runTiJob('/v1/dwm/alerts/rebuild', { tenantId: 'default', actor: 'dashboard/system/cron' })
-        return (await listUnifiedScheduledJobs()).find(job => job.id === id)!
+        return updatedScheduledJob(id)
     }
     if (id === 'ti-source-pack-worker' && input.action === 'run_now') {
         await runTiJob('/v1/dwm/source-requests', { action: 'pack_worker_run', sourcePackLabel: 'default', requestedBy: 'dashboard/system/cron', reason: 'Run now requested from Cron Jobs dashboard.' })
-        return (await listUnifiedScheduledJobs()).find(job => job.id === id)!
+        return updatedScheduledJob(id)
     }
     if (id === DATABASE_BACKUP_JOB_ID) {
         if (input.action === 'run_now') {
@@ -453,7 +464,7 @@ export async function updateManagedCronJob(id: string, input: ManagedCronUpdate)
             })
         }
         if (input.enabled !== undefined) await setDatabaseBackupSchedulePaused(!input.enabled)
-        return (await listUnifiedScheduledJobs()).find(job => job.id === id)!
+        return updatedScheduledJob(id)
     }
     if (canRunApiCronJobNow(id)) {
         if (input.action === 'run_now') {
@@ -464,7 +475,7 @@ export async function updateManagedCronJob(id: string, input: ManagedCronUpdate)
         if (input.enabled !== undefined) {
             await setApiCronJobPaused(id, !input.enabled)
         }
-        return (await listUnifiedScheduledJobs()).find(job => job.id === id)!
+        return updatedScheduledJob(id)
     }
 
     const definition = managedCronDefinitions.find(job => job.id === id)
@@ -478,12 +489,7 @@ export async function updateManagedCronJob(id: string, input: ManagedCronUpdate)
     const enabled = input.enabled === undefined
         ? undefined
         : Boolean(input.enabled)
-    const crontab = await readManagedCrontab()
-    const entries = parseManagedBlock(crontab)
-    const existingEntries = parseExistingCronEntries(crontab, managedCronDefinitions)
-    for (const [entryId, entry] of existingEntries) {
-        if (!entries.has(entryId)) entries.set(entryId, entry)
-    }
+    const { crontab, entries } = await readManagedCronState()
     const current = entries.get(id)
     entries.set(id, {
         schedule: schedule || current?.schedule || definition.defaultSchedule,
@@ -492,6 +498,28 @@ export async function updateManagedCronJob(id: string, input: ManagedCronUpdate)
 
     await writeManagedCrontab(replaceManagedBlock(crontab, entries, managedCronDefinitions))
     return (await listManagedCronJobs()).find(job => job.id === id)!
+}
+
+async function updatedScheduledJob(id: string) {
+    return (await listUnifiedScheduledJobs()).find(job => job.id === id)!
+}
+
+function scheduledJobControlMode(controls: ScheduledJobControl[]): UnifiedScheduledJob['controlMode'] {
+    if (controls.length === 1 && controls[0] === 'run_now') return 'run_only'
+    return controls.length ? 'safe_control' : 'observable_only'
+}
+
+function apiBackgroundJobControls(
+    definition: typeof apiBackgroundJobDefinitions[number],
+    enabled: boolean,
+    allowPauseResume = true,
+): ScheduledJobControl[] {
+    const hasRunner = canRunApiCronJobNow(definition.id)
+    if (!allowPauseResume) {
+        return hasRunner || definition.controls.includes('run_now') ? ['run_now'] : []
+    }
+    if (!hasRunner) return definition.controls
+    return [enabled ? 'pause' : 'resume', 'run_now']
 }
 
 function managedHostCronJob(job: ManagedCronJob): UnifiedScheduledJob {
@@ -534,7 +562,7 @@ async function apiBackgroundJob(definition: typeof apiBackgroundJobDefinitions[n
     const telemetry = getBackgroundJobRuntime(definition.id)
     const hasRunner = canRunApiCronJobNow(definition.id)
     const enabled = hasRunner ? !await isApiCronJobPaused(definition.id) : true
-    const controls: ScheduledJobControl[] = hasRunner ? [enabled ? 'pause' : 'resume', 'run_now'] : definition.controls
+    const controls = apiBackgroundJobControls(definition, enabled)
     return {
         id: definition.id,
         name: definition.name,
@@ -557,7 +585,7 @@ async function apiBackgroundJob(definition: typeof apiBackgroundJobDefinitions[n
         lastError: telemetry.lastError,
         logExcerpt: telemetry.logExcerpt,
         controls,
-        controlMode: controls.length ? 'safe_control' : 'observable_only',
+        controlMode: scheduledJobControlMode(controls),
         resourceUsage: {
             scope: 'service',
             cpuPercent: null,

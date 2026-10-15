@@ -24,8 +24,8 @@ process.env.TI_SCRAPER_API_BASE = tiBaseUrl
 
 mock.module('../src/utils/cron.ts', () => ({
     HOST_UPDATE_MONITOR_JOB_ID: 'api-host-update-monitor',
-    canRunApiCronJobNow: () => false,
-    isApiCronJobPaused: async () => false,
+    canRunApiCronJobNow: (id: string) => ['api-agent-automations', 'api-cron-health-monitor', 'api-user-account-deletion'].includes(id),
+    isApiCronJobPaused: async () => true,
     runApiCronJobNow: async () => undefined,
     setApiCronJobPaused: async () => undefined,
 }))
@@ -60,7 +60,12 @@ test('fast snapshots stay provisional while concurrent reads share the active re
     try {
         process.env.MAIL_ADMIN_PASSWORD = ''
         const fastSnapshot = await listUnifiedScheduledJobs({ fast: true })
-        expect(fastSnapshot.find(job => job.id === 'api-user-account-deletion')).toMatchObject({ status: 'unknown', schedule: 'Every minute' })
+        expect(fastSnapshot.find(job => job.id === 'api-user-account-deletion')).toMatchObject({
+            status: 'unknown', schedule: 'Every minute', controls: ['run_now'], controlMode: 'run_only',
+        })
+        expect(fastSnapshot.find(job => job.id === 'api-cron-health-monitor')).toMatchObject({ controls: ['run_now'], controlMode: 'run_only' })
+        expect(fastSnapshot.find(job => job.id === 'api-agent-automations')).toMatchObject({ controls: ['run_now'], controlMode: 'run_only' })
+        expect(fastSnapshot.find(job => job.id === 'api-vulnerability-scanner')).toMatchObject({ controls: ['run_now'], controlMode: 'run_only' })
         expect(fastSnapshot.some(job => job.id === 'api-mail-account-provisioning')).toBe(false)
         expect(fastSnapshot.find(job => job.id === 'ti-public-canary-collection')?.status).toBe('blocked')
         const requestsDuringRefresh = tiRequestCount
@@ -75,6 +80,9 @@ test('fast snapshots stay provisional while concurrent reads share the active re
         const [firstJobs, secondJobs] = await Promise.all([firstRead, secondRead])
         expect(firstJobs).toBe(secondJobs)
         expect(firstJobs.some(job => job.id === 'api-mail-account-provisioning')).toBe(true)
+        expect(firstJobs.find(job => job.id === 'api-user-account-deletion')).toMatchObject({ controls: ['resume', 'run_now'], controlMode: 'safe_control' })
+        expect(firstJobs.find(job => job.id === 'api-cron-health-monitor')).toMatchObject({ controls: ['resume', 'run_now'], controlMode: 'safe_control' })
+        expect(firstJobs.find(job => job.id === 'api-agent-automations')).toMatchObject({ controls: ['resume', 'run_now'], controlMode: 'safe_control' })
         expect(backupRequestCount).toBe(1)
         expect(await listUnifiedScheduledJobs({ fast: true })).toBe(firstJobs)
     } finally {
