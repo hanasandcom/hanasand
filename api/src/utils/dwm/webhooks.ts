@@ -1008,7 +1008,7 @@ async function bindDwmWebhookReceiverReceipt(delivery: DwmWebhookDeliveryRow, qu
     return Boolean(result.rows[0])
 }
 
-export function buildDwmWebhookDeliveryEvidence({
+function buildDwmWebhookDeliveryEvidenceProjection({
     deliveries,
     auditEvents = [],
     filters = {},
@@ -1043,7 +1043,7 @@ export function buildDwmWebhookDeliveryEvidence({
         }
     }
 
-    return deliveries
+    const evidence = deliveries
         .map((delivery) => {
             const payloadContext = extractHanasandPayloadContext(delivery.payload)
             const payloadAlert = recordOrEmpty(payloadContext.alert)
@@ -1128,6 +1128,23 @@ export function buildDwmWebhookDeliveryEvidence({
             if (normalizedFilters.timeTo && String(evidence.attemptedAt || evidence.createdAt).localeCompare(normalizedFilters.timeTo) > 0) return false
             return true
         })
+
+    const deliveriesById = new Map<string, DwmWebhookDeliveryPublic>()
+    const attemptCountsByIdempotencyKey = new Map<string, number>()
+    for (const delivery of deliveries) {
+        if (!deliveriesById.has(delivery.id)) deliveriesById.set(delivery.id, delivery)
+        const key = delivery.idempotencyKey || delivery.id
+        attemptCountsByIdempotencyKey.set(key, (attemptCountsByIdempotencyKey.get(key) || 0) + 1)
+    }
+    return { evidence, deliveriesById, attemptCountsByIdempotencyKey }
+}
+
+export function buildDwmWebhookDeliveryEvidence(input: {
+    deliveries: DwmWebhookDeliveryPublic[]
+    auditEvents?: DwmWebhookAuditPublic[]
+    filters?: DwmWebhookDeliveryEvidenceFilters
+}) {
+    return buildDwmWebhookDeliveryEvidenceProjection(input).evidence
 }
 
 export function buildDwmWebhookDeliveryLedger({
@@ -1141,16 +1158,20 @@ export function buildDwmWebhookDeliveryLedger({
     filters?: DwmWebhookDeliveryEvidenceFilters
     now?: Date
 }) {
-    const evidence = buildDwmWebhookDeliveryEvidence({ deliveries, auditEvents, filters })
-    const sortedDeliveries = [...deliveries].sort((a, b) => String(a.attemptedAt || a.createdAt).localeCompare(String(b.attemptedAt || b.createdAt)))
-    const attemptCounts = new Map<string, number>()
-    for (const delivery of sortedDeliveries) {
-        const key = delivery.idempotencyKey || delivery.id
-        attemptCounts.set(key, (attemptCounts.get(key) || 0) + 1)
-    }
+    const projection = buildDwmWebhookDeliveryEvidenceProjection({ deliveries, auditEvents, filters })
+    return buildDwmWebhookDeliveryLedgerFromEvidence({ projection, now })
+}
 
+function buildDwmWebhookDeliveryLedgerFromEvidence({
+    projection,
+    now,
+}: {
+    projection: ReturnType<typeof buildDwmWebhookDeliveryEvidenceProjection>
+    now: Date
+}) {
+    const { evidence, deliveriesById, attemptCountsByIdempotencyKey } = projection
     return evidence.map((item) => {
-        const delivery = deliveries.find(row => row.id === item.deliveryId)
+        const delivery = deliveriesById.get(item.deliveryId)
         const retryPlan = delivery
             ? planDwmWebhookDeliveryRetry({
                 status: delivery.status,
@@ -1158,7 +1179,7 @@ export function buildDwmWebhookDeliveryLedger({
                 responseStatus: delivery.responseStatus,
                 error: delivery.error,
                 attemptedAt: delivery.attemptedAt,
-                attemptCount: attemptCounts.get(delivery.idempotencyKey || delivery.id) || 1,
+                attemptCount: attemptCountsByIdempotencyKey.get(delivery.idempotencyKey || delivery.id) || 1,
                 now,
             })
             : planDwmWebhookDeliveryRetry({
@@ -1170,7 +1191,7 @@ export function buildDwmWebhookDeliveryLedger({
                 attemptCount: 1,
                 now,
             })
-        const attemptCount = delivery ? delivery.attemptCount || attemptCounts.get(delivery.idempotencyKey || delivery.id) || 1 : 1
+        const attemptCount = delivery ? delivery.attemptCount || attemptCountsByIdempotencyKey.get(delivery.idempotencyKey || delivery.id) || 1 : 1
         const errorClass = delivery?.errorClass ?? retryPlan.errorClass
         const nextRetryAt = delivery?.nextRetryAt ?? retryPlan.nextRetryAt
 
@@ -1234,8 +1255,25 @@ export function buildDwmWebhookDeliveryOperations({
     filters?: DwmWebhookDeliveryEvidenceFilters
     liveDeliveryEnabled?: boolean
 }) {
-    const ledger = buildDwmWebhookDeliveryLedger({ deliveries, auditEvents, filters })
-    const auditContracts = buildDwmWebhookAuditEventContracts({ auditEvents, deliveries, destinations })
+    const projection = buildDwmWebhookDeliveryEvidenceProjection({ deliveries, auditEvents, filters })
+    const ledger = buildDwmWebhookDeliveryLedgerFromEvidence({ projection, now: new Date() })
+    const auditContracts = buildDwmWebhookAuditEventContractsFromLedger({ auditEvents, deliveries, destinations, ledger })
+    return buildDwmWebhookDeliveryOperationsFromProjection({ destinations, filters, liveDeliveryEnabled, ledger, auditContracts })
+}
+
+function buildDwmWebhookDeliveryOperationsFromProjection({
+    destinations,
+    filters,
+    liveDeliveryEnabled,
+    ledger,
+    auditContracts,
+}: {
+    destinations: DwmWebhookDestinationPublic[]
+    filters: DwmWebhookDeliveryEvidenceFilters
+    liveDeliveryEnabled: boolean
+    ledger: ReturnType<typeof buildDwmWebhookDeliveryLedgerFromEvidence>
+    auditContracts: ReturnType<typeof buildDwmWebhookAuditEventContractsFromLedger>
+}) {
     const auditByDelivery = new Map(auditContracts.filter(audit => audit.deliveryId).map(audit => [audit.deliveryId, audit]))
     const destinationsById = new Map(destinations.map(destination => [destination.id, destination]))
     const sortedLedger = [...ledger]
@@ -1346,10 +1384,12 @@ export function buildDwmWebhookDeliveryHistory({
     filters?: DwmWebhookDeliveryEvidenceFilters
     liveDeliveryEnabled?: boolean
 }) {
-    const operations = buildDwmWebhookDeliveryOperations({ deliveries, auditEvents, destinations, filters, liveDeliveryEnabled })
-    const retryPersistence = buildDwmWebhookDeliveryRetryPersistence({ deliveries, auditEvents, destinations, filters, liveDeliveryEnabled })
-    const auditContracts = buildDwmWebhookAuditEventContracts({ auditEvents, deliveries, destinations })
-    const deliveryById = new Map(deliveries.map(delivery => [delivery.id, delivery]))
+    const projection = buildDwmWebhookDeliveryEvidenceProjection({ deliveries, auditEvents, filters })
+    const ledger = buildDwmWebhookDeliveryLedgerFromEvidence({ projection, now: new Date() })
+    const auditContracts = buildDwmWebhookAuditEventContractsFromLedger({ auditEvents, deliveries, destinations, ledger })
+    const operations = buildDwmWebhookDeliveryOperationsFromProjection({ destinations, filters, liveDeliveryEnabled, ledger, auditContracts })
+    const retryPersistence = buildDwmWebhookDeliveryRetryPersistenceFromProjection({ destinations, filters, liveDeliveryEnabled, ledger, auditContracts })
+    const deliveryById = projection.deliveriesById
     const auditByDelivery = new Map(auditContracts.filter(audit => audit.deliveryId).map(audit => [audit.deliveryId, audit]))
     const retryByIdempotencyKey = new Map(retryPersistence.deliveryKeys.map(key => [key.idempotencyKey, key]))
     const entries = operations.recentDeliveries.map((operation) => {
@@ -2774,8 +2814,25 @@ export function buildDwmWebhookDeliveryRetryPersistence({
     liveDeliveryEnabled?: boolean
     now?: Date
 }) {
-    const ledger = buildDwmWebhookDeliveryLedger({ deliveries, auditEvents, filters, now })
-    const auditContracts = buildDwmWebhookAuditEventContracts({ auditEvents, deliveries, destinations })
+    const projection = buildDwmWebhookDeliveryEvidenceProjection({ deliveries, auditEvents, filters })
+    const ledger = buildDwmWebhookDeliveryLedgerFromEvidence({ projection, now })
+    const auditContracts = buildDwmWebhookAuditEventContractsFromLedger({ auditEvents, deliveries, destinations, ledger })
+    return buildDwmWebhookDeliveryRetryPersistenceFromProjection({ destinations, filters, liveDeliveryEnabled, ledger, auditContracts })
+}
+
+function buildDwmWebhookDeliveryRetryPersistenceFromProjection({
+    destinations,
+    filters,
+    liveDeliveryEnabled,
+    ledger,
+    auditContracts,
+}: {
+    destinations: DwmWebhookDestinationPublic[]
+    filters: DwmWebhookDeliveryEvidenceFilters
+    liveDeliveryEnabled: boolean
+    ledger: ReturnType<typeof buildDwmWebhookDeliveryLedgerFromEvidence>
+    auditContracts: ReturnType<typeof buildDwmWebhookAuditEventContractsFromLedger>
+}) {
     const auditsByDelivery = new Map<string, typeof auditContracts>()
     for (const audit of auditContracts) {
         if (!audit.deliveryId) continue
@@ -3874,7 +3931,22 @@ export function buildDwmWebhookAuditEventContracts({
     deliveries?: DwmWebhookDeliveryPublic[]
     destinations?: DwmWebhookDestinationPublic[]
 }) {
-    const ledgerByDelivery = new Map(buildDwmWebhookDeliveryLedger({ deliveries, auditEvents }).map(item => [item.deliveryId, item]))
+    const ledger = buildDwmWebhookDeliveryLedger({ deliveries, auditEvents })
+    return buildDwmWebhookAuditEventContractsFromLedger({ auditEvents, deliveries, destinations, ledger })
+}
+
+function buildDwmWebhookAuditEventContractsFromLedger({
+    auditEvents,
+    deliveries,
+    destinations,
+    ledger,
+}: {
+    auditEvents: DwmWebhookAuditPublic[]
+    deliveries: DwmWebhookDeliveryPublic[]
+    destinations: DwmWebhookDestinationPublic[]
+    ledger: ReturnType<typeof buildDwmWebhookDeliveryLedgerFromEvidence>
+}) {
+    const ledgerByDelivery = new Map(ledger.map(item => [item.deliveryId, item]))
     const deliveryById = new Map(deliveries.map(delivery => [delivery.id, delivery]))
     const destinationById = new Map(destinations.map(destination => [destination.id, destination]))
 
