@@ -310,7 +310,38 @@ function publicSource(value: unknown) {
     const publisher = record(row.publisher)
     const collection = record(row.collection)
     const locatorRedacted = row.locatorRedacted === true || operating.metadataOnly === true || operating.accessMethod === 'metadata_only_proxy' || String(row.type ?? '').endsWith('_metadata')
-    return compact({ id: text(row.id), name: text(row.name), type: text(row.type), status: text(row.status), risk: text(row.risk), trustScore: confidence(row.trustScore), language: text(row.language), tags: strings(row.tags), url: locatorRedacted ? undefined : httpUrl(row.url), urlHash: text(row.urlHash), locatorRedacted: locatorRedacted ? true : boolean(row.locatorRedacted), operatingMode: compact({ accessMethod: text(operating.accessMethod), metadataOnly: boolean(operating.metadataOnly), approvalState: text(operating.approvalState), policyVersion: text(operating.policyVersion) }), publisher: Object.keys(publisher).length ? compact({ name: text(publisher.name), country: text(publisher.country), homepage: httpUrl(publisher.homepage), trustBasis: text(publisher.trustBasis) }) : undefined, collection: compact({ cadenceSeconds: nonNegativeInteger(collection.cadenceSeconds), freshnessTargetSeconds: nonNegativeInteger(collection.freshnessTargetSeconds), lastSeenAt: iso(collection.lastSeenAt), createdAt: iso(collection.createdAt), updatedAt: iso(collection.updatedAt) }) })
+    return compact({
+        id: text(row.id),
+        name: text(row.name),
+        type: text(row.type),
+        status: text(row.status),
+        risk: text(row.risk),
+        trustScore: confidence(row.trustScore),
+        language: text(row.language),
+        tags: strings(row.tags),
+        url: locatorRedacted ? undefined : httpUrl(row.url),
+        urlHash: text(row.urlHash),
+        locatorRedacted: locatorRedacted ? true : boolean(row.locatorRedacted),
+        operatingMode: compact({
+            accessMethod: text(operating.accessMethod),
+            metadataOnly: boolean(operating.metadataOnly),
+            approvalState: text(operating.approvalState),
+            policyVersion: text(operating.policyVersion),
+        }),
+        publisher: Object.keys(publisher).length ? compact({
+            name: text(publisher.name),
+            country: text(publisher.country),
+            homepage: httpUrl(publisher.homepage),
+            trustBasis: text(publisher.trustBasis),
+        }) : undefined,
+        collection: compact({
+            cadenceSeconds: nonNegativeInteger(collection.cadenceSeconds),
+            freshnessTargetSeconds: nonNegativeInteger(collection.freshnessTargetSeconds),
+            lastSeenAt: iso(collection.lastSeenAt),
+            createdAt: iso(collection.createdAt),
+            updatedAt: iso(collection.updatedAt),
+        }),
+    })
 }
 function publicValidation(value: unknown) { const row = record(value); return compact({ id: text(row.id), captureId: text(row.captureId), incidentId: text(row.incidentId), claimId: text(row.claimId), validationType: text(row.validationType), status: text(row.status), referenceUrl: httpUrl(row.referenceUrl), referencePublishedAt: iso(row.referencePublishedAt), matchedAt: iso(row.matchedAt), notes: text(row.notes), updatedAt: iso(row.updatedAt) }) }
 function publicAlert(value: unknown) { const row = record(value); const evidence = record(row.evidence); return compact({ id: text(row.id), incidentId: text(row.incidentId), actor: text(row.actor), victim: text(row.victim), assertionKind: text(row.assertionKind), observedMatchSummary: text(row.observedMatchSummary), summary: text(row.summary), severity: text(row.severity), confidence: confidence(row.confidence), reviewState: text(row.reviewState), workflowState: text(row.workflowState), deliveryState: text(row.deliveryState), sourceFamily: text(row.sourceFamily), firstSeenAt: iso(row.firstSeenAt), lastSeenAt: iso(row.lastSeenAt), alertedAt: iso(row.alertedAt), deliveredAt: iso(row.deliveredAt), evidence: compact({ captureIds: strings(evidence.captureIds), sourceIds: strings(evidence.sourceIds), evidenceCount: nonNegativeInteger(evidence.evidenceCount), sourceCount: nonNegativeInteger(evidence.sourceCount), metadataOnly: boolean(evidence.metadataOnly) }) }) }
