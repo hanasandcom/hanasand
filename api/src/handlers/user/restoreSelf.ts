@@ -2,6 +2,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify'
 import { withTransaction } from '#db'
 import { createAccountRestoreToken, hashAccountRestoreToken } from '#utils/auth/accountDeletion.ts'
 import login from '#utils/auth/login.ts'
+import { consumePendingPasswordResetCodes } from '#utils/auth/passwordReset.ts'
 
 export default async function restoreSelf(req: FastifyRequest, res: FastifyReply) {
     const { id, restoreToken } = req.body as { id?: string, restoreToken?: string } ?? {}
@@ -29,7 +30,7 @@ export default async function restoreSelf(req: FastifyRequest, res: FastifyReply
         RETURNING id, name, avatar, active
     `, [userId, hashAccountRestoreToken(token)])
         if (restored.rows.length) {
-            await query('UPDATE password_reset_codes SET consumed_at = NOW() WHERE user_id = $1 AND consumed_at IS NULL', [userId])
+            await consumePendingPasswordResetCodes(userId, query)
             await query(`INSERT INTO password_reset_codes
                 (user_id, code_hash, reset_token_hash, verified_at, requested_ip, user_agent, expires_at)
                 VALUES ($1, $2, $3, NOW(), $4, $5, NOW() + INTERVAL '15 minutes')`,
