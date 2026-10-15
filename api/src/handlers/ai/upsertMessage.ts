@@ -50,7 +50,7 @@ export default async function upsertAiMessage(req: FastifyRequest, res: FastifyR
     `, [messageId])
     const inserted = !existing.rows.length
 
-    await run(`
+    const messageResult = await run(`
         INSERT INTO ai_messages (
             id, conversation_id, role, content, pending, error, model_name, metadata, created_at, updated_at
         )
@@ -63,6 +63,8 @@ export default async function upsertAiMessage(req: FastifyRequest, res: FastifyR
             model_name = EXCLUDED.model_name,
             metadata = EXCLUDED.metadata,
             updated_at = NOW()
+        WHERE ai_messages.conversation_id = EXCLUDED.conversation_id
+        RETURNING id
     `, [
         messageId,
         id,
@@ -74,6 +76,10 @@ export default async function upsertAiMessage(req: FastifyRequest, res: FastifyR
         JSON.stringify(metadata),
         createdAt,
     ])
+
+    if (!messageResult.rows.length) {
+        return res.status(409).send({ error: 'Message id belongs to another conversation.' })
+    }
 
     await run(`
         UPDATE ai_conversations

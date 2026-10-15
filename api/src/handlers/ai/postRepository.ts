@@ -1,5 +1,5 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
-import run from '#db'
+import { withTransaction } from '#db'
 import { requireAiUser } from './shared.ts'
 
 export default async function postAiRepository(req: FastifyRequest, res: FastifyReply) {
@@ -13,7 +13,8 @@ export default async function postAiRepository(req: FastifyRequest, res: Fastify
         return res.status(400).send({ error: 'Invalid repository payload.' })
     }
 
-    await run(`
+    const saved = await withTransaction(async query => {
+        const repository = await query(`
         INSERT INTO ai_imported_repositories (
             id, owner_id, name, full_name, branch, default_branch, source_path, source_url,
             auth_mode, auth_hint, sync_status, last_synced_at, last_sync_error, sync_history,
@@ -38,34 +39,43 @@ export default async function postAiRepository(req: FastifyRequest, res: Fastify
             stack_reason = EXCLUDED.stack_reason,
             truncated = EXCLUDED.truncated,
             imported_at = EXCLUDED.imported_at
+        WHERE ai_imported_repositories.owner_id = EXCLUDED.owner_id
+        RETURNING id
     `, [
-        repo.id,
-        userId,
-        repo.name,
-        repo.fullName,
-        repo.branch,
-        repo.defaultBranch || repo.branch,
-        repo.sourcePath || '',
-        repo.sourceUrl,
-        repo.authMode || 'public',
-        repo.authHint || null,
-        repo.syncStatus || 'ready',
-        repo.lastSyncedAt,
-        repo.lastSyncError,
-        JSON.stringify(Array.isArray(repo.syncHistory) ? repo.syncHistory.slice(0, 12) : []),
-        repo.stackType || 'unknown',
-        repo.stackReason || null,
-        Boolean(repo.truncated),
-        repo.importedAt,
-    ])
+            repo.id,
+            userId,
+            repo.name,
+            repo.fullName,
+            repo.branch,
+            repo.defaultBranch || repo.branch,
+            repo.sourcePath || '',
+            repo.sourceUrl,
+            repo.authMode || 'public',
+            repo.authHint || null,
+            repo.syncStatus || 'ready',
+            repo.lastSyncedAt,
+            repo.lastSyncError,
+            JSON.stringify(Array.isArray(repo.syncHistory) ? repo.syncHistory.slice(0, 12) : []),
+            repo.stackType || 'unknown',
+            repo.stackReason || null,
+            Boolean(repo.truncated),
+            repo.importedAt,
+        ])
+        if (!repository.rows.length) return false
 
-    await run('DELETE FROM ai_imported_repository_files WHERE repository_id = $1', [repo.id])
+        await query('DELETE FROM ai_imported_repository_files WHERE repository_id = $1', [repo.id])
 
-    for (const file of repo.files) {
-        await run(`
-            INSERT INTO ai_imported_repository_files (repository_id, path, name, content)
-            VALUES ($1, $2, $3, $4)
-        `, [repo.id, file.path, file.name, file.content])
+        for (const file of repo.files) {
+            await query(`
+                INSERT INTO ai_imported_repository_files (repository_id, path, name, content)
+                VALUES ($1, $2, $3, $4)
+            `, [repo.id, file.path, file.name, file.content])
+        }
+        return true
+    })
+
+    if (!saved) {
+        return res.status(409).send({ error: 'Repository id is already owned by another user.' })
     }
 
     return res.status(201).send({ ok: true, id: repo.id })
