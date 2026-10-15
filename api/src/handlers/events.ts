@@ -702,13 +702,27 @@ function enabledRules(event: NormalizedEvent, rules: Rule[]) {
         || matchesRule(event.normalized, rule.definition?.conditions || []))).map(rule => rule.id))
 }
 
+function prepareConfiguredFinding(rules: Rule[], organizationId: string, ruleId: string, severity: string, summary: string, eventIds: string[], evidence: Event) {
+    const rule = rules.find(candidate => candidate.id === ruleId)
+    return {
+        rule,
+        finding: [organizationId, ruleId, rule?.severity || severity, summary, eventIds, {
+            ...evidence,
+            ruleVersion: rule?.version || '1',
+            ruleName: rule?.name,
+            ruleExplanation: rule?.explanation,
+            detectionDefinition: rule?.definition,
+        }] as Parameters<typeof persistFinding>,
+    }
+}
+
 export function collectEventFindings(organizationId: string, eventId: string, event: NormalizedEvent, rules: Rule[], includeRetained = true) {
     const detectionFindings: Parameters<typeof persistFinding>[] = []
     const matchFindings: Parameters<typeof persistFinding>[] = []
     const insertFinding = (org: string, id: string, severity: string, summary: string, eventIds: string[], evidence: Event) => {
-        const configured = rules.find(rule => rule.id === id)
-        const destination = configured && ruleCategory(configured) === 'match' ? matchFindings : detectionFindings
-        destination.push([org, id, configured?.severity || severity, summary, eventIds, { ...evidence, ruleVersion: configured?.version || '1', ruleName: configured?.name, ruleExplanation: configured?.explanation, detectionDefinition: configured?.definition }])
+        const prepared = prepareConfiguredFinding(rules, org, id, severity, summary, eventIds, evidence)
+        const destination = prepared.rule && ruleCategory(prepared.rule) === 'match' ? matchFindings : detectionFindings
+        destination.push(prepared.finding)
     }
     const enabled = enabledRules(event, rules)
     for (const rule of matchSecurityRules(event.normalized).filter(rule => enabled.has(rule.id))) {
@@ -760,8 +774,7 @@ export async function createFindings(organizationId: string, eventId: string, ev
 
 async function createAuthFindings(organizationId: string, eventId: string, event: NormalizedEvent, rules: Rule[], enabled: Set<string>) {
     const insertFinding = async (org: string, id: string, severity: string, summary: string, eventIds: string[], evidence: Event) => {
-        const configured = rules.find(rule => rule.id === id)
-        await persistFinding(org, id, configured?.severity || severity, summary, eventIds, { ...evidence, ruleVersion: configured?.version || '1', ruleName: configured?.name, ruleExplanation: configured?.explanation, detectionDefinition: configured?.definition })
+        await persistFinding(...prepareConfiguredFinding(rules, org, id, severity, summary, eventIds, evidence).finding)
     }
     const parameters = (id: string) => rules.find(rule => rule.id === id)?.definition?.parameters || defaultRuleDefinition(id).parameters!
     if (event.eventType !== 'authentication' || event.action !== 'login') return
