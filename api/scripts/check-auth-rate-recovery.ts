@@ -10,7 +10,7 @@ mock.module('../src/utils/rateLimit/config.ts', () => ({
     registerRateLimitRoute: () => {}, resetSharedRateLimitBuckets: async () => {}, consumeSharedRateLimitPair: async () => {}, consumeSharedRateLimitBucket: async () => {},
     getRateLimitSettings: async () => { sharedChecks++; throw Object.assign(new Error('Replica rejects shared limiter writes'), { code: '25006' }) },
 }))
-mock.module('#db', () => ({ default: async () => ({ rows: [] }), queryOnce: async () => ({ rows: [] }), withTransaction: async () => {}, isTransientDatabaseError: (error: { code?: string }) => error.code === 'ECONNRESET' }))
+mock.module('#db', () => ({ default: async () => ({ rows: [] }), queryOnce: async () => ({ rows: [] }), withReadDatabase: async (work: () => Promise<unknown>) => work(), withTransaction: async () => {}, isTransientDatabaseError: (error: { code?: string }) => error.code === 'ECONNRESET' }))
 mock.module('../src/utils/auth/session.ts', () => ({ validateSession: async () => {
     validations++
     if (fail) { fail = false; throw Object.assign(new Error('Connection reset during switch'), { code: 'ECONNRESET' }) }
