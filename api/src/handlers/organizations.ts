@@ -2,6 +2,7 @@ import { ensureEventProtectionRule } from '#utils/db/analysisPolicySchema.ts'
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import { randomUUID } from 'crypto'
 import run, { withTransaction } from '#db'
+import { organizationPrivacyDeletionInProgress } from '#utils/organizationLifecycle.ts'
 import { upsertOrganizationInvite, upsertOrganizationMember } from '#utils/db/identityDataWrites.ts'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import recordLog from '#utils/logs/recordLog.ts'
@@ -3432,7 +3433,7 @@ function inactiveOrganizationMutationBlocker(organization: Pick<OrganizationRow,
 }
 
 function privacyDeletionMutationBlocker(organization: Pick<OrganizationRow, 'id' | 'status' | 'audit_safe_metadata'>, action: string) {
-    if (!organization.audit_safe_metadata?.privacyDeletionRunId) return null
+    if (!organizationPrivacyDeletionInProgress(organization)) return null
     return {
         schemaVersion: 'organization.lifecycle_mutation_blocker.v1' as const,
         organizationId: organization.id,

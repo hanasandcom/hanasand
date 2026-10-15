@@ -3,6 +3,8 @@ import { randomUUID } from 'crypto'
 import run from '#db'
 import { upsertAdminAccessRecoveryApproval, upsertOrganizationInvite } from '#utils/db/identityDataWrites.ts'
 import { compileAuditQuery } from '#utils/auditQuery.ts'
+import { hasOrganizationPrivacyDeletionMarker, organizationPrivacyDeletionInProgress } from '#utils/organizationLifecycle.ts'
+import { normalizeSupportSessionActions, normalizeSupportSessionDuration, normalizeSupportSessionExpiry, normalizeSupportSessionScope, supportError, supportText as text } from '#utils/support/adminSupportInput.ts'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import { actorHasHanasandInternalAccess, recordSystemEvent, redactAuditValue, requireAuditReason, supportTimelineAuditBridgeEvent } from '#utils/systemEvent.ts'
 import {
@@ -2333,7 +2335,7 @@ export async function postSupportOrganizationInvite(req: FastifyRequest<{ Params
     if (!organization) {
         return res.status(404).send({ error: 'Organization not found.' })
     }
-    if (supportOrganizationDeletionLocked(organization)) return res.status(409).send({ error: 'Organization deletion is in progress; support writes are blocked.' })
+    if (organizationPrivacyDeletionInProgress(organization)) return res.status(409).send({ error: 'Organization deletion is in progress; support writes are blocked.' })
 
     const requestId = input.requestId || supportRequestId(req)
     const controls = supportInviteAssistExecutorControls(req, req.body, requestId)
@@ -2643,7 +2645,7 @@ export async function postSupportOrganizationInviteAction(req: FastifyRequest<{ 
     if (!organization) {
         return res.status(404).send({ error: 'Organization not found.' })
     }
-    if (supportOrganizationDeletionLocked(organization)) return res.status(409).send({ error: 'Organization deletion is in progress; support writes are blocked.' })
+    if (organizationPrivacyDeletionInProgress(organization)) return res.status(409).send({ error: 'Organization deletion is in progress; support writes are blocked.' })
 
     const requestId = text(req.body?.requestId || req.body?.request_id) || supportRequestId(req)
     const actionType = action === 'revoke'
@@ -3566,7 +3568,7 @@ export async function postSupportOrganizationMemberRoleRecovery(req: FastifyRequ
     if (!organization) {
         return res.status(404).send({ error: 'Organization not found.' })
     }
-    if (supportOrganizationDeletionLocked(organization)) return res.status(409).send({ error: 'Organization deletion is in progress; support writes are blocked.' })
+    if (organizationPrivacyDeletionInProgress(organization)) return res.status(409).send({ error: 'Organization deletion is in progress; support writes are blocked.' })
 
     const requestId = input.requestId || supportRequestId(req)
     const actionType = 'support.organization.member_role_recovery'
@@ -4285,7 +4287,7 @@ export async function postSupportAccessRecovery(req: FastifyRequest<{ Params: Or
     if (!organization) {
         return res.status(404).send({ error: 'Organization not found.' })
     }
-    if (supportOrganizationDeletionLocked(organization)) return res.status(409).send({ error: 'Organization deletion is in progress; support writes are blocked.' })
+    if (organizationPrivacyDeletionInProgress(organization)) return res.status(409).send({ error: 'Organization deletion is in progress; support writes are blocked.' })
 
     const requestId = text(req.body?.requestId || req.body?.request_id) || supportRequestId(req)
     const targetUserId = text(req.body?.targetUserId)
@@ -4537,7 +4539,7 @@ async function decideSupportAccessRecovery(
         })
         return res.status(404).send({ error: 'Access recovery request not found.' })
     }
-    if (await organizationDeletionLocked(current.organization_id)) return res.status(409).send({ error: 'Organization deletion is in progress; support writes are blocked.' })
+    if (await hasOrganizationPrivacyDeletionMarker(current.organization_id)) return res.status(409).send({ error: 'Organization deletion is in progress; support writes are blocked.' })
 
     const supportSessionId = supportSessionIdFromRequest(req, req.body)
     const requiredScope = decision === 'approved' ? 'recovery:approve' : 'recovery:deny'
@@ -4772,15 +4774,6 @@ async function loadOrganizationSupportDetail(organizationId: string) {
     `, [organizationId])
 
     return result.rows[0] as OrganizationRow | undefined
-}
-
-function supportOrganizationDeletionLocked(organization: Pick<OrganizationRow, 'audit_safe_metadata'>) {
-    return Boolean(organization.audit_safe_metadata?.privacyDeletionRunId)
-}
-
-async function organizationDeletionLocked(organizationId: string) {
-    const result = await run('SELECT audit_safe_metadata ? \'privacyDeletionRunId\' locked FROM organizations WHERE id = $1', [organizationId])
-    return result.rows[0]?.locked === true
 }
 
 async function loadInspectionOrganizations(input: { q?: string, org: string, user: string, email: string, request: string, limit: number }) {
@@ -5652,51 +5645,6 @@ function supportSessionAuthorizationProof(input: {
             `Blockers: ${blockers.join(', ') || 'none'}`,
         ].join('\n'),
     }
-}
-
-function normalizeSupportSessionActions(value: unknown): { value: string[], error: Record<string, unknown> | null } {
-    const allowed = new Set(['invite_assist', 'invite_resend', 'invite_revoke', 'member_role_recovery', 'access_recovery', 'impersonation'])
-    const raw = Array.isArray(value) ? value : typeof value === 'string' ? value.split(',') : ['invite_assist', 'invite_resend', 'invite_revoke', 'member_role_recovery']
-    const actions = Array.from(new Set(raw.map(item => text(item).toLowerCase()).filter(Boolean)))
-    const unsupported = actions.filter(action => !allowed.has(action))
-    if (unsupported.length) {
-        return { value: [], error: supportError('invalid_scope', `Unsupported support session action: ${unsupported[0]}.`, { supportedActions: Array.from(allowed) }) }
-    }
-    return { value: actions, error: null }
-}
-
-function normalizeSupportSessionScope(value: unknown): { value: string[], error: Record<string, unknown> | null } {
-    const allowed = new Set(['invite:create', 'invite:resend', 'invite:revoke', 'member:role_recovery', 'recovery:invite', 'recovery:approve', 'recovery:deny', 'read_profile', 'read_org', 'support_debug'])
-    const raw = Array.isArray(value) ? value : typeof value === 'string' ? value.split(',') : ['invite:create', 'invite:resend', 'invite:revoke', 'member:role_recovery']
-    const scope = Array.from(new Set(raw.map(item => text(item).toLowerCase()).filter(Boolean)))
-    const unsupported = scope.filter(item => !allowed.has(item))
-    if (unsupported.length) {
-        return { value: [], error: supportError('invalid_scope', `Unsupported support session scope: ${unsupported[0]}.`, { supportedScopes: Array.from(allowed) }) }
-    }
-    return { value: scope, error: null }
-}
-
-function normalizeSupportSessionDuration(value: unknown): { value: number, error: Record<string, unknown> | null } {
-    if (value === undefined || value === null || value === '') return { value: 60, error: null }
-    const parsed = typeof value === 'number' ? value : Number(value)
-    if (!Number.isFinite(parsed) || parsed !== Math.trunc(parsed) || parsed < 5 || parsed > 240) {
-        return { value: 0, error: supportError('invalid_duration', 'Support session duration must be between 5 and 240 minutes.') }
-    }
-    return { value: parsed, error: null }
-}
-
-function normalizeSupportSessionExpiry(value: unknown, durationMinutes: number): { value: string, error: Record<string, unknown> | null } {
-    if (value === undefined || value === null || value === '') {
-        return { value: new Date(Date.now() + durationMinutes * 60 * 1000).toISOString(), error: null }
-    }
-    const timestamp = Date.parse(text(value))
-    if (Number.isNaN(timestamp) || timestamp <= Date.now()) {
-        return { value: '', error: supportError('invalid_expiry', 'Support session expiry must be a future timestamp.') }
-    }
-    if (timestamp > Date.now() + 240 * 60 * 1000) {
-        return { value: '', error: supportError('invalid_expiry', 'Support session expiry must be within 240 minutes.') }
-    }
-    return { value: new Date(timestamp).toISOString(), error: null }
 }
 
 async function loadSupportInviteAssistByIdempotencyKey(input: { organizationId: string, idempotencyKey: string }) {
@@ -12478,18 +12426,6 @@ function toSupportAuditTimelineEvent(row: Record<string, unknown>) {
     }
 }
 
-function supportError(code: string, message: string, extra: Record<string, unknown> = {}) {
-    return {
-        error: message,
-        detail: {
-            schemaVersion: 'support.error.v1',
-            code,
-            outcome: 'denied',
-            ...extra,
-        },
-    }
-}
-
 function toSystemEvent(row: Record<string, unknown>): Record<string, any> {
     const context = redactAuditValue(row.context || {}) as Record<string, unknown>
     const event = { ...row, target_name: text(context.targetName) || row.target_name || null } as Record<string, any>
@@ -14947,10 +14883,6 @@ function headerText(value: string | string[] | undefined) {
 
 function supportSessionIdFromRequest(req: FastifyRequest, body: { supportSessionId?: unknown, support_session_id?: unknown } | undefined) {
     return text(headerText(req.headers['x-support-session-id']) || body?.supportSessionId || body?.support_session_id)
-}
-
-function text(value: unknown) {
-    return typeof value === 'string' ? value.trim() : ''
 }
 
 function normalizeOption(value: unknown, allowed: string[]) {
