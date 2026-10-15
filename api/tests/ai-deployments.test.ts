@@ -91,6 +91,21 @@ test('deploy bridge and health check retry transient responses and persist order
 
     expect(response.statusCode).toBe(201)
     expect(body.deployment.status).toBe('running')
+    expect(body.deployment).toMatchObject({
+        ownerId: 'collaborator-1',
+        conversationId: 'conversation-1',
+        previewUrl: expect.stringMatching(/^https:\/\/preview\.example\/.+/),
+    })
+    expect(body.quota).toMatchObject({
+        used: 0,
+        limit: 5,
+        remaining: 5,
+        windowMinutes: 15,
+        activeRunning: 0,
+        maxRunning: 2,
+        runningRemaining: 2,
+        sharedAcrossCollaborators: true,
+    })
     expect(calls.filter(url => url.endsWith('/deploy'))).toHaveLength(2)
     expect(calls.filter(url => url.endsWith('/request'))).toHaveLength(2)
     expect(body.deployment.events.map((event: { message: string }) => event.message)).toContain('Retrying remote deploy bridge after HTTP 503 (attempt 2/3).')

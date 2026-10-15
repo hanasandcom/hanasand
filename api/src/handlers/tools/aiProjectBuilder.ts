@@ -412,9 +412,6 @@ function sectionsForPage(lower: string) {
     if (lower.includes('governance') || lower.includes('audit trail') || lower.includes('compliance') || lower.includes('security review') || lower.includes('pii handling') || lower.includes('legal reviewer')) {
         return ['Governance gates', 'Audit trail', 'Security review', 'PII handling', 'Deployment checks', 'Failure owner']
     }
-    if (lower.includes('analytics consent') || lower.includes('analytics delivery') || lower.includes('consent/data paths')) {
-        return ['Validation', 'Pricing', 'FAQ', 'Lead capture', 'Privacy and data paths documented', 'Analytics notes']
-    }
     if (lower.includes('disaster restore') || lower.includes('restore runbook')) {
         return ['Environment map', 'DNS checklist', 'SSL checklist', 'Rollback plan', 'Verification', 'Failure owner', 'Source export']
     }
@@ -441,12 +438,6 @@ function sectionsForPage(lower: string) {
     }
     if (lower.includes('status page') || lower.includes('incident') || lower.includes('observability')) {
         return ['Service health', 'Incident timeline', 'Subscriber notice', 'SLO evidence', 'Postmortems', 'Failure owner']
-    }
-    if (((lower.includes('support') && !lower.includes('support bundle')) || lower.includes('escalation') || lower.includes('sla')) && !lower.includes('knowledge') && !lower.includes('docs') && !lower.includes('documentation') && !lower.includes('gdpr') && !lower.includes('privacy') && !lower.includes('incident') && !lower.includes('status page')) {
-        return ['Escalation paths', 'SLA states', 'Customer messaging', 'Failure owner', 'Runbook', 'Audit trail']
-    }
-    if (lower.includes('restaurant')) {
-        return ['Menu and allergens', 'Reservations', 'Opening hours', 'Private dining', 'Guest information', 'Location', 'Redirect checklist']
     }
     if (lower.includes('course') || lower.includes('learning outcomes')) {
         return ['Learning outcomes', 'Course modules', 'Pricing', 'Testimonials', 'Launch tasks', 'Beginner deployment']
@@ -520,23 +511,14 @@ function sectionsForPage(lower: string) {
     if (lower.includes('executive board pack') || lower.includes('boardsignal') || lower.includes('decision sections')) {
         return ['Decision sections', 'KPI metrics', 'Investment tiers', 'Stakeholder quotes', 'Action tasks', 'Deployment notes']
     }
-    if (lower.includes('cutover') || lower.includes('parallel run') || (lower.includes('migration') && !lower.includes('seo') && !lower.includes('restaurant'))) {
-        return ['Source export', 'Clean schema', 'Parallel run', 'Cutover plan', 'Rollback plan', 'Verification']
-    }
     if (/\b(ecommerce|product|store)\b/.test(lower)) {
         return ['Product bundles', 'Shipping notes', 'Customer reviews', 'Return policy', 'FAQ', 'Checkout CTA']
-    }
-    if (lower.includes('a11y') || lower.includes('wcag') || lower.includes('skip links') || lower.includes('keyboard flow') || lower.includes('reduced motion')) {
-        return ['Skip links', 'Keyboard flow', 'Contrast', 'Forms', 'Reduced motion']
     }
     if (lower.includes('marketing') || lower.includes('landing')) {
         return ['Validation', 'Features', 'Pricing', 'Testimonials', 'FAQ', 'Launch CTA']
     }
     if (lower.includes('gdpr') || lower.includes('privacy') || lower.includes('data retention') || lower.includes('data request') || lower.includes('personal data')) {
         return ['Data map', 'Consent flow', 'Retention rules', 'Export request', 'Delete request', 'Audit trail']
-    }
-    if (lower.includes('payment') || lower.includes('checkout') || lower.includes('subscription')) {
-        return ['Plans', 'Checkout states', 'Invoice notes', 'Failed payments', 'Cancellation', 'Security review']
     }
     if (lower.includes('governance') || lower.includes('audit trail') || lower.includes('compliance') || lower.includes('security review') || lower.includes('legal') || lower.includes('pii handling')) {
         return ['Governance gates', 'Audit trail', 'Security review', 'PII handling', 'Deployment checks', 'Failure owner']
@@ -549,9 +531,6 @@ function sectionsForPage(lower: string) {
     }
     if ((lower.includes('deployment') || lower.includes('dns') || lower.includes('ssl')) || (lower.includes('rollback') && !lower.includes('backend contract') && !lower.includes('mobile refresh') && !lower.includes('backend boundary'))) {
         return ['Export package', 'Environment map', 'DNS checklist', 'SSL checklist', 'Rollback plan', 'Verification']
-    }
-    if (lower.includes('seo') || lower.includes('redirect')) {
-        return ['Search validation', 'Pricing', 'FAQ', 'Redirect checklist', 'Lead capture', 'Launch notes']
     }
     if (lower.includes('privacy') || lower.includes('consent') || lower.includes('tracking') || lower.includes('cookie')) {
         return ['Privacy rules', 'Consent states', 'Data minimization', 'Export and delete', 'Tracking audit', 'Failure owner']
