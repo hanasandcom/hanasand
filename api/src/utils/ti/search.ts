@@ -140,7 +140,7 @@ export async function searchThreatIntel(input: TiSearchRequest): Promise<TiSearc
 
     const scraperBase = process.env.TI_SCRAPER_API_BASE?.replace(/\/$/, '')
     if (scraperBase) {
-        const scraperResult = await fetchCanonicalScraperSearch(scraperBase, query, {
+        const scraperResult = await fetchCanonicalScraperSearch(scraperBase, query, queryKind, {
             cachedOnly: input.preferCached && queryKind === 'actor',
             preflightHealth: input.preflightHealth,
         })
@@ -164,7 +164,12 @@ export function classifyTiQuery(query: string): NonNullable<TiSearchResponse['qu
     return 'free_text'
 }
 
-async function fetchCanonicalScraperSearch(scraperBase: string, query: string, options: { cachedOnly?: boolean, preflightHealth?: boolean } = {}): Promise<TiSearchResponse | null> {
+async function fetchCanonicalScraperSearch(
+    scraperBase: string,
+    query: string,
+    queryKind: NonNullable<TiSearchResponse['queryKind']>,
+    options: { cachedOnly?: boolean, preflightHealth?: boolean } = {},
+): Promise<TiSearchResponse | null> {
     try {
         const serviceToken = process.env.TI_SCRAPER_SERVICE_TOKEN?.trim()
         const headers = serviceToken ? { 'x-hanasand-service-token': serviceToken } : undefined
@@ -174,7 +179,7 @@ async function fetchCanonicalScraperSearch(scraperBase: string, query: string, o
         }
         const target = new URL('/v1/intel/search', `${scraperBase}/`)
         target.searchParams.set('q', query)
-        const entityType = scraperEntityType(query)
+        const entityType = scraperEntityType(queryKind)
         if (entityType) target.searchParams.set('entityType', entityType)
         target.searchParams.set('limit', '50')
         if (options.cachedOnly) target.searchParams.set('cached', 'true')
@@ -216,9 +221,16 @@ function unavailableResult(query: string, queryKind: NonNullable<TiSearchRespons
     }
 }
 
-function scraperEntityType(query: string) {
-    const kind = classifyTiQuery(query)
-    return ['actor', 'domain', 'cve', 'indicator'].includes(kind) ? kind : undefined
+function scraperEntityType(queryKind: NonNullable<TiSearchResponse['queryKind']>) {
+    switch (queryKind) {
+        case 'actor':
+        case 'domain':
+        case 'cve':
+        case 'indicator':
+            return queryKind
+        default:
+            return undefined
+    }
 }
 
 function writeCache(key: string, result: TiSearchResponse) {

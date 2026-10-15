@@ -8,6 +8,45 @@ test('classifies public TI searches before selecting an enrichment path', () => 
     expect(classifyTiQuery('203.0.113.10')).toBe('indicator')
 })
 
+test('uses one query classification for canonical scraper entity types', async () => {
+    const previousScraperBase = process.env.TI_SCRAPER_API_BASE
+    const originalFetch = globalThis.fetch
+    const requestedUrls: URL[] = []
+    process.env.TI_SCRAPER_API_BASE = 'http://scraper.test'
+    globalThis.fetch = async input => {
+        const url = new URL(String(input))
+        requestedUrls.push(url)
+        return Response.json({
+            query: url.searchParams.get('q'),
+            generatedAt: '2026-10-16T10:00:00.000Z',
+            mode: 'scraper',
+            status: 'ready',
+            summary: 'Canonical evidence is available.',
+            confidence: 0.8,
+            lastSeen: '2026-10-16T09:00:00.000Z',
+            aliases: [], recentActivity: [], targets: [], ttps: [], datasets: [], sources: [], notes: [],
+        })
+    }
+
+    try {
+        const queries = [
+            ['APT939991', 'actor', true],
+            ['classification-check-992811.example', 'domain', false],
+            ['CVE-2035-992811', 'cve', false],
+            ['203.0.113.211', 'indicator', false],
+            ['Hanasand Acme 992811', null, false],
+        ] as const
+        for (const [query, , preferCached] of queries) await searchThreatIntel({ query, preferCached })
+
+        expect(requestedUrls.map(url => url.searchParams.get('entityType'))).toEqual(queries.map(([, entityType]) => entityType))
+        expect(requestedUrls.map(url => url.searchParams.get('cached'))).toEqual(queries.map(([, , preferCached]) => preferCached ? 'true' : null))
+    } finally {
+        globalThis.fetch = originalFetch
+        if (previousScraperBase === undefined) delete process.env.TI_SCRAPER_API_BASE
+        else process.env.TI_SCRAPER_API_BASE = previousScraperBase
+    }
+})
+
 test('keeps unavailable capabilities out of no-evidence results', async () => {
     const previousScraperBase = process.env.TI_SCRAPER_API_BASE
     delete process.env.TI_SCRAPER_API_BASE
