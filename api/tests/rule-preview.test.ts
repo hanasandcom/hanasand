@@ -2,7 +2,8 @@ import { expect, mock, test } from 'bun:test'
 import { eventProtectionDefinition } from '../src/utils/events/eventProtection.ts'
 import { exactCaseSensitiveMessage, finiteRegexAlternatives, hasPostgresRegexCandidate, messageCandidatePredicate } from '../src/utils/events/previewPredicate.ts'
 mock.module('#db', () => ({ default: async () => ({ rows: [] }) }))
-const { scanRulePreview: scan, validPreviewWindow } = await import('../src/utils/events/rulePreview.ts')
+const { matchRulePage, scanRulePreview: scan, validPreviewWindow } = await import('../src/utils/events/rulePreview.ts')
+const { matchesRule } = await import('../src/utils/events/conditions.ts')
 test('historical message candidate filtering leaves unsupported expressions for the full matcher', () => {
     let index = 6
     const bind = () => `$${++index}`
@@ -15,6 +16,12 @@ test('finite anchored regexes produce safe index candidates', () => {
         .toEqual(['http-traffic', 'cdn', 'hanasand-api', 'hanasand_api', 'api', 'hanasand-api-1', 'hanasand-api-2', 'hanasand-api-3', 'hanasand-api-4'])
     expect(finiteRegexAlternatives('^service-[1-3]$')).toEqual(['service-1', 'service-2', 'service-3'])
     expect(finiteRegexAlternatives('^service-.*$')).toBeNull()
+})
+test('the preview fast path uses the same dotted object paths as the rule matcher', async () => {
+    const conditions = [{ path: 'source.product', operator: 'regex' as const, value: '^api$' }]
+    const events = [{ source: { product: 'api' } }, { source: { product: 'web' } }, { source: [{ product: 'api' }] }]
+    expect(await matchRulePage(events, conditions)).toEqual(events.flatMap((event, index) => matchesRule(event, conditions) ? [index] : []))
+    expect(await matchRulePage(events, conditions)).toEqual([0])
 })
 test('exact-message index selector is limited to short case-sensitive equalities', () => {
     const exact = { path: 'message', operator: 'equals' as const, value: 'failed exec: /usr/sbin/xsel', caseSensitive: true }
@@ -38,7 +45,7 @@ test('replay can keep the authoritative message regex without forcing a broad tr
         values.push(value)
         return `$${values.length}`
     }, { useTrigram: false })
-    expect(predicate).toContain("normalized->>'message' COLLATE \"C\" ~ $1")
+    expect(predicate).toContain('normalized->>\'message\' COLLATE "C" ~ $1')
     expect(predicate).not.toContain('translate(lower(normalized::text)')
     expect(values).toEqual(['^sleep[[:space:]]+([0-9]|[1-5][0-9])(\\.[0-9]+)?'])
     expect(hasPostgresRegexCandidate(condition)).toBe(true)
@@ -114,8 +121,8 @@ test('stored previews with an exact message use the newest-first event index pat
         { path: 'metadata.collector', operator: 'equals', value: 'auditd' },
     ] }, (async (query: string, values: unknown[]) => { sql = query; params = values; return { rows: [] } }) as any, { storedLogsOnly: true })
     expect(sql).toContain('ORDER BY event_timestamp DESC, id DESC LIMIT')
-    expect(sql).toContain("normalized->>'message' = $")
-    expect(sql).toContain("octet_length(normalized->>'message') <= 2048")
+    expect(sql).toContain('normalized->>\'message\' = $')
+    expect(sql).toContain('octet_length(normalized->>\'message\') <= 2048')
     expect(sql).toContain('normalized #>>')
     expect(sql).not.toContain('translate(lower(normalized::text)')
     expect(sql).not.toContain('left(reverse(lower(COALESCE(normalized')

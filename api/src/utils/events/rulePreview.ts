@@ -1,7 +1,7 @@
 import run from '#db'
 import { eligibleCustomDrop } from './dropEligibility.ts'
 import { Worker } from 'node:worker_threads'
-import { matchesRule, type Condition } from './conditions.ts'
+import { getRulePathValue, matchesRule, type Condition } from './conditions.ts'
 import { loadLogRetentionRules, retentionStoreMatches, type RetentionRule } from './customRetention.ts'
 import { cachedRead, ReadAdmissionError } from '../readCache.ts'
 import { exactCaseSensitiveMessage, exactMessageIndexMaxBytes, finiteRegexAlternatives, previewPredicate, processExecutableCandidatePredicate } from './previewPredicate.ts'
@@ -189,7 +189,7 @@ export async function matchRulePage(events: Record<string, unknown>[], condition
     const finite = conditions.map(condition => condition.operator === 'regex' ? finiteRegexAlternatives(condition.value) : null)
     if (conditions.some(condition => condition.operator === 'regex') && finite.every((values, index) => conditions[index].operator !== 'regex' || values)) {
         return events.flatMap((event, index) => conditions.every((condition, conditionIndex) => {
-            const value = condition.path.split('.').reduce<unknown>((item, key) => item && typeof item === 'object' && !Array.isArray(item) ? (item as Record<string, unknown>)[key] : undefined, event)
+            const value = getRulePathValue(event, condition.path)
             if (value === undefined || value === null || typeof value === 'object') return false
             const actual = String(value)
             const comparable = condition.caseSensitive ? actual : actual.toLowerCase()
