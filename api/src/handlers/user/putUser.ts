@@ -1,11 +1,10 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
-import bcrypt from 'bcrypt'
 import run from '#db'
 import { validatePassword } from '#utils/auth/password.ts'
 import login from '#utils/auth/login.ts'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import hasHanasandInternalRouteAccess from '#utils/auth/organizationPageAccess.ts'
-import { syncMailPasswordForUser } from '#utils/mail/accounts.ts'
+import updateUserPassword from './updateUserPassword.ts'
 
 type GetUserBodyProps = {
     id: string
@@ -36,31 +35,23 @@ export default async function putUser(req: FastifyRequest, res: FastifyReply) {
         }
 
         try {
-            const hashedPassword = await bcrypt.hash(password, 10)
-            const response = await run(
-                `UPDATE users
-                SET password = $2
-                WHERE id = $1
-                RETURNING id`,
-                [id, hashedPassword]
-            )
-
-            if (!response.rowCount) {
+            const session = await updateUserPassword({
+                userId: id,
+                password,
+                ip,
+                userAgent: String(req.headers['user-agent'] || ''),
+            })
+            if (!session.userFound) {
                 return res.status(400).send({ error: 'User not found.' })
             }
-            const userResult = await run('SELECT name FROM users WHERE id = $1', [id])
-            const displayName = String(userResult.rows[0]?.name || id)
-            await syncMailPasswordForUser(id, displayName, password)
-
-            const session = await login({ id, ip, userAgent: String(req.headers['user-agent'] || '') })
-            if (!session) {
+            if (!session.session) {
                 return res.status(206).send({
                     message: 'Password updated, and you were logged out. Logging you back in was not possible due to an unknown error.',
                     error: 'Unable to login. Please try again later.'
                 })
             }
 
-            return res.status(201).send({ message: 'Password updated', token: session.token, expires_at: session.expires_at })
+            return res.status(201).send({ message: 'Password updated', token: session.session.token, expires_at: session.session.expires_at })
         } catch (error) {
             console.error(`Database error: ${JSON.stringify(error)}`)
             return res.status(500).send({ error: 'Internal Server Error' })
