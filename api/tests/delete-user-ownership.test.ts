@@ -3,7 +3,7 @@ import Fastify from 'fastify'
 
 let blocker: { id: string, name: string, active_api_key: boolean } | null = null
 const queries: string[] = []
-let tokensRevoked = false
+const tokenRevocations: Array<{ userId: string, revokedBy: string }> = []
 
 mock.module('#db', () => ({
     default: async (sql: string) => query(sql),
@@ -11,7 +11,7 @@ mock.module('#db', () => ({
 }))
 mock.module('../src/utils/auth/tokenWrapper.ts', () => ({ default: async () => ({ valid: true, id: 'admin-user' }) }))
 mock.module('../src/utils/auth/organizationPageAccess.ts', () => ({ default: async () => ({ valid: true }) }))
-mock.module('../src/utils/auth/session.ts', () => ({ revokeAllTokens: async () => { tokensRevoked = true } }))
+mock.module('../src/utils/auth/session.ts', () => ({ revokeAllTokens: async (input: { userId: string, revokedBy: string }) => { tokenRevocations.push(input) } }))
 mock.module('../src/utils/systemEvent.ts', () => ({ recordSystemEvent: async () => {}, userHasHanasandInternalAccess: async () => false }))
 
 const { default: deleteUser } = await import('../src/handlers/user/deleteUser.ts')
@@ -36,7 +36,7 @@ const queryOnce = query
 beforeEach(() => {
     blocker = null
     queries.length = 0
-    tokensRevoked = false
+    tokenRevocations.length = 0
 })
 
 test('admin deletion returns the owner-transfer conflict before scheduling or revoking access', async () => {
@@ -47,7 +47,7 @@ test('admin deletion returns the owner-transfer conflict before scheduling or re
     expect(response.statusCode).toBe(409)
     expect(response.json()).toMatchObject({ code: 'organization_ownership_transfer_required', organization_id: 'org-1', active_api_key: true })
     expect(queries.some(sql => sql.startsWith('UPDATE users'))).toBe(false)
-    expect(tokensRevoked).toBe(false)
+    expect(tokenRevocations).toEqual([])
 })
 
 test('admin deletion proceeds when the organization has another active owner', async () => {
@@ -55,6 +55,7 @@ test('admin deletion proceeds when the organization has another active owner', a
 
     expect(response.statusCode).toBe(200)
     expect(response.json()).toMatchObject({ pending_deletion: true, user: { id: 'target-user' } })
-    expect(queries.some(sql => sql.startsWith('UPDATE users'))).toBe(true)
-    expect(tokensRevoked).toBe(true)
+    expect(queries.some(sql => sql.includes('deletion_requested_at = NOW()') && sql.includes('deletion_scheduled_at = NOW() + INTERVAL \'30 days\''))).toBe(true)
+    expect(queries.some(sql => sql.startsWith('DELETE FROM users'))).toBe(false)
+    expect(tokenRevocations).toEqual([{ userId: 'target-user', revokedBy: 'admin-user' }])
 })

@@ -101,6 +101,7 @@ test('purges due accounts once, cleans credentials and personal data, and preser
 
     expect(result).toMatchObject({ scanned: 1, purged: 1, failed: 0, blockedOwnerAccounts: 0 })
     expect(account).toBeNull()
+    expect(sqlCalls.some(sql => sql.startsWith('SELECT id, name, email FROM users') && sql.includes('FOR UPDATE'))).toBe(true)
     expect(revokedUsers).toEqual(['deleted-user'])
     expect(tokenDeletes).toEqual(['deleted-user'])
     expect(deletedPrincipals).toEqual(['ada'])

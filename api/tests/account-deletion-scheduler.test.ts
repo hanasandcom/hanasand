@@ -6,7 +6,7 @@ let mockNow = Date.now()
 let scheduledTick: (() => Promise<void>) | undefined
 let scheduleExpression = ''
 const purgeJobId = 'api-user-account-deletion'
-const revokedUsers: string[] = []
+const tokenRevocations: Array<{ userId: string, revokedBy: string }> = []
 const deletedFromUsers: string[] = []
 const sqlCalls: string[] = []
 
@@ -67,7 +67,7 @@ mock.module('../src/utils/organizationPrivacy.ts', () => ({ ORGANIZATION_RETENTI
 mock.module('../src/utils/aptUpdates.ts', () => ({ persistHostUpdateStatus: async () => {}, readHostUpdateStatus: async () => ({}), updateHosts: [] }))
 mock.module('../src/utils/events/ruleStorageEstimateWorker.ts', () => ({ RULE_STORAGE_ESTIMATE_JOB_ID: 'api-rule-storage-estimate', runRuleStorageEstimateWorker: async () => 0 }))
 mock.module('../src/utils/systemCronMonitor.ts', () => ({ monitorSystemCronJobs: async () => ({ jobs: [] }) }))
-mock.module('../src/utils/auth/session.ts', () => ({ revokeAllTokens: async ({ userId }: { userId: string }) => { revokedUsers.push(userId); return 1 } }))
+mock.module('../src/utils/auth/session.ts', () => ({ revokeAllTokens: async (input: { userId: string, revokedBy: string }) => { tokenRevocations.push(input); return 1 } }))
 mock.module('../src/utils/mail/stalwartAdmin.ts', () => ({ deleteMailPrincipal: async () => {} }))
 mock.module('../src/utils/auth/purgeUserSshKeys.ts', () => ({ purgeUserSshKeys: async () => 0 }))
 mock.module('../src/utils/auth/tokenWrapper.ts', () => ({ default: async () => ({ valid: true, id: 'expired-user', authenticatedId: 'expired-user', impersonating: false }) }))
@@ -87,7 +87,7 @@ beforeEach(() => {
     mockNow = Date.now()
     scheduledTick = undefined
     scheduleExpression = ''
-    revokedUsers.length = 0
+    tokenRevocations.length = 0
     deletedFromUsers.length = 0
     sqlCalls.length = 0
 })
@@ -100,6 +100,9 @@ test('the minute scheduler runs the real account-purge worker without a login', 
     }
     await deleteSelf({ headers: { 'user-agent': 'test' }, ip: '127.0.0.1' } as any, deleteReply as any)
     expect(deleteReplyState.statusCode).toBe(200)
+    expect(accountExists).toBe(true)
+    expect(deletedFromUsers).toEqual([])
+    expect(tokenRevocations[0]).toEqual({ userId: 'expired-user', revokedBy: 'expired-user' })
     const scheduledAt = new Date(deleteReplyState.body.deletion_scheduled_at).getTime()
     expect(scheduledAt - mockNow).toBe(30 * 24 * 60 * 60 * 1000)
 
@@ -116,7 +119,10 @@ test('the minute scheduler runs the real account-purge worker without a login', 
 
     expect(accountExists).toBe(false)
     expect(deletedFromUsers).toEqual(['expired-user'])
-    expect(revokedUsers).toEqual(['expired-user', 'expired-user'])
+    expect(tokenRevocations).toEqual([
+        { userId: 'expired-user', revokedBy: 'expired-user' },
+        { userId: 'expired-user', revokedBy: 'expired-user' },
+    ])
     expect(sqlCalls.some(sql => sql.startsWith('SELECT user_account.id') && sql.includes('deletion_scheduled_at <= NOW()'))).toBe(true)
     expect(sqlCalls.some(sql => sql.startsWith('DELETE FROM users') && sql.includes('deletion_scheduled_at <= NOW()'))).toBe(true)
     expect(listBackgroundJobRuntime().filter(job => job.runCount > 0).map(job => job.id)).toEqual([purgeJobId])
