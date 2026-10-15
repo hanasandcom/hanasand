@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 
-const [handler, routes, schema] = await Promise.all([
+const [handler, routes] = await Promise.all([
     readFile(new URL('../src/handlers/ti/savedSearches.ts', import.meta.url), 'utf8'),
     readFile(new URL('../src/routes.ts', import.meta.url), 'utf8'),
 ])

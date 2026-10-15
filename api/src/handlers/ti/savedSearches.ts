@@ -5,8 +5,8 @@ type SavedSearchBody = { query?: unknown }
 type SavedSearch = { query: string; saved_at?: string; savedAt?: string }
 
 export async function getSavedSearches(req: FastifyRequest, res: FastifyReply) {
-    const { valid, id: userId } = await tokenWrapper(req, res)
-    if (!valid || !userId) return res.status(401).send({ error: 'Unauthorized.' })
+    const userId = await requireUserId(req, res)
+    if (!userId) return
     try {
         const result = await requestTi('GET', userId)
         const rows = Array.isArray(result.savedSearches) ? result.savedSearches as SavedSearch[] : []
@@ -17,8 +17,8 @@ export async function getSavedSearches(req: FastifyRequest, res: FastifyReply) {
 }
 
 export async function postSavedSearch(req: FastifyRequest<{ Body: SavedSearchBody }>, res: FastifyReply) {
-    const { valid, id: userId } = await tokenWrapper(req, res)
-    if (!valid || !userId) return res.status(401).send({ error: 'Unauthorized.' })
+    const userId = await requireUserId(req, res)
+    if (!userId) return
     const query = typeof req.body?.query === 'string' ? req.body.query.trim() : ''
     if (!query || query.length > 200) return res.status(400).send({ error: 'Search query must be between 1 and 200 characters.' })
     try {
@@ -31,8 +31,8 @@ export async function postSavedSearch(req: FastifyRequest<{ Body: SavedSearchBod
 }
 
 export async function deleteSavedSearch(req: FastifyRequest<{ Querystring: { query?: string } }>, res: FastifyReply) {
-    const { valid, id: userId } = await tokenWrapper(req, res)
-    if (!valid || !userId) return res.status(401).send({ error: 'Unauthorized.' })
+    const userId = await requireUserId(req, res)
+    if (!userId) return
     const query = typeof req.query?.query === 'string' ? req.query.query.trim() : ''
     if (!query) return res.status(400).send({ error: 'Search query is required.' })
     try {
@@ -41,6 +41,15 @@ export async function deleteSavedSearch(req: FastifyRequest<{ Querystring: { que
     } catch {
         return res.status(503).send({ error: 'Threat-intelligence search is temporarily unavailable.' })
     }
+}
+
+async function requireUserId(req: FastifyRequest, res: FastifyReply): Promise<string | null> {
+    const { valid, id } = await tokenWrapper(req, res)
+    if (!valid || !id) {
+        res.status(401).send({ error: 'Unauthorized.' })
+        return null
+    }
+    return id
 }
 
 async function requestTi(method: 'GET' | 'POST' | 'DELETE', userId: string, query?: string) {
