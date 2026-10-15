@@ -405,7 +405,7 @@ export function normalizeDwmWebhookDestinationInput(
     const status = parseStatus(input.status ?? existing?.status)
     const events = parseEvents(input.events ?? existing?.events)
 
-    return {
+    const normalized: NormalizedDestinationInput = {
         orgId,
         name: name.slice(0, 120),
         kind,
@@ -417,6 +417,12 @@ export function normalizeDwmWebhookDestinationInput(
         status,
         events,
     }
+
+    // Internal callers need the original target and signing key for persistence,
+    // but enumerable properties can leak when this value is logged or serialized.
+    Object.defineProperty(normalized, 'endpointUrl', { enumerable: false })
+    Object.defineProperty(normalized, 'signingSecret', { enumerable: false })
+    return normalized
 }
 
 export async function listDwmWebhookDestinations(ownerId: string, orgId?: string) {
@@ -1525,7 +1531,7 @@ export function buildDwmWebhookDeliveryHistoryConsumerProof({
                 updatedAt: entry.deliveryProof.updatedAt,
                 attemptedAt: entry.deliveryProof.attemptedAt,
             },
-            blockers: uniqueRetryQueueBlockers(blockers),
+            blockers: uniqueWebhookBlockers(blockers),
         }
     })
 
@@ -1693,7 +1699,7 @@ export function buildDwmWebhookDeliveryReadinessConsumerProof({
                     : success
                         ? 'ready'
                         : 'blocked'
-        const readinessBlockers = uniqueRetryQueueBlockers([
+        const readinessBlockers = uniqueWebhookBlockers([
             ...row.blockers,
             ...(retryableFailure ? [retryQueueBlocker('retry_scheduled', 'Delivery has a scheduled retry/backoff time.', row.destinationId, false)] : []),
             ...(nonRetryableFailure ? [retryQueueBlocker('terminal_failure', 'Latest delivery failure is terminal and not eligible for retry.', row.destinationId, true)] : []),
@@ -1788,7 +1794,7 @@ export function buildDwmWebhookDeliveryReadinessConsumerProof({
         },
         rows,
         blockers: rows.length
-            ? uniqueRetryQueueBlockers(rows.flatMap(row => row.blockers))
+            ? uniqueWebhookBlockers(rows.flatMap(row => row.blockers))
             : [{
                 code: 'no_delivery_history',
                 message: 'No webhook delivery readiness rows matched the current filters.',
@@ -1985,7 +1991,7 @@ function deliveryPersistenceReplayBlockers(
     if (!liveDeliveryEnabled) {
         blockers.push(retryQueueBlocker('live_delivery_disabled', 'Live webhook delivery is disabled for this environment; replay proof is dry-run only.', entry.destinationId, false))
     }
-    return uniqueRetryQueueBlockers(blockers)
+    return uniqueWebhookBlockers(blockers)
 }
 
 export function buildDwmWebhookDeliveryReceipts({
@@ -2081,7 +2087,7 @@ export function buildDwmWebhookDeliveryReceipts({
         if (entry.retry.retryable) blockers.push(retryQueueBlocker('retry_scheduled', 'Delivery is retryable and has retry/backoff metadata.', entry.destinationId, false))
         if (!destinationUnavailable && entry.retry.terminalFailure) blockers.push(retryQueueBlocker('terminal_failure', 'Latest delivery failure is terminal and not eligible for retry.', entry.destinationId, true))
         if (!entry.deliveryProof.auditEventId) blockers.push(retryQueueBlocker('audit_missing', 'Delivery receipt has no linked audit event yet.', entry.destinationId, false))
-        const uniqueBlockers = uniqueRetryQueueBlockers(blockers)
+        const uniqueBlockers = uniqueWebhookBlockers(blockers)
         const blockingCodes = uniqueBlockers.filter(blocker => blocker.blocking).map(blocker => blocker.code)
 
         return {
@@ -2166,13 +2172,13 @@ export function buildDwmWebhookDeliveryReceipts({
             auditLinked: receipts.filter(receipt => Boolean(receipt.proof.auditEventId)).length,
             blocked: receipts.filter(receipt => receipt.blockingCodes.length > 0).length,
         },
-        blockers: uniqueRetryQueueBlockers(receipts.flatMap(receipt => receipt.blockers)),
+        blockers: uniqueWebhookBlockers(receipts.flatMap(receipt => receipt.blockers)),
         historyReplayFilters: buildDwmWebhookReceiptHistoryFilters({
             receipts,
             filters: history.filters,
             access,
             liveDeliveryEnabled,
-            blockers: uniqueRetryQueueBlockers(receipts.flatMap(receipt => receipt.blockers)),
+            blockers: uniqueWebhookBlockers(receipts.flatMap(receipt => receipt.blockers)),
         }),
         receipts,
     }
@@ -2223,7 +2229,7 @@ export function buildDwmWebhookDeliveryTimeline({
         const latest = sorted[0]
         const destinationIds = [...new Set(sorted.map(row => row.destinationId).filter(Boolean) as string[])]
         const auditEventIds = [...new Set(sorted.map(row => row.proof.auditEventId).filter(Boolean) as string[])]
-        const blockers = uniqueRetryQueueBlockers(sorted.flatMap(row => row.blockers))
+        const blockers = uniqueWebhookBlockers(sorted.flatMap(row => row.blockers))
         const sentCount = sorted.filter(row => row.status === 'sent').length
         const failedCount = sorted.filter(row => row.status === 'failed').length
         const skippedCount = sorted.filter(row => row.status === 'skipped').length
@@ -2381,7 +2387,7 @@ export function buildDwmWebhookDeliveryActionPlan({
                                 : delivered
                                     ? 'monitor'
                                     : 'test_destination'
-        const blockers = uniqueRetryQueueBlockers([
+        const blockers = uniqueWebhookBlockers([
             ...item.blockers,
             ...(!timeline.access.canManage ? [retryQueueBlocker('permission_denied', 'Only organization owners, admins, and editors can act on webhook deliveries.', latest.destinationId, true)] : []),
         ])
@@ -2718,7 +2724,7 @@ export function buildDwmWebhookDeliveryReplayGuard({
             if (key.retry.terminalFailure) blockers.push(retryQueueBlocker('terminal_failure', 'Latest delivery failure is terminal and should be remediated before replay.', key.destinationId, true))
             if (!liveDeliveryEnabled) blockers.push(retryQueueBlocker('live_delivery_disabled', 'Live webhook delivery is disabled for this environment; replay proof is dry-run only.', key.destinationId, false))
             if (!key.audit.latestAuditEventId) blockers.push(retryQueueBlocker('audit_missing', 'Replay guard has no linked audit event yet.', key.destinationId, false))
-            const uniqueBlockers = uniqueRetryQueueBlockers(blockers)
+            const uniqueBlockers = uniqueWebhookBlockers(blockers)
             const blockingCodes = uniqueBlockers.filter(blocker => blocker.blocking).map(blocker => blocker.code)
             const dryRunAllowed = access.canReplay && !blockingCodes.includes('permission_denied')
             const liveAllowed = dryRunAllowed && liveDeliveryEnabled && !alreadyDelivered && !key.retry.terminalFailure && blockingCodes.length === 0
@@ -2774,7 +2780,7 @@ export function buildDwmWebhookDeliveryReplayGuard({
             retryable: entries.filter(entry => entry.retry.retryable).length,
             terminalFailure: entries.filter(entry => entry.retry.terminalFailure).length,
         },
-        blockers: uniqueRetryQueueBlockers(entries.flatMap(entry => entry.blockers)),
+        blockers: uniqueWebhookBlockers(entries.flatMap(entry => entry.blockers)),
         entries,
     }
 }
@@ -3103,13 +3109,13 @@ export function buildDwmWebhookDeliveryRetryQueue({
             latestAttempt: key.latestAttempt,
             attempts: key.attempts,
             audit: key.audit,
-            blockers: uniqueRetryQueueBlockers(blockers),
+            blockers: uniqueWebhookBlockers(blockers),
             blockingCodes,
             noNetwork: true,
             externalSendEnabled: liveReady,
         }
     })
-    const blockers = uniqueRetryQueueBlockers(entries.flatMap(entry => entry.blockers))
+    const blockers = uniqueWebhookBlockers(entries.flatMap(entry => entry.blockers))
 
     return {
         schemaVersion: 'dwm.webhook.delivery_retry_queue.v1',
@@ -3193,8 +3199,8 @@ export function buildDwmWebhookDeliveryRetryRequestContract({
             watchlistName: entry.watchlistName,
             alert: requestAlert,
         }
-        const dryRunBlockers = uniqueRetryQueueBlockers(entry.blockers.filter(blocker => blocker.blocking))
-        const liveBlockers = uniqueRetryQueueBlockers(
+        const dryRunBlockers = uniqueWebhookBlockers(entry.blockers.filter(blocker => blocker.blocking))
+        const liveBlockers = uniqueWebhookBlockers(
             liveDeliveryEnabled
                 ? entry.blockers.filter(blocker => blocker.blocking)
                 : [
@@ -3582,7 +3588,7 @@ export function buildDwmWebhookDestinationDeliveryMatrix({
                 ].filter(Boolean) as string[])],
                 auditEventContracts: access.canManage ? audits.slice(0, 10) : [],
             },
-            blockers: uniqueDestinationMatrixBlockers(blockers),
+            blockers: uniqueWebhookBlockers(blockers),
             routes: {
                 detail: `GET /api/dwm/webhook-deliveries?orgId=${encodeURIComponent(destination.orgId)}&destinationId=${encodeURIComponent(destination.id)}`,
                 test: `POST /api/dwm/webhook-destinations/${encodeURIComponent(destination.id)}/test`,
@@ -3594,7 +3600,7 @@ export function buildDwmWebhookDestinationDeliveryMatrix({
             createdAt: destination.createdAt,
         }
     })
-    const blockers = uniqueDestinationMatrixBlockers(rows.flatMap(row => row.blockers))
+    const blockers = uniqueWebhookBlockers(rows.flatMap(row => row.blockers))
     const latestDeliveryAt = rows
         .map(row => row.deliveryProof.latestDeliveryAt)
         .filter(Boolean)
@@ -3868,7 +3874,7 @@ export function buildDwmWebhookDeliveryRetryContract({
         }
     }
 
-    const uniqueBlockers = uniqueOperationBlockers(blockers)
+    const uniqueBlockers = uniqueWebhookBlockers(blockers)
     return {
         schemaVersion: 'dwm.webhook.delivery_retry.v1',
         ownerId,
@@ -4552,7 +4558,7 @@ export function buildDwmWebhookCustomerSetupProof({
     if (retryScheduled.length > 0) blockers.push(retryQueueBlocker('retry_scheduled', 'One or more destinations have retryable failed deliveries.', retryScheduled[0]?.destinationId || null, false))
     if (terminalFailures.length > 0) blockers.push(retryQueueBlocker('terminal_failure', 'One or more destinations have terminal delivery failures that need remediation.', terminalFailures[0]?.destinationId || null, true))
     if (!liveDeliveryEnabled) blockers.push(retryQueueBlocker('live_delivery_disabled', 'Live webhook delivery is disabled; setup can still be verified with dry-run tests.', firstActiveDestination?.destinationId || null, false))
-    const uniqueBlockers = uniqueRetryQueueBlockers(blockers)
+    const uniqueBlockers = uniqueWebhookBlockers(blockers)
     const blockingCodes = uniqueBlockers.filter(blocker => blocker.blocking).map(blocker => blocker.code)
     const status = blockingCodes.length > 0
         ? destinations.length === 0
@@ -5106,7 +5112,7 @@ export function buildDwmWebhookDestinationCrudContract({
         blockers.push(crudBlocker('retry_not_eligible', 'Latest failed or skipped delivery attempt is not eligible for retry.', destination?.id || null, false, false))
     }
 
-    const uniqueBlockers = uniqueCrudBlockers(blockers)
+    const uniqueBlockers = uniqueWebhookBlockers(blockers)
     const blocking = uniqueBlockers.filter(blocker => blocker.blocking)
     const routeContract = destinationCrudRouteContract()
     const managementRequest = destinationCrudManagementRequest({
@@ -5377,7 +5383,7 @@ export function buildDwmWebhookDestinationAdminProof({
             createdAt: health.createdAt,
         }
     })
-    const blockers = uniqueAdminProofBlockers(proofs.flatMap(proof => proof.health.adminProofBlockers))
+    const blockers = uniqueWebhookBlockers(proofs.flatMap(proof => proof.health.adminProofBlockers))
 
     return {
         schemaVersion: 'dwm.webhook.destination_admin_proof.v1',
@@ -5896,14 +5902,14 @@ function buildDwmWebhookAlertDeliveryProof({
         ...deliveryReplayGuard.blockers.map(blocker => alertDeliveryProofBlocker(blocker.code, blocker.message, blocker.destinationId, blocker.blocking)),
     ]
     const selectedDestinationIds = new Set(selectedDestinations.map(destination => destination.id))
-    const alertScopedBlockers = uniqueAlertDeliveryProofBlockers(deliveryBlockers.filter((blocker) => {
+    const alertScopedBlockers = uniqueWebhookBlockers(deliveryBlockers.filter((blocker) => {
         if (!blocker.destinationId) return true
         if (selectedDestinationIds.size === 0) return true
         return selectedDestinationIds.has(blocker.destinationId)
     }))
-    const blockers = uniqueAlertDeliveryProofBlockers([...setupBlockers, ...deliveryBlockers])
+    const blockers = uniqueWebhookBlockers([...setupBlockers, ...deliveryBlockers])
     const blockingCodes = blockers.filter(blocker => blocker.blocking).map(blocker => blocker.code)
-    const setupBlockingCodes = uniqueAlertDeliveryProofBlockers(setupBlockers)
+    const setupBlockingCodes = uniqueWebhookBlockers(setupBlockers)
         .filter(blocker => blocker.blocking)
         .map(blocker => blocker.code)
     const alertScopedBlockingCodes = alertScopedBlockers
@@ -5917,7 +5923,7 @@ function buildDwmWebhookAlertDeliveryProof({
     const pendingDestinationIds = deliveryOutcome.selectedDestinations
         .filter(destination => !destination.recorded)
         .map(destination => destination.destinationId)
-    const recordedDestinationBlockers = uniqueAlertDeliveryProofBlockers(deliveryOutcome.selectedDestinations
+    const recordedDestinationBlockers = uniqueWebhookBlockers(deliveryOutcome.selectedDestinations
         .filter(destination => destination.recorded)
         .flatMap(destination => destination.blockers.map(blocker => alertDeliveryProofBlocker(blocker.code, blocker.message, blocker.destinationId, blocker.blocking))))
     const recordedDeliveryBlockingCodes = recordedDestinationBlockers
@@ -6285,7 +6291,7 @@ export function buildDwmOrgAlertWebhookDeliveryOutcome({
                     latestAuditEventId: health.latestAuditEventId,
                 }
                 : null,
-            blockers: uniqueOrgAlertOutcomeBlockers(blockers),
+            blockers: uniqueWebhookBlockers(blockers),
         }
     })
     const skippedDestinations = dispatch.skippedDestinations.map(skipped => ({
@@ -6296,7 +6302,7 @@ export function buildDwmOrgAlertWebhookDeliveryOutcome({
         reason: skipped.reason,
         blockers: [orgAlertOutcomeBlocker(skipped.reason, `Destination skipped: ${skipped.reason}.`, skipped.id, skipped.reason !== 'event_not_subscribed')],
     }))
-    const allBlockers = uniqueOrgAlertOutcomeBlockers([
+    const allBlockers = uniqueWebhookBlockers([
         ...selectedDestinations.flatMap(destination => destination.blockers),
         ...skippedDestinations.flatMap(destination => destination.blockers),
     ])
@@ -6489,7 +6495,7 @@ export function buildDwmAlertWebhookReadinessHandoff({
         if (key.retry.retryable) blockers.push(alertReadinessBlocker('retry_scheduled', 'The latest failed delivery has retry/backoff scheduled.', key.destinationId, false))
         if (key.retry.terminalFailure) blockers.push(alertReadinessBlocker('terminal_failure', 'The latest delivery failed with a non-retryable error.', key.destinationId))
     }
-    const uniqueBlockers = uniqueAlertReadinessBlockers(blockers)
+    const uniqueBlockers = uniqueWebhookBlockers(blockers)
     const blockingCodes = uniqueBlockers.filter(blocker => blocker.blocking).map(blocker => blocker.code)
     const ready = dispatch.selectedDestinations.length > 0 && blockingCodes.length === 0
 
@@ -7044,7 +7050,7 @@ export function buildDwmWebhookDestinationTestContract({
     if (latestTest?.status === 'failed' || destination?.lastTestStatus === 'failed' || persistedLastTest?.status === 'failed' || health?.lastTest.status === 'failed') blockers.push(testContractBlocker('test_failed', 'Latest destination test failed.', destinationId))
     if (!latestAudit) blockers.push(testContractBlocker('audit_missing', 'Destination test has no linked audit event yet.', destinationId, false))
     if (!liveDeliveryEnabled) blockers.push(testContractBlocker('live_delivery_disabled', 'Live webhook delivery is disabled for this environment; tests default to dry-run.', destinationId, false))
-    const uniqueBlockers = uniqueTestContractBlockers(blockers)
+    const uniqueBlockers = uniqueWebhookBlockers(blockers)
     const blockingCodes = uniqueBlockers.filter(blocker => blocker.blocking).map(blocker => blocker.code)
     const verified = latestTest
         ? isLiveDeliveredProof(latestTest)
@@ -8272,7 +8278,7 @@ export function buildDwmWebhookDeliveryReplayApiContract({
                 body: row.actionRequests.dryRunReplay.body,
                 expectedStatus: 'dry_run',
                 expectedAuditAction: 'delivery.replayed',
-                blockers: uniqueRetryQueueBlockers(dryRunBlockers),
+                blockers: uniqueWebhookBlockers(dryRunBlockers),
             },
             liveReplay: {
                 route: 'POST /api/dwm/webhook-deliveries',
@@ -8303,7 +8309,7 @@ export function buildDwmWebhookDeliveryReplayApiContract({
             auditLinked: requests.filter(request => request.audit.auditEventId).length,
         },
         requests,
-        blockers: uniqueRetryQueueBlockers([
+        blockers: uniqueWebhookBlockers([
             ...replayGuard.blockers,
             ...requests.flatMap(request => request.dryRunReplay.blockers),
         ]),
@@ -10383,28 +10389,13 @@ function destinationLifecycleReadinessReceipt({
     }
 }
 
-function operationBlocker(
-    code: DwmWebhookDeliveryOperationBlockerCode,
-    message: string,
-    destinationId: string | null = null,
-    retryable = false
-) {
-    return { code, message, destinationId, retryable }
+type DwmWebhookBlockerIdentity = {
+    code: string
+    destinationId: string | null
+    reason?: string | null
 }
 
-function uniqueOperationBlockers(blockers: ReturnType<typeof operationBlocker>[]) {
-    const seen = new Set<string>()
-    const unique: ReturnType<typeof operationBlocker>[] = []
-    for (const blocker of blockers) {
-        const key = `${blocker.code}:${blocker.destinationId || ''}`
-        if (seen.has(key)) continue
-        seen.add(key)
-        unique.push(blocker)
-    }
-    return unique
-}
-
-function retryQueueBlocker(
+function makeWebhookBlocker(
     code: string,
     message: string,
     destinationId: string | null = null,
@@ -10413,16 +10404,42 @@ function retryQueueBlocker(
     return { code, message, destinationId, blocking }
 }
 
-function uniqueRetryQueueBlockers(blockers: ReturnType<typeof retryQueueBlocker>[]) {
+function makeWebhookBlockerWithFields<C extends string, Fields extends object>(
+    code: C,
+    message: string,
+    destinationId: string | null,
+    fields: Fields
+) {
+    return { code, message, destinationId, ...fields }
+}
+
+function uniqueWebhookBlockers<T extends DwmWebhookBlockerIdentity>(blockers: T[], includeReason = false) {
     const seen = new Set<string>()
-    const unique: ReturnType<typeof retryQueueBlocker>[] = []
+    const unique: T[] = []
     for (const blocker of blockers) {
-        const key = `${blocker.code}:${blocker.destinationId || ''}`
+        const key = `${blocker.code}:${blocker.destinationId || ''}${includeReason ? `:${blocker.reason || ''}` : ''}`
         if (seen.has(key)) continue
         seen.add(key)
         unique.push(blocker)
     }
     return unique
+}
+
+const retryQueueBlocker = makeWebhookBlocker
+const auditTrailBlocker = makeWebhookBlocker
+const testContractBlocker = makeWebhookBlocker
+const destinationMatrixBlocker = makeWebhookBlocker
+const alertReadinessBlocker = makeWebhookBlocker
+const orgAlertOutcomeBlocker = makeWebhookBlocker
+const alertDeliveryProofBlocker = makeWebhookBlocker
+
+function operationBlocker(
+    code: DwmWebhookDeliveryOperationBlockerCode,
+    message: string,
+    destinationId: string | null = null,
+    retryable = false
+) {
+    return makeWebhookBlockerWithFields(code, message, destinationId, { retryable })
 }
 
 function deliveryProvenanceIds(value: unknown) {
@@ -10447,7 +10464,7 @@ function buildDwmWebhookDeliveryTransitionReceipt({
     access: { canRetry: boolean }
     liveDeliveryEnabled: boolean
 }) {
-    const uniqueBlockers = uniqueRetryQueueBlockers(blockers)
+    const uniqueBlockers = uniqueWebhookBlockers(blockers)
     const blockingCodes = uniqueBlockers.filter(blocker => blocker.blocking).map(blocker => blocker.code)
     const canDryRunRetry = access.canRetry && entry.retry.retryable && blockingCodes.length === 0
     const canLiveRetry = canDryRunRetry && liveDeliveryEnabled
@@ -10592,7 +10609,7 @@ function buildDwmWebhookDeliveryTransitionReceipt({
                 noNetwork: !liveDeliveryEnabled,
                 externalSendEnabled: canLiveRetry,
                 canSend: canLiveRetry,
-                blockers: canLiveRetry ? [] : uniqueRetryQueueBlockers([
+                blockers: canLiveRetry ? [] : uniqueWebhookBlockers([
                     ...(!liveDeliveryEnabled ? [retryQueueBlocker('live_delivery_disabled', 'Live webhook delivery is disabled for this environment.', entry.destinationId, true)] : []),
                     ...uniqueBlockers,
                 ]).filter(blocker => blocker.blocking),
@@ -11346,7 +11363,7 @@ function buildDwmWebhookReceiptHistoryFilters({
             auditLinked: rows.filter(row => Boolean(row.auditEventId)).length,
             blocked: rows.filter(row => row.blockingCodes.length > 0).length,
         },
-        blockers: uniqueRetryQueueBlockers(blockers),
+        blockers: uniqueWebhookBlockers(blockers),
         rows,
         redaction: {
             safeForCustomerDisplay: true,
@@ -11370,120 +11387,6 @@ function webhookSetupRoutes(destinationId = '<destination_id>') {
     }
 }
 
-function auditTrailBlocker(
-    code: string,
-    message: string,
-    destinationId: string | null = null,
-    blocking = true
-) {
-    return { code, message, destinationId, blocking }
-}
-
-function testContractBlocker(
-    code: string,
-    message: string,
-    destinationId: string | null = null,
-    blocking = true
-) {
-    return { code, message, destinationId, blocking }
-}
-
-function uniqueTestContractBlockers(blockers: ReturnType<typeof testContractBlocker>[]) {
-    const seen = new Set<string>()
-    const unique: ReturnType<typeof testContractBlocker>[] = []
-    for (const blocker of blockers) {
-        const key = `${blocker.code}:${blocker.destinationId || ''}`
-        if (seen.has(key)) continue
-        seen.add(key)
-        unique.push(blocker)
-    }
-    return unique
-}
-
-function destinationMatrixBlocker(
-    code: string,
-    message: string,
-    destinationId: string | null = null,
-    blocking = true
-) {
-    return { code, message, destinationId, blocking }
-}
-
-function uniqueDestinationMatrixBlockers(blockers: ReturnType<typeof destinationMatrixBlocker>[]) {
-    const seen = new Set<string>()
-    const unique: ReturnType<typeof destinationMatrixBlocker>[] = []
-    for (const blocker of blockers) {
-        const key = `${blocker.code}:${blocker.destinationId || ''}`
-        if (seen.has(key)) continue
-        seen.add(key)
-        unique.push(blocker)
-    }
-    return unique
-}
-
-function alertReadinessBlocker(
-    code: string,
-    message: string,
-    destinationId: string | null = null,
-    blocking = true
-) {
-    return { code, message, destinationId, blocking }
-}
-
-function orgAlertOutcomeBlocker(
-    code: string,
-    message: string,
-    destinationId: string | null = null,
-    blocking = true
-) {
-    return { code, message, destinationId, blocking }
-}
-
-function uniqueOrgAlertOutcomeBlockers(blockers: ReturnType<typeof orgAlertOutcomeBlocker>[]) {
-    const seen = new Set<string>()
-    const unique: ReturnType<typeof orgAlertOutcomeBlocker>[] = []
-    for (const blocker of blockers) {
-        const key = `${blocker.code}:${blocker.destinationId || ''}`
-        if (seen.has(key)) continue
-        seen.add(key)
-        unique.push(blocker)
-    }
-    return unique
-}
-
-function uniqueAlertReadinessBlockers(blockers: ReturnType<typeof alertReadinessBlocker>[]) {
-    const seen = new Set<string>()
-    const unique: ReturnType<typeof alertReadinessBlocker>[] = []
-    for (const blocker of blockers) {
-        const key = `${blocker.code}:${blocker.destinationId || ''}`
-        if (seen.has(key)) continue
-        seen.add(key)
-        unique.push(blocker)
-    }
-    return unique
-}
-
-function alertDeliveryProofBlocker(
-    code: string,
-    message: string,
-    destinationId: string | null = null,
-    blocking = true
-) {
-    return { code, message, destinationId, blocking }
-}
-
-function uniqueAlertDeliveryProofBlockers(blockers: ReturnType<typeof alertDeliveryProofBlocker>[]) {
-    const seen = new Set<string>()
-    const unique: ReturnType<typeof alertDeliveryProofBlocker>[] = []
-    for (const blocker of blockers) {
-        const key = `${blocker.code}:${blocker.destinationId || ''}`
-        if (seen.has(key)) continue
-        seen.add(key)
-        unique.push(blocker)
-    }
-    return unique
-}
-
 function dashboardReadinessBlocker(
     code: string,
     message: string,
@@ -11491,20 +11394,10 @@ function dashboardReadinessBlocker(
     reason: string | null = null,
     blocking = true
 ) {
-    return { code, message, destinationId, reason, blocking }
+    return makeWebhookBlockerWithFields(code, message, destinationId, { reason, blocking })
 }
 
-function uniqueDashboardReadinessBlockers(blockers: ReturnType<typeof dashboardReadinessBlocker>[]) {
-    const seen = new Set<string>()
-    const unique: ReturnType<typeof dashboardReadinessBlocker>[] = []
-    for (const blocker of blockers) {
-        const key = `${blocker.code}:${blocker.destinationId || ''}:${blocker.reason || ''}`
-        if (seen.has(key)) continue
-        seen.add(key)
-        unique.push(blocker)
-    }
-    return unique
-}
+const uniqueDashboardReadinessBlockers = (blockers: ReturnType<typeof dashboardReadinessBlocker>[]) => uniqueWebhookBlockers(blockers, true)
 
 function dashboardPrimaryHealthStatus(states: string[]) {
     const priority = [
@@ -11623,19 +11516,7 @@ function crudBlocker(
     retryable = false,
     blocking = true
 ) {
-    return { code, message, destinationId, retryable, blocking }
-}
-
-function uniqueCrudBlockers(blockers: ReturnType<typeof crudBlocker>[]) {
-    const seen = new Set<string>()
-    const unique: ReturnType<typeof crudBlocker>[] = []
-    for (const blocker of blockers) {
-        const key = `${blocker.code}:${blocker.destinationId || ''}`
-        if (seen.has(key)) continue
-        seen.add(key)
-        unique.push(blocker)
-    }
-    return unique
+    return makeWebhookBlockerWithFields(code, message, destinationId, { retryable, blocking })
 }
 
 function destinationCrudRouteContract() {
@@ -11904,7 +11785,7 @@ function adminProofBlocker(
     destinationId: string | null = null,
     retryable = false
 ) {
-    return { code, message, destinationId, retryable }
+    return makeWebhookBlockerWithFields(code, message, destinationId, { retryable })
 }
 
 function destinationAdminProofBlockers({
@@ -11943,19 +11824,7 @@ function destinationAdminProofBlockers({
     if (latestFailedOrSkipped && !latestFailedOrSkipped.attempts.retryable && latestFailedOrSkipped.status !== 'queued') {
         blockers.push(adminProofBlocker('retry_not_eligible', 'Latest failed or skipped delivery attempt is not eligible for retry.', health.destinationId))
     }
-    return uniqueAdminProofBlockers(blockers)
-}
-
-function uniqueAdminProofBlockers(blockers: ReturnType<typeof adminProofBlocker>[]) {
-    const seen = new Set<string>()
-    const unique: ReturnType<typeof adminProofBlocker>[] = []
-    for (const blocker of blockers) {
-        const key = `${blocker.code}:${blocker.destinationId || ''}`
-        if (seen.has(key)) continue
-        seen.add(key)
-        unique.push(blocker)
-    }
-    return unique
+    return uniqueWebhookBlockers(blockers)
 }
 
 function destinationAdminProofSummary(
@@ -12111,7 +11980,17 @@ function dedupeFromIdempotencyKey(value: string) {
 }
 
 function redactDeliveryEvidenceText(value: string) {
-    return sanitizeCustomerOutboundText(value)
+    const endpointRefs: string[] = []
+    const textWithEndpointRefs = value.replace(/\bhttps?:\/\/discord(?:app)?\.com\/api\/webhooks\/[^\s"'<>]+/gi, match => {
+        const trailingPunctuation = match.match(/[,!?;:)]+$/)?.[0] || ''
+        const endpoint = trailingPunctuation ? match.slice(0, -trailingPunctuation.length) : match
+        const marker = `DWMENDPOINTREF${endpointRefs.length}SAFE`
+        endpointRefs.push(`${redactWebhookEndpoint(endpoint)}${trailingPunctuation}`)
+        return marker
+    })
+
+    return sanitizeCustomerOutboundText(textWithEndpointRefs)
+        .replace(/DWMENDPOINTREF(\d+)SAFE/g, (marker, index: string) => endpointRefs[Number(index)] || marker)
 }
 
 export function sanitizeDwmWebhookDeliveryDiagnostic(value: unknown, max = 2000) {

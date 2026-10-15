@@ -1,10 +1,35 @@
 import { describe, expect, test } from 'bun:test'
 import { canonicalThirdPartyReportForDelivery } from '../src/handlers/dwm/webhooks.ts'
-import { assertPublicWebhookTarget, buildDwmAlertDeliveryPayload, computeOutboundThirdPartyReportChecksum as checksumFromWebhookModule, normalizeDwmWebhookDestinationInput, pinnedWebhookLookup, signDwmWebhookDeliveryBody, validateDwmWebhookReceiverEnvelope, validateOutboundThirdPartyReport as validateFromWebhookModule } from '../src/utils/dwm/webhooks.ts'
+import { assertPublicWebhookTarget, buildDwmAlertDeliveryPayload, computeOutboundThirdPartyReportChecksum as checksumFromWebhookModule, normalizeDwmWebhookDestinationInput, pinnedWebhookLookup, sanitizeDwmWebhookDeliveryDiagnostic, signDwmWebhookDeliveryBody, validateDwmWebhookReceiverEnvelope, validateOutboundThirdPartyReport as validateFromWebhookModule } from '../src/utils/dwm/webhooks.ts'
 import { computeOutboundThirdPartyReportChecksum, validateOutboundThirdPartyReport } from '../src/utils/dwm/thirdPartyReport.ts'
 import { canonicalJson, containsUnsafeCustomerOutboundText, sanitizeCustomerOutboundText } from '../src/utils/dwm/customerOutputSafety.ts'
 
 describe('DWM webhook network boundary', () => {
+    test('keeps target and signing secrets out of serialized destination normalization', () => {
+        const endpointUrl = 'https://discord.com/api/webhooks/987654321/customer-path-secret'
+        const signingSecret = 'delivery-signing-secret'
+        const normalized = normalizeDwmWebhookDestinationInput({ endpointUrl, signingSecret }, 'owner')
+
+        expect(normalized.endpointUrl).toBe(endpointUrl)
+        expect(normalized.signingSecret).toBe(signingSecret)
+        expect(normalized.endpointEncrypted).toBeTruthy()
+        const serialized = JSON.stringify(normalized)
+        expect(serialized).not.toContain('customer-path-secret')
+        expect(serialized).not.toContain(signingSecret)
+    })
+
+    test('preserves Discord webhook ids while redacting endpoint and diagnostic secrets', () => {
+        const diagnostic = sanitizeDwmWebhookDeliveryDiagnostic(
+            'Discord rejected https://discord.com/api/webhooks/1234567890/discord-path-secret?token=query-secret token=credential-secret',
+        )
+
+        expect(diagnostic).toContain('https://discord.com/api/webhooks/1234567890/...')
+        expect(diagnostic).toContain('[credential redacted]')
+        expect(diagnostic).not.toContain('discord-path-secret')
+        expect(diagnostic).not.toContain('query-secret')
+        expect(diagnostic).not.toContain('credential-secret')
+    })
+
     test('rejects local and private literal destinations before encryption', () => {
         for (const endpointUrl of [
             'https://localhost/hook',
