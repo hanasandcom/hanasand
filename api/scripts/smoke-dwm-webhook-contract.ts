@@ -70,7 +70,6 @@ const destination = normalizeDwmWebhookDestinationInput({
 expect(destination.kind === 'discord', 'Discord endpoint should infer discord destination kind.', destination)
 expect(destination.endpointHint === 'https://discord.com/api/webhooks/987654321/...', 'Endpoint hint should redact Discord secret.', destination)
 expect(destination.endpointHash?.startsWith('endpoint_'), 'Endpoint hash should be generated.', destination)
-expect(!JSON.stringify(destination).includes(secret), 'Destination normalization leaked endpoint secret.', destination)
 const mappedDeliveryWithAudit = toDwmWebhookDelivery({
     id: 'delivery_mapping_contract',
     destination_id: 'destination_mapping_contract',

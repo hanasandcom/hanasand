@@ -13,8 +13,6 @@ describe('DWM webhook network boundary', () => {
         expect(normalized.endpointUrl).toBe(endpointUrl)
         expect(normalized.signingSecret).toBe(signingSecret)
         expect(normalized.endpointEncrypted).toBeTruthy()
-        expect(Object.keys(normalized)).not.toContain('endpointUrl')
-        expect(Object.keys(normalized)).not.toContain('signingSecret')
         expect({ ...normalized }).not.toHaveProperty('endpointUrl')
         expect({ ...normalized }).not.toHaveProperty('signingSecret')
         const serialized = JSON.stringify(normalized)
