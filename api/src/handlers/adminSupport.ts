@@ -10442,20 +10442,54 @@ async function recordSupportInviteAssistExecutorBlock(req: FastifyRequest, input
     controls: ReturnType<typeof supportInviteAssistExecutorControls>['value']
     supportContext: string
 }) {
-    await recordSystemEvent(req, {
+    return recordSupportExecutorBlock(req, {
         actionType: 'support.organization.invite_assist',
+        action: 'invite_assist',
         actorId: input.actorId,
         targetType: 'organization',
         targetId: input.organizationId,
-        organizationId: input.organizationId,
         entityId: input.input.emails.join(','),
+        organizationId: input.organizationId,
         requestId: input.requestId,
+        reason: input.reason,
         severity: 'notice',
+        blocker: input.blocker,
+        controls: input.controls,
+        supportContext: input.supportContext,
+        actionContext: { emails: input.input.emails, role: input.input.role, expiresAt: input.input.expiresAt },
+    })
+}
+
+async function recordSupportExecutorBlock(req: FastifyRequest, input: {
+    actionType: string
+    action: string
+    actorId: string
+    targetType: string
+    targetId: string
+    entityId: string
+    organizationId: string
+    requestId: string
+    reason: string
+    severity: 'notice' | 'warning'
+    blocker: string
+    controls: SupportExecutorControls
+    supportContext: string
+    actionContext: Record<string, unknown>
+}) {
+    await recordSystemEvent(req, {
+        actionType: input.actionType,
+        actorId: input.actorId,
+        targetType: input.targetType,
+        targetId: input.targetId,
+        organizationId: input.organizationId,
+        entityId: input.entityId,
+        requestId: input.requestId,
+        severity: input.severity,
         outcome: 'denied',
         reason: input.reason,
         context: {
             schemaVersion: 'support.action_executor_blocker.v1',
-            action: 'invite_assist',
+            action: input.action,
             blocker: input.blocker,
             blockerCode: input.blocker,
             requestId: input.requestId,
@@ -10463,9 +10497,7 @@ async function recordSupportInviteAssistExecutorBlock(req: FastifyRequest, input
             idempotencyKey: input.controls.idempotencyKey,
             supportSessionId: input.controls.supportSessionId || null,
             targetOrganizationId: input.organizationId,
-            emails: input.input.emails,
-            role: input.input.role,
-            expiresAt: input.input.expiresAt,
+            ...input.actionContext,
             scope: input.controls.scope,
             handoffExpiresAt: input.controls.handoffExpiresAt,
             noSilentMembershipMutation: true,
@@ -10698,35 +10730,21 @@ async function recordSupportInviteActionExecutorBlock(req: FastifyRequest, input
     controls: ReturnType<typeof supportInviteActionExecutorControls>['value']
     supportContext: string
 }) {
-    await recordSystemEvent(req, {
+    return recordSupportExecutorBlock(req, {
         actionType: input.actionType,
+        action: input.action,
         actorId: input.actorId,
         targetType: 'invite',
         targetId: input.inviteId,
-        organizationId: input.organizationId,
         entityId: input.inviteId,
+        organizationId: input.organizationId,
         requestId: input.requestId,
-        severity: input.action === 'revoke' ? 'warning' : 'notice',
-        outcome: 'denied',
         reason: input.reason,
-        context: {
-            schemaVersion: 'support.action_executor_blocker.v1',
-            action: input.action,
-            blocker: input.blocker,
-            blockerCode: input.blocker,
-            requestId: input.requestId,
-            correlationId: input.controls.correlationId,
-            idempotencyKey: input.controls.idempotencyKey,
-            supportSessionId: input.controls.supportSessionId || null,
-            targetOrganizationId: input.organizationId,
-            inviteId: input.inviteId,
-            scope: input.controls.scope,
-            handoffExpiresAt: input.controls.handoffExpiresAt,
-            noSilentMembershipMutation: true,
-            mutation: 'none',
-            redactionRequired: true,
-            supportContext: input.supportContext,
-        },
+        severity: input.action === 'revoke' ? 'warning' : 'notice',
+        blocker: input.blocker,
+        controls: input.controls,
+        supportContext: input.supportContext,
+        actionContext: { inviteId: input.inviteId },
     })
 }
 
@@ -11071,36 +11089,24 @@ async function recordSupportMemberRoleRecoveryExecutorBlock(req: FastifyRequest,
     supportContext: string
     before?: Record<string, unknown> | null
 }) {
-    await recordSystemEvent(req, {
+    return recordSupportExecutorBlock(req, {
         actionType: 'support.organization.member_role_recovery',
+        action: 'member_role_recovery',
         actorId: input.actorId,
         targetType: 'member',
         targetId: input.userId,
-        organizationId: input.organizationId,
         entityId: input.userId,
+        organizationId: input.organizationId,
         requestId: input.requestId,
-        severity: input.requestedRole === 'admin' ? 'warning' : 'notice',
-        outcome: 'denied',
         reason: input.reason,
-        context: {
-            schemaVersion: 'support.action_executor_blocker.v1',
-            action: 'member_role_recovery',
-            blocker: input.blocker,
-            blockerCode: input.blocker,
-            requestId: input.requestId,
-            correlationId: input.controls.correlationId,
-            idempotencyKey: input.controls.idempotencyKey,
-            supportSessionId: input.controls.supportSessionId || null,
-            targetOrganizationId: input.organizationId,
+        severity: input.requestedRole === 'admin' ? 'warning' : 'notice',
+        blocker: input.blocker,
+        controls: input.controls,
+        supportContext: input.supportContext,
+        actionContext: {
             targetUserId: input.userId,
             requestedRole: input.requestedRole,
-            scope: input.controls.scope,
-            handoffExpiresAt: input.controls.handoffExpiresAt,
             before: input.before || null,
-            noSilentMembershipMutation: true,
-            mutation: 'none',
-            redactionRequired: true,
-            supportContext: input.supportContext,
         },
     })
 }

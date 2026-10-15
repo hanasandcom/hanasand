@@ -128,6 +128,7 @@ const {
     getSupportInspection,
     getSupportReadiness,
     getSupportOrganization,
+    postSupportOrganizationInvite,
     postSupportOrganizationInviteAction,
     postSupportOrganizationMemberRoleRecovery,
     postSupportSession,
@@ -672,6 +673,79 @@ test('support invite action returns an audited accepted-invite denial when accep
     expect(inviteActionWrites).toBe(1)
 })
 
+test('executor blocker audits retain the shared no-mutation contract for invite assistance', async () => {
+    supportOrganization = { id: 'org-1', name: 'Org', slug: 'org', status: 'active' }
+    supportAvailabilityResults = [[{ organization_id: 'org-1', active_admin_count: 1 }]]
+
+    const result = await request(postSupportOrganizationInvite, {
+        params: { id: 'org-1' },
+        body: {
+            email: 'member@example.com', role: 'reader', expiresAt: '2026-11-01T00:00:00.000Z',
+            reason: 'Restore member access', requestId: 'invite-assist-blocked', context: 'case-17',
+        },
+    })
+
+    expect(result.statusCode).toBe(409)
+    expect(recordedEvents.at(-1)).toMatchObject({
+        actionType: 'support.organization.invite_assist',
+        targetType: 'organization', targetId: 'org-1', entityId: 'member@example.com',
+        severity: 'notice', outcome: 'denied',
+        context: {
+            schemaVersion: 'support.action_executor_blocker.v1', action: 'invite_assist',
+            blocker: 'active_admin_available', blockerCode: 'active_admin_available',
+            targetOrganizationId: 'org-1', emails: ['member@example.com'], role: 'reader',
+            noSilentMembershipMutation: true, mutation: 'none', redactionRequired: true,
+            supportContext: 'case-17',
+        },
+    })
+})
+
+test('executor blocker audits retain invite action identity and severity', async () => {
+    supportOrganization = { id: 'org-1', name: 'Org', slug: 'org', status: 'active' }
+
+    const result = await request(postSupportOrganizationInviteAction, {
+        params: { id: 'org-1', inviteId: 'invite-1' },
+        body: { action: 'revoke', reason: 'Remove unsafe access', scope: 'invalid', requestId: 'invite-action-blocked' },
+    })
+
+    expect(result.statusCode).toBe(400)
+    expect(recordedEvents.at(-1)).toMatchObject({
+        actionType: 'support.organization.invite_revoke',
+        targetType: 'invite', targetId: 'invite-1', entityId: 'invite-1',
+        severity: 'warning', outcome: 'denied',
+        context: {
+            schemaVersion: 'support.action_executor_blocker.v1', action: 'revoke',
+            blocker: 'invalid_scope', blockerCode: 'invalid_scope', inviteId: 'invite-1',
+            noSilentMembershipMutation: true, mutation: 'none', redactionRequired: true,
+        },
+    })
+})
+
+test('executor blocker audits retain resend and admin-role severity rules', async () => {
+    supportOrganization = { id: 'org-1', name: 'Org', slug: 'org', status: 'active' }
+
+    const resend = await request(postSupportOrganizationInviteAction, {
+        params: { id: 'org-1', inviteId: 'invite-1' },
+        body: { action: 'resend', reason: 'Restore access', scope: 'invalid', requestId: 'resend-blocked' },
+    })
+    expect(resend.statusCode).toBe(400)
+    expect(recordedEvents.at(-1)).toMatchObject({
+        actionType: 'support.organization.invite_resend', severity: 'notice', outcome: 'denied',
+        context: { action: 'resend', blockerCode: 'invalid_scope', mutation: 'none' },
+    })
+
+    const roleRecovery = await request(postSupportOrganizationMemberRoleRecovery, {
+        params: { id: 'org-1', userId: 'member-1' },
+        body: { role: 'admin', reason: 'Restore admin access', scope: 'invalid', requestId: 'admin-role-blocked' },
+    })
+    expect(roleRecovery.statusCode).toBe(400)
+    expect(recordedEvents.at(-1)).toMatchObject({
+        actionType: 'support.organization.member_role_recovery', severity: 'warning', outcome: 'denied',
+        context: { action: 'member_role_recovery', requestedRole: 'admin', blockerCode: 'invalid_scope', mutation: 'none' },
+    })
+    expect(queries.some(({ sql }) => sql.includes('UPDATE organization_members SET role'))).toBe(false)
+})
+
 test('support role recovery shares the active-member write and retains its audited receipt', async () => {
     supportOrganization = { id: 'org-1', name: 'Org', slug: 'org', status: 'active' }
 
@@ -717,7 +791,13 @@ test('support role recovery rechecks owner protection inside the membership tran
     expect(recordedEvents.at(-1)).toMatchObject({
         actionType: 'support.organization.member_role_recovery',
         outcome: 'denied',
-        context: { mutation: 'none' },
+        context: {
+            schemaVersion: 'support.action_executor_blocker.v1', action: 'member_role_recovery',
+            blocker: 'Support role recovery cannot demote the last active owner.',
+            blockerCode: 'Support role recovery cannot demote the last active owner.',
+            targetOrganizationId: 'org-1', targetUserId: 'member-1', requestedRole: 'reader',
+            noSilentMembershipMutation: true, mutation: 'none', redactionRequired: true,
+        },
     })
     expect(queries.some(({ sql }) => sql.includes('FROM users') && sql.includes('organization_members membership') && sql.includes('FOR UPDATE'))).toBe(true)
 })
