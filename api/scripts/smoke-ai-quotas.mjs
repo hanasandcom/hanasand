@@ -18,6 +18,7 @@ const runId = `quota_smoke_${Date.now()}`
 const password = `Aa11!!${crypto.randomUUID().replaceAll('-', '').slice(0, 20)}Bb22!!`
 const vmName = `vm-quota-${Date.now()}`
 const conversationId = `conversation-${Date.now()}`
+const secondConversationId = `conversation-quota-second-${Date.now()}`
 const repositoryId = `repo-${Date.now()}`
 const collaboratorIds = Array.from({ length: 6 }, (_, index) => `${runId}_collab_${index + 1}`)
 const pool = new Pool({
@@ -69,10 +70,11 @@ function authHeaders(extra = {}) {
 }
 
 async function cleanup() {
-    await pool.query('DELETE FROM ai_conversation_collaborators WHERE conversation_id = $1', [conversationId]).catch(() => {})
-    await pool.query('DELETE FROM ai_deployments WHERE conversation_id = $1', [conversationId]).catch(() => {})
-    await pool.query('DELETE FROM ai_messages WHERE conversation_id = $1', [conversationId]).catch(() => {})
-    await pool.query('DELETE FROM ai_conversations WHERE id = $1', [conversationId]).catch(() => {})
+    const conversationIds = [conversationId, secondConversationId]
+    await pool.query('DELETE FROM ai_conversation_collaborators WHERE conversation_id = ANY($1::text[])', [conversationIds]).catch(() => {})
+    await pool.query('DELETE FROM ai_deployments WHERE conversation_id = ANY($1::text[])', [conversationIds]).catch(() => {})
+    await pool.query('DELETE FROM ai_messages WHERE conversation_id = ANY($1::text[])', [conversationIds]).catch(() => {})
+    await pool.query('DELETE FROM ai_conversations WHERE id = ANY($1::text[])', [conversationIds]).catch(() => {})
     await pool.query('DELETE FROM ai_imported_repository_files WHERE repository_id = $1', [repositoryId]).catch(() => {})
     await pool.query('DELETE FROM ai_imported_repositories WHERE id = $1', [repositoryId]).catch(() => {})
     await pool.query('DELETE FROM vm_shutdown WHERE name = $1', [vmName]).catch(() => {})
@@ -139,6 +141,12 @@ async function seedBase() {
         )
         VALUES ($1, $2, 'Quota smoke', 'repo', $3, $4::jsonb, NOW(), NOW())
     `, [conversationId, runId, repositoryId, JSON.stringify({ repositoryId })])
+    await pool.query(`
+        INSERT INTO ai_conversations (
+            id, owner_id, title, workspace_kind, workspace_id, workspace_meta, created_at, updated_at
+        )
+        VALUES ($1, $2, 'Quota smoke second deployment', 'repo', $3, $4::jsonb, NOW(), NOW())
+    `, [secondConversationId, runId, repositoryId, JSON.stringify({ repositoryId })])
 
     for (const collaboratorId of collaboratorIds) {
         await request('/user', {
@@ -164,7 +172,7 @@ async function main() {
             '[]'::jsonb, NULL, NOW()
         ),
         (
-            $6, $2, $3, $4, 'repo', $4, $5, 'quota-app-b',
+            $6, $2, $7, $4, 'repo', $4, $5, 'quota-app-b',
             'nextjs_docker', 'owner_only', $2, 'healthchecking', 'http://preview-b', 'http://127.0.0.1:3001/',
             '[]'::jsonb, NULL, NOW()
         )
@@ -175,6 +183,7 @@ async function main() {
         repositoryId,
         vmName,
         `deploy_checking_${Date.now()}`,
+        secondConversationId,
     ])
 
     const quota = await request('/ai/deployments', {
