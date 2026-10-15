@@ -125,7 +125,7 @@ export async function postOrganization(req: FastifyRequest<{ Body: OrganizationI
         return res.status(401).send({ error: 'Unauthorized.' })
     }
 
-    let input
+    let input: ReturnType<typeof normalizeOrganizationInput>
     try {
         input = normalizeOrganizationInput(req.body)
     } catch (error) {
@@ -354,7 +354,7 @@ export async function putOrganizationSettings(req: FastifyRequest<{ Params: Orga
         return res.status(403).send({ error: message, settingsMutationDenial: denial })
     }
 
-    let input
+    let input: ReturnType<typeof normalizeOrganizationSettingsInput>
     try {
         input = normalizeOrganizationSettingsInput(req.body)
     } catch (error) {
@@ -973,7 +973,7 @@ export async function patchOrganizationMemberRole(req: FastifyRequest<{ Params: 
         return res.status(404).send({ error: 'Organization member not found.' })
     }
 
-    let input
+    let input: ReturnType<typeof normalizeMemberRoleInput>
     try {
         input = normalizeMemberRoleInput(req.body)
     } catch (error) {
@@ -1281,7 +1281,7 @@ export async function postOrganizationOwnershipTransfer(req: FastifyRequest<{ Pa
         return sendOrganizationLifecycleBlocker(req, res, lifecycleBlocker, userId, organization.role)
     }
 
-    let input
+    let input: ReturnType<typeof normalizeOwnershipTransferInput>
     try {
         input = normalizeOwnershipTransferInput(req.body)
     } catch (error) {
@@ -1408,7 +1408,7 @@ export async function postOrganizationInvites(req: FastifyRequest<{ Params: Orga
         return sendOrganizationLifecycleBlocker(req, res, lifecycleBlocker, userId, organization.role)
     }
 
-    let input
+    let input: ReturnType<typeof normalizeInviteInput>
     try {
         input = normalizeInviteInput(req.body)
     } catch (error) {
@@ -1552,7 +1552,7 @@ export async function postOrganizationInviteAction(req: FastifyRequest<{ Params:
         })
     }
 
-    let input
+    let input: ReturnType<typeof normalizeInviteActionInput>
     try {
         input = normalizeInviteActionInput(req.body)
     } catch (error) {
@@ -2779,7 +2779,7 @@ export async function postOrganizationWatchlist(req: FastifyRequest<{ Params: Or
         return sendOrganizationLifecycleBlocker(req, res, lifecycleBlocker, userId, organization.role)
     }
 
-    let input
+    let input: ReturnType<typeof normalizeWatchlistInput>
     try {
         input = normalizeWatchlistInput(req.body)
     } catch (error) {
@@ -2894,7 +2894,7 @@ export async function putOrganizationWatchlist(req: FastifyRequest<{ Params: Wat
         return sendOrganizationLifecycleBlocker(req, res, lifecycleBlocker, userId, organization.role)
     }
 
-    let input
+    let input: ReturnType<typeof normalizeWatchlistInput>
     try {
         input = normalizeWatchlistInput(req.body)
     } catch (error) {
@@ -3062,7 +3062,7 @@ export async function postOrganizationWatchlistAction(req: FastifyRequest<{ Para
         })
     }
 
-    let input
+    let input: ReturnType<typeof normalizeWatchlistActionInput>
     try {
         input = normalizeWatchlistActionInput(req.body)
     } catch (error) {
@@ -3163,7 +3163,7 @@ export async function postOrganizationWatchlistCleanup(req: FastifyRequest<{ Par
         })
     }
 
-    let input
+    let input: ReturnType<typeof normalizeWatchlistCleanupInput>
     try {
         input = normalizeWatchlistCleanupInput(req.body)
     } catch (error) {

@@ -24,7 +24,6 @@ test('Cashflow and other organization administrators cannot list organizations',
     expect(calls).toHaveLength(1)
     expect(calls[0].params).toEqual(['user-one', '3e735e7b-4d7f-444d-9806-231fa26cfcec'])
     expect(calls[0].sql).toContain('m.status = \'active\'')
-    expect(calls[0].sql).toContain('m.status = \'active\'')
     expect(calls[0].sql).toContain('o.status = \'active\'')
     expect(calls[0].sql).toContain('u.active = TRUE')
 })
