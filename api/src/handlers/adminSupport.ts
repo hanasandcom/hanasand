@@ -10118,47 +10118,67 @@ function supportActionIdempotencyKey(value: unknown, action: string) {
     return cleaned || `support-${action}-${randomUUID()}`
 }
 
-function supportInviteAssistExecutorControls(
-    req: FastifyRequest,
-    body: SupportInviteBody | undefined,
-    requestId: string,
-): {
-    value: {
-        schemaVersion: string
-        requestId: string
-        correlationId: string
-        idempotencyKey: string
-        supportSessionId: string
-        scope: string[]
-        handoffExpiresAt: string | null
-        staleBlocker: string
-        duplicateBlocker: string
-    },
-    error: { code: string, message: string, status: number } | null,
-} {
+type SupportExecutorControlsBody = {
+    idempotencyKey?: unknown
+    idempotency_key?: unknown
+    correlationId?: unknown
+    correlation_id?: unknown
+    supportSessionId?: unknown
+    support_session_id?: unknown
+    scope?: unknown
+    handoffExpiresAt?: unknown
+    handoff_expires_at?: unknown
+}
+
+type SupportExecutorControls = {
+    schemaVersion: string
+    requestId: string
+    correlationId: string
+    idempotencyKey: string
+    supportSessionId: string
+    scope: string[]
+    handoffExpiresAt: string | null
+    staleBlocker: string
+    duplicateBlocker: string
+}
+
+type SupportExecutorControlsResult = {
+    value: SupportExecutorControls
+    error: { code: string, message: string, status: number } | null
+}
+
+function supportExecutorControls(input: {
+    req: FastifyRequest
+    body: SupportExecutorControlsBody | undefined
+    requestId: string
+    idempotencyAction: string
+    scopeAction: string
+    requiredScope: string
+    invalidScopeMessage: string
+    invalidExpiryMessage: string
+    expiredHandoffMessage: string
+}): SupportExecutorControlsResult {
+    const { req, body, requestId } = input
     const idempotencyKey = supportActionIdempotencyKey(
         headerText(req.headers['x-idempotency-key']) || body?.idempotencyKey || body?.idempotency_key || requestId,
-        'invite_assist',
+        input.idempotencyAction,
     )
     const correlationId = text(headerText(req.headers['x-correlation-id']) || body?.correlationId || body?.correlation_id || requestId) || requestId
     const supportSessionId = supportSessionIdFromRequest(req, body)
-    const scopeResult = normalizeSupportPreparationScope(body?.scope || 'invite:create', 'invite_assist')
-    const base = {
+    const scopeResult = normalizeSupportPreparationScope(body?.scope || input.requiredScope, input.scopeAction)
+    const base: SupportExecutorControls = {
         schemaVersion: 'support.action_execute.controls.v1',
         requestId,
         correlationId,
         idempotencyKey,
         supportSessionId,
         scope: scopeResult.value,
-        handoffExpiresAt: null as string | null,
+        handoffExpiresAt: null,
         staleBlocker: 'stale_prepare_payload',
         duplicateBlocker: 'duplicate_idempotency_key',
     }
-    if (scopeResult.error) {
-        return { value: base, error: { code: 'invalid_scope', message: 'Invite assistance execution requires invite:create scope.', status: 400 } }
-    }
-    if (!scopeResult.value.includes('invite:create')) {
-        return { value: base, error: { code: 'invalid_scope', message: 'Invite assistance execution requires invite:create scope.', status: 400 } }
+    if (scopeResult.error || !scopeResult.value.includes(input.requiredScope)) {
+        return { value: base, error: { code: 'invalid_scope', message: input.invalidScopeMessage, status: 400 } }
     }
 
     const handoffExpiresAt = text(headerText(req.headers['x-support-handoff-expires-at']) || body?.handoffExpiresAt || body?.handoff_expires_at)
@@ -10167,14 +10187,31 @@ function supportInviteAssistExecutorControls(
     }
     const timestamp = Date.parse(handoffExpiresAt)
     if (Number.isNaN(timestamp)) {
-        return { value: base, error: { code: 'invalid_expiry', message: 'Support invite assistance handoff expiry must be a valid timestamp.', status: 400 } }
+        return { value: base, error: { code: 'invalid_expiry', message: input.invalidExpiryMessage, status: 400 } }
     }
-    const normalized = new Date(timestamp).toISOString()
-    const value = { ...base, handoffExpiresAt: normalized }
+    const value = { ...base, handoffExpiresAt: new Date(timestamp).toISOString() }
     if (timestamp <= Date.now()) {
-        return { value, error: { code: 'stale_prepare_payload', message: 'Support invite assistance handoff has expired; prepare a fresh action before executing.', status: 409 } }
+        return { value, error: { code: 'stale_prepare_payload', message: input.expiredHandoffMessage, status: 409 } }
     }
     return { value, error: null }
+}
+
+export function supportInviteAssistExecutorControls(
+    req: FastifyRequest,
+    body: SupportInviteBody | undefined,
+    requestId: string,
+): SupportExecutorControlsResult {
+    return supportExecutorControls({
+        req,
+        body,
+        requestId,
+        idempotencyAction: 'invite_assist',
+        scopeAction: 'invite_assist',
+        requiredScope: 'invite:create',
+        invalidScopeMessage: 'Invite assistance execution requires invite:create scope.',
+        invalidExpiryMessage: 'Support invite assistance handoff expiry must be a valid timestamp.',
+        expiredHandoffMessage: 'Support invite assistance handoff has expired; prepare a fresh action before executing.',
+    })
 }
 
 async function recordSupportInviteAssistExecutorBlock(req: FastifyRequest, input: {
@@ -10411,61 +10448,24 @@ function supportInviteAssistAuditQuery(input: {
     return `/api/admin/audit-events?${params.toString()}`
 }
 
-function supportInviteActionExecutorControls(
+export function supportInviteActionExecutorControls(
     req: FastifyRequest,
     body: SupportInviteActionBody | undefined,
     requestId: string,
     action: 'revoke' | 'resend',
-): {
-    value: {
-        schemaVersion: string
-        requestId: string
-        correlationId: string
-        idempotencyKey: string
-        supportSessionId: string
-        scope: string[]
-        handoffExpiresAt: string | null
-        staleBlocker: string
-        duplicateBlocker: string
-    },
-    error: { code: string, message: string, status: number } | null,
-} {
+): SupportExecutorControlsResult {
     const requiredScope = action === 'revoke' ? 'invite:revoke' : 'invite:resend'
-    const idempotencyKey = supportActionIdempotencyKey(
-        headerText(req.headers['x-idempotency-key']) || body?.idempotencyKey || body?.idempotency_key || requestId,
-        `invite_${action}`,
-    )
-    const correlationId = text(headerText(req.headers['x-correlation-id']) || body?.correlationId || body?.correlation_id || requestId) || requestId
-    const supportSessionId = supportSessionIdFromRequest(req, body)
-    const scopeResult = normalizeSupportPreparationScope(body?.scope || requiredScope, 'invite_assist')
-    const base = {
-        schemaVersion: 'support.action_execute.controls.v1',
+    return supportExecutorControls({
+        req,
+        body,
         requestId,
-        correlationId,
-        idempotencyKey,
-        supportSessionId,
-        scope: scopeResult.value,
-        handoffExpiresAt: null as string | null,
-        staleBlocker: 'stale_prepare_payload',
-        duplicateBlocker: 'duplicate_idempotency_key',
-    }
-    if (scopeResult.error || !scopeResult.value.includes(requiredScope)) {
-        return { value: base, error: { code: 'invalid_scope', message: `Invite ${action} execution requires ${requiredScope} scope.`, status: 400 } }
-    }
-
-    const handoffExpiresAt = text(headerText(req.headers['x-support-handoff-expires-at']) || body?.handoffExpiresAt || body?.handoff_expires_at)
-    if (!handoffExpiresAt) {
-        return { value: base, error: null }
-    }
-    const timestamp = Date.parse(handoffExpiresAt)
-    if (Number.isNaN(timestamp)) {
-        return { value: base, error: { code: 'invalid_expiry', message: `Support invite ${action} handoff expiry must be a valid timestamp.`, status: 400 } }
-    }
-    const value = { ...base, handoffExpiresAt: new Date(timestamp).toISOString() }
-    if (timestamp <= Date.now()) {
-        return { value, error: { code: 'stale_prepare_payload', message: `Support invite ${action} handoff has expired; prepare a fresh action before executing.`, status: 409 } }
-    }
-    return { value, error: null }
+        idempotencyAction: `invite_${action}`,
+        scopeAction: 'invite_assist',
+        requiredScope,
+        invalidScopeMessage: `Invite ${action} execution requires ${requiredScope} scope.`,
+        invalidExpiryMessage: `Support invite ${action} handoff expiry must be a valid timestamp.`,
+        expiredHandoffMessage: `Support invite ${action} handoff has expired; prepare a fresh action before executing.`,
+    })
 }
 
 async function recordSupportInviteActionExecutorBlock(req: FastifyRequest, input: {
@@ -10823,59 +10823,22 @@ function supportInviteActionAuditQuery(input: {
     return `/api/admin/audit-events?${params.toString()}`
 }
 
-function supportMemberRoleRecoveryExecutorControls(
+export function supportMemberRoleRecoveryExecutorControls(
     req: FastifyRequest,
     body: SupportMemberRoleRecoveryBody | undefined,
     requestId: string,
-): {
-    value: {
-        schemaVersion: string
-        requestId: string
-        correlationId: string
-        idempotencyKey: string
-        supportSessionId: string
-        scope: string[]
-        handoffExpiresAt: string | null
-        staleBlocker: string
-        duplicateBlocker: string
-    },
-    error: { code: string, message: string, status: number } | null,
-} {
-    const idempotencyKey = supportActionIdempotencyKey(
-        headerText(req.headers['x-idempotency-key']) || body?.idempotencyKey || body?.idempotency_key || requestId,
-        'member_role_recovery',
-    )
-    const correlationId = text(headerText(req.headers['x-correlation-id']) || body?.correlationId || body?.correlation_id || requestId) || requestId
-    const supportSessionId = supportSessionIdFromRequest(req, body)
-    const scopeResult = normalizeSupportPreparationScope(body?.scope || 'member:role_recovery', 'member_role_recovery')
-    const base = {
-        schemaVersion: 'support.action_execute.controls.v1',
+): SupportExecutorControlsResult {
+    return supportExecutorControls({
+        req,
+        body,
         requestId,
-        correlationId,
-        idempotencyKey,
-        supportSessionId,
-        scope: scopeResult.value,
-        handoffExpiresAt: null as string | null,
-        staleBlocker: 'stale_prepare_payload',
-        duplicateBlocker: 'duplicate_idempotency_key',
-    }
-    if (scopeResult.error || !scopeResult.value.includes('member:role_recovery')) {
-        return { value: base, error: { code: 'invalid_scope', message: 'Member role recovery execution requires member:role_recovery scope.', status: 400 } }
-    }
-
-    const handoffExpiresAt = text(headerText(req.headers['x-support-handoff-expires-at']) || body?.handoffExpiresAt || body?.handoff_expires_at)
-    if (!handoffExpiresAt) {
-        return { value: base, error: null }
-    }
-    const timestamp = Date.parse(handoffExpiresAt)
-    if (Number.isNaN(timestamp)) {
-        return { value: base, error: { code: 'invalid_expiry', message: 'Member role recovery handoff expiry must be a valid timestamp.', status: 400 } }
-    }
-    const value = { ...base, handoffExpiresAt: new Date(timestamp).toISOString() }
-    if (timestamp <= Date.now()) {
-        return { value, error: { code: 'stale_prepare_payload', message: 'Member role recovery handoff has expired; prepare a fresh action before executing.', status: 409 } }
-    }
-    return { value, error: null }
+        idempotencyAction: 'member_role_recovery',
+        scopeAction: 'member_role_recovery',
+        requiredScope: 'member:role_recovery',
+        invalidScopeMessage: 'Member role recovery execution requires member:role_recovery scope.',
+        invalidExpiryMessage: 'Member role recovery handoff expiry must be a valid timestamp.',
+        expiredHandoffMessage: 'Member role recovery handoff has expired; prepare a fresh action before executing.',
+    })
 }
 
 async function recordSupportMemberRoleRecoveryExecutorBlock(req: FastifyRequest, input: {
