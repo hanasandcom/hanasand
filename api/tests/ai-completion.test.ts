@@ -4,6 +4,7 @@ import Fastify from 'fastify'
 let connected = true
 let blocked = false
 let request: any
+const usageEvents: Array<Record<string, any>> = []
 mock.module('../src/utils/ws/handleGptMessage.ts', () => ({
     listGptClients: () => connected ? [{ name: 'test', model: { status: 'idle' } }] : [],
     requestGptCompletion: async (_type: string, input: any) => { request = input; return { content: '{"facts":[]}' } },
@@ -13,6 +14,7 @@ mock.module('../src/utils/ai/actionPolicy.ts', () => ({
     auditAgentAction: async () => {},
     redactAgentText: (text: string) => text,
 }))
+mock.module('../src/utils/ai/usage.ts', () => ({ recordAiUsageEvent: async (event: Record<string, any>) => { usageEvents.push(event) } }))
 const { default: ai } = await import('../src/handlers/tools/ai.ts')
 test('explicit completions use model output, retain policy checks and never substitute a scaffold when unavailable', async () => {
     const app = Fastify()
@@ -31,6 +33,18 @@ test('explicit completions use model output, retain policy checks and never subs
             expect(request.messages[0].content).not.toContain('include complete runnable files')
         }
         expect((await app.inject({ method: 'POST', url: '/ai', payload: { action: 'scaffold', prompt: 'Build a website with a Dockerfile' } })).json().model).toBe('share-builder')
+        usageEvents.length = 0
+        const scaffoldPayload = { action: 'scaffold', prompt: 'Build a website with a Dockerfile for the Norwegian library catalogue' }
+        const scaffoldHeaders = { id: 'scaffold-accounting-user' }
+        const first = (await app.inject({ method: 'POST', url: '/ai', headers: scaffoldHeaders, payload: scaffoldPayload })).json()
+        const second = (await app.inject({ method: 'POST', url: '/ai', headers: scaffoldHeaders, payload: scaffoldPayload })).json()
+        expect(first.message).toBe(second.message)
+        expect(first.cache.hit).toBe(false)
+        expect(second.cache.hit).toBe(true)
+        expect(usageEvents.map(event => event.kind)).toEqual(['ai_run_completed', 'cache_hit', 'ai_run_completed'])
+        expect(usageEvents[0].metadata).toMatchObject({ model: 'share-builder', cacheHit: false })
+        expect(usageEvents[2].metadata).toMatchObject({ model: 'share-builder', cacheHit: true })
+        expect(usageEvents[2].metadata.toolCalls).toBe(usageEvents[0].metadata.toolCalls)
         connected = false
         expect((await app.inject({ method: 'POST', url: '/ai', payload })).json().status).toBe('connecting')
         expect((await app.inject({ method: 'POST', url: '/ai', payload: { prompt: payload.prompt } })).json().status).toBe('connecting')
