@@ -4,7 +4,7 @@ import run from '#db'
 import { upsertAdminAccessRecoveryApproval, upsertOrganizationInvite } from '#utils/db/identityDataWrites.ts'
 import { compileAuditQuery } from '#utils/auditQuery.ts'
 import { hasOrganizationPrivacyDeletionMarker, organizationPrivacyDeletionInProgress } from '#utils/organizationLifecycle.ts'
-import { normalizeSupportSessionActions, normalizeSupportSessionDuration, normalizeSupportSessionExpiry, normalizeSupportSessionScope, supportError, supportText as text } from '#utils/support/adminSupportInput.ts'
+import { cleanContext, headerText, normalizeApprovalStatus, normalizeOption, normalizeSupportSessionActions, normalizeSupportSessionDuration, normalizeSupportSessionExpiry, normalizeSupportSessionScope, supportError, supportInspectionAuditContext, supportInspectionAuditMetadata, supportRequestId, supportSessionIdFromRequest, supportText as text } from '#utils/support/adminSupportInput.ts'
 import { auditFilterQuery, supportInspectionActionAuditContract, supportInspectionAuditDetailPacket, supportInspectionAuditFilterCoverage, supportInspectionAuthorizationMatrix, supportInspectionFilters, supportInspectionOrgBoundaryProof, supportInspectionRecoveryFixturePacket, supportInspectionSearchProof, uniqueTimelineValues, type SupportTimelineFilter } from '#utils/support/inspectionPackets.ts'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import { actorHasHanasandInternalAccess, recordSystemEvent, redactAuditValue, requireAuditReason, supportTimelineAuditBridgeEvent } from '#utils/systemEvent.ts'
@@ -14016,53 +14016,4 @@ function accessRecoveryApprovalMetadata(input: {
             ? 'Admin-role recovery or elevated existing membership requires second review before use.'
             : 'Member recovery does not require second review by default.',
     }
-}
-
-function cleanContext(value: unknown) {
-    return typeof value === 'string' ? value.trim().replace(/\s+/g, ' ').slice(0, 1000) : ''
-}
-
-function supportInspectionAuditMetadata(req: FastifyRequest) {
-    const query = req.query as Record<string, unknown>
-    return {
-        requestId: text(query.request || query.requestId) || supportRequestId(req),
-        reason: text(query.reason),
-        supportContext: cleanContext(query.context),
-    }
-}
-
-function supportInspectionAuditContext(input: { requestId: string, reason: string, supportContext: string }, extra: Record<string, unknown>) {
-    return {
-        schemaVersion: 'support.inspection.audit_context.v1',
-        requestId: input.requestId,
-        reasonProvided: Boolean(input.reason),
-        supportContext: input.supportContext || null,
-        redactionRequired: true,
-        ...extra,
-    }
-}
-
-function supportRequestId(req: FastifyRequest) {
-    const header = req.headers['x-request-id']
-    if (Array.isArray(header)) return header[0] || req.id
-    return header || req.id
-}
-
-function headerText(value: string | string[] | undefined) {
-    return Array.isArray(value) ? text(value[0]) : text(value)
-}
-
-function supportSessionIdFromRequest(req: FastifyRequest, body: { supportSessionId?: unknown, support_session_id?: unknown } | undefined) {
-    return text(headerText(req.headers['x-support-session-id']) || body?.supportSessionId || body?.support_session_id)
-}
-
-function normalizeOption(value: unknown, allowed: string[]) {
-    const normalized = text(value).toLowerCase()
-    return allowed.includes(normalized) ? normalized : ''
-}
-
-function normalizeApprovalStatus(value: unknown) {
-    const normalized = text(value).toLowerCase()
-    if (normalized === 'pending_approval') return 'pending'
-    return ['pending', 'approved', 'denied', 'not_required'].includes(normalized) ? normalized : ''
 }

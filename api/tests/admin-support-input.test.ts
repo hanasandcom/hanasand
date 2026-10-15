@@ -1,12 +1,29 @@
 import { expect, test } from 'bun:test'
 import {
+    cleanContext,
+    headerText,
+    normalizeApprovalStatus,
+    normalizeOption,
     normalizeSupportSessionActions,
     normalizeSupportSessionDuration,
     normalizeSupportSessionExpiry,
     normalizeSupportSessionScope,
     supportError,
+    supportInspectionAuditContext,
+    supportInspectionAuditMetadata,
+    supportRequestId,
+    supportSessionIdFromRequest,
     supportText,
 } from '../src/utils/support/adminSupportInput.ts'
+import type { FastifyRequest } from 'fastify'
+
+function request(input: { id?: string, headers?: Record<string, string | string[] | undefined>, query?: Record<string, unknown> } = {}) {
+    return {
+        id: input.id || 'fastify-request',
+        headers: input.headers || {},
+        query: input.query || {},
+    } as unknown as FastifyRequest
+}
 
 test('support session action and scope inputs retain their defaults and normalization', () => {
     expect(normalizeSupportSessionActions(undefined)).toEqual({
@@ -52,4 +69,44 @@ test('shared support errors retain the public envelope and extra fields', () => 
             allowed: ['read_org'],
         },
     })
+})
+
+test('support request context keeps normalization and header precedence', () => {
+    expect(cleanContext('  case\n  notes\twith   spacing  ')).toBe('case notes with spacing')
+    expect(cleanContext(42)).toBe('')
+    expect(cleanContext('x'.repeat(1001))).toHaveLength(1000)
+    expect(headerText([' header value ', 'ignored'])).toBe('header value')
+    expect(supportRequestId(request({ headers: { 'x-request-id': ['header-id', 'ignored'] } }))).toBe('header-id')
+    expect(supportRequestId(request())).toBe('fastify-request')
+    expect(supportSessionIdFromRequest(request({ headers: { 'x-support-session-id': 'header-session' } }), {
+        supportSessionId: 'body-session',
+    })).toBe('header-session')
+    expect(supportSessionIdFromRequest(request(), { support_session_id: 'snake-session' })).toBe('snake-session')
+})
+
+test('support audit context prefers explicit request filters and retains its envelope', () => {
+    const req = request({
+        id: 'server-id',
+        headers: { 'x-request-id': 'header-id' },
+        query: { request: 'query-id', reason: 'inspection', context: '  case   notes  ' },
+    })
+    const metadata = supportInspectionAuditMetadata(req)
+    expect(metadata).toEqual({ requestId: 'query-id', reason: 'inspection', supportContext: 'case notes' })
+    expect(supportInspectionAuditContext(metadata, { source: 'support.inspect' })).toEqual({
+        schemaVersion: 'support.inspection.audit_context.v1',
+        requestId: 'query-id',
+        reasonProvided: true,
+        supportContext: 'case notes',
+        redactionRequired: true,
+        source: 'support.inspect',
+    })
+    expect(supportInspectionAuditMetadata(request())).toEqual({ requestId: 'fastify-request', reason: '', supportContext: '' })
+})
+
+test('support query values retain allowlists and approval status alias', () => {
+    expect(normalizeOption(' WARNING ', ['info', 'warning'])).toBe('warning')
+    expect(normalizeOption('critical', ['info', 'warning'])).toBe('')
+    expect(normalizeApprovalStatus('PENDING_APPROVAL')).toBe('pending')
+    expect(normalizeApprovalStatus('approved')).toBe('approved')
+    expect(normalizeApprovalStatus('unknown')).toBe('')
 })

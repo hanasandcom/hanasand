@@ -1,5 +1,56 @@
+import type { FastifyRequest } from 'fastify'
+
 export function supportText(value: unknown) {
     return typeof value === 'string' ? value.trim() : ''
+}
+
+export function cleanContext(value: unknown) {
+    return typeof value === 'string' ? value.trim().replace(/\s+/g, ' ').slice(0, 1000) : ''
+}
+
+export function supportInspectionAuditMetadata(req: FastifyRequest) {
+    const query = req.query as Record<string, unknown>
+    return {
+        requestId: supportText(query.request || query.requestId) || supportRequestId(req),
+        reason: supportText(query.reason),
+        supportContext: cleanContext(query.context),
+    }
+}
+
+export function supportInspectionAuditContext(input: { requestId: string, reason: string, supportContext: string }, extra: Record<string, unknown>) {
+    return {
+        schemaVersion: 'support.inspection.audit_context.v1',
+        requestId: input.requestId,
+        reasonProvided: Boolean(input.reason),
+        supportContext: input.supportContext || null,
+        redactionRequired: true,
+        ...extra,
+    }
+}
+
+export function supportRequestId(req: FastifyRequest) {
+    const header = req.headers['x-request-id']
+    if (Array.isArray(header)) return header[0] || req.id
+    return header || req.id
+}
+
+export function headerText(value: string | string[] | undefined) {
+    return Array.isArray(value) ? supportText(value[0]) : supportText(value)
+}
+
+export function supportSessionIdFromRequest(req: FastifyRequest, body: { supportSessionId?: unknown, support_session_id?: unknown } | undefined) {
+    return supportText(headerText(req.headers['x-support-session-id']) || body?.supportSessionId || body?.support_session_id)
+}
+
+export function normalizeOption(value: unknown, allowed: string[]) {
+    const normalized = supportText(value).toLowerCase()
+    return allowed.includes(normalized) ? normalized : ''
+}
+
+export function normalizeApprovalStatus(value: unknown) {
+    const normalized = supportText(value).toLowerCase()
+    if (normalized === 'pending_approval') return 'pending'
+    return ['pending', 'approved', 'denied', 'not_required'].includes(normalized) ? normalized : ''
 }
 
 export function supportError(code: string, message: string, extra: Record<string, unknown> = {}) {
