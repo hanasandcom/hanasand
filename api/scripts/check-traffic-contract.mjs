@@ -26,7 +26,7 @@ for (const endpoint of [
 assert.match(recorder, /INSERT INTO traffic_events/, 'requests should be persisted as traffic_events')
 assert.match(recorder, /ignoredPathPrefixes/, 'traffic recording should avoid self-amplifying status/traffic endpoints')
 assert.match(schema, /CREATE TABLE IF NOT EXISTS traffic_events/, 'traffic_events should be created at API startup')
-assert.match(dockerfile, /RUN bun run test/, 'API Docker build must run the test gate before startup image is produced')
+assert.match(dockerfile, /^RUN --mount=from=database_schema,target=\/db .*bun run test$/m, 'API review image must run the test gate against the database fixture')
 
 console.log('API traffic contract checks passed.')
 

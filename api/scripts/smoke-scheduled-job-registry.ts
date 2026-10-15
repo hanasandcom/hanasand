@@ -4,8 +4,35 @@ import { listUnifiedScheduledJobs, updateManagedCronJob } from '../src/utils/sys
 
 const previousTiBase = process.env.TI_SCRAPER_API_BASE
 const previousBackupEnabled = process.env.DB_BACKUP_ENABLED
+const previousBackupUrl = process.env.DB_BACKUP_WORKER_URL
+const previousBackupToken = process.env.DB_BACKUP_WORKER_TOKEN
+const originalFetch = globalThis.fetch
+const backupWorkerUrl = 'https://backup.test/worker'
+const tiMockBase = 'https://ti.test'
+const controlRequests: Array<{ path: string, body: Record<string, unknown> }> = []
+const now = '2026-07-03T10:00:00.000Z'
+const tiMock: { fetch?: (request: Request) => Promise<Response> | Response } = {}
 delete process.env.TI_SCRAPER_API_BASE
 process.env.DB_BACKUP_ENABLED = 'false'
+process.env.DB_BACKUP_WORKER_URL = backupWorkerUrl
+process.env.DB_BACKUP_WORKER_TOKEN = 'test-token'
+globalThis.fetch = (async(input: string | URL | Request, init?: RequestInit) => {
+    if (String(input) === backupWorkerUrl) {
+        assert.equal(new Headers(init?.headers).get('Authorization'), 'Bearer test-token')
+        assert.deepEqual(JSON.parse(String(init?.body)), { method: 'status', args: [] })
+        return Response.json({ value: [{
+            scheduleEnabled: false,
+            schedule: '23 2 * * *',
+            operations: [],
+            currentOperation: null,
+            nextBackup: null,
+            lastError: null,
+            error: null,
+        }] })
+    }
+    if (tiMock.fetch && String(input).startsWith(`${tiMockBase}/`)) return tiMock.fetch(new Request(input, init))
+    return originalFetch(input, init)
+}) as typeof fetch
 
 const jobs = await listUnifiedScheduledJobs()
 restoreTiBase()
@@ -56,7 +83,7 @@ assert.ok(byId.get('ti-source-pack-worker')?.controls.includes('run_now'), 'Sour
 assert.equal(byId.get('api-vulnerability-scanner')?.controlMode, 'safe_control')
 assert.ok(byId.get('api-vulnerability-scanner')?.controls.includes('run_now'), 'Vulnerability scanner should expose manual run control.')
 assert.equal(byId.get('api-vulnerability-scanner')?.status, 'blocked', 'A never-run vulnerability scanner should be visible as blocked/stale.')
-assert.match(byId.get('api-vulnerability-scanner')?.lastError || '', /No vulnerability scan has completed|Docker|Scout|socket|Previous vulnerability scan/, 'Vulnerability scanner should expose the stale reason or exact scanner blocker.')
+assert.match(byId.get('api-vulnerability-scanner')?.lastError || '', /No vulnerability scan has completed|Docker|Scout|socket|Previous vulnerability scan|HANASAND_SCANNER_URL is not configured/, 'Vulnerability scanner should expose the stale reason or exact scanner blocker.')
 assert.equal(byId.get('api-database-backup')?.category, 'Backup/Database')
 assert.equal(byId.get('api-database-backup')?.schedule, '23 2 * * * UTC')
 assert.ok(byId.get('api-database-backup')?.controls.includes('resume'), 'Disabled backup schedule should expose a persisted resume control.')
@@ -67,100 +94,94 @@ for (const job of jobs) {
     assert.equal(job.costEstimate.electricityUsdPerKwh, 0.05)
 }
 
-const controlRequests: Array<{ path: string, body: Record<string, unknown> }> = []
-const now = '2026-07-03T10:00:00.000Z'
-const tiMock = Bun.serve({
-    hostname: '127.0.0.1',
-    port: 0,
-    async fetch(request) {
-        const url = new URL(request.url)
-        if (request.method === 'POST') {
-            const body = await request.json().catch(() => ({})) as Record<string, unknown>
-            controlRequests.push({ path: url.pathname, body })
-            if (url.pathname === '/v1/ops/collection-scheduler') return json(tiSchedulerPayload())
-            if (url.pathname === '/v1/dwm/alerts/rebuild') return json({ ok: true, rebuiltAt: now })
-            if (url.pathname === '/v1/dwm/source-requests' && body.action === 'pack_worker_run') return json({ action: 'pack_worker_run', sourcePackId: body.sourcePackId, run: { id: 'run_default_source_pack_worker', status: 'completed', completedAt: now } })
-            return json({ error: 'not found' }, 404)
-        }
-
+tiMock.fetch = async(request: Request) => {
+    const url = new URL(request.url)
+    if (request.method === 'POST') {
+        const body = await request.json().catch(() => ({})) as Record<string, unknown>
+        controlRequests.push({ path: url.pathname, body })
         if (url.pathname === '/v1/ops/collection-scheduler') return json(tiSchedulerPayload())
-        if (url.pathname === '/v1/health') return json({
-            ok: true,
-            collection: {
-                restrictedMetadata: {
-                    enabled: true,
-                    running: false,
-                    intervalSeconds: 900,
-                    cycleCount: 4,
-                    successCount: 3,
-                    errorCount: 1,
-                    failedSourceCount: 1,
-                    lastCycleAt: '2026-07-03T09:45:00.000Z',
-                    lastSuccessAt: '2026-07-03T09:45:30.000Z',
-                    nextCycleAt: '2026-07-03T10:00:30.000Z',
-                },
-            },
-        })
-        if (url.pathname === '/v1/dwm/exposure-queue') return json({
-            status: 'live',
-            scheduler: { cadenceSeconds: 300 },
-            freshness: {
-                latestCollectedAt: '2026-07-03T09:59:30.000Z',
-                latestClaimAt: '2026-07-03T09:59:00.000Z',
-                nextExpectedCollection: '2026-07-03T10:04:30.000Z',
-            },
-            counts: { visible: 4, needsReview: 1 },
-        })
-        if (url.pathname === '/v1/dwm/exposure-parser/health') return json({
-            status: 'ready',
-            generatedAt: '2026-07-03T10:00:00.000Z',
-            latencyMs: 42,
-        })
-        if (url.pathname === '/v1/dwm/alerts/generation-readiness') return json({
-            generatedAt: '2026-07-03T10:00:00.000Z',
-            blockers: [],
-            candidateCount: 3,
-            latestEvidenceAt: '2026-07-03T09:58:00.000Z',
-        })
-        if (url.pathname === '/v1/ops/resource-snapshot') return json({
-            service: 'ti-scraper',
-            memory: { rssMb: 321, heapUsedMb: 123 },
-            queue: { queued: 7 },
-            pressure: {
-                automaticReview: {
-                    total: 120,
-                    backlog: 9,
-                    counts: { queued: 7, running: 2, terminal: 108, dead_letter: 3 },
-                },
-                automaticEvaluation: {
-                    benchmarkCount: 4,
-                    activeBenchmarkCount: 1,
-                    taskCount: 80,
-                    counts: { pending: 5, retry_scheduled: 2, terminal: 72, dead_letter: 1 },
-                    running: true,
-                    enabled: true,
-                    intervalSeconds: 45,
-                    cycleCount: 12,
-                    errorCount: 2,
-                    lastCycleAt: '2026-07-03T09:59:30.000Z',
-                    lastSuccessAt: '2026-07-03T09:59:45.000Z',
-                    nextCycleAt: '2026-07-03T10:00:15.000Z',
-                },
-            },
-            workers: [],
-        })
-        if (url.pathname === '/v1/dwm/source-packs') return json({
-            readiness: { ready: true, blockers: [] },
-            lastRun: { updatedAt: '2026-07-03T09:57:00.000Z' },
-            counts: { candidateCount: 5, packCount: 2 },
-            generatedAt: '2026-07-03T10:00:00.000Z',
-        })
-        if (url.pathname === '/v1/frontier') return json({ queued: 7, tasks: [{ id: 'task_public_ti' }] })
+        if (url.pathname === '/v1/dwm/alerts/rebuild') return json({ ok: true, rebuiltAt: now })
+        if (url.pathname === '/v1/dwm/source-requests' && body.action === 'pack_worker_run') return json({ action: 'pack_worker_run', sourcePackId: body.sourcePackId, run: { id: 'run_default_source_pack_worker', status: 'completed', completedAt: now } })
         return json({ error: 'not found' }, 404)
-    },
-})
+    }
 
-process.env.TI_SCRAPER_API_BASE = `http://127.0.0.1:${tiMock.port}`
+    if (url.pathname === '/v1/ops/collection-scheduler') return json(tiSchedulerPayload())
+    if (url.pathname === '/v1/health') return json({
+        ok: true,
+        collection: {
+            restrictedMetadata: {
+                enabled: true,
+                running: false,
+                intervalSeconds: 900,
+                cycleCount: 4,
+                successCount: 3,
+                errorCount: 1,
+                failedSourceCount: 1,
+                lastCycleAt: '2026-07-03T09:45:00.000Z',
+                lastSuccessAt: '2026-07-03T09:45:30.000Z',
+                nextCycleAt: '2026-07-03T10:00:30.000Z',
+            },
+        },
+    })
+    if (url.pathname === '/v1/dwm/exposure-queue') return json({
+        status: 'live',
+        scheduler: { cadenceSeconds: 300 },
+        freshness: {
+            latestCollectedAt: '2026-07-03T09:59:30.000Z',
+            latestClaimAt: '2026-07-03T09:59:00.000Z',
+            nextExpectedCollection: '2026-07-03T10:04:30.000Z',
+        },
+        counts: { visible: 4, needsReview: 1 },
+    })
+    if (url.pathname === '/v1/dwm/exposure-parser/health') return json({
+        status: 'ready',
+        generatedAt: '2026-07-03T10:00:00.000Z',
+        latencyMs: 42,
+    })
+    if (url.pathname === '/v1/dwm/alerts/generation-readiness') return json({
+        generatedAt: '2026-07-03T10:00:00.000Z',
+        blockers: [],
+        candidateCount: 3,
+        latestEvidenceAt: '2026-07-03T09:58:00.000Z',
+    })
+    if (url.pathname === '/v1/ops/resource-snapshot') return json({
+        service: 'ti-scraper',
+        memory: { rssMb: 321, heapUsedMb: 123 },
+        queue: { queued: 7 },
+        pressure: {
+            automaticReview: {
+                total: 120,
+                backlog: 9,
+                counts: { queued: 7, running: 2, terminal: 108, dead_letter: 3 },
+            },
+            automaticEvaluation: {
+                benchmarkCount: 4,
+                activeBenchmarkCount: 1,
+                taskCount: 80,
+                counts: { pending: 5, retry_scheduled: 2, terminal: 72, dead_letter: 1 },
+                running: true,
+                enabled: true,
+                intervalSeconds: 45,
+                cycleCount: 12,
+                errorCount: 2,
+                lastCycleAt: '2026-07-03T09:59:30.000Z',
+                lastSuccessAt: '2026-07-03T09:59:45.000Z',
+                nextCycleAt: '2026-07-03T10:00:15.000Z',
+            },
+        },
+        workers: [],
+    })
+    if (url.pathname === '/v1/dwm/source-packs') return json({
+        readiness: { ready: true, blockers: [] },
+        lastRun: { updatedAt: '2026-07-03T09:57:00.000Z' },
+        counts: { candidateCount: 5, packCount: 2 },
+        generatedAt: '2026-07-03T10:00:00.000Z',
+    })
+    if (url.pathname === '/v1/frontier') return json({ queued: 7, tasks: [{ id: 'task_public_ti' }] })
+    return json({ error: 'not found' }, 404)
+}
+
+process.env.TI_SCRAPER_API_BASE = tiMockBase
 try {
     const liveJobs = await listUnifiedScheduledJobs()
     const liveById = new Map(liveJobs.map(job => [job.id, job]))
@@ -216,7 +237,10 @@ try {
     ])
 } finally {
     restoreTiBase()
-    tiMock.stop(true)
+    globalThis.fetch = originalFetch
+    restoreEnvironment('DB_BACKUP_ENABLED', previousBackupEnabled)
+    restoreEnvironment('DB_BACKUP_WORKER_URL', previousBackupUrl)
+    restoreEnvironment('DB_BACKUP_WORKER_TOKEN', previousBackupToken)
 }
 
 console.log(`Scheduled job registry smoke passed with ${jobs.length} offline jobs and live TI scraper mapping.`)
@@ -262,9 +286,10 @@ function json(body: unknown, status = 200) {
 }
 
 function restoreTiBase() {
-    if (previousTiBase === undefined) {
-        delete process.env.TI_SCRAPER_API_BASE
-    } else {
-        process.env.TI_SCRAPER_API_BASE = previousTiBase
-    }
+    restoreEnvironment('TI_SCRAPER_API_BASE', previousTiBase)
+}
+
+function restoreEnvironment(name: string, value: string | undefined) {
+    if (value === undefined) delete process.env[name]
+    else process.env[name] = value
 }
