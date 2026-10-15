@@ -234,11 +234,13 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
     let freeExtensionUsed = false
     let paidExtensionUsed = false
     let cancelAdmission: (() => void) | null = null
+    let cancelAdmissionWait: (() => void) | null = null
     let releaseAdmission: (() => void) | null = null
     let currentRunId: string | null = null
     let runLeaseTimer: NodeJS.Timeout | null = null
     let terminalRunStatus: 'ended' | 'failed' | 'unreachable' = 'ended'
     let closed = false
+    let sessionEnding = false
     let lastFrame = ''
     let remoteClipboard = ''
     let editableSelectAllArmed = false
@@ -292,6 +294,8 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
         publishDownloads()
         cancelAdmission?.()
         cancelAdmission = null
+        cancelAdmissionWait?.()
+        cancelAdmissionWait = null
         releaseAdmission?.()
         releaseAdmission = null
         if (closeTimer) clearTimeout(closeTimer)
@@ -323,16 +327,28 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
         ownsBrowser = false
     }
 
+    const reportMessageError = (error: unknown) => {
+        send({ type: 'error', message: error instanceof Error ? error.message : String(error) })
+    }
+
     connection.on('message', (message) => {
-        messageQueue = messageQueue.then(() => handleMessage(message)).catch((error) => {
-            send({
-                type: 'error',
-                message: error instanceof Error ? error.message : String(error),
-            })
-        })
+        if (sessionEnding) return
+        const payload = parseMessage(message)
+        if (payload?.type === 'end') sessionEnding = true
+        // A queued start is awaiting capacity inside the message queue. Let an
+        // explicit end interrupt that wait so it can cancel its queued slot.
+        if (cancelAdmissionWait && payload?.type === 'end') {
+            void handleMessage(message).catch(reportMessageError)
+            return
+        }
+        messageQueue = messageQueue.then(() => {
+            if (sessionEnding && payload?.type !== 'end') return
+            return handleMessage(message)
+        }).catch(reportMessageError)
     })
 
     connection.on('close', () => {
+        sessionEnding = true
         trace('connection_close')
         void cleanup()
     })
@@ -567,6 +583,7 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
 
     async function startBrowser(message: BrokerMessage) {
         await cleanup()
+        if (sessionEnding) return
         assertProductionBrowserWorker()
         closed = false
         remoteClipboard = ''
@@ -601,6 +618,13 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
                 userId: message.userId,
                 sessionToken: message.sessionToken,
             })
+        if (sessionEnding) {
+            if (browserRun.allowed && browserRun.run) {
+                currentRunId = browserRun.run.id
+                await cleanup()
+            }
+            return
+        }
         if (!browserRun.allowed) {
             send({
                 type: 'status',
@@ -629,10 +653,16 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
         }
         const admission = requestBrowserAdmission(sessionId, send)
         cancelAdmission = admission?.cancel || null
+        let resolveAdmissionWait: (value: null) => void = () => undefined
+        const admissionWaitCancelled = new Promise<null>(resolve => { resolveAdmissionWait = resolve })
+        const cancelThisAdmissionWait = () => resolveAdmissionWait(null)
+        cancelAdmissionWait = cancelThisAdmissionWait
 
         try {
-            const slot = admission ? await admission.promise : null
+            const slot = admission ? await Promise.race([admission.promise, admissionWaitCancelled]) : null
+            if (cancelAdmissionWait === cancelThisAdmissionWait) cancelAdmissionWait = null
             cancelAdmission = null
+            if (!slot) return
             if (slot) {
                 if (closed) {
                     slot.release()
