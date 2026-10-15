@@ -58,6 +58,41 @@ export function normalizeOption(value: unknown, allowed: string[]) {
     return allowed.includes(normalized) ? normalized : ''
 }
 
+export function supportInspectionQueryFilters(query: object, defaults: {
+    action?: string
+    source?: string
+    service?: string
+    limit?: number
+    maxLimit?: number
+} = {}) {
+    const input = query as Record<string, unknown>
+    const defaultLimit = defaults.limit ?? 50
+    const parsedLimit = Number(input.limit || defaultLimit)
+    return {
+        q: supportText(input.q),
+        org: supportText(input.org || input.orgId),
+        user: supportText(input.user || input.userId),
+        email: supportText(input.email).toLowerCase(),
+        request: supportText(input.request || input.requestId),
+        entity: supportText(input.entity || input.entityId),
+        entityType: supportText(input.entityType),
+        supportSession: supportText(input.session || input.supportSession || input.supportSessionId),
+        workflow: supportText(input.workflow || input.bridgeWorkflow || input.sourceWorkflow),
+        action: supportText(input.action || defaults.action),
+        severity: normalizeOption(input.severity, ['info', 'notice', 'warning', 'critical']),
+        outcome: normalizeOption(input.outcome, ['success', 'denied', 'failed']),
+        source: supportText(input.source || defaults.source),
+        service: supportText(input.service || defaults.service),
+        blocker: supportText(input.blocker || input.blockerCode),
+        reason: supportText(input.reason || input.supportReason),
+        scope: supportText(input.scope || input.supportScope),
+        context: supportText(input.context || input.supportContext),
+        from: supportText(input.from),
+        to: supportText(input.to),
+        limit: Number.isFinite(parsedLimit) ? Math.min(Math.max(Math.trunc(parsedLimit), 1), defaults.maxLimit ?? 100) : defaultLimit,
+    }
+}
+
 export function normalizeApprovalStatus(value: unknown) {
     const normalized = supportText(value).toLowerCase()
     if (normalized === 'pending_approval') return 'pending'

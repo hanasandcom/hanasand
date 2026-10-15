@@ -14,6 +14,7 @@ import {
     supportError,
     supportInspectionAuditContext,
     supportInspectionAuditMetadata,
+    supportInspectionQueryFilters,
     supportRequestId,
     supportSessionIdFromRequest,
     supportSessionIdFromAuditEvent,
@@ -171,4 +172,20 @@ test('support query values retain allowlists and approval status alias', () => {
     expect(normalizeApprovalStatus('PENDING_APPROVAL')).toBe('pending')
     expect(normalizeApprovalStatus('approved')).toBe('approved')
     expect(normalizeApprovalStatus('unknown')).toBe('')
+})
+
+test('support inspection filters preserve aliases and endpoint-specific defaults and limits', () => {
+    expect(supportInspectionQueryFilters({
+        orgId: ' org-1 ', userId: ' user-1 ', supportSessionId: ' session-1 ',
+        bridgeWorkflow: ' Invite ', supportReason: ' case ', supportScope: ' org ',
+        supportContext: ' note ', severity: ' WARNING ', outcome: ' FAILED ', limit: '200',
+    })).toMatchObject({
+        org: 'org-1', user: 'user-1', supportSession: 'session-1', workflow: 'Invite',
+        reason: 'case', scope: 'org', context: 'note', severity: 'warning', outcome: 'failed', limit: 100,
+        action: '', source: '', service: '',
+    })
+    expect(supportInspectionQueryFilters({ org: 'org-1' }, {
+        action: 'support', source: 'system', service: 'hanasand-api', limit: 25, maxLimit: 50,
+    })).toMatchObject({ action: 'support', source: 'system', service: 'hanasand-api', limit: 25 })
+    expect(supportInspectionQueryFilters({ org: 'org-1', limit: '200' }, { limit: 25, maxLimit: 50 }).limit).toBe(50)
 })

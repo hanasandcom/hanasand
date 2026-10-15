@@ -126,6 +126,7 @@ const {
     getSystemEvent,
     getSupportAccessRecoveryApprovals,
     getSupportInspection,
+    getSupportReadiness,
     getSupportOrganization,
     postSupportOrganizationInviteAction,
     postSupportOrganizationMemberRoleRecovery,
@@ -393,6 +394,16 @@ test('support inspection returns preparation validation errors before database r
     expect(response.statusCode).toBe(400)
     expect(response.body.detail.code).toBe('invalid_duration')
     expect(queries).toHaveLength(0)
+})
+
+test('support readiness preserves its default audit filters and limit cap', async () => {
+    const response = await request(getSupportReadiness, { query: { org: 'org-1', limit: '80' } })
+    expect(response.statusCode).toBe(200)
+    expect(response.body.filteredTimeline.filter).toMatchObject({
+        action: 'support', source: 'system', service: 'hanasand-api', limit: 50,
+    })
+    const auditQuery = queries.find(query => query.sql.includes('FROM system_events event'))
+    expect(auditQuery?.values).toEqual(['%org-1%', '%support%', '%system%', '%hanasand-api%', 50])
 })
 
 test('support inspection keeps organization member and pending-invite counts in its response', async () => {

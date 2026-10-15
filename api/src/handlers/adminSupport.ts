@@ -5,7 +5,7 @@ import { updateActiveOrganizationMemberRole, updateOrganizationInviteAction, ups
 import { activeOrganizationOwnerCount as activeOwnerCount } from '#utils/organizationMemberships.ts'
 import { compileAuditQuery } from '#utils/auditQuery.ts'
 import { hasOrganizationPrivacyDeletionMarker, organizationPrivacyDeletionInProgress } from '#utils/organizationLifecycle.ts'
-import { cleanContext, headerText, normalizeApprovalStatus, normalizeOption, normalizeSupportPreparationDuration, normalizeSupportPreparationExpiry, normalizeSupportPreparationScope, normalizeSupportSessionActions, normalizeSupportSessionDuration, normalizeSupportSessionExpiry, normalizeSupportSessionScope, supportError, supportInspectionAuditContext, supportInspectionAuditMetadata, supportRequestId, supportSessionIdFromAuditEvent, supportSessionIdFromRequest, supportText as text } from '#utils/support/adminSupportInput.ts'
+import { cleanContext, headerText, normalizeApprovalStatus, normalizeOption, normalizeSupportPreparationDuration, normalizeSupportPreparationExpiry, normalizeSupportPreparationScope, normalizeSupportSessionActions, normalizeSupportSessionDuration, normalizeSupportSessionExpiry, normalizeSupportSessionScope, supportError, supportInspectionAuditContext, supportInspectionAuditMetadata, supportInspectionQueryFilters, supportRequestId, supportSessionIdFromAuditEvent, supportSessionIdFromRequest, supportText as text } from '#utils/support/adminSupportInput.ts'
 import { auditFilterValidationError } from '#utils/support/auditFilterValidation.ts'
 import { loadSupportSessionState } from '#utils/support/supportSessionState.ts'
 import { auditFilterQuery, supportInspectionActionAuditContract, supportInspectionAuditDetailPacket, supportInspectionAuditFilterCoverage, supportInspectionAuthorizationMatrix, supportInspectionFilters, supportInspectionOrgBoundaryProof, supportInspectionRecoveryFixturePacket, supportInspectionSearchProof, uniqueTimelineValues, type SupportTimelineFilter } from '#utils/support/inspectionPackets.ts'
@@ -1496,29 +1496,31 @@ export async function getSupportInspection(req: FastifyRequest<{ Querystring: Su
     if (!actor) return
 
     const query = req.query as SupportInspectionQuery
-    const q = text(query.q)
-    const requestedOrg = text(query.org || query.orgId)
-    const requestedUser = text(query.user || query.userId)
-    const email = text(query.email).toLowerCase()
-    const requestedRequest = text(query.request || query.requestId)
-    const requestedEntity = text(query.entity || query.entityId)
-    const entityType = text(query.entityType)
-    const supportSession = text(query.session || query.supportSession || query.supportSessionId)
-    const workflow = text(query.workflow || query.bridgeWorkflow || query.sourceWorkflow)
-    const action = text(query.action)
-    const source = text(query.source)
-    const service = text(query.service)
-    const blocker = text(query.blocker || query.blockerCode)
-    const reason = text(query.reason || query.supportReason)
-    const scope = text(query.scope || query.supportScope)
-    const contextFilter = text(query.context || query.supportContext)
+    const filters = supportInspectionQueryFilters(query)
+    const {
+        q,
+        org: requestedOrg,
+        user: requestedUser,
+        email,
+        request: requestedRequest,
+        entity: requestedEntity,
+        entityType,
+        supportSession,
+        workflow,
+        action,
+        source,
+        service,
+        blocker,
+        reason,
+        scope,
+        context: contextFilter,
+        severity,
+        outcome,
+        from,
+        to,
+        limit,
+    } = filters
     const prepareAction = normalizeOption(query.prepareAction, ['invite_assist', 'access_recovery', 'impersonation'])
-    const severity = normalizeOption(query.severity, ['info', 'notice', 'warning', 'critical'])
-    const outcome = normalizeOption(query.outcome, ['success', 'denied', 'failed'])
-    const from = text(query.from)
-    const to = text(query.to)
-    const parsedLimit = Number(query.limit || 50)
-    const limit = Number.isFinite(parsedLimit) ? Math.min(Math.max(Math.trunc(parsedLimit), 1), 100) : 50
     const sessionState = supportSession ? await loadSupportSessionState(supportSession) : null
     const inspectionRequestId = supportRequestId(req)
     if (supportSession && !sessionState) {
@@ -2006,28 +2008,11 @@ export async function getSupportReadiness(req: FastifyRequest<{ Querystring: Sup
     if (!actor) return
 
     const query = req.query as SupportInspectionQuery
-    const q = text(query.q)
-    const org = text(query.org || query.orgId)
-    const user = text(query.user || query.userId)
-    const email = text(query.email).toLowerCase()
-    const request = text(query.request || query.requestId)
-    const entity = text(query.entity || query.entityId)
-    const entityType = text(query.entityType)
-    const supportSession = text(query.session || query.supportSession || query.supportSessionId)
-    const workflow = text(query.workflow || query.bridgeWorkflow || query.sourceWorkflow)
-    const action = text(query.action || 'support')
-    const severity = normalizeOption(query.severity, ['info', 'notice', 'warning', 'critical'])
-    const outcome = normalizeOption(query.outcome, ['success', 'denied', 'failed'])
-    const source = text(query.source || 'system')
-    const service = text(query.service || 'hanasand-api')
-    const blocker = text(query.blocker || query.blockerCode)
-    const reason = text(query.reason || query.supportReason)
-    const scope = text(query.scope || query.supportScope)
-    const contextFilter = text(query.context || query.supportContext)
-    const from = text(query.from)
-    const to = text(query.to)
-    const parsedLimit = Number(query.limit || 25)
-    const limit = Number.isFinite(parsedLimit) ? Math.min(Math.max(Math.trunc(parsedLimit), 1), 50) : 25
+    const {
+        q, org, user, email, request, entity, entityType, supportSession, workflow,
+        action, severity, outcome, source, service, blocker, reason, scope,
+        context: contextFilter, from, to, limit,
+    } = supportInspectionQueryFilters(query, { action: 'support', source: 'system', service: 'hanasand-api', limit: 25, maxLimit: 50 })
     const timelineFilter = supportTimelineFilter({ q, org, user, email, request, entity, entityType, supportSession, workflow, action, severity, outcome, source, service, blocker, reason, scope, context: contextFilter, from, to, limit })
     const filterError = supportInspectionFilterError(query, timelineFilter)
     if (filterError && filterError.detail?.code !== 'overbroad_support_timeline_filter') {
