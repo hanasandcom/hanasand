@@ -360,6 +360,9 @@ async function applySchema() {
     await run('ALTER TABLE users ADD COLUMN IF NOT EXISTS deletion_scheduled_at TIMESTAMPTZ')
     await run('ALTER TABLE users ADD COLUMN IF NOT EXISTS deletion_restore_token_hash TEXT')
     await run('ALTER TABLE users ADD COLUMN IF NOT EXISTS deletion_email_token_hash TEXT')
+    await run(`CREATE TABLE IF NOT EXISTS account_deletion_purge_attempts (
+        user_id TEXT PRIMARY KEY
+    )`)
     await ensureColumn(run, 'vms', 'always_running_premium', 'ALTER TABLE vms ADD COLUMN IF NOT EXISTS always_running_premium BOOLEAN NOT NULL DEFAULT FALSE')
     await ensureColumn(run, 'vms', 'always_running_enabled', 'ALTER TABLE vms ADD COLUMN IF NOT EXISTS always_running_enabled BOOLEAN NOT NULL DEFAULT FALSE')
     await ensureColumn(run, 'vms', 'failover_premium', 'ALTER TABLE vms ADD COLUMN IF NOT EXISTS failover_premium BOOLEAN NOT NULL DEFAULT FALSE')

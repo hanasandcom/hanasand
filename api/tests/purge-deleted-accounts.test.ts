@@ -7,7 +7,7 @@ let blockedOwnerAccounts = 0
 let mailUsername: string | null = 'ada'
 let organizationBlocker = false
 let failMailDeletion = false
-let auditRows: Array<{ id: number, object_type: string, object_id: string | null, context: Record<string, unknown> }> = []
+let auditRows: Array<{ id: number, object_type: string, object_id: string | null, subject_id: string | null, request_id: string, ip: string, user_agent: string, context: Record<string, unknown> }> = []
 const sqlCalls: string[] = []
 const tokenDeletes: string[] = []
 const revokedUsers: string[] = []
@@ -38,6 +38,10 @@ async function query(sql: string, params: unknown[] = []) {
         const event = auditRows.find(row => row.id === params[0])
         if (event) {
             event.object_id = null
+            event.subject_id = null
+            event.request_id = ''
+            event.ip = ''
+            event.user_agent = ''
             event.context = JSON.parse(String(params[2]))
         }
         return { rows: [] }
@@ -79,6 +83,10 @@ beforeEach(() => {
         id: 7,
         object_type: 'user',
         object_id: 'deleted-user',
+        subject_id: 'deleted-user',
+        request_id: 'request-123',
+        ip: '198.51.100.7',
+        user_agent: 'Example browser',
         context: { targetId: 'deleted-user', targetName: 'Ada Example', note: 'deleted-user', reason: 'account closed' },
     }]
     sqlCalls.length = 0
@@ -101,11 +109,18 @@ test('purges due accounts once, cleans credentials and personal data, and preser
     expect(sqlCalls.some(sql => sql.includes('WITH RECURSIVE personal_tree'))).toBe(true)
     expect(sqlCalls).toContain('UPDATE share SET owner = \'\' WHERE organization_id IS NOT NULL AND owner = $1')
     expect(sqlCalls).toContain('DELETE FROM case_repositories WHERE owner_id = $1 AND organization_id IS NULL')
-    expect(sqlCalls).toContain('UPDATE case_repositories SET owner_id = \'\' WHERE owner_id = $1 AND organization_id IS NOT NULL')
+    expect(sqlCalls).toContain('UPDATE case_repositories SET owner_id = NULL WHERE owner_id = $1 AND organization_id IS NOT NULL')
     expect(sqlCalls).toContain('DELETE FROM api_keys WHERE owner_id = $1 AND organization_id IS NULL')
     expect(sqlCalls).toContain('DELETE FROM login_events WHERE user_id = $1')
     expect(sqlCalls).toContain('DELETE FROM attempts WHERE id = $1')
-    expect(auditRows[0]).toMatchObject({ object_id: null, context: { note: '[deleted user]', reason: 'account closed' } })
+    expect(auditRows[0]).toMatchObject({
+        object_id: null,
+        subject_id: null,
+        request_id: '',
+        ip: '',
+        user_agent: '',
+        context: { note: '[deleted user]', reason: 'account closed' },
+    })
     expect(auditRows[0].context).not.toHaveProperty('targetId')
     expect(auditRows[0].context).not.toHaveProperty('targetName')
 
@@ -141,4 +156,7 @@ test('retries failed external mailbox cleanup without hard-deleting the account'
     await expect(purgeDeletedAccounts()).rejects.toThrow('1 due account deletion cleanup(s) failed')
     expect(account).not.toBeNull()
     expect(sqlCalls.some(sql => sql.startsWith('DELETE FROM users'))).toBe(false)
+    expect(sqlCalls.some(sql => sql.startsWith('INSERT INTO account_deletion_purge_attempts'))).toBe(true)
+    const dueQuery = sqlCalls.find(sql => sql.includes('FROM users user_account') && sql.includes('ORDER BY'))
+    expect(dueQuery).toContain('ORDER BY (purge_attempt.user_id IS NOT NULL)')
 })

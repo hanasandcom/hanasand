@@ -2,11 +2,12 @@ import run from '#db'
 
 export default async function ensureCaseDevelopmentSchema() {
     await run(`CREATE TABLE IF NOT EXISTS case_repositories (
-        id UUID PRIMARY KEY, owner_id TEXT NOT NULL, organization_id TEXT,
+        id UUID PRIMARY KEY, owner_id TEXT, organization_id TEXT,
         provider TEXT NOT NULL CHECK (provider IN ('github', 'forgejo', 'gitlab')),
         repository_url TEXT NOT NULL, secret_encrypted TEXT NOT NULL,
         last_received_at TIMESTAMPTZ, last_warning TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )`)
+    await run('ALTER TABLE case_repositories ALTER COLUMN owner_id DROP NOT NULL')
     await run('CREATE UNIQUE INDEX IF NOT EXISTS case_repositories_scope_url ON case_repositories (owner_id, COALESCE(organization_id, \'\'), repository_url)')
     await run(`CREATE TABLE IF NOT EXISTS case_development (
         repository_id UUID NOT NULL REFERENCES case_repositories(id) ON DELETE CASCADE,

@@ -89,7 +89,7 @@ export async function purgeDeletedAccount(userId: string) {
         // organization integrations and their case history, but clear the
         // deleted user's attribution because organization access uses members.
         await query('DELETE FROM case_repositories WHERE owner_id = $1 AND organization_id IS NULL', [userId])
-        await query('UPDATE case_repositories SET owner_id = \'\' WHERE owner_id = $1 AND organization_id IS NOT NULL', [userId])
+        await query('UPDATE case_repositories SET owner_id = NULL WHERE owner_id = $1 AND organization_id IS NOT NULL', [userId])
         // Personal API keys are credentials. Organization keys remain attached
         // to their organization and lose only the deleted owner's attribution.
         await query('DELETE FROM api_keys WHERE owner_id = $1 AND organization_id IS NULL', [userId])
@@ -98,6 +98,7 @@ export async function purgeDeletedAccount(userId: string) {
         await query('DELETE FROM login_events WHERE user_id = $1', [userId])
         await query('DELETE FROM attempts WHERE id = $1', [userId])
         await scrubUserAuditEvents(query, target)
+        await query('DELETE FROM account_deletion_purge_attempts WHERE user_id = $1', [userId])
 
         const deleted = await query(`
             DELETE FROM users
@@ -145,6 +146,8 @@ export async function purgeDeletedAccounts() {
         const due = await run(`
             SELECT user_account.id
             FROM users user_account
+            LEFT JOIN account_deletion_purge_attempts purge_attempt
+              ON purge_attempt.user_id = user_account.id
             WHERE user_account.deletion_scheduled_at <= NOW()
               AND COALESCE(user_account.reserved, FALSE) IS FALSE
               AND NOT EXISTS (
@@ -169,7 +172,7 @@ export async function purgeDeletedAccounts() {
                           AND other_membership.status = 'active'
                     )
               )
-            ORDER BY user_account.deletion_scheduled_at, user_account.id
+            ORDER BY (purge_attempt.user_id IS NOT NULL), user_account.deletion_scheduled_at, user_account.id
             LIMIT $1
         `, [ACCOUNT_DELETION_PURGE_BATCH_SIZE])
 
@@ -181,6 +184,7 @@ export async function purgeDeletedAccounts() {
             } catch (error) {
                 failed++
                 console.error('Account deletion cleanup will retry on the next scheduled pass.', error)
+                await run('INSERT INTO account_deletion_purge_attempts (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING', [row.id])
             }
         }
         if (failed > 0) throw new Error(`${failed} due account deletion cleanup(s) failed; the next scheduled pass will retry them.`)
@@ -210,6 +214,10 @@ async function scrubUserAuditEvents(query: typeof run, account: DueAccount) {
         await query(`
             UPDATE system_events
             SET object_id = CASE WHEN object_id = $2 THEN NULL ELSE object_id END,
+                subject_id = CASE WHEN subject_id = $2 THEN NULL ELSE subject_id END,
+                request_id = '',
+                ip = '',
+                user_agent = '',
                 context = $3::jsonb
             WHERE id = $1
         `, [event.id, account.id, JSON.stringify(scrubDeletedUserAuditContext(event.context || {}, identities))])

@@ -19,6 +19,7 @@ import {
     validateApiKey,
 } from '../src/utils/auth/apiKeys.ts'
 import purgeDeletedAccounts from '../src/utils/auth/purgeDeletedAccounts.ts'
+import ensureCaseDevelopmentSchema from '../src/utils/db/caseDevelopmentSchema.ts'
 import { queryOnce } from '../src/utils/db.ts'
 import {
     consumeSharedRateLimitBucket,
@@ -63,6 +64,13 @@ await queryOnce(`
         ip TEXT NOT NULL DEFAULT ''
     );
     CREATE TABLE mail_accounts (user_id TEXT PRIMARY KEY, mail_username TEXT NOT NULL);
+    CREATE TABLE account_deletion_purge_attempts (user_id TEXT PRIMARY KEY);
+    CREATE TABLE case_repositories (
+        id UUID PRIMARY KEY, owner_id TEXT NOT NULL, organization_id TEXT,
+        provider TEXT NOT NULL, repository_url TEXT NOT NULL, secret_encrypted TEXT NOT NULL,
+        last_received_at TIMESTAMPTZ, last_warning TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE UNIQUE INDEX case_repositories_scope_url ON case_repositories (owner_id, COALESCE(organization_id, ''), repository_url);
     CREATE TABLE article_ownership (
         id TEXT PRIMARY KEY,
         owner_id TEXT REFERENCES users(id) ON DELETE RESTRICT,
@@ -74,6 +82,10 @@ await queryOnce(`
         actor_id TEXT REFERENCES users(id) ON DELETE SET NULL,
         object_type TEXT,
         object_id TEXT,
+        subject_id TEXT,
+        request_id TEXT,
+        ip TEXT NOT NULL DEFAULT '',
+        user_agent TEXT NOT NULL DEFAULT '',
         context JSONB NOT NULL DEFAULT '{}'::jsonb
     );
     CREATE TABLE api_rate_limit_settings (
@@ -165,6 +177,7 @@ await queryOnce(`
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
 `)
+await ensureCaseDevelopmentSchema()
 
 async function migrateOrganizationCreatorAttribution() {
     await queryOnce('ALTER TABLE organizations ALTER COLUMN created_by DROP NOT NULL')
@@ -186,8 +199,9 @@ await queryOnce(`
     INSERT INTO attempts (id, attempts) VALUES ('commercial-creator', 2);
     INSERT INTO login_events (user_id, ip, user_agent, status, reason)
     VALUES ('commercial-creator', '198.51.100.12', 'Commercial smoke', 'failed', 'bad_password');
-    INSERT INTO system_events (actor_id, object_type, object_id, context)
-    VALUES ('commercial-creator', 'user', 'commercial-creator', '{"targetId":"commercial-creator","targetName":"Commercial Creator"}'::jsonb)
+    INSERT INTO system_events (actor_id, object_type, object_id, subject_id, request_id, ip, user_agent, context)
+    VALUES ('commercial-creator', 'user', 'commercial-creator', 'commercial-creator', 'request-creator',
+        '198.51.100.12', 'Commercial smoke', '{"targetId":"commercial-creator","targetName":"Commercial Creator"}'::jsonb)
 `)
 await queryOnce(`
     INSERT INTO tokens (id, token, ip, user_agent)
@@ -202,6 +216,12 @@ await queryOnce(`
     VALUES
         ('commercial-org', 'commercial-creator', 'owner'),
         ('commercial-org', 'commercial-admin', 'admin')
+`)
+await queryOnce(`
+    INSERT INTO case_repositories (id, owner_id, organization_id, provider, repository_url, secret_encrypted)
+    VALUES
+        ('11111111-1111-4111-8111-111111111111', 'commercial-creator', 'commercial-org', 'github', 'https://github.com/example/project', 'secret-a'),
+        ('22222222-2222-4222-8222-222222222222', 'commercial-admin', 'commercial-org', 'github', 'https://github.com/example/project', 'secret-b')
 `)
 
 const organizationKey = await createApiKey({
@@ -580,12 +600,18 @@ try {
     assert.equal(Number((await reopened.query('SELECT COUNT(*) count FROM article_ownership WHERE owner_id = $1', ['commercial-creator'])).rows[0].count), 0)
     assert.equal(Number((await reopened.query('SELECT COUNT(*) count FROM attempts WHERE id = $1', ['commercial-creator'])).rows[0].count), 0)
     assert.equal(Number((await reopened.query('SELECT COUNT(*) count FROM login_events WHERE user_id = $1', ['commercial-creator'])).rows[0].count), 0)
-    assert.deepEqual((await reopened.query('SELECT actor_id, object_type, object_id, context FROM system_events')).rows[0], {
+    assert.deepEqual((await reopened.query('SELECT actor_id, object_type, object_id, subject_id, request_id, ip, user_agent, context FROM system_events')).rows[0], {
         actor_id: null,
         object_type: 'user',
         object_id: null,
+        subject_id: null,
+        request_id: '',
+        ip: '',
+        user_agent: '',
         context: {},
     })
+    assert.deepEqual((await reopened.query('SELECT owner_id FROM case_repositories ORDER BY id')).rows, [{ owner_id: null }, { owner_id: 'commercial-admin' }])
+    assert.equal((await reopened.query('SELECT is_nullable FROM information_schema.columns WHERE table_name = \'case_repositories\' AND column_name = \'owner_id\'')).rows[0].is_nullable, 'YES')
     assert.deepEqual((await reopened.query(`
         SELECT column_name, is_nullable
         FROM information_schema.columns
