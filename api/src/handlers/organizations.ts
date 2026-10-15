@@ -681,26 +681,16 @@ export async function deleteOrganizationMember(req: FastifyRequest<{ Params: Org
         return res.status(403).send({ error: mutation.permissionError, memberMutationDenial: denial })
     }
     if (mutation.error === 'organization_owner_required') {
-        const message = 'Transfer ownership before removing the last owner.'
-        const guard = organizationLastOwnerGuard({
+        return sendOrganizationLastOwnerGuard(req, res, {
             organizationId: req.params.id,
             actorId: userId,
             actorRole: mutation.organization.role,
             targetUserId: req.params.userId,
             action: 'remove_owner',
             ownerCount: mutation.ownerCount,
-            message,
+            message: 'Transfer ownership before removing the last owner.',
             requestId: req.headers['x-request-id'] ? String(req.headers['x-request-id']) : null,
         })
-        logOrganizationEvent(req, guard.serviceLogAction, req.params.id, userId, {
-            requestId: guard.requestId,
-            targetUserId: req.params.userId,
-            actorRole: mutation.organization.role,
-            action: guard.action,
-            blockerCode: guard.blockerCode,
-            ownerCount: mutation.ownerCount,
-        })
-        return res.status(409).send({ error: message, lastOwnerGuard: guard })
     }
 
     const { organization: authorizedOrganization, target: authorizedTarget, ownerCount, removed, revokedInvites } = mutation
@@ -1046,8 +1036,7 @@ export async function patchOrganizationMemberRole(req: FastifyRequest<{ Params: 
         return res.status(403).send({ error: mutation.permissionError, memberMutationDenial: denial })
     }
     if (mutation.error === 'organization_owner_required') {
-        const message = 'Transfer ownership before changing the last owner role.'
-        const guard = organizationLastOwnerGuard({
+        return sendOrganizationLastOwnerGuard(req, res, {
             organizationId: req.params.id,
             actorId: userId,
             actorRole: mutation.organization.role,
@@ -1055,20 +1044,12 @@ export async function patchOrganizationMemberRole(req: FastifyRequest<{ Params: 
             action: 'change_owner_role',
             requestedRole: input.role,
             ownerCount: mutation.ownerCount,
-            message,
+            message: 'Transfer ownership before changing the last owner role.',
             requestId: input.requestId,
-        })
-        logOrganizationEvent(req, guard.serviceLogAction, req.params.id, userId, {
-            requestId: guard.requestId,
-            targetUserId: req.params.userId,
-            actorRole: mutation.organization.role,
-            action: guard.action,
+        }, {
             requestedRole: input.role,
-            blockerCode: guard.blockerCode,
-            ownerCount: mutation.ownerCount,
             reason: input.reason,
         })
-        return res.status(409).send({ error: message, lastOwnerGuard: guard })
     }
 
     const { organization: authorizedOrganization, target: authorizedTarget, updatedMember } = mutation
@@ -3303,6 +3284,27 @@ function logOrganizationEvent(req: FastifyRequest, action: string, organizationI
             ...metadata,
         },
     }).catch(error => req.log.warn({ error, action, organizationId }, 'Failed to persist organization event log'))
+}
+
+function sendOrganizationLastOwnerGuard(
+    req: FastifyRequest,
+    res: FastifyReply,
+    input: Parameters<typeof organizationLastOwnerGuard>[0],
+    details?: { requestedRole: OrganizationRole, reason: string },
+) {
+    const guard = organizationLastOwnerGuard(input)
+    logOrganizationEvent(req, guard.serviceLogAction, guard.organizationId, guard.actorId, {
+        requestId: guard.requestId,
+        targetUserId: guard.targetUserId,
+        actorRole: input.actorRole,
+        action: guard.action,
+        ...(details ? { requestedRole: details.requestedRole } : {}),
+        blockerCode: guard.blockerCode,
+        ownerCount: guard.ownerCount,
+        ...(details ? { reason: details.reason } : {}),
+    })
+
+    return res.status(409).send({ error: guard.message, lastOwnerGuard: guard })
 }
 
 function inactiveOrganizationMutationBlocker(organization: Pick<OrganizationRow, 'id' | 'status'>, action: string) {
