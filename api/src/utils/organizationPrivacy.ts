@@ -200,13 +200,18 @@ async function processRetentionRun(retentionRun: RetentionRun) {
             sourceService: 'ti-scraper', recordType: 'service', recordId: 'organization-privacy',
             action: 'retain', status: 'failed', reason: 'privacy_runtime_unavailable', error: message,
         }])
-        const deadLetter = retentionRun.attempt_count >= MAX_ATTEMPTS
-        await refreshRun(retentionRun, {
-            status: deadLetter ? 'dead_letter' : 'failed',
-            error: deadLetter ? `Retention failed after ${MAX_ATTEMPTS} attempts: ${message}` : `${message} The run will retry.`,
-            result: { tenantId: retentionRun.organization_id, retryable: !deadLetter, deadLetter },
+        const outcome = organizationRetentionRunOutcome({
+            failed: true,
+            hasMore: true,
+            attemptCount: retentionRun.attempt_count,
+            failureError: message,
         })
-        return { claimed: true, runId: retentionRun.id, failed: true, hasMore: !deadLetter, deadLetter, error: message }
+        await refreshRun(retentionRun, {
+            status: outcome.status,
+            error: outcome.error,
+            result: { tenantId: retentionRun.organization_id, retryable: !outcome.deadLetter, deadLetter: outcome.deadLetter },
+        })
+        return { claimed: true, runId: retentionRun.id, failed: true, hasMore: outcome.hasMore, deadLetter: outcome.deadLetter, error: message }
     }
 }
 
