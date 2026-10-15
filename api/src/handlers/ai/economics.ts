@@ -71,11 +71,9 @@ type DeploymentReadinessRow = {
     recent_deployment_count: string | number
     completed_deployments: string | number
     healthchecked_deployments: string | number
-    explained_failures: string | number
     deployments_with_sync_events: string | number
     deployments_with_stack: string | number
     deployments_with_access_policy: string | number
-    last_deployment_at: string | null
 }
 
 type ReleaseReadinessRow = {
@@ -85,7 +83,6 @@ type ReleaseReadinessRow = {
     current_releases: string | number
     superseded_releases: string | number
     failed_releases: string | number
-    last_release_at: string | null
 }
 
 type LatestVerificationJobRow = {
@@ -104,9 +101,6 @@ type LatestDeploymentRow = {
     status: string
     vm_name: string
     service_name: string
-    stack_type: string | null
-    access_policy: string | null
-    healthcheck_url: string | null
     failure_reason: string | null
     updated_at: string
     completed_at: string | null
@@ -116,8 +110,6 @@ type LatestReleaseRow = {
     id: string
     status: string
     deployment_id: string | null
-    preview_url: string | null
-    notes: string | null
     updated_at: string
 }
 
@@ -275,7 +267,6 @@ export async function getAiEconomics(req: FastifyRequest, res: FastifyReply) {
                 COUNT(*) FILTER (WHERE created_at >= NOW() - $2::interval)::int AS recent_deployment_count,
                 COUNT(*) FILTER (WHERE status = 'running')::int AS completed_deployments,
                 COUNT(*) FILTER (WHERE healthcheck_url IS NOT NULL)::int AS healthchecked_deployments,
-                COUNT(*) FILTER (WHERE failure_reason IS NOT NULL)::int AS explained_failures,
                 COUNT(*) FILTER (
                     WHERE EXISTS (
                         SELECT 1
@@ -284,8 +275,7 @@ export async function getAiEconomics(req: FastifyRequest, res: FastifyReply) {
                     )
                 )::int AS deployments_with_sync_events,
                 COUNT(*) FILTER (WHERE stack_type IS NOT NULL AND stack_type <> 'unknown')::int AS deployments_with_stack,
-                COUNT(*) FILTER (WHERE access_policy IS NOT NULL)::int AS deployments_with_access_policy,
-                MAX(updated_at) AS last_deployment_at
+                COUNT(*) FILTER (WHERE access_policy IS NOT NULL)::int AS deployments_with_access_policy
             FROM ai_deployments
             WHERE owner_id = $1
         `, [userId, since]),
@@ -296,8 +286,7 @@ export async function getAiEconomics(req: FastifyRequest, res: FastifyReply) {
                 COUNT(*) FILTER (WHERE deployment_id IS NOT NULL AND preview_url IS NOT NULL)::int AS rollback_ready_releases,
                 COUNT(*) FILTER (WHERE status = 'current')::int AS current_releases,
                 COUNT(*) FILTER (WHERE status = 'superseded')::int AS superseded_releases,
-                COUNT(*) FILTER (WHERE status = 'failed')::int AS failed_releases,
-                MAX(updated_at) AS last_release_at
+                COUNT(*) FILTER (WHERE status = 'failed')::int AS failed_releases
             FROM ai_releases
             WHERE owner_id = $1
         `, [userId, since]),
@@ -310,15 +299,14 @@ export async function getAiEconomics(req: FastifyRequest, res: FastifyReply) {
         `, [userId]),
         run(`
             SELECT
-                id, status, vm_name, service_name, stack_type, access_policy,
-                healthcheck_url, failure_reason, updated_at, completed_at
+                id, status, vm_name, service_name, failure_reason, updated_at, completed_at
             FROM ai_deployments
             WHERE owner_id = $1
             ORDER BY updated_at DESC, created_at DESC
             LIMIT 1
         `, [userId]),
         run(`
-            SELECT id, status, deployment_id, preview_url, notes, updated_at
+            SELECT id, status, deployment_id, updated_at
             FROM ai_releases
             WHERE owner_id = $1
             ORDER BY updated_at DESC, created_at DESC
