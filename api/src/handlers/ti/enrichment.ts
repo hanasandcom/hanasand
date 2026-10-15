@@ -5,21 +5,19 @@ interface RunBody {
 }
 
 export async function getTiEnrichment(_req: FastifyRequest, res: FastifyReply) {
-    res.header('cache-control', 'no-store, max-age=0')
-    return res.status(410).send({
-        ok: false,
-        error: 'api_ti_enrichment_retired',
-        message: 'API-owned actor enrichment is retired. Read canonical evidence through the TI scraper.',
-        canonicalRoute: '/v1/intel/search',
-    })
+    return sendRetiredResponse(res, 410, 'API-owned actor enrichment is retired. Read canonical evidence through the TI scraper.')
 }
 
-export async function postTiEnrichmentRun(req: FastifyRequest<{ Body: RunBody }>, res: FastifyReply) {
+export async function postTiEnrichmentRun(_req: FastifyRequest<{ Body: RunBody }>, res: FastifyReply) {
+    return sendRetiredResponse(res, 409, 'API-owned actor enrichment is retired. Run collection through the canonical TI scraper.')
+}
+
+function sendRetiredResponse(res: FastifyReply, status: 409 | 410, message: string) {
     res.header('cache-control', 'no-store, max-age=0')
-    return res.status(409).send({
+    return res.status(status).send({
         ok: false,
         error: 'api_ti_enrichment_retired',
-        message: 'API-owned actor enrichment is retired. Run collection through the canonical TI scraper.',
+        message,
         canonicalRoute: '/v1/intel/search',
     })
 }

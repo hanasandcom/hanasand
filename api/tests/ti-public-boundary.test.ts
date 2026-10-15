@@ -5,7 +5,7 @@ import { isAllowedApiOrigin, verifiedClientIp } from '#utils/http/publicBoundary
 import { credentialPeriodLimits, resolveRateLimitActor } from '#plugins/rateLimit.ts'
 import { organizationPublicApiScopes } from '#utils/auth/apiKeys.ts'
 import postTiSearch, { normalizeBatchQueries, sanitizeBrowserSearchResult } from '../src/handlers/ti/search.ts'
-import { getTiEnrichment } from '../src/handlers/ti/enrichment.ts'
+import { getTiEnrichment, postTiEnrichmentRun } from '../src/handlers/ti/enrichment.ts'
 import IndexHandler from '../src/handlers/index.ts'
 import { TRUSTED_API_PROXIES } from '../src/utils/http/publicBoundary.ts'
 import { existsSync } from 'node:fs'
@@ -23,6 +23,16 @@ describe('public TI API boundary', () => {
             canonicalRoute: '/v1/intel/search',
         })
         expect(JSON.stringify(result.payload)).not.toContain('generatedAt')
+
+        const runResult = await postTiEnrichmentRun({} as FastifyRequest, reply() as unknown as FastifyReply) as any
+        expect(runResult.statusCode).toBe(409)
+        expect(runResult.headers['cache-control']).toBe('no-store, max-age=0')
+        expect(runResult.payload).toEqual({
+            ok: false,
+            error: 'api_ti_enrichment_retired',
+            message: 'API-owned actor enrichment is retired. Run collection through the canonical TI scraper.',
+            canonicalRoute: '/v1/intel/search',
+        })
     })
     test('uses Fastify verified client IP instead of a caller-supplied forwarding header', () => {
         const request = { ip: '203.0.113.10', headers: { 'x-forwarded-for': '127.0.0.1' } } as unknown as FastifyRequest
