@@ -11771,6 +11771,6 @@ function redactNullableDeliveryText(value: string | null) {
     return value ? redactDeliveryEvidenceText(value) : null
 }
 
-function clean(value: unknown) {
+export function clean(value: unknown) {
     return typeof value === 'string' ? value.trim() : ''
 }

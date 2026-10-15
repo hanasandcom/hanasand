@@ -51,7 +51,6 @@ async function exercise() {
             payload: JSON.parse(body),
             signature: signDwmWebhookDeliveryBody(body, receiverUrl),
         })
-        assert.equal(receiver.ok, true)
         assert.equal(receiver.ok && receiver.created, true)
         return { status: 204, body: 'accepted' }
     }
@@ -275,7 +274,6 @@ async function verifyAfterRestart() {
             payload: JSON.parse(body),
             signature: signDwmWebhookDeliveryBody(body, receiverUrl),
         })
-        assert.equal(receiver.ok, true)
         assert.equal(receiver.ok && receiver.created, true)
         return { status: 204, body: 'accepted after restart' }
     })

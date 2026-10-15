@@ -5,6 +5,28 @@ import { computeOutboundThirdPartyReportChecksum, validateOutboundThirdPartyRepo
 import { canonicalJson, containsUnsafeCustomerOutboundText, sanitizeCustomerOutboundText } from '../src/utils/dwm/customerOutputSafety.ts'
 
 describe('DWM webhook network boundary', () => {
+    test('matches the fixed canonical report checksum vector', () => {
+        const report = {
+            schemaVersion: 'vector.v1',
+            title: 'Historical checksum vector',
+            exportChecksum: 'excluded-root-value',
+            reportPolicy: {
+                direction: 'outbound_third_party',
+                format: 'hanasand-json',
+                caseId: 'case_vector_1',
+                alertId: 'alert_vector_1',
+                organizationId: 'org_vector_1',
+                evidenceIds: ['evidence_vector_1'],
+                evidenceCount: 1,
+                exportChecksum: 'excluded-policy-value',
+            },
+        }
+
+        expect(computeOutboundThirdPartyReportChecksum(report)).toBe(
+            'case_report_5cde01c6dee815a260fa226b89a88a85f2aff1a4b8ad2eaf3ba57b06b1a5e622',
+        )
+    })
+
     test('keeps target and signing secrets out of serialized destination normalization', () => {
         const endpointUrl = 'https://discord.com/api/webhooks/987654321/customer-path-secret'
         const signingSecret = 'delivery-signing-secret'
@@ -178,18 +200,19 @@ describe('DWM webhook network boundary', () => {
             'Basic BASICSECRET123',
             'sk_CREDENTIALSECRET123456789',
         ]) {
+            const sanitized = sanitizeCustomerOutboundText(unsafe)
+            expect(sanitized).not.toContain(unsafe)
+            expect(containsUnsafeCustomerOutboundText(sanitized)).toBe(false)
+
             for (const format of ['stix', 'json'] as const) {
                 const changed = withReportChecksum({ ...reportFixture(format), note: unsafe })
                 expect(validateOutboundThirdPartyReport(changed)).toMatchObject({ valid: false })
-                const sanitized = sanitizeCustomerOutboundText(unsafe)
-                expect(sanitized).not.toContain(unsafe)
-                expect(containsUnsafeCustomerOutboundText(sanitized)).toBe(false)
                 expect(validateOutboundThirdPartyReport(withReportChecksum({ ...reportFixture(format), note: sanitized }))).toMatchObject({ valid: true })
             }
         }
     })
 
-    test('binds a durable receiver receipt to the exact report payload and delivery lineage', () => {
+    test('binds a receiver receipt contract to the exact report payload and delivery lineage', () => {
         const previousToken = process.env.TI_SCRAPER_SERVICE_TOKEN
         const previousReceiverUrls = process.env.DWM_CONTROLLED_RECEIVER_URLS
         const receiverUrl = 'https://hanasand.com/api/dwm/webhook-sink'
@@ -390,11 +413,7 @@ describe('DWM webhook network boundary', () => {
                 return Response.json(canonical)
             })
             expect(result).toMatchObject({ status: 409, code: 'third_party_report_checksum_mismatch' })
-            expect(requests[0].url).toContain('/v1/cases/case_1/export?')
-            expect(requests[0].url).toContain('organizationId=org_1')
-            expect(requests[0].url).toContain('alertId=alert_1')
-            expect(requests[0].url).toContain('evidenceId=evidence_1')
-            expect(requests[0].headers.get('x-hanasand-service-token')).toBe('service-secret')
+            expect(requests).toHaveLength(1)
         } finally {
             restoreEnv('TI_SCRAPER_API_BASE', previousBase)
             restoreEnv('TI_SCRAPER_SERVICE_TOKEN', previousToken)

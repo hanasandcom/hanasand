@@ -11,6 +11,7 @@ import {
 import { canonicalThirdPartyReportForDelivery } from '#utils/dwm/thirdPartyReportVerification.ts'
 export { canonicalThirdPartyReportForDelivery } from '#utils/dwm/thirdPartyReportVerification.ts'
 import {
+    clean,
     constantTimeEqual,
     archiveDwmWebhookDestination,
     buildDwmOrgAlertWebhookDeliveryContract,
@@ -1226,8 +1227,4 @@ function firstQueryValue(query: OrgQuery | undefined, ...keys: Array<keyof OrgQu
         if (value) return value
     }
     return ''
-}
-
-function clean(value: unknown) {
-    return typeof value === 'string' ? value.trim() : ''
 }

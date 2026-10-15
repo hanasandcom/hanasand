@@ -10,7 +10,7 @@ describe('DWM webhook destination test response', () => {
             code: 'webhook_destination_test_failed',
             error: 'Webhook destination test failed.',
         })
-        expect(destinationTestResponseOutcome({ status: 'delivered', error: 'transport failed' }).status).toBe(502)
+        expect(destinationTestResponseOutcome({ status: 'delivered', error: 'transport failed' })).toMatchObject({ status: 502, failed: true, code: 'webhook_destination_test_failed' })
     })
 
     test('keeps accepted status for durable non-failed outcomes', () => {
