@@ -186,26 +186,20 @@ export default fp(async function wsPlugin(fastify: FastifyInstance) {
 
 function registerBrowserSessionRoutes(fastify: FastifyInstance) {
     registerPrestartedBrowser(fastify)
-    fastify.get<{ Params: { id: string } }>('/api/ws/browser/:id', { websocket: true }, (connection: WebSocket, req: FastifyRequest<{ Params: { id: string } }>) => {
-        if (proxyBrowserSocket(connection, req.params.id, 'browser')) return
-        const worker = process.env.BROWSER_SANDBOX_WORKER_ONLY === '1' ? resumableBrowserSocket(connection, req.params.id) : connection
-        if (!worker) return
-        handleOnionSessionSocket(worker, req.params.id, 'regular')
-    })
+    const routes = [
+        { url: '/api/ws/browser/:id', name: 'browser', network: 'regular' },
+        { url: '/api/ws/onion-session/:id', name: 'onion-session', network: 'tor' },
+        { url: '/api/ws/browser-sandbox/:id', name: 'browser-sandbox', network: 'regular' },
+    ] as const
 
-    fastify.get<{ Params: { id: string } }>('/api/ws/onion-session/:id', { websocket: true }, (connection: WebSocket, req: FastifyRequest<{ Params: { id: string } }>) => {
-        if (proxyBrowserSocket(connection, req.params.id, 'onion-session')) return
-        const worker = process.env.BROWSER_SANDBOX_WORKER_ONLY === '1' ? resumableBrowserSocket(connection, req.params.id) : connection
-        if (!worker) return
-        handleOnionSessionSocket(worker, req.params.id)
-    })
-
-    fastify.get<{ Params: { id: string } }>('/api/ws/browser-sandbox/:id', { websocket: true }, (connection: WebSocket, req: FastifyRequest<{ Params: { id: string } }>) => {
-        if (proxyBrowserSocket(connection, req.params.id, 'browser-sandbox')) return
-        const worker = process.env.BROWSER_SANDBOX_WORKER_ONLY === '1' ? resumableBrowserSocket(connection, req.params.id) : connection
-        if (!worker) return
-        handleOnionSessionSocket(worker, req.params.id, 'regular')
-    })
+    for (const route of routes) {
+        fastify.get<{ Params: { id: string } }>(route.url, { websocket: true }, (connection: WebSocket, req: FastifyRequest<{ Params: { id: string } }>) => {
+            const { id } = req.params
+            if (proxyBrowserSocket(connection, id, route.name)) return
+            const worker = process.env.BROWSER_SANDBOX_WORKER_ONLY === '1' ? resumableBrowserSocket(connection, id) : connection
+            if (worker) handleOnionSessionSocket(worker, id, route.network)
+        })
+    }
 }
 
 function registerBrowserStreamRoute(fastify: FastifyInstance) {
