@@ -2,7 +2,6 @@ import { existsSync, promises as fs } from 'node:fs'
 import { promisify } from 'node:util'
 import { execFile as execFileCallback } from 'node:child_process'
 import config from '#constants'
-import { mergeLogServices } from './services.ts'
 
 const execFile = promisify(execFileCallback)
 
@@ -335,12 +334,27 @@ export async function listNativeLogServices(limit = 200) {
         listLocalNativeLogs({ limit }),
         fetchRemoteNativeLogServices(limit),
     ])
-    return mergeLogServices([[
+    const grouped = new Map<string, { service: string, last_seen: string, entries: number }>()
+
+    for (const service of [
         ...logs.map((log) => ({
             service: log.service,
             last_seen: log.created_at,
             entries: 1,
         })),
         ...remoteServices,
-    ]])
+    ]) {
+        const existing = grouped.get(service.service)
+        if (!existing) {
+            grouped.set(service.service, { ...service })
+            continue
+        }
+
+        existing.entries += Number(service.entries || 0)
+        if (new Date(service.last_seen).getTime() > new Date(existing.last_seen).getTime()) {
+            existing.last_seen = service.last_seen
+        }
+    }
+
+    return [...grouped.values()].sort((a, b) => a.service.localeCompare(b.service))
 }

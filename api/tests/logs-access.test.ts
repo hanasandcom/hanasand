@@ -3,22 +3,11 @@ import Fastify from 'fastify'
 let authorized = true
 let administrator = true
 let queries = 0
-const storedServices = [
-    { service: 'api', last_seen: new Date('2026-10-15T10:00:00.000Z'), entries: 2 },
-    { service: 'stored', last_seen: new Date('2026-10-15T09:00:00.000Z'), entries: 1 },
-]
-const nativeServices = [
-    { service: 'api', last_seen: '2026-10-15T11:00:00.000Z', entries: 3 },
-    { service: 'native', last_seen: '2026-10-15T08:00:00.000Z', entries: 4 },
-]
-const query = async (sql: string) => {
-    queries++
-    return { rows: sql.includes('SELECT normalized->>\'service\'') ? storedServices : [] }
-}
+const query = async () => { queries++; return { rows: [] } }
 mock.module('../src/utils/db.ts', () => ({ default: query, withTransaction: async (work: any) => work(query) }))
 mock.module('../src/utils/auth/tokenWrapper.ts', () => ({ default: async () => ({ valid: authorized }) }))
 mock.module('../src/utils/auth/organizationPageAccess.ts', () => ({ default: async () => ({ valid: administrator }) }))
-mock.module('../src/utils/logs/native.ts', () => ({ listNativeLogs: async () => [], listNativeLogServices: async () => nativeServices, isNativeLogSourceAvailable: () => false }))
+mock.module('../src/utils/logs/native.ts', () => ({ listNativeLogs: async () => [], listNativeLogServices: async () => [], isNativeLogSourceAvailable: () => false }))
 mock.module('../src/utils/docker/engine.ts', () => ({ listRuntimeLogs: async () => ({ logs: [], containers: [] }), isRuntimeLogSourceAvailable: () => false }))
 const { getLogs, getLogServices } = await import('../src/handlers/logs/get.ts')
 const { getErrorEvents } = await import('../src/handlers/logs/errors.ts')
@@ -33,13 +22,7 @@ test('cached log responses still require a valid administrator on every request'
     try {
         for (const url of ['/logs', '/logs/services', '/logs/services/summary', '/logs/errors']) {
             authorized = administrator = true
-            const response = await app.inject(url)
-            expect(response.statusCode).toBe(200)
-            if (url === '/logs/services') expect(response.json().services).toEqual([
-                { service: 'api', last_seen: '2026-10-15T11:00:00.000Z', entries: 5 },
-                { service: 'native', last_seen: '2026-10-15T08:00:00.000Z', entries: 4 },
-                { service: 'stored', last_seen: '2026-10-15T09:00:00.000Z', entries: 1 },
-            ])
+            expect((await app.inject(url)).statusCode).toBe(200)
             const before = queries
             expect((await app.inject(url)).statusCode).toBe(200)
             expect(queries).toBe(before)

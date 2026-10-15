@@ -5,7 +5,6 @@ import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import hasHanasandInternalRouteAccess from '#utils/auth/organizationPageAccess.ts'
 import { isRuntimeLogSourceAvailable, listRuntimeLogs } from '#utils/docker/engine.ts'
 import { isNativeLogSourceAvailable, listNativeLogs, listNativeLogServices } from '#utils/logs/native.ts'
-import { mergeLogServices } from '#utils/logs/services.ts'
 
 export async function getLogServices(req: FastifyRequest, res: FastifyReply) {
     const { valid } = await tokenWrapper(req, res)
@@ -32,7 +31,22 @@ async function queryLogServices() {
         `)
     })
     const nativeServices = await listNativeLogServices().catch(() => [])
-    return { services: mergeLogServices([result.rows, nativeServices]) }
+    const combined = new Map<string, { service: string, last_seen: string, entries: number }>()
+
+    for (const service of [...result.rows, ...nativeServices]) {
+        const existing = combined.get(service.service)
+        if (!existing) {
+            combined.set(service.service, { ...service })
+            continue
+        }
+
+        existing.entries += Number(service.entries || 0)
+        if (new Date(service.last_seen).getTime() > new Date(existing.last_seen).getTime()) {
+            existing.last_seen = service.last_seen
+        }
+    }
+
+    return { services: [...combined.values()].sort((a, b) => a.service.localeCompare(b.service)) }
 }
 
 export async function getLogs(req: FastifyRequest, res: FastifyReply) {
