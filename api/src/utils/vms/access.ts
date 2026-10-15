@@ -15,7 +15,11 @@ export async function requireVmAccess(req: FastifyRequest, res: FastifyReply, na
     if (!viewer) return null
     const result = await run('SELECT name, owner, created_by, access_users, deleted_at FROM vms WHERE LOWER(name) = LOWER($1) LIMIT 1', [name])
     const vm = result.rows[0]
-    if (!vm || !viewer.admin && !await hasVmAccess(vm.name, viewer.id, manage)) {
+    if (!vm) {
+        res.status(404).send({ error: 'VM not found.' }); return null
+    }
+    const canAccess = viewer.admin || await hasVmAccess(vm.name, viewer.id, manage)
+    if (!canAccess) {
         res.status(404).send({ error: 'VM not found.' }); return null
     }
     if (vm.deleted_at && !allowDeleted) { res.status(409).send({ error: 'This VM is scheduled for deletion. Restore it before connecting.' }); return null }

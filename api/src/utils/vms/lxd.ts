@@ -243,6 +243,7 @@ function sleep(ms: number) {
 function mapDetails(instance: LxdInstance, state: LxdState | null) {
     const configValues = instance.config || {}
     const eth0 = instance.expanded_devices?.eth0 || instance.devices?.eth0 || {}
+    const currentStatus = state?.status || instance.status || ''
     // VM guests may rename eth0 (for example to enp5s0). Match the attached
     // NIC by name, MAC or its configured IP, never the first guest bridge.
     const mac = configValues['volatile.eth0.hwaddr']?.toLowerCase()
@@ -261,7 +262,7 @@ function mapDetails(instance: LxdInstance, state: LxdState | null) {
 
     return {
         name: instance.name,
-        status: state?.status || instance.status || 'unknown',
+        status: currentStatus || 'unknown',
         type: instance.type || 'container',
         architecture: instance.architecture || '',
         created: instance.created_at || '',
@@ -280,7 +281,7 @@ function mapDetails(instance: LxdInstance, state: LxdState | null) {
         volatile_base_image: configValues['volatile.base_image'] || '',
         volatile_cloud_init_instance_id: configValues['volatile.cloud-init.instance-id'] || '',
         volatile_eth0_hwaddr: configValues['volatile.eth0.hwaddr'] || '',
-        volatile_last_state_power: (state?.status || instance.status || '').toUpperCase(),
+        volatile_last_state_power: currentStatus.toUpperCase(),
         volatile_uuid: configValues['volatile.uuid'] || '',
         volatile_uuid_generation: configValues['volatile.uuid.generation'] || '',
         volatile_vsock_id: configValues['volatile.vsock_id'] || '',
