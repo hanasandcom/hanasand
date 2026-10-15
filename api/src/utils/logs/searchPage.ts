@@ -4,18 +4,26 @@ import type { queryOnce } from '#db'
 type Input = { where: string[], params: NonNullable<Parameters<typeof queryOnce>[1]>, order: string, limit: number, cursor?: string, recentFirst?: boolean, preferTextIndex?: boolean }
 type Cursor = { time: string, id: string, until: string, scope: string }
 
+function decodeCursor(encoded: string, scope: string): Cursor {
+    try {
+        if (encoded.length > 2048) throw new Error()
+        const cursor = JSON.parse(Buffer.from(encoded, 'base64url').toString())
+        if (!cursor || cursor.scope !== scope || typeof cursor.id !== 'string' || !cursor.id || cursor.id.length > 200
+            || typeof cursor.time !== 'string' || !Number.isFinite(Date.parse(cursor.time))
+            || typeof cursor.until !== 'string' || !Number.isFinite(Date.parse(cursor.until))) throw new Error()
+        return cursor
+    } catch {
+        throw new Error('Invalid search cursor. Start the search again.')
+    }
+}
+
+function encodeCursor(cursor: Cursor) {
+    return Buffer.from(JSON.stringify(cursor)).toString('base64url')
+}
+
 export async function searchLogPage(query: typeof queryOnce, input: Input) {
     const scope = createHash('sha256').update(JSON.stringify([input.where, input.params, input.order])).digest('hex')
-    let cursor: Cursor | undefined
-    if (input.cursor) {
-        try {
-            if (input.cursor.length > 2048) throw new Error()
-            cursor = JSON.parse(Buffer.from(input.cursor, 'base64url').toString())
-            if (!cursor || cursor.scope !== scope || typeof cursor.id !== 'string' || !cursor.id || cursor.id.length > 200
-                || typeof cursor.time !== 'string' || !Number.isFinite(Date.parse(cursor.time))
-                || typeof cursor.until !== 'string' || !Number.isFinite(Date.parse(cursor.until))) throw new Error()
-        } catch { throw new Error('Invalid search cursor. Start the search again.') }
-    }
+    const cursor = input.cursor ? decodeCursor(input.cursor, scope) : undefined
     const params = [...input.params]
     const bind = (value: string) => { params.push(value); return `$${params.length}` }
     const until = cursor?.until || new Date().toISOString()
@@ -67,6 +75,6 @@ export async function searchLogPage(query: typeof queryOnce, input: Input) {
     const page = result.rows.slice(0, input.limit)
     const last = page.at(-1)
     const next = result.rows.length > input.limit && last
-        ? Buffer.from(JSON.stringify({ time: last.cursor_time, id: last.id, until, scope })).toString('base64url') : null
+        ? encodeCursor({ time: last.cursor_time, id: last.id, until, scope }) : null
     return { rows: page.map(({ id, normalized, event_timestamp, organization_id }) => ({ id, normalized, event_timestamp, organization_id })), next_cursor: next }
 }
