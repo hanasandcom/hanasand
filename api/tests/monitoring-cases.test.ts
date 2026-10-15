@@ -82,7 +82,7 @@ test('open-case count filters resolved and closed monitoring issues in SQL', asy
 })
 test('cached tuning snapshot reads stay under 20ms and skip the all-time query', async () => {
     admin = true
-    const generatedAt = '2026-10-06T10:00:00.000Z'
+    const generatedAt = new Date().toISOString()
     const logs = [{ message: 'failed exec: /usr/sbin/host', event_count: '42', storage_bytes: '8192' }]
     rows = [{ generated_at: generatedAt, logs, refreshing: false }]
     const first = await readTuningSnapshot()
