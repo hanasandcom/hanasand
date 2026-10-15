@@ -7,14 +7,29 @@ import * as webhooks from '../src/utils/dwm/webhooks.ts'
 let role: OrganizationRole = 'reader'
 let active = true
 let archived = false
+let inviteAcceptanceWinsRace = false
+let inviteReads = 0
 const writes: string[] = []
+const serviceLogs: Record<string, any>[] = []
+const systemEvents: Record<string, any>[] = []
 const apiKeys: Record<string, any>[] = []
 const apiKeyScopes: Record<string, any>[] = []
+const raceInvite = {
+    id: 'invite-1', organization_id: 'org', email: 'member@example.test', role: 'reader',
+    invited_by: 'owner', created_at: '2026-10-01T00:00:00.000Z', expires_at: '2026-11-01T00:00:00.000Z',
+    accepted_at: null, accepted_by: null, revoked_at: null,
+}
 const destination = { id: 'target', orgId: 'org', ownerId: 'owner', name: 'Delivery target', kind: 'webhook', status: 'active', endpointHint: 'example.com/…', endpointHash: 'hash', events: ['dwm.alert.created'] }
 const query = async (sql: string, params: unknown[] = []) => {
     const statement = sql.replace(/\s+/g, ' ').trim()
     if (/^\s*(INSERT|UPDATE|DELETE)/.test(sql)) writes.push(sql)
     if (statement.includes('COUNT(*)::int AS owner_count')) return { rows: [{ owner_count: 1 }] }
+    if (statement.startsWith('SELECT * FROM organization_invites')) {
+        inviteReads++
+        const accepted = inviteAcceptanceWinsRace && inviteReads > 1
+        return { rows: [{ ...raceInvite, status: accepted ? 'accepted' : 'pending', accepted_at: accepted ? '2026-10-15T12:00:00.000Z' : null, accepted_by: accepted ? 'member' : null }] }
+    }
+    if (statement.startsWith('UPDATE organization_invites SET status = CASE WHEN $3')) return { rows: [], rowCount: 0 }
     if (statement.startsWith('INSERT INTO api_keys')) {
         const now = new Date().toISOString()
         const row = { id: params[0], owner_id: params[1], organization_id: params[2], name: params[3], tier: params[4], description: params[5], enabled: params[6], key_prefix: params[7], secret_hash: params[8], expires_at: params[9], last_used_at: null, created_at: now, updated_at: now }
@@ -44,8 +59,12 @@ const query = async (sql: string, params: unknown[] = []) => {
 }
 mock.module('#db', () => ({ default: query, withTransaction: async (work: (runQuery: typeof query) => unknown) => work(query), withDatabaseAdvisoryLock: async (_key: string, work: () => unknown) => work() }))
 mock.module('#utils/auth/tokenWrapper.ts', () => ({ default: async () => ({ valid: true, id: 'actor' }) }))
-mock.module('#utils/logs/recordLog.ts', () => ({ default: async () => {} }))
-mock.module('#utils/systemEvent.ts', () => ({ recordSystemEvent: async () => {} }))
+mock.module('#utils/logs/recordLog.ts', () => ({ default: async (entry: Record<string, any>) => { serviceLogs.push(entry) } }))
+const systemEventUtils = await import('../src/utils/systemEvent.ts')
+mock.module('#utils/systemEvent.ts', () => ({
+    ...systemEventUtils,
+    recordSystemEvent: async (entry: Record<string, any>) => { systemEvents.push(entry) },
+}))
 mock.module('#utils/dwm/webhooks.ts', () => ({
     ...webhooks,
     listDwmWebhookDestinations: async () => [destination],
@@ -60,13 +79,14 @@ app.delete('/targets/:id', deleteDwmWebhookDestination)
 app.put('/org/:id/settings', org.putOrganizationSettings)
 app.post('/org/:id/ownership-transfer', org.postOrganizationOwnershipTransfer)
 app.post('/org/:id/invites', org.postOrganizationInvites)
+app.post('/org/:id/invites/:inviteId/actions', org.postOrganizationInviteAction)
 app.post('/org/:id/api-keys', org.postOrganizationApiKey)
 app.post('/org/:id/cleanup', org.postOrganizationWatchlistCleanup)
 app.post('/org/:id/watchlists', org.postOrganizationWatchlist)
 app.patch('/org/:id/members/:userId/role', org.patchOrganizationMemberRole)
 app.delete('/org/:id/members/:userId', org.deleteOrganizationMember)
 
-beforeEach(() => { role = 'reader'; active = true; archived = false; writes.length = 0; apiKeys.length = 0; apiKeyScopes.length = 0 })
+beforeEach(() => { role = 'reader'; active = true; archived = false; inviteAcceptanceWinsRace = false; inviteReads = 0; writes.length = 0; serviceLogs.length = 0; systemEvents.length = 0; apiKeys.length = 0; apiKeyScopes.length = 0 })
 
 test('legacy roles and invitations become Reader without gaining permissions', () => {
     for (const legacy of ['member', 'viewer']) {
@@ -190,6 +210,29 @@ test('organization admins cannot transfer ownership', async () => {
     expect(response.statusCode).toBe(403)
     expect(response.json().error).toBe('Only organization owners can transfer ownership.')
     expect(writes).toHaveLength(0)
+})
+
+test('invite revoke reports accepted-invite conflict when acceptance wins the update race', async () => {
+    role = 'owner'
+    inviteAcceptanceWinsRace = true
+    const response = await app.inject({
+        method: 'POST',
+        url: '/org/org/invites/invite-1/actions',
+        payload: { action: 'revoke', reason: 'Revoke after acceptance race.', requestId: 'invite-race-1' },
+    })
+
+    expect(response.statusCode).toBe(409)
+    expect(response.json().inviteActionDenial).toMatchObject({
+        schemaVersion: 'organization.invite_action_denial.v1',
+        inviteId: 'invite-1',
+        inviteStatus: 'accepted',
+        action: 'revoke',
+        blockerCode: 'invite_already_accepted',
+        requestId: 'invite-race-1',
+    })
+    expect(writes).toHaveLength(1)
+    expect(serviceLogs.map(entry => entry.message)).toEqual(['organization_invite_action_denied'])
+    expect(systemEvents).toHaveLength(0)
 })
 
 test('Editor and Reader are denied administrative mutations without domain writes', async () => {
