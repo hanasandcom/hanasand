@@ -1,6 +1,8 @@
-import { expect, mock, test } from 'bun:test'
+import { beforeEach, expect, mock, test } from 'bun:test'
 
 const queries: Array<{ sql: string, params: unknown[] }> = []
+let tokenValid = false
+let accessValid = false
 mock.module('#db', () => ({
     default: async (sql: string, params: unknown[] = []) => {
         queries.push({ sql, params })
@@ -10,13 +12,18 @@ mock.module('#db', () => ({
     },
 }))
 mock.module('#utils/logs/cache.ts', () => ({ cachedLogQuery: async (_key: string, _ttl: number, load: () => Promise<unknown>) => load() }))
-mock.module('#utils/auth/tokenWrapper.ts', () => ({ default: async () => ({ valid: false }) }))
-mock.module('#utils/auth/organizationPageAccess.ts', () => ({ default: async () => ({ valid: false }) }))
+mock.module('#utils/auth/tokenWrapper.ts', () => ({ default: async () => ({ valid: tokenValid }) }))
+mock.module('#utils/auth/organizationPageAccess.ts', () => ({ default: async () => ({ valid: accessValid }) }))
 
-const { getPublicLogMetrics } = await import('../src/handlers/logs/metrics.ts')
+const { getLogMetrics, getPublicLogMetrics } = await import('../src/handlers/logs/metrics.ts')
+
+beforeEach(() => {
+    queries.length = 0
+    tokenValid = false
+    accessValid = false
+})
 
 test('log chart history is a cached-size set of completed five-minute averages for 24 hours', async () => {
-    queries.length = 0
     const reply = { body: undefined as unknown, send(body: unknown) { this.body = body; return body }, status() { return this } }
     await getPublicLogMetrics({ query: {} } as any, reply as any)
 
@@ -34,4 +41,30 @@ test('log chart history is a cached-size set of completed five-minute averages f
     expect(historyQuery?.sql).toContain('bucket_start + INTERVAL \'5 minutes\' <= NOW()')
     expect(metrics.current).toMatchObject({ pps: 10, eps: 13, historical_eps: 0, npps: 1.3, remaining: 12, alert: true })
     expect(metrics.history).toHaveLength(1)
+})
+
+test('private log metrics require both token and organization access before querying', async () => {
+    const makeReply = () => ({
+        body: undefined as unknown,
+        statusCode: 200,
+        send(body: unknown) { this.body = body; return body },
+        status(code: number) { this.statusCode = code; return this },
+    })
+
+    const unauthorized = makeReply()
+    await getLogMetrics({ query: {} } as any, unauthorized as any)
+    expect(unauthorized.statusCode).toBe(401)
+    expect(queries).toHaveLength(0)
+
+    tokenValid = true
+    const denied = makeReply()
+    await getLogMetrics({ query: {} } as any, denied as any)
+    expect(denied.statusCode).toBe(403)
+    expect(queries).toHaveLength(0)
+
+    accessValid = true
+    const allowed = makeReply()
+    await getLogMetrics({ query: {} } as any, allowed as any)
+    expect(allowed.statusCode).toBe(200)
+    expect(queries.some(query => query.sql.includes('AS received'))).toBe(true)
 })
