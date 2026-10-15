@@ -24,9 +24,20 @@ async function run(sql: string, values: unknown[] = []) {
         }
         return { rows: [invite] }
     }
+    if (sql.includes('FROM organization_members om') && sql.includes('WHERE om.organization_id = $1') && sql.includes('om.user_id = $2')) {
+        return { rows: [{
+            organization_id: 'org-1', organization_name: 'Org', organization_slug: 'org', user_id: 'member-1',
+            name: 'Member', avatar: null, active: true, role: 'editor', status: 'active', invited_by: 'owner-1',
+            joined_at: '2026-10-01T00:00:00.000Z', created_at: '2026-10-01T00:00:00.000Z',
+        }] }
+    }
+    if (sql.includes('FROM organization_members membership')) return { rows: [{ owner_count: 2 }] }
     if (sql.includes('active_admin_count')) return { rows: [] }
     if (sql.includes('context->>\'idempotencyKey\'') && sql.includes('outcome = \'success\'')) return { rows: [] }
     if (sql.includes('WHERE request_id = $1') && sql.includes('event_type = $2') && sql.includes('subject_id = $3')) return { rows: [{ id: 91 }] }
+    if (sql.includes('UPDATE organization_members') && sql.includes('SET role = $3')) return { rows: [{
+        organization_id: 'org-1', user_id: 'member-1', role: 'reader', status: 'active',
+    }] }
     if (sql.includes('FROM admin_access_recovery_approvals approval')) return { rows: approvalRows }
     if (sql.includes('SELECT COUNT(*)::int AS total')) return { rows: [{ total: eventRows.length }] }
     if (sql.includes('FROM system_events e') && sql.includes('WHERE e.id = $1')) return { rows: eventRows }
@@ -37,6 +48,7 @@ async function run(sql: string, values: unknown[] = []) {
 const recordedEvents: Array<Record<string, unknown>> = []
 const systemEventUtils = await import('../src/utils/systemEvent.ts')
 mock.module('../src/utils/db.ts', () => ({ default: run, queryOnce: run, identityQueryOnce: run, closeDatabase: async () => {} }))
+const identityDataWrites = await import('../src/utils/db/identityDataWrites.ts')
 mock.module('../src/utils/auth/tokenWrapper.ts', () => ({ default: async () => actor }))
 mock.module('../src/utils/systemEvent.ts', () => ({
     ...systemEventUtils,
@@ -47,6 +59,7 @@ mock.module('../src/utils/db/identityDataWrites.ts', () => ({
     upsertAdminAccessRecoveryApproval: async () => {},
     upsertOrganizationInvite: async () => {},
     updateOrganizationInviteAction: async () => { inviteActionWrites += 1; return null },
+    updateActiveOrganizationMemberRole: identityDataWrites.updateActiveOrganizationMemberRole,
 }))
 
 const {
@@ -55,6 +68,7 @@ const {
     getSupportAccessRecoveryApprovals,
     getSupportInspection,
     postSupportOrganizationInviteAction,
+    postSupportOrganizationMemberRoleRecovery,
 } = await import('../src/handlers/adminSupport.ts')
 
 function reply() {
@@ -300,6 +314,34 @@ test('support invite action returns an audited accepted-invite denial when accep
     })
     expect(recordedEvents.at(-1)?.context).toHaveProperty('executor')
     expect(inviteActionWrites).toBe(1)
+})
+
+test('support role recovery shares the active-member write and retains its audited receipt', async () => {
+    supportOrganization = { id: 'org-1', name: 'Org', slug: 'org', status: 'active' }
+
+    const result = await request(postSupportOrganizationMemberRoleRecovery, {
+        params: { id: 'org-1', userId: 'member-1' },
+        body: { role: 'reader', reason: 'Restore member access', scope: 'member:role_recovery', requestId: 'role-request-1' },
+    })
+
+    expect(result.statusCode).toBe(200)
+    expect(result.body.memberRoleRecovery).toMatchObject({
+        schemaVersion: 'support.member_role_recovery.v1',
+        outcome: 'success',
+        before: { role: 'editor' },
+        after: { role: 'reader' },
+        noSilentMembershipMutation: true,
+    })
+    expect(result.body.memberRoleRecovery.controlledExecutor).toMatchObject({
+        mutationMode: 'controlled_member_role_only',
+        outcome: 'success',
+    })
+    expect(recordedEvents.at(-1)).toMatchObject({
+        actionType: 'support.organization.member_role_recovery',
+        outcome: 'success',
+    })
+    expect(queries.some(({ sql }) => sql.includes('UPDATE organization_members') && sql.includes('status = \'active\''))).toBe(true)
+    expect(queries.some(({ sql }) => sql.includes('UPDATE organizations SET updated_at = NOW()'))).toBe(true)
 })
 
 test('access recovery search applies requester, approver, status, outcome, organization, and request filters', async () => {

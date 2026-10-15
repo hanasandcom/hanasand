@@ -3,7 +3,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify'
 import { randomUUID } from 'crypto'
 import run, { withTransaction } from '#db'
 import { organizationPrivacyDeletionInProgress } from '#utils/organizationLifecycle.ts'
-import { updateOrganizationInviteAction, upsertOrganizationInvite, upsertOrganizationMember } from '#utils/db/identityDataWrites.ts'
+import { updateActiveOrganizationMemberRole, updateOrganizationInviteAction, upsertOrganizationInvite, upsertOrganizationMember } from '#utils/db/identityDataWrites.ts'
 import { activeOrganizationOwnerCount as activeOwnerCount } from '#utils/organizationMemberships.ts'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import recordLog from '#utils/logs/recordLog.ts'
@@ -1033,17 +1033,13 @@ export async function patchOrganizationMemberRole(req: FastifyRequest<{ Params: 
             return { error: 'organization_owner_required' as const, organization: lockedOrganization, target: lockedTarget, ownerCount }
         }
 
-        const result = await query(`
-            UPDATE organization_members
-            SET role = $3
-            WHERE organization_id = $1
-              AND user_id = $2
-              AND status = 'active'
-            RETURNING *
-        `, [req.params.id, req.params.userId, input.role])
-        if (!result.rows.length) return { error: 'member_not_found' as const, organization: lockedOrganization }
-        await query('UPDATE organizations SET updated_at = NOW() WHERE id = $1', [req.params.id])
-        return { error: null, organization: lockedOrganization, target: lockedTarget, ownerCount, result }
+        const updatedMember = await updateActiveOrganizationMemberRole({
+            organizationId: req.params.id,
+            userId: req.params.userId,
+            role: input.role,
+        }, query)
+        if (!updatedMember) return { error: 'member_not_found' as const, organization: lockedOrganization }
+        return { error: null, organization: lockedOrganization, target: lockedTarget, ownerCount, updatedMember }
     })
 
     if (mutation.error === 'organization_not_found' || mutation.error === 'member_not_found') {
@@ -1093,7 +1089,7 @@ export async function patchOrganizationMemberRole(req: FastifyRequest<{ Params: 
         return res.status(409).send({ error: message, lastOwnerGuard: guard })
     }
 
-    const { organization: authorizedOrganization, target: authorizedTarget, result } = mutation
+    const { organization: authorizedOrganization, target: authorizedTarget, updatedMember } = mutation
     const serviceLogAction = 'organization_member_role_updated'
     logOrganizationEvent(req, serviceLogAction, req.params.id, userId, {
         requestId: input.requestId,
@@ -1122,7 +1118,7 @@ export async function patchOrganizationMemberRole(req: FastifyRequest<{ Params: 
         .filter(roleCanWriteWatchlist)
     return res.send({
         organization: updated ? toOrganization(updated) : null,
-        member: toMember(result.rows[0] as OrganizationMemberRow),
+        member: toMember(updatedMember as OrganizationMemberRow),
         roleChange: {
             schemaVersion: 'organization.member_role_change.v1',
             organizationId: req.params.id,

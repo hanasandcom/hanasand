@@ -1,7 +1,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import { randomUUID } from 'crypto'
 import run from '#db'
-import { updateOrganizationInviteAction, upsertAdminAccessRecoveryApproval, upsertOrganizationInvite } from '#utils/db/identityDataWrites.ts'
+import { updateActiveOrganizationMemberRole, updateOrganizationInviteAction, upsertAdminAccessRecoveryApproval, upsertOrganizationInvite } from '#utils/db/identityDataWrites.ts'
 import { activeOrganizationOwnerCount as activeOwnerCount } from '#utils/organizationMemberships.ts'
 import { compileAuditQuery } from '#utils/auditQuery.ts'
 import { hasOrganizationPrivacyDeletionMarker, organizationPrivacyDeletionInProgress } from '#utils/organizationLifecycle.ts'
@@ -3680,21 +3680,17 @@ export async function postSupportOrganizationMemberRoleRecovery(req: FastifyRequ
         })
     }
 
-    const updated = await run(`
-        UPDATE organization_members
-        SET role = $3
-        WHERE organization_id = $1
-          AND user_id = $2
-          AND status = 'active'
-        RETURNING *
-    `, [organization.id, req.params.userId, input.role])
-    if (!updated.rows.length) {
+    const updated = await updateActiveOrganizationMemberRole({
+        organizationId: organization.id,
+        userId: req.params.userId,
+        role: input.role,
+    })
+    if (!updated) {
         return res.status(404).send({ error: 'Active organization member not found.' })
     }
-    await run('UPDATE organizations SET updated_at = NOW() WHERE id = $1', [organization.id])
     const updatedMember = {
         ...member,
-        ...(updated.rows[0] as Record<string, unknown>),
+        ...(updated as Record<string, unknown>),
     }
     const after = membershipSnapshot(updatedMember)
 

@@ -177,6 +177,26 @@ export async function upsertOrganizationMember(input: {
     }
 }
 
+export async function updateActiveOrganizationMemberRole(input: {
+    organizationId: string
+    userId: string
+    role: string
+}, query: IdentityQuery = run) {
+    const updated = await query(`
+        UPDATE organization_members
+           SET role = $3
+         WHERE organization_id = $1
+           AND user_id = $2
+           AND status = 'active'
+        RETURNING *
+    `, [input.organizationId, input.userId, input.role])
+    const member = updated.rows[0]
+    if (!member) return null
+
+    await query('UPDATE organizations SET updated_at = NOW() WHERE id = $1', [input.organizationId])
+    return member
+}
+
 export async function upsertOrganizationInvite(input: {
     id: string
     organizationId: string
