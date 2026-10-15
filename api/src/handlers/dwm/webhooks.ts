@@ -514,17 +514,21 @@ export async function postDwmWebhookDestinationTest(req: FastifyRequest<{ Params
 }
 
 export function destinationTestResponseOutcome(delivery: { status?: string | null, error?: unknown }) {
-    const failed = delivery.status === 'failed' || Boolean(delivery.error)
+    const failed = webhookResponseFailed(delivery)
     return failed
         ? { status: 502, failed: true, code: 'webhook_destination_test_failed', error: 'Webhook destination test failed.' }
         : { status: 202, failed: false }
 }
 
 export function deliveryResponseOutcome(deliveries: Array<{ status?: string | null, error?: unknown }>) {
-    const failed = deliveries.some(delivery => delivery.status === 'failed' || Boolean(delivery.error))
+    const failed = deliveries.some(webhookResponseFailed)
     return failed
         ? { status: 502, failed: true, code: 'webhook_delivery_failed', error: 'Webhook delivery failed.' }
         : { status: 202, failed: false }
+}
+
+function webhookResponseFailed(delivery: { status?: string | null, error?: unknown }) {
+    return delivery.status === 'failed' || Boolean(delivery.error)
 }
 
 export async function getDwmWebhookDeliveries(req: FastifyRequest<{ Querystring: OrgQuery }>, res: FastifyReply) {
