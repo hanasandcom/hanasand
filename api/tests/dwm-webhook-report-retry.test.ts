@@ -453,9 +453,14 @@ test('rejects retry after the approved destination endpoint changes without a ne
     }
 })
 
-test('rejects a persisted payload whose canonical body no longer matches its hash', async () => {
+test('rejects a tampered payload hash before validating its embedded report', async () => {
     const { retryDwmWebhookDelivery } = await import('../src/utils/dwm/webhooks.ts')
-    persistedDelivery = { ...failedDeliveryFixture('2020-07-23T10:01:00.000Z'), payload_hash: 'payload_tampered' }
+    const fixture = failedDeliveryFixture('2020-07-23T10:01:00.000Z')
+    persistedDelivery = {
+        ...fixture,
+        payload: { ...fixture.payload, report: { exportChecksum: 'case_report_invalid' } },
+        payload_hash: 'payload_tampered',
+    }
     const previousLive = process.env.DWM_WEBHOOK_LIVE_DELIVERY
     process.env.DWM_WEBHOOK_LIVE_DELIVERY = 'true'
     let networkAttempts = 0
@@ -466,6 +471,28 @@ test('rejects a persisted payload whose canonical body no longer matches its has
         })
         expect(result).toMatchObject({ ok: false, status: 409, code: 'persisted_payload_invalid' })
         expect(networkAttempts).toBe(0)
+    } finally {
+        if (previousLive === undefined) delete process.env.DWM_WEBHOOK_LIVE_DELIVERY
+        else process.env.DWM_WEBHOOK_LIVE_DELIVERY = previousLive
+    }
+})
+
+test('rejects an invalid persisted report before retrying its payload', async () => {
+    const { retryDwmWebhookDelivery } = await import('../src/utils/dwm/webhooks.ts')
+    const fixture = failedDeliveryFixture('2020-07-23T10:01:00.000Z')
+    const payload = { ...fixture.payload, report: { exportChecksum: 'case_report_invalid' } }
+    persistedDelivery = { ...fixture, payload, payload_hash: payloadHash(canonicalJson(payload)) }
+    const previousLive = process.env.DWM_WEBHOOK_LIVE_DELIVERY
+    process.env.DWM_WEBHOOK_LIVE_DELIVERY = 'true'
+    let networkAttempts = 0
+    try {
+        const result = await retryDwmWebhookDelivery('member_2', 'org_1', persistedDelivery.id, async () => {
+            networkAttempts += 1
+            return { status: 204, body: '' }
+        })
+        expect(result).toMatchObject({ ok: false, status: 409, code: 'persisted_report_invalid' })
+        expect(networkAttempts).toBe(0)
+        expect(insertedDelivery).toBeUndefined()
     } finally {
         if (previousLive === undefined) delete process.env.DWM_WEBHOOK_LIVE_DELIVERY
         else process.env.DWM_WEBHOOK_LIVE_DELIVERY = previousLive

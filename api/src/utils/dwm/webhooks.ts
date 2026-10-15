@@ -7299,25 +7299,9 @@ export async function retryDwmWebhookDelivery(
         const delivered = await findDeliveredDwmWebhookDelivery(orgId, destination.id, prior.idempotency_key)
         if (delivered) return { ok: false as const, status: 409, code: 'delivery_already_delivered', error: 'This exact idempotency lineage already has a delivered attempt.' }
 
-        const payload = prior.payload
-        const payloadBody = canonicalJson(payload)
-        const payloadHash = hashWebhookValue('payload', payloadBody)
-        if (payloadHash !== prior.payload_hash) {
-            return { ok: false as const, status: 409, code: 'persisted_payload_invalid', error: 'The persisted delivery payload does not match its stored hash.' }
-        }
-        const persistedReport = reportFromPersistedPayload(payload)
-        if (persistedReport) {
-            const checksum = clean(persistedReport.exportChecksum)
-            const validation = validateOutboundThirdPartyReport(persistedReport, {
-                organizationId: orgId,
-                alertId: prior.alert_id,
-                dedupeKey: checksum,
-            })
-            const expectedIdempotencyKey = buildIdempotencyKey(prior.event_type, orgId, destination.id, checksum)
-            if (!validation.valid || prior.idempotency_key !== expectedIdempotencyKey) {
-                return { ok: false as const, status: 409, code: 'persisted_report_invalid', error: validation.error || 'The persisted report idempotency lineage is invalid.' }
-            }
-        }
+        const persistedPayload = validatePersistedDwmWebhookRetryPayload(prior, destination, orgId)
+        if (!persistedPayload.ok) return { status: 409 as const, ...persistedPayload }
+        const { payloadBody, payloadHash, persistedReport } = persistedPayload
 
         const attemptedAt = new Date().toISOString()
         let responseStatus: number | null = null
@@ -7430,6 +7414,42 @@ export async function retryDwmWebhookDelivery(
                 auditActorId: ownerId,
             },
         }})
+}
+
+function validatePersistedDwmWebhookRetryPayload(
+    prior: DwmWebhookDeliveryRow,
+    destination: DwmWebhookDestinationRow,
+    orgId: string,
+) {
+    const payloadBody = canonicalJson(prior.payload)
+    const payloadHash = hashWebhookValue('payload', payloadBody)
+    if (payloadHash !== prior.payload_hash) {
+        return {
+            ok: false as const,
+            code: 'persisted_payload_invalid',
+            error: 'The persisted delivery payload does not match its stored hash.',
+        }
+    }
+
+    const persistedReport = reportFromPersistedPayload(prior.payload)
+    if (persistedReport) {
+        const checksum = clean(persistedReport.exportChecksum)
+        const validation = validateOutboundThirdPartyReport(persistedReport, {
+            organizationId: orgId,
+            alertId: prior.alert_id,
+            dedupeKey: checksum,
+        })
+        const expectedIdempotencyKey = buildIdempotencyKey(prior.event_type, orgId, destination.id, checksum)
+        if (!validation.valid || prior.idempotency_key !== expectedIdempotencyKey) {
+            return {
+                ok: false as const,
+                code: 'persisted_report_invalid',
+                error: validation.error || 'The persisted report idempotency lineage is invalid.',
+            }
+        }
+    }
+
+    return { ok: true as const, payloadBody, payloadHash, persistedReport }
 }
 
 function reportFromPersistedPayload(payload: unknown) {
