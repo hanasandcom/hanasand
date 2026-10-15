@@ -480,10 +480,47 @@ test('support session can be created, inspected, then revoked through its audit 
         auditEventIds: [102],
     })
 
+    const repeatedRevoke = await request(postSupportSessionRevoke, {
+        params: { sessionId },
+        body: { reason: 'Repeat revoke check', requestId: 'session-revoke-repeat' },
+    })
+    expect(repeatedRevoke.statusCode).toBe(409)
+    expect(repeatedRevoke.body.detail.code).toBe('support_session_revoked')
+    expect(recordedEvents.at(-1)).toMatchObject({ actionType: 'support.session.revoke', outcome: 'failed', context: { blockerCode: 'support_session_revoked' } })
+
     const inspectedAfterRevoke = await request(getSupportSession, { params: { sessionId } })
     expect(inspectedAfterRevoke.statusCode).toBe(200)
     expect(inspectedAfterRevoke.body.supportSession).toMatchObject({ id: sessionId, status: 'revoked' })
-    expect(recordedEvents.filter(event => ['support.session.create', 'support.session.revoke'].includes(String(event.actionType)))).toHaveLength(2)
+    expect(recordedEvents.filter(event => ['support.session.create', 'support.session.revoke'].includes(String(event.actionType)))).toHaveLength(3)
+})
+
+test('expired support session revoke uses the lifecycle status and records a denial', async () => {
+    const sessionId = 'support_session_expired'
+    supportSessionEvents.push({
+        id: 99,
+        event_type: 'support.session.create',
+        actor_id: 'support-admin',
+        subject_id: sessionId,
+        request_id: 'session-create-expired',
+        reason: 'Investigate a reported account issue',
+        outcome: 'success',
+        context: { expiresAt: '2000-01-01T00:00:00.000Z' },
+    })
+
+    const result = await request(postSupportSessionRevoke, {
+        params: { sessionId },
+        body: { reason: 'Investigation complete', requestId: 'session-revoke-expired' },
+    })
+
+    expect(result.statusCode).toBe(409)
+    expect(result.body.detail.code).toBe('support_session_expired')
+    expect(result.body.detail.supportSession).toMatchObject({ id: sessionId, status: 'expired' })
+    expect(recordedEvents.at(-1)).toMatchObject({
+        actionType: 'support.session.revoke',
+        outcome: 'denied',
+        context: { supportSessionId: sessionId, blockerCode: 'support_session_expired' },
+    })
+    expect(supportSessionEvents.filter(event => event.subject_id === sessionId && event.event_type === 'support.session.revoke' && event.outcome === 'success')).toHaveLength(0)
 })
 
 test('approval-required access recovery holds its invite through the shared revoke contract', async () => {

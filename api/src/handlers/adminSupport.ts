@@ -956,7 +956,7 @@ export async function postSupportSessionRevoke(req: FastifyRequest<{ Params: Sup
         })
         return res.status(404).send(supportError('support_session_not_found', 'Support session not found.', { supportSessionId }))
     }
-    if (state.revokedAt) {
+    if (state.status === 'revoked') {
         await recordSupportSessionRevokeAudit(req, {
             actorId: actor.id,
             supportSessionId,
@@ -971,7 +971,7 @@ export async function postSupportSessionRevoke(req: FastifyRequest<{ Params: Sup
             supportSession: supportSessionResponse({ ...state, actorId: state.actorId, reason: state.reason, requestId: state.requestId, auditEventIds: state.auditEventIds, status: 'revoked' }),
         }))
     }
-    if (Date.parse(state.expiresAt) <= Date.now()) {
+    if (state.status === 'expired') {
         await recordSupportSessionRevokeAudit(req, {
             actorId: actor.id,
             supportSessionId,
