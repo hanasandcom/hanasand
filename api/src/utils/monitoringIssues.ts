@@ -50,7 +50,8 @@ export async function claimMonitoringNotification(automation: AutomationRow, iss
     })
 }
 
-export async function recordMonitoringOutcome(automation: AutomationRow, runId: string, kind: 'failure' | 'warning' | null, message: string, transactionQuery?: typeof run) {
+export async function recordMonitoringOutcome(automation: AutomationRow, runId: string, kind: 'failure' | 'warning' | null, message: string,
+    transactionQuery?: typeof run, deliver = deliverDiscordWebhookFile) {
     const save = async (query: typeof run) => {
         await query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [monitoringScope(automation)])
         const check = (await query('SELECT issue_id FROM agent_automation_runs WHERE id = $1 FOR UPDATE', [runId])).rows[0]
@@ -91,11 +92,12 @@ export async function recordMonitoringOutcome(automation: AutomationRow, runId: 
         try { await attachDiskDiagnostics(String(issue), automation) }
         catch (error) { console.error('Disk diagnostics could not be attached:', error instanceof Error ? error.message : 'unknown error') }
     }
-    await notifyMonitoringOutcome(automation, runId, issue, kind)
+    await notifyMonitoringOutcome(automation, runId, issue, kind, deliver)
     return issue
 }
 
-export async function notifyMonitoringOutcome(automation: AutomationRow, runId: string, issue: string | null, kind: 'failure' | 'warning' | null) {
+export async function notifyMonitoringOutcome(automation: AutomationRow, runId: string, issue: string | null, kind: 'failure' | 'warning' | null,
+    deliver = deliverDiscordWebhookFile) {
     if (!issue || !kind || automation.notify_on === 'never' || kind === 'warning' && !automation.notify_warnings && automation.notify_on !== 'always') return
     // Use persisted check history so restarts and intermittent successes do not
     // bypass the grace period. Cases and their raw outcomes remain immediate.
@@ -112,7 +114,7 @@ export async function notifyMonitoringOutcome(automation: AutomationRow, runId: 
         // Reserve in PostgreSQL before delivery: concurrent workers and restarts cannot send duplicates.
         if (!await claimMonitoringNotification(automation, String(issue), destination)) continue
         try {
-            const receipt = await deliverDiscordWebhookFile(destination, alert.content, true, alert.embeds)
+            const receipt = await deliver(destination, alert.content, true, alert.embeds)
             await run(`WITH delivered AS (
                 UPDATE monitoring_issue_notifications SET delivered_at = NOW(), next_attempt_at = NOW() + INTERVAL '24 hours',
                     last_error = NULL, message_id = $3, mentioned_everyone = $4 WHERE issue_id = $1 AND destination = $2 RETURNING issue_id, delivered_at

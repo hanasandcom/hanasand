@@ -1,4 +1,5 @@
 import { expect, mock, test } from 'bun:test'
+import type { deliverDiscordWebhookFile } from '../src/utils/alerts/discordWebhookFile.ts'
 
 let enabled = false
 let claims = 0
@@ -21,25 +22,26 @@ mock.module('../src/utils/db.ts', () => ({
         return { rows: sql.startsWith('INSERT') ? [{ id: '1' }] : [{}] }
     }),
 }))
-mock.module('../src/utils/alerts/discordWebhookFile.ts', () => ({
-    redactSecretBearingText: (value: string) => value,
-    deliverDiscordWebhookFile: async (...args: unknown[]) => { delivered = args; deliveries++; return { id: 'receipt' } },
-}))
 const { recordMonitoringOutcome } = await import('../src/utils/monitoringIssues.ts')
 import type { AutomationRow } from '../src/utils/automations.ts'
 
 test('case notification preference suppresses delivery until re-enabled', async () => {
     const automation = { id: 'monitor', monitoring_type: 'fetch', target_url: 'https://example.test', notify_on: 'failure', notification_destinations: ['destination'] } as AutomationRow
-    await recordMonitoringOutcome(automation, 'run-1', 'failure', 'HTTP 503')
+    const deliver: typeof deliverDiscordWebhookFile = async (...args) => {
+        delivered = args
+        deliveries++
+        return { id: 'receipt' }
+    }
+    await recordMonitoringOutcome(automation, 'run-1', 'failure', 'HTTP 503', undefined, deliver)
     expect(claims).toBe(0)
     expect(deliveries).toBe(0)
     enabled = true
     ready = false
     currentRun = 'run-2'
-    await recordMonitoringOutcome(automation, 'run-2', 'failure', 'HTTP 503')
+    await recordMonitoringOutcome(automation, 'run-2', 'failure', 'HTTP 503', undefined, deliver)
     expect(claims).toBe(0)
     ready = true
-    await recordMonitoringOutcome(automation, 'run-2', 'failure', 'HTTP 503')
+    await recordMonitoringOutcome(automation, 'run-2', 'failure', 'HTTP 503', undefined, deliver)
     expect(claims).toBe(1)
     expect(deliveries).toBe(1)
     expect(delivered).toMatchObject(['destination', '[HA-1](https://hanasand.com/cases/HA-1)', true, [{ url: 'https://hanasand.com/cases/HA-1', description: 'HTTP 503' }]])
