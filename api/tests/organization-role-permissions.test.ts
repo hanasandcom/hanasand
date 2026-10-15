@@ -12,6 +12,7 @@ let queryCalls = 0
 let inviteAcceptanceWinsRace = false
 let inviteReads = 0
 const writes: string[] = []
+const statements: Array<{ sql: string, params: unknown[] }> = []
 const serviceLogs: Record<string, any>[] = []
 const systemEvents: Record<string, any>[] = []
 const apiKeys: Record<string, any>[] = []
@@ -25,6 +26,7 @@ const destination = { id: 'target', orgId: 'org', ownerId: 'owner', name: 'Deliv
 const query = async (sql: string, params: unknown[] = []) => {
     queryCalls++
     const statement = sql.replace(/\s+/g, ' ').trim()
+    statements.push({ sql: statement, params })
     if (/^\s*(INSERT|UPDATE|DELETE)/.test(sql)) writes.push(sql)
     if (statement.includes('COUNT(*)::int AS owner_count')) return { rows: [{ owner_count: 1 }] }
     if (statement.startsWith('SELECT * FROM organization_invites')) {
@@ -92,7 +94,7 @@ app.post('/org/:id/watchlists', org.postOrganizationWatchlist)
 app.patch('/org/:id/members/:userId/role', org.patchOrganizationMemberRole)
 app.delete('/org/:id/members/:userId', org.deleteOrganizationMember)
 
-beforeEach(() => { role = 'reader'; active = true; authenticated = true; archived = false; queryCalls = 0; inviteAcceptanceWinsRace = false; inviteReads = 0; writes.length = 0; serviceLogs.length = 0; systemEvents.length = 0; apiKeys.length = 0; apiKeyScopes.length = 0 })
+beforeEach(() => { role = 'reader'; active = true; authenticated = true; archived = false; queryCalls = 0; inviteAcceptanceWinsRace = false; inviteReads = 0; writes.length = 0; statements.length = 0; serviceLogs.length = 0; systemEvents.length = 0; apiKeys.length = 0; apiKeyScopes.length = 0 })
 
 test('legacy roles and invitations become Reader without gaining permissions', () => {
     for (const legacy of ['member', 'viewer']) {
@@ -174,6 +176,27 @@ test('member role receipt uses the watchlist handler policy for readers and edit
     expect(receipt.after.canMutateSharedWatchlists).toBe(true)
     expect(receipt.downstreamReadinessReceipt.after.watchlistMutationReady).toBe(true)
     expect(receipt.downstreamReadinessReceipt.roleGates.mutateWatchlists).toEqual(['owner', 'admin', 'editor'])
+})
+
+test('member mutations lock user rows in stable order before the organization row', async () => {
+    role = 'owner'
+    const responses = [
+        await app.inject({ method: 'PATCH', url: '/org/org/members/a-target/role', payload: { role: 'editor', reason: 'Grant access.' } }),
+        await app.inject({ method: 'DELETE', url: '/org/org/members/a-target' }),
+        await app.inject({ method: 'POST', url: '/org/org/ownership-transfer', payload: { targetUserId: 'a-target', reason: 'Transfer ownership.' } }),
+    ]
+
+    expect(responses.map(response => response.statusCode)).toEqual([200, 200, 200])
+    const userLocks = statements.flatMap((statement, index) => statement.sql.includes('FROM users WHERE id = ANY($1::text[]) ORDER BY id FOR UPDATE') ? [index] : [])
+    const organizationLocks = statements.flatMap((statement, index) => statement.sql === 'SELECT id FROM organizations WHERE id = $1 FOR UPDATE' ? [index] : [])
+
+    expect(userLocks).toHaveLength(3)
+    expect(organizationLocks).toHaveLength(3)
+    userLocks.forEach((userLock, index) => {
+        expect(organizationLocks[index]).toBe(userLock + 1)
+        expect(statements[userLock].params).toEqual([['a-target', 'actor']])
+        expect(statements[organizationLocks[index]].params).toEqual(['org'])
+    })
 })
 
 test('Editor can remove a delivery target; Reader and legacy roles cannot', async () => {

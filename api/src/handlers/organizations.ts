@@ -601,14 +601,7 @@ export async function deleteOrganizationMember(req: FastifyRequest<{ Params: Org
     }
 
     const mutation = await withTransaction(async query => {
-        await query(`
-            SELECT id
-            FROM users
-            WHERE id = ANY($1::text[])
-            ORDER BY id
-            FOR UPDATE
-        `, [[userId, req.params.userId].sort()])
-        await query('SELECT id FROM organizations WHERE id = $1 FOR UPDATE', [req.params.id])
+        await lockOrganizationMemberMutationScope(query, req.params.id, [userId, req.params.userId])
 
         const lockedOrganization = await loadOrganizationForMember(req.params.id, userId, query)
         if (!lockedOrganization) return { error: 'organization_not_found' as const }
@@ -971,14 +964,7 @@ export async function patchOrganizationMemberRole(req: FastifyRequest<{ Params: 
     }
 
     const mutation = await withTransaction(async query => {
-        await query(`
-            SELECT id
-            FROM users
-            WHERE id = ANY($1::text[])
-            ORDER BY id
-            FOR UPDATE
-        `, [[userId, req.params.userId].sort()])
-        await query('SELECT id FROM organizations WHERE id = $1 FOR UPDATE', [req.params.id])
+        await lockOrganizationMemberMutationScope(query, req.params.id, [userId, req.params.userId])
 
         const lockedOrganization = await loadOrganizationForMember(req.params.id, userId, query)
         if (!lockedOrganization) return { error: 'organization_not_found' as const }
@@ -1247,14 +1233,7 @@ export async function postOrganizationOwnershipTransfer(req: FastifyRequest<{ Pa
     }
 
     const transferOutcome = await withTransaction(async query => {
-        await query(`
-            SELECT id
-            FROM users
-            WHERE id = ANY($1::text[])
-            ORDER BY id
-            FOR UPDATE
-        `, [[userId, input.targetUserId].sort()])
-        await query('SELECT id FROM organizations WHERE id = $1 FOR UPDATE', [req.params.id])
+        await lockOrganizationMemberMutationScope(query, req.params.id, [userId, input.targetUserId])
         const lockedOrganization = await loadOrganizationForMember(req.params.id, userId, query)
         if (!lockedOrganization) return { error: 'organization_not_found' as const }
         if (lockedOrganization.role !== 'owner') return { error: 'organization_role_forbidden' as const, organization: lockedOrganization }
@@ -3134,6 +3113,17 @@ async function loadOrganizationForMember(organizationId: string, userId: string,
     `, [organizationId, userId])
 
     return result.rows[0] as OrganizationRow | undefined
+}
+
+async function lockOrganizationMemberMutationScope(query: typeof run, organizationId: string, userIds: string[]) {
+    await query(`
+        SELECT id
+        FROM users
+        WHERE id = ANY($1::text[])
+        ORDER BY id
+        FOR UPDATE
+    `, [[...userIds].sort()])
+    await query('SELECT id FROM organizations WHERE id = $1 FOR UPDATE', [organizationId])
 }
 
 async function loadOrganizationMemberRequest(
