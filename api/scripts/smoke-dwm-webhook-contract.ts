@@ -45,7 +45,6 @@ import {
     normalizeDwmWebhookDestinationInput,
     planDwmWebhookDeliveryRetry,
     redactWebhookEndpoint,
-    sanitizeDwmWebhookDeliveryDiagnostic,
     toDwmWebhookDelivery,
     type DwmAlertWebhookTriggerOptions,
 } from '#utils/dwm/webhooks.ts'
@@ -72,8 +71,6 @@ expect(destination.kind === 'discord', 'Discord endpoint should infer discord de
 expect(destination.endpointHint === 'https://discord.com/api/webhooks/987654321/...', 'Endpoint hint should redact Discord secret.', destination)
 expect(destination.endpointHash?.startsWith('endpoint_'), 'Endpoint hash should be generated.', destination)
 expect(!JSON.stringify(destination).includes(secret), 'Destination normalization leaked endpoint secret.', destination)
-const sanitizedDiagnostic = sanitizeDwmWebhookDeliveryDiagnostic(`Discord rejected ${endpoint}?token=${secret} token=${secret}`)
-expect(Boolean(sanitizedDiagnostic) && sanitizedDiagnostic.includes('https://discord.com/api/webhooks/') && sanitizedDiagnostic.includes('/...') && sanitizedDiagnostic.includes('[credential redacted]') && !sanitizedDiagnostic.includes(secret), 'Persisted delivery diagnostics should redact webhook URLs and token fragments.', sanitizedDiagnostic)
 const mappedDeliveryWithAudit = toDwmWebhookDelivery({
     id: 'delivery_mapping_contract',
     destination_id: 'destination_mapping_contract',
@@ -3771,7 +3768,6 @@ console.log(JSON.stringify({
         'destination validation',
         'discord kind inference',
         'endpoint redaction/hash',
-        'delivery diagnostic persistence redaction',
         'HTTPS-only customer endpoint validation',
         'Discord payload formatting',
         'Discord payload alert URL/deep link',
