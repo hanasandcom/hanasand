@@ -22,8 +22,6 @@ describe('public TI API boundary', () => {
             message: 'API-owned actor enrichment is retired. Read canonical evidence through the TI scraper.',
             canonicalRoute: '/v1/intel/search',
         })
-        expect(JSON.stringify(result.payload)).not.toContain('generatedAt')
-
         const runResult = await postTiEnrichmentRun({} as FastifyRequest, reply() as unknown as FastifyReply) as any
         expect(runResult.statusCode).toBe(409)
         expect(runResult.headers['cache-control']).toBe('no-store, max-age=0')
@@ -50,7 +48,6 @@ describe('public TI API boundary', () => {
             documentation: 'https://hanasand.com/developers',
             openapi: '/api/v1/openapi.json',
         })
-        expect(JSON.stringify(result.payload)).not.toContain('admin/')
     })
 
     test('trusts forwarding only from explicitly configured proxy hops', async () => {

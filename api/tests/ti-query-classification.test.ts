@@ -184,7 +184,7 @@ test('accepts the scraper canonicalizing actor query casing', async () => {
     }
 })
 
-test('preserves database-backed actor classification for named aliases', async () => {
+test('preserves scraper actor classification and cache passthrough for named aliases', async () => {
     const previousScraperBase = process.env.TI_SCRAPER_API_BASE
     const originalFetch = globalThis.fetch
     let requestedUrl = ''

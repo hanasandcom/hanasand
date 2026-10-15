@@ -124,7 +124,11 @@ describe('public TI v1', () => {
     })
 
     test('keeps single search anonymous and returns stable request-correlated failures', async () => {
-        const app = await testApp()
+        let searchCalls = 0
+        const app = await testApp(undefined, async () => {
+            searchCalls++
+            return searchResult
+        })
         const success = await app.inject({ method: 'POST', url: '/api/v1/ti/search', payload: { query: 'APT29' } })
         expect(success.statusCode).toBe(200)
         expect(success.json().query).toBe('APT29')
@@ -133,10 +137,17 @@ describe('public TI v1', () => {
         expect(success.json().actorIntelligence.infrastructure).toEqual(['203.0.113.10', 'https://infra.example.test/path'])
         expect(success.body).not.toContain('news.google.com/rss/articles')
         expect(success.headers['x-request-id']).toMatch(/^[0-9a-f-]{36}$/)
+        expect(searchCalls).toBe(1)
 
-        const invalid = await app.inject({ method: 'POST', url: '/api/v1/ti/search', payload: { query: 'x', tenantId: 'forbidden' } })
-        expect(invalid.statusCode).toBe(400)
-        expect(invalid.json()).toEqual({ error: { code: 'invalid_query', message: 'query must contain 2-200 characters.', requestId: invalid.headers['x-request-id'] } })
+        const shortQuery = await app.inject({ method: 'POST', url: '/api/v1/ti/search', payload: { query: 'x' } })
+        expect(shortQuery.statusCode).toBe(400)
+        expect(shortQuery.json()).toEqual({ error: { code: 'invalid_query', message: 'query must contain 2-200 characters.', requestId: shortQuery.headers['x-request-id'] } })
+        expect(searchCalls).toBe(1)
+
+        const unsupportedField = await app.inject({ method: 'POST', url: '/api/v1/ti/search', payload: { query: 'APT29', tenantId: 'forbidden' } })
+        expect(unsupportedField.statusCode).toBe(400)
+        expect(unsupportedField.json()).toEqual({ error: { code: 'invalid_query', message: 'query must contain 2-200 characters.', requestId: unsupportedField.headers['x-request-id'] } })
+        expect(searchCalls).toBe(1)
     })
 
     test('preflights scraper health for public search without changing the search payload contract', async () => {
