@@ -33,6 +33,7 @@ await queryOnce(`
     CREATE TABLE users (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
+        email TEXT,
         password TEXT NOT NULL,
         avatar TEXT NOT NULL,
         active BOOLEAN NOT NULL DEFAULT TRUE,
@@ -60,6 +61,20 @@ await queryOnce(`
         id TEXT PRIMARY KEY,
         attempts INT NOT NULL DEFAULT 0,
         ip TEXT NOT NULL DEFAULT ''
+    );
+    CREATE TABLE mail_accounts (user_id TEXT PRIMARY KEY, mail_username TEXT NOT NULL);
+    CREATE TABLE article_ownership (
+        id TEXT PRIMARY KEY,
+        owner_id TEXT REFERENCES users(id) ON DELETE RESTRICT,
+        organization_id TEXT,
+        CHECK (num_nonnulls(owner_id, organization_id) = 1)
+    );
+    CREATE TABLE system_events (
+        id BIGSERIAL PRIMARY KEY,
+        actor_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+        object_type TEXT,
+        object_id TEXT,
+        context JSONB NOT NULL DEFAULT '{}'::jsonb
     );
     CREATE TABLE api_rate_limit_settings (
         id TEXT PRIMARY KEY,
@@ -165,6 +180,14 @@ await queryOnce(`
     VALUES
         ('commercial-creator', 'Commercial Creator', 'test', ''),
         ('commercial-admin', 'Commercial Admin', 'test', '')
+`)
+await queryOnce(`
+    INSERT INTO article_ownership (id, owner_id) VALUES ('commercial-creator.md', 'commercial-creator');
+    INSERT INTO attempts (id, attempts) VALUES ('commercial-creator', 2);
+    INSERT INTO login_events (user_id, ip, user_agent, status, reason)
+    VALUES ('commercial-creator', '198.51.100.12', 'Commercial smoke', 'failed', 'bad_password');
+    INSERT INTO system_events (actor_id, object_type, object_id, context)
+    VALUES ('commercial-creator', 'user', 'commercial-creator', '{"targetId":"commercial-creator","targetName":"Commercial Creator"}'::jsonb)
 `)
 await queryOnce(`
     INSERT INTO tokens (id, token, ip, user_agent)
@@ -554,6 +577,15 @@ try {
         enabled: true,
     })
     assert.equal(Number((await reopened.query('SELECT COUNT(*) count FROM api_keys WHERE id = $1', [legacyUnboundKey.apiKey.id])).rows[0].count), 0)
+    assert.equal(Number((await reopened.query('SELECT COUNT(*) count FROM article_ownership WHERE owner_id = $1', ['commercial-creator'])).rows[0].count), 0)
+    assert.equal(Number((await reopened.query('SELECT COUNT(*) count FROM attempts WHERE id = $1', ['commercial-creator'])).rows[0].count), 0)
+    assert.equal(Number((await reopened.query('SELECT COUNT(*) count FROM login_events WHERE user_id = $1', ['commercial-creator'])).rows[0].count), 0)
+    assert.deepEqual((await reopened.query('SELECT actor_id, object_type, object_id, context FROM system_events')).rows[0], {
+        actor_id: null,
+        object_type: 'user',
+        object_id: null,
+        context: {},
+    })
     assert.deepEqual((await reopened.query(`
         SELECT column_name, is_nullable
         FROM information_schema.columns

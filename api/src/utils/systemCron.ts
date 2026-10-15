@@ -8,6 +8,7 @@ import { getBackgroundJobRuntime, type BackgroundJobRuntime } from './background
 import { canRunApiCronJobNow, HOST_UPDATE_MONITOR_JOB_ID, isApiCronJobPaused, runApiCronJobNow, setApiCronJobPaused } from './cron.ts'
 import { ORGANIZATION_RETENTION_JOB_ID } from './organizationPrivacy.ts'
 import { RULE_STORAGE_ESTIMATE_JOB_ID } from './events/ruleStorageEstimateWorker.ts'
+import { ACCOUNT_DELETION_PURGE_JOB_ID } from './auth/purgeDeletedAccounts.ts'
 import { getVulnerabilityReport, setVulnerabilityScannerPaused, startTrackedVulnerabilityScan, VULNERABILITY_SCAN_CADENCE_SECONDS, VULNERABILITY_SCAN_JOB_ID } from './vulnerabilities/scanner.ts'
 import { collectDatabaseBackupServices, createDatabaseBackup, DATABASE_BACKUP_JOB_ID, setDatabaseBackupSchedulePaused } from './db/backups.ts'
 
@@ -233,6 +234,16 @@ const apiBackgroundJobDefinitions: Array<{
         schedule: 'Every minute',
         cadenceSeconds: API_CRON_CADENCE_SECONDS,
         source: 'api/src/utils/organizationPrivacy.ts',
+        controls: ['pause', 'resume', 'run_now'],
+    },
+    {
+        id: ACCOUNT_DELETION_PURGE_JOB_ID,
+        name: 'Account deletion retention',
+        description: 'Permanently removes accounts and account credentials after the 30-day restore period.',
+        category: 'Backup/Database',
+        schedule: 'Every minute',
+        cadenceSeconds: API_CRON_CADENCE_SECONDS,
+        source: 'api/src/utils/auth/purgeDeletedAccounts.ts',
         controls: ['pause', 'resume', 'run_now'],
     },
     {

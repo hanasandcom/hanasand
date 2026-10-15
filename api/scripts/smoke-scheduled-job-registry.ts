@@ -48,6 +48,8 @@ assert.ok(byId.get('ti-public-canary-collection')?.controls.includes('run_now'),
 assert.equal(byId.get('api-agent-automations')?.controlMode, 'safe_control')
 assert.ok(byId.get('api-agent-automations')?.controls.includes('pause'), 'API automation cron should expose persisted pause control.')
 assert.ok(byId.get('api-agent-automations')?.controls.includes('run_now'), 'API automation cron should expose safe run-now control.')
+assert.equal(byId.get('api-user-account-deletion')?.schedule, 'Every minute', 'Due account deletion should run automatically each minute.')
+assert.ok(byId.get('api-user-account-deletion')?.controls.includes('run_now'), 'Account deletion should expose the same tracked manual runner.')
 assert.equal(byId.get('api-hot-cache-refresh')?.controlMode, 'observable_only', 'Fastify cache refresh stays audit-only because it needs server instance state.')
 assert.equal(byId.get('ti-source-pack-worker')?.controlMode, 'run_only', 'Source-pack worker should expose the existing pack_worker_run contract.')
 assert.ok(byId.get('ti-source-pack-worker')?.controls.includes('run_now'), 'Source-pack worker should expose safe run-now control.')

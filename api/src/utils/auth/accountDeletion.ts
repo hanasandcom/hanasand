@@ -46,5 +46,17 @@ export async function accountDeletionOrganizationBlocker(userId: string, query: 
     `, [userId])
     const row = result.rows[0] as { id?: unknown, name?: unknown, active_api_key?: unknown } | undefined
     if (!row || typeof row.id !== 'string' || typeof row.name !== 'string') return null
-    return { id: row.id, name: row.name, activeApiKey: row.active_api_key === true }
+    return { kind: 'organization' as const, id: row.id, name: row.name, activeApiKey: row.active_api_key === true }
+}
+
+export function scrubDeletedUserAuditContext(value: unknown, identities: string[]): unknown {
+    if (typeof value === 'string') return identities.includes(value) ? '[deleted user]' : value
+    if (Array.isArray(value)) return value.map(item => scrubDeletedUserAuditContext(item, identities))
+    if (!value || typeof value !== 'object') return value
+
+    return Object.fromEntries(Object.entries(value as Record<string, unknown>).flatMap(([key, item]) => {
+        const identifiesUser = /^(?:target|actor|user|account)[_-]?(?:id|name|email)$/i.test(key)
+            && typeof item === 'string' && identities.includes(item)
+        return identifiesUser ? [] : [[key, scrubDeletedUserAuditContext(item, identities)]]
+    }))
 }

@@ -14,6 +14,7 @@ import { ORGANIZATION_RETENTION_JOB_ID, runOrganizationRetentionWorker } from '.
 import { persistHostUpdateStatus, readHostUpdateStatus, updateHosts } from './aptUpdates.ts'
 import { RULE_STORAGE_ESTIMATE_JOB_ID, runRuleStorageEstimateWorker } from './events/ruleStorageEstimateWorker.ts'
 import { getBackgroundJobRuntime } from './backgroundJobRuntime.ts'
+import purgeDeletedAccounts, { ACCOUNT_DELETION_PURGE_JOB_ID } from './auth/purgeDeletedAccounts.ts'
 
 export const HOST_UPDATE_MONITOR_JOB_ID = 'api-host-update-monitor'
 export const WEB_SCAN_JOB_ID = 'api-web-security-scanner'
@@ -45,6 +46,7 @@ const apiCronRunners: Record<string, () => Promise<unknown> | unknown> = {
         return result
     },
     [RULE_STORAGE_ESTIMATE_JOB_ID]: runRuleStorageEstimateWorker,
+    [ACCOUNT_DELETION_PURGE_JOB_ID]: purgeDeletedAccounts,
 }
 
 export function canRunApiCronJobNow(id: string) {
@@ -108,6 +110,7 @@ export default function cron() {
                 runDueApiCronJob('api-agent-automations'),
                 runDueApiCronJob(ORGANIZATION_RETENTION_JOB_ID),
                 runDueApiCronJob(RULE_STORAGE_ESTIMATE_JOB_ID),
+                runDueApiCronJob(ACCOUNT_DELETION_PURGE_JOB_ID),
             ]
 
             if (mailConfig.adminPassword) {
