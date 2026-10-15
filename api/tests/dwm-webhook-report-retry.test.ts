@@ -596,7 +596,7 @@ test('exposes report identity from the persisted delivery audit projection', asy
     })
 })
 
-test('persists one deterministic receiver receipt and filters it before the read limit', async () => {
+test('persists one deterministic receiver receipt and builds report filters before the read limit', async () => {
     const {
         listDwmWebhookReceiverReceipts,
         recordDwmWebhookReceiverReceipt,
