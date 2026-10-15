@@ -48,6 +48,13 @@ test('explicit completions use model output, retain policy checks and never subs
         connected = false
         expect((await app.inject({ method: 'POST', url: '/ai', payload })).json().status).toBe('connecting')
         expect((await app.inject({ method: 'POST', url: '/ai', payload: { prompt: payload.prompt } })).json().status).toBe('connecting')
+        const disconnectedScaffold = (await app.inject({
+            method: 'POST',
+            url: '/ai',
+            payload: { action: 'scaffold', prompt: 'Build a small website with a Dockerfile.' },
+        })).json()
+        expect(disconnectedScaffold).toMatchObject({ status: 'completed', model: 'share-builder' })
+        expect(disconnectedScaffold.message).toContain('<hanasand-tool>')
         blocked = true
         expect((await app.inject({ method: 'POST', url: '/ai', payload })).statusCode).toBe(403)
     } finally { await app.close() }

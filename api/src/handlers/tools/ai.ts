@@ -176,21 +176,6 @@ export default async function aiTool(req: FastifyRequest, res: FastifyReply) {
     const preferredClient = pickModelClient(clients, strategy)
 
     if (!preferredClient) {
-        const fallback = scaffoldRequested ? buildShareProjectResponse(prompt) : null
-        if (fallback) {
-            await recordBuilderResponse({
-                actorId,
-                prompt,
-                context,
-                response: fallback,
-                billingMode: body.billingMode,
-                strategy,
-            })
-            return res.send({
-                ...fallback,
-                modelStrategy: strategy,
-            })
-        }
         await recordToolAiEconomics({
             actorId,
             billingMode: body.billingMode,
@@ -254,21 +239,6 @@ export default async function aiTool(req: FastifyRequest, res: FastifyReply) {
         }))
     } catch (error) {
         req.log.error({ error, promptLength: prompt.length, clientName: preferredClient.name }, 'Hanasand AI tool request failed')
-        const fallback = scaffoldRequested ? buildShareProjectResponse(prompt) : null
-        if (fallback) {
-            await recordBuilderResponse({
-                actorId,
-                prompt,
-                context,
-                response: fallback,
-                billingMode: body.billingMode,
-                strategy,
-                kind: 'ai_run_failed',
-                outcome: 'fallback_completed',
-                model: preferredClient.name,
-            })
-            return res.send(await enforceGeneratedToolPolicy(req, actorId, fallback))
-        }
         await recordToolAiEconomics({
             actorId,
             billingMode: body.billingMode,
@@ -478,9 +448,6 @@ async function recordBuilderResponse({
     response,
     billingMode,
     strategy,
-    kind = 'ai_run_completed',
-    outcome = 'completed',
-    model,
 }: {
     actorId: string | null
     prompt: string
@@ -488,20 +455,17 @@ async function recordBuilderResponse({
     response: GeneratedBuilderResponse
     billingMode?: ToolAiEconomicsInput['billingMode']
     strategy: ModelToolStrategy
-    kind?: ToolAiEconomicsInput['kind']
-    outcome?: string
-    model?: string
 }) {
     await recordCommonCacheHit({ actorId, prompt, context, response, billingMode })
     await recordToolAiEconomics({
         actorId,
         billingMode,
-        kind,
-        outcome,
+        kind: 'ai_run_completed',
+        outcome: 'completed',
         prompt,
         context,
         responseText: response.message,
-        model: String(model || response.model || 'share-builder'),
+        model: response.model,
         startedAt: Date.now(),
         toolCalls: parseGeneratedToolCalls(response.message).length,
         cache: response.cache,
