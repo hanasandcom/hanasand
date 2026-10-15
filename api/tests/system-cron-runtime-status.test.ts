@@ -1,13 +1,14 @@
 import { expect, mock, test } from 'bun:test'
 
 const purgeJobId = 'api-user-account-deletion'
+let paused = false
 
 mock.module('../src/utils/events/rawLogRetention.ts', () => ({ RAW_LOG_RETENTION_JOB_ID: 'api-raw-log-retention' }))
 mock.module('../src/utils/vms/collectMetrics.ts', () => ({ VM_METRICS_JOB_ID: 'api-vm-metrics' }))
 mock.module('../src/utils/cron.ts', () => ({
     canRunApiCronJobNow: (id: string) => id === purgeJobId,
     HOST_UPDATE_MONITOR_JOB_ID: 'api-host-update-monitor',
-    isApiCronJobPaused: async() => false,
+    isApiCronJobPaused: async() => paused,
     runApiCronJobNow: async() => undefined,
     setApiCronJobPaused: async() => {},
 }))
@@ -60,5 +61,14 @@ test('registry reports a failed rerun while retaining the last successful result
         failureCount: 1,
         lastSuccessAt: successfulRun.lastSuccessAt,
         lastError: 'mail provider unavailable',
+    })
+
+    paused = true
+    const pausedJob = (await listUnifiedScheduledJobs()).find(item => item.id === purgeJobId)
+    expect(pausedJob).toMatchObject({
+        status: 'paused',
+        enabled: false,
+        nextRunAt: null,
+        controls: ['resume', 'run_now'],
     })
 })

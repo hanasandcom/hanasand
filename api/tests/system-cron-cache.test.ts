@@ -7,6 +7,7 @@ const previousEnvironment = {
     DB_BACKUP_WORKER_URL: process.env.DB_BACKUP_WORKER_URL,
     HANASAND_SCANNER_SERVICE_TOKEN: process.env.HANASAND_SCANNER_SERVICE_TOKEN,
     HANASAND_SCANNER_URL: process.env.HANASAND_SCANNER_URL,
+    MAIL_ADMIN_PASSWORD: process.env.MAIL_ADMIN_PASSWORD,
     TI_SCRAPER_API_BASE: process.env.TI_SCRAPER_API_BASE,
 }
 const originalFetch = globalThis.fetch
@@ -51,13 +52,16 @@ afterAll(() => {
     restoreEnvironment('DB_BACKUP_WORKER_URL', previousEnvironment.DB_BACKUP_WORKER_URL)
     restoreEnvironment('HANASAND_SCANNER_SERVICE_TOKEN', previousEnvironment.HANASAND_SCANNER_SERVICE_TOKEN)
     restoreEnvironment('HANASAND_SCANNER_URL', previousEnvironment.HANASAND_SCANNER_URL)
+    restoreEnvironment('MAIL_ADMIN_PASSWORD', previousEnvironment.MAIL_ADMIN_PASSWORD)
     restoreEnvironment('TI_SCRAPER_API_BASE', previousEnvironment.TI_SCRAPER_API_BASE)
 })
 
 test('fast snapshots stay provisional while concurrent reads share the active refresh', async () => {
     try {
+        process.env.MAIL_ADMIN_PASSWORD = ''
         const fastSnapshot = await listUnifiedScheduledJobs({ fast: true })
         expect(fastSnapshot.find(job => job.id === 'api-user-account-deletion')).toMatchObject({ status: 'unknown', schedule: 'Every minute' })
+        expect(fastSnapshot.some(job => job.id === 'api-mail-account-provisioning')).toBe(false)
         expect(fastSnapshot.find(job => job.id === 'ti-public-canary-collection')?.status).toBe('blocked')
         const requestsDuringRefresh = tiRequestCount
         expect(requestsDuringRefresh).toBeGreaterThan(0)
@@ -66,9 +70,11 @@ test('fast snapshots stay provisional while concurrent reads share the active re
         const secondRead = listUnifiedScheduledJobs()
         expect(tiRequestCount).toBe(requestsDuringRefresh)
 
+        process.env.MAIL_ADMIN_PASSWORD = 'configured-for-test'
         releaseTiRequests()
         const [firstJobs, secondJobs] = await Promise.all([firstRead, secondRead])
         expect(firstJobs).toBe(secondJobs)
+        expect(firstJobs.some(job => job.id === 'api-mail-account-provisioning')).toBe(true)
         expect(backupRequestCount).toBe(1)
         expect(await listUnifiedScheduledJobs({ fast: true })).toBe(firstJobs)
     } finally {
