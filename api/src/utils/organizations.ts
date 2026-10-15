@@ -3020,6 +3020,14 @@ export function organizationMemberAccessContract(
     }
 }
 
+function watchlistIdsByLifecycleStatus(terms: Pick<OrganizationWatchlistTerm, 'watchlistItemId' | 'status'>[]) {
+    return {
+        activeIds: terms.filter(term => term.status === 'active').map(term => term.watchlistItemId),
+        pausedIds: terms.filter(term => term.status === 'paused').map(term => term.watchlistItemId),
+        archivedIds: terms.filter(term => term.status === 'archived').map(term => term.watchlistItemId),
+    }
+}
+
 export function organizationDownstreamAuthorizationExport(
     organization: Pick<OrganizationRow, 'id' | 'status' | 'default_webhook_policy' | 'alert_visibility_policy' | 'role'>,
     items: OrganizationWatchlistRow[],
@@ -3037,9 +3045,7 @@ export function organizationDownstreamAuthorizationExport(
         kind: term.kind,
         status: term.status,
     }))
-    const activeIds = states.filter(state => state.status === 'active').map(state => state.watchlistItemId)
-    const pausedIds = states.filter(state => state.status === 'paused').map(state => state.watchlistItemId)
-    const archivedIds = states.filter(state => state.status === 'archived').map(state => state.watchlistItemId)
+    const { activeIds, pausedIds, archivedIds } = watchlistIdsByLifecycleStatus(states)
     const allowedActions = organizationAlertCaseRoleActions(member.role)
     const roleContract = organizationAlertCaseRoleActionContract(member)
     const blockerCodes: OrganizationWatchlistAlertBridgeBlockerCode[] = []
@@ -3446,9 +3452,7 @@ export function organizationSharedWatchlistDownstreamProof(
 ): OrganizationSharedWatchlistDownstreamProof {
     const watchlistStates = organizationWatchlistTerms(items)
     const activeTerms = alertGeneration.activeWatchlistTerms
-    const activeIds = watchlistStates.filter(state => state.status === 'active').map(state => state.watchlistItemId)
-    const pausedIds = watchlistStates.filter(state => state.status === 'paused').map(state => state.watchlistItemId)
-    const archivedIds = watchlistStates.filter(state => state.status === 'archived').map(state => state.watchlistItemId)
+    const { activeIds, pausedIds, archivedIds } = watchlistIdsByLifecycleStatus(watchlistStates)
     const alertGeneratorKeys = activeTerms.map(term => organizationWatchlistAlertGenerationRef(term).dedupe.key)
     const alertBlockers = Array.from(new Set([
         ...alertGeneration.blockedReasons,
