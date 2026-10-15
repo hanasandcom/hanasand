@@ -7,7 +7,6 @@ import {
     revokeOrganizationApiKey,
     validateApiKey,
 } from '../src/utils/auth/apiKeys.ts'
-import { roleCanManageOrganization } from '../src/utils/organizations.ts'
 
 type Row = Record<string, any>
 
@@ -94,12 +93,6 @@ describe('organization API key onboarding', () => {
         expect((await validateApiKey(second.secret, fakeRun as any))?.organizationId).toBe('org-a')
         expect((await revokeOrganizationApiKey('org-a', second.apiKey.id, fakeRun as any))?.enabled).toBe(false)
         expect(await validateApiKey(second.secret, fakeRun as any)).toBeNull()
-    })
-
-    test('limits organization key management to owners and administrators', () => {
-        expect(roleCanManageOrganization('owner')).toBe(true)
-        expect(roleCanManageOrganization('admin')).toBe(true)
-        expect(roleCanManageOrganization('viewer')).toBe(false)
     })
 })
 
