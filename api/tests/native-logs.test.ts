@@ -19,6 +19,7 @@ mock.module('node:fs', () => ({ existsSync: () => false, promises: {} }))
 mock.module('node:child_process', () => ({ execFile: mockExecFile }))
 
 const { listNativeLogs, listNativeLogServices } = await import('../src/utils/logs/native.ts')
+const { mergeLogServices } = await import('../src/utils/logs/services.ts')
 const originalFetch = globalThis.fetch
 const originalTimeoutDescriptor = Object.getOwnPropertyDescriptor(AbortSignal, 'timeout')!
 
@@ -100,4 +101,24 @@ test('remote native endpoints return empty results for non-OK and failed request
     globalThis.fetch = (async () => { fetchCalls++; throw new Error('upstream unavailable') }) as typeof fetch
     expect(await listNativeLogServices(4)).toEqual([])
     expect(fetchCalls).toBe(2)
+})
+
+test('native and stored service summaries add counts, keep the latest timestamp, and sort by service', () => {
+    expect(mergeLogServices([
+        [
+            { service: 'zeta', last_seen: '2026-10-15T12:00:00.000Z', entries: 1 },
+            { service: 'api', last_seen: '2026-10-15T10:00:00.000Z', entries: 2 },
+            { service: 'tie', last_seen: '2026-10-15T10:00:00.000Z', entries: 1 },
+        ],
+        [
+            { service: 'api', last_seen: '2026-10-15T11:00:00.000Z', entries: 3 },
+            { service: 'alpha', last_seen: '2026-10-15T09:00:00.000Z', entries: 4 },
+            { service: 'tie', last_seen: '2026-10-15T11:00:00+01:00', entries: 2 },
+        ],
+    ])).toEqual([
+        { service: 'alpha', last_seen: '2026-10-15T09:00:00.000Z', entries: 4 },
+        { service: 'api', last_seen: '2026-10-15T11:00:00.000Z', entries: 5 },
+        { service: 'tie', last_seen: '2026-10-15T10:00:00.000Z', entries: 3 },
+        { service: 'zeta', last_seen: '2026-10-15T12:00:00.000Z', entries: 1 },
+    ])
 })
