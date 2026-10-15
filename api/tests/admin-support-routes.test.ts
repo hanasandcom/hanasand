@@ -156,6 +156,10 @@ async function request(handler: (req: any, res: any) => unknown, input: {
     return result
 }
 
+function activeSupportOrganizationFixture() {
+    return { id: 'org-1', name: 'Org', slug: 'org', status: 'active' }
+}
+
 beforeEach(() => {
     actor = { valid: true, id: 'support-admin', impersonating: false }
     internalAccess = true
@@ -483,7 +487,7 @@ test('support session can be created, inspected, then revoked through its audit 
 })
 
 test('approval-required access recovery holds its invite through the shared revoke contract', async () => {
-    supportOrganization = { id: 'org-1', name: 'Org', slug: 'org', status: 'active' }
+    supportOrganization = activeSupportOrganizationFixture()
     supportRecoveryInviteUpsert = {
         id: 'recovery-invite-1', organization_id: 'org-1', email: 'owner@example.test', role: 'admin',
         status: 'pending', expires_at: '2026-11-01T00:00:00.000Z', accepted_at: null, accepted_by: null,
@@ -523,7 +527,7 @@ test('approval-required access recovery holds its invite through the shared revo
 })
 
 test('access recovery records a failed audit if an invite is accepted before it can be held', async () => {
-    supportOrganization = { id: 'org-1', name: 'Org', slug: 'org', status: 'active' }
+    supportOrganization = activeSupportOrganizationFixture()
     supportRecoveryInviteUpsert = {
         id: 'recovery-invite-1', organization_id: 'org-1', email: 'owner@example.test', role: 'admin',
         status: 'pending', expires_at: '2026-11-01T00:00:00.000Z', accepted_at: null, accepted_by: null,
@@ -645,7 +649,7 @@ test('access recovery approval rejects an expired invite without changing its pe
 })
 
 test('support invite action returns an audited accepted-invite denial when acceptance wins the update race', async () => {
-    supportOrganization = { id: 'org-1', name: 'Org', slug: 'org', status: 'active' }
+    supportOrganization = activeSupportOrganizationFixture()
     acceptedInviteWinsRace = true
 
     const result = await request(postSupportOrganizationInviteAction, {
@@ -674,7 +678,7 @@ test('support invite action returns an audited accepted-invite denial when accep
 })
 
 test('executor blocker audits retain the shared no-mutation contract for invite assistance', async () => {
-    supportOrganization = { id: 'org-1', name: 'Org', slug: 'org', status: 'active' }
+    supportOrganization = activeSupportOrganizationFixture()
     supportAvailabilityResults = [[{ organization_id: 'org-1', active_admin_count: 1 }]]
 
     const result = await request(postSupportOrganizationInvite, {
@@ -701,7 +705,7 @@ test('executor blocker audits retain the shared no-mutation contract for invite 
 })
 
 test('executor blocker audits retain invite action identity and severity', async () => {
-    supportOrganization = { id: 'org-1', name: 'Org', slug: 'org', status: 'active' }
+    supportOrganization = activeSupportOrganizationFixture()
 
     const result = await request(postSupportOrganizationInviteAction, {
         params: { id: 'org-1', inviteId: 'invite-1' },
@@ -722,7 +726,7 @@ test('executor blocker audits retain invite action identity and severity', async
 })
 
 test('executor blocker audits retain resend and admin-role severity rules', async () => {
-    supportOrganization = { id: 'org-1', name: 'Org', slug: 'org', status: 'active' }
+    supportOrganization = activeSupportOrganizationFixture()
 
     const resend = await request(postSupportOrganizationInviteAction, {
         params: { id: 'org-1', inviteId: 'invite-1' },
@@ -747,7 +751,7 @@ test('executor blocker audits retain resend and admin-role severity rules', asyn
 })
 
 test('support role recovery shares the active-member write and retains its audited receipt', async () => {
-    supportOrganization = { id: 'org-1', name: 'Org', slug: 'org', status: 'active' }
+    supportOrganization = activeSupportOrganizationFixture()
 
     const result = await request(postSupportOrganizationMemberRoleRecovery, {
         params: { id: 'org-1', userId: 'member-1' },
@@ -775,7 +779,7 @@ test('support role recovery shares the active-member write and retains its audit
 })
 
 test('support role recovery rechecks owner protection inside the membership transaction', async () => {
-    supportOrganization = { id: 'org-1', name: 'Org', slug: 'org', status: 'active' }
+    supportOrganization = activeSupportOrganizationFixture()
     supportMemberRole = 'owner'
     supportOwnerCounts = [2, 1]
 
@@ -803,7 +807,7 @@ test('support role recovery rechecks owner protection inside the membership tran
 })
 
 test('support role recovery locks active organization admins and rechecks their availability', async () => {
-    supportOrganization = { id: 'org-1', name: 'Org', slug: 'org', status: 'active' }
+    supportOrganization = activeSupportOrganizationFixture()
     supportAvailabilityResults = [[], [{ organization_id: 'org-1', active_admin_count: 1 }]]
 
     const result = await request(postSupportOrganizationMemberRoleRecovery, {
