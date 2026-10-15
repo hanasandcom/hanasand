@@ -6,19 +6,13 @@ boundaries. Follow applicable project and module instructions. Adopt this guide
 deliberately; preserve project constraints and record local tailoring in
 [project context](PROJECT.md).
 
-Match coordination to the task. For a small, cohesive change, work directly or
-use one agent. For a broad audit, refactor, or task spanning independent
-features, follow this repository's parallel-work policy in [project
-context](PROJECT.md): delegate independent areas early and use as many available
-agent slots as there are genuinely independent tasks. Keep authorized work
-queued, monitor progress, and assign follow-up or independent review as soon as
-an owner finishes. When the user requests separate task chats and the platform
-supports them, coordinate those workstreams too. Give each worker bounded scope
-and exclusive path ownership. Do not make independent work wait behind a serial
-queue, and do not create work merely to fill agent slots. The root integrator
-owns shared Git state and final combined verification. Supporting files are
-conditional references; load the coordination guide for multi-owner or
-interrupted work, not as ceremony for a small task.
+Use one agent by default. Add plans, records, dependencies or delegation only
+when they resolve a concrete need. For a small task, inspect the relevant
+context, make the change, verify it and report the result. Supporting files are
+conditional references, not a requirement to load every procedure or template.
+For broad refactors, follow the parallel-work policy in [project
+context](PROJECT.md), which records this repository's local tailoring. Keep
+portable defaults here and project-specific orchestration in that context.
 
 ## Establish readiness
 
