@@ -42,6 +42,17 @@ export function supportSessionIdFromRequest(req: FastifyRequest, body: { support
     return supportText(headerText(req.headers['x-support-session-id']) || body?.supportSessionId || body?.support_session_id)
 }
 
+export function supportSessionIdFromAuditEvent(input: { context?: unknown, entityId?: unknown }) {
+    const context = input.context && typeof input.context === 'object' && !Array.isArray(input.context)
+        ? input.context as Record<string, unknown>
+        : {}
+    const explicitId = supportText(context.supportSessionId)
+    if (explicitId) return explicitId
+
+    const entityId = supportText(input.entityId)
+    return entityId.startsWith('support_session_') ? entityId : ''
+}
+
 export function normalizeOption(value: unknown, allowed: string[]) {
     const normalized = supportText(value).toLowerCase()
     return allowed.includes(normalized) ? normalized : ''

@@ -55,11 +55,12 @@ const lifecycleRows = [
         session_revoked_at: null,
     },
 ]
+let guardrailRows: Record<string, any>[] = []
 
 mock.module('#db', () => ({
     default: async (sql: string) => {
         if (sql.includes('FROM impersonation_events e')) return { rows: lifecycleRows }
-        if (sql.includes('FROM system_events event')) return { rows: [] }
+        if (sql.includes('FROM system_events event')) return { rows: guardrailRows }
         throw new Error(`Unexpected query: ${sql}`)
     },
 }))
@@ -106,4 +107,24 @@ test('timeline receipts agree on active, stopped, expired, and incomplete lifecy
             missingDurationEventIds: [4],
         },
     })
+})
+
+test('guardrail replay distinguishes support sessions from impersonation session IDs', async () => {
+    guardrailRows = [
+        { id: 11, event_type: 'impersonation.start', outcome: 'success', subject_id: 'impersonation-11', context: { sessionId: 'impersonation-11' } },
+        { id: 12, event_type: 'impersonation.start', outcome: 'success', subject_id: 'support_session_tagged', context: { sessionId: 'impersonation-12' } },
+        { id: 13, event_type: 'impersonation.start', outcome: 'success', subject_id: 'impersonation-13', context: { sessionId: 'impersonation-13', supportSessionId: 'support_session_explicit' } },
+    ]
+
+    const response = await app.inject('/impersonation/events')
+    expect(response.statusCode).toBe(200)
+    const { timeline } = response.json()
+    expect(timeline.guardrailReplay.events.map((event: Record<string, any>) => event.supportSessionId)).toEqual([
+        null, 'support_session_tagged', 'support_session_explicit',
+    ])
+    expect(timeline.guardrailReplay.events[0].links.supportSession).toBeNull()
+    expect(timeline.guardrailReplay.supportSessionIds).toEqual(['support_session_tagged', 'support_session_explicit'])
+    expect(timeline.caseReview.guardrailEvents.map((event: Record<string, any>) => event.supportSessionId)).toEqual([
+        '', 'support_session_tagged', 'support_session_explicit',
+    ])
 })

@@ -2,6 +2,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify'
 import crypto from 'crypto'
 import run from '#db'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
+import { supportSessionIdFromAuditEvent } from '#utils/support/adminSupportInput.ts'
 import { loadSupportSessionState } from '#utils/support/supportSessionState.ts'
 import { actorHasHanasandInternalAccess, recordSystemEvent, requireAuditReason } from '#utils/systemEvent.ts'
 
@@ -665,6 +666,7 @@ async function loadImpersonationGuardrailAuditEvents(filters: Record<string, unk
 function supportImpersonationGuardrailAuditReplay(filters: Record<string, unknown>, rows: Array<Record<string, any>>) {
     const events = rows.map((row) => {
         const context = row.context as Record<string, any> || {}
+        const supportSessionId = supportSessionIdFromAuditEvent({ context, entityId: row.subject_id })
         return {
             schemaVersion: 'support.impersonation.guardrail_audit_event.v1',
             id: Number(row.id),
@@ -685,7 +687,7 @@ function supportImpersonationGuardrailAuditReplay(filters: Record<string, unknow
             entityId: row.subject_id || null,
             requestId: row.request_id || context.requestId || null,
             reasonPresent: Boolean(cleanText(row.reason)),
-            supportSessionId: context.supportSessionId || context.sessionId || null,
+            supportSessionId: supportSessionId || null,
             durationMinutes: context.durationMinutes ?? null,
             expiresAt: context.expiresAt || null,
             scope: Array.isArray(context.scope) ? context.scope.map(item => cleanText(item)).filter(Boolean) : [],
@@ -695,7 +697,7 @@ function supportImpersonationGuardrailAuditReplay(filters: Record<string, unknow
             links: {
                 detail: `/api/admin/audit-events/${encodeURIComponent(String(row.id))}`,
                 request: row.request_id ? `/api/admin/audit-events?request=${encodeURIComponent(String(row.request_id))}&action=impersonation.start&source=admin&service=hanasand-api` : null,
-                supportSession: context.supportSessionId ? `/api/admin/support/sessions/${encodeURIComponent(String(context.supportSessionId))}` : null,
+                supportSession: supportSessionId ? `/api/admin/support/sessions/${encodeURIComponent(supportSessionId)}` : null,
             },
         }
     })
@@ -989,6 +991,7 @@ function impersonationCaseReviewPacket(filters: Record<string, unknown>, timelin
     const targetIds = uniqueImpersonationValues(timeline.map(event => event.target?.id))
     const guardrailEvents = guardrailRows.map(row => {
         const context = row.context && typeof row.context === 'object' ? row.context as Record<string, unknown> : {}
+        const supportSessionId = supportSessionIdFromAuditEvent({ context, entityId: row.subject_id })
         return {
             id: Number(row.id),
             actionType: cleanText(row.event_type),
@@ -999,7 +1002,7 @@ function impersonationCaseReviewPacket(filters: Record<string, unknown>, timelin
             entityId: cleanText(row.subject_id),
             requestId: cleanText(row.request_id),
             reason: cleanText(row.reason),
-            supportSessionId: cleanText(context.supportSessionId || context.sessionId),
+            supportSessionId,
             blockerCode: cleanText(context.blockerCode || context.errorCode),
             durationMinutes: context.durationMinutes ?? null,
             scope: Array.isArray(context.scope) ? context.scope.map(item => cleanText(item)).filter(Boolean) : [],

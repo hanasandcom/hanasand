@@ -5,7 +5,7 @@ import { updateActiveOrganizationMemberRole, updateOrganizationInviteAction, ups
 import { activeOrganizationOwnerCount as activeOwnerCount } from '#utils/organizationMemberships.ts'
 import { compileAuditQuery } from '#utils/auditQuery.ts'
 import { hasOrganizationPrivacyDeletionMarker, organizationPrivacyDeletionInProgress } from '#utils/organizationLifecycle.ts'
-import { cleanContext, headerText, normalizeApprovalStatus, normalizeOption, normalizeSupportPreparationDuration, normalizeSupportPreparationExpiry, normalizeSupportPreparationScope, normalizeSupportSessionActions, normalizeSupportSessionDuration, normalizeSupportSessionExpiry, normalizeSupportSessionScope, supportError, supportInspectionAuditContext, supportInspectionAuditMetadata, supportRequestId, supportSessionIdFromRequest, supportText as text } from '#utils/support/adminSupportInput.ts'
+import { cleanContext, headerText, normalizeApprovalStatus, normalizeOption, normalizeSupportPreparationDuration, normalizeSupportPreparationExpiry, normalizeSupportPreparationScope, normalizeSupportSessionActions, normalizeSupportSessionDuration, normalizeSupportSessionExpiry, normalizeSupportSessionScope, supportError, supportInspectionAuditContext, supportInspectionAuditMetadata, supportRequestId, supportSessionIdFromAuditEvent, supportSessionIdFromRequest, supportText as text } from '#utils/support/adminSupportInput.ts'
 import { auditFilterValidationError } from '#utils/support/auditFilterValidation.ts'
 import { loadSupportSessionState } from '#utils/support/supportSessionState.ts'
 import { auditFilterQuery, supportInspectionActionAuditContract, supportInspectionAuditDetailPacket, supportInspectionAuditFilterCoverage, supportInspectionAuthorizationMatrix, supportInspectionFilters, supportInspectionOrgBoundaryProof, supportInspectionRecoveryFixturePacket, supportInspectionSearchProof, uniqueTimelineValues, type SupportTimelineFilter } from '#utils/support/inspectionPackets.ts'
@@ -698,7 +698,11 @@ export async function getSystemEvent(req: FastifyRequest<{ Params: AuditEventPar
     }
 
     const event = toSystemEvent(row)
-    const relatedTimeline = await loadSystemEventRelatedTimeline(event)
+    const supportSessionId = supportSessionIdFromAuditEvent({
+        context: row.context && typeof row.context === 'object' ? row.context as Record<string, unknown> : {},
+        entityId: row.subject_id || row.object_id || row.organization_id || null,
+    })
+    const relatedTimeline = await loadSystemEventRelatedTimeline(event, supportSessionId)
     await recordSystemEvent(req, {
         actionType: 'support.audit_event.inspect',
         actorId: actor.id,
@@ -722,7 +726,7 @@ export async function getSystemEvent(req: FastifyRequest<{ Params: AuditEventPar
     })
     return res.send({
         event,
-        detail: supportAuditEventDetailResponse(event, relatedTimeline),
+        detail: supportAuditEventDetailResponse(event, relatedTimeline, supportSessionId),
     })
 }
 
@@ -5192,14 +5196,11 @@ async function loadSupportSessionTimeline(supportSessionId: string) {
     return result.rows.map(toSystemEvent).map(event => event.detail.timelineEvent)
 }
 
-async function loadSystemEventRelatedTimeline(event: Record<string, any>) {
+async function loadSystemEventRelatedTimeline(event: Record<string, any>, supportSessionId = '') {
     const detail = event.detail || {}
-    const context = detail.context || {}
     const eventId = Number(event.id)
     const requestId = text(detail.requestId)
     const entityId = text(detail.entityId)
-    const supportSessionId = text(context.supportSessionId)
-        || (entityId.startsWith('support_session_') ? entityId : '')
     const values: Array<string | number> = [eventId]
     const where = ['e.id = $1']
     const add = (value: string | number) => {
@@ -11736,12 +11737,12 @@ function supportUserActivityRollup(input: {
 
 function toSupportAuditTimelineEvent(row: Record<string, unknown>) {
     const event = row as Record<string, any>
-    const context = redactAuditValue(event.context && typeof event.context === 'object' ? event.context : {}) as Record<string, unknown>
+    const originalContext = event.context && typeof event.context === 'object' ? event.context : {}
+    const context = redactAuditValue(originalContext) as Record<string, unknown>
     const beforeAfter = auditBeforeAfter(context)
     const id = Number(event.id)
     const entityId = event.subject_id || event.object_id || event.organization_id || null
-    const supportSessionId = text(context.supportSessionId)
-        || (text(entityId).startsWith('support_session_') ? text(entityId) : '')
+    const supportSessionId = supportSessionIdFromAuditEvent({ context: originalContext, entityId })
     const actionEvidence = supportAuditActionEvidence({ event, context, entityId, supportSessionId })
     return {
         id,
@@ -11780,13 +11781,13 @@ function toSupportAuditTimelineEvent(row: Record<string, unknown>) {
 }
 
 function toSystemEvent(row: Record<string, unknown>): Record<string, any> {
-    const context = redactAuditValue(row.context || {}) as Record<string, unknown>
+    const originalContext = row.context && typeof row.context === 'object' ? row.context : {}
+    const context = redactAuditValue(originalContext) as Record<string, unknown>
     const event = { ...row, target_name: text(context.targetName) || row.target_name || null } as Record<string, any>
     const beforeAfter = auditBeforeAfter(context)
     const id = Number(event.id)
     const entityId = event.subject_id || event.object_id || event.organization_id || null
-    const supportSessionId = text(context.supportSessionId)
-        || (text(entityId).startsWith('support_session_') ? text(entityId) : '')
+    const supportSessionId = supportSessionIdFromAuditEvent({ context: originalContext, entityId })
     const actionEvidence = supportAuditActionEvidence({ event, context, entityId, supportSessionId })
     const timelineEvent = {
         schemaVersion: 'admin.audit.timeline_event.v1',
@@ -11967,12 +11968,9 @@ function supportAuditActionEvidence(input: {
     }
 }
 
-function supportAuditEventDetailResponse(event: Record<string, any>, relatedTimeline: Array<Record<string, any>> = []) {
+function supportAuditEventDetailResponse(event: Record<string, any>, relatedTimeline: Array<Record<string, any>> = [], supportSessionId = '') {
     const detail = event.detail || {}
-    const context = detail.context || {}
     const timelineEvent = detail.timelineEvent || {}
-    const supportSessionId = text(context.supportSessionId)
-        || (text(detail.entityId).startsWith('support_session_') ? text(detail.entityId) : '')
     const filters = {
         org: detail.organizationId || '',
         actor: detail.actorId || '',

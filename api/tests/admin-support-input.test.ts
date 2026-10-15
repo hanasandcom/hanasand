@@ -16,6 +16,7 @@ import {
     supportInspectionAuditMetadata,
     supportRequestId,
     supportSessionIdFromRequest,
+    supportSessionIdFromAuditEvent,
     supportText,
 } from '../src/utils/support/adminSupportInput.ts'
 import type { FastifyRequest } from 'fastify'
@@ -51,6 +52,14 @@ test('support session action and scope inputs retain their defaults and normaliz
         code: 'invalid_scope',
         supportedScopes: ['invite:create', 'invite:resend', 'invite:revoke', 'member:role_recovery', 'recovery:invite', 'recovery:approve', 'recovery:deny', 'read_profile', 'read_org', 'support_debug'],
     })
+})
+
+test('audit event support-session identity uses explicit support IDs or tagged entities only', () => {
+    expect(supportSessionIdFromAuditEvent({ context: { supportSessionId: '  scoped-session  ' }, entityId: 'support_session_entity' }))
+        .toBe('scoped-session')
+    expect(supportSessionIdFromAuditEvent({ context: {}, entityId: 'support_session_entity' })).toBe('support_session_entity')
+    expect(supportSessionIdFromAuditEvent({ context: { sessionId: 'impersonation-session' }, entityId: 'impersonation-session' })).toBe('')
+    expect(supportSessionIdFromAuditEvent({ context: null, entityId: null })).toBe('')
 })
 
 test('support preparation scope keeps action-specific defaults, allowlists, and errors', () => {
