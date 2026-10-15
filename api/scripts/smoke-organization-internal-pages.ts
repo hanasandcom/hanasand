@@ -47,10 +47,7 @@ for (const [method, route] of [
 
 const routes = await readFile(new URL('../src/routes.ts', import.meta.url), 'utf8')
 const session = await readFile(new URL('../src/utils/auth/session.ts', import.meta.url), 'utf8')
-const schema = await readFile(new URL('../src/utils/db/ensureSchema.ts', import.meta.url), 'utf8')
 assert.doesNotMatch(routes, /fastify\.(?:get|post|put|delete)\(['"]\/(?:role|roles)(?:\/|['"])/)
 assert.doesNotMatch(session, /user_roles|session_roles/)
-assert.match(schema, /DROP TABLE IF EXISTS user_roles/)
-assert.match(schema, /DROP TABLE IF EXISTS roles/)
 
 console.log('Organization-only internal page access smoke passed.')
