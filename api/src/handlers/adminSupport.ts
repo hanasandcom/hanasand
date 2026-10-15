@@ -4,7 +4,7 @@ import run from '#db'
 import { upsertAdminAccessRecoveryApproval, upsertOrganizationInvite } from '#utils/db/identityDataWrites.ts'
 import { compileAuditQuery } from '#utils/auditQuery.ts'
 import { hasOrganizationPrivacyDeletionMarker, organizationPrivacyDeletionInProgress } from '#utils/organizationLifecycle.ts'
-import { cleanContext, headerText, normalizeApprovalStatus, normalizeOption, normalizeSupportSessionActions, normalizeSupportSessionDuration, normalizeSupportSessionExpiry, normalizeSupportSessionScope, supportError, supportInspectionAuditContext, supportInspectionAuditMetadata, supportRequestId, supportSessionIdFromRequest, supportText as text } from '#utils/support/adminSupportInput.ts'
+import { cleanContext, headerText, normalizeApprovalStatus, normalizeOption, normalizeSupportPreparationScope, normalizeSupportSessionActions, normalizeSupportSessionDuration, normalizeSupportSessionExpiry, normalizeSupportSessionScope, supportError, supportInspectionAuditContext, supportInspectionAuditMetadata, supportRequestId, supportSessionIdFromRequest, supportText as text } from '#utils/support/adminSupportInput.ts'
 import { auditFilterValidationError } from '#utils/support/auditFilterValidation.ts'
 import { auditFilterQuery, supportInspectionActionAuditContract, supportInspectionAuditDetailPacket, supportInspectionAuditFilterCoverage, supportInspectionAuthorizationMatrix, supportInspectionFilters, supportInspectionOrgBoundaryProof, supportInspectionRecoveryFixturePacket, supportInspectionSearchProof, uniqueTimelineValues, type SupportTimelineFilter } from '#utils/support/inspectionPackets.ts'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
@@ -11145,26 +11145,6 @@ function supportMemberRoleRecoveryAuditQuery(input: {
     params.set('source', 'admin')
     params.set('service', 'hanasand-api')
     return `/api/admin/audit-events?${params.toString()}`
-}
-
-function normalizeSupportPreparationScope(value: unknown, action: string): { value: string[], error: Record<string, unknown> | null } {
-    const allowedByAction: Record<string, Set<string>> = {
-        invite_assist: new Set(['invite:create', 'invite:resend', 'invite:revoke']),
-        access_recovery: new Set(['recovery:invite', 'recovery:approve', 'recovery:deny']),
-        member_role_recovery: new Set(['member:role_recovery']),
-        impersonation: new Set(['read_profile', 'read_org', 'support_debug']),
-    }
-    const allowed = allowedByAction[action] || new Set<string>()
-    const raw = Array.isArray(value) ? value : typeof value === 'string' ? value.split(',') : []
-    const scope = Array.from(new Set(raw.map(item => text(item).toLowerCase()).filter(Boolean)))
-    if (!scope.length) {
-        return { value: [], error: supportError('missing_scope', 'Support action preparation scope is required.', { supportedScopes: Array.from(allowed) }) }
-    }
-    const unsupported = scope.filter(item => !allowed.has(item))
-    if (unsupported.length) {
-        return { value: [], error: supportError('invalid_scope', `Unsupported support action scope: ${unsupported[0]}.`, { supportedScopes: Array.from(allowed) }) }
-    }
-    return { value: scope, error: null }
 }
 
 function normalizeSupportPreparationDuration(value: unknown, action: string): { value: number | null, error: Record<string, unknown> | null } {

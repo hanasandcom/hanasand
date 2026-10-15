@@ -67,8 +67,7 @@ export function supportError(code: string, message: string, extra: Record<string
 
 export function normalizeSupportSessionActions(value: unknown): { value: string[], error: Record<string, unknown> | null } {
     const allowed = new Set(['invite_assist', 'invite_resend', 'invite_revoke', 'member_role_recovery', 'access_recovery', 'impersonation'])
-    const raw = Array.isArray(value) ? value : typeof value === 'string' ? value.split(',') : ['invite_assist', 'invite_resend', 'invite_revoke', 'member_role_recovery']
-    const actions = Array.from(new Set(raw.map(item => supportText(item).toLowerCase()).filter(Boolean)))
+    const actions = normalizeSupportValueList(value, ['invite_assist', 'invite_resend', 'invite_revoke', 'member_role_recovery'])
     const unsupported = actions.filter(action => !allowed.has(action))
     if (unsupported.length) {
         return { value: [], error: supportError('invalid_scope', `Unsupported support session action: ${unsupported[0]}.`, { supportedActions: Array.from(allowed) }) }
@@ -78,13 +77,36 @@ export function normalizeSupportSessionActions(value: unknown): { value: string[
 
 export function normalizeSupportSessionScope(value: unknown): { value: string[], error: Record<string, unknown> | null } {
     const allowed = new Set(['invite:create', 'invite:resend', 'invite:revoke', 'member:role_recovery', 'recovery:invite', 'recovery:approve', 'recovery:deny', 'read_profile', 'read_org', 'support_debug'])
-    const raw = Array.isArray(value) ? value : typeof value === 'string' ? value.split(',') : ['invite:create', 'invite:resend', 'invite:revoke', 'member:role_recovery']
-    const scope = Array.from(new Set(raw.map(item => supportText(item).toLowerCase()).filter(Boolean)))
+    const scope = normalizeSupportValueList(value, ['invite:create', 'invite:resend', 'invite:revoke', 'member:role_recovery'])
     const unsupported = scope.filter(item => !allowed.has(item))
     if (unsupported.length) {
         return { value: [], error: supportError('invalid_scope', `Unsupported support session scope: ${unsupported[0]}.`, { supportedScopes: Array.from(allowed) }) }
     }
     return { value: scope, error: null }
+}
+
+export function normalizeSupportPreparationScope(value: unknown, action: string): { value: string[], error: Record<string, unknown> | null } {
+    const allowedByAction: Record<string, string[]> = {
+        invite_assist: ['invite:create', 'invite:resend', 'invite:revoke'],
+        access_recovery: ['recovery:invite', 'recovery:approve', 'recovery:deny'],
+        member_role_recovery: ['member:role_recovery'],
+        impersonation: ['read_profile', 'read_org', 'support_debug'],
+    }
+    const allowed = new Set(allowedByAction[action] || [])
+    const scope = normalizeSupportValueList(value)
+    if (!scope.length) {
+        return { value: [], error: supportError('missing_scope', 'Support action preparation scope is required.', { supportedScopes: Array.from(allowed) }) }
+    }
+    const unsupported = scope.filter(item => !allowed.has(item))
+    if (unsupported.length) {
+        return { value: [], error: supportError('invalid_scope', `Unsupported support action scope: ${unsupported[0]}.`, { supportedScopes: Array.from(allowed) }) }
+    }
+    return { value: scope, error: null }
+}
+
+function normalizeSupportValueList(value: unknown, defaults: string[] = []) {
+    const raw = Array.isArray(value) ? value : typeof value === 'string' ? value.split(',') : defaults
+    return Array.from(new Set(raw.map(item => supportText(item).toLowerCase()).filter(Boolean)))
 }
 
 export function normalizeSupportSessionDuration(value: unknown): { value: number, error: Record<string, unknown> | null } {

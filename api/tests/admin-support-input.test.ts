@@ -4,6 +4,7 @@ import {
     headerText,
     normalizeApprovalStatus,
     normalizeOption,
+    normalizeSupportPreparationScope,
     normalizeSupportSessionActions,
     normalizeSupportSessionDuration,
     normalizeSupportSessionExpiry,
@@ -37,10 +38,35 @@ test('support session action and scope inputs retain their defaults and normaliz
     expect(normalizeSupportSessionScope(undefined).value).toEqual([
         'invite:create', 'invite:resend', 'invite:revoke', 'member:role_recovery',
     ])
+    expect(normalizeSupportSessionScope(' INVITE:CREATE, invite:create ').value).toEqual(['invite:create'])
     expect(normalizeSupportSessionActions(['unknown']).error?.detail).toMatchObject({
         schemaVersion: 'support.error.v1',
         code: 'invalid_scope',
         outcome: 'denied',
+    })
+    expect(normalizeSupportSessionScope(['unknown']).error?.detail).toMatchObject({
+        schemaVersion: 'support.error.v1',
+        code: 'invalid_scope',
+        supportedScopes: ['invite:create', 'invite:resend', 'invite:revoke', 'member:role_recovery', 'recovery:invite', 'recovery:approve', 'recovery:deny', 'read_profile', 'read_org', 'support_debug'],
+    })
+})
+
+test('support preparation scope keeps action-specific defaults, allowlists, and errors', () => {
+    expect(normalizeSupportPreparationScope(undefined, 'access_recovery').error?.detail).toMatchObject({
+        code: 'missing_scope',
+        supportedScopes: ['recovery:invite', 'recovery:approve', 'recovery:deny'],
+    })
+    expect(normalizeSupportPreparationScope(' RECOVERY:INVITE, recovery:invite, recovery:deny ', 'access_recovery')).toEqual({
+        value: ['recovery:invite', 'recovery:deny'],
+        error: null,
+    })
+    expect(normalizeSupportPreparationScope('invite:create', 'access_recovery').error?.detail).toMatchObject({
+        code: 'invalid_scope',
+        supportedScopes: ['recovery:invite', 'recovery:approve', 'recovery:deny'],
+    })
+    expect(normalizeSupportPreparationScope('read_profile', 'unknown').error?.detail).toMatchObject({
+        code: 'invalid_scope',
+        supportedScopes: [],
     })
 })
 
