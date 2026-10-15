@@ -227,6 +227,21 @@ test('audit and support inspection filters retain separate validation contracts'
     expect(queries).toHaveLength(0)
 })
 
+test('support inspection returns preparation validation errors before database reads', async () => {
+    const response = await request(getSupportInspection, {
+        query: {
+            org: 'org-1',
+            prepareAction: 'impersonation',
+            reason: 'Case review',
+            scope: 'read_profile',
+            duration_minutes: '4',
+        },
+    })
+    expect(response.statusCode).toBe(400)
+    expect(response.body.detail.code).toBe('invalid_duration')
+    expect(queries).toHaveLength(0)
+})
+
 test('access recovery search applies requester, approver, status, outcome, organization, and request filters', async () => {
     approvalRows = [{
         request_id: 'recovery-1',

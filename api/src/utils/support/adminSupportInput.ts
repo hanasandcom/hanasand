@@ -104,6 +104,32 @@ export function normalizeSupportPreparationScope(value: unknown, action: string)
     return { value: scope, error: null }
 }
 
+export function normalizeSupportPreparationDuration(value: unknown, action: string): { value: number | null, error: Record<string, unknown> | null } {
+    if (action !== 'impersonation' && (value === undefined || value === null || value === '')) {
+        return { value: null, error: null }
+    }
+    if (value === undefined || value === null || value === '') {
+        return { value: null, error: supportError('invalid_duration', 'Impersonation preparation duration is required.') }
+    }
+    const parsed = typeof value === 'number' ? value : Number(value)
+    if (!Number.isFinite(parsed) || parsed !== Math.trunc(parsed) || parsed < 5 || parsed > 240) {
+        return { value: null, error: supportError('invalid_duration', 'Impersonation preparation duration must be between 5 and 240 minutes.') }
+    }
+    return { value: parsed, error: null }
+}
+
+export function normalizeSupportPreparationExpiry(value: unknown): { value: string | null, error: Record<string, unknown> | null } {
+    const expiresAt = supportText(value)
+    if (!expiresAt) {
+        return { value: null, error: null }
+    }
+    const timestamp = Date.parse(expiresAt)
+    if (Number.isNaN(timestamp) || timestamp <= Date.now()) {
+        return { value: null, error: supportError('invalid_expiry', 'Support action preparation expiry must be a future timestamp.') }
+    }
+    return { value: new Date(timestamp).toISOString(), error: null }
+}
+
 function normalizeSupportValueList(value: unknown, defaults: string[] = []) {
     const raw = Array.isArray(value) ? value : typeof value === 'string' ? value.split(',') : defaults
     return Array.from(new Set(raw.map(item => supportText(item).toLowerCase()).filter(Boolean)))

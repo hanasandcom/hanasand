@@ -4,7 +4,7 @@ import run from '#db'
 import { upsertAdminAccessRecoveryApproval, upsertOrganizationInvite } from '#utils/db/identityDataWrites.ts'
 import { compileAuditQuery } from '#utils/auditQuery.ts'
 import { hasOrganizationPrivacyDeletionMarker, organizationPrivacyDeletionInProgress } from '#utils/organizationLifecycle.ts'
-import { cleanContext, headerText, normalizeApprovalStatus, normalizeOption, normalizeSupportPreparationScope, normalizeSupportSessionActions, normalizeSupportSessionDuration, normalizeSupportSessionExpiry, normalizeSupportSessionScope, supportError, supportInspectionAuditContext, supportInspectionAuditMetadata, supportRequestId, supportSessionIdFromRequest, supportText as text } from '#utils/support/adminSupportInput.ts'
+import { cleanContext, headerText, normalizeApprovalStatus, normalizeOption, normalizeSupportPreparationDuration, normalizeSupportPreparationExpiry, normalizeSupportPreparationScope, normalizeSupportSessionActions, normalizeSupportSessionDuration, normalizeSupportSessionExpiry, normalizeSupportSessionScope, supportError, supportInspectionAuditContext, supportInspectionAuditMetadata, supportRequestId, supportSessionIdFromRequest, supportText as text } from '#utils/support/adminSupportInput.ts'
 import { auditFilterValidationError } from '#utils/support/auditFilterValidation.ts'
 import { auditFilterQuery, supportInspectionActionAuditContract, supportInspectionAuditDetailPacket, supportInspectionAuditFilterCoverage, supportInspectionAuthorizationMatrix, supportInspectionFilters, supportInspectionOrgBoundaryProof, supportInspectionRecoveryFixturePacket, supportInspectionSearchProof, uniqueTimelineValues, type SupportTimelineFilter } from '#utils/support/inspectionPackets.ts'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
@@ -11145,32 +11145,6 @@ function supportMemberRoleRecoveryAuditQuery(input: {
     params.set('source', 'admin')
     params.set('service', 'hanasand-api')
     return `/api/admin/audit-events?${params.toString()}`
-}
-
-function normalizeSupportPreparationDuration(value: unknown, action: string): { value: number | null, error: Record<string, unknown> | null } {
-    if (action !== 'impersonation' && (value === undefined || value === null || value === '')) {
-        return { value: null, error: null }
-    }
-    if (value === undefined || value === null || value === '') {
-        return { value: null, error: supportError('invalid_duration', 'Impersonation preparation duration is required.') }
-    }
-    const parsed = typeof value === 'number' ? value : Number(value)
-    if (!Number.isFinite(parsed) || parsed !== Math.trunc(parsed) || parsed < 5 || parsed > 240) {
-        return { value: null, error: supportError('invalid_duration', 'Impersonation preparation duration must be between 5 and 240 minutes.') }
-    }
-    return { value: parsed, error: null }
-}
-
-function normalizeSupportPreparationExpiry(value: unknown): { value: string | null, error: Record<string, unknown> | null } {
-    const expiresAt = text(value)
-    if (!expiresAt) {
-        return { value: null, error: null }
-    }
-    const timestamp = Date.parse(expiresAt)
-    if (Number.isNaN(timestamp) || timestamp <= Date.now()) {
-        return { value: null, error: supportError('invalid_expiry', 'Support action preparation expiry must be a future timestamp.') }
-    }
-    return { value: new Date(timestamp).toISOString(), error: null }
 }
 
 function supportInspectionFilterError(rawQuery: SupportInspectionQuery, filter: Omit<SupportTimelineFilter, 'unsupported'>) {

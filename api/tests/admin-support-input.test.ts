@@ -4,6 +4,8 @@ import {
     headerText,
     normalizeApprovalStatus,
     normalizeOption,
+    normalizeSupportPreparationDuration,
+    normalizeSupportPreparationExpiry,
     normalizeSupportPreparationScope,
     normalizeSupportSessionActions,
     normalizeSupportSessionDuration,
@@ -72,6 +74,7 @@ test('support preparation scope keeps action-specific defaults, allowlists, and 
 
 test('support session duration and expiry enforce existing bounds', () => {
     expect(normalizeSupportSessionDuration(undefined)).toEqual({ value: 60, error: null })
+    expect(normalizeSupportSessionDuration(5)).toEqual({ value: 5, error: null })
     expect(normalizeSupportSessionDuration('240')).toEqual({ value: 240, error: null })
     expect(normalizeSupportSessionDuration(4.5).error?.detail.code).toBe('invalid_duration')
     expect(normalizeSupportSessionDuration(241).error?.error).toBe('Support session duration must be between 5 and 240 minutes.')
@@ -81,6 +84,30 @@ test('support session duration and expiry enforce existing bounds', () => {
     expect(normalizeSupportSessionExpiry('not-a-date', 60).error?.detail.code).toBe('invalid_expiry')
     expect(normalizeSupportSessionExpiry(new Date(Date.now() + 5 * 60 * 60_000).toISOString(), 60).error?.error)
         .toBe('Support session expiry must be within 240 minutes.')
+    const expiryBeforeDefault = Date.now()
+    const defaultExpiry = Date.parse(normalizeSupportSessionExpiry(undefined, 30).value)
+    expect(defaultExpiry).toBeGreaterThanOrEqual(expiryBeforeDefault + 30 * 60_000)
+    expect(defaultExpiry).toBeLessThanOrEqual(Date.now() + 30 * 60_000)
+    const longerThanDuration = new Date(Date.now() + 90 * 60_000)
+    expect(normalizeSupportSessionExpiry(longerThanDuration.toISOString(), 5)).toEqual({ value: longerThanDuration.toISOString(), error: null })
+})
+
+test('support preparation duration and expiry retain their distinct requirements', () => {
+    expect(normalizeSupportPreparationDuration(undefined, 'invite_assist')).toEqual({ value: null, error: null })
+    expect(normalizeSupportPreparationDuration(undefined, 'impersonation').error?.error)
+        .toBe('Impersonation preparation duration is required.')
+    expect(normalizeSupportPreparationDuration(5, 'impersonation')).toEqual({ value: 5, error: null })
+    expect(normalizeSupportPreparationDuration('240', 'impersonation')).toEqual({ value: 240, error: null })
+    expect(normalizeSupportPreparationDuration(4, 'impersonation').error?.error)
+        .toBe('Impersonation preparation duration must be between 5 and 240 minutes.')
+    expect(normalizeSupportPreparationDuration(241, 'impersonation').error?.detail.code).toBe('invalid_duration')
+
+    expect(normalizeSupportPreparationExpiry(undefined)).toEqual({ value: null, error: null })
+    expect(normalizeSupportPreparationExpiry('')).toEqual({ value: null, error: null })
+    expect(normalizeSupportPreparationExpiry('not-a-date').error?.detail.code).toBe('invalid_expiry')
+    expect(normalizeSupportPreparationExpiry(new Date(Date.now() - 60_000).toISOString()).error?.detail.code).toBe('invalid_expiry')
+    const beyondSessionLimit = new Date(Date.now() + 5 * 60 * 60_000)
+    expect(normalizeSupportPreparationExpiry(beyondSessionLimit.toISOString())).toEqual({ value: beyondSessionLimit.toISOString(), error: null })
 })
 
 test('shared support errors retain the public envelope and extra fields', () => {
