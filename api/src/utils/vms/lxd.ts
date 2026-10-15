@@ -1,7 +1,7 @@
-import http from 'node:http'
 import { isIPv4 } from 'node:net'
 import config from '#constants'
 import run from '#db'
+import { requestLxdJson, type LxdRequestOptions, type LxdResponse } from './lxdTransport.ts'
 
 type LxdInstance = {
     name: string
@@ -39,15 +39,6 @@ type LxdOperations = {
     running?: LxdOperation[]
 }
 
-type LxdResponse<T> = {
-    status_code: number
-    status: string
-    error?: string
-    metadata: T
-    operation?: string
-}
-
-type LxdRequestOptions = { method?: string, body?: unknown, timeout?: number }
 type LxdRequest = <T>(path: string, options?: LxdRequestOptions) => Promise<LxdResponse<T>>
 type VmDetails = ReturnType<typeof mapDetails>
 type VmDetailsWriter = (details: VmDetails) => Promise<void>
@@ -377,60 +368,10 @@ export async function lxdRequest<T>(path: string, options: LxdRequestOptions = {
 }
 
 async function defaultLxdRequest<T>(path: string, options: LxdRequestOptions = {}) {
-    const response = await requestJson<LxdResponse<T>>(path, options)
+    const response = await requestLxdJson<T>(config.lxd_socket_path, path, options)
     if (response.status_code >= 400 || response.error) {
         throw new Error(response.error || `LXD returned ${response.status_code}`)
     }
 
     return response
-}
-
-function requestJson<T>(path: string, options: LxdRequestOptions = {}) {
-    return new Promise<T>((resolve, reject) => {
-        const body = options.body ? JSON.stringify(options.body) : undefined
-        let incoming: http.IncomingMessage | undefined
-        const fail = (error: Error) => { clearTimeout(deadline); reject(error) }
-        const request = http.request({
-            socketPath: config.lxd_socket_path,
-            path,
-            method: options.method || 'GET',
-            headers: {
-                Accept: 'application/json',
-                ...(body ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) } : {}),
-            },
-            timeout: options.timeout ?? 125000,
-        }, response => {
-            incoming = response
-            response.on('error', fail)
-            response.once('aborted', () => fail(new Error('LXD response interrupted.')))
-            let data = ''
-            response.setEncoding('utf8')
-            response.on('data', chunk => {
-                data += chunk
-            })
-            response.on('end', () => {
-                clearTimeout(deadline)
-                try {
-                    resolve(JSON.parse(data || '{}') as T)
-                } catch (error) {
-                    reject(error)
-                }
-            })
-        })
-        // Socket inactivity timeouts alone do not bound partial responses.
-        const deadline = setTimeout(() => {
-            const error = new Error('LXD request timed out.')
-            incoming?.destroy(error)
-            request.destroy(error)
-            fail(error)
-        }, options.timeout ?? 125000)
-        request.on('timeout', () => {
-            request.destroy(new Error('LXD request timed out.'))
-        })
-        request.on('error', fail)
-        if (body) {
-            request.write(body)
-        }
-        request.end()
-    })
 }
