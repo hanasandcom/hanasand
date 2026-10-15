@@ -150,10 +150,6 @@ function chooseProject(prompt: string): GeneratedProject {
         return websiteFiles(title, slug, sectionsForPage(lower), lower)
     }
 
-    if (/\b(api|backend|fastify)\b/.test(lower) && !/\bpage|website|web site|site|frontend|landing|concept\b/.test(lower)) {
-        return apiFiles(title, slug, lower)
-    }
-
     if (/\b(next\.?js|dockerized next|portable next|listing dashboard|knowledge base|portfolio|bakery|donor dashboard|investor update|artist shop|restaurant site)\b/.test(lower)) {
         return websiteFiles(title, slug, sectionsForPage(lower), lower)
     }
