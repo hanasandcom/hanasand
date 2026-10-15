@@ -588,6 +588,24 @@ describe('public TI v1', () => {
         expect(body.results[1].result).toBeUndefined()
     })
 
+    test('rejects batch search fields other than queries before starting searches', async () => {
+        let searchCalls = 0
+        const app = await testApp(undefined, async ({ query }) => {
+            searchCalls++
+            return { ...searchResult, query }
+        })
+        const response = await app.inject({
+            method: 'POST',
+            url: '/api/v1/ti/search/batch',
+            headers: { 'x-api-key': 'valid' },
+            payload: { queries: ['APT29'], tenantId: 'forbidden' },
+        })
+
+        expect(response.statusCode).toBe(400)
+        expect(response.json().error).toMatchObject({ code: 'invalid_request' })
+        expect(searchCalls).toBe(0)
+    })
+
     test('bounds batch fan-out before search and keeps valid work at three concurrent requests', async () => {
         let active = 0
         let peak = 0

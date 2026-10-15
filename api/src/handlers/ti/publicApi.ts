@@ -68,7 +68,7 @@ export default async function publicTiApi(fastify: FastifyInstance, options: Pub
 
     fastify.post('/ti/search/batch', async (req: FastifyRequest<{ Body: { queries?: unknown } }>, reply) => {
         if (!hasAuthenticatedPrincipal(req)) return sendError(reply, req.id, 401, 'authentication_required', 'An API key or authenticated session is required.')
-        if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body) || Object.keys(req.body).some(key => key !== 'queries')) {
+        if (!hasOnlyAllowedFields(req.body, ['queries'])) {
             return sendError(reply, req.id, 400, 'invalid_request', 'batch search accepts only the queries field.')
         }
         if (Array.isArray(req.body.queries) && req.body.queries.length > TI_BATCH_MAX_QUERIES) {
@@ -132,8 +132,12 @@ function hasAuthenticatedPrincipal(req: FastifyRequest) {
 }
 
 function normalizeQueryBody(body: { query?: unknown } | undefined) {
-    if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).some(key => key !== 'query')) return ''
-    return normalizeTiSearchQuery(body.query)
+    if (!hasOnlyAllowedFields(body, ['query'])) return ''
+    return normalizeTiSearchQuery(body?.query)
+}
+
+function hasOnlyAllowedFields(value: unknown, allowedFields: readonly string[]) {
+    return Boolean(value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).every(key => allowedFields.includes(key)))
 }
 
 function parseCollectionQuery(query: { q?: unknown, limit?: unknown, page?: unknown, cursor?: unknown }) {
