@@ -7,6 +7,7 @@ import { compileAuditQuery } from '#utils/auditQuery.ts'
 import { hasOrganizationPrivacyDeletionMarker, organizationPrivacyDeletionInProgress } from '#utils/organizationLifecycle.ts'
 import { cleanContext, headerText, normalizeApprovalStatus, normalizeOption, normalizeSupportPreparationDuration, normalizeSupportPreparationExpiry, normalizeSupportPreparationScope, normalizeSupportSessionActions, normalizeSupportSessionDuration, normalizeSupportSessionExpiry, normalizeSupportSessionScope, supportError, supportInspectionAuditContext, supportInspectionAuditMetadata, supportRequestId, supportSessionIdFromRequest, supportText as text } from '#utils/support/adminSupportInput.ts'
 import { auditFilterValidationError } from '#utils/support/auditFilterValidation.ts'
+import { loadSupportSessionState } from '#utils/support/supportSessionState.ts'
 import { auditFilterQuery, supportInspectionActionAuditContract, supportInspectionAuditDetailPacket, supportInspectionAuditFilterCoverage, supportInspectionAuthorizationMatrix, supportInspectionFilters, supportInspectionOrgBoundaryProof, supportInspectionRecoveryFixturePacket, supportInspectionSearchProof, uniqueTimelineValues, type SupportTimelineFilter } from '#utils/support/inspectionPackets.ts'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import { actorHasHanasandInternalAccess, recordSystemEvent, redactAuditValue, requireAuditReason, supportTimelineAuditBridgeEvent } from '#utils/systemEvent.ts'
@@ -4945,36 +4946,6 @@ async function loadSystemEventIds(input: { requestId: string, actionType: string
         LIMIT 10
     `, [input.requestId, input.actionType, input.entityId])
     return result.rows.map((row: Record<string, unknown>) => Number(row.id)).filter(id => Number.isFinite(id))
-}
-
-async function loadSupportSessionState(supportSessionId: string) {
-    const result = await run(`
-        SELECT id, event_type, actor_id, object_id, organization_id, subject_id, request_id, reason, outcome, context, created_at
-        FROM system_events
-        WHERE subject_id = $1
-          AND event_type IN ('support.session.create', 'support.session.revoke')
-        ORDER BY created_at ASC, id ASC
-    `, [supportSessionId])
-    const create = result.rows.find((row: Record<string, unknown>) => row.event_type === 'support.session.create') as Record<string, any> | undefined
-    if (!create) return null
-    const revoke = [...result.rows].reverse().find((row: Record<string, unknown>) => row.event_type === 'support.session.revoke' && row.outcome === 'success') as Record<string, any> | undefined
-    const context = create.context as Record<string, unknown>
-    return {
-        supportSessionId,
-        actorId: text(create.actor_id),
-        reason: text(create.reason),
-        requestId: text(create.request_id),
-        organizationId: text(context.targetOrganizationId || create.organization_id),
-        targetUserId: text(context.targetUserId || create.object_id),
-        allowedActions: Array.isArray(context.allowedActions) ? context.allowedActions.map(action => text(action)).filter(Boolean) : [],
-        scope: Array.isArray(context.scope) ? context.scope.map(item => text(item)).filter(Boolean) : [],
-        durationMinutes: Number(context.durationMinutes || 0),
-        expiresAt: text(context.expiresAt),
-        status: revoke ? 'revoked' : Date.parse(text(context.expiresAt)) <= Date.now() ? 'expired' : 'active',
-        revokedBy: revoke ? text(revoke.actor_id) : null,
-        revokedAt: revoke ? text(revoke.created_at) : null,
-        auditEventIds: result.rows.map((row: Record<string, unknown>) => Number(row.id)).filter(id => Number.isFinite(id)),
-    }
 }
 
 async function loadSupportSessionTimeline(supportSessionId: string) {

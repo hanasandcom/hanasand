@@ -9,10 +9,19 @@ let supportOrganization: Record<string, any> | null = null
 let supportInviteReads = 0
 let inviteActionWrites = 0
 let acceptedInviteWinsRace = false
+let supportSessionEvents: Record<string, unknown>[] = []
 const queries: Array<{ sql: string, values: unknown[] }> = []
 
 async function run(sql: string, values: unknown[] = []) {
     queries.push({ sql, values })
+    if (sql.includes('event_type IN (\'support.session.create\', \'support.session.revoke\')')) {
+        const sessionId = values[0]
+        return { rows: supportSessionEvents.filter(event => event.subject_id === sessionId && ['support.session.create', 'support.session.revoke'].includes(String(event.event_type))) }
+    }
+    if (sql.includes('FROM system_events e') && sql.includes('e.context->>\'supportSessionId\' = $1')) {
+        const sessionId = values[0]
+        return { rows: supportSessionEvents.filter(event => event.subject_id === sessionId || (event.context as Record<string, unknown>)?.supportSessionId === sessionId) }
+    }
     if (sql.includes('FROM organizations o') && supportOrganization) return { rows: [supportOrganization] }
     if (sql.includes('FROM organization_invites') && sql.includes('id = $1') && sql.includes('organization_id = $2')) {
         supportInviteReads += 1
@@ -34,7 +43,12 @@ async function run(sql: string, values: unknown[] = []) {
     if (sql.includes('FROM organization_members membership')) return { rows: [{ owner_count: 2 }] }
     if (sql.includes('active_admin_count')) return { rows: [] }
     if (sql.includes('context->>\'idempotencyKey\'') && sql.includes('outcome = \'success\'')) return { rows: [] }
-    if (sql.includes('WHERE request_id = $1') && sql.includes('event_type = $2') && sql.includes('subject_id = $3')) return { rows: [{ id: 91 }] }
+    if (sql.includes('WHERE request_id = $1') && sql.includes('event_type = $2') && sql.includes('subject_id = $3')) {
+        if (String(values[1]).startsWith('support.session.')) {
+            return { rows: supportSessionEvents.filter(event => event.request_id === values[0] && event.event_type === values[1] && event.subject_id === values[2]).map(event => ({ id: event.id })) }
+        }
+        return { rows: [{ id: 91 }] }
+    }
     if (sql.includes('UPDATE organization_members') && sql.includes('SET role = $3')) return { rows: [{
         organization_id: 'org-1', user_id: 'member-1', role: 'reader', status: 'active',
     }] }
@@ -46,6 +60,7 @@ async function run(sql: string, values: unknown[] = []) {
 }
 
 const recordedEvents: Array<Record<string, unknown>> = []
+let nextSupportEventId = 100
 const systemEventUtils = await import('../src/utils/systemEvent.ts')
 mock.module('../src/utils/db.ts', () => ({ default: run, queryOnce: run, identityQueryOnce: run, closeDatabase: async () => {} }))
 const identityDataWrites = await import('../src/utils/db/identityDataWrites.ts')
@@ -53,7 +68,28 @@ mock.module('../src/utils/auth/tokenWrapper.ts', () => ({ default: async () => a
 mock.module('../src/utils/systemEvent.ts', () => ({
     ...systemEventUtils,
     actorHasHanasandInternalAccess: async () => internalAccess,
-    recordSystemEvent: async (_req: unknown, event: Record<string, unknown>) => { recordedEvents.push(event) },
+    recordSystemEvent: async (_req: unknown, event: Record<string, unknown>) => {
+        recordedEvents.push(event)
+        if (['support.session.create', 'support.session.revoke', 'support.session.inspect'].includes(String(event.actionType))) {
+            supportSessionEvents.push({
+                id: nextSupportEventId++,
+                event_type: event.actionType,
+                severity: event.severity,
+                source: 'admin',
+                service: 'hanasand-api',
+                actor_id: event.actorId,
+                object_type: event.targetType,
+                object_id: event.targetId,
+                organization_id: event.organizationId,
+                subject_id: event.entityId,
+                request_id: event.requestId,
+                outcome: event.outcome,
+                reason: event.reason,
+                context: event.context,
+                created_at: new Date().toISOString(),
+            })
+        }
+    },
 }))
 mock.module('../src/utils/db/identityDataWrites.ts', () => ({
     upsertAdminAccessRecoveryApproval: async () => {},
@@ -70,6 +106,9 @@ const {
     getSupportOrganization,
     postSupportOrganizationInviteAction,
     postSupportOrganizationMemberRoleRecovery,
+    postSupportSession,
+    getSupportSession,
+    postSupportSessionRevoke,
 } = await import('../src/handlers/adminSupport.ts')
 
 function reply() {
@@ -99,6 +138,8 @@ beforeEach(() => {
     supportInviteReads = 0
     inviteActionWrites = 0
     acceptedInviteWinsRace = false
+    supportSessionEvents = []
+    nextSupportEventId = 100
     queries.length = 0
     recordedEvents.length = 0
 })
@@ -311,6 +352,56 @@ test('support inspection keeps organization member and pending-invite counts in 
         memberCount: 3,
         pendingInviteCount: 2,
     })
+})
+
+test('support session can be created, inspected, then revoked through its audit lifecycle', async () => {
+    const created = await request(postSupportSession, {
+        body: {
+            organizationId: 'org-1',
+            reason: 'Investigate a reported account issue',
+            requestId: 'session-request-1',
+            allowedActions: ['impersonation'],
+            scope: ['read_profile'],
+            durationMinutes: 30,
+        },
+    })
+
+    expect(created.statusCode).toBe(201)
+    expect(created.body.supportSession).toMatchObject({
+        schemaVersion: 'support.scoped_session.v1',
+        status: 'active',
+        actorId: 'support-admin',
+        target: { organizationId: 'org-1', userId: null },
+        allowedActions: ['impersonation'],
+        scope: ['read_profile'],
+        requestId: 'session-request-1',
+        auditEventIds: [100],
+    })
+    const sessionId = created.body.supportSession.id as string
+
+    const inspected = await request(getSupportSession, { params: { sessionId } })
+    expect(inspected.statusCode).toBe(200)
+    expect(inspected.body.supportSession).toMatchObject({ id: sessionId, status: 'active', requestId: 'session-request-1' })
+    expect(inspected.body.detail.authorization).toBeDefined()
+    expect(inspected.body.detail.auditTimeline.eventIds).toContain(100)
+
+    const revoked = await request(postSupportSessionRevoke, {
+        params: { sessionId },
+        body: { reason: 'Investigation complete', requestId: 'session-revoke-1' },
+    })
+    expect(revoked.statusCode).toBe(200)
+    expect(revoked.body.supportSession).toMatchObject({
+        id: sessionId,
+        status: 'revoked',
+        revokedBy: 'support-admin',
+        requestId: 'session-revoke-1',
+        auditEventIds: [102],
+    })
+
+    const inspectedAfterRevoke = await request(getSupportSession, { params: { sessionId } })
+    expect(inspectedAfterRevoke.statusCode).toBe(200)
+    expect(inspectedAfterRevoke.body.supportSession).toMatchObject({ id: sessionId, status: 'revoked' })
+    expect(recordedEvents.filter(event => ['support.session.create', 'support.session.revoke'].includes(String(event.actionType)))).toHaveLength(2)
 })
 
 test('support invite action returns an audited accepted-invite denial when acceptance wins the update race', async () => {

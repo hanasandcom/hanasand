@@ -2,6 +2,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify'
 import crypto from 'crypto'
 import run from '#db'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
+import { loadSupportSessionState } from '#utils/support/supportSessionState.ts'
 import { actorHasHanasandInternalAccess, recordSystemEvent, requireAuditReason } from '#utils/systemEvent.ts'
 
 type StartBody = {
@@ -141,32 +142,6 @@ async function auditDeniedImpersonationStart(req: FastifyRequest, input: {
         entityId: input.supportSessionId || input.targetId,
     })
     return { requestId, eventIds, message: input.message }
-}
-
-async function loadSupportSessionState(supportSessionId: string) {
-    const result = await run(`
-        SELECT id, event_type, actor_id, object_id, organization_id, subject_id, request_id, reason, outcome, context, created_at
-        FROM system_events
-        WHERE subject_id = $1
-          AND event_type IN ('support.session.create', 'support.session.revoke')
-        ORDER BY created_at ASC, id ASC
-    `, [supportSessionId])
-    const create = result.rows.find((row: Record<string, unknown>) => row.event_type === 'support.session.create') as Record<string, any> | undefined
-    if (!create) return null
-    const revoke = [...result.rows].reverse().find((row: Record<string, unknown>) => row.event_type === 'support.session.revoke' && row.outcome === 'success') as Record<string, any> | undefined
-    const context = create.context as Record<string, unknown>
-    return {
-        supportSessionId,
-        actorId: cleanText(create.actor_id),
-        reason: cleanText(create.reason),
-        requestId: cleanText(create.request_id),
-        organizationId: cleanText(context.targetOrganizationId || create.organization_id),
-        targetUserId: cleanText(context.targetUserId || create.object_id),
-        allowedActions: Array.isArray(context.allowedActions) ? context.allowedActions.map(action => cleanText(action)).filter(Boolean) : [],
-        scope: Array.isArray(context.scope) ? context.scope.map(item => cleanText(item)).filter(Boolean) : [],
-        expiresAt: cleanText(context.expiresAt),
-        status: revoke ? 'revoked' : Date.parse(cleanText(context.expiresAt)) <= Date.now() ? 'expired' : 'active',
-    }
 }
 
 async function validateSupportSessionForImpersonation(input: {
