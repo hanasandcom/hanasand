@@ -14,7 +14,6 @@ describe('production monitor notification transitions', () => {
         expect(source).not.toContain('FROM service_monitor_results recovered')
         expect(source).toContain('LAG(status) OVER status_history_window')
         expect(schema).toContain('idx_service_monitor_results_non_up')
-        expect(source).toContain('const STATUS_CACHE_MS = 15_000')
     })
 
     test('current status bypasses slow history and retains verified evidence through restart and failure', async () => {

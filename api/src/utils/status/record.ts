@@ -45,7 +45,8 @@ export async function recordMonitorResult(
         }))]
         const downHistory = history.slice(0, history.findIndex((row) => row.status !== 'down') < 0 ? history.length : history.findIndex((row) => row.status !== 'down'))
         const recoveryDownStart = previous.rows.findIndex((row: { status: MonitorStatus }) => row.status === 'down')
-        const recoveryTail = recoveryDownStart < 0 ? [] : previous.rows.slice(recoveryDownStart)
+        const recoveryAlreadyReported = recoveryDownStart >= 0 && previous.rows.slice(0, recoveryDownStart).some((row: { status: MonitorStatus }) => row.status === 'up')
+        const recoveryTail = recoveryDownStart < 0 || recoveryAlreadyReported ? [] : previous.rows.slice(recoveryDownStart)
         const recoveryStop = recoveryTail.findIndex((row: { status: MonitorStatus }) => row.status !== 'down')
         const recoveryRows = recoveryTail.slice(0, recoveryStop < 0 ? recoveryTail.length : recoveryStop)
         const consecutiveFailures = status === 'down' ? downHistory.length : 0
