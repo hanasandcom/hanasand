@@ -222,6 +222,7 @@ test('invite revoke reports accepted-invite conflict when acceptance wins the up
     })
 
     expect(response.statusCode).toBe(409)
+    expect(response.json().error).toBe('Accepted invites cannot be revoked or resent; manage the member instead.')
     expect(response.json().inviteActionDenial).toMatchObject({
         schemaVersion: 'organization.invite_action_denial.v1',
         inviteId: 'invite-1',
