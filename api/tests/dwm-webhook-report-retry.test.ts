@@ -316,6 +316,28 @@ test('does not persist a missing-destination outcome for an invalid alert', asyn
     expect(ledger).toHaveLength(0)
 })
 
+test('records HTTP sender outcomes on a live delivery', async () => {
+    const { deliverDwmAlertNotification } = await import('../src/utils/dwm/webhooks.ts')
+    const previousLive = process.env.DWM_WEBHOOK_LIVE_DELIVERY
+    process.env.DWM_WEBHOOK_LIVE_DELIVERY = 'true'
+    try {
+        const [delivery] = await deliverDwmAlertNotification('owner_1', deliveryInput('http_failure', false), async () => ({
+            status: 503,
+            body: 'upstream unavailable',
+        }))
+
+        expect(delivery).toMatchObject({
+            status: 'failed',
+            responseStatus: 503,
+            responseBody: 'upstream unavailable',
+            error: 'Webhook returned HTTP 503.',
+        })
+    } finally {
+        if (previousLive === undefined) delete process.env.DWM_WEBHOOK_LIVE_DELIVERY
+        else process.env.DWM_WEBHOOK_LIVE_DELIVERY = previousLive
+    }
+})
+
 test('retries a failed report after persistence reload with the exact stored payload and idempotency lineage', async () => {
     const { computeOutboundThirdPartyReportChecksum, retryDwmWebhookDelivery } = await import('../src/utils/dwm/webhooks.ts')
     const draft = {
@@ -385,6 +407,12 @@ test('retries a failed report after persistence reload with the exact stored pay
             return { status: 204, body: '' }
         })
         expect(result.ok).toBe(true)
+        expect(result.ok && result.delivery).toMatchObject({
+            status: 'delivered',
+            responseStatus: 204,
+            responseBody: null,
+            error: null,
+        })
         expect(sentBodies).toEqual([canonicalJson(payload)])
         expect(insertedDelivery?.payload_hash).toBe(persistedDelivery.payload_hash)
         expect(insertedDelivery?.payload).toEqual(payload)
@@ -396,6 +424,28 @@ test('retries a failed report after persistence reload with the exact stored pay
         expect(audit?.params.slice(1, 4)).toEqual(['owner_1', 'member_2', 'org_1'])
         expect(String(audit?.params[7])).toContain('"priorDeliveryId":"failed_delivery_1"')
         expect(String(audit?.params[7])).toContain('"exactPersistedPayload":true')
+    } finally {
+        if (previousLive === undefined) delete process.env.DWM_WEBHOOK_LIVE_DELIVERY
+        else process.env.DWM_WEBHOOK_LIVE_DELIVERY = previousLive
+    }
+})
+
+test('records a thrown sender error on a live retry', async () => {
+    const { retryDwmWebhookDelivery } = await import('../src/utils/dwm/webhooks.ts')
+    persistedDelivery = failedDeliveryFixture('2020-07-23T10:01:00.000Z')
+    const previousLive = process.env.DWM_WEBHOOK_LIVE_DELIVERY
+    process.env.DWM_WEBHOOK_LIVE_DELIVERY = 'true'
+    try {
+        const result = await retryDwmWebhookDelivery('member_2', 'org_1', persistedDelivery.id, async () => {
+            throw new Error('connection reset')
+        })
+
+        expect(result.ok && result.delivery).toMatchObject({
+            status: 'failed',
+            responseStatus: null,
+            responseBody: null,
+            error: 'connection reset',
+        })
     } finally {
         if (previousLive === undefined) delete process.env.DWM_WEBHOOK_LIVE_DELIVERY
         else process.env.DWM_WEBHOOK_LIVE_DELIVERY = previousLive
@@ -751,14 +801,25 @@ test('moves a durable lost-ack receipt from the failed attempt to its exact deli
     }
     try {
         const [failed] = await deliverDwmAlertNotification('owner_1', deliveryInput('lost_ack', false), sender)
-        expect(failed.status).toBe('failed')
+        expect(failed).toMatchObject({
+            status: 'failed',
+            responseStatus: null,
+            responseBody: null,
+            error: 'receiver acknowledgement lost',
+        })
         expect(receiverAudits[0]?.delivery_id).toBe(failed.id)
         const failedRow = ledger.find(row => row.id === failed.id)
         expect(failedRow).toBeDefined()
         failedRow!.next_retry_at = '2020-07-23T10:01:00.000Z'
 
         const retried = await retryDwmWebhookDelivery('member_2', 'org_1', failed.id, sender)
-        expect(retried).toMatchObject({ ok: true, delivery: { status: 'delivered', attemptCount: 2 } })
+        expect(retried).toMatchObject({ ok: true, delivery: {
+            status: 'delivered',
+            attemptCount: 2,
+            responseStatus: 202,
+            responseBody: null,
+            error: null,
+        } })
         expect(networkAttempts).toBe(2)
         expect(receiverAudits).toHaveLength(1)
         expect(receiverAudits[0]?.delivery_id).toBe(retried.ok ? retried.delivery.id : '')

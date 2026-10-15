@@ -7302,20 +7302,7 @@ export async function retryDwmWebhookDelivery(
         const { payloadBody, payloadHash, persistedReport } = persistedPayload
 
         const attemptedAt = new Date().toISOString()
-        let responseStatus: number | null = null
-        let responseBody: string | null = null
-        let error: string | null
-        let status: DwmWebhookDeliveryRow['status'] = 'failed'
-        try {
-            const target = decryptWebhookTarget(destination.endpoint_encrypted)
-            const response = await sender(target.endpoint, payloadBody, target.signingSecret)
-            responseStatus = response.status
-            responseBody = sanitizeDwmWebhookDeliveryDiagnostic(response.body)
-            status = response.status >= 200 && response.status < 300 ? 'delivered' : 'failed'
-            error = status === 'delivered' ? null : sanitizeDwmWebhookDeliveryDiagnostic(`Webhook returned HTTP ${response.status}.`)
-        } catch (sendError) {
-            error = sanitizeDwmWebhookDeliveryDiagnostic(sendError instanceof Error ? sendError.message : String(sendError))
-        }
+        const { status, responseStatus, responseBody, error } = await sendDwmWebhookPayload(destination, payloadBody, sender)
         const completedAt = new Date().toISOString()
         const nextAttemptCount = attemptCount + 1
         const retryPlan = planDwmWebhookDeliveryRetry({ status, dryRun: false, responseStatus, error, attemptedAt, attemptCount: nextAttemptCount })
@@ -8750,15 +8737,11 @@ async function deliverToDwmWebhookDestination({
 
     if (shouldSendLive) {
         try {
-            const target = decryptWebhookTarget(destination.endpoint_encrypted)
-            const response = await sender(target.endpoint, payloadBody, target.signingSecret)
-            responseStatus = response.status
-            responseBody = sanitizeDwmWebhookDeliveryDiagnostic(response.body)
-            status = response.status >= 200 && response.status < 300 ? 'delivered' : 'failed'
-            error = status === 'delivered' ? null : sanitizeDwmWebhookDeliveryDiagnostic(`Webhook returned HTTP ${response.status}.`)
-        } catch (sendError) {
-            status = 'failed'
-            error = sanitizeDwmWebhookDeliveryDiagnostic(sendError instanceof Error ? sendError.message : String(sendError))
+            const sendResult = await sendDwmWebhookPayload(destination, payloadBody, sender)
+            status = sendResult.status
+            responseStatus = sendResult.responseStatus
+            responseBody = sendResult.responseBody
+            error = sendResult.error
         } finally {
             completedAt = new Date().toISOString()
         }
@@ -8888,6 +8871,36 @@ async function deliverToDwmWebhookDestination({
         auditEventId,
         auditAction,
         auditActorId: ownerId,
+    }
+}
+
+async function sendDwmWebhookPayload(
+    destination: DwmWebhookDestinationRow,
+    payloadBody: string,
+    sender: (endpoint: string, body: string, signingSecret?: string) => Promise<{ status: number, body: string }>
+): Promise<{
+    status: 'delivered' | 'failed'
+    responseStatus: number | null
+    responseBody: string | null
+    error: string | null
+}> {
+    try {
+        const target = decryptWebhookTarget(destination.endpoint_encrypted)
+        const response = await sender(target.endpoint, payloadBody, target.signingSecret)
+        const status = response.status >= 200 && response.status < 300 ? 'delivered' : 'failed'
+        return {
+            status,
+            responseStatus: response.status,
+            responseBody: sanitizeDwmWebhookDeliveryDiagnostic(response.body),
+            error: status === 'delivered' ? null : sanitizeDwmWebhookDeliveryDiagnostic(`Webhook returned HTTP ${response.status}.`),
+        }
+    } catch (sendError) {
+        return {
+            status: 'failed' as const,
+            responseStatus: null,
+            responseBody: null,
+            error: sanitizeDwmWebhookDeliveryDiagnostic(sendError instanceof Error ? sendError.message : String(sendError)),
+        }
     }
 }
 
