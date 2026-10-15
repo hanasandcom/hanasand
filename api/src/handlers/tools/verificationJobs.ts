@@ -57,6 +57,7 @@ type CreateJobBody = {
 
 let activeJobs = 0
 let pumpScheduled = false
+const activeFetchControllers = new Map<string, AbortController>()
 
 export async function postVerificationJob(req: FastifyRequest, res: FastifyReply) {
     const auth = await tokenWrapper(req, res)
@@ -178,6 +179,9 @@ export async function cancelVerificationJob(req: FastifyRequest, res: FastifyRep
           AND status IN ('queued', 'running')
         RETURNING *
     `, [id, auth.id])
+    if (result.rows[0]) {
+        activeFetchControllers.get(id)?.abort()
+    }
     await updateQueuePositions()
     const job = result.rows[0] || await getJobForOwner(id, auth.id)
     if (!job) {
@@ -243,7 +247,7 @@ async function runJob(job: VerificationJobRow) {
             return
         }
         if ((current?.retry_count || 0) < (current?.max_retries || 0)) {
-            await run(`
+            const requeued = await run(`
                 UPDATE ai_verification_jobs
                 SET status = 'queued',
                     retry_count = retry_count + 1,
@@ -251,8 +255,10 @@ async function runJob(job: VerificationJobRow) {
                     error = $2,
                     updated_at = NOW()
                 WHERE id = $1
+                  AND status = 'running'
+                RETURNING id
             `, [job.id, message])
-            await updateQueuePositions()
+            if (requeued.rows.length > 0) await updateQueuePositions()
             return
         }
         await run(`
@@ -263,163 +269,184 @@ async function runJob(job: VerificationJobRow) {
                 completed_at = NOW(),
                 updated_at = NOW()
             WHERE id = $1
+              AND status = 'running'
         `, [job.id, message])
     }
 }
 
-async function runBrowserJob(job: VerificationJobRow) {
+type FetchedVerificationTarget = {
+    url: string
+    response: Response
+    text: string
+    startedAtMs: number
+}
+
+async function fetchVerificationTarget(job: VerificationJobRow, {
+    fetchingStep,
+    processingStep,
+    userAgent,
+}: {
+    fetchingStep: string
+    processingStep: string
+    userAgent: string
+}): Promise<FetchedVerificationTarget | null> {
     if (!job.target_url) {
         throw new Error('Missing target URL.')
     }
-    const current = await getJob(job.id)
-    if (current?.status === 'cancelled') {
-        return
-    }
-    await updateStep(job.id, 'Fetching browser target')
-    const started = performance.now()
+    const url = job.target_url
     const controller = new AbortController()
-    const metadata = job.metadata || {}
-    const timeoutMs = Math.max(1000, Math.min(Number(metadata.timeoutMs || 16000), 30000))
-    const timeout = setTimeout(() => controller.abort(), timeoutMs)
+    activeFetchControllers.set(job.id, controller)
+    let timeout: ReturnType<typeof setTimeout> | undefined
     try {
-        const response = await fetch(job.target_url, {
+        const current = await getJob(job.id)
+        if (current?.status === 'cancelled' || controller.signal.aborted) {
+            return null
+        }
+        await updateStep(job.id, fetchingStep)
+        const startedAtMs = performance.now()
+        const metadata = job.metadata || {}
+        const timeoutMs = Math.max(1000, Math.min(Number(metadata.timeoutMs || 16000), 30000))
+        timeout = setTimeout(() => controller.abort(), timeoutMs)
+        const response = await fetch(url, {
             headers: {
                 Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,text/plain;q=0.8,*/*;q=0.5',
-                'User-Agent': 'HanasandAI-VerificationJob/1.0',
+                'User-Agent': userAgent,
             },
             signal: controller.signal,
         })
-        await updateStep(job.id, 'Extracting evidence')
+        await updateStep(job.id, processingStep)
         const text = await response.text()
-        const screenshots = metadata.captureScreenshot
-            ? await captureRenderedScreenshots(job.target_url, job.id)
-            : []
-        const journeyProof = await captureRenderedJourneyProof(job.target_url, job.id)
-        const pageContent = extractBrowserPageContent(text)
-        const artifact = {
-            id: crypto.randomUUID(),
-            type: 'browser_result',
-            name: 'Browser evidence',
-            createdAt: new Date().toISOString(),
-            data: {
-                ok: response.ok,
-                status: response.status,
-                statusText: response.statusText,
-                elapsed_ms: Math.round(performance.now() - started),
-                url: response.url || job.target_url,
-                ...pageContent,
-                screenshotPath: screenshots[0]?.path || null,
-                screenshots,
-                journeyProof,
-                consoleMessages: [
-                    'Fetched browser target and captured durable rendered viewport evidence.',
-                    screenshots.length ? `${screenshots.length} rendered screenshot artifact${screenshots.length === 1 ? '' : 's'} captured.` : 'Rendered screenshot capture was not requested or did not complete.',
-                    journeyProof ? 'Rendered non-destructive journey script completed.' : 'Rendered journey script did not complete.',
-                ],
-                pageErrors: response.ok ? [] : [`HTTP ${response.status} ${response.statusText}`],
-            },
-        }
-        await run(`
-            UPDATE ai_verification_jobs
-            SET status = $2,
-                current_step = $3,
-                artifacts = artifacts || $4::jsonb,
-                error = $5,
-                completed_at = NOW(),
-                updated_at = NOW()
-            WHERE id = $1
-        `, [
-            job.id,
-            response.ok ? 'completed' : 'failed',
-            response.ok ? 'Browser proof completed' : 'Browser proof failed',
-            JSON.stringify([artifact]),
-            response.ok ? null : `HTTP ${response.status} ${response.statusText}`,
-        ])
-        await recordAiUsageEvent({
-            ownerId: job.owner_id,
-            actorId: job.owner_id,
-            workspaceKind: cleanWorkspaceKind(job.workspace_kind),
-            workspaceId: job.workspace_id,
-            kind: 'browser_proof_completed',
-            units: 1,
-            billableUnits: response.ok ? 1 : 0,
-            estimatedCostNok: response.ok ? 0.04 : 0,
-            billingMode: job.lane,
-            outcome: response.ok ? 'verified' : 'failed',
-            metadata: {
-                jobId: job.id,
-                requestId: job.request_id,
-                targetUrl: job.target_url,
-                status: response.status,
-                journeyProofAvailable: Boolean(journeyProof),
-                elapsedMs: Math.round(performance.now() - started),
-            },
-        })
+        return { url, response, text, startedAtMs }
     } finally {
-        clearTimeout(timeout)
+        if (timeout) clearTimeout(timeout)
+        if (activeFetchControllers.get(job.id) === controller) {
+            activeFetchControllers.delete(job.id)
+        }
     }
 }
 
-async function runDesignJob(job: VerificationJobRow) {
-    if (!job.target_url) {
-        throw new Error('Missing target URL.')
-    }
-    const current = await getJob(job.id)
-    if (current?.status === 'cancelled') {
-        return
-    }
-    await updateStep(job.id, 'Fetching design target')
-    const started = performance.now()
-    const controller = new AbortController()
+async function runBrowserJob(job: VerificationJobRow) {
+    const target = await fetchVerificationTarget(job, {
+        fetchingStep: 'Fetching browser target',
+        processingStep: 'Extracting evidence',
+        userAgent: 'HanasandAI-VerificationJob/1.0',
+    })
+    if (!target) return
+    const { url, response, text, startedAtMs } = target
     const metadata = job.metadata || {}
-    const timeoutMs = Math.max(1000, Math.min(Number(metadata.timeoutMs || 16000), 30000))
-    const timeout = setTimeout(() => controller.abort(), timeoutMs)
-    try {
-        const response = await fetch(job.target_url, {
-            headers: {
-                Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,text/plain;q=0.8,*/*;q=0.5',
-                'User-Agent': 'HanasandAI-DesignQualityJob/1.0',
-            },
-            signal: controller.signal,
-        })
-        await updateStep(job.id, 'Scoring design quality')
-        const text = await response.text()
-        const pageContent = extractBrowserPageContent(text)
-        const { structure, textExcerpt: excerpt } = pageContent
-        const review = reviewDesignQuality(text, excerpt, structure)
-        const screenshots = await captureRenderedScreenshots(job.target_url, job.id)
-        const journeyProof = await captureRenderedJourneyProof(job.target_url, job.id)
-        const hasRenderedProof = screenshots.length > 0
-        const passed = response.ok && review.score >= 72 && review.criticalIssues.length === 0
-        const artifact = {
-            id: crypto.randomUUID(),
-            type: 'design_quality_report',
-            name: 'Design quality report',
-            createdAt: new Date().toISOString(),
-            data: {
-                ok: response.ok,
-                passed,
-                score: review.score,
-                status: passed ? 'passed' : 'failed',
-                elapsed_ms: Math.round(performance.now() - started),
-                url: response.url || job.target_url,
-                title: pageContent.title,
-                checks: review.checks,
-                issues: review.issues,
-                criticalIssues: review.criticalIssues,
-                repeatedPatternCount: review.repeatedPatternCount,
-                genericPhraseCount: review.genericPhraseCount,
-                screenshotPath: screenshots[0]?.path || null,
-                screenshots,
-                journeyProof,
-                notVerified: [
-                    hasRenderedProof ? null : 'Rendered screenshot capture did not complete.',
-                    'Automated screenshot diffing still needs a before/after baseline to compare against.',
-                    journeyProof ? null : 'Rendered journey script did not complete.',
-                ].filter(Boolean),
-            },
-        }
-        await run(`
+    const screenshots = metadata.captureScreenshot
+        ? await captureRenderedScreenshots(url, job.id)
+        : []
+    const journeyProof = await captureRenderedJourneyProof(url, job.id)
+    const pageContent = extractBrowserPageContent(text)
+    const artifact = {
+        id: crypto.randomUUID(),
+        type: 'browser_result',
+        name: 'Browser evidence',
+        createdAt: new Date().toISOString(),
+        data: {
+            ok: response.ok,
+            status: response.status,
+            statusText: response.statusText,
+            elapsed_ms: Math.round(performance.now() - startedAtMs),
+            url: response.url || url,
+            ...pageContent,
+            screenshotPath: screenshots[0]?.path || null,
+            screenshots,
+            journeyProof,
+            consoleMessages: [
+                'Fetched browser target and captured durable rendered viewport evidence.',
+                screenshots.length ? `${screenshots.length} rendered screenshot artifact${screenshots.length === 1 ? '' : 's'} captured.` : 'Rendered screenshot capture was not requested or did not complete.',
+                journeyProof ? 'Rendered non-destructive journey script completed.' : 'Rendered journey script did not complete.',
+            ],
+            pageErrors: response.ok ? [] : [`HTTP ${response.status} ${response.statusText}`],
+        },
+    }
+    const completed = await run(`
+        UPDATE ai_verification_jobs
+        SET status = $2,
+            current_step = $3,
+            artifacts = artifacts || $4::jsonb,
+            error = $5,
+            completed_at = NOW(),
+            updated_at = NOW()
+        WHERE id = $1
+          AND status = 'running'
+        RETURNING id
+    `, [
+        job.id,
+        response.ok ? 'completed' : 'failed',
+        response.ok ? 'Browser proof completed' : 'Browser proof failed',
+        JSON.stringify([artifact]),
+        response.ok ? null : `HTTP ${response.status} ${response.statusText}`,
+    ])
+    if (completed.rows.length === 0) return
+    await recordAiUsageEvent({
+        ownerId: job.owner_id,
+        actorId: job.owner_id,
+        workspaceKind: cleanWorkspaceKind(job.workspace_kind),
+        workspaceId: job.workspace_id,
+        kind: 'browser_proof_completed',
+        units: 1,
+        billableUnits: response.ok ? 1 : 0,
+        estimatedCostNok: response.ok ? 0.04 : 0,
+        billingMode: job.lane,
+        outcome: response.ok ? 'verified' : 'failed',
+        metadata: {
+            jobId: job.id,
+            requestId: job.request_id,
+            targetUrl: url,
+            status: response.status,
+            journeyProofAvailable: Boolean(journeyProof),
+            elapsedMs: Math.round(performance.now() - startedAtMs),
+        },
+    })
+}
+
+async function runDesignJob(job: VerificationJobRow) {
+    const target = await fetchVerificationTarget(job, {
+        fetchingStep: 'Fetching design target',
+        processingStep: 'Scoring design quality',
+        userAgent: 'HanasandAI-DesignQualityJob/1.0',
+    })
+    if (!target) return
+    const { url, response, text, startedAtMs } = target
+    const pageContent = extractBrowserPageContent(text)
+    const { structure, textExcerpt: excerpt } = pageContent
+    const review = reviewDesignQuality(text, excerpt, structure)
+    const screenshots = await captureRenderedScreenshots(url, job.id)
+    const journeyProof = await captureRenderedJourneyProof(url, job.id)
+    const hasRenderedProof = screenshots.length > 0
+    const passed = response.ok && review.score >= 72 && review.criticalIssues.length === 0
+    const artifact = {
+        id: crypto.randomUUID(),
+        type: 'design_quality_report',
+        name: 'Design quality report',
+        createdAt: new Date().toISOString(),
+        data: {
+            ok: response.ok,
+            passed,
+            score: review.score,
+            status: passed ? 'passed' : 'failed',
+            elapsed_ms: Math.round(performance.now() - startedAtMs),
+            url: response.url || url,
+            title: pageContent.title,
+            checks: review.checks,
+            issues: review.issues,
+            criticalIssues: review.criticalIssues,
+            repeatedPatternCount: review.repeatedPatternCount,
+            genericPhraseCount: review.genericPhraseCount,
+            screenshotPath: screenshots[0]?.path || null,
+            screenshots,
+            journeyProof,
+            notVerified: [
+                hasRenderedProof ? null : 'Rendered screenshot capture did not complete.',
+                'Automated screenshot diffing still needs a before/after baseline to compare against.',
+                journeyProof ? null : 'Rendered journey script did not complete.',
+            ].filter(Boolean),
+        },
+    }
+    const completed = await run(`
             UPDATE ai_verification_jobs
             SET status = $2,
                 current_step = $3,
@@ -428,41 +455,41 @@ async function runDesignJob(job: VerificationJobRow) {
                 completed_at = NOW(),
                 updated_at = NOW()
             WHERE id = $1
+              AND status = 'running'
+            RETURNING id
         `, [
-            job.id,
-            passed ? 'completed' : 'failed',
-            passed ? 'Design QA passed' : 'Design QA failed',
-            JSON.stringify([artifact]),
-            passed ? null : `Design QA score ${review.score}: ${review.issues.slice(0, 2).join('; ') || 'review failed'}`,
-        ])
-        await recordAiUsageEvent({
-            ownerId: job.owner_id,
-            actorId: job.owner_id,
-            workspaceKind: cleanWorkspaceKind(job.workspace_kind),
-            workspaceId: job.workspace_id,
-            kind: 'browser_proof_completed',
-            units: 1,
-            billableUnits: passed ? 1 : 0,
-            estimatedCostNok: passed ? 0.06 : 0,
-            billingMode: job.lane,
-            outcome: passed ? 'verified' : 'failed',
-            metadata: {
-                proofType: 'design_quality',
-                jobId: job.id,
-                requestId: job.request_id,
-                targetUrl: job.target_url,
-                status: response.status,
-                score: review.score,
-                genericPhraseCount: review.genericPhraseCount,
-                repeatedPatternCount: review.repeatedPatternCount,
-                renderedScreenshotCount: screenshots.length,
-                journeyProofAvailable: Boolean(journeyProof),
-                elapsedMs: Math.round(performance.now() - started),
-            },
-        })
-    } finally {
-        clearTimeout(timeout)
-    }
+        job.id,
+        passed ? 'completed' : 'failed',
+        passed ? 'Design QA passed' : 'Design QA failed',
+        JSON.stringify([artifact]),
+        passed ? null : `Design QA score ${review.score}: ${review.issues.slice(0, 2).join('; ') || 'review failed'}`,
+    ])
+    if (completed.rows.length === 0) return
+    await recordAiUsageEvent({
+        ownerId: job.owner_id,
+        actorId: job.owner_id,
+        workspaceKind: cleanWorkspaceKind(job.workspace_kind),
+        workspaceId: job.workspace_id,
+        kind: 'browser_proof_completed',
+        units: 1,
+        billableUnits: passed ? 1 : 0,
+        estimatedCostNok: passed ? 0.06 : 0,
+        billingMode: job.lane,
+        outcome: passed ? 'verified' : 'failed',
+        metadata: {
+            proofType: 'design_quality',
+            jobId: job.id,
+            requestId: job.request_id,
+            targetUrl: url,
+            status: response.status,
+            score: review.score,
+            genericPhraseCount: review.genericPhraseCount,
+            repeatedPatternCount: review.repeatedPatternCount,
+            renderedScreenshotCount: screenshots.length,
+            journeyProofAvailable: Boolean(journeyProof),
+            elapsedMs: Math.round(performance.now() - startedAtMs),
+        },
+    })
 }
 
 type ScreenshotViewport = {
@@ -774,7 +801,7 @@ async function completeNonBrowserJob(job: VerificationJobRow) {
             requestId: job.request_id,
         },
     }
-    await run(`
+    const completed = await run(`
         UPDATE ai_verification_jobs
         SET status = 'completed',
             current_step = 'Receipt stored',
@@ -782,7 +809,10 @@ async function completeNonBrowserJob(job: VerificationJobRow) {
             completed_at = NOW(),
             updated_at = NOW()
         WHERE id = $1
+          AND status = 'running'
+        RETURNING id
     `, [job.id, JSON.stringify([artifact])])
+    if (completed.rows.length === 0) return
     const durationMinutes = Math.max(1, Math.ceil(((job.started_at ? Date.now() - Date.parse(job.started_at) : 0) || 60000) / 60000))
     const kind = job.kind === 'deploy' ? 'deploy_minutes_recorded' : 'build_minutes_recorded'
     await recordAiUsageEvent({
