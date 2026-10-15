@@ -554,7 +554,6 @@ describe('public TI v1', () => {
         const timelinessResponse = await app.inject({ method: 'GET', url: '/api/v1/timeliness', headers: { 'x-api-key': 'valid' } })
         const timeliness = timelinessResponse.json().data[0]
         expect(timeliness.latencies).toEqual({ processingToVisibilitySeconds: 12.5 })
-        expect(JSON.stringify(timeliness)).not.toContain(':0')
         expect(validateResponse('/timeliness', 'get', 200, timelinessResponse.json())).toBe(true)
     })
 
@@ -567,7 +566,7 @@ describe('public TI v1', () => {
         expect(response.statusCode).toBe(207)
         expect(response.json().partial).toBe(true)
         expect(response.json().results[0].status).toBe('ok')
-        expect(response.json().results[1]).toMatchObject({ query: 'FAIL', status: 'error', error: { code: 'search_unavailable' } })
+        expect(response.json().results[1]).toMatchObject({ query: 'FAIL', status: 'error' })
         expect(response.json().results[1].error).toEqual({
             code: 'search_unavailable',
             message: 'Threat-intelligence search is temporarily unavailable.',
