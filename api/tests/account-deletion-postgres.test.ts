@@ -9,7 +9,7 @@ let mail: SentMail | undefined
 const sentMails: SentMail[] = []
 mock.module('../src/utils/auth/tokenWrapper.ts', () => ({ default: async () => ({ valid: true, id: 'recovery-user', authenticatedId: 'recovery-user', impersonating }) }))
 mock.module('../src/utils/auth/organizationPageAccess.ts', () => ({ default: async () => ({ valid: true }) }))
-mock.module('../src/utils/systemEvent.ts', () => ({ recordSystemEvent: async () => {}, userHasAdministrativeRole: async () => false }))
+mock.module('../src/utils/systemEvent.ts', () => ({ recordSystemEvent: async () => {}, userHasAdministrativeRole: async () => false, userHasHanasandInternalAccess: async () => false }))
 mock.module('../src/utils/auth/sessionNetwork.ts', () => ({ sessionNetwork: async () => ({ ip: '198.51.100.10', network: { country: 'Norway', city: 'Oslo' } }) }))
 mock.module('../src/utils/mail/system.ts', () => ({ sendSystemMail: async (message: SentMail) => { if (failMail) throw Error('SMTP unavailable'); mail = message; sentMails.push(message) } }))
 mock.module('../src/utils/mail/accounts.ts', () => ({ syncMailPasswordForUser: async () => {} }))
