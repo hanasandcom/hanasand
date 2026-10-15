@@ -657,18 +657,57 @@ try {
         console.log(`PostgreSQL ${cursorColumn} scan passed: pending holes processed in order at cap1, acknowledged rows skipped, complete durable coverage.`)
     }
     const { refreshLogCatchupProgress } = await import('../src/utils/events/catchupProgress.ts')
+    await query('UPDATE events SET processing_status=\'processed\' WHERE ingestion_id=\'logs\' AND processing_status=\'pending\'')
+    assert.equal(Number((await query('SELECT count(*) FROM events WHERE ingestion_id=\'logs\' AND processing_status=\'pending\'')).rows[0].count), 0,
+        'The source-only progress assertion has no direct pending Events')
     await refreshLogCatchupProgress()
     await query('UPDATE log_catchup_progress SET sampled_at=NULL, attempted_at=NULL')
     await refreshLogCatchupProgress()
     const progress = (await query('SELECT payload FROM log_catchup_progress')).rows[0].payload
     let remaining = 0
-    for (const source of ['service_logs','login_events','traffic_events','system_events']) {
+    for (const source of ['login_events','traffic_events','system_events']) {
         const c = (await query('SELECT last_id,recent_id,history_end_id FROM log_processing_cursors WHERE name=$1',[source])).rows[0]
         remaining += Number((await query('SELECT count(*) FROM '+source+' WHERE id>$1 AND id<=$2',[c.last_id,c.history_end_id ?? c.recent_id])).rows[0].count)
         remaining += Number((await query('SELECT count(*) FROM '+source+' WHERE id>$1',[c.recent_id])).rows[0].count)
     }
     assert.equal(progress.remaining,remaining,'Progress counts retained rows, not sequence gaps')
     assert.equal(progress.estimated_seconds,remaining ? null : 0,'No fabricated rate in the first sample')
+    // A source row can be waiting behind its durable cursor without an Events
+    // row yet. It still contributes to catch-up progress. If its login Event
+    // becomes pending before the cursor transaction commits, origin identity
+    // must deduplicate the same unit of work; unrelated pending Events count.
+    await query('UPDATE events SET processing_status=\'processed\' WHERE ingestion_id=\'logs\' AND processing_status=\'pending\'')
+    for (const source of ['login_events','traffic_events','system_events']) {
+        await query(`UPDATE log_processing_cursors SET last_id=(SELECT COALESCE(MAX(id),0) FROM ${source}),
+            recent_id=(SELECT COALESCE(MAX(id),0) FROM ${source}),
+            history_end_id=(SELECT COALESCE(MAX(id),0) FROM ${source}) WHERE name=$1`, [source])
+    }
+    await query('UPDATE log_catchup_progress SET payload=\'{}\'::jsonb, sampled_at=NULL, attempted_at=NULL, last_error=NULL WHERE id=TRUE')
+    await refreshLogCatchupProgress()
+    await query('DELETE FROM log_processing_cursors WHERE name=\'login_events\'')
+    const { rows: [sourceOnly] } = await query('INSERT INTO login_events(user_id,ip,status) VALUES (\'catchup-user\',\'192.0.2.99\',\'failed\') RETURNING id')
+    assert.equal(Number((await query('SELECT count(*) FROM events WHERE ingestion_id=\'logs\' AND processing_status=\'pending\'')).rows[0].count), 0)
+    await query('UPDATE log_catchup_progress SET sampled_at=NULL, attempted_at=NULL WHERE id=TRUE')
+    await refreshLogCatchupProgress()
+    let catchupRemaining = Number((await query('SELECT payload->>\'remaining\' AS remaining FROM log_catchup_progress WHERE id=TRUE')).rows[0].remaining)
+    assert.equal(catchupRemaining, Number((await query('SELECT count(*) FROM login_events')).rows[0].count),
+        'A missing cursor conservatively counts all source rows as outstanding')
+    const priorLoginId = (await query('SELECT COALESCE(MAX(id),0) AS id FROM login_events WHERE id < $1', [sourceOnly.id])).rows[0].id
+    await query('INSERT INTO log_processing_cursors(name,last_id,recent_id,history_end_id) VALUES(\'login_events\',$1,$1,$1)', [priorLoginId])
+    await query('UPDATE log_catchup_progress SET sampled_at=NULL, attempted_at=NULL WHERE id=TRUE')
+    await refreshLogCatchupProgress()
+    catchupRemaining = Number((await query('SELECT payload->>\'remaining\' AS remaining FROM log_catchup_progress WHERE id=TRUE')).rows[0].remaining)
+    assert.equal(catchupRemaining,1,'Source backlog is visible before a pending Event exists')
+    const pendingSourceEventId = createHash('sha256').update(`service:login_events:${sourceOnly.id}`).digest('hex')
+    await query(`INSERT INTO events(id,ingestion_id,organization_id,event_timestamp,normalized,processing_status)
+        VALUES($1,'logs','fixture',NOW(),$2,'pending')`, [pendingSourceEventId,
+        JSON.stringify({ metadata: { origin: { table: 'login_events', id: String(sourceOnly.id) } } })])
+    await query(`INSERT INTO events(id,ingestion_id,organization_id,event_timestamp,normalized,processing_status)
+        VALUES('catchup-direct-event','logs','fixture',NOW(),'{}','pending')`)
+    await query('UPDATE log_catchup_progress SET sampled_at=NULL, attempted_at=NULL WHERE id=TRUE')
+    await refreshLogCatchupProgress()
+    catchupRemaining = Number((await query('SELECT payload->>\'remaining\' AS remaining FROM log_catchup_progress WHERE id=TRUE')).rows[0].remaining)
+    assert.equal(catchupRemaining,2,'Matching source-origin Event is deduplicated while direct pending Events count')
     console.log(`PostgreSQL verification passed: all ${BUILTIN_RULES.length} rules, ${securityRules.length} negatives, retry deduplication, auth correlation, and KQL.`)
 } finally {
     await client.query('ROLLBACK')
