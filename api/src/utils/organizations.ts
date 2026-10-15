@@ -2675,7 +2675,7 @@ export function normalizeInviteInput(body: InviteInput | undefined) {
 
     const role = normalizeInviteRole(body?.role)
     const expiresAt = normalizeInviteExpiry(body?.expiresAt ?? body?.expires_at)
-    const requestId = normalizeInviteRequestId(body?.requestId ?? body?.request_id)
+    const requestId = normalizeRequestId(body?.requestId ?? body?.request_id)
     return {
         emails,
         role,
@@ -2702,7 +2702,7 @@ export function normalizeInviteActionInput(body: InviteActionInput | undefined) 
         throw new Error('Invite action reason must be 1000 characters or fewer.')
     }
 
-    const requestId = normalizeInviteRequestId(body?.requestId ?? body?.request_id)
+    const requestId = normalizeRequestId(body?.requestId ?? body?.request_id)
     const expiresAt = action === 'resend'
         ? normalizeInviteExpiry(body?.expiresAt ?? body?.expires_at)
         : undefined
@@ -2775,7 +2775,7 @@ export function normalizeMemberRoleInput(body: OrganizationMemberRoleInput | und
         throw new Error('Member role change reason must be 1000 characters or fewer.')
     }
 
-    const requestId = normalizeWatchlistRequestId(body?.requestId ?? body?.request_id)
+    const requestId = normalizeRequestId(body?.requestId ?? body?.request_id)
     return { role: role as OrganizationRole, reason, requestId }
 }
 
@@ -2796,7 +2796,7 @@ export function normalizeWatchlistInput(body: WatchlistInput | undefined) {
 
     const notes = cleanText(body?.notes)
     const reason = normalizeWatchlistReason(body?.reason)
-    const requestId = normalizeWatchlistRequestId(body?.requestId ?? body?.request_id)
+    const requestId = normalizeRequestId(body?.requestId ?? body?.request_id)
     return {
         kind: kind as WatchlistKind,
         value,
@@ -2813,7 +2813,7 @@ export function normalizeWatchlistActionInput(body: WatchlistActionInput | undef
     }
 
     const reason = normalizeWatchlistReason(body?.reason)
-    const requestId = normalizeWatchlistRequestId(body?.requestId ?? body?.request_id)
+    const requestId = normalizeRequestId(body?.requestId ?? body?.request_id)
     return { action: action as OrganizationWatchlistAction, reason, requestId }
 }
 
@@ -2833,7 +2833,7 @@ export function normalizeWatchlistCleanupInput(body: WatchlistCleanupInput | und
     }
 
     const reason = normalizeWatchlistReason(body?.reason)
-    const requestId = normalizeWatchlistRequestId(body?.requestId ?? body?.request_id)
+    const requestId = normalizeRequestId(body?.requestId ?? body?.request_id)
     return { itemIds, reason, requestId }
 }
 
@@ -4348,7 +4348,7 @@ function organizationSharedWatchlistAnalystPortalWorkflow(input: {
         ],
         timelineContract: {
             route: 'GET /api/admin/support/audit',
-        source: 'events',
+            source: 'events',
             requiredEventBridge: 'organization.shared_watchlist_audit_event_bridge.v1',
             eventActions,
             redactedFields: redactedTimelineFields,
@@ -8478,16 +8478,14 @@ function normalizeInviteExpiry(value: unknown) {
     return expiresAt.toISOString()
 }
 
-function normalizeInviteRequestId(value: unknown) {
+function normalizeRequestId(value: unknown) {
     const requestId = cleanText(value)
     if (!requestId) return undefined
     return requestId.slice(0, 120)
 }
 
 export function normalizeWatchlistRequestId(value: unknown) {
-    const requestId = cleanText(value)
-    if (!requestId) return undefined
-    return requestId.slice(0, 120)
+    return normalizeRequestId(value)
 }
 
 function normalizeWatchlistValue(kind: WatchlistKind, value: unknown) {
