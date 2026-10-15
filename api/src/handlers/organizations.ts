@@ -173,10 +173,9 @@ export async function postOrganization(req: FastifyRequest<{ Body: OrganizationI
 }
 
 export async function getOrganization(req: FastifyRequest<{ Params: OrganizationParams }>, res: FastifyReply) {
-    const userId = await authenticateOrganizationRequest(req, res)
-    if (!userId) return
-
-    const organization = await loadOrganizationForMember(req.params.id, userId)
+    const requestContext = await loadOrganizationMemberRequest(req, res, req.params.id)
+    if (!requestContext) return
+    const { userId, organization } = requestContext
     if (!organization) {
         return sendOrganizationAccessDenial(req, res, {
             organizationId: req.params.id,
@@ -193,12 +192,11 @@ export async function getOrganization(req: FastifyRequest<{ Params: Organization
 
 export async function getOrganizationApiKeys(req: FastifyRequest<{ Params: OrganizationParams }>, res: FastifyReply) {
     res.header('Cache-Control', 'no-store')
-    const userId = await authenticateOrganizationRequest(req, res, {
+    const requestContext = await loadOrganizationMemberRequest(req, res, req.params.id, {
         error: { code: 'authentication_required', message: 'Sign in to manage organization API keys.' },
     })
-    if (!userId) return
-
-    const organization = await loadOrganizationForMember(req.params.id, userId)
+    if (!requestContext) return
+    const { organization } = requestContext
     if (!organization) return res.status(404).send({ error: { code: 'organization_not_found', message: 'Organization not found.' } })
     if (!roleCanManageOrganization(organization.role)) return res.status(403).send({ error: { code: 'organization_role_forbidden', message: 'Organization owners and administrators manage API keys.' } })
 
@@ -210,12 +208,11 @@ export async function getOrganizationApiKeys(req: FastifyRequest<{ Params: Organ
 
 export async function postOrganizationApiKey(req: FastifyRequest<{ Params: OrganizationParams, Body: { name?: unknown } }>, res: FastifyReply) {
     res.header('Cache-Control', 'no-store')
-    const userId = await authenticateOrganizationRequest(req, res, {
+    const requestContext = await loadOrganizationMemberRequest(req, res, req.params.id, {
         error: { code: 'authentication_required', message: 'Sign in to create an organization API key.' },
     })
-    if (!userId) return
-
-    const organization = await loadOrganizationForMember(req.params.id, userId)
+    if (!requestContext) return
+    const { userId, organization } = requestContext
     if (!organization) return res.status(404).send({ error: { code: 'organization_not_found', message: 'Organization not found.' } })
     if (!roleCanManageOrganization(organization.role)) return res.status(403).send({ error: { code: 'organization_role_forbidden', message: 'Organization owners and administrators manage API keys.' } })
     if (organization.status !== 'active') return res.status(409).send({ error: { code: 'organization_inactive', message: 'Reactivate the organization before creating an API key.' } })
@@ -269,12 +266,11 @@ export async function postOrganizationApiKey(req: FastifyRequest<{ Params: Organ
 
 export async function deleteOrganizationApiKey(req: FastifyRequest<{ Params: OrganizationApiKeyParams }>, res: FastifyReply) {
     res.header('Cache-Control', 'no-store')
-    const userId = await authenticateOrganizationRequest(req, res, {
+    const requestContext = await loadOrganizationMemberRequest(req, res, req.params.id, {
         error: { code: 'authentication_required', message: 'Sign in to revoke an organization API key.' },
     })
-    if (!userId) return
-
-    const organization = await loadOrganizationForMember(req.params.id, userId)
+    if (!requestContext) return
+    const { userId, organization } = requestContext
     if (!organization) return res.status(404).send({ error: { code: 'organization_not_found', message: 'Organization not found.' } })
     if (!roleCanManageOrganization(organization.role)) return res.status(403).send({ error: { code: 'organization_role_forbidden', message: 'Organization owners and administrators manage API keys.' } })
 
@@ -288,10 +284,9 @@ export async function deleteOrganizationApiKey(req: FastifyRequest<{ Params: Org
 }
 
 export async function getOrganizationSettings(req: FastifyRequest<{ Params: OrganizationParams }>, res: FastifyReply) {
-    const userId = await authenticateOrganizationRequest(req, res)
-    if (!userId) return
-
-    const organization = await loadOrganizationForMember(req.params.id, userId)
+    const requestContext = await loadOrganizationMemberRequest(req, res, req.params.id)
+    if (!requestContext) return
+    const { organization } = requestContext
     if (!organization) {
         return res.status(404).send({ error: 'Organization not found.' })
     }
@@ -305,10 +300,9 @@ export async function getOrganizationSettings(req: FastifyRequest<{ Params: Orga
 }
 
 export async function putOrganizationSettings(req: FastifyRequest<{ Params: OrganizationParams, Body: OrganizationSettingsInput }>, res: FastifyReply) {
-    const userId = await authenticateOrganizationRequest(req, res)
-    if (!userId) return
-
-    const organization = await loadOrganizationForMember(req.params.id, userId)
+    const requestContext = await loadOrganizationMemberRequest(req, res, req.params.id)
+    if (!requestContext) return
+    const { userId, organization } = requestContext
     if (!organization) {
         return res.status(404).send({ error: 'Organization not found.' })
     }
@@ -497,10 +491,9 @@ export async function putOrganizationSettings(req: FastifyRequest<{ Params: Orga
 }
 
 export async function getOrganizationInvites(req: FastifyRequest<{ Params: OrganizationParams, Querystring: { requestId?: string, request_id?: string } }>, res: FastifyReply) {
-    const userId = await authenticateOrganizationRequest(req, res)
-    if (!userId) return
-
-    const organization = await loadOrganizationForMember(req.params.id, userId)
+    const requestContext = await loadOrganizationMemberRequest(req, res, req.params.id)
+    if (!requestContext) return
+    const { userId, organization } = requestContext
     if (!organization) {
         return res.status(404).send({ error: 'Organization not found.' })
     }
@@ -531,10 +524,9 @@ export async function getOrganizationInvites(req: FastifyRequest<{ Params: Organ
 }
 
 export async function getOrganizationMembers(req: FastifyRequest<{ Params: OrganizationParams }>, res: FastifyReply) {
-    const userId = await authenticateOrganizationRequest(req, res)
-    if (!userId) return
-
-    const organization = await loadOrganizationForMember(req.params.id, userId)
+    const requestContext = await loadOrganizationMemberRequest(req, res, req.params.id)
+    if (!requestContext) return
+    const { organization } = requestContext
     if (!organization) {
         return res.status(404).send({ error: 'Organization not found.' })
     }
@@ -570,10 +562,9 @@ export async function getOrganizationMembers(req: FastifyRequest<{ Params: Organ
 }
 
 export async function deleteOrganizationMember(req: FastifyRequest<{ Params: OrganizationMemberParams }>, res: FastifyReply) {
-    const userId = await authenticateOrganizationRequest(req, res)
-    if (!userId) return
-
-    const organization = await loadOrganizationForMember(req.params.id, userId)
+    const requestContext = await loadOrganizationMemberRequest(req, res, req.params.id)
+    if (!requestContext) return
+    const { userId, organization } = requestContext
     if (!organization) {
         return res.status(404).send({ error: 'Organization not found.' })
     }
@@ -928,10 +919,9 @@ export async function deleteOrganizationMember(req: FastifyRequest<{ Params: Org
 }
 
 export async function patchOrganizationMemberRole(req: FastifyRequest<{ Params: OrganizationMemberParams, Body: OrganizationMemberRoleInput }>, res: FastifyReply) {
-    const userId = await authenticateOrganizationRequest(req, res)
-    if (!userId) return
-
-    const organization = await loadOrganizationForMember(req.params.id, userId)
+    const requestContext = await loadOrganizationMemberRequest(req, res, req.params.id)
+    if (!requestContext) return
+    const { userId, organization } = requestContext
     if (!organization) {
         return res.status(404).send({ error: 'Organization not found.' })
     }
@@ -1224,10 +1214,9 @@ export async function patchOrganizationMemberRole(req: FastifyRequest<{ Params: 
 }
 
 export async function postOrganizationOwnershipTransfer(req: FastifyRequest<{ Params: OrganizationParams, Body: OrganizationOwnershipTransferInput }>, res: FastifyReply) {
-    const userId = await authenticateOrganizationRequest(req, res)
-    if (!userId) return
-
-    const organization = await loadOrganizationForMember(req.params.id, userId)
+    const requestContext = await loadOrganizationMemberRequest(req, res, req.params.id)
+    if (!requestContext) return
+    const { userId, organization } = requestContext
     if (!organization) {
         return res.status(404).send({ error: 'Organization not found.' })
     }
@@ -1345,10 +1334,9 @@ export async function postOrganizationOwnershipTransfer(req: FastifyRequest<{ Pa
 }
 
 export async function postOrganizationInvites(req: FastifyRequest<{ Params: OrganizationParams, Body: InviteInput }>, res: FastifyReply) {
-    const userId = await authenticateOrganizationRequest(req, res)
-    if (!userId) return
-
-    const organization = await loadOrganizationForMember(req.params.id, userId)
+    const requestContext = await loadOrganizationMemberRequest(req, res, req.params.id)
+    if (!requestContext) return
+    const { userId, organization } = requestContext
     if (!organization) {
         return res.status(404).send({ error: 'Organization not found.' })
     }
@@ -1482,10 +1470,9 @@ export async function postOrganizationInvites(req: FastifyRequest<{ Params: Orga
 }
 
 export async function postOrganizationInviteAction(req: FastifyRequest<{ Params: OrganizationInviteParams, Body: InviteActionInput }>, res: FastifyReply) {
-    const userId = await authenticateOrganizationRequest(req, res)
-    if (!userId) return
-
-    const organization = await loadOrganizationForMember(req.params.id, userId)
+    const requestContext = await loadOrganizationMemberRequest(req, res, req.params.id)
+    if (!requestContext) return
+    const { userId, organization } = requestContext
     if (!organization) {
         return res.status(404).send({ error: 'Organization not found.' })
     }
@@ -1973,10 +1960,9 @@ export async function postOrganizationInviteAccept(req: FastifyRequest<{ Params:
 }
 
 export async function getOrganizationWatchlists(req: FastifyRequest<{ Params: OrganizationParams }>, res: FastifyReply) {
-    const userId = await authenticateOrganizationRequest(req, res)
-    if (!userId) return
-
-    const organization = await loadOrganizationForMember(req.params.id, userId)
+    const requestContext = await loadOrganizationMemberRequest(req, res, req.params.id)
+    if (!requestContext) return
+    const { userId, organization } = requestContext
     if (!organization) {
         return sendOrganizationAccessDenial(req, res, {
             organizationId: req.params.id,
@@ -2008,10 +1994,9 @@ export async function getOrganizationWatchlists(req: FastifyRequest<{ Params: Or
 }
 
 export async function getOrganizationWatchlist(req: FastifyRequest<{ Params: WatchlistParams }>, res: FastifyReply) {
-    const userId = await authenticateOrganizationRequest(req, res)
-    if (!userId) return
-
-    const organization = await loadOrganizationForMember(req.params.organizationId, userId)
+    const requestContext = await loadOrganizationMemberRequest(req, res, req.params.organizationId)
+    if (!requestContext) return
+    const { userId, organization } = requestContext
     if (!organization) {
         return res.status(404).send({ error: 'Organization not found.' })
     }
@@ -2157,10 +2142,9 @@ export async function getOrganizationWatchlist(req: FastifyRequest<{ Params: Wat
 }
 
 export async function getOrganizationAlertReadiness(req: FastifyRequest<{ Params: OrganizationParams }>, res: FastifyReply) {
-    const userId = await authenticateOrganizationRequest(req, res)
-    if (!userId) return
-
-    const organization = await loadOrganizationForMember(req.params.id, userId)
+    const requestContext = await loadOrganizationMemberRequest(req, res, req.params.id)
+    if (!requestContext) return
+    const { userId, organization } = requestContext
     if (!organization) {
         return sendOrganizationAccessDenial(req, res, {
             organizationId: req.params.id,
@@ -2282,10 +2266,9 @@ export async function getOrganizationAlertReadiness(req: FastifyRequest<{ Params
 }
 
 export async function getOrganizationWatchlistAlertTerms(req: FastifyRequest<{ Params: OrganizationParams, Querystring: { requestId?: string, request_id?: string } }>, res: FastifyReply) {
-    const userId = await authenticateOrganizationRequest(req, res)
-    if (!userId) return
-
-    const organization = await loadOrganizationForMember(req.params.id, userId)
+    const requestContext = await loadOrganizationMemberRequest(req, res, req.params.id)
+    if (!requestContext) return
+    const { userId, organization } = requestContext
     if (!organization) {
         return sendOrganizationAccessDenial(req, res, {
             organizationId: req.params.id,
@@ -2354,10 +2337,9 @@ export async function getOrganizationWatchlistAlertTerms(req: FastifyRequest<{ P
 }
 
 export async function getOrganizationAlertCaseVisibility(req: FastifyRequest<{ Params: OrganizationParams, Querystring: { requestId?: string, request_id?: string } }>, res: FastifyReply) {
-    const userId = await authenticateOrganizationRequest(req, res)
-    if (!userId) return
-
-    const organization = await loadOrganizationForMember(req.params.id, userId)
+    const requestContext = await loadOrganizationMemberRequest(req, res, req.params.id)
+    if (!requestContext) return
+    const { userId, organization } = requestContext
     if (!organization) {
         return sendOrganizationAccessDenial(req, res, {
             organizationId: req.params.id,
@@ -2652,10 +2634,9 @@ export async function getOrganizationAlertCaseVisibility(req: FastifyRequest<{ P
 }
 
 export async function postOrganizationWatchlist(req: FastifyRequest<{ Params: OrganizationParams, Body: WatchlistInput }>, res: FastifyReply) {
-    const userId = await authenticateOrganizationRequest(req, res)
-    if (!userId) return
-
-    const organization = await loadOrganizationForMember(req.params.id, userId)
+    const requestContext = await loadOrganizationMemberRequest(req, res, req.params.id)
+    if (!requestContext) return
+    const { userId, organization } = requestContext
     if (!organization) {
         return res.status(404).send({ error: 'Organization not found.' })
     }
@@ -2764,10 +2745,9 @@ export async function postOrganizationWatchlist(req: FastifyRequest<{ Params: Or
 }
 
 export async function putOrganizationWatchlist(req: FastifyRequest<{ Params: WatchlistParams, Body: WatchlistInput }>, res: FastifyReply) {
-    const userId = await authenticateOrganizationRequest(req, res)
-    if (!userId) return
-
-    const organization = await loadOrganizationForMember(req.params.organizationId, userId)
+    const requestContext = await loadOrganizationMemberRequest(req, res, req.params.organizationId)
+    if (!requestContext) return
+    const { userId, organization } = requestContext
     if (!organization) {
         return res.status(404).send({ error: 'Organization not found.' })
     }
@@ -2852,10 +2832,9 @@ export async function putOrganizationWatchlist(req: FastifyRequest<{ Params: Wat
 }
 
 export async function deleteOrganizationWatchlist(req: FastifyRequest<{ Params: WatchlistParams, Body: WatchlistMutationBody, Querystring: { requestId?: string, request_id?: string } }>, res: FastifyReply) {
-    const userId = await authenticateOrganizationRequest(req, res)
-    if (!userId) return
-
-    const organization = await loadOrganizationForMember(req.params.organizationId, userId)
+    const requestContext = await loadOrganizationMemberRequest(req, res, req.params.organizationId)
+    if (!requestContext) return
+    const { userId, organization } = requestContext
     if (!organization) {
         return res.status(404).send({ error: 'Organization not found.' })
     }
@@ -2930,10 +2909,9 @@ export async function deleteOrganizationWatchlist(req: FastifyRequest<{ Params: 
 }
 
 export async function postOrganizationWatchlistAction(req: FastifyRequest<{ Params: WatchlistParams, Body: WatchlistActionInput }>, res: FastifyReply) {
-    const userId = await authenticateOrganizationRequest(req, res)
-    if (!userId) return
-
-    const organization = await loadOrganizationForMember(req.params.organizationId, userId)
+    const requestContext = await loadOrganizationMemberRequest(req, res, req.params.organizationId)
+    if (!requestContext) return
+    const { userId, organization } = requestContext
     if (!organization) {
         return res.status(404).send({ error: 'Organization not found.' })
     }
@@ -3030,10 +3008,9 @@ export async function postOrganizationWatchlistAction(req: FastifyRequest<{ Para
 }
 
 export async function postOrganizationWatchlistCleanup(req: FastifyRequest<{ Params: OrganizationParams, Body: WatchlistCleanupInput }>, res: FastifyReply) {
-    const userId = await authenticateOrganizationRequest(req, res)
-    if (!userId) return
-
-    const organization = await loadOrganizationForMember(req.params.id, userId)
+    const requestContext = await loadOrganizationMemberRequest(req, res, req.params.id)
+    if (!requestContext) return
+    const { userId, organization } = requestContext
     if (!organization) {
         return res.status(404).send({ error: 'Organization not found.' })
     }
@@ -3157,6 +3134,19 @@ async function loadOrganizationForMember(organizationId: string, userId: string,
     `, [organizationId, userId])
 
     return result.rows[0] as OrganizationRow | undefined
+}
+
+async function loadOrganizationMemberRequest(
+    req: FastifyRequest,
+    res: FastifyReply,
+    organizationId: string,
+    unauthorizedBody?: { error: unknown },
+) {
+    const userId = await authenticateOrganizationRequest(req, res, unauthorizedBody)
+    if (!userId) return null
+
+    const organization = await loadOrganizationForMember(organizationId, userId)
+    return { userId, organization }
 }
 
 async function loadOrganizationMembership(organizationId: string, userId: string, query: typeof run = run) {

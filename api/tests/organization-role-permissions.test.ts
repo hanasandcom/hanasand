@@ -6,7 +6,9 @@ import * as webhooks from '../src/utils/dwm/webhooks.ts'
 
 let role: OrganizationRole = 'reader'
 let active = true
+let authenticated = true
 let archived = false
+let queryCalls = 0
 let inviteAcceptanceWinsRace = false
 let inviteReads = 0
 const writes: string[] = []
@@ -21,6 +23,7 @@ const raceInvite = {
 }
 const destination = { id: 'target', orgId: 'org', ownerId: 'owner', name: 'Delivery target', kind: 'webhook', status: 'active', endpointHint: 'example.com/…', endpointHash: 'hash', events: ['dwm.alert.created'] }
 const query = async (sql: string, params: unknown[] = []) => {
+    queryCalls++
     const statement = sql.replace(/\s+/g, ' ').trim()
     if (/^\s*(INSERT|UPDATE|DELETE)/.test(sql)) writes.push(sql)
     if (statement.includes('COUNT(*)::int AS owner_count')) return { rows: [{ owner_count: 1 }] }
@@ -58,7 +61,7 @@ const query = async (sql: string, params: unknown[] = []) => {
     return { rows: [] }
 }
 mock.module('#db', () => ({ default: query, withTransaction: async (work: (runQuery: typeof query) => unknown) => work(query), withDatabaseAdvisoryLock: async (_key: string, work: () => unknown) => work() }))
-mock.module('#utils/auth/tokenWrapper.ts', () => ({ default: async () => ({ valid: true, id: 'actor' }) }))
+mock.module('#utils/auth/tokenWrapper.ts', () => ({ default: async () => ({ valid: authenticated, id: 'actor' }) }))
 mock.module('#utils/logs/recordLog.ts', () => ({ default: async (entry: Record<string, any>) => { serviceLogs.push(entry) } }))
 const systemEventUtils = await import('../src/utils/systemEvent.ts')
 mock.module('#utils/systemEvent.ts', () => ({
@@ -76,17 +79,20 @@ const org = await import('../src/handlers/organizations.ts')
 const { deleteDwmWebhookDestination } = await import('../src/handlers/dwm/webhooks.ts')
 const app = Fastify()
 app.delete('/targets/:id', deleteDwmWebhookDestination)
+app.get('/org/:id', org.getOrganization)
+app.get('/org/:id/api-keys', org.getOrganizationApiKeys)
+app.post('/org/:id/api-keys', org.postOrganizationApiKey)
+app.delete('/org/:id/api-keys/:keyId', org.deleteOrganizationApiKey)
 app.put('/org/:id/settings', org.putOrganizationSettings)
 app.post('/org/:id/ownership-transfer', org.postOrganizationOwnershipTransfer)
 app.post('/org/:id/invites', org.postOrganizationInvites)
 app.post('/org/:id/invites/:inviteId/actions', org.postOrganizationInviteAction)
-app.post('/org/:id/api-keys', org.postOrganizationApiKey)
 app.post('/org/:id/cleanup', org.postOrganizationWatchlistCleanup)
 app.post('/org/:id/watchlists', org.postOrganizationWatchlist)
 app.patch('/org/:id/members/:userId/role', org.patchOrganizationMemberRole)
 app.delete('/org/:id/members/:userId', org.deleteOrganizationMember)
 
-beforeEach(() => { role = 'reader'; active = true; archived = false; inviteAcceptanceWinsRace = false; inviteReads = 0; writes.length = 0; serviceLogs.length = 0; systemEvents.length = 0; apiKeys.length = 0; apiKeyScopes.length = 0 })
+beforeEach(() => { role = 'reader'; active = true; authenticated = true; archived = false; queryCalls = 0; inviteAcceptanceWinsRace = false; inviteReads = 0; writes.length = 0; serviceLogs.length = 0; systemEvents.length = 0; apiKeys.length = 0; apiKeyScopes.length = 0 })
 
 test('legacy roles and invitations become Reader without gaining permissions', () => {
     for (const legacy of ['member', 'viewer']) {
@@ -259,4 +265,24 @@ test('removed Editors and cross-organization requests are denied', async () => {
     active = true
     expect((await app.inject({ method: 'POST', url: '/org/other/watchlists', payload: { kind: 'domain', value: 'example.com' } })).statusCode).toBe(404)
     expect(writes).toHaveLength(0)
+})
+
+test('organization member context preserves route-specific authentication errors before loading organization data', async () => {
+    authenticated = false
+
+    const response = await app.inject({ method: 'GET', url: '/org/org' })
+
+    expect(response.statusCode).toBe(401)
+    expect(response.json()).toEqual({ error: 'Unauthorized.' })
+    const apiKeyResponses = await Promise.all([
+        app.inject({ method: 'GET', url: '/org/org/api-keys' }),
+        app.inject({ method: 'POST', url: '/org/org/api-keys', payload: { name: 'Key' } }),
+        app.inject({ method: 'DELETE', url: '/org/org/api-keys/key-1' }),
+    ])
+    expect(apiKeyResponses.map(apiKeyResponse => [apiKeyResponse.statusCode, apiKeyResponse.json()])).toEqual([
+        [401, { error: { code: 'authentication_required', message: 'Sign in to manage organization API keys.' } }],
+        [401, { error: { code: 'authentication_required', message: 'Sign in to create an organization API key.' } }],
+        [401, { error: { code: 'authentication_required', message: 'Sign in to revoke an organization API key.' } }],
+    ])
+    expect(queryCalls).toBe(0)
 })
