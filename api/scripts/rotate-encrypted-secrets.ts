@@ -1,6 +1,6 @@
 import pg from 'pg'
 import { decryptSecret, deriveSecretKey, encryptSecret } from '../src/utils/crypto/secretBox.ts'
-import { decryptRepoSecret, encryptRepoSecret, isRepoSecretEncryptedWithCurrentKey } from '../src/utils/ai/repoCredentials.ts'
+import { decryptRepoSecret, encryptRepoSecret, isRepoSecretEncryptedWithCurrentKey } from '../src/utils/ai/repoCredentialCrypto.ts'
 
 if (process.env.ROTATE_ENCRYPTED_SECRETS_CONFIRM !== '1') {
     throw new Error('Set ROTATE_ENCRYPTED_SECRETS_CONFIRM=1 to run the encrypted-secret migration.')

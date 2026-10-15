@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
-import { buildTokenHint, decryptRepoSecret, encryptRepoSecret, isRepoSecretEncryptedWithCurrentKey } from '../src/utils/ai/repoCredentials.ts'
+import { buildTokenHint } from '../src/utils/ai/repoCredentials.ts'
+import { decryptRepoSecret, encryptRepoSecret, isRepoSecretEncryptedWithCurrentKey } from '../src/utils/ai/repoCredentialCrypto.ts'
 
 const secretEnvNames = [
     'AI_REPO_SECRET_KEY', 'AI_REPO_SECRET_KEY_PREVIOUS',
