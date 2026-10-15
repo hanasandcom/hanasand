@@ -38,6 +38,16 @@ type EventBody = { source?: Record<string, unknown>, events?: unknown }
 type RuleDefinition = { match: 'all', conditions: Condition[], storeScope?: 'custom_drop' | 'all', protection?: EventProtectionPolicy, failureConditions?: Condition[], parameters?: Record<string, number>, stage?: 'analyze' | 'match' | 'detect', action?: 'drop' | 'keep' }
 type Rule = { id: string, detectionLogic?: string, recordId?: string, version: string, name: string, family: string, severity: string, explanation: string, evidence: string[], enabled?: boolean, source?: 'hanasand' | 'owned' | 'open_source', sourceReference?: string, definition?: RuleDefinition }
 
+const platformRetentionRuleIds = new Set([
+    accessRuleId, mongoRuleId, postgresRuleId, proxyRuleId, ingestionRuleId,
+    collectorRuleId, telemetryRuleId, sshWindowRuleId, cdnRefreshRuleId,
+    cdnDeliveryRuleId, modelDiscoveryRuleId, modelHealthRuleId, readinessAuditRuleId,
+])
+
+function isPlatformRetentionRule(rule: Pick<Rule, 'id' | 'definition'>) {
+    return platformRetentionRuleIds.has(rule.id) || rule.definition?.stage === 'analyze'
+}
+
 type ReadAwareRun = typeof run & { withReadDatabase?: <T>(work: () => Promise<T>) => Promise<T> }
 function readDatabase<T>(work: () => Promise<T>): Promise<T> {
     return (run as ReadAwareRun).withReadDatabase?.(work) || work()
@@ -489,7 +499,7 @@ export async function postRuleAction(req: FastifyRequest<{ Params: { id: string 
     if (!action) return res.status(400).send({ error: 'Action must be enable or disable.' })
     const rule = (await readDatabase(() => loadConfiguredRules(access.organizationId))).find(rule => ruleSlug(rule.id) === ruleSlug(req.params.id) || rule.recordId === req.params.id)
     if (!rule) return res.status(404).send({ error: 'Rule not found.' })
-    if (([accessRuleId, mongoRuleId, postgresRuleId, proxyRuleId, ingestionRuleId, collectorRuleId, telemetryRuleId, sshWindowRuleId, cdnRefreshRuleId, cdnDeliveryRuleId, modelDiscoveryRuleId, modelHealthRuleId, readinessAuditRuleId].includes(rule.id) || rule.definition?.stage === 'analyze') && !(await hasHanasandInternalRouteAccess(req)).valid) return res.status(403).send({ error: 'Active Hanasand organization owner or editor access is required to change platform log retention.' })
+    if (isPlatformRetentionRule(rule) && !(await hasHanasandInternalRouteAccess(req)).valid) return res.status(403).send({ error: 'Active Hanasand organization owner or editor access is required to change platform log retention.' })
     if (action === 'enable' && unavailableAnalysisRule(rule.id)) return res.status(409).send({ error: unavailableAnalysisRule(rule.id) })
     try {
         const saved = await saveRule(req, access, { ...rule, enabled: action === 'enable' }, 'event.rule.updated', rule.version)
@@ -550,7 +560,7 @@ export async function getRule(req: FastifyRequest<{ Params: { id: string }, Quer
                 loadRuleHits(access.organizationId, [rule], run),
             ]))
             const hitCount = rule.definition?.stage === 'analyze' && rule.definition.action === 'keep' ? null : hits.get(rule.id) ?? 0
-            const canEdit = !isHistorical && canManageRules(access.role) && (!([accessRuleId, mongoRuleId, postgresRuleId, proxyRuleId, ingestionRuleId, collectorRuleId, telemetryRuleId, sshWindowRuleId, cdnRefreshRuleId, cdnDeliveryRuleId, modelDiscoveryRuleId, modelHealthRuleId, readinessAuditRuleId].includes(rule.id) || rule.definition?.stage === 'analyze') || (await hasHanasandInternalRouteAccess(req)).valid)
+            const canEdit = !isHistorical && canManageRules(access.role) && (!isPlatformRetentionRule(rule) || (await hasHanasandInternalRouteAccess(req)).valid)
             return { organizationId: access.organizationId, canEdit, isHistorical, currentVersion: rule.version, rule: displayedRule, triggerCount: hitCount, audit: audit.rows.slice(0, 50), nextOffset: audit.rows.length > 50 ? offset + 50 : null }
         }
         const payload = process.env.NODE_ENV === 'test' || !(run as ReadAwareRun).withReadDatabase
@@ -569,7 +579,7 @@ export async function putRule(req: FastifyRequest<{ Params: { id: string } }>, r
     if (!canManageRules(access.role)) return res.status(403).send({ error: 'Editor access is required to manage rules.' })
     const rule = (await loadConfiguredRules(access.organizationId)).find(rule => ruleSlug(rule.id) === ruleSlug(req.params.id))
     if (!rule) return res.status(404).send({ error: 'Rule not found.' })
-    if (([accessRuleId, mongoRuleId, postgresRuleId, proxyRuleId, ingestionRuleId, collectorRuleId, telemetryRuleId, sshWindowRuleId, cdnRefreshRuleId, cdnDeliveryRuleId, modelDiscoveryRuleId, modelHealthRuleId, readinessAuditRuleId].includes(rule.id) || rule.definition?.stage === 'analyze') && !(await hasHanasandInternalRouteAccess(req)).valid) return res.status(403).send({ error: 'Active Hanasand organization owner or editor access is required to change platform log retention.' })
+    if (isPlatformRetentionRule(rule) && !(await hasHanasandInternalRouteAccess(req)).valid) return res.status(403).send({ error: 'Active Hanasand organization owner or editor access is required to change platform log retention.' })
     const body = (req.body || {}) as Record<string, unknown>
     if (body.enabled === true && unavailableAnalysisRule(rule.id)) return res.status(409).send({ error: unavailableAnalysisRule(rule.id) })
     const name = typeof body.name === 'string' ? body.name.trim() : ''
@@ -675,7 +685,7 @@ async function loadConfiguredRulesUncached(organizationId: string, query: typeof
         ORDER BY created_at ASC
     `, [organizationId])
     const overrides = new Map((result.rows as Array<Record<string, unknown>>).map(row => [String(row.rule_id), row]))
-    const builtIns = BUILTIN_RULES.filter(rule => ![accessRuleId, mongoRuleId, postgresRuleId, proxyRuleId, ingestionRuleId, collectorRuleId, telemetryRuleId, sshWindowRuleId, cdnRefreshRuleId, cdnDeliveryRuleId, modelDiscoveryRuleId, modelHealthRuleId, readinessAuditRuleId].includes(rule.id) || overrides.has(rule.id)).map(rule => {
+    const builtIns = BUILTIN_RULES.filter(rule => !platformRetentionRuleIds.has(rule.id) || overrides.has(rule.id)).map(rule => {
         const override = overrides.get(rule.id)
         return { ...rule, definition: builtinDefinition(rule, override?.definition), detectionLogic: rule.explanation, ...(override ? { recordId: String(override.id), version: String(override.version), name: String(override.name), explanation: String(override.explanation), severity: String(override.severity) } : {}), enabled: override ? Boolean(override.enabled) : rule.enabled !== false, source: 'hanasand' as const }
     })

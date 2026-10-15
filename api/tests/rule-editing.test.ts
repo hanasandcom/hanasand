@@ -81,6 +81,24 @@ test.each(['http.routine_access.v1', 'mongodb.cashflow_connections.v1'])('only s
     expect(invalid.statusCode).toBe(400)
 })
 
+test('custom Analyze rules use the same platform-retention edit boundary', async () => {
+    const id = 'custom.analyze.v1'
+    rows = [{
+        id: 'custom-analyze', organization_id: 'org-a', rule_id: id, version: '1',
+        name: 'Count failed deliveries', family: 'Custom', severity: 'high', explanation: 'Count failed delivery events for operator review.',
+        source: 'owned', enabled: true,
+        definition: { match: 'all', conditions: [], stage: 'analyze', action: 'drop', parameters: {} },
+    }]
+
+    expect((await getRule(request(id), reply() as any)).canEdit).toBe(false)
+    const actionResponse = reply()
+    await postRuleAction(request(id, { action: 'disable' }), actionResponse as any)
+    expect(actionResponse.statusCode).toBe(403)
+    const updateResponse = reply()
+    await putRule(request(id, { ...edit, version: '1', conditions: [], action: 'drop' }), updateResponse as any)
+    expect(updateResponse.statusCode).toBe(403)
+})
+
 test('built-in detail ID survives editing, and new detections use saved severity and revision', async () => {
     const initial = await getRule(request(), reply() as any)
     expect(initial.rule.id).toBe(builtin)
