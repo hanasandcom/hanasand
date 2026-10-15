@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { canonicalThirdPartyReportForDelivery } from '../src/handlers/dwm/webhooks.ts'
-import { assertPublicWebhookTarget, buildDwmAlertDeliveryPayload, computeOutboundThirdPartyReportChecksum, normalizeDwmWebhookDestinationInput, pinnedWebhookLookup, signDwmWebhookDeliveryBody, validateDwmWebhookReceiverEnvelope, validateOutboundThirdPartyReport } from '../src/utils/dwm/webhooks.ts'
+import { assertPublicWebhookTarget, buildDwmAlertDeliveryPayload, computeOutboundThirdPartyReportChecksum as checksumFromWebhookModule, normalizeDwmWebhookDestinationInput, pinnedWebhookLookup, signDwmWebhookDeliveryBody, validateDwmWebhookReceiverEnvelope, validateOutboundThirdPartyReport as validateFromWebhookModule } from '../src/utils/dwm/webhooks.ts'
+import { computeOutboundThirdPartyReportChecksum, validateOutboundThirdPartyReport } from '../src/utils/dwm/thirdPartyReport.ts'
 import { canonicalJson, containsUnsafeCustomerOutboundText, sanitizeCustomerOutboundText } from '../src/utils/dwm/customerOutputSafety.ts'
 
 describe('DWM webhook network boundary', () => {
@@ -84,6 +85,8 @@ describe('DWM webhook network boundary', () => {
 
     test('preserves one bounded validated report and keys delivery idempotency to its checksum', () => {
         const report = reportFixture()
+        expect(checksumFromWebhookModule).toBe(computeOutboundThirdPartyReportChecksum)
+        expect(validateFromWebhookModule).toBe(validateOutboundThirdPartyReport)
         expect(validateOutboundThirdPartyReport(report, { organizationId: 'org_1', alertId: 'alert_1', dedupeKey: report.exportChecksum })).toMatchObject({ valid: true, report })
         expect(validateOutboundThirdPartyReport(report, { organizationId: 'org_other', alertId: 'alert_1', dedupeKey: report.exportChecksum })).toMatchObject({ valid: false })
         expect(validateOutboundThirdPartyReport(report, { organizationId: 'org_1', alertId: 'alert_other', dedupeKey: report.exportChecksum })).toMatchObject({ valid: false })
