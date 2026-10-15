@@ -3,6 +3,8 @@ import { expect, mock, test } from 'bun:test'
 const observations: Array<{ status: string, checked_at: string, latency_ms: number, message: string }> = []
 const incidents: Array<{ status: string, incidentStartedAt: string }> = []
 let checkedAt = Date.parse('2026-10-16T12:00:00.000Z')
+let incidentDelivery: Promise<void> | undefined
+let releaseIncidentDelivery: (() => void) | undefined
 
 mock.module('#db', () => ({
     default: async () => ({ rows: [] }),
@@ -18,12 +20,24 @@ mock.module('#db', () => ({
 }))
 mock.module('../src/utils/status/snapshotSchema.ts', () => ({ ensureStatusSnapshots: async () => {} }))
 mock.module('../src/utils/status/serviceCheckCase.ts', () => ({ recordServiceCheckCase: async () => {} }))
-mock.module('../src/utils/status/serviceIncident.ts', () => ({ notifyServiceMonitorIncident: async (incident: { status: string, incidentStartedAt: string }) => { incidents.push(incident) } }))
+mock.module('../src/utils/status/serviceIncident.ts', () => ({
+    notifyServiceMonitorIncident: async (incident: { status: string, incidentStartedAt: string }) => {
+        incidents.push(incident)
+        if (incidentDelivery) await incidentDelivery
+    },
+}))
 
 const { recordMonitorResult } = await import('../src/utils/status/record.ts')
 
 test('a recovered outage is reported once while a sustained outage is reported', async () => {
-    for (let index = 0; index < 3; index++) await recordMonitorResult('website', 'Public website', 'down', 10, 'Unavailable')
+    for (let index = 0; index < 2; index++) await recordMonitorResult('website', 'Public website', 'down', 10, 'Unavailable')
+    incidentDelivery = new Promise<void>(resolve => { releaseIncidentDelivery = resolve })
+    const thirdFailure = recordMonitorResult('website', 'Public website', 'down', 10, 'Unavailable')
+    const returnedBeforeDelivery = await Promise.race([thirdFailure.then(() => true), Bun.sleep(50).then(() => false)])
+    releaseIncidentDelivery?.()
+    incidentDelivery = undefined
+    await thirdFailure
+    expect(returnedBeforeDelivery).toBe(true)
     await recordMonitorResult('website', 'Public website', 'degraded', 10, 'Recovering')
     await recordMonitorResult('website', 'Public website', 'up', 10, 'Ready')
     await recordMonitorResult('website', 'Public website', 'up', 10, 'Ready')

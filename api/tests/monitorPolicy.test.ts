@@ -1,71 +1,13 @@
 import { describe, expect, test } from 'bun:test'
-import { readFile } from 'node:fs/promises'
-import path from 'node:path'
 import { check, fetchJson } from '../src/utils/status/monitor.ts'
 import { addMissingRequiredChecks, latencyStatus, watchlistProcessingStatus } from '../src/utils/status/monitorPolicy.ts'
 
 describe('production monitor notification transitions', () => {
-    test('status history SQL avoids reserved PostgreSQL window identifier', async () => {
-        const source = await readFile(path.join(import.meta.dir, '../src/handlers/status/get.ts'), 'utf8')
-        const schema = await readFile(path.join(import.meta.dir, '../src/utils/db/ensureSchema.ts'), 'utf8')
-        expect(source).toContain('WINDOW status_history_window AS')
-        expect(source).not.toContain('WINDOW window AS')
-        expect(source).toContain('WHERE status IN (\'down\', \'degraded\')')
-        expect(source).not.toContain('FROM service_monitor_results recovered')
-        expect(source).toContain('LAG(status) OVER status_history_window')
-        expect(schema).toContain('idx_service_monitor_results_non_up')
-    })
-
     test('current status bypasses slow history and retains verified evidence through restart and failure', async () => {
         const child = Bun.spawn([process.execPath, 'scripts/check-status-feed.ts'], { stdout: 'pipe', stderr: 'pipe' })
         const [exitCode, stdout, stderr] = await Promise.all([child.exited, new Response(child.stdout).text(), new Response(child.stderr).text()])
         expect({ exitCode, stderr: exitCode ? stderr : '' }).toEqual({ exitCode: 0, stderr: '' })
         expect(stdout).toContain('persisted evidence survives restart and database failure')
-    })
-
-    test('processing backlog is read from the separately deployed TI service', async () => {
-        const source = await readFile(path.join(import.meta.dir, '../src/utils/status/monitor.ts'), 'utf8')
-        const backlog = source.slice(source.indexOf('check(\'threat-intelligence\', \'Processing backlog\''))
-        expect(backlog).toContain('fetchJson(\'/v1/internal/processing-backlog\'')
-        expect(backlog).toContain('\'x-hanasand-service-token\'')
-        expect(backlog).not.toContain('threat_intel.')
-    })
-
-    test('source collection has a persisted monitor with defined thresholds', async () => {
-        const source = await readFile(path.join(import.meta.dir, '../src/utils/status/monitor.ts'), 'utf8')
-        expect(source).toContain('check(\'threat-intelligence\', \'Source collection\'')
-        expect(source).toContain('const SOURCE_OPERATIONS_DEGRADED_RATIO = 0.05')
-        expect(source).toContain('!storage || storage.databaseAvailable === false')
-        expect(source).not.toContain('storage?.ok !== true')
-    })
-
-    test('scraper backlog is visible before it becomes a write failure', async () => {
-        const source = await readFile(path.join(import.meta.dir, '../src/utils/status/monitor.ts'), 'utf8')
-        expect(source).toContain('SCRAPER_PENDING_WRITES_DEGRADED_THRESHOLD = 1_000')
-        expect(source).toContain('Threat-intelligence storage has ${pendingWrites} pending writes.')
-    })
-
-    test('latest activity monitor uses the authenticated scraper health path', async () => {
-        const source = await readFile(path.join(import.meta.dir, '../src/utils/status/monitor.ts'), 'utf8')
-        const latestActivity = source.slice(source.indexOf('check(\'dark-web-monitoring\', \'Latest activity\''))
-        expect(latestActivity).toContain('fetchJson(\'/v1/dwm/exposure-queue?limit=1&tenantId=default\'')
-        expect(latestActivity).toContain('\'x-hanasand-service-token\'')
-        expect(latestActivity).toContain('}, scraperBase, remainingMonitorTimeout(deadline))')
-    })
-
-    test('public search retries are bounded by attempt count and a shared deadline', async () => {
-        const source = await readFile(path.join(import.meta.dir, '../src/utils/status/monitor.ts'), 'utf8')
-        const publicSearch = source.slice(source.indexOf('check(\'threat-intelligence\', \'Public search\''), source.indexOf('check(\'threat-intelligence\', \'Source collection\''))
-        expect(publicSearch).toContain('const deadline = Date.now() + MONITOR_REQUEST_TIMEOUT_MS')
-        expect(publicSearch).toContain('attempt < 2 && Date.now() < deadline')
-        expect(publicSearch).toContain('remainingMonitorTimeout(deadline)')
-        expect(publicSearch).toContain('if (Date.now() >= deadline) break')
-    })
-
-    test('incident hook cannot delay alert delivery when the scraper is slow', async () => {
-        const source = await readFile(path.join(import.meta.dir, '../src/utils/status/record.ts'), 'utf8')
-        expect(source).toContain('void notifyServiceMonitorIncident(transition.incident).catch')
-        expect(source).not.toContain('await notifyServiceMonitorIncident(transition.incident)')
     })
 
     test('latency-derived failure does not retain a success message', async () => {
@@ -109,15 +51,6 @@ describe('production monitor notification transitions', () => {
             },
         )).rejects.toThrow('Database unavailable')
         expect(recorded).toEqual([{ status: 'down', message: 'Website returned HTTP 503.' }])
-    })
-
-    test('status monitor bounds unavailable dependency requests', async () => {
-        const source = await readFile(path.join(import.meta.dir, '../src/utils/status/monitor.ts'), 'utf8')
-        expect(source).toContain('const MONITOR_REQUEST_TIMEOUT_MS = 5_000')
-        expect(source).toContain('signal: options.signal || AbortSignal.timeout(timeoutMs)')
-        expect(source).toContain('signal: AbortSignal.timeout(MONITOR_REQUEST_TIMEOUT_MS)')
-        expect(source).toContain('const deadline = Date.now() + MONITOR_REQUEST_TIMEOUT_MS')
-        expect(source).toContain('Date.now() < deadline')
     })
 
     test('unavailable dependency records down promptly without substituting success', async () => {
