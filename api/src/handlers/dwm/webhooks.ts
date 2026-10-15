@@ -5,6 +5,7 @@ import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import {
     organizationVisibilityDecision,
     roleCanEditOrganization,
+    type OrganizationVisibilityDecisionInput,
     type OrganizationAlertVisibilityPolicy,
     type OrganizationRole,
 } from '#utils/organizations.ts'
@@ -119,6 +120,7 @@ export async function getDwmWebhookDestinations(req: FastifyRequest<{ Querystrin
         return res.status(404).send({ error: 'Organization not found.' })
     }
     const lifecycleAccess = destinationLifecycleAccess(orgId, userId, membership)
+    const visibilityContext = webhookOrganizationVisibilityContext(orgId, userId, membership, { membershipIsActive: true })
 
     const destinations = await listDwmWebhookDestinations(userId, orgId || undefined)
     const deliveries = await listDwmWebhookDeliveries(userId, orgId || undefined)
@@ -133,27 +135,13 @@ export async function getDwmWebhookDestinations(req: FastifyRequest<{ Querystrin
             deliveries,
             auditEvents,
             ...lifecycleAccess,
-            visibility: orgId && orgId !== userId
-                ? {
-                    role: membership?.role,
-                    status: 'active',
-                    userActive: true,
-                    alertVisibilityPolicy: membership?.alert_visibility_policy,
-                }
-                : null,
+            visibility: visibilityContext,
         }),
         dashboardReadiness: buildDwmWebhookDashboardReadinessAdapter({
             destinations,
             deliveries,
             auditEvents,
-            visibility: orgId && orgId !== userId
-                ? {
-                    role: membership?.role,
-                    status: 'active',
-                    userActive: true,
-                    alertVisibilityPolicy: membership?.alert_visibility_policy,
-                }
-                : null,
+            visibility: visibilityContext,
         }),
         destinationLifecycle: buildDwmWebhookDestinationLifecycle({ destinations, deliveries, auditEvents, ...lifecycleAccess }),
         destinationLookup: buildDwmWebhookDestinationLookupContract({
@@ -161,14 +149,7 @@ export async function getDwmWebhookDestinations(req: FastifyRequest<{ Querystrin
             deliveries,
             auditEvents,
             ...lifecycleAccess,
-            visibility: orgId && orgId !== userId
-                ? {
-                    role: membership?.role,
-                    status: 'active',
-                    userActive: true,
-                    alertVisibilityPolicy: membership?.alert_visibility_policy,
-                }
-                : null,
+            visibility: visibilityContext,
         }),
         destinationTests: destinations.map(destination => buildDwmWebhookDestinationTestContract({
             destination,
@@ -181,14 +162,7 @@ export async function getDwmWebhookDestinations(req: FastifyRequest<{ Querystrin
             deliveries,
             auditEvents,
             ...lifecycleAccess,
-            visibility: orgId && orgId !== userId
-                ? {
-                    role: membership?.role,
-                    status: 'active',
-                    userActive: true,
-                    alertVisibilityPolicy: membership?.alert_visibility_policy,
-                }
-                : null,
+            visibility: visibilityContext,
         }),
         deliveryReadiness: buildDwmWebhookDeliveryReadiness({ destinations, deliveries, auditEvents }),
         deliveryRetryQueue: buildDwmWebhookDeliveryRetryQueue({
@@ -196,70 +170,35 @@ export async function getDwmWebhookDestinations(req: FastifyRequest<{ Querystrin
             deliveries,
             auditEvents,
             ...lifecycleAccess,
-            visibility: orgId && orgId !== userId
-                ? {
-                    role: membership?.role,
-                    status: 'active',
-                    userActive: true,
-                    alertVisibilityPolicy: membership?.alert_visibility_policy,
-                }
-                : null,
+            visibility: visibilityContext,
         }),
         deliveryRetryRequest: buildDwmWebhookDeliveryRetryRequestContract({
             destinations,
             deliveries,
             auditEvents,
             ...lifecycleAccess,
-            visibility: orgId && orgId !== userId
-                ? {
-                    role: membership?.role,
-                    status: 'active',
-                    userActive: true,
-                    alertVisibilityPolicy: membership?.alert_visibility_policy,
-                }
-                : null,
+            visibility: visibilityContext,
         }),
         deliveryRetryWorkOrders: buildDwmWebhookDeliveryRetryWorkOrders({
             destinations,
             deliveries,
             auditEvents,
             ...lifecycleAccess,
-            visibility: orgId && orgId !== userId
-                ? {
-                    role: membership?.role,
-                    status: 'active',
-                    userActive: true,
-                    alertVisibilityPolicy: membership?.alert_visibility_policy,
-                }
-                : null,
+            visibility: visibilityContext,
         }),
         destinationDeliveryMatrix: buildDwmWebhookDestinationDeliveryMatrix({
             destinations,
             deliveries,
             auditEvents,
             ...lifecycleAccess,
-            visibility: orgId && orgId !== userId
-                ? {
-                    role: membership?.role,
-                    status: 'active',
-                    userActive: true,
-                    alertVisibilityPolicy: membership?.alert_visibility_policy,
-                }
-                : null,
+            visibility: visibilityContext,
         }),
         deliveryAuditTrail: buildDwmWebhookDeliveryAuditTrail({
             destinations,
             deliveries,
             auditEvents,
             ...lifecycleAccess,
-            visibility: orgId && orgId !== userId
-                ? {
-                    role: membership?.role,
-                    status: 'active',
-                    userActive: true,
-                    alertVisibilityPolicy: membership?.alert_visibility_policy,
-                }
-                : null,
+            visibility: visibilityContext,
         }),
         deliveryPersistenceProof: buildDwmWebhookDeliveryPersistenceProof({
             deliveries,
@@ -273,14 +212,7 @@ export async function getDwmWebhookDestinations(req: FastifyRequest<{ Querystrin
             auditEvents,
             filters: { orgId },
             ...lifecycleAccess,
-            visibility: orgId && orgId !== userId
-                ? {
-                    role: membership?.role,
-                    status: 'active',
-                    userActive: true,
-                    alertVisibilityPolicy: membership?.alert_visibility_policy,
-                }
-                : null,
+            visibility: visibilityContext,
         }),
         auditEventContracts: buildDwmWebhookAuditEventContracts({ auditEvents, deliveries, destinations }),
     })
@@ -601,13 +533,9 @@ export async function getDwmWebhookDeliveries(req: FastifyRequest<{ Querystring:
 
     const orgId = orgIdFromQuery(req.query)
     const visibility = orgId && orgId !== userId ? await loadOrganizationVisibilityMembership(orgId, userId) : null
+    const visibilityContext = webhookOrganizationVisibilityContext(orgId, userId, visibility)
     if (orgId && orgId !== userId) {
-        const decision = organizationVisibilityDecision({
-            role: visibility?.role,
-            status: visibility?.status,
-            userActive: visibility?.user_active,
-            alertVisibilityPolicy: visibility?.alert_visibility_policy,
-        })
+        const decision = organizationVisibilityDecision(visibilityContext || {})
         if (!decision.allowed) {
             return res.status(decision.reason === 'not_member' ? 404 : 403).send({
                 error: decision.reason === 'not_member' ? 'Organization not found.' : 'Webhook delivery evidence is not visible for this organization membership.',
@@ -658,14 +586,13 @@ export async function getDwmWebhookDeliveries(req: FastifyRequest<{ Querystring:
     const visibilityResult = orgId && orgId !== userId
         ? filterDwmWebhookDeliveryEvidenceForVisibility({
             evidence,
-            visibility: {
-                role: visibility?.role,
-                status: visibility?.status,
-                userActive: visibility?.user_active,
-                alertVisibilityPolicy: visibility?.alert_visibility_policy,
-            },
+            visibility: visibilityContext || {},
         })
         : null
+    const visibleRecords = !visibilityResult || visibilityResult.decision.allowed
+        ? { deliveries, auditEvents, destinations }
+        : { deliveries: [], auditEvents: [], destinations: [] }
+    const lifecycleAccess = destinationLifecycleAccess(orgId, userId, visibility)
     const payload: Record<string, unknown> = {
         deliveries,
         deliveryEvidence: visibilityResult ? visibilityResult.deliveryEvidence : evidence,
@@ -685,297 +612,87 @@ export async function getDwmWebhookDeliveries(req: FastifyRequest<{ Querystring:
                 destinations,
                 filters: deliveryFilters,
             }),
-        deliveryHistory: visibilityResult && !visibilityResult.decision.allowed
-            ? buildDwmWebhookDeliveryHistory({
-                deliveries: [],
-                auditEvents: [],
-                destinations: [],
-                filters: deliveryFilters,
-            })
-            : buildDwmWebhookDeliveryHistory({
-                deliveries,
-                auditEvents,
-                destinations,
-                filters: deliveryFilters,
-            }),
+        deliveryHistory: buildDwmWebhookDeliveryHistory({ ...visibleRecords, filters: deliveryFilters }),
         deliveryHistoryConsumer: buildDwmWebhookDeliveryHistoryConsumerProof({
-            deliveries: visibilityResult && !visibilityResult.decision.allowed ? [] : deliveries,
-            auditEvents: visibilityResult && !visibilityResult.decision.allowed ? [] : auditEvents,
-            destinations: visibilityResult && !visibilityResult.decision.allowed ? [] : destinations,
+            ...visibleRecords,
             filters: deliveryFilters,
         }),
         deliveryReadinessConsumer: buildDwmWebhookDeliveryReadinessConsumerProof({
-            deliveries: visibilityResult && !visibilityResult.decision.allowed ? [] : deliveries,
-            auditEvents: visibilityResult && !visibilityResult.decision.allowed ? [] : auditEvents,
-            destinations: visibilityResult && !visibilityResult.decision.allowed ? [] : destinations,
+            ...visibleRecords,
             filters: deliveryFilters,
-            ...destinationLifecycleAccess(orgId, userId, visibility),
-            visibility: orgId && orgId !== userId
-                ? {
-                    role: visibility?.role,
-                    status: visibility?.status,
-                    userActive: visibility?.user_active,
-                    alertVisibilityPolicy: visibility?.alert_visibility_policy,
-                }
-                : null,
+            ...lifecycleAccess,
+            visibility: visibilityContext,
         }),
-        deliveryPersistenceProof: visibilityResult && !visibilityResult.decision.allowed
-            ? buildDwmWebhookDeliveryPersistenceProof({
-                deliveries: [],
-                auditEvents: [],
-                destinations: [],
-                filters: deliveryFilters,
-            })
-            : buildDwmWebhookDeliveryPersistenceProof({
-                deliveries,
-                auditEvents,
-                destinations,
-                filters: deliveryFilters,
-            }),
+        deliveryPersistenceProof: buildDwmWebhookDeliveryPersistenceProof({ ...visibleRecords, filters: deliveryFilters }),
         deliveryAttemptPersistence: buildDwmWebhookDeliveryAttemptPersistenceReadModel({
-            deliveries: visibilityResult && !visibilityResult.decision.allowed ? [] : deliveries,
-            auditEvents: visibilityResult && !visibilityResult.decision.allowed ? [] : auditEvents,
-            destinations: visibilityResult && !visibilityResult.decision.allowed ? [] : destinations,
+            ...visibleRecords,
             filters: deliveryFilters,
         }),
         deliveryReceipts: buildDwmWebhookDeliveryReceipts({
-            deliveries: visibilityResult && !visibilityResult.decision.allowed ? [] : deliveries,
-            auditEvents: visibilityResult && !visibilityResult.decision.allowed ? [] : auditEvents,
-            destinations: visibilityResult && !visibilityResult.decision.allowed ? [] : destinations,
+            ...visibleRecords,
             filters: deliveryFilters,
-            ...destinationLifecycleAccess(orgId, userId, visibility),
-            visibility: orgId && orgId !== userId
-                ? {
-                    role: visibility?.role,
-                    status: visibility?.status,
-                    userActive: visibility?.user_active,
-                    alertVisibilityPolicy: visibility?.alert_visibility_policy,
-                }
-                : null,
+            ...lifecycleAccess,
+            visibility: visibilityContext,
         }),
         deliveryTimeline: buildDwmWebhookDeliveryTimeline({
-            deliveries: visibilityResult && !visibilityResult.decision.allowed ? [] : deliveries,
-            auditEvents: visibilityResult && !visibilityResult.decision.allowed ? [] : auditEvents,
-            destinations: visibilityResult && !visibilityResult.decision.allowed ? [] : destinations,
+            ...visibleRecords,
             filters: deliveryFilters,
-            ...destinationLifecycleAccess(orgId, userId, visibility),
-            visibility: orgId && orgId !== userId
-                ? {
-                    role: visibility?.role,
-                    status: visibility?.status,
-                    userActive: visibility?.user_active,
-                    alertVisibilityPolicy: visibility?.alert_visibility_policy,
-                }
-                : null,
+            ...lifecycleAccess,
+            visibility: visibilityContext,
         }),
         deliveryActionPlan: buildDwmWebhookDeliveryActionPlan({
-            deliveries: visibilityResult && !visibilityResult.decision.allowed ? [] : deliveries,
-            auditEvents: visibilityResult && !visibilityResult.decision.allowed ? [] : auditEvents,
-            destinations: visibilityResult && !visibilityResult.decision.allowed ? [] : destinations,
+            ...visibleRecords,
             filters: deliveryFilters,
-            ...destinationLifecycleAccess(orgId, userId, visibility),
-            visibility: orgId && orgId !== userId
-                ? {
-                    role: visibility?.role,
-                    status: visibility?.status,
-                    userActive: visibility?.user_active,
-                    alertVisibilityPolicy: visibility?.alert_visibility_policy,
-                }
-                : null,
+            ...lifecycleAccess,
+            visibility: visibilityContext,
         }),
         deliveryReplayGuard: buildDwmWebhookDeliveryReplayGuard({
-            deliveries: visibilityResult && !visibilityResult.decision.allowed ? [] : deliveries,
-            auditEvents: visibilityResult && !visibilityResult.decision.allowed ? [] : auditEvents,
-            destinations: visibilityResult && !visibilityResult.decision.allowed ? [] : destinations,
+            ...visibleRecords,
             filters: deliveryFilters,
-            ...destinationLifecycleAccess(orgId, userId, visibility),
-            visibility: orgId && orgId !== userId
-                ? {
-                    role: visibility?.role,
-                    status: visibility?.status,
-                    userActive: visibility?.user_active,
-                    alertVisibilityPolicy: visibility?.alert_visibility_policy,
-                }
-                : null,
+            ...lifecycleAccess,
+            visibility: visibilityContext,
         }),
         deliveryReplayApi: buildDwmWebhookDeliveryReplayApiContract({
-            deliveries: visibilityResult && !visibilityResult.decision.allowed ? [] : deliveries,
-            auditEvents: visibilityResult && !visibilityResult.decision.allowed ? [] : auditEvents,
-            destinations: visibilityResult && !visibilityResult.decision.allowed ? [] : destinations,
+            ...visibleRecords,
             filters: deliveryFilters,
-            ...destinationLifecycleAccess(orgId, userId, visibility),
-            visibility: orgId && orgId !== userId
-                ? {
-                    role: visibility?.role,
-                    status: visibility?.status,
-                    userActive: visibility?.user_active,
-                    alertVisibilityPolicy: visibility?.alert_visibility_policy,
-                }
-                : null,
+            ...lifecycleAccess,
+            visibility: visibilityContext,
         }),
-        deliveryRetryPersistence: visibilityResult && !visibilityResult.decision.allowed
-            ? buildDwmWebhookDeliveryRetryPersistence({
-                deliveries: [],
-                auditEvents: [],
-                destinations: [],
-                filters: deliveryFilters,
-            })
-            : buildDwmWebhookDeliveryRetryPersistence({
-                deliveries,
-                auditEvents,
-                destinations,
-                filters: deliveryFilters,
-            }),
-        deliveryRetryQueue: visibilityResult && !visibilityResult.decision.allowed
-            ? buildDwmWebhookDeliveryRetryQueue({
-                deliveries: [],
-                auditEvents: [],
-                destinations: [],
-                filters: deliveryFilters,
-                ...destinationLifecycleAccess(orgId, userId, visibility),
-                visibility: orgId && orgId !== userId
-                    ? {
-                        role: visibility?.role,
-                        status: visibility?.status,
-                        userActive: visibility?.user_active,
-                        alertVisibilityPolicy: visibility?.alert_visibility_policy,
-                    }
-                    : null,
-            })
-            : buildDwmWebhookDeliveryRetryQueue({
-                deliveries,
-                auditEvents,
-                destinations,
-                filters: deliveryFilters,
-                ...destinationLifecycleAccess(orgId, userId, visibility),
-                visibility: orgId && orgId !== userId
-                    ? {
-                        role: visibility?.role,
-                        status: visibility?.status,
-                        userActive: visibility?.user_active,
-                        alertVisibilityPolicy: visibility?.alert_visibility_policy,
-                    }
-                    : null,
-            }),
-        deliveryRetryRequest: visibilityResult && !visibilityResult.decision.allowed
-            ? buildDwmWebhookDeliveryRetryRequestContract({
-                deliveries: [],
-                auditEvents: [],
-                destinations: [],
-                filters: deliveryFilters,
-                ...destinationLifecycleAccess(orgId, userId, visibility),
-                visibility: orgId && orgId !== userId
-                    ? {
-                        role: visibility?.role,
-                        status: visibility?.status,
-                        userActive: visibility?.user_active,
-                        alertVisibilityPolicy: visibility?.alert_visibility_policy,
-                    }
-                    : null,
-            })
-            : buildDwmWebhookDeliveryRetryRequestContract({
-                deliveries,
-                auditEvents,
-                destinations,
-                filters: deliveryFilters,
-                ...destinationLifecycleAccess(orgId, userId, visibility),
-                visibility: orgId && orgId !== userId
-                    ? {
-                        role: visibility?.role,
-                        status: visibility?.status,
-                        userActive: visibility?.user_active,
-                        alertVisibilityPolicy: visibility?.alert_visibility_policy,
-                    }
-                    : null,
-            }),
-        deliveryRetryWorkOrders: visibilityResult && !visibilityResult.decision.allowed
-            ? buildDwmWebhookDeliveryRetryWorkOrders({
-                deliveries: [],
-                auditEvents: [],
-                destinations: [],
-                filters: deliveryFilters,
-                ...destinationLifecycleAccess(orgId, userId, visibility),
-                visibility: orgId && orgId !== userId
-                    ? {
-                        role: visibility?.role,
-                        status: visibility?.status,
-                        userActive: visibility?.user_active,
-                        alertVisibilityPolicy: visibility?.alert_visibility_policy,
-                    }
-                    : null,
-            })
-            : buildDwmWebhookDeliveryRetryWorkOrders({
-                deliveries,
-                auditEvents,
-                destinations,
-                filters: deliveryFilters,
-                ...destinationLifecycleAccess(orgId, userId, visibility),
-                visibility: orgId && orgId !== userId
-                    ? {
-                        role: visibility?.role,
-                        status: visibility?.status,
-                        userActive: visibility?.user_active,
-                        alertVisibilityPolicy: visibility?.alert_visibility_policy,
-                    }
-                    : null,
-            }),
+        deliveryRetryPersistence: buildDwmWebhookDeliveryRetryPersistence({ ...visibleRecords, filters: deliveryFilters }),
+        deliveryRetryQueue: buildDwmWebhookDeliveryRetryQueue({
+            ...visibleRecords,
+            filters: deliveryFilters,
+            ...lifecycleAccess,
+            visibility: visibilityContext,
+        }),
+        deliveryRetryRequest: buildDwmWebhookDeliveryRetryRequestContract({
+            ...visibleRecords,
+            filters: deliveryFilters,
+            ...lifecycleAccess,
+            visibility: visibilityContext,
+        }),
+        deliveryRetryWorkOrders: buildDwmWebhookDeliveryRetryWorkOrders({
+            ...visibleRecords,
+            filters: deliveryFilters,
+            ...lifecycleAccess,
+            visibility: visibilityContext,
+        }),
         destinationDeliveryMatrix: buildDwmWebhookDestinationDeliveryMatrix({
-            deliveries: visibilityResult && !visibilityResult.decision.allowed ? [] : deliveries,
-            auditEvents: visibilityResult && !visibilityResult.decision.allowed ? [] : auditEvents,
-            destinations: visibilityResult && !visibilityResult.decision.allowed ? [] : destinations,
-            ...destinationLifecycleAccess(orgId, userId, visibility),
-            visibility: orgId && orgId !== userId
-                ? {
-                    role: visibility?.role,
-                    status: visibility?.status,
-                    userActive: visibility?.user_active,
-                    alertVisibilityPolicy: visibility?.alert_visibility_policy,
-                }
-                : null,
+            ...visibleRecords,
+            ...lifecycleAccess,
+            visibility: visibilityContext,
         }),
-        deliveryAuditTrail: visibilityResult && !visibilityResult.decision.allowed
-            ? buildDwmWebhookDeliveryAuditTrail({
-                deliveries: [],
-                auditEvents: [],
-                destinations: [],
-                filters: deliveryFilters,
-                ...destinationLifecycleAccess(orgId, userId, visibility),
-                visibility: orgId && orgId !== userId
-                    ? {
-                        role: visibility?.role,
-                        status: visibility?.status,
-                        userActive: visibility?.user_active,
-                        alertVisibilityPolicy: visibility?.alert_visibility_policy,
-                    }
-                    : null,
-            })
-            : buildDwmWebhookDeliveryAuditTrail({
-                deliveries,
-                auditEvents,
-                destinations,
-                filters: deliveryFilters,
-                ...destinationLifecycleAccess(orgId, userId, visibility),
-                visibility: orgId && orgId !== userId
-                    ? {
-                        role: visibility?.role,
-                        status: visibility?.status,
-                        userActive: visibility?.user_active,
-                        alertVisibilityPolicy: visibility?.alert_visibility_policy,
-                    }
-                    : null,
-            }),
+        deliveryAuditTrail: buildDwmWebhookDeliveryAuditTrail({
+            ...visibleRecords,
+            filters: deliveryFilters,
+            ...lifecycleAccess,
+            visibility: visibilityContext,
+        }),
         dashboardReadiness: buildDwmWebhookDashboardReadinessAdapter({
             destinations,
             deliveries,
             auditEvents,
-            visibility: orgId && orgId !== userId
-                ? {
-                    role: visibility?.role,
-                    status: visibility?.status,
-                    userActive: visibility?.user_active,
-                    alertVisibilityPolicy: visibility?.alert_visibility_policy,
-                }
-                : null,
+            visibility: visibilityContext,
         }),
         deliveryReadiness: buildDwmWebhookDeliveryReadiness({
             destinations,
@@ -991,21 +708,14 @@ export async function getDwmWebhookDeliveries(req: FastifyRequest<{ Querystring:
             destinations,
             deliveries,
             auditEvents,
-            ...destinationLifecycleAccess(orgId, userId, visibility),
+            ...lifecycleAccess,
         }),
         destinationAdminProof: buildDwmWebhookDestinationAdminProof({
             destinations,
             deliveries,
             auditEvents,
-            ...destinationLifecycleAccess(orgId, userId, visibility),
-            visibility: orgId && orgId !== userId
-                ? {
-                    role: visibility?.role,
-                    status: visibility?.status,
-                    userActive: visibility?.user_active,
-                    alertVisibilityPolicy: visibility?.alert_visibility_policy,
-                }
-                : null,
+            ...lifecycleAccess,
+            visibility: visibilityContext,
         }),
         auditEventContracts: buildDwmWebhookAuditEventContracts({
             auditEvents,
@@ -1046,13 +756,9 @@ export async function getDwmWebhookReceiverReceipts(req: FastifyRequest<{ Querys
     const orgId = orgIdFromQuery(req.query)
     if (!orgId) return res.status(400).send({ error: 'orgId is required.' })
     const visibility = orgId !== userId ? await loadOrganizationVisibilityMembership(orgId, userId) : null
+    const visibilityContext = webhookOrganizationVisibilityContext(orgId, userId, visibility)
     if (orgId !== userId) {
-        const decision = organizationVisibilityDecision({
-            role: visibility?.role,
-            status: visibility?.status,
-            userActive: visibility?.user_active,
-            alertVisibilityPolicy: visibility?.alert_visibility_policy,
-        })
+        const decision = organizationVisibilityDecision(visibilityContext || {})
         if (!decision.allowed) {
             return res.status(decision.reason === 'not_member' ? 404 : 403).send({
                 error: decision.reason === 'not_member' ? 'Organization not found.' : 'Receiver receipts are not visible for this organization membership.',
@@ -1540,6 +1246,22 @@ function destinationLifecycleAccess(orgId: string, userId: string, membership: M
     return {
         viewerRole: role,
         canManage: roleCanEditOrganization(role || undefined),
+    }
+}
+
+export function webhookOrganizationVisibilityContext(
+    orgId: string,
+    userId: string,
+    membership: Membership | null,
+    options: { membershipIsActive?: boolean } = {},
+): OrganizationVisibilityDecisionInput | null {
+    if (!orgId || orgId === userId) return null
+    const membershipIsActive = options.membershipIsActive === true
+    return {
+        role: membership?.role,
+        status: membershipIsActive ? 'active' : membership?.status,
+        userActive: membershipIsActive ? true : membership?.user_active,
+        alertVisibilityPolicy: membership?.alert_visibility_policy,
     }
 }
 
