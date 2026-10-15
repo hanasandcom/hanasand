@@ -84,21 +84,22 @@ async function prepareLog({
 
     const classification = classifyApplicationError(baseLog, retention.get(scopeId || ''))
     if (classification) { level = classification.level; metadata = classification.metadata }
+    const analyzerQuery = query === run ? undefined : query
     // Explicit Store exceptions must win before any built-in analyzer can drop.
     if (retentionAction !== 'keep') {
-        if (await analyzeModelDiscovery({ service, host, level, message, metadata, sourceEventId, timestamp }, query === run ? undefined : query)) return
-        if (await analyzeModelHealthCheck({ service, host, level, message, metadata, sourceEventId, timestamp }, query === run ? undefined : query)) return
-        if (await analyzeCdnDelivery({ service, host, level, message, metadata, sourceEventId, timestamp }, query === run ? undefined : query)) return
-        if (await analyzeCdnRefresh({ service, host, level, message, metadata, sourceEventId, timestamp }, query === run ? undefined : query)) return
-        if (await analyzeCollectorExecution({ service, host, level, message, metadata, sourceEventId, timestamp }, query === run ? undefined : query)) return
-        if (await analyzeMongoPing({ service, host, level, message, metadata, sourceEventId }, query === run ? undefined : query)) return
+        if (await analyzeModelDiscovery({ service, host, level, message, metadata, sourceEventId, timestamp }, analyzerQuery)) return
+        if (await analyzeModelHealthCheck({ service, host, level, message, metadata, sourceEventId, timestamp }, analyzerQuery)) return
+        if (await analyzeCdnDelivery({ service, host, level, message, metadata, sourceEventId, timestamp }, analyzerQuery)) return
+        if (await analyzeCdnRefresh({ service, host, level, message, metadata, sourceEventId, timestamp }, analyzerQuery)) return
+        if (await analyzeCollectorExecution({ service, host, level, message, metadata, sourceEventId, timestamp }, analyzerQuery)) return
+        if (await analyzeMongoPing({ service, host, level, message, metadata, sourceEventId }, analyzerQuery)) return
         const access = verifiedAccessFromLog({ service, host, level, message, metadata, sourceEventId, timestamp })
-        if (access && await analyzeAccess(access, query === run ? undefined : query)) return
+        if (access && await analyzeAccess(access, analyzerQuery)) return
     }
     message = redactedMessage
     metadata = redactedMetadata
-    if (retentionAction !== 'keep' && await analyzeIngestion({ service, host, level, message, metadata, sourceEventId, timestamp }, query === run ? undefined : query)) return
-    if (retentionAction !== 'keep' && await analyzeProxy({ service, host, level, message, metadata, sourceEventId, timestamp }, query === run ? undefined : query)) return
+    if (retentionAction !== 'keep' && await analyzeIngestion({ service, host, level, message, metadata, sourceEventId, timestamp }, analyzerQuery)) return
+    if (retentionAction !== 'keep' && await analyzeProxy({ service, host, level, message, metadata, sourceEventId, timestamp }, analyzerQuery)) return
     if (!scopeId && isOrganizationRequest(metadata)) {
         service = 'hanasand-api'
         host = ''
