@@ -29,3 +29,19 @@ test('denies internal TI requests with a mismatched service token', async () => 
         await app.close()
     }
 })
+
+test('accepts the configured service token before validating the organization id', async () => {
+    const app = Fastify()
+    try {
+        await app.register(tiInternalApi, { token: 'expected-token' })
+        const response = await app.inject({
+            method: 'GET',
+            url: '/organization-context/bad%20id',
+            headers: { 'x-hanasand-service-token': 'expected-token' },
+        })
+        expect(response.statusCode).toBe(400)
+        expect(response.json()).toEqual({ error: 'invalid_organization_id' })
+    } finally {
+        await app.close()
+    }
+})
