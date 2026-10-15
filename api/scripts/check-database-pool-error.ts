@@ -32,12 +32,12 @@ try {
         created.length = 0
         await import(`../src/utils/db.ts?pool-role=${role.name}`)
         assert.equal(pool.options!.min, role.min, role.name)
-        const budget = Number(config.DB_MAX_CONN) || 1000
+        const budget = Number(config.DB_MAX_CONN) || (config.DB_POOL_HOST ? 1000 : 20)
         assert.equal(created.reduce((total, options) => total + options.max, 0), budget, 'Total connection limits must not grow')
         const expectedPools = 1
             + (config.DB_POOL_HOST ? 1 : 0)
+            + (role.name !== 'auth' && budget >= 16 ? 1 : 0)
             + (role.name === 'worker' && budget >= 12 ? 1 : 0)
-            + (role.name === 'worker' && budget >= 16 ? 1 : 0)
         assert.equal(created.length, expectedPools, 'Direct schema and scheduled event pools stay separately bounded')
         const configuredIdleTimeout = Number(config.DB_IDLE_TIMEOUT_MS) || role.idle
         const expectedIdleTimeout = role.name === 'api'
