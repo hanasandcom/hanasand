@@ -2,11 +2,12 @@ import { afterEach, beforeEach, expect, mock, test } from 'bun:test'
 import type { AutomationRow } from '../src/utils/automations.ts'
 
 let failSave = 0, saveCount = 0, denied = false, probeFails = false, slow = false, clockOffset = 0, probeCount = 0, pushMode = false, pausedRunNow = false
-const statements: string[] = [], outcomes: Array<{ kind: unknown, message: string }> = []
+const statements: string[] = [], scheduledValues: Array<{ sql: string, values: unknown[] }> = [], outcomes: Array<{ kind: unknown, message: string }> = []
 const persistenceError = new Error('timeout exceeded when trying to connect')
 const actualNow = Date.now
-const query = async (sql: string) => {
+const query = async (sql: string, values: unknown[] = []) => {
     statements.push(sql)
+    scheduledValues.push({ sql, values })
     if (pausedRunNow && sql.includes('FROM agent_automations')) return { rows: [{ ...automation, status: 'paused' }] }
     if (pushMode && sql.includes('SELECT * FROM agent_automations WHERE id=$1 FOR UPDATE')) {
         return { rows: [{ ...automation, monitoring_type: 'push', status: 'active' }] }
@@ -48,13 +49,13 @@ const automation = { id: 'persistence-test', owner_id: 'owner', name: 'Backup ch
 } as AutomationRow
 beforeEach(() => {
     failSave = 0; saveCount = 0; denied = false; probeFails = false; slow = false; clockOffset = 0; probeCount = 0; pushMode = false; pausedRunNow = false
-    statements.length = 0; outcomes.length = 0
+    statements.length = 0; scheduledValues.length = 0; outcomes.length = 0
     Date.now = () => actualNow() + clockOffset
 })
 afterEach(() => { Date.now = actualNow })
 
 for (const save of [1, 2]) for (const warning of [false, true]) {
-    test(`save ${save} failure after ${warning ? 'warning' : 'healthy'} probe does not create a failure case`, async () => {
+    test(`save ${save} failure after ${warning ? 'clock-advancing' : 'normal'} healthy probe does not create a failure case`, async () => {
         failSave = save; slow = warning
         await expect(executeAutomation(automation)).rejects.toBe(persistenceError)
         expect(probeCount).toBe(1)
@@ -102,6 +103,37 @@ test('successful persistence records recovery and resets failure scheduling', as
     expect(outcomes[0]?.kind).toBeNull()
     expect(saveCount).toBe(2)
     expect(statements.some(sql => sql.includes('consecutive_failures = 0'))).toBe(true)
+})
+test('success and failure schedule interval runs on the next minute tick', async () => {
+    const successStartedAt = new Date().getTime()
+    await executeAutomation({ ...automation, action_type: 'echo' })
+    const successFinishedAt = new Date().getTime()
+    const failureStartedAt = new Date().getTime()
+    probeFails = true
+    await executeAutomation({ ...automation, id: 'failed-interval' })
+    const failureFinishedAt = new Date().getTime()
+
+    const scheduledRuns = scheduledValues.filter(({ sql }) => sql.includes('UPDATE agent_automations'))
+    expect(scheduledRuns).toHaveLength(2)
+    for (const [{ values }, startedAt, finishedAt] of [
+        [scheduledRuns[0], successStartedAt, successFinishedAt],
+        [scheduledRuns[1], failureStartedAt, failureFinishedAt],
+    ] as const) {
+        expect(values[1]).toBeInstanceOf(Date)
+        const nextRunAt = (values[1] as Date).getTime()
+        expect(nextRunAt % 60_000).toBe(0)
+        expect(nextRunAt).toBeGreaterThanOrEqual(Math.floor(startedAt / 60_000) * 60_000 + 60_000)
+        expect(nextRunAt).toBeLessThanOrEqual(Math.floor(finishedAt / 60_000) * 60_000 + 60_000)
+    }
+})
+test('success and failure clear next run time for one-off automations', async () => {
+    await executeAutomation({ ...automation, id: 'once-success', schedule_kind: 'once', action_type: 'echo' })
+    probeFails = true
+    await executeAutomation({ ...automation, id: 'once-failure', schedule_kind: 'once' })
+
+    const scheduledRuns = scheduledValues.filter(({ sql }) => sql.includes('UPDATE agent_automations'))
+    expect(scheduledRuns).toHaveLength(2)
+    expect(scheduledRuns.map(({ values }) => values[1])).toEqual([null, null])
 })
 test('non-monitoring actions retain their existing save-failure handling', async () => {
     failSave = 1

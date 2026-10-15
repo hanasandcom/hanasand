@@ -323,6 +323,17 @@ export function computeNextRunAt({
     return new Date((Math.floor(from.getTime() / 60_000) + minutes) * 60_000)
 }
 
+function nextRunAfterExecution(automation: Pick<AutomationRow, 'schedule_kind' | 'interval_minutes'>) {
+    return automation.schedule_kind === 'interval'
+        ? computeNextRunAt({
+            scheduleKind: automation.schedule_kind,
+            intervalMinutes: automation.interval_minutes,
+            runAt: null,
+            from: new Date(),
+        })
+        : null
+}
+
 export async function runDueAutomations() {
     await recoverStaleAutomationRuns()
     await run('DELETE FROM monitoring_json_snapshots WHERE expires_at < NOW() - INTERVAL \'1 day\'')
@@ -413,14 +424,7 @@ export async function executeAutomation(automation: AutomationRow) {
         actionCompleted = true
         outcome = { kind: 'warning' in result && result.warning === true ? 'warning' : null, message: result.message }
         const durationMs = Date.now() - startedAt
-        const nextRunAt = automation.schedule_kind === 'interval'
-            ? computeNextRunAt({
-                scheduleKind: automation.schedule_kind,
-                intervalMinutes: automation.interval_minutes,
-                runAt: null,
-                from: new Date(),
-            })
-            : null
+        const nextRunAt = nextRunAfterExecution(automation)
         await run(`
             UPDATE agent_automation_runs
                SET status = 'completed',
@@ -457,14 +461,7 @@ export async function executeAutomation(automation: AutomationRow) {
         const durationMs = Date.now() - startedAt
         const message = error instanceof Error ? error.message : 'Automation run failed.'
         outcome = { kind: 'failure', message }
-        const nextRunAt = automation.schedule_kind === 'interval'
-            ? computeNextRunAt({
-                scheduleKind: automation.schedule_kind,
-                intervalMinutes: automation.interval_minutes,
-                runAt: null,
-                from: new Date(),
-            })
-            : null
+        const nextRunAt = nextRunAfterExecution(automation)
         await run(`
             UPDATE agent_automation_runs
                SET status = 'failed',
@@ -577,7 +574,6 @@ export async function runMonitoringCheck(automation: AutomationRow) {
     let lastError: unknown
     for (let attempt = 0; attempt <= automation.retry_count; attempt += 1) {
         if (attempt) await retryDelay(attempt * 1000)
-        const startedAt = Date.now()
         try {
             if (automation.monitoring_type === 'json') return await runJsonCheck(automation, attempt)
             // Certificate validation and the monitored request are independent
