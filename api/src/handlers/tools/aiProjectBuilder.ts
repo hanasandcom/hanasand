@@ -575,9 +575,12 @@ function websiteFiles(title: string, slug: string, sections: string[], lower: st
     return {
         label: `${productTypeFor(lower)} website`,
         files: [
-            nextPackage(slug), tsconfig(), nextConfig(), dockerfile('next'),
-            composeFile(slug, '3000'), envExample(['CONTACT_EMAIL=']), ciConfig(),
-            designNotes(title, slug), securityNotes(), threatNotes(), procurementNotes(),
+            ...sharedProjectFiles(title, slug, {
+                packageFile: nextPackage(slug),
+                environment: ['CONTACT_EMAIL='],
+                dockerKind: 'next',
+                beforeDocker: [nextConfig()],
+            }),
             {
                 path: 'src/app/layout.tsx',
                 content: `import type { Metadata } from 'next'
@@ -676,16 +679,11 @@ function botFiles(title: string, slug: string, platform: string): GeneratedProje
     return {
         label: `${platform} bot`,
         files: [
-            packageJson(slug, { dev: 'tsx src/index.ts', start: 'node dist/index.js', build: 'tsc' }, { 'discord.js': '^14.16.3', dotenv: '^16.4.7' }, { tsx: '^4.19.2', typescript: '^5.7.2' }),
-            tsconfig(),
-            dockerfile('node'),
-            composeFile(slug, '3000'),
-            envExample(['DISCORD_TOKEN=replace_me', 'DISCORD_CLIENT_ID=replace_me', 'WELCOME_CHANNEL_ID=replace_me', 'ADMIN_ROLE_ID=replace_me']),
-            ciConfig(),
-            designNotes(title, slug),
-            securityNotes(),
-            threatNotes(),
-            procurementNotes(),
+            ...sharedProjectFiles(title, slug, {
+                packageFile: packageJson(slug, { dev: 'tsx src/index.ts', start: 'node dist/index.js', build: 'tsc' }, { 'discord.js': '^14.16.3', dotenv: '^16.4.7' }, { tsx: '^4.19.2', typescript: '^5.7.2' }),
+                environment: ['DISCORD_TOKEN=replace_me', 'DISCORD_CLIENT_ID=replace_me', 'WELCOME_CHANNEL_ID=replace_me', 'ADMIN_ROLE_ID=replace_me'],
+                dockerKind: 'node',
+            }),
             {
                 path: 'src/index.ts',
                 content: `import 'dotenv/config'\nimport { Client, Events, GatewayIntentBits } from 'discord.js'\n\nconst required = ['DISCORD_TOKEN', 'DISCORD_CLIENT_ID'] as const\nfor (const key of required) {\n  if (!process.env[key]) throw new Error('Missing ' + key)\n}\n\nconst client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] })\nconst auditLog: Array<{ at: string; action: string; actor: string }> = []\nconst restartRequests: Array<{ at: string; actor: string; reason: string; status: 'requested' | 'approved' | 'denied' }> = []\n\nclient.once(Events.ClientReady, (readyClient) => {\n  console.log('${escapeTs(title)} ready as ' + readyClient.user.tag)\n})\n\nclient.on(Events.MessageCreate, async (message) => {\n  if (message.author.bot) return\n  if (message.content === '!help') await message.reply('Commands: !help, !status, !roles, !audit. Destructive actions require explicit review.')\n  if (message.content === '!status') await message.reply('Online. Secrets are loaded from environment variables only.')\n  if (message.content === '!roles') await message.reply('Role changes are intentionally stubbed until ADMIN_ROLE_ID review is configured.')\n  if (message.content.startsWith('!restart')) {\n    restartRequests.push({ at: new Date().toISOString(), actor: message.author.id, reason: message.content.slice('!restart'.length).trim() || 'No reason provided', status: 'requested' })\n    await message.reply('Restart request logged for review. Nothing destructive was executed.')\n  }\n  if (message.content === '!maintenance') await message.reply('Maintenance notices are drafted here, then reviewed before posting.')\n  if (message.content === '!audit') await message.reply(auditLog.slice(-5).map((entry) => entry.action).join('\\n') || 'No admin actions yet.')\n  auditLog.push({ at: new Date().toISOString(), action: message.content, actor: message.author.id })\n})\n\nawait client.login(process.env.DISCORD_TOKEN)\n`,
@@ -719,18 +717,13 @@ function apiFiles(title: string, slug: string, lower: string): GeneratedProject 
     return {
         label: 'API',
         files: [
-            packageJson(slug, { dev: 'tsx src/index.ts', build: 'tsc', start: 'node dist/index.js', migrate: 'node --test migrations/001_initial_schema.sql' }, { dotenv: '^16.4.7', fastify: '^5.2.1', pg: '^8.13.1' }, { '@types/pg': '^8.11.10', tsx: '^4.19.2', typescript: '^5.7.2' }),
-            tsconfig(),
-            dockerfile('node'),
-            composeFile(slug, '3000', false, true),
-            envExample(['PORT=3000', 'DATABASE_URL=postgres://app:app@postgres:5432/app', 'API_TOKEN=replace_me', 'RATE_LIMIT_PER_MINUTE=60', 'FAILURE_OWNER=ops@example.com', 'WEBHOOK_SIGNING_SECRET=replace_me', 'ALLOWED_ORIGINS=http://localhost:3000', 'ADMIN_ROLE=admin', 'CACHE_TTL_SECONDS=60', 'MAX_BODY_BYTES=1048576', 'SLO_TARGET=99.9']),
-            ciConfig(),
-            designNotes(title, slug),
-            securityNotes(),
-            threatNotes(),
-            procurementNotes(),
-            postgresMigrationFile(),
-            postgresDatabaseSeam(),
+            ...sharedProjectFiles(title, slug, {
+                packageFile: packageJson(slug, { dev: 'tsx src/index.ts', build: 'tsc', start: 'node dist/index.js', migrate: 'node --test migrations/001_initial_schema.sql' }, { dotenv: '^16.4.7', fastify: '^5.2.1', pg: '^8.13.1' }, { '@types/pg': '^8.11.10', tsx: '^4.19.2', typescript: '^5.7.2' }),
+                environment: ['PORT=3000', 'DATABASE_URL=postgres://app:app@postgres:5432/app', 'API_TOKEN=replace_me', 'RATE_LIMIT_PER_MINUTE=60', 'FAILURE_OWNER=ops@example.com', 'WEBHOOK_SIGNING_SECRET=replace_me', 'ALLOWED_ORIGINS=http://localhost:3000', 'ADMIN_ROLE=admin', 'CACHE_TTL_SECONDS=60', 'MAX_BODY_BYTES=1048576', 'SLO_TARGET=99.9'],
+                dockerKind: 'node',
+                includePostgres: true,
+                afterNotes: [postgresMigrationFile(), postgresDatabaseSeam()],
+            }),
             {
                 path: 'src/index.ts',
                 content: `import 'dotenv/config'\nimport { createHash } from 'node:crypto'\nimport Fastify from 'fastify'\n\ntype RecordItem = { id: string; title: string; status: 'open' | 'review' | 'closed'; createdAt: string; ownerId: string; schemaVersion: number; failureOwner: string; idempotencyKey?: string }\nconst app = Fastify({ logger: true, bodyLimit: Number(process.env.MAX_BODY_BYTES || 1_048_576) })\nconst records = new Map<string, RecordItem>()\nconst idempotency = new Map<string, string>()\nconst rateBuckets = new Map<string, { count: number; resetAt: number }>()\nconst auditEvents: Array<{ at: string; action: string; actor: string; recordId?: string; redactedSummary: string }> = []\nconst backups: Array<{ at: string; recordCount: number; auditCount: number; exportedBy: string }> = []\nconst migrations = [{ id: 1, name: 'initial_schema', status: 'applied' as const }]\nconst featureFlags = { maintenanceMode: false, enableExports: true, requireAdminRestore: true }\nconst dataResidency = { region: 'EU', storage: 'self-hosted', crossBorderTransfer: 'blocked-by-default' }\nconst retentionHolds = new Map<string, { reason: string; until: string }>()\nconst outboxEvents: Array<{ id: string; type: string; payload: unknown; status: 'pending' | 'sent' | 'failed' }> = []\nconst rlsPolicies = ['tenant_isolation', 'owner_scoped_reads', 'admin_restore_only']\nconst circuitBreaker = { failures: 0, openedUntil: 0, threshold: 5 }\nconst contractVersion = '2026-05-share-api-v1'\nconst secretsRotation = { currentVersion: 1, lastRotatedAt: new Date().toISOString() }\nlet auditHash = 'genesis'\nconst metrics = { requests: 0, writes: 0, cacheHits: 0, cacheMisses: 0, rollbacks: 0 }\nconst cache = new Map<string, { expiresAt: number; value: unknown }>()\nconst dependencyReview = { status: 'review-required', sbom: 'docs/sbom.json', blockedLicenses: ['GPL-3.0-only'] }\nconst threatNotes = { status: 'drafted', document: 'docs/threat-model.md', risks: ['broken access control', 'replay attacks', 'egress drift'] }\nconst dpia = { status: 'required-before-production', document: 'docs/data-classification.md', owner: process.env.FAILURE_OWNER || 'unassigned' }\nconst incidentDrills = [{ id: 'dependency-timeout', status: 'scheduled', owner: process.env.FAILURE_OWNER || 'unassigned' }]\nconst syntheticChecks = ['health', 'ready', 'write-path', 'contract-tests', 'schema-drift']\nconst schemaRollback = { supported: true, lastDrill: null as string | null, approvalRequired: true }\nconst vulnerabilityFindings = [{ id: 'VF-001', severity: 'medium', status: 'triage', owner: process.env.FAILURE_OWNER || 'unassigned' }]\nconst alertRules = [{ id: 'error-budget-burn', target: 'on-call', threshold: '5% in 1h' }]\nconst siemEvents: Array<{ at: string; event: string; auditHash: string }> = []\nconst accessReviews = [{ id: 'admin-quarterly', role: process.env.ADMIN_ROLE || 'admin', status: 'open' }]\nconst dataClassification = { defaultClass: 'confidential', pii: ['email', 'phone'], residency: dataResidency.region }\nconst backupVerification = { lastVerifiedAt: null as string | null, restoreDrill: 'required' }\nconst releaseChecks = { ci: 'required', backupVerified: false, rollbackApproved: false }\nconst chaosExperiments = [{ id: 'queue-poison-growth', blastRadius: 'worker-only', rollback: 'pause worker' }]\nconst rollbackApprovals: Array<{ id: string; approver: string; status: 'requested' | 'approved' }> = []\nconst changeRequests: Array<{ id: string; title: string; status: 'open' | 'approved' }> = []\nconst egressPolicy = { mode: 'deny-by-default', allowlist: ['self-hosted-db', 'siem-export'] }\nconst encryptionPlan = { atRest: 'provider-managed', inTransit: 'TLS 1.3', keyRotation: 'quarterly' }\nconst apiVersionHistory = [{ version: contractVersion, status: 'current', changedAt: new Date().toISOString() }]\nconst schemaDrift = { status: 'clean', checkedAt: new Date().toISOString() }\nconst usageQuotas = { defaultTenantLimit: 1000, burst: 100, window: '1h' }\nconst ssoConfig = { enabled: false, jwksUri: process.env.JWKS_URI || 'https://issuer.example.com/.well-known/jwks.json', audience: 'hanasand-share-api' }\n\nfunction hashAudit(input: string) {\n  return createHash('sha256').update(input).digest('hex')\n}\n\nfunction appendAudit(event: { action: string; actor: string; recordId?: string; redactedSummary: string }) {\n  auditHash = hashAudit(auditHash + JSON.stringify(event))\n  auditEvents.push({ at: new Date().toISOString(), ...event, redactedSummary: event.redactedSummary + ' auditHash=' + auditHash })\n}\n\nfunction assertCircuitClosed() {\n  if (circuitBreaker.openedUntil > Date.now()) throw Object.assign(new Error('Circuit breaker open'), { statusCode: 503 })\n}\n\nfunction recordCircuitFailure() {\n  circuitBreaker.failures += 1\n  if (circuitBreaker.failures >= circuitBreaker.threshold) circuitBreaker.openedUntil = Date.now() + 30_000\n}\n\nfunction requestId(request: { headers: Record<string, string | string[] | undefined> }) {\n  return request.headers['x-request-id']?.toString() || crypto.randomUUID()\n}\n\nfunction allowedOrigin(origin?: string) {\n  const allowed = (process.env.ALLOWED_ORIGINS || '').split(',').map((item) => item.trim()).filter(Boolean)\n  return !origin || allowed.length === 0 || allowed.includes(origin)\n}\n\nasync function withTransaction<T>(work: () => Promise<T> | T) {\n  const snapshot = new Map(records)\n  try {\n    return await work()\n  } catch (error) {\n    records.clear()\n    for (const [key, value] of snapshot) records.set(key, value)\n    metrics.rollbacks += 1\n    throw error\n  }\n}\n\nfunction readCache<T>(key: string) {\n  const hit = cache.get(key)\n  if (!hit || hit.expiresAt < Date.now()) {\n    metrics.cacheMisses += 1\n    cache.delete(key)\n    return null as T | null\n  }\n  metrics.cacheHits += 1\n  return hit.value as T\n}\n\nfunction writeCache(key: string, value: unknown) {\n  cache.set(key, { value, expiresAt: Date.now() + Number(process.env.CACHE_TTL_SECONDS || 60) * 1000 })\n}\n\nfunction rolesFor(request: { headers: Record<string, string | string[] | undefined> }) {\n  return request.headers['x-role']?.toString().split(',').map((role) => role.trim()).filter(Boolean) || ['reader']\n}\n\nfunction requireRole(request: { headers: Record<string, string | string[] | undefined> }, role: string) {\n  if (!rolesFor(request).includes(role)) throw Object.assign(new Error('Role required: ' + role), { statusCode: 403 })\n}\n\nfunction redact(value: string) {\n  return value.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}/gi, '[redacted-email]').replace(/\\+?[0-9][0-9 .-]{7,}/g, '[redacted-phone]')\n}\n\nfunction verifyWebhookSignature(request: { headers: Record<string, string | string[] | undefined> }) {\n  const secret = process.env.WEBHOOK_SIGNING_SECRET\n  if (!secret) return\n  if (!request.headers['x-webhook-signature']) throw Object.assign(new Error('Missing webhook signature'), { statusCode: 401 })\n}\n\nfunction rateLimit(request: { ip: string; headers: Record<string, string | string[] | undefined> }) {\n  const key = request.headers['x-account-id']?.toString() || request.ip\n  const now = Date.now()\n  const bucket = rateBuckets.get(key)\n  const limit = Number(process.env.RATE_LIMIT_PER_MINUTE || 60)\n  if (!bucket || bucket.resetAt <= now) {\n    rateBuckets.set(key, { count: 1, resetAt: now + 60_000 })\n    return\n  }\n  bucket.count += 1\n  if (bucket.count > limit) throw Object.assign(new Error('Limit reached, try again later.'), { statusCode: 429 })\n}\n\nfunction assertToken(request: { headers: Record<string, string | string[] | undefined> }) {\n  const configured = process.env.API_TOKEN\n  if (!configured) return\n  const token = request.headers.authorization?.toString().replace(/^Bearer\\s+/i, '')\n  if (token !== configured) throw Object.assign(new Error('Forbidden'), { statusCode: 403 })\n}\n\napp.get('/health', async () => ({ ok: true, service: '${escapeTs(title)}' }))\napp.addHook('onRequest', async (request, reply) => {\n  metrics.requests += 1\n  reply.header('x-request-id', requestId(request))\n  const origin = request.headers.origin?.toString()\n  if (!allowedOrigin(origin)) throw Object.assign(new Error('Origin not allowed'), { statusCode: 403 })\n  if (origin) reply.header('access-control-allow-origin', origin)\n})\napp.addHook('onSend', async (_request, reply) => {\n  reply.header('x-content-type-options', 'nosniff')\n  reply.header('x-frame-options', 'DENY')
@@ -794,16 +787,12 @@ function workerFiles(title: string, slug: string, lower: string): GeneratedProje
     return {
         label: 'worker queue',
         files: [
-            packageJson(slug, { dev: 'tsx src/index.ts', 'dev:worker': 'tsx src/worker.ts', build: 'tsc', start: 'node dist/index.js', worker: 'node dist/worker.js' }, { dotenv: '^16.4.7', fastify: '^5.2.1' }, { tsx: '^4.19.2', typescript: '^5.7.2' }),
-            tsconfig(),
-            dockerfile('node'),
-            composeFile(slug, '3000', true),
-            envExample(['PORT=3000', 'REDIS_URL=redis://redis:6379', 'MAX_RETRIES=3', 'FAILURE_OWNER=ops@example.com', 'BACKOFF_MS=500']),
-            ciConfig(),
-            designNotes(title, slug),
-            securityNotes(),
-            threatNotes(),
-            procurementNotes(),
+            ...sharedProjectFiles(title, slug, {
+                packageFile: packageJson(slug, { dev: 'tsx src/index.ts', 'dev:worker': 'tsx src/worker.ts', build: 'tsc', start: 'node dist/index.js', worker: 'node dist/worker.js' }, { dotenv: '^16.4.7', fastify: '^5.2.1' }, { tsx: '^4.19.2', typescript: '^5.7.2' }),
+                environment: ['PORT=3000', 'REDIS_URL=redis://redis:6379', 'MAX_RETRIES=3', 'FAILURE_OWNER=ops@example.com', 'BACKOFF_MS=500'],
+                dockerKind: 'node',
+                includeRedis: true,
+            }),
             {
                 path: 'src/queue.ts',
                 content: `export type Job = { id: string; name: string; status: 'queued' | 'running' | 'complete' | 'failed' | 'dead' | 'cancelled'; attempts: number; payload: Record<string, unknown>; nextRunAt: number; leaseUntil?: number; heartbeatAt?: string }
@@ -1140,6 +1129,39 @@ function productTypeFor(lower: string) {
     if (lower.includes('accessibility') || lower.includes('a11y')) return 'accessibility-first'
     if (lower.includes('seo') || lower.includes('local')) return 'local SEO'
     return 'product'
+}
+
+function sharedProjectFiles(title: string, slug: string, {
+    packageFile,
+    environment,
+    dockerKind,
+    includeRedis = false,
+    includePostgres = false,
+    beforeDocker = [],
+    afterNotes = [],
+}: {
+    packageFile: GeneratedFile
+    environment: string[]
+    dockerKind: 'next' | 'node'
+    includeRedis?: boolean
+    includePostgres?: boolean
+    beforeDocker?: GeneratedFile[]
+    afterNotes?: GeneratedFile[]
+}) {
+    return [
+        packageFile,
+        tsconfig(),
+        ...beforeDocker,
+        dockerfile(dockerKind),
+        composeFile(slug, '3000', includeRedis, includePostgres),
+        envExample(environment),
+        ciConfig(),
+        designNotes(title, slug),
+        securityNotes(),
+        threatNotes(),
+        procurementNotes(),
+        ...afterNotes,
+    ]
 }
 
 function toolTag(path: string, content: string) {
