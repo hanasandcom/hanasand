@@ -77,7 +77,11 @@ export default async function publicTiApi(fastify: FastifyInstance, options: Pub
 
         const results = await mapConcurrent(queries, 3, async query => {
             try {
-                return { query, status: 'ok' as const, result: publicSearchResult(await searchImpl({ query, preflightHealth: true })) }
+                const result = await searchImpl({ query, preflightHealth: true })
+                if (result.status === 'unavailable' || result.mode === 'unavailable') {
+                    return { query, status: 'error' as const, error: publicError('search_unavailable', 'Threat-intelligence search is temporarily unavailable.', req.id) }
+                }
+                return { query, status: 'ok' as const, result: publicSearchResult(result) }
             } catch {
                 return { query, status: 'error' as const, error: publicError('search_unavailable', 'Threat-intelligence search is temporarily unavailable.', req.id) }
             }

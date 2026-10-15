@@ -544,6 +544,19 @@ describe('public TI v1', () => {
         expect(response.json().results[1]).toMatchObject({ query: 'FAIL', status: 'error', error: { code: 'search_unavailable' } })
     })
 
+    test('reports returned-unavailable batch searches as partial failures', async () => {
+        const app = await testApp(undefined, async ({ query }) => query === 'OFFLINE'
+            ? { ...searchResult, query, status: 'unavailable' as const, mode: 'unavailable' as const }
+            : { ...searchResult, query })
+        const response = await app.inject({ method: 'POST', url: '/api/v1/ti/search/batch', headers: { 'x-api-key': 'valid' }, payload: { queries: ['APT29', 'OFFLINE'] } })
+        const body = response.json()
+        expect(response.statusCode).toBe(207)
+        expect(body.partial).toBe(true)
+        expect(body.results[0]).toMatchObject({ query: 'APT29', status: 'ok', result: { status: 'ready' } })
+        expect(body.results[1]).toMatchObject({ query: 'OFFLINE', status: 'error', error: { code: 'search_unavailable' } })
+        expect(body.results[1].result).toBeUndefined()
+    })
+
     test('bounds batch fan-out before search and keeps valid work at three concurrent requests', async () => {
         let active = 0
         let peak = 0
