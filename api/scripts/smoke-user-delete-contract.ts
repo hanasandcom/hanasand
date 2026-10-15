@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises'
 
 const deleteUser = await readFile(new URL('../src/handlers/user/deleteUser.ts', import.meta.url), 'utf8')
 const deleteSelf = await readFile(new URL('../src/handlers/user/deleteSelf.ts', import.meta.url), 'utf8')
-const purgeDeletedAccounts = await readFile(new URL('../src/utils/auth/purgeDeletedAccounts.ts', import.meta.url), 'utf8')
+const login = await readFile(new URL('../src/handlers/auth/login.ts', import.meta.url), 'utf8')
 
 for (const source of [deleteUser, deleteSelf]) {
     assert.match(source, /UPDATE users/)
@@ -16,12 +16,10 @@ for (const source of [deleteUser, deleteSelf]) {
 assert.match(deleteUser, /id: actorId/)
 assert.match(deleteUser, /revokedBy: actorId/)
 assert.match(deleteSelf, /revokedBy: id/)
-assert.match(purgeDeletedAccounts, /WITH due_users AS MATERIALIZED/)
-assert.match(purgeDeletedAccounts, /DELETE FROM tokens/)
-assert.match(purgeDeletedAccounts, /SET revoked_by = NULL/)
-assert.match(purgeDeletedAccounts, /DELETE FROM login_events/)
-assert.match(purgeDeletedAccounts, /DELETE FROM attempts/)
-assert.match(purgeDeletedAccounts, /DELETE FROM users/)
-assert.match(purgeDeletedAccounts, /deletion_scheduled_at <= NOW\(\)/)
+assert.match(login, /bcrypt\.compare\(password, user\.password\)/)
+assert.match(login, /deletion_scheduled_at.*Date\.now\(\)/s)
+assert.match(login, /DELETE FROM users WHERE id = \$1/)
+assert.match(login, /Account pending deletion\./)
+assert.match(login, /status\(423\)/)
 
-console.log('User delete contract smoke passed for scheduled deletion, token revocation, and delayed purge.')
+console.log('User deletion contract smoke passed for scheduled deletion and login enforcement.')
