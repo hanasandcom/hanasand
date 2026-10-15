@@ -49,3 +49,20 @@ test('shared project setup keeps generated output unchanged across project types
         expect(actualHash, prompt).toBe(expectedHash)
     }
 })
+
+test('shared section presets keep generated output unchanged', () => {
+    const cases = [
+        ['Build a website for a municipal service portal with snow closure notices', 'aeea1271adc4af5fbb00edbe53fdfd5405d964e65bc9e0cb7c3433745e3c94cc', 'Response metrics'],
+        ['Build a website for a food pantry', '2a92cf2ddc46ad07f0e692e26597ef25407a6d4833c62fdcc70e96e62b078440', 'Mobile release'],
+        ['Build a website for lost baggage claims', '1e865b37f2ddd9d5553209c433985eb2b45ac9cbffec0a5726c25ca43428c3fd', 'Customer quotes'],
+        ['Build a website for field service dispatch', '667688a3c1c7872afbb20d5d0c0b24e3d50f9092c001b3564431a320f471fb87', 'Pricing cards'],
+        ['Build a gallery website for an image review queue', 'd10552413bc32b7f763af62e514a85efbedfadfd0bc6485d577b01acdcff66dd', 'Deferred deletion confirmation'],
+    ] as const
+
+    for (const [prompt, expectedHash, expectedSection] of cases) {
+        const response = buildShareProjectResponse(prompt)!
+        const actualHash = createHash('sha256').update(response.message).digest('hex')
+        expect(actualHash, prompt).toBe(expectedHash)
+        expect(response.message, prompt).toContain(expectedSection)
+    }
+})

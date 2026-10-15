@@ -180,30 +180,34 @@ function titleFromPrompt(prompt: string) {
     return toTitleCase(cleaned || 'Hanasand Project')
 }
 
+function containsAny(value: string, phrases: string[]) {
+    return phrases.some(phrase => value.includes(phrase))
+}
+
+const residentServiceSections = ['Service categories', 'Response metrics', 'Cost tiers', 'Resident quotes', 'Application tasks', 'Office hours', 'Plain FAQ']
+const mobileResidentServiceSections = [...residentServiceSections, 'Mobile release', 'Offline state']
+const customerServiceSections = ['Service categories', 'Response metrics', 'Cost tiers', 'Customer quotes', 'Application tasks', 'Office hours', 'Plain FAQ']
+const localServiceSections = ['Service categories', 'Response metrics', 'Pricing cards', 'Testimonials', 'Onboarding tasks', 'Beginner deployment']
+const imageReviewSections = ['Review queue', 'Keep', 'Reject later', 'Collections', 'Export summary', 'Deferred deletion confirmation']
+
 function sectionsForPage(lower: string) {
     if (lower.includes('municipal permit') || lower.includes('permit rage') || lower.includes('residents angry')) {
         return ['Permit categories', 'Service metrics', 'Cost tiers', 'Resident quotes', 'Application tasks', 'Office hours', 'Plain FAQ']
     }
     if (lower.includes('municipal service portal') || lower.includes('civicsignal') || lower.includes('snow closure')) {
-        return ['Service categories', 'Response metrics', 'Cost tiers', 'Resident quotes', 'Application tasks', 'Office hours', 'Plain FAQ']
+        return [...residentServiceSections]
     }
-    if (lower.includes('lost baggage') || lower.includes('airport lost')) {
-        return ['Service categories', 'Response metrics', 'Cost tiers', 'Customer quotes', 'Application tasks', 'Office hours', 'Plain FAQ']
-    }
-    if (lower.includes('warranty claim') || lower.includes('claim triage')) {
-        return ['Service categories', 'Response metrics', 'Cost tiers', 'Customer quotes', 'Application tasks', 'Office hours', 'Plain FAQ']
+    if (containsAny(lower, ['lost baggage', 'airport lost', 'warranty claim', 'claim triage'])) {
+        return [...customerServiceSections]
     }
     if (lower.includes('emergency shelter') || lower.includes('shelter directory')) {
-        return ['Service categories', 'Response metrics', 'Cost tiers', 'Resident quotes', 'Application tasks', 'Office hours', 'Plain FAQ']
+        return [...residentServiceSections]
     }
-    if (lower.includes('food pantry') || lower.includes('pantry site') || lower.includes('food bank')) {
-        return ['Service categories', 'Response metrics', 'Cost tiers', 'Resident quotes', 'Application tasks', 'Office hours', 'Plain FAQ', 'Mobile release', 'Offline state']
-    }
-    if (lower.includes('disaster supply') || lower.includes('supply pickup')) {
-        return ['Service categories', 'Response metrics', 'Cost tiers', 'Resident quotes', 'Application tasks', 'Office hours', 'Plain FAQ', 'Mobile release', 'Offline state']
+    if (containsAny(lower, ['food pantry', 'pantry site', 'food bank', 'disaster supply', 'supply pickup'])) {
+        return [...mobileResidentServiceSections]
     }
     if (lower.includes('refugee services') || lower.includes('services navigator') || lower.includes('public defender') || lower.includes('legal aid')) {
-        return ['Service categories', 'Response metrics', 'Cost tiers', 'Resident quotes', 'Application tasks', 'Office hours', 'Plain FAQ']
+        return [...residentServiceSections]
     }
     if (lower.includes('public records') || lower.includes('records request')) {
         return ['Permit categories', 'Service metrics', 'Cost tiers', 'Resident quotes', 'Application tasks', 'Office hours', 'Plain FAQ']
@@ -227,37 +231,25 @@ function sectionsForPage(lower: string) {
         return ['Services', 'Response metrics', 'Simple pricing bands', 'Customer quotes', 'Launch checklist', 'Beginner deployment']
     }
     if (lower.includes('field service dispatch')) {
-        return ['Service categories', 'Response metrics', 'Pricing cards', 'Testimonials', 'Onboarding tasks', 'Beginner deployment']
+        return [...localServiceSections]
     }
-    if (lower.includes('senior transport') || lower.includes('transport booking')) {
-        return ['Service categories', 'Response metrics', 'Cost tiers', 'Customer quotes', 'Application tasks', 'Office hours', 'Plain FAQ']
+    if (containsAny(lower, ['senior transport', 'transport booking', 'tenant move out', 'move out portal'])) {
+        return [...customerServiceSections]
     }
-    if (lower.includes('tenant move out') || lower.includes('move out portal')) {
-        return ['Service categories', 'Response metrics', 'Cost tiers', 'Customer quotes', 'Application tasks', 'Office hours', 'Plain FAQ']
-    }
-    if (lower.includes('tenant rights') || lower.includes('rights hotline')) {
-        return ['Service categories', 'Response metrics', 'Cost tiers', 'Resident quotes', 'Application tasks', 'Office hours', 'Plain FAQ']
-    }
-    if (lower.includes('utility shutoff') || lower.includes('shutoff assistance') || lower.includes('victim services')) {
-        return ['Service categories', 'Response metrics', 'Cost tiers', 'Resident quotes', 'Application tasks', 'Office hours', 'Plain FAQ']
+    if (containsAny(lower, ['tenant rights', 'rights hotline', 'utility shutoff', 'shutoff assistance', 'victim services'])) {
+        return [...residentServiceSections]
     }
     if (lower.includes('rural internet outage')) {
-        return ['Service categories', 'Response metrics', 'Cost tiers', 'Resident quotes', 'Application tasks', 'Office hours', 'Plain FAQ', 'Mobile release', 'Offline state']
+        return [...mobileResidentServiceSections]
     }
     if (lower.includes('rural internet') || lower.includes('internet signup')) {
         return ['Service categories', 'Response metrics', 'Cost tiers', 'Customer quotes', 'Application tasks', 'Office hours', 'Plain FAQ', 'Mobile release', 'Offline state']
     }
-    if (lower.includes('storm cleanup') || lower.includes('cleanup volunteer') || lower.includes('storm repair dispatch')) {
-        return ['Service categories', 'Response metrics', 'Cost tiers', 'Resident quotes', 'Application tasks', 'Office hours', 'Plain FAQ', 'Mobile release', 'Offline state']
+    if (containsAny(lower, ['storm cleanup', 'cleanup volunteer', 'storm repair dispatch', 'accessibility repair', 'emergency accessibility'])) {
+        return [...mobileResidentServiceSections]
     }
-    if (lower.includes('accessibility repair') || lower.includes('emergency accessibility')) {
-        return ['Service categories', 'Response metrics', 'Cost tiers', 'Resident quotes', 'Application tasks', 'Office hours', 'Plain FAQ', 'Mobile release', 'Offline state']
-    }
-    if (lower.includes('local repair dispatch') || lower.includes('repair dispatch')) {
-        return ['Service categories', 'Response metrics', 'Pricing cards', 'Testimonials', 'Onboarding tasks', 'Beginner deployment']
-    }
-    if (lower.includes('plumbing dispatch') || lower.includes('locksmith dispatch') || lower.includes('locksmith booking') || lower.includes('electrician dispatch')) {
-        return ['Service categories', 'Response metrics', 'Pricing cards', 'Testimonials', 'Onboarding tasks', 'Beginner deployment']
+    if (containsAny(lower, ['local repair dispatch', 'repair dispatch', 'plumbing dispatch', 'locksmith dispatch', 'locksmith booking', 'electrician dispatch'])) {
+        return [...localServiceSections]
     }
     if (lower.includes('community tool library')) {
         return ['Service categories', 'Lead metrics', 'Pricing cards', 'Testimonials', 'Onboarding tasks', 'Beginner deployment', 'Office hours', 'Plain FAQ']
@@ -362,7 +354,7 @@ function sectionsForPage(lower: string) {
         return ['Asset sections', 'Launch metrics', 'Package tiers', 'Stakeholder quotes', 'Owner tasks', 'Deployment notes']
     }
     if (lower.includes('image review') || lower.includes('review queue')) {
-        return ['Review queue', 'Keep', 'Reject later', 'Collections', 'Export summary', 'Deferred deletion confirmation']
+        return [...imageReviewSections]
     }
     if (lower.includes('photography booking') || lower.includes('framelocal') || lower.includes('photographer')) {
         return ['Service sections', 'Booking metrics', 'Pricing bands', 'Client quotes', 'Launch tasks', 'Beginner deployment']
@@ -434,7 +426,7 @@ function sectionsForPage(lower: string) {
         return ['Schedule', 'Speakers', 'Tracks', 'Sponsors', 'Tickets', 'Venue']
     }
     if (lower.includes('gallery') || lower.includes('image')) {
-        return ['Review queue', 'Keep', 'Reject later', 'Collections', 'Export summary', 'Deferred deletion confirmation']
+        return [...imageReviewSections]
     }
     if (lower.includes('status page') || lower.includes('incident') || lower.includes('observability')) {
         return ['Service health', 'Incident timeline', 'Subscriber notice', 'SLO evidence', 'Postmortems', 'Failure owner']
@@ -557,7 +549,7 @@ function sectionsForPage(lower: string) {
         return ['Schedule', 'Speakers', 'Tracks', 'Sponsors', 'Tickets', 'Venue']
     }
     if (lower.includes('gallery') || lower.includes('image')) {
-        return ['Review queue', 'Keep', 'Reject later', 'Collections', 'Export summary', 'Deferred deletion confirmation']
+        return [...imageReviewSections]
     }
     if (/\bservices\b/.test(lower)) return ['Services', 'Pricing', 'Process', 'FAQ', 'Contact']
     return ['Overview', 'Highlights', 'Process', 'Next steps']
