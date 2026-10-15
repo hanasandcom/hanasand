@@ -59,6 +59,15 @@ for(const rule of securityRules) test(`${rule.id} produces a persisted Event fin
     expect(findings.some(finding=>finding.rule_id===rule.id)).toBe(true)
 })
 
+test('sudo with a user option persists the executed child security finding', async () => {
+    const input = log('/usr/bin/sudo', 'sudo -u root /usr/bin/xmrig')
+    await processLog({ ...input, metadata: { process: { ...input.metadata.process, arguments: ['sudo', '-u', 'root', '/usr/bin/xmrig'] } } }, 'org-a', rules())
+    expect(findings.map(finding => finding.rule_id)).toContain('process.tool.xmrig.v1')
+    const row: any = Object.values(stored)[0]
+    expect(row.normalized.severity).toBe('critical')
+    expect(row.normalized.detections).toContainEqual(expect.objectContaining({ rule_id: 'process.tool.xmrig.v1' }))
+})
+
 for (const [args, expectedRule, severity] of [
     [['env', 'python3', '/usr/local/sbin/hanasand-log-collector', '--recent', '300'], null, 'low'],
     [['env', 'bash', '/path/script'], null, 'low'], [['env', '-u', 'HOME'], 'process.recon.env.v1', 'high'],

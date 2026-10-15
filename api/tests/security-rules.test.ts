@@ -80,3 +80,35 @@ test('unsupported env options do not invent child execution, and executable-only
     expect(matchSecurityRules({ event_type: 'process', action: 'exec', process: { executable: '/bin/bash', arguments: ['bash', '-c', 'env'] } }))
         .toContainEqual(expect.objectContaining({ id: 'process.recon.env.v1' }))
 })
+
+test('sudo value options are consumed before matching the command', () => {
+    const event = (args: string[], command = args.join(' ')) => ({ event_type: 'process', action: 'exec', process: {
+        executable: '/usr/bin/sudo', arguments: ['sudo', ...args], command_line: command,
+    } })
+    for (const args of [
+        ['-u', 'root', '/usr/bin/xmrig'], ['-uroot', '/usr/bin/xmrig'],
+        ['-g', 'wheel', '-C', '3', '-D', '/tmp', '-p', 'prompt', '-R', '/rootfs', '-T', '10', '/usr/bin/xmrig'],
+        ['-nu', 'root', '/usr/bin/xmrig'], ['-hbuild-host', '/usr/bin/xmrig'],
+        ['-h', 'build-host', '/usr/bin/xmrig'], ['--host', 'build-host', '/usr/bin/xmrig'], ['--no-update', '/usr/bin/xmrig'],
+        ['-E', '/usr/bin/xmrig'], ['--preserve-env', '/usr/bin/xmrig'], ['--preserve-env=PATH,HOME', '/usr/bin/xmrig'],
+        ['--user', 'root', '/usr/bin/xmrig'], ['--user=root', '/usr/bin/xmrig'], ['--group=wheel', '/usr/bin/xmrig'],
+    ]) {
+        expect(matchSecurityRules(event(args))).toContainEqual(expect.objectContaining({ id: 'process.tool.xmrig.v1' }))
+    }
+    expect(matchSecurityRules(event(['-u', 'root', '/usr/bin/xmrig'], 'sudo -u root /usr/bin/xmrig')))
+        .toContainEqual(expect.objectContaining({ id: 'process.tool.xmrig.v1' }))
+    for (const args of [
+        ['--unsupported', 'root', '/usr/bin/xmrig'], ['-u'], ['-u', '-g', 'wheel', '/usr/bin/xmrig'],
+        ['-h'], ['-h', '/usr/bin/xmrig'], ['-h', 'build-host'], ['-h=build-host', '/usr/bin/xmrig'],
+        ['-u=root', '/usr/bin/xmrig'], ['-u=', '/usr/bin/xmrig'], ['--preserve-env='], ['--', 'FIXTURE=1', '/usr/bin/xmrig'],
+        ['-a', 'auth', '/usr/bin/xmrig'], ['-c', 'class', '/usr/bin/xmrig'], ['-r', 'role', '/usr/bin/xmrig'], ['-t', 'type', '/usr/bin/xmrig'],
+        ['-U', 'admin', '/usr/bin/xmrig'], ['--other-user=admin', '/usr/bin/xmrig'],
+        ...[
+            ['-e', '/usr/bin/xmrig'], ['--edit', '/usr/bin/xmrig'], ['-l', '/usr/bin/xmrig'], ['--list', '/usr/bin/xmrig'],
+            ['-v', '/usr/bin/xmrig'], ['--validate', '/usr/bin/xmrig'], ['-V', '/usr/bin/xmrig'], ['--version', '/usr/bin/xmrig'],
+            ['-K', '/usr/bin/xmrig'], ['--remove-timestamp', '/usr/bin/xmrig'], ['--help', '/usr/bin/xmrig'],
+        ],
+    ]) {
+        expect(matchSecurityRules(event(args))).toEqual([])
+    }
+})

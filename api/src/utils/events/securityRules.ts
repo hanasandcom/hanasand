@@ -1157,6 +1157,62 @@ function envArguments(args: string[], depth = 0): string[] | null {
     while (index < args.length && /^[^=]+=/.test(args[index])) index++
     return args.slice(index)
 }
+const sudoValueOptions = new Set(['C', 'D', 'g', 'p', 'R', 'T', 'u'])
+const sudoFlagOptions = new Set(['A', 'B', 'E', 'H', 'K', 'k', 'n', 'P', 'S', 'V', 'v', 'b', 'e', 'i', 'l', 'N', 's'])
+const sudoNoCommandOptions = new Set(['e', 'l', 'v', 'V', 'K'])
+const sudoLongValueOptions = new Set(['--chdir', '--chroot', '--close-from', '--command-timeout', '--group', '--host', '--prompt', '--user'])
+const sudoLongFlagOptions = new Set(['--askpass', '--background', '--bell', '--edit', '--help', '--login', '--no-update', '--non-interactive', '--preserve-groups', '--preserve-env', '--reset-timestamp', '--remove-timestamp', '--set-home', '--stdin', '--validate', '--version', '--list', '--shell'])
+const sudoLongNoCommandOptions = new Set(['--edit', '--help', '--list', '--remove-timestamp', '--validate', '--version'])
+function sudoCommandArguments(args: string[]): string[] | null {
+    let index = 0
+    while (index < args.length) {
+        const option = args[index]
+        if (/^[A-Za-z_]\w*=/.test(option)) { index++; continue }
+        if (option === '--') { index++; break }
+        if (option === '-' || !option.startsWith('-')) break
+        if (option.startsWith('--')) {
+            const equal = option.indexOf('=')
+            const name = equal < 0 ? option : option.slice(0, equal)
+            if (sudoLongValueOptions.has(name)) {
+                const value = equal < 0 ? args[++index] : option.slice(equal + 1)
+                if (!value || equal < 0 && value.startsWith('-')) return null
+            } else if (sudoLongFlagOptions.has(name) && equal < 0) {
+                if (sudoLongNoCommandOptions.has(name)) return null
+                // No operand.
+            } else if (name === '--preserve-env' && equal >= 0 && option.slice(equal + 1)) {
+                // The long form has an optional value only when attached with '='.
+            } else return null
+            index++
+            continue
+        }
+        for (let at = 1; at < option.length; at++) {
+            const flag = option[at]
+            if (sudoNoCommandOptions.has(flag)) return null
+            if (flag === 'h') {
+                // A bare -h is a host selector only when a host and command follow.
+                if (option[at + 1] === '=') return null
+                if (at === option.length - 1) {
+                    const host = args[index + 1]
+                    if (!host || host.startsWith('-') || /^[A-Za-z_]\w*=/.test(host) || index + 2 >= args.length) return null
+                    index++
+                }
+                break
+            }
+            if (sudoValueOptions.has(flag)) {
+                let value = option.slice(at + 1)
+                if (value.startsWith('=')) return null
+                if (!value) {
+                    value = args[++index] || ''
+                    if (!value || value.startsWith('-')) return null
+                }
+                break
+            }
+            if (!sudoFlagOptions.has(flag)) return null
+        }
+        index++
+    }
+    return index < args.length ? args.slice(index) : null
+}
 function executionContexts(executable: string, command: string, argv: unknown) {
     const commands: Command[] = []
     const supplied = Array.isArray(argv) && argv.length && argv.every(value => typeof value === 'string') ? argv as string[] : null
@@ -1171,8 +1227,8 @@ function executionContexts(executable: string, command: string, argv: unknown) {
             return
         }
         if (name === 'sudo') {
-            const at = entry.args.findIndex((arg, index) => index > 0 && !arg.startsWith('-') && !/^[A-Za-z_]\w*=/.test(arg))
-            if (at > 0) inspect({ ...entry, args: entry.args.slice(at), text: entry.args.slice(at).join(' ') }, depth + 1)
+            const child = sudoCommandArguments(entry.args.slice(1))
+            if (child) inspect({ ...entry, args: child, text: child.join(' ') }, depth + 1)
             return
         }
         if (shells.test(name)) {
