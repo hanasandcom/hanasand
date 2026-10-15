@@ -8,6 +8,7 @@ import { addressForUser } from '#utils/mail/helpers.ts'
 import { sendSystemMail } from '#utils/mail/system.ts'
 import { syncMailPasswordForUser } from '#utils/mail/accounts.ts'
 import { passwordChangedMail } from '#utils/auth/passwordChangedMail.ts'
+import { consumePendingPasswordResetCodes } from '#utils/auth/passwordReset.ts'
 
 const RESET_TTL_MINUTES = 15
 const MAX_CODE_ATTEMPTS = 5
@@ -64,12 +65,7 @@ export async function requestPasswordReset(req: FastifyRequest, res: FastifyRepl
     const codeHash = await bcrypt.hash(code, 10)
     const expiresAt = new Date(Date.now() + RESET_TTL_MINUTES * 60 * 1000)
 
-    await run(`
-        UPDATE password_reset_codes
-        SET consumed_at = NOW()
-        WHERE user_id = $1
-          AND consumed_at IS NULL
-    `, [user.id])
+    await consumePendingPasswordResetCodes(user.id)
 
     await run(`
         INSERT INTO password_reset_codes (user_id, code_hash, requested_ip, user_agent, expires_at)
@@ -85,12 +81,7 @@ export async function requestPasswordReset(req: FastifyRequest, res: FastifyRepl
         })
     } catch (error) {
         req.log.error(error)
-        await run(`
-            UPDATE password_reset_codes
-            SET consumed_at = NOW()
-            WHERE user_id = $1
-              AND consumed_at IS NULL
-        `, [user.id]).catch(() => {})
+        await consumePendingPasswordResetCodes(user.id).catch(() => {})
         return res.status(500).send({ error: 'Unable to send reset email.' })
     }
 
@@ -178,7 +169,7 @@ export async function completePasswordReset(req: FastifyRequest, res: FastifyRep
             RETURNING id`, [reset.id, tokenHash])
         if (!consumed.rows.length) return false
         await query('UPDATE users SET password = $2, password_reset_locked_at = NULL WHERE id = $1', [userId, hashedPassword])
-        await query('UPDATE password_reset_codes SET consumed_at = NOW() WHERE user_id = $1 AND consumed_at IS NULL', [userId])
+        await consumePendingPasswordResetCodes(userId, query)
         await query('DELETE FROM attempts WHERE id = $1', [userId])
         await revokeAllTokens({ userId, revokedBy: 'password_reset' })
         return true
@@ -262,11 +253,7 @@ export async function startPasswordResetAgain(req: FastifyRequest, res: FastifyR
 
         const code = crypto.randomBytes(32).toString('hex')
         const codeHash = await bcrypt.hash(code, 10)
-        await query(`
-            UPDATE password_reset_codes
-            SET consumed_at = NOW()
-            WHERE user_id = $1 AND consumed_at IS NULL
-        `, [userId])
+        await consumePendingPasswordResetCodes(userId, query)
         await query(`
             INSERT INTO password_reset_codes (user_id, code_hash, reset_token_hash, requested_ip, user_agent, verified_at, expires_at)
             VALUES ($1, $2, $3, $4, $5, NOW(), $6)
