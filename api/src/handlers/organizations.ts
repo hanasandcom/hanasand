@@ -3,7 +3,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify'
 import { randomUUID } from 'crypto'
 import run, { withTransaction } from '#db'
 import { organizationPrivacyDeletionInProgress } from '#utils/organizationLifecycle.ts'
-import { upsertOrganizationInvite, upsertOrganizationMember } from '#utils/db/identityDataWrites.ts'
+import { updateOrganizationInviteAction, upsertOrganizationInvite, upsertOrganizationMember } from '#utils/db/identityDataWrites.ts'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import recordLog from '#utils/logs/recordLog.ts'
 import { recordSystemEvent } from '#utils/systemEvent.ts'
@@ -1598,33 +1598,14 @@ export async function postOrganizationInviteAction(req: FastifyRequest<{ Params:
     }
 
     const resendExpiresAt = input.expiresAt ?? new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
-    const result = input.action === 'resend'
-        ? await run(`
-            UPDATE organization_invites
-            SET status = 'pending',
-                revoked_at = NULL,
-                accepted_at = NULL,
-                accepted_by = NULL,
-                expires_at = $3,
-                created_at = NOW()
-            WHERE id = $1
-              AND organization_id = $2
-              AND status <> 'accepted'
-            RETURNING *
-        `, [req.params.inviteId, req.params.id, resendExpiresAt])
-        : await run(`
-            UPDATE organization_invites
-            SET status = 'revoked',
-                revoked_at = NOW(),
-                accepted_at = NULL,
-                accepted_by = NULL
-            WHERE id = $1
-              AND organization_id = $2
-              AND status <> 'accepted'
-            RETURNING *
-        `, [req.params.inviteId, req.params.id])
+    const invite = await updateOrganizationInviteAction({
+        organizationId: req.params.id,
+        inviteId: req.params.inviteId,
+        action: input.action,
+        expiresAt: input.action === 'resend' ? resendExpiresAt : undefined,
+    }) as OrganizationInviteRow | null
 
-    if (!result.rows.length) {
+    if (!invite) {
         return res.status(404).send({ error: 'Invite not found.' })
     }
 
@@ -1652,7 +1633,6 @@ export async function postOrganizationInviteAction(req: FastifyRequest<{ Params:
         context: { role: existing.role, previousStatus: existing.status, reason: input.reason },
     })
 
-    const invite = result.rows[0] as OrganizationInviteRow
     return res.send({
         invite: toInvite(invite),
         inviteAction: {

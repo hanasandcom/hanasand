@@ -5,10 +5,28 @@ let actor = { valid: true, id: 'support-admin', impersonating: false }
 let internalAccess = true
 let eventRows: Record<string, any>[] = []
 let approvalRows: Record<string, any>[] = []
+let supportOrganization: Record<string, any> | null = null
+let supportInviteReads = 0
+let inviteActionWrites = 0
+let acceptedInviteWinsRace = false
 const queries: Array<{ sql: string, values: unknown[] }> = []
 
 async function run(sql: string, values: unknown[] = []) {
     queries.push({ sql, values })
+    if (sql.includes('FROM organizations o') && supportOrganization) return { rows: [supportOrganization] }
+    if (sql.includes('FROM organization_invites') && sql.includes('id = $1') && sql.includes('organization_id = $2')) {
+        supportInviteReads += 1
+        const invite = {
+            id: 'invite-1', organization_id: 'org-1', email: 'member@example.com', role: 'reader',
+            status: supportInviteReads > 1 && acceptedInviteWinsRace ? 'accepted' : 'pending',
+            expires_at: '2026-11-01T00:00:00.000Z', accepted_at: null, accepted_by: null,
+            revoked_at: null, invited_by: 'owner-1', created_at: '2026-10-01T00:00:00.000Z',
+        }
+        return { rows: [invite] }
+    }
+    if (sql.includes('active_admin_count')) return { rows: [] }
+    if (sql.includes('context->>\'idempotencyKey\'') && sql.includes('outcome = \'success\'')) return { rows: [] }
+    if (sql.includes('WHERE request_id = $1') && sql.includes('event_type = $2') && sql.includes('subject_id = $3')) return { rows: [{ id: 91 }] }
     if (sql.includes('FROM admin_access_recovery_approvals approval')) return { rows: approvalRows }
     if (sql.includes('SELECT COUNT(*)::int AS total')) return { rows: [{ total: eventRows.length }] }
     if (sql.includes('FROM system_events e') && sql.includes('WHERE e.id = $1')) return { rows: eventRows }
@@ -28,9 +46,16 @@ mock.module('../src/utils/systemEvent.ts', () => ({
 mock.module('../src/utils/db/identityDataWrites.ts', () => ({
     upsertAdminAccessRecoveryApproval: async () => {},
     upsertOrganizationInvite: async () => {},
+    updateOrganizationInviteAction: async () => { inviteActionWrites += 1; return null },
 }))
 
-const { getSystemEvents, getSystemEvent, getSupportAccessRecoveryApprovals, getSupportInspection } = await import('../src/handlers/adminSupport.ts')
+const {
+    getSystemEvents,
+    getSystemEvent,
+    getSupportAccessRecoveryApprovals,
+    getSupportInspection,
+    postSupportOrganizationInviteAction,
+} = await import('../src/handlers/adminSupport.ts')
 
 function reply() {
     return {
@@ -42,9 +67,11 @@ function reply() {
     }
 }
 
-async function request(handler: (req: any, res: any) => unknown, input: { query?: Record<string, string>, params?: Record<string, string> } = {}) {
+async function request(handler: (req: any, res: any) => unknown, input: {
+    query?: Record<string, string>, params?: Record<string, string>, body?: Record<string, unknown>, headers?: Record<string, string>
+} = {}) {
     const result = reply()
-    await handler({ query: input.query ?? {}, params: input.params ?? {}, headers: {}, body: {} } as FastifyRequest, result as unknown as FastifyReply)
+    await handler({ query: input.query ?? {}, params: input.params ?? {}, headers: input.headers ?? {}, body: input.body ?? {} } as FastifyRequest, result as unknown as FastifyReply)
     return result
 }
 
@@ -53,6 +80,10 @@ beforeEach(() => {
     internalAccess = true
     eventRows = []
     approvalRows = []
+    supportOrganization = null
+    supportInviteReads = 0
+    inviteActionWrites = 0
+    acceptedInviteWinsRace = false
     queries.length = 0
     recordedEvents.length = 0
 })
@@ -240,6 +271,35 @@ test('support inspection returns preparation validation errors before database r
     expect(response.statusCode).toBe(400)
     expect(response.body.detail.code).toBe('invalid_duration')
     expect(queries).toHaveLength(0)
+})
+
+test('support invite action returns an audited accepted-invite denial when acceptance wins the update race', async () => {
+    supportOrganization = { id: 'org-1', name: 'Org', slug: 'org', status: 'active' }
+    acceptedInviteWinsRace = true
+
+    const result = await request(postSupportOrganizationInviteAction, {
+        params: { id: 'org-1', inviteId: 'invite-1' },
+        body: { action: 'resend', reason: 'Restore access', scope: 'invite:resend', requestId: 'request-1' },
+    })
+
+    expect(result.statusCode).toBe(409)
+    expect(result.body.inviteAction).toMatchObject({
+        schemaVersion: 'support.invite_action.v1',
+        outcome: 'failed',
+        noSilentMembershipMutation: true,
+        before: { status: 'accepted' },
+        after: { status: 'accepted' },
+        auditEventIds: [91],
+    })
+    expect(recordedEvents.at(-1)?.context).toMatchObject({
+        email: 'member@example.com',
+        role: 'reader',
+        handoffExpiresAt: null,
+        error: 'accepted_invite_not_mutable_by_support_action',
+        supportContext: '',
+    })
+    expect(recordedEvents.at(-1)?.context).toHaveProperty('executor')
+    expect(inviteActionWrites).toBe(1)
 })
 
 test('access recovery search applies requester, approver, status, outcome, organization, and request filters', async () => {

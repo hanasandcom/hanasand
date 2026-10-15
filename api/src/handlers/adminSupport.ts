@@ -1,7 +1,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import { randomUUID } from 'crypto'
 import run from '#db'
-import { upsertAdminAccessRecoveryApproval, upsertOrganizationInvite } from '#utils/db/identityDataWrites.ts'
+import { updateOrganizationInviteAction, upsertAdminAccessRecoveryApproval, upsertOrganizationInvite } from '#utils/db/identityDataWrites.ts'
 import { compileAuditQuery } from '#utils/auditQuery.ts'
 import { hasOrganizationPrivacyDeletionMarker, organizationPrivacyDeletionInProgress } from '#utils/organizationLifecycle.ts'
 import { cleanContext, headerText, normalizeApprovalStatus, normalizeOption, normalizeSupportPreparationDuration, normalizeSupportPreparationExpiry, normalizeSupportPreparationScope, normalizeSupportSessionActions, normalizeSupportSessionDuration, normalizeSupportSessionExpiry, normalizeSupportSessionScope, supportError, supportInspectionAuditContext, supportInspectionAuditMetadata, supportRequestId, supportSessionIdFromRequest, supportText as text } from '#utils/support/adminSupportInput.ts'
@@ -2733,19 +2733,97 @@ export async function postSupportOrganizationInviteAction(req: FastifyRequest<{ 
     }
 
     const before = inviteSnapshot(invite)
-    const updated = await run(`
-        UPDATE organization_invites
-        SET status = $3,
-            revoked_at = CASE WHEN $3 = 'revoked' THEN NOW() ELSE NULL END,
-            accepted_at = NULL,
-            accepted_by = NULL,
-            expires_at = $4,
-            created_at = CASE WHEN $3 = 'pending' THEN NOW() ELSE created_at END
-        WHERE id = $1
-          AND organization_id = $2
-        RETURNING *
-    `, [invite.id, organization.id, action === 'resend' ? 'pending' : 'revoked', expiresAt])
-    const updatedInvite = updated.rows[0] as OrganizationInviteRow
+    const updatedInvite = await updateOrganizationInviteAction({
+        organizationId: organization.id,
+        inviteId: invite.id,
+        action: action as 'revoke' | 'resend',
+        expiresAt: action === 'resend' ? expiresAt : undefined,
+    }) as OrganizationInviteRow | null
+    if (!updatedInvite) {
+        const current = await run(`
+            SELECT *
+            FROM organization_invites
+            WHERE id = $1 AND organization_id = $2
+            LIMIT 1
+        `, [invite.id, organization.id])
+        const acceptedInvite = current.rows[0] as OrganizationInviteRow | undefined
+        if (acceptedInvite?.status === 'accepted') {
+            const acceptedSnapshot = inviteSnapshot(acceptedInvite)
+            await recordSystemEvent(req, {
+                actionType,
+                actorId: actor.id,
+                targetType: 'invite',
+                targetId: acceptedInvite.email,
+                organizationId: organization.id,
+                entityId: acceptedInvite.id,
+                requestId,
+                severity: 'notice',
+                outcome: 'failed',
+                reason,
+                context: {
+                    schemaVersion: 'support.invite_action.v1',
+                    action,
+                    requestId,
+                    inviteId: acceptedInvite.id,
+                    email: acceptedInvite.email,
+                    role: acceptedInvite.role,
+                    before: acceptedSnapshot,
+                    after: acceptedSnapshot,
+                    correlationId: executorControls.correlationId,
+                    idempotencyKey: executorControls.idempotencyKey,
+                    supportSessionId: executorControls.supportSessionId || null,
+                    scope: executorControls.scope,
+                    handoffExpiresAt: executorControls.handoffExpiresAt,
+                    executor: supportInviteActionExecutorDetail({
+                        organizationId: organization.id,
+                        requestId,
+                        action: action as 'revoke' | 'resend',
+                        actionType,
+                        reason,
+                        controls: executorControls,
+                        invite: acceptedInvite,
+                        before: acceptedSnapshot,
+                        after: acceptedSnapshot,
+                        outcome: 'failed',
+                        blockers: ['accepted_invite_not_mutable_by_support_action'],
+                    }),
+                    error: 'accepted_invite_not_mutable_by_support_action',
+                    noSilentMembershipMutation: true,
+                    supportContext: cleanContext(req.body?.context),
+                },
+            })
+            const auditEventIds = await loadSystemEventIds({ requestId, actionType, entityId: acceptedInvite.id })
+            const blockers = ['accepted_invite_not_mutable_by_support_action']
+            return res.status(409).send({
+                error: 'Accepted invites cannot be revoked or resent by support action; inspect membership state instead.',
+                inviteAction: {
+                    schemaVersion: 'support.invite_action.v1',
+                    action,
+                    requestId,
+                    actorId: actor.id,
+                    organization: toOrganization(organization),
+                    invite: toInvite(acceptedInvite),
+                    before: acceptedSnapshot,
+                    after: acceptedSnapshot,
+                    outcome: 'failed',
+                    auditEventIds,
+                    noSilentMembershipMutation: true,
+                    controlledExecutor: supportInviteActionExecutorDetail({
+                        organizationId: organization.id, requestId, action: action as 'revoke' | 'resend', actionType,
+                        reason, controls: executorControls, invite: acceptedInvite, before: acceptedSnapshot,
+                        after: acceptedSnapshot, outcome: 'failed', blockers,
+                    }),
+                    executionReceipt: supportInviteActionExecutionReceipt({
+                        actorId: actor.id, organizationId: organization.id, requestId,
+                        action: action as 'revoke' | 'resend', actionType, reason, controls: executorControls,
+                        invite: acceptedInvite, before: acceptedSnapshot, after: acceptedSnapshot,
+                        outcome: 'failed', auditEventIds, blockers,
+                    }),
+                },
+            })
+        }
+        return res.status(404).send({ error: 'Invite not found for organization.' })
+    }
     const after = inviteSnapshot(updatedInvite)
     await run('UPDATE organizations SET updated_at = NOW() WHERE id = $1', [organization.id])
 

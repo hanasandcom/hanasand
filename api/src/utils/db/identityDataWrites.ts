@@ -216,6 +216,28 @@ export async function upsertOrganizationInvite(input: {
     }
 }
 
+export async function updateOrganizationInviteAction(input: {
+    organizationId: string
+    inviteId: string
+    action: 'revoke' | 'resend'
+    expiresAt?: Date | string
+}, query: IdentityQuery = run) {
+    const result = await query(`
+        UPDATE organization_invites
+           SET status = CASE WHEN $3 = 'resend' THEN 'pending' ELSE 'revoked' END,
+               revoked_at = CASE WHEN $3 = 'revoke' THEN NOW() ELSE NULL END,
+               accepted_at = NULL,
+               accepted_by = NULL,
+               expires_at = CASE WHEN $3 = 'resend' THEN $4 ELSE expires_at END,
+               created_at = CASE WHEN $3 = 'resend' THEN NOW() ELSE created_at END
+         WHERE id = $1
+           AND organization_id = $2
+           AND status <> 'accepted'
+        RETURNING *
+    `, [input.inviteId, input.organizationId, input.action, input.expiresAt ?? null])
+    return result.rows[0] ?? null
+}
+
 export async function upsertMailAccount(input: {
     userId: string
     username: string
