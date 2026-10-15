@@ -193,7 +193,9 @@ export async function getOrganization(req: FastifyRequest<{ Params: Organization
 
 export async function getOrganizationApiKeys(req: FastifyRequest<{ Params: OrganizationParams }>, res: FastifyReply) {
     res.header('Cache-Control', 'no-store')
-    const userId = await authenticateOrganizationRequest(req, res, { error: { code: 'authentication_required', message: 'Sign in to manage organization API keys.' } })
+    const userId = await authenticateOrganizationRequest(req, res, {
+        error: { code: 'authentication_required', message: 'Sign in to manage organization API keys.' },
+    })
     if (!userId) return
 
     const organization = await loadOrganizationForMember(req.params.id, userId)
@@ -208,7 +210,9 @@ export async function getOrganizationApiKeys(req: FastifyRequest<{ Params: Organ
 
 export async function postOrganizationApiKey(req: FastifyRequest<{ Params: OrganizationParams, Body: { name?: unknown } }>, res: FastifyReply) {
     res.header('Cache-Control', 'no-store')
-    const userId = await authenticateOrganizationRequest(req, res, { error: { code: 'authentication_required', message: 'Sign in to create an organization API key.' } })
+    const userId = await authenticateOrganizationRequest(req, res, {
+        error: { code: 'authentication_required', message: 'Sign in to create an organization API key.' },
+    })
     if (!userId) return
 
     const organization = await loadOrganizationForMember(req.params.id, userId)
@@ -265,7 +269,9 @@ export async function postOrganizationApiKey(req: FastifyRequest<{ Params: Organ
 
 export async function deleteOrganizationApiKey(req: FastifyRequest<{ Params: OrganizationApiKeyParams }>, res: FastifyReply) {
     res.header('Cache-Control', 'no-store')
-    const userId = await authenticateOrganizationRequest(req, res, { error: { code: 'authentication_required', message: 'Sign in to revoke an organization API key.' } })
+    const userId = await authenticateOrganizationRequest(req, res, {
+        error: { code: 'authentication_required', message: 'Sign in to revoke an organization API key.' },
+    })
     if (!userId) return
 
     const organization = await loadOrganizationForMember(req.params.id, userId)
