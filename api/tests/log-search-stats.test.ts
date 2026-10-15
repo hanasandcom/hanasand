@@ -5,7 +5,7 @@ let statements: string[], parameters: any[][], pageRows: any[]
 const query = async (sql: string, params: any[] = []): Promise<any> => {
     statements.push(sql); parameters.push(params)
     if (sql.includes('AS cursor_time')) return { rows: pageRows }
-    if (sql.includes('FROM log_process_queue LIMIT 10001')) return { rows: [{ count: pendingCount, oldest_queued_at: pendingCount ? '2026-09-19T14:49:32.311Z' : null }] }
+    if (sql.includes('FROM events WHERE ingestion_id=\'logs\' AND processing_status=\'pending\' LIMIT 10001')) return { rows: [{ count: pendingCount, oldest_queued_at: pendingCount ? '2026-09-19T14:49:32.311Z' : null }] }
     if (sql.startsWith('SELECT payload, last_error')) return { rows: [{ payload: { remaining: 3000, processed: 1000, total: 4000, rate: 50, estimated_seconds: 60 }, last_error: null }] }
     if (sql.startsWith('SELECT name, updated_at')) return { rows: [{ name: 'service_logs', last_error: null }] }
     if (sql.startsWith('SELECT ready, last_error')) return { rows: [{ ready, counts_ready: rollupsReady }] }
@@ -73,7 +73,8 @@ test('basic search stays literal and parameterized for rows and exact full-data 
         const grouped = statements.findIndex(sql => sql.includes('GROUP BY'))
         for (const index of [selected, grouped]) {
             expect(statements[index]).toContain('translate(lower(normalized::text), \' \', \'0\') LIKE \'%\' ||')
-            expect(statements[index]).toContain('ESCAPE \'!\' AND strpos(lower(normalized::text), lower($2::text)) > 0')
+            expect(statements[index]).toContain('ESCAPE \'!\' OR translate(lower(normalized::text), \' \', \'0\') LIKE')
+            expect(statements[index]).toContain('strpos(lower(COALESCE(normalized->>\'message\', \'\')), lower($2::text)) > 0')
             expect(parameters[index]).toEqual([24, search])
             expect(statements[index]).toContain('o.status = \'active\'')
         }

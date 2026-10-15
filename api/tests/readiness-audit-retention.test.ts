@@ -4,6 +4,8 @@ import { eligibleCollectorExecution, collectorDefinition } from '../src/utils/ev
 
 mock.module('#constants', () => ({ default: {} }))
 mock.module('#db', () => ({ default: async () => { throw new Error('Unexpected database access') },
+    identityQueryOnce: async () => { throw new Error('Unexpected identity database access') },
+    isTransientDatabaseError: () => false,
     withTransaction: async () => { throw new Error('Expected caller transaction') } }))
 const { recordLogBatch } = await import('../src/utils/logs/recordLog.ts')
 
@@ -43,12 +45,15 @@ test('ingestion retains readiness audit evidence and suspicious variants with bu
     rows.push(detection)
     const tenant = audit(); tenant.metadata.organizationId = 'customer'; rows.push(tenant)
     const writes: string[] = []
-    let stored: unknown[][] = []
+    let stored: any[] = []
     const query: any = async (sql: string, params: any[] = []) => {
         if (sql.includes('r.source=\'owned\'')) return { rows: [] }
         if (sql.includes('FROM rules')) return { rows: [{ organization_id: 'platform', version: '1', enabled: true,
             definition: { stage: 'analyze', action: 'drop', parameters: {} } }] }
-        if (sql.includes('INSERT INTO service_logs')) { stored = JSON.parse(params[0]); return { rows: [], rowCount: rows.length } }
+        if (sql.includes('INSERT INTO events(')) {
+            stored = JSON.parse(params[0])
+            return { rows: stored.map((row: { id: string }) => ({ id: row.id })), rowCount: stored.length }
+        }
         writes.push(sql)
         throw new Error(`Unexpected analyzer query: ${sql}`)
     }
@@ -57,11 +62,11 @@ test('ingestion retains readiness audit evidence and suspicious variants with bu
     expect(stored).toHaveLength(rows.length)
     expect(writes).toEqual([])
     for (const [i, row] of rows.entries()) {
-        expect(stored[i][3]).toBe(row.message)
-        const metadata = JSON.parse(stored[i][4] as string)
+        expect(stored[i].normalized.message).toBe(row.message)
+        const metadata = stored[i].normalized.metadata
         expect(metadata.process).toEqual(row.metadata.process)
         expect(metadata.user).toEqual(row.metadata.user)
-        expect(metadata.outcome).toEqual(row.metadata.outcome)
+        expect(stored[i].outcome).toEqual(row.metadata.outcome)
     }
-    expect(JSON.parse(stored[6][4] as string).detections).toEqual(detection.metadata.detections)
+    expect(stored[6].normalized.metadata.detections).toEqual(detection.metadata.detections)
 })

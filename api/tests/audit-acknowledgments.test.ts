@@ -6,13 +6,16 @@ let internalMember = true
 let impersonating = false
 let exists = true
 const queries: string[] = []
+const query = async (sql: string) => {
+    if (sql.includes('FROM organization_members member')) return { rows: internalMember ? [{ id: 'member' }] : [] }
+    queries.push(sql)
+    return { rows: exists ? [{ id: 38316, acknowledged_at: '2026-09-20T01:00:00Z', acknowledged_by: 'operator' }] : [] }
+}
 mock.module('../src/utils/db.ts', () => ({
-    default: async (sql: string) => {
-        if (sql.includes('FROM organization_members member')) return { rows: internalMember ? [{ id: 'member' }] : [] }
-        queries.push(sql)
-        return { rows: exists ? [{ id: 38316, acknowledged_at: '2026-09-20T01:00:00Z', acknowledged_by: 'operator' }] : [] }
-    },
-    queryOnce: async () => ({ rows: [] }), closeDatabase: async () => {},
+    default: query,
+    queryOnce: async () => ({ rows: [] }),
+    identityQueryOnce: query,
+    closeDatabase: async () => {},
 }))
 mock.module('../src/utils/auth/tokenWrapper.ts', () => ({ default: async () => ({ valid, id: 'operator', impersonating }) }))
 const { setAuditAcknowledgment } = await import('../src/handlers/auditAcknowledgments.ts')

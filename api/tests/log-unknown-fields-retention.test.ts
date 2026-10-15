@@ -4,6 +4,8 @@ import { collectorDefinition } from '../src/utils/events/analyzeCollector.ts'
 
 mock.module('#constants', () => ({ default: {} }))
 mock.module('#db', () => ({ default: async () => { throw new Error('Unexpected database access') },
+    identityQueryOnce: async () => { throw new Error('Unexpected identity database access') },
+    isTransientDatabaseError: () => false,
     withTransaction: async () => { throw new Error('Expected caller transaction') } }))
 const { default: recordLog, recordLogBatch } = await import('../src/utils/logs/recordLog.ts')
 

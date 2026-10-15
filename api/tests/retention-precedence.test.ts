@@ -3,6 +3,7 @@ import { eventProtectionDefinition } from '../src/utils/events/eventProtection.t
 
 let rules: any[] = [], calls: string[] = [], writes: string[] = [], eligible = '', failLookup = false
 const query: any = async (sql: string) => {
+    if (sql.startsWith('SET LOCAL')) return { rows: [] }
     if (sql.includes('FROM rules r')) {
         if (failLookup) throw new Error('Rule lookup unavailable')
         return { rows: rules }
@@ -10,7 +11,7 @@ const query: any = async (sql: string) => {
     if (sql.includes('INSERT INTO events') || sql.includes('INSERT INTO traffic_events')) { writes.push(sql); return { rows: [{ id: 'event-test' }], rowCount: 1 } }
     throw new Error(`Unexpected query: ${sql}`)
 }
-mock.module('#db', () => ({ default: query, withTransaction: async (work: any) => work(query) }))
+mock.module('#db', () => ({ default: query, identityQueryOnce: query, isTransientDatabaseError: () => false, withTransaction: async (work: any) => work(async (...args: any[]) => query(...args)) }))
 mock.module('../src/utils/events/analyzeCollectorLog.ts', () => ({ analyzeCollectorExecution: async () => { calls.push('collector'); return eligible === 'collector' } }))
 mock.module('../src/utils/events/analyzeLog.ts', () => ({
     analyzeMongoPing: async () => { calls.push('mongo'); return eligible === 'mongo' },

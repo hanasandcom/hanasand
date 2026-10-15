@@ -15,8 +15,12 @@ let valid = true
 let internalMember = false
 let deleted = false
 mock.module('../src/utils/auth/session.ts', () => ({ validateSession: async ({ id }: { id: string }) => valid ? { user: { id } } : null }))
-mock.module('../src/utils/auth/organizationPageAccess.ts', () => ({ hasHanasandInternalPageAccess: async (id: string) => internalMember && id === 'org-editor' }))
-mock.module('../src/utils/db.ts', () => ({ default: async (sql: string, params: string[] = []) => ({ rows: /SELECT vm_user_(has_access|can_manage)/.test(sql) ? [{ allowed: ['owner', 'creator', 'member'].includes(params[1]) }] : [{ owner: 'owner', created_by: 'creator', access_users: ['member'], deleted_at: deleted ? new Date() : null }] }) }))
+mock.module('../src/utils/auth/organizationPageAccess.ts', () => ({
+    default: async () => ({ valid: false }),
+    hasHanasandInternalPageAccess: async (id: string) => internalMember && id === 'org-editor',
+}))
+const query = async (sql: string, params: string[] = []) => ({ rows: /SELECT vm_user_(has_access|can_manage)/.test(sql) ? [{ allowed: ['owner', 'creator', 'member'].includes(params[1]) }] : [{ owner: 'owner', created_by: 'creator', access_users: ['member'], deleted_at: deleted ? new Date() : null }] })
+mock.module('../src/utils/db.ts', () => ({ default: query, identityQueryOnce: query, withReadDatabase: async (work: () => Promise<unknown>) => work() }))
 mock.module('../src/utils/recovery.ts', () => ({ recoveryReadOnly: () => false }))
 mock.module('../src/utils/vms/lxd.ts', () => ({ lxdRequest: async () => { throw new Error('Unexpected host access') } }))
 const { consoleAccess } = await import('../src/handlers/vms/console.ts')

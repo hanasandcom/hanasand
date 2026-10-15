@@ -4,16 +4,18 @@ let administrator = true
 let writes: string[] = []
 let values: unknown[][] = []
 let found = true
+let revokedUsers: string[] = []
 const query = async (sql: string, params: unknown[] = []) => { writes.push(sql); values.push(params); return { rows: found ? [{ id: 'svc_fixture', name: params[1] ?? 'Existing monitor', description: params[2] ?? 'Existing description' }] : [] } }
 mock.module('#db', () => ({ default: query, withTransaction: async (work: any) => work(query) }))
 mock.module('#utils/auth/tokenWrapper.ts', () => ({ default: async () => ({ valid: authenticated, id: 'actor' }) }))
 mock.module('#utils/auth/organizationPageAccess.ts', () => ({ default: async () => ({ valid: administrator }) }))
 mock.module('#utils/auth/apiKeys.ts', () => ({ createApiKey: async (input: any) => ({ apiKey: { ownerId: input.ownerId, scopes: input.scopes }, secret: 'once' }), listApiKeys: async () => [] }))
+mock.module('#utils/auth/session.ts', () => ({ revokeAllTokens: async ({ userId }: { userId: string }) => { revokedUsers.push(userId); return 1 } }))
 mock.module('#utils/systemEvent.ts', () => ({ recordSystemEvent: async () => {} }))
 const { getServiceAccounts, postServiceAccount, patchServiceAccount, deleteServiceAccount } = await import('../src/handlers/serviceAccounts.ts')
 const reply = () => ({ statusCode: 200, body: null as any, header() { return this }, status(value: number) { this.statusCode = value; return this }, send(value: any) { this.body = value; return this } })
 const body = { name: 'Health monitor', scopes: [{ method: 'GET', route: '/api/service-accounts/self' }] }
-beforeEach(() => { authenticated = true; administrator = true; writes = []; values = []; found = true })
+beforeEach(() => { authenticated = true; administrator = true; writes = []; values = []; found = true; revokedUsers = [] })
 test('creation rejects signed-out and non-administrative users without writes', async () => {
     for (const [auth, admin, status] of [[false, true, 401], [true, false, 403]]) {
         authenticated = Boolean(auth); administrator = Boolean(admin)
@@ -36,7 +38,7 @@ test('deletion revokes all credentials and retains audit identity', async () => 
     expect(res.statusCode).toBe(200)
     expect(writes.some(sql => sql.includes('active = FALSE'))).toBe(true)
     expect(writes.some(sql => sql.includes('enabled = FALSE'))).toBe(true)
-    expect(writes.some(sql => sql.includes('revoked_at = NOW()'))).toBe(true)
+    expect(revokedUsers).toEqual(['svc_fixture'])
     expect(writes.some(sql => sql.startsWith('DELETE'))).toBe(false)
 })
 test('creation persists an optional description and rejects invalid descriptions', async () => {

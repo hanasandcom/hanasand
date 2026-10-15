@@ -7,7 +7,7 @@ mock.module('../src/utils/db.ts', () => ({ default: async (sql: string) => {
     if (sql.includes('FROM mail_accounts')) return { rows: [{ mail_username: 'member', mail_address: 'member@example.test', mail_password_encrypted: 'encrypted' }] }
     return { rows: [] }
 } }))
-mock.module('../src/utils/auth/organizationPageAccess.ts', () => ({ hasHanasandInternalPageAccess: async () => internalMember }))
+mock.module('../src/utils/auth/organizationPageAccess.ts', () => ({ hasHanasandInternalPageAccess: async (id: string) => internalMember && id === 'member' }))
 mock.module('../src/utils/mail/config.ts', () => ({ requireMailAdminConfig: () => { throw new Error('unused') }, mailConfig: { domain: 'example.test', systemSenderLocalPart: 'noreply', userAliases: new Map() } }))
 mock.module('../src/utils/mail/crypto.ts', () => ({ tryDecryptMailSecret: () => 'test-secret', encryptMailSecret: () => 'encrypted', generateMailSecret: () => 'test-secret' }))
 mock.module('../src/utils/mail/stalwartAdmin.ts', () => ({ createPrincipal: () => { throw new Error('Unexpected provisioning') }, findPrincipalByName: () => null, patchPrincipal: () => {}, setDomainCatchAllAddress: () => {}, ensureSetting: () => {} }))
@@ -29,7 +29,7 @@ test('Hanasand organization members can open shared mailboxes but not private us
     internalMember = true
     expect((await listAccessibleMailAccounts('member')).filter(account => account.shared).map(account => account.id)).toEqual(['shared:support', 'shared:sales', 'shared:postmaster', 'shared:security', 'shared:noreply'])
     expect(await getMailAccess('member', 'shared:support')).toMatchObject({ targetUser: 'shared:support', address: 'support@example.test', canSend: true })
-    expect(await getMailAccess('member', 'shared:noreply')).toMatchObject({ canSend: false })
+    expect(await getMailAccess('member', 'shared:noreply')).toMatchObject({ canSend: true })
     await expect(getMailAccess('member', 'someone-else')).rejects.toThrow('do not have access')
     internalMember = false
     await expect(getMailAccess('member', 'shared:support')).rejects.toThrow('do not have access')

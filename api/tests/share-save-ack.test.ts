@@ -9,7 +9,7 @@ let lookupMissing = false
 let organizationId: string | null = null
 let saved = ''
 mock.module('../src/plugins/ws', () => ({ pendingUpdates }))
-mock.module('../src/utils/db.ts', () => ({ default: async (_sql: string, values: Array<string | null>) => {
+const query = async (_sql: string, values: Array<string | null>) => {
     if (_sql === 'SELECT organization_id FROM share WHERE id = $1') {
         expect(values).toEqual(['test-share'])
         if (lookupFails) throw new Error('lookup unavailable')
@@ -25,7 +25,8 @@ mock.module('../src/utils/db.ts', () => ({ default: async (_sql: string, values:
     if (missing) return { rows: [] }
     saved = values[0] as string
     return { rows: [{ id: values[1] }] }
-} }))
+}
+mock.module('../src/utils/db.ts', () => ({ default: query, identityQueryOnce: query, withReadDatabase: async (work: () => Promise<unknown>) => work() }))
 const { handleMessage } = await import('../src/utils/ws/handleMessage.ts')
 
 test('share edits acknowledge persisted content, and report failed or missing saves', async () => {

@@ -1,57 +1,60 @@
-import { beforeEach, expect, mock, test } from 'bun:test'
+import { afterEach, beforeEach, expect, test } from 'bun:test'
 import { randomUUID } from 'node:crypto'
-let row: any, readOnly = false, token: string, tokenId = 0
-const queries: Array<{ sql: string, values?: unknown[] }> = []
-mock.module('#db', () => ({ default: async (sql: string, values?: unknown[]) => {
-    queries.push({ sql, values })
-    if (sql.includes('UPDATE tokens')) return { rows: [{ timestamp: new Date().toISOString() }] }
-    return { rows: row ? [{ ...row }] : [] }
-} }))
-mock.module('../src/utils/recovery.ts', () => ({ recoveryReadOnly: () => readOnly }))
-const { validateSession } = await import('../src/utils/auth/session.ts')
-beforeEach(() => {
-    queries.length = 0; readOnly = false
-    token = randomUUID()
-    row = { token_id: ++tokenId, id: 'member', token, user_agent: '', timestamp: new Date(Date.now() - 10000).toISOString(), session_user: { id: 'member', active: true } }
-})
-test('parallel fresh requests still validate access without repeating timestamp writes', async () => {
-    const result = await Promise.all(Array.from({ length: 10 }, () => validateSession({ id: 'member', token })))
-    expect(result.every(Boolean)).toBe(true)
-    expect(queries).toHaveLength(10)
-    expect(queries.every(({ sql }) => sql.includes('t.revoked_at IS NULL') && sql.includes('u.active IS TRUE'))).toBe(true)
-    expect(result[0]!.refreshed.expires_at).toBe(new Date(Date.parse(row.timestamp) + 86400000).toISOString())
-    expect(Object.hasOwn((await validateSession({ id: 'member', token }))!, 'roles')).toBe(false)
-    row = undefined
-    expect(await validateSession({ id: 'member', token })).toBeNull()
-})
-test('organization membership is checked by the session query', async () => {
-    row.organization_membership = {
-        organizationId: 'platform', organizationStatus: 'active', membershipStatus: 'active', role: 'editor',
-    }
-    const member = await validateSession({ id: 'member', token, organizationSlug: 'hanasand' })
-    expect(member?.organizationMember).toBe(true)
-    expect(member?.organizationMembership).toEqual(row.organization_membership)
-    expect(queries).toHaveLength(1)
-    expect(queries[0].sql).toContain('organization_membership')
-    expect(queries[0].values).toEqual(['member', token, 'hanasand'])
 
-    queries.length = 0
-    row.organization_membership = { ...row.organization_membership, membershipStatus: 'removed' }
-    expect((await validateSession({ id: 'member', token, organizationSlug: 'hanasand' }))?.organizationMember).toBe(false)
-    expect(queries).toHaveLength(1)
+type SessionResult = { user: { id: string }, session: { token: string }, refreshed: { expires_at: string } }
+const originalFetch = globalThis.fetch
+const originalServiceToken = process.env.HANASAND_IDENTITY_SERVICE_TOKEN
+let calls: Array<{ url: string, init: RequestInit }> = []
+let result: SessionResult | null = null
+let responseStatus = 200
+
+const mockFetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    calls.push({ url: String(input), init: init || {} })
+    return Response.json(result, { status: responseStatus })
+}) as typeof fetch
+
+const { validateSession } = await import('../src/utils/auth/session.ts')
+
+beforeEach(() => {
+    globalThis.fetch = mockFetch
+    process.env.HANASAND_IDENTITY_SERVICE_TOKEN = 'identity-test-token'
+    calls = []
+    responseStatus = 200
+    result = { user: { id: 'member' }, session: { token: randomUUID() }, refreshed: { expires_at: new Date(Date.now() + 86400000).toISOString() } }
 })
-test('older active sessions refresh with an atomic age guard; expired and read-only sessions never write', async () => {
-    row.timestamp = new Date(Date.now() - 60000).toISOString()
-    const results = await Promise.all(Array.from({ length: 10 }, () => validateSession({ id: 'member', token })))
-    expect(results.every(Boolean)).toBe(true)
-    const touches = queries.filter(({ sql }) => sql.includes('UPDATE tokens'))
-    expect(touches).toHaveLength(1)
-    expect(touches[0].sql).toContain('timestamp <= NOW() - INTERVAL \'30 seconds\'')
-    expect(Date.parse(results[0]!.refreshed.expires_at)).toBeGreaterThan(Date.now() + 86399000)
-    queries.length = 0; readOnly = true
-    await validateSession({ id: 'member', token })
-    expect(queries).toHaveLength(1)
-    queries.length = 0; row.timestamp = new Date(Date.now() - 90000000).toISOString()
-    expect(await validateSession({ id: 'member', token })).toBeNull()
-    expect(queries).toHaveLength(1)
+
+afterEach(() => {
+    globalThis.fetch = originalFetch
+    if (originalServiceToken === undefined) delete process.env.HANASAND_IDENTITY_SERVICE_TOKEN
+    else process.env.HANASAND_IDENTITY_SERVICE_TOKEN = originalServiceToken
+})
+
+test('parallel session validation delegates each request to Identity and returns its result', async () => {
+    const token = randomUUID()
+    const validations = await Promise.all(Array.from({ length: 10 }, () => validateSession({ id: 'member', token })))
+
+    expect(validations).toHaveLength(10)
+    expect(validations.every(validation => validation?.user.id === 'member')).toBe(true)
+    expect(calls).toHaveLength(10)
+    expect(calls.every(({ url, init }) => url.endsWith('/api/auth/internal/sessions')
+        && init.method === 'POST'
+        && (init.headers as Record<string, string>).Authorization === 'Bearer identity-test-token'
+        && JSON.parse(String(init.body)).operation === 'validate'
+        && JSON.parse(String(init.body)).token === token)).toBe(true)
+})
+
+test('organization membership scope is forwarded to Identity', async () => {
+    const token = randomUUID()
+    await validateSession({ id: 'member', token, organizationSlug: 'hanasand' })
+
+    expect(calls).toHaveLength(1)
+    expect(JSON.parse(String(calls[0].init.body))).toEqual({ id: 'member', token, organizationSlug: 'hanasand', operation: 'validate' })
+})
+
+test('invalid or expired Identity sessions remain unauthenticated', async () => {
+    responseStatus = 401
+    result = null
+
+    expect(await validateSession({ id: 'member', token: randomUUID() })).toBeNull()
+    expect(calls).toHaveLength(1)
 })

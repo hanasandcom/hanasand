@@ -3,7 +3,7 @@ import Fastify from 'fastify'
 let stored = 0, rateAllowed = true
 const token = process.env.LOG_INGEST_TOKEN
 const previousToken = process.env.LOG_INGEST_TOKEN_PREVIOUS
-mock.module('#db', () => ({ default: async () => ({ rows: [] }), withTransaction: async (work: any) => work(async () => ({rows:[]})), isTransientDatabaseError: () => false }))
+mock.module('#db', () => ({ default: async () => ({ rows: [] }), withTransaction: async (work: any) => work(async () => ({rows:[]})), withReadDatabase: async (work: () => unknown) => work(), isTransientDatabaseError: () => false }))
 mock.module('#utils/auth/internalToken.ts', () => ({ default: (req: any) => req.headers.authorization === 'Bearer existing-internal' }))
 mock.module('#utils/auth/session.ts', () => ({ validateSession: async () => null }))
 mock.module('#utils/auth/apiKeys.ts', () => ({ validateApiKey: async () => null, matchApiKeyScope: () => null, organizationPublicApiScopes: () => [] }))

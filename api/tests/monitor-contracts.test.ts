@@ -8,7 +8,9 @@ const { default: runMonitor } = await import('../src/utils/status/monitor.ts')
 test('synthetic monitor leaves Articles health to the shared status output', async () => {
     const originalFetch = globalThis.fetch, originalError = console.error
     const previousKey = process.env.MONITOR_SERVICE_ACCOUNT_KEY
+    const previousTiToken = process.env.TI_SCRAPER_SERVICE_TOKEN
     process.env.MONITOR_SERVICE_ACCOUNT_KEY = 'hsk_fixture'
+    process.env.TI_SCRAPER_SERVICE_TOKEN = 'ti_fixture'
     let accountMutations = 0
     let articlesPageRequests = 0
     globalThis.fetch = (async (input: string | URL | Request, options: RequestInit = {}) => {
@@ -18,6 +20,11 @@ test('synthetic monitor leaves Articles health to the shared status output', asy
             expect(new Headers(options.headers).get('X-API-Key')).toBe('hsk_fixture')
             return Response.json({ id: 'svc_fixture' })
         }
+        if (path === '/v1/intel/source-operations?summary=true') {
+            expect(new Headers(options.headers).get('x-hanasand-service-token')).toBe('ti_fixture')
+            return Response.json({ summary: { sourceCount: 10, failedSourceCount: 0, degradedSourceCount: 0, measurementState: 'measured' } })
+        }
+        if (path === '/v1/internal/processing-backlog') return Response.json({ runtime_organizations: 1 })
         if (path === '/articles') {
             articlesPageRequests++
             return new Response('<h1>Articles</h1><a href="/articles/example">Example</a>', { status: 200, headers: { 'Content-Type': 'text/html' } })
@@ -42,6 +49,8 @@ test('synthetic monitor leaves Articles health to the shared status output', asy
     } finally {
         if (previousKey === undefined) delete process.env.MONITOR_SERVICE_ACCOUNT_KEY
         else process.env.MONITOR_SERVICE_ACCOUNT_KEY = previousKey
+        if (previousTiToken === undefined) delete process.env.TI_SCRAPER_SERVICE_TOKEN
+        else process.env.TI_SCRAPER_SERVICE_TOKEN = previousTiToken
         globalThis.fetch = originalFetch
         console.error = originalError
     }

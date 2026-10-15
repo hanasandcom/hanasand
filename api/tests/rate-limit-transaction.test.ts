@@ -6,6 +6,7 @@ let denied = '', failRoute = false
 const transactionQuery = async () => ({ rows: [] })
 mock.module('#db', () => ({
     default: transactionQuery, queryOnce: transactionQuery, isTransientDatabaseError: () => false,
+    withReadDatabase: async (work: () => unknown) => work(),
     withTransaction: async (work: (query: typeof transactionQuery) => Promise<unknown>) => {
         operations.push('begin')
         try { const result = await work(transactionQuery); operations.push('commit'); return result }

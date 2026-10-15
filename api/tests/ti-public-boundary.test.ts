@@ -81,7 +81,7 @@ describe('public TI API boundary', () => {
         const malformedKey = { ip: '203.0.113.10', headers: { 'x-api-key': 'not-a-hanasand-key' } } as unknown as FastifyRequest
         expect(await resolveRateLimitActor(malformedKey, async () => null)).toMatchObject({ invalidApiKey: true })
 
-        const expiredSession = { ip: '203.0.113.10', headers: { authorization: 'Bearer expired', id: 'session-id' } } as unknown as FastifyRequest
+        const expiredSession = { ip: '203.0.113.10', url: '/', headers: { authorization: 'Bearer expired', id: 'session-id' } } as unknown as FastifyRequest
         expect(await resolveRateLimitActor(expiredSession, async () => null, async () => null)).toEqual({ scope: 'anonymous', identifier: 'ip:203.0.113.10', invalidSession: true })
     })
 
@@ -90,10 +90,10 @@ describe('public TI API boundary', () => {
         const externalKey = await resolveRateLimitActor(request, async () => ({ apiKey: { id: 'key', tier: 'business' } }) as any)
         expect(externalKey.scope).toBe('authenticated')
 
-        const externalInternal = await resolveRateLimitActor(request, async () => ({ apiKey: { id: 'key', tier: 'internal', organizationId: 'external-org' } }) as any)
+        const externalInternal = await resolveRateLimitActor(request, async () => ({ apiKey: { id: 'key', tier: 'internal' }, organizationId: 'external-org' }) as any)
         expect(externalInternal.scope).toBe('authenticated')
 
-        const internalOrganizationKey = await resolveRateLimitActor(request, async () => ({ apiKey: { id: 'key', tier: 'internal', organizationId: '3e735e7b-4d7f-444d-9806-231fa26cfcec' } }) as any)
+        const internalOrganizationKey = await resolveRateLimitActor(request, async () => ({ apiKey: { id: 'key', tier: 'internal' }, organizationId: '3e735e7b-4d7f-444d-9806-231fa26cfcec' }) as any)
         expect(internalOrganizationKey.scope).toBe('internal')
     })
 

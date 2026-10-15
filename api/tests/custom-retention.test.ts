@@ -12,7 +12,7 @@ const query = async (sql: string, params: any[] = []): Promise<any> => {
     if (sql.includes('INSERT INTO log_analyze_receipts')) { receipts.push(params); return { rows: [] } }
     throw new Error('Unexpected query')
 }
-mock.module('#db', () => ({ default: query, identityQueryOnce: query, withTransaction: async (work: any) => work((sql: string, params: any[] = []) => query(sql, params)) }))
+mock.module('#db', () => ({ default: query, identityQueryOnce: query, isTransientDatabaseError: () => false, withTransaction: async (work: any) => work((sql: string, params: any[] = []) => query(sql, params)) }))
 mock.module('../src/utils/events/analyzeLog.ts', () => ({ analyzeMongoPing: async () => false, analyzeAccess: async () => false }))
 const { default: recordLog, recordLogBatch } = await import('../src/utils/logs/recordLog.ts')
 const { customRetentionAction } = await import('../src/utils/events/customRetention.ts')
@@ -57,7 +57,7 @@ test('retained service logs are written once as complete pending Events', async 
     const [row] = JSON.parse(writes[0][0] as string)
     expect(sql).toContain('INSERT INTO events')
     expect(sql).not.toContain('service_logs')
-    expect(sql).toContain("'{}'::jsonb,'pending'")
+    expect(sql).toContain('\'{}\'::jsonb,\'pending\'')
     expect(row.normalized).toMatchObject({ service: 'audit', message: 'whoami', metadata: raw.metadata })
     expect(row.id).toMatch(/^[a-f0-9]{64}$/)
 })
