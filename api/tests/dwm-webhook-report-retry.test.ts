@@ -13,6 +13,7 @@ const controlledReceiverEndpointHash = endpointHash(controlledReceiverUrl)
 let receiverDestinationEndpointHash = controlledReceiverEndpointHash
 let receiverDestinationStatus = 'active'
 let destinationEndpointHash = 'endpoint_hash'
+let missingDestinationId: string | undefined
 let failReceiptBind = false
 let databaseRun: (sql: string, params?: unknown[]) => Promise<{ rows: any[] }>
 
@@ -62,6 +63,7 @@ mock.module('#db', () => ({
             }
         }
         if (sql.includes('FROM dwm_webhook_destinations') && sql.includes('WHERE id = $1')) {
+            if (params[0] === missingDestinationId) return { rows: [] }
             return {
                 rows: [{
                     id: 'destination_1',
@@ -165,10 +167,10 @@ mock.module('#db', () => ({
             return { rows: [{ id: row.id }] }
         }
         if (sql.includes('INSERT INTO dwm_webhook_deliveries')) {
-            const duplicateInsert = sql.includes('\'skipped\', FALSE')
+            const skippedInsert = sql.includes('\'skipped\'')
             const retryInsert = sql.includes('$7, FALSE')
             const at = (normal: number, retry: number) => params[retryInsert ? retry : normal]
-            insertedDelivery = duplicateInsert ? {
+            insertedDelivery = skippedInsert ? {
                 id: params[0],
                 destination_id: params[1],
                 owner_id: params[2],
@@ -176,22 +178,22 @@ mock.module('#db', () => ({
                 alert_id: params[4],
                 event_type: params[5],
                 status: 'skipped',
-                dry_run: false,
-                endpoint_hint: params[6],
-                endpoint_hash: params[7],
-                payload_hash: params[8],
-                payload: JSON.parse(String(params[9])),
+                dry_run: Boolean(params[6]),
+                endpoint_hint: params[7],
+                endpoint_hash: params[8],
+                payload_hash: params[9],
+                payload: JSON.parse(String(params[10])),
                 response_status: null,
                 response_body: null,
-                error: params[10],
-                error_class: params[11],
-                attempt_count: params[12],
+                error: params[11],
+                error_class: params[12],
+                attempt_count: params[13],
                 next_retry_at: null,
-                idempotency_key: params[13],
-                watchlist_id: params[14],
-                watchlist_name: params[15],
-                route: params[16],
-                case_path: params[17],
+                idempotency_key: params[14],
+                watchlist_id: params[15],
+                watchlist_name: params[16],
+                route: params[17],
+                case_path: params[18],
                 attempted_at: null,
                 completed_at: null,
                 delivered_at: null,
@@ -242,6 +244,7 @@ afterEach(() => {
     receiverDestinationEndpointHash = controlledReceiverEndpointHash
     receiverDestinationStatus = 'active'
     destinationEndpointHash = 'endpoint_hash'
+    missingDestinationId = undefined
     failReceiptBind = false
 })
 
@@ -264,6 +267,52 @@ test('rejects an undated alert before network or delivery persistence', async ()
         return { status: 202, body: '' }
     })).rejects.toMatchObject({ code: 'missing_timestamp' })
     expect(networkAttempts).toBe(0)
+    expect(ledger).toHaveLength(0)
+})
+
+test('persists an explicitly requested missing destination after validating the alert', async () => {
+    const { deliverDwmAlertNotification } = await import('../src/utils/dwm/webhooks.ts')
+    const requestedId = 'destination_missing'
+    missingDestinationId = requestedId
+    let networkAttempts = 0
+
+    const [delivery] = await deliverDwmAlertNotification('owner_1', {
+        ...deliveryInput('missing_destination', true),
+        destinationId: requestedId,
+    }, async () => {
+        networkAttempts += 1
+        return { status: 202, body: '' }
+    })
+
+    expect(networkAttempts).toBe(0)
+    expect(delivery).toMatchObject({
+        status: 'skipped',
+        destinationId: null,
+        endpointHint: 'requested_destination_not_found',
+        attemptCount: 0,
+    })
+    expect(delivery.error).toContain('requested webhook destination was not found')
+    expect(delivery.endpointHash).toBe(`endpoint_${createHash('sha256').update(requestedId).digest('hex').slice(0, 32)}`)
+    expect(delivery.idempotencyKey).toContain(requestedId)
+    expect(ledger).toHaveLength(1)
+    expect(ledger[0]).toMatchObject({
+        status: 'skipped',
+        destination_id: null,
+        endpoint_hint: 'requested_destination_not_found',
+        endpoint_hash: delivery.endpointHash,
+        attempt_count: 0,
+    })
+})
+
+test('does not persist a missing-destination outcome for an invalid alert', async () => {
+    const { deliverDwmAlertNotification } = await import('../src/utils/dwm/webhooks.ts')
+    const requestedId = 'destination_missing'
+    missingDestinationId = requestedId
+    const input = deliveryInput('invalid_missing_destination', true)
+    input.destinationId = requestedId
+    input.alert.firstSeenAt = undefined
+
+    await expect(deliverDwmAlertNotification('owner_1', input)).rejects.toMatchObject({ code: 'missing_timestamp' })
     expect(ledger).toHaveLength(0)
 })
 

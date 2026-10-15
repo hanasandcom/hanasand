@@ -26,6 +26,12 @@ describe('DWM webhook destination test response', () => {
             error: 'Webhook delivery failed.',
         })
         expect(deliveryResponseOutcome([{ status: 'dry_run' }, { status: 'skipped' }])).toEqual({ status: 202, failed: false })
+        expect(deliveryResponseOutcome([{ status: 'skipped', error: 'Delivery selection skipped because the requested webhook destination was not found.' }])).toEqual({
+            status: 502,
+            failed: true,
+            code: 'webhook_delivery_failed',
+            error: 'Webhook delivery failed.',
+        })
         expect(deliveryResponseOutcome([{ status: 'delivered' }])).toEqual({ status: 202, failed: false })
     })
 })

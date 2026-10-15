@@ -64,15 +64,60 @@ async function exercise() {
     assert.equal(concurrentRows.filter(row => row.attempted_at).length, 1)
     assert.equal(new Set(concurrentRows.map(row => row.idempotency_key)).size, 1)
     assert.deepEqual(new Set(concurrentRows.map(row => row.owner_id)), new Set([ownerId, adminId]))
+    const concurrentAttempt = concurrentRows.find(row => row.attempted_at)
+    const concurrentSkipped = concurrentRows.find(row => row.status === 'skipped')
+    assert.ok(concurrentAttempt && concurrentSkipped)
+    const duplicateAudit = await skippedDeliveryAudit(concurrentSkipped.id)
+    assert.equal(duplicateAudit.reason, 'duplicate_delivered_idempotency_key')
+    assert.equal(duplicateAudit.priorDeliveryId, concurrentAttempt.id)
+    assert.equal(duplicateAudit.priorDeliveredAt, concurrentAttempt.delivered_at)
+    assert.equal(duplicateAudit.idempotencyKey, concurrentSkipped.idempotency_key)
     const concurrentReceipts = await listDwmWebhookReceiverReceipts(orgId, {
         destinationId,
         reportCaseId: 'case_concurrent',
     })
     assert.equal(concurrentReceipts.length, 1)
-    const concurrentAttempt = concurrentRows.find(row => row.attempted_at)
     assert.equal(concurrentReceipts[0].payloadHash, concurrentAttempt?.payload_hash)
     assert.equal(concurrentReceipts[0].deliveryId, concurrentAttempt?.id)
     assert.equal(concurrentReceipts[0].payloadDeliveryId, concurrentAttempt?.id)
+
+    await queryOnce('UPDATE dwm_webhook_destinations SET status = \'paused\' WHERE id = $1', [destinationId])
+    let skippedNetworkAttempts = 0
+    const selectionInput = deliveryInput('selection', true)
+    const [selectionSkipped] = await deliverDwmAlertNotification(ownerId, selectionInput, async () => {
+        skippedNetworkAttempts += 1
+        return { status: 204, body: 'unexpected send' }
+    })
+    const selectionAudit = await skippedDeliveryAudit(selectionSkipped.id)
+    assert.equal(selectionSkipped.status, 'skipped')
+    assert.equal(selectionSkipped.destinationId, destinationId)
+    assert.equal(selectionSkipped.dryRun, true)
+    assert.equal(selectionSkipped.attemptCount, 0)
+    assert.equal(selectionAudit.reason, 'disabled')
+    assert.equal(selectionAudit.dryRun, true)
+    assert.equal(selectionAudit.idempotencyKey, selectionSkipped.idempotencyKey)
+    assert.equal(skippedNetworkAttempts, 0)
+    await queryOnce('UPDATE dwm_webhook_destinations SET status = \'active\' WHERE id = $1', [destinationId])
+
+    const missingDestinationId = `${destinationId}_missing`
+    const missingInput = deliveryInput('missing_destination', true)
+    missingInput.destinationId = missingDestinationId
+    const [missingSkipped] = await deliverDwmAlertNotification(ownerId, missingInput, async () => {
+        skippedNetworkAttempts += 1
+        return { status: 204, body: 'unexpected send' }
+    })
+    const missingRow = (await deliveryRows('report_pg_alert_missing_destination'))[0]
+    const missingAudit = await skippedDeliveryAudit(missingSkipped.id)
+    assert.equal(missingSkipped.status, 'skipped')
+    assert.equal(missingSkipped.destinationId, null)
+    assert.equal(missingRow.destination_id, null)
+    assert.equal(missingRow.endpoint_hint, 'requested_destination_not_found')
+    assert.equal(missingRow.endpoint_hash, `endpoint_${createHash('sha256').update(missingDestinationId).digest('hex').slice(0, 32)}`)
+    assert.equal(missingSkipped.attemptCount, 0)
+    assert.equal(missingAudit.reason, 'requested_destination_not_found')
+    assert.equal(missingAudit.requestedDestinationId, missingDestinationId)
+    assert.equal(missingAudit.idempotencyKey, missingSkipped.idempotencyKey)
+    assert.equal(skippedNetworkAttempts, 0)
 
     let budgetNetworkAttempts = 0
     const budgetSender = async () => {
@@ -443,6 +488,18 @@ async function deliveryRows(alertId: string) {
         WHERE org_id = $1 AND alert_id = $2
         ORDER BY created_at, id
     `, [orgId, alertId])).rows
+}
+
+async function skippedDeliveryAudit(deliveryId: string) {
+    const result = await queryOnce(`
+        SELECT metadata
+        FROM dwm_webhook_audit_events
+        WHERE delivery_id = $1 AND action = 'delivery.skipped'
+        ORDER BY created_at DESC
+        LIMIT 1
+    `, [deliveryId])
+    assert.equal(result.rows.length, 1, `Expected one skipped-delivery audit event for ${deliveryId}.`)
+    return result.rows[0].metadata as Record<string, unknown>
 }
 
 async function cleanup() {
