@@ -42,6 +42,10 @@ const internalTokenRoutes = new Map<string, string>([
     ['DELETE /api/vms', 'service:vm-sync'],
     ['POST /api/status/ingest', 'service:status-ingest'],
 ])
+const supportAuthPaths = new Set([
+    '/auth/support/authorize',
+    '/api/auth/support/authorize',
+])
 
 export async function resetApiKeyRateLimitBuckets(apiKeyId: string) {
     return resetSharedRateLimitBuckets(`api_key:${apiKeyId}:`)
@@ -97,7 +101,7 @@ async function enforceRateLimit(req: FastifyRequest, res: FastifyReply, database
     // Trusted support-service authorization is the exception: it has its own
     // bounded internal bucket below rather than bypassing this boundary.
     const supportAuthEndpoint = req.method === 'POST'
-        && ['/auth/support/authorize', '/api/auth/support/authorize'].includes(path)
+        && supportAuthPaths.has(path)
     if ((path.startsWith('/api/auth/') && !supportAuthEndpoint) || req.method === 'POST' && path === '/api/user') return true
 
     let phaseStarted = performance.now()
