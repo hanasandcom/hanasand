@@ -47,7 +47,15 @@ export function forwardSupportSocket(socket: WebSocket) {
     socket.on('error', close)
     upstream.on('error', () => socket.close(1011))
     upstream.on('close', () => socket.close(1013))
-    upstream.on('open', () => { for (const data of pending) upstream.send(data.toString()); pending.length = 0 })
+    upstream.on('open', () => {
+        if (!allowed()) {
+            pending.length = 0
+            socket.close(1013)
+            return
+        }
+        for (const data of pending) upstream.send(data.toString())
+        pending.length = 0
+    })
     socket.on('message', data => {
         const body = Buffer.from(data.toString())
         if (!allowed() || body.length > 4096 || upstream.bufferedAmount > 1024 * 1024) { socket.close(1013); return }
