@@ -328,6 +328,10 @@ export async function postEventAction(req: FastifyRequest<{ Params: { id: string
     return res.send({ replayed: true, eventId: req.params.id })
 }
 
+function reportedRuleHitCount(rule: Pick<Rule, 'id' | 'definition'>, hits: ReadonlyMap<string, number>) {
+    return rule.definition?.stage === 'analyze' && rule.definition.action === 'keep' ? null : hits.get(rule.id) ?? 0
+}
+
 export async function getRules(req: FastifyRequest, res: FastifyReply) {
     const access = await organizationAccess(req, res)
     if (!access) return
@@ -349,7 +353,7 @@ export async function getRules(req: FastifyRequest, res: FastifyReply) {
     }
     const previousHitCounts = getPreviousRuleHitCounts(access.organizationId, hitRules, hits)
     return res.send({ organizationId: access.organizationId, rules: rules.map(rule => ({ ...(compact ? listRule(rule) : rule),
-        hitCount: rule.definition?.stage === 'analyze' && rule.definition.action === 'keep' ? null : hits.get(rule.id) ?? 0,
+        hitCount: reportedRuleHitCount(rule, hits),
         ...(Object.hasOwn(previousHitCounts, rule.id) ? { previousHitCount: previousHitCounts[rule.id] } : {}),
     })), canManageRetention: retentionRole.valid })
 }
@@ -364,7 +368,7 @@ export async function getRuleHitCounts(req: FastifyRequest, res: FastifyReply) {
         const hits = await loadRuleHits(access.organizationId, rules, run)
         const previousHitCounts = getPreviousRuleHitCounts(access.organizationId, rules, hits)
         return res.header('Cache-Control', 'no-store').send({ organizationId: access.organizationId, previousHitCounts, hitCounts: Object.fromEntries(rules.map(rule => [rule.id,
-            rule.definition?.stage === 'analyze' && rule.definition.action === 'keep' ? null : hits.get(rule.id) ?? 0,
+            reportedRuleHitCount(rule, hits),
         ])) })
     } catch (error) {
         if (error instanceof ReadAdmissionError) return res.header('Retry-After', '2').status(503).send({ error: error.message })
@@ -379,7 +383,7 @@ export async function getRuleHitCount(req: FastifyRequest<{ Params: { id: string
     if (!rule || internalRetentionRuleIds.has(rule.id)) return res.status(404).send({ error: 'Rule not found.' })
     try {
         const hits = await loadRuleHits(access.organizationId, [rule], run)
-        const triggerCount = rule.definition?.stage === 'analyze' && rule.definition.action === 'keep' ? null : hits.get(rule.id) ?? 0
+        const triggerCount = reportedRuleHitCount(rule, hits)
         return res.header('Cache-Control', 'no-store').send({ organizationId: access.organizationId, triggerCount })
     } catch (error) {
         if (error instanceof ReadAdmissionError) return res.header('Retry-After', '2').status(503).send({ error: error.message })
@@ -559,7 +563,7 @@ export async function getRule(req: FastifyRequest<{ Params: { id: string }, Quer
                     ORDER BY created_at DESC, id DESC LIMIT 51 OFFSET $4`, [access.organizationId, objectIds, rule.id, offset]),
                 loadRuleHits(access.organizationId, [rule], run),
             ]))
-            const hitCount = rule.definition?.stage === 'analyze' && rule.definition.action === 'keep' ? null : hits.get(rule.id) ?? 0
+            const hitCount = reportedRuleHitCount(rule, hits)
             const canEdit = !isHistorical && canManageRules(access.role) && (!isPlatformRetentionRule(rule) || (await hasHanasandInternalRouteAccess(req)).valid)
             return { organizationId: access.organizationId, canEdit, isHistorical, currentVersion: rule.version, rule: displayedRule, triggerCount: hitCount, audit: audit.rows.slice(0, 50), nextOffset: audit.rows.length > 50 ? offset + 50 : null }
         }

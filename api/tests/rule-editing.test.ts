@@ -354,6 +354,23 @@ test('rule library exposes collector totals and organization-scoped detection hi
     expect(denied.statusCode).toBe(403)
 })
 
+test('Analyze keep hit counts stay hidden across list and detail responses', async () => {
+    const id = 'custom.store_keep.v1'
+    rows.push({
+        id: 'custom-store-keep', organization_id: 'org-a', rule_id: id, version: '1',
+        name: 'Store without a finding', explanation: 'Retain matching events without creating findings.',
+        family: 'Custom', severity: 'low', enabled: true, source: 'owned',
+        definition: { stage: 'analyze', action: 'keep', conditions: [{ path: 'event_type', operator: 'equals', value: 'audit' }] },
+    })
+    findings.push({ organizationId: 'org-a', ruleId: id })
+
+    const library = await getRules(request(), reply() as any)
+    expect(library.rules.find((rule: any) => rule.id === id).hitCount).toBeNull()
+    expect((await getRuleHitCounts(request(), reply() as any)).hitCounts[id]).toBeNull()
+    expect((await getRuleHitCount(request(id), reply() as any)).triggerCount).toBeNull()
+    expect((await getRule(request(id), reply() as any)).triggerCount).toBeNull()
+})
+
 
 test('preview requires organization membership and validates the submitted selector before reading events', async () => {
     const denied = reply()
