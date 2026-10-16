@@ -49,6 +49,7 @@ export const productTasks: TestTask[] = [
     { id: 'thesis-workspace', title: 'Thesis table text, formulas and persistence', command: [bun, 'test', 'tests/workspace.test.ts'] },
     { id: 'table-navigation', title: 'Temporary table edges and formula preservation', command: [bun, 'test', 'tests/table-navigation.test.ts'] },
     { id: 'code-inventory', title: 'Source inventory and dependency hashes', command: [bun, 'test', 'tests/code-inventory.test.mjs'] },
+    { id: 'markdown-editor-presentation', title: 'Article markdown editor presentation states', command: [bun, 'test', 'tests/editor-presentation.test.tsx'] },
     { id: 'code-review-state', title: 'Code review status and sheet settings', command: [bun, 'test', 'tests/code-review-state.test.ts'] },
     { id: 'api-response-examples', title: 'API fictional response examples and OpenAPI navigation', command: [bun, 'tests/api-response-examples.test.tsx'] },
     { id: 'organization-initial-render', title: 'Organization layout before hydration', command: [bun, 'tests/organization-initial-render.test.tsx'] },
