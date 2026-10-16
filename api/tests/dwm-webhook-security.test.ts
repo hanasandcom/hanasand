@@ -35,6 +35,8 @@ describe('DWM webhook network boundary', () => {
         expect(normalized.endpointUrl).toBe(endpointUrl)
         expect(normalized.signingSecret).toBe(signingSecret)
         expect(normalized.endpointEncrypted).toBeTruthy()
+        expect(normalized.endpointEncrypted).not.toContain(endpointUrl)
+        expect(normalized.endpointEncrypted).not.toContain('customer-path-secret')
         expect({ ...normalized }).not.toHaveProperty('endpointUrl')
         expect({ ...normalized }).not.toHaveProperty('signingSecret')
         const serialized = JSON.stringify(normalized)
@@ -43,6 +45,25 @@ describe('DWM webhook network boundary', () => {
 
         const endpointDescriptor = Object.getOwnPropertyDescriptor(normalized, 'endpointUrl')
         expect(endpointDescriptor).toMatchObject({ enumerable: false, writable: true, configurable: true })
+    })
+
+    test('generates a sufficiently long signing secret when one is omitted', () => {
+        const normalized = normalizeDwmWebhookDestinationInput({ endpointUrl: 'https://receiver.example/dwm' }, 'owner')
+
+        expect(normalized.signingSecret).toBeTruthy()
+        expect(normalized.signingSecret!.length).toBeGreaterThanOrEqual(32)
+    })
+
+    test('matches the fixed webhook signature vector and binds the timestamp', () => {
+        const endpoint = 'https://receiver.example/dwm'
+        const body = '{"event":"alert"}'
+        const secret = 'receiver-signing-secret'
+        const timestamp = '2026-08-08T08:00:00.000Z'
+
+        const signature = signDwmWebhookDeliveryBody(body, endpoint, secret, timestamp)
+
+        expect(signature).toBe('sha256=8f43618f0bfcc7a880b47b8eefca66ba345170ae575ae4d94f590cbcd0dfeccc')
+        expect(signDwmWebhookDeliveryBody(body, endpoint, secret, '2026-08-08T08:00:01.000Z')).not.toBe(signature)
     })
 
     test('preserves Discord webhook ids while redacting endpoint and diagnostic secrets', () => {
