@@ -1,9 +1,11 @@
 import { randomUUID } from 'node:crypto'
 import run from '#db'
+import { runTrackedBackgroundJob } from '../backgroundJobRuntime.ts'
 
 const REFRESH_INTERVAL_MS = 15_000
 const LOOKBACK_MINUTES = 10
 const WINDOW_SECONDS = 60
+export const DROP_RATE_ALERT_REFRESH_JOB_ID = 'api-drop-rate-alert-refresh'
 const targets = [
     {
         conditions: [
@@ -70,9 +72,10 @@ export function startDropRateAlertRefresh(logger: { warn: (context: { error: unk
     let inProgress: Promise<void> | null = null
     const refresh = () => {
         if (inProgress) return
-        inProgress = refreshDropRateAlerts().catch(error => logger.warn({ error }, 'Drop-rule rate alert refresh failed')).finally(() => {
-            inProgress = null
-        })
+        inProgress = runTrackedBackgroundJob(DROP_RATE_ALERT_REFRESH_JOB_ID, refreshDropRateAlerts)
+            .catch(error => logger.warn({ error }, 'Drop-rule rate alert refresh failed')).finally(() => {
+                inProgress = null
+            })
     }
     const timer = setInterval(refresh, REFRESH_INTERVAL_MS)
     timer.unref()

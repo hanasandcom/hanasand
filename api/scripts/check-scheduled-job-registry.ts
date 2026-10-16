@@ -85,6 +85,14 @@ function isAllowedIncidentalSchedulerFile(file: string) {
         'api/src/handlers/traffic/legacy.ts',
         'api/src/utils/ws/proxyModelSocket.ts',
         'api/src/utils/ws/resumableWorker.ts',
+        // The remaining candidates are internal caches or derived-data maintenance without separate job controls.
+        'api/src/handlers/logs/metrics.ts', // 5-second throughput cache refresh.
+        'api/src/handlers/logs/mostActive.ts', // 30-second dashboard summary cache refresh.
+        'api/src/handlers/logs/tuning.ts', // 15-second check; refreshes the snapshot only after it is stale.
+        'api/src/utils/db/overview.ts', // 10-second live database overview cache refresh.
+        'api/src/utils/logs/warm.ts', // 30-second error-log snapshot cache refresh.
+        'api/src/utils/backgroundAnalytics.ts', // Derived log, rule-hit and traffic snapshots with mixed/adaptive cadence.
+        'api/src/utils/traffic/history.ts', // Immediate plus 60-second durable history aggregation maintenance.
     ].includes(file)
 }
 

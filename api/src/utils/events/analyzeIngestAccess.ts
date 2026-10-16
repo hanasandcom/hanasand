@@ -2,8 +2,10 @@ import { createHash, randomUUID } from 'node:crypto'
 import ipaddr from 'ipaddr.js'
 import run from '#db'
 import { matchesRule, type Condition } from './conditions.ts'
+import { runTrackedBackgroundJob } from '../backgroundJobRuntime.ts'
 
 export const ingestAccessRuleId = 'http.log_ingest_access.v1'
+export const LOG_INGEST_ACCESS_DETECTION_JOB_ID = 'api-log-ingest-access-detection'
 const COUNTER_FLUSH_INTERVAL_MS = 60_000
 const pendingHits = new Map<string, PendingHit>()
 let pendingBatch: PendingBatch | null = null
@@ -57,8 +59,13 @@ export async function analyzeIngestAccess(access: IngestAccess, host: string, us
 }
 
 export function startIngestAccessCounterRefresh(logger: { warn: (context: { error: unknown }, message: string) => void }) {
+    let refreshInProgress: Promise<void> | null = null
     const refresh = () => {
-        void flushIngestAccessCounters().catch(error => logger.warn({ error }, 'Log-ingest counter refresh failed'))
+        if (refreshInProgress) return
+        refreshInProgress = runTrackedBackgroundJob(LOG_INGEST_ACCESS_DETECTION_JOB_ID, flushIngestAccessCounters)
+            .catch(error => logger.warn({ error }, 'Log-ingest counter refresh failed')).finally(() => {
+                refreshInProgress = null
+            })
     }
     const timer = setInterval(refresh, COUNTER_FLUSH_INTERVAL_MS)
     timer.unref()

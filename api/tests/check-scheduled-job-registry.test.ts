@@ -27,9 +27,32 @@ test('recognizes a registered recurring worker and ignores ordinary helpers', as
     expect(findUnregisteredCandidates([path.join(repositoryRoot, recurringSource)], registeredSources)).toEqual([])
 })
 
-test('excludes connection-scoped timers but keeps unregistered background refreshers visible', () => {
+test('registers operator-facing workers and excludes cache or maintenance refreshers', async() => {
     const registeredSources = new Set(scheduledJobRegistryGuardrailEntries().map(entry => entry.source))
+    const workerSources = [
+        'api/src/utils/events/analyzeIngestAccess.ts',
+        'api/src/utils/events/dropRateAlert.ts',
+        'api/src/utils/events/processor.ts',
+    ]
+    const maintenanceSources = [
+        'api/src/handlers/logs/metrics.ts',
+        'api/src/handlers/logs/mostActive.ts',
+        'api/src/handlers/logs/tuning.ts',
+        'api/src/utils/backgroundAnalytics.ts',
+        'api/src/utils/db/overview.ts',
+        'api/src/utils/logs/warm.ts',
+        'api/src/utils/traffic/history.ts',
+    ]
 
     expect(findUnregisteredCandidates([path.join(repositoryRoot, 'api/src/handlers/hostConsole.ts')], registeredSources)).toEqual([])
-    expect(findUnregisteredCandidates([path.join(repositoryRoot, 'api/src/utils/logs/warm.ts')], registeredSources)).toEqual(['api/src/utils/logs/warm.ts'])
+    for (const source of workerSources) {
+        expect(registeredSources.has(source)).toBe(true)
+        expect(findUnregisteredCandidates([path.join(repositoryRoot, source)], registeredSources)).toEqual([])
+    }
+    for (const source of maintenanceSources) {
+        const file = path.join(repositoryRoot, source)
+        expect(isScheduledCodeCandidate(await readFile(file, 'utf8'))).toBe(true)
+        expect(registeredSources.has(source)).toBe(false)
+        expect(findUnregisteredCandidates([file], registeredSources)).toEqual([])
+    }
 })

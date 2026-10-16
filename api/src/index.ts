@@ -1,6 +1,6 @@
 import { processLiveLogs, processStoredLogs } from '#utils/events/processLogs.ts'
 import { processRuleReprocessJob } from '#utils/events/ruleReprocess.ts'
-import { startLogProcessor } from '#utils/events/processor.ts'
+import { LIVE_LOG_PROCESSOR_JOB_ID, RULE_REPROCESSOR_JOB_ID, startLogProcessor, STORED_LOG_PROCESSOR_JOB_ID } from '#utils/events/processor.ts'
 import { startBackgroundAnalytics } from './utils/backgroundAnalytics.ts'
 import { recoveryRequestAllowed, recoveryReadOnly } from './utils/recovery.ts'
 import { queryOnce, closeDatabase, withEventDatabase, isTransientDatabaseError, warmDatabasePools } from './utils/db.ts'
@@ -229,11 +229,11 @@ async function start() {
         if (!browserWorkerOnly && !httpWorkerOnly && process.env.AUTH_SERVICE_ONLY !== '1') {
             const stopProcessing = process.env.LOG_CATCHUP_WORKER_DISABLED === '1'
                 ? async () => {}
-                : startLogProcessor(() => withEventDatabase(processStoredLogs), error => fastify.log.error({ error }, 'Event log processing failed; will retry'))
+                : startLogProcessor(() => withEventDatabase(processStoredLogs), error => fastify.log.error({ error }, 'Event log processing failed; will retry'), undefined, undefined, undefined, STORED_LOG_PROCESSOR_JOB_ID)
             const stopLiveProcessing = process.env.LOG_LIVE_WORKER_DISABLED === '1'
                 ? async () => {}
-                : startLogProcessor(() => withEventDatabase(processLiveLogs), error => fastify.log.error({ error }, 'Event live processing failed; will retry'), () => 100, undefined, 100)
-            const stopReprocessing = startLogProcessor(processRuleReprocessJob, error => fastify.log.error({ error }, 'Rule reprocessing failed'), () => 1000)
+                : startLogProcessor(() => withEventDatabase(processLiveLogs), error => fastify.log.error({ error }, 'Event live processing failed; will retry'), () => 100, undefined, 100, LIVE_LOG_PROCESSOR_JOB_ID)
+            const stopReprocessing = startLogProcessor(processRuleReprocessJob, error => fastify.log.error({ error }, 'Rule reprocessing failed'), () => 1000, undefined, undefined, RULE_REPROCESSOR_JOB_ID)
             fastify.addHook('onClose', async () => { await Promise.all([stopProcessing(), stopLiveProcessing(), stopReprocessing()]) })
         }
         if (!browserWorkerOnly && !httpWorkerOnly) {

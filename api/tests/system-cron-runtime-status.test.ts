@@ -38,6 +38,7 @@ mock.module('../src/utils/db/backups.ts', () => ({
 
 const { runTrackedBackgroundJob, getBackgroundJobRuntime } = await import('../src/utils/backgroundJobRuntime.ts')
 const { listUnifiedScheduledJobs } = await import('../src/utils/systemCron.ts')
+const { startLogProcessor } = await import('../src/utils/events/processor.ts')
 
 test('registry reports a failed rerun while retaining the last successful result', async() => {
     await runTrackedBackgroundJob(purgeJobId, () => ({ purged: 1 }))
@@ -70,5 +71,25 @@ test('registry reports a failed rerun while retaining the last successful result
         enabled: false,
         nextRunAt: null,
         controls: ['resume', 'run_now'],
+    })
+})
+
+test('adaptive log processors report their batch runs without changing queue cadence', async() => {
+    const jobId = 'api-test-log-processor'
+    let notifyBatchStarted!: () => void
+    const batchStarted = new Promise<void>(resolve => { notifyBatchStarted = resolve })
+    const stop = startLogProcessor(async() => {
+        notifyBatchStarted()
+        return false
+    }, () => {}, undefined, undefined, 5000, jobId)
+
+    await batchStarted
+    await stop()
+
+    expect(getBackgroundJobRuntime(jobId)).toMatchObject({
+        running: false,
+        runCount: 1,
+        failureCount: 0,
+        lastSuccessAt: expect.any(String),
     })
 })
