@@ -17,9 +17,7 @@ type ReleaseBundleRow = ReleaseRow & {
 
 export async function getAiReleases(req: FastifyRequest, res: FastifyReply) {
     const userId = await requireAiUser(req, res)
-    if (!userId) {
-        return res.status(401).send({ error: 'Unauthorized.' })
-    }
+    if (!userId) return
 
     const { conversationId } = req.query as { conversationId?: string }
     const result = await run(`
@@ -42,9 +40,7 @@ export async function getAiReleases(req: FastifyRequest, res: FastifyReply) {
 
 export async function getAiReleaseSupportBundle(req: FastifyRequest, res: FastifyReply) {
     const userId = await requireAiUser(req, res)
-    if (!userId) {
-        return res.status(401).send({ error: 'Unauthorized.' })
-    }
+    if (!userId) return
 
     const { id } = req.params as { id: string }
     const result = await run(`
@@ -109,9 +105,7 @@ export async function getAiReleaseSupportBundle(req: FastifyRequest, res: Fastif
 
 export async function postAiRollback(req: FastifyRequest, res: FastifyReply) {
     const userId = await requireAiUser(req, res)
-    if (!userId) {
-        return res.status(401).send({ error: 'Unauthorized.' })
-    }
+    if (!userId) return
 
     const { id } = req.params as { id: string }
     const result = await run(`

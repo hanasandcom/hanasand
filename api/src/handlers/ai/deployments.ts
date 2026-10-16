@@ -53,9 +53,7 @@ const DEPLOY_RETRY_BASE_DELAY_MS = 500
 
 export async function getAiDeployments(req: FastifyRequest, res: FastifyReply) {
     const userId = await requireAiUser(req, res)
-    if (!userId) {
-        return res.status(401).send({ error: 'Unauthorized.' })
-    }
+    if (!userId) return
 
     const { conversationId } = req.query as { conversationId?: string }
     const params = conversationId ? [userId, conversationId] : [userId]
@@ -84,9 +82,7 @@ export async function getAiDeployments(req: FastifyRequest, res: FastifyReply) {
 
 export async function postAiDeployment(req: FastifyRequest, res: FastifyReply) {
     const userId = await requireAiUser(req, res)
-    if (!userId) {
-        return res.status(401).send({ error: 'Unauthorized.' })
-    }
+    if (!userId) return
 
     const body = (req.body as StartDeploymentBody | undefined) ?? {}
     const conversationId = typeof body.conversationId === 'string' ? body.conversationId.trim() : ''

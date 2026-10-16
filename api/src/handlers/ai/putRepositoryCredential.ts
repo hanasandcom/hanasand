@@ -4,9 +4,7 @@ import { setRepoCredential } from '#utils/ai/repoCredentials.ts'
 
 export default async function putRepositoryCredential(req: FastifyRequest, res: FastifyReply) {
     const userId = await requireAiUser(req, res)
-    if (!userId) {
-        return res.status(401).send({ error: 'Unauthorized.' })
-    }
+    if (!userId) return
 
     const { id } = req.params as { id: string }
     const { githubToken } = req.body as { githubToken?: string } ?? {}

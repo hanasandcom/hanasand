@@ -12,9 +12,7 @@ const COLLABORATOR_SEAT_LIMIT = 5
 
 export async function postAiConversationCollaborator(req: FastifyRequest, res: FastifyReply) {
     const userId = await requireAiUser(req, res)
-    if (!userId) {
-        return res.status(401).send({ error: 'Unauthorized.' })
-    }
+    if (!userId) return
 
     const { id } = req.params as { id: string }
     const conversation = await getConversationForUser(id, userId)
@@ -92,9 +90,7 @@ export async function postAiConversationCollaborator(req: FastifyRequest, res: F
 
 export async function deleteAiConversationCollaborator(req: FastifyRequest, res: FastifyReply) {
     const userId = await requireAiUser(req, res)
-    if (!userId) {
-        return res.status(401).send({ error: 'Unauthorized.' })
-    }
+    if (!userId) return
 
     const { id, userId: targetUserId } = req.params as { id: string, userId: string }
     const conversation = await getConversationForUser(id, userId)

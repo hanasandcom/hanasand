@@ -4,9 +4,7 @@ import { requireAiUser } from './shared.ts'
 
 export default async function postAiRepository(req: FastifyRequest, res: FastifyReply) {
     const userId = await requireAiUser(req, res)
-    if (!userId) {
-        return res.status(401).send({ error: 'Unauthorized.' })
-    }
+    if (!userId) return
 
     const repo = req.body as AIImportedRepo | null
     if (!repo?.id || !repo.fullName || !Array.isArray(repo.files)) {

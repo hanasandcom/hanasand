@@ -161,10 +161,7 @@ async function buildStatus(workspacePath: string, gitEnv?: NodeJS.ProcessEnv) {
 
 async function requireUser(req: FastifyRequest, res: FastifyReply) {
     const userId = await requireAiUser(req, res)
-    if (!userId) {
-        res.status(401).send({ error: 'Unauthorized.' })
-        return null
-    }
+    if (!userId) return null
 
     return userId
 }

@@ -287,9 +287,7 @@ export function describeImportError(error: unknown) {
 
 export default async function importRepository(req: FastifyRequest, res: FastifyReply) {
     const userId = await requireAiUser(req, res)
-    if (!userId) {
-        return res.status(401).send({ error: 'Unauthorized.' })
-    }
+    if (!userId) return
 
     const { input, existingId, githubToken } = req.body as { input?: string, existingId?: string, githubToken?: string } ?? {}
     if (!input?.trim()) {

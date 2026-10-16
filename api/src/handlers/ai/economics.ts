@@ -119,9 +119,7 @@ type ReadinessStatus = 'operational' | 'evidence_gap' | 'internal_action'
 
 export async function getAiEconomics(req: FastifyRequest, res: FastifyReply) {
     const userId = await requireAiUser(req, res)
-    if (!userId) {
-        return res.status(401).send({ error: 'Unauthorized.' })
-    }
+    if (!userId) return
 
     const days = clampDays(Number((req.query as { days?: string })?.days) || 30)
     const since = `${days} days`

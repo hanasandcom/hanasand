@@ -4,9 +4,7 @@ import { getConversationForUser, requireAiUser } from './shared.ts'
 
 export default async function deleteConversation(req: FastifyRequest, res: FastifyReply) {
     const userId = await requireAiUser(req, res)
-    if (!userId) {
-        return res.status(401).send({ error: 'Unauthorized.' })
-    }
+    if (!userId) return
 
     const { id } = req.params as { id: string }
     const existing = await getConversationForUser(id, userId)

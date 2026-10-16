@@ -5,9 +5,7 @@ import { recordAiUsageEvent } from '#utils/ai/usage.ts'
 
 export default async function postAiConversation(req: FastifyRequest, res: FastifyReply) {
     const userId = await requireAiUser(req, res)
-    if (!userId) {
-        return res.status(401).send({ error: 'Unauthorized.' })
-    }
+    if (!userId) return
 
     const {
         id,

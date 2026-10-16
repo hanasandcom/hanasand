@@ -4,9 +4,7 @@ import { clearRepoCredential } from '#utils/ai/repoCredentials.ts'
 
 export default async function deleteRepositoryCredential(req: FastifyRequest, res: FastifyReply) {
     const userId = await requireAiUser(req, res)
-    if (!userId) {
-        return res.status(401).send({ error: 'Unauthorized.' })
-    }
+    if (!userId) return
 
     const { id } = req.params as { id: string }
     if (!id) {
