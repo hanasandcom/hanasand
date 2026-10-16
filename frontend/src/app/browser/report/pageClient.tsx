@@ -4,10 +4,11 @@ import SiteNetworkDetails from '../SiteNetworkDetails'
 import Link from 'next/link'
 import BrowserDebug from '../BrowserDebug'
 import BrowserHistory from '../BrowserHistory'
+import { virusTotalVendorLabel } from '../browserProviderData'
 import { hasSuspiciousFindings, reportMarkdown } from './presentation'
 import { useEffect, useMemo, useState } from 'react'
 import type { BrowserReport } from './reportTypes'
-import { providerVendorLabel, reportUrlTimeline, reportResourceUrls, reportIndicators, reportThreatAssociations, scriptIndicatorList } from './reportData'
+import { reportUrlTimeline, reportResourceUrls, reportIndicators, reportThreatAssociations, scriptIndicatorList } from './reportData'
 import { NetworkTable, ReportExport, ReportList, ReportPanel, ReportStatistics } from './ReportComponents'
 
 export default function BrowserReportPageClient({ runId = '', token = '', resultId, clientId, onRerun, initialRun = '' }: { initialRun?: string; runId?: string; token?: string; resultId?: string; clientId?: string; onRerun?: (target: string, quick?: boolean) => void }) {
@@ -96,7 +97,7 @@ export default function BrowserReportPageClient({ runId = '', token = '', result
                                 ) : (
                                     <div key={`${provider.tool}-${provider.url}`} className='rounded-md border border-ui-border bg-ui-raised p-3 text-sm'>
                                         <p className='font-semibold'>{provider.tool || 'Provider'} · {provider.status || 'unknown'}</p>
-                                        <p className='mt-1 text-xs text-ui-muted'>{provider.verdict || 'No parsed verdict'}{provider.vendorFlagged !== undefined ? ` · ${providerVendorLabel(provider)} vendors` : ''}{provider.alertCount !== undefined ? ` · ${provider.alertCount} alerts` : ''}{provider.screenshotCaptured ? ' · screenshot captured' : ''}</p>
+                                        <p className='mt-1 text-xs text-ui-muted'>{provider.verdict || 'No parsed verdict'}{provider.vendorFlagged !== undefined ? ` · ${virusTotalVendorLabel(provider)} vendors` : ''}{provider.alertCount !== undefined ? ` · ${provider.alertCount} alerts` : ''}{provider.screenshotCaptured ? ' · screenshot captured' : ''}</p>
                                         {provider.url ? <a href={provider.url} target='_blank' rel='noreferrer noopener' className='mt-1 block truncate font-mono text-xs text-ui-primary underline-offset-2 hover:underline'>{provider.url}</a> : null}
                                         {provider.error ? <p className='mt-2 text-xs text-ui-text'>{provider.error}</p> : null}
                                         {provider.communityComments?.length ? <div className='mt-2 grid gap-1'>{provider.communityComments.map((comment, index) => <blockquote key={`${index}-${comment}`} className='rounded-md border border-ui-border bg-ui-canvas px-2 py-1.5 text-xs leading-5'>{comment}</blockquote>)}</div> : null}

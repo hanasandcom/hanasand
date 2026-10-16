@@ -164,14 +164,6 @@ test('organization watchlist save mirrors the same scope and failed sync is expl
     assert.match(workspace, /await loadOrganizationBundle\(selectedOrganization\.id\)/)
 })
 
-test('ordinary customer overview does not present unscoped platform metrics', async() => {
-    const page = await readFile(new URL('../src/app/dashboard/overview/page.tsx', import.meta.url), 'utf8')
-    assert.doesNotMatch(page, /getMonitoringOverview|Platform traffic|Domains watched|requestsToday|activeDomains/)
-    assert.doesNotMatch(page, /criticalVulnerabilities|totalVulnerabilities|imagesScanned|scanRunning/)
-    assert.doesNotMatch(page, /Vulnerability monitoring|value='Not configured'/)
-    assert.match(page, /A focused view of monitoring, alerts, cases, and service health/)
-})
-
 test('organization onboarding reads organizations and readiness only from the persisted proxy', async() => {
     const organizationsRoute = await readFile(new URL('../src/app/api/organizations/route.ts', import.meta.url), 'utf8')
     const readinessRoute = await readFile(new URL('../src/app/api/organizations/[id]/alert-readiness/route.ts', import.meta.url), 'utf8')

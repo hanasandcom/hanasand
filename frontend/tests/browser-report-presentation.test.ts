@@ -1,5 +1,12 @@
 import { expect, test } from 'bun:test'
+import { virusTotalVendorLabel } from '../src/app/browser/browserProviderData'
 import { hasSuspiciousFindings, reportMarkdown } from '../src/app/browser/report/presentation'
+
+test('provider vendor labels handle zero, totals, and missing totals consistently', () => {
+    expect(virusTotalVendorLabel({ vendorFlagged: 0, vendorTotal: 72 })).toBe('0/72')
+    expect(virusTotalVendorLabel({ vendorFlagged: 3, vendorTotal: 72 })).toBe('3/72')
+    expect(virusTotalVendorLabel({ vendorFlagged: 3 })).toBe('3 flagged')
+})
 
 test('clean reports omit actions and legacy review entries without removing evidence', () => {
     const clean = { analystReport: { providerReports: [{ vendorFlagged: 0, alertCount: 0 }], scriptArtifacts: [{ assessment: 'obfuscated' }] } }

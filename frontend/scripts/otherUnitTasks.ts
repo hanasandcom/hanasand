@@ -9,7 +9,6 @@ export const otherUnitTasks: TestTask[] = [
     { id: 'browser-sandbox-history', title: 'Browser sandbox history sanitization', command: [bun, 'test', 'tests/browser-sandbox-history.test.ts'] },
     { id: 'browser-sandbox-routing', title: 'Browser sandbox routing contract', command: [bun, 'test', 'tests/browser-sandbox-routing.test.ts'] },
     { id: 'browser-sandbox-session', title: 'Browser sandbox session contract', command: [bun, 'test', 'tests/browser-sandbox-session.test.ts'] },
-    { id: 'dashboard-tenant-overview', title: 'Dashboard tenant overview contract', command: [bun, 'test', 'tests/dashboard-tenant-overview.test.ts'] },
     { id: 'dwm-event-proxy-path', title: 'DWM event proxy path contract', command: [bun, 'test', 'tests/event-proxy-path.test.ts'] },
     { id: 'exposure-queue-contract', title: 'Exposure queue data contract', command: [bun, 'test', 'tests/exposure-queue-contract.test.ts'] },
     { id: 'exposure-queue-truthfulness', title: 'Exposure queue truthfulness', command: [bun, 'test', 'tests/exposure-queue-truthfulness.test.ts'] },

@@ -10,7 +10,38 @@ mock.module('../src/app/api/findings/product/route', () => ({ GET: (request: Nex
 mock.module('../src/app/api/cases/route', () => ({ GET: (request: NextRequest) => cases(request) }))
 const { loadOpenCases, loadOverview } = await import('../src/app/dashboard/overview/loadOverview')
 const { default: Panel, OpenCasesMetric } = await import('../src/app/dashboard/overview/overviewPanel')
-const snapshot = { schemaVersion: 'test', tenantId: 'org-a', watchlist: [], sourceCoverage: [] }
+const snapshot = {
+    schemaVersion: 'dwm.product.v1',
+    generatedAt: '2026-10-17T10:00:00.000Z',
+    tenantId: 'org-a',
+    watchlist: [{ value: 'acme.test', kind: 'domain' as const }],
+    alerts: [{
+        id: 'alert-1',
+        eventType: 'darkweb.monitoring.match' as const,
+        severity: 'high' as const,
+        confidence: 0.9,
+        matchedTerm: { value: 'acme.test', kind: 'domain' as const },
+        company: 'Acme',
+        artifactType: 'credential',
+        sourceFamily: 'clear_web' as const,
+        sourceCount: 1,
+        firstSeenAt: '2026-10-17T09:00:00.000Z',
+        claimSummary: 'A matching credential was observed.',
+        reviewState: 'open',
+        recommendedAction: 'Review the evidence.',
+        evidence: [],
+        webhookDelivery: { recommendedRoute: 'analyst_review' as const, payloadHash: 'payload', dedupeKey: 'dedupe' },
+    }],
+    sourceCoverage: [],
+    actorOverviews: [],
+    onDemandQueue: [],
+    readiness: {
+        decision: 'blocked_missing_live_sources' as const,
+        blockers: ['No live sources configured.'],
+        advantages: [],
+        nextWorkItem: 'Configure a source.',
+    },
+}
 beforeEach(() => {
     product = async () => Response.json(snapshot)
     cases = async () => Response.json({ total: 1 })
@@ -49,7 +80,11 @@ test('monitoring overview is server-loaded without waiting for the cases collect
     expect(performance.now() - cacheStartedAt).toBeLessThan(20)
     expect(caseCalls).toBe(1)
     const html = renderToStaticMarkup(createElement(Panel, { organizationId: 'org-a', state, openCases: createElement(OpenCasesMetric, { count: 1 }) }))
-    expect(html).toContain('Welcome to Hanasand')
+    expect(html).toContain('aria-label="Organization monitoring"')
+    expect(html).toMatch(/Active watch terms[\s\S]*?<p[^>]*>1<\/p>/)
+    expect(html).toMatch(/Open alerts[\s\S]*?<p[^>]*>1<\/p>/)
+    expect(html).toContain('/findings?organizationId=org-a')
+    expect(html).not.toContain('Platform traffic')
     expect(html).not.toContain('Loading')
 })
 test('case loading reports unknown on failure and product loading returns fresh data', async () => {

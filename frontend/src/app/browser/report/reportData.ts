@@ -1,10 +1,5 @@
 import type { BrowserReport } from './reportTypes'
 
-export function providerVendorLabel(provider: { vendorFlagged?: number; vendorTotal?: number }) {
-    const flagged = provider.vendorFlagged ?? 0
-    return provider.vendorTotal ? `${flagged}/${provider.vendorTotal}` : `${flagged} flagged`
-}
-
 export function reportUrlTimeline(report: BrowserReport) {
     return report.analystReport?.urlTimeline?.length ? report.analystReport.urlTimeline : report.analystSummary?.urlTimeline || []
 }
