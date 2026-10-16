@@ -205,6 +205,12 @@ test('trigger count includes all saved detections only for this organization and
     expect((await getRule(request('auth.impossible_travel.v1'), reply() as any)).triggerCount).toBe(1)
 })
 
+test('rule hit counts accept the persisted record ID as well as the stable rule ID', async () => {
+    rows = [{ id: 'rule-record', organization_id: 'org-a', rule_id: builtin, version: '1', name: 'Network signature alert', family: 'Network Detection', severity: 'high', explanation: 'A network alert.', source: 'hanasand', enabled: true, definition: defaultRuleDefinition(builtin) }]
+    findings.push({ organizationId: 'org-a', ruleId: builtin })
+    expect((await getRuleHitCount(request('rule-record'), reply() as any)).triggerCount).toBe(1)
+})
+
 const bruteId = 'auth.brute_force_success'
 const bruteDefinition = (windowMinutes = 15, minimumCount = 3) => ({ match: 'all', parameters: { windowMinutes, minimumCount }, conditions: [{ path: 'EventID', operator: 'equals', value: '4624' }], failureConditions: [{ path: 'EventID', operator: 'regex', value: '^(4625|4771)$' }] })
 const login = (minutes: number, outcome: string, EventID: number, extra = {}) => ({ timestamp: new Date(Date.UTC(2026, 8, 14, 12, minutes)).toISOString(), event_type: 'authentication', action: 'login', outcome, EventID, user: { id: 'alice' }, ...extra })

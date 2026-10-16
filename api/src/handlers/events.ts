@@ -89,6 +89,9 @@ export const BUILTIN_RULES: Rule[] = [
 
 // Stored IDs remain unchanged so existing findings and organization overrides retain their lineage.
 export function ruleSlug(id: string) { return id.replace(/\.v\d+$/, '') }
+function findConfiguredRule(rules: Rule[], id: string) {
+    return rules.find(rule => ruleSlug(rule.id) === ruleSlug(id) || rule.recordId === id)
+}
 export function defaultRuleDefinition(id: string): RuleDefinition {
     if (id === applicationErrorRuleId) return structuredClone(applicationErrorDefinition)
     if (id === cdnDeliveryRuleId) return structuredClone(cdnDeliveryDefinition)
@@ -380,7 +383,7 @@ export async function getRuleHitCounts(req: FastifyRequest, res: FastifyReply) {
 export async function getRuleHitCount(req: FastifyRequest<{ Params: { id: string }, Querystring: { organizationId?: string } }>, res: FastifyReply) {
     const access = await organizationAccess(req, res)
     if (!access) return
-    const rule = (await loadConfiguredRules(access.organizationId, run, true)).find(rule => ruleSlug(rule.id) === ruleSlug(req.params.id) || rule.recordId === req.params.id)
+    const rule = findConfiguredRule(await loadConfiguredRules(access.organizationId, run, true), req.params.id)
     if (!rule || internalRetentionRuleIds.has(rule.id)) return res.status(404).send({ error: 'Rule not found.' })
     try {
         const hits = await loadRuleHits(access.organizationId, [rule], run)
@@ -397,7 +400,7 @@ export async function getRuleStorageEstimate(req: FastifyRequest<{ Params: { id:
     if (!access) return
     const query = req.query as { organizationId?: string }
     if (query.organizationId !== access.organizationId) return res.status(403).send({ error: 'Organization access denied.' })
-    const rule = (await loadConfiguredRules(access.organizationId, run, true)).find(rule => ruleSlug(rule.id) === ruleSlug(req.params.id) || rule.recordId === req.params.id)
+    const rule = findConfiguredRule(await loadConfiguredRules(access.organizationId, run, true), req.params.id)
     if (!rule || internalRetentionRuleIds.has(rule.id)) return res.status(404).send({ error: 'Rule not found.' })
     if (rule.definition?.stage !== 'analyze' || rule.definition.action !== 'drop')
         return res.send({ organizationId: access.organizationId, estimate: null })
@@ -502,7 +505,7 @@ export async function postRuleAction(req: FastifyRequest<{ Params: { id: string 
     if (!canManageRules(access.role)) return res.status(403).send({ error: 'Editor access is required to manage rules.' })
     const action = req.body?.action === 'enable' || req.body?.action === 'disable' ? req.body.action : null
     if (!action) return res.status(400).send({ error: 'Action must be enable or disable.' })
-    const rule = (await readDatabase(() => loadConfiguredRules(access.organizationId))).find(rule => ruleSlug(rule.id) === ruleSlug(req.params.id) || rule.recordId === req.params.id)
+    const rule = findConfiguredRule(await readDatabase(() => loadConfiguredRules(access.organizationId)), req.params.id)
     if (!rule) return res.status(404).send({ error: 'Rule not found.' })
     if (isPlatformRetentionRule(rule) && !(await hasHanasandInternalRouteAccess(req)).valid) return res.status(403).send({ error: 'Active Hanasand organization owner or editor access is required to change platform log retention.' })
     if (action === 'enable' && unavailableAnalysisRule(rule.id)) return res.status(409).send({ error: unavailableAnalysisRule(rule.id) })
@@ -528,7 +531,7 @@ function sendRuleDatabaseBusy(res: FastifyReply) {
 export async function getRule(req: FastifyRequest<{ Params: { id: string }, Querystring: { organizationId?: string, offset?: string } }>, res: FastifyReply) {
     const access = await organizationAccess(req, res)
     if (!access) return
-    const rule = (await readDatabase(() => loadConfiguredRules(access.organizationId))).find(rule => ruleSlug(rule.id) === ruleSlug(req.params.id) || rule.recordId === req.params.id)
+    const rule = findConfiguredRule(await readDatabase(() => loadConfiguredRules(access.organizationId)), req.params.id)
     if (!rule) return res.status(404).send({ error: 'Rule not found.' })
     const requestedVersion = /\.v(\d+)$/.exec(req.params.id)?.[1]
     const isHistorical = Boolean(requestedVersion && requestedVersion !== rule.version)
