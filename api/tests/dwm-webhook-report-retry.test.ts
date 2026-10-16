@@ -302,6 +302,17 @@ test('persists an explicitly requested missing destination after validating the 
         endpoint_hash: delivery.endpointHash,
         attempt_count: 0,
     })
+    const skippedAudit = queries.find(query =>
+        query.sql.includes('INSERT INTO dwm_webhook_audit_events') && query.params[6] === 'delivery.skipped'
+    )
+    expect(JSON.parse(String(skippedAudit?.params[7]))).toMatchObject({
+        alertId: delivery.alertId,
+        status: 'skipped',
+        endpointHint: 'requested_destination_not_found',
+        idempotencyKey: delivery.idempotencyKey,
+        reason: 'requested_destination_not_found',
+        requestedDestinationId: requestedId,
+    })
 })
 
 test('does not persist a missing-destination outcome for an invalid alert', async () => {

@@ -8918,23 +8918,9 @@ async function deliverToDwmWebhookDestination({
         deliveryId: delivery.id,
         action: auditAction,
         metadata: {
-            alertId: delivery.alert_id,
-            eventType: delivery.event_type,
-            status: delivery.status,
-            endpointHint: delivery.endpoint_hint,
-            endpointHash: delivery.endpoint_hash,
-            payloadHash: delivery.payload_hash,
-            dryRun: delivery.dry_run,
-            responseStatus: delivery.response_status,
-            error: delivery.error,
-            errorClass: delivery.error_class,
-            attemptCount: delivery.attempt_count,
-            nextRetryAt: delivery.next_retry_at,
-            idempotencyKey: delivery.idempotency_key,
-            watchlistId: delivery.watchlist_id,
-            route: delivery.route,
-            casePath: delivery.case_path,
-            ...outboundReportAuditMetadata(alert),
+            ...dwmWebhookDeliveryAuditMetadata(delivery, alert, {
+                responseStatus: delivery.response_status,
+            }),
         },
     })
 
@@ -9179,24 +9165,10 @@ async function recordSkippedDwmWebhookDelivery({
         deliveryId: delivery.id,
         action: 'delivery.skipped',
         metadata: {
-            alertId: delivery.alert_id,
-            eventType: delivery.event_type,
-            status: delivery.status,
-            endpointHint: delivery.endpoint_hint,
-            endpointHash: delivery.endpoint_hash,
-            payloadHash: delivery.payload_hash,
-            dryRun: delivery.dry_run,
-            error: delivery.error,
-            errorClass: delivery.error_class,
-            attemptCount: delivery.attempt_count,
-            nextRetryAt: delivery.next_retry_at,
-            idempotencyKey: delivery.idempotency_key,
-            reason,
-            watchlistId: delivery.watchlist_id,
-            route: delivery.route,
-            casePath: delivery.case_path,
-            ...additionalAuditMetadata,
-            ...outboundReportAuditMetadata(alert),
+            ...dwmWebhookDeliveryAuditMetadata(delivery, alert, {
+                reason,
+                ...additionalAuditMetadata,
+            }),
         },
     })
 
@@ -9205,6 +9177,32 @@ async function recordSkippedDwmWebhookDelivery({
         auditEventId,
         auditAction: 'delivery.skipped',
         auditActorId: ownerId,
+    }
+}
+
+function dwmWebhookDeliveryAuditMetadata(
+    delivery: DwmWebhookDeliveryRow,
+    alert: Record<string, unknown>,
+    additional: Record<string, unknown> = {},
+) {
+    return {
+        alertId: delivery.alert_id,
+        eventType: delivery.event_type,
+        status: delivery.status,
+        endpointHint: delivery.endpoint_hint,
+        endpointHash: delivery.endpoint_hash,
+        payloadHash: delivery.payload_hash,
+        dryRun: delivery.dry_run,
+        error: delivery.error,
+        errorClass: delivery.error_class,
+        attemptCount: delivery.attempt_count,
+        nextRetryAt: delivery.next_retry_at,
+        idempotencyKey: delivery.idempotency_key,
+        watchlistId: delivery.watchlist_id,
+        route: delivery.route,
+        casePath: delivery.case_path,
+        ...additional,
+        ...outboundReportAuditMetadata(alert),
     }
 }
 
