@@ -7,6 +7,7 @@ let activeDeployCount = 0
 let vmExists = true
 let vmAccessible = true
 let repositorySourcePath = ''
+let repositoryFiles: AIImportedRepoFile[] = []
 
 mock.module('#db', () => ({
     default: async (sql: string, params: unknown[] = []) => {
@@ -14,7 +15,7 @@ mock.module('#db', () => ({
         if (sql.includes('SELECT DISTINCT ON (conversation_id)')) return { rows: [{ count: activeDeployCount }] }
         if (sql.includes('FROM ai_imported_repositories AS repositories')) return { rows: [{
             id: 'repo-1', owner_id: 'owner-1', name: 'Sample App', full_name: 'owner/sample-app', branch: 'main',
-            source_path: repositorySourcePath, stack_type: 'docker_compose', stack_reason: 'compose files found', files: [],
+            source_path: repositorySourcePath, stack_type: 'docker_compose', stack_reason: 'compose files found', files: repositoryFiles,
         }] }
         if (sql.includes('FROM vms')) return { rows: vmExists ? [{
             name: 'deploy-vm', owner: 'owner-1', created_by: 'owner-1', access_users: ['owner-1'], device_eth0_ipv4_address: '192.0.2.10',
@@ -45,7 +46,6 @@ mock.module('../src/handlers/ai/shared.ts', () => ({
     }),
 }))
 mock.module('#utils/ai/stack.ts', () => ({ detectRepositoryStack: () => ({ stackType: 'unknown', reason: 'unused fallback' }) }))
-mock.module('#utils/ai/deploy.ts', () => ({ inferDeployDefaults: () => ({ port: 3000, healthPath: '/health', inferred: false, reason: '' }) }))
 mock.module('#utils/ai/usage.ts', () => ({ recordAiUsageEvent: async () => {} }))
 mock.module('#utils/ai/preview.ts', () => ({ buildAiPreviewUrl: (id: string) => `https://preview.example/${id}` }))
 
@@ -61,6 +61,7 @@ beforeEach(() => {
     vmExists = true
     vmAccessible = true
     repositorySourcePath = ''
+    repositoryFiles = []
 })
 afterAll(async () => {
     globalThis.fetch = originalFetch
@@ -74,6 +75,10 @@ const startDeployment = () => app.inject({
 })
 
 test('deploy bridge and health check retry transient responses and persist ordered lifecycle events', async () => {
+    repositoryFiles = [
+        { path: '.env.example', content: 'API_TOKEN=placeholder-value\nPORT=3000' },
+        { path: 'src/config.ts', content: 'process.env.API_TOKEN; import.meta.env.PUBLIC_URL' },
+    ]
     const calls: string[] = []
     globalThis.fetch = async (input) => {
         const url = String(input)
@@ -113,6 +118,10 @@ test('deploy bridge and health check retry transient responses and persist order
     expect(body.deployment.events.map((event: { message: string }) => event.message)).toContain('Retrying remote deploy bridge after HTTP 503 (attempt 2/3).')
     expect(body.deployment.events.map((event: { message: string }) => event.message)).toContain('Retrying VM-local healthcheck after HTTP 429 (attempt 2/3).')
     expect(body.deployment.events.map((event: { message: string }) => event.message)).toContain('Image built.')
+    expect(body.deployment.serviceName).toBe('sample-app')
+    expect(body.deployment.events.map((event: { message: string }) => event.message)).toContain('Owned staging deployment profile: domain sample-app.staging.hanasand.com, automatic SSL after routing, VM deploy-vm, access owner only.')
+    expect(body.deployment.events.map((event: { message: string }) => event.message)).toContain('Deploy checklist: 2 environment placeholders detected (API_TOKEN, PUBLIC_URL); values are never echoed.')
+    expect(JSON.stringify(body.deployment.events)).not.toContain('placeholder-value')
     expect(body.deployment.events.at(-1).message).toBe('Healthcheck passed with HTTP 200.')
 })
 

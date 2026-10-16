@@ -8,7 +8,15 @@ import { getRepoCredential } from '#utils/ai/repoCredentials.ts'
 import { getConversationForUser, requireAiUser } from './shared.ts'
 import { getDeployQuota, toDeployment, type DeploymentRow } from './deploymentShared.ts'
 import { detectRepositoryStack } from '#utils/ai/stack.ts'
-import { inferDeployDefaults } from '#utils/ai/deploy.ts'
+import {
+    buildOwnedDeploymentProfile,
+    collectDeploymentEnvironmentPlaceholders,
+    createDeploymentEvent,
+    explainDeploymentFailure,
+    inferDeployDefaults,
+    normalizeDeploymentServiceName,
+    normalizeDeploymentStage,
+} from '#utils/ai/deploy.ts'
 import { recordAiUsageEvent } from '#utils/ai/usage.ts'
 
 type VMRow = {
@@ -136,8 +144,8 @@ export async function postAiDeployment(req: FastifyRequest, res: FastifyReply) {
     const healthcheckUrl = `http://127.0.0.1:${port}${healthPath}`
     const previewUrl = vm.device_eth0_ipv4_address ? `http://${vm.device_eth0_ipv4_address}:${port}${healthPath}` : null
     const id = `deploy_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
-    const serviceName = normalizeServiceName(repository.name || repository.full_name || conversation.title || vm.name)
-    const envPlaceholders = collectEnvPlaceholders(repository.files)
+    const serviceName = normalizeDeploymentServiceName(repository.name || repository.full_name || conversation.title || vm.name)
+    const envPlaceholders = collectDeploymentEnvironmentPlaceholders(repository.files)
     const ownedProfile = buildOwnedDeploymentProfile({
         serviceName,
         environment,
@@ -148,14 +156,14 @@ export async function postAiDeployment(req: FastifyRequest, res: FastifyReply) {
         envPlaceholders,
     })
     const events: AIDeploymentEvent[] = [
-        deploymentEvent('planned', 'Deployment orchestrator accepted the repository-backed workspace and VM target.', now),
-        deploymentEvent('sync_access', 'Using the privileged VM deploy bridge, so SSH key sync is not required for this path.', now),
-        deploymentEvent('planned', detectedStack.stackType === 'unknown' ? 'Stack not confidently recognized. This deployment will wait until the repository matches a supported contract.' : `Detected supported stack: ${detectedStack.stackType}.`, now),
-        deploymentEvent('planned', ownedProfile.summary, now),
-        ...ownedProfile.checklist.map((item) => deploymentEvent('planned', item, now)),
+        createDeploymentEvent('planned', 'Deployment orchestrator accepted the repository-backed workspace and VM target.', now),
+        createDeploymentEvent('sync_access', 'Using the privileged VM deploy bridge, so SSH key sync is not required for this path.', now),
+        createDeploymentEvent('planned', detectedStack.stackType === 'unknown' ? 'Stack not confidently recognized. This deployment will wait until the repository matches a supported contract.' : `Detected supported stack: ${detectedStack.stackType}.`, now),
+        createDeploymentEvent('planned', ownedProfile.summary, now),
+        ...ownedProfile.checklist.map((item) => createDeploymentEvent('planned', item, now)),
     ]
     if (deployDefaults.inferred) {
-        events.push(deploymentEvent('planned', deployDefaults.reason, now))
+        events.push(createDeploymentEvent('planned', deployDefaults.reason, now))
     }
 
     let status: AIDeploymentStatus = 'blocked'
@@ -165,15 +173,15 @@ export async function postAiDeployment(req: FastifyRequest, res: FastifyReply) {
     if (detectedStack.stackType === 'unknown') {
         completedAt = new Date().toISOString()
         failureReason = explainDeploymentFailure('unsupported_stack', detectedStack.reason)
-        events.push(deploymentEvent('blocked', failureReason, completedAt))
+        events.push(createDeploymentEvent('blocked', failureReason, completedAt))
     } else if (repository.source_path) {
         completedAt = new Date().toISOString()
         failureReason = explainDeploymentFailure('repo_subpath', repository.source_path)
-        events.push(deploymentEvent('blocked', `This repository is attached from the subpath "${repository.source_path}". The current deploy orchestrator only supports repo-root Docker Compose projects.`, completedAt))
+        events.push(createDeploymentEvent('blocked', `This repository is attached from the subpath "${repository.source_path}". The current deploy orchestrator only supports repo-root Docker Compose projects.`, completedAt))
     } else {
         try {
             const repoCredential = await getRepoCredential(repository.id, userId).catch(() => null)
-            events.push(deploymentEvent('sync', `Preparing ${repository.full_name} on branch ${repository.branch}.`, new Date().toISOString()))
+            events.push(createDeploymentEvent('sync', `Preparing ${repository.full_name} on branch ${repository.branch}.`, new Date().toISOString()))
 
             const deployAttempt = await fetchWithDeployRetry(`${config.internal_api}/vm/${encodeURIComponent(vm.name)}/deploy`, {
                 method: 'POST',
@@ -198,7 +206,7 @@ export async function postAiDeployment(req: FastifyRequest, res: FastifyReply) {
 
             for (const event of Array.isArray(deployPayload?.events) ? deployPayload.events : []) {
                 if (typeof event?.stage === 'string' && typeof event?.message === 'string') {
-                    events.push(deploymentEvent(normalizeStage(event.stage), event.message, typeof event.timestamp === 'string' ? event.timestamp : new Date().toISOString()))
+                    events.push(createDeploymentEvent(normalizeDeploymentStage(event.stage), event.message, typeof event.timestamp === 'string' ? event.timestamp : new Date().toISOString()))
                 }
             }
 
@@ -206,10 +214,10 @@ export async function postAiDeployment(req: FastifyRequest, res: FastifyReply) {
                 status = 'blocked'
                 failureReason = explainDeploymentFailure('bridge_failed', deployPayload?.failureReason || `Remote deploy bridge returned HTTP ${deployResponse.status}.`)
                 completedAt = new Date().toISOString()
-                events.push(deploymentEvent('blocked', failureReason, completedAt))
+                events.push(createDeploymentEvent('blocked', failureReason, completedAt))
             } else {
                 status = 'healthchecking'
-                events.push(deploymentEvent('healthcheck', `Running VM-local healthcheck on ${healthcheckUrl}.`, new Date().toISOString()))
+                events.push(createDeploymentEvent('healthcheck', `Running VM-local healthcheck on ${healthcheckUrl}.`, new Date().toISOString()))
 
                 const healthAttempt = await fetchWithDeployRetry(`${config.internal_api}/vm/${encodeURIComponent(vm.name)}/request`, {
                     method: 'POST',
@@ -232,12 +240,12 @@ export async function postAiDeployment(req: FastifyRequest, res: FastifyReply) {
                 if (healthResponse.ok) {
                     status = 'running'
                     failureReason = null
-                    events.push(deploymentEvent('healthcheck', `Healthcheck passed with HTTP ${healthResponse.status}.`, eventTime))
+                    events.push(createDeploymentEvent('healthcheck', `Healthcheck passed with HTTP ${healthResponse.status}.`, eventTime))
                 } else {
                     status = 'blocked'
                     failureReason = explainDeploymentFailure('healthcheck_failed', `The service did not answer successfully at ${port}${healthPath}.`)
-                    events.push(deploymentEvent('healthcheck_failed', `Healthcheck returned HTTP ${healthResponse.status}: ${healthText.slice(0, 280)}`, eventTime))
-                    events.push(deploymentEvent('blocked', failureReason, eventTime))
+                    events.push(createDeploymentEvent('healthcheck_failed', `Healthcheck returned HTTP ${healthResponse.status}: ${healthText.slice(0, 280)}`, eventTime))
+                    events.push(createDeploymentEvent('blocked', failureReason, eventTime))
                 }
 
                 completedAt = new Date().toISOString()
@@ -246,7 +254,7 @@ export async function postAiDeployment(req: FastifyRequest, res: FastifyReply) {
             status = 'blocked'
             failureReason = explainDeploymentFailure('unexpected', error instanceof Error ? error.message : 'Unable to reach the VM deploy bridge.')
             completedAt = new Date().toISOString()
-            events.push(deploymentEvent('blocked', failureReason, completedAt))
+            events.push(createDeploymentEvent('blocked', failureReason, completedAt))
         }
     }
 
@@ -392,14 +400,14 @@ async function fetchWithDeployRetry<T>(
                 return { response, body }
             }
 
-            events.push(deploymentEvent(stage, retryMessage(label, `HTTP ${response.status}`, attempt), new Date().toISOString()))
+            events.push(createDeploymentEvent(stage, retryMessage(label, `HTTP ${response.status}`, attempt), new Date().toISOString()))
         } catch (error) {
             lastError = error
             if (attempt >= DEPLOY_RETRY_ATTEMPTS) {
                 throw error
             }
 
-            events.push(deploymentEvent(stage, retryMessage(label, error instanceof Error ? error.message : 'request failed', attempt), new Date().toISOString()))
+            events.push(createDeploymentEvent(stage, retryMessage(label, error instanceof Error ? error.message : 'request failed', attempt), new Date().toISOString()))
         }
 
         await delayDeployRetry(attempt)
@@ -480,121 +488,6 @@ function normalizeAccessPolicy(value: StartDeploymentBody['accessPolicy']): AIDe
 
 function normalizeEnvironment(value: StartDeploymentBody['environment']) {
     return value === 'production' ? 'production' : 'staging'
-}
-
-function normalizeServiceName(value: string) {
-    return value
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '')
-        .slice(0, 48) || 'workspace'
-}
-
-function collectEnvPlaceholders(files: AIImportedRepoFile[]) {
-    const names = new Set<string>()
-    for (const file of files) {
-        const path = file.path.toLowerCase()
-        const content = file.content || ''
-        if (path.endsWith('.env.example') || path.endsWith('.env.template') || path === '.env.example') {
-            for (const line of content.split('\n')) {
-                const match = line.match(/^\s*([A-Z][A-Z0-9_]{1,80})\s*=/)
-                if (match) {
-                    names.add(match[1])
-                }
-            }
-        }
-
-        for (const match of content.matchAll(/\b(?:process\.env|import\.meta\.env)\.([A-Z][A-Z0-9_]{1,80})\b/g)) {
-            names.add(match[1])
-        }
-    }
-
-    return Array.from(names)
-        .filter((name) => !['NODE_ENV', 'PORT', 'HOST', 'HOSTNAME'].includes(name))
-        .sort()
-}
-
-function buildOwnedDeploymentProfile({
-    serviceName,
-    environment,
-    accessPolicy,
-    vmName,
-    port,
-    healthPath,
-    envPlaceholders,
-}: {
-    serviceName: string
-    environment: 'staging' | 'production'
-    accessPolicy: AIDeploymentAccessPolicy
-    vmName: string
-    port: number
-    healthPath: string
-    envPlaceholders: string[]
-}) {
-    const domain = environment === 'production'
-        ? `${serviceName}.hanasand.com`
-        : `${serviceName}.staging.hanasand.com`
-    return {
-        domain,
-        summary: `Owned ${environment} deployment profile: domain ${domain}, automatic SSL after routing, VM ${vmName}, access ${accessPolicy.replaceAll('_', ' ')}.`,
-        checklist: [
-            `Deploy checklist: domain route ${domain} will be owned by Hanasand infrastructure.`,
-            'Deploy checklist: SSL is expected after the domain route responds; certificate contents are never printed.',
-            `Deploy checklist: health check will run after launch at ${port}${healthPath}.`,
-            envPlaceholders.length
-                ? `Deploy checklist: ${envPlaceholders.length} environment placeholder${envPlaceholders.length === 1 ? '' : 's'} detected (${envPlaceholders.join(', ')}); values are never echoed.`
-                : 'Deploy checklist: no required environment placeholders were detected from imported files.',
-            'Deploy checklist: build logs, VM bridge events, health result, and release record are persisted for refresh and reporting.',
-            'Deploy checklist: previous releases remain selectable as rollback targets before production cutover.',
-        ],
-    }
-}
-
-function explainDeploymentFailure(kind: 'unsupported_stack' | 'repo_subpath' | 'bridge_failed' | 'healthcheck_failed' | 'unexpected', detail?: string | null) {
-    switch (kind) {
-        case 'unsupported_stack':
-            return `This project is not deployable yet because Hanasand could not find a supported Docker deployment shape. Add a Dockerfile and docker-compose.yml at the repo root, then try again. ${detail || ''}`.trim()
-        case 'repo_subpath':
-            return `This project was imported from a subfolder, so the deploy runner cannot safely own the full release yet. Re-import the repository from its root, then deploy again. Subfolder: ${detail || 'unknown'}.`
-        case 'bridge_failed':
-            return `The server could not complete the VM deployment step. No production traffic was moved. The next check is the deploy log for the VM bridge. ${detail || ''}`.trim()
-        case 'healthcheck_failed':
-            return `The build finished, but the launched app did not pass its health check. Visitors were not promoted to this release. Check that the app listens on the selected port/path, then retry. ${detail || ''}`.trim()
-        case 'unexpected':
-            return `The deploy could not be completed because the deployment service returned an unexpected error. No secret values were printed and no release was promoted. ${detail || ''}`.trim()
-    }
-}
-
-function normalizeStage(stage: string): AIDeploymentStage {
-    switch (stage) {
-        case 'clone':
-            return 'clone'
-        case 'sync':
-        case 'fetch':
-        case 'checkout':
-        case 'pull':
-            return 'sync'
-        case 'build':
-            return 'build'
-        case 'run':
-        case 'running':
-            return 'run'
-        case 'healthcheck':
-            return 'healthcheck'
-        case 'healthcheck_failed':
-            return 'healthcheck_failed'
-        case 'auth':
-            return 'sync_access'
-        case 'blocked':
-        case 'compose_missing':
-            return 'blocked'
-        default:
-            return 'planned'
-    }
-}
-
-function deploymentEvent(stage: AIDeploymentStage, message: string, timestamp: string): AIDeploymentEvent {
-    return { stage, message, timestamp }
 }
 
 export { toDeployment }

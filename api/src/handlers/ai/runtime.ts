@@ -21,17 +21,43 @@ type BuildAiRuntimeStateInput = {
     participants?: number
 }
 
+type RuntimeMessageEntry = {
+    conversation: RuntimeConversation
+    message: RuntimeConversation['messages'][number]
+    timestamp: number
+}
+
+function findLatestRuntimeMessages(conversations: RuntimeConversation[]) {
+    let lastToolMessage: RuntimeMessageEntry | null = null
+    let lastFailure: RuntimeMessageEntry | null = null
+
+    for (const conversation of conversations) {
+        for (const message of conversation.messages) {
+            const entry = {
+                conversation,
+                message,
+                timestamp: new Date(message.createdAt).getTime(),
+            }
+
+            if (message.role === 'tool' && (!lastToolMessage || entry.timestamp > lastToolMessage.timestamp)) {
+                lastToolMessage = entry
+            }
+            if (message.error && (!lastFailure || entry.timestamp > lastFailure.timestamp)) {
+                lastFailure = entry
+            }
+        }
+    }
+
+    return { lastToolMessage, lastFailure }
+}
+
 export function buildAiRuntimeState({
     conversations = [],
     clients = [],
     participants = 0,
 }: BuildAiRuntimeStateInput): AIRuntimeState {
     const activeConversation = conversations.find((conversation) => !conversation.archivedAt) || conversations[0] || null
-    const recentMessages = [...conversations]
-        .flatMap((conversation) => conversation.messages.map((message) => ({ conversation, message })))
-        .sort((left, right) => new Date(right.message.createdAt).getTime() - new Date(left.message.createdAt).getTime())
-    const lastToolMessage = recentMessages.find((entry) => entry.message.role === 'tool') || null
-    const lastFailure = recentMessages.find((entry) => entry.message.error) || null
+    const { lastToolMessage, lastFailure } = findLatestRuntimeMessages(conversations)
 
     const status: AIRuntimeStatus = lastFailure
         ? 'error'
