@@ -35,7 +35,12 @@ for (const list of [false, true]) {
         expect((list ? admin.body[0] : admin.body).email).toBe('support@example.com')
         expect(admin.headers['Cache-Control']).toBe('private, no-store')
         const regular = await request(list, 'member', 'Bearer valid')
-        expect((list ? regular.body[0] : regular.body).email).toBeNull()
+        if (list) {
+            expect(regular.code).toBe(403)
+            expect(regular.body).toEqual({ error: 'Forbidden.' })
+        } else {
+            expect(regular.body.email).toBeNull()
+        }
         impersonating = true
         const impersonated = await request(list, 'admin', 'Bearer valid')
         expect((list ? impersonated.body[0] : impersonated.body).email).toBeNull()

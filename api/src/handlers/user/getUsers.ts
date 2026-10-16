@@ -21,7 +21,12 @@ export default async function getUsers(req: FastifyRequest, res: FastifyReply) {
 
     res.header('Cache-Control', 'private, no-store')
     try {
-        const canViewEmail = !impersonating && (await hasHanasandInternalRouteAccess(req)).valid
+        const internalRouteAccess = await hasHanasandInternalRouteAccess(req)
+        if (!internalRouteAccess.valid) {
+            return res.status(403).send({ error: 'Forbidden.' })
+        }
+
+        const canViewEmail = !impersonating
         const usersQuery = await loadSQL('getUsers.sql')
         const usersResult = await run(usersQuery, [canViewEmail])
         if (!usersResult.rows.length) {

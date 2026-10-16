@@ -4,7 +4,13 @@ import Fastify from 'fastify'
 const queries: Array<{ sql: string, params: unknown[] }> = []
 mock.module('../src/utils/auth/session.ts', () => ({ validateSession: async ({ id, token }: { id: string, token: string }) => token === `token-${id}` ? { user: { id } } : null }))
 const query = async (sql: string, params: unknown[] = []) => { queries.push({ sql, params }); return { rows: [] } }
-mock.module('../src/utils/db.ts', () => ({ default: query, identityQueryOnce: query, isTransientDatabaseError: () => false, withReadDatabase: async (work: () => Promise<unknown>) => work() }))
+mock.module('../src/utils/db.ts', () => ({
+    default: query,
+    identityQueryOnce: query,
+    isTransientDatabaseError: () => false,
+    withReadDatabase: async (work: () => Promise<unknown>) => work(),
+    withTransaction: async () => { throw new Error('Unexpected transaction in share listing test') },
+}))
 const { getUserShares } = await import('../src/handlers/share.ts')
 
 test('members can list only their own shares; anonymous and cross-user requests are denied', async () => {
