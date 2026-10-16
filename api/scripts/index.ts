@@ -49,6 +49,7 @@ const coreTasks: TestTask[] = [
     scriptTask('db-overview', 'Database overview contract', 'smoke-db-overview.ts'),
     scriptTask('traffic-stream-scope', 'Traffic stream domain and cursor', 'check-traffic-stream-scope.ts'),
     scriptTask('traffic-query-cache', 'Traffic bounded cached queries', 'check-traffic-query-cache.ts'),
+    scriptTask('traffic-contract', 'Traffic source and persistence contract', 'check-traffic-contract.mjs'),
     scriptTask('traffic-live', 'Traffic live stream contract', 'smoke-traffic-live.ts'),
     scriptTask('scheduled-job-registry', 'Scheduled job registry guardrail', 'check-scheduled-job-registry.ts'),
     scriptTask('automation-cadence', 'Automation schedule cadence and runtime bounds', 'check-automation-cadence.ts'),
