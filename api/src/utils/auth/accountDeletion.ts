@@ -1,6 +1,12 @@
 import { createHash, randomBytes } from 'crypto'
 import run from '#db'
 
+export const ACCOUNT_DELETION_PURGE_JOB_ID = 'api-user-account-deletion'
+
+export function accountDeletionPurgeLockKey(userId: string) {
+    return `${ACCOUNT_DELETION_PURGE_JOB_ID}:${userId}`
+}
+
 export function createAccountRestoreToken() {
     const token = randomBytes(32).toString('base64url')
     return { token, hash: hashAccountRestoreToken(token) }

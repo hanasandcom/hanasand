@@ -1,10 +1,10 @@
 import run, { identityQueryOnce, tryWithDatabaseAdvisoryLock, withTransaction } from '#db'
-import { accountDeletionOrganizationBlocker, scrubDeletedUserAuditContext } from './accountDeletion.ts'
+import { ACCOUNT_DELETION_PURGE_JOB_ID, accountDeletionOrganizationBlocker, accountDeletionPurgeLockKey, scrubDeletedUserAuditContext } from './accountDeletion.ts'
 import { revokeAllTokens } from './session.ts'
 import { deleteMailPrincipal } from '#utils/mail/stalwartAdmin.ts'
 import { purgeUserSshKeys } from './purgeUserSshKeys.ts'
 
-export const ACCOUNT_DELETION_PURGE_JOB_ID = 'api-user-account-deletion'
+export { ACCOUNT_DELETION_PURGE_JOB_ID }
 export const ACCOUNT_DELETION_PURGE_BATCH_SIZE = 25
 
 type DueAccount = { id: string, name: string, email: string | null }
@@ -15,7 +15,7 @@ type DueAccount = { id: string, name: string, email: string | null }
  * leaves the account due so the next cron pass can retry it.
  */
 export async function purgeDeletedAccount(userId: string) {
-    const lock = await tryWithDatabaseAdvisoryLock(`${ACCOUNT_DELETION_PURGE_JOB_ID}:${userId}`, () => purgeDeletedAccountWithLock(userId))
+    const lock = await tryWithDatabaseAdvisoryLock(accountDeletionPurgeLockKey(userId), () => purgeDeletedAccountWithLock(userId))
     return lock.acquired ? Boolean(lock.result) : false
 }
 
@@ -205,6 +205,7 @@ async function scrubUserAuditEvents(query: typeof run, account: DueAccount) {
         FROM system_events
         WHERE actor_id = $1
            OR object_id = $1
+           OR subject_id = $1
            OR context->>'targetId' = $1
            OR context->>'target_id' = $1
            OR context->>'userId' = $1
