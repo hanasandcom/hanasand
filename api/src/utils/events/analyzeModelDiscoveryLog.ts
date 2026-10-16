@@ -18,11 +18,10 @@ export async function analyzeModelDiscovery(log: ModelProbeLog, query?: typeof r
     const normalized = normalizeLogEvent({ ...log, id: log.sourceEventId!, created_at: log.timestamp! })
     if (!await matchesAnalysisPolicy([normalized], rule.definition)) return false
     if (customRetentionAction(normalized, await loadLogRetentionRules(rule.organization_id, query)) === 'keep') return false
-    const { loadConfiguredRules, collectEventFindings, normalizeEvent } = await import('../../handlers/events.ts')
+    const { loadConfiguredRules, eventWouldBeProtectedFromDrop } = await import('../../handlers/events.ts')
     const configured = await loadConfiguredRules(rule.organization_id, query)
-    const event = normalizeEvent(normalized, { vendor: 'Hanasand', product: 'Logs' })
     // Re-evaluate protections even for an already acknowledged delivery.
-    if (collectEventFindings(rule.organization_id, log.sourceEventId!, event, configured).findings.length) return false
+    if (eventWouldBeProtectedFromDrop(rule.organization_id, log.sourceEventId!, normalized, configured, [])) return false
     const proof = log.metadata!.model_probe as Record<string, unknown>
     const original = deflateRawSync(Buffer.from(JSON.stringify(log)))
     await query(`INSERT INTO log_model_probe_receipts(nonce,source_event_id,organization_id,original)
@@ -43,11 +42,10 @@ export async function analyzeModelHealthCheck(log: ModelProbeLog, query?: typeof
     if (!rule || !Array.isArray(rule.definition?.conditions)) return false
     const normalized = normalizeLogEvent({ ...log, id: log.sourceEventId!, created_at: log.timestamp! })
     if (!await matchesAnalysisPolicy([normalized], rule.definition)) return false
-    const { loadConfiguredRules, collectEventFindings, normalizeEvent } = await import('../../handlers/events.ts')
+    const { loadConfiguredRules, eventWouldBeProtectedFromDrop } = await import('../../handlers/events.ts')
     const configured = await loadConfiguredRules(rule.organization_id, query)
     const retention = await loadLogRetentionRules(rule.organization_id, query)
-    if (customRetentionAction(normalized, retention) === 'keep'
-        || collectEventFindings(rule.organization_id, log.sourceEventId!, normalizeEvent(normalized, { vendor: 'Hanasand', product: 'Logs' }), configured).findings.length) return false
+    if (eventWouldBeProtectedFromDrop(rule.organization_id, log.sourceEventId!, normalized, configured, retention)) return false
     const key = createHash('sha256').update(`${modelHealthRuleId}:${log.sourceEventId}`).digest('hex')
     const receipt = await query(`INSERT INTO log_analyze_receipts(key,organization_id,rule_id,rule_version)
         VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING RETURNING key`, [key, rule.organization_id, modelHealthRuleId, rule.version])

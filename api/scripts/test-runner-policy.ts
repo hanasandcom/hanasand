@@ -10,7 +10,7 @@ const unitTestFiles = [
     'ai-completion.test.ts', 'ai-deployments.test.ts', 'ai-economics.test.ts', 'ai-health.test.mjs', 'ai-model-replicas.test.ts',
     'ai-project-builder.test.ts', 'ai-release-mapping.test.ts', 'ai-runtime.test.ts', 'ai-worker-health.test.ts', 'ai-write-ownership.test.ts', 'analysis-matcher.test.ts',
     'analysis-policy.test.ts', 'analyze-access.test.ts', 'analyze-cdn-delivery-ingest.test.ts', 'analyze-cdn-delivery.test.ts', 'analyze-cdn-refresh-ingest.test.ts',
-    'analyze-cdn-refresh.test.ts', 'analyze-ingestion.test.ts', 'analyze-model-discovery.test.ts', 'analyze-mongo-ingest.test.ts', 'analyze-mongo.test.ts',
+    'analyze-cdn-refresh.test.ts', 'analyze-ingestion.test.ts', 'analyze-model-discovery-ingest.test.ts', 'analyze-model-discovery.test.ts', 'analyze-mongo-ingest.test.ts', 'analyze-mongo.test.ts',
     'analyze-postgres-ingest.test.ts', 'analyze-postgres.test.ts', 'analyze-proxy.test.ts', 'analyze-readiness-audit.test.ts', 'analyze-routine-groups.test.ts',
     'api-requester.test.ts', 'application-error.test.ts', 'apt-updates.test.ts', 'article-storage.test.ts', 'audit-acknowledgments.test.ts',
     'audit-pagination.test.ts', 'auth-history.test.ts', 'auth-logout.test.ts', 'automatic-review-cron.test.ts', 'automation-certificates.test.ts',

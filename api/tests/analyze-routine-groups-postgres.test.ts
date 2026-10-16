@@ -2,7 +2,7 @@ import { expect, mock, test } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import pg from 'pg'
 import { createHash } from 'node:crypto'
-import { telemetryFixture, sshFixture } from './analyze-routine-groups.test.ts'
+import { telemetryFixture, sshFixture } from './analyze-routine-groups-fixtures.ts'
 import { telemetryRuleId, sshWindowRuleId, telemetryDefinition, sshWindowDefinition } from '../src/utils/events/analyzeRoutineGroups.ts'
 
 test.skipIf(!process.env.POSTGRES_FILTER_TEST_PORT)('real group ingestion preserves suspicious originals, findings, replay and rollback', async () => {

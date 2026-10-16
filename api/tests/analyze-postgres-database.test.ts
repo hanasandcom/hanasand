@@ -2,7 +2,7 @@ import { expect, mock, test } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import pg from 'pg'
-import { fixture } from './analyze-postgres.test.ts'
+import { fixture } from './analyze-postgres-fixtures.ts'
 import { postgresRuleId, postgresDefinition } from '../src/utils/events/analyzePostgres.ts'
 import { normalizeLogEvent } from '../src/utils/events/logEvent.ts'
 

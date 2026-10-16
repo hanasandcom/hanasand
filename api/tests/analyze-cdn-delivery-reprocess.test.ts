@@ -2,8 +2,8 @@ import { expect, mock, test } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import pg from 'pg'
-import { fixture, encode } from './analyze-cdn-delivery.test.ts'
-import { fixture as refreshFixture } from './analyze-cdn-refresh.test.ts'
+import { encode, fixture } from './support/cdnDeliveryFixture.ts'
+import { fixture as refreshFixture } from './support/cdnRefreshFixture.ts'
 import { cdnRefreshRuleId } from '../src/utils/events/analyzeCdnRefresh.ts'
 
 test.skipIf(!process.env.POSTGRES_FILTER_TEST_PORT)('CDN historical replay verifies original evidence and preserves actionable originals, findings and rollback', async () => {

@@ -2,7 +2,7 @@ import { expect, mock, test } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import pg from 'pg'
 import { createHash } from 'node:crypto'
-import { transportFixture } from './ssh-transport.test.ts'
+import { transportFixture } from './ssh-transport-fixtures.ts'
 import { sshTransportRuleId, sshTransportDefinition } from '../src/utils/events/analyzeSshTransport.ts'
 
 test.skipIf(!process.env.POSTGRES_FILTER_TEST_PORT)('SSH transport ingestion preserves originals, detection, saved policy, retries and rollback', async () => {

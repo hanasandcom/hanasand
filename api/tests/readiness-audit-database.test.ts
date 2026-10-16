@@ -1,7 +1,7 @@
 import { expect, mock, test } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import pg from 'pg'
-import { fixture, signed, configure } from './analyze-readiness-audit.test.ts'
+import { fixture, signed, configure } from './analyze-readiness-audit-fixtures.ts'
 import { readinessAuditRuleId, readinessAuditDefinition } from '../src/utils/events/analyzeReadinessAudit.ts'
 import { inflateRawSync } from 'node:zlib'
 import { createHash } from 'node:crypto'

@@ -1,7 +1,7 @@
 import { expect, mock, test } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import pg from 'pg'
-import { fixture } from './analyze-cdn-delivery.test.ts'
+import { fixture } from './support/cdnDeliveryFixture.ts'
 import { cdnDeliveryRuleId, cdnDeliveryDefinition } from '../src/utils/events/analyzeCdnDelivery.ts'
 import { createHash } from 'node:crypto'
 

@@ -54,11 +54,11 @@ export async function analyzeProxy(log: ProxyLog, query?: typeof run): Promise<b
         AND r.rule_id=$2 AND r.enabled AND r.definition->>'stage'='analyze' AND r.definition->>'action'='drop'
         ORDER BY o.created_at LIMIT 1 FOR SHARE OF r,o NOWAIT`, [process.env.PLATFORM_LOG_ORGANIZATION_ID || null, proxyRuleId])).rows[0]
     if (!rule?.definition?.conditions?.length) return false
-    const { loadConfiguredRules, collectEventFindings, normalizeEvent } = await import('../../handlers/events.ts')
+    const { loadConfiguredRules, eventWouldBeProtectedFromDrop } = await import('../../handlers/events.ts')
     const rules = await loadConfiguredRules(rule.organization_id, query)
     const original = normalizeLogEvent({ ...log, id: log.sourceEventId!, created_at: log.timestamp! })
     if (!await matchesAnalysisPolicy([original], rule.definition)) return false
-    if (collectEventFindings(rule.organization_id, log.sourceEventId!, normalizeEvent(original, { vendor: 'Hanasand', product: 'Logs' }), rules).findings.length) return false
+    if (eventWouldBeProtectedFromDrop(rule.organization_id, log.sourceEventId!, original, rules, [])) return false
     const key = createHash('sha256').update(`${proxyRuleId}:${log.sourceEventId}`).digest('hex')
     // An exact replay may arrive after raw retention removed the proof row.
     const replay = (await query('SELECT original FROM log_proxy_receipts WHERE key=$1 AND organization_id=$2', [key, rule.organization_id])).rows[0]

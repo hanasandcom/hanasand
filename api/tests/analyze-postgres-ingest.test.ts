@@ -5,7 +5,7 @@ mock.module('#db', () => ({ default: unexpectedQuery, identityQueryOnce: unexpec
 const { analyzePostgresBatch } = await import('../src/utils/events/analyzePostgresBatch.ts')
 const { postgresReceipt, postgresRuleId, postgresDefinition } = await import('../src/utils/events/analyzePostgres.ts')
 const { normalizeBuiltinDefinition } = await import('../src/handlers/events.ts')
-import { fixture } from './analyze-postgres.test.ts'
+import { fixture } from './analyze-postgres-fixtures.ts'
 
 function database(options: { enabled?: boolean, existing?: boolean, fail?: string, customKeep?: boolean, detector?: boolean, definition?: any } = {}) {
     const receipts = new Set<string>(), summaries: any[] = []

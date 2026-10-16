@@ -2,7 +2,7 @@ import { expect, mock, test } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import pg from 'pg'
-import { fixture } from './analyze-ingestion.test.ts'
+import { fixture } from './analyze-ingestion-fixtures.ts'
 
 test.skipIf(!process.env.POSTGRES_FILTER_TEST_PORT)('Event replay removes only proven copies and preserves canonical records, findings and disabled rules', async () => {
     const namespace = `builtin_replay_${process.pid}_${Date.now()}`
