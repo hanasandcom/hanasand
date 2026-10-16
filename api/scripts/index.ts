@@ -29,6 +29,8 @@ const coreTasks: TestTask[] = [
     scriptTask('session-recovery', 'Replica session validation before monitor convergence', 'check-session-recovery.ts'),
     scriptTask('social-oidc', 'Google and Apple identity verification', 'check-social-oidc.ts'),
     scriptTask('social-auth', 'Social sign-in account boundaries', 'check-social-auth.ts'),
+    scriptTask('sso-oidc-contract', 'SSO OIDC state and identity contract', 'smoke-sso-oidc-contract.ts'),
+    scriptTask('passkey-contract', 'WebAuthn registration, assertion and management contract', 'smoke-passkey-contract.ts'),
     scriptTask('auth-service', 'Independent authentication worker', 'check-auth-service.ts'),
     scriptTask('generated-projects', 'Generated API, worker and bot behavior', 'check-generated-projects.ts'),
     scriptTask('generated-website', 'Generated website files and styles', 'check-generated-website.ts'),
@@ -50,6 +52,7 @@ const coreTasks: TestTask[] = [
     scriptTask('traffic-query-cache', 'Traffic bounded cached queries', 'check-traffic-query-cache.ts'),
     scriptTask('traffic-live', 'Traffic live stream contract', 'smoke-traffic-live.ts'),
     scriptTask('scheduled-job-registry', 'Scheduled job registry guardrail', 'check-scheduled-job-registry.ts'),
+    scriptTask('automation-cadence', 'Automation schedule cadence and runtime bounds', 'check-automation-cadence.ts'),
     {
         ...scriptTask('scheduled-job-registry-smoke', 'Scheduled job registry smoke', 'smoke-scheduled-job-registry.ts'),
         env: {
