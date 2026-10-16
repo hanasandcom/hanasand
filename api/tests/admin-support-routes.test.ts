@@ -1334,14 +1334,32 @@ test('support invite action returns an audited accepted-invite denial when accep
     expect(state.inviteActionWrites).toBe(1)
 })
 
-test('support invite action denies an already accepted invite without attempting an update', async () => {
+test('support invite action audits an expired accepted invite before validating resend expiry', async () => {
     state.supportOrganization = activeSupportOrganizationFixture()
-    state.supportInspectionInvite = { ...supportInviteInspectionFixture(), status: 'accepted' }
+    state.supportInspectionInvite = {
+        ...supportInviteInspectionFixture(),
+        status: 'accepted',
+        expires_at: '2020-01-01T00:00:00.000Z',
+    }
 
     const result = await request(postSupportOrganizationInviteAction, { params: { id: 'org-1', inviteId: 'invite-1' }, body: { action: 'resend', reason: 'Restore access', scope: 'invite:resend' } })
 
     expect(result.statusCode).toBe(409)
-    expect(state.inviteActionWrites).toBe(0)
+    expect(state.inviteActionWrites).toBe(1)
+    expect(result.body.inviteAction).toMatchObject({
+        schemaVersion: 'support.invite_action.v1',
+        outcome: 'failed',
+        before: { status: 'accepted' },
+        after: { status: 'accepted' },
+    })
+    expect(state.inviteActionInputs.at(-1)).toMatchObject({
+        action: 'resend',
+        expiresAt: '2020-01-01T00:00:00.000Z',
+    })
+    expect(state.recordedEvents.at(-1)?.context).toMatchObject({
+        error: 'accepted_invite_not_mutable_by_support_action',
+        noSilentMembershipMutation: true,
+    })
 })
 
 test('executor blocker audits retain the shared no-mutation contract for invite assistance', async () => {

@@ -2639,21 +2639,8 @@ export async function postSupportOrganizationInviteAction(req: FastifyRequest<{ 
         }))
     }
 
-    if (invite.status === 'accepted') {
-        return sendAcceptedSupportInviteActionDenial(req, res, {
-            actorId: actor.id,
-            organization,
-            invite,
-            requestId,
-            action: action as 'revoke' | 'resend',
-            actionType,
-            reason,
-            controls: executorControls,
-        })
-    }
-
     let expiresAt = invite.expires_at
-    if (action === 'resend') {
+    if (action === 'resend' && invite.status !== 'accepted') {
         try {
             expiresAt = normalizeInviteInput({
                 email: invite.email,
