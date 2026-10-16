@@ -5,7 +5,7 @@ type UnitTestCategory = 'unit' | 'database' | 'postgresFilter'
 // default suite. The optional local PGlite suite stays a unit task because it
 // skips itself unless PUSH_TEST_PGLITE_MODULE is configured.
 const unitTestFiles = [
-    'access-alert-severity.test.ts', 'account-deletion-login.test.ts', 'account-deletion-scheduler.test.ts', 'admin-support-access-recovery.test.ts', 'admin-support-activity-rollups.test.ts', 'admin-support-audit-detail.test.ts', 'admin-support-audit-filters.test.ts', 'admin-support-audit-list.test.ts', 'admin-support-entity-inspection.test.ts',
+    'access-alert-severity.test.ts', 'account-availability.test.ts', 'account-deletion-login.test.ts', 'account-deletion-scheduler.test.ts', 'admin-support-access-recovery.test.ts', 'admin-support-activity-rollups.test.ts', 'admin-support-audit-detail.test.ts', 'admin-support-audit-filters.test.ts', 'admin-support-audit-list.test.ts', 'admin-support-entity-inspection.test.ts',
     'admin-support-executor-controls.test.ts', 'admin-support-input.test.ts',
     'admin-support-inspection-packets.test.ts', 'admin-support-inspection-summary.test.ts', 'admin-support-invite-assistance.test.ts', 'admin-support-invite-conflicts.test.ts',
     'admin-support-role-recovery.test.ts', 'admin-support-route-registration.test.ts', 'admin-support-session-lifecycle.test.ts', 'admin-support-subject-inspection.test.ts', 'agent-action-audit-redaction.test.ts', 'agent-action-policy-routes.test.ts',

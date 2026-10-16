@@ -3,6 +3,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify'
 import bcrypt from 'bcrypt'
 import run from '#db'
 import { insertIdentityUserIfAbsent } from '#utils/db/identityDataWrites.ts'
+import { isAccountUnavailable } from '#utils/accountAvailability.ts'
 import { issueToken } from '#utils/auth/session.ts'
 import { getReservedUsernameReason, normalizeUsername } from '#utils/auth/reservedUsernames.ts'
 import {
@@ -28,6 +29,7 @@ type UserRow = {
     name: string
     avatar: string | null
     active: boolean
+    deactivated_at?: string | null
     deletion_scheduled_at?: string | null
 }
 
@@ -68,7 +70,7 @@ export async function postSsoCallback(req: FastifyRequest, res: FastifyReply) {
                 code: 'sso_user_not_provisioned',
             })
         }
-        if (user.active === false || user.deletion_scheduled_at) {
+        if (isAccountUnavailable(user)) {
             return res.status(403).send({ error: 'This account is not active.', code: 'sso_account_inactive' })
         }
 
@@ -114,7 +116,7 @@ async function findOrProvisionSsoUser(userinfo: OidcUserinfo, autoProvision: boo
     const email = String(userinfo.email || '').trim().toLowerCase()
     const externalId = String(userinfo.sub || '').trim()
     const existing = await run(`
-        SELECT u.id, u.name, u.avatar, u.active, u.deletion_scheduled_at
+        SELECT u.id, u.name, u.avatar, u.active, u.deactivated_at, u.deletion_scheduled_at
         FROM users u
         LEFT JOIN mail_accounts ma ON ma.user_id = u.id
         WHERE lower(u.id) = lower($1)
@@ -143,7 +145,7 @@ async function findOrProvisionSsoUser(userinfo: OidcUserinfo, autoProvision: boo
         return null
     }
 
-    const response = await run('SELECT id, name, avatar, active, deletion_scheduled_at FROM users WHERE id = $1', [id])
+    const response = await run('SELECT id, name, avatar, active, deactivated_at, deletion_scheduled_at FROM users WHERE id = $1', [id])
     return response.rows[0] as UserRow | undefined ?? null
 }
 
