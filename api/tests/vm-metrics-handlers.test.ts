@@ -2,12 +2,14 @@ import { beforeEach, expect, mock, test } from 'bun:test'
 import Fastify from 'fastify'
 
 const writes: Array<{ sql: string, params: unknown[] }> = []
+let tokenValid = true
+let isAdmin = true
 mock.module('#db', () => ({ default: async (sql: string, params: unknown[] = []) => {
     writes.push({ sql, params })
     return { rows: [{ id: 'metric-1', name: 'cashflow', cpu_cores: 2 }] }
 } }))
-mock.module('#utils/auth/tokenWrapper.ts', () => ({ default: async () => ({ valid: true }) }))
-mock.module('#utils/auth/organizationPageAccess.ts', () => ({ default: async () => ({ valid: true }) }))
+mock.module('#utils/auth/tokenWrapper.ts', () => ({ default: async () => ({ valid: tokenValid }) }))
+mock.module('#utils/auth/organizationPageAccess.ts', () => ({ default: async () => ({ valid: isAdmin }) }))
 
 const { default: postMetrics } = await import('../src/handlers/vms/metrics/post.ts')
 const { default: putMetrics } = await import('../src/handlers/vms/metrics/put.ts')
@@ -15,7 +17,11 @@ const app = Fastify()
 app.post('/vm/metrics', postMetrics)
 app.put('/vm/metrics/:id', putMetrics)
 
-beforeEach(() => { writes.length = 0 })
+beforeEach(() => {
+    writes.length = 0
+    tokenValid = true
+    isAdmin = true
+})
 
 test('VM metrics POST and PUT issue validated writes and return the saved row', async () => {
     const poweredOnAt = '2026-10-15T12:00:00.000Z'
@@ -53,4 +59,23 @@ test('VM metrics POST and PUT reject SQL column names and non-scalar values befo
         expect(response.statusCode).toBe(400)
         expect(writes).toHaveLength(0)
     }
+})
+
+test('VM metrics POST and PUT require both an authenticated session and administrator access', async () => {
+    const requests = [
+        { method: 'POST', url: '/vm/metrics', payload: { name: 'cashflow', cpu_cores: 2 } },
+        { method: 'PUT', url: '/vm/metrics/metric-1', payload: { cpu_cores: 4 } },
+    ] as const
+
+    for (const request of requests) {
+        tokenValid = false
+        isAdmin = true
+        expect((await app.inject(request)).statusCode).toBe(401)
+
+        tokenValid = true
+        isAdmin = false
+        expect((await app.inject(request)).statusCode).toBe(401)
+    }
+
+    expect(writes).toHaveLength(0)
 })
