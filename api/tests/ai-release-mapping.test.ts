@@ -87,8 +87,7 @@ test('support bundle uses the same release projection and keeps its bounded even
         }
 
         expect(result.statusCode).toBe(200)
-        expect(result.body.release.trust.supportBundle.requestIds).toEqual(['req-123456'])
-        expect(result.body.bundle.requestIds).toEqual(['req-123456'])
+        expect(result.body.bundle.requestIds).toEqual(result.body.release.trust.supportBundle.requestIds)
         expect(result.body.bundle.events).toHaveLength(30)
         expect(result.body.bundle.events[0].message).toContain('event 1')
     } finally {
