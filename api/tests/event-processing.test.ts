@@ -1,5 +1,5 @@
 import { beforeEach, expect, mock, test } from 'bun:test'
-let stored: Record<string, any> = {}, findings: any[] = [], fail = false, findingWrites = 0, eventUpdates = 0, pendingLookups = 0, completedLookups = 0, deletedLogins: string[] = [], receipts: unknown[][] = [], retentionRules: any[] = []
+let stored: Record<string, any> = {}, findings: any[] = [], fail = false, failReceiptWrite = false, findingWrites = 0, eventUpdates = 0, pendingLookups = 0, completedLookups = 0, deletedLogins: string[] = [], receipts: unknown[][] = [], retentionRules: any[] = []
 let authRechecks: Array<{ sql: string, params: any[] }> = []
 const query = async (sql: string, p: any[] = []): Promise<any> => {
     // Transaction-scoped PostgreSQL settings are accepted by the test transaction
@@ -10,7 +10,14 @@ const query = async (sql: string, p: any[] = []): Promise<any> => {
     if (sql.includes('SELECT event_ids FROM findings')) return { rows: [] }
     if (sql.includes('DELETE FROM login_events')) { deletedLogins = [...p[0]]; return { rows: p[0].map((id: string) => ({ id })) } }
     if (sql.includes('DELETE FROM events WHERE organization_id')) { for (const row of Object.values(stored)) if (p[1].includes(row.id)) delete stored[row.id]; return { rows: [] } }
-    if (sql.includes('INSERT INTO log_analyze_receipts')) { receipts.push(p); return { rows: [] } }
+    if (sql.includes('INSERT INTO log_analyze_receipts')) {
+        if (failReceiptWrite) {
+            expect(deletedLogins).toEqual(['2756'])
+            throw new Error('Receipt storage failed')
+        }
+        receipts.push(p)
+        return { rows: [] }
+    }
     if (sql.includes('WITH later_users AS')) { authRechecks.push({ sql, params: p }); return { rows: [] } }
     if (sql.includes('SELECT id, event_timestamp, outcome, source_country, normalized')) return { rows: [] }
     if (sql.includes('SELECT id, user_id, event_timestamp, normalized')) return { rows: [] }
@@ -27,13 +34,13 @@ const query = async (sql: string, p: any[] = []): Promise<any> => {
     if (sql.includes('UPDATE events')) { eventUpdates++; for (const item of JSON.parse(p[0])) { stored[item.id].normalized = {...stored[item.id].normalized,...item.result};stored[item.id].processing_status='processed' }return { rows: [] } }
     throw new Error('Unexpected SQL '+sql)
 }
-mock.module('#db',()=>({ default:query, identityQueryOnce:query, isTransientDatabaseError: () => false, withTransaction: async(work: any)=>{ const before=structuredClone({stored,findings});try{return await work(query)}catch(error){stored=before.stored;findings=before.findings;throw error} } }))
+mock.module('#db',()=>({ default:query, identityQueryOnce:query, isTransientDatabaseError: () => false, withTransaction: async(work: any)=>{ const before=structuredClone({stored,findings,deletedLogins,receipts});try{return await work(query)}catch(error){stored=before.stored;findings=before.findings;deletedLogins=before.deletedLogins;receipts=before.receipts;throw error} } }))
 const { processLog, processLogBatch } = await import('../src/utils/events/processLogs.ts')
 const { BUILTIN_RULES, defaultRuleDefinition, eventWouldBeProtectedFromDrop } = await import('../src/handlers/events.ts')
 const { securityRules } = await import('../src/utils/events/securityRules.ts')
 const rules = () => BUILTIN_RULES.map(rule => ({...rule,enabled:true,source:'hanasand' as const,definition:defaultRuleDefinition(rule.id)}))
 const log = (executable='/usr/bin/whoami',command='whoami') => ({id:'real-log',service:'audit',host:'inspur',level:'info',message:command,created_at:'2026-09-19T10:00:00Z',metadata:{process:{executable,command_line:command}}})
-beforeEach(()=>{stored={};findings=[];fail=false;findingWrites=0;eventUpdates=0;pendingLookups=0;completedLookups=0;authRechecks=[];deletedLogins=[];receipts=[];retentionRules=[]})
+beforeEach(()=>{stored={};findings=[];fail=false;failReceiptWrite=false;findingWrites=0;eventUpdates=0;pendingLookups=0;completedLookups=0;authRechecks=[];deletedLogins=[];receipts=[];retentionRules=[]})
 test('analysis drop protection combines retention keeps with configured findings', () => {
     const event = { message: 'protected source', event_type: 'application', timestamp: '2026-09-19T10:00:00Z' }
     const retentionKeep = [{ source: 'owned', enabled: true, definition: { stage: 'analyze', action: 'keep', conditions: [{ path: 'message', operator: 'equals', value: 'protected source' }] } }]
@@ -138,6 +145,29 @@ test('a successful matching login-monitor source is dropped before auth correlat
     expect(receipts).toHaveLength(1)
     expect(stored).toEqual({})
     expect(pendingLookups).toBe(0)
+})
+
+test('login-monitor receipt failure rolls back the earlier source deletion', async () => {
+    const { authenticationAuditStoreRule } = await import('../src/utils/events/eventProtection.ts')
+    retentionRules = [
+        { id: authenticationAuditStoreRule.id, organization_id: 'org-a', version: '1', source: 'owned', enabled: true, definition: authenticationAuditStoreRule.definition },
+        { id: 'custom.login-monitor.v1', organization_id: 'org-a', version: '1', source: 'owned', enabled: true,
+            definition: { stage: 'analyze', action: 'drop', conditions: [
+                { path: 'user.id', operator: 'regex', value: '^login_monitor' },
+                { path: 'source.ip', operator: 'equals', value: '127.0.0.1' },
+                { path: 'metadata.user_agent', operator: 'regex', value: '^Bun/' },
+                { path: 'outcome', operator: 'equals', value: 'success' },
+            ] } },
+    ]
+    const login = { id: 'login_events:2756', service: 'hanasand-auth', host: 'hanasand.com', level: 'info',
+        message: 'Successful sign-in', created_at: '2026-07-03T02:18:39Z', metadata: { category: 'authentication', action: 'login', outcome: 'success',
+            user: { id: 'login_monitor_20260703021420' }, source: { ip: '127.0.0.1' }, user_agent: 'Bun/1.2.3' } }
+    failReceiptWrite = true
+
+    await expect(processLogBatch([login], 'org-a', [])).rejects.toThrow('Receipt storage failed')
+    expect(deletedLogins).toEqual([])
+    expect(receipts).toHaveLength(0)
+    expect(stored).toEqual({})
 })
 
 test('late authentication rechecks use bounded user and source-IP index lanes', async () => {
