@@ -1,5 +1,6 @@
 import { watchWebCrackOutput, readWebCrackOutput, submitWebCrackSample } from './webcrack.ts'
 import { browserStartOptions } from '../../utils/ws/browserAccess.ts'
+import { socketMessageText } from '../../utils/ws/socketMessageText.ts'
 import { currentBrowserAdmissionStatus, requestBrowserAdmission } from '../../utils/ws/browserAdmission.ts'
 import { browserProfileForMessage, browserViewportForMessage } from './browserProfile.ts'
 import { createHash } from 'node:crypto'
@@ -2654,7 +2655,7 @@ function safeToolId(value: string) {
 
 function parseMessage(raw: RawData): (BrokerMessage & { type: string }) | null {
     try {
-        const message = JSON.parse(raw.toString()) as BrokerMessage
+        const message = JSON.parse(socketMessageText(raw)) as BrokerMessage
         return message?.type ? message as BrokerMessage & { type: string } : null
     } catch {
         return null

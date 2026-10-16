@@ -481,9 +481,9 @@ export async function postDwmWebhookDestinationTest(req: FastifyRequest<{ Params
     const response = {
         delivery,
         preview: buildDwmWebhookDeliveryPreview(delivery),
-        destinationCrud: destination ? destinationChangeResponse!.destinationCrud : null,
-        destinationContract: destination ? destinationChangeResponse!.destinationContract : null,
-        destinationHealth: destination ? destinationChangeResponse!.destinationHealth : null,
+        destinationCrud: destinationChangeResponse?.destinationCrud ?? null,
+        destinationContract: destinationChangeResponse?.destinationContract ?? null,
+        destinationHealth: destinationChangeResponse?.destinationHealth ?? null,
         destinationTest: destination
             ? buildDwmWebhookDestinationTestContract({
                 destination,
@@ -493,8 +493,8 @@ export async function postDwmWebhookDestinationTest(req: FastifyRequest<{ Params
                 canManage: true,
             })
             : null,
-        customerSetup: destination
-            ? destinationChangeResponse!.customerSetup
+        customerSetup: destinationChangeResponse
+            ? destinationChangeResponse.customerSetup
             : buildDwmWebhookCustomerSetupProof({
                 destinations,
                 deliveries,
@@ -502,10 +502,10 @@ export async function postDwmWebhookDestinationTest(req: FastifyRequest<{ Params
                 viewerRole: 'admin',
                 canManage: true,
             }),
-        destinationLifecycle: destination ? destinationChangeResponse!.destinationLifecycle : null,
-        destinationAdminProof: destination ? destinationChangeResponse!.destinationAdminProof : null,
-        auditEventContracts: destination
-            ? destinationChangeResponse!.auditEventContracts
+        destinationLifecycle: destinationChangeResponse?.destinationLifecycle ?? null,
+        destinationAdminProof: destinationChangeResponse?.destinationAdminProof ?? null,
+        auditEventContracts: destinationChangeResponse
+            ? destinationChangeResponse.auditEventContracts
             : buildDwmWebhookAuditEventContracts({ auditEvents, deliveries, destinations }),
     }
     const outcome = destinationTestResponseOutcome(delivery)
