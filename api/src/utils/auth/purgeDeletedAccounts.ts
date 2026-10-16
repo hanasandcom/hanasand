@@ -239,8 +239,8 @@ async function scrubUserAuditEvents(query: typeof run, account: DueAccount) {
            OR context->>'actorId' = $1
            OR context->>'actor_id' = $1
            OR jsonb_path_exists(context, '$.** ? (@ == $user_id)'::jsonpath, jsonb_build_object('user_id', to_jsonb($1::text)))
-           OR ($2::text IS NOT NULL AND jsonb_path_exists(context, '$.**.keyvalue() ? (@.key like_regex "^(target|actor|user|account)[_-]?(name)$" flag "i" && @.value == $identity)'::jsonpath, jsonb_build_object('identity', to_jsonb($2::text))))
-           OR ($3::text IS NOT NULL AND jsonb_path_exists(context, '$.**.keyvalue() ? (@.key like_regex "^(target|actor|user|account)[_-]?(email)$" flag "i" && @.value == $identity)'::jsonpath, jsonb_build_object('identity', to_jsonb($3::text))))
+           OR ($2::text IS NOT NULL AND jsonb_path_exists(context, '$.** ? (@.type() == "object").keyvalue() ? (@.key like_regex "^(target|actor|user|account)[_-]?(name)$" flag "i" && @.value == $identity)'::jsonpath, jsonb_build_object('identity', to_jsonb($2::text))))
+           OR ($3::text IS NOT NULL AND jsonb_path_exists(context, '$.** ? (@.type() == "object").keyvalue() ? (@.key like_regex "^(target|actor|user|account)[_-]?(email)$" flag "i" && @.value == $identity)'::jsonpath, jsonb_build_object('identity', to_jsonb($3::text))))
         ORDER BY id
     `, [account.id, account.name || null, account.email || null])
     const identities = [account.id, account.name, account.email].filter((value): value is string => Boolean(value))

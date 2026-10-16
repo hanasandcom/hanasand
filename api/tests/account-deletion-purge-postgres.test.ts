@@ -109,7 +109,9 @@ test.skipIf(!port)('purges only due accounts and retries provider failures', asy
                 (3,'account_notice',NULL,NULL,NULL,'legacy-email-request','192.0.2.13','legacy email browser',
                 '{"userEmail":"due@example.test","reason":"email only"}'),
                 (4,'unrelated_event',NULL,NULL,NULL,'free-text-request','192.0.2.14','unrelated browser',
-                '{"reason":"Due User"}');`)
+                '{"reason":"Due User"}'),
+                (5,'nested_account_notice',NULL,NULL,NULL,'nested-request','192.0.2.15','nested browser',
+                '{"metadata":[{"account_name":"Due User","note":"Due User"}]}');`)
 
     failMailDeletion = true
     await expect(purgeDeletedAccounts()).rejects.toThrow('1 due account deletion cleanup(s) failed')
@@ -144,6 +146,9 @@ test.skipIf(!port)('purges only due accounts and retries provider failures', asy
     })
     expect((await query('SELECT request_id,ip,user_agent,context FROM system_events WHERE id=4')).rows[0]).toMatchObject({
         request_id: 'free-text-request', ip: '192.0.2.14', user_agent: 'unrelated browser', context: { reason: 'Due User' },
+    })
+    expect((await query('SELECT request_id,ip,user_agent,context FROM system_events WHERE id=5')).rows[0]).toEqual({
+        request_id: '', ip: '', user_agent: '', context: { metadata: [{ note: '[deleted user]' }] },
     })
     expect((await query('SELECT user_id FROM account_deletion_purge_attempts')).rows).toHaveLength(0)
     expect(revokedUsers).toHaveLength(26)
