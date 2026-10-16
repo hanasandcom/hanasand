@@ -7,7 +7,7 @@ contracts match, and maintainable tests while preserving existing product
 behavior and features. Reduce duplicated and ineffective code; keep measuring
 source, tests, generated output, and configuration separately against the
 recorded baseline. The API source reduction target remains at least 100,000 lines without
-feature loss. The frontend is also in scope: reduce its current 155,092
+feature loss. The frontend is also in scope: reduce its current 155,329
 hand-maintained lines to no more than 30,000, aiming for 10,000–30,000 where
 that preserves clear ownership and complete functionality. Keep rendered UI,
 interactions, accessibility behavior, and page data contracts stable. Prefer
@@ -623,3 +623,15 @@ The repository scan is 3,754 files / 323,193 LOC / 123 over 200, all outside
 the frontend. These checks improve reuse and behavioral coverage, but do not
 materially reduce aggregate frontend LOC; the 10,000–30,000-line target and
 repository-wide cap remain unmet.
+
+After the shared Git workspace-operation lifecycle and source-readiness test
+checkpoint, the frontend cap scan passes at 2,314 hand-maintained files /
+155,329 LOC / zero over 200. The full frontend test runner, non-incremental
+typecheck, scoped ESLint, and Next production build pass; Next generated all
+116 static pages. The workspace operations preserve their existing signed-in
+guards, request IDs, state transitions, status text, sync timestamps, and
+fallback errors, now covered across all four operations. The dedicated test is
+exactly 200 lines. The repository scanner reports 3,755 hand-maintained files
+/ 323,430 LOC / 123 over 200, all outside the frontend. This checkpoint improves
+operation reuse and regression coverage but is not net frontend LOC reduction;
+the 10,000–30,000-line target and repository-wide cap remain unmet.
