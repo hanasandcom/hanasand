@@ -13,6 +13,15 @@ function accessRecoveryApprovalFixture(requestId: string) {
     }
 }
 
+function supportRecoveryInviteFixture(overrides: Record<string, unknown> = {}) {
+    return {
+        id: 'recovery-invite-1', organization_id: 'org-1', email: 'owner@example.test', role: 'admin',
+        status: 'pending', expires_at: '2026-11-01T00:00:00.000Z', accepted_at: null, accepted_by: null,
+        revoked_at: null, invited_by: 'support-admin', created_at: '2026-10-16T00:00:00.000Z',
+        ...overrides,
+    }
+}
+
 mock.module('../src/utils/db.ts', () => ({ default: run, queryOnce: run, identityQueryOnce: run, withTransaction: async (work: (query: typeof run) => Promise<unknown>) => work(run), closeDatabase: async () => {} }))
 const systemEventUtils = await import('../src/utils/systemEvent.ts')
 const identityDataWrites = await import('../src/utils/db/identityDataWrites.ts')
@@ -993,16 +1002,10 @@ test('expired support session revoke uses the lifecycle status and records a den
 
 test('approval-required access recovery holds its invite through the shared revoke contract', async () => {
     state.supportOrganization = activeSupportOrganizationFixture()
-    state.supportRecoveryInviteUpsert = {
-        id: 'recovery-invite-1', organization_id: 'org-1', email: 'owner@example.test', role: 'admin',
-        status: 'pending', expires_at: '2026-11-01T00:00:00.000Z', accepted_at: null, accepted_by: null,
-        revoked_at: null, invited_by: 'support-admin', created_at: '2026-10-16T00:00:00.000Z',
-    }
-    state.supportRecoveryInviteResult = {
-        id: 'recovery-invite-1', organization_id: 'org-1', email: 'owner@example.test', role: 'admin',
-        status: 'revoked', expires_at: '2026-11-01T00:00:00.000Z', accepted_at: null, accepted_by: null,
-        revoked_at: '2026-10-16T00:00:00.000Z', invited_by: 'support-admin', created_at: '2026-10-16T00:00:00.000Z',
-    }
+    state.supportRecoveryInviteUpsert = supportRecoveryInviteFixture()
+    state.supportRecoveryInviteResult = supportRecoveryInviteFixture({
+        status: 'revoked', revoked_at: '2026-10-16T00:00:00.000Z',
+    })
 
     const result = await request(postSupportAccessRecovery, {
         params: { id: 'org-1' },
@@ -1033,11 +1036,7 @@ test('approval-required access recovery holds its invite through the shared revo
 
 test('access recovery records a failed audit if an invite is accepted before it can be held', async () => {
     state.supportOrganization = activeSupportOrganizationFixture()
-    state.supportRecoveryInviteUpsert = {
-        id: 'recovery-invite-1', organization_id: 'org-1', email: 'owner@example.test', role: 'admin',
-        status: 'pending', expires_at: '2026-11-01T00:00:00.000Z', accepted_at: null, accepted_by: null,
-        revoked_at: null, invited_by: 'support-admin', created_at: '2026-10-16T00:00:00.000Z',
-    }
+    state.supportRecoveryInviteUpsert = supportRecoveryInviteFixture()
     state.supportRecoveryInviteResult = null
     state.supportRecoveryInviteStatus = 'accepted'
 
@@ -1159,11 +1158,10 @@ test('access recovery approval rejects an expired invite without changing its pe
 
 test('support invite action success keeps updated invite evidence in executor and receipt', async () => {
     state.supportOrganization = activeSupportOrganizationFixture()
-    state.supportRecoveryInviteResult = {
-        id: 'invite-1', organization_id: 'org-1', email: 'member@example.com', role: 'reader',
-        status: 'pending', expires_at: '2026-12-01T00:00:00.000Z', accepted_at: null, accepted_by: null,
-        revoked_at: null, invited_by: 'owner-1', created_at: '2026-10-01T00:00:00.000Z',
-    }
+    state.supportRecoveryInviteResult = supportRecoveryInviteFixture({
+        id: 'invite-1', email: 'member@example.com', role: 'reader', expires_at: '2026-12-01T00:00:00.000Z',
+        invited_by: 'owner-1', created_at: '2026-10-01T00:00:00.000Z',
+    })
 
     const result = await request(postSupportOrganizationInviteAction, {
         params: { id: 'org-1', inviteId: 'invite-1' },
@@ -1254,11 +1252,9 @@ test('invite assistance idempotency replay remains organization-scoped', async (
 
 test('support invite assistance passes the normalized invite to the writer and returns its audited receipt', async () => {
     state.supportOrganization = activeSupportOrganizationFixture()
-    state.supportRecoveryInviteUpsert = {
-        id: 'assist-invite-1', organization_id: 'org-1', email: 'member@example.com', role: 'reader',
-        status: 'pending', expires_at: '2026-11-01T00:00:00.000Z', accepted_at: null, accepted_by: null,
-        revoked_at: null, invited_by: 'support-admin', created_at: '2026-10-16T00:00:00.000Z',
-    }
+    state.supportRecoveryInviteUpsert = supportRecoveryInviteFixture({
+        id: 'assist-invite-1', email: 'member@example.com', role: 'reader',
+    })
 
     const result = await request(postSupportOrganizationInvite, {
         params: { id: 'org-1' },
