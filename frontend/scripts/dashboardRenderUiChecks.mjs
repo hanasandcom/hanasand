@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readDashboardRenderSource } from './dashboardRenderSource.mjs'
 import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
@@ -18,7 +19,7 @@ export function runUiChecks(readinessRows) {
         read('../src/app/dashboard/productReadinessSourceRows.ts'),
     ].join('\n')
     const page = read('../src/app/dashboard/page.tsx')
-    const renderDom = read('./check-dashboard-render-dom.mjs')
+    const renderDom = readDashboardRenderSource()
     const progress = read('../src/utils/productProgress/readiness.ts')
 
     const repoRoot = fileURLToPath(new URL('..', import.meta.url))

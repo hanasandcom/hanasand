@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readDashboardRenderSource } from './dashboardRenderSource.mjs'
 import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
@@ -26,7 +27,7 @@ export function runReadinessChecks() {
         read('../src/app/dashboard/productReadinessSourceRows.ts'),
     ]
     const readinessTestSource = read('../tests/product-progress-readiness-rows.test.ts')
-    const renderDomSource = read('./check-dashboard-render-dom.mjs')
+    const renderDomSource = readDashboardRenderSource()
     for (const id of Object.keys(readinessRows)) {
         assert.ok(rowSources.some(source => source.includes(`'${id}'`)), `Missing model row id ${id}`)
         assert.ok(readinessTestSource.includes(`'${id}'`), `Missing runtime readiness assertion for row ${id}`)
