@@ -145,6 +145,33 @@ async function auditDeniedImpersonationStart(req: FastifyRequest, input: {
     return { requestId, eventIds, message: input.message }
 }
 
+async function denyImpersonationStart(req: FastifyRequest, res: FastifyReply, input: Parameters<typeof auditDeniedImpersonationStart>[1] & {
+    status: number
+    includeSupportSessionId?: boolean
+}) {
+    const auditTrail = await auditDeniedImpersonationStart(req, input)
+    return res.status(input.status).send(impersonationError(input.blocker, auditTrail.message, {
+        requestId: auditTrail.requestId,
+        auditEventIds: auditTrail.eventIds,
+        ...(input.includeSupportSessionId ? { supportSessionId: input.supportSessionId || null } : {}),
+        guardrailReceipt: supportImpersonationGuardrailReceipt({
+            actorId: input.actorId,
+            targetId: input.targetId,
+            organizationId: input.organizationId,
+            supportSessionId: input.supportSessionId,
+            requestId: auditTrail.requestId,
+            reason: input.reason,
+            scope: input.scope,
+            durationMinutes: input.durationMinutes,
+            expiresAt: input.expiresAt,
+            outcome: 'denied',
+            blocker: input.blocker,
+            message: auditTrail.message,
+            auditEventIds: auditTrail.eventIds,
+        }),
+    }))
+}
+
 async function validateSupportSessionForImpersonation(input: {
     actorId: string
     targetUserId: string
@@ -235,7 +262,7 @@ export async function startImpersonation(req: FastifyRequest, res: FastifyReply)
         durationMinutes = normalizeDurationMinutes(body?.duration_minutes ?? body?.durationMinutes)
         scope = normalizeImpersonationScope(body?.scope)
     } catch (error) {
-        const auditTrail = await auditDeniedImpersonationStart(req, {
+        return denyImpersonationStart(req, res, {
             actorId: actor.id,
             targetId: target.id,
             organizationId,
@@ -246,26 +273,8 @@ export async function startImpersonation(req: FastifyRequest, res: FastifyReply)
             scope: [],
             durationMinutes: null,
             expiresAt: null,
+            status: 400,
         })
-        return res.status(400).send(impersonationError('invalid_impersonation_request', auditTrail.message, {
-            requestId: auditTrail.requestId,
-            auditEventIds: auditTrail.eventIds,
-            guardrailReceipt: supportImpersonationGuardrailReceipt({
-                actorId: actor.id,
-                targetId: target.id,
-                organizationId,
-                supportSessionId,
-                requestId: auditTrail.requestId,
-                reason: cleanText(body?.reason),
-                scope: [],
-                durationMinutes: null,
-                expiresAt: null,
-                outcome: 'denied',
-                blocker: 'invalid_impersonation_request',
-                message: auditTrail.message,
-                auditEventIds: auditTrail.eventIds,
-            }),
-        }))
     }
 
     const expiresAt = new Date(Date.now() + durationMinutes * 60 * 1000)
@@ -278,7 +287,7 @@ export async function startImpersonation(req: FastifyRequest, res: FastifyReply)
         expiresAt: expiresAt.toISOString(),
     })
     if (sessionGuard.error) {
-        const auditTrail = await auditDeniedImpersonationStart(req, {
+        return denyImpersonationStart(req, res, {
             actorId: actor.id,
             targetId: target.id,
             organizationId,
@@ -289,27 +298,9 @@ export async function startImpersonation(req: FastifyRequest, res: FastifyReply)
             scope,
             durationMinutes,
             expiresAt: expiresAt.toISOString(),
+            status: sessionGuard.error.status,
+            includeSupportSessionId: true,
         })
-        return res.status(sessionGuard.error.status).send(impersonationError(sessionGuard.error.code, sessionGuard.error.message, {
-            requestId: auditTrail.requestId,
-            auditEventIds: auditTrail.eventIds,
-            supportSessionId: supportSessionId || null,
-            guardrailReceipt: supportImpersonationGuardrailReceipt({
-                actorId: actor.id,
-                targetId: target.id,
-                organizationId,
-                supportSessionId,
-                requestId: auditTrail.requestId,
-                reason,
-                scope,
-                durationMinutes,
-                expiresAt: expiresAt.toISOString(),
-                outcome: 'denied',
-                blocker: sessionGuard.error.code,
-                message: sessionGuard.error.message,
-                auditEventIds: auditTrail.eventIds,
-            }),
-        }))
     }
 
     const rawToken = `${crypto.randomUUID().replaceAll('-', '')}${crypto.randomUUID().replaceAll('-', '')}`
