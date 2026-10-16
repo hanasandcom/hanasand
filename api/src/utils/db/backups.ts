@@ -12,20 +12,6 @@ type IntegritySummary = {
     estimatedRows: number
 }
 
-type BackupMetadata = {
-    schemaVersion: 'hanasand.database_backup.v1'
-    file: string
-    database: string
-    createdAt: string
-    verifiedAt: string
-    checksumSha256: string
-    sizeBytes: number
-    durationMs: number
-    archiveEntries: number
-    sourceIntegrity: IntegritySummary
-    releaseCommit: string | null
-}
-
 type RetentionOutcome = {
     policyDays: number
     examined: number
@@ -56,32 +42,6 @@ export type BackupOperation = {
     retention: RetentionOutcome | null
     error: string | null
     releaseCommit: string | null
-}
-
-type BackupState = {
-    schemaVersion: 'hanasand.database_backup_state.v1'
-    configuration: {
-        enabled: boolean
-        paused: boolean
-        schedule: string
-        timezone: 'UTC'
-        nextRunAt: string | null
-        retentionDays: number
-        storageTarget: string
-        statePath: string
-        scheduleError: string | null
-        updatedAt: string
-    }
-    operations: BackupOperation[]
-}
-
-type BackupCandidate = {
-    file: string
-    path: string
-    mtime: Date
-    sizeBytes: number
-    location: BackupLocation
-    metadata: BackupMetadata | null
 }
 
 export type BackupServiceStatus = {

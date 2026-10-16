@@ -33,7 +33,7 @@ export async function getMonitoringCases(req: FastifyRequest<{ Params: { id?: st
             WHERE ${monitoringCaseReadScope('a', '$1', '$2')}
               AND (a.organization_id IS NOT DISTINCT FROM $3::text)
               AND i.merged_into IS NULL
-              ${activeOnly ? "AND COALESCE(i.status_override, CASE WHEN i.resolved_at IS NULL THEN 'open' ELSE 'resolved' END) IN ('open', 'in_progress', 'escalated')" : ''}`, [includeAll, id, organizationId])
+              ${activeOnly ? 'AND COALESCE(i.status_override, CASE WHEN i.resolved_at IS NULL THEN \'open\' ELSE \'resolved\' END) IN (\'open\', \'in_progress\', \'escalated\')' : ''}`, [includeAll, id, organizationId])
         res.header('Server-Timing', [...(req.caseBoundaryTiming || []), `count;dur=${(performance.now() - started).toFixed(2)}`].join(', '))
         return res.send({ total: Number(result.rows[0]?.total || 0) })
     }

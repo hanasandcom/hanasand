@@ -4,7 +4,7 @@ import run, { withTransaction } from '#db'
 import { modelDiscoveryRuleId, modelHealthRuleId, eligibleModelDiscovery, verifyModelDiscoveryEvidence, type ModelProbeLog } from './analyzeModelDiscovery.ts'
 import { matchesAnalysisPolicy } from './analysisPolicy.ts'
 import { normalizeLogEvent } from './logEvent.ts'
-import { customRetentionAction, loadLogRetentionRules, retentionStoreMatches } from './customRetention.ts'
+import { customRetentionAction, loadLogRetentionRules } from './customRetention.ts'
 
 export async function analyzeModelDiscovery(log: ModelProbeLog, query?: typeof run): Promise<boolean> {
     if (!verifyModelDiscoveryEvidence(log)) return false

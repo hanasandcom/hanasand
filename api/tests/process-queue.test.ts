@@ -15,7 +15,7 @@ test('pending service logs are counted from Events and retain the oldest receipt
     pending = 27
     oldest = '2026-09-19T14:49:32Z'
     expect(await readPendingProcessLogs()).toEqual({ count: 27, has_more: false, oldest_queued_at: oldest })
-    expect(calls[0]).toContain("FROM events WHERE ingestion_id='logs' AND processing_status='pending'")
+    expect(calls[0]).toContain('FROM events WHERE ingestion_id=\'logs\' AND processing_status=\'pending\'')
     expect(calls[0]).not.toContain('service_logs')
     expect(calls[0]).not.toContain('log_process_queue')
 })

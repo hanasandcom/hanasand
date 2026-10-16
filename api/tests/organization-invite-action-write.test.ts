@@ -39,6 +39,6 @@ test('revoke preserves the invite expiry in the atomic update', async () => {
     }, query)
 
     expect(updated).toEqual({ id: 'invite-1', status: 'revoked' })
-    expect(sql).toContain("expires_at = CASE WHEN $3 = 'resend' THEN $4 ELSE expires_at END")
+    expect(sql).toContain('expires_at = CASE WHEN $3 = \'resend\' THEN $4 ELSE expires_at END')
     expect(values).toEqual(['invite-1', 'org-1', 'revoke', null])
 })

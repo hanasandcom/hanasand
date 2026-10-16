@@ -81,8 +81,8 @@ async function analyzeAccountDeleteAccess(event: AccessEvent, query: typeof run,
     const cooldownMs = Number(parameters.alertCooldownMinutes || 10) * 60_000
     const now = Date.now(), time = Date.parse(event.timestamp)
     if (time < now - windowMs || time > now + 5000) return true
-    await query(`INSERT INTO log_access_rule_windows(organization_id,rule_id,ip) VALUES($1,$2,$3) ON CONFLICT DO NOTHING`, [rule.organization_id, accountDeleteRuleId, ip])
-    const state = await query(`SELECT recent,alerted_at FROM log_access_rule_windows WHERE organization_id=$1 AND rule_id=$2 AND ip=$3 FOR UPDATE NOWAIT`, [rule.organization_id, accountDeleteRuleId, ip])
+    await query('INSERT INTO log_access_rule_windows(organization_id,rule_id,ip) VALUES($1,$2,$3) ON CONFLICT DO NOTHING', [rule.organization_id, accountDeleteRuleId, ip])
+    const state = await query('SELECT recent,alerted_at FROM log_access_rule_windows WHERE organization_id=$1 AND rule_id=$2 AND ip=$3 FOR UPDATE NOWAIT', [rule.organization_id, accountDeleteRuleId, ip])
     const recent = [...state.rows[0].recent.map(Number).filter((t: number) => t > now - windowMs), time]
         .sort((a, b) => b - a).slice(0, threshold + 1)
     const burstCount = recent.filter((t: number) => t > now - burstWindowMs).length

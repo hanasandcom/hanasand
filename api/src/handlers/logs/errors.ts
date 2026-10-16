@@ -58,8 +58,8 @@ async function queryErrorEvents(query: ErrorQuery) {
               AND ($2::int IS NULL OR NULLIF(normalized->'metadata'->>'status_code', '')::int = $2)
               AND ($3::text IS NULL OR normalized->'metadata'->>'error_code' = $3)
               AND ($4::text IS NULL OR normalized->>'message' ILIKE '%' || $4 || '%' OR (normalized->'metadata')::text ILIKE '%' || $4 || '%')
-              AND ($5::boolean OR NOT COALESCE(${expectedHttpProbePredicate("normalized->'metadata'")}, FALSE))
-              AND ($5::boolean OR NOT COALESCE(${scannerHttpProbePredicate("normalized->'metadata'")}, FALSE))
+              AND ($5::boolean OR NOT COALESCE(${expectedHttpProbePredicate('normalized->\'metadata\'')}, FALSE))
+              AND ($5::boolean OR NOT COALESCE(${scannerHttpProbePredicate('normalized->\'metadata\'')}, FALSE))
             ORDER BY event_timestamp DESC
             LIMIT $6
         `, [surface, normalizedStatus, code, q, includeExpected, limit]),
@@ -139,7 +139,7 @@ async function queryErrorEvents(query: ErrorQuery) {
                 FROM events
                 WHERE ingestion_id='logs' AND processing_status='processed'
                   AND normalized->'metadata'->>'category' IN ('http_response_error', 'application_error')
-                  AND ($1::boolean OR NOT COALESCE(${expectedHttpProbePredicate("normalized->'metadata'")}, FALSE))
+                  AND ($1::boolean OR NOT COALESCE(${expectedHttpProbePredicate('normalized->\'metadata\'')}, FALSE))
                 UNION ALL
                 SELECT 'auth', CASE
                     WHEN reason = 'bad_password' THEN 401

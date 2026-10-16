@@ -13,7 +13,7 @@ const query = async (sql: string, params: any[] = []): Promise<any> => {
     if (sql.includes('SELECT e.id, e.event_timestamp, e.normalized FROM events')) {
         return { rows: pending.map(row => ({ id: row.id, event_timestamp: row.timestamp, normalized: row.normalized })) }
     }
-    if (sql.includes("processing_status = 'processed'")) return { rows: pending.filter(row => stored[row.id]?.processing_status === 'processed').map(row => ({ id: row.id })) }
+    if (sql.includes('processing_status = \'processed\'')) return { rows: pending.filter(row => stored[row.id]?.processing_status === 'processed').map(row => ({ id: row.id })) }
     if (sql.includes('INSERT INTO events')) {
         if (failInsert) throw new Error('Event storage failed')
         const rows = JSON.parse(params[0])
@@ -52,7 +52,7 @@ test('stored log worker processes pending Events and no longer reads service_log
     await processStoredLogs()
     expect(stored['event-1']?.processing_status).toBe('processed')
     expect(additionalRuns).toBe(1)
-    expect(statements.some(sql => sql.includes("ingestion_id='logs' AND e.processing_status='pending'"))).toBe(true)
+    expect(statements.some(sql => sql.includes('ingestion_id=\'logs\' AND e.processing_status=\'pending\''))).toBe(true)
     expect(statements.some(sql => sql.includes('service_logs') || sql.includes('log_process_queue'))).toBe(false)
 })
 

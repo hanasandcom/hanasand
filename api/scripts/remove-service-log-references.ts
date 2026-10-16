@@ -13,9 +13,9 @@ const deferredPages: number[] = []
 async function processRange(startPage: number, endPage: number, attempt = 0): Promise<void> {
     try {
         const result = await withTransaction(async query => {
-            await query("SET LOCAL lock_timeout = '2s'")
-            await query("SET LOCAL statement_timeout = '300s'")
-            await query("SET LOCAL synchronous_commit = 'off'")
+            await query('SET LOCAL lock_timeout = \'2s\'')
+            await query('SET LOCAL statement_timeout = \'300s\'')
+            await query('SET LOCAL synchronous_commit = \'off\'')
             const result = await query(`UPDATE events
                     SET original=original-'service_log_id'-'references'
                     WHERE ctid >= ('(' || $1::text || ',0)')::tid
@@ -45,7 +45,7 @@ async function processRange(startPage: number, endPage: number, attempt = 0): Pr
 }
 
 try {
-    const { rows: [size] } = await run(`SELECT (pg_relation_size('events') / current_setting('block_size')::int)::bigint AS pages`)
+    const { rows: [size] } = await run('SELECT (pg_relation_size(\'events\') / current_setting(\'block_size\')::int)::bigint AS pages')
     const pageCount = Number(size?.pages || 0)
     if (!Number.isSafeInteger(pageCount) || pageCount < 0) throw new Error(`Invalid events heap page count: ${size?.pages}`)
 

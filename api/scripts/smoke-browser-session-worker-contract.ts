@@ -78,7 +78,7 @@ if (existsSync(composeUrl)) {
     assert.match(compose, /BROWSER_SANDBOX_WORKER_NETWORK:\s*\$\{BROWSER_SANDBOX_WORKER_NETWORK:-hanasand_browsernet\}/, 'ephemeral browser workers should not join the app network by default')
     assert.match(serviceBlock('api'), /BROWSER_SANDBOX_EGRESS_FIREWALL_READY:\s*\$\{BROWSER_SANDBOX_EGRESS_FIREWALL_READY:-0\}/, 'API should receive the browser egress firewall readiness gate from compose env')
     assert.doesNotMatch(serviceBlock('api'), /BROWSER_SANDBOX_WORKER_WS/, 'API should not default to a shared browser worker websocket in production')
-    assert.doesNotMatch(compose, /^  (?:browsers|browser-turn):$/m, 'browser workers and TURN should be owned by their independent Compose files')
+    assert.doesNotMatch(compose, /^ {2}(?:browsers|browser-turn):$/m, 'browser workers and TURN should be owned by their independent Compose files')
     assert.match(stackVerifier, /verify_independent_container hanasand_browsers hanasand-browsers browsers/, 'site release must preserve the browser Compose project')
     assert.match(stackVerifier, /verify_independent_container hanasand_browser_turn hanasand-browser-turn browser-turn/, 'site release must preserve the TURN Compose project')
     assert.match(compose, /BROWSER_SANDBOX_PREWARM:\s*"0"/, 'compose should not prewarm Chromium in the privileged API container')

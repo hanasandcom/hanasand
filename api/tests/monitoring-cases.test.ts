@@ -77,7 +77,7 @@ test('open-case count filters resolved and closed monitoring issues in SQL', asy
     expect(elapsedMs).toBeLessThan(20)
     expect(result.json()).toEqual({ total: 3 })
     expect(values).toEqual([false, 'owner', 'org-1'])
-    expect(sql).toContain("COALESCE(i.status_override, CASE WHEN i.resolved_at IS NULL THEN 'open' ELSE 'resolved' END) IN ('open', 'in_progress', 'escalated')")
+    expect(sql).toContain('COALESCE(i.status_override, CASE WHEN i.resolved_at IS NULL THEN \'open\' ELSE \'resolved\' END) IN (\'open\', \'in_progress\', \'escalated\')')
     expect(sql).not.toContain('SELECT i.*')
 })
 test('cached tuning snapshot reads stay under 20ms and skip the all-time query', async () => {

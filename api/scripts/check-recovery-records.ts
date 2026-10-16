@@ -75,5 +75,8 @@ try {
     ])
     await Promise.all([tiPool.end(), closeDatabase()])
     const failed = cleanup.find((result): result is PromiseRejectedResult => result.status === 'rejected')
-    if (failed) throw failed.reason
+    if (failed) {
+        console.error('Recovery fixture cleanup failed:', failed.reason)
+        process.exitCode = 1
+    }
 }
