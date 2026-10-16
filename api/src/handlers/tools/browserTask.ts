@@ -18,20 +18,9 @@ export default async function browserTaskTool(req: FastifyRequest, res: FastifyR
         captureScreenshot?: boolean
     } ?? {}
 
-    if (!url) {
-        return res.status(400).send({ error: 'Missing url.' })
-    }
-
-    let target: URL
-    try {
-        target = new URL(url)
-    } catch {
-        return res.status(400).send({ error: 'Invalid url.' })
-    }
-
-    if (!['http:', 'https:'].includes(target.protocol)) {
-        return res.status(400).send({ error: 'Only http and https browser tasks are supported.' })
-    }
+    const targetResult = parseBrowserTaskTarget(url)
+    if ('error' in targetResult) return res.status(400).send({ error: targetResult.error })
+    const { target } = targetResult
 
     const policyResponse = await applyAgentActionPolicy(req, res, {
         action: 'browser_task',
@@ -87,4 +76,21 @@ export default async function browserTaskTool(req: FastifyRequest, res: FastifyR
     } finally {
         clearTimeout(timeout)
     }
+}
+
+function parseBrowserTaskTarget(url?: string): { target: URL } | { error: string } {
+    if (!url) return { error: 'Missing url.' }
+
+    let target: URL
+    try {
+        target = new URL(url)
+    } catch {
+        return { error: 'Invalid url.' }
+    }
+
+    if (!['http:', 'https:'].includes(target.protocol)) {
+        return { error: 'Only http and https browser tasks are supported.' }
+    }
+
+    return { target }
 }

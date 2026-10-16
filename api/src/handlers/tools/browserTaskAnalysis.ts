@@ -2,17 +2,24 @@ const MAX_EXCERPT_LENGTH = 5000
 const MAX_STRUCTURE_ITEMS = 20
 
 export function analyzeBrowserPage(html: string, pageUrl: string) {
-    const { title, textExcerpt, structure } = extractBrowserPageContent(html)
-    const quality = inspectPageQuality(html, structure, pageUrl)
+    const { title, textExcerpt, structure, controls } = extractPageContent(html)
+    const quality = inspectPageQuality(html, structure, pageUrl, title, controls)
 
     return { title, textExcerpt, structure, quality }
 }
 
 export function extractBrowserPageContent(html: string) {
+    const { title, textExcerpt, structure } = extractPageContent(html)
+    return { title, textExcerpt, structure }
+}
+
+function extractPageContent(html: string) {
+    const controls = extractControls(html)
     return {
         title: extractTitle(html),
         textExcerpt: extractTextExcerpt(html),
-        structure: extractStructure(html),
+        structure: extractStructure(html, controls),
+        controls,
     }
 }
 
@@ -35,12 +42,12 @@ function extractTextExcerpt(html: string) {
     return text.slice(0, MAX_EXCERPT_LENGTH)
 }
 
-function extractStructure(html: string) {
+function extractStructure(html: string, controls = extractControls(html)) {
     return {
         headings: extractTaggedText(html, /<h[1-3][^>]*>([\s\S]*?)<\/h[1-3]>/gi),
         links: extractLinks(html),
         buttons: extractTaggedText(html, /<button[^>]*>([\s\S]*?)<\/button>/gi),
-        inputs: extractInputs(html),
+        inputs: extractInputs(controls),
         forms: extractFormSummaries(html),
         hasViewportMeta: /<meta\s+[^>]*name=["']viewport["'][^>]*>/i.test(html),
     }
@@ -57,7 +64,13 @@ function emptyStructure() {
     }
 }
 
-function inspectPageQuality(html: string, structure: ReturnType<typeof extractStructure>, pageUrl: string) {
+function inspectPageQuality(
+    html: string,
+    structure: ReturnType<typeof extractStructure>,
+    pageUrl: string,
+    title: string | null,
+    controls: ReturnType<typeof extractControls>,
+) {
     const links = structure.links || []
     const parsedUrl = parseUrl(pageUrl)
     const anchors = new Set([...html.matchAll(/\sid=["']([^"']+)["']/gi)].map((match) => match[1]))
@@ -72,11 +85,6 @@ function inspectPageQuality(html: string, structure: ReturnType<typeof extractSt
         })
         .map((link) => [link.text || '<untitled link>', link.href || '<empty>'].join(' -> '))
         .slice(0, MAX_STRUCTURE_ITEMS)
-    const controls = [...html.matchAll(/<(input|textarea|select)\s+([^>]*?)(?:\/?>|>[\s\S]*?<\/\1>)/gi)]
-        .map((match) => ({
-            tag: match[1],
-            attrs: match[2] || '',
-        }))
     const unlabeledControls = controls
         .filter((control) => !/type=["'](?:hidden|submit|button|checkbox|radio)["']/i.test(control.attrs))
         .filter((control) => {
@@ -95,7 +103,7 @@ function inspectPageQuality(html: string, structure: ReturnType<typeof extractSt
 
     return {
         accessibilityBasics: {
-            hasTitle: Boolean(extractTitle(html)),
+            hasTitle: Boolean(title),
             hasH1: /<h1\b/i.test(html),
             hasViewportMeta: structure.hasViewportMeta,
             unlabeledControls,
@@ -180,27 +188,31 @@ function extractLinks(html: string) {
         .slice(0, MAX_STRUCTURE_ITEMS)
 }
 
-function extractInputs(html: string) {
-    return [...html.matchAll(/<(input|textarea|select)\s+([^>]*?)(?:\/?>|>[\s\S]*?<\/\1>)/gi)]
-        .map((match) => {
-            const attrs = match[2] || ''
+function extractInputs(controls: ReturnType<typeof extractControls>) {
+    return controls
+        .map((control) => {
             return [
-                extractAttribute(attrs, 'aria-label'),
-                extractAttribute(attrs, 'placeholder'),
-                extractAttribute(attrs, 'name'),
-                extractAttribute(attrs, 'id'),
-                extractAttribute(attrs, 'type'),
+                extractAttribute(control.attrs, 'aria-label'),
+                extractAttribute(control.attrs, 'placeholder'),
+                extractAttribute(control.attrs, 'name'),
+                extractAttribute(control.attrs, 'id'),
+                extractAttribute(control.attrs, 'type'),
             ].filter(Boolean).join(' / ')
         })
         .filter(Boolean)
         .slice(0, MAX_STRUCTURE_ITEMS)
 }
 
+function extractControls(html: string) {
+    return [...html.matchAll(/<(input|textarea|select)\s+([^>]*?)(?:\/?>|>[\s\S]*?<\/\1>)/gi)]
+        .map((match) => ({ tag: match[1] || '', attrs: match[2] || '' }))
+}
+
 function extractFormSummaries(html: string) {
     return [...html.matchAll(/<form\b[^>]*>([\s\S]*?)<\/form>/gi)]
         .map((match) => {
             const body = match[1] || ''
-            const inputs = extractInputs(body).slice(0, 8)
+            const inputs = extractInputs(extractControls(body)).slice(0, 8)
             const buttons = extractTaggedText(body, /<button[^>]*>([\s\S]*?)<\/button>/gi).slice(0, 4)
             return [...inputs, ...buttons].join(' | ')
         })

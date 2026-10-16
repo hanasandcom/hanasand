@@ -91,6 +91,17 @@ test('browser task analysis reports missing labels, alt text, and broken links',
     })
 })
 
+test('browser task analysis summarizes controls without exposing their values', () => {
+    const result = analyzeBrowserPage(
+        '<form><label for="email">Email</label><input id="email" name="email" value="private-value"></form>',
+        'https://example.com/',
+    )
+
+    expect(result.structure.inputs).toEqual(['email / email'])
+    expect(result.structure.forms).toEqual(['email / email'])
+    expect(JSON.stringify(result)).not.toContain('private-value')
+})
+
 test('empty analysis returns the failure response shape', () => {
     expect(emptyBrowserPageAnalysis()).toMatchObject({
         title: null,
