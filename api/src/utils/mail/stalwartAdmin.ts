@@ -225,7 +225,7 @@ async function adminFetch(path: string, init: RequestInit = {}) {
     const config = requireMailAdminConfig()
     const headers = new Headers(init.headers)
     headers.set('Accept', 'application/json')
-    headers.set('Authorization', `Basic ${Buffer.from(`${config.adminUser}:${config.adminPassword}`).toString('base64')}`)
+    headers.set('Authorization', basicAuthorizationHeader(config))
 
     const response = await fetch(new URL(path, ensureTrailingSlash(mailConfig.internalUrl)), {
         ...init,
@@ -346,7 +346,7 @@ async function jmapAdminCall<T = unknown>(methodName: string, args: Record<strin
                 method: 'POST',
                 headers: {
                     Accept: 'application/json',
-                    Authorization: `Basic ${Buffer.from(`${config.adminUser}:${config.adminPassword}`).toString('base64')}`,
+                    Authorization: basicAuthorizationHeader(config),
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify(payload),
@@ -394,7 +394,7 @@ async function adminJmapEndpoints() {
         const response = await fetch(new URL('/jmap/session', ensureTrailingSlash(mailConfig.internalUrl)), {
             headers: {
                 Accept: 'application/json',
-                Authorization: `Basic ${Buffer.from(`${config.adminUser}:${config.adminPassword}`).toString('base64')}`,
+                Authorization: basicAuthorizationHeader(config),
             },
             signal: AbortSignal.timeout(ADMIN_TIMEOUT_MS),
         })
@@ -409,6 +409,10 @@ async function adminJmapEndpoints() {
     }
 
     return [...new Set(endpoints)]
+}
+
+function basicAuthorizationHeader(config: ReturnType<typeof requireMailAdminConfig>) {
+    return `Basic ${Buffer.from(`${config.adminUser}:${config.adminPassword}`).toString('base64')}`
 }
 
 function toInternalUrl(value: string) {

@@ -98,6 +98,8 @@ test('a missing principal route falls back to JMAP and the session API path stay
     expect(requests.filter(request => request.url.pathname === '/custom/jmap')).toHaveLength(2)
     expect(requests.filter(request => request.url.pathname === '/api').map(request => new URL(request.url).host)).toEqual(['mail.test:8081', 'mail.test:8081'])
     expect(requests.filter(request => request.url.pathname === '/custom/jmap').every(request => request.url.host === 'mail.test:8081')).toBe(true)
+    const expectedAuthorization = `Basic ${Buffer.from('test-admin:test-admin-password').toString('base64')}`
+    expect(requests.every(request => new Headers(request.init?.headers).get('Authorization') === expectedAuthorization)).toBe(true)
 })
 
 function restoreEnvironment(name: string, value: string | undefined) {
