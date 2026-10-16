@@ -2,13 +2,14 @@ import { expect, test } from 'bun:test'
 import {
     buildDwmWebhookDeliveryAuditTrail,
     buildDwmWebhookDeliveryReadinessConsumerProof,
-    buildDwmWebhookDeliveryReplayGuard,
     buildDwmWebhookDeliveryReceipts,
+    buildDwmWebhookDeliveryReplayGuard,
     buildDwmWebhookDeliveryRetryQueue,
     buildDwmWebhookCustomerSetupProof,
     buildDwmWebhookDestinationAdminProof,
     buildDwmWebhookDestinationDeliveryMatrix,
 } from '../src/utils/dwm/webhooks.ts'
+import { priorAttempt } from './fixtures/dwm-webhook-delivery-attempt.ts'
 
 function deliveryAccess(visibility: { role: 'reader' | 'admin', status: 'active', userActive: true, alertVisibilityPolicy: 'admins' | 'members' }, viewerRole: string, canManage: boolean) {
     const input = {
@@ -108,4 +109,28 @@ test('destination and audit views preserve their permission-specific access fiel
     expect(buildDwmWebhookDeliveryReplayGuard(deniedInput).access).toEqual({
         role: 'admin', canRead: false, canManage: false, canReplay: false, memberSafe: false,
     })
+})
+
+test('delivery receipts keep shared alert, watchlist, and provenance context aligned', () => {
+    const [receipt] = buildDwmWebhookDeliveryReceipts({
+        deliveries: [priorAttempt],
+    }).receipts
+    const transition = receipt!.transitionReceipt
+    const caseAction = transition.caseActionDryRunReceipt
+    const sourceHandoff = caseAction.sourceHandoffReadinessConsumer
+
+    expect(transition.org).toEqual({ id: 'org_contract' })
+    expect(transition.alert).toEqual({
+        id: 'alert_replay_contract',
+        title: 'Acme credential dump detected',
+        severity: '',
+        sourceFamily: '',
+        evidenceCount: 0,
+    })
+    expect(caseAction.alert).toEqual(transition.alert)
+    expect(sourceHandoff.alert).toMatchObject(transition.alert)
+    expect(transition.watchlist).toEqual({ id: 'watchlist_item_replay_contract', term: 'Replay contract watchlist', name: 'Replay contract watchlist' })
+    expect(caseAction.watchlist).toEqual(transition.watchlist)
+    expect(sourceHandoff.watchlist).toEqual(transition.watchlist)
+    expect(caseAction.provenance).toEqual(transition.provenance)
 })

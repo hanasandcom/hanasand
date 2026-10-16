@@ -7486,6 +7486,28 @@ function deliveryProvenanceIds(value: unknown) {
     }
 }
 
+function deliveryReceiptContext(entry: ReturnType<typeof buildDwmWebhookDeliveryHistory>['entries'][number]) {
+    return {
+        org: { id: entry.orgId },
+        alert: {
+            id: entry.alert.id,
+            title: entry.alert.title,
+            severity: entry.alert.severity,
+            sourceFamily: entry.alert.sourceFamily,
+            evidenceCount: entry.alert.evidenceCount,
+        },
+        watchlist: {
+            id: entry.watchlist.id,
+            term: entry.watchlist.terms[0] || entry.watchlist.name || null,
+            name: entry.watchlist.name,
+        },
+        provenance: {
+            ...entry.alert.provenanceIds,
+            summary: entry.alert.provenanceSummary || null,
+        },
+    }
+}
+
 function buildDwmWebhookDeliveryTransitionReceipt({
     entry,
     retryKey,
@@ -7499,6 +7521,7 @@ function buildDwmWebhookDeliveryTransitionReceipt({
     access: { canRetry: boolean }
     liveDeliveryEnabled: boolean
 }) {
+    const receiptContext = deliveryReceiptContext(entry)
     const uniqueBlockers = uniqueWebhookBlockers(blockers)
     const blockingCodes = uniqueBlockers.filter(blocker => blocker.blocking).map(blocker => blocker.code)
     const canDryRunRetry = access.canRetry && entry.retry.retryable && blockingCodes.length === 0
@@ -7563,9 +7586,7 @@ function buildDwmWebhookDeliveryTransitionReceipt({
 
     return {
         schemaVersion: 'dwm.webhook.delivery_transition_receipt.v1',
-        org: {
-            id: entry.orgId,
-        },
+        org: receiptContext.org,
         destinationId: entry.destinationId,
         redactedTarget: {
             label: entry.destination.label,
@@ -7574,27 +7595,14 @@ function buildDwmWebhookDeliveryTransitionReceipt({
             endpointHash: entry.destination.redactedEndpoint.endpointHash,
             endpointExposed: false,
         },
-        alert: {
-            id: entry.alert.id,
-            title: entry.alert.title,
-            severity: entry.alert.severity,
-            sourceFamily: entry.alert.sourceFamily,
-            evidenceCount: entry.alert.evidenceCount,
-        },
+        alert: receiptContext.alert,
         case: {
             id: entry.alert.caseId,
             path: entry.alert.casePath,
             alertUrl: entry.alert.alertUrl,
         },
-        watchlist: {
-            id: entry.watchlist.id,
-            term: entry.watchlist.terms[0] || entry.watchlist.name || null,
-            name: entry.watchlist.name,
-        },
-        provenance: {
-            ...entry.alert.provenanceIds,
-            summary: entry.alert.provenanceSummary || null,
-        },
+        watchlist: receiptContext.watchlist,
+        provenance: receiptContext.provenance,
         workflow: {
             eventType: entry.eventType,
             status: entry.replay ? 'replayed' : entry.eventType.replace('dwm.alert.', ''),
@@ -7678,6 +7686,7 @@ function buildDwmWebhookCaseActionDryRunReceipt({
     canDryRunRetry: boolean
     liveDeliveryEnabled: boolean
 }) {
+    const receiptContext = deliveryReceiptContext(entry)
     const blockingCodes = blockers.filter(blocker => blocker.blocking).map(blocker => blocker.code)
     const body = canDryRunRetry
         ? {
@@ -7705,9 +7714,7 @@ function buildDwmWebhookCaseActionDryRunReceipt({
         externalSendEnabled: false,
         liveDeliveryEnabled,
         ready: canDryRunRetry,
-        org: {
-            id: entry.orgId,
-        },
+        org: receiptContext.org,
         destination: {
             id: entry.destinationId,
             label: entry.destination.label,
@@ -7716,28 +7723,15 @@ function buildDwmWebhookCaseActionDryRunReceipt({
             endpointHash: entry.destination.redactedEndpoint.endpointHash,
             endpointExposed: false,
         },
-        alert: {
-            id: entry.alert.id,
-            title: entry.alert.title,
-            severity: entry.alert.severity,
-            sourceFamily: entry.alert.sourceFamily,
-            evidenceCount: entry.alert.evidenceCount,
-        },
+        alert: receiptContext.alert,
         case: {
             id: caseId,
             path: casePath,
             alertUrl: entry.alert.alertUrl,
             routeUrl: entry.alert.alertUrl || casePath || entry.route || null,
         },
-        watchlist: {
-            id: entry.watchlist.id,
-            term: entry.watchlist.terms[0] || entry.watchlist.name || null,
-            name: entry.watchlist.name,
-        },
-        provenance: {
-            ...entry.alert.provenanceIds,
-            summary: entry.alert.provenanceSummary || null,
-        },
+        watchlist: receiptContext.watchlist,
+        provenance: receiptContext.provenance,
         workflow: {
             eventType: entry.eventType,
             status: entry.replay ? 'replayed' : entry.eventType.replace('dwm.alert.', ''),
@@ -7952,6 +7946,7 @@ function buildDwmWebhookAlertSourceHandoffReadinessConsumer({
     dedupeKey: string | null
     routeUrl: string | null
 }) {
+    const receiptContext = deliveryReceiptContext(entry)
     const captureIds = entry.alert.provenanceIds.captureIds || []
     const sourceIds = entry.alert.provenanceIds.sourceIds || []
     const sourceReady = Boolean(entry.alert.sourceFamily && entry.alert.evidenceCount > 0 && captureIds.length > 0 && sourceIds.length > 0)
@@ -7986,9 +7981,7 @@ function buildDwmWebhookAlertSourceHandoffReadinessConsumer({
                 noNetwork: true,
             },
         },
-        org: {
-            id: entry.orgId,
-        },
+        org: receiptContext.org,
         destination: {
             id: entry.destinationId,
             label: entry.destination.label,
@@ -7997,11 +7990,7 @@ function buildDwmWebhookAlertSourceHandoffReadinessConsumer({
             endpointExposed: false,
         },
         alert: {
-            id: entry.alert.id,
-            title: entry.alert.title,
-            severity: entry.alert.severity,
-            sourceFamily: entry.alert.sourceFamily,
-            evidenceCount: entry.alert.evidenceCount,
+            ...receiptContext.alert,
             selectedCaptureIds: captureIds,
             provenanceCaptureIds: captureIds,
             provenanceSourceIds: sourceIds,
@@ -8012,11 +8001,7 @@ function buildDwmWebhookAlertSourceHandoffReadinessConsumer({
             path: entry.alert.casePath || null,
             routeUrl,
         },
-        watchlist: {
-            id: entry.watchlist.id,
-            term: entry.watchlist.terms[0] || entry.watchlist.name || null,
-            name: entry.watchlist.name,
-        },
+        watchlist: receiptContext.watchlist,
         webhookConsumer: {
             ready: deliveryReady,
             deliveryReady,
