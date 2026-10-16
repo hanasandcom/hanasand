@@ -616,6 +616,58 @@ test('organization and user inspections keep shared fields and target-specific c
     expect(user).not.toHaveProperty('organization')
 })
 
+test('organization and user activity rollups share the filtered audit summary', async () => {
+    state.supportOrganization = activeSupportOrganizationFixture()
+    state.supportUser = {
+        id: 'user-1', name: 'User One', avatar: null, active: true, reserved: false,
+        deactivated_at: null, deactivated_by: null, deletion_requested_at: null, deletion_scheduled_at: null,
+    }
+    const event = (id: number | string, event_type: string, request_id: string | null, outcome: string, context: Record<string, unknown> = {}) => ({
+        id, event_type, severity: 'notice', source: 'admin', service: 'hanasand-api', actor_id: 'support-admin',
+        object_type: 'organization', object_id: 'org-1', organization_id: 'org-1', subject_id: `entity-${id}`,
+        request_id, outcome, reason: 'Support audit reason', context, created_at: '2026-10-16T00:00:00.000Z',
+    })
+    state.eventRows = [
+        event(71, 'support.organization.invite_assist', 'rollup-request-1', 'denied', {
+            scope: ['invite:create'], expiresAt: '2026-11-01T00:00:00.000Z',
+            blockerCode: 'invite_guard', blocker: 'manual_block',
+        }),
+        event(72, 'support.session.inspect', 'rollup-request-2', 'success'),
+        event('not-numeric', 'support.session.inspect', 'rollup-request-2', 'success'),
+        event(73, 'organization.member.role_updated', 'other-request', 'denied'),
+    ]
+
+    const organizationResponse = await request(getSupportOrganization, { params: { id: 'org-1' } })
+    const userResponse = await request(getSupportUser, { params: { id: 'user-1' } })
+    expect(organizationResponse.statusCode).toBe(200)
+    expect(userResponse.statusCode).toBe(200)
+    const organizationRollup = organizationResponse.body.supportActivityRollup
+    const userRollup = userResponse.body.supportActivityRollup
+    const sharedSummary = (rollup: Record<string, any>) => ({
+        eventCount: rollup.eventCount,
+        eventIds: rollup.eventIds,
+        blockerCodes: rollup.blockerCodes,
+        outcomes: rollup.outcomes,
+        requestIds: rollup.requestIds,
+    })
+    expect(sharedSummary(organizationRollup)).toEqual({
+        eventCount: 3,
+        eventIds: [71, 72],
+        blockerCodes: ['redaction_required', 'invite_guard', 'manual_block'],
+        outcomes: ['denied', 'success'],
+        requestIds: ['rollup-request-1', 'rollup-request-2'],
+    })
+    expect(sharedSummary(userRollup)).toEqual(sharedSummary(organizationRollup))
+    expect(organizationRollup.actionCounts).toEqual({
+        inviteAssistance: 1, accessRecovery: 0, memberRoleRecovery: 0, impersonation: 0, supportSessions: 2,
+    })
+    expect(userRollup.actionCounts).toEqual({
+        inspections: 2, inviteAssistance: 1, accessRecovery: 0, memberRoleRecovery: 0, impersonation: 0,
+    })
+    expect(organizationRollup.severities).toEqual(['notice'])
+    expect(userRollup).not.toHaveProperty('severities')
+})
+
 test('support invite inspection retains its organization-scoped audit and response contract', async () => {
     state.supportOrganization = activeSupportOrganizationFixture()
     state.supportInspectionInvite = supportInviteInspectionFixture()
@@ -1082,12 +1134,21 @@ test('support invite action success keeps updated invite evidence in executor an
 
     expect(result.statusCode).toBe(200)
     expect(result.body.inviteAction.controlledExecutor).toMatchObject({
+        schemaVersion: 'support.action_execute.invite_action.v1',
         action: 'resend', actionType: 'support.organization.invite_resend', requestId: 'invite-resend-1',
         target: { organizationId: 'org-1', inviteId: 'invite-1', email: 'member@example.com' },
         before: { status: 'pending', expiresAt: '2026-11-01T00:00:00.000Z' },
         after: { status: 'pending', expiresAt: '2026-12-01T00:00:00.000Z' }, outcome: 'success',
         supportRoleRequired: true, reasonRequired: true, contextRequired: true, scopeRequired: true,
         expiryRequired: true, noSilentMembershipMutation: true,
+    })
+    expect(result.body.inviteAction.controlledExecutor.redactedAuditPreview).toEqual({
+        schemaVersion: 'support.action_execute.audit_preview.v1',
+        actionType: 'support.organization.invite_resend',
+        source: 'admin', service: 'hanasand-api',
+        requestId: 'invite-resend-1', correlationId: 'invite-resend-1', idempotencyKey: 'invite-resend-1',
+        supportSessionId: '[redacted]', organizationId: 'org-1', inviteId: 'invite-1', email: 'member@example.com',
+        reason: 'Restore access', scope: ['invite:resend'], outcome: 'success', blockerCode: null, redactionRequired: true,
     })
     expect(result.body.inviteAction.executionReceipt).toMatchObject({
         actorId: 'support-admin', organizationId: 'org-1', requestId: 'invite-resend-1',
@@ -1103,7 +1164,10 @@ test('support invite action replay uses the original request id without writing 
 
     const result = await request(postSupportOrganizationInviteAction, {
         params: { id: 'org-1', inviteId: 'invite-1' },
-        body: { action: 'resend', reason: 'Restore access', scope: 'invite:resend', requestId: 'replay-request' },
+        body: {
+            action: 'resend', reason: 'Restore access', scope: 'invite:resend',
+            requestId: 'replay-request', idempotencyKey: 'invite-action-replay-key',
+        },
     })
 
     expect(result.statusCode).toBe(200)
@@ -1116,6 +1180,35 @@ test('support invite action replay uses the original request id without writing 
         blockers: ['duplicate_idempotency_key'],
     })
     expect(state.inviteActionWrites).toBe(0)
+    const replayQuery = state.queries.find(({ sql }) => sql.includes('context->>\'idempotencyKey\' = $4'))
+    expect(replayQuery?.sql).toContain('subject_id = $3')
+    expect(replayQuery?.values).toEqual([
+        'support.organization.invite_resend', 'org-1', 'invite-1', 'invite-action-replay-key',
+    ])
+})
+
+test('invite assistance idempotency replay remains organization-scoped', async () => {
+    state.supportOrganization = activeSupportOrganizationFixture()
+    state.duplicateInviteAction = {
+        id: 93, request_id: 'original-assist-request', subject_id: 'invite-1',
+        context: { inviteIds: ['invite-1'] },
+    }
+
+    const result = await request(postSupportOrganizationInvite, {
+        params: { id: 'org-1' },
+        body: {
+            email: 'member@example.com', reason: 'Restore member access',
+            requestId: 'assist-replay-request', idempotencyKey: 'assist-replay-key',
+        },
+    })
+
+    expect(result.statusCode).toBe(200)
+    expect(result.body.inviteAssistance).toMatchObject({
+        requestId: 'original-assist-request', idempotentReplay: true,
+    })
+    const replayQuery = state.queries.find(({ sql }) => sql.includes('context->>\'idempotencyKey\' = $4'))
+    expect(replayQuery?.sql).toContain('($3::text IS NULL OR subject_id = $3)')
+    expect(replayQuery?.values).toEqual(['support.organization.invite_assist', 'org-1', null, 'assist-replay-key'])
 })
 
 test('support invite action returns an audited accepted-invite denial when acceptance wins the update race', async () => {
@@ -1147,6 +1240,18 @@ test('support invite action returns an audited accepted-invite denial when accep
     expect(state.inviteActionWrites).toBe(1)
 })
 
+test('support invite action returns the same audited denial for an already accepted invite', async () => {
+    state.supportOrganization = activeSupportOrganizationFixture()
+    state.supportInspectionInvite = { ...supportInviteInspectionFixture(), status: 'accepted' }
+
+    const result = await request(postSupportOrganizationInviteAction, { params: { id: 'org-1', inviteId: 'invite-1' }, body: { action: 'resend', reason: 'Restore access', scope: 'invite:resend' } })
+
+    expect(result.statusCode).toBe(409)
+    expect(result.body.inviteAction).toMatchObject({ outcome: 'failed', before: { status: 'accepted' }, after: { status: 'accepted' } })
+    expect(state.recordedEvents.at(-1)).toMatchObject({ outcome: 'failed', context: { error: 'accepted_invite_not_mutable_by_support_action' } })
+    expect(state.inviteActionWrites).toBe(0)
+})
+
 test('executor blocker audits retain the shared no-mutation contract for invite assistance', async () => {
     state.supportOrganization = activeSupportOrganizationFixture()
     state.supportAvailabilityResults = [[{ organization_id: 'org-1', active_admin_count: 1 }]]
@@ -1164,6 +1269,15 @@ test('executor blocker audits retain the shared no-mutation contract for invite 
         schemaVersion: 'support.action_execute.invite_assist.v1',
         supportRoleRequired: true, reasonRequired: true, contextRequired: true, scopeRequired: true,
         expiryRequired: true, noSilentMembershipMutation: true, requestId: 'invite-assist-blocked',
+    })
+    expect(result.body.detail.executorBlocker.redactedAuditPreview).toEqual({
+        schemaVersion: 'support.action_execute.audit_preview.v1',
+        actionType: 'support.organization.invite_assist',
+        source: 'admin', service: 'hanasand-api',
+        requestId: 'invite-assist-blocked', correlationId: 'invite-assist-blocked', idempotencyKey: 'invite-assist-blocked',
+        supportSessionId: '[redacted]', organizationId: 'org-1', emails: ['member@example.com'], inviteIds: [],
+        reason: 'Restore member access', scope: ['invite:create'], expiresAt: '2026-11-01T00:00:00.000Z',
+        outcome: 'denied', blockerCode: 'active_admin_available', redactionRequired: true,
     })
     expect(state.recordedEvents.at(-1)).toMatchObject({
         actionType: 'support.organization.invite_assist',
@@ -1261,10 +1375,19 @@ test('support role recovery shares the active-member write and retains its audit
         noSilentMembershipMutation: true,
     })
     expect(result.body.memberRoleRecovery.controlledExecutor).toMatchObject({
+        schemaVersion: 'support.action_execute.member_role_recovery.v1',
         mutationMode: 'controlled_member_role_only',
         outcome: 'success',
         supportRoleRequired: true, reasonRequired: true, contextRequired: true, scopeRequired: true,
         noSilentMembershipMutation: true,
+    })
+    expect(result.body.memberRoleRecovery.controlledExecutor.redactedAuditPreview).toEqual({
+        schemaVersion: 'support.action_execute.audit_preview.v1',
+        actionType: 'support.organization.member_role_recovery',
+        source: 'admin', service: 'hanasand-api',
+        requestId: 'role-request-1', correlationId: 'role-request-1', idempotencyKey: 'role-request-1',
+        supportSessionId: '[redacted]', organizationId: 'org-1', targetUserId: 'member-1', requestedRole: 'reader',
+        reason: 'Restore member access', scope: ['member:role_recovery'], outcome: 'success', blockerCode: null, redactionRequired: true,
     })
     expect(state.recordedEvents.at(-1)).toMatchObject({
         actionType: 'support.organization.member_role_recovery',
@@ -1272,6 +1395,28 @@ test('support role recovery shares the active-member write and retains its audit
     })
     expect(state.queries.some(({ sql }) => sql.includes('UPDATE organization_members') && sql.includes('status = \'active\''))).toBe(true)
     expect(state.queries.some(({ sql }) => sql.includes('UPDATE organizations SET updated_at = NOW()'))).toBe(true)
+})
+
+test('member role recovery idempotency replay remains member-scoped', async () => {
+    state.supportOrganization = activeSupportOrganizationFixture()
+    state.duplicateInviteAction = { id: 94, request_id: 'original-role-request' }
+
+    const result = await request(postSupportOrganizationMemberRoleRecovery, {
+        params: { id: 'org-1', userId: 'member-1' },
+        body: {
+            role: 'reader', reason: 'Restore member access', scope: 'member:role_recovery',
+            requestId: 'role-replay-request', idempotencyKey: 'member-replay-key',
+        },
+    })
+
+    expect(result.statusCode).toBe(200)
+    expect(result.body.memberRoleRecovery).toMatchObject({
+        requestId: 'original-role-request', idempotentReplay: true,
+    })
+    expect(state.queries.some(({ sql }) => sql.includes('UPDATE organization_members'))).toBe(false)
+    const replayQuery = state.queries.find(({ sql }) => sql.includes('context->>\'idempotencyKey\' = $4'))
+    expect(replayQuery?.sql).toContain('subject_id = $3')
+    expect(replayQuery?.values).toEqual(['support.organization.member_role_recovery', 'org-1', 'member-1', 'member-replay-key'])
 })
 
 test('support role recovery rechecks owner protection inside the membership transaction', async () => {

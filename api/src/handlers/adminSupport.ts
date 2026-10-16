@@ -1163,9 +1163,10 @@ export async function getSupportOrganization(req: FastifyRequest<{ Params: Organ
         requestId: inspectionAudit.requestId,
         timeline: recentAuditTimeline.events,
     })
-    const availabilityByOrg = new Map(availability.map(item => [item.organizationId, item]))
-    const subjectAccessState = buildSupportSubjectAccessState({
+    const { subjectAccessState, authorization, receipts: subjectReceipts } = buildSupportSubjectInspectionContext({
         kind: 'organization',
+        actorId: actor.id,
+        requestedId: req.params.id,
         targetId: organization.id,
         organizationIds: [organization.id],
         requestId: inspectionAudit.requestId,
@@ -1175,10 +1176,11 @@ export async function getSupportOrganization(req: FastifyRequest<{ Params: Organ
         memberships: members.rows as Record<string, unknown>[],
         invites: invites.rows as Record<string, unknown>[],
         approvalDetails: [],
-        availabilityByOrg,
+        availability,
         timeline: recentAuditTimeline.events,
+        supportActivityRollup,
     })
-    const { timelineFilter: organizationTimelineFilter, accessStatus: organizationAccessStatus, accessRecoveryPlan } = subjectAccessState
+    const { accessStatus: organizationAccessStatus, accessRecoveryPlan } = subjectAccessState
     const caseAccessReadiness = supportOrganizationCaseAccessReadiness({
         organizationId: organization.id,
         requestId: inspectionAudit.requestId,
@@ -1193,14 +1195,6 @@ export async function getSupportOrganization(req: FastifyRequest<{ Params: Organ
         accessStatus: organizationAccessStatus,
         accessRecoveryPlan,
         timeline: recentAuditTimeline.events,
-    })
-    const authorization = buildSupportSubjectInspectionAuthorization({
-        kind: 'organization',
-        actorId: actor.id,
-        requestedId: req.params.id,
-        targetId: organization.id,
-        organizationIds: [organization.id],
-        requestId: inspectionAudit.requestId,
     })
     const alertReadinessBridge = supportTimelineAuditBridgeEvent({
         workflow: 'watchlist',
@@ -1224,20 +1218,6 @@ export async function getSupportOrganization(req: FastifyRequest<{ Params: Organ
         after: {
             generatedAlertReferenceCount: alertReferences.length,
         },
-    })
-    const subjectReceipts = buildSupportSubjectInspectionReceipts({
-        kind: 'organization',
-        actorId: actor.id,
-        targetId: organization.id,
-        organizationIds: [organization.id],
-        requestId: inspectionAudit.requestId,
-        reason: inspectionAudit.reason,
-        supportContext: inspectionAudit.supportContext,
-        timelineFilter: organizationTimelineFilter,
-        timeline: recentAuditTimeline.events,
-        supportActivityRollup,
-        accessStatus: organizationAccessStatus,
-        accessRecoveryPlan,
     })
     const { actionHistoryExport } = subjectReceipts
     const caseHandoff = supportOrganizationCaseHandoff({
@@ -1408,9 +1388,10 @@ export async function getSupportUser(req: FastifyRequest<{ Params: UserParams }>
         timeline: recentAuditTimeline.events,
     })
     const availability = organizationIds.length ? await loadOrganizationAvailability(organizationIds) : []
-    const availabilityByOrg = new Map(availability.map(item => [item.organizationId, item]))
-    const subjectAccessState = buildSupportSubjectAccessState({
+    const { subjectAccessState, authorization, receipts: subjectReceipts } = buildSupportSubjectInspectionContext({
         kind: 'user',
+        actorId: actor.id,
+        requestedId: req.params.id,
         targetId: req.params.id,
         organizationIds,
         requestId: inspectionAudit.requestId,
@@ -1420,32 +1401,11 @@ export async function getSupportUser(req: FastifyRequest<{ Params: UserParams }>
         memberships: memberships.rows as Record<string, unknown>[],
         invites: invites.rows as Record<string, unknown>[],
         approvalDetails,
-        availabilityByOrg,
-        timeline: recentAuditTimeline.events,
-    })
-    const { timelineFilter: userTimelineFilter, accessStatus: userAccessStatus, accessRecoveryPlan } = subjectAccessState
-    const authorization = buildSupportSubjectInspectionAuthorization({
-        kind: 'user',
-        actorId: actor.id,
-        requestedId: req.params.id,
-        targetId: req.params.id,
-        organizationIds,
-        requestId: inspectionAudit.requestId,
-    })
-    const subjectReceipts = buildSupportSubjectInspectionReceipts({
-        kind: 'user',
-        actorId: actor.id,
-        targetId: req.params.id,
-        organizationIds,
-        requestId: inspectionAudit.requestId,
-        reason: inspectionAudit.reason,
-        supportContext: inspectionAudit.supportContext,
-        timelineFilter: userTimelineFilter,
+        availability,
         timeline: recentAuditTimeline.events,
         supportActivityRollup,
-        accessStatus: userAccessStatus,
-        accessRecoveryPlan,
     })
+    const { accessStatus: userAccessStatus, accessRecoveryPlan } = subjectAccessState
     const { actionHistoryExport } = subjectReceipts
     const caseAccessReadiness = supportUserCaseAccessReadiness({
         userId: req.params.id,
@@ -2126,7 +2086,8 @@ export async function postSupportOrganizationInvite(req: FastifyRequest<{ Params
         }))
     }
 
-    const duplicate = await loadSupportInviteAssistByIdempotencyKey({
+    const duplicate = await loadSupportSuccessfulIdempotencyReceipt({
+        eventType: 'support.organization.invite_assist',
         organizationId: organization.id,
         idempotencyKey: executorControls.idempotencyKey,
     })
@@ -2360,6 +2321,105 @@ export async function postSupportOrganizationInvite(req: FastifyRequest<{ Params
     })
 }
 
+async function sendAcceptedSupportInviteActionDenial(req: FastifyRequest<{ Params: SupportInviteActionParams, Body: SupportInviteActionBody }>, res: FastifyReply, input: {
+    actorId: string
+    organization: NonNullable<Awaited<ReturnType<typeof loadOrganizationSupportDetail>>>
+    invite: OrganizationInviteRow
+    requestId: string
+    action: 'revoke' | 'resend'
+    actionType: string
+    reason: string
+    controls: SupportExecutorControls
+}) {
+    const blocker = 'accepted_invite_not_mutable_by_support_action'
+    const blockers = [blocker]
+    const snapshot = inviteSnapshot(input.invite)
+    const actionContext = {
+        organizationId: input.organization.id,
+        requestId: input.requestId,
+        action: input.action,
+        actionType: input.actionType,
+        reason: input.reason,
+        controls: input.controls,
+        invite: input.invite,
+    }
+
+    await recordSystemEvent(req, {
+        actionType: input.actionType,
+        actorId: input.actorId,
+        targetType: 'invite',
+        targetId: input.invite.email,
+        organizationId: input.organization.id,
+        entityId: input.invite.id,
+        requestId: input.requestId,
+        severity: 'notice',
+        outcome: 'failed',
+        reason: input.reason,
+        context: {
+            schemaVersion: 'support.invite_action.v1',
+            action: input.action,
+            requestId: input.requestId,
+            inviteId: input.invite.id,
+            email: input.invite.email,
+            role: input.invite.role,
+            before: snapshot,
+            after: snapshot,
+            correlationId: input.controls.correlationId,
+            idempotencyKey: input.controls.idempotencyKey,
+            supportSessionId: input.controls.supportSessionId || null,
+            scope: input.controls.scope,
+            handoffExpiresAt: input.controls.handoffExpiresAt,
+            executor: supportInviteActionExecutorDetail({
+                ...actionContext,
+                before: snapshot,
+                after: snapshot,
+                outcome: 'failed',
+                blockers,
+            }),
+            error: blocker,
+            noSilentMembershipMutation: true,
+            supportContext: cleanContext(req.body?.context),
+        },
+    })
+    const auditEventIds = await loadSystemEventIds({
+        requestId: input.requestId,
+        actionType: input.actionType,
+        entityId: input.invite.id,
+    })
+    return res.status(409).send({
+        error: 'Accepted invites cannot be revoked or resent by support action; inspect membership state instead.',
+        inviteAction: {
+            schemaVersion: 'support.invite_action.v1',
+            action: input.action,
+            requestId: input.requestId,
+            actorId: input.actorId,
+            organization: toOrganization(input.organization),
+            invite: toInvite(input.invite),
+            before: snapshot,
+            after: snapshot,
+            outcome: 'failed',
+            auditEventIds,
+            noSilentMembershipMutation: true,
+            controlledExecutor: supportInviteActionExecutorDetail({
+                ...actionContext,
+                before: snapshot,
+                after: snapshot,
+                outcome: 'failed',
+                blockers,
+            }),
+            executionReceipt: supportInviteActionExecutionReceipt({
+                actorId: input.actorId,
+                ...actionContext,
+                before: snapshot,
+                after: snapshot,
+                outcome: 'failed',
+                auditEventIds,
+                blockers,
+            }),
+        },
+    })
+}
+
 export async function postSupportOrganizationInviteAction(req: FastifyRequest<{ Params: SupportInviteActionParams, Body: SupportInviteActionBody }>, res: FastifyReply) {
     const actor = await requireAdminSupport(req, res)
     if (!actor) return
@@ -2493,10 +2553,10 @@ export async function postSupportOrganizationInviteAction(req: FastifyRequest<{ 
         }))
     }
 
-    const duplicate = await loadSupportInviteActionByIdempotencyKey({
+    const duplicate = await loadSupportSuccessfulIdempotencyReceipt({
+        eventType: actionType,
         organizationId: organization.id,
-        inviteId: invite.id,
-        actionType,
+        subjectId: invite.id,
         idempotencyKey: executorControls.idempotencyKey,
     })
     if (duplicate) {
@@ -2592,75 +2652,15 @@ export async function postSupportOrganizationInviteAction(req: FastifyRequest<{ 
     }
 
     if (invite.status === 'accepted') {
-        await recordSystemEvent(req, {
-            actionType,
+        return sendAcceptedSupportInviteActionDenial(req, res, {
             actorId: actor.id,
-            targetType: 'invite',
-            targetId: invite.email,
-            organizationId: organization.id,
-            entityId: invite.id,
+            organization,
+            invite,
             requestId,
-            severity: 'notice',
-            outcome: 'failed',
+            action: action as 'revoke' | 'resend',
+            actionType,
             reason,
-            context: {
-                schemaVersion: 'support.invite_action.v1',
-                action,
-                requestId,
-                inviteId: invite.id,
-                email: invite.email,
-                role: invite.role,
-                before: inviteSnapshot(invite),
-                after: inviteSnapshot(invite),
-                correlationId: executorControls.correlationId,
-                idempotencyKey: executorControls.idempotencyKey,
-                supportSessionId: executorControls.supportSessionId || null,
-                scope: executorControls.scope,
-                handoffExpiresAt: executorControls.handoffExpiresAt,
-                executor: supportInviteActionExecutorDetail({
-                    ...actionContext,
-                    before: inviteSnapshot(invite),
-                    after: inviteSnapshot(invite),
-                    outcome: 'failed',
-                    blockers: ['accepted_invite_not_mutable_by_support_action'],
-                }),
-                noSilentMembershipMutation: true,
-                error: 'accepted_invite_not_mutable_by_support_action',
-                supportContext: cleanContext(req.body?.context),
-            },
-        })
-        const auditEventIds = await loadSystemEventIds({ requestId, actionType, entityId: invite.id })
-        return res.status(409).send({
-            error: 'Accepted invites cannot be revoked or resent by support action; inspect membership state instead.',
-            inviteAction: {
-                schemaVersion: 'support.invite_action.v1',
-                action,
-                requestId,
-                actorId: actor.id,
-                organization: toOrganization(organization),
-                invite: toInvite(invite),
-                before: inviteSnapshot(invite),
-                after: inviteSnapshot(invite),
-                outcome: 'failed',
-                auditEventIds,
-                noSilentMembershipMutation: true,
-                controlledExecutor: supportInviteActionExecutorDetail({
-                    ...actionContext,
-                    before: inviteSnapshot(invite),
-                    after: inviteSnapshot(invite),
-                    outcome: 'failed',
-                    blockers: ['accepted_invite_not_mutable_by_support_action'],
-                }),
-                executionReceipt: supportInviteActionExecutionReceipt({
-                    actorId: actor.id,
-                    ...actionContext,
-                    before: inviteSnapshot(invite),
-                    after: inviteSnapshot(invite),
-                    outcome: 'failed',
-                    auditEventIds,
-                    blockers: ['accepted_invite_not_mutable_by_support_action'],
-                }),
-            },
+            controls: executorControls,
         })
     }
 
@@ -2693,76 +2693,15 @@ export async function postSupportOrganizationInviteAction(req: FastifyRequest<{ 
         `, [invite.id, organization.id])
         const acceptedInvite = current.rows[0] as OrganizationInviteRow | undefined
         if (acceptedInvite?.status === 'accepted') {
-            const acceptedSnapshot = inviteSnapshot(acceptedInvite)
-            await recordSystemEvent(req, {
-                actionType,
+            return sendAcceptedSupportInviteActionDenial(req, res, {
                 actorId: actor.id,
-                targetType: 'invite',
-                targetId: acceptedInvite.email,
-                organizationId: organization.id,
-                entityId: acceptedInvite.id,
+                organization,
+                invite: acceptedInvite,
                 requestId,
-                severity: 'notice',
-                outcome: 'failed',
+                action: action as 'revoke' | 'resend',
+                actionType,
                 reason,
-                context: {
-                    schemaVersion: 'support.invite_action.v1',
-                    action,
-                    requestId,
-                    inviteId: acceptedInvite.id,
-                    email: acceptedInvite.email,
-                    role: acceptedInvite.role,
-                    before: acceptedSnapshot,
-                    after: acceptedSnapshot,
-                    correlationId: executorControls.correlationId,
-                    idempotencyKey: executorControls.idempotencyKey,
-                    supportSessionId: executorControls.supportSessionId || null,
-                    scope: executorControls.scope,
-                    handoffExpiresAt: executorControls.handoffExpiresAt,
-                    executor: supportInviteActionExecutorDetail({
-                        ...actionContext,
-                        invite: acceptedInvite,
-                        before: acceptedSnapshot,
-                        after: acceptedSnapshot,
-                        outcome: 'failed',
-                        blockers: ['accepted_invite_not_mutable_by_support_action'],
-                    }),
-                    error: 'accepted_invite_not_mutable_by_support_action',
-                    noSilentMembershipMutation: true,
-                    supportContext: cleanContext(req.body?.context),
-                },
-            })
-            const auditEventIds = await loadSystemEventIds({ requestId, actionType, entityId: acceptedInvite.id })
-            const blockers = ['accepted_invite_not_mutable_by_support_action']
-            return res.status(409).send({
-                error: 'Accepted invites cannot be revoked or resent by support action; inspect membership state instead.',
-                inviteAction: {
-                    schemaVersion: 'support.invite_action.v1',
-                    action,
-                    requestId,
-                    actorId: actor.id,
-                    organization: toOrganization(organization),
-                    invite: toInvite(acceptedInvite),
-                    before: acceptedSnapshot,
-                    after: acceptedSnapshot,
-                    outcome: 'failed',
-                    auditEventIds,
-                    noSilentMembershipMutation: true,
-                    controlledExecutor: supportInviteActionExecutorDetail({
-                        ...actionContext,
-                        invite: acceptedInvite,
-                        before: acceptedSnapshot,
-                        after: acceptedSnapshot, outcome: 'failed', blockers,
-                    }),
-                    executionReceipt: supportInviteActionExecutionReceipt({
-                        actorId: actor.id,
-                        ...actionContext,
-                        invite: acceptedInvite,
-                        before: acceptedSnapshot,
-                        after: acceptedSnapshot,
-                        outcome: 'failed', auditEventIds, blockers,
-                    }),
-                },
+                controls: executorControls,
             })
         }
         return res.status(404).send({ error: 'Invite not found for organization.' })
@@ -3160,9 +3099,10 @@ export async function postSupportOrganizationMemberRoleRecovery(req: FastifyRequ
         }))
     }
 
-    const duplicate = await loadSupportMemberRoleRecoveryByIdempotencyKey({
+    const duplicate = await loadSupportSuccessfulIdempotencyReceipt({
+        eventType: 'support.organization.member_role_recovery',
         organizationId: organization.id,
-        userId: req.params.userId,
+        subjectId: req.params.userId,
         idempotencyKey: executorControls.idempotencyKey,
     })
     if (duplicate) {
@@ -5432,48 +5372,31 @@ function supportSessionAuthorizationProof(input: {
     }
 }
 
-async function loadSupportInviteAssistByIdempotencyKey(input: { organizationId: string, idempotencyKey: string }) {
-    const result = await run(`
-        SELECT id, request_id, subject_id, context
-        FROM system_events
-        WHERE event_type = 'support.organization.invite_assist'
-          AND organization_id = $1
-          AND outcome = 'success'
-          AND context->>'idempotencyKey' = $2
-        ORDER BY created_at ASC, id ASC
-        LIMIT 1
-    `, [input.organizationId, input.idempotencyKey])
-    return result.rows[0] as { id: number, request_id: string, subject_id: string | null, context: Record<string, unknown> } | undefined
+type SupportIdempotencyReceipt = {
+    id: number
+    request_id: string
+    subject_id: string | null
+    context: Record<string, unknown>
 }
 
-async function loadSupportInviteActionByIdempotencyKey(input: { organizationId: string, inviteId: string, actionType: string, idempotencyKey: string }) {
+async function loadSupportSuccessfulIdempotencyReceipt(input: {
+    eventType: string
+    organizationId: string
+    subjectId?: string
+    idempotencyKey: string
+}) {
     const result = await run(`
         SELECT id, request_id, subject_id, context
         FROM system_events
         WHERE event_type = $1
           AND organization_id = $2
-          AND subject_id = $3
+          AND ($3::text IS NULL OR subject_id = $3)
           AND outcome = 'success'
           AND context->>'idempotencyKey' = $4
         ORDER BY created_at ASC, id ASC
         LIMIT 1
-    `, [input.actionType, input.organizationId, input.inviteId, input.idempotencyKey])
-    return result.rows[0] as { id: number, request_id: string, subject_id: string | null, context: Record<string, unknown> } | undefined
-}
-
-async function loadSupportMemberRoleRecoveryByIdempotencyKey(input: { organizationId: string, userId: string, idempotencyKey: string }) {
-    const result = await run(`
-        SELECT id, request_id, subject_id, context
-        FROM system_events
-        WHERE event_type = 'support.organization.member_role_recovery'
-          AND organization_id = $1
-          AND subject_id = $2
-          AND outcome = 'success'
-          AND context->>'idempotencyKey' = $3
-        ORDER BY created_at ASC, id ASC
-        LIMIT 1
-    `, [input.organizationId, input.userId, input.idempotencyKey])
-    return result.rows[0] as { id: number, request_id: string, subject_id: string | null, context: Record<string, unknown> } | undefined
+    `, [input.eventType, input.organizationId, input.subjectId ?? null, input.idempotencyKey])
+    return result.rows[0] as SupportIdempotencyReceipt | undefined
 }
 
 async function loadOrganizationInvitesByIds(organizationId: string, inviteIds: string[]) {
@@ -6609,6 +6532,62 @@ function buildRecoveryEligibility(input: {
 }
 
 type SupportSubjectInspectionKind = 'organization' | 'user'
+
+export function buildSupportSubjectInspectionContext(input: {
+    kind: SupportSubjectInspectionKind
+    actorId: string
+    requestedId: string
+    targetId: string
+    organizationIds: string[]
+    requestId: string
+    reason: string
+    supportContext: string
+    users: Record<string, unknown>[]
+    memberships: Record<string, unknown>[]
+    invites: Record<string, unknown>[]
+    approvalDetails: Array<Record<string, any>>
+    availability: SupportOrganizationAvailability[]
+    timeline: Array<Record<string, any>>
+    supportActivityRollup: Record<string, any>
+}) {
+    const subjectAccessState = buildSupportSubjectAccessState({
+        kind: input.kind,
+        targetId: input.targetId,
+        organizationIds: input.organizationIds,
+        requestId: input.requestId,
+        reason: input.reason,
+        supportContext: input.supportContext,
+        users: input.users,
+        memberships: input.memberships,
+        invites: input.invites,
+        approvalDetails: input.approvalDetails,
+        availabilityByOrg: new Map(input.availability.map(item => [item.organizationId, item])),
+        timeline: input.timeline,
+    })
+    const authorization = buildSupportSubjectInspectionAuthorization({
+        kind: input.kind,
+        actorId: input.actorId,
+        requestedId: input.requestedId,
+        targetId: input.targetId,
+        organizationIds: input.organizationIds,
+        requestId: input.requestId,
+    })
+    const receipts = buildSupportSubjectInspectionReceipts({
+        kind: input.kind,
+        actorId: input.actorId,
+        targetId: input.targetId,
+        organizationIds: input.organizationIds,
+        requestId: input.requestId,
+        reason: input.reason,
+        supportContext: input.supportContext,
+        timelineFilter: subjectAccessState.timelineFilter,
+        timeline: input.timeline,
+        supportActivityRollup: input.supportActivityRollup,
+        accessStatus: subjectAccessState.accessStatus,
+        accessRecoveryPlan: subjectAccessState.accessRecoveryPlan,
+    })
+    return { subjectAccessState, authorization, receipts }
+}
 
 export function buildSupportSubjectAccessState(input: {
     kind: SupportSubjectInspectionKind
@@ -10352,6 +10331,40 @@ function supportInviteAssistExecutorBlocker(input: {
     })
 }
 
+type SupportExecutorAuditPreviewTargetFields =
+    | { emails: string[], inviteIds: string[], expiresAt: string }
+    | { inviteId: string | null, email: string | null }
+    | { targetUserId: string, requestedRole: string }
+
+function supportExecutorAuditPreview(input: {
+    actionType: string
+    requestId: string
+    organizationId: string
+    reason: string
+    controls: SupportExecutorControls
+    outcome: 'success' | 'denied' | 'failed'
+    blockers: string[]
+    targetFields: SupportExecutorAuditPreviewTargetFields
+}) {
+    return redactAuditValue({
+        schemaVersion: 'support.action_execute.audit_preview.v1',
+        actionType: input.actionType,
+        source: 'admin',
+        service: 'hanasand-api',
+        requestId: input.requestId,
+        correlationId: input.controls.correlationId,
+        idempotencyKey: input.controls.idempotencyKey,
+        supportSessionId: input.controls.supportSessionId || null,
+        organizationId: input.organizationId,
+        ...input.targetFields,
+        reason: input.reason,
+        scope: input.controls.scope,
+        outcome: input.outcome,
+        blockerCode: input.blockers[0] || null,
+        redactionRequired: true,
+    })
+}
+
 function supportInviteAssistExecutorDetail(input: {
     organizationId: string
     requestId: string
@@ -10397,24 +10410,10 @@ function supportInviteAssistExecutorDetail(input: {
             'redaction_required',
             'unsafe_impersonation',
         ],
-        redactedAuditPreview: redactAuditValue({
-            schemaVersion: 'support.action_execute.audit_preview.v1',
+        redactedAuditPreview: supportExecutorAuditPreview({
+            ...input,
             actionType: 'support.organization.invite_assist',
-            source: 'admin',
-            service: 'hanasand-api',
-            requestId: input.requestId,
-            correlationId: input.controls.correlationId,
-            idempotencyKey: input.controls.idempotencyKey,
-            supportSessionId: input.controls.supportSessionId || null,
-            organizationId: input.organizationId,
-            emails: input.input.emails,
-            inviteIds: input.inviteIds,
-            reason: input.reason,
-            scope: input.controls.scope,
-            expiresAt: input.input.expiresAt,
-            outcome: input.outcome,
-            blockerCode: input.blockers[0] || null,
-            redactionRequired: true,
+            targetFields: { emails: input.input.emails, inviteIds: input.inviteIds, expiresAt: input.input.expiresAt },
         }),
     }
 }
@@ -10612,23 +10611,10 @@ function supportInviteActionExecutorDetail(input: {
             'redaction_required',
             'unsafe_impersonation',
         ],
-        redactedAuditPreview: redactAuditValue({
-            schemaVersion: 'support.action_execute.audit_preview.v1',
+        redactedAuditPreview: supportExecutorAuditPreview({
+            ...input,
             actionType: input.actionType,
-            source: 'admin',
-            service: 'hanasand-api',
-            requestId: input.requestId,
-            correlationId: input.controls.correlationId,
-            idempotencyKey: input.controls.idempotencyKey,
-            supportSessionId: input.controls.supportSessionId || null,
-            organizationId: input.organizationId,
-            inviteId: input.invite?.id || null,
-            email: input.invite?.email || null,
-            reason: input.reason,
-            scope: input.controls.scope,
-            outcome: input.outcome,
-            blockerCode: input.blockers[0] || null,
-            redactionRequired: true,
+            targetFields: { inviteId: input.invite?.id || null, email: input.invite?.email || null },
         }),
     }
 }
@@ -10984,23 +10970,10 @@ function supportMemberRoleRecoveryExecutorDetail(input: {
             'audit_unavailable',
             'redaction_required',
         ],
-        redactedAuditPreview: redactAuditValue({
-            schemaVersion: 'support.action_execute.audit_preview.v1',
+        redactedAuditPreview: supportExecutorAuditPreview({
+            ...input,
             actionType: 'support.organization.member_role_recovery',
-            source: 'admin',
-            service: 'hanasand-api',
-            requestId: input.requestId,
-            correlationId: input.controls.correlationId,
-            idempotencyKey: input.controls.idempotencyKey,
-            supportSessionId: input.controls.supportSessionId || null,
-            organizationId: input.organizationId,
-            targetUserId: input.userId,
-            requestedRole: input.requestedRole,
-            reason: input.reason,
-            scope: input.controls.scope,
-            outcome: input.outcome,
-            blockerCode: input.blockers[0] || null,
-            redactionRequired: true,
+            targetFields: { targetUserId: input.userId, requestedRole: input.requestedRole },
         }),
     }
 }
@@ -11387,12 +11360,27 @@ function supportRecentAuditTimeline(filters: Record<string, unknown>, rows: Reco
     }
 }
 
+function supportActivityTimelineSummary(timeline: Array<Record<string, any>>) {
+    const events = timeline.filter(event => text(event.action).startsWith('support.') || text(event.action).startsWith('impersonation.'))
+    return {
+        events,
+        eventIds: events.map(event => event.id).filter((id): id is number => Number.isFinite(id)),
+        blockerCodes: uniqueTimelineValues(events.flatMap(event => [
+            event.actionEvidence?.blockers,
+            event.context?.blockerCode,
+            event.context?.blocker,
+        ].flat())),
+        outcomes: uniqueTimelineValues(events.map(event => event.outcome)),
+        requestIds: uniqueTimelineValues(events.map(event => event.requestId)),
+    }
+}
+
 function supportOrganizationActivityRollup(input: {
     organizationId: string
     requestId: string
     timeline: Array<Record<string, any>>
 }) {
-    const supportEvents = input.timeline.filter(event => text(event.action).startsWith('support.') || text(event.action).startsWith('impersonation.'))
+    const { events: supportEvents, eventIds, blockerCodes, outcomes, requestIds } = supportActivityTimelineSummary(input.timeline)
     const actions = {
         inviteAssistance: supportEvents.filter(event => text(event.action).includes('invite')),
         accessRecovery: supportEvents.filter(event => text(event.action).includes('access_recovery')),
@@ -11400,12 +11388,6 @@ function supportOrganizationActivityRollup(input: {
         impersonation: supportEvents.filter(event => text(event.action).startsWith('impersonation.')),
         supportSessions: supportEvents.filter(event => text(event.action).startsWith('support.session')),
     }
-    const eventIds = supportEvents.map(event => event.id).filter((id): id is number => Number.isFinite(id))
-    const blockerCodes = uniqueTimelineValues(supportEvents.flatMap(event => [
-        event.actionEvidence?.blockers,
-        event.context?.blockerCode,
-        event.context?.blocker,
-    ].flat()))
     return {
         schemaVersion: 'support.organization.activity_rollup.v1',
         generatedAt: new Date().toISOString(),
@@ -11420,9 +11402,9 @@ function supportOrganizationActivityRollup(input: {
             impersonation: actions.impersonation.length,
             supportSessions: actions.supportSessions.length,
         },
-        outcomes: uniqueTimelineValues(supportEvents.map(event => event.outcome)),
+        outcomes,
         severities: uniqueTimelineValues(supportEvents.map(event => event.severity)),
-        requestIds: uniqueTimelineValues(supportEvents.map(event => event.requestId)),
+        requestIds,
         actorIds: uniqueTimelineValues(supportEvents.map(event => event.actor?.id)),
         targetIds: uniqueTimelineValues(supportEvents.map(event => event.target?.id)),
         blockerCodes,
@@ -11457,7 +11439,7 @@ function supportUserActivityRollup(input: {
     organizationIds: string[]
     timeline: Array<Record<string, any>>
 }) {
-    const supportEvents = input.timeline.filter(event => text(event.action).startsWith('support.') || text(event.action).startsWith('impersonation.'))
+    const { events: supportEvents, eventIds, blockerCodes, outcomes, requestIds } = supportActivityTimelineSummary(input.timeline)
     const actionEvents = {
         inspections: supportEvents.filter(event => text(event.action).includes('.inspect')),
         inviteAssistance: supportEvents.filter(event => text(event.action).includes('invite')),
@@ -11465,12 +11447,6 @@ function supportUserActivityRollup(input: {
         memberRoleRecovery: supportEvents.filter(event => text(event.action).includes('member_role_recovery')),
         impersonation: supportEvents.filter(event => text(event.action).startsWith('impersonation.')),
     }
-    const eventIds = supportEvents.map(event => event.id).filter((id): id is number => Number.isFinite(id))
-    const blockerCodes = uniqueTimelineValues(supportEvents.flatMap(event => [
-        event.actionEvidence?.blockers,
-        event.context?.blockerCode,
-        event.context?.blocker,
-    ].flat()))
     return {
         schemaVersion: 'support.user.activity_rollup.v1',
         generatedAt: new Date().toISOString(),
@@ -11486,8 +11462,8 @@ function supportUserActivityRollup(input: {
             memberRoleRecovery: actionEvents.memberRoleRecovery.length,
             impersonation: actionEvents.impersonation.length,
         },
-        outcomes: uniqueTimelineValues(supportEvents.map(event => event.outcome)),
-        requestIds: uniqueTimelineValues(supportEvents.map(event => event.requestId)),
+        outcomes,
+        requestIds,
         organizationTimelineLinks: input.organizationIds.map(organizationId => ({
             organizationId,
             timeline: auditFilterQuery({ org: organizationId, target: input.userId, source: 'admin', service: 'hanasand-api' }),

@@ -234,13 +234,7 @@ export async function run(sql: string, values: unknown[] = []) {
         'FROM organization_members om JOIN users ON users.id = om.user_id WHERE om.organization_id = ANY($1::text[]) GROUP BY om.organization_id',
     ])) return { rows: state.supportAvailabilityResults.shift() ?? [] }
     // Idempotency checks and write operations.
-    if (normalizedSql.includes('SELECT id, request_id, subject_id, context FROM system_events WHERE event_type = \'support.organization.invite_assist\' AND organization_id = $1 AND outcome = \'success\' AND context->>\'idempotencyKey\' = $2 ORDER BY created_at ASC, id ASC LIMIT 1')) {
-        return { rows: state.duplicateInviteAction ? [state.duplicateInviteAction] : [] }
-    }
-    if (normalizedSql.includes('SELECT id, request_id, subject_id, context FROM system_events WHERE event_type = $1 AND organization_id = $2 AND subject_id = $3 AND outcome = \'success\' AND context->>\'idempotencyKey\' = $4 ORDER BY created_at ASC, id ASC LIMIT 1')) {
-        return { rows: state.duplicateInviteAction ? [state.duplicateInviteAction] : [] }
-    }
-    if (normalizedSql.includes('SELECT id, request_id, subject_id, context FROM system_events WHERE event_type = \'support.organization.member_role_recovery\' AND organization_id = $1 AND subject_id = $2 AND outcome = \'success\' AND context->>\'idempotencyKey\' = $3 ORDER BY created_at ASC, id ASC LIMIT 1')) {
+    if (normalizedSql.includes('SELECT id, request_id, subject_id, context FROM system_events WHERE event_type = $1 AND organization_id = $2 AND ($3::text IS NULL OR subject_id = $3) AND outcome = \'success\' AND context->>\'idempotencyKey\' = $4 ORDER BY created_at ASC, id ASC LIMIT 1')) {
         return { rows: state.duplicateInviteAction ? [state.duplicateInviteAction] : [] }
     }
     if (normalizedSql.includes('SELECT id FROM system_events WHERE request_id = $1 AND event_type = $2 AND subject_id = $3 ORDER BY created_at DESC, id DESC LIMIT 10')) {

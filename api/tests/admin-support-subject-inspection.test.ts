@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
 import {
     buildSupportSubjectAccessState,
+    buildSupportSubjectInspectionContext,
     buildSupportSubjectInspectionAuthorization,
     buildSupportSubjectInspectionReceipts,
 } from '../src/handlers/adminSupport.ts'
@@ -125,4 +126,50 @@ test('shared subject receipts preserve response schemas and action-specific rout
     expect(unscopedUser.receipts.inspectionReceipt.nextRoutes.accessRecovery).toBeNull()
     expect(unscopedUser.receipts.actionHistoryReceipt.nextRoutes.accessRecovery).toBeNull()
     expect(unscopedUser.receipts.actionHistoryExport.nextRoutes.accessRecovery).toBeNull()
+})
+
+test('inspection context assembles access state, authorization, and receipts for both targets', () => {
+    for (const kind of ['organization', 'user'] as const) {
+        const targetId = kind === 'organization' ? organizationId : userId
+        const member = {
+            id: userId,
+            user_id: userId,
+            organization_id: organizationId,
+            active: true,
+            status: 'active',
+            role: 'owner',
+        }
+        const context = buildSupportSubjectInspectionContext({
+            kind,
+            actorId: 'support-admin',
+            requestedId: targetId,
+            targetId,
+            organizationIds: [organizationId],
+            requestId,
+            reason: 'Customer requested access review',
+            supportContext: 'Case 123',
+            users: kind === 'organization' ? [member] : [{ id: userId, active: true }],
+            memberships: [member],
+            invites: [],
+            approvalDetails: [],
+            availability: [availabilityByOrg.get(organizationId)!],
+            timeline,
+            supportActivityRollup: { schemaVersion: 'support.activity_rollup.v1', blockerCodes: [] },
+        })
+
+        expect(context.subjectAccessState.timelineFilter).toMatchObject({
+            entity: targetId,
+            entityType: kind,
+            action: `support.${kind}`,
+        })
+        expect(context.authorization.effective).toMatchObject({
+            organizationId,
+            userId: kind === 'organization' ? null : userId,
+        })
+        expect(context.receipts.inspectionReceipt.schemaVersion).toBe(`support.${kind}.inspection_receipt.v1`)
+        expect(context.receipts.inspectionReceipt.accessStatus).toMatchObject({
+            overall: context.subjectAccessState.accessStatus.overall,
+            blockers: context.subjectAccessState.accessStatus.blockers,
+        })
+    }
 })
