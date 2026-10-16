@@ -859,13 +859,7 @@ export async function getSupportSession(req: FastifyRequest<{ Params: SupportSes
     })
 
     const timeline = await loadSupportSessionTimeline(supportSessionId)
-    const response = supportSessionResponse({
-        ...state,
-        actorId: state.actorId,
-        reason: state.reason,
-        requestId: state.requestId,
-        auditEventIds: state.auditEventIds,
-    })
+    const response = supportSessionResponse(state)
     const workflowRoutes = supportSessionWorkflowRoutes(state)
     const authorization = supportSessionAuthorizationProof({
         actorId: actor.id,
@@ -968,7 +962,7 @@ export async function postSupportSessionRevoke(req: FastifyRequest<{ Params: Sup
             blocker: 'support_session_revoked',
         })
         return res.status(409).send(supportError('support_session_revoked', 'Support session is already revoked.', {
-            supportSession: supportSessionResponse({ ...state, actorId: state.actorId, reason: state.reason, requestId: state.requestId, auditEventIds: state.auditEventIds, status: 'revoked' }),
+            supportSession: supportSessionResponse(state),
         }))
     }
     if (state.status === 'expired') {
@@ -983,7 +977,7 @@ export async function postSupportSessionRevoke(req: FastifyRequest<{ Params: Sup
             blocker: 'support_session_expired',
         })
         return res.status(409).send(supportError('support_session_expired', 'Support session has expired; create a new scoped session.', {
-            supportSession: supportSessionResponse({ ...state, actorId: state.actorId, reason: state.reason, requestId: state.requestId, auditEventIds: state.auditEventIds, status: 'expired' }),
+            supportSession: supportSessionResponse(state),
         }))
     }
 
