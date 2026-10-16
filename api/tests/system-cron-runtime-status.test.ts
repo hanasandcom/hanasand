@@ -1,13 +1,14 @@
 import { expect, mock, test } from 'bun:test'
 
 const purgeJobId = 'api-user-account-deletion'
+const failoverJobId = 'api-vm-failover'
 let paused = false
 const runNowCalls: string[] = []
 
 mock.module('../src/utils/events/rawLogRetention.ts', () => ({ RAW_LOG_RETENTION_JOB_ID: 'api-raw-log-retention' }))
 mock.module('../src/utils/vms/collectMetrics.ts', () => ({ VM_METRICS_JOB_ID: 'api-vm-metrics' }))
 mock.module('../src/utils/cron.ts', () => ({
-    canRunApiCronJobNow: (id: string) => id === purgeJobId,
+    canRunApiCronJobNow: (id: string) => id === purgeJobId || id === failoverJobId,
     HOST_UPDATE_MONITOR_JOB_ID: 'api-host-update-monitor',
     isApiCronJobPaused: async() => paused,
     runApiCronJobNow: async(id: string) => { runNowCalls.push(id) },
@@ -16,6 +17,7 @@ mock.module('../src/utils/cron.ts', () => ({
 mock.module('../src/utils/organizationPrivacy.ts', () => ({ ORGANIZATION_RETENTION_JOB_ID: 'api-organization-retention' }))
 mock.module('../src/utils/events/ruleStorageEstimateWorker.ts', () => ({ RULE_STORAGE_ESTIMATE_JOB_ID: 'api-rule-storage-estimate' }))
 mock.module('../src/utils/auth/purgeDeletedAccounts.ts', () => ({ ACCOUNT_DELETION_PURGE_JOB_ID: purgeJobId }))
+mock.module('../src/utils/vms/failover.ts', () => ({ VM_FAILOVER_JOB_ID: failoverJobId }))
 mock.module('../src/utils/vulnerabilities/scanner.ts', () => ({
     VULNERABILITY_SCAN_CADENCE_SECONDS: 3600,
     VULNERABILITY_SCAN_JOB_ID: 'api-vulnerability-scanner',
@@ -97,6 +99,28 @@ test('overlapping calls for one API job share a single tracked execution', async
     releaseWork('completed')
     expect(await Promise.all([first, second])).toEqual(['completed', 'completed'])
     expect(getBackgroundJobRuntime(jobId)).toMatchObject({ running: false, runCount: 1, failureCount: 0 })
+})
+
+test('VM failover is visible with minute cadence and safe API cron controls', async() => {
+    paused = false
+    const job = (await listUnifiedScheduledJobs()).find(item => item.id === failoverJobId)
+    expect(job).toMatchObject({
+        name: 'VM failover maintenance',
+        schedule: 'Every minute',
+        cadenceSeconds: 60,
+        source: 'api/src/utils/vms/failover.ts',
+        enabled: true,
+        status: 'enabled',
+        controls: ['pause', 'run_now'],
+        controlMode: 'safe_control',
+    })
+
+    await updateManagedCronJob(failoverJobId, { action: 'run_now' })
+    expect(runNowCalls).toContain(failoverJobId)
+
+    paused = true
+    const pausedJob = (await listUnifiedScheduledJobs()).find(item => item.id === failoverJobId)
+    expect(pausedJob).toMatchObject({ enabled: false, status: 'paused', controls: ['resume', 'run_now'] })
 })
 
 test('adaptive log processors report their batch runs without changing queue cadence', async() => {

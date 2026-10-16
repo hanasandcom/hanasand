@@ -3,6 +3,8 @@ import run from '#db'
 import { vmLifecycleLock } from './lifecycleLock.ts'
 import { hostJson, inspectHostVm, internalHostFetch, otherHost, type HostInstance } from './hostTransport.ts'
 
+export const VM_FAILOVER_JOB_ID = 'api-vm-failover'
+
 export async function ensureFailoverSchema() {
     await run(`CREATE TABLE IF NOT EXISTS vm_failover (
         vm_name TEXT PRIMARY KEY REFERENCES vms(name) ON UPDATE CASCADE ON DELETE CASCADE,

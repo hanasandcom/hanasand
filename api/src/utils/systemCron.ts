@@ -12,6 +12,7 @@ import { getVulnerabilityReport, setVulnerabilityScannerPaused, startTrackedVuln
 import { collectDatabaseBackupServices, createDatabaseBackup, DATABASE_BACKUP_JOB_ID, setDatabaseBackupSchedulePaused } from './db/backups.ts'
 import { normalizeSchedule, parseExistingCronEntries, parseManagedBlock, replaceManagedBlock } from './systemCronCrontab.ts'
 import { readManagedCronLog, readManagedCrontab, writeManagedCrontab } from './managedCronHost.ts'
+import { VM_FAILOVER_JOB_ID } from './vms/failover.ts'
 
 export type ManagedCronDefinition = {
     id: string
@@ -321,6 +322,16 @@ const apiBackgroundJobDefinitions: Array<{
         schedule: 'Every minute',
         cadenceSeconds: API_CRON_CADENCE_SECONDS,
         source: 'api/src/utils/vms/collectMetrics.ts',
+        controls: ['pause', 'resume', 'run_now'],
+    },
+    {
+        id: VM_FAILOVER_JOB_ID,
+        name: 'VM failover maintenance',
+        description: 'Processes queued VM failovers and refreshes standby replicas for enabled VMs.',
+        category: 'Other/System',
+        schedule: 'Every minute',
+        cadenceSeconds: API_CRON_CADENCE_SECONDS,
+        source: 'api/src/utils/vms/failover.ts',
         controls: ['pause', 'resume', 'run_now'],
     },
     {

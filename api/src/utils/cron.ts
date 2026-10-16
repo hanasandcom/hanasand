@@ -14,6 +14,7 @@ import { persistHostUpdateStatus, readHostUpdateStatus, updateHosts } from './ap
 import { RULE_STORAGE_ESTIMATE_JOB_ID, runRuleStorageEstimateWorker } from './events/ruleStorageEstimateWorker.ts'
 import { getBackgroundJobRuntime } from './backgroundJobRuntime.ts'
 import purgeDeletedAccounts, { ACCOUNT_DELETION_PURGE_JOB_ID } from './auth/purgeDeletedAccounts.ts'
+import { maintainVmFailover, VM_FAILOVER_JOB_ID } from './vms/failover.ts'
 
 export const HOST_UPDATE_MONITOR_JOB_ID = 'api-host-update-monitor'
 export const WEB_SCAN_JOB_ID = 'api-web-security-scanner'
@@ -45,6 +46,7 @@ const apiMinuteCronRunners: Record<string, () => Promise<unknown> | unknown> = {
     },
     [RULE_STORAGE_ESTIMATE_JOB_ID]: runRuleStorageEstimateWorker,
     [ACCOUNT_DELETION_PURGE_JOB_ID]: purgeDeletedAccounts,
+    [VM_FAILOVER_JOB_ID]: maintainVmFailover,
 }
 
 export function canRunApiCronJobNow(id: string) {

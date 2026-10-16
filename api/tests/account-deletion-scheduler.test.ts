@@ -12,12 +12,16 @@ const deletionAuditEvents: Array<Record<string, unknown>> = []
 const sqlCalls: string[] = []
 let databaseBackupPolls = 0
 let purgePaused = false
+const failoverJobId = 'api-vm-failover'
+let failoverPaused = true
+let failoverRuns = 0
 
 async function query(sql: string, params: unknown[] = []) {
     const normalized = sql.replace(/\s+/g, ' ').trim()
     sqlCalls.push(normalized)
     if (normalized.startsWith('SELECT status FROM scheduled_job_controls')) {
-        return { rows: [{ status: params[0] === purgeJobId && !purgePaused ? 'enabled' : 'paused' }] }
+        const enabled = (params[0] === purgeJobId && !purgePaused) || (params[0] === failoverJobId && !failoverPaused)
+        return { rows: [{ status: enabled ? 'enabled' : 'paused' }] }
     }
     if (normalized.startsWith('SELECT id FROM users WHERE id = $1 FOR UPDATE')) return { rows: accountExists ? [{ id: 'expired-user' }] : [] }
     if (normalized.startsWith('UPDATE users') && normalized.includes('deletion_scheduled_at = NOW() + INTERVAL \'30 days\'')) {
@@ -82,6 +86,10 @@ mock.module('../src/utils/systemCronMonitor.ts', () => ({ monitorSystemCronJobs:
 mock.module('../src/utils/auth/session.ts', () => ({ revokeAllTokens: async (input: { userId: string, revokedBy: string }) => { tokenRevocations.push(input); return 1 } }))
 mock.module('../src/utils/mail/stalwartAdmin.ts', () => ({ deleteMailPrincipal: async () => {} }))
 mock.module('../src/utils/auth/purgeUserSshKeys.ts', () => ({ purgeUserSshKeys: async () => 0 }))
+mock.module('../src/utils/vms/failover.ts', () => ({
+    VM_FAILOVER_JOB_ID: failoverJobId,
+    maintainVmFailover: async() => { failoverRuns++; return { processed: 1 } },
+}))
 mock.module('../src/utils/auth/tokenWrapper.ts', () => ({ default: async () => ({ valid: true, id: 'expired-user', authenticatedId: 'expired-user', impersonating: false }) }))
 mock.module('../src/utils/auth/accountDeletionMail.ts', () => ({ accountDeletionMail: () => ({ subject: 'Scheduled', textBody: 'Scheduled', htmlBody: 'Scheduled' }), deletionRequestLocation: async () => ({}) }))
 mock.module('../src/utils/mail/system.ts', () => ({ sendSystemMail: async () => {} }))
@@ -109,6 +117,8 @@ beforeEach(() => {
     sqlCalls.length = 0
     databaseBackupPolls = 0
     purgePaused = false
+    failoverPaused = true
+    failoverRuns = 0
 })
 
 test('the minute scheduler purges accounts without login or external backup polling', async () => {
@@ -170,4 +180,30 @@ test('the minute scheduler purges accounts without login or external backup poll
     expect(listBackgroundJobRuntime().filter(job => job.runCount > 0).map(job => job.id)).toEqual([purgeJobId])
     expect(getBackgroundJobRuntime(purgeJobId).runCount).toBe(2)
     expect(getBackgroundJobRuntime(ACCOUNT_DELETION_PURGE_JOB_ID).lastSuccessAt).toBeTruthy()
+})
+
+test('the minute cron dispatches VM failover maintenance and records worker runtime', async () => {
+    const { VM_FAILOVER_JOB_ID } = await import('../src/utils/vms/failover.ts')
+    expect(VM_FAILOVER_JOB_ID).toBe(failoverJobId)
+    expect(canRunApiCronJobNow(VM_FAILOVER_JOB_ID)).toBe(true)
+    expect(scheduledJobRegistryGuardrailEntries().some(entry =>
+        entry.id === VM_FAILOVER_JOB_ID && entry.source === 'api/src/utils/vms/failover.ts'
+    )).toBe(true)
+
+    startCron()
+    expect(scheduleExpression).toBe('* * * * *')
+    await scheduledTick!()
+    expect(failoverRuns).toBe(0)
+
+    failoverPaused = false
+    await scheduledTick!()
+
+    expect(failoverRuns).toBe(1)
+    expect(getBackgroundJobRuntime(VM_FAILOVER_JOB_ID)).toMatchObject({
+        running: false,
+        runCount: 1,
+        failureCount: 0,
+        lastError: null,
+        lastSuccessAt: expect.any(String),
+    })
 })
