@@ -4,14 +4,15 @@ import Link from '@/components/organizations/workspaceLink'
 import { useEffect, useState } from 'react'
 import { DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
 import { requestJson, type Rule } from '../detection-rules'
-import { ArrowLeft, Activity, History, LoaderCircle, SlidersHorizontal } from 'lucide-react'
+import { ArrowLeft, Activity, LoaderCircle, SlidersHorizontal } from 'lucide-react'
 import SignatureEditor from './signature-editor'
 import ReprocessRule from '../reprocess-rule'
 import { getRuleCategory, ruleCategories } from '../rule-categories'
 import { useSmoothedCount } from '../use-smoothed-count'
+import RuleAuditHistory, { type RuleAuditEntry } from './RuleAuditHistory'
+import { formatRuleEstimateDate, formatRuleStorageBytes } from '../ruleStorageFormatting'
 
-type Audit = { id: string, event_type: string, actor_id: string | null, created_at: string, context: { before?: Record<string, unknown> | null, after?: Record<string, unknown>, action?: string } }
-type Payload = { isHistorical?: boolean, currentVersion?: string, triggerCount: number | null, rule: Rule, canEdit: boolean, audit: Audit[], nextOffset: number | null }
+type Payload = { isHistorical?: boolean, currentVersion?: string, triggerCount: number | null, rule: Rule, canEdit: boolean, audit: RuleAuditEntry[], nextOffset: number | null }
 type StorageEstimate = { count: number, bytes: number, checkedDate: string, generatedAt: string }
 const fieldClass = 'mt-1.5 w-full min-w-0 rounded-lg border border-ui-border bg-ui-canvas px-3 py-2 text-sm font-normal text-ui-text outline-none focus:border-ui-primary focus:ring-2 focus:ring-ui-primary/15 disabled:opacity-70'
 
@@ -145,8 +146,8 @@ export default function RuleDetails({ id, organizationId }: { id: string, organi
                             <dd className='mt-1 text-sm font-semibold leading-none tabular-nums text-ui-text'>
                                 {storageEstimateState === 'loading' ? 'Loading…' : storageEstimateState === 'pending' ? 'Pending' : storageEstimateState === 'unavailable' ? 'Unavailable' : `${storageEstimate?.count.toLocaleString('en-US') ?? '0'} events`}
                             </dd>
-                            <dd className='mt-1 text-xs tabular-nums text-ui-muted'>{storageEstimateState === 'loading' ? 'Loading saved estimate…' : storageEstimateState === 'pending' ? 'Waiting for estimate' : storageEstimateState === 'unavailable' ? 'Space estimate unavailable' : `${formatBytes(storageEstimate?.bytes ?? 0)} estimated savings`}</dd>
-                            {storageEstimate && <dd className='mt-1 text-right text-[10px] tabular-nums text-ui-muted'>{formatEstimateDate(storageEstimate.checkedDate)}</dd>}
+                            <dd className='mt-1 text-xs tabular-nums text-ui-muted'>{storageEstimateState === 'loading' ? 'Loading saved estimate…' : storageEstimateState === 'pending' ? 'Waiting for estimate' : storageEstimateState === 'unavailable' ? 'Space estimate unavailable' : `${formatRuleStorageBytes(storageEstimate?.bytes ?? 0, { byteUnit: '', scaledUnit: '' })} estimated savings`}</dd>
+                            {storageEstimate && <dd className='mt-1 text-right text-[10px] tabular-nums text-ui-muted'>{formatRuleEstimateDate(storageEstimate.checkedDate)}</dd>}
                         </dl>}
                         <dl className='flex items-center gap-2 sm:border-l sm:border-ui-border sm:pl-4'>
                             <Activity size={20} className='text-ui-primary' aria-hidden='true' />
@@ -176,51 +177,7 @@ export default function RuleDetails({ id, organizationId }: { id: string, organi
             </form>
             {data.canEdit && !data.isHistorical && data.rule.definition?.stage === 'analyze' && data.rule.definition?.action === 'drop' &&
                 <ReprocessRule key={organizationId + data.rule.id} rule={data.rule} organizationId={organizationId} disabled={busy || JSON.stringify(draft) !== JSON.stringify(data.rule)} />}
-            <DashboardPanel className='grid gap-4 p-5 sm:p-6'>
-                <div className='flex items-center gap-2'><History size={18} className='text-ui-muted' aria-hidden='true' /><h2 className='text-sm font-semibold'>Audit log</h2></div>
-                {!data.audit.length && <p className='text-sm text-ui-muted'>No recorded changes for this rule in this organization.</p>}
-                <ol className='divide-y divide-ui-border'>{data.audit.map(entry => <li key={entry.id}>
-                    <details className='py-4'>
-                        <summary className='flex cursor-pointer flex-wrap justify-between gap-2 text-sm'>
-                            <span className='font-semibold'>{entry.event_type === 'event.rule.created' ? 'Rule created' : entry.event_type === 'event.rule.imported' ? 'Rule imported' : 'Rule updated'}{entry.context.action ? ` · ${entry.context.action}` : ''} · {entry.actor_id || 'System'}</span>
-                            <time dateTime={entry.created_at}>{new Date(entry.created_at).toLocaleString()}</time>
-                        </summary>
-                        <div className='pt-3'>
-                            {typeof entry.context.before?.version === 'string' && entry.context.before.version !== data.currentVersion && <Link href={`/rules/${draft.id.replace(/\.v\d+$/, '')}.v${entry.context.before.version}`} className='mr-3 text-xs underline'>View version {entry.context.before.version}</Link>}
-                            {typeof entry.context.after?.version === 'string' && entry.context.after.version !== data.currentVersion && <Link href={`/rules/${draft.id.replace(/\.v\d+$/, '')}.v${entry.context.after.version}`} className='text-xs underline'>View version {entry.context.after.version}</Link>}
-                            {entry.context.after && <dl className='mt-3 grid gap-2 rounded-lg border border-ui-border bg-ui-raised p-3 text-xs'>{Object.entries(entry.context.after).filter(([key, value]) => (key !== 'version' || value !== data.currentVersion) && JSON.stringify(entry.context.before?.[key]) !== JSON.stringify(value)).map(([key, value]) => <div key={key} className='grid min-w-0 gap-1 sm:grid-cols-[7rem_minmax(0,1fr)]'><dt className='font-medium capitalize'>{key === 'definition' ? 'Conditions' : key}</dt><dd className='wrap-break-word whitespace-pre-wrap text-ui-muted'>{entry.context.before && <><span>{displayValue(entry.context.before[key])}</span><span aria-label='changed to'> → </span></>}{displayValue(value)}</dd></div>)}</dl>}
-                        </div>
-                    </details>
-                </li>)}</ol>
-                {data.nextOffset !== null && <button type='button' disabled={busy} onClick={() => void moreAudit()} className='justify-self-start rounded-lg border border-ui-border px-3 py-2 text-sm'>Load older changes</button>}
-            </DashboardPanel>
+            <RuleAuditHistory entries={data.audit} currentVersion={data.currentVersion} ruleId={draft.id} nextOffset={data.nextOffset} busy={busy} onLoadMore={() => void moreAudit()} />
         </>}
     </DashboardPage>
-}
-
-function displayValue(value: unknown): string {
-    if (value == null) return 'Not set'
-    if (typeof value === 'boolean') return value ? 'Enabled' : 'Disabled'
-    return typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value)
-}
-
-function formatBytes(bytes: number): string {
-    if (bytes < 1024) return `${bytes}B`
-    const units = ['KB', 'MB', 'GB', 'TB']
-    let amount = bytes / 1024, unit = 0
-    while (amount >= 1024 && unit < units.length - 1) { amount /= 1024; unit++ }
-    return `${amount >= 10 ? Math.round(amount) : amount.toFixed(1)}${units[unit]}`
-}
-
-function formatEstimateDate(value: string): string {
-    const [year, month, day] = value.slice(0, 10).split('-').map(Number)
-    if (!year || !month || !day) return ''
-    const label = `${String(day).padStart(2, '0')}:${String(month).padStart(2, '0')}`
-    const now = new Date()
-    const nowYear = now.getUTCFullYear(), nowMonth = now.getUTCMonth(), nowDay = now.getUTCDate()
-    const previousMonth = nowMonth === 0 ? 11 : nowMonth - 1
-    const previousMonthYear = nowMonth === 0 ? nowYear - 1 : nowYear
-    const previousMonthDay = Math.min(nowDay, new Date(Date.UTC(previousMonthYear, previousMonth + 1, 0)).getUTCDate())
-    const olderThanMonth = Date.UTC(year, month - 1, day) < Date.UTC(previousMonthYear, previousMonth, previousMonthDay)
-    return year !== nowYear && olderThanMonth ? `${label}:${year}` : label
 }

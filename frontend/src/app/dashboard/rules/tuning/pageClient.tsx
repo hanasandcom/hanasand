@@ -9,18 +9,9 @@ import { requestJson, type Rule } from '../detection-rules'
 import CreateRuleDialog from '../create-rule-dialog'
 import ReprocessRule from '../reprocess-rule'
 import type { Condition } from '../condition-builder'
+import LogPatternTable, { type LogPattern } from './LogPatternTable'
+import { formatRuleStorageBytes } from '../ruleStorageFormatting'
 
-type LogPattern = {
-    message: string
-    ip: string
-    ip_path: string | null
-    user_agent: string
-    user_agent_path: string | null
-    last_triggered: string | null
-    last_24h_count: string
-    event_count: string
-    storage_bytes: string
-}
 export type TuningData = { organizationId: string, generatedAt: string | null, logs: LogPattern[], pending: boolean, refreshing: boolean }
 type SortField = 'message' | 'ip' | 'user_agent' | 'event_count' | 'storage_bytes'
 type SortDirection = 'asc' | 'desc'
@@ -32,16 +23,6 @@ const sortFields: { value: SortField, label: string }[] = [
     { value: 'event_count', label: 'Count' },
     { value: 'storage_bytes', label: 'Row data' },
 ]
-
-const numberFormat = new Intl.NumberFormat('en')
-
-function formatBytes(value: number) {
-    if (value < 1024) return `${value} B`
-    const units = ['KB', 'MB', 'GB', 'TB']
-    let amount = value / 1024, unit = 0
-    while (amount >= 1024 && unit < units.length - 1) { amount /= 1024; unit++ }
-    return `${amount >= 10 ? Math.round(amount) : amount.toFixed(1)} ${units[unit]}`
-}
 
 function rulePreset(log: LogPattern) {
     const conditions: Condition[] = [{ path: 'message', operator: 'equals', value: log.message, caseSensitive: true }]
@@ -145,7 +126,7 @@ export default function TuningPage({ initialData = null, initialError = '' }: { 
             <div className='flex flex-wrap items-center justify-between gap-2 border-b border-ui-border px-4 py-3'>
                 <h2 className='font-semibold'>Stored log patterns</h2>
                 <div className='flex flex-wrap items-center justify-end gap-2'>
-                    <p className='text-xs text-ui-muted'>{data?.refreshing ? `Refreshing in background${displayedAt ? ` · showing snapshot from ${displayedAt}` : ''}…` : displayedAt ? `Updated ${displayedAt}` : pending ? 'Preparing the summary in the background…' : 'Loading patterns…'}{data && <> · {formatBytes(totalStorageBytes)} total</>}</p>
+                    <p className='text-xs text-ui-muted'>{data?.refreshing ? `Refreshing in background${displayedAt ? ` · showing snapshot from ${displayedAt}` : ''}…` : displayedAt ? `Updated ${displayedAt}` : pending ? 'Preparing the summary in the background…' : 'Loading patterns…'}{data && <> · {formatRuleStorageBytes(totalStorageBytes)} total</>}</p>
                     <details className='relative'>
                         <summary className='flex cursor-pointer list-none items-center gap-1.5 rounded-lg border border-ui-border px-2.5 py-1.5 text-xs font-medium text-ui-text hover:bg-ui-raised focus-visible:outline focus-visible:outline-2 focus-visible:outline-ui-primary'><SlidersHorizontal size={14} aria-hidden />Filter</summary>
                         <div className='absolute right-0 z-10 mt-2 w-56 rounded-lg border border-ui-border bg-ui-panel p-3 shadow-lg'>
@@ -163,27 +144,12 @@ export default function TuningPage({ initialData = null, initialError = '' }: { 
                 </div>
             </div>
             <div className='overflow-x-auto'>
-                <table className='w-full min-w-[82rem] table-fixed text-left text-sm'>
-                    <thead className='bg-ui-raised text-xs text-ui-muted'><tr><th className='w-[24%] px-4 py-2'>Log</th><th className='w-[10%] px-4 py-2'>IP</th><th className='w-[20%] px-4 py-2'>User agent</th><th className='w-[9%] px-4 py-2 text-right'>Count (est.)</th><th className='w-[12%] px-4 py-2'>Last seen in sample</th><th className='w-[11%] px-4 py-2 text-right'>Triggers 24h (est.)</th><th className='w-[14%] px-4 py-2 text-right'>Row data (est.)</th></tr></thead>
-                    <tbody>{sortedLogs.map(log => {
-                        const parsedLastTriggered = log.last_triggered ? new Date(log.last_triggered) : null
-                        const lastTriggered = parsedLastTriggered && Number.isFinite(parsedLastTriggered.getTime()) ? parsedLastTriggered : null
-                        const lastTriggeredLabel = lastTriggered?.toLocaleString() || '—'
-                        const tunableFields = log.message.length > 0 && log.message.length <= 200
-                            && (!log.ip_path || log.ip.length <= 200)
-                            && (!log.user_agent_path || log.user_agent.length <= 200)
-                        return <tr key={JSON.stringify([log.message, log.ip, log.user_agent])} className='border-t border-ui-border align-top'>
-                            <td className='px-4 py-3'><code className='block whitespace-pre-wrap wrap-break-word text-xs'>{log.message}</code><button type='button' disabled={!canManage || !tunableFields} onClick={() => { setSelected(log); setCreatedRule(null) }} className='mt-2 rounded-md border border-ui-border px-2.5 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-50' title={!tunableFields ? 'This log message or a rule field is too long for an exact condition.' : canManage ? undefined : 'An Hanasand editor is required to create a suppression rule'}>Tune</button></td>
-                            <td className='px-4 py-3 text-xs'><span className='wrap-break-word'>{log.ip || '—'}</span></td>
-                            <td className='px-4 py-3 text-xs'><span className='wrap-break-word'>{log.user_agent || '—'}</span></td>
-                            <td className='px-4 py-3 text-right tabular-nums'><SmoothedCount value={log.event_count} /></td>
-                            <td className='px-4 py-3 text-xs tabular-nums' title={lastTriggered?.toISOString()}>{lastTriggeredLabel}</td>
-                            <td className='px-4 py-3 text-right tabular-nums'><SmoothedCount value={log.last_24h_count} /></td>
-                            <td className='px-4 py-3 text-right tabular-nums' title={`${numberFormat.format(Number(log.storage_bytes))} bytes`}>{formatBytes(Number(log.storage_bytes))}</td>
-                        </tr>
-                    })}
-                    {!data?.logs.length && <tr><td colSpan={7} className='px-4 py-10 text-center text-sm text-ui-muted'>{data ? 'No stored log patterns.' : pending ? 'Preparing the summary in the background…' : error ? 'Log patterns could not be loaded.' : 'Loading patterns…'}</td></tr>}</tbody>
-                </table>
+                <LogPatternTable
+                    logs={sortedLogs}
+                    canManage={canManage}
+                    emptyLabel={data ? 'No stored log patterns.' : pending ? 'Preparing the summary in the background…' : error ? 'Log patterns could not be loaded.' : 'Loading patterns…'}
+                    onTune={log => { setSelected(log); setCreatedRule(null) }}
+                />
             </div>
         </DashboardPanel>
         <p className='text-xs text-ui-muted'>Row data sums the stored event row sizes; PostgreSQL indexes and free space are excluded.</p>
@@ -192,24 +158,4 @@ export default function TuningPage({ initialData = null, initialError = '' }: { 
             setSelected(null); setCreatedRule(rule); setError(''); void refresh()
         }} />}
     </DashboardPage>
-}
-
-function SmoothedCount({ value }: { value?: string }) {
-    const parsed = value ? Number(value) : Number.NaN
-    const target = Number.isFinite(parsed) ? parsed : null
-    const [sample, setSample] = useState({ target, displayed: target })
-
-    if (target !== sample.target) {
-        const current = sample.displayed
-        if (target == null) {
-            setSample({ target, displayed: null })
-        } else if (current == null || sample.target == null || target >= sample.target) {
-            setSample({ target, displayed: target })
-        } else {
-            // 1% page samples are noisy, so lower estimates should take several snapshots to catch up.
-            setSample({ target, displayed: current + (target - current) * 0.2 })
-        }
-    }
-
-    return <>{sample.displayed == null ? '—' : numberFormat.format(Math.round(sample.displayed))}</>
 }

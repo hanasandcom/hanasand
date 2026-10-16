@@ -1,43 +1,20 @@
 'use client'
 
-import { ArrowDown, ArrowUp, ImageIcon, LockKeyhole, Pencil, RefreshCw, Send, ShieldCheck, Trash2 } from 'lucide-react'
+import { ArrowUp, ImageIcon, LockKeyhole, RefreshCw, Send, ShieldCheck } from 'lucide-react'
 import AccessCodePanel from '@/components/accessCodePanel'
 import { useEffect, useMemo, useState } from 'react'
+import type { PromptPortalItem, PromptPortalPublicState } from '@/utils/promptPortal/store'
+import { comparePromptItems } from '@/utils/promptPortal/ordering'
+import { PromptQueue } from './PromptQueue'
 
-type PortalFile = {
-    id: string
-    name: string
-    type: string
-    size: number
-}
-
-type PortalItem = {
-    id: string
-    prompt: string
-    priority: 'now' | 'next'
-    status: 'queued' | 'running' | 'done' | 'error'
-    createdAt: string
-    startedAt?: string
-    completedAt?: string
-    result?: string
-    files: PortalFile[]
-}
-
-type PortalState = {
-    authenticated: boolean
-    readOnly: boolean
-    idleExpiresAt?: string
-    items: PortalItem[]
-}
-
-const emptyState: PortalState = {
+const emptyState: PromptPortalPublicState = {
     authenticated: false,
     readOnly: false,
     items: [],
 }
 
-export default function PromptPortalClient({ initialState = emptyState }: { initialState?: PortalState }) {
-    const [state, setState] = useState<PortalState>(initialState)
+export default function PromptPortalClient({ initialState = emptyState }: { initialState?: PromptPortalPublicState }) {
+    const [state, setState] = useState<PromptPortalPublicState>(initialState)
     const [code, setCode] = useState('')
     const [prompt, setPrompt] = useState('')
     const [priority, setPriority] = useState<'now' | 'next'>('next')
@@ -96,7 +73,7 @@ export default function PromptPortalClient({ initialState = emptyState }: { init
         setState(payload)
     }
 
-    async function mutateQueued(action: 'edit' | 'delete' | 'reorder', item: PortalItem, extra: Record<string, unknown> = {}) {
+    async function mutateQueued(action: 'edit' | 'delete' | 'reorder', item: PromptPortalItem, extra: Record<string, unknown> = {}) {
         setBusy(true)
         setError('')
         const response = await fetch('/api/prompt', {
@@ -110,7 +87,7 @@ export default function PromptPortalClient({ initialState = emptyState }: { init
         setState(payload)
     }
 
-    function editQueued(item: PortalItem) {
+    function editQueued(item: PromptPortalItem) {
         const next = window.prompt('Edit instruction', item.prompt)
         if (next !== null) void mutateQueued('edit', item, { prompt: next })
     }
@@ -173,7 +150,7 @@ export default function PromptPortalClient({ initialState = emptyState }: { init
                             </button>
                         </form>
 
-                        <Queue
+                        <PromptQueue
                             title='Input queue'
                             items={pending}
                             empty='No queued instructions.'
@@ -181,7 +158,7 @@ export default function PromptPortalClient({ initialState = emptyState }: { init
                             onDelete={item => mutateQueued('delete', item)}
                             onMove={(item, direction) => mutateQueued('reorder', item, { direction })}
                         />
-                        <Queue title='Output queue' items={completed} empty='No completed results yet.' />
+                        <PromptQueue title='Output queue' items={completed} empty='No completed results yet.' />
                     </section>
                 )}
             </div>
@@ -189,102 +166,5 @@ export default function PromptPortalClient({ initialState = emptyState }: { init
     )
 }
 
-function Queue({
-    title,
-    items,
-    empty,
-    onEdit,
-    onDelete,
-    onMove,
-}: {
-    title: string
-    items: PortalItem[]
-    empty: string
-    onEdit?: (item: PortalItem) => void
-    onDelete?: (item: PortalItem) => void
-    onMove?: (item: PortalItem, direction: 'up' | 'down') => void
-}) {
-    const queuedItems = items.filter(item => item.status === 'queued')
-
-    return (
-        <section className='flex min-h-0 flex-col rounded-lg border border-ui-border bg-ui-panel'>
-            <div className='border-b border-ui-border px-4 py-3'>
-                <h2 className='text-sm font-semibold'>{title}</h2>
-            </div>
-            <div className='grid min-h-0 gap-2 overflow-y-auto p-3'>
-                {items.length ? items.map(item => (
-                    <PromptItem
-                        key={item.id}
-                        item={item}
-                        index={queuedItems.indexOf(item)}
-                        canMoveUp={queuedItems.indexOf(item) > 0}
-                        canMoveDown={queuedItems.indexOf(item) >= 0 && queuedItems.indexOf(item) < queuedItems.length - 1}
-                        onEdit={onEdit}
-                        onDelete={onDelete}
-                        onMove={onMove}
-                    />
-                )) : <p className='rounded-lg border border-dashed border-ui-border bg-ui-raised p-4 text-sm text-ui-muted'>{empty}</p>}
-            </div>
-        </section>
-    )
-}
-
-function PromptItem({
-    item,
-    index,
-    canMoveUp,
-    canMoveDown,
-    onEdit,
-    onDelete,
-    onMove,
-}: {
-    item: PortalItem
-    index: number
-    canMoveUp: boolean
-    canMoveDown: boolean
-    onEdit?: (item: PortalItem) => void
-    onDelete?: (item: PortalItem) => void
-    onMove?: (item: PortalItem, direction: 'up' | 'down') => void
-}) {
-    const canMutate = item.status === 'queued'
-
-    return (
-        <article className='grid gap-2 rounded-lg border border-ui-border bg-ui-raised p-3'>
-            <div className='flex flex-wrap items-center justify-between gap-2'>
-                <span className='text-xs font-semibold uppercase text-ui-muted'>{queueLabel(item, index)} · {item.status}</span>
-                <div className='flex items-center gap-1'>
-                    {canMutate && onMove ? (
-                        <>
-                            <button type='button' title='Move up' disabled={!canMoveUp} onClick={() => onMove(item, 'up')} className={iconButton}><ArrowUp className='h-3.5 w-3.5' /></button>
-                            <button type='button' title='Move down' disabled={!canMoveDown} onClick={() => onMove(item, 'down')} className={iconButton}><ArrowDown className='h-3.5 w-3.5' /></button>
-                        </>
-                    ) : null}
-                    {canMutate && onEdit ? <button type='button' title='Edit' onClick={() => onEdit(item)} className={iconButton}><Pencil className='h-3.5 w-3.5' /></button> : null}
-                    {canMutate && onDelete ? <button type='button' title='Delete' onClick={() => onDelete(item)} className={iconButton}><Trash2 className='h-3.5 w-3.5' /></button> : null}
-                    <time className='ml-1 text-xs text-ui-muted'>{new Date(item.createdAt).toLocaleString()}</time>
-                </div>
-            </div>
-            <p className='whitespace-pre-wrap wrap-break-word text-sm leading-6 text-ui-text'>{item.prompt}</p>
-            {item.files.length ? <p className='text-xs font-semibold text-ui-muted'>{item.files.length} image{item.files.length === 1 ? '' : 's'} attached</p> : null}
-            {item.result ? <pre className='max-h-80 overflow-auto whitespace-pre-wrap rounded-lg border border-ui-border bg-ui-canvas p-3 text-sm leading-6 text-ui-text'>{item.result}</pre> : null}
-        </article>
-    )
-}
-
 const plainButton = 'inline-flex h-9 items-center gap-2 rounded-lg border border-ui-border bg-ui-raised px-3 text-sm font-semibold text-ui-muted hover:text-ui-text disabled:cursor-not-allowed disabled:opacity-60'
 const selectedButton = 'inline-flex h-9 items-center gap-2 rounded-lg border border-ui-primary/35 bg-ui-primary/10 px-3 text-sm font-semibold text-ui-on-primary disabled:cursor-not-allowed disabled:opacity-60'
-const iconButton = 'inline-flex h-7 w-7 items-center justify-center rounded-lg border border-ui-border bg-ui-panel text-ui-muted hover:text-ui-text disabled:cursor-not-allowed disabled:opacity-35'
-
-function comparePromptItems(a: PortalItem, b: PortalItem) {
-    return priorityRank(a.priority) - priorityRank(b.priority) || Date.parse(a.createdAt) - Date.parse(b.createdAt)
-}
-
-function priorityRank(value: PortalItem['priority']) {
-    return value === 'now' ? 0 : 1
-}
-
-function queueLabel(item: PortalItem, index: number) {
-    if (item.status === 'running') return 'Running'
-    if (item.priority === 'now') return 'Now'
-    return index === 0 ? 'Next' : `#${index + 1}`
-}

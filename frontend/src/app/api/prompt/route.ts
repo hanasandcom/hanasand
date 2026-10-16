@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
+import { comparePromptItems } from '@/utils/promptPortal/ordering'
 import {
     createPromptPortalSession,
     promptPortalReadOnly,
@@ -123,12 +124,4 @@ async function mutateQueuedPrompt(body: Record<string, unknown>, action: 'edit' 
 
 async function sessionId() {
     return (await cookies()).get(COOKIE)?.value
-}
-
-function comparePromptItems(a: { priority: 'now' | 'next', createdAt: string }, b: { priority: 'now' | 'next', createdAt: string }) {
-    return priorityRank(a.priority) - priorityRank(b.priority) || Date.parse(a.createdAt) - Date.parse(b.createdAt)
-}
-
-function priorityRank(value: 'now' | 'next') {
-    return value === 'now' ? 0 : 1
 }

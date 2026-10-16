@@ -102,6 +102,17 @@ uncommitted scopes, so the inventory is provisional. The cap and the
 10,000–30,000-line frontend target remain unmet; recent work has mostly moved
 responsibilities into clearer files and has not produced net line reduction.
 
+After the logs, rules, prompt portal, traffic table, API-key onboarding,
+scaffold, TI enrichment, and share-editor slices, the 2026-10-16 frontend scan
+found 153,549 hand-maintained lines across 2,182 candidate files, with 31 files
+still over 200 lines. The inventory excludes generated route output and
+dependency/build directories. Compared with the preceding snapshot, the count
+is 1,027 lines and 39 files higher while 11 fewer files exceed the cap. This
+working-tree snapshot includes concurrent, uncommitted work. Several slices
+have moved code into meaningful components/hooks without reducing aggregate
+LOC; the frontend's 10,000–30,000-line target remains far from met. Continue
+removing verified duplicated logic and keep the 200-line cap scan current.
+
 ## Execution
 
 - Divide work by non-overlapping repository areas and use traditional Norwegian

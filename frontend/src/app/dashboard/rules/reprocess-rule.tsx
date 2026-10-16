@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { requestJson, type Rule } from './detection-rules'
 import RulePreview from './rule-preview'
+import { formatRuleStorageBytes } from './ruleStorageFormatting'
 
 type Job = { id: string, rule_version: string, status: string, scanned: string, matched: string, protected: string,
     removed_events: string, removed_sources: string, error: string | null, created_at: string, updated_at: string }
@@ -62,15 +63,8 @@ export default function ReprocessRule({ rule, organizationId, disabled, defaultR
         finally { setBusy(false) }
     }
     if (!loaded || (existing?.count === 0 && !jobs.length)) return null
-    const formatBytes = (value: number) => {
-        if (value < 1024) return `${value} B`
-        const units = ['KB', 'MB', 'GB', 'TB']
-        let amount = value / 1024, unit = 0
-        while (amount >= 1024 && unit < units.length - 1) { amount /= 1024; unit++ }
-        return `${amount >= 10 ? Math.round(amount) : amount.toFixed(1)}${units[unit]}`
-    }
     return <section aria-label='Reprocess existing logs' className='grid gap-4 rounded-xl border border-ui-border bg-ui-panel p-5 sm:p-6'>
-        <div className='flex flex-wrap items-center justify-between gap-3'><div><h2 className='text-sm font-semibold'>Existing logs</h2><p className='mt-1 text-sm text-ui-muted'>{existing ? `${existing.count.toLocaleString()} matching logs in the preview.` : 'Log count unavailable. Preview the rule before applying it.'}</p>{existing && <p className='text-xs text-ui-muted'>{formatBytes(existing.bytes)}</p>}</div>
+        <div className='flex flex-wrap items-center justify-between gap-3'><div><h2 className='text-sm font-semibold'>Existing logs</h2><p className='mt-1 text-sm text-ui-muted'>{existing ? `${existing.count.toLocaleString()} matching logs in the preview.` : 'Log count unavailable. Preview the rule before applying it.'}</p>{existing && <p className='text-xs text-ui-muted'>{formatRuleStorageBytes(existing.bytes, { scaledUnit: '' })}</p>}</div>
             <button type='button' disabled={disabled || running || busy || rule.enabled === false || rule.definition?.action !== 'drop'}
                 onClick={() => { setOpen(!open); setConfirmed(false); setPreviewReady(false) }} className='rounded-lg border border-ui-border px-3 py-2 text-sm disabled:opacity-50'>Reprocess</button></div>
         {disabled && <p className='text-xs text-ui-muted'>Save your changes before reprocessing.</p>}

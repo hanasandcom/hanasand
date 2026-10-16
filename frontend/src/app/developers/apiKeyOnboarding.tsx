@@ -2,22 +2,12 @@
 
 import Link from 'next/link'
 import { createPortal } from 'react-dom'
-import { ArrowRight, Building2, CheckCircle2, KeyRound, LoaderCircle, Plus, ShieldCheck, Trash2 } from 'lucide-react'
+import { ArrowRight, CheckCircle2, LoaderCircle, Plus, ShieldCheck } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import type { FormEvent, ReactNode } from 'react'
-import CopyCodeButton from './copyCodeButton'
-
-type Organization = { id: string, name: string, role?: string }
-type ApiKey = {
-    id: string
-    organizationId: string | null
-    name: string
-    keyPrefix: string
-    enabled: boolean
-    expiresAt: string | null
-    lastUsedAt: string | null
-    scopes: Array<{ method: string, route: string }>
-}
+import type { FormEvent } from 'react'
+import { ApiKeyStep, FirstRequestStep, OrganizationStep, StateLine } from './ApiKeyOnboardingSteps'
+import { errorMessage, responseJson } from './apiKeyOnboardingData'
+import type { ApiKey, Organization } from './apiKeyOnboardingTypes'
 
 export default function ApiKeyOnboarding({ server }: { server: string }) {
     const [headerAction, setHeaderAction] = useState<HTMLElement | null>(null)
@@ -182,51 +172,9 @@ export default function ApiKeyOnboarding({ server }: { server: string }) {
 
                 {state === 'ready' ? (
                     <div className='grid gap-4 lg:grid-cols-3'>
-                        <article className='rounded-lg border border-ui-border bg-ui-panel p-5'>
-                            <div className='flex items-center gap-2'><Building2 className='h-5 w-5 text-ui-primary' /><h3 className='font-semibold'>1. Organization</h3></div>
-                            {organizations.length ? (
-                                <label className='mt-4 grid gap-2 text-sm font-semibold'>Organization
-                                    <select value={organizationId} onChange={event => void selectOrganization(event.target.value)} disabled={busy === 'load'} className='h-11 rounded-lg border border-ui-border bg-ui-canvas px-3 font-normal'>
-                                        {organizations.map(organization => <option key={organization.id} value={organization.id}>{organization.name}</option>)}
-                                    </select>
-                                    <span className='text-xs font-normal text-ui-muted'>{selected?.role ? `${selected.role} access` : 'Signed-in member'}</span>
-                                </label>
-                            ) : (
-                                <form id='create-api-organization-form' className='mt-4 grid gap-3' onSubmit={createOrganization}>
-                                    <label className='grid gap-2 text-sm font-semibold'>Organization name<input name='organizationName' minLength={2} maxLength={120} required className='h-11 rounded-lg border border-ui-border bg-ui-canvas px-3 font-normal' placeholder='Example Security Team' /></label>
-                                    <button disabled={busy === 'organization'} className='inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-ui-primary px-4 text-sm font-semibold text-ui-on-primary disabled:opacity-60'>{busy === 'organization' ? 'Creating' : 'Create organization'}<Plus className='h-4 w-4' /></button>
-                                </form>
-                            )}
-                        </article>
-
-                        <article className='rounded-lg border border-ui-border bg-ui-panel p-5'>
-                            <div className='flex items-center gap-2'><KeyRound className='h-5 w-5 text-ui-primary' /><h3 className='font-semibold'>2. API key</h3></div>
-                            {!selected ? <p className='mt-4 text-sm leading-6 text-ui-muted'>Create an organization first.</p> : activeKey ? (
-                                <div className='mt-4 grid gap-3 text-sm'>
-                                    <div className='rounded-lg border border-ui-border bg-ui-canvas p-3'>
-                                        <p className='font-semibold'>{activeKey.name}</p>
-                                        <p className='mt-1 font-mono text-xs text-ui-muted'>hsk_{activeKey.keyPrefix}_…</p>
-                                        <p className='mt-2 text-xs text-ui-muted'>{activeKey.scopes.length} read scopes · expires {formatDate(activeKey.expiresAt)} · last used {formatDate(activeKey.lastUsedAt)}</p>
-                                    </div>
-                                    <button type='button' onClick={() => void revokeApiKey(activeKey.id)} disabled={busy === activeKey.id} className='inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-ui-danger/40 px-3 font-semibold text-ui-text disabled:opacity-60'><Trash2 className='h-4 w-4' />{confirmRevoke === activeKey.id ? 'Confirm revoke' : 'Revoke key'}</button>
-                                </div>
-                            ) : (
-                                <form id='create-api-key-form' className='mt-4 grid gap-3' onSubmit={createApiKey}>
-                                    <label className='grid gap-2 text-sm font-semibold'>Key name<input name='keyName' minLength={2} maxLength={80} required className='h-11 rounded-lg border border-ui-border bg-ui-canvas px-3 font-normal' defaultValue='Developer API' /></label>
-                                    <button disabled={busy === 'key'} className='inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-ui-primary px-4 text-sm font-semibold text-ui-on-primary disabled:opacity-60'>{busy === 'key' ? 'Creating' : 'Create API key'}<KeyRound className='h-4 w-4' /></button>
-                                </form>
-                            )}
-                        </article>
-
-                        <article className='rounded-lg border border-ui-border bg-ui-panel p-5'>
-                            <div className='flex items-center gap-2'><CheckCircle2 className='h-5 w-5 text-ui-primary' /><h3 className='font-semibold'>3. First request</h3></div>
-                            {secret ? (
-                                <div className='mt-4 grid gap-3'>
-                                    <div className='rounded-lg border border-ui-warning/40 bg-ui-warning/10 p-3'><p className='text-xs font-semibold uppercase text-ui-warning'>Copy once</p><p className='mt-2 break-all font-mono text-xs text-ui-text'>{secret}</p><div className='mt-3'><CopyCodeButton value={secret} label='Copy key' /></div></div>
-                                    <FirstRequest code={firstRequest} />
-                                </div>
-                            ) : <div className='mt-4 grid gap-3'><p className='text-sm leading-6 text-ui-muted'>Create a key to receive the real secret and a ready-to-run request. Existing secrets cannot be displayed again.</p><FirstRequest code={firstRequest} /></div>}
-                        </article>
+                        <OrganizationStep organizations={organizations} organizationId={organizationId} busy={busy} onSelect={selectOrganization} onCreate={createOrganization} />
+                        <ApiKeyStep selected={Boolean(selected)} activeKey={activeKey} busy={busy} confirmRevoke={confirmRevoke} onCreate={createApiKey} onRevoke={revokeApiKey} />
+                        <FirstRequestStep secret={secret} code={firstRequest} />
                     </div>
                 ) : null}
 
@@ -234,35 +182,4 @@ export default function ApiKeyOnboarding({ server }: { server: string }) {
             </div>
         </section>
     )
-}
-
-function FirstRequest({ code }: { code: string }) {
-    return <div className='overflow-hidden rounded-lg border border-ui-border bg-ui-panel'><div className='flex items-center justify-between gap-2 border-b border-ui-border/40 px-3 py-2 text-xs font-semibold text-ui-text'><span>Run from your terminal</span><CopyCodeButton value={code} /></div><pre className='overflow-x-auto whitespace-pre-wrap p-3 text-xs leading-6 text-ui-muted'>{code}</pre></div>
-}
-
-function StateLine({ icon, text }: { icon: ReactNode, text: string }) {
-    return <div className='flex items-center gap-2 rounded-lg border border-ui-border bg-ui-panel px-4 py-3 text-sm text-ui-muted'>{icon}<span>{text}</span></div>
-}
-
-async function responseJson<T = Record<string, unknown>>(response: Response): Promise<T> {
-    const payload = await response.json().catch(() => ({})) as Record<string, unknown>
-    if (!response.ok) throw new Error(apiError(payload, response.status))
-    return payload as T
-}
-
-function apiError(payload: Record<string, unknown>, status: number) {
-    const error = payload.error
-    if (typeof error === 'string') return error
-    if (error && typeof error === 'object' && typeof (error as Record<string, unknown>).message === 'string') return String((error as Record<string, unknown>).message)
-    return `Request failed with HTTP ${status}.`
-}
-
-function errorMessage(error: unknown) {
-    return error instanceof Error ? error.message : String(error)
-}
-
-function formatDate(value: string | null) {
-    if (!value) return 'never'
-    const timestamp = Date.parse(value)
-    return Number.isFinite(timestamp) ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(timestamp) : 'unknown'
 }

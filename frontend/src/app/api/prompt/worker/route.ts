@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import type { PromptPortalItem } from '@/utils/promptPortal/store'
+import { comparePromptItems } from '@/utils/promptPortal/ordering'
 import {
     promptPortalReadOnly,
     promptPortalWorkerToken,
@@ -89,12 +90,4 @@ function batchItem(items: PromptPortalItem[]): PromptPortalItem {
         ].join('\n\n'),
         files: items.flatMap(item => item.files),
     }
-}
-
-function comparePromptItems(a: PromptPortalItem, b: PromptPortalItem) {
-    return priorityRank(a.priority) - priorityRank(b.priority) || Date.parse(a.createdAt) - Date.parse(b.createdAt)
-}
-
-function priorityRank(value: PromptPortalItem['priority']) {
-    return value === 'now' ? 0 : 1
 }
