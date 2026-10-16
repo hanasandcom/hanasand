@@ -11,6 +11,15 @@ const currentCheck = {
     checked_at: checkedAt,
     uptime_30d: '100',
 }
+const currentWorkspaceCheck = {
+    service: 'workspace',
+    check_name: 'Runtime',
+    status: 'up',
+    latency_ms: 5,
+    message: 'No workspace runtime errors in the recent log window.',
+    checked_at: checkedAt,
+    uptime_30d: '100',
+}
 const savedIncident = { id: incidentId, aliases: ['legacy-search-incident'], title: 'Public search interruption', updates: [] }
 let incidentLookup: { sql: string, values: unknown[] | undefined } | undefined
 let statusReads = 0
@@ -19,7 +28,7 @@ let snapshotEnsures = 0
 mock.module('#db', () => ({
     default: async (sql: string, values?: unknown[]) => {
         statusReads++
-        if (sql.includes('payload->>\'service\' AS service')) return { rows: [currentCheck] }
+        if (sql.includes('payload->>\'service\' AS service')) return { rows: [currentCheck, currentWorkspaceCheck] }
         if (sql.includes('payload, updated_at FROM service_status_snapshots')) throw new Error('Saved history read unavailable')
         if (sql.includes('payload->>\'generated_at\' AS generated_at')) {
             incidentLookup = { sql, values }
@@ -63,12 +72,39 @@ test('public search and saved incident routes preserve their response contracts'
         expect(search.statusCode).toBe(200)
         expect(search.payload).toMatchObject({ ok: true, status: 'up', latencyMs: 42, message: 'Search is ready.' })
 
+        const summary = reply()
+        await getStatus({ query: { summary: 'true' } } as never, summary as never)
+        const summaryChecks = (summary.payload as { checks: { service: string, message: string | null }[] }).checks
+        expect(summaryChecks.find(row => row.service === 'workspace')?.message).toBe('Normal workspace runtime traffic baseline.')
+
+        const cachedSearch = reply()
+        await getStatus({ query: { check: 'public-search' } } as never, cachedSearch as never)
+        expect(cachedSearch.statusCode).toBe(200)
+        expect((cachedSearch.payload as { message: string }).message).toBe('Search is ready.')
+
         const incident = reply()
         await getStatus({ query: { incident: 'legacy-search-incident' } } as never, incident as never)
         expect(incident.statusCode).toBe(200)
         expect(incident.payload).toMatchObject({ history_available: true, incidents: [savedIncident] })
         expect(incidentLookup?.sql).toContain('incident->\'aliases\' ? $1')
         expect(incidentLookup?.values).toEqual(['legacy-search-incident'])
+
+        currentCheck.status = 'down'
+        currentCheck.message = 'Search failed.'
+        const readsBeforeFailedSearch = statusReads
+        const failedSearch = reply()
+        await getStatus({ query: { check: 'public-search' } } as never, failedSearch as never)
+        expect(statusReads).toBe(readsBeforeFailedSearch)
+        expect(failedSearch.statusCode).toBe(503)
+        expect(failedSearch.payload).toMatchObject({ ok: false, service: 'public-search', status: 'down', checkedAt, latencyMs: 42, message: 'Search failed.', lastResult: 'down' })
+
+        currentCheck.service = 'other'
+        const readsBeforeMissingSearch = statusReads
+        const missingSearch = reply()
+        await getStatus({ query: { check: 'public-search' } } as never, missingSearch as never)
+        expect(statusReads).toBe(readsBeforeMissingSearch)
+        expect(missingSearch.statusCode).toBe(503)
+        expect(missingSearch.payload).toMatchObject({ ok: false, service: 'public-search', status: 'unknown', checkedAt: null, latencyMs: null, message: 'No recent search check is available.', lastResult: null })
     } finally {
         console.error = originalError
     }

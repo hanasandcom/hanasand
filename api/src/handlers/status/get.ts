@@ -41,7 +41,7 @@ const STATUS_CACHE_MS = 15_000
 const MONITOR_STALE_MS = 5 * 60 * 1000
 let statusCache: Awaited<ReturnType<typeof loadStatusPayload>> | null = null
 let expiresAt = 0
-let statusInflight: Promise<object> | null = null
+let statusInflight: Promise<Awaited<ReturnType<typeof loadStatusPayload>>> | null = null
 let historyRefresh: Promise<void> | null = null
 let historyLoad: Promise<void> | null = null
 let historyRetryAt = 0
@@ -93,7 +93,7 @@ async function statusPayload(summary: boolean) {
         // The expensive rebuild still runs in the background.
         if (!historySnapshot || Date.now() - Date.parse(historySnapshot.generated_at) >= MONITOR_STALE_MS) await historyLoad?.catch(() => {})
     }
-    if (statusCache && expiresAt > Date.now()) return summary ? statusCache : withHistory(statusCache)
+    if (statusCache && expiresAt > Date.now()) return summary ? withPublicChecks(statusCache) : withHistory(statusCache)
     statusInflight ||= loadStatusPayload(true).then(payload => {
         statusCache = payload.checks.length ? payload : { ...(statusCache || historySnapshot || payload), monitoring: 'unavailable' }
         expiresAt = Date.now() + STATUS_CACHE_MS
@@ -111,7 +111,7 @@ async function statusPayload(summary: boolean) {
     // A slow database refresh must not delay readers that already have evidence.
     const current = statusCache && statusCache.monitoring === 'live'
         && Date.now() - Date.parse(statusCache.generated_at) < MONITOR_STALE_MS ? statusCache : await statusInflight
-    return summary ? current : withHistory(current)
+    return summary ? withPublicChecks(current) : withHistory(current)
 }
 
 function prepareDashboard() {
@@ -135,7 +135,11 @@ function withHistory(current: object) {
         ...check,
         uptime_30d: snapshot?.checks.find(row => row.service === check.service && row.check_name === check.check_name)?.uptime_30d || 'unverified',
     }))
-    return { ...current, ...(!received.length ? { monitoring: 'unavailable' } : {}), checks, history: snapshot?.history || [], incidents: snapshot?.incidents || [], history_generated_at: snapshot?.generated_at || '', history_available: Boolean(snapshot) }
+    return withPublicChecks({ ...current, ...(!received.length ? { monitoring: 'unavailable' } : {}), checks, history: snapshot?.history || [], incidents: snapshot?.incidents || [], history_generated_at: snapshot?.generated_at || '', history_available: Boolean(snapshot) })
+}
+
+function withPublicChecks<T extends { checks: MonitorRow[] }>(payload: T) {
+    return { ...payload, checks: payload.checks.map(toPublicMonitorRow) }
 }
 
 function refreshHistory() {
@@ -279,7 +283,7 @@ async function loadStatusPayload(summary = false, query = run) {
     const [result, historyResult, incidentResult] = results
 
     const rawChecks = (result.rows as MonitorRow[]).filter(isCurrentCheck)
-    const checks = rawChecks.map(row => toPublicMonitorRow(row))
+    const checks = rawChecks
     const incidentRows = incidentResult.rows as IncidentRow[]
     const incidents = buildIncidents(incidentRows)
     const history = buildHistory(historyResult.rows as HistoryRow[], incidents)

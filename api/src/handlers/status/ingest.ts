@@ -18,6 +18,9 @@ export default async function ingestStatus(req: FastifyRequest, res: FastifyRepl
     if (!service || !check_name || !status) {
         return res.status(400).send({ error: 'Missing service, check_name or status.' })
     }
+    if (status !== 'up' && status !== 'degraded' && status !== 'down') {
+        return res.status(400).send({ error: 'Invalid status.' })
+    }
 
     await recordMonitorResult(service, check_name, status, latency_ms, message)
 

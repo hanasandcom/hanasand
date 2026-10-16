@@ -3,15 +3,21 @@ import { expect, mock, test } from 'bun:test'
 let now = Date.now()
 let failHistory = false
 let releaseHistory: (() => void) | undefined
+let signalHistoryReadStarted: (() => void) | undefined
+const historyReadStarted = new Promise<void>(resolve => { signalHistoryReadStarted = resolve })
 let delayHistory = true
 let reads = 0
 const check = () => ({ service: 'core', check_name: 'API health', status: 'up', latency_ms: 1, message: 'OK', checked_at: new Date(now).toISOString(), uptime_30d: '100' })
-const saved = () => ({ overall: 'up', monitoring: 'live', generated_at: new Date(now).toISOString(), checks: [check()], history: [], incidents: [] })
+const saved = () => ({ overall: 'up', monitoring: 'live', generated_at: new Date(now).toISOString(), checks: [check(), {
+    service: 'workspace', check_name: 'Runtime', status: 'up', latency_ms: 1,
+    message: 'No workspace runtime errors in the recent log window.', checked_at: new Date(now).toISOString(), uptime_30d: '100',
+}], history: [], incidents: [] })
 mock.module('#db', () => ({
     default: async (sql: string) => {
         if (sql.startsWith('CREATE TABLE')) return { rows: [] }
         if (sql.startsWith('SELECT payload, updated_at')) {
             reads++
+            signalHistoryReadStarted?.()
             if (delayHistory) await new Promise<void>(resolve => { releaseHistory = resolve })
             if (failHistory) throw new Error('temporary read failure')
             return { rows: [{ payload: saved(), updated_at: new Date(now).toISOString() }] }
@@ -36,10 +42,12 @@ test('cold and idle replicas await saved history, preserve evidence on failure, 
     try {
         let completed = false
         const cold = request().then(value => { completed = true; return value })
-        await Bun.sleep(5)
+        await historyReadStarted
         expect(completed).toBe(false)
         releaseHistory!()
-        expect(await cold).toMatchObject({ history_available: true, history_generated_at: new Date(now).toISOString() })
+        const coldDashboard = await cold
+        expect(coldDashboard).toMatchObject({ history_available: true, history_generated_at: new Date(now).toISOString() })
+        expect(coldDashboard.checks.find((row: { service: string }) => row.service === 'workspace')?.message).toBe('Normal workspace runtime traffic baseline.')
         delayHistory = false
         now += 6 * 60_000
         failHistory = true

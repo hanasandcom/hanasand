@@ -1,5 +1,58 @@
-import { expect, test } from 'bun:test'
+import { expect, mock, test } from 'bun:test'
 import { buildIncidents, selectStatusIncident } from '../src/handlers/status/get.ts'
+
+let recordedResults: unknown[][] = []
+const testToken = 'Bearer status-test-token'
+mock.module('#utils/auth/internalToken.ts', () => ({
+    default: (req: { headers?: { authorization?: string } }) => req.headers?.authorization === testToken,
+}))
+mock.module('#utils/status/record.ts', () => ({
+    recordMonitorResult: async (...args: unknown[]) => { recordedResults.push(args) },
+}))
+const { default: ingestStatus } = await import('../src/handlers/status/ingest.ts')
+
+function reply() {
+    return {
+        statusCode: 200,
+        payload: undefined as unknown,
+        status(code: number) { this.statusCode = code; return this },
+        send(value: unknown) { this.payload = value; return this },
+    }
+}
+
+function request(body: unknown, authorization?: string) {
+    return { headers: authorization ? { authorization } : {}, body }
+}
+
+test('status ingestion rejects unauthorized requests before recording', async () => {
+    recordedResults = []
+    const response = reply()
+    await ingestStatus(request({ service: 'core', check_name: 'API health', status: 'up' }) as never, response as never)
+    expect(response.statusCode).toBe(401)
+    expect(response.payload).toEqual({ error: 'Unauthorized.' })
+    expect(recordedResults).toEqual([])
+})
+
+test('status ingestion rejects unsupported states and records supported states', async () => {
+    recordedResults = []
+    const invalid = reply()
+    await ingestStatus(request({ service: 'core', check_name: 'API health', status: 'unknown' }, testToken) as never, invalid as never)
+    expect(invalid.statusCode).toBe(400)
+    expect(invalid.payload).toEqual({ error: 'Invalid status.' })
+    expect(recordedResults).toEqual([])
+
+    for (const status of ['up', 'degraded', 'down'] as const) {
+        const response = reply()
+        await ingestStatus(request({ service: 'core', check_name: 'API health', status }, testToken) as never, response as never)
+        expect(response.statusCode).toBe(201)
+        expect(response.payload).toEqual({ ok: true })
+    }
+    expect(recordedResults).toEqual([
+        ['core', 'API health', 'up', 0, ''],
+        ['core', 'API health', 'degraded', 0, ''],
+        ['core', 'API health', 'down', 0, ''],
+    ])
+})
 
 const base = { service: 'dark-web-monitoring', check_name: 'Latest activity', status: 'down' as const, message: 'Latest customer activity is stale (147 minutes).' }
 test('reports recorded recovery, not the current check time, with newest evidence first', () => {
