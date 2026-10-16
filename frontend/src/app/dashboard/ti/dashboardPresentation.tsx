@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { ArrowRight, ExternalLink } from 'lucide-react'
 import { DashboardPanel } from '@/components/dashboard/ui'
+import { formatOsloShortDateTime } from '@/utils/date/formatOsloShortDateTime'
 
 export type StatusTone = 'neutral' | 'ok' | 'watch' | 'bad'
 
@@ -104,9 +105,7 @@ export function operationalStateLabel(value: string) {
 }
 
 export function shortTime(value: string) {
-    return new Intl.DateTimeFormat('en', {
-        month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Oslo',
-    }).format(new Date(value))
+    return formatOsloShortDateTime(value)
 }
 
 export function sameKey(value: string) {

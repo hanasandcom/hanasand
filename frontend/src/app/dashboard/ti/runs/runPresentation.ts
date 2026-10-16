@@ -1,3 +1,5 @@
+import { formatOsloShortDateTime } from '@/utils/date/formatOsloShortDateTime'
+
 export function statusClass(status: string) {
     const base = 'inline-flex w-fit self-start whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-semibold capitalize leading-5'
     if (status === 'completed') return `${base} border-ui-success/35 bg-ui-success/10 text-ui-success`
@@ -15,13 +17,7 @@ export function durationLabel(startedAt: string, finishedAt?: string) {
 }
 
 export function shortDate(value: string) {
-    return new Intl.DateTimeFormat('en', {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        timeZone: 'Europe/Oslo',
-    }).format(new Date(value))
+    return formatOsloShortDateTime(value)
 }
 
 export function relativeUntil(value: string) {

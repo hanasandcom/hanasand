@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import DomainSelector from './domainSelector'
 import TrafficDashboard from './traffic'
 import { DashboardPanel } from '@/components/dashboard/ui'
+import { formatOsloShortDateTime } from '@/utils/date/formatOsloShortDateTime'
 import formatRequestTime from '@/utils/monitoring/formatRequestTime'
 import type { TrafficDomains, TrafficMetrics, TrafficRecords } from '@/utils/monitoring/types'
 import { Activity, AlertTriangle, Clock3, Globe2 } from 'lucide-react'
@@ -63,7 +64,7 @@ export default function TrafficOverviewClient({ domains, initialMetrics, initial
                         icon={<Activity className='h-4 w-4' />}
                         value={latestRecord ? `${latestRecord.method} ${latestRecord.status}` : 'No requests'}
                         detail={latestRecord ? `${latestRecord.domain}${latestRecord.path}` : undefined}
-                        footer={latestRecord ? shortTime(latestRecord.timestamp) : undefined}
+                        footer={latestRecord ? formatOsloShortDateTime(latestRecord.timestamp) : undefined}
                         tone={latestRecord && latestRecord.status >= 500 ? 'bad' : latestRecord && latestRecord.status >= 400 ? 'watch' : 'ok'}
                     />
                     <TrafficLane
@@ -79,7 +80,7 @@ export default function TrafficOverviewClient({ domains, initialMetrics, initial
                         icon={<Clock3 className='h-4 w-4' />}
                         value={formatRequestTime(metrics)}
                         detail={`${metrics.total_requests || 0} tracked requests`}
-                        footer={metrics.sampled_at ? `Updated ${shortTime(metrics.sampled_at)}` : undefined}
+                        footer={metrics.sampled_at ? `Updated ${formatOsloShortDateTime(metrics.sampled_at)}` : undefined}
                         tone={metrics.avg_request_time > 1000 ? 'watch' : 'ok'}
                     />
                     <TrafficLane
@@ -131,14 +132,4 @@ function toneDot(tone: 'neutral' | 'ok' | 'watch' | 'bad') {
     if (tone === 'watch') return 'bg-ui-warning shadow-sm'
     if (tone === 'bad') return 'bg-ui-raised shadow-sm'
     return 'bg-ui-primary shadow-sm'
-}
-
-function shortTime(value: string) {
-    return new Intl.DateTimeFormat('en', {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        timeZone: 'Europe/Oslo',
-    }).format(new Date(value))
 }

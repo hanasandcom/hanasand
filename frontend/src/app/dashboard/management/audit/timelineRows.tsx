@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { DashboardPanel } from '@/components/dashboard/ui'
+import { formatOsloShortDateTime } from '@/utils/date/formatOsloShortDateTime'
 import type { AuditEvent } from './data'
 
 export function Metric({ title, value, icon, tone = 'neutral' }: {
@@ -29,13 +30,7 @@ function toneClass(tone: 'neutral' | 'ok' | 'watch' | 'bad') {
     return { bg: 'bg-ui-primary/15', text: 'text-ui-primary' }
 }
 
-const dateFormatter = new Intl.DateTimeFormat('en', {
-    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Oslo',
-})
-
-export function compactTime(value: string) {
-    return dateFormatter.format(new Date(value))
-}
+export const compactTime = formatOsloShortDateTime
 
 export function isFailed(event: AuditEvent) {
     return !['ok', 'ready', 'success', 'completed', 'published'].includes(event.result.toLowerCase())

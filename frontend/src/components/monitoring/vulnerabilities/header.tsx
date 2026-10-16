@@ -9,6 +9,7 @@ import SummaryGrid from './summaryGrid'
 import ScanToolbar from './scanToolbar'
 import ScanNoticeCard from './scanNoticeCard'
 import ScanProgressCard from './scanProgressCard'
+import { formatOsloShortDateTime } from '@/utils/date/formatOsloShortDateTime'
 import operationalStateLabel from '@/utils/status/operationalStateLabel'
 
 type Props = Pick<PageClientProps, 'runScanAction'> & Pick<VulnerabilityPageState, 'data'> & {
@@ -62,13 +63,13 @@ function LiveScanner({ data, scanStatus }: { data: GetVulnerabilities | null, sc
             <div className='grid gap-2 p-3 xl:grid-cols-[minmax(0,1.25fr)_1fr_1fr]'>
                 <LiveFact icon={<Container className='h-4 w-4' />} label='current image' value={currentImage} detail={`${progress} targets complete`} tone={tone} />
                 <LiveFact icon={<AlertTriangle className='h-4 w-4' />} label='hottest image' value={hottestImage?.image || 'warming scanner'} detail={hottestImage ? `${hottestImage.totalVulnerabilities} findings, ${hottestImage.severity.critical} critical` : 'Rows attach as each image finishes'} tone={hottestImage?.severity.critical ? 'bad' : hottestImage?.totalVulnerabilities ? 'watch' : 'ok'} />
-                <LiveFact icon={<Clock3 className='h-4 w-4' />} label='next action' value={scanStatus.paused ? 'paused' : scanStatus.nextRunAt ? shortTime(scanStatus.nextRunAt) : 'watching images'} detail={customerOperationalText(scanStatus.blockerAction || scanStatus.staleReason || scanStatus.lastError || 'Scanner is healthy and publishing findings')} tone={scanStatus.blocker || scanStatus.lastError || scanStatus.stale ? 'watch' : 'ok'} />
+                <LiveFact icon={<Clock3 className='h-4 w-4' />} label='next action' value={scanStatus.paused ? 'paused' : scanStatus.nextRunAt ? formatOsloShortDateTime(scanStatus.nextRunAt) : 'watching images'} detail={customerOperationalText(scanStatus.blockerAction || scanStatus.staleReason || scanStatus.lastError || 'Scanner is healthy and publishing findings')} tone={scanStatus.blocker || scanStatus.lastError || scanStatus.stale ? 'watch' : 'ok'} />
             </div>
             {scanStatus.logs.length ? (
                 <div className='grid border-t border-ui-border bg-ui-raised'>
                     {scanStatus.logs.slice(-4).reverse().map(log => (
                         <div key={`${log.at}-${log.message}`} className='grid grid-cols-[8rem_4rem_minmax(0,1fr)] gap-3 border-b border-ui-border px-3 py-1.5 text-xs last:border-b-0'>
-                            <span className='font-mono text-ui-muted'>{shortTime(log.at)}</span>
+                            <span className='font-mono text-ui-muted'>{formatOsloShortDateTime(log.at)}</span>
                             <span className={log.level === 'error' ? 'font-semibold text-ui-text' : log.level === 'warn' ? 'font-semibold text-ui-warning' : 'font-semibold text-ui-primary'}>{log.level}</span>
                             <span className='line-clamp-1 text-ui-muted'><TerminalSquare className='mr-1 inline h-3.5 w-3.5' />{log.message}</span>
                         </div>
@@ -110,14 +111,4 @@ function customerOperationalText(value: string) {
         .replace(/\bblocker\b/gi, 'service issue')
         .replace(/\bneeds action\b/gi, 'reviewing')
         .replace(/\baction required\b/gi, 'reviewing')
-}
-
-function shortTime(value: string) {
-    return new Intl.DateTimeFormat('en', {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        timeZone: 'Europe/Oslo',
-    }).format(new Date(value))
 }
