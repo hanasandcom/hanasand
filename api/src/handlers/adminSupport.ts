@@ -6084,9 +6084,8 @@ function supportOrganizationCaseHandoff(input: {
     actionHistoryExport: Record<string, any>
     timeline: Array<Record<string, any>>
 }) {
-    const auditEventIds = input.timeline.map(event => Number(event.id)).filter(id => Number.isFinite(id))
-    const actions = uniqueTimelineValues(input.timeline.map(event => event.action || event.actionType))
-    const outcomes = uniqueTimelineValues(input.timeline.map(event => event.outcome))
+    const timelineSummary = supportCaseTimelineEvidence(input.timeline)
+    const { auditEventIds } = timelineSummary
     const deliveryHistoryDiagnostic = isPlainObject(input.webhookDestinationReadiness.deliveryHistoryDiagnostic)
         ? input.webhookDestinationReadiness.deliveryHistoryDiagnostic as Record<string, any>
         : null
@@ -6174,10 +6173,7 @@ function supportOrganizationCaseHandoff(input: {
             watchlistItemCount: input.watchlistItems.length,
             alertReferenceCount: input.alertReferences.length,
             webhookDestinationCount: input.webhookDestinations.length,
-            auditEventIds,
-            actions,
-            outcomes,
-            caseTimeline: supportCaseTimelineEntries(input.timeline),
+            ...timelineSummary,
             caseAccessReadiness: input.caseAccessReadiness,
             recoveryContextDiagnostic,
             deliveryHistoryDiagnostic,
@@ -6263,9 +6259,8 @@ function supportUserCaseHandoff(input: {
     actionHistoryExport: Record<string, any>
     timeline: Array<Record<string, any>>
 }) {
-    const auditEventIds = input.timeline.map(event => Number(event.id)).filter(id => Number.isFinite(id))
-    const actions = uniqueTimelineValues(input.timeline.map(event => event.action || event.actionType))
-    const outcomes = uniqueTimelineValues(input.timeline.map(event => event.outcome))
+    const timelineSummary = supportCaseTimelineEvidence(input.timeline)
+    const { auditEventIds } = timelineSummary
     const activeMemberships = input.memberships.filter(membership => membership.status === 'active')
     const recoveryBlockers = uniqueTimelineValues([
         ...(Array.isArray(input.accessRecoveryPlan.blockers) ? input.accessRecoveryPlan.blockers : []),
@@ -6289,10 +6284,7 @@ function supportUserCaseHandoff(input: {
             activeMembershipCount: activeMemberships.length,
             pendingInviteCount: input.pendingInvites.length,
             approvalRequestCount: input.approvalRequests.length,
-            auditEventIds,
-            actions,
-            outcomes,
-            caseTimeline: supportCaseTimelineEntries(input.timeline),
+            ...timelineSummary,
             caseAccessReadiness: input.caseAccessReadiness,
         },
         recovery: {
@@ -6370,9 +6362,8 @@ function supportInviteCaseHandoff(input: {
 }) {
     const inviteId = text(input.invite.id)
     const targetEmail = text(input.invite.email)
-    const auditEventIds = input.timeline.map(event => Number(event.id)).filter(id => Number.isFinite(id))
-    const actions = uniqueTimelineValues(input.timeline.map(event => event.action || event.actionType))
-    const outcomes = uniqueTimelineValues(input.timeline.map(event => event.outcome))
+    const timelineSummary = supportCaseTimelineEvidence(input.timeline)
+    const { auditEventIds } = timelineSummary
     const recoveryBlockers = uniqueTimelineValues([
         ...(Array.isArray(input.accessRecoveryPlan.blockers) ? input.accessRecoveryPlan.blockers : []),
         input.invite.status === 'accepted' ? 'accepted_invite_not_mutable_by_support_action' : '',
@@ -6394,10 +6385,7 @@ function supportInviteCaseHandoff(input: {
             inviteStatus: input.invite.status || null,
             inviteRole: input.invite.role || null,
             approvalRequestCount: input.approvals.length,
-            auditEventIds,
-            actions,
-            outcomes,
-            caseTimeline: supportCaseTimelineEntries(input.timeline),
+            ...timelineSummary,
         },
         recovery: {
             accessRecoveryAvailable: Boolean(input.accessRecoveryPlan.available || input.accessRecoveryPlan.items?.length),
@@ -6467,9 +6455,8 @@ function supportMemberCaseHandoff(input: {
     timeline: Array<Record<string, any>>
 }) {
     const userId = text(input.member.userId)
-    const auditEventIds = input.timeline.map(event => Number(event.id)).filter(id => Number.isFinite(id))
-    const actions = uniqueTimelineValues(input.timeline.map(event => event.action || event.actionType))
-    const outcomes = uniqueTimelineValues(input.timeline.map(event => event.outcome))
+    const timelineSummary = supportCaseTimelineEvidence(input.timeline)
+    const { auditEventIds } = timelineSummary
     const recoveryBlockers = uniqueTimelineValues([
         ...(Array.isArray(input.accessRecoveryPlan.blockers) ? input.accessRecoveryPlan.blockers : []),
         input.member.status === 'removed' ? 'removed_member_requires_reactivation_review' : '',
@@ -6492,10 +6479,7 @@ function supportMemberCaseHandoff(input: {
             status: input.member.status || null,
             active: input.member.active ?? null,
             approvalRequestCount: input.approvals.length,
-            auditEventIds,
-            actions,
-            outcomes,
-            caseTimeline: supportCaseTimelineEntries(input.timeline),
+            ...timelineSummary,
         },
         recovery: {
             accessRecoveryAvailable: Boolean(input.accessRecoveryPlan.available || input.accessRecoveryPlan.items?.length),
@@ -6559,6 +6543,15 @@ function membershipSnapshot(row: Record<string, unknown>) {
         invitedBy: row.invited_by || null,
         joinedAt: row.joined_at || null,
         createdAt: row.created_at || null,
+    }
+}
+
+function supportCaseTimelineEvidence(timeline: Array<Record<string, any>>) {
+    return {
+        auditEventIds: timeline.map(event => Number(event.id)).filter(id => Number.isFinite(id)),
+        actions: uniqueTimelineValues(timeline.map(event => event.action || event.actionType)),
+        outcomes: uniqueTimelineValues(timeline.map(event => event.outcome)),
+        caseTimeline: supportCaseTimelineEntries(timeline),
     }
 }
 
@@ -10272,6 +10265,23 @@ type SupportExecutorControlsResult = {
     error: { code: string, message: string, status: number } | null
 }
 
+function supportExecutorMetadata(requestId: string, controls: SupportExecutorControls, expiryRequired?: boolean) {
+    return {
+        supportRoleRequired: true,
+        reasonRequired: true,
+        contextRequired: true,
+        scopeRequired: true,
+        ...(expiryRequired !== undefined ? { expiryRequired } : {}),
+        noSilentMembershipMutation: true,
+        requestId,
+        correlationId: controls.correlationId,
+        idempotencyKey: controls.idempotencyKey,
+        supportSessionId: controls.supportSessionId || null,
+        staleBlocker: controls.staleBlocker,
+        duplicateBlocker: controls.duplicateBlocker,
+    }
+}
+
 function supportExecutorControls(input: {
     req: FastifyRequest
     body: SupportExecutorControlsBody | undefined
@@ -10449,18 +10459,7 @@ function supportInviteAssistExecutorDetail(input: {
         schemaVersion: 'support.action_execute.invite_assist.v1',
         mutationMode: 'controlled_invite_row_only',
         action: 'invite_assist',
-        supportRoleRequired: true,
-        reasonRequired: true,
-        contextRequired: true,
-        scopeRequired: true,
-        expiryRequired: true,
-        noSilentMembershipMutation: true,
-        requestId: input.requestId,
-        correlationId: input.controls.correlationId,
-        idempotencyKey: input.controls.idempotencyKey,
-        supportSessionId: input.controls.supportSessionId || null,
-        staleBlocker: input.controls.staleBlocker,
-        duplicateBlocker: input.controls.duplicateBlocker,
+        ...supportExecutorMetadata(input.requestId, input.controls, true),
         target: {
             organizationId: input.organizationId,
             emails: input.input.emails,
@@ -10673,18 +10672,7 @@ function supportInviteActionExecutorDetail(input: {
         mutationMode: 'controlled_invite_row_only',
         action: input.action,
         actionType: input.actionType,
-        supportRoleRequired: true,
-        reasonRequired: true,
-        contextRequired: true,
-        scopeRequired: true,
-        expiryRequired: input.action === 'resend',
-        noSilentMembershipMutation: true,
-        requestId: input.requestId,
-        correlationId: input.controls.correlationId,
-        idempotencyKey: input.controls.idempotencyKey,
-        supportSessionId: input.controls.supportSessionId || null,
-        staleBlocker: input.controls.staleBlocker,
-        duplicateBlocker: input.controls.duplicateBlocker,
+        ...supportExecutorMetadata(input.requestId, input.controls, input.action === 'resend'),
         target: {
             organizationId: input.organizationId,
             inviteId: input.invite?.id || null,
@@ -11039,17 +11027,7 @@ function supportMemberRoleRecoveryExecutorDetail(input: {
         mutationMode: 'controlled_member_role_only',
         action: 'member_role_recovery',
         actionType: 'support.organization.member_role_recovery',
-        supportRoleRequired: true,
-        reasonRequired: true,
-        contextRequired: true,
-        scopeRequired: true,
-        noSilentMembershipMutation: true,
-        requestId: input.requestId,
-        correlationId: input.controls.correlationId,
-        idempotencyKey: input.controls.idempotencyKey,
-        supportSessionId: input.controls.supportSessionId || null,
-        staleBlocker: input.controls.staleBlocker,
-        duplicateBlocker: input.controls.duplicateBlocker,
+        ...supportExecutorMetadata(input.requestId, input.controls),
         target: {
             organizationId: input.organizationId,
             userId: input.userId,

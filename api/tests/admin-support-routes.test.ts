@@ -892,6 +892,8 @@ test('support invite action success keeps updated invite evidence in executor an
         target: { organizationId: 'org-1', inviteId: 'invite-1', email: 'member@example.com' },
         before: { status: 'pending', expiresAt: '2026-11-01T00:00:00.000Z' },
         after: { status: 'pending', expiresAt: '2026-12-01T00:00:00.000Z' }, outcome: 'success',
+        supportRoleRequired: true, reasonRequired: true, contextRequired: true, scopeRequired: true,
+        expiryRequired: true, noSilentMembershipMutation: true,
     })
     expect(result.body.inviteAction.executionReceipt).toMatchObject({
         actorId: 'support-admin', organizationId: 'org-1', requestId: 'invite-resend-1',
@@ -964,6 +966,11 @@ test('executor blocker audits retain the shared no-mutation contract for invite 
     })
 
     expect(result.statusCode).toBe(409)
+    expect(result.body.detail.executorBlocker).toMatchObject({
+        schemaVersion: 'support.action_execute.invite_assist.v1',
+        supportRoleRequired: true, reasonRequired: true, contextRequired: true, scopeRequired: true,
+        expiryRequired: true, noSilentMembershipMutation: true, requestId: 'invite-assist-blocked',
+    })
     expect(recordedEvents.at(-1)).toMatchObject({
         actionType: 'support.organization.invite_assist',
         targetType: 'organization', targetId: 'org-1', entityId: 'member@example.com',
@@ -1043,6 +1050,8 @@ test('support role recovery shares the active-member write and retains its audit
     expect(result.body.memberRoleRecovery.controlledExecutor).toMatchObject({
         mutationMode: 'controlled_member_role_only',
         outcome: 'success',
+        supportRoleRequired: true, reasonRequired: true, contextRequired: true, scopeRequired: true,
+        noSilentMembershipMutation: true,
     })
     expect(recordedEvents.at(-1)).toMatchObject({
         actionType: 'support.organization.member_role_recovery',
