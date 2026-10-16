@@ -18,6 +18,10 @@ contract; keep distinct presentation and data needs explicit.
 
 - No hand-maintained source, test, script, or configuration file may exceed
   200 physical lines.
+- This limit applies equally to the frontend: pages, React components/hooks,
+  tests, scripts, styles, and configuration are all in scope. Prefer cohesive
+  reusable UI components where consumers share the same behavior, and preserve
+  rendered UI, accessibility, routes, and page data contracts while splitting.
 - Split files at natural responsibility boundaries. Keep route entrypoints,
   domain rules, persistence, and presentation separate where they have
   independent reasons to change.
@@ -55,15 +59,16 @@ reducing total implementation lines. The 100,000-line API reduction goal and
 the 10,000–30,000-line frontend goal remain unachieved.
 
 After the traffic map, share-chat, actor workbench, system dashboard, TI search,
-TI admin, public TI, and guardrail checkpoints, the 2026-10-16 frontend
-inventory is 147,516 lines across 1,942
-hand-maintained `.ts`, `.tsx`, `.js`, `.jsx`, `.mjs`, `.cjs`, `.css`, and `.json`
-files, with 90 files still over 200 lines. It excludes dependency/build output
-and generated route/type artifacts. Compared with the prior 148,556-line,
-1,772-file frontend snapshot, this is 1,040 fewer lines but 170 more modules;
-the count includes concurrent uncommitted work and is therefore provisional.
-Recent splits focus on behavior-preserving responsibility boundaries and do not
-yet demonstrate the required 10,000–30,000-line end state.
+TI admin, public TI, guardrail, Git plugin, and dashboard sidebar checkpoints,
+the 2026-10-16 frontend inventory is 147,557 lines across 1,972 hand-maintained
+`.ts`, `.tsx`, `.js`, `.jsx`, `.mjs`, `.cjs`, `.css`, and `.json` files, with 85
+files still over 200 lines. It excludes dependency/build output and generated
+route/type artifacts. Compared with the prior 147,516-line, 1,942-file snapshot,
+this is 41 more lines, 30 more modules, and five fewer oversized files. The
+current inventory includes concurrent uncommitted work and is provisional.
+Recent splits focus on behavior-preserving responsibility boundaries; their
+module overhead has not yet reduced the frontend toward its required
+10,000–30,000-line end state.
 
 ## Execution
 
