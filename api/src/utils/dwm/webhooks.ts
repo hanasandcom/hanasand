@@ -1,4 +1,28 @@
 import crypto from 'node:crypto'
+import {
+    buildDwmAlertWebhookDispatchPlan,
+    buildDwmAlertWebhookDispatchPlanForAlert,
+    buildDwmWebhookDispatchPlanForDestinations,
+    dispatchOrganizationId,
+    normalizeDispatchAlertInput,
+} from './webhooks/dispatchPlanning.ts'
+import type {
+    DwmAlertWebhookDispatchPlan,
+    DwmAlertWebhookMissingDeliveryIntent,
+    DwmAlertWebhookSkippedDeliveryIntent,
+    DwmAlertWebhookTriggerOptions,
+    DwmWebhookDispatchDestination,
+} from './webhooks/dispatchPlanning.ts'
+import { buildDwmAlertWebhookMissingDeliveryIntent, buildDwmAlertWebhookSkippedDeliveryIntents } from './webhooks/dispatchIntents.ts'
+export { buildDwmAlertWebhookDispatchPlan } from './webhooks/dispatchPlanning.ts'
+export { buildDwmAlertWebhookMissingDeliveryIntent, buildDwmAlertWebhookSkippedDeliveryIntents } from './webhooks/dispatchIntents.ts'
+export type { DwmAlertWebhookDispatchPlan, DwmAlertWebhookMissingDeliveryIntent, DwmAlertWebhookSkippedDeliveryIntent, DwmAlertWebhookTriggerOptions, DwmWebhookDispatchDestination } from './webhooks/dispatchPlanning.ts'
+import { buildDwmAlertWebhookNotificationInput, buildDwmWebhookDeliveryRequestInput } from './webhooks/notificationInput.ts'
+export { buildDwmAlertWebhookNotificationInput, buildDwmWebhookDeliveryRequestInput } from './webhooks/notificationInput.ts'
+import { buildDwmWebhookDeliveryPreview, buildDwmWebhookDeliveryOperationLinks } from './webhooks/deliveryPreview.ts'
+import { buildDwmWebhookDestinationTestPayloadPreview } from './webhooks/payloadPreviews.ts'
+import { DISCORD_CONTENT_LIMIT, DISCORD_EMBED_DESCRIPTION_LIMIT, DISCORD_EMBED_FIELD_LIMIT, DISCORD_EMBED_TITLE_LIMIT } from './webhooks/payloadPreviews.ts'
+export { buildDwmWebhookDeliveryPreview } from './webhooks/deliveryPreview.ts'
 import type {
     DwmAlertEventType,
     DwmAlertNotificationInput,
@@ -10,7 +34,7 @@ import type {
 } from './webhookDestinationTypes.ts'
 export type * from './webhookDestinationTypes.ts'
 import { clean, cleanList, firstClean, recordOrEmpty } from './webhookValueUtils.ts'
-import { normalizeAlert, normalizeMatchedTerm, normalizeWatchlist, provenanceSummary } from './webhookAlertNormalization.ts'
+import { normalizeAlert, normalizeWatchlist, provenanceSummary } from './webhookAlertNormalization.ts'
 import { bindDwmWebhookReceiverReceipt } from './webhookReceiverReceipts.ts'
 export { clean } from './webhookValueUtils.ts'
 export { constantTimeEqual, validateDwmWebhookReceiverEnvelope } from './webhookReceiverValidation.ts'
@@ -27,8 +51,8 @@ export { listDwmWebhookDestinations } from './webhookDestinationReads.ts'
 export { listDwmWebhookAuditEvents, listDwmWebhookDeliveries } from './webhookDeliveryReads.ts'
 import { recordDwmWebhookAudit } from './webhookAuditStore.ts'
 import {
+    buildIdempotencyKey,
     dedupeFromIdempotencyKey,
-    extractHanasandPayloadContext,
     idempotencyCoverage,
     parseCount,
     redactDeliveryEvidenceText,
@@ -95,52 +119,6 @@ function outboundReportAuditMetadata(alert: Record<string, unknown>) {
         reportExportChecksum: clean(validation.report.exportChecksum),
         reportValidation: 'valid'
     }
-}
-
-export type DwmAlertWebhookTriggerOptions = {
-    eventType?: unknown
-    destinationId?: unknown
-    destination_id?: unknown
-    dryRun?: unknown
-    dry_run?: unknown
-    live?: unknown
-}
-
-export type DwmWebhookDispatchDestination = Pick<DwmWebhookDestinationRow,
-    'id' | 'org_id' | 'name' | 'kind' | 'status' | 'events'
->
-
-export type DwmAlertWebhookDispatchPlan = {
-    ownerId: string
-    orgId: string
-    eventType: DwmAlertEventType
-    alert: Record<string, unknown>
-    selectedDestinations: DwmWebhookDispatchDestination[]
-    skippedDestinations: Array<{
-        id: string
-        orgId: string
-        status: DwmWebhookStatus
-        reason: 'org_mismatch' | 'disabled' | 'event_not_subscribed'
-    }>
-}
-
-export type DwmAlertWebhookSkippedDeliveryIntent = {
-    destinationId: string
-    orgId: string
-    status: DwmWebhookStatus
-    reason: 'disabled' | 'event_not_subscribed'
-    idempotencyKey: string
-    error: string
-    persistable: true
-}
-
-export type DwmAlertWebhookMissingDeliveryIntent = {
-    orgId: string
-    reason: 'missing_destination' | 'requested_destination_not_found'
-    requestedDestinationId: string | null
-    idempotencyKey: string
-    error: string
-    persistable: true
 }
 
 export type DwmWebhookDeliveryEvidenceFilters = {
@@ -243,12 +221,8 @@ export type DwmWebhookDestinationCrudBlockerCode =
 
 export type DwmWebhookEvidenceVisibilityInput = OrganizationVisibilityDecisionInput
 
-const DISCORD_CONTENT_LIMIT = 2000
-const DISCORD_EMBED_TITLE_LIMIT = 256
-const DISCORD_EMBED_DESCRIPTION_LIMIT = 4096
 const DISCORD_EMBED_FIELD_NAME_LIMIT = 256
 const DISCORD_EMBED_FIELD_VALUE_LIMIT = 1024
-const DISCORD_EMBED_FIELD_LIMIT = 25
 const DISCORD_EMBED_FOOTER_TEXT_LIMIT = 2048
 
 type DwmWebhookDeliveryPublic = ReturnType<typeof toDwmWebhookDelivery>
@@ -3019,7 +2993,10 @@ export function buildDwmWebhookCustomerSetupProof({
     viewerRole = null,
     canManage = false,
     visibility = null,
-}: DwmWebhookDestinationVisibilityOptions) {
+    readModels: suppliedReadModels,
+}: DwmWebhookDestinationVisibilityOptions & {
+    readModels?: ReturnType<typeof buildDwmWebhookDestinationReadModels>
+}) {
     const decision = webhookVisibilityDecision(visibility)
     const access = {
         role: clean(viewerRole) || null,
@@ -3054,9 +3031,10 @@ export function buildDwmWebhookCustomerSetupProof({
         }
     }
 
-    const { deliveryReadiness: readiness, destinationAdminProof: adminProof } = buildDwmWebhookDestinationReadModels({
+    const readModels = suppliedReadModels || buildDwmWebhookDestinationReadModels({
         destinations, deliveries, auditEvents, liveDeliveryEnabled, viewerRole, canManage,
     })
+    const { deliveryReadiness: readiness, destinationAdminProof: adminProof } = readModels
     const destinationTests = destinations.map(destination => buildDwmWebhookDestinationTestContract({
         destination,
         deliveries,
@@ -4104,11 +4082,7 @@ export function buildDwmOrgAlertWebhookDeliveryContract({
     const dryRun = parseBoolean(normalizedInput.dryRun ?? normalizedInput.dry_run, true)
     const liveRequested = parseBoolean(normalizedInput.live, false)
     const dispatch = buildDwmWebhookDispatchPlanForDestinations(ownerId, normalizedInput, destinations)
-    const {
-        destinationHealth,
-        destinationLifecycle,
-        destinationAdminProof,
-    } = buildDwmWebhookDestinationReadModels({
+    const destinationReadModels = buildDwmWebhookDestinationReadModels({
         destinations,
         deliveries,
         auditEvents,
@@ -4116,6 +4090,11 @@ export function buildDwmOrgAlertWebhookDeliveryContract({
         viewerRole,
         canManage,
     })
+    const {
+        destinationHealth,
+        destinationLifecycle,
+        destinationAdminProof,
+    } = destinationReadModels
     const deliveryLedger = buildDwmWebhookDeliveryLedger({ deliveries, auditEvents })
     const auditEventContracts = buildDwmWebhookAuditEventContracts({ destinations, deliveries, auditEvents })
     const deliveryOutcome = buildDwmOrgAlertWebhookDeliveryOutcome({
@@ -4163,6 +4142,7 @@ export function buildDwmOrgAlertWebhookDeliveryContract({
         liveDeliveryEnabled,
         viewerRole,
         canManage,
+        readModels: destinationReadModels,
     })
     const alertDeliveryProof = buildDwmWebhookAlertDeliveryProof({
         ownerId,
@@ -5279,273 +5259,6 @@ export function buildDwmAlertWebhookReadinessHandoff({
     }
 }
 
-export function buildDwmWebhookDeliveryPreview(delivery: DwmWebhookDeliveryPublic) {
-    const context = extractHanasandPayloadContext(delivery.payload)
-    const payloadAlert = recordOrEmpty(context.alert)
-    const payloadWatchlist = recordOrEmpty(context.watchlist)
-    const payloadDelivery = recordOrEmpty(context.delivery)
-    const embeds = Array.isArray((delivery.payload as Record<string, unknown> | undefined)?.embeds)
-        ? (delivery.payload as Record<string, unknown>).embeds
-        : []
-    const retryPlan = planDwmWebhookDeliveryRetry({
-        status: delivery.status,
-        dryRun: delivery.dryRun,
-        responseStatus: delivery.responseStatus,
-        error: delivery.error,
-        attemptedAt: delivery.attemptedAt,
-        attemptCount: delivery.attemptCount || 1,
-    })
-
-    return {
-        requestId: delivery.id,
-        status: delivery.status,
-        dryRun: delivery.dryRun,
-        live: !delivery.dryRun && delivery.status !== 'skipped',
-        destination: {
-            id: delivery.destinationId,
-            endpointHint: redactDeliveryEvidenceText(delivery.endpointHint),
-            endpointHash: delivery.endpointHash,
-        },
-        payload: delivery.payload,
-        sanitizedPayloadPreview: buildSanitizedDwmWebhookPayloadPreview(delivery, context, embeds),
-        discord: {
-            content: clean((delivery.payload as Record<string, unknown> | undefined)?.content),
-            embeds,
-            allowedMentions: (delivery.payload as Record<string, unknown> | undefined)?.allowed_mentions || null,
-        },
-        context: {
-            org: recordOrEmpty(context.org),
-            watchlist: payloadWatchlist,
-            alert: {
-                id: clean(payloadAlert.id) || delivery.alertId,
-                title: clean(payloadAlert.title),
-                severity: clean(payloadAlert.severity),
-                sourceFamily: clean(payloadAlert.sourceFamily),
-                evidenceCount: parseCount(payloadAlert.evidenceCount),
-                provenance: payloadAlert.provenance || null,
-                dedupeKey: clean(payloadAlert.dedupeKey) || clean(payloadDelivery.dedupeKey) || dedupeFromIdempotencyKey(delivery.idempotencyKey),
-                casePath: clean(payloadAlert.casePath) || clean(payloadDelivery.casePath) || delivery.casePath,
-                alertUrl: clean(payloadAlert.alertUrl) || clean(payloadDelivery.alertUrl),
-                caseId: clean(payloadAlert.caseId) || clean(payloadAlert.caseIdCandidate),
-                caseActionId: clean(payloadAlert.caseActionId) || clean(payloadDelivery.caseActionId),
-                caseActionPath: clean(payloadAlert.caseActionPath) || clean(payloadDelivery.caseActionPath),
-            },
-            delivery: payloadDelivery,
-            links: {
-                casePath: clean(payloadDelivery.casePath) || clean(payloadAlert.casePath) || delivery.casePath,
-                alertUrl: clean(payloadDelivery.alertUrl) || clean(payloadAlert.alertUrl),
-            },
-        },
-        operationLinks: buildDwmWebhookDeliveryOperationLinks(delivery),
-        response: {
-            httpStatus: delivery.responseStatus,
-            summary: delivery.responseBody ? redactDeliveryEvidenceText(truncate(delivery.responseBody, 500)) : null,
-        },
-        error: delivery.error ? redactDeliveryEvidenceText(truncate(delivery.error, 500)) : null,
-        retry: {
-            retryable: Boolean(delivery.nextRetryAt) || retryPlan.retryable,
-            nextRetryAt: delivery.nextRetryAt || retryPlan.nextRetryAt,
-            errorClass: delivery.errorClass || retryPlan.errorClass,
-            attemptCount: delivery.attemptCount || 1,
-            reason: retryPlan.reason,
-            persisted: Boolean(delivery.errorClass || delivery.attemptCount || delivery.nextRetryAt),
-        },
-        audit: {
-            auditEventId: null,
-            expectedAction: deliveryAuditActionForEvent(delivery.eventType),
-        },
-        payloadHash: delivery.payloadHash,
-        idempotencyKey: delivery.idempotencyKey,
-        timestamps: {
-            attemptedAt: delivery.attemptedAt,
-            createdAt: delivery.createdAt,
-            updatedAt: delivery.updatedAt || delivery.createdAt,
-        },
-    }
-}
-
-function buildSanitizedDwmWebhookPayloadPreview(
-    delivery: DwmWebhookDeliveryPublic,
-    context: Record<string, unknown>,
-    embeds: unknown
-) {
-    const payload = recordOrEmpty(delivery.payload)
-    const alert = recordOrEmpty(context.alert)
-    const watchlist = recordOrEmpty(context.watchlist)
-    const deliveryContext = recordOrEmpty(context.delivery)
-    const org = recordOrEmpty(context.org)
-    const discordTemplate = sanitizeDiscordTemplateProof(context.discordTemplate)
-    const firstEmbed = Array.isArray(embeds) ? recordOrEmpty(embeds[0]) : {}
-    const fields = Array.isArray(firstEmbed.fields) ? firstEmbed.fields.map(recordOrEmpty) : []
-    const content = redactDeliveryEvidenceText(truncate(clean(payload.content), DISCORD_CONTENT_LIMIT))
-    const description = redactDeliveryEvidenceText(truncate(clean(firstEmbed.description), DISCORD_EMBED_DESCRIPTION_LIMIT))
-    const fieldSummaries = fields.slice(0, DISCORD_EMBED_FIELD_LIMIT).map(field => ({
-        name: truncate(redactDeliveryEvidenceText(clean(field.name) || 'Field'), 80),
-        valuePreview: truncate(redactDeliveryEvidenceText(clean(field.value)), 180),
-        inline: field.inline === true,
-    }))
-    const linkCandidates = [
-        clean(deliveryContext.alertUrl),
-        clean(alert.alertUrl),
-        clean(deliveryContext.casePath),
-        clean(alert.casePath),
-        clean(deliveryContext.caseActionPath),
-        clean(alert.caseActionPath),
-        delivery.casePath,
-    ].filter((link): link is string => Boolean(link))
-
-    return {
-        schemaVersion: 'dwm.webhook.sanitized_payload_preview.v1',
-        requestId: delivery.id,
-        payloadHash: delivery.payloadHash,
-        idempotencyKey: delivery.idempotencyKey,
-        status: delivery.status,
-        dryRun: delivery.dryRun,
-        live: !delivery.dryRun && delivery.status !== 'skipped',
-        eventType: delivery.eventType,
-        title: redactDeliveryEvidenceText(truncate(clean(firstEmbed.title) || clean(alert.title) || delivery.alertId, DISCORD_EMBED_TITLE_LIMIT)),
-        contentPreview: content || null,
-        descriptionPreview: description || null,
-        fieldNames: fieldSummaries.map(field => field.name),
-        fields: fieldSummaries,
-        discordTemplate,
-        context: {
-            orgId: clean(org.id) || delivery.orgId,
-            orgName: redactDeliveryEvidenceText(truncate(clean(org.name) || delivery.orgId, 120)),
-            alertId: clean(alert.id) || delivery.alertId,
-            alertTitle: redactDeliveryEvidenceText(truncate(clean(alert.title), 160)),
-            severity: clean(alert.severity),
-            matchReason: redactDeliveryEvidenceText(truncate(clean(alert.matchReason), 180)) || null,
-            deliveryState: clean(alert.deliveryState) || clean(deliveryContext.deliveryState),
-            sourceFamily: clean(alert.sourceFamily),
-            evidenceTimestamp: clean(alert.evidenceTimestamp),
-            eventTimestamp: clean(alert.eventTimestamp) || clean(deliveryContext.eventTimestamp) || clean(context.occurredAt),
-            evidenceCount: parseCount(alert.evidenceCount),
-            watchlistId: clean(watchlist.id) || delivery.watchlistId,
-            watchlistName: redactDeliveryEvidenceText(truncate(clean(watchlist.name) || delivery.watchlistName || '', 120)) || null,
-            route: clean(deliveryContext.route) || delivery.route,
-            casePath: clean(deliveryContext.casePath) || clean(alert.casePath) || delivery.casePath,
-            caseActionId: clean(deliveryContext.caseActionId) || clean(alert.caseActionId) || null,
-            caseActionPath: clean(deliveryContext.caseActionPath) || clean(alert.caseActionPath) || null,
-            alertUrl: clean(deliveryContext.alertUrl) || clean(alert.alertUrl),
-            dedupeKey: clean(deliveryContext.dedupeKey) || clean(alert.dedupeKey) || dedupeFromIdempotencyKey(delivery.idempotencyKey),
-            replay: delivery.eventType === 'dwm.alert.replayed' || deliveryContext.replay === true,
-        },
-        links: [...new Set(linkCandidates)].map(link => redactDeliveryEvidenceText(truncate(link, 300))),
-        redaction: {
-            endpointExposed: false,
-            secretFields: [],
-            safeForCustomerDisplay: true,
-        },
-    }
-}
-
-function buildDwmWebhookDestinationTestPayloadPreview(payload: unknown) {
-    const record = recordOrEmpty(payload)
-    const context = recordOrEmpty(record._hanasand)
-    const alert = recordOrEmpty(context.alert)
-    const watchlist = recordOrEmpty(context.watchlist)
-    const delivery = recordOrEmpty(context.delivery)
-    const org = recordOrEmpty(context.org)
-    const source = recordOrEmpty(context.source)
-    const discordTemplate = sanitizeDiscordTemplateProof(context.discordTemplate)
-    const embeds = Array.isArray(record.embeds) ? record.embeds.map(recordOrEmpty).slice(0, 1) : []
-    const firstEmbed = embeds[0] || {}
-    const fields = Array.isArray(firstEmbed.fields) ? firstEmbed.fields.map(recordOrEmpty).slice(0, DISCORD_EMBED_FIELD_LIMIT) : []
-
-    return {
-        schemaVersion: 'dwm.webhook.destination_test_payload_preview.v1',
-        noNetwork: true,
-        eventType: 'dwm.alert.test' as DwmAlertEventType,
-        payloadType: Array.isArray(record.embeds) ? 'discord' : 'webhook',
-        discord: {
-            content: redactDeliveryEvidenceText(truncate(clean(record.content), DISCORD_CONTENT_LIMIT)) || null,
-            allowedMentions: record.allowed_mentions || null,
-            embedCount: embeds.length,
-            title: redactDeliveryEvidenceText(truncate(clean(firstEmbed.title), DISCORD_EMBED_TITLE_LIMIT)) || null,
-            description: redactDeliveryEvidenceText(truncate(clean(firstEmbed.description), DISCORD_EMBED_DESCRIPTION_LIMIT)) || null,
-            fieldNames: fields.map(field => redactDeliveryEvidenceText(truncate(clean(field.name), 80))).filter(Boolean),
-            fields: fields.map(field => ({
-                name: redactDeliveryEvidenceText(truncate(clean(field.name), 80)),
-                valuePreview: redactDeliveryEvidenceText(truncate(clean(field.value), 180)),
-                inline: field.inline === true,
-            })),
-        },
-        context: {
-            orgId: clean(org.id),
-            orgName: redactDeliveryEvidenceText(truncate(clean(org.name), 120)) || null,
-            destinationId: clean(recordOrEmpty(context.destination).id),
-            alertId: clean(alert.id),
-            title: redactDeliveryEvidenceText(truncate(clean(alert.title), 160)),
-            severity: clean(alert.severity),
-            matchReason: redactDeliveryEvidenceText(truncate(clean(alert.matchReason), 180)) || null,
-            deliveryState: clean(alert.deliveryState) || clean(delivery.deliveryState),
-            sourceFamily: clean(alert.sourceFamily) || clean(source.family),
-            evidenceTimestamp: clean(alert.evidenceTimestamp),
-            evidenceCount: parseCount(alert.evidenceCount),
-            watchlistId: clean(watchlist.id),
-            watchlistName: redactDeliveryEvidenceText(truncate(clean(watchlist.name), 120)) || null,
-            route: clean(delivery.route),
-            casePath: clean(delivery.casePath),
-            caseActionId: clean(delivery.caseActionId) || clean(alert.caseActionId) || null,
-            caseActionPath: clean(delivery.caseActionPath) || clean(alert.caseActionPath) || null,
-            analystLink: clean(delivery.analystLink),
-            dedupeKey: clean(delivery.dedupeKey) || clean(context.idempotencyKey),
-            replay: delivery.replay === true,
-            occurredAt: clean(context.occurredAt),
-            discordTemplate,
-        },
-        redaction: {
-            endpointExposed: false,
-            secretFields: [],
-            safeForCustomerDisplay: true,
-        },
-    }
-}
-
-function sanitizeDiscordTemplateProof(template: unknown) {
-    const record = recordOrEmpty(template)
-    const templateId = clean(record.templateId)
-    if (!templateId) return null
-    const redaction = recordOrEmpty(record.redaction)
-    return {
-        schemaVersion: 'dwm.webhook.discord_payload_template_summary.v1',
-        templateId,
-        ready: record.ready === true,
-        missing: cleanList(record.missing).slice(0, 12),
-        requiredFields: cleanList(record.requiredFields).slice(0, DISCORD_EMBED_FIELD_LIMIT),
-        fieldOrder: cleanList(record.fieldOrder).slice(0, DISCORD_EMBED_FIELD_LIMIT),
-        noNetworkDefault: record.noNetworkDefault === true,
-        redaction: {
-            safeForCustomerDisplay: redaction.safeForCustomerDisplay !== false,
-            endpointExposed: redaction.endpointExposed === true,
-            webhookSecretExposed: redaction.webhookSecretExposed === true,
-            mentionsDisabled: redaction.mentionsDisabled === true,
-        },
-    }
-}
-
-function buildDwmWebhookDeliveryOperationLinks(delivery: DwmWebhookDeliveryPublic) {
-    const orgId = encodeURIComponent(delivery.orgId)
-    const deliveryId = encodeURIComponent(delivery.id)
-    const alertId = encodeURIComponent(delivery.alertId)
-    const destinationId = delivery.destinationId ? encodeURIComponent(delivery.destinationId) : null
-    const dedupeKey = delivery.idempotencyKey ? encodeURIComponent(dedupeFromIdempotencyKey(delivery.idempotencyKey) || delivery.idempotencyKey) : null
-    return {
-        deliveryDetail: `GET /api/dwm/webhook-deliveries?orgId=${orgId}&deliveryId=${deliveryId}`,
-        deliveryHistory: destinationId
-            ? `GET /api/dwm/webhook-deliveries?orgId=${orgId}&destinationId=${destinationId}&alertId=${alertId}`
-            : `GET /api/dwm/webhook-deliveries?orgId=${orgId}&alertId=${alertId}`,
-        retryDryRun: 'POST /api/dwm/webhook-deliveries',
-        destinationTest: destinationId ? `POST /api/dwm/webhook-destinations/${destinationId}/test` : null,
-        destinationDetail: destinationId ? `GET /api/dwm/webhooks?orgId=${orgId}&destinationId=${destinationId}` : null,
-        destinationDelete: destinationId ? `DELETE /api/dwm/webhook-destinations/${destinationId}` : null,
-        destinationArchive: destinationId ? `DELETE /api/dwm/webhook-destinations/${destinationId}` : null,
-        dedupeHistory: dedupeKey ? `GET /api/dwm/webhook-deliveries?orgId=${orgId}&dedupeKey=${dedupeKey}` : null,
-        casePath: delivery.casePath || null,
-    }
-}
-
 export function buildDwmWebhookDestinationTestContract({
     destination,
     deliveries = [],
@@ -6096,123 +5809,6 @@ function reportFromPersistedPayload(payload: unknown) {
     const nested = recordOrEmpty(root._hanasand).report
     const report = direct ?? nested
     return report && typeof report === 'object' && !Array.isArray(report) ? report as Record<string, unknown> : undefined
-}
-
-export function buildDwmAlertWebhookNotificationInput(
-    alert: Record<string, unknown>,
-    options: DwmAlertWebhookTriggerOptions = {}
-): DwmAlertNotificationInput {
-    const workflowContext = recordOrEmpty(alert.workflowContext)
-    const webhookContext = recordOrEmpty(alert.webhookContext)
-    const matchedTerm = normalizeMatchedTerm(alert.matchedTerm || workflowContext.matchedTerm)
-    const watchlistIds = [
-        ...cleanList(alert.watchlistItemIds),
-        ...cleanList(webhookContext.watchlistItemIds),
-        ...cleanList(workflowContext.watchlistItemIds),
-        ...cleanList(alert.watchlistIds),
-        ...cleanList(webhookContext.watchlistIds),
-        ...cleanList(workflowContext.watchlistIds),
-    ]
-    const orgId = firstClean(
-        alert.organizationId,
-        alert.orgId,
-        webhookContext.organizationId,
-        workflowContext.organizationId,
-        alert.tenantId,
-        webhookContext.tenantId,
-        workflowContext.tenantId
-    )
-    const tenantId = firstClean(alert.tenantId, webhookContext.tenantId, workflowContext.tenantId)
-    const watchlistRecord = recordOrEmpty(alert.watchlist)
-    const watchlistId = firstClean(watchlistRecord.id, alert.watchlistItemId, alert.watchlistId, watchlistIds[0])
-    const watchlistName = firstClean(watchlistRecord.name, alert.watchlistName, webhookContext.watchlistName, workflowContext.watchlistName)
-    const watchlistTerms = cleanList(watchlistRecord.terms)
-    const dedupeKey = firstClean(
-        alert.dedupeKey,
-        webhookContext.dedupeKey,
-        workflowContext.dedupeKey,
-        recordOrEmpty(alert.webhookDelivery).dedupeKey,
-        alert.id,
-        webhookContext.alertId
-    )
-    const route = firstClean(
-        alert.route,
-        alert.recommendedRoute,
-        webhookContext.recommendedRoute,
-        workflowContext.recommendedRoute,
-        recordOrEmpty(alert.webhookDelivery).recommendedRoute
-    )
-    const casePath = firstClean(alert.casePath, alert.caseUrl, webhookContext.casePath, workflowContext.casePath)
-    const alertUrl = firstClean(alert.alertUrl, alert.alertURL, alert.deepLink, alert.url, webhookContext.alertUrl, webhookContext.deepLink, workflowContext.alertUrl, workflowContext.deepLink)
-    const caseId = firstClean(alert.caseId, alert.caseIdCandidate, webhookContext.caseIdCandidate, workflowContext.caseIdCandidate)
-    const evidenceCount = parseCount(alert.evidenceCount ?? webhookContext.evidenceCount ?? workflowContext.evidenceCount)
-    const sourceFamily = firstClean(alert.sourceFamily, webhookContext.sourceFamily, workflowContext.sourceFamily)
-    const provenance = alert.provenance || webhookContext.provenance || {
-        captureIds: cleanList(webhookContext.captureIds).length ? cleanList(webhookContext.captureIds) : cleanList(workflowContext.captureIds),
-        primaryCaptureId: firstClean(webhookContext.primaryCaptureId, workflowContext.primaryCaptureId),
-    }
-
-    return {
-        orgId,
-        organizationId: orgId,
-        tenantId,
-        destinationId: firstClean(options.destinationId, options.destination_id),
-        eventType: parseEventType(options.eventType, parseEventType(webhookContext.eventType || alert.eventType, 'dwm.alert.created')),
-        alertId: firstClean(alert.id, webhookContext.alertId),
-        watchlistItemId: watchlistId,
-        watchlistId,
-        watchlistName,
-        dedupeKey,
-        route,
-        recommendedRoute: route,
-        casePath,
-        evidenceCount,
-        sourceFamily,
-        dryRun: options.dryRun ?? options.dry_run,
-        live: options.live,
-        alert: {
-            ...alert,
-            id: firstClean(alert.id, webhookContext.alertId),
-            organizationId: orgId,
-            tenantId,
-            watchlist: {
-                ...watchlistRecord,
-                id: watchlistId,
-                name: watchlistName,
-                terms: watchlistTerms.length ? watchlistTerms : [matchedTerm.value].filter(Boolean),
-            },
-            matchedTerm,
-            sourceFamily,
-            evidenceCount,
-            dedupeKey,
-            route,
-            recommendedRoute: route,
-            casePath,
-            alertUrl,
-            caseId,
-            provenance,
-        },
-    }
-}
-
-export function buildDwmWebhookDeliveryRequestInput(input: DwmAlertNotificationInput): DwmAlertNotificationInput {
-    const alert = input.alert && typeof input.alert === 'object' ? input.alert : null
-    if (!alert) return input
-
-    const normalized = buildDwmAlertWebhookNotificationInput(alert, {
-        eventType: input.eventType ?? input.event_type,
-        destinationId: input.destinationId ?? input.destination_id,
-        dryRun: input.dryRun ?? input.dry_run,
-        live: input.live,
-    })
-    const orgId = firstClean(input.orgId, input.organizationId, input.tenantId, normalized.orgId, normalized.organizationId, normalized.tenantId)
-
-    return {
-        ...input,
-        ...normalized,
-        orgId,
-        organizationId: orgId,
-    }
 }
 
 export function buildDwmWebhookDeliveryAttemptContract({
@@ -6909,25 +6505,6 @@ function toDwmWebhookDispatchDestinationForContract(destination: DwmWebhookDispa
     }
 }
 
-function buildDwmWebhookDispatchPlanForDestinations(
-    ownerId: string,
-    input: DwmAlertNotificationInput,
-    destinations: DwmWebhookDestinationPublic[],
-) {
-    return buildDwmAlertWebhookDispatchPlan({
-        ownerId,
-        input,
-        destinations: destinations.map(destination => ({
-            id: destination.id,
-            org_id: destination.orgId,
-            name: destination.name,
-            kind: destination.kind,
-            status: destination.status,
-            events: destination.events,
-        })),
-    })
-}
-
 function deliveryAttemptContractBlockers({
     input,
     plan,
@@ -6970,121 +6547,6 @@ export async function triggerDwmAlertWebhookNotification(
     options: DwmAlertWebhookTriggerOptions = {}
 ) {
     return deliverDwmAlertNotification(ownerId, buildDwmAlertWebhookNotificationInput(alert, options))
-}
-
-export function buildDwmAlertWebhookDispatchPlan({
-    ownerId,
-    input,
-    destinations,
-}: {
-    ownerId: string
-    input: DwmAlertNotificationInput
-    destinations: DwmWebhookDispatchDestination[]
-}): DwmAlertWebhookDispatchPlan {
-    const eventType = parseEventType(input.eventType ?? input.event_type, 'dwm.alert.created')
-    const alert = normalizeDispatchAlertInput(input)
-    const orgId = dispatchOrganizationId(ownerId, input, alert)
-    return buildDwmAlertWebhookDispatchPlanForAlert({ ownerId, eventType, alert, orgId, destinations })
-}
-
-function dispatchOrganizationId(
-    ownerId: string,
-    input: DwmAlertNotificationInput,
-    alert: Record<string, unknown>,
-) {
-    return clean(input.orgId)
-        || clean(input.organizationId)
-        || clean(input.tenantId)
-        || clean(alert.organizationId)
-        || clean(alert.orgId)
-        || clean(alert.tenantId)
-        || ownerId
-}
-
-function buildDwmAlertWebhookDispatchPlanForAlert({
-    ownerId,
-    eventType,
-    alert,
-    orgId,
-    destinations,
-}: {
-    ownerId: string
-    eventType: DwmAlertEventType
-    alert: Record<string, unknown>
-    orgId: string
-    destinations: DwmWebhookDispatchDestination[]
-}): DwmAlertWebhookDispatchPlan {
-    const selectedDestinations: DwmWebhookDispatchDestination[] = []
-    const skippedDestinations: DwmAlertWebhookDispatchPlan['skippedDestinations'] = []
-
-    for (const destination of destinations) {
-        if (destination.org_id !== orgId) {
-            skippedDestinations.push({ id: destination.id, orgId: destination.org_id, status: destination.status, reason: 'org_mismatch' })
-            continue
-        }
-        if (destination.status !== 'active') {
-            skippedDestinations.push({ id: destination.id, orgId: destination.org_id, status: destination.status, reason: 'disabled' })
-            continue
-        }
-        if (!destination.events.includes(eventType)) {
-            skippedDestinations.push({ id: destination.id, orgId: destination.org_id, status: destination.status, reason: 'event_not_subscribed' })
-            continue
-        }
-        selectedDestinations.push(destination)
-    }
-
-    return {
-        ownerId,
-        orgId,
-        eventType,
-        alert,
-        selectedDestinations,
-        skippedDestinations,
-    }
-}
-
-export function buildDwmAlertWebhookSkippedDeliveryIntents(
-    plan: DwmAlertWebhookDispatchPlan
-): DwmAlertWebhookSkippedDeliveryIntent[] {
-    const normalizedAlert = normalizeAlert(plan.alert)
-    const alertDedupe = normalizedAlert.dedupeKey || normalizedAlert.id
-    return plan.skippedDestinations
-        .filter(skipped => skipped.reason !== 'org_mismatch')
-        .map(skipped => {
-            const reason = skipped.reason as DwmAlertWebhookSkippedDeliveryIntent['reason']
-            return {
-                destinationId: skipped.id,
-                orgId: skipped.orgId,
-                status: skipped.status,
-                reason,
-                idempotencyKey: buildIdempotencyKey(plan.eventType, plan.orgId, skipped.id, alertDedupe),
-                error: reason === 'disabled'
-                    ? 'Delivery selection skipped because this destination is disabled.'
-                    : `Delivery selection skipped because this destination is not subscribed to ${plan.eventType}.`,
-                persistable: true as const,
-            }
-        })
-}
-
-export function buildDwmAlertWebhookMissingDeliveryIntent(
-    plan: DwmAlertWebhookDispatchPlan,
-    requestedDestinationId: string | null = null
-): DwmAlertWebhookMissingDeliveryIntent | null {
-    if (plan.selectedDestinations.length > 0) return null
-    if (plan.skippedDestinations.some(skipped => skipped.reason !== 'org_mismatch')) return null
-
-    const normalizedAlert = normalizeAlert(plan.alert)
-    const reason = requestedDestinationId ? 'requested_destination_not_found' : 'missing_destination'
-    return {
-        orgId: plan.orgId,
-        reason,
-        requestedDestinationId,
-        idempotencyKey: buildIdempotencyKey(plan.eventType, plan.orgId, requestedDestinationId || 'missing_destination', normalizedAlert.dedupeKey || normalizedAlert.id),
-        error: requestedDestinationId
-            ? 'Delivery selection skipped because the requested webhook destination was not found for this organization.'
-            : 'Delivery selection skipped because no enabled webhook destination is configured for this organization.',
-        persistable: true,
-    }
 }
 
 export function buildDwmAlertDeliveryPayload({
@@ -7838,32 +7300,6 @@ async function countDwmWebhookDeliveryAttempts(
     return Number(result.rows[0]?.count ?? 0)
 }
 
-function normalizeDispatchAlertInput(input: DwmAlertNotificationInput) {
-    const nested = input.alert && typeof input.alert === 'object' ? input.alert : {}
-    const watchlist = nested.watchlist && typeof nested.watchlist === 'object'
-        ? nested.watchlist
-        : {
-            id: clean(input.watchlistItemId) || clean(input.watchlistId),
-            name: clean(input.watchlistName),
-            terms: [],
-        }
-
-    return {
-        ...input,
-        ...nested,
-        id: clean(nested.id) || clean(input.alertId) || clean((input as Record<string, unknown>).id),
-        organizationId: clean(nested.organizationId) || clean(input.organizationId) || clean(input.orgId),
-        tenantId: clean(nested.tenantId) || clean(input.tenantId),
-        watchlist,
-        dedupeKey: clean(nested.dedupeKey) || clean(input.dedupeKey) || clean((nested.webhookDelivery as Record<string, unknown> | undefined)?.dedupeKey),
-        route: clean(nested.route) || clean(input.route) || clean(input.recommendedRoute),
-        recommendedRoute: clean(nested.recommendedRoute) || clean(input.recommendedRoute) || clean(input.route),
-        casePath: clean(nested.casePath) || clean(input.casePath) || clean(input.caseUrl),
-        evidenceCount: parseCount(nested.evidenceCount ?? input.evidenceCount),
-        sourceFamily: clean(nested.sourceFamily) || clean(input.sourceFamily),
-    }
-}
-
 export function buildDwmWebhookTestAlert(destination: Pick<DwmWebhookDestinationRow, 'org_id'>, testId: string = crypto.randomUUID()) {
     return {
         id: testId ? `webhook_test_${testId}` : 'webhook_test',
@@ -7926,10 +7362,6 @@ function severityEmoji(severity: string) {
     if (severity === 'medium') return '[MEDIUM]'
     if (severity === 'low') return '[LOW]'
     return '[INFO]'
-}
-
-function buildIdempotencyKey(eventType: DwmAlertEventType, orgId: string, destinationId: string, dedupeKey: string) {
-    return `${eventType}:${orgId}:${destinationId}:${dedupeKey}`
 }
 
 function destinationReadinessBlockers({

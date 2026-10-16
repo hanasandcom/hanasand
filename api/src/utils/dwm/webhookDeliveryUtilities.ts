@@ -1,3 +1,4 @@
+import type { DwmAlertEventType } from './webhookDestinationTypes.ts'
 import { clean, recordOrEmpty } from './webhookValueUtils.ts'
 import { redactWebhookEndpoint } from './webhookDestinationInput.ts'
 import { toDwmWebhookDelivery } from './webhookDestinationModels.ts'
@@ -81,4 +82,8 @@ export function sanitizeDwmWebhookDeliveryDiagnostic(value: unknown, max = 2000)
 
 export function redactNullableDeliveryText(value: string | null) {
     return value ? redactDeliveryEvidenceText(value) : null
+}
+
+export function buildIdempotencyKey(eventType: DwmAlertEventType, orgId: string, destinationId: string, dedupeKey: string) {
+    return `${eventType}:${orgId}:${destinationId}:${dedupeKey}`
 }
