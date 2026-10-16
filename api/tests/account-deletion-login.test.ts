@@ -57,14 +57,14 @@ test('a valid login before the scheduled deletion date returns the restore flow 
     expect(queries.some(sql => sql.includes('UPDATE users SET deletion_restore_token_hash'))).toBe(true)
 })
 
-test('a valid login after the scheduled deletion date invokes the account purge', async () => {
+test('a valid login after the scheduled deletion date rejects access without invoking the account purge', async () => {
     scheduledAt = new Date(Date.now() - 60_000).toISOString()
 
     const response = await app.inject({ method: 'POST', url: '/login/deletion-user', payload: { password: 'valid-password' } })
 
     expect(response.statusCode).toBe(404)
     expect(response.json()).toEqual({ error: 'Incorrect username or password.' })
-    expect(purgedUsers).toEqual(['deletion-user'])
+    expect(purgedUsers).toEqual([])
     expect(deletedUsers).toEqual([])
     expect(loginReasons).toEqual([])
     expect(queries.some(sql => sql.includes('UPDATE users SET deletion_restore_token_hash'))).toBe(false)

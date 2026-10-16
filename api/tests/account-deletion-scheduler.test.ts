@@ -11,12 +11,13 @@ const deletedFromUsers: string[] = []
 const deletionAuditEvents: Array<Record<string, unknown>> = []
 const sqlCalls: string[] = []
 let databaseBackupPolls = 0
+let purgePaused = false
 
 async function query(sql: string, params: unknown[] = []) {
     const normalized = sql.replace(/\s+/g, ' ').trim()
     sqlCalls.push(normalized)
     if (normalized.startsWith('SELECT status FROM scheduled_job_controls')) {
-        return { rows: [{ status: params[0] === purgeJobId ? 'enabled' : 'paused' }] }
+        return { rows: [{ status: params[0] === purgeJobId && !purgePaused ? 'enabled' : 'paused' }] }
     }
     if (normalized.startsWith('SELECT id FROM users WHERE id = $1 FOR UPDATE')) return { rows: accountExists ? [{ id: 'expired-user' }] : [] }
     if (normalized.startsWith('UPDATE users') && normalized.includes('deletion_scheduled_at = NOW() + INTERVAL \'30 days\'')) {
@@ -26,7 +27,9 @@ async function query(sql: string, params: unknown[] = []) {
     }
     if (normalized.includes('COALESCE(NULLIF(u.email')) return { rows: [{ email: 'expired@example.test' }] }
     if (normalized.startsWith('SELECT COUNT(DISTINCT user_account.id)')) return { rows: [{ count: 0 }] }
-    if (normalized.startsWith('SELECT user_account.id')) return { rows: accountIsDue() ? [{ id: 'expired-user' }] : [] }
+    if (normalized.startsWith('WITH eligible_accounts') && normalized.includes('FROM users user_account')) {
+        return { rows: accountIsDue() ? [{ id: 'expired-user' }] : [] }
+    }
     if (normalized.startsWith('SELECT id, name, email FROM users')) {
         return { rows: accountIsDue() && params[0] === 'expired-user' ? [{ id: 'expired-user', name: 'Expired User', email: 'expired@example.test' }] : [] }
     }
@@ -105,6 +108,7 @@ beforeEach(() => {
     deletionAuditEvents.length = 0
     sqlCalls.length = 0
     databaseBackupPolls = 0
+    purgePaused = false
 })
 
 test('the minute scheduler purges accounts without login or external backup polling', async () => {
@@ -144,7 +148,14 @@ test('the minute scheduler purges accounts without login or external backup poll
     expect(deletedFromUsers).toEqual([])
     expect(databaseBackupPolls).toBe(0)
 
-    mockNow = scheduledAt + 1
+    mockNow = scheduledAt
+    purgePaused = true
+    await scheduledTick!()
+    expect(accountExists).toBe(true)
+    expect(deletedFromUsers).toEqual([])
+    expect(getBackgroundJobRuntime(purgeJobId).runCount).toBe(1)
+
+    purgePaused = false
     await scheduledTick!()
 
     expect(accountExists).toBe(false)
@@ -154,7 +165,7 @@ test('the minute scheduler purges accounts without login or external backup poll
         { userId: 'expired-user', revokedBy: 'expired-user' },
         { userId: 'expired-user', revokedBy: 'expired-user' },
     ])
-    expect(sqlCalls.some(sql => sql.startsWith('SELECT user_account.id') && sql.includes('deletion_scheduled_at <= NOW()'))).toBe(true)
+    expect(sqlCalls.some(sql => sql.startsWith('WITH eligible_accounts') && sql.includes('deletion_scheduled_at <= NOW()'))).toBe(true)
     expect(sqlCalls.some(sql => sql.startsWith('DELETE FROM users') && sql.includes('deletion_scheduled_at <= NOW()'))).toBe(true)
     expect(listBackgroundJobRuntime().filter(job => job.runCount > 0).map(job => job.id)).toEqual([purgeJobId])
     expect(getBackgroundJobRuntime(purgeJobId).runCount).toBe(2)

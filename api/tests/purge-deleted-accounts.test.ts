@@ -244,7 +244,10 @@ test('retries failed external mailbox cleanup without hard-deleting the account'
     expect(sqlCalls.some(sql => sql.startsWith('DELETE FROM users'))).toBe(false)
     expect(sqlCalls.some(sql => sql.startsWith('INSERT INTO account_deletion_purge_attempts'))).toBe(true)
     const dueQuery = sqlCalls.find(sql => sql.includes('FROM users user_account') && sql.includes('ORDER BY'))
-    expect(dueQuery).toContain('ORDER BY (purge_attempt.user_id IS NOT NULL)')
+    expect(dueQuery).toContain('PARTITION BY purge_attempt.user_id IS NOT NULL')
+    expect(dueQuery).toContain('purge_attempt.attempt_order ASC NULLS FIRST')
+    expect(dueQuery).toContain('cohort_position <= $2')
+    expect(dueQuery).toContain('cohort_position <= $3')
 })
 
 test('serializes a login purge with the scheduled purge batch for the same account', async () => {

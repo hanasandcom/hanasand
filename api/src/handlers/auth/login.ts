@@ -61,8 +61,6 @@ export default async function loginHandler(req: FastifyRequest, res: FastifyRepl
         }
 
         if (user.deletion_scheduled_at && new Date(user.deletion_scheduled_at).getTime() <= Date.now()) {
-            const { purgeDeletedAccount } = await import('#utils/auth/purgeDeletedAccounts.ts')
-            await purgeDeletedAccount(userId)
             return res.status(404).send({ error: 'Incorrect username or password.' })
         }
 

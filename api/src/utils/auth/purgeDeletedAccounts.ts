@@ -6,6 +6,8 @@ import { purgeUserSshKeys } from './purgeUserSshKeys.ts'
 
 export { ACCOUNT_DELETION_PURGE_JOB_ID }
 export const ACCOUNT_DELETION_PURGE_BATCH_SIZE = 25
+const ACCOUNT_DELETION_PURGE_RETRY_BATCH_SIZE = Math.floor(ACCOUNT_DELETION_PURGE_BATCH_SIZE / 2)
+const ACCOUNT_DELETION_PURGE_FRESH_BATCH_SIZE = ACCOUNT_DELETION_PURGE_BATCH_SIZE - ACCOUNT_DELETION_PURGE_RETRY_BATCH_SIZE
 
 type DueAccount = { id: string, name: string, email: string | null }
 
@@ -67,41 +69,7 @@ async function purgeDeletedAccountWithLock(userId: string) {
 
         if (await accountDeletionOrganizationBlocker(userId, query)) return false
 
-        // Article bodies are public product content. Remove only the personal
-        // ownership association so deletion does not remove published files.
-        await query('DELETE FROM article_ownership WHERE owner_id = $1', [userId])
-        // Personal share trees contain private user content. Organization
-        // shares are excluded and remain available to their members.
-        await query(`
-            WITH RECURSIVE personal_tree(id) AS (
-                SELECT id
-                FROM share
-                WHERE organization_id IS NULL AND owner = $1 AND COALESCE(parent, '') = ''
-                UNION
-                SELECT child.id
-                FROM share child
-                JOIN personal_tree parent ON child.parent = parent.id
-                WHERE child.organization_id IS NULL
-            )
-            DELETE FROM share
-            WHERE organization_id IS NULL
-              AND (owner = $1 OR id IN (SELECT id FROM personal_tree))
-        `, [userId])
-        // Organization shares remain accessible to members, but must not
-        // retain the deleted account as their recorded owner.
-        await query('UPDATE share SET owner = \'\' WHERE organization_id IS NOT NULL AND owner = $1', [userId])
-        // Personal webhook integrations are private account data. Keep
-        // organization integrations and their case history, but clear the
-        // deleted user's attribution because organization access uses members.
-        await query('DELETE FROM case_repositories WHERE owner_id = $1 AND organization_id IS NULL', [userId])
-        await query('UPDATE case_repositories SET owner_id = NULL WHERE owner_id = $1 AND organization_id IS NOT NULL', [userId])
-        // Personal API keys are credentials. Organization keys remain attached
-        // to their organization and lose only the deleted owner's attribution.
-        await query('DELETE FROM api_keys WHERE owner_id = $1 AND organization_id IS NULL', [userId])
-        // These identity records intentionally lack foreign keys, so delete
-        // them explicitly instead of leaving IP/device history behind.
-        await query('DELETE FROM login_events WHERE user_id = $1', [userId])
-        await query('DELETE FROM attempts WHERE id = $1', [userId])
+        await scrubPersonalAccountData(query, userId)
         await scrubUserAuditEvents(query, target)
         await query('DELETE FROM account_deletion_purge_attempts WHERE user_id = $1', [userId])
 
@@ -149,47 +117,80 @@ export async function purgeDeletedAccounts() {
         }
 
         const due = await run(`
-            SELECT user_account.id
-            FROM users user_account
-            LEFT JOIN account_deletion_purge_attempts purge_attempt
-              ON purge_attempt.user_id = user_account.id
-            WHERE user_account.deletion_scheduled_at <= NOW()
-              AND COALESCE(user_account.reserved, FALSE) IS FALSE
-              AND NOT EXISTS (
-                  SELECT 1
-                  FROM organizations organization
-                  JOIN organization_members membership
-                    ON membership.organization_id = organization.id
-                   AND membership.user_id = user_account.id
-                   AND membership.role = 'owner'
-                   AND membership.status = 'active'
-                  WHERE organization.status = 'active'
-                    AND NOT EXISTS (
-                        SELECT 1
-                        FROM organization_members other_membership
-                        JOIN users other_owner
-                          ON other_owner.id = other_membership.user_id
-                         AND other_owner.active IS TRUE
-                         AND other_owner.deletion_scheduled_at IS NULL
-                        WHERE other_membership.organization_id = organization.id
-                          AND other_membership.user_id <> user_account.id
-                          AND other_membership.role = 'owner'
-                          AND other_membership.status = 'active'
-                    )
-              )
-            ORDER BY (purge_attempt.user_id IS NOT NULL), user_account.deletion_scheduled_at, user_account.id
+            WITH eligible_accounts AS (
+                SELECT user_account.id,
+                       user_account.deletion_scheduled_at,
+                       purge_attempt.user_id IS NOT NULL AS has_attempt,
+                       purge_attempt.attempt_order,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY purge_attempt.user_id IS NOT NULL
+                           ORDER BY purge_attempt.attempt_order ASC NULLS FIRST,
+                                    user_account.deletion_scheduled_at,
+                                    user_account.id
+                       ) AS cohort_position
+                FROM users user_account
+                LEFT JOIN account_deletion_purge_attempts purge_attempt
+                  ON purge_attempt.user_id = user_account.id
+                WHERE user_account.deletion_scheduled_at <= NOW()
+                  AND COALESCE(user_account.reserved, FALSE) IS FALSE
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM organizations organization
+                      JOIN organization_members membership
+                        ON membership.organization_id = organization.id
+                       AND membership.user_id = user_account.id
+                       AND membership.role = 'owner'
+                       AND membership.status = 'active'
+                      WHERE organization.status = 'active'
+                        AND NOT EXISTS (
+                            SELECT 1
+                            FROM organization_members other_membership
+                            JOIN users other_owner
+                              ON other_owner.id = other_membership.user_id
+                             AND other_owner.active IS TRUE
+                             AND other_owner.deletion_scheduled_at IS NULL
+                            WHERE other_membership.organization_id = organization.id
+                              AND other_membership.user_id <> user_account.id
+                              AND other_membership.role = 'owner'
+                              AND other_membership.status = 'active'
+                        )
+                  )
+            ),
+            prioritized_accounts AS (
+                SELECT id,
+                       has_attempt,
+                       attempt_order,
+                       cohort_position,
+                       CASE
+                           WHEN has_attempt AND cohort_position <= $2 THEN 0
+                           WHEN NOT has_attempt AND cohort_position <= $3 THEN 1
+                           ELSE 2
+                       END AS batch_group
+                FROM eligible_accounts
+            )
+            SELECT id
+            FROM prioritized_accounts
+            ORDER BY batch_group,
+                     CASE WHEN batch_group = 2 THEN cohort_position END,
+                     CASE WHEN batch_group = 2 AND has_attempt THEN 0 ELSE 1 END,
+                     cohort_position
             LIMIT $1
-        `, [ACCOUNT_DELETION_PURGE_BATCH_SIZE])
+        `, [ACCOUNT_DELETION_PURGE_BATCH_SIZE, ACCOUNT_DELETION_PURGE_RETRY_BATCH_SIZE, ACCOUNT_DELETION_PURGE_FRESH_BATCH_SIZE])
 
         let purged = 0
         let failed = 0
         for (const row of due.rows as Array<{ id: string }>) {
+            await run(`
+                INSERT INTO account_deletion_purge_attempts (user_id, attempt_order)
+                VALUES ($1, nextval('account_deletion_purge_attempt_order_seq'))
+                ON CONFLICT (user_id) DO UPDATE
+                SET attempt_order = EXCLUDED.attempt_order
+            `, [row.id])
             try {
                 if (await purgeDeletedAccount(row.id)) purged++
             } catch (error) {
                 failed++
                 console.error('Account deletion cleanup will retry on the next scheduled pass.', error)
-                await run('INSERT INTO account_deletion_purge_attempts (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING', [row.id])
             }
         }
         if (failed > 0) throw new Error(`${failed} due account deletion cleanup(s) failed; the next scheduled pass will retry them.`)
@@ -197,6 +198,42 @@ export async function purgeDeletedAccounts() {
     })
 
     return lock.acquired ? lock.result : { scanned: 0, purged: 0, failed: 0, blockedOwnerAccounts: 0, skipped: 'already_running' }
+}
+
+async function scrubPersonalAccountData(query: typeof run, userId: string) {
+    // Article bodies are public product content. Remove only the personal
+    // ownership association so deletion does not remove published files.
+    await query('DELETE FROM article_ownership WHERE owner_id = $1', [userId])
+    // Personal share trees contain private user content. Organization shares
+    // are excluded and remain available to their members.
+    await query(`
+        WITH RECURSIVE personal_tree(id) AS (
+            SELECT id
+            FROM share
+            WHERE organization_id IS NULL AND owner = $1 AND COALESCE(parent, '') = ''
+            UNION
+            SELECT child.id
+            FROM share child
+            JOIN personal_tree parent ON child.parent = parent.id
+            WHERE child.organization_id IS NULL
+        )
+        DELETE FROM share
+        WHERE organization_id IS NULL
+          AND (owner = $1 OR id IN (SELECT id FROM personal_tree))
+    `, [userId])
+    // Keep organization content available to members while removing personal
+    // ownership and integration attribution.
+    await query('UPDATE share SET owner = \'\' WHERE organization_id IS NOT NULL AND owner = $1', [userId])
+    await query('DELETE FROM case_repositories WHERE owner_id = $1 AND organization_id IS NULL', [userId])
+    await query('UPDATE case_repositories SET owner_id = NULL WHERE owner_id = $1 AND organization_id IS NOT NULL', [userId])
+    // Personal API keys are credentials. Organization keys remain attached to
+    // their organization and lose only the deleted owner's attribution.
+    await query('DELETE FROM api_keys WHERE owner_id = $1 AND organization_id IS NULL', [userId])
+    await query('UPDATE api_keys SET owner_id = NULL WHERE owner_id = $1 AND organization_id IS NOT NULL', [userId])
+    // These identity records intentionally lack foreign keys, so delete them
+    // explicitly instead of leaving IP/device history behind.
+    await query('DELETE FROM login_events WHERE user_id = $1', [userId])
+    await query('DELETE FROM attempts WHERE id = $1', [userId])
 }
 
 async function scrubUserAuditEvents(query: typeof run, account: DueAccount) {
