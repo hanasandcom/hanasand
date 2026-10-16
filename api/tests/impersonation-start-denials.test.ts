@@ -90,6 +90,43 @@ test('invalid start request keeps an optional session in its receipt but omits i
     expectDeniedEventLookup('invalid-start-request', 'support-session-invalid')
 })
 
+test('invalid start request without a session omits it from the receipt and correlates audit to the target', async () => {
+    const response = await app.inject({
+        method: 'POST',
+        url: '/impersonation/start',
+        headers: { 'x-request-id': 'invalid-start-no-session' },
+        payload: { targetId: 'target-user', reason: 'short' },
+    })
+
+    expect(response.statusCode).toBe(400)
+    expect(response.json()).toMatchObject({
+        detail: {
+            schemaVersion: 'support.impersonation.error.v1',
+            code: 'invalid_impersonation_request',
+            requestId: 'invalid-start-no-session',
+            guardrailReceipt: {
+                schemaVersion: 'support.impersonation.guardrail_receipt.v1',
+                actorId: 'admin-user',
+                target: { type: 'user', id: 'target-user', organizationId: null, supportSessionId: null },
+            },
+        },
+    })
+    expect(response.json().detail).not.toHaveProperty('supportSessionId')
+    expect(systemEvents).toHaveLength(1)
+    expect(systemEvents[0]).toMatchObject({
+        actionType: 'impersonation.start', actorId: 'admin-user', targetType: 'user', targetId: 'target-user',
+        organizationId: null, entityId: 'target-user', severity: 'warning', outcome: 'denied',
+        reason: 'short', requestId: 'invalid-start-no-session',
+        context: {
+            schemaVersion: 'support.impersonation.denied.v1', requestId: 'invalid-start-no-session',
+            targetUserId: 'target-user', organizationId: null, supportSessionId: null,
+            blockerCode: 'invalid_impersonation_request', outcome: 'denied',
+        },
+    })
+    expect(queries[0].values).toEqual(['target-user'])
+    expectDeniedEventLookup('invalid-start-no-session', 'target-user')
+})
+
 test('support-session scope denial returns the same receipt with its scoped session identity', async () => {
     supportSession = {
         status: 'active',
