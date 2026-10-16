@@ -83,6 +83,17 @@ async function run(sql: string, values: unknown[] = []) {
 const recordedEvents: Array<Record<string, unknown>> = []
 let nextSupportEventId = 100
 const systemEventUtils = await import('../src/utils/systemEvent.ts')
+
+function accessRecoveryApprovalFixture(requestId: string) {
+    return {
+        request_id: requestId, organization_id: 'org-1', invite_id: 'invite-1', target_user_id: 'user-1',
+        requested_by: 'requester', requested_reason: 'Restore account access', request_context: '', approval_required: true,
+        status: 'pending', approved_by: null, approved_at: null, denied_by: null, denied_at: null, decision_reason: null,
+        outcome: 'success', expires_at: '2026-11-01T00:00:00.000Z', created_at: '2026-10-01T00:00:00.000Z',
+        updated_at: '2026-10-01T00:00:00.000Z', email: 'member@example.com', role: 'reader', invite_status: 'revoked', organization_name: 'Org',
+    }
+}
+
 mock.module('../src/utils/db.ts', () => ({ default: run, queryOnce: run, identityQueryOnce: run, withTransaction: async (work: (query: typeof run) => Promise<unknown>) => work(run), closeDatabase: async () => {} }))
 const identityDataWrites = await import('../src/utils/db/identityDataWrites.ts')
 mock.module('../src/utils/auth/tokenWrapper.ts', () => ({ default: async () => actor }))
@@ -756,13 +767,7 @@ test('access recovery records a failed audit if an invite is accepted before it 
 })
 
 test('access recovery approval uses the shared invite transition and keeps approval pending if the invite is accepted', async () => {
-    supportDecisionApproval = {
-        request_id: 'recovery-approve-race', organization_id: 'org-1', invite_id: 'invite-1', target_user_id: 'user-1',
-        requested_by: 'requester', requested_reason: 'Restore account access', request_context: '', approval_required: true,
-        status: 'pending', approved_by: null, approved_at: null, denied_by: null, denied_at: null, decision_reason: null,
-        outcome: 'success', expires_at: '2026-11-01T00:00:00.000Z', created_at: '2026-10-01T00:00:00.000Z',
-        updated_at: '2026-10-01T00:00:00.000Z', email: 'member@example.com', role: 'reader', invite_status: 'revoked', organization_name: 'Org',
-    }
+    supportDecisionApproval = accessRecoveryApprovalFixture('recovery-approve-race')
     supportRecoveryInviteStatus = 'accepted'
 
     const result = await request(postSupportAccessRecoveryApprove, {
@@ -783,13 +788,7 @@ test('access recovery approval uses the shared invite transition and keeps appro
 })
 
 test('access recovery approval commits the shared invite transition with its decision', async () => {
-    supportDecisionApproval = {
-        request_id: 'recovery-approve-1', organization_id: 'org-1', invite_id: 'invite-1', target_user_id: 'user-1',
-        requested_by: 'requester', requested_reason: 'Restore account access', request_context: '', approval_required: true,
-        status: 'pending', approved_by: null, approved_at: null, denied_by: null, denied_at: null, decision_reason: null,
-        outcome: 'success', expires_at: '2026-11-01T00:00:00.000Z', created_at: '2026-10-01T00:00:00.000Z',
-        updated_at: '2026-10-01T00:00:00.000Z', email: 'member@example.com', role: 'reader', invite_status: 'revoked', organization_name: 'Org',
-    }
+    supportDecisionApproval = accessRecoveryApprovalFixture('recovery-approve-1')
     supportRecoveryInviteStatus = 'revoked'
     supportRecoveryInviteResult = { id: 'invite-1', status: 'pending', expires_at: '2026-11-01T00:00:00.000Z' }
 
@@ -808,13 +807,7 @@ test('access recovery approval commits the shared invite transition with its dec
 })
 
 test('access recovery approval rejects an expired invite without changing its pending decision', async () => {
-    supportDecisionApproval = {
-        request_id: 'recovery-approve-expired', organization_id: 'org-1', invite_id: 'invite-1', target_user_id: 'user-1',
-        requested_by: 'requester', requested_reason: 'Restore account access', request_context: '', approval_required: true,
-        status: 'pending', approved_by: null, approved_at: null, denied_by: null, denied_at: null, decision_reason: null,
-        outcome: 'success', expires_at: '2026-11-01T00:00:00.000Z', created_at: '2026-10-01T00:00:00.000Z',
-        updated_at: '2026-10-01T00:00:00.000Z', email: 'member@example.com', role: 'reader', invite_status: 'revoked', organization_name: 'Org',
-    }
+    supportDecisionApproval = accessRecoveryApprovalFixture('recovery-approve-expired')
     supportRecoveryInviteStatus = 'revoked'
     supportRecoveryInviteExpiry = new Date(Date.now() - 60_000).toISOString()
 
