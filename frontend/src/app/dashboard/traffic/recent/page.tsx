@@ -3,7 +3,7 @@ import TrafficRecentClient from './pageClient'
 import { Suspense } from 'react'
 import { getTrafficDomains, getTrafficRecords } from '@/utils/monitoring/data'
 import { DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
-import type { TrafficDomains, TrafficRecords } from '@/utils/monitoring/types'
+import { isTrafficDomains, isTrafficRecords } from '@/utils/monitoring/trafficValidation'
 
 export const dynamic = 'force-dynamic'
 
@@ -42,12 +42,4 @@ async function RecentTraffic({ selectedDomain }: { selectedDomain?: string }) {
             <TrafficRecentClient initialRecords={records} selectedDomain={selectedDomain} />
         </div>
     )
-}
-
-function isTrafficDomains(value: unknown): value is TrafficDomains {
-    return Boolean(value && typeof value === 'object' && Array.isArray((value as TrafficDomains).domains))
-}
-
-function isTrafficRecords(value: unknown): value is TrafficRecords {
-    return Boolean(value && typeof value === 'object' && Array.isArray((value as TrafficRecords).result))
 }

@@ -592,3 +592,18 @@ family grows by 4 LOC. The integrated repository scan now finds 3,752
 hand-maintained files / 323,064 LOC and 123 over-limit files, down 20 files
 and 1,025 LOC from the preceding scan. API-wide 100,000-line reduction and
 repository-wide file-cap goals remain outstanding.
+
+Since frontend checkpoint `eca8b03d9`, the verified Findings portal loaders now
+share their identical no-store fetch, response-error and JSON lifecycle; the
+case loader retains its distinct retry and stale-row semantics. Focused tests
+cover all four resource mappings, optional alert/delivery arrays, structured
+errors, abort behavior, no-store cache and signal forwarding. Traffic response
+guards are shared between the overview data service and recent-traffic route,
+and the map passes one country-selection callback to both consumers. Focused
+Findings/traffic tests, ESLint, non-incremental typecheck, the full frontend
+test runner, line-cap scan and production build pass; Next generated all 116
+static pages. The updated frontend inventory is 2,313 files / 155,023 LOC / zero
+over 200 lines. This is 60 lines above the prior 154,963-line scan because the
+checkpoint adds behavior-specific regression tests and shared validation
+code; it removes repeated production logic locally but does not constitute
+meaningful progress toward the 10,000–30,000-line objective.

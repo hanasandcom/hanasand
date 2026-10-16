@@ -18,6 +18,7 @@ globalThis.fetch = (async (input: unknown) => {
 }) as typeof fetch
 
 const { getTrafficDashboardData } = await import('../src/utils/monitoring/data')
+const { isTrafficDomains, isTrafficRecords } = await import('../src/utils/monitoring/trafficValidation')
 afterAll(() => { globalThis.fetch = originalFetch })
 
 test('fetches the same selected-domain snapshot and page-sized record set', async () => {
@@ -41,4 +42,11 @@ test('rejects malformed upstream domains, metrics, and records', async () => {
         invalidResponse = resource
         expect(await getTrafficDashboardData('example.test')).toBeNull()
     }
+})
+
+test('shared traffic response guards accept only the expected list envelopes', () => {
+    expect(isTrafficDomains({ domains: [] })).toBe(true)
+    expect(isTrafficDomains({ items: [] })).toBe(false)
+    expect(isTrafficRecords({ result: [] })).toBe(true)
+    expect(isTrafficRecords({ items: [] })).toBe(false)
 })

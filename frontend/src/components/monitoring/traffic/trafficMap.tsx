@@ -57,6 +57,12 @@ export default function TrafficMap({
 
     const strongestCountryCount = countryEntries[0]?.count || 1
 
+    function selectCountry(iso: string) {
+        setSelectedCountry(iso)
+        const coords = countryCentroids[iso]
+        if (coords) setViewBox(getCountryFocusView(coords))
+    }
+
     return (
         <div className='grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,1.35fr)_22rem]'>
             <section className='flex min-w-0 flex-col rounded-lg border border-ui-border bg-ui-panel shadow-lg'>
@@ -73,11 +79,7 @@ export default function TrafficMap({
                     setViewBox={setViewBox}
                     dragRef={dragRef}
                     selectedCountry={selectedCountry}
-                    onSelectCountry={(iso) => {
-                        setSelectedCountry(iso)
-                        const coords = countryCentroids[iso]
-                        if (coords) setViewBox(getCountryFocusView(coords))
-                    }}
+                    onSelectCountry={selectCountry}
                     countryEntries={countryEntries}
                     strongestCountryCount={strongestCountryCount}
                     pings={pings}
@@ -95,11 +97,7 @@ export default function TrafficMap({
                 countryEntries={countryEntries}
                 selectedRecords={selectedRecords}
                 metrics={initialMetrics}
-                onSelectCountry={(iso) => {
-                    setSelectedCountry(iso)
-                    const coords = countryCentroids[iso]
-                    if (coords) setViewBox(getCountryFocusView(coords))
-                }}
+                onSelectCountry={selectCountry}
             />
         </div>
     )

@@ -20,13 +20,7 @@ export async function refreshDwmProduct(
     setDataHealth: Dispatch<SetStateAction<DwmDataHealth>>,
 ) {
     try {
-        const response = await fetch(`/api/findings/product?${params.toString()}`, { cache: 'no-store', signal })
-        if (!response.ok) {
-            const detail = await responseProblem(response)
-            setDataHealth(current => ({ ...current, snapshot: { state: 'error', label: 'Monitoring unavailable', detail } }))
-            return
-        }
-        setSnapshot(await response.json() as DwmProductSnapshot)
+        setSnapshot(await fetchFindingsJson<DwmProductSnapshot>(`/api/findings/product?${params.toString()}`, signal))
         setDataHealth(current => ({ ...current, snapshot: { state: 'live', label: 'Dark web stream live', detail: 'The exposure monitor is showing live watchlists, sources, actors, and events.' } }))
     } catch (error) {
         if (!isAbortError(error)) setDataHealth(current => ({ ...current, snapshot: { state: 'error', label: 'Monitoring unavailable', detail: requestFailureDetail(error) } }))
@@ -40,13 +34,7 @@ export async function refreshDwmOperations(
     setDataHealth: Dispatch<SetStateAction<DwmDataHealth>>,
 ) {
     try {
-        const response = await fetch(`/api/findings/operations?${params.toString()}`, { cache: 'no-store', signal })
-        if (!response.ok) {
-            const detail = await responseProblem(response)
-            setDataHealth(current => ({ ...current, operations: { state: 'error', label: 'Collection unavailable', detail } }))
-            return
-        }
-        setOperations(await response.json() as OperationsSnapshot)
+        setOperations(await fetchFindingsJson<OperationsSnapshot>(`/api/findings/operations?${params.toString()}`, signal))
         setDataHealth(current => ({ ...current, operations: { state: 'live', label: 'Collection live', detail: 'Collection is showing source and evidence state.' } }))
     } catch (error) {
         if (!isAbortError(error)) setDataHealth(current => ({ ...current, operations: { state: 'error', label: 'Collection unavailable', detail: requestFailureDetail(error) } }))
@@ -60,13 +48,7 @@ export async function refreshDwmAlerts(
     setDataHealth: Dispatch<SetStateAction<DwmDataHealth>>,
 ) {
     try {
-        const response = await fetch(`/api/findings/alerts?${params.toString()}`, { cache: 'no-store', signal })
-        if (!response.ok) {
-            const detail = await responseProblem(response)
-            setDataHealth(current => ({ ...current, alerts: { state: 'error', label: 'Events unavailable', detail } }))
-            return
-        }
-        const payload = await response.json() as { alerts?: PortalAlert[] }
+        const payload = await fetchFindingsJson<{ alerts?: PortalAlert[] }>(`/api/findings/alerts?${params.toString()}`, signal)
         const savedAlerts = payload.alerts || []
         setAlerts(savedAlerts)
         setDataHealth(current => ({ ...current, alerts: { state: 'live', label: 'Events live', detail: `${savedAlerts.length} recorded events.` } }))
@@ -130,13 +112,7 @@ export async function refreshDwmDeliveries(
     setDataHealth: Dispatch<SetStateAction<DwmDataHealth>>,
 ) {
     try {
-        const response = await fetch(`/api/findings/webhooks/deliveries?${params.toString()}`, { cache: 'no-store', signal })
-        if (!response.ok) {
-            const detail = await responseProblem(response)
-            setDataHealth(current => ({ ...current, deliveries: { state: 'error', label: 'Deliveries unavailable', detail } }))
-            return
-        }
-        const payload = await response.json() as { deliveries?: DeliveryItem[] }
+        const payload = await fetchFindingsJson<{ deliveries?: DeliveryItem[] }>(`/api/findings/webhooks/deliveries?${params.toString()}`, signal)
         const deliveries = payload.deliveries || []
         setLocalDeliveries(deliveries)
         setDataHealth(current => ({ ...current, deliveries: { state: 'live', label: 'Deliveries live', detail: `${deliveries.length} delivery attempt(s).` } }))
@@ -147,6 +123,12 @@ export async function refreshDwmDeliveries(
 
 export function isAbortError(error: unknown) {
     return error instanceof DOMException && error.name === 'AbortError'
+}
+
+async function fetchFindingsJson<T>(url: string, signal: AbortSignal): Promise<T> {
+    const response = await fetch(url, { cache: 'no-store', signal })
+    if (!response.ok) throw new Error(await responseProblem(response))
+    return await response.json() as T
 }
 
 export async function responseProblem(response: Response) {

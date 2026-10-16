@@ -7,6 +7,7 @@ import type {
     TrafficRecords,
     WebScanReport,
 } from './types'
+import { isTrafficDomains, isTrafficMetrics, isTrafficRecords } from './trafficValidation'
 import { requestService } from './serviceApi'
 
 export async function getVulnerabilities() {
@@ -79,22 +80,4 @@ export async function getTrafficDashboardData(domain?: string) {
 
     if (!isTrafficDomains(domains) || !isTrafficMetrics(metrics) || !isTrafficRecords(records)) return null
     return { domains, metrics, records }
-}
-
-function isTrafficDomains(value: unknown): value is TrafficDomains {
-    return Boolean(value && typeof value === 'object' && Array.isArray((value as TrafficDomains).domains))
-}
-
-function isTrafficMetrics(value: unknown): value is TrafficMetrics {
-    return Boolean(
-        value
-        && typeof value === 'object'
-        && Array.isArray((value as TrafficMetrics).top_domains)
-        && Array.isArray((value as TrafficMetrics).top_methods)
-        && Array.isArray((value as TrafficMetrics).top_status_codes)
-    )
-}
-
-function isTrafficRecords(value: unknown): value is TrafficRecords {
-    return Boolean(value && typeof value === 'object' && Array.isArray((value as TrafficRecords).result))
 }

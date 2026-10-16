@@ -44,6 +44,7 @@ export const productTasks: TestTask[] = [
     { id: 'blocklist-render', title: 'Blocklist edit actions require persisted entry identifiers', command: [bun, 'test', 'tests/blocklist-render.test.tsx'] },
     { id: 'vulnerability-severity-badge', title: 'Vulnerability severity badge styles and counts', command: [bun, 'test', 'tests/vulnerability-severity-badge.test.tsx'] },
     { id: 'dwm-tenant-scope', title: 'DWM tenant scope and findings presentation contracts', command: [bun, 'test', 'tests/dwm-tenant-scope.test.ts'] },
+    { id: 'findings-portal-data', title: 'Findings resource loaders preserve response, error, and abort contracts', command: [bun, 'test', 'tests/findings-portal-data.test.ts'] },
     { id: 'dwm-readiness-proxy-routes', title: 'DWM readiness and exposure routes preserve authoritative proxy data', command: [bun, 'test', 'tests/dwm-readiness-proxy-routes.test.ts'] },
     { id: 'thesis-editor-model', title: 'Thesis editor recovery, undo and transport behavior', command: [bun, 'test', 'tests/thesis-editor-model.test.ts'] },
     { id: 'scaffold-workspace-template', title: 'AI project starter template contract', command: [bun, 'test', 'tests/scaffold-workspace-template.test.ts'] },
