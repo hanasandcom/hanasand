@@ -37,8 +37,22 @@ hand-maintained code/test/config files over 200 lines (136 under `api/`, 139
 under `frontend/`, five under `ops/`, one under `db/`, and the root Compose
 configuration). Those files total 190,433 lines. Three generated OpenAPI and
 search-route artifacts over 200 lines are tracked separately. This snapshot
-includes the pending API-key migration test changes; refresh the inventory at
-the first integrated checkpoint.
+includes the pending API-key migration test changes.
+
+## Progress snapshot
+
+On 2026-10-16, after the first frontend checkpoints (`68df582aa` and
+`b70fd74df`) and while additional refactors were in progress, a working-tree
+inventory of hand-maintained source, tests, scripts, styles, SQL, and selected
+configuration files found 240 files over 200 lines: 122 in `api/`, 110 in
+`frontend/`, five in `ops/`, none in `db/`, and three at the repository root.
+The frontend scope contained 148,556 lines across 1,772 candidate files. The
+inventory excluded generated OpenAPI/search-route artifacts and build/vendor
+directories. It includes uncommitted work, so refresh it after each major
+integrated milestone. This is a structure/size inventory, not evidence of net
+feature-preserving line reduction: many completed changes split files without
+reducing total implementation lines. The 100,000-line API reduction goal and
+the 10,000–30,000-line frontend goal remain unachieved.
 
 ## Execution
 
