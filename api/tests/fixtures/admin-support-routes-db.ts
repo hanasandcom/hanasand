@@ -228,11 +228,14 @@ export async function run(sql: string, values: unknown[] = []) {
     // Readiness counts and aggregate availability queries.
     if (normalizedSql.includes('SELECT COUNT(*)::int AS owner_count FROM organization_members membership JOIN users owner ON owner.id = membership.user_id AND owner.active IS TRUE AND owner.deletion_scheduled_at IS NULL WHERE membership.organization_id = $1 AND membership.status = \'active\' AND membership.role = \'owner\'')) return { rows: [{ owner_count: state.supportOwnerCounts.shift() ?? 2 }] }
     if (hasSqlFragments(normalizedSql, [
-        'SELECT om.organization_id, COUNT(*) FILTER (WHERE om.role = \'owner\' AND om.status = \'active\')::int AS owner_count',
-        'COUNT(*) FILTER (WHERE om.role = \'owner\' AND om.status = \'active\' AND users.active)::int AS active_owner_count',
-        'COUNT(*) FILTER (WHERE om.role IN (\'owner\', \'admin\') AND om.status = \'active\')::int AS admin_count',
-        'COUNT(*) FILTER (WHERE om.role IN (\'owner\', \'admin\') AND om.status = \'active\' AND users.active)::int AS active_admin_count',
-        'FROM organization_members om JOIN users ON users.id = om.user_id WHERE om.organization_id = ANY($1::text[]) GROUP BY om.organization_id',
+        'SELECT membership.organization_id',
+        'membership.role = \'owner\' AND membership.status = \'active\')::int AS owner_count',
+        'AS active_owner_count',
+        'membership.role IN (\'owner\', \'admin\') AND membership.status = \'active\')::int AS admin_count',
+        'AS active_admin_count',
+        'owner.active IS TRUE',
+        'owner.deletion_scheduled_at IS NULL',
+        'FROM organization_members membership JOIN users owner ON owner.id = membership.user_id WHERE membership.organization_id = ANY($1::text[]) GROUP BY membership.organization_id',
     ])) return { rows: state.supportAvailabilityResults.shift() ?? [] }
     // Idempotency checks and write operations.
     if (normalizedSql.includes('SELECT id, request_id, subject_id, context FROM system_events WHERE event_type = $1 AND organization_id = $2 AND ($3::text IS NULL OR subject_id = $3) AND outcome = \'success\' AND context->>\'idempotencyKey\' = $4 ORDER BY created_at ASC, id ASC LIMIT 1')) {

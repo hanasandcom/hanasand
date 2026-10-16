@@ -1275,6 +1275,8 @@ test('support invite assistance passes the normalized invite to the writer and r
         organizationId: 'org-1', email: 'member@example.com', role: 'reader',
         invitedBy: 'support-admin', expiresAt: '2026-11-01T00:00:00.000Z',
     })
+    const availabilityQuery = state.queries.find(({ sql }) => sql.includes('active_admin_count'))
+    expect(availabilityQuery?.sql).toContain('owner.deletion_scheduled_at IS NULL')
     expect(state.queries.some(({ sql, values }) => sql.includes('UPDATE organizations SET updated_at = NOW() WHERE id = $1') && values[0] === 'org-1')).toBe(true)
     expect(result.body.invites).toEqual([{
         id: 'assist-invite-1', organizationId: 'org-1', tenantId: 'org-1', acceptanceToken: 'assist-invite-1',

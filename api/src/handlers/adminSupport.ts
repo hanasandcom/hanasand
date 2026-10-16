@@ -2,7 +2,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify'
 import { randomUUID } from 'crypto'
 import run, { withTransaction } from '#db'
 import { updateActiveOrganizationMemberRole, updateOrganizationInviteAction, upsertAdminAccessRecoveryApproval, upsertOrganizationInvite } from '#utils/db/identityDataWrites.ts'
-import { activeOrganizationOwnerCount as activeOwnerCount } from '#utils/organizationMemberships.ts'
+import { activeOrganizationOwnerCount as activeOwnerCount, organizationMembershipAvailability as loadOrganizationAvailability, type OrganizationMembershipAvailability } from '#utils/organizationMemberships.ts'
 import { compileAuditQuery } from '#utils/auditQuery.ts'
 import { hasOrganizationPrivacyDeletionMarker, organizationPrivacyDeletionInProgress } from '#utils/organizationLifecycle.ts'
 import { cleanContext, headerText, normalizeApprovalStatus, normalizeOption, normalizeSupportPreparationDuration, normalizeSupportPreparationExpiry, normalizeSupportPreparationScope, normalizeSupportSessionActions, normalizeSupportSessionDuration, normalizeSupportSessionExpiry, normalizeSupportSessionScope, supportError, supportInspectionAuditContext, supportInspectionAuditMetadata, supportInspectionQueryFilters, supportRequestId, supportSessionIdFromAuditEvent, supportSessionIdFromRequest, supportText as text } from '#utils/support/adminSupportInput.ts'
@@ -279,16 +279,6 @@ type AccessRecoveryApprovalRow = {
     invite_status?: string
     organization_name?: string
     audit_events?: unknown
-}
-
-type SupportOrganizationAvailability = {
-    organizationId: string
-    ownerCount: number
-    activeOwnerCount: number
-    adminCount: number
-    activeAdminCount: number
-    hasAvailableOwner: boolean
-    hasAvailableAdmin: boolean
 }
 
 type SupportActionPreparationInput = {
@@ -5129,34 +5119,6 @@ function supportRoleRecoveryDecision(currentRole: OrganizationRole, newRole: Org
     return { kind: 'allowed' as const }
 }
 
-async function loadOrganizationAvailability(organizationIds: string[], query: typeof run = run) {
-    const result = await query(`
-        SELECT
-            om.organization_id,
-            COUNT(*) FILTER (WHERE om.role = 'owner' AND om.status = 'active')::int AS owner_count,
-            COUNT(*) FILTER (WHERE om.role = 'owner' AND om.status = 'active' AND users.active)::int AS active_owner_count,
-            COUNT(*) FILTER (WHERE om.role IN ('owner', 'admin') AND om.status = 'active')::int AS admin_count,
-            COUNT(*) FILTER (WHERE om.role IN ('owner', 'admin') AND om.status = 'active' AND users.active)::int AS active_admin_count
-        FROM organization_members om
-        JOIN users ON users.id = om.user_id
-        WHERE om.organization_id = ANY($1::text[])
-        GROUP BY om.organization_id
-    `, [organizationIds])
-    return result.rows.map((row: Record<string, unknown>) => {
-        const activeOwnerCount = Number(row.active_owner_count || 0)
-        const activeAdminCount = Number(row.active_admin_count || 0)
-        return {
-            organizationId: String(row.organization_id),
-            ownerCount: Number(row.owner_count || 0),
-            activeOwnerCount,
-            adminCount: Number(row.admin_count || 0),
-            activeAdminCount,
-            hasAvailableOwner: activeOwnerCount > 0,
-            hasAvailableAdmin: activeAdminCount > 0,
-        }
-    }) as SupportOrganizationAvailability[]
-}
-
 async function loadAccessRecoveryApproval(requestId: string, query: typeof run = run, lock = false) {
     const result = await query(`
         SELECT
@@ -6173,7 +6135,7 @@ function buildRecoveryEligibility(input: {
     organizationIds: string[]
     memberships: Record<string, unknown>[]
     users: Record<string, unknown>[]
-    availabilityByOrg: Map<string, SupportOrganizationAvailability>
+    availabilityByOrg: Map<string, OrganizationMembershipAvailability>
     invites: Record<string, unknown>[]
 }) {
     return input.organizationIds.map((organizationId) => {
@@ -6226,7 +6188,7 @@ export function buildSupportSubjectInspectionContext(input: {
     memberships: Record<string, unknown>[]
     invites: Record<string, unknown>[]
     approvalDetails: Array<Record<string, any>>
-    availability: SupportOrganizationAvailability[]
+    availability: OrganizationMembershipAvailability[]
     timeline: Array<Record<string, any>>
     supportActivityRollup: Record<string, any>
 }) {
@@ -6280,7 +6242,7 @@ export function buildSupportSubjectAccessState(input: {
     memberships: Record<string, unknown>[]
     invites: Record<string, unknown>[]
     approvalDetails: Array<Record<string, any>>
-    availabilityByOrg: Map<string, SupportOrganizationAvailability>
+    availabilityByOrg: Map<string, OrganizationMembershipAvailability>
     timeline: Array<Record<string, any>>
 }) {
     const org = input.kind === 'organization' ? input.targetId : ''
@@ -6554,7 +6516,7 @@ function buildSupportAccessStatus(input: {
     invites: Record<string, unknown>[]
     approvalDetails: Array<Record<string, any>>
     recoveryEligibility: Array<Record<string, any>>
-    availabilityByOrg: Map<string, SupportOrganizationAvailability>
+    availabilityByOrg: Map<string, OrganizationMembershipAvailability>
     timeline: Array<Record<string, any>>
 }) {
     const activeMemberships = input.memberships.filter(row => row.status === 'active')
@@ -6655,7 +6617,7 @@ function buildSupportAccessRecoveryPlan(input: {
     invites: Record<string, unknown>[]
     approvalDetails: Array<Record<string, any>>
     recoveryEligibility: Array<Record<string, any>>
-    availabilityByOrg: Map<string, SupportOrganizationAvailability>
+    availabilityByOrg: Map<string, OrganizationMembershipAvailability>
     timeline: Array<Record<string, any>>
     timelineFilter: SupportTimelineFilter
 }) {
@@ -6948,7 +6910,7 @@ function buildSupportWorkbench(input: {
     const targetUser = input.users.find(row => row.id === input.user)
     const userInactive = Boolean(targetUser && (targetUser.active === false || targetUser.deactivated_at || targetUser.deletion_scheduled_at))
     const noAdminAvailable = input.recoveryEligibility.some(item => {
-        const availability = item.adminAvailability as SupportOrganizationAvailability | undefined
+        const availability = item.adminAvailability as OrganizationMembershipAvailability | undefined
         return availability && !availability.hasAvailableAdmin
     })
     const ambiguousTarget = input.organizationIds.length > 1 && !input.org
