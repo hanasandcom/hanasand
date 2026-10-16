@@ -124,6 +124,39 @@ test('latest runs use the same bounded query with owner or client scope', async 
     }
 })
 
+test('anonymous selected deletion keeps client scope before run IDs', async () => {
+    userId = ''
+    const res = response()
+    await deleteBrowserRuns({ body: { clientId: 'anonymous-client-123', ids: ['979b6683-b76b-87fc-95e8-02baa94ae619'] }, log: { error: console.error } } as any, res as any)
+
+    expect(res.code).toBe(200)
+    expect(deleteQuery!.sql).toContain('id = ANY($2::uuid[]) AND client_id_hash = $1')
+    expect(deleteQuery!.sql).toContain('WHERE client_id_hash = $1')
+    expect(deleteQuery!.params).toHaveLength(2)
+    expect(deleteQuery!.params[1]).toEqual(['979b6683-b76b-87fc-95e8-02baa94ae619'])
+})
+
+test('missing history identity keeps the distinct GET and DELETE responses', async () => {
+    userId = ''
+    const listed = response()
+    await getBrowserRuns({ query: { clientId: 'short' }, log: { error: console.error } } as any, listed as any)
+    expect(listed.code).toBe(200)
+    expect(listed.body).toEqual({
+        runs: [],
+        quota: {
+            plan: 'anonymous', limit: null, used: 0, remaining: null, active: 0,
+            paid: false, concurrentLimit: 1, sessionSeconds: 90, advancedAnalysis: false,
+            resetsAt: null, identityKind: 'anonymous',
+        },
+    })
+
+    const deleted = response()
+    await deleteBrowserRuns({ body: { clientId: 'short', clear: true }, log: { error: console.error } } as any, deleted as any)
+    expect(deleted.code).toBe(400)
+    expect(deleted.body).toEqual({ error: 'A browser history identity is required.' })
+    expect(deleteQuery).toBeNull()
+})
+
 test('deleting a selected run hides every saved version of its result without removing usage rows', async () => {
     const res = response()
     await deleteBrowserRuns({ body: { clientId: 'history-test-client', ids: ['979b6683-b76b-87fc-95e8-02baa94ae619'] }, log: { error: console.error } } as any, res as any)

@@ -49,7 +49,6 @@ type BrowserRunIdentity = {
     ownerId: string | null
     clientIdHash: string | null
     periodStart: Date | null
-    resetsAt: Date | null
     access: BrowserAccess
 }
 
@@ -73,11 +72,7 @@ const browserRunStatsCacheTtlMs = 60_000
 
 export async function getBrowserRuns(req: FastifyRequest<{ Querystring: { clientId?: string; history?: string; offset?: string } }>, res: FastifyReply) {
     try {
-        const user = await tokenWrapper(req, res)
-        const clientId = cleanClientId(req.query?.clientId)
-        const identity = user.valid && user.id
-            ? await browserRunIdentityForUser(user.id, clientId)
-            : browserRunIdentityForClient(clientId)
+        const identity = await browserRunIdentityForRequest(req, res, req.query?.clientId)
 
         if (!identity) {
             return res.send({
@@ -95,10 +90,7 @@ export async function getBrowserRuns(req: FastifyRequest<{ Querystring: { client
             })
         }
 
-        const params = identity.ownerId
-            ? [identity.ownerId, identity.clientIdHash]
-            : [identity.clientIdHash]
-        const scope = identity.ownerId ? '(owner_id = $1 OR ($2::text IS NOT NULL AND client_id_hash = $2))' : 'client_id_hash = $1'
+        const { where: scope, params } = browserRunScope(identity)
         if (req.query.history === 'all') {
             const offset = Number(req.query.offset || 0)
             if (!Number.isSafeInteger(offset) || offset < 0) return res.status(400).send({ error: 'Invalid history offset.' })
@@ -146,20 +138,13 @@ export async function getBrowserRuns(req: FastifyRequest<{ Querystring: { client
 
 export async function deleteBrowserRuns(req: FastifyRequest<{ Body: BrowserRunDeleteBody }>, res: FastifyReply) {
     try {
-        const user = await tokenWrapper(req, res)
-        const clientId = cleanClientId(req.body?.clientId)
-        const identity = user.valid && user.id
-            ? await browserRunIdentityForUser(user.id, clientId)
-            : browserRunIdentityForClient(clientId)
+        const identity = await browserRunIdentityForRequest(req, res, req.body?.clientId)
 
         if (!identity || (!identity.ownerId && !identity.clientIdHash)) {
             return res.status(400).send({ error: 'A browser history identity is required.' })
         }
 
-        const scope = identity.ownerId
-            ? '(owner_id = $1 OR ($2::text IS NOT NULL AND client_id_hash = $2))'
-            : 'client_id_hash = $1'
-        const scopeParams = identity.ownerId ? [identity.ownerId, identity.clientIdHash] : [identity.clientIdHash]
+        const { where: scope, params: scopeParams } = browserRunScope(identity)
         const ids = req.body?.ids
         if (ids !== undefined) {
             if (!Array.isArray(ids) || ids.length < 1 || ids.length > 12 || ids.some(id => !isBrowserRunId(id))) {
@@ -338,6 +323,14 @@ async function browserRunIdentityForSocket(input: { clientId?: string; userId?: 
     return browserRunIdentityForClient(clientId)
 }
 
+async function browserRunIdentityForRequest(req: FastifyRequest, res: FastifyReply, clientId: unknown) {
+    const user = await tokenWrapper(req, res)
+    const cleanId = cleanClientId(clientId)
+    return user.valid && user.id
+        ? browserRunIdentityForUser(user.id, cleanId)
+        : browserRunIdentityForClient(cleanId)
+}
+
 async function browserRunIdentityForUser(userId: string, clientId?: string): Promise<BrowserRunIdentity> {
     const result = await run(`
         SELECT EXISTS (SELECT 1 FROM billing_entitlements WHERE user_id = $1 AND plan_id = 'browser' AND active IS TRUE) AS paid,
@@ -349,7 +342,7 @@ async function browserRunIdentityForUser(userId: string, clientId?: string): Pro
         identityKind: 'user', quotaIdentity: `browser:user:${userId}`, quotaPlan: plan,
         ownerId: userId, clientIdHash: clientId ? hashValue(clientId) : null,
         periodStart: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())),
-        resetsAt: null, access: browserAccess(plan),
+        access: browserAccess(plan),
     }
 }
 
@@ -358,7 +351,6 @@ function browserRunIdentityForClient(clientId?: string): BrowserRunIdentity | nu
     if (!clean) return null
     const now = new Date()
     const periodStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
-    const resetsAt = new Date(periodStart.getTime() + 24 * 60 * 60 * 1000)
     return {
         identityKind: 'anonymous',
         quotaIdentity: `browser:anonymous:${hashValue(clean)}`,
@@ -366,9 +358,17 @@ function browserRunIdentityForClient(clientId?: string): BrowserRunIdentity | nu
         ownerId: null,
         clientIdHash: hashValue(clean),
         periodStart,
-        resetsAt,
         access: browserAccess('anonymous'),
     }
+}
+
+function browserRunScope(identity: BrowserRunIdentity) {
+    return identity.ownerId
+        ? {
+            where: '(owner_id = $1 OR ($2::text IS NOT NULL AND client_id_hash = $2))',
+            params: [identity.ownerId, identity.clientIdHash],
+        }
+        : { where: 'client_id_hash = $1', params: [identity.clientIdHash] }
 }
 
 async function loadBrowserQuota(identity: BrowserRunIdentity, query: typeof run = run): Promise<BrowserQuota> {
