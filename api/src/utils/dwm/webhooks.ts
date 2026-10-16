@@ -1284,10 +1284,20 @@ export function buildDwmWebhookDeliveryOperations({
     filters = {},
     liveDeliveryEnabled = process.env.DWM_WEBHOOK_LIVE_DELIVERY === 'true',
 }: DwmWebhookDeliveryEvidenceOptions) {
+    const { ledger, auditContracts } = buildDwmWebhookDeliveryProjectionBundle({ deliveries, auditEvents, destinations, filters })
+    return buildDwmWebhookDeliveryOperationsFromProjection({ destinations, filters, liveDeliveryEnabled, ledger, auditContracts })
+}
+
+function buildDwmWebhookDeliveryProjectionBundle({
+    deliveries,
+    auditEvents = [],
+    destinations = [],
+    filters = {},
+}: DwmWebhookDeliveryEvidenceOptions) {
     const projection = buildDwmWebhookDeliveryEvidenceProjection({ deliveries, auditEvents, filters })
     const ledger = buildDwmWebhookDeliveryLedgerFromEvidence({ projection, now: new Date() })
     const auditContracts = buildDwmWebhookAuditEventContractsFromLedger({ auditEvents, deliveries, destinations, ledger })
-    return buildDwmWebhookDeliveryOperationsFromProjection({ destinations, filters, liveDeliveryEnabled, ledger, auditContracts })
+    return { projection, ledger, auditContracts }
 }
 
 function buildDwmWebhookDeliveryOperationsFromProjection({
@@ -1407,9 +1417,7 @@ export function buildDwmWebhookDeliveryHistory({
     filters = {},
     liveDeliveryEnabled = process.env.DWM_WEBHOOK_LIVE_DELIVERY === 'true',
 }: DwmWebhookDeliveryEvidenceOptions) {
-    const projection = buildDwmWebhookDeliveryEvidenceProjection({ deliveries, auditEvents, filters })
-    const ledger = buildDwmWebhookDeliveryLedgerFromEvidence({ projection, now: new Date() })
-    const auditContracts = buildDwmWebhookAuditEventContractsFromLedger({ auditEvents, deliveries, destinations, ledger })
+    const { projection, ledger, auditContracts } = buildDwmWebhookDeliveryProjectionBundle({ deliveries, auditEvents, destinations, filters })
     const operations = buildDwmWebhookDeliveryOperationsFromProjection({ destinations, filters, liveDeliveryEnabled, ledger, auditContracts })
     const retryPersistence = buildDwmWebhookDeliveryRetryPersistenceFromProjection({ destinations, filters, liveDeliveryEnabled, ledger, auditContracts })
     const deliveryById = projection.deliveriesById

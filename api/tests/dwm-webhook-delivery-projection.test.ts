@@ -146,7 +146,7 @@ const auditEvents = deliveries.map((delivery, index) => toDwmWebhookAuditEvent({
 }))
 
 test('projects shared evidence, attempts, operations and history without losing lifecycle links', () => {
-    const input = { deliveries, auditEvents, destinations: [destination] }
+    const input = { deliveries, auditEvents, destinations: [destination], liveDeliveryEnabled: false }
     const evidence = buildDwmWebhookDeliveryEvidence(input)
     const ledger = buildDwmWebhookDeliveryLedger(input)
     const operations = buildDwmWebhookDeliveryOperations(input)
@@ -162,6 +162,15 @@ test('projects shared evidence, attempts, operations and history without losing 
     ])
     expect(operations.recentDeliveries.map(item => item.deliveryId)).toEqual(['delivery_2', 'delivery_1'])
     expect(history.entries.map(item => item.deliveryId)).toEqual(['delivery_2', 'delivery_1'])
+    expect(Object.keys(operations)).toEqual(['schemaVersion', 'liveDeliveryEnabled', 'filters', 'total', 'counts', 'recentDeliveries'])
+    expect(Object.keys(history)).toEqual(['schemaVersion', 'liveDeliveryEnabled', 'filters', 'total', 'counts', 'entries'])
+    expect(history).toMatchObject({
+        schemaVersion: 'dwm.webhook.delivery_history.v1',
+        liveDeliveryEnabled: false,
+        filters: operations.filters,
+        total: operations.total,
+        counts: operations.counts,
+    })
     expect(history.entries[0]).toMatchObject({
         status: 'sent',
         destination: { id: 'destination_1', label: 'Receiver', enabled: true },
