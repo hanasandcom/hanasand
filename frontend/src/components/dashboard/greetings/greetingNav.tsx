@@ -2,6 +2,7 @@ import tokenIsValid from '@/utils/proxy/tokenIsValid'
 import { FileWarning, Inbox, SquareChartGantt } from 'lucide-react'
 import { cookies } from 'next/headers'
 import Link from 'next/link'
+import ProfileLinkCard from '@/components/profile/ProfileLinkCard'
 
 export default async function GreetingNav({ text, id }: { text: string, id: string }) {
     const Cookies = await cookies()
@@ -30,12 +31,7 @@ export default async function GreetingNav({ text, id }: { text: string, id: stri
                         <h1 className='font-semibold text-base self-center'>Mail</h1>
                     </Link>
                 </div>
-                <div className='grid h-fit w-fit gap-2 rounded-lg border border-ui-border px-2 py-1'>
-                    <Link href={`/profile/${id}`} className='flex justify-between px-10 group cursor-pointer items-center'>
-                        <div className='user-icon' />
-                        <h1 className='font-semibold text-base self-center'>Profile</h1>
-                    </Link>
-                </div>
+                <ProfileLinkCard id={id} />
             </div>
         </div>
     )

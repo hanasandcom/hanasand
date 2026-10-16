@@ -325,3 +325,14 @@ scan is 3,689 files / 322,868 lines with 125 files over cap, all outside the
 frontend. Independent review found no behavioral or security blocker in the
 current admin-support and webhook extractions; their parent files remain
 oversized and their aggregate LOC reduction targets remain unmet.
+
+At frontend checkpoint `ProfileLinkCard`, the identical profile navigation
+card markup is shared by the dashboard and management greeting headers. The
+component preserves the same profile route, desktop classes, icon placeholder,
+and label; the 14-line SSR test checks these output details. This reuse adds
+three production lines after imports and component definition. The focused
+test, full frontend suite, non-incremental typecheck, scoped ESLint, guardrail
+lint, cap check, and production build pass. The cap scan now covers 2,336
+frontend files / 156,019 lines with zero over 200. Relative to the previous
+checkpoint, the frontend inventory grows by 19 lines; aggregate LOC reduction
+remains a priority alongside the hard cap.
