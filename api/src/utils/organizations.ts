@@ -6493,10 +6493,6 @@ export function organizationWatchlistLifecycleProjection(items: OrganizationWatc
     return { terms, itemsByStatus }
 }
 
-export function organizationWatchlistTerms(items: OrganizationWatchlistRow[]): OrganizationWatchlistTerm[] {
-    return organizationWatchlistLifecycleProjection(items).terms
-}
-
 export type OrganizationSharedWatchlistProjection = {
     alertGeneration: OrganizationWatchlistAlertGenerationContract
     downstreamAuthorization: OrganizationDownstreamAuthorizationExport
