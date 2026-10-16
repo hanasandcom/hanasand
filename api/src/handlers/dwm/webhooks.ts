@@ -25,6 +25,7 @@ import {
     buildDwmWebhookCustomerSetupProof,
     buildDwmWebhookDestinationCrudContract,
     buildDwmWebhookDestinationAdminProof,
+    buildDwmWebhookDestinationReadModels,
     buildDwmWebhookDestinationDeliveryMatrix,
     buildDwmWebhookDestinationHealth,
     buildDwmWebhookDestinationLifecycle,
@@ -127,11 +128,18 @@ export async function getDwmWebhookDestinations(req: FastifyRequest<{ Querystrin
     const destinations = await listDwmWebhookDestinations(userId, orgId || undefined)
     const deliveries = await listDwmWebhookDeliveries(userId, orgId || undefined)
     const auditEvents = await listDwmWebhookAuditEvents(userId, orgId || undefined)
+    const destinationReadModels = buildDwmWebhookDestinationReadModels({
+        destinations,
+        deliveries,
+        auditEvents,
+        ...lifecycleAccess,
+        visibility: visibilityContext,
+    })
 
     return res.send({
         destinations,
-        destinationContracts: buildDwmWebhookDestinationContracts({ destinations, deliveries, auditEvents }),
-        destinationHealth: buildDwmWebhookDestinationHealth({ destinations, deliveries, auditEvents }),
+        destinationContracts: destinationReadModels.destinationContracts,
+        destinationHealth: destinationReadModels.destinationHealth,
         customerSetup: buildDwmWebhookCustomerSetupProof({
             destinations,
             deliveries,
@@ -145,7 +153,7 @@ export async function getDwmWebhookDestinations(req: FastifyRequest<{ Querystrin
             auditEvents,
             visibility: visibilityContext,
         }),
-        destinationLifecycle: buildDwmWebhookDestinationLifecycle({ destinations, deliveries, auditEvents, ...lifecycleAccess }),
+        destinationLifecycle: destinationReadModels.destinationLifecycle,
         destinationLookup: buildDwmWebhookDestinationLookupContract({
             destinations,
             deliveries,
@@ -159,14 +167,8 @@ export async function getDwmWebhookDestinations(req: FastifyRequest<{ Querystrin
             auditEvents,
             ...lifecycleAccess,
         })),
-        destinationAdminProof: buildDwmWebhookDestinationAdminProof({
-            destinations,
-            deliveries,
-            auditEvents,
-            ...lifecycleAccess,
-            visibility: visibilityContext,
-        }),
-        deliveryReadiness: buildDwmWebhookDeliveryReadiness({ destinations, deliveries, auditEvents }),
+        destinationAdminProof: destinationReadModels.destinationAdminProof,
+        deliveryReadiness: destinationReadModels.deliveryReadiness,
         deliveryRetryQueue: buildDwmWebhookDeliveryRetryQueue({
             destinations,
             deliveries,
@@ -616,6 +618,13 @@ export async function getDwmWebhookDeliveries(req: FastifyRequest<{ Querystring:
         ? { deliveries, auditEvents, destinations }
         : { deliveries: [], auditEvents: [], destinations: [] }
     const lifecycleAccess = destinationLifecycleAccess(orgId, userId, visibility)
+    const destinationReadModels = buildDwmWebhookDestinationReadModels({
+        destinations,
+        deliveries,
+        auditEvents,
+        ...lifecycleAccess,
+        visibility: visibilityContext,
+    })
     const payload: Record<string, unknown> = {
         deliveries,
         deliveryEvidence: visibilityResult ? visibilityResult.deliveryEvidence : evidence,
@@ -722,24 +731,9 @@ export async function getDwmWebhookDeliveries(req: FastifyRequest<{ Querystring:
             deliveries,
             auditEvents,
         }),
-        destinationHealth: buildDwmWebhookDestinationHealth({
-            destinations,
-            deliveries,
-            auditEvents,
-        }),
-        destinationLifecycle: buildDwmWebhookDestinationLifecycle({
-            destinations,
-            deliveries,
-            auditEvents,
-            ...lifecycleAccess,
-        }),
-        destinationAdminProof: buildDwmWebhookDestinationAdminProof({
-            destinations,
-            deliveries,
-            auditEvents,
-            ...lifecycleAccess,
-            visibility: visibilityContext,
-        }),
+        destinationHealth: destinationReadModels.destinationHealth,
+        destinationLifecycle: destinationReadModels.destinationLifecycle,
+        destinationAdminProof: destinationReadModels.destinationAdminProof,
         auditEventContracts: buildDwmWebhookAuditEventContracts({
             auditEvents,
             deliveries,

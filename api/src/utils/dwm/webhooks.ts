@@ -264,6 +264,11 @@ type DwmWebhookDestinationVisibilityOptions = {
     visibility?: DwmWebhookEvidenceVisibilityInput | null
 }
 
+type DwmWebhookDestinationLifecycleOptions = Pick<
+    DwmWebhookDestinationVisibilityOptions,
+    'destinations' | 'deliveries' | 'auditEvents' | 'liveDeliveryEnabled' | 'viewerRole' | 'canManage'
+>
+
 export type DwmWebhookDeliveryAttemptState = 'queued' | 'sent' | 'failed' | 'skipped'
 export type DwmWebhookDeliveryOperationBlockerCode =
     | 'missing_org'
@@ -4572,31 +4577,49 @@ export function buildDwmWebhookCustomerSetupProof({
     }
 }
 
-export function buildDwmWebhookDestinationHealth({
+type DwmWebhookDestinationProjection = {
+    destinationContracts: ReturnType<typeof buildDwmWebhookDestinationContracts>
+    deliveryLedger: ReturnType<typeof buildDwmWebhookDeliveryLedgerFromEvidence>
+    auditContracts: ReturnType<typeof buildDwmWebhookAuditEventContractsFromLedger>
+    readiness: ReturnType<typeof buildDwmWebhookDeliveryReadinessFromProjection>
+}
+
+function prepareDwmWebhookDestinationProjection({
     destinations,
-    deliveries = [],
-    auditEvents = [],
-    liveDeliveryEnabled = process.env.DWM_WEBHOOK_LIVE_DELIVERY === 'true',
+    deliveries,
+    auditEvents,
+    liveDeliveryEnabled,
 }: {
     destinations: DwmWebhookDestinationPublic[]
-    deliveries?: DwmWebhookDeliveryPublic[]
-    auditEvents?: DwmWebhookAuditPublic[]
-    liveDeliveryEnabled?: boolean
-}) {
+    deliveries: DwmWebhookDeliveryPublic[]
+    auditEvents: DwmWebhookAuditPublic[]
+    liveDeliveryEnabled: boolean
+}): DwmWebhookDestinationProjection {
     const destinationContracts = buildDwmWebhookDestinationContracts({ destinations, deliveries, auditEvents })
     const projection = buildDwmWebhookDeliveryEvidenceProjection({ deliveries, auditEvents })
     const deliveryLedger = buildDwmWebhookDeliveryLedgerFromEvidence({ projection, now: new Date() })
-    const readiness = buildDwmWebhookDeliveryReadinessFromProjection({
-        destinationContracts,
-        deliveryLedger,
-        liveDeliveryEnabled,
-    })
     const auditContracts = buildDwmWebhookAuditEventContractsFromLedger({
         auditEvents,
         deliveries,
         destinations,
         ledger: deliveryLedger,
     })
+    const readiness = buildDwmWebhookDeliveryReadinessFromProjection({
+        destinationContracts,
+        deliveryLedger,
+        liveDeliveryEnabled,
+    })
+
+    return { destinationContracts, deliveryLedger, auditContracts, readiness }
+}
+
+function buildDwmWebhookDestinationHealthFromProjection({
+    destinationContracts,
+    deliveryLedger,
+    auditContracts,
+    readiness,
+    liveDeliveryEnabled,
+}: DwmWebhookDestinationProjection & { liveDeliveryEnabled: boolean }) {
     const readinessByDestination = new Map(readiness.destinations.map(item => [item.destinationId, item]))
     const auditByDestination = new Map<string, typeof auditContracts>()
     for (const audit of auditContracts) {
@@ -4666,6 +4689,26 @@ export function buildDwmWebhookDestinationHealth({
             createdAt: destination.createdAt,
         }
     })
+}
+
+export function buildDwmWebhookDestinationHealth({
+    destinations,
+    deliveries = [],
+    auditEvents = [],
+    liveDeliveryEnabled = process.env.DWM_WEBHOOK_LIVE_DELIVERY === 'true',
+}: {
+    destinations: DwmWebhookDestinationPublic[]
+    deliveries?: DwmWebhookDeliveryPublic[]
+    auditEvents?: DwmWebhookAuditPublic[]
+    liveDeliveryEnabled?: boolean
+}) {
+    const projection = prepareDwmWebhookDestinationProjection({
+        destinations,
+        deliveries,
+        auditEvents,
+        liveDeliveryEnabled,
+    })
+    return buildDwmWebhookDestinationHealthFromProjection({ ...projection, liveDeliveryEnabled })
 }
 
 export function buildDwmWebhookDashboardReadinessAdapter({
@@ -4868,23 +4911,19 @@ export function buildDwmWebhookDashboardReadinessAdapter({
     }
 }
 
-export function buildDwmWebhookDestinationLifecycle({
+function buildDwmWebhookDestinationLifecycleFromProjection({
     destinations,
-    deliveries = [],
-    auditEvents = [],
-    liveDeliveryEnabled = process.env.DWM_WEBHOOK_LIVE_DELIVERY === 'true',
-    viewerRole = null,
-    canManage = false,
+    auditContracts,
+    healthRows,
+    viewerRole,
+    canManage,
 }: {
     destinations: DwmWebhookDestinationPublic[]
-    deliveries?: DwmWebhookDeliveryPublic[]
-    auditEvents?: DwmWebhookAuditPublic[]
-    liveDeliveryEnabled?: boolean
-    viewerRole?: string | null
-    canManage?: boolean
+    auditContracts: DwmWebhookDestinationProjection['auditContracts']
+    healthRows: ReturnType<typeof buildDwmWebhookDestinationHealth>
+    viewerRole: string | null
+    canManage: boolean
 }) {
-    const healthRows = buildDwmWebhookDestinationHealth({ destinations, deliveries, auditEvents, liveDeliveryEnabled })
-    const auditContracts = buildDwmWebhookAuditEventContracts({ destinations, deliveries, auditEvents })
     const auditByDestination = new Map<string, typeof auditContracts>()
     const destinationById = new Map(destinations.map(destination => [destination.id, destination]))
     for (const audit of auditContracts) {
@@ -4961,6 +5000,30 @@ export function buildDwmWebhookDestinationLifecycle({
             updatedAt: health.updatedAt,
             createdAt: health.createdAt,
         }
+    })
+}
+
+export function buildDwmWebhookDestinationLifecycle({
+    destinations,
+    deliveries = [],
+    auditEvents = [],
+    liveDeliveryEnabled = process.env.DWM_WEBHOOK_LIVE_DELIVERY === 'true',
+    viewerRole = null,
+    canManage = false,
+}: DwmWebhookDestinationLifecycleOptions) {
+    const projection = prepareDwmWebhookDestinationProjection({
+        destinations,
+        deliveries,
+        auditEvents,
+        liveDeliveryEnabled,
+    })
+    const healthRows = buildDwmWebhookDestinationHealthFromProjection({ ...projection, liveDeliveryEnabled })
+    return buildDwmWebhookDestinationLifecycleFromProjection({
+        destinations,
+        auditContracts: projection.auditContracts,
+        healthRows,
+        viewerRole,
+        canManage,
     })
 }
 
@@ -5188,7 +5251,7 @@ export function buildDwmWebhookDestinationCrudContract({
     }
 }
 
-export function buildDwmWebhookDestinationAdminProof({
+function buildDwmWebhookDestinationAdminProofFromProjection({
     destinations,
     deliveries = [],
     auditEvents = [],
@@ -5196,7 +5259,14 @@ export function buildDwmWebhookDestinationAdminProof({
     viewerRole = null,
     canManage = false,
     visibility = null,
-}: DwmWebhookDestinationVisibilityOptions) {
+    projection,
+    healthRows: preparedHealthRows,
+    lifecycleRows: preparedLifecycleRows,
+}: DwmWebhookDestinationVisibilityOptions & {
+    projection?: DwmWebhookDestinationProjection
+    healthRows?: ReturnType<typeof buildDwmWebhookDestinationHealth>
+    lifecycleRows?: ReturnType<typeof buildDwmWebhookDestinationLifecycle>
+}) {
     const decision = webhookVisibilityDecision(visibility)
     const access = {
         role: clean(viewerRole) || null,
@@ -5221,16 +5291,30 @@ export function buildDwmWebhookDestinationAdminProof({
         }
     }
 
-    const healthRows = buildDwmWebhookDestinationHealth({ destinations, deliveries, auditEvents, liveDeliveryEnabled })
-    const lifecycleRows = buildDwmWebhookDestinationLifecycle({
+    const sharedProjection = projection || prepareDwmWebhookDestinationProjection({
         destinations,
         deliveries,
         auditEvents,
         liveDeliveryEnabled,
+    })
+    const healthRows = preparedHealthRows || buildDwmWebhookDestinationHealthFromProjection({
+        ...sharedProjection,
+        liveDeliveryEnabled,
+    })
+    const lifecycleRows = preparedLifecycleRows || buildDwmWebhookDestinationLifecycleFromProjection({
+        destinations,
+        auditContracts: sharedProjection.auditContracts,
+        healthRows,
         viewerRole,
         canManage,
     })
-    const operations = buildDwmWebhookDeliveryOperations({ deliveries, auditEvents, destinations, liveDeliveryEnabled })
+    const operations = buildDwmWebhookDeliveryOperationsFromProjection({
+        destinations,
+        filters: {},
+        liveDeliveryEnabled,
+        ledger: sharedProjection.deliveryLedger,
+        auditContracts: sharedProjection.auditContracts,
+    })
     const lifecycleByDestination = new Map(lifecycleRows.map(row => [row.destinationId, row]))
     const operationsByDestination = new Map<string, typeof operations.recentDeliveries>()
     for (const operation of operations.recentDeliveries) {
@@ -5330,6 +5414,55 @@ export function buildDwmWebhookDestinationAdminProof({
         summary: destinationAdminProofSummary(proofs, operations.recentDeliveries, liveDeliveryEnabled),
         blockers,
         destinations: proofs,
+    }
+}
+
+export function buildDwmWebhookDestinationAdminProof(options: DwmWebhookDestinationVisibilityOptions) {
+    return buildDwmWebhookDestinationAdminProofFromProjection(options)
+}
+
+export function buildDwmWebhookDestinationReadModels({
+    destinations,
+    deliveries = [],
+    auditEvents = [],
+    liveDeliveryEnabled = process.env.DWM_WEBHOOK_LIVE_DELIVERY === 'true',
+    viewerRole = null,
+    canManage = false,
+    visibility = null,
+}: DwmWebhookDestinationVisibilityOptions) {
+    const projection = prepareDwmWebhookDestinationProjection({
+        destinations,
+        deliveries,
+        auditEvents,
+        liveDeliveryEnabled,
+    })
+    const destinationHealth = buildDwmWebhookDestinationHealthFromProjection({ ...projection, liveDeliveryEnabled })
+    const destinationLifecycle = buildDwmWebhookDestinationLifecycleFromProjection({
+        destinations,
+        auditContracts: projection.auditContracts,
+        healthRows: destinationHealth,
+        viewerRole,
+        canManage,
+    })
+    const destinationAdminProof = buildDwmWebhookDestinationAdminProofFromProjection({
+        destinations,
+        deliveries,
+        auditEvents,
+        liveDeliveryEnabled,
+        viewerRole,
+        canManage,
+        visibility,
+        projection,
+        healthRows: destinationHealth,
+        lifecycleRows: destinationLifecycle,
+    })
+
+    return {
+        destinationContracts: projection.destinationContracts,
+        deliveryReadiness: projection.readiness,
+        destinationHealth,
+        destinationLifecycle,
+        destinationAdminProof,
     }
 }
 

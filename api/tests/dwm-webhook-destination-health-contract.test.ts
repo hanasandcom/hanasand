@@ -2,13 +2,17 @@ import { expect, test } from 'bun:test'
 import { dwmWebhookDestinationRow } from './fixtures/dwm-webhook-destination.ts'
 import {
     buildDwmWebhookDeliveryReadiness,
+    buildDwmWebhookDestinationContracts,
     buildDwmWebhookDestinationHealth,
+    buildDwmWebhookDestinationLifecycle,
+    buildDwmWebhookDestinationAdminProof,
+    buildDwmWebhookDestinationReadModels,
     toDwmWebhookAuditEvent,
     toDwmWebhookDelivery,
     toDwmWebhookDestination,
 } from '../src/utils/dwm/webhooks.ts'
 
-test('destination health preserves readiness, audit, and attempt projections', () => {
+function destinationProjectionFixture() {
     const destination = toDwmWebhookDestination(dwmWebhookDestinationRow())
     const delivery = toDwmWebhookDelivery({
         id: 'delivery_health_contract',
@@ -50,7 +54,11 @@ test('destination health preserves readiness, audit, and attempt projections', (
         auditEvents: [audit],
         liveDeliveryEnabled: false,
     }
+    return { destination, delivery, audit, input }
+}
 
+test('destination health preserves readiness, audit, and attempt projections', () => {
+    const { destination, delivery, audit, input } = destinationProjectionFixture()
     const health = buildDwmWebhookDestinationHealth(input)
     const readiness = buildDwmWebhookDeliveryReadiness(input)
 
@@ -88,4 +96,21 @@ test('destination health preserves readiness, audit, and attempt projections', (
         'lastTest', 'lastDelivery', 'lastFailure', 'lastLiveDisabled', 'latestAttempt', 'idempotencyCoverage',
         'recentAttempts', 'auditEventIds', 'latestAuditEventId', 'auditEventContracts', 'updatedAt', 'createdAt',
     ])
+})
+
+test('combined destination read models preserve the standalone contracts', () => {
+    const { input } = destinationProjectionFixture()
+    const projectionInput = {
+        ...input,
+        viewerRole: 'owner',
+        canManage: true,
+    }
+
+    const combined = buildDwmWebhookDestinationReadModels(projectionInput)
+
+    expect(combined.destinationContracts).toEqual(buildDwmWebhookDestinationContracts(projectionInput))
+    expect(combined.deliveryReadiness).toEqual(buildDwmWebhookDeliveryReadiness(projectionInput))
+    expect(combined.destinationHealth).toEqual(buildDwmWebhookDestinationHealth(projectionInput))
+    expect(combined.destinationLifecycle).toEqual(buildDwmWebhookDestinationLifecycle(projectionInput))
+    expect(combined.destinationAdminProof).toEqual(buildDwmWebhookDestinationAdminProof(projectionInput))
 })
