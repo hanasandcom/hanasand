@@ -3,18 +3,6 @@ import run from '#db'
 type QueryResult = { rows: Record<string, any>[]; rowCount: number | null }
 export type IdentityQuery = (sql: string, params?: (string | number | null | boolean | string[] | Date)[]) => Promise<QueryResult>
 
-export async function upsertIdentityUserName(userId: string, name: string, query: IdentityQuery = run) {
-    const updated = await query('UPDATE users SET name = $2 WHERE id = $1 RETURNING id', [userId, name])
-    if (updated.rowCount) return
-    try {
-        await query('INSERT INTO users (id, name) VALUES ($1, $2)', [userId, name])
-    } catch (error) {
-        if ((error as { code?: string })?.code !== '23505') throw error
-        const retry = await query('UPDATE users SET name = $2 WHERE id = $1 RETURNING id', [userId, name])
-        if (!retry.rowCount) throw error
-    }
-}
-
 export async function insertIdentityUserIfAbsent(input: {
     id: string
     name: string
