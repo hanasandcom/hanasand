@@ -567,6 +567,10 @@ export function certificateTarget(automation: Pick<AutomationRow, 'monitoring_ty
     return null
 }
 
+function invertsMonitoringResult(automation: Pick<AutomationRow, 'upside_down' | 'expected_down'>) {
+    return automation.upside_down || automation.expected_down
+}
+
 export async function runMonitoringCheck(automation: AutomationRow) {
     if (!automation.target_url) throw new Error('Monitoring is missing the URL to check.')
     const target = ['tcp', 'ssh', 'json'].includes(automation.monitoring_type) ? null : new URL(automation.target_url)
@@ -591,7 +595,7 @@ export async function runMonitoringCheck(automation: AutomationRow) {
             const [checkedCertificate, result] = await Promise.all([certificatePromise, requestPromise])
             certificate = checkedCertificate
             if (certificate.status === 'invalid' && tlsTarget) throw new MonitoringResponseError(`TLS certificate validation failed for ${tlsTarget.hostname}.`)
-            const healthy = automation.upside_down ? !result.up : automation.expected_down ? !result.up : result.up
+            const healthy = invertsMonitoringResult(automation) ? !result.up : result.up
             const message = `${automation.monitoring_type.toUpperCase()} check ${healthy ? 'passed' : 'failed'}: ${automation.target_url} ${result.detail}.`
             if (!healthy) throw new MonitoringResponseError(message)
             // A successful HTTP/TCP check is healthy regardless of response latency.
@@ -616,7 +620,7 @@ async function runJsonCheck(automation: AutomationRow, attempt: number) {
     try {
         const rule = normalizeJsonRule(automation.json_rule)
         const { exceeded, observed } = evaluateJsonRule(snapshot.payload, rule)
-        const inverted = automation.upside_down || automation.expected_down
+        const inverted = invertsMonitoringResult(automation)
         const failed = inverted ? !exceeded : exceeded
         const message = (automation.target_url === 'system:metrics' ? hostCheckMessage(rule, observed, failed, inverted) : null)
             ?? (automation.target_url === 'system:recovery' ? recoveryCheckMessage(snapshot.payload, rule, inverted) : null)

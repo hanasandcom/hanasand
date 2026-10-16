@@ -71,6 +71,13 @@ test('a real probe failure retains its result and failure scheduling', async () 
     expect(outcomes[0]?.message).toContain('HTTP 503')
     expect(statements.some(sql => sql.includes('consecutive_failures = consecutive_failures + 1'))).toBe(true)
 })
+test('expected-down HTTP checks treat an unavailable target as healthy', async () => {
+    probeFails = true
+    await executeAutomation({ ...automation, expected_down: true })
+    expect(probeCount).toBe(1)
+    expect(outcomes[0]?.kind).toBeNull()
+    expect(outcomes[0]?.message).toContain('FETCH check passed')
+})
 test('access denial does not run the probe or create a monitoring case', async () => {
     denied = true
     await executeAutomation(automation)
