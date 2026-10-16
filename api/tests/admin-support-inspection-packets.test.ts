@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
 import {
     auditFilterQuery,
+    supportInspectionActionAuditContract,
     supportInspectionAuditDetailPacket,
     supportInspectionAuditFilterCoverage,
     supportInspectionOrgBoundaryProof,
@@ -98,4 +99,34 @@ test('audit detail and coverage packets share unique request replay evidence', (
     expect(detail.detailEvents[0]).not.toHaveProperty('context')
     expect(detail.redacted).toBe(true)
     expect(detail.noMutation).toBe(true)
+})
+
+test('action audit contract reuses fixture target classification and severity in its preview', () => {
+    const packet = supportInspectionActionAuditContract({
+        recoveryFixturePacket: {
+            fixtures: [
+                { expectedAuditAction: 'impersonation.start', available: true },
+                { expectedAuditAction: 'support.invite.revoke', available: false },
+                { expectedAuditAction: 'organization.member.remove', available: true },
+                { expectedAuditAction: 'support.access_recovery.complete', available: true },
+                { expectedAuditAction: 'support.organization.inspect', available: true },
+            ],
+        },
+        timelineFilter,
+        organizationIds: ['org-1'], user: 'user-1', email: '', request: 'request-1', supportSession: '',
+    })
+
+    expect(packet.actionContracts.map(({ actionType, targetType, severity, creationPreview }) => ({
+        actionType,
+        targetType,
+        severity,
+        previewTargetType: creationPreview.targetType,
+        previewSeverity: creationPreview.severity,
+    }))).toEqual([
+        { actionType: 'impersonation.start', targetType: 'user', severity: 'warning', previewTargetType: 'user', previewSeverity: 'warning' },
+        { actionType: 'support.invite.revoke', targetType: 'invite', severity: 'notice', previewTargetType: 'invite', previewSeverity: 'notice' },
+        { actionType: 'organization.member.remove', targetType: 'member', severity: 'notice', previewTargetType: 'member', previewSeverity: 'notice' },
+        { actionType: 'support.access_recovery.complete', targetType: 'organization', severity: 'warning', previewTargetType: 'organization', previewSeverity: 'warning' },
+        { actionType: 'support.organization.inspect', targetType: 'organization', severity: 'notice', previewTargetType: 'organization', previewSeverity: 'notice' },
+    ])
 })

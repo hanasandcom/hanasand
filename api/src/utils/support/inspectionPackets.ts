@@ -703,6 +703,8 @@ export function supportInspectionActionAuditContract(input: {
         const isImpersonation = actionType.startsWith('impersonation.')
         const isInvite = actionType.includes('invite')
         const isMember = actionType.includes('member')
+        const targetType = isImpersonation ? 'user' : isInvite ? 'invite' : isMember ? 'member' : 'organization'
+        const severity = isImpersonation || actionType.includes('access_recovery') ? 'warning' : 'notice'
         return {
             name: fixture.name || actionType || 'support_action',
             actionType,
@@ -710,8 +712,8 @@ export function supportInspectionActionAuditContract(input: {
             route: fixture.route || null,
             available: Boolean(fixture.available),
             expectedOutcome: fixture.available ? 'success' : 'denied',
-            severity: isImpersonation || actionType.includes('access_recovery') ? 'warning' : 'notice',
-            targetType: isImpersonation ? 'user' : isInvite ? 'invite' : isMember ? 'member' : 'organization',
+            severity,
+            targetType,
             targetId: targetId || null,
             organizationId: organizationId || null,
             entityId: entityId || null,
@@ -731,12 +733,12 @@ export function supportInspectionActionAuditContract(input: {
             creationPreview: {
                 actionType,
                 actorId: 'support-actor-id',
-                targetType: isImpersonation ? 'user' : isInvite ? 'invite' : isMember ? 'member' : 'organization',
+                targetType,
                 targetId: targetId || 'target-id',
                 organizationId: organizationId || null,
                 entityId: entityId || targetId || null,
                 requestId,
-                severity: isImpersonation || actionType.includes('access_recovery') ? 'warning' : 'notice',
+                severity,
                 outcome: fixture.available ? 'success' : 'denied',
                 reason: body.reason || 'Required support reason.',
                 context: {
