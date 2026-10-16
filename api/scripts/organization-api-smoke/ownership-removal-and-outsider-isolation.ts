@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import type { OrganizationApiSmokeContext, OrganizationSmokeJourney } from './harness.ts'
 
 export async function runOwnershipRemovalAndOutsiderIsolation(ctx: OrganizationApiSmokeContext, journey: OrganizationSmokeJourney): Promise<void> {
-    const { app, invites, serviceLogs, authHeaders, parseBody, assertOrganizationTenantIdentity, nowRow } = ctx
+    const { apiRequest, invites, serviceLogs, authHeaders, parseBody, assertOrganizationTenantIdentity, nowRow } = ctx
     const { organization, invite } = journey
     const pendingOpsInvite = journey.pendingOpsInvite!
     const staleDeactivatedInvite = journey.staleDeactivatedInvite!
@@ -11,12 +11,11 @@ export async function runOwnershipRemovalAndOutsiderIsolation(ctx: OrganizationA
     const ownerWatchlistItem = journey.ownerWatchlistItem!
     const readiness = journey.readiness!
 
-    const memberRemoveViewerResponse = await app.inject({
+    const memberRemoveViewerResponse = await apiRequest({
         method: 'DELETE',
         url: `/api/organizations/${organization.id}/members/org_smoke_viewer`,
         headers: authHeaders('org_smoke_member', 'member-token'),
-    })
-    assert.equal(memberRemoveViewerResponse.statusCode, 403, memberRemoveViewerResponse.body)
+    }, 403)
     const memberRemoveViewerDenial = parseBody(memberRemoveViewerResponse.body).memberMutationDenial
     assert.equal(memberRemoveViewerDenial.schemaVersion, 'organization.member_mutation_denial.v1')
     assert.equal(memberRemoveViewerDenial.organizationId, organization.id)
@@ -32,12 +31,11 @@ export async function runOwnershipRemovalAndOutsiderIsolation(ctx: OrganizationA
     assert.equal(memberRemoveViewerDenial.nonmemberEnumeration, false)
     assert.equal(memberRemoveViewerDenial.serviceLogAction, 'organization_member_mutation_denied')
 
-    const adminRemoveOwnerResponse = await app.inject({
+    const adminRemoveOwnerResponse = await apiRequest({
         method: 'DELETE',
         url: `/api/organizations/${organization.id}/members/org_smoke_owner`,
         headers: authHeaders('org_smoke_admin', 'admin-token'),
-    })
-    assert.equal(adminRemoveOwnerResponse.statusCode, 403, adminRemoveOwnerResponse.body)
+    }, 403)
     const adminRemoveOwnerDenial = parseBody(adminRemoveOwnerResponse.body).memberMutationDenial
     assert.equal(adminRemoveOwnerDenial.actorRole, 'admin')
     assert.equal(adminRemoveOwnerDenial.targetUserId, 'org_smoke_owner')
@@ -45,29 +43,26 @@ export async function runOwnershipRemovalAndOutsiderIsolation(ctx: OrganizationA
     assert.equal(adminRemoveOwnerDenial.action, 'remove_member')
     assert.equal(adminRemoveOwnerDenial.adminCanMutateOwners, false)
 
-    const viewerTransferResponse = await app.inject({
+    await apiRequest({
         method: 'POST',
         url: `/api/organizations/${organization.id}/ownership-transfer`,
         headers: authHeaders('org_smoke_viewer', 'viewer-token'),
         payload: { targetUserId: 'org_smoke_admin', reason: 'Viewer should not transfer ownership.' },
-    })
-    assert.equal(viewerTransferResponse.statusCode, 403, viewerTransferResponse.body)
+    }, 403)
 
-    const invalidTransferResponse = await app.inject({
+    await apiRequest({
         method: 'POST',
         url: `/api/organizations/${organization.id}/ownership-transfer`,
         headers: authHeaders('org_smoke_owner', 'owner-token'),
         payload: { targetUserId: 'org_smoke_admin' },
-    })
-    assert.equal(invalidTransferResponse.statusCode, 400, invalidTransferResponse.body)
+    }, 400)
 
-    const transferResponse = await app.inject({
+    const transferResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/${organization.id}/ownership-transfer`,
         headers: authHeaders('org_smoke_owner', 'owner-token'),
         payload: { targetUserId: 'org_smoke_admin', reason: 'Customer primary owner changed.' },
-    })
-    assert.equal(transferResponse.statusCode, 200, transferResponse.body)
+    }, 200)
     const transfer = parseBody(transferResponse.body)
     assert.equal(transfer.transfer.previousOwnerId, 'org_smoke_owner')
     assert.equal(transfer.transfer.newOwnerId, 'org_smoke_admin')
@@ -75,19 +70,17 @@ export async function runOwnershipRemovalAndOutsiderIsolation(ctx: OrganizationA
     assert.equal(transfer.organization.role, 'admin')
     assert.equal(transfer.organization.ownerCount, 1)
 
-    const formerOwnerRemovesNewOwnerResponse = await app.inject({
+    await apiRequest({
         method: 'DELETE',
         url: `/api/organizations/${organization.id}/members/org_smoke_admin`,
         headers: authHeaders('org_smoke_owner', 'owner-token'),
-    })
-    assert.equal(formerOwnerRemovesNewOwnerResponse.statusCode, 403, formerOwnerRemovesNewOwnerResponse.body)
+    }, 403)
 
-    const lastOwnerGuardResponse = await app.inject({
+    const lastOwnerGuardResponse = await apiRequest({
         method: 'DELETE',
         url: `/api/organizations/${organization.id}/members/org_smoke_admin`,
         headers: authHeaders('org_smoke_admin', 'admin-token'),
-    })
-    assert.equal(lastOwnerGuardResponse.statusCode, 409, lastOwnerGuardResponse.body)
+    }, 409)
     const lastOwnerRemoveGuard = parseBody(lastOwnerGuardResponse.body).lastOwnerGuard
     assert.equal(lastOwnerRemoveGuard.schemaVersion, 'organization.last_owner_guard.v1')
     assert.equal(lastOwnerRemoveGuard.organizationId, organization.id)
@@ -114,12 +107,11 @@ export async function runOwnershipRemovalAndOutsiderIsolation(ctx: OrganizationA
         expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
     })
     invites.set(viewerPendingInviteBeforeRemoval.id, viewerPendingInviteBeforeRemoval)
-    const removeViewerResponse = await app.inject({
+    const removeViewerResponse = await apiRequest({
         method: 'DELETE',
         url: `/api/organizations/${organization.id}/members/org_smoke_viewer`,
         headers: authHeaders('org_smoke_admin', 'admin-token'),
-    })
-    assert.equal(removeViewerResponse.statusCode, 200, removeViewerResponse.body)
+    }, 200)
     assert.equal(parseBody(removeViewerResponse.body).member.status, 'removed')
     const removeViewerCleanup = parseBody(removeViewerResponse.body).memberRemovalCleanup
     assert.equal(removeViewerCleanup.schemaVersion, 'organization.member_removal_cleanup.v1')
@@ -239,12 +231,11 @@ export async function runOwnershipRemovalAndOutsiderIsolation(ctx: OrganizationA
         expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
     })
     invites.set(staleRemovedViewerInvite.id, staleRemovedViewerInvite)
-    const staleRemovedViewerAcceptResponse = await app.inject({
+    const staleRemovedViewerAcceptResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/invites/${staleRemovedViewerInvite.id}/accept`,
         headers: authHeaders('org_smoke_viewer', 'viewer-token'),
-    })
-    assert.equal(staleRemovedViewerAcceptResponse.statusCode, 409, staleRemovedViewerAcceptResponse.body)
+    }, 409)
     const staleRemovedViewerAcceptDenial = parseBody(staleRemovedViewerAcceptResponse.body).inviteAcceptanceDenial
     assert.equal(staleRemovedViewerAcceptDenial.schemaVersion, 'organization.invite_acceptance_denial.v1')
     assert.equal(staleRemovedViewerAcceptDenial.organizationId, organization.id)
@@ -263,38 +254,34 @@ export async function runOwnershipRemovalAndOutsiderIsolation(ctx: OrganizationA
     assert.equal(staleRemovedViewerAcceptDenial.ownerlessRecoveryMutationAllowed, false)
     assert.equal(staleRemovedViewerAcceptDenial.accessRequiresAcceptedMembership, true)
 
-    const removedViewerInviteResponse = await app.inject({
+    const removedViewerInviteResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/${organization.id}/invites`,
         headers: authHeaders('org_smoke_admin', 'admin-token'),
         payload: { email: 'viewer@example.test', role: 'viewer', requestId: 'smoke-removed-viewer' },
-    })
-    assert.equal(removedViewerInviteResponse.statusCode, 201, removedViewerInviteResponse.body)
+    }, 201)
     const removedViewerInviteWorkflow = parseBody(removedViewerInviteResponse.body).workflow
     assert.equal(removedViewerInviteWorkflow.invitedCount, 0)
     assert.equal(removedViewerInviteWorkflow.skippedCount, 1)
     assert.equal(removedViewerInviteWorkflow.results[0].outcome, 'blocked_removed_member')
 
-    const removedViewerWatchlistResponse = await app.inject({
+    await apiRequest({
         method: 'GET',
         url: `/api/organizations/${organization.id}/watchlists`,
         headers: authHeaders('org_smoke_viewer', 'viewer-token'),
-    })
-    assert.equal(removedViewerWatchlistResponse.statusCode, 404, removedViewerWatchlistResponse.body)
+    }, 404)
 
-    const removedViewerReadinessResponse = await app.inject({
+    await apiRequest({
         method: 'GET',
         url: `/api/organizations/${organization.id}/alert-readiness`,
         headers: authHeaders('org_smoke_viewer', 'viewer-token'),
-    })
-    assert.equal(removedViewerReadinessResponse.statusCode, 404, removedViewerReadinessResponse.body)
+    }, 404)
 
-    const removedViewerAlertTermsResponse = await app.inject({
+    const removedViewerAlertTermsResponse = await apiRequest({
         method: 'GET',
         url: `/api/organizations/${organization.id}/watchlists/alert-terms?requestId=smoke-removed-viewer-alert-terms`,
         headers: authHeaders('org_smoke_viewer', 'viewer-token'),
-    })
-    assert.equal(removedViewerAlertTermsResponse.statusCode, 404, removedViewerAlertTermsResponse.body)
+    }, 404)
     const removedViewerAlertTermsDenial = parseBody(removedViewerAlertTermsResponse.body).organizationAccessDenial
     assert.equal(removedViewerAlertTermsDenial.schemaVersion, 'organization.access_denial.v1')
     assert.equal(removedViewerAlertTermsDenial.organizationId, organization.id)
@@ -303,12 +290,11 @@ export async function runOwnershipRemovalAndOutsiderIsolation(ctx: OrganizationA
     assert.equal(removedViewerAlertTermsDenial.blockerCode, 'nonmember_denied')
     assert.equal(removedViewerAlertTermsDenial.nonmemberEnumeration, false)
 
-    const removedViewerCaseVisibilityResponse = await app.inject({
+    const removedViewerCaseVisibilityResponse = await apiRequest({
         method: 'GET',
         url: `/api/organizations/${organization.id}/alert-case-visibility?requestId=smoke-removed-viewer-case-visibility`,
         headers: authHeaders('org_smoke_viewer', 'viewer-token'),
-    })
-    assert.equal(removedViewerCaseVisibilityResponse.statusCode, 404, removedViewerCaseVisibilityResponse.body)
+    }, 404)
     const removedViewerCaseVisibilityDenial = parseBody(removedViewerCaseVisibilityResponse.body).organizationAccessDenial
     assert.equal(removedViewerCaseVisibilityDenial.schemaVersion, 'organization.access_denial.v1')
     assert.equal(removedViewerCaseVisibilityDenial.organizationId, organization.id)
@@ -325,12 +311,11 @@ export async function runOwnershipRemovalAndOutsiderIsolation(ctx: OrganizationA
     assert.equal(readiness.readinessProof.memberLifecycleProof.denialReasons.removedMember, 'member_removed')
     assert.equal(readiness.readinessProof.memberLifecycleProof.denialReasons.expiredInvite, 'invite_expired')
 
-    const outsiderResponse = await app.inject({
+    const outsiderResponse = await apiRequest({
         method: 'GET',
         url: `/api/organizations/${organization.id}/watchlists`,
         headers: { ...authHeaders('org_smoke_outsider', 'outsider-token'), 'x-request-id': 'smoke-outsider-watchlists-denied' },
-    })
-    assert.equal(outsiderResponse.statusCode, 404, outsiderResponse.body)
+    }, 404)
     const outsiderWatchlistsAccessDenial = parseBody(outsiderResponse.body).organizationAccessDenial
     assert.equal(outsiderWatchlistsAccessDenial.schemaVersion, 'organization.access_denial.v1')
     assert.equal(outsiderWatchlistsAccessDenial.organizationId, organization.id)
@@ -340,12 +325,11 @@ export async function runOwnershipRemovalAndOutsiderIsolation(ctx: OrganizationA
     assert.equal(outsiderWatchlistsAccessDenial.nonmemberEnumeration, false)
     assert.ok(outsiderWatchlistsAccessDenial.noLeakFields.includes('watchlistScope.alertGeneratorKeys'))
     assert.equal(outsiderWatchlistsAccessDenial.requestId, 'smoke-outsider-watchlists-denied')
-    const outsiderOrganizationReadResponse = await app.inject({
+    const outsiderOrganizationReadResponse = await apiRequest({
         method: 'GET',
         url: `/api/organizations/${organization.id}`,
         headers: { ...authHeaders('org_smoke_outsider', 'outsider-token'), 'x-request-id': 'smoke-outsider-org-read-denied' },
-    })
-    assert.equal(outsiderOrganizationReadResponse.statusCode, 404, outsiderOrganizationReadResponse.body)
+    }, 404)
     const outsiderOrganizationAccessDenial = parseBody(outsiderOrganizationReadResponse.body).organizationAccessDenial
     assert.equal(outsiderOrganizationAccessDenial.schemaVersion, 'organization.access_denial.v1')
     assertOrganizationTenantIdentity(outsiderOrganizationAccessDenial, organization.id)
@@ -358,12 +342,11 @@ export async function runOwnershipRemovalAndOutsiderIsolation(ctx: OrganizationA
     assert.ok(outsiderOrganizationAccessDenial.downstreamRoutes.alertTermsExport.includes('watchlists/alert-terms'))
     assert.equal(outsiderOrganizationAccessDenial.serviceLogAction, 'organization_access_denied')
     assert.equal(outsiderOrganizationAccessDenial.requestId, 'smoke-outsider-org-read-denied')
-    const outsiderReadinessResponse = await app.inject({
+    const outsiderReadinessResponse = await apiRequest({
         method: 'GET',
         url: `/api/organizations/${organization.id}/alert-readiness`,
         headers: { ...authHeaders('org_smoke_outsider', 'outsider-token'), 'x-request-id': 'smoke-outsider-alert-readiness-denied' },
-    })
-    assert.equal(outsiderReadinessResponse.statusCode, 404, outsiderReadinessResponse.body)
+    }, 404)
     const outsiderReadinessAccessDenial = parseBody(outsiderReadinessResponse.body).organizationAccessDenial
     assert.equal(outsiderReadinessAccessDenial.schemaVersion, 'organization.access_denial.v1')
     assert.equal(outsiderReadinessAccessDenial.route, 'GET /api/organizations/:id/alert-readiness')
@@ -371,12 +354,11 @@ export async function runOwnershipRemovalAndOutsiderIsolation(ctx: OrganizationA
     assert.equal(outsiderReadinessAccessDenial.nonmemberEnumeration, false)
     assert.ok(outsiderReadinessAccessDenial.noLeakFields.includes('activeTerms[]'))
     assert.equal(outsiderReadinessAccessDenial.requestId, 'smoke-outsider-alert-readiness-denied')
-    const outsiderAlertTermsResponse = await app.inject({
+    const outsiderAlertTermsResponse = await apiRequest({
         method: 'GET',
         url: `/api/organizations/${organization.id}/watchlists/alert-terms`,
         headers: { ...authHeaders('org_smoke_outsider', 'outsider-token'), 'x-request-id': 'smoke-outsider-alert-terms-denied' },
-    })
-    assert.equal(outsiderAlertTermsResponse.statusCode, 404, outsiderAlertTermsResponse.body)
+    }, 404)
     const outsiderAlertTermsAccessDenial = parseBody(outsiderAlertTermsResponse.body).organizationAccessDenial
     assert.equal(outsiderAlertTermsAccessDenial.schemaVersion, 'organization.access_denial.v1')
     assert.equal(outsiderAlertTermsAccessDenial.route, 'GET /api/organizations/:id/watchlists/alert-terms')
@@ -385,19 +367,17 @@ export async function runOwnershipRemovalAndOutsiderIsolation(ctx: OrganizationA
     assert.ok(outsiderAlertTermsAccessDenial.noLeakFields.includes('activeTerms[]'))
     assert.ok(!('alertTermsExport' in parseBody(outsiderAlertTermsResponse.body)))
     assert.equal(outsiderAlertTermsAccessDenial.requestId, 'smoke-outsider-alert-terms-denied')
-    const outsiderWatchlistItemResponse = await app.inject({
+    await apiRequest({
         method: 'GET',
         url: `/api/organizations/${organization.id}/watchlists/${ownerWatchlistItem.id}`,
         headers: authHeaders('org_smoke_outsider', 'outsider-token'),
-    })
-    assert.equal(outsiderWatchlistItemResponse.statusCode, 404, outsiderWatchlistItemResponse.body)
-    const outsiderCleanupResponse = await app.inject({
+    }, 404)
+    await apiRequest({
         method: 'POST',
         url: `/api/organizations/${organization.id}/watchlists/cleanup`,
         headers: authHeaders('org_smoke_outsider', 'outsider-token'),
         payload: { itemIds: [ownerWatchlistItem.id], reason: 'Outsider cannot clean up.', requestId: 'smoke-outsider-cleanup-denied' },
-    })
-    assert.equal(outsiderCleanupResponse.statusCode, 404, outsiderCleanupResponse.body)
+    }, 404)
     assert.ok(serviceLogs.some(log => log.message === 'organization_invites_created'))
     assert.ok(serviceLogs.some(log => log.message === 'organization_invite_accepted'))
     assert.ok(serviceLogs.some(log => log.message === 'organization_watchlist_upserted'))

@@ -2,15 +2,14 @@ import assert from 'node:assert/strict'
 import type { OrganizationApiSmokeContext, OrganizationSmokeJourney, Row } from './harness.ts'
 
 export async function runAlertReadinessAndCaseVisibility(ctx: OrganizationApiSmokeContext, journey: OrganizationSmokeJourney): Promise<void> {
-    const { app, orgUtils, watchlists, authHeaders, parseBody, assertOrganizationTenantIdentity, organizationSummary } = ctx
+    const { apiRequest, orgUtils, watchlists, authHeaders, parseBody, assertOrganizationTenantIdentity, organizationSummary } = ctx
     const { organization } = journey
 
-    const readinessResponse = await app.inject({
+    const readinessResponse = await apiRequest({
         method: 'GET',
         url: `/api/organizations/${organization.id}/alert-readiness`,
         headers: authHeaders('org_smoke_member', 'member-token'),
-    })
-    assert.equal(readinessResponse.statusCode, 200, readinessResponse.body)
+    }, 200)
     const readiness = journey.readiness = parseBody(readinessResponse.body).alertReadiness
     assertOrganizationTenantIdentity(readiness, organization.id)
     assert.equal(readiness.defaultWebhookPolicy, 'manual_selection')
@@ -500,12 +499,11 @@ export async function runAlertReadinessAndCaseVisibility(ctx: OrganizationApiSmo
     assert.equal(readiness.sharedWatchlistDownstreamProof.inviteLifecycle.pendingInviteCount, 12)
     assert.ok(readiness.sharedWatchlistDownstreamProof.audit.eventActions.includes('organization_watchlist_alert_terms_exported'))
 
-    const memberAlertCaseVisibilityResponse = await app.inject({
+    const memberAlertCaseVisibilityResponse = await apiRequest({
         method: 'GET',
         url: `/api/organizations/${organization.id}/alert-case-visibility?requestId=smoke-member-alert-case-denied`,
         headers: authHeaders('org_smoke_member', 'member-token'),
-    })
-    assert.equal(memberAlertCaseVisibilityResponse.statusCode, 403, memberAlertCaseVisibilityResponse.body)
+    }, 403)
     const memberAlertCaseVisibility = parseBody(memberAlertCaseVisibilityResponse.body).alertCaseVisibility
     assert.equal(memberAlertCaseVisibility.schemaVersion, 'organization.alert_case_visibility_denial.v1')
     assertOrganizationTenantIdentity(memberAlertCaseVisibility, organization.id)
@@ -551,19 +549,17 @@ export async function runAlertReadinessAndCaseVisibility(ctx: OrganizationApiSmo
     assert.equal(memberAlertCaseVisibility.auditProof.proofLogQuery, 'GET /api/logs?service=api&message=organization_alert_case_visibility_denied')
     assert.equal(memberAlertCaseVisibility.proofCommand, 'cd api && bun scripts/smoke-organizations-api.ts')
 
-    const outsiderAlertCaseVisibilityResponse = await app.inject({
+    await apiRequest({
         method: 'GET',
         url: `/api/organizations/${organization.id}/alert-case-visibility`,
         headers: authHeaders('org_smoke_outsider', 'outsider-token'),
-    })
-    assert.equal(outsiderAlertCaseVisibilityResponse.statusCode, 404, outsiderAlertCaseVisibilityResponse.body)
+    }, 404)
 
-    const adminReadinessResponse = await app.inject({
+    const adminReadinessResponse = await apiRequest({
         method: 'GET',
         url: `/api/organizations/${organization.id}/alert-readiness`,
         headers: authHeaders('org_smoke_admin', 'admin-token'),
-    })
-    assert.equal(adminReadinessResponse.statusCode, 200, adminReadinessResponse.body)
+    }, 200)
     const adminReadiness = parseBody(adminReadinessResponse.body).alertReadiness
     assert.equal(adminReadiness.readinessProof.actor.role, 'admin')
     assert.equal(adminReadiness.readinessProof.actor.canExportActiveTerms, true)
@@ -595,12 +591,11 @@ export async function runAlertReadinessAndCaseVisibility(ctx: OrganizationApiSmo
     assert.deepEqual(adminReadiness.sharedWatchlistDownstreamProof.caseBridge.blockerCodes, [])
     assert.deepEqual(adminReadiness.sharedWatchlistDownstreamProof.alertBridge.blockerCodes, [])
 
-    const adminAlertCaseVisibilityResponse = await app.inject({
+    const adminAlertCaseVisibilityResponse = await apiRequest({
         method: 'GET',
         url: `/api/organizations/${organization.id}/alert-case-visibility`,
         headers: authHeaders('org_smoke_admin', 'admin-token'),
-    })
-    assert.equal(adminAlertCaseVisibilityResponse.statusCode, 200, adminAlertCaseVisibilityResponse.body)
+    }, 200)
     const adminAlertCaseVisibility = journey.adminAlertCaseVisibility = parseBody(adminAlertCaseVisibilityResponse.body).alertCaseVisibility
     assert.equal(adminAlertCaseVisibility.schemaVersion, 'organization.alert_case_visibility.v1')
     assertOrganizationTenantIdentity(adminAlertCaseVisibility, organization.id)

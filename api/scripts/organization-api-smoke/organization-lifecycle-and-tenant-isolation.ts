@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import type { OrganizationApiSmokeContext, OrganizationSmokeJourney, Row } from './harness.ts'
 
 export async function runOrganizationLifecycleAndTenantIsolation(ctx: OrganizationApiSmokeContext, journey: OrganizationSmokeJourney): Promise<void> {
-    const { app, orgUtils, watchlists, authHeaders, parseBody, assertOrganizationTenantIdentity, organizationSummary } = ctx
+    const { apiRequest, orgUtils, watchlists, authHeaders, parseBody, assertOrganizationTenantIdentity, organizationSummary } = ctx
     const { organization } = journey
     const alertTermsExport = journey.alertTermsExport!
     const adminAlertCaseVisibility = journey.adminAlertCaseVisibility!
@@ -10,13 +10,12 @@ export async function runOrganizationLifecycleAndTenantIsolation(ctx: Organizati
     const ownerWatchlistItem = journey.ownerWatchlistItem!
     const bulkInviteWorkflow = journey.bulkInviteWorkflow!
 
-    const archiveOrganizationResponse = await app.inject({
+    const archiveOrganizationResponse = await apiRequest({
         method: 'PUT',
         url: `/api/organizations/${organization.id}/settings`,
         headers: authHeaders('org_smoke_admin', 'admin-token'),
         payload: { lifecycleStatus: 'archived' },
-    })
-    assert.equal(archiveOrganizationResponse.statusCode, 200, archiveOrganizationResponse.body)
+    }, 200)
     const archivedOrganizationSettings = parseBody(archiveOrganizationResponse.body)
     assert.equal(archivedOrganizationSettings.organization.lifecycleStatus, 'archived')
     assert.equal(archivedOrganizationSettings.settings.lifecycleStatus, 'archived')
@@ -56,12 +55,11 @@ export async function runOrganizationLifecycleAndTenantIsolation(ctx: Organizati
     assert.equal(archivedOrganizationSettings.lifecycleReadiness.workspaceBoundaryProof.actorPermissions.canMutateWatchlists, false)
     assert.ok(archivedOrganizationSettings.lifecycleReadiness.workspaceBoundaryProof.blockedWhenInactive.includes('POST /api/organizations/:id/invites'))
     assert.ok(archivedOrganizationSettings.lifecycleReadiness.workspaceBoundaryProof.noLeakFields.includes('otherOrg.watchlistItemIds'))
-    const archivedOrgAlertTermsResponse = await app.inject({
+    const archivedOrgAlertTermsResponse = await apiRequest({
         method: 'GET',
         url: `/api/organizations/${organization.id}/watchlists/alert-terms?requestId=smoke-archived-org-alert-terms`,
         headers: authHeaders('org_smoke_admin', 'admin-token'),
-    })
-    assert.equal(archivedOrgAlertTermsResponse.statusCode, 200, archivedOrgAlertTermsResponse.body)
+    }, 200)
     const archivedOrgAlertTerms = parseBody(archivedOrgAlertTermsResponse.body).alertTermsExport
     assert.equal(archivedOrgAlertTerms.downstreamAuthorization.organizationLifecycleState, 'archived')
     assert.equal(archivedOrgAlertTerms.downstreamAuthorization.downstream.alertGeneration.canExportActiveTerms, false)
@@ -71,12 +69,11 @@ export async function runOrganizationLifecycleAndTenantIsolation(ctx: Organizati
     assert.equal(archivedOrgAlertTerms.canGenerateAlerts, false)
     assert.ok(archivedOrgAlertTerms.alertBridgeContract.typedBlockers.some((blocker: Row) => blocker.code === 'org_archived'))
 
-    const archivedOrgReadinessResponse = await app.inject({
+    const archivedOrgReadinessResponse = await apiRequest({
         method: 'GET',
         url: `/api/organizations/${organization.id}/alert-readiness`,
         headers: authHeaders('org_smoke_admin', 'admin-token'),
-    })
-    assert.equal(archivedOrgReadinessResponse.statusCode, 200, archivedOrgReadinessResponse.body)
+    }, 200)
     const archivedOrgReadiness = parseBody(archivedOrgReadinessResponse.body).alertReadiness
     assert.equal(archivedOrgReadiness.lifecycleReadiness.lifecycleStatus, 'archived')
     assert.equal(archivedOrgReadiness.alertGenerationBridge.canGenerateAlerts, false)
@@ -94,13 +91,12 @@ export async function runOrganizationLifecycleAndTenantIsolation(ctx: Organizati
     assert.equal(archivedOrgReadiness.readinessProof.memberLifecycleProof.denialReasons.removedMember, 'member_removed')
     assert.equal(archivedOrgReadiness.readinessProof.memberLifecycleProof.nonmemberEnumeration, false)
 
-    const archivedInviteDeniedResponse = await app.inject({
+    const archivedInviteDeniedResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/${organization.id}/invites`,
         headers: authHeaders('org_smoke_admin', 'admin-token'),
         payload: { email: 'archived-invite@example.test', role: 'member', requestId: 'smoke-archived-invite-denied' },
-    })
-    assert.equal(archivedInviteDeniedResponse.statusCode, 409, archivedInviteDeniedResponse.body)
+    }, 409)
     assert.equal(parseBody(archivedInviteDeniedResponse.body).lifecycleBlocker.code, 'org_archived')
     assert.equal(parseBody(archivedInviteDeniedResponse.body).lifecycleBlocker.action, 'invite members')
     assert.equal(parseBody(archivedInviteDeniedResponse.body).lifecycleBlocker.serviceLogAction, 'organization_lifecycle_mutation_blocked')
@@ -108,63 +104,57 @@ export async function runOrganizationLifecycleAndTenantIsolation(ctx: Organizati
     assert.equal(parseBody(archivedInviteDeniedResponse.body).auditEvent.requestId, 'smoke-archived-invite-denied')
     assert.equal(parseBody(archivedInviteDeniedResponse.body).auditEvent.blockerCode, 'org_archived')
 
-    const archivedInviteResendDeniedResponse = await app.inject({
+    const archivedInviteResendDeniedResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/${organization.id}/invites/${bulkInviteWorkflow.results[1].inviteId}/actions`,
         headers: authHeaders('org_smoke_admin', 'admin-token'),
         payload: { action: 'resend', reason: 'Archived org should not resend invites.', requestId: 'smoke-archived-resend-denied' },
-    })
-    assert.equal(archivedInviteResendDeniedResponse.statusCode, 409, archivedInviteResendDeniedResponse.body)
+    }, 409)
     assert.equal(parseBody(archivedInviteResendDeniedResponse.body).lifecycleBlocker.code, 'org_archived')
     assert.equal(parseBody(archivedInviteResendDeniedResponse.body).lifecycleBlocker.action, 'resend invites')
 
-    const archivedRoleUpdateDeniedResponse = await app.inject({
+    const archivedRoleUpdateDeniedResponse = await apiRequest({
         method: 'PATCH',
         url: `/api/organizations/${organization.id}/members/org_smoke_viewer/role`,
         headers: authHeaders('org_smoke_owner', 'owner-token'),
         payload: { role: 'member', reason: 'Archived org should not change roles.', requestId: 'smoke-archived-role-denied' },
-    })
-    assert.equal(archivedRoleUpdateDeniedResponse.statusCode, 409, archivedRoleUpdateDeniedResponse.body)
+    }, 409)
     assert.equal(parseBody(archivedRoleUpdateDeniedResponse.body).lifecycleBlocker.code, 'org_archived')
     assert.equal(parseBody(archivedRoleUpdateDeniedResponse.body).lifecycleBlocker.action, 'change member roles')
 
-    const archivedOwnershipTransferDeniedResponse = await app.inject({
+    const archivedOwnershipTransferDeniedResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/${organization.id}/ownership-transfer`,
         headers: authHeaders('org_smoke_owner', 'owner-token'),
         payload: { targetUserId: 'org_smoke_admin', reason: 'Archived org should not transfer ownership.', requestId: 'smoke-archived-transfer-denied' },
-    })
-    assert.equal(archivedOwnershipTransferDeniedResponse.statusCode, 409, archivedOwnershipTransferDeniedResponse.body)
+    }, 409)
     assert.equal(parseBody(archivedOwnershipTransferDeniedResponse.body).lifecycleBlocker.code, 'org_archived')
     assert.equal(parseBody(archivedOwnershipTransferDeniedResponse.body).lifecycleBlocker.action, 'transfer ownership')
 
-    const archivedWatchlistCreateDeniedResponse = await app.inject({
+    const archivedWatchlistCreateDeniedResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/${organization.id}/watchlists`,
         headers: authHeaders('org_smoke_admin', 'admin-token'),
         payload: { kind: 'domain', value: 'archived-org.example', reason: 'Archived org should not add terms.', requestId: 'smoke-archived-watchlist-create-denied' },
-    })
-    assert.equal(archivedWatchlistCreateDeniedResponse.statusCode, 409, archivedWatchlistCreateDeniedResponse.body)
+    }, 409)
     assert.equal(parseBody(archivedWatchlistCreateDeniedResponse.body).lifecycleBlocker.code, 'org_archived')
     assert.equal(parseBody(archivedWatchlistCreateDeniedResponse.body).lifecycleBlocker.action, 'create shared watchlists')
 
-    const archivedWatchlistPauseDeniedResponse = await app.inject({
+    const archivedWatchlistPauseDeniedResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/${organization.id}/watchlists/${ownerWatchlistItem.id}/actions`,
         headers: authHeaders('org_smoke_owner', 'owner-token'),
         payload: { action: 'pause', reason: 'Archived org should not pause terms.', requestId: 'smoke-archived-watchlist-pause-denied' },
-    })
-    assert.equal(archivedWatchlistPauseDeniedResponse.statusCode, 409, archivedWatchlistPauseDeniedResponse.body)
+    }, 409)
     assert.equal(parseBody(archivedWatchlistPauseDeniedResponse.body).lifecycleBlocker.code, 'org_archived')
     assert.equal(parseBody(archivedWatchlistPauseDeniedResponse.body).lifecycleBlocker.action, 'pause shared watchlists')
 
-    const deleteOrganizationResponse = await app.inject({
+    const deleteOrganizationResponse = await apiRequest({
         method: 'PUT',
         url: `/api/organizations/${organization.id}/settings`,
         headers: authHeaders('org_smoke_owner', 'owner-token'),
         payload: { lifecycleStatus: 'deleted' },
-    })
-    assert.equal(deleteOrganizationResponse.statusCode, 200, deleteOrganizationResponse.body)
+    }, 200)
     const deletedOrganizationSettings = parseBody(deleteOrganizationResponse.body)
     assert.equal(deletedOrganizationSettings.organization.lifecycleStatus, 'deleted')
     assert.equal(deletedOrganizationSettings.settings.lifecycleStatus, 'deleted')
@@ -194,12 +184,11 @@ export async function runOrganizationLifecycleAndTenantIsolation(ctx: Organizati
     assert.ok(deletedOrganizationSettings.lifecycleReadiness.workspaceBoundaryProof.blockedWhenInactive.includes('POST /api/organizations/:id/ownership-transfer'))
     assert.equal(deletedOrganizationSettings.lifecycleReadiness.workspaceBoundaryProof.nonmemberEnumeration, false)
 
-    const deletedOrgAlertTermsResponse = await app.inject({
+    const deletedOrgAlertTermsResponse = await apiRequest({
         method: 'GET',
         url: `/api/organizations/${organization.id}/watchlists/alert-terms?requestId=smoke-deleted-org-alert-terms`,
         headers: authHeaders('org_smoke_admin', 'admin-token'),
-    })
-    assert.equal(deletedOrgAlertTermsResponse.statusCode, 200, deletedOrgAlertTermsResponse.body)
+    }, 200)
     const deletedOrgAlertTerms = parseBody(deletedOrgAlertTermsResponse.body).alertTermsExport
     assert.equal(deletedOrgAlertTerms.downstreamAuthorization.organizationLifecycleState, 'deleted')
     assert.equal(deletedOrgAlertTerms.downstreamAuthorization.downstream.alertGeneration.canExportActiveTerms, false)
@@ -209,12 +198,11 @@ export async function runOrganizationLifecycleAndTenantIsolation(ctx: Organizati
     assert.equal(deletedOrgAlertTerms.canGenerateAlerts, false)
     assert.ok(deletedOrgAlertTerms.alertBridgeContract.typedBlockers.some((blocker: Row) => blocker.code === 'org_deleted'))
 
-    const deletedOrgReadinessResponse = await app.inject({
+    const deletedOrgReadinessResponse = await apiRequest({
         method: 'GET',
         url: `/api/organizations/${organization.id}/alert-readiness`,
         headers: authHeaders('org_smoke_admin', 'admin-token'),
-    })
-    assert.equal(deletedOrgReadinessResponse.statusCode, 200, deletedOrgReadinessResponse.body)
+    }, 200)
     const deletedOrgReadiness = parseBody(deletedOrgReadinessResponse.body).alertReadiness
     assert.equal(deletedOrgReadiness.lifecycleReadiness.lifecycleStatus, 'deleted')
     assert.equal(deletedOrgReadiness.alertGenerationBridge.canGenerateAlerts, false)
@@ -231,12 +219,11 @@ export async function runOrganizationLifecycleAndTenantIsolation(ctx: Organizati
     assert.ok(deletedOrgReadiness.readinessProof.memberLifecycleProof.noLeakFields.includes('activeTerms[]'))
     assert.equal(deletedOrgReadiness.readinessProof.cleanupProof.cleanupIdempotent, true)
 
-    const deletedInviteAcceptDeniedResponse = await app.inject({
+    const deletedInviteAcceptDeniedResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/invites/${bulkInviteWorkflow.results[2].inviteId}/accept`,
         headers: authHeaders('org_smoke_outsider', 'outsider-token'),
-    })
-    assert.equal(deletedInviteAcceptDeniedResponse.statusCode, 409, deletedInviteAcceptDeniedResponse.body)
+    }, 409)
     const deletedInviteAcceptDenial = parseBody(deletedInviteAcceptDeniedResponse.body).inviteAcceptanceDenial
     assert.equal(deletedInviteAcceptDenial.schemaVersion, 'organization.invite_acceptance_denial.v1')
     assert.equal(deletedInviteAcceptDenial.organizationId, organization.id)
@@ -246,36 +233,33 @@ export async function runOrganizationLifecycleAndTenantIsolation(ctx: Organizati
     assert.equal(deletedInviteAcceptDenial.blockerCode, 'org_deleted')
     assert.equal(deletedInviteAcceptDenial.nonmemberEnumeration, false)
 
-    const deletedWatchlistCreateDeniedResponse = await app.inject({
+    const deletedWatchlistCreateDeniedResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/${organization.id}/watchlists`,
         headers: authHeaders('org_smoke_admin', 'admin-token'),
         payload: { kind: 'keyword', value: 'deleted org term', reason: 'Deleted org should not add terms.', requestId: 'smoke-deleted-watchlist-create-denied' },
-    })
-    assert.equal(deletedWatchlistCreateDeniedResponse.statusCode, 409, deletedWatchlistCreateDeniedResponse.body)
+    }, 409)
     assert.equal(parseBody(deletedWatchlistCreateDeniedResponse.body).lifecycleBlocker.code, 'org_deleted')
     assert.equal(parseBody(deletedWatchlistCreateDeniedResponse.body).lifecycleBlocker.action, 'create shared watchlists')
 
-    const deletedWatchlistResumeDeniedResponse = await app.inject({
+    const deletedWatchlistResumeDeniedResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/${organization.id}/watchlists/${ownerWatchlistItem.id}/actions`,
         headers: authHeaders('org_smoke_owner', 'owner-token'),
         payload: { action: 'resume', reason: 'Deleted org should not resume terms.', requestId: 'smoke-deleted-watchlist-resume-denied' },
-    })
-    assert.equal(deletedWatchlistResumeDeniedResponse.statusCode, 409, deletedWatchlistResumeDeniedResponse.body)
+    }, 409)
     assert.equal(parseBody(deletedWatchlistResumeDeniedResponse.body).lifecycleBlocker.code, 'org_deleted')
     assert.equal(parseBody(deletedWatchlistResumeDeniedResponse.body).lifecycleBlocker.action, 'resume shared watchlists')
     assert.equal(parseBody(deletedWatchlistResumeDeniedResponse.body).auditEvent.serviceLogAction, 'organization_lifecycle_mutation_blocked')
     assert.equal(parseBody(deletedWatchlistResumeDeniedResponse.body).auditEvent.requestId, 'smoke-deleted-watchlist-resume-denied')
     assert.equal(parseBody(deletedWatchlistResumeDeniedResponse.body).auditEvent.blockerCode, 'org_deleted')
 
-    const reactivateOrganizationResponse = await app.inject({
+    const reactivateOrganizationResponse = await apiRequest({
         method: 'PUT',
         url: `/api/organizations/${organization.id}/settings`,
         headers: authHeaders('org_smoke_owner', 'owner-token'),
         payload: { lifecycle_status: 'active' },
-    })
-    assert.equal(reactivateOrganizationResponse.statusCode, 200, reactivateOrganizationResponse.body)
+    }, 200)
     assert.equal(parseBody(reactivateOrganizationResponse.body).organization.lifecycleStatus, 'active')
     assert.equal(parseBody(reactivateOrganizationResponse.body).lifecycleReadiness.lifecycleStatus, 'active')
     assert.deepEqual(parseBody(reactivateOrganizationResponse.body).lifecycleReadiness.typedBlockers, [])
@@ -289,33 +273,30 @@ export async function runOrganizationLifecycleAndTenantIsolation(ctx: Organizati
     assert.equal(parseBody(reactivateOrganizationResponse.body).settingsMutationReceipt.downstreamReadiness.webhookDeliveryReady, true)
     assert.equal(parseBody(reactivateOrganizationResponse.body).settingsMutationReceipt.destinationReadiness.deliveryBlockedByLifecycle, false)
 
-    const secondOrganizationResponse = await app.inject({
+    const secondOrganizationResponse = await apiRequest({
         method: 'POST',
         url: '/api/organizations',
         headers: authHeaders('org_smoke_owner', 'owner-token'),
         payload: { name: 'Smoke Overlap Tenant' },
-    })
-    assert.equal(secondOrganizationResponse.statusCode, 201, secondOrganizationResponse.body)
+    }, 201)
     const secondOrganization = parseBody(secondOrganizationResponse.body).organization
     assert.notEqual(secondOrganization.id, organization.id)
 
-    const secondOrgWatchlistResponse = await app.inject({
+    const secondOrgWatchlistResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/${secondOrganization.id}/watchlists`,
         headers: authHeaders('org_smoke_owner', 'owner-token'),
         payload: { kind: 'domain', value: 'acme-shared.example', notes: 'Overlapping domain in separate tenant.', requestId: 'smoke-overlap-domain-second-org' },
-    })
-    assert.equal(secondOrgWatchlistResponse.statusCode, 201, secondOrgWatchlistResponse.body)
+    }, 201)
     const secondOrgWatchlistItem = parseBody(secondOrgWatchlistResponse.body).watchlistItem
     assert.equal(secondOrgWatchlistItem.organizationId, secondOrganization.id)
     assert.equal(secondOrgWatchlistItem.value, 'acme-shared.example')
 
-    const secondOrgAlertTermsResponse = await app.inject({
+    const secondOrgAlertTermsResponse = await apiRequest({
         method: 'GET',
         url: `/api/organizations/${secondOrganization.id}/watchlists/alert-terms?requestId=smoke-overlap-second-org-export`,
         headers: authHeaders('org_smoke_owner', 'owner-token'),
-    })
-    assert.equal(secondOrgAlertTermsResponse.statusCode, 200, secondOrgAlertTermsResponse.body)
+    }, 200)
     const secondOrgAlertTermsExport = parseBody(secondOrgAlertTermsResponse.body).alertTermsExport
     assertOrganizationTenantIdentity(secondOrgAlertTermsExport, secondOrganization.id)
     assert.equal(secondOrgAlertTermsExport.member.role, 'owner')
@@ -556,12 +537,11 @@ export async function runOrganizationLifecycleAndTenantIsolation(ctx: Organizati
     assert.ok(secondOrgAlertTermsExport.sharedWatchlistAlertQueueVisibility.redactedFields.includes('activeTerms[].term'))
     assert.deepEqual(secondOrgAlertTermsExport.sharedWatchlistAlertQueueVisibility.blockerCodes, [])
 
-    const secondOrgAlertCaseVisibilityResponse = await app.inject({
+    const secondOrgAlertCaseVisibilityResponse = await apiRequest({
         method: 'GET',
         url: `/api/organizations/${secondOrganization.id}/alert-case-visibility`,
         headers: authHeaders('org_smoke_owner', 'owner-token'),
-    })
-    assert.equal(secondOrgAlertCaseVisibilityResponse.statusCode, 200, secondOrgAlertCaseVisibilityResponse.body)
+    }, 200)
     const secondOrgAlertCaseVisibility = parseBody(secondOrgAlertCaseVisibilityResponse.body).alertCaseVisibility
     assert.equal(secondOrgAlertCaseVisibility.schemaVersion, 'organization.alert_case_visibility.v1')
     assertOrganizationTenantIdentity(secondOrgAlertCaseVisibility, secondOrganization.id)
@@ -595,23 +575,21 @@ export async function runOrganizationLifecycleAndTenantIsolation(ctx: Organizati
     assert.equal(secondOrgAlertCaseVisibility.guardrails.nonmemberEnumeration, false)
     assert.ok(secondOrgAlertCaseVisibility.guardrails.noLeakFields.includes('otherOrg.watchlistItemIds'))
 
-    const secondOrgListResponse = await app.inject({
+    const secondOrgListResponse = await apiRequest({
         method: 'GET',
         url: `/api/organizations/${secondOrganization.id}/watchlists`,
         headers: authHeaders('org_smoke_owner', 'owner-token'),
-    })
-    assert.equal(secondOrgListResponse.statusCode, 200, secondOrgListResponse.body)
+    }, 200)
     assert.deepEqual(parseBody(secondOrgListResponse.body).watchlistItems.map((item: Row) => item.organizationId), [secondOrganization.id])
     assert.deepEqual(parseBody(secondOrgListResponse.body).watchlistItems.map((item: Row) => item.id), [secondOrgWatchlistItem.id])
     assert.deepEqual(parseBody(secondOrgListResponse.body).watchlistItems.map((item: Row) => item.enabled), [true])
     assert.deepEqual(parseBody(secondOrgListResponse.body).watchlistItems.map((item: Row) => item.disabledReason), [null])
 
-    const wrongOrgWatchlistReadResponse = await app.inject({
+    const wrongOrgWatchlistReadResponse = await apiRequest({
         method: 'GET',
         url: `/api/organizations/${secondOrganization.id}/watchlists/${ownerWatchlistItem.id}`,
         headers: authHeaders('org_smoke_owner', 'owner-token'),
-    })
-    assert.equal(wrongOrgWatchlistReadResponse.statusCode, 404, wrongOrgWatchlistReadResponse.body)
+    }, 404)
     const wrongOrgWatchlistReadDenied = parseBody(wrongOrgWatchlistReadResponse.body).watchlistLookupDenial
     assert.equal(wrongOrgWatchlistReadDenied.schemaVersion, 'organization.watchlist_lookup_denial.v1')
     assertOrganizationTenantIdentity(wrongOrgWatchlistReadDenied, secondOrganization.id)
@@ -636,13 +614,12 @@ export async function runOrganizationLifecycleAndTenantIsolation(ctx: Organizati
     assert.ok(wrongOrgWatchlistReadDenied.noLeakFields.includes('otherOrg.webhookDestinationIds'))
     assert.ok(wrongOrgWatchlistReadDenied.noLeakFields.includes('otherOrg.caseIds'))
 
-    const wrongOrgWatchlistUpdateResponse = await app.inject({
+    const wrongOrgWatchlistUpdateResponse = await apiRequest({
         method: 'PUT',
         url: `/api/organizations/${secondOrganization.id}/watchlists/${ownerWatchlistItem.id}`,
         headers: authHeaders('org_smoke_owner', 'owner-token'),
         payload: { kind: 'domain', value: 'wrong-org-update.example', reason: 'Wrong org item mutation must not enumerate.', requestId: 'smoke-wrong-org-watchlist-update-denied' },
-    })
-    assert.equal(wrongOrgWatchlistUpdateResponse.statusCode, 404, wrongOrgWatchlistUpdateResponse.body)
+    }, 404)
     const wrongOrgWatchlistUpdateDenied = parseBody(wrongOrgWatchlistUpdateResponse.body).watchlistLookupDenial
     assert.equal(wrongOrgWatchlistUpdateDenied.schemaVersion, 'organization.watchlist_lookup_denial.v1')
     assertOrganizationTenantIdentity(wrongOrgWatchlistUpdateDenied, secondOrganization.id)

@@ -2,35 +2,32 @@ import assert from 'node:assert/strict'
 import type { OrganizationApiSmokeContext, OrganizationSmokeJourney, Row } from './harness.ts'
 
 export async function runWatchlistCleanupAndRestore(ctx: OrganizationApiSmokeContext, journey: OrganizationSmokeJourney): Promise<void> {
-    const { app, authHeaders, parseBody, assertOrganizationTenantIdentity } = ctx
+    const { apiRequest, authHeaders, parseBody, assertOrganizationTenantIdentity } = ctx
     const { organization } = journey
     const actorWatchlistItem = journey.actorWatchlistItem!
 
-    const cleanupCompanyResponse = await app.inject({
+    const cleanupCompanyResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/${organization.id}/watchlists`,
         headers: authHeaders('org_smoke_owner', 'owner-token'),
         payload: { kind: 'company', value: 'Live Proof Cleanup Holdings', reason: 'Disposable proof cleanup fixture.', requestId: 'smoke-cleanup-create-company' },
-    })
-    assert.equal(cleanupCompanyResponse.statusCode, 201, cleanupCompanyResponse.body)
+    }, 201)
     const cleanupCompanyItem = parseBody(cleanupCompanyResponse.body).watchlistItem
 
-    const cleanupKeywordResponse = await app.inject({
+    const cleanupKeywordResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/${organization.id}/watchlists`,
         headers: authHeaders('org_smoke_admin', 'admin-token'),
         payload: { kind: 'keyword', value: 'Live Proof Cleanup Phrase', reason: 'Disposable proof cleanup fixture.', requestId: 'smoke-cleanup-create-keyword' },
-    })
-    assert.equal(cleanupKeywordResponse.statusCode, 201, cleanupKeywordResponse.body)
+    }, 201)
     const cleanupKeywordItem = parseBody(cleanupKeywordResponse.body).watchlistItem
 
-    const memberCleanupDeniedResponse = await app.inject({
+    const memberCleanupDeniedResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/${organization.id}/watchlists/cleanup`,
         headers: authHeaders('org_smoke_member', 'member-token'),
         payload: { itemIds: [cleanupCompanyItem.id], reason: 'Member cleanup denied.', requestId: 'smoke-member-cleanup-denied' },
-    })
-    assert.equal(memberCleanupDeniedResponse.statusCode, 403, memberCleanupDeniedResponse.body)
+    }, 403)
     const memberCleanupDenied = parseBody(memberCleanupDeniedResponse.body).watchlistMutationDenial
     assert.equal(memberCleanupDenied.schemaVersion, 'organization.watchlist_mutation_denial.v1')
     assertOrganizationTenantIdentity(memberCleanupDenied, organization.id)
@@ -55,12 +52,11 @@ export async function runWatchlistCleanupAndRestore(ctx: OrganizationApiSmokeCon
     assert.equal(memberCleanupDenied.reason, 'Member cleanup denied.')
     assert.equal(memberCleanupDenied.proofCommand, 'cd api && bun scripts/smoke-organizations-api.ts')
 
-    const cleanupBeforeArchiveExportResponse = await app.inject({
+    const cleanupBeforeArchiveExportResponse = await apiRequest({
         method: 'GET',
         url: `/api/organizations/${organization.id}/watchlists/alert-terms?requestId=smoke-cleanup-export-before`,
         headers: authHeaders('org_smoke_admin', 'admin-token'),
-    })
-    assert.equal(cleanupBeforeArchiveExportResponse.statusCode, 200, cleanupBeforeArchiveExportResponse.body)
+    }, 200)
     const cleanupBeforeArchiveExport = parseBody(cleanupBeforeArchiveExportResponse.body).alertTermsExport
     assert.ok(cleanupBeforeArchiveExport.activeTerms.some((term: Row) => term.watchlistItemId === cleanupCompanyItem.id))
     assert.ok(cleanupBeforeArchiveExport.activeTerms.some((term: Row) => term.watchlistItemId === cleanupKeywordItem.id))
@@ -69,7 +65,7 @@ export async function runWatchlistCleanupAndRestore(ctx: OrganizationApiSmokeCon
     assert.equal(cleanupCompanyExportTerm.alertGenerationRef.lifecycle.requestId, 'smoke-cleanup-create-company')
     assert.equal(cleanupCompanyExportTerm.alertGenerationRef.dedupe.parts.normalizedTerm, 'live proof cleanup holdings')
 
-    const cleanupArchiveResponse = await app.inject({
+    const cleanupArchiveResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/${organization.id}/watchlists/cleanup`,
         headers: authHeaders('org_smoke_owner', 'owner-token'),
@@ -78,8 +74,7 @@ export async function runWatchlistCleanupAndRestore(ctx: OrganizationApiSmokeCon
             reason: 'Archive disposable live proof watchlists.',
             requestId: 'smoke-proof-cleanup',
         },
-    })
-    assert.equal(cleanupArchiveResponse.statusCode, 200, cleanupArchiveResponse.body)
+    }, 200)
     const cleanupArchive = parseBody(cleanupArchiveResponse.body).cleanup
     assert.equal(cleanupArchive.schemaVersion, 'organization.watchlist_cleanup.v1')
     assert.equal(cleanupArchive.organizationId, organization.id)
@@ -93,33 +88,30 @@ export async function runWatchlistCleanupAndRestore(ctx: OrganizationApiSmokeCon
     assert.equal(cleanupArchive.serviceLogAction, 'organization_watchlist_cleanup_archived')
     assert.equal(parseBody(cleanupArchiveResponse.body).archivedItems[0].status, 'archived')
 
-    const cleanupArchiveRepeatResponse = await app.inject({
+    const cleanupArchiveRepeatResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/${organization.id}/watchlists/cleanup`,
         headers: authHeaders('org_smoke_admin', 'admin-token'),
         payload: { item_ids: [cleanupCompanyItem.id], reason: 'Repeat cleanup should be safe.', request_id: 'smoke-proof-cleanup-repeat' },
-    })
-    assert.equal(cleanupArchiveRepeatResponse.statusCode, 200, cleanupArchiveRepeatResponse.body)
+    }, 200)
     assert.equal(parseBody(cleanupArchiveRepeatResponse.body).cleanup.archivedCount, 0)
     assert.deepEqual(parseBody(cleanupArchiveRepeatResponse.body).cleanup.skippedItemIds, [cleanupCompanyItem.id])
     assert.equal(parseBody(cleanupArchiveRepeatResponse.body).cleanup.requestId, 'smoke-proof-cleanup-repeat')
 
-    const cleanupArchivedListResponse = await app.inject({
+    const cleanupArchivedListResponse = await apiRequest({
         method: 'GET',
         url: `/api/organizations/${organization.id}/watchlists?status=archived`,
         headers: authHeaders('org_smoke_member', 'member-token'),
-    })
-    assert.equal(cleanupArchivedListResponse.statusCode, 200, cleanupArchivedListResponse.body)
+    }, 200)
     const cleanupArchivedIds = parseBody(cleanupArchivedListResponse.body).watchlistItems.map((item: Row) => item.id)
     assert.ok(cleanupArchivedIds.includes(cleanupCompanyItem.id))
     assert.ok(cleanupArchivedIds.includes(cleanupKeywordItem.id))
 
-    const cleanupAfterArchiveExportResponse = await app.inject({
+    const cleanupAfterArchiveExportResponse = await apiRequest({
         method: 'GET',
         url: `/api/organizations/${organization.id}/watchlists/alert-terms?requestId=smoke-cleanup-export-after`,
         headers: authHeaders('org_smoke_admin', 'admin-token'),
-    })
-    assert.equal(cleanupAfterArchiveExportResponse.statusCode, 200, cleanupAfterArchiveExportResponse.body)
+    }, 200)
     const cleanupAfterArchiveExport = parseBody(cleanupAfterArchiveExportResponse.body).alertTermsExport
     assert.ok(!cleanupAfterArchiveExport.activeTerms.some((term: Row) => term.watchlistItemId === cleanupCompanyItem.id))
     assert.ok(!cleanupAfterArchiveExport.activeTerms.some((term: Row) => term.watchlistItemId === cleanupKeywordItem.id))
@@ -158,13 +150,12 @@ export async function runWatchlistCleanupAndRestore(ctx: OrganizationApiSmokeCon
     assert.deepEqual(cleanupAfterArchiveExport.alertBridgeContract.alertCaseProof.roleActionContract.roleGates.restore_watchlist, ['owner', 'admin', 'editor'])
     assert.equal(cleanupAfterArchiveExport.alertBridgeContract.alertCaseProof.roleActionContract.lifecycleDenials.archivedWatchlist, 'watchlist_archived')
 
-    const restoreArchivedWatchlistResponse = await app.inject({
+    const restoreArchivedWatchlistResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/${organization.id}/watchlists/${cleanupKeywordItem.id}/actions`,
         headers: authHeaders('org_smoke_admin', 'admin-token'),
         payload: { action: 'restore', reason: 'Restore after cleanup proof.', requestId: 'smoke-restore-cleanup-keyword' },
-    })
-    assert.equal(restoreArchivedWatchlistResponse.statusCode, 200, restoreArchivedWatchlistResponse.body)
+    }, 200)
     assert.equal(parseBody(restoreArchivedWatchlistResponse.body).watchlistItem.status, 'active')
     assert.equal(parseBody(restoreArchivedWatchlistResponse.body).watchlistItem.archivedAt, null)
     assert.equal(parseBody(restoreArchivedWatchlistResponse.body).watchlistItem.enabled, true)
@@ -184,12 +175,11 @@ export async function runWatchlistCleanupAndRestore(ctx: OrganizationApiSmokeCon
     assert.equal(parseBody(restoreArchivedWatchlistResponse.body).operation.downstreamLifecycleReceipt.lifecycleCleanup.cleanupRequired, false)
     assert.equal(parseBody(restoreArchivedWatchlistResponse.body).operation.downstreamLifecycleReceipt.lifecycleCleanup.noCrossOrgLeakage, true)
 
-    const restoredExportResponse = await app.inject({
+    const restoredExportResponse = await apiRequest({
         method: 'GET',
         url: `/api/organizations/${organization.id}/watchlists/alert-terms?requestId=smoke-restored-export`,
         headers: authHeaders('org_smoke_admin', 'admin-token'),
-    })
-    assert.equal(restoredExportResponse.statusCode, 200, restoredExportResponse.body)
+    }, 200)
     const restoredExport = parseBody(restoredExportResponse.body).alertTermsExport
     assert.ok(restoredExport.activeTerms.some((term: Row) => term.watchlistItemId === cleanupKeywordItem.id))
     assert.equal(restoredExport.activeTerms.find((term: Row) => term.watchlistItemId === cleanupKeywordItem.id).alertGenerationRef.lifecycle.requestId, 'smoke-restore-cleanup-keyword')

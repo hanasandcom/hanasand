@@ -2,15 +2,14 @@ import assert from 'node:assert/strict'
 import type { OrganizationApiSmokeContext, OrganizationSmokeJourney, Row } from './harness.ts'
 
 export async function runAlertTermsExport(ctx: OrganizationApiSmokeContext, journey: OrganizationSmokeJourney): Promise<void> {
-    const { app, orgUtils, authHeaders, parseBody, assertOrganizationTenantIdentity } = ctx
+    const { apiRequest, orgUtils, authHeaders, parseBody, assertOrganizationTenantIdentity } = ctx
     const { organization } = journey
 
-    const alertTermsResponse = await app.inject({
+    const alertTermsResponse = await apiRequest({
         method: 'GET',
         url: `/api/organizations/${organization.id}/watchlists/alert-terms?request_id=smoke-alert-terms-ready`,
         headers: authHeaders('org_smoke_admin', 'admin-token'),
-    })
-    assert.equal(alertTermsResponse.statusCode, 200, alertTermsResponse.body)
+    }, 200)
     const alertTermsExport = journey.alertTermsExport = parseBody(alertTermsResponse.body).alertTermsExport
     assert.equal(alertTermsExport.schemaVersion, 'organization.watchlist_alert_terms_export.v1')
     assertOrganizationTenantIdentity(alertTermsExport, organization.id)

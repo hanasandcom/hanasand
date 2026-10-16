@@ -2,25 +2,23 @@ import assert from 'node:assert/strict'
 import type { OrganizationApiSmokeContext, OrganizationSmokeJourney, Row } from './harness.ts'
 
 export async function runInviteLifecycle(ctx: OrganizationApiSmokeContext, journey: OrganizationSmokeJourney): Promise<void> {
-    const { app, invites, authHeaders, parseBody, assertOrganizationTenantIdentity, nowRow } = ctx
+    const { apiRequest, invites, authHeaders, parseBody, assertOrganizationTenantIdentity, nowRow } = ctx
     const { organization, invite } = journey
 
-    const pendingOpsInviteResponse = await app.inject({
+    const pendingOpsInviteResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/${organization.id}/invites`,
         headers: authHeaders('org_smoke_admin', 'admin-token'),
         payload: { email: 'pending-ops@example.test', role: 'viewer' },
-    })
-    assert.equal(pendingOpsInviteResponse.statusCode, 201, pendingOpsInviteResponse.body)
+    }, 201)
     const pendingOpsInvite = journey.pendingOpsInvite = parseBody(pendingOpsInviteResponse.body).invites[0]
 
-    const viewerRevokeInviteDeniedResponse = await app.inject({
+    const viewerRevokeInviteDeniedResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/${organization.id}/invites/${pendingOpsInvite.id}/actions`,
         headers: authHeaders('org_smoke_viewer', 'viewer-token'),
         payload: { action: 'revoke', reason: 'Viewer cannot revoke invites.', requestId: 'smoke-viewer-revoke-denied' },
-    })
-    assert.equal(viewerRevokeInviteDeniedResponse.statusCode, 403, viewerRevokeInviteDeniedResponse.body)
+    }, 403)
     const viewerRevokeInviteDenied = parseBody(viewerRevokeInviteDeniedResponse.body).inviteManagementDenial
     assert.equal(viewerRevokeInviteDenied.schemaVersion, 'organization.invite_management_denial.v1')
     assertOrganizationTenantIdentity(viewerRevokeInviteDenied, organization.id)
@@ -41,13 +39,12 @@ export async function runInviteLifecycle(ctx: OrganizationApiSmokeContext, journ
     assert.equal(viewerRevokeInviteDenied.reason, 'Viewer cannot revoke invites.')
     assert.equal(viewerRevokeInviteDenied.proofCommand, 'cd api && bun scripts/smoke-organizations-api.ts')
 
-    const revokePendingInviteResponse = await app.inject({
+    const revokePendingInviteResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/${organization.id}/invites/${pendingOpsInvite.id}/actions`,
         headers: authHeaders('org_smoke_admin', 'admin-token'),
         payload: { action: 'revoke', reason: 'Duplicate operator invite cleanup.', requestId: 'smoke-revoke-pending-ops' },
-    })
-    assert.equal(revokePendingInviteResponse.statusCode, 200, revokePendingInviteResponse.body)
+    }, 200)
     const revokedInviteAction = parseBody(revokePendingInviteResponse.body).inviteAction
     assert.equal(revokedInviteAction.schemaVersion, 'organization.invite_action.v1')
     assertOrganizationTenantIdentity(revokedInviteAction, organization.id)
@@ -88,13 +85,12 @@ export async function runInviteLifecycle(ctx: OrganizationApiSmokeContext, journ
     assert.equal(revokedInviteAction.downstreamReadinessReceipt.lifecycleCleanup.noCrossOrgLeakage, true)
     assert.ok(revokedInviteAction.downstreamReadinessReceipt.noLeakFields.includes('otherOrg.watchlistItemIds'))
 
-    const revokePendingInviteRepeatResponse = await app.inject({
+    const revokePendingInviteRepeatResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/${organization.id}/invites/${pendingOpsInvite.id}/actions`,
         headers: authHeaders('org_smoke_admin', 'admin-token'),
         payload: { action: 'revoke', reason: 'Repeat revoke should be safe.', requestId: 'smoke-revoke-pending-ops-repeat' },
-    })
-    assert.equal(revokePendingInviteRepeatResponse.statusCode, 200, revokePendingInviteRepeatResponse.body)
+    }, 200)
     const repeatRevokedInviteAction = parseBody(revokePendingInviteRepeatResponse.body).inviteAction
     assert.equal(repeatRevokedInviteAction.previousStatus, 'revoked')
     assert.equal(repeatRevokedInviteAction.status, 'revoked')
@@ -102,12 +98,11 @@ export async function runInviteLifecycle(ctx: OrganizationApiSmokeContext, journ
     assert.equal(repeatRevokedInviteAction.consumerVisibilityReceipt.grantsConsumerAccess, false)
     assert.equal(repeatRevokedInviteAction.consumerVisibilityReceipt.blockerCode, 'member_revoked')
 
-    const revokedInviteAcceptResponse = await app.inject({
+    const revokedInviteAcceptResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/invites/${pendingOpsInvite.id}/accept`,
         headers: authHeaders('org_smoke_outsider', 'outsider-token'),
-    })
-    assert.equal(revokedInviteAcceptResponse.statusCode, 409, revokedInviteAcceptResponse.body)
+    }, 409)
     const revokedInviteAcceptDenial = parseBody(revokedInviteAcceptResponse.body).inviteAcceptanceDenial
     assert.equal(revokedInviteAcceptDenial.schemaVersion, 'organization.invite_acceptance_denial.v1')
     assert.equal(revokedInviteAcceptDenial.organizationId, organization.id)
@@ -124,7 +119,7 @@ export async function runInviteLifecycle(ctx: OrganizationApiSmokeContext, journ
     assert.equal(revokedInviteAcceptDenial.accessRequiresAcceptedMembership, true)
     assert.equal(revokedInviteAcceptDenial.nonmemberEnumeration, false)
 
-    const resendPendingInviteResponse = await app.inject({
+    const resendPendingInviteResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/${organization.id}/invites/${pendingOpsInvite.id}/actions`,
         headers: authHeaders('org_smoke_owner', 'owner-token'),
@@ -134,8 +129,7 @@ export async function runInviteLifecycle(ctx: OrganizationApiSmokeContext, journ
             requestId: 'smoke-resend-pending-ops',
             expiresAt: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
         },
-    })
-    assert.equal(resendPendingInviteResponse.statusCode, 200, resendPendingInviteResponse.body)
+    }, 200)
     const resentInviteAction = parseBody(resendPendingInviteResponse.body).inviteAction
     assert.equal(resentInviteAction.action, 'resend')
     assert.equal(resentInviteAction.previousStatus, 'revoked')
@@ -153,7 +147,7 @@ export async function runInviteLifecycle(ctx: OrganizationApiSmokeContext, journ
     assert.equal(resentInviteAction.downstreamReadinessReceipt.destinationReadiness.nonmemberDestinationEnumeration, false)
     assert.equal(parseBody(resendPendingInviteResponse.body).invite.acceptancePath, `/api/organizations/invites/${pendingOpsInvite.id}/accept`)
 
-    const resendPendingInviteRepeatResponse = await app.inject({
+    const resendPendingInviteRepeatResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/${organization.id}/invites/${pendingOpsInvite.id}/actions`,
         headers: authHeaders('org_smoke_owner', 'owner-token'),
@@ -162,20 +156,18 @@ export async function runInviteLifecycle(ctx: OrganizationApiSmokeContext, journ
             reason: 'Repeat resend should keep access pending.',
             requestId: 'smoke-resend-pending-ops-repeat',
         },
-    })
-    assert.equal(resendPendingInviteRepeatResponse.statusCode, 200, resendPendingInviteRepeatResponse.body)
+    }, 200)
     const repeatResentInviteAction = parseBody(resendPendingInviteRepeatResponse.body).inviteAction
     assert.equal(repeatResentInviteAction.previousStatus, 'pending')
     assert.equal(repeatResentInviteAction.status, 'pending')
     assert.equal(repeatResentInviteAction.requestId, 'smoke-resend-pending-ops-repeat')
 
-    const acceptedInviteRevokeResponse = await app.inject({
+    const acceptedInviteRevokeResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/${organization.id}/invites/${invite.id}/actions`,
         headers: authHeaders('org_smoke_owner', 'owner-token'),
         payload: { action: 'revoke', reason: 'Accepted invites must be member-managed.', requestId: 'smoke-accepted-revoke-denied' },
-    })
-    assert.equal(acceptedInviteRevokeResponse.statusCode, 409, acceptedInviteRevokeResponse.body)
+    }, 409)
     const acceptedInviteActionDenial = parseBody(acceptedInviteRevokeResponse.body).inviteActionDenial
     assert.equal(acceptedInviteActionDenial.schemaVersion, 'organization.invite_action_denial.v1')
     assertOrganizationTenantIdentity(acceptedInviteActionDenial, organization.id)
@@ -199,7 +191,7 @@ export async function runInviteLifecycle(ctx: OrganizationApiSmokeContext, journ
     assert.equal(acceptedInviteActionDenial.proofCommand, 'cd api && bun scripts/smoke-organizations-api.ts')
 
     const bulkEmails = Array.from({ length: 10 }, (_, index) => `bulk-${index + 1}@example.test`)
-    const bulkInviteResponse = await app.inject({
+    const bulkInviteResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/${organization.id}/invites`,
         headers: authHeaders('org_smoke_admin', 'admin-token'),
@@ -209,8 +201,7 @@ export async function runInviteLifecycle(ctx: OrganizationApiSmokeContext, journ
             requestId: 'smoke-bulk-10',
             expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
         },
-    })
-    assert.equal(bulkInviteResponse.statusCode, 201, bulkInviteResponse.body)
+    }, 201)
     const bulkInviteWorkflow = journey.bulkInviteWorkflow = parseBody(bulkInviteResponse.body).workflow
     assert.equal(bulkInviteWorkflow.schemaVersion, 'organization.bulk_invite.v1')
     assert.equal(bulkInviteWorkflow.requestId, 'smoke-bulk-10')
@@ -227,25 +218,23 @@ export async function runInviteLifecycle(ctx: OrganizationApiSmokeContext, journ
     assert.ok(bulkInviteWorkflow.results.every((result: Row) => result.acceptanceToken === result.inviteId))
     assert.ok(bulkInviteWorkflow.results.every((result: Row) => result.acceptancePath === `/api/organizations/invites/${result.inviteId}/accept`))
 
-    const duplicateBulkInviteResponse = await app.inject({
+    const duplicateBulkInviteResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/${organization.id}/invites`,
         headers: authHeaders('org_smoke_admin', 'admin-token'),
         payload: { email: bulkEmails[0], role: 'viewer', request_id: 'smoke-duplicate-bulk' },
-    })
-    assert.equal(duplicateBulkInviteResponse.statusCode, 201, duplicateBulkInviteResponse.body)
+    }, 201)
     const duplicateInviteWorkflow = parseBody(duplicateBulkInviteResponse.body).workflow
     assert.equal(duplicateInviteWorkflow.duplicateInviteCount, 1)
     assert.equal(duplicateInviteWorkflow.results[0].outcome, 'updated_pending_invite')
     assert.equal(duplicateInviteWorkflow.results[0].email, bulkEmails[0])
 
-    const deactivatedInviteResponse = await app.inject({
+    const deactivatedInviteResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/${organization.id}/invites`,
         headers: authHeaders('org_smoke_admin', 'admin-token'),
         payload: { email: 'deactivated@example.test', role: 'member', requestId: 'smoke-deactivated-invite' },
-    })
-    assert.equal(deactivatedInviteResponse.statusCode, 201, deactivatedInviteResponse.body)
+    }, 201)
     const deactivatedWorkflow = parseBody(deactivatedInviteResponse.body).workflow
     assert.equal(deactivatedWorkflow.invitedCount, 0)
     assert.equal(deactivatedWorkflow.skippedCount, 1)
@@ -263,12 +252,11 @@ export async function runInviteLifecycle(ctx: OrganizationApiSmokeContext, journ
         expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
     })
     invites.set(staleDeactivatedInvite.id, staleDeactivatedInvite)
-    const staleDeactivatedAcceptResponse = await app.inject({
+    const staleDeactivatedAcceptResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/invites/${staleDeactivatedInvite.id}/accept`,
         headers: authHeaders('org_smoke_deactivated', 'deactivated-token'),
-    })
-    assert.equal(staleDeactivatedAcceptResponse.statusCode, 409, staleDeactivatedAcceptResponse.body)
+    }, 409)
     const staleDeactivatedAcceptDenial = parseBody(staleDeactivatedAcceptResponse.body).inviteAcceptanceDenial
     assert.equal(staleDeactivatedAcceptDenial.schemaVersion, 'organization.invite_acceptance_denial.v1')
     assert.equal(staleDeactivatedAcceptDenial.organizationId, organization.id)
@@ -292,12 +280,11 @@ export async function runInviteLifecycle(ctx: OrganizationApiSmokeContext, journ
         expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
     })
     invites.set(unknownUserInvite.id, unknownUserInvite)
-    const unknownUserAcceptResponse = await app.inject({
+    const unknownUserAcceptResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/invites/${unknownUserInvite.id}/accept`,
         headers: authHeaders('org_smoke_unknown', 'unknown-token'),
-    })
-    assert.equal(unknownUserAcceptResponse.statusCode, 409, unknownUserAcceptResponse.body)
+    }, 409)
     const unknownUserAcceptDenial = parseBody(unknownUserAcceptResponse.body).inviteAcceptanceDenial
     assert.equal(unknownUserAcceptDenial.inviteStatus, 'pending')
     assert.equal(unknownUserAcceptDenial.userActive, null)
@@ -317,12 +304,11 @@ export async function runInviteLifecycle(ctx: OrganizationApiSmokeContext, journ
         expires_at: new Date(Date.now() - 60_000).toISOString(),
     })
     invites.set(expiredInvite.id, expiredInvite)
-    const expiredAcceptResponse = await app.inject({
+    const expiredAcceptResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/invites/${expiredInvite.id}/accept`,
         headers: authHeaders('org_smoke_expired', 'expired-token'),
-    })
-    assert.equal(expiredAcceptResponse.statusCode, 409, expiredAcceptResponse.body)
+    }, 409)
     const expiredAcceptDenial = parseBody(expiredAcceptResponse.body).inviteAcceptanceDenial
     assert.equal(expiredAcceptDenial.schemaVersion, 'organization.invite_acceptance_denial.v1')
     assert.equal(expiredAcceptDenial.organizationId, organization.id)

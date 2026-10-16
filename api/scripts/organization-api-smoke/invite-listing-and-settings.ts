@@ -2,15 +2,14 @@ import assert from 'node:assert/strict'
 import type { OrganizationApiSmokeContext, OrganizationSmokeJourney, Row } from './harness.ts'
 
 export async function runInviteListingAndSettings(ctx: OrganizationApiSmokeContext, journey: OrganizationSmokeJourney): Promise<void> {
-    const { app, authHeaders, parseBody, assertOrganizationTenantIdentity } = ctx
+    const { apiRequest, authHeaders, parseBody, assertOrganizationTenantIdentity } = ctx
     const { organization } = journey
 
-    const pendingInvitesResponse = await app.inject({
+    const pendingInvitesResponse = await apiRequest({
         method: 'GET',
         url: `/api/organizations/${organization.id}/invites`,
         headers: authHeaders('org_smoke_owner', 'owner-token'),
-    })
-    assert.equal(pendingInvitesResponse.statusCode, 200, pendingInvitesResponse.body)
+    }, 200)
     const emptyPendingInvitesBody = parseBody(pendingInvitesResponse.body)
     assert.deepEqual(emptyPendingInvitesBody.invites, [])
     assert.equal(emptyPendingInvitesBody.inviteLifecycleContract.schemaVersion, 'organization.invite_list_contract.v1')
@@ -25,12 +24,11 @@ export async function runInviteListingAndSettings(ctx: OrganizationApiSmokeConte
     assert.ok(emptyPendingInvitesBody.inviteLifecycleContract.audit.eventActions.includes('organization_invite_resent'))
     assert.ok(emptyPendingInvitesBody.inviteLifecycleContract.noLeakFields.includes('otherOrg.invites'))
 
-    const memberListInvitesDeniedResponse = await app.inject({
+    const memberListInvitesDeniedResponse = await apiRequest({
         method: 'GET',
         url: `/api/organizations/${organization.id}/invites?requestId=smoke-member-invite-list-denied`,
         headers: authHeaders('org_smoke_member', 'member-token'),
-    })
-    assert.equal(memberListInvitesDeniedResponse.statusCode, 403, memberListInvitesDeniedResponse.body)
+    }, 403)
     const memberListInvitesDenied = parseBody(memberListInvitesDeniedResponse.body).inviteManagementDenial
     assert.equal(memberListInvitesDenied.schemaVersion, 'organization.invite_management_denial.v1')
     assertOrganizationTenantIdentity(memberListInvitesDenied, organization.id)
@@ -49,20 +47,19 @@ export async function runInviteListingAndSettings(ctx: OrganizationApiSmokeConte
     assert.equal(memberListInvitesDenied.serviceLogAction, 'organization_invite_management_denied')
     assert.equal(memberListInvitesDenied.requestId, 'smoke-member-invite-list-denied')
 
-    const existingMemberInviteResponse = await app.inject({
+    const existingMemberInviteResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/${organization.id}/invites`,
         headers: authHeaders('org_smoke_owner', 'owner-token'),
         payload: { email: 'member@example.test', role: 'viewer', requestId: 'smoke-existing-member' },
-    })
-    assert.equal(existingMemberInviteResponse.statusCode, 201, existingMemberInviteResponse.body)
+    }, 201)
     const existingMemberInviteWorkflow = parseBody(existingMemberInviteResponse.body).workflow
     assert.equal(existingMemberInviteWorkflow.invitedCount, 0)
     assert.equal(existingMemberInviteWorkflow.skippedCount, 1)
     assert.equal(existingMemberInviteWorkflow.results[0].outcome, 'already_member')
     assert.equal(existingMemberInviteWorkflow.results[0].memberRole, 'reader')
 
-    const duplicateRecipientInviteResponse = await app.inject({
+    const duplicateRecipientInviteResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/${organization.id}/invites`,
         headers: authHeaders('org_smoke_owner', 'owner-token'),
@@ -71,8 +68,7 @@ export async function runInviteListingAndSettings(ctx: OrganizationApiSmokeConte
             role: 'viewer',
             requestId: 'smoke-duplicate-recipient-dedupe',
         },
-    })
-    assert.equal(duplicateRecipientInviteResponse.statusCode, 201, duplicateRecipientInviteResponse.body)
+    }, 201)
     const duplicateRecipientWorkflow = parseBody(duplicateRecipientInviteResponse.body).workflow
     assert.equal(duplicateRecipientWorkflow.schemaVersion, 'organization.bulk_invite.v1')
     assert.equal(duplicateRecipientWorkflow.submittedRecipientCount, 2)
@@ -84,13 +80,12 @@ export async function runInviteListingAndSettings(ctx: OrganizationApiSmokeConte
     assert.equal(duplicateRecipientWorkflow.results[0].email, 'member@example.test')
     assert.equal(duplicateRecipientWorkflow.results[0].outcome, 'already_member')
 
-    const memberInviteResponse = await app.inject({
+    const memberInviteResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/${organization.id}/invites`,
         headers: authHeaders('org_smoke_member', 'member-token'),
         payload: { email: 'blocked-by-member@example.test', role: 'member', requestId: 'smoke-member-invite-create-denied' },
-    })
-    assert.equal(memberInviteResponse.statusCode, 403, memberInviteResponse.body)
+    }, 403)
     const memberInviteDenied = parseBody(memberInviteResponse.body).inviteManagementDenial
     assert.equal(memberInviteDenied.schemaVersion, 'organization.invite_management_denial.v1')
     assertOrganizationTenantIdentity(memberInviteDenied, organization.id)
@@ -112,32 +107,29 @@ export async function runInviteListingAndSettings(ctx: OrganizationApiSmokeConte
     assert.equal(memberInviteDenied.requestId, 'smoke-member-invite-create-denied')
     assert.equal(memberInviteDenied.proofCommand, 'cd api && bun scripts/smoke-organizations-api.ts')
 
-    const adminInviteResponse = await app.inject({
+    const adminInviteResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/${organization.id}/invites`,
         headers: authHeaders('org_smoke_owner', 'owner-token'),
         payload: { email: 'admin@example.test', role: 'admin' },
-    })
-    assert.equal(adminInviteResponse.statusCode, 201, adminInviteResponse.body)
+    }, 201)
     const adminInvite = parseBody(adminInviteResponse.body).invites[0]
 
-    const adminAcceptResponse = await app.inject({
+    const adminAcceptResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/invites/${adminInvite.id}/accept`,
         headers: authHeaders('org_smoke_admin', 'admin-token'),
-    })
-    assert.equal(adminAcceptResponse.statusCode, 200, adminAcceptResponse.body)
+    }, 200)
     assert.equal(parseBody(adminAcceptResponse.body).membership.role, 'admin')
     assert.equal(parseBody(adminAcceptResponse.body).inviteAcceptance.inviteRole, 'admin')
     assert.equal(parseBody(adminAcceptResponse.body).inviteAcceptance.appliedRole, 'admin')
 
-    const lastOwnerRoleChangeDeniedResponse = await app.inject({
+    const lastOwnerRoleChangeDeniedResponse = await apiRequest({
         method: 'PATCH',
         url: `/api/organizations/${organization.id}/members/org_smoke_owner/role`,
         headers: authHeaders('org_smoke_owner', 'owner-token'),
         payload: { role: 'admin', reason: 'Cannot demote the only owner.', requestId: 'smoke-last-owner-role-denied' },
-    })
-    assert.equal(lastOwnerRoleChangeDeniedResponse.statusCode, 409, lastOwnerRoleChangeDeniedResponse.body)
+    }, 409)
     const lastOwnerRoleGuard = parseBody(lastOwnerRoleChangeDeniedResponse.body).lastOwnerGuard
     assert.equal(lastOwnerRoleGuard.schemaVersion, 'organization.last_owner_guard.v1')
     assert.equal(lastOwnerRoleGuard.organizationId, organization.id)
@@ -154,23 +146,21 @@ export async function runInviteListingAndSettings(ctx: OrganizationApiSmokeConte
     assert.equal(lastOwnerRoleGuard.serviceLogAction, 'organization_last_owner_guard_blocked')
     assert.equal(lastOwnerRoleGuard.requestId, 'smoke-last-owner-role-denied')
 
-    const viewerInviteResponse = await app.inject({
+    const viewerInviteResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/${organization.id}/invites`,
         headers: authHeaders('org_smoke_admin', 'admin-token'),
         payload: { email: 'viewer@example.test', role: 'viewer' },
-    })
-    assert.equal(viewerInviteResponse.statusCode, 201, viewerInviteResponse.body)
+    }, 201)
     const viewerInvite = parseBody(viewerInviteResponse.body).invites[0]
     assert.equal(viewerInvite.role, 'reader')
 
     for (const [userId, token] of [['org_smoke_owner', 'owner-token'], ['org_smoke_admin', 'admin-token']] as const) {
-        const pendingForManager = await app.inject({
+        const pendingForManager = await apiRequest({
             method: 'GET',
             url: `/api/organizations/${organization.id}/invites`,
             headers: authHeaders(userId, token),
-        })
-        assert.equal(pendingForManager.statusCode, 200, pendingForManager.body)
+        }, 200)
         const pendingForManagerBody = parseBody(pendingForManager.body)
         assert.deepEqual(pendingForManagerBody.invites.map((pendingInvite: Row) => pendingInvite.id), [viewerInvite.id])
         assert.equal(pendingForManagerBody.inviteLifecycleContract.actor.role, userId === 'org_smoke_owner' ? 'owner' : 'admin')
@@ -182,39 +172,35 @@ export async function runInviteListingAndSettings(ctx: OrganizationApiSmokeConte
         assert.equal(pendingForManagerBody.inviteLifecycleContract.acceptanceTokenField, 'invite.acceptanceToken')
     }
 
-    const viewerAcceptResponse = await app.inject({
+    const viewerAcceptResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/invites/${viewerInvite.id}/accept`,
         headers: authHeaders('org_smoke_viewer', 'viewer-token'),
-    })
-    assert.equal(viewerAcceptResponse.statusCode, 200, viewerAcceptResponse.body)
+    }, 200)
     assert.equal(parseBody(viewerAcceptResponse.body).membership.role, 'reader')
     assert.equal(parseBody(viewerAcceptResponse.body).inviteAcceptance.inviteRole, 'reader')
     assert.equal(parseBody(viewerAcceptResponse.body).inviteAcceptance.appliedRole, 'reader')
 
-    const viewerInviteBlockedResponse = await app.inject({
+    await apiRequest({
         method: 'POST',
         url: `/api/organizations/${organization.id}/invites`,
         headers: authHeaders('org_smoke_viewer', 'viewer-token'),
         payload: { email: 'blocked-by-viewer@example.test', role: 'member' },
-    })
-    assert.equal(viewerInviteBlockedResponse.statusCode, 403, viewerInviteBlockedResponse.body)
+    }, 403)
 
-    const invalidSettingsResponse = await app.inject({
+    await apiRequest({
         method: 'PUT',
         url: `/api/organizations/${organization.id}/settings`,
         headers: authHeaders('org_smoke_owner', 'owner-token'),
         payload: { name: '', defaultWebhookPolicy: 'everything' },
-    })
-    assert.equal(invalidSettingsResponse.statusCode, 400, invalidSettingsResponse.body)
+    }, 400)
 
-    const memberSettingsUpdateResponse = await app.inject({
+    const memberSettingsUpdateResponse = await apiRequest({
         method: 'PUT',
         url: `/api/organizations/${organization.id}/settings`,
         headers: { ...authHeaders('org_smoke_member', 'member-token'), 'x-request-id': 'smoke-member-settings-denied' },
         payload: { alertVisibilityPolicy: 'admins' },
-    })
-    assert.equal(memberSettingsUpdateResponse.statusCode, 403, memberSettingsUpdateResponse.body)
+    }, 403)
     const memberSettingsDenied = parseBody(memberSettingsUpdateResponse.body).settingsMutationDenial
     assert.equal(memberSettingsDenied.schemaVersion, 'organization.settings_mutation_denial.v1')
     assertOrganizationTenantIdentity(memberSettingsDenied, organization.id)
@@ -237,13 +223,12 @@ export async function runInviteListingAndSettings(ctx: OrganizationApiSmokeConte
     assert.equal(memberSettingsDenied.requestId, 'smoke-member-settings-denied')
     assert.equal(memberSettingsDenied.proofCommand, 'cd api && bun scripts/smoke-organizations-api.ts')
 
-    const viewerSettingsUpdateResponse = await app.inject({
+    const viewerSettingsUpdateResponse = await apiRequest({
         method: 'PUT',
         url: `/api/organizations/${organization.id}/settings`,
         headers: { ...authHeaders('org_smoke_viewer', 'viewer-token'), 'x-request-id': 'smoke-viewer-settings-denied' },
         payload: { defaultWebhookPolicy: 'disabled' },
-    })
-    assert.equal(viewerSettingsUpdateResponse.statusCode, 403, viewerSettingsUpdateResponse.body)
+    }, 403)
     const viewerSettingsDenied = parseBody(viewerSettingsUpdateResponse.body).settingsMutationDenial
     assert.equal(viewerSettingsDenied.schemaVersion, 'organization.settings_mutation_denial.v1')
     assert.equal(viewerSettingsDenied.organizationId, organization.id)
@@ -257,7 +242,7 @@ export async function runInviteListingAndSettings(ctx: OrganizationApiSmokeConte
     assert.equal(viewerSettingsDenied.serviceLogAction, 'organization_settings_mutation_denied')
     assert.equal(viewerSettingsDenied.requestId, 'smoke-viewer-settings-denied')
 
-    const adminSettingsResponse = await app.inject({
+    const adminSettingsResponse = await apiRequest({
         method: 'PUT',
         url: `/api/organizations/${organization.id}/settings`,
         headers: authHeaders('org_smoke_admin', 'admin-token'),
@@ -269,8 +254,7 @@ export async function runInviteListingAndSettings(ctx: OrganizationApiSmokeConte
             retentionDays: 180,
             auditSafeMetadata: { region: 'EU', plan: 'team' },
         },
-    })
-    assert.equal(adminSettingsResponse.statusCode, 200, adminSettingsResponse.body)
+    }, 200)
     const adminSettings = parseBody(adminSettingsResponse.body)
     assert.equal(adminSettings.organization.name, 'Smoke Shared Operations')
     assert.equal(adminSettings.organization.slug, 'shared-ops')
@@ -281,12 +265,11 @@ export async function runInviteListingAndSettings(ctx: OrganizationApiSmokeConte
     assert.deepEqual(adminSettings.settings.auditSafeMetadata, { region: 'EU', plan: 'team' })
     assert.equal(adminSettings.permissions.canEdit, true)
 
-    const memberReadUpdatedOrganizationResponse = await app.inject({
+    const memberReadUpdatedOrganizationResponse = await apiRequest({
         method: 'GET',
         url: `/api/organizations/${organization.id}`,
         headers: authHeaders('org_smoke_member', 'member-token'),
-    })
-    assert.equal(memberReadUpdatedOrganizationResponse.statusCode, 200, memberReadUpdatedOrganizationResponse.body)
+    }, 200)
     const memberReadUpdatedOrganization = parseBody(memberReadUpdatedOrganizationResponse.body).organization
     assert.equal(memberReadUpdatedOrganization.name, 'Smoke Shared Operations')
     assert.equal(memberReadUpdatedOrganization.slug, 'shared-ops')
@@ -304,12 +287,11 @@ export async function runInviteListingAndSettings(ctx: OrganizationApiSmokeConte
         ['org_smoke_member', 'member-token', false],
         ['org_smoke_viewer', 'viewer-token', false],
     ] as const) {
-        const readSettingsResponse = await app.inject({
+        const readSettingsResponse = await apiRequest({
             method: 'GET',
             url: `/api/organizations/${organization.id}/settings`,
             headers: authHeaders(userId, token),
-        })
-        assert.equal(readSettingsResponse.statusCode, 200, readSettingsResponse.body)
+        }, 200)
         const readableSettings = parseBody(readSettingsResponse.body)
         assert.equal(readableSettings.settings.defaultWebhookPolicy, 'manual_selection')
         assert.equal(readableSettings.settings.alertVisibilityPolicy, 'admins')
@@ -317,11 +299,10 @@ export async function runInviteListingAndSettings(ctx: OrganizationApiSmokeConte
         assert.equal(readableSettings.lifecycleReadiness.supportVisibility.mode, 'redacted_summary_only')
     }
 
-    const outsiderSettingsResponse = await app.inject({
+    await apiRequest({
         method: 'GET',
         url: `/api/organizations/${organization.id}/settings`,
         headers: authHeaders('org_smoke_outsider', 'outsider-token'),
-    })
-    assert.equal(outsiderSettingsResponse.statusCode, 404, outsiderSettingsResponse.body)
+    }, 404)
 
 }

@@ -20,8 +20,12 @@ export interface OrganizationSmokeJourney {
     adminPortalVisibility?: Row
 }
 
+type OrganizationApiRequestOptions = Parameters<FastifyInstance['inject']>[0]
+type OrganizationApiResponse = Awaited<ReturnType<FastifyInstance['inject']>>
+
 export interface OrganizationApiSmokeContext {
     app: FastifyInstance
+    apiRequest: (options: OrganizationApiRequestOptions, expectedStatus: number) => Promise<OrganizationApiResponse>
     handlers: typeof import('../../src/handlers/organizations.ts')
     orgUtils: typeof import('../../src/utils/organizations.ts')
     users: Map<string, Row>
@@ -664,6 +668,11 @@ export async function createOrganizationApiSmokeContext(): Promise<OrganizationA
 
         return {
             app,
+            apiRequest: async (options, expectedStatus) => {
+                const response = await app.inject(options)
+                assert.equal(response.statusCode, expectedStatus, response.body)
+                return response
+            },
             handlers,
             orgUtils,
             users,

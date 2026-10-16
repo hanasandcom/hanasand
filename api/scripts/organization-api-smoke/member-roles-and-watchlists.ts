@@ -2,15 +2,14 @@ import assert from 'node:assert/strict'
 import type { OrganizationApiSmokeContext, OrganizationSmokeJourney, Row } from './harness.ts'
 
 export async function runMemberRolesAndWatchlists(ctx: OrganizationApiSmokeContext, journey: OrganizationSmokeJourney): Promise<void> {
-    const { app, members, authHeaders, parseBody, assertOrganizationTenantIdentity, nowRow, memberKey, iso } = ctx
+    const { apiRequest, members, authHeaders, parseBody, assertOrganizationTenantIdentity, nowRow, memberKey, iso } = ctx
     const { organization } = journey
 
-    const membersResponse = await app.inject({
+    const membersResponse = await apiRequest({
         method: 'GET',
         url: `/api/organizations/${organization.id}/members`,
         headers: authHeaders('org_smoke_owner', 'owner-token'),
-    })
-    assert.equal(membersResponse.statusCode, 200, membersResponse.body)
+    }, 200)
     const membersBody = parseBody(membersResponse.body)
     const memberships = membersBody.members
     assert.deepEqual(
@@ -62,13 +61,12 @@ export async function runMemberRolesAndWatchlists(ctx: OrganizationApiSmokeConte
     assert.equal(membersBody.memberAccessContract.lifecycleDenials.nonmember, 'nonmember_denied')
     assert.equal(membersBody.memberAccessContract.downstreamConsumers.alertTermsExport, 'GET /api/organizations/:id/watchlists/alert-terms')
 
-    const memberRoleUpdateDeniedResponse = await app.inject({
+    const memberRoleUpdateDeniedResponse = await apiRequest({
         method: 'PATCH',
         url: `/api/organizations/${organization.id}/members/org_smoke_viewer/role`,
         headers: authHeaders('org_smoke_member', 'member-token'),
         payload: { role: 'member', reason: 'Member should not manage roles.', requestId: 'smoke-member-role-denied' },
-    })
-    assert.equal(memberRoleUpdateDeniedResponse.statusCode, 403, memberRoleUpdateDeniedResponse.body)
+    }, 403)
     const memberRoleUpdateDenial = parseBody(memberRoleUpdateDeniedResponse.body).memberMutationDenial
     assert.equal(memberRoleUpdateDenial.schemaVersion, 'organization.member_mutation_denial.v1')
     assert.equal(memberRoleUpdateDenial.organizationId, organization.id)
@@ -86,13 +84,12 @@ export async function runMemberRolesAndWatchlists(ctx: OrganizationApiSmokeConte
     assert.equal(memberRoleUpdateDenial.serviceLogAction, 'organization_member_mutation_denied')
     assert.equal(memberRoleUpdateDenial.requestId, 'smoke-member-role-denied')
 
-    const adminPromotesViewerDeniedResponse = await app.inject({
+    const adminPromotesViewerDeniedResponse = await apiRequest({
         method: 'PATCH',
         url: `/api/organizations/${organization.id}/members/org_smoke_viewer/role`,
         headers: authHeaders('org_smoke_admin', 'admin-token'),
         payload: { role: 'admin', reason: 'Admin cannot promote another admin.', requestId: 'smoke-admin-promote-denied' },
-    })
-    assert.equal(adminPromotesViewerDeniedResponse.statusCode, 403, adminPromotesViewerDeniedResponse.body)
+    }, 403)
     const adminPromotesViewerDenial = parseBody(adminPromotesViewerDeniedResponse.body).memberMutationDenial
     assert.equal(adminPromotesViewerDenial.actorRole, 'admin')
     assert.equal(adminPromotesViewerDenial.targetRole, 'reader')
@@ -101,13 +98,12 @@ export async function runMemberRolesAndWatchlists(ctx: OrganizationApiSmokeConte
     assert.equal(adminPromotesViewerDenial.adminCanMutateOwners, false)
     assert.equal(adminPromotesViewerDenial.requestId, 'smoke-admin-promote-denied')
 
-    const ownerUpdatesViewerRoleResponse = await app.inject({
+    const ownerUpdatesViewerRoleResponse = await apiRequest({
         method: 'PATCH',
         url: `/api/organizations/${organization.id}/members/org_smoke_viewer/role`,
         headers: authHeaders('org_smoke_owner', 'owner-token'),
         payload: { role: 'editor', reason: 'Temporary rollout support.', requestId: 'smoke-viewer-role-editor' },
-    })
-    assert.equal(ownerUpdatesViewerRoleResponse.statusCode, 200, ownerUpdatesViewerRoleResponse.body)
+    }, 200)
     const ownerRoleChange = parseBody(ownerUpdatesViewerRoleResponse.body).roleChange
     assert.equal(ownerRoleChange.schemaVersion, 'organization.member_role_change.v1')
     assertOrganizationTenantIdentity(ownerRoleChange, organization.id)
@@ -171,13 +167,12 @@ export async function runMemberRolesAndWatchlists(ctx: OrganizationApiSmokeConte
     assert.ok(ownerRoleChange.consumerVisibilityReceipt.downstreamReadinessReceipt.noLeakFields.includes('otherOrg.alertGeneratorKeys'))
     assert.equal(ownerRoleChange.consumerVisibilityReceipt.noEnumeration, true)
 
-    const ownerRestoresViewerRoleResponse = await app.inject({
+    const ownerRestoresViewerRoleResponse = await apiRequest({
         method: 'PATCH',
         url: `/api/organizations/${organization.id}/members/org_smoke_viewer/role`,
         headers: authHeaders('org_smoke_owner', 'owner-token'),
         payload: { role: 'reader', reason: 'Restore least privilege after rollout.', requestId: 'smoke-viewer-role-restore' },
-    })
-    assert.equal(ownerRestoresViewerRoleResponse.statusCode, 200, ownerRestoresViewerRoleResponse.body)
+    }, 200)
     assert.equal(parseBody(ownerRestoresViewerRoleResponse.body).member.role, 'reader')
     const restoreRoleChange = parseBody(ownerRestoresViewerRoleResponse.body).roleChange
     assert.equal(restoreRoleChange.previousRole, 'editor')
@@ -201,13 +196,12 @@ export async function runMemberRolesAndWatchlists(ctx: OrganizationApiSmokeConte
     assert.equal(restoreRoleChange.consumerVisibilityReceipt.downstreamReadinessReceipt.destinationReadiness.nonmemberDestinationEnumeration, false)
     assert.equal(restoreRoleChange.consumerVisibilityReceipt.noEnumeration, true)
 
-    const ownerWatchlistResponse = await app.inject({
+    const ownerWatchlistResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/${organization.id}/watchlists`,
         headers: authHeaders('org_smoke_owner', 'owner-token'),
         payload: { kind: 'domain', value: 'https://www.acme-shared.example/login', notes: 'Customer domain', reason: 'Live proof domain seed.', requestId: 'smoke-domain-create' },
-    })
-    assert.equal(ownerWatchlistResponse.statusCode, 201, ownerWatchlistResponse.body)
+    }, 201)
     const ownerWatchlistItem = journey.ownerWatchlistItem = parseBody(ownerWatchlistResponse.body).watchlistItem
     assert.equal(ownerWatchlistItem.status, 'active')
     assert.equal(ownerWatchlistItem.enabled, true)
@@ -283,13 +277,12 @@ export async function runMemberRolesAndWatchlists(ctx: OrganizationApiSmokeConte
     assert.equal(ownerWatchlistOperation.mutationReceipt.duplicateTermMatched, false)
     assert.equal(ownerWatchlistOperation.mutationReceipt.noEnumeration, true)
 
-    const duplicateOwnerWatchlistResponse = await app.inject({
+    const duplicateOwnerWatchlistResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/${organization.id}/watchlists`,
         headers: authHeaders('org_smoke_owner', 'owner-token'),
         payload: { kind: 'domain', value: 'acme-shared.example', notes: 'Repeat proof should update existing item.', reason: 'Repeat live proof seed.', requestId: 'smoke-domain-duplicate-upsert' },
-    })
-    assert.equal(duplicateOwnerWatchlistResponse.statusCode, 201, duplicateOwnerWatchlistResponse.body)
+    }, 201)
     const duplicateOwnerWatchlistItem = parseBody(duplicateOwnerWatchlistResponse.body).watchlistItem
     assert.equal(duplicateOwnerWatchlistItem.id, ownerWatchlistItem.id)
     assert.equal(duplicateOwnerWatchlistItem.lifecycleReason, 'Repeat live proof seed.')
@@ -313,12 +306,11 @@ export async function runMemberRolesAndWatchlists(ctx: OrganizationApiSmokeConte
     assert.deepEqual(duplicateOwnerWatchlistOperation.upsert.alertDedupeKeyFields, ['organizationId', 'watchlistItemId', 'termFamily', 'normalizedTerm'])
     assert.equal(duplicateOwnerWatchlistOperation.upsert.webhookDestinationOrgField, 'destination.org_id')
 
-    const memberWatchlistResponse = await app.inject({
+    const memberWatchlistResponse = await apiRequest({
         method: 'GET',
         url: `/api/organizations/${organization.id}/watchlists`,
         headers: authHeaders('org_smoke_member', 'member-token'),
-    })
-    assert.equal(memberWatchlistResponse.statusCode, 200, memberWatchlistResponse.body)
+    }, 200)
     const memberWatchlist = parseBody(memberWatchlistResponse.body).watchlistItems
     assert.equal(memberWatchlist.length, 1)
     assert.ok(memberWatchlist[0].id)
@@ -326,12 +318,11 @@ export async function runMemberRolesAndWatchlists(ctx: OrganizationApiSmokeConte
     assert.equal(memberWatchlist[0].value, 'acme-shared.example')
     assert.equal(memberWatchlist[0].enabled, true)
     assert.equal(memberWatchlist[0].disabledReason, null)
-    const memberWatchlistItemResponse = await app.inject({
+    const memberWatchlistItemResponse = await apiRequest({
         method: 'GET',
         url: `/api/organizations/${organization.id}/watchlists/${ownerWatchlistItem.id}`,
         headers: authHeaders('org_smoke_member', 'member-token'),
-    })
-    assert.equal(memberWatchlistItemResponse.statusCode, 200, memberWatchlistItemResponse.body)
+    }, 200)
     const memberWatchlistItemBody = parseBody(memberWatchlistItemResponse.body)
     assert.equal(memberWatchlistItemBody.watchlistItem.id, ownerWatchlistItem.id)
     assert.equal(memberWatchlistItemBody.watchlistItem.organizationId, organization.id)
@@ -391,12 +382,11 @@ export async function runMemberRolesAndWatchlists(ctx: OrganizationApiSmokeConte
     assert.equal(memberSharedWatchlistContract.alertExportBridge.webhookOwnership.selectedDestinationOrgField, 'destination.org_id')
     assert.equal(memberSharedWatchlistContract.alertExportBridge.webhookOwnership.nonmemberDestinationEnumeration, false)
 
-    const viewerWatchlistResponse = await app.inject({
+    const viewerWatchlistResponse = await apiRequest({
         method: 'GET',
         url: `/api/organizations/${organization.id}/watchlists`,
         headers: authHeaders('org_smoke_viewer', 'viewer-token'),
-    })
-    assert.equal(viewerWatchlistResponse.statusCode, 200, viewerWatchlistResponse.body)
+    }, 200)
     assert.equal(parseBody(viewerWatchlistResponse.body).watchlistItems.length, 1)
 
     members.set(memberKey(organization.id, 'org_smoke_deactivated'), nowRow({
@@ -407,20 +397,18 @@ export async function runMemberRolesAndWatchlists(ctx: OrganizationApiSmokeConte
         invited_by: 'org_smoke_admin',
         joined_at: iso(),
     }))
-    const deactivatedMemberWatchlistResponse = await app.inject({
+    await apiRequest({
         method: 'GET',
         url: `/api/organizations/${organization.id}/watchlists`,
         headers: authHeaders('org_smoke_deactivated', 'deactivated-token'),
-    })
-    assert.equal(deactivatedMemberWatchlistResponse.statusCode, 404, deactivatedMemberWatchlistResponse.body)
+    }, 404)
 
-    const viewerAddsWatchlistResponse = await app.inject({
+    const viewerAddsWatchlistResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/${organization.id}/watchlists`,
         headers: authHeaders('org_smoke_viewer', 'viewer-token'),
         payload: { kind: 'company', value: 'Viewer Blocked Holdings', reason: 'Viewer cannot mutate shared terms.', requestId: 'smoke-viewer-watchlist-create-denied' },
-    })
-    assert.equal(viewerAddsWatchlistResponse.statusCode, 403, viewerAddsWatchlistResponse.body)
+    }, 403)
     const viewerAddsWatchlistDenied = parseBody(viewerAddsWatchlistResponse.body).watchlistMutationDenial
     assert.equal(viewerAddsWatchlistDenied.schemaVersion, 'organization.watchlist_mutation_denial.v1')
     assertOrganizationTenantIdentity(viewerAddsWatchlistDenied, organization.id)
@@ -449,13 +437,12 @@ export async function runMemberRolesAndWatchlists(ctx: OrganizationApiSmokeConte
     assert.equal(viewerAddsWatchlistDenied.reason, 'Viewer cannot mutate shared terms.')
     assert.equal(viewerAddsWatchlistDenied.proofCommand, 'cd api && bun scripts/smoke-organizations-api.ts')
 
-    const memberAddsWatchlistDeniedResponse = await app.inject({
+    const memberAddsWatchlistDeniedResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/${organization.id}/watchlists`,
         headers: authHeaders('org_smoke_member', 'member-token'),
         payload: { kind: 'keyword', value: 'member should not mutate', reason: 'Member cannot create shared terms.', requestId: 'smoke-member-watchlist-create-denied' },
-    })
-    assert.equal(memberAddsWatchlistDeniedResponse.statusCode, 403, memberAddsWatchlistDeniedResponse.body)
+    }, 403)
     const memberAddsWatchlistDenied = parseBody(memberAddsWatchlistDeniedResponse.body).watchlistMutationDenial
     assert.equal(memberAddsWatchlistDenied.schemaVersion, 'organization.watchlist_mutation_denial.v1')
     assert.equal(memberAddsWatchlistDenied.organizationId, organization.id)
@@ -473,13 +460,12 @@ export async function runMemberRolesAndWatchlists(ctx: OrganizationApiSmokeConte
     assert.equal(memberAddsWatchlistDenied.requestId, 'smoke-member-watchlist-create-denied')
     assert.equal(memberAddsWatchlistDenied.reason, 'Member cannot create shared terms.')
 
-    const viewerArchiveWatchlistResponse = await app.inject({
+    const viewerArchiveWatchlistResponse = await apiRequest({
         method: 'DELETE',
         url: `/api/organizations/${organization.id}/watchlists/${ownerWatchlistItem.id}?requestId=smoke-viewer-watchlist-archive-denied`,
         headers: authHeaders('org_smoke_viewer', 'viewer-token'),
         payload: { reason: 'Viewer cannot archive shared terms.' },
-    })
-    assert.equal(viewerArchiveWatchlistResponse.statusCode, 403, viewerArchiveWatchlistResponse.body)
+    }, 403)
     const viewerArchiveWatchlistDenied = parseBody(viewerArchiveWatchlistResponse.body).watchlistMutationDenial
     assert.equal(viewerArchiveWatchlistDenied.schemaVersion, 'organization.watchlist_mutation_denial.v1')
     assert.equal(viewerArchiveWatchlistDenied.organizationId, organization.id)
@@ -495,22 +481,20 @@ export async function runMemberRolesAndWatchlists(ctx: OrganizationApiSmokeConte
     assert.equal(viewerArchiveWatchlistDenied.requestId, 'smoke-viewer-watchlist-archive-denied')
     assert.equal(viewerArchiveWatchlistDenied.reason, 'Viewer cannot archive shared terms.')
 
-    const ownerAddsCompanyResponse = await app.inject({
+    const ownerAddsCompanyResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/${organization.id}/watchlists`,
         headers: authHeaders('org_smoke_owner', 'owner-token'),
         payload: { kind: 'company', value: 'Acme Shared Holdings', requestId: 'smoke-company-watchlist' },
-    })
-    assert.equal(ownerAddsCompanyResponse.statusCode, 201, ownerAddsCompanyResponse.body)
+    }, 201)
     const companyWatchlistItem = parseBody(ownerAddsCompanyResponse.body).watchlistItem
 
-    const ownerPausesCompanyResponse = await app.inject({
+    const ownerPausesCompanyResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/${organization.id}/watchlists/${companyWatchlistItem.id}/actions`,
         headers: authHeaders('org_smoke_owner', 'owner-token'),
         payload: { action: 'pause', reason: 'Pause during live proof cleanup.', requestId: 'smoke-pause-company' },
-    })
-    assert.equal(ownerPausesCompanyResponse.statusCode, 200, ownerPausesCompanyResponse.body)
+    }, 200)
     assert.equal(parseBody(ownerPausesCompanyResponse.body).watchlistItem.status, 'paused')
     assert.equal(parseBody(ownerPausesCompanyResponse.body).watchlistItem.enabled, false)
     assert.equal(parseBody(ownerPausesCompanyResponse.body).watchlistItem.disabledReason, 'watchlist_paused')
@@ -528,31 +512,28 @@ export async function runMemberRolesAndWatchlists(ctx: OrganizationApiSmokeConte
     assert.equal(parseBody(ownerPausesCompanyResponse.body).operation.mutationReceipt.activeTermsIncludedInExport, false)
     assert.equal(parseBody(ownerPausesCompanyResponse.body).operation.mutationReceipt.noEnumeration, true)
 
-    const pausedWatchlistsResponse = await app.inject({
+    const pausedWatchlistsResponse = await apiRequest({
         method: 'GET',
         url: `/api/organizations/${organization.id}/watchlists?status=paused`,
         headers: authHeaders('org_smoke_member', 'member-token'),
-    })
-    assert.equal(pausedWatchlistsResponse.statusCode, 200, pausedWatchlistsResponse.body)
+    }, 200)
     assert.deepEqual(parseBody(pausedWatchlistsResponse.body).watchlistItems.map((item: Row) => item.id), [companyWatchlistItem.id])
     assert.deepEqual(parseBody(pausedWatchlistsResponse.body).watchlistItems.map((item: Row) => item.enabled), [false])
     assert.deepEqual(parseBody(pausedWatchlistsResponse.body).watchlistItems.map((item: Row) => item.disabledReason), ['watchlist_paused'])
 
-    const readinessWhilePausedResponse = await app.inject({
+    const readinessWhilePausedResponse = await apiRequest({
         method: 'GET',
         url: `/api/organizations/${organization.id}/alert-readiness`,
         headers: authHeaders('org_smoke_admin', 'admin-token'),
-    })
-    assert.equal(readinessWhilePausedResponse.statusCode, 200, readinessWhilePausedResponse.body)
+    }, 200)
     assert.equal(parseBody(readinessWhilePausedResponse.body).alertReadiness.sharedWatchlistCount, 1)
     assert.equal(parseBody(readinessWhilePausedResponse.body).alertReadiness.generatedAlertReferences.length, 1)
 
-    const alertTermsWhilePausedResponse = await app.inject({
+    const alertTermsWhilePausedResponse = await apiRequest({
         method: 'GET',
         url: `/api/organizations/${organization.id}/watchlists/alert-terms?requestId=smoke-alert-terms-paused`,
         headers: authHeaders('org_smoke_member', 'member-token'),
-    })
-    assert.equal(alertTermsWhilePausedResponse.statusCode, 403, alertTermsWhilePausedResponse.body)
+    }, 403)
     const alertTermsWhilePausedDeniedBody = parseBody(alertTermsWhilePausedResponse.body)
     assert.equal(alertTermsWhilePausedDeniedBody.error, 'Organization alert visibility does not allow this member to export alert terms.')
     assert.ok(!('alertTermsExport' in alertTermsWhilePausedDeniedBody))
@@ -573,54 +554,49 @@ export async function runMemberRolesAndWatchlists(ctx: OrganizationApiSmokeConte
     assert.ok(alertTermsWhilePausedDenied.auditProof.redactedFields.includes('watchlistScope.alertGeneratorKeys'))
     assert.equal(alertTermsWhilePausedDenied.auditProof.proofLogQuery, 'GET /api/logs?service=api&message=organization_watchlist_alert_terms_export_denied')
 
-    const ownerResumesCompanyResponse = await app.inject({
+    const ownerResumesCompanyResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/${organization.id}/watchlists/${companyWatchlistItem.id}/actions`,
         headers: authHeaders('org_smoke_owner', 'owner-token'),
         payload: { action: 'resume', reason: 'Resume after cleanup dry run.', request_id: 'smoke-resume-company' },
-    })
-    assert.equal(ownerResumesCompanyResponse.statusCode, 200, ownerResumesCompanyResponse.body)
+    }, 200)
     assert.equal(parseBody(ownerResumesCompanyResponse.body).watchlistItem.status, 'active')
     assert.equal(parseBody(ownerResumesCompanyResponse.body).watchlistItem.lifecycleRequestId, 'smoke-resume-company')
     assert.equal(parseBody(ownerResumesCompanyResponse.body).operation.lifecycleTransition.statusAfter, 'active')
     assert.equal(parseBody(ownerResumesCompanyResponse.body).operation.lifecycleTransition.enabledAfter, true)
     assert.equal(parseBody(ownerResumesCompanyResponse.body).operation.lifecycleTransition.disabledReasonAfter, null)
 
-    const adminAddsActorResponse = await app.inject({
+    const adminAddsActorResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/${organization.id}/watchlists`,
         headers: authHeaders('org_smoke_admin', 'admin-token'),
         payload: { kind: 'actor', value: 'Scattered Spider', notes: 'Actor alias', requestId: 'smoke-actor-watchlist' },
-    })
-    assert.equal(adminAddsActorResponse.statusCode, 201, adminAddsActorResponse.body)
+    }, 201)
     const actorWatchlistItem = journey.actorWatchlistItem = parseBody(adminAddsActorResponse.body).watchlistItem
     assert.equal(actorWatchlistItem.value, 'scattered spider')
 
-    const actorFilterResponse = await app.inject({
+    const actorFilterResponse = await apiRequest({
         method: 'GET',
         url: `/api/organizations/${organization.id}/watchlists?kind=actor`,
         headers: authHeaders('org_smoke_member', 'member-token'),
-    })
-    assert.equal(actorFilterResponse.statusCode, 200, actorFilterResponse.body)
+    }, 200)
     assert.deepEqual(parseBody(actorFilterResponse.body).watchlistItems.map((item: Row) => item.value), ['scattered spider'])
 
-    const memberAddsKeywordResponse = await app.inject({
+    const memberAddsKeywordResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/${organization.id}/watchlists`,
         headers: authHeaders('org_smoke_admin', 'admin-token'),
         payload: { kind: 'keyword', value: 'Credential Reset', notes: 'Phishing wording', requestId: 'smoke-keyword-watchlist' },
-    })
-    assert.equal(memberAddsKeywordResponse.statusCode, 201, memberAddsKeywordResponse.body)
+    }, 201)
     const keywordWatchlistItem = parseBody(memberAddsKeywordResponse.body).watchlistItem
     assert.equal(keywordWatchlistItem.value, 'credential reset')
 
-    const memberUpdatesKeywordDeniedResponse = await app.inject({
+    const memberUpdatesKeywordDeniedResponse = await apiRequest({
         method: 'PUT',
         url: `/api/organizations/${organization.id}/watchlists/${keywordWatchlistItem.id}`,
         headers: authHeaders('org_smoke_member', 'member-token'),
         payload: { kind: 'keyword', value: 'member update denied', reason: 'Member cannot edit shared terms.', requestId: 'smoke-member-watchlist-update-denied' },
-    })
-    assert.equal(memberUpdatesKeywordDeniedResponse.statusCode, 403, memberUpdatesKeywordDeniedResponse.body)
+    }, 403)
     const memberUpdatesKeywordDenied = parseBody(memberUpdatesKeywordDeniedResponse.body).watchlistMutationDenial
     assert.equal(memberUpdatesKeywordDenied.schemaVersion, 'organization.watchlist_mutation_denial.v1')
     assert.equal(memberUpdatesKeywordDenied.organizationId, organization.id)
@@ -639,30 +615,27 @@ export async function runMemberRolesAndWatchlists(ctx: OrganizationApiSmokeConte
     assert.equal(memberUpdatesKeywordDenied.requestId, 'smoke-member-watchlist-update-denied')
     assert.equal(memberUpdatesKeywordDenied.reason, 'Member cannot edit shared terms.')
 
-    const memberUpdatesKeywordResponse = await app.inject({
+    const memberUpdatesKeywordResponse = await apiRequest({
         method: 'PUT',
         url: `/api/organizations/${organization.id}/watchlists/${keywordWatchlistItem.id}`,
         headers: authHeaders('org_smoke_admin', 'admin-token'),
         payload: { kind: 'keyword', value: 'Credential Reset Lures', notes: 'Updated wording', reason: 'Refine live proof keyword.', requestId: 'smoke-keyword-update' },
-    })
-    assert.equal(memberUpdatesKeywordResponse.statusCode, 200, memberUpdatesKeywordResponse.body)
+    }, 200)
     assert.equal(parseBody(memberUpdatesKeywordResponse.body).watchlistItem.value, 'credential reset lures')
     assert.equal(parseBody(memberUpdatesKeywordResponse.body).operation.action, 'updated')
 
-    const memberAddsVendorResponse = await app.inject({
+    await apiRequest({
         method: 'POST',
         url: `/api/organizations/${organization.id}/watchlists`,
         headers: authHeaders('org_smoke_admin', 'admin-token'),
         payload: { kind: 'vendor', value: 'Acme Payroll Vendor' },
-    })
-    assert.equal(memberAddsVendorResponse.statusCode, 201, memberAddsVendorResponse.body)
+    }, 201)
 
-    const ownerSeesAllResponse = await app.inject({
+    const ownerSeesAllResponse = await apiRequest({
         method: 'GET',
         url: `/api/organizations/${organization.id}/watchlists`,
         headers: authHeaders('org_smoke_owner', 'owner-token'),
-    })
-    assert.equal(ownerSeesAllResponse.statusCode, 200, ownerSeesAllResponse.body)
+    }, 200)
     assert.deepEqual(
         parseBody(ownerSeesAllResponse.body).watchlistItems.map((item: Row) => item.value).sort(),
         ['Acme Payroll Vendor', 'Acme Shared Holdings', 'acme-shared.example', 'credential reset lures', 'scattered spider'].sort()

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import type { OrganizationApiSmokeContext, OrganizationSmokeJourney, Row } from './harness.ts'
 
 export async function runDownstreamContractsAndInviteDenials(ctx: OrganizationApiSmokeContext, journey: OrganizationSmokeJourney): Promise<void> {
-    const { app, orgUtils, authHeaders, parseBody, assertOrganizationTenantIdentity } = ctx
+    const { apiRequest, orgUtils, authHeaders, parseBody, assertOrganizationTenantIdentity } = ctx
     const { organization } = journey
     const readiness = journey.readiness!
     const alertTermsExport = journey.alertTermsExport!
@@ -571,12 +571,11 @@ export async function runDownstreamContractsAndInviteDenials(ctx: OrganizationAp
         readiness.alertGenerationBridge.activeWatchlistTerms
     )
 
-    const memberAlertTermsReadyResponse = await app.inject({
+    const memberAlertTermsReadyResponse = await apiRequest({
         method: 'GET',
         url: `/api/organizations/${organization.id}/watchlists/alert-terms?requestId=smoke-member-alert-terms-ready`,
         headers: authHeaders('org_smoke_member', 'member-token'),
-    })
-    assert.equal(memberAlertTermsReadyResponse.statusCode, 403, memberAlertTermsReadyResponse.body)
+    }, 403)
     const memberAlertTermsDenialBody = parseBody(memberAlertTermsReadyResponse.body)
     assert.equal(memberAlertTermsDenialBody.error, 'Organization alert visibility does not allow this member to export alert terms.')
     assert.ok(!('alertTermsExport' in memberAlertTermsDenialBody))

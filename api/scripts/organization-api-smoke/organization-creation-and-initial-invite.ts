@@ -2,16 +2,15 @@ import assert from 'node:assert/strict'
 import type { OrganizationApiSmokeContext, OrganizationSmokeJourney } from './harness.ts'
 
 export async function runOrganizationCreationAndInitialInvite(ctx: OrganizationApiSmokeContext): Promise<OrganizationSmokeJourney> {
-    const { app, authHeaders, parseBody, assertOrganizationTenantIdentity } = ctx
+    const { apiRequest, authHeaders, parseBody, assertOrganizationTenantIdentity } = ctx
     const journey = {} as OrganizationSmokeJourney
 
-    const organizationResponse = await app.inject({
+    const organizationResponse = await apiRequest({
         method: 'POST',
         url: '/api/organizations',
         headers: authHeaders('org_smoke_owner', 'owner-token'),
         payload: { name: 'Smoke Shared Watchlist' },
-    })
-    assert.equal(organizationResponse.statusCode, 201, organizationResponse.body)
+    }, 201)
     const organization = journey.organization = parseBody(organizationResponse.body).organization
     assert.equal(organization.role, 'owner')
     assert.equal(organization.memberCount, 1)
@@ -62,12 +61,11 @@ export async function runOrganizationCreationAndInitialInvite(ctx: OrganizationA
     assert.ok(createdLifecycleReadiness.blockerCatalog.includes('no_active_admin'))
     assert.ok(createdLifecycleReadiness.blockerCatalog.includes('cleanup_required'))
 
-    const ownerReadOrganizationResponse = await app.inject({
+    const ownerReadOrganizationResponse = await apiRequest({
         method: 'GET',
         url: `/api/organizations/${organization.id}`,
         headers: authHeaders('org_smoke_owner', 'owner-token'),
-    })
-    assert.equal(ownerReadOrganizationResponse.statusCode, 200, ownerReadOrganizationResponse.body)
+    }, 200)
     const ownerReadOrganization = parseBody(ownerReadOrganizationResponse.body).organization
     assert.equal(ownerReadOrganization.id, organization.id)
     assert.equal(ownerReadOrganization.role, 'owner')
@@ -77,24 +75,22 @@ export async function runOrganizationCreationAndInitialInvite(ctx: OrganizationA
     assert.equal(parseBody(ownerReadOrganizationResponse.body).lifecycleReadiness.workspaceBoundaryProof.actorPermissions.canArchiveOrganization, true)
     assert.equal(parseBody(ownerReadOrganizationResponse.body).lifecycleReadiness.workspaceBoundaryProof.routes.readOrganization, 'GET /api/organizations/:id')
 
-    const ownerDefaultSettingsResponse = await app.inject({
+    const ownerDefaultSettingsResponse = await apiRequest({
         method: 'GET',
         url: `/api/organizations/${organization.id}/settings`,
         headers: authHeaders('org_smoke_owner', 'owner-token'),
-    })
-    assert.equal(ownerDefaultSettingsResponse.statusCode, 200, ownerDefaultSettingsResponse.body)
+    }, 200)
     const ownerDefaultSettings = parseBody(ownerDefaultSettingsResponse.body)
     assert.equal(ownerDefaultSettings.permissions.canEdit, true)
     assert.equal(ownerDefaultSettings.settings.defaultWebhookPolicy, 'active_destinations')
     assert.equal(ownerDefaultSettings.lifecycleReadiness.counts.activeAdminCount, 1)
 
-    const inviteResponse = await app.inject({
+    const inviteResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/${organization.id}/invites`,
         headers: authHeaders('org_smoke_owner', 'owner-token'),
         payload: { email: 'member@example.test', role: 'member' },
-    })
-    assert.equal(inviteResponse.statusCode, 201, inviteResponse.body)
+    }, 201)
     const invite = journey.invite = parseBody(inviteResponse.body).invites[0]
     assert.equal(invite.status, 'pending')
     assert.ok(Date.parse(invite.expiresAt) > Date.now())
@@ -104,12 +100,11 @@ export async function runOrganizationCreationAndInitialInvite(ctx: OrganizationA
     assert.equal(inviteWorkflow.results[0].acceptanceToken, invite.id)
     assert.equal(inviteWorkflow.results[0].acceptancePath, `/api/organizations/invites/${invite.id}/accept`)
 
-    const acceptResponse = await app.inject({
+    const acceptResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/invites/${invite.id}/accept`,
         headers: authHeaders('org_smoke_member', 'member-token'),
-    })
-    assert.equal(acceptResponse.statusCode, 200, acceptResponse.body)
+    }, 200)
     const accepted = parseBody(acceptResponse.body)
     assert.equal(accepted.invite.status, 'accepted')
     assert.equal(accepted.invite.acceptedBy, 'org_smoke_member')
@@ -162,12 +157,11 @@ export async function runOrganizationCreationAndInitialInvite(ctx: OrganizationA
     assert.ok(accepted.inviteAcceptance.consumerVisibilityReceipt.downstreamReadinessGrant.noLeakFields.includes('otherOrg.watchlistItemIds'))
     assert.equal(accepted.inviteAcceptance.consumerVisibilityReceipt.noEnumeration, true)
 
-    const reusedInviteResponse = await app.inject({
+    const reusedInviteResponse = await apiRequest({
         method: 'POST',
         url: `/api/organizations/invites/${invite.id}/accept`,
         headers: authHeaders('org_smoke_member', 'member-token'),
-    })
-    assert.equal(reusedInviteResponse.statusCode, 409, reusedInviteResponse.body)
+    }, 409)
     const reusedInviteDenial = parseBody(reusedInviteResponse.body).inviteAcceptanceDenial
     assert.equal(reusedInviteDenial.schemaVersion, 'organization.invite_acceptance_denial.v1')
     assertOrganizationTenantIdentity(reusedInviteDenial, organization.id)
