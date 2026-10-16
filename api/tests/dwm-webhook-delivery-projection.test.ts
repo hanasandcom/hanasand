@@ -161,6 +161,23 @@ test('projects shared evidence, attempts, operations and history without losing 
     expect(operations.recentDeliveries.map(item => item.deliveryId)).toEqual(['delivery_2', 'delivery_1'])
     expect(history.entries.map(item => item.deliveryId)).toEqual(['delivery_2', 'delivery_1'])
     expect(Object.keys(operations)).toEqual(['schemaVersion', 'liveDeliveryEnabled', 'filters', 'total', 'counts', 'recentDeliveries'])
+    expect(operations.filters).toEqual({
+        orgId: null,
+        destinationId: null,
+        alertId: null,
+        casePath: null,
+        caseActionId: null,
+        caseActionPath: null,
+        dedupeKey: null,
+        requestId: null,
+        idempotencyKey: null,
+        action: null,
+        status: null,
+        timeFrom: null,
+        timeTo: null,
+        retryState: null,
+        actorId: null,
+    })
     expect(Object.keys(history)).toEqual(['schemaVersion', 'liveDeliveryEnabled', 'filters', 'total', 'counts', 'entries'])
     expect(history).toMatchObject({
         schemaVersion: 'dwm.webhook.delivery_history.v1',
@@ -178,7 +195,12 @@ test('projects shared evidence, attempts, operations and history without losing 
         dedupe: { alreadyDelivered: true, duplicateAttemptCount: 2 },
     })
 
-    const filtered = buildDwmWebhookDeliveryHistory({ ...input, filters: { action: 'delivery.retry_scheduled' } })
+    const filters = { action: 'delivery.retry_scheduled' }
+    const filteredOperations = buildDwmWebhookDeliveryOperations({ ...input, filters })
+    expect(filteredOperations.recentDeliveries.map(item => item.deliveryId)).toEqual(['delivery_1'])
+    expect(filteredOperations.filters.action).toBe('delivery.retry_scheduled')
+
+    const filtered = buildDwmWebhookDeliveryHistory({ ...input, filters })
     expect(filtered).toMatchObject({
         total: 1,
         counts: { failed: 1 },

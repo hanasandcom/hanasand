@@ -478,6 +478,27 @@ function normalizeWebhookEvidenceFilters(filters: DwmWebhookDeliveryEvidenceFilt
     }
 }
 
+function normalizeWebhookOperationFilters(filters: DwmWebhookDeliveryEvidenceFilters) {
+    const evidenceFilters = normalizeWebhookEvidenceFilters(filters)
+    return {
+        orgId: evidenceFilters.orgId,
+        destinationId: evidenceFilters.destinationId,
+        alertId: evidenceFilters.alertId,
+        casePath: evidenceFilters.casePath,
+        caseActionId: clean(filters.caseActionId) || null,
+        caseActionPath: clean(filters.caseActionPath) || null,
+        dedupeKey: evidenceFilters.dedupeKey,
+        requestId: evidenceFilters.requestId,
+        idempotencyKey: clean(filters.idempotencyKey) || null,
+        action: clean(filters.action) || null,
+        status: clean(filters.status) || null,
+        timeFrom: clean(filters.timeFrom) || null,
+        timeTo: clean(filters.timeTo) || null,
+        retryState: clean(filters.retryState) || null,
+        actorId: clean(filters.actorId) || null,
+    }
+}
+
 export function normalizeDwmWebhookDestinationInput(
     input: DwmWebhookDestinationInput,
     ownerId: string,
@@ -1060,21 +1081,7 @@ function buildDwmWebhookDeliveryEvidenceProjection({
     filters?: DwmWebhookDeliveryEvidenceFilters
 }) {
     const normalizedFilters = {
-        orgId: clean(filters.orgId),
-        destinationId: clean(filters.destinationId),
-        alertId: clean(filters.alertId),
-        casePath: clean(filters.casePath),
-        caseActionId: clean(filters.caseActionId),
-        caseActionPath: clean(filters.caseActionPath),
-        dedupeKey: clean(filters.dedupeKey),
-        requestId: clean(filters.requestId) || clean(filters.deliveryId),
-        idempotencyKey: clean(filters.idempotencyKey),
-        action: clean(filters.action),
-        status: clean(filters.status),
-        timeFrom: clean(filters.timeFrom),
-        timeTo: clean(filters.timeTo),
-        retryState: clean(filters.retryState),
-        actorId: clean(filters.actorId),
+        ...normalizeWebhookOperationFilters(filters),
         reportCaseId: clean(filters.reportCaseId),
         reportExportChecksum: clean(filters.reportExportChecksum),
     }
@@ -1376,23 +1383,7 @@ function buildDwmWebhookDeliveryOperationsFromProjection({
     return {
         schemaVersion: 'dwm.webhook.delivery_operations.v1',
         liveDeliveryEnabled,
-        filters: {
-            orgId: clean(filters.orgId) || null,
-            destinationId: clean(filters.destinationId) || null,
-            alertId: clean(filters.alertId) || null,
-            casePath: clean(filters.casePath) || null,
-            caseActionId: clean(filters.caseActionId) || null,
-            caseActionPath: clean(filters.caseActionPath) || null,
-            dedupeKey: clean(filters.dedupeKey) || null,
-            requestId: clean(filters.requestId) || clean(filters.deliveryId) || null,
-            idempotencyKey: clean(filters.idempotencyKey) || null,
-            action: clean(filters.action) || null,
-            status: clean(filters.status) || null,
-            timeFrom: clean(filters.timeFrom) || null,
-            timeTo: clean(filters.timeTo) || null,
-            retryState: clean(filters.retryState) || null,
-            actorId: clean(filters.actorId) || null,
-        },
+        filters: normalizeWebhookOperationFilters(filters),
         total: recentDeliveries.length,
         counts: {
             queued: recentDeliveries.filter(item => item.status === 'queued').length,
