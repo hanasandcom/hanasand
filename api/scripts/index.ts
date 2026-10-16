@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process'
 import { readdir } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { classifyUnitTest, getPostgresFilterPortError, getPostgresFilterRunNotice, isTaskEnabledByDefault } from './test-runner-policy.ts'
 
 type TestTask = {
     id: string
@@ -9,6 +10,7 @@ type TestTask = {
     command: string[]
     env?: Record<string, string>
     requires?: 'server' | 'database' | 'network' | 'playwright'
+    requiresPostgresFilterPort?: boolean
     guardProductionSmoke?: boolean
     inlineModule?: string
 }
@@ -92,12 +94,16 @@ const environmentTasks: TestTask[] = [
 const unitTasks: TestTask[] = (await readdir(path.join(scriptDir, '../tests')))
     .filter(file => /\.test\.(ts|mjs)$/.test(file))
     .sort()
-    .map(file => ({
-        id: file.replace(/\.test\.(ts|mjs)$/, ''),
-        title: `API behavior: ${file}`,
-        command: [bun, 'test', `tests/${file}`],
-        ...(['support-chat.test.ts', 'support-store.test.ts', 'signup-verification-postgres.test.ts', 'schema-lock-timeout-postgres.test.ts', 'automation-history.test.mjs', 'monitoring-issues-postgres.test.ts', 'monitoring-correlation-postgres.test.ts', 'monitoring-message-history-postgres.test.ts', 'monitoring-case-workflow-postgres.test.ts', 'monitoring-vm-access-postgres.test.ts', 'account-deletion-postgres.test.ts', 'case-development-postgres.test.ts', 'personal-automations-postgres.test.ts'].includes(file) ? { requires: 'database' as const } : {}),
-    }))
+    .map(file => {
+        const classification = classifyUnitTest(file)
+        return {
+            id: file.replace(/\.test\.(ts|mjs)$/, ''),
+            title: `API behavior: ${file}`,
+            command: [bun, 'test', `tests/${file}`],
+            ...(classification.requiresDatabase ? { requires: 'database' as const } : {}),
+            ...(classification.requiresPostgresFilterPort ? { requiresPostgresFilterPort: true } : {}),
+        }
+    })
 const playwrightTasks = await discoverPlaywrightTasks()
 const tasks = [...coreTasks, ...unitTasks, ...environmentTasks, ...playwrightTasks]
 const selected = parseOnly()
@@ -106,6 +112,14 @@ const runnable = tasks.filter(task => selected.size ? selected.has(task.id) : sh
 if (!runnable.length) {
     throw new Error(`No API test tasks selected. Known tasks: ${tasks.map(task => task.id).join(', ')}`)
 }
+
+if (!selected.size) {
+    const postgresFilterNotice = getPostgresFilterRunNotice(unitTasks, process.env.RUN_DB_TESTS === '1')
+    if (postgresFilterNotice) console.info(`\n[api:test] ${postgresFilterNotice}`)
+}
+
+const postgresFilterPortError = getPostgresFilterPortError(runnable, process.env.POSTGRES_FILTER_TEST_PORT)
+if (postgresFilterPortError) throw new Error(postgresFilterPortError)
 
 for (const task of runnable) {
     await runTask(task)
@@ -139,11 +153,7 @@ async function discoverPlaywrightTasks() {
 }
 
 function shouldRunByDefault(task: TestTask) {
-    if (task.requires === 'database') return process.env.RUN_DB_TESTS === '1'
-    if (task.requires === 'server') return process.env.RUN_SERVER_TESTS === '1'
-    if (task.requires === 'network') return process.env.RUN_NETWORK_TESTS === '1'
-    if (task.requires === 'playwright') return process.env.RUN_E2E === '1' || process.env.RUN_PLAYWRIGHT === '1'
-    return true
+    return isTaskEnabledByDefault(task.requires, process.env)
 }
 
 function parseOnly() {
