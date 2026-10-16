@@ -5,7 +5,16 @@ import path from 'node:path'
 const root = process.cwd()
 
 test('rate limits separates policy from key issuance workflow', async () => {
-    const page = await readFile(path.join(root, 'src/app/dashboard/system/rates/pageClient.tsx'), 'utf8')
+    const sources = await Promise.all([
+        'src/app/dashboard/system/rates/pageClient.tsx',
+        'src/app/dashboard/system/rates/RateLimitHeader.tsx',
+        'src/app/dashboard/system/rates/ApiKeyCreationForm.tsx',
+        'src/app/dashboard/system/rates/ApiKeyCard.tsx',
+        'src/app/dashboard/system/rates/model.ts',
+        'src/app/dashboard/system/rates/RateLimitFields.tsx',
+        'src/app/dashboard/system/rates/useApiKeyDraft.ts',
+    ].map((file) => readFile(path.join(root, file), 'utf8')))
+    const page = sources.join('\n')
 
     expect(page).toContain('const [workspace, setWorkspace] = useState<\'keys\' | \'policy\'>(\'keys\')')
     expect(page).toContain('role=\'group\' aria-label=\'Rate-limit workspace\'')
@@ -15,7 +24,7 @@ test('rate limits separates policy from key issuance workflow', async () => {
     expect(page).toContain('workspace === \'keys\'')
     expect(page).toContain('Add first route')
     expect(page).toContain('Ready to issue')
-    expect(page).toContain('disabled={saving || !draftReady}')
+    expect(page).toContain('disabled={saving || !ready}')
     expect(page).toContain('type=\'date\'')
     expect(page).toContain('Create Key')
     expect(page).toContain('<span>Key settings</span>')
