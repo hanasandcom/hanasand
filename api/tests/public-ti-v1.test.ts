@@ -253,10 +253,11 @@ describe('public TI v1', () => {
             expect(anonymous.statusCode).toBe(401)
             expect(anonymous.json().error.code).toBe('authentication_required')
 
-            const response = await app.inject({ method: 'GET', url: '/api/v1/actors?q=apt&limit=10&page=1', headers: { 'x-api-key': 'valid' } })
+            const response = await app.inject({ method: 'GET', url: '/api/v1/actors?q=%20apt%20&limit=10&page=1', headers: { 'x-api-key': 'valid' } })
             expect(response.statusCode).toBe(200)
             expect(response.json()).toEqual({ data: [{ id: 'actor-1', canonicalName: 'APT29', aliases: ['Cozy Bear'], confidence: 0.9, sourceIds: ['src-1'], captureIds: ['cap-1'] }], pagination: { page: 1, limit: 10, total: 1, totalPages: 1, nextPage: null, nextCursor: null }, meta: { requestId: response.headers['x-request-id'], organizationId: 'org-customer' } })
             expect(requestedUrl).toContain('/v1/intel/actor-profiles?')
+            expect(new URL(requestedUrl).searchParams.get('q')).toBe('apt')
             expect(requestedUrl).not.toContain('tenant')
             expect(serviceToken).toBe('service-secret')
 
