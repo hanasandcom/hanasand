@@ -8,10 +8,12 @@ import {
     buildDwmWebhookDeliveryEvidence,
     buildDwmWebhookDeliveryEvidenceAndLedger,
     buildDwmWebhookDeliveryHistory,
+    buildDwmWebhookDeliveryHistoryAndPersistenceReadModels,
     buildDwmWebhookDeliveryHistoryConsumerProof,
     buildDwmWebhookDeliveryAttemptPersistenceReadModel,
     buildDwmWebhookDeliveryLedger,
     buildDwmWebhookDeliveryOperations,
+    buildDwmWebhookDeliveryPersistenceProof,
     buildDwmWebhookDeliveryRetryPersistence,
     buildDwmWebhookDestinationReadModels,
     toDwmWebhookAuditEvent,
@@ -261,6 +263,25 @@ test('history consumer reuses shared evidence and preserves retry projections at
             '2026-10-01T10:01:00.000Z',
             '2026-10-01T10:01:00.000Z',
         ])
+    } finally {
+        setSystemTime()
+    }
+})
+
+test('history and persistence read models share one projection without changing their contracts', () => {
+    const now = new Date('2026-10-01T10:00:00.000Z')
+    setSystemTime(now)
+    try {
+        const first = { ...deliveries[0], attemptedAt: null, nextRetryAt: null, attemptCount: 1 }
+        const second = { ...first, id: 'delivery_3' }
+        const input = { deliveries: [first, second], auditEvents: [auditEvents[0]], destinations: [destination], liveDeliveryEnabled: true }
+        const readModels = buildDwmWebhookDeliveryHistoryAndPersistenceReadModels(input)
+
+        expect(readModels.history).toEqual(buildDwmWebhookDeliveryHistory(input))
+        expect(readModels.persistenceProof).toEqual(buildDwmWebhookDeliveryPersistenceProof(input))
+        expect(readModels.retryPersistence).toEqual(buildDwmWebhookDeliveryRetryPersistence({ ...input, now }))
+        expect(readModels.history.entries.map(entry => entry.deliveryId)).toEqual(['delivery_1', 'delivery_3'])
+        expect(readModels.retryPersistence.deliveryKeys).toHaveLength(1)
     } finally {
         setSystemTime()
     }

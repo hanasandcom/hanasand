@@ -34,7 +34,7 @@ import {
     buildDwmWebhookDestinationLookupContract,
     buildDwmWebhookDestinationTestContract,
     buildDwmWebhookDeliveryEvidenceAndLedger,
-    buildDwmWebhookDeliveryHistory,
+    buildDwmWebhookDeliveryHistoryAndPersistenceReadModels,
     buildDwmWebhookDeliveryHistoryConsumerProof,
     buildDwmWebhookDeliveryOperations,
     buildDwmWebhookDeliveryPersistenceProof,
@@ -43,7 +43,6 @@ import {
     buildDwmWebhookDeliveryReplayGuard,
     buildDwmWebhookDeliveryReplayApiContract,
     buildDwmWebhookDeliveryTimeline,
-    buildDwmWebhookDeliveryRetryPersistence,
     buildDwmWebhookDeliveryRetryQueue,
     buildDwmWebhookDeliveryRetryRequestContract,
     buildDwmWebhookDeliveryRetryWorkOrders,
@@ -591,6 +590,10 @@ export async function getDwmWebhookDeliveries(req: FastifyRequest<{ Querystring:
         ...lifecycleAccess,
         visibility: visibilityContext,
     })
+    const deliveryHistoryReadModels = buildDwmWebhookDeliveryHistoryAndPersistenceReadModels({
+        ...visibleRecords,
+        filters: deliveryFilters,
+    })
     const payload: Record<string, unknown> = {
         deliveries,
         deliveryEvidence: visibilityResult ? visibilityResult.deliveryEvidence : evidence,
@@ -610,7 +613,7 @@ export async function getDwmWebhookDeliveries(req: FastifyRequest<{ Querystring:
                 destinations,
                 filters: deliveryFilters,
             }),
-        deliveryHistory: buildDwmWebhookDeliveryHistory({ ...visibleRecords, filters: deliveryFilters }),
+        deliveryHistory: deliveryHistoryReadModels.history,
         deliveryHistoryConsumer: buildDwmWebhookDeliveryHistoryConsumerProof({
             ...visibleRecords,
             filters: deliveryFilters,
@@ -621,7 +624,7 @@ export async function getDwmWebhookDeliveries(req: FastifyRequest<{ Querystring:
             ...lifecycleAccess,
             visibility: visibilityContext,
         }),
-        deliveryPersistenceProof: buildDwmWebhookDeliveryPersistenceProof({ ...visibleRecords, filters: deliveryFilters }),
+        deliveryPersistenceProof: deliveryHistoryReadModels.persistenceProof,
         deliveryAttemptPersistence: buildDwmWebhookDeliveryAttemptPersistenceReadModel({
             ...visibleRecords,
             filters: deliveryFilters,
@@ -656,7 +659,7 @@ export async function getDwmWebhookDeliveries(req: FastifyRequest<{ Querystring:
             ...lifecycleAccess,
             visibility: visibilityContext,
         }),
-        deliveryRetryPersistence: buildDwmWebhookDeliveryRetryPersistence({ ...visibleRecords, filters: deliveryFilters }),
+        deliveryRetryPersistence: deliveryHistoryReadModels.retryPersistence,
         deliveryRetryQueue: buildDwmWebhookDeliveryRetryQueue({
             ...visibleRecords,
             filters: deliveryFilters,
@@ -842,6 +845,12 @@ async function sendDwmWebhookDeliveryResult(res: FastifyReply, userId: string, o
         auditEvents,
         ...deliveryAccess,
     })
+    const deliveryHistoryReadModels = buildDwmWebhookDeliveryHistoryAndPersistenceReadModels({
+        deliveries: ledgerDeliveries,
+        auditEvents,
+        destinations,
+        filters,
+    })
     const response = {
         deliveries,
         deliveryReadiness: destinationReadModels.deliveryReadiness,
@@ -854,12 +863,7 @@ async function sendDwmWebhookDeliveryResult(res: FastifyReply, userId: string, o
             destinations,
             filters,
         }),
-        deliveryHistory: buildDwmWebhookDeliveryHistory({
-            deliveries: ledgerDeliveries,
-            auditEvents,
-            destinations,
-            filters,
-        }),
+        deliveryHistory: deliveryHistoryReadModels.history,
         deliveryReadinessConsumer: buildDwmWebhookDeliveryReadinessConsumerProof({
             deliveries: ledgerDeliveries,
             auditEvents,
@@ -867,12 +871,7 @@ async function sendDwmWebhookDeliveryResult(res: FastifyReply, userId: string, o
             filters,
             ...deliveryAccess,
         }),
-        deliveryPersistenceProof: buildDwmWebhookDeliveryPersistenceProof({
-            deliveries: ledgerDeliveries,
-            auditEvents,
-            destinations,
-            filters,
-        }),
+        deliveryPersistenceProof: deliveryHistoryReadModels.persistenceProof,
         deliveryAttemptContract: buildDwmWebhookDeliveryAttemptContract({
             ownerId: userId,
             input: { ...input, orgId },
@@ -922,12 +921,7 @@ async function sendDwmWebhookDeliveryResult(res: FastifyReply, userId: string, o
             auditEvents,
             canManage: true,
         }),
-        deliveryRetryPersistence: buildDwmWebhookDeliveryRetryPersistence({
-            deliveries: ledgerDeliveries,
-            auditEvents,
-            destinations,
-            filters,
-        }),
+        deliveryRetryPersistence: deliveryHistoryReadModels.retryPersistence,
         deliveryRetryQueue: buildDwmWebhookDeliveryRetryQueue({
             deliveries: ledgerDeliveries,
             auditEvents,

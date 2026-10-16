@@ -1949,6 +1949,39 @@ export function buildDwmWebhookDeliveryPersistenceProof({
     liveDeliveryEnabled = process.env.DWM_WEBHOOK_LIVE_DELIVERY === 'true',
 }: DwmWebhookDeliveryEvidenceOptions) {
     const history = buildDwmWebhookDeliveryHistory({ deliveries, auditEvents, destinations, filters, liveDeliveryEnabled })
+    return buildDwmWebhookDeliveryPersistenceProofFromHistory(history, liveDeliveryEnabled)
+}
+
+export function buildDwmWebhookDeliveryHistoryAndPersistenceReadModels({
+    deliveries,
+    auditEvents = [],
+    destinations = [],
+    filters = {},
+    liveDeliveryEnabled = process.env.DWM_WEBHOOK_LIVE_DELIVERY === 'true',
+}: DwmWebhookDeliveryEvidenceOptions) {
+    const now = new Date()
+    const context = prepareDwmWebhookDeliveryProjectionContext({ deliveries, auditEvents, filters, now })
+    const { history, retryPersistence } = buildDwmWebhookDeliveryHistoryWithRetryPersistence({
+        deliveries,
+        auditEvents,
+        destinations,
+        filters,
+        liveDeliveryEnabled,
+        now,
+        context,
+    })
+
+    return {
+        history,
+        persistenceProof: buildDwmWebhookDeliveryPersistenceProofFromHistory(history, liveDeliveryEnabled),
+        retryPersistence,
+    }
+}
+
+function buildDwmWebhookDeliveryPersistenceProofFromHistory(
+    history: ReturnType<typeof buildDwmWebhookDeliveryHistory>,
+    liveDeliveryEnabled: boolean,
+) {
     const rows = history.entries.map((entry) => {
         const replayBlockers = deliveryPersistenceReplayBlockers(entry, liveDeliveryEnabled)
         const dryRunReplayBlocked = replayBlockers.filter(blocker => blocker.blocking && blocker.code !== 'live_delivery_disabled')
