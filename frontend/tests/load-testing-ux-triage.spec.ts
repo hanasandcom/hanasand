@@ -1,33 +1,4 @@
 import { expect, test } from '@playwright/test'
-import { readFile } from 'node:fs/promises'
-import path from 'node:path'
-
-const root = process.cwd()
-
-test('load testing dashboard keeps launch primary and advanced evidence collapsed', async () => {
-    const pageSource = await readFile(path.join(root, 'src/app/dashboard/load-testing/page.tsx'), 'utf8')
-    const clientSource = await readFile(path.join(root, 'src/app/dashboard/load-testing/pageClient.tsx'), 'utf8')
-
-    expect(pageSource).toContain('<LoadTestingOperations />')
-    expect(pageSource).toContain('data-load-test-allowance-disclosure')
-    expect(pageSource).toContain('Run allowance lanes')
-
-    expect(clientSource).toContain('postTest({ url: targetUrl')
-    expect(clientSource).toContain('fetchRecentTests(\'recent\', 8)')
-    expect(clientSource).toContain('fetchRecentTests(\'mine\', 8)')
-    expect(clientSource).toContain('router.push(`/test/${result.test.id}`)')
-    expect(clientSource).toContain('permissionConfirmed')
-    expect(clientSource).toContain('data-load-test-permission-gate')
-    expect(clientSource).toContain('I own this endpoint or have written permission to test it.')
-    expect(clientSource).toContain('data-load-test-scenario-disclosure')
-    expect(clientSource).toContain('data-load-test-policy-disclosure')
-    expect(clientSource).toContain('Operations snapshot')
-    expect(clientSource).toContain('historyView === \'mine\' ? myScans : recentScans')
-    expect(clientSource).toContain('aria-label=\'Choose result history\'')
-    expect(clientSource).not.toContain('Global endpoint checks\' readyMessage')
-    expect(clientSource).not.toContain('What returned')
-})
-
 test('load testing dashboard renders one primary launch flow and switchable history', async ({ context, page, baseURL }) => {
     const origin = baseURL || 'http://127.0.0.1:3000'
     await context.setExtraHTTPHeaders({ 'x-hanasand-render-proof-auth': 'local-dashboard-render-proof' })
@@ -57,13 +28,17 @@ test('load testing dashboard renders one primary launch flow and switchable hist
     await expect(page.getByRole('heading', { name: 'Load testing and endpoint evidence' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Check an endpoint you control' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Operations snapshot' })).toBeVisible()
+    await expect(page.getByText('1 running').first()).toBeVisible()
+    await expect(page.getByText('1280ms').first()).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Open' })).toHaveAttribute('href', '/test/global-check-1')
+    await expect(page.getByText('Run allowance')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Start check' })).toBeDisabled()
     await expect(page.getByText('I own this endpoint or have written permission to test it.')).toBeVisible()
     await expect(page.getByText('Ramp: Capacity smoke test')).toBeHidden()
-    await expect(page.getByText('Allowed target')).toBeHidden()
     await expect(page.getByText('Starter')).toBeHidden()
     await expect(page.getByText('https://api.example.com/healthz')).toBeVisible()
     await expect(page.getByText('https://status.example.net/ping')).toBeHidden()
+    await expect(page.getByText('Allowed target')).toBeHidden()
 
     await page.getByRole('button', { name: 'Global' }).click()
     await expect(page.getByText('https://status.example.net/ping')).toBeVisible()
@@ -78,7 +53,16 @@ test('load testing dashboard renders one primary launch flow and switchable hist
     await page.getByLabel('I own this endpoint or have written permission to test it.').check()
     await page.getByRole('button', { name: 'Start check' }).click()
     await expect.poll(() => startedChecks.length).toBe(1)
-    expect(startedChecks[0]).toMatchObject({ url: 'https://api.example.com/ready', timeout: 45000 })
+    expect(startedChecks[0]).toMatchObject({
+        url: 'https://api.example.com/ready',
+        timeout: 45000,
+        stages: [
+            { duration: '30s', target: 5 },
+            { duration: '1m', target: 20 },
+            { duration: '30s', target: 0 },
+        ],
+    })
+    await expect(page).toHaveURL(/\/test\/new-check-123$/)
 })
 
 const fixtureMineCheck = {
