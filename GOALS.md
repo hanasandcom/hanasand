@@ -194,6 +194,24 @@ their current extraction checkpoint adds aggregate implementation LOC, so the
 100,000-line API reduction and 10,000–30,000-line frontend target remain
 unachieved. Counts are provisional during concurrent refactors.
 
+After the shared backend-auth headers, article/thought dashboard queue,
+organization timestamp write, and webhook retry-test checkpoints, the frontend
+scan covers 2,296 hand-maintained files and 155,168 lines, with no file over
+200 lines. Its full test suite and production build pass at commit
+`4a84ffb59`; the later API-only test split at `0f8199eba` does not change
+frontend inputs. The frontend count is 73 lines above the prior 155,095-line
+snapshot despite the auth-header consolidation removing 20 production lines;
+the dashboard component improves shared rendering but adds four production
+lines after call-site overhead. The frontend's 10,000–30,000-line objective
+remains unmet.
+
+The global scanner currently reports 3,579 hand-maintained files, 321,745
+lines, and 129 files over the cap. This working-tree count includes Einar's
+in-progress organization-route split and is provisional. The API-wide
+100,000-line reduction and repository-wide 200-line cap remain outstanding;
+the API webhook test restructuring removed 47 net lines while preserving all
+19 cases and 94 direct assertion calls.
+
 ## Execution
 
 - Divide work by non-overlapping repository areas and use traditional Norwegian
