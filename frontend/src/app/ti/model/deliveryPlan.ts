@@ -5,6 +5,7 @@ import { unique } from './evidenceValues'
 import { displayRequirementList } from './requirementCopy'
 import { consumerRequestActionLabel } from './sourceLinks'
 import { formatLabel } from './reviewLabels'
+import { createTiSafeOutputMetadata } from './safeOutput'
 
 export function selectedDeliveryReadinessPlanFor(
     result: TiSearchResponse,
@@ -116,12 +117,7 @@ export function selectedDeliveryReadinessPlanFor(
         },
         sourceRefs,
         blockers,
-        safeOutput: {
-            metadataOnly: true,
-            liveMutation: false,
-            rawEvidenceExposed: false,
-            webhookSecretExposed: false,
-        },
+        safeOutput: createTiSafeOutputMetadata(),
     }
 }
 

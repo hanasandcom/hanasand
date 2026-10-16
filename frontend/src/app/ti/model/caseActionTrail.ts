@@ -4,6 +4,7 @@ import { type TiActionabilityModel } from '@/utils/ti/actionability'
 import { unique } from './evidenceValues'
 import { decisionLabel, relevanceLabel } from './reviewLabels'
 import { displayRequirementList } from './requirementCopy'
+import { createTiSafeOutputMetadata } from './safeOutput'
 
 export function selectedCaseActionTrailFor(
     result: TiSearchResponse,
@@ -123,12 +124,7 @@ export function selectedCaseActionTrailFor(
             sessionLocal: true,
             replayable: activeReplayRows.some(row => row.ready),
         },
-        safeOutput: {
-            metadataOnly: true,
-            liveMutation: false,
-            rawEvidenceExposed: false,
-            webhookSecretExposed: false,
-        },
+        safeOutput: createTiSafeOutputMetadata(),
     }
 }
 

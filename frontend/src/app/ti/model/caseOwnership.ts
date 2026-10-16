@@ -4,6 +4,7 @@ import { type TiActionabilityModel } from '@/utils/ti/actionability'
 import { unique } from './evidenceValues'
 import { displayRequirementList } from './requirementCopy'
 import { actionOwnerLabel, consumerRequestActionLabel } from './sourceLinks'
+import { createTiSafeOutputMetadata } from './safeOutput'
 
 export function selectedCaseOwnershipFor(
     result: TiSearchResponse,
@@ -154,11 +155,6 @@ export function selectedCaseOwnershipFor(
             blockers: caseStage.missing,
         } : undefined,
         blockers: blockerDetails,
-        safeOutput: {
-            metadataOnly: true,
-            liveMutation: false,
-            rawEvidenceExposed: false,
-            webhookSecretExposed: false,
-        },
+        safeOutput: createTiSafeOutputMetadata(),
     }
 }

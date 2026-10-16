@@ -8,6 +8,7 @@ import { readStringArray, unique } from './evidenceValues'
 import { caseReplaySourceSchemaVersionFor, selectedCaseActorContextFor, selectedCaseWatchlistBasisFor } from './caseContext'
 import { displayRequirementList, displayRequirementText } from './requirementCopy'
 import { consumerRequestActionLabel } from './sourceLinks'
+import { createTiSafeOutputMetadata } from './safeOutput'
 
 export function selectedCaseCreateRequestFor(
     result: TiSearchResponse,
@@ -165,11 +166,6 @@ export function selectedCaseCreateRequestFor(
             request: caseStage.request ? consumerRequestActionLabel(caseStage.request.method, caseStage.request.path) : undefined,
             missing: caseStage.missing,
         } : undefined,
-        safeOutput: {
-            metadataOnly: true,
-            liveMutation: false,
-            rawEvidenceExposed: false,
-            webhookSecretExposed: false,
-        },
+        safeOutput: createTiSafeOutputMetadata(),
     }
 }

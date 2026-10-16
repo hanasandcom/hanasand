@@ -1,3 +1,5 @@
+import type { TiSafeOutputMetadata } from '../safeOutput'
+
 export type SelectedDeliveryReadinessPlan = {
     schemaVersion: 'ti.public_actor.selected_delivery_readiness.v1'
     source: 'public-ti'
@@ -42,10 +44,5 @@ export type SelectedDeliveryReadinessPlan = {
         sourceIds: string[]
     }
     blockers: string[]
-    safeOutput: {
-        metadataOnly: true
-        liveMutation: false
-        rawEvidenceExposed: false
-        webhookSecretExposed: false
-    }
+    safeOutput: TiSafeOutputMetadata
 }

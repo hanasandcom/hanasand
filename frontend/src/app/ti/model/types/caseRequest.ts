@@ -2,6 +2,7 @@ import { type CaseReviewIntakeItem, type SelectedCaseSourceRow } from './source'
 import { type SelectedWatchlistPlan } from './watchlistPlan'
 import { type TiActorIntelligenceProfile } from '@/utils/ti/actorIntelligence'
 import { type TiActionabilityModel } from '@/utils/ti/actionability'
+import type { TiSafeOutputMetadata } from '../safeOutput'
 
 export type SelectedCaseCreateRequest = {
     schemaVersion: 'ti.public_actor.selected_case_create_request.v1'
@@ -167,10 +168,5 @@ export type SelectedCaseCreateRequest = {
         request?: string
         missing: string[]
     }
-    safeOutput: {
-        metadataOnly: true
-        liveMutation: false
-        rawEvidenceExposed: false
-        webhookSecretExposed: false
-    }
+    safeOutput: TiSafeOutputMetadata
 }

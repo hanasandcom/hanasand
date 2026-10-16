@@ -2,6 +2,7 @@ import { type TiSearchResponse } from '@/utils/ti/search'
 import { type AnalystWorkItem, type SelectedEnrichmentTriage, type SelectedSourceDrilldown } from './types'
 import { type TiActionabilityModel } from '@/utils/ti/actionability'
 import { unique } from './evidenceValues'
+import { createTiSafeOutputMetadata } from './safeOutput'
 
 export function selectedEnrichmentTriageFor(
     result: TiSearchResponse,
@@ -97,11 +98,6 @@ export function selectedEnrichmentTriageFor(
             captures: selectedIntakeItems.filter(item => Boolean(item.captureId)).length,
         },
         rows: triageRows,
-        safeOutput: {
-            metadataOnly: true,
-            liveMutation: false,
-            rawEvidenceExposed: false,
-            webhookSecretExposed: false,
-        },
+        safeOutput: createTiSafeOutputMetadata(),
     }
 }

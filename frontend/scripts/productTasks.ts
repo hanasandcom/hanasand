@@ -25,6 +25,7 @@ export const productTasks: TestTask[] = [
     { id: 'ai-conversation-title', title: 'Shared AI conversation title normalization', command: [bun, 'test', 'tests/ai-conversation-title.test.ts'] },
     { id: 'test-content-render', title: 'Test result metrics and evidence rendering', command: [bun, 'test', 'tests/test-content-render.test.tsx'] },
     { id: 'ti-business-model-evidence', title: 'Public TI business-model evidence presentation safety', command: [bun, 'test', 'tests/ti-business-model-evidence.test.tsx'] },
+    { id: 'ti-safe-output-contract', title: 'Public TI plans keep metadata-only output contract', command: [bun, 'test', 'tests/ti-safe-output-contract.test.ts'] },
     { id: 'blocklist-render', title: 'Blocklist edit actions require persisted entry identifiers', command: [bun, 'test', 'tests/blocklist-render.test.tsx'] },
     { id: 'vulnerability-severity-badge', title: 'Vulnerability severity badge styles and counts', command: [bun, 'test', 'tests/vulnerability-severity-badge.test.tsx'] },
     { id: 'dwm-tenant-scope', title: 'DWM tenant scope and findings presentation contracts', command: [bun, 'test', 'tests/dwm-tenant-scope.test.ts'] },

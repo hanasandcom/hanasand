@@ -1,3 +1,5 @@
+import type { TiSafeOutputMetadata } from '../safeOutput'
+
 export type CaseActionTrailPayload = {
     schemaVersion: 'ti.public_actor.case_action_trail.v1'
     source: 'public-ti'
@@ -14,12 +16,7 @@ export type CaseActionTrailPayload = {
         sessionLocal: boolean
         replayable: boolean
     }
-    safeOutput: {
-        metadataOnly: true
-        liveMutation: false
-        rawEvidenceExposed: false
-        webhookSecretExposed: false
-    }
+    safeOutput: TiSafeOutputMetadata
 }
 
 export type CaseActionTrailEvent = {

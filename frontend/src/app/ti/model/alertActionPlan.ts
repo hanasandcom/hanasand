@@ -3,6 +3,7 @@ import { type AnalystWorkItem, type LocalRelevanceMark, type SelectedAlertAction
 import { type TiActionabilityModel } from '@/utils/ti/actionability'
 import { unique } from './evidenceValues'
 import { displayRequirementList } from './requirementCopy'
+import { createTiSafeOutputMetadata } from './safeOutput'
 
 export function selectedAlertActionPlanFor(
     result: TiSearchResponse,
@@ -138,11 +139,6 @@ export function selectedAlertActionPlanFor(
             route: actionability.createAlertHandoff.backedRoute,
             missing,
         },
-        safeOutput: {
-            metadataOnly: true,
-            liveMutation: false,
-            rawEvidenceExposed: false,
-            webhookSecretExposed: false,
-        },
+        safeOutput: createTiSafeOutputMetadata(),
     }
 }

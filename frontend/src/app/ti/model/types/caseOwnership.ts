@@ -1,5 +1,6 @@
 import { type CaseReviewIntakeItem } from './source'
 import { type TiActionabilityModel } from '@/utils/ti/actionability'
+import type { TiSafeOutputMetadata } from '../safeOutput'
 
 export type SelectedCaseOwnershipPlan = {
     schemaVersion: 'ti.public_actor.selected_case_ownership.v1'
@@ -81,10 +82,5 @@ export type SelectedCaseOwnershipPlan = {
         blockers: string[]
     }
     blockers: string[]
-    safeOutput: {
-        metadataOnly: true
-        liveMutation: false
-        rawEvidenceExposed: false
-        webhookSecretExposed: false
-    }
+    safeOutput: TiSafeOutputMetadata
 }

@@ -1,5 +1,6 @@
 import { type SourceHealthRow } from './source'
 import { type TiActionabilityModel } from '@/utils/ti/actionability'
+import type { TiSafeOutputMetadata } from '../safeOutput'
 
 export type SelectedEnrichmentTriage = {
     schemaVersion: 'ti.public_actor.selected_enrichment_triage.v1'
@@ -51,10 +52,5 @@ export type SelectedEnrichmentTriage = {
             nextRetryAt?: string
         }>
     }>
-    safeOutput: {
-        metadataOnly: true
-        liveMutation: false
-        rawEvidenceExposed: false
-        webhookSecretExposed: false
-    }
+    safeOutput: TiSafeOutputMetadata
 }

@@ -1,4 +1,5 @@
 import { type TiActionabilityModel } from '@/utils/ti/actionability'
+import type { TiSafeOutputMetadata } from '../safeOutput'
 
 export type SelectedAlertActionPlan = {
     schemaVersion: 'ti.public_actor.selected_alert_action_plan.v1'
@@ -67,10 +68,5 @@ export type SelectedAlertActionPlan = {
         route?: string
         missing: string[]
     }
-    safeOutput: {
-        metadataOnly: true
-        liveMutation: false
-        rawEvidenceExposed: false
-        webhookSecretExposed: false
-    }
+    safeOutput: TiSafeOutputMetadata
 }

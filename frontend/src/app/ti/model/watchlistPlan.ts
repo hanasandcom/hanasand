@@ -4,6 +4,7 @@ import { type TiActionabilityModel } from '@/utils/ti/actionability'
 import { unique, uniqueBy } from './evidenceValues'
 import { watchlistTermParts } from './watchlistPayloads'
 import { displayRequirementList } from './requirementCopy'
+import { createTiSafeOutputMetadata } from './safeOutput'
 
 export function selectedWatchlistPlanFor(
     result: TiSearchResponse,
@@ -183,11 +184,6 @@ export function selectedWatchlistPlanFor(
             blocked: actionability.exportPayloads.watchlist.blocked,
             missing: actionability.exportPayloads.watchlist.missing,
         },
-        safeOutput: {
-            metadataOnly: true,
-            liveMutation: false,
-            rawEvidenceExposed: false,
-            webhookSecretExposed: false,
-        },
+        safeOutput: createTiSafeOutputMetadata(),
     }
 }

@@ -1,5 +1,6 @@
 import { type TiActionabilityModel } from '@/utils/ti/actionability'
 import { type WatchlistIntersectionRow } from './source'
+import type { TiSafeOutputMetadata } from '../safeOutput'
 
 export type SelectedWatchlistPlan = {
     schemaVersion: 'ti.public_actor.selected_watchlist_plan.v1'
@@ -84,10 +85,5 @@ export type SelectedWatchlistPlan = {
         blocked: boolean
         missing: string[]
     }
-    safeOutput: {
-        metadataOnly: true
-        liveMutation: false
-        rawEvidenceExposed: false
-        webhookSecretExposed: false
-    }
+    safeOutput: TiSafeOutputMetadata
 }
