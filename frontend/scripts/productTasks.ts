@@ -29,7 +29,7 @@ export const productTasks: TestTask[] = [
     { id: 'dashboard-content-queue', title: 'Article and thought dashboard queue rendering', command: [bun, 'test', 'tests/dashboard-content-queue.test.tsx'] },
     { id: 'prompt-portal-ordering', title: 'Prompt portal queue ordering and worker batch order', command: [bun, 'test', 'tests/prompt-portal-ordering.test.tsx', 'tests/prompt-portal-worker-token.test.ts'] },
     { id: 'share-editor-empty-state', title: 'Share editor starter choices and empty-state layout', command: [bun, 'test', 'tests/share-editor-empty-state.test.tsx'] },
-    { id: 'share-tree-paths', title: 'Shared nested workspace paths for preview detection', command: [bun, 'test', 'tests/share-tree-paths.test.ts'] },
+    { id: 'share-tree-paths', title: 'Share tree paths and runtime capability', command: [bun, 'test', 'tests/share-tree-paths.test.ts'] },
     { id: 'repository-share-pruning', title: 'Repository sync removes stale shares in safe order', command: [bun, 'test', 'tests/sync-repository-prune.test.ts'] },
     { id: 'ai-github-requests', title: 'AI GitHub request and error contracts', command: [bun, 'test', 'tests/ai-github-requests.test.ts'] },
     { id: 'share-git-workspace-operations', title: 'Share Git operation lifecycle and sync metadata', command: [bun, 'test', 'tests/share-git-workspace-operations.test.ts'] },

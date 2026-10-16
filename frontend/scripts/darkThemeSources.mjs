@@ -44,9 +44,9 @@ export function loadThemeSources(frontendRoot) {
         pwnedSearch: readCluster(frontendRoot, 'src/components/pwned', 'src/utils/pwned/checkHash.ts'),
         loginPageClient: readFileSync(path.join(frontendRoot, 'src/app/login/pageClient.tsx'), 'utf8'),
         publicFooter: readCluster(frontendRoot, 'src/components/footer'),
-        previewFlow: readCluster(frontendRoot, 'src/components/share/previewFlow.tsx'),
         contactPage: readFileSync(path.join(frontendRoot, 'src/components/contact/contact.tsx'), 'utf8'),
         sharePublicClient: readCluster(frontendRoot, 'src/app/s/[...id]/clientPage.tsx'),
+        shareRenderSite: readFileSync(path.join(frontendRoot, 'src/components/share/renderSite.tsx'), 'utf8'),
         uploadPreview: readCluster(frontendRoot, 'src/components/upload'),
     }
 }

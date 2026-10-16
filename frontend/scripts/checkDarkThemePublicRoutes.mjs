@@ -2,7 +2,7 @@
 import { joinPwnedSources } from './darkThemeSources.mjs'
 
 export function checkDarkThemePublicRoutes(sources, violations) {
-    const { loginPageClient, publicFooter, previewFlow, contactPage, sharePublicClient, uploadPreview } = sources
+    const { loginPageClient, publicFooter, contactPage, sharePublicClient, shareRenderSite, uploadPreview } = sources
     const pwnedRouteCluster = joinPwnedSources(sources)
     for (const requiredPrivacyToken of [
         'checkedPrefix',
@@ -50,26 +50,6 @@ export function checkDarkThemePublicRoutes(sources, violations) {
     const bannedPublicFooterColor = /#[0-9a-fA-F]{3,8}|rgba\(|\b(?:bg|text|border|ring|outline|shadow)-\[#|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|rose|bright)\b|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|rose|bright)\//g
     if (bannedPublicFooterColor.test(publicFooter)) {
         violations.push('public footer should not use one-off public page color utilities after palette migration')
-    }
-
-    for (const required of [
-        'bg-ui-canvas',
-        'bg-ui-panel',
-        'bg-ui-raised',
-        'border-ui-border',
-        'text-ui-text',
-        'text-ui-muted',
-        'text-ui-primary',
-        'text-ui-success',
-    ]) {
-        if (!previewFlow.includes(required)) {
-            violations.push(`preview flow should use shared palette class ${required}`)
-        }
-    }
-
-    const bannedPreviewFlowColor = /#[0-9a-fA-F]{3,8}|rgba\(|\b(?:bg|text|border|ring|outline|shadow)-\[#|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|rose|bright|background)\b|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|rose|bright|background)\//g
-    if (bannedPreviewFlowColor.test(previewFlow)) {
-        violations.push('preview flow should not use one-off share toolbar color utilities after palette migration')
     }
 
     for (const required of [
@@ -129,5 +109,24 @@ export function checkDarkThemePublicRoutes(sources, violations) {
     const bannedSharePublicClientColor = /#[0-9a-fA-F]{3,8}|rgba\(|\b(?:bg|text|border|ring|outline|shadow)-\[#|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|rose|bright|background)\b|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|rose|bright|background)\//g
     if (bannedSharePublicClientColor.test(sharePublicClient)) {
         violations.push('public share client should not use one-off share chrome color utilities after palette migration')
+    }
+
+    for (const required of [
+        'bg-ui-panel',
+        'bg-ui-raised',
+        'border-ui-border',
+        'text-ui-text',
+        'text-ui-muted',
+        'bg-ui-border',
+        'bg-ui-primary',
+    ]) {
+        if (!shareRenderSite.includes(required)) {
+            violations.push(`share renderer should use shared palette class ${required}`)
+        }
+    }
+
+    const bannedShareRenderColor = /#[0-9a-fA-F]{3,8}|rgba\(|\b(?:bg|text|border|ring|outline|shadow)-\[#|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|rose|bright|background)\b|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|rose|bright|background)\//g
+    if (bannedShareRenderColor.test(shareRenderSite)) {
+        violations.push('share renderer should not use one-off color utilities after palette migration')
     }
 }

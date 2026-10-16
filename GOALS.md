@@ -7,7 +7,7 @@ contracts match, and maintainable tests while preserving existing product
 behavior and features. Reduce duplicated and ineffective code; keep measuring
 source, tests, generated output, and configuration separately against the
 recorded baseline. The API source reduction target remains at least 100,000 lines without
-feature loss. The frontend is also in scope: reduce its current 155,429
+feature loss. The frontend is also in scope: reduce its current 155,080
 hand-maintained lines to no more than 30,000, aiming for 10,000–30,000 where
 that preserves clear ownership and complete functionality. Keep rendered UI,
 interactions, accessibility behavior, and page data contracts stable. Prefer
@@ -659,3 +659,17 @@ production build (116 static pages). The frontend inventory is 2,318 files /
 / 123 over 200, all outside frontend. This is a verified production LOC
 reduction, while the 10,000–30,000-line frontend and 100,000-line API targets
 remain unmet.
+
+The disconnected share `PreviewFlow` and its private runtime-guessing helper
+were removed after route/import/history checks confirmed that the active share
+route had stopped mounting this flow. Together they remove 348 production LOC.
+The existing share-tree test now checks the active runtime-capability helper,
+and the dark-theme source guard now checks the mounted `RenderSite`. No current
+route, rendered UI, or page-data behavior changed. Full frontend tests,
+non-incremental typecheck, scoped ESLint, line-cap scan, and Next production
+build pass; all 116 static pages generate. The frontend inventory is 2,316
+files / 155,080 LOC / zero over 200. The repository scanner reports 3,757
+files / 323,181 LOC / 123 over 200, all outside the frontend. The standalone
+dark-theme guard still fails on existing assertions in other pages/components;
+the new `RenderSite` assertion passes. The 10,000–30,000-line frontend and
+100,000-line API reduction targets remain unmet.

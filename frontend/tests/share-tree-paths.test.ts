@@ -1,9 +1,8 @@
 import { expect, test } from 'bun:test'
 import collectTreePaths from '../src/utils/share/collectTreePaths'
 import { getShareRuntimeCapability } from '../src/utils/share/runtimeCapabilities'
-import { getPreviewRuntime } from '../src/utils/share/previewFlow'
 
-test('shares ordered nested workspace paths across capability and preview detection', () => {
+test('collects ordered nested paths and derives current share runtime capability', () => {
     const tree = [{
         id: 'project', name: 'project', type: 'folder', alias: null, parent: null,
         children: [
@@ -21,7 +20,8 @@ test('shares ordered nested workspace paths across capability and preview detect
     const share = { alias: 'demo', content: '' } as Share
     const capability = getShareRuntimeCapability({ share, tree, activeContent: '' })
     expect(capability.hasHttpSurface).toBe(true)
-    const runtime = getPreviewRuntime({ share, tree, activePath: 'project/src/server.ts', activeContent: '', capability })
-    expect(runtime.framework).toBe('Node server')
-    expect(runtime.canRun).toBe(true)
+    expect(capability.canDeploy).toBe(true)
+    expect(capability.canPreview).toBe(true)
+    expect(capability.reason).toBe('Detected server code.')
+    expect(capability.evidence).toEqual(['server code'])
 })
