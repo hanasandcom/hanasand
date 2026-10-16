@@ -2,6 +2,7 @@
 import { beforeEach, expect, mock, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { readFile } from 'node:fs/promises'
 import type { NextRequest } from 'next/server'
 
 let product: (request: NextRequest) => Promise<Response>
@@ -97,6 +98,12 @@ test('case loading reports unknown on failure and product loading returns fresh 
 })
 test('rejects data for a different organization', async () => {
     expect(await loadOverview('id=user-a', 'org-b')).toEqual({ status: 'error', message: 'Organization monitoring returned an unexpected tenant scope.' })
+})
+
+test('customer overview route does not include unscoped platform metrics', async () => {
+    const page = await readFile(new URL('../src/app/dashboard/overview/page.tsx', import.meta.url), 'utf8')
+    expect(page).toContain('DwmOverviewPanel')
+    expect(page).not.toMatch(/getMonitoringOverview|Platform traffic|Domains watched|requestsToday|activeDomains|criticalVulnerabilities|totalVulnerabilities|Vulnerability monitoring|imagesScanned|scanRunning|Not configured/)
 })
 
 const { default: Loading } = await import('../src/app/loading')

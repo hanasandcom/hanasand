@@ -7,7 +7,7 @@ contracts match, and maintainable tests while preserving existing product
 behavior and features. Reduce duplicated and ineffective code; keep measuring
 source, tests, generated output, and configuration separately against the
 recorded baseline. The API source reduction target remains at least 100,000 lines without
-feature loss. The frontend is also in scope: reduce its current 155,030
+feature loss. The frontend is also in scope: reduce its current 155,092
 hand-maintained lines to no more than 30,000, aiming for 10,000–30,000 where
 that preserves clear ownership and complete functionality. Keep rendered UI,
 interactions, accessibility behavior, and page data contracts stable. Prefer
@@ -608,15 +608,18 @@ checkpoint adds behavior-specific regression tests and shared validation
 code; it removes repeated production logic locally but does not constitute
 meaningful progress toward the 10,000–30,000-line objective.
 
-At frontend checkpoint `749ceb274`, the browser
+Since frontend checkpoint `749ceb274`, the browser
 report reuses the browser workspace's existing VirusTotal vendor-label helper;
 fixed-output tests cover zero, nonzero and missing totals. The dashboard
-tenant-overview source-string test and its duplicate overview source assertion
-are replaced by a rendered organization snapshot check for scoped links and
-visible watch-term/alert counts. The frontend suite, non-incremental typecheck,
+tenant-overview test is replaced by a rendered organization snapshot check for
+scoped links and visible watch-term/alert counts; one focused route-source
+guard remains for the explicit prohibition on unscoped platform metrics. The
+duplicate source assertion was removed. The frontend suite, non-incremental typecheck,
 scoped ESLint, cap check and production build pass; Next generated all 116
-static pages. The frontend scan is 2,312 files / 155,030 LOC / zero over 200.
-The repository scan is 3,753 files / 323,131 LOC / 123 over 200, all outside
-the frontend. The richer runtime test fixture leaves aggregate frontend LOC
-seven lines above the preceding snapshot; the 10,000–30,000-line target and
+static pages. The AI GitHub client now shares JSON parsing and error handling across its
+eight operations; runtime tests preserve each endpoint, payload, result and
+fallback error. The frontend scan is 2,313 files / 155,092 LOC / zero over 200.
+The repository scan is 3,754 files / 323,193 LOC / 123 over 200, all outside
+the frontend. These checks improve reuse and behavioral coverage, but do not
+materially reduce aggregate frontend LOC; the 10,000–30,000-line target and
 repository-wide cap remain unmet.
