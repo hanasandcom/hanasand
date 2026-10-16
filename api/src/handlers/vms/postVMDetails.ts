@@ -1,6 +1,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import run from '#db'
 import hasInternalToken from '#utils/auth/internalToken.ts'
+import { writeVmDetails } from '#utils/vms/vmDetails.ts'
 
 const requiredFields: (keyof PostVmDetails)[] = [
     'name', 'status', 'type', 'architecture', 'created', 'last_used',
@@ -15,26 +16,13 @@ const requiredFields: (keyof PostVmDetails)[] = [
 ]
 
 export default async function postVMDetails(req: FastifyRequest, res: FastifyReply) {
-    const {
-        name, status, type, architecture, created, last_used,
-        config_architecture, config_image_architecture, config_image_description,
-        config_image_label, config_image_os, config_image_release, config_image_serial,
-        config_image_type, config_image_version, limits_cpu, limits_memory,
-        volatile_base_image, volatile_cloud_init_instance_id, volatile_eth0_hwaddr,
-        volatile_last_state_power, volatile_uuid,
-        volatile_uuid_generation, volatile_vsock_id,
-        device_eth0_ipv4_address, device_eth0_name, device_eth0_network,
-        device_eth0_type, ephemeral, stateful, description, profiles
-    } = req.body as PostVmDetails ?? {}
+    const details = req.body as PostVmDetails ?? {}
 
     if (!hasInternalToken(req)) {
         return res.status(401).send({ error: 'Unauthorized.' })
     }
 
-    const missingFields = requiredFields.filter(field => (
-        req.body as PostVmDetails)[field] === undefined
-        || (req.body as PostVmDetails)[field] === null
-    )
+    const missingFields = requiredFields.filter(field => details[field] === undefined || details[field] === null)
     if (missingFields.length > 0) {
         return res.status(400).send({ error: `Missing required fields: ${missingFields.join(', ')}` })
     }
@@ -51,7 +39,7 @@ export default async function postVMDetails(req: FastifyRequest, res: FastifyRep
                     AND owned.name <> $1
                     AND owned.owner <> 'ownerless'
               )
-        `, [name])
+        `, [details.name])
 
         await run(`
             UPDATE vms
@@ -59,86 +47,20 @@ export default async function postVMDetails(req: FastifyRequest, res: FastifyRep
             WHERE LOWER(name) = LOWER($1)
               AND name <> $1
               AND NOT EXISTS (SELECT 1 FROM vms WHERE name = $1)
-        `, [name])
+        `, [details.name])
 
         await run(`
             INSERT INTO vms (name, owner, created_by, access_users)
             VALUES ($1, 'ownerless', 'unknown', '[]'::jsonb)
             ON CONFLICT (name) DO NOTHING
-        `, [name])
+        `, [details.name])
 
-        const ephemeralBool = ephemeral === 'true'
-        const statefulBool = stateful === 'true'
-        const result = await run(
-            `INSERT INTO vm_details (
-                name, status, type, architecture, created, last_used,
-                config_architecture, config_image_architecture, config_image_description,
-                config_image_label, config_image_os, config_image_release, config_image_serial,
-                config_image_type, config_image_version, limits_cpu, limits_memory,
-                volatile_base_image, volatile_cloud_init_instance_id, volatile_eth0_hwaddr,
-                volatile_last_state_power, volatile_uuid,
-                volatile_uuid_generation, volatile_vsock_id,
-                device_eth0_ipv4_address, device_eth0_name, device_eth0_network,
-                device_eth0_type, ephemeral, stateful, description, profiles,
-                last_checked
-            ) VALUES (
-                $1, $2, $3, $4, $5, $6, 
-                $7, $8, $9, 
-                $10, $11, $12, $13, 
-                $14, $15, $16, $17, 
-                $18, $19, $20, 
-                $21, $22, 
-                $23, $24, 
-                $25, $26, $27, 
-                $28, $29, $30, $31, $32, 
-                $33
-            ) ON CONFLICT (name) DO UPDATE SET
-                status = EXCLUDED.status,
-                type = EXCLUDED.type,
-                architecture = EXCLUDED.architecture,
-                created = EXCLUDED.created,
-                last_used = EXCLUDED.last_used,
-                config_architecture = EXCLUDED.config_architecture,
-                config_image_architecture = EXCLUDED.config_image_architecture,
-                config_image_description = EXCLUDED.config_image_description,
-                config_image_label = EXCLUDED.config_image_label,
-                config_image_os = EXCLUDED.config_image_os,
-                config_image_release = EXCLUDED.config_image_release,
-                config_image_serial = EXCLUDED.config_image_serial,
-                config_image_type = EXCLUDED.config_image_type,
-                config_image_version = EXCLUDED.config_image_version,
-                limits_cpu = EXCLUDED.limits_cpu,
-                limits_memory = EXCLUDED.limits_memory,
-                volatile_base_image = EXCLUDED.volatile_base_image,
-                volatile_cloud_init_instance_id = EXCLUDED.volatile_cloud_init_instance_id,
-                volatile_eth0_hwaddr = EXCLUDED.volatile_eth0_hwaddr,
-                volatile_last_state_power = EXCLUDED.volatile_last_state_power,
-                volatile_uuid = EXCLUDED.volatile_uuid,
-                volatile_uuid_generation = EXCLUDED.volatile_uuid_generation,
-                volatile_vsock_id = EXCLUDED.volatile_vsock_id,
-                device_eth0_ipv4_address = EXCLUDED.device_eth0_ipv4_address,
-                device_eth0_name = EXCLUDED.device_eth0_name,
-                device_eth0_network = EXCLUDED.device_eth0_network,
-                device_eth0_type = EXCLUDED.device_eth0_type,
-                ephemeral = EXCLUDED.ephemeral,
-                stateful = EXCLUDED.stateful,
-                description = EXCLUDED.description,
-                profiles = EXCLUDED.profiles,
-                last_checked = EXCLUDED.last_checked
-            RETURNING *`,
-            [
-                name, status, type, architecture, created, last_used,
-                config_architecture, config_image_architecture, config_image_description,
-                config_image_label, config_image_os, config_image_release, config_image_serial,
-                config_image_type, config_image_version, limits_cpu, limits_memory,
-                volatile_base_image, volatile_cloud_init_instance_id, volatile_eth0_hwaddr,
-                volatile_last_state_power, volatile_uuid,
-                volatile_uuid_generation, volatile_vsock_id,
-                device_eth0_ipv4_address, device_eth0_name, device_eth0_network,
-                device_eth0_type, ephemeralBool, statefulBool, description, profiles,
-                new Date().toISOString()
-            ]
-        )
+        const result = await writeVmDetails({
+            ...details,
+            ephemeral: details.ephemeral === 'true',
+            stateful: details.stateful === 'true',
+            last_checked: new Date().toISOString(),
+        })
 
         return res.status(201).send(result.rows[0])
     } catch (error) {

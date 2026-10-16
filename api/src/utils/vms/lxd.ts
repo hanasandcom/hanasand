@@ -1,7 +1,7 @@
 import { isIPv4 } from 'node:net'
 import config from '#constants'
-import run from '#db'
 import { requestLxdJson, type LxdRequestOptions, type LxdResponse } from './lxdTransport.ts'
+import { writeVmDetails, type VmDetails } from './vmDetails.ts'
 
 type LxdInstance = {
     name: string
@@ -40,7 +40,6 @@ type LxdOperations = {
 }
 
 type LxdRequest = <T>(path: string, options?: LxdRequestOptions) => Promise<LxdResponse<T>>
-type VmDetails = ReturnType<typeof mapDetails>
 type VmDetailsWriter = (details: VmDetails) => Promise<void>
 
 let lxdRequestImpl: LxdRequest = defaultLxdRequest
@@ -281,74 +280,7 @@ async function upsertVmDetails(details: ReturnType<typeof mapDetails>) {
 }
 
 async function writeVmDetailsToDb(details: VmDetails) {
-    await run(`
-        INSERT INTO vm_details (
-            name, status, type, architecture, created, last_used,
-            config_architecture, config_image_architecture, config_image_description,
-            config_image_label, config_image_os, config_image_release, config_image_serial,
-            config_image_type, config_image_version, limits_cpu, limits_memory,
-            volatile_base_image, volatile_cloud_init_instance_id, volatile_eth0_hwaddr,
-            volatile_last_state_power, volatile_uuid,
-            volatile_uuid_generation, volatile_vsock_id,
-            device_eth0_ipv4_address, device_eth0_name, device_eth0_network,
-            device_eth0_type, ephemeral, stateful, description, profiles,
-            last_checked
-        ) VALUES (
-            $1, $2, $3, $4, $5, $6,
-            $7, $8, $9,
-            $10, $11, $12, $13,
-            $14, $15, $16, $17,
-            $18, $19, $20,
-            $21, $22,
-            $23, $24,
-            $25, $26, $27,
-            $28, $29, $30, $31, $32,
-            $33
-        ) ON CONFLICT (name) DO UPDATE SET
-            status = EXCLUDED.status,
-            type = EXCLUDED.type,
-            architecture = EXCLUDED.architecture,
-            created = EXCLUDED.created,
-            last_used = EXCLUDED.last_used,
-            config_architecture = EXCLUDED.config_architecture,
-            config_image_architecture = EXCLUDED.config_image_architecture,
-            config_image_description = EXCLUDED.config_image_description,
-            config_image_label = EXCLUDED.config_image_label,
-            config_image_os = EXCLUDED.config_image_os,
-            config_image_release = EXCLUDED.config_image_release,
-            config_image_serial = EXCLUDED.config_image_serial,
-            config_image_type = EXCLUDED.config_image_type,
-            config_image_version = EXCLUDED.config_image_version,
-            limits_cpu = EXCLUDED.limits_cpu,
-            limits_memory = EXCLUDED.limits_memory,
-            volatile_base_image = EXCLUDED.volatile_base_image,
-            volatile_cloud_init_instance_id = EXCLUDED.volatile_cloud_init_instance_id,
-            volatile_eth0_hwaddr = EXCLUDED.volatile_eth0_hwaddr,
-            volatile_last_state_power = EXCLUDED.volatile_last_state_power,
-            volatile_uuid = EXCLUDED.volatile_uuid,
-            volatile_uuid_generation = EXCLUDED.volatile_uuid_generation,
-            volatile_vsock_id = EXCLUDED.volatile_vsock_id,
-            device_eth0_ipv4_address = EXCLUDED.device_eth0_ipv4_address,
-            device_eth0_name = EXCLUDED.device_eth0_name,
-            device_eth0_network = EXCLUDED.device_eth0_network,
-            device_eth0_type = EXCLUDED.device_eth0_type,
-            ephemeral = EXCLUDED.ephemeral,
-            stateful = EXCLUDED.stateful,
-            description = EXCLUDED.description,
-            profiles = EXCLUDED.profiles,
-            last_checked = EXCLUDED.last_checked
-    `, [
-        details.name, details.status, details.type, details.architecture, details.created, details.last_used,
-        details.config_architecture, details.config_image_architecture, details.config_image_description,
-        details.config_image_label, details.config_image_os, details.config_image_release, details.config_image_serial,
-        details.config_image_type, details.config_image_version, details.limits_cpu, details.limits_memory,
-        details.volatile_base_image, details.volatile_cloud_init_instance_id, details.volatile_eth0_hwaddr,
-        details.volatile_last_state_power, details.volatile_uuid,
-        details.volatile_uuid_generation, details.volatile_vsock_id,
-        details.device_eth0_ipv4_address, details.device_eth0_name, details.device_eth0_network,
-        details.device_eth0_type, details.ephemeral, details.stateful, details.description, details.profiles,
-        details.last_checked,
-    ])
+    await writeVmDetails(details)
 }
 
 export async function lxdRequest<T>(path: string, options: LxdRequestOptions = {}) {
