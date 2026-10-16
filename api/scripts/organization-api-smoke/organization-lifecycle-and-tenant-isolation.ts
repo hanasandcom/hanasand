@@ -35,6 +35,13 @@ export async function runOrganizationLifecycleAndTenantIsolation(ctx: Organizati
     assert.equal(archivedOrganizationSettings.settingsMutationReceipt.previousLifecycleStatus, 'active')
     assert.equal(archivedOrganizationSettings.settingsMutationReceipt.lifecycleStatus, 'archived')
     assert.equal(archivedOrganizationSettings.settingsMutationReceipt.lifecycleChanged, true)
+    assert.deepEqual(archivedOrganizationSettings.settingsMutationReceipt.mutatedFields, ['lifecycleStatus'])
+    assert.ok(ctx.serviceLogs.some(
+        log => log.message === 'organization_settings_updated'
+            && Array.isArray(log.metadata.fields)
+            && log.metadata.fields.length === 1
+            && log.metadata.fields[0] === 'lifecycleStatus',
+    ))
     assert.equal(archivedOrganizationSettings.settingsMutationReceipt.blockerReason, 'org_archived')
     assert.equal(archivedOrganizationSettings.settingsMutationReceipt.downstreamReadiness.alertGenerationReady, false)
     assert.equal(archivedOrganizationSettings.settingsMutationReceipt.downstreamReadiness.webhookDeliveryReady, false)

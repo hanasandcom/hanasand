@@ -399,17 +399,18 @@ export async function putOrganizationSettings(req: FastifyRequest<{ Params: Orga
         return res.status(409).send({ error: 'Add or transfer ownership to an active member before reactivating the organization.' })
     }
     const authorizedOrganization = lifecycleUpdate.organization!
+    const mutatedFields = Object.entries({
+        name: input.name,
+        slug,
+        defaultWebhookPolicy: input.defaultWebhookPolicy,
+        alertVisibilityPolicy: input.alertVisibilityPolicy,
+        lifecycleStatus: input.lifecycleStatus,
+        retentionDays: input.retentionDays,
+        auditSafeMetadata: input.auditSafeMetadata === undefined ? undefined : Object.keys(input.auditSafeMetadata),
+    }).filter(([, value]) => value !== undefined).map(([key]) => key)
 
     logOrganizationEvent(req, 'organization_settings_updated', req.params.id, userId, {
-        fields: Object.entries({
-            name: input.name,
-            slug,
-            defaultWebhookPolicy: input.defaultWebhookPolicy,
-            alertVisibilityPolicy: input.alertVisibilityPolicy,
-            lifecycleStatus: input.lifecycleStatus,
-            retentionDays: input.retentionDays,
-            auditSafeMetadata: input.auditSafeMetadata === undefined ? undefined : Object.keys(input.auditSafeMetadata),
-        }).filter(([, value]) => value !== undefined).map(([key]) => key),
+        fields: [...mutatedFields],
     })
 
     const updated = await loadOrganizationForMember(req.params.id, userId)
@@ -427,15 +428,7 @@ export async function putOrganizationSettings(req: FastifyRequest<{ Params: Orga
             previousLifecycleStatus: authorizedOrganization.status ?? 'active',
             lifecycleStatus: updated.status ?? 'active',
             lifecycleChanged: (authorizedOrganization.status ?? 'active') !== (updated.status ?? 'active'),
-            mutatedFields: Object.entries({
-                name: input.name,
-                slug,
-                defaultWebhookPolicy: input.defaultWebhookPolicy,
-                alertVisibilityPolicy: input.alertVisibilityPolicy,
-                lifecycleStatus: input.lifecycleStatus,
-                retentionDays: input.retentionDays,
-                auditSafeMetadata: input.auditSafeMetadata === undefined ? undefined : Object.keys(input.auditSafeMetadata),
-            }).filter(([, value]) => value !== undefined).map(([key]) => key),
+            mutatedFields: [...mutatedFields],
             blockerReason: updated.status === 'deleted'
                 ? 'org_deleted' as const
                 : updated.status === 'archived'
