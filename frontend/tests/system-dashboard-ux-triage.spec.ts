@@ -5,7 +5,12 @@ import path from 'node:path'
 const root = process.cwd()
 
 test('system dashboard focuses operator triage while preserving live controls', async () => {
-    const page = await readFile(path.join(root, 'src/app/dashboard/system/clientPage.tsx'), 'utf8')
+    const files = [
+        'clientPage.tsx', 'client/ContainerDetails.tsx', 'client/ContainerRow.tsx', 'client/ContainersSection.tsx',
+        'client/SystemOverviewControls.tsx', 'client/SystemTriage.tsx', 'client/VirtualMachinesSection.tsx',
+        'client/SystemUi.tsx', 'client/presentation.ts', 'hooks/useContainerLogs.ts', 'hooks/useSystemTelemetry.ts',
+    ]
+    const page = (await Promise.all(files.map(file => readFile(path.join(root, 'src/app/dashboard/system', file), 'utf8')))).join('\n')
 
     expect(page).toContain('fetch(`${config.url.api}/metrics`')
     expect(page).toContain('fetch(`${config.url.api}/docker`')
@@ -18,12 +23,12 @@ test('system dashboard focuses operator triage while preserving live controls', 
 
     expect(page).toContain('data-system-primary-triage')
     expect(page).toContain('Recommended next')
-    expect(page).toContain('const primaryHref')
-    expect(page).toContain('href={primaryHref}')
+    expect(page).toContain('function getTriage')
+    expect(page).toContain('href={href}')
     expect(page).toContain('data-system-primary-action')
     expect(page).toContain('data-container-row')
     expect(page).toContain('onClick={onSelect}')
-    expect(page).toContain('logsAbortController.current?.abort()')
+    expect(page).toContain('abortController.current?.abort()')
     expect(page).toContain('window.matchMedia(\'(max-width: 1279px)\').matches')
     expect(page).not.toContain('setMessage(`Refreshed ${formatDateTime(refreshedAt)}`)')
     expect(page).toContain('new WebSocket(`${config.url.api_wss}/system`)')
