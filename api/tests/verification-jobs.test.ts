@@ -87,12 +87,6 @@ const query = async (sql: string, params: unknown[] = []) => {
         })
         return { rows: job?.status === params[1] ? [{ id: job.id }] : [] }
     }
-    if (sql.includes('SET status = \'completed\'')) {
-        const job = jobs.get(String(params[0]))
-        if (job?.status !== 'running' || !sql.includes('AND status = \'running\'')) return { rows: [] }
-        Object.assign(job, { status: 'completed', current_step: 'Receipt stored', artifacts: [...job.artifacts, ...JSON.parse(String(params[1]))], completed_at: new Date().toISOString() })
-        return { rows: [{ id: job.id }] }
-    }
     if (sql.includes('SET status = \'failed\'')) {
         const job = jobs.get(String(params[0]))
         if (job?.status === 'running' && sql.includes('AND status = \'running\'')) Object.assign(job, { status: 'failed', current_step: 'Failed', error: params[1] })
