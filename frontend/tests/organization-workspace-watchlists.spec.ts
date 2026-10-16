@@ -1,0 +1,76 @@
+import { expect, test } from '@playwright/test'
+import { setupOrganizationWorkspace } from './organization-workspace-harness'
+
+test('organization workspace watchlist filtering mutations tenant switching and mobile layout', async ({ context, page, baseURL }, testInfo) => {
+    const state = await setupOrganizationWorkspace(context, page, baseURL)
+    await expect(page.locator('[data-org-watchlist-filter-strip="true"]')).toBeVisible()
+    await expect(page.locator('[data-org-watchlist-filter-count="true"]')).toContainText('3/3 shown')
+    await expect(page.locator('[data-org-watchlist-row-layout="true"]').first()).toBeVisible()
+    const acmeRow = page.locator('#watchlists [role="button"]').filter({ hasText: 'acme.com' }).first()
+    const oktaRow = page.locator('#watchlists [role="button"]').filter({ hasText: 'Okta' }).first()
+    const retiredVendorRow = page.locator('#watchlists [role="button"]').filter({ hasText: 'RetiredVendor' }).first()
+    await expect(acmeRow).toBeVisible()
+    await expect(acmeRow).toContainText('Active routes')
+    await expect(oktaRow).toBeVisible()
+    await expect(oktaRow).toContainText('Paused excluded')
+    await acmeRow.getByLabel('URL').fill('https://discord.com/api/webhooks/test/secret-token')
+    await acmeRow.getByText('Test and save').click()
+    await expect.poll(() => state.watchlistDestinationTests.length).toBe(1)
+    expect(state.watchlistDestinationTests).toContainEqual({ watchlistId: 'watch_acme_domain', webhookUrl: 'https://discord.com/api/webhooks/test/secret-token', attachToWatchlist: true })
+    await expect(acmeRow.getByLabel('URL')).toHaveValue('')
+    await expect(page.locator('#watchlists')).not.toContainText('secret-token')
+
+    await page.getByLabel('Search terms').fill('okta')
+    await expect(page.locator('[data-org-watchlist-filter-count="true"]')).toContainText('1/3 shown')
+    await expect(oktaRow).toBeVisible()
+    await expect(acmeRow).toBeHidden()
+
+    await page.locator('[data-org-watchlist-filter-strip="true"]').getByRole('button', { name: 'Clear' }).click()
+    await page.locator('[data-org-watchlist-filter-strip="true"]').getByLabel('Status').selectOption('archived')
+    await expect(page.locator('[data-org-watchlist-filter-count="true"]')).toContainText('1/3 shown')
+    await expect(retiredVendorRow).toBeVisible()
+    await expect(retiredVendorRow).toContainText('Archived closed')
+    await expect(oktaRow).toBeHidden()
+    await retiredVendorRow.getByText('RetiredVendor').click()
+    await expect(page.locator('#audit')).toContainText('RetiredVendor')
+    await expect(page.locator('#audit')).toContainText('watch acme retired')
+    await page.locator('[data-org-switcher]').selectOption('org_contoso')
+    await expect(page).toHaveURL(/organizationId=org_contoso/)
+    await expect(page).toHaveURL(/focus=watchlists/)
+    await expect(page.locator('#audit')).toContainText('contoso.io')
+    await page.locator('[data-org-switcher]').selectOption('org_acme')
+    await expect(page).toHaveURL(/organizationId=org_acme/)
+    await retiredVendorRow.getByText('RetiredVendor').click()
+    await expect(retiredVendorRow).toContainText('Org: Acme Security')
+    await expect(retiredVendorRow).toContainText('Owner: Acme Owner')
+    await expect(page.locator('#audit')).toContainText(/Owner\s*Acme Owner/)
+    await expect(retiredVendorRow).toContainText('Scope: Acme Security')
+    await expect(retiredVendorRow).toContainText('Alert: alert')
+    await expect(retiredVendorRow).not.toContainText('Org: org_acme')
+    await expect(retiredVendorRow).not.toContainText('Owner: owner_acme')
+    await expect(retiredVendorRow).not.toContainText('Tenant: tenant_acme')
+    await page.locator('[data-org-watchlist-filter-strip="true"]').getByRole('button', { name: 'Clear' }).click()
+    await acmeRow.getByLabel('Edit watchlist term').click()
+    await page.locator('#watchlists').getByRole('textbox', { name: 'Term', exact: true }).fill('acme-updated.com')
+    await page.locator('#watchlists').getByRole('button', { name: 'Save', exact: true }).click()
+    expect(state.watchlistUpdates).toContainEqual({ itemId: 'watch_acme_domain', value: 'acme-updated.com' })
+    await expect(page.locator('#audit')).toContainText('acme-updated.com updated.')
+    await acmeRow.getByLabel('Archive watchlist term').click()
+    await acmeRow.getByLabel('Confirm archive watchlist term').click()
+    expect(state.watchlistArchives).toContain('watch_acme_domain')
+    await expect(page.locator('#audit')).toContainText('acme.com archived.')
+
+    await testInfo.attach('organizations-watchlist-filter-desktop', {
+        body: await page.screenshot({ path: '/tmp/organizations-watchlist-filter-desktop.png', fullPage: true }),
+        contentType: 'image/png',
+    })
+
+    await page.setViewportSize({ width: 390, height: 844 })
+    await expect(page.locator('[data-org-watchlist-filter-strip="true"]')).toBeVisible()
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+    expect(overflow).toBeLessThanOrEqual(1)
+    await testInfo.attach('organizations-watchlist-filter-mobile', {
+        body: await page.screenshot({ path: '/tmp/organizations-watchlist-filter-mobile.png', fullPage: true }),
+        contentType: 'image/png',
+    })
+})

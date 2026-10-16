@@ -24,6 +24,7 @@ const sharedEnv = {
 
 export default defineConfig({
     testDir: './tests',
+    testMatch: '**/*.spec.ts',
     timeout: 30_000,
     expect: { timeout: 8_000 },
     fullyParallel: true,
