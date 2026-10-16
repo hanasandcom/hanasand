@@ -2329,22 +2329,16 @@ async function collectPageEvidence(page: Page) {
 
         return {
             sourceCode: html.slice(0, 80_000),
-            text: (document.body?.innerText || '').slice(0, 8000),
             scripts,
             comments,
             forms,
             anchors,
-            meta: Array.from(document.querySelectorAll('meta')).map((meta) => ({
-                name: meta.getAttribute('name') || meta.getAttribute('property') || '',
-                content: meta.getAttribute('content') || '',
-            })).filter(item => item.name || item.content).slice(0, 40),
         }
     }).catch(() => ({
         scripts: [] as Array<{ src: string; inline: string }>,
         comments: [] as string[],
         forms: [] as Array<{ action: string; method: string; inputs: Array<{ name: string; type: string; autocomplete: string }> }>,
         anchors: [] as string[],
-        meta: [] as Array<{ name: string; content: string }>,
         sourceCode: '',
     }))
     const text = await collectRenderedText(page)
