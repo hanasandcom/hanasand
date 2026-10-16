@@ -53,6 +53,12 @@ test('unit suites stay in the safe default runner while database suites remain o
         requiresDatabase: true,
         requiresPostgresFilterPort: true,
     })
+    expect(classifyUnitTest('log-phrase-search-postgres.test.ts')).toEqual({
+        requiresDatabase: true,
+        requiresPostgresFilterPort: false,
+    })
+    expect(isTaskEnabledByDefault('database', {})).toBe(false)
+    expect(isTaskEnabledByDefault('database', { RUN_DB_TESTS: '1' })).toBe(true)
 })
 
 test('default runner notice names all excluded database suites and explains PostgreSQL setup', () => {
@@ -76,6 +82,13 @@ test('package script selects exactly the canonical PostgreSQL-filter suite IDs',
     const packageJson = JSON.parse(readFileSync('package.json', 'utf8')) as { scripts: Record<string, string> }
     expect(packageJson.scripts['test:postgres-filter']).toBe(
         `RUN_DB_TESTS=1 bun scripts/index.ts --only=${postgresFilterTestIds.join(',')}`,
+    )
+})
+
+test('phrase-search PostgreSQL coverage has a narrow opt-in runner command without DB defaults', () => {
+    const packageJson = JSON.parse(readFileSync('package.json', 'utf8')) as { scripts: Record<string, string> }
+    expect(packageJson.scripts['test:log-phrase-search-postgres']).toBe(
+        'RUN_DB_TESTS=1 LOG_PIPELINE_TEST_DATABASE=1 bun scripts/index.ts --only=log-phrase-search-postgres',
     )
 })
 

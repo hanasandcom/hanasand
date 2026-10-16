@@ -66,7 +66,7 @@ const unitTestFiles = [
 
 const databaseTestFiles = [
     'account-deletion-postgres.test.ts', 'automation-history.test.mjs', 'case-development-postgres.test.ts', 'monitoring-case-workflow-postgres.test.ts', 'monitoring-correlation-postgres.test.ts',
-    'monitoring-issues-postgres.test.ts', 'monitoring-message-history-postgres.test.ts', 'monitoring-vm-access-postgres.test.ts', 'personal-automations-postgres.test.ts', 'schema-lock-timeout-postgres.test.ts',
+    'log-phrase-search-postgres.test.ts', 'monitoring-issues-postgres.test.ts', 'monitoring-message-history-postgres.test.ts', 'monitoring-vm-access-postgres.test.ts', 'personal-automations-postgres.test.ts', 'schema-lock-timeout-postgres.test.ts',
     'signup-verification-postgres.test.ts',
 ]
 

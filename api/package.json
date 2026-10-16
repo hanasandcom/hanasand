@@ -8,6 +8,7 @@
     "start:local": "PORT=${PORT:-8080} bun src/index.ts",
     "test": "bun scripts/index.ts",
     "test:postgres-filter": "RUN_DB_TESTS=1 bun scripts/index.ts --only=account-deletion-purge-postgres,analysis-policy-migration,analyze-cdn-delivery-database,analyze-cdn-delivery-reprocess,analyze-cdn-refresh-database,analyze-ingestion-database,analyze-model-discovery-database,analyze-postgres-database,analyze-routine-groups-postgres,builtin-reprocess-postgres,existing-schema,readiness-audit-database,self-ingestion-proof-postgres,ssh-transport-postgres,verified-probe-activation-postgres",
+    "test:log-phrase-search-postgres": "RUN_DB_TESTS=1 LOG_PIPELINE_TEST_DATABASE=1 bun scripts/index.ts --only=log-phrase-search-postgres",
     "lint": "eslint ./src ./scripts ./tests && bun run typecheck",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint:fix": "eslint ./src ./scripts ./tests --fix",
