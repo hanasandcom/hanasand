@@ -154,6 +154,23 @@ test('repository subfolder deployment stays blocked with actionable folder detai
     expect(bridgeCalls).toBe(0)
 })
 
+test('active deployment limit blocks new work before bridge calls or persistence', async () => {
+    let bridgeCalls = 0
+    globalThis.fetch = async () => {
+        bridgeCalls++
+        return Response.json({ ok: true })
+    }
+    activeDeployCount = 2
+
+    const response = await startDeployment()
+    const body = response.json()
+
+    expect(response.statusCode).toBe(429)
+    expect(body.quota).toMatchObject({ activeRunning: 2, maxRunning: 2, runningRemaining: 0 })
+    expect(bridgeCalls).toBe(0)
+    expect(deploymentRows).toHaveLength(0)
+})
+
 test('quota and VM access checks still stop deployment before contacting the bridge', async () => {
     let bridgeCalls = 0
     globalThis.fetch = async () => {
