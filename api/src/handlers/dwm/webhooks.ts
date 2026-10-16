@@ -33,10 +33,9 @@ import {
     buildDwmWebhookDestinationContracts,
     buildDwmWebhookDestinationLookupContract,
     buildDwmWebhookDestinationTestContract,
-    buildDwmWebhookDeliveryEvidence,
+    buildDwmWebhookDeliveryEvidenceAndLedger,
     buildDwmWebhookDeliveryHistory,
     buildDwmWebhookDeliveryHistoryConsumerProof,
-    buildDwmWebhookDeliveryLedger,
     buildDwmWebhookDeliveryOperations,
     buildDwmWebhookDeliveryPersistenceProof,
     buildDwmWebhookDeliveryReceipts,
@@ -570,12 +569,7 @@ export async function getDwmWebhookDeliveries(req: FastifyRequest<{ Querystring:
         reportCaseId,
         reportExportChecksum,
     }
-    const evidence = buildDwmWebhookDeliveryEvidence({
-        deliveries,
-        auditEvents,
-        filters: deliveryFilters,
-    })
-    const deliveryLedger = buildDwmWebhookDeliveryLedger({
+    const { evidence, ledger: deliveryLedger } = buildDwmWebhookDeliveryEvidenceAndLedger({
         deliveries,
         auditEvents,
         filters: deliveryFilters,

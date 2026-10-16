@@ -1196,6 +1196,24 @@ export function buildDwmWebhookDeliveryEvidence(input: {
     return buildDwmWebhookDeliveryEvidenceProjection(input).evidence
 }
 
+export function buildDwmWebhookDeliveryEvidenceAndLedger({
+    deliveries,
+    auditEvents = [],
+    filters = {},
+    now = new Date(),
+}: {
+    deliveries: DwmWebhookDeliveryPublic[]
+    auditEvents?: DwmWebhookAuditPublic[]
+    filters?: DwmWebhookDeliveryEvidenceFilters
+    now?: Date
+}) {
+    const projection = buildDwmWebhookDeliveryEvidenceProjection({ deliveries, auditEvents, filters })
+    return {
+        evidence: projection.evidence,
+        ledger: buildDwmWebhookDeliveryLedgerFromEvidence({ projection, now }),
+    }
+}
+
 export function buildDwmWebhookDeliveryLedger({
     deliveries,
     auditEvents = [],

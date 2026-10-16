@@ -6,6 +6,7 @@ import {
     buildDwmOrgAlertWebhookDeliveryOutcome,
     buildDwmWebhookDeliveryRetryContract,
     buildDwmWebhookDeliveryEvidence,
+    buildDwmWebhookDeliveryEvidenceAndLedger,
     buildDwmWebhookDeliveryHistory,
     buildDwmWebhookDeliveryHistoryConsumerProof,
     buildDwmWebhookDeliveryAttemptPersistenceReadModel,
@@ -148,8 +149,10 @@ const auditEvents = deliveries.map((delivery, index) => toDwmWebhookAuditEvent({
 
 test('projects shared evidence, attempts, operations and history without losing lifecycle links', () => {
     const input = { deliveries, auditEvents, destinations: [destination], liveDeliveryEnabled: false }
+    const now = new Date('2026-10-01T10:05:00.000Z')
     const evidence = buildDwmWebhookDeliveryEvidence(input)
-    const ledger = buildDwmWebhookDeliveryLedger(input)
+    const ledger = buildDwmWebhookDeliveryLedger({ ...input, now })
+    expect(buildDwmWebhookDeliveryEvidenceAndLedger({ ...input, now })).toEqual({ evidence, ledger })
     const operations = buildDwmWebhookDeliveryOperations(input)
     const history = buildDwmWebhookDeliveryHistory(input)
 
@@ -199,6 +202,10 @@ test('projects shared evidence, attempts, operations and history without losing 
     })
 
     const filters = { action: 'delivery.retry_scheduled' }
+    expect(buildDwmWebhookDeliveryEvidenceAndLedger({ ...input, filters, now })).toEqual({
+        evidence: buildDwmWebhookDeliveryEvidence({ ...input, filters }),
+        ledger: buildDwmWebhookDeliveryLedger({ ...input, filters, now }),
+    })
     const filteredOperations = buildDwmWebhookDeliveryOperations({ ...input, filters })
     expect(filteredOperations.recentDeliveries.map(item => item.deliveryId)).toEqual(['delivery_1'])
     expect(filteredOperations.filters.action).toBe('delivery.retry_scheduled')
