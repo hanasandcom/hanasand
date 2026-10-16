@@ -591,28 +591,12 @@ export async function runOrganizationLifecycleAndTenantIsolation(ctx: Organizati
         headers: authHeaders('org_smoke_owner', 'owner-token'),
     }, 404)
     const wrongOrgWatchlistReadDenied = parseBody(wrongOrgWatchlistReadResponse.body).watchlistLookupDenial
-    assert.equal(wrongOrgWatchlistReadDenied.schemaVersion, 'organization.watchlist_lookup_denial.v1')
-    assertOrganizationTenantIdentity(wrongOrgWatchlistReadDenied, secondOrganization.id)
-    assert.equal(wrongOrgWatchlistReadDenied.actorId, 'org_smoke_owner')
-    assert.equal(wrongOrgWatchlistReadDenied.actorRole, 'owner')
+    assertCrossOrgWatchlistDenial(wrongOrgWatchlistReadDenied, secondOrganization.id, ownerWatchlistItem.id)
     assert.equal(wrongOrgWatchlistReadDenied.action, 'read_watchlist')
-    assert.equal(wrongOrgWatchlistReadDenied.itemId, ownerWatchlistItem.id)
-    assert.equal(wrongOrgWatchlistReadDenied.blockerCode, 'watchlist_not_found_or_cross_org')
-    assert.equal(wrongOrgWatchlistReadDenied.nonmemberEnumeration, false)
-    assert.equal(wrongOrgWatchlistReadDenied.crossOrgEnumerationAllowed, false)
-    assert.equal(wrongOrgWatchlistReadDenied.deniedReadDoesNotAffectActiveTerms, true)
-    assert.equal(wrongOrgWatchlistReadDenied.readinessRefs.sharedWatchlistReadiness, 'organization.shared_watchlist_readiness_export.v1')
-    assert.equal(wrongOrgWatchlistReadDenied.readinessRefs.alertGenerationConsumer, 'organization.watchlist_alert_generation_consumer.v1')
-    assert.equal(wrongOrgWatchlistReadDenied.readinessRefs.alertCasePersistence, 'organization.alert_case_bridge_persistence_receipt.v1')
-    assert.equal(wrongOrgWatchlistReadDenied.readinessRefs.caseVisibilityConsumer, 'organization.case_visibility_consumer.v1')
-    assert.equal(wrongOrgWatchlistReadDenied.readinessRefs.webhookDestinationReadiness, 'organization.webhook_destination_readiness_bridge.v1')
     assert.ok(wrongOrgWatchlistReadDenied.blockedConsumerContracts.includes('organization.watchlist_alert_generation_consumer.v1'))
     assert.ok(wrongOrgWatchlistReadDenied.blockedConsumerContracts.includes('organization.case_visibility_consumer.v1'))
     assert.ok(wrongOrgWatchlistReadDenied.blockedConsumerContracts.includes('organization.webhook_destination_access_decision.v1'))
     assert.ok(wrongOrgWatchlistReadDenied.blockedConsumerContracts.includes('organization.webhook_alert_delivery_readiness.v1'))
-    assert.ok(wrongOrgWatchlistReadDenied.noLeakFields.includes('otherOrg.watchlistItemIds'))
-    assert.ok(wrongOrgWatchlistReadDenied.noLeakFields.includes('otherOrg.webhookDestinationIds'))
-    assert.ok(wrongOrgWatchlistReadDenied.noLeakFields.includes('otherOrg.caseIds'))
 
     const wrongOrgWatchlistUpdateResponse = await apiRequest({
         method: 'PUT',
@@ -621,30 +605,37 @@ export async function runOrganizationLifecycleAndTenantIsolation(ctx: Organizati
         payload: { kind: 'domain', value: 'wrong-org-update.example', reason: 'Wrong org item mutation must not enumerate.', requestId: 'smoke-wrong-org-watchlist-update-denied' },
     }, 404)
     const wrongOrgWatchlistUpdateDenied = parseBody(wrongOrgWatchlistUpdateResponse.body).watchlistLookupDenial
-    assert.equal(wrongOrgWatchlistUpdateDenied.schemaVersion, 'organization.watchlist_lookup_denial.v1')
-    assertOrganizationTenantIdentity(wrongOrgWatchlistUpdateDenied, secondOrganization.id)
-    assert.equal(wrongOrgWatchlistUpdateDenied.actorId, 'org_smoke_owner')
-    assert.equal(wrongOrgWatchlistUpdateDenied.actorRole, 'owner')
+    assertCrossOrgWatchlistDenial(wrongOrgWatchlistUpdateDenied, secondOrganization.id, ownerWatchlistItem.id)
     assert.equal(wrongOrgWatchlistUpdateDenied.action, 'update_watchlist')
-    assert.equal(wrongOrgWatchlistUpdateDenied.itemId, ownerWatchlistItem.id)
-    assert.equal(wrongOrgWatchlistUpdateDenied.blockerCode, 'watchlist_not_found_or_cross_org')
-    assert.equal(wrongOrgWatchlistUpdateDenied.nonmemberEnumeration, false)
-    assert.equal(wrongOrgWatchlistUpdateDenied.crossOrgEnumerationAllowed, false)
-    assert.equal(wrongOrgWatchlistUpdateDenied.deniedReadDoesNotAffectActiveTerms, true)
-    assert.equal(wrongOrgWatchlistUpdateDenied.readinessRefs.sharedWatchlistReadiness, 'organization.shared_watchlist_readiness_export.v1')
-    assert.equal(wrongOrgWatchlistUpdateDenied.readinessRefs.alertGenerationConsumer, 'organization.watchlist_alert_generation_consumer.v1')
-    assert.equal(wrongOrgWatchlistUpdateDenied.readinessRefs.alertCasePersistence, 'organization.alert_case_bridge_persistence_receipt.v1')
-    assert.equal(wrongOrgWatchlistUpdateDenied.readinessRefs.caseVisibilityConsumer, 'organization.case_visibility_consumer.v1')
-    assert.equal(wrongOrgWatchlistUpdateDenied.readinessRefs.webhookDestinationReadiness, 'organization.webhook_destination_readiness_bridge.v1')
     assert.ok(wrongOrgWatchlistUpdateDenied.blockedConsumerContracts.includes('organization.shared_watchlist_readiness_export.v1'))
     assert.ok(wrongOrgWatchlistUpdateDenied.blockedConsumerContracts.includes('organization.watchlist_alert_generation_consumer.v1'))
     assert.ok(wrongOrgWatchlistUpdateDenied.blockedConsumerContracts.includes('organization.webhook_destination_access_decision.v1'))
     assert.ok(wrongOrgWatchlistUpdateDenied.blockedConsumerContracts.includes('organization.webhook_alert_delivery_readiness.v1'))
     assert.ok(wrongOrgWatchlistUpdateDenied.safeFields.includes('itemId'))
-    assert.ok(wrongOrgWatchlistUpdateDenied.noLeakFields.includes('otherOrg.watchlistItemIds'))
-    assert.ok(wrongOrgWatchlistUpdateDenied.noLeakFields.includes('otherOrg.webhookDestinationIds'))
-    assert.ok(wrongOrgWatchlistUpdateDenied.noLeakFields.includes('otherOrg.caseIds'))
     assert.equal(wrongOrgWatchlistUpdateDenied.serviceLogAction, 'organization_watchlist_lookup_denied')
     assert.equal(wrongOrgWatchlistUpdateDenied.requestId, 'smoke-wrong-org-watchlist-update-denied')
 
+}
+
+function assertCrossOrgWatchlistDenial(denial: Row, organizationId: string, itemId: string) {
+    assert.equal(denial.schemaVersion, 'organization.watchlist_lookup_denial.v1')
+    assert.equal(denial.organizationId, organizationId)
+    assert.equal(denial.tenantId, organizationId)
+    assert.equal(denial.actorId, 'org_smoke_owner')
+    assert.equal(denial.actorRole, 'owner')
+    assert.equal(denial.itemId, itemId)
+    assert.equal(denial.blockerCode, 'watchlist_not_found_or_cross_org')
+    assert.equal(denial.nonmemberEnumeration, false)
+    assert.equal(denial.crossOrgEnumerationAllowed, false)
+    assert.equal(denial.deniedReadDoesNotAffectActiveTerms, true)
+    assert.deepEqual(denial.readinessRefs, {
+        sharedWatchlistReadiness: 'organization.shared_watchlist_readiness_export.v1',
+        alertGenerationConsumer: 'organization.watchlist_alert_generation_consumer.v1',
+        alertCasePersistence: 'organization.alert_case_bridge_persistence_receipt.v1',
+        caseVisibilityConsumer: 'organization.case_visibility_consumer.v1',
+        webhookDestinationReadiness: 'organization.webhook_destination_readiness_bridge.v1',
+    })
+    for (const field of ['otherOrg.watchlistItemIds', 'otherOrg.webhookDestinationIds', 'otherOrg.caseIds']) {
+        assert.ok(denial.noLeakFields.includes(field))
+    }
 }
