@@ -76,6 +76,7 @@ test('shared project setup keeps generated output unchanged across project types
 
 test('shared section presets keep generated output unchanged', () => {
     const cases = [
+        ['Build a returns portal website', '32167e6817ff54ba608582f225a0b40b9b33ad03aeb62f2db6eb6a3598d67623', 'Return sections'],
         ['Build a website for a municipal service portal with snow closure notices', 'aeea1271adc4af5fbb00edbe53fdfd5405d964e65bc9e0cb7c3433745e3c94cc', 'Response metrics'],
         ['Build a website for a food pantry', '2a92cf2ddc46ad07f0e692e26597ef25407a6d4833c62fdcc70e96e62b078440', 'Mobile release'],
         ['Build a website for lost baggage claims', '1e865b37f2ddd9d5553209c433985eb2b45ac9cbffec0a5726c25ca43428c3fd', 'Customer quotes'],
