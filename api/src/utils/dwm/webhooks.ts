@@ -3053,7 +3053,9 @@ export function buildDwmWebhookCustomerSetupProof({
         }
     }
 
-    const readiness = buildDwmWebhookDeliveryReadiness({ destinations, deliveries, auditEvents, liveDeliveryEnabled })
+    const { deliveryReadiness: readiness, destinationAdminProof: adminProof } = buildDwmWebhookDestinationReadModels({
+        destinations, deliveries, auditEvents, liveDeliveryEnabled, viewerRole, canManage,
+    })
     const destinationTests = destinations.map(destination => buildDwmWebhookDestinationTestContract({
         destination,
         deliveries,
@@ -3062,15 +3064,6 @@ export function buildDwmWebhookCustomerSetupProof({
         viewerRole,
         canManage,
     }))
-    const adminProof = buildDwmWebhookDestinationAdminProof({
-        destinations,
-        deliveries,
-        auditEvents,
-        liveDeliveryEnabled,
-        viewerRole,
-        canManage,
-        visibility: null,
-    })
     const replayGuard = buildDwmWebhookDeliveryReplayGuard({
         destinations,
         deliveries,

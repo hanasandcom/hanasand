@@ -7,6 +7,7 @@ import {
     buildDwmWebhookDestinationLifecycle,
     buildDwmWebhookDestinationAdminProof,
     buildDwmWebhookDestinationReadModels,
+    buildDwmWebhookCustomerSetupProof,
     toDwmWebhookAuditEvent,
     toDwmWebhookDelivery,
     toDwmWebhookDestination,
@@ -113,4 +114,7 @@ test('combined destination read models preserve the standalone contracts', () =>
     expect(combined.destinationHealth).toEqual(buildDwmWebhookDestinationHealth(projectionInput))
     expect(combined.destinationLifecycle).toEqual(buildDwmWebhookDestinationLifecycle(projectionInput))
     expect(combined.destinationAdminProof).toEqual(buildDwmWebhookDestinationAdminProof(projectionInput))
+    const setup = buildDwmWebhookCustomerSetupProof(projectionInput)
+    expect(setup.deliveryReadiness).toEqual(combined.deliveryReadiness)
+    expect(setup.destinationAdminProof).toEqual(combined.destinationAdminProof)
 })
