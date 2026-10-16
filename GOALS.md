@@ -273,3 +273,12 @@ target. The full repository cap remains unmet.
 - Finish only after the line inventory passes, all changed behavior is tested,
   full relevant checks pass, the integrated changes are pushed, and deployment
   is verified through the repository's documented workflow.
+
+At the current frontend checkpoint, the cap scanner includes SVG sources and
+reports 2,317 hand-maintained frontend files / 155,344 lines, with zero files
+over 200. The full frontend suite and production build pass after this scanner
+update. This extends the previous frontend inventory to cover vector source
+files as well. Aggregate frontend reduction toward
+10,000–30,000 lines remains outstanding. The repository-wide scan reports
+3,673 files / 322,508 lines, with 125 over the 200-line cap; the API reduction
+target and global cap remain unmet.

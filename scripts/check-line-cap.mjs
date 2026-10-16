@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url'
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const limit = 200
 const extensions = new Set([
-    '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.css', '.json', '.toml',
+    '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.css', '.svg', '.json', '.toml',
     '.yaml', '.yml', '.sh', '.vcl', '.sql', '.graphql', '.gql', '.prisma',
     '.proto', '.xml', '.ini', '.conf', '.properties', '.py', '.service',
     '.timer', '.rules', '.example',
