@@ -6,22 +6,24 @@ import { fileURLToPath } from 'node:url'
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const repoRoot = path.resolve(root, '..')
 
-const statusClient = await read('src/app/status/pageClient.tsx')
+const statusView = await read('src/app/status/statusDashboard/StatusOverview.tsx')
+const statusHistory = await read('src/app/status/statusDashboard/StatusIncidentHistory.tsx')
+const statusClient = `${statusView}\n${statusHistory}`
 const statusCopy = await read('src/utils/status/incidentCopy.ts')
 const statusPage = await read('src/app/status/page.tsx')
 const dockerfile = await read('Dockerfile')
 const apiTraffic = await readFromRepo('api/src/handlers/traffic/legacy.ts')
-const apiSchema = await readFromRepo('api/src/utils/db/ensureSchema.ts')
+const apiSchema = await readFromRepo('api/src/utils/db/trafficDesktopSchema.ts')
 
 for (const heading of ['Current Status: Hanasand.com', 'Recent incidents']) {
     assert.match(statusClient, new RegExp(escapeRegExp(heading)), `/status should render "${heading}"`)
 }
 
 assert.match(statusCopy, /Everything operational/, 'Healthy status should remain explicit')
-assert.match(statusClient, /statusHeadline\(currentStatus\)/, 'Status should render the named-service headline')
+assert.match(statusClient, /statusHeadline\(status\)/, 'Status should render the named-service headline')
 
-assert.match(statusClient, /const REFRESH_MS = 3000/, '/status should refresh public status every 3 seconds')
-assert.match(statusClient, /const UPTIME_DAYS = 90/, '/status should show the 90-day uptime interval')
+assert.match(await read('src/app/status/statusDashboard/useStatusDashboardState.ts'), /const REFRESH_MS = 3000/, '/status should refresh public status every 3 seconds')
+assert.match(await read('src/app/status/statusDashboard/statusFormatting.ts'), /const UPTIME_DAYS = 90/, '/status should show the 90-day uptime interval')
 
 for (const rawTrafficHeading of ['Most visited subdomains', 'Top endpoints', 'Data interval', 'Uptime interval', 'How to read this page']) {
     assert.doesNotMatch(statusClient, new RegExp(escapeRegExp(rawTrafficHeading)), `/status should not expose raw traffic heading "${rawTrafficHeading}"`)
