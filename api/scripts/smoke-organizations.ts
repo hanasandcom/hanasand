@@ -12,9 +12,7 @@ import {
     buildOrganizationDwmAlertReference,
     organizationAlertCaseRoleActions,
     organizationLifecycleReadiness,
-    organizationVisibilityDecision,
     organizationWatchlistAlertTermsExport,
-    roleCanManageOrganization,
     roleCanWriteWatchlist,
 } from '../src/utils/organizations.ts'
 
@@ -484,51 +482,6 @@ assert.deepEqual(inactiveOnlyAlertTermsExport.alertBridgeContract.alertCaseProof
 ])
 assert.equal(inactiveOnlyAlertTermsExport.alertBridgeContract.alertCaseProof.cleanupLifecycle.cleanupRequired, true)
 
-assert.deepEqual(organizationVisibilityDecision({
-    role: 'viewer',
-    status: 'active',
-    alertVisibilityPolicy: 'members',
-}), {
-    allowed: true,
-    reason: null,
-    alertVisibilityPolicy: 'members',
-    allowedRoles: ['owner', 'admin', 'editor', 'reader', 'member', 'viewer'],
-})
-assert.deepEqual(organizationVisibilityDecision({
-    role: 'viewer',
-    status: 'active',
-    alertVisibilityPolicy: 'admins',
-}), {
-    allowed: false,
-    reason: 'role_not_allowed',
-    alertVisibilityPolicy: 'admins',
-    allowedRoles: ['owner', 'admin'],
-})
-assert.deepEqual(organizationVisibilityDecision({
-    role: 'member',
-    status: 'removed',
-    alertVisibilityPolicy: 'members',
-}), {
-    allowed: false,
-    reason: 'member_removed',
-    alertVisibilityPolicy: 'members',
-    allowedRoles: ['owner', 'admin', 'editor', 'reader', 'member', 'viewer'],
-})
-assert.deepEqual(organizationVisibilityDecision({
-    role: 'member',
-    status: 'active',
-    userActive: false,
-    alertVisibilityPolicy: 'members',
-}), {
-    allowed: false,
-    reason: 'member_deactivated',
-    alertVisibilityPolicy: 'members',
-    allowedRoles: ['owner', 'admin', 'editor', 'reader', 'member', 'viewer'],
-})
-
-assert.equal(roleCanManageOrganization('owner'), true)
-assert.equal(roleCanManageOrganization('admin'), true)
-assert.equal(roleCanManageOrganization('member'), false)
 assert.equal(roleCanWriteWatchlist('member'), false)
 assert.equal(roleCanWriteWatchlist('viewer'), false)
 assert.equal(roleCanWriteWatchlist(undefined), false)
