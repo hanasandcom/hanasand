@@ -37,11 +37,13 @@ await queryOnce(`
         email TEXT,
         password TEXT NOT NULL,
         avatar TEXT NOT NULL,
+        account_type TEXT NOT NULL DEFAULT 'user',
         active BOOLEAN NOT NULL DEFAULT TRUE,
         reserved BOOLEAN NOT NULL DEFAULT FALSE,
         deletion_requested_at TIMESTAMPTZ,
         deletion_scheduled_at TIMESTAMPTZ,
-        deletion_restore_token_hash TEXT
+        deletion_restore_token_hash TEXT,
+        deletion_email_token_hash TEXT
     );
     CREATE TABLE tokens (
         token_id BIGSERIAL PRIMARY KEY,
@@ -56,14 +58,25 @@ await queryOnce(`
     );
     CREATE TABLE login_events (
         id BIGSERIAL PRIMARY KEY,
-        user_id TEXT NOT NULL
+        user_id TEXT NOT NULL,
+        token_id INT,
+        ip TEXT NOT NULL,
+        user_agent TEXT NOT NULL DEFAULT '',
+        status TEXT NOT NULL,
+        reason TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW()
     );
     CREATE TABLE attempts (
         id TEXT PRIMARY KEY,
         attempts INT NOT NULL DEFAULT 0,
         ip TEXT NOT NULL DEFAULT ''
     );
-    CREATE TABLE mail_accounts (user_id TEXT PRIMARY KEY, mail_username TEXT NOT NULL);
+    CREATE TABLE mail_accounts (
+        user_id TEXT PRIMARY KEY,
+        mail_username TEXT NOT NULL,
+        mail_address TEXT,
+        recovery_email TEXT
+    );
     CREATE SEQUENCE account_deletion_purge_attempt_order_seq;
     CREATE TABLE account_deletion_purge_attempts (
         user_id TEXT PRIMARY KEY,
@@ -83,14 +96,22 @@ await queryOnce(`
     );
     CREATE TABLE system_events (
         id BIGSERIAL PRIMARY KEY,
+        event_type TEXT NOT NULL,
+        severity TEXT NOT NULL DEFAULT 'info',
+        source TEXT NOT NULL DEFAULT 'system',
+        service TEXT NOT NULL DEFAULT 'hanasand-api',
         actor_id TEXT REFERENCES users(id) ON DELETE SET NULL,
         object_type TEXT,
         object_id TEXT,
+        organization_id TEXT,
         subject_id TEXT,
         request_id TEXT,
+        outcome TEXT NOT NULL DEFAULT 'success',
+        reason TEXT NOT NULL DEFAULT '',
+        context JSONB NOT NULL DEFAULT '{}'::jsonb,
         ip TEXT NOT NULL DEFAULT '',
         user_agent TEXT NOT NULL DEFAULT '',
-        context JSONB NOT NULL DEFAULT '{}'::jsonb
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     CREATE TABLE api_rate_limit_settings (
         id TEXT PRIMARY KEY,
@@ -203,8 +224,8 @@ await queryOnce(`
     INSERT INTO attempts (id, attempts) VALUES ('commercial-creator', 2);
     INSERT INTO login_events (user_id, ip, user_agent, status, reason)
     VALUES ('commercial-creator', '198.51.100.12', 'Commercial smoke', 'failed', 'bad_password');
-    INSERT INTO system_events (actor_id, object_type, object_id, subject_id, request_id, ip, user_agent, context)
-    VALUES ('commercial-creator', 'user', 'commercial-creator', 'commercial-creator', 'request-creator',
+    INSERT INTO system_events (event_type, actor_id, object_type, object_id, subject_id, request_id, ip, user_agent, context)
+    VALUES ('user.audit', 'commercial-creator', 'user', 'commercial-creator', 'commercial-creator', 'request-creator',
         '198.51.100.12', 'Commercial smoke', '{"targetId":"commercial-creator","targetName":"Commercial Creator"}'::jsonb)
 `)
 await queryOnce(`
@@ -290,7 +311,7 @@ const apiKeyBatch = await app.inject({
     payload: batchPayload,
 })
 for (const response of [sessionBatch, apiKeyBatch]) {
-    assert.equal(response.statusCode, 200)
+    assert.equal(response.statusCode, 200, response.body)
     assert.equal(response.headers['x-api-key-rate-limit-minute'], '12')
     assert.equal(response.headers['x-api-key-rate-limit-minute-remaining'], '11')
     assert.ok(response.headers['x-request-id'])
@@ -438,7 +459,7 @@ const concurrentDemotions = await Promise.all(['a', 'b'].map(owner => app.inject
     },
     payload: { role: 'admin', reason: 'Concurrent owner demotion proof.' },
 })))
-assert.deepEqual(concurrentDemotions.map(response => response.statusCode).sort(), [200, 409])
+assert.deepEqual(concurrentDemotions.map(response => response.statusCode).sort(), [200, 409], concurrentDemotions.map(response => response.body))
 await assertOneViableOwner('concurrent-demotion-org')
 
 await insertConcurrentOwnerFixture('concurrent-removal')
@@ -476,28 +497,7 @@ assert.equal(deleteSelfVsRemoval.filter(response => response.statusCode === 200)
 assert.equal(deleteSelfVsRemoval.filter(response => response.statusCode !== 200).length, 1)
 await assertOneViableOwner('delete-remove-org')
 
-await queryOnce(`
-    INSERT INTO users (id, name, password, avatar)
-    VALUES
-        ('concurrent-owner-a', 'Concurrent Owner A', 'test', ''),
-        ('concurrent-owner-b', 'Concurrent Owner B', 'test', '')
-`)
-await queryOnce(`
-    INSERT INTO tokens (id, token, ip, user_agent)
-    VALUES
-        ('concurrent-owner-a', 'concurrent-owner-a-token', '127.0.0.1', 'Commercial smoke'),
-        ('concurrent-owner-b', 'concurrent-owner-b-token', '127.0.0.1', 'Commercial smoke')
-`)
-await queryOnce(`
-    INSERT INTO organizations (id, name, slug, created_by)
-    VALUES ('concurrent-org', 'Concurrent Organization', 'concurrent-organization', 'concurrent-owner-a')
-`)
-await queryOnce(`
-    INSERT INTO organization_members (organization_id, user_id, role)
-    VALUES
-        ('concurrent-org', 'concurrent-owner-a', 'owner'),
-        ('concurrent-org', 'concurrent-owner-b', 'owner')
-`)
+await insertConcurrentOwnerFixture('concurrent', 'Concurrent')
 const concurrentOrganizationKey = await createApiKey({
     ownerId: 'concurrent-owner-a',
     organizationId: 'concurrent-org',
@@ -514,23 +514,14 @@ const concurrentDeletionResponses = await Promise.all(['a', 'b'].map(owner => ap
         id: `concurrent-owner-${owner}`,
     },
 })))
-assert.deepEqual(concurrentDeletionResponses.map(response => response.statusCode).sort(), [200, 409])
+assert.deepEqual(concurrentDeletionResponses.map(response => response.statusCode).sort(), [200, 409], concurrentDeletionResponses.map(response => response.body))
 assert.equal(Number((await queryOnce(`
     SELECT COUNT(*) count
     FROM users
     WHERE id IN ('concurrent-owner-a', 'concurrent-owner-b')
       AND deletion_scheduled_at IS NOT NULL
 `)).rows[0].count), 1)
-assert.equal(Number((await queryOnce(`
-    SELECT COUNT(*) count
-    FROM organization_members membership
-    JOIN users owner ON owner.id = membership.user_id
-    WHERE membership.organization_id = 'concurrent-org'
-      AND membership.role = 'owner'
-      AND membership.status = 'active'
-      AND owner.active IS TRUE
-      AND owner.deletion_scheduled_at IS NULL
-`)).rows[0].count), 1)
+await assertOneViableOwner('concurrent-org')
 assert.equal((await validateApiKey(concurrentOrganizationKey.secret))?.organizationId, 'concurrent-org')
 const concurrentViableOwnerId = (await queryOnce(`
     SELECT id
@@ -697,13 +688,13 @@ async function waitForBlockedOrganizationTransaction() {
     throw new Error('Timed out waiting for the organization mutation to block on its transaction lock.')
 }
 
-async function insertConcurrentOwnerFixture(prefix: string) {
+async function insertConcurrentOwnerFixture(prefix: string, displayNamePrefix = prefix) {
     await queryOnce(`
         INSERT INTO users (id, name, password, avatar)
         VALUES
             ($1, $2, 'test', ''),
             ($3, $4, 'test', '')
-    `, [`${prefix}-owner-a`, `${prefix} Owner A`, `${prefix}-owner-b`, `${prefix} Owner B`])
+    `, [`${prefix}-owner-a`, `${displayNamePrefix} Owner A`, `${prefix}-owner-b`, `${displayNamePrefix} Owner B`])
     await queryOnce(`
         INSERT INTO tokens (id, token, ip, user_agent)
         VALUES
@@ -718,7 +709,7 @@ async function insertConcurrentOwnerFixture(prefix: string) {
     await queryOnce(`
         INSERT INTO organizations (id, name, slug, created_by)
         VALUES ($1, $2, $3, $4)
-    `, [`${prefix}-org`, `${prefix} Organization`, `${prefix}-organization`, `${prefix}-owner-a`])
+    `, [`${prefix}-org`, `${displayNamePrefix} Organization`, `${prefix}-organization`, `${prefix}-owner-a`])
     await queryOnce(`
         INSERT INTO organization_members (organization_id, user_id, role)
         VALUES
