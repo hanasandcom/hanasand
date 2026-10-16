@@ -1,8 +1,9 @@
 'use client'
 
 import { caseReviewReferenceSummary, recommendedActionLabel, sourceHealthChipClass } from '../pageClientShared'
-import { decisionStepStatusClass, decisionStepStatusLabel, displayRequirementList, displayRequirementText, formatLabel, publicStateLabel, type SelectedCaseOwnershipPlan } from '../pageModel'
+import { decisionStepStatusClass, displayRequirementList, displayRequirementText, formatLabel, publicStateLabel, type SelectedCaseOwnershipPlan } from '../pageModel'
 import CopyPayloadButton from './copy-payload-button'
+import DecisionStatus from './decision-status'
 
 export default function SelectedCaseOwnershipPanel({ plan }: { plan: SelectedCaseOwnershipPlan }) {
     return (
@@ -12,7 +13,7 @@ export default function SelectedCaseOwnershipPanel({ plan }: { plan: SelectedCas
                     Case actions · {plan.summary.caseCandidates} candidates · {plan.summary.replayReady} replay-ready · {plan.summary.relatedAlerts} alerts · {plan.summary.captures} captures
                 </p>
                 <div className='flex flex-wrap items-center justify-end gap-1.5 sm:shrink-0'>
-                    <span className={decisionStepStatusClass(plan.state)}>{decisionStepStatusLabel(plan.state)}</span>
+                    <DecisionStatus status={plan.state} />
                     <CopyPayloadButton label='Case ownership' payload={plan} />
                 </div>
             </div>
@@ -38,7 +39,7 @@ export default function SelectedCaseOwnershipPanel({ plan }: { plan: SelectedCas
                                     {formatLabel(item.priority)} · {recommendedActionLabel(item.recommendedAction)} · {item.sourceIds.length} source ref{item.sourceIds.length === 1 ? '' : 's'}
                                 </p>
                             </div>
-                            <span className={decisionStepStatusClass(item.state)}>{decisionStepStatusLabel(item.state)}</span>
+                            <DecisionStatus status={item.state} />
                         </div>
                         <p className='mt-1 wrap-break-word text-[11px] leading-5 text-ui-muted dark:text-ui-muted'>{displayRequirementText(item.nextAction)}</p>
                         <p className='mt-1 wrap-break-word text-[11px] leading-5 text-ui-muted dark:text-ui-muted'>

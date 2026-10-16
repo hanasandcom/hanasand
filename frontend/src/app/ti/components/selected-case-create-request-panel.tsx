@@ -1,9 +1,10 @@
 'use client'
 
 import { compactSourceReferenceLabel, formatDate, handoffMissingLabel, sourceHealthChipClass } from '../pageClientShared'
-import { consumerRequestPathLabel, decisionStepStatusClass, decisionStepStatusLabel, displayRequirementList, displayRequirementText, formatLabel, publicDecisionStatusLabel, readinessOwnerLabel, sourceBasisLabel, sourceRequestRouteLabel, type SelectedCaseCreateRequest } from '../pageModel'
+import { consumerRequestPathLabel, decisionStepStatusClass, displayRequirementList, displayRequirementText, formatLabel, publicDecisionStatusLabel, readinessOwnerLabel, sourceBasisLabel, sourceRequestRouteLabel, type SelectedCaseCreateRequest } from '../pageModel'
 import CopyPayloadButton from './copy-payload-button'
 import EvidenceMetric from './evidence-metric'
+import DecisionStatus from './decision-status'
 
 export default function SelectedCaseCreateRequestPanel({ request }: { request: SelectedCaseCreateRequest }) {
     return (
@@ -13,7 +14,7 @@ export default function SelectedCaseCreateRequestPanel({ request }: { request: S
                     Case request · {request.refs.alertIds.length} alerts · {request.refs.captureIds.length} captures · {request.sourceRows.length} sources · {request.refs.watchTerms.length} terms
                 </p>
                 <div className='flex flex-wrap items-center justify-end gap-1.5 sm:shrink-0'>
-                    <span className={decisionStepStatusClass(request.state)}>{decisionStepStatusLabel(request.state)}</span>
+                    <DecisionStatus status={request.state} />
                     <CopyPayloadButton label='Case create request' payload={request} />
                 </div>
             </div>

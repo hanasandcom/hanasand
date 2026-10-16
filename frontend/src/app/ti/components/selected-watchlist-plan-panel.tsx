@@ -1,7 +1,8 @@
 'use client'
 
 import { compactSourceReferenceLabel, formatDate, sourceHealthChipClass } from '../pageClientShared'
-import { decisionStepStatusClass, decisionStepStatusLabel, displayRequirementList, displayRequirementText, formatLabel, readinessOwnerLabel, type DecisionStep, type SelectedWatchlistPlan } from '../pageModel'
+import { displayRequirementList, displayRequirementText, formatLabel, readinessOwnerLabel, type DecisionStep, type SelectedWatchlistPlan } from '../pageModel'
+import DecisionStatus from './decision-status'
 import CopyPayloadButton from './copy-payload-button'
 
 export default function SelectedWatchlistPlanPanel({ plan }: { plan: SelectedWatchlistPlan }) {
@@ -13,7 +14,7 @@ export default function SelectedWatchlistPlanPanel({ plan }: { plan: SelectedWat
                     Watchlist actions · {plan.terms.length} terms · {plan.relevanceRows.filter(item => item.fit === 'matched').length} matches · {plan.sourceRefs.alertIds.length} alerts · {plan.sourceRefs.captureIds.length} captures
                 </p>
                 <div className='flex flex-wrap items-center justify-end gap-1.5 sm:shrink-0'>
-                    <span className={decisionStepStatusClass(status)}>{decisionStepStatusLabel(status)}</span>
+                    <DecisionStatus status={status} />
                     <CopyPayloadButton label='Watchlist plan' payload={plan} />
                 </div>
             </div>

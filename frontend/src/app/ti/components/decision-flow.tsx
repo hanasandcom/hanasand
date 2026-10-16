@@ -1,9 +1,10 @@
 'use client'
 
-import { decisionStepStatusClass, decisionStepStatusLabel, displayRequirementList, displayRequirementText, formatLabel, type DecisionStep } from '../pageModel'
+import { displayRequirementList, displayRequirementText, formatLabel, type DecisionStep } from '../pageModel'
 import { ExternalLink } from 'lucide-react'
 import { type TiActionabilityModel } from '@/utils/ti/actionability'
 import CopyPayloadButton from './copy-payload-button'
+import DecisionStatus from './decision-status'
 
 export default function DecisionFlow({ steps, disposition, shouldAlert, rationale }: { steps: DecisionStep[]; disposition: TiActionabilityModel['alertDisposition']; shouldAlert: boolean; rationale: string }) {
     return (
@@ -24,7 +25,7 @@ export default function DecisionFlow({ steps, disposition, shouldAlert, rational
                             <div className='min-w-0'>
                                 <div className='flex flex-wrap items-center gap-2'>
                                     <p className='min-w-0 wrap-break-word text-xs font-semibold text-ui-text dark:text-ui-text'>{step.label}</p>
-                                    <span className={decisionStepStatusClass(step.status)}>{decisionStepStatusLabel(step.status)}</span>
+                                    <DecisionStatus status={step.status} />
                                 </div>
                                 <p className='mt-1 wrap-break-word text-xs leading-5 text-ui-muted dark:text-ui-muted'>{displayRequirementText(step.detail)}</p>
                                 {step.missing.length ? (

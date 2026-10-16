@@ -1,7 +1,8 @@
 'use client'
 
 import { sourceHealthChipClass } from '../pageClientShared'
-import { decisionStepStatusClass, decisionStepStatusLabel, displayRequirementList, displayRequirementText, formatLabel, publicDecisionStatusLabel, readinessOwnerLabel, type SelectedAlertActionPlan } from '../pageModel'
+import { displayRequirementList, displayRequirementText, formatLabel, publicDecisionStatusLabel, readinessOwnerLabel, type SelectedAlertActionPlan } from '../pageModel'
+import DecisionStatus from './decision-status'
 import CopyPayloadButton from './copy-payload-button'
 
 export default function SelectedAlertActionPlanPanel({ plan }: { plan: SelectedAlertActionPlan }) {
@@ -13,7 +14,7 @@ export default function SelectedAlertActionPlanPanel({ plan }: { plan: SelectedA
                     Alert actions · {plan.readiness.matchedCandidateCount}/{plan.readiness.candidateCount} matches · {plan.sourceRefs.captureIds.length} captures · {plan.readiness.generationEvidenceWindowReady ? 'evidence current' : 'evidence pending'}
                 </p>
                 <div className='flex flex-wrap items-center justify-end gap-1.5 sm:shrink-0'>
-                    <span className={decisionStepStatusClass(status)}>{decisionStepStatusLabel(status)}</span>
+                    <DecisionStatus status={status} />
                     <CopyPayloadButton label='Alert action plan' payload={plan} />
                 </div>
             </div>

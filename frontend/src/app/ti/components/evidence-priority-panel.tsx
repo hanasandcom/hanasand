@@ -1,6 +1,7 @@
 'use client'
 
-import { decisionStepStatusClass, decisionStepStatusLabel, displayRequirementText, type AnalystWorkItem } from '../pageModel'
+import { displayRequirementText, type AnalystWorkItem } from '../pageModel'
+import DecisionStatus from './decision-status'
 import CopyPayloadButton from './copy-payload-button'
 import EvidencePanel from './evidence-panel'
 
@@ -18,7 +19,7 @@ export default function EvidencePriorityPanel({ priority }: { priority: NonNulla
                     <p className='mt-1 wrap-break-word text-xs leading-5 text-ui-muted dark:text-ui-muted'>{displayRequirementText(priority.nextAction)}</p>
                 </div>
                 <div className='flex flex-wrap items-center justify-end gap-1.5 sm:shrink-0'>
-                    <span className={decisionStepStatusClass(priority.state)}>{decisionStepStatusLabel(priority.state)}</span>
+                    <DecisionStatus status={priority.state} />
                     <span className='rounded-md bg-ui-primary/10 px-2 py-1 text-[11px] font-semibold text-ui-primary dark:bg-ui-primary/10 dark:text-ui-primary'>{priority.score}/100</span>
                     <CopyPayloadButton label='Evidence priority' payload={priority} />
                 </div>

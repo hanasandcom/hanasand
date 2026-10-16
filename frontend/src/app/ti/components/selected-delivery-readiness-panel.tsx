@@ -1,7 +1,8 @@
 'use client'
 
 import { sourceHealthChipClass } from '../pageClientShared'
-import { decisionStepStatusClass, decisionStepStatusLabel, displayRequirementList, displayRequirementText, formatLabel, type SelectedDeliveryReadinessPlan } from '../pageModel'
+import { displayRequirementList, displayRequirementText, formatLabel, type SelectedDeliveryReadinessPlan } from '../pageModel'
+import DecisionStatus from './decision-status'
 import CopyPayloadButton from './copy-payload-button'
 
 export default function SelectedDeliveryReadinessPanel({ plan }: { plan: SelectedDeliveryReadinessPlan }) {
@@ -12,7 +13,7 @@ export default function SelectedDeliveryReadinessPanel({ plan }: { plan: Selecte
                     Delivery actions · {plan.summary.alerts} alerts · {plan.summary.captures} captures · {plan.summary.destinations} destinations · {plan.summary.caseRoutes} case links
                 </p>
                 <div className='flex flex-wrap items-center justify-end gap-1.5 sm:shrink-0'>
-                    <span className={decisionStepStatusClass(plan.state)}>{decisionStepStatusLabel(plan.state)}</span>
+                    <DecisionStatus status={plan.state} />
                     <CopyPayloadButton label='Delivery status' payload={plan} />
                 </div>
             </div>

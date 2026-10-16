@@ -1,7 +1,8 @@
 'use client'
 
 import { actorEnrichmentConsumerLabel, actorEnrichmentConsumerState, formatDate, sourceHealthChipClass } from '../pageClientShared'
-import { decisionStepStatusClass, decisionStepStatusLabel, displayRequirementText, formatLabel, publicStateLabel, readinessOwnerLabel, sourceHealthFieldLabel, sourceRequestRouteLabel, type SelectedEnrichmentTriage } from '../pageModel'
+import { displayRequirementText, formatLabel, publicStateLabel, readinessOwnerLabel, sourceHealthFieldLabel, sourceRequestRouteLabel, type SelectedEnrichmentTriage } from '../pageModel'
+import DecisionStatus from './decision-status'
 import CopyPayloadButton from './copy-payload-button'
 
 export default function SelectedEnrichmentTriagePanel({ triage }: { triage: SelectedEnrichmentTriage }) {
@@ -12,7 +13,7 @@ export default function SelectedEnrichmentTriagePanel({ triage }: { triage: Sele
                     Source actions · {triage.summary.sourceRows} sources · {triage.summary.intakeItems} work items · {triage.summary.sourceRequests} requests · {triage.summary.captures} captures
                 </p>
                 <div className='flex flex-wrap items-center justify-end gap-1.5 sm:shrink-0'>
-                    <span className={decisionStepStatusClass(triage.state)}>{decisionStepStatusLabel(triage.state)}</span>
+                    <DecisionStatus status={triage.state} />
                     <CopyPayloadButton label='Review alert' payload={triage} />
                 </div>
             </div>

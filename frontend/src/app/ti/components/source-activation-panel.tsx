@@ -1,6 +1,7 @@
 'use client'
 
-import { decisionStepStatusClass, decisionStepStatusLabel, sourceActivationActionLabel, sourceActivationExecutionClass, sourceActivationExecutionLabel, type DecisionStep } from '../pageModel'
+import { sourceActivationActionLabel, sourceActivationExecutionClass, sourceActivationExecutionLabel, type DecisionStep } from '../pageModel'
+import DecisionStatus from './decision-status'
 import { ShieldAlert } from 'lucide-react'
 import { TiSearchResponse } from '@/utils/ti/search'
 import Panel from './panel'
@@ -19,7 +20,7 @@ export default function SourceActivationPanel({ activation }: { activation: NonN
                             {activation.dryRunOnly ? 'Actions are review-only until a console user approves source changes.' : 'Source actions are ready for authenticated review.'}
                         </p>
                     </div>
-                    <span className={decisionStepStatusClass(state)}>{decisionStepStatusLabel(state)}</span>
+                    <DecisionStatus status={state} />
                 </div>
                 <div className='grid min-w-0 gap-2'>
                     {activation.actions.map(action => (
