@@ -1,304 +1,7 @@
 import { beforeEach, expect, mock, test } from 'bun:test'
+import { resetAdminSupportDatabaseFixture, run, state } from './fixtures/admin-support-routes-db.ts'
 import type { FastifyReply, FastifyRequest } from 'fastify'
 
-let actor = { valid: true, id: 'support-admin', impersonating: false }
-let internalAccess = true
-let eventRows: Record<string, any>[] = []
-let approvalRows: Record<string, any>[] = []
-let supportDecisionApproval: Record<string, any> | null = null
-let supportOrganization: Record<string, any> | null = null
-let supportUser: Record<string, any> | null = null
-let supportInspectionInvite: Record<string, any> | null | undefined
-let supportInspectionMember: Record<string, any> | null | undefined
-let supportInspectionAuditRows: Record<string, any>[] = []
-let supportInviteReads = 0
-let duplicateInviteAction: Record<string, any> | null = null
-let inviteActionWrites = 0
-let acceptedInviteWinsRace = false
-let supportRecoveryInviteStatus: string | null = null
-let supportRecoveryInviteExpiry: string | null = '2026-11-01T00:00:00.000Z'
-let supportRecoveryInviteUpsert: Record<string, unknown> | null = null
-let supportRecoveryInviteResult: Record<string, unknown> | null = null
-let supportRecoveryApprovalWrites = 0
-let supportMemberRole = 'editor'
-let supportOwnerCounts = [2]
-let supportAvailabilityResults: Record<string, unknown>[][] = []
-const inviteActionInputs: Array<Record<string, unknown>> = []
-let supportSessionEvents: Record<string, unknown>[] = []
-const queries: Array<{ sql: string, values: unknown[] }> = []
-
-function hasSqlFragments(normalizedSql: string, fragments: string[]) {
-    return fragments.every(fragment => normalizedSql.includes(fragment))
-}
-
-function defaultSupportInviteFixture(status = 'pending') {
-    return {
-        id: 'invite-1', organization_id: 'org-1', email: 'member@example.com', role: 'reader', status,
-        expires_at: '2026-11-01T00:00:00.000Z', accepted_at: null, accepted_by: null, revoked_at: null,
-        invited_by: 'owner-1', created_at: '2026-10-01T00:00:00.000Z',
-    }
-}
-
-async function run(sql: string, values: unknown[] = []) {
-    queries.push({ sql, values })
-    const normalizedSql = sql.replace(/\s+/g, ' ').trim()
-    // System event and session reads.
-    if (hasSqlFragments(normalizedSql, [
-        'SELECT e.id, e.event_type, e.severity, e.source, e.service, e.actor_id',
-        'FROM system_events e',
-        'LEFT JOIN users actor ON actor.id = e.actor_id',
-        'LEFT JOIN users target_user ON target_user.id = e.object_id',
-        'LEFT JOIN organizations organization ON organization.id = e.organization_id',
-        'WHERE e.id = $1',
-        'ORDER BY e.created_at DESC, e.id DESC',
-        'LIMIT 50',
-    ])) return { rows: eventRows }
-    if (normalizedSql.includes('SELECT id, event_type, actor_id, object_id, organization_id, subject_id, request_id, reason, outcome, context, created_at FROM system_events WHERE subject_id = $1 AND event_type IN (\'support.session.create\', \'support.session.revoke\') ORDER BY created_at ASC, id ASC')) {
-        const sessionId = values[0]
-        return { rows: supportSessionEvents.filter(event => event.subject_id === sessionId && ['support.session.create', 'support.session.revoke'].includes(String(event.event_type))) }
-    }
-    if (hasSqlFragments(normalizedSql, [
-        'SELECT e.id, e.event_type, e.severity, e.source, e.service, e.actor_id',
-        'FROM system_events e',
-        'e.context->>\'supportSessionId\' = $1',
-        'ORDER BY e.created_at ASC, e.id ASC',
-        'LIMIT 250',
-    ])) {
-        const sessionId = values[0]
-        return { rows: supportSessionEvents.filter(event => event.subject_id === sessionId || (event.context as Record<string, unknown>)?.supportSessionId === sessionId) }
-    }
-    if (normalizedSql.includes('SELECT status FROM organization_invites WHERE id = $1 AND organization_id = $2 LIMIT 1')) {
-        return { rows: supportRecoveryInviteStatus ? [{ status: supportRecoveryInviteStatus }] : [] }
-    }
-    if (normalizedSql.includes('SELECT id, status, expires_at FROM organization_invites WHERE id = $1 AND organization_id = $2 FOR UPDATE')) {
-        return { rows: supportRecoveryInviteStatus ? [{ id: 'invite-1', status: supportRecoveryInviteStatus, expires_at: supportRecoveryInviteExpiry }] : [] }
-    }
-    // Organization, privacy marker, and user reads.
-    if (hasSqlFragments(normalizedSql, [
-        'SELECT o.*',
-        'FROM organizations o',
-        '(o.id ILIKE $1 OR o.name ILIKE $1 OR o.slug ILIKE $1)',
-        'ORDER BY o.updated_at DESC',
-        'LIMIT $2',
-    ])) return { rows: supportOrganization ? [supportOrganization] : [] }
-    if (hasSqlFragments(normalizedSql, [
-        'SELECT o.*',
-        'FROM organizations o',
-        'WHERE o.id = $1',
-        'LIMIT 1',
-    ])) return { rows: supportOrganization ? [supportOrganization] : [] }
-    if (normalizedSql.includes('SELECT audit_safe_metadata ? \'privacyDeletionRunId\' locked FROM organizations WHERE id = $1')) return { rows: [{ locked: false }] }
-    if (sql.includes('SELECT id FROM organizations WHERE id = $1 FOR UPDATE')) return { rows: supportOrganization ? [{ id: supportOrganization.id }] : [] }
-    if (sql.includes('UPDATE organizations SET updated_at = NOW() WHERE id = $1')) return { rows: [] }
-    if (normalizedSql.includes('SELECT id, name, avatar, active, reserved, deactivated_at, deactivated_by, deletion_requested_at, deletion_scheduled_at FROM users WHERE id = $1 LIMIT 1')) return { rows: supportUser ? [supportUser] : [] }
-    if (hasSqlFragments(normalizedSql, [
-        'SELECT event.id, event.event_type, event.severity, event.source, event.service, event.actor_id',
-        'FROM system_events event',
-        'LEFT JOIN users actor ON actor.id = event.actor_id',
-        'LEFT JOIN users target_user ON target_user.id = event.object_id',
-        'LEFT JOIN organizations organization ON organization.id = event.organization_id',
-        'event.organization_id ILIKE',
-        'ORDER BY event.created_at DESC',
-        'LIMIT',
-    ])) return { rows: eventRows }
-    // Support inspection detail reads.
-    if (hasSqlFragments(normalizedSql, [
-        'SELECT event.id, event.event_type, event.severity, event.source, event.service, event.actor_id',
-        'FROM system_events event',
-        'LEFT JOIN users actor ON actor.id = event.actor_id',
-        'LEFT JOIN users target_user ON target_user.id = event.object_id',
-        'LEFT JOIN organizations organization ON organization.id = event.organization_id',
-        'WHERE event.organization_id = $1',
-        'ORDER BY event.created_at DESC',
-        'LIMIT 25',
-    ])) return { rows: supportInspectionAuditRows }
-    // Invite and membership reads.
-    if (hasSqlFragments(normalizedSql, [
-        'SELECT invite.*, organization.name AS organization_name, organization.slug AS organization_slug',
-        'FROM organization_invites invite JOIN organizations organization ON organization.id = invite.organization_id',
-        'WHERE invite.id = $1 AND invite.organization_id = $2 LIMIT 1',
-    ])) {
-        if (supportInspectionInvite === null) return { rows: [] }
-        if (supportInspectionInvite !== undefined) return { rows: [supportInspectionInvite] }
-        return { rows: [defaultSupportInviteFixture()] }
-    }
-    if (normalizedSql.includes('SELECT * FROM organization_invites WHERE id = $1 AND organization_id = $2 LIMIT 1')) {
-        supportInviteReads += 1
-        if (supportInspectionInvite === null) return { rows: [] }
-        if (supportInspectionInvite) return { rows: [supportInspectionInvite] }
-        const invite = defaultSupportInviteFixture(
-            supportInviteReads > 1 && acceptedInviteWinsRace ? 'accepted' : 'pending',
-        )
-        return { rows: [invite] }
-    }
-    if (hasSqlFragments(normalizedSql, [
-        'SELECT',
-        'FROM organization_members om',
-        'JOIN users ON users.id = om.user_id',
-        'JOIN organizations ON organizations.id = om.organization_id',
-        'WHERE om.organization_id = $1',
-        'om.user_id = $2',
-    ])) {
-        if (supportInspectionMember === null) return { rows: [] }
-        if (supportInspectionMember) return { rows: [supportInspectionMember] }
-        return { rows: [{
-            organization_id: 'org-1', organization_name: 'Org', organization_slug: 'org', user_id: 'member-1',
-            name: 'Member', avatar: null, active: true, role: supportMemberRole, status: 'active', invited_by: 'owner-1',
-            joined_at: '2026-10-01T00:00:00.000Z', created_at: '2026-10-01T00:00:00.000Z',
-        }] }
-    }
-    if (hasSqlFragments(normalizedSql, [
-        'SELECT',
-        'FROM organization_members om',
-        'JOIN organizations ON organizations.id = om.organization_id',
-        'om.organization_id ILIKE',
-        'ORDER BY organizations.name ASC, users.name ASC',
-        'LIMIT',
-    ])) return { rows: [] }
-    if (hasSqlFragments(normalizedSql, [
-        'SELECT',
-        'FROM organization_members om',
-        'JOIN users ON users.id = om.user_id',
-        'WHERE om.organization_id = $1',
-        'ORDER BY',
-        'CASE om.role',
-    ])) return { rows: [] }
-    if (hasSqlFragments(normalizedSql, [
-        'SELECT',
-        'FROM organization_members om',
-        'JOIN organizations ON organizations.id = om.organization_id',
-        'WHERE om.user_id = $1',
-        'ORDER BY organizations.name ASC',
-    ])) return { rows: [] }
-    if (hasSqlFragments(normalizedSql, [
-        'SELECT organization_invites.*',
-        'FROM organization_invites',
-        'JOIN organizations ON organizations.id = organization_invites.organization_id',
-        'organization_invites.organization_id ILIKE',
-        'ORDER BY organization_invites.status ASC, organization_invites.created_at DESC',
-        'LIMIT',
-    ])) return { rows: [] }
-    if (hasSqlFragments(normalizedSql, [
-        'SELECT organization_invites.*',
-        'FROM organization_invites',
-        'JOIN organizations ON organizations.id = organization_invites.organization_id',
-        'organization_invites.id ILIKE',
-        'ORDER BY organization_invites.status ASC, organization_invites.created_at DESC',
-        'LIMIT',
-    ])) return { rows: [] }
-    if (hasSqlFragments(normalizedSql, [
-        'SELECT organization_invites.*',
-        'FROM organization_invites',
-        'JOIN organizations ON organizations.id = organization_invites.organization_id',
-        'lower(organization_invites.email) = lower($1)',
-        'organization_invites.status = \'pending\'',
-        'ORDER BY organization_invites.created_at DESC',
-    ])) return { rows: [] }
-    if (hasSqlFragments(normalizedSql, [
-        'SELECT *',
-        'FROM organization_invites',
-        'WHERE organization_id = $1',
-        'id = ANY($2::text[])',
-        'ORDER BY created_at DESC',
-    ])) return { rows: [] }
-    if (hasSqlFragments(normalizedSql, [
-        'SELECT *',
-        'FROM organization_invites',
-        'WHERE organization_id = $1',
-        'ORDER BY status ASC, created_at DESC',
-    ])) return { rows: [] }
-    if (hasSqlFragments(normalizedSql, [
-        'SELECT *',
-        'FROM organization_watchlist_items',
-        'WHERE organization_id = $1',
-        'archived_at IS NULL',
-        'ORDER BY kind ASC, value ASC',
-    ])) return { rows: [] }
-    if (hasSqlFragments(normalizedSql, [
-        'SELECT',
-        'FROM dwm_webhook_destinations',
-        'WHERE org_id = $1',
-        'status <> \'archived\'',
-        'ORDER BY status ASC, updated_at DESC',
-    ])) return { rows: [] }
-    // Readiness counts and aggregate availability queries.
-    if (normalizedSql.includes('SELECT COUNT(*)::int AS owner_count FROM organization_members membership JOIN users owner ON owner.id = membership.user_id AND owner.active IS TRUE AND owner.deletion_scheduled_at IS NULL WHERE membership.organization_id = $1 AND membership.status = \'active\' AND membership.role = \'owner\'')) return { rows: [{ owner_count: supportOwnerCounts.shift() ?? 2 }] }
-    if (hasSqlFragments(normalizedSql, [
-        'SELECT om.organization_id, COUNT(*) FILTER (WHERE om.role = \'owner\' AND om.status = \'active\')::int AS owner_count',
-        'COUNT(*) FILTER (WHERE om.role = \'owner\' AND om.status = \'active\' AND users.active)::int AS active_owner_count',
-        'COUNT(*) FILTER (WHERE om.role IN (\'owner\', \'admin\') AND om.status = \'active\')::int AS admin_count',
-        'COUNT(*) FILTER (WHERE om.role IN (\'owner\', \'admin\') AND om.status = \'active\' AND users.active)::int AS active_admin_count',
-        'FROM organization_members om JOIN users ON users.id = om.user_id WHERE om.organization_id = ANY($1::text[]) GROUP BY om.organization_id',
-    ])) return { rows: supportAvailabilityResults.shift() ?? [] }
-    // Idempotency checks and write operations.
-    if (normalizedSql.includes('SELECT id, request_id, subject_id, context FROM system_events WHERE event_type = \'support.organization.invite_assist\' AND organization_id = $1 AND outcome = \'success\' AND context->>\'idempotencyKey\' = $2 ORDER BY created_at ASC, id ASC LIMIT 1')) {
-        return { rows: duplicateInviteAction ? [duplicateInviteAction] : [] }
-    }
-    if (normalizedSql.includes('SELECT id, request_id, subject_id, context FROM system_events WHERE event_type = $1 AND organization_id = $2 AND subject_id = $3 AND outcome = \'success\' AND context->>\'idempotencyKey\' = $4 ORDER BY created_at ASC, id ASC LIMIT 1')) {
-        return { rows: duplicateInviteAction ? [duplicateInviteAction] : [] }
-    }
-    if (normalizedSql.includes('SELECT id, request_id, subject_id, context FROM system_events WHERE event_type = \'support.organization.member_role_recovery\' AND organization_id = $1 AND subject_id = $2 AND outcome = \'success\' AND context->>\'idempotencyKey\' = $3 ORDER BY created_at ASC, id ASC LIMIT 1')) {
-        return { rows: duplicateInviteAction ? [duplicateInviteAction] : [] }
-    }
-    if (normalizedSql.includes('SELECT id FROM system_events WHERE request_id = $1 AND event_type = $2 AND subject_id = $3 ORDER BY created_at DESC, id DESC LIMIT 10')) {
-        if (String(values[1]).startsWith('support.session.')) {
-            return { rows: supportSessionEvents.filter(event => event.request_id === values[0] && event.event_type === values[1] && event.subject_id === values[2]).map(event => ({ id: event.id })) }
-        }
-        return { rows: [{ id: 91 }] }
-    }
-    if (normalizedSql.includes('SELECT users.id FROM users WHERE users.id = ANY($1::text[]) OR EXISTS ( SELECT 1 FROM organization_members membership WHERE membership.organization_id = $2 AND membership.user_id = users.id AND membership.status = \'active\' AND membership.role IN (\'owner\', \'admin\') ) ORDER BY users.id FOR UPDATE')) return { rows: [] }
-    if (normalizedSql.includes('UPDATE organization_members SET role = $3 WHERE organization_id = $1 AND user_id = $2 AND status = \'active\' RETURNING *')) return { rows: [{
-        organization_id: 'org-1', user_id: 'member-1', role: 'reader', status: 'active',
-    }] }
-    if (normalizedSql.includes('UPDATE admin_access_recovery_approvals SET status = $2, approved_by = CASE WHEN $2 = \'approved\' THEN $3 ELSE NULL END, approved_at = CASE WHEN $2 = \'approved\' THEN NOW() ELSE NULL END, denied_by = CASE WHEN $2 = \'denied\' THEN $3 ELSE NULL END, denied_at = CASE WHEN $2 = \'denied\' THEN NOW() ELSE NULL END, decision_reason = $4, outcome = CASE WHEN $2 = \'approved\' THEN \'success\' ELSE \'denied\' END, updated_at = NOW() WHERE request_id = $1 AND status = \'pending\' RETURNING *')) {
-        return { rows: supportDecisionApproval ? [{ ...supportDecisionApproval, status: values[1] }] : [] }
-    }
-    if (hasSqlFragments(normalizedSql, [
-        'SELECT',
-        'approval.*',
-        'FROM admin_access_recovery_approvals approval',
-        'JOIN organization_invites invite ON invite.id = approval.invite_id',
-        'LEFT JOIN organizations organization ON organization.id = approval.organization_id',
-        'WHERE approval.request_id = $1',
-        'LIMIT 1',
-    ])) return { rows: supportDecisionApproval ? [supportDecisionApproval] : [] }
-    if (hasSqlFragments(normalizedSql, [
-        'SELECT',
-        'approval.*',
-        'FROM admin_access_recovery_approvals approval',
-        'JOIN organization_invites invite ON invite.id = approval.invite_id',
-        'LEFT JOIN organizations organization ON organization.id = approval.organization_id',
-        'COALESCE((',
-        ') AS audit_events',
-        'ORDER BY approval.updated_at DESC, approval.created_at DESC',
-        'LIMIT',
-    ])) return { rows: approvalRows }
-    // Audit event reads.
-    if (normalizedSql.includes('SELECT COUNT(*)::int AS total FROM system_events e') && normalizedSql.includes('LEFT JOIN users actor ON actor.id = e.actor_id') && normalizedSql.includes('LEFT JOIN users target_user ON target_user.id = e.object_id') && normalizedSql.includes('LEFT JOIN organizations organization ON organization.id = e.organization_id') && !normalizedSql.includes('system_event_acknowledgments')) return { rows: [{ total: eventRows.length }] }
-    if (hasSqlFragments(normalizedSql, [
-        'SELECT e.id, e.event_type, e.severity, e.source, e.service, e.actor_id',
-        'FROM system_events e',
-        'LEFT JOIN system_event_acknowledgments acknowledgement ON acknowledgement.event_id = e.id',
-        'LEFT JOIN users acknowledged_actor ON acknowledged_actor.id = acknowledgement.acknowledged_by',
-        'WHERE e.id = $1',
-        'LIMIT 1',
-    ])) return { rows: eventRows }
-    if (hasSqlFragments(normalizedSql, [
-        'SELECT e.id, e.event_type, e.severity, e.source, e.service, e.actor_id',
-        'FROM system_events e',
-        'LEFT JOIN system_event_acknowledgments acknowledgement ON acknowledgement.event_id = e.id',
-        'LEFT JOIN users acknowledged_actor ON acknowledged_actor.id = acknowledgement.acknowledged_by',
-        'ORDER BY e.created_at DESC, e.id DESC',
-        'LIMIT',
-        'OFFSET',
-    ])) return { rows: eventRows }
-    if (normalizedSql.includes('SELECT id, event_type, severity, source, service, actor_id, object_type, object_id, subject_id, request_id, outcome, reason, context, created_at FROM system_events WHERE organization_id = $1 ORDER BY created_at DESC LIMIT 25')) return { rows: eventRows }
-    if (normalizedSql.includes('SELECT id, event_type, severity, source, service, actor_id, object_type, object_id, organization_id, subject_id, request_id, outcome, reason, context, created_at FROM system_events WHERE object_id = $1 OR actor_id = $1 OR subject_id = $1 ORDER BY created_at DESC LIMIT 25')) return { rows: eventRows }
-    throw new Error(`Unmatched admin-support test SQL query:\n${sql}`)
-}
-
-const recordedEvents: Array<Record<string, unknown>> = []
-let nextSupportEventId = 100
 const systemEventUtils = await import('../src/utils/systemEvent.ts')
 
 function accessRecoveryApprovalFixture(requestId: string) {
@@ -313,15 +16,15 @@ function accessRecoveryApprovalFixture(requestId: string) {
 
 mock.module('../src/utils/db.ts', () => ({ default: run, queryOnce: run, identityQueryOnce: run, withTransaction: async (work: (query: typeof run) => Promise<unknown>) => work(run), closeDatabase: async () => {} }))
 const identityDataWrites = await import('../src/utils/db/identityDataWrites.ts')
-mock.module('../src/utils/auth/tokenWrapper.ts', () => ({ default: async () => actor }))
+mock.module('../src/utils/auth/tokenWrapper.ts', () => ({ default: async () => state.actor }))
 mock.module('../src/utils/systemEvent.ts', () => ({
     ...systemEventUtils,
-    actorHasHanasandInternalAccess: async () => internalAccess,
+    actorHasHanasandInternalAccess: async () => state.internalAccess,
     recordSystemEvent: async (_req: unknown, event: Record<string, unknown>) => {
-        recordedEvents.push(event)
+        state.recordedEvents.push(event)
         if (['support.session.create', 'support.session.revoke', 'support.session.inspect'].includes(String(event.actionType))) {
-            supportSessionEvents.push({
-                id: nextSupportEventId++,
+            state.supportSessionEvents.push({
+                id: state.nextSupportEventId++,
                 event_type: event.actionType,
                 severity: event.severity,
                 source: 'admin',
@@ -341,12 +44,12 @@ mock.module('../src/utils/systemEvent.ts', () => ({
     },
 }))
 mock.module('../src/utils/db/identityDataWrites.ts', () => ({
-    upsertAdminAccessRecoveryApproval: async () => { supportRecoveryApprovalWrites += 1 },
-    upsertOrganizationInvite: async () => supportRecoveryInviteUpsert,
+    upsertAdminAccessRecoveryApproval: async () => { state.supportRecoveryApprovalWrites += 1 },
+    upsertOrganizationInvite: async () => state.supportRecoveryInviteUpsert,
     updateOrganizationInviteAction: async (input: Record<string, unknown>) => {
-        inviteActionWrites += 1
-        inviteActionInputs.push(input)
-        return supportRecoveryInviteResult
+        state.inviteActionWrites += 1
+        state.inviteActionInputs.push(input)
+        return state.supportRecoveryInviteResult
     },
     updateActiveOrganizationMemberRole: identityDataWrites.updateActiveOrganizationMemberRole,
 }))
@@ -422,7 +125,7 @@ function supportInspectionAuditFixture(entityId: string) {
 }
 
 function expectInspectionAuditQuery(entityId: string, targetPredicates: string[]) {
-    const auditQuery = queries.find(({ sql }) => sql.includes('FROM system_events event') && sql.includes('event.organization_id = $1'))
+    const auditQuery = state.queries.find(({ sql }) => sql.includes('FROM system_events event') && sql.includes('event.organization_id = $1'))
     expect(auditQuery).toBeDefined()
     expect(auditQuery?.sql).toContain('event.organization_id = $1')
     expect(auditQuery?.sql).toContain('event.subject_id = $2')
@@ -431,33 +134,7 @@ function expectInspectionAuditQuery(entityId: string, targetPredicates: string[]
 }
 
 beforeEach(() => {
-    actor = { valid: true, id: 'support-admin', impersonating: false }
-    internalAccess = true
-    eventRows = []
-    approvalRows = []
-    supportDecisionApproval = null
-    supportOrganization = null
-    supportUser = null
-    supportInspectionInvite = undefined
-    supportInspectionMember = undefined
-    supportInspectionAuditRows = []
-    supportInviteReads = 0
-    duplicateInviteAction = null
-    inviteActionWrites = 0
-    acceptedInviteWinsRace = false
-    supportRecoveryInviteStatus = null
-    supportRecoveryInviteExpiry = '2026-11-01T00:00:00.000Z'
-    supportRecoveryInviteUpsert = null
-    supportRecoveryInviteResult = null
-    supportRecoveryApprovalWrites = 0
-    supportMemberRole = 'editor'
-    supportOwnerCounts = [2]
-    supportAvailabilityResults = []
-    inviteActionInputs.length = 0
-    supportSessionEvents = []
-    nextSupportEventId = 100
-    queries.length = 0
-    recordedEvents.length = 0
+    resetAdminSupportDatabaseFixture()
 })
 
 test('admin-support database fake reports unmatched SQL', async () => {
@@ -467,25 +144,25 @@ test('admin-support database fake reports unmatched SQL', async () => {
 })
 
 test('support audit routes enforce admin-only access and reject impersonated actors', async () => {
-    actor = { valid: false, id: '', impersonating: false }
+    state.actor = { valid: false, id: '', impersonating: false }
     expect((await request(getSystemEvents)).statusCode).toBe(401)
-    expect(queries).toHaveLength(0)
+    expect(state.queries).toHaveLength(0)
 
-    actor = { valid: true, id: 'support-admin', impersonating: true }
+    state.actor = { valid: true, id: 'support-admin', impersonating: true }
     expect((await request(getSystemEvents)).statusCode).toBe(401)
-    expect(queries).toHaveLength(0)
+    expect(state.queries).toHaveLength(0)
 
-    actor = { valid: true, id: 'customer-user', impersonating: false }
-    internalAccess = false
+    state.actor = { valid: true, id: 'customer-user', impersonating: false }
+    state.internalAccess = false
     const denied = await request(getSystemEvents)
     expect(denied.statusCode).toBe(403)
     expect(denied.body.detail.code).toBe('support_role_required')
     expect((await request(getSupportAccessRecoveryApprovals)).statusCode).toBe(403)
-    expect(queries).toHaveLength(0)
+    expect(state.queries).toHaveLength(0)
 })
 
 test('audit event filters are parameterized and context secrets are redacted in responses', async () => {
-    eventRows = [{
+    state.eventRows = [{
         id: 42,
         event_type: 'support.organization.inspect',
         severity: 'warning',
@@ -537,8 +214,8 @@ test('audit event filters are parameterized and context secrets are redacted in 
     }
     const response = await request(getSystemEvents, { query: filters })
     expect(response.statusCode).toBe(200)
-    expect(queries).toHaveLength(2)
-    const query = queries[1]
+    expect(state.queries).toHaveLength(2)
+    const query = state.queries[1]
     expect(query.sql).toContain('e.event_type ILIKE')
     expect(query.sql).toContain('e.context->>\'correlationId\' ILIKE')
     expect(query.sql).toContain('e.context->>\'idempotencyKey\' ILIKE')
@@ -585,7 +262,7 @@ test('audit event filters are parameterized and context secrets are redacted in 
 })
 
 test('audit detail route redacts stored context and records an inspection event', async () => {
-    eventRows = [{
+    const targetEvent = {
         id: 42,
         event_type: 'support.organization.inspect',
         severity: 'warning',
@@ -604,10 +281,15 @@ test('audit detail route redacts stored context and records an inspection event'
         reason: 'Customer requested access inspection',
         context: { password: 'secret', nested: { privateSourceUrl: 'https://private.example/source' }, safe: 'kept' },
         created_at: '2026-09-20T00:00:00.000Z',
-    }]
+    }
+    state.eventRows = [
+        { ...targetEvent, id: 43, context: { password: 'wrong audit event' } },
+        targetEvent,
+    ]
     const response = await request(getSystemEvent, { params: { id: '42' } })
     expect(response.statusCode).toBe(200)
-    const relatedTimelineQuery = queries.find(({ sql }) => sql.includes('e.request_id = $2'))
+    expect(response.body.event.id).toBe(42)
+    const relatedTimelineQuery = state.queries.find(({ sql }) => sql.includes('e.request_id = $2'))
     expect(relatedTimelineQuery?.sql).toContain('e.context,\n            e.ip,\n            e.user_agent,\n            e.created_at')
     expect(response.body.event.context).toEqual({
         password: '[redacted]',
@@ -615,8 +297,8 @@ test('audit detail route redacts stored context and records an inspection event'
         safe: 'kept',
     })
     expect(response.body.detail.timelineEvent.context).toEqual(response.body.event.context)
-    expect(recordedEvents).toHaveLength(1)
-    expect(recordedEvents[0]).toMatchObject({
+    expect(state.recordedEvents).toHaveLength(1)
+    expect(state.recordedEvents[0]).toMatchObject({
         actionType: 'support.audit_event.inspect',
         actorId: 'support-admin',
         outcome: 'success',
@@ -625,7 +307,7 @@ test('audit detail route redacts stored context and records an inspection event'
 })
 
 test('audit detail and support timeline share redacted evidence and links', async () => {
-    eventRows = [{
+    state.eventRows = [{
         id: 44,
         event_type: 'support.organization.member_role_recovery',
         severity: 'warning',
@@ -698,7 +380,7 @@ test('audit detail and support timeline share redacted evidence and links', asyn
 })
 
 test('audit detail links only explicit or tagged support sessions', async () => {
-    eventRows = [{
+    state.eventRows = [{
         id: 43, event_type: 'impersonation.start', severity: 'warning', source: 'admin', service: 'hanasand-api',
         actor_id: 'support-admin', object_type: 'user', object_id: 'target-user', organization_id: 'org-1',
         subject_id: 'support_session_tagged', request_id: 'request-tagged', outcome: 'success', reason: 'Support case',
@@ -708,8 +390,8 @@ test('audit detail links only explicit or tagged support sessions', async () => 
     expect(tagged.body.event.detail.timelineEvent.links.supportSession).toBe('/api/admin/support/sessions/support_session_tagged')
     expect(tagged.body.detail.filterContract.filters.supportSession).toBe('support_session_tagged')
 
-    eventRows = [{
-        ...eventRows[0], subject_id: 'target-user', context: { supportSessionId: 'real-support-session' },
+    state.eventRows = [{
+        ...state.eventRows[0], subject_id: 'target-user', context: { supportSessionId: 'real-support-session' },
     }]
     const explicit = await request(getSystemEvent, { params: { id: '43' } })
     expect(explicit.body.event.context.supportSessionId).toBe('[redacted]')
@@ -717,8 +399,8 @@ test('audit detail links only explicit or tagged support sessions', async () => 
     expect(explicit.body.event.detail.actionEvidence.supportSessionId).toBe('real-support-session')
     expect(explicit.body.detail.filterContract.filters.supportSession).toBe('real-support-session')
 
-    eventRows = [{
-        ...eventRows[0], subject_id: 'impersonation-session', context: { sessionId: 'impersonation-session' },
+    state.eventRows = [{
+        ...state.eventRows[0], subject_id: 'impersonation-session', context: { sessionId: 'impersonation-session' },
     }]
     const impersonationOnly = await request(getSystemEvent, { params: { id: '43' } })
     expect(impersonationOnly.body.event.detail.timelineEvent.links.supportSession).toBeNull()
@@ -756,19 +438,19 @@ test('audit and support inspection filters retain separate validation contracts'
     expect(overbroadInspection.body.detail.code).toBe('overbroad_support_timeline_filter')
     const invalidInspectionWithAction = await request(getSupportInspection, { query: { action: 'support.inspect', severity: 'urgent' } })
     expect(invalidInspectionWithAction.body.detail.code).toBe('invalid_support_filter')
-    expect(queries).toHaveLength(0)
+    expect(state.queries).toHaveLength(0)
 })
 
 test('system audit allows an unfiltered query while support inspection requires a target', async () => {
     const audit = await request(getSystemEvents, { query: {} })
     expect(audit.statusCode).toBe(200)
-    expect(queries).toHaveLength(2)
+    expect(state.queries).toHaveLength(2)
 
-    queries.length = 0
+    state.queries.length = 0
     const inspection = await request(getSupportInspection, { query: {} })
     expect(inspection.statusCode).toBe(400)
     expect(inspection.body.detail.code).toBe('missing_support_target')
-    expect(queries).toHaveLength(0)
+    expect(state.queries).toHaveLength(0)
 })
 
 test('support inspection returns preparation validation errors before database reads', async () => {
@@ -783,7 +465,7 @@ test('support inspection returns preparation validation errors before database r
     })
     expect(response.statusCode).toBe(400)
     expect(response.body.detail.code).toBe('invalid_duration')
-    expect(queries).toHaveLength(0)
+    expect(state.queries).toHaveLength(0)
 })
 
 test('support readiness preserves its default audit filters and limit cap', async () => {
@@ -792,7 +474,7 @@ test('support readiness preserves its default audit filters and limit cap', asyn
     expect(response.body.filteredTimeline.filter).toMatchObject({
         action: 'support', source: 'system', service: 'hanasand-api', limit: 50,
     })
-    const auditQuery = queries.find(query => query.sql.includes('FROM system_events event'))
+    const auditQuery = state.queries.find(query => query.sql.includes('FROM system_events event'))
     expect(auditQuery?.values).toEqual(['%org-1%', '%support%', '%system%', '%hanasand-api%', 50])
 })
 
@@ -804,7 +486,7 @@ test('support readiness applies shared audit filters with inspection aliases and
         context: 'case-7', from: '2026-09-01T00:00:00.000Z', to: '2026-09-30T00:00:00.000Z',
     } })
     expect(response.statusCode).toBe(200)
-    const auditQuery = queries.find(query => query.sql.includes('FROM system_events event'))
+    const auditQuery = state.queries.find(query => query.sql.includes('FROM system_events event'))
     expect(auditQuery?.sql).toContain('event.organization_id ILIKE')
     for (const predicate of [
         'event.request_id ILIKE', 'event.object_type ILIKE', 'event.subject_id ILIKE',
@@ -822,7 +504,7 @@ test('support readiness applies shared audit filters with inspection aliases and
 })
 
 test('support inspection keeps organization member and pending-invite counts in its response', async () => {
-    supportOrganization = {
+    state.supportOrganization = {
         id: 'org-1', name: 'Org', slug: 'org', status: 'active',
         member_count: 3, pending_invite_count: 2,
     }
@@ -862,11 +544,11 @@ test('support inspection keeps organization member and pending-invite counts in 
 })
 
 test('organization and user inspections keep shared fields and target-specific contracts', async () => {
-    supportOrganization = {
+    state.supportOrganization = {
         id: 'org-1', name: 'Org', slug: 'org', status: 'active',
         member_count: 3, pending_invite_count: 2,
     }
-    supportUser = {
+    state.supportUser = {
         id: 'user-1', name: 'User One', avatar: null, active: true, reserved: false,
         deactivated_at: null, deactivated_by: null, deletion_requested_at: null, deletion_scheduled_at: null,
     }
@@ -935,9 +617,9 @@ test('organization and user inspections keep shared fields and target-specific c
 })
 
 test('support invite inspection retains its organization-scoped audit and response contract', async () => {
-    supportOrganization = activeSupportOrganizationFixture()
-    supportInspectionInvite = supportInviteInspectionFixture()
-    supportInspectionAuditRows = [supportInspectionAuditFixture('invite-1')]
+    state.supportOrganization = activeSupportOrganizationFixture()
+    state.supportInspectionInvite = supportInviteInspectionFixture()
+    state.supportInspectionAuditRows = [supportInspectionAuditFixture('invite-1')]
 
     const response = await request(getSupportOrganizationInvite, { params: { id: 'org-1', inviteId: 'invite-1' } })
 
@@ -976,7 +658,7 @@ test('support invite inspection retains its organization-scoped audit and respon
         'event.context->>\'inviteId\' = $2',
         'event.context->\'inviteIds\' ? $2',
     ])
-    expect(recordedEvents.at(-1)).toMatchObject({
+    expect(state.recordedEvents.at(-1)).toMatchObject({
         actionType: 'support.organization.invite.inspect', targetType: 'invite', targetId: 'member@example.com',
         organizationId: 'org-1', entityId: 'invite-1', outcome: 'success',
         context: { inviteId: 'invite-1', email: 'member@example.com', status: 'pending', role: 'reader' },
@@ -984,9 +666,9 @@ test('support invite inspection retains its organization-scoped audit and respon
 })
 
 test('support member inspection retains its organization-scoped audit and response contract', async () => {
-    supportOrganization = activeSupportOrganizationFixture()
-    supportInspectionMember = supportMemberInspectionFixture()
-    supportInspectionAuditRows = [supportInspectionAuditFixture('member-1')]
+    state.supportOrganization = activeSupportOrganizationFixture()
+    state.supportInspectionMember = supportMemberInspectionFixture()
+    state.supportInspectionAuditRows = [supportInspectionAuditFixture('member-1')]
 
     const response = await request(getSupportOrganizationMember, { params: { id: 'org-1', userId: 'member-1' } })
 
@@ -1026,7 +708,7 @@ test('support member inspection retains its organization-scoped audit and respon
         'event.context->>\'targetUserId\' = $2',
         'event.context->>\'memberId\' = $2',
     ])
-    expect(recordedEvents.at(-1)).toMatchObject({
+    expect(state.recordedEvents.at(-1)).toMatchObject({
         actionType: 'support.organization.member.inspect', targetType: 'member', targetId: 'member-1',
         organizationId: 'org-1', entityId: 'member-1', outcome: 'success',
         context: { userId: 'member-1', role: 'editor', status: 'active', active: true },
@@ -1037,51 +719,51 @@ test('support invite and member inspection audit missing organizations and targe
     const missingInviteOrganization = await request(getSupportOrganizationInvite, { params: { id: 'missing-org', inviteId: 'invite-1' } })
     expect(missingInviteOrganization.statusCode).toBe(404)
     expect(missingInviteOrganization.body).toEqual({ error: 'Organization not found.' })
-    expect(recordedEvents.at(-1)).toMatchObject({
+    expect(state.recordedEvents.at(-1)).toMatchObject({
         actionType: 'support.organization.invite.inspect', organizationId: 'missing-org',
         context: { error: 'organization_not_found', inviteId: 'invite-1' },
     })
-    expect(queries).toHaveLength(1)
+    expect(state.queries).toHaveLength(1)
 
-    queries.length = 0
-    recordedEvents.length = 0
-    supportOrganization = activeSupportOrganizationFixture()
-    supportInspectionInvite = null
+    state.queries.length = 0
+    state.recordedEvents.length = 0
+    state.supportOrganization = activeSupportOrganizationFixture()
+    state.supportInspectionInvite = null
     const missingInvite = await request(getSupportOrganizationInvite, { params: { id: 'org-1', inviteId: 'missing-invite' } })
     expect(missingInvite.statusCode).toBe(404)
     expect(missingInvite.body).toEqual({ error: 'Invite not found for organization.' })
-    expect(recordedEvents.at(-1)).toMatchObject({
+    expect(state.recordedEvents.at(-1)).toMatchObject({
         actionType: 'support.organization.invite.inspect', organizationId: 'org-1',
         context: { error: 'invite_not_found', inviteId: 'missing-invite' },
     })
-    expect(queries).toHaveLength(2)
-    expect(queries[1].values).toEqual(['missing-invite', 'org-1'])
+    expect(state.queries).toHaveLength(2)
+    expect(state.queries[1].values).toEqual(['missing-invite', 'org-1'])
 
-    queries.length = 0
-    recordedEvents.length = 0
-    supportOrganization = null
+    state.queries.length = 0
+    state.recordedEvents.length = 0
+    state.supportOrganization = null
     const missingMemberOrganization = await request(getSupportOrganizationMember, { params: { id: 'missing-org', userId: 'member-1' } })
     expect(missingMemberOrganization.statusCode).toBe(404)
     expect(missingMemberOrganization.body).toEqual({ error: 'Organization not found.' })
-    expect(recordedEvents.at(-1)).toMatchObject({
+    expect(state.recordedEvents.at(-1)).toMatchObject({
         actionType: 'support.organization.member.inspect', organizationId: 'missing-org',
         context: { error: 'organization_not_found', userId: 'member-1' },
     })
-    expect(queries).toHaveLength(1)
+    expect(state.queries).toHaveLength(1)
 
-    queries.length = 0
-    recordedEvents.length = 0
-    supportOrganization = activeSupportOrganizationFixture()
-    supportInspectionMember = null
+    state.queries.length = 0
+    state.recordedEvents.length = 0
+    state.supportOrganization = activeSupportOrganizationFixture()
+    state.supportInspectionMember = null
     const missingMember = await request(getSupportOrganizationMember, { params: { id: 'org-1', userId: 'missing-member' } })
     expect(missingMember.statusCode).toBe(404)
     expect(missingMember.body).toEqual({ error: 'Organization member not found.' })
-    expect(recordedEvents.at(-1)).toMatchObject({
+    expect(state.recordedEvents.at(-1)).toMatchObject({
         actionType: 'support.organization.member.inspect', organizationId: 'org-1',
         context: { error: 'member_not_found', userId: 'missing-member' },
     })
-    expect(queries).toHaveLength(2)
-    expect(queries[1].values).toEqual(['org-1', 'missing-member'])
+    expect(state.queries).toHaveLength(2)
+    expect(state.queries[1].values).toEqual(['org-1', 'missing-member'])
 })
 
 test('support session can be created, inspected, then revoked through its audit lifecycle', async () => {
@@ -1111,7 +793,7 @@ test('support session can be created, inspected, then revoked through its audit 
 
     const inspected = await request(getSupportSession, { params: { sessionId } })
     expect(inspected.statusCode).toBe(200)
-    const sessionTimelineQuery = queries.find(({ sql }) => sql.includes('e.context->>\'supportSessionId\' = $1'))
+    const sessionTimelineQuery = state.queries.find(({ sql }) => sql.includes('e.context->>\'supportSessionId\' = $1'))
     expect(sessionTimelineQuery?.sql).toContain('e.context,\n            e.ip,\n            e.user_agent,\n            e.created_at')
     expect(inspected.body.supportSession).toMatchObject({ id: sessionId, status: 'active', requestId: 'session-request-1' })
     expect(inspected.body.detail.authorization).toBeDefined()
@@ -1136,18 +818,18 @@ test('support session can be created, inspected, then revoked through its audit 
     })
     expect(repeatedRevoke.statusCode).toBe(409)
     expect(repeatedRevoke.body.detail.code).toBe('support_session_revoked')
-    expect(recordedEvents.at(-1)).toMatchObject({ actionType: 'support.session.revoke', outcome: 'failed', context: { blockerCode: 'support_session_revoked' } })
+    expect(state.recordedEvents.at(-1)).toMatchObject({ actionType: 'support.session.revoke', outcome: 'failed', context: { blockerCode: 'support_session_revoked' } })
 
     const inspectedAfterRevoke = await request(getSupportSession, { params: { sessionId } })
     expect(inspectedAfterRevoke.statusCode).toBe(200)
     expect(inspectedAfterRevoke.body.supportSession).toMatchObject({ id: sessionId, status: 'revoked' })
-    expect(recordedEvents.filter(event => ['support.session.create', 'support.session.revoke'].includes(String(event.actionType)))).toHaveLength(3)
+    expect(state.recordedEvents.filter(event => ['support.session.create', 'support.session.revoke'].includes(String(event.actionType)))).toHaveLength(3)
 })
 
 test('support session inspection uses the latest successful revoke and retains ordered audit IDs', async () => {
     const sessionId = 'support_session_multiple_revokes'
     const expiresAt = '2099-01-01T00:00:00.000Z'
-    supportSessionEvents.push(
+    state.supportSessionEvents.push(
         {
             id: 301, event_type: 'support.session.create', actor_id: 'creator', subject_id: sessionId,
             request_id: 'create-request', reason: 'Review access', outcome: 'success',
@@ -1189,7 +871,7 @@ test('support session inspection uses the latest successful revoke and retains o
 
 test('expired support session revoke uses the lifecycle status and records a denial', async () => {
     const sessionId = 'support_session_expired'
-    supportSessionEvents.push({
+    state.supportSessionEvents.push({
         id: 99,
         event_type: 'support.session.create',
         actor_id: 'support-admin',
@@ -1208,22 +890,22 @@ test('expired support session revoke uses the lifecycle status and records a den
     expect(result.statusCode).toBe(409)
     expect(result.body.detail.code).toBe('support_session_expired')
     expect(result.body.detail.supportSession).toMatchObject({ id: sessionId, status: 'expired' })
-    expect(recordedEvents.at(-1)).toMatchObject({
+    expect(state.recordedEvents.at(-1)).toMatchObject({
         actionType: 'support.session.revoke',
         outcome: 'denied',
         context: { supportSessionId: sessionId, blockerCode: 'support_session_expired' },
     })
-    expect(supportSessionEvents.filter(event => event.subject_id === sessionId && event.event_type === 'support.session.revoke' && event.outcome === 'success')).toHaveLength(0)
+    expect(state.supportSessionEvents.filter(event => event.subject_id === sessionId && event.event_type === 'support.session.revoke' && event.outcome === 'success')).toHaveLength(0)
 })
 
 test('approval-required access recovery holds its invite through the shared revoke contract', async () => {
-    supportOrganization = activeSupportOrganizationFixture()
-    supportRecoveryInviteUpsert = {
+    state.supportOrganization = activeSupportOrganizationFixture()
+    state.supportRecoveryInviteUpsert = {
         id: 'recovery-invite-1', organization_id: 'org-1', email: 'owner@example.test', role: 'admin',
         status: 'pending', expires_at: '2026-11-01T00:00:00.000Z', accepted_at: null, accepted_by: null,
         revoked_at: null, invited_by: 'support-admin', created_at: '2026-10-16T00:00:00.000Z',
     }
-    supportRecoveryInviteResult = {
+    state.supportRecoveryInviteResult = {
         id: 'recovery-invite-1', organization_id: 'org-1', email: 'owner@example.test', role: 'admin',
         status: 'revoked', expires_at: '2026-11-01T00:00:00.000Z', accepted_at: null, accepted_by: null,
         revoked_at: '2026-10-16T00:00:00.000Z', invited_by: 'support-admin', created_at: '2026-10-16T00:00:00.000Z',
@@ -1248,23 +930,23 @@ test('approval-required access recovery holds its invite through the shared revo
         approvalStatus: 'pending_approval',
         invite: { id: 'recovery-invite-1', status: 'revoked' },
     })
-    expect(inviteActionInputs.at(-1)).toEqual({
+    expect(state.inviteActionInputs.at(-1)).toEqual({
         organizationId: 'org-1',
         inviteId: 'recovery-invite-1',
         action: 'revoke',
     })
-    expect(supportRecoveryApprovalWrites).toBe(1)
+    expect(state.supportRecoveryApprovalWrites).toBe(1)
 })
 
 test('access recovery records a failed audit if an invite is accepted before it can be held', async () => {
-    supportOrganization = activeSupportOrganizationFixture()
-    supportRecoveryInviteUpsert = {
+    state.supportOrganization = activeSupportOrganizationFixture()
+    state.supportRecoveryInviteUpsert = {
         id: 'recovery-invite-1', organization_id: 'org-1', email: 'owner@example.test', role: 'admin',
         status: 'pending', expires_at: '2026-11-01T00:00:00.000Z', accepted_at: null, accepted_by: null,
         revoked_at: null, invited_by: 'support-admin', created_at: '2026-10-16T00:00:00.000Z',
     }
-    supportRecoveryInviteResult = null
-    supportRecoveryInviteStatus = 'accepted'
+    state.supportRecoveryInviteResult = null
+    state.supportRecoveryInviteStatus = 'accepted'
 
     const result = await request(postSupportAccessRecovery, {
         params: { id: 'org-1' },
@@ -1285,8 +967,8 @@ test('access recovery records a failed audit if an invite is accepted before it 
         inviteStatus: 'accepted',
         executionReceipt: { outcome: 'failed', inviteStatus: 'accepted' },
     })
-    expect(supportRecoveryApprovalWrites).toBe(0)
-    expect(recordedEvents.at(-1)).toMatchObject({
+    expect(state.supportRecoveryApprovalWrites).toBe(0)
+    expect(state.recordedEvents.at(-1)).toMatchObject({
         actionType: 'support.organization.access_recovery',
         outcome: 'failed',
         context: { blockerCode: 'accepted_invite_not_mutable_by_support_action', mutation: 'none' },
@@ -1294,8 +976,8 @@ test('access recovery records a failed audit if an invite is accepted before it 
 })
 
 test('access recovery approval uses the shared invite transition and keeps approval pending if the invite is accepted', async () => {
-    supportDecisionApproval = accessRecoveryApprovalFixture('recovery-approve-race')
-    supportRecoveryInviteStatus = 'accepted'
+    state.supportDecisionApproval = accessRecoveryApprovalFixture('recovery-approve-race')
+    state.supportRecoveryInviteStatus = 'accepted'
 
     const result = await request(postSupportAccessRecoveryApprove, {
         params: { requestId: 'recovery-approve-race' },
@@ -1305,9 +987,9 @@ test('access recovery approval uses the shared invite transition and keeps appro
     expect(result.statusCode).toBe(409)
     expect(result.body.decision.status).toBe('pending_approval')
     expect(result.body.decision.invite.status).toBe('accepted')
-    expect(inviteActionInputs.at(-1)).toMatchObject({ organizationId: 'org-1', inviteId: 'invite-1', action: 'resend' })
-    expect(queries.some(({ sql }) => sql.includes('UPDATE admin_access_recovery_approvals'))).toBe(false)
-    expect(recordedEvents.at(-1)).toMatchObject({
+    expect(state.inviteActionInputs.at(-1)).toMatchObject({ organizationId: 'org-1', inviteId: 'invite-1', action: 'resend' })
+    expect(state.queries.some(({ sql }) => sql.includes('UPDATE admin_access_recovery_approvals'))).toBe(false)
+    expect(state.recordedEvents.at(-1)).toMatchObject({
         actionType: 'support.organization.access_recovery.approve',
         outcome: 'failed',
         context: { error: 'accepted_invite_not_mutable_by_support_action', mutation: 'none' },
@@ -1315,9 +997,9 @@ test('access recovery approval uses the shared invite transition and keeps appro
 })
 
 test('access recovery approval commits the shared invite transition with its decision', async () => {
-    supportDecisionApproval = accessRecoveryApprovalFixture('recovery-approve-1')
-    supportRecoveryInviteStatus = 'revoked'
-    supportRecoveryInviteResult = { id: 'invite-1', status: 'pending', expires_at: '2026-11-01T00:00:00.000Z' }
+    state.supportDecisionApproval = accessRecoveryApprovalFixture('recovery-approve-1')
+    state.supportRecoveryInviteStatus = 'revoked'
+    state.supportRecoveryInviteResult = { id: 'invite-1', status: 'pending', expires_at: '2026-11-01T00:00:00.000Z' }
 
     const result = await request(postSupportAccessRecoveryApprove, {
         params: { requestId: 'recovery-approve-1' },
@@ -1327,16 +1009,16 @@ test('access recovery approval commits the shared invite transition with its dec
     expect(result.statusCode).toBe(200)
     expect(result.body.decision.status).toBe('approved')
     expect(result.body.decision.invite.status).toBe('pending')
-    expect(inviteActionInputs.at(-1)).toMatchObject({
+    expect(state.inviteActionInputs.at(-1)).toMatchObject({
         organizationId: 'org-1', inviteId: 'invite-1', action: 'resend', expiresAt: '2026-11-01T00:00:00.000Z',
     })
-    expect(queries.some(({ sql, values }) => sql.includes('UPDATE admin_access_recovery_approvals') && values[1] === 'approved')).toBe(true)
+    expect(state.queries.some(({ sql, values }) => sql.includes('UPDATE admin_access_recovery_approvals') && values[1] === 'approved')).toBe(true)
 })
 
 test('access recovery denial records its scoped receipt and revokes the shared invite', async () => {
-    supportDecisionApproval = accessRecoveryApprovalFixture('recovery-deny-1')
-    supportRecoveryInviteStatus = 'pending'
-    supportRecoveryInviteResult = { id: 'invite-1', status: 'revoked', expires_at: '2026-11-01T00:00:00.000Z' }
+    state.supportDecisionApproval = accessRecoveryApprovalFixture('recovery-deny-1')
+    state.supportRecoveryInviteStatus = 'pending'
+    state.supportRecoveryInviteResult = { id: 'invite-1', status: 'revoked', expires_at: '2026-11-01T00:00:00.000Z' }
 
     const result = await request(postSupportAccessRecoveryDeny, {
         params: { requestId: 'recovery-deny-1' },
@@ -1356,14 +1038,14 @@ test('access recovery denial records its scoped receipt and revokes the shared i
         outcome: 'denied',
         blockers: ['denied_recovery_approval'],
     })
-    expect(inviteActionInputs.at(-1)).toMatchObject({ organizationId: 'org-1', inviteId: 'invite-1', action: 'revoke' })
-    expect(queries.some(({ sql, values }) => sql.includes('UPDATE admin_access_recovery_approvals') && values[1] === 'denied')).toBe(true)
+    expect(state.inviteActionInputs.at(-1)).toMatchObject({ organizationId: 'org-1', inviteId: 'invite-1', action: 'revoke' })
+    expect(state.queries.some(({ sql, values }) => sql.includes('UPDATE admin_access_recovery_approvals') && values[1] === 'denied')).toBe(true)
 })
 
 test('access recovery approval rejects an expired invite without changing its pending decision', async () => {
-    supportDecisionApproval = accessRecoveryApprovalFixture('recovery-approve-expired')
-    supportRecoveryInviteStatus = 'revoked'
-    supportRecoveryInviteExpiry = new Date(Date.now() - 60_000).toISOString()
+    state.supportDecisionApproval = accessRecoveryApprovalFixture('recovery-approve-expired')
+    state.supportRecoveryInviteStatus = 'revoked'
+    state.supportRecoveryInviteExpiry = new Date(Date.now() - 60_000).toISOString()
 
     const result = await request(postSupportAccessRecoveryApprove, {
         params: { requestId: 'recovery-approve-expired' },
@@ -1373,9 +1055,9 @@ test('access recovery approval rejects an expired invite without changing its pe
     expect(result.statusCode).toBe(409)
     expect(result.body.decisionReceipt.blockers).toContain('access_recovery_invite_expired')
     expect(result.body.decision.status).toBe('pending_approval')
-    expect(inviteActionWrites).toBe(0)
-    expect(queries.some(({ sql }) => sql.includes('UPDATE admin_access_recovery_approvals'))).toBe(false)
-    expect(recordedEvents.at(-1)).toMatchObject({
+    expect(state.inviteActionWrites).toBe(0)
+    expect(state.queries.some(({ sql }) => sql.includes('UPDATE admin_access_recovery_approvals'))).toBe(false)
+    expect(state.recordedEvents.at(-1)).toMatchObject({
         actionType: 'support.organization.access_recovery.approve',
         outcome: 'failed',
         context: { error: 'access_recovery_invite_expired', mutation: 'none' },
@@ -1383,8 +1065,8 @@ test('access recovery approval rejects an expired invite without changing its pe
 })
 
 test('support invite action success keeps updated invite evidence in executor and receipt', async () => {
-    supportOrganization = activeSupportOrganizationFixture()
-    supportRecoveryInviteResult = {
+    state.supportOrganization = activeSupportOrganizationFixture()
+    state.supportRecoveryInviteResult = {
         id: 'invite-1', organization_id: 'org-1', email: 'member@example.com', role: 'reader',
         status: 'pending', expires_at: '2026-12-01T00:00:00.000Z', accepted_at: null, accepted_by: null,
         revoked_at: null, invited_by: 'owner-1', created_at: '2026-10-01T00:00:00.000Z',
@@ -1416,8 +1098,8 @@ test('support invite action success keeps updated invite evidence in executor an
 })
 
 test('support invite action replay uses the original request id without writing again', async () => {
-    supportOrganization = activeSupportOrganizationFixture()
-    duplicateInviteAction = { id: 92, request_id: 'original-request' }
+    state.supportOrganization = activeSupportOrganizationFixture()
+    state.duplicateInviteAction = { id: 92, request_id: 'original-request' }
 
     const result = await request(postSupportOrganizationInviteAction, {
         params: { id: 'org-1', inviteId: 'invite-1' },
@@ -1433,12 +1115,12 @@ test('support invite action replay uses the original request id without writing 
         requestId: 'original-request', inviteId: 'invite-1', outcome: 'success',
         blockers: ['duplicate_idempotency_key'],
     })
-    expect(inviteActionWrites).toBe(0)
+    expect(state.inviteActionWrites).toBe(0)
 })
 
 test('support invite action returns an audited accepted-invite denial when acceptance wins the update race', async () => {
-    supportOrganization = activeSupportOrganizationFixture()
-    acceptedInviteWinsRace = true
+    state.supportOrganization = activeSupportOrganizationFixture()
+    state.acceptedInviteWinsRace = true
 
     const result = await request(postSupportOrganizationInviteAction, {
         params: { id: 'org-1', inviteId: 'invite-1' },
@@ -1454,20 +1136,20 @@ test('support invite action returns an audited accepted-invite denial when accep
         after: { status: 'accepted' },
         auditEventIds: [91],
     })
-    expect(recordedEvents.at(-1)?.context).toMatchObject({
+    expect(state.recordedEvents.at(-1)?.context).toMatchObject({
         email: 'member@example.com',
         role: 'reader',
         handoffExpiresAt: null,
         error: 'accepted_invite_not_mutable_by_support_action',
         supportContext: '',
     })
-    expect(recordedEvents.at(-1)?.context).toHaveProperty('executor')
-    expect(inviteActionWrites).toBe(1)
+    expect(state.recordedEvents.at(-1)?.context).toHaveProperty('executor')
+    expect(state.inviteActionWrites).toBe(1)
 })
 
 test('executor blocker audits retain the shared no-mutation contract for invite assistance', async () => {
-    supportOrganization = activeSupportOrganizationFixture()
-    supportAvailabilityResults = [[{ organization_id: 'org-1', active_admin_count: 1 }]]
+    state.supportOrganization = activeSupportOrganizationFixture()
+    state.supportAvailabilityResults = [[{ organization_id: 'org-1', active_admin_count: 1 }]]
 
     const result = await request(postSupportOrganizationInvite, {
         params: { id: 'org-1' },
@@ -1483,7 +1165,7 @@ test('executor blocker audits retain the shared no-mutation contract for invite 
         supportRoleRequired: true, reasonRequired: true, contextRequired: true, scopeRequired: true,
         expiryRequired: true, noSilentMembershipMutation: true, requestId: 'invite-assist-blocked',
     })
-    expect(recordedEvents.at(-1)).toMatchObject({
+    expect(state.recordedEvents.at(-1)).toMatchObject({
         actionType: 'support.organization.invite_assist',
         targetType: 'organization', targetId: 'org-1', entityId: 'member@example.com',
         severity: 'notice', outcome: 'denied',
@@ -1498,7 +1180,7 @@ test('executor blocker audits retain the shared no-mutation contract for invite 
 })
 
 test('support writes reject organizations with an active privacy deletion marker', async () => {
-    supportOrganization = {
+    state.supportOrganization = {
         ...activeSupportOrganizationFixture(),
         audit_safe_metadata: { privacyDeletionRunId: 'deletion-run-1' },
     }
@@ -1513,11 +1195,11 @@ test('support writes reject organizations with an active privacy deletion marker
 
     expect(result.statusCode).toBe(409)
     expect(result.body).toEqual({ error: 'Organization deletion is in progress; support writes are blocked.' })
-    expect(recordedEvents).toHaveLength(0)
+    expect(state.recordedEvents).toHaveLength(0)
 })
 
 test('executor blocker audits retain invite action identity and severity', async () => {
-    supportOrganization = activeSupportOrganizationFixture()
+    state.supportOrganization = activeSupportOrganizationFixture()
 
     const result = await request(postSupportOrganizationInviteAction, {
         params: { id: 'org-1', inviteId: 'invite-1' },
@@ -1525,7 +1207,7 @@ test('executor blocker audits retain invite action identity and severity', async
     })
 
     expect(result.statusCode).toBe(400)
-    expect(recordedEvents.at(-1)).toMatchObject({
+    expect(state.recordedEvents.at(-1)).toMatchObject({
         actionType: 'support.organization.invite_revoke',
         targetType: 'invite', targetId: 'invite-1', entityId: 'invite-1',
         severity: 'warning', outcome: 'denied',
@@ -1538,14 +1220,14 @@ test('executor blocker audits retain invite action identity and severity', async
 })
 
 test('executor blocker audits retain resend and admin-role severity rules', async () => {
-    supportOrganization = activeSupportOrganizationFixture()
+    state.supportOrganization = activeSupportOrganizationFixture()
 
     const resend = await request(postSupportOrganizationInviteAction, {
         params: { id: 'org-1', inviteId: 'invite-1' },
         body: { action: 'resend', reason: 'Restore access', scope: 'invalid', requestId: 'resend-blocked' },
     })
     expect(resend.statusCode).toBe(400)
-    expect(recordedEvents.at(-1)).toMatchObject({
+    expect(state.recordedEvents.at(-1)).toMatchObject({
         actionType: 'support.organization.invite_resend', severity: 'notice', outcome: 'denied',
         context: { action: 'resend', blockerCode: 'invalid_scope', mutation: 'none' },
     })
@@ -1555,15 +1237,15 @@ test('executor blocker audits retain resend and admin-role severity rules', asyn
         body: { role: 'admin', reason: 'Restore admin access', scope: 'invalid', requestId: 'admin-role-blocked' },
     })
     expect(roleRecovery.statusCode).toBe(400)
-    expect(recordedEvents.at(-1)).toMatchObject({
+    expect(state.recordedEvents.at(-1)).toMatchObject({
         actionType: 'support.organization.member_role_recovery', severity: 'warning', outcome: 'denied',
         context: { action: 'member_role_recovery', requestedRole: 'admin', blockerCode: 'invalid_scope', mutation: 'none' },
     })
-    expect(queries.some(({ sql }) => sql.includes('UPDATE organization_members SET role'))).toBe(false)
+    expect(state.queries.some(({ sql }) => sql.includes('UPDATE organization_members SET role'))).toBe(false)
 })
 
 test('support role recovery shares the active-member write and retains its audited receipt', async () => {
-    supportOrganization = activeSupportOrganizationFixture()
+    state.supportOrganization = activeSupportOrganizationFixture()
 
     const result = await request(postSupportOrganizationMemberRoleRecovery, {
         params: { id: 'org-1', userId: 'member-1' },
@@ -1584,18 +1266,18 @@ test('support role recovery shares the active-member write and retains its audit
         supportRoleRequired: true, reasonRequired: true, contextRequired: true, scopeRequired: true,
         noSilentMembershipMutation: true,
     })
-    expect(recordedEvents.at(-1)).toMatchObject({
+    expect(state.recordedEvents.at(-1)).toMatchObject({
         actionType: 'support.organization.member_role_recovery',
         outcome: 'success',
     })
-    expect(queries.some(({ sql }) => sql.includes('UPDATE organization_members') && sql.includes('status = \'active\''))).toBe(true)
-    expect(queries.some(({ sql }) => sql.includes('UPDATE organizations SET updated_at = NOW()'))).toBe(true)
+    expect(state.queries.some(({ sql }) => sql.includes('UPDATE organization_members') && sql.includes('status = \'active\''))).toBe(true)
+    expect(state.queries.some(({ sql }) => sql.includes('UPDATE organizations SET updated_at = NOW()'))).toBe(true)
 })
 
 test('support role recovery rechecks owner protection inside the membership transaction', async () => {
-    supportOrganization = activeSupportOrganizationFixture()
-    supportMemberRole = 'owner'
-    supportOwnerCounts = [2, 1]
+    state.supportOrganization = activeSupportOrganizationFixture()
+    state.supportMemberRole = 'owner'
+    state.supportOwnerCounts = [2, 1]
 
     const result = await request(postSupportOrganizationMemberRoleRecovery, {
         params: { id: 'org-1', userId: 'member-1' },
@@ -1605,8 +1287,8 @@ test('support role recovery rechecks owner protection inside the membership tran
     expect(result.statusCode).toBe(403)
     expect(result.body.detail.code).toBe('Support role recovery cannot demote the last active owner.')
     expect(result.body.detail.executorBlocker.blockers).toContain('Support role recovery cannot demote the last active owner.')
-    expect(queries.some(({ sql }) => sql.includes('UPDATE organization_members') && sql.includes('SET role = $3'))).toBe(false)
-    expect(recordedEvents.at(-1)).toMatchObject({
+    expect(state.queries.some(({ sql }) => sql.includes('UPDATE organization_members') && sql.includes('SET role = $3'))).toBe(false)
+    expect(state.recordedEvents.at(-1)).toMatchObject({
         actionType: 'support.organization.member_role_recovery',
         outcome: 'denied',
         context: {
@@ -1617,12 +1299,12 @@ test('support role recovery rechecks owner protection inside the membership tran
             noSilentMembershipMutation: true, mutation: 'none', redactionRequired: true,
         },
     })
-    expect(queries.some(({ sql }) => sql.includes('FROM users') && sql.includes('organization_members membership') && sql.includes('FOR UPDATE'))).toBe(true)
+    expect(state.queries.some(({ sql }) => sql.includes('FROM users') && sql.includes('organization_members membership') && sql.includes('FOR UPDATE'))).toBe(true)
 })
 
 test('support role recovery locks active organization admins and rechecks their availability', async () => {
-    supportOrganization = activeSupportOrganizationFixture()
-    supportAvailabilityResults = [[], [{ organization_id: 'org-1', active_admin_count: 1 }]]
+    state.supportOrganization = activeSupportOrganizationFixture()
+    state.supportAvailabilityResults = [[], [{ organization_id: 'org-1', active_admin_count: 1 }]]
 
     const result = await request(postSupportOrganizationMemberRoleRecovery, {
         params: { id: 'org-1', userId: 'member-1' },
@@ -1631,12 +1313,12 @@ test('support role recovery locks active organization admins and rechecks their 
 
     expect(result.statusCode).toBe(409)
     expect(result.body.detail.code).toBe('active_admin_available')
-    expect(queries.some(({ sql }) => sql.includes('membership.role IN (\'owner\', \'admin\')') && sql.includes('FOR UPDATE'))).toBe(true)
-    expect(queries.some(({ sql }) => sql.includes('UPDATE organization_members') && sql.includes('SET role = $3'))).toBe(false)
+    expect(state.queries.some(({ sql }) => sql.includes('membership.role IN (\'owner\', \'admin\')') && sql.includes('FOR UPDATE'))).toBe(true)
+    expect(state.queries.some(({ sql }) => sql.includes('UPDATE organization_members') && sql.includes('SET role = $3'))).toBe(false)
 })
 
 test('access recovery search applies requester, approver, status, outcome, organization, and request filters', async () => {
-    approvalRows = [{
+    state.approvalRows = [{
         request_id: 'recovery-1',
         organization_id: 'org-1',
         organization_name: 'Org One',
@@ -1683,13 +1365,13 @@ test('access recovery search applies requester, approver, status, outcome, organ
         auditEventIds: [98],
         invite: { id: 'invite-1', email: 'owner@example.test', status: 'revoked' },
     })
-    expect(queries).toHaveLength(1)
-    expect(queries[0].sql).toContain('approval.request_id ILIKE')
-    expect(queries[0].sql).toContain('approval.organization_id ILIKE')
-    expect(queries[0].sql).toContain('approval.status =')
-    expect(queries[0].sql).toContain('approval.outcome =')
-    expect(queries[0].sql).toContain('approval.requested_by ILIKE')
-    expect(queries[0].sql).toContain('approval.approved_by ILIKE')
-    expect(queries[0].sql).toContain('approval.denied_by ILIKE')
-    expect(queries[0].values).toEqual(['%recovery-1%', '%org-1%', 'pending', 'success', '%admin-one%', '%admin-two%', 20])
+    expect(state.queries).toHaveLength(1)
+    expect(state.queries[0].sql).toContain('approval.request_id ILIKE')
+    expect(state.queries[0].sql).toContain('approval.organization_id ILIKE')
+    expect(state.queries[0].sql).toContain('approval.status =')
+    expect(state.queries[0].sql).toContain('approval.outcome =')
+    expect(state.queries[0].sql).toContain('approval.requested_by ILIKE')
+    expect(state.queries[0].sql).toContain('approval.approved_by ILIKE')
+    expect(state.queries[0].sql).toContain('approval.denied_by ILIKE')
+    expect(state.queries[0].values).toEqual(['%recovery-1%', '%org-1%', 'pending', 'success', '%admin-one%', '%admin-two%', 20])
 })
