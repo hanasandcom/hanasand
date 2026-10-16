@@ -22,8 +22,6 @@ export type GeneratedBuilderResponse = {
 type CommonCacheCategory = NonNullable<GeneratedBuilderResponse['cache']>['category']
 const commonResponseCache = new Map<string, {
     response: GeneratedBuilderResponse
-    hits: number
-    createdAt: number
     updatedAt: number
 }>()
 const MAX_COMMON_RESPONSE_CACHE_ITEMS = 80
@@ -36,7 +34,6 @@ export function buildShareProjectResponse(prompt: string): GeneratedBuilderRespo
     const cacheKey = commonBuilderCacheKey(prompt)
     const cached = commonResponseCache.get(cacheKey)
     if (cached) {
-        cached.hits += 1
         cached.updatedAt = Date.now()
         return {
             ...cached.response,
@@ -72,8 +69,6 @@ export function buildShareProjectResponse(prompt: string): GeneratedBuilderRespo
 function rememberCommonResponse(key: string, response: GeneratedBuilderResponse) {
     commonResponseCache.set(key, {
         response,
-        hits: 0,
-        createdAt: Date.now(),
         updatedAt: Date.now(),
     })
     if (commonResponseCache.size <= MAX_COMMON_RESPONSE_CACHE_ITEMS) {
