@@ -34,6 +34,7 @@ mock.module('#utils/auth/tokenWrapper.ts', () => ({ default: async () => ({ vali
 mock.module('#utils/db/analysisPolicySchema.ts', () => ({ ensureEventProtectionRule: async () => undefined }))
 mock.module('#utils/organizationLifecycle.ts', () => ({ organizationPrivacyDeletionInProgress: async () => false }))
 mock.module('#utils/db/identityDataWrites.ts', () => ({
+    touchOrganization: async () => undefined,
     updateActiveOrganizationMemberRole: async () => undefined,
     updateOrganizationInviteAction: async () => undefined,
     upsertOrganizationInvite: async () => undefined,
