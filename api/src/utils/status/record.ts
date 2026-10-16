@@ -1,7 +1,7 @@
 import { ensureStatusSnapshots } from './snapshotSchema.ts'
 import { recordServiceCheckCase } from './serviceCheckCase.ts'
 import { withTransaction } from '#db'
-import { type MonitorStatus } from './monitorPolicy.ts'
+import { type MonitorStatus } from './monitorStatus.ts'
 import { notifyServiceMonitorIncident, type ServiceMonitorIncidentInput } from './serviceIncident.ts'
 
 const SUSTAINED_DOWN_FAILURES = 3

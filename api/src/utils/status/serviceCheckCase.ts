@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto'
 import { certificateTarget, checkCertificate } from '../automations.ts'
 import type { AutomationRow } from '../automations.ts'
 import { recordMonitoringOutcome } from '../monitoringIssues.ts'
-import type { MonitorStatus } from './monitorPolicy.ts'
+import type { MonitorStatus } from './monitorStatus.ts'
 
 type CertificateSnapshot = Awaited<ReturnType<typeof checkCertificate>>
 const certificateSnapshots = new Map<string, { expiresAt: number, value: Promise<CertificateSnapshot> }>()

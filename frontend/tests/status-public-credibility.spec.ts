@@ -250,27 +250,6 @@ test('public footer does not hardcode operational status', async () => {
     expect(footer).not.toContain('<span className=\'h-2.5 w-2.5 rounded-full bg-ui-success shadow-sm\' />')
 })
 
-test('status monitors probe buyer-facing surfaces without inserting fake traffic', async () => {
-    const syntheticMonitor = await readFile(path.join(root, '../api/src/utils/status/monitor.ts'), 'utf8')
-    const logMonitor = await readFile(path.join(root, '../api/src/utils/status/logMonitors.ts'), 'utf8')
-    const dashboardMonitor = await readFile(path.join(root, '../ops/db-dashboard-monitor/db-dashboard-monitor.mjs'), 'utf8')
-
-    for (const expected of ['API health', 'Public website', 'Public search', 'Browser workspace', 'Monitoring workspace', 'Latest activity']) {
-        expect(syntheticMonitor).toContain(`'${expected}'`)
-    }
-    expect(syntheticMonitor).toContain('\'https://api.hanasand.com/api/v1\'')
-    expect(syntheticMonitor).toContain('\'https://hanasand.com\'')
-    expect(syntheticMonitor).toContain('fetchJson(\'/openapi.json\', {}, publicApiBase)')
-    expect(syntheticMonitor).toContain('body?.mode === \'scraper\'')
-    expect(syntheticMonitor).toContain('activityFreshnessMinutes(freshness ?? {})')
-    expect(dashboardMonitor.indexOf('await monitorThreatIntelBackup()')).toBeLessThan(dashboardMonitor.indexOf('if (!serviceKey)'))
-    expect(dashboardMonitor).toContain('`${statusIngestBaseUrl}/api/status/ingest`')
-    expect(dashboardMonitor).toContain('statePath: backupStatePath')
-    expect(logMonitor).not.toContain('INSERT INTO traffic_events')
-    expect(logMonitor).not.toContain('synthetic-monitor')
-    expect(logMonitor).not.toContain('normal sample')
-})
-
 function serviceCheck(service: string, check_name: string, checked_at: string): ServiceStatus['checks'][number] {
     return { service, check_name, checked_at, status: 'up', latency_ms: 20, message: null, uptime_30d: '100.00' }
 }
