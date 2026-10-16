@@ -187,7 +187,7 @@ export function toAutomation(row: AutomationRow) {
         actionType: row.action_type,
         timezone: row.timezone,
         modelName: row.model_name,
-        notificationDestinations: row.notification_destinations || (row.model_name ? [row.model_name] : []),
+        notificationDestinations: row.notification_destinations || legacyNotificationDestinations(row.model_name),
         notifyOn: row.notify_on,
         organizationId: row.organization_id,
         nextRunAt: row.next_run_at,
@@ -686,7 +686,7 @@ function getCertificateFromError(error: unknown) {
 }
 
 async function deliverDiscordIfConfigured(automation: AutomationRow, content: string) {
-    const destinations = automation.notification_destinations?.length ? automation.notification_destinations : automation.model_name ? [automation.model_name] : []
+    const destinations = automation.notification_destinations?.length ? automation.notification_destinations : legacyNotificationDestinations(automation.model_name)
     await Promise.all(destinations.map(destination => deliverDiscordWebhookFile(destination, content)))
 }
 
@@ -793,7 +793,11 @@ function parseMonitoringType(value: unknown): AutomationRow['monitoring_type'] {
 
 function parseDestinations(value: unknown, fallback: string | null) {
     const destinations = Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string').map(item => item.trim()).filter(Boolean) : []
-    return destinations.length ? destinations : fallback ? [fallback] : []
+    return destinations.length ? destinations : legacyNotificationDestinations(fallback)
+}
+
+function legacyNotificationDestinations(modelName: string | null) {
+    return modelName ? [modelName] : []
 }
 
 function parseNotifyOn(value: unknown): 'never' | 'failure' | 'always' {

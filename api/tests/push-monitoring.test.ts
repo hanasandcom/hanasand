@@ -5,7 +5,7 @@ import Ajv from 'ajv/dist/2020.js'
 const query = async () => ({ rows: [] })
 mock.module('../src/utils/db.ts', () => ({ default: query, queryOnce: query, withTransaction: async (work: (q: typeof query) => unknown) => work(query) }))
 const { parsePushEvent, pushOutcome } = await import('../src/utils/pushMonitoring.ts')
-const { normalizeAutomationInput } = await import('../src/utils/automations.ts')
+const { normalizeAutomationInput, toAutomation } = await import('../src/utils/automations.ts')
 const { monitoringIssueFingerprint } = await import('../src/utils/monitoringIssues.ts')
 const now = Date.now()
 const event = { eventId: 'event-1', sequence: 1, source: 'home-1/basement/moisture', type: 'incident', observedAt: new Date(now).toISOString(), message: 'Moisture detected. Check for a leak.', details: { podId: 'pod-1', sensorId: 'sensor-1', value: true } }
@@ -56,6 +56,15 @@ test('external monitor configuration uses a source ID and a one-minute silence c
     for (const change of [{ intervalMinutes: 15 }, { expectedDown: true }, { actionType: 'echo' }, { targetUrl: '' }]) {
         expect(() => normalizeAutomationInput({ ...input, ...change })).toThrow()
     }
+})
+
+test('legacy notification destination fallback preserves stored empty lists', () => {
+    const configured = normalizeAutomationInput({ name: 'Check', prompt: 'Check.', actionType: 'echo', scheduleKind: 'once', modelName: 'legacy-destination' })
+    expect(configured.notificationDestinations).toEqual(['legacy-destination'])
+
+    const automation = toAutomation({ model_name: 'legacy-destination', notification_destinations: [] } as never)
+    expect(automation.notificationDestinations).toEqual([])
+    expect(toAutomation({ model_name: 'legacy-destination' } as never).notificationDestinations).toEqual(['legacy-destination'])
 })
 
 test('changing incident details, offline status and recurrence preserve the case identity', () => {
