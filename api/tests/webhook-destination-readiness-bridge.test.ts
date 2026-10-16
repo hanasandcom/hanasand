@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { organizationReadinessProof } from '../src/utils/organizations.ts'
+import { organizationReadinessProof, type OrganizationReadinessProof } from '../src/utils/organizations.ts'
 import { buildDwmWebhookDeliveryReceipts, toDwmWebhookDelivery, toDwmWebhookDestination } from '../src/utils/dwm/webhooks.ts'
 
 const destination = toDwmWebhookDestination({
@@ -159,7 +159,7 @@ test('organization and DWM readiness bridges share ordered contract fields', () 
 })
 
 test('organization readiness proof keeps its stable top-level response shape', () => {
-    const readiness = organizationReadiness()
+    const readiness: OrganizationReadinessProof = organizationReadiness()
 
     expect(Object.keys(readiness)).toEqual([
         'schemaVersion', 'organizationId', 'tenantId', 'actor', 'counts', 'readiness', 'routes',
@@ -169,7 +169,15 @@ test('organization readiness proof keeps its stable top-level response shape', (
         'cleanupProof', 'customerWorkflowProof', 'auditTimelineProof', 'blockers',
     ])
     expect(readiness.schemaVersion).toBe('organization.worker3_ui_readiness_proof.v1')
-    const mutableRoutes: Array<typeof readiness.routes> = []
-    mutableRoutes.push(readiness.routes)
-    expect(mutableRoutes).toHaveLength(1)
+    const requiredQueryFields: ['organizationId'] = readiness.alertQueueProof.requiredQueryFields
+    const replayRoute: 'POST /v1/dwm/alerts/:id/replay' = readiness.alertQueueProof.routes.replay
+    expect(requiredQueryFields).toEqual(['organizationId'])
+    expect(replayRoute).toBe('POST /v1/dwm/alerts/:id/replay')
+
+    const nestedFields = readiness.alertQueueProof.expectedVisibilityFields
+    const originalNestedFields = [...nestedFields]
+    nestedFields.push('temporary.mutable-field')
+    expect(nestedFields).toContain('temporary.mutable-field')
+    nestedFields.pop()
+    expect(nestedFields).toEqual(originalNestedFields)
 })
