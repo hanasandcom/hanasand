@@ -364,8 +364,7 @@ test('delivery loads org destinations using the nested alert organization fallba
 
 test('records HTTP sender outcomes on a live delivery', async () => {
     const { deliverDwmAlertNotification } = await import('../src/utils/dwm/webhooks.ts')
-    const restoreLiveDelivery = enableLiveDelivery()
-    try {
+    await withLiveDelivery(async () => {
         const [delivery] = await deliverDwmAlertNotification('owner_1', deliveryInput('http_failure', false), async () => ({
             status: 503,
             body: 'upstream unavailable',
@@ -377,9 +376,7 @@ test('records HTTP sender outcomes on a live delivery', async () => {
             responseBody: 'upstream unavailable',
             error: 'Webhook returned HTTP 503.',
         })
-    } finally {
-        restoreLiveDelivery()
-    }
+    })
 })
 
 test('retries a failed report after persistence reload with the exact stored payload and idempotency lineage', async () => {
@@ -423,8 +420,7 @@ test('retries a failed report after persistence reload with the exact stored pay
         created_at: '2026-07-23T10:00:00.000Z',
     }))
     const sentBodies: string[] = []
-    const restoreLiveDelivery = enableLiveDelivery()
-    try {
+    await withLiveDelivery(async () => {
         const result = await retryDwmWebhookDelivery('member_2', 'org_1', 'failed_delivery_1', async (_endpoint, body) => {
             sentBodies.push(body)
             return { status: 204, body: '' }
@@ -448,16 +444,13 @@ test('retries a failed report after persistence reload with the exact stored pay
         expect(audit?.params.slice(1, 4)).toEqual(['owner_1', 'member_2', 'org_1'])
         expect(String(audit?.params[7])).toContain('"priorDeliveryId":"failed_delivery_1"')
         expect(String(audit?.params[7])).toContain('"exactPersistedPayload":true')
-    } finally {
-        restoreLiveDelivery()
-    }
+    })
 })
 
 test('records a thrown sender error on a live retry', async () => {
     const { retryDwmWebhookDelivery } = await import('../src/utils/dwm/webhooks.ts')
     persistedDelivery = failedDeliveryFixture('2020-07-23T10:01:00.000Z')
-    const restoreLiveDelivery = enableLiveDelivery()
-    try {
+    await withLiveDelivery(async () => {
         const result = await retryDwmWebhookDelivery('member_2', 'org_1', persistedDelivery.id, async () => {
             throw new Error('connection reset')
         })
@@ -468,18 +461,15 @@ test('records a thrown sender error on a live retry', async () => {
             responseBody: null,
             error: 'connection reset',
         })
-    } finally {
-        restoreLiveDelivery()
-    }
+    })
 })
 
 test('blocks an exact persisted retry until its due timestamp without a network attempt', async () => {
     const { retryDwmWebhookDelivery } = await import('../src/utils/dwm/webhooks.ts')
     const nextRetryAt = '2099-07-23T10:01:00.000Z'
     persistedDelivery = failedDeliveryFixture(nextRetryAt)
-    const restoreLiveDelivery = enableLiveDelivery()
     let networkAttempts = 0
-    try {
+    await withLiveDelivery(async () => {
         const result = await retryDwmWebhookDelivery('member_2', 'org_1', persistedDelivery.id, async () => {
             networkAttempts += 1
             return { status: 204, body: '' }
@@ -492,18 +482,15 @@ test('blocks an exact persisted retry until its due timestamp without a network 
         })
         expect(networkAttempts).toBe(0)
         expect(insertedDelivery).toBeUndefined()
-    } finally {
-        restoreLiveDelivery()
-    }
+    })
 })
 
 test('rejects retry after the approved destination endpoint changes without a network attempt', async () => {
     const { retryDwmWebhookDelivery } = await import('../src/utils/dwm/webhooks.ts')
     persistedDelivery = failedDeliveryFixture('2020-07-23T10:01:00.000Z')
     destinationEndpointHash = 'endpoint_changed'
-    const restoreLiveDelivery = enableLiveDelivery()
     let networkAttempts = 0
-    try {
+    await withLiveDelivery(async () => {
         const result = await retryDwmWebhookDelivery('member_2', 'org_1', persistedDelivery.id, async () => {
             networkAttempts += 1
             return { status: 204, body: '' }
@@ -515,9 +502,7 @@ test('rejects retry after the approved destination endpoint changes without a ne
         })
         expect(networkAttempts).toBe(0)
         expect(insertedDelivery).toBeUndefined()
-    } finally {
-        restoreLiveDelivery()
-    }
+    })
 })
 
 test('rejects a tampered payload hash before validating its embedded report', async () => {
@@ -528,18 +513,15 @@ test('rejects a tampered payload hash before validating its embedded report', as
         payload: { ...fixture.payload, report: { exportChecksum: 'case_report_invalid' } },
         payload_hash: 'payload_tampered',
     }
-    const restoreLiveDelivery = enableLiveDelivery()
     let networkAttempts = 0
-    try {
+    await withLiveDelivery(async () => {
         const result = await retryDwmWebhookDelivery('member_2', 'org_1', persistedDelivery.id, async () => {
             networkAttempts += 1
             return { status: 204, body: '' }
         })
         expect(result).toMatchObject({ ok: false, status: 409, code: 'persisted_payload_invalid' })
         expect(networkAttempts).toBe(0)
-    } finally {
-        restoreLiveDelivery()
-    }
+    })
 })
 
 test('rejects an invalid persisted report before retrying its payload', async () => {
@@ -547,9 +529,8 @@ test('rejects an invalid persisted report before retrying its payload', async ()
     const fixture = failedDeliveryFixture('2020-07-23T10:01:00.000Z')
     const payload = { ...fixture.payload, report: { exportChecksum: 'case_report_invalid' } }
     persistedDelivery = { ...fixture, payload, payload_hash: payloadHash(canonicalJson(payload)) }
-    const restoreLiveDelivery = enableLiveDelivery()
     let networkAttempts = 0
-    try {
+    await withLiveDelivery(async () => {
         const result = await retryDwmWebhookDelivery('member_2', 'org_1', persistedDelivery.id, async () => {
             networkAttempts += 1
             return { status: 204, body: '' }
@@ -557,9 +538,7 @@ test('rejects an invalid persisted report before retrying its payload', async ()
         expect(result).toMatchObject({ ok: false, status: 409, code: 'persisted_report_invalid' })
         expect(networkAttempts).toBe(0)
         expect(insertedDelivery).toBeUndefined()
-    } finally {
-        restoreLiveDelivery()
-    }
+    })
 })
 
 test('blocks a persisted retry after five live attempts without sending or inserting', async () => {
@@ -570,9 +549,8 @@ test('blocks a persisted retry after five live attempts without sending or inser
         id: `prior_attempt_${index + 1}`,
         attempted_at: `2020-07-23T09:5${index}:00.000Z`,
     })))
-    const restoreLiveDelivery = enableLiveDelivery()
     let networkAttempts = 0
-    try {
+    await withLiveDelivery(async () => {
         const result = await retryDwmWebhookDelivery('member_2', 'org_1', persistedDelivery.id, async () => {
             networkAttempts += 1
             return { status: 204, body: '' }
@@ -581,9 +559,7 @@ test('blocks a persisted retry after five live attempts without sending or inser
         expect(networkAttempts).toBe(0)
         expect(insertedDelivery).toBeUndefined()
         expect(ledger).toHaveLength(4)
-    } finally {
-        restoreLiveDelivery()
-    }
+    })
 })
 
 test('builds exact report filters into the delivery query before its row limit', async () => {
@@ -851,7 +827,6 @@ test('moves a durable lost-ack receipt from the failed attempt to its exact deli
 
 test('serializes the same org destination checksum across two admins', async () => {
     const { deliverDwmAlertNotification } = await import('../src/utils/dwm/webhooks.ts')
-    const restoreLiveDelivery = enableLiveDelivery()
     let networkAttempts = 0
     const sender = async () => {
         networkAttempts += 1
@@ -859,7 +834,7 @@ test('serializes the same org destination checksum across two admins', async () 
         return { status: 204, body: '' }
     }
     const input = deliveryInput('checksum_concurrent', false)
-    try {
+    await withLiveDelivery(async () => {
         const [first, second] = await Promise.all([
             deliverDwmAlertNotification('owner_1', input, sender),
             deliverDwmAlertNotification('member_2', input, sender),
@@ -871,20 +846,17 @@ test('serializes the same org destination checksum across two admins', async () 
             'dwm.alert.updated:org_1:destination_1:checksum_concurrent',
         ]))
         expect(ledger.filter(row => !row.dry_run && row.attempted_at)).toHaveLength(1)
-    } finally {
-        restoreLiveDelivery()
-    }
+    })
 })
 
 test('blocks a fresh send after five live failures while preceding dry runs consume no budget', async () => {
     const { deliverDwmAlertNotification } = await import('../src/utils/dwm/webhooks.ts')
-    const restoreLiveDelivery = enableLiveDelivery()
     let networkAttempts = 0
     const sender = async () => {
         networkAttempts += 1
         return { status: 503, body: 'retry later' }
     }
-    try {
+    await withLiveDelivery(async () => {
         for (const actor of ['owner_1', 'member_2', 'owner_1']) {
             const result = await deliverDwmAlertNotification(actor, deliveryInput('checksum_budget', true), sender)
             expect(result[0]?.status).toBe('dry_run')
@@ -906,9 +878,7 @@ test('blocks a fresh send after five live failures while preceding dry runs cons
             error_class: 'delivery_attempt_limit',
             attempted_at: null,
         })
-    } finally {
-        restoreLiveDelivery()
-    }
+    })
 })
 
 function deliveryInput(dedupeKey: string, dryRun: boolean) {
@@ -1027,5 +997,14 @@ function enableLiveDelivery() {
     return () => {
         if (previous === undefined) delete process.env.DWM_WEBHOOK_LIVE_DELIVERY
         else process.env.DWM_WEBHOOK_LIVE_DELIVERY = previous
+    }
+}
+
+async function withLiveDelivery(work: () => Promise<void>) {
+    const restore = enableLiveDelivery()
+    try {
+        await work()
+    } finally {
+        restore()
     }
 }
