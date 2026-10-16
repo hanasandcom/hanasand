@@ -2943,130 +2943,12 @@ export async function getSupportOrganizationInvite(req: FastifyRequest<{ Params:
         return res.status(404).send({ error: 'Invite not found for organization.' })
     }
 
-    const auditRows = await run(`
-        SELECT
-            event.id,
-            event.event_type,
-            event.severity,
-            event.source,
-            event.service,
-            event.actor_id,
-            actor.name AS actor_name,
-            event.object_type,
-            event.object_id,
-            target_user.name AS target_name,
-            event.organization_id,
-            organization.name AS organization_name,
-            event.subject_id,
-            event.request_id,
-            event.outcome,
-            event.reason,
-            event.context,
-            event.created_at
-        FROM system_events event
-        LEFT JOIN users actor ON actor.id = event.actor_id
-        LEFT JOIN users target_user ON target_user.id = event.object_id
-        LEFT JOIN organizations organization ON organization.id = event.organization_id
-        WHERE event.organization_id = $1
-          AND (
-              event.subject_id = $2
-              OR event.object_id = $2
-              OR event.context->>'inviteId' = $2
-              OR event.context->'inviteIds' ? $2
-          )
-        ORDER BY event.created_at DESC
-        LIMIT 25
-    `, [organization.id, invite.id])
-    await recordSystemEvent(req, {
-        actionType: 'support.organization.invite.inspect',
-        actorId: actor.id,
-        targetType: 'invite',
-        targetId: invite.email,
-        organizationId: organization.id,
-        entityId: invite.id,
-        requestId: inspectionAudit.requestId,
-        severity: 'info',
-        outcome: 'success',
-        reason: inspectionAudit.reason || undefined,
-        context: supportInspectionAuditContext(inspectionAudit, {
-            inviteId: invite.id,
-            email: invite.email,
-            status: invite.status,
-            role: invite.role,
-        }),
-    })
-    const recentAuditTimeline = supportRecentAuditTimeline({
-        org: organization.id,
-        target: invite.email,
-        entity: invite.id,
-        entityType: 'invite',
-        request: inspectionAudit.requestId,
-        reason: inspectionAudit.reason,
-        action: 'support.organization.invite',
-    }, auditRows.rows as Record<string, unknown>[])
-    const [availability, approvals] = await Promise.all([
-        loadOrganizationAvailability([organization.id]),
-        loadInspectionApprovals({ org: organization.id, user: '', email: invite.email, request: inspectionAudit.requestId, outcome: '', limit: 25 }),
-    ])
-    const availabilityByOrg = new Map(availability.map(item => [item.organizationId, item]))
-    const approvalDetails = (approvals as AccessRecoveryApprovalRow[]).map(toAccessRecoveryDecision)
-    const inviteTimelineFilter = supportTimelineFilter({
-        q: '',
-        org: organization.id,
-        user: '',
-        email: invite.email,
-        request: inspectionAudit.requestId,
-        entity: invite.id,
-        entityType: 'invite',
-        supportSession: '',
-        action: 'support.organization.invite',
-        severity: '',
-        outcome: '',
-        source: 'admin',
-        service: 'hanasand-api',
-        blocker: '',
-        reason: inspectionAudit.reason,
-        context: inspectionAudit.supportContext,
-        from: '',
-        to: '',
-        limit: 25,
-    })
-    const recoveryEligibility = buildRecoveryEligibility({
-        email: invite.email,
-        user: '',
-        organizationIds: [organization.id],
-        memberships: [],
-        users: [],
-        availabilityByOrg,
-        invites: [invite as unknown as Record<string, unknown>],
-    })
-    const accessRecoveryPlan = buildSupportAccessRecoveryPlan({
-        org: organization.id,
-        user: '',
-        email: invite.email,
-        request: inspectionAudit.requestId,
-        organizationIds: [organization.id],
-        memberships: [],
-        invites: [invite as unknown as Record<string, unknown>],
-        approvalDetails,
-        recoveryEligibility,
-        availabilityByOrg,
-        timeline: recentAuditTimeline.events,
-        timelineFilter: inviteTimelineFilter,
-    })
-    const authorization = buildSupportInspectionAuthorization({
-        actorId: actor.id,
+    const inspection = await prepareSupportOrganizationEntityInspection({
+        req, actorId: actor.id, organization, metadata: inspectionAudit,
         requestedOrg: req.params.id,
-        requestedUser: '',
-        effectiveOrg: organization.id,
-        effectiveUser: '',
-        email: invite.email,
-        request: inspectionAudit.requestId,
-        entity: invite.id,
-        supportSession: '',
-        sessionState: null,
-        organizationIds: [organization.id],
+        target: { kind: 'invite', record: invite },
     })
+    const { recentAuditTimeline, approvalDetails, accessRecoveryPlan, authorization } = inspection
     const caseHandoff = supportInviteCaseHandoff({
         actorId: actor.id,
         organizationId: organization.id,
@@ -3149,130 +3031,12 @@ export async function getSupportOrganizationMember(req: FastifyRequest<{ Params:
         return res.status(404).send({ error: 'Organization member not found.' })
     }
 
-    const auditRows = await run(`
-        SELECT
-            event.id,
-            event.event_type,
-            event.severity,
-            event.source,
-            event.service,
-            event.actor_id,
-            actor.name AS actor_name,
-            event.object_type,
-            event.object_id,
-            target_user.name AS target_name,
-            event.organization_id,
-            organization.name AS organization_name,
-            event.subject_id,
-            event.request_id,
-            event.outcome,
-            event.reason,
-            event.context,
-            event.created_at
-        FROM system_events event
-        LEFT JOIN users actor ON actor.id = event.actor_id
-        LEFT JOIN users target_user ON target_user.id = event.object_id
-        LEFT JOIN organizations organization ON organization.id = event.organization_id
-        WHERE event.organization_id = $1
-          AND (
-              event.subject_id = $2
-              OR event.object_id = $2
-              OR event.context->>'targetUserId' = $2
-              OR event.context->>'memberId' = $2
-          )
-        ORDER BY event.created_at DESC
-        LIMIT 25
-    `, [organization.id, req.params.userId])
-    await recordSystemEvent(req, {
-        actionType: 'support.organization.member.inspect',
-        actorId: actor.id,
-        targetType: 'member',
-        targetId: req.params.userId,
-        organizationId: organization.id,
-        entityId: req.params.userId,
-        requestId: inspectionAudit.requestId,
-        severity: 'info',
-        outcome: 'success',
-        reason: inspectionAudit.reason || undefined,
-        context: supportInspectionAuditContext(inspectionAudit, {
-            userId: req.params.userId,
-            role: member.role,
-            status: member.status,
-            active: member.active,
-        }),
-    })
-    const recentAuditTimeline = supportRecentAuditTimeline({
-        org: organization.id,
-        target: req.params.userId,
-        entity: req.params.userId,
-        entityType: 'member',
-        request: inspectionAudit.requestId,
-        reason: inspectionAudit.reason,
-        action: 'support.organization.member',
-    }, auditRows.rows as Record<string, unknown>[])
-    const [availability, approvals] = await Promise.all([
-        loadOrganizationAvailability([organization.id]),
-        loadInspectionApprovals({ org: organization.id, user: req.params.userId, email: '', request: inspectionAudit.requestId, outcome: '', limit: 25 }),
-    ])
-    const availabilityByOrg = new Map(availability.map(item => [item.organizationId, item]))
-    const approvalDetails = (approvals as AccessRecoveryApprovalRow[]).map(toAccessRecoveryDecision)
-    const memberTimelineFilter = supportTimelineFilter({
-        q: '',
-        org: organization.id,
-        user: req.params.userId,
-        email: '',
-        request: inspectionAudit.requestId,
-        entity: req.params.userId,
-        entityType: 'member',
-        supportSession: '',
-        action: 'support.organization.member',
-        severity: '',
-        outcome: '',
-        source: 'admin',
-        service: 'hanasand-api',
-        blocker: '',
-        reason: inspectionAudit.reason,
-        context: inspectionAudit.supportContext,
-        from: '',
-        to: '',
-        limit: 25,
-    })
-    const recoveryEligibility = buildRecoveryEligibility({
-        email: '',
-        user: req.params.userId,
-        organizationIds: [organization.id],
-        memberships: [member],
-        users: [member],
-        availabilityByOrg,
-        invites: [],
-    })
-    const accessRecoveryPlan = buildSupportAccessRecoveryPlan({
-        org: organization.id,
-        user: req.params.userId,
-        email: '',
-        request: inspectionAudit.requestId,
-        organizationIds: [organization.id],
-        memberships: [member],
-        invites: [],
-        approvalDetails,
-        recoveryEligibility,
-        availabilityByOrg,
-        timeline: recentAuditTimeline.events,
-        timelineFilter: memberTimelineFilter,
-    })
-    const authorization = buildSupportInspectionAuthorization({
-        actorId: actor.id,
+    const inspection = await prepareSupportOrganizationEntityInspection({
+        req, actorId: actor.id, organization, metadata: inspectionAudit,
         requestedOrg: req.params.id,
-        requestedUser: req.params.userId,
-        effectiveOrg: organization.id,
-        effectiveUser: req.params.userId,
-        email: '',
-        request: inspectionAudit.requestId,
-        entity: req.params.userId,
-        supportSession: '',
-        sessionState: null,
-        organizationIds: [organization.id],
+        target: { kind: 'member', record: member },
     })
+    const { recentAuditTimeline, approvalDetails, accessRecoveryPlan, authorization } = inspection
     const caseHandoff = supportMemberCaseHandoff({
         actorId: actor.id,
         organizationId: organization.id,
@@ -4706,6 +4470,168 @@ async function loadOrganizationSupportDetail(organizationId: string) {
     `, [organizationId])
 
     return result.rows[0] as OrganizationRow | undefined
+}
+
+async function prepareSupportOrganizationEntityInspection(input: {
+    req: FastifyRequest
+    actorId: string
+    organization: OrganizationRow
+    metadata: ReturnType<typeof supportInspectionAuditMetadata>
+    requestedOrg: string
+    target: { kind: 'invite', record: OrganizationInviteRow } | { kind: 'member', record: Record<string, unknown> }
+}) {
+    const isInvite = input.target.kind === 'invite'
+    const record = input.target.record as Record<string, unknown>
+    const targetId = String(isInvite ? record.id : record.user_id)
+    const userId = isInvite ? '' : targetId
+    const email = isInvite ? String(record.email) : ''
+    const actionType = `support.organization.${input.target.kind}`
+    const eventContext = isInvite
+        ? { inviteId: targetId, email, status: record.status, role: record.role }
+        : { userId, role: record.role, status: record.status, active: record.active }
+    const auditRows = await loadSupportOrganizationEntityAuditRows({
+        organizationId: input.organization.id,
+        targetId,
+        kind: input.target.kind,
+    })
+    await recordSystemEvent(input.req, {
+        actionType: `${actionType}.inspect`,
+        actorId: input.actorId,
+        targetType: input.target.kind,
+        targetId: isInvite ? email : userId,
+        organizationId: input.organization.id,
+        entityId: targetId,
+        requestId: input.metadata.requestId,
+        severity: 'info',
+        outcome: 'success',
+        reason: input.metadata.reason || undefined,
+        context: supportInspectionAuditContext(input.metadata, eventContext),
+    })
+
+    const recentAuditTimeline = supportRecentAuditTimeline({
+        org: input.organization.id,
+        target: userId || email,
+        entity: targetId,
+        entityType: input.target.kind,
+        request: input.metadata.requestId,
+        reason: input.metadata.reason,
+        action: actionType,
+    }, auditRows as Record<string, unknown>[])
+    const [availability, approvals] = await Promise.all([
+        loadOrganizationAvailability([input.organization.id]),
+        loadInspectionApprovals({
+            org: input.organization.id,
+            user: userId,
+            email,
+            request: input.metadata.requestId,
+            outcome: '',
+            limit: 25,
+        }),
+    ])
+    const availabilityByOrg = new Map(availability.map(item => [item.organizationId, item]))
+    const approvalDetails = (approvals as AccessRecoveryApprovalRow[]).map(toAccessRecoveryDecision)
+    const timelineFilter = supportTimelineFilter({
+        q: '',
+        org: input.organization.id,
+        user: userId,
+        email,
+        request: input.metadata.requestId,
+        entity: targetId,
+        entityType: input.target.kind,
+        supportSession: '',
+        action: actionType,
+        severity: '',
+        outcome: '',
+        source: 'admin',
+        service: 'hanasand-api',
+        blocker: '',
+        reason: input.metadata.reason,
+        context: input.metadata.supportContext,
+        from: '',
+        to: '',
+        limit: 25,
+    })
+    const recoveryEligibility = buildRecoveryEligibility({
+        email,
+        user: userId,
+        organizationIds: [input.organization.id],
+        memberships: isInvite ? [] : [record],
+        users: isInvite ? [] : [record],
+        availabilityByOrg,
+        invites: isInvite ? [record] : [],
+    })
+    const accessRecoveryPlan = buildSupportAccessRecoveryPlan({
+        org: input.organization.id,
+        user: userId,
+        email,
+        request: input.metadata.requestId,
+        organizationIds: [input.organization.id],
+        memberships: isInvite ? [] : [record],
+        invites: isInvite ? [record] : [],
+        approvalDetails,
+        recoveryEligibility,
+        availabilityByOrg,
+        timeline: recentAuditTimeline.events,
+        timelineFilter,
+    })
+    const authorization = buildSupportInspectionAuthorization({
+        actorId: input.actorId,
+        requestedOrg: input.requestedOrg,
+        requestedUser: userId,
+        effectiveOrg: input.organization.id,
+        effectiveUser: userId,
+        email,
+        request: input.metadata.requestId,
+        entity: targetId,
+        supportSession: '',
+        sessionState: null,
+        organizationIds: [input.organization.id],
+    })
+    return { recentAuditTimeline, approvalDetails, accessRecoveryPlan, authorization }
+}
+
+async function loadSupportOrganizationEntityAuditRows(input: {
+    organizationId: string
+    targetId: string
+    kind: 'invite' | 'member'
+}) {
+    const targetPredicates = input.kind === 'invite'
+        ? 'event.context->>\'inviteId\' = $2 OR event.context->\'inviteIds\' ? $2'
+        : 'event.context->>\'targetUserId\' = $2 OR event.context->>\'memberId\' = $2'
+    const result = await run(`
+        SELECT
+            event.id,
+            event.event_type,
+            event.severity,
+            event.source,
+            event.service,
+            event.actor_id,
+            actor.name AS actor_name,
+            event.object_type,
+            event.object_id,
+            target_user.name AS target_name,
+            event.organization_id,
+            organization.name AS organization_name,
+            event.subject_id,
+            event.request_id,
+            event.outcome,
+            event.reason,
+            event.context,
+            event.created_at
+        FROM system_events event
+        LEFT JOIN users actor ON actor.id = event.actor_id
+        LEFT JOIN users target_user ON target_user.id = event.object_id
+        LEFT JOIN organizations organization ON organization.id = event.organization_id
+        WHERE event.organization_id = $1
+          AND (
+              event.subject_id = $2
+              OR event.object_id = $2
+              OR ${targetPredicates}
+          )
+        ORDER BY event.created_at DESC
+        LIMIT 25
+    `, [input.organizationId, input.targetId])
+    return result.rows as Record<string, unknown>[]
 }
 
 async function requireWritableSupportOrganization(organizationId: string, res: FastifyReply) {

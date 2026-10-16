@@ -8,6 +8,9 @@ let approvalRows: Record<string, any>[] = []
 let supportDecisionApproval: Record<string, any> | null = null
 let supportOrganization: Record<string, any> | null = null
 let supportUser: Record<string, any> | null = null
+let supportInspectionInvite: Record<string, any> | null | undefined
+let supportInspectionMember: Record<string, any> | null | undefined
+let supportInspectionAuditRows: Record<string, any>[] = []
 let supportInviteReads = 0
 let duplicateInviteAction: Record<string, any> | null = null
 let inviteActionWrites = 0
@@ -42,8 +45,11 @@ async function run(sql: string, values: unknown[] = []) {
     }
     if (sql.includes('FROM organizations o') && supportOrganization) return { rows: [supportOrganization] }
     if (sql.includes('FROM users') && sql.includes('WHERE id = $1') && !sql.includes('organization_members') && supportUser) return { rows: [supportUser] }
+    if (sql.includes('FROM system_events event') && sql.includes('event.organization_id = $1')) return { rows: supportInspectionAuditRows }
     if (sql.includes('FROM organization_invites') && sql.includes('id = $1') && sql.includes('organization_id = $2')) {
         supportInviteReads += 1
+        if (supportInspectionInvite === null) return { rows: [] }
+        if (supportInspectionInvite) return { rows: [supportInspectionInvite] }
         const invite = {
             id: 'invite-1', organization_id: 'org-1', email: 'member@example.com', role: 'reader',
             status: supportInviteReads > 1 && acceptedInviteWinsRace ? 'accepted' : 'pending',
@@ -53,6 +59,8 @@ async function run(sql: string, values: unknown[] = []) {
         return { rows: [invite] }
     }
     if (sql.includes('FROM organization_members om') && sql.includes('WHERE om.organization_id = $1') && sql.includes('om.user_id = $2')) {
+        if (supportInspectionMember === null) return { rows: [] }
+        if (supportInspectionMember) return { rows: [supportInspectionMember] }
         return { rows: [{
             organization_id: 'org-1', organization_name: 'Org', organization_slug: 'org', user_id: 'member-1',
             name: 'Member', avatar: null, active: true, role: supportMemberRole, status: 'active', invited_by: 'owner-1',
@@ -145,6 +153,8 @@ const {
     getSupportReadiness,
     getSupportOrganization,
     getSupportUser,
+    getSupportOrganizationInvite,
+    getSupportOrganizationMember,
     postSupportOrganizationInvite,
     postSupportOrganizationInviteAction,
     postSupportOrganizationMemberRoleRecovery,
@@ -178,6 +188,42 @@ function activeSupportOrganizationFixture() {
     return { id: 'org-1', name: 'Org', slug: 'org', status: 'active' }
 }
 
+function supportInviteInspectionFixture() {
+    return {
+        id: 'invite-1', organization_id: 'org-1', organization_name: 'Org', organization_slug: 'org',
+        email: 'member@example.com', role: 'reader', status: 'pending', invited_by: 'owner-1',
+        expires_at: '2026-11-01T00:00:00.000Z', created_at: '2026-10-01T00:00:00.000Z',
+        accepted_at: null, accepted_by: null, revoked_at: null,
+    }
+}
+
+function supportMemberInspectionFixture() {
+    return {
+        organization_id: 'org-1', organization_name: 'Org', organization_slug: 'org', user_id: 'member-1',
+        name: 'Member', avatar: null, active: true, deactivated_at: null, deletion_scheduled_at: null,
+        role: 'editor', status: 'active', invited_by: 'owner-1', joined_at: '2026-10-01T00:00:00.000Z',
+        created_at: '2026-10-01T00:00:00.000Z',
+    }
+}
+
+function supportInspectionAuditFixture(entityId: string) {
+    return {
+        id: 71, event_type: 'support.organization.inspect', severity: 'info', source: 'admin', service: 'hanasand-api',
+        actor_id: 'support-admin', actor_name: 'Support Admin', object_type: 'organization', object_id: entityId,
+        organization_id: 'org-1', organization_name: 'Org', subject_id: entityId, request_id: 'prior-request',
+        outcome: 'success', reason: 'Inspection event', context: {}, created_at: '2026-10-16T00:00:00.000Z',
+    }
+}
+
+function expectInspectionAuditQuery(entityId: string, targetPredicates: string[]) {
+    const auditQuery = queries.find(({ sql }) => sql.includes('FROM system_events event') && sql.includes('event.organization_id = $1'))
+    expect(auditQuery).toBeDefined()
+    expect(auditQuery?.sql).toContain('event.organization_id = $1')
+    expect(auditQuery?.sql).toContain('event.subject_id = $2')
+    for (const predicate of targetPredicates) expect(auditQuery?.sql).toContain(predicate)
+    expect(auditQuery?.values).toEqual(['org-1', entityId])
+}
+
 beforeEach(() => {
     actor = { valid: true, id: 'support-admin', impersonating: false }
     internalAccess = true
@@ -186,6 +232,9 @@ beforeEach(() => {
     supportDecisionApproval = null
     supportOrganization = null
     supportUser = null
+    supportInspectionInvite = undefined
+    supportInspectionMember = undefined
+    supportInspectionAuditRows = []
     supportInviteReads = 0
     duplicateInviteAction = null
     inviteActionWrites = 0
@@ -617,6 +666,156 @@ test('organization and user inspections keep shared fields and target-specific c
     expect(user.recentAuditEvents).toBe(user.recentAuditTimeline.events)
     expect(organization).not.toHaveProperty('user')
     expect(user).not.toHaveProperty('organization')
+})
+
+test('support invite inspection retains its organization-scoped audit and response contract', async () => {
+    supportOrganization = activeSupportOrganizationFixture()
+    supportInspectionInvite = supportInviteInspectionFixture()
+    supportInspectionAuditRows = [supportInspectionAuditFixture('invite-1')]
+
+    const response = await request(getSupportOrganizationInvite, { params: { id: 'org-1', inviteId: 'invite-1' } })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.body.invite).toMatchObject({ id: 'invite-1', organizationId: 'org-1', email: 'member@example.com' })
+    expect(response.body.inviteInspection).toMatchObject({
+        schemaVersion: 'support.invite_inspection.v1',
+        organization: { id: 'org-1' },
+        invite: { id: 'invite-1', email: 'member@example.com' },
+        snapshot: { id: 'invite-1', status: 'pending' },
+        authorization: {
+            requested: { organizationId: 'org-1', entityId: 'invite-1' },
+            effective: { organizationId: 'org-1', email: 'member@example.com', entityId: 'invite-1' },
+        },
+        caseHandoff: {
+            schemaVersion: 'support.invite.case_handoff.v1',
+            inviteId: 'invite-1', targetEmail: 'member@example.com',
+            evidence: { inviteStatus: 'pending', inviteRole: 'reader', auditEventIds: [71] },
+            inviteActions: {
+                resend: { requiredScope: 'invite:resend', reasonRequired: true, idempotencyRequired: true },
+                revoke: { requiredScope: 'invite:revoke', reasonRequired: true, idempotencyRequired: true },
+            },
+            safeHandoff: { noLiveAccessGrant: true, noSilentMembershipMutation: true, noCrossOrgLeakage: true, redactionRequired: true },
+        },
+        auditEventIds: [71],
+        auditTimeline: { eventIds: [71] },
+        links: {
+            action: '/api/admin/support/organizations/org-1/invites/invite-1/actions',
+            accessRecovery: '/api/admin/support/organizations/org-1/access-recovery',
+            audit: '/api/admin/audit-events?org=org-1&entity=invite-1&entityType=invite',
+        },
+        noMutation: true,
+        redacted: true,
+    })
+    expectInspectionAuditQuery('invite-1', [
+        'event.context->>\'inviteId\' = $2',
+        'event.context->\'inviteIds\' ? $2',
+    ])
+    expect(recordedEvents.at(-1)).toMatchObject({
+        actionType: 'support.organization.invite.inspect', targetType: 'invite', targetId: 'member@example.com',
+        organizationId: 'org-1', entityId: 'invite-1', outcome: 'success',
+        context: { inviteId: 'invite-1', email: 'member@example.com', status: 'pending', role: 'reader' },
+    })
+})
+
+test('support member inspection retains its organization-scoped audit and response contract', async () => {
+    supportOrganization = activeSupportOrganizationFixture()
+    supportInspectionMember = supportMemberInspectionFixture()
+    supportInspectionAuditRows = [supportInspectionAuditFixture('member-1')]
+
+    const response = await request(getSupportOrganizationMember, { params: { id: 'org-1', userId: 'member-1' } })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.body.member).toMatchObject({ organizationId: 'org-1', userId: 'member-1', role: 'editor' })
+    expect(response.body.memberInspection).toMatchObject({
+        schemaVersion: 'support.member_inspection.v1',
+        organization: { id: 'org-1' },
+        member: { organizationId: 'org-1', userId: 'member-1', role: 'editor' },
+        snapshot: { organizationId: 'org-1', userId: 'member-1', role: 'editor', status: 'active', active: true },
+        authorization: {
+            requested: { organizationId: 'org-1', userId: 'member-1', entityId: 'member-1' },
+            effective: { organizationId: 'org-1', userId: 'member-1', entityId: 'member-1' },
+        },
+        caseHandoff: {
+            schemaVersion: 'support.member.case_handoff.v1',
+            userId: 'member-1',
+            evidence: { role: 'editor', status: 'active', active: true, auditEventIds: [71] },
+            recovery: { roleRecoveryAvailable: true },
+            memberActions: {
+                roleRecovery: { requiredScope: 'member:role_recovery', reasonRequired: true, idempotencyRequired: true },
+                inspectUser: '/api/admin/support/users/member-1',
+            },
+            safeHandoff: { noLiveAccessGrant: true, noSilentMembershipMutation: true, noCrossOrgLeakage: true, redactionRequired: true },
+        },
+        auditEventIds: [71],
+        auditTimeline: { eventIds: [71] },
+        links: {
+            roleRecovery: '/api/admin/support/organizations/org-1/members/member-1/role-recovery',
+            audit: '/api/admin/audit-events?org=org-1&target=member-1&entity=member-1&entityType=member',
+            user: '/api/admin/support/users/member-1',
+        },
+        noMutation: true,
+        redacted: true,
+    })
+    expectInspectionAuditQuery('member-1', [
+        'event.context->>\'targetUserId\' = $2',
+        'event.context->>\'memberId\' = $2',
+    ])
+    expect(recordedEvents.at(-1)).toMatchObject({
+        actionType: 'support.organization.member.inspect', targetType: 'member', targetId: 'member-1',
+        organizationId: 'org-1', entityId: 'member-1', outcome: 'success',
+        context: { userId: 'member-1', role: 'editor', status: 'active', active: true },
+    })
+})
+
+test('support invite and member inspection audit missing organizations and targets separately', async () => {
+    const missingInviteOrganization = await request(getSupportOrganizationInvite, { params: { id: 'missing-org', inviteId: 'invite-1' } })
+    expect(missingInviteOrganization.statusCode).toBe(404)
+    expect(missingInviteOrganization.body).toEqual({ error: 'Organization not found.' })
+    expect(recordedEvents.at(-1)).toMatchObject({
+        actionType: 'support.organization.invite.inspect', organizationId: 'missing-org',
+        context: { error: 'organization_not_found', inviteId: 'invite-1' },
+    })
+    expect(queries).toHaveLength(1)
+
+    queries.length = 0
+    recordedEvents.length = 0
+    supportOrganization = activeSupportOrganizationFixture()
+    supportInspectionInvite = null
+    const missingInvite = await request(getSupportOrganizationInvite, { params: { id: 'org-1', inviteId: 'missing-invite' } })
+    expect(missingInvite.statusCode).toBe(404)
+    expect(missingInvite.body).toEqual({ error: 'Invite not found for organization.' })
+    expect(recordedEvents.at(-1)).toMatchObject({
+        actionType: 'support.organization.invite.inspect', organizationId: 'org-1',
+        context: { error: 'invite_not_found', inviteId: 'missing-invite' },
+    })
+    expect(queries).toHaveLength(2)
+    expect(queries[1].values).toEqual(['missing-invite', 'org-1'])
+
+    queries.length = 0
+    recordedEvents.length = 0
+    supportOrganization = null
+    const missingMemberOrganization = await request(getSupportOrganizationMember, { params: { id: 'missing-org', userId: 'member-1' } })
+    expect(missingMemberOrganization.statusCode).toBe(404)
+    expect(missingMemberOrganization.body).toEqual({ error: 'Organization not found.' })
+    expect(recordedEvents.at(-1)).toMatchObject({
+        actionType: 'support.organization.member.inspect', organizationId: 'missing-org',
+        context: { error: 'organization_not_found', userId: 'member-1' },
+    })
+    expect(queries).toHaveLength(1)
+
+    queries.length = 0
+    recordedEvents.length = 0
+    supportOrganization = activeSupportOrganizationFixture()
+    supportInspectionMember = null
+    const missingMember = await request(getSupportOrganizationMember, { params: { id: 'org-1', userId: 'missing-member' } })
+    expect(missingMember.statusCode).toBe(404)
+    expect(missingMember.body).toEqual({ error: 'Organization member not found.' })
+    expect(recordedEvents.at(-1)).toMatchObject({
+        actionType: 'support.organization.member.inspect', organizationId: 'org-1',
+        context: { error: 'member_not_found', userId: 'missing-member' },
+    })
+    expect(queries).toHaveLength(2)
+    expect(queries[1].values).toEqual(['org-1', 'missing-member'])
 })
 
 test('support session can be created, inspected, then revoked through its audit lifecycle', async () => {
