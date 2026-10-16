@@ -8,6 +8,7 @@ import DatabaseRefresh from './databaseRefresh'
 import DatabaseInventory from './databaseInventory'
 import DatabaseStoragePanel from './databaseStoragePanel'
 import DatabaseQueriesDisclosure from './databaseQueriesDisclosure'
+import { formatDatabaseBytes as formatBytes } from '@/utils/db/formatDatabaseBytes'
 
 
 export function DatabaseDashboard({ overview, serviceAccount = false }: { overview: DatabaseOverview, serviceAccount?: boolean }) {
@@ -64,19 +65,6 @@ function MetricCard({ icon, label, value, detail }: { icon: ReactNode, label: st
         <div className='flex items-center gap-2 text-sm text-ui-muted'><span aria-hidden className='text-ui-primary [&>svg]:h-4 [&>svg]:w-4'>{icon}</span>{label}</div>
         <p className='mt-3 text-xl font-semibold tabular-nums'>{value}</p><p className='mt-2 text-xs text-ui-muted'>{detail}</p>
     </DashboardPanel>
-}
-
-function formatBytes(bytes: number | null) {
-    if (bytes === null || !Number.isFinite(bytes)) return '—'
-    if (bytes <= 0) return '0 B'
-    const units = ['B', 'KB', 'MB', 'GB', 'TB']
-    let value = bytes
-    let index = 0
-    while (value >= 1000 && index < units.length - 1) {
-        value /= 1000
-        index++
-    }
-    return `${value.toFixed(index === 0 ? 0 : 2)} ${units[index]}`
 }
 
 function formatDateTime(value: string) {

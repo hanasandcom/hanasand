@@ -1,35 +1,12 @@
 'use client'
 
 import { Fragment, useContext, useEffect, useRef, useState } from 'react'
-import { Check, Copy } from 'lucide-react'
-import type { DatabaseOverview } from '@/utils/db/internal'
-import SortIndicator from '@/components/dashboard/sort-indicator'
+import { formatDatabaseBytes as bytes } from '@/utils/db/formatDatabaseBytes'
+import DatabaseSortButton from './DatabaseSortButton'
+import DatabaseContents from './DatabaseContents'
+import { compare } from './databaseInventoryHelpers'
+import type { DatabaseSort, Instance, Sort } from './databaseInventoryTypes'
 import { DatabaseFullscreenContext } from './databaseStoragePanel'
-
-type Instance = NonNullable<DatabaseOverview['storage']>['instances'][number]
-type Database = Instance['databases'][number]
-type Item = { schema: string, name: string, sizeBytes: number | null, columns?: string[], lastWriteObservedAt?: string | null, type?: string }
-type Page = { rows?: Record<string, unknown>[], fields?: string[], items?: Item[], nextCursor: string | null, elapsedMs?: number, totalRows?: number | null }
-type Sort<K extends string> = { key: K, descending: boolean }
-type DatabaseSort = 'name' | 'instance' | 'health' | 'count' | 'connections' | 'size'
-type ItemSort = 'name' | 'write' | 'size'
-
-function compare(a: string | number | null | undefined, b: string | number | null | undefined, descending: boolean) {
-    if (a == null) return b == null ? 0 : 1
-    if (b == null) return -1
-    return (typeof a === 'number' && typeof b === 'number' ? a - b : String(a).localeCompare(String(b), undefined, { numeric: true })) * (descending ? -1 : 1)
-}
-
-function SortButton({ label, active, descending, onClick }: { label: string, active: boolean, descending: boolean, onClick: () => void }) {
-    return <button type='button' onClick={onClick} aria-label={`Sort by ${label.toLowerCase()} ${active && !descending ? 'descending' : 'ascending'}`} className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded py-1 text-xs focus-visible:outline-ui-primary ${active ? 'text-ui-primary' : 'text-ui-muted hover:text-ui-text'}`}>{label}<SortIndicator active={active} direction={descending ? 'desc' : 'asc'} /></button>
-}
-
-async function fetchPage(params: URLSearchParams, signal?: AbortSignal): Promise<Page> {
-    const response = await fetch(`/api/db/browse?${params}`, { cache: 'no-store', signal })
-    const body = await response.json()
-    if (!response.ok) throw new Error(body.message || 'Preview unavailable.')
-    return body
-}
 
 export default function DatabaseInventory({ instances, stale }: { instances: Instance[], stale: boolean }) {
     const fullscreen = useContext(DatabaseFullscreenContext)
@@ -55,7 +32,7 @@ export default function DatabaseInventory({ instances, stale }: { instances: Ins
     const columns: [DatabaseSort, string][] = [['name', 'Database'], ['instance', 'Instance'], ['health', 'Health'], ['count', 'Tables / keys'], ['connections', 'Connections'], ['size', 'Size']]
     const maxHeight = fullscreen ? 'calc(100dvh - 6rem)' : rows.length > 6 ? height === undefined ? undefined : height * (expanded ? 2 : 1) : undefined
     return <div ref={viewport} className='overflow-auto' style={{ maxHeight }} tabIndex={0} aria-label='Databases'><table className='w-full text-left text-sm'>
-        <thead className='sticky top-0 z-10 bg-ui-raised text-xs text-ui-muted'><tr>{columns.map(([key, label]) => <th key={key} aria-sort={sort.key === key ? sort.descending ? 'descending' : 'ascending' : 'none'} className='px-5 py-2 font-medium'><SortButton label={label} active={sort.key === key} descending={sort.descending} onClick={() => setSort({ key, descending: sort.key === key ? !sort.descending : false })} /></th>)}</tr></thead>
+        <thead className='sticky top-0 z-10 bg-ui-raised text-xs text-ui-muted'><tr>{columns.map(([key, label]) => <th key={key} aria-sort={sort.key === key ? sort.descending ? 'descending' : 'ascending' : 'none'} className='px-5 py-2 font-medium'><DatabaseSortButton label={label} active={sort.key === key} descending={sort.descending} onClick={() => setSort({ key, descending: sort.key === key ? !sort.descending : false })} /></th>)}</tr></thead>
         <tbody>
             {rows.map(({ instance, database }) => {
                 const key = `${instance.id}/${database.name}`, open = expanded === key
@@ -74,182 +51,4 @@ export default function DatabaseInventory({ instances, stale }: { instances: Ins
             })}
         </tbody>
     </table></div>
-}
-
-function DatabaseContents({ instance, database }: { instance: Instance, database: Database }) {
-    const [items, setItems] = useState<Item[]>(database.tables || [])
-    const [cursor, setCursor] = useState<string | null>(null)
-    const [selected, setSelected] = useState<string | null>(null)
-    const [search, setSearch] = useState('')
-    const [sort, setSort] = useState<Sort<ItemSort>>({ key: 'size', descending: true })
-    const searchInput = useRef<HTMLInputElement>(null)
-    const list = useRef<HTMLDivElement>(null)
-    const [listHeight, setListHeight] = useState<number>()
-    const manyTables = items.length > 6
-    useEffect(() => {
-        if (!manyTables) return
-        const focusSearch = (event: KeyboardEvent) => {
-            const target = event.target as HTMLElement | null
-            if (event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 'x'
-                && !target?.closest('input, textarea, select, [contenteditable="true"]')) {
-                event.preventDefault(); searchInput.current?.focus()
-            }
-        }
-        window.addEventListener('keydown', focusSearch)
-        return () => window.removeEventListener('keydown', focusSearch)
-    }, [manyTables])
-    useEffect(() => {
-        if (!manyTables || !list.current) return
-        const buttons = Array.from(list.current.querySelectorAll<HTMLElement>('[data-table-selector]')).slice(0, 6)
-        if (buttons.length < 6) return
-        const measure = () => setListHeight(buttons.reduce((height, button, index) => height + button.getBoundingClientRect().height + (index ? 12 : 0), 0))
-        const observer = new ResizeObserver(measure)
-        buttons.forEach(button => observer.observe(button))
-        measure()
-        return () => observer.disconnect()
-    }, [manyTables, items, search, sort])
-    const itemValue = (item: Item) => ({ name: `${item.schema}.${item.name}`, write: item.lastWriteObservedAt ? Date.parse(item.lastWriteObservedAt) : null, size: item.sizeBytes })[sort.key]
-    const visibleItems = items.filter(item => `${item.schema}.${item.name}`.toLowerCase().includes(search.toLowerCase())).sort((a, b) => compare(itemValue(a), itemValue(b), sort.descending) || `${a.schema}.${a.name}`.localeCompare(`${b.schema}.${b.name}`))
-    const [error, setError] = useState('')
-    const [pending, setPending] = useState(!database.tables)
-    const params = () => new URLSearchParams({ instance: instance.id, database: database.name, mode: 'contents' })
-    useEffect(() => {
-        if (database.tables) return
-        const controller = new AbortController()
-        fetchPage(params(), controller.signal).then(page => { setItems(page.items || []); setCursor(page.nextCursor) }).catch(reason => { if (!controller.signal.aborted) setError(reason.message) }).finally(() => setPending(false))
-        return () => controller.abort()
-    // The component is remounted when the database selection changes.
-    }, [])
-    async function more() {
-        setPending(true); setError('')
-        try {
-            const next = params(); if (cursor) next.set('cursor', cursor)
-            const page = await fetchPage(next)
-            setItems(previous => [...previous, ...(page.items || []).filter(item => !previous.some(old => old.name === item.name && old.schema === item.schema))]); setCursor(page.nextCursor)
-        } catch (reason) { setError(reason instanceof Error ? reason.message : 'Preview unavailable.') } finally { setPending(false) }
-    }
-    return <div className='min-w-0 space-y-3 [contain:inline-size]'>
-        {manyTables && <input ref={searchInput} type='search' value={search} onChange={event => setSearch(event.target.value)} placeholder='Search tables…' aria-label='Search tables' aria-keyshortcuts='Meta+X' className='w-full max-w-xs rounded border border-ui-border bg-ui-canvas px-3 py-1.5 text-sm' />}
-        <div className='flex flex-wrap gap-4 px-3 sm:grid sm:grid-cols-[minmax(0,1fr)_12rem_7rem] sm:gap-2' aria-label='Sort database contents'>
-            {([['name', 'Name'], ['write', 'Last write'], ['size', 'Size']] as const).map(([key, label]) => <SortButton key={key} label={label} active={sort.key === key} descending={sort.descending} onClick={() => setSort({ key, descending: sort.key === key ? !sort.descending : false })} />)}
-        </div>
-        {cursor && <p className='text-xs text-ui-muted'>Sorting loaded keys</p>}
-        <div ref={list} className='min-w-0 space-y-3 overflow-y-auto' style={{ maxHeight: manyTables ? listHeight : undefined }}>
-            {visibleItems.map(item => {
-                const key = `${item.schema}.${item.name}`, open = selected === key
-                return <div key={key} className={`overflow-hidden rounded-md border ${open ? 'border-ui-primary bg-ui-canvas' : 'border-ui-border bg-ui-panel'}`}>
-                    <button data-table-selector type='button' aria-expanded={open} onClick={() => setSelected(open ? null : key)} className={`grid w-full cursor-pointer grid-cols-1 gap-2 p-3 text-left transition hover:bg-ui-primary/10 sm:grid-cols-[minmax(0,1fr)_12rem_7rem] ${open ? 'bg-ui-primary/10' : ''}`}>
-                        <span className='min-w-0 wrap-break-word font-medium'>{item.schema ? `${item.schema}.` : ''}{item.name}{item.type && <span className='ml-2 text-xs text-ui-muted'>{item.type}</span>}</span>
-                        <span className='text-xs text-ui-muted' title={item.lastWriteObservedAt ? 'Last observed write' : 'No writes observed'}>{item.lastWriteObservedAt ? `Last write: ${new Date(item.lastWriteObservedAt).toLocaleString()}` : '—'}</span>
-                        <span className='text-xs tabular-nums text-ui-muted'>{bytes(item.sizeBytes)}</span>
-                    </button>
-                    {open && <div className='border-t border-ui-primary/30 p-3'><RowPreview instance={instance.id} database={database.name} item={item} /></div>}
-                </div>
-            })}
-        </div>
-        {search && !visibleItems.length && <p className='text-sm text-ui-muted'>No matching tables.</p>}
-        {!pending && !error && !items.length && <p className='text-sm text-ui-muted'>Empty database.</p>}
-        {pending && <p role='status' className='text-sm text-ui-muted'>Loading…</p>}
-        {error && <p role='alert' className='text-sm text-ui-warning'>{error} <button type='button' onClick={more} className='underline'>Retry</button></p>}
-        {cursor && !pending && !error && <button type='button' onClick={more} className='rounded border border-ui-border px-3 py-2 text-sm'>More keys</button>}
-    </div>
-}
-
-function RowPreview({ instance, database, item }: { instance: string, database: string, item: Item }) {
-    const [rows, setRows] = useState<Record<string, unknown>[]>([])
-    const [fields, setFields] = useState(item.columns || [])
-    const [error, setError] = useState('')
-    const [done, setDone] = useState(false)
-    const [totalRows, setTotalRows] = useState<number | null>(null)
-    const [busy, setBusy] = useState(true)
-    const [copyStatus, setCopyStatus] = useState<{ key: string, result: 'copied' | 'failed' } | null>(null)
-    const copyTimer = useRef<number | null>(null)
-    const sentinel = useRef<HTMLDivElement>(null)
-    const viewport = useRef<HTMLDivElement>(null)
-    const consume = useRef<() => void>(() => {})
-    useEffect(() => {
-        const controller = new AbortController()
-        let loading = false, finished = false, nextCursor: string | null = null
-        // Count independently so large tables cannot delay or break row loading.
-        void fetchPage(new URLSearchParams({ instance, database, mode: 'count', schema: item.schema, table: item.name }), controller.signal)
-            .then(page => { if (!controller.signal.aborted) setTotalRows(page.totalRows ?? null) })
-            .catch(() => {})
-        const request = (cursor: string | null) => {
-            const params = new URLSearchParams({ instance, database, mode: 'rows', schema: item.schema, table: item.name })
-            if (cursor) params.set('cursor', cursor)
-            return fetchPage(params, controller.signal)
-        }
-        // One five-row page ahead keeps scrolling independent of network latency.
-        let next: Promise<Page> | null = request(null)
-        void next.catch(() => {})
-        consume.current = () => {
-            if (loading || finished || controller.signal.aborted) return
-            loading = true; setBusy(true); setError('')
-            const page = next || request(nextCursor)
-            next = null
-            void page.then(result => {
-                if (controller.signal.aborted) return
-                setRows(previous => [...previous, ...(result.rows || [])])
-                setFields(previous => [...new Set([...previous, ...(result.fields || [])])])
-                nextCursor = result.nextCursor
-                finished = !nextCursor; setDone(finished)
-                if (!finished) { next = request(nextCursor); void next.catch(() => {}) }
-            }).catch(reason => { if (!controller.signal.aborted) setError(reason.message) }).finally(() => { loading = false; if (!controller.signal.aborted) setBusy(false) })
-        }
-        consume.current()
-        return () => controller.abort()
-    }, [instance, database, item.schema, item.name])
-    useEffect(() => {
-        if (busy || done || error || !sentinel.current) return
-        const observer = new IntersectionObserver(entries => { if (entries.some(entry => entry.isIntersecting)) consume.current() }, { root: viewport.current, rootMargin: '80px' })
-        observer.observe(sentinel.current)
-        return () => observer.disconnect()
-    }, [busy, done, error, rows])
-    useEffect(() => () => { if (copyTimer.current !== null) window.clearTimeout(copyTimer.current) }, [])
-    async function copyCell(key: string, value: string) {
-        let result: 'copied' | 'failed' = 'copied'
-        try {
-            await navigator.clipboard.writeText(value)
-        } catch {
-            const input = document.createElement('textarea')
-            input.value = value
-            input.style.position = 'fixed'
-            input.style.opacity = '0'
-            document.body.appendChild(input)
-            input.select()
-            const copied = document.execCommand('copy')
-            input.remove()
-            if (!copied) result = 'failed'
-        }
-        setCopyStatus({ key, result })
-        if (copyTimer.current !== null) window.clearTimeout(copyTimer.current)
-        copyTimer.current = window.setTimeout(() => setCopyStatus(null), 1600)
-    }
-    const total = done ? rows.length : totalRows === null ? null : Math.max(rows.length, totalRows)
-    return <div className='min-w-0'>
-        <div ref={viewport} className='min-w-0 max-w-full max-h-80 overflow-auto rounded border border-ui-border' tabIndex={0} aria-label={`${item.name} rows`}>
-            <table className='min-w-full text-left text-xs'><thead className='sticky top-0 bg-ui-raised text-ui-muted'><tr>{fields.map(field => <th key={field} className='whitespace-nowrap px-3 py-2 font-medium'>{field}</th>)}</tr></thead><tbody className='divide-y divide-ui-border'>
-                {rows.map((row, index) => <tr key={index}>{fields.map(field => {
-                    const key = `${index}:${field}`
-                    const fullValue = cell(row[field])
-                    const value = displayCell(field, fullValue)
-                    const status = copyStatus?.key === key ? copyStatus.result : null
-                    return <td key={field} className='align-top'><button type='button' onClick={() => void copyCell(key, fullValue)} aria-label={`${status === 'copied' ? 'Copied' : 'Copy'} ${field} value`} title={status === 'failed' ? 'Copy failed' : 'Click to copy · Scroll to see full value'} className='flex w-full min-w-0 items-center gap-1.5 px-3 py-2 text-left font-mono'><span className='noscroll block w-[6ch] shrink-0 overflow-x-auto whitespace-nowrap'>{value}</span>{status === 'copied' ? <Check aria-hidden className='h-3.5 w-3.5 shrink-0 text-ui-success' /> : <Copy aria-hidden className='h-3.5 w-3.5 shrink-0 text-ui-muted' />}<span className='sr-only' aria-live='polite'>{status === 'copied' ? `${field} copied` : status === 'failed' ? `${field} copy failed` : ''}</span></button></td>
-                })}</tr>)}
-            </tbody></table>
-            <div ref={sentinel} className='h-px' />
-        </div>
-        {busy && <p role='status' className='mt-2 text-xs text-ui-muted'>Loading rows…</p>}
-        {error && <p role='alert' className='mt-2 text-xs text-ui-warning'>{error} <button type='button' onClick={() => consume.current()} className='underline'>Retry</button></p>}
-        {(rows.length > 0 || done) && <p className='mt-2 text-xs text-ui-muted'>{rows.length}/{total ?? '…'} {total === 1 ? 'row' : 'rows'}</p>}
-    </div>
-}
-
-function cell(value: unknown) { return value == null ? 'null' : typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value) }
-function displayCell(field: string, value: string) { return field.toLowerCase() === 'id' ? value.replace(/^0+(?=.)/, '') : value }
-function bytes(value: number | null) {
-    if (value === null) return '—'
-    const units = ['B', 'KB', 'MB', 'GB', 'TB']; let index = 0
-    while (value >= 1000 && index < units.length - 1) { value /= 1000; index++ }
-    return `${value.toFixed(index ? 2 : 0)} ${units[index]}`
 }
