@@ -1,5 +1,8 @@
 import { type AnalystWorkItem, type LocalRelevanceMark, type WatchlistRelevance } from './types'
 import { type TiActionabilityModel } from '@/utils/ti/actionability'
+import { uniqueTrimmedStrings as unique } from '@/utils/ti/stringValues'
+
+export { unique }
 
 export function isDateStale(value: string, generatedAt: string) {
     const freshness = Date.parse(value)
@@ -49,16 +52,6 @@ export function relevanceMarkFor(
         caseIntent,
         markedAt: new Date().toISOString(),
     }
-}
-
-export function unique(values: string[]) {
-    const seen = new Set<string>()
-    return values.map(value => value.trim()).filter(value => {
-        const key = value.toLowerCase()
-        if (!key || seen.has(key)) return false
-        seen.add(key)
-        return true
-    })
 }
 
 export function readStringArray(value: unknown): string[] {

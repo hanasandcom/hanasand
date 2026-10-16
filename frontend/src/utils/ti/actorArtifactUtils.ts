@@ -2,6 +2,9 @@ import type { TiActionabilityModel } from './actionability'
 import type { TiActorIntelligenceProfile } from './actorIntelligence'
 import type { TiSearchResponse } from './search'
 import type { ActorArtifact, ActorArtifactKind, ActorArtifactReadiness } from './actorWorkbenchTypes'
+import { uniqueTrimmedStrings as unique } from './stringValues'
+
+export { unique }
 
 export function recordFromActorList(input: {
     result: TiSearchResponse
@@ -113,16 +116,6 @@ export function matchingTechnique(result: TiSearchResponse, value: string) {
 
 export function recordId(kind: ActorArtifactKind, value: string) {
     return `${kind}:${value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'unknown'}`
-}
-
-export function unique(values: string[]) {
-    const seen = new Set<string>()
-    return values.map(value => value.trim()).filter(value => {
-        const key = value.toLowerCase()
-        if (!key || seen.has(key)) return false
-        seen.add(key)
-        return true
-    })
 }
 
 export function uniqueBy<T>(values: T[], keyFor: (value: T) => string) {

@@ -1,12 +1,5 @@
-export function unique(values: string[]) {
-    const seen = new Set<string>()
-    return values.map(value => value.trim()).filter(value => {
-        const key = value.toLowerCase()
-        if (!key || seen.has(key)) return false
-        seen.add(key)
-        return true
-    })
-}
+import { uniqueTrimmedStrings as unique } from './stringValues'
+export { unique }
 
 export function uniqueBy<T>(values: T[], keyFor: (value: T) => string) {
     const seen = new Set<string>()
