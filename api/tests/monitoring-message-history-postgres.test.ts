@@ -8,7 +8,7 @@ mock.module('../src/utils/alerts/discordWebhookFile.ts', () => ({
 }))
 const { queryOnce: query } = await import('../src/utils/db.ts')
 const { default: schema } = await import('../src/utils/db/monitoringIssuesSchema.ts')
-const { recordMonitoringOutcome, loadMonitoringIssues } = await import('../src/utils/monitoringIssues.ts')
+const { claimMonitoringNotification, recordMonitoringOutcome, loadMonitoringIssues } = await import('../src/utils/monitoringIssues.ts')
 
 test('preserves delivered content and counts, excludes failures, and imports legacy IDs once', async () => {
     await query('CREATE TABLE agent_automations (id text PRIMARY KEY); CREATE TABLE agent_automation_runs(id text PRIMARY KEY, automation_id text, status text DEFAULT \'failed\', warning boolean DEFAULT false, started_at timestamptz DEFAULT NOW(), completed_at timestamptz DEFAULT NOW())')
@@ -35,6 +35,9 @@ test('preserves delivered content and counts, excludes failures, and imports leg
     item = (await loadMonitoringIssues('monitor'))[0]
     expect(item.notifications.filter((n: any) => n.deliveredAt)).toHaveLength(2)
     expect(item.notifications.find((n: any) => n.error)?.error).toBe('Delivery failed')
+    const reservation = (await query('SELECT next_attempt_at FROM monitoring_issue_notifications WHERE issue_id = $1 AND destination = $2', [item.id, 'destination'])).rows[0]
+    expect(new Date(reservation.next_attempt_at).getTime()).toBeGreaterThan(Date.now() + 23 * 60 * 60 * 1000)
+    expect(await claimMonitoringNotification(automation, item.id, 'destination')).toBe(false)
     await query('INSERT INTO monitoring_issue_notifications(issue_id,destination,next_attempt_at,delivered_at,message_id) VALUES ($1,\'legacy-secret\',NOW(),NOW(),\'999\')',[item.id])
     await schema(); await schema()
     item = (await loadMonitoringIssues('monitor'))[0]
