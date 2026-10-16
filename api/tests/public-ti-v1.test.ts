@@ -270,6 +270,17 @@ describe('public TI v1', () => {
         }
     })
 
+    test('drops malformed collection rows while retaining valid projected records', async () => {
+        const validActor = { id: 'actor-1', canonicalName: 'APT29', aliases: ['Cozy Bear'], confidence: 0.9, sourceIds: ['src-1'], captureIds: ['cap-1'] }
+        const app = await testApp(async () => Response.json({ actorProfiles: [null, 'unexpected', { id: 42, canonicalName: 'Invalid actor' }, validActor], total: 4 }))
+
+        const response = await app.inject({ method: 'GET', url: '/api/v1/actors', headers: { 'x-api-key': 'valid' } })
+
+        expect(response.statusCode).toBe(200)
+        expect(response.json().data).toEqual([validActor])
+        expect(response.json().pagination.total).toBe(4)
+    })
+
     test('derives alert tenant scope from the API key and ignores caller-selected tenant headers', async () => {
         let tenantHeader = ''
         const app = await testApp(async (_input, init) => {
