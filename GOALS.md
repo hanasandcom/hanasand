@@ -6,8 +6,13 @@ Refactor the repository for clear responsibilities, readable code, reuse where
 contracts match, and maintainable tests while preserving existing product
 behavior and features. Reduce duplicated and ineffective code; keep measuring
 source, tests, generated output, and configuration separately against the
-recorded baseline. The desired API source reduction remains at least 100,000
-lines without feature loss.
+recorded baseline. The API source reduction target remains at least 100,000 lines without
+feature loss. The frontend is also in scope: reduce its current roughly 145,000
+hand-maintained lines to no more than 30,000, aiming for 10,000–30,000 where
+that preserves clear ownership and complete functionality. Keep rendered UI,
+interactions, accessibility behavior, and page data contracts stable. Prefer
+shared React components and behavior when real consumers share the same
+contract; keep distinct presentation and data needs explicit.
 
 ## Hard file-size requirement
 
