@@ -16,6 +16,21 @@ type ModelToolStrategy = {
     principles: string[]
 }
 
+type AiToolRequest = {
+    action?: string
+    prompt?: string
+    context?: string
+    maxTokens?: number
+    toolAction?: 'share_file_write'
+    approved?: boolean
+    approvalId?: string
+    target?: string
+    path?: string
+    content?: string
+    metadata?: Record<string, unknown>
+    billingMode?: 'draft' | 'standard' | 'verified' | 'priority'
+}
+
 export default async function aiTool(req: FastifyRequest, res: FastifyReply) {
     res.header('Cache-Control', 'no-store, no-cache, max-age=0, must-revalidate')
     res.header('Vary', 'Authorization, Cookie')
@@ -27,20 +42,7 @@ export default async function aiTool(req: FastifyRequest, res: FastifyReply) {
         return forwardAiToolToWorker(req, res, workerBase)
     }
 
-    const body = req.body as {
-        action?: string
-        prompt?: string
-        context?: string
-        maxTokens?: number
-        toolAction?: 'share_file_write'
-        approved?: boolean
-        approvalId?: string
-        target?: string
-        path?: string
-        content?: string
-        metadata?: Record<string, unknown>
-        billingMode?: 'draft' | 'standard' | 'verified' | 'priority'
-    } ?? {}
+    const body = req.body as AiToolRequest ?? {}
     const auth = await optionalToolAuth(req, res)
     if (req.headers.authorization && !auth.valid) {
         return res.status(401).send({ error: 'Unauthorized.' })
@@ -69,11 +71,16 @@ export default async function aiTool(req: FastifyRequest, res: FastifyReply) {
         return res.send({ ok: true, decision })
     }
 
-    const { prompt, context, maxTokens } = body
+    const { prompt } = body
     if (!prompt) {
         return res.status(400).send({ error: 'Missing prompt.' })
     }
 
+    return handleAiPrompt(req, res, actorId, { ...body, prompt })
+}
+
+async function handleAiPrompt(req: FastifyRequest, res: FastifyReply, actorId: string | null, body: AiToolRequest & { prompt: string }) {
+    const { prompt, context, maxTokens } = body
     const promptDecision = await evaluateAgentActionPolicy({
         action: 'ai_prompt',
         actorId,
