@@ -9974,6 +9974,13 @@ type SupportExecutorAuditPreviewTargetFields =
     | { inviteId: string | null, email: string | null }
     | { targetUserId: string, requestedRole: string }
 
+const supportExecutorCommonBlockerCatalog = [
+    'support_role_required',
+    'missing_support_reason',
+    'stale_prepare_payload',
+    'duplicate_idempotency_key',
+] as const
+
 function supportExecutorAuditPreview(input: {
     actionType: string
     requestId: string
@@ -10029,10 +10036,7 @@ function supportInviteAssistExecutorDetail(input: {
         outcome: input.outcome,
         blockers: input.blockers,
         blockerCatalog: [
-            'support_role_required',
-            'missing_support_reason',
-            'stale_prepare_payload',
-            'duplicate_idempotency_key',
+            ...supportExecutorCommonBlockerCatalog,
             'ambiguous_target',
             'active_admin_available',
             'support_session_not_found',
@@ -10244,10 +10248,7 @@ function supportInviteActionExecutorDetail(input: {
         outcome: input.outcome,
         blockers: input.blockers,
         blockerCatalog: [
-            'support_role_required',
-            'missing_support_reason',
-            'stale_prepare_payload',
-            'duplicate_idempotency_key',
+            ...supportExecutorCommonBlockerCatalog,
             'ambiguous_target',
             'active_admin_available',
             'support_session_not_found',
@@ -10591,10 +10592,7 @@ function supportMemberRoleRecoveryExecutorDetail(input: {
             auditEventIds,
         }),
         blockerCatalog: [
-            'support_role_required',
-            'missing_support_reason',
-            'stale_prepare_payload',
-            'duplicate_idempotency_key',
+            ...supportExecutorCommonBlockerCatalog,
             'invalid_scope',
             'active_admin_available',
             'support_session_not_found',
