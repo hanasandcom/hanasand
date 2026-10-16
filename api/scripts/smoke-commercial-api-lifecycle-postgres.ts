@@ -64,7 +64,11 @@ await queryOnce(`
         ip TEXT NOT NULL DEFAULT ''
     );
     CREATE TABLE mail_accounts (user_id TEXT PRIMARY KEY, mail_username TEXT NOT NULL);
-    CREATE TABLE account_deletion_purge_attempts (user_id TEXT PRIMARY KEY);
+    CREATE SEQUENCE account_deletion_purge_attempt_order_seq;
+    CREATE TABLE account_deletion_purge_attempts (
+        user_id TEXT PRIMARY KEY,
+        attempt_order BIGINT NOT NULL DEFAULT nextval('account_deletion_purge_attempt_order_seq')
+    );
     CREATE TABLE case_repositories (
         id UUID PRIMARY KEY, owner_id TEXT NOT NULL, organization_id TEXT,
         provider TEXT NOT NULL, repository_url TEXT NOT NULL, secret_encrypted TEXT NOT NULL,
