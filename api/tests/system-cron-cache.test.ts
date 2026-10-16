@@ -40,6 +40,15 @@ globalThis.fetch = (async(input: string | URL | Request) => {
     if (url.startsWith(tiBaseUrl)) {
         tiRequestCount++
         await tiRequestsGate
+        if (url.endsWith('/v1/health')) {
+            return Response.json({ collection: { restrictedMetadata: { enabled: true, running: false, lastError: 'Latest cycle failed.' } } })
+        }
+        if (url.endsWith('/v1/ops/resource-snapshot')) {
+            return Response.json({ pressure: {
+                automaticReview: { enabled: true, counts: { running: 1 } },
+                automaticEvaluation: { enabled: false, running: true },
+            } })
+        }
         return Response.json({})
     }
     throw new Error(`Unexpected fetch in cron registry test: ${url}`)
@@ -90,6 +99,9 @@ test('fast snapshots stay provisional while concurrent reads share the active re
         expect(firstJobs.find(job => job.id === 'api-user-account-deletion')).toMatchObject({ controls: ['resume', 'run_now'], controlMode: 'safe_control' })
         expect(firstJobs.find(job => job.id === 'api-cron-health-monitor')).toMatchObject({ controls: ['resume', 'run_now'], controlMode: 'safe_control' })
         expect(firstJobs.find(job => job.id === 'api-agent-automations')).toMatchObject({ controls: ['resume', 'run_now'], controlMode: 'safe_control' })
+        expect(firstJobs.find(job => job.id === 'ti-automatic-review')?.status).toBe('running')
+        expect(firstJobs.find(job => job.id === 'ti-automatic-evaluation')).toMatchObject({ enabled: false, running: true, status: 'paused' })
+        expect(firstJobs.find(job => job.id === 'ti-restricted-metadata-collection')?.status).toBe('failed')
         for (const [id, schedule, cadenceSeconds] of [
             ['api-log-ingest-access-detection', 'Every minute', 60],
             ['api-drop-rate-alert-refresh', 'Every 15 seconds', 15],

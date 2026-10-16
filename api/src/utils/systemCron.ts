@@ -772,6 +772,13 @@ async function vulnerabilityScannerJob(definition: typeof apiBackgroundJobDefini
     }
 }
 
+function tiLoopStatus(state: { available: boolean, enabled: boolean, running: boolean, failed?: boolean }): ScheduledJobStatus {
+    if (!state.available) return 'blocked'
+    if (!state.enabled) return 'paused'
+    if (state.running) return 'running'
+    return state.failed ? 'failed' : 'enabled'
+}
+
 async function listTiScheduledJobs(): Promise<UnifiedScheduledJob[]> {
     const base = tiBase()
     if (!base) return tiUnavailableJobs('TI_SCRAPER_API_BASE is not configured.')
@@ -834,7 +841,7 @@ export function tiAutomaticReviewJob(result: TiFetchResult, resourceUsage: Sched
         cadenceSeconds: 60,
         enabled,
         running,
-        status: !known ? 'blocked' : !enabled ? 'paused' : running ? 'running' : 'enabled',
+        status: tiLoopStatus({ available: known, enabled, running }),
         lastRunAt: null,
         lastSuccessAt: null,
         lastFinishedAt: null,
@@ -872,7 +879,7 @@ function tiAutomaticEvaluationJob(result: TiFetchResult, resourceUsage: Schedule
         cadenceSeconds: numberValue(pressure.intervalSeconds) ?? 60,
         enabled,
         running,
-        status: !result.ok ? 'blocked' : !enabled ? 'paused' : running ? 'running' : 'enabled',
+        status: tiLoopStatus({ available: result.ok, enabled, running }),
         lastRunAt: stringValue(pressure.lastCycleAt),
         lastSuccessAt: stringValue(pressure.lastSuccessAt),
         lastFinishedAt: stringValue(pressure.lastSuccessAt ?? pressure.lastErrorAt),
@@ -907,7 +914,7 @@ function tiRestrictedMetadataJob(result: TiFetchResult, resourceUsage: Scheduled
         cadenceSeconds,
         enabled,
         running,
-        status: !result.ok ? 'blocked' : !enabled ? 'paused' : running ? 'running' : lastError ? 'failed' : 'enabled',
+        status: tiLoopStatus({ available: result.ok, enabled, running, failed: Boolean(lastError) }),
         lastRunAt: stringValue(state.lastCycleAt),
         lastSuccessAt: stringValue(state.lastSuccessAt),
         lastFinishedAt: stringValue(state.lastSuccessAt ?? state.lastErrorAt),
@@ -1166,7 +1173,7 @@ function blockedTiJob(id: string, name: string, description: string, source: str
         lastError: resourceUsage.note,
         logExcerpt: resourceUsage.note,
         controls,
-        controlMode: controls.includes('run_now') && controls.length === 1 ? 'run_only' : controls.length ? 'safe_control' : 'observable_only',
+        controlMode: scheduledJobControlMode(controls),
         resourceUsage,
         costEstimate: costEstimate(null, 'TI backend unavailable; cost cannot be estimated from live service state.'),
         assumptions: ['Registry entry is present so this scheduled work remains discoverable even when the scraper API is down.'],

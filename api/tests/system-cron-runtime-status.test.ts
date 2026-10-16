@@ -2,6 +2,7 @@ import { expect, mock, test } from 'bun:test'
 
 const purgeJobId = 'api-user-account-deletion'
 let paused = false
+const runNowCalls: string[] = []
 
 mock.module('../src/utils/events/rawLogRetention.ts', () => ({ RAW_LOG_RETENTION_JOB_ID: 'api-raw-log-retention' }))
 mock.module('../src/utils/vms/collectMetrics.ts', () => ({ VM_METRICS_JOB_ID: 'api-vm-metrics' }))
@@ -9,7 +10,7 @@ mock.module('../src/utils/cron.ts', () => ({
     canRunApiCronJobNow: (id: string) => id === purgeJobId,
     HOST_UPDATE_MONITOR_JOB_ID: 'api-host-update-monitor',
     isApiCronJobPaused: async() => paused,
-    runApiCronJobNow: async() => undefined,
+    runApiCronJobNow: async(id: string) => { runNowCalls.push(id) },
     setApiCronJobPaused: async() => {},
 }))
 mock.module('../src/utils/organizationPrivacy.ts', () => ({ ORGANIZATION_RETENTION_JOB_ID: 'api-organization-retention' }))
@@ -37,7 +38,7 @@ mock.module('../src/utils/db/backups.ts', () => ({
 }))
 
 const { runTrackedBackgroundJob, getBackgroundJobRuntime } = await import('../src/utils/backgroundJobRuntime.ts')
-const { listUnifiedScheduledJobs } = await import('../src/utils/systemCron.ts')
+const { listUnifiedScheduledJobs, updateManagedCronJob } = await import('../src/utils/systemCron.ts')
 const { startLogProcessor } = await import('../src/utils/events/processor.ts')
 
 test('registry reports a failed rerun while retaining the last successful result', async() => {
@@ -72,6 +73,10 @@ test('registry reports a failed rerun while retaining the last successful result
         nextRunAt: null,
         controls: ['resume', 'run_now'],
     })
+
+    await updateManagedCronJob(purgeJobId, { action: 'run_now' })
+    await Promise.resolve()
+    expect(runNowCalls).toEqual([purgeJobId])
 })
 
 test('overlapping calls for one API job share a single tracked execution', async() => {
