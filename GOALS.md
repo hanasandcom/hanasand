@@ -353,3 +353,16 @@ repository scanner now finds 3,695 files / 322,934 lines and 125 files over
 with zero over-limit files. The 100,000-line API shrink and 10,000–30,000-line
 frontend goals remain unmet; keep measuring family totals and focus on
 verified duplicate removal.
+
+At API checkpoint `c8b138c94`, six webhook read models share a typed access
+capability mapper. The webhook production family falls by 19 lines (9,793 to
+9,774), while its focused visibility contract test grows by 46 lines; this is
+not a net repository LOC reduction. Kari's independent review found the
+permission keys, ordering, and boolean behavior unchanged. All 27 registered
+DWM tasks, scoped ESLint, and diff-check pass. The frontend cap scan still
+passes for 2,336 files / 156,018 lines with zero over 200. The repository scan
+now covers 3,706 hand-maintained files / 323,190 lines and reports 125 over
+cap, all outside the frontend. The current admin-support extraction is
+uncommitted and fails API typecheck; do not integrate it until the type errors
+and focused checks are resolved. The 100,000-line API reduction and
+10,000–30,000-line frontend targets remain unmet.
