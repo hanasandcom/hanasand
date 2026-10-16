@@ -8,13 +8,13 @@ const publicAddresses = [{ address: '93.184.215.14', family: 4 }]
 const resolver: MonitoringResolver = async () => publicAddresses
 const options = { followRedirects: true, timeoutMs: 500, readBody: true }
 type Send = NonNullable<Parameters<typeof publicMonitoringRequest>[3]>
-function mockSend(replies: { status?: number, location?: string, body?: string, hang?: boolean }[]) {
+function mockSend(replies: { status?: number, statusText?: string, location?: string, body?: string, hang?: boolean }[]) {
     const calls: { url: URL, options: RequestOptions }[] = []
     const send: Send = (url, requestOptions, callback) => {
         calls.push({ url, options: requestOptions })
         const reply = replies[calls.length - 1] || {}
         const request = new EventEmitter() as ReturnType<Send>
-        const response = Object.assign(new PassThrough(), { statusCode: reply.status || 200, headers: { location: reply.location } })
+        const response = Object.assign(new PassThrough(), { statusCode: reply.status || 200, statusMessage: reply.statusText, headers: { location: reply.location } })
         request.destroy = (error?: Error) => { if (error) request.emit('error', error); response.destroy(); return request }
         request.end = (() => {
             queueMicrotask(() => {
@@ -88,6 +88,13 @@ test('allows public relative and cross-host redirects and preserves Fetch POST r
     expect(calls.map(call => call.url.hostname)).toEqual(['example.com', 'example.com', 'other.example'])
 })
 
+test('returns final response metadata after redirects', async () => {
+    const { send } = mockSend([{ status: 302, location: '/final' }, { status: 204, statusText: 'No Content' }])
+    const response = await publicMonitoringRequest('http://example.com/start', options, resolver, send)
+
+    expect(response).toMatchObject({ status: 204, statusText: 'No Content', ok: true, url: 'http://example.com/final' })
+})
+
 test('manual redirects do not connect to the Location target', async () => {
     const { send, calls } = mockSend([{ status: 302, location: 'http://10.0.0.1/' }])
     expect((await publicMonitoringRequest('http://example.com', { ...options, followRedirects: false }, resolver, send)).status).toBe(302)
@@ -108,6 +115,17 @@ test('deadline covers DNS and response body', async () => {
     expect(slow.calls).toHaveLength(0)
     const body = mockSend([{ hang: true }])
     await expect(publicMonitoringRequest('http://example.com', { ...options, timeoutMs: 20 }, resolver, body.send)).rejects.toThrow('timed out')
+})
+
+test('external cancellation aborts an in-flight request', async () => {
+    const controller = new AbortController()
+    const { send, calls } = mockSend([{ hang: true }])
+    const pending = publicMonitoringRequest('http://example.com', { ...options, signal: controller.signal }, resolver, send)
+    await new Promise(resolve => setTimeout(resolve, 0))
+    controller.abort()
+
+    await expect(pending).rejects.toMatchObject({ name: 'AbortError' })
+    expect(calls[0]?.options.signal?.aborted).toBe(true)
 })
 
 test('Bun native transport uses the supplied pinned lookup and retains Host', async () => {

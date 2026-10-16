@@ -2,6 +2,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify'
 import run from '#db'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import { recordAiUsageEvent } from '#utils/ai/usage.ts'
+import { publicMonitoringRequest } from '#utils/publicMonitoringRequest.ts'
 import { extractBrowserPageContent } from './browserTaskAnalysis.ts'
 import { reviewDesignQuality } from './verificationJobAnalysis.ts'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
@@ -62,7 +63,7 @@ type VerificationUsageDetails = Pick<
 
 let activeJobs = 0
 let pumpScheduled = false
-const activeFetchControllers = new Map<string, AbortController>()
+const activeJobControllers = new Map<string, AbortController>()
 
 export async function postVerificationJob(req: FastifyRequest, res: FastifyReply) {
     const auth = await tokenWrapper(req, res)
@@ -185,7 +186,7 @@ export async function cancelVerificationJob(req: FastifyRequest, res: FastifyRep
         RETURNING *
     `, [id, auth.id])
     if (result.rows[0]) {
-        activeFetchControllers.get(id)?.abort()
+        activeJobControllers.get(id)?.abort()
     }
     await updateQueuePositions()
     const job = result.rows[0] || await getJobForOwner(id, auth.id)
@@ -237,11 +238,13 @@ async function pumpQueue() {
 }
 
 async function runJob(job: VerificationJobRow) {
+    const controller = new AbortController()
+    activeJobControllers.set(job.id, controller)
     try {
         if (job.kind === 'browser') {
-            await runBrowserJob(job)
+            await runBrowserJob(job, controller.signal)
         } else if (job.kind === 'design') {
-            await runDesignJob(job)
+            await runDesignJob(job, controller.signal)
         } else {
             await completeNonBrowserJob(job)
         }
@@ -276,12 +279,19 @@ async function runJob(job: VerificationJobRow) {
             WHERE id = $1
               AND status = 'running'
         `, [job.id, message])
+    } finally {
+        if (activeJobControllers.get(job.id) === controller) activeJobControllers.delete(job.id)
     }
 }
 
 type FetchedVerificationTarget = {
     url: string
-    response: Response
+    response: {
+        ok: boolean
+        status: number
+        statusText: string
+        url: string
+    }
     text: string
     startedAtMs: number
 }
@@ -290,44 +300,38 @@ async function fetchVerificationTarget(job: VerificationJobRow, {
     fetchingStep,
     processingStep,
     userAgent,
+    signal,
 }: {
     fetchingStep: string
     processingStep: string
     userAgent: string
+    signal: AbortSignal
 }): Promise<FetchedVerificationTarget | null> {
     if (!job.target_url) {
         throw new Error('Missing target URL.')
     }
     const url = job.target_url
-    const controller = new AbortController()
-    activeFetchControllers.set(job.id, controller)
-    let timeout: ReturnType<typeof setTimeout> | undefined
-    try {
-        const current = await getJob(job.id)
-        if (current?.status === 'cancelled' || controller.signal.aborted) {
-            return null
-        }
-        await updateStep(job.id, fetchingStep)
-        const startedAtMs = performance.now()
-        const metadata = job.metadata || {}
-        const timeoutMs = Math.max(1000, Math.min(Number(metadata.timeoutMs || 16000), 30000))
-        timeout = setTimeout(() => controller.abort(), timeoutMs)
-        const response = await fetch(url, {
-            headers: {
-                Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,text/plain;q=0.8,*/*;q=0.5',
-                'User-Agent': userAgent,
-            },
-            signal: controller.signal,
-        })
-        await updateStep(job.id, processingStep)
-        const text = await response.text()
-        return { url, response, text, startedAtMs }
-    } finally {
-        if (timeout) clearTimeout(timeout)
-        if (activeFetchControllers.get(job.id) === controller) {
-            activeFetchControllers.delete(job.id)
-        }
+    const current = await getJob(job.id)
+    if (current?.status === 'cancelled' || signal.aborted) {
+        return null
     }
+    await updateStep(job.id, fetchingStep)
+    const startedAtMs = performance.now()
+    const metadata = job.metadata || {}
+    const timeoutMs = Math.max(1000, Math.min(Number(metadata.timeoutMs || 16000), 30000))
+    const response = await publicMonitoringRequest(url, {
+        headers: {
+            Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,text/plain;q=0.8,*/*;q=0.5',
+        },
+        userAgent,
+        followRedirects: true,
+        readBody: true,
+        timeoutMs,
+        signal,
+    })
+    if (signal.aborted) return null
+    await updateStep(job.id, processingStep)
+    return { url, response, text: response.body, startedAtMs }
 }
 
 async function completeJobWithArtifact(job: VerificationJobRow, {
@@ -385,19 +389,20 @@ async function completeProofJob(job: VerificationJobRow, {
     })
 }
 
-async function runBrowserJob(job: VerificationJobRow) {
+async function runBrowserJob(job: VerificationJobRow, signal: AbortSignal) {
     const target = await fetchVerificationTarget(job, {
         fetchingStep: 'Fetching browser target',
         processingStep: 'Extracting evidence',
         userAgent: 'HanasandAI-VerificationJob/1.0',
+        signal,
     })
     if (!target) return
     const { url, response, text, startedAtMs } = target
     const metadata = job.metadata || {}
     const screenshots = metadata.captureScreenshot
-        ? await captureRenderedScreenshots(url, job.id)
+        ? await captureRenderedScreenshots(url, job.id, signal)
         : []
-    const journeyProof = await captureRenderedJourneyProof(url, job.id)
+    const journeyProof = await captureRenderedJourneyProof(url, job.id, signal)
     const pageContent = extractBrowserPageContent(text)
     const artifact = createArtifact('browser_result', 'Browser evidence', {
         ok: response.ok,
@@ -410,7 +415,7 @@ async function runBrowserJob(job: VerificationJobRow) {
         screenshots,
         journeyProof,
         consoleMessages: [
-            'Fetched browser target and captured durable rendered viewport evidence.',
+            'Fetched browser target and captured structured page evidence.',
             screenshots.length ? `${screenshots.length} rendered screenshot artifact${screenshots.length === 1 ? '' : 's'} captured.` : 'Rendered screenshot capture was not requested or did not complete.',
             journeyProof ? 'Rendered non-destructive journey script completed.' : 'Rendered journey script did not complete.',
         ],
@@ -433,19 +438,20 @@ async function runBrowserJob(job: VerificationJobRow) {
     })
 }
 
-async function runDesignJob(job: VerificationJobRow) {
+async function runDesignJob(job: VerificationJobRow, signal: AbortSignal) {
     const target = await fetchVerificationTarget(job, {
         fetchingStep: 'Fetching design target',
         processingStep: 'Scoring design quality',
         userAgent: 'HanasandAI-DesignQualityJob/1.0',
+        signal,
     })
     if (!target) return
     const { url, response, text, startedAtMs } = target
     const pageContent = extractBrowserPageContent(text)
     const { structure, textExcerpt: excerpt } = pageContent
     const review = reviewDesignQuality(text, excerpt, structure)
-    const screenshots = await captureRenderedScreenshots(url, job.id)
-    const journeyProof = await captureRenderedJourneyProof(url, job.id)
+    const screenshots = await captureRenderedScreenshots(url, job.id, signal)
+    const journeyProof = await captureRenderedJourneyProof(url, job.id, signal)
     const hasRenderedProof = screenshots.length > 0
     const passed = response.ok && review.score >= 72 && review.criticalIssues.length === 0
     const artifact = createArtifact('design_quality_report', 'Design quality report', {
@@ -498,14 +504,16 @@ type ScreenshotViewport = {
     height: number
 }
 
-async function captureRenderedScreenshots(url: string, jobId: string) {
+async function captureRenderedScreenshots(url: string, jobId: string, signal: AbortSignal) {
+    if (process.env.NODE_ENV === 'production') return []
     const viewports: ScreenshotViewport[] = [
         { label: 'mobile', width: 390, height: 844 },
         { label: 'desktop', width: 1440, height: 1000 },
     ]
     const results = []
     for (const viewport of viewports) {
-        const result = await captureRenderedScreenshot(url, jobId, viewport)
+        signal.throwIfAborted()
+        const result = await captureRenderedScreenshot(url, jobId, viewport, signal)
         if (result) {
             results.push(result)
         }
@@ -513,7 +521,8 @@ async function captureRenderedScreenshots(url: string, jobId: string) {
     return results
 }
 
-async function captureRenderedScreenshot(url: string, jobId: string, viewport: ScreenshotViewport) {
+async function captureRenderedScreenshot(url: string, jobId: string, viewport: ScreenshotViewport, signal: AbortSignal) {
+    signal.throwIfAborted()
     const dir = await mkdtemp(path.join(tmpdir(), 'hanasand-ai-proof-'))
     const screenshotPath = path.join(dir, `${jobId}-${viewport.label}.png`)
     try {
@@ -525,7 +534,8 @@ async function captureRenderedScreenshot(url: string, jobId: string, viewport: S
             `--window-size=${viewport.width},${viewport.height}`,
             `--screenshot=${screenshotPath}`,
             url,
-        ], 18000)
+        ], 18000, signal)
+        signal.throwIfAborted()
         const bytes = await readFile(screenshotPath)
         return {
             viewport: viewport.label,
@@ -537,58 +547,71 @@ async function captureRenderedScreenshot(url: string, jobId: string, viewport: S
             dataUrl: `data:image/png;base64,${bytes.toString('base64')}`,
         }
     } catch {
+        if (signal.aborted) throw abortReason(signal)
         return null
     } finally {
         await rm(dir, { recursive: true, force: true }).catch(() => {})
     }
 }
 
-async function runChromium(args: string[], timeoutMs: number) {
+async function runChromium(args: string[], timeoutMs: number, signal: AbortSignal) {
+    signal.throwIfAborted()
     await new Promise<void>((resolve, reject) => {
         const child = spawn(CHROMIUM_BIN, args, { stdio: ['ignore', 'ignore', 'pipe'] })
         let stderr = ''
-        const timeout = setTimeout(() => {
+        let settled = false
+        const finish = (error?: Error) => {
+            if (settled) return
+            settled = true
+            clearTimeout(timeout)
+            signal.removeEventListener('abort', onAbort)
+            if (error) reject(error)
+            else resolve()
+        }
+        const stop = (error: Error) => {
             child.kill('SIGKILL')
-            reject(new Error('Chromium screenshot timed out.'))
-        }, timeoutMs)
+            finish(error)
+        }
+        const onAbort = () => stop(abortReason(signal))
+        const timeout = setTimeout(() => stop(new Error('Chromium screenshot timed out.')), timeoutMs)
         child.stderr.on('data', (chunk) => {
             stderr += String(chunk).slice(0, 4000)
         })
-        child.on('error', (error) => {
-            clearTimeout(timeout)
-            reject(error)
-        })
+        child.on('error', (error) => finish(error))
         child.on('close', (code) => {
-            clearTimeout(timeout)
             if (code === 0) {
-                resolve()
+                finish()
             } else {
-                reject(new Error(stderr || `Chromium exited with ${code}.`))
+                finish(new Error(stderr || `Chromium exited with ${code}.`))
             }
         })
+        signal.addEventListener('abort', onAbort, { once: true })
+        if (signal.aborted) onAbort()
     })
 }
 
-async function captureRenderedJourneyProof(url: string, jobId: string) {
+async function captureRenderedJourneyProof(url: string, jobId: string, signal: AbortSignal) {
+    if (process.env.NODE_ENV === 'production') return null
+    signal.throwIfAborted()
     const dir = await mkdtemp(path.join(tmpdir(), 'hanasand-ai-journey-'))
     let child: ReturnType<typeof spawn> | null = null
     try {
-        const browser = await startDebugChromium(dir)
+        const browser = await startDebugChromium(dir, signal)
         child = browser.child
-        const page = await openDebugPage(browser.port, url)
+        const page = await openDebugPage(browser.port, url, signal)
         if (!page?.webSocketDebuggerUrl) {
             return null
         }
-        const client = await createCdpClient(page.webSocketDebuggerUrl)
+        const client = await withAbort(createCdpClient(page.webSocketDebuggerUrl), signal)
         try {
-            await client.send('Page.enable')
-            await client.send('Runtime.enable')
-            await waitForPageReady(client, url)
-            const evaluation = await client.send('Runtime.evaluate', {
+            await withAbort(client.send('Page.enable'), signal)
+            await withAbort(client.send('Runtime.enable'), signal)
+            await waitForPageReady(client, url, signal)
+            const evaluation = await withAbort(client.send('Runtime.evaluate', {
                 expression: `(${nonDestructiveJourneyScript.toString()})()`,
                 awaitPromise: true,
                 returnByValue: true,
-            })
+            }), signal)
             const value = ((evaluation.result || {}) as { value?: unknown }).value
             if (!value || typeof value !== 'object') {
                 return null
@@ -604,6 +627,7 @@ async function captureRenderedJourneyProof(url: string, jobId: string) {
             client.close()
         }
     } catch {
+        if (signal.aborted) throw abortReason(signal)
         return null
     } finally {
         if (child) {
@@ -613,7 +637,8 @@ async function captureRenderedJourneyProof(url: string, jobId: string) {
     }
 }
 
-async function startDebugChromium(userDataDir: string) {
+async function startDebugChromium(userDataDir: string, signal: AbortSignal) {
+    signal.throwIfAborted()
     const child = spawn(CHROMIUM_BIN, [
         '--headless=new',
         '--no-sandbox',
@@ -627,23 +652,32 @@ async function startDebugChromium(userDataDir: string) {
     let endpoint: { port: number }
     try {
         endpoint = await new Promise<{ port: number }>((resolve, reject) => {
-            const timeout = setTimeout(() => reject(new Error('Chromium debug startup timed out.')), 9000)
+            let settled = false
+            const finish = (error?: Error, port?: number) => {
+                if (settled) return
+                settled = true
+                clearTimeout(timeout)
+                signal.removeEventListener('abort', onAbort)
+                if (error) reject(error)
+                else resolve({ port: port! })
+            }
+            const onAbort = () => finish(abortReason(signal))
+            const timeout = setTimeout(() => finish(new Error('Chromium debug startup timed out.')), 9000)
             child.stderr.on('data', (chunk) => {
                 stderr += String(chunk)
                 const match = stderr.match(/DevTools listening on ws:\/\/127\.0\.0\.1:(\d+)\//)
                 if (match?.[1]) {
-                    clearTimeout(timeout)
-                    resolve({ port: Number(match[1]) })
+                    finish(undefined, Number(match[1]))
                 }
             })
             child.on('error', (error) => {
-                clearTimeout(timeout)
-                reject(error)
+                finish(error)
             })
             child.on('exit', (code) => {
-                clearTimeout(timeout)
-                reject(new Error(`Chromium debug process exited early with ${code}.`))
+                finish(new Error(`Chromium debug process exited early with ${code}.`))
             })
+            signal.addEventListener('abort', onAbort, { once: true })
+            if (signal.aborted) onAbort()
         })
     } catch (error) {
         child.kill('SIGKILL')
@@ -652,8 +686,8 @@ async function startDebugChromium(userDataDir: string) {
     return { child, port: endpoint.port }
 }
 
-async function openDebugPage(port: number, url: string) {
-    const response = await fetch(`http://127.0.0.1:${port}/json/new?${encodeURIComponent(url)}`, { method: 'PUT' })
+async function openDebugPage(port: number, url: string, signal: AbortSignal) {
+    const response = await fetch(`http://127.0.0.1:${port}/json/new?${encodeURIComponent(url)}`, { method: 'PUT', signal })
     if (!response.ok) {
         return null
     }
@@ -714,18 +748,42 @@ async function createCdpClient(url: string): Promise<CdpClient> {
     }
 }
 
-async function waitForPageReady(client: CdpClient, url: string) {
-    await client.send('Page.navigate', { url })
+async function waitForPageReady(client: CdpClient, url: string, signal: AbortSignal) {
+    await withAbort(client.send('Page.navigate', { url }), signal)
     for (let index = 0; index < 24; index += 1) {
+        signal.throwIfAborted()
         await sleep(500)
-        const state = await client.send('Runtime.evaluate', {
+        const state = await withAbort(client.send('Runtime.evaluate', {
             expression: 'document.readyState',
             returnByValue: true,
-        })
+        }), signal)
         if ((state?.result as { value?: unknown } | undefined)?.value === 'complete') {
             return
         }
     }
+}
+
+function abortReason(signal: AbortSignal) {
+    return signal.reason instanceof Error ? signal.reason : new DOMException('Verification job cancelled.', 'AbortError')
+}
+
+function withAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+    if (signal.aborted) return Promise.reject(abortReason(signal))
+    return new Promise((resolve, reject) => {
+        const cleanup = () => signal.removeEventListener('abort', onAbort)
+        const onAbort = () => {
+            cleanup()
+            reject(abortReason(signal))
+        }
+        signal.addEventListener('abort', onAbort, { once: true })
+        promise.then(value => {
+            cleanup()
+            resolve(value)
+        }, error => {
+            cleanup()
+            reject(error)
+        })
+    })
 }
 
 function nonDestructiveJourneyScript() {
@@ -958,7 +1016,9 @@ function validateHttpUrl(url: string) {
     }
     try {
         const target = new URL(url)
-        return ['http:', 'https:'].includes(target.protocol) ? null : 'Only http and https verification targets are supported.'
+        if (!['http:', 'https:'].includes(target.protocol)) return 'Only http and https verification targets are supported.'
+        if (target.username || target.password) return 'Verification targets cannot include embedded credentials.'
+        return null
     } catch {
         return 'Invalid targetUrl.'
     }

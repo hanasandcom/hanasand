@@ -1,13 +1,16 @@
 import { EventEmitter } from 'node:events'
-import { afterEach, beforeEach, expect, mock, test } from 'bun:test'
+import { beforeEach, expect, mock, test } from 'bun:test'
 
 type Job = Record<string, any>
 const jobs = new Map<string, Job>()
 const calls: Array<{ sql: string, params: unknown[] }> = []
 const usageEvents: Array<Record<string, any>> = []
-const fetchCalls: Array<{ url: string, signal?: AbortSignal, userAgent?: string }> = []
+const fetchCalls: Array<{ url: string, signal?: AbortSignal, userAgent?: string, accept?: string, followRedirects?: boolean, readBody?: boolean, timeoutMs?: number }> = []
 const terminalAttempts: string[] = []
 const chromiumKillSignals: string[] = []
+let chromiumSpawnCount = 0
+let failChromiumStartup = true
+let onChromiumSpawn: (() => void) | null = null
 let nextFetchError: Error | null = null
 let nextFetchStatus = 200
 let cancelOnWorkerRead = false
@@ -15,7 +18,7 @@ let loseTerminalTransition = false
 let existingErrorOnClaim: string | null = null
 let holdFetch = false
 let onFetchStarted: (() => void) | null = null
-let releaseFetch: ((response: Response) => void) | null = null
+let releaseFetch: ((response: { status: number, statusText: string, ok: boolean, url: string, body: string }) => void) | null = null
 let rejectFetch: ((error: Error) => void) | null = null
 const workerStatusReads: string[] = []
 
@@ -103,19 +106,59 @@ const query = async (sql: string, params: unknown[] = []) => {
 mock.module('#db', () => ({ default: query }))
 mock.module('../src/utils/auth/tokenWrapper.ts', () => ({ default: async () => ({ valid: true, id: 'owner' }) }))
 mock.module('../src/utils/ai/usage.ts', () => ({ recordAiUsageEvent: async (event: Record<string, any>) => { usageEvents.push(event) } }))
+mock.module('#utils/publicMonitoringRequest.ts', () => ({
+    publicMonitoringRequest: async (input: string | URL, options: {
+        headers?: Record<string, string>
+        userAgent?: string
+        followRedirects: boolean
+        readBody?: boolean
+        timeoutMs: number
+        signal?: AbortSignal
+    }) => {
+        fetchCalls.push({
+            url: String(input),
+            signal: options.signal,
+            userAgent: options.userAgent,
+            accept: options.headers?.Accept,
+            followRedirects: options.followRedirects,
+            readBody: options.readBody,
+            timeoutMs: options.timeoutMs,
+        })
+        if (nextFetchError) throw nextFetchError
+        if (holdFetch) {
+            onFetchStarted?.()
+            return await new Promise((resolve, reject) => {
+                releaseFetch = resolve
+                rejectFetch = reject
+            })
+        }
+        return {
+            status: nextFetchStatus,
+            statusText: nextFetchStatus === 503 ? 'Service Unavailable' : '',
+            ok: nextFetchStatus >= 200 && nextFetchStatus < 300,
+            url: String(input),
+            body: page,
+        }
+    },
+}))
 mock.module('node:child_process', () => ({
     spawn: () => {
+        chromiumSpawnCount += 1
         const child = Object.assign(new EventEmitter(), {
             stderr: new EventEmitter(),
-            kill: (signal: string) => { chromiumKillSignals.push(signal); return true },
+            kill: (signal: string) => {
+                chromiumKillSignals.push(signal)
+                queueMicrotask(() => child.emit('close', null))
+                return true
+            },
         })
-        queueMicrotask(() => child.emit('error', new Error('Chromium is unavailable.')))
+        onChromiumSpawn?.()
+        if (failChromiumStartup) queueMicrotask(() => child.emit('error', new Error('Chromium is unavailable.')))
         return child
     },
 }))
 
 const { cancelVerificationJob, postVerificationJob } = await import('../src/handlers/tools/verificationJobs.ts')
-const actualFetch = globalThis.fetch
 const page = '<title>Studio</title><meta name="viewport"><h1>Studio</h1><h2>Booking</h2><style>:root { --brand: navy } @media (max-width: 700px) { .layout { flex-wrap: wrap } }</style><img src="/studio.jpg"><p>A studio for booking and client projects. Our team handles each location and service with care.</p>'
 
 beforeEach(() => {
@@ -125,6 +168,9 @@ beforeEach(() => {
     fetchCalls.length = 0
     terminalAttempts.length = 0
     chromiumKillSignals.length = 0
+    chromiumSpawnCount = 0
+    failChromiumStartup = true
+    onChromiumSpawn = null
     workerStatusReads.length = 0
     nextFetchError = null
     nextFetchStatus = 200
@@ -135,28 +181,7 @@ beforeEach(() => {
     onFetchStarted = null
     releaseFetch = null
     rejectFetch = null
-    globalThis.fetch = mock(async (input, init) => {
-        fetchCalls.push({
-            url: String(input),
-            signal: init?.signal as AbortSignal | undefined,
-            userAgent: new Headers(init?.headers).get('User-Agent') || undefined,
-        })
-        if (nextFetchError) throw nextFetchError
-        if (holdFetch) {
-            onFetchStarted?.()
-            return await new Promise<Response>((resolve, reject) => {
-                releaseFetch = resolve
-                rejectFetch = reject
-            })
-        }
-        return new Response(page, {
-            status: nextFetchStatus,
-            statusText: nextFetchStatus === 503 ? 'Service Unavailable' : '',
-        })
-    }) as typeof fetch
 })
-
-afterEach(() => { globalThis.fetch = actualFetch })
 
 function reply() {
     return {
@@ -167,11 +192,11 @@ function reply() {
     }
 }
 
-async function enqueue(kind: 'browser' | 'build' | 'design', maxRetries = 1) {
+async function enqueue(kind: 'browser' | 'build' | 'design', maxRetries = 1, extra: Record<string, unknown> = {}) {
     const response = reply()
     await postVerificationJob({
         headers: { 'x-request-id': `${kind}-request` },
-        body: { kind, targetUrl: 'https://example.test/proof', maxRetries },
+        body: { kind, targetUrl: 'https://example.test/proof', maxRetries, ...extra },
     } as any, response as any)
     expect(response.statusCode).toBe(202)
     return String(response.body.job.id)
@@ -212,6 +237,15 @@ test('invalid retry and timeout inputs use their bounded defaults', async () => 
     expect(JSON.parse(String(insert?.params[11]))).toMatchObject({ timeoutMs: 16000 })
 })
 
+test('verification targets reject embedded credentials before enqueueing', async () => {
+    const response = reply()
+    await postVerificationJob({ headers: {}, body: { kind: 'browser', targetUrl: 'https://user:pass@example.test/proof' } } as any, response as any)
+
+    expect(response.statusCode).toBe(400)
+    expect(response.body.error).toBe('Verification targets cannot include embedded credentials.')
+    expect(calls.some(call => call.sql.includes('INSERT INTO ai_verification_jobs'))).toBe(false)
+})
+
 test('browser and design jobs retain their distinct fetch steps, headers, and proof output', async () => {
     const browserId = await enqueue('browser')
     const browser = await waitForJob(browserId)
@@ -229,6 +263,8 @@ test('browser and design jobs retain their distinct fetch steps, headers, and pr
         ['https://example.test/proof', 'HanasandAI-DesignQualityJob/1.0'],
     ])
     expect(fetchCalls.every(call => call.signal instanceof AbortSignal)).toBe(true)
+    expect(fetchCalls.every(call => call.followRedirects && call.readBody && call.accept?.startsWith('text/html'))).toBe(true)
+    expect(fetchCalls.every(call => call.timeoutMs === 16000)).toBe(true)
     expect(calls.filter(call => call.sql.includes('SET current_step = $2')).map(call => call.params[1])).toEqual([
         'Fetching browser target', 'Extracting evidence', 'Fetching design target', 'Scoring design quality',
     ])
@@ -303,14 +339,12 @@ test('non-success HTTP responses store failed proof and zero-billable usage', as
     ])
 })
 
-test('target request failures clear the timeout and retain the job failure path', async () => {
+test('target request failures retain the job failure path', async () => {
     nextFetchError = new Error('Target unavailable.')
     const id = await enqueue('browser', 0)
     const job = await waitForJob(id)
-    await new Promise(resolve => setTimeout(resolve, 1050))
-
     expect(job).toMatchObject({ status: 'failed', current_step: 'Failed', error: 'Target unavailable.' })
-    expect(fetchCalls[0]?.signal?.aborted).toBe(false)
+    expect(fetchCalls[0]?.timeoutMs).toBe(16000)
     expect(usageEvents).toEqual([])
 })
 
@@ -332,6 +366,46 @@ test('Chromium debug startup failures kill the spawned process', async () => {
     expect(chromiumKillSignals).toEqual(['SIGKILL'])
 })
 
+test('production verification never spawns an in-process Chromium renderer', async () => {
+    const previousNodeEnv = process.env.NODE_ENV
+    process.env.NODE_ENV = 'production'
+    try {
+        const id = await enqueue('browser', 0, { captureScreenshot: true })
+        const job = await waitForJob(id)
+
+        expect(job.status).toBe('completed')
+        expect(job.artifacts[0].data.screenshots).toEqual([])
+        expect(job.artifacts[0].data.journeyProof).toBeNull()
+        expect(chromiumSpawnCount).toBe(0)
+    } finally {
+        if (previousNodeEnv === undefined) delete process.env.NODE_ENV
+        else process.env.NODE_ENV = previousNodeEnv
+    }
+})
+
+test('cancelling while a screenshot runs kills Chromium and skips later render steps', async () => {
+    failChromiumStartup = false
+    let markChromiumStarted!: () => void
+    const chromiumStarted = new Promise<void>(resolve => { markChromiumStarted = resolve })
+    onChromiumSpawn = markChromiumStarted
+
+    const id = await enqueue('browser', 0, { captureScreenshot: true })
+    await chromiumStarted
+    expect(chromiumSpawnCount).toBe(1)
+
+    const response = reply()
+    await cancelVerificationJob({ headers: {}, params: { id } } as any, response as any)
+    for (let attempt = 0; attempt < 200 && workerStatusReads.length < 2; attempt += 1) {
+        await new Promise(resolve => setTimeout(resolve, 5))
+    }
+
+    expect(response.body.job.status).toBe('cancelled')
+    expect(chromiumKillSignals).toEqual(['SIGKILL'])
+    expect(chromiumSpawnCount).toBe(1)
+    expect(jobs.get(id)).toMatchObject({ status: 'cancelled', artifacts: [] })
+    expect(usageEvents.filter(event => event.metadata.jobId === id)).toEqual([])
+})
+
 test('jobs cancelled before target fetch do not make the request', async () => {
     cancelOnWorkerRead = true
     const id = await enqueue('browser')
@@ -341,7 +415,7 @@ test('jobs cancelled before target fetch do not make the request', async () => {
     expect(usageEvents).toEqual([])
 })
 
-test('cancelling a job during its held fetch keeps the cancellation and skips usage', async () => {
+test('cancelling a job during its held fetch keeps the cancellation without terminal writes or usage', async () => {
     holdFetch = true
     let markFetchStarted!: () => void
     const fetchStarted = new Promise<void>(resolve => { markFetchStarted = resolve })
@@ -357,12 +431,10 @@ test('cancelling a job during its held fetch keeps the cancellation and skips us
     expect(response.body.job.status).toBe('cancelled')
     expect(fetchCalls[0]?.signal?.aborted).toBe(true)
 
-    releaseFetch?.(new Response(page, { status: 200 }))
-    for (let attempt = 0; attempt < 200 && !terminalAttempts.includes(id); attempt += 1) {
-        await new Promise(resolve => setTimeout(resolve, 5))
-    }
+    releaseFetch?.({ status: 200, statusText: '', ok: true, url: 'https://example.test/proof', body: page })
+    await new Promise(resolve => setTimeout(resolve, 10))
 
-    expect(terminalAttempts).toContain(id)
+    expect(terminalAttempts).not.toContain(id)
     expect(jobs.get(id)).toMatchObject({ status: 'cancelled', current_step: 'Cancelled', artifacts: [] })
     expect(jobs.get(id)?.completed_at).toBe(jobs.get(id)?.cancelled_at)
     expect(usageEvents.filter(event => event.metadata.jobId === id)).toEqual([])

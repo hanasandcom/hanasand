@@ -58,9 +58,11 @@ export function monitoringLookup(addresses: Address[]): LookupFunction {
 type MonitoringRequestOptions = {
     method?: 'GET' | 'POST'
     userAgent?: string | null
+    headers?: Record<string, string>
     followRedirects: boolean
     timeoutMs: number
     readBody?: boolean
+    signal?: AbortSignal
 }
 type Transport = (url: URL, options: RequestOptions, callback: (response: IncomingMessage) => void) => ReturnType<typeof httpRequest>
 const transport: Transport = (url, options, callback) => (url.protocol === 'https:' ? httpsRequest : httpRequest)(url, options, callback)
@@ -68,21 +70,30 @@ const transport: Transport = (url, options, callback) => (url.protocol === 'http
 export async function publicMonitoringRequest(value: string | URL, options: MonitoringRequestOptions, resolver: MonitoringResolver = lookup, send: Transport = transport) {
     let url = monitoringUrl(value)
     const controller = new AbortController()
+    const externalSignal = options.signal
+    const forwardAbort = () => controller.abort(externalSignal?.reason)
+    if (externalSignal?.aborted) forwardAbort()
+    else externalSignal?.addEventListener('abort', forwardAbort, { once: true })
     const timer = setTimeout(() => controller.abort(new DOMException('Monitoring request timed out.', 'TimeoutError')), options.timeoutMs)
     const { signal } = controller
     let method = options.method || 'GET'
     try {
         for (let redirects = 0; ; redirects++) {
             const addresses = await resolveMonitoringAddresses(url.hostname, signal, resolver)
-            const result = await new Promise<{ status: number, location?: string, body: string }>((resolve, reject) => {
+            const result = await new Promise<{ status: number, statusText: string, location?: string, body: string }>((resolve, reject) => {
+                const headers = {
+                    ...options.headers,
+                    ...(options.userAgent ? { 'user-agent': options.userAgent } : {}),
+                }
                 const request = send(url, {
                     method, agent: false, lookup: monitoringLookup(addresses), signal,
-                    headers: options.userAgent ? { 'user-agent': options.userAgent } : undefined,
+                    headers: Object.keys(headers).length ? headers : undefined,
                 }, response => {
                     const status = response.statusCode || 0
+                    const statusText = response.statusMessage || ''
                     const location = response.headers.location
                     if (!options.readBody || options.followRedirects && location && [301, 302, 303, 307, 308].includes(status)) {
-                        resolve({ status, location, body: '' })
+                        resolve({ status, statusText, location, body: '' })
                         response.destroy()
                         return
                     }
@@ -99,17 +110,20 @@ export async function publicMonitoringRequest(value: string | URL, options: Moni
                     })
                     response.once('error', reject)
                     response.once('aborted', () => reject(new Error('Monitoring response ended before the body was complete.')))
-                    response.once('end', () => resolve({ status, location, body: Buffer.concat(chunks).toString('utf8') }))
+                    response.once('end', () => resolve({ status, statusText, location, body: Buffer.concat(chunks).toString('utf8') }))
                 })
                 request.once('error', error => reject(signal.aborted ? signal.reason : error))
                 request.end()
             })
-            if (!options.followRedirects || !result.location || ![301, 302, 303, 307, 308].includes(result.status)) return result
+            if (!options.followRedirects || !result.location || ![301, 302, 303, 307, 308].includes(result.status)) {
+                return { ...result, ok: result.status >= 200 && result.status < 300, url: url.href }
+            }
             if (redirects >= 10) throw new Error('Monitoring source exceeded the redirect limit.')
             url = monitoringUrl(new URL(result.location, url))
             if (result.status === 303 || method === 'POST' && [301, 302].includes(result.status)) method = 'GET'
         }
     } finally {
         clearTimeout(timer)
+        externalSignal?.removeEventListener('abort', forwardAbort)
     }
 }
