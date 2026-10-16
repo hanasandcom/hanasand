@@ -1,71 +1,14 @@
 'use client'
 
-import NetworkTable, { type NetworkRequestRow } from './NetworkTable'
-import ReportExport from './ReportExport'
-import SiteNetworkDetails, { type SiteNetwork } from '../SiteNetworkDetails'
+import SiteNetworkDetails from '../SiteNetworkDetails'
 import Link from 'next/link'
-import { type RunMetrics } from '../BrowserRunMetrics'
-import ReportStatistics from './ReportStatistics'
 import BrowserDebug from '../BrowserDebug'
 import BrowserHistory from '../BrowserHistory'
 import { hasSuspiciousFindings, reportMarkdown } from './presentation'
 import { useEffect, useMemo, useState } from 'react'
-
-
-
-type BrowserReport = {
-    siteNetwork?: SiteNetwork
-    runId?: string
-    runs?: Array<{ id: string; startedAt: string; status: string }>
-    target?: string
-    finalUrl?: string
-    exportedAt?: string
-    consoleEvents?: string[]
-    providerConsoleEvents?: string[]
-    status?: { metrics?: RunMetrics; run?: string; connection?: string; capacity?: { activeSessions?: number; maxSessions?: number; queuedSessions?: number; queuePosition?: number } }
-    captures?: Array<{
-        kind?: string
-        label?: string
-        url?: string
-        title?: string
-        capturedAt?: string
-        reason?: string
-        image?: string | null
-        networkSummary?: { recentRequests?: NetworkRequestRow[] }
-        frameQuality?: { looksBlank?: boolean; visibleTextLength?: number; elementCount?: number }
-        evidence?: { verdict?: string; sourceUrls?: string[]; textExcerpt?: string; sourceCode?: string }
-    }>
-    analystSummary?: {
-        narrative?: string
-        indicators?: string[]
-        threatAssociations?: Array<{ name?: string; category?: string; confidence?: string; evidence?: string; source?: string }>
-        urlTimeline?: Array<{ url?: string; capturedAt?: string; reason?: string; title?: string }>
-    }
-    analystReport?: {
-        verdict?: string
-        evidenceChecklist?: Record<string, number>
-        providerReports?: Array<{ tool?: string; status?: string; verdict?: string; url?: string; vendorFlagged?: number; vendorTotal?: number; alertCount?: number; communityCommentCount?: number; communityComments?: string[]; communitySummary?: string; screenshotCaptured?: boolean; deobfuscatedCode?: string; signals?: string[]; threatAssociations?: Array<{ name?: string; confidence?: string; source?: string }>; error?: string }>
-        networkEvidence?: {
-            requests?: number
-            responses?: number
-            blockedOrFailed?: number
-            contactedDomains?: string[]
-            finalUrl?: string
-            redirectChain?: string[]
-            urlStates?: string[]
-            peerSummary?: NetworkRequestRow[]
-            downloads?: Array<{ url?: string; fileName?: string; bytes?: number; sha256?: string; hashStatus?: string; virusTotal?: { status?: string; flagged?: number; total?: number; detail?: string } }>
-            recentRequests?: NetworkRequestRow[]
-        }
-        scriptArtifacts?: Array<{ scriptId?: string; source?: string; sha256?: string; assessment?: string; summary?: string; indicators?: { domains?: string[]; ips?: string[]; urls?: string[] } }>
-        resourceUrls?: string[]
-        urlTimeline?: Array<{ url?: string; capturedAt?: string; reason?: string; title?: string }>
-        indicators?: string[]
-        threatAssociations?: Array<{ name?: string; category?: string; confidence?: string; evidence?: string; source?: string }>
-        recommendedActions?: string[]
-        markdown?: string
-    }
-}
+import type { BrowserReport } from './reportTypes'
+import { providerVendorLabel, reportUrlTimeline, reportResourceUrls, reportIndicators, reportThreatAssociations, scriptIndicatorList } from './reportData'
+import { NetworkTable, ReportExport, ReportList, ReportPanel, ReportStatistics } from './ReportComponents'
 
 export default function BrowserReportPageClient({ runId = '', token = '', resultId, clientId, onRerun, initialRun = '' }: { initialRun?: string; runId?: string; token?: string; resultId?: string; clientId?: string; onRerun?: (target: string, quick?: boolean) => void }) {
     const [report, setReport] = useState<BrowserReport | null>(null)
@@ -247,19 +190,4 @@ function reportThreatAssociations(report: BrowserReport) {
 
 function scriptIndicatorList(script: NonNullable<NonNullable<BrowserReport['analystReport']>['scriptArtifacts']>[number]) {
     return [...(script.indicators?.domains || []), ...(script.indicators?.ips || []), ...(script.indicators?.urls || [])]
-}
-
-function ReportPanel({ title, children }: { title: string; children: React.ReactNode }) {
-    return (
-        <details className='min-w-0 rounded-lg border border-ui-border bg-ui-panel'>
-            <summary className='cursor-pointer p-4 text-sm font-semibold text-ui-primary'>{title}</summary>
-            <div className='border-t border-ui-border p-4'>{children}</div>
-        </details>
-    )
-}
-
-function ReportList({ items, empty }: { items: string[]; empty: string }) {
-    const rows = items.map(item => item.trim()).filter(Boolean)
-    if (!rows.length) return <p className='text-sm text-ui-muted'>{empty}</p>
-    return <ul className='grid gap-2 text-sm text-ui-muted'>{rows.map(item => <li key={item} className='rounded-md border border-ui-border bg-ui-raised px-3 py-2'>{item}</li>)}</ul>
 }

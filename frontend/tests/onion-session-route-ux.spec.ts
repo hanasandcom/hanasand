@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import test from 'node:test'
+import { readBrowserClientSource } from './helpers/browser-client-source'
 
 const root = process.cwd()
 
@@ -9,16 +10,17 @@ test('legacy onion and regular sandbox routes redirect to the unified browser wo
     const onionRouteSource = await readFile(path.join(root, 'src/app/solutions/onion-session/page.tsx'), 'utf8')
     const regularRouteSource = await readFile(path.join(root, 'src/app/browser-sandbox/page.tsx'), 'utf8')
     const browserRouteSource = await readFile(path.join(root, 'src/app/browser/page.tsx'), 'utf8')
-    const browserClientSource = await readFile(path.join(root, 'src/app/browser/pageClient.tsx'), 'utf8')
+    const sandboxRouteSource = await readFile(path.join(root, 'src/app/sandbox/page.tsx'), 'utf8')
+    const browserClientSource = readBrowserClientSource(root)
     const headerSource = await readFile(path.join(root, 'src/components/header/header.tsx'), 'utf8')
     const footerSource = await readFile(path.join(root, 'src/components/footer/footer.tsx'), 'utf8')
 
-    assert(onionRouteSource.includes('redirect(\'/browser\')'))
-    assert(regularRouteSource.includes('redirect(\'/browser\')'))
-    assert(browserRouteSource.includes('path: \'/browser\''))
-    assert(browserRouteSource.includes('<BrowserPageClient />'))
-    assert(headerSource.includes('href: \'/browser\''))
-    assert(footerSource.includes('href: \'/browser\''))
+    assert(onionRouteSource.includes('redirect(\'/sandbox\')'))
+    assert(regularRouteSource.includes('redirect(\'/sandbox\')'))
+    assert(browserRouteSource.includes('redirect(\'/sandbox\')'))
+    assert(sandboxRouteSource.includes('<BrowserPageClient initialData={initialData} />'))
+    assert(headerSource.includes('href: \'/sandbox\''))
+    assert(footerSource.includes('href: \'/sandbox\''))
 
     assert(browserClientSource.includes('Browser'))
     assert(browserClientSource.includes('BrowserNetwork'))
@@ -32,7 +34,7 @@ test('legacy onion and regular sandbox routes redirect to the unified browser wo
 })
 
 test('unified browser app chrome uses shared theme tokens', async () => {
-    const clientSource = await readFile(path.join(root, 'src/app/browser/pageClient.tsx'), 'utf8')
+    const clientSource = readBrowserClientSource(root)
     const jsxChrome = clientSource
         .replace(/context\.(?:fillStyle|strokeStyle)\s*=\s*'#[^']+'/g, '')
         .replace(/drawRoundedRect\([\s\S]+?#[\s\S]+?\)/g, '')
