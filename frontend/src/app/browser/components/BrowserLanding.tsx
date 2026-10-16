@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { Globe2, Play, SlidersHorizontal, Plus } from 'lucide-react'
 import type { Dispatch, SetStateAction } from 'react'
-import type { BrowserQuota, BrowserRunHistory, BrowserRunStats, SandboxCapacity, SandboxProfile, SandboxTool } from '../types'
+import type { BrowserQuota, BrowserRunHistory, BrowserRunStats, SandboxCapacity, SandboxProfile } from '../types'
 import { browserFingerprints } from '../browserSetup'
 import { isDefaultProfile, profileSyncLabel } from '../browserProfiles'
 import BrowserHistory from '../BrowserHistory'
@@ -17,7 +17,7 @@ type BrowserLandingProps = {
     setCustomUserAgent: Dispatch<SetStateAction<string>>; setCustomViewportWidth: Dispatch<SetStateAction<string>>; setCustomViewportHeight: Dispatch<SetStateAction<string>>
     setCustomLocale: Dispatch<SetStateAction<string>>; setCustomTimezoneId: Dispatch<SetStateAction<string>>; setCustomPlatform: Dispatch<SetStateAction<string>>
     applyFingerprint: (id: string) => void; paidBrowserPlan: boolean; profiles: SandboxProfile[]; selectedProfile: SandboxProfile; setSelectedProfileId: Dispatch<SetStateAction<string>>
-    deleteProfile: (id: string) => void; profileSyncState: string; customProfileName: string; setCustomProfileName: Dispatch<SetStateAction<string>>; saveProfile: () => void
+    deleteProfile: (id: string) => void; profileSyncState: 'local' | 'loading' | 'synced' | 'saving' | 'error'; customProfileName: string; setCustomProfileName: Dispatch<SetStateAction<string>>; saveProfile: () => void
     customToolName: string; customToolUrl: string; setCustomToolName: Dispatch<SetStateAction<string>>; setCustomToolUrl: Dispatch<SetStateAction<string>>
     addToolToSelectedProfile: () => void; removeToolFromSelectedProfile: (id: string) => void; history: BrowserRunHistory[]; quota: BrowserQuota | null
     historyReady: boolean; deleteHistory: (ids?: string[]) => Promise<void>; shareFinding: (run: BrowserRunHistory) => Promise<string>; resultClientId: string

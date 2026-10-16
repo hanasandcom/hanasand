@@ -1,11 +1,12 @@
 'use client'
 
 import Image from 'next/image'
-import { Check, Globe2 } from 'lucide-react'
-import type { Capture, SandboxCapacity, SandboxTool, SessionState } from '../types'
-import type { SiteNetwork } from '../SiteNetworkDetails'
-import { sessionStateLabel } from '../browserRunData'
-import { providerStatus, providerTabStatus, selectToolCapture, virusTotalVendorLabel } from '../browserProviderData'
+import { Check, Globe2, LoaderCircle } from 'lucide-react'
+import type { Capture, SandboxTool, SessionState } from '../types'
+import SiteNetworkDetails, { type SiteNetwork } from '../SiteNetworkDetails'
+import { formatRunDuration } from '../browserRunData'
+import { providerDetail, providerStatus, providerTabStatus, selectToolCapture } from '../browserProviderData'
+import { historyDomainKey } from '../historyData'
 
 export function BrowserLoading({ stage, elapsed, target, queuePosition, onCancel }: { stage: number; elapsed: number; target: string; queuePosition?: number; onCancel: () => void }) {
     const steps = ['Connect', 'Start browser', 'Load page', 'First frame']

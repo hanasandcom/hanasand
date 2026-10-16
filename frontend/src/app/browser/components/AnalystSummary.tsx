@@ -1,9 +1,10 @@
 'use client'
 
-import type { Capture, SandboxNetworkSummary } from '../types'
-import { buildAnalystSummary, networkPeerSummary } from '../browserAnalystSummary'
-import { formatRunDuration, formatEpochDate } from '../browserRunData'
-import { meaningfulReasons, metadataRows } from './AnalystMetadata'
+import type { Capture } from '../types'
+import { Clipboard } from 'lucide-react'
+import { buildAnalystSummary } from '../browserAnalystSummary'
+import { cleanEvidenceExcerpt } from '../browserBrief'
+import { metadataRows } from './AnalystMetadata'
 
 export function AnalystSummary({ summary, captures }: { summary: ReturnType<typeof buildAnalystSummary>; captures: Capture[] }) {
     const metadataItems = metadataRows(summary, captures)

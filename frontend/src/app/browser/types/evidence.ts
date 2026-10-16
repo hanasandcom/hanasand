@@ -1,6 +1,6 @@
 import type { SandboxThreatAssociation } from './session'
 
-type SandboxEvidence = {
+export type SandboxEvidence = {
     url?: string
     textExcerpt?: string
     sourceCode?: string

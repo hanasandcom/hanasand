@@ -1,4 +1,4 @@
-import type { Capture, SandboxProfile, SandboxToolAnalysis } from './types'
+import type { Capture, SandboxNetworkSummary, SandboxProfile, SandboxToolAnalysis } from './types'
 import { isBrowserErrorUrl } from './browserSetup'
 import { hasParsedProviderResult, matchesTool, selectToolCapture, virusTotalVendorLabel } from './browserProviderData'
 import { buildAnalystBrief, cleanEvidenceComment, dedupeThreatAssociations } from './browserBrief'

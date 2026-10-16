@@ -10,6 +10,7 @@ import { getOrCreateBrowserClientId } from './browserClientId'
 import { sanitizeHistory, historyDomainKey } from './historyData'
 export { sanitizeHistory } from './historyData'
 import { buildAnalystSummary } from './browserAnalystSummary'
+import { sessionStateLabel } from './browserRunData'
 import { selectToolCapture, hasParsedProviderResult } from './browserProviderData'
 import { compactBrowserEvent } from './components/BrowserStatus'
 import { BrowserLanding } from './components/BrowserLanding'
@@ -111,13 +112,13 @@ export default function BrowserPageClient({ initialData, resultId, resultRunId }
     const latestPageImage = useMemo(() => captures.find(capture => capture.kind === 'page' && capture.image && !capture.frameQuality?.looksBlank)?.image || null, [captures])
     const activeTool = useMemo(() => selectedProfile.tools.find(tool => tool.id === activeSandboxTab), [activeSandboxTab, selectedProfile.tools])
     const activeToolCapture = activeTool ? selectToolCapture(toolCaptures, activeTool, normalizedTarget) : undefined
-    const activeViewportImage = activeTool ? activeToolCapture?.image : activeImage || latestPageImage
+    const activeViewportImage = activeTool ? activeToolCapture?.image || null : activeImage || latestPageImage
     const siteNetwork = captures.findLast(capture => capture.networkSummary?.site && historyDomainKey(capture.networkSummary.site.url) === historyDomainKey(activeUrl || normalizedTarget))?.networkSummary?.site
     const viewportFrame = streamUrl ? streamFrame || browserMetadata : activeToolCapture?.frameWidth && activeToolCapture?.frameHeight ? { width: activeToolCapture.frameWidth, height: activeToolCapture.frameHeight } : activeFrame
     const runRemainingSeconds = runTiming ? Math.max(0, Math.ceil((new Date(runTiming.expiresAt).getTime() - clockNow) / 1000)) : 0
     const paidBrowserPlan = Boolean(quota?.paid)
     const { applyFingerprint, saveProfile, deleteProfile, addToolToSelectedProfile, removeToolFromSelectedProfile } = useBrowserProfileActions({ profiles, setProfiles, selectedProfile, selectedProfileId, setSelectedProfileId, customProfileName, setCustomProfileName, customToolName, setCustomToolName, customToolUrl, setCustomToolUrl, setFingerprintId, setCustomUserAgent, setCustomViewportWidth, setCustomViewportHeight, setCustomLocale, setCustomTimezoneId, setCustomPlatform })
-    const { refreshHistory, refreshRunStats, deleteHistory, shareFinding } = useBrowserHistoryActions({ initialStats: initialData.stats, history, setHistory, setHistoryReady, setQuota, setRunStats })
+    const { refreshRunStats, deleteHistory, shareFinding } = useBrowserHistoryActions({ initialStats: initialData.stats, history, setHistory, setHistoryReady, setQuota, setRunStats })
 
     const runIsActive = sessionState === 'queued' || sessionState === 'connecting' || sessionState === 'live'
     const metricEvent = sessionState === 'ended' ? stoppedRunRef.current ? 'Stopped' : 'Completed' : sessionState === 'failed' ? 'Failed' : compactBrowserEvent(events[0] || sessionStateLabel(sessionState))

@@ -1,6 +1,10 @@
 'use client'
 
 import type { Capture } from '../types'
+import { cleanEvidenceExcerpt } from '../browserBrief'
+import { providerErrorText } from '../browserProviderData'
+import { meaningfulReasons } from './AnalystMetadata'
+import { SourceCodeDisclosure } from './EvidencePrimitives'
 
 export function CaptureTimeline({ captures: allCaptures }: { captures: Capture[] }) {
     const captures = allCaptures.filter(capture => capture.kind === 'page' && capture.image)

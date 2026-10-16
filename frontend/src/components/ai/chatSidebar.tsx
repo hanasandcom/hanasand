@@ -41,7 +41,9 @@ export default function ChatSidebar(props: ChatSidebarProps) {
                     New session
                 </button>
                 <div className='flex items-center gap-1'>
-                    <IconButton label='Search sessions' icon={<Search className='h-4 w-4' />} active={searchOpen} onClick={() => setSearchOpen((prev) => !prev)} />
+                    <button type='button' aria-label='Search sessions' aria-pressed={searchOpen} onClick={() => setSearchOpen((prev) => !prev)} className={`grid h-9 w-9 place-items-center rounded-lg transition-colors hover:bg-ui-raised hover:text-ui-text ${searchOpen ? 'bg-ui-primary/10 text-ui-primary' : 'text-ui-muted'}`}>
+                        <Search className='h-4 w-4' />
+                    </button>
                     <Link href='/s' aria-label='Open context' className='grid h-9 w-9 place-items-center rounded-lg text-ui-muted transition-colors hover:bg-ui-raised hover:text-ui-text'>
                         <SquareArrowOutUpRight className='h-4 w-4' />
                     </Link>

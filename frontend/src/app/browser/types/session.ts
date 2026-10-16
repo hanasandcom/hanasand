@@ -1,17 +1,17 @@
 import type { SiteNetwork } from '../SiteNetworkDetails'
 import type { SandboxEvidence } from './evidence'
 
-type SessionState = 'prompt' | 'queued' | 'connecting' | 'live' | 'ended' | 'failed' | 'unreachable'
-type SocketState = 'closed' | 'connecting' | 'open' | 'error'
-type StreamStats = { fps?: number; latencyMs?: number }
-type RunTiming = {
+export type SessionState = 'prompt' | 'queued' | 'connecting' | 'live' | 'ended' | 'failed' | 'unreachable'
+export type SocketState = 'closed' | 'connecting' | 'open' | 'error'
+export type StreamStats = { fps?: number; latencyMs?: number }
+export type RunTiming = {
     expiresAt: string
     suspiciousExtended: boolean
     freeExtensionUsed: boolean
     paidExtensionUsed: boolean
 }
-type BrowserNetwork = 'regular' | 'tor'
-type BrowserFingerprint = {
+export type BrowserNetwork = 'regular' | 'tor'
+export type BrowserFingerprint = {
     id: string
     label: string
     userAgent: string
@@ -23,24 +23,24 @@ type BrowserFingerprint = {
     isMobile?: boolean
     hasTouch?: boolean
 }
-type UserAgentLabel = { label: string; pattern: RegExp }
-type SandboxCapacity = {
+export type UserAgentLabel = { label: string; pattern: RegExp }
+export type SandboxCapacity = {
     activeSessions: number
     queuedSessions: number
     maxSessions: number
     queuePosition?: number
 }
-type SandboxProfile = {
+export type SandboxProfile = {
     id: string
     name: string
     tools: SandboxTool[]
 }
-type SandboxTool = {
+export type SandboxTool = {
     id: string
     name: string
     url: string
 }
-type Capture = {
+export type Capture = {
     id: string
     kind: 'page' | 'tool'
     label: string
@@ -60,7 +60,7 @@ type Capture = {
     webcrackLoad?: SandboxWebCrackLoad
     deobfuscatedCode?: string
 }
-type FrameQuality = {
+export type FrameQuality = {
     looksBlank?: boolean
     visibleTextLength?: number
     elementCount?: number
@@ -69,7 +69,7 @@ type FrameQuality = {
     viewportWidth?: number
     viewportHeight?: number
 }
-type SandboxWebCrackLoad = {
+export type SandboxWebCrackLoad = {
     loaded?: boolean
     scriptId?: string
     source?: string
@@ -77,7 +77,7 @@ type SandboxWebCrackLoad = {
     action?: string
     reason?: string
 }
-type SandboxNetworkSummary = {
+export type SandboxNetworkSummary = {
     site?: SiteNetwork
     requestCount?: number
     responseCount?: number
@@ -91,7 +91,7 @@ type SandboxNetworkSummary = {
     recentFailures?: Array<{ url?: string; failure?: string; at?: string }>
     lastUpdatedAt?: string
 }
-type SandboxToolAnalysis = {
+export type SandboxToolAnalysis = {
     toolKind?: string
     vendorFlagged?: number
     vendorTotal?: number
@@ -107,7 +107,7 @@ type SandboxToolAnalysis = {
     webcrackLoadReason?: string
     threatAssociations?: SandboxThreatAssociation[]
 }
-type SandboxThreatAssociation = {
+export type SandboxThreatAssociation = {
     name?: string
     category?: 'actor' | 'malware' | 'ransomware' | 'tool' | 'campaign'
     confidence?: 'high' | 'medium' | 'low'

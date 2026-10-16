@@ -1,4 +1,4 @@
-type BrowserRunHistory = {
+export type BrowserRunHistory = {
     resultId?: string
     id: string
     target: string
@@ -10,11 +10,11 @@ type BrowserRunHistory = {
     providerResults?: Record<string, ProviderRunResult>
     reportUrl?: string
 }
-type ProviderRunResult = {
+export type ProviderRunResult = {
     status: 'clean' | 'suspicious' | 'blocked' | 'loading'
     label: string
 }
-type BrowserQuota = {
+export type BrowserQuota = {
     plan: string
     limit: number | null
     used: number
@@ -27,7 +27,7 @@ type BrowserQuota = {
     resetsAt?: string | null
     identityKind?: string
 }
-type BrowserRunStats = {
+export type BrowserRunStats = {
     runs24h: number
     darkwebRuns24h: number
 }
@@ -36,3 +36,4 @@ export type BrowserInitialData = {
     quota: BrowserQuota | null
     stats: BrowserRunStats | null
 }
+import type { BrowserNetwork } from './session'

@@ -1,9 +1,9 @@
 'use client'
 
 import type { ReactNode } from 'react'
+import { ChevronDown, Clipboard } from 'lucide-react'
 import type { Capture, SandboxEvidence, SandboxNetworkSummary, SandboxTool } from '../types'
 import { providerDetail, providerErrorText, providerStatus, virusTotalVendorLabel } from '../browserProviderData'
-import { downloadEvidenceLine, formatEpochDate } from '../browserRunData'
 
 export function EvidencePanel({ title, status, children }: { title: string; status?: ReactNode; children: ReactNode }) {
     return (
