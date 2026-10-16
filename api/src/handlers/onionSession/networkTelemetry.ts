@@ -141,9 +141,9 @@ export class BrowserRunNetworkTelemetry {
 
     summary() {
         return {
-            ...summarizeNetworkEvents(this.events, this.eventHistoryTruncated),
             ...this.counts,
             uniqueDomainCount: this.contactedDomains.size,
+            ...summarizeNetworkEvents(this.events, this.eventHistoryTruncated),
             uniqueDomainCountTruncated: this.contactedDomainsTruncated,
             eventHistoryTruncated: this.eventHistoryTruncated,
             site: this.site,
@@ -186,7 +186,6 @@ export function domainFromUrl(value: string) {
 }
 
 function summarizeNetworkEvents(events: SandboxNetworkEvent[], eventHistoryTruncated: boolean) {
-    const requests = events.filter(event => event.kind === 'request')
     const responses = events.filter(event => event.kind === 'response')
     const failures = events.filter(event => event.kind === 'failed')
     const domains: string[] = []
@@ -239,10 +238,6 @@ function summarizeNetworkEvents(events: SandboxNetworkEvent[], eventHistoryTrunc
         .slice(-12)
 
     return {
-        requestCount: requests.length,
-        responseCount: responses.length,
-        failedCount: failures.length,
-        uniqueDomainCount: domains.length,
         domainsTruncated,
         domains,
         recentRequests,
