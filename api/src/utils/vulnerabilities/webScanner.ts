@@ -100,7 +100,13 @@ export async function withWebScanLock<T>(work: () => Promise<T>): Promise<T> {
                     const candidate = `${LOCK_PATH}.reclaim-${randomUUID()}`
                     await rename(LOCK_PATH, candidate)
                     reclaimedPath = candidate
-                    await mkdir(LOCK_PATH)
+                    try {
+                        await mkdir(LOCK_PATH)
+                    } catch (error) {
+                        await rm(candidate, { recursive: true, force: true })
+                        reclaimedPath = undefined
+                        throw error
+                    }
                     break
                 } finally {
                     await rm(RECOVERY_LOCK_PATH, { recursive: true, force: true })
@@ -109,11 +115,43 @@ export async function withWebScanLock<T>(work: () => Promise<T>): Promise<T> {
             throw Object.assign(new Error('Hanasand web scan is already running.'), { cause: error })
         }
     }
+    const acquiredLock = await stat(LOCK_PATH)
+    let result: T
     try {
-        return await work()
+        result = await work()
+    } catch (error) {
+        await releaseWebScanLock(acquiredLock, reclaimedPath)
+        throw error
+    }
+    await releaseWebScanLock(acquiredLock, reclaimedPath)
+    return result
+}
+
+async function releaseWebScanLock(acquiredLock: Awaited<ReturnType<typeof stat>>, reclaimedPath?: string) {
+    // Serialize cleanup with reclaimers so an old owner cannot remove a replacement lock.
+    let ownsRecoveryLock = false
+    try {
+        try {
+            await mkdir(RECOVERY_LOCK_PATH)
+            ownsRecoveryLock = true
+        } catch (error) {
+            if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error
+        }
+        if (ownsRecoveryLock) {
+            const currentLock = await stat(LOCK_PATH).catch(error => {
+                if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null
+                throw error
+            })
+            if (currentLock?.dev === acquiredLock.dev && currentLock.ino === acquiredLock.ino) {
+                await rm(LOCK_PATH, { recursive: true, force: true })
+            }
+        }
     } finally {
-        await rm(LOCK_PATH, { recursive: true, force: true })
-        if (reclaimedPath) await rm(reclaimedPath, { recursive: true, force: true })
+        try {
+            if (ownsRecoveryLock) await rm(RECOVERY_LOCK_PATH, { recursive: true, force: true })
+        } finally {
+            if (reclaimedPath) await rm(reclaimedPath, { recursive: true, force: true })
+        }
     }
 }
 

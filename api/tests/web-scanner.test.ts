@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, test } from 'bun:test'
-import { mkdir, mkdtemp, rm, utimes } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, stat, utimes } from 'node:fs/promises'
 import path from 'node:path'
 
 const stateDir = await mkdtemp(path.join('/tmp', 'hanasand-web-scan-'))
@@ -83,5 +83,44 @@ describe('Hanasand safe web scanner', () => {
         expect(outcomes.filter(outcome => outcome.status === 'fulfilled')).toHaveLength(1)
         expect(outcomes.filter(outcome => outcome.status === 'rejected')).toHaveLength(1)
         expect((outcomes.find(outcome => outcome.status === 'rejected') as PromiseRejectedResult).reason.message).toContain('already running')
+    })
+
+    test('a reclaimed scan lock is not removed by the previous owner', async() => {
+        const lockPath = `${process.env.WEB_SCAN_STATE_PATH}.lock`
+        let releaseFirst!: () => void
+        let releaseSecond!: () => void
+        let firstEntered!: () => void
+        let secondEntered!: () => void
+        const firstHold = new Promise<void>(resolve => { releaseFirst = resolve })
+        const secondHold = new Promise<void>(resolve => { releaseSecond = resolve })
+        const firstStarted = new Promise<void>(resolve => { firstEntered = resolve })
+        const secondStarted = new Promise<void>(resolve => { secondEntered = resolve })
+        const first = withWebScanLock(async() => { firstEntered(); await firstHold })
+        let second: Promise<void> | undefined
+
+        try {
+            await firstStarted
+            const stale = new Date(Date.now() - 11 * 60 * 1000)
+            await utimes(lockPath, stale, stale)
+            second = withWebScanLock(async() => { secondEntered(); await secondHold })
+            await secondStarted
+
+            releaseFirst()
+            await first
+            await expect(stat(lockPath)).resolves.toBeDefined()
+            await expect(withWebScanLock(async() => {})).rejects.toThrow('already running')
+        } finally {
+            releaseFirst()
+            releaseSecond()
+            await Promise.allSettled([first, ...(second ? [second] : [])])
+        }
+    })
+
+    test('scan failures release the owned lock before propagating', async() => {
+        const lockPath = `${process.env.WEB_SCAN_STATE_PATH}.lock`
+
+        await expect(withWebScanLock(async() => { throw new Error('scan failed') })).rejects.toThrow('scan failed')
+        await expect(stat(lockPath)).rejects.toMatchObject({ code: 'ENOENT' })
+        await expect(withWebScanLock(async() => {})).resolves.toBeUndefined()
     })
 })
