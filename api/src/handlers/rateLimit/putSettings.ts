@@ -1,20 +1,10 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
-import tokenWrapper from '#utils/auth/tokenWrapper.ts'
-import hasHanasandInternalRouteAccess from '#utils/auth/organizationPageAccess.ts'
+import { authorizeRateLimitAdmin } from './authorizeAdmin.ts'
 import { saveRateLimitSettings, validateRateLimitSettingsInput } from '#utils/rateLimit/config.ts'
 
 export default async function putRateLimitSettingsHandler(req: FastifyRequest, res: FastifyReply) {
-    res.header('Cache-Control', 'no-store')
-
-    const access = await tokenWrapper(req, res)
-    if (!access.valid || !access.id) {
-        return res.status(401).send({ error: access.error || 'Unauthorized.' })
-    }
-
-    const role = await hasHanasandInternalRouteAccess(req)
-    if (!role.valid) {
-        return res.status(403).send({ error: role.error || 'Active Hanasand organization owner or editor access is required.' })
-    }
+    const access = await authorizeRateLimitAdmin(req, res, { requireId: true })
+    if (!access) return
 
     const validation = validateRateLimitSettingsInput(req.body, { updatedBy: access.id })
     if (!validation.valid) {
