@@ -8,7 +8,6 @@ import { mailConfig } from './mail/config.ts'
 import ensureAlwaysRunningVms from './vms/ensureAlwaysRunning.ts'
 import { runDueAutomations } from './automations.ts'
 import { runTrackedBackgroundJob } from './backgroundJobRuntime.ts'
-import { DATABASE_BACKUP_JOB_ID, runDueDatabaseBackup } from './db/backups.ts'
 import run, { queryOnce } from '#db'
 import { ORGANIZATION_RETENTION_JOB_ID, runOrganizationRetentionWorker } from './organizationPrivacy.ts'
 import { persistHostUpdateStatus, readHostUpdateStatus, updateHosts } from './aptUpdates.ts'
@@ -19,7 +18,7 @@ import purgeDeletedAccounts, { ACCOUNT_DELETION_PURGE_JOB_ID } from './auth/purg
 export const HOST_UPDATE_MONITOR_JOB_ID = 'api-host-update-monitor'
 export const WEB_SCAN_JOB_ID = 'api-web-security-scanner'
 
-const apiCronRunners: Record<string, () => Promise<unknown> | unknown> = {
+const apiMinuteCronRunners: Record<string, () => Promise<unknown> | unknown> = {
     [RAW_LOG_RETENTION_JOB_ID]: async() => ({ service: await retainRawLogs(), traffic: await retainTrafficLogs() }),
     'api-cron-health-monitor': async() => (await import('./systemCronMonitor.ts')).monitorSystemCronJobs(),
     [VM_METRICS_JOB_ID]: collectVmMetrics,
@@ -37,7 +36,6 @@ const apiCronRunners: Record<string, () => Promise<unknown> | unknown> = {
     'api-vm-ensure-running': ensureAlwaysRunningVms,
     [CASE_DELIVERY_JOB_ID]: deliverCases,
     'api-vm-deletion': maintainDeletedVms,
-    [DATABASE_BACKUP_JOB_ID]: runDueDatabaseBackup,
     'api-agent-automations': runDueAutomations,
     'api-mail-account-provisioning': provisionExistingMailAccounts,
     [ORGANIZATION_RETENTION_JOB_ID]: async() => {
@@ -50,14 +48,14 @@ const apiCronRunners: Record<string, () => Promise<unknown> | unknown> = {
 }
 
 export function canRunApiCronJobNow(id: string) {
-    return Boolean(apiCronRunners[id]) && (id !== 'api-mail-account-provisioning' || Boolean(mailConfig.adminPassword))
+    return Boolean(apiMinuteCronRunners[id]) && (id !== 'api-mail-account-provisioning' || Boolean(mailConfig.adminPassword))
 }
 
 export function runApiCronJobNow(id: string) {
     if (!canRunApiCronJobNow(id)) {
         throw new Error('API cron job does not expose a safe manual runner.')
     }
-    return runTrackedBackgroundJob(id, apiCronRunners[id])
+    return runTrackedBackgroundJob(id, apiMinuteCronRunners[id])
 }
 
 export async function isApiCronJobPaused(id: string) {
@@ -86,7 +84,6 @@ export async function setApiCronJobPaused(id: string, paused: boolean) {
 
 async function runDueApiCronJob(id: string) {
     if (id === RULE_STORAGE_ESTIMATE_JOB_ID && getBackgroundJobRuntime(id).running) return undefined
-    if (id === DATABASE_BACKUP_JOB_ID) return runApiCronJobNow(id)
     if (await isApiCronJobPaused(id)) return undefined
     return runApiCronJobNow(id)
 }
@@ -99,24 +96,9 @@ function isDatabaseUnavailable(error: unknown) {
 export default function cron() {
     schedule('* * * * *', async() => {
         try {
-            const jobs = [
-                runDueApiCronJob(RAW_LOG_RETENTION_JOB_ID),
-                runDueApiCronJob('api-cron-health-monitor'),
-                runDueApiCronJob(VM_METRICS_JOB_ID),
-                runDueApiCronJob(HOST_UPDATE_MONITOR_JOB_ID),
-                runDueApiCronJob('api-vm-ensure-running'),
-                runDueApiCronJob(CASE_DELIVERY_JOB_ID),
-                runDueApiCronJob('api-vm-deletion'),
-                runDueApiCronJob('api-agent-automations'),
-                runDueApiCronJob(ORGANIZATION_RETENTION_JOB_ID),
-                runDueApiCronJob(RULE_STORAGE_ESTIMATE_JOB_ID),
-                runDueApiCronJob(ACCOUNT_DELETION_PURGE_JOB_ID),
-            ]
-
-            if (mailConfig.adminPassword) {
-                jobs.push(runDueApiCronJob('api-mail-account-provisioning'))
-            }
-
+            const jobs = Object.keys(apiMinuteCronRunners)
+                .filter(canRunApiCronJobNow)
+                .map(runDueApiCronJob)
             await Promise.all(jobs)
         } catch (error) {
             console.error('Failed to run cleanup cron', error)

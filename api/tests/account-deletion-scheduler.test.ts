@@ -9,6 +9,7 @@ const purgeJobId = 'api-user-account-deletion'
 const tokenRevocations: Array<{ userId: string, revokedBy: string }> = []
 const deletedFromUsers: string[] = []
 const sqlCalls: string[] = []
+let databaseBackupPolls = 0
 
 async function query(sql: string, params: unknown[] = []) {
     const normalized = sql.replace(/\s+/g, ' ').trim()
@@ -62,7 +63,10 @@ mock.module('../src/utils/mail/accounts.ts', () => ({ provisionExistingMailAccou
 mock.module('../src/utils/mail/config.ts', () => ({ mailConfig: { adminPassword: '' } }))
 mock.module('../src/utils/vms/ensureAlwaysRunning.ts', () => ({ default: async () => 0 }))
 mock.module('../src/utils/automations.ts', () => ({ runDueAutomations: async () => 0 }))
-mock.module('../src/utils/db/backups.ts', () => ({ DATABASE_BACKUP_JOB_ID: 'api-database-backup', runDueDatabaseBackup: async () => 0 }))
+mock.module('../src/utils/db/backups.ts', () => ({
+    DATABASE_BACKUP_JOB_ID: 'api-database-backup',
+    runDueDatabaseBackup: async () => { databaseBackupPolls += 1; return 0 },
+}))
 mock.module('../src/utils/organizationPrivacy.ts', () => ({ ORGANIZATION_RETENTION_JOB_ID: 'api-organization-retention', runOrganizationRetentionWorker: async () => ({ failed: 0 }) }))
 mock.module('../src/utils/aptUpdates.ts', () => ({ persistHostUpdateStatus: async () => {}, readHostUpdateStatus: async () => ({}), updateHosts: [] }))
 mock.module('../src/utils/events/ruleStorageEstimateWorker.ts', () => ({ RULE_STORAGE_ESTIMATE_JOB_ID: 'api-rule-storage-estimate', runRuleStorageEstimateWorker: async () => 0 }))
@@ -90,9 +94,10 @@ beforeEach(() => {
     tokenRevocations.length = 0
     deletedFromUsers.length = 0
     sqlCalls.length = 0
+    databaseBackupPolls = 0
 })
 
-test('the minute scheduler runs the real account-purge worker without a login', async () => {
+test('the minute scheduler purges accounts without login or external backup polling', async () => {
     const deleteReplyState: { statusCode: number, body?: any } = { statusCode: 200 }
     const deleteReply = {
         status(code: number) { deleteReplyState.statusCode = code; return deleteReply },
@@ -113,12 +118,14 @@ test('the minute scheduler runs the real account-purge worker without a login', 
     await scheduledTick!()
     expect(accountExists).toBe(true)
     expect(deletedFromUsers).toEqual([])
+    expect(databaseBackupPolls).toBe(0)
 
     mockNow = scheduledAt + 1
     await scheduledTick!()
 
     expect(accountExists).toBe(false)
     expect(deletedFromUsers).toEqual(['expired-user'])
+    expect(databaseBackupPolls).toBe(0)
     expect(tokenRevocations).toEqual([
         { userId: 'expired-user', revokedBy: 'expired-user' },
         { userId: 'expired-user', revokedBy: 'expired-user' },
