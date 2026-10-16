@@ -385,6 +385,20 @@ uncommitted and fails API typecheck; do not integrate it until the type errors
 and focused checks are resolved. The 100,000-line API reduction and
 10,000–30,000-line frontend targets remain unmet.
 
+At API checkpoints `1ee9a4b8a` and `f40a4f086`, the access-recovery approval
+search now lives in a 107-line module and the webhook test-alert builder lives
+in the payload-preview module. Both preserve their public exports and existing
+route/call-site behavior; independent reviews found no regression. Focused
+approval-search tests (16 cases across three suites), DWM contract/security
+tests (10 cases / 212 assertions), typecheck, scoped ESLint, and diff checks
+pass. The admin-support parent is now 4,619 lines, but its family grew by 11
+LOC for this split. `webhooks.ts` is 8,806 and `payloadPreviews.ts` is 192; the
+test-alert move reduces the parent by 21 but adds 24 module lines (+3 net).
+These moves advance the hard cap, not aggregate reduction. The committed
+repository scan is 3,707 files / 323,246 lines, with 125 over 200; all
+frontend files still pass at 2,336 files / 156,018 lines. The 100,000-line API
+reduction and 10,000–30,000-line frontend goal remain outstanding.
+
 At webhook checkpoint `90cd110d4`, three DWM receipt builders share their
 identical organization, alert, watchlist, and provenance context. The
 production family falls from 9,772 to 9,757 lines (-15); the focused contract
