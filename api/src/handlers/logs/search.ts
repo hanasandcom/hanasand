@@ -6,8 +6,8 @@ import { compileLogQuery } from '#utils/logs/kql.ts'
 import { readPendingProcessLogs } from '#utils/events/processQueue.ts'
 import { logMessageSearchPredicate } from '#utils/logs/searchText.ts'
 import { searchLogPage } from '#utils/logs/searchPage.ts'
-import { dimensionLogWhere, foldLogCounts } from '#utils/logs/dimensions.ts'
-import { rollupLogCountsSql } from '#utils/logs/counts.ts'
+import { foldLogCounts } from '#utils/logs/dimensions.ts'
+import { queryLogCountGroups } from '#utils/logs/counts.ts'
 
 export async function searchLogs(req: FastifyRequest, res: FastifyReply) {
     const { valid } = await tokenWrapper(req, res)
@@ -47,18 +47,8 @@ export async function searchLogs(req: FastifyRequest, res: FastifyReply) {
             if (realtime) {
                 let totalEvents: number | undefined
                 if (!input.cursor) {
-                    const compact = dimensionLogWhere(where)
-                    if (compact) {
-                        const state = (await query('SELECT ready, last_error, (SELECT ready FROM log_counts_state WHERE id = TRUE) AS counts_ready FROM log_dimensions_state WHERE id = TRUE')).rows[0]
-                        const rollup = state?.ready && state?.counts_ready ? rollupLogCountsSql(compact, timeWhere) : null
-                        const totals = rollup ? await query(rollup, params) : state?.ready
-                            ? await query(`SELECT severity, COUNT(*)::int AS count FROM log_dimensions events WHERE ${compact.join(' AND ')} GROUP BY 1`, params)
-                            : await query(`SELECT normalized->>'severity' AS severity, COUNT(*)::int AS count FROM events WHERE ${where.join(' AND ')} GROUP BY 1`, params)
-                        totalEvents = totals.rows.reduce((sum, row) => ['high', 'critical'].includes(row.severity) ? sum + Number(row.count) : sum, 0)
-                    } else {
-                        const totals = await query(`SELECT COUNT(*)::int AS total FROM events WHERE ${where.join(' AND ')}`, params)
-                        totalEvents = Number(totals.rows[0]?.total || 0)
-                    }
+                    const totals = await queryLogCountGroups(query, { where, params, timeWhere })
+                    totalEvents = totals.rows.reduce((sum, row) => ['high', 'critical'].includes(row.severity) ? sum + Number(row.count) : sum, 0)
                 }
                 return { rows: result.rows, next_cursor: 'next_cursor' in result ? result.next_cursor : undefined, ...(totalEvents === undefined ? {} : { total_events: totalEvents }), processing: null, counts: [], services: [] }
             }
@@ -69,14 +59,8 @@ export async function searchLogs(req: FastifyRequest, res: FastifyReply) {
             let counts: ReturnType<typeof foldLogCounts> = { counts: [], services: [] }
             let countersLastError: string | null = null
             if (input.stats === '1') {
-                const compact = dimensionLogWhere(where)
-                const projection = (await query('SELECT ready, last_error, (SELECT ready FROM log_counts_state WHERE id = TRUE) AS counts_ready FROM log_dimensions_state WHERE id = TRUE')).rows[0]
-                const ready = compact && projection?.ready
-                countersLastError = projection?.last_error || null
-                const rollup = ready && projection?.counts_ready ? rollupLogCountsSql(compact!, timeWhere) : null
-                const grouped = rollup ? await query(rollup, params) : ready
-                    ? await query(`SELECT severity, service, COUNT(*)::int AS count FROM log_dimensions events WHERE ${compact!.join(' AND ')} GROUP BY 1, 2`, params)
-                    : await query(`SELECT normalized->>'severity' AS severity, normalized->>'service' AS service, COUNT(*)::int AS count FROM events WHERE ${where.join(' AND ')} GROUP BY 1, 2`, params)
+                const grouped = await queryLogCountGroups(query, { where, params, timeWhere, includeServices: true, includeProjectionError: true })
+                countersLastError = grouped.lastError
                 counts = foldLogCounts(grouped.rows)
             }
             const stalled = status.rows.find(row => row.last_error)

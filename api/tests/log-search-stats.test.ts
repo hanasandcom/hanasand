@@ -9,6 +9,9 @@ const query = async (sql: string, params: any[] = []): Promise<any> => {
     if (sql.startsWith('SELECT payload, last_error')) return { rows: [{ payload: { remaining: 3000, processed: 1000, total: 4000, rate: 50, estimated_seconds: 60 }, last_error: null }] }
     if (sql.startsWith('SELECT name, updated_at')) return { rows: [{ name: 'service_logs', last_error: null }] }
     if (sql.startsWith('SELECT ready, last_error')) return { rows: [{ ready, counts_ready: rollupsReady }] }
+    if (sql.startsWith('SELECT severity, SUM(count)::int AS count FROM (')) return { rows: [{ severity: 'high', count: 4 }] }
+    if (sql.startsWith('SELECT severity, COUNT(*)::int AS count FROM log_dimensions')) return { rows: [{ severity: 'high', count: 3 }] }
+    if (sql.startsWith('SELECT normalized->>\'severity\' AS severity, COUNT(*)::int AS count')) return { rows: [{ severity: 'critical', count: 2 }] }
     if (sql.includes('GROUP BY 1, 2')) return { rows: [{ severity: 'high', service: 'api', count: 4 }, { severity: 'low', service: 'api', count: 6 }] }
     return { rows: [] }
 }
@@ -94,6 +97,37 @@ test('realtime search defaults to one hour and skips processor metadata queries'
     expect(statements.some(sql => sql.startsWith('SELECT name, updated_at'))).toBe(false)
     expect(statements.some(sql => sql.startsWith('SELECT payload, last_error'))).toBe(false)
     expect(statements.some(sql => sql.includes('FROM log_process_queue'))).toBe(false)
+})
+
+test('realtime totals share the rollup projection and preserve the exact-search fallback', async () => {
+    const rolled = await app.inject('/logs/search?realtime=1')
+    expect(rolled.json().total_events).toBe(4)
+    const rollup = statements.find(sql => sql.startsWith('SELECT severity, SUM(count)::int AS count FROM ('))
+    expect(rollup).toContain('FROM log_counts events')
+    expect(rollup).toContain('GROUP BY 1')
+    expect(rollup).toContain('o.status = \'active\'')
+    expect(rollup).toContain('severity IN (\'high\', \'critical\')')
+    expect(rollup).toContain('event_timestamp >= NOW() - $1 * INTERVAL \'1 hour\'')
+
+    statements = []; parameters = []
+    const exact = await app.inject('/logs/search?realtime=1&search=phrase')
+    expect(exact.json().total_events).toBe(2)
+    expect(statements.some(sql => sql.startsWith('SELECT ready, last_error'))).toBe(false)
+    const exactCounts = statements.findIndex(sql => sql.startsWith('SELECT normalized->>\'severity\' AS severity, COUNT(*)::int AS count'))
+    expect(statements[exactCounts]).toContain('strpos')
+    expect(statements[exactCounts]).toContain('o.status = \'active\'')
+    expect(statements[exactCounts]).toContain('normalized->>\'severity\' IN (\'high\', \'critical\')')
+    expect(parameters[exactCounts]).toEqual([1, 'phrase'])
+})
+
+test('realtime totals use exact projected dimensions while rollups are unavailable', async () => {
+    rollupsReady = false
+    const response = await app.inject('/logs/search?realtime=1')
+    expect(response.json().total_events).toBe(3)
+    const counts = statements.find(sql => sql.startsWith('SELECT severity, COUNT(*)::int AS count FROM log_dimensions'))
+    expect(counts).toContain('o.status = \'active\'')
+    expect(counts).toContain('severity IN (\'high\', \'critical\')')
+    expect(statements.some(sql => sql.startsWith('SELECT severity, SUM(count)::int AS count FROM ('))).toBe(false)
 })
 
 test('realtime pagination loads 100 initially then caps cursor pages at 50', async () => {
