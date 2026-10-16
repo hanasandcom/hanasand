@@ -61,7 +61,7 @@ afterAll(async () => {
     await pool.end()
 })
 
-test.skipIf(!port)('automatically purges only due accounts and retries provider failures without login', async () => {
+test.skipIf(!port)('purges only due accounts and retries provider failures', async () => {
     await query(`CREATE SCHEMA ${namespace}`)
     await query('CREATE SEQUENCE account_deletion_purge_attempt_order_seq')
     await query(`CREATE TABLE users(id text PRIMARY KEY,name text,email text,active boolean DEFAULT true,reserved boolean DEFAULT false,deletion_scheduled_at timestamptz);
