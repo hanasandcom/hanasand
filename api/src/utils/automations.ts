@@ -157,6 +157,7 @@ type NormalizedAutomationInput = {
 const ACTIVE_STATUSES = new Set(['active', 'paused', 'archived'])
 const ACTION_TYPES = new Set(['agent_prompt', 'echo', 'mail_health_check', 'system_alert', 'organization_report'])
 const NOTIFY_OPTIONS = new Set(['never', 'failure', 'always'])
+const SYSTEM_JSON_TARGETS = new Set(['system:metrics', 'system:ti-delivery', 'system:ti-collection', 'system:ti-enrichment', 'system:recovery'])
 const STALE_RUNNING_AFTER_MS = 2 * 60_000
 
 export function toAutomation(row: AutomationRow) {
@@ -231,7 +232,7 @@ export function normalizeAutomationInput(input: AutomationInput, existing?: Auto
     const prompt = clean(input.prompt) || existing?.prompt || ''
     const monitoringType = parseMonitoringType(input.monitoringType ?? input.monitoring_type ?? existing?.monitoring_type)
     const rawTarget = clean(input.targetUrl ?? input.target_url ?? existing?.target_url)
-    const targetUrl = monitoringType === 'push' || monitoringType === 'tcp' || monitoringType === 'ssh' || monitoringType === 'json' && ['system:metrics', 'system:ti-delivery', 'system:ti-collection', 'system:ti-enrichment', 'system:recovery'].includes(rawTarget) ? rawTarget : normalizeTargetUrl(rawTarget)
+    const targetUrl = monitoringType === 'push' || monitoringType === 'tcp' || monitoringType === 'ssh' || monitoringType === 'json' && SYSTEM_JSON_TARGETS.has(rawTarget) ? rawTarget : normalizeTargetUrl(rawTarget)
     const jsonRule = monitoringType === 'json' ? normalizeJsonRule(input.jsonRule ?? input.json_rule ?? existing?.json_rule) : null
     const followRedirects = parseBoolean(input.followRedirects ?? input.follow_redirects ?? existing?.follow_redirects, true)
     const userAgent = clean(input.userAgent ?? input.user_agent ?? existing?.user_agent) || null
@@ -267,7 +268,7 @@ export function normalizeAutomationInput(input: AutomationInput, existing?: Auto
             if (expectedDown || upsideDown) throw new Error('External checks cannot invert sensor conditions.')
         } else if (monitoringType === 'tcp' || monitoringType === 'ssh') {
             if (!/^[^:/\s]+(?::\d+)?$/.test(targetUrl)) throw new Error(`${monitoringType.toUpperCase()} checks need a host and optional port.`)
-        } else if (!(monitoringType === 'json' && ['system:metrics', 'system:ti-delivery', 'system:ti-collection', 'system:ti-enrichment', 'system:recovery'].includes(targetUrl!))) {
+        } else if (!(monitoringType === 'json' && SYSTEM_JSON_TARGETS.has(targetUrl!))) {
             let parsedUrl: URL
             try { parsedUrl = monitoringUrl(targetUrl) } catch { throw new Error('Monitoring URL must be a valid HTTP or HTTPS URL.') }
             if (!['http:', 'https:'].includes(parsedUrl.protocol)) throw new Error('Monitoring URL must use HTTP or HTTPS.')

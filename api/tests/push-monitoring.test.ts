@@ -58,6 +58,22 @@ test('external monitor configuration uses a source ID and a one-minute silence c
     }
 })
 
+test('built-in JSON monitoring targets keep their pathless system IDs', () => {
+    for (const targetUrl of ['system:metrics', 'system:ti-delivery', 'system:ti-collection', 'system:ti-enrichment', 'system:recovery']) {
+        const normalized = normalizeAutomationInput({
+            name: 'Built-in check',
+            prompt: 'Check system health.',
+            actionType: 'agent_prompt',
+            monitoringType: 'json',
+            targetUrl,
+            jsonRule: { path: 'host.cpuPercent', operator: 'gt', value: 80, aggregate: 'max' },
+            scheduleKind: 'interval',
+            intervalMinutes: 1,
+        })
+        expect(normalized.targetUrl).toBe(targetUrl)
+    }
+})
+
 test('legacy notification destination fallback preserves stored empty lists', () => {
     const configured = normalizeAutomationInput({ name: 'Check', prompt: 'Check.', actionType: 'echo', scheduleKind: 'once', modelName: 'legacy-destination' })
     expect(configured.notificationDestinations).toEqual(['legacy-destination'])
