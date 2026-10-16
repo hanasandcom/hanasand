@@ -3,11 +3,10 @@
 import { TI_WORKBENCH_PREVIEW_ROWS, formatDate, sourceHealthChipClass } from '../pageClientShared'
 import { artifactStateFor, artifactStateLabel, artifactWorklistPayloadFor, displayRequirementText, formatLabel, sourceBasisLabel } from '../pageModel'
 import { nextActorArtifactId, type ActorArtifact } from '@/utils/ti/actorWorkbench'
-import { useState } from 'react'
 import CopyPayloadButton from './copy-payload-button'
+import { CompactRowsToggle, useSelectedPreviewRows } from './selectedPreviewList'
 
 export default function ArtifactNavigator({ artifacts, selectedArtifactId, onSelectArtifact }: { artifacts: ActorArtifact[]; selectedArtifactId?: string; onSelectArtifact: (artifactId: string) => void }) {
-    const [showAllArtifacts, setShowAllArtifacts] = useState(false)
     function move(direction: 'next' | 'previous' | 'first' | 'last') {
         const next = nextActorArtifactId(artifacts, selectedArtifactId, direction)
         if (next) onSelectArtifact(next)
@@ -16,13 +15,7 @@ export default function ArtifactNavigator({ artifacts, selectedArtifactId, onSel
     const readyCount = artifacts.filter(artifact => artifactStateFor(artifact) === 'ready').length
     const reviewCount = artifacts.filter(artifact => artifactStateFor(artifact) === 'review').length
     const blockedCount = artifacts.filter(artifact => artifactStateFor(artifact) === 'blocked').length
-    const compactArtifacts = artifacts.slice(0, TI_WORKBENCH_PREVIEW_ROWS)
-    const visibleArtifacts = showAllArtifacts
-        ? artifacts
-        : selectedArtifact && !compactArtifacts.some(artifact => artifact.id === selectedArtifact.id)
-            ? [...compactArtifacts.slice(0, TI_WORKBENCH_PREVIEW_ROWS - 1), selectedArtifact]
-            : compactArtifacts
-    const hiddenArtifactCount = Math.max(0, artifacts.length - visibleArtifacts.length)
+    const preview = useSelectedPreviewRows(artifacts, selectedArtifact, TI_WORKBENCH_PREVIEW_ROWS)
 
     return (
         <section
@@ -70,7 +63,7 @@ export default function ArtifactNavigator({ artifacts, selectedArtifactId, onSel
                             </tr>
                         </thead>
                         <tbody className='divide-y divide-ui-border'>
-                            {visibleArtifacts.map(artifact => {
+                            {preview.visibleRows.map(artifact => {
                                 const active = artifact.id === selectedArtifact?.id
                                 const state = artifactStateFor(artifact)
                                 return (
@@ -98,23 +91,15 @@ export default function ArtifactNavigator({ artifacts, selectedArtifactId, onSel
                             })}
                         </tbody>
                     </table>
-                    {hiddenArtifactCount ? (
-                        <button
-                            type='button'
-                            onClick={() => setShowAllArtifacts(true)}
-                            className='ui-button ui-button-secondary m-2 min-h-9 px-3 text-xs'
-                        >
-                            Show {hiddenArtifactCount} more details
-                        </button>
-                    ) : showAllArtifacts && artifacts.length > compactArtifacts.length ? (
-                        <button
-                            type='button'
-                            onClick={() => setShowAllArtifacts(false)}
-                            className='ui-button ui-button-secondary m-2 min-h-9 px-3 text-xs'
-                        >
-                            Show key details only
-                        </button>
-                    ) : null}
+                    <CompactRowsToggle
+                        hiddenCount={preview.hiddenCount}
+                        expanded={preview.expanded}
+                        hasMore={preview.hasMore}
+                        onExpandedChange={preview.setExpanded}
+                        moreLabel={count => `Show ${count} more details`}
+                        lessLabel='Show key details only'
+                        className='ui-button ui-button-secondary m-2 min-h-9 px-3 text-xs'
+                    />
                 </div>
                 <div className='min-w-0 border-t border-ui-border bg-ui-panel p-3 dark:border-ui-border dark:bg-ui-raised xl:border-l xl:border-t-0'>
                     {selectedArtifact ? (

@@ -10,6 +10,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { victimObservationsFor } from '@/utils/ti/actorProfile'
 import CopyPayloadButton from './copy-payload-button'
 import StripActionButton from './strip-action-button'
+import { CompactRowsToggle, useSelectedPreviewRows } from './selectedPreviewList'
 
 export default function ActorOperationsMatrix({
     result,
@@ -30,19 +31,12 @@ export default function ActorOperationsMatrix({
 }) {
     const rows = useMemo(() => actorOperationsRowsFor(result, actor, victimObservations), [actor, result, victimObservations])
     const [selectedRowId, setSelectedRowId] = useState(rows[0]?.id ?? '')
-    const [showAllOperations, setShowAllOperations] = useState(false)
     useEffect(() => {
         if (!rows.length) return
         if (!rows.some(row => row.id === selectedRowId)) setSelectedRowId(rows[0]?.id ?? '')
     }, [rows, selectedRowId])
     const selectedRow = rows.find(row => row.id === selectedRowId) ?? rows[0]
-    const compactRows = rows.slice(0, TI_WORKBENCH_PREVIEW_ROWS)
-    const visibleRows = showAllOperations
-        ? rows
-        : selectedRow && !compactRows.some(row => row.id === selectedRow.id)
-            ? [...compactRows.slice(0, TI_WORKBENCH_PREVIEW_ROWS - 1), selectedRow]
-            : compactRows
-    const hiddenOperationCount = Math.max(0, rows.length - visibleRows.length)
+    const preview = useSelectedPreviewRows(rows, selectedRow, TI_WORKBENCH_PREVIEW_ROWS)
 
     return (
         <section data-ti-actor-operations-matrix='true' className='min-w-0 overflow-hidden rounded-lg border border-ui-border bg-ui-panel dark:border-ui-border dark:bg-ui-panel'>
@@ -69,7 +63,7 @@ export default function ActorOperationsMatrix({
                             </tr>
                         </thead>
                         <tbody className='divide-y divide-ui-border'>
-                            {visibleRows.map(row => {
+                            {preview.visibleRows.map(row => {
                                 const active = selectedRow?.id === row.id || (row.artifactLookup && selectedArtifactId?.includes(row.artifactLookup.toLowerCase().replace(/[^a-z0-9]+/g, '-')))
                                 return (
                                     <tr key={row.id} className={`${active ? 'bg-ui-primary/10 dark:bg-ui-primary/10' : 'bg-ui-panel dark:bg-ui-panel'} align-top`}>
@@ -103,23 +97,15 @@ export default function ActorOperationsMatrix({
                             })}
                         </tbody>
                     </table>
-                    {hiddenOperationCount ? (
-                        <button
-                            type='button'
-                            onClick={() => setShowAllOperations(true)}
-                            className='ui-button ui-button-secondary m-2 min-h-9 px-3 text-xs'
-                        >
-                            Show {hiddenOperationCount} more details
-                        </button>
-                    ) : showAllOperations && rows.length > compactRows.length ? (
-                        <button
-                            type='button'
-                            onClick={() => setShowAllOperations(false)}
-                            className='ui-button ui-button-secondary m-2 min-h-9 px-3 text-xs'
-                        >
-                            Show key details only
-                        </button>
-                    ) : null}
+                    <CompactRowsToggle
+                        hiddenCount={preview.hiddenCount}
+                        expanded={preview.expanded}
+                        hasMore={preview.hasMore}
+                        onExpandedChange={preview.setExpanded}
+                        moreLabel={count => `Show ${count} more details`}
+                        lessLabel='Show key details only'
+                        className='ui-button ui-button-secondary m-2 min-h-9 px-3 text-xs'
+                    />
                     {!rows.length ? <p className='p-4 text-sm text-ui-muted dark:text-ui-muted'>Add technique, infrastructure, or victim context before case review.</p> : null}
                 </div>
                 <div className='min-w-0 border-t border-ui-border bg-ui-panel p-3 dark:border-ui-border dark:bg-ui-raised lg:border-l lg:border-t-0'>

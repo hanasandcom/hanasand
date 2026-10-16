@@ -10,6 +10,7 @@ import { type TiActorIntelligenceProfile } from '@/utils/ti/actorIntelligence'
 import { useEffect, useMemo, useState } from 'react'
 import CopyPayloadButton from './copy-payload-button'
 import Panel from './panel'
+import { CompactRowsToggle, useSelectedPreviewRows } from './selectedPreviewList'
 
 export default function EnrichmentGapWorkbench({
     tasks,
@@ -40,7 +41,6 @@ export default function EnrichmentGapWorkbench({
 }) {
     const rows = useMemo(() => enrichmentGapWorkbenchRowsFor({ tasks, result, actor, actionability, workItems, artifacts }), [tasks, result, actor, actionability, workItems, artifacts])
     const [selectedRowId, setSelectedRowId] = useState(rows[0]?.id ?? '')
-    const [showAllQuestions, setShowAllQuestions] = useState(false)
     useEffect(() => {
         if (!rows.length) return
         if (!rows.some(row => row.id === selectedRowId)) setSelectedRowId(rows[0]?.id ?? '')
@@ -50,13 +50,7 @@ export default function EnrichmentGapWorkbench({
     const selectedArtifact = selectedRow?.artifactIds.find(id => id === selectedArtifactId) ?? selectedRow?.artifactIds[0]
     const blockedCount = rows.filter(row => row.state === 'blocked').length
     const reviewCount = rows.filter(row => row.state === 'review').length
-    const compactRows = rows.slice(0, TI_WORKBENCH_PREVIEW_ROWS)
-    const visibleRows = showAllQuestions
-        ? rows
-        : selectedRow && !compactRows.some(row => row.id === selectedRow.id)
-            ? [...compactRows.slice(0, TI_WORKBENCH_PREVIEW_ROWS - 1), selectedRow]
-            : compactRows
-    const hiddenQuestionCount = Math.max(0, rows.length - visibleRows.length)
+    const preview = useSelectedPreviewRows(rows, selectedRow, TI_WORKBENCH_PREVIEW_ROWS)
 
     return (
         <Panel title='Source review' description='Open data questions tied to evidence, key details, sources, and case review.' icon={<Database className='h-4 w-4' />}>
@@ -81,7 +75,7 @@ export default function EnrichmentGapWorkbench({
                             </tr>
                         </thead>
                         <tbody className='divide-y divide-ui-border'>
-                            {visibleRows.map(row => {
+                            {preview.visibleRows.map(row => {
                                 const active = selectedRow?.id === row.id
                                 return (
                                     <tr key={row.id} className={`${active ? 'bg-ui-primary/10 dark:bg-ui-primary/10' : 'bg-ui-panel dark:bg-ui-panel'} align-top`}>
@@ -110,23 +104,15 @@ export default function EnrichmentGapWorkbench({
                         </tbody>
                     </table>
                 </div>
-                {hiddenQuestionCount ? (
-                    <button
-                        type='button'
-                        onClick={() => setShowAllQuestions(true)}
-                        className='inline-flex min-h-9 w-fit items-center justify-center rounded-lg border border-ui-border bg-ui-panel px-3 text-xs font-semibold text-ui-text transition hover:bg-ui-raised focus:outline-none focus:ring-2 focus:ring-ui-primary/35 dark:border-ui-border dark:bg-ui-panel dark:text-ui-text dark:hover:bg-ui-raised'
-                    >
-                        Show {hiddenQuestionCount} more questions
-                    </button>
-                ) : showAllQuestions && rows.length > compactRows.length ? (
-                    <button
-                        type='button'
-                        onClick={() => setShowAllQuestions(false)}
-                        className='inline-flex min-h-9 w-fit items-center justify-center rounded-lg border border-ui-border bg-ui-panel px-3 text-xs font-semibold text-ui-text transition hover:bg-ui-raised focus:outline-none focus:ring-2 focus:ring-ui-primary/35 dark:border-ui-border dark:bg-ui-panel dark:text-ui-text dark:hover:bg-ui-raised'
-                    >
-                        Show key questions only
-                    </button>
-                ) : null}
+                <CompactRowsToggle
+                    hiddenCount={preview.hiddenCount}
+                    expanded={preview.expanded}
+                    hasMore={preview.hasMore}
+                    onExpandedChange={preview.setExpanded}
+                    moreLabel={count => `Show ${count} more questions`}
+                    lessLabel='Show key questions only'
+                    className='inline-flex min-h-9 w-fit items-center justify-center rounded-lg border border-ui-border bg-ui-panel px-3 text-xs font-semibold text-ui-text transition hover:bg-ui-raised focus:outline-none focus:ring-2 focus:ring-ui-primary/35 dark:border-ui-border dark:bg-ui-panel dark:text-ui-text dark:hover:bg-ui-raised'
+                />
                 {selectedRow ? (
                     <div className='min-w-0 rounded-lg border border-ui-border bg-ui-panel p-3 dark:border-ui-border dark:bg-ui-raised'>
                         <div className='flex min-w-0 flex-wrap items-start justify-between gap-2'>
