@@ -1,4 +1,5 @@
 import DashboardThought from '@/components/thoughts/dashboardThought'
+import { DashboardContentQueue } from '@/components/dashboard/dashboardContentQueue'
 import DashboardMetricCard from '@/components/dashboard/dashboardMetricCard'
 import { DashboardHeader, DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
 import fetchWorkspaceContent from '@/utils/organizations/fetchWorkspaceContent'
@@ -50,24 +51,13 @@ export default async function Page() {
                 <DashboardMetricCard icon={<Radio className='h-4 w-4' />} label='Publishing' value={thoughts.length ? 'Live' : 'Ready'} detail='thoughts for the public site' tone={thoughts.length ? 'ok' : 'watch'} />
             </section> : null}
 
-            {thoughts.length ? <DashboardPanel className='overflow-hidden border-ui-border bg-ui-panel p-0'>
-                <div className='flex flex-wrap items-center justify-between gap-3 border-b border-ui-border bg-ui-panel px-4 py-3'>
-                    <div>
-                        <h2 className='text-base font-semibold text-ui-text'>Thoughts</h2>
-                        <p className='mt-1 text-sm text-ui-muted'>Recent philosophical questions.</p>
-                    </div>
-                    <span className='rounded-full border border-ui-primary/35 bg-ui-primary/10 px-3 py-1 text-xs font-semibold text-ui-on-primary'>
-                        {thoughts.length} rows
-                    </span>
-                </div>
-                <div className='grid gap-1 p-3'>
-                    {thoughts.length ? thoughts.map((thought) => <DashboardThought key={thought.id} thought={thought} />) : (
-                        <div className='rounded-lg border border-dashed border-ui-border bg-ui-canvas p-4 text-sm text-ui-muted'>
-                            Create a thought to share a philosophical question.
-                        </div>
-                    )}
-                </div>
-            </DashboardPanel> : null}
+            {thoughts.length ? <DashboardContentQueue
+                title='Thoughts'
+                description='Recent philosophical questions.'
+                count={thoughts.length}
+            >
+                {thoughts.map(thought => <DashboardThought key={thought.id} thought={thought} />)}
+            </DashboardContentQueue> : null}
         </DashboardPage>
     )
 }

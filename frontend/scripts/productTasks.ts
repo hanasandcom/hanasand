@@ -18,6 +18,7 @@ export const productTasks: TestTask[] = [
     { id: 'content-workspace', title: 'Content workspace selection and access failures', command: [bun, 'test', 'tests/content-workspace.test.ts'] },
     { id: 'support-session', title: 'Anonymous support session cookie security', command: [bun, 'test', 'tests/support-session.test.ts'] },
     { id: 'backend-request-headers', title: 'Shared backend client authentication headers', command: [bun, 'test', 'tests/backend-request-headers.test.ts'] },
+    { id: 'dashboard-content-queue', title: 'Article and thought dashboard queue rendering', command: [bun, 'test', 'tests/dashboard-content-queue.test.tsx'] },
     { id: 'prompt-portal-ordering', title: 'Prompt portal queue ordering and worker batch order', command: [bun, 'test', 'tests/prompt-portal-ordering.test.tsx', 'tests/prompt-portal-worker-token.test.ts'] },
     { id: 'share-editor-empty-state', title: 'Share editor starter choices and empty-state layout', command: [bun, 'test', 'tests/share-editor-empty-state.test.tsx'] },
     { id: 'share-tree-paths', title: 'Shared nested workspace paths for preview detection', command: [bun, 'test', 'tests/share-tree-paths.test.ts'] },

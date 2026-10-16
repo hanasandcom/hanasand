@@ -1,4 +1,5 @@
 import DashboardArticle from '@/components/articles/dashboardArticle'
+import { DashboardContentQueue } from '@/components/dashboard/dashboardContentQueue'
 import DashboardMetricCard from '@/components/dashboard/dashboardMetricCard'
 import { DashboardHeader, DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
 import fetchWorkspaceContent from '@/utils/organizations/fetchWorkspaceContent'
@@ -47,24 +48,13 @@ export default async function Page() {
                 <DashboardMetricCard icon={<Radio className='h-4 w-4' />} label='Publishing' value={articles.length ? 'Live' : 'Open'} tone={articles.length ? 'ok' : 'watch'} />
             </section> : null}
 
-            {articles.length ? <DashboardPanel className='overflow-hidden border-ui-border bg-ui-panel p-0'>
-                <div className='flex flex-wrap items-center justify-between gap-3 border-b border-ui-border bg-ui-panel px-4 py-3'>
-                    <div>
-                        <h2 className='text-base font-semibold text-ui-text'>Editorial queue</h2>
-                        <p className='mt-1 text-sm text-ui-muted'>{articles.length ? 'Newest published and draft rows are streaming here.' : 'The writing queue is open.'}</p>
-                    </div>
-                    <span className='rounded-full border border-ui-primary/35 bg-ui-primary/10 px-3 py-1 text-xs font-semibold text-ui-on-primary'>
-                        {articles.length} rows
-                    </span>
-                </div>
-                <div className='grid gap-1 p-3'>
-                    {articles.length ? articles.map((article) => <DashboardArticle key={article.id} article={article} />) : (
-                        <div className='rounded-lg border border-dashed border-ui-border bg-ui-canvas p-4 text-sm text-ui-muted'>
-                            Editorial queue is clear. Create an article to start the stream.
-                        </div>
-                    )}
-                </div>
-            </DashboardPanel> : null}
+            {articles.length ? <DashboardContentQueue
+                title='Editorial queue'
+                description='Newest published and draft rows are streaming here.'
+                count={articles.length}
+            >
+                {articles.map(article => <DashboardArticle key={article.id} article={article} />)}
+            </DashboardContentQueue> : null}
         </DashboardPage>
     )
 }
