@@ -1420,7 +1420,25 @@ export function buildDwmWebhookDeliveryHistory({
     filters = {},
     liveDeliveryEnabled = process.env.DWM_WEBHOOK_LIVE_DELIVERY === 'true',
 }: DwmWebhookDeliveryEvidenceOptions) {
-    const { projection, ledger, auditContracts } = buildDwmWebhookDeliveryProjectionBundle({ deliveries, auditEvents, destinations, filters })
+    return buildDwmWebhookDeliveryHistoryWithRetryPersistence({
+        deliveries,
+        auditEvents,
+        destinations,
+        filters,
+        liveDeliveryEnabled,
+        now: new Date(),
+    }).history
+}
+
+function buildDwmWebhookDeliveryHistoryWithRetryPersistence({
+    deliveries,
+    auditEvents = [],
+    destinations = [],
+    filters = {},
+    liveDeliveryEnabled = process.env.DWM_WEBHOOK_LIVE_DELIVERY === 'true',
+    now,
+}: DwmWebhookDeliveryEvidenceOptions & { now: Date }) {
+    const { projection, ledger, auditContracts } = buildDwmWebhookDeliveryProjectionBundle({ deliveries, auditEvents, destinations, filters, now })
     const operations = buildDwmWebhookDeliveryOperationsFromProjection({ destinations, filters, liveDeliveryEnabled, ledger, auditContracts })
     const retryPersistence = buildDwmWebhookDeliveryRetryPersistenceFromProjection({ destinations, filters, liveDeliveryEnabled, ledger, auditContracts })
     const deliveryById = projection.deliveriesById
@@ -1514,12 +1532,15 @@ export function buildDwmWebhookDeliveryHistory({
     })
 
     return {
-        schemaVersion: 'dwm.webhook.delivery_history.v1',
-        liveDeliveryEnabled,
-        filters: operations.filters,
-        total: entries.length,
-        counts: operations.counts,
-        entries,
+        history: {
+            schemaVersion: 'dwm.webhook.delivery_history.v1',
+            liveDeliveryEnabled,
+            filters: operations.filters,
+            total: entries.length,
+            counts: operations.counts,
+            entries,
+        },
+        retryPersistence,
     }
 }
 
@@ -2102,8 +2123,14 @@ export function buildDwmWebhookDeliveryReceipts({
         }
     }
 
-    const history = buildDwmWebhookDeliveryHistory({ deliveries, auditEvents, destinations, filters, liveDeliveryEnabled })
-    const retryPersistence = buildDwmWebhookDeliveryRetryPersistence({ deliveries, auditEvents, destinations, filters, liveDeliveryEnabled })
+    const { history, retryPersistence } = buildDwmWebhookDeliveryHistoryWithRetryPersistence({
+        deliveries,
+        auditEvents,
+        destinations,
+        filters,
+        liveDeliveryEnabled,
+        now: new Date(),
+    })
     const retryByIdempotencyKey = new Map(retryPersistence.deliveryKeys.map(key => [key.idempotencyKey, key]))
     const receipts = history.entries.map((entry) => {
         const retryKey = entry.deliveryProof.idempotencyKey
