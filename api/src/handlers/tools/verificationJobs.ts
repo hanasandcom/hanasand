@@ -55,6 +55,11 @@ type CreateJobBody = {
     metadata?: Record<string, unknown>
 }
 
+type VerificationUsageDetails = Pick<
+    Parameters<typeof recordAiUsageEvent>[0],
+    'kind' | 'units' | 'billableUnits' | 'estimatedCostNok' | 'outcome' | 'metadata'
+>
+
 let activeJobs = 0
 let pumpScheduled = false
 const activeFetchControllers = new Map<string, AbortController>()
@@ -370,16 +375,11 @@ async function completeProofJob(job: VerificationJobRow, {
     if (!saved) return
 
     const billable = status === 'completed'
-    await recordAiUsageEvent({
-        ownerId: job.owner_id,
-        actorId: job.owner_id,
-        workspaceKind: cleanWorkspaceKind(job.workspace_kind),
-        workspaceId: job.workspace_id,
+    await recordVerificationUsage(job, {
         kind: 'browser_proof_completed',
         units: 1,
         billableUnits: billable ? 1 : 0,
         estimatedCostNok: billable ? estimatedCostNok : 0,
-        billingMode: job.lane,
         outcome: billable ? 'verified' : 'failed',
         metadata,
     })
@@ -810,16 +810,11 @@ async function completeNonBrowserJob(job: VerificationJobRow) {
     if (!saved) return
     const durationMinutes = Math.max(1, Math.ceil(((job.started_at ? Date.now() - Date.parse(job.started_at) : 0) || 60000) / 60000))
     const kind = job.kind === 'deploy' ? 'deploy_minutes_recorded' : 'build_minutes_recorded'
-    await recordAiUsageEvent({
-        ownerId: job.owner_id,
-        actorId: job.owner_id,
-        workspaceKind: cleanWorkspaceKind(job.workspace_kind),
-        workspaceId: job.workspace_id,
+    await recordVerificationUsage(job, {
         kind,
         units: durationMinutes,
         billableUnits: durationMinutes,
         estimatedCostNok: durationMinutes * (job.kind === 'deploy' ? 0.24 : 0.16),
-        billingMode: job.lane,
         outcome: job.kind === 'deploy' ? 'deployed' : 'verified',
         metadata: {
             jobId: job.id,
@@ -827,6 +822,17 @@ async function completeNonBrowserJob(job: VerificationJobRow) {
             deployUrl: job.deploy_url,
             currentStep: 'Receipt stored',
         },
+    })
+}
+
+async function recordVerificationUsage(job: VerificationJobRow, details: VerificationUsageDetails) {
+    await recordAiUsageEvent({
+        ownerId: job.owner_id,
+        actorId: job.owner_id,
+        workspaceKind: cleanWorkspaceKind(job.workspace_kind),
+        workspaceId: job.workspace_id,
+        billingMode: job.lane,
+        ...details,
     })
 }
 
