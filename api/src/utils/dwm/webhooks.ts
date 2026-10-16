@@ -30,6 +30,7 @@ import { buildDwmWebhookDeliveryPersistenceProofFromHistory } from './webhooks/d
 import { buildDwmWebhookDeliveryReplayApiProjection } from './webhooks/deliveryReplayApiProjection.ts'
 import { buildDwmWebhookDeliveryHistoryConsumerProjection } from './webhooks/deliveryHistoryConsumer.ts'
 import { buildDwmWebhookDeliveryReadinessConsumerProjection } from './webhooks/deliveryReadinessConsumer.ts'
+import { buildDwmWebhookDestinationTestEvidence } from './webhooks/destinationTestEvidence.ts'
 export { buildDwmWebhookTestAlert } from './webhooks/payloadPreviews.ts'
 export { buildDwmWebhookDeliveryPreview } from './webhooks/deliveryPreview.ts'
 import type {
@@ -4716,43 +4717,7 @@ export function buildDwmWebhookDestinationTestContract({
     viewerRole?: string | null
     canManage?: boolean
 }) {
-    const destinationId = destination?.id || null
-    const scopedDeliveries = destinationId
-        ? deliveries
-            .filter(delivery => delivery.destinationId === destinationId && delivery.eventType === 'dwm.alert.test')
-            .sort((a, b) => String(b.attemptedAt || b.createdAt).localeCompare(String(a.attemptedAt || a.createdAt)))
-        : []
-    const latestTest = scopedDeliveries[0] || null
-    const persistedLastTest = destination?.lastTestStatus
-        ? {
-            requestId: null,
-            deliveryId: null,
-            status: destination.lastTestStatus === 'delivered' ? 'unknown' : destination.lastTestStatus,
-            dryRun: null,
-            live: false,
-            responseStatus: destination.lastTestHttpStatus,
-            error: destination.lastTestError ? redactDeliveryEvidenceText(destination.lastTestError) : null,
-            attemptedAt: destination.lastTestedAt,
-            payloadHash: null,
-            idempotencyKey: null,
-            source: 'destination_persistence',
-        }
-        : null
-    const preview = latestTest ? buildDwmWebhookDeliveryPreview(latestTest) : null
-    const testPayload = destination
-        ? buildDwmAlertDeliveryPayload({
-            destination: {
-                id: destination.id,
-                kind: destination.kind,
-                name: destination.name,
-                org_id: destination.orgId,
-            },
-            alert: buildDwmWebhookTestAlert({ org_id: destination.orgId }, ''),
-            eventType: 'dwm.alert.test',
-            deliveryId: `destination-test-preview:${destination.id}`,
-        })
-        : null
-    const dryRunPayloadPreview = testPayload ? buildDwmWebhookDestinationTestPayloadPreview(testPayload) : null
+    const { destinationId, latestTest, persistedLastTest, preview, testPayload, dryRunPayloadPreview } = buildDwmWebhookDestinationTestEvidence(destination, deliveries)
     const health = destination
         ? buildDwmWebhookDestinationHealth({ destinations: [destination], deliveries, auditEvents, liveDeliveryEnabled })[0] || null
         : null
