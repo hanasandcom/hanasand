@@ -6,7 +6,9 @@ import { fileURLToPath } from 'node:url'
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const repositoryRoot = path.resolve(frontendRoot, '..')
 const limit = 200
-const includedExtensions = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.css', '.json'])
+const includedExtensions = new Set([
+    '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.css', '.json', '.toml', '.yaml', '.yml',
+])
 const excludedDirectories = new Set(['node_modules', '.next', 'coverage', 'playwright-report', 'test-results', 'dist', 'build'])
 const generatedFiles = new Set(['src/utils/routes/generatedSearchRoutes.ts'])
 
