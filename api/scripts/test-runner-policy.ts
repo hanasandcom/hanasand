@@ -16,7 +16,7 @@ const unitTestFiles = [
     'audit-pagination.test.ts', 'auth-history.test.ts', 'auth-logout.test.ts', 'automatic-review-cron.test.ts', 'automation-certificates.test.ts',
     'automation-persistence.test.ts', 'background-analytics.test.ts', 'backup-worker-client.test.ts', 'browser-access.test.ts', 'browser-admission.test.ts',
     'browser-downloads.test.ts', 'browser-reconnect.test.ts', 'browser-results.test.ts', 'browser-run-access.test.ts', 'browser-sandbox-profiles-route-registration.test.ts',
-    'browser-sandbox-profiles.test.ts', 'browser-task-analysis.test.ts', 'browser-task-handler.test.ts', 'browser-warm-pool.test.ts', 'browser-webcrack-output.test.ts', 'browser-websocket-broker.test.ts',
+    'browser-sandbox-profiles.test.ts', 'browser-stream-websocket-proxy.test.ts', 'browser-task-analysis.test.ts', 'browser-task-handler.test.ts', 'browser-warm-pool.test.ts', 'browser-webcrack-output.test.ts', 'browser-websocket-broker.test.ts',
     'browser-worker-connect.test.ts', 'browser-worker-reconnect.test.ts', 'canonical-json.test.ts', 'case-commits.test.ts', 'case-delivery.test.ts', 'case-development.test.ts',
     'check-scheduled-job-registry.test.ts', 'code-review-access.test.ts', 'collector-health.test.ts', 'commercial-contact-requests.test.ts', 'contact-mail-sender.test.ts',
     'container-billing.test.ts', 'content-organization.test.ts', 'custom-retention.test.ts', 'database-browse-parser-version.test.ts', 'database-overview-summary.test.ts',

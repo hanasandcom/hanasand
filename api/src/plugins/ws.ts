@@ -266,42 +266,67 @@ function proxyBrowserStreamWebSocket(
     }
 
     const upstream = new WebSocket(`ws://${stream.ip}:8080${browserStreamUpstreamPath(req)}`)
+    proxyBrowserStreamSocket(connection, upstream, req.params.id)
+}
+
+export function proxyBrowserStreamSocket(connection: WebSocket, upstream: WebSocket, id: string) {
     const pending: string[] = []
+    let pendingBytes = 0
     let closed = false
     const keepAliveTimer = setInterval(() => {
         if (connection.readyState === WebSocket.OPEN) connection.ping()
         if (upstream.readyState === WebSocket.OPEN) upstream.ping()
     }, 20_000)
     keepAliveTimer.unref()
-    const closeBoth = () => {
+    const closeBoth = (errorMessage?: string, closeCode = 1000, closeReason = '') => {
         if (closed) return
         closed = true
         clearInterval(keepAliveTimer)
-        if (connection.readyState === WebSocket.OPEN) connection.close()
+        pending.length = 0
+        pendingBytes = 0
+        if (connection.readyState === WebSocket.OPEN) {
+            if (errorMessage) sendErrorThenClose(connection, errorMessage, closeCode, closeReason)
+            else connection.close(closeCode, closeReason)
+        }
         if (upstream.readyState === WebSocket.OPEN || upstream.readyState === WebSocket.CONNECTING) upstream.close()
     }
     upstream.on('open', () => {
-        while (pending.length && upstream.readyState === WebSocket.OPEN) upstream.send(pending.shift()!)
+        if (closed) { upstream.close(); return }
+        while (pending.length && upstream.readyState === WebSocket.OPEN) {
+            const message = pending.shift()!
+            pendingBytes -= Buffer.byteLength(message, 'utf8')
+            upstream.send(message)
+        }
     })
     upstream.on('message', message => {
         if (connection.readyState === WebSocket.OPEN) connection.send(socketMessageText(message))
     })
     connection.on('message', message => {
+        if (closed) return
         const text = socketMessageText(message)
         if (upstream.readyState === WebSocket.OPEN) upstream.send(text)
-        else pending.push(text)
+        else {
+            const messageBytes = Buffer.byteLength(text, 'utf8')
+            if (pending.length >= MAX_QUEUED_BROWSER_MESSAGES
+                || pendingBytes + messageBytes > MAX_QUEUED_BROWSER_MESSAGE_BYTES) {
+                closeBoth('Too many browser commands are waiting. The session is closing.', 1013, 'Too many queued browser commands.')
+                return
+            }
+            pending.push(text)
+            pendingBytes += messageBytes
+        }
     })
     connection.on('close', (code, reason) => {
-        if (code === 1006) void logBrowserStreamClosure(req.params.id, code, reason)
+        if (code === 1006) void logBrowserStreamClosure(id, code, reason)
         closeBoth()
     })
-    upstream.on('close', closeBoth)
+    upstream.on('close', () => closeBoth())
     connection.on('error', error => {
-        void recordWebsocketFailure('browser-stream-client', req.params.id, error)
+        void recordWebsocketFailure('browser-stream-client', id, error)
         closeBoth()
     })
     upstream.on('error', error => {
-        void recordWebsocketFailure('browser-stream-upstream', req.params.id, error)
+        void recordWebsocketFailure('browser-stream-upstream', id, error)
         closeBoth()
     })
 }
