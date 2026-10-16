@@ -503,9 +503,6 @@ function proxyEphemeralBrowserSocket(connection: WebSocket, id: string, route: '
                 }
                 upstream = nextUpstream
                 sendStatus(connection, 'worker_connected', 'Isolated browser worker connected.')
-                upstream.on('open', () => {
-                    while (pending.length && upstream?.readyState === WebSocket.OPEN) upstream.send(pending.shift()!)
-                })
                 while (pending.length && upstream.readyState === WebSocket.OPEN) upstream.send(pending.shift()!)
                 upstream.on('message', message => {
                     const payload = parseSocketMessage(message)
