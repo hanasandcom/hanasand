@@ -556,6 +556,7 @@ export async function getImpersonationEvents(req: FastifyRequest, res: FastifyRe
     `, values) : { rows: [] }
     const filters = { q, actor: actorFilter, target: targetFilter, action: actionFilter, outcome: outcomeFilter || 'success', method: methodFilter, path: pathFilter, session: sessionFilter, supportSession: sessionFilter, reason: reasonFilter, from: fromFilter, to: toFilter, limit }
     const timeline = result.rows.map(toImpersonationTimelineEvent)
+    const lifecycleState = impersonationLifecycleState(timeline)
     const guardrailAudit = await loadImpersonationGuardrailAuditEvents(filters)
     return res.send({
         events: result.rows,
@@ -566,10 +567,10 @@ export async function getImpersonationEvents(req: FastifyRequest, res: FastifyRe
             eventIds: timeline.map(event => event.id),
             summary: impersonationTimelineSummary(timeline),
             filterContract: impersonationTimelineFilterContract(filters, timeline),
-            decisionPacket: impersonationTimelineDecisionPacket(filters, timeline),
-            lifecycleReceipt: impersonationLifecycleReceipt(filters, timeline),
+            decisionPacket: impersonationTimelineDecisionPacket(filters, timeline, lifecycleState),
+            lifecycleReceipt: impersonationLifecycleReceipt(filters, timeline, lifecycleState),
             guardrailReplay: supportImpersonationGuardrailAuditReplay(filters, guardrailAudit),
-            caseReview: impersonationCaseReviewPacket(filters, timeline, guardrailAudit),
+            caseReview: impersonationCaseReviewPacket(filters, timeline, guardrailAudit, lifecycleState),
             events: timeline,
             redacted: true,
             links: {
@@ -842,6 +843,8 @@ function impersonationLifecycleState(timeline: Array<Record<string, any>>) {
     }
 }
 
+type ImpersonationLifecycleState = ReturnType<typeof impersonationLifecycleState>
+
 function impersonationTimelineFilterContract(filters: Record<string, unknown>, timeline: Array<Record<string, any>>) {
     return {
         schemaVersion: 'support.impersonation.timeline_filter_contract.v1',
@@ -918,8 +921,8 @@ function impersonationTimelineFilterReadiness(filters: Record<string, unknown>, 
     }
 }
 
-function impersonationTimelineDecisionPacket(filters: Record<string, unknown>, timeline: Array<Record<string, any>>) {
-    const { startEvents, stopEvents, activeSessionIds, missingReasonEventIds, missingDurationEventIds } = impersonationLifecycleState(timeline)
+function impersonationTimelineDecisionPacket(filters: Record<string, unknown>, timeline: Array<Record<string, any>>, lifecycle: ImpersonationLifecycleState) {
+    const { startEvents, stopEvents, activeSessionIds, missingReasonEventIds, missingDurationEventIds } = lifecycle
     const blockers = [
         timeline.length ? '' : 'lifecycle_events_unavailable',
         missingReasonEventIds.length ? 'missing_reason_on_impersonation_event' : '',
@@ -975,8 +978,7 @@ function impersonationTimelineDecisionPacket(filters: Record<string, unknown>, t
     }
 }
 
-function impersonationCaseReviewPacket(filters: Record<string, unknown>, timeline: Array<Record<string, any>>, guardrailRows: Array<Record<string, any>>) {
-    const lifecycle = impersonationLifecycleState(timeline)
+function impersonationCaseReviewPacket(filters: Record<string, unknown>, timeline: Array<Record<string, any>>, guardrailRows: Array<Record<string, any>>, lifecycle: ImpersonationLifecycleState) {
     const { sessionIds, stoppedSessionIds, activeSessionIds, missingReasonEventIds, missingDurationEventIds, expiredSessionIds } = lifecycle
     const actorIds = uniqueImpersonationValues(timeline.map(event => event.actor?.id))
     const targetIds = uniqueImpersonationValues(timeline.map(event => event.target?.id))
@@ -1119,8 +1121,8 @@ function impersonationCaseReviewPacket(filters: Record<string, unknown>, timelin
 
 const normalizeAuditScope = (value: unknown) => Array.isArray(value) ? value.map(item => cleanText(item)).filter(Boolean) : []
 
-function impersonationLifecycleReceipt(filters: Record<string, unknown>, timeline: Array<Record<string, any>>) {
-    const { sessionIds, startEvents, stopEvents, stoppedSessionIds, activeSessionIds, missingReasonEventIds, missingDurationEventIds, expiredSessionIds } = impersonationLifecycleState(timeline)
+function impersonationLifecycleReceipt(filters: Record<string, unknown>, timeline: Array<Record<string, any>>, lifecycle: ImpersonationLifecycleState) {
+    const { sessionIds, startEvents, stopEvents, stoppedSessionIds, activeSessionIds, missingReasonEventIds, missingDurationEventIds, expiredSessionIds } = lifecycle
     return {
         schemaVersion: 'support.impersonation.lifecycle_receipt.v1',
         generatedAt: new Date().toISOString(),

@@ -109,6 +109,27 @@ test('timeline receipts agree on active, stopped, expired, and incomplete lifecy
     })
 })
 
+test('lifecycle projections use one clock snapshot at an expiry boundary', async () => {
+    const originalNow = Date.now
+    const originalExpiry = lifecycleRows[0].session_expires_at
+    const expiry = originalNow()
+    lifecycleRows[0].session_expires_at = new Date(expiry).toISOString()
+    let clockReads = 0
+    Date.now = () => ++clockReads === 3 ? expiry + 1 : expiry - 1
+
+    try {
+        const response = await app.inject('/impersonation/events')
+        expect(response.statusCode).toBe(200)
+
+        const { timeline } = response.json()
+        expect(timeline.lifecycleReceipt.lifecycle.expiredSessionIds).toEqual([])
+        expect(timeline.lifecycleReceipt.lifecycle.expiredSessionIds).toEqual(timeline.caseReview.summary.expiredSessionIds)
+    } finally {
+        Date.now = originalNow
+        lifecycleRows[0].session_expires_at = originalExpiry
+    }
+})
+
 test('guardrail replay distinguishes support sessions from impersonation session IDs', async () => {
     guardrailRows = [
         { id: 11, event_type: 'impersonation.start', outcome: 'success', subject_id: 'impersonation-11', context: { sessionId: 'impersonation-11', scope: [' read_profile ', '', null, 'read_org'] } },
