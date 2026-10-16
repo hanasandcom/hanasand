@@ -1,5 +1,20 @@
 import { expect, test } from 'bun:test'
-import { updateOrganizationInviteAction, type IdentityQuery } from '../src/utils/db/identityDataWrites.ts'
+import { touchOrganization, updateOrganizationInviteAction, type IdentityQuery } from '../src/utils/db/identityDataWrites.ts'
+
+test('organization timestamp touch uses the supplied transaction query', async () => {
+    let sql = ''
+    let values: unknown[] = []
+    const query: IdentityQuery = async (statement, params = []) => {
+        sql = statement
+        values = params
+        return { rows: [], rowCount: 1 }
+    }
+
+    await touchOrganization('org-1', query)
+
+    expect(sql).toBe('UPDATE organizations SET updated_at = NOW() WHERE id = $1')
+    expect(values).toEqual(['org-1'])
+})
 
 test('invite actions share an atomic transition that cannot overwrite acceptance', async () => {
     let sql = ''

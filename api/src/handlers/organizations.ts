@@ -3,7 +3,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify'
 import { randomUUID } from 'crypto'
 import run, { withTransaction } from '#db'
 import { organizationPrivacyDeletionInProgress } from '#utils/organizationLifecycle.ts'
-import { updateActiveOrganizationMemberRole, updateOrganizationInviteAction, upsertOrganizationInvite, upsertOrganizationMember } from '#utils/db/identityDataWrites.ts'
+import { touchOrganization, updateActiveOrganizationMemberRole, updateOrganizationInviteAction, upsertOrganizationInvite, upsertOrganizationMember } from '#utils/db/identityDataWrites.ts'
 import { activeOrganizationOwnerCount as activeOwnerCount } from '#utils/organizationMemberships.ts'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import recordLog from '#utils/logs/recordLog.ts'
@@ -630,7 +630,7 @@ export async function deleteOrganizationMember(req: FastifyRequest<{ Params: Org
               AND organization_invites.status = 'pending'
             RETURNING organization_invites.*
         `, [req.params.id, req.params.userId])
-        await query('UPDATE organizations SET updated_at = NOW() WHERE id = $1', [req.params.id])
+        await touchOrganization(req.params.id, query)
         return { error: null, organization: lockedOrganization, target: lockedTarget, ownerCount, removed, revokedInvites }
     })
 
@@ -1186,7 +1186,7 @@ export async function postOrganizationOwnershipTransfer(req: FastifyRequest<{ Pa
             RETURNING user_id
         `, [req.params.id, userId])
         if (!demoted.rows.length) throw new Error('Ownership transfer demotion failed after locked owner validation.')
-        await query('UPDATE organizations SET updated_at = NOW() WHERE id = $1', [req.params.id])
+        await touchOrganization(req.params.id, query)
         return { error: null, organization: lockedOrganization, target: lockedTarget, ownerCount, result }
     })
     if (transferOutcome.error === 'organization_not_found' || transferOutcome.error === 'member_not_found') {
@@ -3144,10 +3144,6 @@ async function uniqueOrganizationSlug(baseSlug: string, currentOrganizationId?: 
     }
 
     return `${baseSlug}-${suffix}`
-}
-
-async function touchOrganization(organizationId: string) {
-    await run('UPDATE organizations SET updated_at = NOW() WHERE id = $1', [organizationId])
 }
 
 function logOrganizationEvent(req: FastifyRequest, action: string, organizationId: string, actorId: string, metadata: Record<string, unknown>) {

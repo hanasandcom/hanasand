@@ -16,7 +16,7 @@ export { buildSupportSubjectInspectionReceipts } from './adminSupport/cases/subj
 import { SUPPORT_AUDIT_TIMELINE_SELECT } from './adminSupport/sessions/sessionTimeline.ts'
 import { randomUUID } from 'crypto'
 import run, { withTransaction } from '#db'
-import { updateActiveOrganizationMemberRole, updateOrganizationInviteAction, upsertAdminAccessRecoveryApproval, upsertOrganizationInvite } from '#utils/db/identityDataWrites.ts'
+import { touchOrganization, updateActiveOrganizationMemberRole, updateOrganizationInviteAction, upsertAdminAccessRecoveryApproval, upsertOrganizationInvite } from '#utils/db/identityDataWrites.ts'
 import { isAccountUnavailable } from '#utils/accountAvailability.ts'
 import { loadInspectionApprovals, loadInspectionAuditEvents } from './adminSupport/inspectionEventLoaders.ts'
 import { loadInspectionInvites, loadInspectionMemberships, loadInspectionOrganizations, loadInspectionUsers } from './adminSupport/inspectionEntityLoaders.ts'
@@ -1381,7 +1381,7 @@ export async function postSupportOrganizationInvite(req: FastifyRequest<{ Params
 
     const inviteIds = rows.map(row => row.id)
     const entityId = inviteIds.join(',')
-    await run('UPDATE organizations SET updated_at = NOW() WHERE id = $1', [organization.id])
+    await touchOrganization(organization.id)
     await recordSystemEvent(req, {
         actionType: 'support.organization.invite_assist',
         actorId: actor.id,
@@ -1874,7 +1874,7 @@ export async function postSupportOrganizationInviteAction(req: FastifyRequest<{ 
         return res.status(404).send({ error: 'Invite not found for organization.' })
     }
     const after = inviteSnapshot(updatedInvite)
-    await run('UPDATE organizations SET updated_at = NOW() WHERE id = $1', [organization.id])
+    await touchOrganization(organization.id)
 
     await recordSystemEvent(req, {
         actionType,
@@ -2874,7 +2874,7 @@ export async function postSupportAccessRecovery(req: FastifyRequest<{ Params: Or
         id: randomUUID(), organizationId: organization.id, email: input.emails[0],
         role: input.role, invitedBy: actor.id, expiresAt: input.expiresAt,
     }) as OrganizationInviteRow
-    await run('UPDATE organizations SET updated_at = NOW() WHERE id = $1', [organization.id])
+    await touchOrganization(organization.id)
 
     const supportContext = cleanContext(req.body?.context)
     const approval = accessRecoveryApprovalMetadata({

@@ -1,6 +1,10 @@
 import run from '#db'
 import type { IdentityQuery } from './identityQueryTypes.ts'
 
+export function touchOrganization(organizationId: string, query: IdentityQuery = run) {
+    return query('UPDATE organizations SET updated_at = NOW() WHERE id = $1', [organizationId])
+}
+
 export async function upsertOrganizationMember(input: {
     organizationId: string
     userId: string
@@ -58,7 +62,7 @@ export async function updateActiveOrganizationMemberRole(input: {
     const member = updated.rows[0]
     if (!member) return null
 
-    await query('UPDATE organizations SET updated_at = NOW() WHERE id = $1', [input.organizationId])
+    await touchOrganization(input.organizationId, query)
     return member
 }
 
