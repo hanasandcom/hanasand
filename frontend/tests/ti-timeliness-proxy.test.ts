@@ -1,6 +1,7 @@
 import { strict as assert } from 'node:assert'
 import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
+import { buildReadUrl } from '../src/app/dashboard/ti/timeliness/data'
 
 test('binds tenant timeliness reads and writes to verified organization membership', () => {
     const route = readFileSync(new URL('../src/app/api/ti/timeliness/route.ts', import.meta.url), 'utf8')
@@ -12,12 +13,11 @@ test('binds tenant timeliness reads and writes to verified organization membersh
     assert.doesNotMatch(route, /session\.identity\.roles|system_admin/)
 })
 
-test('defaults the client to an explicit tenant and scopes global access through Hanasand membership', () => {
-    const client = readFileSync(new URL('../src/app/dashboard/ti/timeliness/timelinessClient.tsx', import.meta.url), 'utf8')
+test('encodes tenant scope in client reads and scopes global access through Hanasand membership', () => {
     const route = readFileSync(new URL('../src/app/api/ti/timeliness/route.ts', import.meta.url), 'utf8')
+    const url = new URL(buildReadUrl({ scope: 'tenant', tenantId: ' org-1 ', status: '', query: '' }), 'https://hanasand.test')
 
-    assert.match(client, /useState<'tenant' \| 'global'>\('global'\)/)
-    assert.match(client, /tenantId\.trim\(\)/)
-    assert.match(client, /params\.set\('tenantId', tenantId\.trim\(\)\)/)
+    assert.equal(url.searchParams.get('scope'), 'tenant')
+    assert.equal(url.searchParams.get('tenantId'), 'org-1')
     assert.match(route, /requireApiSession\(request\)/)
 })
