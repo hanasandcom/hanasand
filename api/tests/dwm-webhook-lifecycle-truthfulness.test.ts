@@ -301,3 +301,71 @@ test('dry-run history never makes a webhook destination live-ready', () => {
         readiness: { success: true },
     })
 })
+
+test('terminal delivery failure is consistent across lifecycle and dashboard contracts', () => {
+    const terminalFailure = {
+        ...testDelivery('delivered', false),
+        id: 'delivery_terminal_failure',
+        status: 'failed',
+        responseStatus: 400,
+        responseBody: 'Bad request',
+        error: 'Webhook returned HTTP 400.',
+        deliveredAt: null,
+    } as any
+    const lifecycle = buildDwmWebhookDestinationLifecycle({
+        destinations: [baseDestination as any],
+        deliveries: [terminalFailure],
+        liveDeliveryEnabled: true,
+        viewerRole: 'owner',
+        canManage: true,
+    })[0]
+    const dashboard = buildDwmWebhookDashboardReadinessAdapter({
+        destinations: [baseDestination as any],
+        deliveries: [terminalFailure],
+        liveDeliveryEnabled: true,
+    })
+
+    expect(lifecycle.lifecycleState).toMatchObject({ failed: true, states: expect.arrayContaining(['failed']) })
+    expect(lifecycle.lifecycleReadinessReceipt).toMatchObject({
+        status: { nextDeliveryState: 'terminal_failure' },
+        retry: { terminalFailure: true },
+    })
+    expect(dashboard.summary.terminalFailureCount).toBe(1)
+    expect(dashboard.destinations[0].healthStates).toContain('terminal_failure')
+    expect(dashboard.destinations[0].blockers.map(blocker => blocker.code)).toContain('terminal_failure')
+
+    const liveDeliveryDisabled = {
+        ...testDelivery('delivered', false),
+        id: 'delivery_live_disabled',
+        status: 'skipped',
+        error: 'Live DWM webhook delivery is disabled for this environment.',
+        deliveredAt: null,
+    } as any
+    const disabledLifecycle = buildDwmWebhookDestinationLifecycle({
+        destinations: [baseDestination as any],
+        deliveries: [liveDeliveryDisabled],
+        liveDeliveryEnabled: false,
+        viewerRole: 'owner',
+        canManage: true,
+    })[0]
+    const disabledDashboard = buildDwmWebhookDashboardReadinessAdapter({
+        destinations: [baseDestination as any],
+        deliveries: [liveDeliveryDisabled],
+        liveDeliveryEnabled: false,
+    })
+
+    expect(disabledLifecycle.lifecycleState.failed).toBe(false)
+    expect(disabledLifecycle.lifecycleReadinessReceipt.retry.terminalFailure).toBe(false)
+    expect(disabledDashboard.summary.terminalFailureCount).toBe(0)
+    expect(disabledDashboard.destinations[0].healthStates).not.toContain('terminal_failure')
+    expect(disabledDashboard.destinations[0].blockers.map(blocker => blocker.code)).not.toContain('terminal_failure')
+
+    const failedTest = buildDwmWebhookDestinationLifecycle({
+        destinations: [{ ...baseDestination, lastTestStatus: 'failed' } as any],
+        liveDeliveryEnabled: true,
+        viewerRole: 'owner',
+        canManage: true,
+    })[0]
+    expect(failedTest.lifecycleState.failed).toBe(true)
+    expect(failedTest.lifecycleReadinessReceipt.retry.terminalFailure).toBe(false)
+})

@@ -225,10 +225,7 @@ export async function postDwmWebhookDestination(req: FastifyRequest<{ Body: DwmW
     if (!userId) return
 
     const orgId = clean(req.body?.orgId) || userId
-    const permissionError = await configurationPermissionError(orgId, userId)
-    if (permissionError) {
-        return res.status(permissionError.status).send({ error: permissionError.message })
-    }
+    if (await sendConfigurationPermissionError(res, orgId, userId)) return
 
     const existingDestinations = await listDwmWebhookDestinations(userId, orgId)
     const destinationCrud = buildDwmWebhookDestinationCrudContract({
@@ -285,10 +282,7 @@ export async function putDwmWebhookDestination(req: FastifyRequest<{ Params: IdP
 
     const nextOrgId = clean(req.body?.orgId) || existing.orgId || userId
     const destinationOrgId = existing.orgId || userId
-    const permissionError = await configurationPermissionError(destinationOrgId, userId)
-    if (permissionError) {
-        return res.status(permissionError.status).send({ error: permissionError.message })
-    }
+    if (await sendConfigurationPermissionError(res, destinationOrgId, userId)) return
 
     try {
         const preflight = await loadDestinationCrudContext(userId, destinationOrgId, req.params.id)
@@ -341,10 +335,7 @@ export async function deleteDwmWebhookDestination(req: FastifyRequest<{ Params: 
         return res.status(404).send({ error: 'Webhook destination not found.' })
     }
 
-    const permissionError = await configurationPermissionError(existing.orgId, userId)
-    if (permissionError) {
-        return res.status(permissionError.status).send({ error: permissionError.message })
-    }
+    if (await sendConfigurationPermissionError(res, existing.orgId, userId)) return
 
     const preflight = await loadDestinationCrudContext(userId, existing.orgId, req.params.id)
     const preflightCrud = buildDwmWebhookDestinationCrudContract({
@@ -425,52 +416,30 @@ export function buildDwmWebhookDestinationChangeResponse({
     }
 }
 
-export async function postDwmWebhookDestinationTest(req: FastifyRequest<{ Params: IdParams, Body: DwmAlertNotificationInput }>, res: FastifyReply) {
-    const userId = await authenticatedUserId(req, res)
-    if (!userId) return
-
-    const existing = await updatePreview(req.params.id, userId)
-    if (!existing) {
-        return res.status(404).send({ error: 'Webhook destination not found.' })
-    }
-
-    const permissionError = await configurationPermissionError(existing.orgId, userId)
-    if (permissionError) {
-        return res.status(permissionError.status).send({ error: permissionError.message })
-    }
-
-    const preflight = await loadDestinationCrudContext(userId, existing.orgId, req.params.id)
-    const preflightCrud = buildDwmWebhookDestinationCrudContract({
-        action: 'test',
-        ownerId: userId,
-        input: { ...(req.body || {}), orgId: existing.orgId },
-        destination: preflight.destination,
-        destinations: preflight.destinations,
-        deliveries: preflight.deliveries,
-        auditEvents: preflight.auditEvents,
-        viewerRole: 'admin',
-        canManage: true,
-    })
-    if (!preflightCrud.canApply) {
-        return res.status(400).send({
-            error: preflightCrud.blockers[0]?.message || 'Webhook destination cannot be tested.',
-            destinationCrud: preflightCrud,
-        })
-    }
-
-    const delivery = await testDwmWebhookDestination(userId, req.params.id, req.body || {})
-    if (!delivery) {
-        return res.status(404).send({ error: 'Webhook destination not found.' })
-    }
-    const destinations = await listDwmWebhookDestinations(userId, existing.orgId)
-    const destination = destinations.find(item => item.id === req.params.id)
-    const deliveries = await listDwmWebhookDeliveries(userId, existing.orgId)
-    const auditEvents = await listDwmWebhookAuditEvents(userId, existing.orgId)
+export function buildDwmWebhookDestinationTestResponse({
+    delivery,
+    ownerId,
+    orgId,
+    input,
+    destination,
+    destinations,
+    deliveries,
+    auditEvents,
+}: {
+    delivery: NonNullable<Awaited<ReturnType<typeof testDwmWebhookDestination>>>
+    ownerId: string
+    orgId: string
+    input: DwmAlertNotificationInput
+    destination: Awaited<ReturnType<typeof listDwmWebhookDestinations>>[number] | null | undefined
+    destinations: Awaited<ReturnType<typeof listDwmWebhookDestinations>>
+    deliveries: Awaited<ReturnType<typeof listDwmWebhookDeliveries>>
+    auditEvents: Awaited<ReturnType<typeof listDwmWebhookAuditEvents>>
+}) {
     const destinationChangeResponse = destination
         ? buildDwmWebhookDestinationChangeResponse({
             action: 'test',
-            ownerId: userId,
-            input: { ...(req.body || {}), orgId: existing.orgId },
+            ownerId,
+            input: { ...input, orgId },
             destination,
             destinations,
             deliveries,
@@ -478,7 +447,8 @@ export async function postDwmWebhookDestinationTest(req: FastifyRequest<{ Params
             includeDestination: false,
         })
         : null
-    const response = {
+
+    return {
         delivery,
         preview: buildDwmWebhookDeliveryPreview(delivery),
         destinationCrud: destinationChangeResponse?.destinationCrud ?? null,
@@ -508,6 +478,56 @@ export async function postDwmWebhookDestinationTest(req: FastifyRequest<{ Params
             ? destinationChangeResponse.auditEventContracts
             : buildDwmWebhookAuditEventContracts({ auditEvents, deliveries, destinations }),
     }
+}
+
+export async function postDwmWebhookDestinationTest(req: FastifyRequest<{ Params: IdParams, Body: DwmAlertNotificationInput }>, res: FastifyReply) {
+    const userId = await authenticatedUserId(req, res)
+    if (!userId) return
+
+    const existing = await updatePreview(req.params.id, userId)
+    if (!existing) {
+        return res.status(404).send({ error: 'Webhook destination not found.' })
+    }
+
+    if (await sendConfigurationPermissionError(res, existing.orgId, userId)) return
+
+    const preflight = await loadDestinationCrudContext(userId, existing.orgId, req.params.id)
+    const preflightCrud = buildDwmWebhookDestinationCrudContract({
+        action: 'test',
+        ownerId: userId,
+        input: { ...(req.body || {}), orgId: existing.orgId },
+        destination: preflight.destination,
+        destinations: preflight.destinations,
+        deliveries: preflight.deliveries,
+        auditEvents: preflight.auditEvents,
+        viewerRole: 'admin',
+        canManage: true,
+    })
+    if (!preflightCrud.canApply) {
+        return res.status(400).send({
+            error: preflightCrud.blockers[0]?.message || 'Webhook destination cannot be tested.',
+            destinationCrud: preflightCrud,
+        })
+    }
+
+    const delivery = await testDwmWebhookDestination(userId, req.params.id, req.body || {})
+    if (!delivery) {
+        return res.status(404).send({ error: 'Webhook destination not found.' })
+    }
+    const destinations = await listDwmWebhookDestinations(userId, existing.orgId)
+    const destination = destinations.find(item => item.id === req.params.id)
+    const deliveries = await listDwmWebhookDeliveries(userId, existing.orgId)
+    const auditEvents = await listDwmWebhookAuditEvents(userId, existing.orgId)
+    const response = buildDwmWebhookDestinationTestResponse({
+        delivery,
+        ownerId: userId,
+        orgId: existing.orgId,
+        input: req.body || {},
+        destination,
+        destinations,
+        deliveries,
+        auditEvents,
+    })
     const outcome = destinationTestResponseOutcome(delivery)
     return res.status(outcome.status).send(outcome.failed ? { ...response, error: outcome.error, code: outcome.code } : response)
 }
@@ -790,10 +810,7 @@ export async function postDwmWebhookDelivery(req: FastifyRequest<{ Body: DwmAler
 
     let input = buildDwmWebhookDeliveryRequestInput(req.body || {})
     const orgId = clean(input.orgId) || clean(input.organizationId) || clean(input.tenantId) || userId
-    const permissionError = await configurationPermissionError(orgId, userId)
-    if (permissionError) {
-        return res.status(permissionError.status).send({ error: permissionError.message })
-    }
+    if (await sendConfigurationPermissionError(res, orgId, userId)) return
 
     const retryDeliveryId = clean(req.body?.deliveryId)
     if (retryDeliveryId) {
@@ -1060,6 +1077,13 @@ async function configurationPermissionError(orgId: string, userId: string) {
         return { status: 403, message: 'Only organization owners, admins, and editors can configure webhook destinations.' }
     }
     return null
+}
+
+async function sendConfigurationPermissionError(res: FastifyReply, orgId: string, userId: string) {
+    const permissionError = await configurationPermissionError(orgId, userId)
+    if (!permissionError) return false
+    res.status(permissionError.status).send({ error: permissionError.message })
+    return true
 }
 
 function destinationLifecycleAccess(orgId: string, userId: string, membership: Membership | null) {

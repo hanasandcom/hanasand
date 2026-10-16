@@ -21,7 +21,7 @@ const unitTestFiles = [
     'check-scheduled-job-registry.test.ts', 'code-review-access.test.ts', 'collector-health.test.ts', 'commercial-contact-requests.test.ts', 'contact-mail-sender.test.ts',
     'container-billing.test.ts', 'content-organization.test.ts', 'custom-retention.test.ts', 'database-browse-parser-version.test.ts', 'database-overview-summary.test.ts',
     'database-response.test.ts', 'database-storage.test.ts', 'delete-user-ownership.test.ts', 'docker-response-recovery.test.ts', 'docker-storage.test.ts',
-    'drop-eligibility.test.ts', 'drop-rate-alert.test.ts', 'dwm-destination-example.test.ts', 'dwm-webhook-delivery-attempt-contract.test.ts', 'dwm-webhook-delivery-projection.test.ts', 'dwm-webhook-lifecycle-truthfulness.test.ts',
+    'drop-eligibility.test.ts', 'drop-rate-alert.test.ts', 'dwm-destination-example.test.ts', 'dwm-webhook-delivery-attempt-contract.test.ts', 'dwm-webhook-delivery-projection.test.ts', 'dwm-webhook-destination-health-contract.test.ts', 'dwm-webhook-lifecycle-truthfulness.test.ts',
     'dwm-webhook-receiver-route.test.ts', 'dwm-webhook-report-retry.test.ts', 'dwm-webhook-schema.test.ts', 'dwm-webhook-security.test.ts', 'dwm-webhook-test-response.test.ts',
     'dwm-webhook-transport.test.ts', 'dwm-webhook-visibility-access.test.ts', 'event-privacy.test.ts', 'event-processing.test.ts', 'git-workspace-credentials.test.ts',
     'host-check-message.test.ts', 'http-errors.test.ts', 'impersonation-start-denials.test.ts', 'impersonation-timeline-state.test.ts', 'import-repository.test.ts',
@@ -114,22 +114,28 @@ export function isTaskEnabledByDefault(
     return true
 }
 
-export type PostgresFilterTask = {
+export type RunnerTask = {
     id: string
+    requires?: 'server' | 'database' | 'network' | 'playwright'
+    requiresDatabase?: boolean
     requiresPostgresFilterPort?: boolean
 }
 
-export function getPostgresFilterRunNotice(tasks: readonly PostgresFilterTask[], databaseModeEnabled: boolean) {
-    const filterTasks = tasks.filter(task => task.requiresPostgresFilterPort)
-    if (databaseModeEnabled || filterTasks.length === 0) return null
+export function getDatabaseRunNotice(tasks: readonly RunnerTask[], databaseModeEnabled: boolean) {
+    const databaseTasks = tasks.filter(task => task.requires === 'database' || task.requiresDatabase || task.requiresPostgresFilterPort)
+    if (databaseModeEnabled || databaseTasks.length === 0) return null
+    const filterTaskCount = databaseTasks.filter(task => task.requiresPostgresFilterPort).length
 
     return [
-        `Excluded PostgreSQL-filter suites (${filterTasks.length}; not run in this default run): ${filterTasks.map(task => task.id).join(', ')}.`,
-        'Set POSTGRES_FILTER_TEST_PORT to the port of a disposable local PostgreSQL instance with a postgres_filter_test database, then run bun run test:postgres-filter (the script sets RUN_DB_TESTS=1).',
+        `Excluded database-required suites (${databaseTasks.length}; not run in this default run): ${databaseTasks.map(task => task.id).join(', ')}.`,
+        'Set RUN_DB_TESTS=1 to include database-required suites.',
+        ...(filterTaskCount > 0 ? [
+            `The ${filterTaskCount} PostgreSQL-filter suites also require POSTGRES_FILTER_TEST_PORT to point to a disposable local PostgreSQL instance with a postgres_filter_test database; run bun run test:postgres-filter for that group.`,
+        ] : []),
     ].join('\n')
 }
 
-export function getPostgresFilterPortError(tasks: readonly PostgresFilterTask[], port: string | undefined) {
+export function getPostgresFilterPortError(tasks: readonly RunnerTask[], port: string | undefined) {
     const selectedFilterTasks = tasks.filter(task => task.requiresPostgresFilterPort)
     if (selectedFilterTasks.length === 0 || isValidPostgresPort(port)) return null
 

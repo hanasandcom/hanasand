@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test'
+import { dwmWebhookDestinationRow } from './fixtures/dwm-webhook-destination.ts'
 import {
     buildDwmAlertWebhookReadinessHandoff,
     buildDwmOrgAlertWebhookDeliveryContract,
@@ -14,25 +15,21 @@ import {
     toDwmWebhookDestination,
 } from '../src/utils/dwm/webhooks.ts'
 
-const destination = toDwmWebhookDestination({
-    id: 'destination_1',
-    owner_id: 'owner_1',
-    org_id: 'org_1',
-    name: 'Receiver',
-    kind: 'webhook',
-    endpoint_encrypted: 'https://receiver.example/hook',
-    endpoint_hint: 'receiver.example/...',
-    endpoint_hash: 'endpoint_hash_1',
-    status: 'active',
-    events: ['dwm.alert.updated'],
-    created_by: 'owner_1',
-    last_tested_at: null,
-    last_test_status: null,
-    last_test_error: null,
-    last_test_http_status: null,
-    last_delivery_at: null,
-    created_at: '2026-10-01T10:00:00.000Z',
-    updated_at: '2026-10-01T10:00:00.000Z',
+const destination = toDwmWebhookDestination(dwmWebhookDestinationRow())
+
+test('maps audit fields joined onto delivery rows', () => {
+    const delivery = toDwmWebhookDelivery({
+        id: 'delivery_mapping_contract',
+        audit_event_id: 'audit_mapping_contract',
+        audit_action: 'delivery.replayed',
+        audit_actor_id: 'owner_contract',
+    } as Parameters<typeof toDwmWebhookDelivery>[0])
+
+    expect(delivery).toMatchObject({
+        auditEventId: 'audit_mapping_contract',
+        auditAction: 'delivery.replayed',
+        auditActorId: 'owner_contract',
+    })
 })
 
 const payload = {

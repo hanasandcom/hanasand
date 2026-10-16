@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { canonicalThirdPartyReportForDelivery } from '../src/handlers/dwm/webhooks.ts'
-import { assertPublicWebhookTarget, buildDwmAlertDeliveryPayload, computeOutboundThirdPartyReportChecksum as checksumFromWebhookModule, normalizeDwmWebhookDestinationInput, pinnedWebhookLookup, sanitizeDwmWebhookDeliveryDiagnostic, signDwmWebhookDeliveryBody, validateDwmWebhookReceiverEnvelope, validateOutboundThirdPartyReport as validateFromWebhookModule } from '../src/utils/dwm/webhooks.ts'
+import { assertPublicWebhookTarget, buildDwmAlertDeliveryPayload, computeOutboundThirdPartyReportChecksum as checksumFromWebhookModule, normalizeDwmWebhookDestinationInput, pinnedWebhookLookup, redactWebhookEndpoint, sanitizeDwmWebhookDeliveryDiagnostic, signDwmWebhookDeliveryBody, validateDwmWebhookReceiverEnvelope, validateOutboundThirdPartyReport as validateFromWebhookModule } from '../src/utils/dwm/webhooks.ts'
 import { computeOutboundThirdPartyReportChecksum, validateOutboundThirdPartyReport } from '../src/utils/dwm/thirdPartyReport.ts'
 import { canonicalJson, containsUnsafeCustomerOutboundText, sanitizeCustomerOutboundText } from '../src/utils/dwm/customerOutputSafety.ts'
 
@@ -67,6 +67,9 @@ describe('DWM webhook network boundary', () => {
     })
 
     test('preserves Discord webhook ids while redacting endpoint and diagnostic secrets', () => {
+        expect(redactWebhookEndpoint('https://discord.com/api/webhooks/1234567890/discord-path-secret'))
+            .toBe('https://discord.com/api/webhooks/1234567890/...')
+
         const diagnostic = sanitizeDwmWebhookDeliveryDiagnostic(
             'Discord rejected https://discord.com/api/webhooks/1234567890/discord-path-secret?token=query-secret token=credential-secret',
         )

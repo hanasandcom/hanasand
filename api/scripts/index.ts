@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process'
 import { readdir } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { classifyUnitTest, getPostgresFilterPortError, getPostgresFilterRunNotice, isTaskEnabledByDefault } from './test-runner-policy.ts'
+import { classifyUnitTest, getDatabaseRunNotice, getPostgresFilterPortError, isTaskEnabledByDefault } from './test-runner-policy.ts'
 
 type TestTask = {
     id: string
@@ -116,8 +116,8 @@ if (!runnable.length) {
 }
 
 if (!selected.size) {
-    const postgresFilterNotice = getPostgresFilterRunNotice(unitTasks, process.env.RUN_DB_TESTS === '1')
-    if (postgresFilterNotice) console.info(`\n[api:test] ${postgresFilterNotice}`)
+    const databaseRunNotice = getDatabaseRunNotice(tasks, process.env.RUN_DB_TESTS === '1')
+    if (databaseRunNotice) console.info(`\n[api:test] ${databaseRunNotice}`)
 }
 
 const postgresFilterPortError = getPostgresFilterPortError(runnable, process.env.POSTGRES_FILTER_TEST_PORT)

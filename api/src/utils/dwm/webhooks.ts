@@ -1208,29 +1208,19 @@ function buildDwmWebhookDeliveryLedgerFromEvidence({
 }) {
     const { evidence, deliveriesById, attemptCountsByIdempotencyKey } = projection
     return evidence.map((item) => {
-        const delivery = deliveriesById.get(item.deliveryId)
-        const retryPlan = delivery
-            ? planDwmWebhookDeliveryRetry({
-                status: delivery.status,
-                dryRun: delivery.dryRun,
-                responseStatus: delivery.responseStatus,
-                error: delivery.error,
-                attemptedAt: delivery.attemptedAt,
-                attemptCount: attemptCountsByIdempotencyKey.get(delivery.idempotencyKey || delivery.id) || 1,
-                now,
-            })
-            : planDwmWebhookDeliveryRetry({
-                status: item.status,
-                dryRun: item.dryRun,
-                responseStatus: item.response.httpStatus,
-                error: item.error,
-                attemptedAt: item.attemptedAt,
-                attemptCount: 1,
-                now,
-            })
-        const attemptCount = delivery ? delivery.attemptCount || attemptCountsByIdempotencyKey.get(delivery.idempotencyKey || delivery.id) || 1 : 1
-        const errorClass = delivery?.errorClass ?? retryPlan.errorClass
-        const nextRetryAt = delivery?.nextRetryAt ?? retryPlan.nextRetryAt
+        const delivery = deliveriesById.get(item.deliveryId)!
+        const retryPlan = planDwmWebhookDeliveryRetry({
+            status: delivery.status,
+            dryRun: delivery.dryRun,
+            responseStatus: delivery.responseStatus,
+            error: delivery.error,
+            attemptedAt: delivery.attemptedAt,
+            attemptCount: attemptCountsByIdempotencyKey.get(delivery.idempotencyKey || delivery.id) || 1,
+            now,
+        })
+        const attemptCount = delivery.attemptCount || attemptCountsByIdempotencyKey.get(delivery.idempotencyKey || delivery.id) || 1
+        const errorClass = delivery.errorClass ?? retryPlan.errorClass
+        const nextRetryAt = delivery.nextRetryAt ?? retryPlan.nextRetryAt
 
         return {
             requestId: item.requestId,
@@ -4329,6 +4319,22 @@ export function buildDwmWebhookDeliveryReadiness({
 }) {
     const destinationContracts = buildDwmWebhookDestinationContracts({ destinations, deliveries, auditEvents })
     const deliveryLedger = buildDwmWebhookDeliveryLedger({ deliveries, auditEvents })
+    return buildDwmWebhookDeliveryReadinessFromProjection({
+        destinationContracts,
+        deliveryLedger,
+        liveDeliveryEnabled,
+    })
+}
+
+function buildDwmWebhookDeliveryReadinessFromProjection({
+    destinationContracts,
+    deliveryLedger,
+    liveDeliveryEnabled,
+}: {
+    destinationContracts: ReturnType<typeof buildDwmWebhookDestinationContracts>
+    deliveryLedger: ReturnType<typeof buildDwmWebhookDeliveryLedger>
+    liveDeliveryEnabled: boolean
+}) {
     const attemptsByDestination = new Map<string, typeof deliveryLedger>()
     for (const attempt of deliveryLedger) {
         if (!attempt.destinationId) continue
@@ -4578,9 +4584,19 @@ export function buildDwmWebhookDestinationHealth({
     liveDeliveryEnabled?: boolean
 }) {
     const destinationContracts = buildDwmWebhookDestinationContracts({ destinations, deliveries, auditEvents })
-    const readiness = buildDwmWebhookDeliveryReadiness({ destinations, deliveries, auditEvents, liveDeliveryEnabled })
-    const auditContracts = buildDwmWebhookAuditEventContracts({ destinations, deliveries, auditEvents })
-    const deliveryLedger = buildDwmWebhookDeliveryLedger({ deliveries, auditEvents })
+    const projection = buildDwmWebhookDeliveryEvidenceProjection({ deliveries, auditEvents })
+    const deliveryLedger = buildDwmWebhookDeliveryLedgerFromEvidence({ projection, now: new Date() })
+    const readiness = buildDwmWebhookDeliveryReadinessFromProjection({
+        destinationContracts,
+        deliveryLedger,
+        liveDeliveryEnabled,
+    })
+    const auditContracts = buildDwmWebhookAuditEventContractsFromLedger({
+        auditEvents,
+        deliveries,
+        destinations,
+        ledger: deliveryLedger,
+    })
     const readinessByDestination = new Map(readiness.destinations.map(item => [item.destinationId, item]))
     const auditByDestination = new Map<string, typeof auditContracts>()
     for (const audit of auditContracts) {
@@ -4734,11 +4750,8 @@ export function buildDwmWebhookDashboardReadinessAdapter({
         const retryKeys = retryKeysByDestination.get(health.destinationId) || []
         const endpointPresent = Boolean(health.redactedEndpoint.endpointHash || health.redactedEndpoint.endpointHint)
         const latestRetryKey = retryKeys[0] || null
-        const terminalFailure = Boolean(
-            health.lastFailure
-            && !health.lastFailure.retryable
-            && health.lastFailure.errorClass !== 'live_delivery_disabled'
-        ) || retryKeys.some(key => key.retry.terminalFailure)
+        const terminalFailure = hasTerminalDeliveryFailure(health.lastFailure)
+            || retryKeys.some(key => key.retry.terminalFailure)
         const states = [
             policyBlockers.length ? 'policy_blocked' : null,
             !health.enabled ? 'disabled' : null,
@@ -7811,7 +7824,7 @@ export function buildDwmWebhookDeliveryAttemptPersistenceProof({
             redactedDestination: {
                 ...attempt.redactedDestination,
                 endpointHash: persisted?.endpointHash || null,
-                endpointHint: persisted?.endpointHint || null,
+                endpointHint: persisted?.endpointHint ? redactDeliveryEvidenceText(persisted.endpointHint) : null,
                 endpointExposed: false,
             },
             sanitizedPayloadPreview: persistedPreview || attempt.sanitizedPayloadPreview,
@@ -9698,6 +9711,10 @@ function destinationHealthAttempt(
     }
 }
 
+function hasTerminalDeliveryFailure(attempt: ReturnType<typeof destinationHealthAttempt> | null | undefined) {
+    return Boolean(attempt && !attempt.retryable && attempt.errorClass !== 'live_delivery_disabled')
+}
+
 function auditEventIdForDelivery(
     audits: ReturnType<typeof buildDwmWebhookAuditEventContracts>,
     deliveryId?: string | null
@@ -9746,11 +9763,7 @@ function destinationLifecycleState({
         && (!lastTestAt || String(latestSecretUpdateAt).localeCompare(String(lastTestAt)) > 0)
     )
     const revokedOwner = Boolean(destination?.createdBy && destination?.ownerId && destination.createdBy !== destination.ownerId)
-    const failed = health.lastTest.status === 'failed' || Boolean(
-        health.lastFailure
-        && !health.lastFailure.retryable
-        && health.lastFailure.errorClass !== 'live_delivery_disabled'
-    )
+    const failed = health.lastTest.status === 'failed' || hasTerminalDeliveryFailure(health.lastFailure)
     const verified = isLiveDeliveredProof(health.lastTest)
     const liveVerified = verified
     const liveDeliveryUnverified = health.enabled && endpointPresent && !liveVerified
@@ -9865,11 +9878,7 @@ function destinationLifecycleReadinessReceipt({
     lifecycleState: ReturnType<typeof destinationLifecycleState>
     canManage: boolean
 }) {
-    const terminalFailure = Boolean(
-        health.lastFailure
-        && !health.lastFailure.retryable
-        && health.lastFailure.errorClass !== 'live_delivery_disabled'
-    )
+    const terminalFailure = hasTerminalDeliveryFailure(health.lastFailure)
     const blockingCodes = lifecycleState.blockers
         .filter(blocker => blocker.blocking)
         .map(blocker => blocker.code)
@@ -11038,11 +11047,7 @@ function dashboardLifecycleActionSummary(rows: Array<{
 
 function destinationHealthStates(health: ReturnType<typeof buildDwmWebhookDestinationHealth>[number]) {
     const endpointPresent = Boolean(health.redactedEndpoint.endpointHash || health.redactedEndpoint.endpointHint)
-    const terminalFailure = Boolean(
-        health.lastFailure
-        && !health.lastFailure.retryable
-        && health.lastFailure.errorClass !== 'live_delivery_disabled'
-    )
+    const terminalFailure = hasTerminalDeliveryFailure(health.lastFailure)
     const states = [
         !health.enabled ? 'disabled' : null,
         endpointPresent ? null : 'secret_missing',

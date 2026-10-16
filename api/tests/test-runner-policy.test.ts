@@ -1,9 +1,10 @@
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { expect, test } from 'bun:test'
-import { classifyUnitTest, getPostgresFilterPortError, getPostgresFilterRunNotice, isTaskEnabledByDefault, postgresFilterTestIds } from '../scripts/test-runner-policy.ts'
+import { classifiedUnitTestFiles, classifyUnitTest, getDatabaseRunNotice, getPostgresFilterPortError, isTaskEnabledByDefault, postgresFilterTestIds } from '../scripts/test-runner-policy.ts'
 
 const postgresFilterSuites = [
+    'account-deletion-purge-postgres.test.ts',
     'analysis-policy-migration.test.ts',
     'analyze-cdn-delivery-database.test.ts',
     'analyze-cdn-delivery-reprocess.test.ts',
@@ -21,10 +22,19 @@ const postgresFilterSuites = [
 ]
 
 test('PostgreSQL-filter suites are classified as database tasks requiring the disposable filter port', () => {
-    expect(postgresFilterSuites).toHaveLength(14)
+    expect(postgresFilterSuites).toHaveLength(15)
     for (const file of postgresFilterSuites) {
         expect(classifyUnitTest(file)).toEqual({ requiresDatabase: true, requiresPostgresFilterPort: true })
     }
+})
+
+test('every discovered test suite has an explicit runner category', () => {
+    const discoveredSuites = readdirSync('tests')
+        .filter(file => /\.test\.(ts|mjs)$/.test(file))
+        .sort()
+
+    expect([...classifiedUnitTestFiles].sort()).toEqual(discoveredSuites)
+    expect(() => classifyUnitTest('new-database-suite.test.ts')).toThrow('has no runner category')
 })
 
 test('unit suites stay in the safe default runner while database suites remain opt-in', () => {
@@ -35,17 +45,31 @@ test('unit suites stay in the safe default runner while database suites remain o
     expect(isTaskEnabledByDefault(undefined, {})).toBe(true)
     expect(isTaskEnabledByDefault('database', {})).toBe(false)
     expect(isTaskEnabledByDefault('database', { RUN_DB_TESTS: '1' })).toBe(true)
+    expect(classifyUnitTest('account-deletion-postgres.test.ts')).toEqual({
+        requiresDatabase: true,
+        requiresPostgresFilterPort: false,
+    })
+    expect(classifyUnitTest('account-deletion-purge-postgres.test.ts')).toEqual({
+        requiresDatabase: true,
+        requiresPostgresFilterPort: true,
+    })
 })
 
-test('default runner notice names excluded suites and gives the exact opt-in command', () => {
-    const tasks = postgresFilterTestIds.map(id => ({ id, requiresPostgresFilterPort: true }))
-    const notice = getPostgresFilterRunNotice(tasks, false)
+test('default runner notice names all excluded database suites and explains PostgreSQL setup', () => {
+    const tasks = [
+        { id: 'account-deletion-postgres', requiresDatabase: true },
+        ...postgresFilterTestIds.map(id => ({ id, requiresDatabase: true, requiresPostgresFilterPort: true })),
+    ]
+    const notice = getDatabaseRunNotice(tasks, false)
 
-    expect(notice).toContain('Excluded PostgreSQL-filter suites (14; not run in this default run)')
-    expect(notice).toContain('Set POSTGRES_FILTER_TEST_PORT to the port of a disposable local PostgreSQL instance with a postgres_filter_test database')
-    expect(notice).toContain('then run bun run test:postgres-filter (the script sets RUN_DB_TESTS=1)')
+    expect(notice).toContain('Excluded database-required suites (16; not run in this default run)')
+    expect(notice).toContain('Set RUN_DB_TESTS=1 to include database-required suites.')
+    expect(notice).toContain('also require POSTGRES_FILTER_TEST_PORT to point to a disposable local PostgreSQL instance with a postgres_filter_test database')
+    expect(notice).toContain('run bun run test:postgres-filter for that group')
     for (const id of postgresFilterTestIds) expect(notice).toContain(id)
-    expect(getPostgresFilterRunNotice(tasks, true)).toBeNull()
+    expect(notice).toContain('account-deletion-postgres')
+    expect(getDatabaseRunNotice(tasks, true)).toBeNull()
+    expect(getDatabaseRunNotice([{ id: 'unit-test' }], false)).toBeNull()
 })
 
 test('package script selects exactly the canonical PostgreSQL-filter suite IDs', () => {
