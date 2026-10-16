@@ -1,9 +1,11 @@
+// LOG_PIPELINE_TEST_DATABASE=1 DB=logs_test DB_HOST=127.0.0.1 DB_PORT=8503 bun tests/log-phrase-search-postgres.ts
 import assert from 'node:assert/strict'
 import pg from 'pg'
 import { basicLogSearchPredicate, logMessageSearchPredicate, logPhraseSearchExpression } from '../src/utils/logs/searchText.ts'
 import { searchLogPage } from '../src/utils/logs/searchPage.ts'
 import type { queryOnce } from '../src/utils/db.ts'
-assert.equal(process.env.LOG_PIPELINE_TEST_DATABASE, '1', 'Use the isolated PostgreSQL test database')
+import { requireLogPipelineTestDatabase } from './helpers/logPipelineTestDatabase.ts'
+requireLogPipelineTestDatabase()
 const client = new pg.Client({ host: process.env.DB_HOST, port: Number(process.env.DB_PORT), database: process.env.DB, user: process.env.DB_USER })
 await client.connect()
 try {

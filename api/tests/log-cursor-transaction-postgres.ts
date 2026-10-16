@@ -1,9 +1,10 @@
-// Run only against an isolated test database; the schema is removed in finally.
+// LOG_PIPELINE_TEST_DATABASE=1 DB=logs_test DB_HOST=127.0.0.1 DB_PORT=8503 bun tests/log-cursor-transaction-postgres.ts
 import assert from 'node:assert/strict'
 import { mock } from 'bun:test'
 import pg from 'pg'
+import { requireLogPipelineTestDatabase } from './helpers/logPipelineTestDatabase.ts'
 
-assert.equal(process.env.LOG_PIPELINE_TEST_DATABASE, '1')
+requireLogPipelineTestDatabase()
 const options = { host: process.env.DB_HOST, port: Number(process.env.DB_PORT || 5432),
     database: process.env.DB, user: process.env.DB_USER, password: process.env.DB_PASSWORD }
 const source = new pg.Client(options), cursors = new pg.Client(options)

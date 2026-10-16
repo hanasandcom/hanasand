@@ -1,9 +1,10 @@
-// Opt-in PostgreSQL proof: synthetic data only; all fixture tables roll back.
+// LOG_PIPELINE_TEST_DATABASE=1 DB=logs_test DB_HOST=127.0.0.1 DB_PORT=8503 bun tests/log-basic-search-postgres.ts
 import assert from 'node:assert/strict'
 import pg from 'pg'
 import {basicLogSearchPredicate,logPhraseSearchExpression} from '../src/utils/logs/searchText.ts'
 import {compileLogQuery} from '../src/utils/logs/kql.ts'
-assert.equal(process.env.LOG_PIPELINE_TEST_DATABASE,'1','Use the isolated PostgreSQL fixture database')
+import { requireLogPipelineTestDatabase } from './helpers/logPipelineTestDatabase.ts'
+requireLogPipelineTestDatabase()
 const client=new pg.Client({host:process.env.DB_HOST,port:Number(process.env.DB_PORT||5432),database:process.env.DB,user:process.env.DB_USER,password:process.env.DB_PASSWORD})
 await client.connect()
 const q=(sql: string,values: any[]=[])=>client.query(sql,values)

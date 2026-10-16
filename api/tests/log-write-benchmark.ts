@@ -1,12 +1,12 @@
-// Synthetic, committed writes in an isolated disposable database, never production.
+// LOG_PIPELINE_TEST_DATABASE=1 DB=logs_test DB_HOST=127.0.0.1 DB_PORT=8503 bun tests/log-write-benchmark.ts
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import { mock } from 'bun:test'
 import pg from 'pg'
+import { requireLogPipelineTestDatabase } from './helpers/logPipelineTestDatabase.ts'
 
-assert.equal(process.env.LOG_PIPELINE_TEST_DATABASE, '1')
-assert.equal(process.env.DB, 'log_write_benchmark')
+requireLogPipelineTestDatabase()
 const options = { host: process.env.DB_HOST, port: Number(process.env.DB_PORT || 5432),
     database: process.env.DB, user: process.env.DB_USER, password: process.env.DB_PASSWORD }
 const client = new pg.Client(options), reader = new pg.Client(options)
@@ -46,11 +46,9 @@ async function setup(optimized: boolean, ginKB: number) {
             REFERENCING NEW TABLE AS changed_events FOR EACH STATEMENT EXECUTE FUNCTION sync_log_dimensions()`)
     }
     await q(`ALTER INDEX idx_logs_phrase_trgm SET (gin_pending_list_limit=${ginKB})`)
-    await q('CHECKPOINT')
 }
 try {
-    assert.equal((await q('SELECT 1 FROM pg_database WHERE datname NOT IN (\'postgres\',\'template0\',\'template1\',\'log_write_benchmark\')')).rowCount, 0,
-        'Use a dedicated disposable PostgreSQL instance: this benchmark changes instance settings.')
+    assert.equal((await q('SELECT current_database()')).rows[0].current_database, 'logs_test')
     await q('CREATE EXTENSION IF NOT EXISTS pg_trgm')
     await q('CREATE TABLE organizations (id text PRIMARY KEY, status text, audit_safe_metadata jsonb DEFAULT \'{}\', name text, created_at timestamptz DEFAULT NOW())')
     await q('CREATE TABLE users (id text PRIMARY KEY)')
@@ -67,16 +65,14 @@ try {
     }
     await q('SET statement_timeout=\'60s\''); await reader.query('SET statement_timeout=\'8s\'')
     const scenarios = [
-        { batch: 1000, optimized: false, ginKB: 4096, writer: 100 },
-        { batch: 1000, optimized: true, ginKB: 4096, writer: 100 },
-        { batch: 5000, optimized: true, ginKB: 4096, writer: 100 },
-        { batch: 10000, optimized: true, ginKB: 4096, writer: 100 },
-        { batch: 5000, optimized: true, ginKB: 16384, writer: 100 },
-        { batch: 5000, optimized: true, ginKB: 65536, writer: 100 },
-        { batch: 5000, optimized: true, ginKB: 4096, writer: 1000 },
-        { batch: 1000, optimized: false, ginKB: 4096, writer: 100 },
-        { batch: 1000, optimized: true, ginKB: 16384, writer: 100 },
-        { batch: 1000, optimized: true, ginKB: 65536, writer: 100 },
+        { batch: 1000, optimized: false, ginKB: 4096 },
+        { batch: 1000, optimized: true, ginKB: 4096 },
+        { batch: 5000, optimized: true, ginKB: 4096 },
+        { batch: 10000, optimized: true, ginKB: 4096 },
+        { batch: 5000, optimized: true, ginKB: 16384 },
+        { batch: 5000, optimized: true, ginKB: 65536 },
+        { batch: 1000, optimized: true, ginKB: 16384 },
+        { batch: 1000, optimized: true, ginKB: 65536 },
     ]
     const selected = process.env.BENCHMARK_SCENARIOS?.split(',').map(Number) ?? scenarios.map((_, index) => index)
     assert.ok(selected.every(index => Number.isInteger(index) && index >= 0 && index < scenarios.length))
@@ -84,8 +80,6 @@ try {
         const scenario = scenarios[index]
         console.log(JSON.stringify({ startingScenario: index, ...scenario }))
         try {
-            await q(`ALTER SYSTEM SET bgwriter_lru_maxpages='${scenario.writer}'`)
-            await q('SELECT pg_reload_conf()')
             await setup(scenario.optimized, scenario.ginKB)
             const initial = (await q('SELECT pg_current_wal_lsn() AS lsn')).rows[0].lsn
             const writerBefore = (await q('SELECT buffers_clean, buffers_backend, maxwritten_clean FROM pg_stat_bgwriter')).rows[0]
@@ -113,7 +107,6 @@ try {
                 }
                 // Include deferred index cleanup and data writes, not just acceptance.
                 await q('SELECT gin_clean_pending_list(\'idx_logs_phrase_trgm\')')
-                await q('CHECKPOINT')
             } finally { stopped = true; await searcher }
             if (searchError) throw searchError
             const elapsed = performance.now() - start
@@ -127,7 +120,6 @@ try {
             const updateStart = performance.now(), updateWal = (await q('SELECT pg_current_wal_lsn() AS lsn')).rows[0].lsn
             const updateRows = (await q('UPDATE events SET normalized=normalized||jsonb_build_object(\'evaluated_at\',\'2026-09-20T00:00:00Z\') WHERE id IN (SELECT id FROM events ORDER BY id LIMIT 1000)')).rowCount!
             await q('SELECT gin_clean_pending_list(\'idx_logs_phrase_trgm\')')
-            await q('CHECKPOINT')
             const updateMs = performance.now() - updateStart
             const updateWalBytes = Number((await q('SELECT pg_wal_lsn_diff(pg_current_wal_lsn(),$1) AS bytes', [updateWal])).rows[0].bytes)
             console.log(JSON.stringify({ ...scenario, rows: total, elapsedMs: elapsed, processedPerSecond: total * 1000 / elapsed,

@@ -1,8 +1,9 @@
-// Opt-in integration test. Only temporary tables in the isolated fixture database.
+// LOG_PIPELINE_TEST_DATABASE=1 DB=logs_test DB_HOST=127.0.0.1 DB_PORT=8503 bun tests/log-service-indexes-postgres.ts
 import assert from 'node:assert/strict'
 import pg from 'pg'
-import { logSearchIndexes } from '../src/utils/db/logSearchIndexes.ts'
-assert.equal(process.env.LOG_PIPELINE_TEST_DATABASE, '1', 'Use the isolated PostgreSQL fixture database')
+import { requireLogPipelineTestDatabase } from './helpers/logPipelineTestDatabase.ts'
+requireLogPipelineTestDatabase()
+const { logSearchIndexes } = await import('../src/utils/db/logSearchIndexes.ts')
 const client = new pg.Client({ host: process.env.DB_HOST, port: Number(process.env.DB_PORT || 5432),
     database: process.env.DB, user: process.env.DB_USER, password: process.env.DB_PASSWORD })
 await client.connect()

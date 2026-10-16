@@ -1,9 +1,9 @@
-// Opt-in PostgreSQL concurrency regression; uses only a disposable fixture schema.
+// LOG_PIPELINE_TEST_DATABASE=1 DB=logs_test DB_HOST=127.0.0.1 DB_PORT=8503 bun tests/log-process-queue-schema-postgres.ts
 import assert from 'node:assert/strict'
 import {mock} from 'bun:test'
 import pg from 'pg'
-assert.equal(process.env.LOG_PIPELINE_TEST_DATABASE, '1', 'Use the isolated test database')
-assert.equal(process.env.DB, 'logs_test', 'Never run queue concurrency fixtures in production')
+import { requireLogPipelineTestDatabase } from './helpers/logPipelineTestDatabase.ts'
+requireLogPipelineTestDatabase()
 const options={host:process.env.DB_HOST,port:Number(process.env.DB_PORT||5432),database:process.env.DB,user:process.env.DB_USER,password:process.env.DB_PASSWORD}
 const admin=new pg.Client(options), migration=new pg.Client(options), writer=new pg.Client(options)
 const clients=[admin,migration,writer]

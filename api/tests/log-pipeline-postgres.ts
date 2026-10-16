@@ -1,13 +1,14 @@
 // Opt-in integration check: all fixtures use temporary tables and roll back.
-// LOG_PIPELINE_TEST_DATABASE=1 DB_* bun tests/log-pipeline-postgres.ts
+// LOG_PIPELINE_TEST_DATABASE=1 DB=logs_test DB_HOST=127.0.0.1 DB_PORT=8503 bun tests/log-pipeline-postgres.ts
 // Keep the repository layout; containers mounting api at /app also need scripts at /scripts:ro.
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { mock } from 'bun:test'
 import pg from 'pg'
+import { requireLogPipelineTestDatabase } from './helpers/logPipelineTestDatabase.ts'
 
-assert.equal(process.env.LOG_PIPELINE_TEST_DATABASE, '1', 'Use an isolated PostgreSQL test database.')
+requireLogPipelineTestDatabase()
 const client = new pg.Client({ host: process.env.DB_HOST, port: Number(process.env.DB_PORT || 5432),
     database: process.env.DB, user: process.env.DB_USER, password: process.env.DB_PASSWORD })
 await client.connect()

@@ -1,9 +1,10 @@
-// Exact rollup parity against source rows, using only a disposable fixture database.
+// LOG_PIPELINE_TEST_DATABASE=1 DB=logs_test DB_HOST=127.0.0.1 DB_PORT=8503 bun tests/log-counts-postgres.ts
 import assert from 'node:assert/strict'
 import pg from 'pg'
-import { logCountsSchema, logCountsBootstrapSql } from '../src/utils/db/logCountsSchema.ts'
-import { rollupLogCountsSql } from '../src/utils/logs/counts.ts'
-assert.equal(process.env.LOG_PIPELINE_TEST_DATABASE, '1', 'Use the isolated PostgreSQL fixture database')
+import { requireLogPipelineTestDatabase } from './helpers/logPipelineTestDatabase.ts'
+requireLogPipelineTestDatabase()
+const { logCountsSchema, logCountsBootstrapSql } = await import('../src/utils/db/logCountsSchema.ts')
+const { rollupLogCountsSql } = await import('../src/utils/logs/counts.ts')
 const c = new pg.Client({ host: process.env.DB_HOST, port: Number(process.env.DB_PORT || 5432),
     database: process.env.DB, user: process.env.DB_USER, password: process.env.DB_PASSWORD })
 await c.connect()

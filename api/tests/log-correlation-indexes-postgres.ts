@@ -1,9 +1,9 @@
-// Opt-in PostgreSQL index proof: synthetic temporary data, rolled back at exit.
+// LOG_PIPELINE_TEST_DATABASE=1 DB=logs_test DB_HOST=127.0.0.1 DB_PORT=8503 bun tests/log-correlation-indexes-postgres.ts
 import assert from 'node:assert/strict'
 import {readFileSync} from 'node:fs'
 import pg from 'pg'
-assert.equal(process.env.LOG_PIPELINE_TEST_DATABASE,'1','Use the isolated PostgreSQL test database')
-assert.equal(process.env.DB,'logs_test','Never run index fixtures against the application database')
+import { requireLogPipelineTestDatabase } from './helpers/logPipelineTestDatabase.ts'
+requireLogPipelineTestDatabase()
 const client=new pg.Client({host:process.env.DB_HOST,port:Number(process.env.DB_PORT||5432),database:process.env.DB,user:process.env.DB_USER,password:process.env.DB_PASSWORD})
 await client.connect()
 const q=(sql: string,params: any[]=[])=>client.query(sql,params)
