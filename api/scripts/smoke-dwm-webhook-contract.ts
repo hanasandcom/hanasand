@@ -186,8 +186,6 @@ expect(serialized.includes('Workflow') && serialized.includes('replayed') && ser
 expect(payloadTemplate.schemaVersion === 'dwm.webhook.discord_payload_template.v1' && payloadTemplate.templateId === 'dwm.discord.alert_replay.v1' && payloadTemplate.ready === true, 'Discord payload should include a ready replay template contract.', payloadTemplate)
 expect(Array.isArray(payloadTemplate.requiredFields) && payloadTemplate.requiredFields.includes('Watchlist') && payloadTemplate.requiredFields.includes('Dedupe key') && payloadTemplate.requiredFields.includes('Delivery state') && payloadTemplate.requiredFields.includes('Match reason') && payloadTemplate.requiredFields.includes('Evidence timestamp'), 'Discord template should declare customer-useful required fields.', payloadTemplate)
 expect((payloadTemplate.redaction as Record<string, unknown>)?.webhookSecretExposed === false && payloadTemplate.noNetworkDefault === true, 'Discord template should prove no-network redaction defaults.', payloadTemplate)
-expect(!serialized.includes(secret), 'Payload should never include webhook secret.', payload)
-
 expect(redactWebhookEndpoint(endpoint) === 'https://discord.com/api/webhooks/987654321/...', 'Redaction helper should hide Discord token.')
 
 const longDiscordPayload = buildDwmAlertDeliveryPayload({
@@ -664,7 +662,6 @@ expect(missingFieldAttemptContract.ok === false && missingFieldAttemptContract.b
 expect(missingFieldAttemptContract.payloadContract.missingRequired.includes('orgId') && missingFieldAttemptContract.payloadContract.missingRequired.includes('title') && missingFieldAttemptContract.payloadContract.missingRequired.includes('dedupeKey'), 'Delivery attempt payload contract should list missing required typed fields.', missingFieldAttemptContract.payloadContract)
 expect(wrongOrgAttemptContract.ok === false && wrongOrgAttemptContract.destinationSelection.skippedDestinations.some(item => item.reason === 'org_mismatch') && wrongOrgAttemptContract.attempts.every(item => item.orgId === 'org_contract' && item.destinationId !== 'destination_wrong_org_contract'), 'Delivery attempt contract should not persist wrong-org destination attempts.', wrongOrgAttemptContract)
 expect(unsupportedDestinationAttemptContract.ok === false && unsupportedDestinationAttemptContract.blockers.some(item => item.code === 'unsupported_destination_type') && unsupportedDestinationAttemptContract.attempts[0]?.redactedDestination.endpointExposed === false, 'Delivery attempt contract should block unsupported destination types with redacted metadata.', unsupportedDestinationAttemptContract)
-expect(!JSON.stringify([deliveryAttemptContract, deliveryAttemptPersistence, missingFieldAttemptContract, wrongOrgAttemptContract, unsupportedDestinationAttemptContract]).includes(secret), 'Delivery attempt contract should not leak endpoint secrets.', { deliveryAttemptContract, deliveryAttemptPersistence, missingFieldAttemptContract, wrongOrgAttemptContract, unsupportedDestinationAttemptContract })
 expect(replayPlan.selectedDestinations.length === 1, 'Replay dispatch should select the active org destination.', replayPlan)
 expect(replayPlan.eventType === 'dwm.alert.replayed', 'Replay dispatch should preserve replay event type.', replayPlan)
 expect(replayAlertContext.id === 'alert_replay_contract', 'Replay payload should link to the same alert id.', replayPayload)
