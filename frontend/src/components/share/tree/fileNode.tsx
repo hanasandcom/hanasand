@@ -2,50 +2,17 @@
 
 import useFolderState from '@/hooks/useFolderState'
 import { deleteShare } from '@/utils/share/delete'
-import { getShare } from '@/utils/share/get'
-import postShare from '@/utils/share/post'
 import { updateShare } from '@/utils/share/put'
 import { getCookie } from '@/utils/cookies/cookies'
-import randomId from '@/utils/random/randomId'
-import { Copy, File, FilePlus, Folder, FolderPlus, FolderOpen, Pencil, Trash2 } from 'lucide-react'
-import Link from 'next/link'
-import Tree from './tree'
-import { Dispatch, SetStateAction, useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
-import NewFile from './newFile'
-import { AppConfirmDialog } from '@/components/ui/appDialog'
+import { useEffect, useState } from 'react'
+import { duplicateTreeItem } from './duplicateTreeItem'
+import { FileNodeView } from './fileNodeView'
+import { FolderNodeView } from './folderNodeView'
+import type { FileNodeProps, FileNodeViewActions, FileNodeViewContext, FileNodeViewState } from './fileNodeTypes'
 
-type FileNodeProps = {
-    tree: Tree
-    file: FileItem
-    newFileName: string
-    setNewFileName: Dispatch<SetStateAction<string>>
-    isCreatingNewFile: 'file' | 'folder' | null
-    setIsCreatingNewFile: Dispatch<SetStateAction<'file' | 'folder' | null>>
-    selectedFolder: string
-    setSelectedFolder: Dispatch<SetStateAction<string>>
-    setTree: Dispatch<SetStateAction<Tree | null>>
-    setShare: Dispatch<SetStateAction<Share | null>>
-    rootTree: Tree
-    share: Share
-    onTreeRefresh: () => Promise<Tree | null>
-}
-
-export default function FileNode({
-    tree,
-    file,
-    newFileName,
-    setNewFileName,
-    isCreatingNewFile,
-    setIsCreatingNewFile,
-    selectedFolder,
-    setSelectedFolder,
-    setTree,
-    setShare,
-    rootTree,
-    share,
-    onTreeRefresh,
-}: FileNodeProps) {
+export default function FileNode(props: FileNodeProps) {
+    const { tree, file, selectedFolder, setSelectedFolder, rootTree, share, onTreeRefresh } = props
     const { isOpen, toggleFolder } = useFolderState()
     const [isRenaming, setIsRenaming] = useState(false)
     const [renameValue, setRenameValue] = useState(file.name)
@@ -67,13 +34,11 @@ export default function FileNode({
     function startCreate(type: 'file' | 'folder') {
         if (file.type === 'folder') {
             setSelectedFolder(file.id)
-            if (!open) {
-                toggleFolder(file.id)
-            }
+            if (!open) toggleFolder(file.id)
         } else {
             setSelectedFolder(file.parent || '')
         }
-        setIsCreatingNewFile(type)
+        props.setIsCreatingNewFile(type)
     }
 
     async function handleRename() {
@@ -98,9 +63,7 @@ export default function FileNode({
     async function handleDelete() {
         setDeleteOpen(false)
         setBusyAction('delete')
-        const token = getCookie('access_token')
-        const userId = getCookie('id')
-        const deleted = await deleteShare(file.id, token, userId)
+        const deleted = await deleteShare(file.id, getCookie('access_token'), getCookie('id'))
         if (deleted) {
             await onTreeRefresh()
             if (pathname.includes(`/s/${file.id}`)) {
@@ -112,14 +75,12 @@ export default function FileNode({
 
     async function handleDuplicate() {
         setBusyAction('duplicate')
-        const token = getCookie('access_token')
-        const userId = getCookie('id')
         await duplicateTreeItem({
             item: file,
             rootTree,
             parent: file.parent || undefined,
-            token,
-            userId,
+            token: getCookie('access_token'),
+            userId: getCookie('id'),
             uniquifyName: true,
         })
         await onTreeRefresh()
@@ -127,303 +88,41 @@ export default function FileNode({
     }
 
     useEffect(() => {
-        if (isActive && !selectedFolder && file.parent) {
-            setSelectedFolder(file.parent)
-        }
+        if (isActive && !selectedFolder && file.parent) setSelectedFolder(file.parent)
     }, [])
 
     useEffect(() => {
         const shouldDisplayNewFile = selectedFolder === file.id
-        if (file.type === 'folder' && !open && isCreatingNewFile && shouldDisplayNewFile) {
+        if (file.type === 'folder' && !open && props.isCreatingNewFile && shouldDisplayNewFile) {
             handleFolderClick()
         }
-    }, [open, isCreatingNewFile, selectedFolder, file])
+    }, [open, props.isCreatingNewFile, selectedFolder, file])
 
-    if (file.type === 'folder') {
-        const hasChildren = Boolean(file.children?.filter((f) => f.type === 'file').length)
-
-        return (
-            <li className='space-y-1' onClick={(e) => e.stopPropagation()}>
-                <AppConfirmDialog
-                    open={deleteOpen}
-                    title={`Delete ${file.name}?`}
-                    body={file.type === 'folder' ? 'Everything inside this folder will be deleted.' : 'This file will be deleted from the share.'}
-                    confirmLabel='Delete'
-                    tone='danger'
-                    onCancel={() => setDeleteOpen(false)}
-                    onConfirm={() => void handleDelete()}
-                />
-                <div
-                    onClick={handleFolderClick}
-                    className={`group/node flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-sm ${isFolderActive ? 'border border-ui-primary/35 bg-ui-primary/10 text-ui-primary' : 'text-ui-muted hover:bg-ui-raised hover:text-ui-text'}`}
-                >
-                    {open ? <FolderOpen size={16} /> : <Folder size={16} />}
-                    {isRenaming ? (
-                        <RenameInput
-                            value={renameValue}
-                            setValue={setRenameValue}
-                            onCancel={() => {
-                                setRenameValue(file.name)
-                                setIsRenaming(false)
-                            }}
-                            onSave={handleRename}
-                        />
-                    ) : (
-                        <span className='min-w-0 flex-1 truncate'>{file.name}</span>
-                    )}
-                    {!isRenaming && <NodeActions
-                        busy={Boolean(busyAction)}
-                        onCreateFile={() => startCreate('file')}
-                        onCreateFolder={() => startCreate('folder')}
-                        onRename={() => setIsRenaming(true)}
-                        onDuplicate={handleDuplicate}
-                        onDelete={() => setDeleteOpen(true)}
-                    />}
-                </div>
-                {!hasChildren && <div className='ml-3.5 rounded-md group-hover:bg-ui-raised'>
-                    <NewFile
-                        isCreatingNewFile={isCreatingNewFile}
-                        display={isFolderActive}
-                        newFileName={newFileName}
-                        setNewFileName={setNewFileName}
-                        setIsCreatingNewFile={setIsCreatingNewFile}
-                        file={file}
-                        tree={tree}
-                        setTree={setTree}
-                        setShare={setShare}
-                    />
-                </div>}
-                {open && file.children && (
-                    <div className='ml-3.5'>
-                        <Tree
-                            tree={file.children}
-                            newFileName={newFileName}
-                            setNewFileName={setNewFileName}
-                            isCreatingNewFile={isCreatingNewFile}
-                            setIsCreatingNewFile={setIsCreatingNewFile}
-                            selectedFolder={selectedFolder}
-                            setSelectedFolder={setSelectedFolder}
-                            setTree={setTree}
-                            setShare={setShare}
-                            rootTree={rootTree}
-                            share={share}
-                            onTreeRefresh={onTreeRefresh}
-                        />
-                    </div>
-                )}
-            </li>
-        )
+    const context: FileNodeViewContext = props
+    const state: FileNodeViewState = {
+        isRenaming,
+        renameValue,
+        setRenameValue,
+        busy: Boolean(busyAction),
+        deleteOpen,
+        setDeleteOpen,
+        isActive,
+        isFolderActive,
+        open,
+    }
+    const actions: FileNodeViewActions = {
+        onFolderClick: handleFolderClick,
+        onStartCreate: startCreate,
+        onStartRename: () => setIsRenaming(true),
+        onCancelRename: () => {
+            setRenameValue(file.name)
+            setIsRenaming(false)
+        },
+        onSaveRename: handleRename,
+        onDelete: handleDelete,
+        onDuplicate: handleDuplicate,
     }
 
-    return (
-        <>
-            <AppConfirmDialog
-                open={deleteOpen}
-                title={`Delete ${file.name}?`}
-                body='This file will be deleted from the share.'
-                confirmLabel='Delete'
-                tone='danger'
-                onCancel={() => setDeleteOpen(false)}
-                onConfirm={() => void handleDelete()}
-            />
-            <NewFile
-                isCreatingNewFile={isCreatingNewFile}
-                display={isFirstFileInFolder && shouldDisplay}
-                newFileName={newFileName}
-                setNewFileName={setNewFileName}
-                setIsCreatingNewFile={setIsCreatingNewFile}
-                file={file}
-                tree={tree}
-                setTree={setTree}
-                setShare={setShare}
-            />
-            <div className={`group/node flex items-center gap-2 rounded-md px-2 py-1 ${isActive ? 'border border-ui-primary/35 bg-ui-primary/10' : 'hover:bg-ui-raised'}`}>
-                {isRenaming ? (
-                    <>
-                        <File size={14} className='shrink-0 text-ui-primary' />
-                        <RenameInput
-                            value={renameValue}
-                            setValue={setRenameValue}
-                            onCancel={() => {
-                                setRenameValue(file.name)
-                                setIsRenaming(false)
-                            }}
-                            onSave={handleRename}
-                        />
-                    </>
-                ) : (
-                    <Link prefetch={false} href={`/s/${file.id}`} className='flex min-w-0 flex-1 items-center gap-2'>
-                        <File size={14} className={`${isActive ? 'text-ui-primary' : 'text-ui-muted'}`} />
-                        <span className={`truncate text-sm ${isActive ? 'font-semibold text-ui-text' : 'text-ui-muted'}`}>{file.name}</span>
-                    </Link>
-                )}
-                {!isRenaming && <NodeActions
-                    busy={Boolean(busyAction)}
-                    onCreateFile={() => startCreate('file')}
-                    onCreateFolder={() => startCreate('folder')}
-                    onRename={() => setIsRenaming(true)}
-                    onDuplicate={handleDuplicate}
-                    onDelete={() => setDeleteOpen(true)}
-                />}
-            </div>
-        </>
-    )
-}
-
-function RenameInput({
-    value,
-    setValue,
-    onSave,
-    onCancel,
-}: {
-    value: string
-    setValue: Dispatch<SetStateAction<string>>
-    onSave: () => Promise<void>
-    onCancel: () => void
-}) {
-    return (
-        <input
-            autoFocus
-            value={value}
-            onClick={(event) => event.stopPropagation()}
-            onChange={(event) => setValue(event.target.value)}
-            onBlur={() => void onSave()}
-            onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                    event.preventDefault()
-                    void onSave()
-                }
-                if (event.key === 'Escape') {
-                    event.preventDefault()
-                    onCancel()
-                }
-            }}
-            className='min-w-0 flex-1 rounded border border-ui-primary/35 bg-ui-panel px-1 text-sm text-ui-text outline-none'
-        />
-    )
-}
-
-function NodeActions({
-    busy,
-    onCreateFile,
-    onCreateFolder,
-    onRename,
-    onDuplicate,
-    onDelete,
-}: {
-    busy: boolean
-    onCreateFile: () => void
-    onCreateFolder: () => void
-    onRename: () => void
-    onDuplicate: () => void
-    onDelete: () => void
-}) {
-    const buttonClass = 'grid h-6 w-6 place-items-center rounded text-ui-muted opacity-0 transition hover:bg-ui-panel hover:text-ui-text group-hover/node:opacity-100 focus:opacity-100 disabled:cursor-not-allowed disabled:opacity-40'
-
-    return (
-        <div className='ml-auto flex shrink-0 items-center gap-0.5'>
-            <button type='button' aria-label='Create file here' disabled={busy} onClick={(event) => { event.preventDefault(); event.stopPropagation(); onCreateFile() }} className={buttonClass}>
-                <FilePlus className='h-3.5 w-3.5' />
-            </button>
-            <button type='button' aria-label='Create folder here' disabled={busy} onClick={(event) => { event.preventDefault(); event.stopPropagation(); onCreateFolder() }} className={buttonClass}>
-                <FolderPlus className='h-3.5 w-3.5' />
-            </button>
-            <button type='button' aria-label='Rename item' disabled={busy} onClick={(event) => { event.preventDefault(); event.stopPropagation(); onRename() }} className={buttonClass}>
-                <Pencil className='h-3.5 w-3.5' />
-            </button>
-            <button type='button' aria-label='Duplicate item' disabled={busy} onClick={(event) => { event.preventDefault(); event.stopPropagation(); onDuplicate() }} className={buttonClass}>
-                <Copy className='h-3.5 w-3.5' />
-            </button>
-            <button type='button' aria-label='Delete item' disabled={busy} onClick={(event) => { event.preventDefault(); event.stopPropagation(); onDelete() }} className={`${buttonClass} hover:text-ui-text`}>
-                <Trash2 className='h-3.5 w-3.5' />
-            </button>
-        </div>
-    )
-}
-
-async function duplicateTreeItem({
-    item,
-    rootTree,
-    parent,
-    token,
-    userId,
-    uniquifyName = false,
-}: {
-    item: FileItem
-    rootTree: Tree
-    parent?: string
-    token?: string | null
-    userId?: string | null
-    uniquifyName?: boolean
-}) {
-    const id = randomId()
-    const name = uniquifyName ? uniqueName(item.name, siblingsForParent(rootTree, item.parent)) : item.name
-    const content = item.type === 'file'
-        ? await getFileContent(item.id, token, userId)
-        : ''
-
-    await postShare({
-        includeTree: false,
-        id,
-        content,
-        name,
-        parent,
-        type: item.type,
-        token,
-        userId,
-    })
-
-    if (item.type === 'folder') {
-        for (const child of item.children) {
-            await duplicateTreeItem({ item: child, rootTree, parent: id, token, userId })
-        }
-    }
-}
-
-async function getFileContent(id: string, token?: string | null, userId?: string | null) {
-    const share = await getShare({
-        id,
-        token: token || undefined,
-        userId: userId || undefined,
-    })
-
-    return typeof share === 'string' ? '' : share.content
-}
-
-function siblingsForParent(tree: Tree, parent: string | null): FileItem[] {
-    if (parent === null) {
-        return tree
-    }
-
-    const folder = findItem(tree, parent)
-    return folder?.type === 'folder' ? folder.children : tree
-}
-
-function findItem(tree: Tree, id: string): FileItem | null {
-    for (const item of tree) {
-        if (item.id === id) {
-            return item
-        }
-        if (item.type === 'folder') {
-            const found = findItem(item.children, id)
-            if (found) {
-                return found
-            }
-        }
-    }
-    return null
-}
-
-function uniqueName(name: string, siblings: FileItem[]) {
-    const names = new Set(siblings.map(item => item.name))
-    const extensionMatch = name.match(/(\.[^./]+)$/)
-    const extension = extensionMatch?.[1] || ''
-    const base = extension ? name.slice(0, -extension.length) : name
-    let candidate = `${base} copy${extension}`
-    let count = 2
-    while (names.has(candidate)) {
-        candidate = `${base} copy ${count}${extension}`
-        count += 1
-    }
-    return candidate
+    if (file.type === 'folder') return <FolderNodeView context={context} state={state} actions={actions} file={file} />
+    return <FileNodeView context={context} state={state} actions={actions} isFirstFileInFolder={isFirstFileInFolder} shouldDisplay={shouldDisplay} />
 }
