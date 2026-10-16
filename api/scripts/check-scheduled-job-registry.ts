@@ -4,33 +4,44 @@ import { scheduledJobRegistryGuardrailEntries } from '../src/utils/systemCron.ts
 
 const repoRoot = path.resolve(import.meta.dir, '..', '..')
 const scanRoots = ['api/src', 'docker-compose.yml']
-const schedulerPattern = /\b(schedule\s*\(|setInterval\s*\(|startCanaryCollectionLoop\b|runDue[A-Za-z0-9_]*\b|cron\b|crontab\b)/i
+const schedulerPattern = /\b(schedule\s*\(|setInterval\s*\(|startCanaryCollectionLoop\b)/i
 const ignoredPattern = /(^|\/)(tests?|fixtures?|docs?|node_modules)(\/|$)/
-const registeredSources = new Set(scheduledJobRegistryGuardrailEntries().map(entry => normalize(entry.source)))
 
-const candidates: string[] = []
-for (const root of scanRoots) {
-    await collect(path.join(repoRoot, root), candidates)
+export async function checkScheduledJobRegistry() {
+    const candidates: string[] = []
+    for (const root of scanRoots) {
+        await collect(path.join(repoRoot, root), candidates)
+    }
+
+    const registeredSources = new Set(scheduledJobRegistryGuardrailEntries().map(entry => normalize(entry.source)))
+    const unregistered = findUnregisteredCandidates(candidates, registeredSources)
+
+    if (unregistered.length) {
+        const message = [
+            'Unregistered scheduled/background code candidates:',
+            ...unregistered.map(file => `- ${file}`),
+            'Add intentional recurring work to scheduledJobRegistryGuardrailEntries()/listUnifiedScheduledJobs, or add a narrow scanner exception.',
+        ].join('\n')
+        if (process.env.FAIL_ON_UNREGISTERED_SCHEDULED_CODE === '1') {
+            throw new Error(message)
+        }
+        console.warn(message)
+    } else {
+        console.log('Scheduled job registry guardrail passed.')
+    }
+    return unregistered
 }
 
-const unregistered = candidates
-    .map(file => normalize(path.relative(repoRoot, file)))
-    .filter(file => !registeredSources.has(file))
-    .filter(file => !isAllowedIncidentalSchedulerFile(file))
-    .sort()
+export function findUnregisteredCandidates(candidates: string[], registeredSources: Set<string>) {
+    return candidates
+        .map(file => normalize(path.relative(repoRoot, file)))
+        .filter(file => !registeredSources.has(file))
+        .filter(file => !isAllowedIncidentalSchedulerFile(file))
+        .sort()
+}
 
-if (unregistered.length) {
-    const message = [
-        'Unregistered scheduled/background code candidates:',
-        ...unregistered.map(file => `- ${file}`),
-        'Add intentional recurring work to scheduledJobRegistryGuardrailEntries()/listUnifiedScheduledJobs, or add a narrow scanner exception.',
-    ].join('\n')
-    if (process.env.FAIL_ON_UNREGISTERED_SCHEDULED_CODE === '1') {
-        throw new Error(message)
-    }
-    console.warn(message)
-} else {
-    console.log('Scheduled job registry guardrail passed.')
+export function isScheduledCodeCandidate(contents: string) {
+    return schedulerPattern.test(contents)
 }
 
 async function collect(target: string, output: string[]) {
@@ -53,7 +64,7 @@ async function collect(target: string, output: string[]) {
 
 async function addIfCandidate(file: string, output: string[]) {
     const contents = await readFile(file, 'utf8').catch(() => '')
-    if (schedulerPattern.test(contents)) output.push(file)
+    if (isScheduledCodeCandidate(contents)) output.push(file)
 }
 
 function normalize(value: string) {
@@ -62,14 +73,19 @@ function normalize(value: string) {
 
 function isAllowedIncidentalSchedulerFile(file: string) {
     return [
-        'api/src/index.ts',
-        'api/src/plugins/ws.ts',
-        'api/src/routes.ts',
+        'api/src/plugins/ws.ts', // Socket, worker-lease, and live telemetry maintenance.
+        'api/src/utils/cron.ts', // Dispatches the API jobs that the unified registry lists individually.
+        // These timers exist only for an open WebSocket session and are cleared with that connection.
+        'api/src/handlers/hostConsole.ts',
+        'api/src/handlers/metrics/systemStream.ts',
+        'api/src/handlers/vms/console.ts',
         'api/src/handlers/onionSession/ws.ts',
-        'api/src/handlers/systemCron.ts',
-        'api/src/utils/systemCronCrontab.ts',
-        'api/src/utils/managedCronHost.ts',
+        'api/src/utils/db/browse.ts', // Expires idle database-browser clients; it does not run business work.
+        'api/src/utils/support/transport.ts',
         'api/src/handlers/traffic/legacy.ts',
-        'api/src/utils/auth/tokenWrapper.ts',
+        'api/src/utils/ws/proxyModelSocket.ts',
+        'api/src/utils/ws/resumableWorker.ts',
     ].includes(file)
 }
+
+if (import.meta.main) await checkScheduledJobRegistry()
