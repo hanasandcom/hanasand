@@ -285,6 +285,30 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
         }))
     }
 
+    const resetRunTelemetry = () => {
+        remoteClipboard = ''
+        editableSelectAllArmed = false
+        networkEvents = []
+        sitePeer = undefined
+        networkTotals = { requestCount: 0, responseCount: 0, failedCount: 0 }
+        contactedDomains.clear()
+        documentEvidencePromises = []
+        downloads.length = 0
+        fileLookups.clear()
+        fileLookupQueue = Promise.resolve()
+        downloadsInFlight = 0
+        lastFrame = ''
+        firstFrameAttemptedAt = 0
+        lastHeavyFrameAt = 0
+        fastFrameInFlight = false
+        cachedDeobfuscationTasks = []
+        cachedThreatAssociations = []
+        cachedIndicators = null
+        cachedFrameQuality = null
+        cachedPageEvidence = null
+        openingBackgroundTabs = 0
+    }
+
     const cleanup = async (runStatus: 'ended' | 'failed' | 'unreachable' = terminalRunStatus) => {
         runGeneration++
         trace('cleanup', { runStatus, hasPage: Boolean(page), hasContext: Boolean(context), ownsBrowser })
@@ -313,12 +337,10 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
             await finishBrowserRun(runId, runStatus, title).catch(() => undefined)
         }
         terminalRunStatus = 'ended'
-        cachedDeobfuscationTasks = []
-        cachedThreatAssociations = []
-        cachedIndicators = null
         toolPages.clear()
         await context?.close().catch(() => undefined)
         if (ownsBrowser) await browser?.close().catch(() => undefined)
+        resetRunTelemetry()
         context = null
         browser = null
         page = null
@@ -600,23 +622,6 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
         assertProductionBrowserWorker()
         closed = false
         const generation = runGeneration
-        remoteClipboard = ''
-        networkEvents = []
-        sitePeer = undefined
-        networkTotals = { requestCount: 0, responseCount: 0, failedCount: 0 }
-        contactedDomains.clear()
-        documentEvidencePromises = []
-        downloads.length = 0
-        fileLookups.clear()
-        fileLookupQueue = Promise.resolve()
-        downloadsInFlight = 0
-        lastFrame = ''
-        firstFrameAttemptedAt = 0
-        lastHeavyFrameAt = 0
-        fastFrameInFlight = false
-        cachedFrameQuality = null
-        cachedPageEvidence = null
-        openingBackgroundTabs = 0
         const target = normalizeTarget(message.target || DEFAULT_TARGET)
         const network = message.network === 'regular' || message.network === 'tor' ? message.network : defaultNetwork
         const proxy = network === 'tor' ? process.env.ONION_SESSION_PROXY || process.env.TOR_SOCKS_PROXY || '' : ''

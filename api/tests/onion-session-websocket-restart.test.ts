@@ -4,6 +4,12 @@ import { afterEach, expect, mock, test } from 'bun:test'
 class FakePage extends EventEmitter {
     closed = false
     currentUrl = 'about:blank'
+    editableSelections = 0
+    readonly keyboard = {
+        pressed: [] as string[],
+        async press(key: string) { this.pressed.push(key) },
+        async insertText(text: string) { void text },
+    }
 
     async goto(url: string) {
         this.currentUrl = url
@@ -17,7 +23,17 @@ class FakePage extends EventEmitter {
     isClosed() { return this.closed }
     setDefaultTimeout() {}
     async screenshot() { throw new Error('screenshot unavailable in restart test') }
-    async evaluate() { throw new Error('page evaluation unavailable in restart test') }
+    async evaluate<T>(callback: () => T): Promise<T> {
+        const source = callback.toString()
+        if (source.includes('active.select()')) {
+            this.editableSelections++
+            return true as T
+        }
+        if (source.includes('selectionStart')) return '' as T
+        if (source.includes('return active.value')) return 'prior run form value' as T
+        if (source.includes('navigator.clipboard')) return '' as T
+        throw new Error('page evaluation unavailable in restart test')
+    }
     async bringToFront() {}
     async waitForTimeout() {}
     async close() {
@@ -209,6 +225,29 @@ test('restarting an onion session resets per-run download limits and summaries',
     }
 })
 
+test('restarting and ending an onion session close the retired and current pages', async () => {
+    configureTestEnvironment()
+    browser = new FakeBrowser()
+    const { handleOnionSessionSocket } = await import('../src/handlers/onionSession/ws.ts')
+    const socket = new ControlledSocket()
+    handleOnionSessionSocket(socket as never, 'restart-page-cleanup', 'regular')
+    let currentPage: FakePage | undefined
+
+    try {
+        await startRun(socket, 'https://8.8.8.8/first')
+        const retiredPage = browser.contexts[0].pages[0]
+
+        await startRun(socket, 'https://8.8.8.8/second')
+        currentPage = browser.contexts[1].pages[0]
+
+        expect(retiredPage.isClosed()).toBe(true)
+    } finally {
+        await endSession(socket)
+    }
+
+    expect(currentPage?.isClosed()).toBe(true)
+})
+
 test('a prior run download cannot release a later run transfer slot', async () => {
     configureTestEnvironment()
     browser = new FakeBrowser()
@@ -248,6 +287,33 @@ test('a prior run download cannot release a later run transfer slot', async () =
         resolveOldPath(null)
         for (const resolve of resolveActivePaths) resolve(null)
         await Promise.all([...activeDownloads].map(download => waitFor(() => download.deleteCount === 1 ? true : undefined, 'active download cleanup')))
+        await endSession(socket)
+    }
+})
+
+test('restarting clears editable select-all state before a later copy', async () => {
+    configureTestEnvironment()
+    browser = new FakeBrowser()
+    const { handleOnionSessionSocket } = await import('../src/handlers/onionSession/ws.ts')
+    const socket = new ControlledSocket()
+    handleOnionSessionSocket(socket as never, 'restart-editable-select-all', 'regular')
+
+    try {
+        await startRun(socket, 'https://8.8.8.8/first')
+        const firstPage = browser.contexts[0].pages[0]
+        socket.receive({ type: 'key', key: 'a', ctrlKey: true })
+        await waitFor(() => firstPage.editableSelections === 1 ? true : undefined, 'first-run editable select-all')
+
+        await startRun(socket, 'https://8.8.8.8/second')
+        const secondPage = browser.contexts[1].pages[0]
+        socket.receive({ type: 'key', key: 'c', ctrlKey: true })
+        await waitFor(() => secondPage.keyboard.pressed.includes('Control+C') ? true : undefined, 'second-run copy')
+        socket.receive({ type: 'clipboard', direction: 'remote-to-browser' })
+        const clipboard = await waitFor(() => socket.messages.find(message =>
+            message.type === 'clipboard' && message.direction === 'remote-to-browser'), 'second-run clipboard response')
+
+        expect(clipboard.text).toBe('')
+    } finally {
         await endSession(socket)
     }
 })
