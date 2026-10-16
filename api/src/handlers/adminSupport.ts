@@ -10,6 +10,13 @@ import { inviteSnapshot } from './adminSupport/cases/organizationEntityReads.ts'
 import { loadOrganizationSupportDetail, loadSupportMemberDetail } from './adminSupport/cases/organizationReadData.ts'
 import { buildSupportInspectionAuthorization } from './adminSupport/cases/inspection/authorization.ts'
 import { supportTimelineFilter } from './adminSupport/cases/inspection/timelineFilter.ts'
+import { prepareSupportInspectionRequest, type SupportInspectionQuery } from './adminSupport/cases/inspection/inspectionRequest.ts'
+import { supportActionIdempotencyKey, type SupportActionPreparationInput } from './adminSupport/cases/inspection/inspectionActionPreparation.ts'
+import { supportInspectionFilterError } from './adminSupport/cases/inspection/inspectionFilterValidation.ts'
+import { loadSupportInspectionData } from './adminSupport/cases/inspection/inspectionData.ts'
+import { buildSupportInspectionCaseModels } from './adminSupport/cases/inspection/inspectionCaseModels.ts'
+import { buildSupportInspectionProofs } from './adminSupport/cases/inspection/inspectionProofs.ts'
+import { sendSupportInspectionResponse } from './adminSupport/cases/inspection/inspectionPresentation.ts'
 import { toAccessRecoveryDecision } from './adminSupport/cases/accessRecoveryApprovalMapping.ts'
 import { supportAccessRecoveryExecutionReceipt } from './adminSupport/cases/accessRecoveryExecutionReceipt.ts'
 import { supportAccessRecoveryDecisionReceipt } from './adminSupport/cases/accessRecoveryDecisionReceipt.ts'
@@ -22,9 +29,9 @@ import { randomUUID } from 'crypto'
 import run, { withTransaction } from '#db'
 import { touchOrganization, updateActiveOrganizationMemberRole, updateOrganizationInviteAction, upsertAdminAccessRecoveryApproval, upsertOrganizationInvite } from '#utils/db/identityDataWrites.ts'
 import { isAccountUnavailable } from '#utils/accountAvailability.ts'
-import { loadInspectionApprovals, loadInspectionAuditEvents } from './adminSupport/inspectionEventLoaders.ts'
-import { loadInspectionInvites, loadInspectionMemberships, loadInspectionOrganizations, loadInspectionUsers } from './adminSupport/inspectionEntityLoaders.ts'
+import { loadInspectionAuditEvents } from './adminSupport/inspectionEventLoaders.ts'
 import { toSystemEvent, toSupportAuditTimelineEvent } from './adminSupport/audit/auditEventProjection.ts'
+import { encodeAuditCursor, prepareSystemEventSearch, type SystemEventQuery } from './adminSupport/audit/systemEventSearchPlan.ts'
 import { auditTimelineSummary } from './adminSupport/audit/auditEntityTimeline.ts'
 import { supportAuditFilterContract } from './adminSupport/audit/auditFilterPackets.ts'
 import { supportAuditExportProof, supportAuditCompliancePacket } from './adminSupport/audit/auditExportPackets.ts'
@@ -35,34 +42,21 @@ import { supportAuditSupportWorkflowPacket, supportAuditWorkflowRollup } from '.
 import { supportAuditActionEvidenceRollup } from './adminSupport/audit/auditEvidenceRollups.ts'
 import { supportAuditEventDecisionPacket } from './adminSupport/audit/auditDecisionPackets.ts'
 import { supportCaseTimelineEntries } from './adminSupport/audit/auditCaseTimeline.ts'
-import { systemEventFilters } from './adminSupport/audit/auditFilterDefinitions.ts'
-import { appendSystemEventFilters } from './adminSupport/audit/systemEventFilters.ts'
-import { toSupportUser, toSupportMemberDetail, membershipSnapshot, buildRecoveryEligibility, toSupportInvite } from './adminSupport/cases/subjectMapping.ts'
-import { buildSupportAccessStatus } from './adminSupport/cases/accessStatus.ts'
+import { toSupportMemberDetail, membershipSnapshot, buildRecoveryEligibility, toSupportInvite } from './adminSupport/cases/subjectMapping.ts'
 import { buildSupportAccessRecoveryPlan } from './adminSupport/cases/accessRecoveryPlan.ts'
-import { buildSupportCaseSummary } from './adminSupport/cases/caseSummary.ts'
 import { auditTimelineLink } from './adminSupport/audit/auditLinks.ts'
 import { supportRecoveryLifecycleCleanupExport } from './adminSupport/cases/readiness/lifecycleCleanupExport.ts'
 import { supportReadinessCaseTimelineExport } from './adminSupport/cases/readiness/caseTimelineExport.ts'
 import { supportRecoveryReadinessMatrix } from './adminSupport/cases/readiness/readinessMatrix.ts'
 import { supportRecoveryCaseReplayFixture } from './adminSupport/cases/readiness/caseReplayFixture.ts'
 import { supportReadinessWorkflowContracts } from './adminSupport/cases/readiness/workflowContracts.ts'
-import { supportInspectionEnterpriseReadiness } from './adminSupport/cases/inspection/enterpriseReadiness.ts'
-import { supportInspectionNegativeCaseMatrix } from './adminSupport/cases/inspection/negativeCaseMatrix.ts'
-import { supportInspectionApprovalDecisionPacket } from './adminSupport/cases/inspection/approvalDecisionPacket.ts'
-import { supportInspectionReceiptReplayPacket } from './adminSupport/cases/inspection/receiptReplayPacket.ts'
-import { supportSessionReplayReceipt } from './adminSupport/cases/inspection/sessionReplayReceipt.ts'
-import { supportInspectionReplayExportPacket } from './adminSupport/cases/inspection/replayExportPacket.ts'
 import { supportWorkbenchAdapter } from './adminSupport/cases/workbenchAdapter.ts'
 import type { AccessRecoveryApprovalRow } from './adminSupport/supportTypes.ts'
 import { activeOrganizationOwnerCount as activeOwnerCount, organizationMembershipAvailability as loadOrganizationAvailability, type OrganizationMembershipAvailability } from '#utils/organizationMemberships.ts'
-import { compileAuditQuery } from '#utils/auditQuery.ts'
 import { hasOrganizationPrivacyDeletionMarker, organizationPrivacyDeletionInProgress } from '#utils/organizationLifecycle.ts'
-import { cleanContext, headerText, normalizeApprovalStatus, normalizeOption, normalizeSupportPreparationDuration, normalizeSupportPreparationExpiry, normalizeSupportPreparationScope, supportError, supportInspectionQueryFilters, supportRequestId, supportSessionIdFromRequest, supportText as text } from '#utils/support/adminSupportInput.ts'
-import { auditFilterValidationError } from '#utils/support/auditFilterValidation.ts'
+import { cleanContext, headerText, normalizeApprovalStatus, normalizeOption, normalizeSupportPreparationScope, supportError, supportInspectionQueryFilters, supportRequestId, supportSessionIdFromRequest, supportText as text } from '#utils/support/adminSupportInput.ts'
 import { loadSupportSessionState } from '#utils/support/supportSessionState.ts'
-import { supportSessionResponse } from '#utils/support/sessionPresentation.ts'
-import { auditFilterQuery, supportInspectionActionAuditContract, supportInspectionAuditDetailPacket, supportInspectionAuditFilterCoverage, supportInspectionAuthorizationMatrix, supportInspectionFilters, supportInspectionOrgBoundaryProof, supportInspectionRecoveryFixturePacket, supportInspectionSearchProof, uniqueTimelineValues, type SupportTimelineFilter } from '#utils/support/inspectionPackets.ts'
+import { auditFilterQuery, uniqueTimelineValues, type SupportTimelineFilter } from '#utils/support/inspectionPackets.ts'
 import { loadSystemEventIds, recordSystemEvent, redactAuditValue, requireAuditReason } from '#utils/systemEvent.ts'
 import {
     normalizeInviteInput,
@@ -72,61 +66,7 @@ import {
     type InviteInput,
     type OrganizationRole,
     type OrganizationInviteRow,
-    type OrganizationRow,
 } from '#utils/organizations.ts'
-
-type AuditQuery = {
-    format?: string
-    hql?: string
-    q?: string
-    org?: string
-    orgId?: string
-    organizationId?: string
-    actor?: string
-    actorId?: string
-    supportActor?: string
-    supportActorId?: string
-    target?: string
-    targetId?: string
-    user?: string
-    userId?: string
-    targetUserId?: string
-    action?: string
-    actionType?: string
-    severity?: string
-    source?: string
-    service?: string
-    entity?: string
-    entityId?: string
-    entityType?: string
-    request?: string
-    requestId?: string
-    correlation?: string
-    correlationId?: string
-    idempotency?: string
-    idempotencyKey?: string
-    idempotency_key?: string
-    session?: string
-    supportSession?: string
-    supportSessionId?: string
-    workflow?: string
-    bridgeWorkflow?: string
-    sourceWorkflow?: string
-    blocker?: string
-    blockerCode?: string
-    reason?: string
-    supportReason?: string
-    scope?: string
-    supportScope?: string
-    context?: string
-    supportContext?: string
-    outcome?: string
-    from?: string
-    to?: string
-    limit?: string
-    cursor?: string
-    page?: string
-}
 
 type OrganizationParams = {
     id: string
@@ -134,49 +74,6 @@ type OrganizationParams = {
 
 type OrganizationMemberParams = OrganizationParams & {
     userId: string
-}
-
-type SupportInspectionQuery = {
-    q?: string
-    org?: string
-    orgId?: string
-    user?: string
-    userId?: string
-    email?: string
-    request?: string
-    requestId?: string
-    entity?: string
-    entityId?: string
-    entityType?: string
-    session?: string
-    supportSession?: string
-    supportSessionId?: string
-    workflow?: string
-    bridgeWorkflow?: string
-    sourceWorkflow?: string
-    action?: string
-    severity?: string
-    outcome?: string
-    source?: string
-    service?: string
-    blocker?: string
-    blockerCode?: string
-    prepareAction?: string
-    reason?: string
-    supportReason?: string
-    supportScope?: string
-    context?: string
-    supportContext?: string
-    scope?: string
-    idempotencyKey?: string
-    idempotency_key?: string
-    durationMinutes?: string
-    duration_minutes?: string
-    expiresAt?: string
-    expires_at?: string
-    from?: string
-    to?: string
-    limit?: string
 }
 
 type SupportInviteBody = InviteInput & {
@@ -278,107 +175,24 @@ type SupportAccessRecoveryDecisionBody = {
 
 
 
-type SupportActionPreparationInput = {
-    action: 'invite_assist' | 'access_recovery' | 'impersonation'
-    reason: string
-    context: string
-    scope: string[]
-    supportSessionId: string
-    idempotencyKey: string
-    durationMinutes: number | null
-    expiresAt: string | null
-}
-
-
-
 export async function getSystemEvents(req: FastifyRequest, res: FastifyReply) {
     const started = performance.now()
     const actor = await requireAdminSupport(req, res)
     if (!actor) return
 
-    const query = req.query as AuditQuery
+    const query = req.query as SystemEventQuery
     if (query.format !== undefined && !['timeline', 'helpdesk'].includes(query.format)) return res.status(400).send(supportError('invalid_format', 'Unknown audit format.'))
     const timelineOnly = query.format === 'timeline'
     const helpdeskOnly = query.format === 'helpdesk'
     if (helpdeskOnly && query.hql !== undefined) return res.status(400).send(supportError('invalid_hql', 'HQL is not supported by the helpdesk format.'))
     const authorized = performance.now()
-    let compiled: ReturnType<typeof compileAuditQuery> | undefined
-    try {
-        if (query.hql !== undefined) compiled = compileAuditQuery(text(query.hql))
-    } catch (error) {
-        return res.status(400).send(supportError('invalid_hql', error instanceof Error ? error.message : 'Invalid HQL query.'))
-    }
-    if (compiled && (query.cursor || query.page)) return res.status(400).send(supportError('invalid_hql', 'Use take to limit HQL results, without page or cursor.'))
-    const where: string[] = [...(compiled?.where || [])]
-    const values: Array<string | number | Date | null> = [...(compiled?.params || [])]
-    const add = (value: string | number | Date | null) => {
-        values.push(value)
-        return `$${values.length}`
-    }
-
-    const q = text(query.q)
-    const org = text(query.org || query.orgId || query.organizationId)
-    const actorFilter = text(query.actor || query.actorId || query.supportActor || query.supportActorId)
-    const target = text(query.target || query.targetId || query.user || query.userId || query.targetUserId)
-    const action = text(query.action || query.actionType)
-    const severity = normalizeOption(query.severity, ['info', 'notice', 'warning', 'critical'])
-    const source = text(query.source)
-    const service = text(query.service)
-    const entity = text(query.entity || query.entityId)
-    const entityType = text(query.entityType)
-    const request = text(query.request || query.requestId)
-    const correlation = text(query.correlation || query.correlationId)
-    const idempotency = text(query.idempotency || query.idempotencyKey || query.idempotency_key)
-    const supportSession = text(query.session || query.supportSession || query.supportSessionId)
-    const workflow = text(query.workflow || query.bridgeWorkflow || query.sourceWorkflow)
-    const blocker = text(query.blocker || query.blockerCode)
-    const reason = text(query.reason || query.supportReason)
-    const scope = text(query.scope || query.supportScope)
-    const contextFilter = text(query.context || query.supportContext)
-    const outcome = normalizeOption(query.outcome, ['success', 'denied', 'failed'])
-    const from = text(query.from)
-    const to = text(query.to)
-    const parsedLimit = Number(query.limit || 200)
-    const limit = Number.isFinite(parsedLimit) ? Math.min(Math.max(Math.trunc(parsedLimit), 1), 500) : 200
-    const page = Number(query.page || 1)
-    if (!Number.isSafeInteger(page) || page < 1 || !Number.isSafeInteger((page - 1) * limit) || (query.page !== undefined && text(query.cursor))) {
-        return res.status(400).send(supportError('invalid_page', 'Page must be a positive whole number; use page without cursor.'))
-    }
-    const cursor = decodeAuditCursor(text(query.cursor))
-    if (text(query.cursor) && !cursor) {
-        return res.status(400).send(supportError('invalid_audit_cursor', 'Audit cursor is invalid.'))
-    }
-    const filterError = systemEventFilterError(query, { severity, outcome, from, to, limit })
-    if (filterError) {
-        return res.status(400).send(filterError)
-    }
-
-    appendSystemEventFilters({
-        where,
-        add,
-        q,
-        org,
-        actor: actorFilter,
-        target,
-        action,
-        severity,
-        source,
-        service,
-        entity,
-        entityType,
-        request,
-        correlation,
-        idempotency,
-        supportSession,
-        workflow,
-        blocker,
-        reason,
-        scope,
-        context: contextFilter,
-        outcome,
-        from,
-        to,
-    })
+    const plan = prepareSystemEventSearch(query)
+    if ('error' in plan) return res.status(400).send(plan.error)
+    const {
+        compiled, where, values, add, q, org, actorFilter, target, action, severity, source,
+        service, entity, entityType, request, correlation, idempotency, supportSession,
+        workflow, blocker, reason, scope, contextFilter, outcome, from, to, limit, page, cursor,
+    } = plan
     // Timeline batches retain the first page total; support clients keep their existing contract.
     const countResult = helpdeskOnly || (timelineOnly && cursor) ? null : await run(`
         SELECT COUNT(*)::int AS total
@@ -530,537 +344,88 @@ export async function getSystemEvents(req: FastifyRequest, res: FastifyReply) {
     })
 }
 
-function encodeAuditCursor(createdAt: unknown, id: unknown) {
-    return encodeURIComponent(JSON.stringify({ createdAt: new Date(String(createdAt)).toISOString(), id: Number(id) }))
-}
-
-function decodeAuditCursor(value: string) {
-    if (!value) return null
-    try {
-        const parsed = JSON.parse(decodeURIComponent(value)) as { createdAt?: unknown, id?: unknown }
-        const createdAt = new Date(String(parsed.createdAt || ''))
-        const id = Number(parsed.id)
-        if (!Number.isFinite(createdAt.getTime()) || !Number.isSafeInteger(id) || id <= 0) return null
-        return { createdAt: createdAt.toISOString(), id }
-    } catch {
-        return null
-    }
-}
-
-
-
-
-
-
-
-
 export async function getSupportInspection(req: FastifyRequest<{ Querystring: SupportInspectionQuery }>, res: FastifyReply) {
     const actor = await requireAdminSupport(req, res)
     if (!actor) return
 
-    const query = req.query as SupportInspectionQuery
-    const filters = supportInspectionQueryFilters(query)
-    const {
-        q,
-        org: requestedOrg,
-        user: requestedUser,
-        email,
-        request: requestedRequest,
-        entity: requestedEntity,
-        entityType,
-        supportSession,
-        workflow,
-        action,
-        source,
-        service,
-        blocker,
-        reason,
-        scope,
-        context: contextFilter,
-        severity,
-        outcome,
-        from,
-        to,
-        limit,
-    } = filters
-    const prepareAction = normalizeOption(query.prepareAction, ['invite_assist', 'access_recovery', 'impersonation'])
-    const sessionState = supportSession ? await loadSupportSessionState(supportSession) : null
-    const inspectionRequestId = supportRequestId(req)
-    if (supportSession && !sessionState) {
-        return res.status(404).send(supportError('support_session_not_found', 'Support session not found.', { supportSessionId: supportSession }))
-    }
-    if (sessionState) {
-        const orgMismatch = Boolean(requestedOrg && sessionState.organizationId && requestedOrg !== sessionState.organizationId)
-        const userMismatch = Boolean(requestedUser && sessionState.targetUserId && requestedUser !== sessionState.targetUserId)
-        if (orgMismatch || userMismatch) {
-            const blocker = orgMismatch ? 'support_session_org_mismatch' : 'support_session_user_mismatch'
-            await recordSystemEvent(req, {
-                actionType: 'support.inspect',
-                actorId: actor.id,
-                targetType: 'support_session',
-                targetId: supportSession,
-                organizationId: sessionState.organizationId || requestedOrg || null,
-                entityId: supportSession,
-                requestId: inspectionRequestId,
-                severity: 'warning',
-                outcome: 'denied',
-                reason: sessionState.reason || undefined,
-                context: {
-                    schemaVersion: 'support.inspection.session_scope_guard.v1',
-                    supportSessionId: supportSession,
-                    requestedOrg: requestedOrg || null,
-                    requestedUser: requestedUser || null,
-                    scopedOrg: sessionState.organizationId || null,
-                    scopedUser: sessionState.targetUserId || null,
-                    blockerCode: blocker,
-                    noCrossOrgLeakage: true,
-                    redactionRequired: true,
-                },
-            })
-            return res.status(403).send(supportError(blocker, 'Support session scope does not allow this inspection target.', {
-                supportSessionId: supportSession,
-                requestedOrg: requestedOrg || null,
-                requestedUser: requestedUser || null,
-                scopedOrg: sessionState.organizationId || null,
-                scopedUser: sessionState.targetUserId || null,
-                noCrossOrgLeakage: true,
-            }))
-        }
-    }
-    const org = sessionState?.organizationId || requestedOrg || ''
-    const user = sessionState?.targetUserId || requestedUser || ''
-    const request = requestedRequest || sessionState?.requestId || ''
-    const entity = requestedEntity || supportSession
-    const filterError = supportInspectionFilterError(query, { q, org, user, email, request, entity, entityType, supportSession, workflow, action, severity, outcome, source, service, blocker, reason, scope, context: contextFilter, from, to, limit })
-    if (filterError) {
-        return res.status(400).send(filterError)
-    }
-    const preparationInput = supportActionPreparationInput(query, prepareAction)
-    if (preparationInput.error) {
-        return res.status(400).send(preparationInput.error)
-    }
-
-    if (!q && !org && !user && !email && !request && !entity && !entityType && !supportSession && !workflow && !action && !blocker && !reason && !scope && !contextFilter) {
-        return res.status(400).send(supportError('missing_support_target', 'Add q, org, user, email, request, entity, entityType, supportSession, workflow, action, blocker, reason, scope, or context to inspect support state.'))
-    }
-
-    const [organizations, users, memberships, invites, approvals, audit] = await Promise.all([
-        loadInspectionOrganizations({ q, org, user, email, request, limit }),
-        loadInspectionUsers({ q, user, request, limit }),
-        loadInspectionMemberships({ q, org, user, request, limit }),
-        loadInspectionInvites({ q, org, email, request, limit }),
-        loadInspectionApprovals({ q, org, user, email, request, outcome, limit }),
-        loadInspectionAuditEvents({ q, org, user, email, request, entity, entityType, supportSession, workflow, action, severity, outcome, source, service, blocker, reason, scope, context: contextFilter, from, to, limit }),
-    ])
-    const timelineFilter = supportTimelineFilter({ q, org, user, email, request, entity, entityType, supportSession, workflow, action, severity, outcome, source, service, blocker, reason, scope, context: contextFilter, from, to, limit })
-    const auditTimelineFilters = {
-        q,
-        org,
-        target: user || email,
-        request,
-        entity,
-        entityType,
-        supportSession,
-        workflow,
-        action,
-        severity,
-        outcome,
-        source,
-        service,
-        blocker,
-        reason,
-        scope,
-        context: contextFilter,
-        from,
-        to,
-        limit,
-    }
-    if (!organizations.length && !users.length && !memberships.length && !invites.length && !approvals.length && !audit.length) {
+    const prepared = await prepareSupportInspectionRequest(req, actor.id)
+    if ('status' in prepared) return res.status(prepared.status).send(prepared.body)
+    const request = prepared.value
+    const data = await loadSupportInspectionData(request)
+    if (data.notFound) {
         return res.status(404).send(supportError('support_target_not_found', 'No support state matched the requested filters.', {
-            filters: timelineFilter,
+            filters: data.timelineFilter,
             unavailableFilters: [],
         }))
     }
 
-    const organizationIds = Array.from(new Set([
-        ...organizations.map(row => String(row.id)),
-        ...memberships.map(row => String(row.organization_id)),
-        ...invites.map(row => String(row.organization_id)),
-        ...approvals.map(row => String(row.organization_id)),
-        ...audit.map(row => String((row as Record<string, unknown>).organization_id || '')).filter(Boolean),
-    ]))
-    const authorization = buildSupportInspectionAuthorization({
-        actorId: actor.id,
-        requestedOrg,
-        requestedUser,
-        effectiveOrg: org,
-        effectiveUser: user,
-        email,
-        request,
-        entity,
-        supportSession,
-        sessionState,
-        organizationIds,
-    })
-    const availability = organizationIds.length ? await loadOrganizationAvailability(organizationIds) : []
-    const availabilityByOrg = new Map(availability.map(item => [item.organizationId, item]))
-    const timeline = audit.map(toSupportAuditTimelineEvent)
-    const approvalDetails = approvals.map(row => toAccessRecoveryDecision(row as AccessRecoveryApprovalRow))
-    const recoveryEligibility = buildRecoveryEligibility({
-        email,
-        user,
-        organizationIds,
-        memberships,
-        users,
-        availabilityByOrg,
-        invites,
-    })
-    const accessStatus = buildSupportAccessStatus({
-        org,
-        user,
-        email,
-        request,
-        organizationIds,
-        users,
-        memberships,
-        invites,
-        approvalDetails,
-        recoveryEligibility,
-        availabilityByOrg,
-        timeline,
-    })
-    const accessRecoveryPlan = buildSupportAccessRecoveryPlan({
-        org,
-        user,
-        email,
-        request,
-        organizationIds,
-        memberships,
-        invites,
-        approvalDetails,
-        recoveryEligibility,
-        availabilityByOrg,
-        timeline,
-        timelineFilter,
-    })
-    const caseSummary = buildSupportCaseSummary({
-        org,
-        user,
-        email,
-        request,
-        organizationIds,
-        organizations,
-        users,
-        memberships,
-        invites,
-        approvalDetails,
-        recoveryEligibility,
-        accessStatus,
-        timeline,
-        timelineFilter,
+    const models = buildSupportInspectionCaseModels({
+        org: request.org,
+        user: request.user,
+        email: request.email,
+        request: request.request,
+        organizationIds: data.organizationIds,
+        organizations: data.organizations,
+        users: data.users,
+        memberships: data.memberships,
+        invites: data.invites,
+        availabilityByOrg: data.availabilityByOrg,
+        approvalDetails: data.approvalDetails,
+        timeline: data.timeline,
+        timelineFilter: data.timelineFilter,
     })
     const workbench = buildSupportWorkbench({
-        org,
-        user,
-        email,
-        request,
-        organizationIds,
-        users,
-        memberships,
-        invites,
-        recoveryEligibility,
-        caseSummary,
-        timeline,
-        timelineFilter,
-        preparationInput: preparationInput.value,
+        org: request.org,
+        user: request.user,
+        email: request.email,
+        request: request.request,
+        organizationIds: data.organizationIds,
+        users: data.users,
+        memberships: data.memberships,
+        invites: data.invites,
+        recoveryEligibility: models.recoveryEligibility,
+        caseSummary: models.caseSummary,
+        timeline: data.timeline,
+        timelineFilter: data.timelineFilter,
+        preparationInput: request.preparationInput,
     })
     const workbenchAdapter = supportWorkbenchAdapter({
-        org,
-        user,
-        email,
-        request,
+        org: request.org,
+        user: request.user,
+        email: request.email,
+        request: request.request,
         workbench,
-        caseSummary,
-        accessStatus,
-        timeline,
-        timelineFilter,
+        caseSummary: models.caseSummary,
+        accessStatus: models.accessStatus,
+        timeline: data.timeline,
+        timelineFilter: data.timelineFilter,
     })
-    const searchProof = supportInspectionSearchProof({
-        q,
-        org,
-        user,
-        email,
-        request,
-        entity,
-        supportSession,
-        organizationIds,
-        organizations,
-        users,
-        memberships,
-        invites,
-        approvalDetails,
-        timeline,
-        timelineFilter,
-    })
-    const authorizationMatrix = supportInspectionAuthorizationMatrix({
-        authorization,
+    const proofs = buildSupportInspectionProofs({
+        actorId: request.actorId,
+        org: request.org,
+        user: request.user,
+        email: request.email,
+        request: request.request,
+        inspectionRequestId: request.inspectionRequestId,
+        entity: request.entity,
+        entityType: request.filters.entityType,
+        supportSession: request.supportSession,
+        q: request.filters.q,
+        organizationIds: data.organizationIds,
+        organizations: data.organizations,
+        users: data.users,
+        memberships: data.memberships,
+        invites: data.invites,
+        approvalDetails: data.approvalDetails,
+        timeline: data.timeline,
+        timelineFilter: data.timelineFilter,
+        authorization: data.authorization,
+        accessRecoveryPlan: models.accessRecoveryPlan,
         workbench,
-        accessRecoveryPlan,
-        supportSession,
-        sessionState,
-        organizationIds,
-        user,
-        email,
-        request,
-        timelineFilter,
+        accessStatus: models.accessStatus,
+        sessionState: request.sessionState,
     })
-    const auditDetailPacket = supportInspectionAuditDetailPacket({
-        org,
-        user,
-        email,
-        request,
-        supportSession,
-        organizationIds,
-        memberships,
-        invites,
-        timeline,
-        timelineFilter,
-    })
-    const orgBoundaryProof = supportInspectionOrgBoundaryProof({
-        requestedOrg: org,
-        requestedUser: user,
-        email,
-        request,
-        supportSession,
-        sessionState,
-        authorization,
-        organizationIds,
-        memberships,
-        invites,
-        timeline,
-        timelineFilter,
-    })
-    const recoveryFixturePacket = supportInspectionRecoveryFixturePacket({
-        org,
-        user,
-        email,
-        request,
-        supportSession,
-        accessRecoveryPlan,
-        workbench,
-        timelineFilter,
-    })
-    const auditFilterCoverage = supportInspectionAuditFilterCoverage({
-        timelineFilter,
-        timeline,
-        organizationIds,
-        user,
-        email,
-        request,
-        supportSession,
-    })
-    const actionAuditContract = supportInspectionActionAuditContract({
-        recoveryFixturePacket,
-        timelineFilter,
-        organizationIds,
-        user,
-        email,
-        request,
-        supportSession,
-    })
-    const enterpriseReadiness = supportInspectionEnterpriseReadiness({
-        authorizationMatrix,
-        auditDetailPacket,
-        orgBoundaryProof,
-        recoveryFixturePacket,
-        auditFilterCoverage,
-        actionAuditContract,
-        workbench,
-        accessStatus,
-        timelineFilter,
-    })
-    const negativeCaseMatrix = supportInspectionNegativeCaseMatrix({
-        actionAuditContract,
-        recoveryFixturePacket,
-        auditFilterCoverage,
-        orgBoundaryProof,
-        enterpriseReadiness,
-        timelineFilter,
-        supportSession,
-    })
-    const approvalDecisionPacket = supportInspectionApprovalDecisionPacket({
-        approvalDetails,
-        timelineFilter,
-        org,
-        user,
-        email,
-        request,
-    })
-    const receiptReplayPacket = supportInspectionReceiptReplayPacket({
-        timelineFilter,
-        timeline,
-        approvalDetails,
-        org,
-        user,
-        email,
-        request,
-        supportSession,
-        organizationIds,
-    })
-    const sessionReplayReceipt = supportSessionReplayReceipt({
-        supportSession,
-        sessionState,
-        actorId: actor.id,
-        requestId: inspectionRequestId,
-        timelineFilter,
-        timeline,
-        receiptReplayPacket,
-        authorization,
-    })
-    const replayExportPacket = supportInspectionReplayExportPacket({
-        actorId: actor.id,
-        org,
-        user,
-        email,
-        request,
-        entity,
-        entityType,
-        supportSession,
-        organizationIds,
-        timelineFilter,
-        timeline,
-        accessRecoveryPlan,
-        approvalDecisionPacket,
-        receiptReplayPacket,
-        sessionReplayReceipt,
-        actionHistory: null,
-        authorization,
-    })
-    const inspectionSearchProof = { searchProof }
-    const inspectionTimelineProofs = {
-        auditFilterCoverage,
-        actionAuditContract,
-        enterpriseReadiness,
-        negativeCaseMatrix,
-        approvalDecisionPacket,
-        receiptReplayPacket,
-        sessionReplayReceipt,
-        replayExportPacket,
-    }
-
-    await recordSystemEvent(req, {
-        actionType: 'support.inspect',
-        actorId: actor.id,
-        targetType: user ? 'user' : email ? 'invite' : org ? 'organization' : supportSession ? 'support_session' : 'request',
-        targetId: user || email || org || supportSession || request,
-        organizationId: organizationIds[0] || null,
-        entityId: supportSession || request || user || email || org || null,
-        requestId: supportRequestId(req),
-        severity: 'info',
-        outcome: 'success',
-        context: {
-            schemaVersion: 'support.inspection.v1',
-            filters: { q, org, user, email, request, entity, entityType, supportSession, action, severity, outcome, source, service, blocker, reason, context: contextFilter, from, to, limit },
-            organizationCount: organizations.length,
-            membershipCount: memberships.length,
-            pendingInviteCount: invites.filter(row => row.status === 'pending').length,
-            approvalCount: approvals.length,
-            auditEventIds: timeline.map(event => event.id),
-            authorization,
-        },
-    })
-
-    return res.send({
-        inspection: {
-            schemaVersion: 'support.inspection.v1',
-            generatedAt: new Date().toISOString(),
-            filters: { q, org, user, email, request, entity, entityType, supportSession, action, severity, outcome, source, service, blocker, reason, context: contextFilter, from, to, limit },
-            supportSession: sessionState ? supportSessionResponse({
-                ...sessionState,
-                actorId: sessionState.actorId,
-                reason: sessionState.reason,
-                requestId: sessionState.requestId,
-                auditEventIds: sessionState.auditEventIds,
-            }) : null,
-            authorization,
-            organizations: organizations.map(row => ({
-                ...toOrganization(row as OrganizationRow),
-                adminAvailability: availabilityByOrg.get(String(row.id)) || null,
-            })),
-            users: users.map(toSupportUser),
-            memberships: memberships.map(toSupportMemberDetail),
-            invites: invites.map(toSupportInvite),
-            pendingInvites: invites.filter(row => row.status === 'pending').map(toSupportInvite),
-            approvalRequests: approvalDetails,
-            accessStatus,
-            accessRecoveryPlan,
-            caseSummary,
-            workbench,
-            workbenchAdapter,
-            ...inspectionSearchProof,
-            authorizationMatrix,
-            auditDetailPacket,
-            orgBoundaryProof,
-            recoveryFixturePacket,
-            ...inspectionTimelineProofs,
-            actionPreparation: workbench.actionPreparation,
-            recoveryEligibility,
-            auditEventIds: timeline.map(event => event.id),
-            auditTimeline: timeline,
-            filteredTimeline: {
-                schemaVersion: 'support.audit.filtered_timeline.v1',
-                filter: timelineFilter,
-                eventIds: timeline.map(event => event.id),
-                summary: auditTimelineSummary(timeline),
-                filterContract: supportAuditFilterContract(auditTimelineFilters, timeline),
-                exportProof: supportAuditExportProof(auditTimelineFilters, timeline),
-                workflowRollup: supportAuditWorkflowRollup(auditTimelineFilters, timeline),
-                supportWorkflowPacket: supportAuditSupportWorkflowPacket(auditTimelineFilters, timeline),
-                ...inspectionSearchProof,
-                ...inspectionTimelineProofs,
-                events: timeline,
-                links: {
-                    timeline: auditFilterQuery(auditTimelineFilters),
-                    details: timeline.map(event => event.links?.detail).filter(Boolean),
-                    inviteAssistance: auditTimelineLink({ org, target: email, request, action: 'invite_assist', outcome }),
-                    accessRecovery: auditTimelineLink({ org, target: user || email, request, action: 'access_recovery', outcome }),
-                    impersonation: auditTimelineLink({ target: user, request, action: 'impersonation', outcome }),
-                    supportSession: supportSession ? auditTimelineLink({ request, action: 'support.session', outcome }) : null,
-                },
-                redacted: true,
-                copyText: [
-                    `Support timeline: ${auditFilterQuery(auditTimelineFilters)}`,
-                    `Events: ${timeline.map(event => event.id).join(', ') || 'none'}`,
-                    `Outcomes: ${uniqueTimelineValues(timeline.map(event => event.outcome)).join(', ') || 'none'}`,
-                ].join('\n'),
-            },
-            controlledActions: {
-                inviteAssist: organizationIds.map(id => `/api/admin/support/organizations/${encodeURIComponent(id)}/invites`),
-                inviteActions: invites.map(invite => `/api/admin/support/organizations/${encodeURIComponent(String(invite.organization_id))}/invites/${encodeURIComponent(String(invite.id))}/actions`),
-                memberRoleRecovery: memberships.map(member => `/api/admin/support/organizations/${encodeURIComponent(String(member.organization_id))}/members/${encodeURIComponent(String(member.user_id))}/role-recovery`),
-                accessRecovery: organizationIds.map(id => `/api/admin/support/organizations/${encodeURIComponent(id)}/access-recovery`),
-                approvalSearch: `/api/admin/support/access-recovery${request ? `?request=${encodeURIComponent(request)}` : ''}`,
-                supportSession: supportSession ? `/api/admin/support/sessions/${encodeURIComponent(supportSession)}` : null,
-                impersonationGuard: {
-                    reasonRequired: true,
-                    durationRequired: true,
-                    scopeRequired: true,
-                    noSilentImpersonation: true,
-                    auditTimeline: `/api/admin/audit-events?action=impersonation${request ? `&request=${encodeURIComponent(request)}` : ''}`,
-                },
-            },
-            copyText: [
-                `Support inspection q=${q || '*'} org=${org || '*'} user=${user || '*'} email=${email || '*'} request=${request || '*'} session=${supportSession || '*'}`,
-                `Authorization: ${authorization.supportSessionScoped ? 'scoped support session' : 'support role'}`,
-                `Organizations: ${organizations.length}`,
-                `Memberships: ${memberships.length}`,
-                `Pending invites: ${invites.filter(row => row.status === 'pending').length}`,
-                `Access status: ${accessStatus.overall}`,
-                `Approvals: ${approvalDetails.length}`,
-                `Audit events: ${timeline.map(event => event.id).join(', ') || 'none'}`,
-            ].join('\n'),
-        },
-    })
+    return sendSupportInspectionResponse({ req, res, request, data, models, workbench, workbenchAdapter, proofs })
 }
 
 export async function getSupportReadiness(req: FastifyRequest<{ Querystring: SupportInspectionQuery }>, res: FastifyReply) {
@@ -4339,57 +3704,6 @@ function supportActionExecutionTarget(input: {
     }
 }
 
-function supportActionPreparationInput(query: SupportInspectionQuery, action: string): { value: SupportActionPreparationInput | null, error: Record<string, unknown> | null } {
-    if (!query.prepareAction) {
-        return { value: null, error: null }
-    }
-    if (!action) {
-        return {
-            value: null,
-            error: supportError('unsupported_support_action', 'Unsupported support action prepare request.', {
-                supportedActions: ['invite_assist', 'access_recovery', 'impersonation'],
-            }),
-        }
-    }
-
-    let reason: string
-    try {
-        reason = requireAuditReason(query.reason, 'Support action preparation reason')
-    } catch (error) {
-        return {
-            value: null,
-            error: supportError('missing_support_reason', error instanceof Error ? error.message : 'Support action preparation reason is required.'),
-        }
-    }
-
-    const scopeResult = normalizeSupportPreparationScope(query.scope, action)
-    if (scopeResult.error) return { value: null, error: scopeResult.error }
-    const durationResult = normalizeSupportPreparationDuration(query.durationMinutes ?? query.duration_minutes, action)
-    if (durationResult.error) return { value: null, error: durationResult.error }
-    const expiryResult = normalizeSupportPreparationExpiry(query.expiresAt ?? query.expires_at)
-    if (expiryResult.error) return { value: null, error: expiryResult.error }
-    const idempotencyKey = supportActionIdempotencyKey(query.idempotencyKey || query.idempotency_key, action)
-
-    return {
-        value: {
-            action: action as SupportActionPreparationInput['action'],
-            reason,
-            context: cleanContext(query.context),
-            scope: scopeResult.value,
-            supportSessionId: text(query.session || query.supportSession || query.supportSessionId),
-            idempotencyKey,
-            durationMinutes: durationResult.value,
-            expiresAt: expiryResult.value,
-        },
-        error: null,
-    }
-}
-
-function supportActionIdempotencyKey(value: unknown, action: string) {
-    const cleaned = text(value).replace(/[^a-zA-Z0-9._:-]/g, '').slice(0, 120)
-    return cleaned || `support-${action}-${randomUUID()}`
-}
-
 type SupportExecutorControlsBody = {
     idempotencyKey?: unknown
     idempotency_key?: unknown
@@ -5397,67 +4711,5 @@ function supportMemberRoleRecoveryAuditQuery(input: {
         entityId: input.userId,
         targetId: input.userId,
         actionType: 'support.organization.member_role_recovery',
-    })
-}
-
-function supportInspectionFilterError(rawQuery: SupportInspectionQuery, filter: Omit<SupportTimelineFilter, 'unsupported'>) {
-    const validationError = auditFilterValidationError(rawQuery, filter, {
-        supportedFilters: supportInspectionFilters,
-        unsupportedCode: 'unsupported_support_filter',
-        unsupportedLabel: 'support inspection',
-        invalidCode: 'invalid_support_filter',
-        dateLabel: 'audit timeline',
-        limitMessage: 'Support inspection limit must be a positive number.',
-    })
-    if (validationError) return validationError
-    const hasTarget = Boolean(filter.q || filter.org || filter.user || filter.email || filter.request || filter.entity || filter.entityType || filter.supportSession || filter.workflow || filter.blocker || filter.reason || filter.scope || filter.context)
-    if (!hasTarget && Boolean(filter.action || filter.source || filter.service || filter.severity || filter.outcome || filter.from || filter.to)) {
-        return supportError('overbroad_support_timeline_filter', 'Add org, user, email, request, entity, entityType, or supportSession with audit timeline filters.', {
-            filters: supportTimelineFilter(filter),
-        })
-    }
-    return null
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-function systemEventFilterError(rawQuery: AuditQuery, filter: { severity: string, outcome: string, from: string, to: string, limit: number }) {
-    return auditFilterValidationError(rawQuery, filter, {
-        supportedFilters: systemEventFilters,
-        unsupportedCode: 'unsupported_audit_filter',
-        unsupportedLabel: 'audit',
-        invalidCode: 'invalid_audit_filter',
-        dateLabel: 'audit',
-        limitMessage: 'Audit limit must be a positive number.',
     })
 }

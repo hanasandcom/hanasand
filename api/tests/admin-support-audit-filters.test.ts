@@ -69,6 +69,40 @@ test('support inspection returns preparation validation errors before database r
     expect(state.queries).toHaveLength(0)
 })
 
+test('support inspection rejects a requested organization outside its scoped session', async () => {
+    state.supportSessionEvents.push({
+        id: 91,
+        event_type: 'support.session.create',
+        actor_id: 'support-admin',
+        object_id: 'user-1',
+        organization_id: 'org-1',
+        subject_id: 'session-1',
+        request_id: 'session-request',
+        reason: 'Case review',
+        outcome: 'success',
+        context: {
+            targetOrganizationId: 'org-1',
+            targetUserId: 'user-1',
+            expiresAt: '2026-11-01T00:00:00.000Z',
+        },
+        created_at: '2026-10-16T00:00:00.000Z',
+    })
+
+    const response = await request(getSupportInspection, {
+        query: { supportSession: 'session-1', org: 'org-2' },
+    })
+
+    expect(response.statusCode).toBe(403)
+    expect(response.body.detail.code).toBe('support_session_org_mismatch')
+    expect(response.body.detail.noCrossOrgLeakage).toBe(true)
+    expect(state.recordedEvents.at(-1)).toMatchObject({
+        actionType: 'support.inspect',
+        outcome: 'denied',
+        context: { blockerCode: 'support_session_org_mismatch', noCrossOrgLeakage: true },
+    })
+    expect(state.queries).toHaveLength(1)
+})
+
 test('support readiness preserves its default audit filters and limit cap', async () => {
     const response = await request(getSupportReadiness, { query: { org: 'org-1', limit: '80' } })
     expect(response.statusCode).toBe(200)
@@ -103,4 +137,3 @@ test('support readiness applies shared audit filters with inspection aliases and
         '2026-09-30T00:00:00.000Z', 25,
     ])
 })
-
