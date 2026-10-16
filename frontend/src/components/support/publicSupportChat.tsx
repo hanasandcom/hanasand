@@ -1,18 +1,12 @@
 'use client'
 
 import { ArrowUp, LoaderCircle, UserRound } from 'lucide-react'
-import { GuestSupportFeedback, type Feedback } from './supportFeedback'
-import useSupportLive, { SUPPORT_CHAT_OPENED_EVENT } from './useSupportLive'
-import useSupportUnread from './useSupportUnread'
-import { supportFetch } from '@/utils/support/api'
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useState } from 'react'
+import { GuestSupportFeedback } from './supportFeedback'
+import type { PublicSupportChatOptions, PublicSupportConversation, PublicSupportMessage } from './publicSupportChatTypes'
+import { usePublicSupportChat } from './usePublicSupportChat'
 
-type Message = { id: string; body: string; sender_kind: 'user' | 'assistant' | 'support' | 'system'; sender_name: string; request_id?: string }
-type Ticket = { id: string; subject: string; reply_count: number; status?: string }
-export type PublicSupportConversation = Feedback & { id?: string; tickets?: Ticket[]; agent_name?: string; channel: 'ai' | 'human'; status: string; pending: boolean; messages: Message[]; error?: string; accepted?: boolean }
-type Submission = { requestId: string; message: string; handoff?: boolean; conversationId?: string }
-const emptyTickets: Ticket[] = []
-const empty: PublicSupportConversation = { channel: 'ai', status: 'open', pending: false, messages: [] }
+export type { PublicSupportConversation } from './publicSupportChatTypes'
 
 // Render only same-site links from the assistant, never HTML or arbitrary model URLs.
 function MessageBody({ text }: { text: string }) {
@@ -22,7 +16,7 @@ function MessageBody({ text }: { text: string }) {
     })}</p>
 }
 
-function ConversationMessages({ messages }: { messages: Message[] }) {
+function ConversationMessages({ messages }: { messages: PublicSupportMessage[] }) {
     return <>{messages.map(message => message.sender_kind === 'system'
         ? <p key={message.id} className='px-2 py-1 text-center text-xs leading-5 text-ui-muted'>{message.body}</p>
         : <div key={message.id} className={`min-w-0 max-w-[92%] ${message.sender_kind === 'user' ? 'justify-self-end' : 'justify-self-start'}`}>
@@ -31,152 +25,20 @@ function ConversationMessages({ messages }: { messages: Message[] }) {
         </div>)}</>
 }
 
-export default function PublicSupportChat({ active = true, onUnreadChange, onResolvedChange, initialConversation, initialSelectedId = '' }: { active?: boolean; onUnreadChange?: (count: number) => void; onResolvedChange?: (resolved: boolean) => void; initialConversation?: PublicSupportConversation; initialSelectedId?: string }) {
-    const [selectedId, setSelectedId] = useState(initialConversation?.id || initialSelectedId)
-    const selection = useRef(initialConversation?.id || initialSelectedId)
-    const restoredSelection = useRef(false)
-    const realtime = useRef(false)
-    const drafts = useRef<Record<string, string>>({})
-    const [conversation, setConversation] = useState<PublicSupportConversation>(initialConversation || empty)
-    const [viewingClosedChat, setViewingClosedChat] = useState(false)
-    const [input, setInput] = useState('')
-    const [loading, setLoading] = useState(!initialConversation)
-    const [pendingMessages, setPendingMessages] = useState<Record<string, Submission>>({})
-    const [transfers, setTransfers] = useState<Record<string, boolean>>({})
-    const sending = Boolean(pendingMessages[selectedId])
-    const transferring = Boolean(transfers[selectedId])
-    const outgoing = pendingMessages[selectedId] || null
-    const [error, setError] = useState('')
-    const [refreshError, setRefreshError] = useState('')
-    const [closing, setClosing] = useState(false)
-    const [retry, setRetry] = useState<Submission | null>(null)
-    const log = useRef<HTMLDivElement>(null)
-    const closedLog = useRef<HTMLDivElement>(null)
-    const mounted = useRef(true)
-    const serverConversation = useRef(Boolean(initialConversation))
-    const revision = useRef(0)
-    const inFlight = useRef(new Map<string, string>())
-    const failures = useRef<Record<string, { message: string; submission: Submission }>>({})
-
-
-    const refresh = useCallback(async () => {
-        const version = ++revision.current
-        const response = await supportFetch(`/support/chat${selection.current ? `?conversationId=${encodeURIComponent(selection.current)}` : ''}`)
-        const payload = await response.json()
-        if (!response.ok) throw new Error(payload.error || 'We could not load your conversation.')
-        if (mounted.current && version === revision.current) {
-            realtime.current = Array.isArray(payload.tickets)
-            if (!realtime.current) { selection.current = ''; setSelectedId('') }
-            if (restoredSelection.current) {
-                restoredSelection.current = false
-                if (!payload.id && selection.current) { selection.current = crypto.randomUUID(); setSelectedId(selection.current) }
-            }
-            // Keep the old single-chat read marker when upgrading to per-chat history.
-            try {
-                const key = 'hanasand-support-read:visitor'
-                const read = JSON.parse(localStorage.getItem(key) || '{}')
-                const readId = payload.id || 'legacy'
-                if (read[readId] === undefined) {
-                    const replies = payload.messages.filter((message: Message) => ['assistant', 'support'].includes(message.sender_kind))
-                    const index = replies.findIndex((message: Message) => message.id === localStorage.getItem('hanasand-support-last-read'))
-                    if (index >= 0) { read[readId] = index + 1; localStorage.setItem(key, JSON.stringify(read)) }
-                }
-            } catch { /* Read markers are optional when browser storage is unavailable. */ }
-            setConversation(payload); onResolvedChange?.(payload.status === 'closed' && !viewingClosedChat); setRefreshError(''); setLoading(false)
-            if (payload.status !== 'closed' && viewingClosedChat) setViewingClosedChat(false)
-            if (!selection.current && payload.id) { selection.current = payload.id; setSelectedId(payload.id) }
-        }
-        return realtime.current && Array.isArray(payload.tickets) && payload.tickets.some((ticket: Ticket) => ticket.status === 'open')
-    }, [onResolvedChange, viewingClosedChat])
-
-    useEffect(() => {
-        mounted.current = true
-        if (!serverConversation.current) {
-            try { selection.current = localStorage.getItem('hanasand-support-selected') || ''; restoredSelection.current = Boolean(selection.current); setSelectedId(selection.current) } catch { /* Use the newest conversation. */ }
-        }
-        return () => { mounted.current = false }
-    }, [])
-    useEffect(() => { if (selectedId) try { localStorage.setItem('hanasand-support-selected', selectedId) } catch { /* Selection is still available in this tab. */ } }, [selectedId])
-    const connection = useSupportLive(async () => {
-        try { return await refresh() } catch (error) { if (mounted.current) { setRefreshError(error instanceof Error ? error.message : 'Reconnecting…'); setLoading(false) } }
-    }, true, active)
-    const legacy = !Array.isArray(conversation.tickets)
-    const tickets = useMemo(() => conversation.tickets || (conversation.messages.length ? [{ id: 'legacy', subject: 'Support', reply_count: conversation.messages.filter(message => ['assistant', 'support'].includes(message.sender_kind)).length }] : emptyTickets), [conversation])
-    const unread = useSupportUnread(tickets, legacy ? 'legacy' : selectedId, active, 'visitor')
-    useEffect(() => { onUnreadChange?.(Object.values(unread).reduce((sum, count) => sum + count, 0)) }, [unread, onUnreadChange])
-    async function selectChat(id: string) {
-        drafts.current[selection.current] = input
-        selection.current = id; setSelectedId(id)
-        try { localStorage.setItem('hanasand-support-selected', id) } catch { /* Selection still works in this tab. */ }
-        revision.current += 1
-        setInput(drafts.current[id] || ''); setError(failures.current[id]?.message || ''); setRetry(failures.current[id]?.submission || null)
-        setConversation(current => ({ ...empty, id, tickets: current.tickets }))
-        setLoading(true)
-        try { await refresh() } catch { setRefreshError('Could not load this chat. Reconnecting…') } finally { setLoading(false) }
-    }
-    useEffect(() => {
-        if (!active) return
-        const currentLog = viewingClosedChat ? closedLog.current : log.current
-        if (currentLog) currentLog.scrollTop = currentLog.scrollHeight
-    }, [active, conversation.messages.length, sending, viewingClosedChat])
-
-    async function submit(submission: Submission) {
-        const id = submission.conversationId || selection.current || (legacy ? '' : crypto.randomUUID())
-        submission = { ...submission, conversationId: id || undefined }
-        if (!selection.current && id) { selection.current = id; setSelectedId(id) }
-        const handoff = submission.handoff === true
-        const key = `${id}:${handoff ? 'handoff' : 'message'}`
-        if (inFlight.current.has(key)) return
-        inFlight.current.set(key, submission.requestId)
-        if (handoff) setTransfers(current => ({ ...current, [id]: true }))
-        else setPendingMessages(current => ({ ...current, [id]: submission }))
-        revision.current += 1
-        setError('')
-        try {
-            const response = await supportFetch('/support/chat', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(submission) })
-            const payload = await response.json() as PublicSupportConversation
-            if (!response.ok) throw new Error(payload.error || 'We could not send your message. Please try again.')
-            if (!mounted.current) return
-            // Fetch current state after the write so a concurrent handoff cannot be overwritten by an older reply.
-            revision.current += 1
-            const shouldConnect = await refresh()
-            if (shouldConnect) window.dispatchEvent(new Event(SUPPORT_CHAT_OPENED_EVENT))
-            if (payload.accepted !== false && !handoff && (!submission.conversationId || selection.current === submission.conversationId)) setInput(current => current.trim() === submission.message ? '' : current)
-            if (payload.accepted !== false && drafts.current[id]?.trim() === submission.message) delete drafts.current[id]
-            if (payload.error && !handoff) failures.current[id] = { message: payload.error, submission }
-            else delete failures.current[id]
-            if (selection.current === id) { setRetry(payload.error && !handoff ? submission : null); setError(payload.error || '') }
-            if (handoff) {
-                inFlight.current.delete(`${id}:message`)
-                setPendingMessages(current => { const next = { ...current }; delete next[id]; return next })
-            }
-        } catch (error) {
-            if (mounted.current) {
-                const message = error instanceof Error ? error.message : 'We could not send your message. Please try again.'
-                failures.current[id] = { message, submission }
-                if (selection.current === id) { setError(message); setRetry(submission) }
-            }
-        } finally {
-            if (inFlight.current.get(key) === submission.requestId) inFlight.current.delete(key)
-            if (handoff) setTransfers(current => { const next = { ...current }; delete next[id]; return next })
-            else setPendingMessages(current => { if (current[id]?.requestId !== submission.requestId) return current; const next = { ...current }; delete next[id]; return next })
-        }
-    }
-    function send(event: FormEvent) {
-        event.preventDefault()
-        const message = input.trim()
-        if (!message || conversation.status === 'closed') return
-        void submit(retry?.message === message ? retry : { requestId: crypto.randomUUID(), message })
-    }
-    const visibleMessages = outgoing && !conversation.messages.some(message => message.request_id === outgoing.requestId)
-        ? [...conversation.messages, { id: outgoing.requestId, body: outgoing.message, sender_kind: 'user' as const, sender_name: 'You' }]
-        : conversation.messages
+export default function PublicSupportChat(props: PublicSupportChatOptions) {
+    const chat = usePublicSupportChat(props)
+    const {
+        selectedId, conversation, viewingClosedChat, setViewingClosedChat, input, setInput, loading,
+        sending, transferring, closing, error, refreshError, connection, human, agentName, busy,
+        retryable, visibleMessages, log, closedLog, legacy, submit, send, startNewChat, endConversation,
+        sendFeedback, sendCloseFeedback,
+    } = chat
     if (conversation.status === 'closed') return <section aria-label={viewingClosedChat ? 'Support chat' : 'Support feedback'} className='min-h-0 min-w-0'>
         <div className={viewingClosedChat ? 'grid h-full min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)]' : 'hidden'}>
             <header className='flex min-w-0 flex-wrap items-center justify-between gap-3 border-b border-ui-border bg-ui-raised px-5 py-3'>
                 <div className='min-w-0'><h1 className='text-sm font-semibold text-ui-text'>Support</h1><p className='text-xs text-ui-muted'>Chat resolved</p></div>
                 <div className='flex min-w-0 flex-wrap justify-end gap-2'>
-                    <button type='button' onClick={() => { setViewingClosedChat(false); onResolvedChange?.(true) }} className='rounded-lg border border-ui-border bg-ui-panel px-3 py-2 text-xs font-semibold text-ui-text transition-colors hover:bg-ui-canvas'>Back to feedback</button>
+                    <button type='button' onClick={() => { setViewingClosedChat(false); props.onResolvedChange?.(true) }} className='rounded-lg border border-ui-border bg-ui-panel px-3 py-2 text-xs font-semibold text-ui-text transition-colors hover:bg-ui-canvas'>Back to feedback</button>
                     <button type='button' onClick={startNewChat} className='rounded-lg border border-ui-border bg-ui-panel px-3 py-2 text-xs font-semibold text-ui-text transition-colors hover:bg-ui-canvas'>New chat</button>
                 </div>
             </header>
@@ -185,52 +47,9 @@ export default function PublicSupportChat({ active = true, onUnreadChange, onRes
             </div>
         </div>
         <div className={viewingClosedChat ? 'hidden' : 'grid justify-items-center gap-5 py-2'}>
-            <GuestSupportFeedback key={`${selectedId}:${conversation.resolution_version}`} feedback={conversation} submit={sendFeedback} submitCloseFeedback={sendCloseFeedback} onNewChat={startNewChat} onViewChat={() => { setViewingClosedChat(true); onResolvedChange?.(false) }} />
+            <GuestSupportFeedback key={`${selectedId}:${conversation.resolution_version}`} feedback={conversation} submit={sendFeedback} submitCloseFeedback={sendCloseFeedback} onNewChat={startNewChat} onViewChat={() => { setViewingClosedChat(true); props.onResolvedChange?.(false) }} />
         </div>
     </section>
-    function startNewChat() {
-        setViewingClosedChat(false)
-        onResolvedChange?.(false)
-        void selectChat(crypto.randomUUID())
-    }
-    async function endConversation() {
-        if (!conversation.id || closing) return
-        setClosing(true); setError('')
-        try {
-            const response = await supportFetch('/support/chat', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'resolve', conversationId: conversation.id }) })
-            const payload = await response.json()
-            if (!response.ok) throw new Error(payload.error || 'Could not close this conversation.')
-            revision.current += 1
-            await refresh()
-        } catch (cause) {
-            setError(cause instanceof Error ? cause.message : 'Could not close this conversation.')
-        } finally { setClosing(false) }
-    }
-    async function sendFeedback(rating: number, comment: string) {
-        const id = selectedId, version = conversation.resolution_version
-        revision.current += 1
-        const response = await supportFetch('/support/chat', { method: 'POST', keepalive: true, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'feedback', conversationId: id, resolutionVersion: version, rating, comment }) })
-        const payload = await response.json()
-        if (!response.ok) throw new Error(payload.error || 'Could not save feedback.')
-        if (mounted.current && selection.current === id) {
-            revision.current += 1
-            setConversation(current => current.id === id && current.resolution_version === version && current.status === 'closed'
-                ? { ...current, feedback_rating: rating, feedback_comment: comment } : current)
-        }
-    }
-    async function sendCloseFeedback(foundWhatLookingFor: boolean, reason?: string) {
-        const id = selectedId, version = conversation.resolution_version
-        const response = await supportFetch('/support/chat', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'close-feedback', conversationId: id, resolutionVersion: version, foundWhatLookingFor, reason }) })
-        const payload = await response.json()
-        if (!response.ok) throw new Error(payload.error || 'Could not save your answer.')
-    }
-    const human = conversation.channel === 'human'
-    const agentName = conversation.agent_name || conversation.messages.filter(message => message.sender_kind === 'support').at(-1)?.sender_name
-    const busy = sending || conversation.pending
-    const lastMessage = conversation.messages.at(-1)
-    const unanswered = !human && !busy && lastMessage?.sender_kind === 'user' && lastMessage.request_id
-        ? { requestId: lastMessage.request_id, message: lastMessage.body } : null
-    const retryable: Submission | null = retry || unanswered
     return (
         <section aria-label='Support chat' className='grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)_auto]'>
             {!legacy ? <div className='flex min-w-0 items-center justify-between gap-3 border-b border-ui-border bg-ui-raised px-5 py-3'>
