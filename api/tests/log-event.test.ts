@@ -1,6 +1,15 @@
 import { expect, test } from 'bun:test'
 import { normalizeLogEvent } from '../src/utils/events/logEvent.ts'
 
+test('preserves a CDN source timestamp for historical evidence verification', () => {
+    const sourceTimestamp = '2026-09-24T00:00:00.001000001Z'
+    const event = normalizeLogEvent({ id: 'source', service: 'cdn', level: 'info', message: '{}',
+        created_at: sourceTimestamp, source_event_id: 'a'.repeat(64), source_event_timestamp: sourceTimestamp })
+
+    expect(event.timestamp).toBe('2026-09-24T00:00:00.001Z')
+    expect(event.source_event_timestamp).toBe(sourceTimestamp)
+})
+
 test('local Bun Pwned validation probes remain visible as low severity traffic', () => {
     const event = normalizeLogEvent({
         id: 'probe',

@@ -1,27 +1,51 @@
-import { expect, test } from 'bun:test'
+import { expect, mock, test } from 'bun:test'
 import { readFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import pg from 'pg'
 
-test.skipIf(!process.env.POSTGRES_FILTER_TEST_PORT)('self-ingestion cleanup preserves referenced proof and restores protected sources', async () => {
-    const client = new pg.Client({host:'127.0.0.1',port:Number(process.env.POSTGRES_FILTER_TEST_PORT),user:'postgres',database:'postgres_filter_test'})
+test.skipIf(!process.env.POSTGRES_FILTER_TEST_PORT)('self-ingestion replay removes only unprotected canonical events', async () => {
+    const client = new pg.Client({host:'127.0.0.1',port:Number(process.env.POSTGRES_FILTER_TEST_PORT),database:'postgres_filter_test'})
     await client.connect()
     try {
         await client.query('BEGIN')
-        await client.query('CREATE TEMP TABLE service_logs(id bigint PRIMARY KEY); CREATE TEMP TABLE log_proxy_requests(connection_id uuid PRIMARY KEY, service_log_id bigint REFERENCES service_logs(id) ON DELETE CASCADE, connection jsonb, access jsonb); CREATE TEMP TABLE log_proxy_receipts(connection_id uuid)')
-        for(let id=1;id<=4;id++) {
-            await client.query('INSERT INTO service_logs VALUES($1)',[id])
-            await client.query('INSERT INTO log_proxy_requests VALUES($1,$2,$3,$4)',[`00000000-0000-4000-8000-${String(id).padStart(12,'0')}`,id,{}, {method:id===4?'GET':'POST',status:201,path:'/api/logs/ingest',ip:'128.39.142.218'}])
-        }
-        await client.query('INSERT INTO log_proxy_receipts SELECT connection_id FROM log_proxy_requests WHERE service_log_id=3')
-        const source=readFileSync(new URL('../scripts/drop-self-ingestion-responses.ts',import.meta.url),'utf8')
-        const remove=source.match(/`(DELETE FROM log_proxy_requests p[\s\S]*?RETURNING p\.\*)`/)![1]
-        const restore=source.match(/`(INSERT INTO log_proxy_requests\(connection_id[\s\S]*?JOIN service_logs s ON s.id=p.service_log_id)`/)![1]
-        const unused=(await client.query(remove,[[1,2,3,4]])).rows
-        expect(unused.map(row=>Number(row.service_log_id)).sort()).toEqual([1,2])
-        // Source 1 passed all replay checks; source 2 was protected and survives.
-        await client.query('DELETE FROM service_logs WHERE id=1')
-        await client.query(restore,[JSON.stringify(unused)])
-        expect((await client.query('SELECT service_log_id FROM log_proxy_requests ORDER BY service_log_id')).rows.map(row=>Number(row.service_log_id))).toEqual([2,3,4])
+        await client.query(`CREATE TEMP TABLE organizations(id text PRIMARY KEY,name text,status text);
+            INSERT INTO organizations VALUES('org','Test','active');
+            CREATE TEMP TABLE rules(id text PRIMARY KEY,organization_id text,rule_id text,version text,name text,family text,severity text,
+                explanation text,definition jsonb,source text,source_reference text,enabled boolean,created_at timestamptz DEFAULT NOW());
+            CREATE TEMP TABLE events(id text PRIMARY KEY,organization_id text,source_vendor text,source_product text,normalized jsonb,original jsonb);
+            CREATE TEMP TABLE findings(event_ids text[] NOT NULL);
+            CREATE TEMP TABLE log_proxy_receipts(canonical_event_id text NOT NULL);
+            CREATE TEMP TABLE log_ingestion_canonical(canonical_event_id text);
+            CREATE TEMP TABLE log_analyze_receipts(key text PRIMARY KEY,organization_id text,rule_id text,rule_version text)`)
+        const query = (sql: string, values?: unknown[]) => client.query(sql, values)
+        mock.module('#db', () => ({ default: query, identityQueryOnce: query, isTransientDatabaseError: () => false,
+            withTransaction: async (work: (run: typeof query) => Promise<unknown>) => work(query) }))
+        const { reprocessRuleItems } = await import('../src/utils/events/ruleReprocess.ts')
+        const conditions = [
+            { path: 'http.path', value: '/api/logs/ingest', operator: 'equals', caseSensitive: true },
+            { path: 'http.method', value: 'POST', operator: 'equals', caseSensitive: true },
+            { path: 'http.status_code', value: '201', operator: 'equals', caseSensitive: true },
+            { path: 'source.ip', value: '128.39.142.218', operator: 'equals', caseSensitive: true },
+            { path: 'severity', value: 'low', operator: 'equals', caseSensitive: true },
+            { path: 'service', value: '^(hanasand-api(-[1-4])?|http-traffic)$', operator: 'regex', caseSensitive: true },
+        ]
+        const rule = { rule_id: 'http.self_ingestion_success.v1', version: '1', source: 'owned', enabled: true,
+            definition: { stage: 'analyze', action: 'drop', conditions } }
+        const eventId = (label: string) => createHash('sha256').update(`service:${label}`).digest('hex')
+        const entries = ['remove', 'finding', 'proxy', 'canonical'].map(label => ({ id: eventId(label), label, event: {
+            source_vendor: 'Hanasand', source_product: 'Logs', service: 'hanasand-api', severity: 'low',
+            event_type: 'application', action: 'log', outcome: 'success', message: 'self-ingestion response',
+            http: { path: '/api/logs/ingest', method: 'POST', status_code: 201 }, source: { ip: '128.39.142.218' },
+        }, original: {} }))
+        for (const entry of entries) await query('INSERT INTO events VALUES($1,\'org\',\'Hanasand\',\'Logs\',$2::jsonb,$3::jsonb)',
+            [entry.id, JSON.stringify(entry.event), JSON.stringify(entry.original)])
+        await query('INSERT INTO findings VALUES($1::text[])', [[eventId('finding')]])
+        await query('INSERT INTO log_proxy_receipts VALUES($1)', [eventId('proxy')])
+        await query('INSERT INTO log_ingestion_canonical VALUES($1)', [eventId('canonical')])
+        const result = await reprocessRuleItems(entries, { organization_id: 'org' }, rule as any, query as any)
+        expect(result).toEqual({ matched: 4, protected: 3, removedEvents: 1, removedSources: 0 })
+        expect((await query('SELECT id FROM events ORDER BY id')).rows.map(row => row.id)).toEqual([eventId('canonical'), eventId('finding'), eventId('proxy')].sort())
+        expect((await query('SELECT rule_id FROM log_analyze_receipts')).rows).toEqual([{ rule_id: rule.rule_id }])
     } finally { await client.query('ROLLBACK'); await client.end() }
 })
 

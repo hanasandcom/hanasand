@@ -20,7 +20,9 @@ test.skipIf(!process.env.POSTGRES_FILTER_TEST_PORT)('real CDN ingestion keeps su
             return result
         } catch (error) { await client.query('ROLLBACK'); throw error } finally { client.release() }
     }
-    mock.module('#db', () => ({ default: query, withTransaction: transaction }))
+    const identityQueryOnce = (sql: string, values?: unknown[]) => query(sql.replace('public.system_events', 'system_events'), values)
+    mock.module('#db', () => ({ default: query, identityQueryOnce, isTransientDatabaseError: () => false,
+        withDatabaseAdvisoryLock: async (_key: string, work: (query: typeof query) => unknown) => work(query), withTransaction: transaction }))
     mock.module('#constants', () => ({ default: {} }))
     try {
         expect((await query('SELECT current_database() name')).rows[0].name).toBe('postgres_filter_test')
@@ -29,12 +31,11 @@ test.skipIf(!process.env.POSTGRES_FILTER_TEST_PORT)('real CDN ingestion keeps su
         await query('CREATE TABLE organizations(id text PRIMARY KEY,name text,status text,created_at timestamptz DEFAULT NOW(),audit_safe_metadata jsonb DEFAULT \'{}\')')
         await query('INSERT INTO organizations(id,name,status) VALUES(\'platform\',\'Hanasand\',\'active\')')
         const schema = readFileSync(new URL('../src/utils/db/ensureSchema.ts', import.meta.url), 'utf8')
-        for (const table of ['service_logs', 'rules', 'system_events']) {
+        for (const table of ['events', 'rules', 'system_events']) {
             const definition = schema.match(new RegExp('CREATE TABLE IF NOT EXISTS ' + table + ' \\([\\s\\S]*?\\n        \\)'))?.[0]
             if (!definition) throw new Error(`Missing schema ${table}`)
             await query(definition)
         }
-        await query('ALTER TABLE service_logs ADD COLUMN source_event_id text UNIQUE')
         const { default: install } = await import('../src/utils/db/logAnalyzeSchema.ts')
         const { recordLogBatch } = await import('../src/utils/logs/recordLog.ts')
         await install()
@@ -53,7 +54,7 @@ test.skipIf(!process.env.POSTGRES_FILTER_TEST_PORT)('real CDN ingestion keeps su
         const count = async (table: string) => Number((await query(`SELECT count(*) n FROM ${table}`)).rows[0].n)
         const good = entry()
         await Promise.all([ingest(good), ingest(good)])
-        expect(await count('service_logs')).toBe(0)
+        expect(await count('events')).toBe(0)
         expect(await count('log_analyze_receipts')).toBe(1)
         const aborted = entry()
         await expect(transaction(async tx => { await recordLogBatch([aborted], tx as any); throw new Error('abort') })).rejects.toThrow('abort')
@@ -65,14 +66,14 @@ test.skipIf(!process.env.POSTGRES_FILTER_TEST_PORT)('real CDN ingestion keeps su
         bad.message = JSON.stringify(bad.metadata.structured)
         bad.sourceEventId = createHash('sha256').update(`${bad.host}:docker:${bad.metadata.container_id}:${bad.timestamp}:${bad.message}`).digest('hex')
         await ingest(bad)
-        expect((await query('SELECT message FROM service_logs WHERE source_event_id=$1', [bad.sourceEventId])).rows[0].message).toContain('attacker.invalid')
+        expect((await query('SELECT normalized->>\'message\' AS message FROM events WHERE normalized->>\'source_event_id\'=$1', [bad.sourceEventId])).rows[0].message).toContain('attacker.invalid')
         expect(await count('log_analyze_receipts')).toBe(2)
         // Saved policy edits apply to fresh input and already acknowledged originals.
         for (const policy of [{ ...cdnDeliveryDefinition, conditions: [{ path: 'host', operator: 'equals', value: 'another-host' }] },
             { ...cdnDeliveryDefinition, conditions: [{ path: 'metadata.structured.access.ip', operator: 'equals', value: '127.0.0.1' }] }]) {
             await query('UPDATE rules SET definition=$2::jsonb WHERE rule_id=$1', [cdnDeliveryRuleId, JSON.stringify(policy)])
             const retained = entry(); await ingest(retained); await ingest(good)
-            for (const log of [retained, good]) expect(Number((await query('SELECT count(*) n FROM service_logs WHERE source_event_id=$1', [log.sourceEventId])).rows[0].n)).toBe(1)
+            for (const log of [retained, good]) expect(Number((await query('SELECT count(*) n FROM events WHERE normalized->>\'source_event_id\'=$1', [log.sourceEventId])).rows[0].n)).toBe(1)
             expect(await count('log_analyze_receipts')).toBe(2)
         }
         await query('UPDATE rules SET definition=$2::jsonb WHERE rule_id=$1', [cdnDeliveryRuleId, JSON.stringify(cdnDeliveryDefinition)])
@@ -88,7 +89,7 @@ test.skipIf(!process.env.POSTGRES_FILTER_TEST_PORT)('real CDN ingestion keeps su
             await install()
             const retained = entry()
             await ingest(retained)
-            expect(Number((await query('SELECT count(*) n FROM service_logs WHERE source_event_id=$1', [retained.sourceEventId])).rows[0].n)).toBe(1)
+            expect(Number((await query('SELECT count(*) n FROM events WHERE normalized->>\'source_event_id\'=$1', [retained.sourceEventId])).rows[0].n)).toBe(1)
             expect(await count('log_analyze_receipts')).toBe(2)
         }
         await query('DELETE FROM rules WHERE id=\'keep\'')
@@ -98,7 +99,7 @@ test.skipIf(!process.env.POSTGRES_FILTER_TEST_PORT)('real CDN ingestion keeps su
         const detected = entry()
         await ingest(detected)
         await ingest(aborted)
-        for (const log of [detected, aborted]) expect(Number((await query('SELECT count(*) n FROM service_logs WHERE source_event_id=$1', [log.sourceEventId])).rows[0].n)).toBe(1)
+        for (const log of [detected, aborted]) expect(Number((await query('SELECT count(*) n FROM events WHERE normalized->>\'source_event_id\'=$1', [log.sourceEventId])).rows[0].n)).toBe(1)
         expect(await count('log_analyze_receipts')).toBe(2)
     } finally {
         await query(`DROP SCHEMA IF EXISTS ${namespace} CASCADE`)

@@ -73,6 +73,15 @@ describe('Event detection catalog', () => {
         expect(normalizeEvent({ timeGenerated: '2026-08-03T08:00:00Z' }, { vendor: 'Microsoft', product: 'Entra ID' }).timestamp).toBe('2026-08-03T08:00:00.000Z')
     })
 
+    test('removes transport-only fields without mutating the caller event', () => {
+        const event = { timestamp: '2026-08-03T08:00:00Z', service_log_id: 'private-id', references: ['private-ref'] }
+        const normalized = normalizeEvent(event, { vendor: 'custom', product: 'json' })
+
+        expect(event).toEqual({ timestamp: '2026-08-03T08:00:00Z', service_log_id: 'private-id', references: ['private-ref'] })
+        expect(normalized.original).toEqual({ timestamp: '2026-08-03T08:00:00Z' })
+        expect(normalized.normalized).toEqual({ timestamp: '2026-08-03T08:00:00.000Z', source_vendor: 'custom', source_product: 'json' })
+    })
+
     test('compiles common Sigma selections into bounded rules', () => {
         const compiled = compileSigmaDocument({ title: 'Failed identity event', detection: { selection: { event_type: 'authentication', 'user.email|endswith': '@example.com' }, condition: 'selection' }, level: 'high' })
         expect('rules' in compiled).toBe(true)

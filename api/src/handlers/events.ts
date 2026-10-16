@@ -242,19 +242,20 @@ export async function ingestEvent(req: FastifyRequest, res: FastifyReply) {
     return res.status(202).send({ accepted: true, ingestion_id: ingestionId, accepted_events: receivedCount, stored_events: accepted.length, dropped_events: droppedCount, rejected_events: 0 })
 }
 
+async function canReadInternalEventLogs(req: FastifyRequest, res: FastifyReply, userId: string): Promise<boolean | null> {
+    if (!req.headers.id) req.headers.id = userId
+    const access = await hasHanasandInternalRouteAccess(req)
+    return res.sent ? null : access.valid
+}
+
 export async function getEvents(req: FastifyRequest, res: FastifyReply) {
     const access = await organizationAccess(req, res)
     if (!access) return
     const query = req.query as { organizationId?: string, limit?: string }
     if (query.organizationId !== access.organizationId) return res.status(403).send({ error: 'Organization access denied.' })
     const limit = Math.min(Math.max(Number(query.limit || 100), 1), 500)
-    // The organization access check already resolved the effective user. Keep
-    // the role check on that identity even when the proxy omitted the legacy
-    // id header, and stop if the role helper had to send an auth response.
-    if (!req.headers.id) req.headers.id = access.userId
-    const role = await hasHanasandInternalRouteAccess(req)
-    if (res.sent) return
-    const canReadLogs = role.valid
+    const canReadLogs = await canReadInternalEventLogs(req, res, access.userId)
+    if (canReadLogs === null) return
     const events = await cachedRead(`events:${access.organizationId}:${canReadLogs ? 'logs' : 'no-logs'}:${limit}`, 5000, async () => {
         const result = await readDatabase(() => run(`
             SELECT id, ingestion_id, source_vendor, source_product, event_timestamp, received_at,
@@ -277,13 +278,8 @@ export async function postRulePreview(req: FastifyRequest, res: FastifyReply) {
         const body = (req.body || {}) as Record<string, unknown>
         const normalized = normalizeConditions(body.conditions)
         if (normalized.error || !normalized.conditions.length || !validPreviewWindow(body)) return res.status(400).send({ error: normalized.error || 'Choose a valid preview range and rule.' })
-        // Reuse the identity resolved by organizationAccess when the proxy omitted
-        // the legacy id header. Organization access checks may send an auth response, so stop before
-        // the preview handler tries to send a second response.
-        if (!req.headers.id) req.headers.id = access.userId
-        const role = await hasHanasandInternalRouteAccess(req)
-        if (res.sent) return res
-        const canReadLogs = role.valid
+        const canReadLogs = await canReadInternalEventLogs(req, res, access.userId)
+        if (canReadLogs === null) return res
         const storedLogsOnly = body.storedLogsOnly === true
         if (storedLogsOnly && !canReadLogs) return res.status(403).send({ error: 'Log access is required to preview stored log matches.' })
         return res.send(await scanRulePreview(access.organizationId, canReadLogs, { ...body, conditions: normalized.conditions }, undefined, { storedLogsOnly }))
@@ -902,12 +898,10 @@ type NormalizedEvent = {
 }
 
 export function normalizeEvent(event: Event, source: Record<string, unknown>): NormalizedEvent {
-    const adapted = adaptVendorEvent(event, source)
-    delete adapted.service_log_id
-    delete adapted.references
     const original = { ...event }
     delete original.service_log_id
     delete original.references
+    const adapted = adaptVendorEvent(original, source)
     const user = object(adapted.user)
     const sourceContext = object(adapted.source)
     const timestamp = typeof adapted.timestamp === 'string' && !Number.isNaN(Date.parse(adapted.timestamp)) ? new Date(adapted.timestamp).toISOString() : ''

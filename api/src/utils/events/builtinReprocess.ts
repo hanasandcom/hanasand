@@ -69,7 +69,7 @@ export async function reprocessBuiltinPage(job: ReprocessJob, query: typeof run)
     const logs = rows.map(row => ({ id: row.id, eventId: row.id, service: row.normalized.service || 'hanasand-api', host: row.normalized.host || '',
         level: row.normalized.level || 'info', message: row.normalized.message || '', metadata: row.normalized.metadata || {},
         source_event_id: row.normalized.source_event_id || row.id, sourceEventId: row.normalized.source_event_id || row.id,
-        created_at: row.normalized.timestamp || row.cursor_time }))
+        created_at: row.normalized.source_event_timestamp || row.normalized.timestamp || row.cursor_time }))
     let protectedCount = 0
     for (const [index, row] of rows.entries()) {
         const id = String(row.id), log = logs[index]
@@ -85,7 +85,13 @@ export async function reprocessBuiltinPage(job: ReprocessJob, query: typeof run)
             protectedSources.add(String(log.sourceEventId))
             continue
         }
-        if (analyzer && await analyzer(log, query)) removed.push(id)
+        const replayInput = analyzerReplayInput(log)
+        const dropped = job.rule_id === cdnDeliveryRuleId
+            ? await analyzeCdnDelivery(replayInput, query)
+            : job.rule_id === cdnRefreshRuleId
+                ? await analyzeCdnRefresh(replayInput, query)
+                : analyzer ? await analyzer(job.rule_id === ingestionRuleId ? replayInput : log, query) : false
+        if (dropped) removed.push(id)
     }
     if (grouped.includes(job.rule_id)) {
         // Discover complete groups using every original in the page first. An
@@ -112,4 +118,9 @@ export async function reprocessBuiltinPage(job: ReprocessJob, query: typeof run)
         await recordReprocessCompletion(job.id, query)
     }
     return true
+}
+
+function analyzerReplayInput(log: { service: string, host: string, level: string, message: string, metadata: Record<string, unknown>, sourceEventId: string, created_at: string }) {
+    return { service: log.service, host: log.host, level: log.level, message: log.message, metadata: log.metadata,
+        sourceEventId: log.sourceEventId, timestamp: log.created_at }
 }

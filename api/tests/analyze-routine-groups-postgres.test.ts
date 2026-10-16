@@ -16,7 +16,14 @@ test.skipIf(!process.env.POSTGRES_FILTER_TEST_PORT)('real group ingestion preser
         try { await client.query('BEGIN'); const value = await work((s, p) => client.query(s, p)); await client.query('COMMIT'); return value }
         catch (error) { await client.query('ROLLBACK'); throw error } finally { client.release() }
     }
-    mock.module('#db', () => ({ default: query, withTransaction: tx }))
+    const identityQueryOnce = (sql: string, values?: unknown[]) => query(sql.replace('public.system_events', 'system_events'), values)
+    mock.module('#db', () => ({
+        default: query,
+        identityQueryOnce,
+        isTransientDatabaseError: () => false,
+        withDatabaseAdvisoryLock: async (_key: string, work: (query: typeof query) => unknown) => work(query),
+        withTransaction: tx,
+    }))
     mock.module('#constants', () => ({ default: {} }))
     try {
         await query(`CREATE SCHEMA ${namespace}`)
@@ -24,12 +31,11 @@ test.skipIf(!process.env.POSTGRES_FILTER_TEST_PORT)('real group ingestion preser
         await query('CREATE TABLE organizations(id text PRIMARY KEY,name text,status text,created_at timestamptz DEFAULT NOW(),audit_safe_metadata jsonb DEFAULT \'{}\')')
         await query('INSERT INTO organizations(id,name,status) VALUES(\'platform\',\'Hanasand\',\'active\')')
         const schema = readFileSync(new URL('../src/utils/db/ensureSchema.ts', import.meta.url), 'utf8')
-        for (const table of ['service_logs', 'rules', 'system_events']) {
+        for (const table of ['events', 'rules', 'system_events']) {
             const definition = schema.match(new RegExp('CREATE TABLE IF NOT EXISTS ' + table + ' \\([\\s\\S]*?\\n        \\)'))?.[0]
             if (!definition) throw new Error(`Missing schema ${table}`)
             await query(definition)
         }
-        await query('ALTER TABLE service_logs ADD COLUMN source_event_id text UNIQUE')
         const { default: install } = await import('../src/utils/db/logAnalyzeSchema.ts')
         const { recordLogBatch } = await import('../src/utils/logs/recordLog.ts')
         const { collectEventFindings, normalizeEvent } = await import('../src/handlers/events.ts')
@@ -37,70 +43,89 @@ test.skipIf(!process.env.POSTGRES_FILTER_TEST_PORT)('real group ingestion preser
         await install()
         for (const [id, definition] of [[telemetryRuleId, telemetryDefinition], [sshWindowRuleId, sshWindowDefinition]]) await query('UPDATE rules SET definition=$2 WHERE rule_id=$1', [id, JSON.stringify(definition)])
         const ingest = (rows: any[]) => tx(q => recordLogBatch(rows, q as any))
+        const eventIds = (rows: any[]) => rows.map(row => createHash('sha256').update(`service:${row.sourceEventId}`).digest('hex'))
+        const countEvents = async (rows: any[]) => Number((await query('SELECT count(*) FROM events WHERE id=ANY($1::text[])', [eventIds(rows)])).rows[0].count)
         const logs = telemetryFixture()
-        await Promise.all([ingest(logs), ingest(logs)])
-        let stored = (await query('SELECT * FROM service_logs')).rows
+        await ingest(logs)
+        await ingest(logs)
+        let stored = (await query('SELECT normalized FROM events WHERE normalized->>\'service\'=\'routine-group-analyzer\'')).rows
         expect(stored).toHaveLength(1)
-        expect(stored[0].metadata.original_records).toEqual(logs)
+        expect(await countEvents(logs)).toBe(0)
+        expect(stored[0].normalized.metadata.original_records).toEqual(logs)
         expect((await query('SELECT count(*) FROM log_analyze_receipts')).rows[0].count).toBe('3')
         const rule: any = { id: 'owned.original', source: 'owned', enabled: true, version: '1', severity: 'high', name: 'Original detector', explanation: 'test', definition: { match: 'all', conditions: [{ path: 'service', operator: 'equals', value: 'systemd' }] } }
-        const findings = collectEventFindings('platform', 'canonical', normalizeEvent(normalizeLogEvent(stored[0]), {}), [rule]).findings
+        const findings = collectEventFindings('platform', 'canonical', normalizeEvent(stored[0].normalized, {}), [rule]).findings
         expect(findings).toHaveLength(1)
         expect(findings[0][2]).toBe('high')
         expect(findings[0][4]).toEqual(['canonical'])
         expect((findings[0][5].retainedOriginals as any[]).map(x => x.message)).toEqual(logs.map(x => x.message))
+        // A competing transaction cannot claim the same group. The fallback
+        // stores every original raw event and creates no second summary.
+        const contended = telemetryFixture().map((row, i) => ({ ...row, sourceEventId: createHash('sha256').update(`lock-contention-${i}`).digest('hex') }))
+        const lockHolder = await pool.connect()
+        try {
+            await lockHolder.query('BEGIN')
+            await lockHolder.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [`routine:platform:${telemetryRuleId}:inspur:hanasand-host-metrics.service`])
+            await ingest(contended)
+            expect(await countEvents(contended)).toBe(3)
+            expect((await query('SELECT count(*) FROM events WHERE normalized->>\'service\'=\'routine-group-analyzer\'')).rows[0].count).toBe('1')
+        } finally {
+            await lockHolder.query('ROLLBACK')
+            lockHolder.release()
+        }
         // Suspicious content must stay byte-for-byte in the ordinary raw path.
         const suspicious = telemetryFixture().map((row, i) => ({ ...row, sourceEventId: ['a','b','c'][i].repeat(64) }))
         suspicious[1].message += ' suspicious payload'
         await ingest(suspicious)
-        expect((await query('SELECT message FROM service_logs WHERE source_event_id=$1', [suspicious[1].sourceEventId])).rows[0].message).toBe(suspicious[1].message)
+        const suspiciousEvent = await query('SELECT normalized->>\'message\' AS message FROM events WHERE id=$1', [eventIds([suspicious[1]])[0]])
+        expect(suspiciousEvent.rows[0].message).toBe(suspicious[1].message)
         const ssh = sshFixture().map((row, i) => ({ ...row, sourceEventId: ['d','e','f','9'][i].repeat(64) }))
         await ingest(ssh)
-        stored = (await query('SELECT * FROM service_logs WHERE metadata->>\'rule_id\'=$1', [sshWindowRuleId])).rows
+        stored = (await query('SELECT normalized FROM events WHERE normalized->\'metadata\'->>\'rule_id\'=$1', [sshWindowRuleId])).rows
         expect(stored).toHaveLength(1)
-        expect(stored[0].metadata.original_records).toEqual(ssh.slice(1, -1))
-        expect((await query('SELECT count(*) FROM service_logs WHERE source_event_id=ANY($1::text[])', [[ssh[0].sourceEventId, ssh[3].sourceEventId]])).rows[0].count).toBe('2')
-        const before = (await query('SELECT count(*) FROM service_logs')).rows[0].count
+        expect(stored[0].normalized.metadata.original_records).toEqual(ssh.slice(1, -1))
+        expect(await countEvents([ssh[0], ssh[3]])).toBe(2)
+        const before = (await query('SELECT count(*) FROM events')).rows[0].count
         await expect(tx(async q => { await recordLogBatch([{ ...ssh[1], sourceEventId: '8'.repeat(64), message: 'Failed password for root from 192.0.2.20' }] as any, q as any); throw new Error('abort') })).rejects.toThrow('abort')
-        expect((await query('SELECT count(*) FROM service_logs')).rows[0].count).toBe(before)
+        expect((await query('SELECT count(*) FROM events')).rows[0].count).toBe(before)
         // Current custom detector forces raw storage before any consolidation.
         await query('INSERT INTO rules(id,organization_id,rule_id,version,name,family,severity,explanation,definition,source,enabled) VALUES(\'detector\',\'platform\',\'owned.original\',\'1\',\'Original detector\',\'System\',\'high\',\'Test\', $1,\'owned\',true)', [JSON.stringify(rule.definition)])
         await query('DELETE FROM log_routine_group_state')
         const detected = telemetryFixture().map((row, i) => ({ ...row, sourceEventId: ['7','6','5'][i].repeat(64) }))
         await ingest(detected)
-        expect((await query('SELECT count(*) FROM service_logs WHERE source_event_id=ANY($1::text[])', [detected.map(x => x.sourceEventId)])).rows[0].count).toBe('3')
+        expect(await countEvents(detected)).toBe(3)
         await query('DELETE FROM rules WHERE id=\'detector\'')
         await query('DELETE FROM log_routine_group_state')
         const freshRows = (label: string, time: number) => telemetryFixture(time).map((row, i) => ({ ...row, sourceEventId: createHash('sha256').update(label + i).digest('hex') }))
         const now = Date.now(), burst = [...freshRows('burst-a', now - 500), ...freshRows('burst-b', now)]
         const receiptBefore = (await query('SELECT count(*) FROM log_analyze_receipts')).rows[0].count
         await ingest(burst)
-        expect((await query('SELECT count(*) FROM service_logs WHERE source_event_id=ANY($1::text[])', [burst.map(x => x.sourceEventId)])).rows[0].count).toBe('6')
+        expect(await countEvents(burst)).toBe(6)
         expect((await query('SELECT count(*) FROM log_analyze_receipts')).rows[0].count).toBe(receiptBefore)
         await query('DELETE FROM log_routine_group_state')
         await query('INSERT INTO rules(id,organization_id,rule_id,version,name,family,severity,explanation,definition,source,enabled) VALUES(\'keep\',\'platform\',\'owned.keep\',\'1\',\'Keep\',\'System\',\'low\',\'Test\',$1,\'owned\',true)', [JSON.stringify({ match:'all',stage:'analyze',action:'keep',conditions:[{path:'service',operator:'equals',value:'systemd'}] })])
         const kept = freshRows('keep', Date.now())
         await ingest(kept)
-        expect((await query('SELECT count(*) FROM service_logs WHERE source_event_id=ANY($1::text[])', [kept.map(x => x.sourceEventId)])).rows[0].count).toBe('3')
+        expect(await countEvents(kept)).toBe(3)
         expect((await query('SELECT count(*) FROM log_analyze_receipts')).rows[0].count).toBe(receiptBefore)
         await query('DELETE FROM rules WHERE id=\'keep\'')
         // Current persisted policy must also protect previously receipted data.
         const receiptsBeforePolicy = (await query('SELECT count(*) FROM log_analyze_receipts')).rows[0].count
         await query('UPDATE rules SET definition=$2 WHERE rule_id=$1', [sshWindowRuleId, JSON.stringify({ ...sshWindowDefinition, conditions: [{ path:'message', operator:'contains', value:'debug2' }] })])
         await ingest(ssh)
-        expect((await query('SELECT count(*) FROM service_logs WHERE source_event_id=ANY($1::text[])', [ssh.map(x => x.sourceEventId)])).rows[0].count).toBe('4')
+        expect(await countEvents(ssh)).toBe(4)
         await query('UPDATE rules SET definition=$2 WHERE rule_id=$1', [telemetryRuleId, JSON.stringify({ ...telemetryDefinition, conditions: [{ path:'host', operator:'equals', value:'other-host' }] })])
         await ingest(logs)
-        expect((await query('SELECT count(*) FROM service_logs WHERE source_event_id=ANY($1::text[])', [logs.map(x => x.sourceEventId)])).rows[0].count).toBe('3')
+        expect(await countEvents(logs)).toBe(3)
         await query('UPDATE rules SET definition=$2 WHERE rule_id=$1', [telemetryRuleId, JSON.stringify({ ...telemetryDefinition, parameters: { ...telemetryDefinition.parameters, maxDurationMs: 100 } })])
         const limited = freshRows('policy-duration', Date.now())
         await ingest(limited)
-        expect((await query('SELECT count(*) FROM service_logs WHERE source_event_id=ANY($1::text[])', [limited.map(x => x.sourceEventId)])).rows[0].count).toBe('3')
+        expect(await countEvents(limited)).toBe(3)
         await query('DELETE FROM log_routine_group_state')
         await query('UPDATE rules SET definition=$2 WHERE rule_id=$1', [telemetryRuleId, JSON.stringify({ ...telemetryDefinition, parameters: { ...telemetryDefinition.parameters, maxPerMinute: 1 } })])
         const policyBurst = [...freshRows('policy-rate-a', Date.now() - 2000), ...freshRows('policy-rate-b', Date.now())]
         await ingest(policyBurst)
-        expect((await query('SELECT count(*) FROM service_logs WHERE source_event_id=ANY($1::text[])', [policyBurst.map(x => x.sourceEventId)])).rows[0].count).toBe('6')
+        expect(await countEvents(policyBurst)).toBe(6)
         expect((await query('SELECT count(*) FROM log_analyze_receipts')).rows[0].count).toBe(receiptsBeforePolicy)
         const { analyzeRoutineGroupBatch } = await import('../src/utils/events/analyzeRoutineGroupBatch.ts')
         await query('DELETE FROM log_routine_group_state')
@@ -108,15 +133,20 @@ test.skipIf(!process.env.POSTGRES_FILTER_TEST_PORT)('real group ingestion preser
         const replayTelemetry = freshRows('stored-replay', Date.now())
         const replaySsh = sshFixture().map((row, i) => ({ ...row, sourceEventId: createHash('sha256').update('stored-ssh' + i).digest('hex') }))
         const storedInput = [...replayTelemetry, ...replaySsh]
-        for (const row of storedInput) await query('INSERT INTO service_logs(service,host,level,message,metadata,source_event_id,created_at) VALUES($1,$2,$3,$4,$5,$6,$7)', [row.service, row.host, row.level, row.message, JSON.stringify(row.metadata), row.sourceEventId, row.timestamp])
+        for (const row of storedInput) {
+            const normalized = { ...normalizeLogEvent({ id: row.sourceEventId!, service: row.service!, host: row.host!, level: row.level!, message: row.message!, metadata: row.metadata!, created_at: row.timestamp! }), source_event_id: row.sourceEventId }
+            await query(`INSERT INTO events(id,ingestion_id,organization_id,event_timestamp,event_type,action,outcome,normalized,processing_status)
+                VALUES($1,'logs','platform',$2,$3,$4,$5,$6::jsonb,'pending')`,
+            [eventIds([row])[0], row.timestamp, normalized.event_type, normalized.action, normalized.outcome, JSON.stringify(normalized)])
+        }
         expect(await tx(q => analyzeRoutineGroupBatch(storedInput, q as any))).toEqual(storedInput)
         expect(await tx(q => analyzeRoutineGroupBatch(storedInput, q as any, { historicalReplay: { ruleId: 'unknown' } }))).toEqual(storedInput)
         expect(await tx(q => analyzeRoutineGroupBatch(storedInput, q as any, { historicalReplay: { ruleId: telemetryRuleId } }))).toEqual(replaySsh)
-        const canonical = (await query('SELECT metadata FROM service_logs WHERE service=$1 AND metadata->\'original_records\' @> $2::jsonb', ['routine-group-analyzer', JSON.stringify([{ sourceEventId: replayTelemetry[0].sourceEventId }])])).rows
+        const canonical = (await query('SELECT normalized->\'metadata\' AS metadata FROM events WHERE normalized->>\'service\'=\'routine-group-analyzer\' AND normalized->\'metadata\'->\'original_records\' @> $1::jsonb', [JSON.stringify([{ sourceEventId: replayTelemetry[0].sourceEventId }])])).rows
         expect(canonical).toHaveLength(1)
         expect(canonical[0].metadata.original_records).toEqual(replayTelemetry)
         // The analyzer never deletes originals; the replay transaction owns that.
-        expect((await query('SELECT count(*) FROM service_logs WHERE source_event_id=ANY($1::text[])', [storedInput.map(row => row.sourceEventId)])).rows[0].count).toBe('7')
+        expect(await countEvents(storedInput)).toBe(7)
         await query('UPDATE rules SET definition=$2 WHERE rule_id=$1', [telemetryRuleId, JSON.stringify({ ...telemetryDefinition, conditions: [{ path: 'host', operator: 'equals', value: 'excluded' }] })])
         expect(await tx(q => analyzeRoutineGroupBatch(replayTelemetry, q as any, { historicalReplay: { ruleId: telemetryRuleId } }))).toEqual(replayTelemetry)
         const expired = replayTelemetry.map(row => ({ ...row, timestamp: new Date(Date.now() - 120000).toISOString() }))

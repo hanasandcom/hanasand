@@ -16,7 +16,10 @@ test.skipIf(!process.env.POSTGRES_FILTER_TEST_PORT)('SSH transport ingestion pre
         try { await client.query('BEGIN'); const value = await work((s, p) => client.query(s, p)); await client.query('COMMIT'); return value }
         catch (error) { await client.query('ROLLBACK'); throw error } finally { client.release() }
     }
-    mock.module('#db', () => ({ default: query, withTransaction: tx }))
+    mock.module('#db', () => ({ default: query, queryOnce: query,
+        identityQueryOnce: (sql: string, values?: unknown[]) => query(sql.replace('public.system_events', 'system_events'), values),
+        isTransientDatabaseError: () => false, withTransaction: tx,
+        withDatabaseAdvisoryLock: async (_key: string, work: () => Promise<unknown>) => work() }))
     mock.module('#constants', () => ({ default: {} }))
     try {
         await query(`CREATE SCHEMA ${namespace}`)
@@ -24,20 +27,19 @@ test.skipIf(!process.env.POSTGRES_FILTER_TEST_PORT)('SSH transport ingestion pre
         await query('CREATE TABLE organizations(id text PRIMARY KEY,name text,status text,created_at timestamptz DEFAULT NOW(),audit_safe_metadata jsonb DEFAULT \'{}\')')
         await query('INSERT INTO organizations(id,name,status) VALUES(\'platform\',\'Hanasand\',\'active\')')
         const schema = readFileSync(new URL('../src/utils/db/ensureSchema.ts', import.meta.url), 'utf8')
-        for (const table of ['service_logs', 'rules', 'system_events']) {
+        for (const table of ['rules', 'system_events', 'events']) {
             const definition = schema.match(new RegExp('CREATE TABLE IF NOT EXISTS ' + table + ' \\([\\s\\S]*?\\n        \\)'))?.[0]
             if (!definition) throw new Error(`Missing schema ${table}`)
             await query(definition)
         }
-        await query('ALTER TABLE service_logs ADD COLUMN source_event_id text UNIQUE')
         const { default: install } = await import('../src/utils/db/logAnalyzeSchema.ts')
         const { recordLogBatch } = await import('../src/utils/logs/recordLog.ts')
         const { collectEventFindings, normalizeEvent } = await import('../src/handlers/events.ts')
-        const { normalizeLogEvent } = await import('../src/utils/events/logEvent.ts')
         await install()
         const fresh = (label: string) => transportFixture().map((row, i) => ({ ...row, metadata: { ...row.metadata, pid: String(10000 + label.length * 100) }, sourceEventId: createHash('sha256').update(label + i).digest('hex') }))
         const ingest = (rows: any[]) => tx(q => recordLogBatch(rows, q as any))
-        const rawCount = async (logs: any[]) => Number((await query('SELECT count(*) FROM service_logs WHERE source_event_id=ANY($1::text[])', [logs.map(row => row.sourceEventId)])).rows[0].count)
+        const rawCount = async (logs: any[]) => Number((await query(`SELECT count(*) FROM events
+            WHERE ingestion_id='logs' AND normalized->>'source_event_id'=ANY($1::text[])`, [logs.map(row => row.sourceEventId)])).rows[0].count)
         const receiptCount = async () => Number((await query('SELECT count(*) FROM log_analyze_receipts WHERE rule_id=$1', [sshTransportRuleId])).rows[0].count)
         const disabled = fresh('disabled')
         await ingest(disabled)
@@ -45,14 +47,14 @@ test.skipIf(!process.env.POSTGRES_FILTER_TEST_PORT)('SSH transport ingestion pre
         expect(await receiptCount()).toBe(0)
         await query('UPDATE rules SET enabled=true WHERE rule_id=$1', [sshTransportRuleId])
         const logs = fresh('valid')
-        await Promise.all([ingest(logs), ingest(logs)])
-        const canonical = (await query('SELECT * FROM service_logs WHERE service=$1', ['routine-group-analyzer'])).rows
+        await ingest(logs)
+        const canonical = (await query('SELECT * FROM events WHERE ingestion_id=\'logs\' AND normalized->>\'service\'=$1', ['routine-group-analyzer'])).rows
         expect(canonical).toHaveLength(1)
-        expect(canonical[0].metadata.original_records).toEqual(logs)
+        expect(canonical[0].normalized.metadata.original_records).toEqual(logs)
         expect(await rawCount(logs)).toBe(0)
         expect(await receiptCount()).toBe(4)
         const detector: any = { id: 'owned.ssh', source: 'owned', enabled: true, version: '1', severity: 'high', name: 'SSH detector', explanation: 'test', definition: { match: 'all', conditions: [{ path: 'service', operator: 'equals', value: 'sshd' }] } }
-        const findings = collectEventFindings('platform', 'canonical', normalizeEvent(normalizeLogEvent(canonical[0]), {}), [detector]).findings
+        const findings = collectEventFindings('platform', canonical[0].id, normalizeEvent(canonical[0].normalized, {}), [detector]).findings
         expect(findings).toHaveLength(1)
         expect((findings[0][5].retainedOriginals as any[]).map(row => row.message)).toEqual(logs.map(row => row.message))
         for (const [label, definition] of [['store', { match: 'all', stage: 'analyze', action: 'keep', conditions: detector.definition.conditions }], ['detect', detector.definition]] as const) {
@@ -89,6 +91,41 @@ test.skipIf(!process.env.POSTGRES_FILTER_TEST_PORT)('SSH transport ingestion pre
         await expect(tx(async q => { await recordLogBatch(rollback as any, q as any); throw new Error('abort') })).rejects.toThrow('abort')
         expect(await receiptCount()).toBe(4)
         expect(await rawCount(rollback)).toBe(0)
-        expect((await query('SELECT count(*) FROM service_logs WHERE service=$1', ['routine-group-analyzer'])).rows[0].count).toBe('1')
+        expect((await query('SELECT count(*) FROM events WHERE ingestion_id=\'logs\' AND normalized->>\'service\'=$1', ['routine-group-analyzer'])).rows[0].count).toBe('1')
+        // If a competing exact group cannot claim the transaction lock, its
+        // originals remain available alongside the one canonical summary.
+        const concurrent = fresh('concurrent')
+        let acquired!: () => void
+        let missed!: () => void
+        let releaseFirst!: () => void
+        const firstLockAcquired = new Promise<void>(resolve => { acquired = resolve })
+        const secondLockMissed = new Promise<void>(resolve => { missed = resolve })
+        const holdFirstTransaction = new Promise<void>(resolve => { releaseFirst = resolve })
+        const observeLock = (q: typeof query, afterAttempt: (held: boolean) => Promise<void>) => async (sql: string, values?: unknown[]) => {
+            const result = await q(sql, values)
+            if (sql.includes('pg_try_advisory_xact_lock') && String(values?.[0] || '').includes(sshTransportRuleId)) {
+                await afterAttempt(Boolean(result.rows[0]?.acquired))
+            }
+            return result
+        }
+        const first = tx(q => recordLogBatch(concurrent, observeLock(q, async held => {
+            if (!held) return
+            acquired()
+            await holdFirstTransaction
+        }) as any))
+        let second: Promise<unknown> | undefined
+        try {
+            await Promise.race([firstLockAcquired, first.then(() => { throw new Error('First SSH transaction completed before claiming its routine lock.') })])
+            second = tx(q => recordLogBatch(concurrent, observeLock(q, async held => {
+                if (!held) missed()
+            }) as any))
+            await Promise.race([secondLockMissed, second.then(() => { throw new Error('Competing SSH transaction completed before exercising lock contention.') })])
+        } finally {
+            releaseFirst()
+        }
+        await Promise.all([first, second!])
+        expect(await rawCount(concurrent)).toBe(4)
+        expect(await receiptCount()).toBe(8)
+        expect((await query('SELECT count(*) FROM events WHERE ingestion_id=\'logs\' AND normalized->>\'service\'=$1', ['routine-group-analyzer'])).rows[0].count).toBe('2')
     } finally { await query(`DROP SCHEMA IF EXISTS ${namespace} CASCADE`); await pool.end() }
 }, 20000)

@@ -117,8 +117,12 @@ function eventRow(values: Awaited<ReturnType<typeof prepareLog>>) {
     if (!values) return null
     const [service, host, level, message, metadataJson, scopeId, sourceEventId, timestamp, id] = values
     const metadata = JSON.parse(metadataJson || '{}')
-    const event = { ...normalizeLogEvent({ id: sourceEventId || '', service: service || 'hanasand-api', host: host || '', level: level || 'info', message: message || '', metadata, created_at: timestamp || new Date() }),
-        source_event_id: sourceEventId }
+    const normalized = normalizeLogEvent({
+        id: sourceEventId || '', service: service || 'hanasand-api', host: host || '', level: level || 'info', message: message || '', metadata,
+        created_at: timestamp || new Date(), source_event_id: sourceEventId || undefined,
+        source_event_timestamp: typeof timestamp === 'string' ? timestamp : undefined,
+    })
+    const event = { ...normalized, source_event_id: sourceEventId }
     return { id, scopeId, event, timestamp: event.timestamp }
 }
 

@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import pg from 'pg'
-import { ensureColumn, ensureIndex, ensureRuleSourceConstraint } from '../src/utils/db/existingSchema.ts'
+import { ensureColumn, ensureColumnNullable, ensureConstraint, ensureIndex, ensureRuleSourceConstraint } from '../src/utils/db/existingSchema.ts'
 
 test.skipIf(!process.env.POSTGRES_FILTER_TEST_PORT)('installed schema avoids write conflicts while missing and outdated objects are really migrated', async () => {
     const namespace = `existing_schema_${process.pid}_${Date.now()}`
@@ -16,6 +16,31 @@ test.skipIf(!process.env.POSTGRES_FILTER_TEST_PORT)('installed schema avoids wri
         await ensureColumn(query, 'service_logs', 'additional', column)
         await ensureIndex(query, 'log_source_test', index)
         await ensureRuleSourceConstraint(query)
+
+        await query('ALTER TABLE service_logs ADD COLUMN already_nullable TEXT, ADD COLUMN required_value TEXT NOT NULL DEFAULT \'present\'')
+        const schemaMigrations: string[] = []
+        const observedQuery: any = async (sql: string, values?: unknown[]) => {
+            if (sql.startsWith('ALTER TABLE')) schemaMigrations.push(sql)
+            return query(sql, values)
+        }
+        const nullableColumnMigration = 'ALTER TABLE service_logs ALTER COLUMN already_nullable DROP NOT NULL'
+        const requiredColumnMigration = 'ALTER TABLE service_logs ALTER COLUMN required_value DROP NOT NULL'
+        await ensureColumnNullable(observedQuery, 'service_logs', 'already_nullable', nullableColumnMigration)
+        await ensureColumnNullable(observedQuery, 'service_logs', 'required_value', requiredColumnMigration)
+        await ensureColumnNullable(observedQuery, 'service_logs', 'required_value', requiredColumnMigration)
+        expect(schemaMigrations).toEqual([requiredColumnMigration])
+        expect((await query('SELECT attname, attnotnull FROM pg_attribute WHERE attrelid=to_regclass(\'service_logs\') AND attname IN (\'already_nullable\', \'required_value\') ORDER BY attname')).rows)
+            .toEqual([{ attname: 'already_nullable', attnotnull: false }, { attname: 'required_value', attnotnull: false }])
+
+        const sourceConstraintMigration = 'ALTER TABLE rules ADD CONSTRAINT rules_source_not_null_test CHECK (source IS NOT NULL)'
+        const sourceConstraintDefinition = 'CHECK ((source IS NOT NULL))'
+        await ensureConstraint(observedQuery, 'rules', 'rules_source_not_null_test', sourceConstraintDefinition, sourceConstraintMigration)
+        expect(schemaMigrations).toEqual([requiredColumnMigration, sourceConstraintMigration])
+        await ensureConstraint(observedQuery, 'rules', 'rules_source_not_null_test', sourceConstraintDefinition, sourceConstraintMigration)
+        expect(schemaMigrations).toEqual([requiredColumnMigration, sourceConstraintMigration])
+        expect((await query('SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conrelid=to_regclass(\'rules\') AND conname=\'rules_source_not_null_test\'')).rows[0].definition)
+            .toBe(sourceConstraintDefinition)
+
         await query('INSERT INTO rules VALUES(\'hanasand\')')
         expect((await query('SELECT additional FROM service_logs')).rowCount).toBe(0)
         await query('INSERT INTO service_logs(id) VALUES(0),(0)')
@@ -27,6 +52,9 @@ test.skipIf(!process.env.POSTGRES_FILTER_TEST_PORT)('installed schema avoids wri
         await ensureColumn(query, 'service_logs', 'additional', column)
         await ensureIndex(query, 'log_source_test', index)
         await ensureRuleSourceConstraint(query)
+        await ensureColumnNullable(observedQuery, 'service_logs', 'already_nullable', nullableColumnMigration)
+        await ensureConstraint(observedQuery, 'rules', 'rules_source_not_null_test', sourceConstraintDefinition, sourceConstraintMigration)
+        expect(schemaMigrations).toEqual([requiredColumnMigration, sourceConstraintMigration])
         expect((await query('SELECT count(*)::int AS count FROM rules')).rows[0].count).toBe(1)
         await expect(ensureColumn(query, 'service_logs', 'missing', 'ALTER TABLE service_logs ADD COLUMN IF NOT EXISTS missing text')).rejects.toMatchObject({ code: '55P03' })
     } finally {

@@ -1,8 +1,10 @@
 import { expect, mock, test } from 'bun:test'
 import { readFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import pg from 'pg'
 import { fixture } from './analyze-postgres.test.ts'
 import { postgresRuleId, postgresDefinition } from '../src/utils/events/analyzePostgres.ts'
+import { normalizeLogEvent } from '../src/utils/events/logEvent.ts'
 
 // Opt-in disposable local cluster; this test never accepts a remote host/database.
 test.skipIf(!process.env.POSTGRES_FILTER_TEST_PORT)('real transactions preserve evidence, retries, rollback and Keep', async () => {
@@ -20,8 +22,15 @@ test.skipIf(!process.env.POSTGRES_FILTER_TEST_PORT)('real transactions preserve 
             return result
         } catch (error) { await client.query('ROLLBACK'); throw error } finally { client.release() }
     }
-    mock.module('#db', () => ({ default: query, queryOnce: query, withTransaction: transaction,
-        withDatabaseAdvisoryLock: async (_key: string, work: () => Promise<unknown>) => work() }))
+    const eventIdForSource = (sourceEventId: string) => createHash('sha256').update(`service:${sourceEventId}`).digest('hex')
+    const storedSources = (sourceEventIds: string[]) => query(`SELECT * FROM events
+        WHERE ingestion_id='logs' AND normalized->>'source_event_id'=ANY($1::text[])`, [sourceEventIds])
+    const deleteStoredSources = (sourceEventIds: string[]) => query(`DELETE FROM events
+        WHERE ingestion_id='logs' AND normalized->>'source_event_id'=ANY($1::text[])`, [sourceEventIds])
+    mock.module('#db', () => ({ default: query, queryOnce: query,
+        identityQueryOnce: (sql: string, values?: unknown[]) => query(sql.replace('public.system_events', 'system_events'), values),
+        isTransientDatabaseError: () => false,
+        withTransaction: transaction, withDatabaseAdvisoryLock: async (_key: string, work: () => Promise<unknown>) => work() }))
     mock.module('#constants', () => ({ default: {} }))
     try {
         expect((await query('SELECT current_database() name')).rows[0].name).toBe('postgres_filter_test')
@@ -30,27 +39,35 @@ test.skipIf(!process.env.POSTGRES_FILTER_TEST_PORT)('real transactions preserve 
         await query('CREATE TABLE organizations(id text PRIMARY KEY,name text,status text,created_at timestamptz DEFAULT NOW(),audit_safe_metadata jsonb DEFAULT \'{}\')')
         await query('INSERT INTO organizations(id,name,status) VALUES(\'platform\',\'Hanasand\',\'active\')')
         const schema = readFileSync(new URL('../src/utils/db/ensureSchema.ts', import.meta.url), 'utf8')
-        for (const table of ['service_logs', 'rules', 'system_events', 'events', 'findings']) {
+        for (const table of ['rules', 'system_events', 'events', 'findings']) {
             const definition = schema.match(new RegExp('CREATE TABLE IF NOT EXISTS ' + table + ' \\([\\s\\S]*?\\n        \\)'))?.[0]
             if (!definition) throw new Error(`Missing schema ${table}`)
             await query(definition)
         }
-        await query('ALTER TABLE service_logs ADD COLUMN source_event_id text UNIQUE')
-        await query('ALTER TABLE events ADD COLUMN log_key text UNIQUE')
         const { default: install } = await import('../src/utils/db/logAnalyzeSchema.ts')
         const { recordLogBatch } = await import('../src/utils/logs/recordLog.ts')
         await install()
         const logs = fixture().map(row => ({ ...row, level: 'info' as const }))
         await Promise.all([1, 2].map(() => transaction(tx => recordLogBatch(logs, tx as any))))
-        let stored = await query('SELECT * FROM service_logs')
+        let stored = await query('SELECT * FROM events WHERE ingestion_id=\'logs\'')
         expect(stored.rows).toHaveLength(1)
-        expect(stored.rows[0].metadata.lifecycle_records).toEqual(logs)
+        expect(stored.rows[0].normalized.metadata.lifecycle_records).toEqual(logs)
         const { processLogBatch } = await import('../src/utils/events/processLogs.ts')
         const { createFindings, normalizeEvent } = await import('../src/handlers/events.ts')
         const detector = { id: 'fixture.postgres-original', version: '1', name: 'Original PostgreSQL service', severity: 'high', family: 'Database',
             explanation: 'Verify originals still reach detection', evidence: [], enabled: true, source: 'owned' as const,
             definition: { match: 'all' as const, stage: 'detect' as const, conditions: [{ path: 'service', operator: 'equals' as const, value: 'hanasand_database' }] } }
-        await processLogBatch(stored.rows, 'platform', [detector])
+        await processLogBatch(stored.rows.map(row => ({
+            id: row.id,
+            eventId: row.id,
+            service: row.normalized.service,
+            host: row.normalized.host,
+            level: row.normalized.level,
+            message: row.normalized.message,
+            metadata: row.normalized.metadata,
+            created_at: row.normalized.timestamp,
+            source_event_id: row.normalized.source_event_id,
+        })), 'platform', [detector])
         const event = (await query('SELECT * FROM events')).rows[0]
         expect(event.normalized.severity).toBe('high')
         expect(event.normalized.detections[0].rule_id).toBe(detector.id)
@@ -64,29 +81,29 @@ test.skipIf(!process.env.POSTGRES_FILTER_TEST_PORT)('real transactions preserve 
         expect((await query('SELECT count(*) FROM findings WHERE rule_id=\'fixture.postgres-replay\'')).rows[0].count).toBe('1')
         expect((await query('SELECT dropped_records,retained_sessions FROM log_postgres_session_state')).rows[0]).toEqual({ dropped_records: '3', retained_sessions: '1' })
         await transaction(tx => recordLogBatch(logs.slice(0, 1), tx as any))
-        expect((await query('SELECT count(*) FROM service_logs')).rows[0].count).toBe('2')
-        await query('DELETE FROM service_logs WHERE source_event_id=$1', [logs[0].sourceEventId])
+        expect((await storedSources([logs[0].sourceEventId!])).rows).toHaveLength(1)
+        await deleteStoredSources([logs[0].sourceEventId!])
         await query('UPDATE log_postgres_session_state SET recent=\'[]\'')
         const next = fixture().map(row => ({ ...row, level: 'info' as const, sourceEventId: row.sourceEventId!.replace(/1/g, 'a').replace(/2/g, 'b').replace(/3/g, 'c'), message: row.message.replace('[123]', '[456]') }))
         await expect(transaction(async tx => { await recordLogBatch(next, tx as any); throw new Error('abort') })).rejects.toThrow('abort')
-        expect((await query('SELECT count(*) FROM service_logs')).rows[0].count).toBe('1')
+        expect((await query('SELECT count(*) FROM events WHERE ingestion_id=\'logs\'')).rows[0].count).toBe('1')
         expect((await query('SELECT count(*) FROM log_analyze_receipts')).rows[0].count).toBe('3')
         await query('UPDATE rules SET definition=jsonb_set(definition,\'{action}\',\'"keep"\') WHERE rule_id=$1', [postgresRuleId])
         await install()
         await transaction(tx => recordLogBatch(next, tx as any))
-        stored = await query('SELECT * FROM service_logs')
+        stored = await query('SELECT * FROM events WHERE ingestion_id=\'logs\'')
         expect(stored.rows).toHaveLength(4)
         expect((await query('SELECT dropped_records FROM log_postgres_session_state')).rows[0].dropped_records).toBe('3')
         const failed = { ...next[0], sourceEventId: 'f'.repeat(64), level: 'error' as const, message: next[0].message.replace('LOG:  connection received: host=[local]', 'FATAL:  password authentication failed') }
         await transaction(tx => recordLogBatch([failed], tx as any))
-        expect((await query('SELECT message FROM service_logs WHERE source_event_id=$1', [failed.sourceEventId])).rows[0].message).toBe(failed.message)
+        expect((await storedSources([failed.sourceEventId!])).rows[0].normalized.message).toBe(failed.message)
         await query('UPDATE rules SET definition=jsonb_set(definition,\'{action}\',\'"drop"\') WHERE rule_id=$1', [postgresRuleId])
         await query(`INSERT INTO rules(id,organization_id,rule_id,version,name,family,severity,explanation,definition,source,enabled)
             VALUES('protect-pg','platform','fixture-protect-pg','1','Investigate local probes','Database','high','Fixture detector',$1::jsonb,'owned',TRUE)`, [JSON.stringify(detector.definition)])
         const protectedLogs = fixture().map((row, index) => ({ ...row, level: 'info' as const,
             sourceEventId: String(7 + index).repeat(64), message: row.message.replace('[123]', '[789]') }))
         await transaction(tx => recordLogBatch(protectedLogs, tx as any))
-        expect((await query('SELECT count(*) FROM service_logs WHERE source_event_id=ANY($1::text[])', [protectedLogs.map(log => log.sourceEventId)])).rows[0].count).toBe('3')
+        expect((await storedSources(protectedLogs.map(log => log.sourceEventId!))).rows).toHaveLength(3)
         expect((await query('SELECT count(*) FROM log_analyze_receipts')).rows[0].count).toBe('3')
         await query('DELETE FROM rules WHERE id=\'protect-pg\'')
         for (const definition of [
@@ -97,16 +114,24 @@ test.skipIf(!process.env.POSTGRES_FILTER_TEST_PORT)('real transactions preserve 
             {...postgresDefinition,parameters:{}},
         ]) {
             await query('UPDATE rules SET definition=$2::jsonb WHERE rule_id=$1',[postgresRuleId,JSON.stringify(definition)])
-            await query('DELETE FROM service_logs WHERE source_event_id=ANY($1::text[])',[logs.map(log=>log.sourceEventId)])
+            await deleteStoredSources(logs.map(log=>log.sourceEventId!))
             await transaction(tx=>recordLogBatch(logs,tx as any))
-            expect((await query('SELECT count(*) FROM service_logs WHERE source_event_id=ANY($1::text[])',[logs.map(log=>log.sourceEventId)])).rows[0].count).toBe('3')
+            expect((await storedSources(logs.map(log=>log.sourceEventId!))).rows).toHaveLength(3)
             expect((await query('SELECT count(*) FROM log_analyze_receipts')).rows[0].count).toBe('3')
         }
         const { analyzePostgresBatch } = await import('../src/utils/events/analyzePostgresBatch.ts')
         await query('UPDATE rules SET definition=$2::jsonb WHERE rule_id=$1',[postgresRuleId,JSON.stringify(postgresDefinition)])
         await query('UPDATE log_postgres_session_state SET recent=\'[]\'')
         const historical = fixture().map((row,index)=>({...row,level:'info' as const,sourceEventId:String(index+4).repeat(64),message:row.message.replace('[123]','[654]')}))
-        for(const row of historical) await query('INSERT INTO service_logs(service,host,level,message,metadata,source_event_id,created_at) VALUES($1,$2,$3,$4,$5,$6,$7)',[row.service,row.host,row.level,row.message,JSON.stringify(row.metadata),row.sourceEventId,row.timestamp])
+        for (const row of historical) {
+            const normalized = { ...normalizeLogEvent({
+                id: row.sourceEventId!, service: row.service!, host: row.host!, level: row.level, message: row.message,
+                metadata: row.metadata, created_at: row.timestamp!,
+            }), source_event_id: row.sourceEventId }
+            await query(`INSERT INTO events(id,ingestion_id,organization_id,event_timestamp,event_type,action,outcome,normalized)
+                VALUES($1,'logs','platform',$2,$3,$4,$5,$6::jsonb)`, [eventIdForSource(row.sourceEventId!), row.timestamp,
+                normalized.event_type, normalized.action, normalized.outcome, JSON.stringify(normalized)])
+        }
         expect(await transaction(tx=>analyzePostgresBatch(historical,tx as any))).toEqual(historical)
         expect(await transaction(tx=>analyzePostgresBatch(historical.slice(1),tx as any,{historicalReplay:true}))).toEqual(historical.slice(1))
         await query('UPDATE rules SET definition=$2::jsonb WHERE rule_id=$1',[postgresRuleId,JSON.stringify({...postgresDefinition,parameters:{...postgresDefinition.parameters,maxDurationMs:1}})])
@@ -119,10 +144,12 @@ test.skipIf(!process.env.POSTGRES_FILTER_TEST_PORT)('real transactions preserve 
         expect(await transaction(tx=>analyzePostgresBatch(historical,tx as any,{historicalReplay:true}))).toEqual(historical)
         await query('DELETE FROM rules WHERE id=\'historical-protect\'')
         expect(await transaction(tx=>analyzePostgresBatch(historical,tx as any,{historicalReplay:true}))).toEqual([])
-        expect((await query('SELECT metadata FROM service_logs WHERE service=\'postgres-session-analyzer\' AND metadata->>\'backend_pid\'=\'654\'')).rows[0].metadata.lifecycle_records).toEqual(historical)
+        const historicalSummary = (await query(`SELECT id,normalized FROM events WHERE ingestion_id='logs'
+            AND normalized->>'service'='postgres-session-analyzer' AND normalized->'metadata'->>'backend_pid'='654'`)).rows[0]
+        expect(historicalSummary.normalized.metadata.lifecycle_records).toEqual(historical)
         // The caller owns deletion after this transaction's canonical evidence is ready.
-        expect((await query('SELECT count(*) FROM service_logs WHERE source_event_id=ANY($1::text[])',[historical.map(row=>row.sourceEventId)])).rows[0].count).toBe('3')
-        await query('DELETE FROM service_logs WHERE service=\'postgres-session-analyzer\'')
+        expect((await storedSources(historical.map(row=>row.sourceEventId!))).rows).toHaveLength(3)
+        await deleteStoredSources(historical.map(row=>row.sourceEventId!))
         const retainedEvent = (await query('SELECT * FROM events WHERE id=$1', [event.id])).rows[0]
         expect(retainedEvent.normalized.metadata.lifecycle_records).toEqual(logs)
         await createFindings('platform', event.id, normalizeEvent(retainedEvent.normalized, {}), [{ ...detector, id: 'fixture.after-raw-retention' }])

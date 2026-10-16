@@ -1,6 +1,6 @@
 import { classifyApplicationError } from './applicationError.ts'
 import { mongoCommandFromLog } from './analyzeMongo.ts'
-export type LogInput = { id: string | number, eventId?: string, service: string, host?: string, level: string, message: string, created_at: string | Date, metadata?: Record<string, unknown>, source_event_id?: string }
+export type LogInput = { id: string | number, eventId?: string, service: string, host?: string, level: string, message: string, created_at: string | Date, metadata?: Record<string, unknown>, source_event_id?: string, source_event_timestamp?: string }
 export type LogNormalizationOptions = { classify?: boolean, includeSeverity?: boolean }
 export const severityOrder = ['low', 'medium', 'high', 'critical'] as const
 const object = (value: unknown): Record<string, unknown> => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
@@ -55,6 +55,8 @@ export function normalizeLogEvent(log: LogInput, rules?: Parameters<typeof class
 
     return {
         ...(['routine-group-analyzer', 'postgres-session-analyzer'].includes(log.service) && log.source_event_id ? { source_event_id: log.source_event_id } : {}),
+        ...(log.service === 'cdn' && log.source_event_id && log.source_event_timestamp
+            ? { source_event_id: log.source_event_id, source_event_timestamp: log.source_event_timestamp } : {}),
         schema_version: 'logs.v1',
         source_vendor: 'Hanasand',
         source_product: 'Logs',
