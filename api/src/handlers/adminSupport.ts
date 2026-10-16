@@ -4819,13 +4819,18 @@ async function loadOrganizationSupportDetail(organizationId: string) {
     return result.rows[0] as OrganizationRow | undefined
 }
 
-async function loadInspectionOrganizations(input: { q?: string, org: string, user: string, email: string, request: string, limit: number }) {
+function supportSqlFilters() {
     const where: string[] = []
     const values: Array<string | number> = []
     const add = (value: string | number) => {
         values.push(value)
         return `$${values.length}`
     }
+    return { where, values, add }
+}
+
+async function loadInspectionOrganizations(input: { q?: string, org: string, user: string, email: string, request: string, limit: number }) {
+    const { where, values, add } = supportSqlFilters()
     if (input.org) {
         const placeholder = add(`%${input.org}%`)
         where.push('(o.id ILIKE ' + placeholder + ' OR o.name ILIKE ' + placeholder + ' OR o.slug ILIKE ' + placeholder + ')')
@@ -4875,12 +4880,7 @@ async function loadInspectionOrganizations(input: { q?: string, org: string, use
 }
 
 async function loadInspectionUsers(input: { q?: string, user: string, request: string, limit: number }) {
-    const where: string[] = []
-    const values: Array<string | number> = []
-    const add = (value: string | number) => {
-        values.push(value)
-        return `$${values.length}`
-    }
+    const { where, values, add } = supportSqlFilters()
     if (input.user) {
         const placeholder = add(`%${input.user}%`)
         where.push('(users.id ILIKE ' + placeholder + ' OR users.name ILIKE ' + placeholder + ')')
@@ -4917,12 +4917,7 @@ async function loadInspectionUsers(input: { q?: string, user: string, request: s
 }
 
 async function loadInspectionMemberships(input: { q?: string, org: string, user: string, request: string, limit: number }) {
-    const where: string[] = []
-    const values: Array<string | number> = []
-    const add = (value: string | number) => {
-        values.push(value)
-        return `$${values.length}`
-    }
+    const { where, values, add } = supportSqlFilters()
     if (input.org) {
         const placeholder = add(`%${input.org}%`)
         where.push('(om.organization_id ILIKE ' + placeholder + ' OR organizations.name ILIKE ' + placeholder + ' OR organizations.slug ILIKE ' + placeholder + ')')
@@ -4944,21 +4939,7 @@ async function loadInspectionMemberships(input: { q?: string, org: string, user:
     if (!where.length) return []
 
     const result = await run(`
-        SELECT
-            om.organization_id,
-            organizations.name AS organization_name,
-            organizations.slug AS organization_slug,
-            om.user_id,
-            users.name,
-            users.avatar,
-            users.active,
-            users.deactivated_at,
-            users.deletion_scheduled_at,
-            om.role,
-            om.status,
-            om.invited_by,
-            om.joined_at,
-            om.created_at
+        SELECT ${supportMemberInspectionColumns}
         FROM organization_members om
         JOIN users ON users.id = om.user_id
         JOIN organizations ON organizations.id = om.organization_id
@@ -4970,12 +4951,7 @@ async function loadInspectionMemberships(input: { q?: string, org: string, user:
 }
 
 async function loadInspectionInvites(input: { q?: string, org: string, email: string, request: string, limit: number }) {
-    const where: string[] = []
-    const values: Array<string | number> = []
-    const add = (value: string | number) => {
-        values.push(value)
-        return `$${values.length}`
-    }
+    const { where, values, add } = supportSqlFilters()
     if (input.org) {
         const placeholder = add(`%${input.org}%`)
         where.push('(organization_invites.organization_id ILIKE ' + placeholder + ' OR organizations.name ILIKE ' + placeholder + ' OR organizations.slug ILIKE ' + placeholder + ')')
@@ -5007,12 +4983,7 @@ async function loadInspectionInvites(input: { q?: string, org: string, email: st
 }
 
 async function loadInspectionApprovals(input: { q?: string, org: string, user: string, email: string, request: string, outcome: string, limit: number }) {
-    const where: string[] = []
-    const values: Array<string | number> = []
-    const add = (value: string | number) => {
-        values.push(value)
-        return `$${values.length}`
-    }
+    const { where, values, add } = supportSqlFilters()
     if (input.org) {
         const placeholder = add(`%${input.org}%`)
         where.push('(approval.organization_id ILIKE ' + placeholder + ' OR organization.name ILIKE ' + placeholder + ' OR organization.slug ILIKE ' + placeholder + ')')
@@ -5060,12 +5031,7 @@ async function loadInspectionApprovals(input: { q?: string, org: string, user: s
 }
 
 async function loadInspectionAuditEvents(input: { q: string, org: string, user: string, email: string, request: string, entity: string, entityType: string, supportSession: string, workflow?: string, action: string, severity: string, outcome: string, source: string, service: string, blocker: string, reason: string, scope?: string, context: string, from: string, to: string, limit: number }) {
-    const where: string[] = []
-    const values: Array<string | number> = []
-    const add = (value: string | number) => {
-        values.push(value)
-        return `$${values.length}`
-    }
+    const { where, values, add } = supportSqlFilters()
     if (input.org) {
         const placeholder = add(`%${input.org}%`)
         where.push('(event.organization_id ILIKE ' + placeholder + ' OR organization.name ILIKE ' + placeholder + ' OR organization.slug ILIKE ' + placeholder + ')')
@@ -5705,23 +5671,26 @@ function auditContextInviteIds(context: Record<string, unknown>) {
     return direct.map(id => text(id)).filter(Boolean)
 }
 
+const supportMemberInspectionColumns = `
+    om.organization_id,
+    organizations.name AS organization_name,
+    organizations.slug AS organization_slug,
+    om.user_id,
+    users.name,
+    users.avatar,
+    users.active,
+    users.deactivated_at,
+    users.deletion_scheduled_at,
+    om.role,
+    om.status,
+    om.invited_by,
+    om.joined_at,
+    om.created_at
+`
+
 async function loadSupportMemberDetail(organizationId: string, userId: string, query: typeof run = run, lock = false) {
     const result = await query(`
-        SELECT
-            om.organization_id,
-            organizations.name AS organization_name,
-            organizations.slug AS organization_slug,
-            om.user_id,
-            users.name,
-            users.avatar,
-            users.active,
-            users.deactivated_at,
-            users.deletion_scheduled_at,
-            om.role,
-            om.status,
-            om.invited_by,
-            om.joined_at,
-            om.created_at
+        SELECT ${supportMemberInspectionColumns}
         FROM organization_members om
         JOIN users ON users.id = om.user_id
         JOIN organizations ON organizations.id = om.organization_id
