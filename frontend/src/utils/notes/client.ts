@@ -1,25 +1,11 @@
 'use client'
 
-import { getCookie } from '@/utils/cookies/cookies'
-
-function authHeaders() {
-    const token = getCookie('access_token') || ''
-    const id = getCookie('id') || ''
-
-    return {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-        id,
-    }
-}
+import { backendRequestHeaders } from '@/utils/auth/backendRequestHeaders'
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const response = await fetch(`/api/backend${path}`, {
         ...init,
-        headers: {
-            ...authHeaders(),
-            ...(init?.headers || {}),
-        },
+        headers: backendRequestHeaders(init?.headers),
     })
     const body = await response.json().catch(() => ({}))
     if (!response.ok) {

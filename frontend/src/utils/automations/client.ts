@@ -1,6 +1,7 @@
 'use client'
 
-import { getCookie, setCookieWithExpiresAt } from '@/utils/cookies/cookies'
+import { setCookieWithExpiresAt } from '@/utils/cookies/cookies'
+import { backendRequestHeaders } from '@/utils/auth/backendRequestHeaders'
 
 export type JsonRule = { path: string, operator: 'gt' | 'gte' | 'lt' | 'lte' | 'eq' | 'ne', value: number | boolean | string, aggregate: 'max' | 'min' | 'avg' | 'first' }
 
@@ -112,26 +113,14 @@ export type AutomationPayload = {
     notifyWarnings?: boolean
 }
 
-function authHeaders() {
-    const token = getCookie('access_token') || ''
-    const id = getCookie('id') || ''
-
-    return {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-        id,
-    }
-}
-
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const response = await fetch(`/api/backend${path}`, {
         ...init,
         cache: 'no-store',
-        headers: {
+        headers: backendRequestHeaders({
             'Cache-Control': 'no-cache',
-            ...authHeaders(),
             ...(init?.headers || {}),
-        },
+        }),
     })
     const refreshedToken = response.headers.get('x-access-token')
     const refreshedExpiresAt = response.headers.get('x-access-token-expires-at')

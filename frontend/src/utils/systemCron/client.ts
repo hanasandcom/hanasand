@@ -1,6 +1,7 @@
 'use client'
 
-import { getCookie, setCookieWithExpiresAt } from '@/utils/cookies/cookies'
+import { setCookieWithExpiresAt } from '@/utils/cookies/cookies'
+import { backendRequestHeaders } from '@/utils/auth/backendRequestHeaders'
 
 export type ManagedCronJob = {
     id: string
@@ -48,21 +49,10 @@ export type ManagedCronJob = {
     assumptions: string[]
 }
 
-function authHeaders() {
-    return {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${getCookie('access_token') || ''}`,
-        id: getCookie('id') || '',
-    }
-}
-
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const response = await fetch(`/api/backend${path}`, {
         ...init,
-        headers: {
-            ...authHeaders(),
-            ...(init?.headers || {}),
-        },
+        headers: backendRequestHeaders(init?.headers),
     })
     const refreshedToken = response.headers.get('x-access-token')
     const refreshedExpiresAt = response.headers.get('x-access-token-expires-at')
