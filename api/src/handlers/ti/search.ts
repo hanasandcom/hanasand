@@ -13,7 +13,8 @@ export const TI_QUERY_MAX_LENGTH = 200
 export const TI_BATCH_MAX_QUERIES = 25
 
 export default async function postTiSearch(req: FastifyRequest<{ Body: SearchBody }>, res: FastifyReply) {
-    setNoStore(res)
+    res.header('cache-control', 'no-store, max-age=0')
+    res.header('pragma', 'no-cache')
     const presentedCredentials = Boolean(req.headers?.authorization || req.headers?.cookie)
     const auth = presentedCredentials ? await tokenWrapper(req, res) : null
     if (presentedCredentials && (!auth?.valid || !auth.id)) return res.status(401).send({ error: 'Unauthorized.' })
@@ -70,9 +71,4 @@ export function normalizeTiSearchQuery(value: unknown) {
 
 function hasUnexpectedFields(value: unknown, allowed: string[]) {
     return Boolean(value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).some((key) => !allowed.includes(key)))
-}
-
-function setNoStore(res: FastifyReply) {
-    res.header('cache-control', 'no-store, max-age=0')
-    res.header('pragma', 'no-cache')
 }

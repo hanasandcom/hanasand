@@ -130,6 +130,7 @@ describe('public TI API boundary', () => {
             expect(singleResult.payload.query).toBe('APT29')
             expect(singleResult.payload.status).toBe('unavailable')
             expect(singleResult.headers['cache-control']).toBe('no-store, max-age=0')
+            expect(singleResult.headers.pragma).toBe('no-cache')
             for (const field of ['planner', 'graph', 'publicChannel', 'restrictedMetadata', 'darknetMetadata']) {
                 expect(singleResult.payload).not.toHaveProperty(field)
             }
