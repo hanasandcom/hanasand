@@ -56,7 +56,7 @@ assert.equal(shallowSourceGrowth?.sourceReadinessArtifactReady, false)
 assert.equal(shallowSourceGrowth?.sourceProxyVerificationReady, false)
 assert.equal(shallowSourceGrowth?.schemaLookupReady, false)
 assert.equal(shallowSourceGrowth?.receiptMatrixReady, false)
-assert.ok(shallowSourceGrowth?.blockers?.some(blocker => blocker.includes('Source operations readiness proof is missing')), 'Shallow proxy must not pass without source operations proof.')
+assert.equal(shallowSourceGrowth?.status === 'ready', false, 'Missing live operations state must block readiness.')
 assert.ok(shallowSourceGrowth?.backendProofContractVersion?.includes('dwm.source_pack_worker_proxy_verification.v1'), 'Source proof contract stack must name proxy verification.')
 assert.ok(shallowSourceGrowth?.backendProofContractVersion?.includes('ti.api_contract_schema_lookup.v1'), 'Source proof contract stack must name schema lookup.')
 assert.ok(shallowSourceGrowth?.backendProofContractVersion?.includes('hanasand.product_readiness.receipt_matrix.v1'), 'Source proof contract stack must name product readiness receipt matrix.')
@@ -101,6 +101,7 @@ const backedPayload: ProductProgressReadinessPayload = {
                 checks: [{ id: 'safe_output_no_live_network', status: 'pass' }],
             },
             sourceFamilyCounts: { telegram: 3, darkweb_onion: 2 },
+            parserSourceFamilyCounts: { telegram: 2, darkweb_onion: 1 },
         },
         contracts: {
             schemaLookup: {
@@ -135,6 +136,11 @@ const backedPayload: ProductProgressReadinessPayload = {
                 }],
                 safeOutput: { metadataOnly: true, rawEvidenceExposed: false, webhookSecretExposed: false, crossOrgDataExposed: false },
             },
+            productReadinessEndToEndWorkflowPacket: {
+                schemaVersion: 'hanasand.product_readiness.end_to_end_workflow_packet.v1',
+                state: 'ready',
+                steps: [{ stepId: 'source_activation', state: 'ready' }],
+            },
         },
     },
 }
@@ -153,6 +159,8 @@ assert.equal(backedSourceGrowth?.receiptMatrixSafe, true)
 assert.equal(backedSourceGrowth?.receiptMatrixRows, 1)
 assert.equal(backedSourceGrowth?.receiptMatrixBlockedRows, 1)
 assert.equal(backedSourceGrowth?.sourceFamilyCount, 2)
+assert.equal(backedSourceGrowth?.parserSourceFamilyCount, 2)
+assert.equal(backedSourceGrowth?.endToEndWorkflow?.status, 'ready')
 assert.equal(backedSourceGrowth?.unavailableReason, undefined)
 
 console.log('product-progress source proof contract ok')

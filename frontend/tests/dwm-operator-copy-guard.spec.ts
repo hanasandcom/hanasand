@@ -10,7 +10,8 @@ test('dashboard DWM keeps scoped workflow and durable delivery wording', async (
     const dashboardPage = await readFile(path.join(root, 'src/app/dashboard/page.tsx'), 'utf8')
     const workflowActions = await readFile(path.join(root, 'src/app/dashboard/findings/workflow-actions.tsx'), 'utf8')
     const workbench = await readFile(path.join(root, 'src/app/dashboard/ti/workbench/workbenchClient.tsx'), 'utf8')
-    const caseDetail = await readFile(path.join(root, 'src/app/dashboard/cases/[id]/case-detail-client.tsx'), 'utf8')
+    const caseActions = await readFile(path.join(root, 'src/app/dashboard/cases/[id]/case-detail/useCaseDetailActions.ts'), 'utf8')
+    const caseDelivery = await readFile(path.join(root, 'src/app/dashboard/cases/[id]/case-detail/CaseDeliveryPanels.tsx'), 'utf8')
 
     expect(dwmPage).toContain('<Findings')
     expect(dwmPage).toContain('snapshot={loadingSnapshot(tenantId)}')
@@ -47,7 +48,9 @@ test('dashboard DWM keeps scoped workflow and durable delivery wording', async (
     expect(workflowActions).toContain('Webhook test recorded a failed delivery attempt.')
     expect(workbench).toContain('return \'No durable delivery result was returned.\'')
     expect(workbench).not.toContain('Webhook delivery attempted for ${payload.attemptedCount} alert')
-    expect(caseDetail).toContain('Webhook delivery stores the exact report and receipt.')
+    expect(caseActions).toContain('reportFormat: \'stix\'')
+    expect(caseActions).toContain('No durable delivery result was returned.')
+    expect(caseDelivery).toContain('Hanasand receiver receipt')
 
     expect(dashboardPage).not.toContain('DWM alerts returned HTTP')
     expect(dashboardPage).not.toContain('What returned')

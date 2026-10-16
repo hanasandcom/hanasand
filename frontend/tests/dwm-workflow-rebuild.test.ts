@@ -41,7 +41,7 @@ test('case and source workflows require durable identifiers', () => {
 })
 
 test('case detail validates durable updates and notification receipts', async () => {
-    const caseDetail = await readFile(new URL('../src/app/dashboard/cases/[id]/case-detail-client.tsx', import.meta.url), 'utf8')
-    expect(caseDetail).toContain('if (!payload.case || typeof payload.case.id !== \'string\') throw new Error(\'No durable case update was returned.\')')
-    expect(caseDetail).toContain('if (!payload.receipt || typeof payload.receipt.id !== \'string\') throw new Error(\'No durable notification record was returned.\')')
+    const caseActions = await readFile(new URL('../src/app/dashboard/cases/[id]/case-detail/useCaseDetailActions.ts', import.meta.url), 'utf8')
+    expect(caseActions).toContain('if (!payload.case || typeof payload.case.id !== \'string\') throw new Error(\'No durable case update was returned.\')')
+    expect(caseActions).toContain('if (!payload.receipt || typeof payload.receipt.id !== \'string\') throw new Error(\'No durable notification record was returned.\')')
 })
