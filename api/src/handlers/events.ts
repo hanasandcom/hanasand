@@ -722,6 +722,10 @@ function prepareConfiguredFinding(rules: Rule[], organizationId: string, ruleId:
 }
 
 export function collectEventFindings(organizationId: string, eventId: string, event: NormalizedEvent, rules: Rule[], includeRetained = true) {
+    return collectEventFindingsWithEnabledRules(organizationId, eventId, event, rules, includeRetained, enabledRules(event, rules))
+}
+
+function collectEventFindingsWithEnabledRules(organizationId: string, eventId: string, event: NormalizedEvent, rules: Rule[], includeRetained: boolean, enabled: Set<string>) {
     const detectionFindings: FindingInput[] = []
     const matchFindings: FindingInput[] = []
     const insertFinding = (org: string, id: string, severity: string, summary: string, eventIds: string[], evidence: Event) => {
@@ -729,7 +733,6 @@ export function collectEventFindings(organizationId: string, eventId: string, ev
         const destination = prepared.rule && ruleCategory(prepared.rule) === 'match' ? matchFindings : detectionFindings
         destination.push(prepared.finding)
     }
-    const enabled = enabledRules(event, rules)
     for (const rule of matchSecurityRules(event.normalized).filter(rule => enabled.has(rule.id))) {
         insertFinding(organizationId, rule.id, rule.severity, rule.name, [eventId], { process: event.normalized.process, host: event.normalized.host, user: event.normalized.user, eventId })
     }
@@ -771,8 +774,9 @@ export function collectEventFindings(organizationId: string, eventId: string, ev
 }
 
 export async function createFindings(organizationId: string, eventId: string, event: NormalizedEvent, rules: Rule[]) {
-    const authFindings = await collectAuthFindings(organizationId, eventId, event, rules, enabledRules(event, rules))
-    const { detectionFindings, matchFindings } = collectEventFindings(organizationId, eventId, event, rules)
+    const enabled = enabledRules(event, rules)
+    const authFindings = await collectAuthFindings(organizationId, eventId, event, rules, enabled)
+    const { detectionFindings, matchFindings } = collectEventFindingsWithEnabledRules(organizationId, eventId, event, rules, true, enabled)
     await persistEventFindings([...authFindings, ...detectionFindings])
     await persistEventFindings(matchFindings)
 }
