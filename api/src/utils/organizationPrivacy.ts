@@ -607,6 +607,7 @@ export function organizationPrivacyStateReadModel<TOrganization, TRun, TRequest,
     totalRetentionItems: number | string | undefined
     protection: TProtection | undefined
 }) {
+    const nextOffset = input.page.itemOffset + input.items.length
     return {
         schemaVersion: 'organization.privacy_state.v1',
         organization: input.organization,
@@ -616,8 +617,8 @@ export function organizationPrivacyStateReadModel<TOrganization, TRun, TRequest,
         itemPage: {
             offset: input.page.itemOffset,
             limit: input.page.itemLimit,
-            nextOffset: input.page.itemOffset + input.items.length < Number(input.totalRetentionItems ?? 0)
-                ? input.page.itemOffset + input.items.length
+            nextOffset: nextOffset < Number(input.totalRetentionItems ?? 0)
+                ? nextOffset
                 : null,
         },
         protection: {
