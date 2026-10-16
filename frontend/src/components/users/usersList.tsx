@@ -3,7 +3,7 @@
 import { Search, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { isReservedPlaceholder } from '@/utils/users/isReservedPlaceholder'
-import { isManagementSearchShortcut } from './isManagementSearchShortcut'
+import { isManagementSearchShortcut } from '@/utils/isManagementSearchShortcut'
 import DashboardUser from './dashboardUser'
 
 export default function UsersList({ users, accessibleOrganizationIds }: { users: User[], accessibleOrganizationIds: string[] }) {

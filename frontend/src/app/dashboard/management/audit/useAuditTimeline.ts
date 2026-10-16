@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { isManagementSearchShortcut } from '@/utils/isManagementSearchShortcut'
 import { getCookie } from '@/utils/cookies/cookies'
 import config from '@/config'
 import { auditQuery, param, readAuditPage, type AuditEvent, type AuditPage, type AuditSearchParams } from './data'
@@ -166,7 +167,7 @@ export default function useAuditTimeline(initialAudit: AuditPage, filters: Audit
                 setFullscreen(false)
                 return
             }
-            if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'j' || event.repeat || event.altKey || event.shiftKey) return
+            if (!isManagementSearchShortcut(event)) return
             event.preventDefault()
             setSearchOpen(true)
             requestAnimationFrame(() => searchInput.current?.focus())

@@ -8,7 +8,7 @@ import DeleteAccountButton from './deleteAccountButton'
 import AccountDate from './accountDate'
 import ServiceAccountDescription from './serviceAccountDescription'
 import EditServiceAccountButton from './editServiceAccountButton'
-import { isManagementSearchShortcut } from './isManagementSearchShortcut'
+import { isManagementSearchShortcut } from '@/utils/isManagementSearchShortcut'
 
 type Endpoint = { method: string, route: string, label: string }
 type Account = { id: string, name: string, description?: string, active: boolean, created_at: string | null, keys: { lastUsedAt: string | null, scopes: Endpoint[] }[] }

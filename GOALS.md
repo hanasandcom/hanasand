@@ -565,3 +565,30 @@ pass at 2,339 source/config/test files / 156,026 LOC with zero over-limit
 files. These checkpoints improve ownership and test quality but do not provide
 material aggregate LOC reduction; the API 100,000-line reduction and frontend
 10,000–30,000-line target remain unachieved.
+
+After removing the independently verified unreachable frontend component
+closure (27 modules plus two stylesheets, approximately 1,017 source lines),
+the frontend scanner reports 2,311 hand-maintained source/config/test files
+and 154,963 lines, with zero files above 200 lines. The working-tree total is
+1,063 lines lower than the preceding 156,026-line scan; the 10,000–30,000-line
+target remains unmet. The removal was verified against static imports,
+re-exports, dynamic imports and runtime/script references in the deployed
+top-level frontend. The generated search-route output remains excluded.
+
+The organization-list and audit-timeline Cmd/Ctrl+J handlers now share the
+existing tested shortcut predicate from a neutral utility; user-list and
+service-account consumers use the same function. The shortcut contract test,
+scoped ESLint, non-incremental typecheck, full frontend test runner, line-cap
+scan and production build pass. Next generated all 116 static pages and kept
+the application route set. No UI or page-data contract changes were intended.
+
+The API visibility-policy and TI scheduled-job extraction checkpoints are
+committed locally at `a95ad7153` and `20c189efe`. Organization role/helper
+tests, isolated cron cache/automatic-review/runtime/monitor suites, API
+typecheck, scoped ESLint and diff checks pass. The TI job family's extracted
+modules preserve the prior requests, job order, telemetry and projection
+values; its production family grows by 34 LOC. The organization visibility
+family grows by 4 LOC. The integrated repository scan now finds 3,752
+hand-maintained files / 323,064 LOC and 123 over-limit files, down 20 files
+and 1,025 LOC from the preceding scan. API-wide 100,000-line reduction and
+repository-wide file-cap goals remain outstanding.

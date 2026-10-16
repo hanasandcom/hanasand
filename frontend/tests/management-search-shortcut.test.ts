@@ -1,6 +1,6 @@
 // @ts-expect-error Bun provides this module when running tests.
 import { describe, expect, test } from 'bun:test'
-import { isManagementSearchShortcut } from '../src/components/users/isManagementSearchShortcut'
+import { isManagementSearchShortcut } from '../src/utils/isManagementSearchShortcut'
 
 describe('management search shortcut', () => {
     const event = (overrides: Partial<KeyboardEvent> = {}) => ({

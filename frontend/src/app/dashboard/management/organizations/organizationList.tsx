@@ -5,6 +5,7 @@ import { ArrowLeftRight, Search, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import SortIndicator from '@/components/dashboard/sort-indicator'
 import { useWorkspace } from '@/components/organizations/workspaceProvider'
+import { isManagementSearchShortcut } from '@/utils/isManagementSearchShortcut'
 
 type Organization = { id: string, name: string, slug: string, status: string, member_count: number, created_at: string, last_active_at: string | null }
 type SortKey = 'created' | 'lastActive' | 'members' | 'name' | 'slug' | 'status'
@@ -30,7 +31,7 @@ export default function OrganizationList({ organizations }: { organizations: Org
 
     useEffect(() => {
         function onKeyDown(event: KeyboardEvent) {
-            if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'j' || event.repeat || event.altKey || event.shiftKey) return
+            if (!isManagementSearchShortcut(event)) return
             event.preventDefault()
             if (searchOpen) {
                 searchInput.current?.focus()
