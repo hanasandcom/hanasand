@@ -4,6 +4,7 @@ import Fastify from 'fastify'
 let supportSession: Record<string, any> | null = null
 const systemEvents: Array<Record<string, any>> = []
 const queries: Array<{ sql: string, values: unknown[] }> = []
+let failSystemEventWrite = false
 let actor: Record<string, any> = { valid: true, id: 'admin-user' }
 
 const query = async (sql: string, values: unknown[] = []) => {
@@ -11,15 +12,21 @@ const query = async (sql: string, values: unknown[] = []) => {
     if (sql.includes('FROM users') && sql.includes('deletion_scheduled_at IS NULL')) {
         return { rows: [{ id: 'target-user', name: 'Target User', avatar: null }] }
     }
+    if (sql.includes('FROM impersonation_sessions s')) {
+        return { rows: [{ id: 'impersonation-1', actor_id: 'admin-user', object_id: 'target-user', target_name: 'Target User', reason: 'Support review', audit_context: { scope: [], organizationId: null } }] }
+    }
     if (sql.includes('FROM system_events')) return { rows: [{ id: 731 }] }
     throw new Error(`Unexpected impersonation start query: ${sql}`)
 }
 
-mock.module('#db', () => ({ default: query }))
+mock.module('#db', () => ({ default: query, isTransientDatabaseError: () => false }))
 mock.module('#utils/auth/tokenWrapper.ts', () => ({ default: async () => actor }))
 mock.module('#utils/systemEvent.ts', () => ({
     actorHasHanasandInternalAccess: async () => true,
-    recordSystemEvent: async (_req: unknown, event: Record<string, any>) => { systemEvents.push(event) },
+    recordSystemEvent: async (_req: unknown, event: Record<string, any>) => {
+        if (failSystemEventWrite) throw new Error('audit store unavailable')
+        systemEvents.push(event)
+    },
     requireAuditReason: (value: unknown, label: string) => {
         const reason = typeof value === 'string' ? value.trim() : ''
         if (reason.length < 10) throw new Error(`${label} must be at least 10 characters.`)
@@ -29,8 +36,17 @@ mock.module('#utils/systemEvent.ts', () => ({
 mock.module('#utils/support/supportSessionState.ts', () => ({ loadSupportSessionState: async () => supportSession }))
 
 const { startImpersonation } = await import('../src/handlers/impersonation.ts')
+const tokenWrapper = (await import('../src/utils/auth/tokenWrapper.ts?scope-audit-test')).default
 const app = Fastify({ logger: false })
 app.post('/impersonation/start', startImpersonation)
+app.get('/api/profile', async (req, res) => {
+    const auth = await tokenWrapper(req, res, async () => ({
+        user: { id: 'admin-user', name: 'Admin', avatar: null, active: true },
+        session: { token_id: 1, id: 'admin-user', token: 'actor-token', ip: '', user_agent: '', created_at: '', timestamp: '' },
+        refreshed: { token: 'refreshed-token', expires_at: '2030-01-01T00:00:00.000Z' },
+    }))
+    return res.status(auth.valid ? 200 : 403).send(auth)
+})
 
 function expectDeniedEventLookup(requestId: string, entityId: string) {
     expect(queries).toHaveLength(2)
@@ -44,7 +60,25 @@ beforeEach(() => {
     supportSession = null
     systemEvents.length = 0
     queries.length = 0
+    failSystemEventWrite = false
     actor = { valid: true, id: 'admin-user' }
+})
+
+test('scope denial remains enforced when its audit write fails', async () => {
+    failSystemEventWrite = true
+
+    const response = await app.inject({
+        method: 'GET',
+        url: '/api/profile',
+        headers: {
+            authorization: 'Bearer actor-token',
+            id: 'admin-user',
+            'x-impersonation-token': 'impersonation-token',
+        },
+    })
+
+    expect(response.statusCode).toBe(403)
+    expect(response.json()).toMatchObject({ valid: false, impersonating: true, error: 'Impersonation scope does not allow this request.' })
 })
 
 test('impersonating actors cannot start a nested impersonation', async () => {

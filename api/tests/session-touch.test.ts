@@ -51,6 +51,7 @@ test('parallel session validation delegates each request to Identity and returns
     expect(calls).toHaveLength(10)
     expect(calls.every(({ url, init }) => url.endsWith('/api/auth/internal/sessions')
         && init.method === 'POST'
+        && init.signal instanceof AbortSignal
         && (init.headers as Record<string, string>).Authorization === `Bearer ${serviceToken}`
         && JSON.parse(String(init.body)).operation === 'validate'
         && JSON.parse(String(init.body)).token === token)).toBe(true)
@@ -69,5 +70,15 @@ test('invalid or expired Identity sessions remain unauthenticated', async () => 
     result = null
 
     expect(await validateSession({ id: 'member', token: randomUUID() })).toBeNull()
+    expect(calls).toHaveLength(1)
+})
+
+test('Identity service failures propagate instead of becoming unauthenticated sessions', async () => {
+    responseStatus = 503
+    result = null
+
+    await expect(validateSession({ id: 'member', token: randomUUID() }))
+        .rejects.toThrow('Identity session operation failed (503).')
+
     expect(calls).toHaveLength(1)
 })

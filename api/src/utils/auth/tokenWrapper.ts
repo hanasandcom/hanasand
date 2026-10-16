@@ -177,6 +177,8 @@ async function auditImpersonationScopeDenied(req: FastifyRequest, session: Imper
             blockerCode: 'impersonation_scope_denied',
             noSilentImpersonation: true,
         },
+    }).catch(error => {
+        req.log.warn({ error, actorId: session.actor_id, targetId: session.object_id, method, path }, 'Failed to audit denied impersonation request')
     })
 }
 
