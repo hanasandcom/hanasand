@@ -1,5 +1,6 @@
 import { Play, Trash2 } from 'lucide-react'
 import requestColor from './requestColor'
+import { shortUrlLabel } from './requestPresentation'
 import { RequestHistoryEntry } from './types'
 
 type RecentRequestProps = {
@@ -79,13 +80,4 @@ export default function RecentRequest({ req, active, onClick, onRun, onDelete }:
             </div>
         </div>
     )
-}
-
-function shortUrlLabel(value: string) {
-    try {
-        const url = new URL(value)
-        return `${url.host}${url.pathname}${url.search}`
-    } catch {
-        return value
-    }
 }
