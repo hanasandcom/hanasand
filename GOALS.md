@@ -7,7 +7,7 @@ contracts match, and maintainable tests while preserving existing product
 behavior and features. Reduce duplicated and ineffective code; keep measuring
 source, tests, generated output, and configuration separately against the
 recorded baseline. The API source reduction target remains at least 100,000 lines without
-feature loss. The frontend is also in scope: reduce its current 155,370
+feature loss. The frontend is also in scope: reduce its current 155,429
 hand-maintained lines to no more than 30,000, aiming for 10,000–30,000 where
 that preserves clear ownership and complete functionality. Keep rendered UI,
 interactions, accessibility behavior, and page data contracts stable. Prefer
@@ -646,3 +646,16 @@ scoped ESLint pass. The inventory is 2,316 hand-maintained frontend files /
 323,471 LOC / 123 over 200, all outside the frontend. The production component
 change is a small consistency improvement; the frontend's 10,000–30,000 LOC
 objective and the repository-wide cap remain unmet.
+
+The repository-to-share workflows now use one shared parent-folder traversal
+and folder-tree registration helper across scaffold, sync, and import. Their
+combined production family falls from 402 to 329 LOC (−73). Tests preserve
+12-character scaffold IDs, default sync/import IDs, import-root-first order,
+folder reuse/deduplication, progress ordering, and path-specific failures. The
+focused workflow and adjacent template/prune tests pass; so do the full
+frontend suite, non-incremental typecheck, scoped ESLint, cap scan, and Next
+production build (116 static pages). The frontend inventory is 2,318 files /
+155,429 LOC / zero over 200. Repository inventory is 3,759 files / 323,530 LOC
+/ 123 over 200, all outside frontend. This is a verified production LOC
+reduction, while the 10,000–30,000-line frontend and 100,000-line API targets
+remain unmet.

@@ -4,6 +4,7 @@ import postShare from '@/utils/share/post'
 import { updateShare } from '@/utils/share/put'
 import { findTreeFileId } from '@/components/ai/shareTree'
 import { pruneRemovedEntries } from './syncRepositoryPrune'
+import { ensureRepositoryParentFolder, registerRepositoryFolders } from './repositoryShareFolders'
 
 type SyncRepositoryToShareProps = {
     repo: AIImportedRepo
@@ -28,12 +29,12 @@ export async function syncRepositoryToShare({
     }
 
     const folderIds = new Map<string, string>([['', repo.id]])
-    registerFolders(tree, '', folderIds)
+    registerRepositoryFolders(tree, '', folderIds)
 
     let syncedFiles = 0
     onProgress?.({ syncedFiles, totalFiles: repo.files.length, currentPath: null })
     for (const file of repo.files) {
-        const parentId = await ensureParentFolder({
+        const parentId = await ensureRepositoryParentFolder({
             folderIds,
             filePath: file.path,
             rootId: repo.id,
@@ -78,63 +79,6 @@ export async function syncRepositoryToShare({
     })
     await updateShare(repo.id, { path: repo.fullName })
     return repo.id
-}
-
-async function ensureParentFolder({
-    folderIds,
-    filePath,
-    rootId,
-    token,
-    userId,
-}: {
-    folderIds: Map<string, string>
-    filePath: string
-    rootId: string
-    token: string
-    userId: string
-}) {
-    const directories = filePath.split('/').filter(Boolean).slice(0, -1)
-    let parentId = rootId
-    let currentPath = ''
-
-    for (const directory of directories) {
-        currentPath = currentPath ? `${currentPath}/${directory}` : directory
-        const existingFolderId = folderIds.get(currentPath)
-        if (existingFolderId) {
-            parentId = existingFolderId
-            continue
-        }
-
-        const folderId = randomId()
-        const response = await postShare({
-            id: folderId,
-            includeTree: false,
-            content: '',
-            name: directory,
-            parent: parentId,
-            type: 'folder',
-            token,
-            userId,
-        })
-        if (!response) {
-            throw new Error(`Failed to create folder ${currentPath}.`)
-        }
-
-        folderIds.set(currentPath, folderId)
-        parentId = folderId
-    }
-
-    return parentId
-}
-
-function registerFolders(tree: Tree, prefix: string, folderIds: Map<string, string>) {
-    for (const item of tree) {
-        const path = prefix ? `${prefix}/${item.name}` : item.name
-        if (item.type === 'folder') {
-            folderIds.set(path, item.id)
-            registerFolders(item.children, path, folderIds)
-        }
-    }
 }
 
 async function importRepositoryToShareFallback({

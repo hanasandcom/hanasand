@@ -4,6 +4,7 @@ import { getTree } from '@/utils/share/getTree'
 import postShare from '@/utils/share/post'
 import { updateShare } from '@/utils/share/put'
 import type { NextjsDockerTemplate, WorkspaceTemplateFile } from './nextjsDockerTemplate'
+import { ensureRepositoryParentFolder, registerRepositoryFolders } from './repositoryShareFolders'
 
 type ShareAccess = {
     rootId: string
@@ -37,16 +38,17 @@ export async function syncTemplateFiles({
 }: ShareAccess & { files: WorkspaceTemplateFile[] }) {
     const initialTree = await getTree({ id: rootId, token, userId })
     const folderIds = new Map<string, string>([['', rootId]])
-    if (initialTree) registerFolders(initialTree, '', folderIds)
+    if (initialTree) registerRepositoryFolders(initialTree, '', folderIds)
 
     for (const file of files) {
         const latestTree = await getTree({ id: rootId, token, userId })
-        const parentId = await ensureParentFolder({
+        const parentId = await ensureRepositoryParentFolder({
             folderIds,
             filePath: file.path,
             rootId,
             token,
             userId,
+            idLength: 12,
         })
         const fileId = latestTree ? findTreeFileId(latestTree, file.path) : null
 
@@ -100,55 +102,4 @@ async function createWorkspaceRoot({
         token,
         userId,
     })
-}
-
-async function ensureParentFolder({
-    folderIds,
-    filePath,
-    rootId,
-    token,
-    userId,
-}: ShareAccess & {
-    folderIds: Map<string, string>
-    filePath: string
-}) {
-    const directories = filePath.split('/').filter(Boolean).slice(0, -1)
-    let parentId = rootId
-    let currentPath = ''
-
-    for (const directory of directories) {
-        currentPath = currentPath ? `${currentPath}/${directory}` : directory
-        const existingFolderId = folderIds.get(currentPath)
-        if (existingFolderId) {
-            parentId = existingFolderId
-            continue
-        }
-
-        const folderId = randomId(12)
-        const response = await postShare({
-            id: folderId,
-            includeTree: false,
-            content: '',
-            name: directory,
-            parent: parentId,
-            type: 'folder',
-            token,
-            userId,
-        })
-        if (!response) throw new Error(`Failed to create folder ${currentPath}.`)
-
-        folderIds.set(currentPath, folderId)
-        parentId = folderId
-    }
-
-    return parentId
-}
-
-function registerFolders(tree: Tree, prefix: string, folderIds: Map<string, string>) {
-    for (const item of tree) {
-        const path = prefix ? `${prefix}/${item.name}` : item.name
-        if (item.type !== 'folder') continue
-        folderIds.set(path, item.id)
-        registerFolders(item.children, path, folderIds)
-    }
 }

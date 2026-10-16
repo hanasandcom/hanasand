@@ -50,6 +50,7 @@ export const productTasks: TestTask[] = [
     { id: 'dwm-readiness-proxy-routes', title: 'DWM readiness and exposure routes preserve authoritative proxy data', command: [bun, 'test', 'tests/dwm-readiness-proxy-routes.test.ts'] },
     { id: 'thesis-editor-model', title: 'Thesis editor recovery, undo and transport behavior', command: [bun, 'test', 'tests/thesis-editor-model.test.ts'] },
     { id: 'scaffold-workspace-template', title: 'AI project starter template contract', command: [bun, 'test', 'tests/scaffold-workspace-template.test.ts'] },
+    { id: 'repository-share-folder-workflows', title: 'Repository workspace folder reuse across scaffold, sync and import', command: [bun, 'test', 'tests/repository-share-folder-workflows.test.ts'] },
     { id: 'share-workspace-search', title: 'Share workspace search and replace', command: [bun, 'x', 'playwright', 'test', 'tests/share-workspace-search.spec.ts'], requires: 'playwright' },
     { id: 'homepage-activity-cache', title: 'Homepage activity cache compatibility', command: [bun, 'test', 'tests/homepage-activity-cache.test.ts'] },
     { id: 'support-ui', title: 'AI support, human handoff and internal queue layout', command: [bun, 'x', 'playwright', 'test', 'tests/support-ai.spec.ts', 'tests/support-layout.spec.ts', 'tests/support-floating.spec.ts', 'tests/support-realtime.spec.ts', 'tests/support-resolved.spec.ts', 'tests/support-feedback-speed.spec.ts', '--workers=2'], requires: 'playwright' },

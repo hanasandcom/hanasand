@@ -1,5 +1,6 @@
 import randomId from '@/utils/random/randomId'
 import postShare from '@/utils/share/post'
+import { ensureRepositoryParentFolder } from './repositoryShareFolders'
 
 type ImportRepositoryToShareProps = {
     repo: AIImportedRepo
@@ -37,36 +38,7 @@ export async function importRepositoryToShare({
     onProgress?.({ syncedFiles, totalFiles: repo.files.length, currentPath: null })
     for (const file of repo.files) {
         const segments = file.path.split('/').filter(Boolean)
-        const directories = segments.slice(0, -1)
-        let parentId = repo.id
-        let currentPath = ''
-
-        for (const directory of directories) {
-            currentPath = currentPath ? `${currentPath}/${directory}` : directory
-            const existingFolderId = folderIds.get(currentPath)
-            if (existingFolderId) {
-                parentId = existingFolderId
-                continue
-            }
-
-            const folderId = randomId()
-            const response = await postShare({
-                id: folderId,
-                includeTree: false,
-                content: '',
-                name: directory,
-                parent: parentId,
-                type: 'folder',
-                token,
-                userId,
-            })
-            if (!response) {
-                throw new Error(`Failed to create folder ${currentPath}.`)
-            }
-
-            folderIds.set(currentPath, folderId)
-            parentId = folderId
-        }
+        const parentId = await ensureRepositoryParentFolder({ folderIds, filePath: file.path, rootId: repo.id, token, userId })
 
         const name = segments.at(-1)
         if (!name) {
