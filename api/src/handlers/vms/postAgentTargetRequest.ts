@@ -1,4 +1,4 @@
-import { hasVmAccess } from '#utils/vms/access.ts'
+import { canAccessVm } from '#utils/vms/access.ts'
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import hasHanasandInternalRouteAccess from '#utils/auth/organizationPageAccess.ts'
@@ -61,8 +61,7 @@ export default async function postAgentTargetRequest(req: FastifyRequest, res: F
             return res.status(404).send({ error: 'VM not found.' })
         }
 
-        const canAccess =
-            isAdmin || await hasVmAccess(vm.name, userId, true)
+        const canAccess = await canAccessVm(vm.name, userId, { isAdmin, manage: true })
 
         if (!canAccess) {
             return res.status(403).send({ error: 'Forbidden.' })

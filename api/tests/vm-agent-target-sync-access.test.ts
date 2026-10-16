@@ -31,11 +31,11 @@ mock.module('../src/utils/auth/organizationPageAccess.ts', () => ({
 mock.module('../src/utils/db.ts', () => ({
     default: async (sql: string, params?: unknown[]) => {
         queries.push({ sql, params })
-        return { rows: sql.includes('WHERE v.name = $1') && params?.[0] === vm.name ? [structuredClone(vm)] : [] }
+        if (sql.includes('WHERE v.name = $1') && params?.[0] === vm.name) return { rows: [structuredClone(vm)] }
+        if (sql.includes('SELECT vm_user_can_manage($1, $2) AS allowed')) return { rows: [{ allowed: manageableUsers.has(String(params?.[1])) }] }
+        if (sql.includes('SELECT vm_user_has_access($1, $2) AS allowed')) return { rows: [{ allowed: true }] }
+        return { rows: [] }
     },
-}))
-mock.module('../src/utils/vms/access.ts', () => ({
-    hasVmAccess: async (_name: string, userId: string, manage = false) => !manage || manageableUsers.has(userId),
 }))
 mock.module('../src/utils/vms/syncUserCertificatesToVm.ts', () => ({
     default: async ({ vmName, userIds }: { vmName: string, userIds: string[] }) => {

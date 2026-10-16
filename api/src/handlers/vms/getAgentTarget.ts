@@ -1,4 +1,4 @@
-import { hasVmAccess } from '#utils/vms/access.ts'
+import { canAccessVm } from '#utils/vms/access.ts'
 import { withLiveVmStatus } from '#utils/vms/status.ts'
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
@@ -26,8 +26,7 @@ export default async function getAgentTarget(req: FastifyRequest, res: FastifyRe
             return res.status(404).send({ error: 'VM not found.' })
         }
 
-        const canAccess =
-            isAdmin || await hasVmAccess(vm.name, userId)
+        const canAccess = await canAccessVm(vm.name, userId, { isAdmin })
 
         if (!canAccess) {
             return res.status(403).send({ error: 'Forbidden.' })

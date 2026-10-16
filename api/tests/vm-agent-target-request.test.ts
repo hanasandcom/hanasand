@@ -10,7 +10,6 @@ const vm = {
     device_eth0_ipv4_address: '192.0.2.10',
 }
 const queries: Array<{ sql: string, params?: unknown[] }> = []
-const accessChecks: Array<{ userId: string, manage: boolean }> = []
 const fetchCalls: Array<{ url: string, init?: RequestInit }> = []
 let hasManageAccess = false
 const previousFetch = globalThis.fetch
@@ -24,13 +23,9 @@ mock.module('../src/utils/auth/organizationPageAccess.ts', () => ({
 mock.module('../src/utils/db.ts', () => ({
     default: async (sql: string, params?: unknown[]) => {
         queries.push({ sql, params })
+        if (sql.includes('SELECT vm_user_can_manage($1, $2) AS allowed')) return { rows: [{ allowed: hasManageAccess }] }
+        if (sql.includes('SELECT vm_user_has_access($1, $2) AS allowed')) return { rows: [{ allowed: true }] }
         return { rows: sql.includes('WHERE v.name = $1') ? [vm] : [] }
-    },
-}))
-mock.module('../src/utils/vms/access.ts', () => ({
-    hasVmAccess: async (_name: string, userId: string, manage = false) => {
-        accessChecks.push({ userId, manage })
-        return manage ? hasManageAccess : userId === 'owner' || userId === 'member'
     },
 }))
 mock.module('../src/constants.ts', () => ({
@@ -51,7 +46,6 @@ app.post('/vm/:id/request', postAgentTargetRequest)
 
 beforeEach(() => {
     queries.length = 0
-    accessChecks.length = 0
     fetchCalls.length = 0
     hasManageAccess = false
 })
@@ -70,7 +64,10 @@ test('VM request proxy requires manage access even when the caller can read the 
 
     expect(response.statusCode).toBe(403)
     expect(response.json()).toEqual({ error: 'Forbidden.' })
-    expect(accessChecks).toEqual([{ userId: 'member', manage: true }])
+    expect(queries.filter(query => query.sql.includes('SELECT vm_user_can_manage($1, $2) AS allowed'))).toEqual([{
+        sql: 'SELECT vm_user_can_manage($1, $2) AS allowed',
+        params: ['private-vm', 'member'],
+    }])
     expect(queries.some(query => query.sql.includes('INSERT INTO ai_agent_action_audit'))).toBe(false)
     expect(fetchCalls).toHaveLength(0)
 })

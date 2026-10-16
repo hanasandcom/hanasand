@@ -18,7 +18,7 @@ export async function requireVmAccess(req: FastifyRequest, res: FastifyReply, na
     if (!vm) {
         res.status(404).send({ error: 'VM not found.' }); return null
     }
-    const canAccess = viewer.admin || await hasVmAccess(vm.name, viewer.id, manage)
+    const canAccess = await canAccessVm(vm.name, viewer.id, { isAdmin: viewer.admin, manage })
     if (!canAccess) {
         res.status(404).send({ error: 'VM not found.' }); return null
     }
@@ -29,4 +29,8 @@ export async function requireVmAccess(req: FastifyRequest, res: FastifyReply, na
 export async function hasVmAccess(name: string, userId: string, manage = false) {
     const result = await run(manage ? 'SELECT vm_user_can_manage($1, $2) AS allowed' : 'SELECT vm_user_has_access($1, $2) AS allowed', [name, userId])
     return result.rows[0]?.allowed === true
+}
+
+export async function canAccessVm(name: string, userId: string, options: { isAdmin: boolean, manage?: boolean }) {
+    return options.isAdmin || await hasVmAccess(name, userId, options.manage)
 }

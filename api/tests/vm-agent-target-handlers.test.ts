@@ -28,16 +28,17 @@ mock.module('../src/utils/db.ts', () => ({
     default: async (sql: string, params?: unknown[]) => {
         queries.push({ sql, params })
         if (sql.includes('WHERE v.name = $1')) return { rows: vms.filter(vm => vm.name === params?.[0]) }
+        if (sql.includes('SELECT vm_user_has_access($1, $2) AS allowed')) {
+            const userId = String(params?.[1])
+            return { rows: [{ allowed: vms.some(vm => vm.name === params?.[0] && (
+                vm.owner === userId || vm.created_by === userId || vm.access_users.includes(userId)
+            )) }] }
+        }
         if (sql.includes('vm_user_has_access(v.name, $1)')) {
             return { rows: vms.filter(vm => vm.owner === params?.[0] || vm.created_by === params?.[0] || vm.access_users.includes(String(params?.[0]))) }
         }
         return { rows: vms }
     },
-}))
-mock.module('../src/utils/vms/access.ts', () => ({
-    hasVmAccess: async (name: string, userId: string) => vms.some(vm => vm.name === name && (
-        vm.owner === userId || vm.created_by === userId || vm.access_users.includes(userId)
-    )),
 }))
 mock.module('../src/utils/vms/status.ts', () => ({
     withLiveVmStatus: async (vm: AgentTargetVmRow) => vm,
@@ -88,4 +89,5 @@ test('single target allows explicit member access, denies unrelated members, and
     expect(admin.statusCode).toBe(200)
     expect(admin.json().capabilities.canManage).toBe(true)
     expect(admin.json().capabilities.canConnect).toBe(false)
+    expect(queries.filter(query => query.sql.includes('SELECT vm_user_has_access($1, $2) AS allowed'))).toHaveLength(2)
 })
