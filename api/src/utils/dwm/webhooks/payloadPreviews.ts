@@ -1,8 +1,32 @@
+import crypto from 'node:crypto'
+import type { DwmWebhookDestinationRow } from '../webhookDestinationTypes.ts'
 import type { DwmAlertEventType } from '../webhookDestinationTypes.ts'
 import type { toDwmWebhookDelivery } from '../webhookDestinationModels.ts'
 import { clean, cleanList, recordOrEmpty } from '../webhookValueUtils.ts'
 import { dedupeFromIdempotencyKey, parseCount, redactDeliveryEvidenceText, truncate } from '../webhookDeliveryUtilities.ts'
 import { DISCORD_CONTENT_LIMIT, DISCORD_EMBED_DESCRIPTION_LIMIT, DISCORD_EMBED_FIELD_LIMIT, DISCORD_EMBED_TITLE_LIMIT } from './discordPayloadLimits.ts'
+
+export function buildDwmWebhookTestAlert(destination: Pick<DwmWebhookDestinationRow, 'org_id'>, testId: string = crypto.randomUUID()) {
+    return {
+        id: testId ? `webhook_test_${testId}` : 'webhook_test',
+        orgName: destination.org_id,
+        title: 'Hanasand delivery test',
+        severity: 'medium',
+        claimSummary: 'This is an example message from Hanasand to test your delivery destination.',
+        recommendedAction: 'No action is needed.',
+        matchedTerm: { value: 'example.com', kind: 'domain' },
+        domain: 'example.com',
+        sourceFamily: 'dark_web',
+        artifactType: 'test_notification',
+        route: 'test_delivery',
+        casePath: '/dwm',
+        watchlist: {
+            id: 'test-watchlist',
+            name: 'Webhook test watchlist',
+            terms: ['example.com'],
+        },
+    }
+}
 
 type DwmWebhookDeliveryPublic = ReturnType<typeof toDwmWebhookDelivery>
 

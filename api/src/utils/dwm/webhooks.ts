@@ -24,7 +24,8 @@ import { buildDwmWebhookDeliveryPreview, buildDwmWebhookDeliveryOperationLinks }
 import { buildDwmAlertDeliveryPayload } from './webhooks/alertDeliveryPayload.ts'
 import { workflowSummary } from './webhooks/discordTemplate.ts'
 export { buildDwmAlertDeliveryPayload } from './webhooks/alertDeliveryPayload.ts'
-import { buildDwmWebhookDestinationTestPayloadPreview } from './webhooks/payloadPreviews.ts'
+import { buildDwmWebhookTestAlert, buildDwmWebhookDestinationTestPayloadPreview } from './webhooks/payloadPreviews.ts'
+export { buildDwmWebhookTestAlert } from './webhooks/payloadPreviews.ts'
 export { buildDwmWebhookDeliveryPreview } from './webhooks/deliveryPreview.ts'
 import type {
     DwmAlertEventType,
@@ -7031,28 +7032,6 @@ async function countDwmWebhookDeliveryAttempts(
     `, [orgId, destinationId, idempotencyKey])
 
     return Number(result.rows[0]?.count ?? 0)
-}
-
-export function buildDwmWebhookTestAlert(destination: Pick<DwmWebhookDestinationRow, 'org_id'>, testId: string = crypto.randomUUID()) {
-    return {
-        id: testId ? `webhook_test_${testId}` : 'webhook_test',
-        orgName: destination.org_id,
-        title: 'Hanasand delivery test',
-        severity: 'medium',
-        claimSummary: 'This is an example message from Hanasand to test your delivery destination.',
-        recommendedAction: 'No action is needed.',
-        matchedTerm: { value: 'example.com', kind: 'domain' },
-        domain: 'example.com',
-        sourceFamily: 'dark_web',
-        artifactType: 'test_notification',
-        route: 'test_delivery',
-        casePath: '/dwm',
-        watchlist: {
-            id: 'test-watchlist',
-            name: 'Webhook test watchlist',
-            terms: ['example.com'],
-        },
-    }
 }
 
 function destinationReadinessBlockers({
