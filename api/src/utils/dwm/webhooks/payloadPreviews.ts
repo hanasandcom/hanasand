@@ -2,11 +2,7 @@ import type { DwmAlertEventType } from '../webhookDestinationTypes.ts'
 import type { toDwmWebhookDelivery } from '../webhookDestinationModels.ts'
 import { clean, cleanList, recordOrEmpty } from '../webhookValueUtils.ts'
 import { dedupeFromIdempotencyKey, parseCount, redactDeliveryEvidenceText, truncate } from '../webhookDeliveryUtilities.ts'
-
-export const DISCORD_CONTENT_LIMIT = 2000
-export const DISCORD_EMBED_TITLE_LIMIT = 256
-export const DISCORD_EMBED_DESCRIPTION_LIMIT = 4096
-export const DISCORD_EMBED_FIELD_LIMIT = 25
+import { DISCORD_CONTENT_LIMIT, DISCORD_EMBED_DESCRIPTION_LIMIT, DISCORD_EMBED_FIELD_LIMIT, DISCORD_EMBED_TITLE_LIMIT } from './discordPayloadLimits.ts'
 
 type DwmWebhookDeliveryPublic = ReturnType<typeof toDwmWebhookDelivery>
 

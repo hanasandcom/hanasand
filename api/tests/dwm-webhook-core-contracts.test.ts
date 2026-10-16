@@ -33,6 +33,37 @@ test('Discord payloads stay within wire limits and omit endpoint credentials', (
     expect(JSON.stringify(payload)).not.toContain('webhook-secret-sentinel')
 })
 
+test('Discord delivery fields match the published template order', () => {
+    const payload = buildDwmAlertDeliveryPayload({
+        destination: { id: destination.id, kind: destination.kind, name: destination.name, org_id: orgId },
+        eventType: 'dwm.alert.created',
+        deliveryId: 'delivery_template_contract',
+        alert,
+    }) as Record<string, any>
+    const template = payload._hanasand.discordTemplate
+
+    expect(payload.embeds[0].fields.map((field: { name: string }) => field.name)).toEqual([
+        'Organization', 'Severity', 'Company / domain', 'Match reason', 'Observed at', 'Watchlist',
+        'Source family', 'Confidence', 'Evidence count', 'Evidence timestamp', 'Evidence summary',
+        'Route', 'Workflow', 'Delivery state', 'Dedupe key', 'Case', 'Alert URL', 'Analyst link',
+        'Provenance', 'Recommended action',
+    ])
+    expect(template.requiredFields).toEqual([
+        'Organization', 'Severity', 'Company / domain', 'Match reason', 'Observed at', 'Watchlist',
+        'Source family', 'Evidence count', 'Evidence timestamp', 'Workflow', 'Delivery state', 'Dedupe key',
+    ])
+    expect(template.fieldOrder).toEqual([
+        'Organization', 'Severity', 'Company / domain', 'Match reason', 'Observed at', 'Watchlist',
+        'Source family', 'Confidence', 'Evidence count', 'Evidence timestamp', 'Evidence summary',
+        'Route', 'Workflow', 'Delivery state', 'Dedupe key', 'Case ID', 'Case', 'Case action',
+        'Alert URL', 'Analyst link', 'Provenance', 'Recommended action',
+    ])
+    expect(template.optionalFields).toEqual([
+        'Confidence', 'Evidence summary', 'Case ID', 'Case', 'Case action', 'Alert URL',
+        'Analyst link', 'Provenance', 'Recommended action',
+    ])
+})
+
 test('dispatch selects only subscribed active destinations in the alert organization', () => {
     const plan = buildDwmAlertWebhookDispatchPlan({
         ownerId,

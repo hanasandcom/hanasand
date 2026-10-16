@@ -1,4 +1,5 @@
 import crypto from 'node:crypto'
+import { DISCORD_CONTENT_LIMIT, DISCORD_EMBED_DESCRIPTION_LIMIT, DISCORD_EMBED_FIELD_LIMIT, DISCORD_EMBED_FIELD_NAME_LIMIT, DISCORD_EMBED_FIELD_VALUE_LIMIT, DISCORD_EMBED_TITLE_LIMIT } from './webhooks/discordPayloadLimits.ts'
 import {
     buildDwmAlertWebhookDispatchPlan,
     buildDwmAlertWebhookDispatchPlanForAlert,
@@ -20,8 +21,10 @@ export type { DwmAlertWebhookDispatchPlan, DwmAlertWebhookMissingDeliveryIntent,
 import { buildDwmAlertWebhookNotificationInput, buildDwmWebhookDeliveryRequestInput } from './webhooks/notificationInput.ts'
 export { buildDwmAlertWebhookNotificationInput, buildDwmWebhookDeliveryRequestInput } from './webhooks/notificationInput.ts'
 import { buildDwmWebhookDeliveryPreview, buildDwmWebhookDeliveryOperationLinks } from './webhooks/deliveryPreview.ts'
+import { buildDwmAlertDeliveryPayload } from './webhooks/alertDeliveryPayload.ts'
+import { workflowSummary } from './webhooks/discordTemplate.ts'
+export { buildDwmAlertDeliveryPayload } from './webhooks/alertDeliveryPayload.ts'
 import { buildDwmWebhookDestinationTestPayloadPreview } from './webhooks/payloadPreviews.ts'
-import { DISCORD_CONTENT_LIMIT, DISCORD_EMBED_DESCRIPTION_LIMIT, DISCORD_EMBED_FIELD_LIMIT, DISCORD_EMBED_TITLE_LIMIT } from './webhooks/payloadPreviews.ts'
 export { buildDwmWebhookDeliveryPreview } from './webhooks/deliveryPreview.ts'
 import type {
     DwmAlertEventType,
@@ -220,10 +223,6 @@ export type DwmWebhookDestinationCrudBlockerCode =
     | 'retry_not_eligible'
 
 export type DwmWebhookEvidenceVisibilityInput = OrganizationVisibilityDecisionInput
-
-const DISCORD_EMBED_FIELD_NAME_LIMIT = 256
-const DISCORD_EMBED_FIELD_VALUE_LIMIT = 1024
-const DISCORD_EMBED_FOOTER_TEXT_LIMIT = 2048
 
 type DwmWebhookDeliveryPublic = ReturnType<typeof toDwmWebhookDelivery>
 type DwmWebhookAuditPublic = ReturnType<typeof toDwmWebhookAuditEvent>
@@ -6549,251 +6548,6 @@ export async function triggerDwmAlertWebhookNotification(
     return deliverDwmAlertNotification(ownerId, buildDwmAlertWebhookNotificationInput(alert, options))
 }
 
-export function buildDwmAlertDeliveryPayload({
-    destination,
-    alert,
-    eventType,
-    deliveryId = crypto.randomUUID(),
-}: {
-    destination: Pick<DwmWebhookDestinationRow, 'id' | 'kind' | 'name' | 'org_id'>
-    alert: Record<string, unknown>
-    eventType: DwmAlertEventType
-    deliveryId?: string
-}) {
-    const reportValidation = alert.report === undefined ? undefined : validateOutboundThirdPartyReport(alert.report)
-    if (reportValidation && !reportValidation.valid) throw new Error(`Invalid outbound third-party report: ${reportValidation.error}`)
-    const report = reportValidation?.report
-    const normalizedAlert = normalizeAlert(alert)
-    const watchlist = normalizeWatchlist(alert.watchlist)
-    const idempotencyKey = buildIdempotencyKey(eventType, destination.org_id, destination.id, normalizedAlert.dedupeKey || normalizedAlert.id)
-    const displayDedupeKey = normalizedAlert.dedupeKey || idempotencyKey
-    const analystLink = normalizedAlert.alertUrl || normalizedAlert.casePath
-    const matchReason = matchReasonSummary(normalizedAlert)
-    const alertContext = {
-        ...normalizedAlert,
-        matchReason,
-    }
-    const discordTemplate = buildDwmDiscordPayloadTemplateProof({
-        eventType,
-        normalizedAlert: alertContext,
-        watchlist,
-        analystLink,
-        idempotencyKey,
-    })
-    const context = {
-        schemaVersion: 'dwm.webhook.v1',
-        eventType,
-        occurredAt: normalizedAlert.eventTimestamp,
-        discordTemplate,
-        idempotencyKey,
-        org: {
-            id: destination.org_id,
-            name: clean(alert.orgName) || clean(alert.organizationName) || destination.org_id,
-            tenantId: normalizedAlert.tenantId,
-        },
-        destination: {
-            id: destination.id,
-            name: destination.name,
-            kind: destination.kind,
-        },
-        report,
-        alert: alertContext,
-        watchlist,
-        delivery: {
-            id: deliveryId,
-            replay: eventType === 'dwm.alert.replayed',
-            eventType,
-            dryRunDefault: true,
-            route: normalizedAlert.route,
-            casePath: normalizedAlert.casePath,
-            alertUrl: normalizedAlert.alertUrl,
-            caseActionId: normalizedAlert.caseActionId,
-            caseActionPath: normalizedAlert.caseActionPath,
-            analystLink,
-            deliveryState: normalizedAlert.deliveryState,
-            dedupeKey: displayDedupeKey,
-            replayCount: normalizedAlert.replayCount,
-            workflowState: normalizedAlert.workflowState,
-        },
-        source: {
-            family: normalizedAlert.sourceFamily,
-            artifactType: normalizedAlert.artifactType,
-            provenanceSummary: normalizedAlert.provenanceSummary,
-            confidence: normalizedAlert.confidence,
-        },
-    }
-
-    if (destination.kind !== 'discord') {
-        return context
-    }
-
-    return {
-        content: discordText(`${severityEmoji(normalizedAlert.severity)} ${normalizedAlert.title}`, DISCORD_CONTENT_LIMIT),
-        allowed_mentions: { parse: [] },
-        embeds: [
-            {
-                title: discordText(normalizedAlert.title, DISCORD_EMBED_TITLE_LIMIT),
-                description: discordText(normalizedAlert.claimSummary, DISCORD_EMBED_DESCRIPTION_LIMIT),
-                color: severityColor(normalizedAlert.severity),
-                timestamp: normalizedAlert.eventTimestamp || normalizedAlert.firstSeenAt || context.occurredAt,
-                fields: [
-                    discordField('Organization', context.org.name, true),
-                    discordField('Severity', normalizedAlert.severity.toUpperCase(), true),
-                    discordField('Company / domain', normalizedAlert.companyOrDomain || normalizedAlert.matchedTerm.value || 'Not provided', true),
-                    discordField('Match reason', matchReason, false),
-                    discordField('Observed at', normalizedAlert.eventTimestamp, true),
-                    watchlist.name || watchlist.terms.length ? discordField('Watchlist', [watchlist.name, watchlist.terms[0]].filter(Boolean).join(' | '), true) : null,
-                    discordField('Source family', normalizedAlert.sourceFamily || 'Unknown', true),
-                    normalizedAlert.confidence.label ? discordField('Confidence', [normalizedAlert.confidence.label, normalizedAlert.confidence.reason].filter(Boolean).join(' | '), true) : null,
-                    discordField('Evidence count', String(normalizedAlert.evidenceCount), true),
-                    report ? discordField('Report', `${clean(recordOrEmpty(report.reportPolicy).format)} · ${clean(report.exportChecksum)}`, false) : null,
-                    discordField('Evidence timestamp', normalizedAlert.evidenceTimestamp, true),
-                    normalizedAlert.evidenceSummary ? discordField('Evidence summary', normalizedAlert.evidenceSummary, false) : null,
-                    discordField('Route', normalizedAlert.route, true),
-                    discordField('Workflow', workflowSummary(normalizedAlert, eventType), false),
-                    discordField('Delivery state', normalizedAlert.deliveryState, true),
-                    discordField('Dedupe key', displayDedupeKey, false),
-                    normalizedAlert.caseId ? discordField('Case ID', normalizedAlert.caseId, true) : null,
-                    normalizedAlert.casePath ? discordField('Case', normalizedAlert.casePath, false) : null,
-                    normalizedAlert.caseActionPath ? discordField('Case action', normalizedAlert.caseActionPath, false) : null,
-                    normalizedAlert.alertUrl ? discordField('Alert URL', normalizedAlert.alertUrl, false) : null,
-                    analystLink ? discordField('Analyst link', analystLink, false) : null,
-                    normalizedAlert.provenanceSummary ? discordField('Provenance', normalizedAlert.provenanceSummary, false) : null,
-                    discordField('Recommended action', normalizedAlert.recommendedAction, false),
-                ].filter(Boolean).slice(0, DISCORD_EMBED_FIELD_LIMIT),
-                footer: {
-                    text: discordText(`Hanasand DWM ${eventType.replace('dwm.alert.', '')} | ${normalizedAlert.id} | ${watchlist.id || 'no-watchlist'}`, DISCORD_EMBED_FOOTER_TEXT_LIMIT),
-                },
-            },
-        ],
-        _hanasand: context,
-    }
-}
-
-function discordField(name: string, value: string, inline: boolean) {
-    return {
-        name: discordText(name, DISCORD_EMBED_FIELD_NAME_LIMIT),
-        value: discordText(value || 'Not provided', DISCORD_EMBED_FIELD_VALUE_LIMIT),
-        inline,
-    }
-}
-
-function discordText(value: string, max: number) {
-    const text = clean(value) || 'Not provided'
-    return truncate(text, max)
-}
-
-function buildDwmDiscordPayloadTemplateProof({
-    eventType,
-    normalizedAlert,
-    watchlist,
-    analystLink,
-    idempotencyKey,
-}: {
-    eventType: DwmAlertEventType
-    normalizedAlert: ReturnType<typeof normalizeAlert>
-    watchlist: ReturnType<typeof normalizeWatchlist>
-    analystLink: string
-    idempotencyKey: string
-}) {
-    const templateId = eventType === 'dwm.alert.replayed'
-        ? 'dwm.discord.alert_replay.v1'
-        : eventType === 'dwm.alert.updated'
-            ? 'dwm.discord.alert_update.v1'
-            : eventType === 'dwm.alert.test'
-                ? 'dwm.discord.destination_test.v1'
-                : 'dwm.discord.alert_created.v1'
-    const requiredFields = [
-        'Organization',
-        'Severity',
-        'Company / domain',
-        'Match reason',
-        'Observed at',
-        'Watchlist',
-        'Source family',
-        'Evidence count',
-        'Evidence timestamp',
-        'Workflow',
-        'Delivery state',
-        'Dedupe key',
-    ]
-    const requiredPresence = {
-        organization: true,
-        severity: Boolean(normalizedAlert.severity),
-        title: Boolean(normalizedAlert.title),
-        companyOrDomain: Boolean(normalizedAlert.companyOrDomain || normalizedAlert.matchedTerm.value),
-        matchReason: Boolean(matchReasonSummary(normalizedAlert)),
-        observedAt: Boolean(normalizedAlert.eventTimestamp || normalizedAlert.firstSeenAt),
-        watchlist: Boolean(watchlist.name || watchlist.terms.length || watchlist.id),
-        sourceFamily: Boolean(normalizedAlert.sourceFamily),
-        evidence: normalizedAlert.evidenceCount > 0,
-        evidenceTimestamp: Boolean(normalizedAlert.evidenceTimestamp),
-        workflow: Boolean(eventType),
-        deliveryState: Boolean(normalizedAlert.deliveryState),
-        dedupeKey: Boolean(normalizedAlert.dedupeKey || idempotencyKey),
-        analystLink: Boolean(analystLink),
-    }
-    const missing = Object.entries(requiredPresence)
-        .filter(([, present]) => !present)
-        .map(([field]) => field)
-
-    return {
-        schemaVersion: 'dwm.webhook.discord_payload_template.v1',
-        templateId,
-        eventType,
-        requiredFields,
-        optionalFields: ['Confidence', 'Evidence summary', 'Case ID', 'Case', 'Case action', 'Alert URL', 'Analyst link', 'Provenance', 'Recommended action'],
-        fieldOrder: [
-            'Organization',
-            'Severity',
-            'Company / domain',
-            'Match reason',
-            'Observed at',
-            'Watchlist',
-            'Source family',
-            'Confidence',
-            'Evidence count',
-            'Evidence timestamp',
-            'Evidence summary',
-            'Route',
-            'Workflow',
-            'Delivery state',
-            'Dedupe key',
-            'Case ID',
-            'Case',
-            'Case action',
-            'Alert URL',
-            'Analyst link',
-            'Provenance',
-            'Recommended action',
-        ],
-        requiredPresence,
-        missing,
-        ready: missing.length === 0,
-        workflow: {
-            replay: eventType === 'dwm.alert.replayed',
-            update: eventType === 'dwm.alert.updated',
-            test: eventType === 'dwm.alert.test',
-            dryRunDefault: true,
-        },
-        limits: {
-            content: DISCORD_CONTENT_LIMIT,
-            title: DISCORD_EMBED_TITLE_LIMIT,
-            description: DISCORD_EMBED_DESCRIPTION_LIMIT,
-            fields: DISCORD_EMBED_FIELD_LIMIT,
-            fieldName: DISCORD_EMBED_FIELD_NAME_LIMIT,
-            fieldValue: DISCORD_EMBED_FIELD_VALUE_LIMIT,
-        },
-        noNetworkDefault: true,
-        redaction: {
-            safeForCustomerDisplay: true,
-            endpointExposed: false,
-            webhookSecretExposed: false,
-            mentionsDisabled: true,
-        },
-    }
-}
-
 async function deliverToDwmWebhookDestinationWithLineageGuard(input: {
     ownerId: string
     destination: DwmWebhookDestinationRow
@@ -7320,48 +7074,6 @@ export function buildDwmWebhookTestAlert(destination: Pick<DwmWebhookDestination
             terms: ['example.com'],
         },
     }
-}
-
-function matchReasonSummary(alert: ReturnType<typeof normalizeAlert>) {
-    const term = clean(alert.matchedTerm.value)
-    const kind = clean(alert.matchedTerm.kind)
-    const confidenceReason = clean(alert.confidence.reason)
-    const evidenceLead = alert.evidence[0]
-    const evidenceContext = evidenceLead
-        ? [evidenceLead.label, evidenceLead.source || evidenceLead.capturedAt].filter(Boolean).join(' | ')
-        : ''
-    const parts = [
-        term ? `${kind && kind !== 'unknown' ? kind : 'term'} match: ${term}` : '',
-        confidenceReason,
-        evidenceContext,
-    ].filter(Boolean)
-    return truncate(parts.join(' | ') || alert.companyOrDomain || 'Matched watchlist evidence', DISCORD_EMBED_FIELD_VALUE_LIMIT)
-}
-
-function workflowSummary(alert: ReturnType<typeof normalizeAlert>, eventType: DwmAlertEventType) {
-    const parts = [
-        eventType.replace('dwm.alert.', ''),
-        `review ${alert.reviewState}`,
-        `delivery ${alert.deliveryState}`,
-        alert.replayCount ? `replay ${alert.replayCount}` : '',
-    ].filter(Boolean)
-    return parts.join(' | ')
-}
-
-function severityColor(severity: string) {
-    if (severity === 'critical') return 0xDC2626
-    if (severity === 'high') return 0xEA580C
-    if (severity === 'medium') return 0xD97706
-    if (severity === 'low') return 0x2563EB
-    return 0x475467
-}
-
-function severityEmoji(severity: string) {
-    if (severity === 'critical') return '[CRITICAL]'
-    if (severity === 'high') return '[HIGH]'
-    if (severity === 'medium') return '[MEDIUM]'
-    if (severity === 'low') return '[LOW]'
-    return '[INFO]'
 }
 
 function destinationReadinessBlockers({
