@@ -1,15 +1,10 @@
 import { type SourceHealthRow } from './source'
 import { type TiActionabilityModel } from '@/utils/ti/actionability'
 import type { TiSafeOutputMetadata } from '../safeOutput'
+import type { SelectedPublicActorContext } from './publicActorContext'
 
-export type SelectedEnrichmentTriage = {
+export type SelectedEnrichmentTriage = SelectedPublicActorContext & {
     schemaVersion: 'ti.public_actor.selected_enrichment_triage.v1'
-    source: 'public-ti'
-    sessionLocal: true
-    query: string
-    generatedAt: string
-    selectedItemId: string
-    title: string
     route: string
     state: 'ready' | 'review' | 'blocked'
     summary: {

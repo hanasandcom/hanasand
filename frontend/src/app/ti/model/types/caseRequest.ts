@@ -3,15 +3,10 @@ import { type SelectedWatchlistPlan } from './watchlistPlan'
 import { type TiActorIntelligenceProfile } from '@/utils/ti/actorIntelligence'
 import { type TiActionabilityModel } from '@/utils/ti/actionability'
 import type { TiSafeOutputMetadata } from '../safeOutput'
+import type { SelectedPublicActorContext } from './publicActorContext'
 
-export type SelectedCaseCreateRequest = {
+export type SelectedCaseCreateRequest = SelectedPublicActorContext & {
     schemaVersion: 'ti.public_actor.selected_case_create_request.v1'
-    source: 'public-ti'
-    sessionLocal: true
-    query: string
-    generatedAt: string
-    selectedItemId: string
-    title: string
     ready: boolean
     state: 'ready' | 'review' | 'blocked'
     route: string

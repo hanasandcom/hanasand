@@ -1,15 +1,10 @@
 import { type CaseReviewIntakeItem } from './source'
 import { type TiActionabilityModel } from '@/utils/ti/actionability'
 import type { TiSafeOutputMetadata } from '../safeOutput'
+import type { SelectedPublicActorContext } from './publicActorContext'
 
-export type SelectedCaseOwnershipPlan = {
+export type SelectedCaseOwnershipPlan = SelectedPublicActorContext & {
     schemaVersion: 'ti.public_actor.selected_case_ownership.v1'
-    source: 'public-ti'
-    sessionLocal: true
-    query: string
-    generatedAt: string
-    selectedItemId: string
-    title: string
     state: 'ready' | 'review' | 'blocked'
     route: string
     nextAction: string

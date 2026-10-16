@@ -1,12 +1,9 @@
 import { type AnalystWorkItem } from './core'
 import { type TiActionabilityModel } from '@/utils/ti/actionability'
+import type { PublicActorContext } from './publicActorContext'
 
-export type SelectedSourceDrilldown = {
+export type SelectedSourceDrilldown = PublicActorContext & {
     schemaVersion: 'ti.public_actor.selected_source_drilldown.v1'
-    source: 'public-ti'
-    sessionLocal: true
-    query: string
-    generatedAt: string
     selectedItem: Pick<AnalystWorkItem, 'id' | 'kind' | 'title' | 'timestamp' | 'source' | 'provenance' | 'confidence' | 'href'>
     rows: SelectedSourceDrilldownRow[]
     alertHandoff: {

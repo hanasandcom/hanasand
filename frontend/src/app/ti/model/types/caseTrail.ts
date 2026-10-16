@@ -1,13 +1,8 @@
 import type { TiSafeOutputMetadata } from '../safeOutput'
+import type { SelectedPublicActorContext } from './publicActorContext'
 
-export type CaseActionTrailPayload = {
+export type CaseActionTrailPayload = SelectedPublicActorContext & {
     schemaVersion: 'ti.public_actor.case_action_trail.v1'
-    source: 'public-ti'
-    sessionLocal: true
-    query: string
-    generatedAt: string
-    selectedItemId: string
-    title: string
     events: CaseActionTrailEvent[]
     summary: {
         total: number

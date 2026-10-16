@@ -1,14 +1,9 @@
 import { type TiActionabilityModel } from '@/utils/ti/actionability'
 import type { TiSafeOutputMetadata } from '../safeOutput'
+import type { SelectedPublicActorContext } from './publicActorContext'
 
-export type SelectedAlertActionPlan = {
+export type SelectedAlertActionPlan = SelectedPublicActorContext & {
     schemaVersion: 'ti.public_actor.selected_alert_action_plan.v1'
-    source: 'public-ti'
-    sessionLocal: true
-    query: string
-    generatedAt: string
-    selectedItemId: string
-    title: string
     state: TiActionabilityModel['alertGenerationReadiness']['state']
     ready: boolean
     route: string

@@ -1,13 +1,8 @@
 import type { TiSafeOutputMetadata } from '../safeOutput'
+import type { SelectedPublicActorContext } from './publicActorContext'
 
-export type SelectedDeliveryReadinessPlan = {
+export type SelectedDeliveryReadinessPlan = SelectedPublicActorContext & {
     schemaVersion: 'ti.public_actor.selected_delivery_readiness.v1'
-    source: 'public-ti'
-    sessionLocal: true
-    query: string
-    generatedAt: string
-    selectedItemId: string
-    title: string
     state: 'ready' | 'review' | 'blocked'
     route: string
     nextAction: string

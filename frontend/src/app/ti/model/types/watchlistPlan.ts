@@ -1,15 +1,10 @@
 import { type TiActionabilityModel } from '@/utils/ti/actionability'
 import { type WatchlistIntersectionRow } from './source'
 import type { TiSafeOutputMetadata } from '../safeOutput'
+import type { SelectedPublicActorContext } from './publicActorContext'
 
-export type SelectedWatchlistPlan = {
+export type SelectedWatchlistPlan = SelectedPublicActorContext & {
     schemaVersion: 'ti.public_actor.selected_watchlist_plan.v1'
-    source: 'public-ti'
-    sessionLocal: true
-    query: string
-    generatedAt: string
-    selectedItemId: string
-    title: string
     state: TiActionabilityModel['watchlistRelevance']['state']
     ready: boolean
     route: string

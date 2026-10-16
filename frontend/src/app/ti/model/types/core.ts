@@ -1,4 +1,5 @@
 import { type TiActionabilityModel } from '@/utils/ti/actionability'
+import type { PublicActorContext } from './publicActorContext'
 
 export type AnalystWorkItem = {
     id: string
@@ -89,12 +90,8 @@ export type SelectedTriageBrief = {
     labels: Array<{ label: string; value: string }>
 }
 
-export type SelectedReviewHandoff = {
+export type SelectedReviewHandoff = PublicActorContext & {
     schemaVersion: 'ti.public_actor.selected_review_handoff.v1'
-    source: 'public-ti'
-    sessionLocal: true
-    query: string
-    generatedAt: string
     selectedItem: Pick<AnalystWorkItem, 'id' | 'kind' | 'severity' | 'title' | 'timestamp' | 'source' | 'provenance' | 'confidence' | 'href' | 'evidence' | 'nextActions'>
     localReview: {
         status: LocalDecision['status'] | 'not_recorded'
