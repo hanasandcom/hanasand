@@ -426,7 +426,7 @@ export async function listManagedCronJobs(): Promise<ManagedCronJob[]> {
 export async function listUnifiedScheduledJobs(options: { fast?: boolean } = {}): Promise<UnifiedScheduledJob[]> {
     const now = Date.now()
     if (options.fast && unifiedCronCache && unifiedCronCache.expiresAt > now) return unifiedCronCache.jobs
-    if (unifiedCronRefresh) return options.fast ? unifiedCronCache?.jobs || [] : unifiedCronRefresh
+    if (unifiedCronRefresh) return options.fast ? cachedOrFastUnifiedScheduledJobs() : unifiedCronRefresh
 
     unifiedCronRefresh = refreshUnifiedScheduledJobs()
     void unifiedCronRefresh.catch(error => {
@@ -434,11 +434,15 @@ export async function listUnifiedScheduledJobs(options: { fast?: boolean } = {})
     }).finally(() => {
         unifiedCronRefresh = null
     })
-    return options.fast ? unifiedCronCache?.jobs || fastUnifiedScheduledJobs() : unifiedCronRefresh
+    return options.fast ? cachedOrFastUnifiedScheduledJobs() : unifiedCronRefresh
 }
 
 export function hasUnifiedScheduledJobsCache() {
     return Boolean(unifiedCronCache && unifiedCronCache.expiresAt > Date.now())
+}
+
+function cachedOrFastUnifiedScheduledJobs(): UnifiedScheduledJob[] {
+    return unifiedCronCache?.jobs || fastUnifiedScheduledJobs()
 }
 
 function fastUnifiedScheduledJobs(): UnifiedScheduledJob[] {

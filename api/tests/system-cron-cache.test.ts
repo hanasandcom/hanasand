@@ -73,6 +73,8 @@ test('fast snapshots stay provisional while concurrent reads share the active re
         delete process.env.LOG_LIVE_WORKER_DISABLED
         expect(fastSnapshot.some(job => job.id === 'api-mail-account-provisioning')).toBe(false)
         expect(fastSnapshot.find(job => job.id === 'ti-public-canary-collection')?.status).toBe('blocked')
+        expect((await listUnifiedScheduledJobs({ fast: true })).find(job => job.id === 'api-cron-health-monitor'))
+            .toMatchObject({ status: 'unknown', controls: ['run_now'] })
         const requestsDuringRefresh = tiRequestCount
         expect(requestsDuringRefresh).toBeGreaterThan(0)
 
