@@ -446,9 +446,8 @@ function fastUnifiedScheduledJobs(): UnifiedScheduledJob[] {
     const apiJobs = visibleApiBackgroundJobDefinitions().map(job => {
         const controls = apiBackgroundJobControls(job, true, false)
         return {
-            id: job.id, name: job.name, description: job.description, category: job.category,
-            source: job.source, service: 'hanasand-api', schedule: job.schedule,
-            cadenceSeconds: job.cadenceSeconds, enabled: job.isEnabled?.() ?? true, running: false, status: 'unknown' as const,
+            ...apiBackgroundJobDefinitionFields(job),
+            enabled: job.isEnabled?.() ?? true, running: false, status: 'unknown' as const,
             lastRunAt: null, lastSuccessAt: null, lastFinishedAt: null, nextRunAt: null,
             currentRunDurationMs: null, averageRuntimeMs: null, failureCount: 0, lastError: null,
             logExcerpt: 'Live state is refreshing.', controls,
@@ -624,6 +623,22 @@ function managedHostCronJob(job: ManagedCronJob): UnifiedScheduledJob {
     }
 }
 
+function apiBackgroundJobDefinitionFields(
+    definition: typeof apiBackgroundJobDefinitions[number],
+    service = 'hanasand-api',
+) {
+    return {
+        id: definition.id,
+        name: definition.name,
+        description: definition.description,
+        category: definition.category,
+        source: definition.source,
+        service,
+        schedule: definition.schedule,
+        cadenceSeconds: definition.cadenceSeconds,
+    }
+}
+
 async function apiBackgroundJob(definition: typeof apiBackgroundJobDefinitions[number]): Promise<UnifiedScheduledJob> {
     if (definition.id === DATABASE_BACKUP_JOB_ID) return databaseBackupScheduledJob(definition)
     const telemetry = getBackgroundJobRuntime(definition.id)
@@ -631,14 +646,7 @@ async function apiBackgroundJob(definition: typeof apiBackgroundJobDefinitions[n
     const enabled = hasRunner ? !await isApiCronJobPaused(definition.id) : definition.isEnabled?.() ?? true
     const controls = apiBackgroundJobControls(definition, enabled)
     return {
-        id: definition.id,
-        name: definition.name,
-        description: definition.description,
-        category: definition.category,
-        source: definition.source,
-        service: 'hanasand-api',
-        schedule: definition.schedule,
-        cadenceSeconds: definition.cadenceSeconds,
+        ...apiBackgroundJobDefinitionFields(definition),
         enabled,
         running: telemetry.running,
         status: telemetry.running ? 'running' : !enabled ? 'paused' : telemetry.lastError ? 'failed' : 'enabled',
@@ -678,12 +686,7 @@ async function databaseBackupScheduledJob(definition: typeof apiBackgroundJobDef
     const lastSuccess = operations.find(operation => operation.kind === 'backup' && operation.status === 'succeeded') || null
     const failures = operations.filter(operation => operation.status === 'failed' || operation.status === 'interrupted')
     return {
-        id: definition.id,
-        name: definition.name,
-        description: definition.description,
-        category: definition.category,
-        source: definition.source,
-        service: 'hanasand-api',
+        ...apiBackgroundJobDefinitionFields(definition),
         schedule: `${service.schedule || 'Unavailable'} UTC`,
         cadenceSeconds: null,
         enabled,
@@ -721,12 +724,7 @@ async function vulnerabilityScannerJob(definition: typeof apiBackgroundJobDefini
     const running = telemetry.running || scan.isRunning
     const issue = scan.blocker || scan.lastError || scan.staleReason || telemetry.lastError
     return {
-        id: definition.id,
-        name: definition.name,
-        description: definition.description,
-        category: definition.category,
-        source: definition.source,
-        service: 'hanasand-scanner',
+        ...apiBackgroundJobDefinitionFields(definition, 'hanasand-scanner'),
         schedule: scan.schedule || definition.schedule,
         cadenceSeconds: scan.cadenceSeconds || definition.cadenceSeconds,
         enabled,
