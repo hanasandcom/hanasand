@@ -6,12 +6,13 @@ import * as webhooks from '../src/utils/dwm/webhooks.ts'
 
 let role: OrganizationRole = 'reader'
 let active = true
+let actorMembershipStatus: 'active' | 'removed' = 'active'
 let authenticated = true
 let archived = false
 let queryCalls = 0
 let inviteAcceptanceWinsRace = false
 let inviteReads = 0
-let deactivateActorAfterMemberLock = false
+let removeActorMembershipAfterMemberLock = false
 const writes: string[] = []
 const statements: Array<{ sql: string, params: unknown[] }> = []
 const serviceLogs: Record<string, any>[] = []
@@ -29,9 +30,9 @@ const query = async (sql: string, params: unknown[] = []) => {
     const statement = sql.replace(/\s+/g, ' ').trim()
     statements.push({ sql: statement, params })
     if (/^\s*(INSERT|UPDATE|DELETE)/.test(sql)) writes.push(sql)
-    if (deactivateActorAfterMemberLock && statement.startsWith('SELECT id FROM users WHERE id = ANY($1::text[]) ORDER BY id FOR UPDATE')) {
-        active = false
-        deactivateActorAfterMemberLock = false
+    if (removeActorMembershipAfterMemberLock && statement.startsWith('SELECT id FROM users WHERE id = ANY($1::text[]) ORDER BY id FOR UPDATE')) {
+        actorMembershipStatus = 'removed'
+        removeActorMembershipAfterMemberLock = false
     }
     if (statement.includes('COUNT(*)::int AS owner_count')) return { rows: [{ owner_count: 1 }] }
     if (statement.startsWith('SELECT * FROM organization_invites')) {
@@ -58,7 +59,7 @@ const query = async (sql: string, params: unknown[] = []) => {
     if (statement.includes('FROM api_key_scopes') && statement.includes('WHERE api_key_id = $1')) return { rows: apiKeyScopes.filter(scope => scope.api_key_id === params[0]) }
     if (statement.includes('FROM api_keys') && statement.includes('WHERE organization_id = $1') && statement.includes('ORDER BY created_at DESC')) return { rows: apiKeys.filter(key => key.organization_id === params[0]) }
     if (sql.includes('FROM dwm_webhook_destinations')) return { rows: [{ id: 'target', org_id: 'org' }] }
-    if (sql.includes('FROM organizations o')) return { rows: params[0] === 'org' && active ? [{ id: 'org', name: 'Organization', slug: 'org', status: 'active', role, owner_count: 1 }] : [] }
+    if (sql.includes('FROM organizations o')) return { rows: params[0] === 'org' && active && actorMembershipStatus === 'active' ? [{ id: 'org', name: 'Organization', slug: 'org', status: 'active', role, owner_count: 1 }] : [] }
     if (sql.includes('FROM organization_members member')) return { rows: active ? [{ role, organization_status: 'active' }] : [] }
     if (statement.startsWith('UPDATE organization_members')) {
         const now = new Date().toISOString()
@@ -99,7 +100,7 @@ app.post('/org/:id/watchlists', org.postOrganizationWatchlist)
 app.patch('/org/:id/members/:userId/role', org.patchOrganizationMemberRole)
 app.delete('/org/:id/members/:userId', org.deleteOrganizationMember)
 
-beforeEach(() => { role = 'reader'; active = true; authenticated = true; archived = false; queryCalls = 0; inviteAcceptanceWinsRace = false; inviteReads = 0; deactivateActorAfterMemberLock = false; writes.length = 0; statements.length = 0; serviceLogs.length = 0; systemEvents.length = 0; apiKeys.length = 0; apiKeyScopes.length = 0 })
+beforeEach(() => { role = 'reader'; active = true; actorMembershipStatus = 'active'; authenticated = true; archived = false; queryCalls = 0; inviteAcceptanceWinsRace = false; inviteReads = 0; removeActorMembershipAfterMemberLock = false; writes.length = 0; statements.length = 0; serviceLogs.length = 0; systemEvents.length = 0; apiKeys.length = 0; apiKeyScopes.length = 0 })
 
 test('legacy roles and invitations become Reader without gaining permissions', () => {
     for (const legacy of ['member', 'viewer']) {
@@ -271,7 +272,7 @@ test('member mutations lock user rows in stable order before the organization ro
 
 test('member role changes revalidate the actor membership after locking', async () => {
     role = 'owner'
-    deactivateActorAfterMemberLock = true
+    removeActorMembershipAfterMemberLock = true
 
     const response = await app.inject({
         method: 'PATCH',
@@ -281,6 +282,7 @@ test('member role changes revalidate the actor membership after locking', async 
 
     expect(response.statusCode).toBe(404)
     expect(response.json()).toEqual({ error: 'Organization not found.' })
+    expect(actorMembershipStatus).toBe('removed')
     expect(statements.some(statement => statement.sql.startsWith('SELECT id FROM users WHERE id = ANY($1::text[]) ORDER BY id FOR UPDATE'))).toBe(true)
     expect(writes).toHaveLength(0)
 })
