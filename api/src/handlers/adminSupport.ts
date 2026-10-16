@@ -4458,6 +4458,7 @@ async function decideSupportAccessRecovery(
 
     const supportSessionId = supportSessionIdFromRequest(req, req.body)
     const requiredScope = decision === 'approved' ? 'recovery:approve' : 'recovery:deny'
+    const decisionReceiptContext = { actorId: actor.id, decision, reason, supportSessionId, requiredScope }
     const sessionValidation = await validateSupportSessionForAction({
         actorId: actor.id,
         supportSessionId,
@@ -4492,12 +4493,8 @@ async function decideSupportAccessRecovery(
             noSilentMembershipMutation: true,
             decision: toAccessRecoveryDecision(current),
             decisionReceipt: supportAccessRecoveryDecisionReceipt({
-                actorId: actor.id,
-                decision,
+                ...decisionReceiptContext,
                 approval: toAccessRecoveryDecision(current),
-                reason,
-                supportSessionId,
-                requiredScope,
                 outcome: 'denied',
                 auditEventIds,
                 blockers: [sessionValidation.error.code],
@@ -4517,12 +4514,8 @@ async function decideSupportAccessRecovery(
             error: 'This access recovery request does not require approval.',
             decision: detail,
             decisionReceipt: supportAccessRecoveryDecisionReceipt({
-                actorId: actor.id,
-                decision,
+                ...decisionReceiptContext,
                 approval: detail,
-                reason,
-                supportSessionId,
-                requiredScope,
                 outcome: 'failed',
                 auditEventIds,
                 blockers: ['approval_not_required'],
@@ -4542,12 +4535,8 @@ async function decideSupportAccessRecovery(
             error: 'Access recovery approval requires a different admin than the requester.',
             decision: detail,
             decisionReceipt: supportAccessRecoveryDecisionReceipt({
-                actorId: actor.id,
-                decision,
+                ...decisionReceiptContext,
                 approval: detail,
-                reason,
-                supportSessionId,
-                requiredScope,
                 outcome: 'denied',
                 auditEventIds,
                 blockers: ['self_approval_denied'],
@@ -4567,12 +4556,8 @@ async function decideSupportAccessRecovery(
             error: `Access recovery request is already ${current.status}.`,
             decision: detail,
             decisionReceipt: supportAccessRecoveryDecisionReceipt({
-                actorId: actor.id,
-                decision,
+                ...decisionReceiptContext,
                 approval: detail,
-                reason,
-                supportSessionId,
-                requiredScope,
                 outcome: 'failed',
                 auditEventIds,
                 blockers: ['approval_not_pending'],
@@ -4671,12 +4656,8 @@ async function decideSupportAccessRecovery(
                             : 'The access recovery invite changed and could not be updated.',
             decision: detail,
             decisionReceipt: supportAccessRecoveryDecisionReceipt({
-                actorId: actor.id,
-                decision,
+                ...decisionReceiptContext,
                 approval: detail,
-                reason,
-                supportSessionId,
-                requiredScope,
                 outcome: 'failed',
                 auditEventIds,
                 blockers: [error],
@@ -4708,12 +4689,8 @@ async function decideSupportAccessRecovery(
     return res.send({
         decision: detail,
         decisionReceipt: supportAccessRecoveryDecisionReceipt({
-            actorId: actor.id,
-            decision,
+            ...decisionReceiptContext,
             approval: detail,
-            reason,
-            supportSessionId,
-            requiredScope,
             outcome: decision === 'approved' ? 'success' : 'denied',
             auditEventIds,
             blockers: decision === 'denied' ? ['denied_recovery_approval'] : [],

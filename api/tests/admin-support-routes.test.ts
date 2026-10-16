@@ -153,6 +153,7 @@ const {
     postSupportSessionRevoke,
     postSupportAccessRecovery,
     postSupportAccessRecoveryApprove,
+    postSupportAccessRecoveryDeny,
 } = await import('../src/handlers/adminSupport.ts')
 
 function reply() {
@@ -808,6 +809,33 @@ test('access recovery approval commits the shared invite transition with its dec
         organizationId: 'org-1', inviteId: 'invite-1', action: 'resend', expiresAt: '2026-11-01T00:00:00.000Z',
     })
     expect(queries.some(({ sql }) => sql.includes('UPDATE admin_access_recovery_approvals') && sql.includes('status = \'approved\''))).toBe(true)
+})
+
+test('access recovery denial records its scoped receipt and revokes the shared invite', async () => {
+    supportDecisionApproval = accessRecoveryApprovalFixture('recovery-deny-1')
+    supportRecoveryInviteStatus = 'pending'
+    supportRecoveryInviteResult = { id: 'invite-1', status: 'revoked', expires_at: '2026-11-01T00:00:00.000Z' }
+
+    const result = await request(postSupportAccessRecoveryDeny, {
+        params: { requestId: 'recovery-deny-1' },
+        body: { reason: 'Request did not meet recovery requirements' },
+    })
+
+    expect(result.statusCode).toBe(200)
+    expect(result.body.decision.status).toBe('denied')
+    expect(result.body.decision.invite.status).toBe('revoked')
+    expect(result.body.decisionReceipt).toMatchObject({
+        action: 'access_recovery_deny',
+        actionType: 'support.organization.access_recovery.deny',
+        actorId: 'support-admin',
+        reason: 'Request did not meet recovery requirements',
+        requiredScope: 'recovery:deny',
+        scope: ['recovery:deny'],
+        outcome: 'denied',
+        blockers: ['denied_recovery_approval'],
+    })
+    expect(inviteActionInputs.at(-1)).toMatchObject({ organizationId: 'org-1', inviteId: 'invite-1', action: 'revoke' })
+    expect(queries.some(({ sql }) => sql.includes('UPDATE admin_access_recovery_approvals') && sql.includes('status = \'denied\''))).toBe(true)
 })
 
 test('access recovery approval rejects an expired invite without changing its pending decision', async () => {
