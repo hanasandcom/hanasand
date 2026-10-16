@@ -10,8 +10,10 @@ const client = Object.assign(new EventEmitter(), { query: async () => { queries+
 const pool: { current?: EventEmitter, options?: { min: number, max: number, idleTimeoutMillis: number, maxLifetimeSeconds?: number } } = {}
 const created: NonNullable<typeof pool.options>[] = []
 class Pool extends EventEmitter {
+    totalCount = 0
+    waitingCount = 0
     constructor(options: NonNullable<typeof pool.options>) { super(); pool.current = this; pool.options = options; created.push(options) }
-    async connect() { attempts++; if (connectionFailures-- > 0) throw connectionError; return client }
+    async connect() { attempts++; if (connectionFailures-- > 0) throw connectionError; this.totalCount++; return client }
 }
 mock.module('pg', () => ({ default: { Pool } }))
 const { queryOnce } = await import('../src/utils/db.ts')
@@ -20,7 +22,7 @@ assert.doesNotThrow(() => client.emit('error', failure), 'A checked-out connecti
 await assert.rejects(queryOnce('SELECT 1'), /Test connection reset/)
 assert.equal(releasedWith, failure, 'A failed client must be discarded, not returned as healthy')
 const { default: config } = await import('../src/constants.ts')
-const previous = { api: process.env.API_HTTP_ONLY, auth: process.env.AUTH_SERVICE_ONLY }
+const previous = { api: process.env.API_HTTP_ONLY, auth: process.env.AUTH_SERVICE_ONLY, warmup: process.env.DB_POOL_WARMUP_CONN }
 try {
     for (const role of [
         { name: 'api', api: '1', auth: '0', min: 0, idle: 15000 },
@@ -71,10 +73,18 @@ try {
         assert.equal(attempts, 1, 'Preserve authentication and worker acquisition behavior')
         assert.equal(queries, 0)
     }
+
+    process.env.API_HTTP_ONLY = '0'; process.env.AUTH_SERVICE_ONLY = '1'; process.env.DB_POOL_WARMUP_CONN = '3'
+    attempts = 0; connectionFailures = 0
+    const { warmDatabasePools } = await import('../src/utils/db.ts?pool-warmup')
+    await warmDatabasePools()
+    assert.equal(attempts, 3, 'An aliased primary pool must retain its configured warmup minimum exactly once')
 } finally {
     if (previous.api === undefined) delete process.env.API_HTTP_ONLY
     else process.env.API_HTTP_ONLY = previous.api
     if (previous.auth === undefined) delete process.env.AUTH_SERVICE_ONLY
     else process.env.AUTH_SERVICE_ONLY = previous.auth
+    if (previous.warmup === undefined) delete process.env.DB_POOL_WARMUP_CONN
+    else process.env.DB_POOL_WARMUP_CONN = previous.warmup
 }
 console.log('API pool shortages retry once before query submission; failed queries never replay, pool limits and auth behavior are preserved.')

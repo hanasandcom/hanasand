@@ -117,7 +117,17 @@ const identityPool = identityHost ? new Pool({
 }) : null
 
 export async function warmDatabasePools() {
-    const targets = new Map([[pool, primaryWarmup], [eventPool, eventWarmup], [priorityEventPool, priorityEventWarmup], [readPool, readWarmup], [directPool, directWarmup]])
+    const warmupTargets: [pg.Pool, number][] = [
+        [pool, primaryWarmup],
+        [eventPool, eventWarmup],
+        [priorityEventPool, priorityEventWarmup],
+        [readPool, readWarmup],
+        [directPool, directWarmup],
+    ]
+    const targets = new Map<pg.Pool, number>()
+    for (const [connectionPool, minimum] of warmupTargets) {
+        targets.set(connectionPool, Math.max(targets.get(connectionPool) ?? 0, minimum))
+    }
     await Promise.all([...targets].map(async ([connectionPool, minimum]) => {
         const missing = Math.max(0, minimum - connectionPool.totalCount)
         await Promise.all(Array.from({ length: missing }, async () => {
