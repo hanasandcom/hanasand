@@ -15,9 +15,12 @@ test('traffic routes separate overview, recent requests, map, and blocklist', as
     const blocklistClient = await readFile(path.join(root, 'src/app/dashboard/traffic/blocklist/blocklistClient.tsx'), 'utf8')
     const trafficMap = await readFile(path.join(root, 'src/components/monitoring/traffic/trafficMap.tsx'), 'utf8')
     const liveMapPrimitives = await readFile(path.join(root, 'src/components/monitoring/traffic/liveMapPrimitives.tsx'), 'utf8')
+    const trafficMapCanvas = await readFile(path.join(root, 'src/components/monitoring/traffic/TrafficMapCanvas.tsx'), 'utf8')
+    const trafficMapSummary = await readFile(path.join(root, 'src/components/monitoring/traffic/TrafficMapSummary.tsx'), 'utf8')
+    const trafficMapInsights = await readFile(path.join(root, 'src/components/monitoring/traffic/TrafficMapInsights.tsx'), 'utf8')
     const trafficCharts = await readFile(path.join(root, 'src/components/monitoring/traffic/traffic.tsx'), 'utf8')
     const combinedMetrics = await readFile(path.join(root, 'src/components/monitoring/traffic/combinedMetrics.tsx'), 'utf8')
-    const trafficMapSources = `${trafficMap}\n${liveMapPrimitives}`
+    const trafficMapSources = `${trafficMap}\n${liveMapPrimitives}\n${trafficMapCanvas}\n${trafficMapSummary}\n${trafficMapInsights}`
     const trafficChartSources = `${trafficCharts}\n${combinedMetrics}`
 
     expect(overviewPage).toContain('DashboardPage')
