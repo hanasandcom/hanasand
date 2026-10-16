@@ -22,12 +22,29 @@ export async function recordProxyRequest(req: FastifyRequest, res: FastifyReply)
     // Keep the complete request envelope, including unsafe headers after normal redaction.
     // Each request has its own identity; keep-alive must never collapse later requests.
     return withTransaction(async query => {
+        const request = {
+            method: req.method,
+            url: redactLogText(req.url),
+            ...(!access.inspection.headersSafe ? { headers: redactLogValue(headers) } : {}),
+        }
+        const metadata = {
+            category: 'proxy_request',
+            proxy: connection,
+            access,
+            producer: {
+                hostname: process.env.HOSTNAME || 'unknown',
+                pid: process.pid,
+                release: process.env.HANASAND_RELEASE_COMMIT || 'unknown',
+            },
+            path: redactLogText(req.url),
+            method: req.method,
+            status_code: res.statusCode,
+            source: { ip: access.ip },
+            request,
+        }
         const id = await recordLog({ service: 'hanasand-api', host: 'inspur', level: res.statusCode >= 400 ? 'error' : 'info',
             message: 'proxy_request_completed', sourceEventId: createHash('sha256').update(`proxy-request:${connection.id}:${req.id}`).digest('hex'), timestamp: access.timestamp,
-            metadata: { category: 'proxy_request', proxy: connection, access,
-                producer: { hostname: process.env.HOSTNAME || 'unknown', pid: process.pid, release: process.env.HANASAND_RELEASE_COMMIT || 'unknown' }, path: redactLogText(req.url), method: req.method,
-                status_code: res.statusCode, source: { ip: access.ip }, request: { method: req.method, url: redactLogText(req.url),
-                    ...(!access.inspection.headersSafe ? { headers: redactLogValue(headers) } : {}) } } }, query)
+            metadata }, query)
         if (!id) return false
         // Preserve existing per-IP rate counts and alerts, but keep this canonical
         // record even when the HTTP analyzer would otherwise drop it.
