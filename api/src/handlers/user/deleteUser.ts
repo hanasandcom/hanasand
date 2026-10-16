@@ -4,7 +4,8 @@ import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import hasHanasandInternalRouteAccess from '#utils/auth/organizationPageAccess.ts'
 import { revokeAllTokens } from '#utils/auth/session.ts'
 import { accountDeletionOrganizationBlocker, lockAccountDeletionRows } from '#utils/auth/accountDeletion.ts'
-import { recordSystemEvent, userHasHanasandInternalAccess } from '#utils/systemEvent.ts'
+import { userHasHanasandInternalAccess } from '#utils/systemEvent.ts'
+import { recordScheduledDeletionAudit } from './accountDeletionAudit.ts'
 
 export default async function deleteUser(req: FastifyRequest, res: FastifyReply) {
     const { valid, id: actorId } = await tokenWrapper(req, res)
@@ -74,27 +75,14 @@ export default async function deleteUser(req: FastifyRequest, res: FastifyReply)
         }
 
         await revokeAllTokens({ userId: id, revokedBy: actorId })
-        await recordSystemEvent(req, {
-            actionType: 'user.account.deleted',
-            actorId,
-            source: 'admin',
-            targetType: 'user',
-            targetId: id,
-            severity: wasHanasandInternalMember ? 'critical' : 'warning',
-            context: { deletionMode: 'scheduled', hanasandOrganizationMember: wasHanasandInternalMember, targetName: userResult.rows[0].name, targetId: id },
-        })
-        if (wasHanasandInternalMember) {
-            await recordSystemEvent(req, {
-                actionType: 'admin.account.deleted',
-                actorId,
-                source: 'admin',
-                targetType: 'user',
-                targetId: id,
-                severity: 'critical',
-                context: { deletionMode: 'scheduled', targetName: userResult.rows[0].name, targetId: id },
-            })
-        }
         const user: User = userResult.rows[0]
+        await recordScheduledDeletionAudit(req, {
+            actorId,
+            targetId: id,
+            targetName: user.name,
+            source: 'admin',
+            wasHanasandInternalMember,
+        })
         return res.send({ message: 'User scheduled for deletion.', pending_deletion: true, user })
     } catch (error) {
         console.error(`Database error: ${JSON.stringify(error)}`)

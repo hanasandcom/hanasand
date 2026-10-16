@@ -3,8 +3,10 @@ import Fastify from 'fastify'
 
 let blocker: { id: string, name: string, active_api_key: boolean } | null = null
 let existingDeletionDeadline: string | null = null
+let internalMembership = false
 const queries: string[] = []
 const tokenRevocations: Array<{ userId: string, revokedBy: string }> = []
+const recordedEvents: Array<Record<string, unknown>> = []
 
 mock.module('#db', () => ({
     default: async (sql: string) => query(sql),
@@ -13,7 +15,10 @@ mock.module('#db', () => ({
 mock.module('../src/utils/auth/tokenWrapper.ts', () => ({ default: async () => ({ valid: true, id: 'admin-user' }) }))
 mock.module('../src/utils/auth/organizationPageAccess.ts', () => ({ default: async () => ({ valid: true }) }))
 mock.module('../src/utils/auth/session.ts', () => ({ revokeAllTokens: async (input: { userId: string, revokedBy: string }) => { tokenRevocations.push(input) } }))
-mock.module('../src/utils/systemEvent.ts', () => ({ recordSystemEvent: async () => {}, userHasHanasandInternalAccess: async () => false }))
+mock.module('../src/utils/systemEvent.ts', () => ({
+    recordSystemEvent: async (_req: unknown, event: Record<string, unknown>) => { recordedEvents.push(event) },
+    userHasHanasandInternalAccess: async () => internalMembership,
+}))
 
 const { default: deleteUser } = await import('../src/handlers/user/deleteUser.ts')
 
@@ -48,8 +53,10 @@ const queryOnce = query
 beforeEach(() => {
     blocker = null
     existingDeletionDeadline = null
+    internalMembership = false
     queries.length = 0
     tokenRevocations.length = 0
+    recordedEvents.length = 0
 })
 
 test('admin deletion returns the owner-transfer conflict before scheduling or revoking access', async () => {
@@ -71,6 +78,43 @@ test('admin deletion proceeds when the organization has another active owner', a
     expect(queries.some(sql => sql.includes('deletion_requested_at = NOW()') && sql.includes('deletion_scheduled_at = NOW() + INTERVAL \'30 days\''))).toBe(true)
     expect(queries.some(sql => sql.startsWith('DELETE FROM users'))).toBe(false)
     expect(tokenRevocations).toEqual([{ userId: 'target-user', revokedBy: 'admin-user' }])
+    expect(recordedEvents).toEqual([{
+        actionType: 'user.account.deleted',
+        actorId: 'admin-user',
+        source: 'admin',
+        targetType: 'user',
+        targetId: 'target-user',
+        severity: 'warning',
+        context: { deletionMode: 'scheduled', targetName: 'Target', targetId: 'target-user', hanasandOrganizationMember: false },
+    }])
+})
+
+test('admin deletion records the critical internal-account audit pair', async () => {
+    internalMembership = true
+
+    const response = await app.inject({ method: 'DELETE', url: '/users/target-user' })
+
+    expect(response.statusCode).toBe(200)
+    expect(recordedEvents).toEqual([
+        {
+            actionType: 'user.account.deleted',
+            actorId: 'admin-user',
+            source: 'admin',
+            targetType: 'user',
+            targetId: 'target-user',
+            severity: 'critical',
+            context: { deletionMode: 'scheduled', targetName: 'Target', targetId: 'target-user', hanasandOrganizationMember: true },
+        },
+        {
+            actionType: 'admin.account.deleted',
+            actorId: 'admin-user',
+            source: 'admin',
+            targetType: 'user',
+            targetId: 'target-user',
+            severity: 'critical',
+            context: { deletionMode: 'scheduled', targetName: 'Target', targetId: 'target-user' },
+        },
+    ])
 })
 
 test('admin deletion returns an existing schedule without extending its restore window', async () => {
@@ -85,5 +129,6 @@ test('admin deletion returns an existing schedule without extending its restore 
     })
     expect(queries.some(sql => sql.includes('deletion_scheduled_at = NOW() + INTERVAL \'30 days\'') && sql.includes('deletion_scheduled_at IS NULL'))).toBe(true)
     expect(tokenRevocations).toEqual([])
+    expect(recordedEvents).toEqual([])
     expect(existingDeletionDeadline).toBe('2026-10-20T12:00:00.000Z')
 })

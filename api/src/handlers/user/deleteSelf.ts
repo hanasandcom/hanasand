@@ -6,7 +6,8 @@ import { accountDeletionOrganizationBlocker, createAccountRestoreToken, lockAcco
 import { accountDeletionMail, deletionRequestLocation } from '#utils/auth/accountDeletionMail.ts'
 import { sendSystemMail } from '#utils/mail/system.ts'
 import { addressForUser } from '#utils/mail/helpers.ts'
-import { recordSystemEvent, userHasHanasandInternalAccess } from '#utils/systemEvent.ts'
+import { userHasHanasandInternalAccess } from '#utils/systemEvent.ts'
+import { recordScheduledDeletionAudit } from './accountDeletionAudit.ts'
 
 type PendingDeletionUser = User & { deletion_scheduled_at: string, deletion_requested_at: string }
 
@@ -81,26 +82,13 @@ export default async function deleteSelf(req: FastifyRequest, res: FastifyReply)
         }
 
         const wasHanasandInternalMember = await userHasHanasandInternalAccess(id)
-        await recordSystemEvent(req, {
-            actionType: 'user.account.deleted',
+        await recordScheduledDeletionAudit(req, {
             actorId: id,
-            source: 'auth',
-            targetType: 'user',
             targetId: id,
-            severity: wasHanasandInternalMember ? 'critical' : 'warning',
-            context: { deletionMode: 'scheduled', hanasandOrganizationMember: wasHanasandInternalMember, targetName: outcome.user.name, targetId: id },
+            targetName: outcome.user.name,
+            source: 'auth',
+            wasHanasandInternalMember,
         })
-        if (wasHanasandInternalMember) {
-            await recordSystemEvent(req, {
-                actionType: 'admin.account.deleted',
-                actorId: id,
-                source: 'auth',
-                targetType: 'user',
-                targetId: id,
-                severity: 'critical',
-                context: { deletionMode: 'scheduled', targetName: outcome.user.name, targetId: id },
-            })
-        }
 
         return res.send({
             message: 'Account scheduled for deletion.',

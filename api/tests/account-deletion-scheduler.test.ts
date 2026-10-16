@@ -8,6 +8,7 @@ let scheduleExpression = ''
 const purgeJobId = 'api-user-account-deletion'
 const tokenRevocations: Array<{ userId: string, revokedBy: string }> = []
 const deletedFromUsers: string[] = []
+const deletionAuditEvents: Array<Record<string, unknown>> = []
 const sqlCalls: string[] = []
 let databaseBackupPolls = 0
 
@@ -82,7 +83,10 @@ mock.module('../src/utils/auth/tokenWrapper.ts', () => ({ default: async () => (
 mock.module('../src/utils/auth/accountDeletionMail.ts', () => ({ accountDeletionMail: () => ({ subject: 'Scheduled', textBody: 'Scheduled', htmlBody: 'Scheduled' }), deletionRequestLocation: async () => ({}) }))
 mock.module('../src/utils/mail/system.ts', () => ({ sendSystemMail: async () => {} }))
 mock.module('../src/utils/mail/helpers.ts', () => ({ addressForUser: () => 'expired@example.test' }))
-mock.module('../src/utils/systemEvent.ts', () => ({ recordSystemEvent: async () => {}, userHasHanasandInternalAccess: async () => false }))
+mock.module('../src/utils/systemEvent.ts', () => ({
+    recordSystemEvent: async (_req: unknown, event: Record<string, unknown>) => { deletionAuditEvents.push(event) },
+    userHasHanasandInternalAccess: async () => false,
+}))
 
 const { default: startCron, canRunApiCronJobNow } = await import('../src/utils/cron.ts')
 const { getBackgroundJobRuntime, listBackgroundJobRuntime } = await import('../src/utils/backgroundJobRuntime.ts')
@@ -98,6 +102,7 @@ beforeEach(() => {
     scheduleExpression = ''
     tokenRevocations.length = 0
     deletedFromUsers.length = 0
+    deletionAuditEvents.length = 0
     sqlCalls.length = 0
     databaseBackupPolls = 0
 })
@@ -118,6 +123,15 @@ test('the minute scheduler purges accounts without login or external backup poll
     expect(accountExists).toBe(true)
     expect(deletedFromUsers).toEqual([])
     expect(tokenRevocations[0]).toEqual({ userId: 'expired-user', revokedBy: 'expired-user' })
+    expect(deletionAuditEvents).toEqual([{
+        actionType: 'user.account.deleted',
+        actorId: 'expired-user',
+        source: 'auth',
+        targetType: 'user',
+        targetId: 'expired-user',
+        severity: 'warning',
+        context: { deletionMode: 'scheduled', targetName: 'Expired User', targetId: 'expired-user', hanasandOrganizationMember: false },
+    }])
     const scheduledAt = new Date(deleteReplyState.body.deletion_scheduled_at).getTime()
     expect(scheduledAt - mockNow).toBe(30 * 24 * 60 * 60 * 1000)
 
