@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import { readFile } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -30,12 +31,17 @@ const files = execFileSync('git', ['ls-files', '-co', '--exclude-standard'], {
     encoding: 'utf8',
 }).split(/\r?\n/).filter(Boolean)
 const oversized = []
+const missing = []
 let checked = 0
 let totalLines = 0
 
 for (const relative of files) {
     const file = path.join(root, relative)
     if (!isInScope(relative) || generatedFiles.has(relative)) continue
+    if (!existsSync(file)) {
+        missing.push(relative)
+        continue
+    }
     const source = await readFile(file, 'utf8')
     const lineCount = countLines(source)
     checked++
@@ -52,6 +58,7 @@ if (oversized.length) {
 } else {
     console.log(`Line cap passed for all ${checked} hand-maintained files (${totalLines} lines total).`)
 }
+if (missing.length) console.log(`Skipped ${missing.length} tracked paths absent from the working tree.`)
 
 function isInScope(relative) {
     const parts = relative.split('/')
