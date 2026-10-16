@@ -460,6 +460,6 @@ invocation produced `withDatabaseAdvisoryLock` export errors from test module
 mock interference; all affected files then passed in separate serial
 invocations. Track test isolation as a test-quality issue rather than counting
 that combined invocation as product behavior failure. Both remotes were pushed
-through `5bc5c6170`. The latest committed global scan is 3,750 files /
+through `5bc5c6170`. At that code checkpoint the global scan was 3,750 files /
 323,711 LOC / 125 over 200. The frontend scan still passes at 2,336 files /
 156,018 LOC with zero over 200; no frontend code changed in these API slices.
