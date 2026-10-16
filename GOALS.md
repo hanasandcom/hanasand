@@ -161,6 +161,14 @@ webhook modules, but the API-wide cap and 100,000-line reduction goal remain
 unmet. The working-tree inventory is provisional while those refactors
 continue.
 
+The new repository-wide `node scripts/check-line-cap.mjs` scan currently sees
+3,494 hand-maintained code/config files and 321,380 lines (excluding generated
+OpenAPI/search routes, dependencies, build output, and monitoring evidence).
+It reports 130 files over 200 lines: 122 under `api/`, five under `ops/`, and
+three at the repository root or in shared scripts. The frontend portion passes
+with zero over-limit files. The scan is an explicit progress guard; it is not
+yet wired into the default build while the existing API debt is being removed.
+
 ## Execution
 
 - Divide work by non-overlapping repository areas and use traditional Norwegian
