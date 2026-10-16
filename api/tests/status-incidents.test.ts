@@ -1,5 +1,6 @@
 import { expect, mock, test } from 'bun:test'
 import { buildIncidents, selectStatusIncident } from '../src/handlers/status/get.ts'
+import { buildStatusIncidents } from '../src/utils/status/incidentHistory.ts'
 
 let recordedResults: unknown[][] = []
 const testToken = 'Bearer status-test-token'
@@ -55,8 +56,12 @@ test('status ingestion rejects unsupported states and records supported states',
 })
 
 const base = { service: 'dark-web-monitoring', check_name: 'Latest activity', status: 'down' as const, message: 'Latest customer activity is stale (147 minutes).' }
+test('preserves the status handler incident builder export', () => {
+    expect(buildIncidents).toBe(buildStatusIncidents)
+})
+
 test('reports recorded recovery, not the current check time, with newest evidence first', () => {
-    const [incident] = buildIncidents([
+    const [incident] = buildStatusIncidents([
         { ...base, checked_at: '2026-07-24T22:14:01.048Z', previous_status: 'up', next_status: 'down' },
         { ...base, status: 'degraded', message: 'Latest customer activity is stale (61 minutes).', checked_at: '2026-07-25T00:12:00Z', previous_status: 'down', previous_checked_at: '2026-07-25T00:11:00Z', next_status: 'up', next_checked_at: '2026-07-25T00:13:00Z', next_message: 'Fresh customer activity received.' },
     ])
@@ -70,13 +75,13 @@ test('reports recorded recovery, not the current check time, with newest evidenc
 })
 test('an unknown or later failed sample does not prove recovery', () => {
     for (const next_status of ['unknown', 'down', 'degraded', undefined]) {
-        const [incident] = buildIncidents([{ ...base, checked_at: '2026-07-24T22:14:00Z', next_status, next_checked_at: '2026-09-12T20:51:00Z' }])
+        const [incident] = buildStatusIncidents([{ ...base, checked_at: '2026-07-24T22:14:00Z', next_status, next_checked_at: '2026-09-12T20:51:00Z' }])
         expect(incident.resolved_at).toBeNull()
         expect(incident.status).toBe('investigating')
     }
 })
 test('a healthy result separates incidents even within fifteen minutes', () => {
-    const incidents = buildIncidents([
+    const incidents = buildStatusIncidents([
         { ...base, checked_at: '2026-07-24T22:14:00Z', next_status: 'up', next_checked_at: '2026-07-24T22:15:00Z' },
         { ...base, checked_at: '2026-07-24T22:16:00Z', previous_status: 'up', previous_checked_at: '2026-07-24T22:15:00Z' },
     ])
