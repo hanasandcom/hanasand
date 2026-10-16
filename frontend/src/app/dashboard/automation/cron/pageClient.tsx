@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { Activity, AlertTriangle, CalendarClock, ChevronDown, Clock3, Cpu, FileText, Maximize2, Minimize2, PauseCircle, PlayCircle, RefreshCcw, Save, ServerCog, TerminalSquare, Zap } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { AlertTriangle, Maximize2, Minimize2, PlayCircle, RefreshCcw } from 'lucide-react'
 import { DashboardPanel } from '@/components/dashboard/ui'
 import { fetchManagedCronJobs, updateManagedCronJob, type ManagedCronJob } from '@/utils/systemCron/client'
+import CronJobGroups from './cronJobGroups'
+import { money, needsAttention, operationalStateLabel, primaryHeadline, summarizeCronJobs } from './cronJobPresentation'
 
-const categories: ManagedCronJob['category'][] = ['TI / Exposure', 'Alerts', 'Mail', 'Backup/Database', 'Forgejo', 'Other/System']
 const densityStorageKey = 'dashboard-cron-density'
 
 export default function CronJobsClient() {
@@ -16,18 +17,9 @@ export default function CronJobsClient() {
     const [compact, setCompact] = useState(false)
     const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
     const loadedJobs = jobs || []
-
-    const summary = useMemo(() => {
-        const enabled = loadedJobs.filter(job => job.enabled).length
-        const running = loadedJobs.filter(job => job.running || job.status === 'running').length
-        const failed = loadedJobs.filter(job => job.status === 'failed' || job.status === 'blocked' || job.failureCount > 0).length
-        const pending = loadedJobs.filter(job => job.status === 'unknown').length
-        const hourly = sumMoney(loadedJobs.map(job => job.costEstimate.hourlyUsd))
-        const daily = sumMoney(loadedJobs.map(job => job.costEstimate.dailyUsd))
-        return { total: loadedJobs.length, enabled, running, failed, pending, hourly, daily }
-    }, [loadedJobs])
+    const summary = useMemo(() => summarizeCronJobs(loadedJobs), [loadedJobs])
     const attentionJobs = useMemo(() => loadedJobs.filter(needsAttention), [loadedJobs])
-    const runnableJobs = useMemo(() => loadedJobs.filter(job => job.controls.includes('run_now') && !needsAttention(job)).slice(0, 3), [loadedJobs])
+    const runnableJob = loadedJobs.find(job => job.controls.includes('run_now') && !needsAttention(job))
 
     useEffect(() => {
         void load()
@@ -36,11 +28,6 @@ export default function CronJobsClient() {
             if (retryTimer.current) clearTimeout(retryTimer.current)
         }
     }, [])
-
-    function setDensity(nextCompact: boolean) {
-        setCompact(nextCompact)
-        localStorage.setItem(densityStorageKey, nextCompact ? 'compact' : 'spacious')
-    }
 
     async function load() {
         setBusy('load')
@@ -76,175 +63,89 @@ export default function CronJobsClient() {
         }
     }
 
+    function setDensity(nextCompact: boolean) {
+        setCompact(nextCompact)
+        localStorage.setItem(densityStorageKey, nextCompact ? 'compact' : 'spacious')
+    }
+
     if (!jobs) return <LoadingState message={message} onRetry={() => void load()} />
 
-    return (
-        <div className='grid gap-3'>
-            <DashboardPanel className='grid gap-4 p-4'>
-                <div className='flex flex-wrap items-start justify-between gap-3'>
-                    <div className='min-w-0'>
-                        <p className='text-xs font-semibold uppercase tracking-normal text-ui-muted'>Scheduled operations</p>
-                        <h2 className='mt-1 text-lg font-semibold text-ui-text'>{primaryHeadline(summary)}</h2>
-                        <p className='mt-1 text-sm text-ui-muted'>{summary.total ? `${summary.enabled}/${summary.total} enabled · ${summary.running} running · ${money(summary.daily)}/day estimate` : 'Waiting for the cron inventory.'}</p>
-                    </div>
-                    <div className='flex items-center gap-2'>
-                        <div className='flex rounded-lg border border-ui-border bg-ui-raised p-1'>
-                            <button onClick={() => setDensity(true)} aria-label='Compact density' title='Compact density' aria-pressed={compact} className={`grid h-8 w-8 place-items-center rounded-md transition ${compact ? 'bg-ui-primary text-ui-on-primary' : 'text-ui-muted hover:bg-ui-panel hover:text-ui-text'}`}>
-                                <Minimize2 className='h-4 w-4' />
-                            </button>
-                            <button onClick={() => setDensity(false)} aria-label='Spacious density' title='Spacious density' aria-pressed={!compact} className={`grid h-8 w-8 place-items-center rounded-md transition ${!compact ? 'bg-ui-primary text-ui-on-primary' : 'text-ui-muted hover:bg-ui-panel hover:text-ui-text'}`}>
-                                <Maximize2 className='h-4 w-4' />
-                            </button>
-                        </div>
-                        <button onClick={() => void load()} className='inline-flex h-9 items-center gap-2 rounded-lg border border-ui-border bg-ui-raised px-3 text-sm font-semibold text-ui-text hover:border-ui-primary hover:bg-ui-panel'>
-                            <RefreshCcw className='h-4 w-4' />
-                            {busy === 'load' ? 'Refreshing' : 'Refresh'}
-                        </button>
-                    </div>
+    return <div className='grid gap-3'>
+        <DashboardPanel className='grid gap-4 p-4'>
+            <div className='flex flex-wrap items-start justify-between gap-3'>
+                <div className='min-w-0'>
+                    <p className='text-xs font-semibold uppercase tracking-normal text-ui-muted'>Scheduled operations</p>
+                    <h2 className='mt-1 text-lg font-semibold text-ui-text'>{primaryHeadline(summary)}</h2>
+                    <p className='mt-1 text-sm text-ui-muted'>
+                        {summary.total ? `${summary.enabled}/${summary.total} enabled · ${summary.running} running · ${money(summary.daily)}/day estimate` : 'Waiting for the cron inventory.'}
+                    </p>
                 </div>
-
-                <div className='grid gap-3 lg:grid-cols-[minmax(0,1.25fr)_minmax(280px,0.75fr)]'>
-                    <section className='grid gap-2 rounded-lg border border-ui-border bg-ui-raised p-3' aria-labelledby='cron-attention-heading'>
-                        <div className='flex items-center gap-2'>
-                            <AlertTriangle className={`h-4 w-4 ${attentionJobs.length ? 'text-ui-text' : 'text-ui-success'}`} />
-                            <h3 id='cron-attention-heading' className='text-sm font-semibold text-ui-text'>Needs attention</h3>
-                            <span className='ml-auto text-xs font-semibold text-ui-muted'>{attentionJobs.length}</span>
-                        </div>
-                        {attentionJobs.length ? (
-                            <div className='grid gap-2'>
-                                {attentionJobs.slice(0, 3).map(job => (
-                                    <a key={job.id} href={`#job-${job.id}`} className='rounded-md border border-ui-border bg-ui-panel px-3 py-2 text-sm text-ui-text transition hover:border-ui-primary'>
-                                        <span className='font-semibold'>{job.name}</span>
-                                        <span className='mt-1 block text-xs text-ui-muted'>{job.lastError || `${operationalStateLabel(job.status)} · ${job.category}`}</span>
-                                    </a>
-                                ))}
-                            </div>
-                        ) : (
-                            <p className='text-sm text-ui-muted'>No blocked or failing jobs in the current inventory.</p>
-                        )}
-                    </section>
-
-                    <section className='grid gap-2 rounded-lg border border-ui-border bg-ui-raised p-3' aria-labelledby='cron-next-action-heading'>
-                        <div className='flex items-center gap-2'>
-                            <PlayCircle className='h-4 w-4 text-ui-primary' />
-                            <h3 id='cron-next-action-heading' className='text-sm font-semibold text-ui-text'>Next safe action</h3>
-                        </div>
-                        {runnableJobs[0] ? (
-                            <div className='grid gap-2'>
-                                <p className='text-sm text-ui-muted'>{runnableJobs[0].name} can be run manually without changing the schedule.</p>
-                                <button onClick={() => void save(runnableJobs[0], { action: 'run_now' })} disabled={busy === runnableJobs[0].id} className='inline-flex h-9 w-fit items-center gap-2 rounded-lg bg-ui-primary px-3 text-sm font-semibold text-ui-on-primary hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50'>
-                                    <PlayCircle className='h-4 w-4' />
-                                    {busy === runnableJobs[0].id ? 'Starting' : 'Run selected job'}
-                                </button>
-                            </div>
-                        ) : (
-                            <p className='text-sm text-ui-muted'>No manual run action is available from this snapshot.</p>
-                        )}
-                    </section>
+                <div className='flex items-center gap-2'>
+                    <DensityToggle compact={compact} onChange={setDensity} />
+                    <button onClick={() => void load()} className='inline-flex h-9 items-center gap-2 rounded-lg border border-ui-border bg-ui-raised px-3 text-sm font-semibold text-ui-text hover:border-ui-primary hover:bg-ui-panel'>
+                        <RefreshCcw className='h-4 w-4' />
+                        {busy === 'load' ? 'Refreshing' : 'Refresh'}
+                    </button>
                 </div>
+            </div>
+            <div className='grid gap-3 lg:grid-cols-[minmax(0,1.25fr)_minmax(280px,0.75fr)]'>
+                <AttentionSummary jobs={attentionJobs} />
+                <NextAction job={runnableJob} busy={busy} onRun={job => void save(job, { action: 'run_now' })} />
+            </div>
+            {message ? <p className='text-sm text-ui-muted'>{message}</p> : null}
+        </DashboardPanel>
+        <CronJobGroups
+            jobs={jobs}
+            compact={compact}
+            drafts={drafts}
+            busy={busy}
+            onDraftChange={(jobId, value) => setDrafts(current => ({ ...current, [jobId]: value }))}
+            onSave={(job, patch) => void save(job, patch)}
+        />
+    </div>
+}
 
-                {message ? <p className='text-sm text-ui-muted'>{message}</p> : null}
-            </DashboardPanel>
+function DensityToggle({ compact, onChange }: { compact: boolean, onChange: (value: boolean) => void }) {
+    return <div className='flex rounded-lg border border-ui-border bg-ui-raised p-1'>
+        <button onClick={() => onChange(true)} aria-label='Compact density' title='Compact density' aria-pressed={compact} className={`grid h-8 w-8 place-items-center rounded-md transition ${compact ? 'bg-ui-primary text-ui-on-primary' : 'text-ui-muted hover:bg-ui-panel hover:text-ui-text'}`}>
+            <Minimize2 className='h-4 w-4' />
+        </button>
+        <button onClick={() => onChange(false)} aria-label='Spacious density' title='Spacious density' aria-pressed={!compact} className={`grid h-8 w-8 place-items-center rounded-md transition ${!compact ? 'bg-ui-primary text-ui-on-primary' : 'text-ui-muted hover:bg-ui-panel hover:text-ui-text'}`}>
+            <Maximize2 className='h-4 w-4' />
+        </button>
+    </div>
+}
 
-            {categories.map(category => {
-                const rows = jobs.filter(job => job.category === category)
-                if (!rows.length) return null
-                return (
-                    <section key={category} className='grid gap-2'>
-                        <div className='flex items-center justify-between gap-3 px-1'>
-                            <h2 className='text-sm font-semibold uppercase tracking-normal text-ui-muted'>{category}</h2>
-                            <span className='text-xs text-ui-muted'>{rows.length} job{rows.length === 1 ? '' : 's'}</span>
-                        </div>
-                        <div className='grid gap-2'>
-                            {rows.map(job => (
-                                <DashboardPanel key={job.id} id={`job-${job.id}`} className={`grid ${compact ? 'gap-2 p-3' : 'gap-3 p-4'}`}>
-                                    <div className={`grid ${compact ? 'gap-2' : 'gap-3'} lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start`}>
-                                        <div className='min-w-0'>
-                                            <div className='flex flex-wrap items-center gap-2'>
-                                                <ServerCog className='h-4 w-4 text-ui-muted' />
-                                                <h3 className='text-base font-semibold text-ui-text'>{job.name}</h3>
-                                                <StatusPill job={job} />
-                                                <CostPill job={job} />
-                                                <MetaPill icon={<CalendarClock className='h-3.5 w-3.5' />} value={cadenceLabel(job)} />
-                                                <MetaPill icon={<FileText className='h-3.5 w-3.5' />} value={controlLabel(job)} title={job.assumptions.join(' ')} />
-                                            </div>
-                                            <p className={`${compact ? 'mt-0.5 line-clamp-1' : 'mt-1'} text-sm leading-5 text-ui-muted`}>{job.description}</p>
-                                            <div className={`${compact ? 'hidden' : 'mt-3 grid'} gap-2 sm:grid-cols-3`}>
-                                                <Info icon={<CalendarClock className='h-4 w-4' />} label='Schedule' value={job.schedule} />
-                                                <Info icon={<Clock3 className='h-4 w-4' />} label='Next run' value={timeLabel(job.nextRunAt)} />
-                                                <Info icon={<AlertTriangle className='h-4 w-4' />} label='Reliability' value={reliabilityLabel(job)} />
-                                            </div>
-                                        </div>
-                                        <div className='flex flex-wrap gap-2 lg:justify-end'>
-                                            {(job.controls.includes('pause') || job.controls.includes('resume')) && (
-                                                <button onClick={() => void save(job, { enabled: !job.enabled })} disabled={busy === job.id} className='inline-flex h-9 items-center gap-2 rounded-lg border border-ui-border bg-ui-raised px-3 text-sm font-semibold text-ui-text hover:border-ui-primary hover:bg-ui-panel disabled:cursor-not-allowed disabled:opacity-50'>
-                                                    {job.enabled ? <PauseCircle className='h-4 w-4' /> : <PlayCircle className='h-4 w-4' />}
-                                                    {busy === job.id ? 'Saving' : job.enabled ? 'Pause' : 'Resume'}
-                                                </button>
-                                            )}
-                                            {job.controls.includes('run_now') && (
-                                                <button onClick={() => void save(job, { action: 'run_now' })} disabled={busy === job.id} className='inline-flex h-9 items-center gap-2 rounded-lg border border-ui-border bg-ui-raised px-3 text-sm font-semibold text-ui-text hover:border-ui-primary hover:bg-ui-panel disabled:cursor-not-allowed disabled:opacity-50'>
-                                                    <PlayCircle className='h-4 w-4' />
-                                                    {busy === job.id ? 'Starting' : 'Run now'}
-                                                </button>
-                                            )}
-                                            {!job.controls.length && (
-                                                <span className='inline-flex h-9 items-center rounded-lg border border-ui-border bg-ui-raised px-3 text-sm font-semibold text-ui-muted' title={job.assumptions.join(' ')}>
-                                                    Audit only
-                                                </span>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {job.controls.includes('edit_schedule') ? (
-                                        <details data-testid='cron-schedule-controls' className='group rounded-lg border border-ui-border bg-ui-raised'>
-                                            <summary className='flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-sm font-semibold text-ui-text outline-none transition hover:bg-ui-panel focus-visible:ring-2 focus-visible:ring-ui-primary'>
-                                                <span>Schedule controls</span>
-                                                <span className='flex min-w-0 items-center gap-2 text-xs font-medium text-ui-muted'>
-                                                    <span className='truncate font-mono'>{drafts[job.id] ?? job.schedule}</span>
-                                                    <ChevronDown className='h-4 w-4 shrink-0 transition group-open:rotate-180' />
-                                                </span>
-                                            </summary>
-                                            <label className='grid gap-1 border-t border-ui-border p-3'>
-                                                <span className='text-xs font-semibold uppercase text-ui-muted'>Cron expression</span>
-                                                <div className='flex gap-2'>
-                                                    <input
-                                                        value={drafts[job.id] ?? job.schedule}
-                                                        onChange={event => setDrafts(current => ({ ...current, [job.id]: event.target.value }))}
-                                                        className='min-h-10 flex-1 rounded-lg border border-ui-border bg-ui-raised px-3 font-mono text-sm text-ui-text outline-none focus:border-ui-primary'
-                                                    />
-                                                    <button onClick={() => void save(job)} className='grid h-10 w-10 place-items-center rounded-lg border border-ui-border bg-ui-raised text-ui-text hover:border-ui-primary hover:bg-ui-panel' title='Save schedule' aria-label={`Save ${job.name} schedule`}>
-                                                        <Save className='h-4 w-4' />
-                                                    </button>
-                                                </div>
-                                            </label>
-                                        </details>
-                                    ) : null}
-
-                                    <details className='group rounded-lg border border-ui-border bg-ui-raised'>
-                                        <summary className='flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-sm font-semibold text-ui-text outline-none transition hover:bg-ui-panel focus-visible:ring-2 focus-visible:ring-ui-primary'>
-                                            <span>Runtime, audit, and log details</span>
-                                            <ChevronDown className='h-4 w-4 text-ui-muted transition group-open:rotate-180' />
-                                        </summary>
-                                        <div className='grid gap-2 border-t border-ui-border p-3 md:grid-cols-2'>
-                                            <Info icon={<Clock3 className='h-4 w-4' />} label='Last run' value={timeLabel(job.lastRunAt)} />
-                                            <Info icon={<Activity className='h-4 w-4' />} label='Runtime' value={`${duration(job.currentRunDurationMs) || 'not running'} current; ${duration(job.averageRuntimeMs) || 'measuring'} avg`} />
-                                            <Info icon={<Cpu className='h-4 w-4' />} label='Resources' value={resourceLabel(job)} />
-                                            <Info icon={<Zap className='h-4 w-4' />} label='Cost' value={`${money(job.costEstimate.hourlyUsd)}/hr · ${money(job.costEstimate.dailyUsd)}/day`} />
-                                            <Info icon={<FileText className='h-4 w-4' />} label='Control' value={controlLabel(job)} />
-                                            <Info icon={<FileText className='h-4 w-4' />} label='Definition' value={`${job.source} · ${job.service}`} mono />
-                                            <Info icon={<FileText className='h-4 w-4' />} label='Fallback' value={job.assumptions.join(' ')} />
-                                            <Info icon={<TerminalSquare className='h-4 w-4' />} label='Log' value={job.logExcerpt || 'Log stream live; no recent line.'} mono />
-                                        </div>
-                                    </details>
-                                </DashboardPanel>
-                            ))}
-                        </div>
-                    </section>
-                )
-            })}
+function AttentionSummary({ jobs }: { jobs: ManagedCronJob[] }) {
+    return <section className='grid gap-2 rounded-lg border border-ui-border bg-ui-raised p-3' aria-labelledby='cron-attention-heading'>
+        <div className='flex items-center gap-2'>
+            <AlertTriangle className={`h-4 w-4 ${jobs.length ? 'text-ui-text' : 'text-ui-success'}`} />
+            <h3 id='cron-attention-heading' className='text-sm font-semibold text-ui-text'>Needs attention</h3>
+            <span className='ml-auto text-xs font-semibold text-ui-muted'>{jobs.length}</span>
         </div>
-    )
+        {jobs.length ? <div className='grid gap-2'>
+            {jobs.slice(0, 3).map(job => <a key={job.id} href={`#job-${job.id}`} className='rounded-md border border-ui-border bg-ui-panel px-3 py-2 text-sm text-ui-text transition hover:border-ui-primary'>
+                <span className='font-semibold'>{job.name}</span>
+                <span className='mt-1 block text-xs text-ui-muted'>{job.lastError || `${operationalStateLabel(job.status)} · ${job.category}`}</span>
+            </a>)}
+        </div> : <p className='text-sm text-ui-muted'>No blocked or failing jobs in the current inventory.</p>}
+    </section>
+}
+
+function NextAction({ job, busy, onRun }: { job?: ManagedCronJob, busy: string, onRun: (job: ManagedCronJob) => void }) {
+    return <section className='grid gap-2 rounded-lg border border-ui-border bg-ui-raised p-3' aria-labelledby='cron-next-action-heading'>
+        <div className='flex items-center gap-2'>
+            <PlayCircle className='h-4 w-4 text-ui-primary' />
+            <h3 id='cron-next-action-heading' className='text-sm font-semibold text-ui-text'>Next safe action</h3>
+        </div>
+        {job ? <div className='grid gap-2'>
+            <p className='text-sm text-ui-muted'>{job.name} can be run manually without changing the schedule.</p>
+            <button onClick={() => onRun(job)} disabled={busy === job.id} className='inline-flex h-9 w-fit items-center gap-2 rounded-lg bg-ui-primary px-3 text-sm font-semibold text-ui-on-primary hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50'>
+                <PlayCircle className='h-4 w-4' />
+                {busy === job.id ? 'Starting' : 'Run selected job'}
+            </button>
+        </div> : <p className='text-sm text-ui-muted'>No manual run action is available from this snapshot.</p>}
+    </section>
 }
 
 function LoadingState({ message, onRetry }: { message: string, onRetry: () => void }) {
@@ -256,132 +157,4 @@ function LoadingState({ message, onRetry }: { message: string, onRetry: () => vo
             {message ? <button type='button' onClick={onRetry} className='mt-4 inline-flex h-9 items-center gap-2 rounded-lg border border-ui-border bg-ui-raised px-3 text-sm font-semibold text-ui-text hover:border-ui-primary'><RefreshCcw className='h-4 w-4' />Try again</button> : null}
         </div>
     </div>
-}
-
-function primaryHeadline(summary: { failed: number, pending: number, running: number, total: number }) {
-    if (!summary.total) return 'Loading scheduled work'
-    if (summary.pending) return 'Live job state is loading'
-    if (summary.failed === 1) return '1 job needs review'
-    if (summary.failed) return `${summary.failed} jobs need review`
-    if (summary.running) return `${summary.running} job${summary.running === 1 ? '' : 's'} running now`
-    return 'All scheduled jobs operating normally'
-}
-
-function needsAttention(job: ManagedCronJob) {
-    return job.status === 'failed' || job.status === 'blocked' || job.failureCount > 0
-}
-
-function StatusPill({ job }: { job: ManagedCronJob }) {
-    const tone = job.status === 'failed' || job.status === 'blocked'
-        ? 'border-ui-danger bg-ui-raised/15 text-ui-text'
-        : job.status === 'running'
-            ? 'border-ui-primary bg-ui-primary/15 text-ui-primary'
-            : job.enabled
-                ? 'border-ui-success bg-ui-success/15 text-ui-success'
-                : 'border-ui-border bg-ui-raised text-ui-muted'
-    return <span className={`rounded-full border px-2 py-1 text-xs font-semibold ${tone}`}>{operationalStateLabel(job.status)}</span>
-}
-
-function CostPill({ job }: { job: ManagedCronJob }) {
-    const daily = job.costEstimate.dailyUsd
-    const tone = daily === null
-        ? 'border-ui-border bg-ui-raised text-ui-muted'
-        : daily >= 1
-            ? 'border-ui-danger bg-ui-raised/15 text-ui-text'
-            : daily >= 0.25
-                ? 'border-ui-warning bg-ui-warning/15 text-ui-warning'
-                : 'border-ui-success bg-ui-success/15 text-ui-success'
-    return (
-        <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs font-semibold ${tone}`} title={job.costEstimate.assumption}>
-            <Zap className='h-3.5 w-3.5' />
-            {money(daily)}/day
-        </span>
-    )
-}
-
-function MetaPill({ icon, value, title }: { icon: ReactNode, value: string, title?: string }) {
-    return (
-        <span className='inline-flex max-w-full items-center gap-1 rounded-full border border-ui-border bg-ui-raised px-2 py-1 text-xs font-semibold text-ui-muted' title={title}>
-            {icon}
-            <span className='truncate'>{value}</span>
-        </span>
-    )
-}
-
-function Info({ icon, label, value, mono = false }: { icon: ReactNode, label: string, value: string, mono?: boolean }) {
-    return (
-        <div className='grid gap-1 rounded-lg border border-ui-border bg-ui-raised p-3'>
-            <div className='flex items-center gap-2 text-ui-muted'>
-                {icon}
-                <span className='text-xs font-semibold uppercase'>{label}</span>
-            </div>
-            <p className={`${mono ? 'font-mono text-xs' : 'text-sm'} break-words text-ui-text`}>{value}</p>
-        </div>
-    )
-}
-
-function cadenceLabel(job: ManagedCronJob) {
-    if (job.cadenceSeconds) return secondsSchedule(job.cadenceSeconds)
-    return job.schedule
-}
-
-function secondsSchedule(seconds: number) {
-    if (seconds < 60) return `${seconds}s`
-    const minutes = Math.round(seconds / 60)
-    if (minutes < 60) return `${minutes}m`
-    const hours = Math.round(minutes / 60)
-    return `${hours}h`
-}
-
-function controlLabel(job: ManagedCronJob) {
-    if (job.controlMode === 'observable_only') return 'Audit only'
-    if (job.controlMode === 'run_only') return 'Run now supported'
-    if (job.controlMode === 'editable') return 'Pause/resume and schedule edit'
-    return job.controls.includes('run_now') ? 'Safe pause/resume and run now' : 'Safe pause/resume'
-}
-
-function reliabilityLabel(job: ManagedCronJob) {
-    if (job.failureCount) return `${job.failureCount} failure${job.failureCount === 1 ? '' : 's'} · ${job.lastError || 'see logs'}`
-    if (job.lastSuccessAt) return `Last success ${timeLabel(job.lastSuccessAt)}`
-    return 'No failures reported'
-}
-
-function resourceLabel(job: ManagedCronJob) {
-    const parts = [
-        job.resourceUsage.memoryRssMb !== null ? `${job.resourceUsage.memoryRssMb} MB RSS` : '',
-        job.resourceUsage.memoryUsedMb !== null ? `${job.resourceUsage.memoryUsedMb} MB heap` : '',
-        job.resourceUsage.queueDepth !== null ? `${job.resourceUsage.queueDepth} queued` : '',
-    ].filter(Boolean)
-    return parts.length ? `${parts.join(' · ')} (${job.resourceUsage.scope})` : job.resourceUsage.note
-}
-
-function operationalStateLabel(value: string) {
-    if (value === 'blocked') return 'blocked'
-    if (value === 'needs_action') return 'reviewing'
-    if (value === 'action_required') return 'reviewing'
-    return value.replaceAll('_', ' ')
-}
-
-function timeLabel(value: string | null) {
-    if (!value) return 'watching'
-    return new Date(value).toLocaleString()
-}
-
-function duration(value: number | null) {
-    if (!value) return ''
-    if (value < 1000) return `${value}ms`
-    const seconds = Math.round(value / 1000)
-    if (seconds < 60) return `${seconds}s`
-    const minutes = Math.round(seconds / 60)
-    return `${minutes}m`
-}
-
-function sumMoney(values: Array<number | null>) {
-    const available = values.filter((value): value is number => typeof value === 'number')
-    if (!available.length) return null
-    return Math.round(available.reduce((sum, value) => sum + value, 0) * 10000) / 10000
-}
-
-function money(value: number | null) {
-    return typeof value === 'number' ? `$${value.toFixed(value < 0.01 ? 4 : 2)}` : 'metering'
 }
