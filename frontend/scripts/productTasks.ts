@@ -5,6 +5,7 @@ export const productTasks: TestTask[] = [
     { id: 'site-navigation', title: 'Shared header on all pages and mobile sidebar controls', command: [bun, 'scripts/check-mobile-navigation.mjs'], requires: 'playwright' },
     { id: 'cases-layout-streaming', title: 'Cases stream while sidebar data loads', command: [bun, 'tests/cases-layout-streaming.test.tsx'] },
     { id: 'shared-cases-route', title: 'Independent case sources and access boundaries', command: [bun, 'test', 'tests/shared-cases-route.test.ts'] },
+    { id: 'monitoring-case-data', title: 'Monitoring case URLs and event pagination', command: [bun, 'test', 'tests/monitoring-case-data.test.ts'] },
     { id: 'logs-catchup', title: 'Log catch-up measurements and progress states', command: [bun, 'test', 'tests/log-catchup-progress.test.tsx'] },
     { id: 'rule-count-initial', title: 'Rule counts start from the previous server sample', command: [bun, 'test', 'tests/rule-count-initial.test.tsx'] },
     { id: 'content-workspace', title: 'Content workspace selection and access failures', command: [bun, 'test', 'tests/content-workspace.test.ts'] },

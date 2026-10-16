@@ -1,35 +1,22 @@
 'use client'
 
 import Link from '@/components/organizations/workspaceLink'
-import { CaseEvents, CheckFields, type CaseEvent, type CheckDetails } from './case-events'
-import Markdown from 'react-markdown'
-import { CaseDevelopment } from './case-development'
 import { useEffect, useState } from 'react'
-import { ChevronDown, Filter, Search } from 'lucide-react'
-import type { CaseRow } from './cases-client'
+import { MonitoringCaseComments } from './MonitoringCaseComments'
+import { MonitoringCaseOverview } from './MonitoringCaseOverview'
+import { MonitoringCaseSecondaryPanels } from './MonitoringCaseSecondaryPanels'
+import { caseEndpoint, caseTabs, mergeCaseEvents, type CaseTab, type MonitoringCase } from './monitoringCaseTypes'
 
-export type MonitoringCase = CaseRow & {
-    diskDiagnostics?: { sampledAt: string, host: string, filesystems: Array<{ path: string, usedPercent: number, complete: boolean, directories: Array<{ path: string, sizeBytes: number }> }> },
-    canManage?: boolean,
-    relatedChecks?: Array<{ id: string, name: string, message: string, outcome?: string, completedAt?: string }>,
-    events?: CaseEvent[], eventTotal?: number, eventPage?: number, eventSnapshot?: string, currentCheck?: CheckDetails,
-    lastSeenAt?: string, occurrences: number, automationId: string, resolvedAt?: string, notificationsEnabled: boolean,
-    history: Array<{ id: string, actor: string, at: string, action: string, note?: string, fromStatus?: string, toStatus?: string, fromSeverity?: string, toSeverity?: string, notificationsEnabled?: boolean }>,
-    comments: Array<{ id: string, author: string, body: string, createdAt: string, actorType?: 'human' | 'automation' }>,
-    notifications: Array<{ messageId?: string, deliveredAt?: string, error?: string, nextAttemptAt?: string, message?: { content?: string, embeds?: Array<{ title?: string, description?: string, fields?: Array<{ name: string, value: string }> }> } }>,
-}
+export type { MonitoringCase } from './monitoringCaseTypes'
 
 const control = 'rounded-lg border border-ui-border bg-ui-canvas px-3 py-2 text-sm text-ui-text disabled:cursor-not-allowed disabled:opacity-50'
 const severityColor: Record<string, string> = {
     low: 'var(--ui-muted)',
     medium: 'var(--ui-success)',
     high: 'var(--ui-warning)',
-    critical: 'var(--ui-danger)'
+    critical: 'var(--ui-danger)',
 }
 const headerControl = `${control} inline-flex h-10 min-w-28 items-center justify-center whitespace-nowrap`
-const date = (value?: string) => value ? new Date(value).toLocaleString() : '—'
-const caseTabs = ['overview', 'history', 'events', 'settings'] as const
-type CaseTab = typeof caseTabs[number]
 
 export function MonitoringCaseDetail({ caseId, organizationId }: { caseId: string, organizationId?: string }) {
     const [tab, setTab] = useState<CaseTab>('overview')
@@ -46,20 +33,16 @@ export function MonitoringCaseDetail({ caseId, organizationId }: { caseId: strin
     const [commentFiltersOpen, setCommentFiltersOpen] = useState(false)
     const [commentSearch, setCommentSearch] = useState('')
     const [hideAutomatedComments, setHideAutomatedComments] = useState(false)
-    const params = new URLSearchParams(organizationId ? { organizationId } : {})
-    const endpoint = `/api/cases/${encodeURIComponent(caseId)}?${params}`
+    const endpoint = caseEndpoint(caseId, organizationId)
     const comments = item?.comments || []
-    const query = commentSearch.trim().toLocaleLowerCase()
-    const visibleComments = comments.filter(entry => {
-        const automated = entry.actorType === 'automation' || entry.author.trim().toLocaleLowerCase() === 'health monitoring'
-        return !(hideAutomatedComments && automated) && (!query || `${entry.author} ${entry.body}`.toLocaleLowerCase().includes(query))
-    })
+
     useEffect(() => {
         setCommentsOpen(false)
         setCommentFiltersOpen(false)
         setCommentSearch('')
         setHideAutomatedComments(false)
     }, [endpoint])
+
     useEffect(() => {
         const controller = new AbortController()
         setItem(null)
@@ -73,6 +56,7 @@ export function MonitoringCaseDetail({ caseId, organizationId }: { caseId: strin
         }).catch(error => { if (!controller.signal.aborted) setError(error.message) })
         return () => controller.abort()
     }, [endpoint, revision])
+
     async function save(change: Record<string, unknown>) {
         if (item?.canManage === false) return
         setBusy(true)
@@ -97,17 +81,24 @@ export function MonitoringCaseDetail({ caseId, organizationId }: { caseId: strin
             setBusy(false)
         }
     }
+
     async function moreEvents() {
         if (!item || loadingEvents) return
         setLoadingEvents(true)
         try {
-            const response = await fetch(`${endpoint}&eventsPage=${(item.eventPage || 0) + 1}&eventsAt=${encodeURIComponent(item.eventSnapshot || new Date().toISOString())}`, { cache: 'no-store' })
+            const page = (item.eventPage || 0) + 1
+            const snapshot = item.eventSnapshot || new Date().toISOString()
+            const response = await fetch(`${endpoint}&eventsPage=${page}&eventsAt=${encodeURIComponent(snapshot)}`, { cache: 'no-store' })
             if (!response.ok) throw new Error('Could not load more events. Try again.')
             const next = (await response.json()).case as MonitoringCase
-            setItem(current => current?.id === item.id ? ({ ...current, events: [...new Map([...(current.events || []), ...(next.events || [])].map(event => [event.id, event])).values()], eventPage: next.eventPage, eventTotal: next.eventTotal }) : current)
-        } catch (error) { setError(error instanceof Error ? error.message : 'Could not load events.') }
-        finally { setLoadingEvents(false) }
+            setItem(current => current?.id === item.id ? mergeCaseEvents(current, next) : current)
+        } catch (error) {
+            setError(error instanceof Error ? error.message : 'Could not load events.')
+        } finally {
+            setLoadingEvents(false)
+        }
     }
+
     return <article className='min-w-0 overflow-hidden rounded-xl border border-ui-border bg-ui-panel text-ui-text'>
         <div aria-hidden='true' className='h-1.5' style={{ backgroundColor: severityColor[item?.severity ?? ''] ?? 'transparent' }} />
         <header className='grid gap-3 border-b border-ui-border px-5 py-4 sm:px-6'>
@@ -116,180 +107,53 @@ export function MonitoringCaseDetail({ caseId, organizationId }: { caseId: strin
                     <h1 className='min-w-0 max-w-[20ch] flex-1 wrap-break-word text-xl font-semibold leading-tight'>{item?.title || caseId}</h1>
                     <Link className='inline-flex h-10 shrink-0 items-center whitespace-nowrap text-sm text-ui-primary' href={`/cases${organizationId ? `?organizationId=${encodeURIComponent(organizationId)}` : ''}`}>← Cases</Link>
                 </div>
-                {item && <div className='flex max-w-full flex-wrap items-center gap-2'>
-                    <span className={`inline-flex h-10 min-w-28 items-center justify-center rounded-lg border px-3 text-sm font-medium capitalize ${item.status === 'open' ? 'border-ui-warning/30 bg-ui-warning/10 text-ui-warning' : 'border-ui-success/30 bg-ui-success/10 text-ui-success'}`}>{item.status.replaceAll('_', ' ')}</span>
-                    <select aria-label='Severity' className={headerControl} value={item.severity} disabled={busy || item.canManage === false} onChange={event => void save({ severity: event.target.value })}>{['low', 'medium', 'high', 'critical'].map(value => <option key={value} value={value}>{value[0].toUpperCase() + value.slice(1)}</option>)}</select>
-                    {['closed', 'resolved'].includes(item.status) ? <button className={headerControl} disabled={busy || item.canManage === false} onClick={() => void save({ status: 'open' })}>Reopen case</button> : <>
-                        <button className={headerControl} disabled={busy || item.canManage === false} onClick={() => void save({ status: item.status === 'in_progress' ? 'open' : 'in_progress' })}>{item.status === 'in_progress' ? 'Set as open' : 'Start progress'}</button>
-                        <button className={headerControl} disabled={busy || item.canManage === false} onClick={() => { setTab('overview'); setResolving(true) }}>Resolve case</button>
-                    </>}
-                    {item.resolution?.id && ['ai', 'automation'].includes(item.resolution.type) && !item.resolution.confirmedAt && ['resolved', 'closed'].includes(item.status) && <button className={headerControl} disabled={busy || item.canManage === false} onClick={() => void save({ confirmResolutionId: item.resolution!.id })}>Confirm resolution</button>}
-                </div>}
+                {item && <CaseControls item={item} busy={busy} save={save} setTab={setTab} setResolving={setResolving} />}
             </div>
             <p role='status' className='sr-only'>{busy ? 'Saving…' : notice}</p>
             {error && <div role='alert' className='text-sm text-ui-text'>{error} <button className='underline' disabled={busy} onClick={() => setRevision(value => value + 1)}>Retry</button></div>}
         </header>
         {!item && !error && <p className='p-6'>Loading case…</p>}
         {item && <>
-            <div role='tablist' aria-label='Case views' className='flex flex-wrap gap-2 border-b border-ui-border px-5 py-3'>
-                {caseTabs.map(value => <button key={value} id={`case-tab-${value}`} role='tab' aria-selected={tab === value} aria-controls={`case-panel-${value}`} tabIndex={tab === value ? 0 : -1} onKeyDown={event => {
-                    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
-                    event.preventDefault()
-                    const index = caseTabs.indexOf(value)
-                    const nextIndex = event.key === 'Home' ? 0 : event.key === 'End' ? caseTabs.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + caseTabs.length) % caseTabs.length
-                    const next = caseTabs[nextIndex]
-                    setTab(next)
-                    document.getElementById(`case-tab-${next}`)?.focus()
-                }} className={`${control} ${tab === value ? 'font-semibold text-ui-primary' : ''}`} onClick={() => setTab(value)}>{value === 'overview' ? 'Overview' : value === 'history' ? 'History' : value === 'settings' ? 'Settings' : `Events (${item.eventTotal ?? item.occurrences})`}</button>)}
-            </div>
+            <CaseTabs item={item} tab={tab} setTab={setTab} />
             <div id='case-panel-overview' role='tabpanel' aria-labelledby='case-tab-overview' hidden={tab !== 'overview'}>
-                {resolving && <form className='grid gap-3 border-b border-ui-border p-5' onSubmit={event => { event.preventDefault(); if (comment.trim()) void save({ status: 'resolved', comment, ...(aiAssisted ? { resolutionMethod: 'ai' } : {}) }) }}>
-                    <label htmlFor='resolution-comment' className='font-medium'>Resolution comment (required)</label>
-                    <textarea id='resolution-comment' className={`${control} min-h-24`} required maxLength={5000} value={comment} onChange={event => setComment(event.target.value)} placeholder='What was fixed, and how did you verify it?' />
-                    <label className='flex items-center gap-2 text-sm'><input type='checkbox' checked={aiAssisted} onChange={event => setAiAssisted(event.target.checked)} />Resolved by AI — requires human confirmation</label>
-                    <div className='flex gap-2'><button className={control} disabled={busy || item.canManage === false || !comment.trim()}>Resolve with comment</button><button type='button' className={control} disabled={busy || item.canManage === false} onClick={() => setResolving(false)}>Cancel</button></div>
-                </form>}
-                {item.resolution && <section className='grid gap-2 border-b border-ui-border p-5' aria-label='Resolution review'>
-                    <h2 className='font-semibold'>{item.resolution.type === 'ai' ? 'Resolved by AI' : item.resolution.type === 'automation' ? 'Recovered automatically' : item.resolution.type === 'unknown' ? 'Resolver not recorded' : 'Resolved by a person'}</h2>
-                    <p className='text-sm'>{item.resolution.actor || 'Identity unavailable'} · {date(item.resolution.at)}</p>
-                    {item.resolution.type === 'automation' && item.resolvedAt && (item.relatedChecks?.length || 0) > 1 ? <div className='grid gap-3'>
-                        <p className='text-sm text-ui-muted'>Results when the affected checks recovered.</p>
-                        <dl className='grid gap-3'>{item.relatedChecks!.map(check => <div key={check.id}>
-                            <dt className='text-sm font-medium'>{check.name}</dt>
-                            <dd className='mt-1 whitespace-pre-wrap text-sm'>{check.message}</dd>
-                        </div>)}</dl>
-                    </div> : <p className='whitespace-pre-wrap text-sm'>{item.resolution.note}</p>}
-                    {item.resolution.confirmedAt ? <p className='text-sm text-ui-success'>Confirmed by {item.resolution.confirmedBy} · {date(item.resolution.confirmedAt)}</p> : ['ai', 'automation'].includes(item.resolution.type) && <p className='text-sm text-ui-muted'>Awaiting human confirmation.</p>}
-                </section>}
-                <section aria-labelledby='case-summary' className='min-w-0 grid gap-3 border-b border-ui-border p-5 sm:p-6'>
-                    <h2 id='case-summary' className='text-lg font-semibold'>Summary</h2>
-                    <p className='whitespace-pre-wrap [overflow-wrap:anywhere] leading-7'>{item.summary}</p>
-                    {(item.relatedChecks?.length || 0) > 1 && <p className='text-sm text-ui-muted'>Affected checks: {item.relatedChecks!.map(check => check.name).join(', ')}.</p>}
-                </section>
-                <section aria-labelledby='case-technical' className='grid gap-4 border-b border-ui-border p-5 sm:p-6'>
-                    <div className='flex flex-wrap items-center justify-between gap-3'><h2 id='case-technical' className='text-lg font-semibold'>Technical details</h2><Link className='text-sm text-ui-primary underline' href={`/automation/health?monitor=${encodeURIComponent(item.automationId)}`}>View health check</Link></div>
-                    {item.events?.[0]?.details ? <><p className='text-sm text-ui-muted'>Configuration captured for the latest occurrence.</p><CheckFields details={item.events[0].details} /></> : item.currentCheck && <><p className='text-sm text-ui-muted'>Current check configuration. Older runs did not capture their configuration.</p><CheckFields details={item.currentCheck} /></>}
-                    {item.events?.[0] && <div className='grid gap-2'><h3 className='font-medium'>Latest recorded result</h3><p className='whitespace-pre-wrap [overflow-wrap:anywhere]'>{item.events[0].message}</p><p className='text-sm text-ui-muted'>Duration: {item.events[0].durationMs == null ? 'Not recorded' : `${item.events[0].durationMs.toLocaleString()} ms`}</p></div>}
-                    <dl className='grid gap-4 sm:grid-cols-2 xl:grid-cols-4'>{[['First seen', date(item.createdAt)], ['Last seen', date(item.lastSeenAt || item.updatedAt)], ['Recovered', item.resolvedAt ? date(item.resolvedAt) : 'Not recovered'], ['Occurrences', item.occurrences.toLocaleString()]].map(([label, value]) => <div key={label} className='min-w-0 rounded-lg bg-ui-canvas p-4'><dt className='text-sm text-ui-muted'>{label}</dt><dd className='mt-2 wrap-break-word text-sm font-medium'>{value}</dd></div>)}</dl>
-                    <p className='text-sm text-ui-muted'>Health checks update recovery automatically. A manual case status stays in effect until you change it; closing a case does not mark the health check as recovered.</p>
-                    {item.diskDiagnostics && <section aria-label='Disk usage diagnostics' className='grid gap-4 rounded-lg border border-ui-border bg-ui-canvas p-4'>
-                        <h3 className='font-semibold'>Largest directories</h3>
-                        <p className='text-xs text-ui-muted'>{item.diskDiagnostics.host} · Collected {new Date(item.diskDiagnostics.sampledAt).toLocaleString()}. Directory sizes include their contents; nested rows overlap.</p>
-                        {item.diskDiagnostics.filesystems.map(filesystem => <div key={filesystem.path} className='grid gap-2'>
-                            <h4 className='text-sm font-medium'>{filesystem.path} · {filesystem.usedPercent}% used</h4>
-                            {!filesystem.complete && <p className='text-sm text-ui-warning'>Partial scan. Some directories could not be measured before the time limit or were inaccessible.</p>}
-                            <div className='overflow-x-auto'><table className='w-full text-left text-sm'>
-                                <thead className='border-b border-ui-border text-ui-muted'><tr><th className='py-2 pr-4'>Directory</th><th className='py-2 text-right'>Size</th></tr></thead>
-                                <tbody>{filesystem.directories.map(directory => <tr key={directory.path} className='border-b border-ui-border/50'>
-                                    <td className='break-all py-2 pr-4 font-mono'>{directory.path}</td>
-                                    <td className='whitespace-nowrap py-2 text-right tabular-nums' title={`${directory.sizeBytes.toLocaleString()} bytes`}>{formatDirectorySize(directory.sizeBytes)}</td>
-                                </tr>)}</tbody>
-                            </table></div>
-                        </div>)}
-                    </section>}
-                </section>
-                <CaseDevelopment caseId={caseId} organizationId={item.organizationId || organizationId} />
-                <div className='p-5 sm:p-6'>
-                    <div className='relative'>
-                        <div className='flex items-center gap-3'>
-                            <h2 className='min-w-0 flex-1 text-lg font-semibold'>
-                                <button id='case-comments-heading' type='button' aria-expanded={commentsOpen} aria-controls='case-comments-content' onClick={() => setCommentsOpen(value => !value)} className='inline-flex items-center gap-2 text-left'>
-                                    Comments <ChevronDown aria-hidden='true' className={`h-4 w-4 transition-transform ${commentsOpen ? 'rotate-180' : ''}`} />
-                                </button>
-                            </h2>
-                            <span className='whitespace-nowrap text-sm text-ui-muted'>{comments.length} {comments.length === 1 ? 'comment' : 'comments'}</span>
-                            <button type='button' aria-label='Filter comments' aria-expanded={commentFiltersOpen} aria-controls='case-comment-filters' onClick={() => setCommentFiltersOpen(value => !value)} className='inline-flex h-9 w-9 items-center justify-center rounded-md border border-ui-border text-ui-muted hover:bg-ui-canvas hover:text-ui-text'>
-                                <Filter aria-hidden='true' className='h-4 w-4' />
-                            </button>
-                        </div>
-                        {commentFiltersOpen && <div id='case-comment-filters' role='group' aria-label='Comment filters' className='absolute right-0 z-10 mt-2 grid w-[min(20rem,calc(100vw-3rem))] gap-3 rounded-lg border border-ui-border bg-ui-panel p-4 shadow-lg'>
-                            <label className='grid gap-1.5 text-sm font-medium'>
-                                Search comments
-                                <span className='relative'>
-                                    <Search aria-hidden='true' className='absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ui-muted' />
-                                    <input type='search' aria-label='Search comments' value={commentSearch} onChange={event => setCommentSearch(event.target.value)} placeholder='Search text or author' className='h-9 w-full rounded-md border border-ui-border bg-ui-canvas pl-9 pr-3 text-sm font-normal text-ui-text' />
-                                </span>
-                            </label>
-                            <label className='flex items-center gap-2 text-sm'><input type='checkbox' checked={hideAutomatedComments} onChange={event => setHideAutomatedComments(event.target.checked)} />Hide automated comments</label>
-                            {(commentSearch || hideAutomatedComments) && <button type='button' className='justify-self-start text-sm text-ui-primary underline' onClick={() => { setCommentSearch(''); setHideAutomatedComments(false) }}>Clear filters</button>}
-                        </div>}
-                    </div>
-                    <div id='case-comments-content' role='region' aria-labelledby='case-comments-heading' hidden={!commentsOpen} className='mt-4 grid gap-4'>
-                        {comments.length ? <>
-                            {visibleComments.map(entry => <article className='rounded-lg border border-ui-border p-4' key={entry.id}><p className='wrap-break-word text-sm text-ui-muted'>{entry.author} · {date(entry.createdAt)}</p><p className='mt-2 whitespace-pre-wrap [overflow-wrap:anywhere]'>{entry.body}</p></article>)}
-                            {visibleComments.length === 0 && <p className='text-sm text-ui-muted'>No comments match these filters.</p>}
-                        </> : <p className='text-sm text-ui-muted'>No comments yet.</p>}
-                        <form className='grid gap-3' onSubmit={event => { event.preventDefault(); if (comment.trim() && !busy) void save({ comment }) }}>
-                            <label htmlFor='case-comment' className='text-sm font-medium'>Add a comment</label>
-                            <textarea id='case-comment' className={`${control} min-h-28 w-full`} value={comment} onChange={event => setComment(event.target.value)} maxLength={5000} disabled={busy || item.canManage === false} placeholder='Share an update or investigation notes…' required />
-                            <button type='submit' className={`${control} justify-self-start`} disabled={busy || item.canManage === false || !comment.trim()}>Post comment</button>
-                        </form>
-                    </div>
-                </div>
+                <MonitoringCaseOverview item={item} caseId={caseId} organizationId={organizationId} resolving={resolving} comment={comment} setComment={setComment} aiAssisted={aiAssisted} setAiAssisted={setAiAssisted} busy={busy} setResolving={setResolving} save={save} />
+                <MonitoringCaseComments item={item} comments={comments} comment={comment} setComment={setComment} busy={busy} save={save} commentsOpen={commentsOpen} setCommentsOpen={setCommentsOpen} commentFiltersOpen={commentFiltersOpen} setCommentFiltersOpen={setCommentFiltersOpen} commentSearch={commentSearch} setCommentSearch={setCommentSearch} hideAutomatedComments={hideAutomatedComments} setHideAutomatedComments={setHideAutomatedComments} />
             </div>
-            <div id='case-panel-settings' role='tabpanel' aria-labelledby='case-tab-settings' hidden={tab !== 'settings'}>
-                <section aria-labelledby='case-notification-settings' className='grid gap-4 p-5 sm:p-6'>
-                    <h2 id='case-notification-settings' className='text-lg font-semibold'>Notification settings ({item.notifications.filter(notification => notification.deliveredAt).length})</h2>
-                    <label className='flex items-center gap-3 text-sm'><input type='checkbox' className='h-4 w-4' checked={item.notificationsEnabled} disabled={busy || item.canManage === false} onChange={event => void save({ notificationsEnabled: event.target.checked })} />Enable notifications for this case</label>
-                    <h3 className='text-sm font-medium'>Delivery history</h3>
-                    {item.notifications.length ? item.notifications.map((notification, index) => <article className='grid gap-2 rounded-lg bg-ui-canvas p-3 text-sm' key={notification.messageId || index}>
-                        <p>{notification.deliveredAt ? `Delivered ${date(notification.deliveredAt)}` : 'Delivery pending'}</p>
-                        {notification.error && <p className='text-ui-text'>{notification.error}</p>}
-                        {notification.message ? <div className='grid gap-3 [overflow-wrap:anywhere]'>
-                            {notification.message.content && <NotificationText text={notification.message.content} />}
-                            {notification.message.embeds?.map((embed, embedIndex) => <div key={embedIndex} className='grid gap-2 border-l-2 border-ui-border pl-3'>
-                                {embed.title && <p className='font-semibold'>{notificationText(embed.title)}</p>}
-                                {embed.description && <NotificationText text={embed.description} />}
-                                {embed.fields?.length ? <dl className='grid gap-2 sm:grid-cols-2'>{embed.fields.map((field, fieldIndex) => <div key={fieldIndex}><dt className='text-ui-muted'>{field.name}</dt><dd><NotificationText text={field.value} /></dd></div>)}</dl> : null}
-                            </div>)}
-                        </div> : notification.deliveredAt && <p className='text-ui-muted'>Original message content is unavailable.</p>}
-                        {notification.messageId && <p className='wrap-break-word text-xs text-ui-muted'>Message ID: {notification.messageId}</p>}
-                    </article>) : <p className='text-sm text-ui-muted'>No notifications sent.</p>}
-                </section>
-            </div>
-            <div id='case-panel-history' role='tabpanel' aria-labelledby='case-tab-history' hidden={tab !== 'history'}>
-                <details className='border-b border-ui-border'>
-                    <summary id='case-history' className='cursor-pointer px-5 py-4 text-lg font-semibold sm:px-6'>Case history</summary>
-                    <div className='px-5 pb-5 sm:px-6 sm:pb-6'>
-                        <div className='overflow-x-auto rounded-lg border border-ui-border' role='region' aria-label='History timeline' tabIndex={0}>
-                            <table aria-labelledby='case-history' className='w-full min-w-[720px] text-left text-sm'>
-                                <thead className='border-b border-ui-border bg-ui-canvas text-ui-muted'><tr>
-                                    {['Time', 'Event', 'Actor', 'Details'].map(label => <th key={label} scope='col' className='px-4 py-3 font-medium'>{label}</th>)}
-                                </tr></thead>
-                                <tbody className='divide-y divide-ui-border'>{item.history?.map(event => <tr key={event.id} className='align-top'>
-                                    <td className='whitespace-nowrap px-4 py-3 tabular-nums'><time dateTime={event.at}>{date(event.at)}</time></td>
-                                    <td className='whitespace-nowrap px-4 py-3 font-medium capitalize'>{event.action.replaceAll('_', ' ')}</td>
-                                    <td className='min-w-40 px-4 py-3 [overflow-wrap:anywhere]'>{event.actor}</td>
-                                    <td className='w-full min-w-64 space-y-1 px-4 py-3 [overflow-wrap:anywhere]'>
-                                        {event.fromStatus !== event.toStatus && <p>{event.fromStatus?.replaceAll('_', ' ')} → {event.toStatus?.replaceAll('_', ' ')}</p>}
-                                        {event.fromSeverity !== event.toSeverity && <p>Severity: {event.fromSeverity} → {event.toSeverity}</p>}
-                                        {event.action === 'notifications_changed' && <p>Notifications {event.notificationsEnabled ? 'enabled' : 'disabled'}</p>}
-                                        {event.note && <p className='whitespace-pre-wrap'>{event.note}</p>}
-                                    </td>
-                                </tr>)}</tbody>
-                            </table>
-                        </div>
-                    </div>
-                </details>
-            </div>
-            <div id='case-panel-events' role='tabpanel' aria-labelledby='case-tab-events' hidden={tab !== 'events'}><CaseEvents events={item.events || []} total={item.eventTotal || 0} occurrences={item.occurrences} loading={loadingEvents} onMore={() => void moreEvents()} /></div>
+            <MonitoringCaseSecondaryPanels item={item} tab={tab} busy={busy} loadingEvents={loadingEvents} save={save} moreEvents={() => void moreEvents()} />
         </>}
     </article>
 }
 
-function notificationText(text: string) {
-    return text.replace(/<t:(\d+)(?::[tTdDfFR])?>/g, (match, seconds) => {
-        const timestamp = new Date(Number(seconds) * 1000)
-        return Number.isFinite(timestamp.getTime()) ? date(timestamp.toISOString()) : match
-    })
+function CaseControls({ item, busy, save, setTab, setResolving }: {
+    item: MonitoringCase
+    busy: boolean
+    save: (change: Record<string, unknown>) => void
+    setTab: (tab: CaseTab) => void
+    setResolving: (resolving: boolean) => void
+}) {
+    return <div className='flex max-w-full flex-wrap items-center gap-2'>
+        <span className={`inline-flex h-10 min-w-28 items-center justify-center rounded-lg border px-3 text-sm font-medium capitalize ${item.status === 'open' ? 'border-ui-warning/30 bg-ui-warning/10 text-ui-warning' : 'border-ui-success/30 bg-ui-success/10 text-ui-success'}`}>{item.status.replaceAll('_', ' ')}</span>
+        <select aria-label='Severity' className={headerControl} value={item.severity} disabled={busy || item.canManage === false} onChange={event => void save({ severity: event.target.value })}>{['low', 'medium', 'high', 'critical'].map(value => <option key={value} value={value}>{value[0].toUpperCase() + value.slice(1)}</option>)}</select>
+        {['closed', 'resolved'].includes(item.status) ? <button className={headerControl} disabled={busy || item.canManage === false} onClick={() => void save({ status: 'open' })}>Reopen case</button> : <>
+            <button className={headerControl} disabled={busy || item.canManage === false} onClick={() => void save({ status: item.status === 'in_progress' ? 'open' : 'in_progress' })}>{item.status === 'in_progress' ? 'Set as open' : 'Start progress'}</button>
+            <button className={headerControl} disabled={busy || item.canManage === false} onClick={() => { setTab('overview'); setResolving(true) }}>Resolve case</button>
+        </>}
+        {item.resolution?.id && ['ai', 'automation'].includes(item.resolution.type) && !item.resolution.confirmedAt && ['resolved', 'closed'].includes(item.status) && <button className={headerControl} disabled={busy || item.canManage === false} onClick={() => void save({ confirmResolutionId: item.resolution!.id })}>Confirm resolution</button>}
+    </div>
 }
 
-function NotificationText({ text }: { text: string }) {
-    return <div className='whitespace-pre-wrap'><Markdown skipHtml allowedElements={['p', 'strong', 'em', 'a', 'code', 'br', 'ul', 'ol', 'li', 'blockquote']} components={{ a: ({ href, children }) => <a href={href} className='text-ui-primary underline' target='_blank' rel='noopener noreferrer'>{children}</a> }}>{notificationText(text)}</Markdown></div>
-}
-
-function formatDirectorySize(bytes: number) {
-    const units = ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB']
-    const index = bytes > 0 ? Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024))) : 0
-    return `${(bytes / 1024 ** index).toLocaleString(undefined, { maximumFractionDigits: 2 })} ${units[index]}`
+function CaseTabs({ item, tab, setTab }: { item: MonitoringCase, tab: CaseTab, setTab: (tab: CaseTab) => void }) {
+    return <div role='tablist' aria-label='Case views' className='flex flex-wrap gap-2 border-b border-ui-border px-5 py-3'>
+        {caseTabs.map(value => <button key={value} id={`case-tab-${value}`} role='tab' aria-selected={tab === value} aria-controls={`case-panel-${value}`} tabIndex={tab === value ? 0 : -1} onKeyDown={event => {
+            if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
+            event.preventDefault()
+            const index = caseTabs.indexOf(value)
+            const nextIndex = event.key === 'Home' ? 0 : event.key === 'End' ? caseTabs.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + caseTabs.length) % caseTabs.length
+            const next = caseTabs[nextIndex]
+            setTab(next)
+            document.getElementById(`case-tab-${next}`)?.focus()
+        }} className={`${control} ${tab === value ? 'font-semibold text-ui-primary' : ''}`} onClick={() => setTab(value)}>
+            {value === 'overview' ? 'Overview' : value === 'history' ? 'History' : value === 'settings' ? 'Settings' : `Events (${item.eventTotal ?? item.occurrences})`}
+        </button>)}
+    </div>
 }
