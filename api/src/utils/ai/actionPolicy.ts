@@ -40,6 +40,7 @@ const PRODUCTION_DB_PATTERN = /\b(production|prod|live)\b[\s\S]{0,80}\b(database
 const BROAD_DELETE_PATTERN = /\b(rm\s+-rf|delete\s+(?:everything|all|the database|db|backups?|production|prod)|drop\s+(?:database|schema|table)|truncate\s+table|wipe|nuke|destroy)\b/i
 const DESTRUCTIVE_COMMAND_PATTERN = /(^|\n)\s*(rm\s+-rf|drop\s+(database|schema|table)|truncate\s+table|delete\s+from|terraform\s+destroy)\b/i
 const DESTRUCTIVE_METHODS = new Set(['DELETE', 'PATCH', 'PUT', 'POST'])
+const SENSITIVE_METADATA_KEY_PATTERN = /secret|token|password|credential|key|authorization|cookie|session/i
 
 let ensuredAuditTable = false
 
@@ -140,6 +141,8 @@ export async function auditAgentAction(req: FastifyRequest, input: AgentPolicyIn
 export function redactAgentText(value: string) {
     return value
         .replace(/-----BEGIN (?:OPENSSH |RSA |EC |DSA |PRIVATE )?PRIVATE KEY-----[\s\S]*?-----END (?:OPENSSH |RSA |EC |DSA |PRIVATE )?PRIVATE KEY-----/g, '[redacted-private-key]')
+        .replace(/\b(authorization|proxy-authorization|cookie|set-cookie)\s*[:=]\s*[^\r\n]*/gi, '$1=[redacted]')
+        .replace(/\b(bearer\s+)[A-Za-z0-9._~+/-]+=*/gi, '$1[redacted]')
         .replace(/\b(?:api[_-]?key|secret|token|password)\s*[:=]\s*['"]?[A-Za-z0-9_./+=-]{12,}/gi, (match) => `${match.split(/[:=]/)[0]}=[redacted]`)
         .replace(/\bgh[pousr]_[A-Za-z0-9_]{20,}\b/g, '[redacted-github-token]')
         .replace(/\bAKIA[0-9A-Z]{16}\b/g, '[redacted-aws-key]')
@@ -202,14 +205,39 @@ function requestId(req: FastifyRequest) {
 
 function redactMetadata(metadata: Record<string, unknown>) {
     const redacted: Record<string, unknown> = {}
-    for (const [key, value] of Object.entries(metadata)) {
-        if (/secret|token|password|credential|key/i.test(key)) {
-            redacted[key] = '[redacted]'
-        } else if (typeof value === 'string') {
-            redacted[key] = redactAgentText(value).slice(0, 1000)
-        } else {
-            redacted[key] = value
+    const pending: Array<{
+        source: Record<string, unknown> | unknown[]
+        target: Record<string, unknown> | unknown[]
+    }> = [{ source: metadata, target: redacted }]
+
+    while (pending.length) {
+        const { source, target } = pending.pop()!
+        for (const [key, value] of Object.entries(source)) {
+            const targetKey = Array.isArray(target) ? Number(key) : key
+            if (!Array.isArray(source) && SENSITIVE_METADATA_KEY_PATTERN.test(key)) {
+                setMetadataValue(target, targetKey, '[redacted]')
+            } else if (typeof value === 'string') {
+                setMetadataValue(target, targetKey, redactAgentText(value).slice(0, 1000))
+            } else if (Array.isArray(value)) {
+                const nested: unknown[] = new Array(value.length)
+                setMetadataValue(target, targetKey, nested)
+                pending.push({ source: value, target: nested })
+            } else if (value && typeof value === 'object') {
+                const nested: Record<string, unknown> = {}
+                setMetadataValue(target, targetKey, nested)
+                pending.push({ source: value as Record<string, unknown>, target: nested })
+            } else {
+                setMetadataValue(target, targetKey, value)
+            }
         }
     }
     return redacted
+}
+
+function setMetadataValue(target: Record<string, unknown> | unknown[], key: string | number, value: unknown) {
+    if (Array.isArray(target)) {
+        target[Number(key)] = value
+    } else {
+        target[String(key)] = value
+    }
 }

@@ -438,19 +438,19 @@ function botFiles(title: string, slug: string, platform: string): GeneratedProje
 
 function apiFiles(title: string, slug: string, lower: string): GeneratedProject {
     const noun = lower.includes('webhook') ? 'event' : lower.includes('intake') ? 'intake' : 'record'
-    const domainNotes = lower.includes('cancellation') || lower.includes('failed payment') || lower.includes('invoice')
+    const domainNotes = containsAny(lower, ['cancellation', 'failed payment', 'invoice'])
         ? ' Billing notes cover cancellations, failed payments, and invoices.'
         : ''
-    const supportNotes = lower.includes('support ticket') || lower.includes('sla') || lower.includes('escalation')
+    const supportNotes = containsAny(lower, ['support ticket', 'sla', 'escalation'])
         ? ' Support notes cover response targets, escalation, customer messages, and failures.'
         : ''
-    const customerMessagingNotes = lower.includes('customer messaging') || lower.includes('quota transparency') || lower.includes('rate limit transparency') || lower.includes('cancellation') || lower.includes('failed payment') || lower.includes('invoice')
+    const customerMessagingNotes = containsAny(lower, ['customer messaging', 'quota transparency', 'rate limit transparency', 'cancellation', 'failed payment', 'invoice'])
         ? ' User messages cover rate limits, quota resets, failed payments, cancellations, and invoices.'
         : ''
-    const schedulingNotes = lower.includes('quiet hours') || lower.includes('timezone') || lower.includes('consent flow')
+    const schedulingNotes = containsAny(lower, ['quiet hours', 'timezone', 'consent flow'])
         ? ' Sending checks cover consent, quiet hours, time zones, and batching.'
         : ''
-    const incidentCommunicationNotes = lower.includes('incident communication') || lower.includes('subscriber notice') || lower.includes('postmortems') || lower.includes('slo evidence')
+    const incidentCommunicationNotes = containsAny(lower, ['incident communication', 'subscriber notice', 'postmortems', 'slo evidence'])
         ? ' Incident communication includes Subscriber notice drafts, SLO evidence, Postmortems, Failure owner routing, alert review, and SIEM event export so incidents become actionable product flows instead of generic logs.'
         : ''
     return {
@@ -508,19 +508,19 @@ app.get('/sso-config', async () => ssoConfig)\napp.get('/openapi.json', async ()
 
 function workerFiles(title: string, slug: string, lower: string): GeneratedProject {
     const queueName = lower.includes('image') ? 'image-jobs' : lower.includes('invoice') ? 'invoice-jobs' : 'work-jobs'
-    const workerDomainNotes = lower.includes('customer messaging') || lower.includes('support macro') || lower.includes('failed payment') || lower.includes('invoice') || lower.includes('dunning')
+    const workerDomainNotes = containsAny(lower, ['customer messaging', 'support macro', 'failed payment', 'invoice', 'dunning'])
         ? ' Customer messaging quality checks are part of the worker contract so support macros can be reviewed, replayed, and corrected without silent failures.'
         : ''
-    const workerBillingNotes = lower.includes('failed payment') || lower.includes('invoice') || lower.includes('dunning')
+    const workerBillingNotes = containsAny(lower, ['failed payment', 'invoice', 'dunning'])
         ? ' Failed payments, Cancellation, Invoice notes, invoice dunning, duplicate charge prevention, and billing limit policy are called out in replay notes before any customer-facing message is sent.'
         : ''
-    const workerSchedulingNotes = lower.includes('quiet hours') || lower.includes('timezone') || lower.includes('digest')
+    const workerSchedulingNotes = containsAny(lower, ['quiet hours', 'timezone', 'digest'])
         ? ' Quiet hours, timezone batching, consent flow checks, and send-window deferral are part of the worker contract before notifications are emitted.'
         : ''
-    const workerMediaNotes = lower.includes('media asset') || lower.includes('photo review') || lower.includes('image review')
+    const workerMediaNotes = containsAny(lower, ['media asset', 'photo review', 'image review'])
         ? ' Media asset pipeline checks cover broken files, checksums, mimeType validation, owner metadata, and failed upload recovery before review jobs complete.'
         : ''
-    const workerAccessNotes = lower.includes('access review') || lower.includes('access package') || lower.includes('access export')
+    const workerAccessNotes = containsAny(lower, ['access review', 'access package', 'access export'])
         ? ' Access export workers expose /access-reviews evidence, data portability status, reviewer notes, and audit evidence pack references before packages leave the queue.'
         : ''
     return {

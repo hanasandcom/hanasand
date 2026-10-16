@@ -27,14 +27,11 @@ export function buildAiRuntimeState({
     participants = 0,
 }: BuildAiRuntimeStateInput): AIRuntimeState {
     const activeConversation = conversations.find((conversation) => !conversation.archivedAt) || conversations[0] || null
-    const lastToolMessage = [...conversations]
+    const recentMessages = [...conversations]
         .flatMap((conversation) => conversation.messages.map((message) => ({ conversation, message })))
-        .filter((entry) => entry.message.role === 'tool')
-        .sort((left, right) => new Date(right.message.createdAt).getTime() - new Date(left.message.createdAt).getTime())[0] || null
-    const lastFailure = [...conversations]
-        .flatMap((conversation) => conversation.messages.map((message) => ({ conversation, message })))
-        .filter((entry) => entry.message.error)
-        .sort((left, right) => new Date(right.message.createdAt).getTime() - new Date(left.message.createdAt).getTime())[0] || null
+        .sort((left, right) => new Date(right.message.createdAt).getTime() - new Date(left.message.createdAt).getTime())
+    const lastToolMessage = recentMessages.find((entry) => entry.message.role === 'tool') || null
+    const lastFailure = recentMessages.find((entry) => entry.message.error) || null
 
     const status: AIRuntimeStatus = lastFailure
         ? 'error'
