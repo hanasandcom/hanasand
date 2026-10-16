@@ -243,22 +243,37 @@ function webhookVisibilityDecision(visibility: DwmWebhookEvidenceVisibilityInput
         }
 }
 
+type DwmWebhookAccessCapability = 'canManage' | 'canReplay' | 'canTest' | 'canRetry' | 'canCreate' | 'canUpdate' | 'canDelete' | 'canDeliver'
+type DwmWebhookAccess<Capabilities extends readonly DwmWebhookAccessCapability[]> = {
+    role: string | null
+    canRead: boolean
+    memberSafe: boolean
+} & Record<Capabilities[number], boolean>
+
+function webhookAccess<Capabilities extends readonly DwmWebhookAccessCapability[]>(
+    decision: ReturnType<typeof webhookVisibilityDecision>,
+    viewerRole: string | null,
+    canManage: boolean,
+    capabilities: Capabilities,
+): DwmWebhookAccess<Capabilities> {
+    const canManageResource = decision.allowed && canManage
+    return {
+        role: clean(viewerRole) || null,
+        canRead: decision.allowed,
+        ...Object.fromEntries(capabilities.map(capability => [capability, canManageResource])),
+        memberSafe: decision.allowed && !canManage,
+    } as DwmWebhookAccess<Capabilities>
+}
+
 function webhookDeliveryVisibilityAccess(
     visibility: DwmWebhookEvidenceVisibilityInput | null,
     viewerRole: string | null,
     canManage: boolean,
 ) {
     const decision = webhookVisibilityDecision(visibility)
-    const canRetry = decision.allowed && canManage
     return {
         decision,
-        access: {
-            role: clean(viewerRole) || null,
-            canRead: decision.allowed,
-            canManage: canRetry,
-            canRetry,
-            memberSafe: decision.allowed && !canManage,
-        },
+        access: webhookAccess(decision, viewerRole, canManage, ['canManage', 'canRetry'] as const),
     }
 }
 
@@ -1595,13 +1610,7 @@ export function buildDwmWebhookDeliveryReplayGuard({
     visibility = null,
 }: DwmWebhookDeliveryEvidenceAccessOptions) {
     const decision = webhookVisibilityDecision(visibility)
-    const access = {
-        role: clean(viewerRole) || null,
-        canRead: decision.allowed,
-        canManage: decision.allowed && canManage,
-        canReplay: decision.allowed && canManage,
-        memberSafe: decision.allowed && !canManage,
-    }
+    const access = webhookAccess(decision, viewerRole, canManage, ['canManage', 'canReplay'] as const)
     const normalizedFilters = normalizeWebhookEvidenceFilters(filters)
     if (!decision.allowed) {
         return {
@@ -2142,14 +2151,7 @@ export function buildDwmWebhookDestinationDeliveryMatrix({
     visibility = null,
 }: DwmWebhookDestinationVisibilityOptions) {
     const decision = webhookVisibilityDecision(visibility)
-    const access = {
-        role: clean(viewerRole) || null,
-        canRead: decision.allowed,
-        canManage: decision.allowed && canManage,
-        canTest: decision.allowed && canManage,
-        canRetry: decision.allowed && canManage,
-        memberSafe: decision.allowed && !canManage,
-    }
+    const access = webhookAccess(decision, viewerRole, canManage, ['canManage', 'canTest', 'canRetry'] as const)
     if (!decision.allowed) {
         const blocker = destinationMatrixBlocker('permission_denied', 'Webhook destination delivery matrix is not visible for this organization membership.', null, true)
         return {
@@ -2613,12 +2615,7 @@ export function buildDwmWebhookDeliveryAuditTrail({
     visibility?: DwmWebhookEvidenceVisibilityInput | null
 }) {
     const decision = webhookVisibilityDecision(visibility)
-    const access = {
-        role: clean(viewerRole) || null,
-        canRead: decision.allowed,
-        canManage: decision.allowed && canManage,
-        memberSafe: decision.allowed && !canManage,
-    }
+    const access = webhookAccess(decision, viewerRole, canManage, ['canManage'] as const)
     const normalizedFilters = normalizeWebhookEvidenceFilters(filters)
     const deniedBlocker = auditTrailBlocker('permission_denied', 'Webhook delivery audit trail is not visible for this organization membership.', null, true)
     if (!decision.allowed) {
@@ -2997,16 +2994,7 @@ export function buildDwmWebhookCustomerSetupProof({
     readModels?: ReturnType<typeof buildDwmWebhookDestinationReadModels>
 }) {
     const decision = webhookVisibilityDecision(visibility)
-    const access = {
-        role: clean(viewerRole) || null,
-        canRead: decision.allowed,
-        canCreate: decision.allowed && canManage,
-        canUpdate: decision.allowed && canManage,
-        canTest: decision.allowed && canManage,
-        canDelete: decision.allowed && canManage,
-        canDeliver: decision.allowed && canManage,
-        memberSafe: decision.allowed && !canManage,
-    }
+    const access = webhookAccess(decision, viewerRole, canManage, ['canCreate', 'canUpdate', 'canTest', 'canDelete', 'canDeliver'] as const)
     if (!decision.allowed) {
         return {
             schemaVersion: 'dwm.webhook.customer_setup.v1',
@@ -3860,14 +3848,7 @@ function buildDwmWebhookDestinationAdminProofFromProjection({
     lifecycleRows?: ReturnType<typeof buildDwmWebhookDestinationLifecycle>
 }) {
     const decision = webhookVisibilityDecision(visibility)
-    const access = {
-        role: clean(viewerRole) || null,
-        canRead: decision.allowed,
-        canManage: decision.allowed && canManage,
-        canTest: decision.allowed && canManage,
-        canRetry: decision.allowed && canManage,
-        memberSafe: decision.allowed && !canManage,
-    }
+    const access = webhookAccess(decision, viewerRole, canManage, ['canManage', 'canTest', 'canRetry'] as const)
 
     if (!decision.allowed) {
         const blocker = adminProofBlocker('permission_denied', 'Webhook destination health is not visible for this organization membership.')
