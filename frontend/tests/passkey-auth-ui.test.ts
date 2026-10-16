@@ -21,18 +21,31 @@ function readLoginSource() {
 test('passkey UI exposes enrollment and login actions', () => {
     const loginClient = readLoginSource()
     const accountActions = readFileSync(join(root, 'src/components/profile/accountActions.tsx'), 'utf8')
+    const passkeyManagement = readFileSync(join(root, 'src/components/profile/useAccountPasskeys.ts'), 'utf8')
+    const passkeyList = readFileSync(join(root, 'src/components/profile/AccountPasskeyList.tsx'), 'utf8')
+    const accountSources = `${accountActions}\n${passkeyManagement}\n${passkeyList}`
 
     assert.match(loginClient, /Sign in with passkey/)
     assert.match(loginClient, /\/api\/auth\/passkeys\/authenticate\/options/)
     assert.match(loginClient, /usernameRef\.current\?\.value\.trim\(\)/)
     assert.match(loginClient, /optionsUrl\.searchParams\.set\('username', username\)/)
     assert.match(loginClient, /\/api\/auth\/passkeys\/authenticate\/verify/)
-    assert.match(accountActions, /Add passkey/)
-    assert.match(accountActions, /No passkeys enrolled/)
-    assert.match(accountActions, /Remove/)
-    assert.match(accountActions, /\/api\/auth\/passkeys/)
-    assert.match(accountActions, /\/api\/auth\/passkeys\/register\/options/)
-    assert.match(accountActions, /\/api\/auth\/passkeys\/register\/verify/)
+    assert.match(accountSources, /Add passkey/)
+    assert.match(accountSources, /No passkeys enrolled/)
+    assert.match(accountSources, /Remove/)
+    assert.match(accountSources, /\/api\/auth\/passkeys/)
+    assert.match(accountSources, /\/api\/auth\/passkeys\/register\/options/)
+    assert.match(accountSources, /\/api\/auth\/passkeys\/register\/verify/)
+})
+
+test('account actions keep hooks unconditional for non-self profiles', () => {
+    const accountActions = readFileSync(join(root, 'src/components/profile/accountActions.tsx'), 'utf8')
+    const accountHook = accountActions.indexOf('useAccountPasskeys({ isSelf, busy, setBusy, setMessage })')
+    const hiddenReturn = accountActions.indexOf('if (!isSelf) return null')
+
+    assert.notEqual(accountHook, -1)
+    assert.notEqual(hiddenReturn, -1)
+    assert.ok(accountHook < hiddenReturn)
 })
 
 test('SSO login is wired through the frontend auth proxy', () => {
