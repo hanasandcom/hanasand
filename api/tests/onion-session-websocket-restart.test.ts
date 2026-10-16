@@ -118,8 +118,14 @@ mock.module('../src/handlers/browserSandboxRuns.ts', () => ({
     browserPaidExtensionAllowed: async () => false,
     refreshBrowserRunLease: async () => undefined,
     finishBrowserRun: async () => undefined,
-    prepareBrowserRun: async () => ({ allowed: true, run: null, quota: null }),
+    prepareBrowserRun: async (input: { userId?: string; sessionToken?: string; clientId?: string }) => {
+        const clientId = typeof input.clientId === 'string' ? input.clientId.trim() : ''
+        return /^[a-zA-Z0-9_.:-]{8,160}$/.test(clientId)
+            ? { allowed: true, run: null, quota: null }
+            : { allowed: false, quota: null, reason: 'identity_required' }
+    },
     updateBrowserRunProviderResult: async () => undefined,
+    persistBrowserRunEvidence: async () => undefined,
 }))
 
 afterEach(() => {

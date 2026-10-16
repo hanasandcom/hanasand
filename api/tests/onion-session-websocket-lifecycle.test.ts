@@ -15,8 +15,13 @@ mock.module('../src/handlers/browserSandboxRuns.ts', () => ({
     browserPaidExtensionAllowed: async () => false,
     refreshBrowserRunLease: async () => undefined,
     finishBrowserRun: async (id: string) => { finishedRuns.push(id) },
-    prepareBrowserRun: () => prepareBrowserRunMock(),
+    prepareBrowserRun: (input: { userId?: string; sessionToken?: string; clientId?: string }) => {
+        const clientId = typeof input.clientId === 'string' ? input.clientId.trim() : ''
+        if (!/^[a-zA-Z0-9_.:-]{8,160}$/.test(clientId)) return Promise.resolve({ allowed: false, quota: null, reason: 'identity_required' })
+        return prepareBrowserRunMock()
+    },
     updateBrowserRunProviderResult: async () => undefined,
+    persistBrowserRunEvidence: async () => undefined,
 }))
 
 afterEach(() => {
