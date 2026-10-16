@@ -2,7 +2,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify'
 import crypto from 'crypto'
 import run from '#db'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
-import { supportRequestId, supportSessionIdFromAuditEvent, supportSessionIdFromRequest } from '#utils/support/adminSupportInput.ts'
+import { cleanContext, supportRequestId, supportSessionIdFromAuditEvent, supportSessionIdFromRequest, supportText } from '#utils/support/adminSupportInput.ts'
 import { loadSupportSessionState } from '#utils/support/supportSessionState.ts'
 import { actorHasHanasandInternalAccess, loadSystemEventIds, recordSystemEvent, requireAuditReason } from '#utils/systemEvent.ts'
 
@@ -235,7 +235,7 @@ export async function startImpersonation(req: FastifyRequest, res: FastifyReply)
     const actor = await requireNonImpersonatingActor(req, res)
     if (!actor) return
     const body = req.body as StartBody | undefined
-    const targetId = cleanText(body?.object_id || body?.targetId || body?.target_user_id)
+    const targetId = supportText(body?.object_id || body?.targetId || body?.target_user_id)
     if (!await actorHasHanasandInternalAccess(actor.id)) {
         await recordSystemEvent(req, {
             actionType: 'impersonation.start',
@@ -264,7 +264,7 @@ export async function startImpersonation(req: FastifyRequest, res: FastifyReply)
     let reason: string
     let durationMinutes: number
     let scope: string[]
-    const organizationId = cleanText(body?.organization_id || body?.organizationId || body?.orgId)
+    const organizationId = supportText(body?.organization_id || body?.organizationId || body?.orgId)
     const supportSessionId = supportSessionIdFromRequest(req, body)
     try {
         reason = requireAuditReason(body?.reason, 'Impersonation reason')
@@ -276,7 +276,7 @@ export async function startImpersonation(req: FastifyRequest, res: FastifyReply)
             targetId: target.id,
             organizationId,
             supportSessionId,
-            reason: cleanText(body?.reason),
+            reason: supportText(body?.reason),
             blocker: 'invalid_impersonation_request',
             message: error instanceof Error ? error.message : 'Invalid impersonation request.',
             scope: [],
@@ -396,8 +396,8 @@ export async function stopImpersonation(req: FastifyRequest, res: FastifyReply) 
     }
 
     const body = req.body as StopBody | undefined
-    const stopReason = cleanText(body?.reason) || 'Support ended impersonation session.'
-    const stopContext = cleanStopContext(body?.context)
+    const stopReason = supportText(body?.reason) || 'Support ended impersonation session.'
+    const stopContext = cleanContext(body?.context)
     const token = String(req.headers['x-impersonation-token'] || '')
     if (!token) {
         return res.send({ ok: true })
@@ -598,14 +598,14 @@ async function loadImpersonationGuardrailAuditEvents(filters: Record<string, unk
         values.push(value)
         return `$${values.length}`
     }
-    const q = cleanText(filters.q)
-    const actor = cleanText(filters.actor)
-    const target = cleanText(filters.target)
-    const outcome = cleanText(filters.outcome)
-    const session = cleanText(filters.session || filters.supportSession || filters.supportSessionId)
-    const reason = cleanText(filters.reason)
-    const from = cleanText(filters.from)
-    const to = cleanText(filters.to)
+    const q = supportText(filters.q)
+    const actor = supportText(filters.actor)
+    const target = supportText(filters.target)
+    const outcome = supportText(filters.outcome)
+    const session = supportText(filters.session || filters.supportSession || filters.supportSessionId)
+    const reason = supportText(filters.reason)
+    const from = supportText(filters.from)
+    const to = supportText(filters.to)
     const limit = Number(filters.limit || 200)
 
     if (q) {
@@ -687,7 +687,7 @@ function supportImpersonationGuardrailAuditReplay(filters: Record<string, unknow
             organizationId: row.organization_id || context.organizationId || null,
             entityId: row.subject_id || null,
             requestId: row.request_id || context.requestId || null,
-            reasonPresent: Boolean(cleanText(row.reason)),
+            reasonPresent: Boolean(supportText(row.reason)),
             supportSessionId: supportSessionId || null,
             durationMinutes: context.durationMinutes ?? null,
             expiresAt: context.expiresAt || null,
@@ -814,19 +814,19 @@ function impersonationTimelineSummary(timeline: Array<Record<string, any>>) {
 }
 
 function uniqueImpersonationValues(values: unknown[]) {
-    return Array.from(new Set(values.map(value => cleanText(value)).filter(Boolean))).slice(0, 50)
+    return Array.from(new Set(values.map(value => supportText(value)).filter(Boolean))).slice(0, 50)
 }
 
 function impersonationLifecycleState(timeline: Array<Record<string, any>>) {
     const now = Date.now()
     const startEvents = timeline.filter(event => event.actionType === 'impersonation.start')
     const stopEvents = timeline.filter(event => event.actionType === 'impersonation.stop' || event.scope?.revokedAt)
-    const stoppedSessionIds = new Set(stopEvents.map(event => cleanText(event.entity?.id)).filter(Boolean))
+    const stoppedSessionIds = new Set(stopEvents.map(event => supportText(event.entity?.id)).filter(Boolean))
     const activeSessionIds = startEvents
-        .map(event => cleanText(event.entity?.id))
+        .map(event => supportText(event.entity?.id))
         .filter(sessionId => sessionId && !stoppedSessionIds.has(sessionId))
     const missingReasonEventIds = timeline
-        .filter(event => !cleanText(event.reason))
+        .filter(event => !supportText(event.reason))
         .map(event => Number(event.id))
         .filter(id => Number.isFinite(id))
     const missingDurationEventIds = startEvents
@@ -836,9 +836,9 @@ function impersonationLifecycleState(timeline: Array<Record<string, any>>) {
     const expiredSessionIds = startEvents
         .filter(event => {
             const expires = Date.parse(String(event.scope?.expiresAt || ''))
-            return !Number.isNaN(expires) && expires <= now && !stoppedSessionIds.has(cleanText(event.entity?.id))
+            return !Number.isNaN(expires) && expires <= now && !stoppedSessionIds.has(supportText(event.entity?.id))
         })
-        .map(event => cleanText(event.entity?.id))
+        .map(event => supportText(event.entity?.id))
         .filter(Boolean)
 
     return {
@@ -890,8 +890,8 @@ function impersonationTimelineFilterContract(filters: Record<string, unknown>, t
 }
 
 function impersonationTimelineFilterReadiness(filters: Record<string, unknown>, timeline: Array<Record<string, any>>) {
-    const filterText = (key: string) => cleanText(filters[key])
-    const appliedFilters = Object.fromEntries(Object.entries(filters).filter(([, value]) => cleanText(value)))
+    const filterText = (key: string) => supportText(filters[key])
+    const appliedFilters = Object.fromEntries(Object.entries(filters).filter(([, value]) => supportText(value)))
     const targetFilters = ['actor', 'target', 'session', 'supportSession', 'reason']
         .filter(key => filterText(key))
     const actionFilters = ['action', 'outcome', 'method', 'path']
@@ -997,16 +997,16 @@ function impersonationCaseReviewPacket(filters: Record<string, unknown>, timelin
         const supportSessionId = supportSessionIdFromAuditEvent({ context, entityId: row.subject_id })
         return {
             id: Number(row.id),
-            actionType: cleanText(row.event_type),
-            outcome: cleanText(row.outcome),
-            severity: cleanText(row.severity),
-            actorId: cleanText(row.actor_id),
-            targetId: cleanText(row.object_id),
-            entityId: cleanText(row.subject_id),
-            requestId: cleanText(row.request_id),
-            reason: cleanText(row.reason),
+            actionType: supportText(row.event_type),
+            outcome: supportText(row.outcome),
+            severity: supportText(row.severity),
+            actorId: supportText(row.actor_id),
+            targetId: supportText(row.object_id),
+            entityId: supportText(row.subject_id),
+            requestId: supportText(row.request_id),
+            reason: supportText(row.reason),
             supportSessionId,
-            blockerCode: cleanText(context.blockerCode || context.errorCode),
+            blockerCode: supportText(context.blockerCode || context.errorCode),
             durationMinutes: context.durationMinutes ?? null,
             scope: normalizeAuditScope(context.scope),
             createdAt: row.created_at || null,
@@ -1069,7 +1069,7 @@ function impersonationCaseReviewPacket(filters: Record<string, unknown>, timelin
             durationMinutes: event.scope?.durationMinutes ?? null,
             expiresAt: event.scope?.expiresAt || null,
             revokedAt: event.scope?.revokedAt || null,
-            reviewRequired: !cleanText(event.reason) || !event.scope?.durationMinutes || Boolean(event.scope?.revokedAt),
+            reviewRequired: !supportText(event.reason) || !event.scope?.durationMinutes || Boolean(event.scope?.revokedAt),
             links: event.links,
             redacted: true,
         })),
@@ -1129,7 +1129,7 @@ function impersonationCaseReviewPacket(filters: Record<string, unknown>, timelin
     }
 }
 
-const normalizeAuditScope = (value: unknown) => Array.isArray(value) ? value.map(item => cleanText(item)).filter(Boolean) : []
+const normalizeAuditScope = (value: unknown) => Array.isArray(value) ? value.map(item => supportText(item)).filter(Boolean) : []
 
 function impersonationLifecycleReceipt(filters: Record<string, unknown>, timeline: Array<Record<string, any>>, lifecycle: ImpersonationLifecycleState) {
     const { sessionIds, startEvents, stopEvents, stoppedSessionIds, activeSessionIds, missingReasonEventIds, missingDurationEventIds, expiredSessionIds } = lifecycle
@@ -1297,7 +1297,7 @@ function supportImpersonationGuardrailReceipt(input: {
             supportSessionId: input.supportSessionId || null,
         },
         requestId: input.requestId,
-        reasonPresent: Boolean(cleanText(input.reason)),
+        reasonPresent: Boolean(supportText(input.reason)),
         scope: input.scope,
         durationMinutes: input.durationMinutes,
         expiresAt: input.expiresAt,
@@ -1335,7 +1335,7 @@ function supportImpersonationGuardrailReceipt(input: {
         ],
         blockers: [
             input.outcome === 'denied' && input.blocker ? input.blocker : '',
-            cleanText(input.reason) ? '' : 'missing_support_reason',
+            supportText(input.reason) ? '' : 'missing_support_reason',
             input.scope.length ? '' : 'invalid_scope',
             input.durationMinutes ? '' : 'invalid_duration',
             input.auditEventIds.length ? '' : 'audit_unavailable',
@@ -1350,14 +1350,6 @@ function supportImpersonationGuardrailReceipt(input: {
             `Audit events: ${input.auditEventIds.join(', ') || 'none'}`,
         ].join('\n'),
     }
-}
-
-function cleanText(value: unknown) {
-    return typeof value === 'string' ? value.trim() : ''
-}
-
-function cleanStopContext(value: unknown) {
-    return typeof value === 'string' ? value.trim().replace(/\s+/g, ' ').slice(0, 1000) : ''
 }
 
 function impersonationError(code: string, message: string, detail: Record<string, unknown> = {}) {
