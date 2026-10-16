@@ -693,3 +693,17 @@ dark-theme checker still fails on existing assertions outside the new share
 renderer guard, and focused Playwright could not start because its configured
 local API server exits during startup. The frontend 10,000–30,000 LOC and API
 100,000-line reduction goals remain unachieved.
+
+The saved-browser-finding history dialog and browser workspace now share one
+native-share/clipboard/prompt workflow. The helper keeps the existing report
+URL, title, fallback order, and user messages; the dialog's custom `onShare`
+override remains first. Three tests cover each browser fallback and the encoded
+URL. Independent review found no blocker. The full frontend test suite, focused
+ESLint, typecheck, line-cap scan, diff check, and Next production build pass;
+all 116 static pages generate. The inventory is 2,307 frontend files / 153,762
+LOC / zero over 200. Production logic decreases by seven lines while the
+registered regression tests add 60 lines; the frontend's 10,000–30,000 LOC and
+API 100,000-line reduction targets remain unmet. A read-only audit also found
+minor duplicate presentation branches in `RecentScans`, but its required
+rendering test would outweigh the small production LOC savings, so it remains
+an unimplemented optional cleanup.

@@ -6,6 +6,7 @@ import { historyApiPath, historyStorageKey, statsStorageKey } from '../browserSe
 import { getOrCreateBrowserClientId } from '../browserClientId'
 import { persistHistory, sanitizeHistory } from '../historyData'
 import { quotaValue } from '../browserValues'
+import { shareSavedFinding } from '../shareSavedFinding'
 
 type BrowserHistoryActionsOptions = {
     initialStats: BrowserRunStats | null; history: BrowserRunHistory[]; setHistory: Dispatch<SetStateAction<BrowserRunHistory[]>>; setHistoryReady: Dispatch<SetStateAction<boolean>>; setQuota: Dispatch<SetStateAction<BrowserQuota | null>>; setRunStats: Dispatch<SetStateAction<BrowserRunStats | null>>
@@ -48,21 +49,7 @@ export function useBrowserHistoryActions({ initialStats, history, setHistory, se
         await refreshHistory()
     }, [refreshHistory])
 
-    const shareFinding = useCallback(async (run: BrowserRunHistory) => {
-        const reportUrl = new URL('/sandbox/report', window.location.origin)
-        reportUrl.searchParams.set('run', run.id)
-        const url = reportUrl.toString()
-        if (typeof navigator.share === 'function') {
-            await navigator.share({ title: `Sandbox finding: ${run.target}`, url })
-            return 'Finding shared.'
-        }
-        if (navigator.clipboard) {
-            await navigator.clipboard.writeText(url)
-            return 'Share link copied.'
-        }
-        window.prompt('Copy this finding link', url)
-        return 'Share link ready.'
-    }, [])
+    const shareFinding = useCallback(shareSavedFinding, [])
     useEffect(() => {
         void refreshHistory().then(() => setHistoryReady(true)).catch(() => setHistoryReady(true))
     }, [refreshHistory])

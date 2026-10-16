@@ -4,6 +4,7 @@ import { History, LoaderCircle, MoreHorizontal, Share2, Trash2, X } from 'lucide
 import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ProviderBadges } from './components/ProviderBadges'
+import { shareSavedFinding } from './shareSavedFinding'
 import type { ProviderRunResult } from './types/history'
 
 type HistoryRun = {
@@ -68,19 +69,7 @@ export default function BrowserHistory({ clientId, onShare }: { clientId: string
 
     const share = async (run: HistoryRun) => {
         if (onShare) return onShare(run)
-        const reportUrl = new URL('/sandbox/report', window.location.origin)
-        reportUrl.searchParams.set('run', run.id)
-        const url = reportUrl.toString()
-        if (typeof navigator.share === 'function') {
-            await navigator.share({ title: `Sandbox finding: ${run.target}`, url })
-            return 'Finding shared.'
-        }
-        if (navigator.clipboard) {
-            await navigator.clipboard.writeText(url)
-            return 'Share link copied.'
-        }
-        window.prompt('Copy this finding link', url)
-        return 'Share link ready.'
+        return shareSavedFinding(run)
     }
 
     const deleteRun = async (run: HistoryRun) => {
