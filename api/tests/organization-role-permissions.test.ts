@@ -194,12 +194,40 @@ test('member role receipt uses the watchlist handler policy for readers and edit
 
     expect(response.statusCode).toBe(200)
     const receipt = response.json().roleChange.consumerVisibilityReceipt
-    expect(receipt.before.role).toBe('reader')
-    expect(receipt.before.canMutateSharedWatchlists).toBe(false)
-    expect(receipt.downstreamReadinessReceipt.before.watchlistMutationReady).toBe(false)
-    expect(receipt.after.role).toBe('editor')
-    expect(receipt.after.canMutateSharedWatchlists).toBe(true)
-    expect(receipt.downstreamReadinessReceipt.after.watchlistMutationReady).toBe(true)
+    expect(receipt.before).toEqual({
+        role: 'reader',
+        canReadSharedWatchlists: true,
+        canExportAlertTerms: false,
+        canMutateSharedWatchlists: false,
+        canAssignCases: false,
+        canDryRunWebhookDelivery: false,
+        canReadWebhookDeliverySummary: true,
+    })
+    expect(receipt.after).toEqual({
+        role: 'editor',
+        canReadSharedWatchlists: true,
+        canExportAlertTerms: false,
+        canMutateSharedWatchlists: true,
+        canAssignCases: false,
+        canDryRunWebhookDelivery: false,
+        canReadWebhookDeliverySummary: true,
+    })
+    expect(receipt.downstreamReadinessReceipt.before).toEqual({
+        sharedWatchlistReadReady: true,
+        alertGenerationExportReady: false,
+        watchlistMutationReady: false,
+        caseAssignmentReady: false,
+        webhookDeliveryReady: false,
+        deliverySummaryReady: true,
+    })
+    expect(receipt.downstreamReadinessReceipt.after).toEqual({
+        sharedWatchlistReadReady: true,
+        alertGenerationExportReady: false,
+        watchlistMutationReady: true,
+        caseAssignmentReady: false,
+        webhookDeliveryReady: false,
+        deliverySummaryReady: true,
+    })
     expect(receipt.downstreamReadinessReceipt.roleGates.mutateWatchlists).toEqual(['owner', 'admin', 'editor'])
 })
 

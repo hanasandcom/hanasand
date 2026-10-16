@@ -1049,6 +1049,8 @@ export async function patchOrganizationMemberRole(req: FastifyRequest<{ Params: 
     const updated = await loadOrganizationForMember(req.params.id, userId)
     const watchlistWriteRoles = (['owner', 'admin', 'editor', 'reader', 'member', 'viewer'] satisfies OrganizationRole[])
         .filter(roleCanWriteWatchlist)
+    const beforeConsumerAccess = organizationMemberConsumerAccess(authorizedTarget.role)
+    const afterConsumerAccess = organizationMemberConsumerAccess(input.role)
     return res.send({
         organization: updated ? toOrganization(updated) : null,
         member: toMember(updatedMember as OrganizationMemberRow),
@@ -1086,24 +1088,8 @@ export async function patchOrganizationMemberRole(req: FastifyRequest<{ Params: 
                     'organization.webhook_destination_access_decision.v1',
                     'organization.webhook_alert_delivery_readiness.v1',
                 ],
-                before: {
-                    role: authorizedTarget.role,
-                    canReadSharedWatchlists: true,
-                    canExportAlertTerms: ['owner', 'admin'].includes(authorizedTarget.role),
-                    canMutateSharedWatchlists: roleCanWriteWatchlist(authorizedTarget.role),
-                    canAssignCases: ['owner', 'admin'].includes(authorizedTarget.role),
-                    canDryRunWebhookDelivery: ['owner', 'admin'].includes(authorizedTarget.role),
-                    canReadWebhookDeliverySummary: true,
-                },
-                after: {
-                    role: input.role,
-                    canReadSharedWatchlists: true,
-                    canExportAlertTerms: ['owner', 'admin'].includes(input.role),
-                    canMutateSharedWatchlists: roleCanWriteWatchlist(input.role),
-                    canAssignCases: ['owner', 'admin'].includes(input.role),
-                    canDryRunWebhookDelivery: ['owner', 'admin'].includes(input.role),
-                    canReadWebhookDeliverySummary: true,
-                },
+                before: beforeConsumerAccess,
+                after: afterConsumerAccess,
                 deliveryReadiness: {
                     schemaVersion: 'organization.member_role_delivery_readiness.v1',
                     contract: 'organization.webhook_alert_delivery_readiness.v1',
@@ -1133,22 +1119,8 @@ export async function patchOrganizationMemberRole(req: FastifyRequest<{ Params: 
                     membershipStatus: 'active' as const,
                     roleChanged: authorizedTarget.role !== input.role,
                     blockerReason: null,
-                    before: {
-                        sharedWatchlistReadReady: true,
-                        alertGenerationExportReady: ['owner', 'admin'].includes(authorizedTarget.role),
-                        watchlistMutationReady: roleCanWriteWatchlist(authorizedTarget.role),
-                        caseAssignmentReady: ['owner', 'admin'].includes(authorizedTarget.role),
-                        webhookDeliveryReady: ['owner', 'admin'].includes(authorizedTarget.role),
-                        deliverySummaryReady: true,
-                    },
-                    after: {
-                        sharedWatchlistReadReady: true,
-                        alertGenerationExportReady: ['owner', 'admin'].includes(input.role),
-                        watchlistMutationReady: roleCanWriteWatchlist(input.role),
-                        caseAssignmentReady: ['owner', 'admin'].includes(input.role),
-                        webhookDeliveryReady: ['owner', 'admin'].includes(input.role),
-                        deliverySummaryReady: true,
-                    },
+                    before: organizationMemberDownstreamReadiness(beforeConsumerAccess),
+                    after: organizationMemberDownstreamReadiness(afterConsumerAccess),
                     downstreamRoutes: {
                         sharedWatchlists: 'GET /api/organizations/:id/watchlists',
                         alertTermsExport: 'GET /api/organizations/:id/watchlists/alert-terms',
@@ -3508,6 +3480,30 @@ function roleUpdatePermissionError(actorRole: OrganizationRole | undefined, targ
     if (actorRole === 'admin' && ['editor', 'reader', 'member', 'viewer'].includes(targetRole) && ['editor', 'reader'].includes(newRole)) return null
     if (actorRole === 'admin') return 'Organization admins can only update editors and readers to editor or reader roles.'
     return 'Only organization owners and admins can update member roles.'
+}
+
+function organizationMemberConsumerAccess(role: OrganizationRole) {
+    const canManage = roleCanManageOrganization(role)
+    return {
+        role,
+        canReadSharedWatchlists: true,
+        canExportAlertTerms: canManage,
+        canMutateSharedWatchlists: roleCanWriteWatchlist(role),
+        canAssignCases: canManage,
+        canDryRunWebhookDelivery: canManage,
+        canReadWebhookDeliverySummary: true,
+    }
+}
+
+function organizationMemberDownstreamReadiness(access: ReturnType<typeof organizationMemberConsumerAccess>) {
+    return {
+        sharedWatchlistReadReady: access.canReadSharedWatchlists,
+        alertGenerationExportReady: access.canExportAlertTerms,
+        watchlistMutationReady: access.canMutateSharedWatchlists,
+        caseAssignmentReady: access.canAssignCases,
+        webhookDeliveryReady: access.canDryRunWebhookDelivery,
+        deliverySummaryReady: access.canReadWebhookDeliverySummary,
+    }
 }
 
 function organizationTeamOnboardingReadiness(organization: ReturnType<typeof buildOrganizationBridgeContext>) {
