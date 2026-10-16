@@ -1,15 +1,13 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import { randomUUID } from 'crypto'
 import run, { withTransaction } from '#db'
-import { touchOrganization, updateActiveOrganizationMemberRole, updateOrganizationInviteAction, upsertOrganizationInvite, upsertOrganizationMember } from '#utils/db/identityDataWrites.ts'
+import { touchOrganization, updateActiveOrganizationMemberRole } from '#utils/db/identityDataWrites.ts'
 import { activeOrganizationOwnerCount as activeOwnerCount } from '#utils/organizationMemberships.ts'
 import { recordSystemEvent } from '#utils/systemEvent.ts'
 import { checkBillingCapacity } from './billing.ts'
 import {
     buildOrganizationBridgeContext,
     buildOrganizationDwmAlertReference,
-    normalizeInviteActionInput,
-    normalizeInviteInput,
     normalizeMemberRoleInput,
     normalizeOptionalWatchlistKind,
     normalizeOptionalWatchlistStatus,
@@ -19,16 +17,12 @@ import {
     normalizeWatchlistRequestId,
     organizationAnalystPortalVisibilityAdapter,
     organizationAlertCaseWorkflowState,
-    organizationInviteActionDenial,
-    organizationInviteAcceptanceReference,
-    organizationInviteAcceptanceDenial,
-    organizationInviteManagementDenial,
     organizationLastOwnerGuard,
     organizationLifecycleReadiness,
     organizationMemberMutationDenial,
-    organizationMemberAccessContract,
     organizationReadinessProof,
     organizationSharedWatchlistProjection,
+    roleCanWriteWatchlist,
     organizationVisibilityDecision,
     organizationWatchlistOwnerContext,
     organizationWatchlistLifecycleProjection,
@@ -37,8 +31,6 @@ import {
     organizationWatchlistAlertTermsExportDenial,
     organizationWatchlistMutationDenial,
     roleCanManageOrganization,
-    roleCanWriteWatchlist,
-    toInvite,
     toMember,
     toOrganization,
     toWatchlistItem,
@@ -46,8 +38,6 @@ import {
     type OrganizationMemberRow,
     type OrganizationRole,
     type OrganizationRow,
-    type InviteActionInput,
-    type InviteInput,
     type OrganizationMemberRoleInput,
     type WatchlistActionInput,
     type WatchlistCleanupInput,
@@ -58,8 +48,9 @@ import {
 import { logOrganizationEvent, sendOrganizationAccessDenial } from './organizations/audit.ts'
 import { inactiveOrganizationMutationBlocker, privacyDeletionMutationBlocker, sendOrganizationLifecycleBlocker } from './organizations/lifecycle.ts'
 import { loadActiveOrganizationMemberMutationRequest, loadLockedOrganizationMemberMutationContext } from './organizations/memberMutationContext.ts'
+import { buildOrganizationMemberRemovalCleanup } from './organizations/members/removalReceipt.ts'
+import { buildOrganizationMemberRoleChangeReceipt } from './organizations/members/roleReceipt.ts'
 import {
-    authenticateOrganizationRequest,
     loadOrganizationForMember,
     loadOrganizationMemberRequest,
     loadRequiredOrganizationMemberRequest,
@@ -69,6 +60,11 @@ export { deleteOrganizationApiKey, getOrganizationApiKeys, postOrganizationApiKe
 export { getOrganizationSettings } from './organizations/settingsRead.ts'
 export { putOrganizationSettings } from './organizations/settingsUpdate.ts'
 export { postOrganizationOwnershipTransfer } from './organizations/ownershipTransfer.ts'
+export { getOrganizationInvites } from './organizations/invites/read.ts'
+export { postOrganizationInvites } from './organizations/invites/create.ts'
+export { postOrganizationInviteAction } from './organizations/invites/action.ts'
+export { postOrganizationInviteAccept } from './organizations/invites/accept.ts'
+export { getOrganizationMembers } from './organizations/members/read.ts'
 
 type OrganizationParams = {
     id: string
@@ -78,12 +74,6 @@ type OrganizationMemberParams = {
     id: string
     userId: string
 }
-
-type InviteParams = {
-    inviteId: string
-}
-
-type OrganizationInviteParams = OrganizationParams & InviteParams
 
 type WatchlistParams = {
     organizationId: string
@@ -102,98 +92,6 @@ type WatchlistMutationBody = WatchlistInput & {
     request_id?: unknown
 }
 
-type BulkInviteResult = {
-    email: string
-    role: OrganizationRole
-    outcome: 'invited' | 'updated_pending_invite' | 'already_member' | 'blocked_removed_member' | 'blocked_deactivated_user'
-    inviteId?: string
-    acceptanceToken?: string
-    acceptancePath?: string
-    userId?: string
-    memberRole?: OrganizationRole
-    reason?: string
-}
-
-const organizationAccessDownstreamRoutes = {
-    sharedWatchlists: 'GET /api/organizations/:id/watchlists',
-    alertTermsExport: 'GET /api/organizations/:id/watchlists/alert-terms',
-    alertCaseVisibility: 'GET /api/organizations/:id/alert-case-visibility',
-    alertReadiness: 'GET /api/organizations/:id/alert-readiness',
-    webhookDelivery: 'POST /v1/dwm/webhooks/deliver',
-} as const
-
-const removedMemberBlockedRoutes = [
-    organizationAccessDownstreamRoutes.sharedWatchlists,
-    organizationAccessDownstreamRoutes.alertTermsExport,
-    organizationAccessDownstreamRoutes.alertCaseVisibility,
-    organizationAccessDownstreamRoutes.alertReadiness,
-    organizationAccessDownstreamRoutes.webhookDelivery,
-] as const
-
-export async function getOrganizationInvites(req: FastifyRequest<{ Params: OrganizationParams, Querystring: { requestId?: string, request_id?: string } }>, res: FastifyReply) {
-    const requestContext = await loadRequiredOrganizationMemberRequest(req, res, req.params.id)
-    if (!requestContext) return
-    const { userId, organization } = requestContext
-
-    if (!roleCanManageOrganization(organization.role)) {
-        return sendInviteManagementDenial(req, res, organization, userId, {
-            action: 'list_invites',
-            requestId: typeof req.query?.requestId === 'string' ? req.query.requestId : typeof req.query?.request_id === 'string' ? req.query.request_id : null,
-            message: 'Only organization owners and admins can view invites.',
-        })
-    }
-
-    const result = await run(`
-        SELECT *
-        FROM organization_invites
-        WHERE organization_id = $1
-          AND status = 'pending'
-          AND expires_at > NOW()
-        ORDER BY status ASC, created_at DESC
-    `, [req.params.id])
-
-    const invites = result.rows as OrganizationInviteRow[]
-
-    return res.send({
-        invites: invites.map(toInvite),
-        inviteLifecycleContract: organizationInviteListContract(organization, invites),
-    })
-}
-
-export async function getOrganizationMembers(req: FastifyRequest<{ Params: OrganizationParams }>, res: FastifyReply) {
-    const requestContext = await loadRequiredOrganizationMemberRequest(req, res, req.params.id)
-    if (!requestContext) return
-    const { organization } = requestContext
-
-    const result = await run(`
-        SELECT
-            om.organization_id,
-            om.user_id,
-            u.name,
-            u.avatar,
-            om.role,
-            om.status,
-            om.invited_by,
-            om.joined_at,
-            om.created_at
-        FROM organization_members om
-        JOIN users u ON u.id = om.user_id
-        WHERE om.organization_id = $1
-          AND om.status = 'active'
-        ORDER BY
-            CASE om.role WHEN 'owner' THEN 0 WHEN 'admin' THEN 1 WHEN 'member' THEN 2 ELSE 3 END,
-            om.joined_at ASC,
-            om.user_id ASC
-    `, [req.params.id])
-
-    const members = result.rows as OrganizationMemberRow[]
-
-    return res.send({
-        organization: toOrganization(organization),
-        members: members.map(toMember),
-        memberAccessContract: organizationMemberAccessContract(organization, members),
-    })
-}
 
 export async function deleteOrganizationMember(req: FastifyRequest<{ Params: OrganizationMemberParams }>, res: FastifyReply) {
     const mutationContext = await loadActiveOrganizationMemberMutationRequest(req, res, 'remove members')
@@ -326,193 +224,14 @@ export async function deleteOrganizationMember(req: FastifyRequest<{ Params: Org
     return res.send({
         organization: updated ? toOrganization(updated) : null,
         member: toMember(removed.rows[0] as OrganizationMemberRow),
-        memberRemovalCleanup: {
-            schemaVersion: 'organization.member_removal_cleanup.v1',
+        memberRemovalCleanup: buildOrganizationMemberRemovalCleanup({
             organizationId: req.params.id,
-            tenantId: req.params.id,
             targetUserId: req.params.userId,
             targetRole: authorizedTarget.role,
+            targetRoleBeforeRemoval: target.role,
             revokedInviteIds: revokedInvites.rows.map((invite: OrganizationInviteRow) => invite.id),
             revokedInviteCount: revokedInvites.rows.length,
-            revokedInviteStatus: 'revoked' as const,
-            staleInviteAcceptanceBlocker: 'member_revoked' as const,
-            noOrphanedInviteTokens: true,
-            serviceLogAction: 'organization_member_removed' as const,
-            consumerAccessRevocation: {
-                schemaVersion: 'organization.member_consumer_access_revocation.v1',
-                organizationId: req.params.id,
-                tenantId: req.params.id,
-                targetUserId: req.params.userId,
-                targetRole: authorizedTarget.role,
-                revokedInviteIds: revokedInvites.rows.map((invite: OrganizationInviteRow) => invite.id),
-                revokedInviteCount: revokedInvites.rows.length,
-                blockedRoutes: [...removedMemberBlockedRoutes],
-                blockedConsumerContracts: [
-                    'organization.watchlist_alert_generation_consumer.v1',
-                    'organization.watchlist_alert_generation_consumer_denial.v1',
-                    'organization.case_visibility_consumer.v1',
-                    'organization.shared_watchlist_readiness_export.v1',
-                    'organization.webhook_destination_ownership.v1',
-                    'organization.webhook_destination_access_decision.v1',
-                    'organization.webhook_alert_delivery_readiness.v1',
-                ],
-                denialContracts: [
-                    'organization.access_denial.v1',
-                    'organization.watchlist_alert_terms_export_denial.v1',
-                    'organization.alert_case_visibility_denial.v1',
-                ],
-                blockerCode: 'member_revoked' as const,
-                noEnumeration: true,
-                noLeakFields: [
-                    'activeTerms',
-                    'watchlistScope.alertGeneratorKeys',
-                    'case.evidence.rawContent',
-                    'otherOrg.watchlistItemIds',
-                    'destination.secret',
-                ],
-                webhookDestinationAccessRevocation: {
-                    schemaVersion: 'organization.member_webhook_destination_access_revocation.v1',
-                    organizationId: req.params.id,
-                    tenantId: req.params.id,
-                    targetUserId: req.params.userId,
-                    targetRole: authorizedTarget.role,
-                    blockedRoute: 'POST /v1/dwm/webhooks/deliver',
-                    blockedContracts: [
-                        'organization.webhook_destination_ownership.v1',
-                        'organization.webhook_destination_access_decision.v1',
-                        'organization.webhook_alert_delivery_readiness.v1',
-                        'organization.webhook_destination_readiness_bridge.v1',
-                        'organization.shared_watchlist_readiness_export.v1',
-                    ],
-                    requiredMembershipStatus: 'active',
-                    removedMemberBlocker: 'member_revoked',
-                    revokedInviteBlocker: 'member_revoked',
-                    nonmemberDestinationEnumeration: false,
-                    noLeakFields: [
-                        'destination.secret',
-                        'otherOrg.destinationIds',
-                        'activeTerms[].term',
-                        'case.evidence.rawContent',
-                    ],
-                },
-                downstreamReadinessRevocation: {
-                    schemaVersion: 'organization.member_downstream_readiness_revocation.v1',
-                    organizationId: req.params.id,
-                    tenantId: req.params.id,
-                    targetUserId: req.params.userId,
-                    targetRole: authorizedTarget.role,
-                    membershipStatusAfter: 'removed' as const,
-                    blockerCode: 'member_revoked' as const,
-                    activeMembershipRequired: true,
-                    inviteRecoveryRequired: true,
-                    ownerlessRecoveryMutationAllowed: false,
-                    readiness: {
-                        sharedWatchlistExportReady: false,
-                        alertGenerationReady: false,
-                        caseVisibilityReady: false,
-                        webhookDeliveryReady: false,
-                        dashboardReadinessReady: false,
-                        supportRedactedReadReady: true,
-                    },
-                    requiredDownstreamFields: [
-                        'organizationId',
-                        'tenantId',
-                        'watchlistId',
-                        'watchlistItemId',
-                        'watchedEntity',
-                        'matchReason',
-                        'actorRef',
-                        'sourceRefs',
-                        'provenanceHash',
-                        'workflowStatus',
-                        'destinationReadiness',
-                        'blockerReason',
-                    ],
-                    blockedConsumerContracts: [
-                        'organization.watchlist_alert_generation_consumer.v1',
-                        'organization.case_visibility_consumer.v1',
-                        'organization.alert_case_bridge_persistence_receipt.v1',
-                        'organization.webhook_destination_access_decision.v1',
-                        'organization.webhook_alert_delivery_readiness.v1',
-                        'organization.shared_watchlist_readiness_export.v1',
-                    ],
-                    downstreamRoutes: { ...organizationAccessDownstreamRoutes },
-                    destinationReadiness: {
-                        destinationOwnerField: 'destination.org_id' as const,
-                        selectedDestinationIdField: 'webhookDestinationIds[]' as const,
-                        crossOrgDestinationAllowed: false,
-                        nonmemberDestinationEnumeration: false,
-                        deliveryBlockedByLifecycle: true,
-                        blockerReason: 'member_revoked' as const,
-                    },
-                    lifecycleCleanup: {
-                        revokedInviteIds: revokedInvites.rows.map((invite: OrganizationInviteRow) => invite.id),
-                        revokedInviteCount: revokedInvites.rows.length,
-                        cleanupIdempotent: true,
-                        staleInviteAcceptanceBlocker: 'member_revoked' as const,
-                        noOrphanedAlertCaseLinks: true,
-                        noCrossOrgLeakage: true,
-                    },
-                    noLeakFields: [
-                        'activeTerms[]',
-                        'watchlistScope.alertGeneratorKeys',
-                        'destination.secret',
-                        'destination.endpoint',
-                        'case.evidence.rawContent',
-                        'otherOrg.watchlistItemIds',
-                        'otherOrg.destinationIds',
-                    ],
-                },
-            },
-            consumerAccessRecovery: {
-                schemaVersion: 'organization.member_consumer_access_recovery.v1',
-                organizationId: req.params.id,
-                tenantId: req.params.id,
-                targetUserId: req.params.userId,
-                targetRoleBeforeRemoval: target.role,
-                currentMemberStatus: 'removed' as const,
-                automaticRegrantAllowed: false,
-                ownerlessRecoveryMutationAllowed: false,
-                directMembershipMutationAllowed: false,
-                requiresOwnerAdminReview: true,
-                requiresAcceptedInvite: true,
-                recoveryActorRoles: ['owner', 'admin'] as const,
-                requiredSteps: [
-                    'owner_or_admin_review',
-                    'create_new_invite',
-                    'target_accepts_invite',
-                    'new_membership_role_applied',
-                ],
-                blockedUntilAcceptedMembership: [...removedMemberBlockedRoutes],
-                recoveryRoutes: {
-                    createInvite: 'POST /api/organizations/:id/invites',
-                    acceptInvite: 'POST /api/organizations/invites/:inviteId/accept',
-                    memberList: 'GET /api/organizations/:id/members',
-                },
-                recoveryReceipts: [
-                    'organization.invite_consumer_visibility_receipt.v1',
-                    'organization.member_role_consumer_visibility_receipt.v1',
-                ],
-                supportAssistedRecoveryReceipt: {
-                    schemaVersion: 'organization.member_support_assisted_recovery_receipt.v1',
-                    supportActionHistoryBridge: 'organization.member_recovery_support_history_bridge.v1',
-                    allowedOutcome: 'invite_required',
-                    directMembershipMutationAllowed: false,
-                    ownerlessRecoveryMutationAllowed: false,
-                    requiresAcceptedInvite: true,
-                    requiredAuditFields: ['organizationId', 'targetUserId', 'requestId', 'supportSessionId', 'reason', 'outcome'],
-                    blockedRoutesUntilAcceptedMembership: [
-                        'GET /api/organizations/:id/watchlists',
-                        'GET /api/organizations/:id/watchlists/alert-terms',
-                        'GET /api/organizations/:id/alert-case-visibility',
-                        'POST /v1/dwm/webhooks/deliver',
-                    ],
-                    nonmemberEnumeration: false,
-                },
-                blockerCode: 'member_revoked' as const,
-                nonmemberEnumeration: false,
-            },
-        },
+        }),
     })
 }
 
@@ -645,720 +364,20 @@ export async function patchOrganizationMemberRole(req: FastifyRequest<{ Params: 
         },
     })
     const updated = await loadOrganizationForMember(req.params.id, userId)
-    const watchlistWriteRoles = (['owner', 'admin', 'editor', 'reader', 'member', 'viewer'] satisfies OrganizationRole[])
-        .filter(roleCanWriteWatchlist)
-    const beforeConsumerAccess = organizationMemberConsumerAccess(authorizedTarget.role)
-    const afterConsumerAccess = organizationMemberConsumerAccess(input.role)
     return res.send({
         organization: updated ? toOrganization(updated) : null,
         member: toMember(updatedMember as OrganizationMemberRow),
-        roleChange: {
-            schemaVersion: 'organization.member_role_change.v1',
+        roleChange: buildOrganizationMemberRoleChangeReceipt({
             organizationId: req.params.id,
-            tenantId: req.params.id,
             actorId: userId,
+            actorRole: authorizedOrganization.role,
             targetUserId: req.params.userId,
             previousRole: authorizedTarget.role,
             newRole: input.role,
             reason: input.reason,
-            requestId: input.requestId ?? null,
-            serviceLogAction,
-            consumerVisibilityReceipt: {
-                schemaVersion: 'organization.member_role_consumer_visibility_receipt.v1',
-                organizationId: req.params.id,
-                tenantId: req.params.id,
-                actorId: userId,
-                actorRole: authorizedOrganization.role,
-                targetUserId: req.params.userId,
-                previousRole: authorizedTarget.role,
-                newRole: input.role,
-                membershipStatus: 'active' as const,
-                routes: {
-                    sharedWatchlists: 'GET /api/organizations/:id/watchlists',
-                    alertTermsExport: 'GET /api/organizations/:id/watchlists/alert-terms',
-                    alertCaseVisibility: 'GET /api/organizations/:id/alert-case-visibility',
-                    webhookDelivery: 'POST /v1/dwm/webhooks/deliver',
-                },
-                consumerContracts: [
-                    'organization.watchlist_alert_generation_consumer.v1',
-                    'organization.watchlist_alert_generation_consumer_denial.v1',
-                    'organization.case_visibility_consumer.v1',
-                    'organization.webhook_destination_access_decision.v1',
-                    'organization.webhook_alert_delivery_readiness.v1',
-                ],
-                before: beforeConsumerAccess,
-                after: afterConsumerAccess,
-                deliveryReadiness: {
-                    schemaVersion: 'organization.member_role_delivery_readiness.v1',
-                    contract: 'organization.webhook_alert_delivery_readiness.v1',
-                    allowedRoles: ['owner', 'admin'],
-                    summaryVisibleRoles: ['owner', 'admin', 'editor', 'reader', 'member', 'viewer'],
-                    deniedRoles: ['member', 'viewer'],
-                    destinationOrgField: 'destination.org_id',
-                    selectedDestinationIdField: 'webhookDestinationIds[]',
-                    nonmemberDestinationEnumeration: false,
-                },
-                blockerCodes: {
-                    nonmember: 'nonmember_denied' as const,
-                    removedMember: 'member_revoked' as const,
-                    alertVisibility: 'role_not_allowed' as const,
-                    webhookDelivery: 'role_not_allowed' as const,
-                },
-                noEnumeration: true,
-                downstreamReadinessReceipt: {
-                    schemaVersion: 'organization.member_role_downstream_readiness_receipt.v1',
-                    organizationId: req.params.id,
-                    tenantId: req.params.id,
-                    actorId: userId,
-                    actorRole: authorizedOrganization.role,
-                    targetUserId: req.params.userId,
-                    previousRole: authorizedTarget.role,
-                    newRole: input.role,
-                    membershipStatus: 'active' as const,
-                    roleChanged: authorizedTarget.role !== input.role,
-                    blockerReason: null,
-                    before: organizationMemberDownstreamReadiness(beforeConsumerAccess),
-                    after: organizationMemberDownstreamReadiness(afterConsumerAccess),
-                    downstreamRoutes: { ...organizationAccessDownstreamRoutes },
-                    downstreamContracts: [
-                        'organization.watchlist_alert_generation_consumer.v1',
-                        'organization.case_visibility_consumer.v1',
-                        'organization.alert_case_bridge_persistence_receipt.v1',
-                        'organization.webhook_destination_delivery_consumer.v1',
-                        'organization.shared_watchlist_readiness_export.v1',
-                    ],
-                    destinationReadiness: {
-                        destinationOwnerField: 'destination.org_id' as const,
-                        selectedDestinationIdField: 'webhookDestinationIds[]' as const,
-                        crossOrgDestinationAllowed: false,
-                        nonmemberDestinationEnumeration: false,
-                    },
-                    roleGates: {
-                        mutateWatchlists: watchlistWriteRoles,
-                        exportAlertTerms: ['owner', 'admin'] as const,
-                        assignCases: ['owner', 'admin', 'editor'] as const,
-                        webhookDelivery: ['owner', 'admin'] as const,
-                        readSharedWatchlists: ['owner', 'admin', 'editor', 'reader', 'member', 'viewer'] as const,
-                    },
-                    lifecycleBlockers: {
-                        removedMember: 'member_revoked' as const,
-                        expiredInvite: 'invite_expired' as const,
-                        roleNotAllowed: 'role_not_allowed' as const,
-                    },
-                    noLeakFields: [
-                        'otherOrg.watchlistItemIds',
-                        'otherOrg.alertGeneratorKeys',
-                        'destination.secret',
-                        'case.evidence.rawContent',
-                    ],
-                },
-            },
-        },
-    })
-}
-
-export async function postOrganizationInvites(req: FastifyRequest<{ Params: OrganizationParams, Body: InviteInput }>, res: FastifyReply) {
-    const requestContext = await loadRequiredOrganizationMemberRequest(req, res, req.params.id)
-    if (!requestContext) return
-    const { userId, organization } = requestContext
-
-    if (!roleCanManageOrganization(organization.role)) {
-        return sendInviteManagementDenial(req, res, organization, userId, {
-            action: 'create_invite',
-            requestId: typeof req.body?.requestId === 'string' ? req.body.requestId : typeof req.body?.request_id === 'string' ? req.body.request_id : null,
-            message: 'Only organization owners and admins can invite members.',
-        })
-    }
-
-    const lifecycleBlocker = inactiveOrganizationMutationBlocker(organization, 'invite members')
-    if (lifecycleBlocker) {
-        return sendOrganizationLifecycleBlocker(req, res, lifecycleBlocker, userId, organization.role)
-    }
-
-    let input: ReturnType<typeof normalizeInviteInput>
-    try {
-        input = normalizeInviteInput(req.body)
-    } catch (error) {
-        return res.status(400).send({ error: error instanceof Error ? error.message : 'Invalid invites.' })
-    }
-
-    const requestId = input.requestId || randomUUID()
-    const rows: OrganizationInviteRow[] = []
-    const results: BulkInviteResult[] = []
-    for (const email of input.emails) {
-        const recipient = await loadInviteRecipientState(req.params.id, email)
-        if (recipient?.user_active === false) {
-            results.push({
-                email,
-                role: input.role,
-                outcome: 'blocked_deactivated_user',
-                userId: recipient.user_id,
-                reason: 'Recipient account is deactivated.',
-            })
-            continue
-        }
-
-        if (recipient?.member_status === 'active') {
-            results.push({
-                email,
-                role: input.role,
-                outcome: 'already_member',
-                userId: recipient.user_id,
-                memberRole: recipient.member_role ?? undefined,
-                reason: 'Recipient is already an active organization member.',
-            })
-            continue
-        }
-
-        if (recipient?.member_status === 'removed') {
-            results.push({
-                email,
-                role: input.role,
-                outcome: 'blocked_removed_member',
-                userId: recipient.user_id,
-                memberRole: recipient.member_role ?? undefined,
-                reason: 'Recipient was removed from this organization.',
-            })
-            continue
-        }
-
-        const existingInvite = await loadInviteForEmail(req.params.id, email)
-        const inviteRow = await upsertOrganizationInvite({
-            id: randomUUID(), organizationId: req.params.id, email,
-            role: input.role, invitedBy: userId, expiresAt: input.expiresAt,
-        }) as OrganizationInviteRow
-        rows.push(inviteRow)
-        results.push({
-            email,
-            role: input.role,
-            outcome: existingInvite && existingInvite.status === 'pending' && Date.parse(existingInvite.expires_at) > Date.now()
-                ? 'updated_pending_invite'
-                : 'invited',
-            inviteId: inviteRow.id,
-            ...organizationInviteAcceptanceReference(inviteRow.id),
-        })
-    }
-
-    if (rows.length > 0) {
-        await touchOrganization(req.params.id)
-    }
-    logOrganizationEvent(req, 'organization_invites_created', req.params.id, userId, {
-        requestId,
-        inviteCount: rows.length,
-        submittedRecipientCount: input.submittedRecipientCount,
-        recipientCount: results.length,
-        duplicateRecipientCount: input.duplicateRecipientCount,
-        skippedCount: results.length - rows.length,
-        outcomes: results.reduce<Record<string, number>>((acc, result) => {
-            acc[result.outcome] = (acc[result.outcome] ?? 0) + 1
-            return acc
-        }, {}),
-        role: input.role,
-        expiresAt: input.expiresAt,
-    })
-    await recordSystemEvent(req, {
-        actionType: 'organization.membership.invites_created',
-        actorId: userId,
-        organizationId: req.params.id,
-        targetType: 'organization_invites',
-        targetId: requestId,
-        entityId: req.params.id,
-        context: { inviteIds: rows.map(invite => invite.id), role: input.role, inviteCount: rows.length },
-    })
-    return res.status(201).send({
-        requestId,
-        actorId: userId,
-        organizationId: req.params.id,
-        invites: rows.map(toInvite),
-        workflow: {
-            schemaVersion: 'organization.bulk_invite.v1',
-            requestId,
-            organizationId: req.params.id,
-            actorId: userId,
-            role: input.role,
-            expiresAt: input.expiresAt,
-            submittedRecipientCount: input.submittedRecipientCount,
-            recipientCount: results.length,
-            normalizedRecipientCount: input.normalizedRecipientCount,
-            duplicateRecipientCount: input.duplicateRecipientCount,
-            invitedCount: rows.length,
-            skippedCount: results.length - rows.length,
-            duplicateInviteCount: results.filter(result => result.outcome === 'updated_pending_invite').length,
-            results,
-        },
-    })
-}
-
-export async function postOrganizationInviteAction(req: FastifyRequest<{ Params: OrganizationInviteParams, Body: InviteActionInput }>, res: FastifyReply) {
-    const requestContext = await loadRequiredOrganizationMemberRequest(req, res, req.params.id)
-    if (!requestContext) return
-    const { userId, organization } = requestContext
-
-    const deletionBlocker = privacyDeletionMutationBlocker(organization, 'change invites')
-    if (deletionBlocker) return sendOrganizationLifecycleBlocker(req, res, deletionBlocker, userId, organization.role)
-
-    if (!roleCanManageOrganization(organization.role)) {
-        const action = req.body?.action === 'revoke'
-            ? 'revoke_invite'
-            : req.body?.action === 'resend'
-                ? 'resend_invite'
-                : 'manage_invites'
-        return sendInviteManagementDenial(req, res, organization, userId, {
-            action,
-            inviteId: req.params.inviteId,
-            requestId: typeof req.body?.requestId === 'string' ? req.body.requestId : typeof req.body?.request_id === 'string' ? req.body.request_id : null,
-            reason: typeof req.body?.reason === 'string' ? req.body.reason.trim().slice(0, 1000) : null,
-            message: 'Only organization owners and admins can manage invites.',
-        })
-    }
-
-    let input: ReturnType<typeof normalizeInviteActionInput>
-    try {
-        input = normalizeInviteActionInput(req.body)
-    } catch (error) {
-        return res.status(400).send({ error: error instanceof Error ? error.message : 'Invalid invite action.' })
-    }
-
-    const existing = await loadInviteById(req.params.id, req.params.inviteId)
-    if (!existing) {
-        return res.status(404).send({ error: 'Invite not found.' })
-    }
-
-    const denyAcceptedInviteAction = (invite: OrganizationInviteRow) => {
-        const message = 'Accepted invites cannot be revoked or resent; manage the member instead.'
-        const denial = organizationInviteActionDenial({
-            organizationId: req.params.id,
-            actorId: userId,
-            actorRole: organization.role,
-            invite,
-            action: input.action,
             requestId: input.requestId,
-            reason: input.reason,
-            message,
-        })
-        logOrganizationEvent(req, denial.serviceLogAction, req.params.id, userId, {
-            requestId: denial.requestId,
-            inviteId: req.params.inviteId,
-            role: invite.role,
-            actorRole: organization.role,
-            action: input.action,
-            blockerCode: denial.blockerCode,
-            reason: input.reason,
-        })
-        return res.status(409).send({ error: message, inviteActionDenial: denial })
-    }
-    if (existing.status === 'accepted') return denyAcceptedInviteAction(existing)
-
-    const lifecycleBlocker = input.action === 'resend'
-        ? inactiveOrganizationMutationBlocker(organization, 'resend invites')
-        : null
-    if (lifecycleBlocker) {
-        return sendOrganizationLifecycleBlocker(req, res, lifecycleBlocker, userId, organization.role)
-    }
-
-    const resendExpiresAt = input.expiresAt ?? new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
-    const invite = await updateOrganizationInviteAction({
-        organizationId: req.params.id,
-        inviteId: req.params.inviteId,
-        action: input.action,
-        expiresAt: input.action === 'resend' ? resendExpiresAt : undefined,
-    }) as OrganizationInviteRow | null
-
-    if (!invite) {
-        const currentInvite = await loadInviteById(req.params.id, req.params.inviteId)
-        if (currentInvite?.status === 'accepted') return denyAcceptedInviteAction(currentInvite)
-        return res.status(404).send({ error: 'Invite not found.' })
-    }
-
-    await touchOrganization(req.params.id)
-    const serviceLogAction = input.action === 'resend'
-        ? 'organization_invite_resent'
-        : 'organization_invite_revoked'
-    logOrganizationEvent(req, serviceLogAction, req.params.id, userId, {
-        requestId: input.requestId,
-        inviteId: req.params.inviteId,
-        email: existing.email,
-        role: existing.role,
-        previousStatus: existing.status,
-        newStatus: input.action === 'resend' ? 'pending' : 'revoked',
-        expiresAt: input.action === 'resend' ? resendExpiresAt : null,
-        reason: input.reason,
-    })
-    await recordSystemEvent(req, {
-        actionType: input.action === 'resend' ? 'organization.membership.invite_resent' : 'organization.membership.invite_revoked',
-        actorId: userId,
-        organizationId: req.params.id,
-        targetType: 'organization_invite',
-        targetId: req.params.inviteId,
-        entityId: req.params.id,
-        context: { role: existing.role, previousStatus: existing.status, reason: input.reason },
-    })
-
-    return res.send({
-        invite: toInvite(invite),
-        inviteAction: {
-            schemaVersion: 'organization.invite_action.v1',
-            organizationId: req.params.id,
-            tenantId: req.params.id,
-            inviteId: invite.id,
-            email: invite.email,
-            role: invite.role,
-            action: input.action,
-            actorId: userId,
-            actorRole: organization.role,
-            previousStatus: existing.status,
-            status: invite.status,
-            reason: input.reason,
-            requestId: input.requestId ?? null,
             serviceLogAction,
-            ...organizationInviteAcceptanceReference(invite.id),
-            consumerVisibilityReceipt: {
-                schemaVersion: 'organization.invite_consumer_visibility_receipt.v1',
-                organizationId: req.params.id,
-                tenantId: req.params.id,
-                inviteId: invite.id,
-                inviteStatus: invite.status,
-                role: invite.role,
-                action: input.action,
-                actorId: userId,
-                actorRole: organization.role,
-                grantsConsumerAccess: false,
-                acceptanceRequired: true,
-                blockerCode: input.action === 'resend' ? 'invite_pending' as const : 'member_revoked' as const,
-                blockedRoutes: [
-                    'GET /api/organizations/:id/watchlists',
-                    'GET /api/organizations/:id/watchlists/alert-terms',
-                    'GET /api/organizations/:id/alert-case-visibility',
-                ],
-                blockedConsumerContracts: [
-                    'organization.watchlist_alert_generation_consumer.v1',
-                    'organization.case_visibility_consumer.v1',
-                    'organization.webhook_alert_delivery_readiness.v1',
-                ],
-                noEnumeration: true,
-            },
-            downstreamReadinessReceipt: {
-                schemaVersion: 'organization.invite_downstream_readiness_receipt.v1',
-                organizationId: req.params.id,
-                tenantId: req.params.id,
-                inviteId: invite.id,
-                inviteStatus: invite.status,
-                role: invite.role,
-                action: input.action,
-                previousStatus: existing.status,
-                actorId: userId,
-                actorRole: organization.role,
-                requestId: input.requestId ?? null,
-                reason: input.reason ?? null,
-                grantsConsumerAccess: false,
-                acceptanceRequired: true,
-                blockerReason: input.action === 'resend' ? 'invite_pending' as const : 'member_revoked' as const,
-                readiness: {
-                    sharedWatchlistReadReady: false,
-                    alertGenerationReady: false,
-                    caseVisibilityReady: false,
-                    webhookDeliveryReady: false,
-                    dashboardReadinessReady: false,
-                    supportRedactedReadReady: true,
-                },
-                downstreamRoutes: { ...organizationAccessDownstreamRoutes },
-                downstreamContracts: [
-                    'organization.watchlist_alert_generation_consumer.v1',
-                    'organization.case_visibility_consumer.v1',
-                    'organization.alert_case_bridge_persistence_receipt.v1',
-                    'organization.webhook_destination_delivery_consumer.v1',
-                    'organization.shared_watchlist_readiness_export.v1',
-                ],
-                requiredAcceptedMembershipFields: [
-                    'organizationId',
-                    'tenantId',
-                    'member.userId',
-                    'member.role',
-                    'member.status',
-                    'watchlistId',
-                    'watchlistItemId',
-                    'provenanceHash',
-                    'destinationReadiness',
-                    'blockerReason',
-                ],
-                destinationReadiness: {
-                    destinationOwnerField: 'destination.org_id' as const,
-                    selectedDestinationIdField: 'webhookDestinationIds[]' as const,
-                    deliveryBlockedUntilAccepted: true,
-                    crossOrgDestinationAllowed: false,
-                    nonmemberDestinationEnumeration: false,
-                },
-                lifecycleCleanup: {
-                    revokeIdempotent: true,
-                    resendIdempotent: true,
-                    expiredInviteBlocker: 'invite_expired' as const,
-                    revokedInviteBlocker: 'member_revoked' as const,
-                    noOrphanedInviteTokens: true,
-                    noCrossOrgLeakage: true,
-                },
-                noLeakFields: [
-                    'activeTerms[]',
-                    'watchlistScope.alertGeneratorKeys',
-                    'destination.secret',
-                    'case.evidence.rawContent',
-                    'otherOrg.watchlistItemIds',
-                ],
-            },
-        },
-    })
-}
-
-export async function postOrganizationInviteAccept(req: FastifyRequest<{ Params: InviteParams }>, res: FastifyReply) {
-    const userId = await authenticateOrganizationRequest(req, res)
-    if (!userId) return
-
-    const result = await withTransaction(async query => {
-        const acceptedResult = await query(`
-            UPDATE organization_invites
-               SET status = 'accepted',
-                   revoked_at = NULL,
-                   accepted_at = NOW(),
-                   accepted_by = $2
-             WHERE id = $1
-               AND status = 'pending'
-               AND expires_at > NOW()
-               AND EXISTS (
-                   SELECT 1 FROM organizations
-                    WHERE organizations.id = organization_invites.organization_id
-                      AND COALESCE(organizations.status, 'active') = 'active'
-               )
-               AND EXISTS (
-                   SELECT 1 FROM users
-                    WHERE users.id = $2 AND COALESCE(users.active, TRUE) IS TRUE
-               )
-               AND NOT EXISTS (
-                   SELECT 1 FROM organization_members
-                    WHERE organization_members.organization_id = organization_invites.organization_id
-                      AND organization_members.user_id = $2
-                      AND organization_members.status = 'removed'
-               )
-            RETURNING *
-        `, [req.params.inviteId, userId])
-        const invite = acceptedResult.rows[0] as OrganizationInviteRow | undefined
-        if (!invite) return { rows: [] }
-        const member = await upsertOrganizationMember({
-            organizationId: invite.organization_id,
-            userId,
-            role: invite.role,
-            invitedBy: invite.invited_by,
-        }, query)
-        return { rows: [{
-            invite_id: invite.id,
-            organization_id: invite.organization_id,
-            email: invite.email,
-            invite_role: invite.role,
-            invited_by: invite.invited_by,
-            accepted_by: invite.accepted_by,
-            invite_status: invite.status,
-            invite_created_at: invite.created_at,
-            expires_at: invite.expires_at,
-            accepted_at: invite.accepted_at,
-            user_id: member.user_id,
-            member_role: member.role,
-            member_status: member.status,
-            joined_at: member.joined_at,
-            member_created_at: member.created_at,
-        }] }
-    })
-
-    if (!result.rows.length) {
-        const inviteResult = await run(`
-            SELECT *
-            FROM organization_invites
-            WHERE id = $1
-            LIMIT 1
-        `, [req.params.inviteId])
-        const invite = inviteResult.rows[0] as OrganizationInviteRow | undefined
-        const organizationStatusResult = invite
-            ? await run(`
-                SELECT COALESCE(status, 'active') AS status
-                FROM organizations
-                WHERE id = $1
-                LIMIT 1
-            `, [invite.organization_id])
-            : { rows: [] }
-        const memberStatusResult = invite
-            ? await run(`
-                SELECT status
-                FROM organization_members
-                WHERE organization_id = $1
-                  AND user_id = $2
-                LIMIT 1
-            `, [invite.organization_id, userId])
-            : { rows: [] }
-        const userStatusResult = invite
-            ? await run(`
-                SELECT COALESCE(active, TRUE) AS active
-                FROM users
-                WHERE id = $1
-                LIMIT 1
-            `, [userId])
-            : { rows: [] }
-        const denial = organizationInviteAcceptanceDenial({
-            invite,
-            organizationStatus: organizationStatusResult.rows[0]?.status,
-            memberStatus: memberStatusResult.rows[0]?.status,
-            userActive: userStatusResult.rows[0]?.active,
-            requestId: req.headers['x-request-id'] ? String(req.headers['x-request-id']) : null,
-        })
-        if (invite) {
-            logOrganizationEvent(req, denial.serviceLogAction, invite.organization_id, userId, {
-                inviteId: invite.id,
-                inviteStatus: invite.status,
-                blockerCode: denial.blockerCode,
-                requestId: denial.requestId,
-            })
-        }
-        return res.status(denial.statusCode).send({
-            error: invite ? 'Invite cannot be accepted.' : 'Pending invite not found.',
-            inviteAcceptanceDenial: denial,
-        })
-    }
-
-    const row = result.rows[0] as {
-        invite_id: string
-        organization_id: string
-        email: string
-        invite_role: OrganizationRole
-        invited_by: string
-        accepted_by: string
-        invite_status: 'accepted'
-        invite_created_at: string
-        accepted_at: string
-        expires_at: string
-        user_id: string
-        member_role: OrganizationRole
-        member_status: 'active'
-        joined_at: string
-        member_created_at: string
-    }
-
-    await touchOrganization(row.organization_id)
-    const serviceLogAction = 'organization_invite_accepted'
-    logOrganizationEvent(req, serviceLogAction, row.organization_id, userId, {
-        inviteId: row.invite_id,
-        role: row.member_role,
-    })
-    await recordSystemEvent(req, {
-        actionType: 'organization.membership.invite_accepted',
-        actorId: userId,
-        organizationId: row.organization_id,
-        targetType: 'organization_member',
-        targetId: userId,
-        entityId: row.invite_id,
-        context: { inviteId: row.invite_id, role: row.member_role },
-    })
-    const organization = await loadOrganizationForMember(row.organization_id, userId)
-    return res.send({
-        invite: toInvite({
-            id: row.invite_id,
-            organization_id: row.organization_id,
-            email: row.email,
-            role: row.invite_role,
-            invited_by: row.invited_by,
-            accepted_by: row.accepted_by,
-            status: row.invite_status,
-            created_at: row.invite_created_at,
-            expires_at: row.expires_at,
-            accepted_at: row.accepted_at,
         }),
-        membership: {
-            organizationId: row.organization_id,
-            userId: row.user_id,
-            role: row.member_role,
-            status: row.member_status,
-            joinedAt: row.joined_at,
-            createdAt: row.member_created_at,
-        },
-        inviteAcceptance: {
-            schemaVersion: 'organization.invite_acceptance.v1',
-            organizationId: row.organization_id,
-            tenantId: row.organization_id,
-            inviteId: row.invite_id,
-            ...organizationInviteAcceptanceReference(row.invite_id),
-            acceptedBy: userId,
-            invitedBy: row.invited_by,
-            inviteRole: row.invite_role,
-            appliedRole: row.member_role,
-            membershipStatus: row.member_status,
-            acceptedAt: row.accepted_at,
-            expiresAt: row.expires_at,
-            serviceLogAction,
-            auditMetadataFields: ['inviteId', 'role', 'acceptedBy', 'organizationId'],
-            reusedInviteBlocked: true,
-            expiredInviteDenied: 'invite_expired',
-            revokedInviteDenied: 'member_revoked',
-            consumerVisibilityReceipt: {
-                schemaVersion: 'organization.invite_consumer_visibility_receipt.v1',
-                organizationId: row.organization_id,
-                tenantId: row.organization_id,
-                inviteId: row.invite_id,
-                inviteStatus: row.invite_status,
-                role: row.member_role,
-                action: 'accept' as const,
-                actorId: userId,
-                actorRole: row.member_role,
-                grantsConsumerAccess: true,
-                membershipStatus: row.member_status,
-                routes: {
-                    sharedWatchlists: 'GET /api/organizations/:id/watchlists',
-                    alertTermsExport: 'GET /api/organizations/:id/watchlists/alert-terms',
-                    alertCaseVisibility: 'GET /api/organizations/:id/alert-case-visibility',
-                },
-                availableConsumerContracts: [
-                    'organization.watchlist_alert_generation_consumer.v1',
-                    'organization.case_visibility_consumer.v1',
-                ],
-                roleGates: {
-                    canReadSharedWatchlists: true,
-                    canExportAlertTerms: ['owner', 'admin'].includes(row.member_role),
-                    canMutateSharedWatchlists: ['owner', 'admin'].includes(row.member_role),
-                    canAssignCases: ['owner', 'admin'].includes(row.member_role),
-                },
-                downstreamReadinessGrant: {
-                    schemaVersion: 'organization.invite_acceptance_downstream_grant.v1',
-                    organizationId: row.organization_id,
-                    tenantId: row.organization_id,
-                    inviteId: row.invite_id,
-                    acceptedBy: userId,
-                    membershipStatus: row.member_status,
-                    appliedRole: row.member_role,
-                    grantsConsumerAccess: true,
-                    sharedWatchlistReadReady: true,
-                    alertGenerationExportReady: ['owner', 'admin'].includes(row.member_role),
-                    caseVisibilityReady: true,
-                    webhookDeliveryReady: ['owner', 'admin'].includes(row.member_role),
-                    dashboardReadinessReady: true,
-                    blockerReason: null,
-                    downstreamContracts: [
-                        'organization.watchlist_alert_generation_consumer.v1',
-                        'organization.case_visibility_consumer.v1',
-                        'organization.webhook_destination_delivery_consumer.v1',
-                        'organization.shared_watchlist_readiness_export.v1',
-                    ],
-                    downstreamRoutes: { ...organizationAccessDownstreamRoutes },
-                    destinationReadiness: {
-                        destinationOwnerField: 'destination.org_id' as const,
-                        selectedDestinationIdField: 'webhookDestinationIds[]' as const,
-                        crossOrgDestinationAllowed: false,
-                        nonmemberDestinationEnumeration: false,
-                    },
-                    noLeakFields: [
-                        'otherOrg.watchlistItemIds',
-                        'otherOrg.alertGeneratorKeys',
-                        'destination.secret',
-                        'case.evidence.rawContent',
-                    ],
-                },
-                noEnumeration: true,
-            },
-        },
-        organization: organization ? toOrganization(organization) : null,
     })
 }
 
@@ -2434,54 +1453,6 @@ export async function postOrganizationWatchlistCleanup(req: FastifyRequest<{ Par
     })
 }
 
-async function loadInviteRecipientState(organizationId: string, email: string) {
-    const result = await run(`
-        SELECT
-            u.id AS user_id,
-            COALESCE(u.active, TRUE) AS user_active,
-            om.role AS member_role,
-            om.status AS member_status
-        FROM users u
-        LEFT JOIN organization_members om
-          ON om.organization_id = $1
-         AND om.user_id = u.id
-        WHERE lower(u.id) = lower($2)
-           OR lower(u.name) = lower($2)
-        LIMIT 1
-    `, [organizationId, email])
-
-    return result.rows[0] as {
-        user_id: string
-        user_active: boolean
-        member_role?: OrganizationRole | null
-        member_status?: OrganizationMemberRow['status'] | null
-    } | undefined
-}
-
-async function loadInviteForEmail(organizationId: string, email: string) {
-    const result = await run(`
-        SELECT *
-        FROM organization_invites
-        WHERE organization_id = $1
-          AND lower(email) = lower($2)
-        LIMIT 1
-    `, [organizationId, email])
-
-    return result.rows[0] as OrganizationInviteRow | undefined
-}
-
-async function loadInviteById(organizationId: string, inviteId: string) {
-    const result = await run(`
-        SELECT *
-        FROM organization_invites
-        WHERE id = $1
-          AND organization_id = $2
-        LIMIT 1
-    `, [inviteId, organizationId])
-
-    return result.rows[0] as OrganizationInviteRow | undefined
-}
-
 function sendOrganizationLastOwnerGuard(
     req: FastifyRequest,
     res: FastifyReply,
@@ -2501,36 +1472,6 @@ function sendOrganizationLastOwnerGuard(
     })
 
     return res.status(409).send({ error: guard.message, lastOwnerGuard: guard })
-}
-
-function sendInviteManagementDenial(
-    req: FastifyRequest,
-    res: FastifyReply,
-    organization: OrganizationRow,
-    actorId: string,
-    input: {
-        action: 'list_invites' | 'create_invite' | 'revoke_invite' | 'resend_invite' | 'manage_invites'
-        inviteId?: string | null
-        requestId?: string | null
-        reason?: string | null
-        message: string
-    }
-) {
-    const denial = organizationInviteManagementDenial({
-        organizationId: organization.id,
-        actorId,
-        actorRole: organization.role,
-        ...input,
-    })
-    logOrganizationEvent(req, denial.serviceLogAction, organization.id, actorId, {
-        requestId: denial.requestId,
-        reason: denial.reason,
-        action: denial.action,
-        inviteId: denial.inviteId,
-        actorRole: organization.role,
-        denialReason: denial.denialReason,
-    })
-    return res.status(403).send({ error: input.message, inviteManagementDenial: denial })
 }
 
 function sendWatchlistMutationDenial(
@@ -2650,30 +1591,6 @@ function roleUpdatePermissionError(actorRole: OrganizationRole | undefined, targ
     return 'Only organization owners and admins can update member roles.'
 }
 
-function organizationMemberConsumerAccess(role: OrganizationRole) {
-    const canManage = roleCanManageOrganization(role)
-    return {
-        role,
-        canReadSharedWatchlists: true,
-        canExportAlertTerms: canManage,
-        canMutateSharedWatchlists: roleCanWriteWatchlist(role),
-        canAssignCases: canManage,
-        canDryRunWebhookDelivery: canManage,
-        canReadWebhookDeliverySummary: true,
-    }
-}
-
-function organizationMemberDownstreamReadiness(access: ReturnType<typeof organizationMemberConsumerAccess>) {
-    return {
-        sharedWatchlistReadReady: access.canReadSharedWatchlists,
-        alertGenerationExportReady: access.canExportAlertTerms,
-        watchlistMutationReady: access.canMutateSharedWatchlists,
-        caseAssignmentReady: access.canAssignCases,
-        webhookDeliveryReady: access.canDryRunWebhookDelivery,
-        deliverySummaryReady: access.canReadWebhookDeliverySummary,
-    }
-}
-
 function organizationTeamOnboardingReadiness(organization: ReturnType<typeof buildOrganizationBridgeContext>) {
     const targetMemberCount = 10
     const acceptedOrInvitedCount = organization.activeMemberCount + organization.pendingInviteCount
@@ -2785,71 +1702,6 @@ function organizationSharedWatchlistContract(organization: OrganizationRow, item
             readRoles: ['owner', 'admin', 'editor', 'reader', 'member', 'viewer'],
             nonmemberEnumeration: false,
         },
-    }
-}
-
-function organizationInviteListContract(organization: OrganizationRow, invites: OrganizationInviteRow[]) {
-    const actorRole = organization.role ?? 'viewer'
-    const pendingInvites = invites.filter(invite => invite.status === 'pending')
-    return {
-        schemaVersion: 'organization.invite_list_contract.v1',
-        organizationId: organization.id,
-        tenantId: organization.id,
-        actor: {
-            role: actorRole,
-            canListPendingInvites: roleCanManageOrganization(actorRole),
-            canCreateInvites: roleCanManageOrganization(actorRole),
-            canRevokeInvites: roleCanManageOrganization(actorRole),
-            canResendInvites: roleCanManageOrganization(actorRole),
-        },
-        counts: {
-            pendingInviteCount: pendingInvites.length,
-            pendingAdminCount: pendingInvites.filter(invite => invite.role === 'admin').length,
-            pendingMemberCount: pendingInvites.filter(invite => invite.role === 'member').length,
-            pendingViewerCount: pendingInvites.filter(invite => invite.role === 'viewer').length,
-        },
-        routes: {
-            inviteMembers: 'POST /api/organizations/:id/invites',
-            acceptInvite: 'POST /api/organizations/invites/:inviteId/accept',
-            inviteActions: 'POST /api/organizations/:id/invites/:inviteId/actions',
-        },
-        supportedRoles: ['admin', 'editor', 'reader'],
-        supportedActions: ['revoke', 'resend'],
-        idempotentActions: ['revoke', 'resend'],
-        defaultExpiryDays: 14,
-        acceptanceTokenField: 'invite.acceptanceToken',
-        lifecycleDenials: {
-            expiredInvite: 'invite_expired',
-            revokedInvite: 'member_revoked',
-            acceptedInviteReuse: 'invite_expired',
-            nonManager: 'role_not_allowed',
-            nonmemberEnumeration: false,
-        },
-        audit: {
-            source: 'events',
-            eventActions: [
-                'organization_invites_created',
-                'organization_invite_accepted',
-                'organization_invite_revoked',
-                'organization_invite_resent',
-            ],
-            requiredMetadataFields: [
-                'requestId',
-                'role',
-                'recipientCount',
-                'invitedCount',
-                'skippedCount',
-                'inviteId',
-                'action',
-                'previousStatus',
-                'newStatus',
-            ],
-        },
-        noLeakFields: [
-            'otherOrg.invites',
-            'acceptedInvite.acceptanceToken',
-            'revokedInvite.acceptanceToken',
-        ],
     }
 }
 
