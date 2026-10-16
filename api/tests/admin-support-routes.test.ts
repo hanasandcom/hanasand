@@ -736,11 +736,6 @@ test('access recovery records a failed audit if an invite is accepted before it 
         status: 'pending', expires_at: '2026-11-01T00:00:00.000Z', accepted_at: null, accepted_by: null,
         revoked_at: null, invited_by: 'support-admin', created_at: '2026-10-16T00:00:00.000Z',
     }
-    supportRecoveryInviteResult = {
-        id: 'recovery-invite-1', organization_id: 'org-1', email: 'owner@example.test', role: 'admin',
-        status: 'revoked', expires_at: '2026-11-01T00:00:00.000Z', accepted_at: null, accepted_by: null,
-        revoked_at: '2026-10-16T00:00:00.000Z', invited_by: 'support-admin', created_at: '2026-10-16T00:00:00.000Z',
-    }
     supportRecoveryInviteResult = null
     supportRecoveryInviteStatus = 'accepted'
 
