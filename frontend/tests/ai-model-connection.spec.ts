@@ -15,6 +15,7 @@ test.afterAll(() => rmSync(output, { recursive: true, force: true }))
 test('initial model snapshot is displayed, failed connections keep retrying, and prompts work after recovery', async ({ page }) => {
     page.on('pageerror', error => { throw error })
     let attempts = 0
+    let prompts = 0
     await page.routeWebSocket('**/client/ws/gpt', socket => {
         attempts++
         if (attempts < 3) { socket.close(); return }
@@ -22,7 +23,17 @@ test('initial model snapshot is displayed, failed connections keep retrying, and
         socket.onMessage(raw => {
             const prompt = JSON.parse(String(raw))
             expect(prompt.clientName).toBe('inspur')
-            socket.send(JSON.stringify({ type: 'prompt_complete', conversationId: prompt.conversationId, content: 'OK' }))
+            if (prompts++ > 0) {
+                socket.send(JSON.stringify({
+                    type: 'prompt_error', conversationId: prompt.conversationId, error: 'Model unavailable',
+                }))
+                return
+            }
+            socket.send(JSON.stringify({ type: 'prompt_started', conversationId: prompt.conversationId }))
+            socket.send(JSON.stringify({ type: 'prompt_delta', conversationId: prompt.conversationId, delta: 'Streaming answer' }))
+            setTimeout(() => socket.send(JSON.stringify({
+                type: 'prompt_complete', conversationId: prompt.conversationId, content: 'OK',
+            })), 250)
         })
     })
     await page.route('https://ai-model.test/fixture.js', route => route.fulfill({ contentType: 'application/javascript', body: bundle }))
@@ -33,5 +44,8 @@ test('initial model snapshot is displayed, failed connections keep retrying, and
     await expect(page.getByText('Connected', { exact: true })).toBeVisible()
     await page.getByRole('button', { name: 'Test model' }).click()
     await page.getByRole('button', { name: 'Send', exact: true }).click()
+    await expect(page.getByText('Streaming answer', { exact: true })).toBeVisible()
     await expect(page.getByText('Reply OK OK', { exact: true })).toBeVisible()
+    await page.getByRole('button', { name: 'Send', exact: true }).click()
+    await expect(page.getByText('Model unavailable', { exact: true })).toBeVisible()
 })

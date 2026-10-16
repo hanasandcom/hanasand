@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Bot, Send, X } from 'lucide-react'
 import Button from '../misc/button'
 import ErrorNotice from '@/components/error/errorNotice'
+import { operationalStateLabel } from './operationalStateLabel'
 
 type TestClientPopupProps = {
     client: GPT_Client
@@ -181,11 +182,4 @@ function StatCard({ title, value, error = false }: { title: string, value: strin
             {error ? <ErrorNotice compact className='mt-2' message={value} /> : <div className='mt-2 text-sm font-semibold text-ui-text/90'>{value}</div>}
         </div>
     )
-}
-
-function operationalStateLabel(value: string) {
-    if (value === 'blocked') return 'syncing'
-    if (value === 'needs_action') return 'reviewing'
-    if (value === 'action_required') return 'reviewing'
-    return value.replaceAll('_', ' ')
 }

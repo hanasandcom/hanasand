@@ -1,15 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import defaultModelMetrics from './defaultModelMetrics'
 import normalizeClient from './normalizeClient'
 import config from '@/config'
 
 function createPendingAssistantMessage(conversationId: string): GPT_ChatMessage {
-    return {
-        id: `${conversationId}-assistant`,
-        role: 'assistant',
-        content: '',
-        pending: true,
-    }
+    return { id: `${conversationId}-assistant`, role: 'assistant', content: '', pending: true }
 }
 
 export default function useGptPageState() {
@@ -92,13 +87,9 @@ export default function useGptPageState() {
         }))
     }
 
-    const activeClient = useMemo(() => {
-        if (!chatSession) {
-            return null
-        }
-
-        return clients.find(client => client.name === chatSession.clientName) || null
-    }, [chatSession, clients])
+    const activeClient = chatSession
+        ? clients.find(client => client.name === chatSession.clientName) || null
+        : null
 
     return {
         activeClient,
@@ -146,80 +137,60 @@ function handleSocketMessage(
             setParticipants(msg.participants || 0)
             return
         case 'prompt_started':
-            return setChatSession((prev) => updatePromptStart(prev, msg))
         case 'prompt_delta':
-            return setChatSession((prev) => updatePromptDelta(prev, msg))
         case 'prompt_complete':
-            return setChatSession((prev) => updatePromptComplete(prev, msg))
         case 'prompt_error':
-            return setChatSession((prev) => updatePromptError(prev, msg))
+            return setChatSession(prev => updatePromptSession(prev, msg))
         default:
             return
     }
 }
 
-function updatePromptStart(session: ChatSession | null, msg: GptSocketMessage) {
+function updatePromptSession(session: ChatSession | null, msg: GptSocketMessage) {
     if (!session || session.conversationId !== msg.conversationId) return session
-    return {
-        ...session,
-        isSending: true,
-        metrics: msg.metrics || session.metrics,
-        messages: session.messages.some(message => message.role === 'assistant' && message.pending)
-            ? session.messages
-            : [...session.messages, createPendingAssistantMessage(session.conversationId)],
-    }
-}
-
-function updatePromptDelta(session: ChatSession | null, msg: GptSocketMessage) {
-    if (!session || session.conversationId !== msg.conversationId) return session
-    const messages = [...session.messages]
+    const hasPendingAssistant = session.messages.some(message => message.role === 'assistant' && message.pending)
+    const messages = msg.type === 'prompt_started' && hasPendingAssistant
+        ? session.messages
+        : [...session.messages]
     const lastMessage = messages[messages.length - 1]
-    if (lastMessage?.role === 'assistant') {
-        messages[messages.length - 1] = {
-            ...lastMessage,
-            content: msg.content || `${lastMessage.content}${msg.delta || ''}`,
-            pending: true,
+    let isSending = false
+    let metrics = msg.metrics || session.metrics
+
+    if (msg.type === 'prompt_started') {
+        isSending = true
+        if (!hasPendingAssistant) {
+            messages.push(createPendingAssistantMessage(session.conversationId))
         }
-    }
-
-    return { ...session, isSending: true, metrics: msg.metrics || session.metrics, messages }
-}
-
-function updatePromptComplete(session: ChatSession | null, msg: GptSocketMessage) {
-    if (!session || session.conversationId !== msg.conversationId) return session
-    const messages = [...session.messages]
-    const lastMessage = messages[messages.length - 1]
-    if (lastMessage?.role === 'assistant') {
-        messages[messages.length - 1] = {
-            ...lastMessage,
-            content: msg.content || lastMessage.content,
-            pending: false,
+    } else if (msg.type === 'prompt_delta' || msg.type === 'prompt_complete') {
+        isSending = msg.type === 'prompt_delta'
+        if (lastMessage?.role === 'assistant') {
+            messages[messages.length - 1] = {
+                ...lastMessage,
+                content: msg.content || (msg.type === 'prompt_delta'
+                    ? `${lastMessage.content}${msg.delta || ''}`
+                    : lastMessage.content),
+                pending: isSending,
+            }
         }
-    }
-
-    return { ...session, isSending: false, metrics: msg.metrics || session.metrics, messages }
-}
-
-function updatePromptError(session: ChatSession | null, msg: GptSocketMessage) {
-    if (!session || session.conversationId !== msg.conversationId) return session
-    const messages = [...session.messages]
-    const lastMessage = messages[messages.length - 1]
-    const content = msg.error || 'The model failed to answer this prompt.'
-    if (lastMessage?.role === 'assistant' && lastMessage.pending) {
-        messages[messages.length - 1] = { ...lastMessage, content, pending: false, error: true }
-    } else {
-        messages.push({
-            id: `${session.conversationId}-error-${Date.now()}`,
-            role: 'assistant',
-            content,
-            error: true,
-        })
+    } else if (msg.type === 'prompt_error') {
+        const content = msg.error || 'The model failed to answer this prompt.'
+        if (lastMessage?.role === 'assistant' && lastMessage.pending) {
+            messages[messages.length - 1] = { ...lastMessage, content, pending: false, error: true }
+        } else {
+            messages.push({
+                id: `${session.conversationId}-error-${Date.now()}`,
+                role: 'assistant',
+                content,
+                error: true,
+            })
+        }
+        metrics = msg.metrics || { ...session.metrics, status: 'error', lastError: content }
     }
 
     return {
         ...session,
-        isSending: false,
-        metrics: msg.metrics || { ...session.metrics, status: 'error', lastError: content },
+        isSending,
+        metrics,
         messages,
     }
 }
