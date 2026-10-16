@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { expect, test } from 'bun:test'
-import { findUnregisteredCandidates, isScheduledCodeCandidate } from '../scripts/check-scheduled-job-registry.ts'
+import { checkScheduledJobRegistry, findUnregisteredCandidates, isScheduledCodeCandidate } from '../scripts/check-scheduled-job-registry.ts'
 import { scheduledJobRegistryGuardrailEntries } from '../src/utils/systemCron.ts'
 
 const repositoryRoot = path.resolve(import.meta.dir, '..', '..')
@@ -55,4 +55,12 @@ test('registers operator-facing workers and excludes cache or maintenance refres
         expect(registeredSources.has(source)).toBe(false)
         expect(findUnregisteredCandidates([file], registeredSources)).toEqual([])
     }
+})
+
+test('fails on an unregistered candidate without an opt-in environment setting', async() => {
+    const unregisteredSource = path.join(repositoryRoot, 'api/src/utils/unregisteredRecurringWorker.ts')
+
+    await expect(checkScheduledJobRegistry([unregisteredSource])).rejects.toThrow(
+        'api/src/utils/unregisteredRecurringWorker.ts',
+    )
 })

@@ -7,10 +7,12 @@ const scanRoots = ['api/src', 'docker-compose.yml']
 const schedulerPattern = /\b(schedule\s*\(|setInterval\s*\(|startCanaryCollectionLoop\b)/i
 const ignoredPattern = /(^|\/)(tests?|fixtures?|docs?|node_modules)(\/|$)/
 
-export async function checkScheduledJobRegistry() {
-    const candidates: string[] = []
-    for (const root of scanRoots) {
-        await collect(path.join(repoRoot, root), candidates)
+export async function checkScheduledJobRegistry(candidateFiles?: string[]) {
+    const candidates = candidateFiles ?? []
+    if (!candidateFiles) {
+        for (const root of scanRoots) {
+            await collect(path.join(repoRoot, root), candidates)
+        }
     }
 
     const registeredSources = new Set(scheduledJobRegistryGuardrailEntries().map(entry => normalize(entry.source)))
@@ -22,10 +24,7 @@ export async function checkScheduledJobRegistry() {
             ...unregistered.map(file => `- ${file}`),
             'Add intentional recurring work to scheduledJobRegistryGuardrailEntries()/listUnifiedScheduledJobs, or add a narrow scanner exception.',
         ].join('\n')
-        if (process.env.FAIL_ON_UNREGISTERED_SCHEDULED_CODE === '1') {
-            throw new Error(message)
-        }
-        console.warn(message)
+        throw new Error(message)
     } else {
         console.log('Scheduled job registry guardrail passed.')
     }
