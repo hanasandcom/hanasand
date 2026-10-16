@@ -212,6 +212,17 @@ in-progress organization-route split and is provisional. The API-wide
 the API webhook test restructuring removed 47 net lines while preserving all
 19 cases and 94 direct assertion calls.
 
+After the TI admin-table and browser provider-badge components, the 2026-10-16
+frontend inventory finds 2,299 hand-maintained source/config files and 155,239
+lines, with zero files above the 200-line limit. The frontend test suite and
+Next production build pass at `614a69a60`. Across the four recent frontend
+reuse slices (backend auth headers, article/thought queue, TI admin tables, and
+browser provider badges), production code is down 45 lines; the full inventory
+is nevertheless 71 lines above the prior 155,168-line checkpoint because the
+new tests and modules add more than those slices remove. The required
+10,000–30,000-line frontend target remains unmet, so continue prioritizing
+verified duplication removal in addition to the satisfied file cap.
+
 ## Execution
 
 - Divide work by non-overlapping repository areas and use traditional Norwegian
