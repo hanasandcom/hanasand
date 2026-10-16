@@ -2,7 +2,8 @@
 
 import { Fragment, useState } from 'react'
 import { ChevronDown, ChevronRight, LayoutGrid, Rows3 } from 'lucide-react'
-import SheetEditor, { sheetButton, type CustomTableControls, type SheetEditorProps, type TableInteraction } from './sheetEditor'
+import SheetEditor, { type CustomTableControls, type SheetEditorProps, type TableInteraction } from './sheetEditor'
+import { sheetButton } from './sheetEditorStyles'
 import { columnName, tables, writeTable } from './workspace'
 import './plan.css'
 

@@ -2,7 +2,8 @@
 
 import { Fragment, useEffect, useId, useRef, useState } from 'react'
 import { ChevronDown, ChevronRight, ClipboardPlus, Download, Pencil, Trash2, X } from 'lucide-react'
-import SheetEditor, { sheetButton, type SheetEditorProps } from './sheetEditor'
+import SheetEditor, { type SheetEditorProps } from './sheetEditor'
+import { sheetButton } from './sheetEditorStyles'
 import { tables, writeTable } from './workspace'
 import { activityError, expectedHoursText, hoursText, initialTimetableYear, isTimetable, isoWeek, timetable, type Activity, type ActivityLog, type Week } from './timetableData'
 import './timetable.css'

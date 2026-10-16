@@ -1,0 +1,1 @@
+export const sheetButton = 'inline-flex h-10 min-h-10 items-center justify-center gap-2 whitespace-nowrap rounded-md border border-ui-border px-3 py-2 text-sm text-ui-text hover:bg-ui-raised disabled:opacity-40'
