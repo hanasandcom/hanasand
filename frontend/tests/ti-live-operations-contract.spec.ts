@@ -52,7 +52,7 @@ test('returns an honest degraded empty state when canonical resources fail', asy
 
 test('contains no projected intelligence or ephemeral case promotion path', async () => {
     const root = process.cwd()
-    const operations = await readFile(path.join(root, 'src/utils/tiAdmin/ops.ts'), 'utf8')
+    const operations = await readFile(path.join(root, 'src/utils/tiAdmin/overview.ts'), 'utf8')
     const workbench = await readFile(path.join(root, 'src/app/dashboard/ti/workbench/page.tsx'), 'utf8')
 
     expect(operations).toContain('fetchResource(base, \'/v1/intel/captures\'')
