@@ -88,7 +88,7 @@ mock.module('#db', () => ({
                 }],
             }
         }
-        if (sql.includes('FROM dwm_webhook_destinations') && sql.includes("status <> 'archived'")) {
+        if (sql.includes('FROM dwm_webhook_destinations') && sql.includes('status <> \'archived\'')) {
             return { rows: orgDestinations }
         }
         if (sql.includes('AND status IN (\'delivered\', \'failed\')')) {
@@ -358,7 +358,7 @@ test('delivery loads org destinations using the nested alert organization fallba
 
     await deliverDwmAlertNotification('owner_1', input)
 
-    expect(queries.find(query => query.sql.includes("status <> 'archived'"))?.params).toEqual(['alert_org'])
+    expect(queries.find(query => query.sql.includes('status <> \'archived\''))?.params).toEqual(['alert_org'])
     expect(ledger[0]).toMatchObject({ org_id: 'alert_org', destination_id: 'destination_paused', status: 'skipped' })
 })
 
