@@ -1,5 +1,5 @@
 import { strict as assert } from 'node:assert'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import test from 'node:test'
 import {
@@ -9,14 +9,22 @@ import {
 } from '../src/utils/auth/passkeys'
 
 const root = process.cwd()
+const loginSourceDirectory = join(root, 'src/app/login')
+
+function readLoginSource() {
+    const modules = readdirSync(loginSourceDirectory)
+        .filter(file => /\.(ts|tsx)$/.test(file))
+        .map(file => readFileSync(join(loginSourceDirectory, file), 'utf8'))
+    return modules.join('\n')
+}
 
 test('passkey UI exposes enrollment and login actions', () => {
-    const loginClient = readFileSync(join(root, 'src/app/login/pageClient.tsx'), 'utf8')
+    const loginClient = readLoginSource()
     const accountActions = readFileSync(join(root, 'src/components/profile/accountActions.tsx'), 'utf8')
 
     assert.match(loginClient, /Sign in with passkey/)
     assert.match(loginClient, /\/api\/auth\/passkeys\/authenticate\/options/)
-    assert.match(loginClient, /loginUsernameRef\.current\?\.value\.trim\(\)/)
+    assert.match(loginClient, /usernameRef\.current\?\.value\.trim\(\)/)
     assert.match(loginClient, /optionsUrl\.searchParams\.set\('username', username\)/)
     assert.match(loginClient, /\/api\/auth\/passkeys\/authenticate\/verify/)
     assert.match(accountActions, /Add passkey/)
@@ -28,7 +36,7 @@ test('passkey UI exposes enrollment and login actions', () => {
 })
 
 test('SSO login is wired through the frontend auth proxy', () => {
-    const loginClient = readFileSync(join(root, 'src/app/login/pageClient.tsx'), 'utf8')
+    const loginClient = readLoginSource()
     const ssoStartRoute = readFileSync(join(root, 'src/app/api/auth/sso/start/route.ts'), 'utf8')
     const ssoCallbackRoute = readFileSync(join(root, 'src/app/api/auth/sso/callback/route.ts'), 'utf8')
 

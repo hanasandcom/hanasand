@@ -1,218 +1,45 @@
 'use client'
-import { passwordMeetsRequirements, passwordRequirementMessage } from '@/utils/auth/password'
-import VerificationCodeInput from '@/components/login/verificationCodeInput'
-import SocialSignIn from '@/components/login/socialSignIn'
+
+import { useEffect, useRef, useState } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
+import ErrorNotice from '@/components/error/errorNotice'
 import Notify from '@/components/notify/notify'
 import useClearStateAfter from '@/hooks/useClearStateAfter'
 import { getCookie } from '@/utils/cookies/cookies'
-import { usePathname, useRouter } from 'next/navigation'
-import { useEffect, useRef, useState } from 'react'
-import config from '@/config'
-import { ArrowRight, Fingerprint, KeyRound } from 'lucide-react'
-import { reservedUsernames } from '@/utils/auth/reservedUsernames'
-import ErrorNotice from '@/components/error/errorNotice'
-import { decodePasskeyRequestOptions, passkeyCredentialToJSON } from '@/utils/auth/passkeys'
-import { storePasswordResetSession } from '@/utils/auth/passwordResetSession'
+import LoginForm from './LoginForm'
+import ResetRequestForm from './ResetRequestForm'
+import ResetVerificationForm from './ResetVerificationForm'
+import SignupForm from './SignupForm'
+import SignupVerification from './SignupVerification'
+import { LoginMode, LoginPageProps, safeRedirectPath } from './loginMode'
+import { usePasskeyLogin } from './usePasskeyLogin'
+import { usePasswordResetFlow } from './usePasswordResetFlow'
+import { useSignupFlow } from './useSignupFlow'
 
-type LoginPageProps = {
-    path: string | null
-    serverInternal: boolean
-    serverExpired: boolean
-    socialError?: string
-    initialMode?: 'login' | 'signup'
-    serverError?: string
-    initialUsername?: string
-}
-
-const authInputClass = 'h-10 rounded-lg border border-ui-border bg-ui-panel px-3.5 text-sm font-medium text-ui-text outline-none transition placeholder:text-ui-muted focus:border-ui-primary focus:ring-4 focus:ring-ui-primary/20'
-const authPrimaryButtonClass = 'group inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-ui-primary px-4 text-sm font-semibold text-ui-on-primary transition hover:opacity-90 disabled:cursor-not-allowed disabled:border disabled:border-ui-border disabled:bg-ui-raised disabled:text-ui-muted'
-const authGhostButtonClass = 'inline-flex h-9 items-center rounded-lg px-3 text-sm font-semibold text-ui-muted transition hover:bg-ui-raised hover:text-ui-text disabled:cursor-not-allowed disabled:text-ui-muted/60'
-
-
-export default function LoginPage({ path, serverInternal, serverExpired, socialError, initialMode = 'login', serverError, initialUsername }: LoginPageProps) {
+export default function LoginPage({
+    path,
+    serverInternal,
+    serverExpired,
+    socialError,
+    initialMode = 'login',
+    serverError,
+    initialUsername,
+}: LoginPageProps) {
     const router = useRouter()
     const pathname = usePathname()
-    const [mode, setMode] = useState<'login' | 'signup' | 'verify-signup' | 'request-reset' | 'verify-reset'>(initialMode)
-    const [resetUserId, setResetUserId] = useState('')
-    const [resetCode, setResetCode] = useState('')
+    const [mode, setMode] = useState<LoginMode>(initialMode)
     const [busy, setBusy] = useState(false)
     const [hydrated, setHydrated] = useState(false)
     const loginUsernameRef = useRef<HTMLInputElement>(null)
-    const [signupName, setSignupName] = useState('')
-    const [signupUsername, setSignupUsername] = useState('')
-    const [signupChallenge, setSignupChallenge] = useState('')
-    const [signupCode, setSignupCode] = useState('')
-    const [signupNotice, setSignupNotice] = useState('')
-    const [signupSendError, setSignupSendError] = useState('')
-    const [signupEmail, setSignupEmail] = useState('')
-    const [signupPassword, setSignupPassword] = useState('')
-    const signupPasswordIsValid = passwordMeetsRequirements(signupPassword)
-    const reservedUsername = reservedUsernames.includes(signupUsername.trim().toLowerCase())
-    const canCreateAccount = signupName.trim() && signupUsername.trim() && signupEmail.trim() && signupPasswordIsValid && !reservedUsername
-
-    function handleSubmit() {
-        setBusy(true)
-    }
-
-    async function submitSignup(code = '', resend = false) {
-        if (busy) return
-        setSignupSendError('')
-        setSignupNotice('')
-        setError(null)
-        if (!signupPasswordIsValid || reservedUsername) {
-            setError(reservedUsername ? 'This username is reserved.' : passwordRequirementMessage)
-            return
-        }
-        setBusy(true)
-        try {
-            const response = await fetch('/api/auth/register', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: signupUsername, name: signupName, email: signupEmail, password: signupPassword,
-                    ...(!resend && signupChallenge ? { challengeId: signupChallenge, code } : {}) }),
-            })
-            const data = await response.json()
-            if (!response.ok) {
-                if (data.accountCreated) changeMode('login')
-                throw new Error(data.error || 'Unable to create account.')
-            }
-            if (data.verificationRequired) {
-                setSignupNotice(signupChallenge ? 'A new code has been sent. Check your inbox and junk folder; use the newest code.' : 'Check junk.')
-                setSignupChallenge(data.challengeId)
-                setSignupCode('')
-                setMode('verify-signup')
-                return
-            }
-            window.location.assign(redirectPath)
-        } catch (error) {
-            setSignupCode('')
-            setSignupSendError(error instanceof Error ? error.message : 'Unable to create account. Please try again.')
-        } finally { setBusy(false) }
-    }
-
-    function handleSignup(e: React.SyntheticEvent<HTMLFormElement>) {
-        e.preventDefault()
-        void submitSignup('', true)
-    }
-
-    async function handleResetRequest(e: React.SyntheticEvent<HTMLFormElement>) {
-        e.preventDefault()
-        setBusy(true)
-        setError(null)
-        const formData = new FormData(e.currentTarget)
-        const id = String(formData.get('resetUserId') || '').trim()
-        try {
-            const response = await fetch(`${config.url.api}/auth/password-reset/request`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id }),
-            })
-            const data = await response.json().catch(() => null)
-            if (!response.ok) {
-                return setError(data?.error || 'Unable to send reset code.')
-            }
-
-            setResetUserId(id)
-            setMode('verify-reset')
-        } catch (error) {
-            setError(error instanceof Error ? error.message : 'Unable to send reset code.')
-        } finally {
-            setBusy(false)
-        }
-    }
-
-    async function verifyResetCode(code: string) {
-        if (busy) {
-            return
-        }
-
-        setBusy(true)
-        setError(null)
-        try {
-            const response = await fetch(`${config.url.api}/auth/password-reset/verify`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: resetUserId, code }),
-            })
-            const data = await response.json().catch(() => null)
-            if (!response.ok) {
-                return setError(data?.error || 'Invalid reset code.')
-            }
-
-            const resetPath = `/reset-password?id=${encodeURIComponent(resetUserId)}`
-            const resetUrl = storePasswordResetSession(resetUserId, data.resetToken)
-                ? resetPath
-                : `${resetPath}#token=${encodeURIComponent(data.resetToken)}`
-            router.push(resetUrl)
-        } catch (error) {
-            setError(error instanceof Error ? error.message : 'Invalid reset code.')
-        } finally {
-            setBusy(false)
-        }
-    }
-
-    async function handleResetVerify(e: React.SyntheticEvent<HTMLFormElement>) {
-        e.preventDefault()
-        if (resetCode.length === 6) {
-            await verifyResetCode(resetCode)
-        }
-    }
-
-    async function handlePasskeyLogin() {
-        if (!window.PublicKeyCredential || !navigator.credentials) {
-            return setError('This browser does not support passkeys.')
-        }
-
-        setBusy(true)
-        setError(null)
-        try {
-            const optionsUrl = new URL('/api/auth/passkeys/authenticate/options', window.location.origin)
-            const username = loginUsernameRef.current?.value.trim()
-            if (username) optionsUrl.searchParams.set('username', username)
-            const optionsResponse = await fetch(optionsUrl, { cache: 'no-store' })
-            const options = await optionsResponse.json().catch(() => null)
-            if (!optionsResponse.ok || !options?.challengeId || !options?.publicKey) {
-                return setError(options?.error || 'No passkey challenge is available.')
-            }
-
-            const credential = await navigator.credentials.get({
-                publicKey: decodePasskeyRequestOptions(options.publicKey),
-            }) as PublicKeyCredential | null
-            if (!credential) {
-                return setError('No passkey was selected.')
-            }
-
-            const verifyResponse = await fetch('/api/auth/passkeys/authenticate/verify', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    challengeId: options.challengeId,
-                    credential: passkeyCredentialToJSON(credential),
-                }),
-            })
-            const data = await verifyResponse.json().catch(() => null)
-            if (!verifyResponse.ok) {
-                return setError(data?.error || 'Passkey login failed.')
-            }
-
-            router.push(redirectPath)
-        } catch (error) {
-            setError(error instanceof Error ? error.message : 'Passkey login failed.')
-        } finally {
-            setBusy(false)
-        }
-    }
-
     const { condition: error, setCondition: setError } = useClearStateAfter({ initialState: serverError })
     const { condition: internal } = useClearStateAfter({ initialState: serverInternal })
     const { condition: expired } = useClearStateAfter({ initialState: serverExpired, timeout: 8000 })
     const redirectPath = safeRedirectPath(path)
     const ssoHref = `/api/auth/sso/start?redirectPath=${encodeURIComponent(redirectPath)}`
 
-    function changeMode(nextMode: typeof mode) {
+    function changeMode(nextMode: LoginMode) {
         setError(null)
-        if (nextMode !== 'verify-reset') {
-            setResetCode('')
-        }
+        if (nextMode !== 'verify-reset') reset.setCode('')
         if (nextMode === 'signup' || nextMode === 'login') {
             const target = nextMode === 'signup' ? '/signup' : '/login'
             if (pathname !== target) {
@@ -223,14 +50,26 @@ export default function LoginPage({ path, serverInternal, serverExpired, socialE
         setMode(nextMode)
     }
 
+    const signup = useSignupFlow({ busy, setBusy, setError, changeMode, setMode, redirectPath })
+    const reset = usePasswordResetFlow({ busy, setBusy, setError, changeMode, setMode, router })
+    const handlePasskeyLogin = usePasskeyLogin({
+        usernameRef: loginUsernameRef,
+        setBusy,
+        setError,
+        redirectPath,
+        router,
+    })
+
     useEffect(() => {
         const token = getCookie('access_token')
         const id = getCookie('id')
-        if (token && id && !serverInternal && !serverExpired && !socialError) {
-            router.push(redirectPath)
-        }
+        if (token && id && !serverInternal && !serverExpired && !socialError) router.push(redirectPath)
         setHydrated(true)
     }, [redirectPath, router, serverExpired, serverInternal, socialError])
+
+    function handleLoginSubmit() {
+        setBusy(true)
+    }
 
     return (
         <section className='grid min-h-app-viewport w-full place-items-center bg-ui-canvas px-4 py-10 text-ui-text md:px-10'>
@@ -238,251 +77,57 @@ export default function LoginPage({ path, serverInternal, serverExpired, socialE
                 <div className='grid justify-items-center gap-2 pb-3 text-center'>
                     <h1 className='text-[42px] font-semibold leading-none tracking-normal text-ui-primary'>Hanasand</h1>
                 </div>
-
                 <div className='grid w-full gap-3 rounded-lg border border-ui-border bg-ui-panel p-4 shadow-lg'>
-                    {(expired && path) && <ErrorNotice variant='info' message={`Token expired. You will be redirected back to ${path} after reauthenticating.`} />}
-                    {(internal && path) && <ErrorNotice variant='info' message={`Sign in to continue to ${path}.`} />}
-
+                    {expired && path ? (
+                        <ErrorNotice
+                            variant='info'
+                            message={`Token expired. You will be redirected back to ${path} after reauthenticating.`}
+                        />
+                    ) : null}
+                    {internal && path ? (
+                        <ErrorNotice variant='info' message={`Sign in to continue to ${path}.`} />
+                    ) : null}
                     <Notify message={error as string | null} />
-                    {mode === 'login' && (
-                        <div className='grid gap-3'>
-                            <form
-                                className='flex w-full flex-col gap-2 self-center'
-                                action='/api/auth/login'
-                                onSubmit={handleSubmit}
-                                method='post'
-                            >
-                                <input type='hidden' name='redirectPath' value={redirectPath} />
-                                <label className='grid gap-1.5' htmlFor='login-username'>
-                                    <span className='text-xs font-semibold text-ui-muted'>Username</span>
-                                    <input
-                                        id='login-username'
-                                        ref={loginUsernameRef}
-                                        type='text'
-                                        name='username'
-                                        placeholder='Username'
-                                        defaultValue={initialUsername}
-                                        className={authInputClass}
-                                        autoComplete='username'
-                                        required
-                                    />
-                                </label>
-                                <label className='grid gap-1.5' htmlFor='login-password'>
-                                    <span className='text-xs font-semibold text-ui-muted'>Password</span>
-                                    <input
-                                        id='login-password'
-                                        type='password'
-                                        name='password'
-                                        placeholder='Enter your password'
-                                        className={authInputClass}
-                                        autoComplete='current-password'
-                                        required
-                                    />
-                                </label>
-                                <div className='mt-1 flex items-center gap-3'>
-                                    <button
-                                        type='submit'
-                                        disabled={!hydrated || busy}
-                                        className={`${authPrimaryButtonClass} min-w-24`}
-                                    >
-                                        {busy ? 'Logging in' : 'Log in'}
-                                        <ArrowRight className='h-4 w-4 transition group-hover:translate-x-0.5' />
-                                    </button>
-                                    <button
-                                        type='button'
-                                        disabled={!hydrated}
-                                        onClick={() => changeMode('signup')}
-                                        className={authGhostButtonClass}
-                                    >
-                                        Sign up
-                                    </button>
-                                    <button
-                                        type='button'
-                                        disabled={!hydrated}
-                                        onClick={() => changeMode('request-reset')}
-                                        className='ml-auto h-9 rounded-lg px-2 text-sm font-semibold text-ui-muted transition hover:bg-ui-raised hover:text-ui-text disabled:cursor-not-allowed disabled:text-ui-muted/60'
-                                    >
-                                        Reset password
-                                    </button>
-                                </div>
-                            </form>
-                            <div className='grid gap-2 border-t border-ui-border pt-3'>
-                                {socialError && <p role='alert' className='text-sm text-ui-text'>{socialError}</p>}
-                                <SocialSignIn redirectPath={redirectPath} />
-                                <button
-                                    type='button'
-                                    onClick={handlePasskeyLogin}
-                                    disabled={!hydrated || busy}
-                                    className='inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-ui-border bg-ui-raised px-3 text-sm font-semibold text-ui-text transition hover:border-ui-primary hover:bg-ui-panel focus:outline-none focus:ring-4 focus:ring-ui-primary/20 disabled:cursor-not-allowed disabled:text-ui-muted'
-                                >
-                                    <Fingerprint className='h-4 w-4 text-ui-primary' />
-                                    Sign in with passkey
-                                </button>
-                                <a
-                                    href={ssoHref}
-                                    className='inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-ui-border bg-ui-raised px-3 text-sm font-semibold text-ui-text transition hover:border-ui-primary hover:bg-ui-panel focus:outline-none focus:ring-4 focus:ring-ui-primary/20'
-                                >
-                                    <KeyRound className='h-4 w-4 text-ui-primary' />
-                                    Continue with SSO
-                                </a>
-                            </div>
-                        </div>
-                    )}
-
-                    {mode === 'signup' && (
-                        <form
-                            className='flex w-full flex-col gap-2 self-center'
-                            action='/api/auth/register'
-                            onSubmit={handleSignup}
-                            method='post'
-                        >
-                            <input type='hidden' name='redirectPath' value={redirectPath} />
-                            {signupSendError && <p role='alert' className='text-sm text-ui-text'>{signupSendError}</p>}
-                            <label className='grid gap-1.5' htmlFor='login-signup-username'>
-                                <span className='text-xs font-semibold text-ui-muted'>Username</span>
-                                <input
-                                    id='login-signup-username'
-                                    disabled={!hydrated}
-                                    type='text'
-                                    name='username'
-                                    value={signupUsername}
-                                    onChange={(e) => setSignupUsername(e.target.value)}
-                                    placeholder='Username'
-                                    className={authInputClass}
-                                    autoComplete='username'
-                                    required
-                                />
-                            </label>
-                            {reservedUsername && <p className='px-1 text-xs font-semibold text-ui-warning'>Reserved username.</p>}
-                            <label className='grid gap-1.5' htmlFor='login-signup-name'>
-                                <span className='text-xs font-semibold text-ui-muted'>Name</span>
-                                <input
-                                    id='login-signup-name'
-                                    disabled={!hydrated}
-                                    type='text'
-                                    name='name'
-                                    value={signupName}
-                                    onChange={(e) => setSignupName(e.target.value)}
-                                    placeholder='Full name'
-                                    className={authInputClass}
-                                    autoComplete='name'
-                                    required
-                                />
-                            </label>
-                            <label className='grid gap-1.5' htmlFor='login-signup-email'>
-                                <span className='text-xs font-semibold text-ui-muted'>Email</span>
-                                <input id='login-signup-email' disabled={!hydrated} type='email' name='email' placeholder='example@mail.com' value={signupEmail} onChange={e => setSignupEmail(e.target.value)} autoComplete='email' maxLength={254} className={authInputClass} required />
-                            </label>
-                            <label className='grid gap-1.5' htmlFor='login-signup-password'>
-                                <span className='text-xs font-semibold text-ui-muted'>Password</span>
-                                <input
-                                    id='login-signup-password'
-                                    disabled={!hydrated}
-                                    type='password'
-                                    name='password'
-                                    value={signupPassword}
-                                    onChange={(e) => setSignupPassword(e.target.value)}
-                                    placeholder='Create a strong password'
-                                    className={authInputClass}
-                                    autoComplete='new-password'
-                                    required
-                                />
-                            </label>
-                            {signupPassword && !signupPasswordIsValid && (
-                                <p className='px-1 text-xs leading-5 text-ui-muted'>
-                                    {passwordRequirementMessage}
-                                </p>
-                            )}
-                            <div className='mt-1 flex items-center gap-3'>
-                                <button
-                                    type='submit'
-                                    disabled={!hydrated || busy || !canCreateAccount}
-                                    className={`${authPrimaryButtonClass} min-w-36`}
-                                >
-                                    {busy ? 'Sending code' : 'Create account'}
-                                    <ArrowRight className='h-4 w-4 transition group-hover:translate-x-0.5' />
-                                </button>
-                                <button
-                                    type='button'
-                                    onClick={() => changeMode('login')}
-                                    className={authGhostButtonClass}
-                                >
-                                    Log in
-                                </button>
-                            </div>
-                        </form>
-                    )}
-
-                    {mode === 'verify-signup' && <div className='grid gap-4'>
-                        <h2 className='text-xl font-semibold'>Check your email</h2>
-                        {signupNotice && <p role='status' className='text-sm text-ui-muted'>{signupNotice}</p>}
-                        {signupSendError && <p role='alert' className='text-sm text-ui-text'>{signupSendError}</p>}
-                        <p className='text-sm text-ui-muted'>Enter the six digit code sent to {signupEmail}. Expires in 10 minutes.</p>
-                        <VerificationCodeInput value={signupCode} setValue={setSignupCode} disabled={busy} onComplete={code => submitSignup(code)} />
-                        <div className='flex flex-wrap gap-2'>
-                            <button type='button' disabled={busy} className={authGhostButtonClass} onClick={() => void submitSignup('', true)}>Resend code</button>
-                            <button type='button' disabled={busy} className={authGhostButtonClass} onClick={() => { setSignupChallenge(''); setSignupCode(''); changeMode('signup') }}>Edit signup details</button>
-                        </div>
-                    </div>}
-
-                    {mode === 'request-reset' && (
-                        <form className='flex w-full flex-col gap-2 self-center' onSubmit={handleResetRequest} method='post'>
-                            <label className='grid gap-1.5' htmlFor='login-reset-username'>
-                                <span className='text-xs font-semibold text-ui-muted'>Username</span>
-                                <input
-                                    id='login-reset-username'
-                                    type='text'
-                                    name='resetUserId'
-                                    placeholder='Username'
-                                    className={authInputClass}
-                                    autoComplete='username'
-                                    required
-                                />
-                            </label>
-                            <div className='mt-1 flex items-center gap-3'>
-                                <button
-                                    type='submit'
-                                    disabled={busy}
-                                    className={`${authPrimaryButtonClass} min-w-28`}
-                                >
-                                    {busy ? 'Sending' : 'Send code'}
-                                    <ArrowRight className='h-4 w-4 transition group-hover:translate-x-0.5' />
-                                </button>
-                                <button type='button' onClick={() => changeMode('login')} className={authGhostButtonClass}>
-                                    Back
-                                </button>
-                            </div>
-                        </form>
-                    )}
-
-                    {mode === 'verify-reset' && (
-                        <form className='flex w-full flex-col gap-2 self-center' onSubmit={handleResetVerify} method='post'>
-                            <VerificationCodeInput label='Reset code'
-                                value={resetCode}
-                                setValue={setResetCode}
-                                disabled={busy}
-                                onComplete={verifyResetCode}
-                            />
-                            <div className='mt-1 flex items-center gap-3'>
-                                <button type='button' onClick={() => changeMode('request-reset')} className={authGhostButtonClass}>
-                                    Send again
-                                </button>
-                                <p className='ml-auto text-xs font-medium text-ui-muted'>
-                                    {busy ? 'Verifying...' : 'Verifies automatically'}
-                                </p>
-                            </div>
-                        </form>
-                    )}
+                    {mode === 'login' ? (
+                        <LoginForm
+                            redirectPath={redirectPath}
+                            initialUsername={initialUsername}
+                            usernameRef={loginUsernameRef}
+                            hydrated={hydrated}
+                            busy={busy}
+                            socialError={socialError}
+                            ssoHref={ssoHref}
+                            onSubmit={handleLoginSubmit}
+                            onChangeMode={changeMode}
+                            onPasskeyLogin={handlePasskeyLogin}
+                        />
+                    ) : null}
+                    {mode === 'signup' ? (
+                        <SignupForm
+                            flow={signup}
+                            busy={busy}
+                            hydrated={hydrated}
+                            redirectPath={redirectPath}
+                            onSubmit={signup.handleSubmit}
+                            onBackToLogin={() => changeMode('login')}
+                        />
+                    ) : null}
+                    {mode === 'verify-signup' ? <SignupVerification flow={signup} busy={busy} /> : null}
+                    {mode === 'request-reset' ? (
+                        <ResetRequestForm busy={busy} onSubmit={reset.requestReset} onBack={() => changeMode('login')} />
+                    ) : null}
+                    {mode === 'verify-reset' ? (
+                        <ResetVerificationForm
+                            code={reset.code}
+                            setCode={reset.setCode}
+                            busy={busy}
+                            onSubmit={reset.verifyResetForm}
+                            onVerify={reset.verifyResetCode}
+                            onRequestAnother={reset.requestAnotherCode}
+                        />
+                    ) : null}
                 </div>
             </div>
         </section>
     )
-}
-
-function safeRedirectPath(path: string | null) {
-    if (!path || !path.startsWith('/') || path.startsWith('//')) {
-        return '/dashboard'
-    }
-
-    return path
 }
