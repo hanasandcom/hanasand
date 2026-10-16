@@ -223,6 +223,15 @@ new tests and modules add more than those slices remove. The required
 10,000–30,000-line frontend target remains unmet, so continue prioritizing
 verified duplication removal in addition to the satisfied file cap.
 
+At `bf424fbd3`, the TI activity page reuses the existing dashboard metric card
+with a size option that preserves the old activity and overview classes. Its
+production pair is down 12 lines, and the frontend full test suite, production
+build, and 200-line cap pass. The latest scoped inventory is 2,300 frontend
+files / 155,250 lines / zero over cap: eleven more total lines than the prior
+snapshot after adding its render contract test. The integrated repository
+inventory is 3,631 files / 322,252 lines, with 128 files still over the cap.
+The API and frontend aggregate reduction targets remain unachieved.
+
 ## Execution
 
 - Divide work by non-overlapping repository areas and use traditional Norwegian
