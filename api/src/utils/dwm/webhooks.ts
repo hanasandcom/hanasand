@@ -16,6 +16,7 @@ export { assertPublicWebhookTarget, pinnedWebhookLookup, signDwmWebhookDeliveryB
 import run, { withDatabaseAdvisoryLock, withTransaction } from '#db'
 import { organizationVisibilityDecision, type OrganizationRole, type OrganizationVisibilityDecisionInput } from '#utils/organizations.ts'
 import { buildWebhookDestinationReadinessBridge } from '../webhookDestinationReadinessBridge.ts'
+import { buildOrganizationSupportHistoryBridge } from '../organizationSupportHistoryBridge.ts'
 
 export type DwmWebhookKind = 'webhook' | 'discord'
 export type DwmWebhookStatus = 'active' | 'paused' | 'archived'
@@ -10601,37 +10602,15 @@ function buildDwmWebhookAlertSourceHandoffReadinessConsumer({
             idempotencyKey: entry.deliveryProof.idempotencyKey,
             blockerCodes: [],
         },
-        supportRecoveryBridge: {
-            schemaVersion: 'organization.member_recovery_support_history_bridge.v1',
+        supportRecoveryBridge: buildOrganizationSupportHistoryBridge({
             required: supportRecoveryNeeded,
-            source: 'support_audit_timeline',
-            supportReceiptSchemas: [
-                'support.access_recovery.execution_receipt.v1',
-                'support.access_recovery.decision_receipt.v1',
-                'support.action_execute.member_role_recovery.v1',
-            ],
-            expectedSupportActions: [
-                'support.organization.access_recovery',
-                'support.organization.access_recovery.approve',
-                'support.organization.access_recovery.deny',
-                'support.organization.member_role_recovery',
-            ],
             replayFilters: {
                 organizationId: entry.orgId,
                 targetUserId: '<target_user_id>',
                 requestId: entry.requestId,
                 action: 'support.organization.access_recovery',
             },
-            supportRoutes: {
-                inspect: '/api/admin/support/inspect',
-                accessRecovery: '/api/admin/support/access-recovery/:requestId',
-                organization: '/api/admin/support/organizations/:id',
-                memberRoleRecovery: '/api/admin/support/organizations/:id/members/:userId/role-recovery',
-            },
-            requiredAuditFields: ['organizationId', 'targetUserId', 'requestId', 'supportSessionId', 'reason', 'outcome'],
-            noSilentMembershipMutation: true,
-            nonmemberEnumeration: false,
-        },
+        }),
         orgDestinationReadinessBridge: buildWebhookDestinationReadinessBridge({
             defaultWebhookPolicy: 'manual_selection',
             canUseDefaultDestinations: false,

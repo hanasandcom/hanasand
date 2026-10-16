@@ -1,5 +1,6 @@
 import { normalizeOrganizationRole, roleCanManageOrganization, roleCanEditOrganization, type OrganizationRole } from './organizationRoles.ts'
 import { buildWebhookDestinationReadinessBridge } from './webhookDestinationReadinessBridge.ts'
+import { buildOrganizationSupportHistoryBridge } from './organizationSupportHistoryBridge.ts'
 export { normalizeOrganizationRole, roleCanManageOrganization, roleCanEditOrganization, type OrganizationRole } from './organizationRoles.ts'
 
 function organizationTenantIdentity<TOrganizationId, TTenantId>(organizationId: TOrganizationId, tenantId: TTenantId) {
@@ -5380,36 +5381,14 @@ function buildOrganizationReadinessProof(input: {
                     'GET /api/organizations/:id/alert-case-visibility',
                     'GET /api/organizations/:id/alert-readiness',
                 ],
-                supportActionHistoryBridge: {
-                    schemaVersion: 'organization.member_recovery_support_history_bridge.v1',
-                    source: 'support_audit_timeline',
-                    supportReceiptSchemas: [
-                        'support.access_recovery.execution_receipt.v1',
-                        'support.access_recovery.decision_receipt.v1',
-                        'support.action_execute.member_role_recovery.v1',
-                    ],
-                    expectedSupportActions: [
-                        'support.organization.access_recovery',
-                        'support.organization.access_recovery.approve',
-                        'support.organization.access_recovery.deny',
-                        'support.organization.member_role_recovery',
-                    ],
+                supportActionHistoryBridge: buildOrganizationSupportHistoryBridge({
                     replayFilters: {
                         organizationId: 'org',
                         targetUserId: 'target',
                         requestId: 'request',
                         action: 'action',
                     },
-                    supportRoutes: {
-                        inspect: '/api/admin/support/inspect',
-                        accessRecovery: '/api/admin/support/access-recovery/:requestId',
-                        organization: '/api/admin/support/organizations/:id',
-                        memberRoleRecovery: '/api/admin/support/organizations/:id/members/:userId/role-recovery',
-                    },
-                    requiredAuditFields: ['organizationId', 'targetUserId', 'requestId', 'supportSessionId', 'reason', 'outcome'],
-                    noSilentMembershipMutation: true,
-                    nonmemberEnumeration: false,
-                },
+                }),
                 supportAssistedRecoveryReceipt: {
                     schemaVersion: 'organization.member_support_assisted_recovery_receipt.v1',
                     supportActionHistoryBridge: 'organization.member_recovery_support_history_bridge.v1',
