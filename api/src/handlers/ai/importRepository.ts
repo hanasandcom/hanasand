@@ -1,9 +1,10 @@
-import { chmod, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, realpath, rm } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import { requireAiUser } from './shared.ts'
 import { runGit } from './gitCommand.ts'
+import { createGitAskPass } from './gitAskPass.ts'
 import { buildTokenHint, getRepoCredential, touchRepoCredentialUsage, toRepoCredentialSummary } from '#utils/ai/repoCredentials.ts'
 import { detectRepositoryStack } from '#utils/ai/stack.ts'
 
@@ -195,20 +196,6 @@ function buildCloneUrl(url: URL, repoParts: string[]) {
     return `${url.protocol}//${url.host}/${cleanPath}${cleanPath.endsWith('.git') ? '' : '.git'}`
 }
 
-async function createGitAskPass(tempDir: string) {
-    const scriptPath = path.join(tempDir, 'git-askpass.sh')
-    const script = `#!/bin/sh
-case "$1" in
-  *Username*) printf '%s' "x-access-token" ;;
-  *Password*) printf '%s' "$HANASAND_GITHUB_TOKEN" ;;
-  *) printf '%s' "" ;;
-esac
-`
-    await writeFile(scriptPath, script, 'utf8')
-    await chmod(scriptPath, 0o700)
-    return scriptPath
-}
-
 function buildGitEnv(token: string | undefined, askPassPath?: string) {
     if (!token || !askPassPath) {
         return {
@@ -285,7 +272,7 @@ export default async function importRepository(req: FastifyRequest, res: Fastify
         const repositoryUrl = parsed.repositoryUrl
         const savedCredential = existingId ? await getRepoCredential(existingId, userId).catch(() => null) : null
         const token = parsed.isGitHub ? githubToken?.trim() || savedCredential?.token || '' : ''
-        const askPassPath = token ? await createGitAskPass(tempDir) : undefined
+        const askPassPath = token ? await createGitAskPass(tempDir, 'git-askpass.sh') : undefined
         const gitEnv = buildGitEnv(token || undefined, askPassPath)
         const defaultBranch = await resolveDefaultBranch(repositoryUrl, gitEnv)
         const branch = parsed.branch || defaultBranch

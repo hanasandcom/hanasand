@@ -1,10 +1,11 @@
 import { expect, mock, test } from 'bun:test'
-import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 
 let importUserId: string | null = null
 let externalSecretPath = ''
+let observedGitAuth: { args: string[], askPassPath: string, script: string, mode: number, token: string | undefined, prompt: string | undefined } | null = null
 
 mock.module('../src/handlers/ai/shared.ts', () => ({ requireAiUser: async () => importUserId }))
 mock.module('../src/handlers/ai/gitCommand.ts', () => ({ runGit: runFakeGit }))
@@ -63,7 +64,52 @@ test('repository import skips symlinks that resolve outside the clone', async ()
     }
 })
 
-async function runFakeGit(args: string[]) {
+test('repository import passes GitHub credentials through its private ask-pass script', async () => {
+    const token = 'private-import-token'
+    importUserId = 'owner-1'
+    observedGitAuth = null
+
+    try {
+        const reply = {
+            status() { return this },
+            send: (body: unknown) => body,
+        }
+        await importRepository(
+            { body: { input: 'owner/repo', githubToken: token } } as never,
+            reply as never,
+        )
+
+        expect(observedGitAuth).not.toBeNull()
+        expect(observedGitAuth).toMatchObject({
+            askPassPath: expect.stringMatching(/hanasand-import-[^/]+\/git-askpass\.sh$/),
+            token,
+            prompt: '0',
+            mode: 0o700,
+        })
+        expect(observedGitAuth?.script).toContain('$HANASAND_GITHUB_TOKEN')
+        expect(observedGitAuth?.script).not.toContain(token)
+    } finally {
+        importUserId = null
+        observedGitAuth = null
+    }
+})
+
+async function runFakeGit(args: string[], _cwd?: string, env?: NodeJS.ProcessEnv) {
+    if (env?.GIT_ASKPASS) {
+        const [script, scriptStats] = await Promise.all([
+            readFile(env.GIT_ASKPASS, 'utf8'),
+            stat(env.GIT_ASKPASS),
+        ])
+        observedGitAuth = {
+            args,
+            askPassPath: env.GIT_ASKPASS,
+            script,
+            mode: scriptStats.mode & 0o777,
+            token: env.HANASAND_GITHUB_TOKEN,
+            prompt: env.GIT_TERMINAL_PROMPT,
+        }
+    }
+
     if (args[0] === 'ls-remote') {
         return { stdout: 'ref: refs/heads/main\tHEAD\n' }
     }

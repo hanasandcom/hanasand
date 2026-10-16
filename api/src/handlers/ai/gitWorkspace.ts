@@ -1,4 +1,4 @@
-import { chmod, mkdir, rm, stat, writeFile } from 'node:fs/promises'
+import { mkdir, rm, stat, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import type { FastifyReply, FastifyRequest } from 'fastify'
@@ -6,6 +6,7 @@ import run from '#db'
 import { getRepoCredential } from '#utils/ai/repoCredentials.ts'
 import { parseGitInput } from './importRepository.ts'
 import { runGit } from './gitCommand.ts'
+import { createGitAskPass } from './gitAskPass.ts'
 import { requireAiUser } from './shared.ts'
 
 type RepositoryRow = {
@@ -27,21 +28,6 @@ type ShareFileRow = {
 }
 
 const workspaceRoot = path.join(os.tmpdir(), 'hanasand-git-workspaces')
-
-async function createGitAskPass(parentPath: string) {
-    await mkdir(parentPath, { recursive: true })
-    const askPassPath = path.join(parentPath, '.hanasand-git-askpass.sh')
-    const script = `#!/bin/sh
-case "$1" in
-  *Username*) printf '%s' "x-access-token" ;;
-  *Password*) printf '%s' "$HANASAND_GITHUB_TOKEN" ;;
-  *) printf '%s' "" ;;
-esac
-`
-    await writeFile(askPassPath, script, 'utf8')
-    await chmod(askPassPath, 0o700)
-    return askPassPath
-}
 
 async function getRepository(repositoryId: string, userId: string) {
     const result = await run(`
@@ -101,7 +87,7 @@ async function prepareWorkspace(repository: RepositoryRow, userId: string) {
     await mkdir(parentPath, { recursive: true })
 
     const credential = parsed.isGitHub ? await getRepoCredential(repository.id, userId).catch(() => null) : null
-    const askPassPath = credential?.token ? await createGitAskPass(parentPath) : null
+    const askPassPath = credential?.token ? await createGitAskPass(parentPath, '.hanasand-git-askpass.sh') : null
     const gitEnv = askPassPath && credential?.token ? { GIT_ASKPASS: askPassPath, HANASAND_GITHUB_TOKEN: credential.token } : undefined
 
     if (!await pathExists(path.join(workspacePath, '.git'))) {
