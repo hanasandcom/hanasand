@@ -32,6 +32,7 @@ export const productTasks: TestTask[] = [
     { id: 'repository-share-pruning', title: 'Repository sync removes stale shares in safe order', command: [bun, 'test', 'tests/sync-repository-prune.test.ts'] },
     { id: 'ai-tool-completion-text', title: 'AI tool completion messages stay consistent across browser flows', command: [bun, 'test', 'tests/ai-project-tools/toolCompletionText.test.ts'] },
     { id: 'ai-conversation-title', title: 'Shared AI conversation title normalization', command: [bun, 'test', 'tests/ai-conversation-title.test.ts'] },
+    { id: 'ai-workspace-page-contract', title: 'AI workspace server routes preserve initial data and selection', command: [bun, 'test', 'tests/ai-workspace-page-contract.test.tsx'] },
     { id: 'test-content-render', title: 'Test result metrics and evidence rendering', command: [bun, 'test', 'tests/test-content-render.test.tsx'] },
     { id: 'ti-business-model-evidence', title: 'Public TI business-model evidence presentation safety', command: [bun, 'test', 'tests/ti-business-model-evidence.test.tsx'] },
     { id: 'ti-safe-output-contract', title: 'Public TI plans keep metadata-only output contract', command: [bun, 'test', 'tests/ti-safe-output-contract.test.ts'] },

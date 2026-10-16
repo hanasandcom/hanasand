@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { dedupeItems, mergeExposureQueueItems, normalizeExposureQueue, type ExposureQueue } from './exposureQueue'
-import { HOMEPAGE_ACTIVITY_CACHE_KEY, HOMEPAGE_ACTIVITY_CACHE_SIZE, restoreCachedActivity, serializeCachedActivity } from './homepageActivityFeedState'
+import { HOMEPAGE_ACTIVITY_CACHE_KEY, HOMEPAGE_ACTIVITY_CACHE_SIZE, queueAfterFailedInitialCheck, restoreCachedActivity, serializeCachedActivity } from './homepageActivityFeedState'
 
 const PAGE_SIZE = 10
 const REFRESH_MS = 300_000
@@ -69,7 +69,10 @@ export function useHomepageActivityFeed(initialQueue: ExposureQueue) {
             mergeQueue(next, 'replace')
             setError('')
         } catch (reason) {
-            if (!itemsRef.current.length) setError(activityErrorMessage(reason))
+            if (!itemsRef.current.length) {
+                setError(activityErrorMessage(reason))
+                setQueue((current) => queueAfterFailedInitialCheck(current, itemsRef.current))
+            }
         } finally {
             setRefreshing(false)
         }

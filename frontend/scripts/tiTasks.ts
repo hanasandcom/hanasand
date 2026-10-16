@@ -1,0 +1,24 @@
+import { bun, type TestTask } from './testTask'
+
+export const tiTasks: TestTask[] = [
+    { id: 'ti-actor-summary', title: 'Threat actor summary usefulness', command: [bun, 'test', 'tests/actor-summary.test.ts'] },
+    { id: 'ti-actionability-blocked', title: 'TI actionability blocked evidence', command: [bun, 'test', 'tests/ti-actionability-blocked.test.ts'] },
+    { id: 'ti-actionability-contract', title: 'TI public actionability contract', command: [bun, 'test', 'tests/ti-actionability-contract.test.ts'] },
+    { id: 'ti-actionability-organization', title: 'TI actionability organization scope', command: [bun, 'test', 'tests/ti-actionability-organization.test.ts'] },
+    { id: 'ti-actor-geo-profile', title: 'Threat actor geography profile', command: [bun, 'test', 'tests/ti-actor-geo-profile.test.ts'] },
+    { id: 'ti-actor-intelligence-classification', title: 'Threat actor intelligence classification', command: [bun, 'test', 'tests/ti-actor-intelligence-classification.test.ts'] },
+    { id: 'ti-admin-source-pagination', title: 'TI admin source pagination and retained samples', command: [bun, 'test', 'tests/ti-admin-source-pagination.test.ts'] },
+    { id: 'ti-evidence-timestamp', title: 'TI evidence timestamp normalization', command: [bun, 'test', 'tests/ti-evidence-timestamp.test.ts'] },
+    { id: 'ti-map-geometry', title: 'TI and traffic map geometry', command: [bun, 'test', 'tests/ti-map-geometry.test.ts'] },
+    { id: 'ti-public-profile', title: 'TI public profile sanitization', command: [bun, 'test', 'tests/ti-public-profile.test.ts'] },
+    { id: 'ti-runs-summary', title: 'TI collection runs summary model', command: [bun, 'test', 'tests/ti-runs-summary.test.ts'] },
+    { id: 'ti-saved-searches', title: 'TI browser-local saved searches', command: [bun, 'test', 'tests/ti-saved-searches.test.ts'] },
+    { id: 'ti-scraper-control-auth', title: 'TI scraper control authentication contract', command: [bun, 'test', 'tests/ti-scraper-control-auth.test.ts'] },
+    { id: 'ti-search-loading-state', title: 'TI search loading and timeout state', command: [bun, 'test', 'tests/ti-search-loading-state.test.ts'] },
+    { id: 'ti-search-suggestions', title: 'TI search suggestions', command: [bun, 'test', 'tests/ti-search-suggestions.test.ts'] },
+    { id: 'ti-source-detail', title: 'TI source detail loading and empty states', command: [bun, 'test', 'tests/ti-source-detail.test.tsx'] },
+    { id: 'ti-undated-provenance', title: 'TI undated provenance behavior', command: [bun, 'test', 'tests/ti-undated-provenance.test.ts'] },
+    { id: 'ti-workbench-timestamp-truthfulness', title: 'TI workbench timestamp truthfulness', command: [bun, 'test', 'tests/ti-workbench-timestamp-truthfulness.test.ts'] },
+    { id: 'ti-workbench-alert-adapter', title: 'TI workbench alert adaptation', command: [bun, 'test', 'tests/workbench-alert-adapter.test.ts'] },
+    { id: 'public-ti-search-timeout', title: 'Public TI search timeout boundary', command: [bun, 'test', 'tests/public-ti-search-timeout.test.ts'] },
+]

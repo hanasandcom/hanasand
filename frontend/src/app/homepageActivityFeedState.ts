@@ -9,6 +9,11 @@ export type CachedActivityState = {
     nextOffset: number | null
 }
 
+export function queueAfterFailedInitialCheck(queue: ExposureQueue, persistedItems: ExposureQueueItem[]) {
+    if (queue.status !== 'checking' || persistedItems.length) return queue
+    return { ...queue, status: 'unavailable' }
+}
+
 export function restoreCachedActivity(raw: string): CachedActivityState | null {
     const saved = normalizeExposureQueue(JSON.parse(raw))
     if (!saved.items.length) return null

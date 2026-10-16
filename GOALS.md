@@ -291,3 +291,23 @@ forwarded-host, host, and URL fallback order. Independent review and the full
 frontend test suite, typecheck, scoped lint, cap scan, and production build
 pass. The support-session route remains separate because it intentionally
 lowercases the result.
+
+At the next frontend checkpoint, `/ai`, `/ai/window`, and `/ai/[id]` share one
+server loader, reducing those route implementations from 108 to 59 production
+lines while preserving cookie handling, parallel reads, workspace props, route
+selection, and `/ai` metadata. A contract test covers all three pages. The
+default test runner now includes 71 previously unregistered Bun unit-test
+files; all pass, and the six stale source/route expectations were updated to
+the current implemented contracts. The homepage exposure feed also moves from
+`checking` to `unavailable` after a failed initial fetch with no saved rows,
+while retaining saved rows on refresh errors.
+
+The 2026-10-16 frontend cap scan covers 2,332 authored source/config files and
+155,898 lines, with no file over 200. The full frontend unit suite, production
+build, non-incremental typecheck, scoped ESLint, and cap check pass. Repository
+scan currently reports 3,680 files / 322,724 lines / 125 over-cap files, all
+outside the frontend. Full-repository lint currently exits nonzero with 1,633
+errors; every file changed in this checkpoint passes scoped ESLint. The
+frontend 10,000–30,000-line target and API reduction target remain unmet; this
+checkpoint adds substantial test execution coverage but only removes 49 net
+production lines from the shared AI loader refactor.

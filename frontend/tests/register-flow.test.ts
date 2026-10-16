@@ -29,8 +29,8 @@ test('signup establishes a session and returns directly to the requested page', 
 test('invalid signup returns to signup; an account without a session goes to login', async () => {
     const invalid = await POST(request(''))
     const location = new URL(invalid.headers.get('location')!, 'https://hanasand.com')
-    assert.equal(location.pathname, '/login')
-    assert.equal(location.searchParams.get('mode'), 'signup')
+    assert.equal(location.pathname, '/signup')
+    assert.equal(location.searchParams.get('mode'), null)
     assert.equal(location.searchParams.get('path'), '/organizations')
     const original = globalThis.fetch
     let calls = 0

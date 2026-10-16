@@ -1,16 +1,21 @@
 import { strict as assert } from 'node:assert'
-import { organizationWorkspaceSource } from './organization-workspace-source.mjs'
+import { readFileSync } from 'node:fs'
 import test from 'node:test'
 
-const source = organizationWorkspaceSource
+const actions = read('dashboard/cases/[id]/case-detail/useCaseDetailActions.ts')
+const deliveryPanel = read('dashboard/cases/[id]/case-detail/CaseDeliveryPanels.tsx')
 
-test('organization history retries the exact persisted failed report', () => {
-    const start = source.indexOf('const replayDelivery =')
-    const end = source.indexOf('const createSavedDestination =', start)
-    const retrySource = source.slice(start, end)
-
-    assert.notEqual(start, -1)
-    assert.match(retrySource, /organizationId: selectedOrganization\.id/)
-    assert.match(retrySource, /deliveryId: delivery\.id/)
-    assert.doesNotMatch(retrySource, /\b(?:alertId|caseId|dedupeKey|dryRun|replay):/)
+test('case detail retries the exact persisted failed report', () => {
+    const retryPayload = actions.match(/body: JSON\.stringify\(retryDeliveryId \? \{([\s\S]*?)\} : \{/)
+    assert.match(deliveryPanel, /latestDelivery\?\.status === 'failed' && latestDelivery\.retryable === true/)
+    assert.match(deliveryPanel, /Retry exact report/)
+    assert.match(actions, /latestDelivery\?\.status === 'failed' && latestDelivery\.retryable === true/)
+    assert.ok(retryPayload)
+    assert.match(retryPayload[1], /organizationId: resolvedOrganizationId\(caseRecord, organizationId\)/)
+    assert.match(retryPayload[1], /deliveryId: retryDeliveryId/)
+    assert.doesNotMatch(retryPayload[1], /\b(?:alertId|caseId|dedupeKey|dryRun|replay):/)
 })
+
+function read(path: string) {
+    return readFileSync(new URL(`../src/app/${path}`, import.meta.url), 'utf8')
+}
