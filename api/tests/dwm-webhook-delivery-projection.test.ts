@@ -15,6 +15,8 @@ import {
     buildDwmWebhookDeliveryOperations,
     buildDwmWebhookDeliveryPersistenceProof,
     buildDwmWebhookDeliveryRetryPersistence,
+    buildDwmWebhookDashboardReadinessAdapter,
+    buildDwmWebhookDestinationHealth,
     buildDwmWebhookDestinationReadModels,
     toDwmWebhookAuditEvent,
     toDwmWebhookDelivery,
@@ -240,6 +242,47 @@ test('retry persistence uses the shared ledger and its supplied planning time', 
         retry: { retryable: true, nextRetryAt: '2026-10-01T10:01:00.000Z' },
         audit: { auditEventIds: ['audit_1'] },
     })
+})
+
+test('dashboard readiness reuses health and retry projections at one fixed planning time', () => {
+    const now = new Date('2026-10-01T10:00:00.000Z')
+    setSystemTime(now)
+    try {
+        const delivery = { ...deliveries[0], attemptedAt: null, nextRetryAt: null, attemptCount: 1 }
+        const input = {
+            destinations: [destination],
+            deliveries: [delivery],
+            auditEvents: [auditEvents[0]],
+            liveDeliveryEnabled: true,
+        }
+        const dashboard = buildDwmWebhookDashboardReadinessAdapter(input)
+        const health = buildDwmWebhookDestinationHealth(input)[0]!
+        const retryPersistence = buildDwmWebhookDeliveryRetryPersistence({ ...input, now })
+        const dashboardDestination = dashboard.destinations[0]!
+        const retryKey = retryPersistence.deliveryKeys[0]!
+
+        expect(dashboardDestination.retry).toEqual({
+            retryable: health.retry.retryable,
+            nextRetryAt: health.retry.nextRetryAt,
+            attemptCount: health.retry.attemptCount,
+            lastErrorCategory: health.retry.errorClass,
+            terminalFailure: retryKey.retry.terminalFailure,
+        })
+        expect(dashboardDestination.latestDeliveryProof).toMatchObject({
+            requestId: health.latestAttempt?.requestId,
+            deliveryId: health.latestAttempt?.deliveryId,
+            status: health.latestAttempt?.status,
+            rawStatus: health.latestAttempt?.rawStatus,
+            dedupeKey: retryKey.dedupeKey,
+            idempotencyKey: retryKey.idempotencyKey,
+            auditEventId: health.latestAttempt?.auditEventId,
+            attemptedAt: health.latestAttempt?.attemptedAt,
+        })
+        expect(dashboard.summary.retryScheduledCount).toBe(1)
+        expect(dashboardDestination.retry.nextRetryAt).toBe('2026-10-01T10:01:00.000Z')
+    } finally {
+        setSystemTime()
+    }
 })
 
 test('history consumer reuses shared evidence and preserves retry projections at a fixed time', () => {

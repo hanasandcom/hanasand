@@ -4670,15 +4670,17 @@ function prepareDwmWebhookDestinationProjection({
     deliveries,
     auditEvents,
     liveDeliveryEnabled,
+    now = new Date(),
 }: {
     destinations: DwmWebhookDestinationPublic[]
     deliveries: DwmWebhookDeliveryPublic[]
     auditEvents: DwmWebhookAuditPublic[]
     liveDeliveryEnabled: boolean
+    now?: Date
 }): DwmWebhookDestinationProjection {
     const destinationContracts = buildDwmWebhookDestinationContracts({ destinations, deliveries, auditEvents })
     const projection = buildDwmWebhookDeliveryEvidenceProjection({ deliveries, auditEvents })
-    const deliveryLedger = buildDwmWebhookDeliveryLedgerFromEvidence({ projection, now: new Date() })
+    const deliveryLedger = buildDwmWebhookDeliveryLedgerFromEvidence({ projection, now })
     const auditContracts = buildDwmWebhookAuditEventContractsFromLedger({
         auditEvents,
         deliveries,
@@ -4850,11 +4852,25 @@ export function buildDwmWebhookDashboardReadinessAdapter({
         }
     }
 
-    const destinationHealth = buildDwmWebhookDestinationHealth({ destinations, deliveries, auditEvents, liveDeliveryEnabled })
-    const retryPersistence = buildDwmWebhookDeliveryRetryPersistence({ destinations, deliveries, auditEvents, liveDeliveryEnabled })
+    const now = new Date()
+    const projection = prepareDwmWebhookDestinationProjection({
+        destinations,
+        deliveries,
+        auditEvents,
+        liveDeliveryEnabled,
+        now,
+    })
+    const destinationHealth = buildDwmWebhookDestinationHealthFromProjection({ ...projection, liveDeliveryEnabled })
+    const retryPersistence = buildDwmWebhookDeliveryRetryPersistenceFromProjection({
+        destinations,
+        filters: {},
+        liveDeliveryEnabled,
+        ledger: projection.deliveryLedger,
+        auditContracts: projection.auditContracts,
+    })
     const deliveriesById = new Map(deliveries.map(delivery => [delivery.id, delivery]))
     const destinationById = new Map(destinations.map(destination => [destination.id, destination]))
-    const auditContracts = buildDwmWebhookAuditEventContracts({ destinations, deliveries, auditEvents })
+    const auditContracts = projection.auditContracts
     const auditByDestination = new Map<string, typeof auditContracts>()
     const dashboardCanManage = ['owner', 'admin'].includes(clean(recordOrEmpty(visibility).role).toLowerCase())
     for (const audit of auditContracts) {
