@@ -7,7 +7,7 @@ type UnitTestCategory = 'unit' | 'database' | 'postgresFilter'
 const unitTestFiles = [
     'access-alert-severity.test.ts', 'account-deletion-login.test.ts', 'account-deletion-scheduler.test.ts', 'admin-support-executor-controls.test.ts', 'admin-support-input.test.ts',
     'admin-support-inspection-packets.test.ts', 'admin-support-route-registration.test.ts', 'admin-support-routes.test.ts', 'admin-support-subject-inspection.test.ts', 'agent-action-audit-redaction.test.ts', 'agent-action-policy-routes.test.ts',
-    'ai-completion.test.ts', 'ai-deployments.test.ts', 'ai-economics.test.ts', 'ai-health.test.mjs', 'ai-model-replicas.test.ts',
+    'ai-auth.test.ts', 'ai-completion.test.ts', 'ai-deployments.test.ts', 'ai-economics.test.ts', 'ai-health.test.mjs', 'ai-model-replicas.test.ts',
     'ai-project-builder.test.ts', 'ai-release-mapping.test.ts', 'ai-runtime.test.ts', 'ai-shared-access.test.ts', 'ai-worker-health.test.ts', 'ai-write-ownership.test.ts', 'analysis-matcher.test.ts',
     'analysis-policy.test.ts', 'analyze-access.test.ts', 'analyze-cdn-delivery-ingest.test.ts', 'analyze-cdn-delivery.test.ts', 'analyze-cdn-refresh-ingest.test.ts',
     'analyze-cdn-refresh.test.ts', 'analyze-ingestion.test.ts', 'analyze-model-discovery-ingest.test.ts', 'analyze-model-discovery.test.ts', 'analyze-mongo-ingest.test.ts', 'analyze-mongo.test.ts',
@@ -21,7 +21,7 @@ const unitTestFiles = [
     'check-scheduled-job-registry.test.ts', 'code-review-access.test.ts', 'collector-health.test.ts', 'commercial-contact-requests.test.ts', 'contact-mail-sender.test.ts',
     'container-billing.test.ts', 'content-organization.test.ts', 'custom-retention.test.ts', 'database-browse-parser-version.test.ts', 'database-overview-summary.test.ts',
     'database-response.test.ts', 'database-storage.test.ts', 'delete-user-ownership.test.ts', 'docker-response-recovery.test.ts', 'docker-storage.test.ts',
-    'drop-eligibility.test.ts', 'drop-rate-alert.test.ts', 'dwm-destination-example.test.ts', 'dwm-webhook-delivery-attempt-contract.test.ts', 'dwm-webhook-delivery-projection.test.ts', 'dwm-webhook-destination-health-contract.test.ts', 'dwm-webhook-destination-preflight-routes.test.ts', 'dwm-webhook-lifecycle-truthfulness.test.ts',
+    'drop-eligibility.test.ts', 'drop-rate-alert.test.ts', 'dwm-destination-example.test.ts', 'dwm-webhook-core-contracts.test.ts', 'dwm-webhook-delivery-attempt-contract.test.ts', 'dwm-webhook-delivery-projection.test.ts', 'dwm-webhook-delivery-route.test.ts', 'dwm-webhook-destination-health-contract.test.ts', 'dwm-webhook-destination-preflight-routes.test.ts', 'dwm-webhook-lifecycle-truthfulness.test.ts',
     'dwm-webhook-receiver-route.test.ts', 'dwm-webhook-report-retry.test.ts', 'dwm-webhook-schema.test.ts', 'dwm-webhook-security.test.ts', 'dwm-webhook-test-response.test.ts',
     'dwm-webhook-transport.test.ts', 'dwm-webhook-visibility-access.test.ts', 'event-privacy.test.ts', 'event-processing.test.ts', 'git-workspace-credentials.test.ts',
     'host-check-message.test.ts', 'http-errors.test.ts', 'impersonation-start-denials.test.ts', 'impersonation-timeline-state.test.ts', 'import-repository.test.ts',
