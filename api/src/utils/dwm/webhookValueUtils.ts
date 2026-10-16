@@ -27,3 +27,8 @@ export function redactAuditMetadata(metadata: Record<string, unknown>) {
     }
     return redacted
 }
+
+export function cleanList(value: unknown) {
+    if (!Array.isArray(value)) return []
+    return value.map(clean).filter(Boolean)
+}
