@@ -80,6 +80,18 @@ provisional; the latest splits meet the file cap but have increased total
 frontend lines through module overhead rather than materially shrinking the
 implementation.
 
+After the automation health, browser workspace, thesis editor, cron dashboard,
+terminal hook, organization watchlist, and load-testing checkpoints, a fresh
+2026-10-16 working-tree scan found 149,654 hand-maintained frontend lines
+across 2,067 candidate files, with 65 files still over 200 lines. The generated
+search-route artifact and build/vendor directories are excluded. The working
+tree contains concurrent API/database and frontend work, so this is provisional.
+Compared with the preceding snapshot, the frontend has 349 more lines and 49
+more files while 13 fewer files exceed the cap. The hard cap is not yet met and
+the 10,000–30,000-line reduction target remains unachieved; these checkpoints
+primarily establish file boundaries and test coverage, not net feature-preserving
+LOC reduction.
+
 ## Execution
 
 - Divide work by non-overlapping repository areas and use traditional Norwegian
