@@ -18,12 +18,12 @@ export async function analyzeCdnDelivery(log: CdnRefreshLog, query?: typeof run)
     const normalized = normalizeLogEvent({ ...log, id: log.sourceEventId!, created_at: log.timestamp! })
     if (!await matchesAnalysisPolicy([normalized], rule.definition)) return false
     if (customRetentionAction(normalized, await loadLogRetentionRules(rule.organization_id, query)) === 'keep') return false
-    const { loadConfiguredRules, collectEventFindings, normalizeEvent } = await import('../../handlers/events.ts')
+    const { loadConfiguredRules, eventWouldBeProtectedFromDrop } = await import('../../handlers/events.ts')
     const configured = await loadConfiguredRules(rule.organization_id, query)
-    const event = normalizeEvent(normalized, { vendor: 'Hanasand', product: 'Logs' })
     // Check before the receipt on every retry: a newly installed detector must
     // be able to protect an event that an earlier configuration considered noise.
-    if (collectEventFindings(rule.organization_id, log.sourceEventId!, event, configured).findings.length) return false
+    // Retention was checked before loading detectors so a keep rule short-circuits.
+    if (eventWouldBeProtectedFromDrop(rule.organization_id, log.sourceEventId!, normalized, configured, [])) return false
     const key = createHash('sha256').update(`${cdnDeliveryRuleId}:${log.sourceEventId}`).digest('hex')
     await query(`INSERT INTO log_analyze_receipts(key,organization_id,rule_id,rule_version)
         VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING`, [key, rule.organization_id, cdnDeliveryRuleId, rule.version])

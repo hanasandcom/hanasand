@@ -58,4 +58,31 @@ export function registerCdnIngestContract({ feature, analyze, ruleId, definition
         }
         await expect(analyze(fixture(), failing)).rejects.toThrow('receipt failed')
     })
+
+    test(`${feature}: a configured finding blocks the drop receipt`, async () => {
+        const event = fixture()
+        const statements: string[] = []
+        const configuredDetector = {
+            id: 'cdn.protect',
+            version: '1',
+            name: 'Protect CDN evidence',
+            family: 'test',
+            severity: 'high',
+            explanation: 'Preserve matching CDN evidence.',
+            source: 'owned',
+            enabled: true,
+            definition: { stage: 'detect', conditions: [{ path: 'message', operator: 'equals', value: event.message }] },
+        }
+        const query: any = async (sql: string) => {
+            statements.push(sql)
+            if (sql.includes('JOIN organizations o')) return { rows: [{ organization_id: 'platform', version: '1', definition }] }
+            if (sql.includes('JOIN organizations scope')) return { rows: [] }
+            if (sql.includes('FROM rules') && sql.includes('WHERE organization_id = $1')) return { rows: [configuredDetector] }
+            if (sql.includes('INSERT INTO log_analyze_receipts')) throw new Error('protected event must not get a receipt')
+            return { rows: [], rowCount: 1 }
+        }
+
+        expect(await analyze(event, query)).toBe(false)
+        expect(statements.some(sql => sql.includes('INSERT INTO log_analyze_receipts'))).toBe(false)
+    })
 }
