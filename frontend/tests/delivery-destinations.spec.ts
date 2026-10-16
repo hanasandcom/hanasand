@@ -99,3 +99,39 @@ test('rejects non-Discord URLs and returns focus after cancelling add', async ({
     await expect(page.getByRole('dialog')).not.toBeVisible()
     await expect(add).toBeFocused()
 })
+
+test('edits a saved destination through PATCH without replacing its secret URL', async ({ page }) => {
+    let savedDestination = { ...destination }
+    let patchBody: unknown
+    await page.route('**/api/organizations/org-test/webhooks**', async route => {
+        const req = route.request()
+        if (req.method() === 'PATCH') {
+            patchBody = req.postDataJSON()
+            savedDestination = { ...savedDestination, name: 'Incident Response' }
+            return route.fulfill({ json: { destination: savedDestination } })
+        }
+        return route.fulfill({ json: { destinations: [savedDestination], destinationAdminProof: { access: { canManage: true } } } })
+    })
+    await page.goto('http://delivery.test/')
+    await page.getByRole('button', { name: 'Edit Team Discord' }).click()
+    await expect(page.getByRole('heading', { name: 'Edit destination' })).toBeVisible()
+    await expect(page.getByLabel('Webhook URL')).toHaveAttribute('placeholder', 'Leave blank to keep the current URL')
+    await page.getByLabel('Name', { exact: true }).fill('Incident Response')
+    await page.getByRole('button', { name: 'Save destination' }).click()
+    await expect(page.getByRole('rowheader', { name: 'Incident Response' })).toBeVisible()
+    expect(patchBody).toEqual({ name: 'Incident Response', kind: 'discord' })
+})
+
+test('mobile delivery rows keep last-test status inside a horizontally scrollable table', async ({ page }) => {
+    const testedDestination = { ...destination, lastTestStatus: 'failed', lastTestedAt: '2026-10-15T10:30:00.000Z' }
+    await page.route('**/api/organizations/org-test/webhooks', route => route.fulfill({ json: { destinations: [testedDestination], destinationAdminProof: { access: { canManage: true } } } }))
+    await page.goto('http://delivery.test/')
+    await page.setViewportSize({ width: 390, height: 844 })
+
+    const row = page.getByRole('row', { name: /Team Discord Discord/ })
+    const tableScroller = page.locator('div.overflow-x-auto').filter({ has: page.getByRole('table') })
+    await expect(row).toContainText('Failed')
+    await expect(row.locator('time')).toHaveAttribute('datetime', testedDestination.lastTestedAt)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
+    expect(await tableScroller.evaluate(element => element.scrollWidth > element.clientWidth)).toBe(true)
+})

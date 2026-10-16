@@ -70,6 +70,13 @@ describe('DWM webhook transport and destination security', () => {
         }
     })
 
+    test('rejects malformed and non-HTTPS destination URLs', () => {
+        expect(() => normalizeDwmWebhookDestinationInput({ endpointUrl: 'not a URL' }, 'owner'))
+            .toThrow('endpointUrl must be a valid URL.')
+        expect(() => normalizeDwmWebhookDestinationInput({ endpointUrl: 'http://receiver.example/hook' }, 'owner'))
+            .toThrow('Webhook destinations must use HTTPS.')
+    })
+
     test('rejects private DNS answers and accepts a public pinned target', async () => {
         const privateResolver = async () => [{ address: '10.0.0.2', family: 4 }]
         const publicResolver = async () => [{ address: '93.184.216.34', family: 4 }]

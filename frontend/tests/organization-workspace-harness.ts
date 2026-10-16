@@ -29,7 +29,9 @@ export async function setupOrganizationWorkspace(context: BrowserContext, page: 
             configurable: true,
             value: {
                 writeText: async (value: string) => {
-                    ;(window as Window & { __copiedInvite?: string }).__copiedInvite = value
+                    const clipboard = window as Window & { __copiedInvite?: string, __copiedText?: string }
+                    clipboard.__copiedInvite = value
+                    clipboard.__copiedText = value
                 },
             },
         })
