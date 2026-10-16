@@ -5,6 +5,16 @@ class FakePage extends EventEmitter {
     closed = false
     currentUrl = 'about:blank'
     editableSelections = 0
+    readonly mouse = {
+        clicks: [] as Array<{ x: number; y: number }>,
+        moves: [] as Array<{ x: number; y: number }>,
+        wheels: [] as Array<{ deltaX: number; deltaY: number }>,
+        async click(x: number, y: number) { this.clicks.push({ x, y }) },
+        async move(x: number, y: number) { this.moves.push({ x, y }) },
+        async wheel(deltaX: number, deltaY: number) { this.wheels.push({ deltaX, deltaY }) },
+        async down() {},
+        async up() {},
+    }
     readonly keyboard = {
         pressed: [] as string[],
         async press(key: string) { this.pressed.push(key) },
@@ -193,6 +203,28 @@ async function endSession(socket: ControlledSocket) {
     await ended
     await waitFor(() => socket.readyState === 3 ? true : undefined, 'websocket close')
 }
+
+test('onion pointer and wheel inputs clamp coordinates and deltas to browser bounds', async () => {
+    configureTestEnvironment()
+    browser = new FakeBrowser()
+    const { handleOnionSessionSocket } = await import('../src/handlers/onionSession/ws.ts')
+    const socket = new ControlledSocket()
+    handleOnionSessionSocket(socket as never, 'bounded-pointer-input', 'regular')
+
+    try {
+        await startRun(socket, 'https://8.8.8.8/input')
+        const page = browser.contexts[0].pages[0]
+        socket.receive({ type: 'click', x: 3000, y: -100 })
+        socket.receive({ type: 'wheel', x: -100, y: 2000, deltaX: -2000, deltaY: 2000 })
+        await waitFor(() => page.mouse.wheels.length === 1 ? true : undefined, 'bounded wheel input')
+
+        expect(page.mouse.clicks).toEqual([{ x: 2400, y: 0 }])
+        expect(page.mouse.moves).toEqual([{ x: 0, y: 1600 }])
+        expect(page.mouse.wheels).toEqual([{ deltaX: -1600, deltaY: 1600 }])
+    } finally {
+        await endSession(socket)
+    }
+})
 
 test('restarting an onion session resets per-run download limits and summaries', async () => {
     configureTestEnvironment()

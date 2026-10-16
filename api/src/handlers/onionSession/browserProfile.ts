@@ -1,4 +1,5 @@
 import type { BrowserContextOptions } from 'playwright'
+import { clampNumber } from '../../utils/numbers.ts'
 
 export type BrowserProfileMessage = {
     width?: unknown
@@ -40,12 +41,6 @@ export function browserViewportForMessage(message: Pick<BrowserProfileMessage, '
     const width = clampNumber(message.width, 320, 2400, DEFAULT_WIDTH)
     const height = clampNumber(message.height, 320, 2160, Math.round(width * 9 / 16))
     return { width, height }
-}
-
-function clampNumber(value: unknown, min: number, max: number, fallback: number) {
-    const numeric = Number(value)
-    if (!Number.isFinite(numeric)) return fallback
-    return Math.max(min, Math.min(max, Math.round(numeric)))
 }
 
 function browserUserAgent(value: unknown) {

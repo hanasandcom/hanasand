@@ -3,6 +3,7 @@ import { browserStartOptions } from '../../utils/ws/browserAccess.ts'
 import { socketMessageText } from '../../utils/ws/socketMessageText.ts'
 import { currentBrowserAdmissionStatus, requestBrowserAdmission } from '../../utils/ws/browserAdmission.ts'
 import { browserProfileForMessage, browserViewportForMessage } from './browserProfile.ts'
+import { clampNumber } from '../../utils/numbers.ts'
 import { createHash } from 'node:crypto'
 import { execFile } from 'node:child_process'
 import { lookup, resolveTxt } from 'node:dns/promises'
@@ -2577,12 +2578,6 @@ function normalizeTarget(value: string) {
     if (!trimmed) return DEFAULT_TARGET
     if (/^https?:\/\//i.test(trimmed)) return trimmed
     return `http://${trimmed}`
-}
-
-function clampNumber(value: unknown, min: number, max: number, fallback: number) {
-    const numeric = Number(value)
-    if (!Number.isFinite(numeric)) return fallback
-    return Math.max(min, Math.min(max, Math.round(numeric)))
 }
 
 function mouseButton(value: unknown): 'left' | 'right' | 'middle' {
