@@ -144,14 +144,19 @@ function parseCollectionQuery(query: { q?: unknown, limit?: unknown, page?: unkn
     const limit = query.limit === undefined ? 50 : Number(query.limit)
     if (query.page !== undefined && query.cursor !== undefined) return { ok: false as const, error: 'Use page without cursor.' }
     if (!Number.isInteger(limit) || limit < 1 || limit > 100) return { ok: false as const, error: 'limit must be an integer from 1 to 100.' }
+    if (query.page !== undefined && !isUnsignedIntegerString(query.page)) return { ok: false as const, error: 'page must be a positive integer.' }
     const page = query.page === undefined ? 1 : Number(query.page)
-    if ((query.page !== undefined && (typeof query.page !== 'string' || !/^\d+$/.test(query.page))) || !Number.isSafeInteger(page) || page < 1) return { ok: false as const, error: 'page must be a positive integer.' }
+    if (!Number.isSafeInteger(page) || page < 1) return { ok: false as const, error: 'page must be a positive integer.' }
     // Older clients send a numeric record offset; numbered pages use the same upstream contract.
-    if (query.cursor !== undefined && (typeof query.cursor !== 'string' || !/^\d+$/.test(query.cursor))) return { ok: false as const, error: 'cursor must be a non-negative integer.' }
+    if (query.cursor !== undefined && !isUnsignedIntegerString(query.cursor)) return { ok: false as const, error: 'cursor must be a non-negative integer.' }
     const cursor = query.cursor === undefined ? (page - 1) * limit : Number(query.cursor)
     if (!Number.isSafeInteger(cursor) || cursor < 0 || !Number.isSafeInteger(cursor + limit)) return { ok: false as const, error: 'The requested page or cursor is out of range.' }
     if (query.q !== undefined && (typeof query.q !== 'string' || query.q.trim().length > 200)) return { ok: false as const, error: 'q must contain at most 200 characters.' }
     return { ok: true as const, limit, cursor, page: query.cursor === undefined ? page : Math.floor(cursor / limit) + 1, q: typeof query.q === 'string' ? query.q.trim() : '' }
+}
+
+function isUnsignedIntegerString(value: unknown): value is string {
+    return typeof value === 'string' && /^\d+$/.test(value)
 }
 
 async function fetchCollection(

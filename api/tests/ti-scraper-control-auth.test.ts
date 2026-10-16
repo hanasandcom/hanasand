@@ -277,6 +277,31 @@ test.each([
     }
 })
 
+test('rejects a non-string query before contacting the scraper', async () => {
+    process.env.TI_SCRAPER_API_BASE = 'http://scraper.test'
+    let fetchCount = 0
+    globalThis.fetch = async () => {
+        fetchCount++
+        return Response.json({})
+    }
+    const app = controlApp('editor')
+
+    try {
+        const response = await app.inject({
+            method: 'POST',
+            url: '/api/ti/scraper/control',
+            headers: { authorization: 'Bearer session-token' },
+            payload: { action: 'run_query', query: 42 },
+        })
+
+        expect(response.statusCode).toBe(400)
+        expect(response.json()).toEqual({ ok: false, error: { code: 'invalid_query', message: 'Query must be a string.' } })
+        expect(fetchCount).toBe(0)
+    } finally {
+        await app.close()
+    }
+})
+
 function controlApp(role?: string, withApiKey = false) {
     const app = Fastify()
     if (role || withApiKey) {

@@ -128,6 +128,10 @@ export interface TiSearchResponse {
 }
 
 const cache = new Map<string, { expiresAt: number, result: TiSearchResponse }>()
+const MAX_CACHED_SEARCH_RESULTS = 500
+const COMPLETED_SEARCH_CACHE_TTL_MS = 60_000
+const PENDING_SEARCH_CACHE_MAX_TTL_MS = 5_000
+const DEFAULT_PENDING_REFRESH_SECONDS = 5
 
 export async function searchThreatIntel(input: TiSearchRequest): Promise<TiSearchResponse> {
     const query = input.query.trim()
@@ -242,7 +246,16 @@ function scraperEntityType(queryKind: TiQueryKind) {
 
 function writeCache(key: string, result: TiSearchResponse) {
     const pending = result.status === 'queued' || result.status === 'searching'
-    const ttlMs = pending ? Math.min(5_000, Math.max(0, Number(result.refreshAfterSeconds ?? 5) * 1_000)) : 60_000
+    const requestedRefreshMs = Number(result.refreshAfterSeconds ?? DEFAULT_PENDING_REFRESH_SECONDS) * 1_000
+    const ttlMs = pending
+        ? Math.min(PENDING_SEARCH_CACHE_MAX_TTL_MS, Math.max(0, requestedRefreshMs))
+        : COMPLETED_SEARCH_CACHE_TTL_MS
     cache.set(key, { expiresAt: Date.now() + ttlMs, result })
-    if (cache.size > 500) cache.delete(cache.keys().next().value!)
+    evictOldestCacheEntry()
+}
+
+function evictOldestCacheEntry() {
+    if (cache.size <= MAX_CACHED_SEARCH_RESULTS) return
+    const oldestKey = cache.keys().next().value
+    if (oldestKey !== undefined) cache.delete(oldestKey)
 }

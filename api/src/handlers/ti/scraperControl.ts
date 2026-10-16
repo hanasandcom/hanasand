@@ -80,6 +80,9 @@ export async function postTiScraperControl(request: FastifyRequest<{ Body: Contr
     const base = scraperBase()
     if (!base) return unavailable(reply, 'TI_SCRAPER_API_BASE is not configured.')
     const body = request.body || {}
+    if (body.query !== undefined && typeof body.query !== 'string') {
+        return reply.code(400).send({ ok: false, error: { code: 'invalid_query', message: 'Query must be a string.' } })
+    }
 
     if (body.action === 'source_status') {
         if (typeof body.sourceId !== 'string' || !body.sourceId.trim() || !['active', 'paused'].includes(body.status || '') || (body.tenantId !== undefined && !validTenantId(body.tenantId))) {
