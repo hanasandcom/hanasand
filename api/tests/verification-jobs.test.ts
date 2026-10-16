@@ -7,9 +7,12 @@ const calls: Array<{ sql: string, params: unknown[] }> = []
 const usageEvents: Array<Record<string, any>> = []
 const fetchCalls: Array<{ url: string, signal?: AbortSignal, userAgent?: string }> = []
 const terminalAttempts: string[] = []
+const chromiumKillSignals: string[] = []
 let nextFetchError: Error | null = null
 let nextFetchStatus = 200
 let cancelOnWorkerRead = false
+let loseTerminalTransition = false
+let existingErrorOnClaim: string | null = null
 let holdFetch = false
 let onFetchStarted: (() => void) | null = null
 let releaseFetch: ((response: Response) => void) | null = null
@@ -43,6 +46,7 @@ const query = async (sql: string, params: unknown[] = []) => {
         const job = [...jobs.values()].find((item) => item.status === 'queued')
         if (!job) return { rows: [] }
         Object.assign(job, { status: 'running', current_step: 'Starting', started_at: new Date().toISOString() })
+        if (existingErrorOnClaim) job.error = existingErrorOnClaim
         return { rows: [job] }
     }
     if (sql.includes('SELECT * FROM ai_verification_jobs WHERE id = $1 AND owner_id = $2')) {
@@ -71,6 +75,11 @@ const query = async (sql: string, params: unknown[] = []) => {
     if (sql.includes('SET status = $2')) {
         const job = jobs.get(String(params[0]))
         terminalAttempts.push(String(params[0]))
+        if (loseTerminalTransition && job?.status === 'running') {
+            loseTerminalTransition = false
+            Object.assign(job, { status: 'cancelled', current_step: 'Cancelled' })
+            return { rows: [] }
+        }
         if (job?.status === 'running' && sql.includes('AND status = \'running\'')) Object.assign(job, {
             status: params[1], current_step: params[2],
             artifacts: [...job.artifacts, ...JSON.parse(String(params[3]))], error: params[4],
@@ -102,7 +111,10 @@ mock.module('../src/utils/auth/tokenWrapper.ts', () => ({ default: async () => (
 mock.module('../src/utils/ai/usage.ts', () => ({ recordAiUsageEvent: async (event: Record<string, any>) => { usageEvents.push(event) } }))
 mock.module('node:child_process', () => ({
     spawn: () => {
-        const child = Object.assign(new EventEmitter(), { stderr: new EventEmitter(), kill: () => true })
+        const child = Object.assign(new EventEmitter(), {
+            stderr: new EventEmitter(),
+            kill: (signal: string) => { chromiumKillSignals.push(signal); return true },
+        })
         queueMicrotask(() => child.emit('error', new Error('Chromium is unavailable.')))
         return child
     },
@@ -118,10 +130,13 @@ beforeEach(() => {
     usageEvents.length = 0
     fetchCalls.length = 0
     terminalAttempts.length = 0
+    chromiumKillSignals.length = 0
     workerStatusReads.length = 0
     nextFetchError = null
     nextFetchStatus = 200
     cancelOnWorkerRead = false
+    loseTerminalTransition = false
+    existingErrorOnClaim = null
     holdFetch = false
     onFetchStarted = null
     releaseFetch = null
@@ -158,7 +173,7 @@ function reply() {
     }
 }
 
-async function enqueue(kind: 'browser' | 'design', maxRetries = 1) {
+async function enqueue(kind: 'browser' | 'build' | 'design', maxRetries = 1) {
     const response = reply()
     await postVerificationJob({
         headers: { 'x-request-id': `${kind}-request` },
@@ -226,6 +241,56 @@ test('browser and design jobs retain their distinct fetch steps, headers, and pr
     expect(usageEvents.map(event => event.metadata.jobId)).toEqual([browserId, designId])
 })
 
+test('build receipts use the shared terminal transition and retain build usage accounting', async () => {
+    const response = reply()
+    await postVerificationJob({
+        headers: { 'x-request-id': 'build-request' },
+        body: { kind: 'build', deployUrl: 'https://example.test/deploy' },
+    } as any, response as any)
+    const id = String(response.body.job.id)
+    const job = await waitForJob(id)
+
+    expect(job).toMatchObject({ status: 'completed', current_step: 'Receipt stored' })
+    expect(job.artifacts[0]).toMatchObject({
+        type: 'build_receipt',
+        data: { deployUrl: 'https://example.test/deploy', requestId: 'build-request' },
+    })
+    expect(usageEvents).toMatchObject([{
+        kind: 'build_minutes_recorded',
+        billableUnits: 1,
+        outcome: 'verified',
+        metadata: { jobId: id, requestId: 'build-request', currentStep: 'Receipt stored' },
+    }])
+})
+
+test('a lost running-state guard skips artifact persistence side effects', async () => {
+    loseTerminalTransition = true
+    const response = reply()
+    await postVerificationJob({
+        headers: { 'x-request-id': 'build-request' },
+        body: { kind: 'build' },
+    } as any, response as any)
+    const id = String(response.body.job.id)
+
+    for (let attempt = 0; attempt < 200 && !terminalAttempts.includes(id); attempt += 1) {
+        await new Promise(resolve => setTimeout(resolve, 5))
+    }
+
+    expect(terminalAttempts).toContain(id)
+    expect(jobs.get(id)).toMatchObject({ status: 'cancelled', current_step: 'Cancelled', artifacts: [] })
+    expect(usageEvents.filter(event => event.metadata.jobId === id)).toEqual([])
+})
+
+test('successful build receipts retain an earlier attempt error', async () => {
+    existingErrorOnClaim = 'Earlier build attempt failed.'
+    const response = reply()
+    await postVerificationJob({ headers: {}, body: { kind: 'build' } } as any, response as any)
+    const id = String(response.body.job.id)
+    const job = await waitForJob(id)
+
+    expect(job).toMatchObject({ status: 'completed', error: 'Earlier build attempt failed.' })
+})
+
 test('non-success HTTP responses store failed proof and zero-billable usage', async () => {
     nextFetchStatus = 503
     const browserId = await enqueue('browser', 0)
@@ -253,6 +318,14 @@ test('target request failures clear the timeout and retain the job failure path'
     expect(job).toMatchObject({ status: 'failed', current_step: 'Failed', error: 'Target unavailable.' })
     expect(fetchCalls[0]?.signal?.aborted).toBe(false)
     expect(usageEvents).toEqual([])
+})
+
+test('Chromium debug startup failures kill the spawned process', async () => {
+    const id = await enqueue('browser', 0)
+    const job = await waitForJob(id)
+
+    expect(job.status).toBe('completed')
+    expect(chromiumKillSignals).toEqual(['SIGKILL'])
 })
 
 test('jobs cancelled before target fetch do not make the request', async () => {

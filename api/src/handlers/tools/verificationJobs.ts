@@ -325,6 +325,32 @@ async function fetchVerificationTarget(job: VerificationJobRow, {
     }
 }
 
+async function completeJobWithArtifact(job: VerificationJobRow, {
+    status,
+    currentStep,
+    artifact,
+    error,
+}: {
+    status: 'completed' | 'failed'
+    currentStep: string
+    artifact: Record<string, unknown>
+    error: string | null
+}) {
+    const completed = await run(`
+        UPDATE ai_verification_jobs
+        SET status = $2,
+            current_step = $3,
+            artifacts = artifacts || $4::jsonb,
+            error = $5,
+            completed_at = NOW(),
+            updated_at = NOW()
+        WHERE id = $1
+          AND status = 'running'
+        RETURNING id
+    `, [job.id, status, currentStep, JSON.stringify([artifact]), error])
+    return completed.rows.length > 0
+}
+
 async function completeProofJob(job: VerificationJobRow, {
     status,
     currentStep,
@@ -340,19 +366,8 @@ async function completeProofJob(job: VerificationJobRow, {
     estimatedCostNok: number
     metadata: Record<string, unknown>
 }) {
-    const completed = await run(`
-        UPDATE ai_verification_jobs
-        SET status = $2,
-            current_step = $3,
-            artifacts = artifacts || $4::jsonb,
-            error = $5,
-            completed_at = NOW(),
-            updated_at = NOW()
-        WHERE id = $1
-          AND status = 'running'
-        RETURNING id
-    `, [job.id, status, currentStep, JSON.stringify([artifact]), error])
-    if (completed.rows.length === 0) return
+    const saved = await completeJobWithArtifact(job, { status, currentStep, artifact, error })
+    if (!saved) return
 
     const billable = status === 'completed'
     await recordAiUsageEvent({
@@ -609,25 +624,31 @@ async function startDebugChromium(userDataDir: string) {
         'about:blank',
     ], { stdio: ['ignore', 'ignore', 'pipe'] })
     let stderr = ''
-    const endpoint = await new Promise<{ port: number }>((resolve, reject) => {
-        const timeout = setTimeout(() => reject(new Error('Chromium debug startup timed out.')), 9000)
-        child.stderr.on('data', (chunk) => {
-            stderr += String(chunk)
-            const match = stderr.match(/DevTools listening on ws:\/\/127\.0\.0\.1:(\d+)\//)
-            if (match?.[1]) {
+    let endpoint: { port: number }
+    try {
+        endpoint = await new Promise<{ port: number }>((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Chromium debug startup timed out.')), 9000)
+            child.stderr.on('data', (chunk) => {
+                stderr += String(chunk)
+                const match = stderr.match(/DevTools listening on ws:\/\/127\.0\.0\.1:(\d+)\//)
+                if (match?.[1]) {
+                    clearTimeout(timeout)
+                    resolve({ port: Number(match[1]) })
+                }
+            })
+            child.on('error', (error) => {
                 clearTimeout(timeout)
-                resolve({ port: Number(match[1]) })
-            }
+                reject(error)
+            })
+            child.on('exit', (code) => {
+                clearTimeout(timeout)
+                reject(new Error(`Chromium debug process exited early with ${code}.`))
+            })
         })
-        child.on('error', (error) => {
-            clearTimeout(timeout)
-            reject(error)
-        })
-        child.on('exit', (code) => {
-            clearTimeout(timeout)
-            reject(new Error(`Chromium debug process exited early with ${code}.`))
-        })
-    })
+    } catch (error) {
+        child.kill('SIGKILL')
+        throw error
+    }
     return { child, port: endpoint.port }
 }
 
@@ -780,18 +801,13 @@ async function completeNonBrowserJob(job: VerificationJobRow) {
         deployUrl: job.deploy_url,
         requestId: job.request_id,
     })
-    const completed = await run(`
-        UPDATE ai_verification_jobs
-        SET status = 'completed',
-            current_step = 'Receipt stored',
-            artifacts = artifacts || $2::jsonb,
-            completed_at = NOW(),
-            updated_at = NOW()
-        WHERE id = $1
-          AND status = 'running'
-        RETURNING id
-    `, [job.id, JSON.stringify([artifact])])
-    if (completed.rows.length === 0) return
+    const saved = await completeJobWithArtifact(job, {
+        status: 'completed',
+        currentStep: 'Receipt stored',
+        artifact,
+        error: job.error,
+    })
+    if (!saved) return
     const durationMinutes = Math.max(1, Math.ceil(((job.started_at ? Date.now() - Date.parse(job.started_at) : 0) || 60000) / 60000))
     const kind = job.kind === 'deploy' ? 'deploy_minutes_recorded' : 'build_minutes_recorded'
     await recordAiUsageEvent({
