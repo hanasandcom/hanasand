@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import test from 'node:test'
+import { workbenchSource } from './workbench-source'
 
 const page = fs.readFileSync(new URL('../src/app/dashboard/ti/workbench/page.tsx', import.meta.url), 'utf8')
-const client = fs.readFileSync(new URL('../src/app/dashboard/ti/workbench/workbenchClient.tsx', import.meta.url), 'utf8')
+const client = await workbenchSource(new URL('..', import.meta.url).pathname)
 const adapter = fs.readFileSync(new URL('../src/app/dashboard/ti/workbench/alertAdapter.ts', import.meta.url), 'utf8')
 
 test('missing delivery timestamps stay unavailable instead of becoming current time', () => {

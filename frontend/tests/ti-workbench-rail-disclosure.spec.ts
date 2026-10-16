@@ -1,11 +1,13 @@
 import { expect, test } from '@playwright/test'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
+import { workbenchSource } from './workbench-source'
 
 const root = process.cwd()
 
 test('TI workbench keeps selected-case actions primary and collapses secondary rail context', async () => {
     const page = await readFile(path.join(root, 'src/app/dashboard/ti/workbench/workbenchClient.tsx'), 'utf8')
+    const workbench = await workbenchSource(root)
     const route = await readFile(path.join(root, 'src/app/dashboard/ti/workbench/page.tsx'), 'utf8')
     const attacksRoute = await readFile(path.join(root, 'src/app/dashboard/ti/attacks/page.tsx'), 'utf8')
     const sidebar = await readFile(path.join(root, 'src/components/dashboard/dashboardSidebar.tsx'), 'utf8')
@@ -56,10 +58,10 @@ test('TI workbench keeps selected-case actions primary and collapses secondary r
     expect(route).toContain('[\'watchlistId\', \'watchlist\']')
     expect(route).toContain('[\'organizationId\', \'organization\']')
     expect(route).toContain('/cases/')
-    expect(page).toContain('safeEvidenceExcerpt } from \'@/utils/dwm/display\'')
-    expect(page).toContain('function safeWorkbenchDetail(value: string | undefined)')
-    expect(page).toContain('safeEvidenceExcerpt(value || \'Safe excerpt is being prepared from this evidence.\')')
-    expect(page).toContain('safeWorkbenchDetail(delivery.error)')
-    expect(page).toContain('safeWorkbenchDetail(item.excerpt)')
+    expect(workbench).toContain('safeEvidenceExcerpt } from \'@/utils/dwm/display\'')
+    expect(workbench).toContain('function safeWorkbenchDetail(value: string | undefined)')
+    expect(workbench).toContain('safeEvidenceExcerpt(value || \'Safe excerpt is being prepared from this evidence.\')')
+    expect(workbench).toContain('safeWorkbenchDetail(delivery.error)')
+    expect(workbench).toContain('safeWorkbenchDetail(item.excerpt)')
     expect(page).not.toContain('What returned')
 })
