@@ -98,14 +98,16 @@ export async function getLegacyTrafficTps(_req: FastifyRequest, res: FastifyRepl
 }
 
 export async function getLegacyTrafficIps(_req: FastifyRequest, res: FastifyReply) {
-    return res.send((await trafficActors('ip', 'user_agent', 'most_common_user_agent')).rows)
+    return res.send((await trafficActors('ip')).rows)
 }
 
 export async function getLegacyTrafficUserAgents(_req: FastifyRequest, res: FastifyReply) {
-    return res.send((await trafficActors('user_agent', 'ip', 'most_common_ip')).rows)
+    return res.send((await trafficActors('user_agent')).rows)
 }
 
-function trafficActors(actor: 'ip' | 'user_agent', related: 'ip' | 'user_agent', relatedLabel: string) {
+function trafficActors(actor: 'ip' | 'user_agent') {
+    const related = actor === 'ip' ? 'user_agent' : 'ip'
+    const relatedLabel = `most_common_${related}`
     return safeQuery(`
         WITH grouped AS MATERIALIZED (
             SELECT ${actor}, ${related}, path, SUM(hits)::bigint AS hits
@@ -332,8 +334,8 @@ export async function warmTrafficStatistics() {
     await loadTrafficMetrics(null)
     await loadTrafficSummary('path')
     await loadTrafficRecent()
-    await trafficActors('ip', 'user_agent', 'most_common_user_agent')
-    await trafficActors('user_agent', 'ip', 'most_common_ip')
+    await trafficActors('ip')
+    await trafficActors('user_agent')
     void warmKnownDomains().catch(error => console.warn('Traffic domain prewarm failed; it will retry', error))
 }
 

@@ -43,6 +43,7 @@ assert.equal(metrics.top_domains.length,1)
 assert.equal(metrics.top_domains[0].key,'a.test')
 const ips=await call(getLegacyTrafficIps)
 assert.equal(ips.reduce((sum: number,row: any)=>sum+Number(row.hits),0),91)
+assert(['agent-0','agent-1','agent-2'].includes(ips[0].most_common_user_agent))
 assert.equal(ips[0].top_paths.length,20)
 for (const row of ips) {
     assert(row.top_paths.length<=20)
@@ -53,6 +54,7 @@ for (const row of ips) {
 }
 const agents=await call(getLegacyTrafficUserAgents)
 assert.equal(agents.reduce((sum: number,row: any)=>sum+Number(row.hits),0),91)
+assert.equal(agents[0].most_common_ip,'ip-shared')
 const summary=await call(getLegacyTrafficSummary,{metric:'path'})
 assert.equal(summary.length,20)
 for (const row of summary) {

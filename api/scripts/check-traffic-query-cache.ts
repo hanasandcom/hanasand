@@ -5,11 +5,13 @@ let peak = 0
 let queries = 0
 let liveQueries = 0
 const liveSql: string[] = []
+const aggregateSql: string[] = []
 mock.module('#db', () => ({
     queryOnce: async (sql: string) => { liveQueries++; liveSql.push(sql); return { rows: [] } },
     withTransaction: async (work: (execute: (sql: string) => Promise<unknown>) => Promise<unknown>) => work(async sql => {
         if (sql.startsWith('SET LOCAL')) return { rows: [] }
         queries++
+        aggregateSql.push(sql)
         active++
         peak = Math.max(peak, active)
         await new Promise(resolve => setTimeout(resolve, 15))
@@ -35,6 +37,12 @@ await h.getLegacyTrafficTps({} as never, reply)
 await h.getLegacyTrafficTps({} as never, reply)
 assert.equal(liveQueries, 2, 'Live reads stay fresh and execute directly')
 assert.equal(queries, 3, 'Simple live reads do not start analytics transactions')
+await h.getLegacyTrafficIps({} as never, reply)
+const ipQuery = aggregateSql[aggregateSql.length - 1] || ''
+assert(ipQuery.includes('AS most_common_user_agent'), 'IP rows keep the most-common user-agent field')
+await h.getLegacyTrafficUserAgents({} as never, reply)
+const userAgentQuery = aggregateSql[aggregateSql.length - 1] || ''
+assert(userAgentQuery.includes('AS most_common_ip'), 'User-agent rows keep the most-common IP field')
 
 const recordTotalQueries = () => liveSql.filter(sql => sql.includes('SELECT COUNT(*)::bigint AS total') && sql.includes('FROM traffic_events')).length
 await h.warmTrafficStatistics()
