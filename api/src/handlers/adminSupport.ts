@@ -11365,6 +11365,7 @@ function supportActivityTimelineSummary(timeline: Array<Record<string, any>>) {
     const events = timeline.filter(event => text(event.action).startsWith('support.') || text(event.action).startsWith('impersonation.'))
     return {
         events,
+        eventCount: events.length,
         eventIds: events.map(event => event.id).filter((id): id is number => Number.isFinite(id)),
         blockerCodes: uniqueTimelineValues(events.flatMap(event => [
             event.actionEvidence?.blockers,
@@ -11381,7 +11382,7 @@ function supportOrganizationActivityRollup(input: {
     requestId: string
     timeline: Array<Record<string, any>>
 }) {
-    const { events: supportEvents, eventIds, blockerCodes, outcomes, requestIds } = supportActivityTimelineSummary(input.timeline)
+    const { events: supportEvents, ...activitySummary } = supportActivityTimelineSummary(input.timeline)
     const actions = {
         inviteAssistance: supportEvents.filter(event => text(event.action).includes('invite')),
         accessRecovery: supportEvents.filter(event => text(event.action).includes('access_recovery')),
@@ -11394,8 +11395,8 @@ function supportOrganizationActivityRollup(input: {
         generatedAt: new Date().toISOString(),
         organizationId: input.organizationId,
         requestId: input.requestId || null,
-        eventCount: supportEvents.length,
-        eventIds,
+        eventCount: activitySummary.eventCount,
+        eventIds: activitySummary.eventIds,
         actionCounts: {
             inviteAssistance: actions.inviteAssistance.length,
             accessRecovery: actions.accessRecovery.length,
@@ -11403,12 +11404,12 @@ function supportOrganizationActivityRollup(input: {
             impersonation: actions.impersonation.length,
             supportSessions: actions.supportSessions.length,
         },
-        outcomes,
+        outcomes: activitySummary.outcomes,
         severities: uniqueTimelineValues(supportEvents.map(event => event.severity)),
-        requestIds,
+        requestIds: activitySummary.requestIds,
         actorIds: uniqueTimelineValues(supportEvents.map(event => event.actor?.id)),
         targetIds: uniqueTimelineValues(supportEvents.map(event => event.target?.id)),
-        blockerCodes,
+        blockerCodes: activitySummary.blockerCodes,
         links: {
             timeline: auditFilterQuery({ org: input.organizationId, source: 'admin', service: 'hanasand-api' }),
             denied: auditFilterQuery({ org: input.organizationId, outcome: 'denied', source: 'admin', service: 'hanasand-api' }),
@@ -11427,7 +11428,7 @@ function supportOrganizationActivityRollup(input: {
         redacted: true,
         copyText: [
             `Support activity org=${input.organizationId}`,
-            `Events: ${eventIds.join(', ') || 'none'}`,
+            `Events: ${activitySummary.eventIds.join(', ') || 'none'}`,
             `Invite/access/member/impersonation: ${actions.inviteAssistance.length}/${actions.accessRecovery.length}/${actions.memberRoleRecovery.length}/${actions.impersonation.length}`,
             `Denied replay: ${auditFilterQuery({ org: input.organizationId, outcome: 'denied', source: 'admin', service: 'hanasand-api' })}`,
         ].join('\n'),
@@ -11440,7 +11441,7 @@ function supportUserActivityRollup(input: {
     organizationIds: string[]
     timeline: Array<Record<string, any>>
 }) {
-    const { events: supportEvents, eventIds, blockerCodes, outcomes, requestIds } = supportActivityTimelineSummary(input.timeline)
+    const { events: supportEvents, ...activitySummary } = supportActivityTimelineSummary(input.timeline)
     const actionEvents = {
         inspections: supportEvents.filter(event => text(event.action).includes('.inspect')),
         inviteAssistance: supportEvents.filter(event => text(event.action).includes('invite')),
@@ -11454,8 +11455,8 @@ function supportUserActivityRollup(input: {
         userId: input.userId,
         organizationIds: input.organizationIds,
         requestId: input.requestId || null,
-        eventCount: supportEvents.length,
-        eventIds,
+        eventCount: activitySummary.eventCount,
+        eventIds: activitySummary.eventIds,
         actionCounts: {
             inspections: actionEvents.inspections.length,
             inviteAssistance: actionEvents.inviteAssistance.length,
@@ -11463,8 +11464,8 @@ function supportUserActivityRollup(input: {
             memberRoleRecovery: actionEvents.memberRoleRecovery.length,
             impersonation: actionEvents.impersonation.length,
         },
-        outcomes,
-        requestIds,
+        outcomes: activitySummary.outcomes,
+        requestIds: activitySummary.requestIds,
         organizationTimelineLinks: input.organizationIds.map(organizationId => ({
             organizationId,
             timeline: auditFilterQuery({ org: organizationId, target: input.userId, source: 'admin', service: 'hanasand-api' }),
@@ -11484,11 +11485,11 @@ function supportUserActivityRollup(input: {
             scopedSessionRequiredForImpersonation: true,
             redactionRequired: true,
         },
-        blockerCodes,
+        blockerCodes: activitySummary.blockerCodes,
         redacted: true,
         copyText: [
             `Support activity user=${input.userId}`,
-            `Events: ${eventIds.join(', ') || 'none'}`,
+            `Events: ${activitySummary.eventIds.join(', ') || 'none'}`,
             `Recovery/member/impersonation: ${actionEvents.accessRecovery.length}/${actionEvents.memberRoleRecovery.length}/${actionEvents.impersonation.length}`,
             `Denied replay: ${auditFilterQuery({ target: input.userId, outcome: 'denied', source: 'admin', service: 'hanasand-api' })}`,
         ].join('\n'),

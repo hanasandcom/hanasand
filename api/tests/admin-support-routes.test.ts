@@ -654,6 +654,16 @@ test('organization and user activity rollups share the filtered audit summary', 
     expect(userResponse.statusCode).toBe(200)
     const organizationRollup = organizationResponse.body.supportActivityRollup
     const userRollup = userResponse.body.supportActivityRollup
+    expect(Object.keys(organizationRollup)).toEqual([
+        'schemaVersion', 'generatedAt', 'organizationId', 'requestId', 'eventCount', 'eventIds', 'actionCounts',
+        'outcomes', 'severities', 'requestIds', 'actorIds', 'targetIds', 'blockerCodes', 'links', 'guardrails',
+        'redacted', 'copyText',
+    ])
+    expect(Object.keys(userRollup)).toEqual([
+        'schemaVersion', 'generatedAt', 'userId', 'organizationIds', 'requestId', 'eventCount', 'eventIds',
+        'actionCounts', 'outcomes', 'requestIds', 'organizationTimelineLinks', 'links', 'guardrails', 'blockerCodes',
+        'redacted', 'copyText',
+    ])
     const sharedSummary = (rollup: Record<string, any>) => ({
         eventCount: rollup.eventCount,
         eventIds: rollup.eventIds,
