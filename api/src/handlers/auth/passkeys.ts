@@ -194,7 +194,7 @@ export async function getPasskeyAuthenticateOptions(req: FastifyRequest, res: Fa
     const username = String(query?.username || '').trim().toLowerCase()
     const user = username ? await userForPasskey(username) : null
     const credentials = username
-        ? await run('SELECT credential_id FROM user_passkeys WHERE user_id = $1 ORDER BY last_used_at DESC NULLS LAST, created_at DESC', [username])
+        ? await run('SELECT credential_id FROM user_passkeys WHERE user_id = $1 ORDER BY last_used_at DESC NULLS LAST, created_at DESC', [user?.id || username])
         : { rows: [] as Array<{ credential_id: string }> }
     if (username && !user) {
         return res.status(404).send({ error: 'No passkeys are registered for that account.' })

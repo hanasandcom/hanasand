@@ -8,6 +8,15 @@ let assertionVerifications = 0
 mock.module('#db', () => ({
     default: async (sql: string, params?: unknown[]) => {
         queries.push({ sql, params })
+        if (sql.includes('SELECT id, name, avatar, active')) {
+            return { rows: [{ id: 'User-A', name: 'User A', avatar: null, active: true }] }
+        }
+        if (sql.includes('INSERT INTO passkey_challenges')) {
+            return { rows: [{ id: 'challenge-options', user_id: 'User-A', purpose: 'authenticate', challenge: 'challenge-value' }] }
+        }
+        if (sql.includes('SELECT credential_id FROM user_passkeys')) {
+            return { rows: [{ credential_id: 'credential-a' }] }
+        }
         if (sql.includes('UPDATE passkey_challenges')) {
             return { rows: [{ id: 'challenge-a', user_id: 'user-a', purpose: 'authenticate', challenge: 'challenge-value' }] }
         }
@@ -32,11 +41,15 @@ mock.module('#utils/auth/session.ts', () => ({
 mock.module('#utils/db/identityDataWrites.ts', () => ({ upsertIdentityPasskey: async () => {} }))
 mock.module('#utils/auth/tokenWrapper.ts', () => ({ default: async () => ({ valid: false }) }))
 
-const { postPasskeyAuthenticateVerify } = await import('../src/handlers/auth/passkeys.ts')
+const { getPasskeyAuthenticateOptions, postPasskeyAuthenticateVerify } = await import('../src/handlers/auth/passkeys.ts')
 const app = Fastify()
+app.get('/auth/passkeys/authenticate/options', getPasskeyAuthenticateOptions)
 app.post('/auth/passkeys/authenticate/verify', postPasskeyAuthenticateVerify)
 
 test('a credential owned by another user cannot satisfy a user-bound challenge', async () => {
+    queries.length = 0
+    assertionVerifications = 0
+    issuedSessions = 0
     const response = await app.inject({
         method: 'POST',
         url: '/auth/passkeys/authenticate/verify',
@@ -51,6 +64,22 @@ test('a credential owned by another user cannot satisfy a user-bound challenge',
     expect(queries.some(({ sql }) => sql.includes('UPDATE user_passkeys'))).toBe(false)
     expect(assertionVerifications).toBe(0)
     expect(issuedSessions).toBe(0)
+})
+
+test('authenticate options look up credentials with the resolved account ID', async () => {
+    queries.length = 0
+
+    const response = await app.inject({
+        method: 'GET',
+        url: '/auth/passkeys/authenticate/options?username=USER-A',
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.json().publicKey.allowCredentials).toEqual([{ type: 'public-key', id: 'credential-a' }])
+    const credentialQuery = queries.find(({ sql }) => sql.includes('SELECT credential_id FROM user_passkeys'))
+    expect(credentialQuery?.params).toEqual(['User-A'])
+    const challengeInsert = queries.find(({ sql }) => sql.includes('INSERT INTO passkey_challenges'))
+    expect(challengeInsert?.params).toEqual(['User-A', 'authenticate', 'unused'])
 })
 
 afterAll(async () => { await app.close() })
