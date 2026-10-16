@@ -1,3 +1,23 @@
+import run from '#db'
+
+export type AgentTargetVmRow = {
+    name: string
+    owner: string
+    created_by: string
+    organization_id: string | null
+    access_users: string[] | null
+    status: string
+    type: string
+    architecture: string
+    created: string
+    last_used: string
+    config_image_description: string
+    limits_cpu: string
+    limits_memory: string
+    device_eth0_ipv4_address: string
+    last_checked: string
+}
+
 export const agentTargetSelect = `
     SELECT
         v.name,
@@ -21,3 +41,13 @@ export const agentTargetSelect = `
     FROM (SELECT * FROM vms WHERE deleted_at IS NULL) v
     LEFT JOIN vm_details d ON d.name = v.name
 `
+
+export async function loadAgentTargetVm(name: string): Promise<AgentTargetVmRow | null> {
+    const result = await run(`
+        ${agentTargetSelect}
+        WHERE v.name = $1
+        LIMIT 1
+    `, [name])
+
+    return result.rows.length ? result.rows[0] as AgentTargetVmRow : null
+}

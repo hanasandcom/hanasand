@@ -2,7 +2,8 @@ import type { FastifyReply, FastifyRequest } from 'fastify'
 import run from '#db'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import hasHanasandInternalRouteAccess from '#utils/auth/organizationPageAccess.ts'
-import { buildAgentTarget, type AgentTargetVmRow } from '#utils/vms/buildAgentTarget.ts'
+import { buildAgentTarget } from '#utils/vms/buildAgentTarget.ts'
+import type { AgentTargetVmRow } from '#utils/vms/agentTargetQuery.ts'
 import { agentTargetSelect } from '#utils/vms/agentTargetQuery.ts'
 
 export default async function getExecutionTargets(req: FastifyRequest, res: FastifyReply) {

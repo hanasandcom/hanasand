@@ -1,19 +1,10 @@
 import { hasVmAccess } from '#utils/vms/access.ts'
 import type { FastifyReply, FastifyRequest } from 'fastify'
-import run from '#db'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import hasHanasandInternalRouteAccess from '#utils/auth/organizationPageAccess.ts'
-import { agentTargetSelect } from '#utils/vms/agentTargetQuery.ts'
+import { loadAgentTargetVm, type AgentTargetVmRow } from '#utils/vms/agentTargetQuery.ts'
 import config from '#constants'
 import { auditAgentAction, evaluateAgentActionPolicy } from '#utils/ai/actionPolicy.ts'
-
-type VMRow = {
-    name: string
-    owner: string
-    created_by: string
-    access_users: string[] | null
-    device_eth0_ipv4_address: string
-}
 
 type RequestBody = {
     method?: string
@@ -65,17 +56,11 @@ export default async function postAgentTargetRequest(req: FastifyRequest, res: F
     const { valid: isAdmin } = await hasHanasandInternalRouteAccess(req)
 
     try {
-        const result = await run(`
-            ${agentTargetSelect}
-            WHERE v.name = $1
-            LIMIT 1
-        `, [id])
-
-        if (!result.rows.length) {
+        const vm = await loadAgentTargetVm(id)
+        if (!vm) {
             return res.status(404).send({ error: 'VM not found.' })
         }
 
-        const vm = result.rows[0] as VMRow
         const canAccess =
             isAdmin || await hasVmAccess(vm.name, userId, true)
 
@@ -170,7 +155,7 @@ function normalizeHeaders(headers: RequestBody['headers']) {
     return Object.fromEntries(entries)
 }
 
-function getAllowedHosts(vm: VMRow) {
+function getAllowedHosts(vm: AgentTargetVmRow) {
     return [...new Set([
         'localhost',
         '127.0.0.1',

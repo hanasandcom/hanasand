@@ -1,19 +1,10 @@
 import { hasVmAccess } from '#utils/vms/access.ts'
 import type { FastifyReply, FastifyRequest } from 'fastify'
-import run from '#db'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import hasHanasandInternalRouteAccess from '#utils/auth/organizationPageAccess.ts'
-import { agentTargetSelect } from '#utils/vms/agentTargetQuery.ts'
+import { loadAgentTargetVm } from '#utils/vms/agentTargetQuery.ts'
 import syncUserCertificatesToVm from '#utils/vms/syncUserCertificatesToVm.ts'
 import recordLog from '#utils/logs/recordLog.ts'
-
-type VMRow = {
-    name: string
-    organization_id?: string | null
-    owner: string
-    created_by: string
-    access_users: string[] | null
-}
 
 type SyncScope = 'current_user' | 'all_access_users'
 
@@ -37,17 +28,11 @@ export default async function postAgentTargetSyncAccess(req: FastifyRequest, res
     const { valid: isAdmin } = await hasHanasandInternalRouteAccess(req)
 
     try {
-        const result = await run(`
-            ${agentTargetSelect}
-            WHERE v.name = $1
-            LIMIT 1
-        `, [id])
-
-        if (!result.rows.length) {
+        const vm = await loadAgentTargetVm(id)
+        if (!vm) {
             return res.status(404).send({ error: 'VM not found.' })
         }
 
-        const vm = result.rows[0] as VMRow
         const accessUsers = Array.isArray(vm.access_users) ? vm.access_users : []
         const canAccess =
             isAdmin || await hasVmAccess(vm.name, userId, true)

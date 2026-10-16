@@ -1,11 +1,10 @@
 import { hasVmAccess } from '#utils/vms/access.ts'
 import { withLiveVmStatus } from '#utils/vms/status.ts'
 import type { FastifyReply, FastifyRequest } from 'fastify'
-import run from '#db'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import hasHanasandInternalRouteAccess from '#utils/auth/organizationPageAccess.ts'
-import { buildAgentTarget, type AgentTargetVmRow } from '#utils/vms/buildAgentTarget.ts'
-import { agentTargetSelect } from '#utils/vms/agentTargetQuery.ts'
+import { buildAgentTarget } from '#utils/vms/buildAgentTarget.ts'
+import { loadAgentTargetVm } from '#utils/vms/agentTargetQuery.ts'
 import recordLog from '#utils/logs/recordLog.ts'
 
 export default async function getAgentTarget(req: FastifyRequest, res: FastifyReply) {
@@ -22,17 +21,11 @@ export default async function getAgentTarget(req: FastifyRequest, res: FastifyRe
     const { valid: isAdmin } = await hasHanasandInternalRouteAccess(req)
 
     try {
-        const result = await run(`
-            ${agentTargetSelect}
-            WHERE v.name = $1
-            LIMIT 1
-        `, [id])
-
-        if (!result.rows.length) {
+        const vm = await loadAgentTargetVm(id)
+        if (!vm) {
             return res.status(404).send({ error: 'VM not found.' })
         }
 
-        const vm = result.rows[0] as AgentTargetVmRow
         const canAccess =
             isAdmin || await hasVmAccess(vm.name, userId)
 

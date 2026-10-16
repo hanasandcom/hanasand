@@ -1,22 +1,5 @@
 import config from '#constants'
-
-export type AgentTargetVmRow = {
-    name: string
-    owner: string
-    created_by: string
-    organization_id: string | null
-    access_users: string[] | null
-    status: string
-    type: string
-    architecture: string
-    created: string
-    last_used: string
-    config_image_description: string
-    limits_cpu: string
-    limits_memory: string
-    device_eth0_ipv4_address: string
-    last_checked: string
-}
+import type { AgentTargetVmRow } from './agentTargetQuery.ts'
 
 type AgentTargetOptions = {
     vm: AgentTargetVmRow

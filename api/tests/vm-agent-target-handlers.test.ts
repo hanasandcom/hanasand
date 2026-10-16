@@ -1,6 +1,6 @@
 import { afterAll, beforeEach, expect, mock, test } from 'bun:test'
 import Fastify from 'fastify'
-import type { AgentTargetVmRow } from '../src/utils/vms/buildAgentTarget.ts'
+import type { AgentTargetVmRow } from '../src/utils/vms/agentTargetQuery.ts'
 
 const vms: AgentTargetVmRow[] = [
     {
