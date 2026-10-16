@@ -1,41 +1,27 @@
 'use client'
 
 import Link from 'next/link'
-import { CheckCircle2, Cookie, Database, KeyRound, RefreshCcw, ShieldCheck, Trash2 } from 'lucide-react'
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { getCookie, removeCookie, setCookie } from '@/utils/cookies/cookies'
-
-type ConsentChoice = 'unset' | 'essential' | 'optional'
-
-type StorageSnapshot = {
-    consent: ConsentChoice
-    consentUpdatedAt: string
-    sessionToken: boolean
-    impersonationToken: boolean
-    localProductKeys: string[]
-    sessionProductKeys: string[]
-}
+import { CheckCircle2, Cookie, KeyRound, RefreshCcw, ShieldCheck, Trash2 } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { removeCookie, setCookie } from '@/utils/cookies/cookies'
+import { ConsentButton, StatusRow, TokenList } from './CookieSettingsRows'
+import {
+    clearKeys,
+    emptySnapshot,
+    readSnapshot,
+    type ConsentChoice,
+    type StorageSnapshot,
+} from './storageSnapshot'
 
 const consentCookie = 'hanasand_cookie_consent'
 const consentUpdatedCookie = 'hanasand_cookie_consent_updated_at'
-const hiddenCookieNames = new Set(['id', 'name', 'theme'])
-const productStoragePrefixes = [
-    'hanasand.share.',
-    'hanasand.share.git.',
-    'hanasand.ai.',
-    'hanasand:dwm-',
-    'hanasand:ti-',
-    'hanasand:load-testing-',
-    'hanasand:share-design-memory',
-    'hanasand.upload.',
-]
 
 export default function CookieSettingsClient() {
     const [snapshot, setSnapshot] = useState<StorageSnapshot>(() => emptySnapshot())
     const [message, setMessage] = useState('Settings loaded.')
 
     useEffect(() => {
-        setSnapshot(readSnapshot())
+        setSnapshot(readCurrentSnapshot())
     }, [])
 
     const consentLabel = useMemo(() => {
@@ -48,21 +34,21 @@ export default function CookieSettingsClient() {
         const updatedAt = new Date().toISOString()
         setCookie(consentCookie, choice, 365)
         setCookie(consentUpdatedCookie, updatedAt, 365)
-        setSnapshot(readSnapshot())
+        setSnapshot(readCurrentSnapshot())
         setMessage(choice === 'optional' ? 'Optional cookie consent saved.' : 'Essential-only preference saved.')
     }
 
     function resetConsent() {
         removeCookie(consentCookie)
         removeCookie(consentUpdatedCookie)
-        setSnapshot(readSnapshot())
+        setSnapshot(readCurrentSnapshot())
         setMessage('Cookie consent choice reset for this browser.')
     }
 
     function clearProductStorage() {
         const cleared = clearKeys(snapshot.localProductKeys, window.localStorage)
             + clearKeys(snapshot.sessionProductKeys, window.sessionStorage)
-        setSnapshot(readSnapshot())
+        setSnapshot(readCurrentSnapshot())
         setMessage(cleared ? `Cleared ${cleared} local product token${cleared === 1 ? '' : 's'}.` : 'No local product tokens were present.')
     }
 
@@ -169,137 +155,12 @@ export default function CookieSettingsClient() {
     )
 }
 
-function ConsentButton({
-    active,
-    onClick,
-    icon,
-    title,
-    detail,
-}: {
-    active: boolean
-    onClick: () => void
-    icon: ReactNode
-    title: string
-    detail: string
-}) {
-    return (
-        <button
-            type='button'
-            onClick={onClick}
-            className={`rounded-lg border p-3 text-left transition ${
-                active
-                    ? 'border-ui-primary bg-ui-primary text-ui-on-primary shadow-sm'
-                    : 'border-ui-border bg-ui-panel text-ui-muted hover:border-ui-primary hover:bg-ui-raised'
-            }`}
-        >
-            <span className='flex items-center gap-2 text-sm font-semibold'>{icon}{title}</span>
-            <span className={`mt-1 block text-xs ${active ? 'text-ui-canvas/85' : 'text-ui-muted'}`}>{detail}</span>
-        </button>
-    )
-}
-
-function StatusRow({ label, present }: { label: string, present: boolean }) {
-    return (
-        <div className='flex items-center justify-between gap-3 rounded-md border border-ui-border bg-ui-raised px-3 py-2 text-sm'>
-            <span className='font-medium text-ui-text'>{label}</span>
-            <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${present ? 'border-ui-success text-ui-success' : 'border-ui-border text-ui-muted'}`}>
-                {present ? 'Present' : 'Not set'}
-            </span>
-        </div>
-    )
-}
-
-function TokenList({ title, keys }: { title: string, keys: string[] }) {
-    return (
-        <div className='rounded-md border border-ui-border bg-ui-raised p-3'>
-            <div className='flex items-center justify-between gap-3'>
-                <h3 className='text-sm font-semibold text-ui-text'>{title}</h3>
-                <span className='inline-flex items-center gap-1 rounded-full border border-ui-border bg-ui-panel px-2.5 py-1 text-xs font-semibold text-ui-text'>
-                    <Database className='h-3.5 w-3.5' />
-                    {keys.length}
-                </span>
-            </div>
-            <div className='mt-3 flex flex-wrap gap-2'>
-                {keys.length ? keys.map((key) => (
-                    <span key={key} className='rounded-full border border-ui-border bg-ui-panel px-2.5 py-1 text-xs font-medium text-ui-muted'>{friendlyKey(key)}</span>
-                )) : (
-                    <span className='text-sm text-ui-muted'>Nothing product-local stored here.</span>
-                )}
-            </div>
-        </div>
-    )
-}
-
-function readSnapshot(): StorageSnapshot {
-    const cookies = cookieNames()
-    return {
-        consent: normalizeConsent(getCookie(consentCookie)),
-        consentUpdatedAt: getCookie(consentUpdatedCookie) || '',
-        sessionToken: cookies.includes('access_token'),
-        impersonationToken: cookies.includes('impersonation_token'),
-        localProductKeys: productKeys(window.localStorage),
-        sessionProductKeys: productKeys(window.sessionStorage),
-    }
-}
-
-function emptySnapshot(): StorageSnapshot {
-    return {
-        consent: 'unset',
-        consentUpdatedAt: '',
-        sessionToken: false,
-        impersonationToken: false,
-        localProductKeys: [],
-        sessionProductKeys: [],
-    }
-}
-
-function normalizeConsent(value: string | null): ConsentChoice {
-    if (value === 'essential' || value === 'optional') return value
-    return 'unset'
-}
-
-function cookieNames() {
-    return document.cookie
-        .split(';')
-        .map((item) => item.split('=')[0]?.trim())
-        .filter((name): name is string => Boolean(name) && !hiddenCookieNames.has(name))
-}
-
-function productKeys(storage: Storage) {
-    try {
-        const keys: string[] = []
-        for (let index = 0; index < storage.length; index += 1) {
-            const key = storage.key(index)
-            if (key && productStoragePrefixes.some((prefix) => key.startsWith(prefix))) {
-                keys.push(key)
-            }
-        }
-        return keys.sort()
-    } catch {
-        return []
-    }
-}
-
-function clearKeys(keys: string[], storage: Storage) {
-    let cleared = 0
-    for (const key of keys) {
-        try {
-            storage.removeItem(key)
-            cleared += 1
-        } catch {
-            // Storage can be locked down by browser policy; keep clearing the rest.
-        }
-    }
-    return cleared
-}
-
-function friendlyKey(key: string) {
-    return key
-        .replace(/^hanasand[.:]/, '')
-        .replace(/\.v\d+(\.|$)/g, '$1')
-        .replace(/[.:_-]+/g, ' ')
-        .trim()
-        .slice(0, 48)
+function readCurrentSnapshot(): StorageSnapshot {
+    return readSnapshot({
+        cookieString: document.cookie,
+        localStorage: window.localStorage,
+        sessionStorage: window.sessionStorage,
+    })
 }
 
 function formatDate(value: string) {
