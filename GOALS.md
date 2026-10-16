@@ -528,3 +528,40 @@ test and runner entry make total frontend lines higher than the prior scan;
 this is a reuse improvement, not material progress toward the 10,000–30,000
 LOC target. Continue with measured duplicate behavior and keep all page data
 and UI contracts stable.
+
+The integrated frontend checkpoint also passes the full `bun run test` suite
+and the production `bun run build`; Next generated all 116 static pages and
+listed the expected application routes. The build regenerated only ignored or
+unchanged generated content. No rendered UI or page payload changes were made.
+
+At the current API maintenance checkpoint, `economics.ts` falls from 975 to
+807 LOC by moving its reliability projection, row contracts and shared numeric
+normalizer into three purpose-named modules. The production family grows by
+3 LOC (975 to 978); the existing output fields and incident precedence are
+unchanged. A new 118-line unit suite adds fixed GPU, queue, cost and incident
+precedence expectations. Kari's independent review found the extracted source
+matches the prior implementation. The new suite passes 3 tests / 11
+assertions; the existing endpoint suite passes 1 / 8.
+
+The DWM delivery-projection tests are separated into evidence/history,
+readiness/retry, destination selection and combined read-model suites. The
+delivery-route suite is separated into access gates and retry outcomes. Shared
+fixtures own mocks and reset state; all touched tests and fixtures are below
+200 LOC, and all original behavior cases remain. Same-builder comparisons were
+replaced with fixed sparse/populated expectations while independently
+important cross-builder idempotency, combined-read-model and destination
+projection parity assertions were retained after review. The test/fixture
+family grows from 620 to 717 LOC (+97) to provide independent regression
+oracles. All 14 focused DWM cases / 66 assertions, the AI reliability suite,
+runner-policy suite (8 / 79), API typecheck, scoped ESLint, and the full default
+API test runner pass. The default runner excludes 37 database-required suites;
+they were not run.
+
+The current repository scan covers 3,772 hand-maintained files / 324,089 LOC
+and still finds 123 files over 200 lines, all outside the frontend. This is a
+two-file improvement in the cap count from splitting the DWM tests; the API
+economics parent remains over the cap. The latest frontend scan continues to
+pass at 2,339 source/config/test files / 156,026 LOC with zero over-limit
+files. These checkpoints improve ownership and test quality but do not provide
+material aggregate LOC reduction; the API 100,000-line reduction and frontend
+10,000–30,000-line target remain unachieved.
