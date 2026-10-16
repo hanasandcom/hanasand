@@ -2,6 +2,7 @@ import { bun, type TestTask } from './testTask'
 
 export const productTasks: TestTask[] = [
     { id: 'browser-reconnect', title: 'Browser control reconnect lifecycle', command: [bun, 'test', 'tests/browser-control-reconnect.test.ts'] },
+    { id: 'authenticated-resource-delete', title: 'Authenticated resource deletion uses target ids', command: [bun, 'test', 'tests/delete-authenticated-resource.test.ts'] },
     { id: 'site-navigation', title: 'Shared header on all pages and mobile sidebar controls', command: [bun, 'scripts/check-mobile-navigation.mjs'], requires: 'playwright' },
     { id: 'cases-layout-streaming', title: 'Cases stream while sidebar data loads', command: [bun, 'tests/cases-layout-streaming.test.tsx'] },
     { id: 'shared-cases-route', title: 'Independent case sources and access boundaries', command: [bun, 'test', 'tests/shared-cases-route.test.ts'] },
