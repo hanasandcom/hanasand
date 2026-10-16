@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto'
+
 type GeneratedFile = {
     path: string
     content: string
@@ -68,7 +70,10 @@ export function buildShareProjectResponse(prompt: string): GeneratedBuilderRespo
 
 function rememberCommonResponse(key: string, response: GeneratedBuilderResponse) {
     commonResponseCache.set(key, {
-        response,
+        response: {
+            ...response,
+            ...(response.cache ? { cache: { ...response.cache } } : {}),
+        },
         updatedAt: Date.now(),
     })
     if (commonResponseCache.size <= MAX_COMMON_RESPONSE_CACHE_ITEMS) {
@@ -82,28 +87,8 @@ function rememberCommonResponse(key: string, response: GeneratedBuilderResponse)
 }
 
 function commonBuilderCacheKey(prompt: string) {
-    const lower = prompt.toLowerCase()
-    const title = slugify(titleFromPrompt(prompt))
-    const projectKind = /\b(gallery|image review|photo|photographer)\b/.test(lower)
-        ? 'website'
-        : /\b(worker|queue|background|redis|job|transcode)\b/.test(lower)
-            ? 'worker'
-            : /\b(api|backend|fastify)\b/.test(lower) && !/\bpage|website|site|frontend|landing\b/.test(lower)
-                ? 'api'
-                : /\b(discord|bot|slack|telegram|server status bot|game server)\b/.test(lower)
-                    ? 'bot'
-                    : 'website'
-    const capabilities = [
-        /\bdocker|compose|self-host|runnable\b/.test(lower) ? 'docker' : null,
-        /\bcheckout|payment|stripe|invoice\b/.test(lower) ? 'commerce' : null,
-        /\bauth|login|account\b/.test(lower) ? 'auth' : null,
-        /\bredis|queue|worker|background\b/.test(lower) ? 'queue' : null,
-        /\bpostgres|database|migration\b/.test(lower) ? 'database' : null,
-        /\bhealth|ready|metrics|monitor\b/.test(lower) ? 'ops' : null,
-        /\bmobile|offline|safari\b/.test(lower) ? 'mobile' : null,
-    ].filter(Boolean).join('-') || 'standard'
-    const sections = sectionsForPage(lower).slice(0, 5).map(slugify).join('-')
-    return [cacheCategoryForPrompt(prompt), projectKind, title, capabilities, sections].join(':').slice(0, 220)
+    const promptHash = createHash('sha256').update(prompt).digest('hex')
+    return `${cacheCategoryForPrompt(prompt)}:${promptHash}`
 }
 
 function cacheCategoryForPrompt(prompt: string): CommonCacheCategory {

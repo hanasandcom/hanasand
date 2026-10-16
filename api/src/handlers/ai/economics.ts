@@ -134,6 +134,7 @@ export async function getAiEconomics(req: FastifyRequest, res: FastifyReply) {
                 COALESCE(SUM(estimated_cost_nok), 0)::float AS estimated_cost_nok,
                 COALESCE(SUM(CASE WHEN outcome IN ('verified', 'deployed') THEN billable_units ELSE 0 END), 0)::int AS verified_units,
                 COALESCE(SUM(CASE WHEN outcome = 'platform_error' THEN units ELSE 0 END), 0)::int AS platform_error_units,
+                COALESCE(SUM(CASE WHEN outcome = 'platform_error' THEN estimated_cost_nok ELSE 0 END), 0)::float AS failed_platform_discount_nok,
                 COALESCE(SUM(CASE WHEN kind = 'browser_proof_completed' THEN units ELSE 0 END), 0)::int AS browser_proofs,
                 COALESCE(SUM(CASE WHEN kind = 'build_minutes_recorded' THEN units ELSE 0 END), 0)::int AS build_minutes,
                 COALESCE(SUM(CASE WHEN kind = 'deploy_minutes_recorded' THEN units ELSE 0 END), 0)::int AS deploy_minutes
@@ -368,7 +369,7 @@ export async function getAiEconomics(req: FastifyRequest, res: FastifyReply) {
             deployMinutes: numberValue(summary.deploy_minutes),
             cacheHits: numberValue(cache.cache_hits),
             cacheableEvents: numberValue(cache.cacheable_events),
-            failedPlatformDiscountNok: estimatePlatformDiscount(recentResult.rows as RecentRunRow[]),
+            failedPlatformDiscountNok: numberValue(summary.failed_platform_discount_nok),
         },
         modes: pricingModes(),
         subscriptionTiers: subscriptionTiers(),
@@ -857,12 +858,6 @@ function formatEvidenceParts(parts: Array<string | null>, fallback: string) {
 function formatCountLabel(value: number, singular: string) {
     if (value === 0) return `no ${singular}s`
     return `${value} ${singular}${value === 1 ? '' : 's'}`
-}
-
-function estimatePlatformDiscount(rows: RecentRunRow[]) {
-    return rows
-        .filter((row) => row.outcome === 'platform_error')
-        .reduce((sum, row) => sum + numberValue(row.estimated_cost_nok), 0)
 }
 
 function pricingModes() {

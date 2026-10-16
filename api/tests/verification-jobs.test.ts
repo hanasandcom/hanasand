@@ -185,6 +185,24 @@ async function waitForStatus(id: string, status: string) {
     throw new Error(`Verification job ${id} did not reach ${status}.`)
 }
 
+test('invalid retry and timeout inputs use their bounded defaults', async () => {
+    const response = reply()
+    await postVerificationJob({
+        headers: {},
+        body: {
+            kind: 'browser',
+            targetUrl: 'https://example.test/proof',
+            maxRetries: 'many',
+            timeoutMs: 'soon',
+        },
+    } as any, response as any)
+
+    const insert = calls.find(call => call.sql.includes('INSERT INTO ai_verification_jobs'))
+    expect(response.statusCode).toBe(202)
+    expect(insert?.params[7]).toBe(1)
+    expect(JSON.parse(String(insert?.params[11]))).toMatchObject({ timeoutMs: 16000 })
+})
+
 test('browser and design jobs retain their distinct fetch steps, headers, and proof output', async () => {
     const browserId = await enqueue('browser')
     const browser = await waitForJob(browserId)

@@ -84,7 +84,7 @@ export async function postVerificationJob(req: FastifyRequest, res: FastifyReply
     const metadata = {
         ...(isPlainObject(body.metadata) ? body.metadata : {}),
         captureScreenshot: Boolean(body.captureScreenshot),
-        timeoutMs: Math.max(1000, Math.min(Number(body.timeoutMs || 16000), 30000)),
+        timeoutMs: boundedNumber(body.timeoutMs || 16000, 16000, 1000, 30000),
     }
     const priority = normalizePriority(body.priority)
     const lane = typeof body.lane === 'string' && body.lane.trim() ? body.lane.trim().slice(0, 40) : priority > 0 ? 'priority' : 'standard'
@@ -103,7 +103,7 @@ export async function postVerificationJob(req: FastifyRequest, res: FastifyReply
         kind,
         priority,
         lane,
-        Math.max(0, Math.min(Number(body.maxRetries ?? 1), 3)),
+        boundedNumber(body.maxRetries ?? 1, 1, 0, 3),
         targetUrl || null,
         cleanOptional(body.deployUrl),
         requestId,
@@ -908,6 +908,14 @@ function normalizePriority(priority: CreateJobBody['priority']) {
 
 function cleanOptional(value: unknown) {
     return typeof value === 'string' && value.trim() ? value.trim().slice(0, 200) : null
+}
+
+function boundedNumber(value: unknown, fallback: number, minimum: number, maximum: number) {
+    const number = Number(value)
+    if (!Number.isFinite(number)) {
+        return fallback
+    }
+    return Math.max(minimum, Math.min(number, maximum))
 }
 
 function cleanWorkspaceKind(value: string | null): 'share' | 'repo' | null {

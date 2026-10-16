@@ -35,6 +35,30 @@ test('builder generates runnable website files and caches an identical response'
     expect(second.cache).toEqual({ ...first.cache, hit: true })
 })
 
+test('mutating a returned response does not alter its cached copy', () => {
+    const prompt = 'Build a website called "Cache Integrity Garden"'
+    const first = buildShareProjectResponse(prompt)!
+    const originalMessage = first.message
+    const originalCache = { ...first.cache! }
+
+    first.message = 'caller mutation'
+    first.cache!.key = 'caller mutation'
+
+    const second = buildShareProjectResponse(prompt)!
+    expect(second.message).toBe(originalMessage)
+    expect(second.cache).toEqual({ ...originalCache, hit: true })
+})
+
+test('different prompts with the same project name do not share an incomplete cache key', () => {
+    const generalClinic = buildShareProjectResponse('Build a website for a healthcare clinic called "Collision Clinic"')!
+    const recallClinic = buildShareProjectResponse('Build a website for a healthcare clinic pharmacy recall called "Collision Clinic"')!
+
+    expect(generalClinic.message).toContain('Beginner deployment')
+    expect(generalClinic.message).not.toContain('Recall checklist')
+    expect(recallClinic.message).toContain('Recall checklist')
+    expect(recallClinic.cache?.hit).toBe(false)
+})
+
 test('shared project setup keeps generated output unchanged across project types', () => {
     const cases = [
         ['Build a small website called "Moon Archive" with Docker', '6ce31ecf943c3d1dbfb6067526d4a3c97ea62c1b3039c5d4d538226ff6a18c3a'],
