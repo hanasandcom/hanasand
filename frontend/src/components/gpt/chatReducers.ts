@@ -6,7 +6,20 @@ export function applyClientMetrics(session: ChatSession | null, client: GPT_Clie
     return { ...session, metrics: client.model }
 }
 
-export function applyPromptEvent(session: ChatSession | null, msg: GptSocketMessage) {
+type ErrorMetricsFallback = (session: ChatSession, content: string) => GPT_ModelMetrics
+
+const defaultErrorMetricsFallback: ErrorMetricsFallback = (session, content) => ({
+    ...defaultModelMetrics(),
+    ...session.metrics,
+    status: 'error',
+    lastError: content,
+})
+
+export function applyPromptEvent(
+    session: ChatSession | null,
+    msg: GptSocketMessage,
+    errorMetricsFallback: ErrorMetricsFallback = defaultErrorMetricsFallback
+) {
     if (!session || session.conversationId !== msg.conversationId) return session
     if (msg.type === 'prompt_started') {
         return {
@@ -27,7 +40,7 @@ export function applyPromptEvent(session: ChatSession | null, msg: GptSocketMess
         return updateAssistant(session, msg.content || '', msg.metrics || session.metrics, false, false)
     }
 
-    if (msg.type === 'prompt_error') return applyPromptError(session, msg)
+    if (msg.type === 'prompt_error') return applyPromptError(session, msg, errorMetricsFallback)
     return session
 }
 
@@ -53,7 +66,7 @@ function updateAssistant(
     return { ...session, isSending: pending, metrics, messages: nextMessages }
 }
 
-function applyPromptError(session: ChatSession, msg: GptSocketMessage) {
+function applyPromptError(session: ChatSession, msg: GptSocketMessage, errorMetricsFallback: ErrorMetricsFallback) {
     const content = msg.error || 'The model failed to answer this prompt.'
     const nextMessages = [...session.messages]
     const lastMessage = nextMessages[nextMessages.length - 1]
@@ -71,12 +84,7 @@ function applyPromptError(session: ChatSession, msg: GptSocketMessage) {
     return {
         ...session,
         isSending: false,
-        metrics: msg.metrics || {
-            ...defaultModelMetrics(),
-            ...session.metrics,
-            status: 'error',
-            lastError: content,
-        },
+        metrics: msg.metrics || errorMetricsFallback(session, content),
         messages: nextMessages,
     }
 }

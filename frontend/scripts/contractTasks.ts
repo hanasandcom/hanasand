@@ -28,6 +28,11 @@ export const contractTasks: TestTask[] = [
         command: [bun, 'test', 'tests/darkweb-index-data.test.ts'],
     },
     {
+        id: 'gpt-chat-reducers',
+        title: 'GPT chat streaming and error metric reducers',
+        command: [bun, 'test', 'tests/gpt-chat-reducers.test.ts'],
+    },
+    {
         id: 'dashboard-navigation-structure',
         title: 'Navigation grouping and organization destinations',
         command: [bun, 'test', 'tests/dashboard-navigation.test.ts'],

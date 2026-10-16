@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import defaultModelMetrics from './defaultModelMetrics'
 import normalizeClient from './normalizeClient'
+import { applyPromptEvent } from './chatReducers'
 import config from '@/config'
 
 function createPendingAssistantMessage(conversationId: string): GPT_ChatMessage {
@@ -140,57 +141,12 @@ function handleSocketMessage(
         case 'prompt_delta':
         case 'prompt_complete':
         case 'prompt_error':
-            return setChatSession(prev => updatePromptSession(prev, msg))
+            return setChatSession(prev => applyPromptEvent(
+                prev,
+                msg,
+                (session, content) => ({ ...session.metrics, status: 'error', lastError: content })
+            ))
         default:
             return
-    }
-}
-
-function updatePromptSession(session: ChatSession | null, msg: GptSocketMessage) {
-    if (!session || session.conversationId !== msg.conversationId) return session
-    const hasPendingAssistant = session.messages.some(message => message.role === 'assistant' && message.pending)
-    const messages = msg.type === 'prompt_started' && hasPendingAssistant
-        ? session.messages
-        : [...session.messages]
-    const lastMessage = messages[messages.length - 1]
-    let isSending = false
-    let metrics = msg.metrics || session.metrics
-
-    if (msg.type === 'prompt_started') {
-        isSending = true
-        if (!hasPendingAssistant) {
-            messages.push(createPendingAssistantMessage(session.conversationId))
-        }
-    } else if (msg.type === 'prompt_delta' || msg.type === 'prompt_complete') {
-        isSending = msg.type === 'prompt_delta'
-        if (lastMessage?.role === 'assistant') {
-            messages[messages.length - 1] = {
-                ...lastMessage,
-                content: msg.content || (msg.type === 'prompt_delta'
-                    ? `${lastMessage.content}${msg.delta || ''}`
-                    : lastMessage.content),
-                pending: isSending,
-            }
-        }
-    } else if (msg.type === 'prompt_error') {
-        const content = msg.error || 'The model failed to answer this prompt.'
-        if (lastMessage?.role === 'assistant' && lastMessage.pending) {
-            messages[messages.length - 1] = { ...lastMessage, content, pending: false, error: true }
-        } else {
-            messages.push({
-                id: `${session.conversationId}-error-${Date.now()}`,
-                role: 'assistant',
-                content,
-                error: true,
-            })
-        }
-        metrics = msg.metrics || { ...session.metrics, status: 'error', lastError: content }
-    }
-
-    return {
-        ...session,
-        isSending,
-        metrics,
-        messages,
     }
 }
