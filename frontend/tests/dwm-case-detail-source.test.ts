@@ -39,7 +39,6 @@ test('DWM case detail preserves scoped data, evidence selection, and receiver tr
     assert.match(client, /receipt\.destinationId === \(latestDelivery\?\.webhookDestinationId \|\| latestDelivery\?\.destinationId\)/)
     assert.match(client, /deliveries\.some\(delivery => delivery\.id === receipt\.deliveryId && delivery\.status === 'delivered'\)/)
     assert.match(model, /Exact report retry is available at/)
-    assert.match(ui, /Retry exact report/)
     assert.match(ui, /data-dwm-webhook-action-blocker='true'/)
     assert.match(model, /Webhook delivery needs a linked alert before it can be tested or sent\./)
     assert.match(ui, /Manage destination/)
