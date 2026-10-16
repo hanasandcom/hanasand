@@ -75,6 +75,12 @@ test('downstream contracts share lifecycle ID projections without changing order
     expect(Object.keys(authorization.watchlists)).toEqual([
         'activeIds', 'pausedIds', 'archivedIds', 'activeCount', 'pausedCount', 'archivedCount', 'states',
     ])
+    expect(authorization.watchlists.states).toEqual([
+        { watchlistItemId: 'active-a', kind: 'domain', status: 'active' },
+        { watchlistItemId: 'active-z', kind: 'domain', status: 'active' },
+        { watchlistItemId: 'paused', kind: 'keyword', status: 'paused' },
+        { watchlistItemId: 'archived', kind: 'vendor', status: 'archived' },
+    ])
     expect(authorization.visibility.allowed).toBe(true)
     expect(authorization.downstream.alertGeneration.canExportActiveTerms).toBe(true)
     expect(alertGeneration.activeWatchlistTerms.map(term => term.watchlistItemId)).toEqual(['active-a', 'active-z'])

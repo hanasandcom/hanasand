@@ -2610,14 +2610,6 @@ export function organizationMemberAccessContract(
     }
 }
 
-function watchlistIdsByLifecycleStatus(terms: Pick<OrganizationWatchlistTerm, 'watchlistItemId' | 'status'>[]) {
-    return {
-        activeIds: terms.filter(term => term.status === 'active').map(term => term.watchlistItemId),
-        pausedIds: terms.filter(term => term.status === 'paused').map(term => term.watchlistItemId),
-        archivedIds: terms.filter(term => term.status === 'archived').map(term => term.watchlistItemId),
-    }
-}
-
 export function organizationDownstreamAuthorizationExport(
     organization: Pick<OrganizationRow, 'id' | 'status' | 'default_webhook_policy' | 'alert_visibility_policy' | 'role'>,
     items: OrganizationWatchlistRow[],
@@ -2642,12 +2634,16 @@ function organizationDownstreamAuthorizationExportFromProjection(
         userActive: true,
         alertVisibilityPolicy: organization.alert_visibility_policy ?? 'members',
     })
-    const states = watchlistProjection.terms.map(term => ({
-        watchlistItemId: term.watchlistItemId,
-        kind: term.kind,
-        status: term.status,
-    }))
-    const { activeIds, pausedIds, archivedIds } = watchlistIdsByLifecycleStatus(states)
+    const states: OrganizationDownstreamAuthorizationExport['watchlists']['states'] = []
+    const activeIds: string[] = []
+    const pausedIds: string[] = []
+    const archivedIds: string[] = []
+    for (const term of watchlistProjection.terms) {
+        states.push({ watchlistItemId: term.watchlistItemId, kind: term.kind, status: term.status })
+        if (term.status === 'active') activeIds.push(term.watchlistItemId)
+        else if (term.status === 'paused') pausedIds.push(term.watchlistItemId)
+        else archivedIds.push(term.watchlistItemId)
+    }
     const allowedActions = organizationAlertCaseRoleActions(member.role)
     const roleContract = organizationAlertCaseRoleActionContract(member)
     const blockerCodes: OrganizationWatchlistAlertBridgeBlockerCode[] = []
