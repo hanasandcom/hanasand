@@ -3034,6 +3034,18 @@ export function organizationDownstreamAuthorizationExport(
     items: OrganizationWatchlistRow[],
     member: { userId: string, role: OrganizationRole }
 ): OrganizationDownstreamAuthorizationExport {
+    return organizationDownstreamAuthorizationExportFromProjection(
+        organization,
+        organizationWatchlistLifecycleProjection(items),
+        member
+    )
+}
+
+function organizationDownstreamAuthorizationExportFromProjection(
+    organization: Pick<OrganizationRow, 'id' | 'status' | 'default_webhook_policy' | 'alert_visibility_policy' | 'role'>,
+    watchlistProjection: OrganizationWatchlistLifecycleProjection,
+    member: { userId: string, role: OrganizationRole }
+): OrganizationDownstreamAuthorizationExport {
     const organizationStatus = normalizeOrganizationStatus(organization.status)
     const visibility = organizationVisibilityDecision({
         role: member.role,
@@ -3041,7 +3053,7 @@ export function organizationDownstreamAuthorizationExport(
         userActive: true,
         alertVisibilityPolicy: organization.alert_visibility_policy ?? 'members',
     })
-    const states = organizationWatchlistTerms(items).map(term => ({
+    const states = watchlistProjection.terms.map(term => ({
         watchlistItemId: term.watchlistItemId,
         kind: term.kind,
         status: term.status,
@@ -3451,7 +3463,23 @@ export function organizationSharedWatchlistDownstreamProof(
     alertGeneration: OrganizationWatchlistAlertGenerationContract,
     downstreamAuthorization: OrganizationDownstreamAuthorizationExport
 ): OrganizationSharedWatchlistDownstreamProof {
-    const watchlistStates = organizationWatchlistTerms(items)
+    return organizationSharedWatchlistDownstreamProofFromProjection(
+        organization,
+        organizationWatchlistLifecycleProjection(items),
+        member,
+        alertGeneration,
+        downstreamAuthorization
+    )
+}
+
+function organizationSharedWatchlistDownstreamProofFromProjection(
+    organization: Pick<OrganizationRow, 'id' | 'status' | 'pending_invite_count' | 'default_webhook_policy' | 'alert_visibility_policy' | 'role'>,
+    watchlistProjection: OrganizationWatchlistLifecycleProjection,
+    member: { userId: string, role: OrganizationRole },
+    alertGeneration: OrganizationWatchlistAlertGenerationContract,
+    downstreamAuthorization: OrganizationDownstreamAuthorizationExport
+): OrganizationSharedWatchlistDownstreamProof {
+    const watchlistStates = watchlistProjection.terms
     const activeTerms = alertGeneration.activeWatchlistTerms
     const activeIds = [...downstreamAuthorization.watchlists.activeIds]
     const pausedIds = [...downstreamAuthorization.watchlists.pausedIds]
@@ -6900,11 +6928,24 @@ export function organizationSettingsFromRow(row: Pick<OrganizationRow, 'status' 
     }
 }
 
-export function organizationWatchlistTerms(items: OrganizationWatchlistRow[]): OrganizationWatchlistTerm[] {
-    return items.map(item => {
+type OrganizationWatchlistLifecycleProjection = {
+    terms: OrganizationWatchlistTerm[]
+    itemsByStatus: Record<OrganizationWatchlistStatus, OrganizationWatchlistRow[]>
+}
+
+function organizationWatchlistLifecycleProjection(items: OrganizationWatchlistRow[]): OrganizationWatchlistLifecycleProjection {
+    const terms: OrganizationWatchlistTerm[] = []
+    const itemsByStatus: OrganizationWatchlistLifecycleProjection['itemsByStatus'] = {
+        active: [],
+        paused: [],
+        archived: [],
+    }
+
+    for (const item of items) {
         const status = normalizeWatchlistStatus(item)
         const lifecycleState = organizationWatchlistEnabledState(status)
-        return {
+        itemsByStatus[status].push(item)
+        terms.push({
             watchlistItemId: item.id,
             itemId: item.id,
             ...organizationTenantIdentity(item.organization_id, item.organization_id),
@@ -6922,21 +6963,81 @@ export function organizationWatchlistTerms(items: OrganizationWatchlistRow[]): O
             updatedBy: item.updated_by ?? null,
             lifecycleReason: item.lifecycle_reason ?? null,
             lifecycleRequestId: item.lifecycle_request_id ?? null,
-        }
-    }).sort((a, b) => `${a.termFamily}:${a.term}`.localeCompare(`${b.termFamily}:${b.term}`))
+        })
+    }
+
+    terms.sort((a, b) => `${a.termFamily}:${a.term}`.localeCompare(`${b.termFamily}:${b.term}`))
+    return { terms, itemsByStatus }
+}
+
+export function organizationWatchlistTerms(items: OrganizationWatchlistRow[]): OrganizationWatchlistTerm[] {
+    return organizationWatchlistLifecycleProjection(items).terms
+}
+
+export type OrganizationSharedWatchlistProjection = {
+    alertGeneration: OrganizationWatchlistAlertGenerationContract
+    downstreamAuthorization: OrganizationDownstreamAuthorizationExport
+    sharedWatchlistDownstreamProof: OrganizationSharedWatchlistDownstreamProof
+}
+
+type OrganizationSharedWatchlistProjectionInput = Pick<OrganizationRow,
+    'id' | 'name' | 'slug' | 'status' | 'member_count' | 'owner_count' | 'admin_count'
+    | 'pending_invite_count' | 'shared_watchlist_count' | 'default_webhook_policy'
+    | 'alert_visibility_policy' | 'role'
+>
+
+export function organizationSharedWatchlistProjection(
+    organization: OrganizationSharedWatchlistProjectionInput,
+    items: OrganizationWatchlistRow[],
+    member: { userId: string, role: OrganizationRole }
+): OrganizationSharedWatchlistProjection {
+    return organizationSharedWatchlistProjectionFromLifecycle(
+        organization,
+        organizationWatchlistLifecycleProjection(items),
+        member
+    )
+}
+
+function organizationSharedWatchlistProjectionFromLifecycle(
+    organization: OrganizationSharedWatchlistProjectionInput,
+    watchlistProjection: OrganizationWatchlistLifecycleProjection,
+    member: { userId: string, role: OrganizationRole }
+): OrganizationSharedWatchlistProjection {
+    const alertGeneration = organizationWatchlistAlertGenerationContractFromProjection(organization, watchlistProjection)
+    const downstreamAuthorization = organizationDownstreamAuthorizationExportFromProjection(organization, watchlistProjection, member)
+    const sharedWatchlistDownstreamProof = organizationSharedWatchlistDownstreamProofFromProjection(
+        organization,
+        watchlistProjection,
+        member,
+        alertGeneration,
+        downstreamAuthorization
+    )
+    return { alertGeneration, downstreamAuthorization, sharedWatchlistDownstreamProof }
 }
 
 export function organizationWatchlistAlertGenerationContract(
     organization: Pick<OrganizationRow, 'id' | 'name' | 'slug' | 'status' | 'member_count' | 'owner_count' | 'pending_invite_count' | 'shared_watchlist_count' | 'default_webhook_policy' | 'alert_visibility_policy'>,
     items: OrganizationWatchlistRow[]
 ): OrganizationWatchlistAlertGenerationContract {
+    return organizationWatchlistAlertGenerationContractFromProjection(
+        organization,
+        organizationWatchlistLifecycleProjection(items)
+    )
+}
+
+function organizationWatchlistAlertGenerationContractFromProjection(
+    organization: Pick<OrganizationRow, 'id' | 'name' | 'slug' | 'status' | 'member_count' | 'owner_count' | 'pending_invite_count' | 'shared_watchlist_count' | 'default_webhook_policy' | 'alert_visibility_policy'>,
+    watchlistProjection: OrganizationWatchlistLifecycleProjection
+): OrganizationWatchlistAlertGenerationContract {
     const organizationStatus = normalizeOrganizationStatus(organization.status)
-    const activeItems = organizationStatus === 'active' ? items.filter(item => normalizeWatchlistStatus(item) === 'active') : []
+    const activeItems = organizationStatus === 'active' ? watchlistProjection.itemsByStatus.active : []
     const bridgeContext = buildOrganizationBridgeContext({
         ...organization,
         shared_watchlist_count: activeItems.length,
     })
-    const activeWatchlistTerms = organizationWatchlistTerms(activeItems)
+    const activeWatchlistTerms = organizationStatus === 'active'
+        ? watchlistProjection.terms.filter(term => term.status === 'active')
+        : []
     const termFamilies = [...new Set(activeWatchlistTerms.map(term => term.termFamily))].sort()
     const blockedReasons: string[] = []
     if (organizationStatus !== 'active') {
@@ -6969,8 +7070,9 @@ export function organizationWatchlistAlertTermsExport(
     items: OrganizationWatchlistRow[],
     member: { userId: string, role: OrganizationRole }
 ): OrganizationWatchlistAlertTermsExport {
-    const alertGeneration = organizationWatchlistAlertGenerationContract(organization, items)
-    const downstreamAuthorization = organizationDownstreamAuthorizationExport(organization, items, member)
+    const watchlistProjection = organizationWatchlistLifecycleProjection(items)
+    const sharedProjection = organizationSharedWatchlistProjectionFromLifecycle(organization, watchlistProjection, member)
+    const { alertGeneration, downstreamAuthorization, sharedWatchlistDownstreamProof } = sharedProjection
     const activeTerms = alertGeneration.activeWatchlistTerms.map(term => {
         const alertGenerationRef = organizationWatchlistAlertGenerationRef(term)
         const alertGeneratorKey = alertGenerationRef.dedupe.key
@@ -7006,9 +7108,7 @@ export function organizationWatchlistAlertTermsExport(
             },
         }
     })
-    const activeItems = items.filter(item => normalizeWatchlistStatus(item) === 'active')
-    const pausedItems = items.filter(item => normalizeWatchlistStatus(item) === 'paused')
-    const archivedItems = items.filter(item => normalizeWatchlistStatus(item) === 'archived')
+    const { active: activeItems, paused: pausedItems, archived: archivedItems } = watchlistProjection.itemsByStatus
     const pausedCount = pausedItems.length
     const archivedCount = archivedItems.length
     const termLifecycle: OrganizationWatchlistAlertTermsExport['termLifecycle'] = {
@@ -7023,8 +7123,10 @@ export function organizationWatchlistAlertTermsExport(
         cleanupRoute: 'POST /api/organizations/:id/watchlists/cleanup',
         alertMatchingEligibleStatuses: ['active'],
         exportExcludesDeletedTerms: true,
-        excludedFromAlertMatching: [...pausedItems, ...archivedItems].map(item => {
-            const status = normalizeWatchlistStatus(item) as 'paused' | 'archived'
+        excludedFromAlertMatching: [
+            ...pausedItems.map(item => ({ item, status: 'paused' as const })),
+            ...archivedItems.map(item => ({ item, status: 'archived' as const })),
+        ].map(({ item, status }) => {
             return {
                 watchlistItemId: item.id,
                 itemId: item.id,
@@ -7067,7 +7169,6 @@ export function organizationWatchlistAlertTermsExport(
         archivedCount,
     })
     const cleanupRequired = pausedCount + archivedCount > 0
-    const sharedWatchlistDownstreamProof = organizationSharedWatchlistDownstreamProof(organization, items, member, alertGeneration, downstreamAuthorization)
     const sharedWatchlistIntegrationGuardrails = organizationSharedWatchlistIntegrationGuardrails(sharedWatchlistDownstreamProof)
     const sharedWatchlistAlertQueueVisibility = organizationSharedWatchlistAlertQueueVisibility(sharedWatchlistDownstreamProof)
     const webhookDestinationOwnership = organizationAlertCaseWorkflowState(

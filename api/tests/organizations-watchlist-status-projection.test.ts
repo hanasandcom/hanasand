@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
 import {
     organizationDownstreamAuthorizationExport,
+    organizationSharedWatchlistProjection,
     organizationSharedWatchlistDownstreamProof,
     organizationWatchlistAlertGenerationContract,
 } from '../src/utils/organizations.ts'
@@ -41,6 +42,27 @@ test('downstream contracts share lifecycle ID projections without changing order
     const alertGeneration = organizationWatchlistAlertGenerationContract(organization, items)
     const authorization = organizationDownstreamAuthorizationExport(organization, items, member)
     const proof = organizationSharedWatchlistDownstreamProof(organization, items, member, alertGeneration, authorization)
+    const projection = organizationSharedWatchlistProjection(organization, items, member)
+
+    expect(Object.keys(projection)).toEqual([
+        'alertGeneration', 'downstreamAuthorization', 'sharedWatchlistDownstreamProof',
+    ])
+    expect(Object.keys(projection.alertGeneration)).toEqual([
+        'schemaVersion', 'organizationId', 'tenantId', 'ownerOrganizationId', 'visibilityPolicy',
+        'allowedViewerRoles', 'activeWatchlistTerms', 'termFamilies', 'blockedReasons', 'canGenerateAlerts',
+    ])
+    expect(Object.keys(projection.downstreamAuthorization)).toEqual([
+        'schemaVersion', 'organizationId', 'tenantId', 'organizationLifecycleState', 'member', 'visibility',
+        'watchlists', 'allowedActions', 'actionGates', 'downstream', 'lifecycleDenials',
+    ])
+    expect(Object.keys(projection.sharedWatchlistDownstreamProof)).toEqual([
+        'schemaVersion', 'organizationId', 'tenantId', 'ownerOrganizationId', 'actor', 'inviteLifecycle',
+        'watchlistOwnership', 'audit', 'alertBridge', 'caseBridge', 'webhookBridge', 'monitoringWorkflow',
+        'analystPortalWorkflow', 'enrichmentProvenance', 'integration', 'blockers',
+    ])
+    expect(projection.alertGeneration).toEqual(alertGeneration)
+    expect(projection.downstreamAuthorization).toEqual(authorization)
+    expect(projection.sharedWatchlistDownstreamProof).toEqual(proof)
 
     expect(authorization.watchlists).toMatchObject({
         activeIds: ['active-a', 'active-z'],

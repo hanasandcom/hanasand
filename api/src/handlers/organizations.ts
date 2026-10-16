@@ -38,12 +38,11 @@ import {
     organizationLastOwnerGuard,
     organizationLifecycleReadiness,
     organizationMemberMutationDenial,
-    organizationDownstreamAuthorizationExport,
     organizationMemberAccessContract,
     organizationReadinessProof,
     organizationSettingsFromRow,
     organizationSettingsMutationDenial,
-    organizationSharedWatchlistDownstreamProof,
+    organizationSharedWatchlistProjection,
     organizationVisibilityDecision,
     organizationWatchlistAlertGenerationContract,
     organizationWatchlistAlertTermsExport,
@@ -2149,11 +2148,12 @@ export async function getOrganizationAlertReadiness(req: FastifyRequest<{ Params
     }
     const generatedAlertReferences = watchlistItems.map(item => buildOrganizationDwmAlertReference(bridgeOrganization, item))
     const teamOnboardingReadiness = organizationTeamOnboardingReadiness(bridgeContext)
-    const alertGenerationBridge = organizationWatchlistAlertGenerationContract(bridgeOrganization, watchlistItems)
-    const downstreamAuthorization = organizationDownstreamAuthorizationExport(bridgeOrganization, watchlistItems, {
+    const sharedProjection = organizationSharedWatchlistProjection(bridgeOrganization, watchlistItems, {
         userId,
         role: organization.role ?? 'viewer',
     })
+    const alertGenerationBridge = sharedProjection.alertGeneration
+    const downstreamAuthorization = sharedProjection.downstreamAuthorization
     const lifecycleReadiness = organizationLifecycleReadiness({
         ...organization,
         shared_watchlist_count: bridgeContext.sharedWatchlistCount,
@@ -2163,10 +2163,7 @@ export async function getOrganizationAlertReadiness(req: FastifyRequest<{ Params
         alertGenerationBridge,
         downstreamAuthorization,
     })
-    const sharedWatchlistDownstreamProof = organizationSharedWatchlistDownstreamProof(bridgeOrganization, watchlistItems, {
-        userId,
-        role: organization.role ?? 'viewer',
-    }, alertGenerationBridge, downstreamAuthorization)
+    const sharedWatchlistDownstreamProof = sharedProjection.sharedWatchlistDownstreamProof
 
     return res.send({
         organization: toOrganization(organization),
@@ -2334,15 +2331,12 @@ export async function getOrganizationAlertCaseVisibility(req: FastifyRequest<{ P
         ORDER BY status ASC, kind ASC, value ASC
     `, [req.params.id])
     const watchlistItems = result.rows as OrganizationWatchlistRow[]
-    const alertGeneration = organizationWatchlistAlertGenerationContract(organization, watchlistItems)
-    const downstreamAuthorization = organizationDownstreamAuthorizationExport(organization, watchlistItems, {
+    const sharedProjection = organizationSharedWatchlistProjection(organization, watchlistItems, {
         userId,
         role: organization.role ?? 'viewer',
     })
-    const downstreamProof = organizationSharedWatchlistDownstreamProof(organization, watchlistItems, {
-        userId,
-        role: organization.role ?? 'viewer',
-    }, alertGeneration, downstreamAuthorization)
+    const downstreamAuthorization = sharedProjection.downstreamAuthorization
+    const downstreamProof = sharedProjection.sharedWatchlistDownstreamProof
     const visibility = organizationVisibilityDecision({
         role: organization.role,
         status: 'active',

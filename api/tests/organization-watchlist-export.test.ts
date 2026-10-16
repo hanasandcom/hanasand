@@ -157,3 +157,29 @@ test('alert term export denial preserves explicit tenant identity and fallback o
     expect(nullTenant).toMatchObject({ organizationId: 'org-1', tenantId: 'org-1' })
     expect(nullTenant.alertGenerationConsumerDenial).toMatchObject({ organizationId: 'org-1', tenantId: 'org-1' })
 })
+
+test('archived timestamp overrides status while inactive organizations retain lifecycle IDs', () => {
+    const result = organizationWatchlistAlertTermsExport({ ...organization, status: 'archived' }, [
+        watchlistItem({ id: 'active-1', kind: 'domain', value: 'example.com', status: 'active' }),
+        watchlistItem({
+            id: 'archived-by-timestamp',
+            kind: 'keyword',
+            value: 'launch plan',
+            status: 'active',
+            archivedAt: '2026-02-01T00:00:00.000Z',
+        }),
+    ], { userId: 'owner-1', role: 'owner' })
+
+    expect(result.activeTerms).toEqual([])
+    expect(result.termLifecycle.activeItemIds).toEqual(['active-1'])
+    expect(result.termLifecycle.archivedItemIds).toEqual(['archived-by-timestamp'])
+    expect(result.termLifecycle.excludedFromAlertMatching).toMatchObject([
+        { watchlistItemId: 'archived-by-timestamp', status: 'archived', deletedByArchive: true },
+    ])
+    expect(result.excluded).toEqual({ pausedCount: 0, archivedCount: 1, inactiveCount: 1 })
+    expect(result.downstreamAuthorization.watchlists.states).toEqual([
+        { watchlistItemId: 'active-1', kind: 'domain', status: 'active' },
+        { watchlistItemId: 'archived-by-timestamp', kind: 'keyword', status: 'archived' },
+    ])
+    expect(result.canGenerateAlerts).toBe(false)
+})
