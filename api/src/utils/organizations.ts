@@ -1,4 +1,5 @@
 import { normalizeOrganizationRole, roleCanManageOrganization, roleCanEditOrganization, type OrganizationRole } from './organizationRoles.ts'
+import { buildWebhookDestinationReadinessBridge } from './webhookDestinationReadinessBridge.ts'
 export { normalizeOrganizationRole, roleCanManageOrganization, roleCanEditOrganization, type OrganizationRole } from './organizationRoles.ts'
 
 function organizationTenantIdentity<TOrganizationId, TTenantId>(organizationId: TOrganizationId, tenantId: TTenantId) {
@@ -5688,55 +5689,13 @@ export function organizationReadinessProof(input: {
                 'orgAlertDelivery.auditEventContracts',
             ],
             blockerCodes: webhookBlockerCodes,
-            webhookDestinationReadinessBridge: {
-                schemaVersion: 'organization.webhook_destination_readiness_bridge.v1',
-                deliveryContractSchema: 'dwm.webhook.org_alert_delivery.v1',
-                sourceContract: 'organization.watchlist_webhook_delivery_contract.v1',
-                route: 'POST /v1/dwm/webhooks/deliver',
+            webhookDestinationReadinessBridge: buildWebhookDestinationReadinessBridge({
                 defaultWebhookPolicy: input.downstreamAuthorization.downstream.webhook.defaultPolicy,
                 canUseDefaultDestinations: input.downstreamAuthorization.downstream.webhook.canUseDefaultDestinations,
                 selectedDestinationSource: webhookSelectedDestinationSource,
                 requiredDestinationOrgId: input.downstreamAuthorization.organizationId,
-                selectedDestinationOrgField: 'destination.org_id',
-                selectedDestinationIdField: 'webhookDestinationIds[]',
-                ownerAdminManualTriggerRequired: true,
-                memberManualTriggerAllowed: false,
-                requiredAlertFields: [
-                    'alert.id',
-                    'alert.organizationId',
-                    'alert.tenantId',
-                    'alert.watchlistItemIds',
-                    'alert.workflowContext.alertGenerationRefs',
-                    'alert.workflowContext.alertGeneratorKeys',
-                ],
-                expectedDeliveryFields: [
-                    'organizationId',
-                    'tenantId',
-                    'destinationId',
-                    'eventType',
-                    'payload.alert.id',
-                    'payload.alert.organizationId',
-                    'payload.watchlist.watchlistItemIds',
-                    'delivery.idempotencyKey',
-                ],
-                skippedDestinationReasons: [
-                    'org_mismatch',
-                    'destination_disabled',
-                    'event_not_subscribed',
-                    'manual_selection_required',
-                    'webhook_policy_disabled',
-                ],
-                lifecycleBlockers: [
-                    'org_archived',
-                    'org_deleted',
-                    'watchlist_paused',
-                    'watchlist_archived',
-                    'member_revoked',
-                    'nonmember_denied',
-                ],
                 blockerCodes: webhookBlockerCodes,
-                nonmemberDestinationEnumeration: false,
-            },
+            }),
         },
         destinationOwnershipProof: {
             schemaVersion: 'organization.webhook_destination_ownership_readiness.v1',
