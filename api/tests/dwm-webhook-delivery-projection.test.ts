@@ -1,4 +1,4 @@
-import { expect, test } from 'bun:test'
+import { expect, setSystemTime, test } from 'bun:test'
 import { dwmWebhookDestinationRow } from './fixtures/dwm-webhook-destination.ts'
 import {
     buildDwmAlertWebhookReadinessHandoff,
@@ -7,6 +7,8 @@ import {
     buildDwmWebhookDeliveryRetryContract,
     buildDwmWebhookDeliveryEvidence,
     buildDwmWebhookDeliveryHistory,
+    buildDwmWebhookDeliveryHistoryConsumerProof,
+    buildDwmWebhookDeliveryAttemptPersistenceReadModel,
     buildDwmWebhookDeliveryLedger,
     buildDwmWebhookDeliveryOperations,
     buildDwmWebhookDeliveryRetryPersistence,
@@ -229,6 +231,32 @@ test('retry persistence uses the shared ledger and its supplied planning time', 
         retry: { retryable: true, nextRetryAt: '2026-10-01T10:01:00.000Z' },
         audit: { auditEventIds: ['audit_1'] },
     })
+})
+
+test('history consumer reuses shared evidence and preserves retry projections at a fixed time', () => {
+    const now = new Date('2026-10-01T10:00:00.000Z')
+    setSystemTime(now)
+    try {
+        const first = { ...deliveries[0], attemptedAt: null, nextRetryAt: null, attemptCount: 1 }
+        const second = { ...first, id: 'delivery_3' }
+        const input = { deliveries: [first, second], auditEvents: [], destinations: [destination], liveDeliveryEnabled: true }
+        const historyConsumer = buildDwmWebhookDeliveryHistoryConsumerProof(input)
+        const history = buildDwmWebhookDeliveryHistory(input)
+        const attempts = buildDwmWebhookDeliveryAttemptPersistenceReadModel(input)
+
+        expect(historyConsumer.rows.map(row => row.deliveryId)).toEqual(history.entries.map(entry => entry.deliveryId))
+        expect(historyConsumer.rows.map(row => row.idempotency)).toEqual(attempts.rows.map(row => row.idempotency))
+        expect(historyConsumer.rows.map(row => row.retry.nextRetryAt)).toEqual([
+            '2026-10-01T10:05:00.000Z',
+            '2026-10-01T10:05:00.000Z',
+        ])
+        expect(attempts.rows.map(row => row.retry.nextRetryAt)).toEqual([
+            '2026-10-01T10:01:00.000Z',
+            '2026-10-01T10:01:00.000Z',
+        ])
+    } finally {
+        setSystemTime()
+    }
 })
 
 test('organization delivery contracts share destination selection semantics', () => {

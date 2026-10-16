@@ -1416,6 +1416,23 @@ export function buildDwmWebhookDeliveryHistory({
     }).history
 }
 
+type DwmWebhookDeliveryProjectionContext = {
+    projection: ReturnType<typeof buildDwmWebhookDeliveryEvidenceProjection>
+    now: Date
+}
+
+function prepareDwmWebhookDeliveryProjectionContext({
+    deliveries,
+    auditEvents,
+    filters,
+    now = new Date(),
+}: Pick<DwmWebhookDeliveryEvidenceOptions, 'deliveries' | 'auditEvents' | 'filters'> & { now?: Date }): DwmWebhookDeliveryProjectionContext {
+    return {
+        projection: buildDwmWebhookDeliveryEvidenceProjection({ deliveries, auditEvents, filters }),
+        now,
+    }
+}
+
 function buildDwmWebhookDeliveryHistoryWithRetryPersistence({
     deliveries,
     auditEvents = [],
@@ -1423,8 +1440,14 @@ function buildDwmWebhookDeliveryHistoryWithRetryPersistence({
     filters = {},
     liveDeliveryEnabled = process.env.DWM_WEBHOOK_LIVE_DELIVERY === 'true',
     now,
-}: DwmWebhookDeliveryEvidenceOptions & { now: Date }) {
-    const { projection, ledger, auditContracts } = buildDwmWebhookDeliveryProjectionBundle({ deliveries, auditEvents, destinations, filters, now })
+    context = prepareDwmWebhookDeliveryProjectionContext({ deliveries, auditEvents, filters, now }),
+}: DwmWebhookDeliveryEvidenceOptions & {
+    now: Date
+    context?: DwmWebhookDeliveryProjectionContext
+}) {
+    const { projection, now: planningTime } = context
+    const ledger = buildDwmWebhookDeliveryLedgerFromEvidence({ projection, now: planningTime })
+    const auditContracts = buildDwmWebhookAuditEventContractsFromLedger({ auditEvents, deliveries, destinations, ledger })
     const operations = buildDwmWebhookDeliveryOperationsFromProjection({ destinations, filters, liveDeliveryEnabled, ledger, auditContracts })
     const retryPersistence = buildDwmWebhookDeliveryRetryPersistenceFromProjection({ destinations, filters, liveDeliveryEnabled, ledger, auditContracts })
     const deliveryById = projection.deliveriesById
@@ -1537,8 +1560,24 @@ export function buildDwmWebhookDeliveryHistoryConsumerProof({
     filters = {},
     liveDeliveryEnabled = process.env.DWM_WEBHOOK_LIVE_DELIVERY === 'true',
 }: DwmWebhookDeliveryEvidenceOptions) {
-    const history = buildDwmWebhookDeliveryHistory({ deliveries, auditEvents, destinations, filters, liveDeliveryEnabled })
-    const attempts = buildDwmWebhookDeliveryAttemptPersistenceReadModel({ deliveries, auditEvents, destinations, filters, liveDeliveryEnabled })
+    const now = new Date()
+    const context = prepareDwmWebhookDeliveryProjectionContext({ deliveries, auditEvents, filters, now })
+    const { history } = buildDwmWebhookDeliveryHistoryWithRetryPersistence({
+        deliveries,
+        auditEvents,
+        destinations,
+        filters,
+        liveDeliveryEnabled,
+        now,
+        context,
+    })
+    const attempts = buildDwmWebhookDeliveryAttemptPersistenceReadModelFromProjection({
+        auditEvents,
+        destinations,
+        filters,
+        liveDeliveryEnabled,
+        context,
+    })
     const attemptByDeliveryId = new Map(attempts.rows.map(row => [row.deliveryId, row]))
     const rows = history.entries.map((entry) => {
         const attempt = attemptByDeliveryId.get(entry.deliveryId) || null
@@ -8005,7 +8044,26 @@ export function buildDwmWebhookDeliveryAttemptPersistenceReadModel({
     filters = {},
     liveDeliveryEnabled = process.env.DWM_WEBHOOK_LIVE_DELIVERY === 'true',
 }: DwmWebhookDeliveryEvidenceOptions) {
-    const evidence = buildDwmWebhookDeliveryEvidence({ deliveries, auditEvents, filters })
+    return buildDwmWebhookDeliveryAttemptPersistenceReadModelFromProjection({
+        auditEvents,
+        destinations,
+        filters,
+        liveDeliveryEnabled,
+        context: prepareDwmWebhookDeliveryProjectionContext({ deliveries, auditEvents, filters }),
+    })
+}
+
+function buildDwmWebhookDeliveryAttemptPersistenceReadModelFromProjection({
+    auditEvents = [],
+    destinations = [],
+    filters = {},
+    liveDeliveryEnabled = process.env.DWM_WEBHOOK_LIVE_DELIVERY === 'true',
+    context,
+}: Pick<DwmWebhookDeliveryEvidenceOptions, 'auditEvents' | 'destinations' | 'filters' | 'liveDeliveryEnabled'> & {
+    context: DwmWebhookDeliveryProjectionContext
+}) {
+    const { projection, now } = context
+    const { evidence, deliveriesById } = projection
     const auditByDeliveryId = new Map(auditEvents.filter(audit => audit.deliveryId).map(audit => [audit.deliveryId, audit]))
     const destinationById = new Map(destinations.map(destination => [destination.id, destination]))
     const attemptsByIdempotencyKey = new Map<string, typeof evidence>()
@@ -8017,7 +8075,7 @@ export function buildDwmWebhookDeliveryAttemptPersistenceReadModel({
         attemptsByIdempotencyKey.set(key, attempts)
     }
     const rows = evidence.map((item) => {
-        const delivery = deliveries.find(row => row.id === item.deliveryId) || null
+        const delivery = deliveriesById.get(item.deliveryId) || null
         const audit = auditByDeliveryId.get(item.deliveryId) || null
         const destination = item.destinationId ? destinationById.get(item.destinationId) || null : null
         const idempotencyKey = clean(item.idempotencyKey)
@@ -8032,6 +8090,7 @@ export function buildDwmWebhookDeliveryAttemptPersistenceReadModel({
             error: delivery?.error || item.error,
             attemptedAt: delivery?.attemptedAt || item.attemptedAt,
             attemptCount: delivery?.attemptCount || 1,
+            now,
         })
         const replayBody = delivery ? {
             orgId: delivery.orgId,
