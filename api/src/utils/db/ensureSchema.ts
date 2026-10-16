@@ -33,11 +33,11 @@ export default async function ensureSchema() {
     // release cannot leave receipt writers serialized indefinitely.
     await ensureExistingRuleHitCountSchema()
     const release = process.env.HANASAND_RELEASE_COMMIT
-    const tracked = Boolean(release && /^[a-f0-9]{40}$/.test(release))
+    const trackedRelease = release && /^[a-f0-9]{40}$/.test(release) ? release : undefined
     const deploymentCandidate = process.env.DEPLOYMENT_CANDIDATE_ONLY === '1'
-    if (tracked) {
+    if (trackedRelease) {
         try {
-            const result = await queryOnce('SELECT 1 FROM app_schema_releases WHERE release = $1', [release!])
+            const result = await queryOnce('SELECT 1 FROM app_schema_releases WHERE release = $1', [trackedRelease])
             if (result.rowCount) {
                 scheduleLegacyEventConstraintCleanup()
                 if (!deploymentCandidate) await ensureIdentityDataBoundaryWithRetry()
@@ -50,9 +50,9 @@ export default async function ensureSchema() {
     await retrySchemaLockTimeout(async() => {
         await withSchemaLockTimeout(applySchema)
         if (!deploymentCandidate) await ensureIdentityDataBoundaryWithRetry()
-        if (tracked) await withSchemaLockTimeout(async () => {
+        if (trackedRelease) await withSchemaLockTimeout(async () => {
             await queryOnce('CREATE TABLE IF NOT EXISTS app_schema_releases (release TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW())')
-            await queryOnce('INSERT INTO app_schema_releases (release) VALUES ($1) ON CONFLICT DO NOTHING', [release!])
+            await queryOnce('INSERT INTO app_schema_releases (release) VALUES ($1) ON CONFLICT DO NOTHING', [trackedRelease])
         })
         scheduleLegacyEventConstraintCleanup()
     }, 'Schema update deferred because it exceeded its lock or execution limit')
@@ -1499,7 +1499,7 @@ async function applySchema() {
         )
     `)
     await ensureSharedMailSchema()
-    await run('ALTER TABLE mail_accounts ADD COLUMN IF NOT EXISTS recovery_email TEXT')
+    await ensureColumn(run, 'mail_accounts', 'recovery_email', 'ALTER TABLE mail_accounts ADD COLUMN IF NOT EXISTS recovery_email TEXT')
     await run('ALTER TABLE mail_accounts ADD COLUMN IF NOT EXISTS disabled_at TIMESTAMPTZ')
     await run(`
         CREATE TABLE IF NOT EXISTS mail_filters (
