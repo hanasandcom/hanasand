@@ -111,6 +111,25 @@ test('organization input normalization and validation', () => {
     assert.throws(() => normalizeWatchlistActionInput({ action: 'delete', reason: 'nope' }), /pause, resume, archive, or restore/)
 })
 
+test('watchlist mutations normalize shared reason and request ID aliases consistently', () => {
+    const reason = '  Reviewed   after customer request. '
+    const request_id = ' watchlist-request '
+
+    assert.deepEqual(normalizeWatchlistInput({ kind: 'company', value: 'Example', reason, request_id }), {
+        kind: 'company',
+        value: 'Example',
+        notes: '',
+        reason: 'Reviewed after customer request.',
+        requestId: 'watchlist-request',
+    })
+    assert.deepEqual(normalizeWatchlistActionInput({ action: 'pause', reason, request_id }), {
+        action: 'pause', reason: 'Reviewed after customer request.', requestId: 'watchlist-request',
+    })
+    assert.deepEqual(normalizeWatchlistCleanupInput({ itemIds: ['watch_1'], reason, request_id }), {
+        itemIds: ['watch_1'], reason: 'Reviewed after customer request.', requestId: 'watchlist-request',
+    })
+})
+
 test('watchlist alert reference contract', () => {
     const alertReference = buildOrganizationDwmAlertReference(
         {

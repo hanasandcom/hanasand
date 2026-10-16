@@ -2385,8 +2385,7 @@ export function normalizeWatchlistInput(body: WatchlistInput | undefined) {
     }
 
     const notes = cleanText(body?.notes)
-    const reason = normalizeWatchlistReason(body?.reason)
-    const requestId = normalizeRequestId(body?.requestId ?? body?.request_id)
+    const { reason, requestId } = normalizeWatchlistMutationMetadata(body)
     return {
         kind: kind as WatchlistKind,
         value,
@@ -2412,8 +2411,7 @@ export function normalizeWatchlistActionInput(body: WatchlistActionInput | undef
         throw new Error('Watchlist action must be pause, resume, archive, or restore.')
     }
 
-    const reason = normalizeWatchlistReason(body?.reason)
-    const requestId = normalizeRequestId(body?.requestId ?? body?.request_id)
+    const { reason, requestId } = normalizeWatchlistMutationMetadata(body)
     return { action: action as OrganizationWatchlistAction, reason, requestId }
 }
 
@@ -2432,8 +2430,7 @@ export function normalizeWatchlistCleanupInput(body: WatchlistCleanupInput | und
         throw new Error('Clean up at most 50 watchlist items at a time.')
     }
 
-    const reason = normalizeWatchlistReason(body?.reason)
-    const requestId = normalizeRequestId(body?.requestId ?? body?.request_id)
+    const { reason, requestId } = normalizeWatchlistMutationMetadata(body)
     return { itemIds, reason, requestId }
 }
 
@@ -8024,6 +8021,17 @@ function normalizeWatchlistValue(kind: WatchlistKind, value: unknown) {
 function normalizeWatchlistReason(value: unknown) {
     const reason = cleanText(value)
     return reason ? reason.slice(0, 1000) : undefined
+}
+
+function normalizeWatchlistMutationMetadata(body: {
+    reason?: unknown
+    requestId?: unknown
+    request_id?: unknown
+} | undefined) {
+    return {
+        reason: normalizeWatchlistReason(body?.reason),
+        requestId: normalizeRequestId(body?.requestId ?? body?.request_id),
+    }
 }
 
 function normalizeWatchlistStatus(row: Pick<OrganizationWatchlistRow, 'status' | 'archived_at'>): OrganizationWatchlistStatus {
