@@ -307,7 +307,7 @@ test('retries failed external mailbox cleanup without hard-deleting the account'
     expect(dueQuery).toContain('cohort_position <= $3')
 })
 
-test('serializes a login purge with the scheduled purge batch for the same account', async () => {
+test('serializes a direct per-account purge with the scheduled batch for the same account', async () => {
     waitForMailDeletion = true
     const loginPurge = purgeDeletedAccount('deleted-user')
     await mailDeletionStarted

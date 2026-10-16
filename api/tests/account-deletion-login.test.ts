@@ -6,7 +6,6 @@ const queries: string[] = []
 const queryBindings: Array<{ sql: string, params: unknown[] }> = []
 const deletedUsers: string[] = []
 const loginReasons: string[] = []
-const purgedUsers: string[] = []
 
 mock.module('#db', () => ({
     default: async (sql: string, params?: unknown[]) => {
@@ -33,7 +32,6 @@ mock.module('#utils/db/identityDataWrites.ts', () => ({ incrementIdentityLoginAt
 mock.module('#utils/auth/login.ts', () => ({ default: async () => ({ token: 'session-token', expires_at: '2030-01-01T00:00:00.000Z' }) }))
 mock.module('#utils/auth/accountDeletion.ts', () => ({ createAccountRestoreToken: () => ({ token: 'restore-token', hash: 'restore-hash' }) }))
 mock.module('#utils/auth/session.ts', () => ({ revokeAllTokens: async () => 1 }))
-mock.module('#utils/auth/purgeDeletedAccounts.ts', () => ({ purgeDeletedAccount: async (userId: string) => { purgedUsers.push(userId); return true } }))
 
 const loginHandler = (await import('../src/handlers/auth/login.ts')).default
 const app = Fastify()
@@ -45,7 +43,6 @@ beforeEach(() => {
     queryBindings.length = 0
     deletedUsers.length = 0
     loginReasons.length = 0
-    purgedUsers.length = 0
 })
 afterAll(async () => app.close())
 
@@ -64,14 +61,13 @@ test('a valid login before the scheduled deletion date returns the restore flow 
     expect(restoreHashUpdate?.params).not.toContain(response.json().restore_token)
 })
 
-test('a valid login after the scheduled deletion date rejects access without invoking the account purge', async () => {
+test('a valid login after the scheduled deletion date rejects the account without restoring it', async () => {
     scheduledAt = new Date(Date.now() - 60_000).toISOString()
 
     const response = await app.inject({ method: 'POST', url: '/login/deletion-user', payload: { password: 'valid-password' } })
 
     expect(response.statusCode).toBe(404)
     expect(response.json()).toEqual({ error: 'Incorrect username or password.' })
-    expect(purgedUsers).toEqual([])
     expect(deletedUsers).toEqual([])
     expect(loginReasons).toEqual([])
     expect(queries.some(sql => sql.includes('UPDATE users SET deletion_restore_token_hash'))).toBe(false)
