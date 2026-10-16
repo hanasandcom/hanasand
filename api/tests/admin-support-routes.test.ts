@@ -550,7 +550,7 @@ test('organization and user inspections keep shared fields and target-specific c
         member_count: 3, pending_invite_count: 2,
     }
     state.supportUser = {
-        id: 'user-1', name: 'User One', avatar: null, active: true, reserved: false,
+        id: 'user-1', name: 'User One', avatar: null, email: 'member@example.com', active: true, reserved: false,
         deactivated_at: null, deactivated_by: null, deletion_requested_at: null, deletion_scheduled_at: null,
     }
 
@@ -625,6 +625,22 @@ test('organization and user inspections keep shared fields and target-specific c
     expect(user.recentAuditEvents).toBe(user.recentAuditTimeline.events)
     expect(organization).not.toHaveProperty('user')
     expect(user).not.toHaveProperty('organization')
+})
+
+test('user inspection finds pending organization invites by the user email', async () => {
+    state.supportUser = {
+        id: 'user-1', name: 'User One', avatar: null, email: 'member@example.com', active: true, reserved: false,
+        deactivated_at: null, deactivated_by: null, deletion_requested_at: null, deletion_scheduled_at: null,
+    }
+    state.supportUserInvites = [supportInviteInspectionFixture()]
+
+    const response = await request(getSupportUser, { params: { id: 'user-1' } })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.body.pendingInvites).toMatchObject([{ id: 'invite-1', email: 'member@example.com' }])
+    expect(response.body.copyText).toContain('Pending invites: 1')
+    const inviteQuery = state.queries.find(({ sql }) => sql.includes('lower(organization_invites.email) = lower($1)'))
+    expect(inviteQuery?.values).toEqual(['member@example.com'])
 })
 
 test('organization and user activity rollups share the filtered audit summary', async () => {

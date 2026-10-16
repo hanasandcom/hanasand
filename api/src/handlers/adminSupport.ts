@@ -1288,7 +1288,7 @@ export async function getSupportUser(req: FastifyRequest<{ Params: UserParams }>
 
     const inspectionAudit = supportInspectionAuditMetadata(req)
     const user = await run(`
-        SELECT id, name, avatar, active, reserved, deactivated_at, deactivated_by, deletion_requested_at, deletion_scheduled_at
+        SELECT id, name, avatar, email, active, reserved, deactivated_at, deactivated_by, deletion_requested_at, deletion_scheduled_at
         FROM users
         WHERE id = $1
         LIMIT 1
@@ -1334,7 +1334,7 @@ export async function getSupportUser(req: FastifyRequest<{ Params: UserParams }>
             WHERE lower(organization_invites.email) = lower($1)
               AND organization_invites.status = 'pending'
             ORDER BY organization_invites.created_at DESC
-        `, [req.params.id]),
+        `, [String(userRow.email || '')]),
         run(`
             SELECT id, event_type, severity, source, service, actor_id, object_type, object_id, organization_id, subject_id, request_id, outcome, reason, context, created_at
             FROM system_events

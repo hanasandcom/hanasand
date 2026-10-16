@@ -7,6 +7,7 @@ export const state = {
     supportDecisionApproval: null as Record<string, any> | null,
     supportOrganization: null as Record<string, any> | null,
     supportUser: null as Record<string, any> | null,
+    supportUserInvites: [] as Record<string, any>[],
     supportInspectionInvite: undefined as Record<string, any> | null | undefined,
     supportInspectionMember: undefined as Record<string, any> | null | undefined,
     supportInspectionAuditRows: [] as Record<string, any>[],
@@ -93,7 +94,7 @@ export async function run(sql: string, values: unknown[] = []) {
     if (normalizedSql.includes('SELECT audit_safe_metadata ? \'privacyDeletionRunId\' locked FROM organizations WHERE id = $1')) return { rows: [{ locked: false }] }
     if (sql.includes('SELECT id FROM organizations WHERE id = $1 FOR UPDATE')) return { rows: state.supportOrganization ? [{ id: state.supportOrganization.id }] : [] }
     if (sql.includes('UPDATE organizations SET updated_at = NOW() WHERE id = $1')) return { rows: [] }
-    if (normalizedSql.includes('SELECT id, name, avatar, active, reserved, deactivated_at, deactivated_by, deletion_requested_at, deletion_scheduled_at FROM users WHERE id = $1 LIMIT 1')) return { rows: state.supportUser ? [state.supportUser] : [] }
+    if (normalizedSql.includes('SELECT id, name, avatar, email, active, reserved, deactivated_at, deactivated_by, deletion_requested_at, deletion_scheduled_at FROM users WHERE id = $1 LIMIT 1')) return { rows: state.supportUser ? [state.supportUser] : [] }
     if (hasSqlFragments(normalizedSql, [
         'SELECT event.id, event.event_type, event.severity, event.source, event.service, event.actor_id',
         'FROM system_events event',
@@ -196,7 +197,7 @@ export async function run(sql: string, values: unknown[] = []) {
         'lower(organization_invites.email) = lower($1)',
         'organization_invites.status = \'pending\'',
         'ORDER BY organization_invites.created_at DESC',
-    ])) return { rows: [] }
+    ])) return { rows: state.supportUserInvites }
     if (hasSqlFragments(normalizedSql, [
         'SELECT *',
         'FROM organization_invites',
@@ -302,6 +303,7 @@ export function resetAdminSupportDatabaseFixture() {
     state.supportDecisionApproval = null
     state.supportOrganization = null
     state.supportUser = null
+    state.supportUserInvites = []
     state.supportInspectionInvite = undefined
     state.supportInspectionMember = undefined
     state.supportInspectionAuditRows = []
