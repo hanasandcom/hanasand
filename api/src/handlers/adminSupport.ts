@@ -2086,11 +2086,8 @@ export async function postSupportOrganizationInvite(req: FastifyRequest<{ Params
         return res.status(400).send({ error: error instanceof Error ? error.message : 'Invalid support invite request.' })
     }
 
-    const organization = await loadOrganizationSupportDetail(req.params.id)
-    if (!organization) {
-        return res.status(404).send({ error: 'Organization not found.' })
-    }
-    if (organizationPrivacyDeletionInProgress(organization)) return res.status(409).send({ error: 'Organization deletion is in progress; support writes are blocked.' })
+    const organization = await requireWritableSupportOrganization(req.params.id, res)
+    if (!organization) return
 
     const requestId = input.requestId || supportRequestId(req)
     const controls = supportInviteAssistExecutorControls(req, req.body, requestId)
@@ -2396,11 +2393,8 @@ export async function postSupportOrganizationInviteAction(req: FastifyRequest<{ 
         return res.status(400).send({ error: 'Invite assistance action must be revoke or resend.' })
     }
 
-    const organization = await loadOrganizationSupportDetail(req.params.id)
-    if (!organization) {
-        return res.status(404).send({ error: 'Organization not found.' })
-    }
-    if (organizationPrivacyDeletionInProgress(organization)) return res.status(409).send({ error: 'Organization deletion is in progress; support writes are blocked.' })
+    const organization = await requireWritableSupportOrganization(req.params.id, res)
+    if (!organization) return
 
     const requestId = text(req.body?.requestId || req.body?.request_id) || supportRequestId(req)
     const actionType = action === 'revoke'
@@ -3338,11 +3332,8 @@ export async function postSupportOrganizationMemberRoleRecovery(req: FastifyRequ
         return res.status(400).send({ error: error instanceof Error ? error.message : 'Invalid support member role recovery request.' })
     }
 
-    const organization = await loadOrganizationSupportDetail(req.params.id)
-    if (!organization) {
-        return res.status(404).send({ error: 'Organization not found.' })
-    }
-    if (organizationPrivacyDeletionInProgress(organization)) return res.status(409).send({ error: 'Organization deletion is in progress; support writes are blocked.' })
+    const organization = await requireWritableSupportOrganization(req.params.id, res)
+    if (!organization) return
 
     const requestId = input.requestId || supportRequestId(req)
     const actionType = 'support.organization.member_role_recovery'
@@ -4127,11 +4118,8 @@ export async function postSupportAccessRecovery(req: FastifyRequest<{ Params: Or
         return res.status(400).send({ error: 'Access recovery creates one controlled invite at a time.' })
     }
 
-    const organization = await loadOrganizationSupportDetail(req.params.id)
-    if (!organization) {
-        return res.status(404).send({ error: 'Organization not found.' })
-    }
-    if (organizationPrivacyDeletionInProgress(organization)) return res.status(409).send({ error: 'Organization deletion is in progress; support writes are blocked.' })
+    const organization = await requireWritableSupportOrganization(req.params.id, res)
+    if (!organization) return
 
     const requestId = text(req.body?.requestId || req.body?.request_id) || supportRequestId(req)
     const targetUserId = text(req.body?.targetUserId)
@@ -4590,33 +4578,19 @@ async function decideSupportAccessRecovery(
         }, query)
         if (!invite) return { error: 'invite_not_mutable' as const, approval: lockedApproval, inviteStatus: inviteRow.status }
 
-        const updatedApproval = decision === 'approved'
-            ? await query(`
-                UPDATE admin_access_recovery_approvals
-                SET status = 'approved',
-                    approved_by = $2,
-                    approved_at = NOW(),
-                    denied_by = NULL,
-                    denied_at = NULL,
-                    decision_reason = $3,
-                    outcome = 'success',
-                    updated_at = NOW()
-                WHERE request_id = $1 AND status = 'pending'
-                RETURNING *
-            `, [lockedApproval.request_id, actor.id, reason])
-            : await query(`
-                UPDATE admin_access_recovery_approvals
-                SET status = 'denied',
-                    approved_by = NULL,
-                    approved_at = NULL,
-                    denied_by = $2,
-                    denied_at = NOW(),
-                    decision_reason = $3,
-                    outcome = 'denied',
-                    updated_at = NOW()
-                WHERE request_id = $1 AND status = 'pending'
-                RETURNING *
-            `, [lockedApproval.request_id, actor.id, reason])
+        const updatedApproval = await query(`
+            UPDATE admin_access_recovery_approvals
+            SET status = $2,
+                approved_by = CASE WHEN $2 = 'approved' THEN $3 ELSE NULL END,
+                approved_at = CASE WHEN $2 = 'approved' THEN NOW() ELSE NULL END,
+                denied_by = CASE WHEN $2 = 'denied' THEN $3 ELSE NULL END,
+                denied_at = CASE WHEN $2 = 'denied' THEN NOW() ELSE NULL END,
+                decision_reason = $4,
+                outcome = CASE WHEN $2 = 'approved' THEN 'success' ELSE 'denied' END,
+                updated_at = NOW()
+            WHERE request_id = $1 AND status = 'pending'
+            RETURNING *
+        `, [lockedApproval.request_id, decision, actor.id, reason])
         if (!updatedApproval.rows[0]) throw new Error('Locked access recovery approval could not be updated.')
         return { error: null, approval: lockedApproval, updatedApproval: updatedApproval.rows[0] as AccessRecoveryApprovalRow, invite }
     })
@@ -4732,6 +4706,19 @@ async function loadOrganizationSupportDetail(organizationId: string) {
     `, [organizationId])
 
     return result.rows[0] as OrganizationRow | undefined
+}
+
+async function requireWritableSupportOrganization(organizationId: string, res: FastifyReply) {
+    const organization = await loadOrganizationSupportDetail(organizationId)
+    if (!organization) {
+        res.status(404).send({ error: 'Organization not found.' })
+        return null
+    }
+    if (organizationPrivacyDeletionInProgress(organization)) {
+        res.status(409).send({ error: 'Organization deletion is in progress; support writes are blocked.' })
+        return null
+    }
+    return organization
 }
 
 function supportSqlFilters() {

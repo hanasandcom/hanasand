@@ -74,7 +74,7 @@ async function run(sql: string, values: unknown[] = []) {
         organization_id: 'org-1', user_id: 'member-1', role: 'reader', status: 'active',
     }] }
     if (sql.includes('UPDATE admin_access_recovery_approvals')) {
-        return { rows: supportDecisionApproval ? [{ ...supportDecisionApproval, status: sql.includes('SET status = \'approved\'') ? 'approved' : 'denied' }] : [] }
+        return { rows: supportDecisionApproval ? [{ ...supportDecisionApproval, status: values[1] }] : [] }
     }
     if (sql.includes('FROM admin_access_recovery_approvals approval')) return { rows: sql.includes('WHERE approval.request_id = $1') && supportDecisionApproval ? [supportDecisionApproval] : approvalRows }
     if (sql.includes('SELECT COUNT(*)::int AS total')) return { rows: [{ total: eventRows.length }] }
@@ -822,7 +822,7 @@ test('access recovery approval commits the shared invite transition with its dec
     expect(inviteActionInputs.at(-1)).toMatchObject({
         organizationId: 'org-1', inviteId: 'invite-1', action: 'resend', expiresAt: '2026-11-01T00:00:00.000Z',
     })
-    expect(queries.some(({ sql }) => sql.includes('UPDATE admin_access_recovery_approvals') && sql.includes('status = \'approved\''))).toBe(true)
+    expect(queries.some(({ sql, values }) => sql.includes('UPDATE admin_access_recovery_approvals') && values[1] === 'approved')).toBe(true)
 })
 
 test('access recovery denial records its scoped receipt and revokes the shared invite', async () => {
@@ -849,7 +849,7 @@ test('access recovery denial records its scoped receipt and revokes the shared i
         blockers: ['denied_recovery_approval'],
     })
     expect(inviteActionInputs.at(-1)).toMatchObject({ organizationId: 'org-1', inviteId: 'invite-1', action: 'revoke' })
-    expect(queries.some(({ sql }) => sql.includes('UPDATE admin_access_recovery_approvals') && sql.includes('status = \'denied\''))).toBe(true)
+    expect(queries.some(({ sql, values }) => sql.includes('UPDATE admin_access_recovery_approvals') && values[1] === 'denied')).toBe(true)
 })
 
 test('access recovery approval rejects an expired invite without changing its pending decision', async () => {
@@ -987,6 +987,25 @@ test('executor blocker audits retain the shared no-mutation contract for invite 
             supportContext: 'case-17',
         },
     })
+})
+
+test('support writes reject organizations with an active privacy deletion marker', async () => {
+    supportOrganization = {
+        ...activeSupportOrganizationFixture(),
+        audit_safe_metadata: { privacyDeletionRunId: 'deletion-run-1' },
+    }
+
+    const result = await request(postSupportOrganizationInvite, {
+        params: { id: 'org-1' },
+        body: {
+            email: 'member@example.com', role: 'reader', expiresAt: '2026-11-01T00:00:00.000Z',
+            reason: 'Restore member access', requestId: 'invite-assist-deletion-blocked',
+        },
+    })
+
+    expect(result.statusCode).toBe(409)
+    expect(result.body).toEqual({ error: 'Organization deletion is in progress; support writes are blocked.' })
+    expect(recordedEvents).toHaveLength(0)
 })
 
 test('executor blocker audits retain invite action identity and severity', async () => {
