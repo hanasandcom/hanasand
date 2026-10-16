@@ -98,10 +98,10 @@ export async function getBrowserRuns(req: FastifyRequest<{ Querystring: { client
         const params = identity.ownerId
             ? [identity.ownerId, identity.clientIdHash]
             : [identity.clientIdHash]
+        const scope = identity.ownerId ? '(owner_id = $1 OR ($2::text IS NOT NULL AND client_id_hash = $2))' : 'client_id_hash = $1'
         if (req.query.history === 'all') {
             const offset = Number(req.query.offset || 0)
             if (!Number.isSafeInteger(offset) || offset < 0) return res.status(400).send({ error: 'Invalid history offset.' })
-            const scope = identity.ownerId ? '(owner_id = $1 OR ($2::text IS NOT NULL AND client_id_hash = $2))' : 'client_id_hash = $1'
             const result = await run(`
                 SELECT id, target, network, status, created_at,
                     jsonb_strip_nulls(jsonb_build_object(
@@ -119,28 +119,14 @@ export async function getBrowserRuns(req: FastifyRequest<{ Querystring: { client
             })
         }
         const quota = await loadBrowserQuota(identity)
-        const result = await run(identity.ownerId ? `
+        const result = await run(`
             SELECT *
             FROM (
                 SELECT DISTINCT ON (result_id)
                     id, target, network, status, title, created_at, metadata - 'report' AS metadata,
                     COUNT(*) OVER (PARTITION BY result_id)::int AS check_count
                 FROM browser_runs
-                WHERE (owner_id = $1
-                   OR ($2::text IS NOT NULL AND client_id_hash = $2))
-                  AND metadata->>'historyDeletedAt' IS NULL
-                ORDER BY result_id, created_at DESC
-            ) latest_runs
-            ORDER BY created_at DESC
-            LIMIT 12
-        ` : `
-            SELECT *
-            FROM (
-                SELECT DISTINCT ON (result_id)
-                    id, target, network, status, title, created_at, metadata - 'report' AS metadata,
-                    COUNT(*) OVER (PARTITION BY result_id)::int AS check_count
-                FROM browser_runs
-                WHERE client_id_hash = $1
+                WHERE ${scope}
                   AND metadata->>'historyDeletedAt' IS NULL
                 ORDER BY result_id, created_at DESC
             ) latest_runs
