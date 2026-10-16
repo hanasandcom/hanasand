@@ -78,4 +78,9 @@ test('public share terminal runs commands without websocket or script-path failu
     expect(terminalText).not.toContain('/home/ubuntu/find_vm.sh\': command not found')
     expect(terminalText).not.toContain('/home/ubuntu/clone_vm.sh\': command not found')
     expect(terminalText).not.toContain('Websocket not connected')
+
+    const commandInput = page.getByRole('textbox', { name: 'Terminal command' })
+    await commandInput.fill('printf \'terminal command form passed\\n\'')
+    await commandInput.press('Enter')
+    await expect.poll(() => readTerminalText(page), { timeout: 30000 }).toContain('terminal command form passed')
 })
