@@ -13,6 +13,7 @@ export const dwmProductProgressTasks: TestTask[] = [
     { id: 'product-progress-organization-context', title: 'Product progress organization context', command: [bun, 'test', 'tests/product-progress-organization-context.test.ts'] },
     { id: 'product-progress-organization-readiness', title: 'Product progress organization readiness actions', command: [bun, 'test', 'tests/product-progress-organization-readiness.test.ts'] },
     { id: 'product-progress-route-response', title: 'Product progress route response assembly', command: [bun, 'test', 'tests/product-progress-route-response.test.ts'] },
+    { id: 'product-progress-readiness-contract', title: 'Product progress readiness contract', command: [bun, 'test', 'tests/product-progress-readiness-contract.test.ts'] },
     { id: 'product-progress-source-actions', title: 'Product progress source actions', command: [bun, 'test', 'tests/product-progress-source-actions.test.ts'] },
     { id: 'product-progress-truthfulness', title: 'Product progress readiness truthfulness', command: [bun, 'test', 'tests/product-progress-truthfulness.test.mjs'] },
 ]

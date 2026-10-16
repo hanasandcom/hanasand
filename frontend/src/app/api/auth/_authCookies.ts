@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requestHostname } from '@/utils/proxy/authResponses'
+import { authCookieOptions, setAuthCookie } from '@/utils/proxy/authResponses'
 
 type AuthPayload = {
     name?: string
@@ -14,13 +14,11 @@ const legacyAuthCookieNames = ['roles'] as const
 
 export function setAuthCookies(req: NextRequest, response: NextResponse, data: AuthPayload) {
     const expires = data.expires_at ? new Date(data.expires_at) : undefined
+    const { sharedDomain, ...baseOptions } = authCookieOptions(req)
     const cookieOptions = {
-        sameSite: 'lax' as const,
-        path: '/',
         expires,
-        secure: shouldUseSecureCookies(req),
+        ...baseOptions,
     }
-    const sharedDomain = sharedCookieDomain(req)
 
     if (data.name) {
         setAuthCookie(response, 'name', data.name, cookieOptions, sharedDomain)
@@ -49,37 +47,8 @@ export function clearAuthCookies(req: NextRequest, response: NextResponse) {
     expireSharedDomainAuthCookies(req, response)
 }
 
-function shouldUseSecureCookies(req: NextRequest) {
-    return req.nextUrl.protocol === 'https:' || requestHostname(req).endsWith('hanasand.com')
-}
-
-function sharedCookieDomain(req: NextRequest) {
-    return requestHostname(req).endsWith('hanasand.com') ? '.hanasand.com' : null
-}
-
-function setAuthCookie(
-    response: NextResponse,
-    name: string,
-    value: string,
-    options: {
-        sameSite: 'lax'
-        path: string
-        expires: Date | undefined
-        secure: boolean
-    },
-    sharedDomain: string | null,
-) {
-    response.cookies.set(name, value, options)
-    if (sharedDomain) {
-        response.cookies.set(name, value, {
-            ...options,
-            domain: sharedDomain,
-        })
-    }
-}
-
 function expireSharedDomainAuthCookies(req: NextRequest, response: NextResponse) {
-    const secure = shouldUseSecureCookies(req) ? '; Secure' : ''
+    const secure = authCookieOptions(req).secure ? '; Secure' : ''
     for (const cookie of [...authCookieNames, ...legacyAuthCookieNames]) {
         response.headers.append('Set-Cookie', `${cookie}=; Path=/; Domain=.hanasand.com; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax${secure}`)
     }

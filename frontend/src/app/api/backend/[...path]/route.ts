@@ -2,7 +2,7 @@ import { activeOrganizationId } from '@/utils/organizations/serverWorkspace'
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import config from '@/config'
-import { requestHostname } from '@/utils/proxy/authResponses'
+import { authCookieOptions, setAuthCookie } from '@/utils/proxy/authResponses'
 
 type Context = {
     params: Promise<{ path?: string[] }>
@@ -103,13 +103,13 @@ async function handler(req: NextRequest, context: Context) {
 
     const refreshedToken = response.headers.get('x-access-token')
     if (refreshedToken) {
-        setProxyAuthCookie(req, next, 'access_token', refreshedToken, {
-            sameSite: 'lax',
-            path: '/',
+        const { sharedDomain, ...cookieOptions } = authCookieOptions(req)
+        setAuthCookie(next, 'access_token', refreshedToken, {
+            ...cookieOptions,
             expires: response.headers.get('x-access-token-expires-at')
                 ? new Date(response.headers.get('x-access-token-expires-at') as string)
                 : undefined,
-        })
+        }, sharedDomain)
     }
 
     return next
@@ -121,31 +121,6 @@ function bearerToken(value: string | null) {
     }
 
     return value.slice('Bearer '.length).trim()
-}
-
-function setProxyAuthCookie(
-    req: NextRequest,
-    response: NextResponse,
-    name: string,
-    value: string,
-    options: {
-        sameSite: 'lax'
-        path: string
-        expires: Date | undefined
-    },
-) {
-    const secure = req.nextUrl.protocol === 'https:' || requestHostname(req).endsWith('hanasand.com')
-    const cookieOptions = {
-        ...options,
-        secure,
-    }
-    response.cookies.set(name, value, cookieOptions)
-    if (requestHostname(req).endsWith('hanasand.com')) {
-        response.cookies.set(name, value, {
-            ...cookieOptions,
-            domain: '.hanasand.com',
-        })
-    }
 }
 
 export const GET = handler

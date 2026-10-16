@@ -8,6 +8,13 @@ export type TokenRefreshCookies = {
     checked_at?: string
 }
 
+type AuthCookieWriteOptions = {
+    sameSite: 'lax'
+    path: string
+    secure: boolean
+    expires: Date | undefined
+}
+
 export function applyRefreshedAuthCookies(
     response: NextResponse,
     options: ReturnType<typeof authCookieOptions>,
@@ -41,16 +48,11 @@ export function applyRefreshedAuthCookies(
     }
 }
 
-function setAuthCookie(
+export function setAuthCookie(
     response: NextResponse,
     name: string,
     value: string,
-    options: {
-        sameSite: 'lax'
-        path: string
-        secure: boolean
-        expires: Date | undefined
-    },
+    options: AuthCookieWriteOptions,
     sharedDomain: string | null,
 ) {
     response.cookies.set(name, value, options)

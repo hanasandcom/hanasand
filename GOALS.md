@@ -7,7 +7,7 @@ contracts match, and maintainable tests while preserving existing product
 behavior and features. Reduce duplicated and ineffective code; keep measuring
 source, tests, generated output, and configuration separately against the
 recorded baseline. The API source reduction target remains at least 100,000 lines without
-feature loss. The frontend is also in scope: reduce its current 155,080
+feature loss. The frontend is also in scope: reduce its current 153,708
 hand-maintained lines to no more than 30,000, aiming for 10,000–30,000 where
 that preserves clear ownership and complete functionality. Keep rendered UI,
 interactions, accessibility behavior, and page data contracts stable. Prefer
@@ -673,3 +673,23 @@ files / 323,181 LOC / 123 over 200, all outside the frontend. The standalone
 dark-theme guard still fails on existing assertions in other pages/components;
 the new `RenderSite` assertion passes. The 10,000–30,000-line frontend and
 100,000-line API reduction targets remain unmet.
+
+The retired NorthStar/product-readiness aggregate implementation and its
+unregistered manual checker are removed: 1,397 lines deleted, with a 79-line
+registered current-product readiness contract test, for a net reduction of
+1,318. Active product-progress APIs, workbench readiness, source-proof logic,
+and the receipt-matrix schema remain. The shared auth-cookie writer removes
+about 53 duplicated production lines; tests exercise local/shared domain
+attributes, full clearing, and backend token refresh/expiry. The stale
+Helpdesk browser suite is reduced from 144 to 24 lines and now covers the
+authenticated legacy redirect/current audit view; product UI is untouched.
+Across checkpoints since `3a0bc4d10`, frontend/src is down 1,767 lines and
+frontend tests/scripts are up 256, a combined reduction of 1,511. The integrated
+frontend suite, non-incremental typecheck, scoped ESLint, 200-line cap, and
+production build pass; Next generates all 116 static pages. The frontend scan
+is 2,305 files / 153,708 LOC / zero over 200. The repository scan is 3,746
+files / 321,809 LOC / 123 over 200, all outside the frontend. The standalone
+dark-theme checker still fails on existing assertions outside the new share
+renderer guard, and focused Playwright could not start because its configured
+local API server exits during startup. The frontend 10,000–30,000 LOC and API
+100,000-line reduction goals remain unachieved.
