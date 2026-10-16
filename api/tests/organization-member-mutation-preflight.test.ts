@@ -2,15 +2,16 @@ import { afterAll, beforeEach, expect, mock, test } from 'bun:test'
 import Fastify from 'fastify'
 
 const queries: string[] = []
+let organizationMembershipAvailable = true
 
 mock.module('#db', () => {
     const query = async (sql: string) => {
         queries.push(sql)
         if (sql.includes('FROM organizations o')) {
-            return { rows: [{
+            return { rows: organizationMembershipAvailable ? [{
                 id: 'org-1', name: 'Organization', slug: 'organization', status: 'archived', role: 'owner',
                 member_count: 1, owner_count: 1, admin_count: 1, pending_invite_count: 0, shared_watchlist_count: 0,
-            }] }
+            }] : [] }
         }
         return { rows: [] }
     }
@@ -41,12 +42,13 @@ mock.module('#utils/auth/apiKeys.ts', () => ({
     revokeOrganizationApiKey: async () => undefined,
 }))
 
-const { deleteOrganizationMember, patchOrganizationMemberRole } = await import('../src/handlers/organizations.ts')
+const { deleteOrganizationMember, patchOrganizationMemberRole, postOrganizationWatchlist } = await import('../src/handlers/organizations.ts')
 
 const app = Fastify()
 app.delete('/organizations/:id/members/:userId', deleteOrganizationMember)
 app.patch('/organizations/:id/members/:userId', patchOrganizationMemberRole)
-beforeEach(() => { queries.length = 0 })
+app.post('/organizations/:id/watchlists', postOrganizationWatchlist)
+beforeEach(() => { queries.length = 0; organizationMembershipAvailable = true })
 afterAll(() => app.close())
 
 test('member removal and role changes block archived organizations before target lookup', async () => {
@@ -62,4 +64,18 @@ test('member removal and role changes block archived organizations before target
     expect(roleChange.statusCode).toBe(409)
     expect(roleChange.json().lifecycleBlocker.action).toBe('change member roles')
     expect(queries.some(sql => sql.includes('FROM organization_members om'))).toBe(false)
+})
+
+test('watchlist mutations return the established not-found response before input validation for nonmembers', async () => {
+    organizationMembershipAvailable = false
+    const response = await app.inject({
+        method: 'POST',
+        url: '/organizations/org-1/watchlists',
+        payload: {},
+    })
+
+    expect(response.statusCode).toBe(404)
+    expect(response.json()).toEqual({ error: 'Organization not found.' })
+    expect(queries).toHaveLength(1)
+    expect(queries[0]).toContain('FROM organizations o')
 })
