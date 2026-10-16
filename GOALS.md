@@ -718,3 +718,13 @@ frontend suite, typecheck, focused ESLint, line-cap scan, diff check, and Next
 production build pass, generating all 116 routes. The inventory is now 2,298
 files / 153,441 LOC / zero over 200. The 10,000–30,000 LOC frontend target and
 100,000-line API reduction target remain unmet.
+
+Two independently reviewed frontend cleanup slices removed 249 more orphaned
+lines: the unmounted legacy dashboard management client, unused per-file CRUD
+and link-update wrappers, and small unused UI/ID/cookie helpers. Active system
+dashboard and management routes, live file-list/upload flows, and share-route
+cookie behavior remain. No consumers or route/package registrations referenced
+the deleted modules. The full frontend suite (including both newly registered
+readiness tests), typecheck, line-cap scan, and Next production build pass; all
+116 routes generate. Inventory: 2,289 files / 153,192 LOC / zero over 200. The
+10,000–30,000 LOC frontend and 100,000-line API reduction goals remain unmet.
