@@ -232,6 +232,21 @@ snapshot after adding its render contract test. The integrated repository
 inventory is 3,631 files / 322,252 lines, with 128 files still over the cap.
 The API and frontend aggregate reduction targets remain unachieved.
 
+At `a9a192a67`, the frontend cap scan covers 2,307 files / 155,338 lines and
+passes with zero files over 200 lines. The full frontend test suite and Next
+production build pass. The content-editor header and findings/TI loading
+consolidations remove 10 production lines together; the total frontend
+inventory is 88 lines above the `bf424fbd3` snapshot because tests and modules
+still outweigh localized savings. The global scanner reports 3,653
+hand-maintained files / 322,414 lines, with 126 files over the cap, down from
+128 but up 162 aggregate lines since the prior integrated snapshot. The
+organization alert/readiness and case-visibility extraction is independently
+reviewed and verified, but its route tree totals 4,173 lines versus the 3,855
+baseline (+318) and `organizations.ts` remains 803 lines. The 100,000-line API
+reduction, 10,000–30,000-line frontend target, and repository-wide cap remain
+unmet; subsequent work must measure aggregate LOC and keep prioritizing actual
+duplication removal over file splitting alone.
+
 ## Execution
 
 - Divide work by non-overlapping repository areas and use traditional Norwegian
