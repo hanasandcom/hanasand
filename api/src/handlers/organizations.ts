@@ -1,38 +1,24 @@
-import { ensureEventProtectionRule } from '#utils/db/analysisPolicySchema.ts'
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import { randomUUID } from 'crypto'
 import run, { withTransaction } from '#db'
-import { organizationPrivacyDeletionInProgress } from '#utils/organizationLifecycle.ts'
 import { touchOrganization, updateActiveOrganizationMemberRole, updateOrganizationInviteAction, upsertOrganizationInvite, upsertOrganizationMember } from '#utils/db/identityDataWrites.ts'
 import { activeOrganizationOwnerCount as activeOwnerCount } from '#utils/organizationMemberships.ts'
-import tokenWrapper from '#utils/auth/tokenWrapper.ts'
-import recordLog from '#utils/logs/recordLog.ts'
 import { recordSystemEvent } from '#utils/systemEvent.ts'
 import { checkBillingCapacity } from './billing.ts'
-import {
-    createApiKey,
-    listOrganizationApiKeys,
-    organizationPublicApiScopes,
-    revokeOrganizationApiKey,
-} from '#utils/auth/apiKeys.ts'
 import {
     buildOrganizationBridgeContext,
     buildOrganizationDwmAlertReference,
     normalizeInviteActionInput,
     normalizeInviteInput,
     normalizeMemberRoleInput,
-    normalizeOrganizationInput,
-    normalizeOrganizationSettingsInput,
     normalizeOptionalWatchlistKind,
     normalizeOptionalWatchlistStatus,
-    normalizeOwnershipTransferInput,
     normalizeWatchlistActionInput,
     normalizeWatchlistCleanupInput,
     normalizeWatchlistInput,
     normalizeWatchlistRequestId,
     organizationAnalystPortalVisibilityAdapter,
     organizationAlertCaseWorkflowState,
-    organizationAccessDenial,
     organizationInviteActionDenial,
     organizationInviteAcceptanceReference,
     organizationInviteAcceptanceDenial,
@@ -42,8 +28,6 @@ import {
     organizationMemberMutationDenial,
     organizationMemberAccessContract,
     organizationReadinessProof,
-    organizationSettingsFromRow,
-    organizationSettingsMutationDenial,
     organizationSharedWatchlistProjection,
     organizationVisibilityDecision,
     organizationWatchlistOwnerContext,
@@ -65,15 +49,26 @@ import {
     type InviteActionInput,
     type InviteInput,
     type OrganizationMemberRoleInput,
-    type OrganizationInput,
-    type OrganizationOwnershipTransferInput,
-    type OrganizationSettingsInput,
     type WatchlistActionInput,
     type WatchlistCleanupInput,
     type WatchlistInput,
     type OrganizationWatchlistAction,
     type OrganizationWatchlistRow,
 } from '#utils/organizations.ts'
+import { logOrganizationEvent, sendOrganizationAccessDenial } from './organizations/audit.ts'
+import { inactiveOrganizationMutationBlocker, privacyDeletionMutationBlocker, sendOrganizationLifecycleBlocker } from './organizations/lifecycle.ts'
+import { loadActiveOrganizationMemberMutationRequest, loadLockedOrganizationMemberMutationContext } from './organizations/memberMutationContext.ts'
+import {
+    authenticateOrganizationRequest,
+    loadOrganizationForMember,
+    loadOrganizationMemberRequest,
+    loadRequiredOrganizationMemberRequest,
+} from './organizations/requestContext.ts'
+export { getOrganization, postOrganization } from './organizations/core.ts'
+export { deleteOrganizationApiKey, getOrganizationApiKeys, postOrganizationApiKey } from './organizations/apiKeys.ts'
+export { getOrganizationSettings } from './organizations/settingsRead.ts'
+export { putOrganizationSettings } from './organizations/settingsUpdate.ts'
+export { postOrganizationOwnershipTransfer } from './organizations/ownershipTransfer.ts'
 
 type OrganizationParams = {
     id: string
@@ -82,10 +77,6 @@ type OrganizationParams = {
 type OrganizationMemberParams = {
     id: string
     userId: string
-}
-
-type OrganizationApiKeyParams = OrganizationParams & {
-    keyId: string
 }
 
 type InviteParams = {
@@ -138,363 +129,6 @@ const removedMemberBlockedRoutes = [
     organizationAccessDownstreamRoutes.alertReadiness,
     organizationAccessDownstreamRoutes.webhookDelivery,
 ] as const
-
-export async function postOrganization(req: FastifyRequest<{ Body: OrganizationInput }>, res: FastifyReply) {
-    const userId = await authenticateOrganizationRequest(req, res)
-    if (!userId) return
-
-    let input: ReturnType<typeof normalizeOrganizationInput>
-    try {
-        input = normalizeOrganizationInput(req.body)
-    } catch (error) {
-        return res.status(400).send({ error: error instanceof Error ? error.message : 'Invalid organization.' })
-    }
-
-    const organizationId = randomUUID()
-    const slug = await uniqueOrganizationSlug(input.slug)
-    const organization = await withTransaction(async query => {
-        const created = await query(`
-        WITH new_organization AS (
-            INSERT INTO organizations (id, name, slug, created_by)
-            VALUES ($1, $2, $3, $4)
-            RETURNING *
-        ),
-        owner_membership AS (
-            INSERT INTO organization_members (organization_id, user_id, role, status, invited_by)
-            SELECT id, $4, 'owner', 'active', $4
-            FROM new_organization
-            RETURNING organization_id
-        )
-        SELECT new_organization.*
-        FROM new_organization
-        JOIN owner_membership ON owner_membership.organization_id = new_organization.id
-    `, [organizationId, input.name, slug, userId])
-        await ensureEventProtectionRule(query, organizationId)
-        return created
-    })
-    logOrganizationEvent(req, 'organization_created', organizationId, userId, {
-        name: input.name,
-        slug,
-    })
-
-    const createdOrganization: OrganizationRow = {
-        ...(organization.rows[0] as OrganizationRow),
-        role: 'owner',
-        member_count: 1,
-        owner_count: 1,
-        admin_count: 1,
-        pending_invite_count: 0,
-    }
-    return res.status(201).send({
-        organization: toOrganization(createdOrganization),
-        lifecycleReadiness: organizationLifecycleReadiness(createdOrganization),
-    })
-}
-
-export async function getOrganization(req: FastifyRequest<{ Params: OrganizationParams }>, res: FastifyReply) {
-    const requestContext = await loadOrganizationMemberRequest(req, res, req.params.id)
-    if (!requestContext) return
-    const { userId, organization } = requestContext
-    if (!organization) {
-        return sendOrganizationAccessDenial(req, res, {
-            organizationId: req.params.id,
-            actorId: userId,
-            route: 'GET /api/organizations/:id',
-        })
-    }
-
-    return res.send({
-        organization: toOrganization(organization),
-        lifecycleReadiness: organizationLifecycleReadiness(organization),
-    })
-}
-
-export async function getOrganizationApiKeys(req: FastifyRequest<{ Params: OrganizationParams }>, res: FastifyReply) {
-    res.header('Cache-Control', 'no-store')
-    const requestContext = await loadOrganizationMemberRequest(req, res, req.params.id, {
-        error: { code: 'authentication_required', message: 'Sign in to manage organization API keys.' },
-    })
-    if (!requestContext) return
-    const { organization } = requestContext
-    if (!organization) return res.status(404).send({ error: { code: 'organization_not_found', message: 'Organization not found.' } })
-    if (!roleCanManageOrganization(organization.role)) return res.status(403).send({ error: { code: 'organization_role_forbidden', message: 'Organization owners and administrators manage API keys.' } })
-
-    return res.send({
-        organizationId: organization.id,
-        apiKeys: await listOrganizationApiKeys(organization.id),
-    })
-}
-
-export async function postOrganizationApiKey(req: FastifyRequest<{ Params: OrganizationParams, Body: { name?: unknown } }>, res: FastifyReply) {
-    res.header('Cache-Control', 'no-store')
-    const requestContext = await loadOrganizationMemberRequest(req, res, req.params.id, {
-        error: { code: 'authentication_required', message: 'Sign in to create an organization API key.' },
-    })
-    if (!requestContext) return
-    const { userId, organization } = requestContext
-    if (!organization) return res.status(404).send({ error: { code: 'organization_not_found', message: 'Organization not found.' } })
-    if (!roleCanManageOrganization(organization.role)) return res.status(403).send({ error: { code: 'organization_role_forbidden', message: 'Organization owners and administrators manage API keys.' } })
-    if (organization.status !== 'active') return res.status(409).send({ error: { code: 'organization_inactive', message: 'Reactivate the organization before creating an API key.' } })
-    if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body) || Object.keys(req.body).some(key => key !== 'name')) {
-        return res.status(400).send({ error: { code: 'invalid_request', message: 'API key creation accepts only the name field.' } })
-    }
-    const name = typeof req.body.name === 'string' ? req.body.name.trim() : ''
-    if (name.length < 2 || name.length > 80) return res.status(400).send({ error: { code: 'invalid_api_key_name', message: 'API key name must contain 2-80 characters.' } })
-
-    try {
-        const expiresAt = new Date(Date.now() + 90 * 86_400_000).toISOString()
-        const creation = await withTransaction(async query => {
-            await query('SELECT id FROM organizations WHERE id = $1 FOR UPDATE', [organization.id])
-            const lockedOrganization = await loadOrganizationForMember(organization.id, userId, query)
-            if (!lockedOrganization) return { error: 'organization_not_found' as const }
-            if (!roleCanManageOrganization(lockedOrganization.role)) return { error: 'organization_role_forbidden' as const }
-            if (lockedOrganization.status !== 'active') return { error: 'organization_inactive' as const }
-            if (await activeOwnerCount(organization.id, query) < 1) return { error: 'organization_owner_required' as const }
-            return {
-                created: await createApiKey({
-                    ownerId: userId,
-                    organizationId: organization.id,
-                    name,
-                    tier: 'starter',
-                    description: `Organization API access for ${organization.name}.`,
-                    enabled: true,
-                    expiresAt,
-                    scopes: organizationPublicApiScopes(),
-                }, query),
-            }
-        })
-        if ('error' in creation) {
-            if (creation.error === 'organization_not_found') return res.status(404).send({ error: { code: creation.error, message: 'Organization not found.' } })
-            if (creation.error === 'organization_role_forbidden') return res.status(403).send({ error: { code: creation.error, message: 'Organization owners and administrators manage API keys.' } })
-            if (creation.error === 'organization_inactive') return res.status(409).send({ error: { code: creation.error, message: 'Reactivate the organization before creating an API key.' } })
-            if (creation.error === 'organization_owner_required') return res.status(409).send({ error: { code: creation.error, message: 'Add or transfer ownership to an active member before creating an API key.' } })
-        }
-        const { created } = creation
-        logOrganizationEvent(req, 'organization_api_key_created', organization.id, userId, {
-            apiKeyId: created.apiKey.id,
-            keyPrefix: created.apiKey.keyPrefix,
-            expiresAt,
-        })
-        return res.status(201).send(created)
-    } catch (error) {
-        if ((error as { code?: string }).code === '23505') return res.status(409).send({ error: { code: 'api_key_conflict', message: 'The API key could not be generated. Try again.' } })
-        req.log.error({ error, organizationId: organization.id }, 'Failed to create organization API key')
-        return res.status(500).send({ error: { code: 'api_key_create_failed', message: 'The API key could not be created.' } })
-    }
-}
-
-export async function deleteOrganizationApiKey(req: FastifyRequest<{ Params: OrganizationApiKeyParams }>, res: FastifyReply) {
-    res.header('Cache-Control', 'no-store')
-    const requestContext = await loadOrganizationMemberRequest(req, res, req.params.id, {
-        error: { code: 'authentication_required', message: 'Sign in to revoke an organization API key.' },
-    })
-    if (!requestContext) return
-    const { userId, organization } = requestContext
-    if (!organization) return res.status(404).send({ error: { code: 'organization_not_found', message: 'Organization not found.' } })
-    if (!roleCanManageOrganization(organization.role)) return res.status(403).send({ error: { code: 'organization_role_forbidden', message: 'Organization owners and administrators manage API keys.' } })
-
-    const apiKey = await revokeOrganizationApiKey(organization.id, req.params.keyId)
-    if (!apiKey) return res.status(404).send({ error: { code: 'api_key_not_found', message: 'Active organization API key not found.' } })
-    logOrganizationEvent(req, 'organization_api_key_revoked', organization.id, userId, {
-        apiKeyId: apiKey.id,
-        keyPrefix: apiKey.keyPrefix,
-    })
-    return res.send({ apiKey })
-}
-
-export async function getOrganizationSettings(req: FastifyRequest<{ Params: OrganizationParams }>, res: FastifyReply) {
-    const requestContext = await loadRequiredOrganizationMemberRequest(req, res, req.params.id)
-    if (!requestContext) return
-    const { organization } = requestContext
-
-    return res.send({
-        organization: toOrganization(organization),
-        settings: organizationSettingsFromRow(organization),
-        permissions: organizationSettingsPermissions(organization.role),
-        lifecycleReadiness: organizationLifecycleReadiness(organization),
-    })
-}
-
-export async function putOrganizationSettings(req: FastifyRequest<{ Params: OrganizationParams, Body: OrganizationSettingsInput }>, res: FastifyReply) {
-    const requestContext = await loadRequiredOrganizationMemberRequest(req, res, req.params.id)
-    if (!requestContext) return
-    const { userId, organization } = requestContext
-
-    const deletionBlocker = privacyDeletionMutationBlocker(organization, 'update organization settings')
-    if (deletionBlocker) return sendOrganizationLifecycleBlocker(req, res, deletionBlocker, userId, organization.role)
-
-    if (!roleCanManageOrganization(organization.role)) {
-        const attemptedFields = Object.entries({
-            name: req.body?.name,
-            slug: req.body?.slug,
-            defaultWebhookPolicy: req.body?.defaultWebhookPolicy ?? req.body?.default_webhook_policy,
-            alertVisibilityPolicy: req.body?.alertVisibilityPolicy ?? req.body?.alert_visibility_policy,
-            lifecycleStatus: req.body?.lifecycleStatus ?? req.body?.lifecycle_status,
-            retentionDays: req.body?.retentionDays ?? req.body?.retention_days,
-            auditSafeMetadata: req.body?.auditSafeMetadata ?? req.body?.audit_safe_metadata,
-        }).filter(([, value]) => value !== undefined).map(([key]) => key)
-        const requestId = typeof req.headers['x-request-id'] === 'string' ? req.headers['x-request-id'] : null
-        const message = 'Only organization owners and admins can update settings.'
-        const denial = organizationSettingsMutationDenial({
-            organizationId: req.params.id,
-            actorId: userId,
-            actorRole: organization.role,
-            attemptedFields,
-            requestId,
-            message,
-        })
-        logOrganizationEvent(req, denial.serviceLogAction, req.params.id, userId, {
-            requestId: denial.requestId,
-            actorRole: organization.role,
-            attemptedFields: denial.attemptedFields,
-            denialReason: denial.denialReason,
-        })
-        return res.status(403).send({ error: message, settingsMutationDenial: denial })
-    }
-
-    let input: ReturnType<typeof normalizeOrganizationSettingsInput>
-    try {
-        input = normalizeOrganizationSettingsInput(req.body)
-    } catch (error) {
-        return res.status(400).send({ error: error instanceof Error ? error.message : 'Invalid organization settings.' })
-    }
-
-    const slug = input.slug ? await uniqueOrganizationSlug(input.slug, req.params.id) : undefined
-    const lifecycleUpdate = await withTransaction(async query => {
-        await query('SELECT id FROM organizations WHERE id = $1 FOR UPDATE', [req.params.id])
-        const lockedOrganization = await loadOrganizationForMember(req.params.id, userId, query)
-        if (!lockedOrganization) return { error: 'organization_not_found' as const }
-        if (privacyDeletionMutationBlocker(lockedOrganization, 'update organization settings')) {
-            return { error: 'organization_deletion_in_progress' as const, organization: lockedOrganization }
-        }
-        if (!roleCanManageOrganization(lockedOrganization.role)) {
-            return { error: 'organization_role_forbidden' as const, organization: lockedOrganization }
-        }
-        if (input.lifecycleStatus === 'active' && await activeOwnerCount(req.params.id, query) < 1) {
-            return { error: 'organization_owner_required' as const, organization: lockedOrganization }
-        }
-        await query(`
-            UPDATE organizations
-            SET name = COALESCE($2, name),
-                slug = COALESCE($3, slug),
-                default_webhook_policy = COALESCE($4, default_webhook_policy),
-                alert_visibility_policy = COALESCE($5, alert_visibility_policy),
-                status = COALESCE($6, status),
-                retention_days = COALESCE($7, retention_days),
-                audit_safe_metadata = COALESCE($8::jsonb, audit_safe_metadata),
-                updated_at = NOW()
-            WHERE id = $1
-            RETURNING *
-        `, [
-            req.params.id,
-            input.name ?? null,
-            slug ?? null,
-            input.defaultWebhookPolicy ?? null,
-            input.alertVisibilityPolicy ?? null,
-            input.lifecycleStatus ?? null,
-            input.retentionDays ?? null,
-            input.auditSafeMetadata === undefined ? null : JSON.stringify(input.auditSafeMetadata),
-        ])
-        return { error: null, organization: lockedOrganization }
-    })
-    if (lifecycleUpdate.error === 'organization_not_found') {
-        return res.status(404).send({ error: 'Organization not found.' })
-    }
-    if (lifecycleUpdate.error === 'organization_deletion_in_progress') {
-        const blocker = privacyDeletionMutationBlocker(lifecycleUpdate.organization!, 'update organization settings')
-        return sendOrganizationLifecycleBlocker(req, res, blocker!, userId, lifecycleUpdate.organization!.role)
-    }
-    if (lifecycleUpdate.error === 'organization_role_forbidden') {
-        return res.status(403).send({ error: 'Only organization owners and admins can update settings.' })
-    }
-    if (lifecycleUpdate.error === 'organization_owner_required') {
-        return res.status(409).send({ error: 'Add or transfer ownership to an active member before reactivating the organization.' })
-    }
-    const authorizedOrganization = lifecycleUpdate.organization!
-    const mutatedFields = Object.entries({
-        name: input.name,
-        slug,
-        defaultWebhookPolicy: input.defaultWebhookPolicy,
-        alertVisibilityPolicy: input.alertVisibilityPolicy,
-        lifecycleStatus: input.lifecycleStatus,
-        retentionDays: input.retentionDays,
-        auditSafeMetadata: input.auditSafeMetadata === undefined ? undefined : Object.keys(input.auditSafeMetadata),
-    }).filter(([, value]) => value !== undefined).map(([key]) => key)
-
-    logOrganizationEvent(req, 'organization_settings_updated', req.params.id, userId, {
-        fields: [...mutatedFields],
-    })
-
-    const updated = await loadOrganizationForMember(req.params.id, userId)
-    return res.send({
-        organization: updated ? toOrganization(updated) : null,
-        settings: updated ? organizationSettingsFromRow(updated) : null,
-        permissions: organizationSettingsPermissions(updated?.role),
-        lifecycleReadiness: updated ? organizationLifecycleReadiness(updated) : null,
-        settingsMutationReceipt: updated ? {
-            schemaVersion: 'organization.lifecycle_settings_mutation_receipt.v1',
-            organizationId: req.params.id,
-            tenantId: req.params.id,
-            actorId: userId,
-            actorRole: authorizedOrganization.role,
-            previousLifecycleStatus: authorizedOrganization.status ?? 'active',
-            lifecycleStatus: updated.status ?? 'active',
-            lifecycleChanged: (authorizedOrganization.status ?? 'active') !== (updated.status ?? 'active'),
-            mutatedFields: [...mutatedFields],
-            blockerReason: updated.status === 'deleted'
-                ? 'org_deleted' as const
-                : updated.status === 'archived'
-                    ? 'org_archived' as const
-                    : null,
-            downstreamReadiness: {
-                inviteMutationAllowed: updated.status === 'active',
-                watchlistMutationAllowed: updated.status === 'active',
-                alertGenerationReady: updated.status === 'active',
-                caseVisibilityReady: updated.status === 'active',
-                webhookDeliveryReady: updated.status === 'active',
-                dashboardReadinessReady: updated.status === 'active',
-                supportRedactedReadReady: true,
-            },
-            downstreamRoutes: {
-                invites: 'POST /api/organizations/:id/invites',
-                sharedWatchlists: 'GET /api/organizations/:id/watchlists',
-                alertTermsExport: 'GET /api/organizations/:id/watchlists/alert-terms',
-                alertCaseVisibility: 'GET /api/organizations/:id/alert-case-visibility',
-                alertReadiness: 'GET /api/organizations/:id/alert-readiness',
-                webhookDelivery: 'POST /v1/dwm/webhooks/deliver',
-            },
-            downstreamContracts: [
-                'organization.watchlist_alert_generation_consumer.v1',
-                'organization.case_visibility_consumer.v1',
-                'organization.webhook_destination_delivery_consumer.v1',
-                'organization.shared_watchlist_readiness_export.v1',
-                'organization.lifecycle_downstream_receipt.v1',
-            ],
-            lifecycleCleanup: {
-                activeMembershipRequired: true,
-                archivedBlocker: 'org_archived' as const,
-                deletedBlocker: 'org_deleted' as const,
-                noOrphanedWatchlistAlerts: true,
-                noCrossOrgLeakage: true,
-                cleanupRoute: 'POST /api/organizations/:id/watchlists/cleanup' as const,
-            },
-            destinationReadiness: {
-                destinationOwnerField: 'destination.org_id' as const,
-                selectedDestinationIdField: 'webhookDestinationIds[]' as const,
-                deliveryBlockedByLifecycle: updated.status !== 'active',
-                crossOrgDestinationAllowed: false,
-                nonmemberDestinationEnumeration: false,
-            },
-            noLeakFields: [
-                'activeTerms[]',
-                'watchlistScope.alertGeneratorKeys',
-                'destination.secret',
-                'case.evidence.rawContent',
-                'otherOrg.watchlistItemIds',
-            ],
-        } : null,
-    })
-}
 
 export async function getOrganizationInvites(req: FastifyRequest<{ Params: OrganizationParams, Querystring: { requestId?: string, request_id?: string } }>, res: FastifyReply) {
     const requestContext = await loadRequiredOrganizationMemberRequest(req, res, req.params.id)
@@ -1120,116 +754,6 @@ export async function patchOrganizationMemberRole(req: FastifyRequest<{ Params: 
                 },
             },
         },
-    })
-}
-
-export async function postOrganizationOwnershipTransfer(req: FastifyRequest<{ Params: OrganizationParams, Body: OrganizationOwnershipTransferInput }>, res: FastifyReply) {
-    const requestContext = await loadRequiredOrganizationMemberRequest(req, res, req.params.id)
-    if (!requestContext) return
-    const { userId, organization } = requestContext
-
-    if (organization.role !== 'owner') {
-        return res.status(403).send({ error: 'Only organization owners can transfer ownership.' })
-    }
-
-    const lifecycleBlocker = inactiveOrganizationMutationBlocker(organization, 'transfer ownership')
-    if (lifecycleBlocker) {
-        return sendOrganizationLifecycleBlocker(req, res, lifecycleBlocker, userId, organization.role)
-    }
-
-    let input: ReturnType<typeof normalizeOwnershipTransferInput>
-    try {
-        input = normalizeOwnershipTransferInput(req.body)
-    } catch (error) {
-        return res.status(400).send({ error: error instanceof Error ? error.message : 'Invalid ownership transfer.' })
-    }
-
-    if (input.targetUserId === userId) {
-        return res.status(400).send({ error: 'Choose another active member as the new owner.' })
-    }
-
-    const target = await loadOrganizationMembership(req.params.id, input.targetUserId)
-    if (!target || target.status !== 'active') {
-        return res.status(404).send({ error: 'Target member not found.' })
-    }
-
-    const transferOutcome = await withTransaction(async query => {
-        await lockOrganizationMemberMutationScope(query, req.params.id, [userId, input.targetUserId])
-        const lockedOrganization = await loadOrganizationForMember(req.params.id, userId, query)
-        if (!lockedOrganization) return { error: 'organization_not_found' as const }
-        if (lockedOrganization.role !== 'owner') return { error: 'organization_role_forbidden' as const, organization: lockedOrganization }
-        const lockedLifecycleBlocker = inactiveOrganizationMutationBlocker(lockedOrganization, 'transfer ownership')
-        if (lockedLifecycleBlocker) return { error: 'organization_inactive' as const, organization: lockedOrganization, lifecycleBlocker: lockedLifecycleBlocker }
-
-        const lockedTargetOrganization = await loadOrganizationForMember(req.params.id, input.targetUserId, query)
-        if (!lockedTargetOrganization) return { error: 'member_not_found' as const, organization: lockedOrganization }
-        const lockedTarget = await loadOrganizationMembership(req.params.id, input.targetUserId, query)
-        if (!lockedTarget || lockedTarget.status !== 'active') return { error: 'member_not_found' as const, organization: lockedOrganization }
-        const ownerCount = await activeOwnerCount(req.params.id, query)
-
-        const result = await query(`
-            UPDATE organization_members
-            SET role = 'owner'
-            WHERE organization_id = $1
-              AND user_id = $2
-              AND status = 'active'
-            RETURNING *
-        `, [req.params.id, input.targetUserId])
-        if (!result.rows.length) throw new Error('Ownership transfer promotion failed after locked membership validation.')
-        const demoted = await query(`
-            UPDATE organization_members
-            SET role = 'admin'
-            WHERE organization_id = $1
-              AND user_id = $2
-              AND status = 'active'
-              AND role = 'owner'
-            RETURNING user_id
-        `, [req.params.id, userId])
-        if (!demoted.rows.length) throw new Error('Ownership transfer demotion failed after locked owner validation.')
-        await touchOrganization(req.params.id, query)
-        return { error: null, organization: lockedOrganization, target: lockedTarget, ownerCount, result }
-    })
-    if (transferOutcome.error === 'organization_not_found' || transferOutcome.error === 'member_not_found') {
-        return res.status(404).send({ error: transferOutcome.error === 'organization_not_found' ? 'Organization not found.' : 'Target member not found.' })
-    }
-    if (transferOutcome.error === 'organization_role_forbidden') {
-        return res.status(403).send({ error: 'Only organization owners can transfer ownership.' })
-    }
-    if (transferOutcome.error === 'organization_inactive') {
-        return sendOrganizationLifecycleBlocker(req, res, transferOutcome.lifecycleBlocker, userId, transferOutcome.organization.role)
-    }
-    const { target: authorizedTarget, ownerCount, result } = transferOutcome
-
-    logOrganizationEvent(req, 'organization_ownership_transferred', req.params.id, userId, {
-        targetUserId: input.targetUserId,
-        previousTargetRole: authorizedTarget.role,
-        previousOwnerCount: ownerCount,
-        reason: input.reason,
-    })
-    await recordSystemEvent(req, {
-        actionType: 'organization.ownership.transferred',
-        actorId: userId,
-        organizationId: req.params.id,
-        targetType: 'organization_member',
-        targetId: input.targetUserId,
-        entityId: req.params.id,
-        context: {
-            previousOwnerId: userId,
-            previousTargetRole: authorizedTarget.role,
-            reason: input.reason,
-        },
-    })
-
-    const updated = await loadOrganizationForMember(req.params.id, userId)
-    return res.send({
-        organization: updated ? toOrganization(updated) : null,
-        transfer: {
-            organizationId: req.params.id,
-            previousOwnerId: userId,
-            newOwnerId: input.targetUserId,
-            reason: input.reason,
-        },
-        member: toMember(result.rows[0] as OrganizationMemberRow),
     })
 }
 
@@ -2910,174 +2434,6 @@ export async function postOrganizationWatchlistCleanup(req: FastifyRequest<{ Par
     })
 }
 
-async function loadOrganizationForMember(organizationId: string, userId: string, query: typeof run = run) {
-    const result = await query(`
-        SELECT
-            o.*,
-            om.role,
-            active_member_counts.member_count,
-            active_member_counts.owner_count,
-            active_member_counts.admin_count,
-            pending_invite_counts.pending_invite_count,
-            watchlist_counts.shared_watchlist_count
-        FROM organizations o
-        JOIN organization_members om
-          ON om.organization_id = o.id
-         AND om.user_id = $2
-         AND om.status = 'active'
-        JOIN users current_member_user
-          ON current_member_user.id = om.user_id
-         AND current_member_user.active = TRUE
-         AND current_member_user.deletion_scheduled_at IS NULL
-        LEFT JOIN LATERAL (
-            SELECT
-                COUNT(*)::int AS member_count,
-                COUNT(*) FILTER (WHERE active_members.role = 'owner')::int AS owner_count,
-                COUNT(*) FILTER (WHERE active_members.role IN ('owner', 'admin'))::int AS admin_count
-            FROM organization_members active_members
-            JOIN users active_member_users
-              ON active_member_users.id = active_members.user_id
-             AND active_member_users.active = TRUE
-            WHERE active_members.organization_id = o.id
-              AND active_members.status = 'active'
-        ) active_member_counts ON TRUE
-        LEFT JOIN LATERAL (
-            SELECT COUNT(*)::int AS pending_invite_count
-            FROM organization_invites pending_invites
-            WHERE pending_invites.organization_id = o.id
-              AND pending_invites.status = 'pending'
-              AND pending_invites.expires_at > NOW()
-        ) pending_invite_counts ON TRUE
-        LEFT JOIN LATERAL (
-            SELECT COUNT(*)::int AS shared_watchlist_count
-            FROM organization_watchlist_items active_watchlist_items
-            WHERE active_watchlist_items.organization_id = o.id
-              AND active_watchlist_items.archived_at IS NULL
-              AND active_watchlist_items.status = 'active'
-        ) watchlist_counts ON TRUE
-        WHERE o.id = $1
-        LIMIT 1
-    `, [organizationId, userId])
-
-    return result.rows[0] as OrganizationRow | undefined
-}
-
-async function loadLockedOrganizationMemberMutationContext({
-    query,
-    organizationId,
-    actorId,
-    targetUserId,
-    action,
-}: {
-    query: typeof run
-    organizationId: string
-    actorId: string
-    targetUserId: string
-    action: string
-}) {
-    await lockOrganizationMemberMutationScope(query, organizationId, [actorId, targetUserId])
-
-    const organization = await loadOrganizationForMember(organizationId, actorId, query)
-    if (!organization) return { error: 'organization_not_found' as const }
-
-    const lifecycleBlocker = inactiveOrganizationMutationBlocker(organization, action)
-    if (lifecycleBlocker) return { error: 'organization_inactive' as const, organization, lifecycleBlocker }
-
-    const target = await loadOrganizationMembership(organizationId, targetUserId, query)
-    if (!target || target.status !== 'active') return { error: 'member_not_found' as const, organization }
-
-    return { error: null, organization, target }
-}
-
-async function lockOrganizationMemberMutationScope(query: typeof run, organizationId: string, userIds: string[]) {
-    await query(`
-        SELECT id
-        FROM users
-        WHERE id = ANY($1::text[])
-        ORDER BY id
-        FOR UPDATE
-    `, [[...userIds].sort()])
-    await query('SELECT id FROM organizations WHERE id = $1 FOR UPDATE', [organizationId])
-}
-
-async function loadOrganizationMemberRequest(
-    req: FastifyRequest,
-    res: FastifyReply,
-    organizationId: string,
-    unauthorizedBody?: { error: unknown },
-) {
-    const userId = await authenticateOrganizationRequest(req, res, unauthorizedBody)
-    if (!userId) return null
-
-    const organization = await loadOrganizationForMember(organizationId, userId)
-    return { userId, organization }
-}
-
-async function loadRequiredOrganizationMemberRequest(
-    req: FastifyRequest,
-    res: FastifyReply,
-    organizationId: string,
-) {
-    const requestContext = await loadOrganizationMemberRequest(req, res, organizationId)
-    if (!requestContext) return null
-    const { organization } = requestContext
-    if (!organization) {
-        res.status(404).send({ error: 'Organization not found.' })
-        return null
-    }
-
-    return { userId: requestContext.userId, organization }
-}
-
-async function loadActiveOrganizationMemberMutationRequest(
-    req: FastifyRequest<{ Params: OrganizationMemberParams }>,
-    res: FastifyReply,
-    action: string,
-) {
-    const requestContext = await loadOrganizationMemberRequest(req, res, req.params.id)
-    if (!requestContext) return null
-    const { userId, organization } = requestContext
-    if (!organization) {
-        res.status(404).send({ error: 'Organization not found.' })
-        return null
-    }
-
-    const lifecycleBlocker = inactiveOrganizationMutationBlocker(organization, action)
-    if (lifecycleBlocker) {
-        sendOrganizationLifecycleBlocker(req, res, lifecycleBlocker, userId, organization.role)
-        return null
-    }
-
-    const target = await loadOrganizationMembership(req.params.id, req.params.userId)
-    if (!target || target.status !== 'active') {
-        res.status(404).send({ error: 'Organization member not found.' })
-        return null
-    }
-    return { userId, organization, target }
-}
-
-async function loadOrganizationMembership(organizationId: string, userId: string, query: typeof run = run) {
-    const result = await query(`
-        SELECT
-            om.organization_id,
-            om.user_id,
-            u.name,
-            u.avatar,
-            om.role,
-            om.status,
-            om.invited_by,
-            om.joined_at,
-            om.created_at
-        FROM organization_members om
-        JOIN users u ON u.id = om.user_id
-        WHERE om.organization_id = $1
-          AND om.user_id = $2
-        LIMIT 1
-    `, [organizationId, userId])
-
-    return result.rows[0] as OrganizationMemberRow | undefined
-}
-
 async function loadInviteRecipientState(organizationId: string, email: string) {
     const result = await run(`
         SELECT
@@ -3126,41 +2482,6 @@ async function loadInviteById(organizationId: string, inviteId: string) {
     return result.rows[0] as OrganizationInviteRow | undefined
 }
 
-async function uniqueOrganizationSlug(baseSlug: string, currentOrganizationId?: string) {
-    const result = await run(`
-        SELECT id, slug
-        FROM organizations
-        WHERE (slug = $1 OR slug LIKE $2)
-          AND ($3::text IS NULL OR id <> $3)
-    `, [baseSlug, `${baseSlug}-%`, currentOrganizationId ?? null])
-    const existing = new Set(result.rows.map((row: { slug: string }) => row.slug))
-    if (!existing.has(baseSlug)) {
-        return baseSlug
-    }
-
-    let suffix = 2
-    while (existing.has(`${baseSlug}-${suffix}`)) {
-        suffix += 1
-    }
-
-    return `${baseSlug}-${suffix}`
-}
-
-function logOrganizationEvent(req: FastifyRequest, action: string, organizationId: string, actorId: string, metadata: Record<string, unknown>) {
-    void recordLog({
-        service: 'hanasand-api',
-        level: 'info',
-        message: action,
-        metadata: {
-            category: 'organization',
-            action,
-            organizationId,
-            actorId,
-            ...metadata,
-        },
-    }).catch(error => req.log.warn({ error, action, organizationId }, 'Failed to persist organization event log'))
-}
-
 function sendOrganizationLastOwnerGuard(
     req: FastifyRequest,
     res: FastifyReply,
@@ -3180,123 +2501,6 @@ function sendOrganizationLastOwnerGuard(
     })
 
     return res.status(409).send({ error: guard.message, lastOwnerGuard: guard })
-}
-
-function inactiveOrganizationMutationBlocker(organization: Pick<OrganizationRow, 'id' | 'status'>, action: string) {
-    const status = organization.status ?? 'active'
-    if (status !== 'archived' && status !== 'deleted') {
-        return null
-    }
-
-    return {
-        schemaVersion: 'organization.lifecycle_mutation_blocker.v1',
-        organizationId: organization.id,
-        tenantId: organization.id,
-        status,
-        code: status === 'deleted' ? 'org_deleted' : 'org_archived',
-        action,
-        message: `Organization is ${status}; reactivate it before ${action}.`,
-    }
-}
-
-function privacyDeletionMutationBlocker(organization: Pick<OrganizationRow, 'id' | 'status' | 'audit_safe_metadata'>, action: string) {
-    if (!organizationPrivacyDeletionInProgress(organization)) return null
-    return {
-        schemaVersion: 'organization.lifecycle_mutation_blocker.v1' as const,
-        organizationId: organization.id,
-        tenantId: organization.id,
-        status: 'archived' as const,
-        code: 'org_archived' as const,
-        action,
-        message: 'Organization deletion is in progress; writes are blocked.',
-    }
-}
-
-function sendOrganizationLifecycleBlocker(req: FastifyRequest, res: FastifyReply, blocker: NonNullable<ReturnType<typeof inactiveOrganizationMutationBlocker>>, actorId: string, actorRole: OrganizationRole | undefined) {
-    const serviceLogAction = 'organization_lifecycle_mutation_blocked'
-    const body = req.body as { requestId?: unknown, request_id?: unknown, reason?: unknown } | undefined
-    const requestId = typeof body?.requestId === 'string'
-        ? body.requestId
-        : typeof body?.request_id === 'string'
-            ? body.request_id
-            : null
-    const reason = typeof body?.reason === 'string' && body.reason.trim()
-        ? body.reason.trim().slice(0, 1000)
-        : null
-    logOrganizationEvent(req, serviceLogAction, blocker.organizationId, actorId, {
-        requestId,
-        reason,
-        actorRole: actorRole ?? null,
-        blockedAction: blocker.action,
-        lifecycleStatus: blocker.status,
-        blockerCode: blocker.code,
-    })
-
-    return res.status(409).send({
-        error: blocker.message,
-        lifecycleBlocker: {
-            ...blocker,
-            serviceLogAction,
-            requestId,
-        },
-        auditEvent: {
-            schemaVersion: 'organization.lifecycle_mutation_blocker_audit.v1',
-            organizationId: blocker.organizationId,
-            tenantId: blocker.tenantId,
-            actorId,
-            actorRole: actorRole ?? null,
-            serviceLogAction,
-            requestId,
-            blockedAction: blocker.action,
-            blockerCode: blocker.code,
-            lifecycleStatus: blocker.status,
-        },
-    })
-}
-
-async function authenticateOrganizationRequest(
-    req: FastifyRequest,
-    res: FastifyReply,
-    unauthorizedBody: { error: unknown } = { error: 'Unauthorized.' }
-) {
-    const { valid, id: userId } = await tokenWrapper(req, res)
-    if (!valid || !userId) {
-        res.status(401).send(unauthorizedBody)
-        return null
-    }
-
-    return userId
-}
-
-function sendOrganizationAccessDenial(
-    req: FastifyRequest,
-    res: FastifyReply,
-    input: {
-        organizationId: string
-        actorId: string
-        route: Parameters<typeof organizationAccessDenial>[0]['route']
-        requestId?: string | null
-    }
-) {
-    const denial = organizationAccessDenial({
-        ...input,
-        requestId: input.requestId ?? (req.headers['x-request-id'] ? String(req.headers['x-request-id']) : null),
-    })
-    logOrganizationEvent(req, denial.serviceLogAction, input.organizationId, input.actorId, {
-        requestId: denial.requestId,
-        route: denial.route,
-        blockerCode: denial.blockerCode,
-        denialReason: denial.denialReason,
-    })
-    return res.status(denial.statusCode).send({ error: denial.message, organizationAccessDenial: denial })
-}
-
-function organizationSettingsPermissions(role: OrganizationRole | undefined) {
-    const canEdit = roleCanManageOrganization(role)
-    return {
-        canEdit,
-        editableFields: canEdit ? ['name', 'slug', 'defaultWebhookPolicy', 'alertVisibilityPolicy', 'retentionDays', 'auditSafeMetadata'] : [],
-    }
 }
 
 function sendInviteManagementDenial(
