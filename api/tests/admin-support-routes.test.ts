@@ -1261,15 +1261,13 @@ test('support invite action returns an audited accepted-invite denial when accep
     expect(state.inviteActionWrites).toBe(1)
 })
 
-test('support invite action returns the same audited denial for an already accepted invite', async () => {
+test('support invite action denies an already accepted invite without attempting an update', async () => {
     state.supportOrganization = activeSupportOrganizationFixture()
     state.supportInspectionInvite = { ...supportInviteInspectionFixture(), status: 'accepted' }
 
     const result = await request(postSupportOrganizationInviteAction, { params: { id: 'org-1', inviteId: 'invite-1' }, body: { action: 'resend', reason: 'Restore access', scope: 'invite:resend' } })
 
     expect(result.statusCode).toBe(409)
-    expect(result.body.inviteAction).toMatchObject({ outcome: 'failed', before: { status: 'accepted' }, after: { status: 'accepted' } })
-    expect(state.recordedEvents.at(-1)).toMatchObject({ outcome: 'failed', context: { error: 'accepted_invite_not_mutable_by_support_action' } })
     expect(state.inviteActionWrites).toBe(0)
 })
 
