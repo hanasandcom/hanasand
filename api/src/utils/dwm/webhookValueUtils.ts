@@ -44,3 +44,21 @@ export function uniqueWebhookBlockers<T extends { code: string; destinationId: s
     }
     return unique
 }
+
+export function makeWebhookBlocker(
+    code: string,
+    message: string,
+    destinationId: string | null = null,
+    blocking = true
+) {
+    return { code, message, destinationId, blocking }
+}
+
+export function makeWebhookBlockerWithFields<C extends string, Fields extends object>(
+    code: C,
+    message: string,
+    destinationId: string | null,
+    fields: Fields
+) {
+    return { code, message, destinationId, ...fields }
+}
