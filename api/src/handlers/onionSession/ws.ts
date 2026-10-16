@@ -1298,8 +1298,7 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
                 const copiedText = await readSelectedText() || selectedText
                 if (copiedText) remoteClipboard = copiedText
             }
-            if (isCopyShortcut(message)) editableSelectAllArmed = false
-            if (!isCopyShortcut(message)) editableSelectAllArmed = false
+            editableSelectAllArmed = false
         } else if (message.key.length === 1) {
             editableSelectAllArmed = false
             await page.keyboard.insertText(message.key)
