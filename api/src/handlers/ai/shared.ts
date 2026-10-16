@@ -132,19 +132,6 @@ export async function getConversationForUser(conversationId: string, ownerId: st
     return (result.rows as AiConversationRow[])[0] || null
 }
 
-export async function getConversationCollaborators(conversationId: string) {
-    const result = await run(`
-        SELECT collaborators.*, users.name AS user_name, users.avatar AS user_avatar
-        FROM ai_conversation_collaborators AS collaborators
-        LEFT JOIN users
-          ON users.id = collaborators.user_id
-        WHERE collaborators.conversation_id = $1
-        ORDER BY collaborators.created_at ASC
-    `, [conversationId])
-
-    return result.rows as CollaborationRow[]
-}
-
 export async function getWorkspaceBundle(ownerId: string) {
     const [conversationResult, messageResult, repositoryResult, fileResult, deploymentResult, collaborationResult, releaseResult, usageResult] = await Promise.all([
         queryAccessibleConversations(ownerId),
