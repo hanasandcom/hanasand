@@ -62,6 +62,11 @@ test('organization and user inspections keep shared fields and target-specific c
     const organizationResponse = await request(getSupportOrganization, { params: { id: 'org-1' } })
     const userResponse = await request(getSupportUser, { params: { id: 'user-1' } })
 
+    expect(state.recordedEvents.map(({ actionType, targetType, targetId }) => ({ actionType, targetType, targetId }))).toEqual([
+        { actionType: 'support.organization.inspect', targetType: 'organization', targetId: 'org-1' },
+        { actionType: 'support.user.inspect', targetType: 'user', targetId: 'user-1' },
+    ])
+
     expect(organizationResponse.statusCode).toBe(200)
     expect(userResponse.statusCode).toBe(200)
     const organization = organizationResponse.body
@@ -148,3 +153,35 @@ test('user inspection finds pending organization invites by the user email', asy
     expect(inviteQuery?.values).toEqual(['member@example.com'])
 })
 
+test('missing organization and user inspections preserve 404 audit contracts', async () => {
+    state.supportOrganization = null
+    const missingOrganization = await request(getSupportOrganization, { params: { id: 'missing-org' } })
+
+    expect(missingOrganization.statusCode).toBe(404)
+    expect(missingOrganization.body).toEqual({ error: 'Organization not found.' })
+    expect(state.recordedEvents.at(-1)).toMatchObject({
+        actionType: 'support.organization.inspect',
+        targetType: 'organization',
+        targetId: 'missing-org',
+        organizationId: 'missing-org',
+        entityId: 'missing-org',
+        outcome: 'failed',
+        context: { error: 'organization_not_found' },
+    })
+
+    state.recordedEvents.length = 0
+    state.supportUser = null
+    const missingUser = await request(getSupportUser, { params: { id: 'missing-user' } })
+
+    expect(missingUser.statusCode).toBe(404)
+    expect(missingUser.body).toEqual({ error: 'User not found.' })
+    expect(state.recordedEvents.at(-1)).toMatchObject({
+        actionType: 'support.user.inspect',
+        targetType: 'user',
+        targetId: 'missing-user',
+        entityId: 'missing-user',
+        outcome: 'failed',
+        context: { error: 'user_not_found' },
+    })
+    expect(state.recordedEvents.at(-1)).not.toHaveProperty('organizationId')
+})

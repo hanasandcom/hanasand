@@ -3,14 +3,13 @@ import { requireAdminSupport } from './adminSupport/auth.ts'
 export { requireAdminSupport } from './adminSupport/auth.ts'
 export { postSupportSession, getSupportSession, postSupportSessionRevoke } from './adminSupport/sessions/index.ts'
 export { getSupportOrganizationInvite, getSupportOrganizationMember } from './adminSupport/cases/organizationEntityReads.ts'
+export { getSupportOrganization } from './adminSupport/cases/organizationRead.ts'
+export { getSupportUser } from './adminSupport/cases/userRead.ts'
 import { inviteSnapshot } from './adminSupport/cases/organizationEntityReads.ts'
 import { loadOrganizationSupportDetail, loadSupportMemberDetail } from './adminSupport/cases/organizationReadData.ts'
 import { buildSupportInspectionAuthorization } from './adminSupport/cases/inspection/authorization.ts'
 import { supportTimelineFilter } from './adminSupport/cases/inspection/timelineFilter.ts'
 import { toAccessRecoveryDecision } from './adminSupport/cases/accessRecoveryApprovalMapping.ts'
-import { buildSupportSubjectInspectionContext } from './adminSupport/cases/subjectInspectionContext.ts'
-import { buildSupportSubjectAccessState } from './adminSupport/cases/subjectAccessState.ts'
-import { buildSupportSubjectInspectionReceipts } from './adminSupport/cases/subjectInspectionReceipts.ts'
 export { buildSupportSubjectAccessState, buildSupportSubjectInspectionAuthorization } from './adminSupport/cases/subjectAccessState.ts'
 export { buildSupportSubjectInspectionContext } from './adminSupport/cases/subjectInspectionContext.ts'
 export { buildSupportSubjectInspectionReceipts } from './adminSupport/cases/subjectInspectionReceipts.ts'
@@ -35,17 +34,11 @@ import { supportAuditEventDetailResponse } from './adminSupport/audit/auditEvent
 import { supportCaseTimelineEntries } from './adminSupport/audit/auditCaseTimeline.ts'
 import { systemEventFilters } from './adminSupport/audit/auditFilterDefinitions.ts'
 import { appendSystemEventFilters } from './adminSupport/audit/systemEventFilters.ts'
-import { toSupportWebhookDestination } from './adminSupport/webhooks/destinationMapping.ts'
-import { supportWebhookDestinationReadiness } from './adminSupport/webhooks/destinationReadiness.ts'
-import { supportOrganizationCaseAccessReadiness } from './adminSupport/cases/organizationAccessReadiness.ts'
-import { supportUserCaseAccessReadiness } from './adminSupport/cases/userAccessReadiness.ts'
-import { toSupportUser, toSupportMember, toSupportMemberDetail, membershipSnapshot, toSupportMembership, buildRecoveryEligibility, toSupportInvite } from './adminSupport/cases/subjectMapping.ts'
+import { toSupportUser, toSupportMemberDetail, membershipSnapshot, buildRecoveryEligibility, toSupportInvite } from './adminSupport/cases/subjectMapping.ts'
 import { buildSupportAccessStatus } from './adminSupport/cases/accessStatus.ts'
 import { buildSupportAccessRecoveryPlan } from './adminSupport/cases/accessRecoveryPlan.ts'
 import { buildSupportCaseSummary } from './adminSupport/cases/caseSummary.ts'
 import { auditTimelineLink } from './adminSupport/audit/auditLinks.ts'
-import { supportRecentAuditTimeline } from './adminSupport/cases/recentAuditTimeline.ts'
-import { supportOrganizationActivityRollup, supportUserActivityRollup } from './adminSupport/cases/activityRollups.ts'
 import { supportRecoveryLifecycleCleanupExport } from './adminSupport/cases/readiness/lifecycleCleanupExport.ts'
 import { supportReadinessCaseTimelineExport } from './adminSupport/cases/readiness/caseTimelineExport.ts'
 import { supportRecoveryReadinessMatrix } from './adminSupport/cases/readiness/readinessMatrix.ts'
@@ -57,31 +50,26 @@ import { supportInspectionApprovalDecisionPacket } from './adminSupport/cases/in
 import { supportInspectionReceiptReplayPacket } from './adminSupport/cases/inspection/receiptReplayPacket.ts'
 import { supportSessionReplayReceipt } from './adminSupport/cases/inspection/sessionReplayReceipt.ts'
 import { supportInspectionReplayExportPacket } from './adminSupport/cases/inspection/replayExportPacket.ts'
-import { supportOrganizationCaseHandoff } from './adminSupport/cases/organizationHandoff.ts'
-import { supportUserCaseHandoff } from './adminSupport/cases/userHandoff.ts'
 import { supportWorkbenchAdapter } from './adminSupport/cases/workbenchAdapter.ts'
 import type { AccessRecoveryApprovalRow } from './adminSupport/supportTypes.ts'
 import { activeOrganizationOwnerCount as activeOwnerCount, organizationMembershipAvailability as loadOrganizationAvailability, type OrganizationMembershipAvailability } from '#utils/organizationMemberships.ts'
 import { compileAuditQuery } from '#utils/auditQuery.ts'
 import { hasOrganizationPrivacyDeletionMarker, organizationPrivacyDeletionInProgress } from '#utils/organizationLifecycle.ts'
-import { cleanContext, headerText, normalizeApprovalStatus, normalizeOption, normalizeSupportPreparationDuration, normalizeSupportPreparationExpiry, normalizeSupportPreparationScope, supportError, supportInspectionAuditContext, supportInspectionAuditMetadata, supportInspectionQueryFilters, supportRequestId, supportSessionIdFromRequest, supportText as text } from '#utils/support/adminSupportInput.ts'
+import { cleanContext, headerText, normalizeApprovalStatus, normalizeOption, normalizeSupportPreparationDuration, normalizeSupportPreparationExpiry, normalizeSupportPreparationScope, supportError, supportInspectionQueryFilters, supportRequestId, supportSessionIdFromRequest, supportText as text } from '#utils/support/adminSupportInput.ts'
 import { auditFilterValidationError } from '#utils/support/auditFilterValidation.ts'
 import { loadSupportSessionState } from '#utils/support/supportSessionState.ts'
 import { supportSessionResponse } from '#utils/support/sessionPresentation.ts'
 import { auditFilterQuery, supportInspectionActionAuditContract, supportInspectionAuditDetailPacket, supportInspectionAuditFilterCoverage, supportInspectionAuthorizationMatrix, supportInspectionFilters, supportInspectionOrgBoundaryProof, supportInspectionRecoveryFixturePacket, supportInspectionSearchProof, uniqueTimelineValues, type SupportTimelineFilter } from '#utils/support/inspectionPackets.ts'
-import { loadSystemEventIds, recordSystemEvent, redactAuditValue, requireAuditReason, supportTimelineAuditBridgeEvent } from '#utils/systemEvent.ts'
+import { loadSystemEventIds, recordSystemEvent, redactAuditValue, requireAuditReason } from '#utils/systemEvent.ts'
 import {
-    buildOrganizationDwmAlertReference,
     normalizeInviteInput,
     normalizeMemberRoleInput,
     toInvite,
     toOrganization,
-    toWatchlistItem,
     type InviteInput,
     type OrganizationRole,
     type OrganizationInviteRow,
     type OrganizationRow,
-    type OrganizationWatchlistRow,
 } from '#utils/organizations.ts'
 
 type AuditQuery = {
@@ -142,10 +130,6 @@ type AuditEventParams = {
 }
 
 type OrganizationParams = {
-    id: string
-}
-
-type UserParams = {
     id: string
 }
 
@@ -651,468 +635,6 @@ export async function getSystemEvent(req: FastifyRequest<{ Params: AuditEventPar
 
 
 
-
-function supportSubjectInspectionResponseFields(input: {
-    kind: SupportSubjectInspectionKind
-    targetId: string
-    authorization: Record<string, any>
-    subjectAccessState: ReturnType<typeof buildSupportSubjectAccessState>
-    receipts: ReturnType<typeof buildSupportSubjectInspectionReceipts>
-    caseAccessReadiness: Record<string, any>
-    caseHandoff: Record<string, any>
-    supportActivityRollup: Record<string, any>
-    recentAuditTimeline: ReturnType<typeof supportRecentAuditTimeline>
-    relatedRecordCount: number
-    pendingInviteCount: number
-}) {
-    const relatedRecordLabel = input.kind === 'organization' ? 'Members' : 'Memberships'
-    return {
-        authorization: input.authorization,
-        accessStatus: input.subjectAccessState.accessStatus,
-        accessRecoveryPlan: input.subjectAccessState.accessRecoveryPlan,
-        ...input.receipts,
-        caseAccessReadiness: input.caseAccessReadiness,
-        caseHandoff: input.caseHandoff,
-        supportActivityRollup: input.supportActivityRollup,
-        recentAuditEvents: input.recentAuditTimeline.events,
-        recentAuditTimeline: input.recentAuditTimeline,
-        copyText: [
-            `Support ${input.kind} inspection ${input.targetId}`,
-            `Authorization: ${input.authorization.supportSessionScoped ? 'scoped support session' : 'support role'}`,
-            `Access status: ${input.subjectAccessState.accessStatus.overall}`,
-            `${relatedRecordLabel}: ${input.relatedRecordCount}`,
-            `Pending invites: ${input.pendingInviteCount}`,
-            `Audit events: ${input.recentAuditTimeline.eventIds.join(', ') || 'none'}`,
-        ].join('\n'),
-    }
-}
-
-export async function getSupportOrganization(req: FastifyRequest<{ Params: OrganizationParams }>, res: FastifyReply) {
-    const actor = await requireAdminSupport(req, res)
-    if (!actor) return
-
-    const inspectionAudit = supportInspectionAuditMetadata(req)
-    const organization = await loadOrganizationSupportDetail(req.params.id)
-    if (!organization) {
-        await recordSystemEvent(req, {
-            actionType: 'support.organization.inspect',
-            actorId: actor.id,
-            targetType: 'organization',
-            targetId: req.params.id,
-            organizationId: req.params.id,
-            entityId: req.params.id,
-            requestId: inspectionAudit.requestId,
-            severity: 'notice',
-            outcome: 'failed',
-            reason: inspectionAudit.reason || undefined,
-            context: supportInspectionAuditContext(inspectionAudit, { error: 'organization_not_found' }),
-        })
-        return res.status(404).send({ error: 'Organization not found.' })
-    }
-
-    const [members, invites, watchlists, webhookDestinationsResult, audit, availability] = await Promise.all([
-        run(`
-            SELECT
-                om.organization_id,
-                om.user_id,
-                users.name,
-                users.avatar,
-                users.active,
-                users.deactivated_at,
-                users.deletion_scheduled_at,
-                om.role,
-                om.status,
-                om.invited_by,
-                om.joined_at,
-                om.created_at
-            FROM organization_members om
-            JOIN users ON users.id = om.user_id
-            WHERE om.organization_id = $1
-            ORDER BY
-                CASE om.role WHEN 'owner' THEN 0 WHEN 'admin' THEN 1 ELSE 2 END,
-                users.name ASC
-        `, [organization.id]),
-        run(`
-            SELECT *
-            FROM organization_invites
-            WHERE organization_id = $1
-            ORDER BY status ASC, created_at DESC
-        `, [organization.id]),
-        run(`
-            SELECT *
-            FROM organization_watchlist_items
-            WHERE organization_id = $1
-              AND archived_at IS NULL
-            ORDER BY kind ASC, value ASC
-        `, [organization.id]),
-        run(`
-            SELECT
-                id,
-                org_id,
-                owner_id,
-                name,
-                kind,
-                endpoint_hint,
-                endpoint_hash <> '' AS endpoint_fingerprint_present,
-                status,
-                events,
-                created_by,
-                last_tested_at,
-                last_test_status,
-                last_test_error IS NOT NULL AS last_test_error_present,
-                last_test_http_status,
-                last_delivery_at,
-                created_at,
-                updated_at
-            FROM dwm_webhook_destinations
-            WHERE org_id = $1
-              AND status <> 'archived'
-            ORDER BY status ASC, updated_at DESC
-        `, [organization.id]),
-        run(`
-            SELECT id, event_type, severity, source, service, actor_id, object_type, object_id, subject_id, request_id, outcome, reason, context, created_at
-            FROM system_events
-            WHERE organization_id = $1
-            ORDER BY created_at DESC
-            LIMIT 25
-        `, [organization.id]),
-        loadOrganizationAvailability([organization.id]),
-    ])
-
-    await recordSystemEvent(req, {
-        actionType: 'support.organization.inspect',
-        actorId: actor.id,
-        targetType: 'organization',
-        targetId: organization.id,
-        organizationId: organization.id,
-        entityId: organization.id,
-        requestId: inspectionAudit.requestId,
-        severity: 'info',
-        outcome: 'success',
-        reason: inspectionAudit.reason || undefined,
-        context: supportInspectionAuditContext(inspectionAudit, {
-            memberCount: members.rows.length,
-            pendingInviteCount: invites.rows.filter((invite: { status: string }) => invite.status === 'pending').length,
-            watchlistItemCount: watchlists.rows.length,
-            webhookDestinationCount: webhookDestinationsResult.rows.length,
-        }),
-    })
-
-    const watchlistItems = watchlists.rows as OrganizationWatchlistRow[]
-    const webhookDestinations = (webhookDestinationsResult.rows as Record<string, unknown>[]).map(toSupportWebhookDestination)
-    const alertReferences = watchlistItems.map(item => buildOrganizationDwmAlertReference(organization, item))
-    const webhookDestinationReadiness = supportWebhookDestinationReadiness({
-        organizationId: organization.id,
-        requestId: inspectionAudit.requestId,
-        reason: inspectionAudit.reason,
-        supportContext: inspectionAudit.supportContext,
-        destinations: webhookDestinations,
-    })
-    const recentAuditTimeline = supportRecentAuditTimeline({
-        org: organization.id,
-        target: organization.id,
-        entity: organization.id,
-        request: inspectionAudit.requestId,
-        reason: inspectionAudit.reason,
-        action: 'support.organization',
-    }, audit.rows as Record<string, unknown>[])
-    const supportActivityRollup = supportOrganizationActivityRollup({
-        organizationId: organization.id,
-        requestId: inspectionAudit.requestId,
-        timeline: recentAuditTimeline.events,
-    })
-    const { subjectAccessState, authorization, receipts: subjectReceipts } = buildSupportSubjectInspectionContext({
-        kind: 'organization',
-        actorId: actor.id,
-        requestedId: req.params.id,
-        targetId: organization.id,
-        organizationIds: [organization.id],
-        requestId: inspectionAudit.requestId,
-        reason: inspectionAudit.reason,
-        supportContext: inspectionAudit.supportContext,
-        users: members.rows as Record<string, unknown>[],
-        memberships: members.rows as Record<string, unknown>[],
-        invites: invites.rows as Record<string, unknown>[],
-        approvalDetails: [],
-        availability,
-        timeline: recentAuditTimeline.events,
-        supportActivityRollup,
-    })
-    const { accessStatus: organizationAccessStatus, accessRecoveryPlan } = subjectAccessState
-    const caseAccessReadiness = supportOrganizationCaseAccessReadiness({
-        organizationId: organization.id,
-        requestId: inspectionAudit.requestId,
-        reason: inspectionAudit.reason,
-        supportContext: inspectionAudit.supportContext,
-        members: members.rows.map(toSupportMember),
-        invites: (invites.rows as OrganizationInviteRow[]).map(toInvite),
-        watchlistItems: watchlistItems.map(toWatchlistItem),
-        alertReferences,
-        webhookDestinations,
-        webhookDestinationReadiness,
-        accessStatus: organizationAccessStatus,
-        accessRecoveryPlan,
-        timeline: recentAuditTimeline.events,
-    })
-    const alertReadinessBridge = supportTimelineAuditBridgeEvent({
-        workflow: 'watchlist',
-        action: 'support.organization.alert_readiness.inspect',
-        actorId: actor.id,
-        targetType: 'organization',
-        targetId: organization.id,
-        organizationId: organization.id,
-        entityId: organization.id,
-        requestId: inspectionAudit.requestId,
-        severity: 'info',
-        outcome: 'success',
-        reason: inspectionAudit.reason || 'Support inspected organization alert readiness.',
-        source: 'support',
-        service: 'hanasand-api',
-        context: {
-            watchlistItemCount: watchlistItems.length,
-            generatedAlertReferenceCount: alertReferences.length,
-            supportContext: inspectionAudit.supportContext || null,
-        },
-        after: {
-            generatedAlertReferenceCount: alertReferences.length,
-        },
-    })
-    const { actionHistoryExport } = subjectReceipts
-    const caseHandoff = supportOrganizationCaseHandoff({
-        actorId: actor.id,
-        organizationId: organization.id,
-        requestId: inspectionAudit.requestId,
-        reason: inspectionAudit.reason,
-        supportContext: inspectionAudit.supportContext,
-        members: members.rows.map(toSupportMember),
-        invites: (invites.rows as OrganizationInviteRow[]).map(toInvite),
-        watchlistItems: watchlistItems.map(toWatchlistItem),
-        alertReferences,
-        webhookDestinations,
-        webhookDestinationReadiness,
-        caseAccessReadiness,
-        accessRecoveryPlan,
-        actionHistoryExport,
-        timeline: recentAuditTimeline.events,
-    })
-    return res.send({
-        organization: toOrganization(organization),
-        members: members.rows.map(toSupportMember),
-        invites: (invites.rows as OrganizationInviteRow[]).map(toInvite),
-        watchlistItems: watchlistItems.map(toWatchlistItem),
-        webhookDestinations,
-        alertReadiness: {
-            schemaVersion: 'support.organization.alert_readiness.v1',
-            organizationId: organization.id,
-            watchlistItemCount: alertReferences.length,
-            generatedAlertReferences: alertReferences,
-            links: {
-                api: `/api/organizations/${encodeURIComponent(organization.id)}/alert-readiness`,
-                console: `/dwm?organizationId=${encodeURIComponent(organization.id)}`,
-                audit: `/system/impersonation?org=${encodeURIComponent(organization.id)}&action=support.organization`,
-            },
-            supportTimelineBridge: {
-                schemaVersion: 'support.organization.alert_readiness.audit_bridge.v1',
-                event: alertReadinessBridge,
-                auditFields: ['actionType', 'actorId', 'targetType', 'targetId', 'organizationId', 'entityId', 'requestId', 'severity', 'outcome', 'reason', 'source', 'service', 'context'],
-                testCommand: 'cd api && bun run smoke:admin-support-unit',
-            },
-        },
-        webhookDestinationReadiness,
-        supportLinks: {
-            inspectUser: '/api/admin/support/users/:id',
-            inviteAssist: `/api/admin/support/organizations/${encodeURIComponent(organization.id)}/invites`,
-            accessRecovery: `/api/admin/support/organizations/${encodeURIComponent(organization.id)}/access-recovery`,
-            audit: `/api/admin/audit-events?org=${encodeURIComponent(organization.id)}`,
-            webhookAudit: `/api/admin/audit-events?org=${encodeURIComponent(organization.id)}&action=webhook`,
-            caseHandoff: `/api/admin/support/organizations/${encodeURIComponent(organization.id)}?include=caseHandoff`,
-        },
-        ...supportSubjectInspectionResponseFields({
-            kind: 'organization',
-            targetId: organization.id,
-            authorization,
-            subjectAccessState,
-            receipts: subjectReceipts,
-            caseAccessReadiness,
-            caseHandoff,
-            supportActivityRollup,
-            recentAuditTimeline,
-            relatedRecordCount: members.rows.length,
-            pendingInviteCount: (invites.rows as OrganizationInviteRow[]).filter(row => row.status === 'pending').length,
-        }),
-    })
-}
-
-export async function getSupportUser(req: FastifyRequest<{ Params: UserParams }>, res: FastifyReply) {
-    const actor = await requireAdminSupport(req, res)
-    if (!actor) return
-
-    const inspectionAudit = supportInspectionAuditMetadata(req)
-    const user = await run(`
-        SELECT id, name, avatar, email, active, reserved, deactivated_at, deactivated_by, deletion_requested_at, deletion_scheduled_at
-        FROM users
-        WHERE id = $1
-        LIMIT 1
-    `, [req.params.id])
-    const userRow = user.rows[0] as Record<string, unknown> | undefined
-    if (!userRow) {
-        await recordSystemEvent(req, {
-            actionType: 'support.user.inspect',
-            actorId: actor.id,
-            targetType: 'user',
-            targetId: req.params.id,
-            entityId: req.params.id,
-            requestId: inspectionAudit.requestId,
-            severity: 'notice',
-            outcome: 'failed',
-            reason: inspectionAudit.reason || undefined,
-            context: supportInspectionAuditContext(inspectionAudit, { error: 'user_not_found' }),
-        })
-        return res.status(404).send({ error: 'User not found.' })
-    }
-
-    const [memberships, invites, audit, approvals] = await Promise.all([
-        run(`
-            SELECT
-                om.user_id,
-                om.organization_id,
-                organizations.name AS organization_name,
-                organizations.slug AS organization_slug,
-                om.role,
-                om.status,
-                om.invited_by,
-                om.joined_at,
-                om.created_at
-            FROM organization_members om
-            JOIN organizations ON organizations.id = om.organization_id
-            WHERE om.user_id = $1
-            ORDER BY organizations.name ASC
-        `, [req.params.id]),
-        run(`
-            SELECT organization_invites.*, organizations.name AS organization_name, organizations.slug AS organization_slug
-            FROM organization_invites
-            JOIN organizations ON organizations.id = organization_invites.organization_id
-            WHERE lower(organization_invites.email) = lower($1)
-              AND organization_invites.status = 'pending'
-            ORDER BY organization_invites.created_at DESC
-        `, [String(userRow.email || '')]),
-        run(`
-            SELECT id, event_type, severity, source, service, actor_id, object_type, object_id, organization_id, subject_id, request_id, outcome, reason, context, created_at
-            FROM system_events
-            WHERE object_id = $1
-               OR actor_id = $1
-               OR subject_id = $1
-            ORDER BY created_at DESC
-            LIMIT 25
-        `, [req.params.id]),
-        loadInspectionApprovals({ org: '', user: req.params.id, email: '', request: inspectionAudit.requestId, outcome: '', limit: 25 }),
-    ])
-
-    await recordSystemEvent(req, {
-        actionType: 'support.user.inspect',
-        actorId: actor.id,
-        targetType: 'user',
-        targetId: req.params.id,
-        entityId: req.params.id,
-        requestId: inspectionAudit.requestId,
-        severity: 'info',
-        outcome: 'success',
-        reason: inspectionAudit.reason || undefined,
-        context: supportInspectionAuditContext(inspectionAudit, {
-            active: userRow.active,
-            membershipCount: memberships.rows.length,
-            pendingInviteCount: invites.rows.length,
-            deletionScheduled: Boolean(userRow.deletion_scheduled_at),
-        }),
-    })
-
-    const recentAuditTimeline = supportRecentAuditTimeline({
-        target: req.params.id,
-        entity: req.params.id,
-        request: inspectionAudit.requestId,
-        reason: inspectionAudit.reason,
-        action: 'support.user',
-    }, audit.rows as Record<string, unknown>[])
-    const approvalDetails = (approvals as AccessRecoveryApprovalRow[]).map(toAccessRecoveryDecision)
-    const organizationIds = Array.from(new Set([
-        ...memberships.rows.map(row => String((row as Record<string, unknown>).organization_id || '')).filter(Boolean),
-        ...invites.rows.map(row => String((row as Record<string, unknown>).organization_id || '')).filter(Boolean),
-        ...approvalDetails.map(item => String(item.organizationId || '')).filter(Boolean),
-    ]))
-    const supportActivityRollup = supportUserActivityRollup({
-        userId: req.params.id,
-        requestId: inspectionAudit.requestId,
-        organizationIds,
-        timeline: recentAuditTimeline.events,
-    })
-    const availability = organizationIds.length ? await loadOrganizationAvailability(organizationIds) : []
-    const { subjectAccessState, authorization, receipts: subjectReceipts } = buildSupportSubjectInspectionContext({
-        kind: 'user',
-        actorId: actor.id,
-        requestedId: req.params.id,
-        targetId: req.params.id,
-        organizationIds,
-        requestId: inspectionAudit.requestId,
-        reason: inspectionAudit.reason,
-        supportContext: inspectionAudit.supportContext,
-        users: [userRow],
-        memberships: memberships.rows as Record<string, unknown>[],
-        invites: invites.rows as Record<string, unknown>[],
-        approvalDetails,
-        availability,
-        timeline: recentAuditTimeline.events,
-        supportActivityRollup,
-    })
-    const { accessStatus: userAccessStatus, accessRecoveryPlan } = subjectAccessState
-    const { actionHistoryExport } = subjectReceipts
-    const caseAccessReadiness = supportUserCaseAccessReadiness({
-        userId: req.params.id,
-        organizationIds,
-        requestId: inspectionAudit.requestId,
-        reason: inspectionAudit.reason,
-        supportContext: inspectionAudit.supportContext,
-        memberships: memberships.rows.map(toSupportMembership),
-        pendingInvites: invites.rows.map(toSupportInvite),
-        approvalRequests: approvalDetails,
-        accessStatus: userAccessStatus,
-        accessRecoveryPlan,
-        timeline: recentAuditTimeline.events,
-    })
-    const caseHandoff = supportUserCaseHandoff({
-        actorId: actor.id,
-        userId: req.params.id,
-        organizationIds,
-        requestId: inspectionAudit.requestId,
-        reason: inspectionAudit.reason,
-        supportContext: inspectionAudit.supportContext,
-        memberships: memberships.rows.map(toSupportMembership),
-        pendingInvites: invites.rows.map(toSupportInvite),
-        approvalRequests: approvalDetails,
-        caseAccessReadiness,
-        accessRecoveryPlan,
-        actionHistoryExport,
-        timeline: recentAuditTimeline.events,
-    })
-    return res.send({
-        user: toSupportUser(userRow),
-        memberships: memberships.rows.map(toSupportMembership),
-        pendingInvites: invites.rows.map(toSupportInvite),
-        approvalRequests: approvalDetails,
-        ...supportSubjectInspectionResponseFields({
-            kind: 'user',
-            targetId: req.params.id,
-            authorization,
-            subjectAccessState,
-            receipts: subjectReceipts,
-            caseAccessReadiness,
-            caseHandoff,
-            supportActivityRollup,
-            recentAuditTimeline,
-            relatedRecordCount: memberships.rows.length,
-            pendingInviteCount: invites.rows.length,
-        }),
-    })
-}
 
 export async function getSupportInspection(req: FastifyRequest<{ Querystring: SupportInspectionQuery }>, res: FastifyReply) {
     const actor = await requireAdminSupport(req, res)
@@ -4064,8 +3586,6 @@ async function recordAccessRecoveryDecisionAudit(
 
 
 
-
-type SupportSubjectInspectionKind = 'organization' | 'user'
 
 
 

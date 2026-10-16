@@ -7,25 +7,32 @@ export async function sendOrganizationEntityInspectionNotFound(input: {
     res: FastifyReply
     actorId: string
     metadata: ReturnType<typeof supportInspectionAuditMetadata>
-    kind: 'invite' | 'member'
+    kind: 'organization' | 'user' | 'invite' | 'member'
     targetId: string
-    organizationId: string
-    error: 'organization_not_found' | 'invite_not_found' | 'member_not_found'
-    contextKey: 'inviteId' | 'userId'
+    organizationId?: string
+    error: 'organization_not_found' | 'user_not_found' | 'invite_not_found' | 'member_not_found'
+    contextKey?: 'inviteId' | 'userId'
     responseError: string
 }) {
     await recordSystemEvent(input.req, {
-        actionType: `support.organization.${input.kind}.inspect`,
+        actionType: input.kind === 'organization'
+            ? 'support.organization.inspect'
+            : input.kind === 'user'
+                ? 'support.user.inspect'
+                : `support.organization.${input.kind}.inspect`,
         actorId: input.actorId,
         targetType: input.kind,
         targetId: input.targetId,
-        organizationId: input.organizationId,
+        ...(input.organizationId ? { organizationId: input.organizationId } : {}),
         entityId: input.targetId,
         requestId: input.metadata.requestId,
         severity: 'notice',
         outcome: 'failed',
         reason: input.metadata.reason || undefined,
-        context: supportInspectionAuditContext(input.metadata, { error: input.error, [input.contextKey]: input.targetId }),
+        context: supportInspectionAuditContext(input.metadata, {
+            error: input.error,
+            ...(input.contextKey ? { [input.contextKey]: input.targetId } : {}),
+        }),
     })
     return input.res.status(404).send({ error: input.responseError })
 }
