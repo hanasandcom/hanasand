@@ -473,3 +473,36 @@ diff-check, and frontend cap pass. The scanner now covers 2,337 files /
 155,978 LOC with zero over 200. The 10,000–30,000-line ambition remains
 unproven; continue only on verified duplication or dead logic that preserves
 all page data and UI behavior.
+
+At `eed5dbfd8`, the existing PostgreSQL log phrase-search test is registered
+as an opt-in database task and has a guarded package command. The task runner
+policy suite passes 8 tests / 79 assertions. The real PostgreSQL test was not
+run because no explicitly configured disposable `logs_test` database was
+available; its environment guard remains required. This change makes the
+existing integration coverage discoverable without treating a missing local
+database as test evidence.
+
+At `db932b9f5`, the support access-recovery decision route is split into
+focused route, mutation, audit, response and type modules, preserving the
+registered route exports and reviewed auth, transaction, audit and receipt
+contracts. `adminSupport.ts` falls from 2,389 to 2,051 lines; the extracted
+modules total 420 lines, so the feature family grows by 82 LOC. Kari's
+independent review found no behavior regression. Access-recovery tests pass
+6/6 (31 assertions); API typecheck, scoped ESLint and diff checks pass.
+
+At `0cdbf90e2`, the webhook destination lookup projection is moved behind the
+existing public `webhooks.ts` API. The parent falls from 7,895 to 7,783 lines
+and the new projection is 129 lines, growing the feature family by 17 LOC.
+Kari's independent review confirmed the denied-input gate, lookup precedence,
+fields, visibility and ordering remain unchanged. Destination-health,
+lifecycle-blocker and lifecycle-truthfulness suites pass 13/13 (54 assertions),
+with API typecheck, scoped ESLint and diff checks passing.
+
+The current repository cap scan covers 3,759 hand-maintained files / 323,787
+LOC and still reports 125 files over 200 lines, all outside the frontend. The
+frontend checker passes for 2,337 source/config files / 155,978 LOC with zero
+over-limit files. These API moves improve file boundaries but increase total
+feature-family LOC; neither the 100,000-line API reduction nor the 10,000–30,000
+frontend target has been achieved. Continue only where verified reuse or dead
+code removal preserves behavior, and measure net family LOC alongside cap
+progress.
