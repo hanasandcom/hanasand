@@ -4,6 +4,7 @@ import { request as httpsRequest } from 'node:https'
 import { isIP, type LookupFunction } from 'node:net'
 
 const DEFAULT_CONTROLLED_RECEIVER_URL = 'https://hanasand.com/api/dwm/webhook-sink'
+const DEFAULT_WEBHOOK_TIMEOUT_MS = 8000
 
 type WebhookResolver = (hostname: string, options: { all: true, verbatim: true }) => Promise<Array<{ address: string, family: number }>>
 
@@ -44,7 +45,10 @@ async function resolvePublicWebhookTarget(value: string, resolver: WebhookResolv
 export async function postPublicWebhook(endpoint: string, body: string, signingSecret = '') {
     const { normalized, addresses } = await resolvePublicWebhookTarget(endpoint)
     const url = new URL(normalized)
-    const timeoutMs = Math.max(1000, Math.min(Number(process.env.DWM_WEBHOOK_TIMEOUT_MS || 8000), 30000))
+    const configuredTimeoutMs = Number(process.env.DWM_WEBHOOK_TIMEOUT_MS || DEFAULT_WEBHOOK_TIMEOUT_MS)
+    const timeoutMs = Number.isNaN(configuredTimeoutMs)
+        ? DEFAULT_WEBHOOK_TIMEOUT_MS
+        : Math.max(1000, Math.min(configuredTimeoutMs, 30000))
     const signatureTimestamp = signingSecret ? new Date().toISOString() : ''
     const signature = signingSecret
         ? signDwmWebhookDeliveryBody(body, normalized, signingSecret, signatureTimestamp)
