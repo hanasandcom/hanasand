@@ -54,7 +54,7 @@ mock.module('#db', () => ({ default: query, identityQueryOnce: query, isTransien
 mock.module('#utils/auth/tokenWrapper.ts', () => ({ default: async () => ({ valid, id: 'editor' }) }))
 mock.module('#utils/auth/organizationPageAccess.ts', () => ({ default: async () => ({ valid: systemAdmin }), hasHanasandInternalRouteAccess: async () => ({ valid: systemAdmin }) }))
 mock.module('#utils/auth/apiKeys.ts', () => ({ validateApiKey: async () => ({ organizationId: 'org-a', apiKey: { scopes: [] } }), matchApiKeyScope: () => true }))
-const { defaultRuleDefinition, normalizeBuiltinDefinition, postRulePreview, getRules, getRule, getRuleHitCounts, getRuleHitCount, putRule, postRuleAction, postRule, postRulePack, ingestEvent } = await import('../src/handlers/events.ts')
+const { defaultRuleDefinition, normalizeBuiltinDefinition, postRulePreview, getRules, getRule, getRuleHitCounts, getRuleHitCount, putRule, postRuleAction, postRule, postRulePack, postEventSigmaPack, ingestEvent } = await import('../src/handlers/events.ts')
 const builtin = 'network.signature_alert.v1'
 const reply = () => ({ statusCode: 200, status(code: number) { this.statusCode = code; return this }, header() { return this }, send(body: any) { return body } })
 const request = (id = builtin.replace(/\.v\d+$/, ''), body: any = {}, organizationId = 'org-a') => ({ params: { id }, query: { organizationId }, body, ip: '127.0.0.1', headers: { authorization: 'Bearer test-key' }, id: 'request-test' }) as any
@@ -174,6 +174,24 @@ test('reimport retains ID and disabled state and adds a per-rule audit revision'
     const detail = await getRule(request(id.replace(/\.v\d+$/, '')), reply() as any)
     expect(detail.audit).toHaveLength(3)
     expect(detail.audit.every((entry: any) => entry.context.ruleId === id)).toBe(true)
+})
+
+test('rule pack formats share metadata validation and retain format-specific source errors', async () => {
+    const importers = [
+        { import: postRulePack, body: { packName: 'Test pack', packVersion: '1', sourceReference: 'http://example.com/rules', rules: [] }, sourceError: 'Open-source pack reference must be an HTTPS URL of at most 300 characters.' },
+        { import: postEventSigmaPack, body: { packName: 'Test pack', packVersion: '1', sourceReference: 'http://example.com/rules', yaml: '' }, sourceError: 'Sigma source reference must be an HTTPS URL of at most 300 characters.' },
+    ]
+    for (const importer of importers) {
+        const invalidMetadata = reply()
+        const metadataError = await importer.import(request('', { ...importer.body, packName: 'x' }), invalidMetadata as any)
+        expect(invalidMetadata.statusCode).toBe(400)
+        expect(metadataError).toEqual({ error: 'Pack name must contain 2-100 characters and version 1-40 characters.' })
+
+        const invalidSource = reply()
+        const sourceError = await importer.import(request('', importer.body), invalidSource as any)
+        expect(invalidSource.statusCode).toBe(400)
+        expect(sourceError).toEqual({ error: importer.sourceError })
+    }
 })
 
 test('unchanged saves do not clutter history, and older audit pages remain accessible', async () => {
