@@ -36,24 +36,30 @@ export async function getTiScraperControl(request: FastifyRequest, reply: Fastif
     const tenantId = headerValue(request.headers['x-tenant-id']) || 'default'
     const schedulerTenantId = headerValue(request.headers['x-tenant-id']) || ''
     const authenticated = actorHeaders(actor)
-    const [health, sources, frontier, resources, productSlo, scheduler, exposureParser, quality, publicChannel, restricted, contracts, sourceInventory, sourcePacks, alerts, watchlists, deliveries] = await Promise.all([
-        fetchJson(base, '/v1/health'),
-        fetchJson(base, '/v1/sources?limit=200'),
-        fetchJson(base, '/v1/frontier'),
-        fetchJson(base, '/v1/ops/resource-snapshot'),
-        fetchJson(base, '/v1/ops/product-slo'),
-        fetchJson(base, `/v1/ops/collection-scheduler${schedulerTenantId ? `?tenantId=${encodeURIComponent(schedulerTenantId)}` : ''}`, { headers: authenticated }),
-        fetchJson(base, '/v1/dwm/exposure-parser/health'),
-        fetchJson(base, `/v1/quality/evaluate?q=${encodeURIComponent(query)}`),
-        fetchJson(base, `/v1/public-channels/status?query=${encodeURIComponent(query)}&tenantId=${encodeURIComponent(tenantId)}`),
-        fetchJson(base, `/v1/restricted-metadata/status?q=${encodeURIComponent(query)}`),
-        fetchJson(base, '/v1/contracts'),
-        fetchJson(base, `/v1/dwm/source-inventory?full=true&tenantId=${encodeURIComponent(tenantId)}`),
-        fetchJson(base, `/v1/dwm/source-packs?terms=${encodeURIComponent(query)}&tenantId=${encodeURIComponent(tenantId)}`),
-        fetchJson(base, '/v1/dwm/alerts?tenantId=default'),
-        fetchJson(base, '/v1/dwm/watchlists?tenantId=default'),
-        fetchJson(base, '/v1/dwm/webhooks/deliveries?tenantId=default'),
-    ])
+    const endpointRequests = [
+        ['health', '/v1/health'],
+        ['sources', '/v1/sources?limit=200'],
+        ['frontier', '/v1/frontier'],
+        ['resources', '/v1/ops/resource-snapshot'],
+        ['productSlo', '/v1/ops/product-slo'],
+        ['scheduler', `/v1/ops/collection-scheduler${schedulerTenantId ? `?tenantId=${encodeURIComponent(schedulerTenantId)}` : ''}`, { headers: authenticated }],
+        ['exposureParser', '/v1/dwm/exposure-parser/health'],
+        ['quality', `/v1/quality/evaluate?q=${encodeURIComponent(query)}`],
+        ['publicChannel', `/v1/public-channels/status?query=${encodeURIComponent(query)}&tenantId=${encodeURIComponent(tenantId)}`],
+        ['restricted', `/v1/restricted-metadata/status?q=${encodeURIComponent(query)}`],
+        ['contracts', '/v1/contracts'],
+        ['sourceInventory', `/v1/dwm/source-inventory?full=true&tenantId=${encodeURIComponent(tenantId)}`],
+        ['sourcePacks', `/v1/dwm/source-packs?terms=${encodeURIComponent(query)}&tenantId=${encodeURIComponent(tenantId)}`],
+        ['alerts', '/v1/dwm/alerts?tenantId=default'],
+        ['watchlists', '/v1/dwm/watchlists?tenantId=default'],
+        ['deliveries', '/v1/dwm/webhooks/deliveries?tenantId=default'],
+    ] as const
+    const endpointResponses = Object.fromEntries(await Promise.all(endpointRequests.map(async ([key, path, init]) => [
+        key,
+        await fetchJson(base, path, init),
+    ]))) as Record<(typeof endpointRequests)[number][0], ScraperReply>
+    const endpointEntries = Object.entries(endpointResponses)
+    const health = endpointResponses.health
 
     const scraperUnavailable = !health.ok
     reply.header('cache-control', 'no-store, max-age=0')
@@ -63,23 +69,8 @@ export async function getTiScraperControl(request: FastifyRequest, reply: Fastif
         query,
         baseConfigured: true,
         ...(scraperUnavailable ? { error: { code: 'ti_scraper_unavailable', message: 'The scraper health endpoint is unavailable.' } } : {}),
-        endpoints: Object.fromEntries(Object.entries({ health, sources, frontier, resources, productSlo, scheduler, exposureParser, quality, publicChannel, restricted, contracts, sourceInventory, sourcePacks, alerts, watchlists, deliveries }).map(([key, value]) => [key, endpointResult(value)])),
-        health: health.json,
-        sources: sources.json,
-        frontier: frontier.json,
-        resources: resources.json,
-        productSlo: productSlo.json,
-        scheduler: scheduler.json,
-        exposureParser: exposureParser.json,
-        quality: quality.json,
-        publicChannel: publicChannel.json,
-        restricted: restricted.json,
-        contracts: contracts.json,
-        sourceInventory: sourceInventory.json,
-        sourcePacks: sourcePacks.json,
-        alerts: alerts.json,
-        watchlists: watchlists.json,
-        deliveries: deliveries.json,
+        endpoints: Object.fromEntries(endpointEntries.map(([key, value]) => [key, endpointResult(value)])),
+        ...Object.fromEntries(endpointEntries.map(([key, value]) => [key, value.json])),
     })
 }
 
