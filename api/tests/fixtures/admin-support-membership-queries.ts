@@ -1,6 +1,6 @@
 import { hasSqlFragments, state, defaultSupportInviteFixture } from './admin-support-routes-state.ts'
 
-export async function runSupportMembershipQueries(sql: string, normalizedSql: string, values: unknown[]) {
+export async function runSupportMembershipQueries(sql: string, normalizedSql: string) {
     // Invite and membership reads.
     if (hasSqlFragments(normalizedSql, [
         'SELECT invite.*, organization.name AS organization_name, organization.slug AS organization_slug',

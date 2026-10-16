@@ -9,20 +9,25 @@ let queryFails = true
 const client = Object.assign(new EventEmitter(), { query: async () => { queries++; if (queryFails) throw failure; return { rows: [{ ok: true }] } }, release: (error?: Error) => { releasedWith = error } })
 const pool: { current?: EventEmitter, options?: { min: number, max: number, idleTimeoutMillis: number, maxLifetimeSeconds?: number } } = {}
 const created: NonNullable<typeof pool.options>[] = []
+const createdPools: Pool[] = []
 class Pool extends EventEmitter {
     totalCount = 0
     waitingCount = 0
-    constructor(options: NonNullable<typeof pool.options>) { super(); pool.current = this; pool.options = options; created.push(options) }
+    constructor(options: NonNullable<typeof pool.options>) { super(); pool.current = this; pool.options = options; created.push(options); createdPools.push(this) }
     async connect() { attempts++; if (connectionFailures-- > 0) throw connectionError; this.totalCount++; return client }
 }
 mock.module('pg', () => ({ default: { Pool } }))
-const { queryOnce } = await import('../src/utils/db.ts')
-pool.current!.emit('connect', client)
+const previous = { api: process.env.API_HTTP_ONLY, auth: process.env.AUTH_SERVICE_ONLY, warmup: process.env.DB_POOL_WARMUP_CONN }
+process.env.API_HTTP_ONLY = '0'
+process.env.AUTH_SERVICE_ONLY = '1'
+process.env.DB_POOL_WARMUP_CONN = '3'
+const { queryOnce, warmDatabasePools } = await import('../src/utils/db.ts')
+const initialPrimaryPool = createdPools[0]!
+createdPools[0]!.emit('connect', client)
 assert.doesNotThrow(() => client.emit('error', failure), 'A checked-out connection must never terminate the auth process')
 await assert.rejects(queryOnce('SELECT 1'), /Test connection reset/)
 assert.equal(releasedWith, failure, 'A failed client must be discarded, not returned as healthy')
 const { default: config } = await import('../src/constants.ts')
-const previous = { api: process.env.API_HTTP_ONLY, auth: process.env.AUTH_SERVICE_ONLY, warmup: process.env.DB_POOL_WARMUP_CONN }
 try {
     for (const role of [
         { name: 'api', api: '1', auth: '0', min: 0, idle: 15000 },
@@ -31,9 +36,12 @@ try {
     ]) {
         process.env.API_HTTP_ONLY = role.api
         process.env.AUTH_SERVICE_ONLY = role.auth
+        process.env.DB_POOL_WARMUP_CONN = '0'
         created.length = 0
-        await import(`../src/utils/db.ts?pool-role=${role.name}`)
-        assert.equal(pool.options!.min, role.min, role.name)
+        createdPools.length = 0
+        await import(`../src/utils/db/runtimePools.ts?pool-role=${role.name}`)
+        const primaryPool = created[0]!
+        assert.equal(primaryPool.min, role.min, role.name)
         const budget = Number(config.DB_MAX_CONN) || (config.DB_POOL_HOST ? 1000 : 20)
         assert.equal(created.reduce((total, options) => total + options.max, 0), budget, 'Total connection limits must not grow')
         const expectedPools = 1
@@ -45,8 +53,8 @@ try {
         const expectedIdleTimeout = role.name === 'api'
             ? Math.min(configuredIdleTimeout, 15000)
             : configuredIdleTimeout
-        assert.equal(pool.options!.idleTimeoutMillis, expectedIdleTimeout, 'Expire API sessions before proxy hard-stop; preserve other pool defaults')
-        assert.equal(pool.options!.maxLifetimeSeconds, role.name === 'api' ? 45 : undefined, 'Rotate API sessions during sustained traffic')
+        assert.equal(primaryPool.idleTimeoutMillis, expectedIdleTimeout, 'Expire API sessions before proxy hard-stop; preserve other pool defaults')
+        assert.equal(primaryPool.maxLifetimeSeconds, role.name === 'api' ? 45 : undefined, 'Rotate API sessions during sustained traffic')
     }
     process.env.API_HTTP_ONLY = '1'; process.env.AUTH_SERVICE_ONLY = '0'
     attempts = queries = 0; connectionFailures = 1; queryFails = false
@@ -74,9 +82,8 @@ try {
         assert.equal(queries, 0)
     }
 
-    process.env.API_HTTP_ONLY = '0'; process.env.AUTH_SERVICE_ONLY = '1'; process.env.DB_POOL_WARMUP_CONN = '3'
     attempts = 0; connectionFailures = 0
-    const { warmDatabasePools } = await import('../src/utils/db.ts?pool-warmup')
+    initialPrimaryPool.totalCount = 0
     await warmDatabasePools()
     assert.equal(attempts, 3, 'An aliased primary pool must retain its configured warmup minimum exactly once')
 } finally {

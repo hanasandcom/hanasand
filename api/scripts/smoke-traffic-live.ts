@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 const routes = read('src/routes.ts')
 const handler = read('src/handlers/traffic/legacy.ts')
 const recorder = read('src/utils/traffic/recordTraffic.ts')
-const schema = read('src/utils/db/ensureSchema.ts')
+const schema = read('src/utils/db/trafficDesktopSchema.ts')
 
 assert(routes.includes('fastify.get(\'/traffic/live\', getLegacyTrafficLive)'), 'Missing /traffic/live route registration')
 assert(handler.includes('text/event-stream'), 'Traffic live handler must stream SSE')

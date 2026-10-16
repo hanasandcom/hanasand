@@ -300,6 +300,7 @@ test('Editor can remove a delivery target; Reader and legacy roles cannot', asyn
     expect(response.json().destination.status).toBe('archived')
 })
 
+
 test('Reader cannot create watchlists, even with a direct request', async () => {
     expect((await app.inject({ method: 'POST', url: '/org/org/watchlists', payload: { kind: 'domain', value: 'example.com' } })).statusCode).toBe(403)
     expect(writes).toHaveLength(0)

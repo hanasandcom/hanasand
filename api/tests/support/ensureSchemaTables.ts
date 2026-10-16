@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 
 type SchemaQuery = (sql: string) => Promise<unknown>
 
@@ -15,8 +15,12 @@ export async function installEnsureSchemaTables(
     tables: readonly string[],
     { temporary = false }: { temporary?: boolean } = {},
 ) {
-    const schemaUrl = new URL('../src/utils/db/ensureSchema.ts', callerUrl)
-    const schema = readFileSync(schemaUrl, 'utf8')
+    const schemaDirectory = new URL('../src/utils/db/', callerUrl)
+    const schema = readdirSync(schemaDirectory)
+        .filter(name => name.endsWith('.ts'))
+        .sort()
+        .map(name => readFileSync(new URL(name, schemaDirectory), 'utf8'))
+        .join('\n')
     for (const table of tables) {
         const definition = extractEnsureSchemaTable(schema, table)
         await query(temporary

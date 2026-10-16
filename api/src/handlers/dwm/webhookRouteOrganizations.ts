@@ -1,6 +1,5 @@
 import run from '#db'
 import {
-    organizationVisibilityDecision,
     roleCanEditOrganization,
     type OrganizationVisibilityDecisionInput,
 } from '#utils/organizations.ts'

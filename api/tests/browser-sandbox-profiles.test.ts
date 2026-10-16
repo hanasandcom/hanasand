@@ -35,6 +35,7 @@ mock.module('#utils/auth/tokenWrapper.ts', () => ({
 }))
 
 const { default: browserSandboxProfileRoutes } = await import('../src/routes/browserSandboxProfiles.ts')
+const { default: ensureBrowserBillingSchema } = await import('../src/utils/db/browserBillingSchema.ts')
 
 beforeEach(() => {
     calls.length = 0
@@ -229,11 +230,12 @@ test('returns stable server errors when profile reads or writes fail', async () 
 })
 
 test('keeps the browser profile table owner-scoped and indexed by update time', async () => {
-    const schema = await Bun.file(new URL('../src/utils/db/ensureSchema.ts', import.meta.url)).text()
+    await ensureBrowserBillingSchema()
 
-    expect(schema).toContain('CREATE TABLE IF NOT EXISTS browser_sandbox_profiles')
-    expect(schema).toContain('PRIMARY KEY (owner_id, id)')
-    expect(schema).toContain('idx_browser_sandbox_profiles_owner_updated')
+    const profileTable = calls.find(call => /CREATE TABLE IF NOT EXISTS browser_sandbox_profiles/.test(call.sql))
+    expect(profileTable?.sql).toContain('owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE')
+    expect(profileTable?.sql).toContain('PRIMARY KEY (owner_id, id)')
+    expect(calls.some(call => call.sql.includes('idx_browser_sandbox_profiles_owner_updated ON browser_sandbox_profiles(owner_id, updated_at DESC)'))).toBe(true)
 })
 
 async function createApp() {

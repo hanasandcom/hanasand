@@ -1,6 +1,6 @@
 import { hasSqlFragments, state } from './admin-support-routes-state.ts'
 
-export async function runSupportAccessQueries(sql: string, normalizedSql: string, values: unknown[]) {
+export async function runSupportAccessQueries(sql: string, normalizedSql: string) {
     if (normalizedSql.includes('SELECT status FROM organization_invites WHERE id = $1 AND organization_id = $2 LIMIT 1')) {
         return { rows: state.supportRecoveryInviteStatus ? [{ status: state.supportRecoveryInviteStatus }] : [] }
     }

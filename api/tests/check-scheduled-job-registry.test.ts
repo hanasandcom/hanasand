@@ -39,7 +39,7 @@ test('registers operator-facing workers and excludes cache or maintenance refres
         'api/src/handlers/logs/mostActive.ts',
         'api/src/handlers/logs/tuning.ts',
         'api/src/utils/backgroundAnalytics.ts',
-        'api/src/utils/db/overview.ts',
+        'api/src/utils/db/overviewLive.ts',
         'api/src/utils/logs/warm.ts',
         'api/src/utils/traffic/history.ts',
     ]

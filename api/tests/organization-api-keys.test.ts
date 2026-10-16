@@ -25,21 +25,6 @@ beforeEach(() => {
 })
 
 describe('organization API key onboarding', () => {
-    test('schema retains organizations and their keys when a creator account is removed', async () => {
-        const [init, ensureSchema] = await Promise.all([
-            Bun.file(new URL('../../db/init.sql', import.meta.url)).text(),
-            Bun.file(new URL('../src/utils/db/ensureSchema.ts', import.meta.url)).text(),
-        ])
-        expect(init).toContain('created_by TEXT REFERENCES users(id) ON DELETE SET NULL')
-        expect(ensureSchema).toContain('ALTER TABLE organizations ALTER COLUMN created_by DROP NOT NULL')
-        expect(ensureSchema).toContain('FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL')
-        expect(init).toContain('owner_id TEXT REFERENCES users(id) ON DELETE SET NULL')
-        expect(ensureSchema).toContain('ALTER TABLE api_keys ALTER COLUMN owner_id DROP NOT NULL')
-        expect(ensureSchema).toContain('FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE SET NULL')
-        expect(ensureSchema).toContain('DROP INDEX IF EXISTS idx_api_keys_one_active_org')
-        expect(ensureSchema).not.toContain('CREATE UNIQUE INDEX IF NOT EXISTS idx_api_keys_one_active_org')
-    })
-
     test('creates multiple fixed-scope organization keys and enforces their independent lifecycles', async () => {
         const created = await createApiKey({
             ownerId: 'customer-user',

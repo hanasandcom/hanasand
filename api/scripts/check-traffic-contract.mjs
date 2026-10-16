@@ -7,7 +7,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
 const legacy = await read('src/handlers/traffic/legacy.ts')
 const recorder = await read('src/utils/traffic/recordTraffic.ts')
-const schema = await read('src/utils/db/ensureSchema.ts')
+const schema = await read('src/utils/db/trafficDesktopSchema.ts')
 const dockerfile = await read('Dockerfile')
 
 for (const endpoint of [

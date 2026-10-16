@@ -6,7 +6,6 @@ import {
     buildDwmWebhookDeliveryAuditTrail,
     buildDwmWebhookDeliveryAttemptContract,
     buildDwmWebhookDeliveryAttemptPersistenceProof,
-    buildDwmWebhookDeliveryAttemptPersistenceReadModel,
     buildDwmWebhookDashboardReadinessAdapter,
     buildDwmWebhookDeliveryHistoryAndPersistenceReadModels,
     buildDwmWebhookDeliveryOperations,

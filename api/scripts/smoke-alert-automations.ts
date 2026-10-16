@@ -65,10 +65,14 @@ try {
     assert.equal(redacted.includes('example-token'), false)
     assert.equal(redacted.includes('secret'), false)
 
-    const ensureSchema = await readFile(new URL('../src/utils/db/ensureSchema.ts', import.meta.url), 'utf8')
-    assert.match(ensureSchema, /mail_health_check/)
-    assert.match(ensureSchema, /system_alert/)
-    assert.match(ensureSchema, /organization_report/)
+    const automationSchema = await readFile(new URL('../src/utils/db/agentAutomationSchema.ts', import.meta.url), 'utf8')
+    const deploymentSchema = await readFile(new URL('../src/utils/db/aiDeploymentSchema.ts', import.meta.url), 'utf8')
+    assert.match(automationSchema, /mail_health_check/)
+    assert.match(automationSchema, /system_alert/)
+    assert.match(automationSchema, /organization_report/)
+    assert.match(deploymentSchema, /mail_health_check/)
+    assert.match(deploymentSchema, /system_alert/)
+    assert.match(deploymentSchema, /organization_report/)
 
     const checked = ['mail_health_check', 'system_alert', 'organization_report_scope', 'discord_webhook_file_redaction']
     const liveWebhookFile = process.env.ALERT_DISCORD_WEBHOOK_FILE
