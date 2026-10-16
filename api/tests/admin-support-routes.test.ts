@@ -1,6 +1,7 @@
 import { beforeEach, expect, mock, test } from 'bun:test'
 import { resetAdminSupportDatabaseFixture, run, state } from './fixtures/admin-support-routes-db.ts'
 import type { FastifyReply, FastifyRequest } from 'fastify'
+import { uniqueTimelineValues } from '../src/utils/support/inspectionPackets.ts'
 
 const systemEventUtils = await import('../src/utils/systemEvent.ts')
 
@@ -610,6 +611,16 @@ test('organization and user inspections keep shared fields and target-specific c
         'Pending invites: 0',
         'Audit events: none',
     ].join('\n'))
+    for (const subject of [organization, user]) {
+        expect(subject.caseAccessReadiness.recoveryState).toEqual({
+            accessStatus: subject.accessStatus.overall || null,
+            recoveryAvailable: Boolean(subject.accessRecoveryPlan.available || subject.accessRecoveryPlan.items?.length),
+            blockers: uniqueTimelineValues([
+                ...(Array.isArray(subject.accessStatus.blockers) ? subject.accessStatus.blockers : []),
+                ...(Array.isArray(subject.accessRecoveryPlan.blockers) ? subject.accessRecoveryPlan.blockers : []),
+            ]),
+        })
+    }
     expect(organization.recentAuditEvents).toBe(organization.recentAuditTimeline.events)
     expect(user.recentAuditEvents).toBe(user.recentAuditTimeline.events)
     expect(organization).not.toHaveProperty('user')

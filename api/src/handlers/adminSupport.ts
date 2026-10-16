@@ -5693,6 +5693,20 @@ function supportWebhookDestinationReadiness(input: {
     }
 }
 
+function supportAccessRecoveryState(accessStatus: Record<string, any>, accessRecoveryPlan: Record<string, any>) {
+    const accessBlockers = Array.isArray(accessStatus.blockers) ? accessStatus.blockers : []
+    const recoveryBlockers = Array.isArray(accessRecoveryPlan.blockers) ? accessRecoveryPlan.blockers : []
+    return {
+        accessBlockers,
+        recoveryBlockers,
+        recoveryState: {
+            accessStatus: accessStatus.overall || null,
+            recoveryAvailable: Boolean(accessRecoveryPlan.available || accessRecoveryPlan.items?.length),
+            blockers: uniqueTimelineValues([...accessBlockers, ...recoveryBlockers]),
+        },
+    }
+}
+
 function supportOrganizationCaseAccessReadiness(input: {
     organizationId: string
     requestId: string
@@ -5714,8 +5728,7 @@ function supportOrganizationCaseAccessReadiness(input: {
     const failedWebhookBlockers = Array.isArray(input.webhookDestinationReadiness.caseReadiness?.blockers)
         ? input.webhookDestinationReadiness.caseReadiness.blockers
         : []
-    const accessBlockers = Array.isArray(input.accessStatus.blockers) ? input.accessStatus.blockers : []
-    const recoveryBlockers = Array.isArray(input.accessRecoveryPlan.blockers) ? input.accessRecoveryPlan.blockers : []
+    const { accessBlockers, recoveryBlockers, recoveryState } = supportAccessRecoveryState(input.accessStatus, input.accessRecoveryPlan)
     const blockers = uniqueTimelineValues([
         activeMembers.length ? '' : 'missing_active_member',
         input.watchlistItems.length || input.alertReferences.length ? '' : 'missing_alert_or_watchlist_evidence',
@@ -5744,11 +5757,7 @@ function supportOrganizationCaseAccessReadiness(input: {
             webhookDestinationCount: input.webhookDestinations.length,
             auditEventIds,
         },
-        recoveryState: {
-            accessStatus: input.accessStatus.overall || null,
-            recoveryAvailable: Boolean(input.accessRecoveryPlan.available || input.accessRecoveryPlan.items?.length),
-            blockers: uniqueTimelineValues([...accessBlockers, ...recoveryBlockers]),
-        },
+        recoveryState,
         replayFilters: {
             current: auditFilterQuery({ org: input.organizationId, request: input.requestId, source: 'admin', service: 'hanasand-api' }),
             members: auditFilterQuery({ org: input.organizationId, entityType: 'member', source: 'admin', service: 'hanasand-api' }),
@@ -5815,8 +5824,7 @@ function supportUserCaseAccessReadiness(input: {
     const activeMemberships = input.memberships.filter(membership => membership.status === 'active')
     const removedMemberships = input.memberships.filter(membership => membership.status === 'removed' || membership.removed === true)
     const pendingInvites = input.pendingInvites.filter(invite => invite.status === 'pending')
-    const accessBlockers = Array.isArray(input.accessStatus.blockers) ? input.accessStatus.blockers : []
-    const recoveryBlockers = Array.isArray(input.accessRecoveryPlan.blockers) ? input.accessRecoveryPlan.blockers : []
+    const { accessBlockers, recoveryBlockers, recoveryState } = supportAccessRecoveryState(input.accessStatus, input.accessRecoveryPlan)
     const blockers = uniqueTimelineValues([
         input.organizationIds.length ? '' : 'missing_organization_scope',
         activeMemberships.length || pendingInvites.length || input.approvalRequests.length ? '' : 'missing_access_evidence',
@@ -5843,11 +5851,7 @@ function supportUserCaseAccessReadiness(input: {
             approvalRequestCount: input.approvalRequests.length,
             auditEventIds,
         },
-        recoveryState: {
-            accessStatus: input.accessStatus.overall || null,
-            recoveryAvailable: Boolean(input.accessRecoveryPlan.available || input.accessRecoveryPlan.items?.length),
-            blockers: uniqueTimelineValues([...accessBlockers, ...recoveryBlockers]),
-        },
+        recoveryState,
         replayFilters: {
             current: auditFilterQuery({ target: input.userId, request: input.requestId, source: 'admin', service: 'hanasand-api' }),
             memberships: input.organizationIds.map(org => auditFilterQuery({ org, target: input.userId, entityType: 'member', source: 'admin', service: 'hanasand-api' })),
