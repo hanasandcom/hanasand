@@ -384,3 +384,14 @@ cap, all outside the frontend. The current admin-support extraction is
 uncommitted and fails API typecheck; do not integrate it until the type errors
 and focused checks are resolved. The 100,000-line API reduction and
 10,000–30,000-line frontend targets remain unmet.
+
+At webhook checkpoint `90cd110d4`, three DWM receipt builders share their
+identical organization, alert, watchlist, and provenance context. The
+production family falls from 9,772 to 9,757 lines (-15); the focused contract
+test grows from 111 to 136 lines. The added assertions verify shared values
+across transition, case-action, and source-handoff receipts. Kari's review
+found no behavior or redaction issue; 16 affected cases / 85 assertions,
+typecheck, scoped ESLint, and diff-check pass. The committed repository
+inventory is 3,706 files / 323,232 lines / 125 over the cap; an active
+admin-support edit is reducing its route file but is not included in that
+checkpoint. Frontend remains 2,336 files / 156,018 lines with zero over 200.
