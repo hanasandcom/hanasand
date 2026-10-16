@@ -356,27 +356,7 @@ test('records HTTP sender outcomes on a live delivery', async () => {
 
 test('retries a failed report after persistence reload with the exact stored payload and idempotency lineage', async () => {
     const { computeOutboundThirdPartyReportChecksum, retryDwmWebhookDelivery } = await import('../src/utils/dwm/webhooks.ts')
-    const draft = {
-        bundle: {
-            type: 'bundle',
-            id: 'bundle--11111111-1111-4111-8111-111111111111',
-            objects: [
-                { type: 'identity', spec_version: '2.1', id: 'identity--11111111-1111-4111-8111-111111111111' },
-                { type: 'x-ti-evidence', spec_version: '2.1', id: 'x-ti-evidence--11111111-1111-4111-8111-111111111111', x_ti_capture_id: 'capture_1', x_ti_source_id: 'source_1', x_ti_content_hash: 'hash_1' },
-                { type: 'report', spec_version: '2.1', id: 'report--11111111-1111-4111-8111-111111111111', published: '2026-07-23T10:00:00.000Z', object_refs: ['x-ti-evidence--11111111-1111-4111-8111-111111111111'] },
-            ],
-        },
-        reportPolicy: {
-            direction: 'outbound_third_party',
-            format: 'stix-2.1',
-            caseId: 'case_1',
-            alertId: 'alert_1',
-            organizationId: 'org_1',
-            evidenceIds: ['evidence_1'],
-            evidenceCount: 1,
-        },
-        standardsValidation: { standard: 'STIX 2.1', valid: true, issues: [] },
-    }
+    const draft = reportDraft('2026-07-23T10:00:00.000Z')
     const exportChecksum = computeOutboundThirdPartyReportChecksum(draft)
     const report = { ...draft, exportChecksum, reportPolicy: { ...draft.reportPolicy, exportChecksum } }
     const payload = {
@@ -928,27 +908,7 @@ function deliveryInput(dedupeKey: string, dryRun: boolean) {
 }
 
 function reportDeliveryPayload() {
-    const draft = {
-        bundle: {
-            type: 'bundle',
-            id: 'bundle--11111111-1111-4111-8111-111111111111',
-            objects: [
-                { type: 'identity', spec_version: '2.1', id: 'identity--11111111-1111-4111-8111-111111111111' },
-                { type: 'x-ti-evidence', spec_version: '2.1', id: 'x-ti-evidence--11111111-1111-4111-8111-111111111111', x_ti_capture_id: 'capture_1', x_ti_source_id: 'source_1', x_ti_content_hash: 'hash_1' },
-                { type: 'report', spec_version: '2.1', id: 'report--11111111-1111-4111-8111-111111111111', published: '2026-07-24T10:00:00.000Z', object_refs: ['x-ti-evidence--11111111-1111-4111-8111-111111111111'] },
-            ],
-        },
-        reportPolicy: {
-            direction: 'outbound_third_party',
-            format: 'stix-2.1',
-            caseId: 'case_1',
-            alertId: 'alert_1',
-            organizationId: 'org_1',
-            evidenceIds: ['evidence_1'],
-            evidenceCount: 1,
-        },
-        standardsValidation: { standard: 'STIX 2.1', valid: true, issues: [] },
-    }
+    const draft = reportDraft('2026-07-24T10:00:00.000Z')
     const exportChecksum = `case_report_${createHash('sha256').update(canonicalJson(draft)).digest('hex')}`
     const report = { ...draft, exportChecksum, reportPolicy: { ...draft.reportPolicy, exportChecksum } }
     return {
@@ -961,6 +921,30 @@ function reportDeliveryPayload() {
         report,
         alert: { id: 'alert_1' },
         delivery: { id: 'delivery_receiver_1', eventType: 'dwm.alert.updated' },
+    }
+}
+
+function reportDraft(published: string) {
+    return {
+        bundle: {
+            type: 'bundle',
+            id: 'bundle--11111111-1111-4111-8111-111111111111',
+            objects: [
+                { type: 'identity', spec_version: '2.1', id: 'identity--11111111-1111-4111-8111-111111111111' },
+                { type: 'x-ti-evidence', spec_version: '2.1', id: 'x-ti-evidence--11111111-1111-4111-8111-111111111111', x_ti_capture_id: 'capture_1', x_ti_source_id: 'source_1', x_ti_content_hash: 'hash_1' },
+                { type: 'report', spec_version: '2.1', id: 'report--11111111-1111-4111-8111-111111111111', published, object_refs: ['x-ti-evidence--11111111-1111-4111-8111-111111111111'] },
+            ],
+        },
+        reportPolicy: {
+            direction: 'outbound_third_party',
+            format: 'stix-2.1',
+            caseId: 'case_1',
+            alertId: 'alert_1',
+            organizationId: 'org_1',
+            evidenceIds: ['evidence_1'],
+            evidenceCount: 1,
+        },
+        standardsValidation: { standard: 'STIX 2.1', valid: true, issues: [] },
     }
 }
 
