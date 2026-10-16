@@ -129,6 +129,13 @@ test('lifecycle projections use one clock snapshot at an expiry boundary', async
     const originalExpiry = lifecycleRows[0].session_expires_at
     const expiry = originalNow()
     lifecycleRows[0].session_expires_at = new Date(expiry).toISOString()
+    lifecycleRows.push({
+        ...lifecycleRows[0],
+        id: 5,
+        session_id: 'active-boundary',
+        path: '/api/impersonation/start',
+        session_expires_at: new Date(expiry).toISOString(),
+    })
     let clockReads = 0
     Date.now = () => ++clockReads === 3 ? expiry + 1 : expiry - 1
 
@@ -142,6 +149,7 @@ test('lifecycle projections use one clock snapshot at an expiry boundary', async
     } finally {
         Date.now = originalNow
         lifecycleRows[0].session_expires_at = originalExpiry
+        lifecycleRows.pop()
     }
 })
 

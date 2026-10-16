@@ -818,6 +818,7 @@ function uniqueImpersonationValues(values: unknown[]) {
 }
 
 function impersonationLifecycleState(timeline: Array<Record<string, any>>) {
+    const now = Date.now()
     const startEvents = timeline.filter(event => event.actionType === 'impersonation.start')
     const stopEvents = timeline.filter(event => event.actionType === 'impersonation.stop' || event.scope?.revokedAt)
     const stoppedSessionIds = new Set(stopEvents.map(event => cleanText(event.entity?.id)).filter(Boolean))
@@ -835,7 +836,7 @@ function impersonationLifecycleState(timeline: Array<Record<string, any>>) {
     const expiredSessionIds = startEvents
         .filter(event => {
             const expires = Date.parse(String(event.scope?.expiresAt || ''))
-            return !Number.isNaN(expires) && expires <= Date.now() && !stoppedSessionIds.has(cleanText(event.entity?.id))
+            return !Number.isNaN(expires) && expires <= now && !stoppedSessionIds.has(cleanText(event.entity?.id))
         })
         .map(event => cleanText(event.entity?.id))
         .filter(Boolean)
