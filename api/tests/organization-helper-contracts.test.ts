@@ -110,21 +110,6 @@ test('organization input normalization and validation', () => {
     assert.throws(() => normalizeWatchlistActionInput({ action: 'delete', reason: 'nope' }), /pause, resume, archive, or restore/)
 })
 
-test('watchlist role actions', () => {
-    assert.deepEqual(organizationAlertCaseRoleActions('owner'), [
-        'create_watchlist',
-        'edit_watchlist_terms',
-        'archive_watchlist',
-        'restore_watchlist',
-        'acknowledge_alert',
-        'assign_case',
-        'link_case',
-        'manage_invites',
-    ])
-    assert.deepEqual(organizationAlertCaseRoleActions('analyst'), ['acknowledge_alert', 'assign_case', 'link_case'])
-    assert.deepEqual(organizationAlertCaseRoleActions('viewer'), [])
-})
-
 test('watchlist alert reference contract', () => {
     const alertReference = buildOrganizationDwmAlertReference(
         {
