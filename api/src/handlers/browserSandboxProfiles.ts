@@ -1,5 +1,5 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
-import run from '#db'
+import run, { withTransaction } from '#db'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 
 type SandboxTool = {
@@ -59,18 +59,20 @@ export async function putBrowserSandboxProfiles(req: FastifyRequest<{ Body: { pr
 
     const profiles = normalized.profiles
     try {
-        await run('DELETE FROM browser_sandbox_profiles WHERE owner_id = $1 AND NOT (id = ANY($2::text[]))', [userId, profiles.map(profile => profile.id)])
-        for (const profile of profiles) {
-            await run(`
-                INSERT INTO browser_sandbox_profiles (owner_id, id, name, tools)
-                VALUES ($1, $2, $3, $4::jsonb)
-                ON CONFLICT (owner_id, id)
-                DO UPDATE SET
-                    name = EXCLUDED.name,
-                    tools = EXCLUDED.tools,
-                    updated_at = NOW()
-            `, [userId, profile.id, profile.name, JSON.stringify(profile.tools)])
-        }
+        await withTransaction(async query => {
+            await query('DELETE FROM browser_sandbox_profiles WHERE owner_id = $1 AND NOT (id = ANY($2::text[]))', [userId, profiles.map(profile => profile.id)])
+            for (const profile of profiles) {
+                await query(`
+                    INSERT INTO browser_sandbox_profiles (owner_id, id, name, tools)
+                    VALUES ($1, $2, $3, $4::jsonb)
+                    ON CONFLICT (owner_id, id)
+                    DO UPDATE SET
+                        name = EXCLUDED.name,
+                        tools = EXCLUDED.tools,
+                        updated_at = NOW()
+                `, [userId, profile.id, profile.name, JSON.stringify(profile.tools)])
+            }
+        })
         return res.send({ profiles })
     } catch (error) {
         req.log.error(error)

@@ -205,7 +205,7 @@ import {
     postDwmWebhookReceiver,
     putDwmWebhookDestination,
 } from './handlers/dwm/webhooks.ts'
-import { getBrowserSandboxProfiles, putBrowserSandboxProfiles } from './handlers/browserSandboxProfiles.ts'
+import browserSandboxProfileRoutes from './routes/browserSandboxProfiles.ts'
 import { deleteBrowserRuns, getBrowserResult, getBrowserRunReport, getBrowserRuns, getBrowserRunStats, maxBrowserReportBytes, postBrowserRunReport } from './handlers/browserSandboxRuns.ts'
 import { forwardSupportRequest, supportServiceConfigured } from './utils/support/transport.ts'
 import { postInternalModelCompletion } from './handlers/internal/modelCompletion.ts'
@@ -327,10 +327,7 @@ export default async function apiRoutes(fastify: FastifyInstance) {
     fastify.post('/dwm/webhook-receiver', postDwmWebhookReceiver)
 
     // Browser profiles
-    fastify.get('/browser/profiles', getBrowserSandboxProfiles)
-    fastify.put('/browser/profiles', putBrowserSandboxProfiles)
-    fastify.get('/browser-sandbox/profiles', getBrowserSandboxProfiles)
-    fastify.put('/browser-sandbox/profiles', putBrowserSandboxProfiles)
+    await fastify.register(browserSandboxProfileRoutes)
     fastify.get('/browser/stats', getBrowserRunStats)
     fastify.get('/browser/runs', getBrowserRuns)
     fastify.delete('/browser/runs', deleteBrowserRuns)
