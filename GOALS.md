@@ -311,3 +311,17 @@ errors; every file changed in this checkpoint passes scoped ESLint. The
 frontend 10,000–30,000-line target and API reduction target remain unmet; this
 checkpoint adds substantial test execution coverage but only removes 49 net
 production lines from the shared AI loader refactor.
+
+At frontend checkpoint `777a88cb9`, five audit, TI, traffic, and vulnerability
+views share one Europe/Oslo timestamp formatter. The production changes remove
+21 net lines across those consumers and the helper; the characterization test
+adds 122 lines and checks January/July output for all five callers. The
+registered focused test, full frontend test suite, non-incremental typecheck,
+scoped ESLint, guardrail lint, cap scan, and production build pass. The
+frontend cap scan covers 2,334 files / 156,000 lines with zero over 200. This
+is 102 more total frontend lines than the preceding inventory, because the new
+contract test and module outweigh local production savings. The repository
+scan is 3,689 files / 322,868 lines with 125 files over cap, all outside the
+frontend. Independent review found no behavioral or security blocker in the
+current admin-support and webhook extractions; their parent files remain
+oversized and their aggregate LOC reduction targets remain unmet.
