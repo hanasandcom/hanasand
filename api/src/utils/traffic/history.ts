@@ -52,6 +52,8 @@ export async function ensureTrafficHistorySchema() {
 // Move settled hours into durable aggregates atomically. Readers see either
 // the raw hour or its aggregate, never both. Historical raw records are retained.
 export async function cacheTrafficHistoryHour(batchHours = 1): Promise<boolean> {
+    const requestedHours = Number.isFinite(batchHours) ? Math.floor(batchHours) : 1
+    const boundedHours = Math.min(24, Math.max(1, requestedHours))
     return withTransaction(async query => {
         const lock = await query('SELECT pg_try_advisory_xact_lock(82417931) AS acquired')
         if (!lock.rows[0].acquired) return false
@@ -59,7 +61,7 @@ export async function cacheTrafficHistoryHour(batchHours = 1): Promise<boolean> 
             SELECT covered_before, LEAST(covered_before + ($1::int * INTERVAL '1 hour'), date_trunc('hour', NOW() - INTERVAL '24 hours')) AS next,
                    covered_before < date_trunc('hour', NOW() - INTERVAL '24 hours') AS pending
             FROM traffic_history_state WHERE singleton FOR UPDATE
-        `, [Math.max(1, Math.min(24, Math.floor(batchHours)))])
+        `, [boundedHours])
         if (!state.rows[0]?.pending) return false
         const { covered_before: from, next: to } = state.rows[0]
         await query(`

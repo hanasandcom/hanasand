@@ -62,7 +62,6 @@ export default async function recordTraffic(req: FastifyRequest, res: FastifyRep
 
     const domain = normalizeDomain(readHeader(req.headers['x-forwarded-host']) || readHeader(req.headers.host))
     const referer = readHeader(req.headers.referer || req.headers.referrer)
-    const ip = verifiedClientIp(req)
     const countryIso = normalizeCountryIso(
         readHeader(req.headers['cf-ipcountry'])
         || readHeader(req.headers['x-vercel-ip-country'])
@@ -81,7 +80,7 @@ export default async function recordTraffic(req: FastifyRequest, res: FastifyRep
         path,
         req.method,
         Number(res.statusCode || 0),
-        ip.slice(0, 200),
+        access.ip.slice(0, 200),
         countryIso,
         userAgent.slice(0, 1000),
         referer.slice(0, 1000),
