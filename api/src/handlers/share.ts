@@ -87,13 +87,14 @@ export async function getUserProjects(req: FastifyRequest, res: FastifyReply) {
             ORDER BY updated_at DESC
             LIMIT 100
         ),
-        tree(root_id, id, owner, content) AS (
-            SELECT id, id, owner, content
+        tree(root_id, id, owner, content, organization_id) AS (
+            SELECT id, id, owner, content, organization_id
             FROM roots
             UNION ALL
-            SELECT tree.root_id, child.id, child.owner, child.content
+            SELECT tree.root_id, child.id, child.owner, child.content, child.organization_id
             FROM share child
             JOIN tree ON child.parent = tree.id
+              AND child.organization_id IS NOT DISTINCT FROM tree.organization_id
         )
         SELECT
             COALESCE(NULLIF(root.alias, ''), root.id) AS alias,

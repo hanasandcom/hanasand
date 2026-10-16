@@ -13,6 +13,7 @@ const share = () => ({ id: 'code', path: 'code', content: 'hello', owner: 'anony
 mock.module('../src/utils/db.ts', () => ({ default: async (sql: string, params: unknown[] = []) => {
     queries.push({ sql, params })
     if (sql.startsWith('SELECT content_organization_access')) return { rows: [{ allowed: active && params[0] === 'hanasand' && params[1] === 'member' && (!params[2] || ['owner', 'admin', 'editor'].includes(role)) }] }
+    if (sql.includes('WITH RECURSIVE roots AS')) return { rows: [{ alias: 'code', owner: 'member', last_updated: '2026-10-16T10:00:00.000Z', file_count: '2', total_size: '10' }] }
     if (/^\s*(INSERT|UPDATE|DELETE)/.test(sql)) {
         writes.push({ sql, params })
         const updatedShare = sql.includes('UPDATE share SET locked =') ? { ...share(), locked: params[1] === true } : share()
@@ -44,6 +45,7 @@ const { default: getThoughts } = await import('../src/handlers/thoughts/getThoug
 const { default: getArticles, getArticle } = await import('../src/handlers/articles/get.ts')
 const app = Fastify()
 app.get('/share/user/:id', shares.getUserShares)
+app.get('/projects/user/:id', shares.getUserProjects)
 app.get('/share/:id', shares.getShare)
 app.post('/share', shares.postShare)
 app.put('/share/:id', shares.putShare)
@@ -85,6 +87,12 @@ test('personal lists explicitly exclude organization content', async () => {
     expect(queries.at(-1)?.sql).toContain('organization_id IS NULL AND owner = $1')
     const response = await app.inject({ url: '/articles?workspace=true' })
     expect(response.json()).toEqual([])
+})
+test('project summaries keep recursive child rows within the root organization', async () => {
+    const response = await app.inject({ url: '/projects/user/member', headers })
+    expect(response.statusCode).toBe(200)
+    expect(response.json()).toEqual([{ alias: 'code', owner: 'member', editors: ['member'], file_count: 2, total_size: 10, last_updated: '2026-10-16T10:00:00.000Z' }])
+    expect(queries.at(-1)?.sql).toContain('child.organization_id IS NOT DISTINCT FROM tree.organization_id')
 })
 test('workspace article lists use filesystem timestamps without spawning Git history lookups', async () => {
     const response = await app.inject({ url: '/articles?workspace=true', headers })
