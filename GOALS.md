@@ -169,6 +169,17 @@ three at the repository root or in shared scripts. The frontend portion passes
 with zero over-limit files. The scan is an explicit progress guard; it is not
 yet wired into the default build while the existing API debt is being removed.
 
+After the organization, traffic dashboard, and shared date-formatting
+checkpoints, the frontend scan covers 2,275 hand-maintained files and 155,066
+lines, with zero files over 200 lines. The full frontend test suite and
+production build pass for commit `eee81074b`, pushed to both configured
+remotes. Relative to the preceding 155,031-line snapshot, the frontend now has
+35 more lines despite local production-code reductions; the 10,000–30,000-line
+target remains unmet. The integrated repository scan currently finds 3,519
+files / 321,539 lines and 130 over-limit files (122 API, five ops, two shared
+scripts, and one root Compose file). API extractions are still in progress, so
+these counts are provisional.
+
 ## Execution
 
 - Divide work by non-overlapping repository areas and use traditional Norwegian
