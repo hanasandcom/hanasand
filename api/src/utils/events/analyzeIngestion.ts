@@ -2,7 +2,6 @@ import { createHash } from 'node:crypto'
 import { isDeepStrictEqual } from 'node:util'
 import run, { withTransaction } from '#db'
 import { normalizeLogEvent } from './logEvent.ts'
-import { customRetentionAction } from './customRetention.ts'
 import { matchesAnalysisPolicy } from './analysisPolicy.ts'
 import { matchesCanonicalJson } from './canonicalJson.ts'
 import type { Condition } from './conditions.ts'
@@ -58,12 +57,11 @@ export async function analyzeIngestion(log: ProxyLog, query?: typeof run): Promi
         AND r.rule_id=$2 AND r.enabled AND r.definition->>'stage'='analyze' AND r.definition->>'action'='drop'
         ORDER BY o.created_at LIMIT 1 FOR SHARE OF r,o NOWAIT`, [process.env.PLATFORM_LOG_ORGANIZATION_ID || null, ingestionRuleId])).rows[0]
     if (!rule?.definition?.conditions?.length) return false
-    const { loadConfiguredRules, collectEventFindings, normalizeEvent } = await import('../../handlers/events.ts')
+    const { loadConfiguredRules, eventWouldBeProtectedFromDrop } = await import('../../handlers/events.ts')
     const rules = await loadConfiguredRules(rule.organization_id, query)
     const event = normalizeLogEvent({ ...log, id: log.sourceEventId!, created_at: log.timestamp! })
     if (!await matchesAnalysisPolicy([event], rule.definition)) return false
-    if (customRetentionAction(event, rules) === 'keep'
-        || collectEventFindings(rule.organization_id, log.sourceEventId!, normalizeEvent(event, { vendor: 'Hanasand', product: 'Logs' }), rules).findings.length) return false
+    if (eventWouldBeProtectedFromDrop(rule.organization_id, log.sourceEventId!, event, rules)) return false
     // Only a small pointer is created for a first observation; it stays in normal
     // logs. The complete original is backed up here only when a copy is compacted.
     await query('INSERT INTO log_ingestion_canonical(key,organization_id,source_event_id) VALUES($1,$2,$3) ON CONFLICT DO NOTHING', [copy.key, rule.organization_id, log.sourceEventId])

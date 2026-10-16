@@ -29,7 +29,7 @@ import { mongoRule, mongoRuleId, mongoDefinition } from '#utils/events/analyzeMo
 import { accessRule, accessRuleId, accessDefinition, accountDeleteRule, accountDeleteRuleId, accountDeleteDefinition } from '#utils/events/analyzeAccess.ts'
 
 import { matchesRule, type Condition } from '#utils/events/conditions.ts'
-import { customRetentionAction, recordCustomDropReceipts } from '#utils/events/customRetention.ts'
+import { customRetentionAction, recordCustomDropReceipts, type RetentionRule } from '#utils/events/customRetention.ts'
 import { cachedRead, invalidateReadCache, ReadAdmissionError } from '#utils/readCache.ts'
 export { matchesRule } from '#utils/events/conditions.ts'
 
@@ -722,6 +722,22 @@ function prepareConfiguredFinding(rules: Rule[], organizationId: string, ruleId:
 
 export function collectEventFindings(organizationId: string, eventId: string, event: NormalizedEvent, rules: Rule[], includeRetained = true) {
     return collectEventFindingsWithEnabledRules(organizationId, eventId, event, rules, includeRetained, enabledRules(event, rules))
+}
+
+export function eventWouldBeProtectedFromDrop(
+    organizationId: string,
+    eventId: string,
+    event: Event,
+    rules: Rule[],
+    retentionRules: RetentionRule[] = rules,
+) {
+    if (customRetentionAction(event, retentionRules) === 'keep') return true
+    return collectEventFindings(
+        organizationId,
+        eventId,
+        normalizeEvent(event, { vendor: 'Hanasand', product: 'Logs' }),
+        rules,
+    ).findings.length > 0
 }
 
 function collectEventFindingsWithEnabledRules(organizationId: string, eventId: string, event: NormalizedEvent, rules: Rule[], includeRetained: boolean, enabled: Set<string>) {

@@ -2,7 +2,6 @@ import type { CollectorLog } from './analyzeCollector.ts'
 import { deflateRawSync } from 'node:zlib'
 import type run from '#db'
 import { normalizeLogEvent } from './logEvent.ts'
-import { customRetentionAction } from './customRetention.ts'
 import { matchesAnalysisPolicy } from './analysisPolicy.ts'
 import { readinessAuditRuleId, completeReadinessChains, readinessTimingAllowed } from './analyzeReadinessAudit.ts'
 
@@ -16,16 +15,17 @@ export async function analyzeReadinessAuditBatch<T extends CollectorLog>(entries
         ORDER BY o.created_at LIMIT 1 FOR SHARE OF r,o NOWAIT`, [process.env.PLATFORM_LOG_ORGANIZATION_ID || null, readinessAuditRuleId])
     const rule = result.rows[0]
     if (!rule) return entries
-    const { loadConfiguredRules, collectEventFindings, normalizeEvent } = await import('../../handlers/events.ts')
+    const { loadConfiguredRules, eventWouldBeProtectedFromDrop } = await import('../../handlers/events.ts')
     const rules = await loadConfiguredRules(rule.organization_id, query), dropped = new Set<CollectorLog>()
     for (const chain of chains) {
         if (!readinessTimingAllowed(chain.fact, rule.definition?.parameters)
             || !await matchesAnalysisPolicy(chain.logs.map(log => normalizeLogEvent({ ...log, id: log.sourceEventId!, created_at: log.timestamp! })), rule.definition)) continue
-        if (chain.logs.some(log => {
-            const original = normalizeLogEvent({ ...log, id: log.sourceEventId!, created_at: log.timestamp! })
-            return customRetentionAction(original, rules) === 'keep'
-                || collectEventFindings(rule.organization_id, log.sourceEventId!, normalizeEvent(original, { vendor: 'Hanasand', product: 'Logs' }), rules).findings.length > 0
-        })) continue
+        if (chain.logs.some(log => eventWouldBeProtectedFromDrop(
+            rule.organization_id,
+            log.sourceEventId!,
+            normalizeLogEvent({ ...log, id: log.sourceEventId!, created_at: log.timestamp! }),
+            rules,
+        ))) continue
         const rootId = chain.payload.members[0]!.sourceEventId
         const saved = await query(`INSERT INTO log_readiness_audit_receipts(exec_id,root_source_event_id,chain_digest,original,organization_id)
             VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING RETURNING exec_id`,

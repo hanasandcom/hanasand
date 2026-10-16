@@ -29,11 +29,20 @@ const query = async (sql: string, p: any[] = []): Promise<any> => {
 }
 mock.module('#db',()=>({ default:query, identityQueryOnce:query, isTransientDatabaseError: () => false, withTransaction: async(work: any)=>{ const before=structuredClone({stored,findings});try{return await work(query)}catch(error){stored=before.stored;findings=before.findings;throw error} } }))
 const { processLog, processLogBatch } = await import('../src/utils/events/processLogs.ts')
-const { BUILTIN_RULES, defaultRuleDefinition } = await import('../src/handlers/events.ts')
+const { BUILTIN_RULES, defaultRuleDefinition, eventWouldBeProtectedFromDrop } = await import('../src/handlers/events.ts')
 const { securityRules } = await import('../src/utils/events/securityRules.ts')
 const rules = () => BUILTIN_RULES.map(rule => ({...rule,enabled:true,source:'hanasand' as const,definition:defaultRuleDefinition(rule.id)}))
 const log = (executable='/usr/bin/whoami',command='whoami') => ({id:'real-log',service:'audit',host:'inspur',level:'info',message:command,created_at:'2026-09-19T10:00:00Z',metadata:{process:{executable,command_line:command}}})
 beforeEach(()=>{stored={};findings=[];fail=false;findingWrites=0;eventUpdates=0;pendingLookups=0;completedLookups=0;authRechecks=[];deletedLogins=[];receipts=[];retentionRules=[]})
+test('analysis drop protection combines retention keeps with configured findings', () => {
+    const event = { message: 'protected source', event_type: 'application', timestamp: '2026-09-19T10:00:00Z' }
+    const retentionKeep = [{ source: 'owned', enabled: true, definition: { stage: 'analyze', action: 'keep', conditions: [{ path: 'message', operator: 'equals', value: 'protected source' }] } }]
+    const detection = [{ id: 'owned.protect', source: 'owned', enabled: true, severity: 'high', definition: { stage: 'detect', conditions: [{ path: 'message', operator: 'equals', value: 'protected source' }] } }] as any
+
+    expect(eventWouldBeProtectedFromDrop('org-a', 'event-a', event, [], retentionKeep)).toBe(true)
+    expect(eventWouldBeProtectedFromDrop('org-a', 'event-a', event, detection)).toBe(true)
+    expect(eventWouldBeProtectedFromDrop('org-a', 'event-a', { ...event, message: 'unmatched' }, detection)).toBe(false)
+})
 test('an info-level whoami executes Event and persists high severity plus evidence',async()=>{
     await processLog(log(),'org-a',rules())
     const row: any=Object.values(stored)[0]

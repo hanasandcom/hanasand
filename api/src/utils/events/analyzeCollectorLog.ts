@@ -1,7 +1,6 @@
 import { createHash } from 'node:crypto'
 import run, { withTransaction } from '#db'
 import { normalizeLogEvent } from './logEvent.ts'
-import { customRetentionAction } from './customRetention.ts'
 import { collectorRuleId, eligibleCollectorExecution, verifyCollectorExecutionEvidence, type CollectorLog } from './analyzeCollector.ts'
 import { matchesAnalysisPolicy } from './analysisPolicy.ts'
 
@@ -16,10 +15,9 @@ export async function analyzeCollectorExecution(log: CollectorLog, query?: typeo
     if (!rule || !eligibleCollectorExecution(log, rule.definition?.parameters)) return false
     const original = normalizeLogEvent({ ...log, id: log.sourceEventId!, created_at: log.timestamp! })
     if (!await matchesAnalysisPolicy([original], rule.definition)) return false
-    const { loadConfiguredRules, collectEventFindings, normalizeEvent } = await import('../../handlers/events.ts')
+    const { loadConfiguredRules, eventWouldBeProtectedFromDrop } = await import('../../handlers/events.ts')
     const rules = await loadConfiguredRules(rule.organization_id, query)
-    if (customRetentionAction(original, rules) === 'keep'
-        || collectEventFindings(rule.organization_id, log.sourceEventId!, normalizeEvent(original, { vendor: 'Hanasand', product: 'Logs' }), rules).findings.length) return false
+    if (eventWouldBeProtectedFromDrop(rule.organization_id, log.sourceEventId!, original, rules)) return false
     // The compact receipt both counts the drop and deduplicates collector retries.
     // Any database failure rolls back ingestion, preserving the queued original.
     const key = createHash('sha256').update(`${collectorRuleId}:${log.sourceEventId}`).digest('hex')

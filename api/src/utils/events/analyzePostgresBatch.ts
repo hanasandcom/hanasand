@@ -1,7 +1,6 @@
 import type run from '#db'
 import { createHash } from 'node:crypto'
 import { matchesAnalysisPolicy } from './analysisPolicy.ts'
-import { customRetentionAction } from './customRetention.ts'
 import { normalizeLogEvent } from './logEvent.ts'
 import { completedPostgresSessions, postgresReceipt, postgresRuleId, postgresSessionEvidence, validPostgresParameters, postgresTimingAllowed, type PostgresLog } from './analyzePostgres.ts'
 
@@ -17,15 +16,19 @@ export async function analyzePostgresBatch<T extends PostgresLog>(entries: T[], 
     const rule = result.rows[0]
     if (!rule || !validPostgresParameters(rule.definition?.parameters)) return entries
     const parameters = rule.definition.parameters
-    const { loadConfiguredRules, collectEventFindings, normalizeEvent } = await import('../../handlers/events.ts')
+    const { loadConfiguredRules, eventWouldBeProtectedFromDrop } = await import('../../handlers/events.ts')
     const rules = await loadConfiguredRules(rule.organization_id, query)
     const eligible: typeof sessions = []
     for (const session of sessions) {
         const originals = session.logs.map(log => ({ ...normalizeLogEvent({ ...log, service: log.service!, id: log.sourceEventId!, created_at: log.timestamp! }),
             postgres_session: { client: session.client, user: session.user, database: session.database, application: session.application, duration_ms: session.durationMs } }))
         if (!postgresTimingAllowed(session, parameters) || !await matchesAnalysisPolicy(originals, rule.definition)
-            || originals.some((original, index) => customRetentionAction(original, rules) === 'keep'
-                || collectEventFindings(rule.organization_id, session.logs[index].sourceEventId!, normalizeEvent(original, { vendor: 'Hanasand', product: 'Logs' }), rules).findings.length)) continue
+            || originals.some((original, index) => eventWouldBeProtectedFromDrop(
+                rule.organization_id,
+                session.logs[index].sourceEventId!,
+                original,
+                rules,
+            ))) continue
         eligible.push(session)
     }
     if (!eligible.length) return entries

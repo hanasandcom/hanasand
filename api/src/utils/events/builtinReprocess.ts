@@ -14,7 +14,7 @@ import { modelDiscoveryRuleId, modelHealthRuleId } from './analyzeModelDiscovery
 import { analyzeAccess, analyzeMongoPing } from './analyzeLog.ts'
 import { accessRuleId, verifiedAccessFromLog } from './analyzeAccess.ts'
 import { mongoRuleId } from './analyzeMongo.ts'
-import { loadLogRetentionRules, customRetentionAction } from './customRetention.ts'
+import { loadLogRetentionRules } from './customRetention.ts'
 import type { ReprocessJob } from './ruleReprocess.ts'
 import { analyzeRoutineGroupBatch } from './analyzeRoutineGroupBatch.ts'
 import { completedSshWindows, completedTelemetryCycles, telemetryRuleId, sshWindowRuleId } from './analyzeRoutineGroups.ts'
@@ -60,10 +60,15 @@ export async function reprocessBuiltinPage(job: ReprocessJob, query: typeof run)
     const findings = new Set((await query('SELECT event_ids FROM findings WHERE event_ids && $1::text[]', [projections.map(row => row.id)])).rows.flatMap(row => row.event_ids))
     const canonical = await canonicalReplayKeys(rows.map(row => row.id), query)
     const retention = await loadLogRetentionRules(job.organization_id, query)
-    const { loadConfiguredRules, collectEventFindings, normalizeEvent } = await import('../../handlers/events.ts')
+    const { loadConfiguredRules, eventWouldBeProtectedFromDrop } = await import('../../handlers/events.ts')
     const rules = await loadConfiguredRules(job.organization_id, query)
-    const protectedEvent = (event: Record<string, unknown>, id: string) => customRetentionAction(event, retention) === 'keep'
-        || collectEventFindings(job.organization_id, id, normalizeEvent(event, { vendor: 'Hanasand', product: 'Logs' }), rules).findings.length > 0
+    const protectedEvent = (event: Record<string, unknown>, id: string) => eventWouldBeProtectedFromDrop(
+        job.organization_id,
+        id,
+        event,
+        rules,
+        retention,
+    )
     const removed: string[] = []
     const protectedSources = new Set<string>()
     const logs = rows.map(row => ({ id: row.id, eventId: row.id, service: row.normalized.service || 'hanasand-api', host: row.normalized.host || '',
