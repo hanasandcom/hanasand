@@ -27,7 +27,13 @@ export default async function httpRequestTool(req: FastifyRequest, res: FastifyR
         return res.status(400).send({ error: 'Unsupported HTTP method.' })
     }
 
-    const target = new URL(url)
+    let target: URL
+    try {
+        target = new URL(url)
+    } catch {
+        return res.status(400).send({ error: 'Invalid url.' })
+    }
+
     if (!['http:', 'https:'].includes(target.protocol)) {
         return res.status(400).send({ error: 'Only http and https requests are supported.' })
     }
