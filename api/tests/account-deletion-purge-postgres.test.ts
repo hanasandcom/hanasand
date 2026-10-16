@@ -103,7 +103,13 @@ test.skipIf(!port)('purges only due accounts and retries provider failures', asy
         INSERT INTO attempts(id) VALUES('due-user'),('future-user');
         INSERT INTO system_events(id,object_type,actor_id,object_id,subject_id,request_id,ip,user_agent,context)
             VALUES(1,'user','due-user','due-user','due-user','request','192.0.2.10','deleted browser',
-                '{"targetId":"due-user","targetName":"Due User","reason":"account closed"}');`)
+                '{"targetId":"due-user","targetName":"Due User","reason":"account closed"}'),
+                (2,'account_notice',NULL,NULL,NULL,'legacy-request','192.0.2.12','legacy browser',
+                '{"targetName":"Due User","reason":"name only"}'),
+                (3,'account_notice',NULL,NULL,NULL,'legacy-email-request','192.0.2.13','legacy email browser',
+                '{"userEmail":"due@example.test","reason":"email only"}'),
+                (4,'unrelated_event',NULL,NULL,NULL,'free-text-request','192.0.2.14','unrelated browser',
+                '{"reason":"Due User"}');`)
 
     failMailDeletion = true
     await expect(purgeDeletedAccounts()).rejects.toThrow('1 due account deletion cleanup(s) failed')
@@ -129,6 +135,15 @@ test.skipIf(!port)('purges only due accounts and retries provider failures', asy
     expect((await query('SELECT id FROM attempts')).rows).toEqual([{ id: 'future-user' }])
     expect((await query('SELECT object_id,subject_id,request_id,ip,user_agent,context FROM system_events WHERE id=1')).rows[0]).toMatchObject({
         object_id: null, subject_id: null, request_id: '', ip: '', user_agent: '', context: { reason: 'account closed' },
+    })
+    expect((await query('SELECT request_id,ip,user_agent,context FROM system_events WHERE id=2')).rows[0]).toMatchObject({
+        request_id: '', ip: '', user_agent: '', context: { reason: 'name only' },
+    })
+    expect((await query('SELECT request_id,ip,user_agent,context FROM system_events WHERE id=3')).rows[0]).toMatchObject({
+        request_id: '', ip: '', user_agent: '', context: { reason: 'email only' },
+    })
+    expect((await query('SELECT request_id,ip,user_agent,context FROM system_events WHERE id=4')).rows[0]).toMatchObject({
+        request_id: 'free-text-request', ip: '192.0.2.14', user_agent: 'unrelated browser', context: { reason: 'Due User' },
     })
     expect((await query('SELECT user_id FROM account_deletion_purge_attempts')).rows).toHaveLength(0)
     expect(revokedUsers).toHaveLength(26)

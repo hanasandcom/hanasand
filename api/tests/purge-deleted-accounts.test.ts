@@ -27,6 +27,14 @@ let releaseRestore!: () => void
 let restoreStarted = Promise.resolve()
 let restoreGate = Promise.resolve()
 
+function containsIdentityField(value: unknown, identities: string[]): boolean {
+    if (Array.isArray(value)) return value.some(item => containsIdentityField(item, identities))
+    if (!value || typeof value !== 'object') return false
+    return Object.entries(value as Record<string, unknown>).some(([key, item]) =>
+        (/^(target|actor|user|account)[_-]?(name|email)$/i.test(key) && typeof item === 'string' && identities.includes(item))
+        || containsIdentityField(item, identities))
+}
+
 async function query(sql: string, params: unknown[] = []) {
     const normalized = sql.replace(/\s+/g, ' ').trim()
     sqlCalls.push(normalized)
@@ -51,7 +59,8 @@ async function query(sql: string, params: unknown[] = []) {
         return { rows: auditRows.filter(row => row.actor_id === params[0]
             || row.object_id === params[0]
             || (normalized.includes('subject_id = $1') && row.subject_id === params[0])
-            || JSON.stringify(row.context).includes(String(params[0]))) }
+            || JSON.stringify(row.context).includes(String(params[0]))
+            || containsIdentityField(row.context, params.slice(1).filter((identity): identity is string => typeof identity === 'string'))) }
     }
     if (normalized.startsWith('UPDATE users') && normalized.includes('deletion_scheduled_at = NULL')) {
         markRestoreStarted()
@@ -164,6 +173,36 @@ beforeEach(() => {
         ip: '198.51.100.8',
         user_agent: 'Admin browser',
         context: { reason: 'legacy subject only' },
+    }, {
+        id: 9,
+        object_type: 'account_notice',
+        actor_id: null,
+        object_id: null,
+        subject_id: null,
+        request_id: 'name-email-only-request',
+        ip: '198.51.100.9',
+        user_agent: 'Legacy browser',
+        context: { targetName: 'Ada Example', reason: 'name only' },
+    }, {
+        id: 10,
+        object_type: 'account_notice',
+        actor_id: null,
+        object_id: null,
+        subject_id: null,
+        request_id: 'email-only-request',
+        ip: '198.51.100.10',
+        user_agent: 'Legacy browser',
+        context: { userEmail: 'ada@example.test', reason: 'email only' },
+    }, {
+        id: 11,
+        object_type: 'account_notice',
+        actor_id: null,
+        object_id: null,
+        subject_id: null,
+        request_id: 'free-text-name-request',
+        ip: '198.51.100.11',
+        user_agent: 'Unrelated browser',
+        context: { reason: 'Ada Example' },
     }]
     sqlCalls.length = 0
     activeAdvisoryLocks.clear()
@@ -214,6 +253,18 @@ test('purges due accounts once, cleans credentials and personal data, and preser
     expect(auditRows[0].context).not.toHaveProperty('targetName')
     expect(auditRows[1].subject_id).toBeNull()
     expect(auditRows[1].context).toEqual({ reason: 'legacy subject only' })
+    expect(auditRows[2]).toMatchObject({
+        request_id: '', ip: '', user_agent: '',
+        context: { reason: 'name only' },
+    })
+    expect(auditRows[3]).toMatchObject({
+        request_id: '', ip: '', user_agent: '',
+        context: { reason: 'email only' },
+    })
+    expect(auditRows[4]).toMatchObject({
+        request_id: 'free-text-name-request', ip: '198.51.100.11', user_agent: 'Unrelated browser',
+        context: { reason: 'Ada Example' },
+    })
     expect(sqlCalls.some(sql => sql.includes('OR subject_id = $1'))).toBe(true)
 
     const repeated = await purgeDeletedAccounts()
