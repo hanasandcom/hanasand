@@ -13,6 +13,7 @@ mock.module('#db', () => ({
         return { rows: [{ recovery: false, read_only: 'off' }] }
     },
     identityQueryOnce: async () => ({ rows: [], rowCount: 0 }),
+    isTransientDatabaseError: () => false,
     closeDatabase: async () => {},
     withTransaction: async () => {},
     withDatabaseAdvisoryLock: async () => {},
