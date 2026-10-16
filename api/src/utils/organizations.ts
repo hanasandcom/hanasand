@@ -1951,17 +1951,7 @@ export type OrganizationDwmAlertReference = {
         orgId: string
         tenantId: string
         orgName: string
-        defaultWebhookPolicy: OrganizationDefaultWebhookPolicy
-        alertVisibilityPolicy: OrganizationAlertVisibilityPolicy
-        memberCount: number
-        activeMemberCount: number
-        ownerCount: number
-        allowedViewerRoles: OrganizationRole[]
-        removedMemberDenialReason: OrganizationVisibilityDenyReason
-        deactivatedMemberDenialReason: OrganizationVisibilityDenyReason
-        pendingInviteCount: number
-        sharedWatchlistCount: number
-        readinessStatus: OrganizationReadinessStatus
+    } & OrganizationBridgeContextFields & {
         watchlistItemId: string
         matchedTerm: {
             value: string
@@ -2009,17 +1999,7 @@ export type OrganizationDwmAlertReference = {
         tenantId: string
         watchlistId: string
         watchlistName: string
-        defaultWebhookPolicy: OrganizationDefaultWebhookPolicy
-        alertVisibilityPolicy: OrganizationAlertVisibilityPolicy
-        memberCount: number
-        activeMemberCount: number
-        ownerCount: number
-        allowedViewerRoles: OrganizationRole[]
-        removedMemberDenialReason: OrganizationVisibilityDenyReason
-        deactivatedMemberDenialReason: OrganizationVisibilityDenyReason
-        pendingInviteCount: number
-        sharedWatchlistCount: number
-        readinessStatus: OrganizationReadinessStatus
+    } & OrganizationBridgeContextFields & {
         route: 'organization_watchlist'
         casePath: string
         requiredDestinationOrgId: string
@@ -2047,6 +2027,28 @@ export type OrganizationBridgeContext = {
     pendingInviteCount: number
     sharedWatchlistCount: number
     readinessStatus: OrganizationReadinessStatus
+}
+
+type OrganizationBridgeContextFields = Pick<OrganizationBridgeContext,
+    'defaultWebhookPolicy' | 'alertVisibilityPolicy' | 'memberCount' | 'activeMemberCount' | 'ownerCount'
+    | 'allowedViewerRoles' | 'removedMemberDenialReason' | 'deactivatedMemberDenialReason'
+    | 'pendingInviteCount' | 'sharedWatchlistCount' | 'readinessStatus'
+>
+
+function organizationBridgeContextFields(context: OrganizationBridgeContext): OrganizationBridgeContextFields {
+    return {
+        defaultWebhookPolicy: context.defaultWebhookPolicy,
+        alertVisibilityPolicy: context.alertVisibilityPolicy,
+        memberCount: context.memberCount,
+        activeMemberCount: context.activeMemberCount,
+        ownerCount: context.ownerCount,
+        allowedViewerRoles: context.allowedViewerRoles,
+        removedMemberDenialReason: context.removedMemberDenialReason,
+        deactivatedMemberDenialReason: context.deactivatedMemberDenialReason,
+        pendingInviteCount: context.pendingInviteCount,
+        sharedWatchlistCount: context.sharedWatchlistCount,
+        readinessStatus: context.readinessStatus,
+    }
 }
 
 export type OrganizationVisibilityDenyReason = 'not_member' | 'member_removed' | 'member_deactivated' | 'role_not_allowed'
@@ -6395,17 +6397,7 @@ export function buildOrganizationDwmAlertReference(
             orgId: organization.id,
             tenantId: organization.id,
             orgName: organization.name,
-            defaultWebhookPolicy: bridgeContext.defaultWebhookPolicy,
-            alertVisibilityPolicy: bridgeContext.alertVisibilityPolicy,
-            memberCount: bridgeContext.memberCount,
-            activeMemberCount: bridgeContext.activeMemberCount,
-            ownerCount: bridgeContext.ownerCount,
-            allowedViewerRoles: bridgeContext.allowedViewerRoles,
-            removedMemberDenialReason: bridgeContext.removedMemberDenialReason,
-            deactivatedMemberDenialReason: bridgeContext.deactivatedMemberDenialReason,
-            pendingInviteCount: bridgeContext.pendingInviteCount,
-            sharedWatchlistCount: bridgeContext.sharedWatchlistCount,
-            readinessStatus: bridgeContext.readinessStatus,
+            ...organizationBridgeContextFields(bridgeContext),
             watchlistItemId: item.id,
             matchedTerm,
             watchlist,
@@ -6429,17 +6421,7 @@ export function buildOrganizationDwmAlertReference(
             ...organizationTenantIdentity(organization.id, organization.id),
             watchlistId: item.id,
             watchlistName,
-            defaultWebhookPolicy: bridgeContext.defaultWebhookPolicy,
-            alertVisibilityPolicy: bridgeContext.alertVisibilityPolicy,
-            memberCount: bridgeContext.memberCount,
-            activeMemberCount: bridgeContext.activeMemberCount,
-            ownerCount: bridgeContext.ownerCount,
-            allowedViewerRoles: bridgeContext.allowedViewerRoles,
-            removedMemberDenialReason: bridgeContext.removedMemberDenialReason,
-            deactivatedMemberDenialReason: bridgeContext.deactivatedMemberDenialReason,
-            pendingInviteCount: bridgeContext.pendingInviteCount,
-            sharedWatchlistCount: bridgeContext.sharedWatchlistCount,
-            readinessStatus: bridgeContext.readinessStatus,
+            ...organizationBridgeContextFields(bridgeContext),
             route: 'organization_watchlist',
             casePath,
             requiredDestinationOrgId: organization.id,
