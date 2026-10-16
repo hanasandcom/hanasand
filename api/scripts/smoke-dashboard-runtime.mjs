@@ -1,5 +1,6 @@
 import crypto from 'crypto'
 import pg from 'pg'
+import { createApiRequester } from './helpers/apiRequester.mjs'
 
 const apiBase = process.env.API_BASE || 'http://127.0.0.1:8080/api'
 const frontendBase = process.env.FRONTEND_BASE || 'http://frontend:3000'
@@ -37,25 +38,7 @@ function authHeaders(extra = {}) {
     }
 }
 
-async function apiRequest(path, init = {}) {
-    const response = await fetch(`${apiBase}${path}`, {
-        ...init,
-        headers: {
-            ...(init.body ? { 'Content-Type': 'application/json' } : {}),
-            ...(init.headers || {}),
-        },
-    })
-
-    const text = await response.text()
-    let body
-    try {
-        body = text ? JSON.parse(text) : null
-    } catch {
-        body = text
-    }
-
-    return { response, body }
-}
+const apiRequest = createApiRequester(apiBase)
 
 async function pageRequest(path, cookieHeader) {
     const response = await fetch(`${frontendBase}${path}`, {

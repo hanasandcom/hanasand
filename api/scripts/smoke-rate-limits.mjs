@@ -1,6 +1,7 @@
 import crypto from 'crypto'
 import fs from 'fs'
 import pg from 'pg'
+import { createApiRequester } from './helpers/apiRequester.mjs'
 
 const insideDocker = fs.existsSync('/.dockerenv')
 const apiBase = process.env.API_BASE || (insideDocker ? 'http://127.0.0.1:8081/api' : 'http://127.0.0.1:8080/api')
@@ -57,25 +58,7 @@ function apiKeyHeaders(extra = {}) {
     }
 }
 
-async function request(path, init = {}) {
-    const response = await fetch(`${apiBase}${path}`, {
-        ...init,
-        headers: {
-            ...(init.body ? { 'Content-Type': 'application/json' } : {}),
-            ...(init.headers || {}),
-        },
-    })
-
-    const text = await response.text()
-    let body
-    try {
-        body = text ? JSON.parse(text) : null
-    } catch {
-        body = text
-    }
-
-    return { response, body }
-}
+const request = createApiRequester(apiBase)
 
 async function pageRequest(path, cookieHeader) {
     const response = await fetch(`${frontendBase}${path}`, {
