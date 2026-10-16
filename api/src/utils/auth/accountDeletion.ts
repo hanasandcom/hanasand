@@ -18,6 +18,10 @@ export function hashAccountRestoreToken(token: string) {
 
 export async function lockAccountDeletionRows(userId: string, query: typeof run = run) {
     await query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [userId])
+    await lockAccountDeletionOwnedOrganizations(userId, query)
+}
+
+export async function lockAccountDeletionOwnedOrganizations(userId: string, query: typeof run = run) {
     await query(`
         SELECT organization.id
         FROM organizations organization

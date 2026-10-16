@@ -1,5 +1,5 @@
 import run, { identityQueryOnce, tryWithDatabaseAdvisoryLock, withTransaction } from '#db'
-import { ACCOUNT_DELETION_PURGE_JOB_ID, accountDeletionOrganizationBlocker, accountDeletionPurgeLockKey, scrubDeletedUserAuditContext } from './accountDeletion.ts'
+import { ACCOUNT_DELETION_PURGE_JOB_ID, accountDeletionOrganizationBlocker, accountDeletionPurgeLockKey, lockAccountDeletionOwnedOrganizations, scrubDeletedUserAuditContext } from './accountDeletion.ts'
 import { revokeAllTokens } from './session.ts'
 import { deleteMailPrincipal } from '#utils/mail/stalwartAdmin.ts'
 import { purgeUserSshKeys } from './purgeUserSshKeys.ts'
@@ -54,18 +54,7 @@ async function purgeDeletedAccountWithLock(userId: string) {
         const target = locked.rows[0] as DueAccount | undefined
         if (!target) return false
 
-        await query(`
-            SELECT organization.id
-            FROM organizations organization
-            JOIN organization_members membership
-              ON membership.organization_id = organization.id
-             AND membership.user_id = $1
-             AND membership.role = 'owner'
-             AND membership.status = 'active'
-            WHERE organization.status = 'active'
-            ORDER BY organization.id
-            FOR UPDATE OF organization
-        `, [userId])
+        await lockAccountDeletionOwnedOrganizations(userId, query)
 
         if (await accountDeletionOrganizationBlocker(userId, query)) return false
 
