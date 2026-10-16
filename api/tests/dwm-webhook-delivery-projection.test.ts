@@ -10,6 +10,7 @@ import {
     buildDwmWebhookDeliveryLedger,
     buildDwmWebhookDeliveryOperations,
     buildDwmWebhookDeliveryRetryPersistence,
+    buildDwmWebhookDestinationReadModels,
     toDwmWebhookAuditEvent,
     toDwmWebhookDelivery,
     toDwmWebhookDestination,
@@ -247,9 +248,13 @@ test('organization delivery contracts share destination selection semantics', ()
     const common = { ownerId: 'owner_1', input, destinations, deliveries: [], auditEvents: [], liveDeliveryEnabled: false }
     const retry = buildDwmWebhookDeliveryRetryContract({ ...common, canManage: true })
     const contract = buildDwmOrgAlertWebhookDeliveryContract({ ...common, viewerRole: 'owner', canManage: true })
+    const destinationReadModels = buildDwmWebhookDestinationReadModels({ ...common, viewerRole: 'owner', canManage: true })
     const outcome = buildDwmOrgAlertWebhookDeliveryOutcome(common)
     const readiness = buildDwmAlertWebhookReadinessHandoff(common)
 
+    expect(contract.destinationHealth).toEqual(destinationReadModels.destinationHealth)
+    expect(contract.destinationLifecycle).toEqual(destinationReadModels.destinationLifecycle)
+    expect(contract.destinationAdminProof).toEqual(destinationReadModels.destinationAdminProof)
     expect(retry.destinationSelection).toMatchObject({
         selectedDestinationIds: ['destination_1'],
         skippedDestinations: [

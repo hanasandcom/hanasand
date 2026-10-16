@@ -5480,16 +5480,11 @@ export function buildDwmOrgAlertWebhookDeliveryContract({
     const dryRun = parseBoolean(normalizedInput.dryRun ?? normalizedInput.dry_run, true)
     const liveRequested = parseBoolean(normalizedInput.live, false)
     const dispatch = buildDwmWebhookDispatchPlanForDestinations(ownerId, normalizedInput, destinations)
-    const destinationHealth = buildDwmWebhookDestinationHealth({ destinations, deliveries, auditEvents, liveDeliveryEnabled })
-    const destinationLifecycle = buildDwmWebhookDestinationLifecycle({
-        destinations,
-        deliveries,
-        auditEvents,
-        liveDeliveryEnabled,
-        viewerRole,
-        canManage,
-    })
-    const destinationAdminProof = buildDwmWebhookDestinationAdminProof({
+    const {
+        destinationHealth,
+        destinationLifecycle,
+        destinationAdminProof,
+    } = buildDwmWebhookDestinationReadModels({
         destinations,
         deliveries,
         auditEvents,
