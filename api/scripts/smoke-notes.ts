@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict'
-import { buildNoteUpdateFields } from '../src/utils/notes.ts'
+import { buildNoteUpdateFields, cleanNoteText } from '../src/utils/notes.ts'
+
+assert.equal(cleanNoteText(' Note title '), 'Note title')
+assert.equal(cleanNoteText(42), '')
+assert.equal(cleanNoteText('   '), '')
 
 assert.equal(buildNoteUpdateFields(undefined), null)
 assert.equal(buildNoteUpdateFields({}), null)

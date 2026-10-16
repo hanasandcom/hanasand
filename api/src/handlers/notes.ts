@@ -1,12 +1,8 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import run from '#db'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
-import { buildNoteUpdateFields, type NoteBody } from '#utils/notes.ts'
+import { buildNoteUpdateFields, cleanNoteText, type NoteBody } from '#utils/notes.ts'
 import { requestedContentOrganization, requireContentOrganization } from '#utils/contentOrganization.ts'
-
-function clean(value: unknown) {
-    return typeof value === 'string' ? value.trim() : ''
-}
 
 function noteFields(row: Record<string, unknown>) {
     return {
@@ -77,9 +73,9 @@ export async function postNote(req: FastifyRequest<{ Body: NoteBody }>, res: Fas
         return res.status(401).send({ error: 'Unauthorized.' })
     }
 
-    const title = clean(req.body?.title)
-    const content = clean(req.body?.content)
-    const source = clean(req.body?.source) || 'api'
+    const title = cleanNoteText(req.body?.title)
+    const content = cleanNoteText(req.body?.content)
+    const source = cleanNoteText(req.body?.source) || 'api'
     const organizationId = requestedContentOrganization(req)
     if (!await requireContentOrganization(req, res, organizationId, true)) return
 

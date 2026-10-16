@@ -4,7 +4,7 @@ export type NoteBody = {
     source?: string
 }
 
-function clean(value: unknown) {
+export function cleanNoteText(value: unknown) {
     return typeof value === 'string' ? value.trim() : ''
 }
 
@@ -13,9 +13,9 @@ function hasField(body: NoteBody | undefined, key: keyof NoteBody) {
 }
 
 export function buildNoteUpdateFields(body: NoteBody | undefined) {
-    const title = clean(body?.title)
-    const content = clean(body?.content)
-    const source = clean(body?.source)
+    const title = cleanNoteText(body?.title)
+    const content = cleanNoteText(body?.content)
+    const source = cleanNoteText(body?.source)
     const hasTitle = hasField(body, 'title')
     const hasContent = hasField(body, 'content')
     const hasSource = hasField(body, 'source')
