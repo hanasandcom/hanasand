@@ -8,10 +8,17 @@ const repositoryRoot = path.resolve(frontendRoot, '..')
 const limit = 200
 const includedExtensions = new Set([
     '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.css', '.svg', '.json', '.toml', '.yaml', '.yml', '.sh', '.vcl',
+    '.md', '.mdx', '.txt', '.lock', '.tmp',
+    '.mts', '.cts', '.scss', '.sass', '.less', '.html', '.graphql', '.gql', '.sql', '.prisma',
+    '.jsonc', '.json5', '.xml', '.ini', '.conf', '.properties', '.vue', '.svelte', '.astro', '.py', '.rb', '.example',
 ])
-const includedNames = new Set(['Dockerfile', '.dockerignore', 'Dockerfile.dockerignore', 'CodeInventory.Dockerfile', 'CodeInventory.Dockerfile.dockerignore'])
+const includedNames = new Set([
+    'Dockerfile', '.dockerignore', 'Dockerfile.dockerignore', 'CodeInventory.Dockerfile',
+    'CodeInventory.Dockerfile.dockerignore', '.gitignore', '.npmrc', '.nvmrc', '.env', '.env.local', '.env.example',
+])
 const excludedDirectories = new Set(['node_modules', '.next', 'coverage', 'playwright-report', 'test-results', 'dist', 'build'])
 const generatedFiles = new Set([
+    'bun.lock',
     'src/utils/articles/staticArticles.json',
     'src/utils/routes/generatedSearchRoutes.ts',
 ])
