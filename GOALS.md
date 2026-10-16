@@ -92,6 +92,16 @@ the 10,000–30,000-line reduction target remains unachieved; these checkpoints
 primarily establish file boundaries and test coverage, not net feature-preserving
 LOC reduction.
 
+After the account, upload, GPT, share-search, and TI darkweb checkpoints, the
+2026-10-16 working-tree inventory found 151,942 frontend lines across 2,126
+hand-maintained files, with 50 files still over 200 lines. The scan excludes
+generated search routes and build/vendor directories. Relative to the preceding
+snapshot, this is 2,288 more lines and 59 more files, with 15 fewer oversized
+files. The current tree includes concurrent API and frontend work, including
+uncommitted scopes, so the inventory is provisional. The cap and the
+10,000–30,000-line frontend target remain unmet; recent work has mostly moved
+responsibilities into clearer files and has not produced net line reduction.
+
 ## Execution
 
 - Divide work by non-overlapping repository areas and use traditional Norwegian
