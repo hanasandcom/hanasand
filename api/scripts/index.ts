@@ -34,6 +34,7 @@ const coreTasks: TestTask[] = [
     scriptTask('generated-website', 'Generated website files and styles', 'check-generated-website.ts'),
     scriptTask('notes-unit', 'Notes unit contract', 'smoke-notes.ts'),
     scriptTask('organization-internal-pages', 'Organization internal-page access contract', 'smoke-organization-internal-pages.ts'),
+    scriptTask('organization-api', 'Organization API handler journeys', 'smoke-organizations-api.ts'),
     scriptTask('ai-stack-contracts', 'AI stack detection contract', 'smoke-ai-stack-contracts.ts'),
     scriptTask('ai-metrics-readiness', 'AI metrics readiness contract', 'smoke-ai-metrics-readiness.ts'),
     scriptTask('ai-deploy-defaults', 'AI deploy defaults contract', 'smoke-ai-deploy-defaults.ts'),
