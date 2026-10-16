@@ -26,7 +26,13 @@ const query = async (_sql: string, values: Array<string | null>) => {
     saved = values[0] as string
     return { rows: [{ id: values[1] }] }
 }
-mock.module('../src/utils/db.ts', () => ({ default: query, identityQueryOnce: query, isTransientDatabaseError: () => false, withReadDatabase: async (work: () => Promise<unknown>) => work() }))
+mock.module('../src/utils/db.ts', () => ({
+    default: query,
+    identityQueryOnce: query,
+    isTransientDatabaseError: () => false,
+    withReadDatabase: async (work: () => Promise<unknown>) => work(),
+    withTransaction: async () => { throw new Error('Unexpected transaction in share acknowledgement test') }
+}))
 const { handleMessage } = await import('../src/utils/ws/handleMessage.ts')
 
 test('share edits acknowledge persisted content, and report failed or missing saves', async () => {
