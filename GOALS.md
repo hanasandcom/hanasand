@@ -247,6 +247,18 @@ reduction, 10,000–30,000-line frontend target, and repository-wide cap remain
 unmet; subsequent work must measure aggregate LOC and keep prioritizing actual
 duplication removal over file splitting alone.
 
+At `f8d4b6d71`, the frontend inventory is 2,310 hand-maintained files / 155,352
+lines, with zero files over 200. The full frontend suite and production build
+pass. The dashboard article/thought row now shares one implementation while
+preserving existing exports, reducing those production implementations from 98
+to 78 lines. API note normalization is shared between create and update, and
+the DWM alert-normalization extraction reduces the webhook compatibility barrel
+by 201 lines with four lines of aggregate module overhead. The global scan is
+3,656 files / 322,441 lines with 126 over the cap. The frontend aggregate is
+14 lines above the prior `a9a192a67` snapshot; these localized reuse wins do not
+yet deliver the 100,000-line API reduction or 10,000–30,000-line frontend
+target. The full repository cap remains unmet.
+
 ## Execution
 
 - Divide work by non-overlapping repository areas and use traditional Norwegian
