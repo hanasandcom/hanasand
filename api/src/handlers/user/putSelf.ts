@@ -1,10 +1,9 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import run, { withTransaction } from '#db'
 import { AccountIdentityError, usernameError } from '#utils/auth/accountIdentity.ts'
-import { validatePassword } from '#utils/auth/password.ts'
 import login from '#utils/auth/login.ts'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
-import updateUserPassword from './updateUserPassword.ts'
+import updatePasswordAndReply from './updatePasswordAndReply.ts'
 
 type GetUserBodyProps = {
     id: string
@@ -37,33 +36,7 @@ export default async function putSelf(req: FastifyRequest, res: FastifyReply) {
     }
 
     if (password) {
-        const validation = await validatePassword(password)
-        if (!validation.valid) {
-            return res.status(400).send({ error: validation.error })
-        }
-
-        try {
-            const session = await updateUserPassword({
-                userId: id,
-                password,
-                ip,
-                userAgent: String(req.headers['user-agent'] || ''),
-            })
-            if (!session.userFound) {
-                return res.status(400).send({ error: 'User not found.' })
-            }
-            if (!session.session) {
-                return res.status(206).send({
-                    message: 'Password updated, and you were logged out. Logging you back in was not possible due to an unknown error.',
-                    error: 'Unable to login. Please try again later.'
-                })
-            }
-
-            return res.status(201).send({ message: 'Password updated', token: session.session.token, expires_at: session.session.expires_at })
-        } catch (error) {
-            console.error(`Database error: ${JSON.stringify(error)}`)
-            return res.status(500).send({ error: 'Internal Server Error' })
-        }
+        return updatePasswordAndReply(req, res, id, password)
     }
 
     try {
