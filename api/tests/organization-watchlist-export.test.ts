@@ -4,6 +4,7 @@ import {
     organizationWatchlistOwnerContext,
     organizationWatchlistAlertTermsExport,
     organizationWatchlistAlertTermsExportDenial,
+    toWatchlistItem,
 } from '../src/utils/organizations.ts'
 
 const organization = {
@@ -92,8 +93,9 @@ test('watchlist owner context keeps a stable shared response contract', () => {
 })
 
 test('alert term export preserves shared per-term projections and excludes inactive terms', () => {
+    const activeItem = watchlistItem({ id: 'active-1', kind: 'domain', value: 'example.com', status: 'active' })
     const result = organizationWatchlistAlertTermsExport(organization, [
-        watchlistItem({ id: 'active-1', kind: 'domain', value: 'example.com', status: 'active' }),
+        activeItem,
         watchlistItem({ id: 'paused-1', kind: 'keyword', value: 'launch plan', status: 'paused' }),
         watchlistItem({ id: 'archived-1', kind: 'vendor', value: 'Acme', status: 'archived', archivedAt: '2026-02-01T00:00:00.000Z' }),
     ], { userId: 'owner-1', role: 'owner' })
@@ -119,6 +121,7 @@ test('alert term export preserves shared per-term projections and excludes inact
     }
 
     expect(result.activeTerms.map(term => term.watchlistItemId)).toEqual(['active-1'])
+    expect(result.activeTerms[0]?.alertGenerationReference).toEqual(toWatchlistItem(activeItem).alertGenerationReference)
     expect(result.excluded).toEqual({ pausedCount: 1, archivedCount: 1, inactiveCount: 2 })
     expect(Object.keys(deliveryMatch)).toEqual([
         'organizationId', 'tenantId', 'watchlistId', 'watchlistItemId', 'watchedEntity', 'matchReason',
@@ -170,6 +173,13 @@ test('alert term export preserves shared per-term projections and excludes inact
         actorRef: matchingInput.actorRef,
         sourceRefs: matchingInput.sourceRefs,
     }).toEqual(expectedProjection)
+})
+
+test('watchlist item alert reference preserves lifecycle state', () => {
+    expect(toWatchlistItem(watchlistItem({ id: 'paused-1', kind: 'keyword', value: 'launch plan', status: 'paused' })).alertGenerationReference)
+        .toMatchObject({ status: 'paused', enabled: false, disabledReason: 'watchlist_paused' })
+    expect(toWatchlistItem(watchlistItem({ id: 'archived-1', kind: 'vendor', value: 'Acme', status: 'archived' })).alertGenerationReference)
+        .toMatchObject({ status: 'archived', enabled: false, disabledReason: 'watchlist_archived' })
 })
 
 test('alert term export denial preserves explicit tenant identity and fallback order', () => {

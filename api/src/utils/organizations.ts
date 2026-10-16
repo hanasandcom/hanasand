@@ -6244,18 +6244,40 @@ export function toWatchlistItem(row: OrganizationWatchlistRow) {
         createdAt: row.created_at,
         updatedAt: row.updated_at,
         archivedAt: row.archived_at ?? null,
-        alertGenerationReference: {
-            schemaVersion: 'organization.watchlist_item_alert_reference.v1',
-            ...organizationTenantIdentity(row.organization_id, row.organization_id),
+        alertGenerationReference: organizationWatchlistAlertReference({
+            organizationId: row.organization_id,
+            tenantId: row.organization_id,
             watchlistItemId: row.id,
-            itemId: row.id,
-            termFamily: row.kind,
-            category: row.kind,
+            kind: row.kind,
             term: row.value,
             status,
             enabled: lifecycleState.enabled,
             disabledReason: lifecycleState.disabledReason,
-        },
+        }),
+    }
+}
+
+function organizationWatchlistAlertReference<TStatus extends OrganizationWatchlistStatus>(input: {
+    organizationId: string
+    tenantId: string
+    watchlistItemId: string
+    kind: WatchlistKind
+    term: string
+    status: TStatus
+    enabled: boolean
+    disabledReason: OrganizationWatchlistTerm['disabledReason']
+}) {
+    return {
+        schemaVersion: 'organization.watchlist_item_alert_reference.v1' as const,
+        ...organizationTenantIdentity(input.organizationId, input.tenantId),
+        watchlistItemId: input.watchlistItemId,
+        itemId: input.watchlistItemId,
+        termFamily: input.kind,
+        category: input.kind,
+        term: input.term,
+        status: input.status,
+        enabled: input.enabled,
+        disabledReason: input.disabledReason,
     }
 }
 
@@ -6628,18 +6650,16 @@ export function organizationWatchlistAlertTermsExport(
                 webhookDestinationOrgField: 'destination.org_id' as const,
                 alertGeneratorKey,
             },
-            alertGenerationReference: {
-                schemaVersion: 'organization.watchlist_item_alert_reference.v1' as const,
-                ...organizationTenantIdentity(term.organizationId, term.tenantId),
+            alertGenerationReference: organizationWatchlistAlertReference({
+                organizationId: term.organizationId,
+                tenantId: term.tenantId,
                 watchlistItemId: term.watchlistItemId,
-                itemId: term.itemId,
-                termFamily: term.termFamily,
-                category: term.category,
+                kind: term.termFamily,
                 term: term.term,
-                status: 'active' as const,
-                enabled: true as const,
+                status: 'active',
+                enabled: true,
                 disabledReason: null,
-            },
+            }),
         }
     })
     const { active: activeItems, paused: pausedItems, archived: archivedItems } = watchlistProjection.itemsByStatus
