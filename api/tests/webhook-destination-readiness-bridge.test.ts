@@ -69,7 +69,7 @@ const delivery = toDwmWebhookDelivery({
     created_at: '2026-10-01T10:00:00.000Z',
 })
 
-function organizationBridge() {
+function organizationReadiness() {
     const input = {
         lifecycleReadiness: {
             lifecycleStatus: 'active',
@@ -94,7 +94,11 @@ function organizationBridge() {
             },
         },
     } as unknown as Parameters<typeof organizationReadinessProof>[0]
-    return organizationReadinessProof(input).webhookDeliveryProof.webhookDestinationReadinessBridge
+    return organizationReadinessProof(input)
+}
+
+function organizationBridge() {
+    return organizationReadiness().webhookDeliveryProof.webhookDestinationReadinessBridge
 }
 
 function dwmBridge() {
@@ -152,4 +156,20 @@ test('organization and DWM readiness bridges share ordered contract fields', () 
         idempotency: { key: 'dwm.alert.updated:org_1:destination_1:case_1', dedupeKey: 'case_1' },
         redaction: { safeForCustomerDisplay: true, endpointExposed: false, webhookSecretExposed: false },
     })
+})
+
+test('organization readiness proof keeps its stable top-level response shape', () => {
+    const readiness = organizationReadiness()
+
+    expect(Object.keys(readiness)).toEqual([
+        'schemaVersion', 'organizationId', 'tenantId', 'actor', 'counts', 'readiness', 'routes',
+        'worker3Proof', 'alertQueueProof', 'caseAssignmentProof', 'webhookDeliveryProof',
+        'destinationOwnershipProof', 'memberLifecycleProof', 'inviteLifecycleProof',
+        'lifecycleCleanupProof', 'tenMemberWorkspaceProof', 'alertGenerationHandoff', 'uiProof',
+        'cleanupProof', 'customerWorkflowProof', 'auditTimelineProof', 'blockers',
+    ])
+    expect(readiness.schemaVersion).toBe('organization.worker3_ui_readiness_proof.v1')
+    const mutableRoutes: Array<typeof readiness.routes> = []
+    mutableRoutes.push(readiness.routes)
+    expect(mutableRoutes).toHaveLength(1)
 })

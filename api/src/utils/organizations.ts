@@ -2205,433 +2205,6 @@ export type OrganizationLifecycleReadiness = {
     readyForOnboarding: boolean
 }
 
-export type OrganizationReadinessProof = {
-    schemaVersion: 'organization.worker3_ui_readiness_proof.v1'
-    organizationId: string
-    tenantId: string
-    actor: {
-        role: OrganizationRole
-        canExportActiveTerms: boolean
-    }
-    counts: {
-        activeMemberCount: number
-        activeAdminCount: number
-        pendingInviteCount: number
-        activeWatchlistTermCount: number
-        pausedWatchlistCount: number
-        archivedWatchlistCount: number
-    }
-    readiness: {
-        organizationCanGenerateAlerts: boolean
-        actorCanExportActiveTerms: boolean
-        readyForWorker3Replay: boolean
-        readyForDashboard: boolean
-        cleanupRequired: boolean
-    }
-    routes: {
-        createOrganization: 'POST /api/organizations'
-        inviteMembers: 'POST /api/organizations/:id/invites'
-        acceptInvite: 'POST /api/organizations/invites/:inviteId/accept'
-        listWatchlists: 'GET /api/organizations/:id/watchlists'
-        mutateWatchlist: 'POST|PUT|DELETE /api/organizations/:id/watchlists'
-        alertReadiness: 'GET /api/organizations/:id/alert-readiness'
-        alertTermsExport: 'GET /api/organizations/:id/watchlists/alert-terms'
-        cleanupWatchlists: 'POST /api/organizations/:id/watchlists/cleanup'
-    }
-    worker3Proof: {
-        noNetworkRequired: true
-        replayRoute: 'organization_watchlist'
-        exportSchema: 'organization.watchlist_alert_terms_export.v1'
-        alertGenerationRefField: 'activeTerms[].alertGenerationRef'
-        alertGeneratorKeyField: 'activeTerms[].alertGenerationRef.dedupe.key'
-        expectedAlertFields: string[]
-        testCommand: 'cd api && bun scripts/smoke-organizations-api.ts'
-    }
-    alertQueueProof: {
-        schemaVersion: 'organization.alert_queue_visibility_proof.v1'
-        visibilitySchema: 'dwm.org_alert_queue_visibility.v1'
-        routes: {
-            list: 'GET /v1/dwm/alerts'
-            detail: 'GET /v1/dwm/alerts/:id'
-            mutate: 'PATCH /v1/dwm/alerts/:id'
-            replay: 'POST /v1/dwm/alerts/:id/replay'
-        }
-        requiredQueryFields: ['organizationId']
-        expectedVisibilityFields: string[]
-        allowedActions: OrganizationAlertCaseAction[]
-        blockerCodes: string[]
-        nonmemberEnumeration: false
-    }
-    caseAssignmentProof: {
-        schemaVersion: 'organization.case_assignment_readiness.v1'
-        sourceContracts: Array<'organization.case_visibility_consumer.v1' | 'organization.alert_case_bridge_persistence_receipt.v1' | 'organization.shared_watchlist_alert_queue_visibility.v1'>
-        route: 'POST /v1/cases/:caseId/assignment'
-        organizationId: string
-        tenantId: string
-        actor: {
-            role: OrganizationRole
-            canAssignCase: boolean
-            allowedActions: OrganizationAlertCaseAction[]
-        }
-        roleGates: {
-            assignCase: Array<'owner' | 'admin' | 'editor' | 'analyst'>
-            linkCase: Array<'owner' | 'admin' | 'editor' | 'analyst'>
-            acknowledgeAlert: Array<'owner' | 'admin' | 'editor' | 'analyst'>
-            memberReadOnly: true
-            viewerReadOnly: true
-        }
-        requiredCaseFields: Array<'organizationId' | 'tenantId' | 'caseId' | 'assigneeId' | 'watchlistItemIds' | 'alertGeneratorKeys' | 'visibilityDecision' | 'assignmentAudit.requestId'>
-        requiredAlertFields: Array<'organizationId' | 'tenantId' | 'watchlistItemIds' | 'workflowContext.alertGeneratorKeys' | 'workflowContext.allowedActions'>
-        visibilityInputs: Array<'member.role' | 'member.status' | 'organization.lifecycleStatus' | 'watchlist.status' | 'alertVisibilityPolicy'>
-        lifecycleBlockers: Array<'org_archived' | 'org_deleted' | 'member_revoked' | 'watchlist_paused' | 'watchlist_archived' | 'role_not_allowed'>
-        blockerCodes: string[]
-        nonmemberEnumeration: false
-        crossOrgCaseAssignmentAllowed: false
-        noLeakFields: Array<'otherOrg.caseIds' | 'otherOrg.alertGeneratorKeys' | 'case.evidence.rawContent'>
-        proofAssertions: Array<'case_org_matches_alert_org' | 'assignee_membership_is_active' | 'member_cannot_assign_case' | 'nonmember_cannot_enumerate_cases'>
-    }
-    webhookDeliveryProof: {
-        schemaVersion: 'organization.webhook_delivery_visibility_proof.v1'
-        deliveryContractSchema: 'dwm.webhook.org_alert_delivery.v1'
-        route: 'POST /dwm/webhook-deliveries'
-        defaultWebhookPolicy: OrganizationDefaultWebhookPolicy
-        canUseDefaultDestinations: boolean
-        ownerAdminManualTriggerRequired: true
-        memberManualTriggerAllowed: false
-        nonmemberDestinationEnumeration: false
-        expectedDeliveryFields: string[]
-        blockerCodes: string[]
-        webhookDestinationReadinessBridge: {
-            schemaVersion: 'organization.webhook_destination_readiness_bridge.v1'
-            deliveryContractSchema: 'dwm.webhook.org_alert_delivery.v1'
-            sourceContract: 'organization.watchlist_webhook_delivery_contract.v1'
-            route: 'POST /v1/dwm/webhooks/deliver'
-            defaultWebhookPolicy: OrganizationDefaultWebhookPolicy
-            canUseDefaultDestinations: boolean
-            selectedDestinationSource: 'org_active_destinations' | 'manual_selection_required' | 'webhook_policy_disabled'
-            requiredDestinationOrgId: string
-            selectedDestinationOrgField: 'destination.org_id'
-            selectedDestinationIdField: 'webhookDestinationIds[]'
-            ownerAdminManualTriggerRequired: true
-            memberManualTriggerAllowed: false
-            requiredAlertFields: string[]
-            expectedDeliveryFields: string[]
-            skippedDestinationReasons: Array<'org_mismatch' | 'destination_disabled' | 'event_not_subscribed' | 'manual_selection_required' | 'webhook_policy_disabled'>
-            lifecycleBlockers: Array<'org_archived' | 'org_deleted' | 'watchlist_paused' | 'watchlist_archived' | 'member_revoked' | 'nonmember_denied'>
-            blockerCodes: string[]
-            nonmemberDestinationEnumeration: false
-        }
-    }
-    destinationOwnershipProof: {
-        schemaVersion: 'organization.webhook_destination_ownership_readiness.v1'
-        sourceContracts: Array<'organization.webhook_destination_ownership.v1' | 'organization.webhook_destination_access_decision.v1' | 'organization.webhook_destination_readiness_bridge.v1'>
-        route: 'POST /v1/dwm/webhooks/deliver'
-        organizationId: string
-        tenantId: string
-        defaultWebhookPolicy: OrganizationDefaultWebhookPolicy
-        requiredDestinationOrgId: string
-        requiredDestinationOrgField: 'destination.org_id'
-        selectedDestinationIdField: 'webhookDestinationIds[]'
-        selectedDestinationSource: 'org_active_destinations' | 'manual_selection_required' | 'webhook_policy_disabled'
-        crossOrgDestinationAllowed: false
-        nonmemberDestinationEnumeration: false
-        ownerAdminConfigureAllowed: boolean
-        memberConfigureAllowed: false
-        manualTriggerAllowedRoles: Array<'owner' | 'admin' | 'editor'>
-        automaticDeliveryAllowed: boolean
-        supportInspection: {
-            route: '/api/admin/support/organizations/:id'
-            mode: 'redacted_destination_summary'
-            requiredSupportContract: 'admin_support'
-            endpointRedacted: true
-            secretRedacted: true
-        }
-        lifecycleBlockers: Array<'org_archived' | 'org_deleted' | 'member_revoked' | 'manual_webhook_selection_required'>
-        blockerCodes: string[]
-        noLeakFields: Array<'destination.secret' | 'destination.endpoint' | 'otherOrg.destinationIds'>
-        proofAssertions: Array<'destination_org_matches_alert_org' | 'nonmember_cannot_enumerate_destinations' | 'member_cannot_configure_destination' | 'support_reads_redacted_destination_summary'>
-    }
-    memberLifecycleProof: {
-        schemaVersion: 'organization.member_lifecycle_visibility_proof.v1'
-        activeMembershipRequired: true
-        actorStatus: 'active'
-        actorRole: OrganizationRole
-        visibilityInputs: Array<'role' | 'status' | 'userActive' | 'alertVisibilityPolicy'>
-        denialReasons: {
-            nonmember: 'not_member'
-            removedMember: 'member_removed'
-            deactivatedMember: 'member_deactivated'
-            expiredInvite: 'invite_expired'
-            roleNotAllowed: 'role_not_allowed'
-        }
-        protectedRoutes: Array<
-            | 'GET /api/organizations/:id'
-            | 'GET /api/organizations/:id/watchlists'
-            | 'GET /api/organizations/:id/alert-readiness'
-            | 'GET /api/organizations/:id/watchlists/alert-terms'
-            | 'GET /api/organizations/:id/alert-case-visibility'
-            | 'POST|PUT|DELETE /api/organizations/:id/watchlists'
-            | 'POST /v1/dwm/webhooks/deliver'
-        >
-        noLeakFields: Array<'activeTerms[]' | 'watchlistScope.alertGeneratorKeys' | 'member.userId' | 'destination.secret'>
-        auditActions: Array<'organization_watchlist_alert_terms_export_denied' | 'organization_member_removed' | 'organization_invite_revoked'>
-        memberRemovalCleanup: {
-            responseSchema: 'organization.member_removal_cleanup.v1'
-            revokesPendingInvites: true
-            cleanupField: 'memberRemovalCleanup.revokedInviteIds'
-            staleInviteAcceptanceBlocker: 'member_revoked'
-            serviceLogAction: 'organization_member_removed'
-        }
-        memberAccessRecovery: {
-            responseSchema: 'organization.member_consumer_access_recovery.v1'
-            automaticRegrantAllowed: false
-            blockerCode: 'member_revoked'
-            ownerlessRecoveryMutationAllowed: false
-            directMembershipMutationAllowed: false
-            requiresOwnerAdminReview: true
-            requiresAcceptedInvite: true
-            recoveryActorRoles: Array<'owner' | 'admin'>
-            recoveryReceipts: Array<'organization.invite_consumer_visibility_receipt.v1' | 'organization.member_role_consumer_visibility_receipt.v1'>
-            recoveryRoutes: {
-                createInvite: 'POST /api/organizations/:id/invites'
-                acceptInvite: 'POST /api/organizations/invites/:inviteId/accept'
-                memberList: 'GET /api/organizations/:id/members'
-            }
-            blockedUntilAcceptedMembership: Array<
-                | 'GET /api/organizations/:id/watchlists'
-                | 'GET /api/organizations/:id/watchlists/alert-terms'
-                | 'GET /api/organizations/:id/alert-case-visibility'
-                | 'GET /api/organizations/:id/alert-readiness'
-            >
-            supportActionHistoryBridge: {
-                schemaVersion: 'organization.member_recovery_support_history_bridge.v1'
-                source: 'support_audit_timeline'
-                supportReceiptSchemas: Array<'support.access_recovery.execution_receipt.v1' | 'support.access_recovery.decision_receipt.v1' | 'support.action_execute.member_role_recovery.v1'>
-                expectedSupportActions: Array<'support.organization.access_recovery' | 'support.organization.access_recovery.approve' | 'support.organization.access_recovery.deny' | 'support.organization.member_role_recovery'>
-                replayFilters: {
-                    organizationId: 'org'
-                    targetUserId: 'target'
-                    requestId: 'request'
-                    action: 'action'
-                }
-                supportRoutes: {
-                    inspect: '/api/admin/support/inspect'
-                    accessRecovery: '/api/admin/support/access-recovery/:requestId'
-                    organization: '/api/admin/support/organizations/:id'
-                    memberRoleRecovery: '/api/admin/support/organizations/:id/members/:userId/role-recovery'
-                }
-                requiredAuditFields: Array<'organizationId' | 'targetUserId' | 'requestId' | 'supportSessionId' | 'reason' | 'outcome'>
-                noSilentMembershipMutation: true
-                nonmemberEnumeration: false
-            }
-            supportAssistedRecoveryReceipt: {
-                schemaVersion: 'organization.member_support_assisted_recovery_receipt.v1'
-                supportActionHistoryBridge: 'organization.member_recovery_support_history_bridge.v1'
-                allowedOutcome: 'invite_required'
-                directMembershipMutationAllowed: false
-                ownerlessRecoveryMutationAllowed: false
-                requiresAcceptedInvite: true
-                requiredAuditFields: Array<'organizationId' | 'targetUserId' | 'requestId' | 'supportSessionId' | 'reason' | 'outcome'>
-                blockedRoutesUntilAcceptedMembership: Array<
-                    | 'GET /api/organizations/:id/watchlists'
-                    | 'GET /api/organizations/:id/watchlists/alert-terms'
-                    | 'GET /api/organizations/:id/alert-case-visibility'
-                    | 'POST /v1/dwm/webhooks/deliver'
-                >
-                nonmemberEnumeration: false
-            }
-        }
-        nonmemberEnumeration: false
-    }
-    inviteLifecycleProof: {
-        schemaVersion: 'organization.invite_lifecycle_readiness_proof.v1'
-        pendingInviteCount: number
-        inviteTenSupported: boolean
-        maxRecipientsPerRequest: 25
-        duplicateRecipientHandling: 'dedupe_case_insensitive'
-        defaultExpiryDays: 14
-        acceptanceTokenField: 'invite.acceptanceToken'
-        acceptanceRoute: 'POST /api/organizations/invites/:inviteId/accept'
-        inviteRoute: 'POST /api/organizations/:id/invites'
-        actionRoute: 'POST /api/organizations/:id/invites/:inviteId/actions'
-        supportedActions: Array<'revoke' | 'resend'>
-        idempotentActions: Array<'revoke' | 'resend'>
-        duplicateInviteOutcome: 'updated_pending_invite'
-        blockedOutcomes: Array<'already_member' | 'blocked_removed_member' | 'blocked_deactivated_user'>
-        lifecycleBlockers: Array<'invite_expired' | 'member_revoked' | 'org_archived' | 'org_deleted'>
-        auditActions: Array<'organization_invites_created' | 'organization_invite_accepted' | 'organization_invite_revoked' | 'organization_invite_resent'>
-        requiredMetadataFields: Array<'requestId' | 'role' | 'recipientCount' | 'submittedRecipientCount' | 'duplicateRecipientCount' | 'invitedCount' | 'skippedCount' | 'inviteId' | 'action' | 'previousStatus' | 'newStatus'>
-        nonmemberEnumeration: false
-    }
-    lifecycleCleanupProof: {
-        schemaVersion: 'organization.lifecycle_cleanup_readiness.v1'
-        organizationId: string
-        tenantId: string
-        cleanupRoutes: {
-            revokeInvite: 'POST /api/organizations/:id/invites/:inviteId/actions'
-            removeMember: 'DELETE /api/organizations/:id/members/:userId'
-            cleanupWatchlists: 'POST /api/organizations/:id/watchlists/cleanup'
-            acceptInvite: 'POST /api/organizations/invites/:inviteId/accept'
-        }
-        idempotentActions: Array<'invite_revoke' | 'invite_resend' | 'watchlist_cleanup' | 'watchlist_archive' | 'watchlist_restore'>
-        cleanupEffects: {
-            removedMemberRevokesPendingInvites: true
-            removedMemberLosesWatchlistAccess: true
-            removedMemberLosesAlertExportAccess: true
-            removedMemberLosesCaseVisibility: true
-            removedMemberLosesWebhookAccess: true
-            revokedInviteCannotGrantAccess: true
-            expiredInviteCannotGrantAccess: true
-            archivedWatchlistsExcludedFromMatching: true
-            pausedWatchlistsExcludedFromMatching: true
-        }
-        blockedUntilAcceptedMembership: Array<
-            | 'GET /api/organizations/:id/watchlists'
-            | 'GET /api/organizations/:id/watchlists/alert-terms'
-            | 'GET /api/organizations/:id/alert-case-visibility'
-            | 'POST /v1/dwm/webhooks/deliver'
-        >
-        affectedConsumerContracts: Array<
-            | 'organization.watchlist_alert_generation_consumer.v1'
-            | 'organization.case_visibility_consumer.v1'
-            | 'organization.webhook_destination_access_decision.v1'
-            | 'organization.shared_watchlist_readiness_export.v1'
-            | 'organization.audit_timeline_readiness.v1'
-        >
-        requiredAuditActions: Array<'organization_invite_revoked' | 'organization_member_removed' | 'organization_watchlist_cleanup_archived' | 'organization_watchlist_archived' | 'organization_watchlist_restored'>
-        lifecycleBlockers: Array<'member_revoked' | 'invite_expired' | 'watchlist_archived' | 'watchlist_paused' | 'cleanup_required'>
-        cleanupRequired: boolean
-        pendingInviteCount: number
-        pausedWatchlistCount: number
-        archivedWatchlistCount: number
-        noLeakFields: Array<'activeTerms[]' | 'otherOrg.watchlistItemIds' | 'otherOrg.invites' | 'destination.secret'>
-        nonmemberEnumeration: false
-        proofCommand: 'cd api && bun scripts/smoke-organizations-api.ts'
-    }
-    tenMemberWorkspaceProof: {
-        schemaVersion: 'organization.ten_member_workspace_proof.v1'
-        targetMemberCount: 10
-        activeMemberCount: number
-        pendingInviteCount: number
-        acceptedOrInvitedCount: number
-        sharedWatchlistCount: number
-        activeWatchlistTermCount: number
-        canSupportTenMemberSharedWatchlistRollout: boolean
-        readinessRefs: {
-            inviteLifecycle: 'organization.invite_lifecycle_readiness_proof.v1'
-            sharedWatchlistReadiness: 'organization.shared_watchlist_readiness_export.v1'
-            alertGenerationConsumer: 'organization.watchlist_alert_generation_consumer.v1'
-            alertCasePersistence: 'organization.alert_case_bridge_persistence_receipt.v1'
-            webhookDestinationReadiness: 'organization.webhook_destination_readiness_bridge.v1'
-        }
-        routeRefs: {
-            bulkInvite: 'POST /api/organizations/:id/invites'
-            listMembers: 'GET /api/organizations/:id/members'
-            createWatchlist: 'POST /api/organizations/:id/watchlists'
-            alertTermsExport: 'GET /api/organizations/:id/watchlists/alert-terms'
-            alertCaseVisibility: 'GET /api/organizations/:id/alert-case-visibility'
-            webhookDeliver: 'POST /v1/dwm/webhooks/deliver'
-        }
-        lifecycleBlockers: Array<'needs_10_active_members_or_pending_invites' | 'needs_shared_watchlist_item' | 'no_active_terms' | 'org_archived' | 'org_deleted' | 'member_revoked'>
-        noEnumerationFields: Array<'otherOrg.members' | 'otherOrg.watchlistItemIds' | 'otherOrg.alertGeneratorKeys' | 'destination.secret'>
-        proofCommand: 'cd api && bun scripts/smoke-organizations-api.ts'
-    }
-    alertGenerationHandoff: {
-        schemaVersion: 'organization.watchlist_alert_generation_handoff.v1'
-        sourceContract: 'organization.watchlist_alert_generation_consumer.v1'
-        route: 'organization_watchlist'
-        exportRoute: 'GET /api/organizations/:id/watchlists/alert-terms'
-        cleanupRoute: 'POST /api/organizations/:id/watchlists/cleanup'
-        organizationId: string
-        tenantId: string
-        activeTermCount: number
-        watchlistItemIds: string[]
-        alertGeneratorKeys: string[]
-        matchingInputFields: Array<'organizationId' | 'tenantId' | 'watchlistItemId' | 'termFamily' | 'normalizedTerm' | 'alertGenerationRef'>
-        expectedPersistedAlertFields: Array<'organizationId' | 'tenantId' | 'watchlistItemIds' | 'workflowContext.organizationId' | 'workflowContext.alertGeneratorKeys' | 'workflowContext.visibilityDecision' | 'casePath'>
-        expectedCaseFields: Array<'organizationId' | 'tenantId' | 'casePath' | 'watchlistItemIds' | 'allowedActions'>
-        dedupeKeyFields: Array<'organizationId' | 'watchlistItemId' | 'termFamily' | 'normalizedTerm'>
-        replaySteps: Array<'export_alert_terms' | 'match_retained_capture' | 'persist_org_alert' | 'verify_case_visibility' | 'deliver_webhook' | 'archive_cleanup'>
-        readinessRefs: {
-            alertQueue: 'organization.alert_queue_visibility_proof.v1'
-            caseAssignment: 'organization.case_assignment_readiness.v1'
-            destinationOwnership: 'organization.webhook_destination_ownership_readiness.v1'
-            sharedWatchlistReadiness: 'organization.shared_watchlist_readiness_export.v1'
-        }
-        lifecycleBlockers: Array<'org_archived' | 'org_deleted' | 'member_revoked' | 'watchlist_paused' | 'watchlist_archived' | 'no_active_terms' | 'role_not_allowed'>
-        blockerCodes: string[]
-        crossOrgDedupeAllowed: false
-        nonmemberEnumeration: false
-        proofCommand: 'cd api && bun scripts/smoke-organizations-api.ts'
-    }
-    uiProof: {
-        safeFields: string[]
-        redactedFields: string[]
-        nonmemberEnumeration: false
-    }
-    cleanupProof: {
-        cleanupIdempotent: true
-        cleanupRoute: 'POST /api/organizations/:id/watchlists/cleanup'
-        cleanupRequiredBlocker: 'cleanup_required'
-    }
-    customerWorkflowProof: {
-        schemaVersion: 'organization.customer_workflow_proof.v1'
-        routeSequence: Array<
-            | 'POST /api/organizations'
-            | 'POST /api/organizations/:id/invites'
-            | 'POST /api/organizations/invites/:inviteId/accept'
-            | 'GET /api/organizations/:id/members'
-            | 'POST /api/organizations/:id/watchlists'
-            | 'GET /api/organizations/:id/watchlists/alert-terms'
-            | 'GET /api/organizations/:id/alert-case-visibility'
-            | 'POST /api/organizations/:id/watchlists/cleanup'
-        >
-        requiredOrgFields: Array<'organizationId' | 'tenantId' | 'member.role' | 'counts.activeMemberCount' | 'counts.activeAdminCount'>
-        requiredWatchlistFields: Array<'watchlistItemId' | 'organizationId' | 'kind' | 'term' | 'status' | 'createdBy' | 'updatedBy' | 'alertGenerationRef'>
-        requiredAlertFields: Array<'organizationId' | 'tenantId' | 'watchlistItemIds' | 'workflowContext.alertGeneratorKeys' | 'workflowContext.visibilityDecision'>
-        roleGates: {
-            ownerAdminMutate: true
-            memberReadExport: boolean
-            viewerReadOnly: true
-            nonmemberEnumeration: false
-        }
-        lifecycleBlockers: string[]
-        downstreamConsumers: Array<'alert_queue' | 'case_workflow' | 'webhook_delivery' | 'dashboard_readiness' | 'support_timeline'>
-        proofCommand: 'cd api && bun scripts/smoke-organizations-api.ts'
-    }
-    auditTimelineProof: {
-        schemaVersion: 'organization.audit_timeline_readiness.v1'
-        organizationId: string
-        tenantId: string
-        source: 'events'
-        supportRoute: '/api/admin/support/organizations/:id'
-        logQuery: 'GET /api/logs?service=api&message=organization'
-        requiredEventActions: Array<
-            | 'organization_settings_updated'
-            | 'organization_invites_created'
-            | 'organization_invite_accepted'
-            | 'organization_invite_revoked'
-            | 'organization_invite_resent'
-            | 'organization_member_removed'
-            | 'organization_member_role_updated'
-            | 'organization_watchlist_upserted'
-            | 'organization_watchlist_updated'
-            | 'organization_watchlist_archived'
-            | 'organization_watchlist_alert_terms_exported'
-            | 'organization_watchlist_alert_terms_export_denied'
-            | 'organization_lifecycle_mutation_blocked'
-        >
-        requiredMetadataFields: Array<'organizationId' | 'actorId' | 'actorRole' | 'requestId' | 'targetUserId' | 'inviteId' | 'watchlistItemId' | 'reason' | 'blockerCode'>
-        downstreamCorrelationFields: Array<'organizationId' | 'tenantId' | 'watchlistItemIds' | 'alertGeneratorKeys' | 'casePath' | 'webhookDestinationIds'>
-        lifecycleBlockers: Array<'org_archived' | 'org_deleted' | 'member_revoked' | 'invite_expired' | 'watchlist_archived' | 'watchlist_paused'>
-        supportReadMode: 'redacted_summary_only'
-        noLeakFields: Array<'activeTerms[].term' | 'destination.secret' | 'case.evidence.rawContent' | 'otherOrg.auditEvents'>
-        nonmemberEnumeration: false
-        proofCommand: 'cd api && bun scripts/smoke-organizations-api.ts'
-    }
-    blockers: string[]
-}
-
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const inviteRoles = new Set<OrganizationRole>(['admin', 'editor', 'reader'])
 const inviteActions = new Set<OrganizationInviteAction>(['revoke', 'resend'])
@@ -5485,11 +5058,11 @@ const organizationMembershipBlockedDownstreamRoutes = [
     'POST /v1/dwm/webhooks/deliver',
 ] as const
 
-export function organizationReadinessProof(input: {
+function buildOrganizationReadinessProof(input: {
     lifecycleReadiness: OrganizationLifecycleReadiness
     alertGenerationBridge: OrganizationWatchlistAlertGenerationContract
     downstreamAuthorization: OrganizationDownstreamAuthorizationExport
-}): OrganizationReadinessProof {
+}) {
     const watchlists = input.downstreamAuthorization.watchlists
     const actorCanExportActiveTerms = input.downstreamAuthorization.downstream.alertGeneration.canExportActiveTerms
     const organizationCanGenerateAlerts = input.alertGenerationBridge.canGenerateAlerts
@@ -5530,7 +5103,7 @@ export function organizationReadinessProof(input: {
         canAssignCase ? undefined : 'role_not_allowed',
     ].filter(Boolean).map(String))).sort()
 
-    return {
+    const proof = {
         schemaVersion: 'organization.worker3_ui_readiness_proof.v1',
         ...organizationTenantIdentity(input.downstreamAuthorization.organizationId, input.downstreamAuthorization.tenantId),
         actor: {
@@ -5575,7 +5148,7 @@ export function organizationReadinessProof(input: {
                 'workflowContext.alertGenerationRefs',
                 'workflowContext.alertGeneratorKeys',
                 'casePath',
-            ],
+            ] as string[],
             testCommand: 'cd api && bun scripts/smoke-organizations-api.ts',
         },
         alertQueueProof: {
@@ -5597,7 +5170,7 @@ export function organizationReadinessProof(input: {
                 'alertQueueVisibility.watchlistScope.watchlistItemIds',
                 'alertQueueVisibility.watchlistScope.alertGeneratorKeys',
                 'alertQueueVisibility.blockers',
-            ],
+            ] as string[],
             allowedActions: input.downstreamAuthorization.allowedActions,
             blockerCodes: blockers,
             nonmemberEnumeration: false,
@@ -5687,7 +5260,7 @@ export function organizationReadinessProof(input: {
                 'orgAlertDelivery.destinationSelection.skippedDestinations',
                 'orgAlertDelivery.ledger.deliveries',
                 'orgAlertDelivery.auditEventContracts',
-            ],
+            ] as string[],
             blockerCodes: webhookBlockerCodes,
             webhookDestinationReadinessBridge: buildWebhookDestinationReadinessBridge({
                 defaultWebhookPolicy: input.downstreamAuthorization.downstream.webhook.defaultPolicy,
@@ -6067,13 +5640,13 @@ export function organizationReadinessProof(input: {
                 'inviteLifecycleProof',
                 'blockers',
                 'uiProof.nonmemberEnumeration',
-            ],
+            ] as string[],
             redactedFields: [
                 'activeTerms[].term',
                 'activeTerms[].value',
                 'member.userId',
                 'alertGenerationRef.lifecycle.createdBy',
-            ],
+            ] as string[],
             nonmemberEnumeration: false,
         },
         cleanupProof: {
@@ -6194,7 +5767,28 @@ export function organizationReadinessProof(input: {
             proofCommand: 'cd api && bun scripts/smoke-organizations-api.ts',
         },
         blockers,
+    } as const
+
+    return proof
+}
+
+type MutableDeep<T> = T extends readonly (infer Item)[]
+    ? MutableDeep<Item>[]
+    : T extends object
+        ? { -readonly [Key in keyof T]: MutableDeep<T[Key]> }
+        : T
+
+type OrganizationReadinessProofBase = MutableDeep<ReturnType<typeof buildOrganizationReadinessProof>>
+
+export type OrganizationReadinessProof = Omit<OrganizationReadinessProofBase, 'alertQueueProof'> & {
+    alertQueueProof: Omit<OrganizationReadinessProofBase['alertQueueProof'], 'requiredQueryFields'> & {
+        requiredQueryFields: ['organizationId']
     }
+}
+
+export function organizationReadinessProof(input: Parameters<typeof buildOrganizationReadinessProof>[0]): OrganizationReadinessProof {
+    // Preserve the existing mutable-array surface while keeping the derived literal contract precise.
+    return buildOrganizationReadinessProof(input) as unknown as OrganizationReadinessProof
 }
 
 export function organizationInviteAcceptanceReference(inviteId: string) {
