@@ -67,8 +67,17 @@ assert.equal(checking.page?.total, undefined)
 
 const homePageSource = readFileSync(new URL('../src/app/page.tsx', import.meta.url), 'utf8')
 const activityPageSource = readFileSync(new URL('../src/app/activity/page.tsx', import.meta.url), 'utf8')
-const activityClientSource = readFileSync(new URL('../src/app/activity/activityClient.tsx', import.meta.url), 'utf8')
-const homepageActivitySource = readFileSync(new URL('../src/app/homepageActivityFeed.tsx', import.meta.url), 'utf8')
+const activityClientSource = [
+    '../src/app/activity/activityClient.tsx',
+    '../src/app/activity/activityModel.ts',
+    '../src/app/activity/ActivityResults.tsx',
+].map((file) => readFileSync(new URL(file, import.meta.url), 'utf8')).join('\n')
+const homepageActivitySource = [
+    'homepageActivityFeed.tsx',
+    'useHomepageActivityFeed.ts',
+    'homepageActivityFeedView.tsx',
+    'homepageActivityFeedState.ts',
+].map((file) => readFileSync(new URL(`../src/app/${file}`, import.meta.url), 'utf8')).join('\n')
 const publicExposureRouteSource = readFileSync(new URL('../src/app/api/public/exposure-queue/route.ts', import.meta.url), 'utf8')
 assert(!homePageSource.includes('|| emptyExposureQueue'))
 assert(!activityPageSource.includes('|| emptyExposureQueue'))
@@ -83,7 +92,7 @@ assert(!homepageActivitySource.includes('mergeExposureQueueItems(current, nextQu
 assert(homepageActivitySource.includes('REFRESH_MS = 300_000'))
 assert(publicExposureRouteSource.includes('private, no-store'))
 assert(!homepageActivitySource.includes('Latest activity is refreshing'))
-assert(activityClientSource.includes('emptyActivityTitle(queue.status)'))
+assert(activityClientSource.includes('emptyActivityTitle(status)'))
 assert(activityClientSource.includes('Checking live activity.'))
 
 console.log('shared exposure activity contract ok')

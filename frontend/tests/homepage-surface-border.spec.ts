@@ -5,9 +5,12 @@ import path from 'node:path'
 const root = process.cwd()
 
 test('homepage exposure queue empty state reads like monitoring product copy', async () => {
-    const source = await readFile(path.join(root, 'src/app/homepageActivityFeed.tsx'), 'utf8')
+    const source = await Promise.all([
+        'src/app/homepageActivityFeed.tsx',
+        'src/app/homepageActivityFeedView.tsx',
+    ].map((file) => readFile(path.join(root, file), 'utf8'))).then((files) => files.join('\n'))
 
-    expect(source).toContain('className=\'w-full min-w-[56rem]\'')
+    expect(source).toContain('w-full min-w-[56rem]')
     expect(source).toContain('border-b border-ui-border px-4 py-3 text-sm last:border-b-0')
     expect(source).toContain('Monitoring company mentions across exposure sources.')
     expect(source).toContain('Monitoring exposure sources.')
