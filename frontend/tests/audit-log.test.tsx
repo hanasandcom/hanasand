@@ -6,11 +6,11 @@ mock.module('next/headers', () => ({ cookies: async () => ({ get: (name: string)
 const { default: AuditLogPage } = await import('../src/app/dashboard/management/audit/page')
 
 test('audit navigation belongs to Management and remains administrator-only', () => {
-    const access = { id: 'admin', isAdmin: true, canManageSystem: true, canManageContent: true }
+    const access = { id: 'admin', canViewInternalPages: true }
     const links = navigationLinks(getDashboardNavigation(access))
-    expect(links.find(link => link.href === '/management/audit')?.ancestors).toEqual(['Administration', 'Management'])
+    expect(links.find(link => link.href === '/management/audit')?.ancestors).toEqual(['Administration'])
     expect(links.some(link => link.href === '/ti/audit')).toBe(false)
-    expect(navigationLinks(getDashboardNavigation({ ...access, isAdmin: false })).some(link => link.href === '/management/audit')).toBe(false)
+    expect(navigationLinks(getDashboardNavigation({ id: 'user', canViewInternalPages: false })).some(link => link.href === '/management/audit')).toBe(false)
 })
 
 test('shared audit renders service, event and object fields and retains filters and displays the matching total', async () => {

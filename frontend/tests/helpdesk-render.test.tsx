@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 // @ts-expect-error Bun supplies this module for focused checks.
 import { mock } from 'bun:test'
-import { renderToReadableStream } from 'react-dom/server'
+import { renderToReadableStream, renderToStaticMarkup } from 'react-dom/server'
 
 let authenticated = true
 let renderedParams: Record<string, string> = {}
@@ -118,6 +118,25 @@ response = () => Response.json({ events: [{ ...events[0], object_type: 'user', o
 const recoveredHtml = await render()
 assert(recoveredHtml.includes('deleted-admin') && recoveredHtml.includes('Retained request log'), 'Recovered user identity and its source must survive the server/client boundary')
 assert(recoveredHtml.includes('Acknowledge'))
+
+const { default: AuditEventList } = await import('../src/app/dashboard/helpdesk/auditEventList')
+const firstPendingEvent = { ...events[0], id: 301 }
+const secondEvent = { ...events[0], id: 302, event_type: 'support.ticket.updated' }
+const renderPendingList = (selectedEventId: number) => renderToStaticMarkup(<AuditEventList
+    events={[firstPendingEvent, secondEvent]}
+    selectedEventId={selectedEventId}
+    filterCount={0}
+    responseError=''
+    timeline={{ current: null }}
+    pendingEvent={firstPendingEvent.id}
+    acknowledgmentError={null}
+    onSelectEvent={() => {}}
+    onAcknowledge={() => {}}
+/>)
+const otherEventPending = renderPendingList(secondEvent.id)
+assert(otherEventPending.includes('Acknowledge') && !otherEventPending.includes('Saving…'), 'Opening a different row while saving must not label that row as saving')
+assert(otherEventPending.includes('disabled=""'), 'All acknowledgment buttons remain disabled during a save')
+assert(renderPendingList(firstPendingEvent.id).includes('Saving…'), 'Only the row being saved shows the saving label')
 response = () => Response.json({ events: [{ ...events[0], severity: 'critical', acknowledged_at: '2026-09-20T01:00:00Z', acknowledged_by: 'operator', context: { targetName: 'Former administrator', targetId: 'deleted-admin' }, target_name: null, object_id: null }] })
 const acknowledgedHtml = await render()
 assert(acknowledgedHtml.includes('Former administrator'), 'Deleted account names must use the recorded snapshot')
