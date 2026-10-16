@@ -287,19 +287,9 @@ export async function putDwmWebhookDestination(req: FastifyRequest<{ Params: IdP
     if (await sendConfigurationPermissionError(res, destinationOrgId, userId)) return
 
     try {
-        const preflight = await loadDestinationCrudContext(userId, destinationOrgId, req.params.id)
-        const action = destinationCrudActionForUpdate(req.body, preflight.destination)
-        const preflightCrud = buildDwmWebhookDestinationCrudContract({
-            action,
-            ownerId: userId,
-            input: { ...req.body, orgId: nextOrgId },
-            destination: preflight.destination,
-            destinations: preflight.destinations,
-            deliveries: preflight.deliveries,
-            auditEvents: preflight.auditEvents,
-            viewerRole: 'admin',
-            canManage: true,
-        })
+        const input = { ...req.body, orgId: nextOrgId }
+        const preflight = await loadDestinationCrudPreflight(userId, destinationOrgId, req.params.id, 'update', input)
+        const { action, destinationCrud: preflightCrud } = preflight
         if (!preflightCrud.canApply) {
             return res.status(400).send({
                 error: preflightCrud.blockers[0]?.message || 'Webhook destination cannot be updated.',
@@ -317,7 +307,7 @@ export async function putDwmWebhookDestination(req: FastifyRequest<{ Params: IdP
         return res.send(buildDwmWebhookDestinationChangeResponse({
             action,
             ownerId: userId,
-            input: { ...req.body, orgId: nextOrgId },
+            input,
             destination,
             destinations,
             deliveries,
@@ -339,18 +329,9 @@ export async function deleteDwmWebhookDestination(req: FastifyRequest<{ Params: 
 
     if (await sendConfigurationPermissionError(res, existing.orgId, userId)) return
 
-    const preflight = await loadDestinationCrudContext(userId, existing.orgId, req.params.id)
-    const preflightCrud = buildDwmWebhookDestinationCrudContract({
-        action: 'delete',
-        ownerId: userId,
-        input: { orgId: existing.orgId },
-        destination: preflight.destination,
-        destinations: preflight.destinations,
-        deliveries: preflight.deliveries,
-        auditEvents: preflight.auditEvents,
-        viewerRole: 'admin',
-        canManage: true,
-    })
+    const input = { orgId: existing.orgId }
+    const preflight = await loadDestinationCrudPreflight(userId, existing.orgId, req.params.id, 'delete', input)
+    const { destinationCrud: preflightCrud } = preflight
     if (!preflightCrud.canApply) {
         return res.status(400).send({
             error: preflightCrud.blockers[0]?.message || 'Webhook destination cannot be deleted.',
@@ -493,18 +474,9 @@ export async function postDwmWebhookDestinationTest(req: FastifyRequest<{ Params
 
     if (await sendConfigurationPermissionError(res, existing.orgId, userId)) return
 
-    const preflight = await loadDestinationCrudContext(userId, existing.orgId, req.params.id)
-    const preflightCrud = buildDwmWebhookDestinationCrudContract({
-        action: 'test',
-        ownerId: userId,
-        input: { ...(req.body || {}), orgId: existing.orgId },
-        destination: preflight.destination,
-        destinations: preflight.destinations,
-        deliveries: preflight.deliveries,
-        auditEvents: preflight.auditEvents,
-        viewerRole: 'admin',
-        canManage: true,
-    })
+    const input = { ...(req.body || {}), orgId: existing.orgId }
+    const preflight = await loadDestinationCrudPreflight(userId, existing.orgId, req.params.id, 'test', input)
+    const { destinationCrud: preflightCrud } = preflight
     if (!preflightCrud.canApply) {
         return res.status(400).send({
             error: preflightCrud.blockers[0]?.message || 'Webhook destination cannot be tested.',
@@ -1110,12 +1082,30 @@ function destinationCrudActionForUpdate(input: DwmWebhookDestinationInput, desti
     return 'update' as const
 }
 
-async function loadDestinationCrudContext(ownerId: string, orgId: string, destinationId: string) {
+async function loadDestinationCrudPreflight(
+    ownerId: string,
+    orgId: string,
+    destinationId: string,
+    requestedAction: 'update' | 'delete' | 'test',
+    input: DwmWebhookDestinationInput,
+) {
     const destinations = await listDwmWebhookDestinations(ownerId, orgId)
     const destination = destinations.find(item => item.id === destinationId) || null
     const deliveries = await listDwmWebhookDeliveries(ownerId, orgId)
     const auditEvents = await listDwmWebhookAuditEvents(ownerId, orgId)
-    return { destinations, destination, deliveries, auditEvents }
+    const context = { destinations, destination, deliveries, auditEvents }
+    const action = requestedAction === 'update'
+        ? destinationCrudActionForUpdate(input, destination)
+        : requestedAction
+    const destinationCrud = buildDwmWebhookDestinationCrudContract({
+        action,
+        ownerId,
+        input,
+        ...context,
+        viewerRole: 'admin',
+        canManage: true,
+    })
+    return { ...context, action, destinationCrud }
 }
 
 async function loadOrganizationMembership(orgId: string, userId: string): Promise<Membership | null> {

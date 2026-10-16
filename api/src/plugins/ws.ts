@@ -44,6 +44,8 @@ const browserRunFailureLogTimes = new Map<string, number>()
 const browserRunUnreachableLogTimes = new Map<string, number>()
 const browserRunLogContexts = new Map<string, BrowserRunLogContext>()
 const browserStreams = new Map<string, BrowserStream>()
+const MAX_QUEUED_BROWSER_MESSAGES = 100
+const MAX_QUEUED_BROWSER_MESSAGE_BYTES = 1024 * 1024
 
 type BrowserStream = {
     token: string
@@ -332,27 +334,53 @@ function proxyBrowserSocket(connection: WebSocket, id: string, route: 'browser' 
 
     const upstream = new WebSocket(`${base.replace(/\/$/, '')}/${route}/${encodeURIComponent(id)}`)
     const pending: RawData[] = []
+    let pendingBytes = 0
     let closed = false
+    let overloaded = false
 
     upstream.on('open', () => {
-        while (pending.length && upstream.readyState === WebSocket.OPEN) upstream.send(pending.shift()!)
+        if (closed || overloaded) { upstream.close(); return }
+        while (pending.length && upstream.readyState === WebSocket.OPEN) {
+            const message = pending.shift()!
+            pendingBytes -= rawMessageBytes(message)
+            upstream.send(message)
+        }
     })
     upstream.on('message', message => {
         if (connection.readyState === WebSocket.OPEN) connection.send(socketMessageText(message))
     })
     connection.on('message', message => {
+        if (closed || overloaded) return
         if (upstream.readyState === WebSocket.OPEN) upstream.send(message)
-        else pending.push(message)
+        else {
+            const messageBytes = rawMessageBytes(message)
+            if (pending.length >= MAX_QUEUED_BROWSER_MESSAGES
+                || pendingBytes + messageBytes > MAX_QUEUED_BROWSER_MESSAGE_BYTES) {
+                closeBoth('Too many browser commands are waiting. The session is closing.', 1013, 'Too many queued browser commands.')
+                return
+            }
+            pending.push(message)
+            pendingBytes += messageBytes
+        }
     })
-    const closeBoth = () => {
+    const closeBoth = (errorMessage?: string, closeCode = 1000, closeReason = '') => {
         if (closed) return
         closed = true
-        if (connection.readyState === WebSocket.OPEN) connection.close()
+        if (errorMessage) overloaded = true
+        pending.length = 0
+        pendingBytes = 0
+        if (connection.readyState === WebSocket.OPEN) {
+            if (errorMessage) sendErrorThenClose(connection, errorMessage, closeCode, closeReason)
+            else connection.close(closeCode, closeReason)
+        }
         if (upstream.readyState === WebSocket.OPEN || upstream.readyState === WebSocket.CONNECTING) upstream.close()
     }
-    connection.on('close', closeBoth)
-    upstream.on('close', closeBoth)
-    connection.on('error', error => void recordWebsocketFailure(`browser-proxy-client-${route}`, id, error))
+    connection.on('close', () => closeBoth())
+    upstream.on('close', () => closeBoth())
+    connection.on('error', error => {
+        void recordWebsocketFailure(`browser-proxy-client-${route}`, id, error)
+        closeBoth()
+    })
     upstream.on('error', error => {
         void recordWebsocketFailure(`browser-proxy-upstream-${route}`, id, error)
         closeBoth()
@@ -364,10 +392,13 @@ function proxyBrowserSocket(connection: WebSocket, id: string, route: 'browser' 
 function proxyEphemeralBrowserSocket(connection: WebSocket, id: string, route: 'browser' | 'browser-sandbox' | 'onion-session') {
     const startup = new AbortController()
     const pending: RawData[] = []
+    let pendingBytes = 0
     let upstream: WebSocket | null = null
     let containerId = ''
     let closed = false
     let runPrepared = false
+    let queuedIngressMessages = 0
+    let queuedIngressBytes = 0
     let leaseTimer: NodeJS.Timeout | null = null
     let messages = Promise.resolve()
     let evidenceWrites = Promise.resolve()
@@ -380,11 +411,16 @@ function proxyEphemeralBrowserSocket(connection: WebSocket, id: string, route: '
     let cancelAdmission: (() => void) | null = null
     let admissionRelease: ReturnType<typeof trackBrowserAdmissionRelease> | null = null
 
-    const closeBoth = () => {
+    const closeBoth = (errorMessage?: string, closeCode = 1000, closeReason = '') => {
         if (closed) return
         closed = true
         startup.abort()
-        if (connection.readyState === WebSocket.OPEN) connection.close()
+        pending.length = 0
+        pendingBytes = 0
+        if (connection.readyState === WebSocket.OPEN) {
+            if (errorMessage) sendErrorThenClose(connection, errorMessage, closeCode, closeReason)
+            else connection.close(closeCode, closeReason)
+        }
         if (upstream && (upstream.readyState === WebSocket.OPEN || upstream.readyState === WebSocket.CONNECTING)) upstream.close()
         if (streamMetricsTimer) clearInterval(streamMetricsTimer)
         if (leaseTimer) clearInterval(leaseTimer)
@@ -399,8 +435,9 @@ function proxyEphemeralBrowserSocket(connection: WebSocket, id: string, route: '
     }
 
     const forwardMessage = async (message: RawData) => {
+        if (closed) return
         let payload = parseSocketMessage(message)
-        if (!payload || closed) return
+        if (!payload) return
         if (!runPrepared) {
             if (payload.type !== 'start') return
             const start = await prepareProxiedBrowserRun(id, message, connection)
@@ -430,13 +467,33 @@ function proxyEphemeralBrowserSocket(connection: WebSocket, id: string, route: '
         }
         const forwarded = Buffer.from(JSON.stringify(payload))
         if (upstream?.readyState === WebSocket.OPEN) upstream.send(forwarded)
-        else pending.push(forwarded)
+        else {
+            if (pending.length >= MAX_QUEUED_BROWSER_MESSAGES
+                || pendingBytes + forwarded.byteLength > MAX_QUEUED_BROWSER_MESSAGE_BYTES) {
+                closeBoth('Too many browser commands are waiting. The session is closing.', 1013, 'Too many queued browser commands.')
+                return
+            }
+            pending.push(forwarded)
+            pendingBytes += forwarded.byteLength
+        }
     }
     connection.on('message', message => {
+        if (closed) return
+        const messageBytes = rawMessageBytes(message)
+        if (queuedIngressMessages >= MAX_QUEUED_BROWSER_MESSAGES
+            || queuedIngressBytes + messageBytes > MAX_QUEUED_BROWSER_MESSAGE_BYTES) {
+            closeBoth('Too many browser commands are waiting. The session is closing.', 1013, 'Too many queued browser commands.')
+            return
+        }
+        queuedIngressMessages++
+        queuedIngressBytes += messageBytes
         messages = messages.then(() => forwardMessage(message)).catch(error => {
             void recordWebsocketFailure(`browser-session-prepare-${route}`, id, error)
             if (connection.readyState === WebSocket.OPEN) sendErrorThenClose(connection, 'Unable to start or update this browser session. Please try again.')
             closeBoth()
+        }).finally(() => {
+            queuedIngressMessages--
+            queuedIngressBytes -= messageBytes
         })
     })
     connection.on('close', (code, reason) => {
@@ -504,7 +561,11 @@ function proxyEphemeralBrowserSocket(connection: WebSocket, id: string, route: '
                 }
                 upstream = nextUpstream
                 sendStatus(connection, 'worker_connected', 'Isolated browser worker connected.')
-                while (pending.length && upstream.readyState === WebSocket.OPEN) upstream.send(pending.shift()!)
+                while (pending.length && upstream.readyState === WebSocket.OPEN) {
+                    const message = pending.shift()!
+                    pendingBytes -= rawMessageBytes(message)
+                    upstream.send(message)
+                }
                 upstream.on('message', message => {
                     const payload = parseSocketMessage(message)
                     if (payload?.type === 'ready') sawReady = true
@@ -644,6 +705,13 @@ function parseSocketMessage(message: RawData): any {
     } catch {
         return null
     }
+}
+
+function rawMessageBytes(message: RawData) {
+    if (Buffer.isBuffer(message)) return message.byteLength
+    if (message instanceof ArrayBuffer) return message.byteLength
+    if (Array.isArray(message)) return message.reduce((total, chunk) => total + chunk.byteLength, 0)
+    return Buffer.byteLength(String(message), 'utf8')
 }
 
 async function logBrowserRunWarning(id: string, reason: string, message: unknown) {
@@ -855,9 +923,9 @@ function sendStatus(connection: WebSocket, state: string, message: string) {
     if (connection.readyState === WebSocket.OPEN) connection.send(JSON.stringify({ type: 'status', state, message }))
 }
 
-function sendErrorThenClose(connection: WebSocket, message: string) {
+function sendErrorThenClose(connection: WebSocket, message: string, closeCode = 1000, closeReason = '') {
     connection.send(JSON.stringify({ type: 'error', message }), () => {
-        if (connection.readyState === WebSocket.OPEN) connection.close()
+        if (connection.readyState === WebSocket.OPEN) connection.close(closeCode, closeReason)
     })
 }
 

@@ -45,6 +45,8 @@ class ControlledSocket extends EventEmitter {
     readonly OPEN = 1
     readyState = this.OPEN
     readonly messages: Record<string, unknown>[] = []
+    closeCode = 1000
+    closeReason = ''
 
     send(message: string) {
         const payload = JSON.parse(message) as Record<string, unknown>
@@ -54,6 +56,8 @@ class ControlledSocket extends EventEmitter {
 
     close(code = 1000, reason = '') {
         if (this.readyState !== this.OPEN) return
+        this.closeCode = code
+        this.closeReason = reason
         this.readyState = 3
         this.emit('close', code, Buffer.from(reason))
     }
@@ -108,6 +112,53 @@ test('ending a queued onion run cancels its admission and preserves the running 
         expect(socket.messages.some(message => message.state === 'launching')).toBe(false)
         activeSlot.release()
         expect(currentBrowserAdmissionStatus()).toMatchObject({ activeSessions: 0, queuedSessions: 0, maxSessions: 1 })
+    } finally {
+        socket.close()
+        active.cancel()
+        activeSlot.release()
+    }
+})
+
+test('an overloaded onion command queue closes the session and cancels its admission', async () => {
+    process.env.BROWSER_SANDBOX_WORKER_ONLY = '0'
+    delete process.env.BROWSER_SANDBOX_POOL_TOKEN
+    process.env.BROWSER_SANDBOX_PREWARM = '0'
+    process.env.BROWSER_SANDBOX_SKIP_RUN_DB = '1'
+    process.env.BROWSER_SANDBOX_MAX_SESSIONS = '1'
+    process.env.NODE_ENV = 'test'
+
+    const { handleOnionSessionSocket } = await import('../src/handlers/onionSession/ws.ts')
+    const active = requestBrowserAdmission('already-running-during-overload', () => undefined)
+    const activeSlot = await active.promise
+    const socket = new ControlledSocket()
+
+    try {
+        handleOnionSessionSocket(socket as never, 'overloaded-onion-run', 'regular')
+        const queued = new Promise<void>((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Onion handler did not request admission')), 2_000)
+            socket.on('payload', payload => {
+                if (payload.state !== 'capacity_busy') return
+                clearTimeout(timeout)
+                resolve()
+            })
+        })
+        socket.receive({ type: 'start', target: 'https://example.com', clientId: 'client-1' })
+        await queued
+
+        for (let index = 0; index < 101; index++) socket.receive({ type: 'key', key: 'a' })
+        await new Promise<void>((resolve, reject) => {
+            if (socket.readyState === 3) return resolve()
+            const timeout = setTimeout(() => reject(new Error('Overloaded onion session did not close')), 2_000)
+            socket.once('close', () => {
+                clearTimeout(timeout)
+                resolve()
+            })
+        })
+        await new Promise<void>(resolve => setImmediate(resolve))
+
+        expect(socket.closeCode).toBe(1013)
+        expect(socket.closeReason).toBe('Too many queued browser commands.')
+        expect(currentBrowserAdmissionStatus()).toMatchObject({ activeSessions: 1, queuedSessions: 0, maxSessions: 1 })
     } finally {
         socket.close()
         active.cancel()

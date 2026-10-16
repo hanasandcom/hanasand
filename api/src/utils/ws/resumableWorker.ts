@@ -2,6 +2,13 @@ import { EventEmitter } from 'node:events'
 import WebSocket, { type RawData } from 'ws'
 import { connectBrowserWorkerSocket } from './connectBrowserWorker.ts'
 
+const HEARTBEAT_INTERVAL_MS = 20_000
+const RECONNECT_GRACE_MS = 60_000
+const RECONNECT_DELAY_MS = 500
+const RESUME_HANDSHAKE_TIMEOUT_MS = 10_000
+const MAX_QUEUED_COMMANDS = 100
+const MAX_QUEUED_COMMAND_BYTES = 1024 * 1024
+
 // Keep the broker's worker session alive across idle timeouts and short network interruptions.
 export async function connectResumableWorker(url: string, signal: AbortSignal, token: string): Promise<WebSocket> {
     const first = await connectBrowserWorkerSocket(url, signal)
@@ -15,6 +22,7 @@ class WorkerConnection extends EventEmitter {
     private terminal = false
     private connected = true
     private pending: string[] = []
+    private pendingBytes = 0
     private heartbeat: ReturnType<typeof setInterval>
     private recovery?: ReturnType<typeof setTimeout>
     private retry?: ReturnType<typeof setTimeout>
@@ -32,7 +40,7 @@ class WorkerConnection extends EventEmitter {
             // Exercise the application path as well as the transport, even when
             // the page is idle and no new evidence is being sent.
             this.socket.send(JSON.stringify({ type: 'ping' }))
-        }, 20_000)
+        }, HEARTBEAT_INTERVAL_MS)
         this.heartbeat.unref()
         this.on('pong', () => { alive = true })
         signal.addEventListener('abort', this.abort, { once: true })
@@ -41,16 +49,24 @@ class WorkerConnection extends EventEmitter {
     send(data: string | Buffer) {
         if (this.closed) return
         if (this.connected && this.socket.readyState === WebSocket.OPEN) this.socket.send(data)
-        else if (this.pending.length < 100) this.pending.push(data.toString())
-        else this.fail('Too many queued browser commands while reconnecting.')
+        else {
+            const command = data.toString()
+            const commandBytes = Buffer.byteLength(command, 'utf8')
+            if (this.pending.length >= MAX_QUEUED_COMMANDS || this.pendingBytes + commandBytes > MAX_QUEUED_COMMAND_BYTES) {
+                this.fail('Too many queued browser commands while reconnecting.')
+                return
+            }
+            this.pending.push(command)
+            this.pendingBytes += commandBytes
+        }
     }
     close() {
         if (this.closed) return
         this.closed = true
         clearInterval(this.heartbeat)
-        clearTimeout(this.recovery)
-        clearTimeout(this.retry)
-        clearTimeout(this.handshake)
+        this.clearReconnectTimers()
+        this.pending.length = 0
+        this.pendingBytes = 0
         this.signal.removeEventListener('abort', this.abort)
         this.socket.close()
         this.emit('close', 1000, Buffer.alloc(0))
@@ -59,6 +75,14 @@ class WorkerConnection extends EventEmitter {
         if (this.closed) return
         this.emit('error', new Error(message))
         this.close()
+    }
+    private clearReconnectTimers() {
+        clearTimeout(this.recovery)
+        clearTimeout(this.retry)
+        clearTimeout(this.handshake)
+        this.recovery = undefined
+        this.retry = undefined
+        this.handshake = undefined
     }
     private listen(socket: WebSocket) {
         socket.on('pong', () => this.emit('pong'))
@@ -76,6 +100,7 @@ class WorkerConnection extends EventEmitter {
                 clearTimeout(this.handshake)
                 this.emit('pong')
                 for (const command of this.pending.splice(0)) socket.send(command)
+                this.pendingBytes = 0
                 return
             }
             if (type === 'ended') this.terminal = true
@@ -86,8 +111,8 @@ class WorkerConnection extends EventEmitter {
             if (this.terminal) { this.close(); return }
             this.connected = false
             clearTimeout(this.handshake)
-            this.recovery ||= setTimeout(() => this.fail('The isolated browser worker did not reconnect within one minute.'), 60_000)
-            this.retry = setTimeout(() => { void this.reconnect() }, 500)
+            this.recovery ||= setTimeout(() => this.fail('The isolated browser worker did not reconnect within one minute.'), RECONNECT_GRACE_MS)
+            this.retry = setTimeout(() => { void this.reconnect() }, RECONNECT_DELAY_MS)
         })
     }
     private async reconnect() {
@@ -96,7 +121,7 @@ class WorkerConnection extends EventEmitter {
             if (this.closed) { next.close(); return }
             this.socket = next
             this.listen(next)
-            this.handshake = setTimeout(() => next.terminate(), 10_000)
+            this.handshake = setTimeout(() => next.terminate(), RESUME_HANDSHAKE_TIMEOUT_MS)
             next.send(JSON.stringify({ type: 'resume', resumeToken: this.token }))
         } catch { this.fail('Unable to reconnect to the isolated browser worker.') }
     }

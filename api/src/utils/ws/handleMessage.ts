@@ -21,23 +21,28 @@ export async function handleMessage(
 
         const share = await run('SELECT organization_id FROM share WHERE id = $1', [id])
         if (!share.rows.length) throw new Error('Share no longer exists')
-        let userId: string | null = null
-        if (share.rows[0].organization_id) {
-            const session = typeof msg.userId === 'string' && typeof msg.token === 'string'
-                ? await validateSession({ id: msg.userId, token: msg.token }).catch(() => null) : null
-            userId = session?.user.id || null
-            if (!userId || !await contentOrganizationAccess(share.rows[0].organization_id, userId, true)) {
-                socket.send(JSON.stringify({ type: 'error', error: 'You do not have permission to edit this organization’s share.' }))
-                return
-            }
+        const authorization = await getShareEditAuthorization(msg, share.rows[0].organization_id)
+        if (!authorization.allowed) {
+            socket.send(JSON.stringify({ type: 'error', error: 'You do not have permission to edit this organization’s share.' }))
+            return
         }
 
         broadcastUpdate(id, socket, msg.content, clients)
-        queueSave(id, socket, msg.content, userId)
+        queueSave(id, socket, msg.content, authorization.userId)
     } catch (error) {
         console.error(`Failed to process WebSocket message: ${error}`)
         if (validEdit && socket.readyState === WS.OPEN) socket.send(JSON.stringify({ type: 'error', error: 'Unable to save your changes. Please retry.' }))
     }
+}
+
+async function getShareEditAuthorization(msg: any, organizationId: string | null) {
+    if (!organizationId) return { allowed: true, userId: null }
+
+    const session = typeof msg.userId === 'string' && typeof msg.token === 'string'
+        ? await validateSession({ id: msg.userId, token: msg.token }).catch(() => null) : null
+    const userId = session?.user.id || null
+    const allowed = Boolean(userId && await contentOrganizationAccess(organizationId, userId, true))
+    return { allowed, userId }
 }
 
 function broadcastUpdate(id: string, sender: WS, content: string, Clients: Map<string, Set<WS>>) {

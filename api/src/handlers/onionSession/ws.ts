@@ -14,6 +14,8 @@ import WebSocket, { type RawData } from 'ws'
 import { chromium, type Browser, type BrowserContext, type Download, type Frame, type Page, type Request } from 'playwright'
 import { fileReputation, inspectDownload, type FileReputation } from './downloads.ts'
 import { providerCaptureMessage, type ProviderCaptureDetails } from './providerCapture.ts'
+import { BrowserRunNetworkTelemetry, domainFromUrl, type SandboxNetworkEvent } from './networkTelemetry.ts'
+import { OnionSessionMessageQueue } from './messageQueue.ts'
 import recordLog from '#utils/logs/recordLog.ts'
 import { browserPaidExtensionAllowed, refreshBrowserRunLease, finishBrowserRun, prepareBrowserRun, updateBrowserRunProviderResult, type BrowserProviderRunResult } from '../browserSandboxRuns.ts'
 import {
@@ -61,33 +63,6 @@ type BrokerMessage = {
     tabId?: string
     extension?: 'free' | 'paid'
     paidAuthorized?: boolean
-}
-type SandboxNetworkEvent = {
-    kind: 'request' | 'response' | 'failed' | 'download'
-    url: string
-    method?: string
-    resourceType?: string
-    status?: number
-    host?: string
-    mimeType?: string
-    initiator?: string
-    durationMs?: number
-    ip?: string
-    asn?: string
-    port?: number
-    protocol?: string
-    tlsIssuer?: string
-    tlsSubject?: string
-    tlsValidFrom?: number
-    tlsValidTo?: number
-    fileName?: string
-    bytes?: number
-    sha256?: string
-    hashStatus?: string
-    id?: string
-    virusTotal?: FileReputation
-    failure?: string
-    at: string
 }
 type SandboxDeobfuscationTask = ReturnType<typeof summarizeDeobfuscationTask>
 type SandboxToolAnalysis = ReturnType<typeof analyzeToolEvidence>
@@ -247,15 +222,12 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
     let lastFrame = ''
     let remoteClipboard = ''
     let editableSelectAllArmed = false
-    let messageQueue = Promise.resolve()
-    let networkEvents: SandboxNetworkEvent[] = []
-    let sitePeer: { url: string; ip: string } | undefined
-    let networkTotals = { requestCount: 0, responseCount: 0, failedCount: 0 }
-    const contactedDomains = new Set<string>()
-    const downloads: SandboxNetworkEvent[] = []
+    const networkTelemetry = new BrowserRunNetworkTelemetry()
+    const downloadTargets = new Set<string>()
     const fileLookups = new Map<string, Promise<FileReputation>>()
     let fileLookupQueue = Promise.resolve()
     let downloadsInFlight = 0
+    let downloadCount = 0
     let cachedDeobfuscationTasks: SandboxDeobfuscationTask[] = []
     let cachedThreatAssociations: ReturnType<typeof extractThreatAssociations> = []
     let cachedIndicators: ReturnType<typeof extractIndicators> | null = null
@@ -288,12 +260,10 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
     const resetRunTelemetry = () => {
         remoteClipboard = ''
         editableSelectAllArmed = false
-        networkEvents = []
-        sitePeer = undefined
-        networkTotals = { requestCount: 0, responseCount: 0, failedCount: 0 }
-        contactedDomains.clear()
+        networkTelemetry.reset()
+        downloadTargets.clear()
         documentEvidencePromises = []
-        downloads.length = 0
+        downloadCount = 0
         fileLookups.clear()
         fileLookupQueue = Promise.resolve()
         downloadsInFlight = 0
@@ -315,10 +285,7 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
         closed = true
         if (runLeaseTimer) clearInterval(runLeaseTimer)
         runLeaseTimer = null
-        for (const file of downloads) {
-            if (file.virusTotal?.status === 'checking') file.virusTotal = { status: 'interrupted', detail: 'Run ended before the hash lookup finished' }
-            if (file.hashStatus === 'downloading') file.hashStatus = 'Download interrupted when the run ended'
-        }
+        networkTelemetry.interruptDownloads()
         publishDownloads()
         cancelAdmission?.()
         cancelAdmission = null
@@ -357,6 +324,14 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
         send({ type: 'error', message: error instanceof Error ? error.message : String(error) })
     }
 
+    const messageQueue = new OnionSessionMessageQueue<BrokerMessage & { type: string }>(
+        async (message) => {
+            if (sessionEnding && message.type !== 'end') return
+            await handleMessage(message)
+        },
+        reportMessageError,
+    )
+
     connection.on('message', (message) => {
         if (sessionEnding) return
         const payload = parseMessage(message)
@@ -368,10 +343,11 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
             void handleMessage(payload).catch(reportMessageError)
             return
         }
-        messageQueue = messageQueue.then(() => {
-            if (sessionEnding && payload.type !== 'end') return
-            return handleMessage(payload)
-        }).catch(reportMessageError)
+        if (!messageQueue.enqueue(payload)) {
+            sessionEnding = true
+            send({ type: 'error', message: 'Too many browser commands are waiting. The session is closing.' })
+            connection.close(1013, 'Too many queued browser commands.')
+        }
     })
 
     connection.on('close', () => {
@@ -782,11 +758,11 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
                 ])
                 if (!isCurrentRun(generation)) return
                 const request = response.request()
-                if (network === 'regular' && server?.ipAddress && request.isNavigationRequest() && request.frame() === page?.mainFrame() && response.status() < 300) sitePeer = { url: response.url(), ip: server.ipAddress }
+                if (network === 'regular' && server?.ipAddress && request.isNavigationRequest() && request.frame() === page?.mainFrame() && response.status() < 300) networkTelemetry.site = { url: response.url(), ip: server.ipAddress }
                 const asn = await lookupAsn(server?.ipAddress)
                 if (!isCurrentRun(generation)) return
                 const capturedAt = new Date().toISOString()
-                const startedAt = [...networkEvents].reverse().find(event => event.kind === 'request' && event.url === response.url() && event.method === request.method())?.at
+                const startedAt = networkTelemetry.requestStartedAt(response.url(), request.method())
                 trackNetwork({
                     kind: 'response',
                     url: response.url(),
@@ -1121,21 +1097,15 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
     }
 
     function trackNetwork(event: SandboxNetworkEvent) {
-        if (event.kind === 'request') networkTotals.requestCount++
-        if (event.kind === 'response') networkTotals.responseCount++
-        if (event.kind === 'failed') networkTotals.failedCount++
-        const domain = domainFromUrl(event.url)
-        if (domain) contactedDomains.add(domain)
-        networkEvents.push(event)
-        if (networkEvents.length > 600) networkEvents = networkEvents.slice(-600)
+        networkTelemetry.record(event)
     }
 
     function networkSummary() {
-        return { ...summarizeNetworkEvents([...networkEvents, ...downloads]), ...networkTotals, uniqueDomainCount: contactedDomains.size, site: sitePeer }
+        return networkTelemetry.summary()
     }
 
     function publishDownloads() {
-        if (downloads.length) send({ type: 'downloads', networkSummary: networkSummary() })
+        if (downloadCount) send({ type: 'downloads', networkSummary: networkSummary() })
     }
 
     function watchDownloads(targetPage: Page, generation: number) {
@@ -1189,22 +1159,26 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
             await download.delete().catch(() => undefined)
             return
         }
-        if (downloads.length >= 10 || downloadsInFlight >= 2) {
+        if (downloadCount >= 10 || downloadsInFlight >= 2) {
             await download.cancel().catch(() => undefined)
             await download.delete().catch(() => undefined)
             send({ type: 'status', state: 'download_limit', message: 'Download inspection limit reached (10 files per run, 2 transfers at a time).' })
             return
         }
-        const file: SandboxNetworkEvent = { id: `file-${downloads.length + 1}`, kind: 'download', url: download.url(), fileName: download.suggestedFilename(), hashStatus: 'downloading', at: new Date().toISOString() }
-        downloads.push(file)
+        downloadCount++
+        const file: SandboxNetworkEvent = { id: `file-${downloadCount}`, kind: 'download', url: download.url(), fileName: download.suggestedFilename(), hashStatus: 'downloading', at: new Date().toISOString() }
+        networkTelemetry.record(file)
+        downloadTargets.add(createHash('sha256').update(file.url).digest('hex'))
         downloadsInFlight++
         publishDownloads()
         try {
             const inspection = await inspectDownload(download)
             if (!isCurrentRun(generation)) return
             Object.assign(file, inspection)
+            networkTelemetry.refresh(file)
             if (file.sha256) {
                 file.virusTotal = { status: 'checking', detail: 'Checking SHA-256 in VirusTotal…' }
+                networkTelemetry.refresh(file)
                 publishDownloads()
                 const hash = file.sha256
                 if (!fileLookups.has(hash)) {
@@ -1215,9 +1189,13 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
                 const reputation = await fileLookups.get(hash)!
                 if (!isCurrentRun(generation)) return
                 file.virusTotal = reputation
+                networkTelemetry.refresh(file)
             }
         } catch {
-            if (isCurrentRun(generation)) file.hashStatus = 'Download failed or exceeded the 30-second limit'
+            if (isCurrentRun(generation)) {
+                file.hashStatus = 'Download failed or exceeded the 30-second limit'
+                networkTelemetry.refresh(file)
+            }
         } finally {
             if (isCurrentRun(generation)) {
                 downloadsInFlight--
@@ -1244,7 +1222,8 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
             .catch((error) => {
                 if (!isCurrentRun(generation)) return null
                 const message = error instanceof Error ? error.message : String(error)
-                if (/Download is starting/i.test(message) || downloads.some(file => file.url === target)) return null
+                const targetHash = createHash('sha256').update(target).digest('hex')
+                if (/Download is starting/i.test(message) || downloadTargets.has(targetHash)) return null
                 markTargetUnreachable(target, message)
                 send({ type: 'navigation_error', target, message })
                 return null
@@ -1553,72 +1532,6 @@ function documentDeobfuscationTasks(html: string): SandboxDeobfuscationTask[] {
         }, index))
         .filter(isActionableObfuscatedScript)
     return scripts.map(script => summarizeDeobfuscationTask(script))
-}
-
-function summarizeNetworkEvents(events: SandboxNetworkEvent[]) {
-    const requests = events.filter(event => event.kind === 'request')
-    const responses = events.filter(event => event.kind === 'response')
-    const failures = events.filter(event => event.kind === 'failed')
-    const domains = Array.from(new Set(events.map(event => domainFromUrl(event.url)).filter(Boolean))).slice(0, 80)
-    const recentRequests = events
-        .filter(event => event.kind === 'request' || event.kind === 'response' || event.kind === 'failed')
-        .slice(-60)
-        .map(event => ({
-            url: event.url,
-            method: event.method,
-            resourceType: event.resourceType,
-            status: event.status,
-            host: event.host || domainFromUrl(event.url),
-            mimeType: event.mimeType,
-            initiator: event.initiator,
-            durationMs: event.durationMs,
-            ip: event.ip,
-            asn: event.asn,
-            port: event.port,
-            protocol: event.protocol,
-            tlsIssuer: event.tlsIssuer,
-            tlsSubject: event.tlsSubject,
-            tlsValidFrom: event.tlsValidFrom,
-            tlsValidTo: event.tlsValidTo,
-            failure: event.failure,
-            at: event.at,
-        }))
-    const statusCounts = responses.reduce<Record<string, number>>((current, event) => {
-        const bucket = event.status ? `${Math.floor(event.status / 100)}xx` : 'unknown'
-        current[bucket] = (current[bucket] || 0) + 1
-        return current
-    }, {})
-    const redirectChain = events
-        .filter(event => event.kind === 'response' && event.status && event.status >= 300 && event.status < 400)
-        .map(event => event.url)
-        .slice(-12)
-
-    return {
-        requestCount: requests.length,
-        responseCount: responses.length,
-        failedCount: failures.length,
-        uniqueDomainCount: domains.length,
-        domains,
-        recentRequests,
-        statusCounts,
-        redirectChain,
-        downloads: events.filter(event => event.kind === 'download').slice(-20).map(event => ({
-            id: event.id,
-            url: event.url,
-            fileName: event.fileName,
-            bytes: event.bytes,
-            sha256: event.sha256,
-            hashStatus: event.hashStatus,
-            virusTotal: event.virusTotal,
-            at: event.at,
-        })),
-        recentFailures: failures.slice(-8).map(event => ({
-            url: event.url,
-            failure: event.failure || 'failed',
-            at: event.at,
-        })),
-        lastUpdatedAt: events.at(-1)?.at,
-    }
 }
 
 async function lookupAsn(ip: string | undefined) {
@@ -2034,14 +1947,6 @@ async function dismissCookieOverlays(page: Page) {
         await hideTopLevelConsentFrame(page).catch(() => undefined)
         if (!touched && !bodyStillHasCookieText && visibleConsentWidgets === 0) break
         await page.waitForTimeout(420).catch(() => undefined)
-    }
-}
-
-function domainFromUrl(value: string) {
-    try {
-        return new URL(value).hostname.toLowerCase()
-    } catch {
-        return ''
     }
 }
 

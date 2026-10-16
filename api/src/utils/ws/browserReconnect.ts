@@ -1,6 +1,10 @@
 import { EventEmitter } from 'node:events'
 import WebSocket, { type RawData } from 'ws'
 
+const MAX_SNAPSHOT_BYTES = 8 * 1024 * 1024
+const MAX_TOTAL_SNAPSHOT_BYTES = 16 * 1024 * 1024
+const MAX_SNAPSHOT_COUNT = 32
+
 // The worker owns the run; a transient viewer disconnect must not destroy it.
 export class BrowserReconnect extends EventEmitter {
     readonly OPEN = WebSocket.OPEN
@@ -8,7 +12,7 @@ export class BrowserReconnect extends EventEmitter {
     private token = ''
     private ended = false
     private expiry?: ReturnType<typeof setTimeout>
-    private readonly snapshots = new Map<string, string>()
+    private readonly snapshots = new Map<string, { message: string; bytes: number }>()
     private snapshotBytes = 0
     constructor(socket: WebSocket, private readonly dispose: () => void, private readonly graceMs = 120_000) {
         super()
@@ -54,7 +58,7 @@ export class BrowserReconnect extends EventEmitter {
             this.listen(socket)
             previous.close()
             socket.send(JSON.stringify({ type: 'reconnected' }))
-            for (const message of this.snapshots.values()) socket.send(message)
+            for (const { message } of this.snapshots.values()) socket.send(message)
         })
     }
     send(data: string | Buffer, callback?: (error?: Error) => void) {
@@ -64,15 +68,17 @@ export class BrowserReconnect extends EventEmitter {
             const payload = JSON.parse(text)
             if (['ready', 'stream_ready', 'run_time', 'frame', 'tool_capture', 'downloads', 'ended'].includes(payload.type)) {
                 const key = `${payload.type}:${payload.type === 'tool_capture' ? payload.id || payload.name : ''}`
-                this.snapshotBytes -= this.snapshots.get(key)?.length || 0
+                const bytes = Buffer.byteLength(text)
+                const previous = this.snapshots.get(key)
+                if (previous) this.snapshotBytes -= previous.bytes
                 this.snapshots.delete(key)
-                if (text.length <= 8 * 1024 * 1024) {
-                    this.snapshots.set(key, text)
-                    this.snapshotBytes += text.length
+                if (bytes <= MAX_SNAPSHOT_BYTES) {
+                    this.snapshots.set(key, { message: text, bytes })
+                    this.snapshotBytes += bytes
                 }
-                while (this.snapshotBytes > 16 * 1024 * 1024 || this.snapshots.size > 32) {
+                while (this.snapshotBytes > MAX_TOTAL_SNAPSHOT_BYTES || this.snapshots.size > MAX_SNAPSHOT_COUNT) {
                     const oldest = this.snapshots.keys().next().value!
-                    this.snapshotBytes -= this.snapshots.get(oldest)!.length
+                    this.snapshotBytes -= this.snapshots.get(oldest)!.bytes
                     this.snapshots.delete(oldest)
                 }
             }

@@ -103,23 +103,31 @@ export async function requireAiUser(req: FastifyRequest, res: FastifyReply) {
     return auth.id
 }
 
-export async function getConversationForUser(conversationId: string, ownerId: string) {
-    const result = await run(`
+async function queryAccessibleConversations(ownerId: string, conversationId?: string) {
+    const conversationFilter = conversationId === undefined ? '' : 'AND ai_conversations.id = $2'
+    const ordering = conversationId === undefined ? 'ORDER BY updated_at DESC, created_at DESC' : ''
+    const params = conversationId === undefined ? [ownerId] : [ownerId, conversationId]
+    return run(`
         SELECT ai_conversations.*,
                CASE
-                   WHEN ai_conversations.owner_id = $2 THEN 'owner'
+                   WHEN ai_conversations.owner_id = $1 THEN 'owner'
                    ELSE collaborators.role
                END AS access_role
         FROM ai_conversations
         LEFT JOIN ai_conversation_collaborators AS collaborators
           ON collaborators.conversation_id = ai_conversations.id
-         AND collaborators.user_id = $2
-        WHERE ai_conversations.id = $1
-          AND (
-              ai_conversations.owner_id = $2
-              OR collaborators.user_id = $2
-          )
-    `, [conversationId, ownerId])
+         AND collaborators.user_id = $1
+        WHERE (
+            ai_conversations.owner_id = $1
+            OR collaborators.user_id = $1
+        )
+        ${conversationFilter}
+        ${ordering}
+    `, params)
+}
+
+export async function getConversationForUser(conversationId: string, ownerId: string) {
+    const result = await queryAccessibleConversations(ownerId, conversationId)
 
     return (result.rows as AiConversationRow[])[0] || null
 }
@@ -139,20 +147,7 @@ export async function getConversationCollaborators(conversationId: string) {
 
 export async function getWorkspaceBundle(ownerId: string) {
     const [conversationResult, messageResult, repositoryResult, fileResult, deploymentResult, collaborationResult, releaseResult, usageResult] = await Promise.all([
-        run(`
-            SELECT ai_conversations.*,
-                   CASE
-                       WHEN ai_conversations.owner_id = $1 THEN 'owner'
-                       ELSE collaborators.role
-                   END AS access_role
-            FROM ai_conversations
-            LEFT JOIN ai_conversation_collaborators AS collaborators
-              ON collaborators.conversation_id = ai_conversations.id
-             AND collaborators.user_id = $1
-            WHERE ai_conversations.owner_id = $1
-               OR collaborators.user_id = $1
-            ORDER BY updated_at DESC, created_at DESC
-        `, [ownerId]),
+        queryAccessibleConversations(ownerId),
         run(`
             SELECT ai_messages.*
             FROM ai_messages
