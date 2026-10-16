@@ -1,4 +1,4 @@
-import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { chmod, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import type { FastifyReply, FastifyRequest } from 'fastify'
@@ -9,6 +9,12 @@ import { detectRepositoryStack } from '#utils/ai/stack.ts'
 
 const MAX_FILES = 10_000
 const MAX_FILE_SIZE = 250_000
+
+function isWithinDirectory(root: string, target: string) {
+    const relativePath = path.relative(root, target)
+    return relativePath === ''
+        || (relativePath !== '..' && !relativePath.startsWith(`..${path.sep}`) && !path.isAbsolute(relativePath))
+}
 
 type ParsedGitRepo = {
     host: string
@@ -26,18 +32,7 @@ export function parseGitInput(input: string): ParsedGitRepo {
     const trimmed = input.trim()
     const urlMatch = trimmed.match(/^https?:\/\/github\.com\/([^/]+)\/([^/#?]+)(?:\/tree\/([^/?#]+)(?:\/(.*))?)?/i)
     if (urlMatch) {
-        const repo = urlMatch[2].replace(/\.git$/i, '')
-        return {
-            host: 'github.com',
-            owner: urlMatch[1],
-            repo,
-            fullName: `${urlMatch[1]}/${repo}`,
-            repositoryUrl: `https://github.com/${urlMatch[1]}/${repo}.git`,
-            branch: urlMatch[3] || undefined,
-            sourcePath: (urlMatch[4] || '').replace(/^\/+|\/+$/g, ''),
-            webBaseUrl: `https://github.com/${urlMatch[1]}/${repo}`,
-            isGitHub: true,
-        }
+        return buildGitHubRepo(urlMatch[1], urlMatch[2], urlMatch[3], urlMatch[4])
     }
 
     const genericUrl = parseGenericGitUrl(trimmed)
@@ -65,18 +60,21 @@ export function parseGitInput(input: string): ParsedGitRepo {
         throw new Error('Use a Git URL, GitHub URL, or owner/repo format.')
     }
 
-    const repo = shortMatch[2].replace(/\.git$/i, '')
-    return {
+    return buildGitHubRepo(shortMatch[1], shortMatch[2], shortMatch[3], shortMatch[4])
+}
+
+function buildGitHubRepo(owner: string, repo: string, branch?: string, sourcePath?: string): ParsedGitRepo {
+    const parsed = buildGenericGitRepo({
         host: 'github.com',
-        owner: shortMatch[1],
-        repo,
-        fullName: `${shortMatch[1]}/${repo}`,
-        repositoryUrl: `https://github.com/${shortMatch[1]}/${repo}.git`,
-        branch: shortMatch[3] || undefined,
-        sourcePath: (shortMatch[4] || '').replace(/^\/+|\/+$/g, ''),
-        webBaseUrl: `https://github.com/${shortMatch[1]}/${repo}`,
-        isGitHub: true,
+        repoPath: `${owner}/${repo}`,
+        branch,
+        sourcePath,
+    })
+    if (!parsed) {
+        throw new Error('Invalid GitHub repository path.')
     }
+
+    return parsed
 }
 
 function parseGenericGitUrl(input: string): ParsedGitRepo | null {
@@ -141,28 +139,32 @@ function parseGenericGitUrl(input: string): ParsedGitRepo | null {
 function buildGenericGitRepo({
     host,
     repoPath,
-    repositoryUrl,
+    repositoryUrl = '',
     branch,
     sourcePath = '',
     webBaseUrl,
 }: {
     host: string
     repoPath: string
-    repositoryUrl: string
+    repositoryUrl?: string
     branch?: string
     sourcePath?: string
     webBaseUrl?: string
 }): ParsedGitRepo | null {
     const parts = repoPath.replace(/^\/+|\/+$/g, '').split('/').filter(Boolean)
-    if (!parts.length) {
+    if (!parts.length || (host.toLowerCase() !== 'github.com' && !repositoryUrl)) {
         return null
     }
 
-    const repo = parts.at(-1)!.replace(/\.git$/i, '')
-    const owner = parts.length > 1 ? parts.at(-2)! : host
+    const lastPart = parts.at(-1)
+    if (!lastPart) {
+        return null
+    }
+
+    const repo = lastPart.replace(/\.git$/i, '')
+    const owner = parts.at(-2) || host
     const cleanRepoPath = [...parts.slice(0, -1), repo].join('/')
     const normalizedHost = host.toLowerCase()
-
     return {
         host: normalizedHost,
         owner,
@@ -175,7 +177,7 @@ function buildGenericGitRepo({
                 : `${repositoryUrl}.git`,
         branch,
         sourcePath: sourcePath.replace(/^\/+|\/+$/g, ''),
-        webBaseUrl,
+        webBaseUrl: webBaseUrl || (normalizedHost === 'github.com' ? `https://github.com/${cleanRepoPath}` : undefined),
         isGitHub: normalizedHost === 'github.com',
     }
 }
@@ -290,6 +292,7 @@ export default async function importRepository(req: FastifyRequest, res: Fastify
         const cloneDir = path.join(tempDir, parsed.repo)
 
         await runGit(['clone', '--depth', '1', '--branch', branch, repositoryUrl, cloneDir], undefined, gitEnv)
+        const cloneRoot = await realpath(cloneDir)
         const pathspec = parsed.sourcePath || '.'
         const { stdout } = await runGit(['-C', cloneDir, 'ls-files', '--', pathspec], undefined, gitEnv)
         const filePaths = stdout
@@ -300,7 +303,11 @@ export default async function importRepository(req: FastifyRequest, res: Fastify
 
         const files: AIImportedRepoFile[] = []
         for (const filePath of filePaths) {
-            const fullPath = path.join(cloneDir, filePath)
+            const fullPath = await realpath(path.join(cloneDir, filePath)).catch(() => null)
+            if (!fullPath || !isWithinDirectory(cloneRoot, fullPath)) {
+                continue
+            }
+
             const content = await readFile(fullPath, 'utf8').catch(() => null)
             if (content === null) {
                 continue
