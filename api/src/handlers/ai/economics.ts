@@ -125,197 +125,28 @@ export async function getAiEconomics(req: FastifyRequest, res: FastifyReply) {
 
     const days = clampDays(Number((req.query as { days?: string })?.days) || 30)
     const since = `${days} days`
-    const [summaryResult, trendResult, recentResult, cacheResult, queueResult, verificationLatencyResult, buildDeployResult, designQualityResult, failedProofResult, firstOutputResult, deployTimingResult, deploymentReadinessResult, releaseReadinessResult, latestVerificationResult, latestDeploymentResult, latestReleaseResult] = await Promise.all([
-        run(`
-            SELECT
-                COUNT(*)::int AS event_count,
-                COALESCE(SUM(units), 0)::int AS token_units,
-                COALESCE(SUM(billable_units), 0)::int AS billable_units,
-                COALESCE(SUM(estimated_cost_nok), 0)::float AS estimated_cost_nok,
-                COALESCE(SUM(CASE WHEN outcome IN ('verified', 'deployed') THEN billable_units ELSE 0 END), 0)::int AS verified_units,
-                COALESCE(SUM(CASE WHEN outcome = 'platform_error' THEN units ELSE 0 END), 0)::int AS platform_error_units,
-                COALESCE(SUM(CASE WHEN outcome = 'platform_error' THEN estimated_cost_nok ELSE 0 END), 0)::float AS failed_platform_discount_nok,
-                COALESCE(SUM(CASE WHEN kind = 'browser_proof_completed' THEN units ELSE 0 END), 0)::int AS browser_proofs,
-                COALESCE(SUM(CASE WHEN kind = 'build_minutes_recorded' THEN units ELSE 0 END), 0)::int AS build_minutes,
-                COALESCE(SUM(CASE WHEN kind = 'deploy_minutes_recorded' THEN units ELSE 0 END), 0)::int AS deploy_minutes
-            FROM ai_usage_events
-            WHERE owner_id = $1
-              AND created_at >= NOW() - $2::interval
-        `, [userId, since]),
-        run(`
-            SELECT
-                date_trunc('day', created_at) AS bucket,
-                COUNT(*)::int AS event_count,
-                COALESCE(SUM(units), 0)::int AS token_units,
-                COALESCE(SUM(billable_units), 0)::int AS billable_units,
-                COALESCE(SUM(estimated_cost_nok), 0)::float AS estimated_cost_nok,
-                COALESCE(SUM(CASE WHEN outcome IN ('verified', 'deployed') THEN billable_units ELSE 0 END), 0)::int AS verified_units,
-                COALESCE(SUM(CASE WHEN outcome = 'platform_error' THEN units ELSE 0 END), 0)::int AS platform_error_units
-            FROM ai_usage_events
-            WHERE owner_id = $1
-              AND created_at >= NOW() - $2::interval
-            GROUP BY 1
-            ORDER BY 1 ASC
-        `, [userId, since]),
-        run(`
-            SELECT id, kind, units, billable_units, estimated_cost_nok, billing_mode, outcome, metadata, created_at
-            FROM ai_usage_events
-            WHERE owner_id = $1
-              AND kind IN ('ai_run_completed', 'ai_run_failed', 'ai_run_platform_error', 'deployment_started', 'release_recorded', 'browser_proof_completed', 'build_minutes_recorded', 'deploy_minutes_recorded')
-            ORDER BY created_at DESC
-            LIMIT 20
-        `, [userId]),
-        run(`
-            SELECT
-                COALESCE(SUM(CASE WHEN kind = 'cache_hit' THEN units ELSE 0 END), 0)::int AS cache_hits,
-                COALESCE(SUM(CASE WHEN kind <> 'cache_hit' AND metadata ? 'cacheKey' THEN units ELSE 0 END), 0)::int AS cacheable_events
-            FROM ai_usage_events
-            WHERE owner_id = $1
-              AND created_at >= NOW() - $2::interval
-        `, [userId, since]),
-        run(`
-            SELECT lane, kind, status, COUNT(*)::int AS count
-            FROM ai_verification_jobs
-            WHERE owner_id = $1
-              AND (created_at >= NOW() - $2::interval OR status IN ('queued', 'running'))
-            GROUP BY lane, kind, status
-            ORDER BY lane ASC, kind ASC, status ASC
-        `, [userId, since]),
-        run(`
-            SELECT
-                kind,
-                percentile_cont(0.5) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (completed_at - started_at)) * 1000)::float AS p50_ms,
-                percentile_cont(0.95) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (completed_at - started_at)) * 1000)::float AS p95_ms,
-                COUNT(*)::int AS sample_count
-            FROM ai_verification_jobs
-            WHERE owner_id = $1
-              AND started_at IS NOT NULL
-              AND completed_at IS NOT NULL
-              AND created_at >= NOW() - $2::interval
-            GROUP BY kind
-            ORDER BY kind ASC
-        `, [userId, since]),
-        run(`
-            SELECT
-                kind,
-                COUNT(*) FILTER (WHERE status = 'completed')::int AS completed,
-                COUNT(*) FILTER (WHERE status = 'failed')::int AS failed,
-                COUNT(*) FILTER (WHERE status = 'cancelled')::int AS cancelled,
-                COUNT(*)::int AS total
-            FROM ai_verification_jobs
-            WHERE owner_id = $1
-              AND kind IN ('build', 'deploy')
-              AND created_at >= NOW() - $2::interval
-            GROUP BY kind
-            ORDER BY kind ASC
-        `, [userId, since]),
-        run(`
-            SELECT
-                COUNT(*) FILTER (WHERE status = 'completed')::int AS completed,
-                COUNT(*) FILTER (WHERE status = 'failed')::int AS failed,
-                COUNT(*)::int AS total,
-                AVG(NULLIF(artifacts #>> '{0,data,score}', '')::float) AS avg_score
-            FROM ai_verification_jobs
-            WHERE owner_id = $1
-              AND kind = 'design'
-              AND created_at >= NOW() - $2::interval
-        `, [userId, since]),
-        run(`
-            SELECT
-                CASE
-                    WHEN status = 'cancelled' THEN 'cancelled'
-                    WHEN kind = 'design' AND COALESCE(error, '') ILIKE '%generic%' THEN 'generic_design'
-                    WHEN kind = 'design' AND COALESCE(error, '') ILIKE 'Design QA score %' THEN 'design_quality'
-                    WHEN COALESCE(error, '') ILIKE 'HTTP %' THEN 'http_error'
-                    WHEN COALESCE(error, '') ILIKE '%timeout%' OR COALESCE(error, '') ILIKE '%abort%' THEN 'timeout'
-                    WHEN COALESCE(error, '') ILIKE '%missing target%' THEN 'missing_target'
-                    WHEN COALESCE(error, '') ILIKE '%console%' THEN 'browser_console'
-                    ELSE 'runner_error'
-                END AS category,
-                kind,
-                COUNT(*)::int AS count
-            FROM ai_verification_jobs
-            WHERE owner_id = $1
-              AND status IN ('failed', 'cancelled')
-              AND created_at >= NOW() - $2::interval
-            GROUP BY 1, 2
-            ORDER BY count DESC
-            LIMIT 12
-        `, [userId, since]),
-        run(`
-            SELECT
-                percentile_cont(0.5) WITHIN GROUP (ORDER BY NULLIF(metadata->>'durationMs', '')::float)::float AS p50_ms,
-                percentile_cont(0.95) WITHIN GROUP (ORDER BY NULLIF(metadata->>'durationMs', '')::float)::float AS p95_ms,
-                COUNT(*)::int AS sample_count
-            FROM ai_usage_events
-            WHERE owner_id = $1
-              AND kind IN ('ai_run_completed', 'ai_run_failed', 'ai_run_platform_error')
-              AND metadata ? 'durationMs'
-              AND metadata->>'durationMs' ~ '^[0-9]+(\\.[0-9]+)?$'
-              AND created_at >= NOW() - $2::interval
-        `, [userId, since]),
-        run(`
-            SELECT
-                percentile_cont(0.5) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (completed_at - created_at)) * 1000)::float AS p50_ms,
-                percentile_cont(0.95) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (completed_at - created_at)) * 1000)::float AS p95_ms,
-                COUNT(*)::int AS sample_count
-            FROM ai_deployments
-            WHERE owner_id = $1
-              AND completed_at IS NOT NULL
-              AND created_at >= NOW() - $2::interval
-        `, [userId, since]),
-        run(`
-            SELECT
-                COUNT(*)::int AS deployment_count,
-                COUNT(*) FILTER (WHERE created_at >= NOW() - $2::interval)::int AS recent_deployment_count,
-                COUNT(*) FILTER (WHERE status = 'running')::int AS running_deployments,
-                COUNT(*) FILTER (WHERE healthcheck_url IS NOT NULL)::int AS healthchecked_deployments,
-                COUNT(*) FILTER (
-                    WHERE EXISTS (
-                        SELECT 1
-                        FROM jsonb_array_elements(events) AS event
-                        WHERE event->>'stage' IN ('sync', 'build', 'run', 'healthcheck', 'healthcheck_failed', 'blocked')
-                    )
-                )::int AS deployments_with_sync_events,
-                COUNT(*) FILTER (WHERE stack_type IS NOT NULL AND stack_type <> 'unknown')::int AS deployments_with_stack,
-                COUNT(*) FILTER (WHERE access_policy IS NOT NULL)::int AS deployments_with_access_policy
-            FROM ai_deployments
-            WHERE owner_id = $1
-        `, [userId, since]),
-        run(`
-            SELECT
-                COUNT(*)::int AS release_count,
-                COUNT(*) FILTER (WHERE created_at >= NOW() - $2::interval)::int AS recent_release_count,
-                COUNT(*) FILTER (WHERE deployment_id IS NOT NULL AND preview_url IS NOT NULL)::int AS rollback_ready_releases,
-                COUNT(*) FILTER (WHERE status = 'current')::int AS current_releases,
-                COUNT(*) FILTER (WHERE status = 'superseded')::int AS superseded_releases,
-                COUNT(*) FILTER (WHERE status = 'failed')::int AS failed_releases
-            FROM ai_releases
-            WHERE owner_id = $1
-        `, [userId, since]),
-        run(`
-            SELECT DISTINCT ON (kind)
-                kind, id, status, current_step, error, updated_at, completed_at, cancelled_at
-            FROM ai_verification_jobs
-            WHERE owner_id = $1
-            ORDER BY kind, updated_at DESC, created_at DESC
-        `, [userId]),
-        run(`
-            SELECT
-                id, status, vm_name, service_name, failure_reason, updated_at, completed_at
-            FROM ai_deployments
-            WHERE owner_id = $1
-            ORDER BY updated_at DESC, created_at DESC
-            LIMIT 1
-        `, [userId]),
-        run(`
-            SELECT id, status, deployment_id, updated_at
-            FROM ai_releases
-            WHERE owner_id = $1
-            ORDER BY updated_at DESC, created_at DESC
-            LIMIT 1
-        `, [userId]),
+    const [usageMetrics, reliabilityMetrics, readinessMetrics] = await Promise.all([
+        loadUsageMetrics(userId, since),
+        loadReliabilityMetrics(userId, since),
+        loadReadinessMetrics(userId, since),
     ])
+    const { summaryResult, trendResult, recentResult, cacheResult } = usageMetrics
+    const {
+        queueResult,
+        verificationLatencyResult,
+        buildDeployResult,
+        failedProofResult,
+        firstOutputResult,
+        deployTimingResult,
+    } = reliabilityMetrics
+    const {
+        designQualityResult,
+        deploymentReadinessResult,
+        releaseReadinessResult,
+        latestVerificationResult,
+        latestDeploymentResult,
+        latestReleaseResult,
+    } = readinessMetrics
 
     const summary = summaryResult.rows[0] || {}
     const cache = cacheResult.rows[0] || {}
@@ -396,6 +227,232 @@ export async function getAiEconomics(req: FastifyRequest, res: FastifyReply) {
             createdAt: row.created_at,
         })),
     })
+}
+
+async function loadUsageMetrics(userId: string, since: string) {
+    const [summaryResult, trendResult, recentResult, cacheResult] = await Promise.all([
+        run(`
+            SELECT
+                COUNT(*)::int AS event_count,
+                COALESCE(SUM(units), 0)::int AS token_units,
+                COALESCE(SUM(billable_units), 0)::int AS billable_units,
+                COALESCE(SUM(estimated_cost_nok), 0)::float AS estimated_cost_nok,
+                COALESCE(SUM(CASE WHEN outcome IN ('verified', 'deployed') THEN billable_units ELSE 0 END), 0)::int AS verified_units,
+                COALESCE(SUM(CASE WHEN outcome = 'platform_error' THEN units ELSE 0 END), 0)::int AS platform_error_units,
+                COALESCE(SUM(CASE WHEN outcome = 'platform_error' THEN estimated_cost_nok ELSE 0 END), 0)::float AS failed_platform_discount_nok,
+                COALESCE(SUM(CASE WHEN kind = 'browser_proof_completed' THEN units ELSE 0 END), 0)::int AS browser_proofs,
+                COALESCE(SUM(CASE WHEN kind = 'build_minutes_recorded' THEN units ELSE 0 END), 0)::int AS build_minutes,
+                COALESCE(SUM(CASE WHEN kind = 'deploy_minutes_recorded' THEN units ELSE 0 END), 0)::int AS deploy_minutes
+            FROM ai_usage_events
+            WHERE owner_id = $1
+              AND created_at >= NOW() - $2::interval
+        `, [userId, since]),
+        run(`
+            SELECT
+                date_trunc('day', created_at) AS bucket,
+                COUNT(*)::int AS event_count,
+                COALESCE(SUM(units), 0)::int AS token_units,
+                COALESCE(SUM(billable_units), 0)::int AS billable_units,
+                COALESCE(SUM(estimated_cost_nok), 0)::float AS estimated_cost_nok,
+                COALESCE(SUM(CASE WHEN outcome IN ('verified', 'deployed') THEN billable_units ELSE 0 END), 0)::int AS verified_units,
+                COALESCE(SUM(CASE WHEN outcome = 'platform_error' THEN units ELSE 0 END), 0)::int AS platform_error_units
+            FROM ai_usage_events
+            WHERE owner_id = $1
+              AND created_at >= NOW() - $2::interval
+            GROUP BY 1
+            ORDER BY 1 ASC
+        `, [userId, since]),
+        run(`
+            SELECT id, kind, units, billable_units, estimated_cost_nok, billing_mode, outcome, metadata, created_at
+            FROM ai_usage_events
+            WHERE owner_id = $1
+              AND kind IN ('ai_run_completed', 'ai_run_failed', 'ai_run_platform_error', 'deployment_started', 'release_recorded', 'browser_proof_completed', 'build_minutes_recorded', 'deploy_minutes_recorded')
+            ORDER BY created_at DESC
+            LIMIT 20
+        `, [userId]),
+        run(`
+            SELECT
+                COALESCE(SUM(CASE WHEN kind = 'cache_hit' THEN units ELSE 0 END), 0)::int AS cache_hits,
+                COALESCE(SUM(CASE WHEN kind <> 'cache_hit' AND metadata ? 'cacheKey' THEN units ELSE 0 END), 0)::int AS cacheable_events
+            FROM ai_usage_events
+            WHERE owner_id = $1
+              AND created_at >= NOW() - $2::interval
+        `, [userId, since]),
+    ])
+    return {
+        summaryResult,
+        trendResult,
+        recentResult,
+        cacheResult,
+    }
+}
+
+async function loadReliabilityMetrics(userId: string, since: string) {
+    const [queueResult, verificationLatencyResult, buildDeployResult, failedProofResult, firstOutputResult, deployTimingResult] = await Promise.all([
+        run(`
+            SELECT lane, kind, status, COUNT(*)::int AS count
+            FROM ai_verification_jobs
+            WHERE owner_id = $1
+              AND (created_at >= NOW() - $2::interval OR status IN ('queued', 'running'))
+            GROUP BY lane, kind, status
+            ORDER BY lane ASC, kind ASC, status ASC
+        `, [userId, since]),
+        run(`
+            SELECT
+                kind,
+                percentile_cont(0.5) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (completed_at - started_at)) * 1000)::float AS p50_ms,
+                percentile_cont(0.95) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (completed_at - started_at)) * 1000)::float AS p95_ms,
+                COUNT(*)::int AS sample_count
+            FROM ai_verification_jobs
+            WHERE owner_id = $1
+              AND started_at IS NOT NULL
+              AND completed_at IS NOT NULL
+              AND created_at >= NOW() - $2::interval
+            GROUP BY kind
+            ORDER BY kind ASC
+        `, [userId, since]),
+        run(`
+            SELECT
+                kind,
+                COUNT(*) FILTER (WHERE status = 'completed')::int AS completed,
+                COUNT(*) FILTER (WHERE status = 'failed')::int AS failed,
+                COUNT(*) FILTER (WHERE status = 'cancelled')::int AS cancelled,
+                COUNT(*)::int AS total
+            FROM ai_verification_jobs
+            WHERE owner_id = $1
+              AND kind IN ('build', 'deploy')
+              AND created_at >= NOW() - $2::interval
+            GROUP BY kind
+            ORDER BY kind ASC
+        `, [userId, since]),
+        run(`
+            SELECT
+                CASE
+                    WHEN status = 'cancelled' THEN 'cancelled'
+                    WHEN kind = 'design' AND COALESCE(error, '') ILIKE '%generic%' THEN 'generic_design'
+                    WHEN kind = 'design' AND COALESCE(error, '') ILIKE 'Design QA score %' THEN 'design_quality'
+                    WHEN COALESCE(error, '') ILIKE 'HTTP %' THEN 'http_error'
+                    WHEN COALESCE(error, '') ILIKE '%timeout%' OR COALESCE(error, '') ILIKE '%abort%' THEN 'timeout'
+                    WHEN COALESCE(error, '') ILIKE '%missing target%' THEN 'missing_target'
+                    WHEN COALESCE(error, '') ILIKE '%console%' THEN 'browser_console'
+                    ELSE 'runner_error'
+                END AS category,
+                kind,
+                COUNT(*)::int AS count
+            FROM ai_verification_jobs
+            WHERE owner_id = $1
+              AND status IN ('failed', 'cancelled')
+              AND created_at >= NOW() - $2::interval
+            GROUP BY 1, 2
+            ORDER BY count DESC
+            LIMIT 12
+        `, [userId, since]),
+        run(`
+            SELECT
+                percentile_cont(0.5) WITHIN GROUP (ORDER BY NULLIF(metadata->>'durationMs', '')::float)::float AS p50_ms,
+                percentile_cont(0.95) WITHIN GROUP (ORDER BY NULLIF(metadata->>'durationMs', '')::float)::float AS p95_ms,
+                COUNT(*)::int AS sample_count
+            FROM ai_usage_events
+            WHERE owner_id = $1
+              AND kind IN ('ai_run_completed', 'ai_run_failed', 'ai_run_platform_error')
+              AND metadata ? 'durationMs'
+              AND metadata->>'durationMs' ~ '^[0-9]+(\\.[0-9]+)?$'
+              AND created_at >= NOW() - $2::interval
+        `, [userId, since]),
+        run(`
+            SELECT
+                percentile_cont(0.5) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (completed_at - created_at)) * 1000)::float AS p50_ms,
+                percentile_cont(0.95) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (completed_at - created_at)) * 1000)::float AS p95_ms,
+                COUNT(*)::int AS sample_count
+            FROM ai_deployments
+            WHERE owner_id = $1
+              AND completed_at IS NOT NULL
+              AND created_at >= NOW() - $2::interval
+        `, [userId, since]),
+    ])
+    return {
+        queueResult,
+        verificationLatencyResult,
+        buildDeployResult,
+        failedProofResult,
+        firstOutputResult,
+        deployTimingResult,
+    }
+}
+
+async function loadReadinessMetrics(userId: string, since: string) {
+    const [designQualityResult, deploymentReadinessResult, releaseReadinessResult, latestVerificationResult, latestDeploymentResult, latestReleaseResult] = await Promise.all([
+        run(`
+            SELECT
+                COUNT(*) FILTER (WHERE status = 'completed')::int AS completed,
+                COUNT(*) FILTER (WHERE status = 'failed')::int AS failed,
+                COUNT(*)::int AS total,
+                AVG(NULLIF(artifacts #>> '{0,data,score}', '')::float) AS avg_score
+            FROM ai_verification_jobs
+            WHERE owner_id = $1
+              AND kind = 'design'
+              AND created_at >= NOW() - $2::interval
+        `, [userId, since]),
+        run(`
+            SELECT
+                COUNT(*)::int AS deployment_count,
+                COUNT(*) FILTER (WHERE created_at >= NOW() - $2::interval)::int AS recent_deployment_count,
+                COUNT(*) FILTER (WHERE status = 'running')::int AS running_deployments,
+                COUNT(*) FILTER (WHERE healthcheck_url IS NOT NULL)::int AS healthchecked_deployments,
+                COUNT(*) FILTER (
+                    WHERE EXISTS (
+                        SELECT 1
+                        FROM jsonb_array_elements(events) AS event
+                        WHERE event->>'stage' IN ('sync', 'build', 'run', 'healthcheck', 'healthcheck_failed', 'blocked')
+                    )
+                )::int AS deployments_with_sync_events,
+                COUNT(*) FILTER (WHERE stack_type IS NOT NULL AND stack_type <> 'unknown')::int AS deployments_with_stack,
+                COUNT(*) FILTER (WHERE access_policy IS NOT NULL)::int AS deployments_with_access_policy
+            FROM ai_deployments
+            WHERE owner_id = $1
+        `, [userId, since]),
+        run(`
+            SELECT
+                COUNT(*)::int AS release_count,
+                COUNT(*) FILTER (WHERE created_at >= NOW() - $2::interval)::int AS recent_release_count,
+                COUNT(*) FILTER (WHERE deployment_id IS NOT NULL AND preview_url IS NOT NULL)::int AS rollback_ready_releases,
+                COUNT(*) FILTER (WHERE status = 'current')::int AS current_releases,
+                COUNT(*) FILTER (WHERE status = 'superseded')::int AS superseded_releases,
+                COUNT(*) FILTER (WHERE status = 'failed')::int AS failed_releases
+            FROM ai_releases
+            WHERE owner_id = $1
+        `, [userId, since]),
+        run(`
+            SELECT DISTINCT ON (kind)
+                kind, id, status, current_step, error, updated_at, completed_at, cancelled_at
+            FROM ai_verification_jobs
+            WHERE owner_id = $1
+            ORDER BY kind, updated_at DESC, created_at DESC
+        `, [userId]),
+        run(`
+            SELECT
+                id, status, vm_name, service_name, failure_reason, updated_at, completed_at
+            FROM ai_deployments
+            WHERE owner_id = $1
+            ORDER BY updated_at DESC, created_at DESC
+            LIMIT 1
+        `, [userId]),
+        run(`
+            SELECT id, status, deployment_id, updated_at
+            FROM ai_releases
+            WHERE owner_id = $1
+            ORDER BY updated_at DESC, created_at DESC
+            LIMIT 1
+        `, [userId]),
+    ])
+    return {
+        designQualityResult,
+        deploymentReadinessResult,
+        releaseReadinessResult,
+        latestVerificationResult,
+        latestDeploymentResult,
+        latestReleaseResult,
+    }
 }
 
 export function buildCommercialReadiness({ reliability, deployment, release, designQuality, latestVerificationJobs = [], latestDeployment, latestRelease, eventCount, verifiedUnits, costNok, productiveMinutes }: {

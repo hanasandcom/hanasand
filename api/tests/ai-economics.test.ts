@@ -24,6 +24,18 @@ mock.module('#db', () => ({
                 })),
             }
         }
+        if (sql.includes('AS avg_score')) {
+            return { rows: [{ completed: 2, failed: 1, total: 3, avg_score: 81 }] }
+        }
+        if (sql.includes('AS category')) {
+            return { rows: [{ category: 'timeout', kind: 'build', count: 2 }] }
+        }
+        if (sql.includes('durationMs')) {
+            return { rows: [{ p50_ms: 111, p95_ms: 222, sample_count: 3 }] }
+        }
+        if (sql.includes('completed_at - created_at')) {
+            return { rows: [{ p50_ms: 333, p95_ms: 444, sample_count: 4 }] }
+        }
         return { rows: [] }
     },
 }))
@@ -46,6 +58,22 @@ test('platform failure discount covers the full usage window, independent of rec
 
         expect(response.statusCode).toBe(200)
         expect(response.json().summary.failedPlatformDiscountNok).toBe(37.5)
+        expect(response.json().reliability.failedProofCategories).toEqual([
+            { category: 'timeout', kind: 'build', count: 2 },
+        ])
+        expect(response.json().reliability.promptTiming).toMatchObject({
+            p50FirstUsefulOutputMs: 111,
+            p95FirstUsefulOutputMs: 222,
+            sampleCount: 3,
+        })
+        expect(response.json().reliability.deployTiming).toMatchObject({
+            p50PromptToVerifiedDeployMs: 333,
+            p95PromptToVerifiedDeployMs: 444,
+            sampleCount: 4,
+        })
+        expect(response.json().commercialReadiness.items.find((item: { id: string }) => item.id === 'design_quality').evidence).toContain(
+            '3 durable design QA jobs in this window: 2 passed and 1 failed.',
+        )
         expect(queries.some((sql) => sql.includes('SUM(CASE WHEN outcome = \'platform_error\' THEN estimated_cost_nok ELSE 0 END)'))).toBe(true)
         expect(queries.some((sql) => sql.includes('LIMIT 20'))).toBe(true)
     } finally {
