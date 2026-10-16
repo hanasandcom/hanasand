@@ -10,7 +10,9 @@ import IndexHandler from '../src/handlers/index.ts'
 import { TRUSTED_API_PROXIES } from '../src/utils/http/publicBoundary.ts'
 import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
+import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
+import path from 'node:path'
 
 describe('public TI API boundary', () => {
     test('does not serve a generated empty actor-enrichment success response', async () => {
@@ -168,10 +170,36 @@ describe('public TI API boundary', () => {
         expect(JSON.stringify(result)).not.toContain('src-internal')
     })
 
-    test('ships batch search only through the canonical versioned API', async () => {
-        const routes = await readFile(new URL('../src/routes.ts', import.meta.url), 'utf8')
-        expect(routes).not.toContain('fastify.post(\'/ti/search/batch\'')
-        expect(routes).not.toContain('postTiSearchBatch')
+    test('registers batch search only through the canonical versioned API', () => {
+        const apiDirectory = path.resolve(import.meta.dir, '..')
+        const routeCheck = `
+            const assert = require('node:assert/strict')
+            const { default: Fastify } = await import('fastify')
+            const { default: apiRoutes } = await import('./src/routes.ts')
+            const { default: publicTiApi } = await import('./src/handlers/ti/publicApi.ts')
+            const app = Fastify({ logger: false })
+            try {
+                await app.register(apiRoutes, { prefix: '/api' })
+                await app.register(publicTiApi, { prefix: '/api/v1' })
+                await app.ready()
+                assert.equal(app.hasRoute({ method: 'POST', url: '/api/v1/ti/search/batch' }), true)
+                assert.equal(app.hasRoute({ method: 'POST', url: '/ti/search/batch' }), false)
+                assert.equal(app.hasRoute({ method: 'POST', url: '/api/ti/search/batch' }), false)
+                console.log('Batch TI search is registered only on the canonical versioned route.')
+            } finally {
+                await app.close()
+            }
+        `
+        const result = spawnSync(process.execPath, ['-e', routeCheck], {
+            cwd: apiDirectory,
+            env: { ...process.env, API_HTTP_ONLY: '1' },
+            encoding: 'utf8',
+            timeout: 15_000,
+        })
+
+        expect(result.error).toBeUndefined()
+        expect(result.status).toBe(0)
+        expect(result.stdout).toContain('Batch TI search is registered only on the canonical versioned route.')
         expect(existsSync(fileURLToPath(new URL('../../frontend/src/app/api/ti/search/batch/route.ts', import.meta.url)))).toBe(false)
     })
 })
