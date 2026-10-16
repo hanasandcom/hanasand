@@ -151,14 +151,16 @@ async function createRecovery(requestId, email) {
     return recovery.body.recovery
 }
 
-async function searchApproval(params, expectedCount = 1) {
+async function searchApproval(params) {
     const query = new URLSearchParams(params)
     const result = await request(`/admin/support/access-recovery?${query}`, {
         headers: authHeaders(adminTwoId, adminTwoToken),
     })
     expect(result.response.status === 200, 'Approval search failed.', result.body)
-    expect((result.body?.approvals || []).length >= expectedCount, 'Approval search returned too few records.', result.body)
-    return result.body.approvals
+    const approvals = result.body?.approvals || []
+    expect(approvals.length === 1, 'Approval search should return exactly the requested recovery.', result.body)
+    expect(approvals.every(approval => approval.requestId === params.request), 'Approval search leaked records outside the requested recovery.', result.body)
+    return approvals
 }
 
 async function inspectSupportState(params) {
