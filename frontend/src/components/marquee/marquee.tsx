@@ -1,45 +1,7 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import Marquee, { type MarqueeProps } from '../shared/marquee'
 
-type MarqueeProps = {
-    text: string
-    className?: string
-    innerClassName?: string
-}
-
-export default function Marquee({ text, className = '', innerClassName = '' }: MarqueeProps) {
-    const containerRef = useRef<HTMLDivElement>(null)
-    const textRef = useRef<HTMLDivElement>(null)
-    const [scrollDistance, setScrollDistance] = useState(0)
-    const [shouldScroll, setShouldScroll] = useState(false)
-
-    useEffect(() => {
-        const containerWidth = containerRef.current?.offsetWidth ?? 0
-        const textWidth = textRef.current?.scrollWidth ?? 0
-        setShouldScroll(textWidth > containerWidth)
-        setScrollDistance(textWidth - containerWidth)
-    }, [text])
-
-    const duration = Math.max(6, scrollDistance / 30)
-
-    if (text === 'Unknown') {
-        return
-    }
-
-    return (
-        <div
-            ref={containerRef}
-            className={`relative overflow-hidden whitespace-nowrap ${className}`}
-            style={{ width: '100%' }}
-        >
-            <h1
-                ref={textRef}
-                className={`${shouldScroll ? 'marquee' : ''} ${innerClassName}`}
-                style={{ display: 'block', '--scroll-distance': `${scrollDistance}px`, '--duration': `${duration}s` } as React.CSSProperties}
-            >
-                {text}
-            </h1>
-        </div>
-    )
+export default function HeadingMarquee(props: Omit<MarqueeProps, 'as'>) {
+    return <Marquee {...props} as='h1' />
 }
