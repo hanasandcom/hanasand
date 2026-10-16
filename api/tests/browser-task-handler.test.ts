@@ -1,9 +1,10 @@
-import { expect, mock, test } from 'bun:test'
+import { afterEach, expect, mock, test } from 'bun:test'
 
 let policyCalls = 0
+let authenticated = true
 
 mock.module('#utils/auth/tokenWrapper.ts', () => ({
-    default: async () => ({ valid: true, id: 'browser-task-test' }),
+    default: async () => ({ valid: authenticated, id: authenticated ? 'browser-task-test' : undefined }),
 }))
 mock.module('../src/handlers/tools/agentActionPolicy.ts', () => ({
     applyAgentActionPolicy: async () => {
@@ -13,6 +14,11 @@ mock.module('../src/handlers/tools/agentActionPolicy.ts', () => ({
 }))
 
 const browserTaskTool = (await import('../src/handlers/tools/browserTask.ts')).default
+
+afterEach(() => {
+    authenticated = true
+    policyCalls = 0
+})
 
 for (const [url, error] of [
     [undefined, 'Missing url.'],
@@ -28,6 +34,15 @@ for (const [url, error] of [
         expect(policyCalls).toBe(0)
     })
 }
+
+test('browser task rejects an unauthenticated actor before policy evaluation', async () => {
+    authenticated = false
+    const { statusCode, body } = await runTool({ url: 'https://example.com/' })
+
+    expect(statusCode).toBe(401)
+    expect(body).toEqual({ error: 'Unauthorized.' })
+    expect(policyCalls).toBe(0)
+})
 
 async function runTool(body: Record<string, unknown>) {
     let statusCode: number | undefined
