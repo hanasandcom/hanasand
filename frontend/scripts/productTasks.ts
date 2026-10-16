@@ -1,6 +1,7 @@
 import { bun, type TestTask } from './testTask'
 
 export const productTasks: TestTask[] = [
+    { id: 'shortcut-input-render', title: 'Shared shortcut creator and lookup field contract', command: [bun, 'test', 'tests/shortcut-input-render.test.tsx'] },
     { id: 'browser-reconnect', title: 'Browser control reconnect lifecycle', command: [bun, 'test', 'tests/browser-control-reconnect.test.ts'] },
     { id: 'browser-provider-badges', title: 'Browser history provider badge presentation contract', command: [bun, 'test', 'tests/browser-provider-badges.test.tsx'] },
     { id: 'authenticated-resource-delete', title: 'Authenticated resource deletion uses target ids', command: [bun, 'test', 'tests/delete-authenticated-resource.test.ts'] },

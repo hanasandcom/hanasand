@@ -8,6 +8,7 @@ import { ArrowLeft, ChartColumn, Eye, Globe, Rocket, Search, Watch } from 'lucid
 import Link from 'next/link'
 import { SyntheticEvent, useState } from 'react'
 import { normalizeShortcut } from '../pageClient'
+import { ShortcutInput } from '../ShortcutInput'
 
 export default function LinkStatsPageClient() {
     const [query, setQuery] = useState('')
@@ -59,19 +60,7 @@ export default function LinkStatsPageClient() {
                         </div>
                         <form onSubmit={handleSubmit} className='grid gap-3'>
                             <ErrorNotice compact message={error} />
-                            <label className='grid gap-2'>
-                                <span className='text-xs font-semibold uppercase text-ui-primary'>Shortcut</span>
-                                <div className='flex h-11 overflow-hidden rounded-lg border border-ui-border bg-ui-raised focus-within:border-ui-primary focus-within:ring-4 focus-within:ring-ui-primary/15'>
-                                    <span className='flex items-center border-r border-ui-border bg-ui-panel px-3 text-sm text-ui-muted'>/g/</span>
-                                    <input
-                                        className='min-w-0 flex-1 bg-transparent px-3 text-sm text-ui-text outline-none placeholder:text-ui-muted'
-                                        placeholder='team-notes'
-                                        onChange={(e) => setQuery(e.target.value)}
-                                        value={query}
-                                        required
-                                    />
-                                </div>
-                            </label>
+                            <ShortcutInput value={query} onChange={event => setQuery(event.target.value)} required />
                             <button
                                 type='submit'
                                 disabled={!canSearch}

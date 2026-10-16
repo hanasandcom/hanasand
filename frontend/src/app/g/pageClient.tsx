@@ -7,6 +7,7 @@ import { postLink } from '@/utils/links/post'
 import { Check, Copy, LinkIcon, Plus } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { SyntheticEvent, useState } from 'react'
+import { ShortcutInput } from './ShortcutInput'
 
 export default function LinkPageClient({ serverId, created }: { serverId?: string, created?: string }) {
     const router = useRouter()
@@ -75,19 +76,7 @@ export default function LinkPageClient({ serverId, created }: { serverId?: strin
     return (
         <form onSubmit={handleSubmit} className='grid gap-3'>
             <ErrorNotice compact message={error} />
-            <label className='grid gap-2'>
-                <span className='text-xs font-semibold uppercase text-ui-primary'>Shortcut</span>
-                <div className='flex h-11 overflow-hidden rounded-lg border border-ui-border bg-ui-raised focus-within:border-ui-primary focus-within:ring-4 focus-within:ring-ui-primary/15'>
-                    <span className='flex items-center border-r border-ui-border bg-ui-panel px-3 text-sm text-ui-muted'>/g/</span>
-                    <input
-                        className='min-w-0 flex-1 bg-transparent px-3 text-sm text-ui-text outline-none placeholder:text-ui-muted'
-                        placeholder='team-notes'
-                        onChange={(e) => setId(e.target.value)}
-                        value={id}
-                    />
-                </div>
-                {shortcutError ? <span className='text-xs text-ui-warning'>{shortcutError}</span> : null}
-            </label>
+            <ShortcutInput value={id} onChange={event => setId(event.target.value)} error={shortcutError} />
             <label className='grid gap-2'>
                 <span className='flex items-center gap-2 text-xs font-semibold uppercase text-ui-primary'>
                     <LinkIcon className='h-3.5 w-3.5' />
