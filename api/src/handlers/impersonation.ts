@@ -45,6 +45,17 @@ function hashToken(token: string) {
     return crypto.createHash('sha256').update(token).digest('hex')
 }
 
+type NonImpersonatingActor = Awaited<ReturnType<typeof tokenWrapper>> & { id: string }
+
+async function requireNonImpersonatingActor(req: FastifyRequest, res: FastifyReply): Promise<NonImpersonatingActor | null> {
+    const actor = await tokenWrapper(req, res)
+    if (!actor.valid || !actor.id || actor.impersonating) {
+        res.status(401).send({ error: actor.error || 'Unauthorized.' })
+        return null
+    }
+    return actor as NonImpersonatingActor
+}
+
 async function getActiveUser(id: string) {
     const result = await run(`
         SELECT id, name, avatar
@@ -221,10 +232,8 @@ async function validateSupportSessionForImpersonation(input: {
 }
 
 export async function startImpersonation(req: FastifyRequest, res: FastifyReply) {
-    const actor = await tokenWrapper(req, res)
-    if (!actor.valid || !actor.id || actor.impersonating) {
-        return res.status(401).send({ error: actor.error || 'Unauthorized.' })
-    }
+    const actor = await requireNonImpersonatingActor(req, res)
+    if (!actor) return
     const body = req.body as StartBody | undefined
     const targetId = cleanText(body?.object_id || body?.targetId || body?.target_user_id)
     if (!await actorHasHanasandInternalAccess(actor.id)) {
@@ -324,6 +333,7 @@ export async function startImpersonation(req: FastifyRequest, res: FastifyReply)
         outcome: 'success',
         noSilentImpersonation: true,
     })
+    const auditReference = auditLink('impersonation.start', auditTrail.requestId, auditTrail.eventIds)
 
     return res.send({
         token: rawToken,
@@ -358,7 +368,7 @@ export async function startImpersonation(req: FastifyRequest, res: FastifyReply)
             approvalStatus: 'not_required',
             outcome: 'success',
             auditEventIds: auditTrail.eventIds,
-            audit: auditLink('impersonation.start', auditTrail.requestId, auditTrail.eventIds),
+            audit: auditReference,
             guardrailReceipt: supportImpersonationGuardrailReceipt({
                 actorId: actor.id,
                 targetId: target.id,
@@ -375,7 +385,7 @@ export async function startImpersonation(req: FastifyRequest, res: FastifyReply)
                 auditEventIds: auditTrail.eventIds,
             }),
         },
-        audit: auditLink('impersonation.start', auditTrail.requestId, auditTrail.eventIds),
+        audit: auditReference,
     })
 }
 
@@ -417,6 +427,7 @@ export async function stopImpersonation(req: FastifyRequest, res: FastifyReply) 
             outcome: 'success',
             noSilentImpersonation: true,
         })
+        const auditReference = auditLink('impersonation.stop', auditTrail.requestId, auditTrail.eventIds)
         return res.send({
             ok: true,
             requestId: auditTrail.requestId,
@@ -434,19 +445,17 @@ export async function stopImpersonation(req: FastifyRequest, res: FastifyReply) 
                 revokedAt: row.revoked_at || null,
                 outcome: 'success',
                 auditEventIds: auditTrail.eventIds,
-                audit: auditLink('impersonation.stop', auditTrail.requestId, auditTrail.eventIds),
+                audit: auditReference,
             },
-            audit: auditLink('impersonation.stop', auditTrail.requestId, auditTrail.eventIds),
+            audit: auditReference,
         })
     }
     return res.send({ ok: true })
 }
 
 export async function getImpersonationEvents(req: FastifyRequest, res: FastifyReply) {
-    const actor = await tokenWrapper(req, res)
-    if (!actor.valid || !actor.id || actor.impersonating) {
-        return res.status(401).send({ error: actor.error || 'Unauthorized.' })
-    }
+    const actor = await requireNonImpersonatingActor(req, res)
+    if (!actor) return
     if (!await actorHasHanasandInternalAccess(actor.id)) {
         return res.status(403).send({ error: 'Only admins can view impersonation history.' })
     }

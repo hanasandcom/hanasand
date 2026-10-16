@@ -4,6 +4,7 @@ import Fastify from 'fastify'
 let supportSession: Record<string, any> | null = null
 const systemEvents: Array<Record<string, any>> = []
 const queries: Array<{ sql: string, values: unknown[] }> = []
+let actor: Record<string, any> = { valid: true, id: 'admin-user' }
 
 const query = async (sql: string, values: unknown[] = []) => {
     queries.push({ sql, values })
@@ -15,7 +16,7 @@ const query = async (sql: string, values: unknown[] = []) => {
 }
 
 mock.module('#db', () => ({ default: query }))
-mock.module('#utils/auth/tokenWrapper.ts', () => ({ default: async () => ({ valid: true, id: 'admin-user' }) }))
+mock.module('#utils/auth/tokenWrapper.ts', () => ({ default: async () => actor }))
 mock.module('#utils/systemEvent.ts', () => ({
     actorHasHanasandInternalAccess: async () => true,
     recordSystemEvent: async (_req: unknown, event: Record<string, any>) => { systemEvents.push(event) },
@@ -43,6 +44,38 @@ beforeEach(() => {
     supportSession = null
     systemEvents.length = 0
     queries.length = 0
+    actor = { valid: true, id: 'admin-user' }
+})
+
+test('impersonating actors cannot start a nested impersonation', async () => {
+    actor = { valid: true, id: 'admin-user', impersonating: true }
+
+    const response = await app.inject({
+        method: 'POST',
+        url: '/impersonation/start',
+        payload: { targetId: 'target-user', reason: 'Customer requested an access investigation.' },
+    })
+
+    expect(response.statusCode).toBe(401)
+    expect(response.json()).toEqual({ error: 'Unauthorized.' })
+    expect(queries).toHaveLength(0)
+    expect(systemEvents).toHaveLength(0)
+})
+
+test('start denies the actor as a target before loading a user or writing an audit event', async () => {
+    const response = await app.inject({
+        method: 'POST',
+        url: '/impersonation/start',
+        payload: { targetId: 'admin-user' },
+    })
+
+    expect(response.statusCode).toBe(400)
+    expect(response.json()).toMatchObject({
+        error: 'You are already viewing your own account.',
+        detail: { code: 'invalid_target_user', outcome: 'denied' },
+    })
+    expect(queries).toHaveLength(0)
+    expect(systemEvents).toHaveLength(0)
 })
 
 test('invalid start request keeps an optional session in its receipt but omits it from the error detail', async () => {

@@ -56,6 +56,7 @@ const lifecycleRows = [
     },
 ]
 let guardrailRows: Record<string, any>[] = []
+let actor: Record<string, any> = { valid: true, id: 'admin' }
 
 mock.module('#db', () => ({
     default: async (sql: string) => {
@@ -64,7 +65,7 @@ mock.module('#db', () => ({
         throw new Error(`Unexpected query: ${sql}`)
     },
 }))
-mock.module('#utils/auth/tokenWrapper.ts', () => ({ default: async () => ({ valid: true, id: 'admin' }) }))
+mock.module('#utils/auth/tokenWrapper.ts', () => ({ default: async () => actor }))
 mock.module('#utils/systemEvent.ts', () => ({
     actorHasHanasandInternalAccess: async () => true,
     recordSystemEvent: async () => {},
@@ -74,6 +75,20 @@ mock.module('#utils/systemEvent.ts', () => ({
 const { getImpersonationEvents } = await import('../src/handlers/impersonation.ts')
 const app = Fastify()
 app.get('/impersonation/events', getImpersonationEvents)
+
+test('impersonating actors cannot read the admin event history', async () => {
+    const previousActor = actor
+    actor = { valid: true, id: 'admin', impersonating: true }
+
+    try {
+        const response = await app.inject('/impersonation/events')
+
+        expect(response.statusCode).toBe(401)
+        expect(response.json()).toEqual({ error: 'Unauthorized.' })
+    } finally {
+        actor = previousActor
+    }
+})
 
 test('timeline receipts agree on active, stopped, expired, and incomplete lifecycle state', async () => {
     const response = await app.inject('/impersonation/events')
