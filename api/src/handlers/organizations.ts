@@ -123,6 +123,22 @@ type BulkInviteResult = {
     reason?: string
 }
 
+const organizationAccessDownstreamRoutes = {
+    sharedWatchlists: 'GET /api/organizations/:id/watchlists',
+    alertTermsExport: 'GET /api/organizations/:id/watchlists/alert-terms',
+    alertCaseVisibility: 'GET /api/organizations/:id/alert-case-visibility',
+    alertReadiness: 'GET /api/organizations/:id/alert-readiness',
+    webhookDelivery: 'POST /v1/dwm/webhooks/deliver',
+} as const
+
+const removedMemberBlockedRoutes = [
+    organizationAccessDownstreamRoutes.sharedWatchlists,
+    organizationAccessDownstreamRoutes.alertTermsExport,
+    organizationAccessDownstreamRoutes.alertCaseVisibility,
+    organizationAccessDownstreamRoutes.alertReadiness,
+    organizationAccessDownstreamRoutes.webhookDelivery,
+] as const
+
 export async function postOrganization(req: FastifyRequest<{ Body: OrganizationInput }>, res: FastifyReply) {
     const userId = await authenticateOrganizationRequest(req, res)
     if (!userId) return
@@ -696,13 +712,7 @@ export async function deleteOrganizationMember(req: FastifyRequest<{ Params: Org
                 targetRole: authorizedTarget.role,
                 revokedInviteIds: revokedInvites.rows.map((invite: OrganizationInviteRow) => invite.id),
                 revokedInviteCount: revokedInvites.rows.length,
-                blockedRoutes: [
-                    'GET /api/organizations/:id/watchlists',
-                    'GET /api/organizations/:id/watchlists/alert-terms',
-                    'GET /api/organizations/:id/alert-case-visibility',
-                    'GET /api/organizations/:id/alert-readiness',
-                    'POST /v1/dwm/webhooks/deliver',
-                ],
+                blockedRoutes: [...removedMemberBlockedRoutes],
                 blockedConsumerContracts: [
                     'organization.watchlist_alert_generation_consumer.v1',
                     'organization.watchlist_alert_generation_consumer_denial.v1',
@@ -792,13 +802,7 @@ export async function deleteOrganizationMember(req: FastifyRequest<{ Params: Org
                         'organization.webhook_alert_delivery_readiness.v1',
                         'organization.shared_watchlist_readiness_export.v1',
                     ],
-                    downstreamRoutes: {
-                        sharedWatchlists: 'GET /api/organizations/:id/watchlists',
-                        alertTermsExport: 'GET /api/organizations/:id/watchlists/alert-terms',
-                        alertCaseVisibility: 'GET /api/organizations/:id/alert-case-visibility',
-                        alertReadiness: 'GET /api/organizations/:id/alert-readiness',
-                        webhookDelivery: 'POST /v1/dwm/webhooks/deliver',
-                    },
+                    downstreamRoutes: { ...organizationAccessDownstreamRoutes },
                     destinationReadiness: {
                         destinationOwnerField: 'destination.org_id' as const,
                         selectedDestinationIdField: 'webhookDestinationIds[]' as const,
@@ -845,13 +849,7 @@ export async function deleteOrganizationMember(req: FastifyRequest<{ Params: Org
                     'target_accepts_invite',
                     'new_membership_role_applied',
                 ],
-                blockedUntilAcceptedMembership: [
-                    'GET /api/organizations/:id/watchlists',
-                    'GET /api/organizations/:id/watchlists/alert-terms',
-                    'GET /api/organizations/:id/alert-case-visibility',
-                    'GET /api/organizations/:id/alert-readiness',
-                    'POST /v1/dwm/webhooks/deliver',
-                ],
+                blockedUntilAcceptedMembership: [...removedMemberBlockedRoutes],
                 recoveryRoutes: {
                     createInvite: 'POST /api/organizations/:id/invites',
                     acceptInvite: 'POST /api/organizations/invites/:inviteId/accept',
@@ -1087,13 +1085,7 @@ export async function patchOrganizationMemberRole(req: FastifyRequest<{ Params: 
                     blockerReason: null,
                     before: organizationMemberDownstreamReadiness(beforeConsumerAccess),
                     after: organizationMemberDownstreamReadiness(afterConsumerAccess),
-                    downstreamRoutes: {
-                        sharedWatchlists: 'GET /api/organizations/:id/watchlists',
-                        alertTermsExport: 'GET /api/organizations/:id/watchlists/alert-terms',
-                        alertCaseVisibility: 'GET /api/organizations/:id/alert-case-visibility',
-                        alertReadiness: 'GET /api/organizations/:id/alert-readiness',
-                        webhookDelivery: 'POST /v1/dwm/webhooks/deliver',
-                    },
+                    downstreamRoutes: { ...organizationAccessDownstreamRoutes },
                     downstreamContracts: [
                         'organization.watchlist_alert_generation_consumer.v1',
                         'organization.case_visibility_consumer.v1',
@@ -1545,13 +1537,7 @@ export async function postOrganizationInviteAction(req: FastifyRequest<{ Params:
                     dashboardReadinessReady: false,
                     supportRedactedReadReady: true,
                 },
-                downstreamRoutes: {
-                    sharedWatchlists: 'GET /api/organizations/:id/watchlists',
-                    alertTermsExport: 'GET /api/organizations/:id/watchlists/alert-terms',
-                    alertCaseVisibility: 'GET /api/organizations/:id/alert-case-visibility',
-                    alertReadiness: 'GET /api/organizations/:id/alert-readiness',
-                    webhookDelivery: 'POST /v1/dwm/webhooks/deliver',
-                },
+                downstreamRoutes: { ...organizationAccessDownstreamRoutes },
                 downstreamContracts: [
                     'organization.watchlist_alert_generation_consumer.v1',
                     'organization.case_visibility_consumer.v1',
@@ -1831,13 +1817,7 @@ export async function postOrganizationInviteAccept(req: FastifyRequest<{ Params:
                         'organization.webhook_destination_delivery_consumer.v1',
                         'organization.shared_watchlist_readiness_export.v1',
                     ],
-                    downstreamRoutes: {
-                        sharedWatchlists: 'GET /api/organizations/:id/watchlists',
-                        alertTermsExport: 'GET /api/organizations/:id/watchlists/alert-terms',
-                        alertCaseVisibility: 'GET /api/organizations/:id/alert-case-visibility',
-                        alertReadiness: 'GET /api/organizations/:id/alert-readiness',
-                        webhookDelivery: 'POST /v1/dwm/webhooks/deliver',
-                    },
+                    downstreamRoutes: { ...organizationAccessDownstreamRoutes },
                     destinationReadiness: {
                         destinationOwnerField: 'destination.org_id' as const,
                         selectedDestinationIdField: 'webhookDestinationIds[]' as const,
@@ -2047,10 +2027,7 @@ export async function getOrganizationAlertReadiness(req: FastifyRequest<{ Params
     })
     const alertGenerationBridge = sharedProjection.alertGeneration
     const downstreamAuthorization = sharedProjection.downstreamAuthorization
-    const lifecycleReadiness = organizationLifecycleReadiness({
-        ...organization,
-        shared_watchlist_count: bridgeContext.sharedWatchlistCount,
-    })
+    const lifecycleReadiness = organizationLifecycleReadiness(bridgeOrganization)
     const readinessProof = organizationReadinessProof({
         lifecycleReadiness,
         alertGenerationBridge,
