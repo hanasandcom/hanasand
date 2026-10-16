@@ -22,14 +22,13 @@ import { buildSupportInspectionCaseModels } from './adminSupport/cases/inspectio
 import { buildSupportInspectionProofs } from './adminSupport/cases/inspection/inspectionProofs.ts'
 import { sendSupportInspectionResponse } from './adminSupport/cases/inspection/inspectionPresentation.ts'
 import { toAccessRecoveryDecision } from './adminSupport/cases/accessRecoveryApprovalMapping.ts'
-import { supportAccessRecoveryDecisionReceipt } from './adminSupport/cases/accessRecoveryDecisionReceipt.ts'
 import { supportAccessRecoveryApprovalTimeline, accessRecoveryApprovalAuditFilters } from './adminSupport/cases/accessRecoveryApprovalTimeline.ts'
 export { buildSupportSubjectAccessState, buildSupportSubjectInspectionAuthorization } from './adminSupport/cases/subjectAccessState.ts'
 export { buildSupportSubjectInspectionContext } from './adminSupport/cases/subjectInspectionContext.ts'
 export { buildSupportSubjectInspectionReceipts } from './adminSupport/cases/subjectInspectionReceipts.ts'
 import { randomUUID } from 'crypto'
-import run, { withTransaction } from '#db'
-import { touchOrganization, updateOrganizationInviteAction, upsertOrganizationInvite } from '#utils/db/identityDataWrites.ts'
+import run from '#db'
+import { touchOrganization, upsertOrganizationInvite } from '#utils/db/identityDataWrites.ts'
 import { isAccountUnavailable } from '#utils/accountAvailability.ts'
 import { loadInspectionAuditEvents } from './adminSupport/inspectionEventLoaders.ts'
 import { toSystemEvent, toSupportAuditTimelineEvent } from './adminSupport/audit/auditEventProjection.ts'
@@ -56,10 +55,8 @@ import { supportWorkbenchAdapter } from './adminSupport/cases/workbenchAdapter.t
 import { loadSupportSuccessfulIdempotencyReceipt, requireWritableSupportOrganization, validateSupportSessionForAction } from './adminSupport/actionAccess.ts'
 import { recordSupportExecutorBlock, supportExecutorControls, supportExecutorMetadata, type SupportExecutorControlsResult } from './adminSupport/executorCore.ts'
 import { supportExecutorAuditPreview, supportExecutorAuditQuery, supportExecutorCommonBlockerCatalog } from './adminSupport/executorAudit.ts'
-import type { AccessRecoveryApprovalRow } from './adminSupport/supportTypes.ts'
 import { organizationMembershipAvailability as loadOrganizationAvailability, type OrganizationMembershipAvailability } from '#utils/organizationMemberships.ts'
-import { hasOrganizationPrivacyDeletionMarker } from '#utils/organizationLifecycle.ts'
-import { cleanContext, supportError, supportInspectionQueryFilters, supportRequestId, supportSessionIdFromRequest, supportText as text } from '#utils/support/adminSupportInput.ts'
+import { cleanContext, supportError, supportInspectionQueryFilters, supportRequestId, supportText as text } from '#utils/support/adminSupportInput.ts'
 import { auditFilterQuery, uniqueTimelineValues, type SupportTimelineFilter } from '#utils/support/inspectionPackets.ts'
 import { loadSystemEventIds, recordSystemEvent, redactAuditValue, requireAuditReason } from '#utils/systemEvent.ts'
 import {
@@ -88,20 +85,9 @@ type SupportInviteBody = InviteInput & {
     handoff_expires_at?: unknown
 }
 
-type AccessRecoveryDecisionParams = {
-    requestId: string
-}
-
-type SupportAccessRecoveryDecisionBody = {
-    reason?: unknown
-    context?: unknown
-    supportSessionId?: unknown
-    support_session_id?: unknown
-}
-
-
-
-
+import type { AccessRecoveryDecisionParams } from './adminSupport/accessRecoveryDecision/types.ts'
+import { loadAccessRecoveryApproval } from './adminSupport/cases/accessRecoveryApprovalStore.ts'
+export { postSupportAccessRecoveryApprove, postSupportAccessRecoveryDeny } from './adminSupport/accessRecoveryDecision/route.ts'
 
 export async function getSystemEvents(req: FastifyRequest, res: FastifyReply) {
     const started = performance.now()
@@ -914,274 +900,6 @@ export async function getSupportAccessRecoveryApproval(req: FastifyRequest<{ Par
 }
 
 export { postSupportAccessRecovery } from './adminSupport/accessRecoveryRequest/route.ts'
-export async function postSupportAccessRecoveryApprove(req: FastifyRequest<{ Params: AccessRecoveryDecisionParams, Body: SupportAccessRecoveryDecisionBody }>, res: FastifyReply) {
-    return decideSupportAccessRecovery(req, res, 'approved')
-}
-
-export async function postSupportAccessRecoveryDeny(req: FastifyRequest<{ Params: AccessRecoveryDecisionParams, Body: SupportAccessRecoveryDecisionBody }>, res: FastifyReply) {
-    return decideSupportAccessRecovery(req, res, 'denied')
-}
-
-async function decideSupportAccessRecovery(
-    req: FastifyRequest<{ Params: AccessRecoveryDecisionParams, Body: SupportAccessRecoveryDecisionBody }>,
-    res: FastifyReply,
-    decision: 'approved' | 'denied',
-) {
-    const actor = await requireAdminSupport(req, res)
-    if (!actor) return
-
-    let reason: string
-    try {
-        reason = requireAuditReason(req.body?.reason, decision === 'approved' ? 'Access recovery approval reason' : 'Access recovery denial reason')
-    } catch (error) {
-        return res.status(400).send({ error: error instanceof Error ? error.message : 'Invalid access recovery decision reason.' })
-    }
-
-    const current = await loadAccessRecoveryApproval(req.params.requestId)
-    if (!current) {
-        await recordSystemEvent(req, {
-            actionType: `support.organization.access_recovery.${decision === 'approved' ? 'approve' : 'deny'}`,
-            actorId: actor.id,
-            targetType: 'access_recovery',
-            targetId: req.params.requestId,
-            entityId: req.params.requestId,
-            requestId: req.params.requestId,
-            severity: 'notice',
-            outcome: 'failed',
-            reason,
-            context: { error: 'access_recovery_request_not_found' },
-        })
-        return res.status(404).send({ error: 'Access recovery request not found.' })
-    }
-    if (await hasOrganizationPrivacyDeletionMarker(current.organization_id)) return res.status(409).send({ error: 'Organization deletion is in progress; support writes are blocked.' })
-
-    const supportSessionId = supportSessionIdFromRequest(req, req.body)
-    const requiredScope = decision === 'approved' ? 'recovery:approve' : 'recovery:deny'
-    const decisionReceiptContext = { actorId: actor.id, decision, reason, supportSessionId, requiredScope }
-    const sessionValidation = await validateSupportSessionForAction({
-        actorId: actor.id,
-        supportSessionId,
-        action: 'access_recovery',
-        requiredScope,
-        organizationId: current.organization_id,
-        targetUserId: current.target_user_id || null,
-    })
-    if (sessionValidation.error) {
-        await recordAccessRecoveryDecisionAudit(req, actor.id, current, decision, 'denied', reason, {
-            error: sessionValidation.error.code,
-            schemaVersion: 'support.access_recovery.session_guard.v1',
-            supportSessionId: supportSessionId || null,
-            requiredScope,
-            blockerCode: sessionValidation.error.code,
-            noSilentMembershipMutation: true,
-            mutation: 'none',
-            supportContext: cleanContext(req.body?.context),
-            redactionRequired: true,
-        })
-        const auditEventIds = await loadSystemEventIds({
-            requestId: current.request_id,
-            actionType: `support.organization.access_recovery.${decision === 'approved' ? 'approve' : 'deny'}`,
-            entityId: current.invite_id,
-        })
-        return res.status(sessionValidation.error.status).send(supportError(sessionValidation.error.code, sessionValidation.error.message, {
-            schemaVersion: 'support.access_recovery.session_guard.v1',
-            requestId: current.request_id,
-            supportSessionId: supportSessionId || null,
-            requiredScope,
-            auditEventIds,
-            noSilentMembershipMutation: true,
-            decision: toAccessRecoveryDecision(current),
-            decisionReceipt: supportAccessRecoveryDecisionReceipt({
-                ...decisionReceiptContext,
-                approval: toAccessRecoveryDecision(current),
-                outcome: 'denied',
-                auditEventIds,
-                blockers: [sessionValidation.error.code],
-            }),
-        }))
-    }
-
-    if (!current.approval_required) {
-        await recordAccessRecoveryDecisionAudit(req, actor.id, current, decision, 'failed', reason, { error: 'approval_not_required' })
-        const auditEventIds = await loadSystemEventIds({
-            requestId: current.request_id,
-            actionType: `support.organization.access_recovery.${decision === 'approved' ? 'approve' : 'deny'}`,
-            entityId: current.invite_id,
-        })
-        const detail = toAccessRecoveryDecision(current)
-        return res.status(409).send({
-            error: 'This access recovery request does not require approval.',
-            decision: detail,
-            decisionReceipt: supportAccessRecoveryDecisionReceipt({
-                ...decisionReceiptContext,
-                approval: detail,
-                outcome: 'failed',
-                auditEventIds,
-                blockers: ['approval_not_required'],
-            }),
-        })
-    }
-
-    if (current.requested_by === actor.id) {
-        await recordAccessRecoveryDecisionAudit(req, actor.id, current, decision, 'denied', reason, { error: 'self_approval_denied' })
-        const auditEventIds = await loadSystemEventIds({
-            requestId: current.request_id,
-            actionType: `support.organization.access_recovery.${decision === 'approved' ? 'approve' : 'deny'}`,
-            entityId: current.invite_id,
-        })
-        const detail = toAccessRecoveryDecision(current)
-        return res.status(403).send({
-            error: 'Access recovery approval requires a different admin than the requester.',
-            decision: detail,
-            decisionReceipt: supportAccessRecoveryDecisionReceipt({
-                ...decisionReceiptContext,
-                approval: detail,
-                outcome: 'denied',
-                auditEventIds,
-                blockers: ['self_approval_denied'],
-            }),
-        })
-    }
-
-    if (current.status !== 'pending') {
-        await recordAccessRecoveryDecisionAudit(req, actor.id, current, decision, 'failed', reason, { error: 'approval_not_pending', status: current.status })
-        const auditEventIds = await loadSystemEventIds({
-            requestId: current.request_id,
-            actionType: `support.organization.access_recovery.${decision === 'approved' ? 'approve' : 'deny'}`,
-            entityId: current.invite_id,
-        })
-        const detail = toAccessRecoveryDecision(current)
-        return res.status(409).send({
-            error: `Access recovery request is already ${current.status}.`,
-            decision: detail,
-            decisionReceipt: supportAccessRecoveryDecisionReceipt({
-                ...decisionReceiptContext,
-                approval: detail,
-                outcome: 'failed',
-                auditEventIds,
-                blockers: ['approval_not_pending'],
-            }),
-        })
-    }
-
-    const mutation = await withTransaction(async query => {
-        const lockedApproval = await loadAccessRecoveryApproval(req.params.requestId, query, true)
-        if (!lockedApproval) return { error: 'access_recovery_request_not_found' as const }
-        if (lockedApproval.status !== 'pending') return { error: 'approval_not_pending' as const, approval: lockedApproval }
-        await query('SELECT id FROM organizations WHERE id = $1 FOR UPDATE', [lockedApproval.organization_id])
-        if (await hasOrganizationPrivacyDeletionMarker(lockedApproval.organization_id, query)) {
-            return { error: 'organization_deletion_in_progress' as const, approval: lockedApproval }
-        }
-
-        const inviteBefore = await query(`
-            SELECT id, status, expires_at
-            FROM organization_invites
-            WHERE id = $1 AND organization_id = $2
-            FOR UPDATE
-        `, [lockedApproval.invite_id, lockedApproval.organization_id])
-        const inviteRow = inviteBefore.rows[0] as { id: string, status: string, expires_at: Date | string | null } | undefined
-        if (!inviteRow) return { error: 'invite_not_found' as const, approval: lockedApproval }
-        if (decision === 'approved' && (!inviteRow.expires_at || new Date(inviteRow.expires_at).getTime() <= Date.now())) {
-            return { error: 'access_recovery_invite_expired' as const, approval: lockedApproval, inviteStatus: inviteRow.status }
-        }
-        const invite = await updateOrganizationInviteAction({
-            organizationId: lockedApproval.organization_id,
-            inviteId: lockedApproval.invite_id,
-            action: decision === 'approved' ? 'resend' : 'revoke',
-            ...(decision === 'approved' ? { expiresAt: inviteRow.expires_at || undefined } : {}),
-        }, query)
-        if (!invite) return { error: 'invite_not_mutable' as const, approval: lockedApproval, inviteStatus: inviteRow.status }
-
-        const updatedApproval = await query(`
-            UPDATE admin_access_recovery_approvals
-            SET status = $2,
-                approved_by = CASE WHEN $2 = 'approved' THEN $3 ELSE NULL END,
-                approved_at = CASE WHEN $2 = 'approved' THEN NOW() ELSE NULL END,
-                denied_by = CASE WHEN $2 = 'denied' THEN $3 ELSE NULL END,
-                denied_at = CASE WHEN $2 = 'denied' THEN NOW() ELSE NULL END,
-                decision_reason = $4,
-                outcome = CASE WHEN $2 = 'approved' THEN 'success' ELSE 'denied' END,
-                updated_at = NOW()
-            WHERE request_id = $1 AND status = 'pending'
-            RETURNING *
-        `, [lockedApproval.request_id, decision, actor.id, reason])
-        if (!updatedApproval.rows[0]) throw new Error('Locked access recovery approval could not be updated.')
-        return { error: null, approval: lockedApproval, updatedApproval: updatedApproval.rows[0] as AccessRecoveryApprovalRow, invite }
-    })
-    if (mutation.error) {
-        const currentApproval = mutation.approval
-            ? { ...mutation.approval, ...('inviteStatus' in mutation ? { invite_status: mutation.inviteStatus } : {}) }
-            : current
-        const error = mutation.error === 'invite_not_mutable'
-            ? 'accepted_invite_not_mutable_by_support_action'
-            : mutation.error
-        await recordAccessRecoveryDecisionAudit(req, actor.id, currentApproval, decision, 'failed', reason, {
-            error,
-            blockerCode: error,
-            inviteStatus: 'inviteStatus' in mutation ? mutation.inviteStatus : currentApproval.invite_status,
-            mutation: 'none',
-            supportSessionId: supportSessionId || null,
-            supportContext: cleanContext(req.body?.context),
-        })
-        const auditEventIds = await loadSystemEventIds({
-            requestId: currentApproval.request_id,
-            actionType: `support.organization.access_recovery.${decision === 'approved' ? 'approve' : 'deny'}`,
-            entityId: currentApproval.invite_id,
-        })
-        const detail = toAccessRecoveryDecision(currentApproval)
-        return res.status(mutation.error === 'approval_not_pending' ? 409 : mutation.error === 'access_recovery_request_not_found' ? 404 : 409).send({
-            error: mutation.error === 'approval_not_pending'
-                ? `Access recovery request is already ${currentApproval.status}.`
-                : mutation.error === 'access_recovery_request_not_found'
-                    ? 'Access recovery request not found.'
-                    : mutation.error === 'organization_deletion_in_progress'
-                        ? 'Organization deletion is in progress; support writes are blocked.'
-                        : mutation.error === 'access_recovery_invite_expired'
-                            ? 'The access recovery invite has expired; create a fresh recovery request.'
-                            : 'The access recovery invite changed and could not be updated.',
-            decision: detail,
-            decisionReceipt: supportAccessRecoveryDecisionReceipt({
-                ...decisionReceiptContext,
-                approval: detail,
-                outcome: 'failed',
-                auditEventIds,
-                blockers: [error],
-            }),
-        })
-    }
-    const currentForDecision = mutation.approval
-
-    const updated = {
-        ...currentForDecision,
-        ...mutation.updatedApproval,
-        email: currentForDecision.email,
-        role: currentForDecision.role,
-        organization_name: currentForDecision.organization_name,
-        invite_status: (mutation.invite as OrganizationInviteRow).status || currentForDecision.invite_status,
-    } as AccessRecoveryApprovalRow
-    const detail = toAccessRecoveryDecision(updated)
-    await recordAccessRecoveryDecisionAudit(req, actor.id, updated, decision, decision === 'approved' ? 'success' : 'denied', reason, {
-        decision: detail,
-        supportSessionId: supportSessionId || null,
-        supportContext: cleanContext(req.body?.context),
-    })
-    const auditEventIds = await loadSystemEventIds({
-        requestId: updated.request_id,
-        actionType: `support.organization.access_recovery.${decision === 'approved' ? 'approve' : 'deny'}`,
-        entityId: updated.invite_id,
-    })
-
-    return res.send({
-        decision: detail,
-        decisionReceipt: supportAccessRecoveryDecisionReceipt({
-            ...decisionReceiptContext,
-            approval: detail,
-            outcome: decision === 'approved' ? 'success' : 'denied',
-            auditEventIds,
-            blockers: decision === 'denied' ? ['denied_recovery_approval'] : [],
-        }),
-    })
-}
 
 // Writable-organization checks are shared from adminSupport/actionAccess.
 
@@ -1227,62 +945,6 @@ async function loadOrganizationInvitesByIds(organizationId: string, inviteIds: s
 function auditContextInviteIds(context: Record<string, unknown>) {
     const direct = Array.isArray(context.inviteIds) ? context.inviteIds : []
     return direct.map(id => text(id)).filter(Boolean)
-}
-
-
-async function loadAccessRecoveryApproval(requestId: string, query: typeof run = run, lock = false) {
-    const result = await query(`
-        SELECT
-            approval.*,
-            invite.email,
-            invite.role,
-            invite.status AS invite_status,
-            organization.name AS organization_name
-        FROM admin_access_recovery_approvals approval
-        JOIN organization_invites invite ON invite.id = approval.invite_id
-        LEFT JOIN organizations organization ON organization.id = approval.organization_id
-        WHERE approval.request_id = $1
-        LIMIT 1${lock ? '\n        FOR UPDATE OF approval' : ''}
-    `, [requestId])
-    return result.rows[0] as AccessRecoveryApprovalRow | undefined
-}
-
-async function recordAccessRecoveryDecisionAudit(
-    req: FastifyRequest,
-    actorId: string,
-    row: AccessRecoveryApprovalRow,
-    decision: 'approved' | 'denied',
-    outcome: 'success' | 'denied' | 'failed',
-    reason: string,
-    extra: Record<string, unknown> = {},
-) {
-    await recordSystemEvent(req, {
-        actionType: `support.organization.access_recovery.${decision === 'approved' ? 'approve' : 'deny'}`,
-        actorId,
-        targetType: 'invite',
-        targetId: row.invite_id,
-        organizationId: row.organization_id,
-        entityId: row.invite_id,
-        requestId: row.request_id,
-        severity: outcome === 'success' ? 'warning' : 'notice',
-        outcome,
-        reason,
-        context: {
-            schemaVersion: 'support.access_recovery.decision_audit.v1',
-            requestId: row.request_id,
-            inviteId: row.invite_id,
-            inviteStatus: row.invite_status,
-            requestedBy: row.requested_by,
-            approvalRequired: row.approval_required,
-            status: row.status,
-            approvedBy: row.approved_by || null,
-            approvedAt: row.approved_at || null,
-            deniedBy: row.denied_by || null,
-            deniedAt: row.denied_at || null,
-            outcome,
-            ...extra,
-        },
-    })
 }
 
 
