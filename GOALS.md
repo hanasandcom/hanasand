@@ -463,3 +463,13 @@ that combined invocation as product behavior failure. Both remotes were pushed
 through `5bc5c6170`. At that code checkpoint the global scan was 3,750 files /
 323,711 LOC / 125 over 200. The frontend scan still passes at 2,336 files /
 156,018 LOC with zero over 200; no frontend code changed in these API slices.
+
+At frontend checkpoint `fd3b2c4ca`, eleven public TI payload models compose on
+`PublicActorContext`, and nine selected-plan models also share their selected
+item ID/title contract. This is type-only: creators, serialized fields, page
+data, and UI markup are unchanged. It removes 40 net authored frontend lines.
+The TI safe-output contract test, non-incremental typecheck, scoped ESLint,
+diff-check, and frontend cap pass. The scanner now covers 2,337 files /
+155,978 LOC with zero over 200. The 10,000–30,000-line ambition remains
+unproven; continue only on verified duplication or dead logic that preserves
+all page data and UI behavior.
