@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import GitPlugin from '../src/components/share/gitPlugin'
+import MetadataSidebar from '../src/components/share/metadata/MetadataSidebar'
 import { buildLanguageOverview, formatEta, formatSyncTime } from '../src/components/share/gitPlugin/storage'
 
 describe('share Git plugin presentation data', () => {
@@ -49,6 +50,20 @@ describe('share Git plugin presentation data', () => {
         expect(html).toContain('Changes')
         expect(html).toContain('Commit and push')
         expect(html).toContain('disabled=""')
+    })
+
+    test('renders accessible metadata panel navigation controls', () => {
+        const ignoreUpdate = () => undefined
+        const html = renderToStaticMarkup(createElement(MetadataSidebar, {
+            shareRouteId: 'demo', share: null, activePanel: 'workspace', onTogglePanel: ignoreUpdate,
+            onClose: ignoreUpdate, onOpenBox: ignoreUpdate, editingContent: '', didCopy: false,
+            setDidCopy: ignoreUpdate, setError: ignoreUpdate, setDisplayLineNumbers: ignoreUpdate,
+            syntaxHighlighting: true, setSyntaxHighlighting: ignoreUpdate,
+        }))
+        expect(html).toContain('aria-label="Workspace status"')
+        expect(html).toContain('aria-label="Git plugin"')
+        expect(html).toContain('aria-label="Reload current share workspace"')
+        expect(html).toContain('aria-label="Toggle line numbers"')
     })
 })
 
