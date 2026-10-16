@@ -2,16 +2,18 @@
 
 import { aiClientRequest } from '@/utils/ai/client'
 
+async function requestGitHubJson<T>(path: string, init: RequestInit | undefined, fallbackMessage: string) {
+    const response = await aiClientRequest(path, init)
+    const body = await response.json().catch(() => null) as (T & { error?: string }) | null
+    if (!response.ok) throw new Error(body?.error || fallbackMessage)
+    return body
+}
+
 export async function importGitHubRepository(input: string, existingId?: string, githubToken?: string) {
-    const response = await aiClientRequest('/ai/import-repository', {
+    const body = await requestGitHubJson<Partial<AIImportedRepo>>('/ai/import-repository', {
         method: 'POST',
         body: JSON.stringify({ input, existingId, githubToken: githubToken?.trim() || undefined }),
-    })
-
-    const body = await response.json().catch(() => null)
-    if (!response.ok) {
-        throw new Error(body?.error || 'Failed to import repository.')
-    }
+    }, 'Failed to import repository.')
 
     return {
         ...body,
@@ -35,85 +37,54 @@ export async function importGitHubRepository(input: string, existingId?: string,
 }
 
 export async function attachGitHubCredential(repositoryId: string, githubToken: string) {
-    const response = await aiClientRequest(`/ai/repositories/${encodeURIComponent(repositoryId)}/credentials/github`, {
+    const body = await requestGitHubJson<{ credential?: AIRepositoryCredentialSummary }>(`/ai/repositories/${encodeURIComponent(repositoryId)}/credentials/github`, {
         method: 'PUT',
         body: JSON.stringify({ githubToken }),
-    })
-
-    const body = await response.json().catch(() => null)
-    if (!response.ok) {
-        throw new Error(body?.error || 'Failed to save GitHub credential.')
-    }
+    }, 'Failed to save GitHub credential.')
 
     return body?.credential as AIRepositoryCredentialSummary
 }
 
 export async function persistGitHubRepository(repo: AIImportedRepo) {
-    const response = await aiClientRequest('/ai/repositories', {
+    await requestGitHubJson<Record<string, unknown>>('/ai/repositories', {
         method: 'POST',
         body: JSON.stringify(repo),
-    })
-
-    const body = await response.json().catch(() => null)
-    if (!response.ok) {
-        throw new Error(body?.error || 'Failed to save repository sync state.')
-    }
+    }, 'Failed to save repository sync state.')
 }
 
 export async function removeGitHubCredential(repositoryId: string) {
-    const response = await aiClientRequest(`/ai/repositories/${encodeURIComponent(repositoryId)}/credentials/github`, {
+    await requestGitHubJson<Record<string, unknown>>(`/ai/repositories/${encodeURIComponent(repositoryId)}/credentials/github`, {
         method: 'DELETE',
-    })
-
-    const body = await response.json().catch(() => null)
-    if (!response.ok) {
-        throw new Error(body?.error || 'Failed to remove GitHub credential.')
-    }
+    }, 'Failed to remove GitHub credential.')
 }
 
 export async function getRepositoryGitStatus(repositoryId: string, shareId: string) {
-    const response = await aiClientRequest(`/ai/repositories/${encodeURIComponent(repositoryId)}/git/status?shareId=${encodeURIComponent(shareId)}`)
-    const body = await response.json().catch(() => null)
-    if (!response.ok) {
-        throw new Error(body?.error || 'Failed to load Git status.')
-    }
+    const body = await requestGitHubJson<AIGitStatus>(`/ai/repositories/${encodeURIComponent(repositoryId)}/git/status?shareId=${encodeURIComponent(shareId)}`, undefined, 'Failed to load Git status.')
 
     return body as AIGitStatus
 }
 
 export async function pullRepositoryWorkspace(repositoryId: string) {
-    const response = await aiClientRequest(`/ai/repositories/${encodeURIComponent(repositoryId)}/git/pull`, {
+    const body = await requestGitHubJson<AIGitStatus>(`/ai/repositories/${encodeURIComponent(repositoryId)}/git/pull`, {
         method: 'POST',
-    })
-    const body = await response.json().catch(() => null)
-    if (!response.ok) {
-        throw new Error(body?.error || 'Failed to pull repository.')
-    }
+    }, 'Failed to pull repository.')
 
     return body as AIGitStatus
 }
 
 export async function commitRepositoryWorkspace(repositoryId: string, shareId: string, message: string, paths: string[]) {
-    const response = await aiClientRequest(`/ai/repositories/${encodeURIComponent(repositoryId)}/git/commit`, {
+    const body = await requestGitHubJson<{ ok: true, commit: string, status: AIGitStatus }>(`/ai/repositories/${encodeURIComponent(repositoryId)}/git/commit`, {
         method: 'POST',
         body: JSON.stringify({ shareId, message, paths }),
-    })
-    const body = await response.json().catch(() => null)
-    if (!response.ok) {
-        throw new Error(body?.error || 'Failed to commit staged files.')
-    }
+    }, 'Failed to commit staged files.')
 
     return body as { ok: true, commit: string, status: AIGitStatus }
 }
 
 export async function pushRepositoryWorkspace(repositoryId: string) {
-    const response = await aiClientRequest(`/ai/repositories/${encodeURIComponent(repositoryId)}/git/push`, {
+    const body = await requestGitHubJson<AIGitStatus>(`/ai/repositories/${encodeURIComponent(repositoryId)}/git/push`, {
         method: 'POST',
-    })
-    const body = await response.json().catch(() => null)
-    if (!response.ok) {
-        throw new Error(body?.error || 'Failed to push repository.')
-    }
+    }, 'Failed to push repository.')
 
     return body as AIGitStatus
 }
