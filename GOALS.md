@@ -70,6 +70,14 @@ Recent splits focus on behavior-preserving responsibility boundaries; their
 module overhead has not yet reduced the frontend toward its required
 10,000–30,000-line end state.
 
+After the login, TI dashboard, share-tree, and site-search checkpoints, a fresh
+2026-10-16 inventory found 148,587 hand-maintained frontend lines across 1,998
+candidate `.ts`, `.tsx`, `.js`, `.jsx`, `.mjs`, `.cjs`, `.css`, and `.json`
+files, with 81 still over 200 lines. The inventory excludes dependency/build
+output and the generated search-route artifact. It includes concurrent
+uncommitted refactors and is provisional; the latest splits meet the file cap
+but have not materially reduced total frontend lines.
+
 ## Execution
 
 - Divide work by non-overlapping repository areas and use traditional Norwegian
