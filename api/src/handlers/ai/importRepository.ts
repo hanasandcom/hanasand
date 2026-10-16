@@ -222,6 +222,37 @@ async function resolveDefaultBranch(repositoryUrl: string, gitEnv?: NodeJS.Proce
     return match[1]
 }
 
+async function readRepositoryFiles(cloneDir: string, sourcePath: string, gitEnv: NodeJS.ProcessEnv) {
+    const cloneRoot = await realpath(cloneDir)
+    const { stdout } = await runGit(['-C', cloneDir, 'ls-files', '--', sourcePath || '.'], undefined, gitEnv)
+    const filePaths = stdout
+        .split('\n')
+        .map((entry) => entry.trim())
+        .filter(Boolean)
+        .slice(0, MAX_FILES)
+
+    const files: AIImportedRepoFile[] = []
+    for (const filePath of filePaths) {
+        const fullPath = await realpath(path.join(cloneDir, filePath)).catch(() => null)
+        if (!fullPath || !isWithinDirectory(cloneRoot, fullPath)) {
+            continue
+        }
+
+        const content = await readFile(fullPath, 'utf8').catch(() => null)
+        if (content === null || Buffer.byteLength(content, 'utf8') > MAX_FILE_SIZE) {
+            continue
+        }
+
+        files.push({
+            path: filePath,
+            name: path.basename(filePath),
+            content,
+        })
+    }
+
+    return { files, truncated: filePaths.length >= MAX_FILES }
+}
+
 export function describeImportError(error: unknown) {
     if (!(error instanceof Error)) {
         return { status: 502, message: 'Failed to import repository.' }
@@ -279,36 +310,7 @@ export default async function importRepository(req: FastifyRequest, res: Fastify
         const cloneDir = path.join(tempDir, parsed.repo)
 
         await runGit(['clone', '--depth', '1', '--branch', branch, repositoryUrl, cloneDir], undefined, gitEnv)
-        const cloneRoot = await realpath(cloneDir)
-        const pathspec = parsed.sourcePath || '.'
-        const { stdout } = await runGit(['-C', cloneDir, 'ls-files', '--', pathspec], undefined, gitEnv)
-        const filePaths = stdout
-            .split('\n')
-            .map((entry) => entry.trim())
-            .filter(Boolean)
-            .slice(0, MAX_FILES)
-
-        const files: AIImportedRepoFile[] = []
-        for (const filePath of filePaths) {
-            const fullPath = await realpath(path.join(cloneDir, filePath)).catch(() => null)
-            if (!fullPath || !isWithinDirectory(cloneRoot, fullPath)) {
-                continue
-            }
-
-            const content = await readFile(fullPath, 'utf8').catch(() => null)
-            if (content === null) {
-                continue
-            }
-            if (Buffer.byteLength(content, 'utf8') > MAX_FILE_SIZE) {
-                continue
-            }
-
-            files.push({
-                path: filePath,
-                name: path.basename(filePath),
-                content,
-            })
-        }
+        const { files, truncated } = await readRepositoryFiles(cloneDir, parsed.sourcePath, gitEnv)
 
         const { stackType, reason: stackReason } = detectRepositoryStack(files)
         const stackSupported = stackType !== 'unknown'
@@ -360,7 +362,7 @@ export default async function importRepository(req: FastifyRequest, res: Fastify
                 github_token_last_validated_at: usedToken ? new Date().toISOString() : savedCredential?.summary.lastValidatedAt || null,
             }),
             files,
-            truncated: filePaths.length >= MAX_FILES,
+            truncated,
             importedAt: new Date().toISOString(),
         } satisfies AIImportedRepo)
     } catch (error) {

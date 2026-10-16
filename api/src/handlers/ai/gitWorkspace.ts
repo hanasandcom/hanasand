@@ -112,7 +112,6 @@ function assertSafeRelativePath(filePath: string) {
 
 async function overlayShareFiles(workspacePath: string, files: ShareFileRow[]) {
     for (const file of files) {
-        assertSafeRelativePath(file.file_path)
         const fullPath = path.join(workspacePath, file.file_path)
         await mkdir(path.dirname(fullPath), { recursive: true })
         await writeFile(fullPath, file.content || '', 'utf8')
@@ -126,6 +125,7 @@ async function loadWorkspace(repositoryId: string, shareId: string, userId: stri
     }
 
     const files = await getShareFiles(shareId, userId)
+    files.forEach((file) => assertSafeRelativePath(file.file_path))
     const { workspacePath, gitEnv } = await prepareWorkspace(repository, userId)
     await overlayShareFiles(workspacePath, files)
     return { repository, files, workspacePath, gitEnv }

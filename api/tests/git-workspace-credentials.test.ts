@@ -7,6 +7,8 @@ const ownerId = `git-workspace-test-${crypto.randomUUID()}`
 const repositoryId = crypto.randomUUID()
 const token = 'private-workspace-token'
 let observedGitAuth: { args: string[], askPassPath: string, script: string, mode: number, token: string | undefined, prompt: string | undefined } | null = null
+let shareFiles: Array<{ id: string, name: string, type: string, content: string | null, file_path: string }> = []
+const gitCalls: string[][] = []
 
 mock.module('#db', () => ({
     default: async (sql: string) => {
@@ -21,7 +23,7 @@ mock.module('#db', () => ({
                 source_path: '',
             }] }
         }
-        if (sql.includes('WITH RECURSIVE tree AS')) return { rows: [] }
+        if (sql.includes('WITH RECURSIVE tree AS')) return { rows: shareFiles }
         throw new Error(`Unexpected database query: ${sql}`)
     },
 }))
@@ -67,7 +69,39 @@ test('Git workspace passes its private ask-pass path and token to Git without wr
     }
 })
 
+test('Git workspace validates every share path before cloning or overlaying files', async () => {
+    const workspaceParent = path.join(os.tmpdir(), 'hanasand-git-workspaces', ownerId)
+    const workspacePath = path.join(workspaceParent, repositoryId)
+    const safeFilePath = path.join(workspacePath, 'README.md')
+    await rm(workspaceParent, { recursive: true, force: true })
+    shareFiles = [
+        { id: 'file-1', name: 'README.md', type: 'file', content: 'partial overlay', file_path: 'README.md' },
+        { id: 'file-2', name: 'escape.txt', type: 'file', content: 'unsafe', file_path: '../escape.txt' },
+    ]
+    gitCalls.length = 0
+
+    try {
+        const reply = {
+            statusCode: 200,
+            status(code: number) { this.statusCode = code; return this },
+            send(body: unknown) { return { statusCode: this.statusCode, body } },
+        }
+        const response = await getGitWorkspaceStatus(
+            { params: { id: repositoryId }, query: { shareId: 'share-1' } } as never,
+            reply as never,
+        )
+
+        expect(response).toEqual({ statusCode: 400, body: { error: 'Unsafe file path: ../escape.txt' } })
+        expect(gitCalls).toEqual([])
+        expect(await pathExists(safeFilePath)).toBe(false)
+    } finally {
+        shareFiles = []
+        await rm(workspaceParent, { recursive: true, force: true })
+    }
+})
+
 async function runFakeGit(args: string[], _cwd?: string, env?: NodeJS.ProcessEnv) {
+    gitCalls.push(args)
     if (args[0] === 'clone') {
         const workspacePath = args.at(-1)
         if (!workspacePath) throw new Error('Git clone workspace path is missing.')
@@ -93,4 +127,8 @@ async function runFakeGit(args: string[], _cwd?: string, env?: NodeJS.ProcessEnv
         return { stdout: args.includes('--porcelain') ? '' : '## main' }
     }
     return { stdout: '' }
+}
+
+async function pathExists(filePath: string) {
+    return stat(filePath).then(() => true).catch(() => false)
 }

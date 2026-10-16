@@ -1,7 +1,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import run from '#db'
 import { requireAiUser } from './shared.ts'
-import { toReleaseBase, type ReleaseRow } from './releaseShared.ts'
+import { toRelease, type ReleaseRow } from './releaseShared.ts'
 import { recordAiUsageEvent } from '#utils/ai/usage.ts'
 import { buildAiPreviewUrl } from '#utils/ai/preview.ts'
 
@@ -76,11 +76,11 @@ export async function getAiReleaseSupportBundle(req: FastifyRequest, res: Fastif
         return res.status(404).send({ error: 'Release not found.' })
     }
 
-    const events = row.events || []
-    const requestIds = releaseRequestIds(events)
-    const trust = releaseTrust(row, requestIds)
+    const release = toRelease(row)
+    const trust = release.trust
+    const requestIds = trust.supportBundle.requestIds
     return res.send({
-        release: toRelease(row),
+        release,
         bundle: {
             id: `support_${row.id}`,
             generatedAt: new Date().toISOString(),
@@ -101,7 +101,7 @@ export async function getAiReleaseSupportBundle(req: FastifyRequest, res: Fastif
             exports: trust.exports,
             noLockIn: trust.noLockIn,
             sla: trust.sla,
-            events: events.slice(-30),
+            events: (row.events || []).slice(-30),
             failureReason: row.failure_reason || row.notes || null,
         },
     })
@@ -167,77 +167,4 @@ export async function postAiRollback(req: FastifyRequest, res: FastifyReply) {
     })
 
     return res.send({ release: toRelease(release) })
-}
-
-export function toRelease(row: ReleaseRow): AIRelease {
-    return {
-        ...toReleaseBase(row),
-        trust: releaseTrust(row),
-    }
-}
-
-function releaseTrust(
-    row: Pick<ReleaseRow, 'id' | 'conversation_id' | 'deployment_id' | 'vm_name' | 'stack_type' | 'access_policy' | 'status' | 'preview_url' | 'created_at' | 'updated_at' | 'notes'> & Partial<ReleaseBundleRow>,
-    requestIds = releaseRequestIds(row.events || []),
-): AIReleaseTrust {
-    const previewUrl = row.deployment_id ? buildAiPreviewUrl(row.deployment_id) : row.preview_url
-    const bundleUrl = `/api/ai/releases/${row.id}/support-bundle`
-
-    return {
-        versionHistory: {
-            releaseId: row.id,
-            status: row.status,
-            createdAt: row.created_at,
-            updatedAt: row.updated_at,
-            summary: row.status === 'current'
-                ? 'This is the current release record for the AI-built project.'
-                : `This release is kept as a recoverable ${row.status.replaceAll('_', ' ')} history point.`,
-        },
-        recovery: {
-            rollbackAvailable: row.status !== 'current' && row.status !== 'rollback_target',
-            rollbackLabel: row.status === 'rollback_target' ? 'Rollback target selected' : 'Rollback to this release',
-            backupBeforeRiskyChanges: true,
-            backupPolicy: 'Before destructive or production-impacting AI changes, create a checkpoint or release record so the project can be restored.',
-        },
-        exports: {
-            zipAvailable: true,
-            githubAvailable: true,
-            zipLabel: 'Export project as zip from the workspace files.',
-            githubLabel: 'Push or mirror the project to GitHub from the repository workspace.',
-        },
-        launchReport: [
-            `Release ${row.id} on ${row.vm_name}.`,
-            `Stack: ${row.stack_type.replaceAll('_', ' ')}.`,
-            `Access: ${row.access_policy.replaceAll('_', ' ')}.`,
-            previewUrl ? `Preview: ${previewUrl}.` : 'Preview URL was not recorded.',
-            row.notes ? `Notes: ${row.notes}` : 'No release notes recorded.',
-        ],
-        noLockIn: {
-            headline: 'Your code, your domain, your infrastructure.',
-            bullets: [
-                'Source stays exportable as files or Git history.',
-                'Deployments are recorded against your VM/domain choices.',
-                'Rollback and support evidence stay attached to release history.',
-            ],
-        },
-        supportBundle: {
-            available: true,
-            url: bundleUrl,
-            includes: ['release metadata', 'deployment events', 'failure reason', 'request IDs', 'launch report', 'rollback status'],
-            requestIds,
-        },
-        sla: [
-            { tier: 'Starter', promise: 'Async queue, basic deploy history, and recoverable release records.' },
-            { tier: 'Pro', promise: 'Priority verification, rollback target selection, custom domain readiness, and support bundles.' },
-            { tier: 'Agency', promise: 'Client reports, white-label deploy evidence, and multi-workspace history.' },
-            { tier: 'Business', promise: 'Audit logs, approvals, scoped secrets, release evidence, and SSO later.' },
-        ],
-    }
-}
-
-function releaseRequestIds(events: AIDeploymentEvent[]) {
-    return [...new Set(events.flatMap((event) => {
-        const text = `${event.message || ''} ${event.stage || ''}`
-        return [...text.matchAll(/\b(?:request[_ -]?id|x-request-id)[:= ]+([a-z0-9_.:-]{6,})/gi)].map((match) => match[1])
-    }))].slice(0, 12)
 }
