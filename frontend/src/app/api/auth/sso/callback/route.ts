@@ -2,6 +2,7 @@ import { clientHeaders } from '@/utils/auth/clientHeaders'
 import { NextRequest, NextResponse } from 'next/server'
 import { identityApiUrl } from '@/utils/auth/authApiUrl'
 import { setAuthCookies } from '../../_authCookies'
+import { safeRedirectPath } from '@/utils/auth/safeRedirectPath'
 
 export async function GET(req: NextRequest) {
     const code = req.nextUrl.searchParams.get('code')
@@ -48,10 +49,4 @@ function publicUrl(req: NextRequest, path: string) {
 function isInternalHost(host: string) {
     const hostname = host.split(':')[0]
     return hostname === '0.0.0.0' || hostname === 'api' || hostname === 'frontend'
-}
-
-function safeRedirectPath(path: unknown) {
-    const value = String(path || '')
-    if (!value || !value.startsWith('/') || value.startsWith('//')) return '/dashboard'
-    return value
 }

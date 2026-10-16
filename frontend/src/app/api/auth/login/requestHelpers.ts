@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { safeRedirectPath } from '@/utils/auth/safeRedirectPath'
+
+export { safeRedirectPath }
 
 export async function parseAuthBody(req: NextRequest) {
     const contentType = req.headers.get('content-type') || ''
@@ -36,9 +39,4 @@ export function authRedirect(redirectPath: string, error: string) {
 
 export function redirectTo(path: string) {
     return new NextResponse(null, { status: 303, headers: { Location: path } })
-}
-
-export function safeRedirectPath(path: string | null) {
-    if (!path || !path.startsWith('/') || path.startsWith('//')) return '/dashboard'
-    return path
 }

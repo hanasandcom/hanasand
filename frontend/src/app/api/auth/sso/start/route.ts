@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { identityApiUrl } from '@/utils/auth/authApiUrl'
+import { safeRedirectPath } from '@/utils/auth/safeRedirectPath'
 
 export async function GET(req: NextRequest) {
     const redirectPath = safeRedirectPath(req.nextUrl.searchParams.get('redirectPath') || req.nextUrl.searchParams.get('path'))
@@ -17,11 +18,6 @@ export async function GET(req: NextRequest) {
 
     const data = await upstream.json().catch(() => null)
     return loginRedirect(req, data?.error || 'SSO login is unavailable.')
-}
-
-function safeRedirectPath(path: string | null) {
-    if (!path || !path.startsWith('/') || path.startsWith('//')) return '/dashboard'
-    return path
 }
 
 function loginRedirect(req: NextRequest, error: string) {

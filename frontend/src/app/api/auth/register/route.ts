@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { reservedUsernames } from '@/utils/auth/reservedUsernames'
 import { setAuthCookies } from '../_authCookies'
 import { authApiUrl, identityApiUrl } from '@/utils/auth/authApiUrl'
+import { safeRedirectPath } from '@/utils/auth/safeRedirectPath'
 
 export async function POST(req: NextRequest) {
     const { body, redirectPath, wantsRedirect } = await parseAuthBody(req)
@@ -137,12 +138,4 @@ function redirectTo(path: string) {
         status: 303,
         headers: { Location: path },
     })
-}
-
-function safeRedirectPath(path: string | null) {
-    if (!path || !path.startsWith('/') || path.startsWith('//')) {
-        return '/dashboard'
-    }
-
-    return path
 }
