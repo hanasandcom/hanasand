@@ -681,7 +681,7 @@ function supportImpersonationGuardrailAuditReplay(filters: Record<string, unknow
             supportSessionId: supportSessionId || null,
             durationMinutes: context.durationMinutes ?? null,
             expiresAt: context.expiresAt || null,
-            scope: Array.isArray(context.scope) ? context.scope.map(item => cleanText(item)).filter(Boolean) : [],
+            scope: normalizeAuditScope(context.scope),
             blockerCode: context.blockerCode || null,
             noSilentImpersonation: context.noSilentImpersonation === true,
             redacted: true,
@@ -996,7 +996,7 @@ function impersonationCaseReviewPacket(filters: Record<string, unknown>, timelin
             supportSessionId,
             blockerCode: cleanText(context.blockerCode || context.errorCode),
             durationMinutes: context.durationMinutes ?? null,
-            scope: Array.isArray(context.scope) ? context.scope.map(item => cleanText(item)).filter(Boolean) : [],
+            scope: normalizeAuditScope(context.scope),
             createdAt: row.created_at || null,
         }
     })
@@ -1117,6 +1117,8 @@ function impersonationCaseReviewPacket(filters: Record<string, unknown>, timelin
     }
 }
 
+const normalizeAuditScope = (value: unknown) => Array.isArray(value) ? value.map(item => cleanText(item)).filter(Boolean) : []
+
 function impersonationLifecycleReceipt(filters: Record<string, unknown>, timeline: Array<Record<string, any>>) {
     const { sessionIds, startEvents, stopEvents, stoppedSessionIds, activeSessionIds, missingReasonEventIds, missingDurationEventIds, expiredSessionIds } = impersonationLifecycleState(timeline)
     return {
@@ -1234,15 +1236,9 @@ function normalizeImpersonationScope(value: unknown) {
     if (!raw.length) {
         throw new Error('Impersonation scope is required.')
     }
-    const unsupported = raw
-        .map(item => typeof item === 'string' ? item.trim().toLowerCase() : '')
-        .filter(item => !allowed.has(item))
-    if (unsupported.length) {
-        throw new Error(`Unsupported impersonation scope: ${unsupported[0] || 'blank'}.`)
-    }
-    const scope = raw
-        .map(item => typeof item === 'string' ? item.trim().toLowerCase() : '')
-        .filter(item => allowed.has(item))
+    const scope = raw.map(item => typeof item === 'string' ? item.trim().toLowerCase() : '')
+    const unsupported = scope.find(item => !allowed.has(item))
+    if (unsupported !== undefined) throw new Error(`Unsupported impersonation scope: ${unsupported || 'blank'}.`)
     return Array.from(new Set(scope))
 }
 

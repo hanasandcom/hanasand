@@ -111,9 +111,9 @@ test('timeline receipts agree on active, stopped, expired, and incomplete lifecy
 
 test('guardrail replay distinguishes support sessions from impersonation session IDs', async () => {
     guardrailRows = [
-        { id: 11, event_type: 'impersonation.start', outcome: 'success', subject_id: 'impersonation-11', context: { sessionId: 'impersonation-11' } },
-        { id: 12, event_type: 'impersonation.start', outcome: 'success', subject_id: 'support_session_tagged', context: { sessionId: 'impersonation-12' } },
-        { id: 13, event_type: 'impersonation.start', outcome: 'success', subject_id: 'impersonation-13', context: { sessionId: 'impersonation-13', supportSessionId: 'support_session_explicit' } },
+        { id: 11, event_type: 'impersonation.start', outcome: 'success', subject_id: 'impersonation-11', context: { sessionId: 'impersonation-11', scope: [' read_profile ', '', null, 'read_org'] } },
+        { id: 12, event_type: 'impersonation.start', outcome: 'success', subject_id: 'support_session_tagged', context: { sessionId: 'impersonation-12', scope: ['support_debug'] } },
+        { id: 13, event_type: 'impersonation.start', outcome: 'success', subject_id: 'impersonation-13', context: { sessionId: 'impersonation-13', supportSessionId: 'support_session_explicit', scope: ['read_profile'] } },
     ]
 
     const response = await app.inject('/impersonation/events')
@@ -126,5 +126,11 @@ test('guardrail replay distinguishes support sessions from impersonation session
     expect(timeline.guardrailReplay.supportSessionIds).toEqual(['support_session_tagged', 'support_session_explicit'])
     expect(timeline.caseReview.guardrailEvents.map((event: Record<string, any>) => event.supportSessionId)).toEqual([
         '', 'support_session_tagged', 'support_session_explicit',
+    ])
+    expect(timeline.guardrailReplay.events.map((event: Record<string, any>) => event.scope)).toEqual([
+        ['read_profile', 'read_org'], ['support_debug'], ['read_profile'],
+    ])
+    expect(timeline.caseReview.guardrailEvents.map((event: Record<string, any>) => event.scope)).toEqual([
+        ['read_profile', 'read_org'], ['support_debug'], ['read_profile'],
     ])
 })

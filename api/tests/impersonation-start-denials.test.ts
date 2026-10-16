@@ -127,6 +127,27 @@ test('invalid start request without a session omits it from the receipt and corr
     expectDeniedEventLookup('invalid-start-no-session', 'target-user')
 })
 
+test('unsupported impersonation scope reports the first normalized invalid item', async () => {
+    const response = await app.inject({
+        method: 'POST',
+        url: '/impersonation/start',
+        headers: { 'x-request-id': 'invalid-scope-request' },
+        payload: {
+            targetId: 'target-user',
+            reason: 'Customer requested an access investigation.',
+            durationMinutes: 30,
+            scope: [' read_profile ', null, 'read_org'],
+        },
+    })
+
+    expect(response.statusCode).toBe(400)
+    expect(response.json()).toMatchObject({
+        error: 'Unsupported impersonation scope: blank.',
+        detail: { code: 'invalid_impersonation_request', outcome: 'denied' },
+    })
+    expect(systemEvents[0].context).toMatchObject({ blockerCode: 'invalid_impersonation_request', scope: [] })
+})
+
 test('support-session scope denial returns the same receipt with its scoped session identity', async () => {
     supportSession = {
         status: 'active',
