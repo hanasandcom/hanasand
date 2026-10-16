@@ -130,9 +130,18 @@ mock.module('#db', () => ({
         }
         if (sql.includes('FROM dwm_webhook_audit_events') && sql.includes('action = \'receiver.accepted\'')) {
             return {
-                rows: receiverAudits.filter(row => params.length === 5
-                    ? row.org_id === params[0]
-                    : row.id === params[0] && row.org_id === params[1] && row.destination_id === params[2])
+                rows: receiverAudits.filter(row => {
+                    if (params.length !== 5) return row.id === params[0] && row.org_id === params[1] && row.destination_id === params[2]
+                    if (row.org_id !== params[0]) return false
+                    if (sql.includes('destination_id = $2') && params[1] !== null && row.destination_id !== params[1]) return false
+                    if (sql.includes('delivery_id = $3') && params[2] !== null
+                        && row.delivery_id !== params[2] && row.metadata.deliveryId !== params[2]) return false
+                    if (sql.includes('metadata->>\'reportCaseId\' = $4') && params[3] !== null
+                        && row.metadata.reportCaseId !== params[3]) return false
+                    if (sql.includes('metadata->>\'reportExportChecksum\' = $5') && params[4] !== null
+                        && row.metadata.reportExportChecksum !== params[4]) return false
+                    return true
+                })
                     .map(row => ({
                         ...row,
                         receiver_destination_status: receiverDestinationStatus,
@@ -689,6 +698,13 @@ test('persists one deterministic receiver receipt and builds report filters befo
             error: 'Receiver destination is not active in the delivered organization scope.',
         })
         expect(receiverAudits).toHaveLength(1)
+        const matchingReceipt = receiverAudits[0]
+        receiverAudits.push(
+            { ...matchingReceipt, id: 'receipt_other_destination', destination_id: 'destination_2' },
+            { ...matchingReceipt, id: 'receipt_other_delivery', metadata: { ...matchingReceipt.metadata, deliveryId: 'delivery_2' } },
+            { ...matchingReceipt, id: 'receipt_other_case', metadata: { ...matchingReceipt.metadata, reportCaseId: 'case_2' } },
+            { ...matchingReceipt, id: 'receipt_other_checksum', metadata: { ...matchingReceipt.metadata, reportExportChecksum: 'checksum_2' } },
+        )
 
         const receipts = await listDwmWebhookReceiverReceipts('org_1', {
             destinationId: 'destination_1',
@@ -697,6 +713,7 @@ test('persists one deterministic receiver receipt and builds report filters befo
             reportExportChecksum: payload.report.exportChecksum,
         })
         expect(receipts).toHaveLength(1)
+        expect(receipts.map(receipt => receipt.id)).toEqual([matchingReceipt.id])
         const query = queries.at(-1)
         expect(query?.params).toEqual([
             'org_1',
