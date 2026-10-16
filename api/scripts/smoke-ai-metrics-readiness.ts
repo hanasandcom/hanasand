@@ -116,6 +116,12 @@ const designGate = readiness.items.find((item) => item.id === 'design_quality')
 assert.equal(designGate?.status, 'operational')
 assert.match(designGate?.evidence.join(' ') || '', /Design QA worker fetches pages/)
 
+const economicsGate = readiness.items.find((item) => item.id === 'verified_outcome_economics')
+assert.match(
+    economicsGate?.evidence.join(' ') || '',
+    /Key metric is verified useful project progress per minute per NOK, currently 0\.50 NOK per successful verified build or deploy check\./,
+)
+
 const renderedCopy = JSON.stringify(readiness)
 assert.doesNotMatch(renderedCopy, /Launch blockers|needs proof|needs work|The product is on the right path/i)
 assert.ok(readiness.items.every((item) => item.owner && item.control && item.lastAttempt && item.action))

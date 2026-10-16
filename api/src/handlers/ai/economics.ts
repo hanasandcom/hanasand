@@ -3,6 +3,8 @@ import run from '#db'
 import { readModelState } from './getModels.ts'
 import { requireAiUser } from './shared.ts'
 
+const KEY_METRIC_LABEL = 'verified useful project progress per minute per NOK'
+
 type UsageEconomicsRow = {
     bucket: string
     event_count: string | number
@@ -350,7 +352,7 @@ export async function getAiEconomics(req: FastifyRequest, res: FastifyReply) {
 
     return res.send({
         windowDays: days,
-        keyMetric: 'verified useful project progress per minute per NOK',
+        keyMetric: KEY_METRIC_LABEL,
         summary: {
             eventCount,
             tokenUnits: numberValue(summary.token_units),
@@ -514,7 +516,7 @@ export function buildCommercialReadiness({ reliability, deployment, release, des
             label: 'Cost and queue metrics tied to verified outcomes',
             status: readinessStatus(hasMeasuredEconomics && (hasQueueTelemetry || hasVerificationSamples), hasMeasuredEconomics || hasQueueTelemetry),
             evidence: [
-                `Key metric is verified useful project progress per minute per NOK, currently ${formatNumber(reliability.costPerSuccessfulVerifiedBuildNok)} NOK per successful verified build or deploy check.`,
+                `Key metric is ${KEY_METRIC_LABEL}, currently ${formatNumber(reliability.costPerSuccessfulVerifiedBuildNok)} NOK per successful verified build or deploy check.`,
                 hasMeasuredEconomics
                     ? `${verifiedUnits} verified units, ${productiveMinutes} productive minutes, and ${formatNumber(costNok)} NOK estimated cost in this window.`
                     : 'No verified cost events are recorded for this owner in the selected usage window.',
