@@ -1,7 +1,10 @@
 import { normalizeOrganizationRole, roleCanManageOrganization, roleCanEditOrganization, type OrganizationRole } from './organizationRoles.ts'
+import { allowedOrganizationVisibilityRoles, organizationVisibilityDecision, type OrganizationAlertVisibilityPolicy, type OrganizationVisibilityDecision, type OrganizationVisibilityDenyReason } from './organizationVisibility.ts'
 import { buildWebhookDestinationReadinessBridge } from './webhookDestinationReadinessBridge.ts'
 import { buildOrganizationSupportHistoryBridge } from './organizationSupportHistoryBridge.ts'
 export { normalizeOrganizationRole, roleCanManageOrganization, roleCanEditOrganization, type OrganizationRole } from './organizationRoles.ts'
+export { organizationVisibilityDecision } from './organizationVisibility.ts'
+export type { OrganizationAlertVisibilityPolicy, OrganizationVisibilityDecision, OrganizationVisibilityDecisionInput, OrganizationVisibilityDenyReason } from './organizationVisibility.ts'
 
 function organizationTenantIdentity<TOrganizationId, TTenantId>(organizationId: TOrganizationId, tenantId: TTenantId) {
     return { organizationId, tenantId }
@@ -21,7 +24,6 @@ export type WatchlistKind = 'company' | 'domain' | 'vendor' | 'actor' | 'keyword
 export type OrganizationWatchlistStatus = 'active' | 'paused' | 'archived'
 export type OrganizationWatchlistAction = 'pause' | 'resume' | 'archive' | 'restore'
 export type OrganizationDefaultWebhookPolicy = 'active_destinations' | 'manual_selection' | 'disabled'
-export type OrganizationAlertVisibilityPolicy = 'members' | 'admins' | 'owners'
 export type OrganizationLifecycleStatus = 'active' | 'archived' | 'deleted'
 export type OrganizationSharedWatchlistAuditEventAction =
     | 'organization_invites_created'
@@ -2049,22 +2051,6 @@ function organizationBridgeContextFields(context: OrganizationBridgeContext): Or
         sharedWatchlistCount: context.sharedWatchlistCount,
         readinessStatus: context.readinessStatus,
     }
-}
-
-export type OrganizationVisibilityDenyReason = 'not_member' | 'member_removed' | 'member_deactivated' | 'role_not_allowed'
-
-export type OrganizationVisibilityDecisionInput = {
-    role?: OrganizationRole | null
-    status?: OrganizationMemberRow['status'] | 'inactive' | null
-    userActive?: boolean | null
-    alertVisibilityPolicy?: OrganizationAlertVisibilityPolicy | null
-}
-
-export type OrganizationVisibilityDecision = {
-    allowed: boolean
-    reason: OrganizationVisibilityDenyReason | null
-    alertVisibilityPolicy: OrganizationAlertVisibilityPolicy
-    allowedRoles: OrganizationRole[]
 }
 
 export type OrganizationLifecycleReadinessBlockerCode =
@@ -4756,28 +4742,6 @@ export function organizationWatchlistAlertTermsExportDenial(input: {
         },
         proofCommand: 'cd api && bun scripts/smoke-organizations-api.ts',
     }
-}
-
-export function organizationVisibilityDecision(input: OrganizationVisibilityDecisionInput): OrganizationVisibilityDecision {
-    const alertVisibilityPolicy = input.alertVisibilityPolicy ?? 'members'
-    const allowedRoles = allowedOrganizationVisibilityRoles(alertVisibilityPolicy)
-    if (!input.role || !input.status) {
-        return { allowed: false, reason: 'not_member', alertVisibilityPolicy, allowedRoles }
-    }
-
-    if (input.userActive === false) {
-        return { allowed: false, reason: 'member_deactivated', alertVisibilityPolicy, allowedRoles }
-    }
-
-    if (input.status !== 'active') {
-        return { allowed: false, reason: input.status === 'removed' ? 'member_removed' : 'member_deactivated', alertVisibilityPolicy, allowedRoles }
-    }
-
-    if (!allowedRoles.includes(input.role)) {
-        return { allowed: false, reason: 'role_not_allowed', alertVisibilityPolicy, allowedRoles }
-    }
-
-    return { allowed: true, reason: null, alertVisibilityPolicy, allowedRoles }
 }
 
 export function organizationWatchlistOwnerContext(input: {
@@ -7830,12 +7794,6 @@ function normalizeInviteRole(value: unknown): OrganizationRole {
     }
 
     return role as OrganizationRole
-}
-
-function allowedOrganizationVisibilityRoles(policy: OrganizationAlertVisibilityPolicy): OrganizationRole[] {
-    if (policy === 'owners') return ['owner']
-    if (policy === 'admins') return ['owner', 'admin']
-    return ['owner', 'admin', 'editor', 'reader', 'member', 'viewer']
 }
 
 function normalizeSettingsName(value: unknown) {
