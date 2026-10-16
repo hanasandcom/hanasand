@@ -59,6 +59,15 @@ test('a full collector batch uses one durable transaction', async () => {
     expect(operations).toEqual(['begin', 'commit'])
 })
 
+test('rejects a batch over the limit before starting a transaction', async () => {
+    const events = Array.from({ length: 201 }, () => payload)
+    const response = await send('Bearer dedicated-log-token', { events })
+    expect(response.statusCode).toBe(400)
+    expect(response.json()).toEqual({ error: 'Send 1–200 events.' })
+    expect(operations).toEqual([])
+    expect(stored).toHaveLength(0)
+})
+
 test('commit failure rolls back the batch and never acknowledges it', async () => {
     failCommit = true
     expect((await send('Bearer dedicated-log-token', { events: [payload, payload] })).statusCode).toBe(500)
