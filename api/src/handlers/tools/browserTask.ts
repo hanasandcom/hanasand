@@ -1,7 +1,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
-import { auditAgentAction, evaluateAgentActionPolicy } from '#utils/ai/actionPolicy.ts'
 import { analyzeBrowserPage, emptyBrowserPageAnalysis } from './browserTaskAnalysis.ts'
+import { applyAgentActionPolicy } from './agentActionPolicy.ts'
 
 export default async function browserTaskTool(req: FastifyRequest, res: FastifyReply) {
     res.header('Cache-Control', 'no-store, no-cache, max-age=0, must-revalidate')
@@ -33,26 +33,14 @@ export default async function browserTaskTool(req: FastifyRequest, res: FastifyR
         return res.status(400).send({ error: 'Only http and https browser tasks are supported.' })
     }
 
-    const policyDecision = await evaluateAgentActionPolicy({
+    const policyResponse = await applyAgentActionPolicy(req, res, {
         action: 'browser_task',
         actorId,
         method: 'GET',
         target: target.toString(),
         metadata: { host: target.hostname },
     })
-    await auditAgentAction(req, {
-        action: 'browser_task',
-        actorId,
-        method: 'GET',
-        target: target.toString(),
-        metadata: { host: target.hostname },
-    }, policyDecision)
-    if (policyDecision.status === 'blocked') {
-        return res.status(403).send({ error: policyDecision.reason, decision: policyDecision })
-    }
-    if (policyDecision.status === 'checkpoint_required') {
-        return res.status(409).send({ error: policyDecision.reason, decision: policyDecision })
-    }
+    if (policyResponse) return policyResponse
 
     const started = performance.now()
     const controller = new AbortController()

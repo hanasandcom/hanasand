@@ -1,6 +1,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
-import { auditAgentAction, evaluateAgentActionPolicy } from '#utils/ai/actionPolicy.ts'
+import { applyAgentActionPolicy } from './agentActionPolicy.ts'
 
 const ALLOWED_METHODS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'])
 const HEADER_NAME_PATTERN = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/
@@ -39,7 +39,7 @@ export default async function httpRequestTool(req: FastifyRequest, res: FastifyR
     }
 
     const approval = parseApproval(req.body)
-    const policyDecision = await evaluateAgentActionPolicy({
+    const policyResponse = await applyAgentActionPolicy(req, res, {
         action: 'http_request',
         actorId,
         method: normalizedMethod,
@@ -49,22 +49,7 @@ export default async function httpRequestTool(req: FastifyRequest, res: FastifyR
         approvalId: approval.approvalId,
         metadata: { host: target.hostname },
     })
-    await auditAgentAction(req, {
-        action: 'http_request',
-        actorId,
-        method: normalizedMethod,
-        target: target.toString(),
-        content: body,
-        approved: approval.approved,
-        approvalId: approval.approvalId,
-        metadata: { host: target.hostname },
-    }, policyDecision)
-    if (policyDecision.status === 'blocked') {
-        return res.status(403).send({ error: policyDecision.reason, decision: policyDecision })
-    }
-    if (policyDecision.status === 'checkpoint_required') {
-        return res.status(409).send({ error: policyDecision.reason, decision: policyDecision })
-    }
+    if (policyResponse) return policyResponse
 
     const started = performance.now()
     const controller = new AbortController()
