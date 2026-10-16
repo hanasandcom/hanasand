@@ -707,3 +707,14 @@ API 100,000-line reduction targets remain unmet. A read-only audit also found
 minor duplicate presentation branches in `RecentScans`, but its required
 rendering test would outweigh the small production LOC savings, so it remains
 an unimplemented optional cleanup.
+
+The next frontend cleanup removed nine independently reviewed orphan files
+(323 production LOC): an unused `404.tsx` that is not an App Router page, two
+unreferenced helper/component pairs, and four unused components. The live
+not-found, greeting, and mobile-navigation components remain. The default test
+runner now registers two previously omitted readiness suites; their three
+contract cases pass and test active `buildProductReadiness` usage. The full
+frontend suite, typecheck, focused ESLint, line-cap scan, diff check, and Next
+production build pass, generating all 116 routes. The inventory is now 2,298
+files / 153,441 LOC / zero over 200. The 10,000–30,000 LOC frontend target and
+100,000-line API reduction target remain unmet.
