@@ -1,8 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import Link from 'next/link'
-import { ArrowLeft, ArrowRight, Braces, ChevronDown, Loader2, SearchCode, X } from 'lucide-react'
+import { ArrowLeft, Braces, ChevronDown, Loader2, SearchCode, X } from 'lucide-react'
 import {
     WorkspaceFileMatches,
     extractClickedToken,
@@ -13,6 +12,7 @@ import {
     type IndexedWorkspaceFile,
     type WorkspaceMatch,
 } from './workspaceSearchUtils'
+import { WorkspaceMatchLink } from './workspaceSearch/WorkspaceMatchLink'
 
 type ReferencePanelProps = {
     tree: Tree | null
@@ -163,21 +163,7 @@ function ReferenceGroup({ title, matches, accent = false }: { title: string; mat
                 <span className='rounded-full bg-ui-panel px-2 py-0.5 text-[11px] text-ui-muted'>{matches.length}</span>
             </div>
             <div className='py-1'>
-                {matches.map(match => (
-                    <Link
-                        key={match.id}
-                        prefetch={false}
-                        href={`/s/${match.file.id}?line=${match.line}`}
-                        className='group flex gap-2 px-3 py-2 text-xs transition hover:bg-ui-primary/10'
-                    >
-                        <span className='w-8 shrink-0 text-right font-mono text-ui-muted'>{match.line}</span>
-                        <span className='min-w-0 flex-1'>
-                            {match.functionName ? <span className='mb-1 block text-[10px] uppercase tracking-[0.16em] text-ui-primary'>{match.functionName}</span> : null}
-                            <span className='block truncate font-mono text-ui-muted'>{match.preview}</span>
-                        </span>
-                        <ArrowRight className='mt-0.5 h-3.5 w-3.5 shrink-0 text-ui-muted transition group-hover:text-ui-primary' />
-                    </Link>
-                ))}
+                {matches.map(match => <WorkspaceMatchLink key={match.id} match={match} />)}
             </div>
         </article>
     )

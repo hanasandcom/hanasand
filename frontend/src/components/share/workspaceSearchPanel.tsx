@@ -1,8 +1,6 @@
 'use client'
 
 import { Dispatch, SetStateAction, useEffect, useMemo, useRef, useState } from 'react'
-import Link from 'next/link'
-import { ArrowRight, ChevronDown, ChevronRight, Files, Loader2, Replace, Search, Sparkles } from 'lucide-react'
 import { updateShare } from '@/utils/share/put'
 import {
     WorkspaceFileMatches,
@@ -13,6 +11,8 @@ import {
     searchIndexedFiles,
     type IndexedWorkspaceFile,
 } from './workspaceSearchUtils'
+import { WorkspaceSearchControls } from './workspaceSearch/WorkspaceSearchControls'
+import { WorkspaceSearchResults } from './workspaceSearch/WorkspaceSearchResults'
 
 type WorkspaceSearchPanelProps = {
     tree: Tree | null
@@ -22,9 +22,6 @@ type WorkspaceSearchPanelProps = {
     setEditorPatch: Dispatch<SetStateAction<{ value: string; nonce: number } | null>>
     setError: Dispatch<SetStateAction<string | boolean | null>>
 }
-
-const inputClass = 'w-full rounded-lg border border-ui-border bg-ui-raised px-3 py-2 text-sm text-ui-text outline-none transition placeholder:text-ui-muted focus:border-ui-primary focus:bg-ui-panel'
-const iconButtonClass = 'grid h-8 w-8 place-items-center rounded-lg border border-ui-border bg-ui-raised text-ui-muted transition hover:border-ui-primary hover:text-ui-text'
 
 export default function WorkspaceSearchPanel({
     tree,
@@ -163,153 +160,29 @@ export default function WorkspaceSearchPanel({
 
     return (
         <section className='flex h-full w-[min(22rem,calc(100vw-5rem))] flex-col overflow-hidden rounded-xl border border-ui-border bg-ui-panel shadow-2xl backdrop-blur-md md:min-w-77.5 md:max-w-105'>
-            <header className='flex items-center justify-between border-b border-ui-border px-3 py-3'>
-                <div>
-                    <p className='text-[11px] font-semibold uppercase tracking-[0.22em] text-ui-muted'>Search</p>
-                    <h2 className='text-sm font-semibold text-ui-text'>Workspace search</h2>
-                </div>
-                <div className='flex items-center gap-1'>
-                    <Sparkles className='h-4 w-4 text-ui-primary' />
-                    <span className='rounded-full border border-ui-border bg-ui-raised px-2 py-1 text-[11px] text-ui-muted'>
-                        {files.length} files
-                    </span>
-                </div>
-            </header>
-
-            <div className='space-y-2 border-b border-ui-border p-3'>
-                <div className='relative'>
-                    <Search className='absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ui-muted' />
-                    <input
-                        aria-label='Search files'
-                        value={query}
-                        onChange={(event) => setQuery(event.target.value)}
-                        placeholder='Search files'
-                        className={`${inputClass} pl-9`}
-                    />
-                </div>
-                <div className='relative'>
-                    <Replace className='absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ui-muted' />
-                    <input
-                        aria-label='Replace text'
-                        value={replacement}
-                        onChange={(event) => setReplacement(event.target.value)}
-                        placeholder='Replace'
-                        className={`${inputClass} pl-9`}
-                    />
-                </div>
-                <div className='grid grid-cols-2 gap-2'>
-                    <input aria-label='Files to include' value={include} onChange={(event) => setInclude(event.target.value)} placeholder='files to include' className={inputClass} />
-                    <input aria-label='Files to exclude' value={exclude} onChange={(event) => setExclude(event.target.value)} placeholder='files to exclude' className={inputClass} />
-                </div>
-                <div className='flex items-center justify-between gap-2'>
-                    <div className='flex items-center gap-1'>
-                        <Toggle active={caseSensitive} onClick={() => setCaseSensitive(prev => !prev)} label='Aa' title='Match case' />
-                        <Toggle active={wholeWord} onClick={() => setWholeWord(prev => !prev)} label='ab' title='Whole word' />
-                        <Toggle active={regex} onClick={() => setRegex(prev => !prev)} label='.*' title='Regular expression' />
-                    </div>
-                    <button
-                        type='button'
-                        disabled={!resultCount || replacing}
-                        onClick={replaceAll}
-                        className='inline-flex items-center gap-2 rounded-lg border border-ui-primary bg-ui-primary/10 px-3 py-2 text-xs font-semibold text-ui-primary transition hover:bg-ui-primary/20 disabled:cursor-not-allowed disabled:opacity-40'
-                    >
-                        {replacing ? <Loader2 className='h-3.5 w-3.5 animate-spin' /> : <Replace className='h-3.5 w-3.5' />}
-                        Replace all
-                    </button>
-                </div>
-            </div>
-
-            <div className='flex items-center justify-between border-b border-ui-border px-3 py-2 text-xs text-ui-muted'>
-                <span>
-                    {loading ? 'Indexing workspace...' : `${resultCount} results in ${results.length} files`}
-                </span>
-                {loading ? <Loader2 className='h-4 w-4 animate-spin text-ui-loader' /> : <Files className='h-4 w-4' />}
-            </div>
-
-            <div className='min-h-0 flex-1 overflow-auto p-2'>
-                {!query.trim() ? (
-                    <EmptyState title='Search everything' body='Find and replace across this share without leaving the workspace.' />
-                ) : null}
-                {query.trim() && !loading && results.length === 0 ? (
-                    <EmptyState title='No matches' body='Try a broader query or adjust include/exclude filters.' />
-                ) : null}
-                {results.map(group => {
-                    const isOpen = expanded.has(group.file.id)
-                    return (
-                        <article key={group.file.id} className='mb-2 overflow-hidden rounded-xl border border-ui-border bg-ui-raised'>
-                            <button type='button' onClick={() => toggleExpanded(group.file.id)} className='flex w-full items-center gap-2 px-3 py-2 text-left transition hover:bg-ui-panel'>
-                                {isOpen ? <ChevronDown className='h-4 w-4 text-ui-muted' /> : <ChevronRight className='h-4 w-4 text-ui-muted' />}
-                                <div className='min-w-0 flex-1'>
-                                    <p className='truncate text-sm font-medium text-ui-text'>{group.file.name}</p>
-                                    <p className='truncate text-[11px] text-ui-muted'>{group.file.path}</p>
-                                </div>
-                                <span className='rounded-full border border-ui-border bg-ui-panel px-2 py-0.5 text-[11px] text-ui-muted'>{group.matches.length}</span>
-                            </button>
-                            {isOpen ? (
-                                <div className='border-t border-ui-border py-1'>
-                                    {group.matches.slice(0, 80).map(match => (
-                                        <Link
-                                            key={match.id}
-                                            prefetch={false}
-                                            href={`/s/${match.file.id}?line=${match.line}&q=${encodeURIComponent(query)}`}
-                                            className='group flex gap-2 px-3 py-2 text-xs transition hover:bg-ui-primary/10'
-                                        >
-                                            <span className='w-8 shrink-0 text-right font-mono text-ui-muted'>{match.line}</span>
-                                            <span className='min-w-0 flex-1'>
-                                                {match.functionName ? <span className='mb-1 block text-[10px] uppercase tracking-[0.16em] text-ui-primary'>{match.functionName}</span> : null}
-                                                <HighlightedPreview preview={match.preview} query={query} caseSensitive={caseSensitive} />
-                                            </span>
-                                            <ArrowRight className='mt-0.5 h-3.5 w-3.5 shrink-0 text-ui-muted transition group-hover:text-ui-primary' />
-                                        </Link>
-                                    ))}
-                                </div>
-                            ) : null}
-                        </article>
-                    )
-                })}
-            </div>
+            <WorkspaceSearchControls
+                fileCount={files.length}
+                query={query}
+                replacement={replacement}
+                include={include}
+                exclude={exclude}
+                caseSensitive={caseSensitive}
+                wholeWord={wholeWord}
+                regex={regex}
+                resultCount={resultCount}
+                groupCount={results.length}
+                loading={loading}
+                replacing={replacing}
+                onQueryChange={setQuery}
+                onReplacementChange={setReplacement}
+                onIncludeChange={setInclude}
+                onExcludeChange={setExclude}
+                onToggleCaseSensitive={() => setCaseSensitive(value => !value)}
+                onToggleWholeWord={() => setWholeWord(value => !value)}
+                onToggleRegex={() => setRegex(value => !value)}
+                onReplaceAll={() => void replaceAll()}
+            />
+            <WorkspaceSearchResults query={query} loading={loading} caseSensitive={caseSensitive} results={results} expanded={expanded} onToggleExpanded={toggleExpanded} />
         </section>
-    )
-}
-
-function Toggle({ active, onClick, label, title }: { active: boolean; onClick: () => void; label: string; title: string }) {
-    return (
-        <button
-            type='button'
-            title={title}
-            onClick={onClick}
-            className={`${iconButtonClass} ${active ? 'border-ui-primary bg-ui-primary/15 text-ui-primary' : ''}`}
-        >
-            <span className='text-xs font-bold'>{label}</span>
-        </button>
-    )
-}
-
-function EmptyState({ title, body }: { title: string; body: string }) {
-    return (
-        <div className='grid min-h-48 place-items-center rounded-xl border border-dashed border-ui-border bg-ui-raised p-6 text-center'>
-            <div>
-                <p className='text-sm font-semibold text-ui-text'>{title}</p>
-                <p className='mt-2 text-xs leading-5 text-ui-muted'>{body}</p>
-            </div>
-        </div>
-    )
-}
-
-function HighlightedPreview({ preview, query, caseSensitive }: { preview: string; query: string; caseSensitive: boolean }) {
-    const index = caseSensitive
-        ? preview.indexOf(query)
-        : preview.toLowerCase().indexOf(query.toLowerCase())
-
-    if (index < 0 || !query) {
-        return <span className='truncate text-ui-muted'>{preview}</span>
-    }
-
-    return (
-        <span className='block truncate font-mono text-ui-muted'>
-            {preview.slice(0, index)}
-            <mark className='rounded bg-ui-primary/20 px-0.5 text-ui-on-primary'>{preview.slice(index, index + query.length)}</mark>
-            {preview.slice(index + query.length)}
-        </span>
     )
 }
