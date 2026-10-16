@@ -3,6 +3,7 @@ import type { ActivitySubject, ActivitySubjectType, ActivityItem } from '../type
 import type { DeliveryRow } from '../types/delivery'
 import { deliveryDestinationIds, deliveryWatchlistId } from './deliveries'
 import { watchlistsWithOwnDestination } from './watchlists'
+import { cleanWorkspaceUrl } from '@/utils/organizations/workspace'
 
 export function requestedSubjectFromSearch(input: {
     organizationId: string

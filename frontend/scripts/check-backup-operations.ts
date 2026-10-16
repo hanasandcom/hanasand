@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 
 const backupPage = await source('../src/app/dashboard/db/backups/backupPage.tsx')
+const backupPresentation = await source('../src/app/dashboard/db/backups/backupPresentation.tsx')
 const backupRoute = await source('../src/app/dashboard/db/backups/page.tsx')
 const restoreClient = await source('../src/app/dashboard/db/restore/restoreClient.tsx')
 const restoreRoute = await source('../src/app/dashboard/db/restore/page.tsx')
@@ -13,6 +14,7 @@ const apiHandler = await source('../../api/src/handlers/database/backups.ts')
 const apiCore = await source('../../api/src/utils/db/backups.ts')
 const backupWorkerClient = await source('../../api/src/utils/db/backupWorkerClient.ts')
 const apiCron = await source('../../api/src/utils/cron.ts')
+const systemCron = await source('../../api/src/utils/systemCron.ts')
 const compose = await source('../../docker-compose.yml')
 
 assert.match(backupRoute, /getBackupDashboard\(\)/, 'backup route must use the single authenticated dashboard request')
@@ -29,7 +31,7 @@ assert.match(backupPage, /window\.confirm/, 'deleting a production archive must 
 assert.match(backupPage, /aria-label=\{deleting === file\.file \? `Deleting backup \$\{file\.file\}` : `Delete backup \$\{file\.file\}`\}/, 'the trash button must have an accessible name')
 assert.match(backupPage, /<Trash2 className='h-4 w-4' aria-hidden='true' \/>/, 'the delete action must use a decorative trash icon')
 assert.ok(backupPage.indexOf('Restore\n                                            </button>') < backupPage.indexOf('<Trash2'), 'the trash icon must appear to the right of Restore')
-assert.match(backupPage, /previous backup failure did not retain its cause[\s\S]*paused/i, 'historical generic failure must explain that backups remain paused')
+assert.match(backupPresentation, /previous backup failure did not retain its cause[\s\S]*paused/i, 'historical generic failure must explain that backups remain paused')
 assert.match(backupPage, /service\.currentOperation/, 'UI must expose backend operation progress rather than a fake completed state')
 assert.doesNotMatch(backupPage, /s3:\/\/|DB_BACKUP_NEXT_AT|restore readiness/, 'operator evidence must not be guessed or sample-backed')
 
@@ -70,8 +72,8 @@ assert.doesNotMatch(apiCore, /pg_database_size|pg_restore|createdb|dropdb|open\(
 assert.match(compose, /api_state:\/var\/lib\/hanasand/)
 assert.match(compose, /DB_BACKUP_WORKER_URL/)
 assert.doesNotMatch(compose, /database-backup:|DB_BACKUP_SCHEDULE|DB_BACKUP_DIR/)
-assert.match(apiCron, /DATABASE_BACKUP_JOB_ID/)
-assert.doesNotMatch(apiCron, /runDueApiCronJob\(DATABASE_BACKUP_JOB_ID\)/, 'the backup worker owns its scheduler independently')
+assert.doesNotMatch(apiCron, /DATABASE_BACKUP_JOB_ID/, 'database backups must not be scheduled by the general API cron')
+assert.match(systemCron, /DATABASE_BACKUP_JOB_ID[\s\S]*?databaseBackupScheduledJob\(definition\)/, 'the registered system cron owns database backup scheduling')
 
 console.log('Backup operator workflow checks passed.')
 

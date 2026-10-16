@@ -1,6 +1,7 @@
 import { buildActorIntelligence } from '../../../src/utils/ti/actorIntelligence'
 import { buildTiActionability } from '../../../src/utils/ti/actionability'
 import { buildActorArtifacts } from '../../../src/utils/ti/actorWorkbench'
+import type { TiSearchResponse } from '../../../src/utils/ti/search'
 import { fixture } from '../runtimeContext'
 
 export const quietFixture: TiSearchResponse = {

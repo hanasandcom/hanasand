@@ -38,6 +38,15 @@ test('feeds remain reachable without the removed collection targets entry', () =
     assert.equal(links.some(link => link.href?.startsWith('/ti/domains')), false)
 })
 
+test('intelligence reviewers can reach delivery health without internal-page access', () => {
+    const reviewerLinks = navigationLinks(getDashboardNavigation({ id: 'reviewer', canReviewIntel: true }))
+    const memberLinks = navigationLinks(getDashboardNavigation({ id: 'member' }))
+
+    assert.equal(reviewerLinks.some(link => link.href === '/ti/timeliness'), true)
+    assert.equal(memberLinks.some(link => link.href === '/ti/timeliness'), false)
+    assert.equal(reviewerLinks.some(link => link.href === '/db'), false)
+})
+
 test('traffic has separate overview, recent, map, and blocklist destinations', () => {
     const sections = getDashboardNavigation({ id: 'admin', canViewInternalPages: true })
     const logsAndRules = sections.find(item => item.label === 'Logs & rules')

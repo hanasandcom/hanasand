@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
 import config from '@/config'
 import { buildRouteMetadata } from '../seo'
-import BrowserPageClient, { type BrowserInitialData } from '../browser/pageClient'
+import BrowserPageClient from '../browser/pageClient'
+import type { BrowserInitialData } from '../browser/types'
 
 export const metadata: Metadata = buildRouteMetadata({
     title: 'Sandbox',

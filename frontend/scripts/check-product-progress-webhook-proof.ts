@@ -4,7 +4,7 @@ import { webhookHealthReadiness, webhookProductProgressProof } from '../src/app/
 const checkedAt = '2026-06-29T14:00:00.000Z'
 const organization = { id: 'org_acme', tenantId: 'tenant_acme', name: 'Acme', slug: 'acme', status: 'active' as const, createdAt: checkedAt, updatedAt: checkedAt }
 const destinations = [{ id: 'dest_1', organizationId: organization.id, tenantId: organization.tenantId, name: 'Alerts', kind: 'generic' as const, status: 'active' as const, createdAt: checkedAt, updatedAt: checkedAt, lastTestedAt: checkedAt }]
-const deliveries = [{ id: 'delivery_1', alertId: 'alert_1', status: 'delivered', attemptedAt: checkedAt }]
+const deliveries = [{ id: 'delivery_1', alertId: 'alert_1', watchlistId: 'watchlist_1', endpointHash: 'endpoint_hash', payloadHash: 'payload_hash', status: 'delivered', attemptedAt: checkedAt }]
 const productProgress = {
     schemaVersion: 'dwm.webhook.destination_admin_product_progress.v1',
     status: 'ready' as const,
@@ -53,7 +53,7 @@ const noDurableReceipt = webhookHealthReadiness({
     fetchOk: true,
     fetchStatus: 200,
     destinations,
-    deliveries: [{ id: 'delivery_pending', alertId: 'alert_1', status: 'sent', attemptedAt: checkedAt }],
+    deliveries: [{ id: 'delivery_pending', alertId: 'alert_1', watchlistId: 'watchlist_1', endpointHash: 'endpoint_hash', payloadHash: 'payload_hash', status: 'sent', attemptedAt: checkedAt }],
 })
 assert.equal(noDurableReceipt.status, 'needs_action')
 assert.equal(noDurableReceipt.deliveryReadyCount, 0)

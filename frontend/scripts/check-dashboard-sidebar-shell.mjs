@@ -1,11 +1,12 @@
 import { readFile, readdir } from 'node:fs/promises'
 
 const css = await readFile(new URL('../src/app/globals.css', import.meta.url), 'utf8')
+const atmosphereCss = await readFile(new URL('../src/app/global-styles/site-atmosphere.css', import.meta.url), 'utf8')
 const routeFrame = await readFile(new URL('../src/components/layout/routeFrame.tsx', import.meta.url), 'utf8')
 const dashboardUi = await readFile(new URL('../src/components/dashboard/ui.tsx', import.meta.url), 'utf8')
 const casesPage = await readFile(new URL('../src/app/dashboard/cases/page.tsx', import.meta.url), 'utf8')
 const appSource = new URL('../src/app/', import.meta.url)
-const desktopBlock = css.match(/@media \(min-width: 1024px\)\s*\{([\s\S]*?)\n\}/)?.[1] || ''
+const desktopBlock = atmosphereCss.match(/@media \(min-width: 1024px\)\s*\{([\s\S]*?)\n\}/)?.[1] || ''
 
 async function collectPageSource(directory) {
     const entries = await readdir(directory, { withFileTypes: true })
@@ -44,4 +45,4 @@ if (desktopBlock.includes('height: 100%')) {
 
 console.log('Dashboard sidebar shell contract passed.')
 
-if (!css.includes('overflow-anchor: none')) throw new Error('Expanding menus must not shift the sidebar scroll anchor.')
+if (!css.includes('overflow-anchor: none') && !atmosphereCss.includes('overflow-anchor: none')) throw new Error('Expanding menus must not shift the sidebar scroll anchor.')

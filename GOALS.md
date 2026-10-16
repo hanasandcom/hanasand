@@ -113,6 +113,43 @@ have moved code into meaningful components/hooks without reducing aggregate
 LOC; the frontend's 10,000–30,000-line target remains far from met. Continue
 removing verified duplicated logic and keep the 200-line cap scan current.
 
+After the TI runs, share-tree explorer, regional traffic-geo, and public-status
+copy splits, the 2026-10-16 frontend scan found 154,027 lines across 2,198
+candidate files, with 27 remaining over the cap. Relative to the previous
+snapshot this is 478 more lines and 16 more files, while four more files now
+pass the cap. The added modules make several responsibilities clearer, but
+this is still the wrong aggregate LOC direction for the user's 10,000–30,000
+line goal. Prioritize verified code/test duplication removal alongside the
+remaining cap work; this concurrent working-tree count is provisional.
+
+After the rules, cron, automation, realtime-log, share-socket, webhook-sink,
+test-result, and repository-sync splits, the 2026-10-16 frontend scan found
+154,513 lines across 2,248 candidate hand-maintained files, with two files
+still over 200 lines (`frontend/src/app/thesis/useThesis.ts` at 295 and
+`frontend/src/app/api/findings/_tiProxy.ts` at 276). Compared with the prior
+snapshot, 25 fewer files exceed the cap, while the frontend added 486 lines
+and 50 candidate files. The cap is not yet satisfied, and the 10,000–30,000
+line objective remains far away; continue looking for verified duplication
+removal after the two remaining cap violations are addressed.
+
+After the thesis editor, business-model evidence, and TI proxy responsibility
+splits, the 2026-10-16 working-tree scan found 154,790 lines across 2,256
+candidate hand-maintained frontend files. The full frontend line-cap checker
+now passes with no files over 200 lines. Compared with the preceding snapshot,
+the inventory grew by 277 lines and eight candidate files; the new modules have
+made behavior boundaries clearer, but aggregate code reduction is still not
+being achieved. The 10,000–30,000-line frontend target remains outstanding.
+
+After the current frontend/API extraction and contract-check updates, the
+2026-10-16 scan found 154,990 frontend lines across 2,267 candidate
+hand-maintained source/config files. The 200-line cap passes for every file in
+that scan. Relative to the previous snapshot this is 200 more lines and 11 more
+files; the cap is satisfied, but the 10,000–30,000-line frontend target remains
+far from met and net line reduction is still not being achieved. This working
+tree is provisional and includes concurrent refactors. The scan covers source,
+tests and configs while excluding dependencies, build output and the generated
+search-route artifact.
+
 ## Execution
 
 - Divide work by non-overlapping repository areas and use traditional Norwegian

@@ -36,5 +36,36 @@ assert.deepEqual(await jsonResponse.json(), {
     code: 'auth_service_timeout',
 })
 
+let loginRequest: { input: string, init?: RequestInit } | undefined
+globalThis.fetch = (async (input, init) => {
+    loginRequest = { input: String(input), init }
+    return Response.json({
+        token: 'session-token',
+        id: 'alice-id',
+        name: 'Alice',
+        avatar: '/avatar.png',
+        expires_at: '2030-01-01T00:00:00.000Z',
+    })
+}) as typeof fetch
+
+const successResponse = await POST(new NextRequest('https://app.example/api/auth/login', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-request-id': 'request-123' },
+    body: JSON.stringify({ id: 'alice', password: 'secret' }),
+}))
+assert.equal(successResponse.status, 200)
+assert.deepEqual(await successResponse.json(), {
+    name: 'Alice',
+    id: 'alice-id',
+    avatar: '/avatar.png',
+    expires_at: '2030-01-01T00:00:00.000Z',
+})
+assert.equal(loginRequest?.input, 'https://auth.example/api/auth/login/alice')
+assert.equal(loginRequest?.init?.method, 'POST')
+assert.equal(loginRequest?.init?.headers && new Headers(loginRequest.init.headers).get('x-request-id'), 'request-123')
+assert.deepEqual(JSON.parse(String(loginRequest?.init?.body)), { password: 'secret' })
+assert.match(successResponse.headers.get('set-cookie') || '', /access_token=session-token/)
+assert.match(successResponse.headers.get('set-cookie') || '', /name=Alice/)
+
 globalThis.fetch = originalFetch
-console.log('Login timeout is bounded and returned as a visible 504 instead of a pending request.')
+console.log('Login timeout, redirect, upstream request and successful session cookie contracts passed.')

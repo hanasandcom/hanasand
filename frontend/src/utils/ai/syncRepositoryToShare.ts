@@ -2,8 +2,8 @@ import randomId from '@/utils/random/randomId'
 import { getTree } from '@/utils/share/getTree'
 import postShare from '@/utils/share/post'
 import { updateShare } from '@/utils/share/put'
-import { deleteShare } from '@/utils/share/delete'
 import { findTreeFileId } from '@/components/ai/shareTree'
+import { pruneRemovedEntries } from './syncRepositoryPrune'
 
 type SyncRepositoryToShareProps = {
     repo: AIImportedRepo
@@ -133,60 +133,6 @@ function registerFolders(tree: Tree, prefix: string, folderIds: Map<string, stri
         if (item.type === 'folder') {
             folderIds.set(path, item.id)
             registerFolders(item.children, path, folderIds)
-        }
-    }
-}
-
-async function pruneRemovedEntries({
-    tree,
-    nextFiles,
-    token,
-    userId,
-}: {
-    tree: Tree
-    nextFiles: Set<string>
-    token: string
-    userId: string
-}) {
-    const staleFiles: string[] = []
-    const staleFolders: { id: string, depth: number }[] = []
-    collectStaleEntries(tree, '', nextFiles, staleFiles, staleFolders)
-
-    for (const fileId of staleFiles) {
-        const ok = await deleteShare(fileId, token, userId)
-        if (!ok) {
-            throw new Error('Failed to remove a stale file from the repository workspace.')
-        }
-    }
-
-    for (const folder of staleFolders.sort((left, right) => right.depth - left.depth)) {
-        const ok = await deleteShare(folder.id, token, userId)
-        if (!ok) {
-            throw new Error('Failed to remove a stale folder from the repository workspace.')
-        }
-    }
-}
-
-function collectStaleEntries(
-    tree: Tree,
-    prefix: string,
-    nextFiles: Set<string>,
-    staleFiles: string[],
-    staleFolders: { id: string, depth: number }[],
-) {
-    for (const item of tree) {
-        const path = prefix ? `${prefix}/${item.name}` : item.name
-        if (item.type === 'file') {
-            if (!nextFiles.has(path)) {
-                staleFiles.push(item.id)
-            }
-            continue
-        }
-
-        collectStaleEntries(item.children, path, nextFiles, staleFiles, staleFolders)
-        const keepFolder = [...nextFiles].some((filePath) => filePath.startsWith(`${path}/`))
-        if (!keepFolder) {
-            staleFolders.push({ id: item.id, depth: path.split('/').length })
         }
     }
 }

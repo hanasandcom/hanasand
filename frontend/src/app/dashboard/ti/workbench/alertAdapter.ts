@@ -1,6 +1,6 @@
 import type { DwmAlert, DwmSeverity } from '@/utils/dwm/product'
 import { customerAlertSummary } from '@/utils/dwm/display'
-import type { WorkbenchAction, WorkbenchCase } from './types'
+import type { WorkbenchCase } from './types'
 import type { RuntimeDwmAlert } from './runtimeAlert'
 import { buildAlertActions, buildAlertTimeline, buildWorkbenchEvidence, deliveryDetail, nextAlertTasks } from './alertModel'
 

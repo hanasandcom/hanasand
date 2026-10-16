@@ -1,7 +1,54 @@
 import { strict as assert } from 'node:assert'
 import { existsSync, readFileSync } from 'node:fs'
 import { describe, test } from 'node:test'
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { MonitoringOverview } from '../src/app/dashboard/findings/monitoring-overview'
 import { resolveDwmRequestScope, withDwmRequestScope } from '../src/app/api/findings/_tiProxy'
+import { buildAlertTimeline } from '../src/app/dashboard/ti/workbench/alertModel'
+import type { RuntimeDwmAlert } from '../src/app/dashboard/ti/workbench/runtimeAlert'
+import type { DwmDataHealth } from '../src/app/dashboard/findings/view-types'
+import type { PortalAlert } from '../src/app/dashboard/findings/types'
+
+const liveDataHealth: DwmDataHealth = {
+    snapshot: { state: 'live', label: 'Monitoring live', detail: 'Monitoring data is available.' },
+    operations: { state: 'live', label: 'Collection live', detail: 'Collection data is available.' },
+    alerts: { state: 'live', label: 'Findings live', detail: 'Findings are available.' },
+    deliveries: { state: 'live', label: 'Deliveries live', detail: 'Delivery data is available.' },
+}
+
+const alert: PortalAlert = {
+    id: 'alert-42',
+    eventType: 'darkweb.monitoring.match',
+    severity: 'high',
+    confidence: 0.92,
+    matchedTerm: { value: 'acme.example', kind: 'domain' },
+    company: 'Acme',
+    artifactType: 'credential_exposure',
+    sourceFamily: 'darkweb_metadata',
+    sourceCount: 1,
+    firstSeenAt: '2026-10-15T10:00:00.000Z',
+    lastSeenAt: '2026-10-15T11:00:00.000Z',
+    claimSummary: 'Acme credentials were mentioned.',
+    observedMatchSummary: 'Acme credentials appeared in a retained source.',
+    reviewState: 'needs_review',
+    recommendedAction: 'Review the retained source and rotate exposed credentials.',
+    evidence: [{
+        id: 'evidence-7',
+        sourceName: 'Public source report',
+        sourceFamily: 'public_advisory',
+        captureMode: 'public_report',
+        redactionState: 'redacted',
+        contentHash: 'sha256:example',
+        excerpt: 'Acme staging credentials were posted in a public report.',
+        observedAt: '2026-10-15T10:30:00.000Z',
+    }],
+    webhookDelivery: {
+        recommendedRoute: 'identity_response',
+        payloadHash: 'payload-hash',
+        dedupeKey: 'alert-42',
+    },
+}
 
 describe('DWM tenant scope', () => {
     test('derives a personal tenant from the authenticated identity', () => {
@@ -68,21 +115,49 @@ describe('DWM tenant scope', () => {
         assert.equal(existsSync(new URL('../src/app/dashboard/findings/page.tsx', import.meta.url)), true)
     })
 
-    test('renders only persisted DWM workflow history', () => {
-        const portal = readFileSync(new URL('../src/app/dashboard/findings/findings.tsx', import.meta.url), 'utf8')
-        const actions = readFileSync(new URL('../src/app/dashboard/findings/workflow-actions.tsx', import.meta.url), 'utf8')
-        const readinessRoute = readFileSync(new URL('../src/app/api/findings/alerts/generation-readiness/route.ts', import.meta.url), 'utf8')
-        const exposureQueueRoute = readFileSync(new URL('../src/app/api/findings/exposure-queue/route.ts', import.meta.url), 'utf8')
+    test('renders current finding, retained evidence, and its case destination', () => {
+        const markup = renderToStaticMarkup(createElement(MonitoringOverview, {
+            alerts: [alert],
+            dataHealth: liveDataHealth,
+            organizationId: 'org-9',
+            initialAlertId: alert.id,
+            actionMessage: null,
+            onRefresh: () => {},
+            caseHref: () => '/cases/case-9?alert=alert-42&org=org-9&source=alert_queue',
+        }))
 
-        assert.doesNotMatch(portal, /hanasand:dwm-case-state/)
-        assert.doesNotMatch(portal, /new Date\(\)\.toISOString\(\)/)
-        assert.doesNotMatch(portal, /title: 'Evidence decision'/)
-        assert.match(portal, /const events = alert\.workflowEvents \?\? \[\]/)
-        assert.match(portal, /setLocalDeliveries\(deliveries\)/)
-        assert.match(portal, /key=\{`\$\{tenantId\}:\$\{snapshot\.watchlist/)
-        assert.doesNotMatch(actions, /publishedAt: new Date\(\)\.toISOString\(\)/)
-        assert.doesNotMatch(actions, /at: new Date\(\)\.toISOString\(\)/)
-        assert.doesNotMatch(readinessRoute, /productProgress|ProofLedger|tenantId.*default/)
-        assert.doesNotMatch(exposureQueueRoute, /generatedAt: new Date|status: 'checking'/)
+        assert.match(markup, /data-finding-id="alert-42"/)
+        assert.match(markup, /Acme credentials appeared in a retained source\./)
+        assert.match(markup, /Public source report/)
+        assert.match(markup, /Acme staging credentials were posted in a public report\./)
+        assert.match(markup, /href="\/cases\/case-9\?alert=alert-42&amp;source=alert_queue&amp;org=org-9"[^>]*>Open case<\/a>/)
+    })
+
+    test('workbench timeline displays only workflow events returned with the alert', () => {
+        const persistedAlert = {
+            id: 'alert-42',
+            eventType: 'darkweb.monitoring.match',
+            severity: 'high',
+            confidence: 0.92,
+            matchedTerm: { value: 'acme.example', kind: 'domain' },
+            company: 'Acme',
+            artifactType: 'credential_exposure',
+            sourceFamily: 'public_advisory',
+            sourceCount: 1,
+            firstSeenAt: '2026-10-15T10:00:00.000Z',
+            claimSummary: 'Credentials were mentioned.',
+            reviewState: 'needs_review',
+            recommendedAction: 'Review the evidence.',
+            evidence: [],
+            webhookDelivery: { recommendedRoute: 'analyst_review', payloadHash: 'hash', dedupeKey: 'dedupe' },
+            workflowEvents: [{ id: 'event-7', at: '2026-10-15T11:00:00.000Z', eventType: 'workflow.transition', toWorkflowStatus: 'investigating', note: 'Assigned to review.' }],
+        } as unknown as RuntimeDwmAlert
+        const timeline = buildAlertTimeline(persistedAlert, [], [], [])
+
+        assert.deepEqual(timeline.find(item => item.id === 'event-7'), {
+            id: 'event-7', at: '2026-10-15T11:00:00.000Z', title: 'workflow.transition',
+            body: 'investigating · Assigned to review.',
+        })
+        assert.deepEqual(buildAlertTimeline({ ...persistedAlert, workflowEvents: undefined }, [], [], []).filter(item => item.id === 'event-7'), [])
     })
 })

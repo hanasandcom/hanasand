@@ -3,6 +3,7 @@ import { Loader2, RotateCcw, Send } from 'lucide-react'
 import { safeEvidenceExcerpt } from '@/utils/dwm/display'
 import type { PortalAlert, DeliveryItem } from './types'
 import { caseDetailHref, deliveryClass, relativeTimeLabel, retryStateLabel, stateLabel } from './case-format'
+import { alertOrganizationId } from './portal-data'
 
 const DWM_DELIVERY_PREVIEW_ROWS = 3
 

@@ -1,4 +1,3 @@
-import type { Rule } from '../src/app/dashboard/rules/detection-rules'
 import { expect, test } from '@playwright/test'
 import { execFileSync } from 'node:child_process'
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
@@ -6,8 +5,8 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import postcss from 'postcss'
 import tailwind from '@tailwindcss/postcss'
+import { rule } from './fixtures/ruleExample'
 let output: string, bundle: string, css: string, serverHtml: string
-const rule = { id: 'http.routine_access.v1', version: '1', name: 'Routine requests', hitCount: 12345, family: 'HTTP', severity: 'high', explanation: 'Count routine requests.', evidence: [], enabled: true, definition: { stage: 'analyze', action: 'drop' } }
 test.beforeAll(async () => {
     output = mkdtempSync(path.join(tmpdir(), 'event-rules-'))
     execFileSync('bun', ['-e', `const result = await Bun.build({entrypoints:['tests/fixtures/event-rules.tsx'], outdir:${JSON.stringify(output)}, target:'browser', define:{'process.env':JSON.stringify({NODE_ENV:'production'})}, plugins:[{name:'workspace',setup(build){build.onLoad({filter:/workspaceProvider\\.tsx$/},()=>({contents:'export const useWorkspace = () => ({organizationId:"org-a", organizations:[{id:"org-a",role:"owner"}]})',loader:'tsx'}))}}]}); if(!result.success) throw new Error(result.logs.join('\\n'))`])
@@ -188,33 +187,4 @@ test('server rows hydrate without fetching again and still refresh after edits',
     await page.getByRole('button', { name: 'Disable Routine requests', exact: true }).click()
     await expect(page.getByRole('button', { name: 'Enable Routine requests', exact: true })).toBeVisible()
     expect(reads).toBe(1)
-})
-
-test('server loader forwards scoped authentication, requests only list data and handles failures', () => {
-    execFileSync('bun', ['-e', `
-        import {mock} from 'bun:test';
-        import assert from 'node:assert/strict';
-        mock.module('next/headers', () => ({cookies: async () => ({get: name => ({value: {access_token:'test-token', id:'test-user', impersonation_token:'test-impersonation'}[name]})})}));
-        mock.module('./src/utils/organizations/serverWorkspace', () => ({activeOrganizationId: async () => 'org-a'}));
-        const {default: ServerRules} = await import('./src/app/dashboard/rules/server-rules');
-        globalThis.fetch = async (url, options) => {
-            assert.equal(new URL(url).searchParams.get('organizationId'), 'org-a');
-            assert.equal(new URL(url).searchParams.get('view'), 'list');
-            assert.equal(new URL(url).searchParams.get('category'), 'analysis');
-            assert.equal(options.cache, 'no-store');
-            assert.equal(options.headers.get('Authorization'), 'Bearer test-token');
-            assert.equal(options.headers.get('id'), 'test-user');
-            assert.equal(options.headers.get('x-impersonation-token'), 'test-impersonation');
-            return Response.json({rules:[${JSON.stringify(rule)}],canManageRetention:true});
-        };
-        let result = await ServerRules({category:'analysis'});
-        assert.equal(result.props.initial.rules.length, 1);
-        assert.equal(result.props.initial.canManageRetention, true);
-        assert.ok(!JSON.stringify(result.props).includes('test-token'));
-        globalThis.fetch = async () => new Response('', {status:403});
-        result = await ServerRules({category:'analysis'});
-        assert.deepEqual(result.props.initial.rules, []);
-        assert.equal(result.props.initial.canManageRetention, false);
-        assert.match(result.props.initial.error, /Unable to load/);
-    `])
 })

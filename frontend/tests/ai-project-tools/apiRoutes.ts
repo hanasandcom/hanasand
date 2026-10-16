@@ -74,7 +74,7 @@ export async function installAiApiRoutes(page: Page, setVmName: (name: string) =
         await route.fulfill({
             status: 201,
             contentType: 'application/json',
-            body: JSON.stringify({ message: `Created VM ${vmName}` }),
+            body: JSON.stringify({ message: `Created VM ${body.name || ''}` }),
         })
     })
 

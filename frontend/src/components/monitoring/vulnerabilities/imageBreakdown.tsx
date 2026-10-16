@@ -1,6 +1,6 @@
 import type { ImageVulnerabilityReport } from '@/utils/monitoring/types'
 import { severityOrder } from './constants'
-import InlineSeverityBadge from './inlineSeverityBadge'
+import SeverityBadge from './severityBadge'
 
 export default function ImageBreakdown({ image }: { image: ImageVulnerabilityReport }) {
     return (
@@ -18,7 +18,7 @@ export default function ImageBreakdown({ image }: { image: ImageVulnerabilityRep
                         </div>
                         <div className='mt-3 flex flex-wrap gap-2'>
                             {severityOrder.map((severity) => (
-                                <InlineSeverityBadge
+                                <SeverityBadge
                                     key={`${group.source}-${severity}`}
                                     severity={severity}
                                     count={group.severity[severity]}

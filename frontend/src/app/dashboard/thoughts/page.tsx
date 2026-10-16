@@ -1,9 +1,9 @@
 import DashboardThought from '@/components/thoughts/dashboardThought'
+import DashboardMetricCard from '@/components/dashboard/dashboardMetricCard'
 import { DashboardHeader, DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
 import fetchWorkspaceContent from '@/utils/organizations/fetchWorkspaceContent'
 import { BrainCircuit, Clock3, Plus, Radio, UserRound } from 'lucide-react'
 import Link from 'next/link'
-import type { ReactNode } from 'react'
 
 export const dynamic = 'force-dynamic'
 
@@ -42,10 +42,10 @@ export default async function Page() {
             </DashboardPanel> : null}
 
             {thoughts.length ? <section className='grid gap-3 md:grid-cols-2 xl:grid-cols-4'>
-                <NotebookMetric icon={<BrainCircuit className='h-4 w-4' />} label='Thoughts' value={String(thoughts.length)} detail='philosophical questions' tone={thoughts.length ? 'ok' : 'watch'} />
-                <NotebookMetric icon={<Clock3 className='h-4 w-4' />} label='Latest movement' value={latest ? shortDate(latest.updated_at || latest.created_at) : 'Open'} detail={latest?.title || 'Create the first thought'} tone={latest ? 'ok' : 'neutral'} />
-                <NotebookMetric icon={<UserRound className='h-4 w-4' />} label='Authors' value={String(authors.size)} detail='thought contributors' tone={authors.size ? 'ok' : 'neutral'} />
-                <NotebookMetric icon={<Radio className='h-4 w-4' />} label='Publishing' value={thoughts.length ? 'Live' : 'Ready'} detail='thoughts for the public site' tone={thoughts.length ? 'ok' : 'watch'} />
+                <DashboardMetricCard icon={<BrainCircuit className='h-4 w-4' />} label='Thoughts' value={String(thoughts.length)} detail='philosophical questions' tone={thoughts.length ? 'ok' : 'watch'} />
+                <DashboardMetricCard icon={<Clock3 className='h-4 w-4' />} label='Latest movement' value={latest ? shortDate(latest.updated_at || latest.created_at) : 'Open'} detail={latest?.title || 'Create the first thought'} tone={latest ? 'ok' : 'neutral'} />
+                <DashboardMetricCard icon={<UserRound className='h-4 w-4' />} label='Authors' value={String(authors.size)} detail='thought contributors' tone={authors.size ? 'ok' : 'neutral'} />
+                <DashboardMetricCard icon={<Radio className='h-4 w-4' />} label='Publishing' value={thoughts.length ? 'Live' : 'Ready'} detail='thoughts for the public site' tone={thoughts.length ? 'ok' : 'watch'} />
             </section> : null}
 
             {thoughts.length ? <DashboardPanel className='overflow-hidden border-ui-border bg-ui-panel p-0'>
@@ -67,29 +67,6 @@ export default async function Page() {
                 </div>
             </DashboardPanel> : null}
         </DashboardPage>
-    )
-}
-
-function NotebookMetric({ icon, label, value, detail, tone }: { icon: ReactNode, label: string, value: string, detail: string, tone: 'ok' | 'watch' | 'neutral' }) {
-    const dot = tone === 'ok'
-        ? 'bg-ui-success ui-glow-success'
-        : tone === 'watch'
-            ? 'bg-ui-warning ui-glow-warning'
-            : 'bg-ui-primary ui-glow-primary'
-    const text = tone === 'ok' ? 'text-ui-success' : tone === 'watch' ? 'text-ui-warning' : 'text-ui-primary'
-
-    return (
-        <DashboardPanel className='border-ui-border bg-ui-panel p-4'>
-            <div className='flex items-center justify-between gap-3 text-sm text-ui-muted'>
-                <span>{label}</span>
-                <span className={text}>{icon}</span>
-            </div>
-            <div className='mt-3 flex items-center gap-2 text-2xl font-semibold text-ui-text'>
-                <span className={`h-2 w-2 rounded-full ${dot}`} />
-                {value}
-            </div>
-            <p className='mt-2 line-clamp-2 text-sm leading-5 text-ui-muted'>{detail}</p>
-        </DashboardPanel>
     )
 }
 

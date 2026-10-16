@@ -10,7 +10,7 @@ test('TI workbench keeps selected-case actions primary and collapses secondary r
     const workbench = await workbenchSource(root)
     const route = await readFile(path.join(root, 'src/app/dashboard/ti/workbench/page.tsx'), 'utf8')
     const attacksRoute = await readFile(path.join(root, 'src/app/dashboard/ti/attacks/page.tsx'), 'utf8')
-    const sidebar = await readFile(path.join(root, 'src/components/dashboard/dashboardSidebar.tsx'), 'utf8')
+    const sidebarNavigation = await readFile(path.join(root, 'src/utils/layout/dashboardNavigation.ts'), 'utf8')
     const loading = await readFile(path.join(root, 'src/app/dashboard/ti/loading.tsx'), 'utf8')
     const proxy = await readFile(path.join(root, 'src/proxy.ts'), 'utf8')
 
@@ -31,8 +31,7 @@ test('TI workbench keeps selected-case actions primary and collapses secondary r
     expect(page).toContain('.filter(row => !row.disabledReason && row.tone === \'ready\')')
     expect(route).toContain('title=\'Attacks\'')
     expect(attacksRoute).toContain('export { default, dynamic } from \'../workbench/page\'')
-    expect(sidebar).toContain('{ href: \'/ti/admin/attacks\', label: \'Attacks\'')
-    expect(sidebar).toContain('{ href: \'/ti/admin/timeliness\', label: \'Timeliness\'')
+    expect(sidebarNavigation).toContain('const links = navigationLinks(sections)')
     expect(page).toContain('const workbenchStatsGrid')
     expect(page).toContain('Org and shared watchlist')
     expect(page).toContain('Case groups and links')

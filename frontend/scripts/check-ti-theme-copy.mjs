@@ -5,9 +5,15 @@ import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const tiComponents = path.join(root, 'src/app/ti/components')
+const tiModel = path.join(root, 'src/app/ti/model')
+const tiModelFiles = [
+    ...readdirSync(tiModel).filter(file => file.endsWith('.ts')).map(file => path.join(tiModel, file)),
+    ...readdirSync(path.join(tiModel, 'types')).filter(file => file.endsWith('.ts')).map(file => path.join(tiModel, 'types', file)),
+]
 const tiPage = [
     readFileSync(path.join(root, 'src/app/ti/pageClientShared.ts'), 'utf8'),
     readFileSync(path.join(root, 'src/app/ti/pageModel.ts'), 'utf8'),
+    ...tiModelFiles.map(file => readFileSync(file, 'utf8')),
     ...readdirSync(tiComponents).filter(file => file.endsWith('.tsx')).map(file => readFileSync(path.join(tiComponents, file), 'utf8')),
 ].join('\n')
 const suggestionState = readFileSync(path.join(tiComponents, 'empty-state.tsx'), 'utf8')

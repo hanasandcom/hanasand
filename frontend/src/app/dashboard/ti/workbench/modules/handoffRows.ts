@@ -1,5 +1,4 @@
 import type { WorkbenchCase, WorkbenchOrgContext, OperatorActionRailRow, WorkbenchPublicTiHandoff, WorkbenchHandoffAction, WorkbenchPublicTiActionReadiness, WorkbenchWorkflowStep, HandoffTerm } from '../types'
-import { label } from './presentation'
 import { inferTermKind } from './watchlistHelpers'
 import { scopeBody } from './actionMessages'
 

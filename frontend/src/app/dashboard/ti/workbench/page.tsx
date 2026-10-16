@@ -3,7 +3,7 @@ import { ArrowUpRight, Inbox, Radar } from 'lucide-react'
 import { DashboardHeader, DashboardPage } from '@/components/dashboard/ui'
 import { decodePublicTiHandoffPayload, PUBLIC_TI_HANDOFF_SOURCE } from '@/utils/ti/actorWorkbench'
 import { buildPublicTiHandoffCase, type OperatorScope } from '../../operatorConsoleModel'
-import AnalystWorkbenchClient, { type WorkbenchCase } from './workbenchClient'
+import AnalystWorkbenchClient from './workbenchClient'
 import { attachCasesToAlerts, attachDeliveriesToAlerts, buildWorkbenchCases, emptyOrganizationState, loadDwmAlerts, loadDwmCases, loadDwmDeliveries } from './pageData'
 import { firstParam, selectedWorkbenchCaseId } from './pageScope'
 

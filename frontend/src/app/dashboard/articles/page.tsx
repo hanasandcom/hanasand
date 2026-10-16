@@ -1,9 +1,9 @@
 import DashboardArticle from '@/components/articles/dashboardArticle'
+import DashboardMetricCard from '@/components/dashboard/dashboardMetricCard'
 import { DashboardHeader, DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
 import fetchWorkspaceContent from '@/utils/organizations/fetchWorkspaceContent'
 import { Clock3, FileText, Plus, Radio, Timer } from 'lucide-react'
 import Link from 'next/link'
-import type { ReactNode } from 'react'
 
 export default async function Page() {
     const articles = await fetchWorkspaceContent<Article>('articles')
@@ -40,10 +40,10 @@ export default async function Page() {
             </DashboardPanel> : null}
 
             {articles.length ? <section className='grid gap-3 md:grid-cols-2 xl:grid-cols-4'>
-                <EditorialMetric icon={<FileText className='h-4 w-4' />} label='Published' value={String(articles.length)} detail='articles' tone={articles.length ? 'ok' : 'watch'} />
-                <EditorialMetric icon={<Clock3 className='h-4 w-4' />} label='Latest edit' value={latest ? shortDate(latest.modified || latest.created) : 'Ready'} detail={latest?.title || 'Create the first article'} tone={latest ? 'ok' : 'neutral'} />
-                <EditorialMetric icon={<Timer className='h-4 w-4' />} label='Reading time' value={totalMinutes ? `${totalMinutes} min` : 'Metering'} detail={`${totalWords.toLocaleString('en-US')} words`} tone='neutral' />
-                <EditorialMetric icon={<Radio className='h-4 w-4' />} label='Publishing' value={articles.length ? 'Live' : 'Open'} tone={articles.length ? 'ok' : 'watch'} />
+                <DashboardMetricCard icon={<FileText className='h-4 w-4' />} label='Published' value={String(articles.length)} detail='articles' tone={articles.length ? 'ok' : 'watch'} />
+                <DashboardMetricCard icon={<Clock3 className='h-4 w-4' />} label='Latest edit' value={latest ? shortDate(latest.modified || latest.created) : 'Ready'} detail={latest?.title || 'Create the first article'} tone={latest ? 'ok' : 'neutral'} />
+                <DashboardMetricCard icon={<Timer className='h-4 w-4' />} label='Reading time' value={totalMinutes ? `${totalMinutes} min` : 'Metering'} detail={`${totalWords.toLocaleString('en-US')} words`} tone='neutral' />
+                <DashboardMetricCard icon={<Radio className='h-4 w-4' />} label='Publishing' value={articles.length ? 'Live' : 'Open'} tone={articles.length ? 'ok' : 'watch'} />
             </section> : null}
 
             {articles.length ? <DashboardPanel className='overflow-hidden border-ui-border bg-ui-panel p-0'>
@@ -65,29 +65,6 @@ export default async function Page() {
                 </div>
             </DashboardPanel> : null}
         </DashboardPage>
-    )
-}
-
-function EditorialMetric({ icon, label, value, detail, tone }: { icon: ReactNode, label: string, value: string, detail?: string, tone: 'ok' | 'watch' | 'neutral' }) {
-    const dot = tone === 'ok'
-        ? 'bg-ui-success ui-glow-success'
-        : tone === 'watch'
-            ? 'bg-ui-warning ui-glow-warning'
-            : 'bg-ui-primary ui-glow-primary'
-    const text = tone === 'ok' ? 'text-ui-success' : tone === 'watch' ? 'text-ui-warning' : 'text-ui-primary'
-
-    return (
-        <DashboardPanel className='border-ui-border bg-ui-panel p-4'>
-            <div className='flex items-center justify-between gap-3 text-sm text-ui-muted'>
-                <span>{label}</span>
-                <span className={text}>{icon}</span>
-            </div>
-            <div className='mt-3 flex items-center gap-2 text-2xl font-semibold text-ui-text'>
-                <span className={`h-2 w-2 rounded-full ${dot}`} />
-                {value}
-            </div>
-            {detail ? <p className='mt-2 line-clamp-2 text-sm leading-5 text-ui-muted'>{detail}</p> : null}
-        </DashboardPanel>
     )
 }
 

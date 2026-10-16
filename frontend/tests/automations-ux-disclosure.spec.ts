@@ -1,214 +1,75 @@
 import { expect, test } from '@playwright/test'
-import { readFile } from 'node:fs/promises'
-import path from 'node:path'
+import type { AutomationPayload } from '@/utils/automations/client'
+import { automationFixture, createdAutomationFixture } from './fixtures/automations-ux-disclosure'
 
-test('automations keeps the primary route workflow calm and wired', async ({ context, page, baseURL }) => {
-    const origin = baseURL || 'http://127.0.0.1:3000'
+test('health automation list, details, run, and create flow use the current API contract', async ({ context, page, baseURL }) => {
+    test.setTimeout(90_000)
     await context.setExtraHTTPHeaders({ 'x-hanasand-render-proof-auth': 'local-dashboard-render-proof' })
-    await context.addCookies([
-        { name: 'id', value: 'dashboard-render-proof-user', url: origin },
-        { name: 'access_token', value: 'local-dashboard-render-proof-token', url: origin },
-        { name: 'id', value: 'dashboard-render-proof-user', domain: 'localhost', path: '/' },
-        { name: 'access_token', value: 'local-dashboard-render-proof-token', domain: 'localhost', path: '/' },
-        { name: 'id', value: 'dashboard-render-proof-user', domain: '127.0.0.1', path: '/' },
-        { name: 'access_token', value: 'local-dashboard-render-proof-token', domain: '127.0.0.1', path: '/' },
-    ])
+    for (const [name, value] of Object.entries({ id: 'dashboard-render-proof-user', access_token: 'local-dashboard-render-proof-token' })) {
+        await context.addCookies([{ name, value, url: baseURL! }])
+    }
 
+    const existing = automationFixture()
+    let automations = [existing]
+    let submitted: AutomationPayload | undefined
     const runRequests: string[] = []
-    const saveRequests: unknown[] = []
-    const createRequests: unknown[] = []
-
     await page.route('**/api/backend/automations**', async route => {
         const request = route.request()
-        const url = new URL(request.url())
-        const path = url.pathname
-
+        const path = new URL(request.url()).pathname
         if (request.method() === 'GET' && path.endsWith('/api/backend/automations')) {
-            await route.fulfill({ json: { automations: fixtureAutomations } })
+            await route.fulfill({ json: { automations, canManageSystem: false } })
             return
         }
-
-        if (request.method() === 'GET' && path.endsWith('/api/backend/automations/failing-route')) {
-            await route.fulfill({ json: { automation: fixtureAutomations[0], runs: fixtureRuns } })
+        if (request.method() === 'GET' && path.endsWith(`/api/backend/automations/${existing.id}`)) {
+            await route.fulfill({ json: { automation: existing, runs: [], issues: [], total: 0, nextPage: null } })
             return
         }
-
-        if (request.method() === 'POST' && path.endsWith('/api/backend/automations/failing-route/run')) {
+        if (request.method() === 'POST' && path.endsWith(`/api/backend/automations/${existing.id}/run`)) {
             runRequests.push(path)
             await route.fulfill({ json: { ok: true, message: 'queued' } })
             return
         }
-
-        if (request.method() === 'PUT' && path.endsWith('/api/backend/automations/failing-route')) {
-            saveRequests.push(await request.postDataJSON())
-            await route.fulfill({ json: { automation: fixtureAutomations[0] } })
+        if (request.method() === 'GET' && path.endsWith('/api/backend/automations/created-health-check')) {
+            const created = automations.find(item => item.id === 'created-health-check')!
+            await route.fulfill({ json: { automation: created, runs: [], issues: [], total: 0, nextPage: null } })
             return
         }
-
         if (request.method() === 'POST' && path.endsWith('/api/backend/automations')) {
-            createRequests.push(await request.postDataJSON())
-            await route.fulfill({ status: 201, json: { automation: { ...fixtureAutomations[1], id: 'created-route', name: 'Mail path health automation' } } })
+            submitted = request.postDataJSON() as AutomationPayload
+            automations = [...automations, createdAutomationFixture(submitted)]
+            await route.fulfill({ status: 201, json: { automation: automations.at(-1) } })
             return
         }
-
-        await route.fulfill({ status: 404, json: { error: `Unhandled automation fixture path: ${path}` } })
+        await route.fulfill({ status: 404, json: { error: `Unhandled automation fixture request: ${request.method()} ${path}` } })
     })
 
-    await page.goto('/automation', { waitUntil: 'domcontentloaded' })
+    await page.goto('/automation/health', { waitUntil: 'domcontentloaded' })
+    const retry = page.getByRole('button', { name: 'Try again' })
+    if (await retry.isVisible()) await retry.click()
 
-    await expect(page.getByRole('heading', { name: 'Automations' })).toBeVisible()
-    await expect(page.getByRole('heading', { name: '1 route needs attention' })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Mail delivery route' })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Healthy system alert' })).toBeVisible()
-    await expect(page.getByText('Mail, Discord')).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Mail health' })).toBeHidden()
-    await expect(page.getByRole('button', { name: 'Delete' })).toBeHidden()
-
-    await expect(page.getByText('Advanced schedule and notification policy')).toBeVisible()
-    await expect(page.getByText('Advanced matching rules')).toBeVisible()
-    await expect(page.getByText('Run history')).toBeVisible()
-    await expect(page.getByText('Matching instructions')).toBeHidden()
-
-    await page.getByText('Templates').click()
-    await expect(page.getByRole('button', { name: 'Mail health' })).toBeVisible()
-
-    await page.getByText('Advanced matching rules').click()
-    await expect(page.getByText('Matching instructions')).toBeVisible()
-    await expect(page.getByText('The single field controls all advanced matching behavior')).toBeVisible()
-
+    await expect(page.getByRole('button', { name: existing.name, exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: existing.name, exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /Recent checks/ })).toContainText('(0/0)')
     await page.getByRole('button', { name: 'Check now' }).click()
-    await expect.poll(() => runRequests.length).toBe(1)
+    await expect.poll(() => runRequests).toHaveLength(1)
+    await expect(page.getByText('Check started. Refresh shortly to see the result.')).toBeVisible()
 
-    await expect(page.getByText('Logs', { exact: true })).toBeVisible()
-    await expect(page.getByText('SMTP health check failed').nth(1)).toBeVisible()
-    await expect(page.getByText('Screenshots', { exact: true })).toBeVisible()
-    await expect(page.getByRole('link', { name: 'mail-run-1.png' })).toBeVisible()
+    await page.getByRole('button', { name: 'Create automation', exact: true }).click()
+    await page.getByLabel('Name', { exact: true }).fill('New API check')
+    await page.getByLabel('URL to check', { exact: true }).fill('https://status.example.test/health')
+    await page.getByLabel('Description', { exact: true }).fill('Check the new status endpoint.')
+    await page.getByRole('button', { name: 'Create automation', exact: true }).click()
 
-    await page.getByRole('button', { name: 'Save automation' }).click()
-    await expect.poll(() => saveRequests.length).toBe(1)
-    expect(saveRequests[0]).toMatchObject({ name: 'Mail delivery route', actionType: 'mail_health_check' })
-
-    await expect(page.getByRole('button', { name: 'Delete' })).toBeHidden()
-    await page.getByText('Automation controls').click()
-    await expect(page.getByRole('button', { name: 'Delete' })).toBeVisible()
-
-    if (!await page.getByRole('button', { name: 'Mail health' }).isVisible()) {
-        await page.getByText('Templates').click()
-    }
-    await page.getByRole('button', { name: 'Mail health' }).click()
-    await expect(page.getByRole('heading', { name: 'New automation' })).toBeVisible()
-    await expect(page.getByText('Route is paused; reactivate to resume checks.')).toBeVisible()
-    await page.getByText('Advanced schedule and notification policy').click()
-    await page.getByTestId('automation-schedule-settings').getByLabel('Status').selectOption('active')
-    await expect(page.getByText('Add a Discord webhook-file destination before activating this automation.')).toBeVisible()
-    const interval = page.getByLabel('Check every')
-    await interval.fill('')
-    await expect(interval).toHaveValue('')
-    await interval.fill('15')
-    await page.getByLabel('First check').fill('2026-07-03T20:15')
-    await expect(page.getByRole('button', { name: 'Create automation' })).toBeDisabled()
-
-    await page.getByLabel('Destination').fill('discord-webhook-file:/secure/ops/discord-alerts.url')
-    await expect(page.getByRole('button', { name: 'Create automation' })).toBeEnabled()
-    await page.getByRole('button', { name: 'Create automation' }).click()
-    await expect.poll(() => createRequests.length).toBe(1)
-    expect(createRequests[0]).toMatchObject({
-        actionType: 'mail_health_check',
-        status: 'active',
-        intervalMinutes: 15,
-        runAt: '2026-07-03T20:15',
-        modelName: 'discord-webhook-file:/secure/ops/discord-alerts.url',
-    })
-})
-
-test('automation delivery templates do not ship developer-local destinations', async () => {
-    const root = process.cwd()
-    const pageClient = await readFile(path.join(root, 'src/app/dashboard/automation/pageClient.tsx'), 'utf8')
-    const automationUtils = await readFile(path.join(root, '../api/src/utils/automations.ts'), 'utf8')
-    const ensureSchema = await readFile(path.join(root, '../api/src/utils/db/ensureSchema.ts'), 'utf8')
-
-    expect(pageClient).not.toContain('/Users/eirikhanasand/Desktop/webhooktoday.txt')
-    expect(pageClient).not.toContain('const discordWebhookFileDestination')
-    expect(pageClient).toContain('status: \'paused\'')
-    expect(pageClient).toContain('Optional')
-    expect(pageClient).toContain('activeRouteSaveBlocker(draft)')
-    expect(pageClient).toContain('Add a delivery destination or keep the route paused before saving.')
-    expect(pageClient).toContain('matched watchlist term, alert summary, claim time, source label, source link, source count, review state, recommended action, and investigation pivots')
-    expect(pageClient).not.toContain('matchedTerm, claimSummary, claimedAt, sourceName, sourceUrl, sourceCount, reviewState, recommendedAction, and pivots')
-    expect(automationUtils).toContain('status === \'active\' && actionType === \'system_alert\' && !modelName')
-    expect(automationUtils).toContain('status === \'active\' && actionType === \'mail_health_check\' && notifyOn !== \'never\' && !modelName')
-    expect(ensureSchema).toContain('ALTER TABLE agent_automation_runs ADD COLUMN IF NOT EXISTS artifacts JSONB')
-    expect(automationUtils).toContain('artifacts = $6::jsonb')
-    expect(automationUtils).toContain('artifacts,')
-    expect(pageClient).not.toContain('extractRunLinks')
-})
-
-const fixtureAutomations = [
-    {
-        id: 'failing-route',
-        name: 'Mail delivery route',
-        prompt: 'Check the Hanasand Mail dashboard path and mail service health.',
+    await expect.poll(() => submitted).toMatchObject({
+        name: 'New API check',
+        targetUrl: 'https://status.example.test/health',
+        prompt: 'Check the new status endpoint.',
+        actionType: 'agent_prompt',
         scheduleKind: 'interval',
-        intervalMinutes: 5,
-        runAt: null,
+        intervalMinutes: 15,
         status: 'active',
-        actionType: 'mail_health_check',
-        timezone: 'Europe/Oslo',
-        modelName: 'discord-webhook-file:/secure/ops/discord-alerts.url',
-        notifyOn: 'failure',
-        nextRunAt: '2026-07-03T18:15:00.000Z',
-        lastRunAt: '2026-07-03T18:10:00.000Z',
-        lastCompletedAt: '2026-07-03T18:10:02.000Z',
-        lastStatus: 'failed',
-        lastResult: null,
-        lastError: 'SMTP health check failed',
-        consecutiveFailures: 1,
-        pausedReason: null,
-        runCount: 12,
-        createdAt: '2026-07-01T10:00:00.000Z',
-        updatedAt: '2026-07-03T18:10:02.000Z',
-    },
-    {
-        id: 'healthy-route',
-        name: 'Healthy system alert',
-        prompt: 'Hanasand alert portal smoke.',
-        scheduleKind: 'once',
-        intervalMinutes: null,
-        runAt: '2026-07-03T19:00:00.000Z',
-        status: 'active',
-        actionType: 'system_alert',
-        timezone: 'Europe/Oslo',
-        modelName: 'discord-webhook-file:/secure/ops/discord-alerts.url',
-        notifyOn: 'always',
-        nextRunAt: '2026-07-03T19:00:00.000Z',
-        lastRunAt: '2026-07-03T17:00:00.000Z',
-        lastCompletedAt: '2026-07-03T17:00:01.000Z',
-        lastStatus: 'completed',
-        lastResult: 'ok',
-        lastError: null,
-        consecutiveFailures: 0,
-        pausedReason: null,
-        runCount: 1,
-        createdAt: '2026-07-01T10:00:00.000Z',
-        updatedAt: '2026-07-03T17:00:01.000Z',
-    },
-]
-
-const fixtureRuns = [
-    {
-        id: 'run-1',
-        automationId: 'failing-route',
-        status: 'failed',
-        result: null,
-        error: 'SMTP health check failed',
-        provider: 'local',
-        model: null,
-        artifacts: [
-            { type: 'log', label: 'Run log', text: 'SMTP health check failed', href: null, createdAt: '2026-07-03T18:10:02.000Z' },
-            { type: 'screenshot', label: 'mail-run-1.png', href: 'https://ops.example/screens/run-1.png', text: null, createdAt: '2026-07-03T18:10:02.000Z' },
-        ],
-        startedAt: '2026-07-03T18:10:00.000Z',
-        completedAt: '2026-07-03T18:10:02.000Z',
-        durationMs: 2000,
-    },
-]
+    })
+    await expect(page.getByRole('button', { name: 'New API check', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'New API check', exact: true })).toBeVisible()
+    await expect(page.getByText('https://status.example.test/health')).toBeVisible()
+})

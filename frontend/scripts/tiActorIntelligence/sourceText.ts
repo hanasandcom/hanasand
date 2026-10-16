@@ -22,7 +22,7 @@ export const pageClientSource = [
 ].join('\n')
 export const consumerReadinessSource = readFileSync(new URL('../../src/app/ti/consumerReadiness.ts', import.meta.url), 'utf8')
 export const evidenceResultsSource = readFileSync(new URL('../../src/app/ti/components/evidence-results.tsx', import.meta.url), 'utf8')
-export const globalStylesSource = readFileSync(new URL('../../src/app/globals.css', import.meta.url), 'utf8')
+export const globalStylesSource = readFileSync(new URL('../../src/app/global-styles/global-overrides.css', import.meta.url), 'utf8')
 export const actorIntelligenceSource = readFileSync(new URL('../../src/utils/ti/actorIntelligence.ts', import.meta.url), 'utf8')
 export const actionabilitySource = [
     readFileSync(new URL('../../src/utils/ti/actionability.ts', import.meta.url), 'utf8'),

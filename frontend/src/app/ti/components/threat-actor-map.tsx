@@ -13,6 +13,7 @@ import MapCoverageFallback from './map-coverage-fallback'
 import mapData from '@parent/public/world.json'
 import MapPointActionRow from './map-point-action-row'
 import MapZoomButton from './map-zoom-button'
+import { mapGeometryPath } from './mapGeometry'
 
 export default function ThreatActorMap({ actor, result, onSelectCountry, compact = false }: { actor: TiActorIntelligenceProfile; result: TiSearchResponse; onSelectCountry?: (country: string) => void; compact?: boolean }) {
     const geo = actorGeoProfile(result)
@@ -32,7 +33,6 @@ export default function ThreatActorMap({ actor, result, onSelectCountry, compact
         if (coords) setViewBox(getCountryFocusView(coords))
     }, [geo.points, onSelectCountry])
     const mapPaths = useMemo(() => mapData.features.map((feature, index) => {
-        let d = ''
         const code = countryCodeForMapFeature(feature.properties?.name)
         const point = code ? pointByCode.get(code) : undefined
         const active = Boolean(point && selectedPoint?.code === point.code)
@@ -43,24 +43,7 @@ export default function ThreatActorMap({ actor, result, onSelectCountry, compact
             : 'fill-ui-raised'
         const strokeClass = point ? 'stroke-ui-panel stroke-[0.9]' : 'stroke-ui-border stroke-[0.55]'
 
-        function drawRing(ring: number[][]) {
-            return ring.reduce((path, point, pointIndex) => {
-                const [x, y] = project([point[1], point[0]])
-                return `${path}${pointIndex === 0 ? 'M' : 'L'} ${x} ${y} `
-            }, '') + 'Z '
-        }
-
-        if (feature.geometry.type === 'Polygon') {
-            ;(feature.geometry.coordinates as number[][][]).forEach((ring) => {
-                d += drawRing(ring)
-            })
-        } else if (feature.geometry.type === 'MultiPolygon') {
-            ;(feature.geometry.coordinates as number[][][][]).forEach((polygon) => {
-                polygon.forEach((ring) => {
-                    d += drawRing(ring)
-                })
-            })
-        }
+        const d = mapGeometryPath(feature.geometry)
 
         return (
             <path

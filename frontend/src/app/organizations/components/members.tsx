@@ -1,15 +1,15 @@
 import type { OrganizationMember, OrganizationRole } from '../types/organization'
 import type { RowMessage, ActivitySubject } from '../types/activity'
-import { memberBusyLabel, organizationRoleLabel } from '../model/labels'
+import { memberBusyLabel } from '../model/labels'
 import { memberSearchText } from '../model/organization'
 import { memberStatusCounts, memberRoleStatusCounts, memberCanMutate, memberMutationDisabledReason } from '../model/forms'
-import { InlineBusy, EmptyLine, SelectField, StatusPill, RoleBadge, ConfirmActionButton, RowStatus } from './shared'
-import { inputClass, secondaryButtonClass, compactSelectClass } from '../constants/styles'
-import { roleOptions } from '../constants/options'
+import { InlineBusy, EmptyLine, StatusPill, RoleBadge, ConfirmActionButton, RowStatus } from './shared'
+import { MemberFilterStrip } from './memberFilterStrip'
+import { MemberRoleEditor } from './memberRoleEditor'
 import { sanitizeOrganizationDisplayCopy } from '../model/textSafety'
 import { useState } from 'react'
 import { stopRowSelectionKeys } from '../model/keyboard'
-import { CheckCircle2, Trash2 } from 'lucide-react'
+import { Trash2 } from 'lucide-react'
 
 export function MemberPanel({ members, canManage, busy, rowMessages, selectedSubject, onSelectSubject, onRoleChange, onRemove }: { members: OrganizationMember[], canManage: boolean, busy: string, rowMessages: Record<string, RowMessage>, selectedSubject: ActivitySubject, onSelectSubject: (subject: ActivitySubject) => void, onRoleChange: (member: OrganizationMember, role: OrganizationRole) => void, onRemove: (member: OrganizationMember) => void }) {
     const [pendingRoles, setPendingRoles] = useState<Record<string, OrganizationRole>>({})
@@ -23,7 +23,6 @@ export function MemberPanel({ members, canManage, busy, rowMessages, selectedSub
         if (!normalizedMemberQuery) return true
         return memberSearchText(member).includes(normalizedMemberQuery)
     })
-    const memberFiltersActive = Boolean(memberQuery.trim()) || memberRoleFilter !== 'all'
     const memberCounts = memberStatusCounts(members)
     const memberRoleCounts = memberRoleStatusCounts(members)
     return (

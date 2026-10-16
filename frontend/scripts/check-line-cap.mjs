@@ -7,18 +7,21 @@ const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 
 const repositoryRoot = path.resolve(frontendRoot, '..')
 const limit = 200
 const includedExtensions = new Set([
-    '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.css', '.json', '.toml', '.yaml', '.yml',
+    '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.css', '.json', '.toml', '.yaml', '.yml', '.sh', '.vcl',
 ])
+const includedNames = new Set(['Dockerfile', '.dockerignore', 'Dockerfile.dockerignore', 'CodeInventory.Dockerfile', 'CodeInventory.Dockerfile.dockerignore'])
 const excludedDirectories = new Set(['node_modules', '.next', 'coverage', 'playwright-report', 'test-results', 'dist', 'build'])
 const generatedFiles = new Set(['src/utils/routes/generatedSearchRoutes.ts'])
 
 const changedOnly = process.argv.includes('--changed')
 const files = changedOnly ? changedFiles() : await allFiles(frontendRoot)
 const oversized = []
+let checked = 0
 
 for (const file of files) {
     const relativePath = path.relative(frontendRoot, file).split(path.sep).join('/')
-    if (!includedExtensions.has(path.extname(file)) || generatedFiles.has(relativePath)) continue
+    if ((!includedExtensions.has(path.extname(file)) && !includedNames.has(path.basename(file))) || generatedFiles.has(relativePath)) continue
+    checked++
     const source = await readFile(file, 'utf8')
     const lineCount = source ? source.split(/\r\n|\n|\r/).length - (/(\r\n|\n|\r)$/.test(source) ? 1 : 0) : 0
     if (lineCount > limit) oversized.push({ file: relativePath, lineCount })
@@ -29,7 +32,7 @@ if (oversized.length) {
     console.error(`${oversized.length} frontend files exceed the ${limit}-line cap.`)
     process.exitCode = 1
 } else {
-    console.log(`Line cap passed for ${files.length} ${changedOnly ? 'changed' : 'frontend'} files.`)
+    console.log(`Line cap passed for ${checked} ${changedOnly ? 'changed' : 'frontend'} source/config files.`)
 }
 
 function changedFiles() {

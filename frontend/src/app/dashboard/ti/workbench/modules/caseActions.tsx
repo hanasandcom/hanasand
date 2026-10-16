@@ -1,6 +1,5 @@
 import type { WorkbenchCase, CaseDetailState, LocalDecision, CaseMutationInput, WorkbenchCaseMutationAction, CaseAllowedAction } from '../types'
 import { customerNotificationActionState } from './caseRoutes'
-import { label } from './presentation'
 
 function DecisionButton({ busy = false, disabledReason, onClick, children }: { busy?: boolean, disabledReason?: string, onClick: () => void | Promise<void>, children: string }) {
     const disabled = busy || Boolean(disabledReason)

@@ -124,11 +124,6 @@ export const contractTasks: TestTask[] = [
         command: [bun, 'scripts/check-ti-varnish-freshness.mjs'],
     },
     {
-        id: 'dwm-analyst-brief',
-        title: 'DWM analyst brief',
-        command: [bun, 'scripts/check-dwm-analyst-brief.mjs'],
-    },
-    {
         id: 'organization-customer-boundaries',
         title: 'Organization customer boundaries',
         command: [bun, 'test', 'tests/organization-customer-boundaries.test.mjs'],
@@ -152,5 +147,10 @@ export const contractTasks: TestTask[] = [
         id: 'browser-report-evidence',
         title: 'Browser report evidence contract',
         command: [bun, 'scripts/check-browser-report-evidence.mjs'],
+    },
+    {
+        id: 'workspace-search-utils',
+        title: 'Share workspace search behavior',
+        command: [bun, 'test', 'tests/workspace-search-utils.test.ts'],
     },
 ]

@@ -3,27 +3,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { tiScraperApiBase } from '@/utils/dwm/scraperApiBase'
 import requireApiSession from '@/utils/proxy/requireApiSession'
-import { authApiUrl } from '@/utils/auth/authApiUrl'
+import { parseJsonObject, resolveDwmRequestScope, withDwmRequestScope } from './dwmScope'
+import { serveDwmProductSnapshot } from './dwmProductSnapshotCache'
+import { verifyDwmOrganizationScope } from './verifyDwmOrganizationScope'
+
+export { resolveDwmRequestScope, withDwmRequestScope } from './dwmScope'
+export { presentedApiKey, proxyApiTiRequest } from './tiApiKeyProxy'
 
 type ProxyOptions = {
     method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'
     timeoutMs?: number
 }
-
-type DwmRequestScope = {
-    tenantId: string
-    organizationId?: string
-    error?: string
-}
-
-type DwmProductCacheEntry = { payload: unknown, expiresAt: number, staleUntil: number }
-type DwmProductFetch = { payload: unknown, status: number }
-
-const dwmProductSnapshots = new Map<string, DwmProductCacheEntry>()
-const dwmProductRefreshes = new Map<string, Promise<DwmProductFetch>>()
-const DWM_PRODUCT_CACHE_TTL_MS = 10_000
-const DWM_PRODUCT_STALE_MS = 2 * 60_000
-const DWM_PRODUCT_CACHE_MAX_ENTRIES = 64
 
 export async function proxyTiRequest(request: NextRequest, path: string, options: ProxyOptions = {}) {
     const session = await requireApiSession(request)
@@ -50,7 +40,7 @@ export async function proxyTiRequest(request: NextRequest, path: string, options
             return NextResponse.json({ error: { code: 'invalid_scope', message: scope.error } }, { status: 400 })
         }
         if (scope.organizationId) {
-            const scopeError = await organizationScopeError(scope.organizationId, token, id, impersonationToken)
+            const scopeError = await verifyDwmOrganizationScope(scope.organizationId, token, id, impersonationToken)
             if (scopeError) return scopeError
         }
         const target = new URL(path, base)
@@ -81,16 +71,7 @@ export async function proxyTiRequest(request: NextRequest, path: string, options
         }
 
         if (method === 'GET' && path.replace(/^\/+/, '') === 'v1/dwm/product') {
-            const cacheKey = target.toString()
-            const cached = dwmProductSnapshots.get(cacheKey)
-            if (cached && cached.staleUntil > Date.now()) {
-                touchDwmProductSnapshot(cacheKey, cached)
-                if (cached.expiresAt <= Date.now()) void fetchDwmProductSnapshot(cacheKey, target, init).catch(() => undefined)
-                return NextResponse.json(cached.payload, { headers: { 'cache-control': 'no-store' } })
-            }
-
-            const fetched = await fetchDwmProductSnapshot(cacheKey, target, init)
-            return NextResponse.json(fetched.payload, { status: fetched.status, headers: { 'cache-control': 'no-store' } })
+            return await serveDwmProductSnapshot(target, init)
         }
 
         const response = await fetch(target, init)
@@ -105,172 +86,4 @@ export async function proxyTiRequest(request: NextRequest, path: string, options
             },
         }, { status: 502 })
     }
-}
-
-function touchDwmProductSnapshot(key: string, entry: DwmProductCacheEntry) {
-    dwmProductSnapshots.delete(key)
-    dwmProductSnapshots.set(key, entry)
-}
-
-async function fetchDwmProductSnapshot(key: string, target: URL, init: RequestInit): Promise<DwmProductFetch> {
-    const existing = dwmProductRefreshes.get(key)
-    if (existing) return existing
-
-    const pending = (async () => {
-        const response = await fetch(target, init)
-        const text = await response.text()
-        const payload = text ? JSON.parse(text) as unknown : {}
-        if (response.ok) {
-            const now = Date.now()
-            touchDwmProductSnapshot(key, { payload, expiresAt: now + DWM_PRODUCT_CACHE_TTL_MS, staleUntil: now + DWM_PRODUCT_STALE_MS })
-            while (dwmProductSnapshots.size > DWM_PRODUCT_CACHE_MAX_ENTRIES) {
-                dwmProductSnapshots.delete(dwmProductSnapshots.keys().next().value!)
-            }
-        }
-        return { payload, status: response.status }
-    })()
-
-    dwmProductRefreshes.set(key, pending)
-    try {
-        return await pending
-    } finally {
-        if (dwmProductRefreshes.get(key) === pending) dwmProductRefreshes.delete(key)
-    }
-}
-
-export function resolveDwmRequestScope(input: {
-    identityId: string
-    params: Pick<URLSearchParams, 'get'>
-    headers: Pick<Headers, 'get'>
-    body?: Record<string, unknown>
-    fallbackOrganizationId?: string
-}): DwmRequestScope {
-    const organizationIds = [
-        input.params.get('org'),
-        input.params.get('organizationId'),
-        input.params.get('orgId'),
-        input.headers.get('x-organization-id'),
-        clean(input.body?.organizationId),
-        clean(input.body?.orgId),
-        ...nestedScopeRecords(input.body).flatMap(item => [clean(item.organizationId), clean(item.orgId)]),
-    ].map(clean).filter(Boolean)
-    const distinctOrganizationIds = [...new Set(organizationIds)]
-    if (distinctOrganizationIds.length > 1) {
-        return { tenantId: input.identityId, error: 'Organization scope is inconsistent across the request.' }
-    }
-    const organizationId = distinctOrganizationIds[0] || input.fallbackOrganizationId
-    return {
-        tenantId: organizationId || input.identityId,
-        ...(organizationId ? { organizationId } : {}),
-    }
-}
-
-export function withDwmRequestScope(body: Record<string, unknown>, scope: Pick<DwmRequestScope, 'tenantId' | 'organizationId'>) {
-    const applyScope = (value: Record<string, unknown>) => {
-        const scoped: Record<string, unknown> = { ...value, tenantId: scope.tenantId }
-        delete scoped.organizationId
-        delete scoped.orgId
-        if (scope.organizationId) {
-            scoped.organizationId = scope.organizationId
-            scoped.orgId = scope.organizationId
-        }
-        return scoped
-    }
-    const scoped = applyScope(body)
-    if (Array.isArray(body.items)) {
-        scoped.items = body.items.map(item => isRecord(item) ? applyScope(item) : item)
-    }
-    return scoped
-}
-
-async function organizationScopeError(organizationId: string, token: string, id: string, impersonationToken: string) {
-    try {
-        const target = new URL(`${authApiUrl().replace(/\/$/, '')}/organizations/${encodeURIComponent(organizationId)}`)
-        const response = await fetch(target, {
-            cache: 'no-store',
-            headers: {
-                Authorization: `Bearer ${token}`,
-                id,
-                ...(impersonationToken ? { 'x-impersonation-token': impersonationToken } : {}),
-            },
-            signal: AbortSignal.timeout(8000),
-        })
-        if (response.ok) return null
-        const notFound = response.status === 404
-        const accessDenied = response.status === 401 || response.status === 403
-        return NextResponse.json({
-            error: {
-                code: notFound ? 'organization_not_found' : accessDenied ? 'organization_access_denied' : 'organization_unavailable',
-                message: notFound ? 'Organization not found.' : accessDenied ? 'Organization access denied.' : 'Organization access could not be verified.',
-            },
-        }, { status: notFound ? 404 : accessDenied ? 403 : 502, headers: { 'cache-control': 'no-store' } })
-    } catch {
-        return NextResponse.json({ error: { code: 'organization_unavailable', message: 'Organization access could not be verified.' } }, { status: 502 })
-    }
-}
-
-function parseJsonObject(value: string) {
-    try {
-        const parsed = JSON.parse(value) as unknown
-        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, unknown> : null
-    } catch {
-        return null
-    }
-}
-
-function clean(value: unknown) {
-    return typeof value === 'string' ? value.trim() : ''
-}
-
-function nestedScopeRecords(body: Record<string, unknown> | undefined) {
-    return Array.isArray(body?.items) ? body.items.filter(isRecord) : []
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
-}
-
-export async function proxyApiTiRequest(request: NextRequest, path: string, options: ProxyOptions = {}) {
-    const apiKey = presentedApiKey(request)
-    const session = apiKey ? undefined : await requireApiSession(request)
-    if (session && 'response' in session) {
-        return NextResponse.json({ error: 'authentication_required', message: 'A valid API key or Hanasand session is required.' }, { status: 401, headers: { 'cache-control': 'no-store' } })
-    }
-
-    try {
-        const target = new URL(`${authApiUrl().replace(/\/$/, '')}${path}`)
-        const method = options.method || request.method as 'GET' | 'POST'
-        const response = await fetch(target, {
-            method,
-            cache: 'no-store',
-            headers: {
-                'content-type': 'application/json',
-                ...(apiKey ? { 'x-api-key': apiKey } : {
-                    Authorization: `Bearer ${session!.identity.token}`,
-                    id: session!.identity.id,
-                }),
-            },
-            ...(method === 'GET' ? {} : { body: await request.text() }),
-            signal: AbortSignal.timeout(options.timeoutMs ?? 15000),
-        })
-        const text = await response.text()
-        const headers = new Headers({
-            'cache-control': 'no-store',
-            'content-type': response.headers.get('content-type') || 'application/json',
-        })
-        for (const [name, value] of response.headers) {
-            if (name === 'retry-after' || name.startsWith('x-rate-limit-') || name.startsWith('x-api-key-rate-limit-')) headers.set(name, value)
-        }
-        return new NextResponse(text, { status: response.status, headers })
-    } catch {
-        return NextResponse.json({ error: 'ti_proxy_failed', message: 'Threat-intelligence API is temporarily unavailable.' }, { status: 502, headers: { 'cache-control': 'no-store' } })
-    }
-}
-
-export function presentedApiKey(request: Pick<NextRequest, 'headers'>) {
-    const header = request.headers.get('x-api-key')?.trim() || ''
-    if (header) return header
-    const authorization = request.headers.get('authorization') || ''
-    const bearer = authorization.startsWith('Bearer ') ? authorization.slice(7).trim() : ''
-    return bearer.startsWith('hsk_') ? bearer : ''
 }

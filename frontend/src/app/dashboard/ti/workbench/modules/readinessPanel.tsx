@@ -1,7 +1,7 @@
 import type { WorkbenchOrgContext, WorkbenchProductReadinessItem, WorkbenchAction, WorkbenchWorkflowStep } from '../types'
 import { useState, useCallback } from 'react'
 import { readJson } from './payloadParsing'
-import { workflowStatusClass, label, customerOperationalText } from './presentation'
+import { workflowStatusClass, customerOperationalText } from './presentation'
 import Link from 'next/link'
 import { ReadinessDetailField, ReadinessDetail } from './readinessDetail'
 

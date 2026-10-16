@@ -8,7 +8,6 @@ import type { WorkbenchPersistentAction } from './useWorkbenchActionState'
 
 export function useOrganizationWorkflowActions(input: {
     orgContext?: WorkbenchOrgContext
-    selected?: WorkbenchCase
     selectedCaseDetail?: CaseDetailState
     inviteEmail: string
     setInviteEmail: Dispatch<SetStateAction<string>>
@@ -16,7 +15,7 @@ export function useOrganizationWorkflowActions(input: {
     runPersistentAction: WorkbenchPersistentAction
     setMessage: Dispatch<SetStateAction<WorkbenchActionOutcome | null>>
 }) {
-    const { orgContext, selected, selectedCaseDetail, inviteEmail, setInviteEmail, inviteRole, runPersistentAction, setMessage } = input
+    const { orgContext, selectedCaseDetail, inviteEmail, setInviteEmail, inviteRole, runPersistentAction, setMessage } = input
 
     async function createSharedWatchlistTerm(item: WorkbenchCase) {
         const disabledReason = watchlistMutationDisabledReason(orgContext, selectedCaseDetail)

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { test } from 'bun:test'
 import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { ActorBusinessModelEvidence } from '../src/app/ti/businessModelEvidence'
@@ -27,7 +28,7 @@ const result: TiSearchResponse = {
             extortionModels: [],
             advertisedProducts: [],
             advertisedData: [],
-            pricingClaims: [observation('$150,000 to $1,00,0000', 'Ransom demand ranges from $150,000 to $1,00,0000.')],
+            pricingClaims: [observation('$150,000 to $1,00,0000', 'Ransom demand ranges from $150,000 to $1,00,0000.', 'https://data.ransomware.live/groups.json')],
             negotiationClaims: [observation('Negotiation portal', 'They shifted their Negotiation portal to a new server.')],
             paymentClaims: [observation('Monero (XMR) cryptocurrency', 'Demand to be paid with Monero (XMR) cryptocurrency.')],
             revenueShareClaims: [],
@@ -76,45 +77,48 @@ const result: TiSearchResponse = {
     },
 }
 
-const sanitized = sanitizeTiResultForPublicPage(result)
-assert(sanitized)
-const publicJson = JSON.stringify(sanitized)
-assert.doesNotMatch(publicJson, /reviewedBy|analyst@example\.com|private_channel|t\.me|telegram\.me|tg:|127\.0\.0\.1|\[::1\]/)
-const markup = renderToStaticMarkup(<ActorBusinessModelEvidence model={sanitized.actorIntelligence?.businessModel} sources={sanitized.sources} caseStudies={sanitized.actorCaseStudies} />)
+test('public TI business-model evidence preserves reviewed case presentation safely', () => {
+    const sanitized = sanitizeTiResultForPublicPage(result)
+    assert(sanitized)
+    const publicJson = JSON.stringify(sanitized)
+    assert.doesNotMatch(publicJson, /reviewedBy|analyst@example\.com|private_channel|t\.me|telegram\.me|tg:|127\.0\.0\.1|\[::1\]/)
+    const markup = renderToStaticMarkup(<ActorBusinessModelEvidence model={sanitized.actorIntelligence?.businessModel} sources={sanitized.sources} caseStudies={sanitized.actorCaseStudies} />)
 
-assert.match(markup, /Business model and communication/)
-assert.match(markup, />Negotiation</)
-assert.match(markup, />Payment</)
-assert.match(markup, />Pricing</)
-assert.match(markup, /\$150,000 to \$1,00,0000/)
-assert.match(markup, /Demand to be paid with Monero/)
-assert.match(markup, /Third-party report/)
-assert.match(markup, /confirmed/)
-assert.match(markup, /Capture cap_braincipher/)
-assert.match(markup, /Claim claim_braincipher/)
-assert.match(markup, /Published 2026-07-19/)
-assert.match(markup, /Collected 2026-07-20/)
-assert.match(markup, /Profitability unknown/)
-assert.match(markup, /realized revenue or profit/)
-assert.match(markup, /Pending findings — not case-study evidence/)
-assert.match(markup, /Corpus-wide: 1 reviewed multi-category case study across 1 actors/)
-assert.doesNotMatch(markup, /href="\/ti\/BrainCipher"/)
-assert.match(markup, /0 APT\/intrusion-set/)
-assert.match(markup, /Not represented by current retained evidence: reviewed state\/APT business-model evidence/)
-assert.doesNotMatch(markup, /javascript:/)
+    assert.match(markup, /Business model and communication/)
+    assert.match(markup, />Negotiation</)
+    assert.match(markup, />Payment</)
+    assert.match(markup, />Pricing</)
+    assert.match(markup, /\$150,000 to \$1,00,0000/)
+    assert.match(markup, /Demand to be paid with Monero/)
+    assert.match(markup, /Third-party report/)
+    assert.match(markup, /confirmed/)
+    assert.match(markup, /Capture cap_braincipher/)
+    assert.match(markup, /Claim claim_braincipher/)
+    assert.match(markup, /href="https:\/\/data\.ransomware\.live\/groups\.json"/)
+    assert.match(markup, /Published 2026-07-19/)
+    assert.match(markup, /Collected 2026-07-20/)
+    assert.match(markup, /Profitability unknown/)
+    assert.match(markup, /realized revenue or profit/)
+    assert.match(markup, /Pending findings — not case-study evidence/)
+    assert.match(markup, /Corpus-wide: 1 reviewed multi-category case study across 1 actors/)
+    assert.match(markup, />Negotiation<\/span>/)
+    assert.match(markup, /last published 2026-07-19/)
+    assert.doesNotMatch(markup, /href="\/ti\/BrainCipher"/)
+    assert.match(markup, /0 APT\/intrusion-set/)
+    assert.match(markup, /Not represented by current retained evidence: reviewed state\/APT business-model evidence/)
+    assert.doesNotMatch(markup, /javascript:/)
 
-const loading = renderToStaticMarkup(<ActorBusinessModelEvidence sources={[]} state='loading' />)
-const empty = renderToStaticMarkup(<ActorBusinessModelEvidence sources={[]} />)
-const error = renderToStaticMarkup(<ActorBusinessModelEvidence sources={[]} state='error' error='Threat intelligence search is temporarily unavailable.' />)
+    const loading = renderToStaticMarkup(<ActorBusinessModelEvidence sources={[]} state='loading' />)
+    const empty = renderToStaticMarkup(<ActorBusinessModelEvidence sources={[]} />)
+    const error = renderToStaticMarkup(<ActorBusinessModelEvidence sources={[]} state='error' error='Threat intelligence search is temporarily unavailable.' />)
 
-assert.match(loading, /Searching retained claims and evidence\./)
-assert.match(empty, /No reviewed business-model or communication finding\./)
-assert.match(error, /Threat intelligence search is temporarily unavailable\./)
-assert.match(error, /role="alert"/)
+    assert.match(loading, /Searching retained claims and evidence\./)
+    assert.match(empty, /No reviewed business-model or communication finding\./)
+    assert.match(error, /Threat intelligence search is temporarily unavailable\./)
+    assert.match(error, /role="alert"/)
+})
 
-console.log('TI business-model evidence presentation checks passed.')
-
-function observation(value: string, excerpt: string) {
+function observation(value: string, excerpt: string, url = 'http://127.0.0.1/private') {
     return {
         value,
         assertionKind: 'third_party_report',
@@ -142,7 +146,7 @@ function observation(value: string, excerpt: string) {
             claimEvidenceId: 'claim-evidence_braincipher',
             entityId: 'entity_braincipher',
             contentHash: 'hash_braincipher',
-            url: 'http://127.0.0.1/private',
+            url,
             publishedAt: '2026-07-19T12:00:00.000Z',
             collectedAt: '2026-07-20T15:45:45.322Z',
             excerpt,

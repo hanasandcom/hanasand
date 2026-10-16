@@ -1,6 +1,7 @@
-import type { OrganizationInvite, OrganizationSettings, OrganizationMember } from '../types/organization'
+import type { OrganizationInvite, OrganizationSettings, OrganizationMember, OrganizationRole } from '../types/organization'
 import { cleanString, numberValue, sentenceCase } from './labels'
 import { slugifyOrganizationName } from './organization'
+import { roleOptions } from '../constants/options'
 
 export function inviteLink(invite: OrganizationInvite) {
     return invite.acceptanceUrl || invite.acceptancePath || invite.token || ''
@@ -87,7 +88,8 @@ export function memberStatusCounts(members: OrganizationMember[]) {
 }
 
 export function memberRoleStatusCounts(members: OrganizationMember[]) {
-    return ['owner', 'admin', 'editor', 'reader'].map(role => ({
+    const roles: OrganizationRole[] = ['owner', 'admin', 'editor', 'reader']
+    return roles.map(role => ({
         role,
         label: sentenceCase(role),
         count: members.filter(member => member.role.toLowerCase() === role).length,

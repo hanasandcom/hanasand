@@ -1,7 +1,8 @@
 import type { ImageVulnerabilityReport } from '@/utils/monitoring/types'
 import { ChevronDown } from 'lucide-react'
-import { severityClasses, severityLabel, severityOrder } from './constants'
+import { severityOrder } from './constants'
 import MiniStat from './miniStat'
+import SeverityBadge from './severityBadge'
 
 export default function ImageSummaryActions({
     image,
@@ -16,13 +17,7 @@ export default function ImageSummaryActions({
         <div className='flex shrink-0 items-center gap-1.5 overflow-x-auto'>
             <MiniStat label='Total' value={String(image.totalVulnerabilities)} compact />
             {severityOrder.filter(severity => image.severity[severity] > 0).map((severity) => (
-                <span
-                    key={`${image.image}-${severity}`}
-                    className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold ${severityClasses[severity]}`}
-                >
-                    <span>{severityLabel[severity]}</span>
-                    <span>{image.severity[severity]}</span>
-                </span>
+                <SeverityBadge key={`${image.image}-${severity}`} severity={severity} count={image.severity[severity]} compact />
             ))}
             {image.totalVulnerabilities === 0 ? (
                 <span className='inline-flex items-center rounded-full border border-ui-success/35 bg-ui-success/10 px-2 py-0.5 text-xs font-semibold text-ui-success'>clear</span>

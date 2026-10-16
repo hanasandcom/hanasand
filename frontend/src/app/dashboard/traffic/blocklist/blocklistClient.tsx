@@ -102,16 +102,16 @@ export default function BlocklistClient({ initialBlocklist }: { initialBlocklist
                         </thead>
                         <tbody>
                             {blocklist.map(entry => (
-                                <tr key={entry.id} className='border-b border-ui-border text-ui-muted'>
+                                <tr key={entry.id ?? `${entry.type}:${entry.value}`} className='border-b border-ui-border text-ui-muted'>
                                     <td className='py-3 pr-3'>{entry.type === 'user_agent' ? 'User agent' : 'IP address'}</td>
                                     <td className='break-all py-3 pr-3 text-ui-text'>{entry.value}</td>
                                     <td className='py-3 pr-3'>{[entry.is_vpn && 'VPN', entry.is_proxy && 'Proxy', entry.is_tor && 'Tor'].filter(Boolean).join(' · ') || '—'}</td>
                                     <td className='py-2 text-right'>
                                         <div className='inline-flex items-center gap-1'>
-                                            <button type='button' onClick={() => editBlock(entry)} aria-label={`Edit ${entry.type} ${entry.value}`} className='grid h-8 w-8 place-items-center rounded text-ui-muted hover:bg-ui-raised hover:text-ui-primary'>
+                                            <button type='button' onClick={() => editBlock(entry)} disabled={entry.id === undefined} aria-label={`Edit ${entry.type} ${entry.value}`} className='grid h-8 w-8 place-items-center rounded text-ui-muted hover:bg-ui-raised hover:text-ui-primary disabled:cursor-not-allowed disabled:opacity-50'>
                                                 <Pencil className='h-4 w-4' />
                                             </button>
-                                            <button type='button' onClick={() => setDeletingBlockId(entry.id)} aria-label={`Delete ${entry.type} ${entry.value}`} className='grid h-8 w-8 place-items-center rounded text-ui-muted hover:bg-ui-raised hover:text-ui-danger'>
+                                            <button type='button' onClick={() => setDeletingBlockId(entry.id ?? null)} disabled={entry.id === undefined} aria-label={`Delete ${entry.type} ${entry.value}`} className='grid h-8 w-8 place-items-center rounded text-ui-muted hover:bg-ui-raised hover:text-ui-danger disabled:cursor-not-allowed disabled:opacity-50'>
                                                 <X className='h-4 w-4' />
                                             </button>
                                         </div>

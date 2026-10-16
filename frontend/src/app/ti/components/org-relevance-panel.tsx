@@ -5,6 +5,7 @@ import { decisionStepStatusClass, decisionStepStatusLabel, displayRequirementTex
 import { type TiActionabilityModel } from '@/utils/ti/actionability'
 import CopyPayloadButton from './copy-payload-button'
 import EvidenceMetric from './evidence-metric'
+import OrgActorIdentity from './org-actor-identity'
 
 export default function OrgRelevancePanel({ actionability }: { actionability: TiActionabilityModel }) {
     const relevance = actionability.orgRelevance
@@ -32,25 +33,7 @@ export default function OrgRelevancePanel({ actionability }: { actionability: Ti
                 <EvidenceMetric label='Last seen' value={formatDate(relevance.freshness.lastSeen)} />
                 <EvidenceMetric label='Freshness' value={relevance.freshness.stale ? relevance.freshness.reason : 'Current enough for review'} />
             </div>
-            <div data-ti-org-actor-identity='true' className='mt-3 rounded-lg border border-ui-border bg-ui-panel p-2 dark:border-ui-border dark:bg-ui-raised'>
-                <div className='flex flex-wrap items-start justify-between gap-2'>
-                    <div className='min-w-0'>
-                        <p className='text-xs font-semibold uppercase text-ui-muted dark:text-ui-muted'>Actor identity</p>
-                        <p className='mt-1 wrap-break-word text-xs font-semibold text-ui-text dark:text-ui-text'>{relevance.actorIdentity.canonicalName} · {relevance.actorIdentity.actorClass}</p>
-                        <p className='mt-1 wrap-break-word text-[11px] leading-5 text-ui-muted dark:text-ui-muted'>
-                            {relevance.actorIdentity.aliases.length ? `${relevance.actorIdentity.aliases.slice(0, 4).join(', ')}` : 'Aliases not attached'} · {relevance.actorIdentity.sectors.length} sector{relevance.actorIdentity.sectors.length === 1 ? '' : 's'} · {relevance.actorIdentity.regions.length} region{relevance.actorIdentity.regions.length === 1 ? '' : 's'}
-                        </p>
-                    </div>
-                    <span className={relevance.enrichmentGaps.some(gap => gap.code.startsWith('missing_actor') || gap.code.startsWith('missing_target')) ? decisionStepStatusClass('review') : decisionStepStatusClass('ready')}>
-                        {relevance.enrichmentGaps.some(gap => gap.code.startsWith('missing_actor') || gap.code.startsWith('missing_target')) ? 'Review' : 'Ready'}
-                    </span>
-                </div>
-                <div className='mt-2 flex flex-wrap gap-1.5'>
-                    {[...relevance.actorIdentity.sectors.slice(0, 4), ...relevance.actorIdentity.regions.slice(0, 4)].map(value => (
-                        <span key={value} className='max-w-full wrap-break-word rounded-md bg-ui-primary/10 px-2 py-1 text-[11px] font-semibold text-ui-primary dark:bg-ui-primary/10 dark:text-ui-primary'>{value}</span>
-                    ))}
-                </div>
-            </div>
+            <OrgActorIdentity identity={relevance.actorIdentity} enrichmentGaps={relevance.enrichmentGaps} />
             <div data-ti-org-source-coverage='true' className='mt-3 rounded-lg border border-ui-border bg-ui-panel p-2 dark:border-ui-border dark:bg-ui-raised'>
                 <div className='flex flex-wrap items-center justify-between gap-2'>
                     <div className='min-w-0'>

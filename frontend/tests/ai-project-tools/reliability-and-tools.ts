@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { createAiWorkspacePage } from './fixture'
-import { listWorkspacePaths } from './workspacePaths'
+import { expectedToolCompletionText } from './toolCompletionText'
 
 test.setTimeout(180000)
 

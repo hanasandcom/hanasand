@@ -1,0 +1,100 @@
+.home-page {
+  color: var(--ui-text);
+  background: var(--ui-canvas);
+}
+
+body:has(.home-page) [data-route-frame] {
+  background: var(--ui-canvas);
+}
+
+.home-wrap {
+  width: min(100%, 1680px);
+  margin-inline: auto;
+}
+
+.home-hero {
+  min-height: 740px;
+  background: var(--ui-canvas);
+}
+
+.home-hero-art {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  opacity: 0.84;
+}
+
+.home-hero-art img {
+  object-position: 74% center !important;
+}
+
+.home-hero-art::after {
+  position: absolute;
+  inset: 0;
+  content: '';
+  background: linear-gradient(90deg, var(--ui-canvas) 0%, var(--ui-overlay-strong) 7%, var(--ui-overlay-soft) 39%, transparent 70%), linear-gradient(0deg, var(--ui-canvas) 0%, transparent 18%, transparent 84%, var(--ui-overlay-soft) 100%);
+}
+
+.home-hero-glow {
+  position: absolute;
+  z-index: -1;
+  top: 23%;
+  right: 8%;
+  width: min(42vw, 650px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--ui-warning) 10%, transparent), transparent 66%);
+  filter: blur(34px);
+  pointer-events: none;
+}
+
+.home-hero-copy {
+  padding-block: 28px;
+}
+
+.home-heading-muted {
+  color: var(--ui-muted);
+}
+
+.home-monitor-link {
+  border-color: var(--ui-border);
+  background: var(--ui-overlay);
+  color: var(--ui-text);
+  box-shadow: 0 0 44px var(--soft-shadow), inset 0 1px var(--ui-shadow-highlight);
+  backdrop-filter: blur(12px);
+}
+
+.home-monitor-link:hover,
+.home-dashboard-link:hover {
+  background: var(--ui-primary);
+  color: var(--ui-on-primary);
+}
+
+.home-search {
+  border-color: var(--ui-border);
+  background: var(--ui-overlay);
+  backdrop-filter: blur(14px);
+}
+
+.home-search-button {
+  color: var(--ui-on-primary);
+  background: var(--ui-primary);
+}
+
+.home-search-button:hover {
+  opacity: 0.9;
+}
+
+.home-hero-caption {
+  letter-spacing: 0.14em;
+}
+
+.home-hero-caption::before {
+  display: inline-block;
+  width: 0.45rem;
+  height: 0.45rem;
+  margin-right: 0.7rem;
+  border-radius: 50%;
+  background: var(--ui-success);
+  content: '';
+}

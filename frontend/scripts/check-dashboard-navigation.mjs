@@ -1,65 +1,14 @@
 import { strict as assert } from 'node:assert'
 import { readdir, readFile } from 'node:fs/promises'
 import { chromium } from '@playwright/test'
-import { hasAppSidebar } from '../src/utils/routes/appRoutes.ts'
-import { getDashboardNavigation, navigationLinks } from '../src/utils/layout/dashboardNavigation.ts'
+import { access, memberAccess, assertDashboardNavigationContracts } from './dashboardNavigationContracts.mjs'
 
-const access = { id: 'sidebar-test', isAdmin: true, canManageSystem: true, canManageContent: true, hasVMs: true }
-const all = navigationLinks(getDashboardNavigation(access))
-assert.equal(all.length, new Set(all.map(item => item.href)).size)
-const memberAccess = { ...access, isAdmin: false, canManageSystem: false, canManageContent: false }
-assert.deepEqual(getDashboardNavigation(memberAccess).map(item => item.label), ['Security & intelligence', 'Logs & rules', 'Infrastructure', 'Automation', 'Workspace', 'Communication', 'Organization', 'Help & developer resources', 'Account'])
-for (const permissions of [access, memberAccess]) {
-    const automation = getDashboardNavigation(permissions).find(item => item.label === 'Automation')
-    assert.deepEqual(automation.items.map(({ label, href, items }) => ({ label, href, items })), [
-        { label: 'Health Checks', href: '/automation/health', items: undefined },
-        { label: 'Cron Jobs', href: '/automation/cron', items: undefined },
-    ])
-}
-assert.deepEqual(navigationLinks(getDashboardNavigation(memberAccess)).filter(item => item.ancestors.includes('Workspace')).map(item => item.href), ['/gallery', '/upload', '/shares'])
-const reviewer = navigationLinks(getDashboardNavigation({ ...memberAccess, canReviewIntel: true }))
-assert.deepEqual(reviewer.filter(item => item.href === '/ti/timeliness').map(item => item.label), ['Delivery Health'])
-assert(reviewer.find(item => item.href === '/ti/timeliness').ancestors.includes('Collection'))
-assert(![...all, ...reviewer].some(item => item.href === '/ti/evaluation'))
-const operator = navigationLinks(getDashboardNavigation({ ...memberAccess, canManageSystem: true }))
-assert(operator.some(item => item.href === '/system'))
-assert.deepEqual(navigationLinks(getDashboardNavigation(memberAccess)).filter(item => item.ancestors.includes('Infrastructure')).map(item => item.href), ['/system', '/vms'])
-assert(!navigationLinks(getDashboardNavigation({ ...memberAccess, hasVMs: false })).some(item => item.href === '/vms'))
-assert(!operator.some(item => ['/db', '/system/updates'].includes(item.href)))
-for (const href of ['/logs', '/logs/realtime', '/logs/search', '/logs/errors']) assert(operator.some(item => item.href === href), `System administrators need access to ${href}`)
-assert.equal(all.find(item => item.href === '/findings/actors')?.label, 'Actors')
-assert.deepEqual(all.filter(item => item.ancestors.includes('Logs & rules')).map(item => item.href), ['/logs', '/logs/realtime', '/logs/search', '/logs/errors', '/traffic', '/rules/match', '/rules/analysis', '/rules/detection'])
-for (const href of ['/vulnerabilities', '/system/rates', '/load-testing']) assert.deepEqual(all.find(item => item.href === href)?.ancestors, ['Infrastructure', 'Health'])
-assert(!all.some(item => item.ancestors.includes('Observability') || item.ancestors.includes('Security & recovery')))
-for (const path of ['/management/users']) {
-    assert.deepEqual(all.find(item => item.href === path)?.ancestors, ['Platform administration'])
-}
-assert(!navigationLinks(getDashboardNavigation(memberAccess)).some(item => item.href.startsWith('/management')))
-assert.deepEqual(all.find(item => item.href === '/cases')?.ancestors, ['Security & intelligence', 'Investigations'])
-assert.deepEqual(all.find(item => item.href === '/findings/actors')?.ancestors, ['Security & intelligence', 'Intelligence'])
-assert(!getDashboardNavigation(access).some(item => item.href === '/dashboard'), 'Home must stay in the sidebar header instead of the navigation list')
-assert.deepEqual(all.find(item => item.href === '/management/service-accounts')?.ancestors, ['Organization', 'Access & credentials'])
-assert.deepEqual(all.find(item => item.href === '/mail')?.ancestors, ['Communication'])
-assert.deepEqual(all.find(item => item.href === '/organizations')?.ancestors, ['Organization'])
-const orgManager = navigationLinks(getDashboardNavigation({ ...memberAccess, canManageOrganizations: true }))
-assert.deepEqual(orgManager.find(item => item.href === '/management/organizations')?.ancestors, ['Platform administration'])
-assert(!orgManager.some(item => item.href === '/management/users'))
-
-for (const permissions of [access, memberAccess]) {
-    const links = navigationLinks(getDashboardNavigation(permissions))
-    assert(!links.some(item => item.href === '/solutions'), 'Marketing catalog must not appear in the internal menu')
-    for (const href of ['/findings', '/cases', '/rules/match', '/rules/analysis', '/rules/detection', '/ti', '/sandbox', '/organizations', '/pwned', '/test']) assert(links.some(item => item.href === href), `Missing product destination: ${href}`)
-    assert(links.some(item => item.label === 'Security Scanner' && item.href === (permissions.canManageSystem ? '/scanner' : '/solutions/scanner')))
-    for (const category of ['match', 'analysis', 'detection']) assert.deepEqual(links.find(item => item.href === `/rules/${category}`)?.ancestors, ['Logs & rules', 'Rules'])
-}
-for (const path of ['/sandbox', '/sandbox/report', '/solutions/scanner', '/solutions/security-monitoring', '/pwned', '/test']) assert(hasAppSidebar(path), `Product loses the signed-in sidebar: ${path}`)
-assert(!hasAppSidebar('/browser-unrelated'))
-
+const navigationCount = assertDashboardNavigationContracts()
 // Exercise the real component; only Next routing is replaced.
 const build = await Bun.build({ entrypoints: ['sidebar-test-entry'], target: 'browser', plugins: [{ name: 'sidebar-fixture', setup(builder) {
     builder.onResolve({ filter: /^(sidebar-test-entry|next\/link|next\/navigation|@\/components\/organizations\/workspaceProvider)$/ }, args => ({ path: args.path, namespace: 'fixture' }))
     builder.onLoad({ filter: /.*/, namespace: 'fixture' }, args => ({ loader: 'tsx', resolveDir: process.cwd(), contents: args.path === 'next/navigation'
-        ? 'import {useSyncExternalStore} from \'react\'; export function usePathname(){return useSyncExternalStore(callback=>{window.addEventListener(\'popstate\',callback);return()=>window.removeEventListener(\'popstate\',callback)},()=>location.pathname,()=>\'/dashboard/overview\')}'
+        ? 'import {useSyncExternalStore} from \'react\'; export function usePathname(){return useSyncExternalStore(callback=>{window.addEventListener(\'popstate\',callback);return()=>window.removeEventListener(\'popstate\',callback)},()=>location.pathname,()=>\'/dashboard/overview\')} export function useSearchParams(){return new URLSearchParams(location.search)}'
         : args.path === '@/components/organizations/workspaceProvider' ? 'export function useWorkspace(){return {organizationId:""}}'
             : args.path === 'next/link'
                 ? 'export default function Link({href,children,...props}){return <a {...props} href={href} onClick={event=>{event.preventDefault();history.pushState({},\'\',href);window.dispatchEvent(new Event(\'popstate\'))}}>{children}</a>}'
@@ -203,8 +152,8 @@ try {
     await searchbox.fill('')
     assert(await collapseAll.isVisible())
     await page.evaluate(access => window.showSidebar(access), { ...memberAccess, id: 'different-user' })
-    await button('Workspace').click()
-    await button('Media & sharing').click()
+    await button('Content').click()
+    await button('Code').click()
     await link('Shares').click()
     assert.equal(await link('Shares').getAttribute('aria-current'), 'page')
     await openSearch()
@@ -216,7 +165,7 @@ try {
     await button('Organization').click()
     assert.equal(await button('Organization').getAttribute('aria-expanded'), 'true')
     assert.deepEqual(errors, [])
-    console.log(`Dashboard navigation passed: ${all.length} destinations, permissions, deep routes, persistence, pins, search, compact/mobile keyboard and unavailable storage.`)
+    console.log(`Dashboard navigation passed: ${navigationCount} destinations, permissions, deep routes, persistence, pins, search, compact/mobile keyboard and unavailable storage.`)
 } finally {
     await browser.close()
     server.stop(true)

@@ -6,11 +6,12 @@ import AccountDate from './accountDate'
 import deleteUser from '@/utils/users/deleteUser'
 import { startImpersonating } from '@/utils/impersonation/client'
 import setUserActive from '@/utils/users/setUserActive'
-import Link from 'next/link'
 import { Ban, CheckCircle2, MoreHorizontal, UserRound } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useId, useRef, useState } from 'react'
 import ErrorNotice from '../error/errorNotice'
+import DashboardUserOrganizations from './dashboardUserOrganizations'
+import ImpersonationReasonPrompt from './impersonationReasonPrompt'
 import './usersList.css'
 
 export default function DashboardUser({ user, accessibleOrganizationIds }: { user: User, accessibleOrganizationIds: string[] }) {
@@ -18,10 +19,7 @@ export default function DashboardUser({ user, accessibleOrganizationIds }: { use
     const router = useRouter()
     const actions = useRef<HTMLDivElement>(null)
     const actionsId = useId()
-    const organizationsId = useId()
     const [actionsOpen, setActionsOpen] = useState(false)
-    const [organizationsOpen, setOrganizationsOpen] = useState(false)
-    const organizationsPopover = useRef<HTMLDivElement>(null)
     const { condition: error, setCondition: setError } = useClearStateAfter()
     const [impersonationPending, setImpersonationPending] = useState(false)
     const [impersonationPromptOpen, setImpersonationPromptOpen] = useState(false)
@@ -85,7 +83,6 @@ export default function DashboardUser({ user, accessibleOrganizationIds }: { use
         router.refresh()
     }
 
-    const reasonLength = impersonationReason.trim().replace(/\s+/g, ' ').length
     const organizations = user.organization_memberships || []
 
     return (
@@ -94,36 +91,11 @@ export default function DashboardUser({ user, accessibleOrganizationIds }: { use
                 <h1 className={`dashboard-user-name min-w-0 truncate ${user.active === false ? 'text-ui-muted line-through' : ''}`} key={user.id}>{user.name}</h1>
                 <span className={`dashboard-user-username min-w-0 truncate text-sm text-ui-muted ${user.active === false ? 'line-through' : ''}`}>{user.username || user.id}</span>
                 <span className='dashboard-user-email min-w-0 truncate text-sm text-ui-muted' title={user.email || undefined}><span className='dashboard-user-mobile-label'>Email</span>{user.email || '—'}</span>
-                <div className='dashboard-user-organizations text-xs text-ui-muted' onClick={event => event.stopPropagation()}>
-                    <span className='dashboard-user-mobile-label'>Orgs</span>
-                    {organizations.length ? <button
-                        type='button'
-                        aria-label={`Show ${organizations.length} organizations for ${user.name || user.id}`}
-                        aria-expanded={organizationsOpen}
-                        popoverTarget={organizationsId}
-                        onClick={event => {
-                            event.stopPropagation()
-                            const rect = event.currentTarget.getBoundingClientRect()
-                            if (organizationsPopover.current) {
-                                organizationsPopover.current.style.top = `${Math.max(8, Math.min(rect.bottom + 4, window.innerHeight - 280))}px`
-                                organizationsPopover.current.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - 296))}px`
-                            }
-                        }}
-                        className='rounded px-1.5 py-1 font-semibold text-ui-primary hover:bg-ui-raised focus-visible:outline-2 focus-visible:outline-ui-primary'
-                    >{organizations.length}</button> : <span>0</span>}
-                    <div ref={organizationsPopover} id={organizationsId} popover='auto' aria-label={`Organizations for ${user.name || user.id}`}
-                        onToggle={event => setOrganizationsOpen(event.newState === 'open')}
-                        onClick={event => event.stopPropagation()}
-                        className='fixed m-0 max-h-[min(70vh,24rem)] w-72 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-lg border border-ui-border bg-ui-panel p-2 text-sm text-ui-text shadow-xl'>
-                        <ul className='grid gap-1'>
-                            {organizations.map(organization => <li key={organization.id}>
-                                {organization.status === 'active' && accessibleOrganizationIds.includes(organization.id)
-                                    ? <Link href={`/organizations?organizationId=${encodeURIComponent(organization.id)}`} className='block rounded-md px-2 py-1.5 hover:bg-ui-raised focus-visible:outline-2 focus-visible:outline-ui-primary'>{organization.name}</Link>
-                                    : <span className='block rounded-md px-2 py-1.5 text-ui-muted'>{organization.name}</span>}
-                            </li>)}
-                        </ul>
-                    </div>
-                </div>
+                <DashboardUserOrganizations
+                    organizations={organizations}
+                    accessibleOrganizationIds={accessibleOrganizationIds}
+                    userName={user.name || user.id}
+                />
                 <span className='dashboard-user-created text-xs text-ui-muted'><span className='dashboard-user-mobile-label'>Created</span><AccountDate value={user.created_at} /></span>
                 <span className='dashboard-user-last-login text-xs text-ui-muted'><span className='dashboard-user-mobile-label'>Last login</span><AccountDate value={user.last_login_at} empty='Never recorded' /></span>
                 <button
@@ -157,54 +129,19 @@ export default function DashboardUser({ user, accessibleOrganizationIds }: { use
                     <DeleteAccountButton name={user.id} onDelete={handleDelete} label='Delete user' />
                 </div>
             </div>
-            {impersonationPromptOpen ? (
-                <form
-                    aria-label={`Impersonation reason for ${user.id}`}
-                    className='absolute right-0 top-11 z-[100] grid w-80 max-w-[calc(100vw-2rem)] gap-2 rounded-lg border border-ui-primary/30 bg-ui-panel p-3 text-ui-text shadow-xl'
-                    onClick={(event) => event.stopPropagation()}
-                    onSubmit={handleConfirmImpersonation}
-                >
-                    <label className='grid gap-1 text-xs font-semibold text-ui-text'>
-                        Reason for impersonating {user.name || user.id}
-                        <textarea
-                            className='min-h-20 resize-y rounded-md border border-ui-border bg-ui-raised px-3 py-2 text-sm font-medium text-ui-text outline-none transition placeholder:text-ui-muted focus:border-ui-primary/60 focus:ring-2 focus:ring-ui-primary/15'
-                            name='impersonationReason'
-                            onChange={(event) => {
-                                setImpersonationReason(event.target.value)
-                                if (impersonationReasonError) setImpersonationReasonError('')
-                            }}
-                            placeholder='Describe the support case or audit reason'
-                            value={impersonationReason}
-                        />
-                    </label>
-                    <div className='flex items-start justify-between gap-3 text-[0.68rem] leading-4 text-ui-muted'>
-                        <span>Required for audit. Starts a 30 minute profile and organization session.</span>
-                        <span>{reasonLength}/10</span>
-                    </div>
-                    {impersonationReasonError ? (
-                        <p className='rounded-md border border-ui-danger/30 bg-ui-raised/10 px-2 py-1 text-xs font-semibold text-ui-text'>
-                            {impersonationReasonError}
-                        </p>
-                    ) : null}
-                    <div className='flex justify-end gap-2'>
-                        <button
-                            className='h-8 rounded-md border border-ui-border px-3 text-xs font-bold text-ui-muted transition hover:bg-ui-raised hover:text-ui-text'
-                            disabled={impersonationPending}
-                            onClick={handleCancelImpersonation}
-                            type='button'
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            className='h-8 rounded-md bg-ui-primary px-3 text-xs font-bold text-ui-on-primary transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-55'
-                            disabled={impersonationPending}
-                            type='submit'
-                        >
-                            {impersonationPending ? 'Starting...' : 'Start session'}
-                        </button>
-                    </div>
-                </form>
-            ) : null}
+            {impersonationPromptOpen ? <ImpersonationReasonPrompt
+                userId={user.id}
+                userName={user.name || user.id}
+                reason={impersonationReason}
+                reasonError={impersonationReasonError}
+                pending={impersonationPending}
+                onReasonChange={value => {
+                    setImpersonationReason(value)
+                    if (impersonationReasonError) setImpersonationReasonError('')
+                }}
+                onCancel={handleCancelImpersonation}
+                onSubmit={handleConfirmImpersonation}
+            /> : null}
             {deleted ? <ErrorNotice compact variant='success' className='absolute right-2 top-12 z-[100] w-60' message={`Deleted user ${user.id}.`} /> : null}
             {error ? <ErrorNotice compact className='absolute right-2 top-12 z-[100] w-60' message={String(error)} /> : null}
         </div>

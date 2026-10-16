@@ -7,8 +7,8 @@ import { countLines } from '@/utils/share/countLines'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { DashboardPanel } from '@/components/dashboard/ui'
+import DashboardMetricCard from '@/components/dashboard/dashboardMetricCard'
 import ErrorNotice from '@/components/error/errorNotice'
-import type { ReactNode } from 'react'
 import { activeOrganizationId } from '@/utils/organizations/serverWorkspace'
 
 export default async function Shares() {
@@ -68,36 +68,13 @@ export default async function Shares() {
                     </div>
                 </DashboardPanel>
                 {shareRows.length > 0 && <ShareAnalyticsPanel>
-                    <ShareMetric icon={<FileCode2 className='h-4 w-4' />} label='Shares' value={String(shareRows.length)} detail='total shares' tone='ok' />
-                    <ShareMetric icon={<LockKeyhole className='h-4 w-4' />} label='Locked' value={String(lockedCount)} detail={`${Math.max(shareRows.length - lockedCount, 0)} unlocked`} tone={lockedCount ? 'watch' : 'ok'} />
-                    <ShareMetric icon={<Text className='h-4 w-4' />} label='Lines' value={totalLines.toLocaleString('en-US')} detail='total lines shared' tone='neutral' />
-                    <ShareMetric icon={<Clock3 className='h-4 w-4' />} label='Latest share' value={latestShare ? shortDate(latestShare.timestamp) : 'None'} detail={latestShare?.alias || latestShare?.path || 'No shares yet'} tone={latestShare ? 'ok' : 'neutral'} />
+                    <DashboardMetricCard icon={<FileCode2 className='h-4 w-4' />} label='Shares' value={String(shareRows.length)} detail='total shares' tone='ok' />
+                    <DashboardMetricCard icon={<LockKeyhole className='h-4 w-4' />} label='Locked' value={String(lockedCount)} detail={`${Math.max(shareRows.length - lockedCount, 0)} unlocked`} tone={lockedCount ? 'watch' : 'ok'} />
+                    <DashboardMetricCard icon={<Text className='h-4 w-4' />} label='Lines' value={totalLines.toLocaleString('en-US')} detail='total lines shared' tone='neutral' />
+                    <DashboardMetricCard icon={<Clock3 className='h-4 w-4' />} label='Latest share' value={latestShare ? shortDate(latestShare.timestamp) : 'None'} detail={latestShare?.alias || latestShare?.path || 'No shares yet'} tone={latestShare ? 'ok' : 'neutral'} />
                 </ShareAnalyticsPanel>}
             </ShareAnalyticsProvider>
         </div>
-    )
-}
-
-function ShareMetric({ icon, label, value, detail, tone }: { icon: ReactNode, label: string, value: string, detail: string, tone: 'ok' | 'watch' | 'neutral' }) {
-    const dot = tone === 'ok'
-        ? 'bg-ui-success ui-glow-success'
-        : tone === 'watch'
-            ? 'bg-ui-warning ui-glow-warning'
-            : 'bg-ui-primary ui-glow-primary'
-    const text = tone === 'ok' ? 'text-ui-success' : tone === 'watch' ? 'text-ui-warning' : 'text-ui-primary'
-
-    return (
-        <DashboardPanel className='border-ui-border bg-ui-panel p-4'>
-            <div className='flex items-center justify-between gap-3 text-sm text-ui-muted'>
-                <span>{label}</span>
-                <span className={text}>{icon}</span>
-            </div>
-            <div className='mt-3 flex items-center gap-2 text-2xl font-semibold text-ui-text'>
-                <span className={`h-2 w-2 rounded-full ${dot}`} />
-                {value}
-            </div>
-            <p className='mt-2 line-clamp-2 text-sm leading-5 text-ui-muted'>{detail}</p>
-        </DashboardPanel>
     )
 }
 

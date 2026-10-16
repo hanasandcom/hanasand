@@ -1,4 +1,4 @@
-import type { AlertDetailState, CaseDetailState, OperatorActionRailRow, WorkbenchAction, WorkbenchCase, WorkbenchDeliveryEvidence, WorkbenchOrgContext } from '../../types'
+import type { AlertDetailState, CaseDetailState, OperatorActionRailRow, WorkbenchCase, WorkbenchOrgContext } from '../../types'
 import { alertSourceProfileHref, caseCustomerNotificationHref, caseExportHref, customerNotificationActionState } from '../caseRoutes'
 import { caseDetailHrefFromAlertDetail } from '../actionInputs'
 import { relatedLinkHref } from '../handoffRows'

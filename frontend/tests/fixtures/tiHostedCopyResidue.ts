@@ -53,6 +53,8 @@ export function apt29WithHostedCopyResidue(): TiSearchResponse {
             status: 'current',
             aptNumberDesignationPresent: true,
             sourceUrl: 'https://attack.mitre.org/groups/G0016/',
+            createdAt: '2008-01-01T00:00:00.000Z',
+            modifiedAt: '2026-04-28T00:00:00.000Z',
             catalogVersion: '18.0',
             catalogModifiedAt: '2026-04-28T00:00:00.000Z',
             captureId: 'capture_mitre_catalog_18',

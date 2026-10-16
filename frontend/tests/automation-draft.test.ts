@@ -15,6 +15,8 @@ test('draft defaults preserve health and personal automation behavior', () => {
     assert.equal(health.actionType, 'agent_prompt')
     assert.equal(health.notifyOn, 'failure')
     assert.equal(health.timezone, Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC')
+    assert.equal(health.modelName, null)
+    assert.deepEqual(health.notificationDestinations, [])
 
     const cron = newAutomationDraft('cron')
     assert.equal(cron.name, 'Scheduled reminder')
@@ -38,6 +40,7 @@ test('editing converts monitoring URLs and retains notification destination fall
     assert.equal(draft.intervalMinutes, 15)
     assert.deepEqual(draft.notificationDestinations, ['discord-hook'])
     assert.equal(draft.notifyOn, 'failure')
+    assert.equal(toAutomationDraft({ ...automation, status: 'paused' }).status, 'paused')
 })
 
 test('draft validation enforces monitoring and schedule contracts', () => {

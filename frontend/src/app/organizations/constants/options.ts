@@ -1,3 +1,6 @@
+import type { OrganizationRole } from '../types/organization'
+import type { WatchlistKind } from '../types/watchlists'
+
 export const roleOptions: OrganizationRole[] = ['admin', 'editor', 'reader']
 export const watchlistKinds: WatchlistKind[] = ['company', 'domain', 'vendor', 'actor', 'keyword']
 export const watchlistTemplates: Array<{ label: string, kind: WatchlistKind, notes: string }> = [

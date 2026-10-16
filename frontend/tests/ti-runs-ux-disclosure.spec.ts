@@ -5,24 +5,32 @@ import path from 'node:path'
 const root = process.cwd()
 
 test('ti runs keeps collector activity primary while totals and evidence are disclosed', async () => {
-    const source = await readFile(path.join(root, 'src/app/dashboard/ti/runs/page.tsx'), 'utf8')
+    const [page, summary, activity, attention] = await Promise.all([
+        readFile(path.join(root, 'src/app/dashboard/ti/runs/page.tsx'), 'utf8'),
+        readFile(path.join(root, 'src/app/dashboard/ti/runs/RunSummary.tsx'), 'utf8'),
+        readFile(path.join(root, 'src/app/dashboard/ti/runs/RunActivityPanel.tsx'), 'utf8'),
+        readFile(path.join(root, 'src/app/dashboard/ti/runs/RunAttentionPanel.tsx'), 'utf8'),
+    ])
 
-    expect(source).toContain('data-ti-runs-summary-disclosure')
-    expect(source).toContain('data-ti-runs-evidence-disclosure')
-    expect(source).toContain('ChevronDown')
-    expect(source).toContain('group-open:rotate-180')
-    expect(source).toContain('[&::-webkit-details-marker]:hidden')
-    expect(source).toContain('focus-visible:ring-ui-primary/25')
+    expect(summary).toContain('data-ti-runs-summary-disclosure')
+    expect(attention).toContain('data-ti-runs-evidence-disclosure')
+    expect(summary).toContain('group-open:rotate-180')
+    expect(attention).toContain('group-open:rotate-180')
+    expect(summary).toContain('[&::-webkit-details-marker]:hidden')
+    expect(attention).toContain('focus-visible:ring-ui-primary/25')
 
-    expect(source.indexOf('<LiveRunCard')).toBeLessThan(source.indexOf('data-ti-runs-summary-disclosure'))
-    expect(source.indexOf('data-ti-runs-summary-disclosure')).toBeLessThan(source.indexOf('Collector activity'))
-    expect(source.indexOf('Collector activity')).toBeLessThan(source.indexOf('Runs needing attention'))
-    expect(source.indexOf('Runs needing attention')).toBeLessThan(source.indexOf('data-ti-runs-evidence-disclosure'))
-    expect(source.indexOf('data-ti-runs-evidence-disclosure')).toBeLessThan(source.indexOf('sources.map(source =>'))
+    expect(page.indexOf('<RunSummary')).toBeLessThan(page.indexOf('<RunActivityPanel'))
+    expect(page.indexOf('<RunActivityPanel')).toBeLessThan(page.indexOf('<RunAttentionPanel'))
+    expect(summary.indexOf('<LiveRunCard')).toBeLessThan(summary.indexOf('data-ti-runs-summary-disclosure'))
+    expect(activity).toContain('Collector activity')
+    expect(attention).toContain('Runs needing attention')
+    expect(attention.indexOf('Runs needing attention')).toBeLessThan(attention.indexOf('data-ti-runs-evidence-disclosure'))
+    expect(attention.indexOf('data-ti-runs-evidence-disclosure')).toBeLessThan(attention.indexOf('sources.map(source =>'))
 
-    expect(source).toContain('actions={<ManualRunButton label=\'Start manual run\' queries={runQueries} />}')
-    expect(source).toContain('orderedRuns.map(run =>')
-    expect(source).toContain('href={`/ti/sources/${run.sourceId}`}')
-    expect(source).toContain('{captureTotal} captures · {screenshotTotal} screenshots')
-    expect(source).toContain('sourceRuns.reduce((sum, run) => sum + run.captures, 0)')
+    expect(page).toContain('actions={<ManualRunButton label=\'Start manual run\' queries={runQueries} />}')
+    expect(activity).toContain('runs.map(run =>')
+    expect(activity).toContain('href={`/ti/sources/${run.sourceId}`}')
+    expect(attention).toContain('{captureTotal} captures · {screenshotTotal} screenshots')
+    expect(attention).toContain('source.retainedEvidenceCount')
+    expect(attention).toContain('sum + run.screenshots')
 })

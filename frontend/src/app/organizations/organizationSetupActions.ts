@@ -5,6 +5,7 @@ import type { WatchlistKind } from './types/watchlists'
 import type { WorkspaceAction } from './useWorkspaceActionRunner'
 import { endpointErrorMessage } from './model/labels'
 import * as forms from './model/forms'
+import { normalizeOrganizationName, organizationNameInUse } from './model/organization'
 import { requestJson } from './model/workspaceApi'
 import { replaceOrganizationWorkspaceSelectionUrl } from './model/activityNavigation'
 
@@ -27,7 +28,7 @@ export function createOrganizationAction(options: CreationOptions) {
     const { runAction, organizations, createName, createFirstWatchlist, createInviteEmails,
         createInviteRole, setCreateName, setCreateFormOpen, setCreateFirstWatchlist,
         setCreateInviteEmails, setCreateInviteRole, switchOrganization } = options
-    const { organizationNameInUse, normalizeOrganizationName, parseInviteEmails, invalidInviteEmails } = forms
+    const { parseInviteEmails, invalidInviteEmails } = forms
     return () => runAction('create-org', async () => {
         const name = normalizeOrganizationName(createName)
         const firstWatchlistValue = createFirstWatchlist.value.trim()

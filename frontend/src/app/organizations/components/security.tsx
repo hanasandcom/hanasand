@@ -6,7 +6,7 @@ import { secondaryButtonClass, primaryButtonClass, inputClass } from '../constan
 import { settingsValidationMessage, privacyText, privacyNumber } from '../model/forms'
 import { slugifyOrganizationName } from '../model/organization'
 import { webhookPolicies, alertPolicies, lifecycleStatuses } from '../constants/options'
-import { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Archive, Copy, KeyRound, Loader2, RefreshCw, Settings, ShieldCheck, Trash2 } from 'lucide-react'
 
 export function ActionAnchor({ href, icon, label, disabled, disabledReason }: { href: string, icon: ReactNode, label: string, disabled?: boolean, disabledReason?: string }) {

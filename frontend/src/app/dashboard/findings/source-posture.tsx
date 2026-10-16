@@ -1,6 +1,7 @@
 import type { DwmProductSnapshot } from '@/utils/dwm/product'
 import type { OperationsSnapshot } from './types'
 import { relativeTimeLabel, stateLabel } from './case-format'
+import { SlidersHorizontal } from 'lucide-react'
 
 const DWM_RECOVERY_PREVIEW_ROWS = 3
 

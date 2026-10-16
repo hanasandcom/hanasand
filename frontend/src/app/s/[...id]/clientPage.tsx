@@ -1,490 +1,132 @@
 'use client'
 
-import Code from '@/components/share/code'
-import Terminal from '@/components/share/terminal'
-import Deploy from '@/components/share/deploy'
 import Explorer from '@/components/share/tree/explorer'
+import Deploy from '@/components/share/deploy'
+import DisplayError from '@/components/share/search/displayError'
 import Metadata from '@/components/share/metadata'
 import RenderSite from '@/components/share/renderSite'
-import ShareChat from '@/components/share/shareChat'
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import Search from '@/components/share/search/search'
-import OpenFiles from '@/components/share/files/openFiles'
-import useClearStateAfter from '@/hooks/useClearStateAfter'
-import DisplayError from '@/components/share/search/displayError'
-import { getCookie } from '@/utils/cookies/cookies'
-import postShare from '@/utils/share/post'
-import type { TerminalCredentials } from '@/hooks/useTerminal'
-import { getShareRuntimeCapability } from '@/utils/share/runtimeCapabilities'
-import { CheckCircle2, CloudOff, Code2, FileCode2, Loader2, MessageSquare, Radio, TerminalSquare } from 'lucide-react'
-import { findPath, isWorkspaceRootItem } from '@/components/share/workspaceTree'
-import type { ShareConflict, SharePresenceUser } from '@/components/share/useShareCodeSocket'
+import Terminal from '@/components/share/terminal'
+import ShareWorkspaceMain from './shareWorkspaceMain'
+import { useShareWorkspaceState, type ClientPageProps } from './useShareWorkspaceState'
 
-type ClientPageProps = {
-    id: string
-    share: Share | null
-    openFolders: string[]
-    tree: Tree | null
-    sharePageWidth: number
-    shareTerminalHeight: number
-    serverOpenFiles: OpenFile[]
-    autoCreate: boolean
-    initialChatOpen: boolean
-    replaceUrlOnCreate: boolean
-}
-
-export default function ClientPage({
-    id,
-    share: serverShare,
-    openFolders,
-    tree,
-    sharePageWidth,
-    shareTerminalHeight,
-    serverOpenFiles,
-    autoCreate,
-    initialChatOpen,
-    replaceUrlOnCreate,
-}: ClientPageProps) {
-    const [showExplorer, setShowExplorer] = useState(true)
-    const [showMetadata, setShowMetaData] = useState(false)
-    const [participants, setParticipants] = useState(1)
-    const [isConnected, setIsConnected] = useState(false)
-    const [saveState, setSaveState] = useState<'saved' | 'saving' | 'queued'>('saved')
-    const [presenceUsers, setPresenceUsers] = useState<SharePresenceUser[]>([])
-    const [selfClientId, setSelfClientId] = useState<string | null>(null)
-    const [remoteNotice, setRemoteNotice] = useState<string | null>(null)
-    const [conflict, setConflict] = useState<ShareConflict | null>(null)
-    const [clickedWord, setClickedWord] = useState<string | null>(null)
-    const [editingContent, setEditingContent] = useState<string>(serverShare?.content || '')
-    const [displayLineNumbers, setDisplayLineNumbers] = useState(true)
-    const [syntaxHighlighting, setSyntaxHighlighting] = useState(true)
-    const [box, setBox] = useState(false)
-    const [share, setShare] = useState<Share | null>(serverShare)
-    const [terminalOpen, setTerminalOpen] = useState(shareTerminalHeight > 0)
-    const [terminalStatus, setTerminalStatus] = useState('Terminal closed.')
-    const [terminalCredentials, setTerminalCredentials] = useState<TerminalCredentials | null>(null)
-    const [workspaceTree, setWorkspaceTree] = useState<Tree | null>(tree)
-    const [renderSite, setRenderSite] = useState<boolean>(sharePageWidth > 0)
-    const [triggerSiteChange, setTriggerSiteChange] = useState<boolean | 'close'>(false)
-    const [triggerTerminalChange, setTriggerTerminalChange] = useState<boolean | 'close'>(false)
-    const [openFiles, setOpenFiles] = useState(serverOpenFiles)
-    const [workspaceCreated, setWorkspaceCreated] = useState(!autoCreate)
-    const [editorPatch, setEditorPatch] = useState<{ value: string; nonce: number } | null>(null)
-    const [chatOpen, setChatOpen] = useState(initialChatOpen)
-    const [hydrated, setHydrated] = useState(false)
-    const [explorerPanelRequest, setExplorerPanelRequest] = useState<{ panel: 'files' | 'search'; nonce: number } | null>(null)
-    const hasCreatedWorkspace = useRef(false)
-    const [createAttempt, setCreateAttempt] = useState(0)
-    const { condition: error, setCondition: setError } = useClearStateAfter()
-    const maxWidth = 'max-w-full'
-    const runtimeCapability = useMemo(() => getShareRuntimeCapability({
-        share,
-        tree: workspaceTree,
-        activeContent: editingContent,
-    }), [editingContent, share, workspaceTree])
-    const activePath = useMemo(() => findPath(workspaceTree, share?.id || id), [id, share?.id, workspaceTree])
-    const activeIsRoot = isWorkspaceRootItem(workspaceTree, share, share?.id || id)
-    const activeLabel = activeIsRoot ? 'Workspace home' : activePath || share?.alias || 'Loading file'
-    const previewEvidenceUrl = share?.alias && runtimeCapability.canPreview ? `https://${share.alias}.hanasand.com/` : null
-    const otherUsers = presenceUsers.filter(user => user.clientId !== selfClientId)
-    const remoteEditors = otherUsers.filter(user => user.editing)
-
-    useEffect(() => {
-        setHydrated(true)
-    }, [])
-
-    useEffect(() => {
-        if (!runtimeCapability.hasHttpSurface && renderSite) {
-            setRenderSite(false)
-        }
-    }, [renderSite, runtimeCapability.hasHttpSurface])
-
-    useEffect(() => {
-        function handleShortcut(event: KeyboardEvent) {
-            const key = event.key.toLowerCase()
-            const usesModifier = event.metaKey || event.ctrlKey
-            if (!usesModifier) {
-                return
-            }
-
-            if (key === 's') {
-                event.preventDefault()
-                setSaveState('saving')
-                setEditorPatch({ value: editingContent, nonce: Date.now() })
-                setRemoteNotice('Save requested.')
-                return
-            }
-
-            if (key === '`') {
-                event.preventDefault()
-                setTerminalOpen(true)
-                return
-            }
-
-            if (key === 'f') {
-                event.preventDefault()
-                setShowExplorer(true)
-                setExplorerPanelRequest({ panel: 'search', nonce: Date.now() })
-            }
-        }
-
-        window.addEventListener('keydown', handleShortcut)
-        return () => window.removeEventListener('keydown', handleShortcut)
-    }, [editingContent])
-
-    useEffect(() => {
-        if (!autoCreate || hasCreatedWorkspace.current) {
-            return
-        }
-
-        hasCreatedWorkspace.current = true
-        setWorkspaceCreated(false)
-        setSaveState('saving')
-
-        async function createWorkspace() {
-            const token = getCookie('access_token')
-            const userId = getCookie('id')
-            const normalizedName = id
-
-            const createdShare = await postShare({
-                includeTree: true,
-                id,
-                content: editingContent,
-                name: normalizedName,
-                path: normalizedName,
-                type: 'folder',
-                token,
-                userId,
-            })
-            if (!createdShare) {
-                hasCreatedWorkspace.current = false
-                setWorkspaceCreated(false)
-                setSaveState('queued')
-                setError('Unable to save this workspace yet. Your editor stays open so you can retry.')
-                return
-            }
-
-            setShare(createdShare)
-            if ('tree' in createdShare && Array.isArray(createdShare.tree)) {
-                setWorkspaceTree(createdShare.tree)
-            }
-            setWorkspaceCreated(true)
-            setSaveState('saved')
-            if (replaceUrlOnCreate) {
-                window.history.replaceState(window.history.state, '', `/s/${id}${chatOpen ? '?chat=1' : ''}`)
-            }
-        }
-
-        void createWorkspace()
-    }, [autoCreate, createAttempt, id, replaceUrlOnCreate, setError])
+export default function ClientPage(props: ClientPageProps) {
+    const state = useShareWorkspaceState(props)
 
     return (
         <div className='flex w-full h-full max-w-[100vw] min-w-0 overflow-hidden gap-1 p-1 md:gap-2 md:p-2'>
-            <div className={chatOpen ? 'hidden md:contents' : 'contents'}>
+            <div className={state.chatOpen ? 'hidden md:contents' : 'contents'}>
                 <Explorer
-                    showExplorer={showExplorer}
-                    setShowExplorer={setShowExplorer}
-                    openFolders={openFolders}
-                    tree={workspaceTree}
-                    share={share}
-                    setShare={setShare}
-                    editingContent={editingContent}
-                    setEditorPatch={setEditorPatch}
-                    setError={setError}
-                    setPageTree={setWorkspaceTree}
-                    panelRequest={explorerPanelRequest}
+                    showExplorer={state.showExplorer}
+                    setShowExplorer={state.setShowExplorer}
+                    openFolders={props.openFolders}
+                    tree={state.workspaceTree}
+                    share={state.share}
+                    setShare={state.setShare}
+                    editingContent={state.editingContent}
+                    setEditorPatch={state.setEditorPatch}
+                    setError={state.setError}
+                    setPageTree={state.setWorkspaceTree}
+                    panelRequest={state.explorerPanelRequest}
                 />
             </div>
-            <div className={`flex-1 flex flex-col min-h-0 min-w-0 w-full gap-2 overflow-hidden text-ui-text ${maxWidth}`}>
-                <div className='flex min-h-10 items-center justify-between gap-2 rounded-xl border border-ui-border bg-ui-panel px-2 py-1.5 shadow-lg backdrop-blur-md'>
-                    <div className='min-w-0 flex flex-1 items-center gap-2'>
-                        {chatOpen ? (
-                            <div className='flex min-w-0 items-center gap-2 px-2 text-sm font-semibold text-ui-text'>
-                                <MessageSquare className='h-4 w-4 shrink-0 text-ui-primary' />
-                                <span className='truncate'>Workspace assistant</span>
-                            </div>
-                        ) : openFiles.length ? (
-                            <OpenFiles openFiles={openFiles} setOpenFiles={setOpenFiles} />
-                        ) : (
-                            <div className='flex min-w-0 items-center gap-2 px-2 text-sm text-ui-muted'>
-                                <FileCode2 className='h-4 w-4 shrink-0 text-ui-primary' />
-                                <span className='truncate'>{activeLabel}</span>
-                            </div>
-                        )}
-                    </div>
-                    {!chatOpen && (
-                        <div className='hidden shrink-0 items-center gap-1.5 lg:flex'>
-                            <StatusPill
-                                icon={isConnected ? <Radio className='h-3.5 w-3.5' /> : <CloudOff className='h-3.5 w-3.5' />}
-                                label={isConnected ? `${participants} live` : workspaceCreated ? 'Reconnecting' : 'Setting up'}
-                                tone={isConnected ? 'good' : 'warn'}
-                            />
-                            <StatusPill
-                                icon={saveState === 'saving' ? <Loader2 className='h-3.5 w-3.5 animate-spin' /> : <CheckCircle2 className='h-3.5 w-3.5' />}
-                                label={saveState === 'saving' ? 'Saving' : saveState === 'queued' ? 'Queued' : 'Saved'}
-                                tone={saveState === 'saved' ? 'good' : 'warn'}
-                            />
-                            <StatusPill
-                                icon={<TerminalSquare className='h-3.5 w-3.5' />}
-                                label={normalizeTerminalStatus(terminalStatus)}
-                                tone={terminalStatus.toLowerCase().includes('ready') ? 'good' : 'neutral'}
-                            />
-                        </div>
-                    )}
-                    <button
-                        type='button'
-                        aria-label={hydrated ? chatOpen ? 'Back to workspace editor' : 'Open workspace assistant' : 'Setting up workspace assistant'}
-                        disabled={!hydrated}
-                        onClick={() => setChatOpen(prev => !prev)}
-                        className='inline-flex h-9 shrink-0 cursor-pointer items-center gap-2 rounded-lg border border-ui-border bg-ui-raised px-3 text-xs font-semibold text-ui-muted transition hover:border-ui-primary/35 hover:bg-ui-primary/10 hover:text-ui-on-primary disabled:cursor-not-allowed disabled:opacity-45'
-                    >
-                        {chatOpen ? <Code2 className='h-4 w-4' /> : <MessageSquare className='h-4 w-4' />}
-                        {chatOpen ? 'Back to editor' : 'Assistant'}
-                    </button>
-                </div>
-                {!chatOpen && (
-                    <CollaborationStatus
-                        users={presenceUsers}
-                        otherUsers={otherUsers}
-                        editors={remoteEditors}
-                        notice={remoteNotice}
-                        conflict={conflict}
-                        onDismissNotice={() => setRemoteNotice(null)}
-                        onUseRemote={() => {
-                            if (!conflict) return
-                            setEditingContent(conflict.remoteContent)
-                            setEditorPatch({ value: conflict.remoteContent, nonce: Date.now() })
-                            setConflict(null)
-                            setRemoteNotice('Remote update applied.')
-                        }}
-                        onKeepMine={() => {
-                            setConflict(null)
-                            setRemoteNotice('Kept your local version.')
-                            setSaveState('saving')
-                            setEditorPatch({ value: editingContent, nonce: Date.now() })
-                        }}
-                    />
-                )}
-                {chatOpen ? (
-                    <div className='min-h-0 flex-1 rounded-xl border border-ui-border bg-ui-panel p-2 shadow-lg backdrop-blur-md'>
-                        <ShareChat
-                            share={share}
-                            setShare={setShare}
-                            tree={workspaceTree}
-                            editingContent={editingContent}
-                            setEditorPatch={setEditorPatch}
-                            mode='workspace'
-                            previewUrl={previewEvidenceUrl}
-                        />
-                    </div>
-                ) : (
-                    <Code
-                        id={share?.id || id}
-                        setParticipants={setParticipants}
-                        setIsConnected={setIsConnected}
-                        editingContent={editingContent}
-                        setEditingContent={setEditingContent}
-                        share={share}
-                        setShare={setShare}
-                        setClickedWord={setClickedWord}
-                        displayLineNumbers={displayLineNumbers}
-                        syntaxHighlighting={syntaxHighlighting}
-                        setError={setError}
-                        setSaveState={setSaveState}
-                        saveState={saveState}
-                        setPresenceUsers={setPresenceUsers}
-                        setSelfClientId={setSelfClientId}
-                        setRemoteNotice={setRemoteNotice}
-                        setConflict={setConflict}
-                        connect={workspaceCreated}
-                        editorPatch={editorPatch}
-                    />
-                )}
-            </div>
-            {!chatOpen ? (
+            <ShareWorkspaceMain
+                ui={{
+                    chatOpen: state.chatOpen,
+                    setChatOpen: state.setChatOpen,
+                    hydrated: state.hydrated,
+                    activeLabel: state.activeLabel,
+                    openFiles: state.openFiles,
+                    setOpenFiles: state.setOpenFiles,
+                    isConnected: state.isConnected,
+                    participants: state.participants,
+                    saveState: state.saveState,
+                    terminalStatus: state.terminalStatus,
+                    workspaceCreated: state.workspaceCreated,
+                }}
+                presence={{
+                    users: state.presenceUsers,
+                    otherUsers: state.otherUsers,
+                    editors: state.remoteEditors,
+                    notice: state.remoteNotice,
+                    conflict: state.conflict,
+                    onDismissNotice: () => state.setRemoteNotice(null),
+                    onUseRemote: () => {
+                        if (!state.conflict) return
+                        state.setEditingContent(state.conflict.remoteContent)
+                        state.setEditorPatch({ value: state.conflict.remoteContent, nonce: Date.now() })
+                        state.setConflict(null)
+                        state.setRemoteNotice('Remote update applied.')
+                    },
+                    onKeepMine: () => {
+                        state.setConflict(null)
+                        state.setRemoteNotice('Kept your local version.')
+                        state.setSaveState('saving')
+                        state.setEditorPatch({ value: state.editingContent, nonce: Date.now() })
+                    },
+                }}
+                code={{
+                    id: state.share?.id || props.id,
+                    setParticipants: state.setParticipants,
+                    setIsConnected: state.setIsConnected,
+                    editingContent: state.editingContent,
+                    setEditingContent: state.setEditingContent,
+                    share: state.share,
+                    setShare: state.setShare,
+                    setClickedWord: state.setClickedWord,
+                    displayLineNumbers: state.displayLineNumbers,
+                    syntaxHighlighting: state.syntaxHighlighting,
+                    setError: state.setError,
+                    setSaveState: state.setSaveState,
+                    saveState: state.saveState,
+                    setPresenceUsers: state.setPresenceUsers,
+                    setSelfClientId: state.setSelfClientId,
+                    setRemoteNotice: state.setRemoteNotice,
+                    setConflict: state.setConflict,
+                    connect: state.workspaceCreated,
+                    editorPatch: state.editorPatch,
+                }}
+                chat={{
+                    share: state.share,
+                    setShare: state.setShare,
+                    tree: state.workspaceTree,
+                    editingContent: state.editingContent,
+                    setEditorPatch: state.setEditorPatch,
+                    mode: 'workspace',
+                    previewUrl: state.previewEvidenceUrl,
+                }}
+            />
+            {!state.chatOpen ? (
                 <Metadata
-                    shareRouteId={id}
-                    share={share}
-                    setShare={setShare}
-                    isConnected={isConnected}
-                    showMetadata={showMetadata}
-                    setShowMetadata={setShowMetaData}
-                    participants={participants}
-                    clickedWord={clickedWord}
-                    setClickedWord={setClickedWord}
-                    editingContent={editingContent}
-                    setDisplayLineNumbers={setDisplayLineNumbers}
-                    syntaxHighlighting={syntaxHighlighting}
-                    setSyntaxHighlighting={setSyntaxHighlighting}
-                    box={box}
-                    setBox={setBox}
-                    terminalStatus={terminalStatus}
-                    terminalCredentials={terminalCredentials}
-                    tree={workspaceTree}
-                    setEditorPatch={setEditorPatch}
-                    setTriggerTerminalChange={setTriggerTerminalChange}
+                    shareRouteId={props.id} share={state.share} setShare={state.setShare} isConnected={state.isConnected}
+                    showMetadata={state.showMetadata} setShowMetadata={state.setShowMetaData} participants={state.participants}
+                    clickedWord={state.clickedWord} setClickedWord={state.setClickedWord} editingContent={state.editingContent}
+                    setDisplayLineNumbers={state.setDisplayLineNumbers} syntaxHighlighting={state.syntaxHighlighting}
+                    setSyntaxHighlighting={state.setSyntaxHighlighting} box={state.box} setBox={state.setBox}
+                    terminalStatus={state.terminalStatus} terminalCredentials={state.terminalCredentials} tree={state.workspaceTree}
+                    setEditorPatch={state.setEditorPatch} setTriggerTerminalChange={state.setTriggerTerminalChange}
                 />
             ) : null}
             <Terminal
-                share={share}
-                open={terminalOpen}
-                setOpen={setTerminalOpen}
-                shareTerminalHeight={shareTerminalHeight}
-                triggerChange={triggerTerminalChange}
-                setTriggerChange={setTriggerTerminalChange}
-                setTerminalStatus={setTerminalStatus}
-                setTerminalCredentials={setTerminalCredentials}
+                share={state.share} open={state.terminalOpen} setOpen={state.setTerminalOpen}
+                shareTerminalHeight={props.shareTerminalHeight} triggerChange={state.triggerTerminalChange}
+                setTriggerChange={state.setTriggerTerminalChange} setTerminalStatus={state.setTerminalStatus}
+                setTerminalCredentials={state.setTerminalCredentials}
             />
-            <Deploy
-                terminalOpen={terminalOpen}
-                setTerminalOpen={setTerminalOpen}
-                capability={runtimeCapability}
-            />
+            <Deploy terminalOpen={state.terminalOpen} setTerminalOpen={state.setTerminalOpen} capability={state.runtimeCapability} />
             <RenderSite
-                share={share}
-                renderSite={renderSite}
-                setRenderSite={setRenderSite}
-                sharePageWidth={sharePageWidth}
-                triggerChange={triggerSiteChange}
-                setTriggerChange={setTriggerSiteChange}
-                capability={runtimeCapability}
+                share={state.share} renderSite={state.renderSite} setRenderSite={state.setRenderSite}
+                sharePageWidth={props.sharePageWidth} triggerChange={state.triggerSiteChange}
+                setTriggerChange={state.setTriggerSiteChange} capability={state.runtimeCapability}
             />
             <Search
-                setTriggerSiteChange={setTriggerSiteChange}
-                setBox={setBox}
-                setTriggerTerminalChange={setTriggerTerminalChange}
-                setShowExplorer={setShowExplorer}
-                setShowMetaData={setShowMetaData}
+                setTriggerSiteChange={state.setTriggerSiteChange} setBox={state.setBox}
+                setTriggerTerminalChange={state.setTriggerTerminalChange} setShowExplorer={state.setShowExplorer}
+                setShowMetaData={state.setShowMetaData}
             />
             <DisplayError
-                error={error}
-                onRetry={() => {
-                    if (!workspaceCreated) {
-                        hasCreatedWorkspace.current = false
-                        setError(null)
-                        setCreateAttempt(attempt => attempt + 1)
-                    } else {
-                        setEditorPatch({ value: editingContent, nonce: Date.now() })
-                    }
-                }}
-                onDismiss={() => setError(null)}
+                error={state.error} onRetry={state.retry} onDismiss={() => state.setError(null)}
             />
         </div>
     )
-}
-
-function CollaborationStatus({
-    users,
-    otherUsers,
-    editors,
-    notice,
-    conflict,
-    onDismissNotice,
-    onUseRemote,
-    onKeepMine,
-}: {
-    users: SharePresenceUser[]
-    otherUsers: SharePresenceUser[]
-    editors: SharePresenceUser[]
-    notice: string | null
-    conflict: ShareConflict | null
-    onDismissNotice: () => void
-    onUseRemote: () => void
-    onKeepMine: () => void
-}) {
-    if (!users.length && !notice && !conflict) {
-        return null
-    }
-
-    return (
-        <div className='flex flex-wrap items-center justify-between gap-2 rounded-xl border border-ui-border bg-ui-panel px-3 py-2 text-xs text-ui-muted shadow-lg backdrop-blur-md'>
-            <div className='flex min-w-0 flex-wrap items-center gap-2'>
-                {otherUsers.length ? (
-                    <div className='flex items-center gap-1.5'>
-                        <div className='flex -space-x-1.5'>
-                            {otherUsers.slice(0, 5).map(user => (
-                                <span
-                                    key={user.clientId}
-                                    title={user.displayName}
-                                    className='grid h-6 w-6 place-items-center rounded-full border border-ui-canvas text-[10px] font-bold text-ui-canvas'
-                                    style={{ backgroundColor: user.color }}
-                                >
-                                    {initialsFor(user.displayName)}
-                                </span>
-                            ))}
-                        </div>
-                        <span className='text-[11px] text-ui-muted'>{otherUsers.length === 1 ? '1 other user' : `${otherUsers.length} other users`}</span>
-                    </div>
-                ) : users.length ? (
-                    <span className='rounded-lg border border-ui-border bg-ui-raised px-2 py-1 text-[11px] text-ui-muted'>Only you here</span>
-                ) : null}
-                {editors.length ? (
-                    <span className='rounded-lg border border-ui-primary/25 bg-ui-primary/10 px-2 py-1 text-[11px] font-semibold text-ui-primary'>
-                        {formatEditors(editors)} editing{formatCursor(editors[0])}
-                    </span>
-                ) : null}
-                {notice && !conflict ? (
-                    <button type='button' onClick={onDismissNotice} className='rounded-lg border border-ui-border bg-ui-raised px-2 py-1 text-[11px] text-ui-muted transition hover:bg-ui-primary/10 hover:text-ui-on-primary'>
-                        {notice}
-                    </button>
-                ) : null}
-            </div>
-            {conflict ? (
-                <div className='flex flex-wrap items-center gap-2 rounded-lg border border-ui-warning/30 bg-ui-warning/10 px-2 py-1.5 text-[11px] text-ui-warning'>
-                    <span>{conflict.author?.displayName || 'Someone'} edited this while your change was unsaved.</span>
-                    <button type='button' onClick={onUseRemote} className='rounded-md bg-ui-warning/15 px-2 py-1 font-semibold hover:bg-ui-warning/25'>Use theirs</button>
-                    <button type='button' onClick={onKeepMine} className='rounded-md bg-ui-raised px-2 py-1 font-semibold hover:bg-ui-primary/10'>Keep mine</button>
-                </div>
-            ) : null}
-        </div>
-    )
-}
-
-function initialsFor(name: string) {
-    const parts = name.trim().split(/\s+/).filter(Boolean)
-    return (parts.length > 1 ? `${parts[0][0]}${parts[1][0]}` : name.slice(0, 2)).toUpperCase()
-}
-
-function formatEditors(editors: SharePresenceUser[]) {
-    if (editors.length === 1) return editors[0].displayName
-    if (editors.length === 2) return `${editors[0].displayName} and ${editors[1].displayName}`
-    return `${editors[0].displayName} and ${editors.length - 1} others`
-}
-
-function formatCursor(user: SharePresenceUser | undefined) {
-    if (!user?.cursorLine) return ''
-    return ` · line ${user.cursorLine}`
-}
-
-function StatusPill({
-    icon,
-    label,
-    tone,
-}: {
-    icon: ReactNode
-    label: string
-    tone: 'good' | 'warn' | 'neutral'
-}) {
-    const toneClass = tone === 'good'
-        ? 'border-ui-success/30 bg-ui-success/10 text-ui-success'
-        : tone === 'warn'
-            ? 'border-ui-warning/30 bg-ui-warning/10 text-ui-warning'
-            : 'border-ui-border bg-ui-raised text-ui-muted'
-
-    return (
-        <span className={`inline-flex h-7 items-center gap-1.5 rounded-lg border px-2 text-[11px] font-semibold ${toneClass}`}>
-            {icon}
-            {label}
-        </span>
-    )
-}
-
-function normalizeTerminalStatus(status: string) {
-    const normalized = status.trim().replace(/\.$/, '')
-    if (!normalized) return 'Terminal unknown'
-    if (normalized.toLowerCase().includes('ready')) return 'Terminal ready'
-    if (normalized.toLowerCase().includes('closed')) return 'Terminal closed'
-    if (normalized.toLowerCase().includes('preparing')) return 'Terminal preparing'
-    if (normalized.toLowerCase().includes('connecting')) return 'Terminal connecting'
-    return normalized.length > 22 ? `${normalized.slice(0, 19)}...` : normalized
 }

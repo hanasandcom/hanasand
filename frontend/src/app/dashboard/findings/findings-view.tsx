@@ -5,9 +5,7 @@ import { WatchlistsView } from './watchlists-view'
 import { CaseOverview } from './case-overview'
 import { DwmPanelPage } from './panel-page'
 import { SourcePosture } from './source-posture'
-import { DeliveryPanel, alertCaseId } from './delivery-panel'
-import { alertOrganizationId } from './portal-data'
-import { caseDetailHref } from './case-format'
+import { DeliveryPanel } from './delivery-panel'
 import type { PortalAlert, OperationsSnapshot, DeliveryItem, CasesState, WatchlistOverviewState } from './types'
 import type { DwmDataHealth, FindingsView as FindingsViewType } from './view-types'
 
@@ -63,7 +61,7 @@ export function FindingsView({ view, organizationId, activeSourceCount, sourceCo
         return <MonitoringOverview alerts={alerts} dataHealth={dataHealth}
             organizationId={organizationId} initialAlertId={initialAlertId} actionMessage={actionMessage}
             onRefresh={onRefresh}
-            caseHref={alert => { const id = alertCaseId(alert); return id ? caseDetailHref(id, alert.id, alertOrganizationId(alert, organizationId), 'alert_queue') : undefined }} />
+            caseHref={caseHref} />
     }
 
     if (view === 'actors') {
@@ -71,7 +69,7 @@ export function FindingsView({ view, organizationId, activeSourceCount, sourceCo
             <DwmPanelPage title='Actors' meta={<div className='flex flex-wrap items-center gap-3'>
                 <span className='whitespace-nowrap'>{dataHealth.snapshot.state === 'live' ? `${snapshot.actorOverviews.length} actor profiles` : dataHealth.snapshot.state === 'error' ? 'Actor profiles unavailable' : 'Loading actor profiles…'}</span>
                 {dataHealth.snapshot.state === 'live' && <label className='flex h-9 w-60 max-w-full items-center gap-2 rounded-lg border border-ui-border bg-ui-canvas px-3 focus-within:ring-2 focus-within:ring-ui-primary'>
-                    <input ref={actorSearchRef} aria-label='Search actors' aria-keyshortcuts='Meta+J Control+J' placeholder='Search actors' className='min-w-0 flex-1 bg-transparent text-sm font-normal text-ui-text outline-none' value={actorQuery} onChange={event => setActorQuery(event.target.value)} />
+                    <input ref={actorSearchRef} aria-label='Search actors' aria-keyshortcuts='Meta+J Control+J' placeholder='Search actors' className='min-w-0 flex-1 bg-transparent text-sm font-normal text-ui-text outline-none' value={actorQuery} onChange={event => onActorQuery(event.target.value)} />
                     <kbd className='shrink-0 rounded border border-ui-border bg-ui-panel px-1 py-0.5 text-[10px] font-semibold text-ui-muted'>⌘ J</kbd>
                 </label>}
             </div>}>

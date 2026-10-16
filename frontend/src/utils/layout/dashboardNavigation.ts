@@ -28,7 +28,7 @@ export function getDashboardNavigation(access: NavigationAccess): NavigationItem
     const canManageContent = access.canViewInternalPages === true
     const canManageOrganizations = access.canManageOrganizations === true
     const canManageSystem = access.canViewInternalPages === true
-    const canReviewIntel = access.canViewInternalPages === true
+    const canReviewIntel = access.canReviewIntel === true || access.canViewInternalPages === true
     const link = (label: string, href: string, visible = true): NavigationItem => ({ label, href, visible })
     const group = (label: string, items: NavigationItem[], visible = true): NavigationItem => ({ label, items, visible })
     const sections = [

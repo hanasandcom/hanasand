@@ -2,6 +2,7 @@ import type { ActivitySubjectType, ActivityItem } from '../types/activity'
 import type { OrganizationSummary } from '../types/organization'
 import type { OrgBundle } from '../types/bundle'
 import { stateLabel, objectValue } from './labels'
+import { ORG_ACTIVITY_PREVIEW_ROWS } from '../constants/activity'
 
 export function activitySubjectTypeLabel(value: ActivitySubjectType) {
     if (value === 'organization') return 'Organization'
