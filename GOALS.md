@@ -354,6 +354,24 @@ with zero over-limit files. The 100,000-line API shrink and 10,000–30,000-line
 frontend goals remain unmet; keep measuring family totals and focus on
 verified duplicate removal.
 
+At checkpoints `b92e091fd` and `e1dd46ae2`, the admin-support inspection path
+was split into request, data, validation, proof, and presentation modules, all
+under 200 lines. The route body is now 83 lines; focused audit tests (6 / 50
+assertions), API typecheck, full default API suite, scoped ESLint, and
+independent review pass. This improves the responsibility boundaries but adds
+about 180 LOC to the admin-support family (14,157 total), mainly for proof and
+response coordination; it is not aggregate reduction. The webhook delivery
+path now reuses the normalized alert/watchlist already present in the payload,
+preserving serialization and avoiding duplicate normalization; it removes 2
+production lines and adds 10 focused persistence assertions. Independent
+review and five affected DWM tasks pass. Frontend remains 2,336 checked
+source/config files / 156,018 lines, with zero over 200. The repository scan
+reports 3,706 hand-maintained files / 323,222 lines and 125 over the cap, all
+outside the frontend. The API 100,000-line reduction and frontend
+10,000–30,000-line target remain unmet; further work must prioritize measured
+net reductions while keeping the frontend cap and existing page data/UI
+contracts intact.
+
 At API checkpoint `c8b138c94`, six webhook read models share a typed access
 capability mapper. The webhook production family falls by 19 lines (9,793 to
 9,774), while its focused visibility contract test grows by 46 lines; this is
