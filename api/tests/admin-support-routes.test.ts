@@ -519,6 +519,21 @@ test('support inspection keeps organization member and pending-invite counts in 
         memberCount: 3,
         pendingInviteCount: 2,
     })
+    const inspection = response.body.inspection
+    for (const proof of [
+        'searchProof',
+        'auditFilterCoverage',
+        'actionAuditContract',
+        'enterpriseReadiness',
+        'negativeCaseMatrix',
+        'approvalDecisionPacket',
+        'receiptReplayPacket',
+        'sessionReplayReceipt',
+        'replayExportPacket',
+    ]) {
+        expect(inspection[proof]).toBeDefined()
+        expect(inspection.filteredTimeline[proof]).toEqual(inspection[proof])
+    }
 
     const detail = await request(getSupportOrganization, { params: { id: 'org-1' } })
     expect(detail.statusCode).toBe(200)
