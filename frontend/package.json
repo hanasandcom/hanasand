@@ -8,6 +8,8 @@
     "start": "PORT=${PORT:-3000} bun --bun next start --hostname 0.0.0.0 --port ${PORT:-3000}",
     "start:docker": "PORT=${PORT:-3001} bun --bun next start --hostname 0.0.0.0 --port ${PORT:-3001}",
     "check:startup": "bun scripts/check-ai-hooks.mjs",
+    "check:line-cap:changed": "node scripts/check-line-cap.mjs --changed",
+    "check:line-cap:all": "node scripts/check-line-cap.mjs",
     "check:external-monitoring": "node scripts/check-external-monitoring.mjs",
     "check:dashboard-hydration": "bun run build && DASHBOARD_HYDRATION_MEASURE=1 bun scripts/check-dashboard-hydration.mjs",
     "check:dashboard-render": "node scripts/check-dashboard-render-proof.mjs",
