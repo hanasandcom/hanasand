@@ -2,9 +2,13 @@ import { lookup } from 'node:dns/promises'
 import { request as httpRequest, type RequestOptions, type IncomingMessage } from 'node:http'
 import { request as httpsRequest } from 'node:https'
 import { isIP, type LookupFunction } from 'node:net'
+import type { Readable, Transform } from 'node:stream'
+import { createBrotliDecompress, createGunzip, createInflate } from 'node:zlib'
 import ipaddr from 'ipaddr.js'
 
 type Address = { address: string, family: number }
+const MAX_RESPONSE_BODY_BYTES = 1_048_576
+const MAX_CONTENT_ENCODINGS = 8
 export type MonitoringResolver = (hostname: string, options: { all: true, verbatim: true }) => Promise<Address[]>
 const blocked = () => new Error('Monitoring destinations must resolve only to public IP addresses.')
 
@@ -81,39 +85,86 @@ export async function publicMonitoringRequest(value: string | URL, options: Moni
         for (let redirects = 0; ; redirects++) {
             const addresses = await resolveMonitoringAddresses(url.hostname, signal, resolver)
             const result = await new Promise<{ status: number, statusText: string, location?: string, body: string }>((resolve, reject) => {
+                const hasAcceptEncoding = Object.keys(options.headers || {}).some(header => header.toLowerCase() === 'accept-encoding')
                 const headers = {
+                    ...(!hasAcceptEncoding ? { 'accept-encoding': 'gzip, deflate, br' } : {}),
                     ...options.headers,
                     ...(options.userAgent ? { 'user-agent': options.userAgent } : {}),
                 }
-                const request = send(url, {
+                let settled = false
+                const activeRequest: { current?: ReturnType<Transport> } = {}
+                let responseStream: IncomingMessage | undefined
+                const decoders: Transform[] = []
+                const fail = (error: Error, destroyRequest = true) => {
+                    if (settled) return
+                    settled = true
+                    reject(error)
+                    responseStream?.destroy()
+                    for (const decoder of decoders) decoder.destroy()
+                    if (destroyRequest && typeof activeRequest.current?.destroy === 'function') activeRequest.current.destroy(error)
+                }
+                activeRequest.current = send(url, {
                     method, agent: false, lookup: monitoringLookup(addresses), signal,
                     headers: Object.keys(headers).length ? headers : undefined,
                 }, response => {
+                    responseStream = response
                     const status = response.statusCode || 0
                     const statusText = response.statusMessage || ''
                     const location = response.headers.location
                     if (!options.readBody || options.followRedirects && location && [301, 302, 303, 307, 308].includes(status)) {
+                        settled = true
                         resolve({ status, statusText, location, body: '' })
                         response.destroy()
                         return
                     }
+                    let bodyStream: Readable = response
+                    try {
+                        const encodings = response.headers['content-encoding']?.split(',').map(encoding => encoding.trim().toLowerCase()).filter(Boolean) || []
+                        if (encodings.length > MAX_CONTENT_ENCODINGS) throw new Error('Monitoring source exceeds the content-encoding layer limit.')
+                        for (const encoding of encodings.reverse()) {
+                            let decoder: Transform
+                            if (encoding === 'gzip' || encoding === 'x-gzip') decoder = createGunzip()
+                            else if (encoding === 'deflate') decoder = createInflate()
+                            else if (encoding === 'br') decoder = createBrotliDecompress()
+                            else if (encoding === 'identity') continue
+                            else throw new Error(`Unsupported monitoring response encoding: ${encoding}.`)
+                            decoders.push(decoder)
+                            decoder.once('error', fail)
+                            bodyStream = bodyStream.pipe(decoder)
+                        }
+                    } catch (error) {
+                        const failure = error instanceof Error ? error : new Error(String(error))
+                        fail(failure)
+                        return
+                    }
                     const chunks: Buffer[] = []
-                    let size = 0
+                    let encodedSize = 0
+                    let decodedSize = 0
                     response.on('data', (chunk: Buffer) => {
-                        size += chunk.length
-                        if (size > 1_048_576) {
-                            const error = new Error('Monitoring source exceeds the 1 MiB response limit.')
-                            reject(error)
-                            response.destroy(error)
-                            request.destroy(error)
+                        encodedSize += chunk.length
+                        if (encodedSize > MAX_RESPONSE_BODY_BYTES) {
+                            fail(new Error('Monitoring source exceeds the 1 MiB encoded response limit.'))
+                        }
+                    })
+                    bodyStream.on('data', (chunk: Buffer) => {
+                        decodedSize += chunk.length
+                        if (decodedSize > MAX_RESPONSE_BODY_BYTES) {
+                            fail(new Error('Monitoring source exceeds the 1 MiB decoded response limit.'))
                         } else chunks.push(chunk)
                     })
-                    response.once('error', reject)
-                    response.once('aborted', () => reject(new Error('Monitoring response ended before the body was complete.')))
-                    response.once('end', () => resolve({ status, statusText, location, body: Buffer.concat(chunks).toString('utf8') }))
+                    response.once('error', fail)
+                    response.once('aborted', () => fail(new Error('Monitoring response ended before the body was complete.')))
+                    bodyStream.once('end', () => {
+                        if (settled) return
+                        settled = true
+                        resolve({ status, statusText, location, body: Buffer.concat(chunks).toString('utf8') })
+                    })
                 })
-                request.once('error', error => reject(signal.aborted ? signal.reason : error))
-                request.end()
+                activeRequest.current.once('error', error => {
+                    const failure = signal.aborted ? signal.reason : error
+                    fail(failure instanceof Error ? failure : new Error(String(failure)), false)
+                })
+                activeRequest.current.end()
             })
             if (!options.followRedirects || !result.location || ![301, 302, 303, 307, 308].includes(result.status)) {
                 return { ...result, ok: result.status >= 200 && result.status < 300, url: url.href }

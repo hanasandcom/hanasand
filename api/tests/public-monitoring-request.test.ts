@@ -2,24 +2,29 @@ import { expect, test } from 'bun:test'
 import { EventEmitter } from 'node:events'
 import { PassThrough } from 'node:stream'
 import { createServer, request as httpRequest, type RequestOptions } from 'node:http'
+import { brotliCompressSync, deflateSync, gzipSync } from 'node:zlib'
 import { isPublicMonitoringAddress, monitoringLookup, monitoringUrl, publicMonitoringRequest, resolveMonitoringAddresses, type MonitoringResolver } from '../src/utils/publicMonitoringRequest.ts'
 
 const publicAddresses = [{ address: '93.184.215.14', family: 4 }]
 const resolver: MonitoringResolver = async () => publicAddresses
 const options = { followRedirects: true, timeoutMs: 500, readBody: true }
 type Send = NonNullable<Parameters<typeof publicMonitoringRequest>[3]>
-function mockSend(replies: { status?: number, statusText?: string, location?: string, body?: string, hang?: boolean }[]) {
+function mockSend(replies: { status?: number, statusText?: string, location?: string, encoding?: string, body?: string | Buffer, hang?: boolean }[]) {
     const calls: { url: URL, options: RequestOptions }[] = []
     const send: Send = (url, requestOptions, callback) => {
         calls.push({ url, options: requestOptions })
         const reply = replies[calls.length - 1] || {}
         const request = new EventEmitter() as ReturnType<Send>
-        const response = Object.assign(new PassThrough(), { statusCode: reply.status || 200, statusMessage: reply.statusText, headers: { location: reply.location } })
+        const response = Object.assign(new PassThrough(), {
+            statusCode: reply.status || 200,
+            statusMessage: reply.statusText,
+            headers: { location: reply.location, 'content-encoding': reply.encoding },
+        })
         request.destroy = (error?: Error) => { if (error) request.emit('error', error); response.destroy(); return request }
         request.end = (() => {
             queueMicrotask(() => {
                 callback(response as Parameters<Parameters<Send>[2]>[0])
-                if (!reply.hang) response.end(reply.body || '{"ok":true}')
+                if (!reply.hang) response.end(reply.body ?? '{"ok":true}')
             })
             return request
         }) as typeof request.end
@@ -63,7 +68,7 @@ test('pins validated answers without a second DNS lookup and preserves hostname 
     expect(call.url.hostname).toBe('arbitrary.example')
     expect(call.options.agent).toBe(false)
     expect(call.options.method).toBe('POST')
-    expect(call.options.headers).toEqual({ 'user-agent': 'monitor-test' })
+    expect(call.options.headers).toEqual({ 'accept-encoding': 'gzip, deflate, br', 'user-agent': 'monitor-test' })
     for (let i = 0; i < 2; i++) call.options.lookup!('arbitrary.example', { all: true }, (error, addresses) => { expect(error).toBeNull(); expect(addresses).toEqual(publicAddresses) })
     expect(resolutions).toBe(1)
 })
@@ -107,6 +112,76 @@ test('bounds redirects and response sizes', async () => {
     expect(loop.calls).toHaveLength(11)
     const large = mockSend([{ body: 'x'.repeat(1_048_577) }])
     await expect(publicMonitoringRequest('http://example.com', options, resolver, large.send)).rejects.toThrow('1 MiB')
+})
+
+test('negotiates, decodes standard HTTP response encodings, and bounds encoded and decoded bodies', async () => {
+    const body = '{"ok":true}'
+    for (const [encoding, encodedBody] of [
+        ['gzip', gzipSync(body)],
+        ['deflate', deflateSync(body)],
+        ['br', brotliCompressSync(body)],
+        ['gzip, br', brotliCompressSync(gzipSync(body))],
+    ] as const) {
+        const { send, calls } = mockSend([{ encoding, body: encodedBody }])
+        expect((await publicMonitoringRequest('http://example.com', options, resolver, send)).body).toBe(body)
+        expect(calls[0]?.options.headers).toMatchObject({ 'accept-encoding': 'gzip, deflate, br' })
+    }
+
+    const oversized = mockSend([{ encoding: 'gzip', body: gzipSync('x'.repeat(1_048_577)) }])
+    await expect(publicMonitoringRequest('http://example.com', options, resolver, oversized.send)).rejects.toThrow('1 MiB decoded')
+
+    const encodedMembers = Buffer.concat(Array.from({ length: 55_000 }, () => gzipSync('x')))
+    expect(encodedMembers.length).toBeGreaterThan(1_048_576)
+    const oversizedEncoded = mockSend([{ encoding: 'gzip', body: encodedMembers }])
+    await expect(publicMonitoringRequest('http://example.com', options, resolver, oversizedEncoded.send)).rejects.toThrow('1 MiB encoded')
+
+    const malformed = mockSend([{ encoding: 'gzip', body: gzipSync(body).subarray(0, -4) }])
+    await expect(publicMonitoringRequest('http://example.com', options, resolver, malformed.send)).rejects.toThrow()
+
+    const malformedStack = mockSend([{ encoding: 'gzip, br', body: brotliCompressSync(gzipSync(body).subarray(0, -4)) }])
+    await expect(publicMonitoringRequest('http://example.com', options, resolver, malformedStack.send)).rejects.toThrow()
+
+    const unsupportedAfterDecoder = mockSend([{ encoding: 'unsupported, gzip', body: gzipSync(body) }])
+    await expect(publicMonitoringRequest('http://example.com', options, resolver, unsupportedAfterDecoder.send)).rejects.toThrow('Unsupported monitoring response encoding')
+
+    const excessiveLayers = mockSend([{ encoding: Array(9).fill('identity').join(', '), body }])
+    await expect(publicMonitoringRequest('http://example.com', options, resolver, excessiveLayers.send)).rejects.toThrow('content-encoding layer limit')
+
+    const pending = mockSend([{ encoding: 'gzip', hang: true }])
+    await expect(publicMonitoringRequest('http://example.com', { ...options, timeoutMs: 20 }, resolver, pending.send)).rejects.toThrow('timed out')
+})
+
+test('external cancellation tears down a stacked decoder after compressed bytes arrive', async () => {
+    const controller = new AbortController()
+    const encoded = brotliCompressSync(gzipSync('x'.repeat(100_000)))
+    let requestDestroyed = false
+    let responseDestroyed = false
+    const send: Send = (_url, requestOptions, callback) => {
+        const request = new EventEmitter() as ReturnType<Send>
+        const response = Object.assign(new PassThrough(), { statusCode: 200, headers: { 'content-encoding': 'gzip, br' } })
+        response.once('data', () => controller.abort())
+        request.destroy = (error?: Error) => {
+            requestDestroyed = true
+            if (error) request.emit('error', error)
+            response.destroy()
+            responseDestroyed = response.destroyed
+            return request
+        }
+        request.end = (() => {
+            queueMicrotask(() => {
+                callback(response as Parameters<Parameters<Send>[2]>[0])
+                response.write(encoded.subarray(0, 20))
+                setTimeout(() => response.end(encoded.subarray(20)), 20)
+            })
+            return request
+        }) as typeof request.end
+        requestOptions.signal?.addEventListener('abort', () => request.destroy(new Error('aborted')), { once: true })
+        return request
+    }
+
+    await expect(publicMonitoringRequest('http://example.com', { ...options, signal: controller.signal }, resolver, send)).rejects.toMatchObject({ name: 'AbortError' })
+    expect(requestDestroyed).toBe(true)
+    expect(responseDestroyed).toBe(true)
 })
 
 test('deadline covers DNS and response body', async () => {
