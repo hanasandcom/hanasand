@@ -23,8 +23,9 @@ export function validateServiceAccountScopes(value: unknown): value is { method:
 
 export function matchServiceAccountScope(scopes: ApiKeyScopeRule[], method: string, path: string) {
     const verb = method.toUpperCase()
+    const pathname = path.split('?')[0]
     return scopes.find(scope => scope.enabled && scope.method === verb
-        && serviceAccountEndpoints.some(endpoint => endpoint.method === verb && endpoint.route === scope.route && matchesEndpointPath(endpoint.route, path))) || null
+        && serviceAccountEndpoints.some(endpoint => endpoint.method === verb && endpoint.route === scope.route && matchesEndpointPath(endpoint.route, pathname))) || null
 }
 
 function matchesEndpointPath(route: string, path: string) {
