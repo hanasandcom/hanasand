@@ -1,0 +1,120 @@
+import config from '@/config'
+import { useCallback, useState } from 'react'
+import type { ChangeEvent, Dispatch, DragEvent, SetStateAction } from 'react'
+import getFetchableUrl from './getFetchAbleUrl'
+
+const MAX_PUBLIC_MEDIA_BYTES = 20 * 1024 * 1024
+
+type PublicMediaUploadOptions = {
+    setUrl: Dispatch<SetStateAction<string>>
+    setFile: Dispatch<SetStateAction<File | null>>
+    setPreview: Dispatch<SetStateAction<string | null>>
+}
+
+export function usePublicMediaUpload({ setUrl, setFile, setPreview }: PublicMediaUploadOptions) {
+    const [isDragging, setIsDragging] = useState(false)
+    const [isFetching, setIsFetching] = useState(false)
+    const [message, setMessage] = useState<string | null>(null)
+
+    const handleFile = useCallback((file: File) => {
+        setMessage(null)
+        const validationError = validatePublicMediaFile(file)
+        if (validationError) {
+            setFile(null)
+            setPreview(null)
+            setMessage(validationError)
+            return
+        }
+
+        setFile(file)
+        setPreview(URL.createObjectURL(file))
+    }, [setFile, setPreview])
+
+    function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+        const selectedFile = event.target.files?.[0]
+        if (selectedFile) handleFile(selectedFile)
+    }
+
+    function handleDrop(event: DragEvent<HTMLDivElement>) {
+        event.preventDefault()
+        setIsDragging(false)
+        const droppedFile = event.dataTransfer.files?.[0]
+        if (droppedFile) handleFile(droppedFile)
+    }
+
+    function handleDragOver(event: DragEvent<HTMLDivElement>) {
+        event.preventDefault()
+        setIsDragging(true)
+    }
+
+    function handlePasteOrChange(value: string) {
+        setUrl(value)
+        setMessage(null)
+
+        if (!value.trim()) return
+        void fetchRemoteMedia(value)
+    }
+
+    async function fetchRemoteMedia(value: string) {
+        try {
+            const urlObject = new URL(value)
+            const fileName = urlObject.pathname.split('/').pop() || 'image.png'
+            setIsFetching(true)
+            handleFile(await fetchImageAsFile(value, fileName))
+        } catch (error) {
+            setMessage(error instanceof Error ? error.message : 'Paste a direct image or video URL, or choose a local file.')
+        } finally {
+            setIsFetching(false)
+        }
+    }
+
+    return {
+        isDragging,
+        isFetching,
+        message,
+        handleFileChange,
+        handleDrop,
+        handleDragOver,
+        handleDragLeave: () => setIsDragging(false),
+        handlePasteOrChange,
+    }
+}
+
+async function fetchImageAsFile(url: string, fileName: string) {
+    const fetchableUrl = getFetchableUrl(url)
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), config.abortTimeout)
+
+    let response: Response
+    try {
+        response = await fetch(`/api/image?url=${encodeURIComponent(fetchableUrl)}`, {
+            signal: controller.signal,
+        })
+    } finally {
+        clearTimeout(timeout)
+    }
+
+    if (!response.ok) {
+        const payload = await response.json().catch(() => ({})) as { error?: string }
+        throw new Error(payload.error || 'Remote media could not be fetched.')
+    }
+
+    const blob = await response.blob()
+    const type = blob.type || 'image/png'
+    const file = new File([blob], fileName, { type })
+    const validationError = validatePublicMediaFile(file)
+    if (validationError) throw new Error(validationError)
+    return file
+}
+
+function validatePublicMediaFile(file: File) {
+    if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
+        return 'Only public image or video files can be uploaded here.'
+    }
+
+    if (file.size > MAX_PUBLIC_MEDIA_BYTES) {
+        return 'Public media must be 20 MB or smaller.'
+    }
+
+    return null
+}
