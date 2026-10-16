@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict'
 import { test } from 'bun:test'
 import {
+    normalizeInviteActionInput,
     normalizeInviteInput,
+    normalizeMemberRoleInput,
     normalizeOrganizationInput,
     normalizeOrganizationSettingsInput,
     normalizeOwnershipTransferInput,
@@ -109,6 +111,36 @@ test('organization input normalization and validation', () => {
         requestId: 'restore-watchlist',
     })
     assert.throws(() => normalizeWatchlistActionInput({ action: 'delete', reason: 'nope' }), /pause, resume, archive, or restore/)
+})
+
+test('required organization reasons share normalization and preserve operation-specific limits', () => {
+    assert.equal(normalizeInviteActionInput({
+        action: 'revoke',
+        reason: '  reviewed   this change ',
+    }).reason, 'reviewed this change')
+    assert.equal(normalizeOwnershipTransferInput({
+        targetUserId: 'user_next_owner',
+        reason: '  reviewed   this change ',
+    }).reason, 'reviewed this change')
+    assert.equal(normalizeMemberRoleInput({
+        role: 'reader',
+        reason: '  reviewed   this change ',
+    }).reason, 'reviewed this change')
+
+    assert.equal(normalizeInviteActionInput({ action: 'revoke', reason: 'abc' }).reason, 'abc')
+    assert.equal(normalizeOwnershipTransferInput({ targetUserId: 'user_next_owner', reason: 'abc' }).reason, 'abc')
+    assert.equal(normalizeMemberRoleInput({ role: 'reader', reason: 'abc' }).reason, 'abc')
+    assert.equal(normalizeInviteActionInput({ action: 'revoke', reason: 'x'.repeat(1000) }).reason.length, 1000)
+    assert.equal(normalizeOwnershipTransferInput({ targetUserId: 'user_next_owner', reason: 'x'.repeat(1000) }).reason.length, 1000)
+    assert.equal(normalizeMemberRoleInput({ role: 'reader', reason: 'x'.repeat(1000) }).reason.length, 1000)
+
+    assert.throws(() => normalizeInviteActionInput({ action: 'revoke', reason: 'ok' }), /Invite action reason is required/)
+    assert.throws(() => normalizeOwnershipTransferInput({ targetUserId: 'user_next_owner', reason: 'ok' }), /Ownership transfer reason is required/)
+    assert.throws(() => normalizeMemberRoleInput({ role: 'reader', reason: 'ok' }), /Member role change reason is required/)
+
+    assert.throws(() => normalizeInviteActionInput({ action: 'revoke', reason: 'x'.repeat(1001) }), /Invite action reason must be 1000 characters or fewer/)
+    assert.throws(() => normalizeOwnershipTransferInput({ targetUserId: 'user_next_owner', reason: 'x'.repeat(1001) }), /Ownership transfer reason must be 1000 characters or fewer/)
+    assert.throws(() => normalizeMemberRoleInput({ role: 'reader', reason: 'x'.repeat(1001) }), /Member role change reason must be 1000 characters or fewer/)
 })
 
 test('watchlist mutations normalize shared reason and request ID aliases consistently', () => {

@@ -2283,14 +2283,7 @@ export function normalizeInviteActionInput(body: InviteActionInput | undefined) 
         throw new Error('Invite action must be revoke or resend.')
     }
 
-    const reason = cleanText(body?.reason)
-    if (reason.length < 3) {
-        throw new Error('Invite action reason is required.')
-    }
-
-    if (reason.length > 1000) {
-        throw new Error('Invite action reason must be 1000 characters or fewer.')
-    }
+    const reason = normalizeRequiredReason(body?.reason, 'Invite action')
 
     const requestId = normalizeRequestId(body?.requestId ?? body?.request_id)
     const expiresAt = action === 'resend'
@@ -2338,14 +2331,7 @@ export function normalizeOwnershipTransferInput(body: OrganizationOwnershipTrans
         throw new Error('Target user is required.')
     }
 
-    const reason = cleanText(body?.reason)
-    if (reason.length < 3) {
-        throw new Error('Ownership transfer reason is required.')
-    }
-
-    if (reason.length > 1000) {
-        throw new Error('Ownership transfer reason must be 1000 characters or fewer.')
-    }
+    const reason = normalizeRequiredReason(body?.reason, 'Ownership transfer')
 
     return { targetUserId, reason }
 }
@@ -2356,14 +2342,7 @@ export function normalizeMemberRoleInput(body: OrganizationMemberRoleInput | und
         throw new Error('Member role must be admin, editor, or reader.')
     }
 
-    const reason = cleanText(body?.reason)
-    if (reason.length < 3) {
-        throw new Error('Member role change reason is required.')
-    }
-
-    if (reason.length > 1000) {
-        throw new Error('Member role change reason must be 1000 characters or fewer.')
-    }
+    const reason = normalizeRequiredReason(body?.reason, 'Member role change')
 
     const requestId = normalizeRequestId(body?.requestId ?? body?.request_id)
     return { role: role as OrganizationRole, reason, requestId }
@@ -7986,6 +7965,19 @@ function normalizeInviteExpiry(value: unknown) {
     }
 
     return expiresAt.toISOString()
+}
+
+function normalizeRequiredReason(value: unknown, context: string) {
+    const reason = cleanText(value)
+    if (reason.length < 3) {
+        throw new Error(`${context} reason is required.`)
+    }
+
+    if (reason.length > 1000) {
+        throw new Error(`${context} reason must be 1000 characters or fewer.`)
+    }
+
+    return reason
 }
 
 function normalizeRequestId(value: unknown) {
