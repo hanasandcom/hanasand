@@ -4,6 +4,7 @@ import {
     listOrganizationApiKeys,
     organizationPublicApiScopes,
     revokeOrganizationApiKey,
+    updateApiKey,
     validateApiKey,
 } from '../src/utils/auth/apiKeys.ts'
 
@@ -11,12 +12,14 @@ type Row = Record<string, any>
 
 let organizationStatus = 'active'
 let organizationHasActiveOwner = true
+let failScopeInsert = false
 let apiKeys: Row[] = []
 let scopes: Row[] = []
 
 beforeEach(() => {
     organizationStatus = 'active'
     organizationHasActiveOwner = true
+    failScopeInsert = false
     apiKeys = []
     scopes = []
 })
@@ -93,7 +96,48 @@ describe('organization API key onboarding', () => {
         expect((await revokeOrganizationApiKey('org-a', second.apiKey.id, fakeRun as any))?.enabled).toBe(false)
         expect(await validateApiKey(second.secret, fakeRun as any)).toBeNull()
     })
+
+    test('rolls back key metadata when replacing scopes fails', async () => {
+        const created = await createApiKey({
+            ownerId: 'customer-user',
+            organizationId: 'org-a',
+            name: 'Production integration',
+            tier: 'starter',
+            scopes: organizationPublicApiScopes(),
+        }, fakeRun as any)
+        const originalScopes = scopes.map(scope => ({ ...scope }))
+
+        failScopeInsert = true
+        await expect(updateApiKey(created.apiKey.id, {
+            ownerId: 'replacement-user',
+            name: 'Changed integration',
+            tier: 'growth',
+            description: 'Updated description',
+            expiresAt: '2027-01-01T00:00:00.000Z',
+            scopes: organizationPublicApiScopes().slice(0, 1),
+        }, fakeTransaction as any)).rejects.toThrow('Scope insert failed')
+
+        expect(apiKeys[0]).toMatchObject({
+            owner_id: 'customer-user',
+            name: 'Production integration',
+            tier: 'starter',
+            description: null,
+        })
+        expect(scopes).toEqual(originalScopes)
+    })
 })
+
+async function fakeTransaction<T>(work: (query: any) => Promise<T>) {
+    const originalApiKeys = apiKeys.map(row => ({ ...row }))
+    const originalScopes = scopes.map(row => ({ ...row }))
+    try {
+        return await work(fakeRun as any)
+    } catch (error) {
+        apiKeys = originalApiKeys
+        scopes = originalScopes
+        throw error
+    }
+}
 
 async function fakeRun(sql: string, params: unknown[] = []) {
     const query = sql.replace(/\s+/g, ' ').trim()
@@ -117,11 +161,21 @@ async function fakeRun(sql: string, params: unknown[] = []) {
         return { rows: [], rowCount: 0 }
     }
     if (query.startsWith('INSERT INTO api_key_scopes')) {
+        if (failScopeInsert) throw new Error('Scope insert failed')
         scopes.push({
             id: params[0], api_key_id: params[1], method: params[2], route: params[3], enabled: params[4],
             per_second: params[5], per_minute: params[6], per_hour: params[7], per_day: params[8],
         })
         return { rows: [], rowCount: 1 }
+    }
+    if (query.startsWith('UPDATE api_keys') && query.includes('SET owner_id = $2')) {
+        const row = apiKeys.find(item => item.id === params[0])
+        if (!row) return { rows: [], rowCount: 0 }
+        Object.assign(row, {
+            owner_id: params[1], name: params[2], tier: params[3], description: params[4],
+            enabled: params[5], expires_at: params[6], updated_at: new Date().toISOString(),
+        })
+        return { rows: [row], rowCount: 1 }
     }
     if (query.includes('FROM api_key_scopes') && query.includes('WHERE api_key_id = $1')) {
         return { rows: scopes.filter(row => row.api_key_id === params[0]) }

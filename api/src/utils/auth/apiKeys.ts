@@ -1,5 +1,5 @@
 import { createHash, randomBytes, randomUUID } from 'crypto'
-import run from '#db'
+import run, { withTransaction } from '#db'
 
 export const API_KEY_TIER_ORDER: ApiKeyTierPreset[] = ['starter', 'growth', 'business', 'internal', 'custom']
 
@@ -262,35 +262,37 @@ export async function updateApiKey(id: string, input: {
     enabled?: boolean
     expiresAt?: string | null
     scopes?: ApiKeyScopeRule[]
-}) {
-    const result = await run(`
-        UPDATE api_keys
-        SET owner_id = $2,
-            name = $3,
-            tier = $4,
-            description = $5,
-            enabled = $6,
-            expires_at = $7::timestamptz,
-            updated_at = NOW()
-        WHERE id = $1
-        RETURNING id, owner_id, organization_id, name, tier, description, enabled, key_prefix, secret_hash, expires_at, last_used_at, created_at, updated_at
-    `, [
-        id,
-        input.ownerId,
-        input.name.trim(),
-        normalizeApiKeyTier(input.tier),
-        input.description?.trim() || null,
-        input.enabled !== false,
-        input.expiresAt || null,
-    ])
+}, transaction: typeof withTransaction = withTransaction) {
+    return transaction(async query => {
+        const result = await query(`
+            UPDATE api_keys
+            SET owner_id = $2,
+                name = $3,
+                tier = $4,
+                description = $5,
+                enabled = $6,
+                expires_at = $7::timestamptz,
+                updated_at = NOW()
+            WHERE id = $1
+            RETURNING id, owner_id, organization_id, name, tier, description, enabled, key_prefix, secret_hash, expires_at, last_used_at, created_at, updated_at
+        `, [
+            id,
+            input.ownerId,
+            input.name.trim(),
+            normalizeApiKeyTier(input.tier),
+            input.description?.trim() || null,
+            input.enabled !== false,
+            input.expiresAt || null,
+        ])
 
-    if (!result.rows.length) {
-        return null
-    }
+        if (!result.rows.length) {
+            return null
+        }
 
-    await replaceApiKeyScopes(id, normalizeScopeInputs(input.scopes))
-    const scopes = await getApiKeyScopes(id)
-    return toApiKeySummary(result.rows[0] as ApiKeyRow, scopes)
+        await replaceApiKeyScopes(id, normalizeScopeInputs(input.scopes), query)
+        const scopes = await getApiKeyScopes(id, query)
+        return toApiKeySummary(result.rows[0] as ApiKeyRow, scopes)
+    })
 }
 
 export async function deleteApiKey(id: string) {
