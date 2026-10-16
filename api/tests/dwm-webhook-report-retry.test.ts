@@ -14,6 +14,7 @@ let receiverDestinationEndpointHash = controlledReceiverEndpointHash
 let receiverDestinationStatus = 'active'
 let destinationEndpointHash = 'endpoint_hash'
 let missingDestinationId: string | undefined
+let orgDestinations: Array<Record<string, unknown>> = []
 let failReceiptBind = false
 let databaseRun: (sql: string, params?: unknown[]) => Promise<{ rows: any[] }>
 
@@ -86,6 +87,9 @@ mock.module('#db', () => ({
                     updated_at: '2026-07-23T10:00:00.000Z',
                 }],
             }
+        }
+        if (sql.includes('FROM dwm_webhook_destinations') && sql.includes("status <> 'archived'")) {
+            return { rows: orgDestinations }
         }
         if (sql.includes('AND status IN (\'delivered\', \'failed\')')) {
             return {
@@ -252,6 +256,7 @@ afterEach(() => {
     receiverDestinationStatus = 'active'
     destinationEndpointHash = 'endpoint_hash'
     missingDestinationId = undefined
+    orgDestinations = []
     failReceiptBind = false
 })
 
@@ -332,6 +337,29 @@ test('does not persist a missing-destination outcome for an invalid alert', asyn
 
     await expect(deliverDwmAlertNotification('owner_1', input)).rejects.toMatchObject({ code: 'missing_timestamp' })
     expect(ledger).toHaveLength(0)
+})
+
+test('delivery loads org destinations using the nested alert organization fallback', async () => {
+    const { deliverDwmAlertNotification } = await import('../src/utils/dwm/webhooks.ts')
+    const input = deliveryInput('alert_org_resolution', true)
+    input.destinationId = undefined
+    input.orgId = undefined
+    input.alert.organizationId = 'alert_org'
+    orgDestinations = [{
+        id: 'destination_paused',
+        org_id: 'alert_org',
+        name: 'Paused receiver',
+        kind: 'webhook',
+        endpoint_hint: 'receiver.example/...',
+        endpoint_hash: 'endpoint_hash',
+        status: 'paused',
+        events: ['dwm.alert.updated'],
+    }]
+
+    await deliverDwmAlertNotification('owner_1', input)
+
+    expect(queries.find(query => query.sql.includes("status <> 'archived'"))?.params).toEqual(['alert_org'])
+    expect(ledger[0]).toMatchObject({ org_id: 'alert_org', destination_id: 'destination_paused', status: 'skipped' })
 })
 
 test('records HTTP sender outcomes on a live delivery', async () => {

@@ -7045,21 +7045,21 @@ export async function deliverDwmAlertNotification(
     input: DwmAlertNotificationInput,
     sender: (endpoint: string, body: string, signingSecret?: string) => Promise<{ status: number, body: string }> = postPublicWebhook
 ) {
-    const dispatch = buildDwmAlertWebhookDispatchPlan({
-        ownerId,
-        input,
-        destinations: [],
-    })
+    const eventType = parseEventType(input.eventType ?? input.event_type, 'dwm.alert.created')
+    const alert = normalizeDispatchAlertInput(input)
+    const orgId = dispatchOrganizationId(ownerId, input, alert)
     const destinationId = clean(input.destinationId ?? input.destination_id)
     const dryRun = parseBoolean(input.dryRun ?? input.dry_run, true)
     const live = parseBoolean(input.live, false)
     const destination = destinationId ? await loadDwmWebhookDestination(ownerId, destinationId) : null
     const candidateDestinations = destinationId
         ? (destination ? [destination] : [])
-        : await loadDestinationsForOrg(ownerId, dispatch.orgId)
-    const plan = buildDwmAlertWebhookDispatchPlan({
+        : await loadDestinationsForOrg(ownerId, orgId)
+    const plan = buildDwmAlertWebhookDispatchPlanForAlert({
         ownerId,
-        input,
+        eventType,
+        alert,
+        orgId,
         destinations: candidateDestinations,
     })
     const normalizedPlanAlert = normalizeAlert(plan.alert)
@@ -8221,13 +8221,37 @@ export function buildDwmAlertWebhookDispatchPlan({
 }): DwmAlertWebhookDispatchPlan {
     const eventType = parseEventType(input.eventType ?? input.event_type, 'dwm.alert.created')
     const alert = normalizeDispatchAlertInput(input)
-    const orgId = clean(input.orgId)
+    const orgId = dispatchOrganizationId(ownerId, input, alert)
+    return buildDwmAlertWebhookDispatchPlanForAlert({ ownerId, eventType, alert, orgId, destinations })
+}
+
+function dispatchOrganizationId(
+    ownerId: string,
+    input: DwmAlertNotificationInput,
+    alert: Record<string, unknown>,
+) {
+    return clean(input.orgId)
         || clean(input.organizationId)
         || clean(input.tenantId)
         || clean(alert.organizationId)
         || clean(alert.orgId)
         || clean(alert.tenantId)
         || ownerId
+}
+
+function buildDwmAlertWebhookDispatchPlanForAlert({
+    ownerId,
+    eventType,
+    alert,
+    orgId,
+    destinations,
+}: {
+    ownerId: string
+    eventType: DwmAlertEventType
+    alert: Record<string, unknown>
+    orgId: string
+    destinations: DwmWebhookDispatchDestination[]
+}): DwmAlertWebhookDispatchPlan {
     const selectedDestinations: DwmWebhookDispatchDestination[] = []
     const skippedDestinations: DwmAlertWebhookDispatchPlan['skippedDestinations'] = []
 
