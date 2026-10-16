@@ -52,6 +52,7 @@ mock.module('#db', () => ({
     default: query,
     queryOnce: query,
     identityQueryOnce: async () => ({ rows: [] }),
+    withDatabaseAdvisoryLock: async (_key: string, work: (transactionQuery: typeof query) => Promise<unknown>) => work(query),
     tryWithDatabaseAdvisoryLock: async (_key: string, work: () => Promise<unknown>) => ({ acquired: true, result: await work() }),
     withTransaction: async (work: (transactionQuery: typeof query) => Promise<unknown>) => work(query),
 }))
