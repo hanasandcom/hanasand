@@ -180,6 +180,20 @@ files / 321,539 lines and 130 over-limit files (122 API, five ops, two shared
 scripts, and one root Compose file). API extractions are still in progress, so
 these counts are provisional.
 
+At the 2026-10-16 checkpoint ending at `5bf5c4a3b`, the frontend cap scan covers
+2,292 hand-maintained source/config files and finds none over 200 lines. The
+same scoped inventory totals 155,095 lines, up 64 from the previous 155,031-line
+snapshot; recent exact-duplicate consolidations have removed about 241
+production lines, but tests/modules keep aggregate LOC from falling. The last
+full frontend suite and production build both passed at `a1b02d2d5`; subsequent
+frontend commits have passed focused tests, full typecheck, lint, and cap
+checks, with a fresh full suite/build still due. The latest repository-wide
+scan reports 3,562 hand-maintained files / 321,650 lines and 130 over the cap.
+The current `adminSupport.ts` is 6,096 lines and `webhooks.ts` is 9,930 lines;
+their current extraction checkpoint adds aggregate implementation LOC, so the
+100,000-line API reduction and 10,000–30,000-line frontend target remain
+unachieved. Counts are provisional during concurrent refactors.
+
 ## Execution
 
 - Divide work by non-overlapping repository areas and use traditional Norwegian
