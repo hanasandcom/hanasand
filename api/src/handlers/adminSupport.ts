@@ -686,10 +686,7 @@ export async function getSystemEvent(req: FastifyRequest<{ Params: AuditEventPar
     }
 
     const event = toSystemEvent(row)
-    const supportSessionId = supportSessionIdFromAuditEvent({
-        context: row.context && typeof row.context === 'object' ? row.context as Record<string, unknown> : {},
-        entityId: row.subject_id || row.object_id || row.organization_id || null,
-    })
+    const supportSessionId = event.detail?.actionEvidence?.supportSessionId || ''
     const relatedTimeline = await loadSystemEventRelatedTimeline(event, supportSessionId)
     await recordSystemEvent(req, {
         actionType: 'support.audit_event.inspect',
