@@ -12,6 +12,7 @@ import {
     buildDwmWebhookCustomerSetupProof,
     buildDwmWebhookDestinationDeliveryMatrix,
     buildDwmWebhookDestinationLookupContract,
+    buildDwmOrgAlertWebhookDeliveryOutcome,
     toDwmWebhookAuditEvent,
     toDwmWebhookDelivery,
     toDwmWebhookDestination,
@@ -137,7 +138,7 @@ test('destination lookup matches standalone matrix and admin proof contracts', (
 })
 
 test('alert readiness handoff matches standalone projection contracts', () => {
-    const { destination, delivery, input: evidence } = destinationProjectionFixture()
+    const { destination, delivery, audit, input: evidence } = destinationProjectionFixture()
     const input = {
         orgId: destination.orgId,
         eventType: delivery.eventType,
@@ -169,4 +170,10 @@ test('alert readiness handoff matches standalone projection contracts', () => {
         },
         liveDeliveryEnabled: false,
     }))
+    const outcome = buildDwmOrgAlertWebhookDeliveryOutcome({ ...options })
+    expect(outcome.selectedDestinations[0]?.health).toMatchObject({
+        status: buildDwmWebhookDestinationHealth(evidence)[0]?.health,
+        ready: buildDwmWebhookDestinationHealth(evidence)[0]?.ready,
+        latestAuditEventId: audit.id,
+    })
 })

@@ -4824,11 +4824,16 @@ export function buildDwmOrgAlertWebhookDeliveryOutcome({
     const dispatch = buildDwmWebhookDispatchPlanForDestinations(ownerId, normalizedInput, destinations)
     const normalizedAlert = normalizeAlert(dispatch.alert)
     const watchlist = normalizeWatchlist(dispatch.alert.watchlist)
-    const ledger = buildDwmWebhookDeliveryLedger({ deliveries, auditEvents })
+    const outcomeProjection = prepareDwmWebhookDestinationProjection({
+        destinations,
+        deliveries,
+        auditEvents,
+        liveDeliveryEnabled,
+    })
+    const { deliveryLedger: ledger, auditContracts } = outcomeProjection
     const deliveryById = new Map(deliveries.map(delivery => [delivery.id, delivery]))
-    const auditContracts = buildDwmWebhookAuditEventContracts({ destinations, deliveries, auditEvents })
     const auditByDeliveryId = new Map(auditContracts.filter(audit => audit.deliveryId).map(audit => [audit.deliveryId, audit]))
-    const healthRows = buildDwmWebhookDestinationHealth({ destinations, deliveries, auditEvents, liveDeliveryEnabled })
+    const healthRows = buildDwmWebhookDestinationHealthFromProjection({ ...outcomeProjection, liveDeliveryEnabled })
     const healthByDestination = new Map(healthRows.map(health => [health.destinationId, health]))
 
     const selectedDestinations = dispatch.selectedDestinations.map((destination) => {
