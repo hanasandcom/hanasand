@@ -51,9 +51,10 @@ let historySnapshot: Awaited<ReturnType<typeof loadStatusPayload>> | null = null
 
 export default async function getStatus(req: FastifyRequest<{ Querystring: { summary?: string, incident?: string, dashboard?: string, check?: string } }>, res: FastifyReply) {
     res.header('Cache-Control', 'no-store')
+    const check = req.query?.check
+    if (check && check !== 'public-search') return res.status(404).send({ error: 'Unknown status check.' })
     const payload = await statusPayload(!req.query?.incident && (req.query?.summary === 'true' || Boolean(req.query?.check)))
-    if (req.query?.check) {
-        if (req.query.check !== 'public-search') return res.status(404).send({ error: 'Unknown status check.' })
+    if (check) {
         const health = searchHealth(payload as { checks: MonitorRow[] })
         return res.status(health.ok ? 200 : 503).send(health)
     }
