@@ -227,6 +227,41 @@ export type DwmWebhookDeliveryEvidenceFilters = {
     reportExportChecksum?: unknown
 }
 
+type DwmWebhookDeliveryEvidenceOptions = {
+    deliveries: DwmWebhookDeliveryPublic[]
+    auditEvents?: DwmWebhookAuditPublic[]
+    destinations?: DwmWebhookDestinationPublic[]
+    filters?: DwmWebhookDeliveryEvidenceFilters
+    liveDeliveryEnabled?: boolean
+}
+
+type DwmWebhookDeliveryEvidenceAccessOptions = DwmWebhookDeliveryEvidenceOptions & {
+    viewerRole?: string | null
+    canManage?: boolean
+    visibility?: DwmWebhookEvidenceVisibilityInput | null
+}
+
+type DwmWebhookDestinationDeliveryAccessOptions = {
+    destinations: DwmWebhookDestinationPublic[]
+    deliveries?: DwmWebhookDeliveryPublic[]
+    auditEvents?: DwmWebhookAuditPublic[]
+    filters?: DwmWebhookDeliveryEvidenceFilters
+    liveDeliveryEnabled?: boolean
+    viewerRole?: string | null
+    canManage?: boolean
+    visibility?: DwmWebhookEvidenceVisibilityInput | null
+}
+
+type DwmWebhookDestinationVisibilityOptions = {
+    destinations: DwmWebhookDestinationPublic[]
+    deliveries?: DwmWebhookDeliveryPublic[]
+    auditEvents?: DwmWebhookAuditPublic[]
+    liveDeliveryEnabled?: boolean
+    viewerRole?: string | null
+    canManage?: boolean
+    visibility?: DwmWebhookEvidenceVisibilityInput | null
+}
+
 export type DwmWebhookDeliveryAttemptState = 'queued' | 'sent' | 'failed' | 'skipped'
 export type DwmWebhookDeliveryOperationBlockerCode =
     | 'missing_org'
@@ -1248,13 +1283,7 @@ export function buildDwmWebhookDeliveryOperations({
     destinations = [],
     filters = {},
     liveDeliveryEnabled = process.env.DWM_WEBHOOK_LIVE_DELIVERY === 'true',
-}: {
-    deliveries: DwmWebhookDeliveryPublic[]
-    auditEvents?: DwmWebhookAuditPublic[]
-    destinations?: DwmWebhookDestinationPublic[]
-    filters?: DwmWebhookDeliveryEvidenceFilters
-    liveDeliveryEnabled?: boolean
-}) {
+}: DwmWebhookDeliveryEvidenceOptions) {
     const projection = buildDwmWebhookDeliveryEvidenceProjection({ deliveries, auditEvents, filters })
     const ledger = buildDwmWebhookDeliveryLedgerFromEvidence({ projection, now: new Date() })
     const auditContracts = buildDwmWebhookAuditEventContractsFromLedger({ auditEvents, deliveries, destinations, ledger })
@@ -1377,13 +1406,7 @@ export function buildDwmWebhookDeliveryHistory({
     destinations = [],
     filters = {},
     liveDeliveryEnabled = process.env.DWM_WEBHOOK_LIVE_DELIVERY === 'true',
-}: {
-    deliveries: DwmWebhookDeliveryPublic[]
-    auditEvents?: DwmWebhookAuditPublic[]
-    destinations?: DwmWebhookDestinationPublic[]
-    filters?: DwmWebhookDeliveryEvidenceFilters
-    liveDeliveryEnabled?: boolean
-}) {
+}: DwmWebhookDeliveryEvidenceOptions) {
     const projection = buildDwmWebhookDeliveryEvidenceProjection({ deliveries, auditEvents, filters })
     const ledger = buildDwmWebhookDeliveryLedgerFromEvidence({ projection, now: new Date() })
     const auditContracts = buildDwmWebhookAuditEventContractsFromLedger({ auditEvents, deliveries, destinations, ledger })
@@ -1495,13 +1518,7 @@ export function buildDwmWebhookDeliveryHistoryConsumerProof({
     destinations = [],
     filters = {},
     liveDeliveryEnabled = process.env.DWM_WEBHOOK_LIVE_DELIVERY === 'true',
-}: {
-    deliveries: DwmWebhookDeliveryPublic[]
-    auditEvents?: DwmWebhookAuditPublic[]
-    destinations?: DwmWebhookDestinationPublic[]
-    filters?: DwmWebhookDeliveryEvidenceFilters
-    liveDeliveryEnabled?: boolean
-}) {
+}: DwmWebhookDeliveryEvidenceOptions) {
     const history = buildDwmWebhookDeliveryHistory({ deliveries, auditEvents, destinations, filters, liveDeliveryEnabled })
     const attempts = buildDwmWebhookDeliveryAttemptPersistenceReadModel({ deliveries, auditEvents, destinations, filters, liveDeliveryEnabled })
     const attemptByDeliveryId = new Map(attempts.rows.map(row => [row.deliveryId, row]))
@@ -1667,16 +1684,7 @@ export function buildDwmWebhookDeliveryReadinessConsumerProof({
     viewerRole = null,
     canManage = false,
     visibility = null,
-}: {
-    deliveries: DwmWebhookDeliveryPublic[]
-    auditEvents?: DwmWebhookAuditPublic[]
-    destinations?: DwmWebhookDestinationPublic[]
-    filters?: DwmWebhookDeliveryEvidenceFilters
-    liveDeliveryEnabled?: boolean
-    viewerRole?: string | null
-    canManage?: boolean
-    visibility?: DwmWebhookEvidenceVisibilityInput | null
-}) {
+}: DwmWebhookDeliveryEvidenceAccessOptions) {
     const { decision, access } = webhookDeliveryVisibilityAccess(visibility, viewerRole, canManage)
     const normalizedFilters = normalizeWebhookEvidenceFilters(filters)
     const permissionBlocker = retryQueueBlocker('permission_denied', 'Webhook delivery readiness is not visible for this organization membership.', normalizedFilters.destinationId, true)
@@ -1864,13 +1872,7 @@ export function buildDwmWebhookDeliveryPersistenceProof({
     destinations = [],
     filters = {},
     liveDeliveryEnabled = process.env.DWM_WEBHOOK_LIVE_DELIVERY === 'true',
-}: {
-    deliveries: DwmWebhookDeliveryPublic[]
-    auditEvents?: DwmWebhookAuditPublic[]
-    destinations?: DwmWebhookDestinationPublic[]
-    filters?: DwmWebhookDeliveryEvidenceFilters
-    liveDeliveryEnabled?: boolean
-}) {
+}: DwmWebhookDeliveryEvidenceOptions) {
     const history = buildDwmWebhookDeliveryHistory({ deliveries, auditEvents, destinations, filters, liveDeliveryEnabled })
     const rows = history.entries.map((entry) => {
         const replayBlockers = deliveryPersistenceReplayBlockers(entry, liveDeliveryEnabled)
@@ -2052,16 +2054,7 @@ export function buildDwmWebhookDeliveryReceipts({
     viewerRole = null,
     canManage = false,
     visibility = null,
-}: {
-    deliveries: DwmWebhookDeliveryPublic[]
-    auditEvents?: DwmWebhookAuditPublic[]
-    destinations?: DwmWebhookDestinationPublic[]
-    filters?: DwmWebhookDeliveryEvidenceFilters
-    liveDeliveryEnabled?: boolean
-    viewerRole?: string | null
-    canManage?: boolean
-    visibility?: DwmWebhookEvidenceVisibilityInput | null
-}) {
+}: DwmWebhookDeliveryEvidenceAccessOptions) {
     const { decision, access } = webhookDeliveryVisibilityAccess(visibility, viewerRole, canManage)
     const normalizedFilters = normalizeWebhookEvidenceFilters(filters)
     const permissionBlocker = retryQueueBlocker('permission_denied', 'Webhook delivery receipts are not visible for this organization membership.', normalizedFilters.destinationId, true)
@@ -2221,16 +2214,7 @@ export function buildDwmWebhookDeliveryTimeline({
     viewerRole = null,
     canManage = false,
     visibility = null,
-}: {
-    deliveries: DwmWebhookDeliveryPublic[]
-    auditEvents?: DwmWebhookAuditPublic[]
-    destinations?: DwmWebhookDestinationPublic[]
-    filters?: DwmWebhookDeliveryEvidenceFilters
-    liveDeliveryEnabled?: boolean
-    viewerRole?: string | null
-    canManage?: boolean
-    visibility?: DwmWebhookEvidenceVisibilityInput | null
-}) {
+}: DwmWebhookDeliveryEvidenceAccessOptions) {
     const receipts = buildDwmWebhookDeliveryReceipts({
         deliveries,
         auditEvents,
@@ -2349,16 +2333,7 @@ export function buildDwmWebhookDeliveryActionPlan({
     viewerRole = null,
     canManage = false,
     visibility = null,
-}: {
-    deliveries: DwmWebhookDeliveryPublic[]
-    auditEvents?: DwmWebhookAuditPublic[]
-    destinations?: DwmWebhookDestinationPublic[]
-    filters?: DwmWebhookDeliveryEvidenceFilters
-    liveDeliveryEnabled?: boolean
-    viewerRole?: string | null
-    canManage?: boolean
-    visibility?: DwmWebhookEvidenceVisibilityInput | null
-}) {
+}: DwmWebhookDeliveryEvidenceAccessOptions) {
     const timeline = buildDwmWebhookDeliveryTimeline({
         deliveries,
         auditEvents,
@@ -2659,16 +2634,7 @@ export function buildDwmWebhookDeliveryReplayGuard({
     viewerRole = null,
     canManage = false,
     visibility = null,
-}: {
-    deliveries: DwmWebhookDeliveryPublic[]
-    auditEvents?: DwmWebhookAuditPublic[]
-    destinations?: DwmWebhookDestinationPublic[]
-    filters?: DwmWebhookDeliveryEvidenceFilters
-    liveDeliveryEnabled?: boolean
-    viewerRole?: string | null
-    canManage?: boolean
-    visibility?: DwmWebhookEvidenceVisibilityInput | null
-}) {
+}: DwmWebhookDeliveryEvidenceAccessOptions) {
     const decision = webhookVisibilityDecision(visibility)
     const access = {
         role: clean(viewerRole) || null,
@@ -3026,16 +2992,7 @@ export function buildDwmWebhookDeliveryRetryQueue({
     viewerRole = null,
     canManage = false,
     visibility = null,
-}: {
-    destinations: DwmWebhookDestinationPublic[]
-    deliveries?: DwmWebhookDeliveryPublic[]
-    auditEvents?: DwmWebhookAuditPublic[]
-    filters?: DwmWebhookDeliveryEvidenceFilters
-    liveDeliveryEnabled?: boolean
-    viewerRole?: string | null
-    canManage?: boolean
-    visibility?: DwmWebhookEvidenceVisibilityInput | null
-}) {
+}: DwmWebhookDestinationDeliveryAccessOptions) {
     const { decision, access } = webhookDeliveryVisibilityAccess(visibility, viewerRole, canManage)
     const deniedBlocker = retryQueueBlocker('permission_denied', 'Webhook delivery retry queue is not visible for this organization membership.', null, true)
     if (!decision.allowed) {
@@ -3166,16 +3123,7 @@ export function buildDwmWebhookDeliveryRetryRequestContract({
     viewerRole = null,
     canManage = false,
     visibility = null,
-}: {
-    destinations: DwmWebhookDestinationPublic[]
-    deliveries?: DwmWebhookDeliveryPublic[]
-    auditEvents?: DwmWebhookAuditPublic[]
-    filters?: DwmWebhookDeliveryEvidenceFilters
-    liveDeliveryEnabled?: boolean
-    viewerRole?: string | null
-    canManage?: boolean
-    visibility?: DwmWebhookEvidenceVisibilityInput | null
-}) {
+}: DwmWebhookDestinationDeliveryAccessOptions) {
     const retryQueue = buildDwmWebhookDeliveryRetryQueue({
         destinations,
         deliveries,
@@ -3314,16 +3262,7 @@ export function buildDwmWebhookDeliveryRetryWorkOrders({
     viewerRole = null,
     canManage = false,
     visibility = null,
-}: {
-    destinations: DwmWebhookDestinationPublic[]
-    deliveries?: DwmWebhookDeliveryPublic[]
-    auditEvents?: DwmWebhookAuditPublic[]
-    filters?: DwmWebhookDeliveryEvidenceFilters
-    liveDeliveryEnabled?: boolean
-    viewerRole?: string | null
-    canManage?: boolean
-    visibility?: DwmWebhookEvidenceVisibilityInput | null
-}) {
+}: DwmWebhookDestinationDeliveryAccessOptions) {
     const retryRequest = buildDwmWebhookDeliveryRetryRequestContract({
         destinations,
         deliveries,
@@ -3441,15 +3380,7 @@ export function buildDwmWebhookDestinationDeliveryMatrix({
     viewerRole = null,
     canManage = false,
     visibility = null,
-}: {
-    destinations: DwmWebhookDestinationPublic[]
-    deliveries?: DwmWebhookDeliveryPublic[]
-    auditEvents?: DwmWebhookAuditPublic[]
-    liveDeliveryEnabled?: boolean
-    viewerRole?: string | null
-    canManage?: boolean
-    visibility?: DwmWebhookEvidenceVisibilityInput | null
-}) {
+}: DwmWebhookDestinationVisibilityOptions) {
     const decision = webhookVisibilityDecision(visibility)
     const access = {
         role: clean(viewerRole) || null,
@@ -3649,15 +3580,7 @@ export function buildDwmWebhookDestinationLookupContract({
     viewerRole = null,
     canManage = false,
     visibility = null,
-}: {
-    destinations: DwmWebhookDestinationPublic[]
-    deliveries?: DwmWebhookDeliveryPublic[]
-    auditEvents?: DwmWebhookAuditPublic[]
-    liveDeliveryEnabled?: boolean
-    viewerRole?: string | null
-    canManage?: boolean
-    visibility?: DwmWebhookEvidenceVisibilityInput | null
-}) {
+}: DwmWebhookDestinationVisibilityOptions) {
     const matrix = buildDwmWebhookDestinationDeliveryMatrix({
         destinations,
         deliveries,
@@ -4443,15 +4366,7 @@ export function buildDwmWebhookCustomerSetupProof({
     viewerRole = null,
     canManage = false,
     visibility = null,
-}: {
-    destinations: DwmWebhookDestinationPublic[]
-    deliveries?: DwmWebhookDeliveryPublic[]
-    auditEvents?: DwmWebhookAuditPublic[]
-    liveDeliveryEnabled?: boolean
-    viewerRole?: string | null
-    canManage?: boolean
-    visibility?: DwmWebhookEvidenceVisibilityInput | null
-}) {
+}: DwmWebhookDestinationVisibilityOptions) {
     const decision = webhookVisibilityDecision(visibility)
     const access = {
         role: clean(viewerRole) || null,
@@ -5232,15 +5147,7 @@ export function buildDwmWebhookDestinationAdminProof({
     viewerRole = null,
     canManage = false,
     visibility = null,
-}: {
-    destinations: DwmWebhookDestinationPublic[]
-    deliveries?: DwmWebhookDeliveryPublic[]
-    auditEvents?: DwmWebhookAuditPublic[]
-    liveDeliveryEnabled?: boolean
-    viewerRole?: string | null
-    canManage?: boolean
-    visibility?: DwmWebhookEvidenceVisibilityInput | null
-}) {
+}: DwmWebhookDestinationVisibilityOptions) {
     const decision = webhookVisibilityDecision(visibility)
     const access = {
         role: clean(viewerRole) || null,
@@ -7977,13 +7884,7 @@ export function buildDwmWebhookDeliveryAttemptPersistenceReadModel({
     destinations = [],
     filters = {},
     liveDeliveryEnabled = process.env.DWM_WEBHOOK_LIVE_DELIVERY === 'true',
-}: {
-    deliveries: DwmWebhookDeliveryPublic[]
-    auditEvents?: DwmWebhookAuditPublic[]
-    destinations?: DwmWebhookDestinationPublic[]
-    filters?: DwmWebhookDeliveryEvidenceFilters
-    liveDeliveryEnabled?: boolean
-}) {
+}: DwmWebhookDeliveryEvidenceOptions) {
     const evidence = buildDwmWebhookDeliveryEvidence({ deliveries, auditEvents, filters })
     const auditByDeliveryId = new Map(auditEvents.filter(audit => audit.deliveryId).map(audit => [audit.deliveryId, audit]))
     const destinationById = new Map(destinations.map(destination => [destination.id, destination]))
@@ -8165,16 +8066,7 @@ export function buildDwmWebhookDeliveryReplayApiContract({
     viewerRole = null,
     canManage = false,
     visibility = null,
-}: {
-    deliveries: DwmWebhookDeliveryPublic[]
-    auditEvents?: DwmWebhookAuditPublic[]
-    destinations?: DwmWebhookDestinationPublic[]
-    filters?: DwmWebhookDeliveryEvidenceFilters
-    liveDeliveryEnabled?: boolean
-    viewerRole?: string | null
-    canManage?: boolean
-    visibility?: DwmWebhookEvidenceVisibilityInput | null
-}) {
+}: DwmWebhookDeliveryEvidenceAccessOptions) {
     const readModel = buildDwmWebhookDeliveryAttemptPersistenceReadModel({
         deliveries,
         auditEvents,
