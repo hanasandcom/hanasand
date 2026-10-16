@@ -3456,6 +3456,23 @@ export function organizationAlertCaseWorkflowState(
     }
 }
 
+const organizationSharedWatchlistAuditEventActions: readonly OrganizationSharedWatchlistAuditEventAction[] = [
+    'organization_invites_created',
+    'organization_invite_accepted',
+    'organization_invite_revoked',
+    'organization_invite_resent',
+    'organization_watchlist_upserted',
+    'organization_watchlist_updated',
+    'organization_watchlist_paused',
+    'organization_watchlist_resumed',
+    'organization_watchlist_archived',
+    'organization_watchlist_restored',
+    'organization_watchlist_cleanup_archived',
+    'organization_watchlist_alert_terms_exported',
+    'organization_watchlist_alert_terms_export_denied',
+    'organization_lifecycle_mutation_blocked',
+]
+
 export function organizationSharedWatchlistDownstreamProof(
     organization: Pick<OrganizationRow, 'id' | 'status' | 'pending_invite_count' | 'default_webhook_policy' | 'alert_visibility_policy' | 'role'>,
     items: OrganizationWatchlistRow[],
@@ -3516,22 +3533,7 @@ function organizationSharedWatchlistDownstreamProofFromProjection(
     const webhookManualDenialReason = webhookDeliveryAllowedByRole
         ? (downstreamAuthorization.downstream.webhook.denialReason ?? (webhookPolicy === 'manual_selection' ? null : null))
         : 'role_not_allowed'
-    const auditEventActions: OrganizationSharedWatchlistAuditEventAction[] = [
-        'organization_invites_created',
-        'organization_invite_accepted',
-        'organization_invite_revoked',
-        'organization_invite_resent',
-        'organization_watchlist_upserted',
-        'organization_watchlist_updated',
-        'organization_watchlist_paused',
-        'organization_watchlist_resumed',
-        'organization_watchlist_archived',
-        'organization_watchlist_restored',
-        'organization_watchlist_cleanup_archived',
-        'organization_watchlist_alert_terms_exported',
-        'organization_watchlist_alert_terms_export_denied',
-        'organization_lifecycle_mutation_blocked',
-    ]
+    const auditEventActions = [...organizationSharedWatchlistAuditEventActions]
 
     return {
         schemaVersion: 'organization.shared_watchlist_downstream_proof.v1',
@@ -3984,22 +3986,7 @@ function organizationSharedWatchlistDownstreamProofFromProjection(
 function organizationSharedWatchlistAuditEventBridge(
     eventActions: OrganizationSharedWatchlistAuditEventAction[]
 ): OrganizationSharedWatchlistDownstreamProof['audit']['eventBridge'] {
-    const requiredActions: OrganizationSharedWatchlistAuditEventAction[] = [
-        'organization_invites_created',
-        'organization_invite_accepted',
-        'organization_invite_revoked',
-        'organization_invite_resent',
-        'organization_watchlist_upserted',
-        'organization_watchlist_updated',
-        'organization_watchlist_paused',
-        'organization_watchlist_resumed',
-        'organization_watchlist_archived',
-        'organization_watchlist_restored',
-        'organization_watchlist_cleanup_archived',
-        'organization_watchlist_alert_terms_exported',
-        'organization_watchlist_alert_terms_export_denied',
-        'organization_lifecycle_mutation_blocked',
-    ]
+    const requiredActions = [...organizationSharedWatchlistAuditEventActions]
     const requiredSafeFields: OrganizationSharedWatchlistDownstreamProof['audit']['eventBridge']['requiredSafeFields'] = [
         'action',
         'routeGroup',
@@ -5458,6 +5445,13 @@ export function organizationLifecycleReadiness(row: OrganizationRow): Organizati
     }
 }
 
+const organizationMembershipBlockedDownstreamRoutes = [
+    'GET /api/organizations/:id/watchlists',
+    'GET /api/organizations/:id/watchlists/alert-terms',
+    'GET /api/organizations/:id/alert-case-visibility',
+    'POST /v1/dwm/webhooks/deliver',
+] as const
+
 export function organizationReadinessProof(input: {
     lifecycleReadiness: OrganizationLifecycleReadiness
     alertGenerationBridge: OrganizationWatchlistAlertGenerationContract
@@ -5860,12 +5854,7 @@ export function organizationReadinessProof(input: {
                     ownerlessRecoveryMutationAllowed: false,
                     requiresAcceptedInvite: true,
                     requiredAuditFields: ['organizationId', 'targetUserId', 'requestId', 'supportSessionId', 'reason', 'outcome'],
-                    blockedRoutesUntilAcceptedMembership: [
-                        'GET /api/organizations/:id/watchlists',
-                        'GET /api/organizations/:id/watchlists/alert-terms',
-                        'GET /api/organizations/:id/alert-case-visibility',
-                        'POST /v1/dwm/webhooks/deliver',
-                    ],
+                    blockedRoutesUntilAcceptedMembership: [...organizationMembershipBlockedDownstreamRoutes],
                     nonmemberEnumeration: false,
                 },
             },
@@ -5935,12 +5924,7 @@ export function organizationReadinessProof(input: {
                 archivedWatchlistsExcludedFromMatching: true,
                 pausedWatchlistsExcludedFromMatching: true,
             },
-            blockedUntilAcceptedMembership: [
-                'GET /api/organizations/:id/watchlists',
-                'GET /api/organizations/:id/watchlists/alert-terms',
-                'GET /api/organizations/:id/alert-case-visibility',
-                'POST /v1/dwm/webhooks/deliver',
-            ],
+            blockedUntilAcceptedMembership: [...organizationMembershipBlockedDownstreamRoutes],
             affectedConsumerContracts: [
                 'organization.watchlist_alert_generation_consumer.v1',
                 'organization.case_visibility_consumer.v1',
@@ -6307,12 +6291,7 @@ export function organizationInviteAcceptanceDenial(input: {
             'watchlistScope.alertGeneratorKeys',
             'destination.secret',
         ],
-        blockedRoutes: [
-            'GET /api/organizations/:id/watchlists',
-            'GET /api/organizations/:id/watchlists/alert-terms',
-            'GET /api/organizations/:id/alert-case-visibility',
-            'POST /v1/dwm/webhooks/deliver',
-        ],
+        blockedRoutes: [...organizationMembershipBlockedDownstreamRoutes],
         blockedConsumerContracts: [
             'organization.shared_watchlist_readiness_export.v1',
             'organization.watchlist_alert_generation_consumer.v1',
@@ -7065,6 +7044,21 @@ function organizationWatchlistAlertGenerationContractFromProjection(
     }
 }
 
+const organizationWebhookRequiredAlertFields = [
+    'alert.organizationId',
+    'alert.tenantId',
+    'alert.watchlistItemIds',
+    'alert.workflowContext.alertGeneratorKeys',
+    'alert.dedupeKey',
+] as const
+
+const organizationWebhookRequiredDestinationFields = [
+    'destination.id',
+    'destination.org_id',
+    'destination.enabled',
+    'destination.eventSubscriptions',
+] as const
+
 export function organizationWatchlistAlertTermsExport(
     organization: Pick<OrganizationRow, 'id' | 'name' | 'slug' | 'status' | 'member_count' | 'owner_count' | 'admin_count' | 'pending_invite_count' | 'shared_watchlist_count' | 'default_webhook_policy' | 'alert_visibility_policy' | 'role'>,
     items: OrganizationWatchlistRow[],
@@ -7223,19 +7217,8 @@ export function organizationWatchlistAlertTermsExport(
             ...organizationTenantIdentity(organization.id, organization.id),
             route: webhookDestinationOwnership.route,
             eventType: webhookDestinationOwnership.eventType,
-            requiredAlertFields: [
-                'alert.organizationId',
-                'alert.tenantId',
-                'alert.watchlistItemIds',
-                'alert.workflowContext.alertGeneratorKeys',
-                'alert.dedupeKey',
-            ],
-            requiredDestinationFields: [
-                'destination.id',
-                'destination.org_id',
-                'destination.enabled',
-                'destination.eventSubscriptions',
-            ],
+            requiredAlertFields: [...organizationWebhookRequiredAlertFields],
+            requiredDestinationFields: [...organizationWebhookRequiredDestinationFields],
             selectedDestinationOrgField: webhookDestinationOwnership.selectedDestinationOrgField,
             selectedDestinationIdField: webhookDestinationOwnership.selectedDestinationIdField,
             idempotencyKeyFields: webhookDestinationOwnership.idempotency.keyFields,
@@ -7286,19 +7269,8 @@ export function organizationWatchlistAlertTermsExport(
                     ...(canManageWebhookDestinations ? [] : ['role_not_allowed']),
                 ])),
             },
-            requiredAlertFields: [
-                'alert.organizationId',
-                'alert.tenantId',
-                'alert.watchlistItemIds',
-                'alert.workflowContext.alertGeneratorKeys',
-                'alert.dedupeKey',
-            ],
-            requiredDestinationFields: [
-                'destination.id',
-                'destination.org_id',
-                'destination.enabled',
-                'destination.eventSubscriptions',
-            ],
+            requiredAlertFields: [...organizationWebhookRequiredAlertFields],
+            requiredDestinationFields: [...organizationWebhookRequiredDestinationFields],
             noLeakFields: [
                 'destination.secret',
                 'destination.endpoint',
@@ -7332,19 +7304,8 @@ export function organizationWatchlistAlertTermsExport(
             deliveryContract: {
                 selectedDestinationOrgField: webhookDestinationOwnership.selectedDestinationOrgField,
                 selectedDestinationIdField: webhookDestinationOwnership.selectedDestinationIdField,
-                requiredAlertFields: [
-                    'alert.organizationId',
-                    'alert.tenantId',
-                    'alert.watchlistItemIds',
-                    'alert.workflowContext.alertGeneratorKeys',
-                    'alert.dedupeKey',
-                ],
-                requiredDestinationFields: [
-                    'destination.id',
-                    'destination.org_id',
-                    'destination.enabled',
-                    'destination.eventSubscriptions',
-                ],
+                requiredAlertFields: [...organizationWebhookRequiredAlertFields],
+                requiredDestinationFields: [...organizationWebhookRequiredDestinationFields],
                 idempotencyKeyFields: webhookDestinationOwnership.idempotency.keyFields,
             },
             roleGates: {
