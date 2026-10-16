@@ -16,6 +16,7 @@ function accessRecoveryApprovalFixture(requestId: string) {
 mock.module('../src/utils/db.ts', () => ({ default: run, queryOnce: run, identityQueryOnce: run, withTransaction: async (work: (query: typeof run) => Promise<unknown>) => work(run), closeDatabase: async () => {} }))
 const systemEventUtils = await import('../src/utils/systemEvent.ts')
 const identityDataWrites = await import('../src/utils/db/identityDataWrites.ts')
+const organizationInviteUpsertCalls: Array<Record<string, unknown>> = []
 mock.module('../src/utils/auth/tokenWrapper.ts', () => ({ default: async () => state.actor }))
 mock.module('../src/utils/systemEvent.ts', () => ({
     ...systemEventUtils,
@@ -45,7 +46,10 @@ mock.module('../src/utils/systemEvent.ts', () => ({
 }))
 mock.module('../src/utils/db/identityDataWrites.ts', () => ({
     upsertAdminAccessRecoveryApproval: async () => { state.supportRecoveryApprovalWrites += 1 },
-    upsertOrganizationInvite: async () => state.supportRecoveryInviteUpsert,
+    upsertOrganizationInvite: async (input: Record<string, unknown>) => {
+        organizationInviteUpsertCalls.push(input)
+        return state.supportRecoveryInviteUpsert
+    },
     updateOrganizationInviteAction: async (input: Record<string, unknown>) => {
         state.inviteActionWrites += 1
         state.inviteActionInputs.push(input)
@@ -135,6 +139,7 @@ function expectInspectionAuditQuery(entityId: string, targetPredicates: string[]
 
 beforeEach(() => {
     resetAdminSupportDatabaseFixture()
+    organizationInviteUpsertCalls.length = 0
 })
 
 test('admin-support database fake reports unmatched SQL', async () => {
@@ -1245,6 +1250,61 @@ test('invite assistance idempotency replay remains organization-scoped', async (
     const replayQuery = state.queries.find(({ sql }) => sql.includes('context->>\'idempotencyKey\' = $4'))
     expect(replayQuery?.sql).toContain('($3::text IS NULL OR subject_id = $3)')
     expect(replayQuery?.values).toEqual(['support.organization.invite_assist', 'org-1', null, 'assist-replay-key'])
+})
+
+test('support invite assistance passes the normalized invite to the writer and returns its audited receipt', async () => {
+    state.supportOrganization = activeSupportOrganizationFixture()
+    state.supportRecoveryInviteUpsert = {
+        id: 'assist-invite-1', organization_id: 'org-1', email: 'member@example.com', role: 'reader',
+        status: 'pending', expires_at: '2026-11-01T00:00:00.000Z', accepted_at: null, accepted_by: null,
+        revoked_at: null, invited_by: 'support-admin', created_at: '2026-10-16T00:00:00.000Z',
+    }
+
+    const result = await request(postSupportOrganizationInvite, {
+        params: { id: 'org-1' },
+        body: {
+            email: 'Member@Example.com', role: 'reader', expiresAt: '2026-11-01T00:00:00.000Z',
+            reason: 'Restore member access', context: 'case-17', scope: 'invite:create',
+            requestId: 'invite-assist-success', idempotencyKey: 'invite-assist-success-key',
+        },
+    })
+
+    expect(result.statusCode).toBe(201)
+    expect(organizationInviteUpsertCalls).toHaveLength(1)
+    expect(organizationInviteUpsertCalls[0]).toMatchObject({
+        organizationId: 'org-1', email: 'member@example.com', role: 'reader',
+        invitedBy: 'support-admin', expiresAt: '2026-11-01T00:00:00.000Z',
+    })
+    expect(state.queries.some(({ sql, values }) => sql.includes('UPDATE organizations SET updated_at = NOW() WHERE id = $1') && values[0] === 'org-1')).toBe(true)
+    expect(result.body.invites).toEqual([{
+        id: 'assist-invite-1', organizationId: 'org-1', tenantId: 'org-1', acceptanceToken: 'assist-invite-1',
+        acceptancePath: '/api/organizations/invites/assist-invite-1/accept', email: 'member@example.com',
+        role: 'reader', invitedBy: 'support-admin', acceptedBy: null, status: 'pending',
+        createdAt: '2026-10-16T00:00:00.000Z', expiresAt: '2026-11-01T00:00:00.000Z', acceptedAt: null,
+    }])
+    expect(result.body.inviteAssistance).toMatchObject({
+        schemaVersion: 'support.invite_assist.v1', requestId: 'invite-assist-success',
+        actorId: 'support-admin', outcome: 'success', idempotencyKey: 'invite-assist-success-key',
+        correlationId: 'invite-assist-success', auditEventIds: [91], noSilentMembershipMutation: true,
+        executionReceipt: {
+            schemaVersion: 'support.invite_assist.execution_receipt.v1',
+            mutationMode: 'controlled_invite_row_only', action: 'invite_assist',
+            actionType: 'support.organization.invite_assist', outcome: 'success',
+            inviteIds: ['assist-invite-1'], emails: ['member@example.com'], role: 'reader',
+            requestId: 'invite-assist-success', idempotencyKey: 'invite-assist-success-key',
+            auditEventIds: [91], blockers: [],
+        },
+    })
+    expect(state.recordedEvents.at(-1)).toMatchObject({
+        actionType: 'support.organization.invite_assist', actorId: 'support-admin',
+        targetType: 'organization', targetId: 'org-1', entityId: 'assist-invite-1',
+        requestId: 'invite-assist-success', severity: 'notice', outcome: 'success',
+        context: {
+            schemaVersion: 'support.invite_assist.v1', inviteIds: ['assist-invite-1'],
+            emails: ['member@example.com'], role: 'reader', idempotencyKey: 'invite-assist-success-key',
+            noSilentMembershipMutation: true, mutation: 'invite_row_only', supportContext: 'case-17',
+        },
+    })
 })
 
 test('support invite action returns an audited accepted-invite denial when acceptance wins the update race', async () => {
