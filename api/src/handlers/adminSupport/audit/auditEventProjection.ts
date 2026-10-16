@@ -4,7 +4,11 @@ import { supportAuditActionEvidence } from './auditActionEvidence.ts'
 import { supportAuditEntityLinks } from './auditEntityTimeline.ts'
 
 export function toSupportAuditTimelineEvent(row: Record<string, unknown>) {
-    const { event, context, beforeAfter, id, entityId, actionEvidence, links } = supportAuditEventProjection(row)
+    return supportAuditTimelineEventFromProjection(supportAuditEventProjection(row))
+}
+
+function supportAuditTimelineEventFromProjection(projection: ReturnType<typeof supportAuditEventProjection>) {
+    const { event, context, beforeAfter, id, entityId, actionEvidence, links } = projection
     return {
         id,
         actor: {
@@ -35,44 +39,44 @@ export function toSupportAuditTimelineEvent(row: Record<string, unknown>) {
     }
 }
 
-export function toSystemEvent(row: Record<string, unknown>): Record<string, any> {
-    const { event: sourceEvent, context, beforeAfter, id, entityId, actionEvidence, links } = supportAuditEventProjection(row)
-    const event: Record<string, any> = { ...sourceEvent, target_name: text(context.targetName) || row.target_name || null }
-    const timelineEvent = {
+export function toAdminAuditTimelineEvent(
+    event: ReturnType<typeof toSupportAuditTimelineEvent>,
+    options: {
+        system?: { source: unknown, service: unknown, scope: Record<string, unknown> }
+        targetName?: unknown
+    } = {},
+) {
+    return {
         schemaVersion: 'admin.audit.timeline_event.v1',
-        id,
-        timestamp: event.created_at,
-        actionType: event.event_type,
+        id: event.id,
+        timestamp: event.createdAt,
+        actionType: event.action,
         severity: event.severity,
         outcome: event.outcome,
-        source: event.source,
-        service: event.service,
-        actor: {
-            id: event.actor_id,
-            name: event.actor_name || null,
-        },
-        target: {
-            type: event.object_type || null,
-            id: event.object_id || null,
-            name: event.target_name || null,
-        },
-        organization: {
-            id: event.organization_id || null,
-            name: event.organization_name || null,
-        },
-        entity: {
-            id: entityId,
-            type: event.object_type || 'system_event_event',
-        },
-        requestId: event.request_id || null,
-        reason: event.reason || '',
-        scope: auditEventScope(context),
-        before: beforeAfter.before,
-        after: beforeAfter.after,
-        actionEvidence,
-        context,
-        links,
+        ...(options.system ? { source: options.system.source, service: options.system.service } : {}),
+        actor: event.actor,
+        target: options.targetName === undefined ? event.target : { ...event.target, name: options.targetName },
+        organization: { id: event.organizationId, name: event.organizationName },
+        entity: { id: event.entityId, type: event.entityType },
+        requestId: event.requestId,
+        reason: event.reason,
+        ...(options.system ? { scope: options.system.scope } : {}),
+        before: event.before,
+        after: event.after,
+        actionEvidence: event.actionEvidence,
+        context: event.context,
+        links: event.links,
     }
+}
+
+export function toSystemEvent(row: Record<string, unknown>): Record<string, any> {
+    const projection = supportAuditEventProjection(row)
+    const { event: sourceEvent, context, beforeAfter, actionEvidence } = projection
+    const event: Record<string, any> = { ...sourceEvent, target_name: text(context.targetName) || row.target_name || null }
+    const timelineEvent = toAdminAuditTimelineEvent(supportAuditTimelineEventFromProjection(projection), {
+        system: { source: event.source, service: event.service, scope: auditEventScope(context) },
+        targetName: event.target_name,
+    })
     return {
         ...event,
         context,

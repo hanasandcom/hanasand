@@ -3,35 +3,11 @@ import { auditTimelineSummary } from '../audit/auditEntityTimeline.ts'
 import { supportAuditFilterContract } from '../audit/auditFilterPackets.ts'
 import { supportAuditExportProof, supportAuditCompliancePacket } from '../audit/auditExportPackets.ts'
 import { supportAuditWorkflowRollup } from '../audit/auditWorkflowSummary.ts'
-import { toSupportAuditTimelineEvent } from '../audit/auditEventProjection.ts'
+import { toAdminAuditTimelineEvent, toSupportAuditTimelineEvent } from '../audit/auditEventProjection.ts'
 
 export function supportRecentAuditTimeline(filters: Record<string, unknown>, rows: Record<string, unknown>[]) {
     const events = rows.map(toSupportAuditTimelineEvent)
-    const timeline = events.map(event => ({
-        schemaVersion: 'admin.audit.timeline_event.v1',
-        id: event.id,
-        timestamp: event.createdAt,
-        actionType: event.action,
-        severity: event.severity,
-        outcome: event.outcome,
-        actor: event.actor,
-        target: event.target,
-        organization: {
-            id: event.organizationId,
-            name: event.organizationName,
-        },
-        entity: {
-            id: event.entityId,
-            type: event.entityType,
-        },
-        requestId: event.requestId,
-        reason: event.reason,
-        before: event.before,
-        after: event.after,
-        actionEvidence: event.actionEvidence,
-        context: event.context,
-        links: event.links,
-    }))
+    const timeline = events.map(event => toAdminAuditTimelineEvent(event))
     return {
         schemaVersion: 'support.recent_audit_timeline.v1',
         filters,

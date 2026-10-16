@@ -2,6 +2,16 @@ import { beforeEach, expect, test } from 'bun:test'
 import * as support from './fixtures/admin-support-routes-harness.ts'
 
 const { state, request, getSystemEvent, getSupportReadiness } = support
+const { toAdminAuditTimelineEvent, toSupportAuditTimelineEvent } = await import('../src/handlers/adminSupport/audit/auditEventProjection.ts')
+const { supportRecentAuditTimeline } = await import('../src/handlers/adminSupport/cases/recentAuditTimeline.ts')
+
+function withoutGeneratedAt(value: unknown): unknown {
+    if (Array.isArray(value)) return value.map(withoutGeneratedAt)
+    if (!value || typeof value !== 'object') return value
+    return Object.fromEntries(Object.entries(value).map(([key, child]) => [
+        key, key === 'generatedAt' ? '[generated]' : withoutGeneratedAt(child),
+    ]))
+}
 
 beforeEach(() => {
     support.resetAdminSupportDatabaseFixture()
@@ -62,6 +72,66 @@ test('audit detail and support timeline share redacted evidence and links', asyn
         },
     })
 
+    const recentTimeline = supportRecentAuditTimeline({}, [state.eventRows[0]])
+    const generalTimelineContract = { ...detail.timelineEvent }
+    delete generalTimelineContract.source
+    delete generalTimelineContract.service
+    delete generalTimelineContract.scope
+    expect(withoutGeneratedAt(toAdminAuditTimelineEvent(recentTimeline.events[0])))
+        .toEqual(withoutGeneratedAt(generalTimelineContract))
+    expect(toAdminAuditTimelineEvent(recentTimeline.events[0])).not.toHaveProperty('source')
+    expect(toAdminAuditTimelineEvent(recentTimeline.events[0])).not.toHaveProperty('service')
+    expect(toAdminAuditTimelineEvent(recentTimeline.events[0])).not.toHaveProperty('scope')
+
+    const defaultTimeline = toAdminAuditTimelineEvent(toSupportAuditTimelineEvent({
+        id: '45', event_type: 'unknown.action', severity: null, outcome: null, actor_id: 'actor-45',
+        object_type: null, object_id: null, organization_id: null, organization_name: null,
+        subject_id: null, request_id: null, reason: null, context: {}, created_at: null,
+    }))
+    expect(defaultTimeline).toMatchObject({
+        schemaVersion: 'admin.audit.timeline_event.v1',
+        id: 45,
+        timestamp: null,
+        actionType: 'unknown.action',
+        severity: null,
+        outcome: null,
+        actor: { id: 'actor-45', name: null },
+        target: { type: null, id: null, name: null },
+        organization: { id: null, name: null },
+        entity: { id: null, type: 'system_event_event' },
+        requestId: null,
+        reason: '',
+        before: null,
+        after: null,
+        actionEvidence: {
+            workflow: 'support',
+            actionType: 'unknown.action',
+            outcome: null,
+            severity: null,
+            actor: { id: 'actor-45' },
+            target: { type: null, id: null },
+            organizationId: null,
+            entityId: null,
+            requestId: null,
+            supportSessionId: null,
+            reasonPresent: false,
+            scope: null,
+            durationMinutes: null,
+            expiresAt: null,
+        },
+        context: {},
+        links: {
+            detail: '/api/admin/audit-events/45',
+            request: null,
+            entity: null,
+            supportSession: null,
+        },
+    })
+    expect(Object.keys(defaultTimeline)).toEqual([
+        'schemaVersion', 'id', 'timestamp', 'actionType', 'severity', 'outcome', 'actor', 'target',
+        'organization', 'entity', 'requestId', 'reason', 'before', 'after', 'actionEvidence', 'context', 'links',
+    ])
+
     const timelineResponse = await request(getSupportReadiness, { query: { org: 'org-1' } })
     expect(timelineResponse.statusCode).toBe(200)
     const [timelineEvent] = timelineResponse.body.filteredTimeline.events
@@ -108,4 +178,3 @@ test('audit detail links only explicit or tagged support sessions', async () => 
     expect(impersonationOnly.body.event.detail.timelineEvent.links.supportSession).toBeNull()
     expect(impersonationOnly.body.detail.filterContract.filters.supportSession).toBe('')
 })
-
