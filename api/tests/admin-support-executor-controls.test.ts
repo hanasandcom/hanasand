@@ -1,13 +1,52 @@
-import { expect, test } from 'bun:test'
+import { expect, mock, test } from 'bun:test'
 import type { FastifyRequest } from 'fastify'
-import {
+import { resetAdminSupportDatabaseFixture, run, state } from './fixtures/admin-support-routes-db.ts'
+
+const systemEventUtils = await import('../src/utils/systemEvent.ts')
+
+mock.module('../src/utils/db.ts', () => ({ default: run, queryOnce: run, identityQueryOnce: run, withTransaction: async (work: (query: typeof run) => Promise<unknown>) => work(run), closeDatabase: async () => {} }))
+mock.module('../src/utils/auth/tokenWrapper.ts', () => ({ default: async () => state.actor }))
+mock.module('../src/utils/systemEvent.ts', () => ({
+    ...systemEventUtils,
+    actorHasHanasandInternalAccess: async () => state.internalAccess,
+    recordSystemEvent: async (_req: unknown, event: Record<string, unknown>) => { state.recordedEvents.push(event) },
+}))
+mock.module('../src/utils/db/identityDataWrites.ts', () => ({
+    upsertAdminAccessRecoveryApproval: async () => { state.supportRecoveryApprovalWrites += 1 },
+    upsertOrganizationInvite: async () => state.supportRecoveryInviteUpsert,
+    updateOrganizationInviteAction: async () => state.supportRecoveryInviteResult,
+    updateActiveOrganizationMemberRole: async () => ({ organization_id: 'org-1', user_id: 'member-1', role: 'reader', status: 'active' }),
+}))
+
+const {
+    postSupportOrganizationInvite,
+    postSupportOrganizationInviteAction,
+    postSupportOrganizationMemberRoleRecovery,
     supportInviteActionExecutorControls,
     supportInviteAssistExecutorControls,
     supportMemberRoleRecoveryExecutorControls,
-} from '../src/handlers/adminSupport.ts'
+} = await import('../src/handlers/adminSupport.ts')
 
 function request(headers: Record<string, string | string[] | undefined> = {}) {
     return { headers } as unknown as FastifyRequest
+}
+
+function reply() {
+    return {
+        statusCode: 200,
+        body: undefined as any,
+        status(code: number) { this.statusCode = code; return this },
+        send(body: unknown) { this.body = body; return this },
+    }
+}
+
+async function invoke(handler: (req: any, res: any) => unknown, input: {
+    params?: Record<string, string>
+    body?: Record<string, unknown>
+} = {}) {
+    const result = reply()
+    await handler({ params: input.params ?? {}, headers: {}, body: input.body ?? {} } as FastifyRequest, result)
+    return result
 }
 
 test('support executor controls share header precedence and normalization', () => {
@@ -93,4 +132,44 @@ test('support executor variants retain action-specific expiry errors', () => {
         message: 'Member role recovery handoff has expired; prepare a fresh action before executing.',
         status: 409,
     })
+})
+
+test('executor audit replay URLs preserve parameter order, encoding, and action-specific empty fields', async () => {
+    resetAdminSupportDatabaseFixture()
+    state.supportOrganization = { id: 'org-1', name: 'Org', slug: 'org', status: 'active' }
+    state.supportRecoveryInviteUpsert = {
+        id: '', organization_id: 'org-1', email: 'member@example.com', role: 'reader', status: 'pending',
+        expires_at: '2030-01-01T00:00:00.000Z', accepted_at: null, accepted_by: null, revoked_at: null,
+        invited_by: 'support-admin', created_at: '2026-10-16T00:00:00.000Z',
+    }
+
+    const assistance = await invoke(postSupportOrganizationInvite, {
+        params: { id: 'org-1' },
+        body: {
+            emails: ['member@example.com'], role: 'reader', reason: 'review / & retry',
+            requestId: 'assist-1', correlationId: 'corr /&', idempotencyKey: 'assist-key',
+        },
+    })
+    expect(assistance.statusCode).toBe(201)
+    expect(assistance.body.inviteAssistance.audit.query).toBe(
+        '/api/admin/audit-events?request=assist-1&correlation=corr+%2F%26&idempotency=assist-key&org=org-1&reason=review+%2F+%26+retry&action=support.organization.invite_assist&outcome=success&source=admin&service=hanasand-api',
+    )
+
+    const inviteAction = await invoke(postSupportOrganizationInviteAction, {
+        params: { id: 'org-1', inviteId: '' },
+        body: { action: 'revoke', reason: 'review action', scope: 'invite:create', requestId: 'action-1' },
+    })
+    expect(inviteAction.statusCode).toBe(400)
+    expect(inviteAction.body.detail.executionReceipt.audit.replay).toBe(
+        '/api/admin/audit-events?request=action-1&correlation=action-1&idempotency=action-1&org=org-1&entity=&reason=review+action&action=support.organization.invite_revoke&outcome=denied&source=admin&service=hanasand-api',
+    )
+
+    const memberRecovery = await invoke(postSupportOrganizationMemberRoleRecovery, {
+        params: { id: 'org-1', userId: '' },
+        body: { role: 'reader', reason: 'review member', scope: 'invite:create', requestId: 'member-1' },
+    })
+    expect(memberRecovery.statusCode).toBe(400)
+    expect(memberRecovery.body.detail.executorBlocker.memberRecoveryHandoff.expectedAuditEventLookup).toBe(
+        '/api/admin/audit-events?request=member-1&correlation=member-1&idempotency=member-1&org=org-1&entity=&target=&reason=review+member&action=support.organization.member_role_recovery&outcome=denied&source=admin&service=hanasand-api',
+    )
 })

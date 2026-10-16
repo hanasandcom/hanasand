@@ -10488,6 +10488,32 @@ function supportInviteAssistExecutionReceipt(input: {
     }
 }
 
+function supportExecutorAuditQuery(input: {
+    requestId: string
+    organizationId: string
+    entityId?: string
+    targetId?: string
+    correlationId: string
+    idempotencyKey: string
+    reason: string
+    actionType: string
+    outcome: string
+}) {
+    const params = new URLSearchParams()
+    params.set('request', input.requestId)
+    params.set('correlation', input.correlationId)
+    params.set('idempotency', input.idempotencyKey)
+    params.set('org', input.organizationId)
+    if (input.entityId !== undefined) params.set('entity', input.entityId)
+    if (input.targetId !== undefined) params.set('target', input.targetId)
+    params.set('reason', input.reason)
+    params.set('action', input.actionType)
+    params.set('outcome', input.outcome)
+    params.set('source', 'admin')
+    params.set('service', 'hanasand-api')
+    return `/api/admin/audit-events?${params.toString()}`
+}
+
 function supportInviteAssistAuditQuery(input: {
     requestId: string
     organizationId: string
@@ -10496,18 +10522,7 @@ function supportInviteAssistAuditQuery(input: {
     idempotencyKey: string
     reason: string
 }) {
-    const params = new URLSearchParams()
-    params.set('request', input.requestId)
-    params.set('correlation', input.correlationId)
-    params.set('idempotency', input.idempotencyKey)
-    params.set('org', input.organizationId)
-    if (input.entityId) params.set('entity', input.entityId)
-    params.set('reason', input.reason)
-    params.set('action', 'support.organization.invite_assist')
-    params.set('outcome', 'success')
-    params.set('source', 'admin')
-    params.set('service', 'hanasand-api')
-    return `/api/admin/audit-events?${params.toString()}`
+    return supportExecutorAuditQuery({ ...input, entityId: input.entityId || undefined, actionType: 'support.organization.invite_assist', outcome: 'success' })
 }
 
 export function supportInviteActionExecutorControls(
@@ -10833,18 +10848,7 @@ function supportInviteActionAuditQuery(input: {
     actionType: string
     outcome: string
 }) {
-    const params = new URLSearchParams()
-    params.set('request', input.requestId)
-    params.set('correlation', input.correlationId)
-    params.set('idempotency', input.idempotencyKey)
-    params.set('org', input.organizationId)
-    params.set('entity', input.inviteId)
-    params.set('reason', input.reason)
-    params.set('action', input.actionType)
-    params.set('outcome', input.outcome)
-    params.set('source', 'admin')
-    params.set('service', 'hanasand-api')
-    return `/api/admin/audit-events?${params.toString()}`
+    return supportExecutorAuditQuery({ ...input, entityId: input.inviteId })
 }
 
 export function supportMemberRoleRecoveryExecutorControls(
@@ -11122,19 +11126,12 @@ function supportMemberRoleRecoveryAuditQuery(input: {
     reason: string
     outcome: string
 }) {
-    const params = new URLSearchParams()
-    params.set('request', input.requestId)
-    params.set('correlation', input.correlationId)
-    params.set('idempotency', input.idempotencyKey)
-    params.set('org', input.organizationId)
-    params.set('entity', input.userId)
-    params.set('target', input.userId)
-    params.set('reason', input.reason)
-    params.set('action', 'support.organization.member_role_recovery')
-    params.set('outcome', input.outcome)
-    params.set('source', 'admin')
-    params.set('service', 'hanasand-api')
-    return `/api/admin/audit-events?${params.toString()}`
+    return supportExecutorAuditQuery({
+        ...input,
+        entityId: input.userId,
+        targetId: input.userId,
+        actionType: 'support.organization.member_role_recovery',
+    })
 }
 
 function supportInspectionFilterError(rawQuery: SupportInspectionQuery, filter: Omit<SupportTimelineFilter, 'unsupported'>) {
