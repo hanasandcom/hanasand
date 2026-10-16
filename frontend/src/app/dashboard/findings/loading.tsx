@@ -1,48 +1,15 @@
-import { DashboardHeader, DashboardPage } from '@/components/dashboard/ui'
+import DashboardThreeColumnLoading from '@/app/dashboard/DashboardThreeColumnLoading'
 
 export default function DashboardDwmLoading() {
     return (
-        <DashboardPage>
-            <DashboardHeader
-                eyebrow='Dark web monitoring'
-                title='Dark web cases'
-                description='Loading recent attacks, evidence, source health, and delivery state.'
-            />
-            <section className='overflow-hidden rounded-lg border border-ui-border bg-ui-panel'>
-                <div className='border-b border-ui-border bg-ui-raised px-4 py-3'>
-                    <div className='flex flex-wrap gap-2'>
-                        {['Cases', 'Active', 'Critical', 'Ready', 'Watchlist', 'Webhook'].map(label => (
-                            <div key={label} className='h-[54px] w-28 animate-pulse rounded-lg border border-ui-border bg-ui-panel' />
-                        ))}
-                    </div>
-                </div>
-                <div className='grid min-h-[480px] xl:grid-cols-[320px_minmax(0,1fr)_360px]'>
-                    <div className='border-b border-ui-border bg-ui-raised p-4 xl:border-b-0 xl:border-r'>
-                        <div className='h-10 animate-pulse rounded-lg bg-ui-panel' />
-                        <div className='mt-4 grid gap-2'>
-                            {Array.from({ length: 7 }).map((_, index) => (
-                                <div key={index} className='h-28 animate-pulse rounded-lg bg-ui-panel' />
-                            ))}
-                        </div>
-                    </div>
-                    <div className='grid gap-4 p-5'>
-                        <div className='h-20 animate-pulse rounded-lg bg-ui-raised' />
-                        <div className='h-44 animate-pulse rounded-lg bg-ui-raised' />
-                        <div className='h-28 animate-pulse rounded-lg bg-ui-raised' />
-                        <div className='grid gap-3 lg:grid-cols-2'>
-                            <div className='h-80 animate-pulse rounded-lg bg-ui-raised' />
-                            <div className='h-80 animate-pulse rounded-lg bg-ui-raised' />
-                        </div>
-                    </div>
-                    <div className='border-t border-ui-border bg-ui-raised p-4 xl:border-l xl:border-t-0'>
-                        <div className='grid gap-4'>
-                            <div className='h-52 animate-pulse rounded-lg bg-ui-panel' />
-                            <div className='h-52 animate-pulse rounded-lg bg-ui-panel' />
-                            <div className='h-52 animate-pulse rounded-lg bg-ui-panel' />
-                        </div>
-                    </div>
-                </div>
-            </section>
-        </DashboardPage>
+        <DashboardThreeColumnLoading
+            eyebrow='Dark web monitoring'
+            title='Dark web cases'
+            description='Loading recent attacks, evidence, source health, and delivery state.'
+            tabs={['Cases', 'Active', 'Critical', 'Ready', 'Watchlist', 'Webhook']}
+            listItemHeight='h-28'
+            detailPanelHeight='h-80'
+            inspectorCardHeight='h-52'
+        />
     )
 }
