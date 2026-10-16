@@ -71,7 +71,7 @@ type TimingRow = {
 type DeploymentReadinessRow = {
     deployment_count: string | number
     recent_deployment_count: string | number
-    completed_deployments: string | number
+    running_deployments: string | number
     healthchecked_deployments: string | number
     deployments_with_sync_events: string | number
     deployments_with_stack: string | number
@@ -268,7 +268,7 @@ export async function getAiEconomics(req: FastifyRequest, res: FastifyReply) {
             SELECT
                 COUNT(*)::int AS deployment_count,
                 COUNT(*) FILTER (WHERE created_at >= NOW() - $2::interval)::int AS recent_deployment_count,
-                COUNT(*) FILTER (WHERE status = 'running')::int AS completed_deployments,
+                COUNT(*) FILTER (WHERE status = 'running')::int AS running_deployments,
                 COUNT(*) FILTER (WHERE healthcheck_url IS NOT NULL)::int AS healthchecked_deployments,
                 COUNT(*) FILTER (
                     WHERE EXISTS (
@@ -413,7 +413,7 @@ export function buildCommercialReadiness({ reliability, deployment, release, des
 }) {
     const deploymentCount = numberValue(deployment?.deployment_count)
     const recentDeploymentCount = numberValue(deployment?.recent_deployment_count)
-    const completedDeployments = numberValue(deployment?.completed_deployments)
+    const runningDeployments = numberValue(deployment?.running_deployments)
     const healthcheckedDeployments = numberValue(deployment?.healthchecked_deployments)
     const deploymentsWithSyncEvents = numberValue(deployment?.deployments_with_sync_events)
     const deploymentsWithStack = numberValue(deployment?.deployments_with_stack)
@@ -433,7 +433,7 @@ export function buildCommercialReadiness({ reliability, deployment, release, des
     const hasVerificationSamples = reliability.verificationLatency.some((row) => row.sampleCount > 0) || reliability.buildDeploy.some((row) => row.total > 0)
     const hasQueueTelemetry = reliability.queueDepth.length > 0 || reliability.capacity.totalAvailableSessions > 0
     const hasMeasuredEconomics = eventCount > 0 && (verifiedUnits > 0 || costNok > 0 || productiveMinutes > 0)
-    const hasDeploymentOwnership = deploymentCount > 0 && deploymentsWithSyncEvents > 0 && deploymentsWithAccessPolicy > 0 && (completedDeployments > 0 || healthcheckedDeployments > 0 || releaseCount > 0)
+    const hasDeploymentOwnership = deploymentCount > 0 && deploymentsWithSyncEvents > 0 && deploymentsWithAccessPolicy > 0 && (runningDeployments > 0 || healthcheckedDeployments > 0 || releaseCount > 0)
     const hasTrustRecovery = releaseCount > 0 && rollbackReadyReleases > 0 && currentReleases > 0
     const hasDesignProof = designTotal > 0
     const designPassRate = designTotal > 0 ? designCompleted / designTotal : 0
@@ -469,7 +469,7 @@ export function buildCommercialReadiness({ reliability, deployment, release, des
             evidence: [
                 deploymentCount > 0
                     ? `${formatDeploymentWindow(deploymentCount, recentDeploymentCount)}; ${formatEvidenceParts([
-                        countPhrase(completedDeployments, 'running'),
+                        countPhrase(runningDeployments, 'running'),
                         countPhrase(healthcheckedDeployments, 'with health-check URLs'),
                     ], 'ownership details are still being captured')}.`
                     : 'No deployment records are linked for this owner.',

@@ -43,7 +43,7 @@ const readiness = buildCommercialReadiness({
     deployment: {
         deployment_count: 1,
         recent_deployment_count: 0,
-        completed_deployments: 1,
+        running_deployments: 1,
         healthchecked_deployments: 1,
         explained_failures: 0,
         deployments_with_sync_events: 1,
@@ -107,6 +107,7 @@ const readiness = buildCommercialReadiness({
 const deploymentGate = readiness.items.find((item) => item.id === 'deployment_ownership')
 assert.equal(deploymentGate?.status, 'operational')
 assert.match(deploymentGate?.evidence.join(' ') || '', /1 deployment record/)
+assert.match(deploymentGate?.evidence.join(' ') || '', /1 running/)
 assert.doesNotMatch(deploymentGate?.evidence.join(' ') || '', /\b0 deployment records\b/)
 assert.doesNotMatch(deploymentGate?.evidence.join(' ') || '', /\b0 .*usage window\b/)
 assert.doesNotMatch(deploymentGate?.evidence.join(' ') || '', /\b0 (superseded|failed)\b/)
@@ -153,7 +154,7 @@ const emptyReadiness = buildCommercialReadiness({
     deployment: {
         deployment_count: 0,
         recent_deployment_count: 0,
-        completed_deployments: 0,
+        running_deployments: 0,
         healthchecked_deployments: 0,
         explained_failures: 0,
         deployments_with_sync_events: 0,
