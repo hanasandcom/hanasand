@@ -141,6 +141,13 @@ test('delivery attempt contracts preserve request, replay, persistence, and audi
     expect(contract.requiredFields.watchlistId).toBe(true)
     expect(contract.requiredFields.provenance).toBe(true)
     expect(contract.payloadContract.schemaVersion).toBe('dwm.webhook.delivery_payload_contract.v1')
+    expect(Object.keys(contract.requiredFields)).toEqual([
+        'orgId', 'destinationId', 'alertId', 'watchlistId', 'severity', 'title',
+        'sourceFamily', 'evidence', 'provenance', 'timestamp', 'link', 'dedupeKey',
+    ])
+    expect(contract.requiredFields).toEqual(Object.fromEntries(
+        contract.payloadContract.required.map(field => [field.key, field.present]),
+    ))
     expect(contract.payloadContract.required.every(field => field.present)).toBe(true)
     expect(contract.payloadContract.required.some(field => field.key === 'dedupeKey' && field.paths.includes('alert.dedupeKey'))).toBe(true)
     expect(contract.payloadContract.optional.some(field => field.key === 'replayState' && field.present)).toBe(true)
@@ -224,6 +231,23 @@ test('delivery attempt contracts reject malformed, cross-org, and unsupported ta
     expect(missing.payloadContract.missingRequired).toContain('orgId')
     expect(missing.payloadContract.missingRequired).toContain('title')
     expect(missing.payloadContract.missingRequired).toContain('dedupeKey')
+    expect(missing.requiredFields).toEqual({
+        orgId: false,
+        destinationId: false,
+        alertId: false,
+        watchlistId: false,
+        severity: false,
+        title: false,
+        sourceFamily: false,
+        evidence: false,
+        provenance: false,
+        timestamp: false,
+        link: true,
+        dedupeKey: false,
+    })
+    expect(missing.requiredFields).toEqual(Object.fromEntries(
+        missing.payloadContract.required.map(field => [field.key, field.present]),
+    ))
 
     const wrongOrg = buildDwmWebhookDeliveryAttemptContract({
         ownerId: 'owner_contract',

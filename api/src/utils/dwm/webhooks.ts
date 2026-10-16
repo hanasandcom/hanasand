@@ -7652,6 +7652,9 @@ export function buildDwmWebhookDeliveryAttemptContract({
         dryRun,
         live,
     })
+    const requiredFields = Object.fromEntries(
+        payloadContract.required.map(field => [field.key, field.present]),
+    ) as Record<(typeof payloadContract.required)[number]['key'], boolean>
     const requiredBlockers = deliveryAttemptContractBlockers({ input: normalizedInput, plan, alert, watchlist })
     const existingByIdempotencyKey = new Map<string, DwmWebhookDeliveryPublic[]>()
     for (const delivery of deliveries) {
@@ -7800,20 +7803,7 @@ export function buildDwmWebhookDeliveryAttemptContract({
         noNetwork: !(live && !dryRun && liveDeliveryEnabled),
         normalizedInput,
         payloadContract,
-        requiredFields: {
-            orgId: Boolean(firstClean(normalizedInput.orgId, normalizedInput.organizationId, normalizedInput.tenantId, (normalizedInput.alert as Record<string, unknown> | undefined)?.organizationId, (normalizedInput.alert as Record<string, unknown> | undefined)?.orgId, (normalizedInput.alert as Record<string, unknown> | undefined)?.tenantId)),
-            destinationId: Boolean(clean(normalizedInput.destinationId ?? normalizedInput.destination_id)) || plan.selectedDestinations.length > 0,
-            alertId: Boolean(firstClean(normalizedInput.alertId, (normalizedInput.alert as Record<string, unknown> | undefined)?.id)),
-            watchlistId: Boolean(watchlist.id || clean(normalizedInput.watchlistItemId) || clean(normalizedInput.watchlistId)),
-            severity: Boolean(firstClean((normalizedInput.alert as Record<string, unknown> | undefined)?.severity)),
-            title: Boolean(firstClean((normalizedInput.alert as Record<string, unknown> | undefined)?.title)),
-            sourceFamily: Boolean(firstClean(normalizedInput.sourceFamily, (normalizedInput.alert as Record<string, unknown> | undefined)?.sourceFamily)),
-            evidence: alert.evidenceCount > 0 || alert.evidence.length > 0,
-            provenance: Boolean(alert.provenanceSummary),
-            timestamp: Boolean(alert.eventTimestamp),
-            link: Boolean(alert.alertUrl || alert.casePath),
-            dedupeKey: Boolean(firstClean(normalizedInput.dedupeKey, (normalizedInput.alert as Record<string, unknown> | undefined)?.dedupeKey)),
-        },
+        requiredFields,
         destinationSelection: {
             selectedDestinationIds: plan.selectedDestinations.map(destination => destination.id),
             skippedDestinations: plan.skippedDestinations,
@@ -7823,7 +7813,7 @@ export function buildDwmWebhookDeliveryAttemptContract({
     }
 }
 
-function deliveryPayloadField(key: string, paths: string[], present: boolean) {
+function deliveryPayloadField<Key extends string>(key: Key, paths: string[], present: boolean) {
     return { key, paths, present }
 }
 
