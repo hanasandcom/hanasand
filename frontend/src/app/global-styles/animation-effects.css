@@ -1,0 +1,189 @@
+@keyframes marquee {
+  0% {
+    transform: translateX(0);
+  }
+
+  20% {
+    transform: translateX(0);
+  }
+
+  70% {
+    transform: translateX(calc(-1 * var(--scroll-distance)));
+  }
+
+  90% {
+    transform: translateX(calc(-1 * var(--scroll-distance)));
+  }
+
+  100% {
+    transform: translateX(0);
+  }
+}
+
+.marquee {
+  display: inline-block;
+  vertical-align: top;
+  animation: marquee 12s linear infinite;
+}
+
+@keyframes loading-line {
+  0% {
+    transform: translateX(-105%);
+    opacity: 0.3;
+  }
+
+  50% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateX(100%);
+    opacity: 0.3;
+  }
+}
+
+.loading-line {
+  @apply relative rounded-full;
+  background: var(--ui-danger);
+  box-shadow:
+    0 0 10px color-mix(in srgb, var(--ui-danger) 95%, transparent),
+    0 0 20px color-mix(in srgb, var(--ui-danger) 85%, transparent),
+    0 0 40px color-mix(in srgb, var(--ui-danger) 70%, transparent),
+    0 0 60px color-mix(in srgb, var(--ui-danger) 55%, transparent),
+    0 0 80px color-mix(in srgb, var(--ui-danger) 42%, transparent);
+  animation: loading-line 3s linear infinite;
+}
+
+.glow-red {
+  box-shadow:
+    0 0 1em color-mix(in srgb, var(--ui-danger) 50%, transparent),
+    0 0 3em color-mix(in srgb, var(--ui-danger) 40%, transparent),
+    0 0 8em color-mix(in srgb, var(--ui-danger) 30%, transparent),
+    0 0 10em color-mix(in srgb, var(--ui-danger) 20%, transparent),
+    0 0 12em color-mix(in srgb, var(--ui-danger) 10%, transparent),
+    inset 0 0 1em color-mix(in srgb, var(--ui-danger) 30%, transparent),
+    inset 0 0 2em color-mix(in srgb, var(--ui-danger) 15%, transparent);
+}
+
+.glow-red-small {
+  box-shadow:
+    0 0 1em color-mix(in srgb, var(--ui-danger) 40%, transparent),
+    0 0 3em color-mix(in srgb, var(--ui-danger) 30%, transparent);
+}
+
+.glow-green {
+  box-shadow:
+    0 0 1em color-mix(in srgb, var(--ui-success) 50%, transparent),
+    0 0 3em color-mix(in srgb, var(--ui-success) 40%, transparent),
+    0 0 8em color-mix(in srgb, var(--ui-success) 30%, transparent),
+    0 0 10em color-mix(in srgb, var(--ui-success) 20%, transparent),
+    0 0 12em color-mix(in srgb, var(--ui-success) 5%, transparent),
+    inset 0 0 1em color-mix(in srgb, var(--ui-success) 30%, transparent),
+    inset 0 0 2em color-mix(in srgb, var(--ui-success) 15%, transparent);
+}
+
+.glow-orange {
+  box-shadow:
+    0 0 1em color-mix(in srgb, var(--ui-warning) 50%, transparent),
+    0 0 3em color-mix(in srgb, var(--ui-warning) 40%, transparent),
+    0 0 8em color-mix(in srgb, var(--ui-warning) 30%, transparent),
+    0 0 10em color-mix(in srgb, var(--ui-warning) 20%, transparent),
+    0 0 12em color-mix(in srgb, var(--ui-warning) 5%, transparent),
+    inset 0 0 1em color-mix(in srgb, var(--ui-warning) 30%, transparent),
+    inset 0 0 2em color-mix(in srgb, var(--ui-warning) 15%, transparent);
+}
+
+.glow-orange-small {
+  box-shadow:
+    0 0 1em color-mix(in srgb, var(--ui-warning) 40%, transparent),
+    0 0 3em color-mix(in srgb, var(--ui-warning) 30%, transparent);
+}
+
+.eh {
+  color: var(--ui-primary);
+  text-align: center;
+  font-weight: bold;
+}
+
+.fadein {
+  transform: translateZ(0);
+  -webkit-transform: translate3d(0, 0, 0);
+  will-change: filter, transform;
+  opacity: 0;
+  animation: fadein 0.5s forwards;
+}
+
+@keyframes gradient-fast {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.animate-gradient-fast {
+  animation: gradient-fast 5s linear infinite;
+}
+
+@keyframes fadein {
+  to {
+    opacity: 1;
+  }
+}
+
+.stroke-rgb {
+  stroke: var(--foreground);
+  animation: stroke-color-change 180s infinite alternate;
+}
+
+@keyframes stroke-color-change {
+  0% {
+    stroke: var(--ui-text);
+  }
+
+  10% {
+    stroke: var(--ui-danger);
+  }
+
+  16.667% {
+    stroke: var(--ui-warning);
+  }
+
+  33.333% {
+    stroke: var(--ui-success);
+  }
+
+  50% {
+    stroke: var(--ui-primary);
+  }
+
+  66.667% {
+    stroke: var(--ui-warning);
+  }
+
+  83.333% {
+    stroke: var(--ui-warning);
+  }
+
+  100% {
+    stroke: var(--ui-danger);
+  }
+}
+
+.text-glow {
+  transition: text-shadow 0.3s ease, color 0.3s ease;
+}
+
+.dark .group:hover .text-glow {
+  text-shadow:
+    0 0 8px color-mix(in srgb, var(--ui-text) 90%, transparent),
+    0 0 16px color-mix(in srgb, var(--ui-text) 80%, transparent),
+    0 0 24px color-mix(in srgb, var(--ui-text) 70%, transparent);
+}
+
+.light .group:hover .text-glow {
+  text-shadow:
+    0 0 8px color-mix(in srgb, var(--ui-primary) 90%, transparent),
+    0 0 16px color-mix(in srgb, var(--ui-primary) 80%, transparent),
+    0 0 24px color-mix(in srgb, var(--ui-primary) 70%, transparent);
+}
+

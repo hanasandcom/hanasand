@@ -1,0 +1,44 @@
+body.dragging {
+  user-select: none !important;
+}
+
+body[data-public-ti-route="true"] nextjs-portal,
+body[data-public-ti-route="true"] [data-nextjs-dev-tools],
+body[data-public-ti-route="true"] [data-nextjs-dev-tools-button],
+body[data-public-ti-route="true"] [data-nextjs-dialog],
+body[data-public-ti-route="true"] [data-nextjs-toast] {
+  display: none !important;
+}
+
+body[data-public-ti-route="true"] [data-testid="theme-switch"] {
+  min-width: 4rem !important;
+}
+
+/* Red warning surfaces keep warning copy at the theme's readable text color. */
+html body .text-ui-warning { color: var(--ui-warning-text) !important; }
+html body .text-ui-warning\/68 { color: color-mix(in srgb, var(--ui-warning-text) 68%, transparent) !important; }
+html body .text-ui-warning\/72 { color: color-mix(in srgb, var(--ui-warning-text) 72%, transparent) !important; }
+html body .text-ui-warning\/80 { color: color-mix(in srgb, var(--ui-warning-text) 80%, transparent) !important; }
+
+/* Keep ordinary action controls consistent across pages. Pill controls opt in with rounded-full. */
+html body :is(button, input[type='button'], input[type='submit'], input[type='reset'], [role='button'], .ui-button):not(.rounded-full) {
+  border-radius: var(--ui-button-radius);
+}
+
+html body :is(button, input[type='button'], input[type='submit'], input[type='reset'], [role='button'], .ui-button).rounded-full {
+  border-radius: 9999px;
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  50.1%, 100% { opacity: 0; }
+}
+
+.support-panel {
+  interpolate-size: allow-keywords;
+}
+
+@keyframes support-panel-enter {
+  from { opacity: 0; transform: translateY(0.5rem) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}

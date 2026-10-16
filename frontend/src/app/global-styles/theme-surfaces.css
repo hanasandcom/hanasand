@@ -1,0 +1,99 @@
+.dark {
+  --background: #070707;
+  --foreground: #f1f3ee;
+  --color-background: #070707;
+  --color-dark: #101010;
+  --color-dark-reverse: #080808;
+  --color-normal: #111111;
+  --color-light: #191919;
+  --color-extralight: #292929;
+  --color-superlight: #444;
+  --color-almostbright: #a8a8a8;
+  --color-bright: #f7f8f2;
+  --page-wash-top: #0b0b0b;
+  --page-wash-bottom: #050505;
+  --dot-grid: rgba(255, 255, 255, 0.16);
+  --ambient-primary: color-mix(in srgb, var(--ui-primary) 10.5%, transparent);
+  --ambient-secondary: rgba(255, 255, 255, 0.008);
+  --ambient-neutral: rgba(255, 255, 255, 0.035);
+  --panel-border: rgba(247, 248, 242, 0.10);
+  --panel-surface: rgba(13, 15, 12, 0.78);
+  --card-border: rgba(247, 248, 242, 0.09);
+  --card-surface: rgba(247, 248, 242, 0.04);
+  --landing-surface-border: #292929;
+  --landing-surface-border-hover: #444;
+  --soft-shadow: rgba(0, 0, 0, 0.34);
+  --automation-cloud: color-mix(in srgb, var(--ui-primary) 9%, var(--ui-panel));
+  --automation-cloud-detail: color-mix(in srgb, var(--ui-primary) 5%, var(--ui-panel));
+}
+
+.light {
+  --ui-canvas: #f5f5f5;
+  --ui-panel: #ffffff;
+  --ui-raised: #ededed;
+  --ui-border: #d4d4d4;
+  --ui-text: #171a21;
+  --ui-muted: #4d4d4d;
+  --ui-primary: #22252b;
+  --ui-success: #147a3b;
+  --ui-warning: #8b0000;
+  --ui-warning-text: var(--ui-text);
+  --ui-danger: #b42318;
+  --ui-on-primary: #ffffff;
+  --ui-overlay-soft: color-mix(in srgb, var(--ui-canvas) 68%, transparent);
+  --ui-overlay: color-mix(in srgb, var(--ui-canvas) 88%, transparent);
+  --ui-overlay-strong: color-mix(in srgb, var(--ui-canvas) 95%, transparent);
+  --ui-border-subtle: color-mix(in srgb, var(--ui-text) 14%, transparent);
+  --ui-hover: color-mix(in srgb, var(--ui-text) 5%, transparent);
+  --ui-shadow: rgba(0, 0, 0, 0.12);
+  --ui-shadow-soft: rgba(0, 0, 0, 0.06);
+  --ui-shadow-highlight: rgba(255, 255, 255, 0.68);
+  --ui-backdrop: rgba(0, 0, 0, 0.5);
+  --ui-scrim: rgba(0, 0, 0, 0.3);
+  --ui-ambient-success: rgba(20, 163, 90, 0.06);
+  --ui-selection: color-mix(in srgb, var(--ui-primary) 18%, transparent);
+  --background: #f5f5f5;
+  --foreground: #171a21;
+  --color-background: #f5f5f5;
+  --color-dark: #ffffff;
+  --color-dark-reverse: #eeeeee;
+  --color-normal: #ededed;
+  --color-light: #e0e0e0;
+  --color-extralight: #c8c8c8;
+  --color-superlight: #666;
+  --color-almostbright: #444;
+  --color-bright: #171717;
+  --page-wash-top: #ffffff;
+  --page-wash-bottom: #eeeeee;
+  --dot-grid: rgba(20, 20, 20, 0.18);
+  --ambient-primary: color-mix(in srgb, var(--ui-primary) 4.4%, transparent);
+  --ambient-secondary: rgba(80, 80, 80, 0.02);
+  --ambient-neutral: rgba(22, 26, 33, 0.026);
+  --panel-border: rgba(24, 24, 24, 0.12);
+  --panel-surface: rgba(255, 255, 255, 0.90);
+  --card-border: rgba(24, 24, 24, 0.10);
+  --card-surface: rgba(255, 255, 255, 0.72);
+  --landing-surface-border: #dedede;
+  --landing-surface-border-hover: #c8c8c8;
+  --soft-shadow: rgba(26, 26, 26, 0.12);
+  --automation-cloud: color-mix(in srgb, var(--ui-primary) 5%, var(--ui-panel));
+  --automation-cloud-detail: color-mix(in srgb, var(--ui-primary) 3%, var(--ui-panel));
+}
+
+/* Resolve utility colors within navigation instead of inheriting the page's palette. */
+.site-chrome {
+  --color-ui-canvas: var(--ui-canvas);
+  --color-ui-panel: var(--ui-panel);
+  --color-ui-raised: var(--ui-raised);
+  --color-ui-border: var(--ui-border);
+  --color-ui-text: var(--ui-text);
+  --color-ui-muted: var(--ui-muted);
+  --color-ui-primary: var(--ui-primary);
+  --color-ui-success: var(--ui-success);
+  --color-ui-warning: var(--ui-warning);
+  --color-ui-danger: var(--ui-danger);
+  --color-ui-on-primary: var(--ui-on-primary);
+  --color-ui-backdrop: var(--ui-backdrop);
+  --color-ui-scrim: var(--ui-scrim);
+}
+

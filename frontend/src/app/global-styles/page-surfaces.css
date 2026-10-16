@@ -1,0 +1,112 @@
+body {
+  color: var(--foreground);
+  background:
+    radial-gradient(ellipse 58rem 34rem at 86% -8%, var(--ambient-neutral) 0%, transparent 72%),
+    radial-gradient(ellipse 74rem 50rem at 0% 100%, var(--ambient-secondary) 0%, transparent 86%),
+    linear-gradient(180deg, var(--page-wash-top), var(--background) 46%, var(--page-wash-bottom));
+  font-family: var(--font-sans);
+  transition: background 0.4s, color 0.4s;
+}
+
+.light body {
+  background:
+    radial-gradient(ellipse 44rem 24rem at 80% -7%, var(--ambient-primary) 0%, transparent 72%),
+    radial-gradient(ellipse 42rem 30rem at 8% 88%, var(--ui-ambient-success) 0%, transparent 76%),
+    linear-gradient(180deg, var(--page-wash-top), var(--background) 50%, var(--page-wash-bottom));
+}
+
+.light ::selection {
+  background: color-mix(in srgb, var(--ui-primary) 18%, transparent);
+}
+
+.light .text-glow {
+  text-shadow: 0 1px 0 var(--ui-shadow-highlight), 0 12px 38px var(--soft-shadow);
+}
+
+.light .glass-panel {
+  background:
+    linear-gradient(180deg, var(--ui-overlay-strong), var(--ui-overlay));
+}
+
+.light .glass-card {
+  box-shadow: inset 0 1px 0 var(--ui-shadow-highlight);
+}
+
+.landing-primary-action {
+  border-color: var(--ui-primary) !important;
+  background-color: var(--ui-primary) !important;
+  color: var(--ui-on-primary) !important;
+}
+
+.landing-primary-action:hover {
+  opacity: 0.9;
+}
+
+.landing-inner-pill {
+  background-color: var(--ui-raised) !important;
+  color: var(--ui-text) !important;
+}
+
+.landing-status-pill {
+  border-color: var(--ui-border) !important;
+  background-color: var(--ui-panel) !important;
+  color: var(--ui-muted) !important;
+}
+
+.landing-live-pill {
+  border-color: color-mix(in srgb, var(--ui-success) 35%, transparent) !important;
+  background-color: color-mix(in srgb, var(--ui-success) 10%, transparent) !important;
+  color: var(--ui-success) !important;
+}
+
+.landing-text-action {
+  color: var(--ui-primary) !important;
+}
+
+.landing-action-icon {
+  color: var(--ui-primary) !important;
+}
+
+.landing-search-bar {
+  border-color: var(--ui-border) !important;
+  background-color: var(--ui-panel) !important;
+}
+
+.landing-search-input {
+  background-color: transparent !important;
+  border-color: transparent !important;
+  color: var(--ui-text) !important;
+}
+
+.landing-search-button {
+  border-left: 1px solid var(--ui-border) !important;
+  background-color: transparent !important;
+  color: var(--ui-text) !important;
+}
+
+.landing-search-button:hover {
+  background-color: var(--ui-raised) !important;
+}
+
+.landing-surface-border {
+  border-color: var(--landing-surface-border) !important;
+}
+
+.landing-surface-divider {
+  border-color: var(--landing-surface-border) !important;
+}
+
+.landing-surface-divider > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--landing-surface-border) !important;
+}
+
+.landing-surface-border-hover:hover {
+  border-color: var(--landing-surface-border-hover) !important;
+}
+
+button:not(:disabled),
+[role="button"],
+[onclick] {
+  cursor: pointer;
+}
+

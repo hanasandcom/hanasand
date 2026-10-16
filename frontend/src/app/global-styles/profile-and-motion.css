@@ -1,0 +1,162 @@
+.user-icon {
+  position: relative;
+  width: 30px;
+  height: 20px;
+}
+
+/* Head (circle outline) */
+.user-icon::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--foreground);
+  border-radius: 50%;
+  background: transparent;
+}
+
+.group:hover .user-icon::before {
+  animation: drop 0.2s ease;
+  border: 2px solid var(--ui-primary);
+}
+
+.upload {
+  content: '';
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 18px;
+  height: 24px;
+  overflow: hidden;
+  bottom: 10%;
+}
+
+.group:hover .upload {
+  animation: drop-heavy 0.3s ease;
+}
+
+.dark .upload-overlay {
+  background: white;
+}
+
+.light .upload-overlay {
+  background:black;
+}
+
+.logout {
+  content: '';
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 18px;
+  overflow: hidden;
+  right: -10%;
+}
+
+.group:hover .logout {
+  animation: push-heavy 0.3s ease;
+}
+
+.dark .logout-overlay {
+  background: white;
+}
+
+.light .logout-overlay {
+  background:black;
+}
+
+@keyframes drop {
+  0% {
+    transform: translateX(-50%) translateY(0);
+  }
+
+  50% {
+    transform: translateX(-50%) translateY(2px);
+  }
+
+  100% {
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+@keyframes drop-heavy {
+  0% {
+    transform: translateX(-50%) translateY(0);
+  }
+
+  50% {
+    transform: translateX(-50%) translateY(5px);
+  }
+
+  100% {
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+@keyframes push-heavy {
+  0% {
+    transform: translateX(0) translateY(-50%);
+  }
+
+  50% {
+    transform: translateX(5px) translateY(-50%);
+  }
+
+  100% {
+    transform: translateX(0) translateY(-50%);
+  }
+}
+
+/* Shoulders (arc outline) */
+.user-icon::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 18px;
+  height: 8px;
+  border: 2px solid var(--foreground);
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
+  border-bottom: none;
+  background: transparent;
+}
+
+/* Warning */
+@keyframes slide {
+  0% {
+    width: 0%;
+  }
+
+  100% {
+    width: 100%;
+  }
+}
+
+.animate-slide-line {
+  animation: slide 5s linear forwards;
+}
+
+/* Grow to height */
+@keyframes growToHeight {
+  0% {
+    width: 10%;
+    height: 0%;
+  }
+
+  100% {
+    width: 100%;
+    height: 100%;
+  }
+}
+
+.spawn {
+  animation: growToHeight 1s ease-out forwards;
+}
+
+/* Marquee */
