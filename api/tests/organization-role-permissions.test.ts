@@ -11,6 +11,7 @@ let archived = false
 let queryCalls = 0
 let inviteAcceptanceWinsRace = false
 let inviteReads = 0
+let deactivateActorAfterMemberLock = false
 const writes: string[] = []
 const statements: Array<{ sql: string, params: unknown[] }> = []
 const serviceLogs: Record<string, any>[] = []
@@ -28,6 +29,10 @@ const query = async (sql: string, params: unknown[] = []) => {
     const statement = sql.replace(/\s+/g, ' ').trim()
     statements.push({ sql: statement, params })
     if (/^\s*(INSERT|UPDATE|DELETE)/.test(sql)) writes.push(sql)
+    if (deactivateActorAfterMemberLock && statement.startsWith('SELECT id FROM users WHERE id = ANY($1::text[]) ORDER BY id FOR UPDATE')) {
+        active = false
+        deactivateActorAfterMemberLock = false
+    }
     if (statement.includes('COUNT(*)::int AS owner_count')) return { rows: [{ owner_count: 1 }] }
     if (statement.startsWith('SELECT * FROM organization_invites')) {
         inviteReads++
@@ -94,7 +99,7 @@ app.post('/org/:id/watchlists', org.postOrganizationWatchlist)
 app.patch('/org/:id/members/:userId/role', org.patchOrganizationMemberRole)
 app.delete('/org/:id/members/:userId', org.deleteOrganizationMember)
 
-beforeEach(() => { role = 'reader'; active = true; authenticated = true; archived = false; queryCalls = 0; inviteAcceptanceWinsRace = false; inviteReads = 0; writes.length = 0; statements.length = 0; serviceLogs.length = 0; systemEvents.length = 0; apiKeys.length = 0; apiKeyScopes.length = 0 })
+beforeEach(() => { role = 'reader'; active = true; authenticated = true; archived = false; queryCalls = 0; inviteAcceptanceWinsRace = false; inviteReads = 0; deactivateActorAfterMemberLock = false; writes.length = 0; statements.length = 0; serviceLogs.length = 0; systemEvents.length = 0; apiKeys.length = 0; apiKeyScopes.length = 0 })
 
 test('legacy roles and invitations become Reader without gaining permissions', () => {
     for (const legacy of ['member', 'viewer']) {
@@ -240,6 +245,18 @@ test('member mutations lock user rows in stable order before the organization ro
     ]
 
     expect(responses.map(response => response.statusCode)).toEqual([200, 200, 200])
+    expect(responses[0].json().roleChange).toMatchObject({ previousRole: 'reader', newRole: 'editor' })
+    expect(responses[1].json().memberRemovalCleanup).toMatchObject({
+        targetUserId: 'a-target',
+        noOrphanedInviteTokens: true,
+        consumerAccessRevocation: { blockerCode: 'member_revoked' },
+    })
+    expect(responses[2].json().transfer).toEqual({
+        organizationId: 'org',
+        previousOwnerId: 'actor',
+        newOwnerId: 'a-target',
+        reason: 'Transfer ownership.',
+    })
     const userLocks = statements.flatMap((statement, index) => statement.sql.includes('FROM users WHERE id = ANY($1::text[]) ORDER BY id FOR UPDATE') ? [index] : [])
     const organizationLocks = statements.flatMap((statement, index) => statement.sql === 'SELECT id FROM organizations WHERE id = $1 FOR UPDATE' ? [index] : [])
 
@@ -250,6 +267,22 @@ test('member mutations lock user rows in stable order before the organization ro
         expect(statements[userLock].params).toEqual([['a-target', 'actor']])
         expect(statements[organizationLocks[index]].params).toEqual(['org'])
     })
+})
+
+test('member role changes revalidate the actor membership after locking', async () => {
+    role = 'owner'
+    deactivateActorAfterMemberLock = true
+
+    const response = await app.inject({
+        method: 'PATCH',
+        url: '/org/org/members/a-target/role',
+        payload: { role: 'editor', reason: 'Grant access.' },
+    })
+
+    expect(response.statusCode).toBe(404)
+    expect(response.json()).toEqual({ error: 'Organization not found.' })
+    expect(statements.some(statement => statement.sql.startsWith('SELECT id FROM users WHERE id = ANY($1::text[]) ORDER BY id FOR UPDATE'))).toBe(true)
+    expect(writes).toHaveLength(0)
 })
 
 test('Editor can remove a delivery target; Reader and legacy roles cannot', async () => {

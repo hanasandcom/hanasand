@@ -595,15 +595,15 @@ export async function deleteOrganizationMember(req: FastifyRequest<{ Params: Org
     }
 
     const mutation = await withTransaction(async query => {
-        await lockOrganizationMemberMutationScope(query, req.params.id, [userId, req.params.userId])
-
-        const lockedOrganization = await loadOrganizationForMember(req.params.id, userId, query)
-        if (!lockedOrganization) return { error: 'organization_not_found' as const }
-        const lockedLifecycleBlocker = inactiveOrganizationMutationBlocker(lockedOrganization, 'remove members')
-        if (lockedLifecycleBlocker) return { error: 'organization_inactive' as const, organization: lockedOrganization, lifecycleBlocker: lockedLifecycleBlocker }
-
-        const lockedTarget = await loadOrganizationMembership(req.params.id, req.params.userId, query)
-        if (!lockedTarget || lockedTarget.status !== 'active') return { error: 'member_not_found' as const, organization: lockedOrganization }
+        const lockedContext = await loadLockedOrganizationMemberMutationContext({
+            query,
+            organizationId: req.params.id,
+            actorId: userId,
+            targetUserId: req.params.userId,
+            action: 'remove members',
+        })
+        if (lockedContext.error) return lockedContext
+        const { organization: lockedOrganization, target: lockedTarget } = lockedContext
         const lockedPermissionError = removalPermissionError(lockedOrganization.role, lockedTarget.role)
         if (lockedPermissionError) return { error: 'organization_role_forbidden' as const, organization: lockedOrganization, target: lockedTarget, permissionError: lockedPermissionError }
 
@@ -958,15 +958,15 @@ export async function patchOrganizationMemberRole(req: FastifyRequest<{ Params: 
     }
 
     const mutation = await withTransaction(async query => {
-        await lockOrganizationMemberMutationScope(query, req.params.id, [userId, req.params.userId])
-
-        const lockedOrganization = await loadOrganizationForMember(req.params.id, userId, query)
-        if (!lockedOrganization) return { error: 'organization_not_found' as const }
-        const lockedLifecycleBlocker = inactiveOrganizationMutationBlocker(lockedOrganization, 'change member roles')
-        if (lockedLifecycleBlocker) return { error: 'organization_inactive' as const, organization: lockedOrganization, lifecycleBlocker: lockedLifecycleBlocker }
-
-        const lockedTarget = await loadOrganizationMembership(req.params.id, req.params.userId, query)
-        if (!lockedTarget || lockedTarget.status !== 'active') return { error: 'member_not_found' as const, organization: lockedOrganization }
+        const lockedContext = await loadLockedOrganizationMemberMutationContext({
+            query,
+            organizationId: req.params.id,
+            actorId: userId,
+            targetUserId: req.params.userId,
+            action: 'change member roles',
+        })
+        if (lockedContext.error) return lockedContext
+        const { organization: lockedOrganization, target: lockedTarget } = lockedContext
         const lockedPermissionError = roleUpdatePermissionError(lockedOrganization.role, lockedTarget.role, input.role)
         if (lockedPermissionError) return { error: 'organization_role_forbidden' as const, organization: lockedOrganization, target: lockedTarget, permissionError: lockedPermissionError }
 
@@ -3044,6 +3044,33 @@ async function loadOrganizationForMember(organizationId: string, userId: string,
     `, [organizationId, userId])
 
     return result.rows[0] as OrganizationRow | undefined
+}
+
+async function loadLockedOrganizationMemberMutationContext({
+    query,
+    organizationId,
+    actorId,
+    targetUserId,
+    action,
+}: {
+    query: typeof run
+    organizationId: string
+    actorId: string
+    targetUserId: string
+    action: string
+}) {
+    await lockOrganizationMemberMutationScope(query, organizationId, [actorId, targetUserId])
+
+    const organization = await loadOrganizationForMember(organizationId, actorId, query)
+    if (!organization) return { error: 'organization_not_found' as const }
+
+    const lifecycleBlocker = inactiveOrganizationMutationBlocker(organization, action)
+    if (lifecycleBlocker) return { error: 'organization_inactive' as const, organization, lifecycleBlocker }
+
+    const target = await loadOrganizationMembership(organizationId, targetUserId, query)
+    if (!target || target.status !== 'active') return { error: 'member_not_found' as const, organization }
+
+    return { error: null, organization, target }
 }
 
 async function lockOrganizationMemberMutationScope(query: typeof run, organizationId: string, userIds: string[]) {
