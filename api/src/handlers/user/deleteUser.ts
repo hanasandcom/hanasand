@@ -23,7 +23,7 @@ export default async function deleteUser(req: FastifyRequest, res: FastifyReply)
         const outcome = await withTransaction(async query => {
             await lockAccountDeletionRows(id, query)
             const blocker = await accountDeletionOrganizationBlocker(id, query)
-            if (blocker) return { blocker, user: null }
+            if (blocker) return { blocker, user: null, alreadyScheduled: null }
 
             const userResult = await query(`
                 UPDATE users
@@ -33,9 +33,24 @@ export default async function deleteUser(req: FastifyRequest, res: FastifyReply)
                     deletion_email_token_hash = NULL
                 WHERE id = $1
                   AND COALESCE(reserved, FALSE) IS FALSE
+                  AND deletion_scheduled_at IS NULL
                 RETURNING id, name, avatar, active, deletion_requested_at, deletion_scheduled_at
             `, [id])
-            return { blocker: null, user: userResult.rows[0] as User | undefined }
+            const user = userResult.rows[0] as User | undefined
+            if (user) return { blocker: null, user, alreadyScheduled: null }
+
+            const existing = await query(`
+                SELECT id, name, avatar, active, deletion_requested_at, deletion_scheduled_at
+                FROM users
+                WHERE id = $1
+                  AND COALESCE(reserved, FALSE) IS FALSE
+                  AND deletion_scheduled_at IS NOT NULL
+            `, [id])
+            return {
+                blocker: null,
+                user: null,
+                alreadyScheduled: existing.rows[0] as User | undefined,
+            }
         })
         if (outcome.blocker) {
             return res.status(409).send({
@@ -44,6 +59,13 @@ export default async function deleteUser(req: FastifyRequest, res: FastifyReply)
                 organization_id: outcome.blocker.id,
                 organization_name: outcome.blocker.name,
                 active_api_key: outcome.blocker.activeApiKey,
+            })
+        }
+        if (outcome.alreadyScheduled) {
+            return res.send({
+                message: 'User is already scheduled for deletion.',
+                pending_deletion: true,
+                user: outcome.alreadyScheduled,
             })
         }
         const userResult = { rows: outcome.user ? [outcome.user] : [] }

@@ -2,6 +2,7 @@ import { afterAll, beforeEach, expect, mock, test } from 'bun:test'
 import Fastify from 'fastify'
 
 let blocker: { id: string, name: string, active_api_key: boolean } | null = null
+let existingDeletionDeadline: string | null = null
 const queries: string[] = []
 const tokenRevocations: Array<{ userId: string, revokedBy: string }> = []
 
@@ -26,7 +27,18 @@ async function query(sql: string) {
         return { rows: blocker ? [blocker] : [] }
     }
     if (sql.includes('UPDATE users')) {
-        return { rows: [{ id: 'target-user', name: 'Target', avatar: null, active: true }] }
+        if (existingDeletionDeadline && sql.includes('deletion_scheduled_at IS NULL')) return { rows: [] }
+        existingDeletionDeadline = '2026-11-15T12:00:00.000Z'
+        return { rows: [{
+            id: 'target-user', name: 'Target', avatar: null, active: true,
+            deletion_requested_at: '2026-10-16T12:00:00.000Z', deletion_scheduled_at: existingDeletionDeadline,
+        }] }
+    }
+    if (sql.includes('deletion_scheduled_at IS NOT NULL')) {
+        return { rows: existingDeletionDeadline ? [{
+            id: 'target-user', name: 'Target', avatar: null, active: true,
+            deletion_requested_at: '2026-09-20T12:00:00.000Z', deletion_scheduled_at: existingDeletionDeadline,
+        }] : [] }
     }
     return { rows: [] }
 }
@@ -35,6 +47,7 @@ const queryOnce = query
 
 beforeEach(() => {
     blocker = null
+    existingDeletionDeadline = null
     queries.length = 0
     tokenRevocations.length = 0
 })
@@ -58,4 +71,19 @@ test('admin deletion proceeds when the organization has another active owner', a
     expect(queries.some(sql => sql.includes('deletion_requested_at = NOW()') && sql.includes('deletion_scheduled_at = NOW() + INTERVAL \'30 days\''))).toBe(true)
     expect(queries.some(sql => sql.startsWith('DELETE FROM users'))).toBe(false)
     expect(tokenRevocations).toEqual([{ userId: 'target-user', revokedBy: 'admin-user' }])
+})
+
+test('admin deletion returns an existing schedule without extending its restore window', async () => {
+    existingDeletionDeadline = '2026-10-20T12:00:00.000Z'
+
+    const response = await app.inject({ method: 'DELETE', url: '/users/target-user' })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.json()).toMatchObject({
+        pending_deletion: true,
+        user: { id: 'target-user', deletion_scheduled_at: existingDeletionDeadline },
+    })
+    expect(queries.some(sql => sql.includes('deletion_scheduled_at = NOW() + INTERVAL \'30 days\'') && sql.includes('deletion_scheduled_at IS NULL'))).toBe(true)
+    expect(tokenRevocations).toEqual([])
+    expect(existingDeletionDeadline).toBe('2026-10-20T12:00:00.000Z')
 })
