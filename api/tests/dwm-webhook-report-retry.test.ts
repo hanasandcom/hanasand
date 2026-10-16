@@ -177,8 +177,6 @@ mock.module('#db', () => ({
         }
         if (sql.includes('INSERT INTO dwm_webhook_deliveries')) {
             const skippedInsert = sql.includes('\'skipped\'')
-            const retryInsert = sql.includes('$7, FALSE')
-            const at = (normal: number, retry: number) => params[retryInsert ? retry : normal]
             insertedDelivery = skippedInsert ? {
                 id: params[0],
                 destination_id: params[1],
@@ -215,25 +213,25 @@ mock.module('#db', () => ({
                 alert_id: params[4],
                 event_type: params[5],
                 status: params[6],
-                dry_run: retryInsert ? false : Boolean(params[7]),
-                endpoint_hint: at(8, 7),
-                endpoint_hash: at(9, 8),
-                payload_hash: at(10, 9),
-                payload: JSON.parse(String(at(11, 10))),
-                response_status: at(12, 11),
-                response_body: at(13, 12),
-                error: at(14, 13),
-                error_class: at(15, 14),
-                attempt_count: at(16, 15),
-                next_retry_at: at(17, 16),
-                idempotency_key: at(18, 17),
-                watchlist_id: at(19, 18),
-                watchlist_name: at(20, 19),
-                route: at(21, 20),
-                case_path: at(22, 21),
-                attempted_at: at(23, 22),
-                completed_at: at(24, 23),
-                delivered_at: at(25, 24),
+                dry_run: Boolean(params[7]),
+                endpoint_hint: params[8],
+                endpoint_hash: params[9],
+                payload_hash: params[10],
+                payload: JSON.parse(String(params[11])),
+                response_status: params[12],
+                response_body: params[13],
+                error: params[14],
+                error_class: params[15],
+                attempt_count: params[16],
+                next_retry_at: params[17],
+                idempotency_key: params[18],
+                watchlist_id: params[19],
+                watchlist_name: params[20],
+                route: params[21],
+                case_path: params[22],
+                attempted_at: params[23],
+                completed_at: params[24],
+                delivered_at: params[25],
                 created_at: new Date().toISOString(),
             }
             ledger.push(insertedDelivery)
@@ -434,6 +432,7 @@ test('retries a failed report after persistence reload with the exact stored pay
         expect(insertedDelivery?.payload_hash).toBe(persistedDelivery.payload_hash)
         expect(insertedDelivery?.payload).toEqual(payload)
         expect(insertedDelivery?.owner_id).toBe('owner_1')
+        expect(insertedDelivery?.dry_run).toBe(false)
         expect(insertedDelivery?.idempotency_key).toBe(persistedDelivery.idempotency_key)
         expect(insertedDelivery?.attempt_count).toBe(2)
         expect(queries.find(item => item.sql.includes('WHERE id = $1'))?.sql).toContain('organization_members')
