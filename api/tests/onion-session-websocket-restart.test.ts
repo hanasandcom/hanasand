@@ -245,3 +245,49 @@ test('a prior run download cannot release a later run transfer slot', async () =
         await endSession(socket)
     }
 })
+
+test('a late response from a prior run cannot enter the next run summary', async () => {
+    configureTestEnvironment()
+    browser = new FakeBrowser()
+    const { handleOnionSessionSocket } = await import('../src/handlers/onionSession/ws.ts')
+    const socket = new ControlledSocket()
+    handleOnionSessionSocket(socket as never, 'restart-response-race', 'regular')
+    let resolveServerAddress!: (address: null) => void
+    const serverAddress = new Promise<null>(resolve => { resolveServerAddress = resolve })
+
+    try {
+        await startRun(socket, 'https://8.8.8.8/first')
+        const firstPage = browser.contexts[0].pages[0]
+        const oldRequest = {
+            isNavigationRequest: () => false,
+            frame: () => ({ url: () => 'https://8.8.8.8/first' }),
+            resourceType: () => 'image',
+            method: () => 'GET',
+            timing: () => ({ startTime: 0, responseEnd: 1 }),
+        }
+        firstPage.emit('response', {
+            serverAddr: () => serverAddress,
+            securityDetails: async () => null,
+            request: () => oldRequest,
+            status: () => 200,
+            url: () => 'https://old-run.example/image.png',
+            headers: () => ({ 'content-type': 'image/png' }),
+        })
+
+        await startRun(socket, 'https://8.8.8.8/second')
+        resolveServerAddress(null)
+        await new Promise(resolve => setImmediate(resolve))
+
+        const secondPage = browser.contexts[1].pages[0]
+        const download = new FakeDownload('https://files.example/current', async () => null)
+        secondPage.emit('download', download)
+        await waitFor(() => download.deleteCount === 1 ? true : undefined, 'second-run network summary')
+
+        const summary = socket.messages.filter(message => message.type === 'downloads').at(-1)?.networkSummary
+        expect(summary.responseCount).toBe(0)
+        expect(summary.domains).not.toContain('old-run.example')
+    } finally {
+        resolveServerAddress(null)
+        await endSession(socket)
+    }
+})

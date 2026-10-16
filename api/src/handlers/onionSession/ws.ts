@@ -457,10 +457,10 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
         return ''
     }
 
-    async function syncVisibleRemoteTab(selectedPage: Page) {
-        if (openingBackgroundTabs) return
+    async function syncVisibleRemoteTab(selectedPage: Page, generation = runGeneration) {
+        if (!isCurrentRun(generation) || openingBackgroundTabs) return
         if (!await selectedPage.evaluate(() => document.visibilityState === 'visible').catch(() => false)) return
-        if (openingBackgroundTabs) return
+        if (!isCurrentRun(generation) || openingBackgroundTabs) return
         const tabId = remoteTabIdForPage(selectedPage)
         if (!tabId || tabId === activeRemoteTabId) return
         activeRemoteTabId = tabId
@@ -476,35 +476,40 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
             // Creating a Chromium tab activates it. Restore the user's selected
             // tab before allowing native visibility events to select a tab.
             if (isCurrentRun(generation)) {
-                await focusRemoteTab()
-                openingBackgroundTabs--
+                await focusRemoteTab(false, generation)
+                if (isCurrentRun(generation)) openingBackgroundTabs--
             }
         }
     }
 
-    function watchConsole(targetPage: Page, tabId = 'browser', name = 'Browser') {
+    function watchConsole(targetPage: Page, generation: number, tabId = 'browser', name = 'Browser') {
         const source = tabId === 'browser' ? 'target' : 'provider'
         targetPage.on('console', entry => {
+            if (!isCurrentRun(generation)) return
             const location = entry.location()
             send({ type: 'console', source, tabId, name, level: entry.type(), text: entry.text(),
                 url: location.url || targetPage.url(), line: location.lineNumber === undefined ? undefined : location.lineNumber + 1,
                 capturedAt: new Date().toISOString() })
         })
-        targetPage.on('pageerror', error => send({ type: 'pageerror', source, tabId, name, level: 'error', message: error.message,
-            url: targetPage.url(), capturedAt: new Date().toISOString() }))
+        targetPage.on('pageerror', error => {
+            if (!isCurrentRun(generation)) return
+            send({ type: 'pageerror', source, tabId, name, level: 'error', message: error.message,
+                url: targetPage.url(), capturedAt: new Date().toISOString() })
+        })
     }
 
-    function scheduleInteractionFrame() {
+    function scheduleInteractionFrame(generation = runGeneration) {
         if (interactionFrameTimer || closed) return
         // Coalesce pointer/key bursts without delaying the input queue behind
         // screenshots or full evidence collection.
         interactionFrameTimer = setTimeout(() => {
             interactionFrameTimer = null
-            void sendFrame(false, 'interaction')
+            void sendFrame(false, 'interaction', generation)
         }, 40)
     }
 
-    async function focusRemoteTab(report = false) {
+    async function focusRemoteTab(report = false, generation = runGeneration) {
+        if (!isCurrentRun(generation)) return
         const selectedPage = activeRemoteTabId === 'browser' ? page : toolPages.get(activeRemoteTabId)
         if (!selectedPage || selectedPage.isClosed()) {
             if (report) send({ type: 'status', state: 'tab_waiting', tabId: activeRemoteTabId, message: 'Remote tab is still opening.' })
@@ -514,6 +519,7 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
             .then(() => selectedPage.evaluate(() => window.focus()))
             .then(() => '')
             .catch(error => error instanceof Error ? error.message : String(error))
+        if (!isCurrentRun(generation)) return
         if (focusError) {
             send({ type: 'status', state: 'tab_select_failed', tabId: activeRemoteTabId, url: selectedPage.url(), message: `Remote tab could not be selected: ${focusError}` })
             return
@@ -538,8 +544,10 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
 
     function scheduleCloseTimer(reason: string) {
         if (closeTimer) clearTimeout(closeTimer)
+        const generation = runGeneration
         const delay = Math.max(0, runExpiresAt - Date.now())
         closeTimer = setTimeout(() => {
+            if (!isCurrentRun(generation)) return
             send({ type: 'ended', reason: 'timeout', sessionId })
             void cleanup().finally(() => connection.close())
         }, delay)
@@ -571,8 +579,8 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
         send({ type: 'status', state: 'run_extended', message: 'Browser run extended by five minutes.' })
     }
 
-    function maybeExtendSuspiciousRun(evidence?: { verdict?: string } | null, analysis?: SandboxToolAnalysis | null) {
-        if (suspiciousExtensionApplied || !runStartedAt || !runExpiresAt) return
+    function maybeExtendSuspiciousRun(evidence?: { verdict?: string } | null, analysis?: SandboxToolAnalysis | null, generation = runGeneration) {
+        if (!isCurrentRun(generation) || suspiciousExtensionApplied || !runStartedAt || !runExpiresAt) return
         const suspicious = evidence?.verdict === 'suspicious'
             || analysis?.verdict === 'suspicious'
             || Number(analysis?.vendorFlagged || 0) > 0
@@ -662,7 +670,12 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
         if (currentRunId) {
             const runId = currentRunId
             runLeaseTimer = setInterval(() => {
-                void refreshBrowserRunLease(runId).catch(() => { void cleanup('failed'); connection.close() })
+                if (!isCurrentRun(generation)) return
+                void refreshBrowserRunLease(runId).catch(() => {
+                    if (!isCurrentRun(generation)) return
+                    void cleanup('failed')
+                    connection.close()
+                })
             }, 30_000)
             runLeaseTimer.unref()
         }
@@ -709,7 +722,9 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
             trace('chromium_launched')
             context = await browser.newContext(profile.options)
             trace('context_created')
-            await context.exposeBinding('__hanasandRemoteTabSelected', ({ page: selectedPage }) => syncVisibleRemoteTab(selectedPage))
+            await context.exposeBinding('__hanasandRemoteTabSelected', ({ page: selectedPage }) => {
+                if (isCurrentRun(generation)) return syncVisibleRemoteTab(selectedPage, generation)
+            })
             await context.addInitScript((platform) => {
                 Object.defineProperty(navigator, 'webdriver', { get: () => undefined })
                 if (platform) Object.defineProperty(navigator, 'platform', { get: () => platform })
@@ -725,6 +740,10 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
             await context.route('**/*', async (route) => {
                 const requestUrl = route.request().url()
                 const safety = await sandboxRequestSafety(requestUrl)
+                if (!isCurrentRun(generation)) {
+                    await route.abort('aborted').catch(() => undefined)
+                    return
+                }
                 if (!safety.ok) {
                     trackNetwork({
                         kind: 'failed',
@@ -743,8 +762,9 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
             page = await context.newPage()
             await fullscreenBrowserPage(context, page)
             trace('page_created')
-            watchConsole(page)
+            watchConsole(page, generation)
             page.on('request', (request) => {
+                if (!isCurrentRun(generation)) return
                 trackNetwork({
                     kind: 'request',
                     url: request.url(),
@@ -758,9 +778,11 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
                     response.serverAddr().catch(() => null),
                     response.securityDetails().catch(() => null),
                 ])
+                if (!isCurrentRun(generation)) return
                 const request = response.request()
                 if (network === 'regular' && server?.ipAddress && request.isNavigationRequest() && request.frame() === page?.mainFrame() && response.status() < 300) sitePeer = { url: response.url(), ip: server.ipAddress }
                 const asn = await lookupAsn(server?.ipAddress)
+                if (!isCurrentRun(generation)) return
                 const capturedAt = new Date().toISOString()
                 const startedAt = [...networkEvents].reverse().find(event => event.kind === 'request' && event.url === response.url() && event.method === request.method())?.at
                 trackNetwork({
@@ -784,10 +806,11 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
                     at: capturedAt,
                 })
                 if (response.request().resourceType() === 'document' && /html/i.test(response.headers()['content-type'] || '')) {
-                    queueDocumentEvidence(response.text())
+                    queueDocumentEvidence(response.text(), generation)
                 }
             })
             page.on('requestfailed', (request) => {
+                if (!isCurrentRun(generation)) return
                 trackNetwork({
                     kind: 'failed',
                     url: request.url(),
@@ -799,17 +822,20 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
             })
             watchDownloads(page, generation)
             page.on('framenavigated', (frame) => {
+                if (!isCurrentRun(generation)) return
                 if (frame !== page?.mainFrame()) return
                 send({ type: 'status', state: 'navigated', url: page.url(), sessionId })
-                void sendFrame(true, 'navigation')
+                void sendFrame(true, 'navigation', generation)
             })
             page.on('domcontentloaded', () => {
+                if (!isCurrentRun(generation)) return
                 send({ type: 'status', state: 'domcontentloaded', url: page?.url(), sessionId, message: 'Captured DOM-ready browser state.' })
-                void sendFrame(true, 'domcontentloaded')
+                void sendFrame(true, 'domcontentloaded', generation)
             })
             page.on('load', () => {
+                if (!isCurrentRun(generation)) return
                 send({ type: 'status', state: 'loaded', url: page?.url(), sessionId, message: 'Captured loaded browser state.' })
-                void sendFrame(true, 'load')
+                void sendFrame(true, 'load', generation)
             })
 
             runStartedAt = Date.now()
@@ -817,13 +843,16 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
             scheduleCloseTimer('started')
 
             trace('navigate_start', { target })
-            await navigate(target)
+            await navigate(target, generation)
+            if (!isCurrentRun(generation)) return
             trace('navigate_returned', { url: page?.url() })
             await Promise.allSettled(documentEvidencePromises)
+            if (!isCurrentRun(generation)) return
             trace('document_evidence_settled')
             const initialEvidence = page ? await collectPageEvidence(page).catch(() => null) : null
+            if (!isCurrentRun(generation)) return
             trace('initial_evidence_collected', { hasEvidence: Boolean(initialEvidence) })
-            maybeExtendSuspiciousRun(initialEvidence)
+            maybeExtendSuspiciousRun(initialEvidence, null, generation)
             rememberDeobfuscationTasks(initialEvidence)
             void captureProfileTools(
                 context,
@@ -831,7 +860,9 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
                 target,
                 initialEvidence?.deobfuscationTasks?.length ? initialEvidence.deobfuscationTasks : cachedDeobfuscationTasks,
                 generation,
+                currentRunId,
             ).catch(error => {
+                if (!isCurrentRun(generation)) return
                 send({
                     type: 'status',
                     state: 'profile_tools_failed',
@@ -849,7 +880,7 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
                 run: browserRun.run,
                 quota: browserRun.quota,
             })
-            void sendFrame(true, 'initial_target')
+            void sendFrame(true, 'initial_target', generation)
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error)
             void recordLog({
@@ -881,6 +912,7 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
         target: string,
         deobfuscationTasks: SandboxDeobfuscationTask[] = [],
         generation: number,
+        runId: string | null,
     ) {
         const plannedTools = tools.slice(0, 6).filter(tool => tool.url)
         if (process.env.BROWSER_SANDBOX_PROVIDER_TABS === '0') return
@@ -893,14 +925,18 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
                 url: string,
                 details: ProviderCaptureDetails,
                 id = tool.id || safeToolId(tool.name || toolUrl),
-            ) => send(providerCaptureMessage(sessionId, {
-                id,
-                name: tool.name || toolUrl,
-                url,
-                capturedAt: startedAt,
-                target,
-            }, details))
-            const webcrackTasks = webcrackTool ? await webCrackTasks(deobfuscationTasks) : []
+            ) => {
+                if (!isCurrentRun(generation)) return
+                send(providerCaptureMessage(sessionId, {
+                    id,
+                    name: tool.name || toolUrl,
+                    url,
+                    capturedAt: startedAt,
+                    target,
+                }, details))
+            }
+            const webcrackTasks = webcrackTool ? await webCrackTasks(deobfuscationTasks, generation) : []
+            if (!isCurrentRun(generation)) return
             if (webcrackTool && !webcrackTasks.some(task => task.sample || task.decodedPreview)) {
                 const evidence = providerPendingEvidence(toolUrl, tool.name || toolUrl, target)
                 const webcrackLoad = { loaded: false, reason: 'no obfuscated code found on target page' }
@@ -908,17 +944,28 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
                 return
             }
             const toolPage = await newBackgroundPage(context, generation).catch(() => null)
-            if (!toolPage) return
+            if (!toolPage || !isCurrentRun(generation)) {
+                await toolPage?.close().catch(() => undefined)
+                return
+            }
             if (webcrackTool) await watchWebCrackOutput(toolPage)
+            if (!isCurrentRun(generation)) {
+                await toolPage.close().catch(() => undefined)
+                return
+            }
             toolPages.set(toolId, toolPage)
-            toolPage.on('close', () => toolPages.delete(toolId))
-            watchConsole(toolPage, toolId, tool.name || toolId)
+            toolPage.on('close', () => {
+                if (toolPages.get(toolId) === toolPage) toolPages.delete(toolId)
+            })
+            watchConsole(toolPage, generation, toolId, tool.name || toolId)
             toolPage.on('framenavigated', frame => {
+                if (!isCurrentRun(generation)) return
                 if (frame !== toolPage.mainFrame()) return
                 trace('provider_tab_navigated', { tabId: toolId, url: toolPage.url(), activeRemoteTabId })
                 if (activeRemoteTabId === toolId) send({ type: 'status', state: 'tab_navigated', tabId: toolId, url: toolPage.url(), message: `${tool.name || toolId} navigated.` })
             })
-            await focusRemoteTab()
+            await focusRemoteTab(false, generation)
+            if (!isCurrentRun(generation)) return
             const providerBodies = collectProviderResponses(toolPage, tool.name || toolUrl, target)
             try {
                 toolPage.setDefaultTimeout(providerTimeoutMs(tool))
@@ -970,10 +1017,10 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
                         reasons: [],
                     }, providerText, tool.name || toolUrl, [...providerBodies.comments(), ...fetchedComments])
                     const parsedAnalysis = analyzeToolEvidence(tool.name || toolUrl, parsedEvidence)
-                    maybeExtendSuspiciousRun(parsedEvidence, parsedAnalysis)
+                    maybeExtendSuspiciousRun(parsedEvidence, parsedAnalysis, generation)
                     const parsedScreenshotTimeout = providerScreenshotTimeoutMs(tool, 1500)
                     const parsedImage = await withTimeout(toolPage.screenshot({ type: 'jpeg', quality: 64, animations: 'disabled', timeout: parsedScreenshotTimeout }), parsedScreenshotTimeout, openedImage)
-                    void persistProviderRunResult(parsedAnalysis)
+                    persistProviderRunResult(parsedAnalysis, '', runId, generation)
                     sendToolCapture(toolPage.url() || preparedUrl, {
                         title: await toolPage.title().catch(() => ''),
                         image: parsedImage ? parsedImage.toString('base64') : null,
@@ -1001,7 +1048,7 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
                 if (webcrackTool) {
                     const evidence = enrichProviderEvidence(await withTimeout(collectPageEvidence(toolPage), 400, providerPendingEvidence(toolPage.url() || toolUrl, tool.name || toolUrl, target)), providerBodies.text(), tool.name || toolUrl, providerBodies.comments())
                     const toolAnalysis = analyzeToolEvidence(tool.name || toolUrl, evidence, webcrackLoad)
-                    maybeExtendSuspiciousRun(evidence, toolAnalysis)
+                    maybeExtendSuspiciousRun(evidence, toolAnalysis, generation)
                     const output = webcrackLoad?.loaded ? await readWebCrackOutput(toolPage) : undefined
                     sendToolCapture(toolPage.url(), {
                         title: await toolPage.title().catch(() => ''),
@@ -1016,7 +1063,7 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
                 const initialEvidence = enrichProviderEvidence(await withTimeout(collectPageEvidence(toolPage), 2500, providerPendingEvidence(toolPage.url() || toolUrl, tool.name || toolUrl, target)), providerBodies.text(), tool.name || toolUrl, providerBodies.comments())
                 const initialImage = await withTimeout(toolPage.screenshot({ type: 'jpeg', quality: 64, animations: 'disabled', timeout: 2500 }), 2500, null)
                 const initialAnalysis = analyzeToolEvidence(tool.name || toolUrl, initialEvidence)
-                maybeExtendSuspiciousRun(initialEvidence, initialAnalysis)
+                maybeExtendSuspiciousRun(initialEvidence, initialAnalysis, generation)
                 const image = initialImage
                 const evidence = initialEvidence
                 const toolAnalysis = navigationError
@@ -1036,20 +1083,20 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
                     webcrackLoad,
                     error: navigationError || undefined,
                 })
-                void persistProviderRunResult(toolAnalysis, navigationError)
+                persistProviderRunResult(toolAnalysis, navigationError, runId, generation)
             } catch (error) {
                 sendToolCapture(toolUrl, { error: error instanceof Error ? error.message : String(error) })
             } finally {
-                await focusRemoteTab()
+                await focusRemoteTab(false, generation)
             }
         }))
     }
 
-    function persistProviderRunResult(analysis?: SandboxToolAnalysis, error = '') {
-        if (!currentRunId || !analysis?.toolKind) return
+    function persistProviderRunResult(analysis: SandboxToolAnalysis | undefined, error: string, runId: string | null, generation: number) {
+        if (!isCurrentRun(generation) || !runId || !analysis?.toolKind) return
         const result = providerRunResult(analysis, error)
         if (!result) return
-        void updateBrowserRunProviderResult(currentRunId, analysis.toolKind, result).catch(() => undefined)
+        void updateBrowserRunProviderResult(runId, analysis.toolKind, result).catch(() => undefined)
     }
 
     function markTargetUnreachable(target: string, message: string) {
@@ -1102,9 +1149,9 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
             await lookupPage.close().catch(() => undefined)
             return { status: 'interrupted', detail: 'Run ended before the hash lookup finished' }
         }
-        watchConsole(lookupPage, 'virustotal-file', 'VirusTotal file')
+        watchConsole(lookupPage, generation, 'virustotal-file', 'VirusTotal file')
         try {
-            await focusRemoteTab()
+            await focusRemoteTab(false, generation)
             if (!isCurrentRun(generation)) return { status: 'interrupted', detail: 'Run ended before the hash lookup finished' }
             const bodies: string[] = []
             lookupPage.on('response', response => {
@@ -1115,7 +1162,7 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
             })
             await lookupPage.goto(`https://www.virustotal.com/gui/file/${sha256}`, { waitUntil: 'domcontentloaded', timeout: 15_000 })
             if (!isCurrentRun(generation)) return { status: 'interrupted', detail: 'Run ended before the hash lookup finished' }
-            await focusRemoteTab()
+            await focusRemoteTab(false, generation)
             const deadline = Date.now() + 20_000
             let result: FileReputation = fileReputation('', sha256)
             while (isCurrentRun(generation) && Date.now() < deadline) {
@@ -1130,7 +1177,7 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
             return { status: interrupted ? 'interrupted' : 'unavailable', detail: interrupted ? 'Run ended before the hash lookup finished' : 'VirusTotal file lookup failed — no verdict' }
         } finally {
             await lookupPage.close().catch(() => undefined)
-            if (isCurrentRun(generation)) await focusRemoteTab()
+            if (isCurrentRun(generation)) await focusRemoteTab(false, generation)
         }
     }
 
@@ -1177,10 +1224,11 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
         }
     }
 
-    async function navigate(value: string) {
+    async function navigate(value: string, generation = runGeneration) {
         if (!page) return
         const target = normalizeTarget(value)
         const safety = await sandboxRequestSafety(target)
+        if (!isCurrentRun(generation)) return
         if (!safety.ok) {
             send({ type: 'navigation_error', target, message: `Blocked unsafe sandbox target: ${safety.reason}.` })
             send({ type: 'status', state: 'unsafe_target_blocked', url: target, message: `Blocked unsafe sandbox target: ${safety.reason}.` })
@@ -1188,10 +1236,11 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
         }
         send({ type: 'status', state: 'navigating', target })
         const heartbeat = setInterval(() => {
-            send({ type: 'status', state: 'navigating', target, message: 'Navigation is still pending.' })
+            if (isCurrentRun(generation)) send({ type: 'status', state: 'navigating', target, message: 'Navigation is still pending.' })
         }, 5_000)
         const response = await page.goto(target, { waitUntil: 'domcontentloaded', timeout: 25_000 })
             .catch((error) => {
+                if (!isCurrentRun(generation)) return null
                 const message = error instanceof Error ? error.message : String(error)
                 if (/Download is starting/i.test(message) || downloads.some(file => file.url === target)) return null
                 markTargetUnreachable(target, message)
@@ -1199,10 +1248,11 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
                 return null
             })
             .finally(() => clearInterval(heartbeat))
+        if (!isCurrentRun(generation)) return
         if (response && /html/i.test(response.headers()['content-type'] || '')) {
-            await queueDocumentEvidence(response.text())
+            await queueDocumentEvidence(response.text(), generation)
         }
-        void sendFrame(true)
+        void sendFrame(true, 'interval', generation)
     }
 
     async function handlePointer(message: BrokerMessage) {
@@ -1310,16 +1360,18 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
         }).catch(() => '')
     }
 
-    async function sendFrame(force: boolean, reason = 'interval') {
-        if (!page || closed || connection.readyState !== connection.OPEN) return
+    async function sendFrame(force: boolean, reason = 'interval', generation = runGeneration) {
+        const framePage = page
+        if (!framePage || !isCurrentRun(generation) || connection.readyState !== connection.OPEN) return
         if (!force && fastFrameInFlight) {
-            if (reason === 'interaction') scheduleInteractionFrame()
+            if (reason === 'interaction') scheduleInteractionFrame(generation)
             return
         }
         fastFrameInFlight = !force
         if (!lastFrame && !firstFrameAttemptedAt) firstFrameAttemptedAt = Date.now()
         try {
-            const buffer = await withTimeout(page.screenshot({ type: 'jpeg', quality: 68, animations: 'disabled', timeout: 2_000 }), 2_200, null)
+            const buffer = await withTimeout(framePage.screenshot({ type: 'jpeg', quality: 68, animations: 'disabled', timeout: 2_000 }), 2_200, null)
+            if (!isCurrentRun(generation) || page !== framePage) return
             if (!buffer) {
                 trace('frame_capture_timeout', { reason })
                 if (lastFrame || Date.now() - firstFrameAttemptedAt < 15_000) return
@@ -1329,12 +1381,12 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
             const image = buffer.toString('base64')
             if (!force && reason !== 'interaction' && image === lastFrame) return
             lastFrame = image
-            const viewport = page.viewportSize()
+            const viewport = framePage.viewportSize()
             const heavyFrame = reason !== 'interaction' && (force || !cachedPageEvidence || Date.now() - lastHeavyFrameAt > 5_000)
             let frameQuality = cachedFrameQuality
             let evidence = cachedPageEvidence
             if (heavyFrame) {
-                frameQuality = await withTimeout(collectFrameQuality(page, viewport?.width || DEFAULT_WIDTH, viewport?.height || DEFAULT_HEIGHT), 1_200, cachedFrameQuality || {
+                frameQuality = await withTimeout(collectFrameQuality(framePage, viewport?.width || DEFAULT_WIDTH, viewport?.height || DEFAULT_HEIGHT), 1_200, cachedFrameQuality || {
                     looksBlank: false,
                     visibleTextLength: 0,
                     elementCount: 0,
@@ -1343,7 +1395,8 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
                     viewportWidth: viewport?.width || DEFAULT_WIDTH,
                     viewportHeight: viewport?.height || DEFAULT_HEIGHT,
                 })
-                evidence = await withTimeout(collectPageEvidence(page), 1_800, cachedPageEvidence || emptyPageEvidence())
+                evidence = await withTimeout(collectPageEvidence(framePage), 1_800, cachedPageEvidence || emptyPageEvidence())
+                if (!isCurrentRun(generation) || page !== framePage) return
                 if (!evidence.deobfuscationTasks.length && cachedDeobfuscationTasks.length) {
                     evidence.deobfuscationTasks = cachedDeobfuscationTasks
                     evidence.obfuscatedScripts = cachedDeobfuscationTasks.map(task => ({
@@ -1370,6 +1423,8 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
                 cachedPageEvidence = evidence
                 lastHeavyFrameAt = Date.now()
             }
+            const title = await framePage.title().catch(() => '')
+            if (!isCurrentRun(generation) || page !== framePage) return
             send({
                 type: 'frame',
                 encoding: 'jpeg',
@@ -1377,17 +1432,18 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
                 width: viewport?.width || DEFAULT_WIDTH,
                 height: viewport?.height || DEFAULT_HEIGHT,
                 sessionId,
-                url: page.url(),
-                title: await page.title().catch(() => ''),
+                url: framePage.url(),
+                title,
                 capturedAt: new Date().toISOString(),
                 reason,
                 frameQuality,
                 evidence,
                 networkSummary: networkSummary(),
             })
-            trace('frame_sent', { reason, url: page.url(), bytes: buffer.length })
+            trace('frame_sent', { reason, url: framePage.url(), bytes: buffer.length })
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error)
+            if (!isCurrentRun(generation)) return
             if (lastFrame || Date.now() - firstFrameAttemptedAt < 15_000) {
                 trace('frame_capture_error', { reason, message })
                 return
@@ -1400,7 +1456,7 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
                 metadata: { category: 'browser_sandbox_frame', sessionId, reason },
             }).catch(() => undefined)
         } finally {
-            fastFrameInFlight = false
+            if (isCurrentRun(generation)) fastFrameInFlight = false
         }
     }
 
@@ -1446,24 +1502,29 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
         if (associations.length) cachedThreatAssociations = associations
     }
 
-    function queueDocumentEvidence(body: Promise<string>) {
-        const pending = body.then(html => rememberDocumentEvidence(html)).catch(() => undefined)
+    function queueDocumentEvidence(body: Promise<string>, generation: number) {
+        if (!isCurrentRun(generation)) return Promise.resolve()
+        const pending = body.then(html => {
+            if (isCurrentRun(generation)) rememberDocumentEvidence(html)
+        }).catch(() => undefined)
         documentEvidencePromises.push(pending)
         void pending.finally(() => {
-            documentEvidencePromises = documentEvidencePromises.filter(item => item !== pending)
+            if (isCurrentRun(generation)) documentEvidencePromises = documentEvidencePromises.filter(item => item !== pending)
         })
         return pending
     }
 
-    async function webCrackTasks(tasks: SandboxDeobfuscationTask[]) {
+    async function webCrackTasks(tasks: SandboxDeobfuscationTask[], generation = runGeneration) {
         const deadline = Date.now() + 1200
-        while (!tasks.length && !cachedDeobfuscationTasks.length && Date.now() < deadline) {
+        while (isCurrentRun(generation) && !tasks.length && !cachedDeobfuscationTasks.length && Date.now() < deadline) {
             await new Promise(resolve => setTimeout(resolve, 100))
         }
+        if (!isCurrentRun(generation)) return []
         if (!tasks.length && !cachedDeobfuscationTasks.length && page && !page.isClosed()) {
             const liveEvidence = await collectPageEvidence(page).catch(() => null)
+            if (!isCurrentRun(generation)) return []
             rememberDeobfuscationTasks(liveEvidence)
-            maybeExtendSuspiciousRun(liveEvidence)
+            maybeExtendSuspiciousRun(liveEvidence, null, generation)
         }
         return tasks.length ? tasks : cachedDeobfuscationTasks
     }
