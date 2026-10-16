@@ -667,13 +667,11 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
             if (cancelAdmissionWait === cancelThisAdmissionWait) cancelAdmissionWait = null
             cancelAdmission = null
             if (!slot) return
-            if (slot) {
-                if (closed) {
-                    slot.release()
-                    return
-                }
-                releaseAdmission = slot.release
+            if (closed) {
+                slot.release()
+                return
             }
+            releaseAdmission = slot.release
 
             send({
                 type: 'status',
