@@ -1,4 +1,5 @@
 import type { ShareRuntimeCapability } from './runtimeCapabilities'
+import collectTreePaths from './collectTreePaths'
 
 export type PreviewHealth = 'idle' | 'checking' | 'reachable' | 'unreachable'
 
@@ -36,7 +37,7 @@ export function getPreviewRuntime({
     activeContent,
     capability,
 }: PreviewInput): PreviewRuntime {
-    const paths = collectPaths(tree)
+    const paths = collectTreePaths(tree)
     const lowerPaths = paths.map(path => path.toLowerCase())
     const basenames = lowerPaths.map(path => path.split('/').at(-1) || path)
     const activeName = activePath?.split('/').at(-1)?.toLowerCase() || share?.path?.split('/').at(-1)?.toLowerCase() || ''
@@ -137,26 +138,6 @@ export function previewHealthCopy(health: PreviewHealth, runtime: PreviewRuntime
         default:
             return runtime.canRun ? 'Preview has not been opened yet.' : runtime.reason
     }
-}
-
-function collectPaths(tree: Tree | null): string[] {
-    const paths: string[] = []
-
-    function walk(items: FileItem[], prefix = '') {
-        for (const item of items) {
-            const path = prefix ? `${prefix}/${item.name}` : item.name
-            paths.push(path)
-            if (item.type === 'folder') {
-                walk(item.children, path)
-            }
-        }
-    }
-
-    if (Array.isArray(tree)) {
-        walk(tree)
-    }
-
-    return paths
 }
 
 function parsePackageJson(content: string): PackageJsonHint {

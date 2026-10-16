@@ -1,3 +1,5 @@
+import collectTreePaths from './collectTreePaths'
+
 export type ShareRuntimeCapability = {
     hasHttpSurface: boolean
     canDeploy: boolean
@@ -51,7 +53,7 @@ export function getShareRuntimeCapability({
     tree,
     activeContent,
 }: CapabilityInput): ShareRuntimeCapability {
-    const names = collectTreeNames(tree)
+    const names = collectTreePaths(tree)
     const lowerNames = names.map(name => name.toLowerCase())
     const basenames = lowerNames.map(name => name.split('/').at(-1) || name)
     const normalizedContent = activeContent || share?.content || ''
@@ -99,25 +101,6 @@ export function getShareRuntimeCapability({
         port,
         evidence,
     }
-}
-
-function collectTreeNames(tree: Tree | null): string[] {
-    if (!Array.isArray(tree)) return []
-
-    const names: string[] = []
-
-    function walk(items: FileItem[], prefix = '') {
-        for (const item of items) {
-            const path = prefix ? `${prefix}/${item.name}` : item.name
-            names.push(path)
-            if (item.type === 'folder') {
-                walk(item.children, path)
-            }
-        }
-    }
-
-    walk(tree)
-    return names
 }
 
 function findPort(content: string) {
