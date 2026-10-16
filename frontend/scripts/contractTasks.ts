@@ -129,6 +129,11 @@ export const contractTasks: TestTask[] = [
         command: [bun, 'test', './tests/organization-alert-reference.check.ts'],
     },
     {
+        id: 'share-git-plugin',
+        title: 'Share Git plugin presentation data',
+        command: [bun, 'test', './tests/share-git-plugin.check.ts'],
+    },
+    {
         id: 'browser-report-presentation',
         title: 'Browser report classification and actions',
         command: [bun, 'test', 'tests/browser-report-presentation.test.ts'],

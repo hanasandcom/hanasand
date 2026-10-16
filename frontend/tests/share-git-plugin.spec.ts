@@ -1,16 +1,25 @@
 import { expect, test } from '@playwright/test'
-import { readFile } from 'node:fs/promises'
+import { readdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
 
 const root = process.cwd()
 
+async function readGitPluginSource() {
+    const directory = path.join(root, 'src/components/share/gitPlugin')
+    const files = await readdir(directory)
+    const modules = await Promise.all(files.filter(file => /\.(ts|tsx)$/.test(file)).map(file => readFile(path.join(directory, file), 'utf8')))
+    return [await readFile(path.join(root, 'src/components/share/gitPlugin.tsx'), 'utf8'), ...modules].join('\n')
+}
+
 test('share editor exposes git import and pull from the right panel', async () => {
     const metadata = await readFile(path.join(root, 'src/components/share/metadata.tsx'), 'utf8')
-    const plugin = await readFile(path.join(root, 'src/components/share/gitPlugin.tsx'), 'utf8')
+    const sidebar = await readFile(path.join(root, 'src/components/share/metadata/MetadataSidebar.tsx'), 'utf8')
+    const plugin = await readGitPluginSource()
     const github = await readFile(path.join(root, 'src/components/ai/github.ts'), 'utf8')
 
-    expect(metadata).toContain('aria-label=\'Git plugin\'')
-    expect(metadata).toContain('aria-label=\'Workspace status\'')
+    expect(metadata).toContain('<MetadataSidebar')
+    expect(sidebar).toContain('aria-label=\'Git plugin\'')
+    expect(sidebar).toContain('aria-label=\'Workspace status\'')
     expect(metadata).toContain('<GitPlugin shareRouteId={shareRouteId} share={share} />')
     expect(metadata).toContain('<WorkspaceStatus')
 
