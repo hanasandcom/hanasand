@@ -7,12 +7,13 @@ test('threat intelligence search exposes bounded browser-local save and reopen c
     const frontend = process.cwd().endsWith(`${path.sep}frontend`)
         ? process.cwd()
         : path.join(process.cwd(), 'frontend')
-    const [shared, page, controls] = await Promise.all([
+    const [shared, constants, page, controls] = await Promise.all([
         readFile(path.join(frontend, 'src/app/ti/pageClientShared.ts'), 'utf8'),
+        readFile(path.join(frontend, 'src/app/ti/pageConstants.ts'), 'utf8'),
         readFile(path.join(frontend, 'src/app/ti/components/ti-page-client.tsx'), 'utf8'),
         readFile(path.join(frontend, 'src/app/ti/components/search-workspace-controls.tsx'), 'utf8'),
     ])
-    const client = `${shared}\n${page}\n${controls}`
+    const client = `${shared}\n${constants}\n${page}\n${controls}`
 
     assert.match(client, /hanasand:ti:saved-searches/)
     assert.match(client, /TI_SAVED_SEARCH_LIMIT = 8/)

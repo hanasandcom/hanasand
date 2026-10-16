@@ -59,10 +59,17 @@ test.describe('public threat actor profile', () => {
 
     test('keeps the actor page focused on four sections', async () => {
         const componentDirectory = path.join(root, 'src/app/ti/components')
+        const modelDirectory = path.join(root, 'src/app/ti/model')
         const componentFiles = await readdir(componentDirectory)
+        const modelFiles = await readdir(modelDirectory)
+        const modelTypeFiles = await readdir(path.join(modelDirectory, 'types'))
         const pageSource = (await Promise.all(componentFiles.filter(file => file.endsWith('.tsx')).map(file => readFile(path.join(componentDirectory, file), 'utf8')))).join('\n')
         const modelSource = await readFile(path.join(root, 'src/app/ti/pageModel.ts'), 'utf8')
-        const source = `${pageSource}\n${modelSource}`
+        const modelParts = await Promise.all([
+            ...modelFiles.filter(file => file.endsWith('.ts')).map(file => readFile(path.join(modelDirectory, file), 'utf8')),
+            ...modelTypeFiles.filter(file => file.endsWith('.ts')).map(file => readFile(path.join(modelDirectory, 'types', file), 'utf8')),
+        ])
+        const source = `${pageSource}\n${modelSource}\n${modelParts.join('\n')}`
         const workspaceIndex = pageSource.indexOf('data-ti-workspace=\'true\'')
 
         expect(workspaceIndex).toBeGreaterThan(-1)
