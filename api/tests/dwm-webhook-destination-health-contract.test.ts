@@ -1,6 +1,8 @@
 import { expect, test } from 'bun:test'
 import { dwmWebhookDestinationRow } from './fixtures/dwm-webhook-destination.ts'
 import {
+    buildDwmAlertWebhookReadinessHandoff,
+    buildDwmWebhookDeliveryRetryPersistence,
     buildDwmWebhookDeliveryReadiness,
     buildDwmWebhookDestinationContracts,
     buildDwmWebhookDestinationHealth,
@@ -8,6 +10,8 @@ import {
     buildDwmWebhookDestinationAdminProof,
     buildDwmWebhookDestinationReadModels,
     buildDwmWebhookCustomerSetupProof,
+    buildDwmWebhookDestinationDeliveryMatrix,
+    buildDwmWebhookDestinationLookupContract,
     toDwmWebhookAuditEvent,
     toDwmWebhookDelivery,
     toDwmWebhookDestination,
@@ -117,4 +121,52 @@ test('combined destination read models preserve the standalone contracts', () =>
     const setup = buildDwmWebhookCustomerSetupProof(projectionInput)
     expect(setup.deliveryReadiness).toEqual(combined.deliveryReadiness)
     expect(setup.destinationAdminProof).toEqual(combined.destinationAdminProof)
+})
+
+test('destination lookup matches standalone matrix and admin proof contracts', () => {
+    const { input } = destinationProjectionFixture()
+    const options = { ...input, viewerRole: 'owner', canManage: true }
+    const matrix = buildDwmWebhookDestinationDeliveryMatrix(options)
+    const lookup = buildDwmWebhookDestinationLookupContract(options)
+    const admin = buildDwmWebhookDestinationAdminProof(options)
+
+    expect(lookup.destinations.map(row => row.destinationId)).toEqual(matrix.destinations.map(row => row.destinationId))
+    expect(lookup.destinations[0]?.delivery.latestDeliveryAt).toBe(matrix.destinations[0]?.deliveryProof.latestDeliveryAt)
+    expect(lookup.destinations[0]?.health.productProgressStatus).toBe(admin.productProgress.status)
+    expect(lookup.destinations[0]?.idempotency.duplicateKeyCount).toBe(admin.destinations[0]?.dedupe.duplicateKeyCount)
+})
+
+test('alert readiness handoff matches standalone projection contracts', () => {
+    const { destination, delivery, input: evidence } = destinationProjectionFixture()
+    const input = {
+        orgId: destination.orgId,
+        eventType: delivery.eventType,
+        alert: {
+            id: delivery.alertId,
+            title: 'Health contract alert',
+            severity: 'medium',
+            sourceFamily: 'clear_web',
+            evidenceCount: 1,
+            dedupeKey: 'case_health_contract',
+            casePath: '/dwm?alert=alert_health_contract',
+            eventTimestamp: '2026-10-01T10:00:00.000Z',
+            provenanceSummary: 'Captured health contract evidence.',
+            watchlist: { id: 'watch_health_contract', name: 'Health contract watchlist' },
+        },
+    }
+    const options = { ownerId: destination.ownerId, input, destinations: evidence.destinations, deliveries: evidence.deliveries, auditEvents: evidence.auditEvents, liveDeliveryEnabled: false }
+    const handoff = buildDwmAlertWebhookReadinessHandoff(options)
+
+    expect(handoff.destinationReadiness).toEqual(buildDwmWebhookDeliveryReadiness(evidence))
+    expect(handoff.destinationHealth).toEqual(buildDwmWebhookDestinationHealth(evidence))
+    expect(handoff.deliveryRetryPersistence).toEqual(buildDwmWebhookDeliveryRetryPersistence({
+        ...evidence,
+        filters: {
+            orgId: destination.orgId,
+            alertId: delivery.alertId,
+            casePath: input.alert.casePath,
+            dedupeKey: input.alert.dedupeKey,
+        },
+        liveDeliveryEnabled: false,
+    }))
 })

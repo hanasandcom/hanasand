@@ -4985,18 +4985,14 @@ export function buildDwmAlertWebhookReadinessHandoff({
     const orgDestinations = destinations.filter(destination => destination.orgId === dispatch.orgId)
     const orgDeliveries = deliveries.filter(delivery => delivery.orgId === dispatch.orgId)
     const orgAuditEvents = auditEvents.filter(audit => audit.orgId === dispatch.orgId)
-    const destinationReadiness = buildDwmWebhookDeliveryReadiness({
+    const readinessProjection = prepareDwmWebhookDestinationProjection({
         destinations: orgDestinations,
         deliveries: orgDeliveries,
         auditEvents: orgAuditEvents,
         liveDeliveryEnabled,
     })
-    const destinationHealth = buildDwmWebhookDestinationHealth({
-        destinations: orgDestinations,
-        deliveries: orgDeliveries,
-        auditEvents: orgAuditEvents,
-        liveDeliveryEnabled,
-    })
+    const destinationReadiness = readinessProjection.readiness
+    const destinationHealth = buildDwmWebhookDestinationHealthFromProjection({ ...readinessProjection, liveDeliveryEnabled })
     const retryPersistence = buildDwmWebhookDeliveryRetryPersistence({
         destinations: orgDestinations,
         deliveries: orgDeliveries,
@@ -5013,11 +5009,7 @@ export function buildDwmAlertWebhookReadinessHandoff({
     const selectedRetryKeys = retryPersistence.deliveryKeys
         .filter(key => key.destinationId && selectedDestinationIds.has(key.destinationId))
     const alertEventExpectedAuditAction = deliveryAuditActionForEvent(eventType)
-    const alertEventAuditContracts = buildDwmWebhookAuditEventContracts({
-        destinations: orgDestinations,
-        deliveries: orgDeliveries,
-        auditEvents: orgAuditEvents,
-    })
+    const alertEventAuditContracts = readinessProjection.auditContracts
     const selectedAlertEventAuditContracts = alertEventAuditContracts.filter((audit) => {
         const auditDestinationSelected = audit.destinationId ? selectedDestinationIds.has(audit.destinationId) : false
         const auditAlertMatches = audit.delivery?.alertId === normalizedAlert.id
