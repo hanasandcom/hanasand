@@ -1,5 +1,7 @@
 import { expect, test } from 'bun:test'
 import {
+    organizationVisibilityDecision,
+    organizationWatchlistOwnerContext,
     organizationWatchlistAlertTermsExport,
     organizationWatchlistAlertTermsExportDenial,
 } from '../src/utils/organizations.ts'
@@ -45,6 +47,49 @@ function watchlistItem(input: {
         archived_at: input.archivedAt ?? null,
     }
 }
+
+test('watchlist owner context keeps a stable shared response contract', () => {
+    const memberOrganization = { ...organization, role: 'reader' as const }
+    const visibility = organizationVisibilityDecision({
+        role: 'reader', status: 'active', userActive: true, alertVisibilityPolicy: 'members',
+    })
+    const context = organizationWatchlistOwnerContext({
+        organization: memberOrganization,
+        watchlistItemId: 'watchlist-1',
+        actorId: 'member-1',
+        visibility,
+    })
+
+    expect(Object.keys(context)).toEqual([
+        'schemaVersion', 'organizationId', 'tenantId', 'ownerOrganizationId', 'watchlistItemId', 'watchlistId',
+        'actorId', 'actorRole', 'visibilityPolicy', 'allowedViewerRoles', 'sourceFamily', 'route',
+        'alertBridgeFields', 'webhookBridgeFields', 'crossTenantCollisionAllowed', 'nonmemberEnumeration',
+    ])
+    expect(context).toEqual({
+        schemaVersion: 'organization.watchlist_owner_context.v1',
+        organizationId: 'org-1',
+        tenantId: 'org-1',
+        ownerOrganizationId: 'org-1',
+        watchlistItemId: 'watchlist-1',
+        watchlistId: 'watchlist-1',
+        actorId: 'member-1',
+        actorRole: 'reader',
+        visibilityPolicy: 'members',
+        allowedViewerRoles: ['owner', 'admin', 'editor', 'reader', 'member', 'viewer'],
+        sourceFamily: 'organization_watchlist',
+        route: 'organization_watchlist',
+        alertBridgeFields: [
+            'organizationId', 'tenantId', 'ownerOrganizationId', 'watchlistItemId', 'watchlistId',
+            'workflowContext.alertGenerationRefs', 'workflowContext.alertGeneratorKeys',
+        ],
+        webhookBridgeFields: [
+            'organizationId', 'tenantId', 'ownerOrganizationId', 'watchlistItemId',
+            'destination.org_id', 'webhookDestinationIds[]',
+        ],
+        crossTenantCollisionAllowed: false,
+        nonmemberEnumeration: false,
+    })
+})
 
 test('alert term export preserves shared per-term projections and excludes inactive terms', () => {
     const result = organizationWatchlistAlertTermsExport(organization, [

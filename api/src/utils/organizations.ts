@@ -5221,6 +5221,47 @@ export function organizationVisibilityDecision(input: OrganizationVisibilityDeci
     return { allowed: true, reason: null, alertVisibilityPolicy, allowedRoles }
 }
 
+export function organizationWatchlistOwnerContext(input: {
+    organization: Pick<OrganizationRow, 'id' | 'role'>
+    watchlistItemId: string
+    actorId: string
+    visibility: OrganizationVisibilityDecision
+}) {
+    return {
+        schemaVersion: 'organization.watchlist_owner_context.v1' as const,
+        organizationId: input.organization.id,
+        tenantId: input.organization.id,
+        ownerOrganizationId: input.organization.id,
+        watchlistItemId: input.watchlistItemId,
+        watchlistId: input.watchlistItemId,
+        actorId: input.actorId,
+        actorRole: input.organization.role ?? 'viewer',
+        visibilityPolicy: input.visibility.alertVisibilityPolicy,
+        allowedViewerRoles: input.visibility.allowedRoles,
+        sourceFamily: 'organization_watchlist' as const,
+        route: 'organization_watchlist' as const,
+        alertBridgeFields: [
+            'organizationId',
+            'tenantId',
+            'ownerOrganizationId',
+            'watchlistItemId',
+            'watchlistId',
+            'workflowContext.alertGenerationRefs',
+            'workflowContext.alertGeneratorKeys',
+        ],
+        webhookBridgeFields: [
+            'organizationId',
+            'tenantId',
+            'ownerOrganizationId',
+            'watchlistItemId',
+            'destination.org_id',
+            'webhookDestinationIds[]',
+        ],
+        crossTenantCollisionAllowed: false,
+        nonmemberEnumeration: false,
+    }
+}
+
 export function toOrganization(row: OrganizationRow) {
     const settings = organizationSettingsFromRow(row)
     return {
