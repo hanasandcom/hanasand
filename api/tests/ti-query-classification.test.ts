@@ -8,6 +8,28 @@ test('classifies public TI searches before selecting an enrichment path', () => 
     expect(classifyTiQuery('203.0.113.10')).toBe('indicator')
 })
 
+test('falls back to local classification for an unknown scraper query kind', async () => {
+    const previousScraperBase = process.env.TI_SCRAPER_API_BASE
+    const originalFetch = globalThis.fetch
+    const query = 'unknown-query-kind-404'
+    process.env.TI_SCRAPER_API_BASE = 'http://scraper.test'
+    globalThis.fetch = async () => Response.json({
+        query,
+        queryKind: 'unexpected-kind',
+        sources: [],
+        recentActivity: [],
+    })
+
+    try {
+        const result = await searchThreatIntel({ query })
+        expect(result.queryKind).toBe('free_text')
+    } finally {
+        globalThis.fetch = originalFetch
+        if (previousScraperBase === undefined) delete process.env.TI_SCRAPER_API_BASE
+        else process.env.TI_SCRAPER_API_BASE = previousScraperBase
+    }
+})
+
 test('uses one query classification for canonical scraper entity types', async () => {
     const previousScraperBase = process.env.TI_SCRAPER_API_BASE
     const originalFetch = globalThis.fetch

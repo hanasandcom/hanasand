@@ -98,9 +98,12 @@ export interface TiActionabilityContract {
     [key: string]: unknown
 }
 
+const tiQueryKinds = ['actor', 'domain', 'cve', 'indicator', 'organization', 'free_text'] as const
+type TiQueryKind = typeof tiQueryKinds[number]
+
 export interface TiSearchResponse {
     query: string
-    queryKind?: 'actor' | 'domain' | 'cve' | 'indicator' | 'organization' | 'free_text'
+    queryKind?: TiQueryKind
     generatedAt: string
     mode: 'scraper' | 'seeded' | 'live_search' | 'unavailable'
     cacheStatus?: 'hit' | 'miss'
@@ -145,7 +148,7 @@ export async function searchThreatIntel(input: TiSearchRequest): Promise<TiSearc
             preflightHealth: input.preflightHealth,
         })
         if (scraperResult) {
-            const result = { ...scraperResult, queryKind: scraperResult.queryKind ?? queryKind, mode: 'scraper' as const, cacheStatus: 'miss' as const }
+            const result = { ...scraperResult, queryKind: isTiQueryKind(scraperResult.queryKind) ? scraperResult.queryKind : queryKind, mode: 'scraper' as const, cacheStatus: 'miss' as const }
             if (!(input.preferCached && queryKind === 'actor')) writeCache(key, result)
             return result
         }
@@ -154,7 +157,7 @@ export async function searchThreatIntel(input: TiSearchRequest): Promise<TiSearc
     return unavailableResult(query, queryKind)
 }
 
-export function classifyTiQuery(query: string): NonNullable<TiSearchResponse['queryKind']> {
+export function classifyTiQuery(query: string): TiQueryKind {
     const clean = query.trim()
     if (/^cve-\d{4}-\d{4,}$/i.test(clean)) return 'cve'
     if (/^(?:[a-z0-9-]+\.)+[a-z]{2,}$/i.test(clean)) return 'domain'
@@ -164,10 +167,14 @@ export function classifyTiQuery(query: string): NonNullable<TiSearchResponse['qu
     return 'free_text'
 }
 
+function isTiQueryKind(value: unknown): value is TiQueryKind {
+    return typeof value === 'string' && tiQueryKinds.includes(value as TiQueryKind)
+}
+
 async function fetchCanonicalScraperSearch(
     scraperBase: string,
     query: string,
-    queryKind: NonNullable<TiSearchResponse['queryKind']>,
+    queryKind: TiQueryKind,
     options: { cachedOnly?: boolean, preflightHealth?: boolean } = {},
 ): Promise<TiSearchResponse | null> {
     try {
@@ -193,7 +200,7 @@ async function fetchCanonicalScraperSearch(
     }
 }
 
-function unavailableResult(query: string, queryKind: NonNullable<TiSearchResponse['queryKind']>): TiSearchResponse {
+function unavailableResult(query: string, queryKind: TiQueryKind): TiSearchResponse {
     const domainCandidate = queryKind === 'domain' ? [{
         kind: 'domain' as const,
         value: query.toLowerCase(),
@@ -221,7 +228,7 @@ function unavailableResult(query: string, queryKind: NonNullable<TiSearchRespons
     }
 }
 
-function scraperEntityType(queryKind: NonNullable<TiSearchResponse['queryKind']>) {
+function scraperEntityType(queryKind: TiQueryKind) {
     switch (queryKind) {
         case 'actor':
         case 'domain':
