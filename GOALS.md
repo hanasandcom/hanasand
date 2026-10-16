@@ -336,3 +336,20 @@ lint, cap check, and production build pass. The cap scan now covers 2,336
 frontend files / 156,019 lines with zero over 200. Relative to the previous
 checkpoint, the frontend inventory grows by 19 lines; aggregate LOC reduction
 remains a priority alongside the hard cap.
+
+At API checkpoint `8973f4849`, independently reviewed access-recovery, audit
+detail, webhook preview, notification-input, and dispatch-planning
+responsibilities are in focused modules below 200 lines. The admin-support
+parent fell from 6,096 to 5,463 lines, while its module family grew from
+13,959 to 13,983 (+24). The webhook parent fell from 9,719 to 9,151 lines;
+its module family grew from 12,167 to 12,230 (+63), including five extracted
+modules and a small utility seam. Moved function bodies were checked against
+the prior implementation, and focused route, access-recovery, webhook,
+typecheck, scoped ESLint, and diff checks pass. These are responsibility
+boundaries with small aggregate overhead, not meaningful net code reduction;
+both parent files still exceed the hard cap by thousands of lines. The
+repository scanner now finds 3,695 files / 322,934 lines and 125 files over
+200, all outside the frontend. Frontend remains at 2,336 files / 156,019 lines
+with zero over-limit files. The 100,000-line API shrink and 10,000–30,000-line
+frontend goals remain unmet; keep measuring family totals and focus on
+verified duplicate removal.
