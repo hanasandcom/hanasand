@@ -193,8 +193,10 @@ test('browser and design jobs retain their distinct fetch steps, headers, and pr
 
     expect(browser).toMatchObject({ status: 'completed', current_step: 'Browser proof completed' })
     expect(browser.artifacts[0]).toMatchObject({ type: 'browser_result', data: { status: 200, title: 'Studio' } })
+    expect(browser.artifacts[0]).toMatchObject({ id: expect.stringMatching(/^[0-9a-f-]{36}$/i), name: 'Browser evidence', createdAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/) })
     expect(design).toMatchObject({ status: 'completed', current_step: 'Design QA passed' })
     expect(design.artifacts[0]).toMatchObject({ type: 'design_quality_report', data: { status: 'passed', title: 'Studio' } })
+    expect(design.artifacts[0]).toMatchObject({ id: expect.stringMatching(/^[0-9a-f-]{36}$/i), name: 'Design quality report', createdAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/) })
     expect(fetchCalls.map(call => [call.url, call.userAgent])).toEqual([
         ['https://example.test/proof', 'HanasandAI-VerificationJob/1.0'],
         ['https://example.test/proof', 'HanasandAI-DesignQualityJob/1.0'],

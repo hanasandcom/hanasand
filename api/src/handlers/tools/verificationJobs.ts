@@ -384,29 +384,23 @@ async function runBrowserJob(job: VerificationJobRow) {
         : []
     const journeyProof = await captureRenderedJourneyProof(url, job.id)
     const pageContent = extractBrowserPageContent(text)
-    const artifact = {
-        id: crypto.randomUUID(),
-        type: 'browser_result',
-        name: 'Browser evidence',
-        createdAt: new Date().toISOString(),
-        data: {
-            ok: response.ok,
-            status: response.status,
-            statusText: response.statusText,
-            elapsed_ms: Math.round(performance.now() - startedAtMs),
-            url: response.url || url,
-            ...pageContent,
-            screenshotPath: screenshots[0]?.path || null,
-            screenshots,
-            journeyProof,
-            consoleMessages: [
-                'Fetched browser target and captured durable rendered viewport evidence.',
-                screenshots.length ? `${screenshots.length} rendered screenshot artifact${screenshots.length === 1 ? '' : 's'} captured.` : 'Rendered screenshot capture was not requested or did not complete.',
-                journeyProof ? 'Rendered non-destructive journey script completed.' : 'Rendered journey script did not complete.',
-            ],
-            pageErrors: response.ok ? [] : [`HTTP ${response.status} ${response.statusText}`],
-        },
-    }
+    const artifact = createArtifact('browser_result', 'Browser evidence', {
+        ok: response.ok,
+        status: response.status,
+        statusText: response.statusText,
+        elapsed_ms: Math.round(performance.now() - startedAtMs),
+        url: response.url || url,
+        ...pageContent,
+        screenshotPath: screenshots[0]?.path || null,
+        screenshots,
+        journeyProof,
+        consoleMessages: [
+            'Fetched browser target and captured durable rendered viewport evidence.',
+            screenshots.length ? `${screenshots.length} rendered screenshot artifact${screenshots.length === 1 ? '' : 's'} captured.` : 'Rendered screenshot capture was not requested or did not complete.',
+            journeyProof ? 'Rendered non-destructive journey script completed.' : 'Rendered journey script did not complete.',
+        ],
+        pageErrors: response.ok ? [] : [`HTTP ${response.status} ${response.statusText}`],
+    })
     await completeProofJob(job, {
         status: response.ok ? 'completed' : 'failed',
         currentStep: response.ok ? 'Browser proof completed' : 'Browser proof failed',
@@ -439,34 +433,28 @@ async function runDesignJob(job: VerificationJobRow) {
     const journeyProof = await captureRenderedJourneyProof(url, job.id)
     const hasRenderedProof = screenshots.length > 0
     const passed = response.ok && review.score >= 72 && review.criticalIssues.length === 0
-    const artifact = {
-        id: crypto.randomUUID(),
-        type: 'design_quality_report',
-        name: 'Design quality report',
-        createdAt: new Date().toISOString(),
-        data: {
-            ok: response.ok,
-            passed,
-            score: review.score,
-            status: passed ? 'passed' : 'failed',
-            elapsed_ms: Math.round(performance.now() - startedAtMs),
-            url: response.url || url,
-            title: pageContent.title,
-            checks: review.checks,
-            issues: review.issues,
-            criticalIssues: review.criticalIssues,
-            repeatedPatternCount: review.repeatedPatternCount,
-            genericPhraseCount: review.genericPhraseCount,
-            screenshotPath: screenshots[0]?.path || null,
-            screenshots,
-            journeyProof,
-            notVerified: [
-                hasRenderedProof ? null : 'Rendered screenshot capture did not complete.',
-                'Automated screenshot diffing still needs a before/after baseline to compare against.',
-                journeyProof ? null : 'Rendered journey script did not complete.',
-            ].filter(Boolean),
-        },
-    }
+    const artifact = createArtifact('design_quality_report', 'Design quality report', {
+        ok: response.ok,
+        passed,
+        score: review.score,
+        status: passed ? 'passed' : 'failed',
+        elapsed_ms: Math.round(performance.now() - startedAtMs),
+        url: response.url || url,
+        title: pageContent.title,
+        checks: review.checks,
+        issues: review.issues,
+        criticalIssues: review.criticalIssues,
+        repeatedPatternCount: review.repeatedPatternCount,
+        genericPhraseCount: review.genericPhraseCount,
+        screenshotPath: screenshots[0]?.path || null,
+        screenshots,
+        journeyProof,
+        notVerified: [
+            hasRenderedProof ? null : 'Rendered screenshot capture did not complete.',
+            'Automated screenshot diffing still needs a before/after baseline to compare against.',
+            journeyProof ? null : 'Rendered journey script did not complete.',
+        ].filter(Boolean),
+    })
     await completeProofJob(job, {
         status: passed ? 'completed' : 'failed',
         currentStep: passed ? 'Design QA passed' : 'Design QA failed',
@@ -787,17 +775,11 @@ function sleep(ms: number) {
 }
 
 async function completeNonBrowserJob(job: VerificationJobRow) {
-    const artifact = {
-        id: crypto.randomUUID(),
-        type: `${job.kind}_receipt`,
-        name: `${job.kind} verification receipt`,
-        createdAt: new Date().toISOString(),
-        data: {
-            message: `${job.kind} verification job recorded. Attach a runner to stream build logs, Docker output, deploy URLs, and health checks.`,
-            deployUrl: job.deploy_url,
-            requestId: job.request_id,
-        },
-    }
+    const artifact = createArtifact(`${job.kind}_receipt`, `${job.kind} verification receipt`, {
+        message: `${job.kind} verification job recorded. Attach a runner to stream build logs, Docker output, deploy URLs, and health checks.`,
+        deployUrl: job.deploy_url,
+        requestId: job.request_id,
+    })
     const completed = await run(`
         UPDATE ai_verification_jobs
         SET status = 'completed',
@@ -834,6 +816,10 @@ async function completeNonBrowserJob(job: VerificationJobRow) {
 
 async function updateStep(id: string, step: string) {
     await run('UPDATE ai_verification_jobs SET current_step = $2, updated_at = NOW() WHERE id = $1 AND status = \'running\'', [id, step])
+}
+
+function createArtifact<T extends Record<string, unknown>>(type: string, name: string, data: T) {
+    return { id: crypto.randomUUID(), type, name, createdAt: new Date().toISOString(), data }
 }
 
 async function updateQueuePositions() {
