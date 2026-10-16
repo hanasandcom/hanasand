@@ -2,12 +2,13 @@ import DashboardArticle from '@/components/articles/dashboardArticle'
 import DashboardMetricCard from '@/components/dashboard/dashboardMetricCard'
 import { DashboardHeader, DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
 import fetchWorkspaceContent from '@/utils/organizations/fetchWorkspaceContent'
+import dateSortValue from '@/utils/date/dateSortValue'
 import { Clock3, FileText, Plus, Radio, Timer } from 'lucide-react'
 import Link from 'next/link'
 
 export default async function Page() {
     const articles = await fetchWorkspaceContent<Article>('articles')
-    const latest = [...articles].sort((a, b) => dateMs(b.modified || b.created) - dateMs(a.modified || a.created))[0]
+    const latest = [...articles].sort((a, b) => dateSortValue(b.modified || b.created) - dateSortValue(a.modified || a.created))[0]
     const totalWords = articles.reduce((sum, article) => sum + (article.metadata?.wordCount || countWords(article.content)), 0)
     const totalMinutes = articles.reduce((sum, article) => sum + (article.metadata?.estimatedMinutes || 0), 0)
 
@@ -70,11 +71,6 @@ export default async function Page() {
 
 function countWords(value: string) {
     return value.trim() ? value.trim().split(/\s+/).length : 0
-}
-
-function dateMs(value: string) {
-    const date = new Date(value)
-    return Number.isNaN(date.getTime()) ? 0 : date.getTime()
 }
 
 function shortDate(value: string) {

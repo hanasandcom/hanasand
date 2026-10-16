@@ -2,6 +2,8 @@ import DashboardThought from '@/components/thoughts/dashboardThought'
 import DashboardMetricCard from '@/components/dashboard/dashboardMetricCard'
 import { DashboardHeader, DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
 import fetchWorkspaceContent from '@/utils/organizations/fetchWorkspaceContent'
+import dateSortValue from '@/utils/date/dateSortValue'
+import formatCompactDateTime from '@/utils/date/formatCompactDateTime'
 import { BrainCircuit, Clock3, Plus, Radio, UserRound } from 'lucide-react'
 import Link from 'next/link'
 
@@ -9,7 +11,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function Page() {
     const thoughts = await fetchWorkspaceContent<Thought>('thoughts')
-    const latest = [...thoughts].sort((a, b) => dateMs(b.updated_at || b.created_at) - dateMs(a.updated_at || a.created_at))[0]
+    const latest = [...thoughts].sort((a, b) => dateSortValue(b.updated_at || b.created_at) - dateSortValue(a.updated_at || a.created_at))[0]
     const authors = new Set(thoughts.map((thought) => thought.created_by).filter(Boolean))
 
     return (
@@ -43,7 +45,7 @@ export default async function Page() {
 
             {thoughts.length ? <section className='grid gap-3 md:grid-cols-2 xl:grid-cols-4'>
                 <DashboardMetricCard icon={<BrainCircuit className='h-4 w-4' />} label='Thoughts' value={String(thoughts.length)} detail='philosophical questions' tone={thoughts.length ? 'ok' : 'watch'} />
-                <DashboardMetricCard icon={<Clock3 className='h-4 w-4' />} label='Latest movement' value={latest ? shortDate(latest.updated_at || latest.created_at) : 'Open'} detail={latest?.title || 'Create the first thought'} tone={latest ? 'ok' : 'neutral'} />
+                <DashboardMetricCard icon={<Clock3 className='h-4 w-4' />} label='Latest movement' value={latest ? formatCompactDateTime(latest.updated_at || latest.created_at) : 'Open'} detail={latest?.title || 'Create the first thought'} tone={latest ? 'ok' : 'neutral'} />
                 <DashboardMetricCard icon={<UserRound className='h-4 w-4' />} label='Authors' value={String(authors.size)} detail='thought contributors' tone={authors.size ? 'ok' : 'neutral'} />
                 <DashboardMetricCard icon={<Radio className='h-4 w-4' />} label='Publishing' value={thoughts.length ? 'Live' : 'Ready'} detail='thoughts for the public site' tone={thoughts.length ? 'ok' : 'watch'} />
             </section> : null}
@@ -68,15 +70,4 @@ export default async function Page() {
             </DashboardPanel> : null}
         </DashboardPage>
     )
-}
-
-function dateMs(value: string) {
-    const date = new Date(value)
-    return Number.isNaN(date.getTime()) ? 0 : date.getTime()
-}
-
-function shortDate(value: string) {
-    const date = new Date(value)
-    if (Number.isNaN(date.getTime())) return 'Synced'
-    return date.toLocaleString('en', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 }

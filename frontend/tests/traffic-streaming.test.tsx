@@ -7,9 +7,11 @@ import { renderToReadableStream } from 'react-dom/server'
 let finish: (value: unknown) => void = () => {}
 const pending = new Promise(resolve => { finish = resolve })
 mock.module('@/utils/monitoring/data', () => ({
-    getTrafficDomains: async () => ({ domains: [] }),
-    getTrafficMetrics: () => pending,
-    getTrafficRecords: async () => ({ result: [], total: 0 }),
+    getTrafficDashboardData: async () => ({
+        domains: { domains: [] },
+        metrics: await pending,
+        records: { result: [], total: 0 },
+    }),
 }))
 mock.module('@/components/monitoring/traffic/trafficOverview', () => ({ default: () => createElement('span', null, 'Graphs loaded') }))
 const { default: Page } = await import('../src/app/dashboard/traffic/page')

@@ -2,6 +2,7 @@
 import { expect, mock, test } from 'bun:test'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { countLines } from '../src/utils/share/countLines'
+import formatCompactDateTime from '../src/utils/date/formatCompactDateTime'
 
 let shares: Share[] | string = []
 mock.module('next/headers', () => ({ cookies: async () => ({ get: () => ({ value: 'test-session' }) }) }))
@@ -13,6 +14,16 @@ test('counts physical lines including blank lines and all common line endings', 
     for (const [content, expected] of [['', 0], ['one two three', 1], ['one\n', 1], ['one\ntwo', 2], ['one\r\ntwo\r\n', 2], ['one\rtwo\r', 2], ['\n', 1], ['one\n\ntwo\n', 3], ['  ', 1]] as const) {
         expect(countLines(content)).toBe(expected)
     }
+})
+
+test('compact date output keeps its English date fields and invalid-date fallback', () => {
+    const value = '2026-09-19T10:00:00Z'
+    const date = new Date(value)
+    const expected = new Intl.DateTimeFormat('en', {
+        month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+    }).format(date)
+    expect(formatCompactDateTime(value)).toBe(expected)
+    expect(formatCompactDateTime('invalid')).toBe('Synced')
 })
 
 test('empty shares hide statistics and retain the create action', async () => {

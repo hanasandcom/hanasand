@@ -2,6 +2,17 @@ import assert from 'node:assert/strict'
 // @ts-expect-error Bun supplies this module for focused checks.
 import { mock } from 'bun:test'
 import { renderToStaticMarkup } from 'react-dom/server'
+import dateSortValue from '../src/utils/date/dateSortValue'
+
+assert.equal(dateSortValue('2025-10-12T12:38:00Z'), Date.parse('2025-10-12T12:38:00Z'))
+assert.equal(dateSortValue('not a date'), 0)
+const ordered = [
+    { id: 'invalid', date: 'not a date' },
+    { id: 'first-tie', date: '2025-10-12T12:38:00Z' },
+    { id: 'latest', date: '2026-10-12T12:38:00Z' },
+    { id: 'second-tie', date: '2025-10-12T12:38:00Z' },
+].sort((a, b) => dateSortValue(b.date) - dateSortValue(a.date))
+assert.deepEqual(ordered.map(item => item.id), ['latest', 'first-tie', 'second-tie', 'invalid'])
 
 let articles: unknown[] = []
 let thoughts: unknown[] = []

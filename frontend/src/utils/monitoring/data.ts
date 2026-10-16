@@ -69,3 +69,32 @@ export async function getTrafficRecords(domain?: string, limit = 12, page = 1) {
         signal: AbortSignal.timeout(60000),
     })
 }
+
+export async function getTrafficDashboardData(domain?: string) {
+    const [domains, metrics, records] = await Promise.all([
+        getTrafficDomains(),
+        getTrafficMetrics(domain),
+        getTrafficRecords(domain, 200, 1),
+    ])
+
+    if (!isTrafficDomains(domains) || !isTrafficMetrics(metrics) || !isTrafficRecords(records)) return null
+    return { domains, metrics, records }
+}
+
+function isTrafficDomains(value: unknown): value is TrafficDomains {
+    return Boolean(value && typeof value === 'object' && Array.isArray((value as TrafficDomains).domains))
+}
+
+function isTrafficMetrics(value: unknown): value is TrafficMetrics {
+    return Boolean(
+        value
+        && typeof value === 'object'
+        && Array.isArray((value as TrafficMetrics).top_domains)
+        && Array.isArray((value as TrafficMetrics).top_methods)
+        && Array.isArray((value as TrafficMetrics).top_status_codes)
+    )
+}
+
+function isTrafficRecords(value: unknown): value is TrafficRecords {
+    return Boolean(value && typeof value === 'object' && Array.isArray((value as TrafficRecords).result))
+}

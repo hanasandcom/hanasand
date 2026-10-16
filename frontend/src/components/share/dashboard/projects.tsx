@@ -10,6 +10,8 @@ import { DashboardPanel } from '@/components/dashboard/ui'
 import DashboardMetricCard from '@/components/dashboard/dashboardMetricCard'
 import ErrorNotice from '@/components/error/errorNotice'
 import { activeOrganizationId } from '@/utils/organizations/serverWorkspace'
+import dateSortValue from '@/utils/date/dateSortValue'
+import formatCompactDateTime from '@/utils/date/formatCompactDateTime'
 
 export default async function Shares() {
     const Cookies = await cookies()
@@ -21,7 +23,7 @@ export default async function Shares() {
 
     const shares = await getUserShares({ id, token, organizationId: await activeOrganizationId() })
     const shareRows = typeof shares === 'string' ? [] : shares as Share[]
-    const latestShare = [...shareRows].sort((a, b) => dateMs(b.timestamp) - dateMs(a.timestamp))[0]
+    const latestShare = [...shareRows].sort((a, b) => dateSortValue(b.timestamp) - dateSortValue(a.timestamp))[0]
     const lockedCount = shareRows.filter(share => share.locked).length
     const totalLines = shareRows.reduce((sum, share) => sum + countLines(share.content), 0)
 
@@ -71,20 +73,9 @@ export default async function Shares() {
                     <DashboardMetricCard icon={<FileCode2 className='h-4 w-4' />} label='Shares' value={String(shareRows.length)} detail='total shares' tone='ok' />
                     <DashboardMetricCard icon={<LockKeyhole className='h-4 w-4' />} label='Locked' value={String(lockedCount)} detail={`${Math.max(shareRows.length - lockedCount, 0)} unlocked`} tone={lockedCount ? 'watch' : 'ok'} />
                     <DashboardMetricCard icon={<Text className='h-4 w-4' />} label='Lines' value={totalLines.toLocaleString('en-US')} detail='total lines shared' tone='neutral' />
-                    <DashboardMetricCard icon={<Clock3 className='h-4 w-4' />} label='Latest share' value={latestShare ? shortDate(latestShare.timestamp) : 'None'} detail={latestShare?.alias || latestShare?.path || 'No shares yet'} tone={latestShare ? 'ok' : 'neutral'} />
+                    <DashboardMetricCard icon={<Clock3 className='h-4 w-4' />} label='Latest share' value={latestShare ? formatCompactDateTime(latestShare.timestamp) : 'None'} detail={latestShare?.alias || latestShare?.path || 'No shares yet'} tone={latestShare ? 'ok' : 'neutral'} />
                 </ShareAnalyticsPanel>}
             </ShareAnalyticsProvider>
         </div>
     )
-}
-
-function dateMs(value: string) {
-    const date = new Date(value)
-    return Number.isNaN(date.getTime()) ? 0 : date.getTime()
-}
-
-function shortDate(value: string) {
-    const date = new Date(value)
-    if (Number.isNaN(date.getTime())) return 'Synced'
-    return date.toLocaleString('en', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
