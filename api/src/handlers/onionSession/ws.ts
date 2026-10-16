@@ -595,6 +595,7 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
     async function startBrowser(message: BrokerMessage) {
         await cleanup()
         if (sessionEnding) return
+        // cleanup above resets browser-owned state; initialize only new-run telemetry here.
         assertProductionBrowserWorker()
         closed = false
         const generation = runGeneration
@@ -603,9 +604,6 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
         sitePeer = undefined
         networkTotals = { requestCount: 0, responseCount: 0, failedCount: 0 }
         contactedDomains.clear()
-        cachedDeobfuscationTasks = []
-        cachedThreatAssociations = []
-        cachedIndicators = null
         documentEvidencePromises = []
         downloads.length = 0
         fileLookups.clear()
@@ -618,11 +616,6 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
         cachedFrameQuality = null
         cachedPageEvidence = null
         openingBackgroundTabs = 0
-        toolPages.clear()
-        activeRemoteTabId = 'browser'
-        suspiciousExtensionApplied = false
-        freeExtensionUsed = false
-        paidExtensionUsed = false
         const target = normalizeTarget(message.target || DEFAULT_TARGET)
         const network = message.network === 'regular' || message.network === 'tor' ? message.network : defaultNetwork
         const proxy = network === 'tor' ? process.env.ONION_SESSION_PROXY || process.env.TOR_SOCKS_PROXY || '' : ''
