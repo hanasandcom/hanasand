@@ -21,6 +21,7 @@ export const productTasks: TestTask[] = [
     { id: 'share-editor-empty-state', title: 'Share editor starter choices and empty-state layout', command: [bun, 'test', 'tests/share-editor-empty-state.test.tsx'] },
     { id: 'repository-share-pruning', title: 'Repository sync removes stale shares in safe order', command: [bun, 'test', 'tests/sync-repository-prune.test.ts'] },
     { id: 'ai-tool-completion-text', title: 'AI tool completion messages stay consistent across browser flows', command: [bun, 'test', 'tests/ai-project-tools/toolCompletionText.test.ts'] },
+    { id: 'ai-conversation-title', title: 'Shared AI conversation title normalization', command: [bun, 'test', 'tests/ai-conversation-title.test.ts'] },
     { id: 'test-content-render', title: 'Test result metrics and evidence rendering', command: [bun, 'test', 'tests/test-content-render.test.tsx'] },
     { id: 'ti-business-model-evidence', title: 'Public TI business-model evidence presentation safety', command: [bun, 'test', 'tests/ti-business-model-evidence.test.tsx'] },
     { id: 'blocklist-render', title: 'Blocklist edit actions require persisted entry identifiers', command: [bun, 'test', 'tests/blocklist-render.test.tsx'] },

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { ChevronDown, FolderKanban, LoaderCircle, PanelRightOpen, Sparkles } from 'lucide-react'
+import conversationTitle from '@/utils/ai/conversationTitle'
 
 type ChatHeaderProps = {
     conversation: AIConversation | null
@@ -54,9 +55,4 @@ export function ChatHeader({ conversation, clients, isConnected, isThinking, has
 
 function modelLabel(client: GPT_Client) {
     return client.displayName || client.modelId || client.profile || client.name
-}
-
-function conversationTitle(title?: string | null) {
-    const normalized = title?.trim()
-    return !normalized || normalized === 'New chat' || normalized === 'New workspace review' || normalized === 'Workspace review' ? 'Review assistant' : normalized
 }

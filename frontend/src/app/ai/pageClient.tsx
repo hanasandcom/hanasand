@@ -8,6 +8,7 @@ import ChatPane from '@/components/ai/chatPane'
 import ChatSidebar from '@/components/ai/chatSidebar'
 import WorkspacePane from '@/components/ai/workspacePane'
 import useAiWorkbench from '@/components/ai/useAiWorkbench'
+import conversationTitle from '@/utils/ai/conversationTitle'
 import { AIPageNotices } from './AIPageNotices'
 
 type AIPageMode = 'landing' | 'workspace' | 'compact'
@@ -174,9 +175,4 @@ export default function AIPageClient({
             </div>
         </div>
     )
-}
-
-function conversationTitle(title?: string | null) {
-    const normalized = title?.trim()
-    return !normalized || normalized === 'New chat' || normalized === 'New workspace review' || normalized === 'Workspace review' ? 'Review assistant' : normalized
 }

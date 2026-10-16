@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Archive, ArchiveRestore, Pencil, Trash2 } from 'lucide-react'
 import { AppPromptDialog } from '@/components/ui/appDialog'
+import conversationTitle from '@/utils/ai/conversationTitle'
 
 export function ConversationList({
     conversations,
@@ -75,11 +76,6 @@ export function ConversationList({
             </div>
         </>
     )
-}
-
-function conversationTitle(title?: string | null) {
-    const normalized = title?.trim()
-    return !normalized || normalized === 'New chat' || normalized === 'New workspace review' || normalized === 'Workspace review' ? 'Review assistant' : normalized
 }
 
 function MiniButton({ label, icon, danger = false, onClick }: {
