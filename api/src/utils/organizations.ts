@@ -3037,6 +3037,55 @@ const organizationSharedWatchlistAuditEventActions: readonly OrganizationSharedW
     'organization_lifecycle_mutation_blocked',
 ]
 
+const organizationCaseWorkflowRequiredFields = [
+    'organizationId',
+    'tenantId',
+    'alertId',
+    'casePath',
+    'watchlistItemIds',
+    'allowedActions',
+    'visibilityDecision',
+    'evidence.provenance',
+] as const
+
+const organizationCaseWorkflowTimelineEvents = [
+    'case.opened',
+    'case.linked_alert',
+    'case.assigned',
+    'case.status_changed',
+    'case.note_added',
+] as const
+
+const organizationCaseWorkflowEvidenceFields = [
+    'alertId',
+    'watchlistItemIds',
+    'alertGeneratorKeys',
+    'matchedTerms',
+    'source',
+    'capturedAt',
+    'casePath',
+] as const
+
+const organizationWebhookDeliveryEvidenceFields = [
+    'deliveryId',
+    'destinationId',
+    'attemptedAt',
+    'status',
+    'casePath',
+    'watchlistItemIds',
+    'auditEventContracts',
+] as const
+
+const organizationPersistedAlertFields = [
+    'organizationId',
+    'tenantId',
+    'watchlistItemIds',
+    'workflowContext.organizationId',
+    'workflowContext.alertGeneratorKeys',
+    'workflowContext.visibilityDecision',
+    'casePath',
+] as const
+
 export function organizationSharedWatchlistDownstreamProof(
     organization: Pick<OrganizationRow, 'id' | 'status' | 'pending_invite_count' | 'default_webhook_policy' | 'alert_visibility_policy' | 'role'>,
     items: OrganizationWatchlistRow[],
@@ -3346,32 +3395,9 @@ function organizationSharedWatchlistDownstreamProofFromProjection(
                     allowedActions: downstreamAuthorization.allowedActions,
                     denialReason: caseWorkflowDenialReason,
                 },
-                requiredCaseFields: [
-                    'organizationId',
-                    'tenantId',
-                    'alertId',
-                    'casePath',
-                    'watchlistItemIds',
-                    'allowedActions',
-                    'visibilityDecision',
-                    'evidence.provenance',
-                ],
-                timelineEventTypes: [
-                    'case.opened',
-                    'case.linked_alert',
-                    'case.assigned',
-                    'case.status_changed',
-                    'case.note_added',
-                ],
-                evidenceFields: [
-                    'alertId',
-                    'watchlistItemIds',
-                    'alertGeneratorKeys',
-                    'matchedTerms',
-                    'source',
-                    'capturedAt',
-                    'casePath',
-                ],
+                requiredCaseFields: [...organizationCaseWorkflowRequiredFields],
+                timelineEventTypes: [...organizationCaseWorkflowTimelineEvents],
+                evidenceFields: [...organizationCaseWorkflowEvidenceFields],
                 redactedFields: [
                     'activeTerms[].term',
                     'activeTerms[].value',
@@ -3442,15 +3468,7 @@ function organizationSharedWatchlistDownstreamProofFromProjection(
                     'status',
                     'idempotencyKey',
                 ],
-                evidenceFields: [
-                    'deliveryId',
-                    'destinationId',
-                    'attemptedAt',
-                    'status',
-                    'casePath',
-                    'watchlistItemIds',
-                    'auditEventContracts',
-                ],
+                evidenceFields: [...organizationWebhookDeliveryEvidenceFields],
                 redactedFields: [
                     'destination.endpoint',
                     'destination.secret',
@@ -4206,13 +4224,7 @@ function organizationSharedWatchlistWebhookDeliveryGuardrails(
         'alert.dedupeKey',
     ]
     const requiredEvidenceFields: OrganizationSharedWatchlistIntegrationGuardrails['webhookSafety']['requiredEvidenceFields'] = [
-        'deliveryId',
-        'destinationId',
-        'attemptedAt',
-        'status',
-        'casePath',
-        'watchlistItemIds',
-        'auditEventContracts',
+        ...organizationWebhookDeliveryEvidenceFields,
     ]
     const requiredRedactedFields: OrganizationSharedWatchlistIntegrationGuardrails['webhookSafety']['requiredRedactedFields'] = [
         'destination.endpoint',
@@ -4254,30 +4266,13 @@ function organizationSharedWatchlistCaseWorkflowGuardrails(
 ): OrganizationSharedWatchlistIntegrationGuardrails['caseSafety'] {
     const workflow = proof.caseBridge.caseWorkflowContract
     const requiredCaseFields: OrganizationSharedWatchlistIntegrationGuardrails['caseSafety']['requiredCaseFields'] = [
-        'organizationId',
-        'tenantId',
-        'alertId',
-        'casePath',
-        'watchlistItemIds',
-        'allowedActions',
-        'visibilityDecision',
-        'evidence.provenance',
+        ...organizationCaseWorkflowRequiredFields,
     ]
     const requiredTimelineEvents: OrganizationSharedWatchlistIntegrationGuardrails['caseSafety']['requiredTimelineEvents'] = [
-        'case.opened',
-        'case.linked_alert',
-        'case.assigned',
-        'case.status_changed',
-        'case.note_added',
+        ...organizationCaseWorkflowTimelineEvents,
     ]
     const requiredEvidenceFields: OrganizationSharedWatchlistIntegrationGuardrails['caseSafety']['requiredEvidenceFields'] = [
-        'alertId',
-        'watchlistItemIds',
-        'alertGeneratorKeys',
-        'matchedTerms',
-        'source',
-        'capturedAt',
-        'casePath',
+        ...organizationCaseWorkflowEvidenceFields,
     ]
     const requiredRedactedFields: OrganizationSharedWatchlistIntegrationGuardrails['caseSafety']['requiredRedactedFields'] = [
         'activeTerms[].term',
@@ -5555,15 +5550,7 @@ function buildOrganizationReadinessProof(input: {
                 'normalizedTerm',
                 'alertGenerationRef',
             ],
-            expectedPersistedAlertFields: [
-                'organizationId',
-                'tenantId',
-                'watchlistItemIds',
-                'workflowContext.organizationId',
-                'workflowContext.alertGeneratorKeys',
-                'workflowContext.visibilityDecision',
-                'casePath',
-            ],
+            expectedPersistedAlertFields: [...organizationPersistedAlertFields],
             expectedCaseFields: [
                 'organizationId',
                 'tenantId',
@@ -6334,15 +6321,7 @@ export function buildOrganizationDwmAlertReference(
         casePath,
         visibilityPolicy: bridgeContext.alertVisibilityPolicy,
         allowedViewerRoles: bridgeContext.allowedViewerRoles,
-        requiredPersistedFields: [
-            'organizationId',
-            'tenantId',
-            'watchlistItemIds',
-            'workflowContext.organizationId',
-            'workflowContext.alertGeneratorKeys',
-            'workflowContext.visibilityDecision',
-            'casePath',
-        ],
+        requiredPersistedFields: [...organizationPersistedAlertFields],
         lifecycleBlockers: [
             'org_archived',
             'org_deleted',
