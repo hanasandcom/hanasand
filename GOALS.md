@@ -150,6 +150,17 @@ tree is provisional and includes concurrent refactors. The scan covers source,
 tests and configs while excluding dependencies, build output and the generated
 search-route artifact.
 
+After the organization disclosure, management-search shortcut, dashboard
+smoke-session, and TI decision-status changes, the 2026-10-16 frontend scan
+found 155,031 lines across 2,273 candidate hand-maintained files, with no file
+over 200 lines. The default frontend suite and production build passed for this
+checkpoint. The 10,000–30,000-line frontend target remains unmet; compared with
+the prior 154,990-line snapshot, this checkpoint is 41 lines larger and has
+six more files. API extraction is underway in the 11k-line admin-support and
+webhook modules, but the API-wide cap and 100,000-line reduction goal remain
+unmet. The working-tree inventory is provisional while those refactors
+continue.
+
 ## Execution
 
 - Divide work by non-overlapping repository areas and use traditional Norwegian
