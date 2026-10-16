@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { actorItems, caseItem, directThreatItem } from '../src/components/header/siteSearch'
+import { actorItems, caseItem, directThreatItem, watchlistItems } from '../src/components/header/siteSearch/searchData'
 
 test('header search does not invent an actor result for unavailable or empty TI responses', () => {
     assert.deepEqual(actorItems({ query: 'APT29', status: 'unavailable', mode: 'unavailable' }), [])
@@ -37,4 +37,11 @@ test('header case results never display a raw organization identifier', () => {
         detail: 'open · Review required.',
         href: '/cases/case-1',
     })
+})
+
+test('header watchlist results normalize both string and object terms', () => {
+    assert.deepEqual(watchlistItems({ watchlists: [{ terms: ['apt29', { value: 'example.com' }] }] }), [
+        { id: 'watch:apt29', title: 'apt29', detail: 'Monitored entity', href: '/watchlists' },
+        { id: 'watch:example.com', title: 'example.com', detail: 'Monitored entity', href: '/watchlists' },
+    ])
 })
