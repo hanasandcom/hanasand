@@ -1,0 +1,143 @@
+import { errors } from './context.mjs'
+import { formatLocation, relative } from './sourceUtils.mjs'
+
+const bannedPublicCopyPatterns = [
+    /\b(?:customer|analyst|product) (?:workflow|surface|lane|proof|readiness)\b/i,
+    /\b(?:evidence-backed|source-backed|customer-ready) (?:work|outputs?|monitoring|security work)\b/i,
+    /\b(?:operational|workflow|readiness|provenance) (?:record|status|context|controls?|visibility)\b/i,
+    /\b(?:case|alert|source) handoff\b/i,
+    /\b(?:actor|selected|source) artifact\b/i,
+    /\b(?:scoped|tenant-scoped) (?:API|data|alerts?|tokens?)\b/i,
+    /\bGlobal API pressure\b/i,
+    /\broute overrides\b/i,
+    /\bscoped tiered tokens\b/i,
+    /\bnow live in the same surface\b/i,
+    /\btuned independently\b/i,
+    /\bwill appear here\b/i,
+    /\bIssue owner-linked keys\b/i,
+    /\bOwner user ID\b/i,
+    /\bindependent second,\s*minute,\s*hour,\s*and day budgets\b/i,
+    /\bper second,\s*minute,\s*hour,\s*and day\b/i,
+    /\bcurrent proof\b/i,
+    /\bcustomer workflow proof\b/i,
+    /\bentitlement readiness\b/i,
+    /\breadiness proof\b/i,
+    /\bproof is not loaded\b/i,
+    /\bwhat is backed by loaded readiness data\b/i,
+    /\binspect readiness\b/i,
+    /\bopen readiness\b/i,
+    /\bscraper posts metadata\b/i,
+    /\bHanasand AI parser output\b/i,
+    /\bAI parser output\b/i,
+    /\bactor-page,\s*public-channel\b/i,
+    /\bcollection cycle\b/i,
+    /\bstatus attaching\b/i,
+    /\bsource attaching\b/i,
+    /\bsource registry is attaching\b/i,
+    /\brequest attaching\b/i,
+    /\bentity attaching\b/i,
+    /\bAttach fresh source\/capture provenance\b/i,
+    /\bSource operations are quiet\b/i,
+    /\bLog stream quiet\b/i,
+    /\bLog stream is quiet\b/i,
+    /\bQuery watcher quiet\b/i,
+    /\bHealthy quiet\b/i,
+    /\bproof jobs\b/i,
+    /\bproof failures\b/i,
+    /\bcollecting proof\b/i,
+    /\bland here\b/i,
+    /\bpins here\b/i,
+    /\bpinned here\b/i,
+    /\bstay pinned here\b/i,
+    /\brecent results are pinned\b/i,
+    /\bpin the first row\b/i,
+    /\battached here\b/i,
+    /\bstay visible here\b/i,
+    /\bpublished a snapshot\b/i,
+    /\bsnapshot poll\b/i,
+    /\bn\/a\b/i,
+    /\bafter the next scan\b/i,
+    /\binternal API checks\b/i,
+    /\bis quiet\b/i,
+    /\bare quiet\b/i,
+    /\battaches after\b/i,
+    /\bBackground jobs loaded\b/i,
+    /\bLoaded alert settings\b/i,
+    /\bNo failures recorded\b/i,
+    /\bnot scheduled\b/i,
+    /\bRoute will not check\b/i,
+    /\bOperational readiness\b/i,
+    /\bProduct readiness\b/i,
+    /\bThreat monitoring readiness\b/i,
+    /\breadiness contract\b/i,
+    /\bProof source\b/i,
+    /\bReadiness groups\b/i,
+    /\bOperational evidence\b/i,
+    /\bProduct readiness ledger\b/i,
+    /\bbackend proof rows\b/i,
+    /\bLedger state\b/i,
+    /\bReadiness source\b/i,
+    /\bProof APIs\b/i,
+    /\bfresh proof\b/i,
+    /\bsnapshot loaded\b/i,
+    /\bNo backed route returned\b/i,
+    /\bUI proof\b/i,
+    /\btraffic snapshot\b/i,
+    /\brequest snapshots\b/i,
+    /\bLive snapshot\b/i,
+    /\bSource snapshot\b/i,
+    /\bproduct snapshot\b/i,
+    /\bin this snapshot\b/i,
+    /\bbackend error\b/i,
+    /\bDocker snapshot\b/i,
+    /\bControl feed loaded\b/i,
+    /\bprofile snapshots\b/i,
+    /\bRestore readiness\b/i,
+    /\brestricted metadata\b/i,
+    /\bdraft loaded\b/i,
+    /\bparser output\b/i,
+    /\bstate unavailable\b/i,
+    /\bRequest metadata\b/i,
+    /\bparser issue\b/i,
+    /\bmetadata-only boundaries\b/i,
+    /\bwaiting on live checks\b/i,
+    /\bpublic TI action contract\b/i,
+    /\bsaved alerts loaded\b/i,
+    /\bAlert rebuild state is loading source coverage\b/i,
+    /\bWorkflow state is loading runtime data\b/i,
+    /\bloaded but not active\b/i,
+    /\bevidence item(?:s)? loaded\b/i,
+    /\bReplay waiting on live checks\b/i,
+    /\bOrganization loaded\b/i,
+    /\bWatchlist loaded\b/i,
+    /\bWebhook destination loaded\b/i,
+    /\bSupport audit trail loaded\b/i,
+    /\bSupport audit loaded\b/i,
+    /\bBacked case workflow loaded\b/i,
+    /\bSource worker status loaded\b/i,
+    /\bSource coverage loaded\b/i,
+    /\bAlerts loaded\b/i,
+    /\bDestination loaded\b/i,
+]
+export function validateBannedPublicCopy(filePath, source, node, value, label) {
+    if (!value || !shouldValidateVisibleCopy(filePath)) return
+    const normalized = value.replace(/\s+/g, ' ').trim()
+    if (!normalized) return
+    // Certificate applicability uses the requested compact label with an explanatory popover.
+    if (relative(filePath) === 'src/app/dashboard/automation/healthCheckSorting.ts' && normalized === 'N/A') return
+
+    for (const pattern of bannedPublicCopyPatterns) {
+        if (pattern.test(normalized)) {
+            errors.push(`${formatLocation(filePath, source, node)}: ${label} contains banned public website copy matching ${pattern}. Use operator/action language instead.`)
+        }
+    }
+}
+
+function shouldValidateVisibleCopy(filePath) {
+    const relativePath = relative(filePath)
+    return (
+        relativePath.startsWith('src/app/')
+        || relativePath.startsWith('src/components/')
+        || relativePath.startsWith('src/utils/')
+    ) && !relativePath.startsWith('src/components/ai/')
+}
