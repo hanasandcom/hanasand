@@ -1,6 +1,6 @@
 import ipaddr from 'ipaddr.js'
 import { matchesRule, type Condition } from './conditions.ts'
-import { isDeepStrictEqual } from 'node:util'
+import { matchesCanonicalJson } from './canonicalJson.ts'
 
 export const accessRuleId = 'http.routine_access.v1'
 export const accountDeleteRuleId = 'http.account_self_delete_burst.v1'
@@ -95,12 +95,9 @@ function standardReplicaAccess(log: AccessLog): boolean {
         || access.key !== `http-api:${row.reqId}` || typeof access.timestamp !== 'string' || Date.parse(access.timestamp) !== row.time
         || (req.remoteAddress !== undefined && (typeof req.remoteAddress !== 'string' || !ipaddr.isValid(req.remoteAddress)))) return false
     if (!validAccessEvidence(access as AccessEvent)) return false
-    try {
-        const original = JSON.parse(log.message)
-        // The logger emits compact JSON. Reject duplicate keys and alternative
-        // encodings that parsing could otherwise erase from the retained evidence.
-        return JSON.stringify(original) === log.message && isDeepStrictEqual(original, row)
-    } catch { return false }
+    // The logger emits compact JSON. Reject duplicate keys and alternative
+    // encodings that parsing could otherwise erase from the retained evidence.
+    return matchesCanonicalJson(log.message, row)
 }
 
 export function accessFromLog(log: AccessLog, definition: { conditions: Condition[] } = accessDefinition): AccessEvent | null {

@@ -1,6 +1,6 @@
-import { isDeepStrictEqual } from 'node:util'
 import ipaddr from 'ipaddr.js'
 import type { CdnRefreshLog } from './analyzeCdnRefresh.ts'
+import { matchesCanonicalJson } from './canonicalJson.ts'
 
 export const cdnDeliveryRuleId = 'cdn.telemetry_deliveries.v1'
 export const cdnDeliveryRule = {
@@ -48,8 +48,5 @@ export function verifyCdnDeliveryEnvelope(log: CdnRefreshLog): boolean {
         || typeof access.timestamp !== 'string' || new Date(Number(row.time)).toISOString() !== access.timestamp
         || !exact(access.inspection, ['version', 'bodyEmpty', 'headersSafe', 'pathSafe']) || access.inspection.version !== 1
         || !['bodyEmpty', 'headersSafe', 'pathSafe'].every(key => typeof (access.inspection as Record<string, unknown>)[key] === 'boolean')) return false
-    try {
-        const original = JSON.parse(log.message)
-        return JSON.stringify(original) === log.message && isDeepStrictEqual(original, row)
-    } catch { return false }
+    return matchesCanonicalJson(log.message, row)
 }

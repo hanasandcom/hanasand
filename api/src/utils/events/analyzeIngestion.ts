@@ -4,6 +4,7 @@ import run, { withTransaction } from '#db'
 import { normalizeLogEvent } from './logEvent.ts'
 import { customRetentionAction } from './customRetention.ts'
 import { matchesAnalysisPolicy } from './analysisPolicy.ts'
+import { matchesCanonicalJson } from './canonicalJson.ts'
 import type { Condition } from './conditions.ts'
 import type { ProxyLog } from './analyzeProxy.ts'
 
@@ -40,11 +41,8 @@ export function ingestionCopy(log: ProxyLog) {
         || !fields(row.access, ['key', 'ip', 'timestamp', 'path', 'method', 'status', 'inspection'])
         || row.access.key !== `http-api:${row.reqId}` || row.access.path !== row.req.url || row.access.method !== row.req.method || !Number.isInteger(row.access.status)
         || typeof row.access.ip !== 'string' || !Number.isFinite(Date.parse(row.access.timestamp))) return null
-    try {
-        const parsed = JSON.parse(log.message)
-        // Reject duplicate JSON keys, truncation and a structured/message mismatch.
-        if (JSON.stringify(parsed) !== log.message || !isDeepStrictEqual(parsed, row)) return null
-    } catch { return null }
+    // Reject duplicate JSON keys, truncation and a structured/message mismatch.
+    if (!matchesCanonicalJson(log.message, row)) return null
     const key = hash(JSON.stringify([log.host, row.hostname, row.pid, row.reqId, log.message]))
     const provenance = { ...meta }
     delete provenance.structured
