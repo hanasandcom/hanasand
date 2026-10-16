@@ -58,6 +58,18 @@ test('existing text-only callers and disabled mentions are unchanged', async () 
     expect(requests[0].body).toEqual({ content: 'Mail recovered', allowed_mentions: { parse: [] } })
 })
 
+test('failed webhook responses redact credentials before exposing the error', async () => {
+    fetchMock.mockImplementation(async () => new Response(
+        'Request failed for https://discord.com/api/webhooks/123/private-token',
+        { status: 500 },
+    ))
+
+    await expect(deliverDiscordWebhookFile(
+        'https://discord.com/api/webhooks/123/test-token',
+        'Health check failed',
+    )).rejects.toThrow('HTTP 500: Request failed for https://discord.com/api/webhooks/123/[redacted]')
+})
+
 test('organization cases and health checks carry share-link context', () => {
     const alert = monitoringCaseDiscordAlert('HA-1991', 'Disk usage', 'disk-check', {
         kind: 'failure', summary: 'Disk usage is high', occurrences: 1,

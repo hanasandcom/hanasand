@@ -779,6 +779,23 @@ function tiLoopStatus(state: { available: boolean, enabled: boolean, running: bo
     return state.failed ? 'failed' : 'enabled'
 }
 
+type TiScheduledJobInput = Omit<UnifiedScheduledJob, 'category' | 'service' | 'costEstimate'> & {
+    category?: ScheduledJobCategory
+    powerWatts?: number | null
+    powerAssumption: string
+}
+
+function tiScheduledJob(input: TiScheduledJobInput): UnifiedScheduledJob {
+    const { powerWatts = 75, powerAssumption, category = 'TI / Exposure', resourceUsage, ...job } = input
+    return {
+        ...job,
+        category,
+        service: 'ti-scraper',
+        resourceUsage,
+        costEstimate: costEstimate(powerWatts, powerAssumption),
+    }
+}
+
 async function listTiScheduledJobs(): Promise<UnifiedScheduledJob[]> {
     const base = tiBase()
     if (!base) return tiUnavailableJobs('TI_SCRAPER_API_BASE is not configured.')
@@ -830,13 +847,11 @@ export function tiAutomaticReviewJob(result: TiFetchResult, resourceUsage: Sched
     const known = result.ok && typeof pressure.enabled === 'boolean'
     const enabled = known && pressure.enabled === true
     const running = enabled && (numberValue(counts.running) ?? 0) > 0
-    return {
+    return tiScheduledJob({
         id: 'ti-automatic-review',
         name: 'Automatic claim and incident review',
         description: 'Startup-owned Hanasand AI review worker for eligible retained claims and incidents.',
-        category: 'TI / Exposure',
         source: 'scraper/src/api/automaticReviewRoutes.ts',
-        service: 'ti-scraper',
         schedule: 'Every minute',
         cadenceSeconds: 60,
         enabled,
@@ -854,9 +869,9 @@ export function tiAutomaticReviewJob(result: TiFetchResult, resourceUsage: Sched
         controls: [],
         controlMode: 'observable_only',
         resourceUsage: { ...resourceUsage, queueDepth: backlog },
-        costEstimate: costEstimate(75, 'Shares the ti-scraper and configured Hanasand AI service power estimate.'),
+        powerAssumption: 'Shares the ti-scraper and configured Hanasand AI service power estimate.',
         assumptions: ['This card observes the existing startup-owned worker. Replay remains evidence- and task-scoped through the automatic review API.'],
-    }
+    })
 }
 
 function tiAutomaticEvaluationJob(result: TiFetchResult, resourceUsage: ScheduledJobTelemetry): UnifiedScheduledJob {
@@ -868,13 +883,11 @@ function tiAutomaticEvaluationJob(result: TiFetchResult, resourceUsage: Schedule
     const running = pressure.running === true
     const enabled = result.ok && pressure.enabled === true
     const failures = (numberValue(pressure.errorCount) ?? 0) + deadLetters
-    return {
+    return tiScheduledJob({
         id: 'ti-automatic-evaluation',
         name: 'Independent automatic accuracy evaluation',
         description: 'Startup-owned prediction-hidden evaluation loop over retained evidence and immutable labels.',
-        category: 'TI / Exposure',
         source: 'scraper/src/api/evaluationBenchmarkRoutes.ts',
-        service: 'ti-scraper',
         schedule: secondsSchedule(numberValue(pressure.intervalSeconds) ?? 60),
         cadenceSeconds: numberValue(pressure.intervalSeconds) ?? 60,
         enabled,
@@ -892,9 +905,9 @@ function tiAutomaticEvaluationJob(result: TiFetchResult, resourceUsage: Schedule
         controls: [],
         controlMode: 'observable_only',
         resourceUsage: { ...resourceUsage, queueDepth: backlog },
-        costEstimate: costEstimate(75, 'Shares the ti-scraper and configured Hanasand AI service power estimate.'),
+        powerAssumption: 'Shares the ti-scraper and configured Hanasand AI service power estimate.',
         assumptions: ['This card observes the existing startup-owned evaluation loop. Benchmark replay remains scoped through the evaluation API.'],
-    }
+    })
 }
 
 function tiRestrictedMetadataJob(result: TiFetchResult, resourceUsage: ScheduledJobTelemetry): UnifiedScheduledJob {
@@ -903,13 +916,11 @@ function tiRestrictedMetadataJob(result: TiFetchResult, resourceUsage: Scheduled
     const running = enabled && state.running === true
     const cadenceSeconds = numberValue(state.intervalSeconds) ?? 900
     const lastError = stringValue(state.lastError) ?? result.error
-    return {
+    return tiScheduledJob({
         id: 'ti-restricted-metadata-collection',
         name: 'Restricted metadata collection loop',
         description: 'Metadata-only collection from explicitly approved restricted sources through the configured proxy boundary.',
-        category: 'TI / Exposure',
         source: 'scraper/src/ops/restrictedMetadataCollection.ts',
-        service: 'ti-scraper',
         schedule: secondsSchedule(cadenceSeconds),
         cadenceSeconds,
         enabled,
@@ -929,9 +940,9 @@ function tiRestrictedMetadataJob(result: TiFetchResult, resourceUsage: Scheduled
         controls: [],
         controlMode: 'observable_only',
         resourceUsage,
-        costEstimate: costEstimate(75, 'Shares the ti-scraper collection service power estimate.'),
+        powerAssumption: 'Shares the ti-scraper collection service power estimate.',
         assumptions: ['Enablement and proxy configuration are deployment policy; this card reports loop state without bypassing source approvals.'],
-    }
+    })
 }
 
 function tiCollectionJob(result: TiFetchResult, resourceUsage: ScheduledJobTelemetry): UnifiedScheduledJob {
@@ -941,13 +952,11 @@ function tiCollectionJob(result: TiFetchResult, resourceUsage: ScheduledJobTelem
     const enabled = result.ok && scheduler.enabled !== false
     const latestRun = record(scheduler.lastRun)
     const failures = arrayValue(payload.failures)
-    return {
+    return tiScheduledJob({
         id: 'ti-public-canary-collection',
         name: 'Public TI collection loop',
         description: 'Scraper-native recurring collection loop for public CTI, Telegram/public-channel, advisory, and exposure-producing sources.',
-        category: 'TI / Exposure',
         source: 'scraper/src/ops/canaryCollection.ts',
-        service: 'ti-scraper',
         schedule: secondsSchedule(numberValue(scheduler.intervalSeconds) ?? 300),
         cadenceSeconds: numberValue(scheduler.intervalSeconds) ?? 300,
         enabled,
@@ -965,9 +974,9 @@ function tiCollectionJob(result: TiFetchResult, resourceUsage: ScheduledJobTelem
         controls: [enabled ? 'pause' : 'resume', 'run_now'],
         controlMode: 'safe_control',
         resourceUsage,
-        costEstimate: costEstimate(75, 'Estimated shared ti-scraper service draw for scraper workers; exact per-job power is unavailable.'),
+        powerAssumption: 'Estimated shared ti-scraper service draw for scraper workers; exact per-job power is unavailable.',
         assumptions: ['Pause/resume controls toggle the scraper canary collection loop; already-running cycles are not interrupted.'],
-    }
+    })
 }
 
 function tiExposureQueueJob(result: TiFetchResult, schedulerPayload: Record<string, unknown>, resourceUsage: ScheduledJobTelemetry): UnifiedScheduledJob {
@@ -976,13 +985,11 @@ function tiExposureQueueJob(result: TiFetchResult, schedulerPayload: Record<stri
     const freshness = record(payload.freshness)
     const counts = record(payload.counts)
     const cadenceSeconds = numberValue(scheduler.cadenceSeconds) ?? numberValue(record(schedulerPayload.scheduler).intervalSeconds) ?? 300
-    return {
+    return tiScheduledJob({
         id: 'ti-exposure-queue-collection',
         name: 'DWM exposure queue collection',
         description: 'Recurring exposure-claim queue populated by metadata-only dark web, public-channel, and advisory captures.',
-        category: 'TI / Exposure',
         source: 'scraper/src/api/exposureQueueRoutes.ts',
-        service: 'ti-scraper',
         schedule: secondsSchedule(cadenceSeconds),
         cadenceSeconds,
         enabled: result.ok,
@@ -1000,21 +1007,19 @@ function tiExposureQueueJob(result: TiFetchResult, schedulerPayload: Record<stri
         controls: [],
         controlMode: 'observable_only',
         resourceUsage,
-        costEstimate: costEstimate(75, 'Shares the ti-scraper collection service power estimate.'),
+        powerAssumption: 'Shares the ti-scraper collection service power estimate.',
         assumptions: ['Exposure queue is populated by the Public TI collection loop. Use that job to pause/resume or run collection; this card audits the derived queue only.'],
-    }
+    })
 }
 
 function tiExposureParserJob(result: TiFetchResult, schedulerPayload: Record<string, unknown>, resourceUsage: ScheduledJobTelemetry): UnifiedScheduledJob {
     const payload = record(result.json)
     const parser = record(schedulerPayload.parser)
-    return {
+    return tiScheduledJob({
         id: 'ti-exposure-parser',
         name: 'Exposure parser bridge',
         description: 'Parses exposure claims via Hanasand AI when configured, with a local metadata-safe fallback parser.',
-        category: 'TI / Exposure',
         source: 'scraper/src/api/exposureQueueRoutes.ts',
-        service: 'ti-scraper',
         schedule: 'On exposure ingest',
         cadenceSeconds: null,
         enabled: result.ok || Boolean(parser.aiEndpointConfigured),
@@ -1032,22 +1037,22 @@ function tiExposureParserJob(result: TiFetchResult, schedulerPayload: Record<str
         controls: [],
         controlMode: 'observable_only',
         resourceUsage,
-        costEstimate: costEstimate(null, 'Parser power is included in ti-scraper and optional Hanasand AI services; no separate meter is available.'),
+        powerWatts: null,
+        powerAssumption: 'Parser power is included in ti-scraper and optional Hanasand AI services; no separate meter is available.',
         assumptions: ['Parser execution is request-driven by exposure ingest and source-pack worker validation. Run the upstream collection/source-pack jobs to create parser work.'],
-    }
+    })
 }
 
 function tiAlertGenerationJob(result: TiFetchResult, resourceUsage: ScheduledJobTelemetry): UnifiedScheduledJob {
     const payload = record(result.json)
     const blockers = arrayValue(payload.blockers ?? payload.blockerCodes)
     const generatedAt = stringValue(payload.generatedAt)
-    return {
+    return tiScheduledJob({
         id: 'ti-dwm-alert-generation',
         name: 'DWM alert generation readiness',
         description: 'Alert candidate and case-generation readiness for DWM/customer exposure workflows.',
         category: 'Alerts',
         source: 'scraper/src/api/dwmWorkflowRoutes.ts',
-        service: 'ti-scraper',
         schedule: 'On watchlist/source changes; manually runnable',
         cadenceSeconds: null,
         enabled: result.ok,
@@ -1065,22 +1070,20 @@ function tiAlertGenerationJob(result: TiFetchResult, resourceUsage: ScheduledJob
         controls: ['run_now'],
         controlMode: 'run_only',
         resourceUsage,
-        costEstimate: costEstimate(75, 'Shares the ti-scraper service power estimate.'),
+        powerAssumption: 'Shares the ti-scraper service power estimate.',
         assumptions: ['Run now calls the existing alert rebuild endpoint; pause is not exposed because alert generation is request-driven.'],
-    }
+    })
 }
 
 function tiSourcePackWorkerJob(result: TiFetchResult, resourceUsage: ScheduledJobTelemetry): UnifiedScheduledJob {
     const payload = record(result.json)
     const readiness = record(payload.readiness)
     const lastRun = record(payload.lastRun)
-    return {
+    return tiScheduledJob({
         id: 'ti-source-pack-worker',
         name: 'DWM source-pack worker',
         description: 'Builds and verifies DWM source packs and parser family readiness for customer exposure coverage.',
-        category: 'TI / Exposure',
         source: 'scraper/src/api/dwmSourceRequestRoute.ts',
-        service: 'ti-scraper',
         schedule: 'On source-pack/status requests',
         cadenceSeconds: null,
         enabled: result.ok,
@@ -1098,21 +1101,19 @@ function tiSourcePackWorkerJob(result: TiFetchResult, resourceUsage: ScheduledJo
         controls: ['run_now'],
         controlMode: 'run_only',
         resourceUsage,
-        costEstimate: costEstimate(75, 'Shares the ti-scraper service power estimate.'),
+        powerAssumption: 'Shares the ti-scraper service power estimate.',
         assumptions: ['Run now calls the existing default source-pack worker contract. Pause is not exposed because source-pack processing is request-driven, not a scheduler loop.'],
-    }
+    })
 }
 
 function tiFrontierQueueJob(result: TiFetchResult, scheduler: Record<string, unknown>, resourceUsage: ScheduledJobTelemetry): UnifiedScheduledJob {
     const payload = record(result.json)
     const queued = numberValue(payload.queued) ?? resourceUsage.queueDepth
-    return {
+    return tiScheduledJob({
         id: 'ti-frontier-queue',
         name: 'TI frontier queue',
         description: 'Internal queued collection tasks, leases, retries, and dead letters used by scraper collection.',
-        category: 'TI / Exposure',
         source: 'scraper/src/frontier/frontier.ts',
-        service: 'ti-scraper',
         schedule: 'Driven by collection loop and ad hoc TI runs',
         cadenceSeconds: null,
         enabled: true,
@@ -1130,9 +1131,9 @@ function tiFrontierQueueJob(result: TiFetchResult, scheduler: Record<string, unk
         controls: [],
         controlMode: 'observable_only',
         resourceUsage,
-        costEstimate: costEstimate(75, 'Shares the ti-scraper service power estimate.'),
+        powerAssumption: 'Shares the ti-scraper service power estimate.',
         assumptions: ['Frontier contains queued and leased collection tasks. Pause/resume belongs on the collection loop; direct queue mutation would risk interrupting leased work.'],
-    }
+    })
 }
 
 function tiUnavailableJobs(reason: string): UnifiedScheduledJob[] {

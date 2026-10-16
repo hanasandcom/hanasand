@@ -104,6 +104,11 @@ test('fast snapshots stay provisional while concurrent reads share the active re
         expect(firstJobs.find(job => job.id === 'ti-automatic-review')?.status).toBe('running')
         expect(firstJobs.find(job => job.id === 'ti-automatic-evaluation')).toMatchObject({ enabled: false, running: true, status: 'paused' })
         expect(firstJobs.find(job => job.id === 'ti-restricted-metadata-collection')?.status).toBe('failed')
+        expect(firstJobs.find(job => job.id === 'ti-automatic-review')).toMatchObject({
+            category: 'TI / Exposure', service: 'ti-scraper', costEstimate: { scope: 'service', powerWatts: 75 },
+        })
+        expect(firstJobs.find(job => job.id === 'ti-dwm-alert-generation')?.category).toBe('Alerts')
+        expect(firstJobs.find(job => job.id === 'ti-exposure-parser')?.costEstimate).toMatchObject({ scope: 'unavailable', powerWatts: null })
         for (const [id, schedule, cadenceSeconds] of [
             ['api-log-ingest-access-detection', 'Every minute', 60],
             ['api-drop-rate-alert-refresh', 'Every 15 seconds', 15],
