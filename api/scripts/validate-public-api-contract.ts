@@ -1,8 +1,12 @@
+import './guard-production-smoke.mjs'
 import Ajv2020 from 'ajv/dist/2020.js'
 import { publicTiOpenApi } from '../src/contracts/publicTiOpenApi.ts'
 import { createPublicTiClient } from '../sdk/publicTiClient.ts'
 
-const baseUrl = process.env.PUBLIC_API_BASE ?? 'https://api.hanasand.com/api/v1'
+const baseUrl = process.env.PUBLIC_API_BASE
+if (!baseUrl) throw new Error('PUBLIC_API_BASE is required for public API contract validation.')
+const parsedBaseUrl = new URL(baseUrl)
+if (!['http:', 'https:'].includes(parsedBaseUrl.protocol)) throw new Error('PUBLIC_API_BASE must be an absolute HTTP or HTTPS URL.')
 const apiKey = process.env.PUBLIC_API_KEY
 if (!apiKey) throw new Error('PUBLIC_API_KEY is required for authenticated contract validation.')
 const rateLimitKey = process.env.PUBLIC_API_RATE_LIMIT_KEY

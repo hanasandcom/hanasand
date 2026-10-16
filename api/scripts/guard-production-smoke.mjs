@@ -1,6 +1,7 @@
 const allow = process.env.ALLOW_PRODUCTION_SMOKE === '1'
 const targets = [
     process.env.API_BASE,
+    process.env.PUBLIC_API_BASE,
     process.env.FRONTEND_BASE,
     process.env.NEXT_PUBLIC_API,
     process.env.MONITOR_API_BASE,

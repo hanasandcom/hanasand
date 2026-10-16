@@ -54,7 +54,7 @@
     "test:lxd-lifecycle": "bun scripts/test-lxd-lifecycle.ts",
     "openapi:generate": "bun scripts/write-public-openapi.ts && openapi-typescript public/openapi.json -o generated/publicTiApi.d.ts",
     "openapi:check": "bun run openapi:generate && git diff --exit-code -- public/openapi.json generated/publicTiApi.d.ts",
-    "smoke:public-api-contract": "bun scripts/validate-public-api-contract.ts"
+    "smoke:public-api-contract": "bun scripts/guard-production-smoke.mjs && bun scripts/validate-public-api-contract.ts"
   },
   "author": "",
   "license": "ISC",
