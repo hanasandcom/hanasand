@@ -190,6 +190,7 @@ test('organization delivery contracts share destination selection semantics', ()
     ]
     const input = {
         orgId: 'org_1',
+        destinationId: 'destination_1',
         eventType: 'dwm.alert.updated' as const,
         alert: payload.alert,
     }
@@ -209,6 +210,17 @@ test('organization delivery contracts share destination selection semantics', ()
         ],
     })
     expect(contract.destinationSelection.selectedDestinations.map(row => row.id)).toEqual(['destination_1'])
+    const expectedFilters = {
+        orgId: 'org_1',
+        destinationId: 'destination_1',
+        alertId: 'alert_1',
+        casePath: '/dwm?alert=alert_1',
+        dedupeKey: 'case_1',
+    }
+    expect(contract.deliveryTimeline.filters).toMatchObject(expectedFilters)
+    expect(contract.deliveryActionPlan.filters).toMatchObject(expectedFilters)
+    expect(contract.deliveryReplayGuard.filters).toMatchObject(expectedFilters)
+    expect(contract.deliveryReadinessConsumer.filters).toMatchObject(expectedFilters)
     expect(outcome.selectedDestinations.map(row => row.destinationId)).toEqual(['destination_1'])
     expect(outcome.skippedDestinations.map(row => [row.destinationId, row.reason])).toEqual([
         ['destination_unsubscribed', 'event_not_subscribed'],

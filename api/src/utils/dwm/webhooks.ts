@@ -5345,7 +5345,7 @@ export function buildDwmOrgAlertWebhookDeliveryContract({
         auditEvents,
         liveDeliveryEnabled,
     })
-    const deliveryTimeline = buildDwmWebhookDeliveryTimeline({
+    const deliveryEvidenceAccess = {
         destinations,
         deliveries,
         auditEvents,
@@ -5359,52 +5359,11 @@ export function buildDwmOrgAlertWebhookDeliveryContract({
             casePath: normalizedAlert.casePath,
             dedupeKey: normalizedAlert.dedupeKey,
         },
-    })
-    const deliveryActionPlan = buildDwmWebhookDeliveryActionPlan({
-        destinations,
-        deliveries,
-        auditEvents,
-        liveDeliveryEnabled,
-        viewerRole,
-        canManage,
-        filters: {
-            orgId: dispatch.orgId,
-            destinationId,
-            alertId: normalizedAlert.id,
-            casePath: normalizedAlert.casePath,
-            dedupeKey: normalizedAlert.dedupeKey,
-        },
-    })
-    const deliveryReplayGuard = buildDwmWebhookDeliveryReplayGuard({
-        destinations,
-        deliveries,
-        auditEvents,
-        liveDeliveryEnabled,
-        viewerRole,
-        canManage,
-        filters: {
-            orgId: dispatch.orgId,
-            destinationId,
-            alertId: normalizedAlert.id,
-            casePath: normalizedAlert.casePath,
-            dedupeKey: normalizedAlert.dedupeKey,
-        },
-    })
-    const deliveryReadinessConsumer = buildDwmWebhookDeliveryReadinessConsumerProof({
-        destinations,
-        deliveries,
-        auditEvents,
-        liveDeliveryEnabled,
-        viewerRole,
-        canManage,
-        filters: {
-            orgId: dispatch.orgId,
-            destinationId,
-            alertId: normalizedAlert.id,
-            casePath: normalizedAlert.casePath,
-            dedupeKey: normalizedAlert.dedupeKey,
-        },
-    })
+    }
+    const deliveryTimeline = buildDwmWebhookDeliveryTimeline(deliveryEvidenceAccess)
+    const deliveryActionPlan = buildDwmWebhookDeliveryActionPlan(deliveryEvidenceAccess)
+    const deliveryReplayGuard = buildDwmWebhookDeliveryReplayGuard(deliveryEvidenceAccess)
+    const deliveryReadinessConsumer = buildDwmWebhookDeliveryReadinessConsumerProof(deliveryEvidenceAccess)
     const customerSetup = buildDwmWebhookCustomerSetupProof({
         destinations,
         deliveries,
