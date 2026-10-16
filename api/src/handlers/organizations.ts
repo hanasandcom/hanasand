@@ -23,6 +23,8 @@ import {
     normalizeMemberRoleInput,
     normalizeOrganizationInput,
     normalizeOrganizationSettingsInput,
+    normalizeOptionalWatchlistKind,
+    normalizeOptionalWatchlistStatus,
     normalizeOwnershipTransferInput,
     normalizeWatchlistActionInput,
     normalizeWatchlistCleanupInput,
@@ -67,7 +69,6 @@ import {
     type OrganizationSettingsInput,
     type WatchlistActionInput,
     type WatchlistCleanupInput,
-    type WatchlistKind,
     type WatchlistInput,
     type OrganizationWatchlistAction,
     type OrganizationWatchlistRow,
@@ -1914,7 +1915,7 @@ export async function getOrganizationWatchlists(req: FastifyRequest<{ Params: Or
     }
 
     const query = req.query as WatchlistQuery | undefined
-    const kind = normalizeOptionalKind(query?.kind)
+    const kind = normalizeOptionalWatchlistKind(query?.kind)
     const status = normalizeOptionalWatchlistStatus(query?.status)
     const includeArchived = status === 'archived' || query?.includeArchived === 'true' || query?.include_archived === 'true'
     const result = await run(`
@@ -3189,24 +3190,6 @@ async function uniqueOrganizationSlug(baseSlug: string, currentOrganizationId?: 
 
 async function touchOrganization(organizationId: string) {
     await run('UPDATE organizations SET updated_at = NOW() WHERE id = $1', [organizationId])
-}
-
-function normalizeOptionalKind(value: unknown): WatchlistKind | null {
-    if (typeof value !== 'string' || !value.trim()) {
-        return null
-    }
-
-    const kind = value.trim().toLowerCase()
-    return ['company', 'domain', 'vendor', 'actor', 'keyword'].includes(kind) ? kind as WatchlistKind : null
-}
-
-function normalizeOptionalWatchlistStatus(value: unknown) {
-    if (typeof value !== 'string' || !value.trim()) {
-        return null
-    }
-
-    const status = value.trim().toLowerCase()
-    return ['active', 'paused', 'archived'].includes(status) ? status : null
 }
 
 function logOrganizationEvent(req: FastifyRequest, action: string, organizationId: string, actorId: string, metadata: Record<string, unknown>) {

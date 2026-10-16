@@ -2211,6 +2211,7 @@ const inviteRoles = new Set<OrganizationRole>(['admin', 'editor', 'reader'])
 const inviteActions = new Set<OrganizationInviteAction>(['revoke', 'resend'])
 const watchlistActions = new Set<OrganizationWatchlistAction>(['pause', 'resume', 'archive', 'restore'])
 const watchlistKinds = new Set<WatchlistKind>(['company', 'domain', 'vendor', 'actor', 'keyword'])
+const watchlistStatuses = new Set<OrganizationWatchlistStatus>(['active', 'paused', 'archived'])
 const memberRoleTargetRoles: OrganizationRole[] = ['admin', 'editor', 'reader']
 const memberRoleTargets = new Set<OrganizationRole>(memberRoleTargetRoles)
 const defaultWebhookPolicies = new Set<OrganizationDefaultWebhookPolicy>(['active_destinations', 'manual_selection', 'disabled'])
@@ -2378,6 +2379,16 @@ export function normalizeWatchlistInput(body: WatchlistInput | undefined) {
         reason,
         requestId,
     }
+}
+
+export function normalizeOptionalWatchlistKind(value: unknown): WatchlistKind | null {
+    const kind = cleanText(value).toLowerCase()
+    return watchlistKinds.has(kind as WatchlistKind) ? kind as WatchlistKind : null
+}
+
+export function normalizeOptionalWatchlistStatus(value: unknown): OrganizationWatchlistStatus | null {
+    const status = cleanText(value).toLowerCase()
+    return watchlistStatuses.has(status as OrganizationWatchlistStatus) ? status as OrganizationWatchlistStatus : null
 }
 
 export function normalizeWatchlistActionInput(body: WatchlistActionInput | undefined) {
