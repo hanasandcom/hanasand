@@ -836,21 +836,18 @@ async function sendDwmWebhookDeliveryResult(res: FastifyReply, userId: string, o
         dedupeKey: clean(input.dedupeKey) || clean(input.alert?.dedupeKey),
     }
     const deliveryAccess = { viewerRole: 'admin' as const, canManage: true }
+    const destinationReadModels = buildDwmWebhookDestinationReadModels({
+        destinations,
+        deliveries: ledgerDeliveries,
+        auditEvents,
+        ...deliveryAccess,
+    })
     const response = {
         deliveries,
-        deliveryReadiness: buildDwmWebhookDeliveryReadiness({
-            destinations,
-            deliveries: ledgerDeliveries,
-            auditEvents,
-        }),
-        destinationHealth: buildDwmWebhookDestinationHealth({ destinations, deliveries: ledgerDeliveries, auditEvents }),
-        destinationLifecycle: buildDwmWebhookDestinationLifecycle({ destinations, deliveries: ledgerDeliveries, auditEvents, ...deliveryAccess }),
-        destinationAdminProof: buildDwmWebhookDestinationAdminProof({
-            destinations,
-            deliveries: ledgerDeliveries,
-            auditEvents,
-            ...deliveryAccess,
-        }),
+        deliveryReadiness: destinationReadModels.deliveryReadiness,
+        destinationHealth: destinationReadModels.destinationHealth,
+        destinationLifecycle: destinationReadModels.destinationLifecycle,
+        destinationAdminProof: destinationReadModels.destinationAdminProof,
         deliveryOperations: buildDwmWebhookDeliveryOperations({
             deliveries: ledgerDeliveries,
             auditEvents,
