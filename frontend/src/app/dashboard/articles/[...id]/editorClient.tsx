@@ -2,10 +2,11 @@
 
 import Editor from '@/components/editor/editor'
 import ErrorNotice from '@/components/error/errorNotice'
+import ContentEditorHeader from '@/app/dashboard/ContentEditorHeader'
 import useClearStateAfter from '@/hooks/useClearStateAfter'
 import deleteArticle from '@/utils/articles/deleteArticle'
 import { putArticle } from '@/utils/articles/putArticle'
-import { FileText, Trash } from 'lucide-react'
+import { FileText } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
@@ -28,23 +29,7 @@ export default function EditorClient({ article }: { article: Article }) {
 
     return (
         <div className={`relative grid gap-4 ${editing ? '' : 'px-4 md:px-[18vw]'}`}>
-            <div className='flex items-center justify-between gap-3'>
-                <div className='min-w-0'>
-                    <div className='flex items-center gap-2 text-ui-primary'>
-                        <FileText className='h-4 w-4 shrink-0' />
-                        <p className='text-xs font-semibold uppercase text-ui-primary'>Article editor</p>
-                    </div>
-                    <h1 className='mt-2 truncate text-xl font-medium text-ui-text'>{text}</h1>
-                </div>
-                <button
-                    type='button'
-                    onClick={handleDelete}
-                    className='inline-flex h-9 items-center gap-2 rounded-lg border border-ui-danger/40 bg-ui-raised/10 px-3.5 text-sm font-medium text-ui-text transition hover:bg-ui-raised/15'
-                >
-                    <Trash className='h-4 w-4' />
-                    Delete
-                </button>
-            </div>
+            <ContentEditorHeader icon={FileText} label='Article editor' title={text} onDelete={handleDelete} />
             <ErrorNotice compact message={error as string | null} />
             <Editor
                 customSaveLogic
