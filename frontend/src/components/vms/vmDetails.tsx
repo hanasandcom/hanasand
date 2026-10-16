@@ -1,5 +1,6 @@
 import Field from './field'
 import ErrorNotice from '@/components/error/errorNotice'
+import operationalStateLabel from '@/utils/status/operationalStateLabel'
 
 type VMDetailsProps = {
     boxStyle: string
@@ -42,11 +43,4 @@ export default function VMDetails({ boxStyle, boxTitleStyle, vm, details }: VMDe
             />}
         </div>
     )
-}
-
-function operationalStateLabel(value: string) {
-    if (value === 'blocked') return 'syncing'
-    if (value === 'needs_action') return 'reviewing'
-    if (value === 'action_required') return 'reviewing'
-    return value.replaceAll('_', ' ')
 }

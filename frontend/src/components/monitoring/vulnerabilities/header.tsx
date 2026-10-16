@@ -9,6 +9,7 @@ import SummaryGrid from './summaryGrid'
 import ScanToolbar from './scanToolbar'
 import ScanNoticeCard from './scanNoticeCard'
 import ScanProgressCard from './scanProgressCard'
+import operationalStateLabel from '@/utils/status/operationalStateLabel'
 
 type Props = Pick<PageClientProps, 'runScanAction'> & Pick<VulnerabilityPageState, 'data'> & {
     isRefreshing: boolean
@@ -101,13 +102,6 @@ function toneText(tone: 'ok' | 'watch' | 'bad') {
     if (tone === 'ok') return 'text-ui-success'
     if (tone === 'bad') return 'text-ui-text'
     return 'text-ui-warning'
-}
-
-function operationalStateLabel(value: string) {
-    if (value === 'blocked') return 'syncing'
-    if (value === 'needs_action') return 'reviewing'
-    if (value === 'action_required') return 'reviewing'
-    return value.replaceAll('_', ' ')
 }
 
 function customerOperationalText(value: string) {
