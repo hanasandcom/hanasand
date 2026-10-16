@@ -83,7 +83,7 @@ describe('public TI v1', () => {
         expect(requested.every(url => url.pathname === '/v1/intel/claims')).toBe(true)
     })
 
-    test('supports direct pages, empty results, legacy offsets, and rejects invalid pages', async () => {
+    test('supports direct pages, empty results, legacy offsets, and rejects invalid collection queries', async () => {
         const offsets: string[] = []
         const app = await testApp(async input => {
             const url = new URL(String(input))
@@ -101,7 +101,7 @@ describe('public TI v1', () => {
         expect((await get('q=empty')).json()).toMatchObject({ data: [], pagination: { page: 1, totalPages: 0, nextPage: null } })
         expect((await get('cursor=2')).json().pagination.nextCursor).toBe('4')
         expect(offsets).toEqual(['2', '4', '6', '0', '2'])
-        for (const query of ['page=0', 'page=-1', 'page=1.5', 'page=abc', 'page=', 'page=1&page=2', 'page=9007199254740991', 'cursor=', 'cursor=1e1', 'cursor=0x10', 'page=1&cursor=0']) {
+        for (const query of ['page=0', 'page=-1', 'page=1.5', 'page=abc', 'page=', 'page=1&page=2', 'page=9007199254740991', 'cursor=', 'cursor=1e1', 'cursor=0x10', 'page=1&cursor=0', `q=${'x'.repeat(201)}`]) {
             const response = await get(query)
             expect(response.statusCode).toBe(400)
             expect(response.json().error.code).toBe('invalid_pagination')
