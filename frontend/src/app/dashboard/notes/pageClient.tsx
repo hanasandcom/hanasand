@@ -1,9 +1,10 @@
 'use client'
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Check, ChartNoAxesColumnIncreasing, Clock3, FileText, List, Plus, Search, StickyNote, Trash2, X } from 'lucide-react'
+import { Check, ChartNoAxesColumnIncreasing, Clock3, FileText, StickyNote, Trash2 } from 'lucide-react'
 import { createNote, deleteNote, fetchNotes, updateNote } from '@/utils/notes/client'
 import { DashboardPanel } from '@/components/dashboard/ui'
+import { formatNoteDate, NotesSidebar } from './NotesSidebar'
 
 const emptyDraft = { title: '', content: '' }
 
@@ -96,76 +97,20 @@ export default function NotesClient() {
 
     return (
         <div className={`grid gap-3 ${leftCollapsed ? (rightCollapsed ? 'xl:grid-cols-[3.5rem_minmax(0,1fr)_3.5rem]' : 'xl:grid-cols-[3.5rem_minmax(0,1fr)_17rem]') : (rightCollapsed ? 'xl:grid-cols-[19rem_minmax(0,1fr)_3.5rem]' : 'xl:grid-cols-[19rem_minmax(0,1fr)_17rem]')}`}>
-            <DashboardPanel className={`grid content-start gap-3 border-ui-border bg-ui-panel p-3 ${leftCollapsed ? 'xl:px-2' : ''}`}>
-                {leftCollapsed ? (
-                    <div className='grid justify-items-center gap-2'>
-                        <button type='button' onClick={() => setLeftCollapsed(false)} aria-label='Open notes sidebar' title='Open notes sidebar' className='ui-button ui-button-secondary h-9 w-9 p-0'>
-                            <List className='h-4 w-4' />
-                        </button>
-                        <button type='button' onClick={() => { setSelectedId(''); setDraft(emptyDraft) }} aria-label='New note' title='New note' className='grid h-9 w-9 place-items-center rounded-md border border-ui-border bg-ui-raised text-ui-primary hover:border-ui-primary'>
-                            <Plus className='h-4 w-4' />
-                        </button>
-                        <button type='button' onClick={() => setLeftCollapsed(false)} aria-label='Search notes' title='Search notes' className='ui-button ui-button-secondary h-9 w-9 p-0'>
-                            <Search className='h-4 w-4' />
-                        </button>
-                        <button type='button' onClick={() => setLeftCollapsed(false)} aria-label='Show note list' title='Show note list' className='ui-button ui-button-secondary h-9 w-9 p-0'>
-                            <StickyNote className='h-4 w-4' />
-                        </button>
-                    </div>
-                ) : (
-                    <>
-                        <div className='flex items-center justify-between gap-2'>
-                            <span className='text-sm font-semibold text-ui-text'>Notes</span>
-                            <button type='button' onClick={() => setLeftCollapsed(true)} aria-label='Close notes sidebar' title='Close notes sidebar' className='grid h-8 w-8 place-items-center rounded-md text-ui-muted hover:bg-ui-raised hover:text-ui-text'>
-                                <X className='h-4 w-4' />
-                            </button>
-                        </div>
-                        <button
-                            onClick={() => {
-                                setSelectedId('')
-                                setDraft(emptyDraft)
-                            }}
-                            className='flex h-9 w-full items-center justify-center gap-2 rounded-md border border-ui-border bg-ui-raised px-3 text-sm font-semibold text-ui-text transition hover:border-ui-primary'
-                        >
-                            <Plus className='h-4 w-4 text-ui-primary' />
-                            New note
-                        </button>
-                        <div className='rounded-md border border-ui-border bg-ui-raised px-3 py-2'>
-                            <div className='flex items-center gap-2 text-xs font-semibold text-ui-muted'>
-                                <Search className='h-3.5 w-3.5' />
-                                Search notes
-                            </div>
-                            <input
-                                value={query}
-                                onChange={(event) => setQuery(event.target.value)}
-                                placeholder='Title or content'
-                                className='mt-2 h-8 w-full rounded-md border border-ui-border bg-ui-panel px-2.5 text-sm text-ui-text outline-none placeholder:text-ui-muted focus:border-ui-primary focus:ring-2 focus:ring-ui-primary/20'
-                            />
-                            <div className='mt-2 text-xs font-semibold text-ui-muted'>{visibleNotes.length}/{sortedNotes.length} visible</div>
-                        </div>
-                        <div className='grid max-h-[calc(100vh-17rem)] gap-1 overflow-auto pr-1'>
-                            {visibleNotes.map((note) => (
-                                <button
-                                    key={note.id}
-                                    onClick={() => setSelectedId(note.id)}
-                                    className={`rounded-md border px-3 py-2 text-left transition ${
-                                        note.id === selectedId
-                                            ? 'border-ui-primary bg-ui-raised text-ui-text'
-                                            : 'border-ui-border bg-ui-panel text-ui-muted hover:border-ui-primary hover:bg-ui-raised'
-                                    }`}
-                                >
-                                    <div className='truncate text-sm font-semibold'>{note.title || 'Untitled'}</div>
-                                    <div className='mt-0.5 flex items-center gap-1 truncate text-xs text-ui-muted'>
-                                        <Clock3 className='h-3 w-3' />
-                                        {formatNoteDate(note.updated_at)}
-                                    </div>
-                                </button>
-                            ))}
-                            {Boolean(sortedNotes.length && !visibleNotes.length) && <div className='rounded-md border border-dashed border-ui-border bg-ui-raised p-3 text-sm text-ui-muted'>No notes match that search.</div>}
-                        </div>
-                    </>
-                )}
-            </DashboardPanel>
+            <NotesSidebar
+                collapsed={leftCollapsed}
+                notes={visibleNotes}
+                totalCount={sortedNotes.length}
+                selectedId={selectedId}
+                query={query}
+                onCollapse={setLeftCollapsed}
+                onNewNote={() => {
+                    setSelectedId('')
+                    setDraft(emptyDraft)
+                }}
+                onQueryChange={setQuery}
+                onSelectNote={setSelectedId}
+            />
 
             <DashboardPanel className='grid min-h-0 content-start border-ui-border bg-ui-panel p-3'>
                 <div className='mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-ui-border pb-3'>
@@ -246,12 +191,6 @@ function SideFact({ icon, label, value }: { icon: ReactNode, label: string, valu
             <p className='mt-1 truncate text-sm font-semibold text-ui-text'>{value}</p>
         </div>
     )
-}
-
-function formatNoteDate(value: string) {
-    const date = new Date(value)
-    if (Number.isNaN(date.getTime())) return value
-    return date.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
 function formatSource(value: string) {
