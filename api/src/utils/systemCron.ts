@@ -505,15 +505,10 @@ async function refreshUnifiedScheduledJobs(): Promise<UnifiedScheduledJob[]> {
 
 export async function updateManagedCronJob(id: string, input: ManagedCronUpdate) {
     if (id === VULNERABILITY_SCAN_JOB_ID) {
-        if (input.action === 'run_now') {
-            void startTrackedVulnerabilityScan().catch(error => {
-                console.error('Failed to run vulnerability scanner from Cron Jobs dashboard', error)
-            })
-        }
-        if (input.enabled !== undefined) {
-            await setVulnerabilityScannerPaused(!input.enabled)
-        }
-        return updatedScheduledJob(id)
+        return updateExternallyManagedCronJob(id, input, {
+            runNow: { run: startTrackedVulnerabilityScan, label: 'vulnerability scanner' },
+            setPaused: setVulnerabilityScannerPaused,
+        })
     }
     if (id === 'ti-public-canary-collection') {
         await updateTiCollectionScheduler(input)
@@ -528,24 +523,22 @@ export async function updateManagedCronJob(id: string, input: ManagedCronUpdate)
         return updatedScheduledJob(id)
     }
     if (id === DATABASE_BACKUP_JOB_ID) {
-        if (input.action === 'run_now') {
-            void createDatabaseBackup({ actorId: 'cron_dashboard', trigger: 'manual' }).catch(error => {
-                console.error('Failed to run database backup from Cron Jobs dashboard', error)
-            })
-        }
-        if (input.enabled !== undefined) await setDatabaseBackupSchedulePaused(!input.enabled)
-        return updatedScheduledJob(id)
+        return updateExternallyManagedCronJob(id, input, {
+            runNow: {
+                run: () => createDatabaseBackup({ actorId: 'cron_dashboard', trigger: 'manual' }),
+                label: 'database backup',
+            },
+            setPaused: setDatabaseBackupSchedulePaused,
+        })
     }
     if (canRunApiCronJobNow(id)) {
-        if (input.action === 'run_now') {
-            void runApiCronJobNow(id).catch(error => {
-                console.error(`Failed to run API cron job ${id} from Cron Jobs dashboard`, error)
-            })
-        }
-        if (input.enabled !== undefined) {
-            await setApiCronJobPaused(id, !input.enabled)
-        }
-        return updatedScheduledJob(id)
+        return updateExternallyManagedCronJob(id, input, {
+            runNow: {
+                run: () => runApiCronJobNow(id),
+                label: `API cron job ${id}`,
+            },
+            setPaused: paused => setApiCronJobPaused(id, paused),
+        })
     }
 
     const definition = managedCronDefinitions.find(job => job.id === id)
@@ -568,6 +561,24 @@ export async function updateManagedCronJob(id: string, input: ManagedCronUpdate)
 
     await writeManagedCrontab(replaceManagedBlock(crontab, entries, managedCronDefinitions))
     return (await listManagedCronJobs()).find(job => job.id === id)!
+}
+
+async function updateExternallyManagedCronJob(
+    id: string,
+    input: ManagedCronUpdate,
+    options: {
+        runNow?: { run: () => Promise<unknown>, label: string }
+        setPaused?: (paused: boolean) => Promise<unknown>
+    },
+) {
+    const runNow = options.runNow
+    if (input.action === 'run_now' && runNow) {
+        void runNow.run().catch(error => {
+            console.error(`Failed to run ${runNow.label} from Cron Jobs dashboard`, error)
+        })
+    }
+    if (input.enabled !== undefined && options.setPaused) await options.setPaused(!input.enabled)
+    return updatedScheduledJob(id)
 }
 
 async function updatedScheduledJob(id: string) {
