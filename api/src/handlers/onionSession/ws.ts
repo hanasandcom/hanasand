@@ -334,16 +334,17 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
     connection.on('message', (message) => {
         if (sessionEnding) return
         const payload = parseMessage(message)
-        if (payload?.type === 'end') sessionEnding = true
+        if (!payload) return
+        if (payload.type === 'end') sessionEnding = true
         // A queued start is awaiting capacity inside the message queue. Let an
         // explicit end interrupt that wait so it can cancel its queued slot.
-        if (cancelAdmissionWait && payload?.type === 'end') {
-            void handleMessage(message).catch(reportMessageError)
+        if (cancelAdmissionWait && payload.type === 'end') {
+            void handleMessage(payload).catch(reportMessageError)
             return
         }
         messageQueue = messageQueue.then(() => {
-            if (sessionEnding && payload?.type !== 'end') return
-            return handleMessage(message)
+            if (sessionEnding && payload.type !== 'end') return
+            return handleMessage(payload)
         }).catch(reportMessageError)
     })
 
@@ -362,10 +363,7 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
         }).catch(() => undefined)
     })
 
-    async function handleMessage(raw: RawData) {
-        const message = parseMessage(raw)
-        if (!message?.type) return
-
+    async function handleMessage(message: BrokerMessage & { type: string }) {
         if (message.type === 'start') {
             await startBrowser(message)
             return
@@ -2561,9 +2559,10 @@ function safeToolId(value: string) {
     return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 64) || 'tool'
 }
 
-function parseMessage(raw: RawData): BrokerMessage | null {
+function parseMessage(raw: RawData): (BrokerMessage & { type: string }) | null {
     try {
-        return JSON.parse(raw.toString()) as BrokerMessage
+        const message = JSON.parse(raw.toString()) as BrokerMessage
+        return message?.type ? message as BrokerMessage & { type: string } : null
     } catch {
         return null
     }
