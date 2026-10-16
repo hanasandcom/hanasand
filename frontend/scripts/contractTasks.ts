@@ -23,6 +23,11 @@ export const contractTasks: TestTask[] = [
         command: [bun, 'scripts/check-automation-routes.mjs'],
     },
     {
+        id: 'darkweb-index-data',
+        title: 'Dark web index proxy mapping and response handling',
+        command: [bun, 'test', 'tests/darkweb-index-data.test.ts'],
+    },
+    {
         id: 'dashboard-navigation-structure',
         title: 'Navigation grouping and organization destinations',
         command: [bun, 'test', 'tests/dashboard-navigation.test.ts'],
