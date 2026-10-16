@@ -11,7 +11,10 @@ const includedExtensions = new Set([
 ])
 const includedNames = new Set(['Dockerfile', '.dockerignore', 'Dockerfile.dockerignore', 'CodeInventory.Dockerfile', 'CodeInventory.Dockerfile.dockerignore'])
 const excludedDirectories = new Set(['node_modules', '.next', 'coverage', 'playwright-report', 'test-results', 'dist', 'build'])
-const generatedFiles = new Set(['src/utils/routes/generatedSearchRoutes.ts'])
+const generatedFiles = new Set([
+    'src/utils/articles/staticArticles.json',
+    'src/utils/routes/generatedSearchRoutes.ts',
+])
 
 const changedOnly = process.argv.includes('--changed')
 const files = changedOnly ? changedFiles() : await allFiles(frontendRoot)

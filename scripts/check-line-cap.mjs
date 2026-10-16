@@ -24,6 +24,7 @@ const excludedDirectories = new Set([
 const generatedFiles = new Set([
     'api/public/openapi.json',
     'api/generated/publicTiApi.d.ts',
+    'frontend/src/utils/articles/staticArticles.json',
     'frontend/src/utils/routes/generatedSearchRoutes.ts',
 ])
 const files = execFileSync('git', ['ls-files', '-co', '--exclude-standard'], {
