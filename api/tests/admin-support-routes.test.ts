@@ -9,6 +9,7 @@ let supportDecisionApproval: Record<string, any> | null = null
 let supportOrganization: Record<string, any> | null = null
 let supportUser: Record<string, any> | null = null
 let supportInviteReads = 0
+let duplicateInviteAction: Record<string, any> | null = null
 let inviteActionWrites = 0
 let acceptedInviteWinsRace = false
 let supportRecoveryInviteStatus: string | null = null
@@ -60,7 +61,9 @@ async function run(sql: string, values: unknown[] = []) {
     }
     if (sql.includes('SELECT COUNT(*)::int AS owner_count') && sql.includes('FROM organization_members membership')) return { rows: [{ owner_count: supportOwnerCounts.shift() ?? 2 }] }
     if (sql.includes('active_admin_count')) return { rows: supportAvailabilityResults.shift() ?? [] }
-    if (sql.includes('context->>\'idempotencyKey\'') && sql.includes('outcome = \'success\'')) return { rows: [] }
+    if (sql.includes('context->>\'idempotencyKey\'') && sql.includes('outcome = \'success\'')) {
+        return { rows: duplicateInviteAction ? [duplicateInviteAction] : [] }
+    }
     if (sql.includes('WHERE request_id = $1') && sql.includes('event_type = $2') && sql.includes('subject_id = $3')) {
         if (String(values[1]).startsWith('support.session.')) {
             return { rows: supportSessionEvents.filter(event => event.request_id === values[0] && event.event_type === values[1] && event.subject_id === values[2]).map(event => ({ id: event.id })) }
@@ -183,6 +186,7 @@ beforeEach(() => {
     supportOrganization = null
     supportUser = null
     supportInviteReads = 0
+    duplicateInviteAction = null
     inviteActionWrites = 0
     acceptedInviteWinsRace = false
     supportRecoveryInviteStatus = null
@@ -826,6 +830,58 @@ test('access recovery approval rejects an expired invite without changing its pe
         outcome: 'failed',
         context: { error: 'access_recovery_invite_expired', mutation: 'none' },
     })
+})
+
+test('support invite action success keeps updated invite evidence in executor and receipt', async () => {
+    supportOrganization = activeSupportOrganizationFixture()
+    supportRecoveryInviteResult = {
+        id: 'invite-1', organization_id: 'org-1', email: 'member@example.com', role: 'reader',
+        status: 'pending', expires_at: '2026-12-01T00:00:00.000Z', accepted_at: null, accepted_by: null,
+        revoked_at: null, invited_by: 'owner-1', created_at: '2026-10-01T00:00:00.000Z',
+    }
+
+    const result = await request(postSupportOrganizationInviteAction, {
+        params: { id: 'org-1', inviteId: 'invite-1' },
+        body: {
+            action: 'resend', reason: 'Restore access', scope: 'invite:resend', requestId: 'invite-resend-1',
+            expiresAt: '2026-12-01T00:00:00.000Z',
+        },
+    })
+
+    expect(result.statusCode).toBe(200)
+    expect(result.body.inviteAction.controlledExecutor).toMatchObject({
+        action: 'resend', actionType: 'support.organization.invite_resend', requestId: 'invite-resend-1',
+        target: { organizationId: 'org-1', inviteId: 'invite-1', email: 'member@example.com' },
+        before: { status: 'pending', expiresAt: '2026-11-01T00:00:00.000Z' },
+        after: { status: 'pending', expiresAt: '2026-12-01T00:00:00.000Z' }, outcome: 'success',
+    })
+    expect(result.body.inviteAction.executionReceipt).toMatchObject({
+        actorId: 'support-admin', organizationId: 'org-1', requestId: 'invite-resend-1',
+        inviteId: 'invite-1', outcome: 'success',
+        before: { status: 'pending', expiresAt: '2026-11-01T00:00:00.000Z' },
+        after: { status: 'pending', expiresAt: '2026-12-01T00:00:00.000Z' },
+    })
+})
+
+test('support invite action replay uses the original request id without writing again', async () => {
+    supportOrganization = activeSupportOrganizationFixture()
+    duplicateInviteAction = { id: 92, request_id: 'original-request' }
+
+    const result = await request(postSupportOrganizationInviteAction, {
+        params: { id: 'org-1', inviteId: 'invite-1' },
+        body: { action: 'resend', reason: 'Restore access', scope: 'invite:resend', requestId: 'replay-request' },
+    })
+
+    expect(result.statusCode).toBe(200)
+    expect(result.body.inviteAction).toMatchObject({ requestId: 'original-request', idempotentReplay: true })
+    expect(result.body.inviteAction.controlledExecutor).toMatchObject({
+        requestId: 'original-request', outcome: 'success', blockers: ['duplicate_idempotency_key'],
+    })
+    expect(result.body.inviteAction.executionReceipt).toMatchObject({
+        requestId: 'original-request', inviteId: 'invite-1', outcome: 'success',
+        blockers: ['duplicate_idempotency_key'],
+    })
+    expect(inviteActionWrites).toBe(0)
 })
 
 test('support invite action returns an audited accepted-invite denial when acceptance wins the update race', async () => {
