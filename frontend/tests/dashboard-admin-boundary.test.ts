@@ -9,7 +9,7 @@ import { proxy } from '../src/proxy'
 const root = process.cwd()
 
 test('internal pages are exposed by Hanasand organization access and gated the same way on requests', () => {
-    const sidebar = readFileSync(path.join(root, 'src/components/dashboard/dashboardSidebar.tsx'), 'utf8')
+    const sidebarNavigation = readFileSync(path.join(root, 'src/components/dashboard/useDashboardSidebarNavigation.ts'), 'utf8')
     const proxy = readFileSync(path.join(root, 'src/proxy.ts'), 'utf8')
     const guestLinks = navigationLinks(getDashboardNavigation({ id: 'member' }))
     const userRoleLinks = navigationLinks(getDashboardNavigation({
@@ -42,8 +42,8 @@ test('internal pages are exposed by Hanasand organization access and gated the s
         assert.equal(organizationLinks.some(link => link.href === href), true, `${label} should be available to Hanasand owners and editors.`)
     }
 
-    assert(sidebar.includes('access.canViewInternalPages === true'))
-    assert(sidebar.includes('canViewHanasandInternalPages(organizations)'))
+    assert(sidebarNavigation.includes('access.canViewInternalPages === true'))
+    assert(sidebarNavigation.includes('canViewHanasandInternalPages(organizations)'))
     assert(proxy.includes('if (!canViewOrganizationInternalPages)'))
     assert(!proxy.includes('roleMatchesStrictPath'), 'Protected page routes must not depend on account roles.')
     assert(proxy.includes('organizationProtectedPaths.find'), 'Protected page routes must be organization-scoped.')

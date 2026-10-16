@@ -1,494 +1,114 @@
 'use client'
 
 import Link from 'next/link'
-import { NAVIGATION_COOKIE, readNavigationPreferences, type NavigationPreferences as Preferences } from '@/utils/layout/navigationPreferences'
-import { getCookie, setCookie } from '@/utils/cookies/cookies'
+import { useEffect, useId, useRef, useState, useSyncExternalStore } from 'react'
+import { FolderKanban } from 'lucide-react'
 import { usePathname, useSearchParams } from 'next/navigation'
-import { AlarmClockCheck, ChevronDown, ChevronsUp, FolderKanban, NotebookText, PanelLeftClose, PanelLeftOpen, Pin, Search, Server, Settings2, ShieldCheck, House, ListFilter, Mail, CircleUserRound, Code2 } from 'lucide-react'
-import { useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
-import { createPortal } from 'react-dom'
+import { type NavigationPreferences } from '@/utils/layout/navigationPreferences'
 import { getDashboardViewMode, setDashboardViewMode } from '@/utils/layout/viewMode'
-import { getDashboardNavigation, navigationLinks, pinnedNavigation, type NavigationAccess, type NavigationItem } from '@/utils/layout/dashboardNavigation'
 import { useWorkspace } from '@/components/organizations/workspaceProvider'
-import { getThesisNavigation, subscribeThesisNavigation } from '@/utils/layout/thesisNavigation'
-import { canManageHanasandOrganizations, canViewHanasandInternalPages } from '@/utils/organizations/internalPageAccess'
-import config from '@/config'
-import { supportFetch } from '@/utils/support/api'
-import { hasUnreadSupportMessages, supportReadStateKey, SUPPORT_READ_STATE_EVENT, SUPPORT_TICKETS_UPDATED_EVENT, type SupportUnreadTicket } from '@/utils/supportUnread'
+import { getThesisNavigation } from '@/utils/layout/thesisNavigation'
+import { pinnedNavigation, type NavigationAccess, type NavigationItem } from '@/utils/layout/dashboardNavigation'
+import { useDashboardSidebarVmPresence } from './useDashboardSidebarVmPresence'
+import { useDashboardSidebarSupport } from './useDashboardSidebarSupport'
+import { useDashboardSidebarNavigation } from './useDashboardSidebarNavigation'
+import { useDashboardSidebarPreferences } from './useDashboardSidebarPreferences'
+import { useDashboardSidebarPreview, DashboardSidebarPreviewPanel } from './dashboardSidebarPreview'
+import { DashboardSidebarGroup, DashboardSidebarLink, PendingBadge, sectionIcons } from './dashboardSidebarMenu'
+import { DashboardSidebarHeader } from './dashboardSidebarHeader'
 
 const emptyThesisNavigation: ReturnType<typeof getThesisNavigation> = []
-const SUPPORT_TICKETS_REFRESH_EVENT = 'hanasand-support-tickets-refresh'
 
-const sectionIcons: Record<string, typeof ShieldCheck> = {
-    'Security & intelligence': ShieldCheck,
-    'Logs & rules': ListFilter,
-    Automation: AlarmClockCheck,
-    Infrastructure: Server,
-    Workspace: NotebookText,
-    Communication: Mail,
-    Organization: FolderKanban,
-    Administration: Settings2,
-    Resources: Code2,
-    Account: CircleUserRound,
-    Pinned: Pin,
-}
-
-export default function DashboardSidebar({ initialPreferences = { expanded: {}, pinned: [] }, initialMode = 'normal', thesisSheets: initialThesisSheets = emptyThesisNavigation, ...access }: NavigationAccess & { initialPreferences?: Preferences, initialMode?: 'normal' | 'compact' }) {
+export default function DashboardSidebar({ initialPreferences = { expanded: {}, pinned: [] }, initialMode = 'normal', thesisSheets: initialThesisSheets = emptyThesisNavigation, ...access }: NavigationAccess & { initialPreferences?: NavigationPreferences; initialMode?: 'normal' | 'compact' }) {
     const { organizationId, organizations } = useWorkspace()
     const pathname = usePathname()
     const searchParams = useSearchParams()
     const domId = useId()
     const storageKey = `dashboard-navigation:v1:${access.id}`
-    const [preferences, setPreferences] = useState<Preferences>(initialPreferences)
     const [query, setQuery] = useState('')
     const [searchOpen, setSearchOpen] = useState(false)
     const searchButton = useRef<HTMLButtonElement | null>(null)
-    const [preview, setPreview] = useState<{ section: NavigationItem, anchorTop: number, top: number, maxHeight: number } | null>(null)
-    const previewCloseTimer = useRef<number | null>(null)
-    const previewPanel = useRef<HTMLDivElement | null>(null)
-    const mode = useSyncExternalStore(
-        (onChange) => {
-            window.addEventListener('dashboard-view-mode', onChange)
-            return () => window.removeEventListener('dashboard-view-mode', onChange)
-        },
-        () => getDashboardViewMode(),
-        () => initialMode,
-    )
-    const desktop = useSyncExternalStore(
-        (onChange) => {
-            const media = window.matchMedia('(min-width: 1024px)')
-            media.addEventListener('change', onChange)
-            return () => media.removeEventListener('change', onChange)
-        },
-        () => window.matchMedia('(min-width: 1024px)').matches,
-        () => true,
-    )
+    const mode = useSyncExternalStore(onChange => {
+        window.addEventListener('dashboard-view-mode', onChange)
+        return () => window.removeEventListener('dashboard-view-mode', onChange)
+    }, () => getDashboardViewMode(), () => initialMode)
+    const desktop = useSyncExternalStore(onChange => {
+        const media = window.matchMedia('(min-width: 1024px)')
+        media.addEventListener('change', onChange)
+        return () => media.removeEventListener('change', onChange)
+    }, () => window.matchMedia('(min-width: 1024px)').matches, () => true)
     const compact = desktop && mode === 'compact'
-    const [hasVMs, setHasVMs] = useState(false)
-    const [supportQueue, setSupportQueue] = useState<{ userId: string; scope: string; tickets: SupportUnreadTicket[]; hasUnread: boolean } | null>(null)
-    const hasOpenSupportChats = supportQueue?.userId === access.id && supportQueue.tickets.some(ticket => ticket.status === 'open')
-    const hasUnreadSupport = supportQueue?.userId === access.id && supportQueue.hasUnread
-    const pendingCommunicationItems = [
-        hasUnreadSupport ? 'unread support chats' : null,
-    ].filter((item): item is string => item !== null)
-    const communicationSummary = pendingCommunicationItems.join(' and ')
-    const thesisSheets = useSyncExternalStore(subscribeThesisNavigation, () => {
-        const current = getThesisNavigation()
-        return current.length ? current : initialThesisSheets
-    }, () => initialThesisSheets)
-    useEffect(() => {
-        const controller = new AbortController()
-        let requestInFlight = false
-        let refreshRequested = false
-        const refresh = async () => {
-            if (requestInFlight) { refreshRequested = true; return }
-            requestInFlight = true
-            try {
-                const id = getCookie('impersonating_id') || access.id
-                if (id.startsWith('svc_')) { setHasVMs(false); return }
-                const response = await fetch(`/api/backend/vms/${encodeURIComponent(id)}`, { cache: 'no-store', signal: controller.signal })
-                if (!response.ok) return
-                const vms = await response.json()
-                if (Array.isArray(vms) && !controller.signal.aborted) setHasVMs(vms.length > 0)
-            } catch { /* Keep the last known navigation if the VM request fails. */ }
-            finally {
-                requestInFlight = false
-                if (refreshRequested && !controller.signal.aborted) { refreshRequested = false; void refresh() }
-            }
-        }
-        void refresh()
-        window.addEventListener('vms-updated', refresh)
-        return () => { controller.abort(); window.removeEventListener('vms-updated', refresh) }
-    }, [access.id])
-    useEffect(() => {
-        const controller = new AbortController()
-        let requestInFlight = false
-        let refreshRequested = false
-        const refresh = async () => {
-            if (requestInFlight) { refreshRequested = true; return }
-            requestInFlight = true
-            try {
-                const response = await supportFetch('/support/tickets', { signal: controller.signal })
-                if (!response.ok) return
-                const payload = await response.json() as { tickets?: SupportUnreadTicket[] }
-                if (!controller.signal.aborted) {
-                    const actorId = getCookie('impersonating_id') || getCookie('id') || access.id
-                    const scope = `user:${actorId}`
-                    const tickets = payload.tickets || []
-                    setSupportQueue({
-                        userId: access.id,
-                        scope,
-                        tickets,
-                        hasUnread: hasUnreadSupportMessages(tickets, scope),
-                    })
-                }
-            } catch { /* Keep the last known support queue state if the request fails. */ }
-            finally {
-                requestInFlight = false
-                if (refreshRequested && !controller.signal.aborted) { refreshRequested = false; void refresh() }
-            }
-        }
-        const refreshReadState = (scope: string) => {
-            setSupportQueue(current => current?.userId === access.id && current.scope === scope
-                ? { ...current, hasUnread: hasUnreadSupportMessages(current.tickets, scope) }
-                : current)
-        }
-        const onReadState = (event: Event) => {
-            const scope = (event as CustomEvent<{ scope?: string }>).detail?.scope
-            if (scope === `user:${getCookie('impersonating_id') || getCookie('id') || access.id}`) refreshReadState(scope)
-        }
-        const onStorage = (event: StorageEvent) => {
-            const scope = `user:${getCookie('impersonating_id') || getCookie('id') || access.id}`
-            if (event.key === supportReadStateKey(scope)) refreshReadState(scope)
-        }
-        const onTicketsUpdated = (event: Event) => {
-            const detail = (event as CustomEvent<{ scope?: string; tickets?: SupportUnreadTicket[] }>).detail
-            const scope = `user:${getCookie('impersonating_id') || getCookie('id') || access.id}`
-            if (detail?.scope !== scope) return
-            const tickets = detail.tickets || []
-            setSupportQueue({ userId: access.id, scope, tickets, hasUnread: hasUnreadSupportMessages(tickets, scope) })
-        }
-        if (pathname !== '/support') void refresh()
-        window.addEventListener(SUPPORT_READ_STATE_EVENT, onReadState)
-        window.addEventListener('storage', onStorage)
-        window.addEventListener(SUPPORT_TICKETS_UPDATED_EVENT, onTicketsUpdated)
-        window.addEventListener(SUPPORT_TICKETS_REFRESH_EVENT, refresh)
-        return () => {
-            controller.abort()
-            window.removeEventListener(SUPPORT_READ_STATE_EVENT, onReadState)
-            window.removeEventListener('storage', onStorage)
-            window.removeEventListener(SUPPORT_TICKETS_UPDATED_EVENT, onTicketsUpdated)
-            window.removeEventListener(SUPPORT_TICKETS_REFRESH_EVENT, refresh)
-        }
-    }, [access.id, pathname])
-    useEffect(() => {
-        if (!hasOpenSupportChats || pathname === '/support') return
-        const id = getCookie('id') || access.id
-        const token = getCookie('access_token') || ''
-        const impersonationToken = getCookie('impersonation_token') || undefined
-        if (!id || !token) return
-        let disposed = false
-        let socket: WebSocket | undefined
-        let retry: ReturnType<typeof setTimeout> | undefined
-        let refreshTimer: ReturnType<typeof setTimeout> | undefined
-        let attempts = 0
-        const publishChange = () => {
-            if (refreshTimer) return
-            refreshTimer = setTimeout(() => {
-                refreshTimer = undefined
-                window.dispatchEvent(new Event(SUPPORT_TICKETS_REFRESH_EVENT))
-            }, 100)
-        }
-        const connect = () => {
-            if (disposed) return
-            const next = new WebSocket(`${config.url.support_wss}/ws/support`)
-            socket = next
-            next.onopen = () => next.send(JSON.stringify({ type: 'auth', id, token, impersonationToken }))
-            next.onmessage = event => {
-                try {
-                    const message = JSON.parse(event.data)
-                    if (message.type === 'ready') {
-                        attempts = 0
-                        publishChange()
-                    } else if (message.type === 'changed') publishChange()
-                } catch { /* Ignore malformed events. */ }
-            }
-            next.onerror = () => next.close()
-            next.onclose = () => {
-                if (socket !== next) return
-                socket = undefined
-                if (!disposed) retry = setTimeout(connect, Math.min(30_000, 1000 * 2 ** Math.min(attempts++, 5)))
-            }
-        }
-        connect()
-        return () => {
-            disposed = true
-            clearTimeout(retry)
-            clearTimeout(refreshTimer)
-            socket?.close()
-        }
-    }, [access.id, hasOpenSupportChats, pathname])
-    const hasHanasandOrganization = access.hasHanasandOrganization === true || organizations.some(organization => organization.slug?.toLowerCase() === 'hanasand' && organization.lifecycleStatus === 'active')
-    const canViewInternalPages = access.canViewInternalPages === true || canViewHanasandInternalPages(organizations)
-    const canManageOrganizations = access.canManageOrganizations === true || canManageHanasandOrganizations(organizations)
-    const sections = getDashboardNavigation({
-        ...access,
-        canViewInternalPages,
-        canManageOrganizations,
-        canReviewIntel: access.canReviewIntel || canViewInternalPages,
-        hasVMs: hasVMs || canViewInternalPages,
-        hasContentOrganization: Boolean(organizationId),
-        hasHanasandOrganization,
-        thesisSheets,
+    const hasVMs = useDashboardSidebarVmPresence(access.id)
+    const { hasUnreadSupport } = useDashboardSidebarSupport(access.id, pathname)
+    const { sections, links, active, activePath } = useDashboardSidebarNavigation({
+        access,
+        organizations,
+        organizationId,
+        hasVMs,
+        initialThesisSheets,
+        pathname,
+        searchParams,
     })
-    const links = navigationLinks(sections)
-    const route = pathname
-    const matchesHref = (href: string) => {
-        const [hrefPath, hrefQuery = ''] = href.split('?')
-        if (route !== hrefPath && !route.startsWith(`${hrefPath}/`)) return false
-        return [...new URLSearchParams(hrefQuery)].every(([key, value]) => searchParams.get(key) === value)
-    }
-    const active = links.filter(item => matchesHref(item.href))
-        .sort((left, right) => right.href.length - left.href.length)[0]
-        ?? (route === '/thesis' ? links.find(item => item.href.startsWith('/thesis?sheet=')) : undefined)
-    const activePath = (active?.ancestors.length ? active.ancestors.join('/') : active?.label) ?? (pathname.startsWith('/automation') ? 'Automation' : '')
-
-    useEffect(() => {
-        let saved = readNavigationPreferences(getCookie(NAVIGATION_COOKIE) || undefined, access.id)
-        try {
-            if (!getCookie(NAVIGATION_COOKIE)) {
-                const legacy = JSON.parse(localStorage.getItem(storageKey) || '{}')
-                saved = readNavigationPreferences(JSON.stringify({ ...legacy, id: access.id }), access.id)
-            }
-        } catch { /* Preferences are optional. */ }
-        save(saved)
-        setQuery('')
-        setSearchOpen(false)
-    }, [storageKey, pathname, activePath])
-
-    function save(next: Preferences) {
-        setPreferences(next)
-        try { setCookie(NAVIGATION_COOKIE, JSON.stringify({ ...next, id: access.id }), 365); localStorage.removeItem(storageKey) } catch { /* Keep this session usable without storage. */ }
-    }
-
-    function isExpanded(key: string) {
-        return activePath === key || activePath.startsWith(`${key}/`) || preferences.expanded[key] === true
-    }
-
-    function toggle(key: string) {
-        save({ ...preferences, expanded: { ...preferences.expanded, [key]: !isExpanded(key) } })
-    }
-
-    function collapseAll() {
-        const keys = [
-            ...Object.keys(preferences.expanded),
-            'Pinned',
-            ...navigationLinks([...sections, { label: 'Pinned', items: pinnedNavigation(favorites) }]).flatMap(item => item.ancestors.map((_, index) => item.ancestors.slice(0, index + 1).join('/'))),
-        ]
-        save({ ...preferences, expanded: Object.fromEntries(keys.map(key => [key, false])) })
-        setQuery('')
-    }
-
-    function pin(href: string) {
-        save({ ...preferences, expanded: { ...preferences.expanded, Pinned: true }, pinned: preferences.pinned.includes(href) ? preferences.pinned.filter(item => item !== href) : [...preferences.pinned, href] })
-    }
-
-    function renderLink(item: { label: string, href: string }, key = item.href) {
-        const pinned = preferences.pinned.includes(item.href)
-        const pendingLabel = pendingLabelForHref(item.href, hasUnreadSupport)
-        return (
-            <div key={key} className='group flex min-w-0 items-center rounded-md hover:bg-ui-canvas'>
-                <Link href={item.href} aria-current={active?.href === item.href ? 'page' : undefined}
-                    aria-label={pendingLabel ? `${item.label}, ${pendingLabel}` : undefined}
-                    data-thesis-sheet-link={item.href.startsWith('/thesis?sheet=') ? '' : undefined}
-                    onClick={event => {
-                        if (!item.href.startsWith('/thesis?sheet=') || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
-                        event.preventDefault()
-                        window.history.pushState(null, '', item.href)
-                    }}
-                    className={`flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-2 text-sm leading-5 focus-visible:outline-2 focus-visible:outline-ui-primary ${active?.href === item.href ? 'bg-ui-primary/10 font-semibold text-ui-primary' : 'text-ui-muted hover:text-ui-text'}`}>
-                    <span className='min-w-0 flex-1'>{item.label}</span>
-                    {pendingLabel ? <PendingBadge /> : null}
-                </Link>
-                <button type='button' onClick={() => pin(item.href)} aria-label={`${pinned ? 'Unpin' : 'Pin'} ${item.label}`} aria-pressed={pinned}
-                    className={`grid h-8 w-7 shrink-0 place-items-center rounded text-ui-muted hover:text-ui-primary focus-visible:outline-2 focus-visible:outline-ui-primary ${pinned ? 'text-ui-primary' : 'lg:opacity-0 lg:group-hover:opacity-100 lg:focus-visible:opacity-100'}`}>
-                    <Pin className={`h-3.5 w-3.5 ${pinned ? 'fill-current' : ''}`} />
-                </button>
-            </div>
-        )
-    }
-
-    function renderGroup(item: NavigationItem, ancestors: string[] = []) {
-        const path = [...ancestors, item.label]
-        const key = path.join('/')
-        const containsActive = activePath === key || activePath.startsWith(`${key}/`)
-        const expanded = isExpanded(key)
-        const Icon = sectionIcons[item.label] || FolderKanban
-        const controls = `${domId}-${encodeURIComponent(key)}`
-        const pendingSummary = item.label === 'Communication' ? communicationSummary : ''
-        return (
-            <div key={key} className={ancestors.length ? 'min-w-0' : 'min-w-0 border-t border-ui-border/50 pt-1 first:border-0'}>
-                <button type='button' aria-expanded={expanded} aria-controls={controls}
-                    aria-label={!expanded && pendingSummary ? `${item.label}, ${pendingSummary}` : undefined}
-                    onClick={() => toggle(key)}
-                    className={`flex min-h-10 w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm leading-5 hover:bg-ui-canvas focus-visible:outline-2 focus-visible:outline-ui-primary ${containsActive ? 'text-ui-primary' : 'text-ui-text'} ${ancestors.length ? 'font-medium' : 'font-semibold'}`}>
-                    {!ancestors.length && <Icon className='h-4 w-4 shrink-0' />}
-                    <span className='min-w-0 flex-1'>{item.label}</span>
-                    {!expanded && pendingSummary ? <PendingBadge /> : null}
-                    <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform ${expanded ? '' : '-rotate-90'}`} />
-                </button>
-                <div id={controls} hidden={!expanded} className='ml-2 border-l border-ui-border pl-2'>
-                    {item.items?.map(child => child.items ? renderGroup(child, path) : child.href ? renderLink({ label: child.label, href: child.href }) : null)}
-                </div>
-            </div>
-        )
-    }
-
-    const favorites = links.filter(item => preferences.pinned.includes(item.href))
-        .sort((left, right) => preferences.pinned.indexOf(left.href) - preferences.pinned.indexOf(right.href))
+    const preferencesState = useDashboardSidebarPreferences({
+        userId: access.id,
+        storageKey,
+        pathname,
+        activePath,
+        initialPreferences,
+        sections,
+        links,
+    })
+    const { preferences, favorites, save, isExpanded, toggle, collapseAll, pin } = preferencesState
+    const previewState = useDashboardSidebarPreview(preferences)
+    const { preview, previewPanel, showPreview, deferPreviewClose, cancelPreviewClose, closePreview } = previewState
+    const communicationSummary = hasUnreadSupport ? 'unread support chats' : ''
     const search = query.trim().toLocaleLowerCase()
     const hasExpandedMenu = !search && (sections.some(section => section.items && isExpanded(section.label)) || (favorites.length > 0 && isExpanded('Pinned')))
     const matches = search ? links.filter(item => [...item.ancestors, item.label].join(' ').toLocaleLowerCase().includes(search)) : []
 
     useEffect(() => {
-        if (!preview) return
-        const closeOnEscape = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') setPreview(null)
-        }
-        window.addEventListener('keydown', closeOnEscape)
-        return () => window.removeEventListener('keydown', closeOnEscape)
-    }, [preview])
+        setQuery('')
+        setSearchOpen(false)
+    }, [pathname, activePath])
 
-    function previewMinTop() {
-        const headerBottom = document.querySelector<HTMLElement>('[data-site-header]')?.getBoundingClientRect().bottom ?? 72
-        return headerBottom + 16
+    function renderLink(item: { label: string; href: string }, key = item.href) {
+        return <DashboardSidebarLink key={key} linkKey={key} item={item} active={active} preferences={preferences} hasUnreadSupport={hasUnreadSupport} onPin={pin} />
     }
 
-    function previewMaxHeight() {
-        return Math.max(0, window.innerHeight - previewMinTop() - 16)
+    function renderGroup(item: NavigationItem) {
+        return <DashboardSidebarGroup key={item.label} item={item} domId={domId} activePath={activePath} preferences={preferences} communicationSummary={communicationSummary} onToggle={toggle} renderLink={renderLink} />
     }
 
-    useLayoutEffect(() => {
-        if (!preview || !previewPanel.current) return
-        const updateBounds = () => {
-            const minTop = previewMinTop()
-            const maxHeight = previewMaxHeight()
-            const panelHeight = Math.min(previewPanel.current?.scrollHeight ?? maxHeight, maxHeight)
-            const top = Math.max(minTop, Math.min(preview.anchorTop, window.innerHeight - 16 - panelHeight))
-            setPreview(current => current && (current.top !== top || current.maxHeight !== maxHeight)
-                ? { ...current, top, maxHeight }
-                : current)
-        }
-        updateBounds()
-        window.addEventListener('resize', updateBounds)
-        return () => window.removeEventListener('resize', updateBounds)
-    }, [preview, preferences.expanded])
-
-    function showPreview(section: NavigationItem, element: HTMLElement) {
-        if (previewCloseTimer.current !== null) window.clearTimeout(previewCloseTimer.current)
-        const bounds = element.getBoundingClientRect()
-        setPreview({ section, anchorTop: bounds.top, top: Math.max(previewMinTop(), bounds.top), maxHeight: previewMaxHeight() })
-    }
-
-    function deferPreviewClose() {
-        if (previewCloseTimer.current !== null) window.clearTimeout(previewCloseTimer.current)
-        previewCloseTimer.current = window.setTimeout(() => setPreview(null), 140)
-    }
-
-    function renderPreviewItems(items: NavigationItem[], ancestors: string[] = []) {
-        return items.map(item => {
-            const path = [...ancestors, item.label]
-            const key = path.join('/')
-            if (item.items) {
-                const expanded = isExpanded(key)
-                const controls = `${domId}-preview-${encodeURIComponent(key)}`
-                return <div key={key} className='py-0.5'>
-                    <button type='button' aria-expanded={expanded} aria-controls={controls} onClick={() => toggle(key)}
-                        className='flex min-h-9 w-full items-center gap-2 rounded-md py-1.5 pr-2 text-left text-sm font-medium text-ui-text hover:bg-ui-canvas focus-visible:outline-2 focus-visible:outline-ui-primary'
-                        style={{ paddingLeft: 12 + ancestors.length * 12 }}>
-                        <span className='min-w-0 flex-1'>{item.label}</span>
-                        <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform ${expanded ? '' : '-rotate-90'}`} />
-                    </button>
-                    <div id={controls} hidden={!expanded} className='border-l border-ui-border'>
-                        {renderPreviewItems(item.items, path)}
-                    </div>
-                </div>
-            }
-            const pendingLabel = item.href ? pendingLabelForHref(item.href, hasUnreadSupport) : null
-            return item.href ? <Link key={item.href} href={item.href} onClick={() => setPreview(null)} aria-current={active?.href === item.href ? 'page' : undefined}
-                aria-label={pendingLabel ? `${item.label}, ${pendingLabel}` : undefined}
-                className={`flex items-center gap-2 rounded-md py-2 pr-3 text-sm leading-5 hover:bg-ui-canvas focus-visible:outline-2 focus-visible:outline-ui-primary ${active?.href === item.href ? 'bg-ui-primary/10 font-semibold text-ui-primary' : 'text-ui-text'}`}
-                style={{ paddingLeft: 12 + ancestors.length * 12 }}>
-                <span className='min-w-0 flex-1'>{item.label}</span>
-                {pendingLabel ? <PendingBadge /> : null}
-            </Link> : null
-        })
-    }
-
-    return (
-        <aside aria-label='Dashboard sidebar' className={`site-chrome dashboard-sidebar-sticky noscroll min-h-0 w-full overflow-auto rounded-lg border border-ui-border bg-ui-panel text-ui-text p-2 shadow-sm shadow-ui-canvas/10 dark:shadow-ui-canvas/20 ${compact ? 'lg:w-16' : 'lg:w-58'}`}>
-            <div className={`mb-2 flex ${compact ? 'flex-col items-center gap-1' : 'items-center justify-between px-2'}`}>
-                <Link href='/dashboard' aria-label='Home' title='Home' aria-current={route === '/dashboard' ? 'page' : undefined}
-                    className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg focus-visible:outline-2 focus-visible:outline-ui-primary ${route === '/dashboard' ? 'bg-ui-primary/10 text-ui-primary' : 'text-ui-muted hover:bg-ui-canvas'}`}>
-                    <House aria-hidden='true' className='h-4 w-4' />
-                </Link>
-                <div className={`flex shrink-0 items-center ${compact ? 'flex-col' : ''}`}>
-                    {!compact && hasExpandedMenu && <button type='button' onClick={collapseAll} aria-label='Collapse all menus' title='Collapse all menus'
-                        className='grid h-10 w-10 place-items-center rounded-lg text-ui-muted hover:bg-ui-canvas focus-visible:outline-2 focus-visible:outline-ui-primary'>
-                        <ChevronsUp aria-hidden='true' className='h-4 w-4' />
-                    </button>}
-                    <button ref={searchButton} type='button' onClick={() => {
-                        if (!searchOpen && compact) setDashboardViewMode('normal')
-                        setSearchOpen(open => !open)
-                        setQuery('')
-                    }} aria-label={searchOpen ? 'Close page search' : 'Find a page'} title={searchOpen ? 'Close page search' : 'Find a page'} aria-expanded={searchOpen} aria-controls={`${domId}-navigation-search`}
-                    className='grid h-10 w-10 place-items-center rounded-lg text-ui-muted hover:bg-ui-canvas focus-visible:outline-2 focus-visible:outline-ui-primary'>
-                        <Search aria-hidden='true' className='h-4 w-4' />
-                    </button>
-                    <button type='button' onClick={() => setDashboardViewMode(compact ? 'normal' : 'compact')} aria-label={compact ? 'Expand sidebar' : 'Collapse sidebar'} title={compact ? 'Expand sidebar' : 'Collapse sidebar'}
-                        className='hidden h-10 w-10 place-items-center rounded-lg text-ui-muted hover:bg-ui-canvas focus-visible:outline-2 focus-visible:outline-ui-primary lg:grid'>
-                        {compact ? <PanelLeftOpen className='h-4 w-4' /> : <PanelLeftClose className='h-4 w-4' />}
-                    </button>
-                </div>
-            </div>
-            {!compact && searchOpen && <div className='relative mb-2'>
-                <Search aria-hidden='true' className='pointer-events-none absolute left-2 top-3 h-4 w-4 text-ui-muted' />
-                <input id={`${domId}-navigation-search`} type='search' aria-label='Find a page' placeholder='Find a page…' value={query} autoFocus onChange={event => setQuery(event.target.value)} onKeyDown={event => {
-                    if (event.key === 'Escape') {
-                        setQuery('')
-                        setSearchOpen(false)
-                        searchButton.current?.focus()
-                    }
-                }}
-                className='h-10 w-full min-w-0 rounded-md border border-ui-border bg-ui-canvas pl-8 pr-2 text-sm text-ui-text placeholder:text-ui-muted focus-visible:outline-2 focus-visible:outline-ui-primary' />
-            </div>}
-            <nav aria-label='Main navigation' onMouseLeave={deferPreviewClose} className='grid gap-1'>
-                {compact ? sections.map(section => {
-                    const Icon = sectionIcons[section.label] || FolderKanban
-                    if (section.href) return <Link key={section.href} href={section.href} aria-label={section.label} title={section.label} aria-current={active?.href === section.href ? 'page' : undefined}
-                        className={`grid h-10 w-full place-items-center rounded-md focus-visible:outline-2 focus-visible:outline-ui-primary ${active?.href === section.href ? 'bg-ui-primary/10 text-ui-primary' : 'text-ui-muted hover:bg-ui-canvas'}`}><Icon className='h-4 w-4' /></Link>
-                    return <button key={section.label} type='button'
-                        aria-label={section.label === 'Communication' && communicationSummary ? `Open Communication, ${communicationSummary}` : `Open ${section.label}`}
-                        title={section.label === 'Communication' && communicationSummary ? `Communication · ${communicationSummary}` : section.label}
-                        onMouseEnter={event => showPreview(section, event.currentTarget)} onFocus={event => showPreview(section, event.currentTarget)}
-                        onClick={() => { save({ ...preferences, expanded: { ...preferences.expanded, [section.label]: true } }); setDashboardViewMode('normal'); setPreview(null) }}
-                        className={`relative grid h-10 w-full place-items-center rounded-md hover:bg-ui-canvas focus-visible:outline-2 focus-visible:outline-ui-primary ${activePath.startsWith(section.label) ? 'bg-ui-primary/10 text-ui-primary' : 'text-ui-muted'}`}>
-                        <Icon className='h-4 w-4' />
-                        {section.label === 'Communication' && communicationSummary && preview?.section.label !== section.label ? <PendingBadge className='absolute right-0 top-0' /> : null}
-                    </button>
-                }) : search ? <div aria-label='Navigation search results'>
-                    <p role='status' className='px-2 py-1 text-xs text-ui-muted'>{matches.length} matching pages</p>
-                    {matches.map(item => <div key={item.href} className='mb-2'>
-                        <p className='px-2 text-[10px] text-ui-muted'>{item.ancestors.join(' › ')}</p>
-                        {renderLink(item)}
-                    </div>)}
-                </div> : <>
-                    {favorites.length > 0 && renderGroup({ label: 'Pinned', items: pinnedNavigation(favorites) })}
-                    {sections.map(section => section.items ? renderGroup(section) : section.href ? renderLink({ label: section.label, href: section.href }) : null)}
-                </>}
-            </nav>
-            {compact && preview && typeof document !== 'undefined' && createPortal(
-                <div ref={previewPanel} role='region' aria-label={`${preview.section.label} navigation`} onMouseEnter={() => {
-                    if (previewCloseTimer.current !== null) window.clearTimeout(previewCloseTimer.current)
-                }} onMouseLeave={deferPreviewClose}
-                style={{ position: 'fixed', left: 80, top: preview.top, maxHeight: preview.maxHeight }}
-                className='z-[200] w-72 overflow-y-auto rounded-xl border border-ui-border bg-ui-panel p-2 text-ui-text shadow-ui-panel'>
-                    <p className='px-3 py-2 text-sm font-semibold'>{preview.section.label}</p>
-                    {renderPreviewItems(preview.section.items || [], [preview.section.label])}
-                </div>, document.body,
-            )}
-            <nav aria-label='Status shortcut' className='mt-2 grid gap-1 border-t border-ui-border pt-2 lg:hidden'>
-                <Link href='/status' className='rounded-md px-2 py-2 text-sm text-ui-muted hover:bg-ui-canvas hover:text-ui-text'>Status</Link>
-            </nav>
-        </aside>
-    )
-}
-
-function pendingLabelForHref(href: string, hasUnreadSupport: boolean) {
-    if (href === '/support' && hasUnreadSupport) return 'unread messages'
-    return null
-}
-
-function PendingBadge({ className = '' }: { className?: string }) {
-    return <span aria-hidden='true' className={`grid h-4 w-4 shrink-0 place-items-center rounded-full bg-neutral-700 text-[10px] font-semibold leading-none text-white ${className}`}>1</span>
+    return <aside aria-label='Dashboard sidebar' className={`site-chrome dashboard-sidebar-sticky noscroll min-h-0 w-full overflow-auto rounded-lg border border-ui-border bg-ui-panel text-ui-text p-2 shadow-sm shadow-ui-canvas/10 dark:shadow-ui-canvas/20 ${compact ? 'lg:w-16' : 'lg:w-58'}`}>
+        <DashboardSidebarHeader domId={domId} route={pathname} compact={compact} hasExpandedMenu={hasExpandedMenu} searchOpen={searchOpen} setSearchOpen={setSearchOpen} query={query} setQuery={setQuery} searchButton={searchButton} onCollapseAll={() => { collapseAll(); setQuery('') }} />
+        <nav aria-label='Main navigation' onMouseLeave={deferPreviewClose} className='grid gap-1'>
+            {compact ? sections.map(section => {
+                const Icon = sectionIcons[section.label] || FolderKanban
+                if (section.href) return <Link key={section.href} href={section.href} aria-label={section.label} title={section.label} aria-current={active?.href === section.href ? 'page' : undefined}
+                    className={`grid h-10 w-full place-items-center rounded-md focus-visible:outline-2 focus-visible:outline-ui-primary ${active?.href === section.href ? 'bg-ui-primary/10 text-ui-primary' : 'text-ui-muted hover:bg-ui-canvas'}`}><Icon className='h-4 w-4' /></Link>
+                return <button key={section.label} type='button'
+                    aria-label={section.label === 'Communication' && communicationSummary ? `Open Communication, ${communicationSummary}` : `Open ${section.label}`}
+                    title={section.label === 'Communication' && communicationSummary ? `Communication · ${communicationSummary}` : section.label}
+                    onMouseEnter={event => showPreview(section, event.currentTarget)} onFocus={event => showPreview(section, event.currentTarget)}
+                    onClick={() => { save({ ...preferences, expanded: { ...preferences.expanded, [section.label]: true } }); setDashboardViewMode('normal'); closePreview() }}
+                    className={`relative grid h-10 w-full place-items-center rounded-md hover:bg-ui-canvas focus-visible:outline-2 focus-visible:outline-ui-primary ${activePath.startsWith(section.label) ? 'bg-ui-primary/10 text-ui-primary' : 'text-ui-muted'}`}>
+                    <Icon className='h-4 w-4' />
+                    {section.label === 'Communication' && communicationSummary && preview?.section.label !== section.label ? <PendingBadge className='absolute right-0 top-0' /> : null}
+                </button>
+            }) : search ? <div aria-label='Navigation search results'>
+                <p role='status' className='px-2 py-1 text-xs text-ui-muted'>{matches.length} matching pages</p>
+                {matches.map(item => <div key={item.href} className='mb-2'>
+                    <p className='px-2 text-[10px] text-ui-muted'>{item.ancestors.join(' › ')}</p>
+                    {renderLink(item)}
+                </div>)}
+            </div> : <>
+                {favorites.length > 0 && renderGroup({ label: 'Pinned', items: pinnedNavigation(favorites) })}
+                {sections.map(section => section.items ? renderGroup(section) : section.href ? renderLink({ label: section.label, href: section.href }) : null)}
+            </>}
+        </nav>
+        {compact && preview && <DashboardSidebarPreviewPanel preview={preview} panelRef={previewPanel} domId={domId} active={active} hasUnreadSupport={hasUnreadSupport} preferences={preferences} onToggle={toggle} onClose={closePreview} onMouseEnter={cancelPreviewClose} onMouseLeave={deferPreviewClose} />}
+        <nav aria-label='Status shortcut' className='mt-2 grid gap-1 border-t border-ui-border pt-2 lg:hidden'>
+            <Link href='/status' className='rounded-md px-2 py-2 text-sm text-ui-muted hover:bg-ui-canvas hover:text-ui-text'>Status</Link>
+        </nav>
+    </aside>
 }

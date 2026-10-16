@@ -2,18 +2,28 @@ import { expect, test } from '@playwright/test'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { authenticateContext, createUser, deleteUser, uniqueSuffix } from './dashboard-resource-auth'
-import { adminOnlyOperationHrefs, password, privilegedSidebarLinks, root } from './dashboard-resource-data'
+import { adminOnlyOperationHrefs, password, root } from './dashboard-resource-data'
 import { scrollConsoleContentToBottom, sidebarLayoutMetrics } from './dashboard-resource-sidebar-helpers'
+import { getDashboardNavigation, navigationLinks } from '../src/utils/layout/dashboardNavigation'
 
 test.describe('dashboard sidebar resources', () => {
     test('sidebar keeps admin controls internal and out of normal customer navigation', async () => {
-        const sidebar = await readFile(path.join(root, 'src/components/dashboard/dashboardSidebar.tsx'), 'utf8')
         const header = await readFile(path.join(root, 'src/components/header/header.tsx'), 'utf8')
-
-        for (const name of privilegedSidebarLinks) {
-            expect(sidebar, `Dashboard sidebar should expose ${name} only through privileged sections`).toContain(`label: '${name}'`)
+        const normalLinks = navigationLinks(getDashboardNavigation({ id: 'normal-user' }))
+        const internalLinks = navigationLinks(getDashboardNavigation({
+            id: 'hanasand-user', canViewInternalPages: true, canReviewIntel: true, hasVMs: true,
+        }))
+        const internalHrefs = [
+            '/ti/activity', '/ti/profiles', '/ti/sources', '/ti/runs', '/ti/timeliness',
+            '/logs', '/logs/realtime', '/logs/search', '/logs/errors', '/traffic',
+            '/system/ai', '/vulnerabilities', '/db', '/db/backups', '/system/rates',
+            '/load-testing', '/management/users', '/management/audit', '/management/service-accounts',
+            '/content/articles', '/content/thoughts',
+        ]
+        for (const href of internalHrefs) {
+            expect(normalLinks.some(link => link.href === href), `${href} should be hidden from normal navigation`).toBe(false)
+            expect(internalLinks.some(link => link.href === href), `${href} should be available to internal operators`).toBe(true)
         }
-
         for (const href of adminOnlyOperationHrefs) {
             expect(header, `Public/customer header should not expose ${href}`).not.toContain(`href='${href}'`)
             expect(header, `Public/customer header should not expose ${href}`).not.toContain(`href: '${href}'`)
