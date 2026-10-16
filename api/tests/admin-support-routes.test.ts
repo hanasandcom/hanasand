@@ -1431,6 +1431,26 @@ test('support role recovery shares the active-member write and retains its audit
     expect(state.queries.some(({ sql }) => sql.includes('UPDATE organizations SET updated_at = NOW()'))).toBe(true)
 })
 
+test('support role recovery treats an already-set role as an audited no-op', async () => {
+    state.supportOrganization = activeSupportOrganizationFixture()
+    state.supportMemberRole = 'editor'
+    state.supportOwnerCounts = [2]
+
+    const result = await request(postSupportOrganizationMemberRoleRecovery, {
+        params: { id: 'org-1', userId: 'member-1' },
+        body: { role: 'editor', reason: 'Restore member access', scope: 'member:role_recovery', requestId: 'role-noop-1' },
+    })
+
+    expect(result.statusCode).toBe(409)
+    expect(result.body.error).toBe('Member already has the requested role.')
+    expect(state.queries.some(({ sql }) => sql.includes('UPDATE organization_members') && sql.includes('SET role = $3'))).toBe(false)
+    expect(state.recordedEvents.at(-1)).toMatchObject({
+        actionType: 'support.organization.member_role_recovery',
+        outcome: 'failed',
+        context: { error: 'member_role_already_set', noSilentMembershipMutation: true, mutation: 'none' },
+    })
+})
+
 test('member role recovery idempotency replay remains member-scoped', async () => {
     state.supportOrganization = activeSupportOrganizationFixture()
     state.duplicateInviteAction = { id: 94, request_id: 'original-role-request' }

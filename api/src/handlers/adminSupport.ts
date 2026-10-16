@@ -3223,9 +3223,9 @@ export async function postSupportOrganizationMemberRoleRecovery(req: FastifyRequ
 
     const before = membershipSnapshot(member)
     const ownerCount = await activeOwnerCount(req.params.id)
-    const permissionError = supportRoleRecoveryPermissionError(String(member.role) as OrganizationRole, input.role, ownerCount)
-    const noOp = member.role === input.role
-    if (permissionError || noOp) {
+    const roleDecision = supportRoleRecoveryDecision(String(member.role) as OrganizationRole, input.role, ownerCount)
+    if (roleDecision.kind !== 'allowed') {
+        const permissionError = roleDecision.kind === 'denied' ? roleDecision.message : ''
         const error = permissionError || 'member_role_already_set'
         await recordSystemEvent(req, {
             actionType,
@@ -3331,9 +3331,9 @@ export async function postSupportOrganizationMemberRoleRecovery(req: FastifyRequ
         if (currentAvailability[0]?.hasAvailableAdmin === true) return { error: 'active_admin_available' as const, member: currentMember }
 
         const currentOwnerCount = await activeOwnerCount(organization.id, query)
-        const currentPermissionError = supportRoleRecoveryPermissionError(String(currentMember.role) as OrganizationRole, input.role, currentOwnerCount)
-        if (currentPermissionError) return { error: 'permission_denied' as const, member: currentMember, ownerCount: currentOwnerCount, message: currentPermissionError }
-        if (currentMember.role === input.role) return { error: 'member_role_already_set' as const, member: currentMember, ownerCount: currentOwnerCount }
+        const currentRoleDecision = supportRoleRecoveryDecision(String(currentMember.role) as OrganizationRole, input.role, currentOwnerCount)
+        if (currentRoleDecision.kind === 'denied') return { error: 'permission_denied' as const, member: currentMember, ownerCount: currentOwnerCount, message: currentRoleDecision.message }
+        if (currentRoleDecision.kind === 'unchanged') return { error: 'member_role_already_set' as const, member: currentMember, ownerCount: currentOwnerCount }
 
         const updatedMember = await updateActiveOrganizationMemberRole({
             organizationId: organization.id,
@@ -5430,11 +5430,16 @@ async function loadSupportMemberDetail(organizationId: string, userId: string, q
     return result.rows[0] as Record<string, unknown> | undefined
 }
 
-function supportRoleRecoveryPermissionError(currentRole: OrganizationRole, newRole: OrganizationRole, ownerCount: number) {
-    if (newRole === 'owner') return 'Support role recovery cannot grant organization owner.'
-    if (!['owner', 'admin', 'editor', 'reader', 'member', 'viewer'].includes(currentRole)) return 'Unsupported current member role.'
-    if (currentRole === 'owner' && ownerCount <= 1) return 'Support role recovery cannot demote the last active owner.'
-    return ''
+function supportRoleRecoveryDecision(currentRole: OrganizationRole, newRole: OrganizationRole, ownerCount: number) {
+    if (newRole === 'owner') return { kind: 'denied' as const, message: 'Support role recovery cannot grant organization owner.' }
+    if (!['owner', 'admin', 'editor', 'reader', 'member', 'viewer'].includes(currentRole)) {
+        return { kind: 'denied' as const, message: 'Unsupported current member role.' }
+    }
+    if (currentRole === 'owner' && ownerCount <= 1) {
+        return { kind: 'denied' as const, message: 'Support role recovery cannot demote the last active owner.' }
+    }
+    if (currentRole === newRole) return { kind: 'unchanged' as const }
+    return { kind: 'allowed' as const }
 }
 
 async function loadOrganizationAvailability(organizationIds: string[], query: typeof run = run) {
