@@ -608,7 +608,7 @@ checkpoint adds behavior-specific regression tests and shared validation
 code; it removes repeated production logic locally but does not constitute
 meaningful progress toward the 10,000–30,000-line objective.
 
-At frontend checkpoint `3a0bc4d10` plus the current review slice, the browser
+At frontend checkpoint `749ceb274`, the browser
 report reuses the browser workspace's existing VirusTotal vendor-label helper;
 fixed-output tests cover zero, nonzero and missing totals. The dashboard
 tenant-overview source-string test and its duplicate overview source assertion
