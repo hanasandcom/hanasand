@@ -1,5 +1,5 @@
+import { installEnsureSchemaTables } from './support/ensureSchemaTables.ts'
 import { expect, mock, test } from 'bun:test'
-import { readFileSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import pg from 'pg'
 import { fixture } from './analyze-ingestion-fixtures.ts'
@@ -30,12 +30,7 @@ test.skipIf(!process.env.POSTGRES_FILTER_TEST_PORT)('Event replay removes only p
         await query('CREATE TABLE organizations(id text PRIMARY KEY,name text,status text,created_at timestamptz DEFAULT NOW(),audit_safe_metadata jsonb DEFAULT \'{}\')')
         await query('CREATE TABLE users(id text PRIMARY KEY)')
         await query('INSERT INTO organizations(id,name,status) VALUES(\'platform\',\'Hanasand\',\'active\')')
-        const schema = readFileSync(new URL('../src/utils/db/ensureSchema.ts', import.meta.url), 'utf8')
-        for (const table of ['events', 'findings', 'rules', 'system_events']) {
-            const ddl = schema.match(new RegExp('CREATE TABLE IF NOT EXISTS ' + table + ' \\([\\s\\S]*?\\n        \\)'))?.[0]
-            if (!ddl) throw new Error(`Missing schema ${table}`)
-            await query(ddl)
-        }
+        await installEnsureSchemaTables(import.meta.url, query, ['events', 'findings', 'rules', 'system_events'])
         const { default: install } = await import('../src/utils/db/logAnalyzeSchema.ts')
         const { default: jobs } = await import('../src/utils/db/ruleReprocessSchema.ts')
         const { recordLogBatch } = await import('../src/utils/logs/recordLog.ts')

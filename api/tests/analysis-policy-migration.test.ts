@@ -1,6 +1,6 @@
+import { installEnsureSchemaTables } from './support/ensureSchemaTables.ts'
 import { expect, test } from 'bun:test'
 import pg from 'pg'
-import { readFileSync } from 'node:fs'
 import { ensureAnalysisPolicySchema, ensureEventProtectionRule, migrateAnalysisPolicy } from '../src/utils/db/analysisPolicySchema.ts'
 
 test.skipIf(!process.env.POSTGRES_FILTER_TEST_PORT)('policy migration preserves choices and audit history, including later empty selectors', async () => {
@@ -13,12 +13,7 @@ test.skipIf(!process.env.POSTGRES_FILTER_TEST_PORT)('policy migration preserves 
         await query('CREATE TABLE organizations(id text PRIMARY KEY)')
         await query('CREATE TABLE users(id text PRIMARY KEY)')
         await query('INSERT INTO organizations VALUES(\'existing\')')
-        const schema = readFileSync(new URL('../src/utils/db/ensureSchema.ts', import.meta.url), 'utf8')
-        for (const table of ['rules', 'system_events']) {
-            const ddl = schema.match(new RegExp('CREATE TABLE IF NOT EXISTS ' + table + ' \\([\\s\\S]*?\\n        \\)'))?.[0]
-            if (!ddl) throw new Error(`Missing schema ${table}`)
-            await query(ddl)
-        }
+        await installEnsureSchemaTables(import.meta.url, query, ['rules', 'system_events'])
         await ensureAnalysisPolicySchema(query)
         await ensureEventProtectionRule(query)
         const definition = { match: 'all', stage: 'analyze', action: 'drop', conditions: [{ path: 'host', operator: 'equals', value: 'inspur' }], parameters: { maxDurationMs: 1000 } }

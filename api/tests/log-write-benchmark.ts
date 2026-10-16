@@ -1,4 +1,5 @@
 // LOG_PIPELINE_TEST_DATABASE=1 DB=logs_test DB_HOST=127.0.0.1 DB_PORT=8503 bun tests/log-write-benchmark.ts
+import { installEnsureSchemaTables } from './support/ensureSchemaTables.ts'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { createHash } from 'node:crypto'
@@ -22,7 +23,6 @@ const { logDimensionsSchema } = await import('../src/utils/db/logDimensionsSchem
 const { logCountsSchema } = await import('../src/utils/db/logCountsSchema.ts')
 const { basicLogSearchPredicate } = await import('../src/utils/logs/searchText.ts')
 const rules = BUILTIN_RULES.map(rule => ({ ...rule, enabled: true, source: 'hanasand' as const, definition: defaultRuleDefinition(rule.id) }))
-const schema = readFileSync(new URL('../src/utils/db/ensureSchema.ts', import.meta.url), 'utf8')
 const catalog = JSON.parse(readFileSync('/benchmark-catalog.json', 'utf8'))
 const count = Number(process.env.BENCHMARK_ROWS || 10000)
 assert.ok(Number.isInteger(count) && count >= 10000 && count <= 100000)
@@ -53,10 +53,7 @@ try {
     await q('CREATE TABLE organizations (id text PRIMARY KEY, status text, audit_safe_metadata jsonb DEFAULT \'{}\', name text, created_at timestamptz DEFAULT NOW())')
     await q('CREATE TABLE users (id text PRIMARY KEY)')
     await q('INSERT INTO organizations(id,status,name) VALUES (\'benchmark\',\'active\',\'Benchmark\')')
-    for (const table of ['events', 'findings', 'rules']) {
-        const definition = schema.match(new RegExp('CREATE TABLE IF NOT EXISTS ' + table + ' \\([\\s\\S]*?\\n        \\)'))?.[0]
-        assert.ok(definition); await q(definition)
-    }
+    await installEnsureSchemaTables(import.meta.url, q, ['events', 'findings', 'rules'])
     await q('ALTER TABLE events ADD COLUMN log_key text')
     for (const statement of logDimensionsSchema) await q(statement)
     for (const statement of logCountsSchema) await q(statement)

@@ -1,6 +1,7 @@
 // Disposable PostgreSQL only. Exercises actual saved rules, source deletion and durable jobs.
+import { installEnsureSchemaTables } from './support/ensureSchemaTables.ts'
+import { createServiceLogsFixture } from './support/serviceLogsFixture.ts'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
 import { mock } from 'bun:test'
 import pg from 'pg'
 assert.equal(process.env.DB, 'rule_reprocess_test')
@@ -24,11 +25,8 @@ try {
     await query('CREATE TABLE users(id text PRIMARY KEY)')
     await query('CREATE TABLE organization_members(organization_id text,user_id text,status text,role text)')
     await query('INSERT INTO users VALUES(\'admin\'); INSERT INTO organizations(id,name,status) VALUES(\'platform\',\'Hanasand\',\'active\'),(\'other\',\'Other\',\'active\'); INSERT INTO organization_members VALUES(\'platform\',\'admin\',\'active\',\'owner\')')
-    const schema = readFileSync(new URL('../src/utils/db/ensureSchema.ts', import.meta.url), 'utf8')
-    for (const table of ['service_logs', 'events', 'findings', 'rules', 'traffic_events', 'system_events']) {
-        const definition = schema.match(new RegExp('CREATE TABLE IF NOT EXISTS ' + table + ' \\([\\s\\S]*?\\n        \\)'))?.[0]
-        assert.ok(definition); await query(definition)
-    }
+    await createServiceLogsFixture(query)
+    await installEnsureSchemaTables(import.meta.url, query, ['events', 'findings', 'rules', 'traffic_events', 'system_events'])
     await query('ALTER TABLE service_logs ADD COLUMN source_event_id text UNIQUE; ALTER TABLE events ADD COLUMN log_key text UNIQUE')
     await query(`CREATE TABLE log_analyze_receipts(key text PRIMARY KEY,organization_id text NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
         rule_id text NOT NULL,rule_version text NOT NULL,created_at timestamptz NOT NULL DEFAULT NOW())`)

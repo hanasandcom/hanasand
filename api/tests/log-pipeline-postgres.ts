@@ -1,6 +1,8 @@
 // Opt-in integration check: all fixtures use temporary tables and roll back.
 // LOG_PIPELINE_TEST_DATABASE=1 DB=logs_test DB_HOST=127.0.0.1 DB_PORT=8503 bun tests/log-pipeline-postgres.ts
 // Keep the repository layout; containers mounting api at /app also need scripts at /scripts:ro.
+import { installEnsureSchemaTables } from './support/ensureSchemaTables.ts'
+import { createServiceLogsFixture } from './support/serviceLogsFixture.ts'
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
@@ -30,12 +32,8 @@ try {
     await query('CREATE TEMP TABLE organizations (id text PRIMARY KEY, status text, audit_safe_metadata jsonb DEFAULT \'{}\', name text, created_at timestamptz DEFAULT NOW())')
     await query('CREATE TEMP TABLE users (id text PRIMARY KEY)')
     await query('INSERT INTO organizations (id, status, name) VALUES (\'fixture\', \'active\', \'Hanasand\'), (\'other\', \'active\', \'Other\')')
-    const schema = readFileSync(new URL('../src/utils/db/ensureSchema.ts', import.meta.url), 'utf8')
-    for (const table of ['service_logs', 'events', 'findings', 'rules', 'login_events', 'traffic_events', 'system_events']) {
-        const definition = schema.match(new RegExp('CREATE TABLE IF NOT EXISTS ' + table + ' \\([\\s\\S]*?\\n        \\)'))?.[0]
-        assert.ok(definition, `Actual schema for ${table} must be found`)
-        await query(definition.replace('CREATE TABLE IF NOT EXISTS', 'CREATE TEMP TABLE'))
-    }
+    await createServiceLogsFixture(query, true)
+    await installEnsureSchemaTables(import.meta.url, query, ['events', 'findings', 'rules', 'login_events', 'traffic_events', 'system_events'], { temporary: true })
     await query('ALTER TABLE service_logs ADD COLUMN source_event_id text UNIQUE')
     await query('ALTER TABLE events ADD COLUMN log_key text UNIQUE')
     await query('ALTER TABLE findings ADD COLUMN case_id text')
@@ -494,11 +492,7 @@ try {
     assert.deepEqual([...navigationGrant.matchAll(/public\.(\w+)/g)].map(match => match[1]), navigationTables)
     await query('ALTER TABLE organizations ADD COLUMN updated_at timestamptz DEFAULT NOW()')
     await query('ALTER TABLE users ADD COLUMN active boolean NOT NULL DEFAULT true')
-    for (const table of ['organization_members', 'organization_invites', 'organization_watchlist_items']) {
-        const definition = schema.match(new RegExp('CREATE TABLE IF NOT EXISTS ' + table + ' \\([\\s\\S]*?\\n        \\)'))?.[0]
-        assert.ok(definition, `Actual schema for ${table} must be found`)
-        await query(definition.replace('CREATE TABLE IF NOT EXISTS', 'CREATE TEMP TABLE'))
-    }
+    await installEnsureSchemaTables(import.meta.url, query, ['organization_members', 'organization_invites', 'organization_watchlist_items'], { temporary: true })
     await query('INSERT INTO users(id) VALUES (\'permission-user\')')
     await query('INSERT INTO organization_members(organization_id,user_id,role) VALUES (\'fixture\',\'permission-user\',\'owner\')')
     await query(`INSERT INTO organization_invites(organization_id,email,invited_by,expires_at)

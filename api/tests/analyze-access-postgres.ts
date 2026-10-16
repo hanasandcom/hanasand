@@ -1,6 +1,7 @@
 // Run only against a disposable database: DB=log_analyze_test DB_PORT=... bun tests/analyze-access-postgres.ts
+import { installEnsureSchemaTables } from './support/ensureSchemaTables.ts'
+import { createServiceLogsFixture } from './support/serviceLogsFixture.ts'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
 import { mock } from 'bun:test'
 import pg from 'pg'
 assert.equal(process.env.DB, 'log_analyze_test')
@@ -22,12 +23,8 @@ try {
     await query('CREATE TABLE organizations(id text PRIMARY KEY,name text,status text,created_at timestamptz DEFAULT NOW(),audit_safe_metadata jsonb DEFAULT \'{}\')')
     await query('CREATE TABLE users(id text PRIMARY KEY)')
     await query('INSERT INTO organizations(id,name,status) VALUES(\'platform\',\'Hanasand\',\'active\'),(\'customer\',\'Customer\',\'active\')')
-    const schema = readFileSync(new URL('../src/utils/db/ensureSchema.ts', import.meta.url), 'utf8')
-    for (const table of ['service_logs', 'events', 'findings', 'rules', 'traffic_events', 'system_events']) {
-        const definition = schema.match(new RegExp('CREATE TABLE IF NOT EXISTS ' + table + ' \\([\\s\\S]*?\\n        \\)'))?.[0]
-        assert.ok(definition)
-        await query(definition)
-    }
+    await createServiceLogsFixture(query)
+    await installEnsureSchemaTables(import.meta.url, query, ['events', 'findings', 'rules', 'traffic_events', 'system_events'])
     await query('ALTER TABLE service_logs ADD COLUMN source_event_id text UNIQUE')
     await query('ALTER TABLE events ADD COLUMN log_key text UNIQUE')
     const { default: schemaInstall } = await import('../src/utils/db/logAnalyzeSchema.ts')

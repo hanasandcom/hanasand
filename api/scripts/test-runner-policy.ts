@@ -23,7 +23,7 @@ const unitTestFiles = [
     'database-response.test.ts', 'database-storage.test.ts', 'delete-user-ownership.test.ts', 'docker-response-recovery.test.ts', 'docker-storage.test.ts',
     'drop-eligibility.test.ts', 'drop-rate-alert.test.ts', 'dwm-destination-example.test.ts', 'dwm-webhook-core-contracts.test.ts', 'dwm-webhook-delivery-attempt-contract.test.ts', 'dwm-webhook-delivery-projection.test.ts', 'dwm-webhook-delivery-route.test.ts', 'dwm-webhook-destination-health-contract.test.ts', 'dwm-webhook-destination-preflight-routes.test.ts', 'dwm-webhook-lifecycle-truthfulness.test.ts',
     'dwm-webhook-receiver-route.test.ts', 'dwm-webhook-report-retry.test.ts', 'dwm-webhook-schema.test.ts', 'dwm-webhook-security.test.ts', 'dwm-webhook-test-response.test.ts',
-    'dwm-webhook-transport.test.ts', 'dwm-webhook-visibility-access.test.ts', 'event-privacy.test.ts', 'event-processing.test.ts', 'git-workspace-credentials.test.ts',
+    'dwm-webhook-transport.test.ts', 'dwm-webhook-visibility-access.test.ts', 'ensure-schema-tables.test.ts', 'event-privacy.test.ts', 'event-processing.test.ts', 'git-workspace-credentials.test.ts',
     'host-check-message.test.ts', 'http-errors.test.ts', 'impersonation-start-denials.test.ts', 'impersonation-timeline-state.test.ts', 'import-repository.test.ts',
     'ingestion-protection-exception.test.ts', 'internal-token-rotation.test.ts', 'json-monitoring-retries.test.ts', 'json-monitoring.test.ts', 'legacy-rule-hit-migration.test.ts',
     'load-test-websocket-rerun.test.ts', 'log-catchup-limit.test.ts', 'log-catchup-progress.test.ts', 'log-counts-schema.test.ts', 'log-dimensions.test.ts',
