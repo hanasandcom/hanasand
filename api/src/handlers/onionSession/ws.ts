@@ -240,6 +240,8 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
     let runLeaseTimer: NodeJS.Timeout | null = null
     let terminalRunStatus: 'ended' | 'failed' | 'unreachable' = 'ended'
     let closed = false
+    let runGeneration = 0
+    const isCurrentRun = (generation: number) => generation === runGeneration && !closed
     let sessionEnding = false
     let lastFrame = ''
     let remoteClipboard = ''
@@ -283,6 +285,7 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
     }
 
     const cleanup = async (runStatus: 'ended' | 'failed' | 'unreachable' = terminalRunStatus) => {
+        runGeneration++
         trace('cleanup', { runStatus, hasPage: Boolean(page), hasContext: Boolean(context), ownsBrowser })
         closed = true
         if (runLeaseTimer) clearInterval(runLeaseTimer)
@@ -465,15 +468,17 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
         send({ type: 'status', state: 'tab_selected', tabId, url: selectedPage.url(), message: 'Remote browser tab selected.' })
     }
 
-    async function newBackgroundPage(context: BrowserContext) {
+    async function newBackgroundPage(context: BrowserContext, generation: number) {
         openingBackgroundTabs++
         try {
             return await context.newPage()
         } finally {
             // Creating a Chromium tab activates it. Restore the user's selected
             // tab before allowing native visibility events to select a tab.
-            await focusRemoteTab()
-            openingBackgroundTabs--
+            if (isCurrentRun(generation)) {
+                await focusRemoteTab()
+                openingBackgroundTabs--
+            }
         }
     }
 
@@ -584,6 +589,7 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
         if (sessionEnding) return
         assertProductionBrowserWorker()
         closed = false
+        const generation = runGeneration
         remoteClipboard = ''
         networkEvents = []
         sitePeer = undefined
@@ -593,6 +599,17 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
         cachedThreatAssociations = []
         cachedIndicators = null
         documentEvidencePromises = []
+        downloads.length = 0
+        fileLookups.clear()
+        fileLookupQueue = Promise.resolve()
+        downloadsInFlight = 0
+        lastFrame = ''
+        firstFrameAttemptedAt = 0
+        lastHeavyFrameAt = 0
+        fastFrameInFlight = false
+        cachedFrameQuality = null
+        cachedPageEvidence = null
+        openingBackgroundTabs = 0
         toolPages.clear()
         activeRemoteTabId = 'browser'
         suspiciousExtensionApplied = false
@@ -780,7 +797,7 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
                     at: new Date().toISOString(),
                 })
             })
-            watchDownloads(page)
+            watchDownloads(page, generation)
             page.on('framenavigated', (frame) => {
                 if (frame !== page?.mainFrame()) return
                 send({ type: 'status', state: 'navigated', url: page.url(), sessionId })
@@ -813,6 +830,7 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
                 message.profileTools || [],
                 target,
                 initialEvidence?.deobfuscationTasks?.length ? initialEvidence.deobfuscationTasks : cachedDeobfuscationTasks,
+                generation,
             ).catch(error => {
                 send({
                     type: 'status',
@@ -862,6 +880,7 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
         tools: Array<{ id?: string; name?: string; url?: string }>,
         target: string,
         deobfuscationTasks: SandboxDeobfuscationTask[] = [],
+        generation: number,
     ) {
         const plannedTools = tools.slice(0, 6).filter(tool => tool.url)
         if (process.env.BROWSER_SANDBOX_PROVIDER_TABS === '0') return
@@ -888,7 +907,7 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
                 sendToolCapture(toolUrl, { evidence, webcrackLoad, toolAnalysis: analyzeToolEvidence(tool.name || toolUrl, evidence, webcrackLoad) }, toolId)
                 return
             }
-            const toolPage = await newBackgroundPage(context).catch(() => null)
+            const toolPage = await newBackgroundPage(context, generation).catch(() => null)
             if (!toolPage) return
             if (webcrackTool) await watchWebCrackOutput(toolPage)
             toolPages.set(toolId, toolPage)
@@ -1070,17 +1089,23 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
         if (downloads.length) send({ type: 'downloads', networkSummary: networkSummary() })
     }
 
-    function watchDownloads(targetPage: Page) {
-        targetPage.on('download', download => { void captureDownload(download) })
-        targetPage.on('popup', popup => watchDownloads(popup))
+    function watchDownloads(targetPage: Page, generation: number) {
+        targetPage.on('download', download => { void captureDownload(download, generation) })
+        targetPage.on('popup', popup => watchDownloads(popup, generation))
     }
 
-    async function lookupFile(sha256: string): Promise<FileReputation> {
-        if (closed || !context) return { status: 'interrupted', detail: 'Run ended before the hash lookup finished' }
-        const lookupPage = await newBackgroundPage(context)
+    async function lookupFile(sha256: string, generation: number): Promise<FileReputation> {
+        if (!isCurrentRun(generation) || !context) return { status: 'interrupted', detail: 'Run ended before the hash lookup finished' }
+        const lookupContext = context
+        const lookupPage = await newBackgroundPage(lookupContext, generation)
+        if (!isCurrentRun(generation)) {
+            await lookupPage.close().catch(() => undefined)
+            return { status: 'interrupted', detail: 'Run ended before the hash lookup finished' }
+        }
         watchConsole(lookupPage, 'virustotal-file', 'VirusTotal file')
         try {
             await focusRemoteTab()
+            if (!isCurrentRun(generation)) return { status: 'interrupted', detail: 'Run ended before the hash lookup finished' }
             const bodies: string[] = []
             lookupPage.on('response', response => {
                 // Never confuse the URL report or a neighbouring file's score with this hash.
@@ -1089,26 +1114,33 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
                 }
             })
             await lookupPage.goto(`https://www.virustotal.com/gui/file/${sha256}`, { waitUntil: 'domcontentloaded', timeout: 15_000 })
+            if (!isCurrentRun(generation)) return { status: 'interrupted', detail: 'Run ended before the hash lookup finished' }
             await focusRemoteTab()
             const deadline = Date.now() + 20_000
             let result: FileReputation = fileReputation('', sha256)
-            while (!closed && Date.now() < deadline) {
+            while (isCurrentRun(generation) && Date.now() < deadline) {
                 const text = [bodies.join('\n'), await withTimeout(collectRenderedText(lookupPage), 1500, '')].join('\n')
                 result = fileReputation(text, sha256)
                 if (result.status === 'known' || result.status === 'unknown' || /access limited/.test(result.detail || '')) break
                 await lookupPage.waitForTimeout(500)
             }
-            return result
+            return isCurrentRun(generation) ? result : { status: 'interrupted', detail: 'Run ended before the hash lookup finished' }
         } catch {
-            return { status: closed ? 'interrupted' : 'unavailable', detail: closed ? 'Run ended before the hash lookup finished' : 'VirusTotal file lookup failed — no verdict' }
+            const interrupted = !isCurrentRun(generation)
+            return { status: interrupted ? 'interrupted' : 'unavailable', detail: interrupted ? 'Run ended before the hash lookup finished' : 'VirusTotal file lookup failed — no verdict' }
         } finally {
             await lookupPage.close().catch(() => undefined)
-            await focusRemoteTab()
+            if (isCurrentRun(generation)) await focusRemoteTab()
         }
     }
 
-    async function captureDownload(download: Download) {
-        if (closed || downloads.length >= 10 || downloadsInFlight >= 2) {
+    async function captureDownload(download: Download, generation: number) {
+        if (!isCurrentRun(generation)) {
+            await download.cancel().catch(() => undefined)
+            await download.delete().catch(() => undefined)
+            return
+        }
+        if (downloads.length >= 10 || downloadsInFlight >= 2) {
             await download.cancel().catch(() => undefined)
             await download.delete().catch(() => undefined)
             send({ type: 'status', state: 'download_limit', message: 'Download inspection limit reached (10 files per run, 2 transfers at a time).' })
@@ -1119,24 +1151,29 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
         downloadsInFlight++
         publishDownloads()
         try {
-            Object.assign(file, await inspectDownload(download))
-            if (closed) return
+            const inspection = await inspectDownload(download)
+            if (!isCurrentRun(generation)) return
+            Object.assign(file, inspection)
             if (file.sha256) {
                 file.virusTotal = { status: 'checking', detail: 'Checking SHA-256 in VirusTotal…' }
                 publishDownloads()
                 const hash = file.sha256
                 if (!fileLookups.has(hash)) {
-                    const lookup = fileLookupQueue.then(() => lookupFile(hash)).catch((): FileReputation => ({ status: closed ? 'interrupted' : 'unavailable', detail: 'VirusTotal lookup unavailable — no verdict' }))
+                    const lookup = fileLookupQueue.then(() => lookupFile(hash, generation)).catch((): FileReputation => ({ status: isCurrentRun(generation) ? 'unavailable' : 'interrupted', detail: isCurrentRun(generation) ? 'VirusTotal lookup unavailable — no verdict' : 'Run ended before the hash lookup finished' }))
                     fileLookups.set(hash, lookup)
                     fileLookupQueue = lookup.then(() => undefined, () => undefined)
                 }
-                file.virusTotal = await fileLookups.get(hash)!
+                const reputation = await fileLookups.get(hash)!
+                if (!isCurrentRun(generation)) return
+                file.virusTotal = reputation
             }
         } catch {
-            file.hashStatus = 'Download failed or exceeded the 30-second limit'
+            if (isCurrentRun(generation)) file.hashStatus = 'Download failed or exceeded the 30-second limit'
         } finally {
-            downloadsInFlight--
-            publishDownloads()
+            if (isCurrentRun(generation)) {
+                downloadsInFlight--
+                publishDownloads()
+            }
         }
     }
 
