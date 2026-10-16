@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { DashboardPanel } from '@/components/dashboard/ui'
 import type { Scenario } from './loadTestingScenarios'
@@ -42,7 +43,7 @@ export function ActiveLoadTests({ scans, scenario }: { scans: Test[], scenario: 
     </DashboardPanel>
 }
 
-function CountBadge({ children }: { children: string }) {
+function CountBadge({ children }: { children: ReactNode }) {
     return <span className='rounded-md border border-ui-border bg-ui-panel px-2.5 py-1'>{children}</span>
 }
 
