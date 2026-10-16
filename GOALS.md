@@ -515,3 +515,16 @@ selection, blocker and entry ordering, route strings, counts, and summary
 truncation are unchanged. Projection, delivery-route, and visibility suites
 pass 16 tests / 85 assertions; guarded contract smoke, typecheck, scoped ESLint
 and diff checks pass. This is file-cap progress rather than net LOC reduction.
+
+At frontend checkpoint `83fea499c`, five TI workbenches share the same
+selected-row-preserving preview and expansion control. Callers still own their
+labels, CSS classes and feature row data; the rendered behavior and page-data
+contracts remain unchanged. The five production components plus the shared
+component fall from 817 to 808 LOC (-9). Its focused suite is registered and
+passes 4 tests / 11 assertions; non-incremental frontend typecheck, scoped
+ESLint and diff checks pass. The full frontend cap scan passes for 2,339
+source/config/test files / 156,026 LOC with zero over-limit files. The added
+test and runner entry make total frontend lines higher than the prior scan;
+this is a reuse improvement, not material progress toward the 10,000–30,000
+LOC target. Continue with measured duplicate behavior and keep all page data
+and UI contracts stable.
