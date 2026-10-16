@@ -435,10 +435,7 @@ export async function getSystemEvents(req: FastifyRequest, res: FastifyReply) {
             OR e.reason ILIKE ${placeholder}
         )`)
     }
-    if (org) {
-        const placeholder = add(`%${org}%`)
-        where.push('(e.organization_id ILIKE ' + placeholder + ' OR organization.name ILIKE ' + placeholder + ' OR organization.slug ILIKE ' + placeholder + ')')
-    }
+    if (org) appendSharedAuditFilter(where, add, 'e', 'organization', org)
     if (actorFilter) {
         const placeholder = add(`%${actorFilter}%`)
         where.push('(e.actor_id ILIKE ' + placeholder + ' OR actor.name ILIKE ' + placeholder + ')')
@@ -447,36 +444,27 @@ export async function getSystemEvents(req: FastifyRequest, res: FastifyReply) {
         const placeholder = add(`%${target}%`)
         where.push('(e.object_id ILIKE ' + placeholder + ' OR target_user.name ILIKE ' + placeholder + ' OR e.object_type ILIKE ' + placeholder + ')')
     }
-    if (action) where.push(`e.event_type ILIKE ${add(`%${action}%`)}`)
-    if (severity) where.push(`e.severity = ${add(severity)}`)
-    if (source) where.push(`e.source ILIKE ${add(`%${source}%`)}`)
-    if (service) where.push(`e.service ILIKE ${add(`%${service}%`)}`)
+    if (action) appendSharedAuditFilter(where, add, 'e', 'action', action)
+    if (severity) appendSharedAuditFilter(where, add, 'e', 'severity', severity)
+    if (source) appendSharedAuditFilter(where, add, 'e', 'source', source)
+    if (service) appendSharedAuditFilter(where, add, 'e', 'service', service)
     if (entity) where.push(`e.subject_id ILIKE ${add(`%${entity}%`)}`)
-    if (entityType) where.push(`e.object_type ILIKE ${add(`%${entityType}%`)}`)
-    if (request) where.push(`e.request_id ILIKE ${add(`%${request}%`)}`)
+    if (entityType) appendSharedAuditFilter(where, add, 'e', 'entityType', entityType)
+    if (request) appendSharedAuditFilter(where, add, 'e', 'request', request)
     if (correlation) {
         const placeholder = add(`%${correlation}%`)
         where.push('(e.request_id ILIKE ' + placeholder + ' OR e.context->>\'correlationId\' ILIKE ' + placeholder + ')')
     }
     if (idempotency) where.push(`e.context->>'idempotencyKey' ILIKE ${add(`%${idempotency}%`)}`)
-    if (supportSession) {
-        const placeholder = add(`%${supportSession}%`)
-        where.push('(e.subject_id ILIKE ' + placeholder + ' OR e.context->>\'supportSessionId\' ILIKE ' + placeholder + ')')
-    }
-    if (workflow) where.push(`e.context->>'workflow' ILIKE ${add(`%${workflow}%`)}`)
-    if (blocker) {
-        const placeholder = add(`%${blocker}%`)
-        where.push('(e.context->>\'blockerCode\' ILIKE ' + placeholder + ' OR e.context->>\'blocker\' ILIKE ' + placeholder + ')')
-    }
-    if (reason) where.push(`e.reason ILIKE ${add(`%${reason}%`)}`)
-    if (scope) {
-        const placeholder = add(`%${scope}%`)
-        where.push('(e.context->>\'scope\' ILIKE ' + placeholder + ' OR e.context->>\'supportScope\' ILIKE ' + placeholder + ' OR e.context::text ILIKE ' + placeholder + ')')
-    }
-    if (contextFilter) where.push(`e.context::text ILIKE ${add(`%${contextFilter}%`)}`)
-    if (outcome) where.push(`e.outcome = ${add(outcome)}`)
-    if (from && !Number.isNaN(Date.parse(from))) where.push(`e.created_at >= ${add(new Date(from).toISOString())}`)
-    if (to && !Number.isNaN(Date.parse(to))) where.push(`e.created_at <= ${add(new Date(to).toISOString())}`)
+    if (supportSession) appendSharedAuditFilter(where, add, 'e', 'supportSession', supportSession)
+    if (workflow) appendSharedAuditFilter(where, add, 'e', 'workflow', workflow)
+    if (blocker) appendSharedAuditFilter(where, add, 'e', 'blocker', blocker)
+    if (reason) appendSharedAuditFilter(where, add, 'e', 'reason', reason)
+    if (scope) appendSharedAuditFilter(where, add, 'e', 'scope', scope)
+    if (contextFilter) appendSharedAuditFilter(where, add, 'e', 'context', contextFilter)
+    if (outcome) appendSharedAuditFilter(where, add, 'e', 'outcome', outcome)
+    if (from && !Number.isNaN(Date.parse(from))) appendSharedAuditFilter(where, add, 'e', 'from', from)
+    if (to && !Number.isNaN(Date.parse(to))) appendSharedAuditFilter(where, add, 'e', 'to', to)
     // Timeline batches retain the first page total; support clients keep their existing contract.
     const countResult = helpdeskOnly || (timelineOnly && cursor) ? null : await run(`
         SELECT COUNT(*)::int AS total
@@ -4651,6 +4639,52 @@ function supportSqlFilters() {
     return { where, values, add }
 }
 
+type SharedAuditFilter = 'organization' | 'action' | 'severity' | 'source' | 'service' | 'entityType' | 'request' | 'supportSession' | 'workflow' | 'blocker' | 'reason' | 'scope' | 'context' | 'outcome' | 'from' | 'to'
+
+function appendSharedAuditFilter(
+    where: string[],
+    add: (value: string) => string,
+    alias: 'e' | 'event',
+    filter: SharedAuditFilter,
+    value: string,
+) {
+    const search = () => add(`%${value}%`)
+    switch (filter) {
+        case 'organization': {
+            const placeholder = search()
+            where.push(`(${alias}.organization_id ILIKE ${placeholder} OR organization.name ILIKE ${placeholder} OR organization.slug ILIKE ${placeholder})`)
+            break
+        }
+        case 'action': where.push(`${alias}.event_type ILIKE ${search()}`); break
+        case 'severity': where.push(`${alias}.severity = ${add(value)}`); break
+        case 'source': where.push(`${alias}.source ILIKE ${search()}`); break
+        case 'service': where.push(`${alias}.service ILIKE ${search()}`); break
+        case 'entityType': where.push(`${alias}.object_type ILIKE ${search()}`); break
+        case 'request': where.push(`${alias}.request_id ILIKE ${search()}`); break
+        case 'supportSession': {
+            const placeholder = search()
+            where.push(`(${alias}.subject_id ILIKE ${placeholder} OR ${alias}.context->>'supportSessionId' ILIKE ${placeholder})`)
+            break
+        }
+        case 'workflow': where.push(`${alias}.context->>'workflow' ILIKE ${search()}`); break
+        case 'blocker': {
+            const placeholder = search()
+            where.push(`(${alias}.context->>'blockerCode' ILIKE ${placeholder} OR ${alias}.context->>'blocker' ILIKE ${placeholder})`)
+            break
+        }
+        case 'reason': where.push(`${alias}.reason ILIKE ${search()}`); break
+        case 'scope': {
+            const placeholder = search()
+            where.push(`(${alias}.context->>'scope' ILIKE ${placeholder} OR ${alias}.context->>'supportScope' ILIKE ${placeholder} OR ${alias}.context::text ILIKE ${placeholder})`)
+            break
+        }
+        case 'context': where.push(`${alias}.context::text ILIKE ${search()}`); break
+        case 'outcome': where.push(`${alias}.outcome = ${add(value)}`); break
+        case 'from': where.push(`${alias}.created_at >= ${add(new Date(value).toISOString())}`); break
+        case 'to': where.push(`${alias}.created_at <= ${add(new Date(value).toISOString())}`); break
+    }
+}
+
 async function loadInspectionOrganizations(input: { q?: string, org: string, user: string, email: string, request: string, limit: number }) {
     const { where, values, add } = supportSqlFilters()
     if (input.org) {
@@ -4854,10 +4888,7 @@ async function loadInspectionApprovals(input: { q?: string, org: string, user: s
 
 async function loadInspectionAuditEvents(input: { q: string, org: string, user: string, email: string, request: string, entity: string, entityType: string, supportSession: string, workflow?: string, action: string, severity: string, outcome: string, source: string, service: string, blocker: string, reason: string, scope?: string, context: string, from: string, to: string, limit: number }) {
     const { where, values, add } = supportSqlFilters()
-    if (input.org) {
-        const placeholder = add(`%${input.org}%`)
-        where.push('(event.organization_id ILIKE ' + placeholder + ' OR organization.name ILIKE ' + placeholder + ' OR organization.slug ILIKE ' + placeholder + ')')
-    }
+    if (input.org) appendSharedAuditFilter(where, add, 'event', 'organization', input.org)
     if (input.q) {
         const placeholder = add(`%${input.q}%`)
         where.push(`(
@@ -4883,34 +4914,25 @@ async function loadInspectionAuditEvents(input: { q: string, org: string, user: 
         const placeholder = add(`%${input.email}%`)
         where.push('(event.object_id ILIKE ' + placeholder + ' OR event.context->>\'email\' ILIKE ' + placeholder + ')')
     }
-    if (input.request) where.push(`event.request_id ILIKE ${add(`%${input.request}%`)}`)
+    if (input.request) appendSharedAuditFilter(where, add, 'event', 'request', input.request)
     if (input.entity) {
         const placeholder = add(`%${input.entity}%`)
         where.push('(event.subject_id ILIKE ' + placeholder + ' OR event.object_id ILIKE ' + placeholder + ' OR event.context->>\'inviteId\' ILIKE ' + placeholder + ')')
     }
-    if (input.supportSession) {
-        const placeholder = add(`%${input.supportSession}%`)
-        where.push('(event.subject_id ILIKE ' + placeholder + ' OR event.context->>\'supportSessionId\' ILIKE ' + placeholder + ')')
-    }
-    if (input.workflow) where.push(`event.context->>'workflow' ILIKE ${add(`%${input.workflow}%`)}`)
-    if (input.entityType) where.push(`event.object_type ILIKE ${add(`%${input.entityType}%`)}`)
-    if (input.action) where.push(`event.event_type ILIKE ${add(`%${input.action}%`)}`)
-    if (input.severity) where.push(`event.severity = ${add(input.severity)}`)
-    if (input.outcome) where.push(`event.outcome = ${add(input.outcome)}`)
-    if (input.source) where.push(`event.source ILIKE ${add(`%${input.source}%`)}`)
-    if (input.service) where.push(`event.service ILIKE ${add(`%${input.service}%`)}`)
-    if (input.blocker) {
-        const placeholder = add(`%${input.blocker}%`)
-        where.push('(event.context->>\'blockerCode\' ILIKE ' + placeholder + ' OR event.context->>\'blocker\' ILIKE ' + placeholder + ')')
-    }
-    if (input.reason) where.push(`event.reason ILIKE ${add(`%${input.reason}%`)}`)
-    if (input.scope) {
-        const placeholder = add(`%${input.scope}%`)
-        where.push('(event.context->>\'scope\' ILIKE ' + placeholder + ' OR event.context->>\'supportScope\' ILIKE ' + placeholder + ' OR event.context::text ILIKE ' + placeholder + ')')
-    }
-    if (input.context) where.push(`event.context::text ILIKE ${add(`%${input.context}%`)}`)
-    if (input.from && !Number.isNaN(Date.parse(input.from))) where.push(`event.created_at >= ${add(new Date(input.from).toISOString())}`)
-    if (input.to && !Number.isNaN(Date.parse(input.to))) where.push(`event.created_at <= ${add(new Date(input.to).toISOString())}`)
+    if (input.supportSession) appendSharedAuditFilter(where, add, 'event', 'supportSession', input.supportSession)
+    if (input.workflow) appendSharedAuditFilter(where, add, 'event', 'workflow', input.workflow)
+    if (input.entityType) appendSharedAuditFilter(where, add, 'event', 'entityType', input.entityType)
+    if (input.action) appendSharedAuditFilter(where, add, 'event', 'action', input.action)
+    if (input.severity) appendSharedAuditFilter(where, add, 'event', 'severity', input.severity)
+    if (input.outcome) appendSharedAuditFilter(where, add, 'event', 'outcome', input.outcome)
+    if (input.source) appendSharedAuditFilter(where, add, 'event', 'source', input.source)
+    if (input.service) appendSharedAuditFilter(where, add, 'event', 'service', input.service)
+    if (input.blocker) appendSharedAuditFilter(where, add, 'event', 'blocker', input.blocker)
+    if (input.reason) appendSharedAuditFilter(where, add, 'event', 'reason', input.reason)
+    if (input.scope) appendSharedAuditFilter(where, add, 'event', 'scope', input.scope)
+    if (input.context) appendSharedAuditFilter(where, add, 'event', 'context', input.context)
+    if (input.from && !Number.isNaN(Date.parse(input.from))) appendSharedAuditFilter(where, add, 'event', 'from', input.from)
+    if (input.to && !Number.isNaN(Date.parse(input.to))) appendSharedAuditFilter(where, add, 'event', 'to', input.to)
     if (!where.length) return []
 
     const result = await run(`

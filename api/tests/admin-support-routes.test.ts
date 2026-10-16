@@ -315,6 +315,9 @@ test('audit event filters are parameterized and context secrets are redacted in 
         supportReason: 'inspection',
         supportScope: 'organization',
         supportContext: 'case-7',
+        source: 'admin',
+        service: 'hanasand-api',
+        entityType: 'organization',
         severity: 'warning',
         outcome: 'success',
         from: '2026-09-01T00:00:00.000Z',
@@ -331,16 +334,30 @@ test('audit event filters are parameterized and context secrets are redacted in 
     expect(query.sql).toContain('e.context->>\'workflow\' ILIKE')
     expect(query.sql).toContain('e.context->>\'blockerCode\' ILIKE')
     expect(query.sql).toContain('e.context->>\'supportScope\' ILIKE')
+    expect(query.sql).toContain('e.source ILIKE')
+    expect(query.sql).toContain('e.service ILIKE')
+    expect(query.sql).toContain('e.object_type ILIKE')
+    expect(query.sql).toContain('e.outcome =')
     expect(query.sql).not.toContain('needle\' OR 1=1 --')
     expect(query.values).toContain('%needle\' OR 1=1 --%')
     expect(query.values).toContain('%org-1%')
     expect(query.values).toContain('%support.organization.inspect%')
     expect(query.values).toContain('%request-1%')
+    expect(query.values).toContain('%admin%')
+    expect(query.values).toContain('%hanasand-api%')
+    expect(query.values).toContain('%organization%')
     expect(query.values).toContain('%corr-1%')
     expect(query.values).toContain('%idem-1%')
     expect(query.values).toContain('%session-1%')
     expect(query.values).toContain('%case-7%')
     expect(query.values).not.toContain('support.organization.inspect OR 1=1')
+    expect(query.values).toEqual([
+        '%needle\' OR 1=1 --%', '%org-1%', '%support.organization.inspect%', 'warning',
+        '%admin%', '%hanasand-api%', '%organization%', '%request-1%', '%corr-1%',
+        '%idem-1%', '%session-1%', '%support.organization%', '%none%', '%inspection%',
+        '%organization%', '%case-7%', 'success', '2026-09-01T00:00:00.000Z',
+        '2026-09-30T00:00:00.000Z', 201, 0,
+    ])
 
     const event = response.body.events[0]
     expect(event.context).toEqual({
@@ -530,6 +547,18 @@ test('audit and support inspection filters retain separate validation contracts'
     expect(queries).toHaveLength(0)
 })
 
+test('system audit allows an unfiltered query while support inspection requires a target', async () => {
+    const audit = await request(getSystemEvents, { query: {} })
+    expect(audit.statusCode).toBe(200)
+    expect(queries).toHaveLength(2)
+
+    queries.length = 0
+    const inspection = await request(getSupportInspection, { query: {} })
+    expect(inspection.statusCode).toBe(400)
+    expect(inspection.body.detail.code).toBe('missing_support_target')
+    expect(queries).toHaveLength(0)
+})
+
 test('support inspection returns preparation validation errors before database reads', async () => {
     const response = await request(getSupportInspection, {
         query: {
@@ -553,6 +582,31 @@ test('support readiness preserves its default audit filters and limit cap', asyn
     })
     const auditQuery = queries.find(query => query.sql.includes('FROM system_events event'))
     expect(auditQuery?.values).toEqual(['%org-1%', '%support%', '%system%', '%hanasand-api%', 50])
+})
+
+test('support readiness applies shared audit filters with inspection aliases and bindings', async () => {
+    const response = await request(getSupportReadiness, { query: {
+        org: 'org-1', request: 'request-1', entityType: 'organization', supportSession: 'session-1',
+        workflow: 'support.organization', action: 'support.inspect', severity: 'warning', outcome: 'success',
+        source: 'admin', service: 'hanasand-api', blocker: 'none', reason: 'case review', scope: 'read_profile',
+        context: 'case-7', from: '2026-09-01T00:00:00.000Z', to: '2026-09-30T00:00:00.000Z',
+    } })
+    expect(response.statusCode).toBe(200)
+    const auditQuery = queries.find(query => query.sql.includes('FROM system_events event'))
+    expect(auditQuery?.sql).toContain('event.organization_id ILIKE')
+    for (const predicate of [
+        'event.request_id ILIKE', 'event.object_type ILIKE', 'event.subject_id ILIKE',
+        'event.context->>\'workflow\' ILIKE', 'event.event_type ILIKE', 'event.severity =',
+        'event.outcome =', 'event.source ILIKE', 'event.service ILIKE', 'event.context->>\'blockerCode\' ILIKE',
+        'event.reason ILIKE', 'event.context->>\'supportScope\' ILIKE', 'event.context::text ILIKE',
+        'event.created_at >=', 'event.created_at <=',
+    ]) expect(auditQuery?.sql).toContain(predicate)
+    expect(auditQuery?.values).toEqual([
+        '%org-1%', '%request-1%', '%session-1%', '%support.organization%', '%organization%',
+        '%support.inspect%', 'warning', 'success', '%admin%', '%hanasand-api%', '%none%',
+        '%case review%', '%read_profile%', '%case-7%', '2026-09-01T00:00:00.000Z',
+        '2026-09-30T00:00:00.000Z', 25,
+    ])
 })
 
 test('support inspection keeps organization member and pending-invite counts in its response', async () => {
