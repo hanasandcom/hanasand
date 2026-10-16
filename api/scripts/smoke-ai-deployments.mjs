@@ -146,7 +146,9 @@ async function main() {
     })
     expect(deploy.response.status === 202, 'Blocked deploy smoke should return 202.', deploy.body)
     expect(deploy.body?.deployment?.status === 'blocked', 'Deploy smoke should record a blocked deployment.', deploy.body)
-    expect(typeof deploy.body?.deployment?.failureReason === 'string' && deploy.body.deployment.failureReason.includes('Repo subpath deployments are not supported yet'), 'Deploy smoke should surface the explicit subpath failure.', deploy.body)
+    expect(typeof deploy.body?.deployment?.failureReason === 'string'
+        && deploy.body.deployment.failureReason.includes('Re-import the repository from its root, then deploy again.')
+        && deploy.body.deployment.failureReason.includes('Subfolder: apps/web.'), 'Deploy smoke should surface the explicit subpath failure and imported folder.', deploy.body)
     expect(Array.isArray(deploy.body?.deployment?.events), 'Deploy smoke should return deploy events.', deploy.body)
     expect(deploy.body.deployment.events.some((event) => event.stage === 'blocked'), 'Deploy smoke should include a blocked event.', deploy.body)
 

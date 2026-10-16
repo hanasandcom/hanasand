@@ -6,6 +6,7 @@ let recentDeployCount = 0
 let activeDeployCount = 0
 let vmExists = true
 let vmAccessible = true
+let repositorySourcePath = ''
 
 mock.module('#db', () => ({
     default: async (sql: string, params: unknown[] = []) => {
@@ -13,7 +14,7 @@ mock.module('#db', () => ({
         if (sql.includes('SELECT DISTINCT ON (conversation_id)')) return { rows: [{ count: activeDeployCount }] }
         if (sql.includes('FROM ai_imported_repositories AS repositories')) return { rows: [{
             id: 'repo-1', owner_id: 'owner-1', name: 'Sample App', full_name: 'owner/sample-app', branch: 'main',
-            source_path: '', stack_type: 'docker_compose', stack_reason: 'compose files found', files: [],
+            source_path: repositorySourcePath, stack_type: 'docker_compose', stack_reason: 'compose files found', files: [],
         }] }
         if (sql.includes('FROM vms')) return { rows: vmExists ? [{
             name: 'deploy-vm', owner: 'owner-1', created_by: 'owner-1', access_users: ['owner-1'], device_eth0_ipv4_address: '192.0.2.10',
@@ -59,6 +60,7 @@ beforeEach(() => {
     activeDeployCount = 0
     vmExists = true
     vmAccessible = true
+    repositorySourcePath = ''
 })
 afterAll(async () => {
     globalThis.fetch = originalFetch
@@ -130,6 +132,26 @@ test('final bridge failure remains a persisted blocked deployment without a heal
     expect(calls.filter(url => url.endsWith('/deploy'))).toHaveLength(3)
     expect(calls.some(url => url.endsWith('/request'))).toBe(false)
     expect(deploymentRows).toHaveLength(1)
+})
+
+test('repository subfolder deployment stays blocked with actionable folder detail', async () => {
+    let bridgeCalls = 0
+    repositorySourcePath = 'apps/web'
+    globalThis.fetch = async () => {
+        bridgeCalls++
+        return Response.json({ ok: true })
+    }
+
+    const response = await startDeployment()
+    const body = response.json()
+    const blockedEvent = body.deployment.events.find((event: { stage: string }) => event.stage === 'blocked')
+
+    expect(response.statusCode).toBe(202)
+    expect(body.deployment.status).toBe('blocked')
+    expect(body.deployment.failureReason).toContain('Re-import the repository from its root, then deploy again.')
+    expect(body.deployment.failureReason).toContain('Subfolder: apps/web.')
+    expect(blockedEvent?.message).toContain('subpath "apps/web"')
+    expect(bridgeCalls).toBe(0)
 })
 
 test('quota and VM access checks still stop deployment before contacting the bridge', async () => {
