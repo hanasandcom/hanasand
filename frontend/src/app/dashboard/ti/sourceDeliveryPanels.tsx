@@ -4,6 +4,7 @@ import { Activity, Send, ShieldCheck, Webhook } from 'lucide-react'
 import { DashboardPanel } from '@/components/dashboard/ui'
 import { formatTiDate, type TiAdminOverview } from '@/utils/tiAdmin/ops'
 import { operationalStateLabel, PanelTitle, StatusPill, toneClass, type StatusTone } from './dashboardPresentation'
+import { TiAdminDataTable } from './TiAdminDataTable'
 
 type Source = TiAdminOverview['sources'][number]
 
@@ -13,67 +14,48 @@ export function SourcesPanel({ sources, runs, staleSources }: {
     staleSources: Source[]
 }) {
     return (
-        <DashboardPanel className='overflow-hidden border-ui-border bg-ui-panel p-0'>
-            <PanelTitle title='Sources being checked' actionHref='/ti/sources' actionLabel='Sources' />
-            <div className='overflow-x-auto'>
-                <table className='min-w-full divide-y divide-ui-border text-sm'>
-                    <thead className='bg-ui-canvas text-left text-xs font-semibold uppercase text-ui-muted'>
-                        <tr>
-                            <th className='px-4 py-3'>Source</th>
-                            <th className='px-4 py-3'>Status</th>
-                            <th className='px-4 py-3'>Findings</th>
-                            <th className='px-4 py-3'>Last seen</th>
-                            <th className='px-4 py-3'>Due</th>
-                            <th className='px-4 py-3'>Matches</th>
-                        </tr>
-                    </thead>
-                    <tbody className='divide-y divide-ui-border bg-ui-panel'>
-                        {[...sources].sort((a, b) =>
-                            new Date(a.nextRunAt).getTime() - new Date(b.nextRunAt).getTime()
-                        ).map(source => {
-                            const stale = staleSources.includes(source)
-                            const sourceRuns = runs.filter(run => run.sourceId === source.id)
-                            const rowsPerRun = sourceRuns.length
-                                ? Math.round(sourceRuns.reduce((sum, run) => sum + run.rows, 0) / sourceRuns.length)
-                                : 0
-                            return (
-                                <tr key={source.id} className='hover:bg-ui-panel'>
-                                    <td className='px-4 py-4'>
-                                        <Link
-                                            href={`/ti/sources/${source.id}`}
-                                            className='font-semibold text-ui-text hover:text-ui-primary'
-                                        >
-                                            {source.name}
-                                        </Link>
-                                        <p className='mt-1 text-xs text-ui-muted'>{source.family}</p>
-                                    </td>
-                                    <td className='px-4 py-4'>
-                                        <StatusPill
-                                            label={stale ? 'stale' : operationalStateLabel(source.status)}
-                                            tone={stale ? 'bad' : source.status === 'active' ? 'ok' : 'watch'}
-                                        />
-                                    </td>
-                                    <td className='px-4 py-3 text-ui-muted'>
-                                        {rowsPerRun
-                                            ? `${rowsPerRun} rows/run`
-                                            : `${source.retainedEvidenceCount} retained captures`}
-                                    </td>
-                                    <td className='whitespace-nowrap px-4 py-3 text-ui-muted'>
-                                        {formatTiDate(source.lastRunAt)}
-                                    </td>
-                                    <td className='whitespace-nowrap px-4 py-3 text-ui-muted'>
-                                        {formatTiDate(source.nextRunAt)}
-                                    </td>
-                                    <td className='px-4 py-3 text-ui-muted'>
-                                        {source.domains.length} terms · {source.resultTypes.length} result types
-                                    </td>
-                                </tr>
-                            )
-                        })}
-                    </tbody>
-                </table>
-            </div>
-        </DashboardPanel>
+        <TiAdminDataTable
+            title='Sources being checked'
+            actionHref='/ti/sources'
+            actionLabel='Sources'
+            columns={['Source', 'Status', 'Findings', 'Last seen', 'Due', 'Matches']}
+        >
+            {[...sources].sort((a, b) =>
+                new Date(a.nextRunAt).getTime() - new Date(b.nextRunAt).getTime()
+            ).map(source => {
+                const stale = staleSources.includes(source)
+                const sourceRuns = runs.filter(run => run.sourceId === source.id)
+                const rowsPerRun = sourceRuns.length
+                    ? Math.round(sourceRuns.reduce((sum, run) => sum + run.rows, 0) / sourceRuns.length)
+                    : 0
+                return (
+                    <tr key={source.id} className='hover:bg-ui-panel'>
+                        <td className='px-4 py-4'>
+                            <Link href={`/ti/sources/${source.id}`} className='font-semibold text-ui-text hover:text-ui-primary'>
+                                {source.name}
+                            </Link>
+                            <p className='mt-1 text-xs text-ui-muted'>{source.family}</p>
+                        </td>
+                        <td className='px-4 py-4'>
+                            <StatusPill
+                                label={stale ? 'stale' : operationalStateLabel(source.status)}
+                                tone={stale ? 'bad' : source.status === 'active' ? 'ok' : 'watch'}
+                            />
+                        </td>
+                        <td className='px-4 py-3 text-ui-muted'>
+                            {rowsPerRun
+                                ? `${rowsPerRun} rows/run`
+                                : `${source.retainedEvidenceCount} retained captures`}
+                        </td>
+                        <td className='whitespace-nowrap px-4 py-3 text-ui-muted'>{formatTiDate(source.lastRunAt)}</td>
+                        <td className='whitespace-nowrap px-4 py-3 text-ui-muted'>{formatTiDate(source.nextRunAt)}</td>
+                        <td className='px-4 py-3 text-ui-muted'>
+                            {source.domains.length} terms · {source.resultTypes.length} result types
+                        </td>
+                    </tr>
+                )
+            })}
+        </TiAdminDataTable>
     )
 }
 

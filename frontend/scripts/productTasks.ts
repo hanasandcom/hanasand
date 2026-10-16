@@ -29,6 +29,7 @@ export const productTasks: TestTask[] = [
     { id: 'ti-business-model-evidence', title: 'Public TI business-model evidence presentation safety', command: [bun, 'test', 'tests/ti-business-model-evidence.test.tsx'] },
     { id: 'ti-safe-output-contract', title: 'Public TI plans keep metadata-only output contract', command: [bun, 'test', 'tests/ti-safe-output-contract.test.ts'] },
     { id: 'ti-unique-strings', title: 'TI string normalization and deduplication contracts', command: [bun, 'test', 'tests/ti-unique-strings.test.ts'] },
+    { id: 'ti-admin-data-table', title: 'TI admin table shell and body contracts', command: [bun, 'test', 'tests/ti-admin-data-table.test.tsx'] },
     { id: 'blocklist-render', title: 'Blocklist edit actions require persisted entry identifiers', command: [bun, 'test', 'tests/blocklist-render.test.tsx'] },
     { id: 'vulnerability-severity-badge', title: 'Vulnerability severity badge styles and counts', command: [bun, 'test', 'tests/vulnerability-severity-badge.test.tsx'] },
     { id: 'dwm-tenant-scope', title: 'DWM tenant scope and findings presentation contracts', command: [bun, 'test', 'tests/dwm-tenant-scope.test.ts'] },
