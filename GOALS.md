@@ -506,3 +506,12 @@ feature-family LOC; neither the 100,000-line API reduction nor the 10,000–30,0
 frontend target has been achieved. Continue only where verified reuse or dead
 code removal preserves behavior, and measure net family LOC alongside cap
 progress.
+
+At `6b19a2507`, webhook delivery audit-trail projection is extracted behind
+the existing public builder. The parent falls from 7,783 to 7,644 lines; its
+new 174-line module raises the webhook family from 9,883 to 9,918 LOC (+35).
+Kari's independent review confirmed access redaction, retry/test request
+selection, blocker and entry ordering, route strings, counts, and summary
+truncation are unchanged. Projection, delivery-route, and visibility suites
+pass 16 tests / 85 assertions; guarded contract smoke, typecheck, scoped ESLint
+and diff checks pass. This is file-cap progress rather than net LOC reduction.
