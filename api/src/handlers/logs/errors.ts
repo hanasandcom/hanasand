@@ -34,6 +34,15 @@ async function queryErrorEvents(query: ErrorQuery) {
     const code = normalizeFilter(query.code)
     const q = typeof query.q === 'string' && query.q.trim() ? query.q.trim().slice(0, 120) : null
     const includeExpected = ['1', 'true', 'yes'].includes(String(query.includeExpected || '').toLowerCase())
+    const authStatusCode = `CASE
+        WHEN reason = 'bad_password' THEN 401
+        WHEN reason = 'deactivated' THEN 403
+        WHEN reason = 'rate_limited' THEN 429
+        WHEN reason IN ('unknown_user', 'deleted') THEN 404
+        WHEN reason = 'session_issue_failed' THEN 503
+        WHEN reason = 'unexpected_error' THEN 500
+        ELSE 400
+    END`
 
     const [httpRows, authRows, trafficRows, summary] = await Promise.all([
         run(`
@@ -71,15 +80,7 @@ async function queryErrorEvents(query: ErrorQuery) {
                 'auth' AS surface,
                 'POST' AS method,
                 '/api/auth/login/:id' AS path,
-                CASE
-                    WHEN reason = 'bad_password' THEN 401
-                    WHEN reason = 'deactivated' THEN 403
-                    WHEN reason = 'rate_limited' THEN 429
-                    WHEN reason IN ('unknown_user', 'deleted') THEN 404
-                    WHEN reason = 'session_issue_failed' THEN 503
-                    WHEN reason = 'unexpected_error' THEN 500
-                    ELSE 400
-                END AS status_code,
+                ${authStatusCode} AS status_code,
                 reason AS error_code,
                 reason AS message,
                 '' AS request_id,
@@ -89,15 +90,7 @@ async function queryErrorEvents(query: ErrorQuery) {
             FROM login_events
             WHERE status <> 'success'
               AND ($1::text IS NULL OR $1 = 'auth')
-              AND ($2::int IS NULL OR CASE
-                    WHEN reason = 'bad_password' THEN 401
-                    WHEN reason = 'deactivated' THEN 403
-                    WHEN reason = 'rate_limited' THEN 429
-                    WHEN reason IN ('unknown_user', 'deleted') THEN 404
-                    WHEN reason = 'session_issue_failed' THEN 503
-                    WHEN reason = 'unexpected_error' THEN 500
-                    ELSE 400
-                END = $2)
+              AND ($2::int IS NULL OR ${authStatusCode} = $2)
               AND ($3::text IS NULL OR reason = $3)
               AND ($4::text IS NULL OR user_id ILIKE '%' || $4 || '%' OR reason ILIKE '%' || $4 || '%')
             ORDER BY created_at DESC
@@ -141,15 +134,7 @@ async function queryErrorEvents(query: ErrorQuery) {
                   AND normalized->'metadata'->>'category' IN ('http_response_error', 'application_error')
                   AND ($1::boolean OR NOT COALESCE(${expectedHttpProbePredicate('normalized->\'metadata\'')}, FALSE))
                 UNION ALL
-                SELECT 'auth', CASE
-                    WHEN reason = 'bad_password' THEN 401
-                    WHEN reason = 'deactivated' THEN 403
-                    WHEN reason = 'rate_limited' THEN 429
-                    WHEN reason IN ('unknown_user', 'deleted') THEN 404
-                    WHEN reason = 'session_issue_failed' THEN 503
-                    WHEN reason = 'unexpected_error' THEN 500
-                    ELSE 400
-                END, reason, '/api/auth/login/:id', created_at
+                SELECT 'auth', ${authStatusCode}, reason, '/api/auth/login/:id', created_at
                 FROM login_events
                 WHERE status <> 'success'
                 UNION ALL

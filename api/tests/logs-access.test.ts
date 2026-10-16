@@ -3,6 +3,7 @@ import Fastify from 'fastify'
 let authorized = true
 let administrator = true
 let queries = 0
+const statements: Array<{ sql: string, params?: unknown[] }> = []
 const storedServices = [
     { service: 'api', last_seen: new Date('2026-10-15T10:00:00.000Z'), entries: 2 },
     { service: 'stored', last_seen: new Date('2026-10-15T09:00:00.000Z'), entries: 1 },
@@ -11,8 +12,9 @@ const nativeServices = [
     { service: 'api', last_seen: '2026-10-15T11:00:00.000Z', entries: 3 },
     { service: 'native', last_seen: '2026-10-15T08:00:00.000Z', entries: 4 },
 ]
-const query = async (sql: string) => {
+const query = async (sql: string, params?: unknown[]) => {
     queries++
+    statements.push({ sql, params })
     return { rows: sql.includes('SELECT normalized->>\'service\'') ? storedServices : [] }
 }
 mock.module('../src/utils/db.ts', () => ({ default: query, withTransaction: async (work: any) => work(query) }))
@@ -50,5 +52,25 @@ test('cached log responses still require a valid administrator on every request'
             expect((await app.inject(url)).statusCode).toBe(403)
             expect(queries).toBe(before)
         }
+    } finally { await app.close() }
+})
+
+test('error status filters use the same mapped status code as auth event output', async () => {
+    authorized = administrator = true
+    statements.length = 0
+    const app = Fastify()
+    app.get('/logs/errors', getErrorEvents)
+    try {
+        const response = await app.inject('/logs/errors?status=503&includeExpected=1')
+        expect(response.statusCode).toBe(200)
+        const authQuery = statements.find(({ sql }) => sql.includes('FROM login_events\n            WHERE status <> \'success\''))
+        expect(authQuery?.params).toEqual([null, 503, null, null, 100])
+        expect(authQuery?.sql).toContain('WHEN reason = \'session_issue_failed\' THEN 503')
+        expect(authQuery?.sql).toContain('OR CASE')
+        expect(authQuery?.sql).toContain('END = $2)')
+        expect(authQuery?.sql.match(/WHEN reason = 'session_issue_failed' THEN 503/g)).toHaveLength(2)
+        const summaryQuery = statements.find(({ sql }) => sql.includes('WITH raw_events AS NOT MATERIALIZED'))
+        expect(summaryQuery?.sql).toContain('SELECT \'auth\', CASE')
+        expect(summaryQuery?.sql.match(/WHEN reason = 'session_issue_failed' THEN 503/g)).toHaveLength(1)
     } finally { await app.close() }
 })
