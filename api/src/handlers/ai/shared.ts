@@ -71,6 +71,29 @@ type VmOwnershipRow = {
     created_by: string
 }
 
+const accessibleRepositoryIdsCte = `
+    WITH accessible_conversations AS (
+        SELECT ai_conversations.workspace_kind,
+               ai_conversations.workspace_id,
+               ai_conversations.workspace_meta
+        FROM ai_conversations
+        LEFT JOIN ai_conversation_collaborators AS collaborators
+          ON collaborators.conversation_id = ai_conversations.id
+         AND collaborators.user_id = $1
+        WHERE ai_conversations.owner_id = $1
+           OR collaborators.user_id = $1
+    ),
+    accessible_repo_ids AS (
+        SELECT DISTINCT
+            CASE
+                WHEN workspace_kind = 'repo' THEN workspace_id
+                WHEN jsonb_typeof(workspace_meta) = 'object' THEN workspace_meta->>'repositoryId'
+                ELSE NULL
+            END AS repository_id
+        FROM accessible_conversations
+    )
+`
+
 export async function requireAiUser(req: FastifyRequest, res: FastifyReply) {
     const auth = await tokenWrapper(req, res)
     if (!auth.valid || !auth.id) {
@@ -143,28 +166,7 @@ export async function getWorkspaceBundle(ownerId: string) {
             ORDER BY ai_messages.created_at ASC
         `, [ownerId]),
         run(`
-            WITH accessible_conversations AS (
-                SELECT ai_conversations.id,
-                       ai_conversations.owner_id,
-                       ai_conversations.workspace_kind,
-                       ai_conversations.workspace_id,
-                       ai_conversations.workspace_meta
-                FROM ai_conversations
-                LEFT JOIN ai_conversation_collaborators AS collaborators
-                  ON collaborators.conversation_id = ai_conversations.id
-                 AND collaborators.user_id = $1
-                WHERE ai_conversations.owner_id = $1
-                   OR collaborators.user_id = $1
-            ),
-            accessible_repo_ids AS (
-                SELECT DISTINCT
-                    CASE
-                        WHEN workspace_kind = 'repo' THEN workspace_id
-                        WHEN jsonb_typeof(workspace_meta) = 'object' THEN workspace_meta->>'repositoryId'
-                        ELSE NULL
-                    END AS repository_id
-                FROM accessible_conversations
-            )
+            ${accessibleRepositoryIdsCte}
             SELECT repositories.*
             FROM ai_imported_repositories AS repositories
             WHERE repositories.owner_id = $1
@@ -176,26 +178,7 @@ export async function getWorkspaceBundle(ownerId: string) {
             ORDER BY repositories.imported_at DESC
         `, [ownerId]),
         run(`
-            WITH accessible_conversations AS (
-                SELECT ai_conversations.workspace_kind,
-                       ai_conversations.workspace_id,
-                       ai_conversations.workspace_meta
-                FROM ai_conversations
-                LEFT JOIN ai_conversation_collaborators AS collaborators
-                  ON collaborators.conversation_id = ai_conversations.id
-                 AND collaborators.user_id = $1
-                WHERE ai_conversations.owner_id = $1
-                   OR collaborators.user_id = $1
-            ),
-            accessible_repo_ids AS (
-                SELECT DISTINCT
-                    CASE
-                        WHEN workspace_kind = 'repo' THEN workspace_id
-                        WHEN jsonb_typeof(workspace_meta) = 'object' THEN workspace_meta->>'repositoryId'
-                        ELSE NULL
-                    END AS repository_id
-                FROM accessible_conversations
-            )
+            ${accessibleRepositoryIdsCte}
             SELECT files.*
             FROM ai_imported_repository_files AS files
             JOIN ai_imported_repositories AS repositories
