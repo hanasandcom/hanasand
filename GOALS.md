@@ -409,3 +409,24 @@ typecheck, scoped ESLint, and diff-check pass. The committed repository
 inventory is 3,706 files / 323,232 lines / 125 over the cap; an active
 admin-support edit is reducing its route file but is not included in that
 checkpoint. Frontend remains 2,336 files / 156,018 lines with zero over 200.
+
+At checkpoints `07560a716`, `85cb984ae`, `2b3f9d89d`, and `4470391b3`, four
+more DWM builder families moved behind the same public `webhooks.ts` API:
+delivery timeline, persistence proof, replay contract projection, and history
+consumer. Each extraction is independently reviewed and its registered focused
+tests, typecheck, scoped ESLint, and diff checks pass. The parent is now 8,275
+LOC; the nested DWM modules total 1,500 LOC and the shared value utility is 64
+LOC. These moves reduce the parent by hundreds of lines but add structural
+family overhead; they are cap progress, not aggregate reduction.
+
+At `2078362a6`, the member-role recovery route and its helpers were split into
+cohesive modules, all ≤200 lines and free of the reviewed runtime cycle. The
+route barrel export, auth/scope/idempotency, transactional rechecks, audit and
+receipt contracts are preserved. The parent falls from 4,619 to 3,532 LOC;
+its feature family grows by 192 LOC. The two isolated focused tasks pass
+10/10 (53 assertions), along with API typecheck, scoped ESLint, diff check and
+independent review. The committed global scan is 3,728 files / 323,484 lines,
+with 125 files still over 200, all outside the frontend. Frontend remains at
+2,336 checked files / 156,018 lines with zero over 200. These cap splits do
+not satisfy the API 100,000-line reduction or frontend 10,000–30,000-line
+target; net family LOC and useful test coverage remain required metrics.
