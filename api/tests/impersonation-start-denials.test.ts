@@ -3,10 +3,10 @@ import Fastify from 'fastify'
 
 let supportSession: Record<string, any> | null = null
 const systemEvents: Array<Record<string, any>> = []
-const queries: string[] = []
+const queries: Array<{ sql: string, values: unknown[] }> = []
 
-const query = async (sql: string) => {
-    queries.push(sql)
+const query = async (sql: string, values: unknown[] = []) => {
+    queries.push({ sql, values })
     if (sql.includes('FROM users') && sql.includes('deletion_scheduled_at IS NULL')) {
         return { rows: [{ id: 'target-user', name: 'Target User', avatar: null }] }
     }
@@ -31,18 +31,26 @@ const { startImpersonation } = await import('../src/handlers/impersonation.ts')
 const app = Fastify({ logger: false })
 app.post('/impersonation/start', startImpersonation)
 
+function expectDeniedEventLookup(requestId: string, entityId: string) {
+    expect(queries).toHaveLength(2)
+    expect(queries[1].sql).toContain('WHERE request_id = $1')
+    expect(queries[1].sql).toContain('AND event_type = $2')
+    expect(queries[1].sql).toContain('AND subject_id = $3')
+    expect(queries[1].values).toEqual([requestId, 'impersonation.start', entityId])
+}
+
 beforeEach(() => {
     supportSession = null
     systemEvents.length = 0
     queries.length = 0
 })
 
-test('invalid start request returns its audited denial receipt without a support session field', async () => {
+test('invalid start request keeps an optional session in its receipt but omits it from the error detail', async () => {
     const response = await app.inject({
         method: 'POST',
         url: '/impersonation/start',
         headers: { 'x-request-id': 'invalid-start-request' },
-        payload: { targetId: 'target-user', reason: 'short' },
+        payload: { targetId: 'target-user', supportSessionId: 'support-session-invalid', reason: 'short' },
     })
 
     expect(response.statusCode).toBe(400)
@@ -56,6 +64,8 @@ test('invalid start request returns its audited denial receipt without a support
             auditEventIds: [731],
             guardrailReceipt: {
                 schemaVersion: 'support.impersonation.guardrail_receipt.v1',
+                actorId: 'admin-user',
+                target: { type: 'user', id: 'target-user', organizationId: null, supportSessionId: 'support-session-invalid' },
                 outcome: 'denied',
                 blockerCode: 'invalid_impersonation_request',
                 auditEventIds: [731],
@@ -64,7 +74,20 @@ test('invalid start request returns its audited denial receipt without a support
     })
     expect(response.json().detail).not.toHaveProperty('supportSessionId')
     expect(systemEvents).toHaveLength(1)
-    expect(systemEvents[0]).toMatchObject({ actionType: 'impersonation.start', outcome: 'denied', context: { blockerCode: 'invalid_impersonation_request' } })
+    expect(systemEvents[0]).toMatchObject({
+        actionType: 'impersonation.start', actorId: 'admin-user', targetType: 'user', targetId: 'target-user',
+        organizationId: null, entityId: 'support-session-invalid', severity: 'warning', outcome: 'denied',
+        reason: 'short', requestId: 'invalid-start-request',
+        context: {
+            schemaVersion: 'support.impersonation.denied.v1', requestId: 'invalid-start-request',
+            targetUserId: 'target-user', organizationId: null, supportSessionId: 'support-session-invalid',
+            blockerCode: 'invalid_impersonation_request', message: 'Impersonation reason must be at least 10 characters.',
+            scope: [], durationMinutes: null, expiresAt: null, outcome: 'denied',
+            noSilentImpersonation: true, redactionRequired: true,
+        },
+    })
+    expect(queries[0].values).toEqual(['target-user'])
+    expectDeniedEventLookup('invalid-start-request', 'support-session-invalid')
 })
 
 test('support-session scope denial returns the same receipt with its scoped session identity', async () => {
@@ -95,24 +118,35 @@ test('support-session scope denial returns the same receipt with its scoped sess
     expect(response.json()).toMatchObject({
         error: 'Support session does not include impersonation scope read_profile.',
         detail: {
+            schemaVersion: 'support.impersonation.error.v1',
             code: 'support_session_scope_denied',
             outcome: 'denied',
             requestId: 'scope-denial-request',
             auditEventIds: [731],
             supportSessionId: 'support-session-1',
             guardrailReceipt: {
+                schemaVersion: 'support.impersonation.guardrail_receipt.v1',
+                actorId: 'admin-user',
                 outcome: 'denied',
                 blockerCode: 'support_session_scope_denied',
-                target: { supportSessionId: 'support-session-1' },
+                target: { type: 'user', id: 'target-user', organizationId: 'org-1', supportSessionId: 'support-session-1' },
                 auditEventIds: [731],
             },
         },
     })
     expect(systemEvents).toHaveLength(1)
     expect(systemEvents[0]).toMatchObject({
-        actionType: 'impersonation.start',
-        outcome: 'denied',
-        context: { supportSessionId: 'support-session-1', blockerCode: 'support_session_scope_denied', scope: ['read_profile'] },
+        actionType: 'impersonation.start', actorId: 'admin-user', targetType: 'user', targetId: 'target-user',
+        organizationId: 'org-1', entityId: 'support-session-1', severity: 'warning', outcome: 'denied',
+        reason: 'Customer requested an access investigation.', requestId: 'scope-denial-request',
+        context: {
+            schemaVersion: 'support.impersonation.denied.v1', requestId: 'scope-denial-request',
+            targetUserId: 'target-user', organizationId: 'org-1', supportSessionId: 'support-session-1',
+            blockerCode: 'support_session_scope_denied', message: 'Support session does not include impersonation scope read_profile.',
+            scope: ['read_profile'], durationMinutes: 30, expiresAt: expect.any(String), outcome: 'denied',
+            noSilentImpersonation: true, redactionRequired: true,
+        },
     })
-    expect(queries).toHaveLength(2)
+    expect(queries[0].values).toEqual(['target-user'])
+    expectDeniedEventLookup('scope-denial-request', 'support-session-1')
 })
