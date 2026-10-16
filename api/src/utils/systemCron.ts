@@ -635,7 +635,7 @@ function managedHostCronJob(job: ManagedCronJob): UnifiedScheduledJob {
         lastRunAt: job.lastLogAt,
         lastSuccessAt: job.lastLogAt,
         lastFinishedAt: job.lastLogAt,
-        nextRunAt: job.enabled ? nextCronRunAt(job.schedule) : null,
+        nextRunAt: null,
         currentRunDurationMs: null,
         averageRuntimeMs: null,
         failureCount: 0,
@@ -1341,18 +1341,16 @@ function roundMoney(value: number) {
     return Math.round(value * 10000) / 10000
 }
 
-function cronCadenceSeconds(schedule: string) {
+export function cronCadenceSeconds(schedule: string) {
     const parts = schedule.trim().split(/\s+/)
     if (parts.length !== 5) return null
     const minute = parts[0]
+    if (parts.slice(1).some(field => field !== '*')) return null
     if (minute === '*') return 60
     const every = minute.match(/^\*\/(\d+)$/)
-    if (every) return Number(every[1]) * 60
-    return 3600
-}
-
-function nextCronRunAt(schedule: string) {
-    const cadence = cronCadenceSeconds(schedule)
-    if (!cadence) return null
-    return new Date(Date.now() + cadence * 1000).toISOString()
+    if (!every) return null
+    const intervalMinutes = Number(every[1])
+    return intervalMinutes > 0 && intervalMinutes <= 60 && 60 % intervalMinutes === 0
+        ? intervalMinutes * 60
+        : null
 }

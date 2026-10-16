@@ -38,9 +38,47 @@ mock.module('../src/utils/db/backups.ts', () => ({
     createDatabaseBackup: async() => {},
     setDatabaseBackupSchedulePaused: async() => {},
 }))
+mock.module('../src/utils/managedCronHost.ts', () => ({
+    readManagedCrontab: async() => [
+        '# BEGIN HANASAND MANAGED CRON',
+        '# id=forgejo-standby-sync',
+        '*/15 * * * * command',
+        '# id=forgejo-doctor',
+        '0 9 * * 1-5 command',
+        '# id=ti-threat-intel-backup',
+        '0 0 1 * * command',
+        '# END HANASAND MANAGED CRON',
+    ].join('\n'),
+    readManagedCronLog: async() => ({ line: null, createdAt: null }),
+    writeManagedCrontab: async() => {},
+}))
 
 const { runTrackedBackgroundJob, getBackgroundJobRuntime } = await import('../src/utils/backgroundJobRuntime.ts')
-const { listUnifiedScheduledJobs, updateManagedCronJob } = await import('../src/utils/systemCron.ts')
+const { cronCadenceSeconds, listUnifiedScheduledJobs, updateManagedCronJob } = await import('../src/utils/systemCron.ts')
+
+test('host cron omits unverified forecasts and reports only fixed cadence intervals', async() => {
+    expect(cronCadenceSeconds('* * * * *')).toBe(60)
+    expect(cronCadenceSeconds('*/15 * * * *')).toBe(900)
+    expect(cronCadenceSeconds('*/60 * * * *')).toBe(3600)
+    expect(cronCadenceSeconds('*/7 * * * *')).toBeNull()
+    expect(cronCadenceSeconds('23 2 * * *')).toBeNull()
+    expect(cronCadenceSeconds('0 9 * * 1-5')).toBeNull()
+    expect(cronCadenceSeconds('0 0 1 * *')).toBeNull()
+
+    const jobs = await listUnifiedScheduledJobs()
+    expect(jobs.find(job => job.id === 'forgejo-standby-sync')).toMatchObject({
+        cadenceSeconds: 900,
+        nextRunAt: null,
+    })
+    expect(jobs.find(job => job.id === 'forgejo-doctor')).toMatchObject({
+        cadenceSeconds: null,
+        nextRunAt: null,
+    })
+    expect(jobs.find(job => job.id === 'ti-threat-intel-backup')).toMatchObject({
+        cadenceSeconds: null,
+        nextRunAt: null,
+    })
+})
 const { startLogProcessor } = await import('../src/utils/events/processor.ts')
 
 test('registry reports a failed rerun while retaining the last successful result', async() => {
