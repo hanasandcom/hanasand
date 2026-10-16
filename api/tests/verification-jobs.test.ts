@@ -8,6 +8,7 @@ const usageEvents: Array<Record<string, any>> = []
 const fetchCalls: Array<{ url: string, signal?: AbortSignal, userAgent?: string }> = []
 const terminalAttempts: string[] = []
 let nextFetchError: Error | null = null
+let nextFetchStatus = 200
 let cancelOnWorkerRead = false
 let holdFetch = false
 let onFetchStarted: (() => void) | null = null
@@ -119,6 +120,7 @@ beforeEach(() => {
     terminalAttempts.length = 0
     workerStatusReads.length = 0
     nextFetchError = null
+    nextFetchStatus = 200
     cancelOnWorkerRead = false
     holdFetch = false
     onFetchStarted = null
@@ -138,7 +140,10 @@ beforeEach(() => {
                 rejectFetch = reject
             })
         }
-        return new Response(page, { status: 200 })
+        return new Response(page, {
+            status: nextFetchStatus,
+            statusText: nextFetchStatus === 503 ? 'Service Unavailable' : '',
+        })
     }) as typeof fetch
 })
 
@@ -199,6 +204,24 @@ test('browser and design jobs retain their distinct fetch steps, headers, and pr
         'Fetching browser target', 'Extracting evidence', 'Fetching design target', 'Scoring design quality',
     ])
     expect(usageEvents.map(event => event.metadata.jobId)).toEqual([browserId, designId])
+})
+
+test('non-success HTTP responses store failed proof and zero-billable usage', async () => {
+    nextFetchStatus = 503
+    const browserId = await enqueue('browser', 0)
+    const browser = await waitForJob(browserId)
+    const designId = await enqueue('design', 0)
+    const design = await waitForJob(designId)
+
+    expect(browser).toMatchObject({ status: 'failed', current_step: 'Browser proof failed', error: 'HTTP 503 Service Unavailable' })
+    expect(browser.artifacts[0]).toMatchObject({ type: 'browser_result', data: { ok: false, status: 503 } })
+    expect(design).toMatchObject({ status: 'failed', current_step: 'Design QA failed' })
+    expect(design.error).toStartWith('Design QA score ')
+    expect(design.artifacts[0]).toMatchObject({ type: 'design_quality_report', data: { ok: false, passed: false, status: 'failed' } })
+    expect(usageEvents).toMatchObject([
+        { billableUnits: 0, estimatedCostNok: 0, outcome: 'failed', metadata: { jobId: browserId } },
+        { billableUnits: 0, estimatedCostNok: 0, outcome: 'failed', metadata: { jobId: designId, proofType: 'design_quality' } },
+    ])
 })
 
 test('target request failures clear the timeout and retain the job failure path', async () => {

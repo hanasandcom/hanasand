@@ -325,6 +325,51 @@ async function fetchVerificationTarget(job: VerificationJobRow, {
     }
 }
 
+async function completeProofJob(job: VerificationJobRow, {
+    status,
+    currentStep,
+    artifact,
+    error,
+    estimatedCostNok,
+    metadata,
+}: {
+    status: 'completed' | 'failed'
+    currentStep: string
+    artifact: Record<string, unknown>
+    error: string | null
+    estimatedCostNok: number
+    metadata: Record<string, unknown>
+}) {
+    const completed = await run(`
+        UPDATE ai_verification_jobs
+        SET status = $2,
+            current_step = $3,
+            artifacts = artifacts || $4::jsonb,
+            error = $5,
+            completed_at = NOW(),
+            updated_at = NOW()
+        WHERE id = $1
+          AND status = 'running'
+        RETURNING id
+    `, [job.id, status, currentStep, JSON.stringify([artifact]), error])
+    if (completed.rows.length === 0) return
+
+    const billable = status === 'completed'
+    await recordAiUsageEvent({
+        ownerId: job.owner_id,
+        actorId: job.owner_id,
+        workspaceKind: cleanWorkspaceKind(job.workspace_kind),
+        workspaceId: job.workspace_id,
+        kind: 'browser_proof_completed',
+        units: 1,
+        billableUnits: billable ? 1 : 0,
+        estimatedCostNok: billable ? estimatedCostNok : 0,
+        billingMode: job.lane,
+        outcome: billable ? 'verified' : 'failed',
+        metadata,
+    })
+}
+
 async function runBrowserJob(job: VerificationJobRow) {
     const target = await fetchVerificationTarget(job, {
         fetchingStep: 'Fetching browser target',
@@ -362,36 +407,12 @@ async function runBrowserJob(job: VerificationJobRow) {
             pageErrors: response.ok ? [] : [`HTTP ${response.status} ${response.statusText}`],
         },
     }
-    const completed = await run(`
-        UPDATE ai_verification_jobs
-        SET status = $2,
-            current_step = $3,
-            artifacts = artifacts || $4::jsonb,
-            error = $5,
-            completed_at = NOW(),
-            updated_at = NOW()
-        WHERE id = $1
-          AND status = 'running'
-        RETURNING id
-    `, [
-        job.id,
-        response.ok ? 'completed' : 'failed',
-        response.ok ? 'Browser proof completed' : 'Browser proof failed',
-        JSON.stringify([artifact]),
-        response.ok ? null : `HTTP ${response.status} ${response.statusText}`,
-    ])
-    if (completed.rows.length === 0) return
-    await recordAiUsageEvent({
-        ownerId: job.owner_id,
-        actorId: job.owner_id,
-        workspaceKind: cleanWorkspaceKind(job.workspace_kind),
-        workspaceId: job.workspace_id,
-        kind: 'browser_proof_completed',
-        units: 1,
-        billableUnits: response.ok ? 1 : 0,
-        estimatedCostNok: response.ok ? 0.04 : 0,
-        billingMode: job.lane,
-        outcome: response.ok ? 'verified' : 'failed',
+    await completeProofJob(job, {
+        status: response.ok ? 'completed' : 'failed',
+        currentStep: response.ok ? 'Browser proof completed' : 'Browser proof failed',
+        artifact,
+        error: response.ok ? null : `HTTP ${response.status} ${response.statusText}`,
+        estimatedCostNok: 0.04,
         metadata: {
             jobId: job.id,
             requestId: job.request_id,
@@ -446,36 +467,12 @@ async function runDesignJob(job: VerificationJobRow) {
             ].filter(Boolean),
         },
     }
-    const completed = await run(`
-            UPDATE ai_verification_jobs
-            SET status = $2,
-                current_step = $3,
-                artifacts = artifacts || $4::jsonb,
-                error = $5,
-                completed_at = NOW(),
-                updated_at = NOW()
-            WHERE id = $1
-              AND status = 'running'
-            RETURNING id
-        `, [
-        job.id,
-        passed ? 'completed' : 'failed',
-        passed ? 'Design QA passed' : 'Design QA failed',
-        JSON.stringify([artifact]),
-        passed ? null : `Design QA score ${review.score}: ${review.issues.slice(0, 2).join('; ') || 'review failed'}`,
-    ])
-    if (completed.rows.length === 0) return
-    await recordAiUsageEvent({
-        ownerId: job.owner_id,
-        actorId: job.owner_id,
-        workspaceKind: cleanWorkspaceKind(job.workspace_kind),
-        workspaceId: job.workspace_id,
-        kind: 'browser_proof_completed',
-        units: 1,
-        billableUnits: passed ? 1 : 0,
-        estimatedCostNok: passed ? 0.06 : 0,
-        billingMode: job.lane,
-        outcome: passed ? 'verified' : 'failed',
+    await completeProofJob(job, {
+        status: passed ? 'completed' : 'failed',
+        currentStep: passed ? 'Design QA passed' : 'Design QA failed',
+        artifact,
+        error: passed ? null : `Design QA score ${review.score}: ${review.issues.slice(0, 2).join('; ') || 'review failed'}`,
+        estimatedCostNok: 0.06,
         metadata: {
             proofType: 'design_quality',
             jobId: job.id,
