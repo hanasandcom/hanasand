@@ -3,13 +3,16 @@ import Fastify from 'fastify'
 
 let scheduledAt: string | null = null
 const queries: string[] = []
+const queryBindings: Array<{ sql: string, params: unknown[] }> = []
 const deletedUsers: string[] = []
 const loginReasons: string[] = []
 const purgedUsers: string[] = []
 
 mock.module('#db', () => ({
     default: async (sql: string, params?: unknown[]) => {
-        queries.push(sql.replace(/\s+/g, ' ').trim())
+        const normalized = sql.replace(/\s+/g, ' ').trim()
+        queries.push(normalized)
+        queryBindings.push({ sql: normalized, params: [...(params || [])] })
         if (sql.includes('SELECT u.id, u.name, u.password')) {
             return { rows: [{ id: 'deletion-user', name: 'Deletion User', password: 'valid-password', account_type: 'user', active: true, deletion_scheduled_at: scheduledAt, password_reset_locked_at: null }] }
         }
@@ -39,6 +42,7 @@ app.post('/login/:id', loginHandler)
 beforeEach(() => {
     scheduledAt = null
     queries.length = 0
+    queryBindings.length = 0
     deletedUsers.length = 0
     loginReasons.length = 0
     purgedUsers.length = 0
@@ -55,6 +59,9 @@ test('a valid login before the scheduled deletion date returns the restore flow 
     expect(deletedUsers).toEqual([])
     expect(loginReasons).toContain('pending_deletion')
     expect(queries.some(sql => sql.includes('UPDATE users SET deletion_restore_token_hash'))).toBe(true)
+    const restoreHashUpdate = queryBindings.find(({ sql }) => sql.includes('UPDATE users SET deletion_restore_token_hash'))
+    expect(restoreHashUpdate?.params).toEqual(['deletion-user', 'restore-hash'])
+    expect(restoreHashUpdate?.params).not.toContain(response.json().restore_token)
 })
 
 test('a valid login after the scheduled deletion date rejects access without invoking the account purge', async () => {
