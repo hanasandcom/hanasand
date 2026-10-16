@@ -4,14 +4,19 @@ import Fastify from 'fastify'
 let connected = true
 let blocked = false
 let request: any
+const evaluatedActions: Array<Record<string, any>> = []
+const auditedActions: Array<Record<string, any>> = []
 const usageEvents: Array<Record<string, any>> = []
 mock.module('../src/utils/ws/handleGptMessage.ts', () => ({
     listGptClients: () => connected ? [{ name: 'test', model: { status: 'idle' } }] : [],
     requestGptCompletion: async (_type: string, input: any) => { request = input; return { content: '{"facts":[]}' } },
 }))
 mock.module('../src/utils/ai/actionPolicy.ts', () => ({
-    evaluateAgentActionPolicy: async () => ({ status: blocked ? 'blocked' : 'allowed', reason: 'policy', safeAlternative: 'safe input' }),
-    auditAgentAction: async () => {},
+    evaluateAgentActionPolicy: async (input: Record<string, any>) => {
+        evaluatedActions.push(input)
+        return { status: blocked ? 'blocked' : 'allowed', reason: 'policy', safeAlternative: 'safe input' }
+    },
+    auditAgentAction: async (_request: unknown, input: Record<string, any>) => { auditedActions.push(input) },
     redactAgentText: (text: string) => text,
 }))
 mock.module('../src/utils/ai/usage.ts', () => ({ recordAiUsageEvent: async (event: Record<string, any>) => { usageEvents.push(event) } }))
@@ -57,6 +62,10 @@ test('explicit completions use model output, retain policy checks and never subs
         expect(disconnectedScaffold.message).toContain('<hanasand-tool>')
         blocked = true
         expect((await app.inject({ method: 'POST', url: '/ai', payload })).statusCode).toBe(403)
+
+        const actionPayload = { action: 'audit_agent_action', path: 'src/app.ts', content: 'safe change' }
+        expect((await app.inject({ method: 'POST', url: '/ai', payload: actionPayload })).statusCode).toBe(403)
+        expect(auditedActions.at(-1)).toEqual(evaluatedActions.at(-1))
     } finally { await app.close() }
 })
 

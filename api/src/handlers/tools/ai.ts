@@ -61,7 +61,7 @@ export default async function aiTool(req: FastifyRequest, res: FastifyReply) {
     const actorId = auth.id || headerString(req.headers.id) || null
 
     if (body.action === 'audit_agent_action') {
-        const decision = await evaluateAgentActionPolicy({
+        const actionInput = {
             action: body.toolAction || 'share_file_write',
             actorId,
             approved: Boolean(body.approved),
@@ -70,17 +70,9 @@ export default async function aiTool(req: FastifyRequest, res: FastifyReply) {
             path: body.path,
             content: body.content,
             metadata: body.metadata,
-        })
-        await auditAgentAction(req, {
-            action: body.toolAction || 'share_file_write',
-            actorId,
-            approved: Boolean(body.approved),
-            approvalId: body.approvalId,
-            target: body.target,
-            path: body.path,
-            content: body.content,
-            metadata: body.metadata,
-        }, decision, decision.status === 'allowed' ? 'completed' : decision.status)
+        }
+        const decision = await evaluateAgentActionPolicy(actionInput)
+        await auditAgentAction(req, actionInput, decision, decision.status === 'allowed' ? 'completed' : decision.status)
         if (decision.status === 'blocked') {
             return res.status(403).send({ error: decision.reason, decision })
         }
