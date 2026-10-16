@@ -1,16 +1,13 @@
 import { expect, test } from '@playwright/test'
-import { authenticateContext, createUser, deleteUser } from './dashboard-resource-auth'
-import { password } from './dashboard-resource-data'
+import { createDashboardUserSession } from './dashboard-resource-auth'
 
 test('notes dashboard supports create and delete flow', async ({ browser, request, baseURL }) => {
     const userId = `pdrn${Date.now().toString().slice(-8)}`
-    const auth = await createUser(request, userId, 'Dashboard Notes')
-    const context = await browser.newContext({ baseURL })
+    const { context, cleanup } = await createDashboardUserSession(browser, request, baseURL, userId, 'Dashboard Notes')
     const title = `Smoke note ${Date.now()}`
     const content = 'Created from the dashboard manage-flow smoke.'
 
     try {
-        await authenticateContext(context, auth, baseURL || 'http://127.0.0.1:3000')
         const page = await context.newPage()
 
         const notesLoaded = page.waitForResponse((response) =>
@@ -54,20 +51,17 @@ test('notes dashboard supports create and delete flow', async ({ browser, reques
         await expect(page.getByText('No private notes yet.')).toBeVisible()
         await expect(page.getByRole('button', { name: new RegExp(title) })).toHaveCount(0)
     } finally {
-        await context.close()
-        await deleteUser(request, userId, password)
+        await cleanup()
     }
 })
 
 test('automations dashboard supports create cancel and delete flow', async ({ browser, request, baseURL }) => {
     const userId = `pdrau${Date.now().toString().slice(-7)}`
-    const auth = await createUser(request, userId, 'Dashboard Automations')
-    const context = await browser.newContext({ baseURL })
+    const { context, cleanup } = await createDashboardUserSession(browser, request, baseURL, userId, 'Dashboard Automations')
     const title = `Smoke automation ${Date.now()}`
     const canceledTitle = `${title} canceled`
 
     try {
-        await authenticateContext(context, auth, baseURL || 'http://127.0.0.1:3000')
         const page = await context.newPage()
 
         const automationsLoaded = page.waitForResponse((response) =>
@@ -121,7 +115,6 @@ test('automations dashboard supports create cancel and delete flow', async ({ br
         await expect(page.getByText('No automations yet.')).toBeVisible()
         await expect(page.getByRole('button', { name: new RegExp(title) })).toHaveCount(0)
     } finally {
-        await context.close()
-        await deleteUser(request, userId, password)
+        await cleanup()
     }
 })

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
-import { authenticateContext, createUser, deleteUser } from './dashboard-resource-auth'
-import { dashboardRoutes, privilegedDashboardRoutes, normalSidebarLinks, password } from './dashboard-resource-data'
+import { createDashboardUserSession } from './dashboard-resource-auth'
+import { dashboardRoutes, privilegedDashboardRoutes, normalSidebarLinks } from './dashboard-resource-data'
 import { expectNormalUserDestination, expectNormalUserOverviewActions, expectNormalUserSidebar } from './dashboard-resource-sidebar-helpers'
 
 test.describe('dashboard resource routes', () => {
@@ -9,13 +9,11 @@ test.describe('dashboard resource routes', () => {
 
     test('authenticated dashboard resource routes load without auth or server errors', async ({ browser, request, baseURL }, testInfo) => {
         const userId = `pdr${Date.now().toString().slice(-8)}`
-        const auth = await createUser(request, userId, 'Dashboard Smoke')
-        const context = await browser.newContext({ baseURL })
+        const { context, cleanup } = await createDashboardUserSession(browser, request, baseURL, userId, 'Dashboard Smoke')
         const pageErrors: string[] = []
         const failedResponses: string[] = []
 
         try {
-            await authenticateContext(context, auth, baseURL || 'http://127.0.0.1:3000')
             const page = await context.newPage()
 
             page.on('pageerror', (error) => pageErrors.push(error.message))
@@ -47,18 +45,15 @@ test.describe('dashboard resource routes', () => {
             expect(pageErrors).toEqual([])
             expect(failedResponses).toEqual([])
         } finally {
-            await context.close()
-            await deleteUser(request, userId, password)
+            await cleanup()
         }
     })
 
     test('normal authenticated users are redirected away from privileged dashboard routes', async ({ browser, request, baseURL }) => {
         const userId = `pdrg${Date.now().toString().slice(-8)}`
-        const auth = await createUser(request, userId, 'Dashboard Guard')
-        const context = await browser.newContext({ baseURL })
+        const { context, cleanup } = await createDashboardUserSession(browser, request, baseURL, userId, 'Dashboard Guard')
 
         try {
-            await authenticateContext(context, auth, baseURL || 'http://127.0.0.1:3000')
             const page = await context.newPage()
 
             for (const route of privilegedDashboardRoutes) {
@@ -68,18 +63,15 @@ test.describe('dashboard resource routes', () => {
                 await expect(page.getByText(/Sign in to continue|Token expired/i)).toHaveCount(0)
             }
         } finally {
-            await context.close()
-            await deleteUser(request, userId, password)
+            await cleanup()
         }
     })
 
     test('normal authenticated users can navigate allowed dashboard sidebar links', async ({ browser, request, baseURL }) => {
         const userId = `pdrnav${Date.now().toString().slice(-6)}`
-        const auth = await createUser(request, userId, 'Dashboard Navigation')
-        const context = await browser.newContext({ baseURL })
+        const { context, cleanup } = await createDashboardUserSession(browser, request, baseURL, userId, 'Dashboard Navigation')
 
         try {
-            await authenticateContext(context, auth, baseURL || 'http://127.0.0.1:3000')
             const page = await context.newPage()
 
             await page.goto('/dashboard', { waitUntil: 'domcontentloaded' })
@@ -93,17 +85,14 @@ test.describe('dashboard resource routes', () => {
                 await expectNormalUserDestination(page, link.href)
             }
         } finally {
-            await context.close()
-            await deleteUser(request, userId, password)
+            await cleanup()
         }
     })
     test('legacy VM detail aliases preserve nested VM names', async ({ browser, request, baseURL }) => {
         const userId = `pdra${Date.now().toString().slice(-8)}`
-        const auth = await createUser(request, userId, 'Dashboard Alias')
-        const context = await browser.newContext({ baseURL })
+        const { context, cleanup } = await createDashboardUserSession(browser, request, baseURL, userId, 'Dashboard Alias')
 
         try {
-            await authenticateContext(context, auth, baseURL || 'http://127.0.0.1:3000')
             const page = await context.newPage()
 
             await page.goto('/vm', { waitUntil: 'domcontentloaded' })
@@ -112,8 +101,7 @@ test.describe('dashboard resource routes', () => {
             await page.goto('/vm/folder/test%20vm', { waitUntil: 'domcontentloaded' })
             expect(new URL(page.url()).pathname).toBe('/vms/folder/test%20vm')
         } finally {
-            await context.close()
-            await deleteUser(request, userId, password)
+            await cleanup()
         }
     })
 })

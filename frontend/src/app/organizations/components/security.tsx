@@ -1,6 +1,6 @@
 import type { OrganizationApiKey, OrganizationSettings, OrganizationSummary, OrganizationPrivacyState } from '../types/organization'
 import type { RowMessage } from '../types/activity'
-import { SectionTitle, RowStatus, Field, SelectField, InlineBusy } from './shared'
+import { DisclosureSummary, RowStatus, Field, SelectField, InlineBusy } from './shared'
 import { formatDate, cleanString } from '../model/labels'
 import { secondaryButtonClass, primaryButtonClass, inputClass } from '../constants/styles'
 import { settingsValidationMessage, privacyText, privacyNumber } from '../model/forms'
@@ -36,10 +36,13 @@ export function EventApiKeyPanel({ apiKeys, secret, canManage, busy, rowMessage,
     }
     return (
         <details id='event-api-key' open className='overflow-hidden rounded-lg border border-ui-border bg-ui-panel shadow-sm dark:border-ui-border dark:bg-ui-panel' data-org-event-api-key>
-            <summary className='flex cursor-pointer list-none flex-col gap-3 p-4 outline-none transition hover:bg-ui-raised focus-visible:ring-2 focus-visible:ring-ui-primary/25 dark:hover:bg-ui-panel sm:flex-row sm:items-center sm:justify-between [&::-webkit-details-marker]:hidden'>
-                <SectionTitle icon={<KeyRound className='h-4 w-4' />} title='Organization API keys' detail='Create separate keys for integrations. Every key belongs to this organization.' />
-                <span className='shrink-0 rounded-md border border-ui-border bg-ui-raised px-2 py-1 text-xs font-semibold text-ui-muted dark:border-ui-border dark:bg-ui-canvas dark:text-ui-muted'>{activeKeys.length ? `${activeKeys.length} active` : 'Setup required'}</span>
-            </summary>
+            <DisclosureSummary
+                icon={<KeyRound className='h-4 w-4' />} title='Organization API keys'
+                detail='Create separate keys for integrations. Every key belongs to this organization.'
+                accessory={<span className='shrink-0 rounded-md border border-ui-border bg-ui-raised px-2 py-1 text-xs font-semibold text-ui-muted dark:border-ui-border dark:bg-ui-canvas dark:text-ui-muted'>
+                    {activeKeys.length ? `${activeKeys.length} active` : 'Setup required'}
+                </span>}
+            />
             <div className='grid gap-3 border-t border-ui-border p-4 dark:border-ui-border'>
                 <p className='text-sm text-ui-muted dark:text-ui-muted'>Each key has its own name, secret, and revoke action. Creating a key does not disable existing keys.</p>
                 {activeKeys.map(apiKey => <div key={apiKey.id} className='flex flex-col gap-3 rounded-md border border-ui-border p-3 dark:border-ui-border sm:flex-row sm:items-center sm:justify-between' data-org-api-key-id={apiKey.id}>
@@ -83,12 +86,14 @@ export function SettingsPanel({ settingsDraft, setSettingsDraft, settingsDirty, 
     const saving = busy === 'save-settings'
     return (
         <details id='settings' open className='overflow-hidden rounded-lg border border-ui-border bg-ui-panel shadow-sm dark:border-ui-border dark:bg-ui-panel' data-org-settings-disclosure>
-            <summary className='flex cursor-pointer list-none flex-col gap-3 p-4 outline-none transition hover:bg-ui-raised focus-visible:ring-2 focus-visible:ring-ui-primary/25 dark:hover:bg-ui-panel sm:flex-row sm:items-center sm:justify-between [&::-webkit-details-marker]:hidden'>
-                <SectionTitle icon={<Settings className='h-4 w-4' />} title='Settings' detail={canManage ? 'Name, lifecycle, webhook policy, event access.' : ''} />
-                <span className='shrink-0 rounded-md border border-ui-border bg-ui-raised px-2 py-1 text-xs font-semibold text-ui-muted dark:border-ui-border dark:bg-ui-canvas dark:text-ui-muted'>
+            <DisclosureSummary
+                icon={<Settings className='h-4 w-4' />}
+                title='Settings'
+                detail={canManage ? 'Name, lifecycle, webhook policy, event access.' : ''}
+                accessory={<span className='shrink-0 rounded-md border border-ui-border bg-ui-raised px-2 py-1 text-xs font-semibold text-ui-muted dark:border-ui-border dark:bg-ui-canvas dark:text-ui-muted'>
                     {settingsDirty ? 'Unsaved changes' : 'Settings'}
-                </span>
-            </summary>
+                </span>}
+            />
             <div className='grid gap-3 border-t border-ui-border p-4 dark:border-ui-border md:grid-cols-2'>
                 <Field label='Name' value={settingsDraft.name || ''} disabled={!canManage} onChange={value => setSettingsDraft({ ...settingsDraft, name: value })} />
                 <Field label='Slug' value={settingsDraft.slug || ''} disabled={!canManage} onChange={value => setSettingsDraft({ ...settingsDraft, slug: slugifyOrganizationName(value) })} />
@@ -138,10 +143,13 @@ export function PrivacyLifecyclePanel({ organization, privacy, retentionDays, ca
 
     return (
         <details id='privacy' open className='overflow-hidden rounded-lg border border-ui-border bg-ui-panel shadow-sm dark:border-ui-border dark:bg-ui-panel' data-org-privacy-lifecycle>
-            <summary className='flex cursor-pointer list-none flex-col gap-3 p-4 outline-none transition hover:bg-ui-raised focus-visible:ring-2 focus-visible:ring-ui-primary/25 dark:hover:bg-ui-panel sm:flex-row sm:items-center sm:justify-between [&::-webkit-details-marker]:hidden'>
-                <SectionTitle icon={<ShieldCheck className='h-4 w-4' />} title='Retention & privacy' detail={`${retentionDays} day policy · bounded scheduled purge`} />
-                <span className='shrink-0 rounded-md border border-ui-border bg-ui-raised px-2 py-1 text-xs font-semibold capitalize text-ui-muted dark:border-ui-border dark:bg-ui-canvas dark:text-ui-muted'>{runStatus.replaceAll('_', ' ')}</span>
-            </summary>
+            <DisclosureSummary
+                icon={<ShieldCheck className='h-4 w-4' />} title='Retention & privacy'
+                detail={`${retentionDays} day policy · bounded scheduled purge`}
+                accessory={<span className='shrink-0 rounded-md border border-ui-border bg-ui-raised px-2 py-1 text-xs font-semibold capitalize text-ui-muted dark:border-ui-border dark:bg-ui-canvas dark:text-ui-muted'>
+                    {runStatus.replaceAll('_', ' ')}
+                </span>}
+            />
             <div className='grid gap-3 border-t border-ui-border p-4 dark:border-ui-border sm:grid-cols-2 lg:grid-cols-4'>
                 <PrivacyMetric label='Deleted' value={deletedCount} />
                 <PrivacyMetric label='Redacted' value={redactedCount} />

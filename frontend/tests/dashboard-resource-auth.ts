@@ -1,4 +1,4 @@
-import { expect, test, type APIRequestContext, type BrowserContext } from '@playwright/test'
+import { expect, test, type APIRequestContext, type Browser, type BrowserContext, type BrowserContextOptions } from '@playwright/test'
 import { apiBase, password, adminId, adminPassword, hasAdminLoginCredentials } from './dashboard-resource-data'
 
 export async function createUser(request: APIRequestContext, id: string, name: string) {
@@ -77,6 +77,42 @@ export async function authenticateContext(context: BrowserContext, auth: {
         { name: 'name', value: encodeURIComponent(auth.name), url: cookieUrl, expires, httpOnly: false, secure, sameSite: 'Lax' },
         { name: 'access_token', value: encodeURIComponent(auth.token), url: cookieUrl, expires, httpOnly: false, secure, sameSite: 'Lax' },
     ])
+}
+
+export async function createDashboardUserSession(
+    browser: Browser,
+    request: APIRequestContext,
+    baseURL: string | undefined,
+    id: string,
+    name: string,
+    options: Omit<BrowserContextOptions, 'baseURL'> = {},
+) {
+    const auth = await createUser(request, id, name)
+    let context: BrowserContext | undefined
+
+    try {
+        context = await browser.newContext({ ...options, baseURL })
+        await authenticateContext(context, auth, baseURL || 'http://127.0.0.1:3000')
+    } catch (error) {
+        if (context) {
+            await context.close().catch(() => undefined)
+        }
+        await deleteUser(request, id, password).catch(() => undefined)
+        throw error
+    }
+    if (!context) throw new Error('Dashboard browser context was not created.')
+
+    const cleanup = async() => {
+        let closeError: unknown
+        try {
+            await context.close()
+        } catch (error) {
+            closeError = error
+        }
+        await deleteUser(request, id, password)
+        if (closeError) throw closeError
+    }
+    return { auth, context, cleanup }
 }
 
 export async function loginAsAdmin(request: APIRequestContext) {

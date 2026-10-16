@@ -1,8 +1,8 @@
 import { expect, test } from '@playwright/test'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
-import { authenticateContext, createUser, deleteUser, uniqueSuffix } from './dashboard-resource-auth'
-import { adminOnlyOperationHrefs, password, root } from './dashboard-resource-data'
+import { createDashboardUserSession, uniqueSuffix } from './dashboard-resource-auth'
+import { adminOnlyOperationHrefs, root } from './dashboard-resource-data'
 import { scrollConsoleContentToBottom, sidebarLayoutMetrics } from './dashboard-resource-sidebar-helpers'
 import { getDashboardNavigation, navigationLinks } from '../src/utils/layout/dashboardNavigation'
 
@@ -31,11 +31,16 @@ test.describe('dashboard sidebar resources', () => {
     })
     test('console sidebar stays bounded after page scrolling', async ({ browser, request, baseURL }) => {
         const userId = `pdrsb${uniqueSuffix()}`
-        const auth = await createUser(request, userId, 'Dashboard Sidebar')
-        const context = await browser.newContext({ baseURL, viewport: { width: 1280, height: 900 } })
+        const { context, cleanup } = await createDashboardUserSession(
+            browser,
+            request,
+            baseURL,
+            userId,
+            'Dashboard Sidebar',
+            { viewport: { width: 1280, height: 900 } },
+        )
 
         try {
-            await authenticateContext(context, auth, baseURL || 'http://127.0.0.1:3000')
             const page = await context.newPage()
             const routes = ['/dashboard', '/findings', '/subscription', '/ti/apt42']
 
@@ -68,8 +73,7 @@ test.describe('dashboard sidebar resources', () => {
                 expect(afterBottom.horizontalOverflow).toBeLessThanOrEqual(1)
             }
         } finally {
-            await context.close()
-            await deleteUser(request, userId, password)
+            await cleanup()
         }
     })
 })

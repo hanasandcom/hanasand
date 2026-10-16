@@ -3,6 +3,7 @@
 import { Search, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { isReservedPlaceholder } from '@/utils/users/isReservedPlaceholder'
+import { isManagementSearchShortcut } from './isManagementSearchShortcut'
 import DashboardUser from './dashboardUser'
 
 export default function UsersList({ users, accessibleOrganizationIds }: { users: User[], accessibleOrganizationIds: string[] }) {
@@ -19,7 +20,7 @@ export default function UsersList({ users, accessibleOrganizationIds }: { users:
 
     useEffect(() => {
         function onKeyDown(event: KeyboardEvent) {
-            if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'j' || event.repeat || event.altKey || event.shiftKey) return
+            if (!isManagementSearchShortcut(event)) return
             event.preventDefault()
             if (searchOpen) closeSearch()
             else setSearchOpen(true)

@@ -3,7 +3,7 @@ import type { RowMessage, ActivitySubject } from '../types/activity'
 import { parseInviteEmails, invalidInviteEmails, inviteEmailConflicts, inviteStatusCounts, inviteRoleStatusCounts, inviteLink, inviteActionAllowed } from '../model/forms'
 import { inviteBusyLabel } from '../model/labels'
 import { inviteSearchText } from '../model/organization'
-import { SectionTitle, InlineBusy, SelectField, RowStatus, EmptyLine, RoleBadge, StatusPill, ConfirmActionButton } from './shared'
+import { DisclosureSummary, InlineBusy, SelectField, RowStatus, EmptyLine, RoleBadge, StatusPill, ConfirmActionButton } from './shared'
 import { inputClass, primaryButtonClass, secondaryButtonClass, iconButtonClass } from '../constants/styles'
 import { roleOptions } from '../constants/options'
 import { useState } from 'react'
@@ -31,13 +31,15 @@ export function InvitePanel({ emails, setEmails, role, setRole, invites, members
     const pendingInviteCount = invites.filter(invite => invite.status.toLowerCase() === 'pending').length
     return (
         <details id='invites' className='group overflow-hidden rounded-lg border border-ui-border bg-ui-panel shadow-sm dark:border-ui-border dark:bg-ui-panel' data-org-invite-disclosure>
-            <summary className='flex cursor-pointer list-none flex-col gap-3 p-4 outline-none transition hover:bg-ui-raised focus-visible:ring-2 focus-visible:ring-ui-primary/25 dark:hover:bg-ui-panel sm:flex-row sm:items-center sm:justify-between [&::-webkit-details-marker]:hidden'>
-                <SectionTitle icon={<UserPlus className='h-4 w-4' />} title='Invite' detail='' />
-                <span className='flex shrink-0 items-center gap-2'>
+            <DisclosureSummary
+                icon={<UserPlus className='h-4 w-4' />}
+                title='Invite'
+                detail=''
+                accessory={<span className='flex shrink-0 items-center gap-2'>
                     <span className='rounded-md border border-ui-border bg-ui-raised px-2 py-1 text-xs font-semibold text-ui-muted dark:border-ui-border dark:bg-ui-canvas dark:text-ui-muted'>{pendingInviteCount} pending</span>
                     <ChevronDown aria-hidden='true' className='h-4 w-4 text-ui-muted transition-transform group-open:rotate-180' />
-                </span>
-            </summary>
+                </span>}
+            />
             <div className='grid gap-3 border-t border-ui-border p-4 dark:border-ui-border'>
                 {busyLabel && <InlineBusy label={busyLabel} marker='data-org-invite-busy' />}
                 {invites.length > 0 && (

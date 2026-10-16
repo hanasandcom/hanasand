@@ -18,6 +18,15 @@ export function SectionTitle({ icon, title, detail }: { icon: ReactNode, title: 
     )
 }
 
+export function DisclosureSummary({ icon, title, detail, accessory }: { icon: ReactNode, title: string, detail: string, accessory: ReactNode }) {
+    return (
+        <summary className='flex cursor-pointer list-none flex-col gap-3 p-4 outline-none transition hover:bg-ui-raised focus-visible:ring-2 focus-visible:ring-ui-primary/25 dark:hover:bg-ui-panel sm:flex-row sm:items-center sm:justify-between [&::-webkit-details-marker]:hidden'>
+            <SectionTitle icon={icon} title={title} detail={detail} />
+            {accessory}
+        </summary>
+    )
+}
+
 export function Field({ label, value, onChange, disabled, placeholder = '', type = 'text' }: { label: string, value: string, onChange: (value: string) => void, disabled?: boolean, placeholder?: string, type?: string }) {
     return (
         <label className='grid gap-1 text-sm font-medium text-ui-text dark:text-ui-muted'>
