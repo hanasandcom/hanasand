@@ -8,6 +8,7 @@ import {
     buildDwmWebhookDeliveryHistory,
     buildDwmWebhookDeliveryLedger,
     buildDwmWebhookDeliveryOperations,
+    buildDwmWebhookDeliveryRetryPersistence,
     toDwmWebhookAuditEvent,
     toDwmWebhookDelivery,
     toDwmWebhookDestination,
@@ -186,6 +187,27 @@ test('projects shared evidence, attempts, operations and history without losing 
         counts: { failed: 1 },
         filters: { action: 'delivery.retry_scheduled' },
         entries: [{ deliveryId: 'delivery_1', deliveryProof: { auditEventId: 'audit_1' } }],
+    })
+})
+
+test('retry persistence uses the shared ledger and its supplied planning time', () => {
+    const delivery = {
+        ...deliveries[0],
+        attemptedAt: null,
+        nextRetryAt: null,
+    }
+    const persistence = buildDwmWebhookDeliveryRetryPersistence({
+        deliveries: [delivery],
+        auditEvents: [auditEvents[0]],
+        destinations: [destination],
+        liveDeliveryEnabled: true,
+        now: new Date('2026-10-01T10:00:00.000Z'),
+    })
+
+    expect(persistence.deliveryKeys[0]).toMatchObject({
+        idempotencyKey: delivery.idempotencyKey,
+        retry: { retryable: true, nextRetryAt: '2026-10-01T10:01:00.000Z' },
+        audit: { auditEventIds: ['audit_1'] },
     })
 })
 

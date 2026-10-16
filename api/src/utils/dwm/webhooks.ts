@@ -1294,9 +1294,10 @@ function buildDwmWebhookDeliveryProjectionBundle({
     auditEvents = [],
     destinations = [],
     filters = {},
-}: DwmWebhookDeliveryEvidenceOptions) {
+    now = new Date(),
+}: DwmWebhookDeliveryEvidenceOptions & { now?: Date }) {
     const projection = buildDwmWebhookDeliveryEvidenceProjection({ deliveries, auditEvents, filters })
-    const ledger = buildDwmWebhookDeliveryLedgerFromEvidence({ projection, now: new Date() })
+    const ledger = buildDwmWebhookDeliveryLedgerFromEvidence({ projection, now })
     const auditContracts = buildDwmWebhookAuditEventContractsFromLedger({ auditEvents, deliveries, destinations, ledger })
     return { projection, ledger, auditContracts }
 }
@@ -2789,9 +2790,7 @@ export function buildDwmWebhookDeliveryRetryPersistence({
     liveDeliveryEnabled?: boolean
     now?: Date
 }) {
-    const projection = buildDwmWebhookDeliveryEvidenceProjection({ deliveries, auditEvents, filters })
-    const ledger = buildDwmWebhookDeliveryLedgerFromEvidence({ projection, now })
-    const auditContracts = buildDwmWebhookAuditEventContractsFromLedger({ auditEvents, deliveries, destinations, ledger })
+    const { ledger, auditContracts } = buildDwmWebhookDeliveryProjectionBundle({ deliveries, auditEvents, destinations, filters, now })
     return buildDwmWebhookDeliveryRetryPersistenceFromProjection({ destinations, filters, liveDeliveryEnabled, ledger, auditContracts })
 }
 
