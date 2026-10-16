@@ -15,6 +15,11 @@ type DueAccount = { id: string, name: string, email: string | null }
  * leaves the account due so the next cron pass can retry it.
  */
 export async function purgeDeletedAccount(userId: string) {
+    const lock = await tryWithDatabaseAdvisoryLock(`${ACCOUNT_DELETION_PURGE_JOB_ID}:${userId}`, () => purgeDeletedAccountWithLock(userId))
+    return lock.acquired ? Boolean(lock.result) : false
+}
+
+async function purgeDeletedAccountWithLock(userId: string) {
     const account = (await run(`
         SELECT id, name, email
         FROM users

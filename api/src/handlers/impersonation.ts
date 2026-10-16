@@ -2,7 +2,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify'
 import crypto from 'crypto'
 import run from '#db'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
-import { supportSessionIdFromAuditEvent } from '#utils/support/adminSupportInput.ts'
+import { supportRequestId, supportSessionIdFromAuditEvent, supportSessionIdFromRequest } from '#utils/support/adminSupportInput.ts'
 import { loadSupportSessionState } from '#utils/support/supportSessionState.ts'
 import { actorHasHanasandInternalAccess, recordSystemEvent, requireAuditReason } from '#utils/systemEvent.ts'
 
@@ -1353,12 +1353,6 @@ function supportImpersonationGuardrailReceipt(input: {
     }
 }
 
-function supportRequestId(req: FastifyRequest) {
-    const header = req.headers['x-request-id']
-    if (Array.isArray(header)) return header[0] || req.id
-    return header || req.id
-}
-
 function cleanText(value: unknown) {
     return typeof value === 'string' ? value.trim() : ''
 }
@@ -1377,14 +1371,6 @@ function impersonationError(code: string, message: string, detail: Record<string
             ...detail,
         },
     }
-}
-
-function supportSessionIdFromRequest(req: FastifyRequest, body: StartBody | undefined) {
-    return cleanText(headerText(req.headers['x-support-session-id']) || body?.supportSessionId || body?.support_session_id)
-}
-
-function headerText(value: string | string[] | undefined) {
-    return Array.isArray(value) ? cleanText(value[0]) : cleanText(value)
 }
 
 async function loadSystemEventIds(input: { requestId: string, actionType: string, entityId: string }) {

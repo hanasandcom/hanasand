@@ -7,8 +7,14 @@ let blockedOwnerAccounts = 0
 let mailUsername: string | null = 'ada'
 let organizationBlocker = false
 let failMailDeletion = false
+let waitForMailDeletion = false
+let markMailDeletionStarted!: () => void
+let releaseMailDeletion!: () => void
+let mailDeletionStarted = Promise.resolve()
+let mailDeletionGate = Promise.resolve()
 let auditRows: Array<{ id: number, object_type: string, object_id: string | null, subject_id: string | null, request_id: string, ip: string, user_agent: string, context: Record<string, unknown> }> = []
 const sqlCalls: string[] = []
+const activeAdvisoryLocks = new Set<string>()
 const tokenDeletes: string[] = []
 const revokedUsers: string[] = []
 const deletedPrincipals: string[] = []
@@ -57,12 +63,24 @@ mock.module('#db', () => ({
         return { rows: [] }
     },
     withTransaction: async (work: (tx: typeof query) => unknown) => work(query),
-    tryWithDatabaseAdvisoryLock: async (_key: string, work: () => unknown) => ({ acquired: true, result: await work() }),
+    tryWithDatabaseAdvisoryLock: async (key: string, work: () => unknown) => {
+        if (activeAdvisoryLocks.has(key)) return { acquired: false }
+        activeAdvisoryLocks.add(key)
+        try {
+            return { acquired: true, result: await work() }
+        } finally {
+            activeAdvisoryLocks.delete(key)
+        }
+    },
 }))
 mock.module('../src/utils/auth/session.ts', () => ({ revokeAllTokens: async ({ userId }: { userId: string }) => { revokedUsers.push(userId); return 1 } }))
 mock.module('../src/utils/mail/stalwartAdmin.ts', () => ({
     deleteMailPrincipal: async (name: string) => {
         if (failMailDeletion) throw new Error('mail provider unavailable')
+        if (waitForMailDeletion) {
+            markMailDeletionStarted()
+            await mailDeletionGate
+        }
         deletedPrincipals.push(name)
     },
 }))
@@ -70,7 +88,7 @@ mock.module('../src/utils/auth/purgeUserSshKeys.ts', () => ({
     purgeUserSshKeys: async (userId: string) => { purgedSshUsers.push(userId); return 0 },
 }))
 
-const { purgeDeletedAccounts } = await import('../src/utils/auth/purgeDeletedAccounts.ts')
+const { purgeDeletedAccount, purgeDeletedAccounts } = await import('../src/utils/auth/purgeDeletedAccounts.ts')
 
 beforeEach(() => {
     account = { id: 'deleted-user', name: 'Ada Example', email: 'ada@example.test' }
@@ -79,6 +97,9 @@ beforeEach(() => {
     mailUsername = 'ada'
     organizationBlocker = false
     failMailDeletion = false
+    waitForMailDeletion = false
+    mailDeletionStarted = new Promise(resolve => { markMailDeletionStarted = resolve })
+    mailDeletionGate = new Promise(resolve => { releaseMailDeletion = resolve })
     auditRows = [{
         id: 7,
         object_type: 'user',
@@ -90,6 +111,7 @@ beforeEach(() => {
         context: { targetId: 'deleted-user', targetName: 'Ada Example', note: 'deleted-user', reason: 'account closed' },
     }]
     sqlCalls.length = 0
+    activeAdvisoryLocks.clear()
     tokenDeletes.length = 0
     revokedUsers.length = 0
     deletedPrincipals.length = 0
@@ -160,4 +182,24 @@ test('retries failed external mailbox cleanup without hard-deleting the account'
     expect(sqlCalls.some(sql => sql.startsWith('INSERT INTO account_deletion_purge_attempts'))).toBe(true)
     const dueQuery = sqlCalls.find(sql => sql.includes('FROM users user_account') && sql.includes('ORDER BY'))
     expect(dueQuery).toContain('ORDER BY (purge_attempt.user_id IS NOT NULL)')
+})
+
+test('serializes a login purge with the scheduled purge batch for the same account', async () => {
+    waitForMailDeletion = true
+    const loginPurge = purgeDeletedAccount('deleted-user')
+    await mailDeletionStarted
+
+    try {
+        const scheduledPurge = await purgeDeletedAccounts()
+        expect(scheduledPurge).toMatchObject({ scanned: 1, purged: 0, failed: 0 })
+    } finally {
+        releaseMailDeletion()
+    }
+
+    expect(await loginPurge).toBe(true)
+    expect(revokedUsers).toEqual(['deleted-user'])
+    expect(tokenDeletes).toEqual(['deleted-user'])
+    expect(purgedSshUsers).toEqual(['deleted-user'])
+    expect(deletedPrincipals).toEqual(['ada'])
+    expect(sqlCalls.filter(sql => sql.startsWith('DELETE FROM users'))).toHaveLength(1)
 })
