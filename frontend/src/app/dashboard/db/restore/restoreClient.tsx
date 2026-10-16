@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState, useTransition } from 'react'
 import { DatabaseZap, ShieldCheck, TriangleAlert } from 'lucide-react'
 import type { BackupFile, BackupOperation, BackupService } from '@/utils/db/internal'
+import { stageLabel } from '../backups/backupPresentation'
 import { restoreBackupAction } from '../actions'
 
 export default function RestoreClient({ backups, service, loadError = '' }: { backups: BackupFile[], service?: BackupService, loadError?: string }) {
@@ -141,10 +142,6 @@ function defaultTarget() {
 function integrityLabel(operation: BackupOperation) {
     if (!operation.restoredIntegrity) return stageLabel(operation.stage)
     return `${operation.restoredIntegrity.schemas} schemas, ${operation.restoredIntegrity.tables} tables, source match ${operation.sourceIntegrity?.tables === operation.restoredIntegrity.tables ? 'passed' : 'unavailable'}`
-}
-
-function stageLabel(value: string) {
-    return value.replaceAll('_', ' ').replace(/^./, character => character.toUpperCase())
 }
 
 function formatDate(value?: string | null) {

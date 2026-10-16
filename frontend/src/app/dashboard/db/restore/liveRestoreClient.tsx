@@ -6,6 +6,7 @@ import { useEffect, useState, useTransition } from 'react'
 import { DatabaseZap, TriangleAlert } from 'lucide-react'
 import type { BackupFile, BackupOperation, BackupService } from '@/utils/db/internal'
 import formatUtcDateTime from '@/utils/date/formatUtcDateTime'
+import { stageLabel } from '../backups/backupPresentation'
 import { restoreLiveBackupAction } from '../actions'
 
 export default function LiveRestoreClient({ backups, service, file, loadError = '' }: { backups: BackupFile[], service?: BackupService, file: string, loadError?: string }) {
@@ -111,8 +112,4 @@ function RestoreEvidence({ operation }: { operation: BackupOperation }) {
 
 function Evidence({ label, value, mono = false }: { label: string, value: string, mono?: boolean }) {
     return <div className='min-w-0'><dt className='text-xs font-semibold uppercase text-ui-muted'>{label}</dt><dd className={`mt-1 break-all text-ui-text ${mono ? 'font-mono text-xs' : ''}`}>{value}</dd></div>
-}
-
-function stageLabel(value: string) {
-    return value.replaceAll('_', ' ').replace(/^./, character => character.toUpperCase())
 }

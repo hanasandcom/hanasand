@@ -18,6 +18,7 @@ export const productTasks: TestTask[] = [
     { id: 'logs-pages', title: 'Logs routes on desktop/mobile in light/dark mode', command: [bun, 'scripts/check-dashboard-logs-ui.mjs'], requires: 'playwright' },
     { id: 'helpdesk-render', title: 'Helpdesk audit rendering and focus filters', command: [bun, 'tests/helpdesk-render.test.tsx'] },
     { id: 'share-statistics', title: 'Share line counts and empty statistics', command: [bun, 'test', 'tests/share-statistics.test.tsx'] },
+    { id: 'backup-page-render', title: 'Backup page data and operation presentation', command: [bun, 'test', 'tests/backup-page-render.test.tsx'] },
     { id: 'content-pages', title: 'Article dates and thoughts copy', command: [bun, 'tests/content-pages.test.tsx'] },
     { id: 'public-articles-recent', title: 'Public articles hide empty recent sections', command: [bun, 'tests/public-articles-recent.test.tsx'] },
     { id: 'workspace-organization-browser', title: 'Global organization switcher and shared links', command: [bun, 'scripts/check-workspace-organization.mjs'], requires: 'playwright' },
