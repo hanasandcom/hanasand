@@ -32,3 +32,15 @@ export function cleanList(value: unknown) {
     if (!Array.isArray(value)) return []
     return value.map(clean).filter(Boolean)
 }
+
+export function uniqueWebhookBlockers<T extends { code: string; destinationId: string | null; reason?: string | null }>(blockers: T[], includeReason = false) {
+    const seen = new Set<string>()
+    const unique: T[] = []
+    for (const blocker of blockers) {
+        const key = `${blocker.code}:${blocker.destinationId || ''}${includeReason ? `:${blocker.reason || ''}` : ''}`
+        if (seen.has(key)) continue
+        seen.add(key)
+        unique.push(blocker)
+    }
+    return unique
+}
