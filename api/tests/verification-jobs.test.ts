@@ -320,6 +320,16 @@ test('target request failures clear the timeout and retain the job failure path'
     expect(usageEvents).toEqual([])
 })
 
+test('retries a failed target request only within its configured retry count', async () => {
+    nextFetchError = new Error('Target unavailable.')
+    const id = await enqueue('browser', 1)
+    const job = await waitForJob(id)
+
+    expect(job).toMatchObject({ status: 'failed', retry_count: 1, error: 'Target unavailable.' })
+    expect(fetchCalls.filter(call => call.url === 'https://example.test/proof')).toHaveLength(2)
+    expect(usageEvents).toEqual([])
+})
+
 test('Chromium debug startup failures kill the spawned process', async () => {
     const id = await enqueue('browser', 0)
     const job = await waitForJob(id)
