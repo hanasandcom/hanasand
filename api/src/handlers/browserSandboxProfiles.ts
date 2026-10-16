@@ -14,6 +14,10 @@ type SandboxProfile = {
     tools: SandboxTool[]
 }
 
+type ProfileNormalizationResult =
+    | { ok: true; profiles: SandboxProfile[] }
+    | { ok: false; error: string }
+
 const maxProfiles = 16
 const maxToolsPerProfile = 8
 
@@ -53,7 +57,7 @@ export async function putBrowserSandboxProfiles(req: FastifyRequest<{ Body: { pr
     }
 
     const normalized = normalizeProfiles(req.body?.profiles)
-    if (normalized.error) {
+    if (!normalized.ok) {
         return res.status(400).send({ error: normalized.error })
     }
 
@@ -80,12 +84,12 @@ export async function putBrowserSandboxProfiles(req: FastifyRequest<{ Body: { pr
     }
 }
 
-function normalizeProfiles(value: unknown): { profiles: SandboxProfile[]; error?: string } {
+function normalizeProfiles(value: unknown): ProfileNormalizationResult {
     if (!Array.isArray(value)) {
-        return { profiles: [], error: 'Profiles must be an array.' }
+        return { ok: false, error: 'Profiles must be an array.' }
     }
     if (value.length > maxProfiles) {
-        return { profiles: [], error: `Save ${maxProfiles} profiles or fewer.` }
+        return { ok: false, error: `Save ${maxProfiles} profiles or fewer.` }
     }
 
     const seen = new Set<string>()
@@ -97,13 +101,10 @@ function normalizeProfiles(value: unknown): { profiles: SandboxProfile[]; error?
         const name = cleanText(source.name).slice(0, 80)
         if (!id || !name || seen.has(id)) continue
         const tools = normalizeTools(source.tools)
-        if (tools.length > maxToolsPerProfile) {
-            return { profiles: [], error: `Profiles can include ${maxToolsPerProfile} tools or fewer.` }
-        }
         profiles.push({ id, name, tools })
         seen.add(id)
     }
-    return { profiles }
+    return { ok: true, profiles }
 }
 
 function normalizeTools(value: unknown): SandboxTool[] {
