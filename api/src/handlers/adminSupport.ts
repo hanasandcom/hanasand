@@ -7471,22 +7471,18 @@ function supportOrgUserActionHistoryExportReceipt(input: {
     timelineFilter: SupportTimelineFilter
     timeline: Array<Record<string, any>>
     inspectionReceipt: Record<string, any>
-    actionHistoryReceipt: Record<string, any>
+    actionHistoryReceipt: ReturnType<typeof supportOrgUserActionHistoryReceipt>
     accessRecoveryPlan: Record<string, any>
     supportActivityRollup: Record<string, any>
     nextRoutes: Record<string, string | null>
 }) {
-    const eventIds = input.timeline.map(event => Number(event.id)).filter(id => Number.isFinite(id))
-    const actionTypes = uniqueTimelineValues(input.timeline.map(event => event.action || event.actionType))
-    const outcomes = uniqueTimelineValues(input.timeline.map(event => event.outcome))
-    const requestIds = uniqueTimelineValues([
-        input.requestId,
-        ...input.timeline.map(event => event.requestId),
-    ])
-    const entityIds = uniqueTimelineValues([
-        input.targetId,
-        ...input.timeline.map(event => event.entity?.id || event.entityId),
-    ])
+    const {
+        auditEventIds: eventIds,
+        actions: actionTypes,
+        outcomes,
+        requestIds,
+        entityIds,
+    } = input.actionHistoryReceipt
     const recoveryBlockers = Array.isArray(input.accessRecoveryPlan.blockers) ? input.accessRecoveryPlan.blockers : []
     const historyBlockers = Array.isArray(input.actionHistoryReceipt.blockers) ? input.actionHistoryReceipt.blockers : []
     const activityBlockers = Array.isArray(input.supportActivityRollup.blockerCodes) ? input.supportActivityRollup.blockerCodes : []
