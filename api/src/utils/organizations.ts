@@ -2218,6 +2218,19 @@ const defaultWebhookPolicies = new Set<OrganizationDefaultWebhookPolicy>(['activ
 const alertVisibilityPolicies = new Set<OrganizationAlertVisibilityPolicy>(['members', 'admins', 'owners'])
 const organizationLifecycleStatuses = new Set<OrganizationLifecycleStatus>(['active', 'archived', 'deleted'])
 
+const organizationRoleGates = {
+    managers: ['owner', 'admin'],
+    watchlistEditors: ['owner', 'admin', 'editor'],
+    sharedWatchlistReaders: ['owner', 'admin', 'editor', 'reader', 'member', 'viewer'],
+    alertCaseActors: ['owner', 'admin', 'editor', 'analyst'],
+    supportTimelineReaders: ['owner', 'admin', 'support'],
+    adminAssignableRoles: ['editor', 'reader'],
+} as const
+
+function organizationRolesFor<TGate extends keyof typeof organizationRoleGates>(gate: TGate) {
+    return [...organizationRoleGates[gate]]
+}
+
 export function normalizeOrganizationInput(body: OrganizationInput | undefined) {
     const name = normalizeSettingsName(body?.name)
 
@@ -2427,14 +2440,14 @@ export function roleCanWriteWatchlist(role: OrganizationRole | undefined) {
 }
 
 const organizationAlertCaseRoleGates = {
-    create_watchlist: ['owner', 'admin', 'editor'],
-    edit_watchlist_terms: ['owner', 'admin', 'editor'],
-    archive_watchlist: ['owner', 'admin', 'editor'],
-    restore_watchlist: ['owner', 'admin', 'editor'],
-    acknowledge_alert: ['owner', 'admin', 'editor', 'analyst'],
-    assign_case: ['owner', 'admin', 'editor', 'analyst'],
-    link_case: ['owner', 'admin', 'editor', 'analyst'],
-    manage_invites: ['owner', 'admin'],
+    create_watchlist: organizationRolesFor('watchlistEditors'),
+    edit_watchlist_terms: organizationRolesFor('watchlistEditors'),
+    archive_watchlist: organizationRolesFor('watchlistEditors'),
+    restore_watchlist: organizationRolesFor('watchlistEditors'),
+    acknowledge_alert: organizationRolesFor('alertCaseActors'),
+    assign_case: organizationRolesFor('alertCaseActors'),
+    link_case: organizationRolesFor('alertCaseActors'),
+    manage_invites: organizationRolesFor('managers'),
 } satisfies Record<OrganizationAlertCaseAction, OrganizationAlertCaseRole[]>
 
 const organizationAlertCaseActionOrder = Object.keys(organizationAlertCaseRoleGates) as OrganizationAlertCaseAction[]
@@ -2524,13 +2537,13 @@ export function organizationMemberAccessContract(
             activeAdminCount: roleCounts.owner + roleCounts.admin,
         },
         roleGates: {
-            createWatchlist: ['owner', 'admin', 'editor'],
-            updateWatchlist: ['owner', 'admin', 'editor'],
-            pauseWatchlist: ['owner', 'admin', 'editor'],
-            archiveWatchlist: ['owner', 'admin', 'editor'],
-            manageInvites: ['owner', 'admin'],
-            manageMembers: ['owner', 'admin'],
-            readSharedWatchlists: ['owner', 'admin', 'editor', 'reader', 'member', 'viewer'],
+            createWatchlist: organizationRolesFor('watchlistEditors'),
+            updateWatchlist: organizationRolesFor('watchlistEditors'),
+            pauseWatchlist: organizationRolesFor('watchlistEditors'),
+            archiveWatchlist: organizationRolesFor('watchlistEditors'),
+            manageInvites: organizationRolesFor('managers'),
+            manageMembers: organizationRolesFor('managers'),
+            readSharedWatchlists: organizationRolesFor('sharedWatchlistReaders'),
             exportAlertTerms: visibility.allowedRoles,
             acknowledgeAlert: roleActionContract.roleGates.acknowledge_alert,
             assignCase: roleActionContract.roleGates.assign_case,
@@ -2545,11 +2558,11 @@ export function organizationMemberAccessContract(
                 transferOwnership: 'POST /api/organizations/:id/ownership-transfer',
             },
             actorRole,
-            allowedMutators: ['owner', 'admin'],
+            allowedMutators: organizationRolesFor('managers'),
             roleTargets: [...memberRoleTargetRoles],
             roleChange: {
                 ownerCanAssign: [...memberRoleTargetRoles],
-                adminCanAssign: ['editor', 'reader'],
+                adminCanAssign: organizationRolesFor('adminAssignableRoles'),
                 memberCanAssign: [],
                 viewerCanAssign: [],
                 requestMetadataFields: ['requestId', 'reason', 'previousRole', 'newRole'],
@@ -2733,7 +2746,7 @@ export function organizationAnalystPortalVisibilityAdapter(
             allowed: downstreamAuthorization.visibility.allowed
                 && downstreamAuthorization.allowedActions.includes('acknowledge_alert')
                 && alertBlockers.length === 0,
-            allowedRoles: ['owner', 'admin', 'editor'],
+            allowedRoles: organizationRolesFor('watchlistEditors'),
             denialReason: visibilityDenied ?? (downstreamAuthorization.allowedActions.includes('acknowledge_alert') ? null : 'role_not_allowed'),
             blockerCodes: downstreamAuthorization.visibility.allowed ? alertBlockers : [visibilityDenied ?? 'role_not_allowed'],
         },
@@ -2741,7 +2754,7 @@ export function organizationAnalystPortalVisibilityAdapter(
             allowed: downstreamAuthorization.visibility.allowed
                 && downstreamAuthorization.allowedActions.includes('assign_case')
                 && caseBlockers.length === 0,
-            allowedRoles: ['owner', 'admin', 'editor', 'analyst'],
+            allowedRoles: organizationRolesFor('alertCaseActors'),
             denialReason: visibilityDenied ?? (downstreamAuthorization.allowedActions.includes('assign_case') ? null : 'role_not_allowed'),
             blockerCodes: downstreamAuthorization.visibility.allowed ? caseBlockers : [visibilityDenied ?? 'role_not_allowed'],
         },
@@ -2749,20 +2762,20 @@ export function organizationAnalystPortalVisibilityAdapter(
             allowed: downstreamAuthorization.visibility.allowed
                 && downstreamAuthorization.allowedActions.includes('link_case')
                 && caseBlockers.length === 0,
-            allowedRoles: ['owner', 'admin', 'editor', 'analyst'],
+            allowedRoles: organizationRolesFor('alertCaseActors'),
             denialReason: visibilityDenied ?? (downstreamAuthorization.allowedActions.includes('link_case') ? null : 'role_not_allowed'),
             blockerCodes: downstreamAuthorization.visibility.allowed ? caseBlockers : [visibilityDenied ?? 'role_not_allowed'],
         },
         replay_alert: {
             allowed: downstreamAuthorization.visibility.allowed && roleCanEditOrganization(downstreamAuthorization.member.role) && alertBlockers.length === 0,
-            allowedRoles: ['owner', 'admin', 'editor'],
+            allowedRoles: organizationRolesFor('watchlistEditors'),
             denialReason: visibilityDenied ?? (alertBlockers[0] as OrganizationWatchlistAlertBridgeBlockerCode | undefined) ?? null,
             blockerCodes: downstreamAuthorization.visibility.allowed ? alertBlockers : [visibilityDenied ?? 'role_not_allowed'],
         },
         deliver_webhook: {
             allowed: proof.webhookBridge.deliveryContract.roleGates.manualTriggerAllowed
                 && webhookBlockers.length === 0,
-            allowedRoles: ['owner', 'admin', 'editor'],
+            allowedRoles: organizationRolesFor('watchlistEditors'),
             denialReason: proof.webhookBridge.deliveryContract.roleGates.denialReason
                 ?? (webhookBlockers[0] as OrganizationWatchlistAlertBridgeBlockerCode | undefined)
                 ?? null,
@@ -2770,7 +2783,7 @@ export function organizationAnalystPortalVisibilityAdapter(
         },
         open_audit_timeline: {
             allowed: downstreamAuthorization.visibility.allowed,
-            allowedRoles: ['owner', 'admin', 'support'],
+            allowedRoles: organizationRolesFor('supportTimelineReaders'),
             denialReason: visibilityDenied,
             blockerCodes: downstreamAuthorization.visibility.allowed ? [] : [visibilityDenied ?? 'role_not_allowed'],
         },
@@ -4989,13 +5002,13 @@ export function organizationLifecycleReadiness(row: OrganizationRow): Organizati
                 alertReadiness: 'GET /api/organizations/:id/alert-readiness',
             },
             roleGates: {
-                readOrganization: ['owner', 'admin', 'editor', 'reader', 'member', 'viewer'],
-                updateSettings: ['owner', 'admin'],
-                archiveOrganization: ['owner', 'admin'],
-                deleteOrganization: ['owner', 'admin'],
-                manageInvites: ['owner', 'admin'],
-                mutateWatchlists: ['owner', 'admin', 'editor'],
-                readSharedWatchlists: ['owner', 'admin', 'editor', 'reader', 'member', 'viewer'],
+                readOrganization: organizationRolesFor('sharedWatchlistReaders'),
+                updateSettings: organizationRolesFor('managers'),
+                archiveOrganization: organizationRolesFor('managers'),
+                deleteOrganization: organizationRolesFor('managers'),
+                manageInvites: organizationRolesFor('managers'),
+                mutateWatchlists: organizationRolesFor('watchlistEditors'),
+                readSharedWatchlists: organizationRolesFor('sharedWatchlistReaders'),
             },
             actorPermissions: {
                 canReadOrganization: true,
@@ -5079,13 +5092,19 @@ function buildOrganizationReadinessProof(input: {
     const actorCanExportActiveTerms = input.downstreamAuthorization.downstream.alertGeneration.canExportActiveTerms
     const organizationCanGenerateAlerts = input.alertGenerationBridge.canGenerateAlerts
     const cleanupRequired = watchlists.pausedCount + watchlists.archivedCount > 0
-    const blockers = Array.from(new Set([
+    const baseBlockerCodes = [
         ...input.lifecycleReadiness.typedBlockers,
         ...input.alertGenerationBridge.blockedReasons,
         ...input.downstreamAuthorization.downstream.alertGeneration.blockerCodes,
+    ]
+    const buildSortedBlockerCodes = (additionalBlockers: Array<string | null | undefined>) => Array.from(new Set([
+        ...baseBlockerCodes,
+        ...additionalBlockers,
+    ].filter(Boolean).map(String))).sort()
+    const blockers = buildSortedBlockerCodes([
         input.downstreamAuthorization.visibility.allowed ? undefined : input.downstreamAuthorization.visibility.reason,
         cleanupRequired ? 'cleanup_required' : undefined,
-    ].filter(Boolean).map(String))).sort()
+    ])
     const webhookBlockerCodes = [
         ...input.downstreamAuthorization.downstream.alertGeneration.blockerCodes,
         input.downstreamAuthorization.downstream.webhook.denialReason,
@@ -5108,12 +5127,14 @@ function buildOrganizationReadinessProof(input: {
     ].filter(Boolean) as Array<'needs_10_active_members_or_pending_invites' | 'needs_shared_watchlist_item' | 'no_active_terms' | 'org_archived' | 'org_deleted' | 'member_revoked'>))
     const actorCaseActions = organizationAlertCaseRoleActions(input.downstreamAuthorization.member.role)
     const canAssignCase = actorCaseActions.includes('assign_case')
-    const caseAssignmentBlockerCodes = Array.from(new Set([
-        ...input.lifecycleReadiness.typedBlockers,
-        ...input.alertGenerationBridge.blockedReasons,
-        ...input.downstreamAuthorization.downstream.alertGeneration.blockerCodes,
+    const caseAssignmentBlockerCodes = buildSortedBlockerCodes([
         canAssignCase ? undefined : 'role_not_allowed',
-    ].filter(Boolean).map(String))).sort()
+    ])
+    const proofOrganizationLifecycleBlockerPrefix = () => [
+        'org_archived',
+        'org_deleted',
+        'member_revoked',
+    ] as const
 
     const proof = {
         schemaVersion: 'organization.worker3_ui_readiness_proof.v1',
@@ -5233,9 +5254,7 @@ function buildOrganizationReadinessProof(input: {
                 'alertVisibilityPolicy',
             ],
             lifecycleBlockers: [
-                'org_archived',
-                'org_deleted',
-                'member_revoked',
+                ...proofOrganizationLifecycleBlockerPrefix(),
                 'watchlist_paused',
                 'watchlist_archived',
                 'role_not_allowed',
@@ -5310,9 +5329,7 @@ function buildOrganizationReadinessProof(input: {
                 secretRedacted: true,
             },
             lifecycleBlockers: [
-                'org_archived',
-                'org_deleted',
-                'member_revoked',
+                ...proofOrganizationLifecycleBlockerPrefix(),
                 'manual_webhook_selection_required',
             ],
             blockerCodes: webhookBlockerCodes,
@@ -5601,9 +5618,7 @@ function buildOrganizationReadinessProof(input: {
                 sharedWatchlistReadiness: 'organization.shared_watchlist_readiness_export.v1',
             },
             lifecycleBlockers: [
-                'org_archived',
-                'org_deleted',
-                'member_revoked',
+                ...proofOrganizationLifecycleBlockerPrefix(),
                 'watchlist_paused',
                 'watchlist_archived',
                 'no_active_terms',
@@ -5739,9 +5754,7 @@ function buildOrganizationReadinessProof(input: {
                 'webhookDestinationIds',
             ],
             lifecycleBlockers: [
-                'org_archived',
-                'org_deleted',
-                'member_revoked',
+                ...proofOrganizationLifecycleBlockerPrefix(),
                 'invite_expired',
                 'watchlist_archived',
                 'watchlist_paused',
@@ -6044,8 +6057,10 @@ export function organizationWatchlistMutationDenial(input: {
         denialReason: 'role_not_allowed' as const,
         message: input.message,
         statusCode: 403,
-        allowedRoles: (input.action === 'cleanup_watchlists' ? ['owner', 'admin'] : ['owner', 'admin', 'editor']) as OrganizationRole[],
-        readRoles: ['owner', 'admin', 'editor', 'reader', 'member', 'viewer'] as OrganizationRole[],
+        allowedRoles: input.action === 'cleanup_watchlists'
+            ? organizationRolesFor('managers')
+            : organizationRolesFor('watchlistEditors'),
+        readRoles: organizationRolesFor('sharedWatchlistReaders'),
         memberCanReadSharedWatchlists: true,
         memberCanMutateSharedWatchlists: false,
         viewerCanReadSharedWatchlists: true,
@@ -6093,8 +6108,8 @@ export function organizationInviteManagementDenial(input: {
         denialReason: 'role_not_allowed' as const,
         message: input.message,
         statusCode: 403,
-        allowedRoles: ['owner', 'admin'] as Array<'owner' | 'admin'>,
-        readRoles: ['owner', 'admin'] as Array<'owner' | 'admin'>,
+        allowedRoles: organizationRolesFor('managers'),
+        readRoles: organizationRolesFor('managers'),
         memberCanListInvites: false,
         memberCanCreateInvites: false,
         viewerCanListInvites: false,
@@ -6141,8 +6156,8 @@ export function organizationSettingsMutationDenial(input: {
         denialReason: 'role_not_allowed' as const,
         message: input.message,
         statusCode: 403,
-        allowedRoles: ['owner', 'admin'] as Array<'owner' | 'admin'>,
-        readableRoles: ['owner', 'admin', 'editor', 'reader', 'member', 'viewer'] as OrganizationRole[],
+        allowedRoles: organizationRolesFor('managers'),
+        readableRoles: organizationRolesFor('sharedWatchlistReaders'),
         editableFields: ['name', 'slug', 'defaultWebhookPolicy', 'alertVisibilityPolicy', 'retentionDays', 'auditSafeMetadata'] as const,
         memberCanReadSettings: true,
         memberCanUpdateSettings: false,
@@ -6482,12 +6497,12 @@ export function organizationSettingsFromRow(row: Pick<OrganizationRow, 'status' 
     }
 }
 
-type OrganizationWatchlistLifecycleProjection = {
+export type OrganizationWatchlistLifecycleProjection = {
     terms: OrganizationWatchlistTerm[]
     itemsByStatus: Record<OrganizationWatchlistStatus, OrganizationWatchlistRow[]>
 }
 
-function organizationWatchlistLifecycleProjection(items: OrganizationWatchlistRow[]): OrganizationWatchlistLifecycleProjection {
+export function organizationWatchlistLifecycleProjection(items: OrganizationWatchlistRow[]): OrganizationWatchlistLifecycleProjection {
     const terms: OrganizationWatchlistTerm[] = []
     const itemsByStatus: OrganizationWatchlistLifecycleProjection['itemsByStatus'] = {
         active: [],
@@ -6579,7 +6594,7 @@ export function organizationWatchlistAlertGenerationContract(
     )
 }
 
-function organizationWatchlistAlertGenerationContractFromProjection(
+export function organizationWatchlistAlertGenerationContractFromProjection(
     organization: Pick<OrganizationRow, 'id' | 'name' | 'slug' | 'status' | 'member_count' | 'owner_count' | 'pending_invite_count' | 'shared_watchlist_count' | 'default_webhook_policy' | 'alert_visibility_policy'>,
     watchlistProjection: OrganizationWatchlistLifecycleProjection
 ): OrganizationWatchlistAlertGenerationContract {
@@ -6745,6 +6760,18 @@ export function organizationWatchlistAlertTermsExport(
         downstreamAuthorization
     ).webhookDestinationOwnership
     const canManageWebhookDestinations = roleCanEditOrganization(member.role)
+    const activeMemberActor = () => ({
+        userId: member.userId,
+        role: member.role,
+        status: 'active' as const,
+    })
+    const webhookDestinationScope = () => ({
+        requiredDestinationOrgId: webhookDestinationOwnership.requiredDestinationOrgId,
+        selectedDestinationOrgField: webhookDestinationOwnership.selectedDestinationOrgField,
+        selectedDestinationIdField: webhookDestinationOwnership.selectedDestinationIdField,
+        crossOrgDestinationAllowed: false as const,
+        nonmemberDestinationEnumeration: webhookDestinationOwnership.nonmemberDestinationEnumeration,
+    })
     const deliveryBlockerCodes = Array.from(new Set([
         ...alertGeneration.blockedReasons,
         ...sharedWatchlistIntegrationGuardrails.caseSafety.blockerCodes,
@@ -6755,19 +6782,9 @@ export function organizationWatchlistAlertTermsExport(
         schemaVersion: 'organization.webhook_destination_access_decision.v1',
         ...organizationTenantIdentity(organization.id, organization.id),
         sourceFamily: 'organization_watchlist',
-        member: {
-            userId: member.userId,
-            role: member.role,
-            status: 'active',
-        },
+        member: activeMemberActor(),
         route: webhookDestinationOwnership.route,
-        destinationScope: {
-            requiredDestinationOrgId: webhookDestinationOwnership.requiredDestinationOrgId,
-            selectedDestinationOrgField: webhookDestinationOwnership.selectedDestinationOrgField,
-            selectedDestinationIdField: webhookDestinationOwnership.selectedDestinationIdField,
-            crossOrgDestinationAllowed: false,
-            nonmemberDestinationEnumeration: webhookDestinationOwnership.nonmemberDestinationEnumeration,
-        },
+        destinationScope: webhookDestinationScope(),
         allowedActions: {
             automaticDelivery: webhookDestinationOwnership.roleGates.automaticDeliveryAllowed,
             manualTrigger: webhookDestinationOwnership.roleGates.manualTriggerAllowed,
@@ -6816,11 +6833,7 @@ export function organizationWatchlistAlertTermsExport(
             ...organizationTenantIdentity(organization.id, organization.id),
             route: webhookDestinationOwnership.route,
             eventType: webhookDestinationOwnership.eventType,
-            actor: {
-                userId: member.userId,
-                role: member.role,
-                status: 'active',
-            },
+            actor: activeMemberActor(),
             allowed: canManageWebhookDestinations,
             allowedRoles: ['owner', 'admin', 'editor'],
             summaryVisibleRoles: ['owner', 'admin', 'editor', 'reader', 'member', 'viewer'],
@@ -6828,13 +6841,7 @@ export function organizationWatchlistAlertTermsExport(
             denialReason: canManageWebhookDestinations
                 ? (webhookDestinationOwnership.blockerCodes.includes('manual_webhook_selection_required') ? 'manual_webhook_selection_required' : null)
                 : 'role_not_allowed',
-            destinationScope: {
-                requiredDestinationOrgId: webhookDestinationOwnership.requiredDestinationOrgId,
-                selectedDestinationOrgField: webhookDestinationOwnership.selectedDestinationOrgField,
-                selectedDestinationIdField: webhookDestinationOwnership.selectedDestinationIdField,
-                crossOrgDestinationAllowed: false,
-                nonmemberDestinationEnumeration: webhookDestinationOwnership.nonmemberDestinationEnumeration,
-            },
+            destinationScope: webhookDestinationScope(),
             readiness: {
                 destinationDeliveryReady: webhookDestinationOwnership.blockerCodes.length === 0,
                 dryRunAllowed: canManageWebhookDestinations,
@@ -6859,11 +6866,7 @@ export function organizationWatchlistAlertTermsExport(
             sourceFamily: 'organization_watchlist',
             route: webhookDestinationOwnership.route,
             eventType: webhookDestinationOwnership.eventType,
-            actor: {
-                userId: member.userId,
-                role: member.role,
-                status: 'active',
-            },
+            actor: activeMemberActor(),
             watchlistScope: {
                 watchlistItemIds: activeTerms.map(term => term.watchlistItemId),
                 alertGeneratorKeys: activeTerms.map(term => term.alertGeneratorKey),
@@ -6902,11 +6905,7 @@ export function organizationWatchlistAlertTermsExport(
             ...organizationTenantIdentity(organization.id, organization.id),
             route: webhookDestinationOwnership.route,
             eventType: webhookDestinationOwnership.eventType,
-            actor: {
-                userId: member.userId,
-                role: member.role,
-                status: 'active',
-            },
+            actor: activeMemberActor(),
             readyForDelivery: alertGeneration.canGenerateAlerts
                 && sharedWatchlistIntegrationGuardrails.caseSafety.ok
                 && webhookDestinationOwnership.blockerCodes.length === 0
@@ -7044,11 +7043,7 @@ export function organizationWatchlistAlertTermsExport(
         schemaVersion: 'organization.shared_watchlist_consumer_readiness.v1',
         ...organizationTenantIdentity(organization.id, organization.id),
         sourceFamily: 'organization_watchlist',
-        member: {
-            userId: member.userId,
-            role: member.role,
-            status: 'active',
-        },
+        member: activeMemberActor(),
         routes: {
             alertTermsExport: 'GET /api/organizations/:id/watchlists/alert-terms',
             alertList: sharedWatchlistAlertQueueVisibility.routes.list,
@@ -7276,11 +7271,7 @@ export function organizationWatchlistAlertTermsExport(
     const termExportDeltaReceipt: OrganizationWatchlistAlertTermsExport['termExportDeltaReceipt'] = {
         schemaVersion: 'organization.watchlist_term_export_delta_receipt.v1',
         ...organizationTenantIdentity(organization.id, organization.id),
-        actor: {
-            userId: member.userId,
-            role: member.role,
-            status: 'active',
-        },
+        actor: activeMemberActor(),
         route: 'GET /api/organizations/:id/watchlists/alert-terms',
         activeTermCount: activeTerms.length,
         exportedWatchlistItemIds: activeTerms.map(term => term.watchlistItemId),
@@ -7346,11 +7337,7 @@ export function organizationWatchlistAlertTermsExport(
         schemaVersion: 'organization.shared_watchlist_readiness_export.v1',
         ...organizationTenantIdentity(organization.id, organization.id),
         sourceFamily: 'organization_watchlist',
-        actor: {
-            userId: member.userId,
-            role: member.role,
-            status: 'active',
-        },
+        actor: activeMemberActor(),
         routes: {
             alertTermsExport: consumerReadiness.routes.alertTermsExport,
             alertQueue: consumerReadiness.routes.alertList,
@@ -7441,11 +7428,7 @@ export function organizationWatchlistAlertTermsExport(
         schemaVersion: 'organization.watchlist_alert_terms_export.v1',
         ...organizationTenantIdentity(organization.id, organization.id),
         ownerOrganizationId: organization.id,
-        member: {
-            userId: member.userId,
-            role: member.role,
-            status: 'active',
-        },
+        member: activeMemberActor(),
         visibilityPolicy: alertGeneration.visibilityPolicy,
         allowedViewerRoles: alertGeneration.allowedViewerRoles,
         recommendedDownstreamRoute: 'organization_watchlist',
@@ -7453,11 +7436,7 @@ export function organizationWatchlistAlertTermsExport(
         alertBridgeContract: {
             schemaVersion: 'organization.watchlist_alert_bridge_contract.v1',
             recommendedDownstreamRoute: 'organization_watchlist',
-            memberProvenance: {
-                userId: member.userId,
-                role: member.role,
-                status: 'active',
-            },
+            memberProvenance: activeMemberActor(),
             supportAccess,
             supportVisibility,
             deniedAccess: {
@@ -7539,9 +7518,7 @@ export function organizationWatchlistAlertTermsExport(
                 ],
                 memberVisibility: {
                     mode: 'member_scoped_export',
-                    userId: member.userId,
-                    role: member.role,
-                    status: 'active',
+                    ...activeMemberActor(),
                     nonmemberEnumeration: false,
                     revokedMemberDenial: 'member_revoked',
                 },

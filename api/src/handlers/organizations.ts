@@ -47,7 +47,8 @@ import {
     organizationSharedWatchlistProjection,
     organizationVisibilityDecision,
     organizationWatchlistOwnerContext,
-    organizationWatchlistAlertGenerationContract,
+    organizationWatchlistLifecycleProjection,
+    organizationWatchlistAlertGenerationContractFromProjection,
     organizationWatchlistAlertTermsExport,
     organizationWatchlistAlertTermsExportDenial,
     organizationWatchlistMutationDenial,
@@ -557,20 +558,9 @@ export async function getOrganizationMembers(req: FastifyRequest<{ Params: Organ
 }
 
 export async function deleteOrganizationMember(req: FastifyRequest<{ Params: OrganizationMemberParams }>, res: FastifyReply) {
-    const requestContext = await loadOrganizationMemberRequest(req, res, req.params.id)
-    if (!requestContext) return
-    const { userId, organization } = requestContext
-    if (!organization) {
-        return res.status(404).send({ error: 'Organization not found.' })
-    }
-
-    const lifecycleBlocker = inactiveOrganizationMutationBlocker(organization, 'remove members')
-    if (lifecycleBlocker) return sendOrganizationLifecycleBlocker(req, res, lifecycleBlocker, userId, organization.role)
-
-    const target = await loadOrganizationMembership(req.params.id, req.params.userId)
-    if (!target || target.status !== 'active') {
-        return res.status(404).send({ error: 'Organization member not found.' })
-    }
+    const mutationContext = await loadActiveOrganizationMemberMutationRequest(req, res, 'remove members')
+    if (!mutationContext) return
+    const { userId, organization, target } = mutationContext
 
     const permissionError = removalPermissionError(organization.role, target.role)
     if (permissionError) {
@@ -907,22 +897,9 @@ export async function deleteOrganizationMember(req: FastifyRequest<{ Params: Org
 }
 
 export async function patchOrganizationMemberRole(req: FastifyRequest<{ Params: OrganizationMemberParams, Body: OrganizationMemberRoleInput }>, res: FastifyReply) {
-    const requestContext = await loadOrganizationMemberRequest(req, res, req.params.id)
-    if (!requestContext) return
-    const { userId, organization } = requestContext
-    if (!organization) {
-        return res.status(404).send({ error: 'Organization not found.' })
-    }
-
-    const lifecycleBlocker = inactiveOrganizationMutationBlocker(organization, 'change member roles')
-    if (lifecycleBlocker) {
-        return sendOrganizationLifecycleBlocker(req, res, lifecycleBlocker, userId, organization.role)
-    }
-
-    const target = await loadOrganizationMembership(req.params.id, req.params.userId)
-    if (!target || target.status !== 'active') {
-        return res.status(404).send({ error: 'Organization member not found.' })
-    }
+    const mutationContext = await loadActiveOrganizationMemberMutationRequest(req, res, 'change member roles')
+    if (!mutationContext) return
+    const { userId, organization, target } = mutationContext
 
     let input: ReturnType<typeof normalizeMemberRoleInput>
     try {
@@ -3098,6 +3075,33 @@ async function loadOrganizationMemberRequest(
     return { userId, organization }
 }
 
+async function loadActiveOrganizationMemberMutationRequest(
+    req: FastifyRequest<{ Params: OrganizationMemberParams }>,
+    res: FastifyReply,
+    action: string,
+) {
+    const requestContext = await loadOrganizationMemberRequest(req, res, req.params.id)
+    if (!requestContext) return null
+    const { userId, organization } = requestContext
+    if (!organization) {
+        res.status(404).send({ error: 'Organization not found.' })
+        return null
+    }
+
+    const lifecycleBlocker = inactiveOrganizationMutationBlocker(organization, action)
+    if (lifecycleBlocker) {
+        sendOrganizationLifecycleBlocker(req, res, lifecycleBlocker, userId, organization.role)
+        return null
+    }
+
+    const target = await loadOrganizationMembership(req.params.id, req.params.userId)
+    if (!target || target.status !== 'active') {
+        res.status(404).send({ error: 'Organization member not found.' })
+        return null
+    }
+    return { userId, organization, target }
+}
+
 async function loadOrganizationMembership(organizationId: string, userId: string, query: typeof run = run) {
     const result = await query(`
         SELECT
@@ -3546,10 +3550,9 @@ function organizationSharedWatchlistContract(organization: OrganizationRow, item
         ...organization,
         shared_watchlist_count: items.length,
     })
-    const alertGeneration = organizationWatchlistAlertGenerationContract(organization, items)
-    const activeItems = items.filter(item => (item.status ?? 'active') === 'active' && !item.archived_at)
-    const pausedItems = items.filter(item => item.status === 'paused' && !item.archived_at)
-    const archivedItems = items.filter(item => item.status === 'archived' || Boolean(item.archived_at))
+    const watchlistProjection = organizationWatchlistLifecycleProjection(items)
+    const alertGeneration = organizationWatchlistAlertGenerationContractFromProjection(organization, watchlistProjection)
+    const { active: activeItems, paused: pausedItems, archived: archivedItems } = watchlistProjection.itemsByStatus
     return {
         schemaVersion: 'organization.shared_watchlist_contract.v1',
         organizationId: organization.id,

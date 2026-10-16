@@ -2,6 +2,7 @@ import { afterAll, beforeEach, expect, mock, test } from 'bun:test'
 import Fastify from 'fastify'
 
 const queries: Array<{ sql: string, params: unknown[] }> = []
+let watchlistRows: Array<Record<string, unknown>> = []
 
 mock.module('#db', () => {
     const query = async (sql: string, params: unknown[] = []) => {
@@ -12,7 +13,7 @@ mock.module('#db', () => {
                 member_count: 1, owner_count: 1, admin_count: 1, pending_invite_count: 0, shared_watchlist_count: 0,
             }] }
         }
-        if (sql.includes('FROM organization_watchlist_items')) return { rows: [] }
+        if (sql.includes('FROM organization_watchlist_items')) return { rows: watchlistRows }
         return { rows: [] }
     }
     return {
@@ -46,7 +47,10 @@ const { getOrganizationWatchlists } = await import('../src/handlers/organization
 
 const app = Fastify()
 app.get('/organizations/:id/watchlists', getOrganizationWatchlists)
-beforeEach(() => { queries.length = 0 })
+beforeEach(() => {
+    queries.length = 0
+    watchlistRows = []
+})
 afterAll(() => app.close())
 
 const cases = [
@@ -65,3 +69,27 @@ for (const scenario of cases) {
         expect(listQuery?.params).toEqual(scenario.expected)
     })
 }
+
+test('GET watchlists uses shared lifecycle status normalization in its contract', async () => {
+    watchlistRows = [
+        { id: 'active-default', organization_id: 'org-1', kind: 'domain', value: 'example.com', notes: '', created_by: 'owner-1', created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
+        { id: 'timestamp-archived', organization_id: 'org-1', kind: 'vendor', value: 'Acme', notes: '', status: 'active', archived_at: '2026-02-01T00:00:00.000Z', created_by: 'owner-1', created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
+        { id: 'status-archived', organization_id: 'org-1', kind: 'company', value: 'Example Ltd', notes: '', status: 'archived', created_by: 'owner-1', created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
+        { id: 'paused', organization_id: 'org-1', kind: 'vendor', value: 'Acme', notes: '', status: 'paused', created_by: 'owner-1', created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z' },
+    ]
+
+    const response = await app.inject('/organizations/org-1/watchlists')
+    expect(response.statusCode).toBe(200)
+    expect(response.json().sharedWatchlistContract).toMatchObject({
+        lifecycle: {
+            activeCount: 1,
+            pausedCount: 1,
+            archivedCount: 2,
+        },
+        ownership: {
+            activeItemIds: ['active-default'],
+            pausedItemIds: ['paused'],
+            archivedItemIds: ['timestamp-archived', 'status-archived'],
+        },
+    })
+})

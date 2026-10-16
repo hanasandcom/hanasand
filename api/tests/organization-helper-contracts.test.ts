@@ -10,6 +10,7 @@ import {
     normalizeWatchlistInput,
     buildOrganizationBridgeContext,
     buildOrganizationDwmAlertReference,
+    organizationAnalystPortalVisibilityAdapter,
     organizationAlertCaseRoleActions,
     organizationLifecycleReadiness,
     organizationWatchlistAlertTermsExport,
@@ -237,6 +238,35 @@ test('organization lifecycle readiness', () => {
     assert.deepEqual(blockedLifecycleReadiness.typedBlockers, ['no_active_admin', 'watchlist_setup_required', 'alert_export_unavailable'])
     assert.equal(blockedLifecycleReadiness.alertExportReadiness.ready, false)
     assert.equal(blockedLifecycleReadiness.readyForOnboarding, false)
+})
+
+test('analyst portal role gates reuse independent role lists', () => {
+    const proof = {
+        organizationId: 'org_roles',
+        tenantId: 'org_roles',
+        actor: { userId: 'owner', role: 'owner', status: 'active' },
+        watchlistOwnership: { activeIds: [] },
+        alertBridge: { blockerCodes: [], alertGeneratorKeys: [], persistenceContract: { lifecycleBlockers: [] } },
+        caseBridge: { blockerCodes: [] },
+        webhookBridge: { blockerCodes: [], deliveryContract: { roleGates: { manualTriggerAllowed: true, denialReason: null } } },
+    }
+    const authorization = {
+        visibility: { allowed: true, allowedRoles: ['owner', 'admin'], reason: null },
+        allowedActions: ['acknowledge_alert', 'assign_case', 'link_case'],
+        member: { role: 'owner' },
+    }
+    const first = organizationAnalystPortalVisibilityAdapter(proof as any, authorization as any)
+    assert.deepEqual(first.actionMatrix.acknowledge_alert.allowedRoles, ['owner', 'admin', 'editor'])
+    assert.deepEqual(first.actionMatrix.assign_case.allowedRoles, ['owner', 'admin', 'editor', 'analyst'])
+    assert.deepEqual(first.actionMatrix.link_case.allowedRoles, ['owner', 'admin', 'editor', 'analyst'])
+    assert.deepEqual(first.actionMatrix.replay_alert.allowedRoles, ['owner', 'admin', 'editor'])
+    assert.deepEqual(first.actionMatrix.deliver_webhook.allowedRoles, ['owner', 'admin', 'editor'])
+    assert.deepEqual(first.actionMatrix.open_audit_timeline.allowedRoles, ['owner', 'admin', 'support'])
+
+    first.actionMatrix.acknowledge_alert.allowedRoles.pop()
+    assert.deepEqual(first.actionMatrix.assign_case.allowedRoles, ['owner', 'admin', 'editor', 'analyst'])
+    assert.deepEqual(organizationAnalystPortalVisibilityAdapter(proof as any, authorization as any).actionMatrix.acknowledge_alert.allowedRoles,
+        ['owner', 'admin', 'editor'])
 })
 
 test('active watchlist alert export contract', () => {

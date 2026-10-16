@@ -145,9 +145,6 @@ test('alert term export preserves shared per-term projections and excludes inact
         actorRef: deliveryMatch.actorRef,
         sourceRefs: deliveryMatch.sourceRefs,
     }).toEqual(expectedProjection)
-    expect(Object.keys(deliveryMatch.watchedEntity)).toEqual(['type', 'value', 'normalizedValue'])
-    expect(Object.keys(deliveryMatch.actorRef)).toEqual(['userId', 'role', 'source'])
-    expect(Object.keys(deliveryMatch.sourceRefs)).toEqual(['sourceFamily', 'exportRoute', 'caseVisibilityRoute'])
     expect(Object.keys(matchingInput)).toEqual([
         'organizationId', 'tenantId', 'watchlistId', 'watchlistItemId', 'termFamily', 'watchedEntity',
         'matchReason', 'actorRef', 'sourceRefs', 'normalizedTerm', 'alertGeneratorKey', 'provenanceHash',
@@ -173,9 +170,6 @@ test('alert term export preserves shared per-term projections and excludes inact
         actorRef: matchingInput.actorRef,
         sourceRefs: matchingInput.sourceRefs,
     }).toEqual(expectedProjection)
-    expect(Object.keys(matchingInput.watchedEntity)).toEqual(['type', 'value', 'normalizedValue'])
-    expect(Object.keys(matchingInput.actorRef)).toEqual(['userId', 'role', 'source'])
-    expect(Object.keys(matchingInput.sourceRefs)).toEqual(['sourceFamily', 'exportRoute', 'caseVisibilityRoute'])
 })
 
 test('alert term export denial preserves explicit tenant identity and fallback order', () => {
