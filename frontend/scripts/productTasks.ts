@@ -23,6 +23,7 @@ export const productTasks: TestTask[] = [
     { id: 'rule-count-initial', title: 'Rule counts start from the previous server sample', command: [bun, 'test', 'tests/rule-count-initial.test.tsx'] },
     { id: 'content-workspace', title: 'Content workspace selection and access failures', command: [bun, 'test', 'tests/content-workspace.test.ts'] },
     { id: 'support-session', title: 'Anonymous support session cookie security', command: [bun, 'test', 'tests/support-session.test.ts'] },
+    { id: 'request-hostname', title: 'Shared request hostname and auth cookie scope', command: [bun, 'test', 'tests/request-hostname.test.ts'] },
     { id: 'backend-request-headers', title: 'Shared backend client authentication headers', command: [bun, 'test', 'tests/backend-request-headers.test.ts'] },
     { id: 'dashboard-content-queue', title: 'Article and thought dashboard queue rendering', command: [bun, 'test', 'tests/dashboard-content-queue.test.tsx'] },
     { id: 'prompt-portal-ordering', title: 'Prompt portal queue ordering and worker batch order', command: [bun, 'test', 'tests/prompt-portal-ordering.test.tsx', 'tests/prompt-portal-worker-token.test.ts'] },

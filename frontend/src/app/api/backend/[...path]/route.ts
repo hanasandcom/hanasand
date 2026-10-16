@@ -2,6 +2,7 @@ import { activeOrganizationId } from '@/utils/organizations/serverWorkspace'
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import config from '@/config'
+import { requestHostname } from '@/utils/proxy/authResponses'
 
 type Context = {
     params: Promise<{ path?: string[] }>
@@ -145,12 +146,6 @@ function setProxyAuthCookie(
             domain: '.hanasand.com',
         })
     }
-}
-
-function requestHostname(req: NextRequest) {
-    const forwardedHost = req.headers.get('x-forwarded-host')?.split(',')[0]?.trim()
-    const host = forwardedHost || req.headers.get('host') || req.nextUrl.hostname
-    return host.split(':')[0]
 }
 
 export const GET = handler

@@ -277,9 +277,17 @@ target. The full repository cap remains unmet.
 At the current frontend checkpoint, the cap scanner covers authored source,
 tests, configuration, Markdown/text, SVG, and common frontend source formats.
 It excludes generated `bun.lock`, static article data, and search routes. The
-latest scan reports 2,325 files / 155,689 lines, with zero files over 200;
+latest scan reports 2,326 files / 155,717 lines, with zero files over 200;
 the expanded scanner and changed-file scan pass. The full frontend suite and
 production build both pass with the latest scanner. The frontend aggregate remains
 well above the 10,000–30,000-line target. The repository-wide scan reports
-3,673 files / 322,515 lines, with 125 over the 200-line cap; the API reduction
+3,674 files / 322,543 lines, with 125 over the 200-line cap; the API reduction
 target and global cap remain unmet.
+
+At this checkpoint, frontend request-hostname resolution is shared by the auth
+cookie and backend proxy paths. The refactor removes 10 production lines,
+registers three focused behavior tests in the default test runner, and preserves
+forwarded-host, host, and URL fallback order. Independent review and the full
+frontend test suite, typecheck, scoped lint, cap scan, and production build
+pass. The support-session route remains separate because it intentionally
+lowercases the result.

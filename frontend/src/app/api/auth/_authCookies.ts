@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requestHostname } from '@/utils/proxy/authResponses'
 
 type AuthPayload = {
     name?: string
@@ -82,10 +83,4 @@ function expireSharedDomainAuthCookies(req: NextRequest, response: NextResponse)
     for (const cookie of [...authCookieNames, ...legacyAuthCookieNames]) {
         response.headers.append('Set-Cookie', `${cookie}=; Path=/; Domain=.hanasand.com; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax${secure}`)
     }
-}
-
-function requestHostname(req: NextRequest) {
-    const forwardedHost = req.headers.get('x-forwarded-host')?.split(',')[0]?.trim()
-    const host = forwardedHost || req.headers.get('host') || req.nextUrl.hostname
-    return host.split(':')[0]
 }
