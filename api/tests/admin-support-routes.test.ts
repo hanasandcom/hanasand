@@ -29,24 +29,38 @@ const queries: Array<{ sql: string, values: unknown[] }> = []
 
 async function run(sql: string, values: unknown[] = []) {
     queries.push({ sql, values })
-    if (sql.includes('event_type IN (\'support.session.create\', \'support.session.revoke\')')) {
+    const normalizedSql = sql.replace(/\s+/g, ' ').trim()
+    if (normalizedSql.includes('SELECT e.id, e.event_type, e.severity, e.source, e.service, e.actor_id') && normalizedSql.includes('FROM system_events e') && normalizedSql.includes('LEFT JOIN users actor ON actor.id = e.actor_id') && normalizedSql.includes('LEFT JOIN users target_user ON target_user.id = e.object_id') && normalizedSql.includes('LEFT JOIN organizations organization ON organization.id = e.organization_id') && normalizedSql.includes('WHERE e.id = $1') && normalizedSql.includes('ORDER BY e.created_at DESC, e.id DESC') && normalizedSql.includes('LIMIT 50')) return { rows: eventRows }
+    if (normalizedSql.includes('SELECT id, event_type, actor_id, object_id, organization_id, subject_id, request_id, reason, outcome, context, created_at FROM system_events WHERE subject_id = $1 AND event_type IN (\'support.session.create\', \'support.session.revoke\') ORDER BY created_at ASC, id ASC')) {
         const sessionId = values[0]
         return { rows: supportSessionEvents.filter(event => event.subject_id === sessionId && ['support.session.create', 'support.session.revoke'].includes(String(event.event_type))) }
     }
-    if (sql.includes('FROM system_events e') && sql.includes('e.context->>\'supportSessionId\' = $1')) {
+    if (normalizedSql.includes('SELECT e.id, e.event_type, e.severity, e.source, e.service, e.actor_id') && normalizedSql.includes('FROM system_events e') && normalizedSql.includes('e.context->>\'supportSessionId\' = $1') && normalizedSql.includes('ORDER BY e.created_at ASC, e.id ASC') && normalizedSql.includes('LIMIT 250')) {
         const sessionId = values[0]
         return { rows: supportSessionEvents.filter(event => event.subject_id === sessionId || (event.context as Record<string, unknown>)?.supportSessionId === sessionId) }
     }
-    if (sql.includes('SELECT status') && sql.includes('FROM organization_invites') && sql.includes('organization_id = $2')) {
+    if (normalizedSql.includes('SELECT status FROM organization_invites WHERE id = $1 AND organization_id = $2 LIMIT 1')) {
         return { rows: supportRecoveryInviteStatus ? [{ status: supportRecoveryInviteStatus }] : [] }
     }
-    if (sql.includes('SELECT id, status, expires_at') && sql.includes('FROM organization_invites')) {
+    if (normalizedSql.includes('SELECT id, status, expires_at FROM organization_invites WHERE id = $1 AND organization_id = $2 FOR UPDATE')) {
         return { rows: supportRecoveryInviteStatus ? [{ id: 'invite-1', status: supportRecoveryInviteStatus, expires_at: supportRecoveryInviteExpiry }] : [] }
     }
-    if (sql.includes('FROM organizations o') && supportOrganization) return { rows: [supportOrganization] }
-    if (sql.includes('FROM users') && sql.includes('WHERE id = $1') && !sql.includes('organization_members') && supportUser) return { rows: [supportUser] }
-    if (sql.includes('FROM system_events event') && sql.includes('event.organization_id = $1')) return { rows: supportInspectionAuditRows }
-    if (sql.includes('FROM organization_invites') && sql.includes('id = $1') && sql.includes('organization_id = $2')) {
+    if (sql.includes('SELECT o.*') && sql.includes('FROM organizations o') && sql.includes('(o.id ILIKE $1 OR o.name ILIKE $1 OR o.slug ILIKE $1)') && sql.includes('ORDER BY o.updated_at DESC') && sql.includes('LIMIT $2')) return { rows: supportOrganization ? [supportOrganization] : [] }
+    if (sql.includes('SELECT o.*') && sql.includes('FROM organizations o') && sql.includes('WHERE o.id = $1') && sql.includes('LIMIT 1')) return { rows: supportOrganization ? [supportOrganization] : [] }
+    if (normalizedSql.includes('SELECT audit_safe_metadata ? \'privacyDeletionRunId\' locked FROM organizations WHERE id = $1')) return { rows: [{ locked: false }] }
+    if (sql.includes('SELECT id FROM organizations WHERE id = $1 FOR UPDATE')) return { rows: supportOrganization ? [{ id: supportOrganization.id }] : [] }
+    if (sql.includes('UPDATE organizations SET updated_at = NOW() WHERE id = $1')) return { rows: [] }
+    if (normalizedSql.includes('SELECT id, name, avatar, active, reserved, deactivated_at, deactivated_by, deletion_requested_at, deletion_scheduled_at FROM users WHERE id = $1 LIMIT 1')) return { rows: supportUser ? [supportUser] : [] }
+    if (normalizedSql.includes('SELECT event.id, event.event_type, event.severity, event.source, event.service, event.actor_id') && normalizedSql.includes('FROM system_events event') && normalizedSql.includes('LEFT JOIN users actor ON actor.id = event.actor_id') && normalizedSql.includes('LEFT JOIN users target_user ON target_user.id = event.object_id') && normalizedSql.includes('LEFT JOIN organizations organization ON organization.id = event.organization_id') && normalizedSql.includes('event.organization_id ILIKE') && normalizedSql.includes('ORDER BY event.created_at DESC') && normalizedSql.includes('LIMIT')) return { rows: eventRows }
+    if (normalizedSql.includes('SELECT event.id, event.event_type, event.severity, event.source, event.service, event.actor_id') && normalizedSql.includes('FROM system_events event') && normalizedSql.includes('LEFT JOIN users actor ON actor.id = event.actor_id') && normalizedSql.includes('LEFT JOIN users target_user ON target_user.id = event.object_id') && normalizedSql.includes('LEFT JOIN organizations organization ON organization.id = event.organization_id') && normalizedSql.includes('WHERE event.organization_id = $1') && normalizedSql.includes('ORDER BY event.created_at DESC') && normalizedSql.includes('LIMIT 25')) return { rows: supportInspectionAuditRows }
+    if (normalizedSql.includes('SELECT invite.*, organization.name AS organization_name, organization.slug AS organization_slug FROM organization_invites invite JOIN organizations organization ON organization.id = invite.organization_id WHERE invite.id = $1 AND invite.organization_id = $2 LIMIT 1')) {
+        return { rows: supportInspectionInvite ? [supportInspectionInvite] : supportInspectionInvite === null ? [] : [{
+            id: 'invite-1', organization_id: 'org-1', email: 'member@example.com', role: 'reader', status: 'pending',
+            expires_at: '2026-11-01T00:00:00.000Z', accepted_at: null, accepted_by: null, revoked_at: null,
+            invited_by: 'owner-1', created_at: '2026-10-01T00:00:00.000Z',
+        }] }
+    }
+    if (normalizedSql.includes('SELECT * FROM organization_invites WHERE id = $1 AND organization_id = $2 LIMIT 1')) {
         supportInviteReads += 1
         if (supportInspectionInvite === null) return { rows: [] }
         if (supportInspectionInvite) return { rows: [supportInspectionInvite] }
@@ -58,7 +72,7 @@ async function run(sql: string, values: unknown[] = []) {
         }
         return { rows: [invite] }
     }
-    if (sql.includes('FROM organization_members om') && sql.includes('WHERE om.organization_id = $1') && sql.includes('om.user_id = $2')) {
+    if (sql.includes('SELECT') && sql.includes('FROM organization_members om') && sql.includes('JOIN users ON users.id = om.user_id') && sql.includes('JOIN organizations ON organizations.id = om.organization_id') && sql.includes('WHERE om.organization_id = $1') && sql.includes('om.user_id = $2')) {
         if (supportInspectionMember === null) return { rows: [] }
         if (supportInspectionMember) return { rows: [supportInspectionMember] }
         return { rows: [{
@@ -67,28 +81,48 @@ async function run(sql: string, values: unknown[] = []) {
             joined_at: '2026-10-01T00:00:00.000Z', created_at: '2026-10-01T00:00:00.000Z',
         }] }
     }
-    if (sql.includes('SELECT COUNT(*)::int AS owner_count') && sql.includes('FROM organization_members membership')) return { rows: [{ owner_count: supportOwnerCounts.shift() ?? 2 }] }
-    if (sql.includes('active_admin_count')) return { rows: supportAvailabilityResults.shift() ?? [] }
-    if (sql.includes('context->>\'idempotencyKey\'') && sql.includes('outcome = \'success\'')) {
+    if (sql.includes('SELECT') && sql.includes('FROM organization_members om') && sql.includes('JOIN organizations ON organizations.id = om.organization_id') && sql.includes('om.organization_id ILIKE') && sql.includes('ORDER BY organizations.name ASC, users.name ASC') && sql.includes('LIMIT')) return { rows: [] }
+    if (sql.includes('SELECT') && sql.includes('FROM organization_members om') && sql.includes('JOIN users ON users.id = om.user_id') && sql.includes('WHERE om.organization_id = $1') && sql.includes('ORDER BY') && sql.includes('CASE om.role')) return { rows: [] }
+    if (sql.includes('SELECT') && sql.includes('FROM organization_members om') && sql.includes('JOIN organizations ON organizations.id = om.organization_id') && sql.includes('WHERE om.user_id = $1') && sql.includes('ORDER BY organizations.name ASC')) return { rows: [] }
+    if (sql.includes('SELECT organization_invites.*') && sql.includes('FROM organization_invites') && sql.includes('JOIN organizations ON organizations.id = organization_invites.organization_id') && sql.includes('organization_invites.organization_id ILIKE') && sql.includes('ORDER BY organization_invites.status ASC, organization_invites.created_at DESC') && sql.includes('LIMIT')) return { rows: [] }
+    if (sql.includes('SELECT organization_invites.*') && sql.includes('FROM organization_invites') && sql.includes('JOIN organizations ON organizations.id = organization_invites.organization_id') && sql.includes('organization_invites.id ILIKE') && sql.includes('ORDER BY organization_invites.status ASC, organization_invites.created_at DESC') && sql.includes('LIMIT')) return { rows: [] }
+    if (sql.includes('SELECT organization_invites.*') && sql.includes('FROM organization_invites') && sql.includes('JOIN organizations ON organizations.id = organization_invites.organization_id') && sql.includes('lower(organization_invites.email) = lower($1)') && sql.includes('organization_invites.status = \'pending\'') && sql.includes('ORDER BY organization_invites.created_at DESC')) return { rows: [] }
+    if (sql.includes('SELECT *') && sql.includes('FROM organization_invites') && sql.includes('WHERE organization_id = $1') && sql.includes('id = ANY($2::text[])') && sql.includes('ORDER BY created_at DESC')) return { rows: [] }
+    if (sql.includes('SELECT *') && sql.includes('FROM organization_invites') && sql.includes('WHERE organization_id = $1') && sql.includes('ORDER BY status ASC, created_at DESC')) return { rows: [] }
+    if (sql.includes('SELECT *') && sql.includes('FROM organization_watchlist_items') && sql.includes('WHERE organization_id = $1') && sql.includes('archived_at IS NULL') && sql.includes('ORDER BY kind ASC, value ASC')) return { rows: [] }
+    if (sql.includes('SELECT') && sql.includes('FROM dwm_webhook_destinations') && sql.includes('WHERE org_id = $1') && sql.includes('status <> \'archived\'') && sql.includes('ORDER BY status ASC, updated_at DESC')) return { rows: [] }
+    if (normalizedSql.includes('SELECT COUNT(*)::int AS owner_count FROM organization_members membership JOIN users owner ON owner.id = membership.user_id AND owner.active IS TRUE AND owner.deletion_scheduled_at IS NULL WHERE membership.organization_id = $1 AND membership.status = \'active\' AND membership.role = \'owner\'')) return { rows: [{ owner_count: supportOwnerCounts.shift() ?? 2 }] }
+    if (normalizedSql.includes('SELECT om.organization_id, COUNT(*) FILTER (WHERE om.role = \'owner\' AND om.status = \'active\')::int AS owner_count') && normalizedSql.includes('COUNT(*) FILTER (WHERE om.role = \'owner\' AND om.status = \'active\' AND users.active)::int AS active_owner_count') && normalizedSql.includes('COUNT(*) FILTER (WHERE om.role IN (\'owner\', \'admin\') AND om.status = \'active\')::int AS admin_count') && normalizedSql.includes('COUNT(*) FILTER (WHERE om.role IN (\'owner\', \'admin\') AND om.status = \'active\' AND users.active)::int AS active_admin_count') && normalizedSql.includes('FROM organization_members om JOIN users ON users.id = om.user_id WHERE om.organization_id = ANY($1::text[]) GROUP BY om.organization_id')) return { rows: supportAvailabilityResults.shift() ?? [] }
+    if (normalizedSql.includes('SELECT id, request_id, subject_id, context FROM system_events WHERE event_type = \'support.organization.invite_assist\' AND organization_id = $1 AND outcome = \'success\' AND context->>\'idempotencyKey\' = $2 ORDER BY created_at ASC, id ASC LIMIT 1')) {
         return { rows: duplicateInviteAction ? [duplicateInviteAction] : [] }
     }
-    if (sql.includes('WHERE request_id = $1') && sql.includes('event_type = $2') && sql.includes('subject_id = $3')) {
+    if (normalizedSql.includes('SELECT id, request_id, subject_id, context FROM system_events WHERE event_type = $1 AND organization_id = $2 AND subject_id = $3 AND outcome = \'success\' AND context->>\'idempotencyKey\' = $4 ORDER BY created_at ASC, id ASC LIMIT 1')) {
+        return { rows: duplicateInviteAction ? [duplicateInviteAction] : [] }
+    }
+    if (normalizedSql.includes('SELECT id, request_id, subject_id, context FROM system_events WHERE event_type = \'support.organization.member_role_recovery\' AND organization_id = $1 AND subject_id = $2 AND outcome = \'success\' AND context->>\'idempotencyKey\' = $3 ORDER BY created_at ASC, id ASC LIMIT 1')) {
+        return { rows: duplicateInviteAction ? [duplicateInviteAction] : [] }
+    }
+    if (normalizedSql.includes('SELECT id FROM system_events WHERE request_id = $1 AND event_type = $2 AND subject_id = $3 ORDER BY created_at DESC, id DESC LIMIT 10')) {
         if (String(values[1]).startsWith('support.session.')) {
             return { rows: supportSessionEvents.filter(event => event.request_id === values[0] && event.event_type === values[1] && event.subject_id === values[2]).map(event => ({ id: event.id })) }
         }
         return { rows: [{ id: 91 }] }
     }
-    if (sql.includes('UPDATE organization_members') && sql.includes('SET role = $3')) return { rows: [{
+    if (normalizedSql.includes('SELECT users.id FROM users WHERE users.id = ANY($1::text[]) OR EXISTS ( SELECT 1 FROM organization_members membership WHERE membership.organization_id = $2 AND membership.user_id = users.id AND membership.status = \'active\' AND membership.role IN (\'owner\', \'admin\') ) ORDER BY users.id FOR UPDATE')) return { rows: [] }
+    if (normalizedSql.includes('UPDATE organization_members SET role = $3 WHERE organization_id = $1 AND user_id = $2 AND status = \'active\' RETURNING *')) return { rows: [{
         organization_id: 'org-1', user_id: 'member-1', role: 'reader', status: 'active',
     }] }
-    if (sql.includes('UPDATE admin_access_recovery_approvals')) {
+    if (normalizedSql.includes('UPDATE admin_access_recovery_approvals SET status = $2, approved_by = CASE WHEN $2 = \'approved\' THEN $3 ELSE NULL END, approved_at = CASE WHEN $2 = \'approved\' THEN NOW() ELSE NULL END, denied_by = CASE WHEN $2 = \'denied\' THEN $3 ELSE NULL END, denied_at = CASE WHEN $2 = \'denied\' THEN NOW() ELSE NULL END, decision_reason = $4, outcome = CASE WHEN $2 = \'approved\' THEN \'success\' ELSE \'denied\' END, updated_at = NOW() WHERE request_id = $1 AND status = \'pending\' RETURNING *')) {
         return { rows: supportDecisionApproval ? [{ ...supportDecisionApproval, status: values[1] }] : [] }
     }
-    if (sql.includes('FROM admin_access_recovery_approvals approval')) return { rows: sql.includes('WHERE approval.request_id = $1') && supportDecisionApproval ? [supportDecisionApproval] : approvalRows }
-    if (sql.includes('SELECT COUNT(*)::int AS total')) return { rows: [{ total: eventRows.length }] }
-    if (sql.includes('FROM system_events e') && sql.includes('WHERE e.id = $1')) return { rows: eventRows }
-    if (sql.includes('FROM system_events e')) return { rows: eventRows }
-    return { rows: [] }
+    if (sql.includes('SELECT') && sql.includes('approval.*') && sql.includes('FROM admin_access_recovery_approvals approval') && sql.includes('JOIN organization_invites invite ON invite.id = approval.invite_id') && sql.includes('LEFT JOIN organizations organization ON organization.id = approval.organization_id') && sql.includes('WHERE approval.request_id = $1') && sql.includes('LIMIT 1')) return { rows: supportDecisionApproval ? [supportDecisionApproval] : [] }
+    if (sql.includes('SELECT') && sql.includes('approval.*') && sql.includes('FROM admin_access_recovery_approvals approval') && sql.includes('JOIN organization_invites invite ON invite.id = approval.invite_id') && sql.includes('LEFT JOIN organizations organization ON organization.id = approval.organization_id') && sql.includes('COALESCE((') && sql.includes(') AS audit_events') && sql.includes('ORDER BY approval.updated_at DESC, approval.created_at DESC') && sql.includes('LIMIT')) return { rows: approvalRows }
+    if (normalizedSql.includes('SELECT COUNT(*)::int AS total FROM system_events e') && normalizedSql.includes('LEFT JOIN users actor ON actor.id = e.actor_id') && normalizedSql.includes('LEFT JOIN users target_user ON target_user.id = e.object_id') && normalizedSql.includes('LEFT JOIN organizations organization ON organization.id = e.organization_id') && !normalizedSql.includes('system_event_acknowledgments')) return { rows: [{ total: eventRows.length }] }
+    if (normalizedSql.includes('SELECT e.id, e.event_type, e.severity, e.source, e.service, e.actor_id') && normalizedSql.includes('FROM system_events e') && normalizedSql.includes('LEFT JOIN system_event_acknowledgments acknowledgement ON acknowledgement.event_id = e.id') && normalizedSql.includes('LEFT JOIN users acknowledged_actor ON acknowledged_actor.id = acknowledgement.acknowledged_by') && normalizedSql.includes('WHERE e.id = $1') && normalizedSql.includes('LIMIT 1')) return { rows: eventRows }
+    if (normalizedSql.includes('SELECT e.id, e.event_type, e.severity, e.source, e.service, e.actor_id') && normalizedSql.includes('FROM system_events e') && normalizedSql.includes('LEFT JOIN system_event_acknowledgments acknowledgement ON acknowledgement.event_id = e.id') && normalizedSql.includes('LEFT JOIN users acknowledged_actor ON acknowledged_actor.id = acknowledgement.acknowledged_by') && normalizedSql.includes('ORDER BY e.created_at DESC, e.id DESC') && normalizedSql.includes('LIMIT') && normalizedSql.includes('OFFSET')) return { rows: eventRows }
+    if (normalizedSql.includes('SELECT id, event_type, severity, source, service, actor_id, object_type, object_id, subject_id, request_id, outcome, reason, context, created_at FROM system_events WHERE organization_id = $1 ORDER BY created_at DESC LIMIT 25')) return { rows: eventRows }
+    if (normalizedSql.includes('SELECT id, event_type, severity, source, service, actor_id, object_type, object_id, organization_id, subject_id, request_id, outcome, reason, context, created_at FROM system_events WHERE object_id = $1 OR actor_id = $1 OR subject_id = $1 ORDER BY created_at DESC LIMIT 25')) return { rows: eventRows }
+    throw new Error(`Unmatched admin-support test SQL query:\n${sql}`)
 }
 
 const recordedEvents: Array<Record<string, unknown>> = []
@@ -252,6 +286,12 @@ beforeEach(() => {
     nextSupportEventId = 100
     queries.length = 0
     recordedEvents.length = 0
+})
+
+test('admin-support database fake reports unmatched SQL', async () => {
+    const unmatchedSql = 'SELECT intentionally_unmatched_admin_support_test_query'
+
+    await expect(run(unmatchedSql)).rejects.toThrow(unmatchedSql)
 })
 
 test('support audit routes enforce admin-only access and reject impersonated actors', async () => {
