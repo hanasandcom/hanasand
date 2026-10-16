@@ -3,8 +3,6 @@ import { resetAdminSupportDatabaseFixture, run, state } from './fixtures/admin-s
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import { uniqueTimelineValues } from '../src/utils/support/inspectionPackets.ts'
 
-const systemEventUtils = await import('../src/utils/systemEvent.ts')
-
 function accessRecoveryApprovalFixture(requestId: string) {
     return {
         request_id: requestId, organization_id: 'org-1', invite_id: 'invite-1', target_user_id: 'user-1',
@@ -16,6 +14,7 @@ function accessRecoveryApprovalFixture(requestId: string) {
 }
 
 mock.module('../src/utils/db.ts', () => ({ default: run, queryOnce: run, identityQueryOnce: run, withTransaction: async (work: (query: typeof run) => Promise<unknown>) => work(run), closeDatabase: async () => {} }))
+const systemEventUtils = await import('../src/utils/systemEvent.ts')
 const identityDataWrites = await import('../src/utils/db/identityDataWrites.ts')
 mock.module('../src/utils/auth/tokenWrapper.ts', () => ({ default: async () => state.actor }))
 mock.module('../src/utils/systemEvent.ts', () => ({

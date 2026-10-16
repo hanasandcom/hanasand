@@ -4,7 +4,7 @@ import run from '#db'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import { supportRequestId, supportSessionIdFromAuditEvent, supportSessionIdFromRequest } from '#utils/support/adminSupportInput.ts'
 import { loadSupportSessionState } from '#utils/support/supportSessionState.ts'
-import { actorHasHanasandInternalAccess, recordSystemEvent, requireAuditReason } from '#utils/systemEvent.ts'
+import { actorHasHanasandInternalAccess, loadSystemEventIds, recordSystemEvent, requireAuditReason } from '#utils/systemEvent.ts'
 
 type StartBody = {
     object_id?: string
@@ -1370,19 +1370,6 @@ function impersonationError(code: string, message: string, detail: Record<string
             ...detail,
         },
     }
-}
-
-async function loadSystemEventIds(input: { requestId: string, actionType: string, entityId: string }) {
-    const result = await run(`
-        SELECT id
-        FROM system_events
-        WHERE request_id = $1
-          AND event_type = $2
-          AND subject_id = $3
-        ORDER BY created_at DESC, id DESC
-        LIMIT 10
-    `, [input.requestId, input.actionType, input.entityId])
-    return result.rows.map((row: Record<string, unknown>) => Number(row.id)).filter(id => Number.isFinite(id))
 }
 
 export async function getImpersonationCurrent(req: FastifyRequest, res: FastifyReply) {

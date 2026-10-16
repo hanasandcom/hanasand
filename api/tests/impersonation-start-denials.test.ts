@@ -15,13 +15,15 @@ const query = async (sql: string, values: unknown[] = []) => {
     if (sql.includes('FROM impersonation_sessions s')) {
         return { rows: [{ id: 'impersonation-1', actor_id: 'admin-user', object_id: 'target-user', target_name: 'Target User', reason: 'Support review', audit_context: { scope: [], organizationId: null } }] }
     }
-    if (sql.includes('FROM system_events')) return { rows: [{ id: 731 }] }
+    if (sql.includes('FROM system_events')) return { rows: [{ id: 731 }, { id: 'not-an-id' }] }
     throw new Error(`Unexpected impersonation start query: ${sql}`)
 }
 
-mock.module('#db', () => ({ default: query, isTransientDatabaseError: () => false }))
+mock.module('#db', () => ({ default: query, identityQueryOnce: query, isTransientDatabaseError: () => false }))
+const systemEventUtils = await import('../src/utils/systemEvent.ts')
 mock.module('#utils/auth/tokenWrapper.ts', () => ({ default: async () => actor }))
 mock.module('#utils/systemEvent.ts', () => ({
+    ...systemEventUtils,
     actorHasHanasandInternalAccess: async () => true,
     recordSystemEvent: async (_req: unknown, event: Record<string, any>) => {
         if (failSystemEventWrite) throw new Error('audit store unavailable')
@@ -53,6 +55,8 @@ function expectDeniedEventLookup(requestId: string, entityId: string) {
     expect(queries[1].sql).toContain('WHERE request_id = $1')
     expect(queries[1].sql).toContain('AND event_type = $2')
     expect(queries[1].sql).toContain('AND subject_id = $3')
+    expect(queries[1].sql).toContain('ORDER BY created_at DESC, id DESC')
+    expect(queries[1].sql).toContain('LIMIT 10')
     expect(queries[1].values).toEqual([requestId, 'impersonation.start', entityId])
 }
 

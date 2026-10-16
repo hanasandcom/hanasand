@@ -68,6 +68,7 @@ mock.module('#db', () => ({
 mock.module('#utils/auth/tokenWrapper.ts', () => ({ default: async () => actor }))
 mock.module('#utils/systemEvent.ts', () => ({
     actorHasHanasandInternalAccess: async () => true,
+    loadSystemEventIds: async () => [],
     recordSystemEvent: async () => {},
     requireAuditReason: async () => true,
 }))

@@ -201,6 +201,19 @@ export async function recordSystemEvent(req: FastifyRequest, input: SystemEventI
     ])
 }
 
+export async function loadSystemEventIds(input: { requestId: string, actionType: string, entityId: string }, query: typeof run = run) {
+    const result = await query(`
+        SELECT id
+        FROM system_events
+        WHERE request_id = $1
+          AND event_type = $2
+          AND subject_id = $3
+        ORDER BY created_at DESC, id DESC
+        LIMIT 10
+    `, [input.requestId, input.actionType, input.entityId])
+    return result.rows.map((row: Record<string, unknown>) => Number(row.id)).filter(id => Number.isFinite(id))
+}
+
 function cleanAuditDimension(value: unknown) {
     return typeof value === 'string' ? value.trim().replace(/\s+/g, '-').slice(0, 80) : ''
 }
