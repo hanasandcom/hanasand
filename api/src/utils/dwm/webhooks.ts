@@ -3818,19 +3818,7 @@ export function buildDwmWebhookDeliveryRetryContract({
     const alertContext = recordOrEmpty(normalizedInput.alert)
     const alertId = firstClean(normalizedInput.alertId, alertContext.id, alertContext.alertId)
     const dedupeKey = firstClean(normalizedInput.dedupeKey, alertContext.dedupeKey, alertId)
-    const dispatchDestinations = destinations.map(destination => ({
-        id: destination.id,
-        org_id: destination.orgId,
-        name: destination.name,
-        kind: destination.kind,
-        status: destination.status,
-        events: destination.events,
-    }))
-    const dispatch = buildDwmAlertWebhookDispatchPlan({
-        ownerId,
-        input: normalizedInput,
-        destinations: dispatchDestinations,
-    })
+    const dispatch = buildDwmWebhookDispatchPlanForDestinations(ownerId, normalizedInput, destinations)
     const destinationHealth = buildDwmWebhookDestinationHealth({ destinations, deliveries, auditEvents, liveDeliveryEnabled })
     const healthByDestination = new Map(destinationHealth.map(health => [health.destinationId, health]))
     const ledger = buildDwmWebhookDeliveryLedger({ deliveries, auditEvents })
@@ -5411,19 +5399,7 @@ export function buildDwmOrgAlertWebhookDeliveryContract({
     const normalizedInput = buildDwmWebhookDeliveryRequestInput(input)
     const dryRun = parseBoolean(normalizedInput.dryRun ?? normalizedInput.dry_run, true)
     const liveRequested = parseBoolean(normalizedInput.live, false)
-    const dispatchDestinations = destinations.map(destination => ({
-        id: destination.id,
-        org_id: destination.orgId,
-        name: destination.name,
-        kind: destination.kind,
-        status: destination.status,
-        events: destination.events,
-    }))
-    const dispatch = buildDwmAlertWebhookDispatchPlan({
-        ownerId,
-        input: normalizedInput,
-        destinations: dispatchDestinations,
-    })
+    const dispatch = buildDwmWebhookDispatchPlanForDestinations(ownerId, normalizedInput, destinations)
     const destinationHealth = buildDwmWebhookDestinationHealth({ destinations, deliveries, auditEvents, liveDeliveryEnabled })
     const destinationLifecycle = buildDwmWebhookDestinationLifecycle({
         destinations,
@@ -6188,19 +6164,7 @@ export function buildDwmOrgAlertWebhookDeliveryOutcome({
     const normalizedInput = buildDwmWebhookDeliveryRequestInput(input)
     const dryRun = parseBoolean(normalizedInput.dryRun ?? normalizedInput.dry_run, true)
     const liveRequested = parseBoolean(normalizedInput.live, false)
-    const dispatchDestinations = destinations.map(destination => ({
-        id: destination.id,
-        org_id: destination.orgId,
-        name: destination.name,
-        kind: destination.kind,
-        status: destination.status,
-        events: destination.events,
-    }))
-    const dispatch = buildDwmAlertWebhookDispatchPlan({
-        ownerId,
-        input: normalizedInput,
-        destinations: dispatchDestinations,
-    })
+    const dispatch = buildDwmWebhookDispatchPlanForDestinations(ownerId, normalizedInput, destinations)
     const normalizedAlert = normalizeAlert(dispatch.alert)
     const watchlist = normalizeWatchlist(dispatch.alert.watchlist)
     const ledger = buildDwmWebhookDeliveryLedger({ deliveries, auditEvents })
@@ -6358,19 +6322,7 @@ export function buildDwmAlertWebhookReadinessHandoff({
     const dryRun = parseBoolean(normalizedInput.dryRun ?? normalizedInput.dry_run, true)
     const liveRequested = parseBoolean(normalizedInput.live, false)
     const eventType = parseEventType(normalizedInput.eventType ?? normalizedInput.event_type, 'dwm.alert.created')
-    const dispatchDestinations = destinations.map(destination => ({
-        id: destination.id,
-        org_id: destination.orgId,
-        name: destination.name,
-        kind: destination.kind,
-        status: destination.status,
-        events: destination.events,
-    }))
-    const dispatch = buildDwmAlertWebhookDispatchPlan({
-        ownerId,
-        input: normalizedInput,
-        destinations: dispatchDestinations,
-    })
+    const dispatch = buildDwmWebhookDispatchPlanForDestinations(ownerId, normalizedInput, destinations)
     const normalizedAlert = normalizeAlert(dispatch.alert)
     const watchlist = normalizeWatchlist(dispatch.alert.watchlist)
     const orgDestinations = destinations.filter(destination => destination.orgId === dispatch.orgId)
@@ -8331,6 +8283,25 @@ function toDwmWebhookDispatchDestinationForContract(destination: DwmWebhookDispa
         status: destination.status,
         events: Array.isArray(destination.events) ? destination.events : [],
     }
+}
+
+function buildDwmWebhookDispatchPlanForDestinations(
+    ownerId: string,
+    input: DwmAlertNotificationInput,
+    destinations: DwmWebhookDestinationPublic[],
+) {
+    return buildDwmAlertWebhookDispatchPlan({
+        ownerId,
+        input,
+        destinations: destinations.map(destination => ({
+            id: destination.id,
+            org_id: destination.orgId,
+            name: destination.name,
+            kind: destination.kind,
+            status: destination.status,
+            events: destination.events,
+        })),
+    })
 }
 
 function deliveryAttemptContractBlockers({

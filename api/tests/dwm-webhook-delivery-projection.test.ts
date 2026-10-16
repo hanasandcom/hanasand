@@ -1,5 +1,9 @@
 import { expect, test } from 'bun:test'
 import {
+    buildDwmAlertWebhookReadinessHandoff,
+    buildDwmOrgAlertWebhookDeliveryContract,
+    buildDwmOrgAlertWebhookDeliveryOutcome,
+    buildDwmWebhookDeliveryRetryContract,
     buildDwmWebhookDeliveryEvidence,
     buildDwmWebhookDeliveryHistory,
     buildDwmWebhookDeliveryLedger,
@@ -173,5 +177,52 @@ test('projects shared evidence, attempts, operations and history without losing 
         counts: { failed: 1 },
         filters: { action: 'delivery.retry_scheduled' },
         entries: [{ deliveryId: 'delivery_1', deliveryProof: { auditEventId: 'audit_1' } }],
+    })
+})
+
+test('organization delivery contracts share destination selection semantics', () => {
+    const destinations = [
+        destination,
+        { ...destination, id: 'destination_unsubscribed', events: ['dwm.alert.created'] },
+        { ...destination, id: 'destination_paused', status: 'paused' as const },
+        { ...destination, id: 'destination_other_org', orgId: 'org_2' },
+        { ...destination, id: 'destination_legacy_org', orgId: ' org_1 ' },
+    ]
+    const input = {
+        orgId: 'org_1',
+        eventType: 'dwm.alert.updated' as const,
+        alert: payload.alert,
+    }
+    const common = { ownerId: 'owner_1', input, destinations, deliveries: [], auditEvents: [], liveDeliveryEnabled: false }
+    const retry = buildDwmWebhookDeliveryRetryContract({ ...common, canManage: true })
+    const contract = buildDwmOrgAlertWebhookDeliveryContract({ ...common, viewerRole: 'owner', canManage: true })
+    const outcome = buildDwmOrgAlertWebhookDeliveryOutcome(common)
+    const readiness = buildDwmAlertWebhookReadinessHandoff(common)
+
+    expect(retry.destinationSelection).toMatchObject({
+        selectedDestinationIds: ['destination_1'],
+        skippedDestinations: [
+            { id: 'destination_unsubscribed', reason: 'event_not_subscribed' },
+            { id: 'destination_paused', reason: 'disabled' },
+            { id: 'destination_other_org', reason: 'org_mismatch' },
+            { id: 'destination_legacy_org', reason: 'org_mismatch' },
+        ],
+    })
+    expect(contract.destinationSelection.selectedDestinations.map(row => row.id)).toEqual(['destination_1'])
+    expect(outcome.selectedDestinations.map(row => row.destinationId)).toEqual(['destination_1'])
+    expect(outcome.skippedDestinations.map(row => [row.destinationId, row.reason])).toEqual([
+        ['destination_unsubscribed', 'event_not_subscribed'],
+        ['destination_paused', 'disabled'],
+        ['destination_other_org', 'org_mismatch'],
+        ['destination_legacy_org', 'org_mismatch'],
+    ])
+    expect(readiness.destinationSelection).toMatchObject({
+        selectedDestinationIds: ['destination_1'],
+        skippedDestinations: [
+            { id: 'destination_unsubscribed', reason: 'event_not_subscribed' },
+            { id: 'destination_paused', reason: 'disabled' },
+            { id: 'destination_other_org', reason: 'org_mismatch' },
+            { id: 'destination_legacy_org', reason: 'org_mismatch' },
+        ],
     })
 })
