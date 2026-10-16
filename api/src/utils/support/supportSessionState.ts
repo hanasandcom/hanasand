@@ -11,7 +11,7 @@ export async function loadSupportSessionState(supportSessionId: string) {
     `, [supportSessionId])
     const create = result.rows.find((row: Record<string, unknown>) => row.event_type === 'support.session.create') as Record<string, any> | undefined
     if (!create) return null
-    const revoke = [...result.rows].reverse().find((row: Record<string, unknown>) => row.event_type === 'support.session.revoke' && row.outcome === 'success') as Record<string, any> | undefined
+    const revoke = result.rows.findLast((row: Record<string, unknown>) => row.event_type === 'support.session.revoke' && row.outcome === 'success') as Record<string, any> | undefined
     const context = create.context as Record<string, unknown>
     return {
         supportSessionId,

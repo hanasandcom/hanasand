@@ -878,6 +878,49 @@ test('support session can be created, inspected, then revoked through its audit 
     expect(recordedEvents.filter(event => ['support.session.create', 'support.session.revoke'].includes(String(event.actionType)))).toHaveLength(3)
 })
 
+test('support session inspection uses the latest successful revoke and retains ordered audit IDs', async () => {
+    const sessionId = 'support_session_multiple_revokes'
+    const expiresAt = '2099-01-01T00:00:00.000Z'
+    supportSessionEvents.push(
+        {
+            id: 301, event_type: 'support.session.create', actor_id: 'creator', subject_id: sessionId,
+            request_id: 'create-request', reason: 'Review access', outcome: 'success',
+            context: { expiresAt }, created_at: '2026-10-16T10:00:00.000Z',
+        },
+        {
+            id: 302, event_type: 'support.session.create', actor_id: 'later-creator', subject_id: sessionId,
+            request_id: 'later-create-request', reason: 'Later create must not replace original', outcome: 'success',
+            context: { expiresAt }, created_at: '2026-10-16T10:00:30.000Z',
+        },
+        {
+            id: 303, event_type: 'support.session.revoke', actor_id: 'first-revoker', subject_id: sessionId,
+            outcome: 'success', created_at: '2026-10-16T10:01:00.000Z',
+        },
+        {
+            id: 304, event_type: 'support.session.revoke', actor_id: 'failed-revoker', subject_id: sessionId,
+            outcome: 'failed', created_at: '2026-10-16T10:02:00.000Z',
+        },
+        {
+            id: 305, event_type: 'support.session.revoke', actor_id: 'latest-revoker', subject_id: sessionId,
+            outcome: 'success', created_at: '2026-10-16T10:03:00.000Z',
+        },
+    )
+
+    const inspected = await request(getSupportSession, { params: { sessionId } })
+
+    expect(inspected.statusCode).toBe(200)
+    expect(inspected.body.supportSession).toMatchObject({
+        id: sessionId,
+        actorId: 'creator',
+        reason: 'Review access',
+        requestId: 'create-request',
+        status: 'revoked',
+        revokedBy: 'latest-revoker',
+        revokedAt: '2026-10-16T10:03:00.000Z',
+        auditEventIds: [301, 302, 303, 304, 305],
+    })
+})
+
 test('expired support session revoke uses the lifecycle status and records a denial', async () => {
     const sessionId = 'support_session_expired'
     supportSessionEvents.push({
