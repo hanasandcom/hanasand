@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
+import { organizationWorkspaceSource } from './organization-workspace-source.mjs'
 import { afterAll, afterEach, mock, test } from 'bun:test'
 import { NextRequest } from 'next/server'
 
@@ -156,7 +157,7 @@ test('organization watchlist save mirrors the same scope and failed sync is expl
         assert.equal(call.body.terms[0].id, 'term-1')
     }
 
-    const workspace = await readFile(new URL('../src/app/organizations/organizationWorkspaceClient.tsx', import.meta.url), 'utf8')
+    const workspace = organizationWorkspaceSource
     assert.doesNotMatch(workspace, /editDuplicate \|\| !editChanged \|\| Boolean\(busy\)/)
     assert.match(workspace, /\{editChanged \? 'Save' : 'Sync'\}/)
     assert.match(workspace, /err\.code === 'dwm_watchlist_sync_failed'/)

@@ -1,5 +1,6 @@
 import { strict as assert } from 'node:assert'
 import { readFileSync } from 'node:fs'
+import { organizationWorkspaceSource } from './organization-workspace-source.mjs'
 import test from 'node:test'
 import {
     buildDwmOrganizationMirrorPayload,
@@ -10,7 +11,6 @@ import {
     mirrorOrganizationToDwmResult,
 } from '@/app/api/organizations/_organizationWatchlistDwmBridge'
 
-const organizationWorkspaceSource = readFileSync(new URL('../src/app/organizations/organizationWorkspaceClient.tsx', import.meta.url), 'utf8')
 const dwmAnalystPortalSource = readFileSync(new URL('../src/app/dashboard/findings/findings.tsx', import.meta.url), 'utf8')
 const organizationWebhookRouteSource = readFileSync(new URL('../src/app/api/organizations/[id]/webhooks/route.ts', import.meta.url), 'utf8')
 

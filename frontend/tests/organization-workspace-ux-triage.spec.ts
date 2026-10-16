@@ -1,9 +1,7 @@
 import { expect, test } from '@playwright/test'
-import { readFile } from 'node:fs/promises'
-import path from 'node:path'
+import { organizationWorkspaceSource } from './organization-workspace-source.mjs'
 import { alertGenerationReference } from '../src/app/organizations/organizationWorkspaceClient'
 
-const root = process.cwd()
 
 test('organization workspace normalizes structured alert references without fake alert fallbacks', async () => {
     expect(alertGenerationReference('watch-direct')).toBe('watch-direct')
@@ -11,7 +9,7 @@ test('organization workspace normalizes structured alert references without fake
     expect(alertGenerationReference({ watchlistItemId: 'watch-item' })).toBe('watch-item')
     expect(alertGenerationReference({})).toBeUndefined()
 
-    const page = await readFile(path.join(root, 'src/app/organizations/organizationWorkspaceClient.tsx'), 'utf8')
+    const page = organizationWorkspaceSource
     expect(page).not.toContain('liveDwmAlertId')
     expect(page).not.toContain('dwm_alert_c6ef012afc7016b5')
     expect(page).not.toContain('DestinationControls')
@@ -20,7 +18,7 @@ test('organization workspace normalizes structured alert references without fake
 })
 
 test('organization workspace keeps launch workflow primary and admin controls disclosed', async () => {
-    const page = await readFile(path.join(root, 'src/app/organizations/organizationWorkspaceClient.tsx'), 'utf8')
+    const page = organizationWorkspaceSource
 
     expect(page).toContain('data-org-setup-progress')
     expect(page).toContain('data-org-setup-rail')

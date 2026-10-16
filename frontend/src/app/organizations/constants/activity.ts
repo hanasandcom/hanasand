@@ -1,0 +1,1 @@
+export const ORG_ACTIVITY_PREVIEW_ROWS = 8
