@@ -12,6 +12,7 @@ mock.module('../src/utils/systemEvent.ts', () => ({
     recordSystemEvent: async (_req: unknown, event: Record<string, unknown>) => { state.recordedEvents.push(event) },
 }))
 mock.module('../src/utils/db/identityDataWrites.ts', () => ({
+    touchOrganization: async () => {},
     upsertAdminAccessRecoveryApproval: async () => { state.supportRecoveryApprovalWrites += 1 },
     upsertOrganizationInvite: async () => state.supportRecoveryInviteUpsert,
     updateOrganizationInviteAction: async () => state.supportRecoveryInviteResult,

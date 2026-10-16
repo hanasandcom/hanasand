@@ -7,12 +7,16 @@ export { getSupportOrganizationInvite, getSupportOrganizationMember } from './ad
 export { getSupportOrganization } from './adminSupport/cases/organizationRead.ts'
 export { getSupportUser } from './adminSupport/cases/userRead.ts'
 export { getSupportAccessRecoveryApprovals } from './adminSupport/accessRecovery/approvalSearch.ts'
+export { supportRoleRecoveryDecision } from './adminSupport/memberRoleRecovery/policy.ts'
+export { supportMemberRoleRecoveryExecutorControls, recordSupportMemberRoleRecoveryExecutorBlock } from './adminSupport/memberRoleRecovery/controls.ts'
+export { supportMemberRoleRecoveryExecutorDetail } from './adminSupport/memberRoleRecovery/executorReceipt.ts'
+export { supportMemberRoleRecoveryAuditQuery } from './adminSupport/memberRoleRecovery/auditQuery.ts'
 import { inviteSnapshot } from './adminSupport/cases/organizationEntityReads.ts'
 import { loadOrganizationSupportDetail, loadSupportMemberDetail } from './adminSupport/cases/organizationReadData.ts'
 import { buildSupportInspectionAuthorization } from './adminSupport/cases/inspection/authorization.ts'
 import { supportTimelineFilter } from './adminSupport/cases/inspection/timelineFilter.ts'
 import { prepareSupportInspectionRequest, type SupportInspectionQuery } from './adminSupport/cases/inspection/inspectionRequest.ts'
-import { supportActionIdempotencyKey, type SupportActionPreparationInput } from './adminSupport/cases/inspection/inspectionActionPreparation.ts'
+import type { SupportActionPreparationInput } from './adminSupport/cases/inspection/inspectionActionPreparation.ts'
 import { supportInspectionFilterError } from './adminSupport/cases/inspection/inspectionFilterValidation.ts'
 import { loadSupportInspectionData } from './adminSupport/cases/inspection/inspectionData.ts'
 import { buildSupportInspectionCaseModels } from './adminSupport/cases/inspection/inspectionCaseModels.ts'
@@ -28,7 +32,7 @@ export { buildSupportSubjectInspectionContext } from './adminSupport/cases/subje
 export { buildSupportSubjectInspectionReceipts } from './adminSupport/cases/subjectInspectionReceipts.ts'
 import { randomUUID } from 'crypto'
 import run, { withTransaction } from '#db'
-import { touchOrganization, updateActiveOrganizationMemberRole, updateOrganizationInviteAction, upsertAdminAccessRecoveryApproval, upsertOrganizationInvite } from '#utils/db/identityDataWrites.ts'
+import { touchOrganization, updateOrganizationInviteAction, upsertAdminAccessRecoveryApproval, upsertOrganizationInvite } from '#utils/db/identityDataWrites.ts'
 import { isAccountUnavailable } from '#utils/accountAvailability.ts'
 import { loadInspectionAuditEvents } from './adminSupport/inspectionEventLoaders.ts'
 import { toSystemEvent, toSupportAuditTimelineEvent } from './adminSupport/audit/auditEventProjection.ts'
@@ -43,7 +47,7 @@ import { supportAuditSupportWorkflowPacket, supportAuditWorkflowRollup } from '.
 import { supportAuditActionEvidenceRollup } from './adminSupport/audit/auditEvidenceRollups.ts'
 import { supportAuditEventDecisionPacket } from './adminSupport/audit/auditDecisionPackets.ts'
 import { supportCaseTimelineEntries } from './adminSupport/audit/auditCaseTimeline.ts'
-import { toSupportMemberDetail, membershipSnapshot, buildRecoveryEligibility, toSupportInvite } from './adminSupport/cases/subjectMapping.ts'
+import { buildRecoveryEligibility, toSupportInvite } from './adminSupport/cases/subjectMapping.ts'
 import { buildSupportAccessRecoveryPlan } from './adminSupport/cases/accessRecoveryPlan.ts'
 import { auditTimelineLink } from './adminSupport/audit/auditLinks.ts'
 import { supportRecoveryLifecycleCleanupExport } from './adminSupport/cases/readiness/lifecycleCleanupExport.ts'
@@ -52,29 +56,25 @@ import { supportRecoveryReadinessMatrix } from './adminSupport/cases/readiness/r
 import { supportRecoveryCaseReplayFixture } from './adminSupport/cases/readiness/caseReplayFixture.ts'
 import { supportReadinessWorkflowContracts } from './adminSupport/cases/readiness/workflowContracts.ts'
 import { supportWorkbenchAdapter } from './adminSupport/cases/workbenchAdapter.ts'
+import { loadSupportSuccessfulIdempotencyReceipt, requireWritableSupportOrganization, validateSupportSessionForAction } from './adminSupport/actionAccess.ts'
+import { recordSupportExecutorBlock, supportExecutorControls, supportExecutorMetadata, type SupportExecutorControls, type SupportExecutorControlsResult } from './adminSupport/executorCore.ts'
+import { supportExecutorAuditPreview, supportExecutorAuditQuery, supportExecutorCommonBlockerCatalog } from './adminSupport/executorAudit.ts'
 import type { AccessRecoveryApprovalRow } from './adminSupport/supportTypes.ts'
-import { activeOrganizationOwnerCount as activeOwnerCount, organizationMembershipAvailability as loadOrganizationAvailability, type OrganizationMembershipAvailability } from '#utils/organizationMemberships.ts'
-import { hasOrganizationPrivacyDeletionMarker, organizationPrivacyDeletionInProgress } from '#utils/organizationLifecycle.ts'
-import { cleanContext, headerText, normalizeOption, normalizeSupportPreparationScope, supportError, supportInspectionQueryFilters, supportRequestId, supportSessionIdFromRequest, supportText as text } from '#utils/support/adminSupportInput.ts'
-import { loadSupportSessionState } from '#utils/support/supportSessionState.ts'
+import { organizationMembershipAvailability as loadOrganizationAvailability, type OrganizationMembershipAvailability } from '#utils/organizationMemberships.ts'
+import { hasOrganizationPrivacyDeletionMarker } from '#utils/organizationLifecycle.ts'
+import { cleanContext, normalizeOption, supportError, supportInspectionQueryFilters, supportRequestId, supportSessionIdFromRequest, supportText as text } from '#utils/support/adminSupportInput.ts'
 import { auditFilterQuery, uniqueTimelineValues, type SupportTimelineFilter } from '#utils/support/inspectionPackets.ts'
 import { loadSystemEventIds, recordSystemEvent, redactAuditValue, requireAuditReason } from '#utils/systemEvent.ts'
 import {
     normalizeInviteInput,
-    normalizeMemberRoleInput,
     toInvite,
     toOrganization,
     type InviteInput,
-    type OrganizationRole,
     type OrganizationInviteRow,
 } from '#utils/organizations.ts'
 
 type OrganizationParams = {
     id: string
-}
-
-type OrganizationMemberParams = OrganizationParams & {
-    userId: string
 }
 
 type SupportInviteBody = InviteInput & {
@@ -114,23 +114,6 @@ type SupportInviteActionBody = {
     expires_at?: unknown
 }
 
-type SupportMemberRoleRecoveryBody = {
-    role?: unknown
-    reason?: unknown
-    context?: unknown
-    requestId?: unknown
-    request_id?: unknown
-    scope?: unknown
-    supportSessionId?: unknown
-    support_session_id?: unknown
-    correlationId?: unknown
-    correlation_id?: unknown
-    idempotencyKey?: unknown
-    idempotency_key?: unknown
-    handoffExpiresAt?: unknown
-    handoff_expires_at?: unknown
-}
-
 type SupportAccessRecoveryBody = InviteInput & {
     targetUserId?: unknown
     reason?: unknown
@@ -153,8 +136,6 @@ type SupportAccessRecoveryDecisionBody = {
     supportSessionId?: unknown
     support_session_id?: unknown
 }
-
-
 
 
 
@@ -1250,508 +1231,7 @@ export async function postSupportOrganizationInviteAction(req: FastifyRequest<{ 
     })
 }
 
-export async function postSupportOrganizationMemberRoleRecovery(req: FastifyRequest<{ Params: OrganizationMemberParams, Body: SupportMemberRoleRecoveryBody }>, res: FastifyReply) {
-    const actor = await requireAdminSupport(req, res)
-    if (!actor) return
-
-    let reason: string
-    let input: ReturnType<typeof normalizeMemberRoleInput>
-    try {
-        reason = requireAuditReason(req.body?.reason, 'Member role recovery reason')
-        input = normalizeMemberRoleInput({
-            role: req.body?.role,
-            reason,
-            requestId: req.body?.requestId,
-            request_id: req.body?.request_id,
-        })
-    } catch (error) {
-        return res.status(400).send({ error: error instanceof Error ? error.message : 'Invalid support member role recovery request.' })
-    }
-
-    const organization = await requireWritableSupportOrganization(req.params.id, res)
-    if (!organization) return
-
-    const requestId = input.requestId || supportRequestId(req)
-    const actionType = 'support.organization.member_role_recovery'
-    const controls = supportMemberRoleRecoveryExecutorControls(req, req.body, requestId)
-    if (controls.error) {
-        await recordSupportMemberRoleRecoveryExecutorBlock(req, {
-            actorId: actor.id,
-            organizationId: organization.id,
-            userId: req.params.userId,
-            requestId,
-            reason,
-            blocker: controls.error.code,
-            requestedRole: input.role,
-            controls: controls.value,
-            supportContext: cleanContext(req.body?.context),
-        })
-        return res.status(controls.error.status).send(supportError(controls.error.code, controls.error.message, {
-            executorBlocker: supportMemberRoleRecoveryExecutorDetail({
-                actorId: actor.id,
-                organizationId: organization.id,
-                userId: req.params.userId,
-                requestId,
-                reason,
-                requestedRole: input.role,
-                controls: controls.value,
-                member: null,
-                before: null,
-                after: null,
-                outcome: 'denied',
-                blockers: [controls.error.code],
-            }),
-        }))
-    }
-    const executorControls = controls.value
-
-    const member = await loadSupportMemberDetail(req.params.id, req.params.userId)
-    if (!member) {
-        return res.status(404).send({ error: 'Active organization member not found.' })
-    }
-
-    const sessionValidation = await validateSupportSessionForAction({
-        actorId: actor.id,
-        supportSessionId: executorControls.supportSessionId,
-        action: 'member_role_recovery',
-        requiredScope: 'member:role_recovery',
-        organizationId: organization.id,
-        targetUserId: req.params.userId,
-    })
-    if (sessionValidation.error) {
-        const snapshot = membershipSnapshot(member)
-        await recordSupportMemberRoleRecoveryExecutorBlock(req, {
-            actorId: actor.id,
-            organizationId: organization.id,
-            userId: req.params.userId,
-            requestId,
-            reason,
-            blocker: sessionValidation.error.code,
-            requestedRole: input.role,
-            controls: executorControls,
-            supportContext: cleanContext(req.body?.context),
-            before: snapshot,
-        })
-        return res.status(sessionValidation.error.status).send(supportError(sessionValidation.error.code, sessionValidation.error.message, {
-            executorBlocker: supportMemberRoleRecoveryExecutorDetail({
-                actorId: actor.id,
-                organizationId: organization.id,
-                userId: req.params.userId,
-                requestId,
-                reason,
-                requestedRole: input.role,
-                controls: executorControls,
-                member,
-                before: snapshot,
-                after: snapshot,
-                outcome: 'denied',
-                blockers: [sessionValidation.error.code],
-            }),
-        }))
-    }
-
-    const duplicate = await loadSupportSuccessfulIdempotencyReceipt({
-        eventType: 'support.organization.member_role_recovery',
-        organizationId: organization.id,
-        subjectId: req.params.userId,
-        idempotencyKey: executorControls.idempotencyKey,
-    })
-    if (duplicate) {
-        const snapshot = membershipSnapshot(member)
-        return res.send({
-            memberRoleRecovery: {
-                schemaVersion: 'support.member_role_recovery.v1',
-                requestId: duplicate.request_id,
-                actorId: actor.id,
-                organization: toOrganization(organization),
-                member: toSupportMemberDetail(member),
-                before: snapshot,
-                after: snapshot,
-                requestedRole: input.role,
-                reason,
-                outcome: 'success',
-                idempotentReplay: true,
-                blockers: ['duplicate_idempotency_key'],
-                auditEventIds: [Number(duplicate.id)].filter(id => Number.isFinite(id)),
-                noSilentMembershipMutation: true,
-                controlledExecutor: supportMemberRoleRecoveryExecutorDetail({
-                    actorId: actor.id,
-                    organizationId: organization.id,
-                    userId: req.params.userId,
-                    requestId: duplicate.request_id,
-                    reason,
-                    requestedRole: input.role,
-                    controls: executorControls,
-                    member,
-                    before: snapshot,
-                    after: snapshot,
-                    outcome: 'success',
-                    blockers: ['duplicate_idempotency_key'],
-                    auditEventIds: [Number(duplicate.id)].filter(id => Number.isFinite(id)),
-                }),
-                audit: {
-                    actionType,
-                    source: 'admin',
-                    service: 'hanasand-api',
-                    outcome: 'success',
-                    severity: input.role === 'admin' || snapshot.role === 'owner' ? 'warning' : 'notice',
-                    eventIds: [Number(duplicate.id)].filter(id => Number.isFinite(id)),
-                    query: supportMemberRoleRecoveryAuditQuery({
-                        requestId: duplicate.request_id,
-                        organizationId: organization.id,
-                        userId: req.params.userId,
-                        correlationId: executorControls.correlationId,
-                        idempotencyKey: executorControls.idempotencyKey,
-                        reason,
-                        outcome: 'success',
-                    }),
-                },
-            },
-        })
-    }
-
-    if (member.status !== 'active') {
-        const snapshot = membershipSnapshot(member)
-        await recordSupportMemberRoleRecoveryExecutorBlock(req, {
-            actorId: actor.id,
-            organizationId: organization.id,
-            userId: req.params.userId,
-            requestId,
-            reason,
-            blocker: 'revoked_member',
-            requestedRole: input.role,
-            controls: executorControls,
-            supportContext: cleanContext(req.body?.context),
-            before: snapshot,
-        })
-        return res.status(409).send(supportError('revoked_member', 'Support role recovery requires an active organization member; inspect removed membership state first.', {
-            executorBlocker: supportMemberRoleRecoveryExecutorDetail({
-                actorId: actor.id,
-                organizationId: organization.id,
-                userId: req.params.userId,
-                requestId,
-                reason,
-                requestedRole: input.role,
-                controls: executorControls,
-                member,
-                before: snapshot,
-                after: snapshot,
-                outcome: 'denied',
-                blockers: ['revoked_member'],
-            }),
-        }))
-    }
-
-    const availability = await loadOrganizationAvailability([organization.id])
-    if (availability[0]?.hasAvailableAdmin === true) {
-        const snapshot = membershipSnapshot(member)
-        await recordSupportMemberRoleRecoveryExecutorBlock(req, {
-            actorId: actor.id,
-            organizationId: organization.id,
-            userId: req.params.userId,
-            requestId,
-            reason,
-            blocker: 'active_admin_available',
-            requestedRole: input.role,
-            controls: executorControls,
-            supportContext: cleanContext(req.body?.context),
-            before: snapshot,
-        })
-        return res.status(409).send(supportError('active_admin_available', 'An active organization admin is available; support member role recovery requires unavailable org administration.', {
-            executorBlocker: supportMemberRoleRecoveryExecutorDetail({
-                actorId: actor.id,
-                organizationId: organization.id,
-                userId: req.params.userId,
-                requestId,
-                reason,
-                requestedRole: input.role,
-                controls: executorControls,
-                member,
-                before: snapshot,
-                after: snapshot,
-                outcome: 'denied',
-                blockers: ['active_admin_available'],
-            }),
-        }))
-    }
-
-    const before = membershipSnapshot(member)
-    const ownerCount = await activeOwnerCount(req.params.id)
-    const roleDecision = supportRoleRecoveryDecision(String(member.role) as OrganizationRole, input.role, ownerCount)
-    if (roleDecision.kind !== 'allowed') {
-        const permissionError = roleDecision.kind === 'denied' ? roleDecision.message : ''
-        const error = permissionError || 'member_role_already_set'
-        await recordSystemEvent(req, {
-            actionType,
-            actorId: actor.id,
-            targetType: 'member',
-            targetId: req.params.userId,
-            organizationId: organization.id,
-            entityId: req.params.userId,
-            requestId,
-            severity: 'notice',
-            outcome: permissionError ? 'denied' : 'failed',
-            reason,
-            context: {
-                schemaVersion: 'support.member_role_recovery.v1',
-                requestId,
-                targetUserId: req.params.userId,
-                requestedRole: input.role,
-                ownerCount,
-                before,
-                after: before,
-                correlationId: executorControls.correlationId,
-                idempotencyKey: executorControls.idempotencyKey,
-                supportSessionId: executorControls.supportSessionId || null,
-                scope: executorControls.scope,
-                handoffExpiresAt: executorControls.handoffExpiresAt,
-                executor: supportMemberRoleRecoveryExecutorDetail({
-                    actorId: actor.id,
-                    organizationId: organization.id,
-                    userId: req.params.userId,
-                    requestId,
-                    reason,
-                    requestedRole: input.role,
-                    controls: executorControls,
-                    member,
-                    before,
-                    after: before,
-                    outcome: permissionError ? 'denied' : 'failed',
-                    blockers: [error],
-                }),
-                noSilentMembershipMutation: true,
-                mutation: 'none',
-                error,
-                supportContext: cleanContext(req.body?.context),
-            },
-        })
-        const auditEventIds = await loadSystemEventIds({ requestId, actionType, entityId: req.params.userId })
-        return res.status(permissionError ? 403 : 409).send({
-            error: permissionError || 'Member already has the requested role.',
-            memberRoleRecovery: {
-                schemaVersion: 'support.member_role_recovery.v1',
-                requestId,
-                actorId: actor.id,
-                organization: toOrganization(organization),
-                member: toSupportMemberDetail(member),
-                before,
-                after: before,
-                requestedRole: input.role,
-                outcome: permissionError ? 'denied' : 'failed',
-                auditEventIds,
-                noSilentMembershipMutation: true,
-                controlledExecutor: supportMemberRoleRecoveryExecutorDetail({
-                    actorId: actor.id,
-                    organizationId: organization.id,
-                    userId: req.params.userId,
-                    requestId,
-                    reason,
-                    requestedRole: input.role,
-                    controls: executorControls,
-                    member,
-                    before,
-                    after: before,
-                    outcome: permissionError ? 'denied' : 'failed',
-                    blockers: [error],
-                    auditEventIds,
-                }),
-            },
-        })
-    }
-
-    const mutation = await withTransaction(async query => {
-        await query(`
-            SELECT users.id
-            FROM users
-            WHERE users.id = ANY($1::text[])
-               OR EXISTS (
-                    SELECT 1
-                    FROM organization_members membership
-                    WHERE membership.organization_id = $2
-                      AND membership.user_id = users.id
-                      AND membership.status = 'active'
-                      AND membership.role IN ('owner', 'admin')
-                )
-            ORDER BY users.id
-            FOR UPDATE
-        `, [[actor.id, req.params.userId].sort(), organization.id])
-        await query('SELECT id FROM organizations WHERE id = $1 FOR UPDATE', [organization.id])
-        if (await hasOrganizationPrivacyDeletionMarker(organization.id, query)) return { error: 'organization_deletion_in_progress' as const }
-
-        const currentMember = await loadSupportMemberDetail(organization.id, req.params.userId, query, true)
-        if (!currentMember) return { error: 'member_not_found' as const }
-        if (currentMember.status !== 'active') return { error: 'revoked_member' as const, member: currentMember }
-        const currentAvailability = await loadOrganizationAvailability([organization.id], query)
-        if (currentAvailability[0]?.hasAvailableAdmin === true) return { error: 'active_admin_available' as const, member: currentMember }
-
-        const currentOwnerCount = await activeOwnerCount(organization.id, query)
-        const currentRoleDecision = supportRoleRecoveryDecision(String(currentMember.role) as OrganizationRole, input.role, currentOwnerCount)
-        if (currentRoleDecision.kind === 'denied') return { error: 'permission_denied' as const, member: currentMember, ownerCount: currentOwnerCount, message: currentRoleDecision.message }
-        if (currentRoleDecision.kind === 'unchanged') return { error: 'member_role_already_set' as const, member: currentMember, ownerCount: currentOwnerCount }
-
-        const updatedMember = await updateActiveOrganizationMemberRole({
-            organizationId: organization.id,
-            userId: req.params.userId,
-            role: input.role,
-        }, query)
-        if (!updatedMember) return { error: 'member_not_found' as const }
-        return { error: null, member: currentMember, ownerCount: currentOwnerCount, updatedMember }
-    })
-    if (mutation.error) {
-        if (mutation.error === 'member_not_found') return res.status(404).send({ error: 'Active organization member not found.' })
-        const currentMember = ('member' in mutation && mutation.member) || member
-        const currentSnapshot = membershipSnapshot(currentMember)
-        const blocker = mutation.error === 'permission_denied' ? mutation.message : mutation.error
-        const status = mutation.error === 'permission_denied' ? 403 : 409
-        await recordSupportMemberRoleRecoveryExecutorBlock(req, {
-            actorId: actor.id,
-            organizationId: organization.id,
-            userId: req.params.userId,
-            requestId,
-            reason,
-            blocker,
-            requestedRole: input.role,
-            controls: executorControls,
-            supportContext: cleanContext(req.body?.context),
-            before: currentSnapshot,
-        })
-        const auditEventIds = await loadSystemEventIds({ requestId, actionType, entityId: req.params.userId })
-        return res.status(status).send(supportError(blocker, mutation.error === 'permission_denied' ? mutation.message : 'Member role recovery is no longer permitted in the current organization state.', {
-            executorBlocker: supportMemberRoleRecoveryExecutorDetail({
-                actorId: actor.id,
-                organizationId: organization.id,
-                userId: req.params.userId,
-                requestId,
-                reason,
-                requestedRole: input.role,
-                controls: executorControls,
-                member: currentMember,
-                before: currentSnapshot,
-                after: currentSnapshot,
-                outcome: 'denied',
-                blockers: [blocker],
-                auditEventIds,
-            }),
-        }))
-    }
-    const updated = mutation.updatedMember
-    if (!updated) {
-        return res.status(404).send({ error: 'Active organization member not found.' })
-    }
-    const currentMember = mutation.member
-    const currentOwnerCount = mutation.ownerCount
-    const currentBefore = membershipSnapshot(currentMember)
-    const updatedMember = {
-        ...currentMember,
-        ...(updated as Record<string, unknown>),
-    }
-    const after = membershipSnapshot(updatedMember)
-
-    await recordSystemEvent(req, {
-        actionType,
-        actorId: actor.id,
-        targetType: 'member',
-        targetId: req.params.userId,
-        organizationId: organization.id,
-        entityId: req.params.userId,
-        requestId,
-        severity: input.role === 'admin' || currentBefore.role === 'owner' ? 'warning' : 'notice',
-        outcome: 'success',
-        reason,
-        context: {
-            schemaVersion: 'support.member_role_recovery.v1',
-            requestId,
-            targetUserId: req.params.userId,
-            previousRole: currentBefore.role,
-            newRole: after.role,
-            ownerCount: currentOwnerCount,
-            before: currentBefore,
-            after,
-            correlationId: executorControls.correlationId,
-            idempotencyKey: executorControls.idempotencyKey,
-            supportSessionId: executorControls.supportSessionId || null,
-            scope: executorControls.scope,
-            handoffExpiresAt: executorControls.handoffExpiresAt,
-            executor: supportMemberRoleRecoveryExecutorDetail({
-                actorId: actor.id,
-                organizationId: organization.id,
-                userId: req.params.userId,
-                requestId,
-                reason,
-                requestedRole: input.role,
-                controls: executorControls,
-                member: updatedMember as Record<string, unknown>,
-                before: currentBefore,
-                after,
-                outcome: 'success',
-                blockers: [],
-            }),
-            noSilentMembershipMutation: true,
-            mutation: 'member_role_only',
-            supportContext: cleanContext(req.body?.context),
-        },
-    })
-    const auditEventIds = await loadSystemEventIds({ requestId, actionType, entityId: req.params.userId })
-
-    return res.send({
-        memberRoleRecovery: {
-            schemaVersion: 'support.member_role_recovery.v1',
-            requestId,
-            actorId: actor.id,
-            organization: toOrganization(organization),
-            member: toSupportMemberDetail(updatedMember),
-            before: currentBefore,
-            after,
-            reason,
-            outcome: 'success',
-            idempotencyKey: executorControls.idempotencyKey,
-            correlationId: executorControls.correlationId,
-            auditEventIds,
-            noSilentMembershipMutation: true,
-            controlledExecutor: supportMemberRoleRecoveryExecutorDetail({
-                actorId: actor.id,
-                organizationId: organization.id,
-                userId: req.params.userId,
-                requestId,
-                reason,
-                requestedRole: input.role,
-                controls: executorControls,
-                member: updatedMember as Record<string, unknown>,
-                before: currentBefore,
-                after,
-                outcome: 'success',
-                blockers: [],
-                auditEventIds,
-            }),
-            audit: {
-                actionType,
-                source: 'admin',
-                service: 'hanasand-api',
-                outcome: 'success',
-                severity: input.role === 'admin' || currentBefore.role === 'owner' ? 'warning' : 'notice',
-                eventIds: auditEventIds,
-                query: supportMemberRoleRecoveryAuditQuery({
-                    requestId,
-                    organizationId: organization.id,
-                    userId: req.params.userId,
-                    correlationId: executorControls.correlationId,
-                    idempotencyKey: executorControls.idempotencyKey,
-                    reason,
-                    outcome: 'success',
-                }),
-            },
-            copyText: [
-                `Support member role recovery for ${req.params.userId}`,
-                `Org: ${organization.name} (${organization.id})`,
-                `Role: ${currentBefore.role} -> ${after.role}`,
-                `Request: ${requestId}`,
-                `Idempotency: ${executorControls.idempotencyKey}`,
-                `Audit events: ${auditEventIds.join(', ') || 'pending index refresh'}`,
-                `Reason: ${reason}`,
-            ].join('\n'),
-        },
-    })
-}
+export { postSupportOrganizationMemberRoleRecovery } from './adminSupport/memberRoleRecovery/route.ts'
 
 export async function getSupportAccessRecoveryApproval(req: FastifyRequest<{ Params: AccessRecoveryDecisionParams }>, res: FastifyReply) {
     const actor = await requireAdminSupport(req, res)
@@ -2525,18 +2005,7 @@ async function decideSupportAccessRecovery(
     })
 }
 
-async function requireWritableSupportOrganization(organizationId: string, res: FastifyReply) {
-    const organization = await loadOrganizationSupportDetail(organizationId)
-    if (!organization) {
-        res.status(404).send({ error: 'Organization not found.' })
-        return null
-    }
-    if (organizationPrivacyDeletionInProgress(organization)) {
-        res.status(409).send({ error: 'Organization deletion is in progress; support writes are blocked.' })
-        return null
-    }
-    return organization
-}
+// Writable-organization checks are shared from adminSupport/actionAccess.
 
 
 
@@ -2561,74 +2030,9 @@ async function requireWritableSupportOrganization(organizationId: string, res: F
 
 
 
-async function validateSupportSessionForAction(input: {
-    actorId: string
-    supportSessionId?: string | null
-    action: string
-    requiredScope: string
-    organizationId: string
-    targetUserId?: string | null
-}) {
-    if (!input.supportSessionId) {
-        return { state: null, error: null as { code: string, message: string, status: number } | null }
-    }
-
-    const state = await loadSupportSessionState(input.supportSessionId)
-    if (!state) {
-        return { state: null, error: { code: 'support_session_not_found', message: 'Support session not found.', status: 404 } }
-    }
-    if (state.status === 'revoked') {
-        return { state, error: { code: 'support_session_revoked', message: 'Support session has been revoked.', status: 409 } }
-    }
-    if (state.status === 'expired') {
-        return { state, error: { code: 'support_session_expired', message: 'Support session has expired.', status: 409 } }
-    }
-    if (state.actorId && state.actorId !== input.actorId) {
-        return { state, error: { code: 'support_session_actor_mismatch', message: 'Support session belongs to a different support actor.', status: 403 } }
-    }
-    if (state.organizationId && state.organizationId !== input.organizationId) {
-        return { state, error: { code: 'support_session_org_mismatch', message: 'Support session is not scoped to this organization.', status: 403 } }
-    }
-    if (state.targetUserId && input.targetUserId && state.targetUserId !== input.targetUserId) {
-        return { state, error: { code: 'support_session_user_mismatch', message: 'Support session is not scoped to this target user.', status: 403 } }
-    }
-    if (!state.allowedActions.includes(input.action)) {
-        return { state, error: { code: 'support_session_action_denied', message: 'Support session does not allow this support action.', status: 403 } }
-    }
-    if (!state.scope.includes(input.requiredScope)) {
-        return { state, error: { code: 'support_session_scope_denied', message: 'Support session does not include the required action scope.', status: 403 } }
-    }
-    return { state, error: null }
-}
+// Support-session action validation is shared from adminSupport/actionAccess.
 
 
-
-type SupportIdempotencyReceipt = {
-    id: number
-    request_id: string
-    subject_id: string | null
-    context: Record<string, unknown>
-}
-
-async function loadSupportSuccessfulIdempotencyReceipt(input: {
-    eventType: string
-    organizationId: string
-    subjectId?: string
-    idempotencyKey: string
-}) {
-    const result = await run(`
-        SELECT id, request_id, subject_id, context
-        FROM system_events
-        WHERE event_type = $1
-          AND organization_id = $2
-          AND ($3::text IS NULL OR subject_id = $3)
-          AND outcome = 'success'
-          AND context->>'idempotencyKey' = $4
-        ORDER BY created_at ASC, id ASC
-        LIMIT 1
-    `, [input.eventType, input.organizationId, input.subjectId ?? null, input.idempotencyKey])
-    return result.rows[0] as SupportIdempotencyReceipt | undefined
-}
 
 async function loadOrganizationInvitesByIds(organizationId: string, inviteIds: string[]) {
     if (!inviteIds.length) return []
@@ -2647,17 +2051,6 @@ function auditContextInviteIds(context: Record<string, unknown>) {
     return direct.map(id => text(id)).filter(Boolean)
 }
 
-function supportRoleRecoveryDecision(currentRole: OrganizationRole, newRole: OrganizationRole, ownerCount: number) {
-    if (newRole === 'owner') return { kind: 'denied' as const, message: 'Support role recovery cannot grant organization owner.' }
-    if (!['owner', 'admin', 'editor', 'reader', 'member', 'viewer'].includes(currentRole)) {
-        return { kind: 'denied' as const, message: 'Unsupported current member role.' }
-    }
-    if (currentRole === 'owner' && ownerCount <= 1) {
-        return { kind: 'denied' as const, message: 'Support role recovery cannot demote the last active owner.' }
-    }
-    if (currentRole === newRole) return { kind: 'unchanged' as const }
-    return { kind: 'allowed' as const }
-}
 
 async function loadAccessRecoveryApproval(requestId: string, query: typeof run = run, lock = false) {
     const result = await query(`
@@ -3608,100 +3001,10 @@ function supportActionExecutionTarget(input: {
     }
 }
 
-type SupportExecutorControlsBody = {
-    idempotencyKey?: unknown
-    idempotency_key?: unknown
-    correlationId?: unknown
-    correlation_id?: unknown
-    supportSessionId?: unknown
-    support_session_id?: unknown
-    scope?: unknown
-    handoffExpiresAt?: unknown
-    handoff_expires_at?: unknown
-}
 
-type SupportExecutorControls = {
-    schemaVersion: string
-    requestId: string
-    correlationId: string
-    idempotencyKey: string
-    supportSessionId: string
-    scope: string[]
-    handoffExpiresAt: string | null
-    staleBlocker: string
-    duplicateBlocker: string
-}
 
-type SupportExecutorControlsResult = {
-    value: SupportExecutorControls
-    error: { code: string, message: string, status: number } | null
-}
 
-function supportExecutorMetadata(requestId: string, controls: SupportExecutorControls, expiryRequired?: boolean) {
-    return {
-        supportRoleRequired: true,
-        reasonRequired: true,
-        contextRequired: true,
-        scopeRequired: true,
-        ...(expiryRequired !== undefined ? { expiryRequired } : {}),
-        noSilentMembershipMutation: true,
-        requestId,
-        correlationId: controls.correlationId,
-        idempotencyKey: controls.idempotencyKey,
-        supportSessionId: controls.supportSessionId || null,
-        staleBlocker: controls.staleBlocker,
-        duplicateBlocker: controls.duplicateBlocker,
-    }
-}
 
-function supportExecutorControls(input: {
-    req: FastifyRequest
-    body: SupportExecutorControlsBody | undefined
-    requestId: string
-    idempotencyAction: string
-    scopeAction: string
-    requiredScope: string
-    invalidScopeMessage: string
-    invalidExpiryMessage: string
-    expiredHandoffMessage: string
-}): SupportExecutorControlsResult {
-    const { req, body, requestId } = input
-    const idempotencyKey = supportActionIdempotencyKey(
-        headerText(req.headers['x-idempotency-key']) || body?.idempotencyKey || body?.idempotency_key || requestId,
-        input.idempotencyAction,
-    )
-    const correlationId = text(headerText(req.headers['x-correlation-id']) || body?.correlationId || body?.correlation_id || requestId) || requestId
-    const supportSessionId = supportSessionIdFromRequest(req, body)
-    const scopeResult = normalizeSupportPreparationScope(body?.scope || input.requiredScope, input.scopeAction)
-    const base: SupportExecutorControls = {
-        schemaVersion: 'support.action_execute.controls.v1',
-        requestId,
-        correlationId,
-        idempotencyKey,
-        supportSessionId,
-        scope: scopeResult.value,
-        handoffExpiresAt: null,
-        staleBlocker: 'stale_prepare_payload',
-        duplicateBlocker: 'duplicate_idempotency_key',
-    }
-    if (scopeResult.error || !scopeResult.value.includes(input.requiredScope)) {
-        return { value: base, error: { code: 'invalid_scope', message: input.invalidScopeMessage, status: 400 } }
-    }
-
-    const handoffExpiresAt = text(headerText(req.headers['x-support-handoff-expires-at']) || body?.handoffExpiresAt || body?.handoff_expires_at)
-    if (!handoffExpiresAt) {
-        return { value: base, error: null }
-    }
-    const timestamp = Date.parse(handoffExpiresAt)
-    if (Number.isNaN(timestamp)) {
-        return { value: base, error: { code: 'invalid_expiry', message: input.invalidExpiryMessage, status: 400 } }
-    }
-    const value = { ...base, handoffExpiresAt: new Date(timestamp).toISOString() }
-    if (timestamp <= Date.now()) {
-        return { value, error: { code: 'stale_prepare_payload', message: input.expiredHandoffMessage, status: 409 } }
-    }
-    return { value, error: null }
-}
 
 export function supportInviteAssistExecutorControls(
     req: FastifyRequest,
@@ -3749,53 +3052,6 @@ async function recordSupportInviteAssistExecutorBlock(req: FastifyRequest, input
     })
 }
 
-async function recordSupportExecutorBlock(req: FastifyRequest, input: {
-    actionType: string
-    action: string
-    actorId: string
-    targetType: string
-    targetId: string
-    entityId: string
-    organizationId: string
-    requestId: string
-    reason: string
-    severity: 'notice' | 'warning'
-    blocker: string
-    controls: SupportExecutorControls
-    supportContext: string
-    actionContext: Record<string, unknown>
-}) {
-    await recordSystemEvent(req, {
-        actionType: input.actionType,
-        actorId: input.actorId,
-        targetType: input.targetType,
-        targetId: input.targetId,
-        organizationId: input.organizationId,
-        entityId: input.entityId,
-        requestId: input.requestId,
-        severity: input.severity,
-        outcome: 'denied',
-        reason: input.reason,
-        context: {
-            schemaVersion: 'support.action_executor_blocker.v1',
-            action: input.action,
-            blocker: input.blocker,
-            blockerCode: input.blocker,
-            requestId: input.requestId,
-            correlationId: input.controls.correlationId,
-            idempotencyKey: input.controls.idempotencyKey,
-            supportSessionId: input.controls.supportSessionId || null,
-            targetOrganizationId: input.organizationId,
-            ...input.actionContext,
-            scope: input.controls.scope,
-            handoffExpiresAt: input.controls.handoffExpiresAt,
-            noSilentMembershipMutation: true,
-            mutation: 'none',
-            redactionRequired: true,
-            supportContext: input.supportContext,
-        },
-    })
-}
 
 function supportInviteAssistExecutorBlocker(input: {
     organizationId: string
@@ -3817,46 +3073,8 @@ function supportInviteAssistExecutorBlocker(input: {
     })
 }
 
-type SupportExecutorAuditPreviewTargetFields =
-    | { emails: string[], inviteIds: string[], expiresAt: string }
-    | { inviteId: string | null, email: string | null }
-    | { targetUserId: string, requestedRole: string }
 
-const supportExecutorCommonBlockerCatalog = [
-    'support_role_required',
-    'missing_support_reason',
-    'stale_prepare_payload',
-    'duplicate_idempotency_key',
-] as const
 
-function supportExecutorAuditPreview(input: {
-    actionType: string
-    requestId: string
-    organizationId: string
-    reason: string
-    controls: SupportExecutorControls
-    outcome: 'success' | 'denied' | 'failed'
-    blockers: string[]
-    targetFields: SupportExecutorAuditPreviewTargetFields
-}) {
-    return redactAuditValue({
-        schemaVersion: 'support.action_execute.audit_preview.v1',
-        actionType: input.actionType,
-        source: 'admin',
-        service: 'hanasand-api',
-        requestId: input.requestId,
-        correlationId: input.controls.correlationId,
-        idempotencyKey: input.controls.idempotencyKey,
-        supportSessionId: input.controls.supportSessionId || null,
-        organizationId: input.organizationId,
-        ...input.targetFields,
-        reason: input.reason,
-        scope: input.controls.scope,
-        outcome: input.outcome,
-        blockerCode: input.blockers[0] || null,
-        redactionRequired: true,
-    })
-}
 
 function supportInviteAssistExecutorDetail(input: {
     organizationId: string
@@ -3978,31 +3196,6 @@ function supportInviteAssistExecutionReceipt(input: {
     }
 }
 
-function supportExecutorAuditQuery(input: {
-    requestId: string
-    organizationId: string
-    entityId?: string
-    targetId?: string
-    correlationId: string
-    idempotencyKey: string
-    reason: string
-    actionType: string
-    outcome: string
-}) {
-    const params = new URLSearchParams()
-    params.set('request', input.requestId)
-    params.set('correlation', input.correlationId)
-    params.set('idempotency', input.idempotencyKey)
-    params.set('org', input.organizationId)
-    if (input.entityId !== undefined) params.set('entity', input.entityId)
-    if (input.targetId !== undefined) params.set('target', input.targetId)
-    params.set('reason', input.reason)
-    params.set('action', input.actionType)
-    params.set('outcome', input.outcome)
-    params.set('source', 'admin')
-    params.set('service', 'hanasand-api')
-    return `/api/admin/audit-events?${params.toString()}`
-}
 
 function supportInviteAssistAuditQuery(input: {
     requestId: string
@@ -4336,284 +3529,4 @@ function supportInviteActionAuditQuery(input: {
     outcome: string
 }) {
     return supportExecutorAuditQuery({ ...input, entityId: input.inviteId })
-}
-
-export function supportMemberRoleRecoveryExecutorControls(
-    req: FastifyRequest,
-    body: SupportMemberRoleRecoveryBody | undefined,
-    requestId: string,
-): SupportExecutorControlsResult {
-    return supportExecutorControls({
-        req,
-        body,
-        requestId,
-        idempotencyAction: 'member_role_recovery',
-        scopeAction: 'member_role_recovery',
-        requiredScope: 'member:role_recovery',
-        invalidScopeMessage: 'Member role recovery execution requires member:role_recovery scope.',
-        invalidExpiryMessage: 'Member role recovery handoff expiry must be a valid timestamp.',
-        expiredHandoffMessage: 'Member role recovery handoff has expired; prepare a fresh action before executing.',
-    })
-}
-
-async function recordSupportMemberRoleRecoveryExecutorBlock(req: FastifyRequest, input: {
-    actorId: string
-    organizationId: string
-    userId: string
-    requestId: string
-    reason: string
-    blocker: string
-    requestedRole: string
-    controls: ReturnType<typeof supportMemberRoleRecoveryExecutorControls>['value']
-    supportContext: string
-    before?: Record<string, unknown> | null
-}) {
-    return recordSupportExecutorBlock(req, {
-        actionType: 'support.organization.member_role_recovery',
-        action: 'member_role_recovery',
-        actorId: input.actorId,
-        targetType: 'member',
-        targetId: input.userId,
-        entityId: input.userId,
-        organizationId: input.organizationId,
-        requestId: input.requestId,
-        reason: input.reason,
-        severity: input.requestedRole === 'admin' ? 'warning' : 'notice',
-        blocker: input.blocker,
-        controls: input.controls,
-        supportContext: input.supportContext,
-        actionContext: {
-            targetUserId: input.userId,
-            requestedRole: input.requestedRole,
-            before: input.before || null,
-        },
-    })
-}
-
-function supportMemberRoleRecoveryExecutorDetail(input: {
-    actorId: string
-    organizationId: string
-    userId: string
-    requestId: string
-    reason: string
-    requestedRole: string
-    controls: ReturnType<typeof supportMemberRoleRecoveryExecutorControls>['value']
-    member: Record<string, unknown> | null
-    before: Record<string, unknown> | null
-    after: Record<string, unknown> | null
-    outcome: 'success' | 'denied' | 'failed'
-    blockers: string[]
-    auditEventIds?: number[]
-}) {
-    const auditEventIds = Array.isArray(input.auditEventIds) ? input.auditEventIds.filter(id => Number.isFinite(id)) : []
-    return {
-        schemaVersion: 'support.action_execute.member_role_recovery.v1',
-        mutationMode: 'controlled_member_role_only',
-        action: 'member_role_recovery',
-        actionType: 'support.organization.member_role_recovery',
-        ...supportExecutorMetadata(input.requestId, input.controls),
-        target: {
-            organizationId: input.organizationId,
-            userId: input.userId,
-            currentRole: input.before?.role || input.member?.role || null,
-            requestedRole: input.requestedRole,
-        },
-        scope: input.controls.scope,
-        handoffExpiresAt: input.controls.handoffExpiresAt,
-        before: input.before,
-        after: input.after,
-        outcome: input.outcome,
-        blockers: input.blockers,
-        auditEventIds,
-        memberRecoveryHandoff: supportMemberRecoveryHandoffReceipt({
-            actorId: input.actorId,
-            organizationId: input.organizationId,
-            userId: input.userId,
-            requestId: input.requestId,
-            reason: input.reason,
-            requestedRole: input.requestedRole,
-            controls: input.controls,
-            before: input.before,
-            after: input.after,
-            outcome: input.outcome,
-            blockers: input.blockers,
-            auditEventIds,
-        }),
-        blockerCatalog: [
-            ...supportExecutorCommonBlockerCatalog,
-            'invalid_scope',
-            'active_admin_available',
-            'support_session_not_found',
-            'support_session_revoked',
-            'support_session_expired',
-            'support_session_actor_mismatch',
-            'support_session_org_mismatch',
-            'support_session_user_mismatch',
-            'support_session_action_denied',
-            'support_session_scope_denied',
-            'revoked_member',
-            'member_role_already_set',
-            'last_owner_demote_denied',
-            'owner_grant_denied',
-            'audit_unavailable',
-            'redaction_required',
-        ],
-        redactedAuditPreview: supportExecutorAuditPreview({
-            ...input,
-            actionType: 'support.organization.member_role_recovery',
-            targetFields: { targetUserId: input.userId, requestedRole: input.requestedRole },
-        }),
-    }
-}
-
-function supportMemberRecoveryHandoffReceipt(input: {
-    actorId: string
-    organizationId: string
-    userId: string
-    requestId: string
-    reason: string
-    requestedRole: string
-    controls: ReturnType<typeof supportMemberRoleRecoveryExecutorControls>['value']
-    before: Record<string, unknown> | null
-    after: Record<string, unknown> | null
-    outcome: 'success' | 'denied' | 'failed'
-    blockers: string[]
-    auditEventIds: number[]
-}) {
-    const currentRole = text(input.before?.role)
-    const nextRole = text(input.after?.role) || currentRole || null
-    const auditQuery = supportMemberRoleRecoveryAuditQuery({
-        requestId: input.requestId,
-        organizationId: input.organizationId,
-        userId: input.userId,
-        correlationId: input.controls.correlationId,
-        idempotencyKey: input.controls.idempotencyKey,
-        reason: input.reason,
-        outcome: input.outcome,
-    })
-    return {
-        schemaVersion: 'support.member_recovery.handoff_receipt.v1',
-        generatedAt: new Date().toISOString(),
-        redacted: true,
-        supportRoleRequired: true,
-        reasonRequired: true,
-        contextRequired: true,
-        scopeRequired: true,
-        noSilentMembershipMutation: true,
-        mutationMode: input.outcome === 'success' ? 'controlled_member_role_only' : 'none',
-        action: 'member_role_recovery',
-        actionType: 'support.organization.member_role_recovery',
-        actorId: input.actorId,
-        actorRequired: true,
-        target: {
-            organizationId: input.organizationId,
-            userId: input.userId,
-            entityType: 'member',
-            entityId: input.userId,
-            currentRole: currentRole || null,
-            requestedRole: input.requestedRole,
-            resultingRole: nextRole,
-        },
-        requestId: input.requestId,
-        correlationId: input.controls.correlationId,
-        idempotencyKey: input.controls.idempotencyKey,
-        supportSessionId: input.controls.supportSessionId || null,
-        scope: input.controls.scope,
-        handoffExpiresAt: input.controls.handoffExpiresAt,
-        reason: input.reason,
-        outcome: input.outcome,
-        auditEventIds: input.auditEventIds,
-        expectedAuditEventLookup: auditQuery,
-        replayFilters: {
-            current: auditQuery,
-            byRequest: auditFilterQuery({ request: input.requestId, action: 'support.organization.member_role_recovery', outcome: input.outcome }),
-            byEntity: auditFilterQuery({ org: input.organizationId, entity: input.userId, entityType: 'member', action: 'support.organization.member_role_recovery' }),
-            byTarget: auditFilterQuery({ org: input.organizationId, target: input.userId, targetType: 'member', action: 'support.organization.member_role_recovery' }),
-            byOutcome: auditFilterQuery({ org: input.organizationId, outcome: input.outcome, action: 'support.organization.member_role_recovery' }),
-            bySupportSession: input.controls.supportSessionId ? auditFilterQuery({ supportSession: input.controls.supportSessionId, action: 'support.organization.member_role_recovery' }) : null,
-            denied: auditFilterQuery({ org: input.organizationId, target: input.userId, action: 'support.organization.member_role_recovery', outcome: 'denied' }),
-            staleOrDuplicate: auditFilterQuery({ org: input.organizationId, target: input.userId, action: 'support.organization.member_role_recovery', outcome: input.outcome, request: input.requestId }),
-        },
-        orgMemberRecoveryReadiness: {
-            schemaVersion: 'support.member_recovery.readiness.v1',
-            consumedExecutorSchema: 'support.action_execute.member_role_recovery.v1',
-            requiredScope: 'member:role_recovery',
-            requiredSessionState: 'active',
-            controlledMutation: 'organization_members.role',
-            blockedWhenAdminAvailable: true,
-            blockedForOwnerGrant: true,
-            blockedForLastOwnerDemotion: true,
-            noCrossOrgRecovery: true,
-            noSilentMembershipMutation: true,
-            requiredAuditFields: ['actorId', 'targetId', 'organizationId', 'entityId', 'requestId', 'reason', 'outcome', 'severity', 'supportSessionId', 'idempotencyKey'],
-        },
-        receiptSchemas: [
-            'support.member_recovery.handoff_receipt.v1',
-            'support.action_execute.member_role_recovery.v1',
-            'support.action_execute.audit_preview.v1',
-            'support.organization.member.action_history_receipt.v1',
-            'support.audit.timeline_replay_contract.v1',
-        ],
-        nextRoutes: {
-            execute: `/api/admin/support/organizations/${encodeURIComponent(input.organizationId)}/members/${encodeURIComponent(input.userId)}/role-recovery`,
-            memberInspection: `/api/admin/support/organizations/${encodeURIComponent(input.organizationId)}/members/${encodeURIComponent(input.userId)}`,
-            organizationInspection: `/api/admin/support/organizations/${encodeURIComponent(input.organizationId)}`,
-            auditReplay: auditQuery,
-            supportSession: input.controls.supportSessionId ? `/api/admin/support/sessions/${encodeURIComponent(input.controls.supportSessionId)}` : null,
-            auditDetails: input.auditEventIds.map(id => `/api/admin/audit-events/${encodeURIComponent(String(id))}`),
-        },
-        denialCases: [
-            'support_role_required',
-            'missing_support_reason',
-            'invalid_scope',
-            'stale_prepare_payload',
-            'duplicate_idempotency_key',
-            'support_session_not_found',
-            'support_session_revoked',
-            'support_session_expired',
-            'support_session_actor_mismatch',
-            'support_session_org_mismatch',
-            'support_session_user_mismatch',
-            'support_session_action_denied',
-            'support_session_scope_denied',
-            'active_admin_available',
-            'revoked_member',
-            'member_role_already_set',
-            'owner_grant_denied',
-            'last_owner_demote_denied',
-            'audit_unavailable',
-            'redaction_required',
-        ],
-        blockers: input.blockers,
-        redaction: {
-            applied: true,
-            forbiddenFields: ['token', 'secret', 'authorization', 'cookie', 'webhookUrl', 'privateSourceUrl', 'sessionToken', 'inviteToken'],
-        },
-        copyText: [
-            `Support member recovery handoff ${input.userId}`,
-            `Org: ${input.organizationId}`,
-            `Request: ${input.requestId}`,
-            `Outcome: ${input.outcome}`,
-            `Role: ${currentRole || 'unknown'} -> ${input.requestedRole}`,
-            `Audit: ${input.auditEventIds.join(', ') || 'pending'}`,
-            `Replay: ${auditQuery}`,
-        ].join('\n'),
-    }
-}
-
-function supportMemberRoleRecoveryAuditQuery(input: {
-    requestId: string
-    organizationId: string
-    userId: string
-    correlationId: string
-    idempotencyKey: string
-    reason: string
-    outcome: string
-}) {
-    return supportExecutorAuditQuery({
-        ...input,
-        entityId: input.userId,
-        targetId: input.userId,
-        actionType: 'support.organization.member_role_recovery',
-    })
 }
