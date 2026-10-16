@@ -1,14 +1,13 @@
 import Link from 'next/link'
-import type { ReactNode } from 'react'
 import { Activity, AlertTriangle, CheckCircle2, Clock3, Radio } from 'lucide-react'
 import { DashboardHeader, DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
 import { pageNumber } from '@/utils/pagination'
 import { actorProfileHref } from '@/utils/ti/actorProfileRoute'
 import { getTiEnrichmentOverview, type TiActivityEvent } from '@/utils/tiAdmin/enrichment'
 import { formatTiDate } from '@/utils/tiAdmin/ops'
+import { Metric, operationalStateLabel, shortTime } from '../dashboardPresentation'
 import { ActivityEvents } from './activityEvents'
-import { ActivityStatusPill, activityToneClasses, relativeAge, type ActivityTone } from './activityPresentation'
-import { operationalStateLabel, shortTime } from '../dashboardPresentation'
+import { ActivityStatusPill, relativeAge } from './activityPresentation'
 
 export const dynamic = 'force-dynamic'
 
@@ -52,19 +51,21 @@ export default async function TiActivityPage({ searchParams }: { searchParams?: 
                 {query ? <Link href='/ti/activity' className='px-3 py-2 text-sm text-ui-primary'>Clear</Link> : null}
             </form>
             <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-5'>
-                <Metric title='Events' value={`${sortedActivity.length}`} icon={<Activity className='h-4 w-4' />} />
+                <Metric title='Events' value={`${sortedActivity.length}`} icon={<Activity className='h-4 w-4' />} valueSize='large' />
                 <Metric
                     title='Monitoring signals'
                     value={`${badEvents.length + watchEvents.length}`}
                     tone={badEvents.length ? 'bad' : watchEvents.length ? 'watch' : 'ok'}
                     icon={<AlertTriangle className='h-4 w-4' />}
+                    valueSize='large'
                 />
-                <Metric title='Actors updated' value={`${updatedActors.length}`} icon={<CheckCircle2 className='h-4 w-4' />} />
-                <Metric title='Updated last hour' value={`${stats.updatedLastHour}`} icon={<Radio className='h-4 w-4' />} />
+                <Metric title='Actors updated' value={`${updatedActors.length}`} icon={<CheckCircle2 className='h-4 w-4' />} valueSize='large' />
+                <Metric title='Updated last hour' value={`${stats.updatedLastHour}`} icon={<Radio className='h-4 w-4' />} valueSize='large' />
                 <Metric
                     title='Last event'
                     value={sortedActivity[0] ? shortTime(sortedActivity[0].happenedAt) : 'No events yet'}
                     icon={<Clock3 className='h-4 w-4' />}
+                    valueSize='large'
                 />
             </div>
             <ActivityEvents
@@ -114,23 +115,6 @@ export default async function TiActivityPage({ searchParams }: { searchParams?: 
                 </DashboardPanel>
             </div>
         </DashboardPage>
-    )
-}
-
-function Metric({ title, value, icon, tone = 'neutral' }: {
-    title: string
-    value: string
-    icon: ReactNode
-    tone?: ActivityTone
-}) {
-    return (
-        <DashboardPanel className='border-ui-border bg-ui-panel p-4'>
-            <div className={`flex items-center justify-between ${activityToneClasses(tone).text}`}>
-                <p className='text-xs font-semibold uppercase text-ui-muted'>{title}</p>
-                {icon}
-            </div>
-            <p className='mt-3 text-2xl font-semibold text-ui-text'>{value}</p>
-        </DashboardPanel>
     )
 }
 

@@ -64,6 +64,7 @@ export const productTasks: TestTask[] = [
     { id: 'service-account-boundary', title: 'Scoped service account browser access', command: [bun, 'tests/service-account-boundary.test.ts'] },
     { id: 'numbered-pagination', title: 'Numbered page navigation', command: [bun, 'test', 'tests/numbered-pagination.test.tsx'] },
     { id: 'ti-activity-page', title: 'TI activity page states and pagination', command: [bun, 'test', 'tests/ti-activity.test.tsx'] },
+    { id: 'dashboard-metric-render', title: 'Shared dashboard metric presentation variants', command: [bun, 'test', 'tests/dashboard-metric-render.test.tsx'] },
     { id: 'ti-proxy-contract', title: 'TI proxy authentication and product cache contracts', command: [bun, 'test', 'tests/ti-proxy-auth.test.ts', 'tests/dwm-product-snapshot-cache.test.ts'] },
     { id: 'source-status', title: 'TI scraper control session authentication', command: [bun, 'test', 'tests/ti-source-status.test.mjs'] },
     { id: 'source-activation', title: 'Source activation controls', command: [bun, 'scripts/check-source-activation.mjs'], requires: 'playwright' },

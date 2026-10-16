@@ -14,19 +14,23 @@ export function StatusPill({ label, tone }: { label: string, tone: StatusTone })
     )
 }
 
-export function Metric({ title, value, icon, tone = 'neutral' }: {
+export function Metric({ title, value, icon, tone = 'neutral', valueSize = 'default' }: {
     title: string
     value: string
     icon: ReactNode
     tone?: StatusTone
+    valueSize?: 'default' | 'large'
 }) {
+    const valueClass = valueSize === 'large'
+        ? 'mt-3 text-2xl font-semibold text-ui-text'
+        : 'mt-3 text-xl font-semibold capitalize text-ui-text'
     return (
         <DashboardPanel className='border-ui-border bg-ui-panel p-4'>
             <div className={`flex items-center justify-between ${toneClass(tone).text}`}>
                 <p className='text-xs font-semibold uppercase text-ui-muted'>{title}</p>
                 {icon}
             </div>
-            <p className='mt-3 text-xl font-semibold capitalize text-ui-text'>{value}</p>
+            <p className={valueClass}>{value}</p>
         </DashboardPanel>
     )
 }
