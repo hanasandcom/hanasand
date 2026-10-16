@@ -1,0 +1,66 @@
+import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
+
+export async function runSavedReportJourney(context) {
+    const { page, server, browser, report, result, multilineLog, unstructuredLog } = context
+    const savedPage = await browser.newPage()
+    await savedPage.goto(new URL('/saved', server.url).toString())
+    assert.equal(await savedPage.getByRole('link', { name: 'Back to sandbox', exact: true }).getAttribute('href'), '/sandbox')
+    const summaryPanel = savedPage.locator('summary').filter({ hasText: /^Summary$/ })
+    const beforeStatistics = await summaryPanel.boundingBox()
+    await savedPage.getByRole('button', { name: 'Statistics', exact: true }).click()
+    await savedPage.getByRole('dialog', { name: 'Statistics' }).waitFor()
+    assert.deepEqual(await summaryPanel.boundingBox(), beforeStatistics, 'Statistics overlay must not move the report')
+    await savedPage.keyboard.press('Escape')
+    assert.equal(await savedPage.getByRole('dialog', { name: 'Statistics' }).count(), 0)
+    assert.equal(await savedPage.getByRole('button', { name: 'Statistics', exact: true }).evaluate(node => node === document.activeElement), true)
+    assert.equal(await savedPage.locator('summary').filter({ hasText: /^Statistics$/ }).count(), 0)
+    await savedPage.locator('summary').filter({ hasText: /^Providers$/ }).click()
+    await savedPage.getByText('console.log("saved decoded");', { exact: true }).waitFor()
+    assert.equal(report.captures.find(capture => capture.deobfuscatedCode)?.deobfuscatedCode, 'console.log("saved decoded");')
+    const savedConsole = savedPage.locator('details').filter({ has: savedPage.locator('summary', { hasText: /^Console logs/ }) }).last()
+    await savedConsole.locator('summary').click()
+    assert((await savedConsole.innerText()).includes('Target startup welcome'))
+    assert(!(await savedConsole.innerText()).includes('Provider warning'))
+    const savedDebug = savedPage.locator('details').filter({ has: savedPage.locator('summary', { hasText: /^Debug$/ }) })
+    await savedDebug.locator('summary').click()
+    assert((await savedDebug.innerText()).includes('0 Indicators'))
+    const savedRaw = await savedDebug.locator('pre').textContent()
+    await savedDebug.getByRole('button', { name: 'Pretty', exact: true }).click()
+    assert.equal(await savedDebug.locator('tbody tr').count(), 29)
+    assert.deepEqual(await savedDebug.locator('tbody tr').nth(27).locator('td').allTextContents(), ['info', multilineLog.replace('[VirusTotal] [info] ', '')])
+    assert.deepEqual(await savedDebug.locator('tbody tr').last().locator('td').allTextContents(), ['', unstructuredLog])
+    await savedDebug.getByRole('button', { name: 'Raw', exact: true }).click()
+    assert.equal(await savedDebug.locator('pre').textContent(), savedRaw)
+    for (const title of ['Evidence checklist', 'Threat context', 'URLs', 'Markdown export']) assert.equal(await savedPage.locator('summary').filter({ hasText: new RegExp(`^${title}$`) }).count(), 0)
+    await savedPage.locator('summary').filter({ hasText: /^Network evidence$/ }).click()
+    const networkTable = savedPage.getByRole('table', { name: 'Network requests and extracted URLs' })
+    const visitedRow = networkTable.locator('tbody tr').filter({ has: savedPage.getByText('https://example.com/', { exact: true }) })
+    assert.equal(await visitedRow.count(), 1, 'Request and response merge into one row')
+    assert.equal(await visitedRow.getByLabel('Certificate captured').count(), 1)
+    assert((await visitedRow.innerText()).includes('Test issuer'))
+    assert((await networkTable.locator('tr').filter({ hasText: 'https://example.com/unvisited' }).innerText()).includes('Not contacted'))
+    assert((await networkTable.locator('tr').filter({ hasText: 'https://example.com/blocked.js' }).innerText()).includes('Blocked'))
+    for (const [format, extension] of [['Markdown', 'md'], ['JSON', 'json'], ['PDF', 'pdf']]) {
+        await savedPage.getByRole('button', { name: 'Export', exact: true }).click()
+        const downloading = savedPage.waitForEvent('download')
+        await savedPage.getByRole('button', { name: format, exact: true }).click()
+        const download = await downloading
+        assert.equal(download.suggestedFilename(), `browser-report.${extension}`)
+        await download.saveAs(`/tmp/browser-report-test.${extension}`)
+        const bytes = await readFile(`/tmp/browser-report-test.${extension}`)
+        if (format === 'JSON') { const exported = JSON.parse(bytes); assert.equal(exported.schemaVersion, 1); assert.equal(exported.target, report.target); assert.equal(exported.consoleEvents.length, 29) }
+        if (format === 'Markdown') assert(bytes.toString().includes('## URLs'))
+        if (format === 'PDF') assert(bytes.toString().startsWith('%PDF-'))
+    }
+    await savedPage.close()
+    await page.getByText('VirusTotal 2/70 detections', { exact: true }).waitFor()
+    assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Expanded mobile report must not overflow')
+    await result.click()
+    if (process.env.BROWSER_WORKSPACE_SCREENSHOT) {
+        await page.setViewportSize({ width: 1440, height: 900 })
+        await page.screenshot({ path: process.env.BROWSER_WORKSPACE_SCREENSHOT.replace('.png', '-desktop.png'), fullPage: false })
+        await page.setViewportSize({ width: 390, height: 844 })
+    }
+    if (process.env.BROWSER_WORKSPACE_SCREENSHOT) await page.screenshot({ path: process.env.BROWSER_WORKSPACE_SCREENSHOT, fullPage: true })
+}
