@@ -4,32 +4,29 @@ import path from 'node:path'
 // @ts-expect-error Bun provides this module when running focused tests.
 import { test } from 'bun:test'
 
-test('renders a real cases overview without workflow sections', async () => {
+test('the cases view uses the shared cases route without mounting workflow actions', async () => {
     const frontendRoot = process.cwd().endsWith(`${path.sep}frontend`) ? process.cwd() : path.join(process.cwd(), 'frontend')
-    const [portal, route] = await Promise.all([
-        readFile(path.join(frontendRoot, 'src/app/dashboard/findings/findings.tsx'), 'utf8'),
+    const [overview, view, portalData, route] = await Promise.all([
+        readFile(path.join(frontendRoot, 'src/app/dashboard/findings/case-overview.tsx'), 'utf8'),
+        readFile(path.join(frontendRoot, 'src/app/dashboard/findings/findings-view.tsx'), 'utf8'),
+        readFile(path.join(frontendRoot, 'src/app/dashboard/findings/portal-data.ts'), 'utf8'),
         readFile(path.join(frontendRoot, 'src/app/api/cases/route.ts'), 'utf8'),
     ])
 
-    assert.match(portal, /function CaseOverview\(/)
-    assert.match(portal, /CaseOverview tenantId=\{tenantId\}/)
-    assert.match(portal, /row\.organizationId \|\| organizationId \|\| tenantId/)
-    assert.match(portal, /data-dwm-cases-empty='true'/)
-    assert.match(portal, />No cases\.<\/p>/)
-    assert.match(portal, /data-dwm-cases-table='true'/)
-    assert.match(portal, /Title \/ actor/)
-    assert.match(portal, /Organization \/ victim/)
-    assert.match(portal, /Severity \/ status/)
-    assert.match(portal, /First seen \/ updated/)
-    assert.match(portal, /Review/)
-    assert.doesNotMatch(portal, /No alert is waiting for review/)
-    assert.match(portal, /view === 'cases' \? null/)
-    assert.match(portal, /fetch\(`\/api\/cases\?\$\{params\.toString\(\)\}`/)
-
-    const casesBranch = portal.slice(portal.indexOf('if (view === \'cases\')'), portal.indexOf('function CaseOverview'))
-    const casesComponent = portal.slice(portal.indexOf('function CaseOverview'), portal.indexOf('function DwmPanelPage'))
-    assert.match(casesBranch, /CaseOverview/)
+    assert.match(view, /if \(view === 'cases'\)/)
+    assert.match(view, /<CaseOverview organizationId=\{organizationId\} state=\{casesState\} alerts=\{alerts\} operations=\{operations\} isAdmin=\{isAdmin\} \/>/)
+    assert.match(overview, /row\.organizationId \|\| organizationId/)
+    assert.match(overview, /data-dwm-cases-empty='true'/)
+    assert.match(overview, />No cases\.<\/p>/)
+    assert.match(overview, /data-dwm-cases-table='true'/)
+    assert.match(overview, /Title \/ actor/)
+    assert.match(overview, /Severity \/ status/)
+    assert.match(overview, /Owner/)
+    assert.match(overview, /Updated/)
+    assert.doesNotMatch(overview, /No alert is waiting for review/)
+    const casesComponent = overview.slice(overview.indexOf('export function CaseOverview'), overview.indexOf('function DwmSourceCoverageSummary'))
     assert.doesNotMatch(casesComponent, /DwmWorkflowActions|watchlist|webhook|collection/i)
     assert.doesNotMatch(casesComponent, /overflow-hidden/)
+    assert.match(portalData, /fetch\(`\/api\/cases\?\$\{params\.toString\(\)\}`/)
     assert.match(route, /proxyTiRequest\(request, '\/v1\/cases'/)
 })

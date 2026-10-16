@@ -2,6 +2,7 @@
 import { test, expect } from 'bun:test'
 import { readFile } from 'node:fs/promises'
 import { normalizeAlertRebuildOutcome } from '../src/utils/dwm/alertRebuildOutcome'
+import { alertRebuildFromWatchlistOrRequest, hasDurableCase, hasDurableSourceRequest } from '../src/app/dashboard/findings/workflow-http'
 
 test('inline alert rebuild reports only durable outcomes as success', () => {
     expect(normalizeAlertRebuildOutcome({ status: 'failed', error: { message: 'backend failed' }, savedAlertCount: 0 }).ok).toBe(false)
@@ -13,14 +14,34 @@ test('inline alert rebuild reports only durable outcomes as success', () => {
     expect(normalizeAlertRebuildOutcome({ savedAlertCount: 1, alerts: [{ id: 'alert_1' }] }).ok).toBe(true)
 })
 
-test('without inline outcome, the helper keeps the scoped rebuild POST path', async () => {
-    const source = await readFile(new URL('../src/app/dashboard/findings/workflow-actions.tsx', import.meta.url), 'utf8')
-    expect(source).toContain('return normalizeAlertRebuildOutcome(await postJson(\'/api/findings/alerts/rebuild\', scope))')
-    expect(source).toContain('const rebuildOutcome = normalizeAlertRebuildOutcome(rebuild)')
-    expect(source).toContain('if (!caseId) throw new Error(\'No durable case was returned.\')')
-    expect(source).toContain('ok: !failed && !dryRun')
+test('watchlist rebuild uses the caller scope and accepts only durable saved alerts', async () => {
+    const calls: Array<{ path: string, body: Record<string, unknown> }> = []
+    const scope = { tenantId: 'tenant_1', organizationId: 'org_1' }
+    const post = async (path: string, body: Record<string, unknown>) => {
+        calls.push({ path, body })
+        return { ok: true, message: '', status: 'completed', savedAlertCount: 1, alertIds: ['alert_1'] }
+    }
+
+    const outcome = await alertRebuildFromWatchlistOrRequest({}, scope, post)
+    expect(outcome).toMatchObject({ ok: true, savedAlertCount: 1, alertIds: ['alert_1'] })
+    expect(calls).toEqual([{ path: '/api/findings/alerts/rebuild', body: scope }])
+
+    const inline = await alertRebuildFromWatchlistOrRequest({ alertRebuild: { status: 'queued', savedAlertCount: 0 } }, scope, post)
+    expect(inline.ok).toBe(false)
+    expect(calls).toHaveLength(1)
+})
+
+test('case and source workflows require durable identifiers', () => {
+    expect(hasDurableCase('case_1')).toBe(true)
+    expect(hasDurableCase('')).toBe(false)
+    expect(hasDurableSourceRequest('request_1', 'source_1', '')).toBe(true)
+    expect(hasDurableSourceRequest('request_1', '', 'request_0')).toBe(true)
+    expect(hasDurableSourceRequest('request_1', '', '')).toBe(false)
+    expect(hasDurableSourceRequest('', 'source_1', '')).toBe(false)
+})
+
+test('case detail validates durable updates and notification receipts', async () => {
     const caseDetail = await readFile(new URL('../src/app/dashboard/cases/[id]/case-detail-client.tsx', import.meta.url), 'utf8')
     expect(caseDetail).toContain('if (!payload.case || typeof payload.case.id !== \'string\') throw new Error(\'No durable case update was returned.\')')
     expect(caseDetail).toContain('if (!payload.receipt || typeof payload.receipt.id !== \'string\') throw new Error(\'No durable notification record was returned.\')')
-    expect(source).toContain('if (!requestId || (!sourceId && !duplicateOf)) throw new Error(\'No durable source request was returned.\')')
 })

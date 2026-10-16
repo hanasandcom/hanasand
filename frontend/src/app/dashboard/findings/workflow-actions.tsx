@@ -1,45 +1,21 @@
 'use client'
 
-import Link from '@/components/organizations/workspaceLink'
 import { useRouter } from 'next/navigation'
-import { SyntheticEvent, useRef, useState } from 'react'
-import { Activity, BellRing, Loader2, Plus, RefreshCw, Send, ShieldCheck } from 'lucide-react'
-import { formatClaimSummary } from '@/utils/dwm/display'
-import { normalizeAlertRebuildOutcome } from '@/utils/dwm/alertRebuildOutcome'
-import type { DwmSourceFamily } from '@/utils/dwm/product'
+import { useRef, useState } from 'react'
+import { WorkflowWatchlistForm } from './workflow-watchlist-form'
+import { PublicEvidenceForm, TelegramSourceForm } from './workflow-intake-forms'
+import type { WorkflowProps, WorkflowResult, WorkflowRouteSummary } from './workflow-types'
+import type { RouteQueueAction } from './workflow-route-card'
+import { WorkflowRouteDashboard } from './workflow-route-dashboard'
+import { countTerms, validEvidenceUrl, workflowTerms } from './workflow-terms'
+import { createWatchlistActions } from './workflow-watchlist-actions'
+import { createEvidenceActions } from './workflow-evidence-actions'
+import { createCollectionActions } from './workflow-collection-actions'
+import { createDeliveryActions } from './workflow-delivery-actions'
+import type { WorkflowActionContext } from './workflow-action-context'
 
-type WorkflowResult = {
-    ok: boolean
-    message: string
-    actionHref?: string
-    actionLabel?: string
-}
 
-type WorkflowTelemetry = {
-    activeSourceCount: number
-    sourceCount: number
-    captureCount: number
-    watchlistMatchCount: number
-    latestRunStatus?: string
-    latestRunCaptureCount?: number
-    alertCount: number
-    deliveryCount: number
-}
-
-type WorkflowRouteSummary = {
-    label: string
-    watchTerms: number
-    sourceCount?: number
-    captureCount?: number
-    alertCount?: number
-    alertId?: string
-    caseId?: string
-    caseHref?: string
-    deliveryAttempts?: number
-    deliveryState?: string
-}
-
-export function DwmWorkflowActions({ tenantId, organizationId, initialTerms, watchlistId, telemetry, headingLevel = 2, variant = 'workflow', onSaved }: { headingLevel?: 1 | 2, tenantId: string, organizationId?: string, initialTerms: string[], watchlistId?: string, telemetry?: WorkflowTelemetry, variant?: 'workflow' | 'watchlist-editor', onSaved?: () => void }) {
+export function DwmWorkflowActions({ tenantId, organizationId, initialTerms, watchlistId, telemetry, headingLevel = 2, variant = 'workflow', onSaved }: WorkflowProps) {
     const Heading = headingLevel === 1 ? 'h1' : 'h2'
     const router = useRouter()
     const webhookInputRef = useRef<HTMLInputElement>(null)
@@ -56,573 +32,7 @@ export function DwmWorkflowActions({ tenantId, organizationId, initialTerms, wat
     const [lastRoute, setLastRoute] = useState<WorkflowRouteSummary | null>(null)
     const scope = organizationId ? { tenantId, organizationId } : { tenantId }
 
-    function refreshWorkspace() {
-        router.refresh()
-    }
-
-    function saveWatchlistTerms(nextTerms: string) {
-        return postJson('/api/findings/watchlists', {
-            ...scope,
-            ...(variant === 'watchlist-editor' && watchlistId ? { id: watchlistId } : {}),
-            name: 'Default company exposure watchlist',
-            terms: nextTerms,
-            webhookUrl: webhookUrl.trim() || undefined,
-        })
-    }
-
-    async function saveWatchlistFromCommand() {
-        setBusyAction('watchlist')
-        setResult(null)
-        const nextTerms = workflowTerms(terms)
-
-        try {
-            const saved = await saveWatchlistTerms(nextTerms)
-            if (!saved.ok) throw new Error(saved.message)
-            setTerms(nextTerms)
-            setResult({ ok: true, message: 'Watchlist terms saved. New findings will be checked against them.' })
-            setLastRoute({
-                label: 'Watchlist',
-                watchTerms: countTerms(nextTerms),
-            })
-            refreshWorkspace()
-            onSaved?.()
-        } catch (error) {
-            setResult({ ok: false, message: error instanceof Error ? error.message : String(error) })
-        } finally {
-            setBusyAction(null)
-        }
-    }
-
-    async function saveWatchlist(event: SyntheticEvent<HTMLFormElement>) {
-        event.preventDefault()
-        setBusyAction('watchlist')
-        setResult(null)
-        const nextTerms = workflowTerms(terms)
-
-        try {
-            const watchlist = await saveWatchlistTerms(nextTerms)
-            if (!watchlist.ok) throw new Error(watchlist.message)
-
-            setTerms(nextTerms)
-            setResult({ ok: true, message: 'Watchlist terms saved.' })
-            if (variant !== 'watchlist-editor') refreshWorkspace()
-            onSaved?.()
-        } catch (error) {
-            setResult({ ok: false, message: error instanceof Error ? error.message : String(error) })
-        } finally {
-            setBusyAction(null)
-        }
-    }
-
-    async function ingestPublicAdvisory(event: SyntheticEvent<HTMLFormElement>) {
-        event.preventDefault()
-        setBusyAction('claim')
-        setResult(null)
-
-        const actor = claimActor.trim()
-        const company = claimCompany.trim()
-        const claimedData = claimData.trim()
-        const url = claimUrl.trim()
-        const nextTerms = ensureTerm(terms, company)
-
-        if (!actor || !company || !claimedData || !validEvidenceUrl(url)) {
-            setResult({ ok: false, message: 'Actor, affected company, exposure details, and an HTTPS source URL are required.' })
-            setBusyAction(null)
-            return
-        }
-
-        try {
-            const ingest = await ingestPublicEvidence({ actor, company, claimedData, url }, scope)
-            if (!ingest.ok) throw new Error(ingest.message)
-            const accepted = typeof ingest.accepted === 'number' ? ingest.accepted : 0
-            if (!accepted) throw new Error('The source was not accepted. It must name the subject, describe a cyber incident, and publish a supported original timestamp.')
-
-            const watchlist = await saveWatchlistTerms(nextTerms)
-            if (!watchlist.ok) throw new Error(watchlist.message)
-
-            const rebuild = await alertRebuildFromWatchlistOrRequest(watchlist, scope)
-            const savedAlertCount = typeof rebuild.savedAlertCount === 'number' ? rebuild.savedAlertCount : 0
-            setTerms(nextTerms)
-            setClaimUrl('')
-            setResult({ ok: rebuild.ok, message: rebuild.ok ? `Collected ${accepted} public incident report${accepted === 1 ? '' : 's'}. Matched ${savedAlertCount} alert${savedAlertCount === 1 ? '' : 's'}.` : rebuild.message })
-            setLastRoute({
-                label: 'Metadata intake',
-                watchTerms: countTerms(nextTerms),
-                captureCount: accepted,
-                alertCount: savedAlertCount,
-            })
-            refreshWorkspace()
-        } catch (error) {
-            setResult({ ok: false, message: error instanceof Error ? error.message : String(error) })
-        } finally {
-            setBusyAction(null)
-        }
-    }
-
-    async function openCaseFromPublicAdvisory() {
-        setBusyAction('claim-case')
-        setResult(null)
-
-        const actor = claimActor.trim()
-        const company = claimCompany.trim()
-        const claimedData = claimData.trim()
-        const url = claimUrl.trim()
-        const nextTerms = ensureTerm(terms, company)
-
-        if (!actor || !company || !claimedData || !validEvidenceUrl(url)) {
-            setResult({ ok: false, message: 'Actor, affected company, exposure details, and an HTTPS source URL are required.' })
-            setBusyAction(null)
-            return
-        }
-
-        try {
-            const ingest = await ingestPublicEvidence({ actor, company, claimedData, url }, scope)
-            const accepted = typeof ingest.accepted === 'number' ? ingest.accepted : 0
-            if (!accepted) throw new Error('The source was not accepted. It must name the subject, describe a cyber incident, and publish a supported original timestamp.')
-
-            const watchlist = await saveWatchlistTerms(nextTerms)
-            if (!watchlist.ok) throw new Error(watchlist.message)
-
-            const rebuild = await postJson('/api/findings/alerts/rebuild', scope)
-            if (!rebuild.ok) throw new Error(rebuild.message)
-
-            const alert = selectRebuiltAlert(rebuild, company, nextTerms)
-            if (!alert?.id) throw new Error('No matching event was found in this evidence.')
-
-            const casePayload = await postJson(`/api/findings/alerts/${encodeURIComponent(alert.id)}/case-handoff`, {
-                ...scope,
-                actor: 'dashboard',
-                note: `Case opened from public incident evidence for ${company}.`,
-                idempotencyKey: `dashboard-public-advisory-case:${alert.id}`,
-            })
-            if (!casePayload.ok) throw new Error(casePayload.message)
-
-            const caseId = readNestedString(casePayload, ['case', 'id']) || readNestedString(casePayload, ['alertCaseHandoff', 'caseId'])
-            if (!caseId) throw new Error('No durable case was returned.')
-            let deliveryText = ''
-            let deliveryReady = false
-            let deliveryAttempts = 0
-            if (webhookConfigured) {
-                const delivery = await postJson('/api/findings/webhooks/deliver', {
-                    ...scope,
-                    alertId: alert.id,
-                    caseId: caseId || undefined,
-                    limit: 1,
-                    dryRun: true,
-                    webhookUrl: webhookUrl.trim(),
-                    attachToWatchlist: true,
-                })
-                if (!delivery.ok) throw new Error(delivery.message)
-                const deliveryRows = durableDeliveryRows(delivery)
-                if (!deliveryRows.length) throw new Error('No durable delivery result was returned.')
-                deliveryAttempts = deliveryRows.length
-                deliveryReady = deliveryRows.some(row => row.status === 'delivered' && row.dryRun !== true)
-                deliveryText = deliveryReady
-                    ? ' Delivery delivered.'
-                    : ' Dry-run delivery recorded; no customer notification was sent.'
-            }
-
-            setTerms(nextTerms)
-            setClaimUrl('')
-            setLastRoute({
-                label: 'Metadata case',
-                watchTerms: countTerms(nextTerms),
-                captureCount: accepted,
-                alertCount: 1,
-                alertId: alert.id,
-                caseId: caseId || undefined,
-                caseHref: caseId ? caseDetailPath(caseId, alert.id, organizationId, 'public_advisory') : undefined,
-                deliveryAttempts: deliveryText ? deliveryAttempts : undefined,
-                deliveryState: deliveryText ? (deliveryReady ? 'delivered' : 'dry-run recorded') : undefined,
-            })
-            setResult({
-                ok: !webhookConfigured || deliveryReady,
-                message: `Collected ${accepted} public incident report${accepted === 1 ? '' : 's'}, opened ${caseId || 'a case'}.${deliveryText}`,
-                actionHref: deliveryText && !deliveryReady ? deliverySetupHref(organizationId) : undefined,
-                actionLabel: deliveryText && !deliveryReady ? 'Configure delivery' : undefined,
-            })
-            if (caseId) {
-                router.push(caseDetailPath(caseId, alert.id, organizationId, 'public_advisory'))
-            } else {
-                router.refresh()
-            }
-        } catch (error) {
-            setResult({ ok: false, message: error instanceof Error ? error.message : String(error) })
-        } finally {
-            setBusyAction(null)
-        }
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    async function runSourcePackToCase() {
-        setBusyAction('source-case')
-        setResult(null)
-        const nextTerms = workflowTerms(terms)
-
-        try {
-            const watchlist = await saveWatchlistTerms(nextTerms)
-            if (!watchlist.ok) throw new Error(watchlist.message)
-
-            const telegram = await postJson('/api/findings/source-requests', {
-                ...scope,
-                seedPackIds: ['telegram-ransomware-claim-watch', 'telegram-stealer-broker-watch', 'telegram-regional-language-watch'],
-                activate: true,
-                limit: 60,
-                scope: nextTerms,
-            })
-            if (!telegram.ok) throw new Error(telegram.message)
-
-            const darkweb = await postJson('/api/findings/darkweb/approve-metadata', {
-                ...scope,
-                seedPackIds: ['darkweb-actor-metadata-core', 'darkweb-market-metadata-watch'],
-                activate: true,
-                approveMetadataOnly: true,
-                approvedBy: 'dashboard',
-                limit: 68,
-                scope: nextTerms,
-            })
-            if (!darkweb.ok) throw new Error(darkweb.message)
-
-            const advisory = { ok: true, summary: {} as Record<string, unknown> }
-
-            const run = await postJson('/api/findings/canary/run', {
-                ...scope,
-                operatorApproval: true,
-                approvedBy: 'dashboard',
-                maxSources: 48,
-                maxTasks: 96,
-            })
-            if (!run.ok) throw new Error(run.message)
-
-            const rebuild = await postJson('/api/findings/alerts/rebuild', scope)
-            if (!rebuild.ok) throw new Error(rebuild.message)
-            const alert = selectRebuiltAlert(rebuild, '', nextTerms)
-            const savedAlertCount = typeof rebuild.savedAlertCount === 'number' ? rebuild.savedAlertCount : 0
-            const captureCount = readNumber(run.canaryRun, 'insertedCaptureCount')
-            const telegramCount = readSummaryNumber(telegram, 'telegramPublicCreated')
-            const darkwebCount = readSummaryNumber(darkweb, 'darkwebMetadataCreated')
-            const advisorySummary = advisory.summary && typeof advisory.summary === 'object' ? advisory.summary as Record<string, unknown> : {}
-            const advisoryCount = typeof advisorySummary.publicAdvisoryCreated === 'number' ? advisorySummary.publicAdvisoryCreated : 0
-            if (!alert?.id) {
-                setTerms(nextTerms)
-                setLastRoute({
-                    label: 'Source pack run',
-                    watchTerms: countTerms(nextTerms),
-                    sourceCount: telegramCount + darkwebCount + advisoryCount,
-                    captureCount,
-                    alertCount: savedAlertCount,
-                })
-                setResult({ ok: true, message: `Sources updated. Collected ${captureCount} capture(s) and matched ${savedAlertCount} events. No watchlist match opened a case.` })
-                router.refresh()
-                return
-            }
-
-            const casePayload = await postJson(`/api/findings/alerts/${encodeURIComponent(alert.id)}/case-handoff`, {
-                ...scope,
-                actor: 'dashboard',
-                note: 'Case opened from source-pack collection.',
-                idempotencyKey: `dashboard-source-pack-case:${alert.id}`,
-            })
-            if (!casePayload.ok) throw new Error(casePayload.message)
-            const caseId = readNestedString(casePayload, ['case', 'id']) || readNestedString(casePayload, ['alertCaseHandoff', 'caseId'])
-
-            let deliveryText = ''
-            let deliveryAttempts: number | undefined
-            let deliveryReady = false
-            if (webhookConfigured) {
-                const delivery = await postJson('/api/findings/webhooks/deliver', {
-                    ...scope,
-                    alertId: alert.id,
-                    caseId: caseId || undefined,
-                    limit: 1,
-                    dryRun: true,
-                    webhookUrl: webhookUrl.trim(),
-                    attachToWatchlist: true,
-                })
-                if (!delivery.ok) throw new Error(delivery.message)
-                const attemptedCount = typeof delivery.attemptedCount === 'number' ? delivery.attemptedCount : 0
-                deliveryAttempts = attemptedCount
-                deliveryReady = attemptedCount > 0
-                deliveryText = deliveryReady ? ' Dry-run delivery recorded.' : ' Delivery needs setup.'
-            }
-
-            setTerms(nextTerms)
-            setLastRoute({
-                label: 'Full route',
-                watchTerms: countTerms(nextTerms),
-                sourceCount: telegramCount + darkwebCount + advisoryCount,
-                captureCount,
-                alertCount: savedAlertCount,
-                alertId: alert.id,
-                caseId: caseId || undefined,
-                caseHref: caseId ? caseDetailPath(caseId, alert.id, organizationId, 'source_pack') : undefined,
-                deliveryAttempts,
-                deliveryState: deliveryText ? (deliveryReady ? deliveryText.trim() : 'Delivery needs setup. Configure or test a destination before sending customer notification.') : undefined,
-            })
-            setResult({
-                ok: true,
-                message: `Added ${advisoryCount} public advisory source(s), collected ${captureCount} capture(s), matched ${savedAlertCount} events, opened ${caseId || 'a case'}.${deliveryReady ? deliveryText : deliveryText ? ' Configure or test a destination before sending customer notification.' : ''}`,
-                actionHref: deliveryText && !deliveryReady ? deliverySetupHref(organizationId) : undefined,
-                actionLabel: deliveryText && !deliveryReady ? 'Configure delivery' : undefined,
-            })
-            if (caseId) {
-                router.push(caseDetailPath(caseId, alert.id, organizationId, 'source_pack'))
-            } else {
-                router.refresh()
-            }
-        } catch (error) {
-            setResult({ ok: false, message: error instanceof Error ? error.message : String(error) })
-        } finally {
-            setBusyAction(null)
-        }
-    }
-
-    async function submitSource(event: SyntheticEvent<HTMLFormElement>) {
-        event.preventDefault()
-        setBusyAction('source')
-        setResult(null)
-
-        try {
-            const source = await postJson('/api/findings/source-requests', {
-                ...scope,
-                target: sourceTarget,
-                type: 'telegram_channel',
-                priority: 'high',
-                scope: terms,
-                activate: false,
-            })
-            if (!source.ok) throw new Error(source.message)
-            const duplicateOf = typeof source.duplicateOf === 'string' ? source.duplicateOf : ''
-            const requestId = readNestedString(source, ['request', 'id'])
-            const sourceId = readNestedString(source, ['source', 'id'])
-            if (!requestId || (!sourceId && !duplicateOf)) throw new Error('No durable source request was returned.')
-            setResult({ ok: true, message: duplicateOf ? `Already registered as ${duplicateOf}.` : 'Telegram source submitted for review.' })
-            setLastRoute({
-                label: 'Source request',
-                watchTerms: countTerms(terms),
-                sourceCount: duplicateOf ? 0 : 1,
-            })
-            setSourceTarget('')
-            refreshWorkspace()
-        } catch (error) {
-            setResult({ ok: false, message: error instanceof Error ? error.message : String(error) })
-        } finally {
-            setBusyAction(null)
-        }
-    }
-
-    async function runCollection() {
-        setBusyAction('collection')
-        setResult(null)
-
-        try {
-            const run = await postJson('/api/findings/canary/run', {
-                ...scope,
-                operatorApproval: true,
-                approvedBy: 'dashboard',
-                maxSources: 12,
-                maxTasks: 24,
-            })
-            if (!run.ok) throw new Error(run.message)
-
-            const rebuild = await postJson('/api/findings/alerts/rebuild', scope)
-            const rebuildOutcome = normalizeAlertRebuildOutcome(rebuild)
-            const captureCount = readNumber(run.canaryRun, 'insertedCaptureCount')
-            const savedAlertCount = typeof rebuildOutcome.savedAlertCount === 'number' ? rebuildOutcome.savedAlertCount : 0
-            setResult({
-                ok: rebuildOutcome.ok,
-                message: rebuildOutcome.ok
-                    ? `Collected ${captureCount} Telegram captures. Matched ${savedAlertCount} events.`
-                    : rebuildOutcome.message,
-            })
-            setLastRoute({
-                label: 'Collection run',
-                watchTerms: countTerms(workflowTerms(terms)),
-                captureCount,
-                alertCount: savedAlertCount,
-            })
-            router.refresh()
-        } catch (error) {
-            setResult({ ok: false, message: error instanceof Error ? error.message : String(error) })
-        } finally {
-            setBusyAction(null)
-        }
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    async function expandTelegramCoverage() {
-        setBusyAction('telegram-pack')
-        setResult(null)
-        const nextTerms = workflowTerms(terms)
-
-        try {
-            const watchlist = await saveWatchlistTerms(nextTerms)
-            if (!watchlist.ok) throw new Error(watchlist.message)
-
-            const applied = await postJson('/api/findings/source-requests', {
-                ...scope,
-                seedPackIds: ['telegram-ransomware-claim-watch', 'telegram-stealer-broker-watch', 'telegram-regional-language-watch'],
-                activate: true,
-                limit: 60,
-                scope: nextTerms,
-            })
-            if (!applied.ok) throw new Error(applied.message)
-
-            const run = await postJson('/api/findings/canary/run', {
-                ...scope,
-                operatorApproval: true,
-                approvedBy: 'dashboard',
-                maxSources: 48,
-                maxTasks: 96,
-            })
-            if (!run.ok) throw new Error(run.message)
-
-            const rebuild = await postJson('/api/findings/alerts/rebuild', scope)
-            const summary = applied.summary && typeof applied.summary === 'object' ? applied.summary as Record<string, unknown> : {}
-            const createdCount = typeof summary.telegramPublicCreated === 'number' ? summary.telegramPublicCreated : 0
-            const duplicateCount = typeof summary.duplicateCount === 'number' ? summary.duplicateCount : 0
-            const captureCount = readNumber(run.canaryRun, 'insertedCaptureCount')
-            const savedAlertCount = typeof rebuild.savedAlertCount === 'number' ? rebuild.savedAlertCount : 0
-            setTerms(nextTerms)
-            setResult({ ok: true, message: `Added ${createdCount} Telegram canary source(s), skipped ${duplicateCount} duplicate(s), collected ${captureCount} capture(s), matched ${savedAlertCount} events.` })
-            setLastRoute({
-                label: 'Telegram expansion',
-                watchTerms: countTerms(nextTerms),
-                sourceCount: createdCount,
-                captureCount,
-                alertCount: savedAlertCount,
-            })
-            router.refresh()
-        } catch (error) {
-            setResult({ ok: false, message: error instanceof Error ? error.message : String(error) })
-        } finally {
-            setBusyAction(null)
-        }
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    async function approveDarkwebMetadata() {
-        setBusyAction('darkweb')
-        setResult(null)
-        const nextTerms = workflowTerms(terms)
-
-        try {
-            const watchlist = await saveWatchlistTerms(nextTerms)
-            if (!watchlist.ok) throw new Error(watchlist.message)
-
-            const approved = await postJson('/api/findings/darkweb/approve-metadata', {
-                ...scope,
-                seedPackIds: ['darkweb-actor-metadata-core', 'darkweb-market-metadata-watch'],
-                activate: true,
-                approveMetadataOnly: true,
-                approvedBy: 'dashboard',
-                limit: 68,
-                scope: nextTerms,
-            })
-            if (!approved.ok) throw new Error(approved.message)
-            const advisory = { ok: true, summary: {} as Record<string, unknown> }
-            const summary = approved.summary && typeof approved.summary === 'object' ? approved.summary as Record<string, unknown> : {}
-            const count = typeof summary.darkwebMetadataCreated === 'number' ? summary.darkwebMetadataCreated : 0
-            const advisorySummary = advisory.summary && typeof advisory.summary === 'object' ? advisory.summary as Record<string, unknown> : {}
-            const advisoryCount = typeof advisorySummary.publicAdvisoryCreated === 'number' ? advisorySummary.publicAdvisoryCreated : 0
-            setTerms(nextTerms)
-            setResult({ ok: true, message: `Approved ${count} dark-web metadata source(s) and ${advisoryCount} public advisory source(s). No payload downloads enabled.` })
-            setLastRoute({
-                label: 'Metadata sources',
-                watchTerms: countTerms(nextTerms),
-                sourceCount: count + advisoryCount,
-            })
-            router.refresh()
-        } catch (error) {
-            setResult({ ok: false, message: error instanceof Error ? error.message : String(error) })
-        } finally {
-            setBusyAction(null)
-        }
-    }
-
-    async function deliverWebhooks() {
-        const disabledReason = webhookSendDisabledReason
-        if (disabledReason) {
-            setResult({ ok: false, message: disabledReason, actionHref: '#dwm-inline-webhook', actionLabel: 'Add endpoint' })
-            focusWebhookInput(false)
-            return
-        }
-        setBusyAction('delivery')
-        setResult(null)
-
-        try {
-            const delivery = await postJson('/api/findings/webhooks/deliver', {
-                ...scope,
-                limit: 25,
-                webhookUrl: webhookConfigured ? webhookUrl.trim() : undefined,
-            })
-            if (!delivery.ok) throw new Error(delivery.message)
-            const deliveryRows = durableDeliveryRows(delivery)
-            if (!deliveryRows.length) throw new Error('No durable delivery result was returned.')
-            const attemptedCount = deliveryRows.length
-            const failed = deliveryRows.some(row => row.status === 'failed' || Boolean(row.error))
-            const deliveredCount = deliveryRows.filter(row => row.status === 'delivered' && row.dryRun !== true).length
-            const dryRunCount = deliveryRows.filter(row => row.status === 'dry_run' || row.dryRun === true).length
-            const skippedCount = deliveryRows.filter(row => row.status === 'skipped').length
-            const message = failed
-                ? 'Webhook delivery recorded a failed attempt. Review delivery history before retrying.'
-                : deliveredCount
-                    ? `${deliveredCount} event${deliveredCount === 1 ? '' : 's'} delivered to the configured destination.`
-                    : dryRunCount
-                        ? 'Webhook delivery recorded a dry-run; no customer notification was sent.'
-                        : skippedCount
-                            ? 'Webhook delivery was skipped; no customer notification was sent.'
-                            : 'No delivered customer notification was recorded.'
-            setResult({ ok: !failed && deliveredCount > 0, message })
-            setLastRoute({
-                label: 'Webhook delivery',
-                watchTerms: effectiveTermCount,
-                deliveryAttempts: attemptedCount,
-                deliveryState: failed ? 'failed' : deliveredCount ? 'delivered' : dryRunCount ? 'dry-run recorded' : skippedCount ? 'skipped' : 'no delivery',
-            })
-            refreshWorkspace()
-        } catch (error) {
-            setResult({ ok: false, message: error instanceof Error ? error.message : String(error) })
-        } finally {
-            setBusyAction(null)
-        }
-    }
-
-    async function testWebhook() {
-        setBusyAction('webhook-test')
-        setResult(null)
-
-        try {
-            const test = await postJson('/api/findings/webhooks/test', {
-                ...scope,
-                webhookUrl: webhookUrl.trim() || undefined,
-            })
-            if (!test.ok) throw new Error(test.message)
-            const deliveryRows = durableDeliveryRows(test)
-            if (!deliveryRows.length) throw new Error('No durable delivery result was returned.')
-            const failed = deliveryRows.some(row => row.status === 'failed' || Boolean(row.error))
-            const dryRun = deliveryRows.some(row => row.status === 'dry_run' || row.dryRun === true)
-            setResult({
-                ok: !failed && !dryRun,
-                message: failed
-                    ? 'Webhook test recorded a failed delivery attempt. Review delivery history before retrying.'
-                    : dryRun
-                        ? 'Webhook test recorded a dry-run delivery. Future events can use this destination.'
-                        : 'Webhook test delivered. Future events can use this destination.',
-            })
-            setLastRoute({
-                label: 'Webhook test',
-                watchTerms: effectiveTermCount,
-                deliveryAttempts: deliveryRows.length,
-                deliveryState: failed ? 'test failed' : dryRun ? 'test recorded' : 'test delivered',
-            })
-            refreshWorkspace()
-        } catch (error) {
-            setResult({ ok: false, message: error instanceof Error ? error.message : String(error) })
-        } finally {
-            setBusyAction(null)
-        }
-    }
+    function refreshWorkspace() { router.refresh() }
 
     function focusWebhookInput(updateResult = true) {
         webhookInputRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' })
@@ -656,27 +66,35 @@ export function DwmWorkflowActions({ tenantId, organizationId, initialTerms, wat
     const webhookTestDisabledReason = webhookConfigured ? '' : 'Enter an HTTPS webhook URL before testing delivery.'
     const webhookSendDisabledReason = webhookConfigured || organizationId ? '' : 'Enter an HTTPS webhook URL or open an organization with a saved delivery destination before sending queued events.'
 
-    if (variant === 'watchlist-editor') {
-        return (
-            <form onSubmit={saveWatchlist} className='grid gap-3'>
-                <textarea
-                    ref={watchlistInputRef}
-                    aria-label='Watchlist terms'
-                    value={terms}
-                    onChange={event => setTerms(event.target.value)}
-                    placeholder='One term per line'
-                    className='min-h-24 w-full resize-y rounded-lg border border-ui-border bg-ui-panel px-3 py-2 text-sm text-ui-text outline-none transition placeholder:text-ui-muted focus:border-ui-primary focus:ring-2 focus:ring-ui-primary/20'
-                />
-                <div className='flex flex-wrap items-center gap-3'>
-                    <button disabled={busy || Boolean(watchlistDisabledReason)} className='inline-flex h-10 items-center gap-2 rounded-lg bg-ui-primary px-4 text-sm font-semibold text-ui-on-primary transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60'>
-                        {busyAction === 'watchlist' ? <Loader2 className='h-4 w-4 animate-spin' /> : null}
-                        Save terms
-                    </button>
-                    {result ? <p role='status' className={`text-sm ${result.ok ? 'text-ui-success' : 'text-ui-danger'}`}>{result.message}</p> : null}
-                </div>
-            </form>
-        )
+
+    const actionContext: WorkflowActionContext = {
+        scope, organizationId, variant, watchlistId, terms, setTerms, webhookUrl, webhookConfigured, claimUrl,
+        setClaimUrl, claimActor, claimCompany, claimData, sourceTarget, setSourceTarget, setBusyAction, setResult,
+        setLastRoute, onSaved, refreshWorkspace,
+        navigateToCase: path => router.push(path),
     }
+    const watchlistActions = createWatchlistActions(actionContext)
+    const evidenceActions = createEvidenceActions(actionContext, watchlistActions.saveTerms)
+    const collectionActions = createCollectionActions(actionContext)
+    const deliveryActions = createDeliveryActions(actionContext, effectiveTermCount, refreshWorkspace)
+    const { save: saveWatchlist, saveFromCommand: saveWatchlistFromCommand } = watchlistActions
+    const { ingestPublicAdvisory, openCaseFromPublicAdvisory } = evidenceActions
+    const { submitSource, runCollection } = collectionActions
+    const { testWebhook } = deliveryActions
+
+    function deliverWebhooks() {
+        if (webhookSendDisabledReason) {
+            setResult({ ok: false, message: webhookSendDisabledReason, actionHref: '#dwm-inline-webhook', actionLabel: 'Add endpoint' })
+            focusWebhookInput(false)
+            return
+        }
+        return deliveryActions.deliverWebhooks()
+    }
+
+    if (variant === 'watchlist-editor') return <WorkflowWatchlistForm
+        compact terms={terms} hasTerms={Boolean(termCount)} onTermsChange={setTerms} inputRef={watchlistInputRef} onSave={saveWatchlist}
+        busy={busy} saving={busyAction === 'watchlist'} disabledReason={watchlistDisabledReason} result={result}
+    />
 
     const routeQueue = [
         {
@@ -716,431 +134,54 @@ export function DwmWorkflowActions({ tenantId, organizationId, initialTerms, wat
 
     return (
         <div data-dwm-workflow-runbook className='grid gap-3 rounded-lg border border-ui-border bg-ui-panel p-3 text-ui-text sm:p-4'>
-            <section className='grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.62fr)] lg:items-start'>
-                <div className='min-w-0'>
-                    <p className='text-[10px] font-semibold uppercase text-ui-primary'>Monitoring workflow</p>
-                    <Heading className='mt-1 text-lg font-semibold tracking-normal text-ui-text'>Watchlist to case</Heading>
-                    <div className='mt-2 grid grid-cols-2 gap-2 sm:grid-cols-5'>
-                        <RouteStateCard label='Terms' value={String(effectiveTermCount)} detail={termCount ? 'ready' : 'needed'} tone={termCount ? 'ok' : 'warn'} />
-                        <RouteStateCard label='Sources' value={`${activeSourceCount}/${sourceCount}`} detail={sourceCount ? 'executable' : 'none configured'} tone={activeSourceCount ? 'ok' : 'warn'} />
-                        <RouteStateCard label='Captures' value={String(captureCount)} detail={latestRunStatus ? `${latestRunStatus}${latestRunCaptureCount ? ` · ${latestRunCaptureCount}` : ''}` : 'idle'} tone={captureCount ? 'ok' : 'neutral'} />
-                        <RouteStateCard label='Alerts' value={String(alertCount)} detail={`${telemetry?.watchlistMatchCount ?? 0} matches`} tone={alertCount ? 'ok' : termCount ? 'warn' : 'neutral'} />
-                        <RouteStateCard label='Webhook' value={deliveryCount ? `${deliveryCount}` : webhookConfigured ? 'staged' : 'route needed'} detail={deliveryCount ? 'attempts' : webhookConfigured ? 'test' : 'add URL'} tone={deliveryCount || webhookConfigured ? 'ok' : 'warn'} />
-                    </div>
-                </div>
-                {result ? (
-                    <div data-dwm-workflow-result className={`rounded-lg border px-3 py-2 text-sm leading-5 ${result.ok ? 'border-ui-success/30 bg-ui-success/10 text-ui-success' : 'border-ui-danger/30 bg-ui-raised/10 text-ui-text'}`}>
-                        <p className='font-semibold'>{result.ok ? 'Workflow updated' : 'Action blocked'}</p>
-                        <p className='mt-1 text-xs leading-5'>{result.message}</p>
-                        {result.actionHref && result.actionLabel ? (
-                            <Link href={result.actionHref} className='mt-2 inline-flex min-h-8 items-center rounded-lg border border-current px-3 text-xs font-semibold transition hover:opacity-80' data-dwm-workflow-result-action='true'>
-                                {result.actionLabel}
-                            </Link>
-                        ) : null}
-                    </div>
-                ) : (
-                    <div className='rounded-lg border border-ui-border bg-ui-raised px-3 py-2'>
-                        <p className='text-[10px] font-semibold uppercase text-ui-subtle'>Route state</p>
-                        <p className='mt-1 text-sm font-semibold text-ui-text'>{alertCount ? `${alertCount} alert${alertCount === 1 ? '' : 's'} ready` : termCount ? 'Ready to collect' : 'Add watchlist terms'}</p>
-                        <p className='mt-1 text-xs leading-5 text-ui-muted'>{deliveryCount ? `${deliveryCount} delivery attempt${deliveryCount === 1 ? '' : 's'} recorded.` : 'No destination yet. Add or test an HTTPS Discord/webhook endpoint before sending.'}</p>
-                    </div>
-                )}
-            </section>
-
-            <section data-dwm-route-queue className='rounded-lg border border-ui-border bg-ui-raised p-3'>
-                <div className='flex flex-wrap items-start justify-between gap-3'>
-                    <div className='min-w-0'>
-                        <h3 className='text-sm font-semibold text-ui-text'>Commands</h3>
-                        <p className='mt-0.5 text-xs leading-5 text-ui-subtle'>Manage your watchlist, collect updates and send events.</p>
-                    </div>
-                </div>
-                <div className='mt-3 grid min-w-0 gap-2 sm:grid-cols-2 lg:grid-cols-3'>
-                    {routeQueue.map(action => <RouteQueueCard key={action.id} action={action} />)}
-                </div>
-                <div id='dwm-inline-webhook' data-dwm-inline-webhook className='mt-3 grid gap-2 rounded-lg border border-ui-border bg-ui-panel p-3 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:items-end'>
-                    <label className='min-w-0'>
-                        <span className='text-[10px] font-semibold uppercase text-ui-subtle'>Delivery endpoint</span>
-                        <input
-                            ref={webhookInputRef}
-                            value={webhookUrl}
-                            onChange={event => setWebhookUrl(event.target.value)}
-                            placeholder='https://discord.com/api/webhooks/...'
-                            className='mt-1 h-10 w-full rounded-lg border border-ui-border bg-ui-raised px-3 text-sm text-ui-text outline-none transition placeholder:text-ui-muted focus:border-ui-primary focus:ring-2 focus:ring-ui-primary/20'
-                        />
-                    </label>
-                    <WorkflowButton busy={busyAction === 'webhook-test'} disabled={busy || Boolean(webhookTestDisabledReason)} disabledReason={webhookTestDisabledReason || undefined} icon={<Send className='h-4 w-4' />} onClick={testWebhook}>Test destination</WorkflowButton>
-                    <WorkflowButton busy={busyAction === 'delivery'} disabled={busy || Boolean(webhookSendDisabledReason)} disabledReason={webhookSendDisabledReason || undefined} icon={<Send className='h-4 w-4' />} onClick={deliverWebhooks}>Send queued</WorkflowButton>
-                    <p className='text-xs leading-5 text-ui-subtle lg:col-span-3'>
-                        {webhookConfigured ? 'Test saves a delivery attempt without sending externally.' : 'Add an HTTPS Discord or webhook endpoint before testing customer delivery.'}
-                    </p>
-                </div>
-                {lastRoute ? <RouteRunSummary route={lastRoute} organizationId={organizationId} /> : null}
-            </section>
-
+            <WorkflowRouteDashboard
+                heading={Heading}
+                values={{
+                    terms: effectiveTermCount,
+                    termsTone: termCount ? 'ok' : 'warn',
+                    sources: `${activeSourceCount}/${sourceCount}`,
+                    sourceTone: activeSourceCount ? 'ok' : 'warn',
+                    captures: String(captureCount),
+                    captureDetail: latestRunStatus ? `${latestRunStatus}${latestRunCaptureCount ? ` · ${latestRunCaptureCount}` : ''}` : 'idle',
+                    captureTone: captureCount ? 'ok' : 'neutral',
+                    alerts: String(alertCount),
+                    alertDetail: `${telemetry?.watchlistMatchCount ?? 0} matches`,
+                    alertTone: alertCount ? 'ok' : termCount ? 'warn' : 'neutral',
+                    webhook: deliveryCount ? String(deliveryCount) : webhookConfigured ? 'staged' : 'route needed',
+                    webhookDetail: deliveryCount ? 'attempts' : webhookConfigured ? 'test' : 'add URL',
+                    webhookTone: deliveryCount || webhookConfigured ? 'ok' : 'warn',
+                    routeTitle: alertCount ? `${alertCount} alert${alertCount === 1 ? '' : 's'} ready` : termCount ? 'Ready to collect' : 'Add watchlist terms',
+                    routeDetail: deliveryCount ? `${deliveryCount} delivery attempt${deliveryCount === 1 ? '' : 's'} recorded.` : 'No destination yet. Add or test an HTTPS Discord/webhook endpoint before sending.',
+                }}
+                result={result}
+                routeQueue={routeQueue}
+                endpoint={webhookUrl}
+                endpointRef={webhookInputRef}
+                onEndpointChange={setWebhookUrl}
+                onTest={testWebhook}
+                onSend={deliverWebhooks}
+                busyAction={busyAction}
+                busy={busy}
+                testDisabledReason={webhookTestDisabledReason}
+                sendDisabledReason={webhookSendDisabledReason}
+                lastRoute={lastRoute}
+                organizationId={organizationId}
+            />
             <div className='grid gap-4 xl:grid-cols-2 2xl:grid-cols-[1.05fr_0.95fr_0.95fr]'>
-                <form onSubmit={saveWatchlist} className='rounded-lg border border-ui-border bg-ui-raised p-4 shadow-sm'>
-                    <div className='flex items-start justify-between gap-3'>
-                        <div>
-                            <h2 className='text-base font-semibold text-ui-text'>Customer watchlist</h2>
-                            <p className='mt-1 text-xs leading-5 text-ui-subtle'>Company, domain, vendor, brand, and product terms.</p>
-                        </div>
-                        <BellRing className='h-5 w-5 text-ui-primary' />
-                    </div>
-                    <textarea
-                        ref={watchlistInputRef}
-                        value={terms}
-                        onChange={event => setTerms(event.target.value)}
-                        placeholder='One customer-owned company, domain, supplier, brand, or product per line'
-                        className='mt-3 min-h-28 w-full resize-y rounded-lg border border-ui-border bg-ui-panel px-3 py-2 text-sm text-ui-text outline-none transition placeholder:text-ui-muted focus:border-ui-primary focus:ring-2 focus:ring-ui-primary/20'
-                    />
-                    <div className='mt-3 flex flex-wrap gap-2'>
-                        <button disabled={busy || Boolean(watchlistDisabledReason)} title={watchlistDisabledReason || undefined} className='inline-flex h-10 items-center gap-2 rounded-lg bg-ui-primary px-4 text-sm font-semibold text-ui-on-primary transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60'>
-                            {busyAction === 'watchlist' ? <Loader2 className='h-4 w-4 animate-spin' /> : <RefreshCw className='h-4 w-4' />}
-                            Save and check events
-                        </button>
-                        <WorkflowButton busy={busyAction === 'collection'} disabled={busy} icon={<RefreshCw className='h-4 w-4' />} onClick={runCollection}>Run Telegram collection</WorkflowButton>
-                        <WorkflowButton busy={busyAction === 'delivery'} disabled={busy || Boolean(webhookSendDisabledReason)} disabledReason={webhookSendDisabledReason || undefined} icon={<Send className='h-4 w-4' />} onClick={deliverWebhooks}>Send webhooks</WorkflowButton>
-                        <WorkflowButton busy={busyAction === 'webhook-test'} disabled={busy || Boolean(webhookTestDisabledReason)} disabledReason={webhookTestDisabledReason} icon={<Send className='h-4 w-4' />} onClick={testWebhook}>Test webhook</WorkflowButton>
-                    </div>
-                    {!termCount ? <p className='mt-2 text-xs leading-5 text-ui-warning'>No persisted watchlist terms. Add terms owned by this tenant before collecting or checking events.</p> : null}
-                    {webhookTestDisabledReason ? <p className='mt-1 text-xs leading-5 text-ui-subtle'>{webhookTestDisabledReason}</p> : null}
-                </form>
-
-                <form onSubmit={ingestPublicAdvisory} className='rounded-lg border border-ui-border bg-ui-raised p-4 shadow-sm'>
-                    <div className='flex items-start justify-between gap-3'>
-                        <div>
-                            <h2 className='text-base font-semibold text-ui-text'>Public incident evidence</h2>
-                            <p className='mt-1 text-sm leading-6 text-ui-subtle'>Fetch a public incident report, retain its publisher timestamp, and create cases for matching events.</p>
-                        </div>
-                        <ShieldCheck className='h-5 w-5 text-ui-primary' />
-                    </div>
-                    <div className='mt-4'>
-                        <input
-                            value={claimActor}
-                            onChange={event => setClaimActor(event.target.value)}
-                            placeholder='Publisher or reporting actor'
-                            className='h-10 w-full rounded-lg border border-ui-border bg-ui-panel px-3 text-sm text-ui-text outline-none transition placeholder:text-ui-muted focus:border-ui-primary focus:ring-2 focus:ring-ui-primary/20'
-                        />
-                    </div>
-                    <div className='mt-3'>
-                        <input
-                            value={claimCompany}
-                            onChange={event => setClaimCompany(event.target.value)}
-                            placeholder='Affected organization or domain'
-                            className='h-10 w-full rounded-lg border border-ui-border bg-ui-panel px-3 text-sm text-ui-text outline-none transition placeholder:text-ui-muted focus:border-ui-primary focus:ring-2 focus:ring-ui-primary/20'
-                        />
-                    </div>
-                    <textarea
-                        value={claimData}
-                        onChange={event => setClaimData(event.target.value)}
-                        placeholder='What happened?'
-                        className='mt-3 min-h-20 w-full resize-y rounded-lg border border-ui-border bg-ui-panel px-3 py-2 text-sm text-ui-text outline-none transition placeholder:text-ui-muted focus:border-ui-primary focus:ring-2 focus:ring-ui-primary/20'
-                    />
-                    <input
-                        value={claimUrl}
-                        onChange={event => setClaimUrl(event.target.value)}
-                        placeholder='HTTPS source URL'
-                        className='mt-3 h-10 w-full rounded-lg border border-ui-border bg-ui-panel px-3 text-sm text-ui-text outline-none transition placeholder:text-ui-muted focus:border-ui-primary focus:ring-2 focus:ring-ui-primary/20'
-                    />
-                    <div className='mt-3 flex flex-wrap gap-2'>
-                        <button disabled={busy || Boolean(claimDisabledReason)} title={claimDisabledReason || undefined} className='inline-flex h-10 items-center gap-2 rounded-lg bg-ui-primary px-4 text-sm font-semibold text-ui-on-primary transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60'>
-                            {busyAction === 'claim' ? <Loader2 className='h-4 w-4 animate-spin' /> : <Plus className='h-4 w-4' />}
-                            Fetch and rebuild
-                        </button>
-                        <WorkflowButton busy={busyAction === 'claim-case'} disabled={busy || Boolean(claimDisabledReason)} disabledReason={claimDisabledReason || undefined} icon={<ShieldCheck className='h-4 w-4' />} onClick={openCaseFromPublicAdvisory}>
-                            Open case
-                        </WorkflowButton>
-                    </div>
-                    {claimDisabledReason ? <p className='mt-2 text-xs leading-5 text-ui-subtle'>{claimDisabledReason}</p> : null}
-                </form>
-
-                <form onSubmit={submitSource} className='grid gap-2 rounded-lg border border-ui-border bg-ui-raised p-3 shadow-sm'>
-                    <h2 className='text-base font-semibold text-ui-text'>Telegram source request</h2>
-                    <p id='telegram-source-help' className='text-xs text-ui-subtle'>Public channels only.</p>
-                    <div className='flex flex-col gap-2 sm:flex-row'>
-                        <input
-                            aria-label='Telegram channel'
-                            aria-describedby='telegram-source-help'
-                            value={sourceTarget}
-                            onChange={event => setSourceTarget(event.target.value)}
-                            placeholder='@channel or https://t.me/channel'
-                            className='h-10 min-w-0 flex-1 rounded-lg border border-ui-border bg-ui-panel px-3 text-sm text-ui-text outline-none transition placeholder:text-ui-muted focus:border-ui-primary focus:ring-2 focus:ring-ui-primary/20'
-                        />
-                        <button disabled={busy || Boolean(sourceDisabledReason)} title={sourceDisabledReason || undefined} className='inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-ui-primary px-4 text-sm font-semibold text-ui-on-primary transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60'>
-                            {busyAction === 'source' ? <Loader2 className='h-4 w-4 animate-spin' /> : <Send className='h-4 w-4' />}
-                            Submit source
-                        </button>
-                    </div>
-                </form>
+                <WorkflowWatchlistForm
+                    terms={terms} hasTerms={Boolean(termCount)} onTermsChange={setTerms} inputRef={watchlistInputRef} onSave={saveWatchlist}
+                    busy={busy} saving={busyAction === 'watchlist'} disabledReason={watchlistDisabledReason}
+                    testDisabledReason={webhookTestDisabledReason} onCollect={runCollection} collecting={busyAction === 'collection'}
+                    onDeliver={deliverWebhooks} delivering={busyAction === 'delivery'} onTest={testWebhook} testing={busyAction === 'webhook-test'}
+                />
+                <PublicEvidenceForm
+                    actor={claimActor} onActor={setClaimActor} company={claimCompany} onCompany={setClaimCompany}
+                    data={claimData} onData={setClaimData} url={claimUrl} onUrl={setClaimUrl} busy={busy}
+                    saving={busyAction === 'claim'} disabledReason={claimDisabledReason} onSubmit={ingestPublicAdvisory}
+                    onOpenCase={openCaseFromPublicAdvisory} openingCase={busyAction === 'claim-case'}
+                />
+                <TelegramSourceForm target={sourceTarget} onTarget={setSourceTarget} busy={busy} disabledReason={sourceDisabledReason} onSubmit={submitSource} />
             </div>
         </div>
     )
-}
-
-async function ingestPublicEvidence(input: { actor: string, company: string, claimedData: string, url: string }, scope: { tenantId: string, organizationId?: string }) {
-    return postJson('/api/findings/exposure-claims/ingest', {
-        items: [{
-            ...scope,
-            company: input.company,
-            claimedData: input.claimedData,
-            sourceName: `${input.actor} public report`,
-            sourceFamily: 'public_advisory',
-            title: `${input.actor} reported a new issue involving ${input.company}`,
-            text: `${input.actor} reported an issue involving ${input.company}. ${input.claimedData}.`,
-            url: input.url || undefined,
-        }],
-    })
-}
-
-function durableDeliveryRows(payload: Record<string, unknown>) {
-    const deliveries = Array.isArray(payload.deliveries) ? payload.deliveries : []
-    return deliveries.filter((row): row is { status?: string, dryRun?: boolean, error?: unknown } => Boolean(row && typeof row === 'object'))
-}
-
-function selectRebuiltAlert(payload: Record<string, unknown>, company: string, terms: string) {
-    const alerts = Array.isArray(payload.alerts) ? payload.alerts.filter(isRecord) : []
-    const needles = [company, ...terms.split(/[\n,]/)].map(item => item.trim().toLowerCase()).filter(Boolean)
-    const match = alerts.find(alert => {
-        const companyValue = readString(alert.company).toLowerCase()
-        const matchedValue = readNestedString(alert, ['matchedTerm', 'value']).toLowerCase()
-        const summary = rebuiltAlertSummary(alert).toLowerCase()
-        return needles.some(needle => companyValue.includes(needle) || matchedValue.includes(needle) || summary.includes(needle))
-    }) ?? alerts[0]
-    const id = readString(match?.id)
-    return id ? { id } : undefined
-}
-
-function rebuiltAlertSummary(alert: Record<string, unknown>) {
-    return formatClaimSummary(readString(alert.claimSummary), {
-        actor: readString(alert.actor),
-        artifactType: readString(alert.artifactType),
-        company: readString(alert.company),
-        matchedTerm: { value: readNestedString(alert, ['matchedTerm', 'value']), kind: 'unknown' },
-        sourceFamily: readSourceFamily(alert.sourceFamily),
-    })
-}
-
-function readSourceFamily(value: unknown): DwmSourceFamily {
-    const sourceFamily = readString(value)
-    if (sourceFamily === 'telegram_public' || sourceFamily === 'darkweb_metadata' || sourceFamily === 'actor_page' || sourceFamily === 'public_advisory' || sourceFamily === 'clear_web') {
-        return sourceFamily
-    }
-    return 'darkweb_metadata'
-}
-
-function caseDetailPath(caseId: string, alertId: string, organizationId?: string, route?: string) {
-    const params = new URLSearchParams()
-    if (organizationId) params.set('organizationId', organizationId)
-    params.set('alertId', alertId)
-    if (route) params.set('route', route)
-    return `/cases/${encodeURIComponent(caseId)}?${params.toString()}`
-}
-
-function readNestedString(value: unknown, path: string[]) {
-    let cursor = value
-    for (const part of path) {
-        if (!isRecord(cursor)) return ''
-        cursor = cursor[part]
-    }
-    return readString(cursor)
-}
-
-function readString(value: unknown) {
-    return typeof value === 'string' ? value : ''
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
-}
-
-type RouteQueueAction = {
-    id: string
-    label: string
-    state: string
-    detail: string
-    tone: 'ok' | 'warn' | 'bad' | 'neutral'
-    command: string
-    busy: boolean
-    disabled: boolean
-    disabledReason?: string
-    onClick: () => void | Promise<void>
-}
-
-function RouteQueueCard({ action }: { action: RouteQueueAction }) {
-    const toneClass = action.tone === 'ok'
-        ? 'border-ui-success/30 bg-ui-success/10 text-ui-success'
-        : action.tone === 'warn'
-            ? 'border-ui-warning/30 bg-ui-warning/10 text-ui-warning'
-            : action.tone === 'bad'
-                ? 'border-ui-danger/30 bg-ui-raised/10 text-ui-text'
-                : 'border-ui-border bg-ui-panel text-ui-muted'
-    return (
-        <article className='grid min-h-36 min-w-0 gap-3 rounded-lg border border-ui-border bg-ui-panel p-3'>
-            <div className='min-w-0'>
-                <div className='flex items-start justify-between gap-2'>
-                    <h4 className='min-w-0 wrap-break-word text-sm font-semibold text-ui-text'>{action.label}</h4>
-                    <span className={`max-w-[55%] shrink-0 truncate rounded-full border px-2 py-0.5 text-[11px] font-semibold ${toneClass}`} title={action.state}>{action.state}</span>
-                </div>
-                <p className='mt-2 line-clamp-2 text-xs leading-5 text-ui-subtle'>{action.detail}</p>
-                {action.disabled && action.disabledReason ? (
-                    <p className='mt-2 rounded-md border border-ui-warning/30 bg-ui-warning/10 px-2 py-1 text-xs font-semibold leading-5 text-ui-warning' data-dwm-command-disabled-reason='true'>
-                        {action.disabledReason}
-                    </p>
-                ) : null}
-            </div>
-            <button
-                type='button'
-                onClick={action.onClick}
-                disabled={action.disabled}
-                title={action.disabledReason}
-                className='mt-auto inline-flex min-h-9 max-w-full items-center justify-center gap-2 rounded-lg border border-ui-border bg-ui-raised px-3 text-xs font-semibold text-ui-text transition hover:border-ui-primary hover:bg-ui-raised focus:outline-none focus:ring-2 focus:ring-ui-primary/30 disabled:cursor-not-allowed disabled:opacity-60'
-            >
-                {action.busy ? <Loader2 className='h-4 w-4 animate-spin' /> : <Activity className='h-4 w-4' />}
-                {action.busy ? 'Running...' : action.command}
-            </button>
-        </article>
-    )
-}
-
-function RouteRunSummary({ route, organizationId }: { route: WorkflowRouteSummary, organizationId?: string }) {
-    const deliveryHref = organizationId ? deliveryLogHref(organizationId, route.alertId) : undefined
-    const cells = [
-        { label: 'Watch terms', value: String(route.watchTerms) },
-        { label: 'Sources', value: route.sourceCount === undefined ? 'unchanged' : String(route.sourceCount) },
-        { label: 'Captures', value: route.captureCount === undefined ? 'pending' : String(route.captureCount) },
-        { label: 'Events', value: route.alertCount === undefined ? 'pending' : String(route.alertCount) },
-        { label: 'Case', value: route.caseId ? 'case linked' : 'not opened' },
-        { label: 'Delivery', value: route.deliveryAttempts === undefined ? route.deliveryState || 'not run' : `${route.deliveryAttempts} attempt${route.deliveryAttempts === 1 ? '' : 's'}` },
-    ]
-    return (
-        <section data-dwm-route-run-summary className='mt-3 rounded-lg border border-ui-border bg-ui-raised p-3'>
-            <div className='flex flex-wrap items-center justify-between gap-3'>
-                <div className='min-w-0'>
-                    <p className='text-[10px] font-semibold uppercase text-ui-primary'>Last route run</p>
-                    <h4 className='mt-1 text-sm font-semibold text-ui-text'>{route.label}</h4>
-                </div>
-                <div className='flex flex-wrap gap-2'>
-                    {route.caseHref ? (
-                        <Link href={route.caseHref} className='inline-flex h-8 items-center rounded-lg border border-ui-primary bg-ui-primary/10 px-3 text-xs font-semibold text-ui-on-primary transition hover:bg-ui-primary/15 focus:outline-none focus:ring-2 focus:ring-ui-primary/30'>
-                            Open case
-                        </Link>
-                    ) : null}
-                    {deliveryHref ? (
-                        <Link href={deliveryHref} className='inline-flex h-8 items-center rounded-lg border border-ui-border bg-ui-panel px-3 text-xs font-semibold text-ui-text transition hover:border-ui-primary hover:bg-ui-raised focus:outline-none focus:ring-2 focus:ring-ui-primary/30'>
-                            Open delivery log
-                        </Link>
-                    ) : null}
-                    {route.alertId ? <span className='inline-flex h-8 items-center rounded-lg border border-ui-border bg-ui-panel px-3 text-xs font-semibold text-ui-muted'>event linked</span> : null}
-                </div>
-            </div>
-            <div className='mt-3 grid grid-cols-2 gap-2 lg:grid-cols-6'>
-                {cells.map(cell => (
-                    <div key={cell.label} className='min-w-0 rounded-lg border border-ui-border bg-ui-panel px-3 py-2'>
-                        <p className='text-[10px] font-semibold uppercase text-ui-subtle'>{cell.label}</p>
-                        <p className='mt-1 truncate text-sm font-semibold text-ui-text' title={cell.value}>{cell.value}</p>
-                    </div>
-                ))}
-            </div>
-            {route.deliveryState ? <p className='mt-2 text-xs leading-5 text-ui-subtle'>{route.deliveryState}</p> : null}
-        </section>
-    )
-}
-
-function deliverySetupHref(organizationId?: string) {
-    return organizationId ? `/findings/actions?org=${encodeURIComponent(organizationId)}` : '#dwm-inline-webhook'
-}
-
-function deliveryLogHref(organizationId: string, alertId?: string) {
-    const params = new URLSearchParams({ org: organizationId })
-    if (alertId) params.set('alert', alertId)
-    return `/findings/delivery?${params.toString()}`
-}
-
-function RouteStateCard({ label, value, detail, tone }: { label: string, value: string, detail: string, tone: 'ok' | 'warn' | 'bad' | 'neutral' }) {
-    const toneClass = tone === 'ok'
-        ? 'text-ui-success'
-        : tone === 'warn'
-            ? 'text-ui-warning'
-            : tone === 'bad'
-                ? 'text-ui-text'
-                : 'text-ui-primary'
-    return (
-        <div className='min-w-0 rounded-lg border border-ui-border bg-ui-raised px-3 py-2'>
-            <div className='flex items-center justify-between gap-2 text-ui-subtle'>
-                <p className='truncate text-[10px] font-semibold uppercase'>{label}</p>
-                <Activity className='h-3.5 w-3.5 shrink-0' />
-            </div>
-            <p className={`mt-1 truncate text-base font-semibold ${toneClass}`}>{value}</p>
-            <p className='truncate text-[11px] leading-4 text-ui-subtle'>{detail}</p>
-        </div>
-    )
-}
-
-function WorkflowButton({ busy, disabled, disabledReason, icon, onClick, children }: { busy: boolean, disabled: boolean, disabledReason?: string, icon: React.ReactNode, onClick: () => void, children: string }) {
-    return (
-        <button type='button' onClick={onClick} disabled={disabled} title={disabledReason || undefined} className='inline-flex h-10 items-center gap-2 rounded-lg border border-ui-border bg-ui-panel px-4 text-sm font-semibold text-ui-text transition hover:border-ui-primary hover:bg-ui-raised disabled:cursor-not-allowed disabled:opacity-60'>
-            {busy ? <Loader2 className='h-4 w-4 animate-spin' /> : icon}
-            {children}
-        </button>
-    )
-}
-
-function countTerms(value: string) {
-    return value.split(/[\n,]/).map(term => term.trim()).filter(Boolean).length
-}
-
-function ensureTerm(value: string, term: string) {
-    const cleanTerm = term.trim()
-    if (!cleanTerm) return value
-    const terms = value.split(/[\n,]/).map(item => item.trim()).filter(Boolean)
-    const exists = terms.some(item => item.toLowerCase() === cleanTerm.toLowerCase())
-    return (exists ? terms : [...terms, cleanTerm]).join('\n')
-}
-
-function workflowTerms(value: string) {
-    return value.split(/[\n,]/).map(term => term.trim()).filter(Boolean).join('\n')
-}
-
-function validEvidenceUrl(value: string) {
-    try {
-        return new URL(value.trim()).protocol === 'https:'
-    } catch {
-        return false
-    }
-}
-
-async function postJson(path: string, body: Record<string, unknown>): Promise<Record<string, unknown> & { ok: boolean, message: string }> {
-    const response = await fetch(path, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(body),
-    })
-    const payload = await response.json().catch(() => ({})) as Record<string, unknown>
-    const error = payload.error as { message?: string } | undefined
-    return {
-        ...payload,
-        ok: response.ok,
-        message: error?.message || response.statusText,
-    }
-}
-
-async function alertRebuildFromWatchlistOrRequest(payload: Record<string, unknown>, scope: { tenantId: string, organizationId?: string }) {
-    const inlineRebuild = isRecord(payload.alertRebuild) ? payload.alertRebuild : null
-    if (inlineRebuild) {
-        return normalizeAlertRebuildOutcome(inlineRebuild)
-    }
-    return normalizeAlertRebuildOutcome(await postJson('/api/findings/alerts/rebuild', scope))
-}
-
-function readNumber(value: unknown, key: string) {
-    if (!value || typeof value !== 'object') return 0
-    const candidate = (value as Record<string, unknown>)[key]
-    return typeof candidate === 'number' ? candidate : 0
-}
-
-function readSummaryNumber(value: Record<string, unknown>, key: string) {
-    const summary = value.summary
-    if (!summary || typeof summary !== 'object') return 0
-    const candidate = (summary as Record<string, unknown>)[key]
-    return typeof candidate === 'number' ? candidate : 0
 }
