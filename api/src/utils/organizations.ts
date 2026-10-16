@@ -2840,29 +2840,29 @@ export function roleCanWriteWatchlist(role: OrganizationRole | undefined) {
     return roleCanEditOrganization(role)
 }
 
+const organizationAlertCaseRoleGates = {
+    create_watchlist: ['owner', 'admin', 'editor'],
+    edit_watchlist_terms: ['owner', 'admin', 'editor'],
+    archive_watchlist: ['owner', 'admin', 'editor'],
+    restore_watchlist: ['owner', 'admin', 'editor'],
+    acknowledge_alert: ['owner', 'admin', 'editor', 'analyst'],
+    assign_case: ['owner', 'admin', 'editor', 'analyst'],
+    link_case: ['owner', 'admin', 'editor', 'analyst'],
+    manage_invites: ['owner', 'admin'],
+} satisfies Record<OrganizationAlertCaseAction, OrganizationAlertCaseRole[]>
+
+const organizationAlertCaseActionOrder = Object.keys(organizationAlertCaseRoleGates) as OrganizationAlertCaseAction[]
+
 export function organizationAlertCaseRoleActions(role: OrganizationAlertCaseRole | undefined): OrganizationAlertCaseAction[] {
-    if (role === 'owner' || role === 'admin') {
-        return [
-            'create_watchlist',
-            'edit_watchlist_terms',
-            'archive_watchlist',
-            'restore_watchlist',
-            'acknowledge_alert',
-            'assign_case',
-            'link_case',
-            'manage_invites',
-        ]
-    }
+    if (!role) return []
+    return organizationAlertCaseActionOrder.filter(action => organizationAlertCaseRoleGates[action].some(allowedRole => allowedRole === role))
+}
 
-    if (role === 'analyst') {
-        return ['acknowledge_alert', 'assign_case', 'link_case']
-    }
-
-    if (role === 'editor') {
-        return ['create_watchlist', 'edit_watchlist_terms', 'archive_watchlist', 'restore_watchlist', 'acknowledge_alert', 'assign_case', 'link_case']
-    }
-
-    return []
+function copyOrganizationAlertCaseRoleGates() {
+    return Object.fromEntries(organizationAlertCaseActionOrder.map(action => [
+        action,
+        [...organizationAlertCaseRoleGates[action]],
+    ])) as Record<OrganizationAlertCaseAction, OrganizationAlertCaseRole[]>
 }
 
 export function organizationAlertCaseRoleActionContract(member: { userId: string, role: OrganizationRole }) {
@@ -2874,16 +2874,7 @@ export function organizationAlertCaseRoleActionContract(member: { userId: string
             status: 'active' as const,
             allowedActions: organizationAlertCaseRoleActions(member.role),
         },
-        roleGates: {
-            create_watchlist: ['owner', 'admin', 'editor'],
-            edit_watchlist_terms: ['owner', 'admin', 'editor'],
-            archive_watchlist: ['owner', 'admin', 'editor'],
-            restore_watchlist: ['owner', 'admin', 'editor'],
-            acknowledge_alert: ['owner', 'admin', 'editor', 'analyst'],
-            assign_case: ['owner', 'admin', 'editor', 'analyst'],
-            link_case: ['owner', 'admin', 'editor', 'analyst'],
-            manage_invites: ['owner', 'admin'],
-        } satisfies Record<OrganizationAlertCaseAction, OrganizationAlertCaseRole[]>,
+        roleGates: copyOrganizationAlertCaseRoleGates(),
         lifecycleDenials: {
             nonmember: 'nonmember_denied' as const,
             revokedMember: 'member_revoked' as const,
