@@ -5,22 +5,16 @@ import { touchOrganization } from '#utils/db/identityDataWrites.ts'
 import { recordSystemEvent } from '#utils/systemEvent.ts'
 import { checkBillingCapacity } from './billing.ts'
 import {
-    buildOrganizationBridgeContext,
-    buildOrganizationDwmAlertReference,
     normalizeWatchlistActionInput,
     normalizeWatchlistCleanupInput,
     normalizeWatchlistInput,
     normalizeWatchlistRequestId,
     organizationAnalystPortalVisibilityAdapter,
     organizationAlertCaseWorkflowState,
-    organizationLifecycleReadiness,
-    organizationReadinessProof,
     organizationSharedWatchlistProjection,
     roleCanWriteWatchlist,
     organizationVisibilityDecision,
     organizationWatchlistOwnerContext,
-    organizationWatchlistAlertTermsExport,
-    organizationWatchlistAlertTermsExportDenial,
     organizationWatchlistMutationDenial,
     roleCanManageOrganization,
     toOrganization,
@@ -33,7 +27,8 @@ import {
 } from '#utils/organizations.ts'
 import { logOrganizationEvent, sendOrganizationAccessDenial } from './organizations/audit.ts'
 import { sendWatchlistLookupDenial } from './organizations/watchlists/lookupDenial.ts'
-import { organizationTeamOnboardingReadiness } from './organizations/watchlists/readContract.ts'
+import { buildOrganizationAlertCaseVisibilityDenial } from './organizations/watchlists/caseVisibilityDenial.ts'
+import { buildOrganizationAlertCaseVisibilityProjection } from './organizations/watchlists/caseVisibilityProjection.ts'
 import { inactiveOrganizationMutationBlocker, privacyDeletionMutationBlocker, sendOrganizationLifecycleBlocker } from './organizations/lifecycle.ts'
 import {
     loadOrganizationMemberRequest,
@@ -52,6 +47,8 @@ export { getOrganizationMembers } from './organizations/members/read.ts'
 export { deleteOrganizationMember } from './organizations/members/remove.ts'
 export { patchOrganizationMemberRole } from './organizations/members/role.ts'
 export { getOrganizationWatchlists, getOrganizationWatchlist } from './organizations/watchlists/read.ts'
+export { getOrganizationAlertReadiness } from './organizations/watchlists/alertReadiness.ts'
+export { getOrganizationWatchlistAlertTerms } from './organizations/watchlists/alertTerms.ts'
 
 type OrganizationParams = {
     id: string
@@ -67,196 +64,6 @@ type WatchlistMutationBody = WatchlistInput & {
     request_id?: unknown
 }
 
-
-export async function getOrganizationAlertReadiness(req: FastifyRequest<{ Params: OrganizationParams }>, res: FastifyReply) {
-    const requestContext = await loadOrganizationMemberRequest(req, res, req.params.id)
-    if (!requestContext) return
-    const { userId, organization } = requestContext
-    if (!organization) {
-        return sendOrganizationAccessDenial(req, res, {
-            organizationId: req.params.id,
-            actorId: userId,
-            route: 'GET /api/organizations/:id/alert-readiness',
-        })
-    }
-
-    const result = await run(`
-        SELECT *
-        FROM organization_watchlist_items
-        WHERE organization_id = $1
-          AND archived_at IS NULL
-          AND status = 'active'
-        ORDER BY kind ASC, value ASC
-    `, [req.params.id])
-    const watchlistItems = result.rows as OrganizationWatchlistRow[]
-    const bridgeContext = buildOrganizationBridgeContext({
-        ...organization,
-        shared_watchlist_count: watchlistItems.length,
-    })
-    const bridgeOrganization = {
-        ...organization,
-        shared_watchlist_count: bridgeContext.sharedWatchlistCount,
-    }
-    const generatedAlertReferences = watchlistItems.map(item => buildOrganizationDwmAlertReference(bridgeOrganization, item))
-    const teamOnboardingReadiness = organizationTeamOnboardingReadiness(bridgeContext)
-    const sharedProjection = organizationSharedWatchlistProjection(bridgeOrganization, watchlistItems, {
-        userId,
-        role: organization.role ?? 'viewer',
-    })
-    const alertGenerationBridge = sharedProjection.alertGeneration
-    const downstreamAuthorization = sharedProjection.downstreamAuthorization
-    const lifecycleReadiness = organizationLifecycleReadiness(bridgeOrganization)
-    const readinessProof = organizationReadinessProof({
-        lifecycleReadiness,
-        alertGenerationBridge,
-        downstreamAuthorization,
-    })
-    const sharedWatchlistDownstreamProof = sharedProjection.sharedWatchlistDownstreamProof
-
-    return res.send({
-        organization: toOrganization(organization),
-        alertReadiness: {
-            schemaVersion: 'organization.dwm_alert_readiness.v1',
-            organizationId: organization.id,
-            tenantId: organization.id,
-            defaultWebhookPolicy: bridgeContext.defaultWebhookPolicy,
-            alertVisibilityPolicy: bridgeContext.alertVisibilityPolicy,
-            memberCount: bridgeContext.memberCount,
-            activeMemberCount: bridgeContext.activeMemberCount,
-            ownerCount: bridgeContext.ownerCount,
-            allowedViewerRoles: bridgeContext.allowedViewerRoles,
-            removedMemberDenialReason: bridgeContext.removedMemberDenialReason,
-            deactivatedMemberDenialReason: bridgeContext.deactivatedMemberDenialReason,
-            pendingInviteCount: bridgeContext.pendingInviteCount,
-            sharedWatchlistCount: bridgeContext.sharedWatchlistCount,
-            readinessStatus: bridgeContext.readinessStatus,
-            ready: generatedAlertReferences.length > 0,
-            teamOnboardingReadiness,
-            lifecycleReadiness,
-            readinessProof,
-            sharedWatchlistDownstreamProof,
-            alertGenerationBridge,
-            downstreamAuthorization,
-            watchlistItemCount: generatedAlertReferences.length,
-            generatedAlertReferences,
-            downstreamFields: [
-                'organizationId',
-                'tenantId',
-                'watchlistItemId',
-                'watchlist.id',
-                'watchlist.terms',
-                'watchlist.status',
-                'watchlist.createdBy',
-                'watchlist.updatedBy',
-                'matchedTerm',
-                'route',
-                'casePath',
-                'dedupeKey',
-                'defaultWebhookPolicy',
-                'alertVisibilityPolicy',
-                'memberCount',
-                'activeMemberCount',
-                'ownerCount',
-                'allowedViewerRoles',
-                'removedMemberDenialReason',
-                'deactivatedMemberDenialReason',
-                'pendingInviteCount',
-                'sharedWatchlistCount',
-                'readinessStatus',
-                'teamOnboardingReadiness',
-                'lifecycleReadiness',
-                'readinessProof',
-                'readinessProof.routes',
-                'readinessProof.worker3Proof',
-                'readinessProof.uiProof',
-                'readinessProof.blockers',
-                'alertGenerationBridge',
-                'alertGenerationBridge.activeWatchlistTerms',
-                'alertGenerationBridge.activeWatchlistTerms.status',
-                'alertGenerationBridge.activeWatchlistTerms.createdBy',
-                'alertGenerationBridge.activeWatchlistTerms.updatedBy',
-                'alertGenerationBridge.termFamilies',
-                'alertGenerationBridge.blockedReasons',
-                'downstreamAuthorization.organizationId',
-                'downstreamAuthorization.member.role',
-                'downstreamAuthorization.watchlists.states',
-                'downstreamAuthorization.allowedActions',
-                'downstreamAuthorization.downstream.alertGeneration.blockerCodes',
-            ],
-        },
-    })
-}
-
-export async function getOrganizationWatchlistAlertTerms(req: FastifyRequest<{ Params: OrganizationParams, Querystring: { requestId?: string, request_id?: string } }>, res: FastifyReply) {
-    const requestContext = await loadOrganizationMemberRequest(req, res, req.params.id)
-    if (!requestContext) return
-    const { userId, organization } = requestContext
-    if (!organization) {
-        return sendOrganizationAccessDenial(req, res, {
-            organizationId: req.params.id,
-            actorId: userId,
-            route: 'GET /api/organizations/:id/watchlists/alert-terms',
-        })
-    }
-
-    const requestId = normalizeWatchlistRequestId(req.query?.requestId ?? req.query?.request_id)
-    const visibility = organizationVisibilityDecision({
-        role: organization.role,
-        status: 'active',
-        userActive: true,
-        alertVisibilityPolicy: organization.alert_visibility_policy,
-    })
-    if (!visibility.allowed) {
-        const deniedExport = organizationWatchlistAlertTermsExportDenial({
-            organizationId: organization.id,
-            tenantId: organization.id,
-            member: {
-                userId,
-                role: organization.role ?? 'viewer',
-            },
-            visibility,
-            requestId,
-        })
-        logOrganizationEvent(req, 'organization_watchlist_alert_terms_export_denied', req.params.id, userId, {
-            requestId,
-            role: organization.role,
-            alertVisibilityPolicy: visibility.alertVisibilityPolicy,
-            allowedRoles: visibility.allowedRoles,
-            denialReason: visibility.reason,
-            blockerCodes: deniedExport.blockerCodes,
-        })
-        return res.status(403).send({
-            error: 'Organization alert visibility does not allow this member to export alert terms.',
-            organization: toOrganization(organization),
-            alertTermsExportDenial: deniedExport,
-        })
-    }
-
-    const result = await run(`
-        SELECT *
-        FROM organization_watchlist_items
-        WHERE organization_id = $1
-        ORDER BY status ASC, kind ASC, value ASC
-    `, [req.params.id])
-    const watchlistItems = result.rows as OrganizationWatchlistRow[]
-    const exportContract = organizationWatchlistAlertTermsExport(organization, watchlistItems, {
-        userId,
-        role: organization.role ?? 'viewer',
-    })
-
-    logOrganizationEvent(req, 'organization_watchlist_alert_terms_exported', req.params.id, userId, {
-        requestId,
-        activeTermCount: exportContract.activeTerms.length,
-        pausedCount: exportContract.excluded.pausedCount,
-        archivedCount: exportContract.excluded.archivedCount,
-        canGenerateAlerts: exportContract.canGenerateAlerts,
-    })
-
-    return res.send({
-        organization: toOrganization(organization),
-        alertTermsExport: exportContract,
-    })
-}
 
 export async function getOrganizationAlertCaseVisibility(req: FastifyRequest<{ Params: OrganizationParams, Querystring: { requestId?: string, request_id?: string } }>, res: FastifyReply) {
     const requestContext = await loadOrganizationMemberRequest(req, res, req.params.id)
@@ -291,14 +98,6 @@ export async function getOrganizationAlertCaseVisibility(req: FastifyRequest<{ P
         userActive: true,
         alertVisibilityPolicy: organization.alert_visibility_policy,
     })
-    const routes = {
-        alertList: 'GET /v1/dwm/alerts?organizationId=:organizationId',
-        alertDetail: 'GET /v1/dwm/alerts/:id',
-        caseList: 'GET /v1/cases?organizationId=:organizationId',
-        caseDetail: 'GET /v1/cases/:id',
-        webhookDelivery: 'POST /v1/dwm/webhooks/deliver',
-        alertTermsExport: 'GET /api/organizations/:id/watchlists/alert-terms',
-    } as const
 
     if (!visibility.allowed) {
         const requestId = typeof req.query?.requestId === 'string' ? req.query.requestId : typeof req.query?.request_id === 'string' ? req.query.request_id : null
@@ -312,243 +111,23 @@ export async function getOrganizationAlertCaseVisibility(req: FastifyRequest<{ P
         return res.status(403).send({
             error: 'Organization alert visibility does not allow this member to list org alerts or cases.',
             organization: toOrganization(organization),
-            alertCaseVisibility: {
-                schemaVersion: 'organization.alert_case_visibility_denial.v1',
-                organizationId: organization.id,
-                tenantId: organization.id,
-                member: {
-                    userId,
-                    role: organization.role ?? 'viewer',
-                    status: 'active',
-                },
-                visibility,
-                routes,
-                requiredQueryFields: ['organizationId'],
-                safeFields: [
-                    'organizationId',
-                    'tenantId',
-                    'member.role',
-                    'visibility.allowedRoles',
-                    'visibility.reason',
-                    'routes',
-                    'blockerCodes',
-                ],
-                redactedFields: [
-                    'activeTerms[]',
-                    'watchlistScope.alertGeneratorKeys',
-                    'case.evidence.rawContent',
-                    'member.userId',
-                ],
-                blockerCodes: [visibility.reason ?? 'role_not_allowed'],
-                readinessRefs: {
-                    sharedWatchlistReadiness: 'organization.shared_watchlist_readiness_export.v1',
-                    alertGenerationConsumer: 'organization.watchlist_alert_generation_consumer.v1',
-                    alertCasePersistence: 'organization.alert_case_bridge_persistence_receipt.v1',
-                    caseVisibilityConsumer: 'organization.case_visibility_consumer.v1',
-                    webhookDestinationReadiness: 'organization.webhook_destination_readiness_bridge.v1',
-                },
-                deniedReadDoesNotAffectCases: true,
-                deniedReadDoesNotAffectActiveTerms: true,
-                nonmemberEnumeration: false,
-                analystPortalAdapter: {
-                    schemaVersion: 'organization.analyst_portal_visibility_denial_adapter.v1',
-                    organizationId: organization.id,
-                    tenantId: organization.id,
-                    memberRole: organization.role ?? 'viewer',
-                    visibility,
-                    routeBindings: routes,
-                    allowedActions: [],
-                    actionMatrix: {
-                        review_alert: { allowed: false, denialReason: visibility.reason ?? 'role_not_allowed' },
-                        acknowledge_alert: { allowed: false, denialReason: visibility.reason ?? 'role_not_allowed' },
-                        assign_case: { allowed: false, denialReason: visibility.reason ?? 'role_not_allowed' },
-                        link_case: { allowed: false, denialReason: visibility.reason ?? 'role_not_allowed' },
-                        replay_alert: { allowed: false, denialReason: visibility.reason ?? 'role_not_allowed' },
-                        deliver_webhook: { allowed: false, denialReason: visibility.reason ?? 'role_not_allowed' },
-                        open_audit_timeline: { allowed: false, denialReason: visibility.reason ?? 'role_not_allowed' },
-                    },
-                    redactedFields: [
-                        'activeTerms[]',
-                        'watchlistScope.alertGeneratorKeys',
-                        'case.evidence.rawContent',
-                        'destination.secret',
-                    ],
-                    nonmemberEnumeration: false,
-                },
-                auditProof: {
-                    schemaVersion: 'organization.alert_case_visibility_denial_audit.v1',
-                    organizationId: organization.id,
-                    tenantId: organization.id,
-                    memberRole: organization.role ?? 'viewer',
-                    serviceLogAction: 'organization_alert_case_visibility_denied',
-                    requestId,
-                    requiredMetadataFields: ['requestId', 'role', 'allowedRoles', 'denialReason', 'blockerCodes'],
-                    redactedFields: [
-                        'activeTerms[]',
-                        'watchlistScope.alertGeneratorKeys',
-                        'case.evidence.rawContent',
-                        'destination.secret',
-                    ],
-                    proofLogQuery: 'GET /api/logs?service=api&message=organization_alert_case_visibility_denied',
-                },
-                proofCommand: 'cd api && bun scripts/smoke-organizations-api.ts',
-            },
+            alertCaseVisibility: buildOrganizationAlertCaseVisibilityDenial({ organization, userId, visibility, requestId }),
         })
     }
 
-    const alertQueue = downstreamProof.alertBridge.queueVisibilityContract
-    const caseWorkflow = downstreamProof.caseBridge.caseWorkflowContract
     const analystPortalAdapter = organizationAnalystPortalVisibilityAdapter(downstreamProof, downstreamAuthorization)
     const alertCaseWorkflowState = organizationAlertCaseWorkflowState(downstreamProof, downstreamAuthorization, analystPortalAdapter)
     return res.send({
         organization: toOrganization(organization),
-        alertCaseVisibility: {
-            schemaVersion: 'organization.alert_case_visibility.v1',
-            organizationId: organization.id,
-            tenantId: organization.id,
-            member: {
-                userId,
-                role: organization.role ?? 'viewer',
-                status: 'active',
-            },
+        alertCaseVisibility: buildOrganizationAlertCaseVisibilityProjection({
+            organization,
+            userId,
             visibility,
-            routes,
-            requiredQueryFields: ['organizationId'],
-            allowedActions: downstreamAuthorization.allowedActions,
+            downstreamAuthorization,
+            downstreamProof,
             analystPortalAdapter,
-            workflowState: alertCaseWorkflowState,
-            alertQueue: {
-                route: alertQueue.routes.list,
-                requiredQueryFields: alertQueue.requiredQueryFields,
-                watchlistItemIds: alertQueue.watchlistScope.watchlistItemIds,
-                alertGeneratorKeys: alertQueue.watchlistScope.alertGeneratorKeys,
-                actionGates: alertQueue.actionGates,
-                blockerCodes: alertQueue.blockerCodes,
-            },
-            caseWorkflow: {
-                route: caseWorkflow.routes.list,
-                casePathTemplate: caseWorkflow.casePathTemplate,
-                requiredQueryFields: caseWorkflow.requiredQueryFields,
-                watchlistItemIds: caseWorkflow.watchlistScope.watchlistItemIds,
-                alertGeneratorKeys: caseWorkflow.watchlistScope.alertGeneratorKeys,
-                actorActions: caseWorkflow.actorActions,
-                blockerCodes: caseWorkflow.blockerCodes,
-            },
-            caseVisibilityConsumer: {
-                schemaVersion: 'organization.case_visibility_consumer.v1',
-                organizationId: organization.id,
-                tenantId: organization.id,
-                sourceFamily: 'organization_watchlist',
-                route: 'GET /api/organizations/:id/alert-case-visibility',
-                downstreamRoutes: {
-                    caseList: caseWorkflow.routes.list,
-                    caseOpen: caseWorkflow.routes.open,
-                    caseDetail: caseWorkflow.routes.detail,
-                    caseUpdate: caseWorkflow.routes.update,
-                    alertList: alertQueue.routes.list,
-                },
-                requiredQueryFields: caseWorkflow.requiredQueryFields,
-                casePathTemplate: caseWorkflow.casePathTemplate,
-                member: {
-                    userId,
-                    role: organization.role ?? 'viewer',
-                    status: 'active',
-                    canReadCases: caseWorkflow.actorActions.canReadCases,
-                    canOpenCase: caseWorkflow.actorActions.canOpenCase,
-                    canAssignCase: caseWorkflow.actorActions.canAssignCase,
-                    denialReason: caseWorkflow.actorActions.denialReason,
-                },
-                watchlistScope: {
-                    ownerOrganizationId: organization.id,
-                    watchlistItemIds: caseWorkflow.watchlistScope.watchlistItemIds,
-                    alertGeneratorKeys: caseWorkflow.watchlistScope.alertGeneratorKeys,
-                    evidenceRefField: caseWorkflow.watchlistScope.evidenceRefField,
-                    crossTenantCollisionAllowed: false,
-                    lifecycleStatuses: ['active'],
-                },
-                requiredPersistedFields: [
-                    'organizationId',
-                    'tenantId',
-                    'alertId',
-                    'casePath',
-                    'watchlistItemIds',
-                    'alertGeneratorKeys',
-                    'allowedActions',
-                    'visibilityDecision',
-                    'evidence.provenance',
-                ],
-                denialContract: {
-                    statusCode: 403,
-                    nonmemberEnumeration: false,
-                    redactedFields: [
-                        'activeTerms[]',
-                        'watchlistScope.alertGeneratorKeys',
-                        'case.evidence.rawContent',
-                        'otherOrg.caseIds',
-                    ],
-                    blockerCodes: caseWorkflow.blockerCodes,
-                },
-                noLeakFields: [
-                    'otherOrg.watchlistItemIds',
-                    'otherOrg.alertGeneratorKeys',
-                    'otherOrg.caseIds',
-                    'case.evidence.rawContent',
-                ],
-                proofCommand: 'cd api && bun scripts/smoke-organizations-api.ts',
-            },
-            alertCasePersistenceReadiness: {
-                schemaVersion: 'organization.alert_case_persistence_readiness.v1',
-                organizationId: organization.id,
-                tenantId: organization.id,
-                sourceFamily: 'organization_watchlist',
-                alertPersistenceContract: downstreamProof.alertBridge.persistenceContract.schemaVersion,
-                caseWorkflowContract: caseWorkflow.schemaVersion,
-                storageModule: downstreamProof.alertBridge.persistenceContract.storageModule,
-                alertUpsertFunction: downstreamProof.alertBridge.persistenceContract.upsertFunction,
-                alertRoute: downstreamProof.alertBridge.route,
-                caseRoute: downstreamProof.caseBridge.route,
-                casePathTemplate: caseWorkflow.casePathTemplate,
-                watchlistScope: {
-                    watchlistItemIds: downstreamProof.alertBridge.persistenceContract.watchlistScope.watchlistItemIds,
-                    alertGeneratorKeys: downstreamProof.alertBridge.persistenceContract.watchlistScope.alertGeneratorKeys,
-                    crossTenantCollisionAllowed: downstreamProof.alertBridge.persistenceContract.dedupe.crossTenantCollisionAllowed,
-                },
-                requiredAlertFields: downstreamProof.alertBridge.persistenceContract.persistedAlertFields,
-                requiredCaseFields: caseWorkflow.requiredCaseFields,
-                workflowContextFields: downstreamProof.alertBridge.persistenceContract.workflowContextFields,
-                dedupe: downstreamProof.alertBridge.persistenceContract.dedupe,
-                lifecycleBlockers: downstreamProof.alertBridge.persistenceContract.lifecycleBlockers,
-                actorActions: caseWorkflow.actorActions.allowedActions,
-                blockerCodes: Array.from(new Set([
-                    ...downstreamProof.alertBridge.persistenceContract.blockerCodes,
-                    ...caseWorkflow.blockerCodes,
-                ])),
-                readyForPersistence: downstreamProof.alertBridge.persistenceContract.blockerCodes.length === 0 && caseWorkflow.blockerCodes.length === 0,
-                nonmemberEnumeration: false,
-                proofCommand: 'cd api && bun scripts/smoke-organizations-api.ts',
-            },
-            guardrails: {
-                schemaVersion: 'organization.alert_case_visibility_guardrails.v1',
-                partitionKey: 'organizationId',
-                tenantIdField: 'tenantId',
-                requiredWorkflowContextFields: [
-                    'organizationId',
-                    'tenantId',
-                    'watchlistItemIds',
-                    'workflowContext.visibilityDecision',
-                ],
-                crossTenantCollisionAllowed: false,
-                nonmemberEnumeration: false,
-                noLeakFields: [
-                    'otherOrg.watchlistItemIds',
-                    'otherOrg.alertGeneratorKeys',
-                    'case.evidence.rawContent',
-                    'destination.secret',
-                ],
-                lifecycleBlockers: downstreamProof.alertBridge.persistenceContract.lifecycleBlockers,
-            },
-            proofCommand: 'cd api && bun scripts/smoke-organizations-api.ts',
-        },
+            alertCaseWorkflowState,
+        }),
     })
 }
 
