@@ -27,7 +27,17 @@ test('pages preserve full filters and let cursor pages use a different size', as
 test('malformed and different-search cursors fail before any query', async () => {
     let calls = 0
     const query = (async () => { calls++; return { rows: [] } }) as unknown as typeof queryOnce
-    for (const cursor of ['!', 'a'.repeat(2049), Buffer.from(JSON.stringify({ scope: 'other', time: 'bad', id: 'b' })).toString('base64url')]) {
+    const validTime = '2026-09-20T00:00:00.000Z'
+    const seedQuery = (async () => ({ rows: ['c', 'b', 'a'].map(id => ({ id, cursor_time: validTime })) })) as unknown as typeof queryOnce
+    const generatedCursor = (await searchLogPage(seedQuery, input)).next_cursor!
+    const validCursor = JSON.parse(Buffer.from(generatedCursor, 'base64url').toString())
+    const matchingScopeCursors = [
+        { ...validCursor, id: '' },
+        { ...validCursor, id: 'a'.repeat(201) },
+        { ...validCursor, time: 'invalid' },
+        { ...validCursor, until: 'invalid' },
+    ].map(cursor => Buffer.from(JSON.stringify(cursor)).toString('base64url'))
+    for (const cursor of ['!', 'a'.repeat(2049), Buffer.from(JSON.stringify({ scope: 'other', time: 'bad', id: 'b' })).toString('base64url'), ...matchingScopeCursors]) {
         await expect(searchLogPage(query, { ...input, cursor })).rejects.toThrow('Invalid search cursor')
     }
     expect(calls).toBe(0)
