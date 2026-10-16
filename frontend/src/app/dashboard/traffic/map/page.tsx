@@ -3,6 +3,7 @@ import TrafficMap from '@/components/monitoring/traffic/trafficMap'
 import { Suspense } from 'react'
 import { getTrafficDashboardData } from '@/utils/monitoring/data'
 import { DashboardHeader, DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
+import { TrafficPageState } from '../TrafficPageState'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,7 +16,7 @@ export default async function Page({ searchParams }: {
     return (
         <DashboardPage>
             <DashboardHeader eyebrow='Traffic' title='Live map' description='Watch recent request locations and live traffic pulses.' />
-            <Suspense key={selectedDomain || 'all'} fallback={<DashboardPanel className='p-4'><p role='status'>Loading live traffic map…</p></DashboardPanel>}>
+            <Suspense key={selectedDomain || 'all'} fallback={<TrafficPageState kind='loading' message='Loading live traffic map…' />}>
                 <LiveTrafficMap selectedDomain={selectedDomain} />
             </Suspense>
         </DashboardPage>
@@ -25,7 +26,7 @@ export default async function Page({ searchParams }: {
 async function LiveTrafficMap({ selectedDomain }: { selectedDomain?: string }) {
     const data = await getTrafficDashboardData(selectedDomain)
     if (!data) {
-        return <DashboardPanel className='p-4'><p role='alert'>Traffic statistics are temporarily unavailable. Refresh to try again.</p></DashboardPanel>
+        return <TrafficPageState kind='unavailable' message='Traffic statistics are temporarily unavailable. Refresh to try again.' />
     }
 
     return (

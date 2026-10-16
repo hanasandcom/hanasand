@@ -4,6 +4,7 @@ import { Suspense } from 'react'
 import { getTrafficDomains, getTrafficRecords } from '@/utils/monitoring/data'
 import { DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
 import { isTrafficDomains, isTrafficRecords } from '@/utils/monitoring/trafficValidation'
+import { TrafficPageState } from '../TrafficPageState'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,7 +19,7 @@ export default async function Page({ searchParams }: {
             <header>
                 <h1 className='text-xl font-semibold text-ui-text sm:text-2xl'>Recent traffic</h1>
             </header>
-            <Suspense key={selectedDomain || 'all'} fallback={<DashboardPanel className='min-h-0 p-4'><p role='status'>Loading recent traffic…</p></DashboardPanel>}>
+            <Suspense key={selectedDomain || 'all'} fallback={<TrafficPageState kind='loading' message='Loading recent traffic…' panelClassName='min-h-0 p-4' />}>
                 <RecentTraffic selectedDomain={selectedDomain} />
             </Suspense>
         </DashboardPage>
@@ -31,7 +32,7 @@ async function RecentTraffic({ selectedDomain }: { selectedDomain?: string }) {
     ])
 
     if (!isTrafficDomains(domains) || !isTrafficRecords(records)) {
-        return <DashboardPanel className='p-4'><p role='alert'>Recent traffic is temporarily unavailable. Refresh to try again.</p></DashboardPanel>
+        return <TrafficPageState kind='unavailable' message='Recent traffic is temporarily unavailable. Refresh to try again.' />
     }
 
     return (

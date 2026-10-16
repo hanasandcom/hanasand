@@ -83,6 +83,7 @@ export const productTasks: TestTask[] = [
     { id: 'source-activation', title: 'Source activation controls', command: [bun, 'scripts/check-source-activation.mjs'], requires: 'playwright' },
     { id: 'traffic-locations', title: 'Recorded traffic locations', command: [bun, 'tests/traffic-locations.test.ts'] },
     { id: 'traffic-dashboard-data', title: 'Shared traffic dashboard snapshot data', command: [bun, 'test', 'tests/traffic-dashboard-data.test.ts'] },
+    { id: 'traffic-page-state', title: 'Traffic route loading and unavailable state markup', command: [bun, 'test', 'tests/traffic-page-state.test.tsx'] },
     { id: 'traffic-stream-proxy', title: 'Traffic live stream proxy', command: [bun, 'tests/traffic-stream-proxy.test.ts'] },
     { id: 'traffic-streaming', title: 'Traffic independent loading', command: [bun, 'tests/traffic-streaming.test.tsx'] },
     { id: 'traffic-recent-table', title: 'Recent traffic table data and loading states', command: [bun, 'test', 'tests/traffic-recent-table.test.tsx'] },

@@ -7,7 +7,7 @@ contracts match, and maintainable tests while preserving existing product
 behavior and features. Reduce duplicated and ineffective code; keep measuring
 source, tests, generated output, and configuration separately against the
 recorded baseline. The API source reduction target remains at least 100,000 lines without
-feature loss. The frontend is also in scope: reduce its current 155,329
+feature loss. The frontend is also in scope: reduce its current 155,370
 hand-maintained lines to no more than 30,000, aiming for 10,000–30,000 where
 that preserves clear ownership and complete functionality. Keep rendered UI,
 interactions, accessibility behavior, and page data contracts stable. Prefer
@@ -635,3 +635,14 @@ exactly 200 lines. The repository scanner reports 3,755 hand-maintained files
 / 323,430 LOC / 123 over 200, all outside the frontend. This checkpoint improves
 operation reuse and regression coverage but is not net frontend LOC reduction;
 the 10,000–30,000-line target and repository-wide cap remain unmet.
+
+At frontend checkpoint `TrafficPageState`, the overview, live-map, and recent
+traffic routes share their identical loading/unavailable panel markup while
+retaining route messages, classes, accessibility roles, Suspense keys, and
+data loading. A rendered-output test verifies the shared states. The full
+frontend suite, production build (all 116 static pages), line-cap scan, and
+scoped ESLint pass. The inventory is 2,316 hand-maintained frontend files /
+155,370 LOC / zero over 200. The repository scan reports 3,757 files /
+323,471 LOC / 123 over 200, all outside the frontend. The production component
+change is a small consistency improvement; the frontend's 10,000–30,000 LOC
+objective and the repository-wide cap remain unmet.
