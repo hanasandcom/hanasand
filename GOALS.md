@@ -430,3 +430,20 @@ with 125 files still over 200, all outside the frontend. Frontend remains at
 2,336 checked files / 156,018 lines with zero over 200. These cap splits do
 not satisfy the API 100,000-line reduction or frontend 10,000–30,000-line
 target; net family LOC and useful test coverage remain required metrics.
+
+At `ced52a04c`, webhook retry work-order projection is extracted behind the
+existing `webhooks.ts` API. Kari's independent review confirmed unchanged
+projection precedence, payloads, counts, access/visibility and exports; the
+focused projection and route suites pass 13 tests / 64 assertions, and the
+author reports typecheck, scoped ESLint, cap and diff checks passing. This
+reduces the parent by 95 LOC but grows the feature family by 12 LOC, so it is
+cap progress rather than net reduction. Both `origin/main` and `github/main`
+were verified at this commit. The committed global inventory is 3,743 files /
+323,565 LOC / 125 over 200. The frontend cap scan passes at 2,336 files /
+156,018 LOC with no over-limit files. A read-only frontend reuse review found
+no safe shared-component extraction with meaningful net savings in its bounded
+pass; authored TS/JS inventory is 117,691 LOC under `src`, 25,379 under tests,
+and 10,354 under scripts. The aspirational 10,000–30,000 frontend target is
+not yet supported by evidence for behavior-preserving reduction at that scale;
+continue removing verified duplication and dead code without changing UI or
+page data contracts, and reassess from measured feature-family totals.
