@@ -49,7 +49,8 @@ test('cancelling startup stops retries and closes the pending connection', async
     await fixture('reject', async (url, attempts) => {
         const abort = new AbortController()
         const pending = connectBrowserWorkerSocket(url, abort.signal, 1000, 20)
-        setTimeout(() => abort.abort(), 50)
+        await waitForAttempt(attempts)
+        abort.abort()
         await expect(pending).rejects.toThrow('cancelled')
         const count = attempts()
         await new Promise(resolve => setTimeout(resolve, 80))
@@ -63,3 +64,10 @@ test('an already cancelled run never opens a worker connection', async () => {
         expect(attempts()).toBe(0)
     })
 })
+
+async function waitForAttempt(attempts: () => number) {
+    for (let elapsed = 0; elapsed < 1000 && attempts() === 0; elapsed += 5) {
+        await new Promise(resolve => setTimeout(resolve, 5))
+    }
+    expect(attempts()).toBeGreaterThan(0)
+}

@@ -720,7 +720,10 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
                 browser = prestartedBrowser.take(sessionId)
             } else browser = ownsBrowser ? await chromium.launch(chromiumLaunchOptions(proxy)) : await regularBrowser()
             trace('chromium_launched')
-            context = await browser.newContext(profile.options)
+            context = await browser.newContext({
+                ...profile.options,
+                serviceWorkers: 'block',
+            })
             trace('context_created')
             await context.exposeBinding('__hanasandRemoteTabSelected', ({ page: selectedPage }) => {
                 if (isCurrentRun(generation)) return syncVisibleRemoteTab(selectedPage, generation)

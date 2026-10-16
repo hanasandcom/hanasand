@@ -32,6 +32,7 @@ const query = async (sql: string) => {
 mock.module('#db', () => ({
     default: query,
     identityQueryOnce: query,
+    isTransientDatabaseError: () => false,
     withTransaction: async (work: (query: typeof query) => Promise<unknown>) => {
         transactions++
         return work(query)

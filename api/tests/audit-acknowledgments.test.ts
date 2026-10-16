@@ -16,6 +16,7 @@ mock.module('../src/utils/db.ts', () => ({
     queryOnce: async () => ({ rows: [] }),
     identityQueryOnce: query,
     closeDatabase: async () => {},
+    withTransaction: async (work: (query: typeof query) => Promise<unknown>) => work(query),
 }))
 mock.module('../src/utils/auth/tokenWrapper.ts', () => ({ default: async () => ({ valid, id: 'operator', impersonating }) }))
 const { setAuditAcknowledgment } = await import('../src/handlers/auditAcknowledgments.ts')

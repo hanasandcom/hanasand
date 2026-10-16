@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { spawn, spawnSync } from 'node:child_process'
 import { mkdtemp, mkdir, writeFile, symlink, rm } from 'node:fs/promises'
+import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -88,7 +89,8 @@ try {
 } finally { await rm(root, { recursive: true, force: true }) }
 
 async function checkRuntime(directory: string, kind: string) {
-    const child = spawn(process.execPath, ['src/index.ts'], { cwd: directory, env: { PATH: process.env.PATH, PORT: '0', API_TOKEN: 'test-only-token', RATE_LIMIT_PER_MINUTE: '100' }, stdio: ['ignore', 'pipe', 'pipe'] })
+    const port = await availablePort()
+    const child = spawn(process.execPath, ['src/index.ts'], { cwd: directory, env: { PATH: process.env.PATH, PORT: String(port), API_TOKEN: 'test-only-token', RATE_LIMIT_PER_MINUTE: '100' }, stdio: ['ignore', 'pipe', 'pipe'] })
     let logs = ''
     try {
         const base = await new Promise<string>((resolve, reject) => {
@@ -139,6 +141,18 @@ async function checkRuntime(directory: string, kind: string) {
             await stopped
         }
     }
+}
+
+async function availablePort() {
+    const server = createServer()
+    await new Promise<void>((resolve, reject) => {
+        server.once('error', reject)
+        server.listen(0, '127.0.0.1', resolve)
+    })
+    const address = server.address()
+    assert.ok(address && typeof address !== 'string')
+    await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()))
+    return address.port
 }
 
 function checkBot(directory: string) {
