@@ -91,7 +91,7 @@ test('lists saved searches for the authenticated user and maps either timestamp 
 })
 
 test('trims and forwards a saved query, then maps the upstream result', async () => {
-    fetchResponse = Response.json({ savedSearch: { query: 'APT29', saved_at: '2026-03-04T05:06:07.000Z' } })
+    fetchResponse = Response.json({ savedSearch: { query: 'APT29', savedAt: '2026-03-04T05:06:07.000Z' } })
     const app = await createApp()
     try {
         const response = await app.inject({

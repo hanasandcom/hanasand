@@ -3,6 +3,7 @@ import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 
 type SavedSearchBody = { query?: unknown }
 type SavedSearch = { query: string; saved_at?: string; savedAt?: string }
+type PublicSavedSearch = { query: string; savedAt?: string }
 
 export async function getSavedSearches(req: FastifyRequest, res: FastifyReply) {
     const userId = await requireUserId(req, res)
@@ -10,7 +11,7 @@ export async function getSavedSearches(req: FastifyRequest, res: FastifyReply) {
     try {
         const result = await requestTi('GET', userId)
         const rows = Array.isArray(result.savedSearches) ? result.savedSearches as SavedSearch[] : []
-        return res.send({ savedSearches: rows.map(row => ({ query: row.query, savedAt: row.saved_at ?? row.savedAt })) })
+        return res.send({ savedSearches: rows.map(toPublicSavedSearch) })
     } catch {
         return res.status(503).send({ error: 'Threat-intelligence search is temporarily unavailable.' })
     }
@@ -24,7 +25,7 @@ export async function postSavedSearch(req: FastifyRequest<{ Body: SavedSearchBod
     try {
         const result = await requestTi('POST', userId, query)
         const savedSearch = result.savedSearch as SavedSearch
-        return res.status(201).send({ savedSearch: { query: savedSearch.query, savedAt: savedSearch.saved_at ?? savedSearch.savedAt } })
+        return res.status(201).send({ savedSearch: toPublicSavedSearch(savedSearch) })
     } catch {
         return res.status(503).send({ error: 'Threat-intelligence search is temporarily unavailable.' })
     }
@@ -71,4 +72,8 @@ async function requestTi(method: 'GET' | 'POST' | 'DELETE', userId: string, quer
     })
     if (!response.ok) throw new Error(`TI service returned ${response.status}`)
     return await response.json() as Record<string, unknown>
+}
+
+function toPublicSavedSearch(savedSearch: SavedSearch): PublicSavedSearch {
+    return { query: savedSearch.query, savedAt: savedSearch.saved_at ?? savedSearch.savedAt }
 }
