@@ -25,7 +25,9 @@ process.env.TI_SCRAPER_API_BASE = tiBaseUrl
 
 mock.module('../src/utils/cron.ts', () => ({
     HOST_UPDATE_MONITOR_JOB_ID: 'api-host-update-monitor',
-    canRunApiCronJobNow: (id: string) => ['api-agent-automations', 'api-cron-health-monitor', 'api-user-account-deletion'].includes(id),
+    canRunApiCronJobNow: (id: string) => id === 'api-mail-account-provisioning'
+        ? Boolean(process.env.MAIL_ADMIN_PASSWORD)
+        : ['api-agent-automations', 'api-cron-health-monitor', 'api-user-account-deletion'].includes(id),
     isApiCronJobPaused: async () => true,
     runApiCronJobNow: async () => undefined,
     setApiCronJobPaused: async () => undefined,

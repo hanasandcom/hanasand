@@ -476,7 +476,7 @@ function fastUnifiedScheduledJobs(): UnifiedScheduledJob[] {
 }
 
 function visibleApiBackgroundJobDefinitions() {
-    return apiBackgroundJobDefinitions.filter(job => job.id !== 'api-mail-account-provisioning' || Boolean(process.env.MAIL_ADMIN_PASSWORD))
+    return apiBackgroundJobDefinitions.filter(job => job.id !== 'api-mail-account-provisioning' || canRunApiCronJobNow(job.id))
 }
 
 async function readManagedCronState() {
