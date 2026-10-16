@@ -2515,46 +2515,51 @@ const deliveryRetryPersistence = buildDwmWebhookDeliveryRetryPersistence({
     auditEvents: operationAuditEvents,
     filters: { orgId: 'org_contract' },
 })
-const deliveryRetryQueue = buildDwmWebhookDeliveryRetryQueue({
+const deliveryRetryBase = {
     liveDeliveryEnabled: false,
     destinations: operationDestinations,
     deliveries: auditDeliveryRows,
     auditEvents: operationAuditEvents,
     filters: { orgId: 'org_contract' },
-    viewerRole: 'admin',
-    canManage: true,
-    visibility: { role: 'admin', status: 'active', userActive: true, alertVisibilityPolicy: 'members' },
-})
-const deliveryRetryRequest = buildDwmWebhookDeliveryRetryRequestContract({
-    liveDeliveryEnabled: false,
-    destinations: operationDestinations,
-    deliveries: auditDeliveryRows,
-    auditEvents: operationAuditEvents,
-    filters: { orgId: 'org_contract' },
-    viewerRole: 'admin',
-    canManage: true,
-    visibility: { role: 'admin', status: 'active', userActive: true, alertVisibilityPolicy: 'members' },
-})
-const deliveryRetryWorkOrders = buildDwmWebhookDeliveryRetryWorkOrders({
-    liveDeliveryEnabled: false,
-    destinations: operationDestinations,
-    deliveries: auditDeliveryRows,
-    auditEvents: operationAuditEvents,
-    filters: { orgId: 'org_contract' },
-    viewerRole: 'admin',
-    canManage: true,
-    visibility: { role: 'admin', status: 'active', userActive: true, alertVisibilityPolicy: 'members' },
-})
-const deliveryAuditTrail = buildDwmWebhookDeliveryAuditTrail({
-    liveDeliveryEnabled: false,
-    destinations: operationDestinations,
-    deliveries: auditDeliveryRows,
-    auditEvents: operationAuditEvents,
-    filters: { orgId: 'org_contract' },
-    viewerRole: 'admin',
-    canManage: true,
-    visibility: { role: 'admin', status: 'active', userActive: true, alertVisibilityPolicy: 'members' },
-})
+}
+const deliveryRetryAccessScenarios = {
+    admin: {
+        viewerRole: 'admin',
+        canManage: true,
+        visibility: { role: 'admin', status: 'active', userActive: true, alertVisibilityPolicy: 'members' },
+    },
+    member: {
+        viewerRole: 'member',
+        canManage: false,
+        visibility: { role: 'member', status: 'active', userActive: true, alertVisibilityPolicy: 'members' },
+    },
+    nonmember: {
+        viewerRole: null,
+        canManage: false,
+        visibility: { role: undefined, status: undefined, userActive: true, alertVisibilityPolicy: 'members' },
+    },
+}
+type DeliveryRetryAccessScenario = typeof deliveryRetryAccessScenarios[keyof typeof deliveryRetryAccessScenarios]
+
+function buildDeliveryRetryAccessContracts(access: DeliveryRetryAccessScenario) {
+    const input = { ...deliveryRetryBase, ...access }
+    return {
+        queue: buildDwmWebhookDeliveryRetryQueue(input),
+        request: buildDwmWebhookDeliveryRetryRequestContract(input),
+        workOrders: buildDwmWebhookDeliveryRetryWorkOrders(input),
+        auditTrail: buildDwmWebhookDeliveryAuditTrail(input),
+    }
+}
+
+const deliveryRetryByAccess = {
+    admin: buildDeliveryRetryAccessContracts(deliveryRetryAccessScenarios.admin),
+    member: buildDeliveryRetryAccessContracts(deliveryRetryAccessScenarios.member),
+    nonmember: buildDeliveryRetryAccessContracts(deliveryRetryAccessScenarios.nonmember),
+}
+const deliveryRetryQueue = deliveryRetryByAccess.admin.queue
+const deliveryRetryRequest = deliveryRetryByAccess.admin.request
+const deliveryRetryWorkOrders = deliveryRetryByAccess.admin.workOrders
+const deliveryAuditTrail = deliveryRetryByAccess.admin.auditTrail
 const replayDestinationTest = buildDwmWebhookDestinationTestContract({
     liveDeliveryEnabled: false,
     destination: operationDestinations.find(item => item.id === 'destination_replay_contract') || null,
@@ -2587,46 +2592,10 @@ const failedDestinationTest = buildDwmWebhookDestinationTestContract({
     viewerRole: 'admin',
     canManage: true,
 })
-const memberDeliveryRetryQueue = buildDwmWebhookDeliveryRetryQueue({
-    liveDeliveryEnabled: false,
-    destinations: operationDestinations,
-    deliveries: auditDeliveryRows,
-    auditEvents: operationAuditEvents,
-    filters: { orgId: 'org_contract' },
-    viewerRole: 'member',
-    canManage: false,
-    visibility: { role: 'member', status: 'active', userActive: true, alertVisibilityPolicy: 'members' },
-})
-const memberDeliveryRetryRequest = buildDwmWebhookDeliveryRetryRequestContract({
-    liveDeliveryEnabled: false,
-    destinations: operationDestinations,
-    deliveries: auditDeliveryRows,
-    auditEvents: operationAuditEvents,
-    filters: { orgId: 'org_contract' },
-    viewerRole: 'member',
-    canManage: false,
-    visibility: { role: 'member', status: 'active', userActive: true, alertVisibilityPolicy: 'members' },
-})
-const memberDeliveryRetryWorkOrders = buildDwmWebhookDeliveryRetryWorkOrders({
-    liveDeliveryEnabled: false,
-    destinations: operationDestinations,
-    deliveries: auditDeliveryRows,
-    auditEvents: operationAuditEvents,
-    filters: { orgId: 'org_contract' },
-    viewerRole: 'member',
-    canManage: false,
-    visibility: { role: 'member', status: 'active', userActive: true, alertVisibilityPolicy: 'members' },
-})
-const memberDeliveryAuditTrail = buildDwmWebhookDeliveryAuditTrail({
-    liveDeliveryEnabled: false,
-    destinations: operationDestinations,
-    deliveries: auditDeliveryRows,
-    auditEvents: operationAuditEvents,
-    filters: { orgId: 'org_contract' },
-    viewerRole: 'member',
-    canManage: false,
-    visibility: { role: 'member', status: 'active', userActive: true, alertVisibilityPolicy: 'members' },
-})
+const memberDeliveryRetryQueue = deliveryRetryByAccess.member.queue
+const memberDeliveryRetryRequest = deliveryRetryByAccess.member.request
+const memberDeliveryRetryWorkOrders = deliveryRetryByAccess.member.workOrders
+const memberDeliveryAuditTrail = deliveryRetryByAccess.member.auditTrail
 const memberReplayDestinationTest = buildDwmWebhookDestinationTestContract({
     liveDeliveryEnabled: false,
     destination: operationDestinations.find(item => item.id === 'destination_replay_contract') || null,
@@ -2635,46 +2604,10 @@ const memberReplayDestinationTest = buildDwmWebhookDestinationTestContract({
     viewerRole: 'member',
     canManage: false,
 })
-const nonmemberDeliveryRetryQueue = buildDwmWebhookDeliveryRetryQueue({
-    liveDeliveryEnabled: false,
-    destinations: operationDestinations,
-    deliveries: auditDeliveryRows,
-    auditEvents: operationAuditEvents,
-    filters: { orgId: 'org_contract' },
-    viewerRole: null,
-    canManage: false,
-    visibility: { role: undefined, status: undefined, userActive: true, alertVisibilityPolicy: 'members' },
-})
-const nonmemberDeliveryRetryRequest = buildDwmWebhookDeliveryRetryRequestContract({
-    liveDeliveryEnabled: false,
-    destinations: operationDestinations,
-    deliveries: auditDeliveryRows,
-    auditEvents: operationAuditEvents,
-    filters: { orgId: 'org_contract' },
-    viewerRole: null,
-    canManage: false,
-    visibility: { role: undefined, status: undefined, userActive: true, alertVisibilityPolicy: 'members' },
-})
-const nonmemberDeliveryRetryWorkOrders = buildDwmWebhookDeliveryRetryWorkOrders({
-    liveDeliveryEnabled: false,
-    destinations: operationDestinations,
-    deliveries: auditDeliveryRows,
-    auditEvents: operationAuditEvents,
-    filters: { orgId: 'org_contract' },
-    viewerRole: null,
-    canManage: false,
-    visibility: { role: undefined, status: undefined, userActive: true, alertVisibilityPolicy: 'members' },
-})
-const nonmemberDeliveryAuditTrail = buildDwmWebhookDeliveryAuditTrail({
-    liveDeliveryEnabled: false,
-    destinations: operationDestinations,
-    deliveries: auditDeliveryRows,
-    auditEvents: operationAuditEvents,
-    filters: { orgId: 'org_contract' },
-    viewerRole: null,
-    canManage: false,
-    visibility: { role: undefined, status: undefined, userActive: true, alertVisibilityPolicy: 'members' },
-})
+const nonmemberDeliveryRetryQueue = deliveryRetryByAccess.nonmember.queue
+const nonmemberDeliveryRetryRequest = deliveryRetryByAccess.nonmember.request
+const nonmemberDeliveryRetryWorkOrders = deliveryRetryByAccess.nonmember.workOrders
+const nonmemberDeliveryAuditTrail = deliveryRetryByAccess.nonmember.auditTrail
 const deliveryReadinessConsumer = buildDwmWebhookDeliveryReadinessConsumerProof({
     liveDeliveryEnabled: false,
     destinations: operationDestinations,
