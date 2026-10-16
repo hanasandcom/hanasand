@@ -9,7 +9,7 @@ const { getLogDashboard } = await import('../src/utils/logs/getLogs')
 const { default: Page } = await import('../src/app/dashboard/logs/page')
 const fetchOriginal = globalThis.fetch
 const data = { rows: [], counts: [{ severity: 'low', count: 12345 }], services: [{ service: 'preloaded-service', count: 321 }], processing: { updated_at: '2026-09-24T12:00:00Z' }, generated_at: '2026-09-24T12:00:00Z', limit: 200 }
-const metrics = { generated_at: '2026-09-24T12:00:00Z', current: { pps: 128.4, eps: 42.1, historical_eps: 11, npps: 0.33, remaining: 1840, thresholds: { npps_below: false, eps_above: false, pps_below: false } }, history: [] }
+const metrics = { generated_at: '2026-09-24T12:00:00Z', current: { pps: 128.4, eps: 42.1, historical_eps: 11, npps: 0.33, remaining: 1840, thresholds: { npps_below: false, eps_above: false, pps_below: false } }, history: [{ sampled_at: '2026-09-24T12:00:00Z', pps: 128.4, eps: 42.1, historical_eps: 11, npps: 0.33, remaining: 1840 }] }
 afterEach(() => { globalThis.fetch = fetchOriginal; params = new URLSearchParams(); pathname = '/logs' })
 test('dashboard server HTML preloads public throughput metrics without log rows or credentials', async () => {
     const requests: Array<{ url: string, init?: RequestInit }> = []
@@ -24,6 +24,7 @@ test('dashboard server HTML preloads public throughput metrics without log rows 
     expect(requests[0].init?.next).toEqual({ revalidate: 5 })
     expect(requests[0].init?.headers).toBeUndefined()
     expect(html).toContain('42.1')
+    expect(html).toContain('EPS: 1 five-minute averages')
     expect(html).not.toContain('12,345')
     expect(html).not.toContain('preloaded-service')
     expect(html).not.toContain('Bearer session')
