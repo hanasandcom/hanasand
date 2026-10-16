@@ -48,7 +48,7 @@ async function requestSessionOperation<T>(operation: string, body: Record<string
     const response = await fetch(`${identityApiUrl}/api/auth/internal/sessions`, {
         method: 'POST',
         headers: {
-            Authorization: `Bearer ${encodeURIComponent(serviceToken)}`,
+            Authorization: `Bearer ${serviceToken}`,
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({ ...body, operation }),

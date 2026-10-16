@@ -1,9 +1,14 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test'
 import { randomUUID } from 'node:crypto'
 
-type SessionResult = { user: { id: string }, session: { token: string }, refreshed: { expires_at: string } }
+type SessionResult = {
+    user: { id: string }
+    session: { token: string }
+    refreshed: { token: string, expires_at: string }
+}
 const originalFetch = globalThis.fetch
 const originalServiceToken = process.env.HANASAND_IDENTITY_SERVICE_TOKEN
+const serviceToken = 'identity-test+/token=='
 let calls: Array<{ url: string, init: RequestInit }> = []
 let result: SessionResult | null = null
 let responseStatus = 200
@@ -17,10 +22,14 @@ const { validateSession } = await import('../src/utils/auth/session.ts')
 
 beforeEach(() => {
     globalThis.fetch = mockFetch
-    process.env.HANASAND_IDENTITY_SERVICE_TOKEN = 'identity-test-token'
+    process.env.HANASAND_IDENTITY_SERVICE_TOKEN = serviceToken
     calls = []
     responseStatus = 200
-    result = { user: { id: 'member' }, session: { token: randomUUID() }, refreshed: { expires_at: new Date(Date.now() + 86400000).toISOString() } }
+    result = {
+        user: { id: 'member' },
+        session: { token: randomUUID() },
+        refreshed: { token: randomUUID(), expires_at: new Date(Date.now() + 86400000).toISOString() },
+    }
 })
 
 afterEach(() => {
@@ -31,14 +40,18 @@ afterEach(() => {
 
 test('parallel session validation delegates each request to Identity and returns its result', async () => {
     const token = randomUUID()
+    const identityResult = result
     const validations = await Promise.all(Array.from({ length: 10 }, () => validateSession({ id: 'member', token })))
 
     expect(validations).toHaveLength(10)
     expect(validations.every(validation => validation?.user.id === 'member')).toBe(true)
+    expect(validations.every(validation => validation?.session.token === identityResult?.session.token)).toBe(true)
+    expect(validations.every(validation => validation?.refreshed.token === identityResult?.refreshed.token
+        && validation.refreshed.expires_at === identityResult?.refreshed.expires_at)).toBe(true)
     expect(calls).toHaveLength(10)
     expect(calls.every(({ url, init }) => url.endsWith('/api/auth/internal/sessions')
         && init.method === 'POST'
-        && (init.headers as Record<string, string>).Authorization === 'Bearer identity-test-token'
+        && (init.headers as Record<string, string>).Authorization === `Bearer ${serviceToken}`
         && JSON.parse(String(init.body)).operation === 'validate'
         && JSON.parse(String(init.body)).token === token)).toBe(true)
 })
