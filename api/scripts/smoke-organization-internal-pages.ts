@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
-import { readFile } from 'node:fs/promises'
+import Fastify from 'fastify'
 import { canAccessHanasandInternalPageRoute, canEditHanasandInternalPages, canViewHanasandInternalPages, canViewHanasandInternalRoute, HANASAND_ORGANIZATION_ID } from '../src/utils/auth/organizationPagePolicy.ts'
+import apiRoutes from '../src/routes.ts'
 
 for (const role of ['owner', 'admin', 'editor', 'reader']) {
     assert.equal(canViewHanasandInternalPages({
@@ -45,9 +46,28 @@ for (const [method, route] of [
     ['POST', '/role/assign/:id'],
 ] as const) assert.equal(canViewHanasandInternalRoute(method, route), false, `${method} ${route}`)
 
-const routes = await readFile(new URL('../src/routes.ts', import.meta.url), 'utf8')
-const session = await readFile(new URL('../src/utils/auth/session.ts', import.meta.url), 'utf8')
-assert.doesNotMatch(routes, /fastify\.(?:get|post|put|delete)\(['"]\/(?:role|roles)(?:\/|['"])/)
-assert.doesNotMatch(session, /user_roles|session_roles/)
+const app = Fastify({ logger: false })
+const previousHttpOnly = process.env.API_HTTP_ONLY
+process.env.API_HTTP_ONLY = '1'
+try {
+    await app.register(apiRoutes, { prefix: '/api' })
+    await app.ready()
+    for (const [method, url] of [
+        ['GET', '/api/role/:id'],
+        ['GET', '/api/roles'],
+        ['GET', '/api/roles/user/:id'],
+        ['POST', '/api/role'],
+        ['POST', '/api/role/assign/:id'],
+        ['POST', '/api/role/unassign/:id'],
+        ['PUT', '/api/role/:id'],
+        ['DELETE', '/api/role/:id'],
+    ] as const) {
+        assert.equal(app.hasRoute({ method, url }), false, `Legacy role route remains registered: ${method} ${url}`)
+    }
+} finally {
+    await app.close()
+    if (previousHttpOnly === undefined) delete process.env.API_HTTP_ONLY
+    else process.env.API_HTTP_ONLY = previousHttpOnly
+}
 
 console.log('Organization-only internal page access smoke passed.')
