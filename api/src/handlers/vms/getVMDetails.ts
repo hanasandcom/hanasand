@@ -4,15 +4,9 @@ import { withLiveVmStatus } from '#utils/vms/status.ts'
 import { requireVmAccess } from '#utils/vms/access.ts'
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import run from '#db'
-import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 
 export default async function getVMDetails(req: FastifyRequest, res: FastifyReply) {
-    const { valid } = await tokenWrapper(req, res)
     const { name } = req.params as { name: string }
-    if (!valid) {
-        return res.status(401).send({ error: 'Unauthorized.' })
-    }
-
     const viewer = await requireVmAccess(req, res, name)
     if (!viewer) return
 

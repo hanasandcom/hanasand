@@ -5,7 +5,8 @@ import { readFile } from 'node:fs/promises'
 const queries: Array<{ sql: string, params: unknown[] }> = []
 let existing: any = null
 let provisioned = ''
-mock.module('../src/utils/auth/tokenWrapper.ts', () => ({ default: async (req: any) => ({ valid: Boolean(req.headers.id), id: req.headers.id }) }))
+let tokenValidations = 0
+mock.module('../src/utils/auth/tokenWrapper.ts', () => ({ default: async (req: any) => { tokenValidations++; return { valid: Boolean(req.headers.id), id: req.headers.id } } }))
 mock.module('../src/utils/auth/organizationPageAccess.ts', () => ({ default: async (req: any) => ({ valid: req.headers.id === 'admin' }) }))
 mock.module('../src/utils/auth/internalToken.ts', () => ({ default: () => false }))
 mock.module('../src/constants.ts', () => ({ default: { vm_host_id: 'inspur' } }))
@@ -58,6 +59,10 @@ test('another user cannot inspect or connect to a VM; explicit access still work
         expect((await app.inject({ url, headers: { id: 'other' } })).statusCode).toBe(404)
     }
     for (const id of ['owner', 'collaborator', 'admin']) expect((await app.inject({ url: '/vm/private/metrics', headers: { id } })).statusCode).toBe(200)
+
+    const validationsBeforeDetails = tokenValidations
+    expect((await app.inject({ url: '/vm/private/details', headers: { id: 'owner' } })).statusCode).toBe(200)
+    expect(tokenValidations - validationsBeforeDetails).toBe(1)
 })
 test('member creation provisions their VM and cannot take over an existing name', async () => {
     existing = null; provisioned = ''; queries.length = 0
