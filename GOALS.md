@@ -447,3 +447,19 @@ and 10,354 under scripts. The aspirational 10,000–30,000 frontend target is
 not yet supported by evidence for behavior-preserving reduction at that scale;
 continue removing verified duplication and dead code without changing UI or
 page data contracts, and reassess from measured feature-family totals.
+
+At `405709570` and `5bc5c6170`, the access-recovery request route and webhook
+destination delivery matrix were independently reviewed and committed. The
+admin-support parent falls 317 LOC (2,706 to 2,389) while its new request
+modules add 421 (+104 family LOC). The webhook parent falls 129 LOC (8,024 to
+7,895) while its projection adds 175 (+46 family LOC). Access recovery,
+session-lifecycle, organization-helper, destination-health, visibility-access,
+and delivery-route focused suites pass when run one file at a time; API
+typecheck, scoped ESLint, and diff checks pass. A combined multi-file `bun test`
+invocation produced `withDatabaseAdvisoryLock` export errors from test module
+mock interference; all affected files then passed in separate serial
+invocations. Track test isolation as a test-quality issue rather than counting
+that combined invocation as product behavior failure. Both remotes were pushed
+through `5bc5c6170`. The latest committed global scan is 3,750 files /
+323,711 LOC / 125 over 200. The frontend scan still passes at 2,336 files /
+156,018 LOC with zero over 200; no frontend code changed in these API slices.
