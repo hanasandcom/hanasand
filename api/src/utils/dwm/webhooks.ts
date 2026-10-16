@@ -6584,9 +6584,8 @@ async function deliverToDwmWebhookDestination({
 }) {
     const deliveryId = crypto.randomUUID()
     const payload = buildDwmAlertDeliveryPayload({ destination, alert, eventType, deliveryId })
+    const { alert: normalizedAlert, watchlist } = '_hanasand' in payload ? payload._hanasand : payload
     const payloadBody = canonicalJson(payload)
-    const normalizedAlert = normalizeAlert(alert)
-    const watchlist = normalizeWatchlist(alert.watchlist)
     const payloadHash = hashWebhookValue('payload', payloadBody)
     const liveRequested = live && !dryRun && process.env.DWM_WEBHOOK_LIVE_DELIVERY === 'true'
     let status: DwmWebhookDeliveryRow['status'] = dryRun ? 'dry_run' : 'skipped'
@@ -6861,8 +6860,7 @@ async function recordSkippedDwmWebhookDelivery({
 }) {
     const deliveryId = crypto.randomUUID()
     const payload = buildDwmAlertDeliveryPayload({ destination: payloadDestination, alert, eventType, deliveryId })
-    const normalizedAlert = normalizeAlert(alert)
-    const watchlist = normalizeWatchlist(alert.watchlist)
+    const { alert: normalizedAlert, watchlist } = '_hanasand' in payload ? payload._hanasand : payload
     const resolvedIdempotencyKey = idempotencyKey || buildIdempotencyKey(
         eventType,
         orgId,

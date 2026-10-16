@@ -113,8 +113,14 @@ test('delivery loads org destinations using the nested alert organization fallba
 
 test('records HTTP sender outcomes on a live delivery', async () => {
     const { deliverDwmAlertNotification } = await import('../src/utils/dwm/webhooks.ts')
+    const input = deliveryInput('http_failure', false)
+    const alert = {
+        ...input.alert,
+        evidence: [{ sourceName: 'Public report', excerpt: 'Observed exposed credentials.', observedAt: '2026-10-01T10:00:00.000Z' }],
+        watchlist: { ...input.alert.watchlist, name: 'Customer domains' },
+    }
     await withLiveDelivery(async () => {
-        const [delivery] = await deliverDwmAlertNotification('owner_1', deliveryInput('http_failure', false), async () => ({
+        const [delivery] = await deliverDwmAlertNotification('owner_1', { ...input, alert }, async () => ({
             status: 503,
             body: 'upstream unavailable',
         }))
@@ -125,6 +131,10 @@ test('records HTTP sender outcomes on a live delivery', async () => {
             responseBody: 'upstream unavailable',
             error: 'Webhook returned HTTP 503.',
         })
+        expect(ledger[0]?.payload.alert.evidence).toEqual([{
+            label: 'Evidence', detail: 'Observed exposed credentials.', source: 'Public report', capturedAt: '2026-10-01T10:00:00.000Z',
+        }])
+        expect(ledger[0]?.payload.watchlist).toEqual({ id: 'watch_1', name: 'Customer domains', terms: ['example.com'] })
     })
 })
 
