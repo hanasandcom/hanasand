@@ -2,21 +2,30 @@ import { afterAll, beforeEach, expect, mock, test } from 'bun:test'
 import Fastify from 'fastify'
 
 const queries: Array<{ sql: string, params: unknown[] }> = []
+const vmNames = ['cashflow', 'database']
+let internalTokenAuthorized = true
 
 mock.module('#db', () => ({
     default: async (sql: string, params: unknown[] = []) => {
         queries.push({ sql, params })
+        if (sql === 'SELECT name FROM vms;') return { rows: vmNames.map(name => ({ name })) }
         return { rows: [{ name: 'vm-details-row' }] }
     },
 }))
-mock.module('#utils/auth/internalToken.ts', () => ({ default: () => true }))
+mock.module('#utils/auth/internalToken.ts', () => ({ default: () => internalTokenAuthorized }))
 
 const { default: postVMDetails } = await import('../src/handlers/vms/postVMDetails.ts')
+const { default: getVMNames } = await import('../src/handlers/vms/getNames.ts')
 const { refreshLocalLxdDetails, setLxdRequestForTest } = await import('../src/utils/vms/lxd.ts')
 
 const app = Fastify()
 app.post('/vm-details', postVMDetails)
-beforeEach(() => { queries.length = 0 })
+app.get('/vms/names', getVMNames)
+beforeEach(() => {
+    queries.length = 0
+    vmNames.splice(0, vmNames.length, 'cashflow', 'database')
+    internalTokenAuthorized = true
+})
 afterAll(() => app.close())
 
 function postBody() {
@@ -60,6 +69,40 @@ test('internal VM details endpoint preserves input conversions, order, timestamp
     expect(params[29]).toBe(false)
     expect(params.slice(30, 32)).toEqual(['vm description', ['default']])
     expect(Date.parse(String(params[32]))).not.toBeNaN()
+})
+
+test('internal VM details endpoint rejects missing fields before writing', async () => {
+    const response = await app.inject({
+        method: 'POST',
+        url: '/vm-details',
+        payload: { ...postBody(), name: undefined, profiles: null },
+    })
+
+    expect(response.statusCode).toBe(400)
+    expect(response.json()).toEqual({ error: 'Missing required fields: name, profiles' })
+    expect(queries).toHaveLength(0)
+})
+
+test('internal VM names endpoint returns names and an empty list for an empty inventory', async () => {
+    const names = await app.inject('/vms/names')
+    expect(names.statusCode).toBe(200)
+    expect(names.json()).toEqual(['cashflow', 'database'])
+
+    vmNames.length = 0
+    const empty = await app.inject('/vms/names')
+    expect(empty.statusCode).toBe(200)
+    expect(empty.json()).toEqual([])
+    expect(queries).toHaveLength(2)
+    expect(queries.every(query => query.sql === 'SELECT name FROM vms;' && query.params.length === 0)).toBe(true)
+})
+
+test('internal VM names endpoint rejects an invalid internal token before querying', async () => {
+    internalTokenAuthorized = false
+    const response = await app.inject('/vms/names')
+
+    expect(response.statusCode).toBe(401)
+    expect(response.json()).toEqual({ error: 'Unauthorized.' })
+    expect(queries).toHaveLength(0)
 })
 
 test('LXD refresh uses the same persistence writer and retains mapped inventory values', async () => {
