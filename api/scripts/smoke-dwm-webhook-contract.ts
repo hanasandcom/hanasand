@@ -129,7 +129,7 @@ expect(payloadFields.some(field => field.name === 'Observed at' && field.value =
 expect(payloadFields.some(field => field.name === 'Delivery state' && field.value === 'retry_scheduled'), 'Discord payload should expose the next delivery state.', payloadFields)
 expect(payloadFields.some(field => field.name === 'Match reason' && String(field.value).includes('domain match: acme-security.com') && String(field.value).includes('two independent captures')), 'Discord payload should explain why the alert matched.', payloadFields)
 expect(payloadFields.some(field => field.name === 'Evidence timestamp' && field.value === '2026-06-28T08:58:00.000Z'), 'Discord payload should include the evidence capture timestamp.', payloadFields)
-expect(serialized.includes('Acme Security'), 'Payload should include company context.', payload)
+expect(payloadFields.some(field => field.name === 'Company / domain' && field.value === 'Acme Security'), 'Payload should include company context in the Company / domain field.', payloadFields)
 expect(serialized.includes('ransomware_leak_site'), 'Payload should include source family.', payload)
 expect(serialized.includes('Confidence') && serialized.includes('91%'), 'Payload should include confidence context.', payload)
 expect(serialized.includes('Evidence count'), 'Payload should include evidence count field.', payload)
