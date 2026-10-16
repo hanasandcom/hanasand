@@ -2,6 +2,7 @@
 
 import config from '@/config'
 import { cookies } from 'next/headers'
+import { safeDecodeCookieValue } from '@/utils/cookies/safeDecodeCookieValue'
 
 type ServiceName = 'cdn' | 'internal'
 type ServiceCacheOptions = { revalidate?: number | false, tags?: string[] }
@@ -13,7 +14,7 @@ function getBaseUrl(service: ServiceName) {
 export async function requestService<T>(service: ServiceName, path: string, init?: RequestInit, cacheOptions?: ServiceCacheOptions): Promise<T | string> {
     const cookieStore = await cookies()
     const rawToken = cookieStore.get('access_token')?.value || ''
-    const token = rawToken ? safeDecode(rawToken) : ''
+    const token = rawToken ? safeDecodeCookieValue(rawToken) : ''
     const id = cookieStore.get('id')?.value || ''
 
     const controller = new AbortController()
@@ -50,13 +51,5 @@ export async function requestService<T>(service: ServiceName, path: string, init
     } catch (error) {
         if (timeout) clearTimeout(timeout)
         return error instanceof Error ? `Error: ${error.message}` : 'Error: Unknown error'
-    }
-}
-
-function safeDecode(value: string) {
-    try {
-        return decodeURIComponent(value)
-    } catch {
-        return value
     }
 }

@@ -1,6 +1,7 @@
 import config from '@/config'
 import fetchWithRetry from '@/utils/fetchWithRetry'
 import { getCookie } from '@/utils/cookies/cookies'
+import { safeDecodeCookieValue } from '@/utils/cookies/safeDecodeCookieValue'
 
 export default async function manageVM(id: string, action: 'start' | 'stop' | 'restart'): Promise<string | null> {
     try {
@@ -8,7 +9,7 @@ export default async function manageVM(id: string, action: 'start' | 'stop' | 'r
             return 'This virtual machine is missing its instance name.'
         }
 
-        const token = safeDecode(getCookie('access_token') || '')
+        const token = safeDecodeCookieValue(getCookie('access_token') || '')
         const userId = getCookie('id')
         if (!token || !userId) {
             return 'Please log in to manage VMs.'
@@ -33,14 +34,6 @@ export default async function manageVM(id: string, action: 'start' | 'stop' | 'r
         return data?.message || data?.status || `${action} completed for ${id}.`
     } catch (error) {
         return error instanceof Error ? error.message : `Failed to ${action} vm.`
-    }
-}
-
-function safeDecode(value: string) {
-    try {
-        return decodeURIComponent(value)
-    } catch {
-        return value
     }
 }
 

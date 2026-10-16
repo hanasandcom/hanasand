@@ -43,6 +43,7 @@ export const productTasks: TestTask[] = [
     { id: 'share-statistics', title: 'Share line counts and empty statistics', command: [bun, 'test', 'tests/share-statistics.test.tsx'] },
     { id: 'backup-page-render', title: 'Backup page data and operation presentation', command: [bun, 'test', 'tests/backup-page-render.test.tsx'] },
     { id: 'cookie-settings', title: 'Cookie consent and browser-local storage settings', command: [bun, 'test', 'tests/cookie-settings.test.tsx'] },
+    { id: 'safe-cookie-decode', title: 'Encoded cookie value decoding fallback', command: [bun, 'test', 'tests/safe-decode-cookie-value.test.ts'] },
     { id: 'content-pages', title: 'Article dates and thoughts copy', command: [bun, 'tests/content-pages.test.tsx'] },
     { id: 'public-articles-recent', title: 'Public articles hide empty recent sections', command: [bun, 'tests/public-articles-recent.test.tsx'] },
     { id: 'workspace-organization-browser', title: 'Global organization switcher and shared links', command: [bun, 'scripts/check-workspace-organization.mjs'], requires: 'playwright' },

@@ -1,6 +1,7 @@
 import config from '@/config'
 import { cookies } from 'next/headers'
 import { NextRequest } from 'next/server'
+import { safeDecodeCookieValue } from '@/utils/cookies/safeDecodeCookieValue'
 
 const streamHeaders = {
     'Content-Type': 'text/event-stream',
@@ -11,7 +12,7 @@ const streamHeaders = {
 export async function GET(request: NextRequest) {
     try {
         const cookieStore = await cookies()
-        const token = safeDecode(cookieStore.get('access_token')?.value || '')
+        const token = safeDecodeCookieValue(cookieStore.get('access_token')?.value || '')
         if (!token) {
             return new Response('Unauthorized', { status: 401 })
         }
@@ -72,16 +73,8 @@ export async function GET(request: NextRequest) {
         })
     } catch {
         const cookieStore = await cookies()
-        const token = safeDecode(cookieStore.get('access_token')?.value || '')
+        const token = safeDecodeCookieValue(cookieStore.get('access_token')?.value || '')
         if (!token) return new Response('Unauthorized', { status: 401 })
         return new Response('Traffic stream unavailable', { status: 503 })
-    }
-}
-
-function safeDecode(value: string) {
-    try {
-        return decodeURIComponent(value)
-    } catch {
-        return value
     }
 }
