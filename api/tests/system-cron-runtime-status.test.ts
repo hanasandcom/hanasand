@@ -74,6 +74,26 @@ test('registry reports a failed rerun while retaining the last successful result
     })
 })
 
+test('overlapping calls for one API job share a single tracked execution', async() => {
+    const jobId = 'api-single-flight-test'
+    let releaseWork!: (value: string) => void
+    let calls = 0
+    const work = () => {
+        calls += 1
+        return new Promise<string>(resolve => { releaseWork = resolve })
+    }
+
+    const first = runTrackedBackgroundJob(jobId, work)
+    const second = runTrackedBackgroundJob(jobId, work)
+    await Promise.resolve()
+
+    expect(calls).toBe(1)
+    expect(getBackgroundJobRuntime(jobId)).toMatchObject({ running: true, runCount: 0 })
+    releaseWork('completed')
+    expect(await Promise.all([first, second])).toEqual(['completed', 'completed'])
+    expect(getBackgroundJobRuntime(jobId)).toMatchObject({ running: false, runCount: 1, failureCount: 0 })
+})
+
 test('adaptive log processors report their batch runs without changing queue cadence', async() => {
     const jobId = 'api-test-log-processor'
     let notifyBatchStarted!: () => void

@@ -13,8 +13,12 @@ export type BackgroundJobRuntime = {
 }
 
 const runtime = new Map<string, BackgroundJobRuntime>()
+const inFlight = new Map<string, Promise<unknown>>()
 
 export async function runTrackedBackgroundJob<T>(id: string, work: () => Promise<T> | T): Promise<T> {
+    const activeRun = inFlight.get(id)
+    if (activeRun) return activeRun as Promise<T>
+
     const record = ensureRecord(id)
     const startedAt = Date.now()
     record.running = true
@@ -22,8 +26,7 @@ export async function runTrackedBackgroundJob<T>(id: string, work: () => Promise
     record.currentRunStartedAt = record.lastRunAt
     record.lastError = null
 
-    try {
-        const result = await work()
+    const run = Promise.resolve().then(work).then(result => {
         const finishedAt = new Date().toISOString()
         const durationMs = Date.now() - startedAt
         record.runCount += 1
@@ -32,7 +35,7 @@ export async function runTrackedBackgroundJob<T>(id: string, work: () => Promise
         record.averageRuntimeMs = rollingAverage(record.averageRuntimeMs, durationMs, record.runCount)
         record.logExcerpt = `Completed in ${durationMs}ms.`
         return result
-    } catch (error) {
+    }, error => {
         const finishedAt = new Date().toISOString()
         const durationMs = Date.now() - startedAt
         record.runCount += 1
@@ -42,10 +45,13 @@ export async function runTrackedBackgroundJob<T>(id: string, work: () => Promise
         record.averageRuntimeMs = rollingAverage(record.averageRuntimeMs, durationMs, record.runCount)
         record.logExcerpt = record.lastError
         throw error
-    } finally {
+    }).finally(() => {
         record.running = false
         record.currentRunStartedAt = null
-    }
+        inFlight.delete(id)
+    })
+    inFlight.set(id, run)
+    return run
 }
 
 export function getBackgroundJobRuntime(id: string): BackgroundJobRuntime {
