@@ -329,6 +329,8 @@ test('audit detail route redacts stored context and records an inspection event'
     }]
     const response = await request(getSystemEvent, { params: { id: '42' } })
     expect(response.statusCode).toBe(200)
+    const relatedTimelineQuery = queries.find(({ sql }) => sql.includes('e.request_id = $2'))
+    expect(relatedTimelineQuery?.sql).toContain('e.context,\n            e.ip,\n            e.user_agent,\n            e.created_at')
     expect(response.body.event.context).toEqual({
         password: '[redacted]',
         nested: { privateSourceUrl: '[redacted]' },
@@ -644,6 +646,8 @@ test('support session can be created, inspected, then revoked through its audit 
 
     const inspected = await request(getSupportSession, { params: { sessionId } })
     expect(inspected.statusCode).toBe(200)
+    const sessionTimelineQuery = queries.find(({ sql }) => sql.includes('e.context->>\'supportSessionId\' = $1'))
+    expect(sessionTimelineQuery?.sql).toContain('e.context,\n            e.ip,\n            e.user_agent,\n            e.created_at')
     expect(inspected.body.supportSession).toMatchObject({ id: sessionId, status: 'active', requestId: 'session-request-1' })
     expect(inspected.body.detail.authorization).toBeDefined()
     expect(inspected.body.detail.auditTimeline.eventIds).toContain(100)
