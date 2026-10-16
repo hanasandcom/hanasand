@@ -65,7 +65,10 @@ mock.module('../src/utils/vms/ensureAlwaysRunning.ts', () => ({ default: async (
 mock.module('../src/utils/automations.ts', () => ({ runDueAutomations: async () => 0 }))
 mock.module('../src/utils/db/backups.ts', () => ({
     DATABASE_BACKUP_JOB_ID: 'api-database-backup',
+    collectDatabaseBackupServices: async () => [],
+    createDatabaseBackup: async () => null,
     runDueDatabaseBackup: async () => { databaseBackupPolls += 1; return 0 },
+    setDatabaseBackupSchedulePaused: async () => {},
 }))
 mock.module('../src/utils/organizationPrivacy.ts', () => ({ ORGANIZATION_RETENTION_JOB_ID: 'api-organization-retention', runOrganizationRetentionWorker: async () => ({ failed: 0 }) }))
 mock.module('../src/utils/aptUpdates.ts', () => ({ persistHostUpdateStatus: async () => {}, readHostUpdateStatus: async () => ({}), updateHosts: [] }))
@@ -80,9 +83,10 @@ mock.module('../src/utils/mail/system.ts', () => ({ sendSystemMail: async () => 
 mock.module('../src/utils/mail/helpers.ts', () => ({ addressForUser: () => 'expired@example.test' }))
 mock.module('../src/utils/systemEvent.ts', () => ({ recordSystemEvent: async () => {}, userHasHanasandInternalAccess: async () => false }))
 
-const { default: startCron } = await import('../src/utils/cron.ts')
+const { default: startCron, canRunApiCronJobNow } = await import('../src/utils/cron.ts')
 const { getBackgroundJobRuntime, listBackgroundJobRuntime } = await import('../src/utils/backgroundJobRuntime.ts')
 const { ACCOUNT_DELETION_PURGE_JOB_ID } = await import('../src/utils/auth/purgeDeletedAccounts.ts')
+const { scheduledJobRegistryGuardrailEntries } = await import('../src/utils/systemCron.ts')
 const { default: deleteSelf } = await import('../src/handlers/user/deleteSelf.ts')
 
 beforeEach(() => {
@@ -98,6 +102,11 @@ beforeEach(() => {
 })
 
 test('the minute scheduler purges accounts without login or external backup polling', async () => {
+    expect(canRunApiCronJobNow(ACCOUNT_DELETION_PURGE_JOB_ID)).toBe(true)
+    expect(scheduledJobRegistryGuardrailEntries().some(entry =>
+        entry.id === ACCOUNT_DELETION_PURGE_JOB_ID
+            && entry.source === 'api/src/utils/auth/purgeDeletedAccounts.ts'
+    )).toBe(true)
     const deleteReplyState: { statusCode: number, body?: any } = { statusCode: 200 }
     const deleteReply = {
         status(code: number) { deleteReplyState.statusCode = code; return deleteReply },
