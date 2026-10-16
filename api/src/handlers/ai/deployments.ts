@@ -175,7 +175,7 @@ export async function postAiDeployment(req: FastifyRequest, res: FastifyReply) {
             const repoCredential = await getRepoCredential(repository.id, userId).catch(() => null)
             events.push(deploymentEvent('sync', `Preparing ${repository.full_name} on branch ${repository.branch}.`, new Date().toISOString()))
 
-            const deployAttempt = await fetchJsonWithDeployRetry(`${config.internal_api}/vm/${encodeURIComponent(vm.name)}/deploy`, {
+            const deployAttempt = await fetchWithDeployRetry(`${config.internal_api}/vm/${encodeURIComponent(vm.name)}/deploy`, {
                 method: 'POST',
                 headers: {
                     Authorization: `Bearer ${encodeURIComponent(config.vm_api_token || '')}`,
@@ -188,9 +188,9 @@ export async function postAiDeployment(req: FastifyRequest, res: FastifyReply) {
                     serviceName,
                     githubToken: repoCredential?.token || '',
                 }),
-            }, events, 'remote deploy bridge')
+            }, events, 'remote deploy bridge', 'sync', response => response.json().catch(() => null))
             const deployResponse = deployAttempt.response
-            const deployPayload = deployAttempt.payload as {
+            const deployPayload = deployAttempt.body as {
                 ok?: boolean
                 events?: Array<{ stage?: string; message?: string; timestamp?: string }>
                 failureReason?: string
@@ -211,7 +211,7 @@ export async function postAiDeployment(req: FastifyRequest, res: FastifyReply) {
                 status = 'healthchecking'
                 events.push(deploymentEvent('healthcheck', `Running VM-local healthcheck on ${healthcheckUrl}.`, new Date().toISOString()))
 
-                const healthAttempt = await fetchTextWithDeployRetry(`${config.internal_api}/vm/${encodeURIComponent(vm.name)}/request`, {
+                const healthAttempt = await fetchWithDeployRetry(`${config.internal_api}/vm/${encodeURIComponent(vm.name)}/request`, {
                     method: 'POST',
                     headers: {
                         Authorization: `Bearer ${encodeURIComponent(config.vm_api_token || '')}`,
@@ -224,9 +224,9 @@ export async function postAiDeployment(req: FastifyRequest, res: FastifyReply) {
                         headers: { Accept: 'text/html,application/json;q=0.9,*/*;q=0.8' },
                         body: '',
                     }),
-                }, events, 'VM-local healthcheck')
+                }, events, 'VM-local healthcheck', 'healthcheck', response => response.text())
                 const healthResponse = healthAttempt.response
-                const healthText = healthAttempt.text
+                const healthText = healthAttempt.body
                 const eventTime = new Date().toISOString()
 
                 if (healthResponse.ok) {
@@ -372,16 +372,6 @@ async function recordRelease({
             accessPolicy: deployment.access_policy || 'owner_only',
         },
     })
-}
-
-async function fetchJsonWithDeployRetry(url: string, init: RequestInit, events: AIDeploymentEvent[], label: string) {
-    const result = await fetchWithDeployRetry(url, init, events, label, 'sync', response => response.json().catch(() => null))
-    return { response: result.response, payload: result.body }
-}
-
-async function fetchTextWithDeployRetry(url: string, init: RequestInit, events: AIDeploymentEvent[], label: string) {
-    const result = await fetchWithDeployRetry(url, init, events, label, 'healthcheck', response => response.text())
-    return { response: result.response, text: result.body }
 }
 
 async function fetchWithDeployRetry<T>(
