@@ -1,20 +1,16 @@
-import { WatchlistDestinationSummary } from './watchlistDestinationSummary'
 import { WatchlistItemRow } from './watchlistItemRow'
 import type { WatchlistItem, AlertTerm, WatchlistKind, WatchlistSuggestion } from '../types/watchlists'
 import type { OrganizationMember, OrganizationSummary } from '../types/organization'
 import type { ScopedAlert, CollectionRequest, RowMessage, ActivitySubject } from '../types/activity'
 import type { DeliveryRow } from '../types/delivery'
-import { watchlistBusyLabel, formatDate } from '../model/labels'
-import { normalizeWatchlistValue, watchlistSearchText, isDuplicateWatchlistTerm, watchlistDraftChanged, activeTermForWatchlist, alertsForWatchlist, latestDeliveryForWatchlist, destinationConfigured } from '../model/watchlists'
-import { SectionTitle, InlineBusy, RowStatus, SelectField, Field, StatusPill, ConfirmActionButton } from './shared'
-import { secondaryButtonClass, primaryButtonClass, inputClass, iconButtonClass } from '../constants/styles'
+import { watchlistBusyLabel } from '../model/labels'
+import { normalizeWatchlistValue, watchlistSearchText } from '../model/watchlists'
+import { SectionTitle, InlineBusy, RowStatus, SelectField, Field } from './shared'
+import { secondaryButtonClass, primaryButtonClass, inputClass } from '../constants/styles'
+import { OrganizationFilterStrip } from './filterStrip'
 import { watchlistTemplates, watchlistKinds } from '../constants/options'
-import { organizationDisplayName, organizationMemberLabel, destinationDisplayState } from '../model/organization'
-import { compactReference } from '../model/references'
-import { sanitizeOrganizationDisplayCopy } from '../model/textSafety'
 import { useState } from 'react'
-import { Archive, BellRing, CheckCircle2, Pause, Pencil, Play, RefreshCw, Trash2, Webhook } from 'lucide-react'
-import Link from 'next/link'
+import { Archive, BellRing, RefreshCw } from 'lucide-react'
 
 export function WatchlistPanel({ watchlists, activeTerms, members, canManage, canCleanup, busy, draft, setDraft, suggestions, editing, setEditing, onCreate, onSave, onAction, onDelete, organization, alerts, deliveries, onCleanup, onRefreshAlerts, onRequestFreshCollection, onRefreshCollectionStatus, collectionRequest, rowMessages, draftDuplicate, selectedSubject, onSelectSubject }: { watchlists: WatchlistItem[], activeTerms: AlertTerm[], members: OrganizationMember[], canManage: boolean, canCleanup: boolean, busy: string, draft: { kind: WatchlistKind, value: string, notes: string }, setDraft: (next: { kind: WatchlistKind, value: string, notes: string }) => void, suggestions: WatchlistSuggestion[], editing: Record<string, { kind: WatchlistKind, value: string, notes: string }>, setEditing: (next: Record<string, { kind: WatchlistKind, value: string, notes: string }> | ((current: Record<string, { kind: WatchlistKind, value: string, notes: string }>) => Record<string, { kind: WatchlistKind, value: string, notes: string }>)) => void, onCreate: () => void, onSave: (item: WatchlistItem) => void, onAction: (item: WatchlistItem, action: 'pause' | 'resume' | 'archive' | 'restore') => void, onDelete: (item: WatchlistItem) => void, organization: OrganizationSummary, alerts: ScopedAlert[], deliveries: DeliveryRow[], onCleanup: () => void, onRefreshAlerts: () => void, onRequestFreshCollection: () => void, onRefreshCollectionStatus: () => void, collectionRequest: CollectionRequest | null, rowMessages: Record<string, RowMessage>, draftDuplicate: boolean, selectedSubject: ActivitySubject, onSelectSubject: (subject: ActivitySubject) => void }) {
     const [watchlistQuery, setWatchlistQuery] = useState('')
@@ -122,41 +118,25 @@ export function WatchlistPanel({ watchlists, activeTerms, members, canManage, ca
 
             <div className='mt-5 grid gap-3'>
                 {watchlists.length > 0 && (
-                    <div className='grid gap-2 rounded-lg border border-ui-border bg-ui-raised p-3 dark:border-ui-border dark:bg-ui-canvas md:grid-cols-[minmax(0,1fr)_10rem_auto]' data-org-watchlist-filter-strip='true'>
-                        <label className='grid min-w-0 gap-1 text-sm font-medium text-ui-text dark:text-ui-muted'>
-                            Search terms
-                            <input
-                                value={watchlistQuery}
-                                disabled={Boolean(busy)}
-                                onChange={event => setWatchlistQuery(event.target.value)}
-                                className={inputClass}
-                                placeholder='Domain, supplier, owner, event ref'
-                            />
-                        </label>
-                        <SelectField
-                            label='Status'
-                            value={watchlistStatusFilter}
-                            options={['all', 'active', 'paused', 'archived']}
-                            disabled={Boolean(busy)}
-                            onChange={setWatchlistStatusFilter}
-                        />
-                        <div className='grid content-end gap-1'>
-                            <span className='rounded-md border border-ui-border bg-ui-panel px-2 py-2 text-center text-xs font-semibold text-ui-muted dark:border-ui-border dark:bg-ui-panel dark:text-ui-muted' data-org-watchlist-filter-count='true'>
-                                {visibleWatchlists.length}/{watchlists.length} shown
-                            </span>
-                            <button
-                                type='button'
-                                className={secondaryButtonClass}
-                                disabled={!filtersActive || Boolean(busy)}
-                                onClick={() => {
-                                    setWatchlistQuery('')
-                                    setWatchlistStatusFilter('all')
-                                }}
-                            >
-                                Clear
-                            </button>
-                        </div>
-                    </div>
+                    <OrganizationFilterStrip
+                        scope='watchlist'
+                        searchLabel='Search terms'
+                        query={watchlistQuery}
+                        placeholder='Domain, supplier, owner, event ref'
+                        onQueryChange={setWatchlistQuery}
+                        selectLabel='Status'
+                        selectedOption={watchlistStatusFilter}
+                        options={['all', 'active', 'paused', 'archived']}
+                        onSelectChange={setWatchlistStatusFilter}
+                        visibleCount={visibleWatchlists.length}
+                        totalCount={watchlists.length}
+                        disabled={Boolean(busy)}
+                        canClear={filtersActive}
+                        onClear={() => {
+                            setWatchlistQuery('')
+                            setWatchlistStatusFilter('all')
+                        }}
+                    />
                 )}
                 {watchlists.length === 0 && (
                     <div className='flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-ui-primary/35 bg-ui-panel p-4 text-sm dark:border-ui-border dark:bg-ui-panel' data-org-watchlist-empty='true'>

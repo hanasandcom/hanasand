@@ -2,7 +2,7 @@ import { SelectField } from './shared'
 import { inputClass, secondaryButtonClass } from '../constants/styles'
 
 type Props = {
-    scope: 'member' | 'invite'
+    scope: 'member' | 'invite' | 'watchlist'
     className?: string
     searchLabel: string
     query: string
@@ -41,9 +41,17 @@ export function OrganizationFilterStrip({
         : { 'data-org-invite-filter-strip': 'true' }
     const countMarker = scope === 'member'
         ? { 'data-org-member-filter-count': 'true' }
-        : { 'data-org-invite-filter-count': 'true' }
+        : scope === 'invite'
+            ? { 'data-org-invite-filter-count': 'true' }
+            : { 'data-org-watchlist-filter-count': 'true' }
+    const marker = scope === 'watchlist'
+        ? { 'data-org-watchlist-filter-strip': 'true' }
+        : stripMarker
+    const gridColumns = scope === 'watchlist'
+        ? 'md:grid-cols-[minmax(0,1fr)_10rem_auto]'
+        : 'md:grid-cols-[minmax(0,1fr)_9rem_auto]'
 
-    return <div {...stripMarker} className={`${className} grid gap-2 rounded-lg border border-ui-border bg-ui-raised p-3 dark:border-ui-border dark:bg-ui-canvas md:grid-cols-[minmax(0,1fr)_9rem_auto]`.trim()}>
+    return <div {...marker} className={`${className} grid gap-2 rounded-lg border border-ui-border bg-ui-raised p-3 dark:border-ui-border dark:bg-ui-canvas ${gridColumns}`.trim()}>
         <label className='grid min-w-0 gap-1 text-sm font-medium text-ui-text dark:text-ui-muted'>
             {searchLabel}
             <input value={query} disabled={disabled} onChange={event => onQueryChange(event.target.value)} className={inputClass} placeholder={placeholder} />
