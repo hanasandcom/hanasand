@@ -13,6 +13,9 @@ mock.module('../src/app/ti/pageModel', () => ({
     watchlistWorkbenchRowsFor: () => watchlistRows,
     sourceCoverageWorkbenchRowsFor: () => sourceRows,
     actorOperationsRowsFor: () => operationsRows,
+    artifactStateFor: (artifact: { state?: string }) => artifact.state || 'ready',
+    artifactStateLabel: (artifact: { state?: string }) => artifact.state || 'Ready',
+    artifactWorklistPayloadFor: (artifact: { id: string }) => ({ id: artifact.id }),
     displayRequirementList: (values: string[]) => values.join(', '),
     displayRequirementText: (value: unknown) => String(value ?? ''),
     formatLabel: (value: string) => value,
@@ -36,10 +39,11 @@ mock.module('../src/app/ti/components/strip-action-button', () => ({
     },
 }))
 
-const [{ default: WatchlistWorkbench }, { default: SourceCoverageWorkbench }, { default: ActorOperationsMatrix }] = await Promise.all([
+const [{ default: WatchlistWorkbench }, { default: SourceCoverageWorkbench }, { default: ActorOperationsMatrix }, { default: ArtifactNavigator, handleArtifactNavigatorKey }] = await Promise.all([
     import('../src/app/ti/components/watchlist-relevance-workbench'),
     import('../src/app/ti/components/source-coverage-workbench'),
     import('../src/app/ti/components/actor-operations-matrix'),
+    import('../src/app/ti/components/artifact-navigator'),
 ])
 const { previewRowsForSelection } = await import('../src/app/ti/components/selectedPreviewList')
 
@@ -67,7 +71,14 @@ function operationRow(id: string, label: string, artifactLookup: string) {
     }
 }
 
-function renderWorkbench(component: typeof WatchlistWorkbench | typeof SourceCoverageWorkbench | typeof ActorOperationsMatrix, props: object) {
+function artifactRow(id: string, label: string) {
+    return {
+        id, kind: 'technique', label, subtitle: `Details for ${label}`, state: 'ready', freshness: '2026-10-01', confidence: 0.9,
+        evidence: [{ title: `Evidence ${label}` }], watchlistTerms: [], enrichmentTasks: [],
+    }
+}
+
+function renderWorkbench(component: typeof WatchlistWorkbench | typeof SourceCoverageWorkbench | typeof ActorOperationsMatrix | typeof ArtifactNavigator, props: object) {
     return renderToStaticMarkup(createElement(component as never, props as never))
 }
 
@@ -96,10 +107,22 @@ test('workbench selection preview keeps selected rows visible and expands within
     assert.equal(previewRowsForSelection({ rows, selected: rows[2], expanded: false, previewCount: 2 }).hiddenCount, 1)
 })
 
+test('artifact navigator keyboard keys retain next, previous, first, and last navigation', () => {
+    const moves: string[] = []
+    const prevented: string[] = []
+    for (const [key, direction] of [['ArrowRight', 'next'], ['ArrowDown', 'next'], ['ArrowLeft', 'previous'], ['ArrowUp', 'previous'], ['Home', 'first'], ['End', 'last']]) {
+        handleArtifactNavigatorKey({ key, preventDefault: () => prevented.push(key) }, move => moves.push(move))
+        assert.equal(moves.at(-1), direction)
+    }
+    handleArtifactNavigatorKey({ key: 'Tab', preventDefault: () => prevented.push('Tab') }, move => moves.push(move))
+    assert.deepEqual(prevented, ['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Home', 'End'])
+})
+
 test('workbenches render selection controls, compact preview, empty copy, and distinct linked-row highlights', () => {
     watchlistRows = [watchlistRow('one', 'Example One', 'evidence-one'), watchlistRow('two', 'Example Two', 'evidence-two'), watchlistRow('three', 'Example Three', 'evidence-three')]
     sourceRows = [sourceRow('source-one', 'Source One', 'evidence-one'), sourceRow('source-two', 'Source Two', 'evidence-two'), sourceRow('source-three', 'Source Three', 'evidence-three')]
     operationsRows = [operationRow('op-one', 'Technique One', 'technique-one'), operationRow('op-two', 'Technique Two', 'technique-two'), operationRow('op-three', 'Technique Three', 'technique-three')]
+    const artifact = renderWorkbench(ArtifactNavigator, { artifacts: [artifactRow('artifact-one', 'Artifact One')], selectedArtifactId: 'artifact-one', onSelectArtifact() {} })
 
     const watchlist = renderWorkbench(WatchlistWorkbench, {
         watchlist: {}, actionability: {}, query: '', workItems: [], artifacts: [], selectedId: 'evidence-two',
@@ -130,6 +153,9 @@ test('workbenches render selection controls, compact preview, empty copy, and di
     assert.match(watchlist, /href="\/findings\/cases\/one"/)
     assert.match(source, /href="https:\/\/source-one\.example\.test"/)
     assert.match(operations, /Open detail/)
+    assert.match(artifact, /data-ti-artifact-worklist="true"/)
+    assert.match(artifact, /Selected detail/)
+    assertRowHighlight(artifact, 'Artifact One', true)
     assertRowHighlight(watchlist, 'Example One', true)
     assertRowHighlight(source, 'Source One', true)
     assertRowHighlight(operations, 'Technique One', true)
