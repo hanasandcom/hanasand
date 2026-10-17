@@ -740,3 +740,13 @@ scan, diff check, and Next production build pass; all 116 routes generate.
 Inventory: 2,272 files / 152,150 LOC / zero over 200. This is a verified
 feature-preserving reduction relative to the mounted product; the 10,000–30,000
 LOC frontend and 100,000-line API reduction goals remain unmet.
+
+Four more unused frontend utilities were removed (108 LOC): the old log merge
+and service-name helpers, unused traffic-domain mapping, and unscoped thoughts
+list fetcher. Independent review confirmed no imports, dynamic loads, barrels,
+tests, scripts, routes, or package exports reference them; active log, traffic,
+and workspace-scoped thoughts flows remain separate and unchanged. The full
+frontend suite, typecheck, line-cap scan, diff check, and Next production build
+pass with all 116 routes generated. Inventory: 2,268 files / 152,042 LOC / zero
+over 200. The 10,000–30,000 LOC frontend and 100,000-line API goals remain
+unmet.
