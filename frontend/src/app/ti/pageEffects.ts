@@ -1,6 +1,6 @@
 'use client'
 
-import searchThreatIntel, { type TiSearchResponse } from '@/utils/ti/search'
+import searchThreatIntel from '@/utils/ti/search'
 import { humanizeSlug } from '../seo'
 import { rememberSearch } from '@/components/ti/searchSuggestions'
 import { useEffect } from 'react'
