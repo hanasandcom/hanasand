@@ -1662,3 +1662,17 @@ files among 4,326 files / 326,010 lines, all outside the frontend. Browser
 Playwright checks could not start because the configured local API server
 exits during startup. The broader API and frontend reduction objectives remain
 open; no UI redesign or deployment was made.
+
+At frontend checkpoint `aedd15fad`, browser history now renders the shared
+provider badges directly, management users receive the already-fetched page
+data, and thesis source details reuse their dependency-list renderer. AI
+artifact labels and findings state labels use existing mappings; public TI
+evidence uses the shared credential-safe URL validator. The full registered
+frontend suite and production build pass, with all 116 pages generated. The
+frontend cap passes across 2,368 files / 154,863 lines, with no file over 200.
+Since `5f46c992d`, frontend source is down 53 lines and tests/scripts add 43,
+for a net reduction of 10 lines. This is verified code reduction, but the
+10,000–30,000-line frontend target remains far away. The full repository scan
+finds 63 over-limit files among 4,326 files / 326,000 lines, all outside the
+frontend. Browser end-to-end tests remain blocked where the configured local
+API server exits during startup; no UI redesign or deployment was made.
