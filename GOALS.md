@@ -810,7 +810,7 @@ The generated frontend search-route catalog now emits one route object per line 
 After these checkpoints, the repository-wide line-cap scan reports 122 oversized handwritten files among 3,738 files / 320,187 LOC. The events handler no longer exceeds 200 lines, but the remaining repository-wide cap debt is substantial. The API 100,000-line reduction and frontend 10,000–30,000 LOC targets remain unmet.
 
 At the current 2026-10-17 working-tree snapshot, the frontend-only scope contains
-2,261 hand-maintained source/config files and 151,600 lines, with zero files
+2,258 hand-maintained source/config files and 151,429 lines, with zero files
 over 200 lines. This count excludes generated route/article catalogs and
 dependency/build output. The strict frontend file cap is currently satisfied;
 the much larger 10,000–30,000-line target remains unmet. Continue prioritizing
@@ -822,10 +822,11 @@ counts and the overall cap remain provisional.
 Since that snapshot, three reviewed frontend reuse slices shared restore
 polling behavior (+9 production LOC), consolidated password inputs across
 login/signup/reset (+13), and shared the API-key card prop contract (-47).
-Together these reduce production code by 25 lines; the current frontend
-inventory is 47 lines below the immediately preceding snapshot. Frontend
-typecheck, changed-file lint, cap checks, and the restore production build pass.
-The API-key owner-picker Playwright check did not run because Playwright's
-managed API server exited before browser startup; its focused typecheck/lint and
-server-render contract assertions passed. The 10,000–30,000-line target remains
+Together these reduce production code by 25 lines. A separate reference audit
+removed three unreferenced modules (171 LOC), taking the frontend inventory to
+2,258 files / 151,429 LOC / zero over 200, down 171 lines from the preceding
+snapshot. The Next production build generated all 116 routes; typecheck,
+changed-file lint, cap checks, and seven dashboard navigation tests pass. The
+API-key owner-picker Playwright check did not run because Playwright's managed
+API server exited before browser startup. The 10,000–30,000-line target remains
 unmet.
