@@ -11,7 +11,7 @@ test('prompt portal uses the shared organization session and keeps its worker qu
     const file = await readFile(path.join(root, 'src/app/api/prompt/file/route.ts'), 'utf8')
     const worker = await readFile(path.join(root, 'src/app/api/prompt/worker/route.ts'), 'utf8')
     const store = await readFile(path.join(root, 'src/utils/promptPortal/store.ts'), 'utf8')
-    const policy = await readFile(path.join(root, '../../api/src/utils/auth/organizationPagePolicy.ts'), 'utf8')
+    const policy = await readFile(path.join(root, '../api/src/utils/auth/organizationPagePolicy.ts'), 'utf8')
 
     expect(page).toContain('PromptPortalClient')
     expect(page).toContain('tokenIsValid')
