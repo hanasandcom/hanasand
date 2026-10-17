@@ -1,0 +1,1 @@
+export const API_CRON_CADENCE_SECONDS = 60
