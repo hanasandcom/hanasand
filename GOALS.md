@@ -802,3 +802,9 @@ inventory: 2,267 files / 151,843 LOC / zero over 200. The helper removes repeate
 production fetch code; added regression coverage means total frontend LOC rises
 from 151,752. The 10,000–30,000 LOC frontend and 100,000-line API goals remain
 unmet.
+
+The API events handler was split along route, catalog, finding, storage, normalization, and Sigma responsibilities, leaving a 10-line compatibility facade and twelve modules under 200 lines. Utility callers now import the relevant modules directly, avoiding a handler-facade cycle. Independent review found no actionable behavior or export regressions. Focused API verification passed 221 tests / 996 assertions, with one PostgreSQL-gated test skipped; full lint/typecheck passed. This is a structural cleanup and adds some module-boundary LOC; it does not materially advance the 100,000-line reduction target.
+
+The generated frontend search-route catalog now emits one route object per line (130 lines total) and remains exactly equivalent to the previous 127-route catalog. The 200-line checker now includes the generated catalog, and a generator-side guard rejects oversized output before cleanup or writes. Tests cover catalog aliases, exclusions, ordering, uniqueness, and line-cap rejection. Independent review found no actionable issue. Focused frontend tests (6), typecheck, targeted ESLint, deterministic regeneration, and frontend line-cap checks passed. The frontend cap scan now covers 2,269 files / 152,024 lines with zero over 200; its total includes the previously exempt generated file. The frontend remains far above the 10,000–30,000 LOC target.
+
+After these checkpoints, the repository-wide line-cap scan still reports 122 oversized handwritten files among 3,737 files / 320,174 LOC. The events handler no longer exceeds 200 lines, but the remaining repository-wide cap debt is substantial. The API 100,000-line reduction and frontend 10,000–30,000 LOC targets remain unmet.
