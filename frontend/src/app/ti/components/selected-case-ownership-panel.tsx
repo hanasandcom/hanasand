@@ -6,6 +6,7 @@ import CopyPayloadButton from './copy-payload-button'
 import DecisionStatus from './decision-status'
 import SelectedPanelHeader from './selected-panel-header'
 import RequirementWarning from './requirement-warning'
+import TiEvidenceCard from './ti-evidence-card'
 
 export default function SelectedCaseOwnershipPanel({ plan }: { plan: SelectedCaseOwnershipPlan }) {
     return (
@@ -28,7 +29,7 @@ export default function SelectedCaseOwnershipPanel({ plan }: { plan: SelectedCas
             <p className='mt-2 wrap-break-word text-[11px] leading-5 text-ui-muted dark:text-ui-muted'>{displayRequirementText(plan.nextAction)}</p>
             <div className='mt-2 grid gap-2'>
                 {plan.caseReviewItems.slice(0, 3).map(item => (
-                    <div key={item.id} className='rounded-md border border-ui-border bg-ui-panel p-2 dark:border-ui-border dark:bg-ui-panel'>
+                    <TiEvidenceCard key={item.id}>
                         <div className='flex min-w-0 flex-wrap items-start justify-between gap-2'>
                             <div className='min-w-0'>
                                 <p className='wrap-break-word text-[11px] font-semibold text-ui-text dark:text-ui-text'>{item.title}</p>
@@ -43,7 +44,7 @@ export default function SelectedCaseOwnershipPanel({ plan }: { plan: SelectedCas
                             {caseReviewReferenceSummary(item)}
                         </p>
                         <RequirementWarning items={item.blockers} limit={3} />
-                    </div>
+                    </TiEvidenceCard>
                 ))}
             </div>
             {plan.replayRows.length ? (

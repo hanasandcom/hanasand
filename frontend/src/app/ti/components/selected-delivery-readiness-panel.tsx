@@ -6,6 +6,7 @@ import DecisionStatus from './decision-status'
 import CopyPayloadButton from './copy-payload-button'
 import SelectedPanelHeader from './selected-panel-header'
 import RequirementWarning from './requirement-warning'
+import TiEvidenceCard from './ti-evidence-card'
 
 export default function SelectedDeliveryReadinessPanel({ plan }: { plan: SelectedDeliveryReadinessPlan }) {
     return (
@@ -20,7 +21,7 @@ export default function SelectedDeliveryReadinessPanel({ plan }: { plan: Selecte
             <p className='mt-2 wrap-break-word text-[11px] leading-5 text-ui-muted dark:text-ui-muted'>{displayRequirementText(plan.nextAction)}</p>
             <div className='mt-2 grid gap-2'>
                 {plan.alerts.slice(0, 3).map(alert => (
-                    <div key={alert.id} className='rounded-md border border-ui-border bg-ui-panel p-2 dark:border-ui-border dark:bg-ui-panel'>
+                    <TiEvidenceCard key={alert.id}>
                         <div className='flex min-w-0 flex-wrap items-start justify-between gap-2'>
                             <div className='min-w-0'>
                                 <p className='wrap-break-word text-[11px] font-semibold text-ui-text dark:text-ui-text'>{alert.title}</p>
@@ -36,7 +37,7 @@ export default function SelectedDeliveryReadinessPanel({ plan }: { plan: Selecte
                             {alert.casePath ? ` · ${displayRequirementText(alert.casePath)}` : ' · case link pending'}
                         </p>
                         <RequirementWarning items={alert.blockers} limit={3} />
-                    </div>
+                    </TiEvidenceCard>
                 ))}
                 {!plan.alerts.length ? (
                     <p className='rounded-md border border-ui-warning/35 bg-ui-warning/10 p-2 text-[11px] leading-5 text-ui-warning dark:border-ui-warning/35 dark:bg-ui-warning/10 dark:text-ui-warning'>Generate an alert before opening a case.</p>

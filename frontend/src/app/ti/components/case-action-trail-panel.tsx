@@ -4,6 +4,7 @@ import { eventProvenanceSummary, formatDate } from '../pageClientShared'
 import { decisionStepStatusClass, displayRequirementText, publicStateLabel, type CaseActionTrailPayload } from '../pageModel'
 import CopyPayloadButton from './copy-payload-button'
 import RequirementWarning from './requirement-warning'
+import TiEvidenceCard from './ti-evidence-card'
 
 export default function CaseActionTrailPanel({ trail }: { trail: CaseActionTrailPayload }) {
     return (
@@ -24,7 +25,7 @@ export default function CaseActionTrailPanel({ trail }: { trail: CaseActionTrail
             </div>
             <div className='mt-3 grid gap-2'>
                 {trail.events.slice(0, 4).map(event => (
-                    <div key={event.id} className='rounded-md border border-ui-border bg-ui-panel p-2 dark:border-ui-border dark:bg-ui-panel'>
+                    <TiEvidenceCard key={event.id}>
                         <div className='flex min-w-0 flex-wrap items-start justify-between gap-2'>
                             <div className='min-w-0'>
                                 <p className='wrap-break-word text-[11px] font-semibold text-ui-text dark:text-ui-text'>{event.label}</p>
@@ -37,7 +38,7 @@ export default function CaseActionTrailPanel({ trail }: { trail: CaseActionTrail
                             {eventProvenanceSummary(event.provenance)}
                         </p>
                         <RequirementWarning items={event.blockers} limit={3} />
-                    </div>
+                    </TiEvidenceCard>
                 ))}
             </div>
         </div>

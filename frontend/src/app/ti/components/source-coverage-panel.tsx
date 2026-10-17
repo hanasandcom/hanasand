@@ -3,6 +3,7 @@
 import { TI_DOSSIER_SOURCE_FAMILY_ROWS, captureCoverageLabel, formatDate } from '../pageClientShared'
 import { coverageMissingLabel, formatLabel } from '../pageModel'
 import { type TiActorIntelligenceProfile } from '@/utils/ti/actorIntelligence'
+import TiEvidenceCard from './ti-evidence-card'
 
 export default function SourceCoveragePanel({ coverage }: { coverage: TiActorIntelligenceProfile['sourceCoverage'] }) {
     const metrics = [
@@ -31,10 +32,10 @@ export default function SourceCoveragePanel({ coverage }: { coverage: TiActorInt
             </div>
             <div className='mt-3 grid grid-cols-2 gap-2'>
                 {metrics.map(metric => (
-                    <div key={metric.label} className='min-w-0 rounded-md border border-ui-border bg-ui-panel p-2 dark:border-ui-border dark:bg-ui-panel'>
+                    <TiEvidenceCard key={metric.label} className='min-w-0'>
                         <p className='text-[11px] font-semibold uppercase text-ui-muted dark:text-ui-muted'>{metric.label}</p>
                         <p className='mt-1 wrap-break-word text-xs font-semibold text-ui-text dark:text-ui-text'>{metric.value}</p>
-                    </div>
+                    </TiEvidenceCard>
                 ))}
             </div>
             <div className='mt-3 flex flex-wrap gap-1.5'>

@@ -6,6 +6,7 @@ import { type TiActionabilityModel } from '@/utils/ti/actionability'
 import CopyPayloadButton from './copy-payload-button'
 import EvidenceMetric from './evidence-metric'
 import OrgActorIdentity from './org-actor-identity'
+import TiEvidenceCard from './ti-evidence-card'
 
 export default function OrgRelevancePanel({ actionability }: { actionability: TiActionabilityModel }) {
     const relevance = actionability.orgRelevance
@@ -48,7 +49,7 @@ export default function OrgRelevancePanel({ actionability }: { actionability: Ti
                 </div>
                 <div className='mt-2 grid gap-2'>
                     {relevance.sourceCoverage.length ? relevance.sourceCoverage.slice(0, 3).map(source => (
-                        <div key={`${source.sourceId ?? source.sourceName}-${source.provenance}`} className='rounded-md border border-ui-border bg-ui-panel p-2 dark:border-ui-border dark:bg-ui-panel'>
+                        <TiEvidenceCard key={`${source.sourceId ?? source.sourceName}-${source.provenance}`}>
                             <div className='flex flex-wrap items-start justify-between gap-2'>
                                 <div className='min-w-0'>
                                     <p className='min-w-0 wrap-break-word text-xs font-semibold text-ui-text dark:text-ui-text'>{source.sourceName}</p>
@@ -59,7 +60,7 @@ export default function OrgRelevancePanel({ actionability }: { actionability: Ti
                                 </div>
                                 {typeof source.confidence === 'number' ? <span className='shrink-0 text-[11px] font-semibold text-ui-muted dark:text-ui-muted'>{sourceBasisLabel(source.confidence)}</span> : null}
                             </div>
-                        </div>
+                        </TiEvidenceCard>
                     )) : (
                         <p className='rounded-md border border-ui-warning/35 bg-ui-warning/10 p-2 text-xs leading-5 text-ui-warning dark:border-ui-warning/35 dark:bg-ui-warning/10'>Add source coverage before customer review.</p>
                     )}
@@ -79,7 +80,7 @@ export default function OrgRelevancePanel({ actionability }: { actionability: Ti
                 </div>
                 <div className='mt-2 grid gap-2'>
                     {relevance.watchlistIntersections.length ? relevance.watchlistIntersections.slice(0, 4).map(item => (
-                        <div key={item.intersectionId} className='rounded-md border border-ui-border bg-ui-panel p-2 dark:border-ui-border dark:bg-ui-panel'>
+                        <TiEvidenceCard key={item.intersectionId}>
                             <div className='flex flex-wrap items-start justify-between gap-2'>
                                 <div className='min-w-0'>
                                     <p className='min-w-0 wrap-break-word text-xs font-semibold text-ui-text dark:text-ui-text'>{item.kind}: {item.value}</p>
@@ -97,7 +98,7 @@ export default function OrgRelevancePanel({ actionability }: { actionability: Ti
                                 <p className='min-w-0 wrap-break-word text-[11px] text-ui-muted dark:text-ui-muted'>{displayRequirementText(item.casePath || item.route)}</p>
                                 <CopyPayloadButton label='Watchlist intersection' payload={watchlistIntersectionPayloadFor(item)} />
                             </div>
-                        </div>
+                        </TiEvidenceCard>
                     )) : (
                         <p className='rounded-md border border-ui-warning/35 bg-ui-warning/10 p-2 text-xs leading-5 text-ui-warning dark:border-ui-warning/35 dark:bg-ui-warning/10'>Connect an organization watchlist to activate review.</p>
                     )}

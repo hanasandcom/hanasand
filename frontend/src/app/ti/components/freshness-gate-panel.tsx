@@ -5,6 +5,7 @@ import { coverageMissingLabel, decisionStepStatusClass, decisionStepStatusLabel,
 import { type TiActionabilityModel } from '@/utils/ti/actionability'
 import { type TiActorIntelligenceProfile } from '@/utils/ti/actorIntelligence'
 import CopyPayloadButton from './copy-payload-button'
+import TiEvidenceCard from './ti-evidence-card'
 
 export default function FreshnessGatePanel({ actor, actionability, query }: { actor: TiActorIntelligenceProfile; actionability: TiActionabilityModel; query: string }) {
     const sourceBlockers = actionability.readiness.blockers.filter(blocker => blocker.ownerLane === 'source' || blocker.ownerLane === 'public-ti')
@@ -43,14 +44,14 @@ export default function FreshnessGatePanel({ actor, actionability, query }: { ac
             </div>
             <div className='mt-3 grid min-w-0 grid-cols-2 gap-2 md:grid-cols-4'>
                 {rows.map(row => (
-                    <div key={row.label} className='min-w-0 rounded-md border border-ui-border bg-ui-panel p-2 dark:border-ui-border dark:bg-ui-panel'>
+                    <TiEvidenceCard key={row.label} className='min-w-0'>
                         <p className='text-[11px] font-semibold uppercase text-ui-muted dark:text-ui-muted'>{row.label}</p>
                         <p className='mt-1 wrap-break-word text-xs font-semibold text-ui-text dark:text-ui-text'>{row.value}</p>
-                    </div>
+                    </TiEvidenceCard>
                 ))}
             </div>
             <div className='mt-3 grid min-w-0 gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]'>
-                <div className='min-w-0 rounded-md border border-ui-border bg-ui-panel p-2 dark:border-ui-border dark:bg-ui-panel'>
+                <TiEvidenceCard className='min-w-0'>
                     <p className='text-[11px] font-semibold uppercase text-ui-muted dark:text-ui-muted'>Source follow-up</p>
                     <ul className='mt-2 grid list-disc gap-1 pl-4 text-xs leading-5 text-ui-muted dark:text-ui-muted'>
                         {sourceBlockers.length ? sourceBlockers.slice(0, 2).map(blocker => (
@@ -59,15 +60,15 @@ export default function FreshnessGatePanel({ actor, actionability, query }: { ac
                             <li key={item} className='wrap-break-word'>Source collection: attach {coverageMissingLabel(item)}.</li>
                         )) : <li>Source evidence is sufficient for review.</li>}
                     </ul>
-                </div>
-                <div className='min-w-0 rounded-md border border-ui-border bg-ui-panel p-2 dark:border-ui-border dark:bg-ui-panel'>
+                </TiEvidenceCard>
+                <TiEvidenceCard className='min-w-0'>
                     <p className='text-[11px] font-semibold uppercase text-ui-muted dark:text-ui-muted'>Review follow-up</p>
                     <ul className='mt-2 grid list-disc gap-1 pl-4 text-xs leading-5 text-ui-muted dark:text-ui-muted'>
                         {workflowBlockers.length ? workflowBlockers.slice(0, 2).map(blocker => (
                             <li key={`${blocker.code}-${blocker.field}`} className='wrap-break-word'>{readinessOwnerLabel(blocker.ownerLane)}: {displayRequirementText(blocker.handoff)}</li>
                         )) : <li>Required review identifiers are present.</li>}
                     </ul>
-                </div>
+                </TiEvidenceCard>
             </div>
             <p className='mt-3 wrap-break-word text-[11px] leading-5 text-ui-muted dark:text-ui-muted'>
                 {nextOwner ? `Next action: ${readinessOwnerLabel(nextOwner)}.` : 'No follow-up is assigned.'}

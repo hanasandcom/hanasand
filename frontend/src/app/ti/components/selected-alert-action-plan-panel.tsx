@@ -7,6 +7,7 @@ import CopyPayloadButton from './copy-payload-button'
 import SelectedPanelHeader from './selected-panel-header'
 import SelectedWatchTerms from './selected-watch-terms'
 import RequirementWarning from './requirement-warning'
+import TiEvidenceCard from './ti-evidence-card'
 
 export default function SelectedAlertActionPlanPanel({ plan }: { plan: SelectedAlertActionPlan }) {
     const status = plan.ready ? 'ready' : plan.state === 'review' ? 'review' : 'blocked'
@@ -24,7 +25,7 @@ export default function SelectedAlertActionPlanPanel({ plan }: { plan: SelectedA
             {plan.evidenceRows.length ? (
                 <div data-ti-selected-alert-evidence='true' className='mt-2 grid gap-2'>
                     {plan.evidenceRows.slice(0, 3).map(row => (
-                        <div key={row.rowId} className='rounded-md border border-ui-border bg-ui-panel p-2 dark:border-ui-border dark:bg-ui-panel'>
+                        <TiEvidenceCard key={row.rowId}>
                             <div className='flex min-w-0 flex-wrap items-start justify-between gap-2'>
                                 <div className='min-w-0'>
                                     <p className='wrap-break-word text-[11px] font-semibold text-ui-text dark:text-ui-text'>{row.label}</p>
@@ -44,7 +45,7 @@ export default function SelectedAlertActionPlanPanel({ plan }: { plan: SelectedA
                                 {row.route ? 'Source action available.' : 'Source action pending.'}
                             </p>
                             <RequirementWarning items={row.blockers} limit={3} />
-                        </div>
+                        </TiEvidenceCard>
                     ))}
                 </div>
             ) : null}

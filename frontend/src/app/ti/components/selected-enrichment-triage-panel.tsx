@@ -5,6 +5,7 @@ import { displayRequirementText, formatLabel, publicStateLabel, readinessOwnerLa
 import DecisionStatus from './decision-status'
 import CopyPayloadButton from './copy-payload-button'
 import SelectedPanelHeader from './selected-panel-header'
+import TiEvidenceCard from './ti-evidence-card'
 
 export default function SelectedEnrichmentTriagePanel({ triage }: { triage: SelectedEnrichmentTriage }) {
     return (
@@ -16,7 +17,7 @@ export default function SelectedEnrichmentTriagePanel({ triage }: { triage: Sele
             <p className='mt-2 wrap-break-word text-[11px] text-ui-muted dark:text-ui-muted'>{displayRequirementText(triage.route)}</p>
             <div className='mt-2 grid gap-2'>
                 {triage.rows.slice(0, 3).map(row => (
-                    <div key={row.id} className='rounded-md border border-ui-border bg-ui-panel p-2 dark:border-ui-border dark:bg-ui-panel'>
+                    <TiEvidenceCard key={row.id}>
                         <div className='flex min-w-0 flex-wrap items-start justify-between gap-2'>
                             <div className='min-w-0'>
                                 <p className='wrap-break-word text-[11px] font-semibold text-ui-text dark:text-ui-text'>{row.sourceName}</p>
@@ -49,7 +50,7 @@ export default function SelectedEnrichmentTriagePanel({ triage }: { triage: Sele
                         {row.requestedFields.length ? (
                             <p className='mt-1 wrap-break-word text-[11px] leading-5 text-ui-warning dark:text-ui-warning'>Needs {row.requestedFields.map(sourceHealthFieldLabel).slice(0, 3).join(', ')}.</p>
                         ) : null}
-                    </div>
+                    </TiEvidenceCard>
                 ))}
             </div>
         </div>

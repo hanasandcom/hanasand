@@ -7,6 +7,7 @@ import RequirementWarning from './requirement-warning'
 import EvidenceMetric from './evidence-metric'
 import DecisionStatus from './decision-status'
 import SelectedPanelHeader from './selected-panel-header'
+import TiEvidenceCard from './ti-evidence-card'
 
 export default function SelectedCaseCreateRequestPanel({ request }: { request: SelectedCaseCreateRequest }) {
     return (
@@ -17,7 +18,7 @@ export default function SelectedCaseCreateRequestPanel({ request }: { request: S
             </SelectedPanelHeader>
             <p className='mt-2 wrap-break-word text-[11px] text-ui-muted dark:text-ui-muted'>{consumerRequestPathLabel(request.request.path)} ready for authenticated review.</p>
             <p className='mt-2 wrap-break-word text-[11px] leading-5 text-ui-muted dark:text-ui-muted'>{displayRequirementText(request.nextAction)}</p>
-            <div data-ti-selected-case-actor-context='true' className='mt-2 rounded-md border border-ui-border bg-ui-panel p-2 dark:border-ui-border dark:bg-ui-panel'>
+            <TiEvidenceCard data-ti-selected-case-actor-context='true' className='mt-2'>
                 <div className='flex min-w-0 flex-wrap items-start justify-between gap-2'>
                     <div className='min-w-0'>
                         <p className='wrap-break-word text-[11px] font-semibold text-ui-text dark:text-ui-text'>Actor context</p>
@@ -48,8 +49,8 @@ export default function SelectedCaseCreateRequestPanel({ request }: { request: S
                 <p className='mt-1 wrap-break-word text-[11px] leading-5 text-ui-muted dark:text-ui-muted'>
                     {request.actorContext.targetSectors.slice(0, 3).join(', ') || 'Target sectors pending'} · {request.actorContext.geographies.slice(0, 3).join(', ') || 'Geography pending'}
                 </p>
-            </div>
-            <div data-ti-selected-case-watchlist-basis='true' className='mt-2 rounded-md border border-ui-border bg-ui-panel p-2 dark:border-ui-border dark:bg-ui-panel'>
+            </TiEvidenceCard>
+            <TiEvidenceCard data-ti-selected-case-watchlist-basis='true' className='mt-2'>
                 <div className='flex min-w-0 flex-wrap items-start justify-between gap-2'>
                     <div className='min-w-0'>
                         <p className='wrap-break-word text-[11px] font-semibold text-ui-text dark:text-ui-text'>Watchlist basis</p>
@@ -76,11 +77,11 @@ export default function SelectedCaseCreateRequestPanel({ request }: { request: S
                     ))}
                 </div>
                 <RequirementWarning items={request.watchlistBasis.blockers} limit={3} />
-            </div>
+            </TiEvidenceCard>
             {request.sourceRows.length ? (
                 <div className='mt-2 grid gap-2'>
                     {request.sourceRows.slice(0, 3).map(row => (
-                        <div key={`${row.sourceId ?? row.sourceName}:${row.provenance}:${row.captureId ?? 'pending'}`} className='rounded-md border border-ui-border bg-ui-panel p-2 dark:border-ui-border dark:bg-ui-panel'>
+                        <TiEvidenceCard key={`${row.sourceId ?? row.sourceName}:${row.provenance}:${row.captureId ?? 'pending'}`}>
                             <div className='flex min-w-0 flex-wrap items-start justify-between gap-2'>
                                 <div className='min-w-0'>
                                     <p className='wrap-break-word text-[11px] font-semibold text-ui-text dark:text-ui-text'>{row.sourceName}{row.sourceId ? ' · source linked' : ''}</p>
@@ -97,7 +98,7 @@ export default function SelectedCaseCreateRequestPanel({ request }: { request: S
                                     {row.provenanceFingerprint ? 'fingerprint linked' : 'fingerprint pending'}
                                 </span>
                             </div>
-                        </div>
+                        </TiEvidenceCard>
                     ))}
                 </div>
             ) : null}
@@ -109,7 +110,7 @@ export default function SelectedCaseCreateRequestPanel({ request }: { request: S
             {request.caseReviewRows.length ? (
                 <div data-ti-selected-case-create-readiness='true' className='mt-2 grid gap-2'>
                     {request.caseReviewRows.slice(0, 3).map(row => (
-                        <div key={row.id} className='rounded-md border border-ui-border bg-ui-panel p-2 dark:border-ui-border dark:bg-ui-panel'>
+                        <TiEvidenceCard key={row.id}>
                             <div className='flex min-w-0 flex-wrap items-start justify-between gap-2'>
                                 <div className='min-w-0'>
                                     <p className='wrap-break-word text-[11px] font-semibold text-ui-text dark:text-ui-text'>{row.title}</p>
@@ -136,7 +137,7 @@ export default function SelectedCaseCreateRequestPanel({ request }: { request: S
                                 <p className='mt-1 wrap-break-word text-[11px] leading-5 text-ui-muted dark:text-ui-muted'>{row.reasons.slice(0, 2).join(' ')}</p>
                             ) : null}
                             <RequirementWarning items={row.blockers} limit={3} />
-                        </div>
+                        </TiEvidenceCard>
                     ))}
                 </div>
             ) : null}

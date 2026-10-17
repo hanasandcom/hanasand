@@ -6,6 +6,7 @@ import DecisionStatus from './decision-status'
 import CopyPayloadButton from './copy-payload-button'
 import SelectedPanelHeader from './selected-panel-header'
 import RequirementWarning from './requirement-warning'
+import TiEvidenceCard from './ti-evidence-card'
 
 export default function SelectedWatchlistPlanPanel({ plan }: { plan: SelectedWatchlistPlan }) {
     const status: DecisionStep['status'] = plan.ready ? 'ready' : plan.blockers.length || plan.state === 'missing_terms' ? 'blocked' : 'review'
@@ -19,7 +20,7 @@ export default function SelectedWatchlistPlanPanel({ plan }: { plan: SelectedWat
             <p className='mt-2 wrap-break-word text-[11px] leading-5 text-ui-muted dark:text-ui-muted'>{displayRequirementText(plan.nextAction)}</p>
             <div className='mt-2 grid gap-2'>
                 {plan.terms.slice(0, 3).map(term => (
-                    <div key={`${term.kind}:${term.value}`} className='rounded-md border border-ui-border bg-ui-panel p-2 dark:border-ui-border dark:bg-ui-panel'>
+                    <TiEvidenceCard key={`${term.kind}:${term.value}`}>
                         <div className='flex min-w-0 flex-wrap items-start justify-between gap-2'>
                             <div className='min-w-0'>
                                 <p className='wrap-break-word text-[11px] font-semibold text-ui-text dark:text-ui-text'>{term.kind}: {term.value}</p>
@@ -29,14 +30,14 @@ export default function SelectedWatchlistPlanPanel({ plan }: { plan: SelectedWat
                                 {term.matched ? 'matched' : plan.blockers.length ? 'syncing' : 'candidate'}
                             </span>
                         </div>
-                    </div>
+                    </TiEvidenceCard>
                 ))}
                 {!plan.terms.length ? <p className='rounded-md border border-ui-warning/35 bg-ui-warning/10 p-2 text-[11px] leading-5 text-ui-warning dark:border-ui-warning/35 dark:bg-ui-warning/10 dark:text-ui-warning'>Attach a watchlist term before opening this evidence for review.</p> : null}
             </div>
             {plan.relevanceRows.length ? (
                 <div data-ti-selected-watchlist-relevance='true' className='mt-2 grid gap-2'>
                     {plan.relevanceRows.slice(0, 3).map(row => (
-                        <div key={`${row.kind}:${row.value}:${row.fit}`} className='rounded-md border border-ui-border bg-ui-panel p-2 dark:border-ui-border dark:bg-ui-panel'>
+                        <TiEvidenceCard key={`${row.kind}:${row.value}:${row.fit}`}>
                             <div className='flex min-w-0 flex-wrap items-start justify-between gap-2'>
                                 <div className='min-w-0'>
                                     <p className='wrap-break-word text-[11px] font-semibold text-ui-text dark:text-ui-text'>{row.kind}: {row.value}</p>
@@ -81,7 +82,7 @@ export default function SelectedWatchlistPlanPanel({ plan }: { plan: SelectedWat
                                 </div>
                             ) : null}
                             <RequirementWarning items={row.blockers} limit={3} />
-                        </div>
+                        </TiEvidenceCard>
                     ))}
                 </div>
             ) : null}
