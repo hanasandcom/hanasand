@@ -9,7 +9,7 @@ import { stageLabel } from '../backups/backupPresentation'
 import { restoreBackupAction } from '../actions'
 import { RestoreFeedback } from './RestoreFeedback'
 import { RestoreOperationProgress } from './RestoreOperationProgress'
-import { useBackupOperationRefresh } from './useBackupOperationRefresh'
+import { useDatabaseOperationRefresh } from '../useDatabaseOperationRefresh'
 import { useBackupOperationAction } from './useBackupOperationAction'
 import { formatLocalDateTime } from '@/utils/date/formatLocalDateTime'
 
@@ -22,7 +22,7 @@ export default function RestoreClient({ backups, service, loadError = '' }: { ba
     const activeDrill = service?.currentOperation?.kind === 'restore_drill' ? service.currentOperation : null
     const drillHistory = useMemo(() => (service?.operations || []).filter(operation => operation.kind === 'restore_drill'), [service?.operations])
 
-    useBackupOperationRefresh(isPending, activeDrill)
+    useDatabaseOperationRefresh(activeDrill, isPending)
 
     function runDrill() {
         run(() => restoreBackupAction(file, target, confirmation))

@@ -10,7 +10,7 @@ import { stageLabel } from '../backups/backupPresentation'
 import { restoreLiveBackupAction } from '../actions'
 import { RestoreFeedback } from './RestoreFeedback'
 import { RestoreOperationProgress } from './RestoreOperationProgress'
-import { useBackupOperationRefresh } from './useBackupOperationRefresh'
+import { useDatabaseOperationRefresh } from '../useDatabaseOperationRefresh'
 import { useBackupOperationAction } from './useBackupOperationAction'
 
 export default function LiveRestoreClient({ backups, service, file, loadError = '' }: { backups: BackupFile[], service?: BackupService, file: string, loadError?: string }) {
@@ -22,7 +22,7 @@ export default function LiveRestoreClient({ backups, service, file, loadError = 
     const targetDatabase = service?.database || ''
     const requiredConfirmation = targetDatabase ? `RESTORE ${targetDatabase}` : ''
 
-    useBackupOperationRefresh(isPending, activeOperation)
+    useDatabaseOperationRefresh(activeOperation, isPending)
 
     function runRestore() {
         if (!selected) return

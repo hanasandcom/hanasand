@@ -24,6 +24,7 @@ export const productTasks: TestTask[] = [
     { id: 'database-bytes', title: 'Shared database byte formatting', command: [bun, 'test', 'tests/database-bytes.test.ts'] },
     { id: 'clipboard-fallback', title: 'Shared clipboard fallback and caller feedback contracts', command: [bun, 'test', 'tests/clipboard-fallback.test.ts'] },
     { id: 'database-inventory-render', title: 'Database inventory receives server measurements', command: [bun, 'test', 'tests/database-inventory-render.test.tsx'] },
+    { id: 'database-operation-refresh', title: 'Backup and restore operation refresh behavior', command: [bun, 'test', 'tests/database-operation-refresh.test.ts'] },
     { id: 'database-time-format', title: 'Database dashboard UTC time presentation', command: [bun, 'test', 'tests/database-time-format.test.ts'] },
     { id: 'shared-record-guard', title: 'Shared JSON object guard contract', command: [bun, 'test', 'tests/is-record.test.ts'] },
     { id: 'monitoring-case-data', title: 'Monitoring case URLs and event pagination', command: [bun, 'test', 'tests/monitoring-case-data.test.ts'] },

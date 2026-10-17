@@ -2,13 +2,14 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState, useTransition } from 'react'
+import { useState, useTransition } from 'react'
 import { RefreshCw, ShieldCheck, Trash2 } from 'lucide-react'
 import { DashboardTable } from '@/components/dashboard/ui'
 import type { BackupFile, BackupService } from '@/utils/db/internal'
 import formatUtcDateTime from '@/utils/date/formatUtcDateTime'
 import DatabaseEvidence from '../DatabaseEvidence'
 import { deleteBackupAction, triggerBackupAction } from '../actions'
+import { useDatabaseOperationRefresh } from '../useDatabaseOperationRefresh'
 import { BackupOperationHistory } from './BackupOperationHistory'
 import { backupErrorMessage, BackupStatus, retentionLabel, shortHash, stageLabel } from './backupPresentation'
 
@@ -26,11 +27,7 @@ export default function BackupPage({ backups, files, loadError = '' }: BackupPag
     const [error, setError] = useState('')
     const [deleting, setDeleting] = useState('')
 
-    useEffect(() => {
-        if (!service?.currentOperation) return
-        const timer = window.setInterval(() => router.refresh(), 2000)
-        return () => window.clearInterval(timer)
-    }, [router, service?.currentOperation])
+    useDatabaseOperationRefresh(service?.currentOperation, false, 2000)
 
     function runBackup() {
         setMessage('')
