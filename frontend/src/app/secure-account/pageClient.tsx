@@ -1,13 +1,10 @@
 'use client'
 import ErrorNotice from '@/components/error/errorNotice'
-import AuthActionLayout from '@/components/login/authActionLayout'
+import AuthActionLayout, { authActionPrimaryButtonClass, authActionSecondaryLinkClass } from '@/components/login/authActionLayout'
 import { ArrowLeft, ArrowRight, ShieldAlert } from 'lucide-react'
 import Link from 'next/link'
 import { useState } from 'react'
 import usePasswordAction from '@/utils/auth/usePasswordAction'
-
-const authPrimaryButtonClass = 'group flex h-10 w-full items-center justify-between rounded-lg bg-ui-text px-3.5 text-sm font-semibold text-ui-canvas transition hover:opacity-90 disabled:cursor-not-allowed disabled:border disabled:border-ui-border disabled:bg-ui-raised disabled:text-ui-muted'
-const authSecondaryLinkClass = 'flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-ui-border bg-ui-raised px-3 text-sm font-semibold text-ui-muted transition hover:border-ui-primary hover:text-ui-text'
 
 export default function SecureAccountPage() {
     const [locked, setLocked] = useState(false)
@@ -34,12 +31,12 @@ export default function SecureAccountPage() {
             {!tokenLoaded ? (
                 <p className='rounded-lg border border-ui-border bg-ui-raised px-3 py-2 text-center text-xs text-ui-muted'>Checking security link...</p>
             ) : locked ? (
-                <Link href='/login' className={authPrimaryButtonClass}>
+                <Link href='/login' className={authActionPrimaryButtonClass}>
                     Go to login
                     <ArrowRight className='h-4 w-4' />
                 </Link>
             ) : token ? (
-                <button type='button' onClick={lockAccount} disabled={busy} className={authPrimaryButtonClass}>
+                <button type='button' onClick={lockAccount} disabled={busy} className={authActionPrimaryButtonClass}>
                     {busy ? 'Locking account...' : 'Lock account'}
                     <ArrowRight className='h-4 w-4' />
                 </button>
@@ -47,7 +44,7 @@ export default function SecureAccountPage() {
                 <ErrorNotice compact variant='info' message='This security link is missing or expired. Use the reset link in your email or start a reset from login.' />
             )}
             {!locked ? (
-                <Link href='/login' className={authSecondaryLinkClass}>
+                <Link href='/login' className={authActionSecondaryLinkClass}>
                     <ArrowLeft className='h-4 w-4' />
                     Back to login
                 </Link>

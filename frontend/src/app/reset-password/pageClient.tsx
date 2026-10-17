@@ -1,6 +1,6 @@
 'use client'
 import ErrorNotice from '@/components/error/errorNotice'
-import AuthActionLayout from '@/components/login/authActionLayout'
+import AuthActionLayout, { authActionPrimaryButtonClass, authActionSecondaryLinkClass } from '@/components/login/authActionLayout'
 import AuthPasswordField from '@/components/login/authPasswordField'
 import config from '@/config'
 import useClearStateAfter from '@/hooks/useClearStateAfter'
@@ -18,9 +18,6 @@ type ResetPasswordPageProps = {
 }
 
 const authInputClass = 'h-10 rounded-lg border border-ui-border bg-ui-raised px-3.5 text-sm font-medium text-ui-text outline-none transition placeholder:text-ui-muted focus:border-ui-primary focus:ring-4 focus:ring-ui-primary/15'
-const authPrimaryButtonClass = 'group flex h-10 w-full items-center justify-between rounded-lg bg-ui-text px-3.5 text-sm font-semibold text-ui-canvas transition hover:opacity-90 disabled:cursor-not-allowed disabled:border disabled:border-ui-border disabled:bg-ui-raised disabled:text-ui-muted'
-const authSecondaryLinkClass = 'flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-ui-border bg-ui-raised px-3 text-sm font-semibold text-ui-muted transition hover:border-ui-primary hover:text-ui-text'
-
 export default function ResetPasswordPage({ userId, initialResetToken = '', restored = false }: ResetPasswordPageProps) {
     const router = useRouter()
     const [busy, setBusy] = useState(false)
@@ -88,7 +85,7 @@ export default function ResetPasswordPage({ userId, initialResetToken = '', rest
             ) : missingResetSession ? (
                 <div className='grid gap-3'>
                     <ErrorNotice compact variant='info' message='This reset link is missing or expired. Request a new code from the login page.' />
-                    <Link href='/login' className={authSecondaryLinkClass}>
+                    <Link href='/login' className={authActionSecondaryLinkClass}>
                         <ArrowLeft className='h-4 w-4' />
                         Back to login
                     </Link>
@@ -114,14 +111,14 @@ export default function ResetPasswordPage({ userId, initialResetToken = '', rest
                     <button
                         type='submit'
                         disabled={busy || done}
-                        className={authPrimaryButtonClass}
+                        className={authActionPrimaryButtonClass}
                     >
                         {busy ? 'Saving...' : 'Set password'}
                         <ArrowRight className='h-4 w-4 transition group-hover:translate-x-1' />
                     </button>
                 </form>
             )}
-            {restored && !done ? <Link href='/dashboard' className={authSecondaryLinkClass}>Continue to dashboard</Link> : null}
+            {restored && !done ? <Link href='/dashboard' className={authActionSecondaryLinkClass}>Continue to dashboard</Link> : null}
         </AuthActionLayout>
     )
 }
