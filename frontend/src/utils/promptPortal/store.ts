@@ -1,8 +1,7 @@
-import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
+import { randomBytes, timingSafeEqual } from 'node:crypto'
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
-const IDLE_MS = 15 * 60 * 1000
 const MAX_ITEMS = 80
 const MAX_FILE_BYTES = 2 * 1024 * 1024
 
@@ -26,42 +25,16 @@ export type PromptPortalItem = {
     files: PromptPortalFile[]
 }
 
-type PromptPortalSession = {
-    id: string
-    createdAt: string
-    codeHash: string
-}
-
 export type PromptPortalState = {
-    usedCodeHashes: string[]
-    sessions: Record<string, PromptPortalSession>
     items: PromptPortalItem[]
-    activeSince?: string
-    lastCompletedAt?: string
 }
 
 export type PromptPortalPublicState = {
-    authenticated: boolean
-    readOnly: boolean
     items: PromptPortalItem[]
-    idleExpiresAt?: string
 }
 
 const emptyState: PromptPortalState = {
-    usedCodeHashes: [],
-    sessions: {},
     items: [],
-}
-
-export function promptPortalCodeHash(code: string) {
-    return createHash('sha256').update(code).digest('hex')
-}
-
-export function configuredPromptCodeHashes(env: Record<string, string | undefined> = process.env) {
-    return (env.PROMPT_PORTAL_CODE_HASHES || '')
-        .split(',')
-        .map(value => value.trim())
-        .filter(Boolean)
 }
 
 export function verifyWorkerToken(value: string | null, env: Record<string, string | undefined> = process.env) {
@@ -76,34 +49,20 @@ export function verifyWorkerToken(value: string | null, env: Record<string, stri
         })
 }
 
-export function promptPortalReadOnly(state: PromptPortalState, now = Date.now()) {
-    const openItem = state.items.some(item => item.status === 'queued' || item.status === 'running')
-    if (openItem) return false
-    const baseline = Date.parse(state.lastCompletedAt || state.activeSince || '')
-    return Number.isFinite(baseline) && now - baseline > IDLE_MS
-}
-
-export function promptPortalIdleExpiresAt(state: PromptPortalState) {
-    if (state.items.some(item => item.status === 'queued' || item.status === 'running')) return undefined
-    const baseline = Date.parse(state.lastCompletedAt || state.activeSince || '')
-    return Number.isFinite(baseline) ? new Date(baseline + IDLE_MS).toISOString() : undefined
-}
-
-export function publicPromptPortalState(state: PromptPortalState, sessionId?: string): PromptPortalPublicState {
-    const authenticated = Boolean(sessionId && state.sessions[sessionId])
+export function publicPromptPortalState(state: PromptPortalState): PromptPortalPublicState {
     return {
-        authenticated,
-        readOnly: authenticated && promptPortalReadOnly(state),
-        items: authenticated ? [...state.items].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)) : [],
-        idleExpiresAt: authenticated ? promptPortalIdleExpiresAt(state) : undefined,
+        items: [...state.items].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)),
     }
 }
 
 export async function readPromptPortalState() {
     try {
-        return { ...emptyState, ...JSON.parse(await readFile(statePath(), 'utf8')) } as PromptPortalState
+        const stored = JSON.parse(await readFile(statePath(), 'utf8')) as Partial<PromptPortalState>
+        return {
+            items: Array.isArray(stored.items) ? stored.items : [],
+        }
     } catch {
-        return { ...emptyState, sessions: {}, items: [], usedCodeHashes: [] }
+        return { ...emptyState, items: [] }
     }
 }
 
@@ -112,26 +71,11 @@ export async function writePromptPortalState(state: PromptPortalState) {
     const file = statePath()
     const tmp = `${file}.${process.pid}.${Date.now()}.tmp`
     const next: PromptPortalState = {
-        ...state,
         items: state.items.slice(-MAX_ITEMS),
     }
     // ponytail: single-user portal; replace this with a lock if multiple writers start racing.
     await writeFile(tmp, JSON.stringify(next, null, 2))
     await rename(tmp, file)
-}
-
-export async function createPromptPortalSession(state: PromptPortalState, code: string) {
-    const codeHash = promptPortalCodeHash(code)
-    const allowed = configuredPromptCodeHashes()
-    if (!allowed.includes(codeHash) || state.usedCodeHashes.includes(codeHash)) return null
-
-    const id = randomBytes(24).toString('hex')
-    const now = new Date().toISOString()
-    state.usedCodeHashes.push(codeHash)
-    state.sessions[id] = { id, codeHash, createdAt: now }
-    state.activeSince = now
-    state.lastCompletedAt = undefined
-    return id
 }
 
 export async function savePromptPortalFile(file: File): Promise<PromptPortalFile> {

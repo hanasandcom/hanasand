@@ -1,10 +1,8 @@
 import { randomBytes } from 'node:crypto'
-import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import { comparePromptItems } from '@/utils/promptPortal/ordering'
+import requireApiSession from '@/utils/proxy/requireApiSession'
 import {
-    createPromptPortalSession,
-    promptPortalReadOnly,
     publicPromptPortalState,
     readPromptPortalState,
     savePromptPortalFile,
@@ -14,16 +12,19 @@ import {
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-const COOKIE = 'hanasand_prompt_session'
 const MAX_PROMPT_LENGTH = 6000
 const MAX_FILES = 3
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+    const access = await requireApiSession(request)
+    if ('response' in access) return access.response
     const state = await readPromptPortalState()
-    return NextResponse.json(publicPromptPortalState(state, await sessionId()))
+    return NextResponse.json(publicPromptPortalState(state), { headers: { 'Cache-Control': 'private, no-store', Vary: 'Cookie' } })
 }
 
 export async function POST(request: NextRequest) {
+    const access = await requireApiSession(request)
+    if ('response' in access) return access.response
     const contentType = request.headers.get('content-type') || ''
     if (contentType.includes('multipart/form-data')) return enqueuePrompt(request)
 
@@ -31,41 +32,11 @@ export async function POST(request: NextRequest) {
     if (body?.action === 'edit') return mutateQueuedPrompt(body, 'edit')
     if (body?.action === 'delete') return mutateQueuedPrompt(body, 'delete')
     if (body?.action === 'reorder') return mutateQueuedPrompt(body, 'reorder')
-    if (body?.action !== 'login') return NextResponse.json({ ok: false, error: 'Unsupported prompt portal action.' }, { status: 400 })
-
-    const code = String(body.code || '').trim()
-    if (!/^\d{6}$/.test(code)) {
-        return NextResponse.json({ ok: false, error: 'Enter the 6 digit code.' }, { status: 400 })
-    }
-
-    const state = await readPromptPortalState()
-    const id = await createPromptPortalSession(state, code)
-    if (!id) {
-        return NextResponse.json({ ok: false, error: 'Code is invalid or already used.' }, { status: 401 })
-    }
-
-    await writePromptPortalState(state)
-    const response = NextResponse.json({ ok: true, ...publicPromptPortalState(state, id) })
-    response.cookies.set(COOKIE, id, {
-        httpOnly: true,
-        sameSite: 'strict',
-        secure: process.env.NODE_ENV === 'production',
-        path: '/',
-        maxAge: 24 * 60 * 60,
-    })
-    return response
+    return NextResponse.json({ ok: false, error: 'Unsupported prompt portal action.' }, { status: 400 })
 }
 
 async function enqueuePrompt(request: NextRequest) {
     const state = await readPromptPortalState()
-    const id = await sessionId()
-    if (!id || !state.sessions[id]) {
-        return NextResponse.json({ ok: false, error: 'Login required.' }, { status: 401 })
-    }
-    if (promptPortalReadOnly(state)) {
-        return NextResponse.json({ ok: false, error: 'Portal is read only. Request a new code.' }, { status: 423 })
-    }
-
     const form = await request.formData()
     const prompt = String(form.get('prompt') || '').trim().slice(0, MAX_PROMPT_LENGTH)
     if (!prompt) {
@@ -86,15 +57,11 @@ async function enqueuePrompt(request: NextRequest) {
         createdAt: new Date().toISOString(),
     })
     await writePromptPortalState(state)
-    return NextResponse.json({ ok: true, ...publicPromptPortalState(state, id) })
+    return NextResponse.json({ ok: true, ...publicPromptPortalState(state) }, { headers: { 'Cache-Control': 'private, no-store', Vary: 'Cookie' } })
 }
 
 async function mutateQueuedPrompt(body: Record<string, unknown>, action: 'edit' | 'delete' | 'reorder') {
     const state = await readPromptPortalState()
-    const id = await sessionId()
-    if (!id || !state.sessions[id]) return NextResponse.json({ ok: false, error: 'Login required.' }, { status: 401 })
-    if (promptPortalReadOnly(state)) return NextResponse.json({ ok: false, error: 'Portal is read only. Request a new code.' }, { status: 423 })
-
     const item = state.items.find(candidate => candidate.id === body.id && candidate.status === 'queued')
     if (!item) return NextResponse.json({ ok: false, error: 'Queued instruction not found.' }, { status: 404 })
 
@@ -119,9 +86,5 @@ async function mutateQueuedPrompt(body: Record<string, unknown>, action: 'edit' 
     }
 
     await writePromptPortalState(state)
-    return NextResponse.json({ ok: true, ...publicPromptPortalState(state, id) })
-}
-
-async function sessionId() {
-    return (await cookies()).get(COOKIE)?.value
+    return NextResponse.json({ ok: true, ...publicPromptPortalState(state) }, { headers: { 'Cache-Control': 'private, no-store', Vary: 'Cookie' } })
 }

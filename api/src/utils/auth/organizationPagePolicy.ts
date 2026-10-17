@@ -22,6 +22,7 @@ const internalPageRoutes = [
     '/notes',
     '/project',
     '/projects',
+    '/prompt',
     '/rate-limit',
     '/rules',
     '/service-accounts',

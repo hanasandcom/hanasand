@@ -5,7 +5,7 @@ process.env.DB_PASSWORD ||= 'test'
 process.env.DB_HOST ||= 'localhost'
 process.env.VM_API_TOKEN ||= 'test'
 const { default: hasHanasandInternalRouteAccess } = await import('../src/utils/auth/organizationPageAccess.ts')
-const { HANASAND_ORGANIZATION_ID } = await import('../src/utils/auth/organizationPagePolicy.ts')
+const { canViewHanasandInternalRoute, HANASAND_ORGANIZATION_ID } = await import('../src/utils/auth/organizationPagePolicy.ts')
 
 function request(method: string, role: string, membershipStatus = 'active') {
     return {
@@ -30,4 +30,11 @@ test('tuning route reuses the membership checked with the session and keeps meth
     expect(await hasHanasandInternalRouteAccess(request('POST', 'viewer'))).toEqual({ valid: false })
     expect(await hasHanasandInternalRouteAccess(request('POST', 'editor'))).toEqual({ valid: true })
     expect(await hasHanasandInternalRouteAccess(request('GET', 'editor', 'removed'))).toEqual({ valid: false })
+})
+
+test('prompt page and API routes require Hanasand organization access', () => {
+    expect(canViewHanasandInternalRoute('GET', '/prompt')).toBe(true)
+    expect(canViewHanasandInternalRoute('POST', '/api/prompt')).toBe(true)
+    expect(canViewHanasandInternalRoute('GET', '/api/prompt/file')).toBe(true)
+    expect(canViewHanasandInternalRoute('POST', '/api/prompt/worker')).toBe(true)
 })

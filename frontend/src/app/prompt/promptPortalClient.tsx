@@ -1,21 +1,17 @@
 'use client'
 
-import { ArrowUp, ImageIcon, LockKeyhole, RefreshCw, Send, ShieldCheck } from 'lucide-react'
-import AccessCodePanel from '@/components/accessCodePanel'
+import { ArrowUp, ImageIcon, RefreshCw, Send, ShieldCheck } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import type { PromptPortalItem, PromptPortalPublicState } from '@/utils/promptPortal/store'
 import { comparePromptItems } from '@/utils/promptPortal/ordering'
 import { PromptQueue } from './PromptQueue'
 
 const emptyState: PromptPortalPublicState = {
-    authenticated: false,
-    readOnly: false,
     items: [],
 }
 
 export default function PromptPortalClient({ initialState = emptyState }: { initialState?: PromptPortalPublicState }) {
     const [state, setState] = useState<PromptPortalPublicState>(initialState)
-    const [code, setCode] = useState('')
     const [prompt, setPrompt] = useState('')
     const [priority, setPriority] = useState<'now' | 'next'>('next')
     const [files, setFiles] = useState<FileList | null>(null)
@@ -36,22 +32,6 @@ export default function PromptPortalClient({ initialState = emptyState }: { init
         const response = await fetch('/api/prompt', { cache: 'no-store' })
         const payload = await response.json().catch(() => null)
         if (payload?.items) setState(payload)
-    }
-
-    async function login(event: React.FormEvent<HTMLFormElement>) {
-        event.preventDefault()
-        setBusy(true)
-        setError('')
-        const response = await fetch('/api/prompt', {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ action: 'login', code }),
-        })
-        const payload = await response.json().catch(() => null)
-        setBusy(false)
-        if (!response.ok) return setError(payload?.error || 'Login failed.')
-        setCode('')
-        setState(payload)
     }
 
     async function enqueue(event: React.FormEvent<HTMLFormElement>) {
@@ -98,73 +78,65 @@ export default function PromptPortalClient({ initialState = emptyState }: { init
                 <header className='flex flex-col gap-3 border-b border-ui-border pb-4 md:flex-row md:items-end md:justify-between'>
                     <div>
                         <p className='text-xs font-semibold uppercase tracking-[0.16em] text-ui-primary'>Remote access</p>
-                        <h1 className='mt-2 text-3xl font-semibold tracking-normal'>{state.authenticated ? 'Prompt' : 'Login'}</h1>
+                        <h1 className='mt-2 text-3xl font-semibold tracking-normal'>Prompt</h1>
                     </div>
-                    <div className={`inline-flex h-9 items-center gap-2 self-start rounded-lg border px-3 text-sm font-semibold ${state.readOnly ? 'border-ui-warning/35 bg-ui-warning/10 text-ui-warning' : state.authenticated ? 'border-ui-success/35 bg-ui-success/10 text-ui-success' : 'border-ui-border bg-ui-panel text-ui-muted'}`}>
-                        {state.authenticated ? <ShieldCheck className='h-4 w-4' /> : <LockKeyhole className='h-4 w-4' />}
-                        {state.readOnly ? 'Read only' : state.authenticated ? 'Active' : 'Locked'}
+                    <div className='inline-flex h-9 items-center gap-2 self-start rounded-lg border border-ui-success/35 bg-ui-success/10 px-3 text-sm font-semibold text-ui-success'>
+                        <ShieldCheck className='h-4 w-4' />
+                        Active
                     </div>
                 </header>
 
                 {error ? <p className='rounded-lg border border-ui-danger/30 bg-ui-raised/10 px-3 py-2 text-sm font-semibold text-ui-text'>{error}</p> : null}
 
-                {!state.authenticated ? (
-                    <AccessCodePanel code={code} onChange={setCode} busy={busy} onSubmit={login} />
-                ) : (
-                    <section className='grid gap-4 lg:max-h-[calc(100vh-13rem)] lg:grid-cols-3 lg:overflow-hidden'>
-                        <form onSubmit={enqueue} className='grid min-h-0 gap-3 overflow-y-auto rounded-lg border border-ui-border bg-ui-panel p-4'>
-                            <div className='flex items-center justify-between gap-2'>
-                                <h2 className='text-sm font-semibold'>New instruction</h2>
-                                <button type='button' onClick={refresh} className='inline-flex h-8 items-center gap-2 rounded-lg border border-ui-border bg-ui-raised px-2.5 text-xs font-semibold text-ui-muted hover:text-ui-text'>
-                                    <RefreshCw className='h-3.5 w-3.5' />
-                                    Refresh
-                                </button>
-                            </div>
-                            {state.readOnly ? (
-                                <p className='rounded-lg border border-ui-warning/30 bg-ui-warning/10 p-3 text-sm text-ui-warning'>Session is read only. Ask for a new code to send more instructions.</p>
-                            ) : null}
-                            <textarea
-                                value={prompt}
-                                onChange={event => setPrompt(event.target.value)}
-                                disabled={state.readOnly}
-                                rows={9}
-                                className='min-h-44 resize-y rounded-lg border border-ui-border bg-ui-canvas p-3 text-sm leading-6 outline-none focus:border-ui-primary focus:ring-2 focus:ring-ui-primary/25 disabled:cursor-not-allowed disabled:opacity-70'
-                                placeholder='Write the next instruction.'
-                            />
-                            <div className='flex flex-wrap items-center gap-2'>
-                                <button type='button' onClick={() => setPriority('next')} disabled={state.readOnly} className={priority === 'next' ? selectedButton : plainButton}>Next</button>
-                                <button type='button' onClick={() => setPriority('now')} disabled={state.readOnly} className={priority === 'now' ? selectedButton : plainButton}>
-                                    <ArrowUp className='h-3.5 w-3.5' />
-                                    Now
-                                </button>
-                                <label className='inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg border border-ui-border bg-ui-raised px-3 text-sm font-semibold text-ui-muted hover:text-ui-text'>
-                                    <ImageIcon className='h-4 w-4' />
-                                    Images
-                                    <input id='prompt-files' disabled={state.readOnly} type='file' accept='image/*' multiple onChange={event => setFiles(event.target.files)} className='sr-only' />
-                                </label>
-                                {files?.length ? <span className='text-xs font-semibold text-ui-muted'>{files.length} selected</span> : null}
-                            </div>
-                            <button disabled={busy || state.readOnly || !prompt.trim()} className='ui-button ui-button-primary h-10 px-4 text-sm disabled:cursor-not-allowed'>
-                                <Send className='h-4 w-4' />
-                                Send
+                <section className='grid gap-4 lg:max-h-[calc(100vh-13rem)] lg:grid-cols-3 lg:overflow-hidden'>
+                    <form onSubmit={enqueue} className='grid min-h-0 gap-3 overflow-y-auto rounded-lg border border-ui-border bg-ui-panel p-4'>
+                        <div className='flex items-center justify-between gap-2'>
+                            <h2 className='text-sm font-semibold'>New instruction</h2>
+                            <button type='button' onClick={refresh} className='inline-flex h-8 items-center gap-2 rounded-lg border border-ui-border bg-ui-raised px-2.5 text-xs font-semibold text-ui-muted hover:text-ui-text'>
+                                <RefreshCw className='h-3.5 w-3.5' />
+                                Refresh
                             </button>
-                        </form>
-
-                        <PromptQueue
-                            title='Input queue'
-                            items={pending}
-                            empty='No queued instructions.'
-                            onEdit={editQueued}
-                            onDelete={item => mutateQueued('delete', item)}
-                            onMove={(item, direction) => mutateQueued('reorder', item, { direction })}
+                        </div>
+                        <textarea
+                            value={prompt}
+                            onChange={event => setPrompt(event.target.value)}
+                            rows={9}
+                            className='min-h-44 resize-y rounded-lg border border-ui-border bg-ui-canvas p-3 text-sm leading-6 outline-none focus:border-ui-primary focus:ring-2 focus:ring-ui-primary/25'
+                            placeholder='Write the next instruction.'
                         />
-                        <PromptQueue title='Output queue' items={completed} empty='No completed results yet.' />
-                    </section>
-                )}
+                        <div className='flex flex-wrap items-center gap-2'>
+                            <button type='button' onClick={() => setPriority('next')} className={priority === 'next' ? selectedButton : plainButton}>Next</button>
+                            <button type='button' onClick={() => setPriority('now')} className={priority === 'now' ? selectedButton : plainButton}>
+                                <ArrowUp className='h-3.5 w-3.5' />
+                                Now
+                            </button>
+                            <label className='inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg border border-ui-border bg-ui-raised px-3 text-sm font-semibold text-ui-muted hover:text-ui-text'>
+                                <ImageIcon className='h-4 w-4' />
+                                Images
+                                <input id='prompt-files' type='file' accept='image/*' multiple onChange={event => setFiles(event.target.files)} className='sr-only' />
+                            </label>
+                            {files?.length ? <span className='text-xs font-semibold text-ui-muted'>{files.length} selected</span> : null}
+                        </div>
+                        <button disabled={busy || !prompt.trim()} className='ui-button ui-button-primary h-10 px-4 text-sm disabled:cursor-not-allowed'>
+                            <Send className='h-4 w-4' />
+                            Send
+                        </button>
+                    </form>
+
+                    <PromptQueue
+                        title='Input queue'
+                        items={pending}
+                        empty='No queued instructions.'
+                        onEdit={editQueued}
+                        onDelete={item => mutateQueued('delete', item)}
+                        onMove={(item, direction) => mutateQueued('reorder', item, { direction })}
+                    />
+                    <PromptQueue title='Output queue' items={completed} empty='No completed results yet.' />
+                </section>
             </div>
         </main>
     )
 }
 
-const plainButton = 'inline-flex h-9 items-center gap-2 rounded-lg border border-ui-border bg-ui-raised px-3 text-sm font-semibold text-ui-muted hover:text-ui-text disabled:cursor-not-allowed disabled:opacity-60'
-const selectedButton = 'inline-flex h-9 items-center gap-2 rounded-lg border border-ui-primary/35 bg-ui-primary/10 px-3 text-sm font-semibold text-ui-on-primary disabled:cursor-not-allowed disabled:opacity-60'
+const plainButton = 'inline-flex h-9 items-center gap-2 rounded-lg border border-ui-border bg-ui-raised px-3 text-sm font-semibold text-ui-muted hover:text-ui-text'
+const selectedButton = 'inline-flex h-9 items-center gap-2 rounded-lg border border-ui-primary/35 bg-ui-primary/10 px-3 text-sm font-semibold text-ui-on-primary'

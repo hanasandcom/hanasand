@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import type { PromptPortalItem } from '@/utils/promptPortal/store'
 import { comparePromptItems } from '@/utils/promptPortal/ordering'
 import {
-    promptPortalReadOnly,
     promptPortalWorkerToken,
     readPromptPortalState,
     verifyWorkerToken,
@@ -18,13 +17,12 @@ export async function GET(request: NextRequest) {
     if (!authorized(request)) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
 
     const state = await readPromptPortalState()
-    const readOnly = promptPortalReadOnly(state)
-    const batch = readOnly ? [] : state.items
+    const batch = state.items
         .filter(candidate => candidate.status === 'queued')
         .sort(comparePromptItems)
         .slice(0, MAX_BATCH_ITEMS)
 
-    if (!batch.length) return NextResponse.json({ ok: true, readOnly, item: null })
+    if (!batch.length) return NextResponse.json({ ok: true, readOnly: false, item: null })
 
     const startedAt = new Date().toISOString()
     batch.forEach(item => {
@@ -45,7 +43,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
         ok: true,
-        readOnly,
+        readOnly: false,
         item: { ...item, files },
         instructions: 'Post the result to this endpoint with {action:"complete",id,status,result}. Do not answer in Codex chat.',
     })
@@ -70,9 +68,8 @@ export async function POST(request: NextRequest) {
         item.completedAt = completedAt
         item.result = String(body.result || '').slice(0, 20000)
     })
-    state.lastCompletedAt = completedAt
     await writePromptPortalState(state)
-    return NextResponse.json({ ok: true, readOnly: promptPortalReadOnly(state), item: items.length === 1 ? items[0] : batchItem(items) })
+    return NextResponse.json({ ok: true, readOnly: false, item: items.length === 1 ? items[0] : batchItem(items) })
 }
 
 function authorized(request: NextRequest) {

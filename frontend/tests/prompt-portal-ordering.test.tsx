@@ -15,7 +15,9 @@ const previousWorkerToken = process.env.PROMPT_PORTAL_WORKER_TOKEN
 const stateDir = await mkdtemp(join(tmpdir(), 'prompt-portal-ordering-'))
 process.env.PROMPT_PORTAL_STATE_DIR = stateDir
 process.env.PROMPT_PORTAL_WORKER_TOKEN = 'worker-test-token'
-mock.module('next/headers', () => ({ cookies: async () => ({ get: () => ({ value: 'session-1' }) }) }))
+mock.module('../src/utils/proxy/requireApiSession', () => ({
+    default: async () => ({ identity: { id: 'user-1', token: 'session-token' } }),
+}))
 
 const { POST } = await import('../src/app/api/prompt/route')
 const { GET: workerGet } = await import('../src/app/api/prompt/worker/route')
@@ -72,29 +74,22 @@ test('queue UI keeps labels and limits reorder controls to queued items', () => 
     expect(firstNext).not.toContain('title="Edit"')
 })
 
-test('portal keeps login gated and authenticated read-only sessions unable to enqueue', () => {
+test('portal renders the queue for authenticated organization members', () => {
     const locked = renderToStaticMarkup(createElement(PromptPortalClient))
-    expect(locked).toContain('<h1 class="mt-2 text-3xl font-semibold tracking-normal">Login</h1>')
-    expect(locked).toContain('aria-label="Access code"')
-    expect(locked).not.toContain('Input queue')
+    expect(locked).toContain('<h1 class="mt-2 text-3xl font-semibold tracking-normal">Prompt</h1>')
+    expect(locked).toContain('Input queue')
 
-    const readOnly = renderToStaticMarkup(createElement(PromptPortalClient, {
+    const populated = renderToStaticMarkup(createElement(PromptPortalClient, {
         initialState: {
-            authenticated: true,
-            readOnly: true,
             items: [item('queued', 'Existing instruction', 'next', '2026-01-01T00:00:00Z')],
         },
     }))
-    expect(readOnly).toContain('Session is read only. Ask for a new code to send more instructions.')
-    expect(readOnly).toContain('disabled=""')
-    expect(readOnly).toContain('Input queue')
-    expect(readOnly).toContain('Existing instruction')
+    expect(populated).toContain('Input queue')
+    expect(populated).toContain('Existing instruction')
 })
 
 test('reorder API and worker consume the same priority and FIFO order', async () => {
     const state: PromptPortalState = {
-        usedCodeHashes: [],
-        sessions: { 'session-1': { id: 'session-1', codeHash: 'hash', createdAt: '2026-01-01T00:00:00Z' } },
         items: [
             item('first', 'first next', 'next', '2026-01-01T00:00:00Z'),
             item('urgent', 'urgent now', 'now', '2026-01-02T00:00:00Z'),
