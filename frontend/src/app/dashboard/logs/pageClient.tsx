@@ -11,8 +11,8 @@ import { LogMetricCard, MostActiveServicesPanel, type LogsDashboardSummary } fro
 import { LogResultsPanel } from './LogResultsPanel'
 import { useLogSearch } from './useLogSearch'
 import { LogsToolbar } from './LogsToolbar'
+import { logFieldClass } from './logPresentation'
 
-const fieldClass = 'rounded-lg border border-ui-border bg-ui-panel px-3 py-2 text-sm text-ui-text'
 export default function LogsPageClient({ initialServices = [], initialErrors, initialServiceFilter = 'all', initialData = null, initialError = '', initialMetrics = null }: { initialServices?: LogService[], initialErrors?: ErrorEventsResponse, initialServiceFilter?: string, initialData?: Result | null, initialError?: string, initialMetrics?: Metrics | null }) {
     const pathname = usePathname()
     const params = useSearchParams()
@@ -155,7 +155,7 @@ export default function LogsPageClient({ initialServices = [], initialErrors, in
             severity={severity}
             onSeverityChange={setSeverity}
         />
-        {view === 'errors' ? <><div className='flex items-center justify-between gap-3 text-xs text-ui-muted'><span role='status'>{busy ? 'Refreshing…' : copied ? 'Event copied' : 'Recent application errors'}</span><button type='button' className={fieldClass} disabled={busy} onClick={refreshData}>Refresh errors</button></div><ErrorsPanel events={errors} expanded={expanded} onToggle={toggle} onCopy={event => void copy(event)} /></> : <>
+        {view === 'errors' ? <><div className='flex items-center justify-between gap-3 text-xs text-ui-muted'><span role='status'>{busy ? 'Refreshing…' : copied ? 'Event copied' : 'Recent application errors'}</span><button type='button' className={logFieldClass} disabled={busy} onClick={refreshData}>Refresh errors</button></div><ErrorsPanel events={errors} expanded={expanded} onToggle={toggle} onCopy={event => void copy(event)} /></> : <>
             {processingError && <p role='alert' className='text-sm text-ui-text'>Event processing is delayed: {processingError}</p>}
             {view === 'dashboard' && analyticsOpen && <ThroughputMetrics initialMetrics={initialMetrics} />}
             {view === 'dashboard' && <LogCatchupProgress progress={data?.processing?.catchup} now={data?.generated_at || new Date().toISOString()} stalled={!!processingError} />}
