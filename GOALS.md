@@ -810,7 +810,7 @@ The generated frontend search-route catalog now emits one route object per line 
 After these checkpoints, the repository-wide line-cap scan reports 122 oversized handwritten files among 3,738 files / 320,187 LOC. The events handler no longer exceeds 200 lines, but the remaining repository-wide cap debt is substantial. The API 100,000-line reduction and frontend 10,000–30,000 LOC targets remain unmet.
 
 At the current 2026-10-17 working-tree snapshot, the frontend-only scope contains
-2,258 hand-maintained source/config files and 151,429 lines, with zero files
+2,258 hand-maintained source/config files and 151,442 lines, with zero files
 over 200 lines. This count excludes generated route/article catalogs and
 dependency/build output. The strict frontend file cap is currently satisfied;
 the much larger 10,000–30,000-line target remains unmet. Continue prioritizing
@@ -838,5 +838,8 @@ public contracts and pass focused tests/typechecks, but add roughly 45 and 808
 LOC respectively while meeting the cap. A duplicate pair of API runner-policy
 assertions was removed, and the public TI test now verifies selected route
 quotas. These API checkpoints improve boundaries and test accuracy, not the
-100,000-line reduction target. A frontend workbench data-contract regression
-fix is in progress, so current integrated counts are provisional.
+100,000-line reduction target. A shared TI workbench loader now filters
+malformed non-record rows while preserving valid neighbors, preventing a null
+alert from crashing the page. Six focused loader tests, typecheck, changed-file
+lint, independent review, and the Next production build pass; all 116 routes
+generate. Current integrated counts are provisional during continued refactors.
