@@ -8,6 +8,11 @@ const publicBlob = Buffer.concat([
 ])
 const publicKey = `ssh-ed25519 ${publicBlob.toString('base64')} test-key`
 const fingerprint = normalizeHostPublicKey(publicKey)!.fingerprint
+const keyForType = (type: string) => {
+    const name = Buffer.from(type)
+    const blob = Buffer.concat([Buffer.from([0, 0, 0, name.length]), name])
+    return `${type} ${blob.toString('base64')} test-key`
+}
 let keyRows: Array<{ user_id: string, key_id: number, public_key: string, username: string }> = []
 let inserts: Array<{ sql: string, params: unknown[] }> = []
 
@@ -23,6 +28,14 @@ const identityQuery = async (sql: string, params: unknown[] = []) => {
 mock.module('#db', () => ({ identityQueryOnce: identityQuery }))
 
 const { recordProfileSshKeyUsageFromEvents } = await import('../src/utils/sshKeyUsage.ts')
+
+test('host key normalization accepts managed key types and rejects unsupported algorithms', () => {
+    for (const type of [
+        'ssh-ed25519', 'ssh-rsa', 'ecdsa-sha2-nistp256', 'ecdsa-sha2-nistp384',
+        'ecdsa-sha2-nistp521', 'sk-ssh-ed25519@openssh.com', 'sk-ecdsa-sha2-nistp256@openssh.com',
+    ]) expect(normalizeHostPublicKey(keyForType(type))?.publicKey).toBe(keyForType(type))
+    expect(normalizeHostPublicKey(keyForType('ssh-dss'))).toBeNull()
+})
 
 beforeEach(() => {
     keyRows = [{ user_id: 'eirikhanasand', key_id: 42, public_key: publicKey, username: 'eirikhanasand' }]
