@@ -145,8 +145,8 @@ export const contractTasks: TestTask[] = [
     },
     {
         id: 'share-git-plugin',
-        title: 'Share Git plugin presentation data',
-        command: [bun, 'test', './tests/share-git-plugin.check.ts'],
+        title: 'Share Git plugin and explorer workflow behavior',
+        command: [bun, 'test', './tests/share-git-plugin.check.ts', './tests/share-git-plugin.spec.ts', './tests/share-git-plugin-ui.test.tsx', './tests/share-git-plugin-workflow.test.ts', './tests/share-explorer-recovery.test.tsx'],
     },
     {
         id: 'browser-report-presentation',
