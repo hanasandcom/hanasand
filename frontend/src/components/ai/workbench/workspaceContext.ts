@@ -1,6 +1,6 @@
 'use client'
 
-import { listTreePaths } from '../shareTree'
+import { listTreePaths } from '@/components/share/workspaceTree'
 
 export async function buildWorkspaceContext(
     conversation: AIConversation,

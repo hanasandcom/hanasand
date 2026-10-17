@@ -1,5 +1,5 @@
 import randomId from '@/utils/random/randomId'
-import { findTreeFileId } from '@/components/ai/shareTree'
+import { findTreeFileId } from '@/components/share/workspaceTree'
 import { getTree } from '@/utils/share/getTree'
 import postShare from '@/utils/share/post'
 import { updateShare } from '@/utils/share/put'

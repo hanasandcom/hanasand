@@ -1,7 +1,7 @@
 import { useCallback } from 'react'
 import { getCookie } from '@/utils/cookies/cookies'
 import { getTree } from '@/utils/share/getTree'
-import { listTreePaths } from '../shareTree'
+import { listTreePaths } from '@/components/share/workspaceTree'
 import { withWorkspaceActivity } from './repositoryModel'
 import type { WorkbenchState } from './useWorkbenchState'
 

@@ -45,11 +45,11 @@ export function DashboardTable({
     children: ReactNode
     className?: string
     headClassName?: string
-    bodyClassName?: string
+    bodyClassName?: string | null
 }) {
     return <table className={className}>
         <thead className={headClassName}><tr>{columnHeaders}</tr></thead>
-        <tbody className={bodyClassName}>{children}</tbody>
+        {bodyClassName === null ? <tbody>{children}</tbody> : <tbody className={bodyClassName}>{children}</tbody>}
     </table>
 }
 

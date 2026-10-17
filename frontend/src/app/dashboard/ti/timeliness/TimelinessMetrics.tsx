@@ -1,4 +1,4 @@
-import { DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPanel, DashboardTable } from '@/components/dashboard/ui'
 import { duration, label, percent } from './data'
 import type { GroupMetric, Metric, Snapshot } from './types'
 
@@ -41,22 +41,25 @@ export function QualityPanel({ quality }: { quality?: Snapshot['quality'] }) {
             </section>
             <section className='min-w-0 p-3'>
                 <h3 className='text-[10px] font-semibold uppercase text-ui-muted'>Real source classes</h3>
-                <div className='mt-2 overflow-x-auto'><table className='w-full text-left text-[11px]'>
-                    <thead className='text-ui-muted'><tr>
-                        {['Class', 'Records', 'No observed', 'No report', 'No publication', 'No collection', 'No processing', 'No review', 'Issues'].map((heading, index) => <th key={heading} className={`pb-1 font-medium ${index ? 'text-right' : ''}`}>{heading}</th>)}
-                    </tr></thead>
-                    <tbody>{quality?.bySourceClass.map(group => <tr key={group.name} className='border-t border-ui-border'>
-                        <td className='max-w-44 truncate py-1.5 text-ui-text'>{group.name}</td>
-                        <td className='py-1.5 text-right text-ui-muted'>{group.recordCount}</td>
-                        <td className='py-1.5 text-right text-ui-text'>{group.missing.observed ?? 0}</td>
-                        <td className='py-1.5 text-right text-ui-text'>{group.missing.first_report ?? 0}</td>
-                        <td className='py-1.5 text-right text-ui-text'>{group.missing.publication ?? 0}</td>
-                        <td className='py-1.5 text-right text-ui-text'>{group.missing.collection ?? 0}</td>
-                        <td className='py-1.5 text-right text-ui-text'>{group.missing.processing ?? 0}</td>
-                        <td className='py-1.5 text-right text-ui-text'>{group.missing.reviewed ?? 0}</td>
-                        <td className='py-1.5 text-right text-ui-text'>{Object.values(group.issues).reduce((sum, count) => sum + count, 0)}</td>
-                    </tr>)}</tbody>
-                </table>{!quality?.bySourceClass.length ? <p className='py-4 text-center text-ui-muted'>No retained source classes in this scope.</p> : null}</div>
+                <div className='mt-2 overflow-x-auto'>
+                    <DashboardTable
+                        className='w-full text-left text-[11px]'
+                        headClassName='text-ui-muted'
+                        bodyClassName={null}
+                        columnHeaders={['Class', 'Records', 'No observed', 'No report', 'No publication', 'No collection', 'No processing', 'No review', 'Issues'].map((heading, index) => <th key={heading} className={`pb-1 font-medium ${index ? 'text-right' : ''}`}>{heading}</th>)}
+                    >{quality?.bySourceClass.map(group => <tr key={group.name} className='border-t border-ui-border'>
+                            <td className='max-w-44 truncate py-1.5 text-ui-text'>{group.name}</td>
+                            <td className='py-1.5 text-right text-ui-muted'>{group.recordCount}</td>
+                            <td className='py-1.5 text-right text-ui-text'>{group.missing.observed ?? 0}</td>
+                            <td className='py-1.5 text-right text-ui-text'>{group.missing.first_report ?? 0}</td>
+                            <td className='py-1.5 text-right text-ui-text'>{group.missing.publication ?? 0}</td>
+                            <td className='py-1.5 text-right text-ui-text'>{group.missing.collection ?? 0}</td>
+                            <td className='py-1.5 text-right text-ui-text'>{group.missing.processing ?? 0}</td>
+                            <td className='py-1.5 text-right text-ui-text'>{group.missing.reviewed ?? 0}</td>
+                            <td className='py-1.5 text-right text-ui-text'>{Object.values(group.issues).reduce((sum, count) => sum + count, 0)}</td>
+                        </tr>)}</DashboardTable>
+                    {!quality?.bySourceClass.length ? <p className='py-4 text-center text-ui-muted'>No retained source classes in this scope.</p> : null}
+                </div>
             </section>
         </div>
     </DashboardPanel>
@@ -76,16 +79,21 @@ export function MetricsPanel({ stages, sources, actors }: { stages: Array<{ name
 function MetricTable({ title, rows }: { title: string, rows: Array<{ name: string } & Metric> }) {
     return <section className='min-w-0 border-b border-ui-border p-3 last:border-b-0 lg:border-b-0 lg:border-r lg:last:border-r-0'>
         <h3 className='text-[10px] font-semibold uppercase text-ui-muted'>{title}</h3>
-        <div className='mt-2 overflow-x-auto'><table className='w-full text-left text-[11px]'>
-            <thead className='text-ui-muted'><tr>{['Group', 'n', 'median', 'p95', 'p99'].map((heading, index) => <th key={heading} className={`pb-1 font-medium ${index ? 'text-right' : ''}`}>{heading}</th>)}</tr></thead>
-            <tbody>{rows.map(row => <tr key={row.name} className='border-t border-ui-border'>
-                <td className='max-w-32 truncate py-1.5 text-ui-text'>{row.name}</td>
-                <td className='py-1.5 text-right text-ui-muted'>{row.sampleSize}</td>
-                <td className='py-1.5 text-right text-ui-text'>{duration(row.medianSeconds ?? undefined)}</td>
-                <td className='py-1.5 text-right text-ui-text'>{duration(row.p95Seconds ?? undefined)}</td>
-                <td className='py-1.5 text-right text-ui-text'>{duration(row.p99Seconds ?? undefined)}</td>
-            </tr>)}</tbody>
-        </table>{!rows.length ? <p className='py-4 text-center text-ui-muted'>No eligible measurements.</p> : null}</div>
+        <div className='mt-2 overflow-x-auto'>
+            <DashboardTable
+                className='w-full text-left text-[11px]'
+                headClassName='text-ui-muted'
+                bodyClassName={null}
+                columnHeaders={['Group', 'n', 'median', 'p95', 'p99'].map((heading, index) => <th key={heading} className={`pb-1 font-medium ${index ? 'text-right' : ''}`}>{heading}</th>)}
+            >{rows.map(row => <tr key={row.name} className='border-t border-ui-border'>
+                    <td className='max-w-32 truncate py-1.5 text-ui-text'>{row.name}</td>
+                    <td className='py-1.5 text-right text-ui-muted'>{row.sampleSize}</td>
+                    <td className='py-1.5 text-right text-ui-text'>{duration(row.medianSeconds ?? undefined)}</td>
+                    <td className='py-1.5 text-right text-ui-text'>{duration(row.p95Seconds ?? undefined)}</td>
+                    <td className='py-1.5 text-right text-ui-text'>{duration(row.p99Seconds ?? undefined)}</td>
+                </tr>)}</DashboardTable>
+            {!rows.length ? <p className='py-4 text-center text-ui-muted'>No eligible measurements.</p> : null}
+        </div>
     </section>
 }
 

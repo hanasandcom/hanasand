@@ -3,6 +3,28 @@ type TreeCounts = {
     folders: number
 }
 
+export function* walkWorkspaceTree(tree: Tree | null, prefix: string | string[] = ''): Generator<{ item: FileItem, path: string }> {
+    for (const item of tree || []) {
+        const pathParts = Array.isArray(prefix) ? [...prefix, item.name] : null
+        const path = pathParts ? pathParts.join('/') : prefix ? `${prefix}/${item.name}` : item.name
+        yield { item, path }
+        if (item.type === 'folder') yield* walkWorkspaceTree(item.children, pathParts || path)
+    }
+}
+
+export function listTreePaths(tree: Tree | null, prefix = ''): string[] {
+    return [...walkWorkspaceTree(tree, prefix)]
+        .filter(({ item }) => item.type === 'file')
+        .map(({ path }) => path)
+}
+
+export function findTreeFileId(tree: Tree | null, targetPath: string, prefix = ''): string | null {
+    for (const { item, path } of walkWorkspaceTree(tree, prefix)) {
+        if (item.type === 'file' && path === targetPath) return item.id
+    }
+    return null
+}
+
 export function getWorkspaceRoot(tree: Tree | null, share: Share | null): FileFolder | null {
     if (!tree || !share || tree.length !== 1) {
         return null
@@ -25,20 +47,11 @@ export function getVisibleWorkspaceTree(tree: Tree | null, share: Share | null):
 }
 
 export function countTreeItems(tree: Tree | null): TreeCounts {
-    return (tree || []).reduce((counts, file) => {
-        if (file.type === 'folder') {
-            const childCounts = countTreeItems(file.children)
-            return {
-                files: counts.files + childCounts.files,
-                folders: counts.folders + childCounts.folders + 1,
-            }
-        }
-
-        return {
-            files: counts.files + 1,
-            folders: counts.folders,
-        }
-    }, { files: 0, folders: 0 })
+    const counts = { files: 0, folders: 0 }
+    for (const { item } of walkWorkspaceTree(tree)) {
+        counts[item.type === 'file' ? 'files' : 'folders'] += 1
+    }
+    return counts
 }
 
 export function getWorkspaceName(tree: Tree | null, share: Share | null, fallbackId: string) {
@@ -46,20 +59,9 @@ export function getWorkspaceName(tree: Tree | null, share: Share | null, fallbac
 }
 
 export function findPath(tree: Tree | null, id: string, parents: string[] = []): string | null {
-    for (const file of tree || []) {
-        const path = [...parents, file.name]
-        if (file.id === id) {
-            return path.join('/')
-        }
-
-        if (file.type === 'folder') {
-            const childPath = findPath(file.children, id, path)
-            if (childPath) {
-                return childPath
-            }
-        }
+    for (const { item, path } of walkWorkspaceTree(tree, parents)) {
+        if (item.id === id) return path
     }
-
     return null
 }
 
@@ -67,4 +69,3 @@ export function isWorkspaceRootItem(tree: Tree | null, share: Share | null, id: 
     const root = getWorkspaceRoot(tree, share)
     return Boolean(root && root.id === id)
 }
-

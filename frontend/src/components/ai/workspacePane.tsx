@@ -1,6 +1,6 @@
 'use client'
 
-import { listTreePaths } from './shareTree'
+import { listTreePaths } from '@/components/share/workspaceTree'
 import { buildFallbackTrust } from './workbenchPaneTrust'
 import { WorkspaceOverviewPanels, WorkspaceAccessSummary } from './workspaceOverviewPanels'
 import { WorkspaceCollaborationPanel } from './workspaceCollaborationPanel'

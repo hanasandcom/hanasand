@@ -1,5 +1,6 @@
 import { getCookie } from '@/utils/cookies/cookies'
 import { getShare } from '@/utils/share/get'
+import { walkWorkspaceTree } from '../workspaceTree'
 import type { IndexedWorkspaceFile, WorkspaceFile } from './types'
 
 const searchableExtensions = new Set([
@@ -8,20 +9,9 @@ const searchableExtensions = new Set([
 ])
 
 export function flattenWorkspaceTree(tree: Tree | null): WorkspaceFile[] {
-    const files: WorkspaceFile[] = []
-
-    function walk(items: Tree, parentPath: string) {
-        for (const item of items) {
-            const path = parentPath ? `${parentPath}/${item.name}` : item.name
-            if (item.type === 'folder') {
-                walk(item.children, path)
-                continue
-            }
-            files.push({ id: item.id, name: item.name, path })
-        }
-    }
-
-    if (tree) walk(tree, '')
+    const files = [...walkWorkspaceTree(tree)]
+        .filter(({ item }) => item.type === 'file')
+        .map(({ item, path }) => ({ id: item.id, name: item.name, path }))
     return stripSingleRoot(files)
 }
 

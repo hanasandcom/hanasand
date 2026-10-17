@@ -10,6 +10,7 @@ import {
     type WorkspaceSearchOptions,
 } from '@/components/share/workspaceSearchUtils'
 import { searchIndexedFilesWithSymbolResolver } from '@/components/share/workspaceSearch/matching'
+import { countTreeItems, findPath, findTreeFileId, listTreePaths } from '@/components/share/workspaceTree'
 
 const defaults: WorkspaceSearchOptions = {
     caseSensitive: false,
@@ -33,6 +34,39 @@ test('workspace file flattening removes one common project root and keeps nested
         ],
     }])
     expect(result.map(({ id, path }) => [id, path])).toEqual([['b', 'src/main.ts'], ['c', 'README.md']])
+})
+
+test('shared tree traversal returns nested file IDs and full paths, including folder IDs', () => {
+    const tree = [{
+        id: 'root', name: 'project', alias: null, parent: null, type: 'folder' as const, children: [
+            { id: 'folder', name: 'src', alias: null, parent: 'root', type: 'folder' as const, children: [
+                { id: 'file', name: 'main.ts', alias: null, parent: 'folder', type: 'file' as const },
+            ] },
+        ],
+    }]
+
+    expect(listTreePaths(tree)).toEqual(['project/src/main.ts'])
+    expect(listTreePaths(tree, 'workspace')).toEqual(['workspace/project/src/main.ts'])
+    expect(findTreeFileId(tree, 'project/src/main.ts')).toBe('file')
+    expect(findTreeFileId(tree, 'project/src')).toBeNull()
+    expect(findPath(tree, 'file')).toBe('project/src/main.ts')
+    expect(findPath(tree, 'folder')).toBe('project/src')
+    expect(findPath(tree, 'file', ['workspace'])).toBe('workspace/project/src/main.ts')
+    expect(countTreeItems(tree)).toEqual({ files: 1, folders: 2 })
+    expect(findPath([{
+        id: 'empty', name: '', alias: null, parent: null, type: 'folder', children: [
+            { id: 'nested-file', name: 'file.ts', alias: null, parent: 'empty', type: 'file' },
+        ],
+    }], 'nested-file')).toBe('/file.ts')
+})
+
+test('workspace search strips one shared root only when every file has it', () => {
+    const root = { id: 'root', name: 'project', alias: null, parent: null, type: 'folder' as const, children: [
+        { id: 'one', name: 'one.ts', alias: null, parent: 'root', type: 'file' as const },
+    ] }
+    const other = { id: 'two', name: 'two.ts', alias: null, parent: null, type: 'file' as const }
+    expect(flattenWorkspaceTree([root]).map(file => file.path)).toEqual(['one.ts'])
+    expect(flattenWorkspaceTree([root, other]).map(file => file.path)).toEqual(['project/one.ts', 'two.ts'])
 })
 
 test('workspace search preserves match positions, enclosing symbol, word/case filters, and path filters', () => {

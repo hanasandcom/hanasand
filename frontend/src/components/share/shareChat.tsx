@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useRef } from 'react'
-import { listTreePaths } from '@/components/ai/shareTree'
+import { listTreePaths } from './workspaceTree'
 import type { ShareChatProps } from './shareChatTypes'
 import { useShareChatWorkflow } from './useShareChatWorkflow'
 import { useShareChatPendingEdit } from './useShareChatPendingEdit'

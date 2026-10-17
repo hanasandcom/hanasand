@@ -26,7 +26,7 @@ mock.module('@/utils/share/post', () => ({
 }))
 mock.module('@/utils/share/getTree', () => ({ getTree: async () => tree }))
 mock.module('@/utils/share/put', () => ({ updateShare: async (id: string, data: unknown) => { updates.push([id, data]); return { id } } }))
-mock.module('@/components/ai/shareTree', () => ({ findTreeFileId: () => null }))
+mock.module('@/components/share/workspaceTree', () => ({ findTreeFileId: () => null }))
 mock.module('./syncRepositoryPrune', () => ({ pruneRemovedEntries: async () => undefined }))
 
 const folders = await import('../src/utils/ai/repositoryShareFolders')

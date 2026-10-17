@@ -4,7 +4,7 @@ import { useCallback, useState } from 'react'
 import { getCookie } from '@/utils/cookies/cookies'
 import { getShare } from '@/utils/share/get'
 import { getTree } from '@/utils/share/getTree'
-import { findTreeFileId } from '../shareTree'
+import { findTreeFileId } from '@/components/share/workspaceTree'
 
 type UseShareWorkspaceStateProps = {
     initialShares: Share[]

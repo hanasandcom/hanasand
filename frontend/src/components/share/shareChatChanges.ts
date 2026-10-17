@@ -1,5 +1,5 @@
 import randomId from '@/utils/random/randomId'
-import { findTreeFileId } from '@/components/ai/shareTree'
+import { findTreeFileId } from './workspaceTree'
 import type { PendingShareChange, ToolCall } from './shareChatTypes'
 
 export function parseToolCalls(content: string): ToolCall[] {
