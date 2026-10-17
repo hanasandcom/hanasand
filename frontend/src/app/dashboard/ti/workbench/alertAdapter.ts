@@ -1,4 +1,4 @@
-import type { DwmAlert, DwmSeverity } from '@/utils/dwm/product'
+import type { DwmAlert } from '@/utils/dwm/product'
 import { customerAlertSummary } from '@/utils/dwm/display'
 import type { WorkbenchCase } from './types'
 import type { RuntimeDwmAlert } from './runtimeAlert'
@@ -8,7 +8,7 @@ import { alertCaseDetailHref, alertCaseReference, findingsDeliveryLedgerHref, fi
 
 export function dwmAlertToWorkbenchCase(input: DwmAlert): WorkbenchCase {
     const alert = input as RuntimeDwmAlert
-    const severity = normalizeSeverity(alert.severity)
+    const severity = alert.severity
     const route = String(alert.recommendedRoute ?? alert.customerReadiness?.alertReadiness?.recommendedRoute ?? alert.webhookDelivery?.recommendedRoute ?? 'analyst_review')
     const workflowStatus = String(alert.workflowStatus ?? alert.workflowSummary?.status ?? alert.customerReadiness?.workflowReadiness?.status ?? alert.reviewState ?? 'new')
     const owner = alert.assignedOwner ?? alert.workflowSummary?.assignedOwner ?? alert.customerReadiness?.workflowReadiness?.assignedOwner ?? 'unassigned'
@@ -127,10 +127,6 @@ export function dwmAlertToWorkbenchCase(input: DwmAlert): WorkbenchCase {
         deliveryEvidence,
         missingDependency: caseDetailHref ? undefined : 'Backed case id is syncing to this alert.',
     }
-}
-
-function normalizeSeverity(severity: DwmSeverity): WorkbenchCase['severity'] {
-    return severity
 }
 
 function mergeUniqueStrings(...groups: Array<string | undefined>[]) {

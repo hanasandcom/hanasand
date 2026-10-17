@@ -1,12 +1,16 @@
 import type { CaseDetailPayload, AlertDetailPayload, WorkbenchApiPayload, WorkbenchDeliveryEvidence } from '../types'
 import { stringValue } from './actionMessages'
 
-export async function readCaseDetailJson(response: Response) {
+async function readJsonOr<T>(response: Response, fallback: T): Promise<T> {
     try {
-        return await response.json() as CaseDetailPayload
+        return await response.json() as T
     } catch {
-        return { generatedAt: '', error: { message: 'Case detail response was not JSON.' } }
+        return fallback
     }
+}
+
+export async function readCaseDetailJson(response: Response) {
+    return readJsonOr<CaseDetailPayload>(response, { generatedAt: '', error: { message: 'Case detail response was not JSON.' } })
 }
 
 export async function readSuccessfulCaseDetail(response: Response) {
@@ -16,19 +20,11 @@ export async function readSuccessfulCaseDetail(response: Response) {
 }
 
 export async function readAlertDetailJson(response: Response) {
-    try {
-        return await response.json() as AlertDetailPayload
-    } catch {
-        return { generatedAt: '', error: { message: 'Alert detail response was not JSON.' } }
-    }
+    return readJsonOr<AlertDetailPayload>(response, { generatedAt: '', error: { message: 'Alert detail response was not JSON.' } })
 }
 
 export async function readJson(response: Response) {
-    try {
-        return await response.json() as WorkbenchApiPayload
-    } catch {
-        return {}
-    }
+    return readJsonOr<WorkbenchApiPayload>(response, {})
 }
 
 export async function readSuccessfulJson(response: Response) {

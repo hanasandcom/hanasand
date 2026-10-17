@@ -2756,3 +2756,15 @@ refresh wiring, and tree controls. That coverage passes 14/14 and every added
 file stays under 200 lines; it improves test quality but does not shrink the
 aggregate codebase. The frontend remains 2,553 lines above its original
 baseline.
+
+The follow-up workbench reuse pass removed an identity-only alert severity
+wrapper and consolidated three identical JSON parse/fallback blocks. Both
+changes preserve their existing payloads and outputs; the alert and case
+adapters remain separate because they accept different source contracts. The
+changes net −8 LOC. Focused workbench suites pass (11 tests), focused ESLint,
+non-incremental TypeScript checking, and `git diff --check` pass. The frontend
+line-cap scan passes for 2,420 files / 156,253 working-tree lines, with zero
+files over 200 lines. The snapshot includes separate user-owned uncommitted TI
+profile edits; those paths are excluded from this checkpoint's commit. Relative
+to the 153,708-line baseline, the current scan is still 2,545 lines larger; the
+10,000–30,000 frontend target remains unmet.
