@@ -2,7 +2,7 @@ import { currentOpenApi } from '@/utils/api/currentOpenApi'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Braces, Code2, ExternalLink, LockKeyhole } from 'lucide-react'
-import { authApiUrl } from '@/utils/auth/authApiUrl'
+import { requestOpenApiDocument } from '@/app/api/openapi/upstream'
 import { DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
 import ApiDocsSearch from './apiDocsSearch'
 import { responseExamples } from './responseExamples'
@@ -155,7 +155,7 @@ function Info({ label, value, mono = false }: { label: string, value: string, mo
 
 async function loadContract(): Promise<Contract | null> {
     try {
-        const response = await fetch(`${authApiUrl().replace(/\/$/, '')}/v1/openapi.json`, { cache: 'no-store' })
+        const response = await requestOpenApiDocument()
         if (!response.ok) return null
         const contract = currentOpenApi(await response.json()) as Contract
         return contract.info && contract.paths ? contract : null

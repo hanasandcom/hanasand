@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { currentOpenApi } from '../src/utils/api/currentOpenApi'
+import { authApiUrl } from '../src/utils/auth/authApiUrl'
 // @ts-expect-error Bun supplies this module for focused checks.
 import { mock } from 'bun:test'
 import { hasAppSidebar } from '../src/utils/routes/appRoutes'
@@ -48,7 +49,12 @@ checkReferences(current)
 const fixture = { paths: { '/test': { get: { deprecated: true }, post: { responses: {} } } }, components: { schemas: { Item: { properties: { old: { deprecated: true }, active: { type: 'string' } }, required: ['old', 'active'] } } } }
 assert.deepEqual(currentOpenApi(fixture), { paths: { '/test': { post: { responses: {} } } }, components: { schemas: { Item: { properties: { active: { type: 'string' } }, required: ['active'] } } } })
 const originalFetch = globalThis.fetch
-globalThis.fetch = (async () => Response.json(publicTiOpenApi)) as typeof fetch
+let lastOpenApiRequest: { url: string, cache?: RequestCache } | undefined
+const successfulOpenApiFetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+    lastOpenApiRequest = { url: String(input), cache: init?.cache }
+    return Response.json(publicTiOpenApi)
+}
+globalThis.fetch = successfulOpenApiFetch as typeof fetch
 try {
     const { default: Page, applicationEndpoints } = await import('../src/app/dashboard/api-docs/content')
     const applicationKeys = applicationEndpoints.map(endpoint => `${endpoint.method} ${endpoint.path}`)
@@ -56,6 +62,7 @@ try {
     assert.equal(keys.length, 54)
     assert.deepEqual(Object.keys(responseExamples).sort(), [...keys].sort(), 'Every documented endpoint needs exactly one example')
     const html = await new Response(await renderToReadableStream(await Page())).text()
+    assert.deepEqual(lastOpenApiRequest, { url: `${authApiUrl().replace(/\/$/, '')}/v1/openapi.json`, cache: 'no-store' })
     for (const key of keys) assert(html.includes(`data-api-response-example="${key}"`), `Example not rendered: ${key}`)
     assert(html.includes('Fictional example'))
     const actors = html.match(/<details[^>]*>[\s\S]*?<code[^>]*>\/actors<\/code>[\s\S]*?<\/details>/)?.[0] || ''
@@ -67,10 +74,14 @@ try {
     assert(html.includes('Missing or invalid credentials'), 'Resolve OpenAPI response references to descriptions')
     assert(!html.includes('#/components/responses/Unauthorized'))
     assert(!html.includes('href="/api/openapi" target="_blank"'), 'Browsing the spec must stay in the same tab')
-    globalThis.fetch = (async () => new Response('', { status: 503 })) as typeof fetch
+    globalThis.fetch = (async (input, init) => {
+        lastOpenApiRequest = { url: String(input), cache: init?.cache }
+        return new Response('', { status: 503 })
+    }) as typeof fetch
     const unavailableDocs = await new Response(await renderToReadableStream(await Page())).text()
     assert(unavailableDocs.includes('The live API contract is temporarily unavailable. Try again shortly.'))
-    globalThis.fetch = (async () => Response.json(publicTiOpenApi)) as typeof fetch
+    assert.deepEqual(lastOpenApiRequest, { url: `${authApiUrl().replace(/\/$/, '')}/v1/openapi.json`, cache: 'no-store' })
+    globalThis.fetch = successfulOpenApiFetch as typeof fetch
     mock.module('next/headers', () => ({ cookies: async () => ({ get: () => ({ value: 'docs-test' }) }) }))
     const { default: Preview } = await import('../src/app/api/openapi/page')
     const preview = await new Response(await renderToReadableStream(await Preview())).text()
@@ -78,6 +89,7 @@ try {
     assert(!preview.includes('nextCursor'))
     const { GET } = await import('../src/app/api/openapi/ti/route')
     assert.deepEqual(await (await GET()).json(), current, 'Raw JSON and preview use the same current contract')
+    assert.deepEqual(lastOpenApiRequest, { url: `${authApiUrl().replace(/\/$/, '')}/v1/openapi.json`, cache: 'no-store' })
     const rawLink = preview.match(/<a[^>]*href="\/api\/openapi\/ti"[^>]*>/)?.[0] || ''
     assert(rawLink.includes('target="_blank"'))
     assert(rawLink.includes('rel="noopener noreferrer"'))
@@ -86,6 +98,11 @@ try {
     const unavailable = await new Response(await renderToReadableStream(await Preview())).text()
     assert(unavailable.includes('role="alert"'))
     assert(unavailable.includes('temporarily unavailable'))
+    const unavailableDocument = await GET()
+    assert.equal(unavailableDocument.status, 503)
+    assert.deepEqual(await unavailableDocument.json(), { error: { code: 'openapi_unavailable', message: 'The API contract is temporarily unavailable.' } })
+    assert.equal(unavailableDocument.headers.get('cache-control'), 'no-store, max-age=0')
+    assert.deepEqual(lastOpenApiRequest, { url: `${authApiUrl().replace(/\/$/, '')}/v1/openapi.json`, cache: 'no-store' })
     assert(hasAppSidebar('/api/openapi'))
 } finally {
     globalThis.fetch = originalFetch

@@ -1,10 +1,10 @@
 import { currentOpenApi } from '@/utils/api/currentOpenApi'
 import { NextResponse } from 'next/server'
-import { authApiUrl } from '@/utils/auth/authApiUrl'
+import { requestOpenApiDocument } from '../upstream'
 
 export async function GET() {
     try {
-        const response = await fetch(`${authApiUrl().replace(/\/$/, '')}/v1/openapi.json`, { cache: 'no-store' })
+        const response = await requestOpenApiDocument()
         if (!response.ok) throw new Error(`OpenAPI upstream returned ${response.status}`)
         return NextResponse.json(currentOpenApi(await response.json()), {
             status: 200,
