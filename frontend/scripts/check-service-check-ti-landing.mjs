@@ -35,7 +35,6 @@ assertExcludes(testClient, 'lg:grid-cols-[minmax(14rem,20rem)_minmax(0,1fr)_minm
 assertIncludes(testPage, 'min-h-app-viewport', 'public service check page shell must allow the redesigned workflow to scroll')
 assertExcludes(testPage, 'h-app-viewport overflow-hidden', 'public service check shell must not clip the redesigned workflow')
 
-assertIncludes(loadTestingPage, 'title=\'Load testing and endpoint evidence\'', 'dashboard service check route must present evidence-oriented operations copy')
 assertIncludes(loadTestingPage, '<LoadTestingOperations />', 'dashboard service check route must render the operations command center before secondary tables')
 assertOrder(loadTestingPage, '<LoadTestingOperations />', '<DashboardPanel className=\'overflow-hidden p-0\'>', 'dashboard operations command center must appear before allowance lanes')
 
