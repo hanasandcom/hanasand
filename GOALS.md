@@ -818,3 +818,14 @@ verified reuse and removal of truly duplicated or unreferenced implementation,
 while preserving rendered UI, accessibility, routes, and every page's expected
 data contract. The integrated API work is still in progress, so repository-wide
 counts and the overall cap remain provisional.
+
+Since that snapshot, three reviewed frontend reuse slices shared restore
+polling behavior (+9 production LOC), consolidated password inputs across
+login/signup/reset (+13), and shared the API-key card prop contract (-47).
+Together these reduce production code by 25 lines; the current frontend
+inventory is 47 lines below the immediately preceding snapshot. Frontend
+typecheck, changed-file lint, cap checks, and the restore production build pass.
+The API-key owner-picker Playwright check did not run because Playwright's
+managed API server exited before browser startup; its focused typecheck/lint and
+server-render contract assertions passed. The 10,000–30,000-line target remains
+unmet.
