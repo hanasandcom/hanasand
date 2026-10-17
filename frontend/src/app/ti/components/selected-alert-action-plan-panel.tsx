@@ -4,20 +4,16 @@ import { sourceHealthChipClass } from '../pageClientShared'
 import { displayRequirementList, displayRequirementText, formatLabel, publicDecisionStatusLabel, readinessOwnerLabel, type SelectedAlertActionPlan } from '../pageModel'
 import DecisionStatus from './decision-status'
 import CopyPayloadButton from './copy-payload-button'
+import SelectedPanelHeader from './selected-panel-header'
 
 export default function SelectedAlertActionPlanPanel({ plan }: { plan: SelectedAlertActionPlan }) {
     const status = plan.ready ? 'ready' : plan.state === 'review' ? 'review' : 'blocked'
     return (
         <div data-ti-selected-alert-action-plan='true' className='border-t border-ui-border pt-3 dark:border-ui-border'>
-            <div className='flex min-w-0 flex-wrap items-center justify-between gap-2 text-xs'>
-                <p className='min-w-0 wrap-break-word font-semibold text-ui-muted dark:text-ui-muted'>
-                    Alert actions · {plan.readiness.matchedCandidateCount}/{plan.readiness.candidateCount} matches · {plan.sourceRefs.captureIds.length} captures · {plan.readiness.generationEvidenceWindowReady ? 'evidence current' : 'evidence pending'}
-                </p>
-                <div className='flex flex-wrap items-center justify-end gap-1.5 sm:shrink-0'>
-                    <DecisionStatus status={status} />
-                    <CopyPayloadButton label='Alert action plan' payload={plan} />
-                </div>
-            </div>
+            <SelectedPanelHeader title={<>Alert actions · {plan.readiness.matchedCandidateCount}/{plan.readiness.candidateCount} matches · {plan.sourceRefs.captureIds.length} captures · {plan.readiness.generationEvidenceWindowReady ? 'evidence current' : 'evidence pending'}</>}>
+                <DecisionStatus status={status} />
+                <CopyPayloadButton label='Alert action plan' payload={plan} />
+            </SelectedPanelHeader>
             <p className='mt-2 wrap-break-word text-[11px] text-ui-muted dark:text-ui-muted'>
                 {plan.handoff.route || plan.route ? 'Console action available.' : 'Console action pending.'}
             </p>

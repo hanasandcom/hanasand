@@ -4,20 +4,16 @@ import { compactSourceReferenceLabel, formatDate, sourceHealthChipClass } from '
 import { displayRequirementList, displayRequirementText, formatLabel, readinessOwnerLabel, type DecisionStep, type SelectedWatchlistPlan } from '../pageModel'
 import DecisionStatus from './decision-status'
 import CopyPayloadButton from './copy-payload-button'
+import SelectedPanelHeader from './selected-panel-header'
 
 export default function SelectedWatchlistPlanPanel({ plan }: { plan: SelectedWatchlistPlan }) {
     const status: DecisionStep['status'] = plan.ready ? 'ready' : plan.blockers.length || plan.state === 'missing_terms' ? 'blocked' : 'review'
     return (
         <div data-ti-selected-watchlist-plan='true' className='border-t border-ui-border pt-3 dark:border-ui-border'>
-            <div className='flex min-w-0 flex-wrap items-center justify-between gap-2 text-xs'>
-                <p className='min-w-0 wrap-break-word font-semibold text-ui-muted dark:text-ui-muted'>
-                    Watchlist actions · {plan.terms.length} terms · {plan.relevanceRows.filter(item => item.fit === 'matched').length} matches · {plan.sourceRefs.alertIds.length} alerts · {plan.sourceRefs.captureIds.length} captures
-                </p>
-                <div className='flex flex-wrap items-center justify-end gap-1.5 sm:shrink-0'>
-                    <DecisionStatus status={status} />
-                    <CopyPayloadButton label='Watchlist plan' payload={plan} />
-                </div>
-            </div>
+            <SelectedPanelHeader title={<>Watchlist actions · {plan.terms.length} terms · {plan.relevanceRows.filter(item => item.fit === 'matched').length} matches · {plan.sourceRefs.alertIds.length} alerts · {plan.sourceRefs.captureIds.length} captures</>}>
+                <DecisionStatus status={status} />
+                <CopyPayloadButton label='Watchlist plan' payload={plan} />
+            </SelectedPanelHeader>
             <p className='mt-2 wrap-break-word text-[11px] text-ui-muted dark:text-ui-muted'>{displayRequirementText(plan.route)}</p>
             <p className='mt-2 wrap-break-word text-[11px] leading-5 text-ui-muted dark:text-ui-muted'>{displayRequirementText(plan.nextAction)}</p>
             <div className='mt-2 grid gap-2'>

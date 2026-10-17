@@ -4,19 +4,15 @@ import { actorEnrichmentConsumerLabel, actorEnrichmentConsumerState, formatDate,
 import { displayRequirementText, formatLabel, publicStateLabel, readinessOwnerLabel, sourceHealthFieldLabel, sourceRequestRouteLabel, type SelectedEnrichmentTriage } from '../pageModel'
 import DecisionStatus from './decision-status'
 import CopyPayloadButton from './copy-payload-button'
+import SelectedPanelHeader from './selected-panel-header'
 
 export default function SelectedEnrichmentTriagePanel({ triage }: { triage: SelectedEnrichmentTriage }) {
     return (
         <div data-ti-selected-enrichment-triage='true' className='border-t border-ui-border pt-3 dark:border-ui-border'>
-            <div className='flex min-w-0 flex-wrap items-center justify-between gap-2 text-xs'>
-                <p className='min-w-0 wrap-break-word font-semibold text-ui-muted dark:text-ui-muted'>
-                    Source actions · {triage.summary.sourceRows} sources · {triage.summary.intakeItems} work items · {triage.summary.sourceRequests} requests · {triage.summary.captures} captures
-                </p>
-                <div className='flex flex-wrap items-center justify-end gap-1.5 sm:shrink-0'>
-                    <DecisionStatus status={triage.state} />
-                    <CopyPayloadButton label='Review alert' payload={triage} />
-                </div>
-            </div>
+            <SelectedPanelHeader title={<>Source actions · {triage.summary.sourceRows} sources · {triage.summary.intakeItems} work items · {triage.summary.sourceRequests} requests · {triage.summary.captures} captures</>}>
+                <DecisionStatus status={triage.state} />
+                <CopyPayloadButton label='Review alert' payload={triage} />
+            </SelectedPanelHeader>
             <p className='mt-2 wrap-break-word text-[11px] text-ui-muted dark:text-ui-muted'>{displayRequirementText(triage.route)}</p>
             <div className='mt-2 grid gap-2'>
                 {triage.rows.slice(0, 3).map(row => (

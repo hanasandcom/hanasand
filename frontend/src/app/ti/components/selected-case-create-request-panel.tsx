@@ -5,19 +5,15 @@ import { consumerRequestPathLabel, decisionStepStatusClass, displayRequirementLi
 import CopyPayloadButton from './copy-payload-button'
 import EvidenceMetric from './evidence-metric'
 import DecisionStatus from './decision-status'
+import SelectedPanelHeader from './selected-panel-header'
 
 export default function SelectedCaseCreateRequestPanel({ request }: { request: SelectedCaseCreateRequest }) {
     return (
         <div data-ti-selected-case-create-request='true' className='border-t border-ui-border pt-3 dark:border-ui-border'>
-            <div className='flex min-w-0 flex-wrap items-center justify-between gap-2 text-xs'>
-                <p className='min-w-0 wrap-break-word font-semibold text-ui-muted dark:text-ui-muted'>
-                    Case request · {request.refs.alertIds.length} alerts · {request.refs.captureIds.length} captures · {request.sourceRows.length} sources · {request.refs.watchTerms.length} terms
-                </p>
-                <div className='flex flex-wrap items-center justify-end gap-1.5 sm:shrink-0'>
-                    <DecisionStatus status={request.state} />
-                    <CopyPayloadButton label='Case create request' payload={request} />
-                </div>
-            </div>
+            <SelectedPanelHeader title={<>Case request · {request.refs.alertIds.length} alerts · {request.refs.captureIds.length} captures · {request.sourceRows.length} sources · {request.refs.watchTerms.length} terms</>}>
+                <DecisionStatus status={request.state} />
+                <CopyPayloadButton label='Case create request' payload={request} />
+            </SelectedPanelHeader>
             <p className='mt-2 wrap-break-word text-[11px] text-ui-muted dark:text-ui-muted'>{consumerRequestPathLabel(request.request.path)} ready for authenticated review.</p>
             <p className='mt-2 wrap-break-word text-[11px] leading-5 text-ui-muted dark:text-ui-muted'>{displayRequirementText(request.nextAction)}</p>
             <div data-ti-selected-case-actor-context='true' className='mt-2 rounded-md border border-ui-border bg-ui-panel p-2 dark:border-ui-border dark:bg-ui-panel'>

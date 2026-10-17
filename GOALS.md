@@ -760,3 +760,13 @@ check, and Next production build pass with all 116 routes generated. The
 separately gated Playwright project-flow journey was not run in this checkpoint.
 Inventory: 2,262 files / 151,721 LOC / zero over 200. The 10,000–30,000 LOC
 frontend and 100,000-line API goals remain unmet.
+
+The seven TI selected-action panels now share one responsive title/action header
+component. This removes 27 repeated JSX lines while retaining the same rendered
+elements, class names, titles, actions, data hooks, and panel data derivation.
+A registered server-render test locks the shared header markup. The focused test,
+full default frontend suite, typecheck, focused ESLint, frontend 200-line scan,
+and production build pass; all 116 routes generate. The frontend inventory stays
+at 2,264 files / 151,721 LOC / zero over 200, so this is a reuse/readability
+improvement rather than net LOC reduction. The frontend 10,000–30,000 LOC and
+API 100,000-line reduction goals remain unmet.

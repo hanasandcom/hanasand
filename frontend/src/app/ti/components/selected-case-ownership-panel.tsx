@@ -4,19 +4,15 @@ import { caseReviewReferenceSummary, recommendedActionLabel, sourceHealthChipCla
 import { decisionStepStatusClass, displayRequirementList, displayRequirementText, formatLabel, publicStateLabel, type SelectedCaseOwnershipPlan } from '../pageModel'
 import CopyPayloadButton from './copy-payload-button'
 import DecisionStatus from './decision-status'
+import SelectedPanelHeader from './selected-panel-header'
 
 export default function SelectedCaseOwnershipPanel({ plan }: { plan: SelectedCaseOwnershipPlan }) {
     return (
         <div data-ti-selected-case-ownership='true' className='border-t border-ui-border pt-3 dark:border-ui-border'>
-            <div className='flex min-w-0 flex-wrap items-center justify-between gap-2 text-xs'>
-                <p className='min-w-0 wrap-break-word font-semibold text-ui-muted dark:text-ui-muted'>
-                    Case actions · {plan.summary.caseCandidates} candidates · {plan.summary.replayReady} replay-ready · {plan.summary.relatedAlerts} alerts · {plan.summary.captures} captures
-                </p>
-                <div className='flex flex-wrap items-center justify-end gap-1.5 sm:shrink-0'>
-                    <DecisionStatus status={plan.state} />
-                    <CopyPayloadButton label='Case ownership' payload={plan} />
-                </div>
-            </div>
+            <SelectedPanelHeader title={<>Case actions · {plan.summary.caseCandidates} candidates · {plan.summary.replayReady} replay-ready · {plan.summary.relatedAlerts} alerts · {plan.summary.captures} captures</>}>
+                <DecisionStatus status={plan.state} />
+                <CopyPayloadButton label='Case ownership' payload={plan} />
+            </SelectedPanelHeader>
             <div className='mt-2 flex min-w-0 flex-wrap gap-1.5'>
                 <span className='max-w-full wrap-break-word rounded-md border border-ui-border bg-ui-panel px-2 py-1 text-[11px] font-semibold text-ui-text dark:border-ui-border dark:bg-ui-panel dark:text-ui-text'>
                     owner {plan.owner.label}

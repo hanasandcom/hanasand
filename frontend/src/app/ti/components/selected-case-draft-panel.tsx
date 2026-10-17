@@ -3,19 +3,15 @@
 import { compactSourceReferenceLabel, handoffMissingLabel, sourceHealthChipClass } from '../pageClientShared'
 import { decisionStepStatusClass, displayRequirementList, displayRequirementText, formatLabel, sourceBasisLabel, type SelectedCaseDraft } from '../pageModel'
 import CopyPayloadButton from './copy-payload-button'
+import SelectedPanelHeader from './selected-panel-header'
 
 export default function SelectedCaseDraftPanel({ draft }: { draft: SelectedCaseDraft }) {
     return (
         <div data-ti-selected-case-draft='true' className='border-t border-ui-border pt-3 dark:border-ui-border'>
-            <div className='flex min-w-0 flex-wrap items-center justify-between gap-2 text-xs'>
-                <p className='min-w-0 wrap-break-word font-semibold text-ui-muted dark:text-ui-muted'>
-                    Case draft · {formatLabel(draft.caseIntent)} · {draft.sourceRows.length} source row{draft.sourceRows.length === 1 ? '' : 's'}
-                </p>
-                <div className='flex flex-wrap items-center justify-end gap-1.5 sm:shrink-0'>
-                    <span className={draft.ready ? decisionStepStatusClass('ready') : decisionStepStatusClass('blocked')}>{draft.ready ? 'ready' : 'syncing'}</span>
-                    <CopyPayloadButton label='Case draft' payload={draft} />
-                </div>
-            </div>
+            <SelectedPanelHeader title={<>Case draft · {formatLabel(draft.caseIntent)} · {draft.sourceRows.length} source row{draft.sourceRows.length === 1 ? '' : 's'}</>}>
+                <span className={draft.ready ? decisionStepStatusClass('ready') : decisionStepStatusClass('blocked')}>{draft.ready ? 'ready' : 'syncing'}</span>
+                <CopyPayloadButton label='Case draft' payload={draft} />
+            </SelectedPanelHeader>
             <p className='mt-2 wrap-break-word text-[11px] text-ui-muted dark:text-ui-muted'>{displayRequirementText(draft.route || draft.endpoint)}</p>
             {draft.sourceRows.length ? (
                 <div data-ti-selected-case-sources='true' className='mt-2 grid min-w-0 gap-2'>
