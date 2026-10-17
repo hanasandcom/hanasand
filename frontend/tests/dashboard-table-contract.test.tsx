@@ -3,7 +3,17 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 // @ts-expect-error Bun provides this module when running focused tests.
 import { test } from 'bun:test'
-import { DashboardTable } from '../src/components/dashboard/ui'
+import { DashboardPanel, DashboardTable } from '../src/components/dashboard/ui'
+
+test('dashboard panels forward section attributes without changing their shared class', () => {
+    const panel = renderToStaticMarkup(createElement(DashboardPanel, {
+        id: 'system-vms',
+        'data-system-vms': true,
+        'aria-label': 'Virtual machines',
+        className: 'p-4',
+    }, 'VM inventory'))
+    assert.equal(panel, '<section id="system-vms" data-system-vms="true" aria-label="Virtual machines" class="rounded-lg border border-ui-border bg-ui-panel shadow-sm shadow-ui-canvas/10 dark:shadow-ui-canvas/20 p-4">VM inventory</section>')
+})
 
 test('shared dashboard tables preserve case and delivery DOM contracts', () => {
     const cases = renderToStaticMarkup(createElement(DashboardTable, {

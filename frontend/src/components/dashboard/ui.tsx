@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from 'react'
+import type { ComponentProps, CSSProperties, ReactNode } from 'react'
 
 type DashboardPageProps = {
     children: ReactNode
@@ -13,11 +13,7 @@ type DashboardHeaderProps = {
     actions?: ReactNode
 }
 
-type DashboardPanelProps = {
-    children: ReactNode
-    className?: string
-    id?: string
-}
+type DashboardPanelProps = ComponentProps<'section'>
 
 export const dashboardPanelClass = 'rounded-lg border border-ui-border bg-ui-panel shadow-sm shadow-ui-canvas/10 dark:shadow-ui-canvas/20'
 
@@ -30,8 +26,8 @@ export function DashboardHeader(props: DashboardHeaderProps) {
     return null
 }
 
-export function DashboardPanel({ children, className = '', id }: DashboardPanelProps) {
-    return <section id={id} className={`${dashboardPanelClass} ${className}`.trim()}>{children}</section>
+export function DashboardPanel({ children, className = '', ...attributes }: DashboardPanelProps) {
+    return <section {...attributes} className={`${dashboardPanelClass} ${className}`.trim()}>{children}</section>
 }
 
 export function DashboardTable({
