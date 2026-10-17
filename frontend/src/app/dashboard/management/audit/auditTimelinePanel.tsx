@@ -3,7 +3,7 @@ import { param } from './data'
 import type useAuditTimeline from './useAuditTimeline'
 import type { AuditEvent } from './data'
 import { AuditRows, compactTime } from './timelineRows'
-import { DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPanel, DashboardTable } from '@/components/dashboard/ui'
 
 type TimelineModel = ReturnType<typeof useAuditTimeline>
 
@@ -110,29 +110,26 @@ function AuditTable({ model, pendingEvent, acknowledgmentError, onAcknowledge }:
     onAcknowledge: (event: AuditEvent) => void
 }) {
     const { queryResult, sortedEvents, openEvent, setOpenEvent, searchError, audit } = model
-    if (queryResult) return <table className='min-w-full border-separate border-spacing-0 text-xs'>
-        <thead className='sticky top-0 z-10 bg-ui-panel text-left text-ui-muted'>
-            <tr>{queryResult.columns.map(column => <th key={column} className='border-b border-ui-border px-3 py-2'>{column === 'TimeGenerated' ? 'Time' : column}</th>)}</tr>
-        </thead>
-        <tbody>
+    const tableHeaders = queryResult
+        ? queryResult.columns.map(column => <th key={column} className='border-b border-ui-border px-3 py-2'>{column === 'TimeGenerated' ? 'Time' : column}</th>)
+        : ['Time', 'Service', 'Actor', 'Action', 'Target', 'Result', 'Description'].map(label => <th key={label} className='border-b border-ui-border px-3 py-2'>{label}</th>)
+
+    return <DashboardTable
+        className='min-w-full border-separate border-spacing-0 text-xs'
+        headClassName={queryResult ? 'sticky top-0 z-10 bg-ui-panel text-left text-ui-muted' : 'sticky top-0 z-10 bg-ui-panel/95 text-left text-[10px] font-semibold text-ui-muted backdrop-blur'}
+        bodyClassName={queryResult ? null : 'bg-ui-panel'}
+        columnHeaders={tableHeaders}
+    >
+        {queryResult ? <>
             {queryResult.rows.map((row, index) => <tr key={index} className='align-top hover:bg-ui-raised'>
                 {row.map((value, cell) => <td key={cell} className='border-b border-ui-border px-3 py-1.5'>{queryResult.columns[cell] === 'TimeGenerated' && value ? compactTime(String(value)) : String(value ?? '—')}</td>)}
             </tr>)}
             {!queryResult.rows.length ? <tr><td colSpan={queryResult.columns.length} className='p-8 text-center text-ui-muted'>No audit events match this query.</td></tr> : null}
-        </tbody>
-    </table>
-
-    return <table className='min-w-full border-separate border-spacing-0 text-xs'>
-        <thead className='sticky top-0 z-10 bg-ui-panel/95 text-left text-[10px] font-semibold text-ui-muted backdrop-blur'>
-            <tr>
-                {['Time', 'Service', 'Actor', 'Action', 'Target', 'Result', 'Description'].map(label => <th key={label} className='border-b border-ui-border px-3 py-2'>{label}</th>)}
-            </tr>
-        </thead>
-        <tbody className='bg-ui-panel'>
+        </> : <>
             {sortedEvents.map(event => <AuditRows key={event.id} event={event} open={openEvent === event.id} pending={pendingEvent === event.id} acknowledgmentError={acknowledgmentError?.id === event.id ? acknowledgmentError.message : ''} toggle={() => setOpenEvent(openEvent === event.id ? null : event.id)} acknowledge={() => onAcknowledge(event)} />)}
             {!sortedEvents.length && !searchError ? <tr><td colSpan={7} className='px-4 py-8 text-center text-sm text-ui-muted'>
                 {audit.available ? 'No audit events match these filters.' : 'Audit storage is unavailable. The result is not being treated as an empty log.'}
             </td></tr> : null}
-        </tbody>
-    </table>
+        </>}
+    </DashboardTable>
 }

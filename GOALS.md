@@ -2894,3 +2894,13 @@ nonincremental TypeScript, full frontend and repository line-cap checks, and
 156,843 lines, with no file above 200; that is 3,135 lines above the 153,708
 baseline. This contract extraction and test coverage add lines, so they do not
 advance the aggregate reduction target, which remains unmet.
+
+The management audit timeline now composes both query-result and live-event
+tables through the existing `DashboardTable`, preserving their distinct header
+and body classes, column labels, empty states, and rows. Independent review
+confirmed the rendered table structure and classes are equivalent. The audit
+tests (3/3), scoped ESLint, nonincremental typecheck, full frontend cap, and
+diff checks pass. The frontend currently scans as 2,432 source/config files /
+156,840 lines, with no file above 200; that is 3,132 lines above the 153,708
+baseline. This is a small reuse/duplication cleanup and does not materially
+reduce the aggregate frontend size; the 10,000–30,000-line target remains open.
