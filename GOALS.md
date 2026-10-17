@@ -2609,3 +2609,14 @@ scan is 4,564 files / 328,992 lines, with no file above 200. The frontend
 checkpoints net-reduce 11 lines. Five verified commits remain local while the
 integrated refactor is unfinished; the aggregate frontend/API reduction goals
 remain unmet.
+
+At the current frontend checkpoint, the dashboard delivery-ordering regression is
+registered in the normal frontend task runner; before this change, it was the
+only discovered `.test.*` file omitted from all 433 frontend test/spec tasks.
+`bun scripts/index.ts --only=dashboard-delivery-ordering` passes (1 test), the
+scoped ESLint and frontend cap pass, and an independent review confirmed the
+ID is selected by the normal default suite. This adds one test-runner line and
+no production LOC reduction. The fresh frontend inventory is 2,418 source/config
+files / 156,235 lines, with no file above 200. Aggregate LOC reduction remains
+unachieved; a second discovered runner entry points at a missing test file and
+is being verified before cleanup.
