@@ -891,3 +891,17 @@ hand-maintained files / 322,421 LOC, with 109 over 200 lines, all outside the
 frontend. Frontend size remains far above 10,000–30,000 LOC; the API reduction
 target remains unmet. Local branch is 31 commits ahead of `github/main`; no
 remote publication was performed.
+
+The latest API slices moved four former over-cap files (AI project builder,
+impersonation, AI economics, and admin inspection packets) into responsibility-
+based modules while preserving compatibility exports. Characterization tests,
+route tests, and SQL parameter/order checks pass; each touched module is <=200
+lines. Structural extraction adds roughly 124 production lines in aggregate,
+so this work improves boundaries and readability rather than achieving the
+100,000-line reduction goal. A duplicate unreachable AI project-builder rule
+and single-use helpers were removed; output hashes and key generated paths are
+covered. Frontend cap remains zero violations at 2,276 files / 152,103 LOC,
+and its full test suite and production build (116 routes) passed. The repository
+scan is 4,055 files / 322,580 LOC with 105 over 200, four fewer than the earlier
+109-file scan; all frontend files pass. Branch is 36 commits ahead of
+`github/main`; changes remain local and unpublished.
