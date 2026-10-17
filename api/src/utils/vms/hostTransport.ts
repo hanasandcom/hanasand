@@ -1,4 +1,5 @@
 import https from 'node:https'
+import type { LookupFunction } from 'node:net'
 import { Readable } from 'node:stream'
 import WebSocket from 'ws'
 import config from '#constants'
@@ -7,6 +8,16 @@ const addresses: Record<string,string> = { inspur: '128.39.142.218', ovhcloud: '
 export const supportedHost = (host: string) => Object.hasOwn(addresses, host)
 export const otherHost = (host: string) => host === 'inspur' ? 'ovhcloud' : host === 'ovhcloud' ? 'inspur' : null
 export const supportedVmHostPath = (path: string) => path.startsWith('/vm/') && !path.includes('..') || isInternalProvisionPath(path) || isInternalConsolePath(path)
+
+export function pinnedHostLookup(address: string): LookupFunction {
+    return (_hostname, options, callback) => {
+        if (options.all) {
+            callback(null, [{ address, family: 4 }])
+            return
+        }
+        callback(null, address, 4)
+    }
+}
 
 export function internalHostWebSocketTarget(host: string, path: string) {
     if (!supportedHost(host) || !isInternalConsolePath(path)) throw new Error('Unsupported container host websocket.')
@@ -19,7 +30,7 @@ export function internalHostWebSocketTarget(host: string, path: string) {
 
 export function internalHostWebSocket(host: string, path: string) {
     const target = internalHostWebSocketTarget(host, path)
-    const agent = new https.Agent({ lookup: (_hostname, _options, callback) => callback(null, target.address, 4) })
+    const agent = new https.Agent({ lookup: pinnedHostLookup(target.address) })
     const socket = new WebSocket(target.url, {
         agent,
         headers: { authorization: target.authorization },
@@ -39,7 +50,7 @@ export async function internalHostFetch(host: string, path: string, options: Req
     return new Promise<Response>((resolve, reject) => {
         const req = https.request(url, {
             method: options.method || 'GET', headers, timeout: 120000,
-            lookup: (_hostname, _options, callback) => callback(null, addresses[host], 4),
+            lookup: pinnedHostLookup(addresses[host]),
             signal: options.signal || undefined,
         }, response => {
             const resultHeaders = new Headers()

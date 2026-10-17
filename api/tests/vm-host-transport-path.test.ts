@@ -1,5 +1,17 @@
-import { expect, test } from 'bun:test'
-import { internalHostWebSocketTarget, supportedVmHostPath } from '../src/utils/vms/hostTransport.ts'
+import { expect, mock, test } from 'bun:test'
+import { internalHostWebSocketTarget, pinnedHostLookup, supportedVmHostPath } from '../src/utils/vms/hostTransport.ts'
+
+test('pinned host lookup supports single-address and all-address HTTPS lookup contracts', () => {
+    const lookup = pinnedHostLookup('192.99.32.185')
+    const single = mock((error: NodeJS.ErrnoException | null, address: string | Array<{ address: string; family: number }>, family?: number) => ({ error, address, family }))
+    const all = mock((error: NodeJS.ErrnoException | null, addresses: string | Array<{ address: string; family: number }>, family?: number) => ({ error, addresses, family }))
+
+    lookup('internal.hanasand.com', {}, single as never)
+    lookup('internal.hanasand.com', { all: true }, all as never)
+
+    expect(single.mock.calls[0]).toEqual([null, '192.99.32.185', 4])
+    expect(all.mock.calls[0]).toEqual([null, [{ address: '192.99.32.185', family: 4 }]])
+})
 
 test('remote console keeps TLS on the service hostname while pinning the selected VM host', () => {
     const target = internalHostWebSocketTarget('ovhcloud', '/vms/internal/cashflow/console')
