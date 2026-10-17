@@ -1,4 +1,4 @@
-export type HostOption = 'always_running' | 'failover'
+export type HostOption = 'failover'
 
 export default async function buyHostOption(vmName: string, feature: HostOption) {
     const response = await fetch('/api/backend/billing/container-checkout', {

@@ -35,21 +35,7 @@ export function memoryBytes(value?: string): number | null {
     return Number(match[1]) * (match[3]?.toLowerCase() === 'ib' ? 1024 : 1000) ** exponent
 }
 
-export function filesystemMetrics(text: string) {
-    const result = new Map<string, { size?: number, free?: number }>()
-    for (const line of text.split('\n')) {
-        const match = /^lxd_filesystem_(size|free)_bytes\{(.*)\}\s+(\S+)$/.exec(line)
-        if (!match) continue
-        const labels: Record<string, string> = {}
-        for (const label of match[2].matchAll(/(\w+)=("(?:[^"\\]|\\.)*")/g)) labels[label[1]] = JSON.parse(label[2])
-        if (labels.project !== 'default' || labels.mountpoint !== '/' || !labels.name) continue
-        const value = finite(Number(match[3]))
-        if (value !== null) result.set(labels.name, { ...result.get(labels.name), [match[1]]: value })
-    }
-    return result
-}
-
-export function metricSample(instance: Instance, at: number, history: Map<string, Counter>, filesystem?: { size?: number, free?: number }) {
+export function metricSample(instance: Instance, at: number, history: Map<string, Counter>) {
     const running = instance.status === 'Running'
     const state = instance.state
     const cores = cpuCount(instance.expanded_config?.['limits.cpu'])
@@ -68,14 +54,17 @@ export function metricSample(instance: Instance, at: number, history: Map<string
     }
     const cpu = cores ? delta('cpu', 100 / 1e9 / cores) : null
     const boot = Date.parse(instance.last_used_at ?? '')
-    const diskSize = finite(filesystem?.size)
-    const diskFree = finite(filesystem?.free)
+    const diskUsage = finite(state?.disk?.root?.usage)
+    const diskTotal = finite(state?.disk?.root?.total)
     return {
         name: instance.name,
         cpu_usage_percent: cpu === null ? null : Math.min(100, Math.round(cpu * 100) / 100), cpu_cores: cores,
         ram_used_mb: instance.status === 'Stopped' ? 0 : mb(finite(state?.memory?.usage)), ram_total_mb: mb(finite(state?.memory?.total) || memoryBytes(instance.expanded_config?.['limits.memory'])),
-        disk_used_mb: diskSize !== null && diskFree !== null && diskFree <= diskSize ? mb(diskSize - diskFree) : null,
-        disk_total_mb: mb(diskSize ?? finite(state?.disk?.root?.total)),
+        // LXD's host-wide filesystem metrics describe the storage pool, not an
+        // individual instance. Only report disk usage when the instance state
+        // contains a positive per-instance root measurement.
+        disk_used_mb: diskTotal !== null && diskTotal > 0 && diskUsage !== null && diskUsage <= diskTotal ? mb(diskUsage) : null,
+        disk_total_mb: diskTotal !== null && diskTotal > 0 ? mb(diskTotal) : null,
         net_in_kbps: delta('received', 8 / 1000) === null ? null : Math.round(delta('received', 8 / 1000)!),
         net_out_kbps: delta('sent', 8 / 1000) === null ? null : Math.round(delta('sent', 8 / 1000)!),
         power_state: running ? 'on' : instance.status === 'Stopped' ? 'off' : 'suspended',
@@ -100,10 +89,7 @@ async function collect() {
     )).rows.map(row => row.name))
     const instances = response.metadata.filter(instance => registered.has(instance.name))
     const missing = [...registered].filter(name => !instances.some(instance => instance.name === name))
-    let filesystem = new Map<string, { size?: number, free?: number }>()
-    let filesystemError: unknown
-    try { filesystem = filesystemMetrics(await (await lxd('/1.0/metrics')).text()) } catch (error) { filesystemError = error }
-    const samples = instances.map(instance => metricSample(instance, Date.now(), previous, filesystem.get(instance.name)))
+    const samples = instances.map(instance => metricSample(instance, Date.now(), previous))
     for (const name of previous.keys()) if (!instances.some(instance => instance.name === name)) previous.delete(name)
     if (samples.length) await run(`
         INSERT INTO vm_metrics (name, cpu_usage_percent, cpu_cores, ram_used_mb, ram_total_mb, disk_used_mb, disk_total_mb, net_in_kbps, net_out_kbps, power_state, powered_on_at, uptime_seconds, created_at)
@@ -112,7 +98,6 @@ async function collect() {
         JOIN vms v ON v.name = m.name
     `, [JSON.stringify(samples)])
     if (missing.length) throw new Error(`VM metrics: ${missing.length} registered instances are missing from the host.`)
-    if (filesystemError) throw filesystemError
     return { sampled: samples.length }
 }
 

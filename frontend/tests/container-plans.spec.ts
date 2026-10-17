@@ -15,7 +15,7 @@ test.beforeEach(async ({ page }) => {
     await page.route('http://container-plans.test/fixture.js', route => route.fulfill({ contentType: 'application/javascript', body: bundle }))
     await page.route('http://container-plans.test/', route => route.fulfill({ contentType: 'text/html', body: '<div id="root"></div><script src="/fixture.js"></script>' }))
 })
-test('selects one container, shows both prices and sends the selected option to checkout', async ({ page }) => {
+test('selects one container and offers only paid failover at 49 NOK per month', async ({ page }) => {
     await page.route('**/api/backend/billing/container-products', route => route.fulfill({ json: { containers: [
         { name: 'demo-web', always_running_premium: true, failover_premium: false },
         { name: 'demo-worker', always_running_premium: false, failover_premium: false },
@@ -26,13 +26,13 @@ test('selects one container, shows both prices and sends the selected option to 
         return route.fulfill({ status: 503, json: { error: 'Payment service is temporarily unavailable.' } })
     })
     await page.goto('http://container-plans.test/')
-    await expect(page.getByText('49 NOK')).toBeVisible()
-    await expect(page.getByText('99 NOK')).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Already purchased' })).toBeDisabled()
+    await expect(page.getByText('49 NOK')).toHaveCount(1)
+    await expect(page.getByText('99 NOK')).toHaveCount(0)
+    await expect(page.getByText('Always running')).toHaveCount(0)
     await page.getByLabel('Container', { exact: true }).selectOption('demo-worker')
-    await page.getByRole('article').filter({ has: page.getByRole('heading', { name: 'Always running' }) }).getByRole('button').click()
+    await page.getByRole('article').filter({ has: page.getByRole('heading', { name: 'Failover' }) }).getByRole('button').click()
     await expect(page.getByRole('alert')).toHaveText('Payment service is temporarily unavailable.')
-    expect(submitted).toEqual({ vmName: 'demo-worker', feature: 'always_running' })
+    expect(submitted).toEqual({ vmName: 'demo-worker', feature: 'failover' })
 })
 test('signed-out users see prices and a sign-in link without an enabled purchase button', async ({ page }) => {
     await page.route('**/api/backend/billing/container-products', route => route.fulfill({ status: 401, json: {} }))

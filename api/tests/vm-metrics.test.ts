@@ -1,13 +1,19 @@
 import { describe, expect, test } from 'bun:test'
-import { cpuCount, memoryBytes, filesystemMetrics, metricSample, type Instance } from '../src/utils/vms/collectMetrics.ts'
+import { cpuCount, memoryBytes, metricSample, type Instance } from '../src/utils/vms/collectMetrics.ts'
 const at = Date.parse('2026-09-12T20:00:00Z')
 const vm: Instance = { name: 'cashflow', status: 'Running', last_used_at: new Date(at - 3600_000).toISOString(), expanded_config: { 'limits.cpu': '2' }, state: { cpu: { usage: 1e9 }, memory: { usage: 512 * 1048576, total: 1024 * 1048576 }, network: { eth0: { host_name: 'tap1', counters: { bytes_received: 1000, bytes_sent: 2000 } }, docker0: { counters: { bytes_received: 1e9, bytes_sent: 1e9 } } } } }
 describe('VM metrics', () => {
-    test('collects real memory, filesystem usage and power-on uptime', () => {
-        const row = metricSample(vm, at, new Map(), { size: 100 * 1048576, free: 40 * 1048576 })
-        expect(row).toMatchObject({ ram_used_mb: 512, ram_total_mb: 1024, disk_used_mb: 60, disk_total_mb: 100, uptime_seconds: 3600, power_state: 'on' })
+    test('collects instance memory and power-on uptime without inventing disk metrics', () => {
+        const row = metricSample(vm, at, new Map())
+        expect(row).toMatchObject({ ram_used_mb: 512, ram_total_mb: 1024, disk_used_mb: null, disk_total_mb: null, uptime_seconds: 3600, power_state: 'on' })
         expect(row.cpu_usage_percent).toBeNull()
         expect(row.net_in_kbps).toBeNull()
+    })
+    test('uses only positive per-instance root disk measurements', () => {
+        const row = metricSample({ ...vm, state: { ...vm.state, disk: { root: { usage: 60 * 1048576, total: 100 * 1048576 } } } }, at, new Map())
+        expect(row).toMatchObject({ disk_used_mb: 60, disk_total_mb: 100 })
+        const unavailable = metricSample({ ...vm, state: { ...vm.state, disk: { root: { usage: 0, total: 0 } } } }, at, new Map())
+        expect(unavailable).toMatchObject({ disk_used_mb: null, disk_total_mb: null })
     })
     test('calculates per-core CPU and external NIC rates between collections', () => {
         const history = new Map()
@@ -55,12 +61,5 @@ describe('VM metrics', () => {
         expect(cpuCount('4')).toBe(4)
         expect(cpuCount('0-2,2,5')).toBe(4)
         expect(cpuCount('bad')).toBeNull()
-    })
-    test('uses only the matching project root filesystem, including exponent values', () => {
-        const text = 'lxd_filesystem_size_bytes{name="cashflow",project="default",mountpoint="/"} 1e9\n' +
-            'lxd_filesystem_free_bytes{name="cashflow",project="default",mountpoint="/"} 2e8\n' +
-            'lxd_filesystem_size_bytes{name="cashflow",project="other",mountpoint="/"} 9e9\n' +
-            'lxd_filesystem_size_bytes{name="cashflow",project="default",mountpoint="/run"} 8e9'
-        expect(filesystemMetrics(text).get('cashflow')).toEqual({ size: 1e9, free: 2e8 })
     })
 })

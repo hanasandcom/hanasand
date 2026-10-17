@@ -7,10 +7,10 @@ import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import { vmLifecycleLock } from '#utils/vms/lifecycleLock.ts'
 
 export const containerPlans = {
-    always_running: { name: 'Always running', priceNok: 49 },
     failover: { name: 'Failover', priceNok: 49 },
 } as const
 type Feature = keyof typeof containerPlans
+type StoredFeature = Feature | 'always_running'
 
 export async function ensureContainerBillingSchema() {
     await run(`CREATE TABLE IF NOT EXISTS container_subscriptions (
@@ -57,7 +57,7 @@ export function containerCheckoutBody(input: { id: string, userId: string, vmNam
 export async function getContainerProducts(req: FastifyRequest, res: FastifyReply) {
     const auth = await tokenWrapper(req, res)
     if (!auth.valid || !auth.id) return res.status(401).send({ error: 'Unauthorized.' })
-    const containers = await run(`SELECT name, primary_host, always_running_premium, failover_premium FROM vms
+    const containers = await run(`SELECT name, primary_host, failover_premium FROM vms
         WHERE owner = $1 AND deleted_at IS NULL ORDER BY name`, [auth.id])
     return res.header('Cache-Control', 'no-store').send({
         plans: Object.entries(containerPlans).map(([id, plan]) => ({ id, ...plan, currency: 'NOK', interval: 'month' })),
@@ -122,7 +122,7 @@ export async function applyContainerStripeEvent(type: string, object: Record<str
     const subscription = type === 'customer.subscription.deleted' ? object : await stripe('subscriptions/' + encodeURIComponent(subscriptionId))
     if (subscription.metadata?.container_purchase_id !== purchase.id) throw new Error('Container subscription metadata mismatch.')
     if (purchase.stripe_subscription_id && purchase.stripe_subscription_id !== subscriptionId) throw new Error('Container subscription already bound.')
-    const active = validContainerSubscription(purchase.feature as Feature, subscription)
+    const active = validContainerSubscription(purchase.feature as StoredFeature, subscription)
     if (!purchase.vm_name) {
         await run('UPDATE container_subscriptions SET stripe_subscription_id = $2, status = $3, updated_at = NOW() WHERE id = $1',
             [purchase.id, subscriptionId, active ? 'active' : subscription.status === 'active' ? 'invalid' : String(subscription.status || 'inactive')])
@@ -150,9 +150,13 @@ export async function applyContainerStripeEvent(type: string, object: Record<str
     return true
 }
 
-export function validContainerSubscription(feature: Feature, subscription: {
+export function validContainerSubscription(feature: StoredFeature, subscription: {
     status?: unknown; items?: { data?: Array<{ quantity?: unknown; price?: { unit_amount?: unknown; currency?: unknown; recurring?: { interval?: unknown; interval_count?: unknown } } }> }
 }) {
+    // Always-running was incorrectly exposed as a paid host option. Keep old
+    // subscription rows revocable through Stripe events, but never grant or
+    // restore that obsolete paid entitlement.
+    if (feature === 'always_running') return false
     const item = subscription.items?.data?.[0]
     return subscription.status === 'active' && subscription.items?.data?.length === 1 && item?.quantity === 1
         && item.price?.unit_amount === containerPlans[feature].priceNok * 100 && item.price?.currency === 'nok'

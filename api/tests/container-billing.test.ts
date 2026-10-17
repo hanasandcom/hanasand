@@ -28,7 +28,7 @@ beforeEach(() => {
     process.env.CONTAINER_HOST_OPTIONS_ENABLED = 'true'
     user = 'owner'; calls = 0; premium = undefined; policyCalls = []
     vm = { name: 'example-container', owner: 'owner', primary_host: 'inspur', deleted_at: null, always_running_premium: false }
-    purchase = { id, vm_name: vm.name, user_id: 'owner', feature: 'always_running', status: 'pending', stripe_subscription_id: 'sub_example' }
+    purchase = { id, vm_name: vm.name, user_id: 'owner', feature: 'failover', status: 'pending', stripe_subscription_id: 'sub_example' }
     subscription = { id: 'sub_example', status: 'active', metadata: { container_purchase_id: id }, items: { data: [{ quantity: 1, price: { unit_amount: 4900, currency: 'nok', recurring: { interval: 'month', interval_count: 1 } } }] } }
 })
 function reply() {
@@ -41,33 +41,39 @@ async function event(type = 'checkout.session.completed', payload: Record<string
     try { return await applyContainerStripeEvent(type, payload) }
     finally { globalThis.fetch = realFetch; if (previous === undefined) delete process.env.STRIPE_SECRET_KEY; else process.env.STRIPE_SECRET_KEY = previous }
 }
-test('monthly prices and container identity are explicit in checkout', () => {
-    for (const [feature, amount] of [['always_running', '4900'], ['failover', '4900']] as const) {
-        const body = containerCheckoutBody({ id, userId: 'owner', vmName: 'example-container', feature, site: 'https://example.com' })
-        expect(body.get('line_items[0][price_data][unit_amount]')).toBe(amount)
-        expect(body.get('line_items[0][price_data][currency]')).toBe('nok')
-        expect(body.get('line_items[0][price_data][recurring][interval]')).toBe('month')
-        expect(body.get('subscription_data[metadata][container_purchase_id]')).toBe(id)
-    }
+test('only failover is sold as a 49 NOK monthly container option', () => {
+    const body = containerCheckoutBody({ id, userId: 'owner', vmName: 'example-container', feature: 'failover', site: 'https://example.com' })
+    expect(body.get('line_items[0][price_data][unit_amount]')).toBe('4900')
+    expect(body.get('line_items[0][price_data][currency]')).toBe('nok')
+    expect(body.get('line_items[0][price_data][recurring][interval]')).toBe('month')
+    expect(body.get('subscription_data[metadata][container_purchase_id]')).toBe(id)
 })
 test('unpaid, wrong-price, wrong-currency, multiple-item and yearly subscriptions do not grant access', () => {
-    expect(validContainerSubscription('always_running', subscription)).toBe(true)
+    expect(validContainerSubscription('failover', subscription)).toBe(true)
+    expect(validContainerSubscription('always_running', subscription)).toBe(false)
     for (const value of [
         { ...subscription, status: 'trialing' }, { ...subscription, status: 'past_due' },
         { ...subscription, items: { data: [{ quantity: 1, price: { unit_amount: 49, currency: 'nok', recurring: { interval: 'month' } } }] } },
         { ...subscription, items: { data: [{ quantity: 1, price: { unit_amount: 4900, currency: 'usd', recurring: { interval: 'month' } } }] } },
         { ...subscription, items: { data: [{ quantity: 1, price: { unit_amount: 4900, currency: 'nok', recurring: { interval: 'month', interval_count: 12 } } }] } },
         { ...subscription, items: { data: [{}, {}] } },
-    ]) expect(validContainerSubscription('always_running', value)).toBe(false)
+    ]) expect(validContainerSubscription('failover', value)).toBe(false)
 })
 test('checkout requires authentication, ownership, and no existing entitlement', async () => {
-    const request = { body: { vmName: 'example-container', feature: 'always_running' }, log: { error() {} } }
+    const request = { body: { vmName: 'example-container', feature: 'failover' }, log: { error() {} } }
     user = null
     let res = reply(); await createContainerCheckout(request as never, res as never); expect(res.statusCode).toBe(401)
     user = 'someone-else'
     res = reply(); await createContainerCheckout(request as never, res as never); expect(res.statusCode).toBe(404)
-    user = 'owner'; vm!.always_running_premium = true
+    user = 'owner'; vm!.failover_premium = true
     res = reply(); await createContainerCheckout(request as never, res as never); expect(res.statusCode).toBe(409)
+})
+test('checkout rejects the obsolete paid always-running option before contacting Stripe', async () => {
+    const request = { body: { vmName: 'example-container', feature: 'always_running' }, log: { error() {} } }
+    const res = reply()
+    await createContainerCheckout(request as never, res as never)
+    expect(res.statusCode).toBe(400)
+    expect(calls).toBe(0)
 })
 test('valid payment grants only its container entitlement', async () => {
     expect(await event()).toBe(true)
@@ -80,12 +86,12 @@ test('an active subscription with an invalid amount stays invalid in storage', a
     expect(purchase.status).toBe('invalid')
     expect(premium).toBe(false)
 })
-test('cancellation disables the runtime policy, and a stale checkout cannot restore it', async () => {
+test('cancellation removes the entitlement, and a stale checkout cannot restore it', async () => {
     subscription.status = 'canceled'
     await event('customer.subscription.deleted', subscription)
     expect(calls).toBe(0)
     expect(premium).toBe(false)
-    expect(policyCalls).toEqual([false])
+    expect(policyCalls).toEqual([])
     await event()
     expect(calls).toBe(1)
     expect(premium).toBe(false)

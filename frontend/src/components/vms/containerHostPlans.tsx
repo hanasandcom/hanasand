@@ -4,7 +4,7 @@ import buyHostOption, { type HostOption } from '@/utils/vms/fetch/buyHostOption'
 import { useEffect, useState } from 'react'
 import { containerAccessPlans } from '@/utils/commercialAccess'
 
-type Container = { name: string, always_running_premium: boolean, failover_premium: boolean }
+type Container = { name: string, failover_premium: boolean }
 export default function ContainerHostPlans() {
     const [containers, setContainers] = useState<Container[]>([])
     const [selected, setSelected] = useState('')
@@ -43,7 +43,7 @@ export default function ContainerHostPlans() {
                     </select></label>
                     : !message ? <Link href='/vms' className='text-sm font-semibold text-ui-primary'>Create a container to add host options</Link> : null}
         <div className='grid gap-4 md:grid-cols-2'>{containerAccessPlans.map(plan => {
-            const active = container?.[plan.id === 'always_running' ? 'always_running_premium' : 'failover_premium']
+            const active = container?.failover_premium
             return <article key={plan.id} className='grid gap-3 rounded-lg border border-ui-border p-4'>
                 <h3 className='font-semibold text-ui-text'>{plan.name}</h3>
                 <p className='text-sm text-ui-muted'>{plan.summary}</p>

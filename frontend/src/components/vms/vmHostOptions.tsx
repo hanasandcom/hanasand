@@ -1,6 +1,6 @@
 'use client'
 
-import { Activity, ArrowLeftRight, Crown, Server } from 'lucide-react'
+import { ArrowLeftRight, Crown, Server } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useState } from 'react'
 import buyHostOption, { type HostOption } from '@/utils/vms/fetch/buyHostOption'
@@ -17,30 +17,16 @@ type VMHostOptionsProps = {
 
 export default function VMHostOptions({ boxStyle, boxTitleStyle, vm, onUpdate }: VMHostOptionsProps) {
     const [message, setMessage] = useState('')
-    const [loading, setLoading] = useState<'always' | 'failover' | 'swap' | null>(null)
+    const [loading, setLoading] = useState<'failover' | 'swap' | null>(null)
 
     async function buy(feature: HostOption) {
-        setLoading(feature === 'always_running' ? 'always' : 'failover')
+        setLoading('failover')
         setMessage('')
         try { await buyHostOption(vm.name, feature) }
         catch (error) {
             setMessage(error instanceof Error ? error.message : 'Checkout could not be opened.')
             setLoading(null)
         }
-    }
-
-    async function toggleAlwaysRunning() {
-        setLoading('always')
-        const result = await updateHostFeatures(vm.name, {
-            always_running_enabled: !vm.always_running_enabled,
-        })
-        if (typeof result === 'string') {
-            setMessage(result)
-        } else {
-            onUpdate(result)
-            setMessage(result.always_running_enabled ? 'Always running is on.' : 'Always running is off.')
-        }
-        setLoading(null)
     }
 
     async function toggleFailover() {
@@ -79,18 +65,8 @@ export default function VMHostOptions({ boxStyle, boxTitleStyle, vm, onUpdate }:
                 <Server className='h-4 w-4 text-ui-muted' />
             </div>
             <FeatureToggle
-                title='Always running'
-                priceNok={containerAccessPlans[0].priceNok}
-                description='Keep the host warm and restart it automatically if it drops.'
-                icon={<Activity className='h-4 w-4' />}
-                premium={vm.always_running_premium}
-                enabled={vm.always_running_enabled}
-                loading={loading !== null}
-                onClick={vm.always_running_premium ? toggleAlwaysRunning : () => buy('always_running')}
-            />
-            <FeatureToggle
                 title='Failover'
-                priceNok={containerAccessPlans[1].priceNok}
+                priceNok={containerAccessPlans[0].priceNok}
                 description='Keep a standby copy so the host can move between OVHcloud and Inspur.'
                 icon={<ArrowLeftRight className='h-4 w-4' />}
                 premium={vm.failover_premium}
