@@ -770,3 +770,12 @@ and production build pass; all 116 routes generate. The frontend inventory stays
 at 2,264 files / 151,721 LOC / zero over 200, so this is a reuse/readability
 improvement rather than net LOC reduction. The frontend 10,000–30,000 LOC and
 API 100,000-line reduction goals remain unmet.
+
+The scanner and security-monitoring solution pages now share the exact feature
+card presentation they previously defined twice. A server-rendered test checks
+each page's three titles, descriptions, and article structure. The full default
+frontend suite passed; the strengthened focused page test, typecheck, focused
+ESLint, line-cap scan, and production build also pass, generating all 116
+routes. Inventory: 2,266 files / 151,752 LOC / zero over 200. This small reuse
+slice keeps page copy and layout stable; it does not materially advance the
+10,000–30,000 LOC frontend or 100,000-line API reduction goals.

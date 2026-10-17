@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { ArrowRight, FileSearch, Radio, ShieldAlert } from 'lucide-react'
 import { buildRouteMetadata } from '../../seo'
+import SolutionFeatureCard from '../solution-feature-card'
 
 export const metadata: Metadata = buildRouteMetadata({
     title: 'Security Monitoring',
@@ -25,9 +26,9 @@ export default function EventSolutionPage() {
                         </div>
                     </div>
                     <div className='grid gap-4 md:grid-cols-3'>
-                        <Feature icon={<Radio className='h-5 w-5' />} title='One endpoint' detail='Send JSON events using an organization API key.' />
-                        <Feature icon={<ShieldAlert className='h-5 w-5' />} title='Useful first detections' detail='Start with repeated failures, new countries, and geographically incompatible logins.' />
-                        <Feature icon={<FileSearch className='h-5 w-5' />} title='Evidence-first review' detail='Inspect the matching events, rule ID, source context, and original event sample.' />
+                        <SolutionFeatureCard icon={<Radio className='h-5 w-5' />} title='One endpoint' detail='Send JSON events using an organization API key.' />
+                        <SolutionFeatureCard icon={<ShieldAlert className='h-5 w-5' />} title='Useful first detections' detail='Start with repeated failures, new countries, and geographically incompatible logins.' />
+                        <SolutionFeatureCard icon={<FileSearch className='h-5 w-5' />} title='Evidence-first review' detail='Inspect the matching events, rule ID, source context, and original event sample.' />
                     </div>
                 </div>
             </section>
@@ -45,8 +46,4 @@ export default function EventSolutionPage() {
             </section>
         </main>
     )
-}
-
-function Feature({ icon, title, detail }: { icon: React.ReactNode, title: string, detail: string }) {
-    return <article className='grid gap-3 rounded-lg border border-ui-border bg-ui-raised p-4'><span className='text-ui-primary'>{icon}</span><h2 className='font-semibold'>{title}</h2><p className='text-sm leading-6 text-ui-muted'>{detail}</p></article>
 }
