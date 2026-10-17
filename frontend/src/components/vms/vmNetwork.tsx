@@ -1,6 +1,6 @@
 import Field from './field'
-import ErrorNotice from '@/components/error/errorNotice'
 import { VmPanel } from './vmPanel'
+import { VmReconnectNotice } from './vmReconnectNotice'
 
 type VMDetailsProps = {
     details: VMDetails | null
@@ -18,10 +18,7 @@ export default function VMNetwork({ details }: VMDetailsProps) {
                 <Field title='MAC' value={details.volatile_eth0_hwaddr} />
                 <Field title='Profiles' value={details.profiles.join(', ')} />
                 <Field title='Stateful' value={formatFlag(details.stateful)} />
-            </div> : <ErrorNotice
-                compact
-                variant='info'
-                className='mt-3'
+            </div> : <VmReconnectNotice
                 title='Network telemetry reconnecting'
                 message='Refresh the VM to reload IP, interface, and profile details.'
             />}

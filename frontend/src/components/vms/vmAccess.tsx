@@ -1,5 +1,5 @@
-import ErrorNotice from '@/components/error/errorNotice'
 import { VmPanel } from './vmPanel'
+import { VmReconnectNotice } from './vmReconnectNotice'
 
 type VMAccessProps = {
     connection: VMConnectionDetails | null
@@ -29,10 +29,7 @@ export default function VMAccess({ connection, error }: VMAccessProps) {
                     )}
                 </div>
             ) : (
-                <ErrorNotice
-                    compact
-                    variant='info'
-                    className='mt-3'
+                <VmReconnectNotice
                     title={error ? 'Access details unavailable' : 'Access details reconnecting'}
                     message={error || 'Reloading SSH user, host, and certificate information automatically…'}
                 />

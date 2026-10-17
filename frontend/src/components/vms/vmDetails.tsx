@@ -1,7 +1,7 @@
 import Field from './field'
-import ErrorNotice from '@/components/error/errorNotice'
 import operationalStateLabel from '@/utils/status/operationalStateLabel'
 import { VmPanel } from './vmPanel'
+import { VmReconnectNotice } from './vmReconnectNotice'
 
 type VMDetailsProps = {
     vm: VM
@@ -32,10 +32,7 @@ export default function VMDetails({ vm, details }: VMDetailsProps) {
                 <Field title='Virtual Socket ID' value={details.volatile_vsock_id} />
                 <Field title='Architecture' value={details.architecture} />
                 {uniqueArchitecture && <Field title='Config Architecture' value={details.config_architecture} />}
-            </div> : <ErrorNotice
-                compact
-                variant='info'
-                className='mt-3'
+            </div> : <VmReconnectNotice
                 title='Machine details reconnecting'
                 message='Refresh the VM to reload image, power state, and architecture details.'
             />}

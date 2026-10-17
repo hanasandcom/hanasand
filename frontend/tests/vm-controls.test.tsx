@@ -52,5 +52,18 @@ test('VM detail cards share their shell and preserve titles and placeholders', (
     for (const title of ['Overview', 'Access', 'Hardware', 'Network', 'Details', 'Metrics']) assert(html.includes(`${panel}${title}</h1>`))
     assert.equal((html.match(/<div class="w-full rounded-lg border border-ui-border bg-ui-panel p-4 shadow-sm">/g) || []).length, 6)
     assert.equal(html.match(/Not reported/g)?.length, 7)
+    for (const copy of [
+        'Machine details reconnecting',
+        'Refresh the VM to reload image, power state, and architecture details.',
+        'Network telemetry reconnecting',
+        'Refresh the VM to reload IP, interface, and profile details.',
+        'Access details reconnecting',
+        'Reloading SSH user, host, and certificate information automatically…',
+    ]) assert(html.includes(copy))
+    assert.equal((html.match(/border-ui-primary bg-ui-panel text-ui-text px-3 py-2 mt-3/g) || []).length, 3)
+
+    const accessError = renderToStaticMarkup(<VMAccess connection={null} error='You do not have permission to view access details.' />)
+    assert(accessError.includes('Access details unavailable'))
+    assert(accessError.includes('You do not have permission to view access details.'))
     assert(!html.includes('missing'))
 })
