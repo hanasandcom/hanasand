@@ -79,6 +79,7 @@ test('artifact list preserves themed summaries, newest and safe external links',
     expect(html).toContain('Screenshot')
     expect(html).toContain('Verification')
     expect(html).toContain('Newest')
+    expect(html).toContain('href="https://example.test"')
     expect(html).toContain('target="_blank" rel="noopener noreferrer"')
     expect(html).not.toMatch(/#[\da-f]{3,8}/i)
 })
