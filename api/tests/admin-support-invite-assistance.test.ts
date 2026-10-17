@@ -102,8 +102,12 @@ test('invite assistance idempotency replay remains organization-scoped', async (
     expect(replayQuery?.values).toEqual(['support.organization.invite_assist', 'org-1', null, 'assist-replay-key'])
 })
 
-test('support invite assistance passes the normalized invite to the writer and returns its audited receipt', async () => {
+test('support invite assistance allows an unavailable organization admin and returns its audited receipt', async () => {
     state.supportOrganization = activeSupportOrganizationFixture()
+    state.supportAvailabilityResults = [[{
+        organization_id: 'org-1', owner_count: 1, active_owner_count: 0,
+        admin_count: 1, active_admin_count: 0,
+    }]]
     state.supportRecoveryInviteUpsert = supportRecoveryInviteFixture({
         id: 'assist-invite-1', email: 'member@example.com', role: 'reader',
     })
@@ -119,12 +123,11 @@ test('support invite assistance passes the normalized invite to the writer and r
 
     expect(result.statusCode).toBe(201)
     expect(organizationInviteUpsertCalls).toHaveLength(1)
+    expect(state.queries.find(({ sql }) => sql.includes('AS active_admin_count'))?.values).toEqual([['org-1']])
     expect(organizationInviteUpsertCalls[0]).toMatchObject({
         organizationId: 'org-1', email: 'member@example.com', role: 'reader',
         invitedBy: 'support-admin', expiresAt: '2026-11-01T00:00:00.000Z',
     })
-    const availabilityQuery = state.queries.find(({ sql }) => sql.includes('active_admin_count'))
-    expect(availabilityQuery?.sql).toContain('owner.deletion_scheduled_at IS NULL')
     expect(state.queries.some(({ sql, values }) => sql.includes('UPDATE organizations SET updated_at = NOW() WHERE id = $1') && values[0] === 'org-1')).toBe(true)
     expect(result.body.invites).toEqual([{
         id: 'assist-invite-1', organizationId: 'org-1', tenantId: 'org-1', acceptanceToken: 'assist-invite-1',
@@ -156,4 +159,3 @@ test('support invite assistance passes the normalized invite to the writer and r
         },
     })
 })
-
