@@ -11,6 +11,7 @@ import { RestoreFeedback } from './RestoreFeedback'
 import { RestoreOperationProgress } from './RestoreOperationProgress'
 import { useBackupOperationRefresh } from './useBackupOperationRefresh'
 import { useBackupOperationAction } from './useBackupOperationAction'
+import { formatLocalDateTime } from '@/utils/date/formatLocalDateTime'
 
 export default function RestoreClient({ backups, service, loadError = '' }: { backups: BackupFile[], service?: BackupService, loadError?: string }) {
     const { isPending, message, error, result, run } = useBackupOperationAction()
@@ -119,7 +120,5 @@ function integrityLabel(operation: BackupOperation) {
 }
 
 function formatDate(value?: string | null) {
-    if (!value) return 'Never'
-    const date = new Date(value)
-    return Number.isFinite(date.getTime()) ? date.toLocaleString() : value
+    return value ? formatLocalDateTime(value) : 'Never'
 }
