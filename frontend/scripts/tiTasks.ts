@@ -22,6 +22,7 @@ export const tiTasks: TestTask[] = [
     { id: 'ti-workbench-timestamp-truthfulness', title: 'TI workbench timestamp truthfulness', command: [bun, 'test', 'tests/ti-workbench-timestamp-truthfulness.test.ts'] },
     { id: 'ti-workbench-alert-adapter', title: 'TI workbench alert adaptation', command: [bun, 'test', 'tests/workbench-alert-adapter.test.ts'] },
     { id: 'ti-workbench-case-adapter', title: 'TI workbench case adaptation', command: [bun, 'test', 'tests/workbench-case-adapter.test.ts'] },
+    { id: 'ti-selectable-workbenches', title: 'TI selectable workbench rendering contracts', command: [bun, 'test', 'tests/ti-selectable-workbenches.test.tsx'] },
     { id: 'ti-workbench-page-data', title: 'TI workbench server data loading contracts', command: [bun, 'test', 'tests/workbench-page-data.test.ts'] },
     { id: 'public-ti-search-timeout', title: 'Public TI search timeout boundary', command: [bun, 'test', 'tests/public-ti-search-timeout.test.ts'] },
 ]
