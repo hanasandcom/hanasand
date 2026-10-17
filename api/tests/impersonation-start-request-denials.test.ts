@@ -1,120 +1,7 @@
-import { beforeEach, expect, mock, test } from 'bun:test'
-import Fastify from 'fastify'
+import { beforeEach, expect, test } from 'bun:test'
+import { app, expectDeniedEventLookup, resetDenialFixture, state } from './impersonation-start-denials-fixture.ts'
 
-let supportSession: Record<string, any> | null = null
-const systemEvents: Array<Record<string, any>> = []
-const queries: Array<{ sql: string, values: unknown[] }> = []
-let failSystemEventWrite = false
-let actor: Record<string, any> = { valid: true, id: 'admin-user' }
-
-const query = async (sql: string, values: unknown[] = []) => {
-    queries.push({ sql, values })
-    if (sql.includes('FROM users') && sql.includes('deletion_scheduled_at IS NULL')) {
-        return { rows: [{ id: 'target-user', name: 'Target User', avatar: null }] }
-    }
-    if (sql.includes('FROM impersonation_sessions s')) {
-        return { rows: [{ id: 'impersonation-1', actor_id: 'admin-user', object_id: 'target-user', target_name: 'Target User', reason: 'Support review', audit_context: { scope: [], organizationId: null } }] }
-    }
-    if (sql.includes('FROM system_events')) return { rows: [{ id: 731 }, { id: 'not-an-id' }] }
-    throw new Error(`Unexpected impersonation start query: ${sql}`)
-}
-
-mock.module('#db', () => ({ default: query, identityQueryOnce: query, isTransientDatabaseError: () => false }))
-const systemEventUtils = await import('../src/utils/systemEvent.ts')
-mock.module('#utils/auth/tokenWrapper.ts', () => ({ default: async () => actor }))
-mock.module('#utils/systemEvent.ts', () => ({
-    ...systemEventUtils,
-    actorHasHanasandInternalAccess: async () => true,
-    recordSystemEvent: async (_req: unknown, event: Record<string, any>) => {
-        if (failSystemEventWrite) throw new Error('audit store unavailable')
-        systemEvents.push(event)
-    },
-    requireAuditReason: (value: unknown, label: string) => {
-        const reason = typeof value === 'string' ? value.trim() : ''
-        if (reason.length < 10) throw new Error(`${label} must be at least 10 characters.`)
-        return reason
-    },
-}))
-mock.module('#utils/support/supportSessionState.ts', () => ({ loadSupportSessionState: async () => supportSession }))
-
-const { startImpersonation } = await import('../src/handlers/impersonation.ts')
-const tokenWrapper = (await import('../src/utils/auth/tokenWrapper.ts?scope-audit-test')).default
-const app = Fastify({ logger: false })
-app.post('/impersonation/start', startImpersonation)
-app.get('/api/profile', async (req, res) => {
-    const auth = await tokenWrapper(req, res, async () => ({
-        user: { id: 'admin-user', name: 'Admin', avatar: null, active: true },
-        session: { token_id: 1, id: 'admin-user', token: 'actor-token', ip: '', user_agent: '', created_at: '', timestamp: '' },
-        refreshed: { token: 'refreshed-token', expires_at: '2030-01-01T00:00:00.000Z' },
-    }))
-    return res.status(auth.valid ? 200 : 403).send(auth)
-})
-
-function expectDeniedEventLookup(requestId: string, entityId: string) {
-    expect(queries).toHaveLength(2)
-    expect(queries[1].sql).toContain('WHERE request_id = $1')
-    expect(queries[1].sql).toContain('AND event_type = $2')
-    expect(queries[1].sql).toContain('AND subject_id = $3')
-    expect(queries[1].sql).toContain('ORDER BY created_at DESC, id DESC')
-    expect(queries[1].sql).toContain('LIMIT 10')
-    expect(queries[1].values).toEqual([requestId, 'impersonation.start', entityId])
-}
-
-beforeEach(() => {
-    supportSession = null
-    systemEvents.length = 0
-    queries.length = 0
-    failSystemEventWrite = false
-    actor = { valid: true, id: 'admin-user' }
-})
-
-test('scope denial remains enforced when its audit write fails', async () => {
-    failSystemEventWrite = true
-
-    const response = await app.inject({
-        method: 'GET',
-        url: '/api/profile',
-        headers: {
-            authorization: 'Bearer actor-token',
-            id: 'admin-user',
-            'x-impersonation-token': 'impersonation-token',
-        },
-    })
-
-    expect(response.statusCode).toBe(403)
-    expect(response.json()).toMatchObject({ valid: false, impersonating: true, error: 'Impersonation scope does not allow this request.' })
-})
-
-test('impersonating actors cannot start a nested impersonation', async () => {
-    actor = { valid: true, id: 'admin-user', impersonating: true }
-
-    const response = await app.inject({
-        method: 'POST',
-        url: '/impersonation/start',
-        payload: { targetId: 'target-user', reason: 'Customer requested an access investigation.' },
-    })
-
-    expect(response.statusCode).toBe(401)
-    expect(response.json()).toEqual({ error: 'Unauthorized.' })
-    expect(queries).toHaveLength(0)
-    expect(systemEvents).toHaveLength(0)
-})
-
-test('start denies the actor as a target before loading a user or writing an audit event', async () => {
-    const response = await app.inject({
-        method: 'POST',
-        url: '/impersonation/start',
-        payload: { targetId: 'admin-user' },
-    })
-
-    expect(response.statusCode).toBe(400)
-    expect(response.json()).toMatchObject({
-        error: 'You are already viewing your own account.',
-        detail: { code: 'invalid_target_user', outcome: 'denied' },
-    })
-    expect(queries).toHaveLength(0)
-    expect(systemEvents).toHaveLength(0)
-})
+beforeEach(resetDenialFixture)
 
 test('invalid start request keeps an optional session in its receipt but omits it from the error detail', async () => {
     const response = await app.inject({
@@ -144,8 +31,8 @@ test('invalid start request keeps an optional session in its receipt but omits i
         },
     })
     expect(response.json().detail).not.toHaveProperty('supportSessionId')
-    expect(systemEvents).toHaveLength(1)
-    expect(systemEvents[0]).toMatchObject({
+    expect(state.systemEvents).toHaveLength(1)
+    expect(state.systemEvents[0]).toMatchObject({
         actionType: 'impersonation.start', actorId: 'admin-user', targetType: 'user', targetId: 'target-user',
         organizationId: null, entityId: 'support-session-invalid', severity: 'warning', outcome: 'denied',
         reason: 'short', requestId: 'invalid-start-request',
@@ -157,7 +44,7 @@ test('invalid start request keeps an optional session in its receipt but omits i
             noSilentImpersonation: true, redactionRequired: true,
         },
     })
-    expect(queries[0].values).toEqual(['target-user'])
+    expect(state.queries[0].values).toEqual(['target-user'])
     expectDeniedEventLookup('invalid-start-request', 'support-session-invalid')
 })
 
@@ -183,8 +70,8 @@ test('invalid start request without a session omits it from the receipt and corr
         },
     })
     expect(response.json().detail).not.toHaveProperty('supportSessionId')
-    expect(systemEvents).toHaveLength(1)
-    expect(systemEvents[0]).toMatchObject({
+    expect(state.systemEvents).toHaveLength(1)
+    expect(state.systemEvents[0]).toMatchObject({
         actionType: 'impersonation.start', actorId: 'admin-user', targetType: 'user', targetId: 'target-user',
         organizationId: null, entityId: 'target-user', severity: 'warning', outcome: 'denied',
         reason: 'short', requestId: 'invalid-start-no-session',
@@ -194,7 +81,7 @@ test('invalid start request without a session omits it from the receipt and corr
             blockerCode: 'invalid_impersonation_request', outcome: 'denied',
         },
     })
-    expect(queries[0].values).toEqual(['target-user'])
+    expect(state.queries[0].values).toEqual(['target-user'])
     expectDeniedEventLookup('invalid-start-no-session', 'target-user')
 })
 
@@ -216,11 +103,11 @@ test('unsupported impersonation scope reports the first normalized invalid item'
         error: 'Unsupported impersonation scope: blank.',
         detail: { code: 'invalid_impersonation_request', outcome: 'denied' },
     })
-    expect(systemEvents[0].context).toMatchObject({ blockerCode: 'invalid_impersonation_request', scope: [] })
+    expect(state.systemEvents[0].context).toMatchObject({ blockerCode: 'invalid_impersonation_request', scope: [] })
 })
 
 test('support-session scope denial returns the same receipt with its scoped session identity', async () => {
-    supportSession = {
+    state.supportSession = {
         status: 'active',
         actorId: 'admin-user',
         organizationId: 'org-1',
@@ -263,8 +150,8 @@ test('support-session scope denial returns the same receipt with its scoped sess
             },
         },
     })
-    expect(systemEvents).toHaveLength(1)
-    expect(systemEvents[0]).toMatchObject({
+    expect(state.systemEvents).toHaveLength(1)
+    expect(state.systemEvents[0]).toMatchObject({
         actionType: 'impersonation.start', actorId: 'admin-user', targetType: 'user', targetId: 'target-user',
         organizationId: 'org-1', entityId: 'support-session-1', severity: 'warning', outcome: 'denied',
         reason: 'Customer requested an access investigation.', requestId: 'scope-denial-request',
@@ -276,6 +163,6 @@ test('support-session scope denial returns the same receipt with its scoped sess
             noSilentImpersonation: true, redactionRequired: true,
         },
     })
-    expect(queries[0].values).toEqual(['target-user'])
+    expect(state.queries[0].values).toEqual(['target-user'])
     expectDeniedEventLookup('scope-denial-request', 'support-session-1')
 })

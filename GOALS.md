@@ -1613,17 +1613,6 @@ cleanup slices; they do not materially reduce the frontend's total size or
 complete the requested 10,000–30,000-line target. No UI redesign or deployment
 was made.
 
-At the current checkpoint (2026-10-17), `scripts/deploy-all.sh` was split from
-648 lines into a 43-line entrypoint and six sourced deployment phases, each at
-or below 185 lines. The split adds seven lines overall. The phases reconstruct the original body byte-for-byte,
-with only the intended exclusion for `scripts/deploy-all/**` in the
-deployment-control-only fast path. Independent review, shell syntax checks for
-all seven files, and `git diff --check` pass; no live deployment was run. The
-repository cap scan now finds 33 over-limit files among 4,434 hand-maintained
-files / 327,303 lines, all outside the frontend. The frontend-specific scan
-still passes at 2,383 files / 155,310 lines with zero over 200. The aggregate
-reduction goals remain open.
-
 The latest frontend work adds shared controls for dashboard event disclosures,
 rule-source labels, password-action styling, TI blocker notices, and share
 metadata panels; VM lifecycle actions now share one request handler, and
@@ -1939,3 +1928,25 @@ discovery. The repository cap scan covers 4,428 files / 327,299 lines and finds
 34 over-limit files, all outside the frontend. The frontend 10,000–30,000-line
 target and API 100,000-line reduction remain unmet; no UI redesign or deployment
 was made.
+
+At checkpoint `2d0941d61` (2026-10-17), `scripts/deploy-all.sh` was split from
+648 lines into a 43-line entrypoint and six sourced deployment phases, each at
+or below 185 lines. The split adds seven lines overall. The phases reconstruct
+the original body except for the intended `scripts/deploy-all/**` exclusion in
+the deployment-control-only fast path. Independent review, shell syntax checks
+for all seven files, and `git diff --check` pass; no live deployment was run.
+The repository scan finds 33 over-limit files among 4,434 hand-maintained files
+/ 327,303 lines, all outside the frontend. The frontend-specific scan passes
+at 2,383 files / 155,310 lines with zero over 200.
+
+At the current working checkpoint (2026-10-17), two over-limit API test files
+were split by scenario. The impersonation denial cases are now two suites plus
+a shared fixture; all 7 tests / 51 assertions pass through the API runner.
+Public monitoring is now policy and transport suites plus a shared fixture;
+all 17 tests pass when run directly, and the runner-policy tests pass. The
+selected API runner invocation still fails two loopback-server cases with
+Bun's "Failed to start server. Is port 0 in use?"; both cases pass in the
+direct transport suite. Typecheck, scoped ESLint, independent review, and cap
+checks pass. The repository scan finds 31 over-limit files among 4,438 files /
+327,314 lines; the frontend remains at 2,383 files / 155,310 lines, with none
+over 200. The aggregate reduction goals remain open.
