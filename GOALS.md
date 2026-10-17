@@ -1267,3 +1267,30 @@ scan: 74 of 4,210 files over 200 / 323,898 LOC total. The 100,000-line API
 reduction and 10,000–30,000-line frontend target remain outstanding. No
 production UI or data contract changes were intended, and no deployment was
 performed.
+
+A second frontend reuse pass extracted table markup into `DashboardTable`, used by
+TI activity, load-testing and both database-backup tables; exact server-rendered
+classes/DOM, column order, wrappers, empty rows and pagination placement were
+compared. Those five files add 10 LOC overall. Share's recursive file tree now
+uses a scoped context for the callbacks/state previously threaded unchanged
+through each node, preserving per-node file/tree props; that six-file production
+refactor removes 16 LOC. Static review approved it and the Share tree-path test,
+targeted ESLint/typecheck and cap passed. Its focused browser action test could
+not start because the configured local API process exited before assertions.
+
+The DWM delivery tests now exercise runtime summaries, rendered delivery states,
+scoped request bodies, refresh/navigation outcomes and the public-advisory
+case-handoff dry-run contract. Duplicate delivery source-string checks were
+removed; unique operator copy/scope checks remain, and stale source assertions
+were updated to current ownership. Independent review found no coverage loss
+after restoring a runtime test for the dry-run case path. These three test files
+grow from 168 to 311 lines (+143) and remain under 200 each. The full frontend
+suite passed; focused Playwright tests passed 4/4; production build/typecheck
+passed and generated all 116 routes. Frontend inventory is 2,314 files /
+153,547 LOC / zero over 200. Relative to the prior checkpoint, the frontend
+adds 137 LOC overall (the production changes net -6; stronger tests add 143).
+The repository cap scan reports 74 of 4,210 files over 200 / 324,035 LOC total.
+Full frontend ESLint still reports 1,612 existing errors across the repository;
+all files changed in this checkpoint passed targeted ESLint. No deployment was
+performed. The 100,000-line API and 10,000–30,000-line frontend targets remain
+outstanding.
