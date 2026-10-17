@@ -2620,3 +2620,17 @@ no production LOC reduction. The fresh frontend inventory is 2,418 source/config
 files / 156,235 lines, with no file above 200. Aggregate LOC reduction remains
 unachieved; a second discovered runner entry points at a missing test file and
 is being verified before cleanup.
+
+After the delivery-ordering test-registration commit, the frontend cleanup removed
+one stale test task that referenced no test or component, plus the unused
+`fetchArticles` client and only its list-fallback assertions. The client had no
+runtime consumer; public archive rendering still uses generated static articles,
+and the singular `fetchArticle` fallback contract remains tested. The normal
+frontend task registry and full default test suite pass; article fallback tests,
+scoped ESLint, non-incremental TypeScript check, production build, repository and
+frontend line-cap checks, and diff check pass. A public-archive smoke invocation
+could not open its local server socket, while the build still generated all six
+static article routes. The working tree is 2,417 frontend files / 156,179 lines,
+55 fewer lines than the preceding 156,234-line baseline, with no file over 200.
+This is a small verified dead-code removal; the 10,000–30,000 frontend target
+and 100,000-line API reduction target remain unmet.

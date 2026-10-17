@@ -14,7 +14,6 @@ assert.equal(findFallbackArticle('missing-article'), null, 'unknown slugs should
 
 const originalFetch = globalThis.fetch
 const { default: fetchArticle } = await import('../src/utils/articles/fetchArticle.ts')
-const { default: fetchArticles } = await import('../src/utils/articles/fetchArticles.ts')
 
 try {
     globalThis.fetch = async () => new Response(JSON.stringify({ error: 'missing' }), { status: 404 })
@@ -25,11 +24,6 @@ try {
         throw new Error('network down')
     }
     assert.equal((await fetchArticle('theme.md'))?.id, 'theme', 'network errors should use fallback content')
-    assert.equal((await fetchArticles(false)).length, 6, 'article list network errors should use fallback articles')
-
-    const recent = await fetchArticles(true)
-    assert.equal(recent.recent.length, 4, 'recent fallback should keep four primary articles')
-    assert.equal(recent.articles.length, 2, 'recent fallback should keep older articles separately')
 } finally {
     globalThis.fetch = originalFetch
 }
