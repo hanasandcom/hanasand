@@ -2407,3 +2407,17 @@ checks pass. This adds 5 production/runner lines and 11 test lines. The shared
 worktree inventory is 2,421 frontend files / 156,306 lines and 4,564 repository
 files / 328,987 lines, with zero files above 200. Aggregate frontend and API
 reduction targets remain open.
+
+At the 2026-10-17 status persistence checkpoint, the browser-free Playwright
+test was registered as a Bun unit test and now exercises the dashboard's real
+restore and refresh helpers. It verifies restoration of a newer snapshot,
+compacted persistence after refresh, preserved verified data on a 503, and
+best-effort handling when the localStorage getter throws. The source-string
+route scans were removed. Independent review caught and prompted a fix for
+storage access occurring outside error handling; the throwing-storage test
+now covers that case. The registered suite passes (8 tests / 31 assertions),
+with typecheck, scoped ESLint, diff, and frontend line-cap checks passing. The
+test and runner grow by 96 lines and the hook by 2, a net 98 lines for runtime
+coverage. Current shared-worktree inventory is 2,421 frontend files / 156,327
+lines and 4,564 repository files / 329,008 lines, with no file above 200.
+Aggregate frontend and API reduction targets remain open.

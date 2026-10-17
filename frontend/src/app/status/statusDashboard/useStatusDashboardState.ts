@@ -50,9 +50,9 @@ function refreshIncidentMode(serviceStatus: ServiceStatus, incidentId: string | 
     return () => { controller.abort(); window.clearInterval(refresh) }
 }
 
-function restoreVerifiedSnapshot(setCurrentStatus: (update: (status: ServiceStatus) => ServiceStatus) => void, verified: React.MutableRefObject<ServiceStatus | undefined>) {
+export function restoreVerifiedSnapshot(setCurrentStatus: (update: (status: ServiceStatus) => ServiceStatus) => void, verified: React.MutableRefObject<ServiceStatus | undefined>, storage?: Pick<Storage, 'getItem'>) {
     try {
-        const saved = JSON.parse(localStorage.getItem('hanasand-verified-status') || 'null') as ServiceStatus | null
+        const saved = JSON.parse((storage ?? localStorage).getItem('hanasand-verified-status') || 'null') as ServiceStatus | null
         if (saved?.last_verified_at && Array.isArray(saved.checks) && Array.isArray(saved.history) && Array.isArray(saved.incidents)
             && (!verified.current || Date.parse(saved.last_verified_at) > Date.parse(verified.current.last_verified_at || ''))) {
             verified.current = saved
@@ -61,7 +61,7 @@ function restoreVerifiedSnapshot(setCurrentStatus: (update: (status: ServiceStat
     } catch { /* Storage is optional, for example in private browsing. */ }
 }
 
-function createStatusRefresher(mode: 'status' | 'incidents', setCurrentStatus: (status: ServiceStatus) => void, setRefreshError: (error: boolean) => void, verified: React.MutableRefObject<ServiceStatus | undefined>) {
+export function createStatusRefresher(mode: 'status' | 'incidents', setCurrentStatus: (status: ServiceStatus) => void, setRefreshError: (error: boolean) => void, verified: React.MutableRefObject<ServiceStatus | undefined>, storage?: Pick<Storage, 'setItem'>) {
     let pending = false
     return async function refreshStatus() {
         if (pending) return
@@ -74,7 +74,7 @@ function createStatusRefresher(mode: 'status' | 'incidents', setCurrentStatus: (
             const retained = retainVerifiedStatus(next, verified.current)
             if (retained.checks.some(check => check.checked_at && check.status !== 'unknown')) {
                 verified.current = retained
-                try { localStorage.setItem('hanasand-verified-status', JSON.stringify(compactStatusSnapshot(retained))) } catch { /* Optional persistence. */ }
+                try { (storage ?? localStorage).setItem('hanasand-verified-status', JSON.stringify(compactStatusSnapshot(retained))) } catch { /* Optional persistence. */ }
             }
             setCurrentStatus(retained)
             setRefreshError(next.monitoring === 'unavailable')
