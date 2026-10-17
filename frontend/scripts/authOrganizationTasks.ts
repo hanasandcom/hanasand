@@ -3,6 +3,7 @@ import { bun, type TestTask } from './testTask'
 export const authOrganizationTasks: TestTask[] = [
     { id: 'auth-register-flow', title: 'Registration and verification flow', command: [bun, 'test', 'tests/register-flow.test.ts'] },
     { id: 'auth-passkey-ui', title: 'Passkey authentication UI contracts', command: [bun, 'test', 'tests/passkey-auth-ui.test.ts'] },
+    { id: 'auth-passkey-proxy', title: 'Passkey route forwarding contracts', command: [bun, 'test', 'tests/passkey-proxy-routes.test.ts'] },
     { id: 'auth-reserved-user', title: 'Reserved user visibility rules', command: [bun, 'test', 'tests/reserved-user-visibility.test.ts'] },
     { id: 'organization-retention-privacy', title: 'Organization retention privacy controls', command: [bun, 'test', 'tests/organization-retention-privacy.test.mjs'] },
     { id: 'organization-watchlist-dwm-bridge', title: 'Organization watchlist DWM mirror behavior', command: [bun, 'test', 'tests/organization-watchlist-dwm-bridge.test.ts'] },

@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { identityApiUrl } from '@/utils/auth/authApiUrl'
+import { proxyPasskeyJsonResponse } from '../../proxyJsonResponse'
 
 export async function GET(req: NextRequest) {
     const target = new URL(`${identityApiUrl().replace(/\/$/, '')}/auth/passkeys/authenticate/options`)
@@ -8,8 +9,5 @@ export async function GET(req: NextRequest) {
         target.searchParams.set('username', username)
     }
     const upstream = await fetch(target, { cache: 'no-store' }).catch(() => null)
-    if (!upstream) {
-        return NextResponse.json({ error: 'Authentication service is unavailable.' }, { status: 502 })
-    }
-    return NextResponse.json(await upstream.json().catch(() => ({})), { status: upstream.status })
+    return proxyPasskeyJsonResponse(upstream)
 }

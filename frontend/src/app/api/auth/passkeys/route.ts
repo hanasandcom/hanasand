@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { identityApiUrl } from '@/utils/auth/authApiUrl'
+import { proxyPasskeyJsonResponse } from './proxyJsonResponse'
 
 export async function GET() {
     const headers = await authHeaders()
@@ -8,10 +8,7 @@ export async function GET() {
         headers,
         cache: 'no-store',
     }).catch(() => null)
-    if (!upstream) {
-        return NextResponse.json({ error: 'Authentication service is unavailable.' }, { status: 502 })
-    }
-    return NextResponse.json(await upstream.json().catch(() => ({})), { status: upstream.status })
+    return proxyPasskeyJsonResponse(upstream)
 }
 
 async function authHeaders() {
