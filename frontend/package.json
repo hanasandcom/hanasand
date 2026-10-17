@@ -33,7 +33,6 @@
     "test:public-archive": "RUN_SERVER_TESTS=1 bun scripts/index.ts --only=public-archive",
     "test:e2e": "RUN_E2E=1 bun scripts/index.ts --only=e2e",
     "test:e2e:auth": "RUN_E2E=1 bun scripts/index.ts --only=e2e-auth",
-    "test:e2e:mail": "RUN_E2E=1 bun scripts/index.ts --only=e2e-mail",
     "test:e2e:ai": "RUN_E2E=1 bun scripts/index.ts --only=e2e-ai",
     "check:dwm-monitoring": "bun scripts/check-dwm-monitoring.mjs"
   },

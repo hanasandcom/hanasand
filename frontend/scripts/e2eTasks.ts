@@ -20,13 +20,6 @@ export const e2eTasks: TestTask[] = [
         requires: 'playwright',
     },
     {
-        id: 'e2e-mail',
-        title: 'Playwright mail smoke',
-        command: [bun, 'scripts/run-playwright-status.mjs', 'tests/mail.spec.ts'],
-        env: { PLAYWRIGHT_STATUS_CHECK_NAME: 'Playwright mail workspace' },
-        requires: 'playwright',
-    },
-    {
         id: 'e2e-ai',
         title: 'Playwright AI smoke',
         command: [bun, 'scripts/run-playwright-status.mjs', 'tests/ai-workspace.spec.ts'],

@@ -1,7 +1,7 @@
 import config from '@/config'
 import { getCookie } from '@/utils/cookies/cookies'
 import randomId from '@/utils/random/randomId'
-import { normalizeRequestHeaders, sendFromBrowser, sendViaShareVm, withRequestDetails } from '@/utils/box/requestTool'
+import { normalizeRequestHeaders, sendFromBrowser, sendViaShareVm, sendViaWorkspaceApi, withRequestDetails } from '@/utils/box/requestTool'
 import type { ClipboardEvent, SyntheticEvent } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import RequestControls from './RequestControls'
@@ -73,10 +73,8 @@ export default function NewRequest({ initialRequest, selectedRequestId, runToken
         try {
             let data: ToolResponse
             if (share?.alias) data = await sendViaShareVm({ shareAlias: share.alias, method, url: resolvedUrl, headers: headerPlan.headers, body: resolvedBody })
-            else if (token && id) {
-                const result = await fetch(`${config.url.api}/tools/http/request`, { method: 'POST', headers: { 'Content-Type': 'application/json', id, Authorization: `Bearer ${token}` }, body: JSON.stringify(request) })
-                data = await result.json().catch(() => ({ error: 'Invalid response.' }))
-            } else data = await sendFromBrowser(request)
+            else if (token && id) data = await sendViaWorkspaceApi(request, id, token)
+            else data = await sendFromBrowser(request)
             const enriched = sanitizeToolResponse(withRequestDetails({ ...data, warnings: uniqueWarnings([...templateWarnings, ...headerPlan.warnings, ...(data.warnings || [])]) }, request))
             setRuns((current) => current.map((run) => run.id === runId ? { ...run, loading: false, response: enriched } : run))
             onRequestComplete({ id: selectedRequestId ?? runId, method, url, headers: headerRowsFromObject(headerPlan.headers), body, createdAt: new Date().toISOString(), status: enriched.status, statusText: enriched.statusText, elapsedMs: enriched.elapsed_ms, error: enriched.error, requestSource: share?.alias ? 'vm' : 'browser' })

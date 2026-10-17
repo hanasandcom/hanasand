@@ -32,6 +32,19 @@ export async function sendViaShareVm({
     )
 }
 
+export async function sendViaWorkspaceApi(
+    request: NonNullable<ToolResponse['request']>,
+    id: string,
+    token: string
+): Promise<ToolResponse> {
+    const result = await fetch(`${config.url.api}/tools/http/request`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', id, Authorization: `Bearer ${token}` },
+        body: JSON.stringify(request),
+    })
+    return result.json().catch(() => ({ error: 'Invalid response.' }))
+}
+
 export async function sendFromBrowser({
     method,
     url,

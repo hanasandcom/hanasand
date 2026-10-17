@@ -8,6 +8,7 @@ export const otherUnitTasks: TestTask[] = [
     { id: 'audit-acknowledgment-transport', title: 'Audit acknowledgment request contract', command: [bun, 'test', 'tests/audit-acknowledgment.test.ts'] },
     { id: 'audit-acknowledgment-lifecycle', title: 'Shared audit acknowledgment lifecycle and screen updates', command: [bun, 'test', 'tests/audit-acknowledgment-lifecycle.test.ts'] },
     { id: 'box-request-utils', title: 'Box request and response helpers', command: [bun, 'test', 'tests/box-request-utils.test.ts'] },
+    { id: 'box-workspace-api-request', title: 'Box authenticated workspace API request contract', command: [bun, 'test', 'tests/box-workspace-api-request.test.ts'] },
     { id: 'browser-sandbox-broker', title: 'Browser sandbox broker contract', command: [bun, 'test', 'tests/browser-sandbox-broker.test.ts'] },
     { id: 'browser-sandbox-evidence', title: 'Browser sandbox evidence contract', command: [bun, 'test', 'tests/browser-sandbox-evidence.test.ts'] },
     { id: 'browser-sandbox-history', title: 'Browser sandbox history sanitization', command: [bun, 'test', 'tests/browser-sandbox-history.test.ts'] },
