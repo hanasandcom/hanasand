@@ -1180,3 +1180,17 @@ lines and 323,995 LOC total: three API violations were resolved, while module
 and test boundaries added about 55 aggregate lines. The API 100,000-line and
 frontend 10,000–30,000-line size goals remain outstanding. No deployment was
 performed.
+
+The next checkpoint splits host SSH key normalization and SSH transport from
+the existing compatibility facade, keeping public exports and transport
+semantics stable while deriving the embedded Python algorithm allowlist from
+the TypeScript source. It also centralizes the repeated passkey proxy JSON
+response handling without changing route-specific auth, URLs, methods, request
+bodies, or cache policy. Independent review approved both refactors. API lint,
+typecheck, and the full default API suite pass; 37 database-required suites
+remain excluded. Frontend typecheck and the full suite pass, and the production
+build generated all 116 routes. The frontend cap scan covers 2,311 files /
+153,312 LOC with zero files over 200 lines. The repository scan reports 84 of
+4,178 hand-maintained files over 200 lines and 324,095 LOC total. The 100,000-
+line API and 10,000–30,000-line frontend targets remain outstanding. No
+deployment was performed.
