@@ -114,6 +114,11 @@ export const contractTasks: TestTask[] = [
         command: [bun, 'scripts/check-shared-exposure-activity.ts'],
     },
     {
+        id: 'exposure-queue-request',
+        title: 'Exposure queue request contract',
+        command: [bun, 'test', 'tests/exposure-queue-request.test.ts'],
+    },
+    {
         id: 'ti-actor-intelligence',
         title: 'TI actor intelligence shaping',
         command: [bun, 'scripts/check-ti-actor-intelligence.ts'],

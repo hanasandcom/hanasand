@@ -4,28 +4,21 @@ import Link from 'next/link'
 import { deleteShare } from '@/utils/share/delete'
 import { getCookie } from '@/utils/cookies/cookies'
 import { Trash2 } from 'lucide-react'
-import { useState } from 'react'
 import Notify from '../../notify/notify'
-import { useRouter } from 'next/navigation'
-import useClearStateAfter from '@/hooks/useClearStateAfter'
+import { useDashboardRowDeletion } from '@/hooks/useDashboardRowDeletion'
 import { countLines } from '@/utils/share/countLines'
 
 export default function DashboardShare({ share }: { share: Share }) {
-    const [deleted, setDeleted] = useState(false)
-    const { condition: error, setCondition: setError } = useClearStateAfter()
-    const router = useRouter()
+    const { deleted, error, deleteRow } = useDashboardRowDeletion()
     const lines = countLines(share.content)
 
     async function handleDelete() {
-        const token = getCookie('access_token')
-        const userId = getCookie('id')
-        const deleted = await deleteShare(share.id, token, userId)
-        if (deleted) {
-            setDeleted(true)
-            router.refresh()
-        } else {
-            setError(`Unable to delete share ${share.id}.`)
-        }
+        await deleteRow(async () => {
+            const token = getCookie('access_token')
+            const userId = getCookie('id')
+            const deleted = await deleteShare(share.id, token, userId)
+            return { deleted, error: `Unable to delete share ${share.id}.` }
+        })
     }
 
     if (deleted) return null

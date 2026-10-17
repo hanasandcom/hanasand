@@ -976,3 +976,18 @@ and support invite/member flows already share their underlying domain writes.
 The measured evidence does not support either the frontend 10,000–30,000 target
 or the API 100,000-line reduction without broad feature removal; continue with
 verified, bounded quality improvements and preserve all route/data/UI contracts.
+
+The current frontend slice centralizes the exposure-queue fetch/202/normalization
+contract used by the homepage and Activity page, shares the article/thought
+publishing empty-state shell while passing through their exact distinct actions,
+and extracts the common project/share deletion lifecycle without merging their
+endpoint or error policies. Focused tests cover the request contract, empty
+state rendering, and deletion outcomes. The independent review found no UI or
+API behavior regressions; the deletion-hook tests exercise its outcome boundary,
+while existing browser coverage is not rerun here. The registered full default
+frontend suite passes, the production build and TypeScript pass with all 116
+routes generated, and scoped ESLint passes. The latest cap scan covers 2,295
+files / 152,553 LOC / zero over 200 lines. That is 130 LOC above the preceding
+152,423 scan, so these structural changes improve reuse and testability but do
+not demonstrate net size reduction. Repository-wide ESLint debt and the wider
+frontend/API size goals remain outstanding; no push or deployment was performed.

@@ -2,26 +2,19 @@
 
 import Link from 'next/link'
 import { ExternalLink, Trash2 } from 'lucide-react'
-import { useState } from 'react'
 import Notify from '../notify/notify'
-import { useRouter } from 'next/navigation'
-import useClearStateAfter from '@/hooks/useClearStateAfter'
+import { useDashboardRowDeletion } from '@/hooks/useDashboardRowDeletion'
 import deleteProject from '@/utils/projects/deleteProject'
 import prettyDate from '@/utils/date/prettyDate'
 
 export default function DashboardProject({ project }: { project: Project }) {
-    const [deleted, setDeleted] = useState(false)
-    const { condition: error, setCondition: setError } = useClearStateAfter()
-    const router = useRouter()
+    const { deleted, error, deleteRow } = useDashboardRowDeletion()
 
     async function handleDelete() {
-        const result = await deleteProject(project.alias)
-        if (result.status === 200) {
-            setDeleted(true)
-            router.refresh()
-        } else {
-            setError(result.message)
-        }
+        await deleteRow(async () => {
+            const result = await deleteProject(project.alias)
+            return { deleted: result.status === 200, error: result.message }
+        })
     }
 
     if (deleted) return null

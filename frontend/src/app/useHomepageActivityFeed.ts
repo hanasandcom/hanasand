@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { dedupeItems, mergeExposureQueueItems, normalizeExposureQueue, type ExposureQueue } from './exposureQueue'
+import { dedupeItems, mergeExposureQueueItems, type ExposureQueue } from './exposureQueue'
 import { HOMEPAGE_ACTIVITY_CACHE_KEY, HOMEPAGE_ACTIVITY_CACHE_SIZE, queueAfterFailedInitialCheck, restoreCachedActivity, serializeCachedActivity } from './homepageActivityFeedState'
+import { requestExposureQueue } from './requestExposureQueue'
 
 const PAGE_SIZE = 10
 const REFRESH_MS = 300_000
@@ -57,9 +58,7 @@ export function useHomepageActivityFeed(initialQueue: ExposureQueue) {
 
     const fetchQueue = useCallback(async (offset = 0, limit = PAGE_SIZE) => {
         const params = new URLSearchParams({ limit: String(limit), offset: String(offset) })
-        const response = await fetch(`/api/public/exposure-queue?${params.toString()}`, { cache: 'default' })
-        if (!response.ok && response.status !== 202) throw new Error(`activity-status:${response.status}`)
-        return normalizeExposureQueue(await response.json())
+        return requestExposureQueue(params)
     }, [])
 
     const refresh = useCallback(async () => {

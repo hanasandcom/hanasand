@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { RefreshCw, ShieldCheck } from 'lucide-react'
-import { formatClaimTime, mergeExposureQueueItems, normalizeExposureQueue, type ExposureQueue } from '../exposureQueue'
+import { formatClaimTime, mergeExposureQueueItems, type ExposureQueue } from '../exposureQueue'
+import { requestExposureQueue } from '../requestExposureQueue'
 import { ActivityFilters } from './ActivityFilters'
 import { ActivityResults } from './ActivityResults'
 import {
@@ -40,9 +41,7 @@ export default function ActivityClient({ initialQueue }: Props) {
         for (const key of FILTER_QUERY_KEYS) {
             if (filters[key]) params.set(key, filters[key])
         }
-        const response = await fetch(`/api/public/exposure-queue?${params.toString()}`, { cache: 'default' })
-        if (!response.ok && response.status !== 202) throw new Error(`activity-status:${response.status}`)
-        return normalizeExposureQueue(await response.json())
+        return requestExposureQueue(params)
     }, [filters])
 
     const replace = useCallback(async () => {

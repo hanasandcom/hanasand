@@ -1,7 +1,8 @@
 import DashboardThought from '@/components/thoughts/dashboardThought'
 import { DashboardContentQueue } from '@/components/dashboard/dashboardContentQueue'
 import DashboardMetricCard from '@/components/dashboard/dashboardMetricCard'
-import { DashboardHeader, DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPublishingEmptyState } from '@/components/dashboard/dashboardPublishingEmptyState'
+import { DashboardHeader, DashboardPage } from '@/components/dashboard/ui'
 import fetchWorkspaceContent from '@/utils/organizations/fetchWorkspaceContent'
 import dateSortValue from '@/utils/date/dateSortValue'
 import formatCompactDateTime from '@/utils/date/formatCompactDateTime'
@@ -29,20 +30,16 @@ export default async function Page() {
                 }
             />
 
-            {!thoughts.length ? <DashboardPanel className='grid min-h-80 place-items-center border-ui-border bg-ui-panel p-8 text-center'>
-                <div className='max-w-md'>
-                    <div className='mx-auto grid h-12 w-12 place-items-center rounded-full bg-ui-primary/10 text-ui-primary'>
-                        <BrainCircuit className='h-6 w-6' />
-                    </div>
-                    <h2 className='mt-4 text-xl font-semibold text-ui-text'>Create your first thought</h2>
-                    <div className='mt-5 flex justify-center gap-2'>
-                        <Link href='/content/thoughts/create' className='inline-flex h-9 items-center gap-2 rounded-md bg-ui-primary px-3 text-sm font-semibold text-ui-on-primary'>
-                            <Plus className='h-4 w-4' />
-                            Create
-                        </Link>
-                    </div>
-                </div>
-            </DashboardPanel> : null}
+            {!thoughts.length ? <DashboardPublishingEmptyState
+                icon={<BrainCircuit className='h-6 w-6' />}
+                title='Create your first thought'
+                action={<div className='mt-5 flex justify-center gap-2'>
+                    <Link href='/content/thoughts/create' className='inline-flex h-9 items-center gap-2 rounded-md bg-ui-primary px-3 text-sm font-semibold text-ui-on-primary'>
+                        <Plus className='h-4 w-4' />
+                        Create
+                    </Link>
+                </div>}
+            /> : null}
 
             {thoughts.length ? <section className='grid gap-3 md:grid-cols-2 xl:grid-cols-4'>
                 <DashboardMetricCard icon={<BrainCircuit className='h-4 w-4' />} label='Thoughts' value={String(thoughts.length)} detail='philosophical questions' tone={thoughts.length ? 'ok' : 'watch'} />

@@ -2,6 +2,7 @@ import { bun, type TestTask } from './testTask'
 
 export const otherUnitTasks: TestTask[] = [
     { id: 'activity-model', title: 'Exposure activity model', command: [bun, 'test', 'tests/activity-model.test.ts'] },
+    { id: 'dashboard-row-deletion', title: 'Dashboard row deletion lifecycle', command: [bun, 'test', 'tests/dashboard-row-deletion.test.ts'] },
     { id: 'audit-log', title: 'Audit log server rendering', command: [bun, 'test', 'tests/audit-log.test.tsx'] },
     { id: 'box-request-utils', title: 'Box request and response helpers', command: [bun, 'test', 'tests/box-request-utils.test.ts'] },
     { id: 'browser-sandbox-broker', title: 'Browser sandbox broker contract', command: [bun, 'test', 'tests/browser-sandbox-broker.test.ts'] },

@@ -75,6 +75,7 @@ const activityClientSource = [
 const homepageActivitySource = [
     'homepageActivityFeed.tsx',
     'useHomepageActivityFeed.ts',
+    'requestExposureQueue.ts',
     'homepageActivityFeedView.tsx',
     'homepageActivityFeedState.ts',
 ].map((file) => readFileSync(new URL(`../src/app/${file}`, import.meta.url), 'utf8')).join('\n')

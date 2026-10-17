@@ -1,7 +1,8 @@
 import DashboardArticle from '@/components/articles/dashboardArticle'
 import { DashboardContentQueue } from '@/components/dashboard/dashboardContentQueue'
 import DashboardMetricCard from '@/components/dashboard/dashboardMetricCard'
-import { DashboardHeader, DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPublishingEmptyState } from '@/components/dashboard/dashboardPublishingEmptyState'
+import { DashboardHeader, DashboardPage } from '@/components/dashboard/ui'
 import fetchWorkspaceContent from '@/utils/organizations/fetchWorkspaceContent'
 import dateSortValue from '@/utils/date/dateSortValue'
 import { Clock3, FileText, Plus, Radio, Timer } from 'lucide-react'
@@ -27,19 +28,15 @@ export default async function Page() {
                 }
             />
 
-            {!articles.length ? <DashboardPanel className='grid min-h-80 place-items-center border-ui-border bg-ui-panel p-8 text-center'>
-                <div className='max-w-md'>
-                    <div className='mx-auto grid h-12 w-12 place-items-center rounded-full bg-ui-primary/10 text-ui-primary'>
-                        <FileText className='h-6 w-6' />
-                    </div>
-                    <h2 className='mt-4 text-xl font-semibold text-ui-text'>Publish your first article</h2>
-                    <p className='mt-2 text-sm leading-6 text-ui-muted'>Turn research into a clear public update and start the editorial queue.</p>
-                    <Link href='/content/articles/create' className='mt-5 inline-flex h-9 items-center gap-2 rounded-md bg-ui-primary px-3 text-sm font-semibold text-ui-on-primary'>
-                        <Plus className='h-4 w-4' />
-                        Create your first article
-                    </Link>
-                </div>
-            </DashboardPanel> : null}
+            {!articles.length ? <DashboardPublishingEmptyState
+                icon={<FileText className='h-6 w-6' />}
+                title='Publish your first article'
+                description='Turn research into a clear public update and start the editorial queue.'
+                action={<Link href='/content/articles/create' className='mt-5 inline-flex h-9 items-center gap-2 rounded-md bg-ui-primary px-3 text-sm font-semibold text-ui-on-primary'>
+                    <Plus className='h-4 w-4' />
+                    Create your first article
+                </Link>}
+            /> : null}
 
             {articles.length ? <section className='grid gap-3 md:grid-cols-2 xl:grid-cols-4'>
                 <DashboardMetricCard icon={<FileText className='h-4 w-4' />} label='Published' value={String(articles.length)} detail='articles' tone={articles.length ? 'ok' : 'watch'} />
