@@ -830,3 +830,13 @@ changed-file lint, cap checks, and seven dashboard navigation tests pass. The
 API-key owner-picker Playwright check did not run because Playwright's managed
 API server exited before browser startup. The 10,000–30,000-line target remains
 unmet.
+
+The latest integrated repository scan is 3,981 hand-maintained files / 322,199
+LOC, with 112 files over 200 lines; the frontend has zero over-limit files.
+The verification-jobs and organization utility extractions now preserve their
+public contracts and pass focused tests/typechecks, but add roughly 45 and 808
+LOC respectively while meeting the cap. A duplicate pair of API runner-policy
+assertions was removed, and the public TI test now verifies selected route
+quotas. These API checkpoints improve boundaries and test accuracy, not the
+100,000-line reduction target. A frontend workbench data-contract regression
+fix is in progress, so current integrated counts are provisional.
