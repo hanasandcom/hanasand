@@ -47,6 +47,7 @@ export const productTasks: TestTask[] = [
     { id: 'ti-unique-strings', title: 'TI string normalization and deduplication contracts', command: [bun, 'test', 'tests/ti-unique-strings.test.ts'] },
     { id: 'ti-admin-data-table', title: 'TI admin table shell and body contracts', command: [bun, 'test', 'tests/ti-admin-data-table.test.tsx'] },
     { id: 'ti-selected-preview-list', title: 'TI workbench selected-row previews preserve selection and expansion', command: [bun, 'test', 'tests/ti-selected-preview-list.test.tsx'] },
+    { id: 'product-progress-readiness-defaults', title: 'Product progress readiness constructors preserve lane contracts', command: [bun, 'test', 'tests/product-progress-readiness-defaults.test.ts'] },
     { id: 'blocklist-render', title: 'Blocklist edit actions require persisted entry identifiers', command: [bun, 'test', 'tests/blocklist-render.test.tsx'] },
     { id: 'vulnerability-severity-badge', title: 'Vulnerability severity badge styles and counts', command: [bun, 'test', 'tests/vulnerability-severity-badge.test.tsx'] },
     { id: 'dwm-tenant-scope', title: 'DWM tenant scope and findings presentation contracts', command: [bun, 'test', 'tests/dwm-tenant-scope.test.ts'] },
