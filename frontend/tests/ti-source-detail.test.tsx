@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 // @ts-expect-error Bun supplies this module for focused checks.
-import { mock } from 'bun:test'
+import { mock, test } from 'bun:test'
 import { renderToStaticMarkup } from 'react-dom/server'
 mock.module('../src/app/dashboard/ti/manualRunButton', () => ({ default: () => null }))
 const originalFetch = globalThis.fetch
@@ -18,22 +18,24 @@ globalThis.fetch = (async (input: RequestInfo | URL) => {
 }) as typeof fetch
 const { default: Page } = await import('../src/app/dashboard/ti/sources/[id]/page')
 async function render() { return renderToStaticMarkup(await Page({ params: Promise.resolve({ id: 'example' }) })) }
-try {
-    let html = await render()
-    for (const text of ['Hits', 'Recent runs', 'Recent evidence', 'Connection refused', 'Example article', 'Open original', 'Paused']) assert(html.includes(text), text)
-    for (const text of ['Worker output', 'Safety rules', 'Yield', 'Source healthy', 'Collector checking']) assert(!html.includes(text), text)
-    failed = ['captures', 'collection-runs']
-    html = await render()
-    assert(html.includes('Evidence unavailable.'))
-    assert(html.includes('Run history unavailable.'))
-    assert(!html.includes('No evidence collected yet.'))
-    failed = []
-    empty = true
-    html = await render()
-    assert(html.includes('No evidence collected yet.'))
-    failed = ['source-operations']
-    html = await render()
-    assert(html.includes('Source unavailable'), html)
-    assert(!html.includes('Healthy'))
-    console.log('Source detail: real states, paused source, hits, evidence links, empty and failed loads passed.')
-} finally { globalThis.fetch = originalFetch }
+test('renders source detail, empty, and failed loading states', async () => {
+    try {
+        let html = await render()
+        for (const text of ['Hits', 'Recent runs', 'Recent evidence', 'Connection refused', 'Example article', 'Open original', 'Paused']) assert(html.includes(text), text)
+        for (const text of ['Worker output', 'Safety rules', 'Yield', 'Source healthy', 'Collector checking']) assert(!html.includes(text), text)
+        failed = ['captures', 'collection-runs']
+        html = await render()
+        assert(html.includes('Evidence unavailable.'))
+        assert(html.includes('Run history unavailable.'))
+        assert(!html.includes('No evidence collected yet.'))
+        failed = []
+        empty = true
+        html = await render()
+        assert(html.includes('No evidence collected yet.'))
+        failed = ['source-operations']
+        html = await render()
+        assert(html.includes('Source unavailable'), html)
+        assert(!html.includes('Healthy'))
+        console.log('Source detail: real states, paused source, hits, evidence links, empty and failed loads passed.')
+    } finally { globalThis.fetch = originalFetch }
+})
