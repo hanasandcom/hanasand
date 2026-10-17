@@ -2946,3 +2946,18 @@ The frontend scan is 2,433 source/config files / 156,964 lines; the repository
 scan is 4,588 maintained files / 330,468 lines, with no file above 200. The
 frontend remains 3,256 lines above its 153,708 baseline, and the broader
 reduction goal remains open.
+
+The organization page request map now uses a finite bundle-key union, so a
+misspelled API bundle key fails typechecking; a per-page request-map regression
+test is registered in the default frontend test runner. Public site search
+clears watchlist results when auth ends, filters them from signed-out output,
+and aborts stale authenticated watchlist requests. Independent review traced
+the map to each workspace panel and confirmed the request guard; it also
+confirmed the search lifecycle, while noting the search unit test covers the
+pure signed-out projection rather than mounting the hook. The full frontend
+test suite, lint/typecheck, focused registered organization test, production
+build (116 generated pages), both line-cap scans, and diff checks pass. The
+frontend cap is 2,434 files / 157,011 lines; the repository cap is 4,589
+maintained files / 330,515 lines, with no file above 200. The frontend remains
+3,303 lines above its 153,708 baseline, so the requested large reduction is
+still outstanding.

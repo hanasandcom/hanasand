@@ -92,6 +92,10 @@ export function watchlistItems(payload: unknown): SearchItem[] {
     return arrayFrom(payload, ['watchlists', 'items', 'rows']).flatMap(watchlistTerms).slice(0, 20)
 }
 
+export function authorizedWatchlistItems(token: boolean, items: SearchItem[]): SearchItem[] {
+    return token ? items : []
+}
+
 function actorPreviewItem(payload: unknown, query: string): SearchItem | null {
     if (!payload || typeof payload !== 'object') return null
     const row = payload as Record<string, unknown>

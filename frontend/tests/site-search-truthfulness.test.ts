@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 import { assertGeneratedOutputLineCap } from '../scripts/generatedOutputLineCap.mjs'
 import { generatedSearchRoutes } from '../src/utils/routes/generatedSearchRoutes'
-import { actorItems, caseItem, directThreatItem, watchlistItems } from '../src/components/header/siteSearch/searchData'
+import { actorItems, authorizedWatchlistItems, caseItem, directThreatItem, watchlistItems } from '../src/components/header/siteSearch/searchData'
 
 test('generated route catalog is unique, ordered, canonical, and within the source cap', async () => {
     const hrefs = generatedSearchRoutes.map(route => route.href)
@@ -71,4 +71,10 @@ test('header watchlist results normalize both string and object terms', () => {
         { id: 'watch:apt29', title: 'apt29', detail: 'Monitored entity', href: '/watchlists' },
         { id: 'watch:example.com', title: 'example.com', detail: 'Monitored entity', href: '/watchlists' },
     ])
+})
+
+test('header search hides retained watchlist results after authentication ends', () => {
+    const items = watchlistItems({ watchlists: [{ terms: ['private.example'] }] })
+    assert.equal(authorizedWatchlistItems(true, items), items)
+    assert.deepEqual(authorizedWatchlistItems(false, items), [])
 })

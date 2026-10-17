@@ -12,6 +12,7 @@ export const authOrganizationTasks: TestTask[] = [
     { id: 'organization-watchlist-dwm-payload', title: 'Organization watchlist DWM payload projection', command: [bun, 'test', 'tests/organization-watchlist-dwm-payload.test.ts'] },
     { id: 'organization-watchlist-proxy', title: 'Organization watchlist proxy auth and forwarding', command: [bun, 'test', 'tests/organization-watchlist-proxy.test.ts'] },
     { id: 'organization-workspace-tenant-switching', title: 'Organization workspace tenant switching', command: [bun, 'test', 'tests/organization-workspace-tenant-switching.test.ts'] },
+    { id: 'organization-page-data-contract', title: 'Organization page bundle request map', command: [bun, 'test', 'tests/organization-page-data-contract.test.ts'] },
     { id: 'management-organization-list', title: 'Management organization list rendering', command: [bun, 'test', 'tests/management-organization-list.test.tsx'] },
     { id: 'management-organizations', title: 'Management organization navigation contract', command: [bun, 'test', 'tests/management-organizations.test.ts'] },
     { id: 'dashboard-admin-boundary', title: 'Organization-gated internal dashboard pages', command: [bun, 'test', 'tests/dashboard-admin-boundary.test.ts'] },

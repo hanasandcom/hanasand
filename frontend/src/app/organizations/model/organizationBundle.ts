@@ -13,7 +13,11 @@ export const initialOrganizationBundle: OrgBundle = {
     apiKeys: [], loadErrors: [],
 }
 
-export const organizationBundleKeysByPage: Record<OrganizationPage, readonly string[]> = {
+export type OrganizationBundleKey =
+    | 'settings' | 'apiKeys' | 'privacy' | 'members' | 'invites' | 'watchlists'
+    | 'alertTerms' | 'alertCaseVisibility' | 'events' | 'cases' | 'webhooks' | 'deliveries'
+
+export const organizationBundleKeysByPage: Record<OrganizationPage, readonly OrganizationBundleKey[]> = {
     overview: ['settings', 'members', 'invites', 'watchlists', 'alertTerms', 'events', 'cases', 'webhooks', 'deliveries'],
     settings: ['settings'], team: ['members', 'invites'],
     watchlists: ['members', 'watchlists', 'alertTerms', 'events', 'webhooks', 'deliveries'],
@@ -22,7 +26,7 @@ export const organizationBundleKeysByPage: Record<OrganizationPage, readonly str
     activity: ['settings', 'members', 'invites', 'watchlists', 'alertTerms', 'events', 'cases', 'webhooks', 'deliveries'],
 }
 
-export function mergeOrganizationPayload(bundle: OrgBundle, key: string, payload: Record<string, unknown>, organization?: OrganizationSummary) {
+export function mergeOrganizationPayload(bundle: OrgBundle, key: OrganizationBundleKey, payload: Record<string, unknown>, organization?: OrganizationSummary) {
     if (key === 'settings') bundle.settings = {
         ...objectValue(payload.settings),
         name: cleanString(objectValue(payload.organization)?.name) || organization?.name || '',

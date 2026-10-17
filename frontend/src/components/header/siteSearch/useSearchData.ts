@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { loadActors, loadCases, watchlistItems } from './searchData'
+import { authorizedWatchlistItems, loadActors, loadCases, watchlistItems } from './searchData'
 import type { SearchItem } from './types'
 
 export function useSearchData(open: boolean, token: boolean, query: string) {
@@ -12,6 +12,7 @@ export function useSearchData(open: boolean, token: boolean, query: string) {
     const casesLoadedAt = useRef(0)
 
     useEffect(() => {
+        if (!token) setWatchTerms([])
         if (!open) return
         try {
             const stored = JSON.parse(window.localStorage.getItem('hanasand:ti:saved-searches') || '[]')
@@ -29,10 +30,16 @@ export function useSearchData(open: boolean, token: boolean, query: string) {
             setSavedSearches([])
         }
         if (!token) return
-        fetch('/api/findings/watchlists', { cache: 'no-store' })
+        const controller = new AbortController()
+        fetch('/api/findings/watchlists', { cache: 'no-store', signal: controller.signal })
             .then(response => response.ok ? response.json() : null)
-            .then(payload => setWatchTerms(watchlistItems(payload)))
-            .catch(() => setWatchTerms([]))
+            .then(payload => {
+                if (!controller.signal.aborted) setWatchTerms(authorizedWatchlistItems(token, watchlistItems(payload)))
+            })
+            .catch(() => {
+                if (!controller.signal.aborted) setWatchTerms([])
+            })
+        return () => controller.abort()
     }, [open, token])
 
     useEffect(() => {
@@ -80,5 +87,5 @@ export function useSearchData(open: boolean, token: boolean, query: string) {
         }
     }, [open, query])
 
-    return { cases, actors, savedSearches, watchTerms, loading, casesLoading }
+    return { cases, actors, savedSearches, watchTerms: authorizedWatchlistItems(token, watchTerms), loading, casesLoading }
 }
