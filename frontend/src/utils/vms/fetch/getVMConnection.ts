@@ -1,22 +1,8 @@
-import config from '@/config'
-import fetchWithRetry from '@/utils/fetchWithRetry'
+import { requestVmJson } from './requestVmJson'
 
 export default async function getVMConnection(id: string, token: string, userId: string): Promise<VMConnectionDetails | null> {
     try {
-        const response = await fetchWithRetry(`${config.url.api}/vm/${encodeURIComponent(id)}/connection`, {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                id: userId
-            },
-            timeoutMs: config.abortTimeout,
-            retries: 2,
-        })
-
-        if (!response.ok) {
-            throw new Error(await response.text())
-        }
-
-        return await response.json() as VMConnectionDetails
+        return await requestVmJson<VMConnectionDetails>(`/vm/${encodeURIComponent(id)}/connection`, token, userId)
     } catch (error) {
         console.log(error)
         return null
