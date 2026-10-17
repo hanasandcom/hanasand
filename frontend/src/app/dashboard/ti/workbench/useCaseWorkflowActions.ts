@@ -2,7 +2,7 @@ import type { CaseDetailState, CaseMutationInput, LocalDecision, WorkbenchCase, 
 import type { Dispatch, SetStateAction } from 'react'
 import { caseCustomerNotificationHref, deliveredCaseDelivery } from './modules/caseRoutes'
 import { caseMutationIdempotencyKey, caseMutationResultMessage, scopeBody } from './modules/actionMessages'
-import { readJson } from './modules/payloadParsing'
+import { readSuccessfulJson } from './modules/payloadParsing'
 import type { WorkbenchPersistentAction } from './useWorkbenchActionState'
 
 export function useCaseWorkflowActions(input: {
@@ -39,8 +39,7 @@ export function useCaseWorkflowActions(input: {
             const response = await fetch(item.caseDetailHref as string, {
                 method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
             })
-            const payload = await readJson(response)
-            if (!response.ok) throw new Error(payload.error?.message || response.statusText)
+            const payload = await readSuccessfulJson(response)
             await refreshCaseDetail(item.id, item.caseDetailHref as string, { loading: false })
             setLocalDecisions(current => {
                 const next = { ...current }
@@ -65,8 +64,7 @@ export function useCaseWorkflowActions(input: {
                 method: 'POST', headers: { 'content-type': 'application/json' },
                 body: JSON.stringify({ ...scopeBody(orgContext), deliveryMode: 'webhook_delivery', webhookDeliveryId: delivery.id, rationale, actor: 'dashboard' }),
             })
-            const payload = await readJson(response)
-            if (!response.ok) throw new Error(payload.error?.message || response.statusText)
+            const payload = await readSuccessfulJson(response)
             await refreshCaseDetail(item.id, item.caseDetailHref as string, { loading: false })
             return payload.receipt?.id ? `Customer notification ${payload.receipt.id} recorded.` : 'Customer notification delivery recorded.'
         })

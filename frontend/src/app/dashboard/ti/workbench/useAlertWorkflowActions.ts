@@ -3,7 +3,7 @@ import type { Dispatch, SetStateAction } from 'react'
 import { alertWorkflowMutationBody, scopedActionBody, scopedDeliveryActionBody, sendDeliveryActionFor, sendDeliveryDisabledReason } from './modules/actionInputs'
 import { alertReplayResultMessage, actionResultMessage, webhookDeliveryResultMessage } from './modules/actionMessages'
 import { mapDwmDecision } from './modules/watchlistHelpers'
-import { readJson } from './modules/payloadParsing'
+import { readSuccessfulJson } from './modules/payloadParsing'
 import { label } from './modules/presentation'
 import type { WorkbenchPersistentAction } from './useWorkbenchActionState'
 import { postWebhookJson } from '../../webhookDeliveryTransport'
@@ -39,8 +39,7 @@ export function useAlertWorkflowActions(input: {
                     assignedOwner: decision.owner, actor: 'dashboard',
                 }),
             })
-            const payload = await readJson(response)
-            if (!response.ok) throw new Error(payload.error?.message || response.statusText)
+            const payload = await readSuccessfulJson(response)
             setLocalDecisions(current => ({ ...current, [item.id]: nextDecision }))
             await refreshBackedSelection(item, payload)
             return decisionStatus ? `${label(decisionStatus)} saved to the dark web case.` : 'Owner saved to the dark web case.'
@@ -55,8 +54,7 @@ export function useAlertWorkflowActions(input: {
                 method: 'POST', headers: { 'content-type': 'application/json' },
                 body: JSON.stringify({ ...alertWorkflowMutationBody(item, mutationDetail, orgContext), action: 'replay', actor: 'dashboard' }),
             })
-            const payload = await readJson(response)
-            if (!response.ok) throw new Error(payload.error?.message || response.statusText)
+            const payload = await readSuccessfulJson(response)
             await refreshBackedSelection(item, payload)
             return alertReplayResultMessage(payload, item)
         })
@@ -89,8 +87,7 @@ export function useAlertWorkflowActions(input: {
             const response = await fetch(action.href, {
                 method: action.method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
             })
-            const payload = await readJson(response)
-            if (!response.ok) throw new Error(payload.error?.message || response.statusText)
+            const payload = await readSuccessfulJson(response)
             await refreshBackedSelection(item, payload, action)
             return actionResultMessage(action, payload)
         })

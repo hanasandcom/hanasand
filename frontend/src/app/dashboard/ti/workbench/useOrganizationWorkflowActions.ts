@@ -2,7 +2,7 @@ import type { CaseDetailState, WorkbenchActionOutcome, WorkbenchCase, WorkbenchI
 import type { Dispatch, SetStateAction } from 'react'
 import { orgInviteDisabledReason, watchlistMutationDisabledReason } from './modules/actionInputs'
 import { inferTermKind, suggestedWatchTerm } from './modules/watchlistHelpers'
-import { readJson } from './modules/payloadParsing'
+import { readSuccessfulJson } from './modules/payloadParsing'
 import { scopeBody } from './modules/actionMessages'
 import type { WorkbenchPersistentAction } from './useWorkbenchActionState'
 
@@ -35,8 +35,7 @@ export function useOrganizationWorkflowActions(input: {
             const response = await fetch(orgContext.createWatchlistAction?.href || '/api/findings/watchlists', {
                 method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
             })
-            const payload = await readJson(response)
-            if (!response.ok) throw new Error(payload.error?.message || response.statusText)
+            const payload = await readSuccessfulJson(response)
             return payload.watchlist?.id ? `Shared watchlist ${payload.watchlist.id} now covers ${term}.` : `Shared watchlist term ${term} saved.`
         })
     }
@@ -52,8 +51,7 @@ export function useOrganizationWorkflowActions(input: {
             const response = await fetch(`/api/organizations/${encodeURIComponent(organizationId)}/invites`, {
                 method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
             })
-            const payload = await readJson(response)
-            if (!response.ok) throw new Error(payload.error?.message || response.statusText)
+            const payload = await readSuccessfulJson(response)
             setInviteEmail('')
             return payload.invites?.length ? `Invited ${payload.invites.length} teammate${payload.invites.length === 1 ? '' : 's'}.` : 'Invite queued.'
         })
@@ -71,8 +69,7 @@ export function useOrganizationWorkflowActions(input: {
             const response = await fetch('/api/findings/watchlists', {
                 method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
             })
-            const payload = await readJson(response)
-            if (!response.ok) throw new Error(payload.error?.message || response.statusText)
+            const payload = await readSuccessfulJson(response)
             return payload.watchlist?.id ? `Watchlist ${payload.watchlist.id} updated.` : 'Watchlist updated.'
         })
     }

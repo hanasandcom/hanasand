@@ -1,6 +1,6 @@
 import type { WorkbenchOrgContext, WorkbenchProductReadinessItem, WorkbenchAction, WorkbenchWorkflowStep } from '../types'
 import { useState, useCallback } from 'react'
-import { readJson } from './payloadParsing'
+import { readSuccessfulJson } from './payloadParsing'
 import { workflowStatusClass, customerOperationalText } from './presentation'
 import Link from 'next/link'
 import { ReadinessDetailField, ReadinessDetail } from './readinessDetail'
@@ -29,8 +29,7 @@ export function ProductReadinessPanel({ orgContext }: { orgContext?: WorkbenchOr
                 headers: { 'content-type': 'application/json' },
                 body: JSON.stringify(action.body || {}),
             })
-            const payload = await readJson(response)
-            if (!response.ok) throw new Error(payload.error?.message || response.statusText)
+            await readSuccessfulJson(response)
             setReadinessActionState({ id: key, status: 'ready', text: `${action.label} completed.` })
         } catch (error) {
             setReadinessActionState({ id: key, status: 'blocked', text: error instanceof Error ? error.message : String(error) })

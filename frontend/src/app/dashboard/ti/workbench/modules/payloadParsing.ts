@@ -25,6 +25,12 @@ export async function readJson(response: Response) {
     }
 }
 
+export async function readSuccessfulJson(response: Response) {
+    const payload = await readJson(response)
+    if (!response.ok) throw new Error(payload.error?.message || response.statusText)
+    return payload
+}
+
 export function deliveryEvidenceFromPayload(payload: WorkbenchApiPayload | undefined, fallbackAlertId: string) {
     const attemptedAt = payload?.deliveredAt || payload?.testedAt || ''
     return deliveryCandidatesFromPayload(payload)
