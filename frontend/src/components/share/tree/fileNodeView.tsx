@@ -1,9 +1,9 @@
 import { AppConfirmDialog } from '@/components/ui/appDialog'
 import { File } from 'lucide-react'
 import Link from 'next/link'
-import NewFile from './newFile'
+import { TreeNewFile } from './newFile'
 import { FileNodeActions, RenameInput } from './fileNodeControls'
-import { useFileTreeState, type FileNodeViewActions, type FileNodeViewContext, type FileNodeViewState } from './fileNodeTypes'
+import type { FileNodeViewActions, FileNodeViewContext, FileNodeViewState } from './fileNodeTypes'
 
 export function FileNodeView({ context, state, actions, isFirstFileInFolder, shouldDisplay }: {
     context: FileNodeViewContext
@@ -13,7 +13,6 @@ export function FileNodeView({ context, state, actions, isFirstFileInFolder, sho
     shouldDisplay: boolean
 }) {
     const { file, tree } = context
-    const { newFileName, setNewFileName, isCreatingNewFile, setIsCreatingNewFile, setTree, setShare } = useFileTreeState()
     const { isRenaming, renameValue, setRenameValue, busy, isActive, deleteOpen, setDeleteOpen } = state
 
     return (
@@ -27,17 +26,7 @@ export function FileNodeView({ context, state, actions, isFirstFileInFolder, sho
                 onCancel={() => setDeleteOpen(false)}
                 onConfirm={() => void actions.onDelete()}
             />
-            <NewFile
-                isCreatingNewFile={isCreatingNewFile}
-                display={isFirstFileInFolder && shouldDisplay}
-                newFileName={newFileName}
-                setNewFileName={setNewFileName}
-                setIsCreatingNewFile={setIsCreatingNewFile}
-                file={file}
-                tree={tree}
-                setTree={setTree}
-                setShare={setShare}
-            />
+            <TreeNewFile display={isFirstFileInFolder && shouldDisplay} file={file} tree={tree} />
             <div className={`group/node flex items-center gap-2 rounded-md px-2 py-1 ${isActive ? 'border border-ui-primary/35 bg-ui-primary/10' : 'hover:bg-ui-raised'}`}>
                 {isRenaming ? (
                     <>

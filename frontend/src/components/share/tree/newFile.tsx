@@ -5,6 +5,7 @@ import { File, Folder } from 'lucide-react'
 import { Dispatch, SetStateAction } from 'react'
 import NewFileWarning from './newFileWarning'
 import useClearStateAfter from '@/hooks/useClearStateAfter'
+import { useFileTreeState } from './fileNodeTypes'
 
 type NewFileProps = {
     isCreatingNewFile: 'file' | 'folder' | null
@@ -94,6 +95,21 @@ export default function NewFile({
             />
         </div>
     )
+}
+
+export function TreeNewFile({ display, file, tree }: Pick<NewFileProps, 'display' | 'file' | 'tree'>) {
+    const { newFileName, setNewFileName, isCreatingNewFile, setIsCreatingNewFile, setTree, setShare } = useFileTreeState()
+    return <NewFile
+        isCreatingNewFile={isCreatingNewFile}
+        display={display}
+        newFileName={newFileName}
+        setNewFileName={setNewFileName}
+        setIsCreatingNewFile={setIsCreatingNewFile}
+        file={file}
+        tree={tree}
+        setTree={setTree}
+        setShare={setShare}
+    />
 }
 
 function promoteToProjectRoute(

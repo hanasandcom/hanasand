@@ -1,9 +1,9 @@
 import { AppConfirmDialog } from '@/components/ui/appDialog'
 import { Folder, FolderOpen } from 'lucide-react'
-import NewFile from './newFile'
+import { TreeNewFile } from './newFile'
 import Tree from './tree'
 import { FileNodeActions, RenameInput } from './fileNodeControls'
-import { useFileTreeState, type FileNodeViewActions, type FileNodeViewContext, type FileNodeViewState } from './fileNodeTypes'
+import type { FileNodeViewActions, FileNodeViewContext, FileNodeViewState } from './fileNodeTypes'
 
 export function FolderNodeView({ context, state, actions, file }: {
     context: FileNodeViewContext
@@ -12,7 +12,6 @@ export function FolderNodeView({ context, state, actions, file }: {
     file: Extract<FileItem, { type: 'folder' }>
 }) {
     const { tree, rootTree, share } = context
-    const { newFileName, setNewFileName, isCreatingNewFile, setIsCreatingNewFile, setTree, setShare } = useFileTreeState()
     const { isRenaming, renameValue, setRenameValue, busy, deleteOpen, setDeleteOpen, isFolderActive, open } = state
     const hasChildren = Boolean(file.children?.filter(child => child.type === 'file').length)
 
@@ -45,17 +44,7 @@ export function FolderNodeView({ context, state, actions, file }: {
                 />}
             </div>
             {!hasChildren && <div className='ml-3.5 rounded-md group-hover:bg-ui-raised'>
-                <NewFile
-                    isCreatingNewFile={isCreatingNewFile}
-                    display={isFolderActive}
-                    newFileName={newFileName}
-                    setNewFileName={setNewFileName}
-                    setIsCreatingNewFile={setIsCreatingNewFile}
-                    file={file}
-                    tree={tree}
-                    setTree={setTree}
-                    setShare={setShare}
-                />
+                <TreeNewFile display={isFolderActive} file={file} tree={tree} />
             </div>}
             {open && file.children && <div className='ml-3.5'>
                 <Tree
