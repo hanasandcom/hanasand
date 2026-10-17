@@ -1,10 +1,23 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import { readBrowserClientSource } from './browser-client-source'
 
 const root = process.cwd()
 const readSource = (relativePath: string) => readFileSync(path.join(root, relativePath), 'utf8')
+const readTypeScriptTree = (relativePath: string) => readdirSync(path.join(root, relativePath), { withFileTypes: true })
+    .sort((left, right) => left.name.localeCompare(right.name))
+    .flatMap(entry => entry.isDirectory()
+        ? [readTypeScriptTree(`${relativePath}/${entry.name}`)]
+        : entry.isFile() && entry.name.endsWith('.ts')
+            ? [readSource(`${relativePath}/${entry.name}`)]
+            : [])
+    .join('\n')
 const clientSource = readBrowserClientSource(root)
+const wsSource = [
+    readSource('../api/src/plugins/ws.ts'),
+    readTypeScriptTree('../api/src/plugins/ws'),
+].join('\n')
+const brokerSource = readTypeScriptTree('../api/src/handlers/onionSession')
 
 export const browserSandboxRouteSources = {
     root,
@@ -13,8 +26,8 @@ export const browserSandboxRouteSources = {
     clientSource,
     legacyBrowserSource: readSource('src/app/browser-sandbox/page.tsx'),
     legacyOnionSource: readSource('src/app/solutions/onion-session/page.tsx'),
-    wsSource: readSource('../api/src/plugins/ws.ts'),
-    brokerSource: readSource('../api/src/handlers/onionSession/ws.ts'),
+    wsSource,
+    brokerSource,
     providerCaptureSource: readSource('../api/src/handlers/onionSession/providerCapture.ts'),
     networkTelemetrySource: readSource('../api/src/handlers/onionSession/networkTelemetry.ts'),
     downloadsSource: readSource('../api/src/handlers/onionSession/downloads.ts'),
@@ -22,7 +35,10 @@ export const browserSandboxRouteSources = {
     runsSource: readSource('../api/src/handlers/browserSandboxRuns.ts'),
     routesSource: readSource('../api/src/routes.ts'),
     browserProfileRoutesSource: readSource('../api/src/routes/browserSandboxProfiles.ts'),
-    analysisSource: readSource('../api/src/handlers/onionSession/analysis.ts'),
+    analysisSource: [
+        readSource('../api/src/handlers/onionSession/analysis.ts'),
+        readTypeScriptTree('../api/src/handlers/onionSession/analysis'),
+    ].join('\n'),
     workerDockerSource: readSource('../api/Dockerfile'),
     browserReconnectSource: readSource('../api/src/utils/ws/browserReconnect.ts'),
     analystSummarySource: readSource('src/app/browser/browserAnalystSummary.ts'),
