@@ -22,6 +22,7 @@ export const productTasks: TestTask[] = [
     { id: 'site-navigation', title: 'Shared header on all pages and mobile sidebar controls', command: [bun, 'scripts/check-mobile-navigation.mjs'], requires: 'playwright' },
     { id: 'cases-layout-streaming', title: 'Cases stream while sidebar data loads', command: [bun, 'tests/cases-layout-streaming.test.tsx'] },
     { id: 'shared-cases-route', title: 'Independent case sources and access boundaries', command: [bun, 'test', 'tests/shared-cases-route.test.ts'] },
+    { id: 'case-request', title: 'Case request forwarding and stale response guards', command: [bun, 'test', 'tests/case-request.test.ts'] },
     { id: 'case-event-dates', title: 'Case event timestamp presentation', command: [bun, 'test', 'tests/case-event-dates.test.tsx'] },
     { id: 'database-bytes', title: 'Shared database byte formatting', command: [bun, 'test', 'tests/database-bytes.test.ts'] },
     { id: 'clipboard-fallback', title: 'Shared clipboard fallback and caller feedback contracts', command: [bun, 'test', 'tests/clipboard-fallback.test.ts'] },

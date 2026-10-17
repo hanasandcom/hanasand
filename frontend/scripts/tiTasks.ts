@@ -28,6 +28,7 @@ export const tiTasks: TestTask[] = [
     { id: 'ti-workbench-response-parsing', title: 'TI workbench success and error response parsing', command: [bun, 'test', 'tests/ti-workbench-response-parsing.test.ts'] },
     { id: 'ti-workbench-alert-adapter', title: 'TI workbench alert adaptation', command: [bun, 'test', 'tests/workbench-alert-adapter.test.ts'] },
     { id: 'workbench-alert-reference-merge', title: 'TI workbench alert reference merging', command: [bun, 'test', 'tests/workbench-alert-reference-merge.test.ts'] },
+    { id: 'ti-workbench-references', title: 'TI workbench case and ledger reference URLs', command: [bun, 'test', 'tests/ti-workbench-references.test.ts'] },
     { id: 'ti-workbench-case-adapter', title: 'TI workbench case adaptation', command: [bun, 'test', 'tests/workbench-case-adapter.test.ts'] },
     { id: 'ti-selectable-workbenches', title: 'TI selectable workbench rendering contracts', command: [bun, 'test', 'tests/ti-selectable-workbenches.test.tsx'] },
     { id: 'ti-workbench-page-data', title: 'TI workbench server data loading contracts', command: [bun, 'test', 'tests/workbench-page-data.test.ts'] },
