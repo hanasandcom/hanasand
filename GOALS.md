@@ -1394,3 +1394,15 @@ inventory is 2,320 hand-maintained files / 153,922 lines / zero over the 200-lin
 cap; the repository scan is 73 of 4,224 files over 200 / 324,497 total lines.
 No production code changed in this checkpoint. API 100,000-line and frontend
 10,000–30,000-line reduction goals remain unmet. No deployment was performed.
+
+The next frontend pass consolidated impersonation-reason normalization across
+the UI counter, submission validation, and request client, and shared TI
+enrichment-gap token matching while retaining separate source projections.
+Independent review approved both changes. The full registered frontend suite,
+focused runtime tests (3), typecheck, targeted ESLint, changed-file 200-line
+scan, and `git diff --check` pass. The frontend inventory is 2,322
+hand-maintained files / 153,984 lines / zero over 200. The production diff is
+net +2 lines while removing duplicated normalization and matching rules; tests
+and registration bring this checkpoint to +62 frontend lines overall. No UI
+or data contract changed. The frontend 10,000–30,000-line goal and API
+100,000-line reduction goal remain outstanding. No deployment was performed.

@@ -1,6 +1,7 @@
 'use client'
 
 import { getCookie, removeCookies } from '@/utils/cookies/cookies'
+import { normalizeImpersonationReason } from './normalizeReason'
 
 export function impersonationHeaders(): Record<string, string> {
     return {}
@@ -9,7 +10,7 @@ export function impersonationHeaders(): Record<string, string> {
 export async function startImpersonating(id: string, reason: string) {
     const actorId = getCookie('id')
     const token = getCookie('access_token')
-    const auditReason = reason.trim().replace(/\s+/g, ' ')
+    const auditReason = normalizeImpersonationReason(reason)
     if (!actorId || !token) {
         throw new Error('Log in again before impersonating a user.')
     }

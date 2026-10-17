@@ -22,6 +22,7 @@ export const productTasks: TestTask[] = [
     { id: 'database-inventory-render', title: 'Database inventory receives server measurements', command: [bun, 'test', 'tests/database-inventory-render.test.tsx'] },
     { id: 'monitoring-case-data', title: 'Monitoring case URLs and event pagination', command: [bun, 'test', 'tests/monitoring-case-data.test.ts'] },
     { id: 'management-search-shortcut', title: 'Shared management search keyboard shortcut', command: [bun, 'test', 'tests/management-search-shortcut.test.ts'] },
+    { id: 'impersonation-reason', title: 'Impersonation reason normalization and request contract', command: [bun, 'test', 'tests/impersonation-reason.test.tsx'] },
     { id: 'ti-timeliness-data', title: 'TI timeliness query and access contracts', command: [bun, 'test', 'tests/ti-timeliness-data.test.ts', 'tests/ti-timeliness-proxy.test.ts'] },
     { id: 'ti-decision-status', title: 'TI decision status pill markup and labels', command: [bun, 'test', 'tests/ti-decision-status.test.tsx'] },
     { id: 'logs-catchup', title: 'Log catch-up measurements and progress states', command: [bun, 'test', 'tests/log-catchup-progress.test.tsx'] },

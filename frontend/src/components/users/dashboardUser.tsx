@@ -5,6 +5,7 @@ import DeleteAccountButton from './deleteAccountButton'
 import AccountDate from './accountDate'
 import deleteUser from '@/utils/users/deleteUser'
 import { startImpersonating } from '@/utils/impersonation/client'
+import { normalizeImpersonationReason } from '@/utils/impersonation/normalizeReason'
 import setUserActive from '@/utils/users/setUserActive'
 import { Ban, CheckCircle2, MoreHorizontal, UserRound } from 'lucide-react'
 import { useRouter } from 'next/navigation'
@@ -57,7 +58,7 @@ export default function DashboardUser({ user, accessibleOrganizationIds }: { use
     async function handleConfirmImpersonation(e: React.SyntheticEvent<HTMLFormElement>) {
         e.stopPropagation()
         e.preventDefault()
-        const auditReason = impersonationReason.trim().replace(/\s+/g, ' ')
+        const auditReason = normalizeImpersonationReason(impersonationReason)
         if (auditReason.length < 10) {
             setImpersonationReasonError('Enter at least 10 characters so the audit trail explains why this session is needed.')
             return

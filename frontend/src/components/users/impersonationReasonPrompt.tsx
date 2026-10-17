@@ -1,5 +1,7 @@
 'use client'
 
+import { normalizeImpersonationReason } from '@/utils/impersonation/normalizeReason'
+
 export default function ImpersonationReasonPrompt({
     userId,
     userName,
@@ -19,7 +21,7 @@ export default function ImpersonationReasonPrompt({
     onCancel: (event: React.MouseEvent<HTMLButtonElement>) => void
     onSubmit: (event: React.SyntheticEvent<HTMLFormElement>) => void
 }) {
-    const reasonLength = reason.trim().replace(/\s+/g, ' ').length
+    const reasonLength = normalizeImpersonationReason(reason).length
 
     return (
         <form
