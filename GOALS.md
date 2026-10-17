@@ -1504,3 +1504,13 @@ every changed file remains at or below 200 lines. This modest production LOC
 change does not materially advance the 10,000–30,000-line frontend objective;
 the broad frontend and API reduction goals remain open. No UI, page data, or
 deployment change was made.
+
+The admin-support access-recovery inspection test now asserts the handler's
+returned organization name and revoked-invite status instead of depending on
+SQL projection strings. The removed projection checks remain covered by the
+neighboring search and decision tests; the inspection test retains its actor
+join and event-timeline checks. Independent review confirms the new assertions
+match the response mapper. The two focused suites pass (7 tests / 38
+expectations), as do targeted ESLint and diff checks. The test loses one line
+and two implementation-coupled expectations while preserving its single case
+and observable contract. No live API or database was exercised.
