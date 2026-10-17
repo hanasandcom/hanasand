@@ -1,11 +1,34 @@
 import https from 'node:https'
 import { Readable } from 'node:stream'
+import WebSocket from 'ws'
 import config from '#constants'
 
 const addresses: Record<string,string> = { inspur: '128.39.142.218', ovhcloud: '192.99.32.185' }
 export const supportedHost = (host: string) => Object.hasOwn(addresses, host)
 export const otherHost = (host: string) => host === 'inspur' ? 'ovhcloud' : host === 'ovhcloud' ? 'inspur' : null
-export const supportedVmHostPath = (path: string) => path.startsWith('/vm/') && !path.includes('..') || isInternalProvisionPath(path)
+export const supportedVmHostPath = (path: string) => path.startsWith('/vm/') && !path.includes('..') || isInternalProvisionPath(path) || isInternalConsolePath(path)
+
+export function internalHostWebSocketTarget(host: string, path: string) {
+    if (!supportedHost(host) || !isInternalConsolePath(path)) throw new Error('Unsupported container host websocket.')
+    return {
+        url: 'wss://internal.hanasand.com/api' + path,
+        address: addresses[host],
+        authorization: 'Bearer ' + encodeURIComponent(config.vm_api_token || ''),
+    }
+}
+
+export function internalHostWebSocket(host: string, path: string) {
+    const target = internalHostWebSocketTarget(host, path)
+    const agent = new https.Agent({ lookup: (_hostname, _options, callback) => callback(null, target.address, 4) })
+    const socket = new WebSocket(target.url, {
+        agent,
+        headers: { authorization: target.authorization },
+        handshakeTimeout: 10000,
+    })
+    socket.once('close', () => agent.destroy())
+    socket.once('error', () => agent.destroy())
+    return socket
+}
 
 // Pin the selected host's address while retaining normal TLS hostname/certificate verification.
 export async function internalHostFetch(host: string, path: string, options: RequestInit = {}) {
@@ -43,6 +66,16 @@ export const inspectHostVm = (host: string, name: string) => hostJson<HostState>
 
 function isInternalProvisionPath(path: string) {
     const match = /^\/vms\/internal\/([^/]+)\/provision$/.exec(path)
+    if (!match) return false
+    try {
+        return /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,62}$/.test(decodeURIComponent(match[1]))
+    } catch {
+        return false
+    }
+}
+
+function isInternalConsolePath(path: string) {
+    const match = /^\/vms\/internal\/([^/]+)\/console$/.exec(path)
     if (!match) return false
     try {
         return /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,62}$/.test(decodeURIComponent(match[1]))

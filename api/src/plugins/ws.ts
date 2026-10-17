@@ -4,6 +4,7 @@ import WebSocket from 'ws'
 import registerSupportProxyStream from '../handlers/supportProxyStream.ts'
 import registerSystemStream from '../handlers/metrics/systemStream.ts'
 import registerVmConsole from '../handlers/vms/console.ts'
+import registerInternalVmConsole from '../handlers/vms/consoleInternal.ts'
 import registerHostConsole from '../handlers/hostConsole.ts'
 import { subscribeThesis } from '#utils/thesis.ts'
 import { thesisCredentials, thesisMember } from '#utils/thesisAccess.ts'
@@ -29,6 +30,7 @@ export default fp(async function wsPlugin(fastify: FastifyInstance) {
     }
 
     registerVmConsole(fastify)
+    registerInternalVmConsole(fastify)
     registerHostConsole(fastify)
     registerSystemStream(fastify)
     registerSupportProxyStream(fastify)
