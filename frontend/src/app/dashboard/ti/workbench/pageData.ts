@@ -7,6 +7,12 @@ import { caseDashboardHref, dwmCaseToWorkbenchCase } from './pageCaseAdapter'
 
 export const WORKBENCH_FETCH_TIMEOUT_MS = 800
 
+type DwmCollectionPayload = {
+    alerts: DwmAlert[]
+    cases: WorkbenchDwmCaseListItem[]
+    deliveries: WorkbenchDwmDelivery[]
+}
+
 export function emptyOrganizationState(): DwmOrganizationState {
     return {
         organizations: [],
@@ -17,48 +23,35 @@ export function emptyOrganizationState(): DwmOrganizationState {
 }
 
 export async function loadDwmAlerts(): Promise<DwmAlert[]> {
-    const base = process.env.TI_SCRAPER_API_BASE
-    if (!base) return []
-
-    try {
-        const target = new URL('/v1/dwm/alerts', base)
-        target.searchParams.set('tenantId', 'default')
-        const response = await fetch(target, { cache: 'no-store', signal: AbortSignal.timeout(WORKBENCH_FETCH_TIMEOUT_MS) })
-        if (!response.ok) return []
-        const payload = await response.json() as { alerts?: DwmAlert[] }
-        return payload.alerts || []
-    } catch {
-        return []
-    }
+    return loadDwmCollection('/v1/dwm/alerts', 'alerts')
 }
 
 export async function loadDwmCases(): Promise<WorkbenchDwmCaseListItem[]> {
-    const base = process.env.TI_SCRAPER_API_BASE
-    if (!base) return []
-
-    try {
-        const target = new URL('/v1/cases', base)
-        target.searchParams.set('tenantId', 'default')
-        const response = await fetch(target, { cache: 'no-store', signal: AbortSignal.timeout(WORKBENCH_FETCH_TIMEOUT_MS) })
-        if (!response.ok) return []
-        const payload = await response.json() as { cases?: WorkbenchDwmCaseListItem[] }
-        return (payload.cases || []).sort((a, b) => String(b.updatedAt ?? '').localeCompare(String(a.updatedAt ?? '')))
-    } catch {
-        return []
-    }
+    return loadDwmCollection('/v1/cases', 'cases', cases =>
+        cases.sort((a, b) => String(b.updatedAt ?? '').localeCompare(String(a.updatedAt ?? ''))))
 }
 
 export async function loadDwmDeliveries(): Promise<WorkbenchDwmDelivery[]> {
+    return loadDwmCollection('/v1/dwm/webhooks/deliveries', 'deliveries', deliveries =>
+        deliveries.sort((a, b) => String(b.attemptedAt ?? '').localeCompare(String(a.attemptedAt ?? ''))))
+}
+
+async function loadDwmCollection<Key extends keyof DwmCollectionPayload>(
+    path: string,
+    key: Key,
+    transform: (rows: DwmCollectionPayload[Key]) => DwmCollectionPayload[Key] = rows => rows,
+): Promise<DwmCollectionPayload[Key]> {
     const base = process.env.TI_SCRAPER_API_BASE
     if (!base) return []
 
     try {
-        const target = new URL('/v1/dwm/webhooks/deliveries', base)
+        const target = new URL(path, base)
         target.searchParams.set('tenantId', 'default')
         const response = await fetch(target, { cache: 'no-store', signal: AbortSignal.timeout(WORKBENCH_FETCH_TIMEOUT_MS) })
         if (!response.ok) return []
-        const payload = await response.json() as { deliveries?: WorkbenchDwmDelivery[] }
-        return (payload.deliveries || []).sort((a, b) => String(b.attemptedAt ?? '').localeCompare(String(a.attemptedAt ?? '')))
+        const payload = await response.json() as Partial<DwmCollectionPayload>
+        const rows = payload[key]
+        return transform((Array.isArray(rows) ? rows : []) as DwmCollectionPayload[Key])
     } catch {
         return []
     }

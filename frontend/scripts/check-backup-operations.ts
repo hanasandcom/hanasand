@@ -14,7 +14,7 @@ const apiHandler = await source('../../api/src/handlers/database/backups.ts')
 const apiCore = await source('../../api/src/utils/db/backups.ts')
 const backupWorkerClient = await source('../../api/src/utils/db/backupWorkerClient.ts')
 const apiCron = await source('../../api/src/utils/cron.ts')
-const systemCron = await source('../../api/src/utils/systemCron.ts')
+const systemCronProjections = await source('../../api/src/utils/systemCron/jobProjections.ts')
 const compose = await source('../../docker-compose.yml')
 
 assert.match(backupRoute, /getBackupDashboard\(\)/, 'backup route must use the single authenticated dashboard request')
@@ -73,7 +73,7 @@ assert.match(compose, /api_state:\/var\/lib\/hanasand/)
 assert.match(compose, /DB_BACKUP_WORKER_URL/)
 assert.doesNotMatch(compose, /database-backup:|DB_BACKUP_SCHEDULE|DB_BACKUP_DIR/)
 assert.doesNotMatch(apiCron, /DATABASE_BACKUP_JOB_ID/, 'database backups must not be scheduled by the general API cron')
-assert.match(systemCron, /DATABASE_BACKUP_JOB_ID[\s\S]*?databaseBackupScheduledJob\(definition\)/, 'the registered system cron owns database backup scheduling')
+assert.match(systemCronProjections, /DATABASE_BACKUP_JOB_ID[\s\S]*?databaseBackupScheduledJob\(definition\)/, 'the registered system cron owns database backup scheduling')
 
 console.log('Backup operator workflow checks passed.')
 

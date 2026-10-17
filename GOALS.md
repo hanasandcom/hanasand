@@ -779,3 +779,26 @@ ESLint, line-cap scan, and production build also pass, generating all 116
 routes. Inventory: 2,266 files / 151,752 LOC / zero over 200. This small reuse
 slice keeps page copy and layout stable; it does not materially advance the
 10,000–30,000 LOC frontend or 100,000-line API reduction goals.
+
+The 854-line `api/src/utils/systemCron.ts` is now an 18-line compatibility
+facade over scheduler registry, inventory, projection, and control modules.
+Independent review confirmed public exports, account-purge scheduling, cache
+refresh behavior, and job controls are preserved. Two one-function projection
+modules were consolidated; the largest new scheduler file is 164 lines. The
+API typecheck, focused lint, 28 scheduler/account-deletion tests, and repository
+line-cap scan pass; the PostgreSQL purge integration was skipped because its
+test port was not configured. Repository inventory: 3,725 files / 320,022 LOC / 122
+over 200 (all outside this area). The API 100,000-line reduction goal remains
+unmet; this checkpoint primarily addresses modularity and the file cap.
+
+The three TI workbench server loaders now share endpoint fetching, tenant,
+timeout, cache, and failure handling while preserving case/delivery sorting.
+Focused tests cover payload keys, request options, ordering, unavailable and
+malformed responses, and sort failures. Independent review found and drove fixes
+for malformed truthy payloads and null rows so both retain the former empty-list
+fallback. The full default frontend suite, focused TI tests, typecheck, ESLint,
+frontend cap, and production build pass; all 116 routes generate. Frontend
+inventory: 2,267 files / 151,843 LOC / zero over 200. The helper removes repeated
+production fetch code; added regression coverage means total frontend LOC rises
+from 151,752. The 10,000–30,000 LOC frontend and 100,000-line API goals remain
+unmet.

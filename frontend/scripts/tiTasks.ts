@@ -21,5 +21,6 @@ export const tiTasks: TestTask[] = [
     { id: 'ti-undated-provenance', title: 'TI undated provenance behavior', command: [bun, 'test', 'tests/ti-undated-provenance.test.ts'] },
     { id: 'ti-workbench-timestamp-truthfulness', title: 'TI workbench timestamp truthfulness', command: [bun, 'test', 'tests/ti-workbench-timestamp-truthfulness.test.ts'] },
     { id: 'ti-workbench-alert-adapter', title: 'TI workbench alert adaptation', command: [bun, 'test', 'tests/workbench-alert-adapter.test.ts'] },
+    { id: 'ti-workbench-page-data', title: 'TI workbench server data loading contracts', command: [bun, 'test', 'tests/workbench-page-data.test.ts'] },
     { id: 'public-ti-search-timeout', title: 'Public TI search timeout boundary', command: [bun, 'test', 'tests/public-ti-search-timeout.test.ts'] },
 ]
