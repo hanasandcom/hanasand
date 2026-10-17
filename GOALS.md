@@ -2307,3 +2307,17 @@ checks. No production code changed; the test gains three net lines. The current
 frontend inventory is 2,400 files / 155,609 lines, with zero over 200. The
 repository line-cap check reports zero oversized files; aggregate reduction
 targets remain open.
+
+At the 2026-10-17 frontend reuse checkpoint, vulnerability summary and detail
+stats now share one component, removing two duplicate card modules. Their exact
+compact summary, full summary, monospace detail, and text detail markup are
+covered by server-rendered assertions. TI launch links and its Search help
+button share the same class constant; their element semantics and class string
+are unchanged. Independent review approved both changes. The focused
+vulnerability tests pass (4 tests / 19 assertions), as do the full registered
+frontend suite, frontend typecheck, production build (116 generated routes),
+scoped ESLint, `git diff --check`, and repository line-cap scan. The scan finds
+zero oversized files across 4,550 hand-maintained files / 328,672 lines. A
+source/config inventory excluding generated route and article catalogs finds
+2,385 frontend files / 155,259 lines, with none over 200. The frontend
+10,000–30,000-line target and API 100,000-line reduction target remain open.

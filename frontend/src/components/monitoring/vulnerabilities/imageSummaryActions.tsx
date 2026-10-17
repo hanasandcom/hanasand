@@ -1,8 +1,8 @@
 import type { ImageVulnerabilityReport } from '@/utils/monitoring/types'
 import { ChevronDown } from 'lucide-react'
 import { severityOrder } from './constants'
-import MiniStat from './miniStat'
 import SeverityBadge from './severityBadge'
+import VulnerabilityStat from './vulnerabilityStat'
 
 export default function ImageSummaryActions({
     image,
@@ -15,7 +15,7 @@ export default function ImageSummaryActions({
 }) {
     return (
         <div className='flex shrink-0 items-center gap-1.5 overflow-x-auto'>
-            <MiniStat label='Total' value={String(image.totalVulnerabilities)} compact />
+            <VulnerabilityStat layout='summary' label='Total' value={String(image.totalVulnerabilities)} compact />
             {severityOrder.map((severity) => (
                 <SeverityBadge key={`${image.image}-${severity}`} severity={severity} count={image.severity[severity]} compact />
             ))}

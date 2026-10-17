@@ -4,6 +4,8 @@ import { Building2, HelpCircle, ShieldAlert, ShieldCheck, XCircle } from 'lucide
 import { useState } from 'react'
 import Link from 'next/link'
 
+const launchItemClassName = 'inline-flex h-9 items-center gap-2 rounded-full border border-ui-border bg-ui-panel px-3 text-sm font-semibold text-ui-text transition hover:border-ui-primary/35 hover:bg-ui-primary/10 focus:outline-none focus:ring-2 focus:ring-ui-primary/35 dark:border-ui-border dark:bg-ui-panel dark:text-ui-text dark:hover:bg-ui-raised'
+
 export default function EmptyState() {
     const [showSearchHelp, setShowSearchHelp] = useState(false)
     const launchItems = [
@@ -22,12 +24,12 @@ export default function EmptyState() {
         <section data-ti-empty-workspace='true' className='grid justify-items-center gap-4 text-center'>
             <div className='flex flex-wrap justify-center gap-2'>
                 {launchItems.map(item => (
-                    <Link key={item.href} href={item.href} className='inline-flex h-9 items-center gap-2 rounded-full border border-ui-border bg-ui-panel px-3 text-sm font-semibold text-ui-text transition hover:border-ui-primary/35 hover:bg-ui-primary/10 focus:outline-none focus:ring-2 focus:ring-ui-primary/35 dark:border-ui-border dark:bg-ui-panel dark:text-ui-text dark:hover:bg-ui-raised'>
+                    <Link key={item.href} href={item.href} className={launchItemClassName}>
                         <span className='text-ui-primary dark:text-ui-primary'>{item.icon}</span>
                         {item.label}
                     </Link>
                 ))}
-                <button type='button' onClick={() => setShowSearchHelp(true)} className='inline-flex h-9 items-center gap-2 rounded-full border border-ui-border bg-ui-panel px-3 text-sm font-semibold text-ui-text transition hover:border-ui-primary/35 hover:bg-ui-primary/10 focus:outline-none focus:ring-2 focus:ring-ui-primary/35 dark:border-ui-border dark:bg-ui-panel dark:text-ui-text dark:hover:bg-ui-raised' aria-haspopup='dialog'>
+                <button type='button' onClick={() => setShowSearchHelp(true)} className={launchItemClassName} aria-haspopup='dialog'>
                     <HelpCircle className='h-4 w-4 text-ui-primary dark:text-ui-primary' />
                     Search help
                 </button>
