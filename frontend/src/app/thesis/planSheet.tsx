@@ -5,6 +5,7 @@ import { ChevronDown, ChevronRight, LayoutGrid, Rows3 } from 'lucide-react'
 import SheetEditor, { type CustomTableControls, type SheetEditorProps, type TableInteraction } from './sheetEditor'
 import { sheetButton } from './sheetEditorStyles'
 import { columnName, tables, writeTable } from './workspace'
+import { arrowCellTarget } from './tableNavigation'
 import './plan.css'
 
 const planFields = [
@@ -83,11 +84,10 @@ export default function PlanSheet(props: SheetEditorProps) {
         const input = (col: number, value = row[col], type = 'text') => <input aria-label={`Cell ${columnName(col)}${rowIndex + 1}`} value={value} disabled={!canEdit} type={type} min={col === fields.progress ? 0 : undefined} max={col === fields.progress ? 100 : undefined} step={col === fields.hours || col === fields.progress ? '0.25' : undefined} onFocus={() => interaction.onSelect({ table: index, row: rowIndex, col })} onClick={() => interaction.onSelect({ table: index, row: rowIndex, col })} onChange={event => update(rowIndex, col, event.target.value)} />
         const cell = (col: number, content: React.ReactNode) => <td key={col} role='cell' data-label={cells[0][col]} data-table-cell={`${index}:${rowIndex}:${col}`} data-active={interaction.active?.table === index && interaction.active.row === rowIndex && interaction.active.col === col} tabIndex={0} onFocus={() => interaction.onSelect({ table: index, row: rowIndex, col })} onClick={() => interaction.onSelect({ table: index, row: rowIndex, col })} onKeyDown={event => {
             if (event.metaKey || event.ctrlKey || event.altKey) return
-            const nextRow = rowIndex + (event.key === 'ArrowUp' ? -1 : event.key === 'ArrowDown' ? 1 : 0)
-            const nextCol = col + (event.key === 'ArrowLeft' ? -1 : event.key === 'ArrowRight' ? 1 : 0)
-            if (nextRow === rowIndex && nextCol === col) return
+            const target = arrowCellTarget(rowIndex, col, event.key)
+            if (!target) return
             event.preventDefault()
-            interaction.onNavigate({ table: index, row: Math.max(0, Math.min(nextRow, cells.length - 1)), col: Math.max(0, Math.min(nextCol, cells[0].length - 1)) }, true)
+            interaction.onNavigate({ table: index, row: Math.max(0, Math.min(target.row, cells.length - 1)), col: Math.max(0, Math.min(target.col, cells[0].length - 1)) }, true)
         }}><span className='thesis-plan-mobile-label' aria-hidden='true'>{cells[0][col]}</span>{content}</td>
         return cells[0].map((_, col) => {
             const content = col === fields.task && fields.task >= 0 ? <div className='flex items-center gap-2'>{hasRowDetails && <button type='button' aria-label={`${expanded === rowIndex ? 'Collapse' : 'Expand'} details for ${(fields.task >= 0 && row[fields.task]) || `row ${rowIndex}`}`} aria-expanded={expanded === rowIndex} onClick={() => expand(rowIndex)}>{expanded === rowIndex ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</button>}{input(col)}</div>

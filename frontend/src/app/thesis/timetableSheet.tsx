@@ -5,6 +5,7 @@ import { ChevronDown, ChevronRight, ClipboardPlus, Download, Pencil, Trash2, X }
 import SheetEditor, { type SheetEditorProps } from './sheetEditor'
 import { sheetButton } from './sheetEditorStyles'
 import { tables, writeTable } from './workspace'
+import { arrowCellTarget } from './tableNavigation'
 import { activityError, expectedHoursText, hoursText, initialTimetableYear, isTimetable, isoWeek, timetable, type Activity, type ActivityLog, type Week } from './timetableData'
 import './timetable.css'
 
@@ -159,14 +160,10 @@ export default function TimetableSheet({ onActivityLogChange, ...props }: SheetE
             onClick: () => interaction.onSelect({ table: index, row, col }),
             onKeyDown: (event: React.KeyboardEvent<HTMLElement>) => {
                 if (event.metaKey || event.ctrlKey || event.altKey) return
-                let nextRow = row, nextCol = col
-                if (event.key === 'ArrowUp') nextRow--
-                else if (event.key === 'ArrowDown') nextRow++
-                else if (event.key === 'ArrowLeft') nextCol--
-                else if (event.key === 'ArrowRight') nextCol++
-                else return
+                const target = arrowCellTarget(row, col, event.key)
+                if (!target) return
                 event.preventDefault()
-                interaction.onNavigate({ table: index, row: nextRow, col: nextCol }, true)
+                interaction.onNavigate({ table: index, ...target }, true)
             },
         } : {}
         return <section className='thesis-timetable' aria-label='Weekly activity timetable'>

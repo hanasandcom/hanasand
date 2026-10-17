@@ -1,8 +1,16 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { navigateTable, type PendingTable } from '../src/app/thesis/tableNavigation'
+import { arrowCellTarget, navigateTable, type PendingTable } from '../src/app/thesis/tableNavigation'
 
 const data = { cells: [['Title', 'Total'], ['', '=SUMMARIZE(A1:A1)']], widths: [180, 240], heights: [48, 60] }
+
+test('custom sheet tables share arrow-key cell movement', () => {
+    assert.deepEqual(arrowCellTarget(2, 3, 'ArrowUp'), { row: 1, col: 3 })
+    assert.deepEqual(arrowCellTarget(2, 3, 'ArrowDown'), { row: 3, col: 3 })
+    assert.deepEqual(arrowCellTarget(2, 3, 'ArrowLeft'), { row: 2, col: 2 })
+    assert.deepEqual(arrowCellTarget(2, 3, 'ArrowRight'), { row: 2, col: 4 })
+    assert.equal(arrowCellTarget(2, 3, 'Enter'), null)
+})
 
 test('all four edges are temporary and restore cells, formulas and dimensions', () => {
     for (const [target, back] of [[{ row: -1, col: 0 }, { row: 1, col: 0 }], [{ row: 2, col: 0 }, { row: 1, col: 0 }], [{ row: 1, col: -1 }, { row: 1, col: 1 }], [{ row: 1, col: 2 }, { row: 1, col: 1 }]]) {

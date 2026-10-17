@@ -1,5 +1,13 @@
 import { reshape, type TableData } from './workspace'
 
+export function arrowCellTarget(row: number, col: number, key: string) {
+    if (key === 'ArrowUp') return { row: row - 1, col }
+    if (key === 'ArrowDown') return { row: row + 1, col }
+    if (key === 'ArrowLeft') return { row, col: col - 1 }
+    if (key === 'ArrowRight') return { row, col: col + 1 }
+    return null
+}
+
 // Only arrow-created edges are provisional; existing empty rows and columns are never removed.
 export type PendingTable = { data: TableData, row?: number, col?: number }
 
