@@ -5,6 +5,10 @@ import { createServer, request as httpRequest } from 'node:http'
 import { brotliCompressSync, deflateSync, gzipSync } from 'node:zlib'
 import { monitoringLookup, publicMonitoringRequest, resolveMonitoringAddresses } from '../src/utils/publicMonitoringRequest.ts'
 import { options, resolver, mockSend, type Send } from './public-monitoring-request-fixture.ts'
+import { supportsLoopbackListeners } from './fixtures/loopbackSupport.ts'
+
+const nativeLoopbackAvailable = await supportsLoopbackListeners()
+const nativeServerTest = test.skipIf(!nativeLoopbackAvailable)
 
 test('external cancellation tears down a stacked decoder after compressed bytes arrive', async () => {
     const controller = new AbortController()
@@ -55,7 +59,7 @@ test('external cancellation aborts an in-flight request', async () => {
     await expect(pending).rejects.toMatchObject({ name: 'AbortError' })
     expect(calls[0]?.options.signal?.aborted).toBe(true)
 })
-test('Bun native transport uses the supplied pinned lookup and retains Host', async () => {
+nativeServerTest('Bun native transport uses the supplied pinned lookup and retains Host', async () => {
     // Test the transport against an isolated loopback fixture; production resolution rejects this address.
     const server = createServer((req, res) => res.end(req.headers.host))
     await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
@@ -78,7 +82,7 @@ test('certificate and socket resolution reject private destinations before openi
     await expect(resolveMonitoringAddresses('127.0.0.1', AbortSignal.timeout(100))).rejects.toThrow('public IP')
     await expect(resolveMonitoringAddresses('::1', AbortSignal.timeout(100))).rejects.toThrow('public IP')
 })
-test('native HTTPS pinning preserves SNI and certificate hostname verification', async () => {
+nativeServerTest('native HTTPS pinning preserves SNI and certificate hostname verification', async () => {
     const { createServer, request } = await import('node:https')
     const { readFile } = await import('node:fs/promises')
     const fixture = new URL('./fixtures/monitoring-tls/', import.meta.url)

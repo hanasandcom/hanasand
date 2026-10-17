@@ -3,6 +3,7 @@ import Fastify from 'fastify'
 import websocket from '@fastify/websocket'
 import WebSocket from 'ws'
 import { once } from 'node:events'
+import { supportsLoopbackListeners } from './fixtures/loopbackSupport.ts'
 
 let rerunRequests = 0
 let queueStarts = 0
@@ -16,20 +17,26 @@ const { default: wsPlugin } = await import('../src/plugins/ws.ts')
 const originalWorkerOnly = process.env.BROWSER_SANDBOX_WORKER_ONLY
 delete process.env.BROWSER_SANDBOX_WORKER_ONLY
 
+const loopbackAvailable = await supportsLoopbackListeners()
 const app = Fastify({ forceCloseConnections: true })
-await app.register(websocket)
-await app.register(wsPlugin)
-const address = await app.listen({ port: 0, host: '127.0.0.1' })
+let address: string | undefined
+if (loopbackAvailable) {
+    await app.register(websocket)
+    await app.register(wsPlugin)
+    address = await app.listen({ port: 0, host: '127.0.0.1' })
+}
 
 afterAll(async () => {
-    for (const socket of app.websocketServer?.clients || []) socket.terminate()
-    await app.close()
+    if (address) {
+        for (const socket of app.websocketServer?.clients || []) socket.terminate()
+        await app.close()
+    }
     if (originalWorkerOnly === undefined) delete process.env.BROWSER_SANDBOX_WORKER_ONLY
     else process.env.BROWSER_SANDBOX_WORKER_ONLY = originalWorkerOnly
 })
 
-test('load-test websocket streams remain read-only and cannot enqueue a rerun', async () => {
-    const socket = new WebSocket(address.replace('http:', 'ws:') + '/api/ws/test/test-id')
+test.skipIf(!loopbackAvailable)('load-test websocket streams remain read-only and cannot enqueue a rerun', async () => {
+    const socket = new WebSocket(address!.replace('http:', 'ws:') + '/api/ws/test/test-id')
     try {
         await once(socket, 'open')
         socket.send(JSON.stringify({ type: 'rerun' }))
