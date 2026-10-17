@@ -1,10 +1,7 @@
 'use client'
 
 export function deriveLastToolState(conversations: AIConversation[]): AIRuntimeToolRun | null {
-    const lastToolMessage = [...conversations]
-        .flatMap((conversation) => conversation.messages.map((message) => ({ conversation, message })))
-        .filter((entry) => entry.message.role === 'tool')
-        .sort((left, right) => new Date(right.message.createdAt).getTime() - new Date(left.message.createdAt).getTime())[0] || null
+    const lastToolMessage = newestConversationMessage(conversations, (message) => message.role === 'tool')
 
     if (!lastToolMessage) {
         return null
@@ -31,10 +28,7 @@ export function deriveLastFailure(
     conversations: AIConversation[],
     statusNotice: string | null,
 ): AIRuntimeFailure | null {
-    const lastFailure = [...conversations]
-        .flatMap((conversation) => conversation.messages.map((message) => ({ conversation, message })))
-        .filter((entry) => entry.message.error)
-        .sort((left, right) => new Date(right.message.createdAt).getTime() - new Date(left.message.createdAt).getTime())[0] || null
+    const lastFailure = newestConversationMessage(conversations, (message) => Boolean(message.error))
 
     if (lastFailure) {
         return {
@@ -55,6 +49,12 @@ export function deriveLastFailure(
         updatedAt: new Date().toISOString(),
         source: 'conversation',
     }
+}
+
+function newestConversationMessage(conversations: AIConversation[], matches: (message: AIConversationMessage) => boolean) {
+    const messages = conversations.flatMap((conversation) => conversation.messages.map((message) => ({ conversation, message })))
+    return messages.filter((entry) => matches(entry.message))
+        .sort((left, right) => new Date(right.message.createdAt).getTime() - new Date(left.message.createdAt).getTime())[0] || null
 }
 
 export function chooseNewestToolRun(serverToolRun: AIRuntimeToolRun | null, localToolRun: AIRuntimeToolRun | null) {

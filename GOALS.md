@@ -1406,3 +1406,12 @@ net +2 lines while removing duplicated normalization and matching rules; tests
 and registration bring this checkpoint to +62 frontend lines overall. No UI
 or data contract changed. The frontend 10,000–30,000-line goal and API
 100,000-line reduction goal remain outstanding. No deployment was performed.
+
+The AI workbench now uses one `newestConversationMessage` selector for tool
+state and failure summaries; ordering, including equal-timestamp tie behavior,
+is covered by the registered runtime test. Independent review approved the
+change. Production LOC is unchanged; the test adds 43 lines and task
+registration adds one. Focused tests, targeted ESLint, typecheck, line-cap scan,
+and `git diff --check` pass. Frontend inventory is 2,323 files / 154,028 lines
+with zero over 200. The 10,000–30,000-line frontend goal and API reduction goal
+remain outstanding. No UI change or deployment was made.
