@@ -728,3 +728,15 @@ the deleted modules. The full frontend suite (including both newly registered
 readiness tests), typecheck, line-cap scan, and Next production build pass; all
 116 routes generate. Inventory: 2,289 files / 153,192 LOC / zero over 200. The
 10,000–30,000 LOC frontend and 100,000-line API reduction goals remain unmet.
+
+The 1,042-line Helpdesk access-recovery React tree was removed after two
+independent reviews confirmed that no current route, import, dynamic load,
+navigation action, or active test mounts it; the existing Helpdesk render test
+already asserts the old controls stay absent. The current audit timeline and
+separate user-admin impersonation UI remain. Backend recovery endpoints,
+read-only readiness contracts, and their API tests were left intact. Full
+frontend tests (including the explicit absent-UI check), typecheck, line-cap
+scan, diff check, and Next production build pass; all 116 routes generate.
+Inventory: 2,272 files / 152,150 LOC / zero over 200. This is a verified
+feature-preserving reduction relative to the mounted product; the 10,000–30,000
+LOC frontend and 100,000-line API reduction goals remain unmet.
