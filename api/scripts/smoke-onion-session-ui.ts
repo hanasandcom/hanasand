@@ -18,7 +18,10 @@ const historyPanel = readFileSync(path.join(frontendRoot, 'src/app/browser/compo
 const browserHistory = readFileSync(path.join(frontendRoot, 'src/app/browser/BrowserHistory.tsx'), 'utf8')
 const legacyOnionRoute = readFileSync(path.join(frontendRoot, 'src/app/solutions/onion-session/page.tsx'), 'utf8')
 const legacyRegularRoute = readFileSync(path.join(frontendRoot, 'src/app/browser-sandbox/page.tsx'), 'utf8')
-const wsPlugin = readFileSync(path.join(root, 'api/src/plugins/ws.ts'), 'utf8')
+const wsPlugin = [
+    readFileSync(path.join(root, 'api/src/plugins/ws.ts'), 'utf8'),
+    readFileSync(path.join(root, 'api/src/plugins/ws/sessionRoutes.ts'), 'utf8'),
+].join('\n')
 const broker = readFileSync(path.join(root, 'api/src/handlers/onionSession/ws.ts'), 'utf8')
 const startup = readFileSync(path.join(root, 'api/src/handlers/onionSession/browserStartup.ts'), 'utf8')
 

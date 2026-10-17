@@ -5,7 +5,16 @@ function readOptional(url: URL) {
     return existsSync(url) ? readFileSync(url, 'utf8') : ''
 }
 
-const ws = readFileSync(new URL('../src/plugins/ws.ts', import.meta.url), 'utf8')
+const ws = [
+    'ws.ts',
+    'ws/browserProxy.ts',
+    'ws/browserWorkerLaunch.ts',
+    'ws/ephemeralBrowserSession.ts',
+    'ws/protocol.ts',
+    'ws/browserStreamRuntime.ts',
+    'ws/browserWarmPool.ts',
+    'ws/sessionRoutes.ts',
+].map(name => readFileSync(new URL(`../src/plugins/${name}`, import.meta.url), 'utf8')).join('\n')
 const rateLimit = readFileSync(new URL('../src/plugins/rateLimit.ts', import.meta.url), 'utf8')
 const index = readFileSync(new URL('../src/index.ts', import.meta.url), 'utf8')
 const onionWs = [
