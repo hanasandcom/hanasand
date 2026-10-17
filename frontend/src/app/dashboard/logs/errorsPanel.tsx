@@ -2,7 +2,7 @@
 import { type ReactNode } from 'react'
 import { Bug, ShieldAlert, Activity, AlertTriangle, Copy } from 'lucide-react'
 import { dashboardPanelClass } from '@/components/dashboard/ui'
-import type { ErrorEvent, ErrorEventsResponse } from '@/utils/logs/getLogs'
+import type { ErrorEvent, ErrorEventsResponse } from '@/utils/logs/types'
 import EventDisclosureTrigger from './EventDisclosure'
 import { LogTimestamp } from './LogTimestamp'
 const countFormatter = new Intl.NumberFormat('nb-NO')

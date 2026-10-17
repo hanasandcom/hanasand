@@ -8,7 +8,7 @@ export function ContainersSection({ containers, selectedContainer, unavailableRe
     containers: DockerContainer[]
     selectedContainer: DockerContainer | null
     unavailableReason?: string
-    logs: import('@/utils/logs/getLogs').RuntimeLog[]
+    logs: import('@/utils/logs/types').RuntimeLog[]
     logsReason: string
     logsLoading: boolean
     onSelect: (container: DockerContainer) => void

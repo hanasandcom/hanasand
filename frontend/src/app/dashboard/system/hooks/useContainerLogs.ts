@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import config from '@/config'
-import type { RuntimeLog } from '@/utils/logs/getLogs'
+import type { RuntimeLog } from '@/utils/logs/types'
 import { systemExpiredSessionPath } from '../systemRoutes'
 
 export function useContainerLogs(id: string, token: string, containerName?: string) {

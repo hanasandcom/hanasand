@@ -1,4 +1,4 @@
-import type { RuntimeLog } from '@/utils/logs/getLogs'
+import type { RuntimeLog } from '@/utils/logs/types'
 
 export function formatLoad(load: number[] | undefined): string {
     if (!load?.length) return 'Connecting'

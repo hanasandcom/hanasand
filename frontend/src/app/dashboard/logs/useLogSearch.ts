@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { logSearchParams, type LogEvent, type LogSearchResult } from '@/utils/logs/search'
 import { retainEvents } from '@/utils/logs/retainEvents'
-import type { ErrorEventsResponse } from '@/utils/logs/getLogs'
+import type { ErrorEventsResponse } from '@/utils/logs/types'
 
 type LogsView = 'dashboard' | 'realtime' | 'search' | 'errors'
 
