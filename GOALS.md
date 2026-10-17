@@ -1611,3 +1611,19 @@ Chromium cannot start under the current sandbox permissions. These are small
 cleanup slices; they do not materially reduce the frontend's total size or
 complete the requested 10,000–30,000-line target. No UI redesign or deployment
 was made.
+
+The latest frontend work adds shared controls for dashboard event disclosures,
+rule-source labels, password-action styling, TI blocker notices, and share
+metadata panels; VM lifecycle actions now share one request handler, and
+browser provider selection uses one priority-preserving pass. A review also
+found and fixed `DashboardPanel` dropping caller `data-*` and `aria-*` section
+attributes. The frontend test inventory audit found 237 registered `.test` /
+`.check` suites and 167 Playwright specs, with no remaining unregistered suites
+or stale explicit test paths. Since commit `4d7d545e1`, frontend source is down
+44 lines while tests/scripts add 70, for a net increase of 26 lines overall;
+these slices improve reuse and coverage but do not materially advance the
+large LOC reduction target. The full frontend cap passes across 2,356 files /
+154,511 lines, with no file over 200. Focused tests, ESLint, and full frontend
+typecheck pass. Browser Playwright execution remains blocked by the current
+sandbox's Chromium startup permission error. No UI redesign or deployment was
+made.
