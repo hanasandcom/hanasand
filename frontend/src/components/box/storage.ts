@@ -1,37 +1,8 @@
-import { HeaderRow, RequestHistoryEntry, VariableRow } from './types'
+import { normalizeHeaderRows } from './requestTemplates'
+import type { RequestHistoryEntry, VariableRow } from './types'
 
 export const REQUEST_HISTORY_STORAGE_KEY = 'hanasand.share.request-history.v1'
 export const REQUEST_VARIABLE_STORAGE_KEY = 'hanasand.share.request-variables.v1'
-
-export function loadRequestHistory(): RequestHistoryEntry[] {
-    if (typeof window === 'undefined') {
-        return []
-    }
-
-    try {
-        const raw = window.localStorage.getItem(REQUEST_HISTORY_STORAGE_KEY)
-        if (!raw) {
-            return []
-        }
-
-        const parsed = JSON.parse(raw)
-        if (!Array.isArray(parsed)) {
-            return []
-        }
-
-        return parsed.map(normalizeRequestHistoryEntry).filter(Boolean) as RequestHistoryEntry[]
-    } catch {
-        return []
-    }
-}
-
-export function saveRequestHistory(history: RequestHistoryEntry[]) {
-    if (typeof window === 'undefined') {
-        return
-    }
-
-    window.localStorage.setItem(REQUEST_HISTORY_STORAGE_KEY, JSON.stringify(history.slice(0, 30)))
-}
 
 export function shareRequestHistoryKey(shareId?: string | null) {
     return shareId ? `${REQUEST_HISTORY_STORAGE_KEY}.${shareId}` : REQUEST_HISTORY_STORAGE_KEY
@@ -114,7 +85,7 @@ function normalizeRequestHistoryEntry(value: unknown): RequestHistoryEntry | nul
         id: typeof item.id === 'string' ? item.id : `${item.method}-${item.url}`,
         method: String(item.method).toUpperCase(),
         url: String(item.url),
-        headers: normalizeHeaderRows(item.headers),
+        headers: normalizeHeaderRows(item.headers, redactSensitiveText),
         body: typeof item.body === 'string' ? item.body : '',
         createdAt: typeof item.createdAt === 'string' ? item.createdAt : new Date().toISOString(),
         status: typeof item.status === 'number' ? item.status : undefined,
@@ -123,30 +94,6 @@ function normalizeRequestHistoryEntry(value: unknown): RequestHistoryEntry | nul
         error: typeof item.error === 'string' ? redactSensitiveText(item.error) : undefined,
         requestSource: item.requestSource === 'vm' || item.requestSource === 'browser' ? item.requestSource : undefined,
     }
-}
-
-function normalizeHeaderRows(value: unknown): HeaderRow[] {
-    if (!Array.isArray(value)) {
-        return [{ key: '', value: '' }]
-    }
-
-    const rows = value.flatMap((row): HeaderRow[] => {
-        if (!row || typeof row !== 'object') {
-            return []
-        }
-
-        const item = row as Partial<HeaderRow>
-        if (typeof item.key !== 'string') {
-            return []
-        }
-
-        return [{
-            key: item.key,
-            value: typeof item.value === 'string' ? redactSensitiveText(item.value) : '',
-        }]
-    })
-
-    return rows.length ? rows : [{ key: '', value: '' }]
 }
 
 function normalizeVariableRow(value: unknown): VariableRow | null {

@@ -5,10 +5,13 @@ import { buildRequestHeaders, buildVariablePlan, findMissingVariables, normalize
 import { formatJsonTree, formatPrettyResponseBody, formatRawResponseBody } from '../src/components/box/responseFormatting'
 import { getImagePreviewUrl } from '../src/components/box/responsePreview'
 import { redactSensitiveText, sanitizeToolResponse } from '../src/components/box/responseSafety'
+import { loadScopedRequestHistory, loadScopedRequestVariables, shareRequestHistoryKey, shareRequestVariablesKey } from '../src/components/box/storage'
 import type { ToolResponse } from '../src/components/box/types'
 
 test('normalizes request rows and resolves valid scoped variables', () => {
     assert.deepEqual(normalizeHeaderRows([{ key: 'Accept' }, null, { key: 3 }]), [{ key: 'Accept', value: '' }])
+    assert.deepEqual(normalizeHeaderRows([{ key: 'Authorization', value: 'Bearer editor-token' }]), [{ key: 'Authorization', value: 'Bearer editor-token' }])
+    assert.deepEqual(normalizeHeaderRows([{ key: 'Authorization', value: 'Bearer editor-token' }], redactSensitiveText), [{ key: 'Authorization', value: 'Bearer [redacted]' }])
     assert.deepEqual(normalizeVariableRows([{ key: 'host', value: 7 }]), [{ key: 'host', value: '' }])
     const plan = buildVariablePlan([{ key: 'baseUrl', value: ' https://api.example.com ' }, { key: 'bad key', value: 'x' }])
     assert.deepEqual(plan.values, { baseUrl: 'https://api.example.com' })
@@ -16,6 +19,37 @@ test('normalizes request rows and resolves valid scoped variables', () => {
     assert.equal(resolveTemplate('{{baseUrl}}/v1', plan.values), 'https://api.example.com/v1')
     assert.deepEqual(findMissingVariables('{{missing}} {{missing}}', plan.values), ['Missing variable: missing.'])
     assert.deepEqual(buildRequestHeaders([{ key: ' Authorization ', value: ' Bearer {{token}} ' }, { key: 'Empty', value: '' }], { token: 'secret' }), { Authorization: 'Bearer secret' })
+})
+
+test('scoped request storage validates and redacts credentials while keeping share data isolated', () => {
+    const previousWindow = Object.getOwnPropertyDescriptor(globalThis, 'window')
+    const stored = new Map<string, string>()
+    Object.defineProperty(globalThis, 'window', {
+        configurable: true,
+        value: { localStorage: { getItem: (key: string) => stored.get(key) ?? null, setItem: (key: string, value: string) => stored.set(key, value) } },
+    })
+
+    try {
+        stored.set(shareRequestHistoryKey('team'), JSON.stringify([
+            { method: 'get', url: '/health', headers: [{ key: 'Authorization', value: 'Bearer secret-token' }, { key: 3, value: 'ignored' }], error: 'Authorization: Bearer secret-token' },
+            { method: '', url: '/invalid' },
+        ]))
+        stored.set(shareRequestVariablesKey('team'), JSON.stringify([
+            { key: ' apiToken ', value: 'Bearer secret-token' },
+            { key: ' ', value: 'ignored' },
+        ]))
+
+        const history = loadScopedRequestHistory('team')
+        assert.equal(history.length, 1)
+        assert.equal(history[0].method, 'GET')
+        assert.deepEqual(history[0].headers, [{ key: 'Authorization', value: 'Bearer [redacted]' }])
+        assert.equal(history[0].error, 'Authorization: Bearer [redacted]')
+        assert.deepEqual(loadScopedRequestVariables('team'), [{ key: 'apiToken', value: 'Bearer [redacted]' }])
+        assert.deepEqual(loadScopedRequestHistory('other-team'), [])
+    } finally {
+        if (previousWindow) Object.defineProperty(globalThis, 'window', previousWindow)
+        else Reflect.deleteProperty(globalThis, 'window')
+    }
 })
 
 test('imports cURL method, quoted URL, headers, and body', () => {

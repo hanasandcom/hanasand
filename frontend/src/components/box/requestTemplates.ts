@@ -1,6 +1,6 @@
 import type { HeaderRow, VariableRow } from './types'
 
-export function normalizeHeaderRows(value: unknown): HeaderRow[] {
+export function normalizeHeaderRows(value: unknown, mapValue: (value: string) => string = value => value): HeaderRow[] {
     if (!Array.isArray(value)) {
         return [{ key: '', value: '' }]
     }
@@ -17,7 +17,7 @@ export function normalizeHeaderRows(value: unknown): HeaderRow[] {
 
         return [{
             key: item.key,
-            value: typeof item.value === 'string' ? item.value : '',
+            value: typeof item.value === 'string' ? mapValue(item.value) : '',
         }]
     })
 
