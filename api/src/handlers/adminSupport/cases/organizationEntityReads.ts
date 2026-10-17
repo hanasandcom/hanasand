@@ -4,7 +4,7 @@ import { requireAdminSupport } from '../auth.ts'
 import { supportInspectionAuditMetadata } from '#utils/support/adminSupportInput.ts'
 import { auditFilterQuery } from '#utils/support/inspectionPackets.ts'
 import { toOrganization, type OrganizationInviteRow } from '#utils/organizations.ts'
-import { toSupportInvite, toSupportMemberDetail, membershipSnapshot } from './subjectMapping.ts'
+import { inviteSnapshot, toSupportInvite, toSupportMemberDetail, membershipSnapshot } from './subjectMapping.ts'
 import { supportInviteCaseHandoff, supportMemberCaseHandoff } from './inviteAndMemberHandoff.ts'
 import { prepareSupportOrganizationEntityInspection } from './organizationEntityInspection.ts'
 import { loadOrganizationSupportDetail, loadSupportMemberDetail } from './organizationReadData.ts'
@@ -13,19 +13,6 @@ import { sendOrganizationEntityInspectionNotFound } from './organizationInspecti
 type OrganizationParams = { id: string }
 type SupportInviteActionParams = OrganizationParams & { inviteId: string }
 type OrganizationMemberParams = OrganizationParams & { userId: string }
-
-export function inviteSnapshot(row: OrganizationInviteRow) {
-    return {
-        id: row.id,
-        organizationId: row.organization_id,
-        email: row.email,
-        role: row.role,
-        status: row.status,
-        expiresAt: row.expires_at,
-        acceptedAt: row.accepted_at || null,
-        acceptedBy: row.accepted_by || null,
-    }
-}
 
 export async function getSupportOrganizationInvite(req: FastifyRequest<{ Params: SupportInviteActionParams }>, res: FastifyReply) {
     const actor = await requireAdminSupport(req, res)

@@ -1,5 +1,5 @@
 import type { FastifyReply } from 'fastify'
-import { inviteSnapshot } from '../cases/organizationEntityReads.ts'
+import { inviteSnapshot } from '../cases/subjectMapping.ts'
 import { recordSupportInviteActionExecutorBlock } from './controls.ts'
 import { supportInviteActionExecutionReceipt } from './executionReceipt.ts'
 import { supportInviteActionExecutorDetail } from './executorDetail.ts'

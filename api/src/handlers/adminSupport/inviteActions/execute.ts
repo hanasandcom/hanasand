@@ -5,7 +5,7 @@ import { normalizeInviteInput, toInvite, toOrganization, type OrganizationInvite
 import { cleanContext } from '#utils/support/adminSupportInput.ts'
 import { loadSystemEventIds, recordSystemEvent } from '#utils/systemEvent.ts'
 import run from '#db'
-import { inviteSnapshot } from '../cases/organizationEntityReads.ts'
+import { inviteSnapshot } from '../cases/subjectMapping.ts'
 import { sendAcceptedSupportInviteActionDenial } from './acceptedInviteDenial.ts'
 import { sendInviteActionDenial } from './denialResponse.ts'
 import { supportInviteActionAuditQuery } from './auditQuery.ts'

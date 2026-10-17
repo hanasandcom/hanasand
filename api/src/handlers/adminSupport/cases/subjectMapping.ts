@@ -1,4 +1,5 @@
 import type { OrganizationMembershipAvailability } from '#utils/organizationMemberships.ts'
+import type { OrganizationInviteRow } from '#utils/organizations.ts'
 
 export function toSupportUser(row: Record<string, unknown>) {
     return {
@@ -53,6 +54,19 @@ export function membershipSnapshot(row: Record<string, unknown>) {
         invitedBy: row.invited_by || null,
         joinedAt: row.joined_at || null,
         createdAt: row.created_at || null,
+    }
+}
+
+export function inviteSnapshot(row: OrganizationInviteRow) {
+    return {
+        id: row.id,
+        organizationId: row.organization_id,
+        email: row.email,
+        role: row.role,
+        status: row.status,
+        expiresAt: row.expires_at,
+        acceptedAt: row.accepted_at || null,
+        acceptedBy: row.accepted_by || null,
     }
 }
 
