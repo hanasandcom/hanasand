@@ -2097,3 +2097,21 @@ repository scan finds 13 over-limit files among 4,493 hand-maintained files /
 327,651 lines, all outside the frontend. These component/helper extractions
 have not materially reduced the frontend total; the 10,000–30,000-line
 frontend objective and 100,000-line API reduction remain open.
+
+At pushed checkpoints `766d3c0d8`, `96c5031f3`, `61f90a8e4`,
+`52c50bec4`, and `461c013ad`, traffic metric bars share one existing `Bar`
+projection, AI workspace initial data passes through without two object
+reconstructions, backup/restore operation refresh shares one hook, the onion
+broker smoke is split with cleanup for partial startup, and browser-results
+tests are grouped by behavior. The frontend changes remove 45 production lines;
+their characterization tests and runner entries add 56 lines, leaving the
+frontend aggregate 12 lines above the pre-checkpoint scan. The API smoke and
+test splits preserve their registered scenarios and assertions while keeping
+each changed file below 200 lines. Focused suites, typechecks, scoped ESLint,
+and independent reviews pass. No live API, browser-broker, or database smoke
+was run. The current frontend inventory is 2,384 hand-maintained files / 155,019
+lines / zero over 200. The repository scan reports nine over-limit files among
+4,527 hand-maintained files / 328,139 lines, all outside the frontend. The
+10,000–30,000-line frontend goal and 100,000-line API reduction remain
+unachieved; the current frontend changes improve reuse and structure but do
+not yet provide significant aggregate code reduction.
