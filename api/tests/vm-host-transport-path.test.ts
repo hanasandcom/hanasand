@@ -1,5 +1,14 @@
 import { expect, mock, test } from 'bun:test'
-import { internalHostWebSocketTarget, pinnedHostLookup, supportedVmHostPath } from '../src/utils/vms/hostTransport.ts'
+import { internalHostAuthorizationCandidates, internalHostWebSocketTarget, pinnedHostLookup, supportedVmHostPath } from '../src/utils/vms/hostTransport.ts'
+
+test('internal host auth preserves the current token and provides a distinct rotation-overlap fallback', () => {
+    expect(internalHostAuthorizationCandidates('current token', 'previous token')).toEqual([
+        'Bearer current%20token',
+        'Bearer previous%20token',
+    ])
+    expect(internalHostAuthorizationCandidates('same token', 'same token')).toEqual(['Bearer same%20token'])
+    expect(internalHostAuthorizationCandidates(undefined, 'previous token')).toEqual(['Bearer previous%20token'])
+})
 
 test('pinned host lookup supports single-address and all-address HTTPS lookup contracts', () => {
     const lookup = pinnedHostLookup('192.99.32.185')
@@ -14,10 +23,19 @@ test('pinned host lookup supports single-address and all-address HTTPS lookup co
 })
 
 test('remote console keeps TLS on the service hostname while pinning the selected VM host', () => {
-    const target = internalHostWebSocketTarget('ovhcloud', '/vms/internal/cashflow/console')
+    const previousToken = process.env.VM_API_TOKEN_PREVIOUS
+    let target: ReturnType<typeof internalHostWebSocketTarget>
+    try {
+        process.env.VM_API_TOKEN_PREVIOUS = 'shared rotation token'
+        target = internalHostWebSocketTarget('ovhcloud', '/vms/internal/cashflow/console')
+    } finally {
+        if (previousToken === undefined) delete process.env.VM_API_TOKEN_PREVIOUS
+        else process.env.VM_API_TOKEN_PREVIOUS = previousToken
+    }
+
     expect(new URL(target.url).hostname).toBe('internal.hanasand.com')
     expect(target.address).toBe('192.99.32.185')
-    expect(target.authorization.startsWith('Bearer ')).toBe(true)
+    expect(target.authorization).toBe('Bearer shared%20rotation%20token')
 })
 
 test('remote console target rejects unknown hosts and unsafe paths', () => {

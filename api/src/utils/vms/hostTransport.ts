@@ -19,12 +19,20 @@ export function pinnedHostLookup(address: string): LookupFunction {
     }
 }
 
+export function internalHostAuthorizationCandidates(current?: string, previous?: string) {
+    return [current, previous]
+        .filter((token, index, tokens): token is string => Boolean(token) && tokens.indexOf(token) === index)
+        .map(token => 'Bearer ' + encodeURIComponent(token))
+}
+
 export function internalHostWebSocketTarget(host: string, path: string) {
     if (!supportedHost(host) || !isInternalConsolePath(path)) throw new Error('Unsupported container host websocket.')
+    const authorizations = internalHostAuthorizationCandidates(config.vm_api_token, process.env.VM_API_TOKEN_PREVIOUS)
     return {
         url: 'wss://internal.hanasand.com/api' + path,
         address: addresses[host],
-        authorization: 'Bearer ' + encodeURIComponent(config.vm_api_token || ''),
+        // Use the rotation overlap token because a WebSocket handshake cannot be retried transparently.
+        authorization: authorizations.at(-1) || 'Bearer ',
     }
 }
 
@@ -46,11 +54,21 @@ export async function internalHostFetch(host: string, path: string, options: Req
     if (!supportedHost(host) || !supportedVmHostPath(path)) throw new Error('Unsupported container host request.')
     const url = new URL('https://internal.hanasand.com/api' + path)
     const headers = Object.fromEntries(new Headers(options.headers).entries())
-    headers.authorization = 'Bearer ' + encodeURIComponent(config.vm_api_token || '')
+    const authorizations = internalHostAuthorizationCandidates(config.vm_api_token, process.env.VM_API_TOKEN_PREVIOUS)
+    const response = await requestPinnedHost(url, addresses[host], options, headers, authorizations[0] || 'Bearer ')
+    const fallbackAuthorization = authorizations[1]
+    if (response.status !== 401 || !fallbackAuthorization || options.body instanceof ReadableStream) return response
+    // Other host APIs may still accept the previous token while a rotation is in progress.
+    await response.body?.cancel().catch(() => {})
+    return requestPinnedHost(url, addresses[host], options, headers, fallbackAuthorization)
+}
+
+function requestPinnedHost(url: URL, address: string, options: RequestInit, headers: Record<string, string>, authorization: string) {
     return new Promise<Response>((resolve, reject) => {
+        const requestHeaders = { ...headers, authorization }
         const req = https.request(url, {
-            method: options.method || 'GET', headers, timeout: 120000,
-            lookup: pinnedHostLookup(addresses[host]),
+            method: options.method || 'GET', headers: requestHeaders, timeout: 120000,
+            lookup: pinnedHostLookup(address),
             signal: options.signal || undefined,
         }, response => {
             const resultHeaders = new Headers()
