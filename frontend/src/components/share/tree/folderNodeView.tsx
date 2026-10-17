@@ -1,8 +1,8 @@
-import { AppConfirmDialog } from '@/components/ui/appDialog'
 import { Folder, FolderOpen } from 'lucide-react'
 import { TreeNewFile } from './newFile'
 import Tree from './tree'
 import { FileNodeActions, RenameInput } from './fileNodeControls'
+import { TreeItemDeleteDialog } from './treeItemDeleteDialog'
 import type { FileNodeViewActions, FileNodeViewContext, FileNodeViewState } from './fileNodeTypes'
 
 export function FolderNodeView({ context, state, actions, file }: {
@@ -17,12 +17,10 @@ export function FolderNodeView({ context, state, actions, file }: {
 
     return (
         <li className='space-y-1' onClick={event => event.stopPropagation()}>
-            <AppConfirmDialog
+            <TreeItemDeleteDialog
+                kind='folder'
+                name={file.name}
                 open={deleteOpen}
-                title={`Delete ${file.name}?`}
-                body='Everything inside this folder will be deleted.'
-                confirmLabel='Delete'
-                tone='danger'
                 onCancel={() => setDeleteOpen(false)}
                 onConfirm={() => void actions.onDelete()}
             />

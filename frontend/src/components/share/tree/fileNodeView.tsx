@@ -1,8 +1,8 @@
-import { AppConfirmDialog } from '@/components/ui/appDialog'
 import { File } from 'lucide-react'
 import Link from 'next/link'
 import { TreeNewFile } from './newFile'
 import { FileNodeActions, RenameInput } from './fileNodeControls'
+import { TreeItemDeleteDialog } from './treeItemDeleteDialog'
 import type { FileNodeViewActions, FileNodeViewContext, FileNodeViewState } from './fileNodeTypes'
 
 export function FileNodeView({ context, state, actions, isFirstFileInFolder, shouldDisplay }: {
@@ -17,12 +17,10 @@ export function FileNodeView({ context, state, actions, isFirstFileInFolder, sho
 
     return (
         <>
-            <AppConfirmDialog
+            <TreeItemDeleteDialog
+                kind='file'
+                name={file.name}
                 open={deleteOpen}
-                title={`Delete ${file.name}?`}
-                body='This file will be deleted from the share.'
-                confirmLabel='Delete'
-                tone='danger'
                 onCancel={() => setDeleteOpen(false)}
                 onConfirm={() => void actions.onDelete()}
             />
