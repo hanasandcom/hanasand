@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { expect, test } from 'bun:test'
 import { classifiedUnitTestFiles, classifyUnitTest, getDatabaseRunNotice, getPostgresFilterPortError, isTaskEnabledByDefault, postgresFilterTestIds } from '../scripts/test-runner-policy.ts'
+import { discoverTestTasks, parseSelectedTaskIds } from '../scripts/test-runner-tasks.ts'
 
 const postgresFilterSuites = [
     'account-deletion-purge-postgres.test.ts',
@@ -35,6 +36,19 @@ test('every discovered test suite has an explicit runner category', () => {
 
     expect([...classifiedUnitTestFiles].sort()).toEqual(discoveredSuites)
     expect(() => classifyUnitTest('new-database-suite.test.ts')).toThrow('has no runner category')
+})
+
+test('runner catalog preserves AI readiness registration and explicit selection', async () => {
+    const tasks = await discoverTestTasks()
+    const readiness = tasks.find(task => task.id === 'ai-metrics-readiness')
+
+    expect(readiness).toEqual({
+        id: 'ai-metrics-readiness',
+        title: 'AI metrics readiness contract',
+        command: [process.execPath, 'scripts/smoke-ai-metrics-readiness.ts'],
+    })
+    expect(parseSelectedTaskIds(['--only=ai-metrics-readiness,notes', '--other=value']))
+        .toEqual(new Set(['ai-metrics-readiness', 'notes']))
 })
 
 test('unit suites stay in the safe default runner while database suites remain opt-in', () => {

@@ -1,4 +1,5 @@
 import { beforeEach, expect, mock, test } from 'bun:test'
+import { registerEventProcessingAuthScenarios } from './support/eventProcessingAuthScenarios.ts'
 let stored: Record<string, any> = {}, findings: any[] = [], fail = false, failReceiptWrite = false, findingWrites = 0, eventUpdates = 0, pendingLookups = 0, completedLookups = 0, deletedLogins: string[] = [], receipts: unknown[][] = [], retentionRules: any[] = []
 let authRechecks: Array<{ sql: string, params: any[] }> = []
 const query = async (sql: string, p: any[] = []): Promise<any> => {
@@ -118,74 +119,16 @@ test('stateless detections use bounded bulk writes without dropping or duplicati
     expect(pendingLookups).toBe(0); expect(completedLookups).toBe(2)
 })
 
-test('login events keep their pending correlation lookup', async () => {
-    const login = { id: 'login', service: 'sshd', host: 'inspur', level: 'info', message: 'Accepted password for alice from 192.0.2.1', created_at: '2026-09-19T10:00:00Z' }
-    await processLogBatch([login], 'org-a', [])
-    expect(pendingLookups).toBe(1); expect(completedLookups).toBe(1)
-    expect(Object.values(stored)[0].processing_status).toBe('processed')
-})
-
-test('a successful matching login-monitor source is dropped before auth correlation', async () => {
-    const { authenticationAuditStoreRule } = await import('../src/utils/events/eventProtection.ts')
-    retentionRules = [
-        { id: authenticationAuditStoreRule.id, organization_id: 'org-a', version: '1', source: 'owned', enabled: true, definition: authenticationAuditStoreRule.definition },
-        { id: 'custom.login-monitor.v1', organization_id: 'org-a', version: '1', source: 'owned', enabled: true,
-            definition: { stage: 'analyze', action: 'drop', conditions: [
-                { path: 'user.id', operator: 'regex', value: '^login_monitor' },
-                { path: 'source.ip', operator: 'equals', value: '127.0.0.1' },
-                { path: 'metadata.user_agent', operator: 'regex', value: '^Bun/' },
-                { path: 'outcome', operator: 'equals', value: 'success' },
-            ] } },
-    ]
-    const login = { id: 'login_events:2756', service: 'hanasand-auth', host: 'hanasand.com', level: 'info',
-        message: 'Successful sign-in', created_at: '2026-07-03T02:18:39Z', metadata: { category: 'authentication', action: 'login', outcome: 'success',
-            user: { id: 'login_monitor_20260703021420' }, source: { ip: '127.0.0.1' }, user_agent: 'Bun/1.2.3' } }
-    await processLogBatch([login], 'org-a', [])
-    expect(deletedLogins).toEqual(['2756'])
-    expect(receipts).toHaveLength(1)
-    expect(stored).toEqual({})
-    expect(pendingLookups).toBe(0)
-})
-
-test('login-monitor receipt failure rolls back the earlier source deletion', async () => {
-    const { authenticationAuditStoreRule } = await import('../src/utils/events/eventProtection.ts')
-    retentionRules = [
-        { id: authenticationAuditStoreRule.id, organization_id: 'org-a', version: '1', source: 'owned', enabled: true, definition: authenticationAuditStoreRule.definition },
-        { id: 'custom.login-monitor.v1', organization_id: 'org-a', version: '1', source: 'owned', enabled: true,
-            definition: { stage: 'analyze', action: 'drop', conditions: [
-                { path: 'user.id', operator: 'regex', value: '^login_monitor' },
-                { path: 'source.ip', operator: 'equals', value: '127.0.0.1' },
-                { path: 'metadata.user_agent', operator: 'regex', value: '^Bun/' },
-                { path: 'outcome', operator: 'equals', value: 'success' },
-            ] } },
-    ]
-    const login = { id: 'login_events:2756', service: 'hanasand-auth', host: 'hanasand.com', level: 'info',
-        message: 'Successful sign-in', created_at: '2026-07-03T02:18:39Z', metadata: { category: 'authentication', action: 'login', outcome: 'success',
-            user: { id: 'login_monitor_20260703021420' }, source: { ip: '127.0.0.1' }, user_agent: 'Bun/1.2.3' } }
-    failReceiptWrite = true
-
-    await expect(processLogBatch([login], 'org-a', [])).rejects.toThrow('Receipt storage failed')
-    expect(deletedLogins).toEqual([])
-    expect(receipts).toHaveLength(0)
-    expect(stored).toEqual({})
-})
-
-test('late authentication rechecks use bounded user and source-IP index lanes', async () => {
-    const login = { id: 'late-login', service: 'sshd', host: 'inspur', level: 'info', message: 'Failed password for alice from 192.0.2.1', created_at: '2026-09-19T10:00:00Z' }
-    await processLogBatch([login], 'org-a', rules())
-    expect(authRechecks).toHaveLength(1)
-    const { sql, params } = authRechecks[0]
-    expect(params[1]).toBe('inspur:alice')
-    expect(params[2]).toBe('192.0.2.1')
-    expect(params[3]).toBe('failure')
-    expect(params[6]).toBe(25)
-    expect(sql).toContain('e.user_id = $2')
-    expect(sql).toContain('md5(e.source_ip) = md5($3::text)')
-    expect(sql).toContain('$4 = \'failure\'')
-    expect(sql).toContain('e.outcome = \'success\'')
-    expect(sql).toContain('LIMIT $7')
-    expect(sql).not.toContain(' OR e.source_ip')
-    expect(sql).not.toContain('OFFSET')
+registerEventProcessingAuthScenarios({
+    processLogBatch, rules,
+    setRetentionRules: value => { retentionRules = value },
+    setFailReceiptWrite: value => { failReceiptWrite = value },
+    deletedLogins: () => deletedLogins,
+    receipts: () => receipts,
+    stored: () => stored,
+    pendingLookups: () => pendingLookups,
+    completedLookups: () => completedLookups,
+    authRechecks: () => authRechecks,
 })
 
 for (const [program, command] of [['uname', 'uname -o'], ['uname', 'uname -r'], ['ps', 'ps -eo pid,comm,args'], ['ps', 'ps aux']]) {

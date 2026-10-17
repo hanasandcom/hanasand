@@ -6,10 +6,10 @@ import { collectEventFindings } from '../../handlers/events/findingEngine.ts'
 import { loadConfiguredRules } from '../../handlers/events/ruleStorage.ts'
 import { normalizeEvent } from '../../handlers/events/eventNormalization.ts'
 import { matchRulePage } from './rulePreview.ts'
-import { exactCaseSensitiveMessage, exactMessageIndexMaxBytes, hasPostgresRegexCandidate, messageCandidatePredicate, processExecutableCandidatePredicate } from './previewPredicate.ts'
 import type { Condition } from './conditions.ts'
 import { builtinReprocessable, reprocessBuiltinPage } from './builtinReprocess.ts'
 import { recordReprocessCompletion } from './ruleReprocessAudit.ts'
+import { reprocessCandidatePredicate, usesTimeOrderedMessageScan } from './ruleReprocessCandidates.ts'
 
 type Cursor = { phase: number, time?: string, id?: string, windowEnd?: string }
 export type ReprocessJob = { id: string, organization_id: string, rule_id: string, rule_version: string, status: string,
@@ -20,33 +20,9 @@ type Item = { id: string, event: Record<string, unknown>, original?: Record<stri
 const size = 1000
 export const ruleReprocessWorkerLock = 'event:rule-reprocess-worker'
 export const ruleReprocessRuleLock = (organizationId: string, ruleId: string) => `event-rule:${organizationId}:${ruleId}`
-const eventCandidateColumns: Record<string, string> = {
-    source_vendor: 'source_vendor', source_product: 'source_product', event_type: 'event_type', service: 'normalized->>\'service\'',
-    action: 'action', outcome: 'outcome', user_id: 'user_id', source_ip: 'source_ip',
-}
-
-function eventFieldCandidatePredicate(conditions: Condition[], bind: (value: string) => string, includeExecutable = true) {
-    const scalar = conditions.flatMap(condition => {
-        const column = eventCandidateColumns[condition.path]
-        if (!column || condition.operator !== 'equals' || condition.path === 'service' && !condition.caseSensitive) return []
-        const value = bind(condition.value)
-        return [condition.caseSensitive ? `${column} = ${value}` : `lower(${column}) = lower(${value})`]
-    })
-    const executable = includeExecutable ? processExecutableCandidatePredicate(conditions, bind) : null
-    return [...scalar, executable].filter((predicate): predicate is string => Boolean(predicate)).join(' AND ')
-}
-
-
 export function reprocessableRule(rule: Rule | undefined): rule is Rule {
     return Boolean(rule && (rule.source === 'owned' || rule.source === 'hanasand' && builtinReprocessable(rule.rule_id)) && rule.enabled && rule.definition?.stage === 'analyze'
         && rule.definition.action === 'drop' && rule.definition.conditions?.length)
-}
-
-function usesTimeOrderedMessageScan(conditions: Condition[]) {
-    return conditions.some(condition => condition.path === 'message' && condition.caseSensitive
-        && hasPostgresRegexCandidate(condition) && /^\^[A-Za-z0-9 _:/@,=-]{5,}/.test(condition.value))
-        && conditions.some(condition => condition.path === 'event_type' && condition.operator === 'equals' && condition.caseSensitive)
-        && conditions.some(condition => condition.path === 'service' && condition.operator === 'equals' && condition.caseSensitive)
 }
 
 export async function processRuleReprocessJob() {
@@ -93,20 +69,7 @@ export async function processRuleReprocessJob() {
                 const lower = windowed ? new Date(lowerMs).toISOString() : job.from_time
                 const params: (string | number | null)[] = [job.organization_id, upper, lower]
                 const bind = (value: string) => { params.push(value); return `$${params.length}` }
-                const exactMessage = exactCaseSensitiveMessage(rule.definition.conditions)
-                const candidate = exactMessage
-                    ? [
-                        eventFieldCandidatePredicate(rule.definition.conditions, bind, false),
-                        `normalized->>'message' = ${bind(exactMessage.value)} AND octet_length(normalized->>'message') <= ${exactMessageIndexMaxBytes}`,
-                    ].filter(Boolean).join(' AND ')
-                    : [eventFieldCandidatePredicate(rule.definition.conditions, bind),
-                        messageCandidatePredicate(rule.definition.conditions, 'normalized->>\'message\'', bind, {
-                            // For anchored command patterns paired with exact process/service fields,
-                            // walk this organization's time index and recheck the regex. The broad
-                            // trigram bitmap finds a large set, then sorts it again for every page.
-                            useTrigram: !timeOrderedMessageScan,
-                        }),
-                    ].filter(Boolean).join(' AND ') || 'TRUE'
+                const candidate = reprocessCandidatePredicate(rule.definition.conditions, bind, !timeOrderedMessageScan)
                 const ownedLogScope = rule.source === 'owned' ? 'AND ingestion_id=\'logs\' AND processing_status=\'processed\'' : ''
                 const cursorTimeParam = params.push(windowed && cursor.windowEnd ? cursor.time || null : cursor.time || null)
                 const cursorIdParam = params.push(cursor.id || '')

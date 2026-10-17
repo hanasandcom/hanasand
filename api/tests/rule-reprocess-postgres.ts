@@ -1,6 +1,7 @@
 // Disposable PostgreSQL only. Exercises actual saved rules, source deletion and durable jobs.
 import { installEnsureSchemaTables } from './support/ensureSchemaTables.ts'
 import { createServiceLogsFixture } from './support/serviceLogsFixture.ts'
+import { runRuleReprocessPostgresServer } from './support/ruleReprocessPostgresServer.ts'
 import assert from 'node:assert/strict'
 import { mock } from 'bun:test'
 import pg from 'pg'
@@ -188,24 +189,10 @@ try {
     assert.equal((await query('SELECT count(*) FROM events WHERE id=\'rollback\'')).rows[0].count, '1')
     console.log('PASS: persisted rules, matching, raw/indexed deletion, Store precedence, findings, tenant isolation, deduplication, cancellation, changed-rule stop and rollback.')
     if (process.argv.includes('--serve')) {
-        await query('DROP TRIGGER reject_test_delete ON service_logs')
-        await add('ui-check')
-        const Fastify = (await import('fastify')).default
         const { postRule, postRulePreview, getEvents } = await import('../src/handlers/events.ts')
-        const app = Fastify()
-        app.post('/api/backend/rules', postRule)
-        app.post('/api/backend/rules/preview', postRulePreview)
-        app.get('/api/backend/events', getEvents)
-        app.get('/api/backend/rules/:id/reprocess', getRuleReprocess)
-        app.post('/api/backend/rules/:id/reprocess', postRuleReprocess)
-        await app.listen({ port: 55448, host: '127.0.0.1' })
-        let processing = false
-        const timer = setInterval(async () => { if (processing) return; processing = true; try { await processRuleReprocessJob() } finally { processing = false } }, 200)
-        console.log('UI integration ready on 127.0.0.1:55448')
-        await new Promise<void>(resolve => process.once('SIGTERM', () => resolve()))
-        clearInterval(timer); await app.close()
-        assert.equal((await query('SELECT count(*) FROM events WHERE id=\'ui-check\'')).rows[0].count, '0')
-        assert.equal((await query('SELECT count(*) FROM service_logs WHERE message=\'routine ui-check\'')).rows[0].count, '0')
-        console.log('PASS: the browser-created rule and UI reprocess action deleted both real PostgreSQL copies.')
+        await runRuleReprocessPostgresServer({
+            query, add, postRule, postRulePreview, getEvents,
+            getRuleReprocess, postRuleReprocess, processRuleReprocessJob,
+        })
     }
 } finally { await pool.end() }
