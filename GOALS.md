@@ -2230,3 +2230,15 @@ production lines; the four test registrations add no test code. The frontend
 inventory is 2,400 hand-maintained files / 155,531 lines / zero over 200; the
 repository scan is 4,551 files / 328,584 lines / zero over 200. All commits are
 pushed to both remotes. Aggregate API and frontend LOC targets remain open.
+
+At pushed checkpoint `9fa1c17d2` (2026-10-17), the TI enrichment check no
+longer searches TSX text under Playwright. One registered Bun contract renders
+the actual server page with mocked overview data and verifies the actor label,
+source/evidence counts, profile destination, and omitted confidence label. The
+focused test and full registered frontend suite pass; non-incremental typecheck,
+scoped ESLint, repository/frontend line-cap checks, and the production build
+(116 generated routes) pass. Independent review confirmed the test uses the
+real page component and its data dependency. No production code changed. The
+frontend inventory is 2,400 files / 155,556 lines / zero over 200; repository
+inventory is 4,551 files / 328,609 lines / zero over 200. The commit is pushed
+to both remotes; aggregate LOC reduction targets remain open.
