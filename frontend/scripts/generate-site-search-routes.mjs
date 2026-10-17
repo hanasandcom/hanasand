@@ -1,6 +1,7 @@
 import { readFile, readdir, rm, rmdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { assertGeneratedOutputLineCap } from './generatedOutputLineCap.mjs'
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url))
 const frontendDir = path.resolve(scriptDir, '..')
@@ -55,6 +56,7 @@ const routes = [...new Set((await pageRoutes(appDir))
 const items = routes.map(href => `    { id: ${quote(`route:${href}`)}, title: ${quote(labelFor(href))}, detail: ${quote(href === '/' ? 'Overview and product entry point' : `Page · ${href}`)}, href: ${quote(href)} },`)
 const content = `${generatedMarker}\nexport const generatedSearchRoutes = [\n${items.join('\n')}\n] as const\n`
 
+assertGeneratedOutputLineCap(content, path.relative(frontendDir, outputPath))
 await removeGeneratedChunks()
 
 await writeFile(outputPath, content)

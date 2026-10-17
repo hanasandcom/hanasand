@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
+import { assertGeneratedOutputLineCap } from '../scripts/generatedOutputLineCap.mjs'
 import { generatedSearchRoutes } from '../src/utils/routes/generatedSearchRoutes'
 import { actorItems, caseItem, directThreatItem, watchlistItems } from '../src/components/header/siteSearch/searchData'
 
@@ -21,6 +22,11 @@ test('generated route catalog is unique, ordered, canonical, and within the sour
     for (const href of ['/cases', '/dashboard/findings/watchlists', '/dashboard/ti/enrichment', '/browser', '/browser/report', '/browser-sandbox', '/sandbox/report', '/dashboard/system/ssh-keys']) {
         assert.ok(!hrefs.includes(href), `${href} should not appear as a search route`)
     }
+})
+
+test('generated output cap guard rejects oversized files before writing', () => {
+    assert.equal(assertGeneratedOutputLineCap('one\ntwo\n', 'routes.ts'), 2)
+    assert.throws(() => assertGeneratedOutputLineCap(`${'line\n'.repeat(201)}`, 'routes.ts'), /201 lines \(limit 200\): routes\.ts/)
 })
 
 test('header search does not invent an actor result for unavailable or empty TI responses', () => {
