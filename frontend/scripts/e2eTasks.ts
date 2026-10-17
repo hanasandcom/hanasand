@@ -2,6 +2,13 @@ import { bun, type TestTask } from './testTask'
 
 export const e2eTasks: TestTask[] = [
     {
+        id: 'rules',
+        title: 'Rules interface request and behavior contracts',
+        command: ['bunx', 'playwright', 'test', 'tests/rules.spec.ts'],
+        env: { PLAYWRIGHT_MANAGED_SERVERS: '0' },
+        requires: 'playwright',
+    },
+    {
         id: 'public-archive',
         title: 'Public archive route smoke',
         command: [bun, 'scripts/check-public-archive.mjs'],

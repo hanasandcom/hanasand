@@ -173,6 +173,11 @@ test('Drop locks Low; capped previews can check another 1000 events and buffered
 test('server rows hydrate without fetching again and still refresh after edits', async ({ page }) => {
     expect(serverHtml).toContain('Routine requests')
     expect(serverHtml).not.toContain('Loading rules')
+    const apiPaths: string[] = []
+    page.on('request', request => {
+        const pathname = new URL(request.url()).pathname
+        if (pathname.includes('/api/')) apiPaths.push(pathname)
+    })
     let reads = 0
     await page.route('**/api/backend/rules?*', route => {
         reads++
@@ -187,4 +192,6 @@ test('server rows hydrate without fetching again and still refresh after edits',
     await page.getByRole('button', { name: 'Disable Routine requests', exact: true }).click()
     await expect(page.getByRole('button', { name: 'Enable Routine requests', exact: true })).toBeVisible()
     expect(reads).toBe(1)
+    expect(apiPaths).toContain('/api/backend/rules')
+    expect(apiPaths.every(path => path.startsWith('/api/backend/'))).toBe(true)
 })

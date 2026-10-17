@@ -27,7 +27,6 @@ export const otherUnitTasks: TestTask[] = [
     { id: 'browser-saved-finding-share', title: 'Browser saved finding share fallbacks', command: [bun, 'test', 'tests/browser-saved-finding-share.test.ts'] },
     { id: 'browser-sandbox-routing', title: 'Browser sandbox routing contract', command: [bun, 'test', 'tests/browser-sandbox-routing.test.ts'] },
     { id: 'browser-sandbox-session', title: 'Browser sandbox session contract', command: [bun, 'test', 'tests/browser-sandbox-session.test.ts'] },
-    { id: 'dwm-event-proxy-path', title: 'DWM event proxy path contract', command: [bun, 'test', 'tests/event-proxy-path.test.ts'] },
     { id: 'exposure-queue-contract', title: 'Exposure queue data contract', command: [bun, 'test', 'tests/exposure-queue-contract.test.ts'] },
     { id: 'exposure-queue-truthfulness', title: 'Exposure queue truthfulness', command: [bun, 'test', 'tests/exposure-queue-truthfulness.test.ts'] },
     { id: 'health-route', title: 'Frontend health route status mapping', command: [bun, 'test', 'tests/health-route.test.ts'] },
