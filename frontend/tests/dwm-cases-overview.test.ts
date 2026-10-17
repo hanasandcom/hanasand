@@ -4,6 +4,7 @@ import { mock, test } from 'bun:test'
 import { createElement, type Dispatch, type SetStateAction } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { caseDetailHref } from '../src/app/dashboard/cases/caseRoutes'
+import { caseDetailPath } from '../src/app/dashboard/findings/workflow-values'
 import type { CaseListItem, CasesState } from '../src/app/dashboard/findings/types'
 
 mock.module('next/link', () => ({
@@ -23,6 +24,7 @@ test('case detail links retain organization and finding context', () => {
         caseDetailHref('HA/1', 'alert 1', 'org acme', 'case_overview'),
         '/cases/HA%2F1?organizationId=org+acme&alertId=alert+1&route=case_overview',
     )
+    assert.equal(caseDetailPath('HA/1', 'alert 1', 'org acme', 'public_advisory'), caseDetailHref('HA/1', 'alert 1', 'org acme', 'public_advisory'))
 })
 
 test('cases overview renders its empty state and case-focused row contract', () => {

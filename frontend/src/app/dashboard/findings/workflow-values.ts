@@ -2,6 +2,7 @@ import { formatClaimSummary } from '@/utils/dwm/display'
 import type { DwmSourceFamily } from '@/utils/dwm/product'
 import { isRecord } from '@/utils/isRecord'
 export { isRecord }
+export { caseDetailHref as caseDetailPath } from '../cases/caseRoutes'
 
 export function durableDeliveryRows(payload: Record<string, unknown>) {
     const deliveries = Array.isArray(payload.deliveries) ? payload.deliveries : []
@@ -37,14 +38,6 @@ function readSourceFamily(value: unknown): DwmSourceFamily {
         return sourceFamily
     }
     return 'darkweb_metadata'
-}
-
-export function caseDetailPath(caseId: string, alertId: string, organizationId?: string, route?: string) {
-    const params = new URLSearchParams()
-    if (organizationId) params.set('organizationId', organizationId)
-    params.set('alertId', alertId)
-    if (route) params.set('route', route)
-    return `/cases/${encodeURIComponent(caseId)}?${params.toString()}`
 }
 
 export function readNestedString(value: unknown, path: string[]) {
