@@ -1860,3 +1860,39 @@ behavior but make only incremental progress toward those aggregate goals. The
 commits through this checkpoint are pushed to both `origin/main` and
 `github/main`. No UI redesign, live production monitor run, or deployment was
 made.
+
+At checkpoint `7ef2e4666` (2026-10-17), the log collector's 373-line core and
+330-line source modules are split into cohesive modules, and its 420-line test
+file is split into four focused suites. All 50 original test titles remain;
+the four suites pass 67 tests, the service bundles to `/tmp` and reports its
+version, and an independent review approved the fixture shutdown cleanup. The
+package typecheck remains blocked by existing test imports from unexported API
+fixtures in `tests/model-probes.test.ts` and `tests/readiness-attestation.test.ts`.
+The API action policy now has a small public facade with separate decision,
+audit, redaction, rule, and type modules. Its new decision tests preserve the
+existing audit/redaction and route suites; 14 focused tests / 55 expectations,
+API typecheck, scoped ESLint, and independent review pass. The policy split adds
+10 production lines across its modules, so it improves ownership and readability
+without reducing aggregate LOC. A fresh frontend scan finds 2,369 files / 154,765
+lines with zero over 200 (112,135 source, 31,361 tests, and 11,269 configuration
+lines). The repository scan finds 35 over-limit files among 4,421 files / 327,131
+lines; all 35 are outside the frontend. The frontend 10,000–30,000-line target
+and API 100,000-line reduction remain unmet. The log collector and action-policy
+commits are pushed to both remotes; no UI redesign or deployment was made.
+
+At checkpoint `315090fa1` (2026-10-17), the frontend test-result and visit
+fetchers share a typed helper for GET, timeout, status, logging, and null
+handling. The two wrappers plus helper use 37 production lines instead of 56,
+while caller routes and `Test | null` / `number | null` results stay the same.
+Six focused tests cover both endpoints, success projections, malformed JSON null,
+non-OK responses, timeout logging, and timer cleanup; both test tasks are
+registered in the default runner. A duplicate unavailable-state assertion was
+removed from the traffic state test while route-specific assertions remain.
+Independent review, the registered 8-test run, frontend typecheck, scoped ESLint,
+changed-file cap, and diff check pass. The latest frontend scan finds 2,371
+hand-maintained files / 154,860 lines, with zero over 200 (112,135 source,
+31,455 tests, and 11,270 configuration lines). The repository scan finds 35
+files over 200 among 4,423 files / 327,220 lines, all outside the frontend. The
+frontend total rose by 95 lines because the 115-line contract suite outweighs
+the 19-line production reduction; the 10,000–30,000-line target and API
+100,000-line reduction remain open. No UI redesign or deployment was made.
