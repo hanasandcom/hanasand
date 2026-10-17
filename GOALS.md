@@ -2634,3 +2634,17 @@ static article routes. The working tree is 2,417 frontend files / 156,179 lines,
 55 fewer lines than the preceding 156,234-line baseline, with no file over 200.
 This is a small verified dead-code removal; the 10,000–30,000 frontend target
 and 100,000-line API reduction target remain unmet.
+At the 2026-10-17 release-candidate checkpoint, `vm-action-host-routing` is
+registered in the API test runner and the browser-egress firewall contract now
+tracks the modular `scripts/deploy-all/release-cutover.sh` implementation.
+Independent review confirmed the test preserves the API replacement → firewall
+restart → health-wait ordering. The focused firewall contract, full API lint and
+typecheck, full default API suite, and repository/frontend line-cap checks pass.
+The default API suite excludes 37 database-dependent groups. Current scans are
+2,417 frontend files / 156,179 lines and 4,564 repository files / 328,972 lines,
+with no checked hand-maintained file above 200 lines. This cap does not represent
+aggregate frontend cleanup: the 10,000–30,000-line frontend target and 100,000-
+line API reduction remain unachieved. VM start/stop/restart are routed to the
+configured primary host, but remote VM creation, console/terminal behavior, and
+live cross-host lifecycle acceptance remain unverified. The firewall test and
+this checkpoint are local and uncommitted pending integrated candidate checks.
