@@ -1123,3 +1123,24 @@ over. Repository cap currently reports 96 / 4,133 files over 200 lines and
 bringing three files under the cap. This improves ownership but does not move
 toward the 100,000-line API or 10,000–30,000-line frontend reduction targets.
 No push/deploy was performed.
+
+At the 2026-10-17 integration checkpoint, traffic handlers were split into
+focused analytics, records, live-stream, query, request, and warm-up modules;
+the facade preserves its 11 original exports. Route registration is split into
+five ordered modules covering all 323 direct registrations, and the global
+type declarations are split into seven script-style ambient declaration files
+with all 57 type bodies unchanged. Organization-retention helpers were also
+extracted while keeping the export and TI request bodies byte-for-byte intact.
+Independent reviews approved these changes. API lint/typecheck and the default
+registered API suite pass; the API runner explicitly excludes 37 database
+suites. Frontend audit status classification now reuses one predicate across
+metrics and row styling, removing four production lines. Static frontend
+contracts were updated to inspect the new API route/handler owners without
+weakening their assertions. The full frontend suite and production build pass,
+with all 116 routes generated. The frontend cap scan reports 2,308 source/config
+files / 153,101 LOC / zero over 200. The repository-wide scan reports 89 of
+4,167 hand-maintained files over 200 lines and 323,844 LOC total; none of the
+remaining over-cap files are in the frontend. Module boundaries and added test
+assertions leave aggregate LOC higher by about 10 lines in this checkpoint.
+The 100,000-line API and 10,000–30,000-line frontend reduction targets remain
+unachieved. No deployment was performed.
