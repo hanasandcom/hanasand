@@ -6,7 +6,11 @@ import {
     sandboxUrlSafety,
     summarizeDeobfuscationTask,
 } from '../src/handlers/onionSession/analysis.ts'
-import { parseCymruAsn, parseUrlQueryScores, parseVirusTotalStats, virusTotalUrlResponse, urlQueryTargetMatches, urlQueryReportMatchesTarget, providerStartUrl, providerCommunityComments, providerSummaryText, sandboxResolvedAddressSafety } from '../src/handlers/onionSession/ws.ts'
+import { parseCymruAsn } from '../src/handlers/onionSession/networkEvidence.ts'
+import { parseUrlQueryScores, parseVirusTotalStats, virusTotalUrlResponse, urlQueryTargetMatches, urlQueryReportMatchesTarget } from '../src/handlers/onionSession/providerUrlResponses.ts'
+import { providerStartUrl } from '../src/handlers/onionSession/providerNavigation.ts'
+import { providerCommunityComments, providerSummaryText } from '../src/handlers/onionSession/providerText.ts'
+import { sandboxResolvedAddressSafety } from '../src/handlers/onionSession/sandboxSafety.ts'
 
 assert.deepEqual(sandboxUrlSafety('https://example.com/path'), { ok: true })
 assert.equal(sandboxUrlSafety('ftp://example.com').ok, false)
