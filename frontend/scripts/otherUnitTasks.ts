@@ -47,6 +47,7 @@ export const otherUnitTasks: TestTask[] = [
     { id: 'support-ticket-filters', title: 'Support ticket filtering', command: [bun, 'test', 'tests/support-ticket-filters.test.ts'] },
     { id: 'terminal-message-state', title: 'Terminal message lifecycle state', command: [bun, 'test', 'tests/terminal-message-state.test.ts'] },
     { id: 'test-page-panel-render', title: 'Endpoint test panel presentation', command: [bun, 'test', 'tests/test-page-panel-render.test.tsx'] },
+    { id: 'test-stats-render', title: 'Service check stats search surface rendering', command: [bun, 'test', 'tests/test-stats-render.test.tsx'] },
     { id: 'thesis-markdown-link', title: 'Thesis markdown link presentation', command: [bun, 'test', 'tests/thesis-markdown-link.test.tsx'] },
     { id: 'thesis-route-and-access', title: 'Thesis route access and persistence contract', command: [bun, 'test', 'tests/thesis.test.ts'] },
     { id: 'third-party-reporting-retry-source', title: 'Third-party reporting retry contract', command: [bun, 'test', 'tests/third-party-reporting-retry-source.test.ts'] },
