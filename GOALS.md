@@ -2768,3 +2768,18 @@ files over 200 lines. The snapshot includes separate user-owned uncommitted TI
 profile edits; those paths are excluded from this checkpoint's commit. Relative
 to the 153,708-line baseline, the current scan is still 2,545 lines larger; the
 10,000–30,000 frontend target remains unmet.
+
+The next frontend pass kept the 200-line cap at 2,422 hand-maintained source
+and configuration files. Findings delivery links now share an org-scoped route
+builder with the case-detail destination link; case model types no longer live
+inside the React list client; and Helpdesk now projects a narrower client event
+type without the blank `user_agent` placeholder. These preserve rendered UI and
+request/data behavior, with the intentional removal of a sensitive empty
+placeholder and a type-only dependency cleanup. Management and AI audits found
+their existing shared components/contracts sufficient and made no changes.
+Independent review approved the findings, case, and Helpdesk changes. Focused
+delivery, case-detail, management, Helpdesk, audit, and AI checks passed along
+with a fresh non-incremental typecheck, scoped ESLint, and line-cap scan. The
+current working-tree scan is 2,422 files / 156,300 lines, zero above 200; it
+includes separate pre-existing user-owned edits. The frontend is 2,592 lines
+above the 153,708 baseline, so the 10,000–30,000-line target remains unmet.
