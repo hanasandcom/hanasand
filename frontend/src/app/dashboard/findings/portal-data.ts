@@ -13,18 +13,35 @@ export function dwmScopeSearchParams(tenantId: string, organizationId?: string) 
     return params
 }
 
+async function refreshDwmResource<TValue, TPayload>(
+    path: string,
+    resource: keyof DwmDataHealth,
+    labels: { live: string, unavailable: string },
+    signal: AbortSignal,
+    setValue: Dispatch<SetStateAction<TValue>>,
+    mapPayload: (payload: TPayload) => { value: TValue, detail: string },
+    setDataHealth: Dispatch<SetStateAction<DwmDataHealth>>,
+) {
+    try {
+        const result = mapPayload(await fetchFindingsJson<TPayload>(path, signal))
+        setValue(result.value)
+        setDataHealth(current => ({ ...current, [resource]: { state: 'live', label: labels.live, detail: result.detail } }))
+    } catch (error) {
+        if (!isAbortError(error)) setDataHealth(current => ({ ...current, [resource]: { state: 'error', label: labels.unavailable, detail: requestFailureDetail(error) } }))
+    }
+}
+
 export async function refreshDwmProduct(
     params: URLSearchParams,
     signal: AbortSignal,
     setSnapshot: Dispatch<SetStateAction<DwmProductSnapshot>>,
     setDataHealth: Dispatch<SetStateAction<DwmDataHealth>>,
 ) {
-    try {
-        setSnapshot(await fetchFindingsJson<DwmProductSnapshot>(`/api/findings/product?${params.toString()}`, signal))
-        setDataHealth(current => ({ ...current, snapshot: { state: 'live', label: 'Dark web stream live', detail: 'The exposure monitor is showing live watchlists, sources, actors, and events.' } }))
-    } catch (error) {
-        if (!isAbortError(error)) setDataHealth(current => ({ ...current, snapshot: { state: 'error', label: 'Monitoring unavailable', detail: requestFailureDetail(error) } }))
-    }
+    return refreshDwmResource<DwmProductSnapshot, DwmProductSnapshot>(
+        `/api/findings/product?${params.toString()}`, 'snapshot',
+        { live: 'Dark web stream live', unavailable: 'Monitoring unavailable' }, signal,
+        setSnapshot, value => ({ value, detail: 'The exposure monitor is showing live watchlists, sources, actors, and events.' }), setDataHealth,
+    )
 }
 
 export async function refreshDwmOperations(
@@ -33,12 +50,11 @@ export async function refreshDwmOperations(
     setOperations: Dispatch<SetStateAction<OperationsSnapshot | null>>,
     setDataHealth: Dispatch<SetStateAction<DwmDataHealth>>,
 ) {
-    try {
-        setOperations(await fetchFindingsJson<OperationsSnapshot>(`/api/findings/operations?${params.toString()}`, signal))
-        setDataHealth(current => ({ ...current, operations: { state: 'live', label: 'Collection live', detail: 'Collection is showing source and evidence state.' } }))
-    } catch (error) {
-        if (!isAbortError(error)) setDataHealth(current => ({ ...current, operations: { state: 'error', label: 'Collection unavailable', detail: requestFailureDetail(error) } }))
-    }
+    return refreshDwmResource<OperationsSnapshot | null, OperationsSnapshot>(
+        `/api/findings/operations?${params.toString()}`, 'operations',
+        { live: 'Collection live', unavailable: 'Collection unavailable' }, signal,
+        setOperations, value => ({ value, detail: 'Collection is showing source and evidence state.' }), setDataHealth,
+    )
 }
 
 export async function refreshDwmAlerts(
@@ -47,14 +63,14 @@ export async function refreshDwmAlerts(
     setAlerts: Dispatch<SetStateAction<PortalAlert[]>>,
     setDataHealth: Dispatch<SetStateAction<DwmDataHealth>>,
 ) {
-    try {
-        const payload = await fetchFindingsJson<{ alerts?: PortalAlert[] }>(`/api/findings/alerts?${params.toString()}`, signal)
-        const savedAlerts = payload.alerts || []
-        setAlerts(savedAlerts)
-        setDataHealth(current => ({ ...current, alerts: { state: 'live', label: 'Events live', detail: `${savedAlerts.length} recorded events.` } }))
-    } catch (error) {
-        if (!isAbortError(error)) setDataHealth(current => ({ ...current, alerts: { state: 'error', label: 'Events unavailable', detail: requestFailureDetail(error) } }))
-    }
+    return refreshDwmResource<PortalAlert[], { alerts?: PortalAlert[] }>(
+        `/api/findings/alerts?${params.toString()}`, 'alerts',
+        { live: 'Events live', unavailable: 'Events unavailable' }, signal,
+        setAlerts, payload => {
+            const value = payload.alerts || []
+            return { value, detail: `${value.length} recorded events.` }
+        }, setDataHealth,
+    )
 }
 
 export async function refreshCases(
@@ -111,14 +127,14 @@ export async function refreshDwmDeliveries(
     setLocalDeliveries: Dispatch<SetStateAction<DeliveryItem[]>>,
     setDataHealth: Dispatch<SetStateAction<DwmDataHealth>>,
 ) {
-    try {
-        const payload = await fetchFindingsJson<{ deliveries?: DeliveryItem[] }>(`/api/findings/webhooks/deliveries?${params.toString()}`, signal)
-        const deliveries = payload.deliveries || []
-        setLocalDeliveries(deliveries)
-        setDataHealth(current => ({ ...current, deliveries: { state: 'live', label: 'Deliveries live', detail: `${deliveries.length} delivery attempt(s).` } }))
-    } catch (error) {
-        if (!isAbortError(error)) setDataHealth(current => ({ ...current, deliveries: { state: 'error', label: 'Deliveries unavailable', detail: requestFailureDetail(error) } }))
-    }
+    return refreshDwmResource<DeliveryItem[], { deliveries?: DeliveryItem[] }>(
+        `/api/findings/webhooks/deliveries?${params.toString()}`, 'deliveries',
+        { live: 'Deliveries live', unavailable: 'Deliveries unavailable' }, signal,
+        setLocalDeliveries, payload => {
+            const value = payload.deliveries || []
+            return { value, detail: `${value.length} delivery attempt(s).` }
+        }, setDataHealth,
+    )
 }
 
 export function isAbortError(error: unknown) {

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { GitCommitHorizontal, GitPullRequest, RefreshCw, Plus } from 'lucide-react'
 import config from '@/config'
 import { CaseCommitPicker, type CaseRepository as Repository } from './case-commit-picker'
+import { date } from './caseDate'
 
 type Entry = { repository_id: string, kind: string, external_id: string, title: string, url: string, author: string, state: string, branch: string, updated_at: string, repository_url: string, provider: string }
 const control = 'min-w-0 rounded-lg border border-ui-border bg-ui-canvas px-3 py-2 text-sm disabled:opacity-50'
@@ -75,14 +76,14 @@ export function CaseDevelopment({ caseId, organizationId }: { caseId: string, or
         {entries.length > 0 && <ul className='grid gap-2'>{entries.map(entry => <li key={`${entry.repository_id}:${entry.kind}:${entry.external_id}`} className='flex min-w-0 gap-3 rounded-lg border border-ui-border p-3'>
             {entry.kind === 'commit' ? <GitCommitHorizontal className='mt-1 h-4 w-4 shrink-0' /> : <GitPullRequest className='mt-1 h-4 w-4 shrink-0' />}
             <div className='min-w-0'><a href={entry.url} target='_blank' rel='noopener noreferrer' className='wrap-break-word font-medium text-ui-primary'>{entry.kind === 'commit' ? entry.external_id.slice(0, 8) : `#${entry.external_id}`} · {entry.title}</a>
-                <p className='wrap-break-word text-xs text-ui-muted'>{entry.provider} · {entry.repository_url.replace(/^https:\/\//, '')} · {entry.state} · {entry.author} · {new Date(entry.updated_at).toLocaleString()}</p>
+                <p className='wrap-break-word text-xs text-ui-muted'>{entry.provider} · {entry.repository_url.replace(/^https:\/\//, '')} · {entry.state} · {entry.author} · {date(entry.updated_at)}</p>
                 {entry.branch && <p className='break-all text-xs text-ui-muted'>{entry.branch.replace(/^refs\/heads\//, '')}</p>}</div>
         </li>)}</ul>}
         {hasMore && <button type='button' className={control} disabled={loading} onClick={loadMore}>Load more changes</button>}
         {(pickerOpen || entries.length > 0) && <details className='border-t border-ui-border pt-3'><summary className='cursor-pointer text-sm font-medium'>Repository connections ({repositories.length})</summary>
             <div className='mt-3 grid gap-3'>
                 <p className='text-sm text-ui-muted'>{organizationId ? 'Organization connections are shared with active members. Personal connections stay private to your account.' : 'These connections and repository details are private to your account.'}</p>
-                {repositories.map(repository => <div key={repository.id} className='grid gap-1 rounded-lg border border-ui-border p-3 text-sm'><p className='break-all'>{repository.repository_url}</p><p className='text-ui-muted'>{repository.last_received_at ? `Last event: ${new Date(repository.last_received_at).toLocaleString()}` : 'Waiting for the first webhook event.'}</p>{repository.last_warning && <p role='status' className='text-ui-text'>{repository.last_warning}</p>}<button type='button' className={`${control} justify-self-start`} disabled={loading} onClick={() => disconnect(repository)}>Disconnect</button></div>)}
+                {repositories.map(repository => <div key={repository.id} className='grid gap-1 rounded-lg border border-ui-border p-3 text-sm'><p className='break-all'>{repository.repository_url}</p><p className='text-ui-muted'>{repository.last_received_at ? `Last event: ${date(repository.last_received_at)}` : 'Waiting for the first webhook event.'}</p>{repository.last_warning && <p role='status' className='text-ui-text'>{repository.last_warning}</p>}<button type='button' className={`${control} justify-self-start`} disabled={loading} onClick={() => disconnect(repository)}>Disconnect</button></div>)}
                 <form onSubmit={connect} className='grid gap-2 sm:grid-cols-[140px_minmax(0,1fr)_auto] sm:items-end'>
                     <label className='grid gap-1 text-sm'>Provider<select aria-label='Provider' className={control} value={provider} onChange={event => setProvider(event.target.value)}><option value='forgejo'>Forgejo</option><option value='github'>GitHub</option><option value='gitlab'>GitLab</option></select></label>
                     <label className='grid min-w-0 flex-1 gap-1 text-sm'>Repository URL<input className={control} type='url' required placeholder='https://git.example.com/team/repository' value={url} onChange={event => setUrl(event.target.value)} /></label>

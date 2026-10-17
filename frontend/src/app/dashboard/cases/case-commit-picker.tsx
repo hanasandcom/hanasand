@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
+import { date } from './caseDate'
 
 type Commit = { external_id: string, title: string, author: string, updated_at: string }
 export type CaseRepository = { id: string, provider: string, repository_url: string, organization_id?: string, can_manage?: boolean, last_received_at?: string, last_warning?: string }
@@ -97,7 +98,7 @@ export function CaseCommitPicker({ caseId, query, repositories, open, revision, 
                     {commits.slice(0, visible).map(commit => <li key={commit.external_id}>
                         <button type='button' disabled={Boolean(linking) || selected?.can_manage === false} aria-label={`Link commit ${commit.external_id.slice(0, 8)}: ${commit.title}`} className='grid min-h-20 w-full gap-1 p-3 text-left text-sm hover:bg-ui-raised disabled:opacity-50' onClick={() => void link(commit)}>
                             <span className='font-medium [overflow-wrap:anywhere]'>{commit.title}</span>
-                            <span className='text-xs text-ui-muted [overflow-wrap:anywhere]'>{commit.external_id.slice(0, 8)} · {commit.author} · {new Date(commit.updated_at).toLocaleString()}</span>
+                            <span className='text-xs text-ui-muted [overflow-wrap:anywhere]'>{commit.external_id.slice(0, 8)} · {commit.author} · {date(commit.updated_at)}</span>
                         </button>
                     </li>)}
                 </ul>

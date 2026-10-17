@@ -2,6 +2,7 @@ import { BellRing, Loader2 } from 'lucide-react'
 import type { CaseAction, CaseDetail } from './contracts'
 import { actionLabel, actionUnavailableReasons } from './model'
 import { ActionButton } from './presentation'
+import { date } from '../../caseDate'
 
 export function CaseActionPanel({ detail, actions, readOnly, owner, setOwner, note, setNote, aiResolution, setAiResolution, busy, message, runAction, notifyCustomer }: {
     detail: CaseDetail
@@ -29,7 +30,7 @@ export function CaseActionPanel({ detail, actions, readOnly, owner, setOwner, no
             <label className='mt-3 block text-[10px] font-semibold uppercase text-ui-muted'>Owner</label>
             <input value={owner} onChange={event => setOwner(event.target.value)} placeholder='owner@company.com' className='mt-1 h-10 w-full rounded-lg border border-ui-border bg-ui-canvas px-3 text-sm text-ui-text outline-none transition placeholder:text-ui-muted focus:border-ui-primary/35' />
             <label className='mt-3 block text-[10px] font-semibold uppercase text-ui-muted'>Reason</label>
-            {caseRecord?.resolution ? <p className='mb-3 text-sm text-ui-muted'>{caseRecord.resolution.type === 'ai' ? 'AI resolved' : `Resolved by ${caseRecord.resolution.actor || 'unknown actor'}`} · {caseRecord.resolution.confirmedAt ? `Human confirmed by ${caseRecord.resolution.confirmedBy} at ${new Date(caseRecord.resolution.confirmedAt).toLocaleString()}` : ['ai', 'automation'].includes(caseRecord.resolution.type) ? 'Awaiting human confirmation' : 'Resolution recorded'}</p> : null}
+            {caseRecord?.resolution ? <p className='mb-3 text-sm text-ui-muted'>{caseRecord.resolution.type === 'ai' ? 'AI resolved' : `Resolved by ${caseRecord.resolution.actor || 'unknown actor'}`} · {caseRecord.resolution.confirmedAt ? `Human confirmed by ${caseRecord.resolution.confirmedBy} at ${date(caseRecord.resolution.confirmedAt)}` : ['ai', 'automation'].includes(caseRecord.resolution.type) ? 'Awaiting human confirmation' : 'Resolution recorded'}</p> : null}
             <label className='mb-2 flex items-center gap-2 text-sm'><input type='checkbox' checked={aiResolution} onChange={event => setAiResolution(event.target.checked)} />AI resolution (when closing) — requires human confirmation</label>
             <textarea value={note} onChange={event => setNote(event.target.value)} placeholder='Decision rationale, delivery context, or customer note.' className='mt-1 min-h-24 w-full resize-y rounded-lg border border-ui-border bg-ui-canvas px-3 py-2 text-sm leading-6 text-ui-text outline-none transition placeholder:text-ui-muted focus:border-ui-primary/35' />
             <div className='mt-3 grid gap-2 sm:grid-cols-2'>

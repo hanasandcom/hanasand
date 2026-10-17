@@ -79,7 +79,7 @@ export function MonitoringCaseOverview({ item, caseId, organizationId, resolving
 function DiskDiagnostics({ diagnostics }: { diagnostics: NonNullable<MonitoringCase['diskDiagnostics']> }) {
     return <section aria-label='Disk usage diagnostics' className='grid gap-4 rounded-lg border border-ui-border bg-ui-canvas p-4'>
         <h3 className='font-semibold'>Largest directories</h3>
-        <p className='text-xs text-ui-muted'>{diagnostics.host} · Collected {new Date(diagnostics.sampledAt).toLocaleString()}. Directory sizes include their contents; nested rows overlap.</p>
+        <p className='text-xs text-ui-muted'>{diagnostics.host} · Collected {date(diagnostics.sampledAt)}. Directory sizes include their contents; nested rows overlap.</p>
         {diagnostics.filesystems.map(filesystem => <div key={filesystem.path} className='grid gap-2'>
             <h4 className='text-sm font-medium'>{filesystem.path} · {filesystem.usedPercent}% used</h4>
             {!filesystem.complete && <p className='text-sm text-ui-warning'>Partial scan. Some directories could not be measured before the time limit or were inaccessible.</p>}

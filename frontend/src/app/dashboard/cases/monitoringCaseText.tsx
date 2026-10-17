@@ -1,8 +1,7 @@
 import Markdown from 'react-markdown'
+import { date } from './caseDate'
 
-export function date(value?: string, empty = '—') {
-    return value ? new Date(value).toLocaleString() : empty
-}
+export { date }
 
 export function notificationText(text: string) {
     return text.replace(/<t:(\d+)(?::[tTdDfFR])?>/g, (match, seconds) => {
