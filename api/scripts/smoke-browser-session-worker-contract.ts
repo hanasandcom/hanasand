@@ -8,7 +8,12 @@ function readOptional(url: URL) {
 const ws = readFileSync(new URL('../src/plugins/ws.ts', import.meta.url), 'utf8')
 const rateLimit = readFileSync(new URL('../src/plugins/rateLimit.ts', import.meta.url), 'utf8')
 const index = readFileSync(new URL('../src/index.ts', import.meta.url), 'utf8')
-const onionWs = readFileSync(new URL('../src/handlers/onionSession/ws.ts', import.meta.url), 'utf8')
+const onionWs = [
+    'ws.ts',
+    'browserRuntime.ts',
+    'browserStartup.ts',
+    'browserPageEvents.ts',
+].map(name => readFileSync(new URL(`../src/handlers/onionSession/${name}`, import.meta.url), 'utf8')).join('\n')
 const dockerfile = readFileSync(new URL('../Dockerfile', import.meta.url), 'utf8')
 const stackVerifier = readFileSync(new URL('../../scripts/verify-stack-release.sh', import.meta.url), 'utf8')
 const appRuntimeStage = /FROM oven\/bun:1\.3\.13-alpine AS app-runtime-base\n([\s\S]*?)\nFROM app-runtime/.exec(dockerfile)?.[1] || ''
@@ -64,7 +69,7 @@ assert.match(ws, /SELKIES_ENCODER=x264enc/, 'browser worker should use low-laten
 assert.match(ws, /SELKIES_FRAMERATE=60/, 'browser worker should target 60 FPS streaming')
 assert.match(ws, /SELKIES_KEYFRAME_DISTANCE=1/, 'browser video must periodically recover from lost reference frames')
 assert.match(ws, /SELKIES_CONGESTION_CONTROL=true/, 'browser stream should adapt bitrate to cellular congestion')
-assert.match(onionWs, /resizeBrowserDisplay\(viewport\)/, 'the captured X display should follow the selected browser resolution')
+assert.match(onionWs, /resizeBrowserDisplay\(profile\.viewport\)/, 'the captured X display should follow the selected browser resolution')
 assert.match(ws, /type: 'stream_ready'[\s\S]*transport: 'webrtc'/, 'browser proxy should announce the WebRTC transport to the client')
 assert.doesNotMatch(onionWs, /setInterval\([\s\S]{0,120}sendFrame/, 'Playwright screenshots must not drive the live rendering loop')
 assert.match(rateLimit, /isBrowserStreamPath\(path\)/, 'token-protected WebRTC stream assets should not exhaust the generic REST rate limit')
