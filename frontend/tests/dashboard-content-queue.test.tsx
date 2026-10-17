@@ -4,6 +4,8 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { DashboardContentQueue } from '../src/components/dashboard/dashboardContentQueue'
 import { DashboardPublishingEmptyState } from '../src/components/dashboard/dashboardPublishingEmptyState'
+import { DashboardPublishingPage } from '../src/components/dashboard/dashboardPublishingPage'
+import { DashboardPage } from '../src/components/dashboard/ui'
 
 test('article and thought queues retain their shared panel markup and page rows', () => {
     const cases = [
@@ -25,6 +27,30 @@ test('article and thought queues retain their shared panel markup and page rows'
         expect(html).toContain(item.row)
         expect(html).toContain('grid gap-1 p-3')
         expect(html).toContain('border-b border-ui-border bg-ui-panel px-4 py-3')
+    }
+})
+
+test('publishing page shows only the empty state or the populated metrics and queue', () => {
+    const emptyState = createElement('div', null, 'Empty state')
+    const metrics = createElement('section', null, 'Metrics')
+    const queue = createElement('section', null, 'Queue')
+    for (const hasContent of [false, true]) {
+        let renderCount = 0
+        const actual = renderToStaticMarkup(createElement(DashboardPublishingPage, {
+            hasContent,
+            emptyState,
+            renderContent: () => {
+                renderCount += 1
+                return createElement('div', null, metrics, queue)
+            },
+        }))
+        const expected = renderToStaticMarkup(createElement(DashboardPage, null,
+            !hasContent ? emptyState : null,
+            hasContent ? createElement('div', null, metrics, queue) : null,
+        ))
+
+        expect(actual).toBe(expected)
+        expect(renderCount).toBe(hasContent ? 1 : 0)
     }
 })
 
