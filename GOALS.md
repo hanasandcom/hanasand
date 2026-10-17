@@ -2814,3 +2814,17 @@ launch Chromium in this environment. Latest scan: 2,425 frontend files / 156,429
 working-tree lines / zero above 200, including unrelated uncommitted work. This
 is 2,721 lines above the 153,708 baseline; the 10,000–30,000 target remains
 unmet.
+
+The latest shared-component pass removed repeated Enter/Space keyboard logic
+from the Box request-history row and reused one cancel-button component in
+confirm/prompt dialogs, preserving nested-event propagation and existing DOM.
+Shared dashboard, browser, VM, support, profile, TI, and input/UI component
+audits otherwise found their responsibilities and access/data contracts already
+separated; no speculative wrappers were added. Organization, thesis, logs, Box,
+and dialog changes passed focused tests and independent review. Full non-
+incremental typecheck, scoped ESLint, diff checks, and the hard cap passed. The
+latest scan is 2,425 frontend source/config files / 156,448 working-tree lines
+with zero above 200, including unrelated uncommitted work. This remains 2,740
+lines above the 153,708 baseline; the 10,000–30,000 frontend reduction target
+is unmet. Some interactive browser/accessibility specs were not run; see the
+specific feature checkpoints above for those limits.
