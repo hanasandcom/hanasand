@@ -5,6 +5,7 @@ import publicTiApi, { normalizeError } from '../src/handlers/ti/publicApi.ts'
 import { publicTiOpenApi } from '../src/contracts/publicTiOpenApi.ts'
 import { matchApiKeyScope, organizationPublicApiScopes } from '../src/utils/auth/apiKeys.ts'
 import { createPublicTiClient } from '../sdk/publicTiClient.ts'
+import { credentialPeriodLimits } from '../src/plugins/rateLimit.ts'
 
 const apps: FastifyInstance[] = []
 const originalScraperApiBase = process.env.TI_SCRAPER_API_BASE
@@ -109,13 +110,16 @@ describe('public TI v1', () => {
         expect(offsets).toHaveLength(5)
     })
 
-    test('findings scopes preserve existing keys and rate limits without widening access', () => {
+    test('findings scopes preserve existing keys and quotas without widening access', () => {
         const scope = organizationPublicApiScopes().find(scope => scope.route === '/api/v1/findings')!
         expect(scope).toBeDefined()
+        const expectedLimits = { perSecond: 2, perMinute: 60, perHour: 1_000, perDay: 10_000 }
         for (const savedRoute of ['/api/v1/claims', '/api/v1/findings']) {
             const saved = { ...scope, route: savedRoute }
             for (const route of ['/api/v1/claims', '/api/v1/findings']) {
-                expect(matchApiKeyScope([saved], 'GET', route)).toBe(saved)
+                const matchedScope = matchApiKeyScope([saved], 'GET', route)
+                expect(matchedScope).toBe(saved)
+                expect(credentialPeriodLimits({ actorIdentifier: 'api_key:key', apiKeyScope: matchedScope, method: 'GET', route })).toEqual(expectedLimits)
                 expect(matchApiKeyScope([saved], 'POST', route)).toBeNull()
                 expect(matchApiKeyScope([{ ...saved, enabled: false }], 'GET', route)).toBeNull()
             }
