@@ -2558,3 +2558,23 @@ tests / 52 assertions across the source and five focused suites). The frontend
 cap passes for 2,424 files / 156,497 lines, and the repository cap passes for
 4,569 files / 329,211 lines, with no file above 200. Frontend and API aggregate
 reduction targets remain unmet.
+
+At `30efbe5f5`, the frontend removed 257 lines from unused traffic helpers,
+orphan dashboard/profile components, a stale route re-export, and a DWM
+operator-action helper that had no product consumer. The corresponding
+test-only checks were removed with their unreferenced code; the public status
+check continues to forbid traffic-fetch wiring. Independent review confirmed
+no current frontend route or runtime import depended on the deleted paths. The
+frontend typecheck, focused DWM Playwright check (1 test), status traffic check,
+and line-cap check pass. The full frontend suite and production build remain
+unrun for this checkpoint.
+
+A repo-wide frontend audit covered 1,744 production TS/JS modules and found no
+exact cross-file clone reaching 200 tokens; its evidence supports only small
+safe consolidation, not a large duplicated implementation reservoir. A
+route-rooted import scan likewise found only small provably unused areas. This
+does not substantiate reaching 10,000–30,000 frontend lines without removing
+features or useful coverage. The current scan is 2,414 frontend files / 156,240
+lines and 4,559 repository files / 328,961 lines, with no file above 200. These
+working-tree counts include concurrent uncommitted TI and API test edits and
+are provisional. The API and frontend aggregate reduction goals remain open.
