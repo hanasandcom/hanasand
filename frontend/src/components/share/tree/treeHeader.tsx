@@ -1,5 +1,5 @@
 import useFolderState from '@/hooks/useFolderState'
-import { countTreeItems } from '@/components/share/workspaceTree'
+import { countTreeItems, walkWorkspaceTree } from '@/components/share/workspaceTree'
 import { FilePlus, FolderPlus, Maximize2, Minimize2, RefreshCw } from 'lucide-react'
 import { Dispatch, SetStateAction } from 'react'
 
@@ -75,11 +75,7 @@ export default function TreeHeader({ share, tree, refreshing, onRefresh, setIsCr
 }
 
 function collectFolderIds(tree: Tree) {
-    const ids: string[] = []
-    for (const file of tree) {
-        if (file.type === 'folder') {
-            ids.push(file.id, ...collectFolderIds(file.children))
-        }
-    }
-    return ids
+    return [...walkWorkspaceTree(tree)]
+        .filter(({ item }) => item.type === 'folder')
+        .map(({ item }) => item.id)
 }

@@ -2321,3 +2321,19 @@ zero oversized files across 4,550 hand-maintained files / 328,672 lines. A
 source/config inventory excluding generated route and article catalogs finds
 2,385 frontend files / 155,259 lines, with none over 200. The frontend
 10,000–30,000-line target and API 100,000-line reduction target remain open.
+
+At the 2026-10-17 shared-composition checkpoint, organization member identities
+and service-account icon actions reuse components with matching rendered and
+accessibility contracts. AI workspace metadata projection and textarea sizing
+now have one implementation each, and share-tree expansion reuses the existing
+preorder walker. Admin-support readiness and handoff presenters share one
+evidence projection while preserving their different invite and response
+contracts. Independent review approved the frontend changes and the API review
+approved the presenter refactor. The frontend registered suite, production
+build (116 routes), API focused test (4 tests / 75 assertions), API typecheck,
+scoped ESLint, diff check, and the global 200-line scan pass. The scoped changes
+add 98 net lines, including the new contract coverage and shared components;
+this checkpoint improves reuse but does not advance the aggregate line-reduction
+target. Current scans report 2,413 frontend files / 155,957 lines and 4,555
+repository files / 328,652 lines, with no file above 200. The 10,000–30,000
+frontend target and 100,000-line API reduction remain open.

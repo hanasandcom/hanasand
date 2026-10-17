@@ -10,6 +10,7 @@ import { WorkspaceStarterPanel } from './workspaceStarterPanel'
 import { WorkspaceDeployPanel } from './workspaceDeployPanel'
 import { WorkspaceRepositoryPanel } from './workspaceRepositoryPanel'
 import { WorkspaceSharePanels } from './workspaceSharePanels'
+import { readWorkspaceMetadata, workspaceRepositoryId } from './workbench/workspaceMetadata'
 
 type WorkspacePaneProps = {
     activeConversation: AIConversation | null
@@ -89,32 +90,13 @@ export default function WorkspacePane(props: WorkspacePaneProps) {
         onSelectRepoFile,
         onSelectShareFile,
     } = props
-    const activeRepoId = typeof activeConversation?.workspaceMeta?.repositoryId === 'string'
-        ? activeConversation.workspaceMeta.repositoryId
-        : activeConversation?.workspaceKind === 'repo'
-            ? activeConversation.workspaceId
-            : null
+    const metadata = readWorkspaceMetadata(activeConversation)
+    const activeRepoId = activeConversation ? workspaceRepositoryId(activeConversation) : null
     const activeRepo = activeRepoId ? importedRepos.find((repo) => repo.id === activeRepoId) || null : null
     const activeShare = initialShares.find((share) => share.id === activeConversation?.workspaceId) || null
     const activeTreePaths = listTreePaths(activeShareTree)
-    const selectedPath = typeof activeConversation?.workspaceMeta?.selectedFilePath === 'string'
-        ? activeConversation.workspaceMeta.selectedFilePath
-        : null
-    const recentPaths = Array.isArray(activeConversation?.workspaceMeta?.recentPaths)
-        ? activeConversation.workspaceMeta.recentPaths.filter((entry): entry is string => typeof entry === 'string')
-        : []
-    const lastWorkspaceAction = typeof activeConversation?.workspaceMeta?.lastWorkspaceAction === 'string'
-        ? activeConversation.workspaceMeta.lastWorkspaceAction
-        : null
-    const lastWorkspaceActionAt = typeof activeConversation?.workspaceMeta?.lastWorkspaceActionAt === 'string'
-        ? activeConversation.workspaceMeta.lastWorkspaceActionAt
-        : null
-    const lastChangedPath = typeof activeConversation?.workspaceMeta?.lastChangedPath === 'string'
-        ? activeConversation.workspaceMeta.lastChangedPath
-        : null
-    const workspaceSource = typeof activeConversation?.workspaceMeta?.workspaceSource === 'string'
-        ? activeConversation.workspaceMeta.workspaceSource
-        : null
+    const selectedPath = metadata.selectedFilePath
+    const { recentPaths, lastWorkspaceAction, lastWorkspaceActionAt, lastChangedPath, workspaceSource } = metadata
     const selectedContent = selectedShareFileContent || selectedShareContent
     const launchOwners = Array.from(new Set(deployments.map((deployment) => deployment.startedBy || deployment.ownerId).filter(Boolean)))
     const reportOwners = Array.from(new Set(releases.map((release) => release.createdBy || release.ownerId).filter(Boolean)))

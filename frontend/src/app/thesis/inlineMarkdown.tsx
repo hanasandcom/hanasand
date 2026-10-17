@@ -7,6 +7,7 @@ import { marked } from 'marked'
 import type { Root } from 'mdast'
 import markdownSpacing from './markdownSpacing'
 import { thesisMarkdownComponents } from './markdownComponents'
+import { resizeTextareaToContent } from '../../components/editor/resizeTextareaToContent'
 
 type SourceNode = {
     type: string, value?: string, children?: SourceNode[],
@@ -52,8 +53,7 @@ export default function InlineMarkdown({ text, displayText = text, label, single
     useLayoutEffect(() => {
         if (!input.current || line === null) return
         const element = input.current
-        element.style.height = 'auto'
-        element.style.height = `${element.scrollHeight}px`
+        resizeTextareaToContent(element)
         if (cursor.current !== null) {
             element.focus({ preventScroll: true })
             element.setSelectionRange(cursor.current, cursor.current)

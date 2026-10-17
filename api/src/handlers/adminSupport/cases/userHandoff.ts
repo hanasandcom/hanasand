@@ -1,5 +1,6 @@
 import { auditFilterQuery, uniqueTimelineValues } from '#utils/support/inspectionPackets.ts'
-import { supportCaseTimelineEvidence } from '../audit/auditCaseTimeline.ts'
+import type { supportCaseTimelineEvidence } from '../audit/auditCaseTimeline.ts'
+import type { SupportUserCaseEvidence } from './userAccessReadiness.ts'
 
 export function supportUserCaseHandoff(input: {
     actorId: string
@@ -8,21 +9,18 @@ export function supportUserCaseHandoff(input: {
     requestId: string
     reason: string
     supportContext: string
-    memberships: Array<Record<string, any>>
-    pendingInvites: Array<Record<string, any>>
-    approvalRequests: Array<Record<string, any>>
     caseAccessReadiness: Record<string, any>
     accessRecoveryPlan: Record<string, any>
     actionHistoryExport: Record<string, any>
-    timeline: Array<Record<string, any>>
+    evidence: SupportUserCaseEvidence
+    timelineEvidence: ReturnType<typeof supportCaseTimelineEvidence>
 }) {
-    const timelineSummary = supportCaseTimelineEvidence(input.timeline)
+    const timelineSummary = input.timelineEvidence
     const { auditEventIds } = timelineSummary
-    const activeMemberships = input.memberships.filter(membership => membership.status === 'active')
     const recoveryBlockers = uniqueTimelineValues([
         ...(Array.isArray(input.accessRecoveryPlan.blockers) ? input.accessRecoveryPlan.blockers : []),
         input.organizationIds.length ? '' : 'missing_organization_scope',
-        activeMemberships.length || input.pendingInvites.length || input.approvalRequests.length ? '' : 'missing_access_evidence',
+        input.evidence.activeMembershipCount || input.evidence.allInviteCount || input.evidence.approvalRequestCount ? '' : 'missing_access_evidence',
     ])
     return {
         schemaVersion: 'support.user.case_handoff.v1',
@@ -37,10 +35,10 @@ export function supportUserCaseHandoff(input: {
         reason: input.reason || null,
         supportContextPresent: Boolean(input.supportContext),
         evidence: {
-            membershipCount: input.memberships.length,
-            activeMembershipCount: activeMemberships.length,
-            pendingInviteCount: input.pendingInvites.length,
-            approvalRequestCount: input.approvalRequests.length,
+            membershipCount: input.evidence.membershipCount,
+            activeMembershipCount: input.evidence.activeMembershipCount,
+            pendingInviteCount: input.evidence.allInviteCount,
+            approvalRequestCount: input.evidence.approvalRequestCount,
             ...timelineSummary,
             caseAccessReadiness: input.caseAccessReadiness,
         },
@@ -63,7 +61,7 @@ export function supportUserCaseHandoff(input: {
         replayFilters: {
             current: auditFilterQuery({ target: input.userId, request: input.requestId, source: 'admin', service: 'hanasand-api' }),
             memberships: input.organizationIds.map(org => auditFilterQuery({ org, target: input.userId, entityType: 'member', source: 'admin', service: 'hanasand-api' })),
-            invites: input.pendingInvites.map(invite => auditFilterQuery({ org: invite.organizationId, entity: invite.id, entityType: 'invite', source: 'admin', service: 'hanasand-api' })),
+            invites: input.evidence.pendingInvites.map(invite => auditFilterQuery({ org: invite.organizationId, entity: invite.id, entityType: 'invite', source: 'admin', service: 'hanasand-api' })),
             recovery: auditFilterQuery({ target: input.userId, action: 'access_recovery', source: 'admin', service: 'hanasand-api' }),
             impersonation: auditFilterQuery({ target: input.userId, action: 'impersonation', source: 'admin', service: 'hanasand-api' }),
             denied: auditFilterQuery({ target: input.userId, outcome: 'denied', source: 'admin', service: 'hanasand-api' }),
@@ -99,7 +97,7 @@ export function supportUserCaseHandoff(input: {
         copyText: [
             `Support user case handoff user=${input.userId}`,
             `Request: ${input.requestId}`,
-            `Evidence: memberships=${input.memberships.length} invites=${input.pendingInvites.length} approvals=${input.approvalRequests.length}`,
+            `Evidence: memberships=${input.evidence.membershipCount} invites=${input.evidence.allInviteCount} approvals=${input.evidence.approvalRequestCount}`,
             `Audit events: ${auditEventIds.join(', ') || 'none'}`,
             `Replay: ${auditFilterQuery({ target: input.userId, request: input.requestId, source: 'admin', service: 'hanasand-api' })}`,
         ].join('\n'),

@@ -6,12 +6,12 @@ import { memberStatusCounts, memberRoleStatusCounts, memberCanMutate, memberMuta
 import { InlineBusy, EmptyLine, StatusPill, ConfirmActionButton, RowStatus } from './shared'
 import { MemberFilterStrip } from './memberFilterStrip'
 import { MemberRoleControl } from './memberRoleControl'
-import { sanitizeOrganizationDisplayCopy } from '../model/textSafety'
 import { useState } from 'react'
 import { stopRowSelectionKeys } from '../model/keyboard'
 import { Trash2 } from 'lucide-react'
 import { SelectableSubjectRow } from './selectableSubjectRow'
 import { filterRowsByQueryAndStatus } from '../model/filterRows'
+import { MemberIdentity } from './memberIdentity'
 
 export function MemberPanel({ members, canManage, busy, rowMessages, selectedSubject, onSelectSubject, onRoleChange, onRemove }: { members: OrganizationMember[], canManage: boolean, busy: string, rowMessages: Record<string, RowMessage>, selectedSubject: ActivitySubject, onSelectSubject: (subject: ActivitySubject) => void, onRoleChange: (member: OrganizationMember, role: OrganizationRole) => void, onRemove: (member: OrganizationMember) => void }) {
     const [pendingRoles, setPendingRoles] = useState<Record<string, OrganizationRole>>({})
@@ -74,8 +74,7 @@ export function MemberPanel({ members, canManage, busy, rowMessages, selectedSub
                                     >
                                         <div className='flex min-w-0 items-start justify-between gap-3'>
                                             <div className='min-w-0'>
-                                                <p className='truncate font-semibold text-ui-text dark:text-ui-text'>{sanitizeOrganizationDisplayCopy(member.name || member.email || member.userId)}</p>
-                                                <p className='mt-1 truncate text-xs text-ui-muted dark:text-ui-muted'>{sanitizeOrganizationDisplayCopy(member.email && member.email !== member.userId ? member.email : member.userId)}</p>
+                                                <MemberIdentity member={member} mobile />
                                             </div>
                                             <StatusPill status={member.status} />
                                         </div>
@@ -120,8 +119,7 @@ export function MemberPanel({ members, canManage, busy, rowMessages, selectedSub
                                             onSelect={() => onSelectSubject({ type: 'member', id: member.userId })}
                                         >
                                             <td className='max-w-44 border-b border-ui-border py-2 pr-3 dark:border-ui-border'>
-                                                <p className='truncate font-semibold text-ui-text dark:text-ui-text'>{sanitizeOrganizationDisplayCopy(member.name || member.email || member.userId)}</p>
-                                                <p className='truncate text-xs text-ui-muted dark:text-ui-muted'>{sanitizeOrganizationDisplayCopy(member.email && member.email !== member.userId ? member.email : member.userId)}</p>
+                                                <MemberIdentity member={member} />
                                             </td>
                                             <td className='border-b border-ui-border px-3 py-2 dark:border-ui-border'>
                                                 <MemberRoleControl

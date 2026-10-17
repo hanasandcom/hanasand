@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { chooseNewestFailure, chooseNewestToolRun, deriveLastFailure, deriveLastToolState } from './runtimeState'
 import { useConversationActions } from './useConversationActions'
 import type { WorkbenchState } from './useWorkbenchState'
+import { readWorkspaceMetadata } from './workspaceMetadata'
 
 export function useConversationView(state: WorkbenchState, createNewConversation: () => Promise<void>) {
     const {
@@ -36,9 +37,7 @@ export function useConversationView(state: WorkbenchState, createNewConversation
         () => conversations.find((conversation) => conversation.id === resolvedActiveConversationId) || null,
         [resolvedActiveConversationId, conversations]
     )
-    const selectedRepoFilePath = typeof activeConversation?.workspaceMeta?.selectedFilePath === 'string'
-        ? activeConversation.workspaceMeta.selectedFilePath
-        : null
+    const selectedRepoFilePath = readWorkspaceMetadata(activeConversation).selectedFilePath
     const activeWorkspaceId = activeConversation?.workspaceId || null
     const activeShareTree = activeWorkspaceId ? shareTrees[activeWorkspaceId] || null : null
     const selectedShareFileContent = activeWorkspaceId && selectedRepoFilePath

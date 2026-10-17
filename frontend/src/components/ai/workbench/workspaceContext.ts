@@ -1,6 +1,7 @@
 'use client'
 
 import { listTreePaths } from '@/components/share/workspaceTree'
+import { workspaceRepositoryId } from './workspaceMetadata'
 
 export async function buildWorkspaceContext(
     conversation: AIConversation,
@@ -21,11 +22,7 @@ export async function buildWorkspaceContext(
         sections.push(`Attached Hanasand shares:\n${shareSummary.join('\n\n')}`)
     }
 
-    const repositoryId = typeof conversation.workspaceMeta?.repositoryId === 'string'
-        ? conversation.workspaceMeta.repositoryId
-        : conversation.workspaceKind === 'repo'
-            ? conversation.workspaceId
-            : null
+    const repositoryId = workspaceRepositoryId(conversation)
     if (repositoryId) {
         const repo = importedRepos.find((item) => item.id === repositoryId)
         if (repo) {

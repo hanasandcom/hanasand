@@ -5,6 +5,7 @@ import '@styles/github.css'
 import './editor.css'
 import { postArticle } from '@/utils/articles/postArticle'
 import { EditorWithoutLogic } from './editorPresentation'
+import { resizeTextareaToContent } from './resizeTextareaToContent'
 export { EditorWithoutLogic, Markdown } from './editorPresentation'
 
 type EditorProps = {
@@ -56,7 +57,7 @@ export default function Editor({
         }
 
         setDisplayEditor(true)
-        autoResize(event.target)
+        resizeTextareaToContent(event.target)
     }
 
     function handleSave() {
@@ -70,11 +71,6 @@ export default function Editor({
         setHideSave(true)
     }
 
-    function autoResize(textarea: HTMLTextAreaElement) {
-        textarea.style.height = 'auto'
-        textarea.style.height = `${textarea.scrollHeight}px`
-    }
-
     function handleDisplayEditor(next?: boolean | ((prev: boolean) => boolean)) {
         setDisplayEditor((prev) => {
             if (typeof next === 'function') {
@@ -85,13 +81,13 @@ export default function Editor({
         })
         setHideSave(false)
         if (textareaRef.current) {
-            autoResize(textareaRef.current)
+            resizeTextareaToContent(textareaRef.current)
         }
     }
 
     useEffect(() => {
         if (textareaRef.current) {
-            autoResize(textareaRef.current)
+            resizeTextareaToContent(textareaRef.current)
         }
     }, [markdown, displayEditor])
 

@@ -2,6 +2,7 @@
 
 import { useId, useRef, useState } from 'react'
 import { Pencil } from 'lucide-react'
+import IconButton from './iconButton'
 
 export default function EditServiceAccountButton({ name, description, onSave }: { name: string, description: string, onSave: (details: { name: string, description: string }) => Promise<void> }) {
     const descriptionId = useId()
@@ -13,7 +14,7 @@ export default function EditServiceAccountButton({ name, description, onSave }: 
     const [error, setError] = useState('')
 
     return <>
-        <button type='button' aria-label={`Edit ${name}`} onClick={() => { setDraftName(name); setDraftDescription(description); setError(''); dialog.current?.showModal(); input.current?.focus() }} className='grid h-8 w-8 shrink-0 place-items-center rounded-lg text-ui-muted hover:bg-ui-raised focus-visible:outline-ui-primary'><Pencil className='h-4 w-4' aria-hidden='true' /></button>
+        <IconButton label={`Edit ${name}`} onClick={() => { setDraftName(name); setDraftDescription(description); setError(''); dialog.current?.showModal(); input.current?.focus() }}><Pencil className='h-4 w-4' aria-hidden='true' /></IconButton>
         <dialog ref={dialog} aria-label={`Edit ${name}`} onCancel={event => { if (pending) event.preventDefault() }} className='m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg overflow-y-auto rounded-2xl border border-ui-border bg-ui-panel p-5 text-ui-text shadow-2xl backdrop:bg-ui-backdrop backdrop:backdrop-blur-sm'>
             <form className='grid gap-4' onSubmit={async event => {
                 event.preventDefault()

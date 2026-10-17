@@ -9,8 +9,9 @@ import { supportRecentAuditTimeline } from './recentAuditTimeline.ts'
 import { toAccessRecoveryDecision } from './accessRecoveryApprovalMapping.ts'
 import { supportUserActivityRollup } from './activityRollups.ts'
 import { buildSupportSubjectInspectionContext } from './subjectInspectionContext.ts'
-import { supportUserCaseAccessReadiness } from './userAccessReadiness.ts'
+import { supportUserCaseAccessReadiness, supportUserCaseEvidence } from './userAccessReadiness.ts'
 import { supportUserCaseHandoff } from './userHandoff.ts'
+import { supportCaseTimelineEvidence } from '../audit/auditCaseTimeline.ts'
 import { supportSubjectInspectionResponseFields } from './subjectInspectionPresentation.ts'
 import { organizationMembershipAvailability as loadOrganizationAvailability } from '#utils/organizationMemberships.ts'
 import type { AccessRecoveryApprovalRow } from '../supportTypes.ts'
@@ -96,18 +97,24 @@ export async function getSupportUser(req: FastifyRequest<{ Params: UserParams }>
     })
     const { accessStatus: userAccessStatus, accessRecoveryPlan } = subjectAccessState
     const { actionHistoryExport } = subjectReceipts
+    const supportMemberships = memberships.rows.map(toSupportMembership)
+    const supportInvites = invites.rows.map(toSupportInvite)
+    const timelineEvidence = supportCaseTimelineEvidence(recentAuditTimeline.events)
+    const caseEvidence = supportUserCaseEvidence({
+        memberships: supportMemberships,
+        pendingInvites: supportInvites,
+        approvalRequests: approvalDetails,
+        auditEventIds: timelineEvidence.auditEventIds,
+    })
     const caseAccessReadiness = supportUserCaseAccessReadiness({
         userId: req.params.id,
         organizationIds,
         requestId: inspectionAudit.requestId,
         reason: inspectionAudit.reason,
         supportContext: inspectionAudit.supportContext,
-        memberships: memberships.rows.map(toSupportMembership),
-        pendingInvites: invites.rows.map(toSupportInvite),
-        approvalRequests: approvalDetails,
         accessStatus: userAccessStatus,
         accessRecoveryPlan,
-        timeline: recentAuditTimeline.events,
+        evidence: caseEvidence,
     })
     const caseHandoff = supportUserCaseHandoff({
         actorId: actor.id,
@@ -116,18 +123,16 @@ export async function getSupportUser(req: FastifyRequest<{ Params: UserParams }>
         requestId: inspectionAudit.requestId,
         reason: inspectionAudit.reason,
         supportContext: inspectionAudit.supportContext,
-        memberships: memberships.rows.map(toSupportMembership),
-        pendingInvites: invites.rows.map(toSupportInvite),
-        approvalRequests: approvalDetails,
+        evidence: caseEvidence,
+        timelineEvidence,
         caseAccessReadiness,
         accessRecoveryPlan,
         actionHistoryExport,
-        timeline: recentAuditTimeline.events,
     })
     return res.send({
         user: toSupportUser(userRow),
-        memberships: memberships.rows.map(toSupportMembership),
-        pendingInvites: invites.rows.map(toSupportInvite),
+        memberships: supportMemberships,
+        pendingInvites: supportInvites,
         approvalRequests: approvalDetails,
         ...supportSubjectInspectionResponseFields({
             kind: 'user',

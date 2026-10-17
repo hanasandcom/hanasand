@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import type { WorkbenchState } from './useWorkbenchState'
+import { readWorkspaceMetadata } from './workspaceMetadata'
 
 export function useWorkspaceHydration(state: WorkbenchState, activeConversation: AIConversation | null) {
     const { hydrateShare, hydrateShareFile, hydrateShareRef, hydrateShareFileRef, shareContents, shareFileContents } = state
@@ -15,9 +16,7 @@ export function useWorkspaceHydration(state: WorkbenchState, activeConversation:
         return () => clearTimeout(timer)
     }, [activeConversation, hydrateShareRef, shareContents])
     useEffect(() => {
-        const selectedPath = typeof activeConversation?.workspaceMeta?.selectedFilePath === 'string'
-            ? activeConversation.workspaceMeta.selectedFilePath
-            : null
+        const selectedPath = readWorkspaceMetadata(activeConversation).selectedFilePath
         const workspaceId = activeConversation?.workspaceId
         if (!workspaceId || !selectedPath) return
         const key = `${workspaceId}:${selectedPath}`

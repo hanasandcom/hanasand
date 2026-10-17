@@ -152,6 +152,8 @@ test('user inspection finds pending organization invites by the user email', asy
     expect(response.statusCode).toBe(200)
     expect(response.body.pendingInvites).toMatchObject([{ id: 'invite-1', email: 'member@example.com' }])
     expect(response.body.copyText).toContain('Pending invites: 1')
+    expect(response.body.caseAccessReadiness.evidence).toMatchObject({ activeMembershipCount: 0, removedMembershipCount: 0, pendingInviteCount: 1, approvalRequestCount: 0 })
+    expect(response.body.caseHandoff.evidence).toMatchObject({ membershipCount: 0, activeMembershipCount: 0, pendingInviteCount: 1, approvalRequestCount: 0 })
     const inviteQuery = state.queries.find(({ sql }) => sql.includes('lower(organization_invites.email) = lower($1)'))
     expect(inviteQuery?.values).toEqual(['member@example.com'])
 })
