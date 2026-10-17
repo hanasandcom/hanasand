@@ -10,8 +10,8 @@ import { alertOrganizationId, dwmScopeSearchParams, isAbortError, refreshCases, 
 import { useFindingsActions } from './use-findings-actions'
 import { caseDetailHref, deliverySummaryLabel } from './case-format'
 import { alertCaseId } from './delivery-panel'
-import type { PortalAlert, OperationsSnapshot, DeliveryItem, CasesState, WatchlistOverview, WatchlistOverviewState } from './types'
-import type { PortalProps, DwmDataHealth, QueueFilter } from './view-types'
+import type { DeliveryItem, CasesState, WatchlistOverview, WatchlistOverviewState } from './types'
+import type { PortalProps, QueueFilter } from './view-types'
 export type { PortalAlert, OperationsSnapshot } from './types'
 export type { FindingsView, DwmDataHealth } from './view-types'
 
