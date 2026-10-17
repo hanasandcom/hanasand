@@ -7,7 +7,7 @@ mock.module('next/headers', () => ({
     cookies: async () => ({ get: (name: string) => cookieValues[name] ? { value: cookieValues[name] } : undefined }),
 }))
 process.env.FRONTEND_IDENTITY_API = 'https://identity.example.test/api/'
-const [{ GET: listPasskeys }, { GET: registerOptions }, { GET: authenticateOptions }, { PATCH: updateCredential }, { POST: registerVerify }] = await Promise.all([
+const [{ GET: listPasskeys }, { GET: registerOptions }, { GET: authenticateOptions }, { PATCH: updateCredential, DELETE: deleteCredential }, { POST: registerVerify }] = await Promise.all([
     import('../src/app/api/auth/passkeys/route'),
     import('../src/app/api/auth/passkeys/register/options/route'),
     import('../src/app/api/auth/passkeys/authenticate/options/route'),
@@ -60,6 +60,19 @@ test('cookie-authenticated enrollment and credential routes retain headers, meth
     expect(new Headers(updateRequest.init?.headers).get('Authorization')).toBe('Bearer cookie-token')
     expect(JSON.parse(String(updateRequest.init?.body))).toEqual({ name: 'Laptop' })
     expect(updateRequest.init?.cache).toBe('no-store')
+
+    const deletion = await deleteCredential(new NextRequest('https://site.test/api/auth/passkeys/key/one', { method: 'DELETE' }), {
+        params: Promise.resolve({ credentialId: 'key/one' }),
+    })
+    expect(deletion.status).toBe(409)
+    const deletionRequest = requests[2]!
+    expect(deletionRequest.url).toBe('https://identity.example.test/api/auth/passkeys/key%2Fone')
+    expect(deletionRequest.init?.method).toBe('DELETE')
+    expect(new Headers(deletionRequest.init?.headers).get('Authorization')).toBe('Bearer cookie-token')
+    expect(new Headers(deletionRequest.init?.headers).get('id')).toBe('user-4')
+    expect(new Headers(deletionRequest.init?.headers).get('Content-Type')).toBeNull()
+    expect(deletionRequest.init?.body).toBeUndefined()
+    expect(deletionRequest.init?.cache).toBe('no-store')
 })
 
 test('registration verification retains text body and maps malformed upstream JSON to empty object', async () => {
