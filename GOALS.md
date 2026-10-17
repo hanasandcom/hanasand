@@ -2434,3 +2434,14 @@ test adds 16, for a net one-line increase across code and tests. The current
 shared-worktree inventory is 4,565 hand-maintained files / 329,011 lines,
 with no file above 200. Aggregate API and frontend reduction targets remain
 open.
+
+At the 2026-10-17 organization row preview checkpoint, activity and scope
+columns share one hook for their expandable preview window and “more” button.
+The existing 8-row and 5-row limits, labels, classes, and toggle behavior are
+preserved. Independent review approved the extraction. The registered render
+test passes (1 test / 4 assertions), and scoped ESLint, typecheck, diff, and
+line-cap checks pass. Production code shrinks by 3 net lines; the focused test
+and runner registration add 23 lines. The current shared-worktree inventory
+is 2,423 frontend files / 156,370 lines and 4,567 repository files / 329,054
+lines, with no file above 200. Aggregate frontend and API reduction targets
+remain open.

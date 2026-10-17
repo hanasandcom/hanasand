@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { useWorkspace } from '@/components/organizations/workspaceProvider'
 import { workspaceShareUrl } from '@/utils/organizations/workspace'
 import { iconButtonClass } from '../constants/styles'
@@ -6,14 +6,13 @@ import { sanitizeOrganizationDisplayCopy } from '../model/textSafety'
 import { EmptyLine, RowStatus } from './shared'
 import { Copy, ExternalLink } from 'lucide-react'
 import { useClipboardStatus } from './useClipboardStatus'
+import { useExpandableRows } from './useExpandableRows'
 
 export function ScopeColumn({ icon, title, route, rows, empty, rowPrefix }: { icon: ReactNode, title: string, route: string, rows: Array<{ id: string, primary: string, secondary: string, href?: string }>, empty: string, rowPrefix?: string }) {
     const { organizationId } = useWorkspace()
     const { status: copyStatus, copy } = useClipboardStatus()
-    const [showAll, setShowAll] = useState(false)
     const showRecordActions = !route.startsWith('/api/')
-    const visibleRows = showAll ? rows : rows.slice(0, 5)
-    const hiddenRows = Math.max(0, rows.length - visibleRows.length)
+    const { visibleRows, moreButton } = useExpandableRows(rows, 5)
     const copyRoute = () => copy(workspaceShareUrl(route, organizationId), 'Records link copied.')
     return (
         <div className='rounded-lg border border-ui-border p-3 dark:border-ui-border'>
@@ -50,15 +49,7 @@ export function ScopeColumn({ icon, title, route, rows, empty, rowPrefix }: { ic
                         </div>
                     )
                 })}
-                {rows.length > 5 && (
-                    <button
-                        type='button'
-                        className='w-fit rounded-md bg-ui-raised px-2 py-1 text-xs font-semibold text-ui-muted transition hover:text-ui-text dark:bg-ui-canvas dark:text-ui-muted dark:hover:text-ui-text'
-                        onClick={() => setShowAll(current => !current)}
-                    >
-                        {showAll ? 'Show latest' : `${hiddenRows} more`}
-                    </button>
-                )}
+                {moreButton}
             </div>
             <div className='mt-3'><RowStatus message={copyStatus} /></div>
         </div>
