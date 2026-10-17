@@ -55,7 +55,7 @@ const unitTestFiles = [
     'service-account-scopes.test.ts', 'service-accounts.test.ts', 'service-check-case.test.ts', 'session-touch.test.ts', 'share-list-access.test.ts',
     'share-save-ack.test.ts', 'shared-mail-access.test.ts', 'smtp-submission.test.ts', 'socket-browser-reconnect.test.ts', 'socket-message-text.test.ts', 'socket-resumable-worker.test.ts', 'ssh-key-usage.test.ts',
     'ssh-transport.test.ts', 'sso-configured-response.test.ts', 'stalwart-admin.test.ts', 'status-cache.test.ts', 'status-handler-contract.test.ts',
-    'status-incidents.test.ts', 'status-presentation.test.ts', 'status-recovery.test.ts', 'stripe-webhook.test.ts', 'support-auth-rate-limit.test.ts',
+    'status-incidents.test.ts', 'status-load-payload.test.ts', 'status-presentation.test.ts', 'status-recovery.test.ts', 'stripe-webhook.test.ts', 'support-auth-rate-limit.test.ts',
     'support-service-account-scope.test.ts', 'support-socket-proxy.test.ts', 'support-transport.test.ts', 'system-cron-cache.test.ts', 'system-cron-crontab.test.ts',
     'system-cron-monitor-route.test.ts', 'system-cron-monitor.test.ts', 'system-cron-runtime-status.test.ts', 'system-snapshot.test.ts', 'system-telemetry.test.ts',
     'test-runner-policy.test.ts', 'thesis.test.mjs', 'ti-cached-search-timeout.test.ts', 'ti-internal-boundary.test.ts', 'ti-public-boundary.test.ts',

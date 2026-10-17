@@ -1514,3 +1514,30 @@ match the response mapper. The two focused suites pass (7 tests / 38
 expectations), as do targeted ESLint and diff checks. The test loses one line
 and two implementation-coupled expectations while preserving its single case
 and observable contract. No live API or database was exercised.
+
+At `a96ac20fc`, identity session revocation distinguishes an authorized zero
+session result from a service 401 and rejects malformed success bodies. Account
+purge now records/retries an unconfirmed revocation before deleting credentials
+or account data. Password reset and password-reset account lock roll back on
+unconfirmed revocation; the same reset code and security-action link succeed
+after revocation recovers. Independent review approved these changes. Focused
+purge, session, password-reset, security-action, and scheduler tests pass; the
+full API lint/typecheck passes. The commit is pushed to both remotes. No
+deployment was performed.
+
+The 319-line status handler is now split into a 145-line request/cache/history
+entrypoint and a 176-line status payload loader. This responsibility split
+adds two production lines. A registered 87-line behavior test now covers the
+non-summary loader's sequential current-check, daily-history, and incident
+queries and verifies the projected payload from fixed rows; it does not assert
+SQL text. Independent review approved the extraction and test. The focused
+status contract/cache/recovery/incident and loader tests pass, along with API
+lint/typecheck and diff checks. The repo scanner finds 65 over-cap files among
+4,291 hand-maintained files / 325,347 lines; all remaining violations are
+outside the frontend. The frontend scan finds 2,326 files / 153,735 lines and
+zero files over 200. An additional frontend audit found existing shared
+dashboard/table/fallback components already used across pages; the inspected
+metric, loading, empty, error, confirmation, and list renderers had distinct
+presentation or accessibility contracts, so this checkpoint adds no new
+frontend abstraction. The frontend's 10,000–30,000-line target and API's
+100,000-line reduction goal remain outstanding. No deployment was performed.
