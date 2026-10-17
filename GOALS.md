@@ -2479,3 +2479,17 @@ lines. Both checkpoints are pushed to Forgejo and GitHub. The current inventory
 is 2,421 frontend files / 156,262 lines and 4,565 repository files / 328,948
 lines, with no hand-maintained file above 200. The frontend 10,000–30,000-line
 target and API 100,000-line reduction target remain unmet.
+
+At `9a08760b3`, service-account search now uses the management shortcut hook;
+its modal guard and `preventDefault` behavior pass focused runtime tests (3 / 22)
+and independent review. At `5da51b066`, the self-ingestion cleanup script and
+its Postgres test use the same organization-scoped helper; its direct helper
+test passes, but both database cases skip because `POSTGRES_FILTER_TEST_PORT`
+is unset. At `7db8f972d`, an unregistered Playwright source scan was replaced
+with registered SSR coverage for current public pricing, developer, header,
+footer, and hash-lookup output (2 / 54). Old pricing assertions whose copy no
+longer exists were recorded as stale rather than restoring product text. The
+focused checks, independent reviews, and repository cap pass. These changes
+add 30 net hand-maintained lines overall; the current scan is 2,421 frontend
+files / 156,264 lines and 4,566 repository files / 328,978 lines, with no file
+above 200. The reduction targets remain unmet.
