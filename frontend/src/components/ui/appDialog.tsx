@@ -51,9 +51,7 @@ export function AppConfirmDialog({
                 </div>
             </div>
             <div className='mt-4 flex justify-end gap-2'>
-                <button type='button' onClick={onCancel} className='inline-flex h-9 items-center rounded-md border border-ui-border bg-ui-panel px-3 text-sm font-semibold text-ui-text hover:bg-ui-raised'>
-                    Cancel
-                </button>
+                <DialogCancelButton onCancel={onCancel} />
                 <button type='button' onClick={onConfirm} className={`inline-flex h-9 items-center rounded-md border px-3 text-sm font-semibold ${toneClass}`}>
                     {confirmLabel}
                 </button>
@@ -99,15 +97,21 @@ export function AppPromptDialog({
                     />
                 </label>
                 <div className='mt-4 flex justify-end gap-2'>
-                    <button type='button' onClick={onCancel} className='inline-flex h-9 items-center rounded-md border border-ui-border bg-ui-panel px-3 text-sm font-semibold text-ui-text hover:bg-ui-raised'>
-                        Cancel
-                    </button>
+                    <DialogCancelButton onCancel={onCancel} />
                     <button type='submit' className='inline-flex h-9 items-center rounded-md bg-ui-primary px-3 text-sm font-semibold text-ui-on-primary hover:opacity-90'>
                         {confirmLabel}
                     </button>
                 </div>
             </form>
         </AppDialog>
+    )
+}
+
+function DialogCancelButton({ onCancel }: { onCancel: () => void }) {
+    return (
+        <button type='button' onClick={onCancel} className='inline-flex h-9 items-center rounded-md border border-ui-border bg-ui-panel px-3 text-sm font-semibold text-ui-text hover:bg-ui-raised'>
+            Cancel
+        </button>
     )
 }
 
