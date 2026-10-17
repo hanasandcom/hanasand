@@ -1,7 +1,8 @@
 import { Search } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { reviewPriority, type CodeItem } from '@/utils/codeReviewTypes'
-import { kinds, names, ItemIcon, StatusIcon } from './codeReviewShared'
+import { kinds, names } from './codeReviewShared'
+import { CodeItemLink } from './CodeItemLink'
 
 type Props = {
     scoped: CodeItem[]
@@ -90,14 +91,7 @@ export function CodeInventoryPanel({
                                 <ul className='code-links'>
                                     {entries.slice(0, limit).map(node => (
                                         <li key={node.id}>
-                                            <button
-                                                aria-current={node.id === selectedId ? 'true' : undefined}
-                                                onClick={() => onSelect(node.id)}
-                                            >
-                                                <ItemIcon item={node} />
-                                                <span>{node.title}</span>
-                                                <StatusIcon item={node} />
-                                            </button>
+                                            <CodeItemLink item={node} selected={node.id === selectedId} onSelect={onSelect} />
                                         </li>
                                     ))}
                                 </ul>

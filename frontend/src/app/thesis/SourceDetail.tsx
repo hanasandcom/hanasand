@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { reviewStatus, type CodeItem, type ReviewEvent } from '@/utils/codeReviewTypes'
 import { ItemIcon, StatusIcon, related, statusNames } from './codeReviewShared'
 import { ReviewHistory } from './ReviewHistory'
+import { CodeItemLink } from './CodeItemLink'
 
 type Props = {
     canReview: boolean
@@ -163,13 +164,7 @@ function DependencyLinks({ ids, byId, onSelect }: {
                 const node = byId.get(id)
                 if (!node) return null
                 return (
-                    <li key={id}>
-                        <button onClick={() => onSelect(id)}>
-                            <ItemIcon item={node} />
-                            <span>{node.title}</span>
-                            <StatusIcon item={node} />
-                        </button>
-                    </li>
+                    <li key={id}><CodeItemLink item={node} onSelect={onSelect} /></li>
                 )
             })}
         </ul>

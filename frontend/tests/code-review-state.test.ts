@@ -2,6 +2,9 @@ import { strict as assert } from 'node:assert'
 import { test } from 'node:test'
 import { readSheets, writeSheets, sheetChanges } from '../src/app/thesis/workspace'
 import { reviewPriority, reviewStatus, type CodeItem } from '../src/utils/codeReviewTypes'
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { CodeItemLink } from '../src/app/thesis/CodeItemLink'
 
 test('per-sheet preferences round trip and participate in shared history', () => {
     const sheets = [{ id: 'code', name: 'Code', title: '# Code', body: '\n\nNotes\n', settings: { insertTable: false, history: false, codeReview: true } }]
@@ -30,4 +33,16 @@ test('review priority turns yellow changes red at fourteen days', () => {
     assert.equal(reviewPriority(item, now), 2)
     delete item.review
     assert.equal(reviewPriority(item, now), 0)
+})
+
+test('code inventory and dependency links preserve selected and unselected button markup', () => {
+    const item = { id: 'source:workspace', kind: 'source', title: 'workspace.ts', reviewHash: 'current' } as CodeItem
+    const render = (selected: boolean) => renderToStaticMarkup(createElement(CodeItemLink, { item, selected, onSelect() {} }))
+    const selected = render(true)
+    const unselected = render(false)
+    assert.match(selected, /<button aria-current="true">/)
+    assert.match(selected, /workspace\.ts/)
+    assert.match(selected, /class="code-status" data-status="unreviewed"/)
+    assert.match(unselected, /<button>/)
+    assert.doesNotMatch(unselected, /aria-current/)
 })
