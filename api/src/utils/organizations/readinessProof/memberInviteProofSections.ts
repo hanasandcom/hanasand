@@ -1,0 +1,132 @@
+import type { ReadinessProofContext } from './context.ts'
+import { buildOrganizationSupportHistoryBridge } from '../../organizationSupportHistoryBridge.ts'
+import { organizationMembershipBlockedDownstreamRoutes } from '../lifecycleRoutes.ts'
+
+export function memberInviteProofSections(context: ReadinessProofContext) {
+    const { input } = context
+    return {
+        memberLifecycleProof: {
+            schemaVersion: 'organization.member_lifecycle_visibility_proof.v1',
+            activeMembershipRequired: true,
+            actorStatus: input.downstreamAuthorization.member.status,
+            actorRole: input.downstreamAuthorization.member.role,
+            visibilityInputs: ['role', 'status', 'userActive', 'alertVisibilityPolicy'],
+            denialReasons: {
+                nonmember: 'not_member',
+                removedMember: 'member_removed',
+                deactivatedMember: 'member_deactivated',
+                expiredInvite: 'invite_expired',
+                roleNotAllowed: 'role_not_allowed',
+            },
+            protectedRoutes: [
+                'GET /api/organizations/:id',
+                'GET /api/organizations/:id/watchlists',
+                'GET /api/organizations/:id/alert-readiness',
+                'GET /api/organizations/:id/watchlists/alert-terms',
+                'GET /api/organizations/:id/alert-case-visibility',
+                'POST|PUT|DELETE /api/organizations/:id/watchlists',
+                'POST /v1/dwm/webhooks/deliver',
+            ],
+            noLeakFields: [
+                'activeTerms[]',
+                'watchlistScope.alertGeneratorKeys',
+                'member.userId',
+                'destination.secret',
+            ],
+            auditActions: [
+                'organization_watchlist_alert_terms_export_denied',
+                'organization_member_removed',
+                'organization_invite_revoked',
+            ],
+            memberRemovalCleanup: {
+                responseSchema: 'organization.member_removal_cleanup.v1',
+                revokesPendingInvites: true,
+                cleanupField: 'memberRemovalCleanup.revokedInviteIds',
+                staleInviteAcceptanceBlocker: 'member_revoked',
+                serviceLogAction: 'organization_member_removed',
+            },
+            memberAccessRecovery: {
+                responseSchema: 'organization.member_consumer_access_recovery.v1',
+                automaticRegrantAllowed: false,
+                blockerCode: 'member_revoked',
+                ownerlessRecoveryMutationAllowed: false,
+                directMembershipMutationAllowed: false,
+                requiresOwnerAdminReview: true,
+                requiresAcceptedInvite: true,
+                recoveryActorRoles: ['owner', 'admin'],
+                recoveryReceipts: [
+                    'organization.invite_consumer_visibility_receipt.v1',
+                    'organization.member_role_consumer_visibility_receipt.v1',
+                ],
+                recoveryRoutes: {
+                    createInvite: 'POST /api/organizations/:id/invites',
+                    acceptInvite: 'POST /api/organizations/invites/:inviteId/accept',
+                    memberList: 'GET /api/organizations/:id/members',
+                },
+                blockedUntilAcceptedMembership: [
+                    'GET /api/organizations/:id/watchlists',
+                    'GET /api/organizations/:id/watchlists/alert-terms',
+                    'GET /api/organizations/:id/alert-case-visibility',
+                    'GET /api/organizations/:id/alert-readiness',
+                ],
+                supportActionHistoryBridge: buildOrganizationSupportHistoryBridge({
+                    replayFilters: {
+                        organizationId: 'org',
+                        targetUserId: 'target',
+                        requestId: 'request',
+                        action: 'action',
+                    },
+                }),
+                supportAssistedRecoveryReceipt: {
+                    schemaVersion: 'organization.member_support_assisted_recovery_receipt.v1',
+                    supportActionHistoryBridge: 'organization.member_recovery_support_history_bridge.v1',
+                    allowedOutcome: 'invite_required',
+                    directMembershipMutationAllowed: false,
+                    ownerlessRecoveryMutationAllowed: false,
+                    requiresAcceptedInvite: true,
+                    requiredAuditFields: ['organizationId', 'targetUserId', 'requestId', 'supportSessionId', 'reason', 'outcome'],
+                    blockedRoutesUntilAcceptedMembership: [...organizationMembershipBlockedDownstreamRoutes],
+                    nonmemberEnumeration: false,
+                },
+            },
+            nonmemberEnumeration: false,
+        },
+        inviteLifecycleProof: {
+            schemaVersion: 'organization.invite_lifecycle_readiness_proof.v1',
+            pendingInviteCount: input.lifecycleReadiness.counts.pendingInviteCount,
+            inviteTenSupported: input.lifecycleReadiness.counts.pendingInviteCount + input.lifecycleReadiness.counts.activeMemberCount >= 10,
+            maxRecipientsPerRequest: 25,
+            duplicateRecipientHandling: 'dedupe_case_insensitive',
+            defaultExpiryDays: 14,
+            acceptanceTokenField: 'invite.acceptanceToken',
+            acceptanceRoute: 'POST /api/organizations/invites/:inviteId/accept',
+            inviteRoute: 'POST /api/organizations/:id/invites',
+            actionRoute: 'POST /api/organizations/:id/invites/:inviteId/actions',
+            supportedActions: ['revoke', 'resend'],
+            idempotentActions: ['revoke', 'resend'],
+            duplicateInviteOutcome: 'updated_pending_invite',
+            blockedOutcomes: ['already_member', 'blocked_removed_member', 'blocked_deactivated_user'],
+            lifecycleBlockers: ['invite_expired', 'member_revoked', 'org_archived', 'org_deleted'],
+            auditActions: [
+                'organization_invites_created',
+                'organization_invite_accepted',
+                'organization_invite_revoked',
+                'organization_invite_resent',
+            ],
+            requiredMetadataFields: [
+                'requestId',
+                'role',
+                'recipientCount',
+                'submittedRecipientCount',
+                'duplicateRecipientCount',
+                'invitedCount',
+                'skippedCount',
+                'inviteId',
+                'action',
+                'previousStatus',
+                'newStatus',
+            ],
+            nonmemberEnumeration: false,
+        },
+    } as const
+}
