@@ -2214,3 +2214,19 @@ inventory is 2,399 hand-maintained files / 155,495 lines / zero over 200; the
 repository scan is 4,550 files / 328,548 lines / zero over 200. This slice adds
 17 test lines and does not reduce production LOC. Both remotes are current at
 `21d080f9a`; the aggregate frontend and API reduction goals remain open.
+
+At pushed checkpoints `8b82e8bff`, `982a3e5bb`, and `5e7df27e7` (2026-10-17),
+two stale workflow source checks now follow the live shared refresh hook and
+current load-testing heading; no product runtime behavior changed. The full
+registered frontend suite passes after those repairs. Four existing Bun unit
+tests that the default runner skipped are now registered (15 cases total),
+covering app-surface classification, audit request/projection transport, case
+request behavior, and TI workbench references. The management search shortcut
+now shares its keyboard listener across user and organization search while
+preserving each page's toggle/focus behavior. Independent reviews approved the
+shortcut and test registrations. Full frontend suite, non-incremental
+typecheck, scoped ESLint, and line-cap checks pass. The shortcut hook adds 8
+production lines; the four test registrations add no test code. The frontend
+inventory is 2,400 hand-maintained files / 155,531 lines / zero over 200; the
+repository scan is 4,551 files / 328,584 lines / zero over 200. All commits are
+pushed to both remotes. Aggregate API and frontend LOC targets remain open.
