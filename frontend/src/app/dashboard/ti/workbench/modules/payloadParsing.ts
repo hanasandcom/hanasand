@@ -9,6 +9,12 @@ export async function readCaseDetailJson(response: Response) {
     }
 }
 
+export async function readSuccessfulCaseDetail(response: Response) {
+    const payload = await readCaseDetailJson(response)
+    if (!response.ok) throw new Error(payload.error?.message || response.statusText)
+    return payload
+}
+
 export async function readAlertDetailJson(response: Response) {
     try {
         return await response.json() as AlertDetailPayload

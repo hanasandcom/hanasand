@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { AlertDetailState, CaseDetailState, WorkbenchAction, WorkbenchApiPayload, WorkbenchCase, WorkbenchDeliveryEvidence, WorkbenchOrgContext } from './types'
 import { caseDetailHrefFromAlertDetail, caseDetailHrefFromPayload } from './modules/actionInputs'
-import { deliveryEvidenceFromPayload, mergeDeliveryEvidence, readAlertDetailJson, readCaseDetailJson } from './modules/payloadParsing'
+import { deliveryEvidenceFromPayload, mergeDeliveryEvidence, readAlertDetailJson, readSuccessfulCaseDetail } from './modules/payloadParsing'
 
 export function useWorkbenchDetails(selected: WorkbenchCase | undefined, orgContext?: WorkbenchOrgContext) {
     const [caseDetails, setCaseDetails] = useState<Record<string, CaseDetailState>>({})
@@ -11,8 +11,7 @@ export function useWorkbenchDetails(selected: WorkbenchCase | undefined, orgCont
     const refreshCaseDetail = useCallback(async (itemId: string, href: string, options: { loading?: boolean } = {}) => {
         if (options.loading !== false) setCaseDetails(current => ({ ...current, [itemId]: { status: 'loading' } }))
         const response = await fetch(href, { cache: 'no-store' })
-        const payload = await readCaseDetailJson(response)
-        if (!response.ok) throw new Error(payload.error?.message || response.statusText)
+        const payload = await readSuccessfulCaseDetail(response)
         setCaseDetails(current => ({ ...current, [itemId]: { status: 'ready', detail: payload } }))
         return payload
     }, [])
@@ -33,9 +32,8 @@ export function useWorkbenchDetails(selected: WorkbenchCase | undefined, orgCont
         const href = selected.caseDetailHref
         setCaseDetails(current => ({ ...current, [itemId]: { status: 'loading' } }))
         fetch(href, { cache: 'no-store' })
-            .then(async response => {
-                const payload = await readCaseDetailJson(response)
-                if (!response.ok) throw new Error(payload.error?.message || response.statusText)
+            .then(readSuccessfulCaseDetail)
+            .then(payload => {
                 if (!cancelled) setCaseDetails(current => ({ ...current, [itemId]: { status: 'ready', detail: payload } }))
             })
             .catch(error => {

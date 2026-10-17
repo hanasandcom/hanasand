@@ -1,5 +1,17 @@
 import { expect, test } from 'bun:test'
-import { readSuccessfulJson } from '../src/app/dashboard/ti/workbench/modules/payloadParsing'
+import { readSuccessfulCaseDetail, readSuccessfulJson } from '../src/app/dashboard/ti/workbench/modules/payloadParsing'
+
+test('reads successful case detail responses through the shared contract', async () => {
+    await expect(readSuccessfulCaseDetail(Response.json({ case: { id: 'case-1' } })))
+        .resolves.toEqual({ case: { id: 'case-1' } })
+})
+
+test('surfaces case detail API errors and malformed responses consistently', async () => {
+    await expect(readSuccessfulCaseDetail(Response.json({ error: { message: 'Case is unavailable.' } }, { status: 404 })))
+        .rejects.toThrow('Case is unavailable.')
+    await expect(readSuccessfulCaseDetail(new Response('{', { status: 502, statusText: 'Bad Gateway' })))
+        .rejects.toThrow('Case detail response was not JSON.')
+})
 
 test('returns parsed payloads from successful responses', async () => {
     await expect(readSuccessfulJson(Response.json({ watchlist: { id: 'watchlist-1' } })))
