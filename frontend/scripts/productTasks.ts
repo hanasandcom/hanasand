@@ -27,6 +27,7 @@ export const productTasks: TestTask[] = [
     { id: 'management-search-shortcut', title: 'Shared management search keyboard shortcut', command: [bun, 'test', 'tests/management-search-shortcut.test.ts'] },
     { id: 'impersonation-reason', title: 'Impersonation reason normalization and request contract', command: [bun, 'test', 'tests/impersonation-reason.test.tsx'] },
     { id: 'ti-timeliness-data', title: 'TI timeliness query and access contracts', command: [bun, 'test', 'tests/ti-timeliness-data.test.ts', 'tests/ti-timeliness-proxy.test.ts'] },
+    { id: 'ti-timeliness-report-lookup', title: 'TI timeliness recovery guidance rendering', command: [bun, 'test', 'tests/ti-timeliness-report-lookup.test.tsx'] },
     { id: 'ti-decision-status', title: 'TI decision status pill markup and labels', command: [bun, 'test', 'tests/ti-decision-status.test.tsx'] },
     { id: 'logs-catchup', title: 'Log catch-up measurements and progress states', command: [bun, 'test', 'tests/log-catchup-progress.test.tsx'] },
     { id: 'rule-storage-formatting', title: 'Shared rule storage byte formatting', command: [bun, 'test', 'tests/rule-storage-formatting.test.ts'] },

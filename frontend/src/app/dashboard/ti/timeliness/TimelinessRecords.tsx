@@ -11,12 +11,7 @@ export function QueueRow({ item, active, onClick }: { item: Item, active: boolea
         <span className='flex min-w-0 items-center gap-2'><Status status={item.status} /><span className='truncate text-xs font-semibold text-ui-text'>{item.actorName || item.title || item.incidentId}</span></span>
         <span className='truncate text-[11px] text-ui-muted'>{item.sourceName || item.sourceId} · {item.title || item.incidentId}</span>
         {item.exclusion ? <p className='border-b border-ui-border px-3 py-2 text-xs text-ui-muted'>{item.exclusion.reason} · {item.exclusion.reviewedBy} · {date(item.exclusion.reviewedAt)}</p> : null}
-        {!item.exclusion && !item.stages.first_report ? <div className='border-b border-ui-border px-3 py-2 text-xs text-ui-muted'>
-            Report lookup: {reportStatus(item)}
-            {item.reportRecovery?.attempts ? ` · ${item.reportRecovery.attempts} attempts` : ''}
-            {item.reportRecovery?.reason ? <p className='mt-1'>{item.reportRecovery.reason}</p> : null}
-            {item.reportRecovery?.nextAttemptAt && item.reportRecovery.status !== 'running' ? <p className='mt-1'>Next attempt: {date(item.reportRecovery.nextAttemptAt)}</p> : null}
-        </div> : null}
+        {!item.exclusion && !item.stages.first_report ? <ReportLookup item={item} /> : null}
         {item.timestampAnomalies.length ? <span className='truncate text-[10px] text-ui-text'>{item.timestampAnomalies.join(', ')}</span> : null}
     </button>
 }
