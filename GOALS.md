@@ -1078,3 +1078,19 @@ files were resolved, but module/test boundaries increased aggregate LOC by
 about 110 from the preceding scan. Frontend remains at 2,308 files / 153,090
 LOC / zero over cap. The API 100,000-line reduction and 10,000–30,000 frontend
 target remain unachieved. No push/deploy was performed.
+
+The API key helper is now an 18-line compatibility facade over focused policy,
+query, authentication, scope storage, record mapping, and credential modules.
+Independent review confirmed exported API, SQL/parameter ordering, secret
+format/hash, scope matching, and failure cleanup remain unchanged. The existing
+API-key, service-account-scope, and public-TI suites pass (12 tests / 92
+expectations). The account deletion flow already schedules a purge at the
+30-day deadline through the minute cron; the worker checks due status and
+rechecks eligibility before deleting. Its scheduler test was split under 200
+lines without changing behavior, preserving two scenarios / 32 expectations.
+The indexed scheduler test and scheduled-job registry check pass; the optional
+PostgreSQL purge test could not run because no disposable DB port is configured.
+The latest repository scan finds 99 / 4,116 files over 200 lines and 323,651
+LOC; the frontend remains 2,308 files / 153,090 LOC / zero over cap. No API
+100,000-line or frontend 10,000–30,000-line reduction has been demonstrated.
+No push/deploy was performed.
