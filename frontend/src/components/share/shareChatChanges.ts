@@ -1,5 +1,5 @@
 import randomId from '@/utils/random/randomId'
-import { findTreeFileId } from './workspaceTree'
+import { findTreeFileId, walkWorkspaceTree } from './workspaceTree'
 import type { PendingShareChange, ToolCall } from './shareChatTypes'
 
 export function parseToolCalls(content: string): ToolCall[] {
@@ -45,19 +45,13 @@ export function parentIdForPath(tree: Tree | null, filePath: string) {
         return undefined
     }
 
-    function walk(items: Tree, depth: number): string | undefined {
-        const name = folders[depth]
-        const folder = items.find((item) => item.type === 'folder' && item.name === name)
-        if (!folder || folder.type !== 'folder') {
-            return undefined
+    const parentPath = folders.join('/')
+    for (const { item, path } of walkWorkspaceTree(tree)) {
+        if (item.type === 'folder' && path === parentPath) {
+            return item.id
         }
-        if (depth === folders.length - 1) {
-            return folder.id
-        }
-        return walk(folder.children, depth + 1)
     }
-
-    return walk(tree, 0)
+    return undefined
 }
 export function summarizePendingChange(change: PendingShareChange) {
     const beforeLines = change.beforeContent ? change.beforeContent.split('\n') : []
