@@ -141,7 +141,7 @@ export function isAbortError(error: unknown) {
     return error instanceof DOMException && error.name === 'AbortError'
 }
 
-async function fetchFindingsJson<T>(url: string, signal: AbortSignal): Promise<T> {
+export async function fetchFindingsJson<T>(url: string, signal: AbortSignal): Promise<T> {
     const response = await fetch(url, { cache: 'no-store', signal })
     if (!response.ok) throw new Error(await responseProblem(response))
     return await response.json() as T

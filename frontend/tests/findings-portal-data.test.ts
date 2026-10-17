@@ -1,6 +1,6 @@
 import { afterAll, expect, test } from 'bun:test'
 import type { Dispatch, SetStateAction } from 'react'
-import { refreshDwmAlerts, refreshDwmDeliveries, refreshDwmOperations, refreshDwmProduct } from '../src/app/dashboard/findings/portal-data'
+import { fetchFindingsJson, refreshDwmAlerts, refreshDwmDeliveries, refreshDwmOperations, refreshDwmProduct } from '../src/app/dashboard/findings/portal-data'
 import { firstSearchParam } from '../src/app/dashboard/findings/searchParams'
 import type { DwmProductSnapshot } from '../src/utils/dwm/product'
 import type { DataHealthItem, DwmDataHealth } from '../src/app/dashboard/findings/view-types'
@@ -14,6 +14,21 @@ test('findings routes use the first search parameter value and ignore empty repe
     expect(firstSearchParam(['actions', 'ignored'])).toBe('actions')
     expect(firstSearchParam(['', 'ignored'])).toBeUndefined()
     expect(firstSearchParam(undefined)).toBeUndefined()
+})
+
+test('shared findings JSON requests retain no-store, abort, and response-error behavior', async () => {
+    const signal = new AbortController().signal
+    let request: { url: string, cache?: RequestCache, signal?: AbortSignal } | undefined
+    globalThis.fetch = (async (input, init) => {
+        request = { url: String(input), cache: init?.cache, signal: init?.signal as AbortSignal }
+        return Response.json({ marker: 'watchlist' })
+    }) as typeof fetch
+
+    await expect(fetchFindingsJson<{ marker: string }>('/api/findings/watchlist-overview?tenantId=tenant-1', signal)).resolves.toEqual({ marker: 'watchlist' })
+    expect(request).toEqual({ url: '/api/findings/watchlist-overview?tenantId=tenant-1', cache: 'no-store', signal })
+
+    globalThis.fetch = (async () => Response.json({ error: { message: 'upstream denied' } }, { status: 403 })) as typeof fetch
+    await expect(fetchFindingsJson('/api/findings/watchlist-overview', signal)).rejects.toThrow('upstream denied')
 })
 
 function state<T>(initial: T) {

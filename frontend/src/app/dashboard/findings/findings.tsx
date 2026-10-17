@@ -6,7 +6,7 @@ import { DwmWorkflowActions } from './workflow-actions'
 import { FindingsView } from './findings-view'
 import { filterAlerts, normalizeQueueFilter, orderAlerts } from './queue-model'
 import { alertWatchlistMatchCount, latestCaptureWatchlistMatchCount } from './watchlist-counts'
-import { alertOrganizationId, dwmScopeSearchParams, isAbortError, refreshCases, refreshDwmAlerts, refreshDwmDeliveries, refreshDwmOperations, refreshDwmProduct, requestFailureDetail, responseProblem } from './portal-data'
+import { alertOrganizationId, dwmScopeSearchParams, fetchFindingsJson, isAbortError, refreshCases, refreshDwmAlerts, refreshDwmDeliveries, refreshDwmOperations, refreshDwmProduct, requestFailureDetail } from './portal-data'
 import { useFindingsActions } from './use-findings-actions'
 import { caseDetailHref, deliverySummaryLabel } from './case-format'
 import { alertCaseId } from './delivery-panel'
@@ -131,9 +131,7 @@ export function Findings({
             else setWatchlistOverviewState(current => ({ status: 'loading', data: current.data }))
             void (async () => {
                 try {
-                    const response = await fetch(`/api/findings/watchlist-overview?${params.toString()}`, { cache: 'no-store', signal: controller.signal })
-                    if (!response.ok) throw new Error(await responseProblem(response))
-                    const data = await response.json() as WatchlistOverview
+                    const data = await fetchFindingsJson<WatchlistOverview>(`/api/findings/watchlist-overview?${params.toString()}`, controller.signal)
                     watchlistOverviewCache.set(key, { expiresAt: Date.now() + WATCHLIST_OVERVIEW_CACHE_TTL_MS, data })
                     setWatchlistOverviewState({ status: 'ready', data })
                 } catch (error) {
