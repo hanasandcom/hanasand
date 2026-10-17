@@ -2020,3 +2020,16 @@ and cap check pass at 2,384 files / 155,089 lines with zero over 200. The
 repository scan now reports 25 over-limit files among 4,461 files / 327,363
 lines, all outside the frontend. Aggregate API/frontend reduction goals remain
 open.
+
+At the next working checkpoint (2026-10-17), the 259-line webhook readiness
+bridge test is split into two registered scenario suites and a shared fixture;
+all 3 original cases / 28 expectations pass directly and through the API
+runner. The 348-line API audit script is split into a 36-line entrypoint and
+five check/report modules, preserving request order, mutable auth state, cleanup,
+report output, and exit behavior. These files all meet the cap; the audit was
+syntax-checked and linted, but not run against live services. Independent
+review, API typecheck, scoped ESLint, runner checks, and diff checks pass. The
+repository scan now reports 23 remaining over-limit files among 4,468
+hand-maintained files / 327,462 lines. The frontend remains at 2,384 files /
+155,089 lines with zero over 200; no frontend files changed in this checkpoint.
+The aggregate line-reduction targets remain open.
