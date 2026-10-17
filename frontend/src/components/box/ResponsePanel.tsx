@@ -1,9 +1,10 @@
-import { Clock3, ImageIcon, Search } from 'lucide-react'
+import { Clock3, ImageIcon } from 'lucide-react'
 import { formatHeaders, formatRequestLine } from '@/utils/box/requestTool'
 import { formatCurlCommand, formatHttpRequest } from './requestExport'
 import { formatFilteredHeaders, formatJsonTree, formatPrettyResponseBody, formatRawResponseBody } from './responseFormatting'
 import type { RequestRun, ResponseTab } from './newRequestTypes'
 import type { ToolResponse } from './types'
+import ResponseFilter from './ResponseFilter'
 
 type ResponsePanelProps = {
     response: ToolResponse | null
@@ -43,12 +44,12 @@ export default function ResponsePanel(props: ResponsePanelProps) {
                 {responseTab === 'response' && <pre className='min-h-32 overflow-auto whitespace-pre-wrap wrap-break-word p-4 text-xs leading-5 text-ui-text/80'>{activeRun?.loading ? runningMessage : response ? formatPrettyResponseBody(response) : 'Run a request to stream the formatted response.'}</pre>}
                 {responseTab === 'raw' && <pre className='min-h-32 overflow-auto whitespace-pre-wrap wrap-break-word p-4 text-xs leading-5 text-ui-text/80'>{activeRun?.loading ? runningMessage : response ? formatRawResponseBody(response) : 'Run a request to stream the raw response.'}</pre>}
                 {responseTab === 'tree' && <div className='grid min-h-32 grid-rows-[auto_minmax(0,1fr)] overflow-hidden'>
-                    <label className='flex h-10 items-center gap-2 border-b border-ui-border px-3 text-ui-text/45'><Search className='h-3.5 w-3.5 shrink-0' /><span className='sr-only'>Filter JSON paths</span><input value={treeFilter} onChange={(event) => props.onTreeFilterChange(event.target.value)} placeholder='Filter paths or values' className='min-w-0 flex-1 bg-transparent text-xs text-ui-text/78 outline-none placeholder:text-ui-text/32' /></label>
+                    <ResponseFilter accessibleLabel='Filter JSON paths' value={treeFilter} onChange={props.onTreeFilterChange} placeholder='Filter paths or values' />
                     <pre className='min-h-0 overflow-auto whitespace-pre-wrap wrap-break-word p-4 text-xs leading-5 text-ui-text/80'>{activeRun?.loading ? runningMessage : response ? formatJsonTree(response, treeFilter) : 'Run a request to inspect JSON paths.'}</pre>
                 </div>}
                 {responseTab === 'preview' && <div className='grid min-h-32 place-items-center overflow-auto p-4 text-xs text-ui-text/55'>{previewUrl ? <img src={previewUrl} alt='Response preview' className='max-h-64 max-w-full rounded-lg object-contain' /> : 'Image previews appear for image URLs or image responses.'}</div>}
                 {responseTab === 'headers' && <div className='grid min-h-32 grid-rows-[auto_minmax(0,1fr)] overflow-hidden'>
-                    <label className='flex h-10 items-center gap-2 border-b border-ui-border px-3 text-ui-text/45'><Search className='h-3.5 w-3.5 shrink-0' /><span className='sr-only'>Filter response headers</span><input value={headerFilter} onChange={(event) => props.onHeaderFilterChange(event.target.value)} placeholder='Filter response headers' className='min-w-0 flex-1 bg-transparent text-xs text-ui-text/78 outline-none placeholder:text-ui-text/32' /></label>
+                    <ResponseFilter accessibleLabel='Filter response headers' value={headerFilter} onChange={props.onHeaderFilterChange} placeholder='Filter response headers' />
                     <pre className='min-h-0 overflow-auto whitespace-pre-wrap wrap-break-word p-4 text-xs leading-5 text-ui-text/75'>{response?.headers ? formatFilteredHeaders(response.headers, headerFilter) : 'Run a request to inspect response headers.'}</pre>
                 </div>}
                 {responseTab === 'request' && <div className='grid min-h-32 gap-3 overflow-auto p-4 text-xs text-ui-text/80'>

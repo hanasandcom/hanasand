@@ -5,6 +5,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import KeyValueRowsEditor from '../src/components/box/KeyValueRowsEditor'
 import { parseCurlCommand } from '../src/components/box/curlImport'
 import RequestEditor from '../src/components/box/RequestEditor'
+import ResponsePanel from '../src/components/box/ResponsePanel'
 import { buildRequestHeaders, buildVariablePlan, findMissingVariables, normalizeHeaderRows, normalizeVariableRows, resolveTemplate } from '../src/components/box/requestTemplates'
 import { formatJsonTree, formatPrettyResponseBody, formatRawResponseBody } from '../src/components/box/responseFormatting'
 import { getImagePreviewUrl } from '../src/components/box/responsePreview'
@@ -33,6 +34,21 @@ test('request editor reuses key-value controls for headers and scoped variables'
     assert.match(variables, /aria-label="Remove variable"/)
     assert.match(variables, /Add variable/)
     assert.match(variables, /Use variables as/)
+})
+
+test('response panel preserves separate accessible filters for JSON paths and headers', () => {
+    const render = (responseTab: 'tree' | 'headers') => renderToStaticMarkup(createElement(ResponsePanel, {
+        response: null, activeRun: null, executionMode: 'Browser mode', responseTab, previewUrl: null,
+        treeFilter: 'status', headerFilter: 'content', onResponseTabChange: () => {},
+        onTreeFilterChange: () => {}, onHeaderFilterChange: () => {},
+    }))
+    const treeMarkup = render('tree')
+    const headerMarkup = render('headers')
+
+    assert.match(treeMarkup, /<span class="sr-only">Filter JSON paths<\/span>/)
+    assert.match(treeMarkup, /placeholder="Filter paths or values"/)
+    assert.match(headerMarkup, /<span class="sr-only">Filter response headers<\/span>/)
+    assert.match(headerMarkup, /placeholder="Filter response headers"/)
 })
 
 test('key-value row editor forwards input, remove, and add events with the selected row', () => {
