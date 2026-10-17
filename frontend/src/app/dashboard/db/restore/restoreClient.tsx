@@ -1,8 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { useMemo, useState, useTransition } from 'react'
+import { useMemo, useState } from 'react'
 import { DatabaseZap, ShieldCheck, TriangleAlert } from 'lucide-react'
 import type { BackupFile, BackupOperation, BackupService } from '@/utils/db/internal'
 import DatabaseEvidence from '../DatabaseEvidence'
@@ -11,16 +10,13 @@ import { restoreBackupAction } from '../actions'
 import { RestoreFeedback } from './RestoreFeedback'
 import { RestoreOperationProgress } from './RestoreOperationProgress'
 import { useBackupOperationRefresh } from './useBackupOperationRefresh'
+import { useBackupOperationAction } from './useBackupOperationAction'
 
 export default function RestoreClient({ backups, service, loadError = '' }: { backups: BackupFile[], service?: BackupService, loadError?: string }) {
-    const router = useRouter()
-    const [isPending, startTransition] = useTransition()
+    const { isPending, message, error, result, run } = useBackupOperationAction()
     const [file, setFile] = useState(backups[0]?.file || '')
     const [target, setTarget] = useState(defaultTarget())
     const [confirmation, setConfirmation] = useState('')
-    const [message, setMessage] = useState('')
-    const [error, setError] = useState('')
-    const [result, setResult] = useState<BackupOperation | null>(null)
     const selected = backups.find(backup => backup.file === file)
     const activeDrill = service?.currentOperation?.kind === 'restore_drill' ? service.currentOperation : null
     const drillHistory = useMemo(() => (service?.operations || []).filter(operation => operation.kind === 'restore_drill'), [service?.operations])
@@ -28,18 +24,7 @@ export default function RestoreClient({ backups, service, loadError = '' }: { ba
     useBackupOperationRefresh(isPending, activeDrill)
 
     function runDrill() {
-        setMessage('')
-        setError('')
-        setResult(null)
-        startTransition(async() => {
-            const response = await restoreBackupAction(file, target, confirmation)
-            if (typeof response === 'string') setError(response)
-            else {
-                setMessage(response.message)
-                setResult(response.operation)
-            }
-            router.refresh()
-        })
+        run(() => restoreBackupAction(file, target, confirmation))
     }
 
     const requiredConfirmation = `RESTORE ${target.trim().toLowerCase()}`

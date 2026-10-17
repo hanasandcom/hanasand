@@ -1,10 +1,9 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { useState, useTransition } from 'react'
+import { useState } from 'react'
 import { DatabaseZap, TriangleAlert } from 'lucide-react'
-import type { BackupFile, BackupOperation, BackupService } from '@/utils/db/internal'
+import type { BackupFile, BackupService } from '@/utils/db/internal'
 import formatUtcDateTime from '@/utils/date/formatUtcDateTime'
 import DatabaseEvidence from '../DatabaseEvidence'
 import { stageLabel } from '../backups/backupPresentation'
@@ -12,14 +11,11 @@ import { restoreLiveBackupAction } from '../actions'
 import { RestoreFeedback } from './RestoreFeedback'
 import { RestoreOperationProgress } from './RestoreOperationProgress'
 import { useBackupOperationRefresh } from './useBackupOperationRefresh'
+import { useBackupOperationAction } from './useBackupOperationAction'
 
 export default function LiveRestoreClient({ backups, service, file, loadError = '' }: { backups: BackupFile[], service?: BackupService, file: string, loadError?: string }) {
-    const router = useRouter()
-    const [isPending, startTransition] = useTransition()
+    const { isPending, message, error, result, run } = useBackupOperationAction()
     const [confirmation, setConfirmation] = useState('')
-    const [message, setMessage] = useState('')
-    const [error, setError] = useState('')
-    const [result, setResult] = useState<BackupOperation | null>(null)
     const selected = backups.find(backup => backup.file === file)
     const activeOperation = service?.currentOperation || null
     const activeRestore = activeOperation?.kind === 'restore_live' ? activeOperation : null
@@ -30,18 +26,7 @@ export default function LiveRestoreClient({ backups, service, file, loadError = 
 
     function runRestore() {
         if (!selected) return
-        setMessage('')
-        setError('')
-        setResult(null)
-        startTransition(async() => {
-            const response = await restoreLiveBackupAction(selected.file, confirmation)
-            if (typeof response === 'string') setError(response)
-            else {
-                setMessage(response.message)
-                setResult(response.operation)
-            }
-            router.refresh()
-        })
+        run(() => restoreLiveBackupAction(selected.file, confirmation))
     }
 
     const canRun = Boolean(selected && targetDatabase && confirmation === requiredConfirmation && !isPending && !activeOperation)

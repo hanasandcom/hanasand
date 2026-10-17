@@ -51,6 +51,10 @@ export function RoleBadge({ role, compact = false }: { role: OrganizationRole, c
     return <span className={`shrink-0 rounded-md bg-ui-primary/10 font-semibold text-ui-primary dark:bg-ui-primary/10 dark:text-ui-primary ${compact ? 'inline-flex whitespace-nowrap px-1.5 text-[10px] leading-4 align-middle' : 'px-2 py-1 text-xs'}`}>{organizationRoleLabel(role)}</span>
 }
 
+export function OrganizationMetadataBadge({ children, className = '' }: { children: ReactNode, className?: string }) {
+    return <span className={`rounded-md border border-ui-border bg-ui-raised px-2 py-1 text-xs font-semibold text-ui-muted dark:border-ui-border dark:bg-ui-canvas dark:text-ui-muted ${className}`.trim()}>{children}</span>
+}
+
 export function StatusPill({ status }: { status: string }) {
     const normalized = status.toLowerCase()
     const tone = normalized === 'active' || normalized === 'delivered' || normalized === 'dry_run'

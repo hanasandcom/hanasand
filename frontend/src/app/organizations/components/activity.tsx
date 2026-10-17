@@ -1,25 +1,16 @@
 import type { AlertTerm, WatchlistItem } from '../types/watchlists'
-import type { ScopedAlert, ScopedCase, ActivityItem, ActivitySubject, RowMessage } from '../types/activity'
+import type { ScopedAlert, ScopedCase } from '../types/activity'
 import type { DeliveryRow, WebhookDestination } from '../types/delivery'
-import type { OrganizationMember, OrganizationSummary } from '../types/organization'
-import { visibilityRows, activitySubjectTypeLabel, activitySourceLabel } from '../model/activityLabels'
+import type { OrganizationMember } from '../types/organization'
+import { visibilityRows } from '../model/activityLabels'
 import { watchlistsWithOwnDestination, organizationDestinationConfigured } from '../model/watchlists'
-import { SectionTitle, RowStatus, EmptyLine } from './shared'
+import { SectionTitle, OrganizationMetadataBadge } from './shared'
 import { ScopeColumn } from './scopeColumn'
 import { ActionAnchor } from './security'
 import { compactReference } from '../model/references'
 import { matchReasonForRecord } from '../model/deliveries'
-import { organizationMemberLabel, destinationDisplayState, organizationDisplayName } from '../model/organization'
-import type { OrgBundle } from '../types/bundle'
-import { activityRowsForSubject, organizationWorkspaceSelectionHref, activitySubjectFromItem } from '../model/activityNavigation'
-import { selectedContextRows, selectedSubjectLabel } from '../model/activityContext'
-import { ORG_ACTIVITY_PREVIEW_ROWS } from '../constants/activity'
-import { selectedSubjectActions } from '../model/activityActions'
-import { sanitizeOrganizationDisplayCopy } from '../model/textSafety'
-import { formatDate } from '../model/labels'
-import { secondaryButtonClass } from '../constants/styles'
-import { BellRing, CheckCircle2, CircleAlert, Copy, ExternalLink, ShieldCheck, Webhook } from 'lucide-react'
-import { useState } from 'react'
+import { organizationMemberLabel, destinationDisplayState } from '../model/organization'
+import { BellRing, CircleAlert, ExternalLink, ShieldCheck, Webhook } from 'lucide-react'
 
 export function ScopePanel({ alertTerms, alerts, cases, deliveries, members, watchlists, webhooks, alertCaseVisibility, organizationId }: { alertTerms: AlertTerm[], alerts: ScopedAlert[], cases: ScopedCase[], deliveries: DeliveryRow[], members: OrganizationMember[], watchlists: WatchlistItem[], webhooks: WebhookDestination[], alertCaseVisibility: Record<string, unknown> | null, organizationId: string }) {
     const route = `/api/organizations/${encodeURIComponent(organizationId)}`
@@ -53,11 +44,11 @@ export function ScopePanel({ alertTerms, alerts, cases, deliveries, members, wat
         <section className='rounded-lg border border-ui-border bg-ui-panel p-4 shadow-sm dark:border-ui-border dark:bg-ui-panel' data-org-scope-records='true'>
             <SectionTitle icon={<ExternalLink className='h-4 w-4' />} title='Event, case, and destination records' detail='Matched records for this organization.' />
             <div className='mt-3 flex flex-wrap gap-2' data-org-scope-record-counts='true'>
-                <span className='rounded-md border border-ui-border bg-ui-raised px-2 py-1 text-xs font-semibold text-ui-muted dark:border-ui-border dark:bg-ui-canvas dark:text-ui-muted'>Terms: {alertTerms.length}</span>
-                <span className='rounded-md border border-ui-border bg-ui-raised px-2 py-1 text-xs font-semibold text-ui-muted dark:border-ui-border dark:bg-ui-canvas dark:text-ui-muted'>Events: {alerts.length}</span>
-                <span className='rounded-md border border-ui-border bg-ui-raised px-2 py-1 text-xs font-semibold text-ui-muted dark:border-ui-border dark:bg-ui-canvas dark:text-ui-muted'>Cases: {cases.length}</span>
-                <span className='rounded-md border border-ui-border bg-ui-raised px-2 py-1 text-xs font-semibold text-ui-muted dark:border-ui-border dark:bg-ui-canvas dark:text-ui-muted'>Destinations: {configuredDestinations}</span>
-                <span className='rounded-md border border-ui-border bg-ui-raised px-2 py-1 text-xs font-semibold text-ui-muted dark:border-ui-border dark:bg-ui-canvas dark:text-ui-muted'>Failures: {failedDeliveries}</span>
+                <OrganizationMetadataBadge>Terms: {alertTerms.length}</OrganizationMetadataBadge>
+                <OrganizationMetadataBadge>Events: {alerts.length}</OrganizationMetadataBadge>
+                <OrganizationMetadataBadge>Cases: {cases.length}</OrganizationMetadataBadge>
+                <OrganizationMetadataBadge>Destinations: {configuredDestinations}</OrganizationMetadataBadge>
+                <OrganizationMetadataBadge>Failures: {failedDeliveries}</OrganizationMetadataBadge>
             </div>
             <div className='mt-4 grid gap-3 lg:grid-cols-2'>
                 <ScopeColumn icon={<BellRing className='h-4 w-4' />} title='Watchlist terms' route={`${route}/watchlists/alert-terms`} rows={alertTerms.map(term => ({

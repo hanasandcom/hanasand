@@ -77,6 +77,7 @@ export const productTasks: TestTask[] = [
     { id: 'helpdesk-render', title: 'Helpdesk audit rendering and focus filters', command: [bun, 'tests/helpdesk-render.test.tsx'] },
     { id: 'share-statistics', title: 'Share line counts and empty statistics', command: [bun, 'test', 'tests/share-statistics.test.tsx'] },
     { id: 'backup-page-render', title: 'Backup page data and operation presentation', command: [bun, 'test', 'tests/backup-page-render.test.tsx'] },
+    { id: 'restore-action-contract', title: 'Live and isolated restore confirmation contracts', command: [bun, 'test', 'tests/restore-action-contract.test.tsx'] },
     { id: 'cookie-settings', title: 'Cookie consent and browser-local storage settings', command: [bun, 'test', 'tests/cookie-settings.test.tsx'] },
     { id: 'safe-cookie-decode', title: 'Encoded cookie value decoding fallback', command: [bun, 'test', 'tests/safe-decode-cookie-value.test.ts'] },
     { id: 'safe-redirect-path', title: 'Safe auth return path validation', command: [bun, 'test', 'tests/safe-redirect-path.test.ts'] },

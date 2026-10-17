@@ -3,7 +3,7 @@ import type { RowMessage, ActivitySubject } from '../types/activity'
 import { parseInviteEmails, invalidInviteEmails, inviteEmailConflicts, inviteStatusCounts, inviteRoleStatusCounts, inviteLink, inviteActionAllowed } from '../model/forms'
 import { inviteBusyLabel } from '../model/labels'
 import { inviteSearchText } from '../model/organization'
-import { DisclosureSummary, InlineBusy, SelectField, RowStatus, EmptyLine, RoleBadge, StatusPill, ConfirmActionButton } from './shared'
+import { DisclosureSummary, InlineBusy, SelectField, RowStatus, EmptyLine, RoleBadge, StatusPill, ConfirmActionButton, OrganizationMetadataBadge } from './shared'
 import { OrganizationFilterStrip } from './filterStrip'
 import { inputClass, primaryButtonClass, iconButtonClass } from '../constants/styles'
 import { roleOptions } from '../constants/options'
@@ -37,7 +37,7 @@ export function InvitePanel({ emails, setEmails, role, setRole, invites, members
                 title='Invite'
                 detail=''
                 accessory={<span className='flex shrink-0 items-center gap-2'>
-                    <span className='rounded-md border border-ui-border bg-ui-raised px-2 py-1 text-xs font-semibold text-ui-muted dark:border-ui-border dark:bg-ui-canvas dark:text-ui-muted'>{pendingInviteCount} pending</span>
+                    <OrganizationMetadataBadge>{pendingInviteCount} pending</OrganizationMetadataBadge>
                     <ChevronDown aria-hidden='true' className='h-4 w-4 text-ui-muted transition-transform group-open:rotate-180' />
                 </span>}
             />
@@ -46,14 +46,14 @@ export function InvitePanel({ emails, setEmails, role, setRole, invites, members
                 {invites.length > 0 && (
                     <div className='mt-3 flex flex-wrap gap-2' data-org-invite-status-counts='true'>
                         {inviteCounts.map(item => (
-                            <span key={item.status} className='rounded-md border border-ui-border bg-ui-raised px-2 py-1 text-xs font-semibold text-ui-muted dark:border-ui-border dark:bg-ui-canvas dark:text-ui-muted'>
+                            <OrganizationMetadataBadge key={item.status}>
                                 {item.label}: {item.count}
-                            </span>
+                            </OrganizationMetadataBadge>
                         ))}
                         {inviteRoleCounts.map(item => (
-                            <span key={item.role} className='rounded-md border border-ui-border bg-ui-raised px-2 py-1 text-xs font-semibold text-ui-muted dark:border-ui-border dark:bg-ui-canvas dark:text-ui-muted'>
+                            <OrganizationMetadataBadge key={item.role}>
                                 {item.label}: {item.count}
-                            </span>
+                            </OrganizationMetadataBadge>
                         ))}
                     </div>
                 )}

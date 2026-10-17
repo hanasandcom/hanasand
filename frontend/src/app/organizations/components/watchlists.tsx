@@ -5,7 +5,7 @@ import type { ScopedAlert, CollectionRequest, RowMessage, ActivitySubject } from
 import type { DeliveryRow } from '../types/delivery'
 import { watchlistBusyLabel } from '../model/labels'
 import { normalizeWatchlistValue, watchlistSearchText } from '../model/watchlists'
-import { SectionTitle, InlineBusy, RowStatus, SelectField, Field } from './shared'
+import { SectionTitle, InlineBusy, RowStatus, SelectField, Field, OrganizationMetadataBadge } from './shared'
 import { secondaryButtonClass, primaryButtonClass, inputClass } from '../constants/styles'
 import { OrganizationFilterStrip } from './filterStrip'
 import { watchlistTemplates, watchlistKinds } from '../constants/options'
@@ -48,9 +48,9 @@ export function WatchlistPanel({ watchlists, activeTerms, members, canManage, ca
             </div>
             {watchlists.length > 0 && (
                 <div className='mt-3 flex flex-wrap gap-2' data-org-watchlist-status-counts='true'>
-                    <span className='rounded-md border border-ui-border bg-ui-raised px-2 py-1 text-xs font-semibold text-ui-muted dark:border-ui-border dark:bg-ui-canvas dark:text-ui-muted'>Active: {activeCount}</span>
-                    <span className='rounded-md border border-ui-border bg-ui-raised px-2 py-1 text-xs font-semibold text-ui-muted dark:border-ui-border dark:bg-ui-canvas dark:text-ui-muted'>Paused: {pausedCount}</span>
-                    <span className='rounded-md border border-ui-border bg-ui-raised px-2 py-1 text-xs font-semibold text-ui-muted dark:border-ui-border dark:bg-ui-canvas dark:text-ui-muted'>Archived: {archivedCount}</span>
+                    <OrganizationMetadataBadge>Active: {activeCount}</OrganizationMetadataBadge>
+                    <OrganizationMetadataBadge>Paused: {pausedCount}</OrganizationMetadataBadge>
+                    <OrganizationMetadataBadge>Archived: {archivedCount}</OrganizationMetadataBadge>
                 </div>
             )}
             {busyLabel && <InlineBusy label={busyLabel} marker='data-org-watchlist-busy' />}
@@ -142,7 +142,7 @@ export function WatchlistPanel({ watchlists, activeTerms, members, canManage, ca
                     <div className='flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-ui-primary/35 bg-ui-panel p-4 text-sm dark:border-ui-border dark:bg-ui-panel' data-org-watchlist-empty='true'>
                         <span className='font-semibold text-ui-text dark:text-ui-text'>No shared terms</span>
                         {watchlistKinds.slice(0, 4).map(kind => (
-                            <span key={kind} className='rounded-md border border-ui-border bg-ui-raised px-2 py-1 text-xs font-semibold text-ui-muted dark:border-ui-border dark:bg-ui-canvas dark:text-ui-muted'>{kind}</span>
+                            <OrganizationMetadataBadge key={kind}>{kind}</OrganizationMetadataBadge>
                         ))}
                         {canManage
                             ? <a href='#org-watchlist-create' className={secondaryButtonClass}>Add term</a>

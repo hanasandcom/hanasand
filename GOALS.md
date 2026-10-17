@@ -1488,3 +1488,19 @@ At `eb58c66af`, the six GPT telemetry cards share one summary shell and the dupl
 At `b3e14566d`, the full registered frontend suite passes. Static article/search generation and the Next production build pass, producing all 116 routes. I invoked the generators and Next build directly because the normal package build stops at the repository-wide line-cap precheck; that scan still reports 66 over-limit files, all outside the frontend. The frontend 200-line cap remains clean. No deployment was performed.
 
 At `6d9b33e4b`, the TI timeliness queue now reuses its existing `ReportLookup` renderer instead of duplicating the block already used by record details, saving five production lines with identical display conditions. Its registered SSR test covers failed and running recovery states through both consumers, including exact formatted next-attempt output and its suppression while running. Independent review, focused tests (2 cases / 12 expectations), targeted ESLint, typecheck, diff check, and line-cap scan pass. The current inventory finds 66 of 4,287 hand-maintained files over 200 lines / 325,108 total lines; none are frontend files, whose inventory is about 154,269 lines. Aggregate reduction goals remain unmet. The commit is pushed to both remotes; no UI redesign or deployment was made.
+
+The current frontend candidate keeps every hand-maintained frontend file under
+the 200-line cap. A matching scoped inventory finds 2,331 files / 153,842 lines,
+excluding generated article and search-route artifacts; the frontend cap scan
+finds zero violations. Across the organization metadata badge and database
+restore-action slices, production code is down eight lines total. The badge
+centralizes the exact repeated span/class contract used by 16 organization UI
+call sites. The restore clients now share their repeated action lifecycle while
+preserving the distinct guards, arguments, immediate feedback reset, and router
+refresh behavior. Independent review approved both changes. Registered focused
+frontend suites pass (9 tests / 73 expectations), the restore source-contract
+Playwright checks pass (2/2), targeted ESLint and TypeScript checks pass, and
+every changed file remains at or below 200 lines. This modest production LOC
+change does not materially advance the 10,000–30,000-line frontend objective;
+the broad frontend and API reduction goals remain open. No UI, page data, or
+deployment change was made.

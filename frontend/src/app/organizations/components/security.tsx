@@ -1,6 +1,6 @@
 import type { OrganizationApiKey, OrganizationSettings, OrganizationSummary, OrganizationPrivacyState } from '../types/organization'
 import type { RowMessage } from '../types/activity'
-import { DisclosureSummary, RowStatus, Field, SelectField, InlineBusy } from './shared'
+import { DisclosureSummary, RowStatus, Field, SelectField, InlineBusy, OrganizationMetadataBadge } from './shared'
 import { formatDate, cleanString } from '../model/labels'
 import { secondaryButtonClass, primaryButtonClass, inputClass } from '../constants/styles'
 import { settingsValidationMessage, privacyText, privacyNumber } from '../model/forms'
@@ -39,9 +39,9 @@ export function EventApiKeyPanel({ apiKeys, secret, canManage, busy, rowMessage,
             <DisclosureSummary
                 icon={<KeyRound className='h-4 w-4' />} title='Organization API keys'
                 detail='Create separate keys for integrations. Every key belongs to this organization.'
-                accessory={<span className='shrink-0 rounded-md border border-ui-border bg-ui-raised px-2 py-1 text-xs font-semibold text-ui-muted dark:border-ui-border dark:bg-ui-canvas dark:text-ui-muted'>
+                accessory={<OrganizationMetadataBadge className='shrink-0'>
                     {activeKeys.length ? `${activeKeys.length} active` : 'Setup required'}
-                </span>}
+                </OrganizationMetadataBadge>}
             />
             <div className='grid gap-3 border-t border-ui-border p-4 dark:border-ui-border'>
                 <p className='text-sm text-ui-muted dark:text-ui-muted'>Each key has its own name, secret, and revoke action. Creating a key does not disable existing keys.</p>
@@ -90,9 +90,9 @@ export function SettingsPanel({ settingsDraft, setSettingsDraft, settingsDirty, 
                 icon={<Settings className='h-4 w-4' />}
                 title='Settings'
                 detail={canManage ? 'Name, lifecycle, webhook policy, event access.' : ''}
-                accessory={<span className='shrink-0 rounded-md border border-ui-border bg-ui-raised px-2 py-1 text-xs font-semibold text-ui-muted dark:border-ui-border dark:bg-ui-canvas dark:text-ui-muted'>
+                accessory={<OrganizationMetadataBadge className='shrink-0'>
                     {settingsDirty ? 'Unsaved changes' : 'Settings'}
-                </span>}
+                </OrganizationMetadataBadge>}
             />
             <div className='grid gap-3 border-t border-ui-border p-4 dark:border-ui-border md:grid-cols-2'>
                 <Field label='Name' value={settingsDraft.name || ''} disabled={!canManage} onChange={value => setSettingsDraft({ ...settingsDraft, name: value })} />
