@@ -1,10 +1,16 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
-import { test } from 'node:test'
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { test } from 'bun:test'
+import SearchLoading from '../src/app/ti/components/search-loading'
 
-const source = readFileSync(new URL('../src/app/ti/components/search-loading.tsx', import.meta.url), 'utf8')
 test('public TI loading state uses the standard loader without synthetic evidence', () => {
-    assert.match(source, /function SearchLoading\(\{ query \}: \{ query: string \}\)/)
-    assert.match(source, /<Loader2 className='h-5 w-5 animate-spin/)
-    assert.doesNotMatch(source, /function searchingResult\(/)
+    const query = renderToStaticMarkup(createElement(SearchLoading, { query: 'APT29' }))
+    const empty = renderToStaticMarkup(createElement(SearchLoading, { query: '' }))
+
+    assert.match(query, /role="status" aria-live="polite"/)
+    assert.match(query, /Searching “APT29”…/)
+    assert.match(query, /animate-spin/)
+    assert.match(empty, /Searching threat intelligence…/)
+    assert.doesNotMatch(`${query}${empty}`, /confidence|synthetic evidence/i)
 })
