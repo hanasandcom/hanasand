@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { DashboardPanel } from '@/components/dashboard/ui'
 import { formatOsloShortDateTime } from '@/utils/date/formatOsloShortDateTime'
-import type { AuditEvent } from './data'
+import { isFailedAuditEvent, type AuditEvent } from './data'
 
 export function Metric({ title, value, icon, tone = 'neutral' }: {
     title: string
@@ -32,10 +32,6 @@ function toneClass(tone: 'neutral' | 'ok' | 'watch' | 'bad') {
 
 export const compactTime = formatOsloShortDateTime
 
-export function isFailed(event: AuditEvent) {
-    return !['ok', 'ready', 'success', 'completed', 'published'].includes(event.result.toLowerCase())
-}
-
 export function AuditRows({ event, open, pending, acknowledgmentError, toggle, acknowledge }: {
     event: AuditEvent
     open: boolean
@@ -53,7 +49,7 @@ export function AuditRows({ event, open, pending, acknowledgmentError, toggle, a
                     <span>{event.actor}</span>
                     <span>{event.action}</span>
                     <span>{event.target}</span>
-                    <span><StatusPill label={event.result} tone={isFailed(event) ? 'bad' : 'ok'} /></span>
+                    <span><StatusPill label={event.result} tone={isFailedAuditEvent(event) ? 'bad' : 'ok'} /></span>
                     <span className='col-span-full text-ui-muted'>{event.detail}</span>
                 </button>
             </td>

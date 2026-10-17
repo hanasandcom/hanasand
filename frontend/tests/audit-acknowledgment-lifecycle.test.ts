@@ -4,7 +4,7 @@ import type { AuditPage } from '../src/app/dashboard/management/audit/data'
 mock.module('@/utils/cookies/cookies', () => ({ getCookie: (name: string) => name === 'id' ? 'operator-7' : 'token-7' }))
 const { performAuditAcknowledgment } = await import('../src/app/dashboard/audit/useAuditAcknowledgment')
 const { helpdeskAcknowledgmentFields } = await import('../src/app/dashboard/helpdesk/audit')
-const { updateAuditAcknowledgment } = await import('../src/app/dashboard/management/audit/data')
+const { isFailedAuditEvent, updateAuditAcknowledgment } = await import('../src/app/dashboard/management/audit/data')
 const originalFetch = globalThis.fetch
 
 afterEach(() => { globalThis.fetch = originalFetch })
@@ -85,4 +85,12 @@ test('Management updates only the selected event and retains its recorded name',
     })
     expect(updated.events[1]).toEqual(page.events[1])
     expect(page.events[0]?.acknowledgedAt).toBeNull()
+})
+
+test('audit failure classification is shared by metrics and row styling', () => {
+    const event = (result: string) => ({ result })
+    for (const result of ['ok', 'ready', 'success', 'completed', 'published', 'SUCCESS']) {
+        expect(isFailedAuditEvent(event(result))).toBe(false)
+    }
+    for (const result of ['failed', 'error', '']) expect(isFailedAuditEvent(event(result))).toBe(true)
 })

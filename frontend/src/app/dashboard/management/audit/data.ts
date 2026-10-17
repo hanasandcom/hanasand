@@ -33,6 +33,10 @@ export type AuditPage = {
     queryResult?: { columns: string[], rows: Array<Array<string | number | null>>, limit: number, summarized: boolean }
 }
 
+export function isFailedAuditEvent(event: Pick<AuditEvent, 'result'>) {
+    return !['ok', 'ready', 'success', 'completed', 'published'].includes(event.result.toLowerCase())
+}
+
 export const auditFilterKeys = ['service', 'actor', 'action', 'target', 'outcome', 'from', 'to', 'q', 'hql']
 
 export function param(params: AuditSearchParams, key: string) {
