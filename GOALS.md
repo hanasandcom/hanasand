@@ -958,3 +958,21 @@ LOC / zero over 200, a 314-line reduction since the previous 152,695-line scan.
 Handwritten `src` remains about 114,052 LOC and tests about 26,830 LOC. The
 10,000–30,000 frontend target and API reduction goal remain outstanding; these
 test cleanups do not establish a 100k-line reduction path.
+
+Commit `04ddd9952` centralizes the invariant metadata for six product-progress
+readiness lanes. Their constructors fall from 342 to 285 production lines
+(−57); status-specific wording, probe hints, row IDs, routes, and schema/proof
+versions stay explicit and are directly asserted. The complete default frontend
+suite and production build pass; all 116 routes generate. The latest 200-line
+scan covers 2,290 files / 152,423 LOC / zero violations. A TypeScript/JavaScript
+inventory counts 111,885 LOC in `frontend/src`, 26,927 in `frontend/tests`, and
+10,292 in `frontend/scripts`; configuration and other source files make up the
+remainder. The API survey counts `api/src` at 102,747 LOC / 1,114 files, so a
+100,000-line reduction would leave about 2,747 lines for the entire API. The API
+test tree is 37,392 LOC / 411 files (32,919 LOC across 349 direct test suites);
+the reviewed support and webhook suites cover distinct access, audit, and
+lifecycle contracts, not wholesale redundant functionality. Existing product
+and support invite/member flows already share their underlying domain writes.
+The measured evidence does not support either the frontend 10,000–30,000 target
+or the API 100,000-line reduction without broad feature removal; continue with
+verified, bounded quality improvements and preserve all route/data/UI contracts.
