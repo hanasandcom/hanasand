@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback } from 'react'
+import type { AIWorkbenchInitialData } from './workbench/initialData'
 import { useConversationView } from './workbench/useConversationView'
 import { useWorkbenchState } from './workbench/useWorkbenchState'
 import { runTerminalCommandOnShare as executeTerminalCommand } from './workbench/runTerminalCommand'
@@ -21,19 +22,6 @@ import { useWorkbenchPolling } from './workbench/useWorkbenchPolling'
 import { useConversationStartup } from './workbench/useConversationStartup'
 import { useWorkspaceHydration } from './workbench/useWorkspaceHydration'
 
-type UseAiWorkbenchProps = {
-    initialConversations: AIConversation[]
-    initialRepositories: AIImportedRepo[]
-    initialDeployments: AIDeployment[]
-    initialReleases: AIRelease[]
-    initialDeployQuota: AIDeployQuota | null
-    initialOwnershipSummary: AIOwnershipSummary | null
-    initialShares: Share[]
-    initialRuntimeState: AIRuntimeState | null
-    isAuthenticated: boolean
-    initialConversationId?: string | null
-}
-
 export default function useAiWorkbench({
     initialConversations,
     initialRepositories,
@@ -45,7 +33,7 @@ export default function useAiWorkbench({
     initialRuntimeState,
     isAuthenticated,
     initialConversationId = null,
-}: UseAiWorkbenchProps) {
+}: AIWorkbenchInitialData) {
     const state = useWorkbenchState({
         initialConversations,
         initialRepositories,

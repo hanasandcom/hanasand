@@ -114,17 +114,18 @@ test('all workspace routes pass the same server data and preserve route selectio
     resetState()
     expect(renderToStaticMarkup(await AIPage())).toContain('data-ai-workspace="ready"')
     const indexProps = currentProps()
-    expect(indexProps.mode).toBe('workspace')
-    expect(indexProps.initialConversations).toEqual([{ id: 'conversation-1' }])
-    expect(indexProps.initialRepositories).toEqual([{ id: 'repository-1' }])
-    expect(indexProps.initialDeployments).toEqual([{ id: 'deployment-1' }])
-    expect(indexProps.initialReleases).toEqual([{ id: 'release-1' }])
-    expect(indexProps.initialDeployQuota).toEqual({ available: 2 })
-    expect(indexProps.initialOwnershipSummary).toEqual({ owned: 1 })
-    expect(indexProps.initialRuntimeState).toEqual({ state: 'ready' })
-    expect(indexProps.initialShares).toEqual([{ id: 'share-1' }])
-    expect(indexProps.isAuthenticated).toBe(true)
-    expect(indexProps).not.toHaveProperty('initialConversationId')
+    expect(indexProps).toEqual({
+        initialConversations: [{ id: 'conversation-1' }],
+        initialRepositories: [{ id: 'repository-1' }],
+        initialDeployments: [{ id: 'deployment-1' }],
+        initialReleases: [{ id: 'release-1' }],
+        initialDeployQuota: { available: 2 },
+        initialOwnershipSummary: { owned: 1 },
+        initialShares: [{ id: 'share-1' }],
+        initialRuntimeState: { state: 'ready' },
+        isAuthenticated: true,
+        mode: 'workspace',
+    })
 
     renderToStaticMarkup(await AIWindowPage())
     expect(currentProps()).not.toHaveProperty('initialConversationId')

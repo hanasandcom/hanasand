@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { getCookie } from '@/utils/cookies/cookies'
 import { useShareWorkspaceState } from './useShareWorkspaceState'
 import type { AiToolCall } from './aiToolTypes'
+import type { AIWorkbenchInitialData } from './initialData'
 
 export function useWorkbenchState({
     initialConversations,
@@ -14,18 +15,7 @@ export function useWorkbenchState({
     initialRuntimeState,
     isAuthenticated,
     initialConversationId = null,
-}: {
-    initialConversations: AIConversation[]
-    initialRepositories: AIImportedRepo[]
-    initialDeployments: AIDeployment[]
-    initialReleases: AIRelease[]
-    initialDeployQuota: AIDeployQuota | null
-    initialOwnershipSummary: AIOwnershipSummary | null
-    initialShares: Share[]
-    initialRuntimeState: AIRuntimeState | null
-    isAuthenticated: boolean
-    initialConversationId?: string | null
-}) {
+}: AIWorkbenchInitialData) {
     const socketRef = useRef<WebSocket | null>(null)
     const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const shouldReconnectRef = useRef(true)

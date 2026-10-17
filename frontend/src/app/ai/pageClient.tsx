@@ -8,6 +8,7 @@ import ChatPane from '@/components/ai/chatPane'
 import ChatSidebar from '@/components/ai/chatSidebar'
 import WorkspacePane from '@/components/ai/workspacePane'
 import useAiWorkbench from '@/components/ai/useAiWorkbench'
+import type { AIWorkbenchInitialData } from '@/components/ai/workbench/initialData'
 import conversationTitle from '@/utils/ai/conversationTitle'
 import { AIPageNotices } from './AIPageNotices'
 
@@ -25,18 +26,8 @@ export default function AIPageClient({
     isAuthenticated,
     mode = 'landing',
     initialConversationId = null,
-}: {
-    initialConversations: AIConversation[]
-    initialRepositories: AIImportedRepo[]
-    initialDeployments: AIDeployment[]
-    initialReleases: AIRelease[]
-    initialDeployQuota: AIDeployQuota | null
-    initialOwnershipSummary: AIOwnershipSummary | null
-    initialShares: Share[]
-    initialRuntimeState: AIRuntimeState | null
-    isAuthenticated: boolean
+}: AIWorkbenchInitialData & {
     mode?: AIPageMode
-    initialConversationId?: string | null
 }) {
     const router = useRouter()
     const pathname = usePathname()
