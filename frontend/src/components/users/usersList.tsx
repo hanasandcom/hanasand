@@ -2,7 +2,7 @@
 
 import { Search, X } from 'lucide-react'
 import { useRef, useState } from 'react'
-import { isReservedPlaceholder } from '@/utils/users/isReservedPlaceholder'
+import { countReservedPlaceholders, isReservedPlaceholder } from '@/utils/users/isReservedPlaceholder'
 import { useManagementSearchShortcut } from '@/hooks/useManagementSearchShortcut'
 import DashboardUser from './dashboardUser'
 
@@ -23,7 +23,7 @@ export default function UsersList({ users, accessibleOrganizationIds }: { users:
         else setSearchOpen(true)
     })
 
-    const reservedCount = users.filter(isReservedPlaceholder).length
+    const reservedCount = countReservedPlaceholders(users)
     const visibleUsers = (showReserved
         ? users
         : users.filter((user) => !isReservedPlaceholder(user)))

@@ -1,6 +1,14 @@
 // @ts-expect-error Bun provides this module when running tests.
 import { expect, test } from 'bun:test'
-import { isReservedPlaceholder } from '../src/utils/users/isReservedPlaceholder'
+import { countReservedPlaceholders, isReservedPlaceholder } from '../src/utils/users/isReservedPlaceholder'
+
+test('reserved placeholder count uses the same visibility rule as the user list', () => {
+    expect(countReservedPlaceholders([
+        { id: 'admin', active: true },
+        { id: 'root', active: false },
+        { id: 'ordinary-user', username: 'admin', active: false },
+    ])).toBe(2)
+})
 
 test('active accounts remain regular users even with reserved names', () => {
     expect(isReservedPlaceholder({ id: 'eirikhanasand', active: true })).toBe(false)

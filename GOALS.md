@@ -2843,3 +2843,14 @@ working-tree lines, with no file above 200; it includes separate uncommitted TI
 and API work. This is 2,822 lines above the 153,708 baseline. The component
 boundaries add lines for readability, so this pass does not materially reduce
 the frontend total; the 10,000–30,000 line target remains unmet.
+
+The next frontend reuse pass moved the status incident view onto one cached
+timestamp formatter and centralized the management user page's reserved-account
+count through the same predicate used by its visibility toggle. The `en-GB`
+UTC output, invalid-date fallback, account filtering, and rendered UI remain
+unchanged. Independent reviews approved both changes. Five focused status/user
+tests pass, as do scoped ESLint, nonincremental TypeScript, `git diff --check`,
+and the frontend cap scan (2,429 source/config files / 156,546 working-tree
+lines, zero above 200). The scan includes separate uncommitted TI and API work;
+the total is 2,838 lines above the 153,708 baseline and the aggregate reduction
+target remains unmet.

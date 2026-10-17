@@ -3,9 +3,9 @@
 import { useMemo, useState } from 'react'
 import { simpleStatusText } from '@/utils/status/incidentCopy'
 import type { ServiceIncident } from '@/utils/status/getStatus'
+import { formatIncidentTimestamp } from './statusDashboard/statusFormatting'
 
 const PAGE_SIZE = 25
-const timestamp = (at: string) => !Number.isFinite(Date.parse(at)) ? 'Not recorded' : new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' }).format(new Date(at)) + ' UTC'
 const labels: Record<string, string> = { investigating: 'Issue detected', monitoring: 'Service update', resolved: 'Recovered' }
 
 export default function IncidentReport({ incident }: { incident: ServiceIncident }) {
@@ -23,8 +23,8 @@ export default function IncidentReport({ incident }: { incident: ServiceIncident
             <h1 className='mt-3 text-2xl font-semibold tracking-tight text-ui-text sm:text-3xl'>{incident.title}</h1>
             <dl className='mt-5 grid gap-4 text-sm sm:grid-cols-3'>
                 <div><dt className='text-ui-muted'>Affected component</dt><dd className='mt-1 font-medium text-ui-text'>{incident.check_name}</dd></div>
-                <div><dt className='text-ui-muted'>First detected</dt><dd className='mt-1 text-ui-text'><time dateTime={incident.started_at}>{timestamp(incident.started_at)}</time></dd></div>
-                <div><dt className='text-ui-muted'>{resolved ? 'Recovered' : 'Current status'}</dt><dd className='mt-1 text-ui-text'>{incident.resolved_at ? <time dateTime={incident.resolved_at}>{timestamp(incident.resolved_at)}</time> : 'Recovery not confirmed'}</dd></div>
+                <div><dt className='text-ui-muted'>First detected</dt><dd className='mt-1 text-ui-text'><time dateTime={incident.started_at}>{formatIncidentTimestamp(incident.started_at)}</time></dd></div>
+                <div><dt className='text-ui-muted'>{resolved ? 'Recovered' : 'Current status'}</dt><dd className='mt-1 text-ui-text'>{incident.resolved_at ? <time dateTime={incident.resolved_at}>{formatIncidentTimestamp(incident.resolved_at)}</time> : 'Recovery not confirmed'}</dd></div>
             </dl>
         </header>
         <div className='grid gap-6 border-b border-ui-border p-6 sm:grid-cols-2 sm:p-8'>
@@ -41,7 +41,7 @@ export default function IncidentReport({ incident }: { incident: ServiceIncident
                     <span aria-hidden='true' className={`absolute -left-1.5 top-1.5 h-3 w-3 rounded-full border-2 border-ui-panel ${update.status === 'resolved' ? 'bg-ui-success' : 'bg-ui-warning'}`} />
                     <div className='flex flex-wrap items-baseline justify-between gap-2'>
                         <h3 className='font-semibold text-ui-text'>{labels[update.status] || update.status}</h3>
-                        <time dateTime={update.at} className='text-xs tabular-nums text-ui-muted'>{timestamp(update.at)}</time>
+                        <time dateTime={update.at} className='text-xs tabular-nums text-ui-muted'>{formatIncidentTimestamp(update.at)}</time>
                     </div>
                     <p className='mt-2 text-sm leading-6 text-ui-muted'>{simpleStatusText(update.message)}</p>
                     {update.evidence && <div className='mt-3 rounded-lg border border-ui-border bg-ui-canvas px-4 py-3'>

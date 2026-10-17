@@ -5,7 +5,7 @@ import fetchUsers from '@/utils/users/fetchUsers'
 import { DashboardPage } from '@/components/dashboard/ui'
 import DashboardMetricCard from '@/components/dashboard/dashboardMetricCard'
 import { UserRound, UsersRound } from 'lucide-react'
-import { isReservedPlaceholder } from '@/utils/users/isReservedPlaceholder'
+import { countReservedPlaceholders } from '@/utils/users/isReservedPlaceholder'
 
 export default async function Page() {
     const Cookies = await cookies()
@@ -16,7 +16,7 @@ export default async function Page() {
     }
 
     const users = await fetchUsers({ id, token, cache: 'no-store' })
-    const reservedCount = users.filter(isReservedPlaceholder).length
+    const reservedCount = countReservedPlaceholders(users)
     const currentUser = users.find(user => user.id === id)
     const accessibleOrganizationIds = currentUser?.active === false ? [] : (currentUser?.organization_memberships || [])
         .filter(organization => organization.status === 'active')

@@ -6,6 +6,7 @@ export const INCIDENT_WINDOW = UPTIME_WINDOW
 
 const dateFormatter = new Intl.DateTimeFormat('en', { dateStyle: 'medium', timeZone: 'UTC' })
 const dateTimeFormatter = new Intl.DateTimeFormat('en', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' })
+const incidentDateTimeFormatter = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' })
 
 export function relativeTime(value: string, now: number | null) {
     if (!now) return 'recently'
@@ -38,3 +39,6 @@ export function statusPillClass(status: ServiceStatus['checks'][number]['status'
 
 export function formatDate(value: string) { return dateFormatter.format(new Date(value)) }
 export function formatDateTime(value: string) { return `${dateTimeFormatter.format(new Date(value))} UTC` }
+export function formatIncidentTimestamp(value: string) {
+    return Number.isFinite(Date.parse(value)) ? `${incidentDateTimeFormatter.format(new Date(value))} UTC` : 'Not recorded'
+}
