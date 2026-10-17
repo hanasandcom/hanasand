@@ -77,3 +77,8 @@ android
 __pycache__/
 /api/geoip/
 
+# Host-only checkouts and review state are not application source.
+/gpt/
+/ti/
+/ops/code-review/
+/.deploy.lock
