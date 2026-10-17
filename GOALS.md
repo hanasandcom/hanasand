@@ -2267,3 +2267,15 @@ before and no production code changed. Current inventory: 2,400 frontend files
 / 155,603 lines, zero over 200; 4,551 repository files / 328,656 lines, zero
 over 200. The frontend 10,000–30,000 line and API 100,000-line reduction
 targets remain open.
+
+At the customer sidebar checkpoint after `d64b1277a` (2026-10-17), source
+inspection of header TSX is replaced by assertions against the visible header
+in the existing authenticated customer-route test. It checks the unchanged
+admin-only href list across four customer routes; independent review approved
+the selector and coverage intent. Scoped ESLint, non-incremental typecheck,
+diff check, and the 200-line cap pass. The targeted Playwright run could not
+start because its configured local API `start:local` process exited with code
+1, so browser execution remains unverified. This test-only change removes two
+net frontend lines. The inventory is 2,400 frontend files / 155,601 lines and
+4,551 repository files / 328,654 lines, with zero files over 200. Aggregate
+frontend/API line reduction goals remain open.

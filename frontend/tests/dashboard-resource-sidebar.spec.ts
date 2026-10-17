@@ -1,14 +1,11 @@
 import { expect, test } from '@playwright/test'
-import { readFile } from 'node:fs/promises'
-import path from 'node:path'
 import { createDashboardUserSession, uniqueSuffix } from './dashboard-resource-auth'
-import { adminOnlyOperationHrefs, root } from './dashboard-resource-data'
+import { adminOnlyOperationHrefs } from './dashboard-resource-data'
 import { scrollConsoleContentToBottom, sidebarLayoutMetrics } from './dashboard-resource-sidebar-helpers'
 import { getDashboardNavigation, navigationLinks } from '../src/utils/layout/dashboardNavigation'
 
 test.describe('dashboard sidebar resources', () => {
     test('sidebar keeps admin controls internal and out of normal customer navigation', async () => {
-        const header = await readFile(path.join(root, 'src/components/header/header.tsx'), 'utf8')
         const normalLinks = navigationLinks(getDashboardNavigation({ id: 'normal-user' }))
         const internalLinks = navigationLinks(getDashboardNavigation({
             id: 'hanasand-user', canViewInternalPages: true, canReviewIntel: true, hasVMs: true,
@@ -23,10 +20,6 @@ test.describe('dashboard sidebar resources', () => {
         for (const href of internalHrefs) {
             expect(normalLinks.some(link => link.href === href), `${href} should be hidden from normal navigation`).toBe(false)
             expect(internalLinks.some(link => link.href === href), `${href} should be available to internal operators`).toBe(true)
-        }
-        for (const href of adminOnlyOperationHrefs) {
-            expect(header, `Public/customer header should not expose ${href}`).not.toContain(`href='${href}'`)
-            expect(header, `Public/customer header should not expose ${href}`).not.toContain(`href: '${href}'`)
         }
     })
     test('console sidebar stays bounded after page scrolling', async ({ browser, request, baseURL }) => {
@@ -46,6 +39,11 @@ test.describe('dashboard sidebar resources', () => {
 
             for (const route of routes) {
                 await page.goto(route, { waitUntil: 'domcontentloaded' })
+                const siteHeader = page.locator('[data-site-header]')
+                await expect(siteHeader).toBeVisible()
+                for (const href of adminOnlyOperationHrefs) {
+                    await expect(siteHeader.locator(`a[href="${href}"]`), `Customer header should not expose ${href} on ${route}`).toHaveCount(0)
+                }
                 await expect(page.locator('aside')).toBeVisible()
                 await expect(page.locator('aside').getByRole('button', { name: 'Collapse sidebar' })).toBeVisible()
                 await expect(page.locator('aside nav').getByRole('link', { name: 'Dark web', exact: true })).toHaveAttribute('href', '/findings')
