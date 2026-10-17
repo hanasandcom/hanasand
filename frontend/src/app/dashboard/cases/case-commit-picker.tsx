@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { date } from './caseDate'
+import { isActiveCaseRequest, isCurrentCaseGeneration, requestCaseJson } from './caseRequest'
 
 type Commit = { external_id: string, title: string, author: string, updated_at: string }
 export type CaseRepository = { id: string, provider: string, repository_url: string, organization_id?: string, can_manage?: boolean, last_received_at?: string, last_warning?: string }
@@ -34,17 +35,15 @@ export function CaseCommitPicker({ caseId, query, repositories, open, revision, 
         inFlight.current = true
         setLoading(true)
         try {
-            const response = await fetch(endpoint + (cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''), { cache: 'no-store', signal })
-            const payload = await response.json()
-            if (!response.ok) throw new Error(payload.error || 'Could not load commits.')
-            if (generation.current !== version || signal.aborted) return
+            const payload = await requestCaseJson<{ items: Commit[], nextCursor: string | null }>(endpoint + (cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''), { signal }, 'Could not load commits.', 'truthy')
+            if (!isActiveCaseRequest(generation.current, version, signal)) return
             setCommits(previous => cursor ? [...previous, ...payload.items] : payload.items)
             setNextCursor(payload.nextCursor)
             if (cursor && waitingForMore.current) { waitingForMore.current = false; setVisible(value => value + 5) }
         } catch (error) {
-            if (generation.current === version && !signal.aborted) setError(error instanceof Error ? error.message : 'Could not load commits.')
+            if (isActiveCaseRequest(generation.current, version, signal)) setError(error instanceof Error ? error.message : 'Could not load commits.')
         } finally {
-            if (generation.current === version) { inFlight.current = false; setLoading(false) }
+            if (isCurrentCaseGeneration(generation.current, version)) { inFlight.current = false; setLoading(false) }
         }
     }
     useEffect(() => {
@@ -68,15 +67,13 @@ export function CaseCommitPicker({ caseId, query, repositories, open, revision, 
         const version = generation.current
         setLinking(commit.external_id); setError('')
         try {
-            const response = await fetch(`/api/backend/cases/development/commits?${query}`, {
+            await requestCaseJson<unknown>(`/api/backend/cases/development/commits?${query}`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ repositoryId: selected.id, caseId, commit: commit.external_id }),
-            })
-            const payload = await response.json()
-            if (!response.ok) throw new Error(payload.error || 'Could not link commit.')
-            if (version === generation.current) onLinked()
-        } catch (error) { if (version === generation.current) setError(error instanceof Error ? error.message : 'Could not link commit.') }
-        finally { if (version === generation.current) setLinking('') }
+            }, 'Could not link commit.', 'truthy')
+            if (isCurrentCaseGeneration(generation.current, version)) onLinked()
+        } catch (error) { if (isCurrentCaseGeneration(generation.current, version)) setError(error instanceof Error ? error.message : 'Could not link commit.') }
+        finally { if (isCurrentCaseGeneration(generation.current, version)) setLinking('') }
     }
     return <div hidden={!open} id='case-commit-picker'>
         <div className='grid gap-3 border-t border-ui-border pt-3'>

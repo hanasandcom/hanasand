@@ -5,6 +5,7 @@ import { GitCommitHorizontal, GitPullRequest, RefreshCw, Plus } from 'lucide-rea
 import config from '@/config'
 import { CaseCommitPicker, type CaseRepository as Repository } from './case-commit-picker'
 import { date } from './caseDate'
+import { requestCaseJson } from './caseRequest'
 
 type Entry = { repository_id: string, kind: string, external_id: string, title: string, url: string, author: string, state: string, branch: string, updated_at: string, repository_url: string, provider: string }
 const control = 'min-w-0 rounded-lg border border-ui-border bg-ui-canvas px-3 py-2 text-sm disabled:opacity-50'
@@ -22,12 +23,6 @@ export function CaseDevelopment({ caseId, organizationId }: { caseId: string, or
     const [pickerOpen, setPickerOpen] = useState(false)
     const query = new URLSearchParams(organizationId ? { organizationId } : {}).toString()
     const base = '/api/backend/cases'
-    async function request(path: string, init?: RequestInit) {
-        const response = await fetch(path, { cache: 'no-store', ...init })
-        const payload = await response.json()
-        if (!response.ok) throw new Error(typeof payload.error === 'string' ? payload.error : 'Could not load repository integration.')
-        return payload
-    }
     useEffect(() => { setSetup(null); setPickerOpen(false) }, [caseId, query])
     useEffect(() => {
         const controller = new AbortController()
@@ -35,8 +30,8 @@ export function CaseDevelopment({ caseId, organizationId }: { caseId: string, or
         setEntries([]); setRepositories([]); setHasMore(false)
         setError('')
         Promise.all([
-            request(`${base}/development?${query}&caseId=${encodeURIComponent(caseId)}`, { signal: controller.signal }),
-            request(`${base}/repositories?${query}`, { signal: controller.signal }),
+            requestCaseJson<{ items: Entry[], hasMore: boolean }>(`${base}/development?${query}&caseId=${encodeURIComponent(caseId)}`, { signal: controller.signal }, 'Could not load repository integration.'),
+            requestCaseJson<{ items: Repository[] }>(`${base}/repositories?${query}`, { signal: controller.signal }, 'Could not load repository integration.'),
         ]).then(([development, connections]) => { if (controller.signal.aborted) return; setEntries(development.items); setHasMore(development.hasMore); setRepositories(connections.items) })
             .catch(error => { if (!controller.signal.aborted) setError(error.message) })
             .finally(() => { if (!controller.signal.aborted) setLoading(false) })
@@ -46,7 +41,7 @@ export function CaseDevelopment({ caseId, organizationId }: { caseId: string, or
         event.preventDefault()
         setLoading(true); setError(''); setSetup(null)
         try {
-            setSetup(await request(`${base}/repositories?${query}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider, repositoryUrl: url }) }))
+            setSetup(await requestCaseJson<{ secret: string, webhookPath: string }>(`${base}/repositories?${query}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider, repositoryUrl: url }) }, 'Could not load repository integration.'))
             setUrl(''); setRevision(value => value + 1)
         } catch (error) { setError(error instanceof Error ? error.message : 'Could not connect repository.') }
         finally { setLoading(false) }
@@ -54,14 +49,14 @@ export function CaseDevelopment({ caseId, organizationId }: { caseId: string, or
     async function disconnect(repository: Repository) {
         if (!window.confirm('Disconnect this repository and remove its case links? The repository itself will not change.')) return
         setLoading(true); setError('')
-        try { await request(`${base}/repositories/${repository.id}?${new URLSearchParams(repository.organization_id ? { organizationId: repository.organization_id } : {})}`, { method: 'DELETE' }); setRevision(value => value + 1); setSetup(null) }
+        try { await requestCaseJson<void>(`${base}/repositories/${repository.id}?${new URLSearchParams(repository.organization_id ? { organizationId: repository.organization_id } : {})}`, { method: 'DELETE' }, 'Could not load repository integration.'); setRevision(value => value + 1); setSetup(null) }
         catch (error) { setError(error instanceof Error ? error.message : 'Could not disconnect repository.') }
         finally { setLoading(false) }
     }
     async function loadMore() {
         setLoading(true); setError('')
         try {
-            const payload = await request(`${base}/development?${query}&caseId=${encodeURIComponent(caseId)}&offset=${entries.length}`)
+            const payload = await requestCaseJson<{ items: Entry[], hasMore: boolean }>(`${base}/development?${query}&caseId=${encodeURIComponent(caseId)}&offset=${entries.length}`, undefined, 'Could not load repository integration.')
             setEntries(previous => [...previous, ...payload.items]); setHasMore(payload.hasMore)
         } catch (error) { setError(error instanceof Error ? error.message : 'Could not load more changes.') }
         finally { setLoading(false) }
