@@ -260,6 +260,19 @@ by 201 lines with four lines of aggregate module overhead. The global scan is
 yet deliver the 100,000-line API reduction or 10,000–30,000-line frontend
 target. The full repository cap remains unmet.
 
+At `451d212a1`, the unused 39-line access-code panel was removed after a
+repository-wide consumer search, and the health sorting browser check now
+asserts the visible status for each fixture row. At `5147f4eb4`, the unused
+18-line telemetry error formatter was removed; its tests now exercise the
+production system-dashboard formatter used by telemetry refresh. The focused
+telemetry tests pass (2 tests / 5 assertions), as do frontend typecheck, scoped
+ESLint, frontend and repository line-cap scans, and diff checks. The latest
+frontend scan is 2,417 source/config files / 156,267 lines; the repository scan
+is 4,564 files / 329,060 lines, with no checked hand-maintained file above 200.
+These cleanups remove verified dead/duplicate code but do not materially close
+the 10,000–30,000-line frontend reduction gap. The hard frontend cap is met;
+API reduction and the previously recorded VM routing/lifecycle work remain open.
+
 ## Execution
 
 - Divide work by non-overlapping repository areas and use traditional Norwegian
