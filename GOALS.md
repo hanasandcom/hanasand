@@ -2242,3 +2242,15 @@ real page component and its data dependency. No production code changed. The
 frontend inventory is 2,400 files / 155,556 lines / zero over 200; repository
 inventory is 4,551 files / 328,609 lines / zero over 200. The commit is pushed
 to both remotes; aggregate LOC reduction targets remain open.
+
+At the dashboard overview test checkpoint following `c473e45b4` (2026-10-17),
+the former source-text check now renders the customer route and verifies that
+the actual product request carries `organizationId=org-a`, the scoped metric
+value and findings link render, and legacy unscoped platform metrics are absent.
+Independent review approved the route-to-loader assertion. The focused test
+passes (5 tests / 34 assertions), as do the full registered frontend suite,
+non-incremental typecheck, scoped ESLint, diff check, and repository line-cap
+check. The inventory is 2,400 frontend files / 155,578 lines / zero over 200,
+and 4,551 repository files / 328,631 lines / zero over 200. This test-only
+slice adds 22 frontend lines and changes no production code; the 10,000–30,000
+frontend target and 100,000-line API reduction remain unachieved.

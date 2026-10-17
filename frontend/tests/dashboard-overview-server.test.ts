@@ -1,16 +1,27 @@
 // @ts-expect-error Bun provides this module when running tests.
 import { beforeEach, expect, mock, test } from 'bun:test'
 import { createElement } from 'react'
-import { renderToStaticMarkup } from 'react-dom/server'
-import { readFile } from 'node:fs/promises'
+import { renderToReadableStream, renderToStaticMarkup } from 'react-dom/server'
 import type { NextRequest } from 'next/server'
 
 let product: (request: NextRequest) => Promise<Response>
 let cases: (request: NextRequest) => Promise<Response>
+let overviewOrganizationId: string | null
 mock.module('../src/app/api/findings/product/route', () => ({ GET: (request: NextRequest) => product(request) }))
 mock.module('../src/app/api/cases/route', () => ({ GET: (request: NextRequest) => cases(request) }))
+mock.module('next/headers', () => ({ cookies: async () => ({
+    get: (name: string) => {
+        const value = ({ id: 'user-a', access_token: 'session-a' } as Record<string, string>)[name]
+        return value ? { value } : undefined
+    },
+    toString: () => 'id=user-a; access_token=session-a',
+}) }))
+mock.module('next/navigation', () => ({ redirect: (path: string) => { throw new Error(`redirect:${path}`) } }))
+mock.module('../src/utils/organizations/serverWorkspace', () => ({ activeOrganizationId: async () => 'org-a' }))
+mock.module('../src/utils/proxy/tokenIsValid', () => ({ default: async () => ({ valid: false }) }))
 const { loadOpenCases, loadOverview } = await import('../src/app/dashboard/overview/loadOverview')
 const { default: Panel, OpenCasesMetric } = await import('../src/app/dashboard/overview/overviewPanel')
+const { default: OverviewPage } = await import('../src/app/dashboard/overview/page')
 const snapshot = {
     schemaVersion: 'dwm.product.v1',
     generatedAt: '2026-10-17T10:00:00.000Z',
@@ -44,7 +55,11 @@ const snapshot = {
     },
 }
 beforeEach(() => {
-    product = async () => Response.json(snapshot)
+    overviewOrganizationId = null
+    product = async request => {
+        overviewOrganizationId = request.nextUrl.searchParams.get('organizationId')
+        return Response.json(snapshot)
+    }
     cases = async () => Response.json({ total: 1 })
 })
 test('monitoring overview is server-loaded without waiting for the cases collection', async () => {
@@ -101,9 +116,16 @@ test('rejects data for a different organization', async () => {
 })
 
 test('customer overview route does not include unscoped platform metrics', async () => {
-    const page = await readFile(new URL('../src/app/dashboard/overview/page.tsx', import.meta.url), 'utf8')
-    expect(page).toContain('DwmOverviewPanel')
-    expect(page).not.toMatch(/getMonitoringOverview|Platform traffic|Domains watched|requestsToday|activeDomains|criticalVulnerabilities|totalVulnerabilities|Vulnerability monitoring|imagesScanned|scanRunning|Not configured/)
+    const html = await new Response(await renderToReadableStream(await OverviewPage({}))).text()
+
+    expect(html).toContain('Organization monitoring')
+    expect(html).toContain('Monitoring overview')
+    expect(html).toContain('Active watch terms')
+    expect(html).toContain('Open alerts')
+    expect(html).toContain('/findings?organizationId=org-a')
+    expect(html).toMatch(/Active watch terms[\s\S]*?<p[^>]*>1<\/p>/)
+    expect(overviewOrganizationId).toBe('org-a')
+    expect(html).not.toMatch(/Platform traffic|Requests today|Active domains|Domains watched|Critical vulnerabilities|Total vulnerabilities|Vulnerability monitoring|Images scanned|Not configured/)
 })
 
 const { default: Loading } = await import('../src/app/loading')
