@@ -4,12 +4,12 @@ import { expect, mock, test } from 'bun:test'
 import { BrainCircuit, FilePlus2 } from 'lucide-react'
 
 mock.module('@/components/editor/editor', () => ({
-    default: ({ id, content, className, customSaveLogic, hideSaveButton }: {
+    default: ({ id, content, className, customSaveLogic = false, hideSaveButton = false }: {
         id: string
         content: string[]
         className: string
-        customSaveLogic: boolean
-        hideSaveButton: boolean
+        customSaveLogic?: boolean
+        hideSaveButton?: boolean
     }) => createElement('textarea', {
         'data-editor-id': id,
         'data-editor-content': content.join('|'),
@@ -25,13 +25,20 @@ mock.module('@/components/error/errorNotice', () => ({
 }))
 mock.module('@/utils/articles/fetchArticle', () => ({ default: async () => null }))
 mock.module('@/utils/articles/postArticle', () => ({ postArticle: async () => ({ status: 201, message: 'created' }) }))
+mock.module('@/utils/articles/deleteArticle', () => ({ default: async () => ({ status: 200, message: 'deleted' }) }))
+mock.module('@/utils/articles/putArticle', () => ({ putArticle: async () => undefined }))
 mock.module('@/utils/thoughts/fetchThoughtByTitle', () => ({ default: async () => [] }))
 mock.module('@/utils/thoughts/postThought', () => ({ postThought: async () => ({ status: 201, message: 'created' }) }))
+mock.module('@/utils/thoughts/deleteThought', () => ({ default: async () => ({ status: 200, message: 'deleted' }) }))
 mock.module('next/navigation', () => ({ useRouter: () => ({ push: () => undefined }) }))
 
 const [{ default: CreateArticle }, { default: CreateThought }] = await Promise.all([
     import('../src/app/dashboard/articles/create/pageClient'),
     import('../src/app/dashboard/thoughts/create/pageClient'),
+])
+const [{ default: EditArticle }, { default: EditThought }] = await Promise.all([
+    import('../src/app/dashboard/articles/[...id]/editorClient'),
+    import('../src/app/dashboard/thoughts/[...id]/editorClient'),
 ])
 const { default: CreateContentEditor } = await import('../src/app/dashboard/CreateContentEditor')
 
@@ -102,4 +109,24 @@ test('non-empty create presentations preserve per-page fields, editor values, an
     expect(thought).toContain('data-editor-id="Why does this happen?"')
     expect(thought).toContain('data-editor-content="Why does this happen?|A short thought."')
     expect(thought).not.toContain('Article ID')
+})
+
+test('saved article and thought editors keep their content, labels, and save contracts', () => {
+    const article = renderToStaticMarkup(createElement(EditArticle, {
+        article: { id: 'release.md', content: 'Release notes\nFirst line' } as Article,
+    }))
+    const thought = renderToStaticMarkup(createElement(EditThought, {
+        thought: { id: 'thought-1', title: 'A saved thought\nSecond line' } as Thought,
+    }))
+
+    expect(article).toContain('Article editor')
+    expect(article).toContain('>release</h1>')
+    expect(article).toContain('data-editor-id="release.md"')
+    expect(article).toContain('data-editor-content="Release notes|First line"')
+    expect(article).toContain('data-custom-save-logic="true"')
+    expect(thought).toContain('Thought editor')
+    expect(thought).toContain('>Thought</h1>')
+    expect(thought).toContain('data-editor-id="thought-1"')
+    expect(thought).toContain('data-editor-content="A saved thought|Second line"')
+    expect(thought).toContain('data-custom-save-logic="false"')
 })

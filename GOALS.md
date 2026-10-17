@@ -2363,3 +2363,15 @@ removes 13 net lines across implementation and tests. The concurrent worktree
 scan is 2,419 frontend files / 156,194 lines and 4,562 repository files /
 328,876 lines, with no file above 200; counts include other in-progress work.
 Aggregate frontend and API reduction targets remain open.
+
+At the 2026-10-17 saved-editor checkpoint, the article and thought pages share
+their edit shell, error display, title state, delete handling, and editor
+layout in `SavedContentEditor`. Independent review confirmed both callers keep
+their previous props and exact deletion redirect strings. Focused rendering
+tests pass (3 tests / 44 assertions); frontend typecheck, scoped ESLint, diff
+check, and line-cap checks pass. The two callers shrink by 47 lines, while the
+shared module adds 48, so production code is one line longer overall. The
+concurrent worktree scan is 2,419 frontend files / 156,211 lines and 4,562
+repository files / 328,893 lines, with no file above 200. Aggregate reduction
+targets remain open. A pre-existing custom-save dirty-state issue was observed
+in the article Editor and remains a separate follow-up.
