@@ -3,11 +3,9 @@
 import { usePathname } from 'next/navigation'
 import ThemeSwitch from '@/components/theme/themeSwitch'
 import { ArrowLeftRight, UserRound } from 'lucide-react'
-import { isInternalAppPath, hasAppSidebar } from '@/utils/routes/appRoutes'
+import { hasAppSidebar } from '@/utils/routes/appRoutes'
 import Menu from '@/components/menu/menu'
 import Link from 'next/link'
-import isSharePath from '@/utils/routes/isSharePath'
-import isPublicProductPath from '@/utils/routes/isPublicProductPath'
 import BrandLogo from '@/components/brand/brandLogo'
 import { useEffect, useState } from 'react'
 import SiteSearch from './siteSearch'
@@ -15,21 +13,18 @@ import { PublicDesktopNavigation, PublicMobileMenu } from './publicNavigation'
 import { OrganizationSwitcher } from '@/components/organizations/workspaceProvider'
 import SupportAssistant from '@/components/support/supportAssistant'
 import { useMobileNavigation } from '@/components/layout/mobileNavigation'
+import { isAppSurfacePath } from '@/components/layout/appSurface'
 import { readRecentUsers, rememberCurrentUser, type RecentUser } from '@/utils/auth/savedProfiles'
 
 export default function Header({ token, id, username, path: serverPath }: { token: boolean, id: string, username: string, path: string }) {
     const mobile = useMobileNavigation()
     const pathname = usePathname() || serverPath
     const [recentUsers, setRecentUsers] = useState<RecentUser[]>([])
-    const isShare = isSharePath(pathname)
-    const isAI = pathname.endsWith('/ai') || pathname.includes('/ai/')
-    const isDashboard = isInternalAppPath(pathname)
-    const isProfile = pathname.startsWith('/profile')
-    const isAccountSwitcher = pathname === '/switch-account'
-    const isPublicProduct = isPublicProductPath(pathname)
-    const isLoggedInConsoleProduct = token && (pathname === '/ti' || pathname.startsWith('/ti/'))
-    const isOrganizations = pathname.startsWith('/organizations')
-    const isAppSurface = isDashboard || isAccountSwitcher || (token && hasAppSidebar(pathname)) || isLoggedInConsoleProduct || (!isPublicProduct && (isShare || isAI || isDashboard || isProfile || isOrganizations))
+    const isAppSurface = isAppSurfacePath(pathname, {
+        sidebarVisible: Boolean(token && hasAppSidebar(pathname)),
+        loggedInTi: token && (pathname === '/ti' || pathname.startsWith('/ti/')),
+        aiPath: pathname.endsWith('/ai') || pathname.includes('/ai/'),
+    })
     const pricingHref = token ? '/subscription' : '/pricing'
     const profileHref = id ? `/profile/${encodeURIComponent(id)}` : '/profile'
 

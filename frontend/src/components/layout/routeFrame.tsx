@@ -1,29 +1,28 @@
 'use client'
 
-import { hasAppSidebar, isInternalAppPath } from '@/utils/routes/appRoutes'
+import { hasAppSidebar } from '@/utils/routes/appRoutes'
 
 import { ReactNode } from 'react'
 import { usePathname } from 'next/navigation'
 import Footer from '@/components/footer/footer'
 import { useMobileNavigation } from './mobileNavigation'
+import { isAppSurfacePath } from './appSurface'
 import isSharePath from '@/utils/routes/isSharePath'
-import isPublicProductPath from '@/utils/routes/isPublicProductPath'
 
 export default function RouteFrame({ children, serverPath, token, sidebar, banner }: { children: ReactNode, serverPath: string, token: boolean, sidebar: ReactNode, banner: ReactNode }) {
     const mobile = useMobileNavigation()
     const pathname = usePathname() || serverPath
     const isBrowserLanding = pathname === '/sandbox'
     const isShare = isSharePath(pathname)
-    const isDashboard = isInternalAppPath(pathname)
-    const isAccountSwitcher = pathname === '/switch-account'
     const showSidebar = Boolean(sidebar) && hasAppSidebar(pathname)
-    const isProfile = pathname.startsWith('/profile')
-    const isOrganizations = pathname.startsWith('/organizations')
     const isAiWorkbench = pathname.startsWith('/ai') && pathname !== '/ai/window'
-    const isPublicProduct = isPublicProductPath(pathname)
     const isThesisPage = pathname === '/thesis' || pathname.startsWith('/thesis/') || pathname === '/content/thesis' || pathname.startsWith('/content/thesis/')
     const isLoggedInTi = token && (pathname === '/ti' || pathname.startsWith('/ti/'))
-    const isAppSurface = showSidebar || isDashboard || isAccountSwitcher || isLoggedInTi || (!isPublicProduct && (isShare || pathname.startsWith('/ai') || isDashboard || isProfile || isOrganizations))
+    const isAppSurface = isAppSurfacePath(pathname, {
+        sidebarVisible: showSidebar,
+        loggedInTi: isLoggedInTi,
+        aiPath: pathname.startsWith('/ai'),
+    })
     const showFooter = !isBrowserLanding && !isThesisPage && (!isAppSurface || isAiWorkbench)
     const thesisScroll = isThesisPage && !showSidebar
     const frameRows = thesisScroll ? 'grid-rows-[auto_minmax(0,1fr)]' : showFooter ? 'grid-rows-[auto_minmax(max-content,auto)_auto]' : 'grid-rows-[auto_minmax(0,1fr)]'
