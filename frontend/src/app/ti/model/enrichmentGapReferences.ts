@@ -1,10 +1,10 @@
 import { type AnalystWorkItem } from './types'
 import { unique } from './evidenceValues'
 import { type ActorArtifact } from '@/utils/ti/actorWorkbench'
-import { watchlistArtifactText } from './watchlistWorkbench'
+import { watchlistArtifactText, watchlistRowText } from './watchlistWorkbench'
 
 export function matchingWorkItemsForGap(items: AnalystWorkItem[], ...values: string[]) {
-    return matchingGapRecords(items, values, item => `${item.title} ${item.subtitle} ${item.detail} ${item.source} ${item.provenance} ${item.evidence.join(' ')}`)
+    return matchingGapRecords(items, values, watchlistRowText)
 }
 
 export function matchingArtifactIdsForGap(artifacts: ActorArtifact[], ...values: string[]) {
