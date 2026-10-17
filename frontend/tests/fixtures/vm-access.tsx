@@ -5,7 +5,7 @@ import useVMConnection from '../../src/components/vms/useVMConnection'
 
 function Access({ name }: { name: string }) {
     const { connection, error, refresh } = useVMConnection(name, null)
-    return <><VMAccess boxStyle='' boxTitleStyle='' connection={connection} error={error} /><button onClick={refresh}>Refresh access</button></>
+    return <><VMAccess connection={connection} error={error} /><button onClick={refresh}>Refresh access</button></>
 }
 function Fixture() {
     const [name, setName] = useState('first-vm')

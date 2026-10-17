@@ -100,7 +100,7 @@ export default function VMClient({ vm: serverVM, details: serverDetails, metrics
             </div>
             <div className='grid gap-3'>
                 <VMHostOptions boxStyle={boxStyle} boxTitleStyle={boxTitleStyle} vm={vm} onUpdate={setVM} />
-                <VMAccess boxStyle={boxStyle} boxTitleStyle={boxTitleStyle} connection={connection} error={connectionError} />
+                <VMAccess connection={connection} error={connectionError} />
             </div>
             <div className='grid gap-3'>
                 <VMMetrics metrics={metrics} error={metricsError} />

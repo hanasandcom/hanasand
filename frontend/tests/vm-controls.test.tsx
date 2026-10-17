@@ -6,6 +6,7 @@ import VMHardware from '../src/components/vms/vmHardware'
 import VMMetrics from '../src/components/vms/vmMetrics'
 import VMNetwork from '../src/components/vms/vmNetwork'
 import VMOverview from '../src/components/vms/vmOverview'
+import VMAccess from '../src/components/vms/vmAccess'
 import manageVM from '../src/utils/vms/fetch/manage/manage'
 
 test('VM actions encode instance names and preserve plain-text API failures', async () => {
@@ -41,14 +42,15 @@ test('VM detail cards share their shell and preserve titles and placeholders', (
     const vm = { name: 'test', status: 'stopped' } as VM
     const html = renderToStaticMarkup(<>
         <VMOverview vm={vm} details={null} />
+        <VMAccess connection={null} />
         <VMHardware vm={vm} />
         <VMNetwork details={null} />
         <VMDetails vm={vm} details={null} />
         <VMMetrics metrics={[]} />
     </>)
     const panel = '<div class="w-full rounded-lg border border-ui-border bg-ui-panel p-4 shadow-sm"><h1 class="text-base font-medium text-ui-text">'
-    for (const title of ['Overview', 'Hardware', 'Network', 'Details', 'Metrics']) assert(html.includes(`${panel}${title}</h1>`))
-    assert.equal((html.match(/<div class="w-full rounded-lg border border-ui-border bg-ui-panel p-4 shadow-sm">/g) || []).length, 5)
+    for (const title of ['Overview', 'Access', 'Hardware', 'Network', 'Details', 'Metrics']) assert(html.includes(`${panel}${title}</h1>`))
+    assert.equal((html.match(/<div class="w-full rounded-lg border border-ui-border bg-ui-panel p-4 shadow-sm">/g) || []).length, 6)
     assert.equal(html.match(/Not reported/g)?.length, 7)
     assert(!html.includes('missing'))
 })

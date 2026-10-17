@@ -1,16 +1,14 @@
 import ErrorNotice from '@/components/error/errorNotice'
+import { VmPanel } from './vmPanel'
 
 type VMAccessProps = {
-    boxStyle: string
-    boxTitleStyle: string
     connection: VMConnectionDetails | null
     error?: string
 }
 
-export default function VMAccess({ boxStyle, boxTitleStyle, connection, error }: VMAccessProps) {
+export default function VMAccess({ connection, error }: VMAccessProps) {
     return (
-        <div className={boxStyle}>
-            <h1 className={boxTitleStyle}>Access</h1>
+        <VmPanel title='Access'>
             {connection ? (
                 <div className='space-y-2 text-sm text-ui-text/72'>
                     <p>Connect with your saved SSH public keys. New VMs now inherit the certificates on your profile automatically.</p>
@@ -39,6 +37,6 @@ export default function VMAccess({ boxStyle, boxTitleStyle, connection, error }:
                     message={error || 'Reloading SSH user, host, and certificate information automatically…'}
                 />
             )}
-        </div>
+        </VmPanel>
     )
 }
