@@ -146,14 +146,13 @@ Use `ssh inspur` and work from `/home/hanasand/hanasand`. Deploy only the change
 # Use an already tested image tagged hanasand:
 ./scripts/deploy.sh --no-build
 
-# API: build and test before replacing the running container.
-docker compose build api
-docker compose up -d --no-deps --no-build api
+# API: fast-forward main, retain the prior image, then replace and verify only API.
+sh scripts/deploy-api.sh
 ```
 
 Do not use a stack-wide `docker compose up --build`. Do not replace the frontend directly through Compose; use the script to avoid a gap in service. API replacement can briefly interrupt requests and WebSockets.
 
-After deployment, check the affected page or endpoint, service logs and `docker compose ps`. The frontend alternates between ports 3000 and 3100, with OpenResty routing traffic to the active container. For rollback, retain the previous image ID and proxy configuration. Schema changes require a separate rollback plan; an image rollback does not reverse a migration.
+After deployment, check the affected page or endpoint, service logs and `docker compose ps`. The frontend alternates between ports 3000 and 3100, with OpenResty routing traffic to the active container. The API-only helper tags and retains the prior API image, then restores and verifies it if the new API fails startup. It reuses the prior database schema marker only when the release classifier finds no product DDL and the prior marker exists. An image rollback does not reverse database changes; any DDL from a failed release needs a separate recovery plan.
 
 ## Data and operations
 
