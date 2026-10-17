@@ -27,6 +27,6 @@ export function TelegramSourceForm({ target, onTarget, busy, disabledReason, onS
     return <form onSubmit={onSubmit} className='grid gap-2 rounded-lg border border-ui-border bg-ui-raised p-3 shadow-sm'>
         <h2 className='text-base font-semibold text-ui-text'>Telegram source request</h2><p id='telegram-source-help' className='text-xs text-ui-subtle'>Public channels only.</p>
         <div className='flex flex-col gap-2 sm:flex-row'><input aria-label='Telegram channel' aria-describedby='telegram-source-help' value={target} onChange={event => onTarget(event.target.value)} placeholder='@channel or https://t.me/channel' className='h-10 min-w-0 flex-1 rounded-lg border border-ui-border bg-ui-panel px-3 text-sm text-ui-text outline-none transition placeholder:text-ui-muted focus:border-ui-primary focus:ring-2 focus:ring-ui-primary/20' />
-            <WorkflowSubmitButton busy={busy} disabled={busy || Boolean(disabledReason)} disabledReason={disabledReason} icon={<Send className='h-4 w-4' />} className='shrink-0 justify-center'>Submit source</WorkflowSubmitButton></div>
+            <WorkflowSubmitButton busy={busy} disabled={busy || Boolean(disabledReason)} disabledReason={disabledReason} icon={<Send className='h-4 w-4' />} layout='telegram'>Submit source</WorkflowSubmitButton></div>
     </form>
 }

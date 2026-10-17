@@ -13,8 +13,11 @@ export function RouteStateCard({ label, value, detail, tone }: { label: string, 
     </div>
 }
 
-export function WorkflowSubmitButton({ busy, disabled, disabledReason, icon, children, className = '' }: { busy: boolean, disabled: boolean, disabledReason?: string, icon?: ReactNode, children: string, className?: string }) {
-    return <button type='submit' disabled={disabled} title={disabledReason || undefined} className={`inline-flex h-10 items-center gap-2 rounded-lg bg-ui-primary px-4 text-sm font-semibold text-ui-on-primary transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 ${className}`.trim()}>
+export function WorkflowSubmitButton({ busy, disabled, disabledReason, icon, children, layout = 'standard' }: { busy: boolean, disabled: boolean, disabledReason?: string, icon?: ReactNode, children: string, layout?: 'standard' | 'telegram' }) {
+    const className = layout === 'telegram'
+        ? 'inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-ui-primary px-4 text-sm font-semibold text-ui-on-primary transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60'
+        : 'inline-flex h-10 items-center gap-2 rounded-lg bg-ui-primary px-4 text-sm font-semibold text-ui-on-primary transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60'
+    return <button type='submit' disabled={disabled} title={disabledReason || undefined} className={className}>
         {busy ? <Loader2 className='h-4 w-4 animate-spin' /> : icon}
         {children}
     </button>

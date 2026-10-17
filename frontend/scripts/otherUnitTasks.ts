@@ -28,4 +28,5 @@ export const otherUnitTasks: TestTask[] = [
     { id: 'third-party-reporting-retry-source', title: 'Third-party reporting retry contract', command: [bun, 'test', 'tests/third-party-reporting-retry-source.test.ts'] },
     { id: 'vm-controls', title: 'VM control request and hardware rendering', command: [bun, 'test', 'tests/vm-controls.test.tsx'] },
     { id: 'workflow-submit-button', title: 'Findings workflow submit button rendering contract', command: [bun, 'test', 'tests/workflow-submit-button.test.tsx'] },
+    { id: 'findings-workflow-submit-variants', title: 'Findings workflow submit form variants', command: [bun, 'test', 'tests/findings-workflow-submit-variants.test.tsx'] },
 ]
