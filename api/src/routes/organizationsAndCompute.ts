@@ -8,6 +8,7 @@ import deleteCertificate from '../handlers/certificates/delete.ts'
 import getUserCertificates from '../handlers/certificates/getUserCertificates.ts'
 import getVM from '../handlers/vms/get.ts'
 import postVM from '../handlers/vms/post.ts'
+import provisionVmInternal from '../handlers/vms/provisionInternal.ts'
 import getAccessibleVMs from '../handlers/vms/getAccessibleVMs.ts'
 import deleteVM, { restoreVM } from '../handlers/vms/delete.ts'
 import getVMMetrics from '../handlers/vms/metrics/get.ts'
@@ -136,6 +137,7 @@ export function registerOrganizationsAndComputeRoutes(fastify: FastifyInstance) 
     fastify.get('/vms/access/:user', getAccessibleVMs)
     fastify.put('/vm/:id/organization', assignVmOrganization)
     fastify.post('/vm', postVM)
+    fastify.post('/vms/internal/:name/provision', provisionVmInternal)
     fastify.post('/vm/:id/:action', vmAction)
     fastify.post('/vm/details', postVMDetails)
     fastify.post('/vms/shutdown', shutdownVMs)

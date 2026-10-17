@@ -5,10 +5,11 @@ import config from '#constants'
 const addresses: Record<string,string> = { inspur: '128.39.142.218', ovhcloud: '192.99.32.185' }
 export const supportedHost = (host: string) => Object.hasOwn(addresses, host)
 export const otherHost = (host: string) => host === 'inspur' ? 'ovhcloud' : host === 'ovhcloud' ? 'inspur' : null
+export const supportedVmHostPath = (path: string) => path.startsWith('/vm/') && !path.includes('..') || isInternalProvisionPath(path)
 
 // Pin the selected host's address while retaining normal TLS hostname/certificate verification.
 export async function internalHostFetch(host: string, path: string, options: RequestInit = {}) {
-    if (!supportedHost(host) || !path.startsWith('/vm/') || path.includes('..')) throw new Error('Unsupported container host request.')
+    if (!supportedHost(host) || !supportedVmHostPath(path)) throw new Error('Unsupported container host request.')
     const url = new URL('https://internal.hanasand.com/api' + path)
     const headers = Object.fromEntries(new Headers(options.headers).entries())
     headers.authorization = 'Bearer ' + encodeURIComponent(config.vm_api_token || '')
@@ -39,3 +40,13 @@ export async function hostJson<T = Record<string,unknown>>(host: string, name: s
 export type HostInstance = { name: string; status: string; type: string; ephemeral: boolean; config: Record<string,string>; expanded_devices: Record<string,Record<string,string>> }
 export type HostState = { instance: HostInstance; state: { status: string; network?: Record<string,{ addresses?: Array<{family: string;scope: string;address: string}> }> } }
 export const inspectHostVm = (host: string, name: string) => hostJson<HostState>(host, name)
+
+function isInternalProvisionPath(path: string) {
+    const match = /^\/vms\/internal\/([^/]+)\/provision$/.exec(path)
+    if (!match) return false
+    try {
+        return /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,62}$/.test(decodeURIComponent(match[1]))
+    } catch {
+        return false
+    }
+}

@@ -7,6 +7,7 @@ export const internalTokenRoutes = new Map<string, string>([
     ['POST /api/vm/details', 'service:vm-sync'],
     ['POST /api/vms/shutdown', 'service:vm-sync'],
     ['DELETE /api/vms', 'service:vm-sync'],
+    ['POST /api/vms/internal/:name/provision', 'service:vm-provision'],
     ['POST /api/status/ingest', 'service:status-ingest'],
 ])
 

@@ -7,7 +7,7 @@ import hasHanasandInternalRouteAccess from '#utils/auth/organizationPageAccess.t
 import hasInternalToken from '#utils/auth/internalToken.ts'
 import syncUserCertificatesToVm from '#utils/vms/syncUserCertificatesToVm.ts'
 import config from '#constants'
-import { canUseLocalLxd, provisionLocalLxdInstance } from '#utils/vms/lxd.ts'
+import { internalHostFetch } from '#utils/vms/hostTransport.ts'
 import recordLog from '#utils/logs/recordLog.ts'
 import { recordSystemEvent } from '#utils/systemEvent.ts'
 
@@ -62,7 +62,7 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
         `, [name])
 
             const existingResult = await run(`
-            SELECT name, owner, created_by, access_users, deleted_at
+            SELECT name, owner, created_by, access_users, primary_host, deleted_at
             FROM vms
             WHERE LOWER(name) = LOWER($1)
             ORDER BY
@@ -75,6 +75,7 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
                 owner: string
                 created_by: string
                 access_users: string[]
+                primary_host: string
                 deleted_at?: string | null
             } | undefined
 
@@ -96,9 +97,9 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
                     primary_host = $6
                 WHERE name = $5
                 RETURNING *
-            `, [name, nextOwner, nextCreatedBy, JSON.stringify(nextAccessUsers ?? []), existing.name, config.vm_host_id])
+            `, [name, nextOwner, nextCreatedBy, JSON.stringify(nextAccessUsers ?? []), existing.name, existing.primary_host])
 
-                await provisionIfLocal(name, req, body.provision_local !== false)
+                await provisionOnPrimaryHost(name, existing.primary_host, body.provision_local !== false)
 
                 await recordSystemEvent(req, {
                     actionType: 'vm.access.updated',
@@ -133,7 +134,7 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
             }
 
             await run('UPDATE vms SET primary_host = $2 WHERE name = $1', [name, config.vm_host_id])
-            await provisionIfLocal(name, req, body.provision_local !== false)
+            await provisionOnPrimaryHost(name, config.vm_host_id, body.provision_local !== false)
 
             await syncUserCertificatesToVm({
                 vmName: name,
@@ -164,22 +165,15 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
     }
 }
 
-async function provisionIfLocal(name: string, req: FastifyRequest, shouldProvision: boolean) {
+async function provisionOnPrimaryHost(name: string, host: string, shouldProvision: boolean) {
     if (!shouldProvision) {
         return
     }
 
-    if (config.vm_host_id !== 'inspur') {
-        return
-    }
-
-    if (!await canUseLocalLxd()) {
-        req.log.warn({ vmName: name }, 'Local LXD socket is not available; VM row was recorded without local provisioning.')
-        void recordVmProvisioningError(name, 'Local LXD socket is not available.', 'lxd_unavailable')
-        return
-    }
-
-    await provisionLocalLxdInstance(name)
+    const response = await internalHostFetch(host, `/vms/internal/${encodeURIComponent(name)}/provision`, { method: 'POST' })
+    if (response.ok) return
+    const payload = await response.json().catch(() => ({})) as { error?: unknown }
+    throw new Error(typeof payload.error === 'string' ? payload.error : `VM host provisioning failed with status ${response.status}.`)
 }
 
 async function recordVmProvisioningError(vmName: string, error: unknown, phase: string) {
