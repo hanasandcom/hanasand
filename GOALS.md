@@ -1583,3 +1583,18 @@ check, and changed-file line-cap pass. The frontend has 2,337 hand-maintained
 files / 153,930 lines, maximum 200. The repository-wide scan still reports 63
 files over 200, all outside the frontend. The reduction goals remain open; no
 UI or deployment change was made.
+
+The latest dashboard pass centralizes case date rendering, findings refresh
+and health handling, system expired-session return paths, and TI manual-run
+query selection. The cron page now distinguishes a ready empty inventory from
+loading, clears stale rows/drafts, and presents an accessible empty status.
+Independent review approved each slice. Focused tests pass for cases (1/4),
+findings (2/10), system routes (1/3), system actions (3/16), and TI run targets
+(1/1). ESLint, full frontend typecheck, diff checks, and the changed-file cap
+pass. The cron Playwright test could not start because its configured API
+`start:local` server exits with code 1 in this environment; source review found
+no behavior blocker, and the spec now checks clearing stale messages and drafts.
+This dashboard pass adds 39 production lines and 33 tests/runner lines. The
+frontend inventory is 2,342 files / 154,002 lines, max 200; the wider scan has
+63 of 4,309 files above 200 / 325,529 total lines, all outside frontend. The
+large frontend and API reduction objectives remain outstanding.

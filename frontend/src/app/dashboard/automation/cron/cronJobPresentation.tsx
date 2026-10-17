@@ -25,7 +25,7 @@ export function summarizeCronJobs(jobs: ManagedCronJob[]): CronSummary {
 }
 
 export function primaryHeadline(summary: CronSummary) {
-    if (!summary.total) return 'Loading scheduled work'
+    if (!summary.total) return 'No scheduled jobs available'
     if (summary.pending) return 'Live job state is loading'
     if (summary.failed === 1) return '1 job needs review'
     if (summary.failed) return `${summary.failed} jobs need review`
@@ -59,12 +59,6 @@ export function CostPill({ job }: { job: ManagedCronJob }) {
                 : 'border-ui-success bg-ui-success/15 text-ui-success'
     return <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs font-semibold ${tone}`} title={job.costEstimate.assumption}>
         <Zap className='h-3.5 w-3.5' />{money(daily)}/day
-    </span>
-}
-
-export function MetaPill({ icon, value, title }: { icon: ReactNode, value: string, title?: string }) {
-    return <span className='inline-flex max-w-full items-center gap-1 rounded-full border border-ui-border bg-ui-raised px-2 py-1 text-xs font-semibold text-ui-muted' title={title}>
-        {icon}<span className='truncate'>{value}</span>
     </span>
 }
 

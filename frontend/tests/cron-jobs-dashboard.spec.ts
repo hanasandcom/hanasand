@@ -14,9 +14,10 @@ test('cron jobs dashboard renders unified scheduled operations and controls', as
     ])
 
     const updates: unknown[] = []
+    let emptyInventory = false
     await page.route('**/api/backend/system/cron**', async route => {
         if (route.request().method() === 'GET') {
-            await route.fulfill({ json: { jobs: fixtureJobs } })
+            await route.fulfill({ json: { jobs: emptyInventory ? [] : fixtureJobs, ready: true } })
             return
         }
         await route.fallback()
@@ -102,4 +103,15 @@ test('cron jobs dashboard renders unified scheduled operations and controls', as
     await sourcePackCard.getByRole('button', { name: 'Run now' }).click()
     await expect.poll(() => updates.length).toBe(4)
     expect(updates[3]).toMatchObject({ action: 'run_now' })
+
+    emptyInventory = true
+    await page.getByRole('button', { name: 'Refresh' }).click()
+    await expect(page.getByRole('heading', { name: 'No scheduled jobs available' })).toBeVisible()
+    await expect(page.getByRole('status')).toHaveText('No scheduled jobs are currently available.')
+    await expect(page.getByText('DWM source-pack worker started.', { exact: true })).toHaveCount(0)
+
+    emptyInventory = false
+    await page.getByRole('button', { name: 'Refresh' }).click()
+    await page.getByText('Schedule controls').click()
+    await expect(page.getByLabel('Cron expression')).toHaveValue('*/5 * * * *')
 })

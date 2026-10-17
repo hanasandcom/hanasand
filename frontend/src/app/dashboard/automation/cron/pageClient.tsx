@@ -33,10 +33,12 @@ export default function CronJobsClient() {
         setBusy('load')
         try {
             const payload = await fetchManagedCronJobs()
-            if (payload.jobs.length) {
+            if (payload.jobs.length || payload.ready) {
                 setJobs(payload.jobs)
                 setDrafts(Object.fromEntries(payload.jobs.map(job => [job.id, job.schedule])))
-                setMessage(payload.ready ? 'Background jobs streaming.' : 'Showing the job registry while live state refreshes.')
+                setMessage(payload.jobs.length
+                    ? payload.ready ? 'Background jobs streaming.' : 'Showing the job registry while live state refreshes.'
+                    : '')
             }
             if (!payload.ready) retryTimer.current = setTimeout(() => void load(), 1000)
         } catch (error) {
@@ -76,8 +78,8 @@ export default function CronJobsClient() {
                 <div className='min-w-0'>
                     <p className='text-xs font-semibold uppercase tracking-normal text-ui-muted'>Scheduled operations</p>
                     <h2 className='mt-1 text-lg font-semibold text-ui-text'>{primaryHeadline(summary)}</h2>
-                    <p className='mt-1 text-sm text-ui-muted'>
-                        {summary.total ? `${summary.enabled}/${summary.total} enabled · ${summary.running} running · ${money(summary.daily)}/day estimate` : 'Waiting for the cron inventory.'}
+                    <p role={jobs.length === 0 ? 'status' : undefined} className='mt-1 text-sm text-ui-muted'>
+                        {summary.total ? `${summary.enabled}/${summary.total} enabled · ${summary.running} running · ${money(summary.daily)}/day estimate` : 'No scheduled jobs are currently available.'}
                     </p>
                 </div>
                 <div className='flex items-center gap-2'>
