@@ -1,8 +1,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import run from '#db'
 import { cachedLogQuery } from '#utils/logs/cache.ts'
-import tokenWrapper from '#utils/auth/tokenWrapper.ts'
-import hasHanasandInternalRouteAccess from '#utils/auth/organizationPageAccess.ts'
+import { requireLogAccess } from './access.ts'
 import { loadErrorSummary, emptyErrorSummary } from './errorSummary.ts'
 import {
     authStatusCode,
@@ -22,10 +21,7 @@ type ErrorQuery = {
 }
 
 export async function getErrorEvents(req: FastifyRequest, res: FastifyReply) {
-    const { valid } = await tokenWrapper(req, res)
-    if (!valid) return res.status(401).send({ error: 'Unauthorized.' })
-    const role = await hasHanasandInternalRouteAccess(req)
-    if (!role.valid) return res.status(403).send({ error: 'Active Hanasand organization owner or editor access is required.' })
+    if (!(await requireLogAccess(req, res))) return
 
     return res.send(await loadErrorEvents(req.query as ErrorQuery))
 }

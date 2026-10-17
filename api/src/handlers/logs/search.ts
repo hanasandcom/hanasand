@@ -1,7 +1,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import { withLogSearchTransaction } from '#utils/logs/searchCapacity.ts'
-import tokenWrapper from '#utils/auth/tokenWrapper.ts'
-import hasHanasandInternalRouteAccess from '#utils/auth/organizationPageAccess.ts'
+import { requireLogAccess } from './access.ts'
 import { compileLogQuery } from '#utils/logs/kql.ts'
 import { readPendingProcessLogs } from '#utils/events/processQueue.ts'
 import { logMessageSearchPredicate } from '#utils/logs/searchText.ts'
@@ -10,9 +9,7 @@ import { foldLogCounts } from '#utils/logs/dimensions.ts'
 import { queryLogCountGroups } from '#utils/logs/counts.ts'
 
 export async function searchLogs(req: FastifyRequest, res: FastifyReply) {
-    const { valid } = await tokenWrapper(req, res)
-    if (!valid) return res.status(401).send({ error: 'Unauthorized.' })
-    if (!(await hasHanasandInternalRouteAccess(req)).valid) return res.status(403).send({ error: 'Active Hanasand organization owner or editor access is required.' })
+    if (!(await requireLogAccess(req, res))) return
     const input = req.query as { hql?: string, kql?: string, search?: string, service?: string, severity?: string, hours?: string, stats?: string, paginate?: string, cursor?: string, realtime?: string }
     try {
         const search = input.search?.trim() || ''

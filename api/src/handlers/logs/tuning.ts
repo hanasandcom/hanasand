@@ -1,7 +1,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import run, { withTransaction } from '#db'
-import hasHanasandInternalRouteAccess, { HANASAND_ORGANIZATION_ID } from '#utils/auth/organizationPageAccess.ts'
-import tokenWrapper from '#utils/auth/tokenWrapper.ts'
+import { HANASAND_ORGANIZATION_ID } from '#utils/auth/organizationPageAccess.ts'
+import { requireLogAccess } from './access.ts'
 import { cachedRead, invalidateReadCache } from '../../utils/readCache.ts'
 
 const REFRESH_INTERVAL_MS = 60_000
@@ -29,9 +29,7 @@ type TuningSnapshot = {
 }
 
 export async function getLogTuning(req: FastifyRequest, res: FastifyReply) {
-    const { valid } = await tokenWrapper(req, res)
-    if (!valid) return res.status(401).send({ error: 'Unauthorized.' })
-    if (!(await hasHanasandInternalRouteAccess(req)).valid) return res.status(403).send({ error: 'Active Hanasand organization owner or editor access is required.' })
+    if (!(await requireLogAccess(req, res))) return
 
     try {
         const snapshot = await cachedRead<TuningSnapshot>(TUNING_SNAPSHOT_CACHE_KEY, 10_000, async() => {
@@ -61,9 +59,7 @@ export async function getLogTuning(req: FastifyRequest, res: FastifyReply) {
 }
 
 export async function postLogTuningRefresh(req: FastifyRequest, res: FastifyReply) {
-    const { valid } = await tokenWrapper(req, res)
-    if (!valid) return res.status(401).send({ error: 'Unauthorized.' })
-    if (!(await hasHanasandInternalRouteAccess(req)).valid) return res.status(403).send({ error: 'Active Hanasand organization owner or editor access is required.' })
+    if (!(await requireLogAccess(req, res))) return
 
     try {
         await run(`INSERT INTO log_tuning_snapshots (organization_id, logs, refresh_requested_at)

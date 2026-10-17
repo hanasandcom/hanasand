@@ -22,7 +22,7 @@ mock.module('../src/utils/auth/tokenWrapper.ts', () => ({ default: async () => (
 mock.module('../src/utils/auth/organizationPageAccess.ts', () => ({ default: async () => ({ valid: administrator }) }))
 mock.module('../src/utils/logs/native.ts', () => ({ listNativeLogs: async () => [], listNativeLogServices: async () => nativeServices, isNativeLogSourceAvailable: () => false }))
 mock.module('../src/utils/docker/engine.ts', () => ({ listRuntimeLogs: async () => ({ logs: [], containers: [] }), isRuntimeLogSourceAvailable: () => false }))
-const { getLogs, getLogServices } = await import('../src/handlers/logs/get.ts')
+const { getLogs, getLogServices, getRealtimeLogs } = await import('../src/handlers/logs/get.ts')
 const { getErrorEvents } = await import('../src/handlers/logs/errors.ts')
 const { getMostActiveServices } = await import('../src/handlers/logs/mostActive.ts')
 
@@ -30,10 +30,11 @@ test('cached log responses still require a valid administrator on every request'
     const app = Fastify()
     app.get('/logs', getLogs)
     app.get('/logs/services', getLogServices)
+    app.get('/logs/realtime', getRealtimeLogs)
     app.get('/logs/services/summary', getMostActiveServices)
     app.get('/logs/errors', getErrorEvents)
     try {
-        for (const url of ['/logs', '/logs/services', '/logs/services/summary', '/logs/errors']) {
+        for (const url of ['/logs', '/logs/services', '/logs/realtime', '/logs/services/summary', '/logs/errors']) {
             authorized = administrator = true
             const response = await app.inject(url)
             expect(response.statusCode).toBe(200)

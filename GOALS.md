@@ -2352,3 +2352,14 @@ repository files / 328,836 lines; every hand-maintained file is at most 200
 lines. The frontend 10,000–30,000-line and API 100,000-line reduction targets
 remain open; this batch establishes behavior reuse and test quality without a
 material aggregate LOC reduction.
+
+At the 2026-10-17 log access checkpoint, list, service, realtime, error,
+summary, search, metrics, and tuning handlers reuse one authentication and
+organization-role guard. The public metrics bypass and existing 401/403
+responses are preserved. Independent review approved the route changes; four
+focused suites pass (21 tests / 249 assertions), with API typecheck, scoped
+ESLint, diff check, and repository/frontend line-cap scans passing. This slice
+removes 13 net lines across implementation and tests. The concurrent worktree
+scan is 2,419 frontend files / 156,194 lines and 4,562 repository files /
+328,876 lines, with no file above 200; counts include other in-progress work.
+Aggregate frontend and API reduction targets remain open.

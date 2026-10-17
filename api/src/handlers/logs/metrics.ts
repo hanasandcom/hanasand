@@ -1,7 +1,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import run from '#db'
-import tokenWrapper from '#utils/auth/tokenWrapper.ts'
-import hasHanasandInternalRouteAccess from '#utils/auth/organizationPageAccess.ts'
+import { requireLogAccess } from './access.ts'
 import { cachedLogQuery } from '#utils/logs/cache.ts'
 
 type SampleRow = { sampled_at: string, pps: number, eps: number, historical_eps: number, npps: number, remaining: number }
@@ -27,11 +26,7 @@ export function startLogMetricsRefresh() {
 
 export async function getLogMetrics(req: FastifyRequest, res: FastifyReply) {
     const publicRequest = (req.query as { public?: string }).public === '1'
-    if (!publicRequest) {
-        const { valid } = await tokenWrapper(req, res)
-        if (!valid) return res.status(401).send({ error: 'Unauthorized.' })
-        if (!(await hasHanasandInternalRouteAccess(req)).valid) return res.status(403).send({ error: 'Active Hanasand organization owner or editor access is required.' })
-    }
+    if (!publicRequest && !(await requireLogAccess(req, res))) return
     try {
         return res.send(await loadCachedLogMetrics())
     } catch (error) {
