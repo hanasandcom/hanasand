@@ -920,3 +920,22 @@ reduction: frontend size remains above the 10,000–30,000 goal, and the API
 100,000-line reduction remains unmet. Continue prioritizing measured duplicate
 removal alongside natural component reuse; retain UI, accessibility, routes,
 and page data contracts.
+
+After commits `fd815bb04`, `85abc0940`, `f92161de2`, and `c9fbae0db`, the
+frontend reuses a shared findings-workflow action lifecycle, password-action
+hook, article/thought create editor, and share-route preference parser. The TI
+workbench case and alert adapters now share only their identical severity and
+pluralization helpers; their distinct mapping behavior remains separate. Direct
+tests cover workflow failure cleanup and side effects, editor rendering, route
+data contracts, and case adaptation. Independent review found no actionable
+behavior or UI regressions. These changes remove about 57 production lines in
+aggregate while adding focused tests and runner entries. The default frontend
+test suite, changed-file ESLint, TypeScript check, and production build passed;
+the build generated all 116 routes. Repository-wide ESLint still reports 1,612
+findings, while all changed files pass targeted lint. The latest frontend scan
+is 2,288 candidate source/config files / 152,695 LOC / zero over 200 lines. The
+increase of 502 LOC from the prior snapshot is mostly characterization and
+regression coverage, so the 10,000–30,000 frontend target remains far from met;
+the API 100,000-line reduction is also outstanding. Branch `main` is 47 commits
+ahead of `github/main`; these checkpoints remain local until the complete
+integrated request is ready for publication.
