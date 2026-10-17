@@ -12,7 +12,7 @@ import manageVM from '../src/utils/vms/fetch/manage/manage'
 test('VM actions encode instance names and preserve plain-text API failures', async () => {
     Object.defineProperty(globalThis, 'document', {
         configurable: true,
-        value: { cookie: 'access_token=playwright-token; id=playwright-user' },
+        value: { cookie: 'access_token=playwright%252Ftoken; id=playwright-user' },
     })
 
     const originalFetch = globalThis.fetch
@@ -29,9 +29,9 @@ test('VM actions encode instance names and preserve plain-text API failures', as
         }
 
         assert.equal(await manageVM('folder/test vm', 'start'), 'VM host is temporarily unavailable')
-        assert.match(request?.url || '', /^\/api\/backend\/vm\/folder%2Ftest%20vm\/start$/)
-        assert.equal(request?.authorization, '')
-        assert.equal(request?.id, '')
+        assert.match(request?.url || '', /\/vm\/folder%2Ftest%20vm\/start$/)
+        assert.equal(request?.authorization, 'Bearer playwright%2Ftoken')
+        assert.equal(request?.id, 'playwright-user')
     } finally {
         globalThis.fetch = originalFetch
         Reflect.deleteProperty(globalThis, 'document')

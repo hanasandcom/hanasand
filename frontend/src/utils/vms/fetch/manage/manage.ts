@@ -1,5 +1,6 @@
 import config from '@/config'
 import fetchWithRetry from '@/utils/fetchWithRetry'
+import { getCookie } from '@/utils/cookies/cookies'
 
 export default async function manageVM(id: string, action: 'start' | 'stop' | 'restart'): Promise<string | null> {
     try {
@@ -7,8 +8,18 @@ export default async function manageVM(id: string, action: 'start' | 'stop' | 'r
             return 'This virtual machine is missing its instance name.'
         }
 
-        const response = await fetchWithRetry(`/api/backend/vm/${encodeURIComponent(id)}/${action}`, {
+        const token = getCookie('access_token')
+        const userId = getCookie('id')
+        if (!token || !userId) {
+            return 'Please log in to manage VMs.'
+        }
+
+        const response = await fetchWithRetry(`${config.url.api}/vm/${encodeURIComponent(id)}/${action}`, {
             method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                id: userId,
+            },
             cache: 'no-store',
             timeoutMs: config.abortTimeout,
             retries: 2,
