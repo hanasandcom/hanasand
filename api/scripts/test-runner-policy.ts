@@ -50,7 +50,7 @@ const unitTestFiles = [
     'purge-deleted-accounts.test.ts',
     'purge-user-ssh-keys.test.ts', 'push-monitoring-postgres.test.ts', 'push-monitoring.test.ts', 'rate-limit-admin-authorization.test.ts', 'rate-limit-transaction.test.ts',
     'read-cache.test.ts', 'readiness-audit-retention.test.ts', 'record-monitor-result.test.ts', 'recovery-monitoring.test.ts', 'retention-precedence.test.ts',
-    'retention-prune-precedence.test.ts', 'rule-editing.test.ts', 'rule-hit-count-lock.test.ts', 'rule-list.test.ts', 'rule-preview.test.ts',
+    'retention-prune-precedence.test.ts', 'rule-editing-analysis.test.ts', 'rule-editing-correlation.test.ts', 'rule-editing-counts.test.ts', 'rule-editing-lifecycle.test.ts', 'rule-editing-preview.test.ts', 'rule-editing-verified.test.ts', 'rule-hit-count-lock.test.ts', 'rule-list.test.ts', 'rule-preview.test.ts',
     'rule-storage-estimate.test.ts', 'rules.test.ts', 'runtime-log-parsing.test.ts', 'secret-box.test.ts', 'security-rules.test.ts',
     'service-account-scopes.test.ts', 'service-accounts.test.ts', 'service-check-case.test.ts', 'session-touch.test.ts', 'share-list-access.test.ts',
     'share-save-ack.test.ts', 'shared-mail-access.test.ts', 'smtp-submission.test.ts', 'socket-browser-reconnect.test.ts', 'socket-message-text.test.ts', 'socket-resumable-worker.test.ts', 'ssh-key-usage.test.ts',
