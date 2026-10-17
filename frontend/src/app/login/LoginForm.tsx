@@ -1,5 +1,6 @@
 import type { FormEvent, RefObject } from 'react'
 import { ArrowRight, Fingerprint, KeyRound } from 'lucide-react'
+import AuthTextField from '@/components/login/authTextField'
 import AuthPasswordField from '@/components/login/authPasswordField'
 import SocialSignIn from '@/components/login/socialSignIn'
 import { authGhostButtonClass, authInputClass, authPrimaryButtonClass } from './loginMode'
@@ -22,20 +23,18 @@ export default function LoginForm({ redirectPath, initialUsername, usernameRef, 
         <div className='grid gap-3'>
             <form className='flex w-full flex-col gap-2 self-center' action='/api/auth/login' onSubmit={onSubmit} method='post'>
                 <input type='hidden' name='redirectPath' value={redirectPath} />
-                <label className='grid gap-1.5' htmlFor='login-username'>
-                    <span className='text-xs font-semibold text-ui-muted'>Username</span>
-                    <input
-                        id='login-username'
-                        ref={usernameRef}
-                        type='text'
-                        name='username'
-                        placeholder='Username'
-                        defaultValue={initialUsername}
-                        className={authInputClass}
-                        autoComplete='username'
-                        required
-                    />
-                </label>
+                <AuthTextField
+                    id='login-username'
+                    label='Username'
+                    ref={usernameRef}
+                    type='text'
+                    name='username'
+                    placeholder='Username'
+                    defaultValue={initialUsername}
+                    className={authInputClass}
+                    autoComplete='username'
+                    required
+                />
                 <AuthPasswordField
                     id='login-password'
                     label='Password'

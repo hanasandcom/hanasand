@@ -1,5 +1,6 @@
 import type { FormEvent } from 'react'
 import { ArrowRight } from 'lucide-react'
+import AuthTextField from '@/components/login/authTextField'
 import AuthPasswordField from '@/components/login/authPasswordField'
 import { authGhostButtonClass, authInputClass, authPrimaryButtonClass } from './loginMode'
 import type { useSignupFlow } from './useSignupFlow'
@@ -20,53 +21,47 @@ export default function SignupForm({ flow, busy, hydrated, redirectPath, onSubmi
         <form className='flex w-full flex-col gap-2 self-center' action='/api/auth/register' onSubmit={onSubmit} method='post'>
             <input type='hidden' name='redirectPath' value={redirectPath} />
             {flow.sendError && <p role='alert' className='text-sm text-ui-text'>{flow.sendError}</p>}
-            <label className='grid gap-1.5' htmlFor='login-signup-username'>
-                <span className='text-xs font-semibold text-ui-muted'>Username</span>
-                <input
-                    id='login-signup-username'
-                    disabled={!hydrated}
-                    type='text'
-                    name='username'
-                    value={flow.username}
-                    onChange={event => flow.setUsername(event.target.value)}
-                    placeholder='Username'
-                    className={authInputClass}
-                    autoComplete='username'
-                    required
-                />
-            </label>
+            <AuthTextField
+                id='login-signup-username'
+                label='Username'
+                disabled={!hydrated}
+                type='text'
+                name='username'
+                value={flow.username}
+                onChange={event => flow.setUsername(event.target.value)}
+                placeholder='Username'
+                className={authInputClass}
+                autoComplete='username'
+                required
+            />
             {flow.usernameIsReserved && <p className='px-1 text-xs font-semibold text-ui-warning'>Reserved username.</p>}
-            <label className='grid gap-1.5' htmlFor='login-signup-name'>
-                <span className='text-xs font-semibold text-ui-muted'>Name</span>
-                <input
-                    id='login-signup-name'
-                    disabled={!hydrated}
-                    type='text'
-                    name='name'
-                    value={flow.name}
-                    onChange={event => flow.setName(event.target.value)}
-                    placeholder='Full name'
-                    className={authInputClass}
-                    autoComplete='name'
-                    required
-                />
-            </label>
-            <label className='grid gap-1.5' htmlFor='login-signup-email'>
-                <span className='text-xs font-semibold text-ui-muted'>Email</span>
-                <input
-                    id='login-signup-email'
-                    disabled={!hydrated}
-                    type='email'
-                    name='email'
-                    placeholder='example@mail.com'
-                    value={flow.email}
-                    onChange={event => flow.setEmail(event.target.value)}
-                    autoComplete='email'
-                    maxLength={254}
-                    className={authInputClass}
-                    required
-                />
-            </label>
+            <AuthTextField
+                id='login-signup-name'
+                label='Name'
+                disabled={!hydrated}
+                type='text'
+                name='name'
+                value={flow.name}
+                onChange={event => flow.setName(event.target.value)}
+                placeholder='Full name'
+                className={authInputClass}
+                autoComplete='name'
+                required
+            />
+            <AuthTextField
+                id='login-signup-email'
+                label='Email'
+                disabled={!hydrated}
+                type='email'
+                name='email'
+                placeholder='example@mail.com'
+                value={flow.email}
+                onChange={event => flow.setEmail(event.target.value)}
+                autoComplete='email'
+                maxLength={254}
+                className={authInputClass}
+                required
+            />
             <AuthPasswordField
                 id='login-signup-password'
                 label='Password'
