@@ -1,9 +1,10 @@
 'use client'
 
-import { History, LoaderCircle, MoreHorizontal, Share2, Trash2, X } from 'lucide-react'
+import { History, X } from 'lucide-react'
 import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ProviderBadges } from './components/ProviderBadges'
+import { RunHistoryActions } from './components/RunHistoryPanel'
 import { shareSavedFinding } from './shareSavedFinding'
 import { deleteBrowserHistory } from './historyDeletion'
 import type { ProviderRunResult } from './types/history'
@@ -129,19 +130,16 @@ export default function BrowserHistory({ clientId, onShare }: { clientId: string
                         <ProviderBadges results={run.providerResults} />
                         <span className='whitespace-nowrap text-xs text-ui-muted'>{new Date(run.startedAt).toLocaleString()}</span>
                     </Link>
-                    <button type='button' disabled={Boolean(busyId)} onClick={() => void shareRun(run)} className='grid h-8 w-8 shrink-0 place-items-center rounded text-ui-muted hover:text-ui-text disabled:opacity-50' aria-label={`Share finding for ${run.target}`} title='Share finding'>
-                        {busyId === run.id ? <LoaderCircle className='h-4 w-4 animate-spin' /> : <Share2 className='h-4 w-4' />}
-                    </button>
-                    <div className='relative shrink-0'>
-                        <button type='button' disabled={Boolean(busyId)} onClick={() => setOpenMenuId(current => current === run.id ? '' : run.id)} className='grid h-8 w-8 place-items-center rounded text-ui-muted hover:text-ui-text disabled:opacity-50' aria-label={`More options for ${run.target}`} aria-expanded={openMenuId === run.id} title='More options'>
-                            <MoreHorizontal className='h-4 w-4' />
-                        </button>
-                        {openMenuId === run.id ? <div className='absolute right-0 top-9 z-20 min-w-28 rounded-md border border-ui-border bg-ui-panel p-1 shadow-lg'>
-                            <button type='button' onClick={() => void deleteRun(run)} className='flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs text-ui-text hover:bg-ui-raised'>
-                                <Trash2 className='h-3.5 w-3.5' />Delete
-                            </button>
-                        </div> : null}
-                    </div>
+                    <RunHistoryActions
+                        density='dialog'
+                        target={run.target}
+                        disabled={Boolean(busyId)}
+                        sharing={busyId === run.id}
+                        menuOpen={openMenuId === run.id}
+                        onShare={() => { void shareRun(run) }}
+                        onToggleMenu={() => setOpenMenuId(current => current === run.id ? '' : run.id)}
+                        onDelete={() => { void deleteRun(run) }}
+                    />
                 </article>)}
                 {!loading && !error && !runs.length ? <p className='text-sm text-ui-muted'>No previous runs.</p> : null}
                 {loading && !runs.length ? <p role='status' className='text-sm text-ui-muted'>Loading…</p> : null}

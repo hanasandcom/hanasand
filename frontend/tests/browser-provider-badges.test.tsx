@@ -3,7 +3,7 @@ import { expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { ProviderBadges } from '../src/app/browser/components/ProviderBadges'
-import { HistoryPanel } from '../src/app/browser/components/RunHistoryPanel'
+import { HistoryPanel, RunHistoryActions } from '../src/app/browser/components/RunHistoryPanel'
 import type { BrowserRunHistory } from '../src/app/browser/types'
 
 const results = {
@@ -57,4 +57,22 @@ test('missing and clean results keep the clean zero state while loading stays vi
     }))
     expect(loading).toContain('aria-label="VirusTotal: checking"')
     expect(loading).toContain('border-ui-warning/40 bg-ui-warning/10 text-ui-warning')
+})
+
+test('shared history actions retain each row size, disabled state, busy icon, and menu placement', () => {
+    for (const density of ['dialog', 'panel'] as const) {
+        const markup = render(createElement(RunHistoryActions, {
+            target: 'example.com', density, disabled: true, sharing: true, menuOpen: true,
+            onShare: () => {}, onToggleMenu: () => {}, onDelete: () => {},
+        }))
+        const size = density === 'dialog' ? 'h-8 w-8' : 'h-7 w-7'
+        const menuTop = density === 'dialog' ? 'top-9' : 'top-8'
+
+        expect(markup).toContain(`disabled="" class="grid ${size} shrink-0 place-items-center rounded text-ui-muted hover:text-ui-text disabled:opacity-50"`)
+        expect(markup).toContain(`class="absolute right-0 ${menuTop} z-20 min-w-28 rounded-md border border-ui-border bg-ui-panel p-1 shadow-lg"`)
+        expect(markup).toContain('aria-label="Share finding for example.com"')
+        expect(markup).toContain('aria-label="More options for example.com" aria-expanded="true"')
+        expect(markup).toContain('animate-spin')
+        expect(markup).toContain('Delete')
+    }
 })
