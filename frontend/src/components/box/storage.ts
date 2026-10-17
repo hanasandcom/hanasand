@@ -1,4 +1,5 @@
 import { normalizeHeaderRows } from './requestTemplates'
+import { redactSensitiveText } from './responseSafety'
 import type { RequestHistoryEntry, VariableRow } from './types'
 
 export const REQUEST_HISTORY_STORAGE_KEY = 'hanasand.share.request-history.v1'
@@ -111,8 +112,4 @@ function normalizeVariableRow(value: unknown): VariableRow | null {
         key,
         value: typeof item.value === 'string' ? redactSensitiveText(item.value) : '',
     }
-}
-
-function redactSensitiveText(value: string) {
-    return value.replace(/\bBearer\s+[^'\s]+/gi, 'Bearer [redacted]')
 }
