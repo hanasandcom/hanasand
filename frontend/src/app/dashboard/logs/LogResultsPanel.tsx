@@ -1,9 +1,10 @@
 import Link from 'next/link'
-import { ChevronDown, Copy, RefreshCw } from 'lucide-react'
+import { Copy, RefreshCw } from 'lucide-react'
 import type { LogEvent as Event, LogSearchResult as Result } from '@/utils/logs/search'
 import { dashboardPanelClass } from '@/components/dashboard/ui'
 import EventFeed from './eventFeed'
 import { logFieldClass, logSeverityClasses, projectedLogFields } from './logPresentation'
+import EventDisclosureTrigger from './EventDisclosure'
 
 type LogsView = 'dashboard' | 'realtime' | 'search' | 'errors'
 
@@ -95,10 +96,13 @@ function LogEventRow({
 }) {
     return <article className='select-text border-b border-ui-border p-4 last:border-b-0'>
         <div className='flex flex-wrap items-start justify-between gap-3'>
-            <button type='button' onClick={onToggle} aria-expanded={expanded} aria-controls={`log-details-${event.id}`} className='flex min-w-0 flex-wrap items-center gap-2 break-all text-left text-sm font-semibold'>
-                <ChevronDown size={16} aria-hidden className={expanded ? '' : '-rotate-90'} />
-                {event.normalized.service}<span className='font-normal text-ui-muted'>{event.normalized.host}</span>
-            </button>
+            <EventDisclosureTrigger
+                id={`log-details-${event.id}`}
+                expanded={expanded}
+                onToggle={onToggle}
+                label={<>{event.normalized.service}<span className='font-normal text-ui-muted'>{event.normalized.host}</span></>}
+                buttonClassName='flex min-w-0 flex-wrap items-center gap-2 break-all text-left text-sm font-semibold'
+            />
             <div className='flex items-center gap-2'>
                 <span className={`rounded-md px-2 py-1 text-xs font-semibold capitalize ${logSeverityClasses[event.normalized.severity]}`}>{event.normalized.severity}</span>
                 <button type='button' aria-label='Copy event JSON' onClick={onCopy} className='rounded-md p-1.5 text-ui-muted hover:text-ui-primary'><Copy size={16} /></button>

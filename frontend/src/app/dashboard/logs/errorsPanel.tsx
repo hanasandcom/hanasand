@@ -1,8 +1,9 @@
 'use client'
 import { type ReactNode } from 'react'
-import { Bug, ShieldAlert, Activity, AlertTriangle, Copy, ChevronDown } from 'lucide-react'
+import { Bug, ShieldAlert, Activity, AlertTriangle, Copy } from 'lucide-react'
 import { dashboardPanelClass } from '@/components/dashboard/ui'
 import type { ErrorEvent, ErrorEventsResponse } from '@/utils/logs/getLogs'
+import EventDisclosureTrigger from './EventDisclosure'
 const countFormatter = new Intl.NumberFormat('nb-NO')
 function when(value: string) { return new Date(value).toLocaleString() }
 export default function ErrorsPanel({
@@ -44,16 +45,14 @@ export default function ErrorsPanel({
                             const isOpen = expanded[event.id] ?? false
                             return <article key={event.id} className='min-w-0 p-4'>
                                 <div className='flex flex-wrap items-center justify-between gap-3'>
-                                    <button
-                                        type='button'
-                                        onClick={() => onToggle(event.id)}
-                                        aria-expanded={isOpen}
-                                        aria-controls={`error-details-${event.id}`}
-                                        className='flex min-w-0 items-center gap-2 break-all text-left font-mono text-xs font-semibold text-ui-text hover:text-ui-primary'
-                                    >
-                                        <ChevronDown size={16} aria-hidden className={`shrink-0 ${isOpen ? '' : '-rotate-90'}`} />
-                                        {event.error_code || 'uncategorized'}
-                                    </button>
+                                    <EventDisclosureTrigger
+                                        id={`error-details-${event.id}`}
+                                        expanded={isOpen}
+                                        onToggle={() => onToggle(event.id)}
+                                        label={event.error_code || 'uncategorized'}
+                                        buttonClassName='flex min-w-0 items-center gap-2 break-all text-left font-mono text-xs font-semibold text-ui-text hover:text-ui-primary'
+                                        iconClassName='shrink-0'
+                                    />
                                     <div className='flex items-center gap-2'>
                                         <span className={`rounded-md border px-2 py-0.5 text-xs font-semibold ${event.status_code >= 500 ? 'border-ui-danger bg-ui-raised/15 text-ui-text' : 'border-ui-warning bg-ui-warning/15 text-ui-warning'}`}>
                                             {event.status_code || 'unreported'}
