@@ -1194,3 +1194,18 @@ build generated all 116 routes. The frontend cap scan covers 2,311 files /
 4,178 hand-maintained files over 200 lines and 324,095 LOC total. The 100,000-
 line API and 10,000–30,000-line frontend targets remain outstanding. No
 deployment was performed.
+
+The AI runtime endpoint now uses a focused snapshot loader instead of building
+the full workspace bundle: its data path makes two owner/collaborator-filtered
+queries and reuses those query helpers in the full workspace path. Independent
+review and parity coverage approved conversation ordering, archived/shared
+selection, access, message errors and tool state; API lint/typecheck and targeted
+tests passed. On the frontend, four TI workbench panels now share their
+responsive frame and selected-preview layout while retaining their own row,
+detail and action logic. Independent render/interaction review approved the
+unchanged UI contracts. The shell improves reuse but adds 25 production lines;
+its expanded tests add 26 lines. Full frontend verification is pending for the
+combined follow-up work. Frontend cap scan: 2,312 files / 153,363 LOC / zero
+over 200. Repository scan: 84 of 4,182 hand-maintained files over 200 lines,
+324,284 LOC total. The API 100,000-line and frontend 10,000–30,000-line targets
+remain outstanding. No deployment was performed.
