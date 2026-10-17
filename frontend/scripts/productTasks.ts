@@ -114,6 +114,7 @@ export const productTasks: TestTask[] = [
     { id: 'source-status', title: 'TI scraper control session authentication', command: [bun, 'test', 'tests/ti-source-status.test.mjs'] },
     { id: 'source-activation', title: 'Source activation controls', command: [bun, 'scripts/check-source-activation.mjs'], requires: 'playwright' },
     { id: 'traffic-locations', title: 'Recorded traffic locations', command: [bun, 'tests/traffic-locations.test.ts'] },
+    { id: 'traffic-metric-bars', title: 'Shared traffic metric bar presentation', command: [bun, 'test', 'tests/traffic-metric-bars.test.tsx'] },
     { id: 'traffic-dashboard-data', title: 'Shared traffic dashboard snapshot data', command: [bun, 'test', 'tests/traffic-dashboard-data.test.ts'] },
     { id: 'traffic-snapshot-refresh', title: 'Shared traffic snapshot polling behavior', command: [bun, 'test', 'tests/traffic-snapshot-refresh.test.ts'] },
     { id: 'traffic-page-state', title: 'Traffic route loading and unavailable state markup', command: [bun, 'test', 'tests/traffic-page-state.test.tsx'] },

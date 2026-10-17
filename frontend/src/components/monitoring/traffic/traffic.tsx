@@ -5,7 +5,7 @@ import formatRequestTime from '@/utils/monitoring/formatRequestTime'
 import { Activity, Clock, AlertTriangle } from 'lucide-react'
 import RequestsOverTimeChart from './requestsOverTimeChart'
 import CombinedMetrics from './combinedMetrics'
-import Bar from './bar'
+import MetricBars from './metricBars'
 import type { TrafficMetric, TrafficMetrics, TrafficSlowMetric } from '@/utils/monitoring/types'
 
 export { RecentTrafficTable } from './recentTrafficTable'
@@ -114,16 +114,7 @@ export default function TrafficDashboard({ metrics, selectedDomain }: TrafficDas
                             return (
                                 <div className='rounded-lg border border-ui-border bg-ui-panel p-4 shadow-sm' key={title as string}>
                                     <h3 className='mb-4 text-lg font-semibold text-ui-text'>{title as string}</h3>
-                                    <div className='space-y-2'>
-                                        {set.map((entry) => (
-                                            <Bar
-                                                key={entry.key}
-                                                label={entry.key}
-                                                value={'count' in entry ? (entry.count || 0) : Math.round(entry.avg_time || 0)}
-                                                total={totalRequests}
-                                            />
-                                        ))}
-                                    </div>
+                                    <MetricBars entries={set} total={totalRequests} />
                                 </div>
                             )
                         })}

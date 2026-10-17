@@ -1,6 +1,6 @@
 import { LucideChartNoAxesGantt } from 'lucide-react'
 import { useState } from 'react'
-import Bar from './bar'
+import MetricBars from './metricBars'
 import type { TrafficMetric, TrafficSlowMetric } from '@/utils/monitoring/types'
 
 export default function CombinedMetrics({ title, data, total }: {
@@ -26,14 +26,7 @@ export default function CombinedMetrics({ title, data, total }: {
                     {buttonText}
                 </button>
             </div>
-            <div className='space-y-2'>
-                {currentData.map((entry) => (
-                    <Bar
-                        key={entry.key}
-                        label={entry.key} value={'count' in entry ? (entry.count || 0) : Math.round(entry.avg_time || 0)}
-                        total={total} />
-                ))}
-            </div>
+            <MetricBars entries={currentData} total={total} />
         </div>
     )
 }
