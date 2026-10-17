@@ -1368,3 +1368,19 @@ lines and 324,438 total lines. The API 100,000-line and frontend
 10,000–30,000-line reduction goals remain unmet. Existing full-frontend ESLint
 baseline errors outside this changed-file check remain. No deployment was
 performed.
+
+A follow-up frontend pass replaces CaseOverview source-slicing assertions with
+SSR checks for empty/populated rows, headers, organization-specific links, and
+the view/API wiring boundary. A shared vulnerability timestamp formatter now
+owns the identical valid/invalid-date guard in both scan summary consumers;
+their Norwegian locale, caller-specific fallbacks, paused state, and image prefix
+remain unchanged. The focused test is registered and covers valid, missing, and
+invalid timestamps. Independent review approved both changes after restoring
+the workflow-boundary and fallback assertions. The full frontend test runner,
+typecheck, changed-file ESLint, line-cap scan, diff check, and production build
+pass; all 116 routes were generated. The frontend inventory is 2,320
+hand-maintained files / 153,920 lines / zero files above 200. The helper removes
+five production lines; the current inventory is 57 lines above the prior
+checkpoint, mostly from stronger runtime coverage. The repository-wide scan is
+73 of 4,224 files over 200 / 324,495 total lines. API 100,000-line and frontend
+10,000–30,000-line reduction goals remain unmet. No deployment was performed.

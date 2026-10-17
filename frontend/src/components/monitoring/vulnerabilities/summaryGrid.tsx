@@ -1,4 +1,5 @@
 import type { GetVulnerabilities } from '@/utils/monitoring/types'
+import { formatScanTimestamp } from './helpers'
 
 export default function SummaryGrid({
     data,
@@ -14,8 +15,8 @@ export default function SummaryGrid({
             </div>
             <div className='flex flex-wrap gap-2 sm:justify-end'>
                 <TriageFact label='Targets' value={targetLabel(data, scanStatus)} />
-                <TriageFact label='Last scan' value={timeLabel(scanStatus.finishedAt || data?.generatedAt, 'No completed scan')} />
-                <TriageFact label='Next scan' value={scanStatus.paused ? 'Paused' : timeLabel(scanStatus.nextRunAt, 'Watching')} />
+                <TriageFact label='Last scan' value={formatScanTimestamp(scanStatus.finishedAt || data?.generatedAt, 'No completed scan')} />
+                <TriageFact label='Next scan' value={scanStatus.paused ? 'Paused' : formatScanTimestamp(scanStatus.nextRunAt, 'Watching')} />
                 <TriageFact label='Failures' value={scanStatus.failureCount ? `${scanStatus.failureCount}` : 'None'} />
             </div>
         </div>
@@ -36,11 +37,4 @@ function targetLabel(data: GetVulnerabilities | null, scanStatus: GetVulnerabili
     if (data?.imageCount) return `${data.imageCount} images`
     if (scanStatus.blocker || scanStatus.lastError) return 'Unavailable'
     return 'Discovering'
-}
-
-function timeLabel(value: string | null | undefined, fallback: string) {
-    if (!value) return fallback
-    const time = new Date(value)
-    if (Number.isNaN(time.getTime())) return fallback
-    return time.toLocaleString('nb-NO')
 }

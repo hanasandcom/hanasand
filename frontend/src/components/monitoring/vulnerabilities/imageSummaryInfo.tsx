@@ -1,5 +1,6 @@
 import type { ImageVulnerabilityReport } from '@/utils/monitoring/types'
 import { Container } from 'lucide-react'
+import { formatScanTimestamp } from './helpers'
 
 export default function ImageSummaryInfo({ image }: { image: ImageVulnerabilityReport }) {
     return (
@@ -14,7 +15,7 @@ export default function ImageSummaryInfo({ image }: { image: ImageVulnerabilityR
                 <div className='flex items-center gap-2 overflow-hidden'>
                     <h2 className='truncate text-sm font-semibold text-ui-text'>{image.image}</h2>
                     <span className='shrink-0 text-xs text-ui-muted'>
-                        {formatScannedAt(image.scannedAt)}
+                        {formatScanTimestamp(image.scannedAt, 'scan queued', 'scanned ')}
                     </span>
                 </div>
                 <div className='mt-1 flex flex-wrap gap-1.5' aria-label='Image scanner results'>
@@ -43,10 +44,4 @@ function EngineBadge({ label, engine }: { label: string, engine: ImageVulnerabil
             {label}: {value}
         </span>
     )
-}
-
-function formatScannedAt(value: string) {
-    const time = new Date(value)
-    if (!value || Number.isNaN(time.getTime())) return 'scan queued'
-    return `scanned ${time.toLocaleString('nb-NO')}`
 }

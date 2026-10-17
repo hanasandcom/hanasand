@@ -51,6 +51,7 @@ export const productTasks: TestTask[] = [
     { id: 'product-progress-readiness-defaults', title: 'Product progress readiness constructors preserve lane contracts', command: [bun, 'test', 'tests/product-progress-readiness-defaults.test.ts'] },
     { id: 'blocklist-render', title: 'Blocklist edit actions require persisted entry identifiers', command: [bun, 'test', 'tests/blocklist-render.test.tsx'] },
     { id: 'vulnerability-severity-badge', title: 'Vulnerability severity badge styles and counts', command: [bun, 'test', 'tests/vulnerability-severity-badge.test.tsx'] },
+    { id: 'vulnerability-scan-timestamps', title: 'Vulnerability scan timestamp presentation', command: [bun, 'test', 'tests/vulnerability-scan-timestamps.test.tsx'] },
     { id: 'dwm-tenant-scope', title: 'DWM tenant scope and findings presentation contracts', command: [bun, 'test', 'tests/dwm-tenant-scope.test.ts'] },
     { id: 'findings-portal-data', title: 'Findings resource loaders preserve response, error, and abort contracts', command: [bun, 'test', 'tests/findings-portal-data.test.ts'] },
     { id: 'dwm-readiness-proxy-routes', title: 'DWM readiness and exposure routes preserve authoritative proxy data', command: [bun, 'test', 'tests/dwm-readiness-proxy-routes.test.ts'] },

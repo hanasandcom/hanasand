@@ -54,6 +54,12 @@ export function impactScore(image: ImageVulnerabilityReport) {
         + (Number(image.severity?.low) || 0)
 }
 
+export function formatScanTimestamp(value: string | null | undefined, fallback: string, prefix = '') {
+    if (!value) return fallback
+    const timestamp = new Date(value)
+    return Number.isNaN(timestamp.getTime()) ? fallback : `${prefix}${timestamp.toLocaleString('nb-NO')}`
+}
+
 function normalizeSeverity(value: Partial<ImageVulnerabilityReport['severity']> | undefined): ImageVulnerabilityReport['severity'] {
     return {
         critical: Number(value?.critical) || 0,
