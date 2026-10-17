@@ -1,9 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import config from '@/config'
-import { getCookie } from '@/utils/cookies/cookies'
 import { validateScopeSet, type DraftApiKey } from './model'
+import { rateLimitHeaders, requestRateLimit } from './rateLimitRequest'
 
 export function useApiKeyCollection(initialKeys: ApiKeySummary[], setSaving: (saving: boolean) => void) {
     const [apiKeys, setApiKeys] = useState(initialKeys)
@@ -11,9 +10,8 @@ export function useApiKeyCollection(initialKeys: ApiKeySummary[], setSaving: (sa
     const [issuedSecret, setIssuedSecret] = useState<string | null>(null)
 
     async function createKey(draft: DraftApiKey, requiredValid: boolean, requiredMessage: string, scopeValid: boolean, scopeMessage: string, resetDraft: () => void) {
-        const token = getCookie('access_token')
-        const id = getCookie('id')
-        if (!token || !id) {
+        const headers = rateLimitHeaders()
+        if (!headers) {
             setMessage('You need to sign in again before issuing API keys.')
             return
         }
@@ -30,14 +28,10 @@ export function useApiKeyCollection(initialKeys: ApiKeySummary[], setSaving: (sa
         setMessage(null)
         setIssuedSecret(null)
         try {
-            const response = await fetch(`${config.url.api}/rate-limit/keys`, {
+            const payload = await requestRateLimit<{ apiKey?: ApiKeySummary, secret?: string }>('/keys', headers, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${decodeURIComponent(token)}`,
-                    id,
-                },
-                body: JSON.stringify({
+                fallbackMessage: 'Unable to create API key.',
+                body: {
                     ownerId: draft.ownerId.trim(),
                     name: draft.name.trim(),
                     tier: draft.tier.trim() || 'custom',
@@ -45,11 +39,10 @@ export function useApiKeyCollection(initialKeys: ApiKeySummary[], setSaving: (sa
                     enabled: draft.enabled,
                     expiresAt: draft.expiresAt || null,
                     scopes: draft.scopes,
-                }),
+                },
             })
-            const payload = await response.json().catch(() => null)
-            if (!response.ok) throw new Error(payload?.error || 'Unable to create API key.')
-            if (payload?.apiKey) setApiKeys((previous) => [payload.apiKey as ApiKeySummary, ...previous])
+            const createdKey = payload?.apiKey
+            if (createdKey) setApiKeys((previous) => [createdKey, ...previous])
             setIssuedSecret(typeof payload?.secret === 'string' ? payload.secret : null)
             resetDraft()
             setMessage('API key issued.')
@@ -61,9 +54,8 @@ export function useApiKeyCollection(initialKeys: ApiKeySummary[], setSaving: (sa
     }
 
     async function updateKey(apiKey: ApiKeySummary) {
-        const token = getCookie('access_token')
-        const id = getCookie('id')
-        if (!token || !id) {
+        const headers = rateLimitHeaders()
+        if (!headers) {
             setMessage('You need to sign in again before updating API keys.')
             return
         }
@@ -76,19 +68,14 @@ export function useApiKeyCollection(initialKeys: ApiKeySummary[], setSaving: (sa
         setSaving(true)
         setMessage(null)
         try {
-            const response = await fetch(`${config.url.api}/rate-limit/keys/${apiKey.id}`, {
+            const payload = await requestRateLimit<{ apiKey?: ApiKeySummary }>(`/keys/${apiKey.id}`, headers, {
                 method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${decodeURIComponent(token)}`,
-                    id,
-                },
-                body: JSON.stringify(apiKey),
+                fallbackMessage: 'Unable to update API key.',
+                body: apiKey,
             })
-            const payload = await response.json().catch(() => null)
-            if (!response.ok) throw new Error(payload?.error || 'Unable to update API key.')
-            if (payload?.apiKey) {
-                setApiKeys((previous) => previous.map((entry) => entry.id === apiKey.id ? payload.apiKey as ApiKeySummary : entry))
+            const updatedKey = payload?.apiKey
+            if (updatedKey) {
+                setApiKeys((previous) => previous.map((entry) => entry.id === apiKey.id ? updatedKey : entry))
             }
             setMessage('API key updated.')
         } catch (cause) {
@@ -99,22 +86,18 @@ export function useApiKeyCollection(initialKeys: ApiKeySummary[], setSaving: (sa
     }
 
     async function deleteKey(idToDelete: string) {
-        const token = getCookie('access_token')
-        const id = getCookie('id')
-        if (!token || !id) {
+        const headers = rateLimitHeaders()
+        if (!headers) {
             setMessage('You need to sign in again before deleting API keys.')
             return
         }
-
         setSaving(true)
         setMessage(null)
         try {
-            const response = await fetch(`${config.url.api}/rate-limit/keys/${idToDelete}`, {
+            await requestRateLimit(`/keys/${idToDelete}`, headers, {
                 method: 'DELETE',
-                headers: { Authorization: `Bearer ${decodeURIComponent(token)}`, id },
+                fallbackMessage: 'Unable to delete API key.',
             })
-            const payload = await response.json().catch(() => null)
-            if (!response.ok) throw new Error(payload?.error || 'Unable to delete API key.')
             setApiKeys((previous) => previous.filter((entry) => entry.id !== idToDelete))
             setMessage('API key deleted.')
         } catch (cause) {

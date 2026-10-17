@@ -1,9 +1,8 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import config from '@/config'
-import { getCookie } from '@/utils/cookies/cookies'
 import { fallbackSettings, validateOverrideSet } from './model'
+import { rateLimitHeaders, requestRateLimit } from './rateLimitRequest'
 
 export function useRateLimitPolicy(initialSettings: RateLimitSettings | null, routes: RateLimitRoute[], setSaving: (saving: boolean) => void) {
     const [settings, setSettings] = useState<RateLimitSettings>(initialSettings || fallbackSettings)
@@ -13,9 +12,8 @@ export function useRateLimitPolicy(initialSettings: RateLimitSettings | null, ro
     const overrideCount = settings.overrides.filter((override) => override.enabled).length
 
     async function saveSettings() {
-        const token = getCookie('access_token')
-        const id = getCookie('id')
-        if (!token || !id) {
+        const headers = rateLimitHeaders()
+        if (!headers) {
             setMessage('You need to sign in again before saving rate-limit settings.')
             return
         }
@@ -27,17 +25,11 @@ export function useRateLimitPolicy(initialSettings: RateLimitSettings | null, ro
         setSaving(true)
         setMessage(null)
         try {
-            const response = await fetch(`${config.url.api}/rate-limit/settings`, {
+            const payload = await requestRateLimit<{ settings?: RateLimitSettings }>('/settings', headers, {
                 method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${decodeURIComponent(token)}`,
-                    id,
-                },
-                body: JSON.stringify(settings),
+                fallbackMessage: 'Unable to save rate-limit settings.',
+                body: settings,
             })
-            const payload = await response.json().catch(() => null)
-            if (!response.ok) throw new Error(payload?.error || 'Unable to save rate-limit settings.')
             setSettings(payload?.settings && typeof payload.settings === 'object' ? payload.settings as RateLimitSettings : settings)
             setMessage('Rate-limit settings saved.')
         } catch (cause) {
