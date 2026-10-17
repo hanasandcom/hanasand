@@ -4,6 +4,7 @@ import { useCallback, useEffect, type Dispatch, type SetStateAction } from 'reac
 import type { BrowserQuota, BrowserRunHistory, BrowserRunStats } from '../types'
 import { historyApiPath, historyStorageKey, statsStorageKey } from '../browserSetup'
 import { getOrCreateBrowserClientId } from '../browserClientId'
+import { deleteBrowserHistory } from '../historyDeletion'
 import { persistHistory, sanitizeHistory } from '../historyData'
 import { quotaValue } from '../browserValues'
 import { shareSavedFinding } from '../shareSavedFinding'
@@ -38,14 +39,7 @@ export function useBrowserHistoryActions({ initialStats, history, setHistory, se
     }, [])
 
     const deleteHistory = useCallback(async (ids?: string[]) => {
-        const response = await fetch(historyApiPath, {
-            method: 'DELETE',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ clientId: getOrCreateBrowserClientId(), ...(ids ? { ids } : { clear: true }) }),
-        })
-        const payload = await response.json() as { error?: string }
-        if (!response.ok) throw new Error(payload.error || 'Could not delete browser history.')
+        await deleteBrowserHistory(getOrCreateBrowserClientId(), ids, 'Could not delete browser history.')
         await refreshHistory()
     }, [refreshHistory])
 

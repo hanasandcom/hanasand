@@ -1008,3 +1008,21 @@ because the characterization and lifecycle tests were added; this is verified
 reuse work, not net size reduction. The organization browser E2E attempt stopped
 before test startup because the configured local API server exited with code 1.
 Do not claim those browser interactions were verified here. No push or deploy.
+
+The browser history screens now share their DELETE request construction and
+response/error parsing while retaining distinct callers' success and refresh
+effects; an explicit empty ID list remains different from omitted IDs (clear
+all). Share `WorkspaceStatus` now reads Git state through the Git plugin's
+existing local-storage parser, removing the duplicate parser while preserving
+its canonical-share/route-ID lookup order, storage listener, and markup. New
+browser request and storage-reader tests are registered in the default runner.
+The shared reader test covers SSR, absent, malformed, incomplete, and normalized
+values. Independent review found no behavior regressions. Full frontend tests,
+scoped lint/typecheck, and production build passed; all 116 routes generated.
+The current scan is 2,302 files / 152,836 LOC / zero files over 200 lines, up 67
+LOC from the prior scan; the additions are test coverage and do not show net
+frontend size reduction. TS/JS inventory is about 111,974 LOC under `src`,
+26,879 under `tests`; the largest reviewed dashboard area is TI at 7,355 LOC
+across 82 files, and `components/share` is 8,105 LOC across 97 files. These are
+directory counts, not a complete feature-by-feature attribution. The 10,000–
+30,000 frontend target and broader API goal remain unfinished. No push/deploy.

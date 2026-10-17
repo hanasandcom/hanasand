@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ProviderBadges } from './components/ProviderBadges'
 import { shareSavedFinding } from './shareSavedFinding'
+import { deleteBrowserHistory } from './historyDeletion'
 import type { ProviderRunResult } from './types/history'
 
 type HistoryRun = {
@@ -77,14 +78,7 @@ export default function BrowserHistory({ clientId, onShare }: { clientId: string
         setMessage('')
         setError('')
         try {
-            const response = await fetch('/api/backend/browser/runs', {
-                method: 'DELETE',
-                credentials: 'include',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ clientId, ids: [run.id] }),
-            })
-            const payload = await response.json() as { error?: string }
-            if (!response.ok) throw new Error(payload.error || 'Could not delete this run.')
+            await deleteBrowserHistory(clientId, [run.id], 'Could not delete this run.')
             setRuns(current => current.filter(item => item.resultId !== run.resultId))
             setMessage('Run deleted.')
             setOpenMenuId('')

@@ -1,7 +1,10 @@
 'use client'
 
-import { Dispatch, SetStateAction, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import type { Dispatch, SetStateAction, ReactNode } from 'react'
 import { FileCode2, FolderTree, GitBranch, MonitorUp, RotateCcw, ShieldCheck, TerminalSquare } from 'lucide-react'
+import { readStoredGitWorkspace } from './gitPlugin/storage'
+import type { StoredGitWorkspace } from './gitPlugin/types'
 import { countTreeItems, findPath, getVisibleWorkspaceTree, getWorkspaceName, isWorkspaceRootItem } from './workspaceTree'
 
 type WorkspaceStatusProps = {
@@ -11,17 +14,6 @@ type WorkspaceStatusProps = {
     terminalStatus: string
     setTriggerTerminalChange: Dispatch<SetStateAction<boolean | 'close'>>
 }
-
-type StoredGitWorkspace = {
-    input: string
-    fullName: string
-    branch: string
-    sourcePath: string
-    updatedAt: string
-    lastSyncedAt?: string
-}
-
-const storagePrefix = 'hanasand.share.git.'
 
 export default function WorkspaceStatus({
     shareRouteId,
@@ -135,25 +127,4 @@ function StatusRow({ icon, label, value, detail }: { icon: ReactNode, label: str
             </div>
         </div>
     )
-}
-
-function readStoredGitWorkspace(shareId: string) {
-    if (typeof window === 'undefined') return null
-
-    try {
-        const raw = window.localStorage.getItem(`${storagePrefix}${shareId}`)
-        if (!raw) return null
-        const parsed = JSON.parse(raw) as Partial<StoredGitWorkspace>
-        if (!parsed.input || !parsed.fullName || !parsed.branch) return null
-        return {
-            input: parsed.input,
-            fullName: parsed.fullName,
-            branch: parsed.branch,
-            sourcePath: parsed.sourcePath || '',
-            updatedAt: parsed.updatedAt || '',
-            lastSyncedAt: parsed.lastSyncedAt || parsed.updatedAt || '',
-        }
-    } catch {
-        return null
-    }
 }
