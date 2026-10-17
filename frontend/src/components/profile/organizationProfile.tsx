@@ -3,6 +3,7 @@
 import Image from 'next/image'
 import { Check, Copy, Link as LinkIcon } from 'lucide-react'
 import { useState } from 'react'
+import { copyTextToClipboard } from '@/utils/copyTextToClipboard'
 
 export default function OrganizationProfile({ profile, username }: { profile: User, username: string }) {
     const [copied, setCopied] = useState(false)
@@ -16,10 +17,11 @@ export default function OrganizationProfile({ profile, username }: { profile: Us
 
     async function copyProfile() {
         try {
-            await navigator.clipboard.writeText(new URL(path, window.location.origin).href)
-            setCopied(true)
-            setCopyFailed(false)
+            const copied = await copyTextToClipboard(new URL(path, window.location.origin).href)
+            setCopied(copied)
+            setCopyFailed(!copied)
         } catch {
+            setCopied(false)
             setCopyFailed(true)
         }
     }

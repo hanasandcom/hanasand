@@ -28,6 +28,15 @@ test('organization workspace invite filtering creation copy resend and revoke', 
     await page.locator('#invites').getByLabel('Copy invite link').click()
     await expect.poll(() => page.evaluate(() => (window as Window & { __copiedInvite?: string }).__copiedInvite)).toBe('/organizations/invites/invite_acme_admin')
     await expect(page.locator('#invites')).toContainText('Invite link copied.')
+    await page.evaluate(() => {
+        Object.defineProperty(navigator, 'clipboard', {
+            configurable: true,
+            value: { writeText: async () => { throw new Error('Clipboard unavailable') } },
+        })
+        document.execCommand = () => false
+    })
+    await page.locator('#invites').getByLabel('Copy invite link').click()
+    await expect(page.locator('#invites')).toContainText('Could not copy invite link.')
     await page.locator('#invites').getByLabel('Resend invite').click()
     expect(state.inviteActions).toContainEqual({ inviteId: 'invite_acme_admin', action: 'resend' })
     await expect(page.locator('#audit')).toContainText('Invite resent to admin@acme.test.')

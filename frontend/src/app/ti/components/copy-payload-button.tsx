@@ -2,6 +2,7 @@
 
 import { CheckCircle2, Copy } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { copyTextToClipboard } from '@/utils/copyTextToClipboard'
 
 export default function CopyPayloadButton({ label, payload, showLabel = false }: { label: string; payload: unknown; showLabel?: boolean }) {
     const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle')
@@ -27,9 +28,9 @@ export default function CopyPayloadButton({ label, payload, showLabel = false }:
     async function copyPayload() {
         const text = JSON.stringify(payload, null, 2)
         try {
-            await navigator.clipboard.writeText(text)
-            setState('copied')
-            resetLater(1800)
+            const copied = await copyTextToClipboard(text)
+            setState(copied ? 'copied' : 'failed')
+            resetLater(copied ? 1800 : 2200)
         } catch {
             setState('failed')
             resetLater(2200)

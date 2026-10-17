@@ -2904,3 +2904,18 @@ diff checks pass. The frontend currently scans as 2,432 source/config files /
 156,840 lines, with no file above 200; that is 3,132 lines above the 153,708
 baseline. This is a small reuse/duplication cleanup and does not materially
 reduce the aggregate frontend size; the 10,000–30,000-line target remains open.
+
+Clipboard writes in the TI citation/payload controls and organization profile /
+invite actions now reuse the existing `copyTextToClipboard` utility. Existing
+success/failure labels and reset timing are preserved; fallback-copy success is
+now reported correctly, and a false invite-copy result follows the current
+action error state. Independent review approved the behavior. Clipboard helper
+tests pass 5/5, including a false `execCommand` result and textarea cleanup;
+scoped ESLint, nonincremental typecheck, frontend/repository caps, and diff
+checks pass. Two browser behavior specs were added or extended but could not
+execute here: the managed API server exits during startup, and the isolated
+profile fixture build fails under Bun 1.3.11 with “Multiple files share the
+same output path.” The current frontend scan is 2,432 source/config files /
+156,903 lines, with no file above 200; that is 3,195 lines above the 153,708
+baseline. This reuse is a small cleanup and does not meet the 10,000–30,000-line
+reduction goal.

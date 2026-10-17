@@ -32,3 +32,23 @@ test('organization profiles preserve email visibility and user search', async ({
     await search.press('Escape')
     await expect(page.getByText('2 shown', { exact: true })).toBeVisible()
 })
+
+test('organization profile copy feedback reflects clipboard fallback success and failure', async ({ page }) => {
+    await page.route('http://email.test/fixture.js', route => route.fulfill({ contentType: 'application/javascript', body: bundle }))
+    await page.route('http://email.test/', route => route.fulfill({ contentType: 'text/html', body: '<div id="root"></div><script type="module" src="/fixture.js"></script>' }))
+    await page.goto('http://email.test/')
+    const profile = page.getByTestId('organization-profile')
+
+    await page.evaluate(() => {
+        Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async () => { throw new Error('Clipboard unavailable') } } })
+        document.execCommand = () => true
+    })
+    await profile.getByRole('button', { name: 'Copy profile link' }).click()
+    await expect(profile.getByRole('button', { name: 'Link copied' })).toBeVisible()
+    await expect(profile.getByRole('status')).toHaveText('Profile link copied to clipboard.')
+
+    await page.evaluate(() => { document.execCommand = () => false })
+    await profile.getByRole('button', { name: 'Link copied' }).click()
+    await expect(profile.getByRole('alert')).toHaveText('Couldn’t copy the link. You can copy the profile address above.')
+    await expect(profile.getByRole('button', { name: 'Copy profile link' })).toBeVisible()
+})

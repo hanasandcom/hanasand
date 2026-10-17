@@ -62,9 +62,28 @@ test('clipboard fallback removes its textarea when execCommand throws', async ()
     }
 })
 
+test('clipboard fallback returns false and removes its textarea when execCommand reports failure', async () => {
+    let removed = false
+    const restoreNavigator = replaceGlobal('navigator', { clipboard: { writeText: async () => { throw new Error('unavailable') } } })
+    const restoreDocument = replaceGlobal('document', {
+        createElement: () => ({ value: '', style: {}, select: () => {}, remove: () => { removed = true } }),
+        body: { appendChild: () => {} },
+        execCommand: () => false,
+    })
+    try {
+        assert.equal(await copyTextToClipboard('fallback payload'), false)
+        assert.equal(removed, true)
+    } finally {
+        restoreDocument()
+        restoreNavigator()
+    }
+})
+
 test('failed fallback remains a caller-specific status and timing contract', async () => {
     const database = await readFile('src/app/dashboard/db/DatabaseRowPreview.tsx', 'utf8')
     const developerButton = await readFile('src/app/developers/copyCodeButton.tsx', 'utf8')
+    const actorReferences = await readFile('src/app/ti/components/actor-references.tsx', 'utf8')
+    const payloadButton = await readFile('src/app/ti/components/copy-payload-button.tsx', 'utf8')
     assert.match(database, /copyTextToClipboard\(value\) \? 'copied' : 'failed'/)
     assert.match(database, /setCopyStatus\(\{ key, result \}\)/)
     assert.match(database, /window\.setTimeout\(\(\) => setCopyStatus\(null\), 1600\)/)
@@ -72,6 +91,13 @@ test('failed fallback remains a caller-specific status and timing contract', asy
     assert.match(developerButton, /if \(!await copyTextToClipboard\(value\)\) return/)
     assert.match(developerButton, /window\.setTimeout\(\(\) => setCopied\(false\), 1800\)/)
     assert.match(developerButton, /aria-label=\{`\$\{label\} code`\}/)
+    assert.match(actorReferences, /copyTextToClipboard\(value\)/)
+    assert.match(actorReferences, /setCopiedCitation\(current => current === copiedKey \? null : current\), 1000\)/)
+    assert.match(payloadButton, /copyTextToClipboard\(text\)/)
+    assert.match(payloadButton, /setState\(copied \? 'copied' : 'failed'\)/)
+    assert.match(payloadButton, /resetLater\(copied \? 1800 : 2200\)/)
     assert.doesNotMatch(database, /execCommand\('copy'\)/)
     assert.doesNotMatch(developerButton, /execCommand\('copy'\)/)
+    assert.doesNotMatch(actorReferences, /navigator\.clipboard\.writeText/)
+    assert.doesNotMatch(payloadButton, /navigator\.clipboard\.writeText/)
 })

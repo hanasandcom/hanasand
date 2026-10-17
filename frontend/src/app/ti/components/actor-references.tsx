@@ -2,6 +2,7 @@
 
 import { type ActorReference, actorReferenceMetadata } from '../pageClientShared'
 import { useState } from 'react'
+import { copyTextToClipboard } from '@/utils/copyTextToClipboard'
 
 export default function ActorReferences({ citations, references, activeCitation }: { citations: string[]; references?: Array<{ name: string; url?: string }>; activeCitation: number | null }) {
     const [copiedCitation, setCopiedCitation] = useState<string | null>(null)
@@ -18,7 +19,10 @@ export default function ActorReferences({ citations, references, activeCitation 
             ? `${reference.author}. (${reference.year}). ${reference.name}. ${reference.url ?? ''}`.trim()
             : `@misc{ti-${number}, author = {${reference.author}}, title = {${reference.name}}, year = {${reference.year}}, url = {${reference.url ?? ''}}}`
         try {
-            await navigator.clipboard.writeText(value)
+            if (!await copyTextToClipboard(value)) {
+                setCopiedCitation(null)
+                return
+            }
             const copiedKey = `${number}-${format}`
             setCopiedCitation(copiedKey)
             window.setTimeout(() => setCopiedCitation(current => current === copiedKey ? null : current), 1000)

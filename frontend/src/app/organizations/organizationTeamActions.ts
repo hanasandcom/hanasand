@@ -5,6 +5,7 @@ import type { OrgBundle } from './types/bundle'
 import { inviteEmailConflicts, invalidInviteEmails, parseInviteEmails } from './model/forms'
 import { organizationMemberLabel } from './model/organization'
 import { requestJson } from './model/workspaceApi'
+import { copyTextToClipboard } from '@/utils/copyTextToClipboard'
 
 type TeamOptions = {
     selectedOrganization?: OrganizationSummary
@@ -55,7 +56,7 @@ export function createOrganizationTeamActions(options: TeamOptions) {
         requireManage()
         const value = invite.acceptanceUrl || invite.acceptancePath || invite.token
         if (!value) throw new Error('Invite link is not available.')
-        await navigator.clipboard.writeText(value)
+        if (!await copyTextToClipboard(value)) throw new Error('Could not copy invite link.')
         return 'Invite link copied.'
     }, `invite-${invite.id}`)
 
