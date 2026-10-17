@@ -1144,3 +1144,20 @@ remaining over-cap files are in the frontend. Module boundaries and added test
 assertions leave aggregate LOC higher by about 10 lines in this checkpoint.
 The 100,000-line API and 10,000–30,000-line frontend reduction targets remain
 unachieved. No deployment was performed.
+
+The next reviewed checkpoint separates Stripe webhook transport and event
+mutations from the billing facade; the original public webhook/signature
+exports remain, and independent review confirmed validation, idempotency,
+transaction and SQL ordering are unchanged. The focused Stripe suite passes
+(7 tests / 19 assertions), and API lint/typecheck plus the full default API
+runner pass. The API runner still skips 37 database-required suites. On the
+frontend, notes, automation, system-cron and apt-update clients now share
+`backendJsonRequest` while keeping their domain paths, auth policy, response
+fallbacks, cache behavior, cookie refresh, abort signal and apt headers. The
+four clients plus helper are 326 LOC versus 324 before; focused coverage is
+four tests / 38 expectations. Independent review approved the transport. The
+full frontend suite, typecheck and production build pass, with all 116 routes
+generated; its cap scan covers 2,309 source/config files / 153,185 LOC / zero
+over 200. The repository-wide scan finds 88 of 4,170 files over 200 lines and
+323,940 LOC total. The API 100,000-line and frontend 10,000–30,000-line targets
+remain unachieved. No deployment was performed.
