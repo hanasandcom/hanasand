@@ -18,6 +18,7 @@ export const otherUnitTasks: TestTask[] = [
     { id: 'box-workspace-api-request', title: 'Box authenticated workspace API request contract', command: [bun, 'test', 'tests/box-workspace-api-request.test.ts'] },
     { id: 'browser-sandbox-broker', title: 'Browser sandbox broker contract', command: [bun, 'test', 'tests/browser-sandbox-broker.test.ts'] },
     { id: 'browser-sandbox-evidence', title: 'Browser sandbox evidence contract', command: [bun, 'test', 'tests/browser-sandbox-evidence.test.ts'] },
+    { id: 'browser-provider-data', title: 'Browser provider capture selection', command: [bun, 'test', 'tests/browser-provider-data.test.ts'] },
     { id: 'browser-sandbox-history', title: 'Browser sandbox history sanitization', command: [bun, 'test', 'tests/browser-sandbox-history.test.ts'] },
     { id: 'browser-history-deletion', title: 'Browser history deletion request contract', command: [bun, 'test', 'tests/browser-history-deletion-request.test.ts'] },
     { id: 'share-workspace-status-storage', title: 'Shared Git workspace status storage reader', command: [bun, 'test', 'tests/share-workspace-status-storage.test.ts'] },

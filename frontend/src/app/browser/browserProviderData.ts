@@ -15,15 +15,24 @@ export function matchesTool(capture: Capture, tool: SandboxTool) {
 
 export function selectToolCapture(captures: Capture[], tool: SandboxTool, target = '') {
     const normalizedHost = target ? hostWithoutWww(target) : ''
-    const matches = captures.filter(capture => {
-        if (!matchesTool(capture, tool)) return false
-        if (!normalizedHost || !capture.target) return true
-        return hostWithoutWww(capture.target) === normalizedHost
-    })
-    return matches.find(capture => hasParsedProviderResult(capture.toolAnalysis) && capture.error !== 'provider_navigation_pending' && capture.image)
-        || matches.find(capture => hasParsedProviderResult(capture.toolAnalysis) && capture.error !== 'provider_navigation_pending')
-        || matches.find(capture => capture.error !== 'provider_navigation_pending' && capture.image)
-        || matches[0]
+    let parsedCapture: Capture | undefined
+    let imageCapture: Capture | undefined
+    let firstMatch: Capture | undefined
+
+    for (const capture of captures) {
+        if (!matchesTool(capture, tool)) continue
+        if (normalizedHost && capture.target && hostWithoutWww(capture.target) !== normalizedHost) continue
+
+        firstMatch ??= capture
+        if (capture.error === 'provider_navigation_pending') continue
+
+        const hasResult = hasParsedProviderResult(capture.toolAnalysis)
+        if (hasResult && capture.image) return capture
+        if (hasResult) parsedCapture ??= capture
+        if (capture.image) imageCapture ??= capture
+    }
+
+    return parsedCapture || imageCapture || firstMatch
 }
 
 export function hostWithoutWww(value: string) {
