@@ -1384,3 +1384,13 @@ five production lines; the current inventory is 57 lines above the prior
 checkpoint, mostly from stronger runtime coverage. The repository-wide scan is
 73 of 4,224 files over 200 / 324,495 total lines. API 100,000-line and frontend
 10,000–30,000-line reduction goals remain unmet. No deployment was performed.
+
+A registry audit found two meaningful Bun SSR tests missing from the default
+frontend runner: exact custom-prop `DashboardTable` DOM contracts and the shared
+TI `StatusPill` compact/default markup contracts. Independent review confirmed
+they complement existing coverage rather than duplicate it, so both are now
+registered. The full frontend suite passes with those cases included. The
+inventory is 2,320 hand-maintained files / 153,922 lines / zero over the 200-line
+cap; the repository scan is 73 of 4,224 files over 200 / 324,497 total lines.
+No production code changed in this checkpoint. API 100,000-line and frontend
+10,000–30,000-line reduction goals remain unmet. No deployment was performed.

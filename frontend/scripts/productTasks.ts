@@ -1,6 +1,7 @@
 import { bun, type TestTask } from './testTask'
 
 export const productTasks: TestTask[] = [
+    { id: 'dashboard-table-contract', title: 'Shared dashboard table DOM contracts', command: [bun, 'test', 'tests/dashboard-table-contract.test.tsx'] },
     { id: 'solution-feature-card', title: 'Solution feature card content and presentation', command: [bun, 'test', 'tests/solution-feature-card.test.tsx'] },
     { id: 'content-editor-header', title: 'Article and thought editor header rendering', command: [bun, 'test', 'tests/content-editor-header.test.tsx'] },
     { id: 'content-create-presentation', title: 'Article and thought create editor presentation', command: [bun, 'test', 'tests/content-create-presentation.test.tsx'] },

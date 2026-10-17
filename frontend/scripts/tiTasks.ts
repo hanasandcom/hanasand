@@ -1,6 +1,7 @@
 import { bun, type TestTask } from './testTask'
 
 export const tiTasks: TestTask[] = [
+    { id: 'ti-enrichment-status-pill', title: 'TI status pill rendered class contracts', command: [bun, 'test', 'tests/ti-enrichment-status-pill.test.tsx'] },
     { id: 'ti-selected-panel-header', title: 'TI selected panel shared header markup', command: [bun, 'test', 'tests/ti-selected-panel-header.test.tsx'] },
     { id: 'ti-actor-summary', title: 'Threat actor summary usefulness', command: [bun, 'test', 'tests/actor-summary.test.ts'] },
     { id: 'ti-actionability-blocked', title: 'TI actionability blocked evidence', command: [bun, 'test', 'tests/ti-actionability-blocked.test.ts'] },
