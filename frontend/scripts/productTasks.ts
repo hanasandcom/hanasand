@@ -55,6 +55,7 @@ export const productTasks: TestTask[] = [
     { id: 'ai-workspace-page-contract', title: 'AI workspace server routes preserve initial data and selection', command: [bun, 'test', 'tests/ai-workspace-page-contract.test.tsx'] },
     { id: 'oslo-short-datetime', title: 'Shared audit and TI timestamp formatting', command: [bun, 'test', 'tests/oslo-short-datetime.test.ts'] },
     { id: 'test-content-render', title: 'Test result metrics and evidence rendering', command: [bun, 'test', 'tests/test-content-render.test.tsx'] },
+    { id: 'fetch-test-data', title: 'Shared test data fetch and visits projection', command: [bun, 'test', 'tests/fetch-test-data.test.ts'] },
     { id: 'ti-business-model-evidence', title: 'Public TI business-model evidence presentation safety', command: [bun, 'test', 'tests/ti-business-model-evidence.test.tsx'] },
     { id: 'ti-safe-output-contract', title: 'Public TI plans keep metadata-only output contract', command: [bun, 'test', 'tests/ti-safe-output-contract.test.ts'] },
     { id: 'ti-unique-strings', title: 'TI string normalization and deduplication contracts', command: [bun, 'test', 'tests/ti-unique-strings.test.ts'] },

@@ -1,28 +1,6 @@
 import config from '@/config'
+import { fetchTestData } from './fetchTestData'
 
-export async function fetchVisits(id: string | number): Promise<number | null> {
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), config.abortTimeout)
-
-    try {
-        const response = await fetch(`${config.url.api}/test/visits/${id}`, {
-            signal: controller.signal
-        })
-
-        clearTimeout(timeout)
-        if (!response.ok) {
-            throw new Error(`Failed to fetch test: ${response.status}`)
-        }
-
-        const data = await response.json()
-        return data.visits
-    } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError') {
-            console.error('Request timed out after 1s')
-        } else {
-            console.error(`Error fetching test: ${error}`)
-        }
-
-        return null
-    }
+export function fetchVisits(id: string | number): Promise<number | null> {
+    return fetchTestData<number>(`${config.url.api}/test/visits/${id}`, data => (data as { visits: number }).visits)
 }
