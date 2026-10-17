@@ -2536,3 +2536,14 @@ pending Prompt Portal auth migration, whose behavior is awaiting the user's
 choice. Current inventory is 2,424 frontend source/config files / 156,498
 lines and 4,569 repository hand-maintained files / 329,212 lines, with no file
 above 200. Frontend size reduction remains outstanding.
+
+At `45446f802`, the service-check stats theme source scan was replaced with a
+registered SSR test of the rendered heading, scan-id input, initial disabled
+search action, and theme tokens. Independent review verified deterministic
+server rendering without network effects. The focused task passes (1 test / 7
+assertions), with scoped ESLint, frontend typecheck, and line-cap checks
+passing. It adds two net frontend lines and no production code. Current
+inventory is 2,424 frontend source/config files / 156,500 lines and 4,569
+repository hand-maintained files / 329,214 lines, with no file above 200. The
+frontend 10,000–30,000-line target and API 100,000-line reduction target remain
+unmet.
