@@ -1,6 +1,7 @@
 'use client'
 
 import ErrorNotice from '@/components/error/errorNotice'
+import AuthActionLayout from '@/components/login/authActionLayout'
 import config from '@/config'
 import useClearStateAfter from '@/hooks/useClearStateAfter'
 import { setCookieWithExpiresAt } from '@/utils/cookies/cookies'
@@ -77,49 +78,40 @@ export default function PendingDeletionPage({
     if (resetToken) return <ResetPasswordPage userId={id} initialResetToken={resetToken} restored />
 
     return (
-        <section className='grid min-h-app-viewport w-full place-items-center bg-ui-canvas px-4 py-10 text-ui-text md:px-10'>
-            <div className='grid w-full max-w-98 gap-4'>
-                <div className='grid justify-items-center gap-2 pb-2 text-center'>
-                    <h1 className='text-[40px] font-semibold leading-none tracking-normal text-ui-text'>Hanasand</h1>
-                    <p className='text-sm font-medium text-ui-muted'>Recover account access.</p>
-                </div>
-
-                <div className='grid w-full gap-3 rounded-lg border border-ui-border bg-ui-panel p-4 shadow-md md:p-5'>
-                    <div className='grid gap-2 px-1 py-1'>
-                        <h2 className='text-base font-semibold text-ui-text'>Account pending deletion</h2>
-                        <p className='text-sm leading-6 text-ui-muted'>
-                            {id ? `@${id}` : 'This account'} is scheduled to be permanently deleted on {deletionDate}.
-                        </p>
-                    </div>
-                    <ErrorNotice compact message={error} />
-                    {!canRestore ? (
-                        <ErrorNotice
-                            compact
-                            variant='info'
-                            message='This restore link is missing account recovery details. Go back to login and request a fresh sign-in.'
-                        />
-                    ) : null}
-                    <div className='mt-1 flex items-center gap-3'>
-                        <button
-                            type='button'
-                            onClick={() => router.push('/login')}
-                            className={authGhostButtonClass}
-                        >
-                            <ArrowLeft className='h-4 w-4' />
-                            Go back
-                        </button>
-                        <button
-                            type='button'
-                            disabled={busy || !canRestore}
-                            onClick={() => void restore()}
-                            className={authPrimaryButtonClass}
-                        >
-                            {busy ? 'Restoring' : 'Restore'}
-                            <RotateCcw className='h-4 w-4' />
-                        </button>
-                    </div>
-                </div>
+        <AuthActionLayout tagline='Recover account access.' cardGap='gap-3'>
+            <div className='grid gap-2 px-1 py-1'>
+                <h2 className='text-base font-semibold text-ui-text'>Account pending deletion</h2>
+                <p className='text-sm leading-6 text-ui-muted'>
+                    {id ? `@${id}` : 'This account'} is scheduled to be permanently deleted on {deletionDate}.
+                </p>
             </div>
-        </section>
+            <ErrorNotice compact message={error} />
+            {!canRestore ? (
+                <ErrorNotice
+                    compact
+                    variant='info'
+                    message='This restore link is missing account recovery details. Go back to login and request a fresh sign-in.'
+                />
+            ) : null}
+            <div className='mt-1 flex items-center gap-3'>
+                <button
+                    type='button'
+                    onClick={() => router.push('/login')}
+                    className={authGhostButtonClass}
+                >
+                    <ArrowLeft className='h-4 w-4' />
+                    Go back
+                </button>
+                <button
+                    type='button'
+                    disabled={busy || !canRestore}
+                    onClick={() => void restore()}
+                    className={authPrimaryButtonClass}
+                >
+                    {busy ? 'Restoring' : 'Restore'}
+                    <RotateCcw className='h-4 w-4' />
+                </button>
+            </div>
+        </AuthActionLayout>
     )
 }

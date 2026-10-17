@@ -58,6 +58,8 @@ test('signup and reset accept one of each character type and reject missing type
     let resetSubmitted = false
     await page.route('**/auth/password-reset/complete', route => { resetSubmitted = true; return route.fulfill({ json: { ok: true } }) })
     await page.goto('/reset-password?id=policytest#token=test-only-token')
+    await expect(page.getByText('Update your password.', { exact: true })).toBeVisible()
+    await expect(page.locator('section > div > div:last-child')).toHaveAttribute('class', 'grid w-full gap-4 rounded-lg border border-ui-border bg-ui-panel p-4 shadow-md md:p-5')
     await page.getByPlaceholder('New password', { exact: true }).fill('Abcdefghijklmnop1')
     await page.getByPlaceholder('Confirm password', { exact: true }).fill('Abcdefghijklmnop1')
     await page.getByRole('button', { name: 'Set password', exact: true }).click()

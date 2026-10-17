@@ -1,5 +1,6 @@
 'use client'
 import ErrorNotice from '@/components/error/errorNotice'
+import AuthActionLayout from '@/components/login/authActionLayout'
 import config from '@/config'
 import useClearStateAfter from '@/hooks/useClearStateAfter'
 import { ArrowLeft, ArrowRight, KeyRound } from 'lucide-react'
@@ -71,67 +72,57 @@ export default function ResetPasswordPage({ userId, initialResetToken = '', rest
     const missingResetSession = tokenLoaded && (!userId || !resetToken)
 
     return (
-        <section className='grid min-h-app-viewport w-full place-items-center bg-ui-canvas px-4 py-10 text-ui-text md:px-10'>
-            <div className='grid w-full max-w-98 gap-4'>
-                <div className='grid justify-items-center gap-2 pb-2 text-center'>
-                    <h1 className='text-[40px] font-semibold leading-none tracking-normal text-ui-text'>Hanasand</h1>
-                    <p className='text-sm font-medium text-ui-muted'>{restored ? 'Your account has been restored.' : 'Update your password.'}</p>
+        <AuthActionLayout tagline={restored ? 'Your account has been restored.' : 'Update your password.'}>
+            <div className='grid gap-1 px-1'>
+                <div className='flex items-center justify-center gap-2 text-ui-text'>
+                    <KeyRound className='h-4 w-4 text-ui-primary' />
+                    <h2 className='text-base font-medium tracking-normal'>{restored ? 'Wasn’t you? Change your password.' : 'New password'}</h2>
                 </div>
-
-                <div className='grid w-full gap-4 rounded-lg border border-ui-border bg-ui-panel p-4 shadow-md md:p-5'>
-                    <div className='grid gap-1 px-1'>
-                        <div className='flex items-center justify-center gap-2 text-ui-text'>
-                            <KeyRound className='h-4 w-4 text-ui-primary' />
-                            <h2 className='text-base font-medium tracking-normal'>{restored ? 'Wasn’t you? Change your password.' : 'New password'}</h2>
-                        </div>
-                        <p className='text-center text-xs leading-5 text-ui-muted'>{restored ? 'If you didn’t request deletion, choose a new password. This will sign you out on all devices.' : 'Choose a new password for your Hanasand account.'}</p>
-                    </div>
-
-                    <ErrorNotice compact message={error as string | null} />
-                    {done ? <ErrorNotice compact variant='success' message='Password updated. Redirecting to login.' /> : null}
-                    {!tokenLoaded ? (
-                        <p className='rounded-lg border border-ui-border bg-ui-raised px-3 py-2 text-center text-xs text-ui-muted'>Preparing reset session...</p>
-                    ) : missingResetSession ? (
-                        <div className='grid gap-3'>
-                            <ErrorNotice compact variant='info' message='This reset link is missing or expired. Request a new code from the login page.' />
-                            <Link href='/login' className={authSecondaryLinkClass}>
-                                <ArrowLeft className='h-4 w-4' />
-                                Back to login
-                            </Link>
-                        </div>
-                    ) : (
-                        <form className='flex w-full flex-col gap-3 self-center' onSubmit={handleSubmit}>
-                            <input
-                                type='password'
-                                name='password'
-                                aria-label='New password'
-                                autoComplete='new-password'
-                                placeholder='New password'
-                                className={authInputClass}
-                                required
-                            />
-                            <input
-                                type='password'
-                                name='confirmPassword'
-                                aria-label='Confirm password'
-                                autoComplete='new-password'
-                                placeholder='Confirm password'
-                                className={authInputClass}
-                                required
-                            />
-                            <button
-                                type='submit'
-                                disabled={busy || done}
-                                className={authPrimaryButtonClass}
-                            >
-                                {busy ? 'Saving...' : 'Set password'}
-                                <ArrowRight className='h-4 w-4 transition group-hover:translate-x-1' />
-                            </button>
-                        </form>
-                    )}
-                    {restored && !done ? <Link href='/dashboard' className={authSecondaryLinkClass}>Continue to dashboard</Link> : null}
-                </div>
+                <p className='text-center text-xs leading-5 text-ui-muted'>{restored ? 'If you didn’t request deletion, choose a new password. This will sign you out on all devices.' : 'Choose a new password for your Hanasand account.'}</p>
             </div>
-        </section>
+            <ErrorNotice compact message={error as string | null} />
+            {done ? <ErrorNotice compact variant='success' message='Password updated. Redirecting to login.' /> : null}
+            {!tokenLoaded ? (
+                <p className='rounded-lg border border-ui-border bg-ui-raised px-3 py-2 text-center text-xs text-ui-muted'>Preparing reset session...</p>
+            ) : missingResetSession ? (
+                <div className='grid gap-3'>
+                    <ErrorNotice compact variant='info' message='This reset link is missing or expired. Request a new code from the login page.' />
+                    <Link href='/login' className={authSecondaryLinkClass}>
+                        <ArrowLeft className='h-4 w-4' />
+                        Back to login
+                    </Link>
+                </div>
+            ) : (
+                <form className='flex w-full flex-col gap-3 self-center' onSubmit={handleSubmit}>
+                    <input
+                        type='password'
+                        name='password'
+                        aria-label='New password'
+                        autoComplete='new-password'
+                        placeholder='New password'
+                        className={authInputClass}
+                        required
+                    />
+                    <input
+                        type='password'
+                        name='confirmPassword'
+                        aria-label='Confirm password'
+                        autoComplete='new-password'
+                        placeholder='Confirm password'
+                        className={authInputClass}
+                        required
+                    />
+                    <button
+                        type='submit'
+                        disabled={busy || done}
+                        className={authPrimaryButtonClass}
+                    >
+                        {busy ? 'Saving...' : 'Set password'}
+                        <ArrowRight className='h-4 w-4 transition group-hover:translate-x-1' />
+                    </button>
+                </form>
+            )}
+            {restored && !done ? <Link href='/dashboard' className={authSecondaryLinkClass}>Continue to dashboard</Link> : null}
+        </AuthActionLayout>
     )
 }

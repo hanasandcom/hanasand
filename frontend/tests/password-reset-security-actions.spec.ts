@@ -10,6 +10,7 @@ test('the security email lock link requires confirmation and locks after a POST'
     })
 
     await page.goto('/secure-account#token=lock-action-test')
+    await expect(page.locator('section > div > div:last-child')).toHaveAttribute('class', 'grid w-full gap-4 rounded-lg border border-ui-border bg-ui-panel p-4 shadow-md md:p-5')
     await expect(page.getByRole('heading', { name: 'Wasn’t you? Lock your account.' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Lock account', exact: true })).toBeVisible()
     expect(lockRequests).toBe(0)
@@ -31,6 +32,7 @@ test('the email reset action opens the new-password form without exposing its to
     })
 
     await page.goto('/reset-password-again#token=reset-action-test')
+    await expect(page.locator('section > div > div:last-child')).toHaveAttribute('class', 'grid w-full gap-4 rounded-lg border border-ui-border bg-ui-panel p-4 shadow-md md:p-5')
     await expect(page.getByRole('heading', { name: 'Reset your password again' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Continue to new password' })).toBeVisible()
     expect(resetRequests).toBe(0)
