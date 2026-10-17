@@ -4,7 +4,9 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
 
-const source = readFileSync(new URL('./install-ssh-gateway.sh', import.meta.url), 'utf8')
+const source = ['vm-authorized-keys.sh', 'vm-ssh-dispatch.sh']
+    .map((file) => readFileSync(new URL(`./install-ssh-gateway/${file}`, import.meta.url), 'utf8'))
+    .join('\n')
 
 test('SSH guards reject deletion-pending or unreadable VM config before start or exec', () => {
     const directory = mkdtempSync(join(tmpdir(), 'vm-deletion-ssh-'))
