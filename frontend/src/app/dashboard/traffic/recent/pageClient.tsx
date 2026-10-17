@@ -5,6 +5,7 @@ import { RecentTrafficTable } from '@/components/monitoring/traffic/traffic'
 import { getTrafficRecords } from '@/utils/monitoring/data'
 import { isTrafficRecords } from '@/utils/monitoring/trafficValidation'
 import type { TrafficRecords } from '@/utils/monitoring/types'
+import { startTrafficSnapshotRefresh, type TrafficSnapshot } from '@/components/monitoring/traffic/trafficSnapshotRefresh'
 
 const INITIAL_VISIBLE_COUNT = 100
 const LOAD_MORE_COUNT = 10
@@ -94,6 +95,18 @@ export default function TrafficRecentClient({ initialRecords, selectedDomain }: 
         if (remaining <= Math.max(160, element.clientHeight * 0.5)) void loadMore()
     }, [loadMore])
 
+    const applySnapshot = useCallback((snapshot: TrafficSnapshot) => {
+        if (!isTrafficRecords(snapshot.records)) return
+
+        const latest = snapshot.records.result.slice(0, INITIAL_VISIBLE_COUNT)
+        totalRef.current = snapshot.records.total
+        setTotal(snapshot.records.total)
+        const latestIds = new Set(latest.map(record => record.id))
+        const merged = [...latest, ...recordsRef.current.filter(record => !latestIds.has(record.id))]
+        recordsRef.current = merged
+        setRecords(merged)
+    }, [])
+
     useEffect(() => {
         mountedRef.current = true
         return () => { mountedRef.current = false }
@@ -106,37 +119,8 @@ export default function TrafficRecentClient({ initialRecords, selectedDomain }: 
     }, [fetchNextPage, records.length, total, visibleCount])
 
     useEffect(() => {
-        let stopped = false
-        let timer: ReturnType<typeof setTimeout> | null = null
-
-        async function refresh() {
-            try {
-                const params = new URLSearchParams({ mode: 'snapshot', limit: String(INITIAL_VISIBLE_COUNT), ...(selectedDomain ? { domain: selectedDomain } : {}) })
-                const response = await fetch(`/api/live-traffic?${params}`, { cache: 'no-store' })
-                if (!response.ok) throw new Error(`Traffic request returned ${response.status}`)
-                const snapshot = await response.json() as { records?: TrafficRecords | null }
-                if (!stopped && isTrafficRecords(snapshot.records)) {
-                    const latest = snapshot.records.result.slice(0, INITIAL_VISIBLE_COUNT)
-                    totalRef.current = snapshot.records.total
-                    setTotal(snapshot.records.total)
-                    const latestIds = new Set(latest.map(record => record.id))
-                    const merged = [...latest, ...recordsRef.current.filter(record => !latestIds.has(record.id))]
-                    recordsRef.current = merged
-                    setRecords(merged)
-                }
-            } catch {
-                // Keep the last successful request list visible until a later refresh succeeds.
-            } finally {
-                if (!stopped) timer = setTimeout(refresh, 30_000)
-            }
-        }
-
-        timer = setTimeout(refresh, 30_000)
-        return () => {
-            stopped = true
-            if (timer) clearTimeout(timer)
-        }
-    }, [selectedDomain])
+        return startTrafficSnapshotRefresh(selectedDomain, applySnapshot, INITIAL_VISIBLE_COUNT)
+    }, [selectedDomain, applySnapshot])
 
     return <RecentTrafficTable
         records={records.slice(0, visibleCount)}

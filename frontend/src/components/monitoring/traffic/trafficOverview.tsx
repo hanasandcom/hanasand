@@ -1,12 +1,13 @@
 'use client'
 
-import { useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import DomainSelector from './domainSelector'
 import TrafficDashboard from './traffic'
 import { DashboardPanel } from '@/components/dashboard/ui'
 import { formatOsloShortDateTime } from '@/utils/date/formatOsloShortDateTime'
 import formatRequestTime from '@/utils/monitoring/formatRequestTime'
 import type { TrafficDomains, TrafficMetrics, TrafficRecords } from '@/utils/monitoring/types'
+import { startTrafficSnapshotRefresh, type TrafficSnapshot } from './trafficSnapshotRefresh'
 import { Activity, AlertTriangle, Clock3, Globe2 } from 'lucide-react'
 
 export default function TrafficOverviewClient({ domains, initialMetrics, initialRecords, selectedDomain }: {
@@ -18,32 +19,14 @@ export default function TrafficOverviewClient({ domains, initialMetrics, initial
     const [metrics, setMetrics] = useState(initialMetrics)
     const [records, setRecords] = useState(initialRecords)
 
+    const applySnapshot = useCallback((snapshot: TrafficSnapshot) => {
+        if (snapshot.metrics) setMetrics(snapshot.metrics)
+        if (snapshot.records && Array.isArray(snapshot.records.result)) setRecords(snapshot.records)
+    }, [])
+
     useEffect(() => {
-        let stopped = false
-        let timer: ReturnType<typeof setTimeout> | null = null
-
-        async function refresh() {
-            try {
-                const params = new URLSearchParams({ mode: 'snapshot', ...(selectedDomain ? { domain: selectedDomain } : {}) })
-                const response = await fetch(`/api/live-traffic?${params}`, { cache: 'no-store' })
-                if (!response.ok) throw new Error(`Traffic request returned ${response.status}`)
-                const snapshot = await response.json() as { metrics?: TrafficMetrics | null, records?: TrafficRecords | null }
-                if (stopped) return
-                if (snapshot.metrics) setMetrics(snapshot.metrics)
-                if (snapshot.records && Array.isArray(snapshot.records.result)) setRecords(snapshot.records)
-            } catch {
-                // Keep the most recent server snapshot visible until a later refresh succeeds.
-            } finally {
-                if (!stopped) timer = setTimeout(refresh, 30_000)
-            }
-        }
-
-        timer = setTimeout(refresh, 30_000)
-        return () => {
-            stopped = true
-            if (timer) clearTimeout(timer)
-        }
-    }, [selectedDomain])
+        return startTrafficSnapshotRefresh(selectedDomain, applySnapshot)
+    }, [selectedDomain, applySnapshot])
 
     const latestRecord = records.result[0]
     const topPath = metrics.top_paths?.[0]
