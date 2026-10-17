@@ -37,6 +37,7 @@ export default function LogsPageClient({ initialServices = [], initialErrors, in
     const filterButton = useRef<HTMLButtonElement>(null)
     const [filtersOpen, setFiltersOpen] = useState(false)
     const [analyticsOpen, setAnalyticsOpen] = useState(true)
+    const refreshData = () => setRefresh(value => value + 1)
     const { data, error, setError, busy, paged, loadMore } = useLogSearch({
         view, hours, advanced, appliedHql, table, search, service, severity, refresh, initialData, initialError,
         onErrorsLoaded: setErrors,
@@ -129,7 +130,7 @@ export default function LogsPageClient({ initialServices = [], initialErrors, in
             onToggleAnalytics={() => setAnalyticsOpen(open => !open)}
             activeFilters={activeFilters}
             error={error}
-            onRetry={() => setRefresh(value => value + 1)}
+            onRetry={refreshData}
             search={search}
             onSearchChange={setSearch}
             advanced={advanced}
@@ -142,7 +143,7 @@ export default function LogsPageClient({ initialServices = [], initialErrors, in
             appliedHql={appliedHql}
             onApplyHql={() => {
                 setAppliedHql(hql)
-                setRefresh(value => value + 1)
+                refreshData()
             }}
             service={service}
             onServiceChange={setService}
@@ -154,7 +155,7 @@ export default function LogsPageClient({ initialServices = [], initialErrors, in
             severity={severity}
             onSeverityChange={setSeverity}
         />
-        {view === 'errors' ? <><div className='flex items-center justify-between gap-3 text-xs text-ui-muted'><span role='status'>{busy ? 'Refreshing…' : copied ? 'Event copied' : 'Recent application errors'}</span><button type='button' className={fieldClass} disabled={busy} onClick={() => setRefresh(value => value + 1)}>Refresh errors</button></div><ErrorsPanel events={errors} expanded={expanded} onToggle={toggle} onCopy={event => void copy(event)} /></> : <>
+        {view === 'errors' ? <><div className='flex items-center justify-between gap-3 text-xs text-ui-muted'><span role='status'>{busy ? 'Refreshing…' : copied ? 'Event copied' : 'Recent application errors'}</span><button type='button' className={fieldClass} disabled={busy} onClick={refreshData}>Refresh errors</button></div><ErrorsPanel events={errors} expanded={expanded} onToggle={toggle} onCopy={event => void copy(event)} /></> : <>
             {processingError && <p role='alert' className='text-sm text-ui-text'>Event processing is delayed: {processingError}</p>}
             {view === 'dashboard' && analyticsOpen && <ThroughputMetrics initialMetrics={initialMetrics} />}
             {view === 'dashboard' && <LogCatchupProgress progress={data?.processing?.catchup} now={data?.generated_at || new Date().toISOString()} stalled={!!processingError} />}
@@ -183,9 +184,9 @@ export default function LogsPageClient({ initialServices = [], initialErrors, in
                 realtimeLoadMore={realtimeLoadMore}
                 paged={paged}
                 advanced={advanced}
-                onRefresh={() => setRefresh(value => value + 1)}
+                onRefresh={refreshData}
                 onLoadMore={loadMore}
-                onRefreshResults={() => setRefresh(value => value + 1)}
+                onRefreshResults={refreshData}
                 onToggle={toggle}
                 onCopy={event => void copy(event)}
             />}
