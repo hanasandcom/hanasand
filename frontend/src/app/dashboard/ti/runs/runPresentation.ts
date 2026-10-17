@@ -1,4 +1,4 @@
-import { formatOsloShortDateTime } from '@/utils/date/formatOsloShortDateTime'
+export { shortTime as shortDate } from '../dashboardPresentation'
 
 export function statusClass(status: string) {
     const base = 'inline-flex w-fit self-start whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-semibold capitalize leading-5'
@@ -14,10 +14,6 @@ export function durationLabel(startedAt: string, finishedAt?: string) {
     const seconds = Math.max(1, Math.round(ms / 1000))
     if (seconds < 60) return `${seconds}s`
     return `${Math.round(seconds / 60)}m`
-}
-
-export function shortDate(value: string) {
-    return formatOsloShortDateTime(value)
 }
 
 export function relativeUntil(value: string) {
