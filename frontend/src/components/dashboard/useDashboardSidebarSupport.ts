@@ -9,6 +9,7 @@ import {
     SUPPORT_TICKETS_UPDATED_EVENT,
     type SupportUnreadTicket,
 } from '@/utils/supportUnread'
+import { createQueuedRefresh } from './queuedRefresh'
 
 const SUPPORT_TICKETS_REFRESH_EVENT = 'hanasand-support-tickets-refresh'
 type SupportQueue = { userId: string; scope: string; tickets: SupportUnreadTicket[]; hasUnread: boolean }
@@ -20,11 +21,7 @@ export function useDashboardSidebarSupport(userId: string, pathname: string) {
 
     useEffect(() => {
         const controller = new AbortController()
-        let requestInFlight = false
-        let refreshRequested = false
-        const refresh = async () => {
-            if (requestInFlight) { refreshRequested = true; return }
-            requestInFlight = true
+        const refresh = createQueuedRefresh(async () => {
             try {
                 const response = await supportFetch('/support/tickets', { signal: controller.signal })
                 if (!response.ok) return
@@ -36,11 +33,7 @@ export function useDashboardSidebarSupport(userId: string, pathname: string) {
                     setSupportQueue({ userId, scope, tickets, hasUnread: hasUnreadSupportMessages(tickets, scope) })
                 }
             } catch { /* Keep the last known support queue state if the request fails. */ }
-            finally {
-                requestInFlight = false
-                if (refreshRequested && !controller.signal.aborted) { refreshRequested = false; void refresh() }
-            }
-        }
+        }, () => controller.signal.aborted)
         const currentScope = () => `user:${getCookie('impersonating_id') || getCookie('id') || userId}`
         const refreshReadState = (scope: string) => {
             setSupportQueue(current => current?.userId === userId && current.scope === scope

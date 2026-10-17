@@ -74,7 +74,7 @@ export default function SshKeys({ initialKeys }: { initialKeys: ProfileSshKey[] 
                                 <td className='px-4 py-3 font-mono text-xs text-ui-muted'>{key.fingerprint}</td>
                                 <td className='whitespace-nowrap px-4 py-3 text-ui-muted'>{formatDate(key.addedAt)}</td>
                                 <td className='max-w-sm px-4 py-3 text-ui-muted'>
-                                    <span className='block whitespace-nowrap'>{formatDateTime(key.lastUsedAt)}</span>
+                                    <span className='block whitespace-nowrap'>{formatDate(key.lastUsedAt, true)}</span>
                                     {(key.lastUsedServer || key.lastUsedIp || key.lastUsedUserAgent) && <dl className='mt-1 space-y-0.5 whitespace-normal wrap-break-word text-xs'>
                                         {key.lastUsedServer && <div><dt className='inline font-medium'>Service: </dt><dd className='inline'>{key.lastUsedServer}</dd></div>}
                                         {key.lastUsedIp && <div><dt className='inline font-medium'>IP: </dt><dd className='inline'>{key.lastUsedIp}</dd></div>}
@@ -120,13 +120,10 @@ export default function SshKeys({ initialKeys }: { initialKeys: ProfileSshKey[] 
     )
 }
 
-function formatDate(value: string) {
+function formatDate(value: string | null, includeTime = false) {
+    if (value === null) return includeTime ? 'Not recorded' : 'Unknown'
     const date = new Date(value)
-    return Number.isNaN(date.getTime()) ? 'Unknown' : new Intl.DateTimeFormat('nb-NO', { dateStyle: 'medium', timeZone: 'Europe/Oslo' }).format(date)
-}
-
-function formatDateTime(value: string | null) {
-    if (!value) return 'Not recorded'
-    const date = new Date(value)
-    return Number.isNaN(date.getTime()) ? 'Unknown' : new Intl.DateTimeFormat('nb-NO', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/Oslo' }).format(date)
+    return Number.isNaN(date.getTime()) ? 'Unknown' : new Intl.DateTimeFormat('nb-NO', {
+        dateStyle: 'medium', timeZone: 'Europe/Oslo', ...(includeTime ? { timeStyle: 'short' } : {}),
+    }).format(date)
 }

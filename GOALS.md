@@ -1711,3 +1711,21 @@ This frontend batch adds test and runner coverage, so overall frontend size
 has not materially fallen. The 10,000–30,000-line frontend objective and
 100,000-line API reduction remain outstanding. No UI redesign or deployment
 was made.
+
+At the current working-tree checkpoint, API impersonation lookup, scope checks,
+and auditing are extracted from `tokenWrapper.ts` into a focused authorization
+module. This reduces API production code by 14 lines and adds runtime coverage
+for the authorized response headers; the API runner registration is updated.
+Frontend share review cards reuse one metric component, dashboard sidebar hooks
+share queued refresh behavior, and SSH-key dates use one formatter. These three
+frontend changes reduce production code by 18 lines in total and add rendered
+or behavior tests without changing UI or page data contracts. The frontend
+inventory is 155,003 lines across 2,373 hand-maintained files, all at or below
+200 lines; the previous checkpoint recorded 154,479 lines, so the overall
+frontend inventory has grown despite this batch's small production reduction.
+The configured API suite and registered non-browser frontend suite pass, as do
+frontend typecheck, scoped ESLint, focused tests, and the production build
+(116 pages generated). The repository-wide cap still reports 60 over-limit
+files among 4,337 hand-maintained files / 326,150 lines, all outside frontend.
+The frontend 10,000–30,000-line target and API 100,000-line reduction goal
+remain open. Browser end-to-end specs and deployment remain outstanding.

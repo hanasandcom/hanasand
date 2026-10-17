@@ -2,6 +2,7 @@ import { bun, type TestTask } from './testTask'
 
 export const productTasks: TestTask[] = [
     { id: 'dashboard-table-contract', title: 'Shared dashboard table DOM contracts', command: [bun, 'test', 'tests/dashboard-table-contract.test.tsx'] },
+    { id: 'dashboard-queued-refresh', title: 'Dashboard sidebar refresh coalescing and abort behavior', command: [bun, 'test', 'tests/dashboard-queued-refresh.test.ts'] },
     { id: 'solution-feature-card', title: 'Solution feature card content and presentation', command: [bun, 'test', 'tests/solution-feature-card.test.tsx'] },
     { id: 'content-editor-header', title: 'Article and thought editor header rendering', command: [bun, 'test', 'tests/content-editor-header.test.tsx'] },
     { id: 'content-create-presentation', title: 'Article and thought create editor presentation', command: [bun, 'test', 'tests/content-create-presentation.test.tsx'] },
@@ -66,6 +67,7 @@ export const productTasks: TestTask[] = [
     { id: 'dwm-readiness-proxy-routes', title: 'DWM readiness and exposure routes preserve authoritative proxy data', command: [bun, 'test', 'tests/dwm-readiness-proxy-routes.test.ts'] },
     { id: 'thesis-editor-model', title: 'Thesis editor recovery, undo and transport behavior', command: [bun, 'test', 'tests/thesis-editor-model.test.ts'] },
     { id: 'thesis-table-navigation', title: 'Thesis plan clamped and timetable extending arrow navigation', command: [bun, 'test', 'tests/thesis-table-navigation.test.ts'] },
+    { id: 'share-chat-review-metrics', title: 'Share review metric labels and presentation', command: [bun, 'test', 'tests/share-chat-review-metrics.test.tsx'] },
     { id: 'organization-workspace-copy', title: 'Organization workspace clipboard success and failure', command: [bun, 'x', 'playwright', 'test', 'tests/organization-workspace-copy.spec.ts'], requires: 'playwright' },
     { id: 'scaffold-workspace-template', title: 'AI project starter template contract', command: [bun, 'test', 'tests/scaffold-workspace-template.test.ts'] },
     { id: 'repository-share-folder-workflows', title: 'Repository workspace folder reuse across scaffold, sync and import', command: [bun, 'test', 'tests/repository-share-folder-workflows.test.ts'] },

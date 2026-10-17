@@ -29,6 +29,13 @@ export function PlainMetric({ icon, label, value }: { icon: ReactNode, label: st
     )
 }
 
+function ReviewMetricCard({ label, children, valueClassName = 'font-medium text-ui-text/68' }: { label: string, children: ReactNode, valueClassName?: string }) {
+    return <div className='rounded-lg border border-ui-border bg-ui-panel/[0.035] px-2 py-1.5'>
+        <span className='block text-ui-text/35'>{label}</span>
+        <span className={valueClassName}>{children}</span>
+    </div>
+}
+
 export function ChangeSummaryCard({ change }: { change: PendingShareChange }) {
     const [advancedOpen, setAdvancedOpen] = useState(false)
     const summary = summarizePendingChange(change)
@@ -54,22 +61,13 @@ export function ChangeSummaryCard({ change }: { change: PendingShareChange }) {
                 </span>
             </div>
             <div className='mt-3 grid gap-2 text-[11px] text-ui-text/58 sm:grid-cols-3'>
-                <div className='rounded-lg border border-ui-border bg-ui-panel/[0.035] px-2 py-1.5'>
-                    <span className='block text-ui-text/35'>Type</span>
-                    <span className='font-medium text-ui-text/68'>{summary.kind}</span>
-                </div>
-                <div className='rounded-lg border border-ui-border bg-ui-panel/[0.035] px-2 py-1.5'>
-                    <span className='block text-ui-text/35'>Size</span>
-                    <span className='flex flex-wrap items-center gap-1.5 font-medium text-ui-text/68'>
-                        <span>{summary.totalLines} line{summary.totalLines === 1 ? '' : 's'}</span>
-                        <span className='rounded-full border border-ui-success/10 px-1.5 py-0.5 text-ui-success/62'>+{summary.added}</span>
-                        <span className='rounded-full border border-ui-danger/10 px-1.5 py-0.5 text-ui-text/62'>-{summary.removed}</span>
-                    </span>
-                </div>
-                <div className='rounded-lg border border-ui-border bg-ui-panel/[0.035] px-2 py-1.5'>
-                    <span className='block text-ui-text/35'>Impact</span>
-                    <span className='font-medium text-ui-text/68'>{plainImpactForPath(change.path)}</span>
-                </div>
+                <ReviewMetricCard label='Type'>{summary.kind}</ReviewMetricCard>
+                <ReviewMetricCard label='Size' valueClassName='flex flex-wrap items-center gap-1.5 font-medium text-ui-text/68'>
+                    <span>{summary.totalLines} line{summary.totalLines === 1 ? '' : 's'}</span>
+                    <span className='rounded-full border border-ui-success/10 px-1.5 py-0.5 text-ui-success/62'>+{summary.added}</span>
+                    <span className='rounded-full border border-ui-danger/10 px-1.5 py-0.5 text-ui-text/62'>-{summary.removed}</span>
+                </ReviewMetricCard>
+                <ReviewMetricCard label='Impact'>{plainImpactForPath(change.path)}</ReviewMetricCard>
             </div>
             {visibleCopy.length ? (
                 <div className='mt-3 rounded-lg border border-ui-border bg-ui-panel/[0.035] px-2 py-1.5 text-xs leading-5 text-ui-text/58'>
@@ -138,22 +136,10 @@ export function ReviewEvidencePanel({ evidence, lastRun }: { evidence: BrowserEv
                 </span>
             </div>
             <div className='mt-3 grid gap-2 text-[11px] text-ui-text/58 sm:grid-cols-4'>
-                <div className='rounded-lg border border-ui-border bg-ui-panel/[0.035] px-2 py-1.5'>
-                    <span className='block text-ui-text/35'>Screenshot</span>
-                    <span className='font-medium text-ui-text/68'>{screenshotState}</span>
-                </div>
-                <div className='rounded-lg border border-ui-border bg-ui-panel/[0.035] px-2 py-1.5'>
-                    <span className='block text-ui-text/35'>Journey check</span>
-                    <span className='font-medium text-ui-text/68'>{journeyState}</span>
-                </div>
-                <div className='rounded-lg border border-ui-border bg-ui-panel/[0.035] px-2 py-1.5'>
-                    <span className='block text-ui-text/35'>Page issues</span>
-                    <span className='font-medium text-ui-text/68'>{issues.length ? `${issues.length} found` : evidence ? 'None found' : 'Not checked'}</span>
-                </div>
-                <div className='rounded-lg border border-ui-border bg-ui-panel/[0.035] px-2 py-1.5'>
-                    <span className='block text-ui-text/35'>Logs</span>
-                    <span className='font-medium text-ui-text/68'>{consoleMessages.length ? `${consoleMessages.length} message${consoleMessages.length === 1 ? '' : 's'}` : evidence ? 'Quiet' : 'Not checked'}</span>
-                </div>
+                <ReviewMetricCard label='Screenshot'>{screenshotState}</ReviewMetricCard>
+                <ReviewMetricCard label='Journey check'>{journeyState}</ReviewMetricCard>
+                <ReviewMetricCard label='Page issues'>{issues.length ? `${issues.length} found` : evidence ? 'None found' : 'Not checked'}</ReviewMetricCard>
+                <ReviewMetricCard label='Logs'>{consoleMessages.length ? `${consoleMessages.length} message${consoleMessages.length === 1 ? '' : 's'}` : evidence ? 'Quiet' : 'Not checked'}</ReviewMetricCard>
             </div>
             <details className='mt-3 rounded-lg border border-ui-border bg-ui-canvas/18 px-2 py-1.5'>
                 <summary className='cursor-pointer text-xs font-medium text-ui-text/58'>Advanced logs</summary>

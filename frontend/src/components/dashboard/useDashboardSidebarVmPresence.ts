@@ -1,16 +1,13 @@
 import { useEffect, useState } from 'react'
 import { getCookie } from '@/utils/cookies/cookies'
+import { createQueuedRefresh } from './queuedRefresh'
 
 export function useDashboardSidebarVmPresence(userId: string) {
     const [hasVMs, setHasVMs] = useState(false)
 
     useEffect(() => {
         const controller = new AbortController()
-        let requestInFlight = false
-        let refreshRequested = false
-        const refresh = async () => {
-            if (requestInFlight) { refreshRequested = true; return }
-            requestInFlight = true
+        const refresh = createQueuedRefresh(async () => {
             try {
                 const id = getCookie('impersonating_id') || userId
                 if (id.startsWith('svc_')) { setHasVMs(false); return }
@@ -19,11 +16,7 @@ export function useDashboardSidebarVmPresence(userId: string) {
                 const vms = await response.json()
                 if (Array.isArray(vms) && !controller.signal.aborted) setHasVMs(vms.length > 0)
             } catch { /* Keep the last known navigation if the VM request fails. */ }
-            finally {
-                requestInFlight = false
-                if (refreshRequested && !controller.signal.aborted) { refreshRequested = false; void refresh() }
-            }
-        }
+        }, () => controller.signal.aborted)
         void refresh()
         window.addEventListener('vms-updated', refresh)
         return () => { controller.abort(); window.removeEventListener('vms-updated', refresh) }
