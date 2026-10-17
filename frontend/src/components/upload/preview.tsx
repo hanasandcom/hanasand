@@ -1,7 +1,7 @@
 'use client'
 
 import { Dispatch, SetStateAction, useState } from 'react'
-import ImagePreview from './imagePreview'
+import MediaPreview from './mediaPreview'
 import config from '@/config'
 import { postFile } from '@/utils/files/post'
 import useClearStateAfter from '@/hooks/useClearStateAfter'
@@ -101,7 +101,9 @@ export default function Preview({ url, file, setFile, setPreview, setUrl }: Prev
     return (
         <div className='grid w-full overflow-hidden rounded-lg border border-ui-border bg-ui-panel shadow-lg lg:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.95fr)]'>
             <div className='grid min-h-[360px] place-items-center border-b border-ui-border bg-ui-raised p-4 lg:border-b-0 lg:border-r'>
-                <ImagePreview file={file} url={url} />
+                {file.type.startsWith('image/')
+                    ? <MediaPreview kind='image' src={url} alt='Preview' className='max-h-[520px] w-auto max-w-full rounded-lg object-contain shadow-[0_18px_60px_var(--ui-shadow)]' />
+                    : <MediaPreview kind='video' src={url} className='max-h-[520px] w-auto max-w-full rounded-lg shadow-[0_18px_60px_var(--ui-shadow)]' />}
             </div>
             <div className='grid gap-4 p-4 sm:p-6'>
                 <div className='grid gap-1'>

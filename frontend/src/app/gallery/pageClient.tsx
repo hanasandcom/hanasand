@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { getUserFiles, UserUpload } from '@/utils/files/getUserFiles'
 import config from '@/config'
 import Button from '@/components/misc/button'
+import MediaPreview from '@/components/upload/mediaPreview'
 
 const pageSize = 30
 export default function GalleryPageClient() {
@@ -39,8 +40,8 @@ export default function GalleryPageClient() {
                             const url = `${config.url.cdn}/files/${encodeURIComponent(file.id)}`
                             return <article key={file.id} className='min-w-0 overflow-hidden rounded-lg border border-ui-border bg-ui-panel'>
                                 <div className='grid aspect-video place-items-center overflow-hidden bg-ui-raised'>
-                                    {file.type.startsWith('image/') ? <img src={url} alt={file.name} loading='lazy' className='h-full w-full object-contain' />
-                                        : file.type.startsWith('video/') ? <video src={url} controls preload='metadata' className='h-full w-full object-contain' />
+                                    {file.type.startsWith('image/') ? <MediaPreview kind='image' src={url} alt={file.name} loading='lazy' className='h-full w-full object-contain' />
+                                        : file.type.startsWith('video/') ? <MediaPreview kind='video' src={url} preload='metadata' className='h-full w-full object-contain' />
                                             : <FileIcon className='h-10 w-10 text-ui-muted' />}
                                 </div>
                                 <div className='grid gap-3 p-4'><h2 className='truncate font-semibold' title={file.name}>{file.name}</h2>
