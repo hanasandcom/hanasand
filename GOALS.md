@@ -1427,3 +1427,13 @@ assertions and cleanup contracts remain intact. Focused tests pass (16 tests /
 pass. Every changed file is under 200 lines. Other global cap violations and
 the API/frontend LOC reduction goals remain outstanding. No deployment was
 performed.
+
+`api/src/utils/mail/stalwartAdmin.ts` is now a 13-line compatibility facade over
+focused request, JMAP, principal, mapping, settings, and queue modules. The
+complete implementation is 524 LOC versus 550 before (-26), and every module
+is below the 200-line cap. Independent review confirmed exports, REST/JMAP
+fallback order, retries, URL host handling, and principal mapping are
+preserved. Its registered focused test passes (2 tests / 10 expectations), as
+do API typecheck, targeted ESLint, and diff check. The global scan still
+reports 69 other over-cap files. The API and frontend LOC reduction targets
+remain outstanding; no deployment was performed.
