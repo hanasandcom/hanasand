@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { ChevronDown, Clock3 } from 'lucide-react'
 import type { DatabaseQueryActivity } from '@/utils/db/internal'
+import { formatDatabaseTime } from './formatDatabaseTime'
 
 type QueryData = { queries: DatabaseQueryActivity[], longestQuery: DatabaseQueryActivity | null }
 
@@ -39,7 +40,7 @@ export default function DatabaseQueriesDisclosure({
         }
     }
 
-    const detail = `${count} shown · ${longRunningCount} long-running · Longest ${formatTime(longestDurationSeconds)} · Threshold ${formatTime(thresholdSeconds)} · Checked ${formatDateTime(checkedAt)}`
+    const detail = `${count} shown · ${longRunningCount} long-running · Longest ${formatTime(longestDurationSeconds)} · Threshold ${formatTime(thresholdSeconds)} · Checked ${formatDatabaseTime(checkedAt)}`
     return <details id='active-queries' className='group min-w-0 rounded-lg border border-ui-border bg-ui-panel' onToggle={event => { if (event.currentTarget.open) void loadQueries() }}>
         <summary className='flex cursor-pointer list-none flex-wrap items-center gap-3 p-5 focus-visible:outline-ui-primary [&::-webkit-details-marker]:hidden'>
             <ChevronDown aria-hidden className='h-4 w-4 text-ui-muted transition group-open:rotate-180' />
@@ -87,8 +88,4 @@ function formatTime(value?: number | null) {
     if (value < 60) return `${Math.round(value)}s`
     if (value < 3600) return `${Math.round(value / 60)}m`
     return `${Math.round(value / 3600)}h`
-}
-
-function formatDateTime(value: string) {
-    return new Date(value).toLocaleTimeString('en-GB', { timeZone: 'UTC', hour: '2-digit', minute: '2-digit' }) + ' UTC'
 }

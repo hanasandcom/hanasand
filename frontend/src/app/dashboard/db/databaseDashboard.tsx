@@ -9,6 +9,7 @@ import DatabaseInventory from './databaseInventory'
 import DatabaseStoragePanel from './databaseStoragePanel'
 import DatabaseQueriesDisclosure from './databaseQueriesDisclosure'
 import { formatDatabaseBytes as formatBytes } from '@/utils/db/formatDatabaseBytes'
+import { formatDatabaseTime } from './formatDatabaseTime'
 
 
 export function DatabaseDashboard({ overview, serviceAccount = false }: { overview: DatabaseOverview, serviceAccount?: boolean }) {
@@ -32,7 +33,7 @@ export function DatabaseDashboard({ overview, serviceAccount = false }: { overvi
                 <MetricCard icon={<HardDrive />} label='Disk free' value={disk ? formatBytes(disk.availableBytes) : 'Unavailable'} detail={disk ? `${formatBytes(disk.totalBytes)} total · ${storage?.host}` : 'Storage measurements unavailable'} />
                 <MetricCard icon={<TrendingUp />} label='Growth / day' value={daily == null ? 'Measuring' : `${daily < 0 ? '−' : '+'}${formatBytes(Math.abs(daily))}`} detail={disk ? `Net disk change · ${Math.min(24, disk.sampleSeconds / 3600).toFixed(1)}h sampled` : 'No recent measurement'} />
                 <MetricCard icon={<Clock3 />} label='Disk full in' value={!disk || daily == null ? 'Not enough history' : days == null ? 'Not growing' : days < 1 ? `${Math.max(1, Math.round(days * 24))} hours` : `${Math.round(days)} days`} detail='Estimated at the measured rate' />
-                <MetricCard icon={fresh && !issues.length ? <CheckCircle2 /> : <AlertTriangle />} label='Database health' value={!fresh ? 'Not verified' : issues.length ? `${issues.length} need attention` : 'Healthy'} detail={storage ? `Checked ${formatDateTime(storage.sampledAt)}` : 'Inventory unavailable'} />
+                <MetricCard icon={fresh && !issues.length ? <CheckCircle2 /> : <AlertTriangle />} label='Database health' value={!fresh ? 'Not verified' : issues.length ? `${issues.length} need attention` : 'Healthy'} detail={storage ? `Checked ${formatDatabaseTime(storage.sampledAt)}` : 'Inventory unavailable'} />
             </section>
         </DatabaseWorkbench>
 
@@ -65,8 +66,4 @@ function MetricCard({ icon, label, value, detail }: { icon: ReactNode, label: st
         <div className='flex items-center gap-2 text-sm text-ui-muted'><span aria-hidden className='text-ui-primary [&>svg]:h-4 [&>svg]:w-4'>{icon}</span>{label}</div>
         <p className='mt-3 text-xl font-semibold tabular-nums'>{value}</p><p className='mt-2 text-xs text-ui-muted'>{detail}</p>
     </DashboardPanel>
-}
-
-function formatDateTime(value: string) {
-    return new Date(value).toLocaleTimeString('en-GB', { timeZone: 'UTC', hour: '2-digit', minute: '2-digit' }) + ' UTC'
 }

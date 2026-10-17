@@ -21,6 +21,7 @@ export const productTasks: TestTask[] = [
     { id: 'case-event-dates', title: 'Case event timestamp presentation', command: [bun, 'test', 'tests/case-event-dates.test.tsx'] },
     { id: 'database-bytes', title: 'Shared database byte formatting', command: [bun, 'test', 'tests/database-bytes.test.ts'] },
     { id: 'database-inventory-render', title: 'Database inventory receives server measurements', command: [bun, 'test', 'tests/database-inventory-render.test.tsx'] },
+    { id: 'database-time-format', title: 'Database dashboard UTC time presentation', command: [bun, 'test', 'tests/database-time-format.test.ts'] },
     { id: 'monitoring-case-data', title: 'Monitoring case URLs and event pagination', command: [bun, 'test', 'tests/monitoring-case-data.test.ts'] },
     { id: 'management-search-shortcut', title: 'Shared management search keyboard shortcut', command: [bun, 'test', 'tests/management-search-shortcut.test.ts'] },
     { id: 'impersonation-reason', title: 'Impersonation reason normalization and request contract', command: [bun, 'test', 'tests/impersonation-reason.test.tsx'] },
