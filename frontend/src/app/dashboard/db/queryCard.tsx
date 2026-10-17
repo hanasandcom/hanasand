@@ -6,8 +6,11 @@ import type { DatabaseQueryActivity } from '@/utils/db/internal'
 
 hljs.registerLanguage('sql', sql)
 
-export function QueryCode({ query }: { query: string | null }) {
+export type QueryCodeMode = 'raw' | 'highlighted'
+
+export function QueryCode({ query, mode = 'highlighted' }: { query: string | null, mode?: QueryCodeMode }) {
     let formatted = query || 'Query text unavailable'
+    if (mode === 'raw') return <pre tabIndex={0} aria-label='SQL query' className='max-h-[32rem] overflow-auto rounded-md border border-ui-border bg-ui-canvas p-4 text-sm leading-6 text-ui-text'>{formatted}</pre>
     try {
         formatted = format(formatted, { language: 'postgresql', tabWidth: 2 })
     } catch {
@@ -18,19 +21,22 @@ export function QueryCode({ query }: { query: string | null }) {
     </pre>
 }
 
-export default function QueryCard({ query, duration, collapsible = false }: { query: DatabaseQueryActivity, duration: string, collapsible?: boolean }) {
-    const summary = <div className='flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-ui-muted'>
+export default function QueryCard({ query, duration, collapsible = false, codeMode = 'highlighted' }: { query: DatabaseQueryActivity, duration: string, collapsible?: boolean, codeMode?: QueryCodeMode }) {
+    const summaryContent = <>
         <span className='font-medium text-ui-text'>{query.database || 'Unknown database'}</span>
         <span className='rounded bg-ui-primary/10 px-2 py-1 text-xs text-ui-primary'>{query.state || 'Unknown state'}</span>
         <span className={`inline-flex items-center gap-1 text-xs ${query.isLongRunning ? 'font-semibold text-ui-warning' : ''}`}><Clock3 aria-hidden className='h-3.5 w-3.5' />{duration}{query.isLongRunning ? ' · Long-running' : ''}</span>
-    </div>
+    </>
+    const summary = collapsible
+        ? <span className='flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-ui-muted'>{summaryContent}</span>
+        : <div className='flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-ui-muted'>{summaryContent}</div>
     const content = <>
         <dl className='flex flex-wrap gap-x-8 gap-y-2 text-sm'>
             {[
                 ['User', query.user], ['Wait', [query.waitEventType, query.waitEvent].filter(Boolean).join(' / ') || 'None'],
             ].map(([label, value]) => <div key={label} className='min-w-0'><dt className='text-xs text-ui-muted'>{label}</dt><dd className='mt-1 wrap-break-word text-ui-text'>{value || 'Unknown'}</dd></div>)}
         </dl>
-        <QueryCode query={query.query} />
+        <QueryCode query={query.query} mode={codeMode} />
     </>
     if (collapsible) return <details className='min-w-0 space-y-3' data-query-card>
         <summary className='cursor-pointer list-none rounded focus-visible:outline-ui-primary hover:bg-ui-primary/5 [&::-webkit-details-marker]:hidden'>{summary}</summary>
