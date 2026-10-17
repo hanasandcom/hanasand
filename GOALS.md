@@ -1555,3 +1555,17 @@ file over 200 lines. Across the repository, 63 of 4,300 files / 325,385 lines
 remain over the cap, all outside the frontend. The frontend 10,000–30,000-line
 target and API 100,000-line reduction remain outstanding. No UI, page data, or
 deployment change was made.
+
+Three frontend cleanup slices are ready: dashboard case loading now reuses
+its existing request through cache refresh, the management organization list
+reuses UTC date formatters, and the AI pane no longer accepts an unused
+`landing` prop or a broader-than-needed prompt type. Review and focused tests
+confirm request URLs/cookies/cache behavior, identical date output, unchanged
+AI route data and prompt selection. Product code is down 15 lines; the AI SSR
+regression test adds 23 lines. Focused suites pass (16 tests / 82 assertions),
+as do ESLint, frontend typecheck (with build info in `/tmp`), diff check, and
+the changed-file cap check. The frontend now has 2,333 hand-maintained files /
+153,866 lines with no file above 200. The repository-wide scan still reports
+63 of 4,300 files over 200 lines / 325,393 total lines, outside the frontend.
+The broad frontend and API reduction goals remain open. No UI, page-data, or
+deployment change was made.

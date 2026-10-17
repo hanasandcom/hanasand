@@ -104,7 +104,6 @@ export default function AIPageClient({
                         isConnected={ai.isConnected}
                         isAuthenticated={isAuthenticated}
                         participants={ai.participants}
-                        landing={mode === 'landing'}
                         readOnly={ai.activeConversation?.collaboration?.role === 'reviewer'}
                         onComposerChange={ai.setComposer}
                         onModelStrategyChange={ai.setModelStrategy}

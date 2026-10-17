@@ -38,11 +38,11 @@ export async function loadOpenCases(cookieHeader: string, organizationId?: strin
     const cached = openCasesCache.get(cacheKey)
     if (cached && cached.staleUntil > Date.now()) {
         touchOpenCases(cacheKey, cached)
-        if (cached.expiresAt <= Date.now()) void refreshOpenCases(cacheKey, cookieHeader, query).catch(() => undefined)
+        if (cached.expiresAt <= Date.now()) void refreshOpenCases(cacheKey, request).catch(() => undefined)
         return cached.count
     }
 
-    return refreshOpenCases(cacheKey, cookieHeader, query)
+    return refreshOpenCases(cacheKey, request)
 }
 
 function touchOpenCases(key: string, entry: OpenCasesCacheEntry) {
@@ -50,11 +50,11 @@ function touchOpenCases(key: string, entry: OpenCasesCacheEntry) {
     openCasesCache.set(key, entry)
 }
 
-async function refreshOpenCases(cacheKey: string, cookieHeader: string, query: string): Promise<number | null> {
+async function refreshOpenCases(cacheKey: string, request: NextRequest): Promise<number | null> {
     const pending = openCasesRefreshes.get(cacheKey)
     if (pending) return pending
 
-    const refresh = fetchOpenCases(cacheKey, cookieHeader, query)
+    const refresh = fetchOpenCases(cacheKey, request)
     openCasesRefreshes.set(cacheKey, refresh)
     try {
         return await refresh
@@ -63,9 +63,8 @@ async function refreshOpenCases(cacheKey: string, cookieHeader: string, query: s
     }
 }
 
-async function fetchOpenCases(cacheKey: string, cookieHeader: string, query: string): Promise<number | null> {
+async function fetchOpenCases(cacheKey: string, request: NextRequest): Promise<number | null> {
     try {
-        const request = new NextRequest(`http://localhost/api/cases${query}`, { headers: { cookie: cookieHeader } })
         const casesResponse = await getCases(request).catch(() => null)
         const caseBody = casesResponse?.ok ? await casesResponse.json().catch(() => null) as { total?: unknown } | null : null
         const count = Number(caseBody?.total)

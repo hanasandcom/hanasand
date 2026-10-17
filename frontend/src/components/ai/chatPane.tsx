@@ -14,7 +14,6 @@ type ChatPaneProps = {
     isConnected: boolean
     isAuthenticated: boolean
     participants: number
-    landing?: boolean
     readOnly?: boolean
     onComposerChange: (value: string) => void
     onModelStrategyChange: (value: 'auto' | 'pinned') => void
@@ -72,21 +71,6 @@ export default function ChatPane({ activeConversation, clients, composer, isConn
     </Fragment>
 }
 
-function pickTooltip(tooltips: unknown[]) {
-    const candidates = tooltips.map(item => {
-        if (typeof item === 'string') return { text: item, weight: 1 }
-        if (item && typeof item === 'object' && 'text' in item && typeof item.text === 'string') {
-            return { text: item.text, weight: 'weight' in item && typeof item.weight === 'number' && Number.isFinite(item.weight) ? item.weight : 1 }
-        }
-        if (item && typeof item === 'object' && 'message' in item && typeof item.message === 'string') return { text: item.message, weight: 1 }
-        return { text: '', weight: 1 }
-    }).map(item => ({ ...item, text: item.text.trim(), weight: Math.max(0.1, item.weight) })).filter(item => item.text)
-    if (!candidates.length) return ''
-    const total = candidates.reduce((sum, item) => sum + item.weight, 0)
-    let cursor = Math.random() * total
-    for (const candidate of candidates) {
-        cursor -= candidate.weight
-        if (cursor <= 0) return candidate.text
-    }
-    return candidates[0]?.text || ''
+function pickTooltip(tooltips: readonly string[]) {
+    return tooltips[Math.floor(Math.random() * tooltips.length)] || ''
 }

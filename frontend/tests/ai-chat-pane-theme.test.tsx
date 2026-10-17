@@ -1,6 +1,7 @@
 // @ts-expect-error Bun provides this module when running tests.
 import { expect, test } from 'bun:test'
 import { renderToStaticMarkup } from 'react-dom/server'
+import ChatPane from '../src/components/ai/chatPane'
 import { ArtifactList } from '../src/components/ai/chat/chatArtifacts'
 import { ChatComposer } from '../src/components/ai/chat/chatComposer'
 import { ChatHeader } from '../src/components/ai/chat/chatHeader'
@@ -9,6 +10,28 @@ import { ToolMessage } from '../src/components/ai/chat/chatMessages'
 import { WorkspacePrimaryAction } from '../src/components/ai/workbenchPaneDisplay'
 
 const noPreview = () => {}
+
+test('empty chat selects a curated review prompt when a model is ready', () => {
+    const html = renderToStaticMarkup(<ChatPane
+        activeConversation={null}
+        clients={[{ name: 'review-model', ram: [], cpu: [], gpu: [], model: {} as GPT_ModelMetrics }]}
+        composer=''
+        isConnected
+        isAuthenticated
+        participants={1}
+        onComposerChange={() => {}}
+        onModelStrategyChange={() => {}}
+        onPreferredModelChange={() => {}}
+        onSend={() => {}}
+    />)
+    const prompts = [
+        'Attach the relevant context, then ask for a focused review, code change, or release check.',
+        'Start from a bug, repo, screenshot, or customer note and keep the important context visible.',
+        'Ask for a plan, implementation pass, browser check, or customer-ready summary.',
+    ]
+
+    expect(prompts.some(prompt => html.includes(prompt))).toBe(true)
+})
 
 test('chat composer renders themed, accessible blocked and ready states', () => {
     const blocked = renderToStaticMarkup(<ChatComposer value='' blockedReason='Reviewer mode' awaitingResponse={false} readOnly onChange={() => {}} onSend={() => {}} />)
