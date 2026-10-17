@@ -2797,3 +2797,20 @@ registration, before test assertions. The latest full frontend scan is 2,423
 files / 156,338 lines with zero files above 200, including separate user-owned
 working-tree changes. This is 2,630 lines above the 153,708 baseline; the
 10,000–30,000 frontend target remains unmet.
+
+The subsequent frontend pass centralized the identical local-time options for
+log sample and five-minute window labels, and added a real-render test for
+shared workspace links. The organization pages already shared their workspace
+structure and access/data hooks; only their duplicated watchlist status counts
+were centralized. The thesis inventory and dependency lists now share a
+code-item link component. Audits of dashboard primitives, browser pages, VM
+components, and shared TI components found no safe additional production
+abstraction; existing helpers already encode different contracts. Reviewed
+changes preserve UI and data behavior. Focused organization, thesis, logs,
+workspace-link, rate-limit, rules, browser and VM tests passed; non-incremental
+typecheck, focused ESLint, `git diff --check`, and the full frontend cap scan
+passed. Browser/VM live UX specs remain unrun; the rules Playwright spec cannot
+launch Chromium in this environment. Latest scan: 2,425 frontend files / 156,429
+working-tree lines / zero above 200, including unrelated uncommitted work. This
+is 2,721 lines above the 153,708 baseline; the 10,000–30,000 target remains
+unmet.
