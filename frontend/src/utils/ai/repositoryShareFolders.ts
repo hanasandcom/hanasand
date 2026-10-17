@@ -50,6 +50,12 @@ export async function ensureRepositoryParentFolder({
     return parentId
 }
 
+type RepositoryFileShare = ShareAccess & { id: string, name: string, parent: string, content: string }
+
+export function postRepositoryFileShare({ id, name, parent, content, token, userId }: RepositoryFileShare) {
+    return postShare({ id, includeTree: false, content, name, parent, type: 'file', token, userId })
+}
+
 export function registerRepositoryFolders(tree: Tree, prefix: string, folderIds: Map<string, string>) {
     for (const item of tree) {
         const path = prefix ? `${prefix}/${item.name}` : item.name

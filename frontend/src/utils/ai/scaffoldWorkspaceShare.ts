@@ -4,7 +4,7 @@ import { getTree } from '@/utils/share/getTree'
 import postShare from '@/utils/share/post'
 import { updateShare } from '@/utils/share/put'
 import type { NextjsDockerTemplate, WorkspaceTemplateFile } from './nextjsDockerTemplate'
-import { ensureRepositoryParentFolder, registerRepositoryFolders } from './repositoryShareFolders'
+import { ensureRepositoryParentFolder, postRepositoryFileShare, registerRepositoryFolders } from './repositoryShareFolders'
 
 type ShareAccess = {
     rootId: string
@@ -61,16 +61,7 @@ export async function syncTemplateFiles({
         const name = file.path.split('/').pop()
         if (!name) continue
 
-        const created = await postShare({
-            id: randomId(12),
-            includeTree: false,
-            content: file.content,
-            name,
-            parent: parentId,
-            type: 'file',
-            token,
-            userId,
-        })
+        const created = await postRepositoryFileShare({ id: randomId(12), content: file.content, name, parent: parentId, token, userId })
         if (!created) throw new Error(`Failed to create ${file.path}.`)
     }
 }

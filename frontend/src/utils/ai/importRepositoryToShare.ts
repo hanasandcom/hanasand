@@ -1,6 +1,6 @@
 import randomId from '@/utils/random/randomId'
 import postShare from '@/utils/share/post'
-import { ensureRepositoryParentFolder } from './repositoryShareFolders'
+import { ensureRepositoryParentFolder, postRepositoryFileShare } from './repositoryShareFolders'
 
 type ImportRepositoryToShareProps = {
     repo: AIImportedRepo
@@ -45,16 +45,7 @@ export async function importRepositoryToShare({
             continue
         }
 
-        const fileResponse = await postShare({
-            id: randomId(),
-            includeTree: false,
-            content: file.content,
-            name,
-            parent: parentId,
-            type: 'file',
-            token,
-            userId,
-        })
+        const fileResponse = await postRepositoryFileShare({ id: randomId(), content: file.content, name, parent: parentId, token, userId })
         if (!fileResponse) {
             throw new Error(`Failed to create file ${file.path}.`)
         }

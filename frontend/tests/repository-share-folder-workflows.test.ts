@@ -1,6 +1,6 @@
 import { expect, mock, test } from 'bun:test'
 
-type ShareRequest = { id: string, name: string, parent?: string, type: string, includeTree: boolean, content: string, path?: string }
+type ShareRequest = { id: string, name: string, parent?: string, type: string, includeTree: boolean, content: string, path?: string, token?: string, userId?: string }
 type TreeNode = { id: string, name: string, type: 'file' | 'folder', children: TreeNode[] }
 
 const requests: ShareRequest[] = []
@@ -84,6 +84,7 @@ test('scaffolding preserves 12-character IDs while reusing folders from the curr
     expect(requests.map(request => [request.name, request.parent, request.type])).toEqual([
         ['nested', 'src-id', 'folder'], ['app.ts', requests[0].id, 'file'],
     ])
+    expect(requests[1]).toMatchObject({ includeTree: false, content: 'starter', name: 'app.ts', parent: requests[0]!.id, type: 'file', token: 'token', userId: 'user' })
     expect(idLengths).toEqual([12, 12])
 })
 
@@ -97,6 +98,10 @@ test('repository sync reuses created folders across files and reports progress i
     await sync.syncRepositoryToShare({ repo, token: 'token', userId: 'user', onProgress: value => progress.push(value) })
 
     expect(requests.filter(request => request.type === 'folder').map(request => request.name)).toEqual(['generated'])
+    expect(requests.slice(1).map(({ includeTree, content, name, parent, type, token, userId }) => ({ includeTree, content, name, parent, type, token, userId }))).toEqual([
+        { includeTree: false, content: 'a', name: 'a.ts', parent: requests[0]!.id, type: 'file', token: 'token', userId: 'user' },
+        { includeTree: false, content: 'b', name: 'b.ts', parent: requests[0]!.id, type: 'file', token: 'token', userId: 'user' },
+    ])
     expect(requests.map(request => request.id.length)).toEqual([6, 6, 6])
     expect(progress.map(value => value.currentPath)).toEqual([null, 'src/generated/a.ts', 'src/generated/b.ts'])
     expect(updates).toEqual([['root', { path: 'owner/repo' }]])
@@ -114,6 +119,10 @@ test('import creates its root first, deduplicates parents, and retains file erro
     expect(requests.map(request => request.type)).toEqual(['folder', 'folder', 'folder', 'file', 'file'])
     expect(requests[0]).toMatchObject({ id: 'repo-id', includeTree: true, name: 'repo', path: 'owner/repo' })
     expect(requests.filter(request => request.type === 'folder').map(request => request.name)).toEqual(['repo', 'src', 'new'])
+    expect(requests.slice(3).map(({ includeTree, content, name, parent, type, token, userId }) => ({ includeTree, content, name, parent, type, token, userId }))).toEqual([
+        { includeTree: false, content: 'a', name: 'a.ts', parent: requests[2]!.id, type: 'file', token: 'token', userId: 'user' },
+        { includeTree: false, content: 'b', name: 'b.ts', parent: requests[2]!.id, type: 'file', token: 'token', userId: 'user' },
+    ])
     expect(idLengths).toEqual([6, 6, 6, 6])
     expect(progress.map(value => value.currentPath)).toEqual([null, 'src/new/a.ts', 'src/new/b.ts'])
 
