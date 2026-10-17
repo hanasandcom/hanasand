@@ -13,6 +13,9 @@ const api = Bun.serve({
         if (pathname === '/requests') return Response.json(requests)
         if (pathname.startsWith('/api/auth/token/')) return Response.json({ name: 'Member' })
         if (pathname === '/api/vms' || pathname === '/api/vm/metrics') return Response.json([])
+        if (pathname === '/api/vms/dashboard-render-proof-empty-user') return Response.json([])
+        if (pathname === '/api/vms/dashboard-render-proof-stalled-user') return new Response(new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode('[]')) } }), { headers: { 'content-type': 'application/json' } })
+        if (pathname === '/api/vms/dashboard-render-proof-stalled-error-user') return new Response(new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode('[]')) } }), { status: 404, headers: { 'content-type': 'application/json' } })
         if (pathname.startsWith('/api/vms/')) return Response.json([{ name: 'my-machine', owner: 'dashboard-render-proof-user', status: 'running', access_users: [] }])
         if (pathname === '/status') {
             writeFileSync(`${scratch}/state.json`, JSON.stringify({ updatedAt: new Date().toISOString(), compute: { memoryTotalBytes: 123 }, sites: { inspur: { compute: { diskFreeBytes: 456 } } } }))

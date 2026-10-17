@@ -21,12 +21,43 @@ export default async function getVMs(id: string, tokenOverride?: string, userIdO
         })
 
         if (!response.ok) {
-            throw new Error(await response.text())
+            throw new Error(await readResponseText(response, config.abortTimeout))
         }
 
-        const data = await response.json()
-        return data
+        return JSON.parse(await readResponseText(response, config.abortTimeout)) as VM[]
     } catch {
         return []
+    }
+}
+
+async function readResponseText(response: Response, timeoutMs: number): Promise<string> {
+    if (!response.body) return ''
+
+    const reader = response.body.getReader()
+    const chunks: Uint8Array[] = []
+    let size = 0
+    let timedOut = false
+    const timeout = setTimeout(() => {
+        timedOut = true
+        void reader.cancel(new Error('VM list response timed out')).catch(() => {})
+    }, timeoutMs)
+    try {
+        while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+            chunks.push(value)
+            size += value.length
+        }
+        if (timedOut) throw new Error('VM list response timed out')
+        const body = new Uint8Array(size)
+        let offset = 0
+        for (const chunk of chunks) {
+            body.set(chunk, offset)
+            offset += chunk.length
+        }
+        return new TextDecoder().decode(body)
+    } finally {
+        clearTimeout(timeout)
+        reader.releaseLock()
     }
 }

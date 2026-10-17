@@ -19,6 +19,7 @@ test('members can create VMs from System and VMs without requesting host telemet
         await expect(page.locator('[data-system-summary-metrics]')).toHaveCount(0)
         await expect(page.getByText('OVHcloud', { exact: true })).toHaveCount(0)
     }
+    await page.getByRole('button', { name: 'Create VM', exact: true }).click()
     await page.getByLabel('VM name', { exact: true }).fill('new-machine')
     await page.getByRole('button', { name: 'Create VM', exact: true }).click()
     await expect(page.getByRole('heading', { name: 'new-machine', exact: true })).toBeVisible()
@@ -37,6 +38,36 @@ test('VM pages still require a signed-in session', async ({ page }) => {
     await expect(page).toHaveURL(/\/login\?path=/)
 })
 
+test('VM inventory renders its empty state when the VM list is empty', async ({ context, page, baseURL }) => {
+    test.skip(!process.env.VM_FIXTURE_API, 'Requires the VM fixture API')
+    await context.setExtraHTTPHeaders({ 'x-hanasand-render-proof-auth': 'local-dashboard-render-proof' })
+    await context.addCookies(Object.entries({ id: 'dashboard-render-proof-empty-user', access_token: 'local-dashboard-render-proof-token' }).map(([name, value]) => ({ name, value, url: baseURL! })))
+    await page.goto('/vms')
+    await expect(page.getByRole('heading', { name: 'Virtual machines', exact: true })).toBeVisible()
+    await expect(page.getByText('0 virtual machines', { exact: true })).toBeVisible()
+    await expect(page.getByText('VM controls are ready.')).toBeVisible()
+})
+
+test('VM inventory leaves its loading state when the VM response body stalls', async ({ context, page, baseURL }) => {
+    test.skip(!process.env.VM_FIXTURE_API, 'Requires the VM fixture API')
+    await context.setExtraHTTPHeaders({ 'x-hanasand-render-proof-auth': 'local-dashboard-render-proof' })
+    await context.addCookies(Object.entries({ id: 'dashboard-render-proof-stalled-user', access_token: 'local-dashboard-render-proof-token' }).map(([name, value]) => ({ name, value, url: baseURL! })))
+    await page.goto('/vms', { waitUntil: 'commit' })
+    await expect(page.getByRole('status', { name: 'Loading virtual machines' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Virtual machines', exact: true })).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText('VM controls are ready.')).toBeVisible()
+})
+
+test('VM inventory leaves its loading state when an error response body stalls', async ({ context, page, baseURL }) => {
+    test.skip(!process.env.VM_FIXTURE_API, 'Requires the VM fixture API')
+    await context.setExtraHTTPHeaders({ 'x-hanasand-render-proof-auth': 'local-dashboard-render-proof' })
+    await context.addCookies(Object.entries({ id: 'dashboard-render-proof-stalled-error-user', access_token: 'local-dashboard-render-proof-token' }).map(([name, value]) => ({ name, value, url: baseURL! })))
+    await page.goto('/vms', { waitUntil: 'commit' })
+    await expect(page.getByRole('status', { name: 'Loading virtual machines' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Virtual machines', exact: true })).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText('VM controls are ready.')).toBeVisible()
+})
+
 test('empty accounts only see Infrastructure Overview until their first VM is created', async ({ context, page, baseURL }) => {
     test.skip(!process.env.VM_FIXTURE_API, 'Requires the VM fixture API')
     await context.setExtraHTTPHeaders({ 'x-hanasand-render-proof-auth': 'local-dashboard-render-proof' })
@@ -53,6 +84,7 @@ test('empty accounts only see Infrastructure Overview until their first VM is cr
     await expect(nav.locator('a[href="/system"]')).toBeVisible()
     await expect(nav.getByRole('button', { name: 'Compute', exact: true })).toHaveCount(0)
     await expect(nav.locator('a[href="/vms"]')).toHaveCount(0)
+    await page.getByRole('button', { name: 'Create VM', exact: true }).click()
     await page.getByLabel('VM name', { exact: true }).fill('first-machine')
     await page.getByRole('button', { name: 'Create VM', exact: true }).click()
     await expect(page.getByRole('heading', { name: 'first-machine', exact: true })).toBeVisible()
