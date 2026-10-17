@@ -13,6 +13,13 @@ export function RouteStateCard({ label, value, detail, tone }: { label: string, 
     </div>
 }
 
+export function WorkflowSubmitButton({ busy, disabled, disabledReason, icon, children, className = '' }: { busy: boolean, disabled: boolean, disabledReason?: string, icon?: ReactNode, children: string, className?: string }) {
+    return <button type='submit' disabled={disabled} title={disabledReason || undefined} className={`inline-flex h-10 items-center gap-2 rounded-lg bg-ui-primary px-4 text-sm font-semibold text-ui-on-primary transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 ${className}`.trim()}>
+        {busy ? <Loader2 className='h-4 w-4 animate-spin' /> : icon}
+        {children}
+    </button>
+}
+
 export function WorkflowButton({ busy, disabled, disabledReason, icon, onClick, children }: { busy: boolean, disabled: boolean, disabledReason?: string, icon: ReactNode, onClick: () => void, children: string }) {
     return <button type='button' onClick={onClick} disabled={disabled} title={disabledReason || undefined} className='inline-flex h-10 items-center gap-2 rounded-lg border border-ui-border bg-ui-panel px-4 text-sm font-semibold text-ui-text transition hover:border-ui-primary hover:bg-ui-raised disabled:cursor-not-allowed disabled:opacity-60'>
         {busy ? <Loader2 className='h-4 w-4 animate-spin' /> : icon}

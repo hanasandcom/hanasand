@@ -27,4 +27,5 @@ export const otherUnitTasks: TestTask[] = [
     { id: 'thesis-route-and-access', title: 'Thesis route access and persistence contract', command: [bun, 'test', 'tests/thesis.test.ts'] },
     { id: 'third-party-reporting-retry-source', title: 'Third-party reporting retry contract', command: [bun, 'test', 'tests/third-party-reporting-retry-source.test.ts'] },
     { id: 'vm-controls', title: 'VM control request and hardware rendering', command: [bun, 'test', 'tests/vm-controls.test.tsx'] },
+    { id: 'workflow-submit-button', title: 'Findings workflow submit button rendering contract', command: [bun, 'test', 'tests/workflow-submit-button.test.tsx'] },
 ]
