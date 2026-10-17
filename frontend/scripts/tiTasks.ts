@@ -21,6 +21,7 @@ export const tiTasks: TestTask[] = [
     { id: 'ti-undated-provenance', title: 'TI undated provenance behavior', command: [bun, 'test', 'tests/ti-undated-provenance.test.ts'] },
     { id: 'ti-workbench-timestamp-truthfulness', title: 'TI workbench timestamp truthfulness', command: [bun, 'test', 'tests/ti-workbench-timestamp-truthfulness.test.ts'] },
     { id: 'ti-workbench-alert-adapter', title: 'TI workbench alert adaptation', command: [bun, 'test', 'tests/workbench-alert-adapter.test.ts'] },
+    { id: 'workbench-alert-reference-merge', title: 'TI workbench alert reference merging', command: [bun, 'test', 'tests/workbench-alert-reference-merge.test.ts'] },
     { id: 'ti-workbench-case-adapter', title: 'TI workbench case adaptation', command: [bun, 'test', 'tests/workbench-case-adapter.test.ts'] },
     { id: 'ti-selectable-workbenches', title: 'TI selectable workbench rendering contracts', command: [bun, 'test', 'tests/ti-selectable-workbenches.test.tsx'] },
     { id: 'ti-workbench-page-data', title: 'TI workbench server data loading contracts', command: [bun, 'test', 'tests/workbench-page-data.test.ts'] },

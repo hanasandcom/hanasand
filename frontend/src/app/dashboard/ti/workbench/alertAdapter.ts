@@ -14,26 +14,26 @@ export function dwmAlertToWorkbenchCase(input: DwmAlert): WorkbenchCase {
     const caseId = alert.caseId ?? alert.customerReadiness?.caseHandoff?.caseId ?? alert.customerReadiness?.caseHandoff?.caseIdCandidate ?? alert.caseIdCandidate ?? alert.workflowContext?.caseIdCandidate
     const casePath = alert.casePath ?? alert.customerReadiness?.caseHandoff?.casePath ?? alert.workflowSummary?.casePath ?? alert.workflowContext?.casePath
     const organizationId = alert.organizationId ?? alert.orgWatchlistScope?.organizationId ?? alert.workflowContext?.organizationId
-    const selectedCaptureIds = uniqueStrings([
-        ...(alert.customerReadiness?.alertReadiness?.selectedCaptureIds ?? []),
-        ...(alert.deliveryReadinessContext?.selectedCaptureIds ?? []),
-        ...(alert.webhookContext?.selectedCaptureIds ?? []),
-        ...(alert.workflowContext?.captureIds ?? []),
-        ...(alert.sourceProvenanceSummary?.captureIds ?? []),
-        ...(alert.sourceProvenanceSummary?.generationEvidenceWindow?.captureIds ?? []),
-    ])
-    const watchlistIds = uniqueStrings([
-        ...(alert.watchlistIds ?? []),
-        ...(alert.orgWatchlistScope?.watchlistIds ?? []),
-        ...(alert.workflowContext?.watchlistIds ?? []),
-        ...(alert.customerReadiness?.alertReadiness?.watchlistIds ?? []),
-    ])
-    const watchlistItemIds = uniqueStrings([
-        ...(alert.watchlistItemIds ?? []),
-        ...(alert.orgWatchlistScope?.watchlistItemIds ?? []),
-        ...(alert.workflowContext?.watchlistItemIds ?? []),
-        ...(alert.customerReadiness?.alertReadiness?.watchlistItemIds ?? []),
-    ])
+    const selectedCaptureIds = mergeUniqueStrings(
+        alert.customerReadiness?.alertReadiness?.selectedCaptureIds ?? [],
+        alert.deliveryReadinessContext?.selectedCaptureIds ?? [],
+        alert.webhookContext?.selectedCaptureIds ?? [],
+        alert.workflowContext?.captureIds ?? [],
+        alert.sourceProvenanceSummary?.captureIds ?? [],
+        alert.sourceProvenanceSummary?.generationEvidenceWindow?.captureIds ?? [],
+    )
+    const watchlistIds = mergeUniqueStrings(
+        alert.watchlistIds ?? [],
+        alert.orgWatchlistScope?.watchlistIds ?? [],
+        alert.workflowContext?.watchlistIds ?? [],
+        alert.customerReadiness?.alertReadiness?.watchlistIds ?? [],
+    )
+    const watchlistItemIds = mergeUniqueStrings(
+        alert.watchlistItemIds ?? [],
+        alert.orgWatchlistScope?.watchlistItemIds ?? [],
+        alert.workflowContext?.watchlistItemIds ?? [],
+        alert.customerReadiness?.alertReadiness?.watchlistItemIds ?? [],
+    )
     const evidence = buildWorkbenchEvidence(alert, selectedCaptureIds)
     const actionBlockers = alert.customerReadiness?.blockerCodes ?? []
     const alertHref = `/api/findings/alerts/${encodeURIComponent(alert.id)}${organizationId ? `?organizationId=${encodeURIComponent(organizationId)}` : ''}`
@@ -169,6 +169,8 @@ function normalizeSeverity(severity: DwmSeverity): WorkbenchCase['severity'] {
     return severity
 }
 
-function uniqueStrings(values: Array<string | undefined>) {
+function mergeUniqueStrings(...groups: Array<string | undefined>[]) {
+    const values: Array<string | undefined> = []
+    for (const group of groups) values.push(...group)
     return [...new Set(values.map(value => String(value ?? '').trim()).filter(Boolean))]
 }
