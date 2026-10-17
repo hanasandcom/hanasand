@@ -1912,7 +1912,7 @@ over-limit files among 4,425 files / 327,277 lines, all outside the frontend.
 The frontend 10,000–30,000-line and API 100,000-line reduction goals remain
 unmet; no UI redesign or deployment was made.
 
-At checkpoint `039355e66` (2026-10-17), the API log recorder was divided into
+At checkpoint `3503f806d` (2026-10-17), the API log recorder was divided into
 preparation/orchestration, persistence, and shared type modules. The former
 216-line `recordLog.ts` is now 150 lines; its two supporting files are 62 and 23
 lines. Analyzer ordering, transaction flow, exports, and the SQL text are
