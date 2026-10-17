@@ -11,6 +11,7 @@ test('detects scheduler declarations without treating cron references as recurri
     expect(isScheduledCodeCandidate('setInterval(refresh, 30000)')).toBe(true)
     expect(isScheduledCodeCandidate('targetUrl?.startsWith(\'system:cron:\')')).toBe(false)
     expect(isScheduledCodeCandidate('export async function runDueWebScan() {}')).toBe(false)
+    expect(isScheduledCodeCandidate('description: \'Persisted daily UTC schedule (checked every minute)\'')).toBe(false)
 })
 
 test('recognizes a registered recurring worker and ignores ordinary helpers', async() => {
@@ -27,7 +28,7 @@ test('recognizes a registered recurring worker and ignores ordinary helpers', as
     expect(findUnregisteredCandidates([path.join(repositoryRoot, recurringSource)], registeredSources)).toEqual([])
 })
 
-test('registers operator-facing workers and excludes cache or maintenance refreshers', async() => {
+test('registers operator workers and excludes cache, maintenance, and session-local timers', async() => {
     const registeredSources = new Set(scheduledJobRegistryGuardrailEntries().map(entry => entry.source))
     const workerSources = [
         'api/src/utils/events/analyzeIngestAccess.ts',
@@ -35,6 +36,11 @@ test('registers operator-facing workers and excludes cache or maintenance refres
         'api/src/utils/events/processor.ts',
     ]
     const maintenanceSources = [
+        'api/src/handlers/onionSession/browserStartup.ts',
+        'api/src/handlers/onionSession/navigationService.ts',
+        'api/src/plugins/ws/browserStream.ts',
+        'api/src/plugins/ws/browserStreamRuntime.ts',
+        'api/src/plugins/ws/ephemeralBrowserSession.ts',
         'api/src/handlers/logs/metrics.ts',
         'api/src/handlers/logs/mostActive.ts',
         'api/src/handlers/logs/tuning.ts',

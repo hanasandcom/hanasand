@@ -4,7 +4,7 @@ import { scheduledJobRegistryGuardrailEntries } from '../src/utils/systemCron.ts
 
 const repoRoot = path.resolve(import.meta.dir, '..', '..')
 const scanRoots = ['api/src', 'docker-compose.yml']
-const schedulerPattern = /\b(schedule\s*\(|setInterval\s*\(|startCanaryCollectionLoop\b)/i
+const schedulerPattern = /\b(schedule\(|setInterval\(|startCanaryCollectionLoop\b)/i
 const ignoredPattern = /(^|\/)(tests?|fixtures?|docs?|node_modules)(\/|$)/
 
 export async function checkScheduledJobRegistry(candidateFiles?: string[]) {
@@ -73,12 +73,17 @@ function normalize(value: string) {
 function isAllowedIncidentalSchedulerFile(file: string) {
     return [
         'api/src/plugins/ws.ts', // Socket, worker-lease, and live telemetry maintenance.
+        'api/src/plugins/ws/browserStream.ts', // Keepalive timer owned by one browser stream connection.
+        'api/src/plugins/ws/browserStreamRuntime.ts', // Metrics timer owned by one browser stream connection.
+        'api/src/plugins/ws/ephemeralBrowserSession.ts', // Browser-run lease timer owned by one ephemeral session.
         'api/src/utils/cron.ts', // Dispatches the API jobs that the unified registry lists individually.
         // These timers exist only for an open WebSocket session and are cleared with that connection.
         'api/src/handlers/hostConsole.ts',
         'api/src/handlers/metrics/systemStream.ts',
         'api/src/handlers/vms/console.ts',
         'api/src/handlers/onionSession/ws.ts',
+        'api/src/handlers/onionSession/browserStartup.ts', // Browser-run lease timer owned by one onion session.
+        'api/src/handlers/onionSession/navigationService.ts', // Navigation heartbeat owned by one active navigation.
         'api/src/utils/db/browse.ts', // Expires idle database-browser clients; it does not run business work.
         'api/src/utils/db/browseConnection.ts', // Expires cached idle browser connections; no business work is scheduled.
         'api/src/utils/support/transport.ts',
