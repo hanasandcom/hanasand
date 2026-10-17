@@ -5,6 +5,7 @@ import { dashboardPanelClass } from '@/components/dashboard/ui'
 import EventFeed from './eventFeed'
 import { formatLogCount, logFieldClass, logSeverityClasses, projectedLogFields } from './logPresentation'
 import EventDisclosureTrigger from './EventDisclosure'
+import { LogTimestamp } from './LogTimestamp'
 
 type LogsView = 'dashboard' | 'realtime' | 'search' | 'errors'
 
@@ -109,7 +110,7 @@ function LogEventRow({
             </div>
         </div>
         <p className='mt-1 text-xs text-ui-muted'>
-            <time suppressHydrationWarning dateTime={event.event_timestamp}>{new Date(event.event_timestamp).toLocaleString()}</time>
+            <LogTimestamp value={event.event_timestamp} />
             {' · '}{event.normalized.log_type}{' · Original level: '}{event.normalized.level}
         </p>
         <pre className='mt-2 select-text whitespace-pre-wrap wrap-break-word font-mono text-xs leading-5'>

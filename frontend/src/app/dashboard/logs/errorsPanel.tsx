@@ -4,8 +4,8 @@ import { Bug, ShieldAlert, Activity, AlertTriangle, Copy } from 'lucide-react'
 import { dashboardPanelClass } from '@/components/dashboard/ui'
 import type { ErrorEvent, ErrorEventsResponse } from '@/utils/logs/getLogs'
 import EventDisclosureTrigger from './EventDisclosure'
+import { LogTimestamp } from './LogTimestamp'
 const countFormatter = new Intl.NumberFormat('nb-NO')
-function when(value: string) { return new Date(value).toLocaleString() }
 export default function ErrorsPanel({
     events,
     expanded,
@@ -60,7 +60,7 @@ export default function ErrorsPanel({
                                         <button type='button' aria-label='Copy error JSON' onClick={() => onCopy(event)} className='rounded-md p-1.5 text-ui-muted hover:text-ui-primary'><Copy size={16} aria-hidden /></button>
                                     </div>
                                 </div>
-                                <p className='mt-2 text-xs text-ui-muted'>{when(event.created_at)} · {event.surface || event.source} · User: {event.user_id || 'anonymous'}</p>
+                                <p className='mt-2 text-xs text-ui-muted'><LogTimestamp value={event.created_at} /> · {event.surface || event.source} · User: {event.user_id || 'anonymous'}</p>
                                 <p className='mt-2 select-text wrap-break-word font-mono text-xs text-ui-text'>{event.method} {event.path}</p>
                                 {isOpen && <pre id={`error-details-${event.id}`} className='mt-3 max-h-96 select-text overflow-auto whitespace-pre-wrap wrap-break-word rounded-md border border-ui-border bg-ui-raised p-3 font-mono text-xs leading-5 text-ui-text'>
                                     {JSON.stringify(event, null, 2)}

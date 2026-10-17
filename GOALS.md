@@ -2397,3 +2397,13 @@ scoped ESLint and line-cap checks pass. The concurrent worktree scan is 2,419
 frontend files / 156,236 lines and 4,562 repository files / 328,917 lines,
 with no hand-maintained file above 200 lines. Aggregate frontend and API
 reduction targets remain open.
+
+At the 2026-10-17 log timestamp reuse checkpoint, error rows and regular log
+rows now use one `LogTimestamp` component for local display formatting and the
+same source timestamp in semantic `<time>` markup. Rendered text is unchanged.
+Independent review approved the two-call-site component and the registered
+focused test passes (1 test / 1 assertion); scoped ESLint, diff, and line-cap
+checks pass. This adds 5 production/runner lines and 11 test lines. The shared
+worktree inventory is 2,421 frontend files / 156,306 lines and 4,564 repository
+files / 328,987 lines, with zero files above 200. Aggregate frontend and API
+reduction targets remain open.

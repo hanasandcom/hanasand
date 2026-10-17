@@ -39,6 +39,7 @@ export const productTasks: TestTask[] = [
     { id: 'ti-timeliness-report-lookup', title: 'TI timeliness recovery guidance rendering', command: [bun, 'test', 'tests/ti-timeliness-report-lookup.test.tsx'] },
     { id: 'ti-decision-status', title: 'TI decision status pill markup and labels', command: [bun, 'test', 'tests/ti-decision-status.test.tsx'] },
     { id: 'logs-catchup', title: 'Log catch-up measurements and progress states', command: [bun, 'test', 'tests/log-catchup-progress.test.tsx'] },
+    { id: 'log-timestamp', title: 'Shared log event timestamp rendering', command: [bun, 'test', 'tests/log-timestamp.test.tsx'] },
     { id: 'log-count-formatting', title: 'Shared log count formatting', command: [bun, 'test', 'tests/log-count-formatting.test.ts'] },
     { id: 'rule-storage-formatting', title: 'Shared rule storage byte formatting', command: [bun, 'test', 'tests/rule-storage-formatting.test.ts'] },
     { id: 'rule-count-initial', title: 'Rule counts start from the previous server sample', command: [bun, 'test', 'tests/rule-count-initial.test.tsx'] },
