@@ -3,9 +3,8 @@
 import { useRef, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { getCookie } from '@/utils/cookies/cookies'
-import config from '@/config'
 import { DashboardHeader, DashboardPage } from '@/components/dashboard/ui'
+import { saveAuditAcknowledgment } from '../audit/acknowledgment'
 import type { AdminAuditEvent, AuditSearchParams } from './audit'
 import { activeFilterEntries, auditQuietButtonClass, selectedAuditEvent } from './auditPresentation'
 import AuditFilterPanel from './auditFilterPanel'
@@ -30,15 +29,10 @@ export default function AuditTimeline({ events: initialEvents, params, responseE
         setPendingEvent(event.id)
         setAcknowledgmentError(null)
         try {
-            const response = await fetch(`${config.url.api}/admin/audit-events/${event.id}/acknowledgment`, {
-                method: event.acknowledged_at ? 'DELETE' : 'POST',
-                headers: { Authorization: `Bearer ${getCookie('access_token') || ''}`, id: getCookie('id') || '' },
-            })
-            const result = await response.json()
-            if (!response.ok) throw new Error(typeof result.error === 'string' ? result.error : 'Could not save acknowledgment.')
+            const result = await saveAuditAcknowledgment(event.id, Boolean(event.acknowledged_at), 'Could not save acknowledgment.')
             setAcknowledgments(current => ({ ...current, [event.id]: {
-                acknowledged_at: result.acknowledged_at,
-                acknowledged_by: result.acknowledged_by,
+                acknowledged_at: result.acknowledgedAt,
+                acknowledged_by: result.acknowledgedBy,
                 acknowledged_by_name: null,
             } }))
         } catch (error) {

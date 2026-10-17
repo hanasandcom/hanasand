@@ -868,3 +868,26 @@ The current repository-wide scanner reports 3,996 hand-maintained files /
 frontend cap is satisfied, but the API 100,000-line reduction and frontend
 10,000–30,000-line targets remain unachieved. These commits are local and
 unpublished; remote publication is still pending authorization.
+
+After `b65075f43`, `c095544ac`, and `a2e1c5985`, the frontend still passes its
+hard cap: 2,274 hand-maintained files / 152,060 LOC / zero files over 200 lines.
+The browser route now shares its one-second run-clock interval, removing 6
+production lines while preserving the timer activation conditions and cleanup.
+The API Public TI test suite was split into six focused suites and a shared
+fixture helper; its 27 tests / 334 assertions pass through the registered test
+runner. An independent review found and fixed a missing runner-policy update
+before commit. The automation utility is now a small facade plus 12 modules;
+the extraction adds 45 LOC, but each module stays below 200 lines and focused
+tests, typecheck, lint, and independent review pass. Its database-gated history
+test remains unrun because the configured test database is unavailable.
+Two more reviewed frontend reuse slices now share audit-acknowledgment request
+handling between Helpdesk and Management, and render four identical browser
+evidence cards through one local component. They preserve request contracts,
+error behavior, and exact card markup. The frontend suite passes, the production
+build generates all 116 routes, and the cap still passes at 2,276 files /
+152,103 LOC / zero over 200. The new tests account for most of the LOC increase;
+production code is approximately unchanged. Repository-wide scan: 4,016
+hand-maintained files / 322,421 LOC, with 109 over 200 lines, all outside the
+frontend. Frontend size remains far above 10,000–30,000 LOC; the API reduction
+target remains unmet. Local branch is 31 commits ahead of `github/main`; no
+remote publication was performed.

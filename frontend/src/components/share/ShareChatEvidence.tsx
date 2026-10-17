@@ -29,22 +29,10 @@ export function BrowserEvidenceCard({ evidence }: { evidence: BrowserEvidence })
                 <EvidenceList title='Links found' items={(structure.links || []).map((link) => [link.text, link.href].filter(Boolean).join(' -> '))} />
                 <EvidenceList title='Actions found' items={structure.buttons} />
                 <EvidenceList title='Forms found' items={[...(structure.inputs || []), ...(structure.forms || [])]} />
-                <div className='rounded-lg border border-ui-border bg-ui-canvas/16 p-2'>
-                    <p className='text-[10px] font-semibold uppercase tracking-[0.18em] text-ui-text/38'>Phone readiness</p>
-                    <p className='mt-1 text-ui-text/72'>{structure.hasViewportMeta ? 'Viewport meta present' : 'Viewport meta missing or unknown'}</p>
-                </div>
-                <div className='rounded-lg border border-ui-border bg-ui-canvas/16 p-2'>
-                    <p className='text-[10px] font-semibold uppercase tracking-[0.18em] text-ui-text/38'>Screenshot</p>
-                    <p className='mt-1 text-ui-text/72'>{evidence.screenshotPath ? 'Saved for review' : 'Screenshot not available yet'}</p>
-                </div>
-                <div className='rounded-lg border border-ui-border bg-ui-canvas/16 p-2'>
-                    <p className='text-[10px] font-semibold uppercase tracking-[0.18em] text-ui-text/38'>Journey check</p>
-                    <p className='mt-1 text-ui-text/72'>{journey?.readiness?.submitWithoutMutationAvoided ? 'Dry-run completed safely' : journey ? 'Rendered journey inspected' : 'Not available yet'}</p>
-                </div>
-                <div className='rounded-lg border border-ui-border bg-ui-canvas/16 p-2'>
-                    <p className='text-[10px] font-semibold uppercase tracking-[0.18em] text-ui-text/38'>Critical path</p>
-                    <p className='mt-1 text-ui-text/72'>{journeyLabels.length ? journeyLabels.join(', ') : 'No specific journey detected'}</p>
-                </div>
+                <EvidenceFact title='Phone readiness' value={structure.hasViewportMeta ? 'Viewport meta present' : 'Viewport meta missing or unknown'} />
+                <EvidenceFact title='Screenshot' value={evidence.screenshotPath ? 'Saved for review' : 'Screenshot not available yet'} />
+                <EvidenceFact title='Journey check' value={journey?.readiness?.submitWithoutMutationAvoided ? 'Dry-run completed safely' : journey ? 'Rendered journey inspected' : 'Not available yet'} />
+                <EvidenceFact title='Critical path' value={journeyLabels.length ? journeyLabels.join(', ') : 'No specific journey detected'} />
                 <details className='rounded-lg border border-ui-border bg-ui-canvas/16 p-2 sm:col-span-2'>
                     <summary className='cursor-pointer text-[10px] font-semibold uppercase tracking-[0.18em] text-ui-text/38'>Advanced details</summary>
                     <div className='mt-2 grid gap-2 sm:grid-cols-2'>
@@ -67,6 +55,13 @@ export function BrowserEvidenceCard({ evidence }: { evidence: BrowserEvidence })
             ) : null}
         </article>
     )
+}
+
+function EvidenceFact({ title, value }: { title: string, value: string }) {
+    return <div className='rounded-lg border border-ui-border bg-ui-canvas/16 p-2'>
+        <p className='text-[10px] font-semibold uppercase tracking-[0.18em] text-ui-text/38'>{title}</p>
+        <p className='mt-1 text-ui-text/72'>{value}</p>
+    </div>
 }
 
 export function EvidenceList({ title, items }: { title: string, items?: string[] }) {
