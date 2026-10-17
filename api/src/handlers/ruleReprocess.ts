@@ -4,7 +4,8 @@ import run, { withTransaction } from '#db'
 import hasHanasandInternalRouteAccess from '#utils/auth/organizationPageAccess.ts'
 import { roleCanEditOrganization } from '#utils/organizationRoles.ts'
 import { reprocessableRule, ruleReprocessRuleLock, ruleReprocessWorkerLock } from '#utils/events/ruleReprocess.ts'
-import { organizationAccess, ruleSlug } from './events.ts'
+import { organizationAccess } from './events/ruleStorage.ts'
+import { ruleSlug } from './events/ruleCatalog.ts'
 import { scanRulePreview } from '#utils/events/rulePreview.ts'
 
 type Request = FastifyRequest<{ Params: { id: string }, Querystring: { organizationId?: string },

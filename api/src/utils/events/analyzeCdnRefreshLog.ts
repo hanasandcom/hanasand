@@ -17,7 +17,8 @@ export async function analyzeCdnRefresh(log: CdnRefreshLog, query?: typeof run):
     const normalized = normalizeLogEvent({ ...log, id: log.sourceEventId!, created_at: log.timestamp! })
     if (!await matchesAnalysisPolicy([normalized], rule.definition)) return false
     if (customRetentionAction(normalized, await loadLogRetentionRules(rule.organization_id, query)) === 'keep') return false
-    const { loadConfiguredRules, eventWouldBeProtectedFromDrop } = await import('../../handlers/events.ts')
+    const { loadConfiguredRules } = await import('../../handlers/events/ruleStorage.ts')
+    const { eventWouldBeProtectedFromDrop } = await import('../../handlers/events/findingEngine.ts')
     const configured = await loadConfiguredRules(rule.organization_id, query)
     // Check before the receipt on every retry: a newly installed detector must
     // be able to protect an event that an earlier configuration considered noise.

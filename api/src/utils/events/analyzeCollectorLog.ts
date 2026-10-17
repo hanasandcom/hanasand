@@ -15,7 +15,8 @@ export async function analyzeCollectorExecution(log: CollectorLog, query?: typeo
     if (!rule || !eligibleCollectorExecution(log, rule.definition?.parameters)) return false
     const original = normalizeLogEvent({ ...log, id: log.sourceEventId!, created_at: log.timestamp! })
     if (!await matchesAnalysisPolicy([original], rule.definition)) return false
-    const { loadConfiguredRules, eventWouldBeProtectedFromDrop } = await import('../../handlers/events.ts')
+    const { loadConfiguredRules } = await import('../../handlers/events/ruleStorage.ts')
+    const { eventWouldBeProtectedFromDrop } = await import('../../handlers/events/findingEngine.ts')
     const rules = await loadConfiguredRules(rule.organization_id, query)
     if (eventWouldBeProtectedFromDrop(rule.organization_id, log.sourceEventId!, original, rules)) return false
     // The compact receipt both counts the drop and deduplicates collector retries.

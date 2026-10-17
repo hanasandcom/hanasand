@@ -33,11 +33,13 @@ mock.module('../src/utils/events/catchupProgress.ts', () => ({ refreshLogCatchup
 mock.module('../src/utils/logs/dimensions.ts', () => ({ backfillLogDimensions: async () => ({ processed: 0, ready: true }) }))
 mock.module('../src/utils/events/pruneAccessLogs.ts', () => ({ pruneAccessLogs: async () => new Set() }))
 mock.module('../src/utils/events/storedSources.ts', () => ({ processAdditionalLogSources: async () => { additionalRuns++ } }))
-mock.module('../src/handlers/events.ts', () => ({
-    loadConfiguredRules: async () => [],
+mock.module('../src/handlers/events/ruleStorage.ts', () => ({ loadConfiguredRules: async () => [] }))
+mock.module('../src/handlers/events/findingEngine.ts', () => ({
     collectEventFindings: () => ({ findings: [] }),
-    persistEventFindings: async () => {},
     createFindings: async () => {},
+    persistEventFindings: async () => {},
+}))
+mock.module('../src/handlers/events/eventNormalization.ts', () => ({
     normalizeEvent: (event: any) => ({ timestamp: event.timestamp, eventType: event.event_type, action: event.action,
         outcome: event.outcome, normalized: event }),
 }))

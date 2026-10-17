@@ -18,7 +18,8 @@ export async function analyzeModelDiscovery(log: ModelProbeLog, query?: typeof r
     const normalized = normalizeLogEvent({ ...log, id: log.sourceEventId!, created_at: log.timestamp! })
     if (!await matchesAnalysisPolicy([normalized], rule.definition)) return false
     if (customRetentionAction(normalized, await loadLogRetentionRules(rule.organization_id, query)) === 'keep') return false
-    const { loadConfiguredRules, eventWouldBeProtectedFromDrop } = await import('../../handlers/events.ts')
+    const { loadConfiguredRules } = await import('../../handlers/events/ruleStorage.ts')
+    const { eventWouldBeProtectedFromDrop } = await import('../../handlers/events/findingEngine.ts')
     const configured = await loadConfiguredRules(rule.organization_id, query)
     // Re-evaluate protections even for an already acknowledged delivery.
     if (eventWouldBeProtectedFromDrop(rule.organization_id, log.sourceEventId!, normalized, configured, [])) return false
@@ -42,7 +43,8 @@ export async function analyzeModelHealthCheck(log: ModelProbeLog, query?: typeof
     if (!rule || !Array.isArray(rule.definition?.conditions)) return false
     const normalized = normalizeLogEvent({ ...log, id: log.sourceEventId!, created_at: log.timestamp! })
     if (!await matchesAnalysisPolicy([normalized], rule.definition)) return false
-    const { loadConfiguredRules, eventWouldBeProtectedFromDrop } = await import('../../handlers/events.ts')
+    const { loadConfiguredRules } = await import('../../handlers/events/ruleStorage.ts')
+    const { eventWouldBeProtectedFromDrop } = await import('../../handlers/events/findingEngine.ts')
     const configured = await loadConfiguredRules(rule.organization_id, query)
     const retention = await loadLogRetentionRules(rule.organization_id, query)
     if (eventWouldBeProtectedFromDrop(rule.organization_id, log.sourceEventId!, normalized, configured, retention)) return false

@@ -1,4 +1,4 @@
-import { loadConfiguredRules } from '../../handlers/events.ts'
+import { loadConfiguredRules } from '../../handlers/events/ruleStorage.ts'
 import run, { isDatabaseLowLoad, tryWithDatabaseAdvisoryLock } from '#db'
 import { ReadAdmissionError } from '../readCache.ts'
 import { internalRetentionRuleIds } from './ruleList.ts'

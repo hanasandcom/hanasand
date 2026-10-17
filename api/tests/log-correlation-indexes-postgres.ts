@@ -8,7 +8,7 @@ const client=new pg.Client({host:process.env.DB_HOST,port:Number(process.env.DB_
 await client.connect()
 const q=(sql: string,params: any[]=[])=>client.query(sql,params)
 const schema=readFileSync(new URL('../src/utils/db/ensureSchema.ts',import.meta.url),'utf8')
-const event=readFileSync(new URL('../src/handlers/events.ts',import.meta.url),'utf8')
+const event=readFileSync(new URL('../src/handlers/events/authenticationFindings.ts',import.meta.url),'utf8')
 const worker=readFileSync(new URL('../src/utils/events/processLogs.ts',import.meta.url),'utf8')
 const spray=event.match(/const spray = await run\(`([\s\S]*?)`, \[organizationId, event\.sourceIp/)?.[1]
 const native=worker.match(/const pending = await run\(`([\s\S]*?)`\)/)?.[1]

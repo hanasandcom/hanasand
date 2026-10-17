@@ -1,5 +1,7 @@
 import { sshTransportGroups, sshTransportRuleId } from './analyzeSshTransport.ts'
-import { collectEventFindings, loadConfiguredRules, normalizeEvent } from '../../handlers/events.ts'
+import { collectEventFindings } from '../../handlers/events/findingEngine.ts'
+import { loadConfiguredRules } from '../../handlers/events/ruleStorage.ts'
+import { normalizeEvent } from '../../handlers/events/eventNormalization.ts'
 import type run from '#db'
 import { customRetentionAction, loadLogRetentionRules } from './customRetention.ts'
 import { normalizeLogEvent } from './logEvent.ts'

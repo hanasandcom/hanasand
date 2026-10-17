@@ -60,7 +60,8 @@ export async function reprocessBuiltinPage(job: ReprocessJob, query: typeof run)
     const findings = new Set((await query('SELECT event_ids FROM findings WHERE event_ids && $1::text[]', [projections.map(row => row.id)])).rows.flatMap(row => row.event_ids))
     const canonical = await canonicalReplayKeys(rows.map(row => row.id), query)
     const retention = await loadLogRetentionRules(job.organization_id, query)
-    const { loadConfiguredRules, eventWouldBeProtectedFromDrop } = await import('../../handlers/events.ts')
+    const { loadConfiguredRules } = await import('../../handlers/events/ruleStorage.ts')
+    const { eventWouldBeProtectedFromDrop } = await import('../../handlers/events/findingEngine.ts')
     const rules = await loadConfiguredRules(job.organization_id, query)
     const protectedEvent = (event: Record<string, unknown>, id: string) => eventWouldBeProtectedFromDrop(
         job.organization_id,

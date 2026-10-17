@@ -16,7 +16,8 @@ export async function analyzePostgresBatch<T extends PostgresLog>(entries: T[], 
     const rule = result.rows[0]
     if (!rule || !validPostgresParameters(rule.definition?.parameters)) return entries
     const parameters = rule.definition.parameters
-    const { loadConfiguredRules, eventWouldBeProtectedFromDrop } = await import('../../handlers/events.ts')
+    const { loadConfiguredRules } = await import('../../handlers/events/ruleStorage.ts')
+    const { eventWouldBeProtectedFromDrop } = await import('../../handlers/events/findingEngine.ts')
     const rules = await loadConfiguredRules(rule.organization_id, query)
     const eligible: typeof sessions = []
     for (const session of sessions) {

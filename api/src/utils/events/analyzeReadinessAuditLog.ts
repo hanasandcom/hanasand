@@ -15,7 +15,8 @@ export async function analyzeReadinessAuditBatch<T extends CollectorLog>(entries
         ORDER BY o.created_at LIMIT 1 FOR SHARE OF r,o NOWAIT`, [process.env.PLATFORM_LOG_ORGANIZATION_ID || null, readinessAuditRuleId])
     const rule = result.rows[0]
     if (!rule) return entries
-    const { loadConfiguredRules, eventWouldBeProtectedFromDrop } = await import('../../handlers/events.ts')
+    const { loadConfiguredRules } = await import('../../handlers/events/ruleStorage.ts')
+    const { eventWouldBeProtectedFromDrop } = await import('../../handlers/events/findingEngine.ts')
     const rules = await loadConfiguredRules(rule.organization_id, query), dropped = new Set<CollectorLog>()
     for (const chain of chains) {
         if (!readinessTimingAllowed(chain.fact, rule.definition?.parameters)

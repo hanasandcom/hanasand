@@ -1,5 +1,5 @@
 import run from '#db'
-import { loadConfiguredRules } from '../../handlers/events.ts'
+import { loadConfiguredRules } from '../../handlers/events/ruleStorage.ts'
 import { invalidateReadCache } from '../readCache.ts'
 import { internalRetentionRuleIds, loadRuleHits } from './ruleList.ts'
 
