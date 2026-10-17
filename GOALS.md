@@ -2386,3 +2386,14 @@ contract remains unchanged. This test-only change adds 43 net lines. The
 concurrent worktree scan is 2,419 frontend files / 156,212 lines and 4,562
 repository files / 328,894 lines, with no file above 200. Aggregate reduction
 targets remain open.
+
+At the 2026-10-17 dashboard access test checkpoint, the source-text assertions
+for internal page gating were replaced with runtime checks of the navigation
+builder and Next proxy. Coverage confirms role-only accounts are redirected,
+Hanasand editors are admitted, customer findings remain reachable, and the
+proxy sends organization-access lookup credentials and query parameters. An
+independent review approved the test. The focused suite passes (2 tests), and
+scoped ESLint and line-cap checks pass. The concurrent worktree scan is 2,419
+frontend files / 156,236 lines and 4,562 repository files / 328,917 lines,
+with no hand-maintained file above 200 lines. Aggregate frontend and API
+reduction targets remain open.

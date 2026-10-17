@@ -1,16 +1,10 @@
 import { strict as assert } from 'node:assert'
-import { readFileSync } from 'node:fs'
-import path from 'node:path'
 import test from 'node:test'
 import { NextRequest } from 'next/server'
 import { getDashboardNavigation, navigationLinks } from '../src/utils/layout/dashboardNavigation'
 import { proxy } from '../src/proxy'
 
-const root = process.cwd()
-
-test('internal pages are exposed by Hanasand organization access and gated the same way on requests', () => {
-    const sidebarNavigation = readFileSync(path.join(root, 'src/components/dashboard/useDashboardSidebarNavigation.ts'), 'utf8')
-    const proxy = readFileSync(path.join(root, 'src/proxy.ts'), 'utf8')
+test('internal pages appear only for organization access in dashboard navigation', () => {
     const guestLinks = navigationLinks(getDashboardNavigation({ id: 'member' }))
     const userRoleLinks = navigationLinks(getDashboardNavigation({
         id: 'role-only-user',
@@ -42,18 +36,15 @@ test('internal pages are exposed by Hanasand organization access and gated the s
         assert.equal(organizationLinks.some(link => link.href === href), true, `${label} should be available to Hanasand owners and editors.`)
     }
 
-    assert(sidebarNavigation.includes('access.canViewInternalPages === true'))
-    assert(sidebarNavigation.includes('canViewHanasandInternalPages(organizations)'))
-    assert(proxy.includes('if (!canViewOrganizationInternalPages)'))
-    assert(!proxy.includes('roleMatchesStrictPath'), 'Protected page routes must not depend on account roles.')
-    assert(proxy.includes('organizationProtectedPaths.find'), 'Protected page routes must be organization-scoped.')
 })
 
 test('internal page route accepts Hanasand editors and rejects user-role-only access', async() => {
     const originalFetch = globalThis.fetch
+    const calls: Array<{ target: URL, headers: Headers }> = []
     const tokenById = new Map([['role-only-user', 'token-role-only'], ['hanasand-editor', 'token-org-editor']])
     globalThis.fetch = (async(input: RequestInfo | URL, init?: RequestInit) => {
         const target = new URL(String(input))
+        calls.push({ target, headers: new Headers(init?.headers) })
         if (target.pathname.includes('/auth/token/')) {
             const id = target.pathname.split('/').pop() || ''
             const token = tokenById.get(id)
@@ -74,11 +65,23 @@ test('internal page route accepts Hanasand editors and rejects user-role-only ac
     try {
         const roleOnlyResponse = await proxy(makeRequest('role-only-user', 'token-role-only'))
         assert.equal(roleOnlyResponse.status, 307)
-        assert.equal(new URL(roleOnlyResponse.headers.get('location') || '').searchParams.get('notAllowed'), 'true')
+        const denialUrl = new URL(roleOnlyResponse.headers.get('location') || '')
+        assert.equal(denialUrl.searchParams.get('notAllowed'), 'true')
+        assert.equal(denialUrl.searchParams.get('from'), '/logs/realtime')
 
         const editorResponse = await proxy(makeRequest('hanasand-editor', 'token-org-editor'))
         assert.equal(editorResponse.status, 200)
         assert.equal(editorResponse.headers.has('location'), false)
+
+        const customerResponse = await proxy(new NextRequest('https://hanasand.com/findings', {
+            headers: { cookie: 'id=role-only-user; access_token=token-role-only' },
+        }))
+        assert.equal(customerResponse.status, 200)
+        assert.equal(customerResponse.headers.has('location'), false)
+        assert(calls.some(({ target, headers }) => target.pathname.endsWith('/management/organizations')
+            && target.searchParams.get('internalPages') === '1'
+            && headers.get('authorization') === 'Bearer token-role-only'
+            && headers.get('id') === 'role-only-user'))
     } finally {
         globalThis.fetch = originalFetch
     }
