@@ -14,9 +14,13 @@ mock.module('next/link', () => ({
 mock.module('../src/app/dashboard/db/actions', () => ({
     deleteBackupAction: async () => ({ message: 'Deleted' }),
     triggerBackupAction: async () => ({ message: 'Started' }),
+    restoreBackupAction: async () => ({ message: 'Drill complete' }),
+    restoreLiveBackupAction: async () => ({ message: 'Restore complete' }),
 }))
 
 const { default: BackupPage } = await import('../src/app/dashboard/db/backups/backupPage')
+const { default: RestoreClient } = await import('../src/app/dashboard/db/restore/restoreClient')
+const { default: LiveRestoreClient } = await import('../src/app/dashboard/db/restore/liveRestoreClient')
 
 function render(backups: BackupService[], files: BackupFile[] = [], loadError = '') {
     return renderToStaticMarkup(createElement(BackupPage, { backups, files, loadError }))
@@ -56,6 +60,26 @@ function operation(overrides: Partial<BackupOperation> = {}): BackupOperation {
         releaseCommit: 'release-123456789',
         ...overrides,
     }
+}
+
+function renderRestoreDrill(active: BackupOperation) {
+    return renderToStaticMarkup(createElement(RestoreClient, {
+        backups: [],
+        service: backupService({ currentOperation: active, operations: [active] }),
+    }))
+}
+
+function renderLiveRestore(active: BackupOperation) {
+    return renderToStaticMarkup(createElement(LiveRestoreClient, {
+        backups: [{ service: 'primary', file: active.file || 'backup.sql.gz', verified: true }],
+        service: backupService({ database: 'appdb', currentOperation: active, operations: [active] }),
+        file: active.file || 'backup.sql.gz',
+    }))
+}
+
+function progressStages(html: string) {
+    const list = html.match(/<ol class="[^"]+">([\s\S]*?)<\/ol>/)?.[1] || ''
+    return [...list.matchAll(/<li class="([^"]+)">([^<]*)<\/li>/g)].map(([, className, label]) => ({ className, label }))
 }
 
 test('backup dashboard renders service, archive, verification, retention, and operation evidence', () => {
@@ -112,4 +136,45 @@ test('empty backup data shows load and retention fallbacks', () => {
     expect(html).toContain('No archive exists. Run the first verified backup.')
     expect(html).toContain('No completed retention pass yet')
     expect(html).toContain('The previous backup failure did not retain its cause.')
+})
+
+test('restore drill preserves its progress panel stages, accessibility, and success copy', () => {
+    const html = renderRestoreDrill(operation({
+        kind: 'restore_drill', status: 'succeeded', stage: 'checking_integrity',
+        targetDatabase: 'restore_drill_test', targetRemoved: true,
+        restoredIntegrity: { schemas: 4, tables: 12, estimatedRows: 100 },
+        sourceIntegrity: { schemas: 4, tables: 12, estimatedRows: 100 },
+    }))
+    expect(html).toContain('<section class="rounded-xl border border-ui-border bg-ui-panel p-4 sm:p-5" aria-live="polite">')
+    expect(html).toContain('Current drill evidence')
+    expect(html).toContain('<span class="capitalize text-ui-muted">succeeded</span>')
+    expect(html).toContain('mt-4 grid gap-2 text-sm sm:grid-cols-5')
+    expect(progressStages(html).map(stage => stage.label)).toEqual([
+        'Verifying archive', 'Creating isolated database', 'Restoring', 'Checking integrity', 'Removing isolated database',
+    ])
+    expect(progressStages(html)[3].className).toContain('border-ui-primary bg-ui-primary/10 text-ui-primary')
+    expect(html).toContain('4 schemas, 12 tables, source match passed Target removed: yes.')
+})
+
+test('live restore preserves its progress panel stages, breakpoints, and success copy', () => {
+    const html = renderLiveRestore(operation({
+        kind: 'restore_live', status: 'succeeded', stage: 'checking_integrity', targetDatabase: 'appdb',
+        restoredIntegrity: { schemas: 4, tables: 12, estimatedRows: 100 },
+    }))
+    expect(html).toContain('<section class="rounded-xl border border-ui-border bg-ui-panel p-4 sm:p-5" aria-live="polite">')
+    expect(html).toContain('Restore progress')
+    expect(html).toContain('<span class="capitalize text-ui-muted">succeeded</span>')
+    expect(html).toContain('sm:grid-cols-3 xl:grid-cols-6')
+    expect(progressStages(html).map(stage => stage.label)).toEqual([
+        'Verifying archive', 'Creating restore database', 'Restoring', 'Checking integrity', 'Switching live database', 'Removing previous database',
+    ])
+    expect(progressStages(html)[3].className).toContain('border-ui-primary bg-ui-primary/10 text-ui-primary')
+    expect(html).toContain('4 schemas and 12 tables restored into appdb.')
+})
+
+test('both restore progress panels retain operation error text', () => {
+    const failed = operation({ kind: 'restore_drill', status: 'failed', error: 'Restore worker failed.' })
+    for (const html of [renderRestoreDrill(failed), renderLiveRestore({ ...failed, kind: 'restore_live' })]) {
+        expect(html).toContain('<p class="mt-4 text-sm text-ui-text">Restore worker failed.</p>')
+    }
 })

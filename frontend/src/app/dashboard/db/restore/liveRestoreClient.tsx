@@ -9,6 +9,7 @@ import formatUtcDateTime from '@/utils/date/formatUtcDateTime'
 import { stageLabel } from '../backups/backupPresentation'
 import { restoreLiveBackupAction } from '../actions'
 import { RestoreFeedback } from './RestoreFeedback'
+import { RestoreOperationProgress } from './RestoreOperationProgress'
 import { useBackupOperationRefresh } from './useBackupOperationRefresh'
 
 export default function LiveRestoreClient({ backups, service, file, loadError = '' }: { backups: BackupFile[], service?: BackupService, file: string, loadError?: string }) {
@@ -89,22 +90,14 @@ export default function LiveRestoreClient({ backups, service, file, loadError = 
                 {message && <RestoreFeedback message={message} tone='success' />}
             </section>
 
-            {visibleOperation && <RestoreEvidence operation={visibleOperation} />}
+            {visibleOperation && <RestoreOperationProgress
+                operation={visibleOperation}
+                title='Restore progress'
+                stages={['verifying_archive', 'creating_restore_database', 'restoring', 'checking_integrity', 'switching_live_database', 'removing_previous_database']}
+                stageGridClassName='mt-4 grid gap-2 text-sm sm:grid-cols-3 xl:grid-cols-6'
+                successContent={operation => <>{operation.restoredIntegrity?.schemas || 0} schemas and {operation.restoredIntegrity?.tables || 0} tables restored into {operation.targetDatabase}.</>}
+            />}
         </main>
-    )
-}
-
-function RestoreEvidence({ operation }: { operation: BackupOperation }) {
-    const stages = ['verifying_archive', 'creating_restore_database', 'restoring', 'checking_integrity', 'switching_live_database', 'removing_previous_database']
-    return (
-        <section className='rounded-xl border border-ui-border bg-ui-panel p-4 sm:p-5' aria-live='polite'>
-            <div className='flex items-center justify-between gap-3'><h2 className='font-semibold text-ui-text'>Restore progress</h2><span className='capitalize text-ui-muted'>{operation.status}</span></div>
-            <ol className='mt-4 grid gap-2 text-sm sm:grid-cols-3 xl:grid-cols-6'>
-                {stages.map(stage => <li key={stage} className={`rounded-lg border p-2 ${operation.stage === stage ? 'border-ui-primary bg-ui-primary/10 text-ui-primary' : 'border-ui-border text-ui-muted'}`}>{stageLabel(stage)}</li>)}
-            </ol>
-            {operation.status === 'succeeded' && <p className='mt-4 text-sm text-ui-success'>{operation.restoredIntegrity?.schemas || 0} schemas and {operation.restoredIntegrity?.tables || 0} tables restored into {operation.targetDatabase}.</p>}
-            {operation.error && <p className='mt-4 text-sm text-ui-text'>{operation.error}</p>}
-        </section>
     )
 }
 

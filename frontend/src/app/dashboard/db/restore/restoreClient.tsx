@@ -8,6 +8,7 @@ import type { BackupFile, BackupOperation, BackupService } from '@/utils/db/inte
 import { stageLabel } from '../backups/backupPresentation'
 import { restoreBackupAction } from '../actions'
 import { RestoreFeedback } from './RestoreFeedback'
+import { RestoreOperationProgress } from './RestoreOperationProgress'
 import { useBackupOperationRefresh } from './useBackupOperationRefresh'
 
 export default function RestoreClient({ backups, service, loadError = '' }: { backups: BackupFile[], service?: BackupService, loadError?: string }) {
@@ -98,7 +99,13 @@ export default function RestoreClient({ backups, service, loadError = '' }: { ba
                 {message && <RestoreFeedback message={message} tone='success' />}
             </section>
 
-            {(activeDrill || result) && <DrillEvidence operation={activeDrill || result!} />}
+            {(activeDrill || result) && <RestoreOperationProgress
+                operation={activeDrill || result!}
+                title='Current drill evidence'
+                stages={['verifying_archive', 'creating_isolated_database', 'restoring', 'checking_integrity', 'removing_isolated_database']}
+                stageGridClassName='mt-4 grid gap-2 text-sm sm:grid-cols-5'
+                successContent={operation => <>{integrityLabel(operation)} Target removed: {operation.targetRemoved ? 'yes' : 'no'}.</>}
+            />}
 
             <section className='overflow-hidden rounded-xl border border-ui-border bg-ui-panel' aria-labelledby='restore-history-heading'>
                 <div className='border-b border-ui-border p-4 sm:px-5'><h2 id='restore-history-heading' className='font-semibold text-ui-text'>Restore-drill audit history</h2></div>
@@ -113,19 +120,6 @@ export default function RestoreClient({ backups, service, loadError = '' }: { ba
                 </div>
             </section>
         </main>
-    )
-}
-
-function DrillEvidence({ operation }: { operation: BackupOperation }) {
-    return (
-        <section className='rounded-xl border border-ui-border bg-ui-panel p-4 sm:p-5' aria-live='polite'>
-            <div className='flex items-center justify-between gap-3'><h2 className='font-semibold text-ui-text'>Current drill evidence</h2><span className='capitalize text-ui-muted'>{operation.status}</span></div>
-            <ol className='mt-4 grid gap-2 text-sm sm:grid-cols-5'>
-                {['verifying_archive', 'creating_isolated_database', 'restoring', 'checking_integrity', 'removing_isolated_database'].map(stage => <li key={stage} className={`rounded-lg border p-2 ${operation.stage === stage ? 'border-ui-primary bg-ui-primary/10 text-ui-primary' : 'border-ui-border text-ui-muted'}`}>{stageLabel(stage)}</li>)}
-            </ol>
-            {operation.status === 'succeeded' && <p className='mt-4 text-sm text-ui-success'>{integrityLabel(operation)} Target removed: {operation.targetRemoved ? 'yes' : 'no'}.</p>}
-            {operation.error && <p className='mt-4 text-sm text-ui-text'>{operation.error}</p>}
-        </section>
     )
 }
 
