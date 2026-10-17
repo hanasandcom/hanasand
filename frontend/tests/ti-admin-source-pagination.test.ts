@@ -1,9 +1,11 @@
 import { strict as assert } from 'node:assert'
-import { afterEach, describe, test } from 'node:test'
-import { getTiAdminOverview, getTiAdminSource } from '../src/utils/tiAdmin/ops'
+import { afterEach, beforeEach, describe, test } from 'node:test'
+import { getTiAdminOverview, getTiAdminSource, invalidateTiAdminSourceOperationsCache } from '../src/utils/tiAdmin/ops'
 
 const originalFetch = globalThis.fetch
 const originalBase = process.env.HANASAND_TI_SCRAPER_LOCAL_BASE
+
+beforeEach(invalidateTiAdminSourceOperationsCache)
 
 afterEach(() => {
     globalThis.fetch = originalFetch
@@ -12,7 +14,7 @@ afterEach(() => {
 })
 
 describe('TI admin bounded source operations', () => {
-    test('fetches a source beyond page one directly and trusts retained aggregates over an empty capture sample', async () => {
+    test('fetches a source beyond page one and preserves aggregate totals without capture samples', async () => {
         process.env.HANASAND_TI_SCRAPER_LOCAL_BASE = 'https://scraper.example.test'
         const requested: URL[] = []
         globalThis.fetch = (async (input: RequestInfo | URL) => {
@@ -105,7 +107,7 @@ describe('TI admin bounded source operations', () => {
             const url = new URL(String(input))
             if (url.pathname.endsWith('/source-operations')) return Response.json({
                 total: 6_100,
-                summary: { activeSourceCount: 6_100 },
+                summary: { activeSourceCount: 47 },
                 qualification: { counts: { total: 0, clearWeb: 0, lawfulDarkWeb: 0, publicTelegram: 0 } },
                 sources: []
             })
@@ -132,6 +134,6 @@ describe('TI admin bounded source operations', () => {
         assert.equal(overview.sources.length, 0)
         assert.equal(overview.captures[0]?.sourceName, 'Beyond page one')
         assert.equal(overview.runs[0]?.sourceName, 'Beyond page one')
-        assert.equal(overview.sourceTotals.executable, 6_100)
+        assert.equal(overview.sourceTotals.executable, 47)
     })
 })

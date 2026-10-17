@@ -4,6 +4,7 @@ import { mock, test } from 'bun:test'
 import { renderToStaticMarkup } from 'react-dom/server'
 mock.module('../src/app/dashboard/ti/manualRunButton', () => ({ default: () => null }))
 const originalFetch = globalThis.fetch
+const originalApiBase = process.env.TI_SCRAPER_API_BASE
 let failed: string[] = []
 let empty = false
 globalThis.fetch = (async (input: RequestInfo | URL) => {
@@ -17,7 +18,11 @@ globalThis.fetch = (async (input: RequestInfo | URL) => {
     return Response.json({ captures: empty ? [] : [{ id: 'capture', sourceId: 'example', collectedAt: '2026-09-07T10:00:00Z', url: 'https://example.com/article', metadata: { title: 'Example article' } }] })
 }) as typeof fetch
 const { default: Page } = await import('../src/app/dashboard/ti/sources/[id]/page')
-async function render() { return renderToStaticMarkup(await Page({ params: Promise.resolve({ id: 'example' }) })) }
+let renderCount = 0
+async function render() {
+    process.env.TI_SCRAPER_API_BASE = `https://scraper-${++renderCount}.example.test`
+    return renderToStaticMarkup(await Page({ params: Promise.resolve({ id: 'example' }) }))
+}
 test('renders source detail, empty, and failed loading states', async () => {
     try {
         let html = await render()
@@ -37,5 +42,9 @@ test('renders source detail, empty, and failed loading states', async () => {
         assert(html.includes('Source unavailable'), html)
         assert(!html.includes('Healthy'))
         console.log('Source detail: real states, paused source, hits, evidence links, empty and failed loads passed.')
-    } finally { globalThis.fetch = originalFetch }
+    } finally {
+        globalThis.fetch = originalFetch
+        if (originalApiBase === undefined) delete process.env.TI_SCRAPER_API_BASE
+        else process.env.TI_SCRAPER_API_BASE = originalApiBase
+    }
 })

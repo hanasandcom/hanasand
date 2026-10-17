@@ -2648,3 +2648,18 @@ line API reduction remain unachieved. VM start/stop/restart are routed to the
 configured primary host, but remote VM creation, console/terminal behavior, and
 live cross-host lifecycle acceptance remain unverified. The candidate remains
 local and unpushed pending final integrated checks.
+
+The first canonical full-stack build for `086cc9c92` stopped before traffic
+cutover because production-mode frontend tests exposed shared TI response-cache
+state between mocked cases. The product code was not implicated: the test
+runner sets `NODE_ENV=production`, which enables the normal process cache. The
+TI admin suite now invalidates its source-operation cache between cases and uses
+separate fixture values for paginated row total versus executable aggregate;
+the TI source-detail renderer varies and restores the highest-precedence scraper
+base for each mocked state. Independent review accepts both changes. Focused
+production-mode tests pass (5 tests), and the entire production-mode frontend
+suite passes with an explicit `TI_SCRAPER_API_BASE`; scoped ESLint, frontend
+typecheck, diff, and line-cap checks pass. The current frontend inventory is
+2,417 source/config files / 156,190 lines, with no checked file above 200. The
+corrected candidate still needs publication and a successful canonical deploy;
+VM create, console/terminal and live cross-host acceptance remain open.
