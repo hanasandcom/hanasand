@@ -939,3 +939,22 @@ regression coverage, so the 10,000–30,000 frontend target remains far from met
 the API 100,000-line reduction is also outstanding. Branch `main` is 47 commits
 ahead of `github/main`; these checkpoints remain local until the complete
 integrated request is ready for publication.
+
+The following frontend test review removed two duplicate scenarios and merged
+the useful DWM case-detail source assertions into its registered unit check;
+the redundant source-only Playwright spec is gone. Separate Share Chat workflow
+tests remain, but their synthetic mocked prompt matrices now keep 42 of 420 rows
+(−378 LOC), with one ordinary and one edge prompt per matrix. Independent review
+found and fixed an ID-parity gap so screenshot-present and screenshot-absent,
+issue-present and issue-absent states remain represented. A renderer test for
+the three TI workbenches now covers their existing selection preview, empty
+states, row highlights, links, and actions. A proposed shared shell was rejected
+because it would add 38 production LOC and require configuration without enough
+reuse. The default frontend suite, focused tests, scoped ESLint, typecheck, and
+line-cap check pass. Browser tests are not fully verified here: Chromium launch
+is denied by the environment, and the authenticated provisioning server exits
+before its browser test starts. The current cap scan is 2,288 files / 152,381
+LOC / zero over 200, a 314-line reduction since the previous 152,695-line scan.
+Handwritten `src` remains about 114,052 LOC and tests about 26,830 LOC. The
+10,000–30,000 frontend target and API reduction goal remain outstanding; these
+test cleanups do not establish a 100k-line reduction path.
