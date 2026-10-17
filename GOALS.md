@@ -1613,6 +1613,17 @@ cleanup slices; they do not materially reduce the frontend's total size or
 complete the requested 10,000–30,000-line target. No UI redesign or deployment
 was made.
 
+At the current checkpoint (2026-10-17), `scripts/deploy-all.sh` was split from
+648 lines into a 43-line entrypoint and six sourced deployment phases, each at
+or below 185 lines. The split adds seven lines overall. The phases reconstruct the original body byte-for-byte,
+with only the intended exclusion for `scripts/deploy-all/**` in the
+deployment-control-only fast path. Independent review, shell syntax checks for
+all seven files, and `git diff --check` pass; no live deployment was run. The
+repository cap scan now finds 33 over-limit files among 4,434 hand-maintained
+files / 327,303 lines, all outside the frontend. The frontend-specific scan
+still passes at 2,383 files / 155,310 lines with zero over 200. The aggregate
+reduction goals remain open.
+
 The latest frontend work adds shared controls for dashboard event disclosures,
 rule-source labels, password-action styling, TI blocker notices, and share
 metadata panels; VM lifecycle actions now share one request handler, and
