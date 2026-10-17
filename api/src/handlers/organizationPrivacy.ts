@@ -7,10 +7,10 @@ import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import recordLog from '#utils/logs/recordLog.ts'
 import {
     exportOrganizationPrivacyData,
-    organizationPrivacyState,
     queueOrganizationRetentionRun,
     runOrganizationRetentionWorker,
 } from '#utils/organizationPrivacy.ts'
+import { organizationPrivacyState } from '#utils/organizationPrivacyRead.ts'
 
 type Params = { id: string }
 type PrivacyBody = { action?: unknown, requestId?: unknown, request_id?: unknown, confirmation?: unknown, currentPassword?: unknown }

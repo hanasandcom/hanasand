@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test'
-import { organizationRetentionRunOutcome, organizationPrivacyStateReadModel } from '../src/utils/organizationPrivacy.ts'
+import { organizationPrivacyStateReadModel } from '../src/utils/organizationPrivacyRead.ts'
+import { organizationRetentionRunOutcome } from '../src/utils/organizationPrivacy.ts'
 
 test('organization privacy read model keeps the page cursor tied to remaining items', () => {
     const page = (itemOffset: number, items: unknown[], totalRetentionItems: number | string) => organizationPrivacyStateReadModel({
