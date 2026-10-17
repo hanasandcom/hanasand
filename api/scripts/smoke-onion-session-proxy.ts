@@ -4,6 +4,7 @@ import type { AddressInfo } from 'node:net'
 import WebSocket, { WebSocketServer } from 'ws'
 import { chromium } from 'playwright'
 import { handleOnionSessionSocket } from '../src/handlers/onionSession/ws.ts'
+import { createSocksServer, type SocksConnect } from './smoke-onion-session-proxy-socks-fixture.ts'
 
 type BrokerPayload = {
     type?: string
@@ -12,63 +13,10 @@ type BrokerPayload = {
     target?: string
 }
 
-type SocksConnect = {
-    host: string
-    port: number
-}
-
 const targetHost = 'proxy-smoke.test'
 const proxyTargetBody = '<!doctype html><title>Proxy smoke target</title><main>Loaded through ONION_SESSION_PROXY</main>'
 const socksConnects: SocksConnect[] = []
-const socksServer = net.createServer((socket) => {
-    let buffer = Buffer.alloc(0)
-    let greeted = false
-    let connectedToTarget = false
-
-    socket.on('data', (chunk) => {
-        buffer = Buffer.concat([buffer, typeof chunk === 'string' ? Buffer.from(chunk) : chunk])
-
-        if (connectedToTarget) {
-            if (!buffer.includes(Buffer.from('\r\n\r\n'))) return
-            socket.write([
-                'HTTP/1.1 200 OK',
-                'content-type: text/html; charset=utf-8',
-                'cache-control: no-store',
-                `content-length: ${Buffer.byteLength(proxyTargetBody)}`,
-                '',
-                proxyTargetBody,
-            ].join('\r\n'))
-            socket.end()
-            buffer = Buffer.alloc(0)
-            return
-        }
-
-        if (!greeted) {
-            if (buffer.length < 2) return
-            const methodCount = buffer[1] || 0
-            if (buffer.length < 2 + methodCount) return
-            socket.write(Buffer.from([0x05, 0x00]))
-            buffer = buffer.subarray(2 + methodCount)
-            greeted = true
-        }
-
-        if (greeted && buffer.length >= 7) {
-            const request = parseSocksConnect(buffer)
-            if (!request) return
-            socksConnects.push(request)
-            buffer = Buffer.alloc(0)
-
-            if (request.host === targetHost && request.port === 80) {
-                connectedToTarget = true
-                socket.write(Buffer.from([0x05, 0x00, 0x00, 0x01, 0x7f, 0x00, 0x00, 0x01, 0x1f, 0x90]))
-                return
-            }
-
-            socket.write(Buffer.from([0x05, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]))
-            socket.end()
-        }
-    })
-})
+const socksServer = createSocksServer(targetHost, proxyTargetBody, socksConnects)
 
 await listen(socksServer)
 const socksPort = portFor(socksServer)
@@ -123,33 +71,6 @@ console.log(JSON.stringify({
     socksConnects: requested,
     brokerStates: payloads.filter((payload) => payload.type === 'status' || payload.type === 'navigation_error').map((payload) => payload.message || payload.target || payload.type),
 }, null, 2))
-
-function parseSocksConnect(buffer: Buffer): SocksConnect | null {
-    if (buffer[0] !== 0x05 || buffer[1] !== 0x01) return null
-    const addressType = buffer[3]
-    let offset = 4
-    let host: string
-
-    if (addressType === 0x01) {
-        if (buffer.length < offset + 4 + 2) return null
-        host = Array.from(buffer.subarray(offset, offset + 4)).join('.')
-        offset += 4
-    } else if (addressType === 0x03) {
-        const length = buffer[offset]
-        if (typeof length !== 'number' || buffer.length < offset + 1 + length + 2) return null
-        host = buffer.subarray(offset + 1, offset + 1 + length).toString('utf8')
-        offset += 1 + length
-    } else if (addressType === 0x04) {
-        if (buffer.length < offset + 16 + 2) return null
-        host = buffer.subarray(offset, offset + 16).toString('hex')
-        offset += 16
-    } else {
-        return null
-    }
-
-    const port = buffer.readUInt16BE(offset)
-    return { host, port }
-}
 
 function listen(server: net.Server) {
     return new Promise<void>((resolve, reject) => {
