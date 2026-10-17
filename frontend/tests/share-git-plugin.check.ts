@@ -94,8 +94,9 @@ describe('share Git plugin presentation data', () => {
             setDidCopy: ignoreUpdate, setError: ignoreUpdate, setDisplayLineNumbers: ignoreUpdate,
             syntaxHighlighting: true, setSyntaxHighlighting: ignoreUpdate,
         }))
-        expect(html).toContain('aria-label="Workspace status"')
-        expect(html).toContain('aria-label="Git plugin"')
+        for (const label of ['Workspace status', 'Share details', 'Terminal access', 'Symbols', 'Chat', 'Git plugin', 'Phone simulator']) {
+            expect(html).toContain(`aria-label="${label}"`)
+        }
         expect(html).toContain('aria-label="Reload current share workspace"')
         expect(html).toContain('aria-label="Toggle line numbers"')
     })

@@ -1,6 +1,6 @@
 import { Activity, Copy, Eye, GitBranch, Highlighter, ListOrdered, MessageSquare, Package, RefreshCw, Smartphone, TerminalSquare, X } from 'lucide-react'
 import Link from 'next/link'
-import type { Dispatch, SetStateAction } from 'react'
+import type { Dispatch, ReactNode, SetStateAction } from 'react'
 import copy from '@/utils/copy'
 import Lock from '@/components/share/lock'
 import SidebarTooltip from '../sidebarTooltip'
@@ -52,46 +52,10 @@ export default function MetadataSidebar({
                     <X className='h-5 w-5' />
                 </button>
             </SidebarTooltip>
-            <SidebarTooltip label='Status' side='left'>
-                <button
-                    type='button'
-                    aria-label='Workspace status'
-                    onClick={() => onTogglePanel('workspace')}
-                    className={buttonStyle(activePanel, 'workspace')}
-                >
-                    <Activity className='h-5 w-5' />
-                </button>
-            </SidebarTooltip>
-            <SidebarTooltip label='Details' side='left'>
-                <button
-                    type='button'
-                    aria-label='Share details'
-                    onClick={() => onTogglePanel('info')}
-                    className={buttonStyle(activePanel, 'info')}
-                >
-                    <Eye className='h-5 w-5' />
-                </button>
-            </SidebarTooltip>
-            <SidebarTooltip label='Terminal' side='left'>
-                <button
-                    type='button'
-                    aria-label='Terminal access'
-                    onClick={() => onTogglePanel('terminal')}
-                    className={buttonStyle(activePanel, 'terminal')}
-                >
-                    <TerminalSquare className='h-5 w-5' />
-                </button>
-            </SidebarTooltip>
-            <SidebarTooltip label='Symbols' side='left'>
-                <button
-                    type='button'
-                    aria-label='Symbols'
-                    onClick={() => onTogglePanel('symbols')}
-                    className={buttonStyle(activePanel, 'symbols')}
-                >
-                    <ListOrdered className='h-5 w-5' />
-                </button>
-            </SidebarTooltip>
+            <MetadataPanelButton tooltip='Status' ariaLabel='Workspace status' panel='workspace' activePanel={activePanel} onTogglePanel={onTogglePanel} icon={<Activity className='h-5 w-5' />} />
+            <MetadataPanelButton tooltip='Details' ariaLabel='Share details' panel='info' activePanel={activePanel} onTogglePanel={onTogglePanel} icon={<Eye className='h-5 w-5' />} />
+            <MetadataPanelButton tooltip='Terminal' ariaLabel='Terminal access' panel='terminal' activePanel={activePanel} onTogglePanel={onTogglePanel} icon={<TerminalSquare className='h-5 w-5' />} />
+            <MetadataPanelButton tooltip='Symbols' ariaLabel='Symbols' panel='symbols' activePanel={activePanel} onTogglePanel={onTogglePanel} icon={<ListOrdered className='h-5 w-5' />} />
             <SidebarTooltip label='Reload' side='left'>
                 <Link
                     prefetch={false}
@@ -145,40 +109,30 @@ export default function MetadataSidebar({
                     <Package height={20} width={20} />
                 </button>
             </SidebarTooltip>
-            <SidebarTooltip label='Chat' side='left'>
-                <button
-                    type='button'
-                    aria-label='Chat'
-                    onClick={() => onTogglePanel('chat')}
-                    className={buttonStyle(activePanel, 'chat')}
-                >
-                    <MessageSquare height={20} width={20} />
-                </button>
-            </SidebarTooltip>
-            <SidebarTooltip label='Git' side='left'>
-                <button
-                    type='button'
-                    aria-label='Git plugin'
-                    onClick={() => onTogglePanel('git')}
-                    className={buttonStyle(activePanel, 'git')}
-                >
-                    <GitBranch height={20} width={20} />
-                </button>
-            </SidebarTooltip>
-            <SidebarTooltip label='Phone' side='left'>
-                <button
-                    type='button'
-                    aria-label='Phone simulator'
-                    onClick={() => onTogglePanel('phone')}
-                    className={buttonStyle(activePanel, 'phone')}
-                >
-                    <Smartphone height={20} width={20} />
-                </button>
-            </SidebarTooltip>
+            <MetadataPanelButton tooltip='Chat' ariaLabel='Chat' panel='chat' activePanel={activePanel} onTogglePanel={onTogglePanel} icon={<MessageSquare height={20} width={20} />} />
+            <MetadataPanelButton tooltip='Git' ariaLabel='Git plugin' panel='git' activePanel={activePanel} onTogglePanel={onTogglePanel} icon={<GitBranch height={20} width={20} />} />
+            <MetadataPanelButton tooltip='Phone' ariaLabel='Phone simulator' panel='phone' activePanel={activePanel} onTogglePanel={onTogglePanel} icon={<Smartphone height={20} width={20} />} />
         </nav>
     )
 }
 
 function buttonStyle(activePanel: MetadataPanel, panel: VisibleMetadataPanel) {
     return `${baseButtonStyle} ${activePanel === panel ? activeButtonStyle : ''}`
+}
+
+function MetadataPanelButton({ tooltip, ariaLabel, panel, activePanel, onTogglePanel, icon }: {
+    tooltip: string
+    ariaLabel: string
+    panel: VisibleMetadataPanel
+    activePanel: MetadataPanel
+    onTogglePanel(panel: VisibleMetadataPanel): void
+    icon: ReactNode
+}) {
+    return (
+        <SidebarTooltip label={tooltip} side='left'>
+            <button type='button' aria-label={ariaLabel} onClick={() => onTogglePanel(panel)} className={buttonStyle(activePanel, panel)}>
+                {icon}
+            </button>
+        </SidebarTooltip>
+    )
 }
