@@ -2740,3 +2740,6 @@ and a no-incremental frontend typecheck pass; independent reviews confirmed both
 helpers preserve the prior encoding/redaction behavior. These narrow changes do
 not validate a 100,000-line reduction. The latest TI profile and API test edits
 remain in the working tree and are deliberately not included in these commits.
+The subsequent case-timeline cleanup at `09ba960b6` removes a redundant branch;
+the current cap scan is 2,417 files / 156,033 lines, still 2,325 above baseline
+and with no file over 200 lines.
