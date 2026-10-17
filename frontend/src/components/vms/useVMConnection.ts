@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { startVMPolling } from './pollingLifecycle'
 
 export default function useVMConnection(vmName: string, initialConnection: VMConnectionDetails | null) {
     const [connection, setConnection] = useState(initialConnection)
@@ -8,74 +9,42 @@ export default function useVMConnection(vmName: string, initialConnection: VMCon
 
     useEffect(() => {
         let disposed = false
-        let busy = false
-        let failures = 0
-        let timer: ReturnType<typeof setTimeout> | undefined
-        let controller: AbortController | undefined
         setConnection(initialConnection)
         setError('')
 
-        async function load() {
-            if (disposed || busy || document.visibilityState === 'hidden') return
-            clearTimeout(timer)
-            busy = true
-            controller = new AbortController()
-            const timeout = setTimeout(() => controller?.abort(), 12_000)
-            let delay = 30_000
-            let retry = true
-            try {
-                const response = await fetch(`/api/backend/vm/${encodeURIComponent(vmName)}/connection`, {
-                    cache: 'no-store', signal: controller.signal,
-                })
-                if (response.status === 401) {
-                    retry = false
-                    if (!disposed) {
-                        setConnection(null)
-                        const path = window.location.pathname + window.location.search + window.location.hash
-                        const login = '/login?' + new URLSearchParams({ path, expired: 'true' })
-                        window.location.replace('/logout?' + new URLSearchParams({ path: login }))
-                    }
-                    return
-                }
-                if ([403, 404].includes(response.status)) {
-                    if (!disposed) {
-                        setConnection(null)
-                        setError(response.status === 403 ? 'You do not have permission to view access details.' : 'This VM is no longer available.')
-                    }
-                    retry = false
-                    return
-                }
-                if (!response.ok) throw new Error('Access details unavailable')
-                const next = await response.json() as VMConnectionDetails
-                if (!next || typeof next.username !== 'string' || typeof next.certificateCount !== 'number') throw new Error('Incomplete access details')
+        const lifecycle = startVMPolling(async signal => {
+            const response = await fetch(`/api/backend/vm/${encodeURIComponent(vmName)}/connection`, {
+                cache: 'no-store', signal,
+            })
+            if (response.status === 401) {
                 if (!disposed) {
-                    setConnection(next)
-                    setError('')
+                    setConnection(null)
+                    const path = window.location.pathname + window.location.search + window.location.hash
+                    const login = '/login?' + new URLSearchParams({ path, expired: 'true' })
+                    window.location.replace('/logout?' + new URLSearchParams({ path: login }))
                 }
-                failures = 0
-            } catch {
-                delay = Math.min(30_000, 2_000 * 2 ** Math.min(failures++, 4))
-            } finally {
-                clearTimeout(timeout)
-                busy = false
-                if (!disposed && retry) timer = setTimeout(() => void load(), delay)
+                return false
             }
-        }
-
-        const resume = () => { void load() }
-        refreshRef.current = resume
-        if (initialConnection) timer = setTimeout(resume, 30_000)
-        else resume()
-        window.addEventListener('focus', resume)
-        window.addEventListener('online', resume)
-        document.addEventListener('visibilitychange', resume)
+            if ([403, 404].includes(response.status)) {
+                if (!disposed) {
+                    setConnection(null)
+                    setError(response.status === 403 ? 'You do not have permission to view access details.' : 'This VM is no longer available.')
+                }
+                return false
+            }
+            if (!response.ok) throw new Error('Access details unavailable')
+            const next = await response.json() as VMConnectionDetails
+            if (!next || typeof next.username !== 'string' || typeof next.certificateCount !== 'number') throw new Error('Incomplete access details')
+            if (!disposed) {
+                setConnection(next)
+                setError('')
+            }
+            return true
+        }, { intervalMs: 30_000, maxRetryMs: 30_000, initialDelayMs: initialConnection ? 30_000 : 0, allowTerminalRefresh: true })
+        refreshRef.current = lifecycle.refresh
         return () => {
             disposed = true
-            clearTimeout(timer)
-            controller?.abort()
-            window.removeEventListener('focus', resume)
-            window.removeEventListener('online', resume)
-            document.removeEventListener('visibilitychange', resume)
+            lifecycle.dispose()
         }
     }, [vmName, initialConnection])
 

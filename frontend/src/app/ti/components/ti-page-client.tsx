@@ -8,7 +8,8 @@ import { useRouter } from 'next/navigation'
 import EmptyState from './empty-state'
 import Results from './results'
 import SearchLoading from './search-loading'
-import searchThreatIntel, { TiSearchResponse } from '@/utils/ti/search'
+import type { TiSearchResponse } from '@/utils/ti/search'
+import { searchPublicTiResult } from '../publicResult'
 import SearchWorkspaceControls from './search-workspace-controls'
 
 export default function TiPageClient({ initialQuery, initialResult }: { initialQuery: string; initialResult: TiSearchResponse | null }) {
@@ -61,7 +62,7 @@ export default function TiPageClient({ initialQuery, initialResult }: { initialQ
         activeQueryRef.current = cleanKey
         router.push(`/ti/${encodeURIComponent(clean)}`)
         try {
-            const next = await searchThreatIntel(clean, { preferCached: true })
+            const next = await searchPublicTiResult(clean, { preferCached: true })
             if (requestSeqRef.current !== requestSeq || activeQueryRef.current !== cleanKey) return
             if (!next) {
                 setError('Threat intelligence search is temporarily unavailable.')

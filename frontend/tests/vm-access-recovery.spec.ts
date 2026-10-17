@@ -19,6 +19,21 @@ test.beforeEach(async ({ page }) => {
 })
 const connection = (name = 'first-vm', ip = '192.0.2.10') => ({ vmName: name, username: 'ubuntu', vmIp: ip, sshCommand: `ssh ubuntu@${ip}`, certificateCount: 2, certificates: [] })
 
+test('seeded access waits 30 seconds before refreshing', async ({ page }) => {
+    let requests = 0
+    await page.route('**/api/backend/vm/first-vm/connection', route => {
+        requests++
+        return route.fulfill({ json: connection('first-vm', '192.0.2.20') })
+    })
+    await page.goto('http://vm-access.test/?seeded')
+    await expect(page.getByText('ssh ubuntu@192.0.2.10', { exact: true })).toBeVisible()
+    await page.clock.runFor(29_900)
+    expect(requests).toBe(0)
+    await page.clock.runFor(200)
+    await expect.poll(() => requests).toBe(1)
+    await expect(page.getByText('ssh ubuntu@192.0.2.20', { exact: true })).toBeVisible()
+})
+
 test('missing access recovers automatically, polls updates and preserves data during an outage', async ({ page }) => {
     let requests = 0
     await page.route('**/api/backend/vm/first-vm/connection', route => {
@@ -53,6 +68,21 @@ test('permission denial clears details and stops automatic retries', async ({ pa
     await expect(page.getByText('You do not have permission to view access details.')).toBeVisible()
     await expect(page.getByText('ssh ubuntu@192.0.2.10', { exact: true })).toHaveCount(0)
     await page.clock.runFor(60_000)
+    expect(requests).toBe(2)
+})
+
+test('manual refresh recovers after access was denied', async ({ page }) => {
+    let requests = 0
+    await page.route('**/api/backend/vm/first-vm/connection', route => {
+        requests++
+        return route.fulfill(requests === 1 ? { status: 403, json: { error: 'Forbidden' } } : { json: connection('first-vm', '192.0.2.20') })
+    })
+    await page.goto('http://vm-access.test/')
+    await expect(page.getByText('You do not have permission to view access details.')).toBeVisible()
+    await page.clock.runFor(60_000)
+    expect(requests).toBe(1)
+    await page.getByRole('button', { name: 'Refresh access' }).click()
+    await expect(page.getByText('ssh ubuntu@192.0.2.20', { exact: true })).toBeVisible()
     expect(requests).toBe(2)
 })
 

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { startVMPolling } from './pollingLifecycle'
 
 export default function useVMMetrics(vmName: string, initialMetrics: VMMetrics[]) {
     const [metrics, setMetrics] = useState(initialMetrics)
@@ -8,66 +9,34 @@ export default function useVMMetrics(vmName: string, initialMetrics: VMMetrics[]
 
     useEffect(() => {
         let disposed = false
-        let busy = false
-        let denied = false
-        let failures = 0
-        let timer: ReturnType<typeof setTimeout> | undefined
-        let controller: AbortController | undefined
         setMetrics(initialMetrics)
         setError('')
 
-        async function load() {
-            if (disposed || denied || busy || document.visibilityState === 'hidden') return
-            clearTimeout(timer)
-            busy = true
-            controller = new AbortController()
-            const timeout = setTimeout(() => controller?.abort(), 12_000)
-            let delay = 10_000
-            let retry = true
-            try {
-                const response = await fetch(`/api/backend/vm/metrics/${encodeURIComponent(vmName)}`, {
-                    cache: 'no-store', signal: controller.signal,
-                })
-                if ([401, 403, 404].includes(response.status)) {
-                    if (!disposed) {
-                        setMetrics([])
-                        setError(response.status === 401 ? 'Your session has expired. Sign in to view metrics.'
-                            : response.status === 403 ? 'You do not have permission to view metrics.' : 'This VM is no longer available.')
-                    }
-                    retry = false
-                    denied = true
-                    return
-                }
-                if (!response.ok) throw new Error('Metrics unavailable')
-                const next = await response.json() as VMMetrics[]
-                if (!Array.isArray(next) || !next.length || next.some(sample => sample.name !== vmName || !Number.isFinite(Date.parse(sample.created_at)))) throw new Error('Incomplete metrics')
+        const lifecycle = startVMPolling(async signal => {
+            const response = await fetch(`/api/backend/vm/metrics/${encodeURIComponent(vmName)}`, {
+                cache: 'no-store', signal,
+            })
+            if ([401, 403, 404].includes(response.status)) {
                 if (!disposed) {
-                    setMetrics(next)
-                    setError('')
+                    setMetrics([])
+                    setError(response.status === 401 ? 'Your session has expired. Sign in to view metrics.'
+                        : response.status === 403 ? 'You do not have permission to view metrics.' : 'This VM is no longer available.')
                 }
-                failures = 0
-            } catch {
-                delay = Math.min(10_000, 2_000 * 2 ** Math.min(failures++, 4))
-            } finally {
-                clearTimeout(timeout)
-                busy = false
-                if (!disposed && retry) timer = setTimeout(() => void load(), delay)
+                return false
             }
-        }
-
-        const resume = () => { void load() }
-        refreshRef.current = resume
-        resume()
-        window.addEventListener('focus', resume)
-        window.addEventListener('online', resume)
-        document.addEventListener('visibilitychange', resume)
+            if (!response.ok) throw new Error('Metrics unavailable')
+            const next = await response.json() as VMMetrics[]
+            if (!Array.isArray(next) || !next.length || next.some(sample => sample.name !== vmName || !Number.isFinite(Date.parse(sample.created_at)))) throw new Error('Incomplete metrics')
+            if (!disposed) {
+                setMetrics(next)
+                setError('')
+            }
+            return true
+        }, { intervalMs: 10_000, maxRetryMs: 10_000 })
+        refreshRef.current = lifecycle.refresh
         return () => {
             disposed = true
-            clearTimeout(timer)
-            controller?.abort()
-            window.removeEventListener('focus', resume)
-            window.removeEventListener('online', resume)
-            document.removeEventListener('visibilitychange', resume)
+            lifecycle.dispose()
         }
     }, [vmName, initialMetrics])
 

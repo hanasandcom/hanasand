@@ -2866,3 +2866,19 @@ nonincremental TypeScript, full frontend line cap, and diff checks pass. This
 reuse adds no meaningful aggregate reduction; the frontend remains about
 156,546 working-tree lines with no file above 200, including separate
 uncommitted TI/API edits, and the overall reduction target remains open.
+
+The next frontend pass projects TI public search results before writing either
+fresh or cached results, isolates public cache keys from default searches, and
+preserves the original cache expiry while sanitizing cache hits. Focused tests
+cover private URLs/notes, cached raw entries, transient entries, expiry, and
+cache-scope collisions. The support server page now imports the same ticket,
+message, and initial-chat types as the client. VM metrics and connection hooks
+share their polling lifecycle while retaining distinct endpoint validation,
+authorization, retry, and seeded-start policies; a manual refresh still recovers
+after access denial. Independent reviews approved the TI, support, and VM
+changes. The full frontend test suite, lint/typecheck, line-cap scan, and
+production build pass; the access-flow Playwright spec could not start because
+Chromium exited with a macOS Mach-port permission error, and a direct unit test
+covers the recovery policy. The latest frontend scan is 2,431 hand-maintained
+files / 156,731 lines with no file above 200, 3,023 lines above the 153,708
+baseline. The frontend's 10,000–30,000-line reduction target remains unmet.

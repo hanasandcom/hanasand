@@ -4,6 +4,7 @@ import { PublicSupportPanel, type PublicSupportConversation } from '@/components
 import { DashboardPage } from '@/components/dashboard/ui'
 import config from '@/config'
 import SupportChat from '@/components/support/supportChat'
+import type { InitialChat, Message, Ticket } from '@/components/support/supportChatTypes'
 import { buildRouteMetadata } from '../seo'
 
 export const metadata: Metadata = buildRouteMetadata({
@@ -13,11 +14,7 @@ export const metadata: Metadata = buildRouteMetadata({
     keywords: ['hanasand support', 'account support', 'webhook support', 'api support'],
 })
 
-type SupportTicket = { id: string; subject: string; status: string; updated_at: string; user_name?: string; last_message?: string; agent_name?: string; channel?: string; reply_count?: number; feedback_rating?: number | null; feedback_comment?: string | null; resolution_version?: number }
-type SupportMessage = { id: string; sender_id: string | null; sender_kind?: string; sender_name: string; body: string; created_at: string }
-type InitialSupportChat = { tickets: SupportTicket[]; isSupport: boolean; selectedId: string; messages: SupportMessage[]; messagesLoaded: boolean; realtime: boolean }
-
-async function loadSupportChat(): Promise<InitialSupportChat | undefined> {
+async function loadSupportChat(): Promise<InitialChat | undefined> {
     const cookieStore = await cookies()
     const token = cookieStore.get('access_token')?.value
     const id = cookieStore.get('id')?.value
@@ -28,15 +25,15 @@ async function loadSupportChat(): Promise<InitialSupportChat | undefined> {
     try {
         const response = await fetch(`${config.url.support}/support/tickets`, { headers, cache: 'no-store', signal: AbortSignal.timeout(12_000) })
         if (!response.ok) return undefined
-        const payload = await response.json() as { tickets?: SupportTicket[]; isSupport?: boolean; realtime?: boolean }
+        const payload = await response.json() as { tickets?: Ticket[]; isSupport?: boolean; realtime?: boolean }
         const tickets = payload.tickets || []
         const selectedId = tickets[0]?.id || ''
-        let messages: SupportMessage[] = []
+        let messages: Message[] = []
         let messagesLoaded = !selectedId
         if (selectedId) {
             const messageResponse = await fetch(`${config.url.support}/support/tickets/${encodeURIComponent(selectedId)}/messages`, { headers, cache: 'no-store', signal: AbortSignal.timeout(12_000) })
             if (messageResponse.ok) {
-                messages = (await messageResponse.json() as { messages?: SupportMessage[] }).messages || []
+                messages = (await messageResponse.json() as { messages?: Message[] }).messages || []
                 messagesLoaded = true
             }
         }

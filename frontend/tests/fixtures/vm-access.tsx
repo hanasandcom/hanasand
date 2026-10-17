@@ -4,7 +4,9 @@ import VMAccess from '../../src/components/vms/vmAccess'
 import useVMConnection from '../../src/components/vms/useVMConnection'
 
 function Access({ name }: { name: string }) {
-    const { connection, error, refresh } = useVMConnection(name, null)
+    const seed = new URLSearchParams(window.location.search).has('seeded')
+    const initial = seed ? { vmName: name, username: 'ubuntu', vmIp: '192.0.2.10', sshCommand: 'ssh ubuntu@192.0.2.10', certificateCount: 2, certificates: [] } : null
+    const { connection, error, refresh } = useVMConnection(name, initial)
     return <><VMAccess connection={connection} error={error} /><button onClick={refresh}>Refresh access</button></>
 }
 function Fixture() {

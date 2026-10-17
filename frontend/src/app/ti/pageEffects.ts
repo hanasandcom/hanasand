@@ -1,6 +1,6 @@
 'use client'
 
-import searchThreatIntel from '@/utils/ti/search'
+import { searchPublicTiResult } from './publicResult'
 import { humanizeSlug } from '../seo'
 import { rememberSearch } from '@/components/ti/searchSuggestions'
 import { useEffect } from 'react'
@@ -44,7 +44,7 @@ export function usePublicTiPageEffects({ initialQuery, initialResult, query, res
         activeQueryRef.current = cleanKey
         setBusy(true)
         setQuery(clean)
-        searchThreatIntel(clean, { preferCached: true })
+        searchPublicTiResult(clean, { preferCached: true })
             .then((next) => {
                 if (requestSeqRef.current !== requestSeq || activeQueryRef.current !== cleanKey) return
                 if (next) {
@@ -63,7 +63,7 @@ export function usePublicTiPageEffects({ initialQuery, initialResult, query, res
         const expectedQuery = result.query
         const expectedKey = expectedQuery.trim().toLowerCase()
         const timer = window.setTimeout(async () => {
-            const next = await searchThreatIntel(expectedQuery, { bypassCache: true })
+            const next = await searchPublicTiResult(expectedQuery, { bypassCache: true })
             if (next && activeQueryRef.current === expectedKey) {
                 setError('')
                 setResult(next)

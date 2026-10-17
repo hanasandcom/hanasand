@@ -1,6 +1,5 @@
-import searchThreatIntel from '@/utils/ti/search'
 import TiPageClient from '../pageClient'
-import { sanitizeTiResultForPublicPage } from '../publicResult'
+import { searchPublicTiResult } from '../publicResult'
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { buildRouteMetadata, humanizeSlug } from '../../seo'
@@ -30,7 +29,7 @@ export default async function TiQueryPage({ params }: TiQueryPageProps) {
     if (query && canonicalQuery !== query) {
         redirect(`/ti/${encodeURIComponent(canonicalQuery)}`)
     }
-    const initialResult = query ? sanitizeTiResultForPublicPage(await searchThreatIntel(query, { preferCached: true })) : null
+    const initialResult = query ? await searchPublicTiResult(query, { preferCached: true }) : null
 
     return (
         <ConsoleRouteShell>
