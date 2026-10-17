@@ -1,6 +1,7 @@
 'use client'
 
 import { getCookie } from '@/utils/cookies/cookies'
+import { backendJsonRequest } from '@/utils/auth/backendJsonRequest'
 
 export type AptUpdate = { package: string, version: string, repo: string, origin: string, security: boolean, first_seen: number, installed_at?: number }
 export type AptUpdateStatus = {
@@ -20,12 +21,11 @@ export type AptUpdateHistory = { run_id: string, status: string, occurred_at: st
 export type UpdateHost = 'inspur' | 'ovhcloud'
 
 export async function fetchAptUpdates(host: UpdateHost = 'inspur', signal?: AbortSignal) {
-    const response = await fetch(`/api/backend/system/updates?host=${host}`, {
+    return backendJsonRequest<{ status: AptUpdateStatus, history: AptUpdateHistory[] }>(`/system/updates?host=${host}`, {
         cache: 'no-store',
         signal,
         headers: { Authorization: `Bearer ${getCookie('access_token') || ''}`, id: getCookie('id') || '' },
+        authenticated: false,
+        errorMessage: 'Unable to load host update status.',
     })
-    const body = await response.json().catch(() => ({}))
-    if (!response.ok) throw new Error(String(body.error || 'Unable to load host update status.'))
-    return body as { status: AptUpdateStatus, history: AptUpdateHistory[] }
 }

@@ -1,18 +1,12 @@
 'use client'
 
-import { backendRequestHeaders } from '@/utils/auth/backendRequestHeaders'
+import { backendJsonRequest } from '@/utils/auth/backendJsonRequest'
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-    const response = await fetch(`/api/backend${path}`, {
+    return backendJsonRequest<T>(path, {
         ...init,
-        headers: backendRequestHeaders(init?.headers),
+        errorMessage: 'Notes request failed.',
     })
-    const body = await response.json().catch(() => ({}))
-    if (!response.ok) {
-        throw new Error(String((body as { error?: string }).error || 'Notes request failed.'))
-    }
-
-    return body as T
 }
 
 export function fetchNotes() {

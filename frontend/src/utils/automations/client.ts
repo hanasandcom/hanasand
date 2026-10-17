@@ -1,7 +1,6 @@
 'use client'
 
-import { setCookieWithExpiresAt } from '@/utils/cookies/cookies'
-import { backendRequestHeaders } from '@/utils/auth/backendRequestHeaders'
+import { backendJsonRequest } from '@/utils/auth/backendJsonRequest'
 
 export type JsonRule = { path: string, operator: 'gt' | 'gte' | 'lt' | 'lte' | 'eq' | 'ne', value: number | boolean | string, aggregate: 'max' | 'min' | 'avg' | 'first' }
 
@@ -114,26 +113,16 @@ export type AutomationPayload = {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-    const response = await fetch(`/api/backend${path}`, {
+    return backendJsonRequest<T>(path, {
         ...init,
         cache: 'no-store',
-        headers: backendRequestHeaders({
+        headers: {
             'Cache-Control': 'no-cache',
             ...(init?.headers || {}),
-        }),
+        },
+        errorMessage: 'Automation request failed.',
+        refreshAccessToken: true,
     })
-    const refreshedToken = response.headers.get('x-access-token')
-    const refreshedExpiresAt = response.headers.get('x-access-token-expires-at')
-    if (refreshedToken) {
-        setCookieWithExpiresAt('access_token', refreshedToken, refreshedExpiresAt)
-    }
-
-    const body = await response.json().catch(() => ({}))
-    if (!response.ok) {
-        throw new Error(String((body as { error?: string }).error || 'Automation request failed.'))
-    }
-
-    return body as T
 }
 
 export function fetchAutomations(scope?: 'personal') {

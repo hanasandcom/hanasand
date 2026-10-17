@@ -1,7 +1,6 @@
 'use client'
 
-import { setCookieWithExpiresAt } from '@/utils/cookies/cookies'
-import { backendRequestHeaders } from '@/utils/auth/backendRequestHeaders'
+import { backendJsonRequest } from '@/utils/auth/backendJsonRequest'
 
 export type ManagedCronJob = {
     id: string
@@ -50,20 +49,11 @@ export type ManagedCronJob = {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-    const response = await fetch(`/api/backend${path}`, {
+    return backendJsonRequest<T>(path, {
         ...init,
-        headers: backendRequestHeaders(init?.headers),
+        errorMessage: 'Cron request failed.',
+        refreshAccessToken: true,
     })
-    const refreshedToken = response.headers.get('x-access-token')
-    const refreshedExpiresAt = response.headers.get('x-access-token-expires-at')
-    if (refreshedToken) {
-        setCookieWithExpiresAt('access_token', refreshedToken, refreshedExpiresAt)
-    }
-    const body = await response.json().catch(() => ({}))
-    if (!response.ok) {
-        throw new Error(String((body as { error?: string }).error || 'Cron request failed.'))
-    }
-    return body as T
 }
 
 export function fetchManagedCronJobs() {
