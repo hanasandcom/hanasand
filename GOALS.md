@@ -1692,3 +1692,22 @@ scan covers 2,359 hand-maintained files / 154,479 lines with zero files over
 hand-maintained files / 326,043 lines, all outside the frontend. The frontend
 10,000–30,000-line target and API 100,000-line reduction goal remain open; no
 UI redesign or deployment was made.
+
+At frontend checkpoint `dbaf9b329`, three organization surfaces share one
+clipboard-status hook while keeping their own copied values and exact success
+and failure messages. This removes five production lines. Thesis plan and
+timetable cells now share arrow-key handling while preserving plan clamping
+and timetable extension at the edge; a registered unit test covers both
+contracts. Independent reviews approved the changes. The added clipboard
+failure browser assertion and its task registration are in place, but its
+Playwright run is blocked because the configured API `start:local` process
+exits before the browser starts. The full registered non-browser frontend
+suite passes (264 tasks, 229 test files, 559 tests), changed-path ESLint and
+full TypeScript checking pass, and the production Next build generated all 116
+pages. The frontend cap scan passes at 2,359 hand-maintained files / 154,479
+lines, zero over 200. The repository-wide scan reports 61 over-cap files
+among 4,332 files / 326,037 lines; every violation is outside the frontend.
+This frontend batch adds test and runner coverage, so overall frontend size
+has not materially fallen. The 10,000–30,000-line frontend objective and
+100,000-line API reduction remain outstanding. No UI redesign or deployment
+was made.
