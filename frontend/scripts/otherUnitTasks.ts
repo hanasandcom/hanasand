@@ -1,6 +1,7 @@
 import { bun, type TestTask } from './testTask'
 
 export const otherUnitTasks: TestTask[] = [
+    { id: 'ai-chat-pane-theme', title: 'AI chat theme and accessibility rendering', command: [bun, 'test', 'tests/ai-chat-pane-theme.test.tsx'] },
     { id: 'dashboard-search-text', title: 'Dashboard search text matching', command: [bun, 'test', 'tests/dashboard-search-text.test.ts'] },
     { id: 'activity-model', title: 'Exposure activity model', command: [bun, 'test', 'tests/activity-model.test.ts'] },
     { id: 'dashboard-row-deletion', title: 'Dashboard row deletion lifecycle', command: [bun, 'test', 'tests/dashboard-row-deletion.test.ts'] },

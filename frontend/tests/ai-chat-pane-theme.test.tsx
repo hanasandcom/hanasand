@@ -1,0 +1,81 @@
+// @ts-expect-error Bun provides this module when running tests.
+import { expect, test } from 'bun:test'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { ArtifactList } from '../src/components/ai/chat/chatArtifacts'
+import { ChatComposer } from '../src/components/ai/chat/chatComposer'
+import { ChatHeader } from '../src/components/ai/chat/chatHeader'
+import { ChatTranscript } from '../src/components/ai/chat/chatTranscript'
+import { ToolMessage } from '../src/components/ai/chat/chatMessages'
+
+const noPreview = () => {}
+
+test('chat composer renders themed, accessible blocked and ready states', () => {
+    const blocked = renderToStaticMarkup(<ChatComposer value='' blockedReason='Reviewer mode' awaitingResponse={false} readOnly onChange={() => {}} onSend={() => {}} />)
+    const ready = renderToStaticMarkup(<ChatComposer value='Review this' blockedReason={null} awaitingResponse={false} readOnly={false} onChange={() => {}} onSend={() => {}} />)
+
+    expect(blocked).toContain('focus-within:border-ui-primary')
+    expect(blocked).toContain('id="ai-composer-blocked-reason"')
+    expect(blocked).toContain('aria-describedby="ai-composer-blocked-reason"')
+    expect(blocked).toContain('Reviewer mode')
+    expect(blocked).toContain('disabled=""')
+    expect(ready).toContain('aria-label="Send"')
+    expect(ready).not.toContain('disabled=""')
+    expect(`${blocked}${ready}`).not.toMatch(/(?:bg|text)-white|#[\da-f]{3,8}/i)
+})
+
+test('chat header keeps shared hover and primary state tokens', () => {
+    const html = renderToStaticMarkup(<ChatHeader conversation={null} clients={[]} isConnected={false} isThinking showArtifacts={false} latestArtifacts={[]} hasReadyModel={false} onToggleArtifacts={() => {}} onModelStrategyChange={() => {}} onPreferredModelChange={() => {}} />)
+
+    expect(html).toContain('hover:bg-ui-raised hover:text-ui-text')
+    expect(html).toContain('bg-ui-primary/10 text-ui-primary')
+    expect(html).not.toMatch(/(?:bg|text)-white|#[\da-f]{3,8}/i)
+})
+
+test('artifact list preserves themed summaries, newest and safe external links', () => {
+    const html = renderToStaticMarkup(<ArtifactList artifacts={[
+        { kind: 'log', title: 'Build log', content: 'completed' },
+        { kind: 'screenshot', title: 'Preview', url: 'https://example.test', dataUrl: 'data:image/png;base64,AA==' },
+    ]} onPreview={noPreview} />)
+
+    expect(html).toContain('border border-ui-border bg-ui-panel')
+    expect(html).toContain('outline outline-ui-border')
+    expect(html).toContain('<details')
+    expect(html).toContain('<summary')
+    expect(html).toContain('Verification')
+    expect(html).toContain('Newest')
+    expect(html).toContain('target="_blank" rel="noopener noreferrer"')
+    expect(html).not.toMatch(/#[\da-f]{3,8}/i)
+})
+
+test('browser verification renders success and issue tones with bounded diagnostics', () => {
+    const message = (content: string, error = false): AIConversationMessage => ({
+        id: 'tool-1', role: 'tool', content, error, createdAt: '2026-10-17T00:00:00Z', metadata: { toolState: 'complete' },
+    })
+    const passed = renderToStaticMarkup(<ToolMessage message={message('Tool browser_task executed for URL: https://example.test\nTitle: Example\nPage errors:\n<none>\n\nConsole:\n<none>')} artifacts={[{ kind: 'screenshot', title: 'Preview' }]} />)
+    const issues = renderToStaticMarkup(<ToolMessage message={message('Tool browser_task executed for URL: https://example.test\nTitle: Example\nPage errors:\nPage error\n\nConsole:\nConsole one\nConsole two\nConsole three\nConsole four\nConsole five')} artifacts={[]} />)
+    const diagnosticList = issues.split('mt-3 space-y-1 text-xs text-current/90')[1]?.split('</div></div></div>')[0] || ''
+
+    expect(passed).toContain('border-ui-success/30 bg-ui-success/10 text-ui-success')
+    expect(passed).toContain('Verification passed')
+    expect(passed).toContain('Screenshot captured')
+    expect(issues).toContain('border-ui-warning/30 bg-ui-warning/10 text-ui-warning')
+    expect(issues).toContain('Verification found issues')
+    expect(issues).toContain('Page error')
+    expect(issues).toContain('5 console messages')
+    expect(diagnosticList.match(/rounded-lg bg-ui-canvas\/20/g)).toHaveLength(4)
+    expect(diagnosticList).toContain('Console three')
+    expect(diagnosticList).not.toContain('Console four')
+})
+
+test('transcript keeps errored messages on the danger theme', () => {
+    const html = renderToStaticMarkup(<ChatTranscript conversation={{
+        id: 'conversation-1', ownerId: 'user-1', title: 'Review', preferredModel: null, activeModel: null,
+        modelStrategy: 'auto', workspaceId: null, workspaceKind: null, shareIds: [], workspaceMeta: {},
+        messages: [{ id: 'error-1', role: 'assistant', content: 'Request failed', error: true, createdAt: '2026-10-17T00:00:00Z' }],
+        collaboration: { role: 'owner', canInvite: true, seatLimit: 1, seatCount: 1, remainingSeats: 0, collaborators: [] },
+        metrics: {} as GPT_ModelMetrics, createdAt: '2026-10-17T00:00:00Z', updatedAt: '2026-10-17T00:00:00Z',
+    }} scrollRef={{ current: null }} emptyTooltip='' hasReadyModel={false} isAuthenticated={false} onPreview={noPreview} />)
+
+    expect(html).toContain('border-ui-danger/30 bg-ui-raised/10 text-ui-text')
+    expect(html).toContain('Request failed')
+})

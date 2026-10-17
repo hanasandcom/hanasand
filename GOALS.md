@@ -1336,3 +1336,15 @@ remotes. A separate visual dashboard render proof could not connect to its
 local server, so no visual-runtime pass is claimed. The full frontend ESLint
 baseline remains 1,612 errors across unrelated files. The API and frontend LOC
 reduction targets remain outstanding; no deployment was performed.
+
+The frontend test checkpoint replaces a stale source-slicing AI chat theme
+spec with registered Bun server-rendered assertions for composer accessibility,
+header and artifact theme tokens, verification diagnostics, and transcript
+errors. TI theme assertions now cover actual rendered activity and delivery
+states, including populated and no-latest-run data, while retaining the unique
+enrichment source contract. Independent review approved the changes. The full
+frontend test runner and typecheck passed; focused ESLint, changed-file line cap,
+and `git diff --check` passed. Frontend inventory is 2,315 files / 153,659 LOC
+with zero files over 200 lines. The broader API 100,000-line reduction and
+frontend 10,000–30,000-line targets remain outstanding. No UI change or
+deployment was made.

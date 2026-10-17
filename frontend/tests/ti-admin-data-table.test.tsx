@@ -4,7 +4,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import type { TiAdminOverview } from '../src/utils/tiAdmin/ops'
 import type { TiEnrichmentOverview } from '../src/utils/tiAdmin/enrichment'
-import { SourcesPanel } from '../src/app/dashboard/ti/sourceDeliveryPanels'
+import { DeliveryStatePanel, SourcesPanel } from '../src/app/dashboard/ti/sourceDeliveryPanels'
 import { ActorEnrichmentPanel, RecentEvidencePanel } from '../src/app/dashboard/ti/evidenceEnrichmentPanels'
 import { ActionItemsPanel } from '../src/app/dashboard/ti/actionItemsPanel'
 
@@ -37,6 +37,8 @@ test('TI admin tables keep shared shell, headers, routes and body-specific empty
         expect(html).toContain('min-w-full divide-y divide-ui-border text-sm')
         expect(html).toContain('bg-ui-canvas text-left text-xs font-semibold uppercase text-ui-muted')
         expect(html).toContain('divide-y divide-ui-border bg-ui-panel')
+        expect(html).not.toContain('text-white')
+        expect(html).not.toMatch(/\b(?:bg|text|border|divide)-\[#/)
     }
     expect(sources).toContain('href="/ti/sources"')
     expect(sources).toContain('<th class="px-4 py-3">Matches</th>')
@@ -48,6 +50,38 @@ test('TI admin tables keep shared shell, headers, routes and body-specific empty
     expect(actors).toContain('colSpan="6"')
     expect(actors).toContain('Actor profiles are updating. New profile changes appear here.')
     expect(actorRow).toContain('Example actor')
+    expect(actorRow).toContain('<th class="px-4 py-3">Evidence strength</th>')
+    expect(actorRow).toContain('>Moderate</td>')
+    expect(actorRow).not.toContain('>70%</td>')
+    expect(actorRow).toContain('text-ui-text')
+})
+
+test('delivery state renders themed rows with and without a latest collection', () => {
+    const latestRun = {
+        id: 'run-1', sourceId: 'feed-1', sourceName: 'Threat feed', sourceFamily: 'dark_web',
+        sourceUrl: 'https://example.test', status: 'completed', startedAt: '2026-10-16T10:00:00Z',
+        nextRunAt: '2026-10-16T11:00:00Z', rows: 4, captures: 2, screenshots: 0,
+        message: '', trigger: 'automated',
+    } as TiAdminOverview['runs'][number]
+    const cases = [
+        { latestRun, expectedCollection: 'completed ·' },
+        { latestRun: undefined, expectedCollection: 'Selecting source' },
+    ]
+
+    for (const item of cases) {
+        const html = render(createElement(DeliveryStatePanel, {
+            reviewCount: 2, domainCount: 3, latestRun: item.latestRun,
+        }))
+        expect(html).toContain('overflow-hidden border-ui-border bg-ui-panel p-0')
+        expect(html).toContain('border-ui-border bg-ui-canvas p-3')
+        expect(html).toContain('text-ui-text')
+        expect(html).not.toContain('text-white')
+        expect(html).not.toMatch(/\b(?:bg|text|border|divide)-\[#/)
+        for (const text of ['Delivery state', 'Matches detected', '2 entity matches', 'Webhook delivery', 'Delivery records are linked to dark web alerts', 'Customer routing', '3 monitored entities', 'Latest collection', item.expectedCollection]) {
+            expect(html).toContain(text)
+        }
+        expect(html).toContain('href="/findings"')
+    }
 })
 
 test('action items retain all five columns, statuses, badges, and their destination', () => {

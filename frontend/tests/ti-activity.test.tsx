@@ -50,6 +50,9 @@ test('TI activity renders populated, empty, paginated and recovered states', asy
         assert.equal(first.updatedActors[0].name, 'Example actor')
 
         let html = renderToStaticMarkup(await TiActivityPage({}))
+        assert.ok(html.includes('Latest observations'))
+        assert.ok(html.includes('min-w-full divide-y divide-ui-border text-sm'))
+        assert.ok(html.includes('text-ui-text'))
         assert.ok(html.includes('Example actor'))
         assert.ok(!html.includes('Checking'))
         assert.ok(html.includes('name="q"'))
