@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 
-const routes = read('src/routes.ts')
-const handler = read('src/handlers/traffic/legacy.ts')
+const routes = read('src/routes/platformOperations.ts')
+const handler = read('src/handlers/traffic/legacyLive.ts')
 const recorder = read('src/utils/traffic/recordTraffic.ts')
 const schema = read('src/utils/db/trafficDesktopSchema.ts')
 

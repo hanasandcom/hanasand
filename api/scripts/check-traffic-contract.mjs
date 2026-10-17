@@ -5,7 +5,8 @@ import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
-const legacy = await read('src/handlers/traffic/legacy.ts')
+const legacyAnalytics = await read('src/handlers/traffic/legacyAnalytics.ts')
+const legacyRecords = await read('src/handlers/traffic/legacyRecords.ts')
 const recorder = await read('src/utils/traffic/recordTraffic.ts')
 const schema = await read('src/utils/db/trafficDesktopSchema.ts')
 const dockerfile = await read('Dockerfile')
@@ -20,7 +21,8 @@ for (const endpoint of [
     'getLegacyTrafficMetrics',
     'getLegacyTrafficRecords',
 ]) {
-    assert.match(legacy, new RegExp(`export async function ${endpoint}`), `${endpoint} should be backed by async aggregation`)
+    const handler = endpoint === 'getLegacyTrafficRecords' ? legacyRecords : legacyAnalytics
+    assert.match(handler, new RegExp(`export async function ${endpoint}`), `${endpoint} should be backed by async aggregation`)
 }
 
 assert.match(recorder, /INSERT INTO traffic_events/, 'requests should be persisted as traffic_events')

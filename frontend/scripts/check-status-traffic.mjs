@@ -12,7 +12,7 @@ const statusClient = `${statusView}\n${statusHistory}`
 const statusCopy = await read('src/utils/status/incidentCopy.ts')
 const statusPage = await read('src/app/status/page.tsx')
 const dockerfile = await read('Dockerfile')
-const apiTraffic = await readFromRepo('api/src/handlers/traffic/legacy.ts')
+const apiTraffic = await readFromRepo('api/src/handlers/traffic/legacyAnalytics.ts')
 const apiSchema = await readFromRepo('api/src/utils/db/trafficDesktopSchema.ts')
 
 for (const heading of ['Current Status: Hanasand.com', 'Recent incidents']) {
