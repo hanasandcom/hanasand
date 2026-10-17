@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { renderToStaticMarkup } from 'react-dom/server'
 import PageNavigation from '../src/components/dashboard/page-navigation'
-import { pageNumber } from '../src/utils/pagination'
+import { pageNumber, queryParamValue } from '../src/utils/pagination'
 
 test('page links support previous and next without cursor parameters', () => {
     const html = renderToStaticMarkup(<PageNavigation page={2} total={125} hasNext href={page => `/ti/sources?scope=global&q=feed&page=${page}`} label='Source pages' />)
@@ -17,4 +17,10 @@ test('page links support previous and next without cursor parameters', () => {
 test('invalid page URLs return to the first page', () => {
     for (const value of [undefined, '', '0', '-1', '1.5', 'bad', 'Infinity', '9007199254740991']) assert.equal(pageNumber(value), 1)
     assert.equal(pageNumber(['2']), 2)
+})
+test('query parameters resolve the first repeated value consistently', () => {
+    assert.equal(queryParamValue('one'), 'one')
+    assert.equal(queryParamValue(['first', 'second']), 'first')
+    assert.equal(queryParamValue([]), undefined)
+    assert.equal(queryParamValue(undefined), undefined)
 })

@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { queryParamValue } from '@/utils/pagination'
 
 // Keep existing registration links pointed at the signup page.
 export default async function Page({ searchParams }: {
@@ -7,7 +8,7 @@ export default async function Page({ searchParams }: {
     const params = await searchParams
     const query = new URLSearchParams()
     for (const key of ['path', 'internal', 'error']) {
-        const value = Array.isArray(params[key]) ? params[key][0] : params[key]
+        const value = queryParamValue(params[key])
         if (value) query.set(key, value)
     }
     redirect(`/signup${query.size ? `?${query}` : ''}`)

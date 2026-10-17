@@ -4,6 +4,7 @@ import LinkPageClient from './pageClient'
 import Link from 'next/link'
 import { buildRouteMetadata } from '../seo'
 import ErrorNotice from '@/components/error/errorNotice'
+import { queryParamValue } from '@/utils/pagination'
 
 export const metadata: Metadata = buildRouteMetadata({
     title: 'Links',
@@ -19,8 +20,8 @@ export default async function Page({
 }) {
     const params = await searchParams
     const pathDidNotExist = params.null
-    const created = Array.isArray(params.created) ? params.created[0] : params.created
-    const id = Array.isArray(params.id) ? params.id[0] : params.id
+    const created = queryParamValue(params.created)
+    const id = queryParamValue(params.id)
 
     return (
         <section className='grid min-h-app-viewport w-full place-items-center bg-ui-canvas px-4 py-10 text-ui-text md:px-10'>

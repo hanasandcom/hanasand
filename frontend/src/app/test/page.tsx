@@ -1,6 +1,7 @@
 import LinkPageClient from './pageClient'
 import type { Metadata } from 'next'
 import { buildRouteMetadata } from '../seo'
+import { queryParamValue } from '@/utils/pagination'
 
 export const metadata: Metadata = buildRouteMetadata({
     title: 'Service Check',
@@ -15,8 +16,8 @@ export default async function Page({
     searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
     const params = await searchParams
-    const created = Array.isArray(params.created) ? params.created[0] : params.created
-    const id = Array.isArray(params.id) ? params.id[0] : params.id
+    const created = queryParamValue(params.created)
+    const id = queryParamValue(params.id)
 
     return (
         <main className='grid min-h-app-viewport w-full place-items-center bg-ui-canvas px-4 py-10 text-ui-text md:px-10'>

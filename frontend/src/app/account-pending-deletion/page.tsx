@@ -1,4 +1,5 @@
 import PendingDeletionPage from './pageClient'
+import { queryParamValue } from '@/utils/pagination'
 
 export default async function Page({
     searchParams,
@@ -7,8 +8,8 @@ export default async function Page({
 }) {
     const params = await searchParams
     return <PendingDeletionPage
-        id={(Array.isArray(params.id) ? params.id[0] : params.id) || ''}
-        restoreToken={(Array.isArray(params.restoreToken) ? params.restoreToken[0] : params.restoreToken) || ''}
-        deletionScheduledAt={(Array.isArray(params.deletionScheduledAt) ? params.deletionScheduledAt[0] : params.deletionScheduledAt) || ''}
+        id={queryParamValue(params.id) || ''}
+        restoreToken={queryParamValue(params.restoreToken) || ''}
+        deletionScheduledAt={queryParamValue(params.deletionScheduledAt) || ''}
     />
 }
