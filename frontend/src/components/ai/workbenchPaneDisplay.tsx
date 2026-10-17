@@ -29,6 +29,10 @@ export function Panel({
     )
 }
 
+export function WorkspaceResourceCard({ selected, children }: { selected: boolean, children: React.ReactNode }) {
+    return <div className={`rounded-lg px-3 py-3 outline ${selected ? 'bg-ui-primary/10 outline-ui-primary/18' : 'bg-ui-panel outline-ui-border'}`}>{children}</div>
+}
+
 export function WorkspacePrimaryAction({ children, onClick, disabled = false, hover = false }: {
     children: React.ReactNode
     onClick: () => void | Promise<void>
