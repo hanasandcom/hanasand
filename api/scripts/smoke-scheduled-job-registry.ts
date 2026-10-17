@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
 import { queryOnce } from '../src/utils/db.ts'
 import { listUnifiedScheduledJobs, updateManagedCronJob } from '../src/utils/systemCron.ts'
+import { assertLiveRegistry, assertOfflineRegistry } from './smoke-scheduled-job-registry/assertions.ts'
+import { createTiMockFetch, type ControlRequest } from './smoke-scheduled-job-registry/fixtures.ts'
 
 const previousTiBase = process.env.TI_SCRAPER_API_BASE
 const previousBackupEnabled = process.env.DB_BACKUP_ENABLED
@@ -9,7 +11,7 @@ const previousBackupToken = process.env.DB_BACKUP_WORKER_TOKEN
 const originalFetch = globalThis.fetch
 const backupWorkerUrl = 'https://backup.test/worker'
 const tiMockBase = 'https://ti.test'
-const controlRequests: Array<{ path: string, body: Record<string, unknown> }> = []
+const controlRequests: ControlRequest[] = []
 const now = '2026-07-03T10:00:00.000Z'
 const tiMock: { fetch?: (request: Request) => Promise<Response> | Response } = {}
 delete process.env.TI_SCRAPER_API_BASE
@@ -39,173 +41,15 @@ restoreTiBase()
 if (previousBackupEnabled === undefined) delete process.env.DB_BACKUP_ENABLED
 else process.env.DB_BACKUP_ENABLED = previousBackupEnabled
 
-const byId = new Map(jobs.map(job => [job.id, job]))
+assertOfflineRegistry(jobs)
 
-assert.ok(byId.has('forgejo-standby-sync'), 'Forgejo standby sync should remain registered.')
-assert.ok(byId.has('forgejo-doctor'), 'Forgejo doctor should remain registered.')
-assert.ok(byId.has('db-dashboard-monitor'), 'Database dashboard monitor should be registered.')
-assert.ok(byId.has('ti-threat-intel-backup'), 'Threat-intelligence backup should be registered.')
-assert.ok(byId.has('ti-operational-workflow-canary'), 'Threat-intelligence workflow canary should be registered.')
-assert.ok(byId.has('ti-public-canary-collection'), 'TI collection loop should be registered even when TI backend is unavailable.')
-assert.ok(byId.has('ti-restricted-metadata-collection'), 'Restricted metadata collection loop should be registered even when TI backend is unavailable.')
-assert.ok(byId.has('ti-exposure-queue-collection'), 'Exposure queue collection should be registered.')
-assert.ok(byId.has('ti-exposure-parser'), 'Exposure parser should be registered.')
-assert.ok(byId.has('ti-dwm-alert-generation'), 'DWM alert generation should be registered.')
-assert.ok(byId.has('ti-automatic-review'), 'Automatic review should be registered even when TI backend is unavailable.')
-assert.ok(byId.has('ti-automatic-evaluation'), 'Automatic evaluation should be registered even when TI backend is unavailable.')
-assert.ok(byId.has('api-agent-automations'), 'Agent automation dispatcher should be registered.')
-assert.ok(byId.has('api-vulnerability-scanner'), 'Vulnerability image scanner should be registered.')
-assert.ok(byId.has('api-database-backup'), 'Primary database backup scheduler should be registered.')
-
-assert.equal(byId.get('ti-public-canary-collection')?.category, 'TI / Exposure')
-assert.equal(byId.get('ti-exposure-queue-collection')?.controlMode, 'observable_only')
-assert.equal(byId.get('ti-dwm-alert-generation')?.controlMode, 'run_only')
-assert.ok(byId.get('forgejo-standby-sync')?.controls.includes('edit_schedule'), 'Forgejo schedule editing should stay available.')
-assert.equal(byId.get('db-dashboard-monitor')?.category, 'Backup/Database')
-assert.equal(byId.get('db-dashboard-monitor')?.service, 'database-monitor')
-assert.equal(byId.get('db-dashboard-monitor')?.schedule, '* * * * *')
-assert.ok(byId.get('db-dashboard-monitor')?.controls.includes('edit_schedule'), 'Database monitor schedule editing should stay available.')
-assert.equal(byId.get('ti-threat-intel-backup')?.schedule, '23 2 * * *')
-assert.equal(byId.get('ti-threat-intel-backup')?.category, 'Backup/Database')
-assert.ok(byId.get('ti-threat-intel-backup')?.controls.includes('edit_schedule'), 'Threat-intelligence backup schedule should be editable.')
-assert.equal(byId.get('ti-operational-workflow-canary')?.schedule, '41 3 * * *')
-assert.equal(byId.get('ti-operational-workflow-canary')?.category, 'TI / Exposure')
-assert.ok(byId.get('ti-public-canary-collection')?.controls.length, 'TI collection should expose safe controls.')
-assert.ok(byId.get('ti-public-canary-collection')?.controls.includes('run_now'), 'TI collection should expose safe run-now control.')
-assert.equal(byId.get('api-agent-automations')?.controlMode, 'safe_control')
-assert.ok(byId.get('api-agent-automations')?.controls.includes('pause'), 'API automation cron should expose persisted pause control.')
-assert.ok(byId.get('api-agent-automations')?.controls.includes('run_now'), 'API automation cron should expose safe run-now control.')
-assert.equal(byId.get('api-user-account-deletion')?.schedule, 'Every minute', 'Due account deletion should run automatically each minute.')
-assert.ok(byId.get('api-user-account-deletion')?.controls.includes('run_now'), 'Account deletion should expose the same tracked manual runner.')
-assert.equal(byId.get('api-hot-cache-refresh')?.controlMode, 'observable_only', 'Fastify cache refresh stays audit-only because it needs server instance state.')
-assert.equal(byId.get('ti-source-pack-worker')?.controlMode, 'run_only', 'Source-pack worker should expose the existing pack_worker_run contract.')
-assert.ok(byId.get('ti-source-pack-worker')?.controls.includes('run_now'), 'Source-pack worker should expose safe run-now control.')
-assert.equal(byId.get('api-vulnerability-scanner')?.controlMode, 'safe_control')
-assert.ok(byId.get('api-vulnerability-scanner')?.controls.includes('run_now'), 'Vulnerability scanner should expose manual run control.')
-assert.equal(byId.get('api-vulnerability-scanner')?.status, 'blocked', 'A never-run vulnerability scanner should be visible as blocked/stale.')
-assert.match(byId.get('api-vulnerability-scanner')?.lastError || '', /No vulnerability scan has completed|Docker|Scout|socket|Previous vulnerability scan|HANASAND_SCANNER_URL is not configured/, 'Vulnerability scanner should expose the stale reason or exact scanner blocker.')
-assert.equal(byId.get('api-database-backup')?.category, 'Backup/Database')
-assert.equal(byId.get('api-database-backup')?.schedule, '23 2 * * * UTC')
-assert.ok(byId.get('api-database-backup')?.controls.includes('resume'), 'Disabled backup schedule should expose a persisted resume control.')
-
-for (const job of jobs) {
-    assert.ok(job.resourceUsage, `${job.id} should include resource telemetry.`)
-    assert.ok(job.costEstimate, `${job.id} should include cost telemetry.`)
-    assert.equal(job.costEstimate.electricityUsdPerKwh, 0.05)
-}
-
-tiMock.fetch = async(request: Request) => {
-    const url = new URL(request.url)
-    if (request.method === 'POST') {
-        const body = await request.json().catch(() => ({})) as Record<string, unknown>
-        controlRequests.push({ path: url.pathname, body })
-        if (url.pathname === '/v1/ops/collection-scheduler') return json(tiSchedulerPayload())
-        if (url.pathname === '/v1/dwm/alerts/rebuild') return json({ ok: true, rebuiltAt: now })
-        if (url.pathname === '/v1/dwm/source-requests' && body.action === 'pack_worker_run') return json({ action: 'pack_worker_run', sourcePackId: body.sourcePackId, run: { id: 'run_default_source_pack_worker', status: 'completed', completedAt: now } })
-        return json({ error: 'not found' }, 404)
-    }
-
-    if (url.pathname === '/v1/ops/collection-scheduler') return json(tiSchedulerPayload())
-    if (url.pathname === '/v1/health') return json({
-        ok: true,
-        collection: {
-            restrictedMetadata: {
-                enabled: true,
-                running: false,
-                intervalSeconds: 900,
-                cycleCount: 4,
-                successCount: 3,
-                errorCount: 1,
-                failedSourceCount: 1,
-                lastCycleAt: '2026-07-03T09:45:00.000Z',
-                lastSuccessAt: '2026-07-03T09:45:30.000Z',
-                nextCycleAt: '2026-07-03T10:00:30.000Z',
-            },
-        },
-    })
-    if (url.pathname === '/v1/dwm/exposure-queue') return json({
-        status: 'live',
-        scheduler: { cadenceSeconds: 300 },
-        freshness: {
-            latestCollectedAt: '2026-07-03T09:59:30.000Z',
-            latestClaimAt: '2026-07-03T09:59:00.000Z',
-            nextExpectedCollection: '2026-07-03T10:04:30.000Z',
-        },
-        counts: { visible: 4, needsReview: 1 },
-    })
-    if (url.pathname === '/v1/dwm/exposure-parser/health') return json({
-        status: 'ready',
-        generatedAt: '2026-07-03T10:00:00.000Z',
-        latencyMs: 42,
-    })
-    if (url.pathname === '/v1/dwm/alerts/generation-readiness') return json({
-        generatedAt: '2026-07-03T10:00:00.000Z',
-        blockers: [],
-        candidateCount: 3,
-        latestEvidenceAt: '2026-07-03T09:58:00.000Z',
-    })
-    if (url.pathname === '/v1/ops/resource-snapshot') return json({
-        service: 'ti-scraper',
-        memory: { rssMb: 321, heapUsedMb: 123 },
-        queue: { queued: 7 },
-        pressure: {
-            automaticReview: {
-                total: 120,
-                backlog: 9,
-                counts: { queued: 7, running: 2, terminal: 108, dead_letter: 3 },
-            },
-            automaticEvaluation: {
-                benchmarkCount: 4,
-                activeBenchmarkCount: 1,
-                taskCount: 80,
-                counts: { pending: 5, retry_scheduled: 2, terminal: 72, dead_letter: 1 },
-                running: true,
-                enabled: true,
-                intervalSeconds: 45,
-                cycleCount: 12,
-                errorCount: 2,
-                lastCycleAt: '2026-07-03T09:59:30.000Z',
-                lastSuccessAt: '2026-07-03T09:59:45.000Z',
-                nextCycleAt: '2026-07-03T10:00:15.000Z',
-            },
-        },
-        workers: [],
-    })
-    if (url.pathname === '/v1/dwm/source-packs') return json({
-        readiness: { ready: true, blockers: [] },
-        lastRun: { updatedAt: '2026-07-03T09:57:00.000Z' },
-        counts: { candidateCount: 5, packCount: 2 },
-        generatedAt: '2026-07-03T10:00:00.000Z',
-    })
-    if (url.pathname === '/v1/frontier') return json({ queued: 7, tasks: [{ id: 'task_public_ti' }] })
-    return json({ error: 'not found' }, 404)
-}
+tiMock.fetch = createTiMockFetch(now, controlRequests)
 
 process.env.TI_SCRAPER_API_BASE = tiMockBase
 try {
     const liveJobs = await listUnifiedScheduledJobs()
-    const liveById = new Map(liveJobs.map(job => [job.id, job]))
 
-    assert.equal(liveById.get('ti-public-canary-collection')?.status, 'running')
-    assert.equal(liveById.get('ti-public-canary-collection')?.lastRunAt, '2026-07-03T09:59:00.000Z')
-    assert.equal(liveById.get('ti-public-canary-collection')?.nextRunAt, '2026-07-03T10:04:00.000Z')
-    assert.ok(liveById.get('ti-public-canary-collection')?.controls.includes('run_now'), 'Live TI collection should expose run-now control.')
-    assert.equal(liveById.get('ti-exposure-queue-collection')?.logExcerpt, '4 visible claims, 1 need review.')
-    assert.equal(liveById.get('ti-exposure-parser')?.averageRuntimeMs, 42)
-    assert.equal(liveById.get('ti-dwm-alert-generation')?.controlMode, 'run_only')
-    assert.equal(liveById.get('ti-source-pack-worker')?.controlMode, 'run_only')
-    assert.equal(liveById.get('ti-frontier-queue')?.resourceUsage.queueDepth, 7)
-    assert.equal(liveById.get('ti-public-canary-collection')?.resourceUsage.memoryRssMb, 321)
-    assert.equal(liveById.get('ti-restricted-metadata-collection')?.status, 'enabled')
-    assert.equal(liveById.get('ti-restricted-metadata-collection')?.nextRunAt, '2026-07-03T10:00:30.000Z')
-    assert.equal(liveById.get('ti-automatic-review')?.resourceUsage.queueDepth, 9)
-    assert.equal(liveById.get('ti-automatic-review')?.failureCount, 3)
-    assert.equal(liveById.get('ti-automatic-evaluation')?.status, 'running')
-    assert.equal(liveById.get('ti-automatic-evaluation')?.cadenceSeconds, 45)
-    assert.equal(liveById.get('ti-automatic-evaluation')?.lastSuccessAt, '2026-07-03T09:59:45.000Z')
-    assert.equal(liveById.get('ti-automatic-evaluation')?.nextRunAt, '2026-07-03T10:00:15.000Z')
-    assert.equal(liveById.get('ti-automatic-evaluation')?.resourceUsage.queueDepth, 7)
-    assert.equal(liveById.get('ti-automatic-evaluation')?.failureCount, 3)
+    assertLiveRegistry(liveJobs)
 
     const controlDbAvailable = await scheduledJobControlsAvailable()
     if (controlDbAvailable) {
@@ -252,37 +96,6 @@ async function scheduledJobControlsAvailable() {
     } catch {
         return false
     }
-}
-
-function tiSchedulerPayload() {
-    return {
-        schemaVersion: 'ti.collection_scheduler_status.v1',
-        generatedAt: now,
-        scheduler: {
-            enabled: true,
-            running: true,
-            intervalSeconds: 300,
-            lastRun: {
-                id: 'run_public_canary_latest',
-                status: 'completed',
-                captureCount: 12,
-                failedTaskCount: 0,
-                createdAt: '2026-07-03T09:59:00.000Z',
-                updatedAt: '2026-07-03T09:59:45.000Z',
-            },
-            lastSuccessfulRun: { updatedAt: '2026-07-03T09:59:45.000Z' },
-            nextRunAt: '2026-07-03T10:04:00.000Z',
-        },
-        parser: { aiEndpointConfigured: true },
-        failures: [],
-    }
-}
-
-function json(body: unknown, status = 200) {
-    return new Response(JSON.stringify(body), {
-        status,
-        headers: { 'content-type': 'application/json' },
-    })
 }
 
 function restoreTiBase() {
