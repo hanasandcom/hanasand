@@ -3,11 +3,28 @@ import type { AuditPage } from '../src/app/dashboard/management/audit/data'
 
 mock.module('@/utils/cookies/cookies', () => ({ getCookie: (name: string) => name === 'id' ? 'operator-7' : 'token-7' }))
 const { performAuditAcknowledgment } = await import('../src/app/dashboard/audit/useAuditAcknowledgment')
-const { helpdeskAcknowledgmentFields } = await import('../src/app/dashboard/helpdesk/audit')
-const { isFailedAuditEvent, summarizeAuditFailures, updateAuditAcknowledgment } = await import('../src/app/dashboard/management/audit/data')
+const { helpdeskAcknowledgmentFields, param: helpdeskParam } = await import('../src/app/dashboard/helpdesk/audit')
+const { isFailedAuditEvent, param: managementParam, summarizeAuditFailures, updateAuditAcknowledgment } = await import('../src/app/dashboard/management/audit/data')
 const originalFetch = globalThis.fetch
 
 afterEach(() => { globalThis.fetch = originalFetch })
+
+test('audit filters use the first query value and preserve screen-specific whitespace rules', () => {
+    expect(helpdeskParam({ service: 'api' }, 'service')).toBe('api')
+    expect(helpdeskParam({ service: ['first', 'second'] }, 'service')).toBe('first')
+    expect(helpdeskParam({ service: ['', 'second'] }, 'service')).toBe('')
+    expect(helpdeskParam({ service: [] }, 'service')).toBe('')
+    expect(helpdeskParam({}, 'service')).toBe('')
+    expect(helpdeskParam({ service: '  api  ' }, 'service')).toBe('  api  ')
+
+    expect(managementParam({ service: 'api' }, 'service')).toBe('api')
+    expect(managementParam({ service: [' first ', 'second'] }, 'service')).toBe('first')
+    expect(managementParam({ service: ['', 'second'] }, 'service')).toBe('')
+    expect(managementParam({ service: [] }, 'service')).toBe('')
+    expect(managementParam({}, 'service')).toBe('')
+    expect(managementParam({ service: '  api  ' }, 'service')).toBe('api')
+    expect(managementParam({ service: ['   '] }, 'service')).toBe('')
+})
 
 test('shared acknowledgment lifecycle resets errors, marks pending, saves, and clears pending', async () => {
     globalThis.fetch = (async () => Response.json({ acknowledged_at: '2026-10-17T12:00:00Z', acknowledged_by: 'operator-7' })) as typeof fetch

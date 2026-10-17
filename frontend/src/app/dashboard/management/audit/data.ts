@@ -1,4 +1,5 @@
 import type { AuditAcknowledgment } from '../../audit/acknowledgment'
+import { queryParamValue } from '@/utils/pagination'
 
 export type AuditSearchParams = Record<string, string | string[] | undefined>
 
@@ -53,8 +54,7 @@ export function summarizeAuditFailures<T extends Pick<AuditEvent, 'result' | 'ac
 export const auditFilterKeys = ['service', 'actor', 'action', 'target', 'outcome', 'from', 'to', 'q', 'hql']
 
 export function param(params: AuditSearchParams, key: string) {
-    const value = params[key]
-    return (Array.isArray(value) ? value[0] : value || '').trim()
+    return (queryParamValue(params[key]) || '').trim()
 }
 
 export function auditQuery(params: AuditSearchParams, cursor?: string | null) {

@@ -1,4 +1,5 @@
 import type { AuditAcknowledgment } from '../audit/acknowledgment'
+import { queryParamValue } from '@/utils/pagination'
 
 export type AdminAuditEvent = {
     id: number
@@ -54,8 +55,7 @@ export type AuditSearchParams = {
 }
 
 export function param(params: AuditSearchParams, key: keyof AuditSearchParams) {
-    const value = params[key]
-    return Array.isArray(value) ? value[0] || '' : value || ''
+    return queryParamValue(params[key]) || ''
 }
 
 export function buildApiQuery(params: AuditSearchParams) {
