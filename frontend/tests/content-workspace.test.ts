@@ -1,6 +1,10 @@
 // @ts-expect-error Bun provides this module for focused checks.
 import { expect, mock, test } from 'bun:test'
 import { NextRequest } from 'next/server'
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+import NotesPanelIconButton from '../src/app/dashboard/notes/NotesPanelIconButton'
+import { Search } from 'lucide-react'
 
 let organizationId = 'hanasand'
 let denied = false
@@ -41,4 +45,16 @@ test('content proxy uses selected workspace rather than a caller-supplied organi
     organizationId = ''
     await GET(new NextRequest('https://hanasand.com/api/backend/notes', { headers: { 'x-organization-id': 'forged' } }), { params: Promise.resolve({ path: ['notes'] }) })
     expect(lastHeaders.has('x-organization-id')).toBe(false)
+})
+
+test('notes panel icon controls keep their button and accessible label contract', () => {
+    const html = renderToStaticMarkup(createElement(NotesPanelIconButton, {
+        label: 'Open notes sidebar', onClick: () => undefined,
+    }, createElement(Search, { className: 'h-4 w-4' })))
+
+    expect(html).toContain('type="button"')
+    expect(html).toContain('aria-label="Open notes sidebar"')
+    expect(html).toContain('title="Open notes sidebar"')
+    expect(html).toContain('class="ui-button ui-button-secondary h-9 w-9 p-0"')
+    expect(html).toContain('<svg')
 })

@@ -5,6 +5,7 @@ import { Check, ChartNoAxesColumnIncreasing, Clock3, FileText, StickyNote, Trash
 import { createNote, deleteNote, fetchNotes, updateNote } from '@/utils/notes/client'
 import { DashboardPanel } from '@/components/dashboard/ui'
 import { formatNoteDate, NotesSidebar } from './NotesSidebar'
+import NotesPanelIconButton from './NotesPanelIconButton'
 
 const emptyDraft = { title: '', content: '' }
 
@@ -149,9 +150,7 @@ export default function NotesClient() {
 
             <DashboardPanel className={`grid content-start gap-3 border-ui-border bg-ui-panel p-3 ${rightCollapsed ? 'xl:px-2' : ''}`}>
                 {rightCollapsed ? (
-                    <button type='button' onClick={() => setRightCollapsed(false)} aria-label='Open note analytics' title='Open note analytics' className='ui-button ui-button-secondary h-9 w-9 p-0'>
-                        <ChartNoAxesColumnIncreasing className='h-4 w-4' />
-                    </button>
+                    <NotesPanelIconButton label='Open note analytics' onClick={() => setRightCollapsed(false)}><ChartNoAxesColumnIncreasing className='h-4 w-4' /></NotesPanelIconButton>
                 ) : (
                     <>
                         <div className='flex justify-end'>

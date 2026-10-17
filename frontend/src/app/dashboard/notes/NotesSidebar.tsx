@@ -1,5 +1,6 @@
 import { Clock3, List, Plus, Search, StickyNote, X } from 'lucide-react'
 import { DashboardPanel } from '@/components/dashboard/ui'
+import NotesPanelIconButton from './NotesPanelIconButton'
 
 export function NotesSidebar({
     collapsed,
@@ -26,18 +27,12 @@ export function NotesSidebar({
         <DashboardPanel className={`grid content-start gap-3 border-ui-border bg-ui-panel p-3 ${collapsed ? 'xl:px-2' : ''}`}>
             {collapsed ? (
                 <div className='grid justify-items-center gap-2'>
-                    <button type='button' onClick={() => onCollapse(false)} aria-label='Open notes sidebar' title='Open notes sidebar' className='ui-button ui-button-secondary h-9 w-9 p-0'>
-                        <List className='h-4 w-4' />
-                    </button>
+                    <NotesPanelIconButton label='Open notes sidebar' onClick={() => onCollapse(false)}><List className='h-4 w-4' /></NotesPanelIconButton>
                     <button type='button' onClick={onNewNote} aria-label='New note' title='New note' className='grid h-9 w-9 place-items-center rounded-md border border-ui-border bg-ui-raised text-ui-primary hover:border-ui-primary'>
                         <Plus className='h-4 w-4' />
                     </button>
-                    <button type='button' onClick={() => onCollapse(false)} aria-label='Search notes' title='Search notes' className='ui-button ui-button-secondary h-9 w-9 p-0'>
-                        <Search className='h-4 w-4' />
-                    </button>
-                    <button type='button' onClick={() => onCollapse(false)} aria-label='Show note list' title='Show note list' className='ui-button ui-button-secondary h-9 w-9 p-0'>
-                        <StickyNote className='h-4 w-4' />
-                    </button>
+                    <NotesPanelIconButton label='Search notes' onClick={() => onCollapse(false)}><Search className='h-4 w-4' /></NotesPanelIconButton>
+                    <NotesPanelIconButton label='Show note list' onClick={() => onCollapse(false)}><StickyNote className='h-4 w-4' /></NotesPanelIconButton>
                 </div>
             ) : (
                 <>
