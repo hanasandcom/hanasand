@@ -2456,3 +2456,14 @@ integration build and test suite remain part of final verification. This
 removes 147 authored lines. The current shared-worktree inventory is 2,420
 frontend files / 156,223 lines and 4,564 repository files / 328,907 lines,
 with no file above 200. Aggregate reduction targets remain open.
+
+At the 2026-10-17 subscription test checkpoint, an unregistered Playwright
+source scan was replaced by a registered SSR test of the actual subscription
+page. It checks each plan’s name, summary, quota, features, checkout link and
+purchase control, plus container loading, payment copy, and excluded sales
+copy. Independent review caught and restored the rendered “What’s included”
+and plan-feature assertions. The focused task passes (1 test / 48 assertions),
+with scoped ESLint, frontend typecheck, diff, and line-cap checks passing. This
+adds 13 test/runner lines and no production code. Current inventory is 2,420
+frontend files / 156,236 lines and 4,564 repository files / 328,920 lines,
+with no file above 200. Aggregate reduction targets remain open.

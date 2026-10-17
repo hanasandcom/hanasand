@@ -6,6 +6,7 @@ export const otherUnitTasks: TestTask[] = [
     { id: 'system-rate-limit-fields', title: 'System rate-limit form field rendering', command: [bun, 'test', 'tests/system-rate-limit-fields.test.tsx'] },
     { id: 'system-rate-limit-request', title: 'System rate-limit authenticated request contracts', command: [bun, 'test', 'tests/system-rate-limit-request.test.ts'] },
     { id: 'dashboard-search-text', title: 'Dashboard search text matching', command: [bun, 'test', 'tests/dashboard-search-text.test.ts'] },
+    { id: 'subscription-page-render', title: 'Subscription dashboard purchase options rendering', command: [bun, 'test', 'tests/subscription-page-render.test.tsx'] },
     { id: 'app-surface', title: 'App surface route classification', command: [bun, 'test', 'tests/app-surface.test.ts'] },
     { id: 'activity-model', title: 'Exposure activity model', command: [bun, 'test', 'tests/activity-model.test.ts'] },
     { id: 'dashboard-row-deletion', title: 'Dashboard row deletion lifecycle', command: [bun, 'test', 'tests/dashboard-row-deletion.test.ts'] },
