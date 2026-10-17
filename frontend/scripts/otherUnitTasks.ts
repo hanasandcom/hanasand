@@ -29,6 +29,7 @@ export const otherUnitTasks: TestTask[] = [
     { id: 'browser-sandbox-history', title: 'Browser sandbox history sanitization', command: [bun, 'test', 'tests/browser-sandbox-history.test.ts'] },
     { id: 'browser-history-deletion', title: 'Browser history deletion request contract', command: [bun, 'test', 'tests/browser-history-deletion-request.test.ts'] },
     { id: 'share-workspace-status-storage', title: 'Shared Git workspace status storage reader', command: [bun, 'test', 'tests/share-workspace-status-storage.test.ts'] },
+    { id: 'share-deploy-render', title: 'Share deployment control rendered states and action', command: [bun, 'test', 'tests/share-deploy-render.test.tsx'] },
     { id: 'browser-saved-finding-share', title: 'Browser saved finding share fallbacks', command: [bun, 'test', 'tests/browser-saved-finding-share.test.ts'] },
     { id: 'browser-sandbox-routing', title: 'Browser sandbox routing contract', command: [bun, 'test', 'tests/browser-sandbox-routing.test.ts'] },
     { id: 'browser-sandbox-session', title: 'Browser sandbox session contract', command: [bun, 'test', 'tests/browser-sandbox-session.test.ts'] },
