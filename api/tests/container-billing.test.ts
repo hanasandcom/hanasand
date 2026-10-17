@@ -42,7 +42,7 @@ async function event(type = 'checkout.session.completed', payload: Record<string
     finally { globalThis.fetch = realFetch; if (previous === undefined) delete process.env.STRIPE_SECRET_KEY; else process.env.STRIPE_SECRET_KEY = previous }
 }
 test('monthly prices and container identity are explicit in checkout', () => {
-    for (const [feature, amount] of [['always_running', '4900'], ['failover', '9900']] as const) {
+    for (const [feature, amount] of [['always_running', '4900'], ['failover', '4900']] as const) {
         const body = containerCheckoutBody({ id, userId: 'owner', vmName: 'example-container', feature, site: 'https://example.com' })
         expect(body.get('line_items[0][price_data][unit_amount]')).toBe(amount)
         expect(body.get('line_items[0][price_data][currency]')).toBe('nok')

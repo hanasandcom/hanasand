@@ -8,7 +8,7 @@ import { vmLifecycleLock } from '#utils/vms/lifecycleLock.ts'
 
 export const containerPlans = {
     always_running: { name: 'Always running', priceNok: 49 },
-    failover: { name: 'Failover', priceNok: 99 },
+    failover: { name: 'Failover', priceNok: 49 },
 } as const
 type Feature = keyof typeof containerPlans
 

@@ -14,6 +14,7 @@ test('certificate sync normalizes user IDs and preserves zero counts from the VM
     const originalFetch = globalThis.fetch
     let requestBody: { keys: string[] } | undefined
     globalThis.fetch = async (_input, init) => {
+        expect(new Headers(init?.headers).get('User-Agent')).toBe('hanasand_internal')
         requestBody = JSON.parse(String(init?.body))
         return new Response(JSON.stringify({ received: 0, added: 0, total: 0 }), { status: 200 })
     }

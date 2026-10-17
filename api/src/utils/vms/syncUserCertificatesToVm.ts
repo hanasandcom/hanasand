@@ -47,7 +47,7 @@ export default async function syncUserCertificatesToVm({ vmName, userIds }: Sync
         headers: {
             'Authorization': `Bearer ${encodeURIComponent(config.vm_api_token || '')}`,
             'Content-Type': 'application/json',
-            'User-Agent': 'hanasand_api',
+            'User-Agent': 'hanasand_internal',
         },
         body: JSON.stringify({
             keys: certificates,
