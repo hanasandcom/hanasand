@@ -7,7 +7,7 @@ import Button from '@/components/misc/button'
 import SortIndicator from '@/components/dashboard/sort-indicator'
 import { matchesSearchQuery } from '../searchText'
 import { useSmoothedCount } from './use-smoothed-count'
-import { compareRules, defaultRuleSortDirection, type RuleSortColumn, type RuleSortDirection } from './rule-sort'
+import { compareRules, defaultRuleSortDirection, getRuleSourceLabel, type RuleSortColumn, type RuleSortDirection } from './rule-sort'
 import { getRuleCategory, ruleCategories, type RuleCategory } from './rule-categories'
 import type { Rule } from './detection-rules'
 
@@ -102,7 +102,7 @@ export default function RuleLibrary({ category, rules, loading, canManageRules, 
                             <td className='px-3 py-2 text-xs text-ui-muted'><span className='line-clamp-2' title={rule.family}>{rule.family}</span></td>
                             <td className='px-3 py-2 text-xs capitalize'>{rule.severity}</td>
                             <td className='px-3 py-2 text-xs'>{rule.enabled === false ? 'Disabled' : 'Enabled'}</td>
-                            <td className='px-3 py-2 text-xs text-ui-muted'>{rule.source === 'open_source' ? 'Imported rule' : rule.source === 'owned' ? 'Custom rule' : 'Hanasand rule'}</td>
+                            <td className='px-3 py-2 text-xs text-ui-muted'>{getRuleSourceLabel(rule)}</td>
                             <td className='px-3 py-2 text-xs tabular-nums'><AnimatedHits value={rule.hitCount} previousSample={rule.previousHitCount} /></td>
                             {category === 'analysis' && <td className='px-3 py-2 text-xs'>{rule.definition?.action === 'drop' ? 'Drop' : 'Store'}</td>}
                             <td className='px-2 py-2'><Button text={rule.enabled === false ? 'Enable' : 'Disable'} aria-label={`${rule.enabled === false ? 'Enable' : 'Disable'} ${rule.name}`} variant='outline' size='sm' className='rounded-md' disabled={!canManageRules} onClick={() => onToggleRule(rule)} /></td>

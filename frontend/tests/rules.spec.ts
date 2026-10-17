@@ -9,7 +9,7 @@ import { rule } from './fixtures/ruleExample'
 let output: string, bundle: string, css: string, serverHtml: string
 test.beforeAll(async () => {
     output = mkdtempSync(path.join(tmpdir(), 'event-rules-'))
-    execFileSync('bun', ['-e', `const result = await Bun.build({entrypoints:['tests/fixtures/event-rules.tsx'], outdir:${JSON.stringify(output)}, target:'browser', define:{'process.env':JSON.stringify({NODE_ENV:'production'})}, plugins:[{name:'workspace',setup(build){build.onLoad({filter:/workspaceProvider\\.tsx$/},()=>({contents:'export const useWorkspace = () => ({organizationId:"org-a", organizations:[{id:"org-a",role:"owner"}]})',loader:'tsx'}))}}]}); if(!result.success) throw new Error(result.logs.join('\\n'))`])
+    execFileSync('bun', ['-e', `const result = await Bun.build({entrypoints:['tests/fixtures/rules.tsx'], outdir:${JSON.stringify(output)}, target:'browser', define:{'process.env':JSON.stringify({NODE_ENV:'production'})}, plugins:[{name:'workspace',setup(build){build.onLoad({filter:/workspaceProvider\\.tsx$/},()=>({contents:'export const useWorkspace = () => ({organizationId:"org-a", organizations:[{id:"org-a",role:"owner"}]})',loader:'tsx'}))}}]}); if(!result.success) throw new Error(result.logs.join('\\n'))`])
     serverHtml = execFileSync('bun', ['-e', `
         import { mock } from 'bun:test';
         mock.module('./src/components/organizations/workspaceProvider', () => ({useWorkspace: () => ({organizationId:'org-a', organizations:[{id:'org-a',role:'owner'}]})}));
@@ -19,7 +19,7 @@ test.beforeAll(async () => {
         console.log(renderToString(createElement(DetectionRules, {category:'analysis',initial:{organizationId:'org-a',category:'analysis',rules:[${JSON.stringify(rule)}],canManageRetention:true}})));
     `], { encoding: 'utf8' }).trim()
     css = (await postcss([tailwind()]).process(readFileSync('src/app/globals.css', 'utf8'), { from: path.resolve('src/app/globals.css') })).css
-    bundle = readFileSync(path.join(output, 'event-rules.js'), 'utf8')
+    bundle = readFileSync(path.join(output, 'rules.js'), 'utf8')
 })
 test.afterAll(() => rmSync(output, { recursive: true, force: true }))
 test.beforeEach(async ({ page }) => {

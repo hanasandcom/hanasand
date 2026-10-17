@@ -4,6 +4,10 @@ export type RuleSortColumn = 'Title' | 'Description' | 'Family' | 'Severity' | '
 export type RuleSortDirection = 'ascending' | 'descending'
 export const defaultRuleSortDirection = (column: RuleSortColumn): RuleSortDirection => column === 'Hits' ? 'descending' : 'ascending'
 const compareText = (a: string, b: string) => a.localeCompare(b, 'en', { sensitivity: 'base', numeric: true })
+export function getRuleSourceLabel(rule: Rule) {
+    return rule.source === 'open_source' ? 'Imported rule' : rule.source === 'owned' ? 'Custom rule' : 'Hanasand rule'
+}
+
 function textValue(rule: Rule, column: RuleSortColumn) {
     switch (column) {
         case 'Title': return rule.name
@@ -11,7 +15,7 @@ function textValue(rule: Rule, column: RuleSortColumn) {
         case 'Family': return rule.family
         case 'Severity': return rule.severity
         case 'Status': return rule.enabled === false ? 'Disabled' : 'Enabled'
-        case 'Source': return rule.source === 'open_source' ? 'Imported rule' : rule.source === 'owned' ? 'Custom rule' : 'Hanasand rule'
+        case 'Source': return getRuleSourceLabel(rule)
         case 'Action': return rule.definition?.action === 'drop' ? 'Drop' : 'Store'
         case 'Controls': return rule.enabled === false ? 'Enable' : 'Disable'
         default: return ''

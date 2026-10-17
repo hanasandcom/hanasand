@@ -9,9 +9,9 @@ let output: string, bundle: string, css: string
 const rule = { id: 'http.routine_access.v1', version: '1', name: 'Routine requests', hitCount: 12345, family: 'HTTP', severity: 'high', explanation: 'Count routine requests.', evidence: [], enabled: true, definition: { stage: 'analyze', action: 'drop' } }
 test.beforeAll(async () => {
     output = mkdtempSync(path.join(tmpdir(), 'event-rules-'))
-    execFileSync('bun', ['-e', `const result = await Bun.build({entrypoints:['tests/fixtures/event-rules.tsx'], outdir:${JSON.stringify(output)}, target:'browser', define:{'process.env':JSON.stringify({NODE_ENV:'production'})}, plugins:[{name:'workspace',setup(build){build.onLoad({filter:/workspaceProvider\\.tsx$/},()=>({contents:'export const useWorkspace = () => ({organizationId:"org-a", organizations:[{id:"org-a",role:"owner"}]})',loader:'tsx'}))}}]}); if(!result.success) throw new Error(result.logs.join('\\n'))`])
+    execFileSync('bun', ['-e', `const result = await Bun.build({entrypoints:['tests/fixtures/rules.tsx'], outdir:${JSON.stringify(output)}, target:'browser', define:{'process.env':JSON.stringify({NODE_ENV:'production'})}, plugins:[{name:'workspace',setup(build){build.onLoad({filter:/workspaceProvider\\.tsx$/},()=>({contents:'export const useWorkspace = () => ({organizationId:"org-a", organizations:[{id:"org-a",role:"owner"}]})',loader:'tsx'}))}}]}); if(!result.success) throw new Error(result.logs.join('\\n'))`])
     css = (await postcss([tailwind()]).process(readFileSync('src/app/globals.css', 'utf8'), { from: path.resolve('src/app/globals.css') })).css
-    bundle = readFileSync(path.join(output, 'event-rules.js'), 'utf8')
+    bundle = readFileSync(path.join(output, 'rules.js'), 'utf8')
 })
 test.afterAll(() => rmSync(output, { recursive: true, force: true }))
 test.beforeEach(async ({ page }) => {
@@ -24,15 +24,16 @@ test.beforeEach(async ({ page }) => {
 for (const category of ['match', 'analysis', 'detection']) test(`${category} sorts columns and reveals inactive arrows only on hover or focus`, async ({ page }) => {
     const definition = { stage: category === 'analysis' ? 'analyze' : category === 'detection' ? 'detect' : 'match', action: 'drop' }
     const rows = [
-        { ...rule, id: 'custom.zulu', name: 'Zulu', hitCount: 9, definition, source: 'owned' },
+        { ...rule, id: 'custom.zulu', name: 'Zulu', hitCount: 9, definition, source: 'open_source' },
         { ...rule, id: 'custom.alpha', name: 'Alpha', hitCount: 100, definition, source: 'owned' },
-        { ...rule, id: 'custom.beta', name: 'Beta', hitCount: 0, definition, source: 'owned' },
+        { ...rule, id: 'custom.beta', name: 'Beta', hitCount: 0, definition, source: 'hanasand' },
         { ...rule, id: 'custom.unknown', name: 'Unknown', hitCount: null, definition, source: 'owned' },
     ]
     await page.route('**/api/backend/rules?*', route => route.fulfill({ json: { canManageRetention: true, rules: rows } }))
     await page.goto(`http://event.test/rules/${category}`)
     const titles = page.locator('tbody tr th span:first-child')
     await expect(titles).toHaveText(['Alpha', 'Zulu', 'Beta', 'Unknown'])
+    await expect(page.locator('tbody tr td:nth-child(6)')).toHaveText(['Custom rule', 'Imported rule', 'Hanasand rule', 'Hanasand rule'])
     const hits = page.getByRole('columnheader', { name: 'Hits', exact: true })
     await expect(hits).toHaveAttribute('aria-sort', 'descending')
     const headings = page.getByRole('columnheader')
