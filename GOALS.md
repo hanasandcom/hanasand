@@ -1094,3 +1094,18 @@ The latest repository scan finds 99 / 4,116 files over 200 lines and 323,651
 LOC; the frontend remains 2,308 files / 153,090 LOC / zero over cap. No API
 100,000-line or frontend 10,000–30,000-line reduction has been demonstrated.
 No push/deploy was performed.
+
+Three more API handlers now meet the cap through reviewed responsibility
+boundaries: AI tools (prompt flow, transport, policy, model/retry and accounting),
+public TI (auth, collections, projections and errors), and browser sandbox runs
+(history, lifecycle, reports, identity/quota). Independent reviews found their
+auth, billing, event, pagination, websocket and response contracts unchanged.
+The global API `bun run lint` and default `bun run test` both pass; the runner
+explicitly excludes 37 database-required suites unless their test environment
+is configured. The frontend full suite and production build/typecheck pass, all
+116 routes generate, and its cap scan remains 2,308 files / 153,090 LOC / zero
+over. Repository cap currently reports 96 / 4,133 files over 200 lines and
+323,715 LOC. The three source extractions added about 64 aggregate LOC while
+bringing three files under the cap. This improves ownership but does not move
+toward the 100,000-line API or 10,000–30,000-line frontend reduction targets.
+No push/deploy was performed.
