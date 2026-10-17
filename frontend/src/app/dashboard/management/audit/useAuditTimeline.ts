@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { isManagementSearchShortcut } from '@/utils/isManagementSearchShortcut'
 import { getCookie } from '@/utils/cookies/cookies'
 import config from '@/config'
-import { auditQuery, isFailedAuditEvent, param, readAuditPage, type AuditPage, type AuditSearchParams } from './data'
+import { auditQuery, param, readAuditPage, summarizeAuditFailures, type AuditPage, type AuditSearchParams } from './data'
 
 type AuditUiState = {
     searchOpen?: boolean
@@ -176,8 +176,7 @@ export default function useAuditTimeline(initialAudit: AuditPage, filters: Audit
         return () => window.removeEventListener('keydown', onKeyDown)
     }, [fullscreen])
 
-    const failedCount = useMemo(() => sortedEvents.filter(isFailedAuditEvent).length, [sortedEvents])
-    const reviewEvents = sortedEvents.filter(event => !event.acknowledgedAt && isFailedAuditEvent(event))
+    const { failedCount, reviewEvents } = useMemo(() => summarizeAuditFailures(sortedEvents), [sortedEvents])
     return {
         audit, setAudit, activeFilters, sortedEvents, queryResult, loading, error, searchError,
         searchOpen, setSearchOpen, filtersOpen, setFiltersOpen, analyticsOpen, setAnalyticsOpen,

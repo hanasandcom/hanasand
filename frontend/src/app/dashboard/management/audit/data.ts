@@ -37,6 +37,19 @@ export function isFailedAuditEvent(event: Pick<AuditEvent, 'result'>) {
     return !['ok', 'ready', 'success', 'completed', 'published'].includes(event.result.toLowerCase())
 }
 
+export function summarizeAuditFailures<T extends Pick<AuditEvent, 'result' | 'acknowledgedAt'>>(events: T[]) {
+    let failedCount = 0
+    const reviewEvents: T[] = []
+
+    for (const event of events) {
+        if (!isFailedAuditEvent(event)) continue
+        failedCount += 1
+        if (!event.acknowledgedAt) reviewEvents.push(event)
+    }
+
+    return { failedCount, reviewEvents }
+}
+
 export const auditFilterKeys = ['service', 'actor', 'action', 'target', 'outcome', 'from', 'to', 'q', 'hql']
 
 export function param(params: AuditSearchParams, key: string) {

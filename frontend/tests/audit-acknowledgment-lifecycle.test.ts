@@ -4,7 +4,7 @@ import type { AuditPage } from '../src/app/dashboard/management/audit/data'
 mock.module('@/utils/cookies/cookies', () => ({ getCookie: (name: string) => name === 'id' ? 'operator-7' : 'token-7' }))
 const { performAuditAcknowledgment } = await import('../src/app/dashboard/audit/useAuditAcknowledgment')
 const { helpdeskAcknowledgmentFields } = await import('../src/app/dashboard/helpdesk/audit')
-const { isFailedAuditEvent, updateAuditAcknowledgment } = await import('../src/app/dashboard/management/audit/data')
+const { isFailedAuditEvent, summarizeAuditFailures, updateAuditAcknowledgment } = await import('../src/app/dashboard/management/audit/data')
 const originalFetch = globalThis.fetch
 
 afterEach(() => { globalThis.fetch = originalFetch })
@@ -93,4 +93,18 @@ test('audit failure classification is shared by metrics and row styling', () => 
         expect(isFailedAuditEvent(event(result))).toBe(false)
     }
     for (const result of ['failed', 'error', '']) expect(isFailedAuditEvent(event(result))).toBe(true)
+})
+
+test('audit failure summary counts acknowledged failures and preserves unacknowledged event order', () => {
+    const events = [
+        { id: 1, result: 'failed', acknowledgedAt: null },
+        { id: 2, result: 'success', acknowledgedAt: null },
+        { id: 3, result: 'error', acknowledgedAt: '2026-10-17T12:00:00Z' },
+        { id: 4, result: 'denied', acknowledgedAt: null },
+    ]
+
+    const summary = summarizeAuditFailures(events)
+
+    expect(summary.failedCount).toBe(3)
+    expect(summary.reviewEvents.map(event => event.id)).toEqual([1, 4])
 })
