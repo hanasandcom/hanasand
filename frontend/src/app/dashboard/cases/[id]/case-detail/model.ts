@@ -114,9 +114,7 @@ export function webhookActionBlockedReason(detail: CaseDetail | null | undefined
 }
 
 export function timelineActorLabel(value?: string) {
-    if (!value) return 'system'
-    if (/^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(value)) return value
-    return value
+    return value || 'system'
 }
 
 export function actionLabel(value: string) {
