@@ -1,5 +1,6 @@
 import type { CaseDetailState, CaseDetailPayload, WorkbenchCase, WorkbenchWorkflowStep, WorkbenchOrgContext, WorkbenchDeliveryEvidence, CaseDelivery, AlertDetailPayload, WorkbenchAction } from '../types'
 import { stringValue } from './actionMessages'
+import { findingsDeliveryLedgerHref, findingsWatchlistLedgerHref } from '../references'
 
 export function customerNotificationActionState(caseDetail: CaseDetailState | undefined) {
     if (caseDetail?.status !== 'ready') return { disabledReason: 'Open the case details before recording customer notification.' }
@@ -74,22 +75,23 @@ export function caseReplayExportState(item: WorkbenchCase, caseDetail: CaseDetai
 }
 
 export function watchlistLedgerHref(orgContext: WorkbenchOrgContext | undefined) {
-    const params = new URLSearchParams()
-    if (orgContext?.organization?.id || orgContext?.scope.organizationId) params.set('organizationId', orgContext.organization?.id || orgContext.scope.organizationId || '')
-    if (orgContext?.scope.tenantId) params.set('tenantId', orgContext.scope.tenantId)
-    const query = params.toString()
-    return `/api/findings/watchlists${query ? `?${query}` : ''}`
+    return findingsWatchlistLedgerHref(ledgerScope(orgContext))
 }
 
 export function deliveryLedgerHref(orgContext: WorkbenchOrgContext | undefined, selected?: WorkbenchCase, delivery?: WorkbenchDeliveryEvidence | CaseDelivery) {
-    const params = new URLSearchParams()
-    if (orgContext?.organization?.id || orgContext?.scope.organizationId) params.set('organizationId', orgContext.organization?.id || orgContext.scope.organizationId || '')
-    if (orgContext?.scope.tenantId) params.set('tenantId', orgContext.scope.tenantId)
-    if (selected?.kind === 'dwm_alert') params.set('alertId', selected.id)
-    if (delivery?.id) params.set('deliveryId', delivery.id)
-    if (delivery?.webhookDestinationId) params.set('webhookDestinationId', delivery.webhookDestinationId)
-    const query = params.toString()
-    return `/api/findings/webhooks/deliveries${query ? `?${query}` : ''}`
+    return findingsDeliveryLedgerHref({
+        ...ledgerScope(orgContext),
+        alertId: selected?.kind === 'dwm_alert' ? selected.id : undefined,
+        deliveryId: delivery?.id,
+        webhookDestinationId: delivery?.webhookDestinationId,
+    })
+}
+
+function ledgerScope(orgContext: WorkbenchOrgContext | undefined) {
+    return {
+        organizationId: orgContext?.organization?.id || orgContext?.scope.organizationId || undefined,
+        tenantId: orgContext?.scope.tenantId,
+    }
 }
 
 export function organizationWebhookDestinationHref(organizationId: string, webhookDestinationId: string) {

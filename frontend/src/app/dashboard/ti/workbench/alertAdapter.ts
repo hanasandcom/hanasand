@@ -4,6 +4,7 @@ import type { WorkbenchCase } from './types'
 import type { RuntimeDwmAlert } from './runtimeAlert'
 import { buildAlertActions, buildAlertTimeline, buildWorkbenchEvidence, deliveryDetail, nextAlertTasks } from './alertModel'
 import { pluralize, severityPriority } from './adapterUtils'
+import { alertCaseDetailHref, alertCaseReference, findingsDeliveryLedgerHref, findingsWatchlistLedgerHref } from './references'
 
 export function dwmAlertToWorkbenchCase(input: DwmAlert): WorkbenchCase {
     const alert = input as RuntimeDwmAlert
@@ -11,8 +12,8 @@ export function dwmAlertToWorkbenchCase(input: DwmAlert): WorkbenchCase {
     const route = String(alert.recommendedRoute ?? alert.customerReadiness?.alertReadiness?.recommendedRoute ?? alert.webhookDelivery?.recommendedRoute ?? 'analyst_review')
     const workflowStatus = String(alert.workflowStatus ?? alert.workflowSummary?.status ?? alert.customerReadiness?.workflowReadiness?.status ?? alert.reviewState ?? 'new')
     const owner = alert.assignedOwner ?? alert.workflowSummary?.assignedOwner ?? alert.customerReadiness?.workflowReadiness?.assignedOwner ?? 'unassigned'
-    const caseId = alert.caseId ?? alert.customerReadiness?.caseHandoff?.caseId ?? alert.customerReadiness?.caseHandoff?.caseIdCandidate ?? alert.caseIdCandidate ?? alert.workflowContext?.caseIdCandidate
-    const casePath = alert.casePath ?? alert.customerReadiness?.caseHandoff?.casePath ?? alert.workflowSummary?.casePath ?? alert.workflowContext?.casePath
+    const caseReference = alertCaseReference(alert)
+    const { caseId } = caseReference
     const organizationId = alert.organizationId ?? alert.orgWatchlistScope?.organizationId ?? alert.workflowContext?.organizationId
     const selectedCaptureIds = mergeUniqueStrings(
         alert.customerReadiness?.alertReadiness?.selectedCaptureIds ?? [],
@@ -37,7 +38,7 @@ export function dwmAlertToWorkbenchCase(input: DwmAlert): WorkbenchCase {
     const evidence = buildWorkbenchEvidence(alert, selectedCaptureIds)
     const actionBlockers = alert.customerReadiness?.blockerCodes ?? []
     const alertHref = `/api/findings/alerts/${encodeURIComponent(alert.id)}${organizationId ? `?organizationId=${encodeURIComponent(organizationId)}` : ''}`
-    const caseDetailHref = dashboardCaseHref({ caseId, casePath, alertId: alert.id, organizationId, tenantId: alert.tenantId })
+    const caseDetailHref = alertCaseDetailHref({ ...caseReference, alertId: alert.id, organizationId, tenantId: alert.tenantId })
     const deliveryEvidence = (alert.deliveries ?? []).map(row => ({
         id: String(row.id ?? ''),
         alertId: String(row.alertId ?? alert.id),
@@ -77,7 +78,7 @@ export function dwmAlertToWorkbenchCase(input: DwmAlert): WorkbenchCase {
         relatedLinks: [
             { href: alertHref, label: 'Open alert detail' },
             ...(caseDetailHref ? [{ href: caseDetailHref, label: 'Open case' }] : []),
-            ...(watchlistIds.length ? [{ href: watchlistLedgerHref(organizationId, alert.tenantId), label: 'Watchlists' }] : []),
+            ...(watchlistIds.length ? [{ href: findingsWatchlistLedgerHref({ organizationId, tenantId: alert.tenantId }), label: 'Watchlists' }] : []),
         ],
         workflowPath: [
             {
@@ -98,7 +99,7 @@ export function dwmAlertToWorkbenchCase(input: DwmAlert): WorkbenchCase {
                 source: 'orgWatchlistScope',
                 detail: watchlistIds.length ? `${watchlistIds.length} watchlist ref${watchlistIds.length === 1 ? '' : 's'}; ${watchlistItemIds.length} item ref${watchlistItemIds.length === 1 ? '' : 's'}.` : 'Org/shared watchlist reference is syncing.',
                 entityId: watchlistItemIds[0] ?? watchlistIds[0],
-                href: watchlistIds.length ? watchlistLedgerHref(organizationId, alert.tenantId) : undefined,
+                href: watchlistIds.length ? findingsWatchlistLedgerHref({ organizationId, tenantId: alert.tenantId }) : undefined,
             },
             {
                 id: 'case_handoff',
@@ -118,50 +119,13 @@ export function dwmAlertToWorkbenchCase(input: DwmAlert): WorkbenchCase {
                 source: 'deliveryReadiness',
                 detail: deliveryDetail(alert),
                 entityId: alert.customerReadiness?.deliveryReadiness?.selectedWebhookDestinationId ?? alert.deliveryReadinessContext?.selectedWebhookDestinationId,
-                href: deliveryLedgerHref(organizationId, alert.tenantId, alert.id),
+                href: findingsDeliveryLedgerHref({ organizationId, tenantId: alert.tenantId, alertId: alert.id }),
             },
         ],
         actions: buildAlertActions(alert, organizationId),
         caseDetailHref,
         deliveryEvidence,
         missingDependency: caseDetailHref ? undefined : 'Backed case id is syncing to this alert.',
-    }
-}
-
-function watchlistLedgerHref(organizationId: string | undefined, tenantId: string | undefined) {
-    const params = new URLSearchParams()
-    if (organizationId) params.set('organizationId', organizationId)
-    if (tenantId) params.set('tenantId', tenantId)
-    const query = params.toString()
-    return `/api/findings/watchlists${query ? `?${query}` : ''}`
-}
-
-function deliveryLedgerHref(organizationId: string | undefined, tenantId: string | undefined, alertId: string) {
-    const params = new URLSearchParams()
-    if (organizationId) params.set('organizationId', organizationId)
-    if (tenantId) params.set('tenantId', tenantId)
-    params.set('alertId', alertId)
-    return `/api/findings/webhooks/deliveries?${params.toString()}`
-}
-
-function dashboardCaseHref(input: { caseId?: string, casePath?: string, alertId: string, organizationId?: string, tenantId?: string }) {
-    const caseId = input.caseId ?? caseIdFromPath(input.casePath)
-    if (!caseId) return undefined
-    const params = new URLSearchParams()
-    if (input.organizationId) params.set('organizationId', input.organizationId)
-    if (input.tenantId) params.set('tenantId', input.tenantId)
-    params.set('alertId', input.alertId)
-    params.set('route', 'ti_workbench')
-    return `/cases/${encodeURIComponent(caseId)}?${params.toString()}`
-}
-
-function caseIdFromPath(path?: string) {
-    const match = path?.match(/\/cases\/([^/?#]+)/)
-    if (!match?.[1]) return undefined
-    try {
-        return decodeURIComponent(match[1])
-    } catch {
-        return match[1]
     }
 }
 

@@ -1,6 +1,7 @@
 import { safeEvidenceExcerpt } from '@/utils/dwm/display'
 import type { WorkbenchAction, WorkbenchEvidence, WorkbenchTimelineItem } from './types'
 import type { RuntimeDwmAlert } from './runtimeAlert'
+import { alertCaseReference } from './references'
 
 export function buildWorkbenchEvidence(alert: RuntimeDwmAlert, selectedCaptureIds: string[]): WorkbenchEvidence[] {
     const evidence: WorkbenchEvidence[] = alert.evidence.map(item => ({
@@ -74,8 +75,7 @@ export function buildAlertTimeline(alert: RuntimeDwmAlert, selectedCaptureIds: s
 export function buildAlertActions(alert: RuntimeDwmAlert, organizationId: string | undefined): WorkbenchAction[] {
     const scope = organizationId ? { organizationId } : {}
     const expectedWorkflowEventCount = alert.workflowEvents?.length ?? alert.customerReadiness?.workflowReadiness?.eventCount ?? alert.workflowSummary?.eventCount
-    const caseId = alert.caseId ?? alert.customerReadiness?.caseHandoff?.caseId ?? alert.customerReadiness?.caseHandoff?.caseIdCandidate ?? alert.caseIdCandidate ?? alert.workflowContext?.caseIdCandidate
-    const casePath = alert.casePath ?? alert.customerReadiness?.caseHandoff?.casePath ?? alert.workflowSummary?.casePath ?? alert.workflowContext?.casePath
+    const { caseId, casePath } = alertCaseReference(alert)
     const bodyBase = {
         ...scope,
         ...(expectedWorkflowEventCount !== undefined ? { expectedWorkflowEventCount } : {}),
