@@ -1817,3 +1817,21 @@ cap scan (2,378 files / 155,210 lines, zero over 200). The repository scan is
 adds 40 total inventory lines; it does not materially advance the aggregate
 line-reduction targets. The frontend 10,000–30,000-line objective and API
 100,000-line reduction remain open. No UI redesign or deployment was made.
+
+At the next API checkpoint, mail account authorization/listing is separated from
+mail infrastructure and credential provisioning. A shared leaf helper now owns
+stored-secret decryption for both modules; the access, provisioning, and helper
+modules total 249 production lines versus 268 before the split (19 fewer), and
+existing public imports remain available. A registered test covers stored
+secret reuse and principal/database rotation; shared-mail access tests retain
+personal/shared/private-boundary coverage. Two oversized TI test files are
+organized by classification, cache, scraper compatibility, handler behavior,
+and production route registration. Their original behavior cases remain
+present once, all five resulting test files are under 200 lines, and runner
+policy discovery passes. Focused suites, API typecheck, targeted ESLint, diff
+checks, and the repository cap scan pass; the scan is 4,367 files / 326,779
+lines with 47 over 200, down from 50. The frontend remains at 2,378 checked
+files / 155,210 lines with zero over 200. The repository inventory grew by two
+lines since the preceding checkpoint due to test separation; the API and
+frontend aggregate reduction goals remain open. No UI redesign or deployment
+was made.
