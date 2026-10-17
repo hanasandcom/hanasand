@@ -2187,3 +2187,19 @@ repository scan is 4,539 files / 328,306 lines, with seven over 200, all in
 `api/`. Net frontend lines have risen 21 since `0bc5f3b23` due to stronger
 rendered tests; production code in these slices fell by 11 lines. Aggregate
 frontend and API reduction targets remain open.
+
+At pushed checkpoints `af1ce8dde`, `fb6869894`, `82e8093f7`, and `0cc22145d`
+(2026-10-17), the browser workspace fixture supplies recent history through
+the same successful API contract the page consumes, and its journey verifies
+scroll-based pagination. Shared OpenAPI fetching, auth text/password fields,
+and repeated query parameter normalization each now have one implementation
+with caller behavior preserved. The auth and API docs rendered contracts,
+query parsing suite, browser workspace journey, full frontend typecheck, scoped
+ESLint, and repository line-cap check pass. Independent review approved the
+OpenAPI, auth-field, and query parsing changes. The current frontend inventory
+is 2,399 hand-maintained files / 155,478 lines, with zero files over 200; the
+repository-wide inventory is 4,550 files / 328,531 lines, also with zero files
+over 200. All four commits are pushed to Forgejo and GitHub. The 10,000–30,000
+frontend line target and 100,000-line API reduction remain unmet; continue
+prioritizing repeated production behavior that can be consolidated without
+changing UI or data contracts.
