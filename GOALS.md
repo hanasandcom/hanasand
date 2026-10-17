@@ -1228,3 +1228,17 @@ modules are under 200 lines. Repository cap scan is now 79 of 4,195
 hand-maintained files over 200 lines / 324,479 LOC; frontend remains at 2,312
 files / 153,363 LOC / zero over 200. The 100,000-line API and 10,000–30,000-line
 frontend goals remain outstanding. No deployment was performed.
+
+This checkpoint brings the rate-limit plugin/config, WebAuthn utility, and
+onion-session restart tests under 200 lines through responsibility-based
+splits. The rate-limit static contract now checks the policy module that owns
+the browser-stream exemption; WebAuthn and onion-session tests are registered
+with the isolated API runner. The test split preserves all 13 original
+assertions, and the reset-code test verifies email/hash input equality. Focused
+independent reviews approved these changes. The full default API suite passes
+all 331 registered behavior suites (37 database-required suites remain
+excluded); API lint/typecheck pass. Frontend full suite/typecheck/build pass
+with all 116 routes generated, and its 2,312-file / 153,363-LOC cap scan has
+zero over-limit files. Repository scan: 75 of 4,208 hand-maintained files over
+200 lines, 324,593 LOC total. No deployment was performed; API 100,000-line
+and frontend 10,000–30,000-line size targets remain outstanding.
