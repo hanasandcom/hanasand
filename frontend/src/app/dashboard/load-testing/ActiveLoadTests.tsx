@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import Link from 'next/link'
-import { DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardTablePanel } from '@/components/dashboard/ui'
 import type { Scenario } from './loadTestingScenarios'
 import { latestP95 } from './loadTestingScenarios'
 
@@ -8,8 +8,10 @@ export function ActiveLoadTests({ scans, scenario }: { scans: Test[], scenario: 
     const queued = scans.filter(scan => scan.status.toLowerCase() === 'queued').length
     const running = scans.filter(scan => scan.status.toLowerCase() === 'running').length
 
-    return <DashboardPanel className='overflow-hidden rounded-lg border-ui-border bg-ui-panel p-0 shadow-sm'>
-        <div className='flex flex-wrap items-center justify-between gap-3 border-b border-ui-border bg-ui-raised px-4 py-3'>
+    return <DashboardTablePanel
+        panelClassName='overflow-hidden rounded-lg border-ui-border bg-ui-panel p-0 shadow-sm'
+        tableHeadClassName='bg-ui-panel text-left text-xs font-semibold uppercase text-ui-muted'
+        header={<div className='flex flex-wrap items-center justify-between gap-3 border-b border-ui-border bg-ui-raised px-4 py-3'>
             <div>
                 <h2 className='text-base font-semibold text-ui-text'>Run management</h2>
                 <p className='mt-1 text-sm text-ui-subtle'>Queued and running checks from the persisted load-test lane.</p>
@@ -19,28 +21,19 @@ export function ActiveLoadTests({ scans, scenario }: { scans: Test[], scenario: 
                 <CountBadge>{running} running</CountBadge>
                 <CountBadge>{scenario.label} selected</CountBadge>
             </div>
-        </div>
-        <div className='overflow-x-auto'>
-            <table className='min-w-full divide-y divide-ui-border text-sm'>
-                <thead className='bg-ui-panel text-left text-xs font-semibold uppercase text-ui-muted'>
-                    <tr>
-                        <th className='px-4 py-3'>Status</th>
-                        <th className='px-4 py-3'>Target</th>
-                        <th className='px-4 py-3'>Queue</th>
-                        <th className='px-4 py-3'>p95</th>
-                        <th className='px-4 py-3 text-right'>Action</th>
-                    </tr>
-                </thead>
-                <tbody className='divide-y divide-ui-border bg-ui-panel'>
-                    {scans.length ? scans.map(scan => <ActiveLoadTestRow key={scan.id} scan={scan} />) : (
-                        <tr>
-                            <td colSpan={5} className='px-4 py-8 text-center text-sm text-ui-muted'>No queued or running checks.</td>
-                        </tr>
-                    )}
-                </tbody>
-            </table>
-        </div>
-    </DashboardPanel>
+        </div>}
+        columnHeaders={<>
+            <th className='px-4 py-3'>Status</th>
+            <th className='px-4 py-3'>Target</th>
+            <th className='px-4 py-3'>Queue</th>
+            <th className='px-4 py-3'>p95</th>
+            <th className='px-4 py-3 text-right'>Action</th>
+        </>}
+    >{scans.length ? scans.map(scan => <ActiveLoadTestRow key={scan.id} scan={scan} />) : (
+            <tr>
+                <td colSpan={5} className='px-4 py-8 text-center text-sm text-ui-muted'>No queued or running checks.</td>
+            </tr>
+        )}</DashboardTablePanel>
 }
 
 function CountBadge({ children }: { children: ReactNode }) {

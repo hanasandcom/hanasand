@@ -34,16 +34,24 @@ export function DashboardPanel({ children, className = '', id }: DashboardPanelP
     return <section id={id} className={`${dashboardPanelClass} ${className}`.trim()}>{children}</section>
 }
 
-export function DashboardTablePanel({ header, columnHeaders, children }: {
+export function DashboardTablePanel({
+    header,
+    columnHeaders,
+    children,
+    panelClassName = 'overflow-hidden border-ui-border bg-ui-panel p-0',
+    tableHeadClassName = 'bg-ui-canvas text-left text-xs font-semibold uppercase text-ui-muted',
+}: {
     header: ReactNode
     columnHeaders: ReactNode
     children: ReactNode
+    panelClassName?: string
+    tableHeadClassName?: string
 }) {
-    return <DashboardPanel className='overflow-hidden border-ui-border bg-ui-panel p-0'>
+    return <DashboardPanel className={panelClassName}>
         {header}
         <div className='overflow-x-auto'>
             <table className='min-w-full divide-y divide-ui-border text-sm'>
-                <thead className='bg-ui-canvas text-left text-xs font-semibold uppercase text-ui-muted'>
+                <thead className={tableHeadClassName}>
                     <tr>{columnHeaders}</tr>
                 </thead>
                 <tbody className='divide-y divide-ui-border bg-ui-panel'>{children}</tbody>
