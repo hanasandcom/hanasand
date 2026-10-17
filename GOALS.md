@@ -2003,3 +2003,20 @@ nor the database smoke was executed. The repository cap scan falls from 29 to
 27 violations across 4,452 files / 327,287 lines; every remaining violation
 is outside the frontend. The frontend 10,000–30,000-line objective and API
 100,000-line reduction remain open.
+
+At the next working checkpoint (2026-10-17), organization-retention smoke
+coverage is separated into setup, worker scenarios, API scenarios, and deletion
+verification behind the original 16-line disposable-database guard. The
+browser-sandbox-broker smoke is separated into orchestration, assertions,
+fixtures, support, and types. Both keep each file below 200 lines and preserve
+phase order, assertions, and output fields. These splits add 57 and 30 lines
+respectively for module boundaries. API typecheck, scoped ESLint, static
+bundling where dependencies permit, independent review, and diff checks pass;
+neither live DB nor browser/broker smoke was run. The share feature's exact
+depth-first workspace-tree walk is now shared by its route, tree helper, and
+runtime-path collector. Nine tests / 32 assertions pass and the frontend change
+removes 11 lines. Frontend typecheck, changed-path ESLint, independent review,
+and cap check pass at 2,384 files / 155,089 lines with zero over 200. The
+repository scan now reports 25 over-limit files among 4,461 files / 327,363
+lines, all outside the frontend. Aggregate API/frontend reduction goals remain
+open.

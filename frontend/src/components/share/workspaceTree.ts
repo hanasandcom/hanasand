@@ -1,15 +1,9 @@
+import { walkWorkspaceTree } from '@/utils/share/walkWorkspaceTree'
+export { walkWorkspaceTree } from '@/utils/share/walkWorkspaceTree'
+
 type TreeCounts = {
     files: number
     folders: number
-}
-
-export function* walkWorkspaceTree(tree: Tree | null, prefix: string | string[] = ''): Generator<{ item: FileItem, path: string }> {
-    for (const item of tree || []) {
-        const pathParts = Array.isArray(prefix) ? [...prefix, item.name] : null
-        const path = pathParts ? pathParts.join('/') : prefix ? `${prefix}/${item.name}` : item.name
-        yield { item, path }
-        if (item.type === 'folder') yield* walkWorkspaceTree(item.children, pathParts || path)
-    }
 }
 
 export function listTreePaths(tree: Tree | null, prefix = ''): string[] {

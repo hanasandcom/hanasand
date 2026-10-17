@@ -5,6 +5,7 @@ import { getTree } from '@/utils/share/getTree'
 import { getShare } from '@/utils/share/get'
 import getProject from '@/utils/projects/getProject'
 import { readShareRoutePreferences } from '@/utils/share/routePreferences'
+import { walkWorkspaceTree } from '@/utils/share/walkWorkspaceTree'
 
 export default async function Page(props: {
     params: Promise<{ id: string[] }>
@@ -29,7 +30,8 @@ export default async function Page(props: {
     const shouldCreateWorkspace = isNewWorkspace || !safeShare
     const tree = shouldCreateWorkspace ? createOptimisticTree(id) : fetchedTree
     const share = shouldCreateWorkspace ? createOptimisticShare(id) : safeShare
-    const isProject = safeShare && safeShare.alias !== safeShare.id && Array.isArray(fetchedTree) && flattenTree(fetchedTree).length > 1
+    const isProject = safeShare && safeShare.alias !== safeShare.id && Array.isArray(fetchedTree)
+        && [...walkWorkspaceTree(fetchedTree)].length > 1
 
     if (!isNewWorkspace && isProject) {
         redirect(`/p/${safeShare.alias}?file=${safeShare.id}`)
@@ -85,10 +87,4 @@ function createOptimisticTree(id: string): Tree {
         parent: null,
         children: [],
     }]
-}
-
-function flattenTree(tree: Tree): FileItem[] {
-    return tree.flatMap((item) => item.type === 'folder'
-        ? [item, ...flattenTree(item.children)]
-        : [item])
 }
