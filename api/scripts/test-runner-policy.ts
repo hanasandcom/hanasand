@@ -35,7 +35,7 @@ const unitTestFiles = [
     'log-processor.test.ts', 'log-redaction.test.ts', 'log-search-capacity.test.ts', 'log-search-page.test.ts', 'log-search-stats.test.ts',
     'log-stored-sources.test.ts', 'log-tuning-refresh.test.ts', 'log-tuning-sample.test.ts', 'log-unknown-fields-retention.test.ts', 'log-watermark.test.ts',
     'log-worker.test.ts', 'logs-access.test.ts', 'logs-cache.test.ts', 'logs-most-active.test.ts', 'lxd-operations.test.ts', 'lxd-response-recovery.test.ts',
-    'mail-attachment-routing.test.ts', 'mail-pagination.test.ts', 'mail-read-state.test.ts', 'mail-relay-health.test.ts', 'model-probe-prompt-injection.test.ts',
+    'mail-attachment-routing.test.ts', 'mail-health.test.ts', 'mail-pagination.test.ts', 'mail-read-state.test.ts', 'mail-relay-health.test.ts', 'model-probe-prompt-injection.test.ts',
     'monitoring-alert-policy.test.ts', 'monitoring-case-events.test.ts', 'monitoring-case-notifications.test.ts', 'monitoring-cases.test.ts', 'monitoring-discord-alert.test.ts',
     'monitoring-disk-diagnostics.test.ts', 'monitoring-issues.test.ts', 'monitoring-message.test.ts', 'monitoring-retries.test.ts', 'native-logs.test.ts',
     'onion-provider-capture.test.ts', 'onion-session-browser-profile.test.ts', 'onion-session-message-queue.test.ts', 'onion-session-network-telemetry.test.ts', 'onion-session-websocket-inputs.test.ts', 'onion-session-websocket-lifecycle.test.ts', 'onion-session-websocket-restart.test.ts', 'organization-api-keys.test.ts',

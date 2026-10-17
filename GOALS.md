@@ -1786,3 +1786,18 @@ diff checks, and the production Next build pass; the build generated all 116
 pages. The default full API runner remains blocked by local-port binding errors
 in this sandbox. The frontend 10,000–30,000-line target and API 100,000-line
 reduction remain open. No UI redesign or deployment was made.
+
+At the next mail/API checkpoint, the mail overview route delegates mailbox
+assembly and credential repair to `overviewData.ts`, bringing both modules
+under 200 lines while preserving the route's deadlines, access flags, selection
+rules, and degraded payload. Mail health now separates aggregation from DNS,
+SMTP, TLS, and policy probes; its registered test covers the healthy aggregate.
+The health split removes 17 production lines, while the overview split adds 17
+to keep the route and data assembly cohesive and under the cap, for no net
+production reduction across these two slices. The mail health test and timeout
+smoke, related pagination/access tests, API typecheck, targeted ESLint, and
+diff checks pass. The frontend remains at 2,376 checked files / 155,197 lines,
+zero over 200. The repository scan is 4,357 files / 326,704 lines with 51
+files over 200, down from 53. The frontend 10,000–30,000-line and API
+100,000-line reduction goals remain open; no UI redesign or deployment was
+made.

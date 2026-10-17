@@ -1,13 +1,12 @@
 import { MailAccessDenied } from '#utils/mail/shared.ts'
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
-import { getMailAccess, listAccessibleMailAccounts, rotateMailPasswordForUser } from '#utils/mail/accounts.ts'
-import { applyMailRules, listMailRules } from '#utils/mail/filters.ts'
+import { getMailAccess, listAccessibleMailAccounts } from '#utils/mail/accounts.ts'
 import { getMailHealth } from '#utils/mail/health.ts'
-import { getMailboxList, getMessage, listMessagePage } from '#utils/mail/jmap.ts'
-import { mailConfig } from '#utils/mail/config.ts'
+import { getMailboxList, listMessagePage } from '#utils/mail/jmap.ts'
 import { listRecentRecipients } from '#utils/mail/recentRecipients.ts'
 import { addressForUser } from '#utils/mail/helpers.ts'
+import { loadMailboxOverviewData, settingsFor } from './overviewData.ts'
 
 const MAIL_OVERVIEW_TIMEOUT_MS = Number(process.env.MAIL_OVERVIEW_TIMEOUT_MS || 6500)
 
@@ -95,104 +94,11 @@ export default async function getMailOverview(req: FastifyRequest, res: FastifyR
     }
 }
 
-type MailAccess = Awaited<ReturnType<typeof getMailAccess>>
-
-async function loadMailboxOverviewData({
-    actorId,
-    access,
-    query,
-    health,
-    accessibleAccounts,
-    recentRecipients,
-    onRepair,
-    onRulesError,
-}: {
-    actorId: string
-    access: MailAccess
-    query: { mailboxUser?: string, mailboxId?: string, messageId?: string, after?: string }
-    health: Awaited<ReturnType<typeof getMailHealth>> | null
-    accessibleAccounts: Awaited<ReturnType<typeof listAccessibleMailAccounts>>
-    recentRecipients: Awaited<ReturnType<typeof listRecentRecipients>>
-    onRepair: (error: Error) => void
-    onRulesError: (error: Error) => void
-}) {
-    const { access: repairedAccess, mailboxData } = await repairMailAccessIfNeeded(access, onRepair)
-    const inboxMailbox = mailboxData.mailboxes.find(mailbox => mailbox.role === 'inbox') || mailboxData.mailboxes[0]
-    if (!inboxMailbox) {
-        return {
-            actor: { id: actorId, canAccessAnyMailbox: access.canAccessAnyMailbox, canSend: access.canSend },
-            mailboxUser: repairedAccess.targetUser,
-            mailboxAddress: repairedAccess.address,
-            accessibleAccounts,
-            mailboxes: [],
-            selectedMailboxId: null,
-            messages: [],
-            selectedMessage: null,
-            filters: [],
-            recentRecipients,
-            health,
-            settings: settingsFor(repairedAccess),
-        }
-    }
-
-    await applyMailRules({
-        userId: repairedAccess.targetUser,
-        username: repairedAccess.username,
-        password: repairedAccess.password,
-        inboxMailboxId: inboxMailbox.id,
-        junkMailboxId: mailboxData.mailboxes.find(mailbox => mailbox.role === 'junk')?.id || null,
-        mailboxAddress: repairedAccess.address,
-    }).catch(onRulesError)
-
-    const refreshedMailboxData = await getMailboxList(repairedAccess.username, repairedAccess.password)
-    const selectedMailboxId = query.mailboxId
-        || refreshedMailboxData.mailboxes.find(mailbox => mailbox.role === (access.targetUser === 'shared:noreply' ? 'sent' : 'inbox'))?.id
-        || refreshedMailboxData.mailboxes[0]?.id
-        || null
-    const page = selectedMailboxId ? await listMessagePage(repairedAccess.username, repairedAccess.password, selectedMailboxId, query.after) : { messages: [], nextCursor: null }
-    const messages = page.messages
-    const selectedMessageId = query.messageId || messages[0]?.id
-    const selectedMessage = selectedMessageId ? await getMessage(repairedAccess.username, repairedAccess.password, selectedMessageId) : null
-    const filters = await listMailRules(repairedAccess.targetUser)
-
-    return {
-        actor: { id: actorId, canAccessAnyMailbox: repairedAccess.canAccessAnyMailbox, canSend: repairedAccess.canSend },
-        mailboxUser: repairedAccess.targetUser,
-        mailboxAddress: repairedAccess.address,
-        accessibleAccounts,
-        mailboxes: refreshedMailboxData.mailboxes,
-        selectedMailboxId,
-        messages,
-        nextCursor: page.nextCursor,
-        selectedMessage,
-        filters,
-        recentRecipients,
-        health,
-        settings: settingsFor(repairedAccess),
-    }
-}
-
 export function withDeadline<T>(work: Promise<T>, timeoutMs: number, fallback: T) {
     return new Promise<T>((resolve, reject) => {
         const timer = setTimeout(() => resolve(fallback), timeoutMs)
         work.then(value => { clearTimeout(timer); resolve(value) }, error => { clearTimeout(timer); reject(error) })
     })
-}
-
-async function repairMailAccessIfNeeded(access: MailAccess, onRepair: (error: Error) => void) {
-    try {
-        const mailboxData = await getMailboxList(access.username, access.password)
-        return { access, mailboxData }
-    } catch (error) {
-        if (!isMailAuthError(error)) {
-            throw error
-        }
-        onRepair(error as Error)
-        if (access.targetUser.startsWith('shared:')) throw error
-        const repaired = await rotateMailPasswordForUser(access.targetUser, access.targetUser)
-        const repairedAccess = { ...access, username: repaired.username, address: repaired.address, password: repaired.password }
-        return { access: repairedAccess, mailboxData: await getMailboxList(repairedAccess.username, repairedAccess.password) }
-    }
 }
 
 export function degradedMailOverview({
@@ -248,25 +154,8 @@ export function degradedMailOverview({
     }
 }
 
-function isMailAuthError(error: unknown) {
-    return error instanceof Error && /\b401\b/.test(error.message)
-}
-
 function isMailSetupUnavailable(error: unknown) {
     return error instanceof Error && error.message.includes('MAIL_ADMIN_PASSWORD is required')
-}
-
-function settingsFor(access: { username: string, address: string }) {
-    return {
-        host: mailConfig.host,
-        imapHost: mailConfig.host,
-        imapPort: mailConfig.imapPort,
-        smtpHost: mailConfig.host,
-        smtpPort: mailConfig.smtpPort,
-        managesievePort: mailConfig.managesievePort,
-        username: access.username,
-        address: access.address,
-    }
 }
 
 const unreadCache = new Map<string, { at: number, count: number }>()
