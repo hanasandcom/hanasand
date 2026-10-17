@@ -17,5 +17,6 @@ export const dwmProductProgressTasks: TestTask[] = [
     { id: 'product-progress-readiness-rows', title: 'Product progress readiness rows', command: [bun, 'test', 'tests/product-progress-readiness-rows.test.ts'] },
     { id: 'product-progress-readiness-degraded', title: 'Product progress degraded readiness proofs', command: [bun, 'test', 'tests/product-progress-readiness-degraded.test.ts'] },
     { id: 'product-progress-source-actions', title: 'Product progress source actions', command: [bun, 'test', 'tests/product-progress-source-actions.test.ts'] },
+    { id: 'workflow-action-lifecycle', title: 'Findings workflow action lifecycle', command: [bun, 'test', 'tests/workflow-action-lifecycle.test.ts'] },
     { id: 'product-progress-truthfulness', title: 'Product progress readiness truthfulness', command: [bun, 'test', 'tests/product-progress-truthfulness.test.mjs'] },
 ]

@@ -1,14 +1,13 @@
 import { durableDeliveryRows } from './workflow-values'
 import { postJson } from './workflow-http'
 import type { WorkflowActionContext } from './workflow-action-context'
+import { runWorkflowAction } from './workflow-action-lifecycle'
 
 export function createDeliveryActions(context: WorkflowActionContext, effectiveTermCount: number, onRefresh: () => void) {
-    const { scope, webhookUrl, setBusyAction, setResult, setLastRoute } = context
+    const { scope, webhookUrl, setResult, setLastRoute } = context
 
     async function deliverWebhooks() {
-        setBusyAction('delivery')
-        setResult(null)
-        try {
+        await runWorkflowAction(context, 'delivery', async () => {
             const delivery = await postJson('/api/findings/webhooks/deliver', {
                 ...scope, limit: 25, webhookUrl: context.webhookConfigured ? webhookUrl.trim() : undefined,
             })
@@ -31,17 +30,11 @@ export function createDeliveryActions(context: WorkflowActionContext, effectiveT
             setResult({ ok: !failed && deliveredCount > 0, message })
             setLastRoute({ label: 'Webhook delivery', watchTerms: effectiveTermCount, deliveryAttempts: rows.length, deliveryState: failed ? 'failed' : deliveredCount ? 'delivered' : dryRunCount ? 'dry-run recorded' : skippedCount ? 'skipped' : 'no delivery' })
             onRefresh()
-        } catch (error) {
-            setResult({ ok: false, message: error instanceof Error ? error.message : String(error) })
-        } finally {
-            setBusyAction(null)
-        }
+        })
     }
 
     async function testWebhook() {
-        setBusyAction('webhook-test')
-        setResult(null)
-        try {
+        await runWorkflowAction(context, 'webhook-test', async () => {
             const test = await postJson('/api/findings/webhooks/test', { ...scope, webhookUrl: webhookUrl.trim() || undefined })
             if (!test.ok) throw new Error(test.message)
             const rows = durableDeliveryRows(test)
@@ -54,11 +47,7 @@ export function createDeliveryActions(context: WorkflowActionContext, effectiveT
                     : 'Webhook test delivered. Future events can use this destination.' })
             setLastRoute({ label: 'Webhook test', watchTerms: effectiveTermCount, deliveryAttempts: rows.length, deliveryState: failed ? 'test failed' : dryRun ? 'test recorded' : 'test delivered' })
             onRefresh()
-        } catch (error) {
-            setResult({ ok: false, message: error instanceof Error ? error.message : String(error) })
-        } finally {
-            setBusyAction(null)
-        }
+        })
     }
 
     return { deliverWebhooks, testWebhook }
