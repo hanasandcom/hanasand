@@ -146,17 +146,7 @@ export function SourceDetail({ item, onReview, onSelect, byId, canReview }: Prop
             </details>
             <details>
                 <summary>All source files used by this item ({sourceDependencies.length})</summary>
-                <ul className='code-links'>
-                    {sourceDependencies.map(node => (
-                        <li key={node.id}>
-                            <button onClick={() => onSelect(node.id)}>
-                                <ItemIcon item={node} />
-                                <span>{node.title}</span>
-                                <StatusIcon item={node} />
-                            </button>
-                        </li>
-                    ))}
-                </ul>
+                <DependencyLinks ids={sourceDependencies.map(node => node.id)} byId={byId} onSelect={onSelect} />
             </details>
         </article>
     )
