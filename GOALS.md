@@ -1598,3 +1598,16 @@ This dashboard pass adds 39 production lines and 33 tests/runner lines. The
 frontend inventory is 2,342 files / 154,002 lines, max 200; the wider scan has
 63 of 4,309 files above 200 / 325,529 total lines, all outside frontend. The
 large frontend and API reduction objectives remain outstanding.
+
+The frontend hard cap is reaffirmed at 200 lines for every hand-maintained
+source/config/test file. The current frontend scan passes across 2,353 files
+and 154,516 lines, with no file over the cap. Dashboard log and error rows now
+share their disclosure trigger, and rule sorting and rendering share the rule
+source label mapping. Existing labels, event detail content, and control
+semantics are preserved. Independent review approved both changes; focused log
+tests (9 tests / 28 assertions), ESLint, full frontend typecheck, changed-file
+cap, and full frontend cap pass. Browser specs remain unverified because
+Chromium cannot start under the current sandbox permissions. These are small
+cleanup slices; they do not materially reduce the frontend's total size or
+complete the requested 10,000–30,000-line target. No UI redesign or deployment
+was made.
