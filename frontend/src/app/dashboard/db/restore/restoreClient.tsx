@@ -7,6 +7,7 @@ import { DatabaseZap, ShieldCheck, TriangleAlert } from 'lucide-react'
 import type { BackupFile, BackupOperation, BackupService } from '@/utils/db/internal'
 import { stageLabel } from '../backups/backupPresentation'
 import { restoreBackupAction } from '../actions'
+import { RestoreFeedback } from './RestoreFeedback'
 import { useBackupOperationRefresh } from './useBackupOperationRefresh'
 
 export default function RestoreClient({ backups, service, loadError = '' }: { backups: BackupFile[], service?: BackupService, loadError?: string }) {
@@ -93,8 +94,8 @@ export default function RestoreClient({ backups, service, loadError = '' }: { ba
                     <ShieldCheck className='h-4 w-4' />
                     {activeDrill ? stageLabel(activeDrill.stage) : isPending ? 'Starting isolated drill…' : 'Run isolated restore drill'}
                 </button>
-                {visibleError && <p role='alert' className='mt-4 rounded-lg border border-ui-danger/30 bg-ui-raised/10 p-3 text-sm text-ui-text'>{visibleError}</p>}
-                {message && <p role='status' className='mt-4 rounded-lg border border-ui-success/30 bg-ui-success/10 p-3 text-sm text-ui-success'>{message}</p>}
+                {visibleError && <RestoreFeedback message={visibleError} />}
+                {message && <RestoreFeedback message={message} tone='success' />}
             </section>
 
             {(activeDrill || result) && <DrillEvidence operation={activeDrill || result!} />}

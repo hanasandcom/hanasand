@@ -8,6 +8,7 @@ import type { BackupFile, BackupOperation, BackupService } from '@/utils/db/inte
 import formatUtcDateTime from '@/utils/date/formatUtcDateTime'
 import { stageLabel } from '../backups/backupPresentation'
 import { restoreLiveBackupAction } from '../actions'
+import { RestoreFeedback } from './RestoreFeedback'
 import { useBackupOperationRefresh } from './useBackupOperationRefresh'
 
 export default function LiveRestoreClient({ backups, service, file, loadError = '' }: { backups: BackupFile[], service?: BackupService, file: string, loadError?: string }) {
@@ -84,8 +85,8 @@ export default function LiveRestoreClient({ backups, service, file, loadError = 
                 <button type='button' onClick={runRestore} disabled={!canRun} className='mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-ui-danger px-4 text-sm font-semibold text-ui-canvas disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto' data-live-restore-action>
                     {activeRestore ? stageLabel(activeRestore.stage) : isPending ? 'Restoring database…' : 'Restore database'}
                 </button>
-                {visibleError && <p role='alert' className='mt-4 rounded-lg border border-ui-danger/30 bg-ui-raised/10 p-3 text-sm text-ui-text'>{visibleError}</p>}
-                {message && <p role='status' className='mt-4 rounded-lg border border-ui-success/30 bg-ui-success/10 p-3 text-sm text-ui-success'>{message}</p>}
+                {visibleError && <RestoreFeedback message={visibleError} />}
+                {message && <RestoreFeedback message={message} tone='success' />}
             </section>
 
             {visibleOperation && <RestoreEvidence operation={visibleOperation} />}
