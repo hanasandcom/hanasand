@@ -9,15 +9,13 @@ import type { ReactNode } from 'react'
 
 export default async function Page() {
     const Cookies = await cookies()
-    const name = Cookies.get('name')?.value
     const id = Cookies.get('id')?.value
     const token = Cookies.get('access_token')?.value || ''
-    if (!name || !id || !token) {
+    if (!Cookies.get('name')?.value || !id || !token) {
         return redirect('/logout?path=/login%3Fpath%3D/dashboard%26expired=true')
     }
 
     const users = await fetchUsers({ id, token, cache: 'no-store' })
-    void name
     const reservedCount = users.filter(isReservedPlaceholder).length
     const currentUser = users.find(user => user.id === id)
     const accessibleOrganizationIds = currentUser?.active === false ? [] : (currentUser?.organization_memberships || [])

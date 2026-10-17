@@ -4,9 +4,13 @@ import { createElement, isValidElement, type ReactElement, type ReactNode } from
 import { renderToStaticMarkup } from 'react-dom/server'
 
 let currentUserActive = true
+let includeNameCookie = true
 const fetchCalls: Array<{ id?: string, token?: string, cache?: RequestCache }> = []
 mock.module('next/headers', () => ({
-    cookies: async () => ({ get: (name: string) => ({ value: ({ name: 'Admin', id: 'admin', access_token: 'token' } as Record<string, string>)[name] }) }),
+    cookies: async () => ({ get: (name: string) => {
+        if (name === 'name' && !includeNameCookie) return undefined
+        return { value: ({ name: 'Admin', id: 'admin', access_token: 'token' } as Record<string, string>)[name] }
+    } }),
 }))
 mock.module('next/navigation', () => ({
     redirect: (path: string) => { throw new Error(`Unexpected redirect: ${path}`) },
@@ -87,4 +91,11 @@ test('inactive current user receives no accessible organization links', async ()
         links: [],
         fetchCalls: [{ id: 'admin', token: 'token', cache: 'no-store' }],
     })
+})
+
+test('management users still redirects when the name cookie is missing', async () => {
+    includeNameCookie = false
+    fetchCalls.length = 0
+    await expect(Page()).rejects.toThrow('Unexpected redirect: /logout?path=/login%3Fpath%3D/dashboard%26expired=true')
+    expect(fetchCalls).toEqual([])
 })
