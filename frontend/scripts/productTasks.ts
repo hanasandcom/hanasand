@@ -1,6 +1,7 @@
 import { bun, type TestTask } from './testTask'
 
 export const productTasks: TestTask[] = [
+    { id: 'public-enterprise-copy', title: 'Public pricing, developer, and navigation copy rendering', command: [bun, 'test', 'tests/public-enterprise-copy.test.tsx'] },
     { id: 'dashboard-table-contract', title: 'Shared dashboard table DOM contracts', command: [bun, 'test', 'tests/dashboard-table-contract.test.tsx'] },
     { id: 'dashboard-queued-refresh', title: 'Dashboard sidebar refresh coalescing and abort behavior', command: [bun, 'test', 'tests/dashboard-queued-refresh.test.ts'] },
     { id: 'solution-feature-card', title: 'Solution feature card content and presentation', command: [bun, 'test', 'tests/solution-feature-card.test.tsx'] },
