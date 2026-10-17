@@ -2,23 +2,12 @@
 
 import { Check, Copy } from 'lucide-react'
 import { useState } from 'react'
+import { copyTextToClipboard } from '@/utils/copyTextToClipboard'
 
 export default function CopyCodeButton({ value, label = 'Copy' }: { value: string, label?: string }) {
     const [copied, setCopied] = useState(false)
     async function copy() {
-        try {
-            await navigator.clipboard.writeText(value)
-        } catch {
-            const input = document.createElement('textarea')
-            input.value = value
-            input.style.position = 'fixed'
-            input.style.opacity = '0'
-            document.body.appendChild(input)
-            input.select()
-            const copied = document.execCommand('copy')
-            input.remove()
-            if (!copied) return
-        }
+        if (!await copyTextToClipboard(value)) return
         setCopied(true)
         window.setTimeout(() => setCopied(false), 1800)
     }

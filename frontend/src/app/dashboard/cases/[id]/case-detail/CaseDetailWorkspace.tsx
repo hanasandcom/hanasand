@@ -1,9 +1,9 @@
 'use client'
 
 import { CaseDevelopment } from '../../case-development'
-import type { CaseAction, CaseDetail, CaseDetailLoadState, CaseExport } from './contracts'
+import type { CaseDetail, CaseDetailLoadState, CaseExport } from './contracts'
 import type { DeliveryRow, EvidenceRow, ReceiverReceipt, TimelineRow } from './evidenceTypes'
-import { CaseActionPanel } from './CaseActionPanel'
+import { CaseActionPanel, type CaseActionWorkflowControls } from './CaseActionPanel'
 import { CaseDeliveryPanel, CaseReportPanel } from './CaseDeliveryPanels'
 import { CaseEvidenceTimeline } from './CaseEvidenceTimeline'
 import { CaseHeader } from './CaseHeader'
@@ -37,19 +37,7 @@ export function CaseDetailWorkspace(props: {
         showAllEvidenceRows: boolean
         setShowAllEvidenceRows: Dispatch<SetStateAction<boolean>>
     }
-    workflowControls: {
-        actions: CaseAction[]
-        owner: string
-        setOwner: (owner: string) => void
-        note: string
-        setNote: (note: string) => void
-        aiResolution: boolean
-        setAiResolution: (enabled: boolean) => void
-        busy: string | null
-        message: { ok: boolean, text: string } | null
-        runAction: (action: CaseAction) => void
-        notifyCustomer: () => void
-    }
+    workflowControls: CaseActionWorkflowControls
     deliveryControls: {
         selectedDestinationId: string
         setSelectedDestinationId: (id: string) => void
@@ -75,7 +63,7 @@ export function CaseDetailWorkspace(props: {
                         <CaseEvidenceTimeline evidence={evidence} timeline={timeline} {...evidenceControls} />
                     </section>
                     <aside id='dwm-case-actions' data-dwm-case-action-dock className='order-first grid min-w-0 scroll-mt-24 content-start gap-3 xl:order-none'>
-                        <CaseActionPanel detail={detail} actions={workflowControls.actions} readOnly={readOnly} owner={workflowControls.owner} setOwner={workflowControls.setOwner} note={workflowControls.note} setNote={workflowControls.setNote} aiResolution={workflowControls.aiResolution} setAiResolution={workflowControls.setAiResolution} busy={workflowControls.busy} message={workflowControls.message} runAction={workflowControls.runAction} notifyCustomer={workflowControls.notifyCustomer} />
+                        <CaseActionPanel detail={detail} readOnly={readOnly} {...workflowControls} />
                         <CaseDeliveryPanel organizationId={organizationId} alertId={alertId} state={state} latestDelivery={latestDelivery} latestReceiverReceipt={latestReceiverReceipt} selectedDestinationId={deliveryControls.selectedDestinationId} setSelectedDestinationId={deliveryControls.setSelectedDestinationId} readOnly={readOnly} busy={workflowControls.busy} webhookBlockedReason={deliveryControls.webhookBlockedReason} onSendWebhook={deliveryControls.sendWebhook} />
                         <CaseReportPanel selectedEvidenceIds={evidenceControls.selectedEvidenceIds} exportPayload={exportPayload} alertDedupeKey={alert?.webhookDelivery?.dedupeKey} reportJsonHref={reportJsonHref} reportStixHref={reportStixHref} copySummary={deliveryControls.copySummary} />
                     </aside>

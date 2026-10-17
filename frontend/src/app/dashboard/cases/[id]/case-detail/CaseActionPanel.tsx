@@ -5,7 +5,7 @@ import { ActionButton } from './presentation'
 import { date } from '../../caseDate'
 import { requiresHumanReview } from '../../caseResolution'
 
-export function CaseActionPanel({ detail, actions, readOnly, owner, setOwner, note, setNote, aiResolution, setAiResolution, busy, message, runAction, notifyCustomer }: {
+export type CaseActionPanelProps = {
     detail: CaseDetail
     actions: CaseAction[]
     readOnly: boolean
@@ -19,7 +19,11 @@ export function CaseActionPanel({ detail, actions, readOnly, owner, setOwner, no
     message: { ok: boolean, text: string } | null
     runAction: (action: CaseAction) => void
     notifyCustomer: () => void
-}) {
+}
+
+export type CaseActionWorkflowControls = Omit<CaseActionPanelProps, 'detail' | 'readOnly'>
+
+export function CaseActionPanel({ detail, actions, readOnly, owner, setOwner, note, setNote, aiResolution, setAiResolution, busy, message, runAction, notifyCustomer }: CaseActionPanelProps) {
     const blockers = actionUnavailableReasons(actions, readOnly)
     const caseRecord = detail.case
     return (

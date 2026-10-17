@@ -72,5 +72,12 @@ test('error status filters use the same mapped status code as auth event output'
         const summaryQuery = statements.find(({ sql }) => sql.includes('WITH raw_events AS NOT MATERIALIZED'))
         expect(summaryQuery?.sql).toContain('SELECT \'auth\', CASE')
         expect(summaryQuery?.sql.match(/WHEN reason = 'session_issue_failed' THEN 503/g)).toHaveLength(1)
+        const httpQuery = statements.find(({ sql }) => sql.includes('normalized->\'metadata\'->>\'category\' IN (\'http_response_error\', \'application_error\')'))
+        expect(httpQuery?.sql).toContain('normalized->\'metadata\'->>\'user_agent\' = \'hanasand_internal\'')
+        expect(httpQuery?.sql).toContain('normalized->\'metadata\'->>\'error_code\' = \'project_not_found\'')
+        const trafficQuery = statements.find(({ sql }) => sql.includes('FROM traffic_events'))
+        expect(trafficQuery?.sql).toContain('user_agent = \'hanasand_internal\'')
+        expect(trafficQuery?.sql).toContain('path ~ \'^/api/share(/tree)?/[^/]+$\'')
+        expect(summaryQuery?.sql).toContain('error_code = \'share_not_found\'')
     } finally { await app.close() }
 })

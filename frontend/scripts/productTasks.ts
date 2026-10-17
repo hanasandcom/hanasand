@@ -22,6 +22,7 @@ export const productTasks: TestTask[] = [
     { id: 'shared-cases-route', title: 'Independent case sources and access boundaries', command: [bun, 'test', 'tests/shared-cases-route.test.ts'] },
     { id: 'case-event-dates', title: 'Case event timestamp presentation', command: [bun, 'test', 'tests/case-event-dates.test.tsx'] },
     { id: 'database-bytes', title: 'Shared database byte formatting', command: [bun, 'test', 'tests/database-bytes.test.ts'] },
+    { id: 'clipboard-fallback', title: 'Shared clipboard fallback and caller feedback contracts', command: [bun, 'test', 'tests/clipboard-fallback.test.ts'] },
     { id: 'database-inventory-render', title: 'Database inventory receives server measurements', command: [bun, 'test', 'tests/database-inventory-render.test.tsx'] },
     { id: 'database-time-format', title: 'Database dashboard UTC time presentation', command: [bun, 'test', 'tests/database-time-format.test.ts'] },
     { id: 'shared-record-guard', title: 'Shared JSON object guard contract', command: [bun, 'test', 'tests/is-record.test.ts'] },

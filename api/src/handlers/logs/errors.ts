@@ -1,8 +1,16 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
-import run, { withTransaction } from '#db'
+import run from '#db'
 import { cachedLogQuery } from '#utils/logs/cache.ts'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import hasHanasandInternalRouteAccess from '#utils/auth/organizationPageAccess.ts'
+import { loadErrorSummary, emptyErrorSummary } from './errorSummary.ts'
+import {
+    authStatusCode,
+    expectedHttpProbePredicate,
+    expectedTrafficProbePredicate,
+    scannerHttpProbePredicate,
+    scannerTrafficProbePredicate,
+} from './errorPredicates.ts'
 
 type ErrorQuery = {
     limit?: string
@@ -34,16 +42,6 @@ async function queryErrorEvents(query: ErrorQuery) {
     const code = normalizeFilter(query.code)
     const q = typeof query.q === 'string' && query.q.trim() ? query.q.trim().slice(0, 120) : null
     const includeExpected = ['1', 'true', 'yes'].includes(String(query.includeExpected || '').toLowerCase())
-    const authStatusCode = `CASE
-        WHEN reason = 'bad_password' THEN 401
-        WHEN reason = 'deactivated' THEN 403
-        WHEN reason = 'rate_limited' THEN 429
-        WHEN reason IN ('unknown_user', 'deleted') THEN 404
-        WHEN reason = 'session_issue_failed' THEN 503
-        WHEN reason = 'unexpected_error' THEN 500
-        ELSE 400
-    END`
-
     const [httpRows, authRows, trafficRows, summary] = await Promise.all([
         run(`
             SELECT
@@ -122,95 +120,7 @@ async function queryErrorEvents(query: ErrorQuery) {
             ORDER BY created_at DESC
             LIMIT $6
         `, [surface, normalizedStatus, code, q, includeExpected, Math.min(limit, 100)]),
-        cachedLogQuery(`error-summary:${includeExpected}`, 60_000, () => withTransaction(async query => {
-            // Full-history counters refresh off the request path after startup.
-            // Keep this budget local: ordinary API queries still fail promptly.
-            await query('SET LOCAL statement_timeout = \'30s\'')
-            return query(`
-            WITH raw_events AS NOT MATERIALIZED (
-                SELECT normalized->'metadata'->>'surface' AS surface, NULLIF(normalized->'metadata'->>'status_code', '')::int AS status_code, normalized->'metadata'->>'error_code' AS error_code, normalized->'metadata'->>'path' AS path, event_timestamp AS created_at
-                FROM events
-                WHERE ingestion_id='logs' AND processing_status='processed'
-                  AND normalized->'metadata'->>'category' IN ('http_response_error', 'application_error')
-                  AND ($1::boolean OR NOT COALESCE(${expectedHttpProbePredicate('normalized->\'metadata\'')}, FALSE))
-                UNION ALL
-                SELECT 'auth', ${authStatusCode}, reason, '/api/auth/login/:id', created_at
-                FROM login_events
-                WHERE status <> 'success'
-                UNION ALL
-                SELECT 'website', status, ('http_' || status::text), path, created_at
-                FROM traffic_events
-                WHERE status >= 400
-                  AND ($1::boolean OR NOT ${expectedTrafficProbePredicate()})
-            ),
-            event_counts AS (
-                SELECT surface, status_code, error_code,
-                    ${scannerProjectSummaryPredicate()} AS project_scan,
-                    ${scannerShareSummaryPredicate()} AS share_scan,
-                    COUNT(*)::int AS count,
-                    COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '1 hour')::int AS last_hour,
-                    COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '24 hours')::int AS last_24h
-                FROM raw_events
-                GROUP BY 1, 2, 3, 4, 5
-            ),
-            scanner_stats AS (
-                SELECT
-                    COALESCE(SUM(count) FILTER (WHERE project_scan), 0)::int AS project_scans,
-                    COALESCE(SUM(count) FILTER (WHERE share_scan), 0)::int AS share_scans
-                FROM event_counts
-            ),
-            events AS (
-                SELECT *
-                FROM event_counts
-                WHERE $1::boolean OR NOT (COALESCE(project_scan, FALSE) OR COALESCE(share_scan, FALSE))
-            ),
-            stats AS (
-                SELECT
-                    COALESCE(SUM(count), 0)::int AS total,
-                    COALESCE(SUM(last_hour), 0)::int AS last_hour,
-                    COALESCE(SUM(last_24h), 0)::int AS last_24h,
-                    COALESCE(SUM(count) FILTER (WHERE status_code >= 500), 0)::int AS server_errors,
-                    COALESCE(SUM(count) FILTER (WHERE status_code BETWEEN 400 AND 499), 0)::int AS client_errors
-                FROM events
-            ),
-            status_counts AS (
-                SELECT COALESCE(jsonb_agg(jsonb_build_object('status_code', status_code, 'count', count) ORDER BY count DESC), '[]'::jsonb) AS rows
-                FROM (
-                    SELECT status_code, SUM(count)::int AS count
-                    FROM events
-                    GROUP BY status_code
-                ) grouped
-            ),
-            surface_counts AS (
-                SELECT COALESCE(jsonb_agg(jsonb_build_object('surface', surface, 'count', count) ORDER BY count DESC), '[]'::jsonb) AS rows
-                FROM (
-                    SELECT COALESCE(surface, 'api') AS surface, SUM(count)::int AS count
-                    FROM events
-                    GROUP BY COALESCE(surface, 'api')
-                ) grouped
-            ),
-            code_counts AS (
-                SELECT COALESCE(jsonb_agg(jsonb_build_object('error_code', error_code, 'count', count) ORDER BY count DESC), '[]'::jsonb) AS rows
-                FROM (
-                    SELECT COALESCE(NULLIF(error_code, ''), 'uncategorized') AS error_code, SUM(count)::int AS count
-                    FROM events
-                    GROUP BY COALESCE(NULLIF(error_code, ''), 'uncategorized')
-                ) grouped
-            )
-            SELECT
-                stats.total,
-                stats.last_hour,
-                stats.last_24h,
-                stats.server_errors,
-                stats.client_errors,
-                status_counts.rows AS status_counts,
-                surface_counts.rows AS surface_counts,
-                code_counts.rows AS code_counts,
-                scanner_stats.project_scans,
-                scanner_stats.share_scans
-            FROM stats, status_counts, surface_counts, code_counts, scanner_stats
-        `, [includeExpected])
-        })),
+        loadErrorSummary(includeExpected),
     ])
 
     const errors = [...httpRows.rows, ...authRows.rows, ...trafficRows.rows]
@@ -219,81 +129,12 @@ async function queryErrorEvents(query: ErrorQuery) {
 
     return {
         generated_at: new Date().toISOString(),
-        summary: summary.rows[0] || emptySummary(),
+        summary: summary.rows[0] || emptyErrorSummary(),
         errors,
     }
-}
-
-function expectedHttpProbePredicate(metadata = 'metadata') {
-    return `(
-        ${metadata}->>'user_agent' = 'hanasand_internal'
-        AND NULLIF(${metadata}->>'status_code', '')::int IN (401, 404)
-        AND (
-            ${metadata}->>'path' = '/api/docker'
-            OR ${metadata}->>'path' = '/api/stats'
-            OR ${metadata}->>'path' ~ '^/api/vm/[^/]+/start$'
-        )
-    )`
-}
-
-function expectedTrafficProbePredicate() {
-    return `(
-        user_agent = 'hanasand_internal'
-        AND status IN (401, 404)
-        AND (
-            path = '/api/docker'
-            OR path = '/api/stats'
-            OR path ~ '^/api/vm/[^/]+/start$'
-        )
-    )`
-}
-
-function scannerHttpProbePredicate(metadata = 'metadata') {
-    return `(
-        NULLIF(${metadata}->>'status_code', '')::int = 404
-        AND (
-            ${metadata}->>'error_code' = 'project_not_found'
-            OR ${metadata}->>'error_code' = 'share_not_found'
-            OR ${metadata}->>'path' ~ '^/api/project/[^/]+$'
-            OR ${metadata}->>'path' ~ '^/api/share(/tree)?/[^/]+$'
-        )
-    )`
-}
-
-function scannerTrafficProbePredicate() {
-    return `(
-        status = 404
-        AND (
-            path ~ '^/api/project/[^/]+$'
-            OR path ~ '^/api/share(/tree)?/[^/]+$'
-        )
-    )`
-}
-
-function scannerProjectSummaryPredicate() {
-    return '(status_code = 404 AND (error_code = \'project_not_found\' OR path ~ \'^/api/project/[^/]+$\'))'
-}
-
-function scannerShareSummaryPredicate() {
-    return '(status_code = 404 AND (error_code = \'share_not_found\' OR path ~ \'^/api/share(/tree)?/[^/]+$\'))'
 }
 
 function normalizeFilter(value: string | undefined) {
     const text = typeof value === 'string' ? value.trim().toLowerCase() : ''
     return text && text !== 'all' ? text.slice(0, 120) : null
-}
-
-function emptySummary() {
-    return {
-        total: 0,
-        last_hour: 0,
-        last_24h: 0,
-        server_errors: 0,
-        client_errors: 0,
-        status_counts: [],
-        surface_counts: [],
-        code_counts: [],
-        project_scans: 0,
-        share_scans: 0,
-    }
 }

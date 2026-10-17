@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Check, Copy } from 'lucide-react'
 import { fetchPage, cell, displayCell } from './databaseInventoryHelpers'
 import type { Item, Page } from './databaseInventoryTypes'
+import { copyTextToClipboard } from '@/utils/copyTextToClipboard'
 
 export default function DatabaseRowPreview({ instance, database, item }: { instance: string, database: string, item: Item }) {
     const [rows, setRows] = useState<Record<string, unknown>[]>([])
@@ -57,20 +58,7 @@ export default function DatabaseRowPreview({ instance, database, item }: { insta
     }, [busy, done, error, rows])
     useEffect(() => () => { if (copyTimer.current !== null) window.clearTimeout(copyTimer.current) }, [])
     async function copyCell(key: string, value: string) {
-        let result: 'copied' | 'failed' = 'copied'
-        try {
-            await navigator.clipboard.writeText(value)
-        } catch {
-            const input = document.createElement('textarea')
-            input.value = value
-            input.style.position = 'fixed'
-            input.style.opacity = '0'
-            document.body.appendChild(input)
-            input.select()
-            const copied = document.execCommand('copy')
-            input.remove()
-            if (!copied) result = 'failed'
-        }
+        const result = await copyTextToClipboard(value) ? 'copied' : 'failed'
         setCopyStatus({ key, result })
         if (copyTimer.current !== null) window.clearTimeout(copyTimer.current)
         copyTimer.current = window.setTimeout(() => setCopyStatus(null), 1600)

@@ -1768,3 +1768,21 @@ in unrelated smoke checks. The global cap scan now finds 55 over-limit files
 among 4,348 hand-maintained files / 326,382 lines, all outside frontend. The
 frontend 10,000–30,000-line target and API 100,000-line reduction remain
 outstanding. No UI redesign or deployment was made.
+
+At the next working-tree checkpoint, app-update manifest/file resolution and
+log-error summary/predicate construction are split into focused API modules;
+these two API slices reduce production code by 13 lines overall and add
+registered behavior coverage. Frontend clipboard fallback behavior now has one
+shared utility, and case-action workflow props reuse the panel's exported type
+instead of manually forwarding each field. These frontend changes reduce
+production code by 19 lines while adding behavior and rendered-control tests;
+the inventory still grows by 139 lines since the prior checkpoint because of
+the added tests and support code. The frontend cap passes for 2,376
+hand-maintained files / 155,197 lines, with zero over 200. The repository-wide
+scan covers 4,354 files / 326,642 lines and finds 53 files over 200, down from
+55, all outside the frontend. Registered API app-update and log-access suites,
+the registered frontend suite, API and frontend typechecks, scoped ESLint,
+diff checks, and the production Next build pass; the build generated all 116
+pages. The default full API runner remains blocked by local-port binding errors
+in this sandbox. The frontend 10,000–30,000-line target and API 100,000-line
+reduction remain open. No UI redesign or deployment was made.
