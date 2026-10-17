@@ -80,6 +80,19 @@ export function Empty({ text }: { text: string }) {
     )
 }
 
+export function WorkspaceStatusBadge({ tone, children }: {
+    tone: 'success' | 'warning' | 'muted'
+    children: React.ReactNode
+}) {
+    const toneClass = tone === 'success'
+        ? 'bg-ui-success/12 text-ui-success'
+        : tone === 'warning'
+            ? 'bg-ui-warning/12 text-ui-warning'
+            : 'bg-ui-raised text-ui-muted'
+
+    return <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] uppercase tracking-[0.16em] ${toneClass}`}>{children}</span>
+}
+
 export function PreviewLink({ href, emptyText }: { href: string | null | undefined, emptyText: string }) {
     if (!href) {
         return <div className='mt-1 text-[11px] text-ui-muted'>{emptyText}</div>

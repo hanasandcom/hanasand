@@ -1,4 +1,4 @@
-import { Panel, Empty, PreviewLink, TrustItem } from './workbenchPaneDisplay'
+import { Panel, Empty, PreviewLink, TrustItem, WorkspaceStatusBadge } from './workbenchPaneDisplay'
 import { Archive, Download, FileText, History, LifeBuoy, RefreshCcw, ShieldCheck } from 'lucide-react'
 import { supportBundleHref } from './workbenchPaneTrust'
 
@@ -70,15 +70,9 @@ export function WorkspaceReleasePanels({ trustRelease, trust, launchReport, rele
                                     </div>
                                     <PreviewLink href={release.previewUrl} emptyText='No preview URL recorded' />
                                 </div>
-                                <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] uppercase tracking-[0.16em] ${
-                                    release.status === 'current'
-                                        ? 'bg-ui-success/12 text-ui-success'
-                                        : release.status === 'rollback_target'
-                                            ? 'bg-ui-warning/12 text-ui-warning'
-                                            : 'bg-ui-raised text-ui-muted'
-                                }`}>
+                                <WorkspaceStatusBadge tone={release.status === 'current' ? 'success' : release.status === 'rollback_target' ? 'warning' : 'muted'}>
                                     {release.status.replaceAll('_', ' ')}
-                                </span>
+                                </WorkspaceStatusBadge>
                             </div>
                             {release.notes ? <div className='mt-2 text-xs text-ui-muted'>{release.notes}</div> : null}
                             {release.trust ? (

@@ -1,4 +1,4 @@
-import { Panel, Empty, PreviewLink, ChecklistItem, WorkspacePrimaryAction } from './workbenchPaneDisplay'
+import { Panel, Empty, PreviewLink, ChecklistItem, WorkspacePrimaryAction, WorkspaceStatusBadge } from './workbenchPaneDisplay'
 import { useEffect, useState } from 'react'
 import { ServerCog, ShieldCheck } from 'lucide-react'
 import { buildDeployProfile, detectEnvPlaceholders } from './workbenchPaneDeployProfile'
@@ -133,9 +133,9 @@ export function WorkspaceDeployPanel({ availableVmTargets, activeRepo, activeCon
                                         {deployment.accessPolicy.replaceAll('_', ' ')} · {deployment.stackType.replaceAll('_', ' ')}
                                     </div>
                                 </div>
-                                <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] uppercase tracking-[0.16em] ${deployment.status === 'running' ? 'bg-ui-success/12 text-ui-success' : 'bg-ui-warning/12 text-ui-warning'}`}>
+                                <WorkspaceStatusBadge tone={deployment.status === 'running' ? 'success' : 'warning'}>
                                     {deployment.status}
-                                </span>
+                                </WorkspaceStatusBadge>
                             </div>
                             {deployment.failureReason ? (
                                 <div className='mt-2 rounded-lg bg-ui-warning/8 px-2.5 py-2 text-xs text-ui-warning outline outline-ui-warning/40'>
