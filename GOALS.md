@@ -2523,3 +2523,16 @@ files / 329,161 lines, with no file above 200. These checkpoints add 101 net
 frontend lines, mostly effective rendered coverage; they do not materially
 reduce frontend size. The 10,000–30,000-line frontend target and API
 100,000-line reduction target remain unmet.
+
+At `82b2244bb`, the share deployment's 17-line source scan was replaced with
+registered SSR tests for its actual rendered capability states, accessibility
+labels, evidence, status/theme output, and deploy callback. Independent review
+approved the replacement. The focused task passes (2 tests / 20 assertions),
+as do frontend typecheck, scoped ESLint, and frontend/repository line-cap
+checks. It adds 51 net frontend test/runner lines and no production code. A
+dead-component scan found `AccessCodePanel` had no current-worktree references,
+but it was restored and excluded because its reference disappeared only in the
+pending Prompt Portal auth migration, whose behavior is awaiting the user's
+choice. Current inventory is 2,424 frontend source/config files / 156,498
+lines and 4,569 repository hand-maintained files / 329,212 lines, with no file
+above 200. Frontend size reduction remains outstanding.
