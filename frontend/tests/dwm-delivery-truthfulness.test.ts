@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { createDeliveryActions } from '../src/app/dashboard/findings/workflow-delivery-actions'
 import { createEvidenceActions } from '../src/app/dashboard/findings/workflow-evidence-actions'
 import { DeliveryPanel } from '../src/app/dashboard/findings/delivery-panel'
-import { deliverySummaryLabel, webhookReady } from '../src/app/dashboard/findings/case-format'
+import { deliverySummaryLabel, stateLabel, webhookReady } from '../src/app/dashboard/findings/case-format'
 import { webhookDeliveryResultMessage } from '../src/app/dashboard/ti/workbench/modules/actionMessages'
 import { DeliveryEvidenceRows } from '../src/app/dashboard/ti/workbench/modules/alertEvidence'
 import type { DeliveryItem } from '../src/app/dashboard/findings/types'
@@ -19,6 +19,7 @@ function delivery(status: string, dryRun = false): DeliveryItem {
 }
 
 test('delivery summaries count only non-dry-run delivered rows as successful', () => {
+    assert.equal(stateLabel('false_positive'), 'false positive')
     assert.equal(deliverySummaryLabel([]), 'Not tested')
     assert.equal(deliverySummaryLabel([delivery('delivered')]), '1 delivered')
     assert.equal(deliverySummaryLabel([delivery('dry_run', true)]), '1 tested')

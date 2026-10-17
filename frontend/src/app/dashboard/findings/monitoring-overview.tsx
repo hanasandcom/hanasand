@@ -7,6 +7,7 @@ import type { DwmActorOverview } from '@/utils/dwm/product'
 import { customerAlertSummary, safeEvidenceExcerpt } from '@/utils/dwm/display'
 import { actorProfileHref } from '@/utils/ti/actorProfileRoute'
 import { matchesSearchQuery } from '../searchText'
+import { stateLabel } from './case-format'
 import type { DwmDataHealth, PortalAlert } from './findings'
 
 const panel = 'min-w-0 rounded-lg border border-ui-border bg-ui-panel'
@@ -14,8 +15,6 @@ const control = 'rounded-md border border-ui-border bg-ui-canvas px-3 py-2 text-
 const link = 'text-sm font-semibold text-ui-primary underline-offset-2 hover:underline'
 const pageSize = 20
 const needsReview = (alert: PortalAlert) => !['resolved', 'closed', 'false_positive', 'suppressed'].includes(alert.reviewState) && alert.deliveryState !== 'muted'
-const label = (value: string) => value.replaceAll('_', ' ')
-
 function Timestamp({ value }: { value?: string }) {
     if (!value || !Number.isFinite(Date.parse(value))) return <span>Not recorded</span>
     return <time dateTime={value}>{new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' }).format(new Date(value))} UTC</time>
@@ -96,7 +95,7 @@ export function MonitoringOverview({ alerts, dataHealth, organizationId, initial
                 const evidence = alert.evidence || []
                 return <article key={alert.id} className='min-w-0 p-4' data-finding-id={alert.id}>
                     <div className='flex flex-wrap items-start justify-between gap-3'>
-                        <div className='min-w-0'><h3 className='wrap-break-word font-semibold text-ui-text'>{alert.company || alert.matchedTerm.value}</h3><p className='mt-1 text-xs text-ui-muted'>Matched {alert.matchedTerm.value} · {label(alert.severity)} · {label(alert.reviewState)}</p></div>
+                        <div className='min-w-0'><h3 className='wrap-break-word font-semibold text-ui-text'>{alert.company || alert.matchedTerm.value}</h3><p className='mt-1 text-xs text-ui-muted'>Matched {alert.matchedTerm.value} · {stateLabel(alert.severity)} · {stateLabel(alert.reviewState)}</p></div>
                         {href ? <Link href={href} className={link}>Open case</Link> : <span className='text-sm text-ui-muted'>No case yet</span>}
                     </div>
                     <p className='mt-2 wrap-break-word text-sm leading-6 text-ui-text'>{customerAlertSummary(alert)}</p>
@@ -107,7 +106,7 @@ export function MonitoringOverview({ alerts, dataHealth, organizationId, initial
                         {alert.actor && <Link className={`${link} mt-2 inline-block`} href={actorProfileHref(alert.actor)}>Open {alert.actor} profile</Link>}
                         {!evidence.length && <p className='mt-3 text-sm text-ui-muted'>No retained evidence is attached to this finding.</p>}
                         <ul className='mt-3 grid gap-3'>{evidence.map(item => <li key={item.id} className='min-w-0 rounded-md border border-ui-border bg-ui-canvas p-3'>
-                            <p className='text-sm font-semibold text-ui-text'>{item.sourceName} <span className='font-normal text-ui-muted'>· {label(item.captureMode)}</span></p>
+                            <p className='text-sm font-semibold text-ui-text'>{item.sourceName} <span className='font-normal text-ui-muted'>· {stateLabel(item.captureMode)}</span></p>
                             <p className='mt-1 text-xs text-ui-muted'>Observed: <Timestamp value={item.observedAt || item.firstSeenAt || item.provenance?.publishedAt} /></p>
                             <p className='mt-1 text-xs text-ui-muted'>Collected: <Timestamp value={item.provenance?.collectedAt} /></p>
                             <blockquote className='mt-2 wrap-break-word text-sm leading-6 text-ui-text'>{safeEvidenceExcerpt(item.excerpt)}</blockquote>
