@@ -2046,3 +2046,17 @@ no database or live-service smoke was executed. The repository cap scan now
 reports 21 remaining over-limit files among 4,477 hand-maintained files /
 327,535 lines. The frontend remains at 2,384 files / 155,089 lines with zero
 over 200. The aggregate API and frontend reduction goals remain open.
+
+At commits `1227de572` and `56f9b466e`, the guarded admin access-recovery smoke
+was separated into entrypoint, API client, fixture/cleanup, and scenario flow
+modules. Independent review confirmed the original opt-in guard, seed and
+cleanup operations, request sequence, assertions, and output shape; all four
+files are below 200 lines. The live smoke was not run. In the TI frontend,
+eighteen repeated card shells now use one shared component while preserving
+the rendered div, classes, content, and page data props. Frontend typecheck,
+scoped ESLint, focused test, and cap checks passed. These structural changes
+add 75 lines overall (the frontend card extraction adds 20 and the API smoke
+split adds 55). Both commits are pushed to Forgejo and GitHub. The current scan
+reports 20 over-limit files among 4,481 hand-maintained files / 327,610 lines;
+the frontend has 2,385 files / 155,109 lines and zero over 200. Aggregate API
+and frontend reduction goals remain open.
