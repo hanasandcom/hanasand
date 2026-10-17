@@ -3,7 +3,7 @@ import { expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { ProviderBadges } from '../src/app/browser/components/ProviderBadges'
-import { ProviderRunBadges } from '../src/app/browser/components/RunHistoryPanel'
+import { HistoryPanel } from '../src/app/browser/components/RunHistoryPanel'
 import type { BrowserRunHistory } from '../src/app/browser/types'
 
 const results = {
@@ -13,10 +13,11 @@ const results = {
 
 const render = (element: React.ReactElement) => renderToStaticMarkup(element)
 
-test('both browser history call sites render identical provider labels, icons and accessible status', () => {
+test('browser run history uses the shared provider labels, icons and accessible status', () => {
     const direct = render(createElement(ProviderBadges, { results }))
     const run: BrowserRunHistory = {
         id: 'run-1',
+        resultId: 'result-1',
         target: 'example.com',
         network: 'regular',
         status: 'completed',
@@ -24,7 +25,12 @@ test('both browser history call sites render identical provider labels, icons an
         providerResults: results,
     }
 
-    expect(render(createElement(ProviderRunBadges, { run }))).toBe(direct)
+    const history = render(createElement(HistoryPanel, {
+        history: [run], quota: null, historyReady: true,
+        onDelete: async () => {}, onShare: async () => '',
+    }))
+
+    expect(history).toContain(direct)
     expect(direct).toContain('aria-label="VirusTotal: 2"')
     expect(direct).toContain('title="VirusTotal: 2"')
     expect(direct).toContain('aria-label="urlquery: 3 alerts"')

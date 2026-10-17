@@ -70,7 +70,7 @@ export function HistoryPanel({ history, quota, embedded = false, historyReady, o
                         </button> : null}
                         <Link href={`/sandbox/${run.resultId}`} className='grid min-w-0 flex-1 gap-2 focus-visible:outline-2 focus-visible:outline-ui-primary md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-center'>
                             <span className='min-w-0 truncate text-left font-mono text-ui-text'>{run.target}</span>
-                            <ProviderRunBadges run={run} />
+                            <ProviderBadges results={run.providerResults} />
                             <span className='whitespace-nowrap text-ui-muted'>{new Date(run.startedAt).toLocaleString()}</span>
                         </Link>
                         <button type='button' disabled={Boolean(busyId) || busyClear} onClick={() => {
@@ -98,9 +98,3 @@ export function HistoryPanel({ history, quota, embedded = false, historyReady, o
         </section>
     )
 }
-
-export function ProviderRunBadges({ run }: { run: BrowserRunHistory }) {
-    return <ProviderBadges results={run.providerResults} />
-}
-
-export { ProviderBadge as ProviderRunBadge } from './ProviderBadges'
