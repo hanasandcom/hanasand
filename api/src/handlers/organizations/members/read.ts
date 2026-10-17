@@ -6,6 +6,7 @@ import {
     toOrganization,
     type OrganizationMemberRow,
 } from '#utils/organizations.ts'
+import { organizationMembershipIdentityColumns } from '#utils/organizations/membershipIdentityColumns.ts'
 import { loadRequiredOrganizationMemberRequest } from '../requestContext.ts'
 
 type OrganizationParams = { id: string }
@@ -17,15 +18,7 @@ export async function getOrganizationMembers(req: FastifyRequest<{ Params: Organ
 
     const result = await run(`
         SELECT
-            om.organization_id,
-            om.user_id,
-            u.name,
-            u.avatar,
-            om.role,
-            om.status,
-            om.invited_by,
-            om.joined_at,
-            om.created_at
+            ${organizationMembershipIdentityColumns('u')}
         FROM organization_members om
         JOIN users u ON u.id = om.user_id
         WHERE om.organization_id = $1

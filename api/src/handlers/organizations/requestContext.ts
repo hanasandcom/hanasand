@@ -2,6 +2,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify'
 import run from '#db'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import type { OrganizationMemberRow, OrganizationRow } from '#utils/organizations.ts'
+import { organizationMembershipIdentityColumns } from '#utils/organizations/membershipIdentityColumns.ts'
 
 export async function loadOrganizationForMember(organizationId: string, userId: string, query: typeof run = run) {
     const result = await query(`
@@ -87,15 +88,7 @@ export async function loadRequiredOrganizationMemberRequest(
 export async function loadOrganizationMembership(organizationId: string, userId: string, query: typeof run = run) {
     const result = await query(`
         SELECT
-            om.organization_id,
-            om.user_id,
-            u.name,
-            u.avatar,
-            om.role,
-            om.status,
-            om.invited_by,
-            om.joined_at,
-            om.created_at
+            ${organizationMembershipIdentityColumns('u')}
         FROM organization_members om
         JOIN users u ON u.id = om.user_id
         WHERE om.organization_id = $1

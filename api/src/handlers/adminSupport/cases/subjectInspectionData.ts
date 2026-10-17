@@ -1,23 +1,16 @@
 import run from '#db'
 import { organizationMembershipAvailability } from '#utils/organizationMemberships.ts'
+import { organizationMembershipIdentityColumns } from '#utils/organizations/membershipIdentityColumns.ts'
 import { loadInspectionApprovals } from '../inspectionEventLoaders.ts'
 
 export async function loadSupportOrganizationInspectionData(organizationId: string) {
     const [members, invites, watchlists, webhookDestinations, audit, availability] = await Promise.all([
         run(`
             SELECT
-                om.organization_id,
-                om.user_id,
-                users.name,
-                users.avatar,
+                ${organizationMembershipIdentityColumns('users')},
                 users.active,
                 users.deactivated_at,
-                users.deletion_scheduled_at,
-                om.role,
-                om.status,
-                om.invited_by,
-                om.joined_at,
-                om.created_at
+                users.deletion_scheduled_at
             FROM organization_members om
             JOIN users ON users.id = om.user_id
             WHERE om.organization_id = $1

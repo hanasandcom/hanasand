@@ -1,6 +1,22 @@
 import { expect, test } from 'bun:test'
 import { activeOrganizationOwnerCount, organizationMembershipAvailability } from '../src/utils/organizationMemberships.ts'
+import { organizationMembershipIdentityColumns } from '../src/utils/organizations/membershipIdentityColumns.ts'
+import { supportMemberInspectionColumns } from '../src/handlers/adminSupport/inspectionEntityLoaders.ts'
 import type run from '../src/utils/db.ts'
+
+test('organization membership identity SQL preserves standard and support user aliases', () => {
+    const standardColumns = organizationMembershipIdentityColumns('u')
+    const supportColumns = organizationMembershipIdentityColumns('users')
+
+    expect(standardColumns).toContain('u.name')
+    expect(standardColumns).toContain('u.avatar')
+    expect(standardColumns).toContain('om.invited_by')
+    expect(supportColumns).toContain('users.name')
+    expect(supportColumns).toContain('users.avatar')
+    expect(supportMemberInspectionColumns).toContain(supportColumns.trim())
+    expect(supportMemberInspectionColumns).toContain('users.deactivated_at')
+    expect(supportMemberInspectionColumns).toContain('users.deletion_scheduled_at')
+})
 
 test('organization owner counts use active accounts that are not scheduled for deletion', async () => {
     let sql = ''

@@ -1,4 +1,5 @@
 import run from '#db'
+import { organizationMembershipIdentityColumns } from '#utils/organizations/membershipIdentityColumns.ts'
 import { supportSqlFilters } from './inspectionFilterSql.ts'
 
 export const supportOrganizationSummaryColumns = `
@@ -17,20 +18,12 @@ export const supportOrganizationSummaryColumns = `
 `
 
 export const supportMemberInspectionColumns = `
-    om.organization_id,
     organizations.name AS organization_name,
     organizations.slug AS organization_slug,
-    om.user_id,
-    users.name,
-    users.avatar,
+    ${organizationMembershipIdentityColumns('users')},
     users.active,
     users.deactivated_at,
-    users.deletion_scheduled_at,
-    om.role,
-    om.status,
-    om.invited_by,
-    om.joined_at,
-    om.created_at
+    users.deletion_scheduled_at
 `
 
 export async function loadInspectionOrganizations(input: { q?: string, org: string, user: string, email: string, request: string, limit: number }) {

@@ -2421,3 +2421,16 @@ test and runner grow by 96 lines and the hook by 2, a net 98 lines for runtime
 coverage. Current shared-worktree inventory is 2,421 frontend files / 156,327
 lines and 4,564 repository files / 329,008 lines, with no file above 200.
 Aggregate frontend and API reduction targets remain open.
+
+At the 2026-10-17 API membership projection checkpoint, standard organization
+membership reads and admin-support inspection reads reuse one ordered SQL
+identity projection. Query filters, ordering, locking, summary counts, and
+support-only lifecycle fields remain local to their existing queries.
+Independent review approved the alias and value preservation. Focused
+organization and support inspection tests pass (8 tests / 99 assertions), as
+do API typecheck, scoped ESLint, diff, and repository line-cap checks. The
+production SQL callers and helper shrink by 15 lines overall; the new contract
+test adds 16, for a net one-line increase across code and tests. The current
+shared-worktree inventory is 4,565 hand-maintained files / 329,011 lines,
+with no file above 200. Aggregate API and frontend reduction targets remain
+open.
