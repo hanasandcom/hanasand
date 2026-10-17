@@ -1,54 +1,28 @@
 'use client'
 import ErrorNotice from '@/components/error/errorNotice'
 import AuthActionLayout from '@/components/login/authActionLayout'
-import config from '@/config'
-import useClearStateAfter from '@/hooks/useClearStateAfter'
 import { ArrowLeft, ArrowRight, KeyRound } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
 import { storePasswordResetSession } from '@/utils/auth/passwordResetSession'
+import usePasswordAction from '@/utils/auth/usePasswordAction'
 
 const authPrimaryButtonClass = 'group flex h-10 w-full items-center justify-between rounded-lg bg-ui-text px-3.5 text-sm font-semibold text-ui-canvas transition hover:opacity-90 disabled:cursor-not-allowed disabled:border disabled:border-ui-border disabled:bg-ui-raised disabled:text-ui-muted'
 const authSecondaryLinkClass = 'flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-ui-border bg-ui-raised px-3 text-sm font-semibold text-ui-muted transition hover:border-ui-primary hover:text-ui-text'
+type ResetActionResponse = { error?: string, id: string, resetToken: string }
 
 export default function ResetPasswordAgainPage() {
     const router = useRouter()
-    const [token, setToken] = useState('')
-    const [tokenLoaded, setTokenLoaded] = useState(false)
-    const [busy, setBusy] = useState(false)
-    const { condition: error, setCondition: setError } = useClearStateAfter()
+    const { token, tokenLoaded, busy, error, submit } = usePasswordAction('Unable to start a new password reset.')
 
-    useEffect(() => {
-        const params = new URLSearchParams(window.location.hash.replace(/^#/, ''))
-        setToken(params.get('token') || '')
-        window.history.replaceState(null, '', window.location.pathname)
-        setTokenLoaded(true)
-    }, [])
-
-    async function startReset() {
-        if (!token || busy) return
-        setBusy(true)
-        setError(null)
-        try {
-            const response = await fetch(`${config.url.api}/auth/password-reset/start-again`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token }),
-            })
-            const data = await response.json().catch(() => null)
-            if (!response.ok) return setError(data?.error || 'Unable to start a new password reset.')
-
+    function startReset() {
+        void submit<ResetActionResponse>('/auth/password-reset/start-again', data => {
             const resetPath = `/reset-password?id=${encodeURIComponent(data.id)}`
             const resetUrl = storePasswordResetSession(data.id, data.resetToken)
                 ? resetPath
                 : `${resetPath}#token=${encodeURIComponent(data.resetToken)}`
             router.replace(resetUrl)
-        } catch (error) {
-            setError(error instanceof Error ? error.message : 'Unable to start a new password reset.')
-        } finally {
-            setBusy(false)
-        }
+        })
     }
 
     return (

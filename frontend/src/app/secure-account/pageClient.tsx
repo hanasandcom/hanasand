@@ -1,47 +1,20 @@
 'use client'
 import ErrorNotice from '@/components/error/errorNotice'
 import AuthActionLayout from '@/components/login/authActionLayout'
-import config from '@/config'
-import useClearStateAfter from '@/hooks/useClearStateAfter'
 import { ArrowLeft, ArrowRight, ShieldAlert } from 'lucide-react'
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import usePasswordAction from '@/utils/auth/usePasswordAction'
 
 const authPrimaryButtonClass = 'group flex h-10 w-full items-center justify-between rounded-lg bg-ui-text px-3.5 text-sm font-semibold text-ui-canvas transition hover:opacity-90 disabled:cursor-not-allowed disabled:border disabled:border-ui-border disabled:bg-ui-raised disabled:text-ui-muted'
 const authSecondaryLinkClass = 'flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-ui-border bg-ui-raised px-3 text-sm font-semibold text-ui-muted transition hover:border-ui-primary hover:text-ui-text'
 
 export default function SecureAccountPage() {
-    const [token, setToken] = useState('')
-    const [tokenLoaded, setTokenLoaded] = useState(false)
-    const [busy, setBusy] = useState(false)
     const [locked, setLocked] = useState(false)
-    const { condition: error, setCondition: setError } = useClearStateAfter()
+    const { token, tokenLoaded, busy, error, submit } = usePasswordAction('Unable to lock your account.')
 
-    useEffect(() => {
-        const params = new URLSearchParams(window.location.hash.replace(/^#/, ''))
-        setToken(params.get('token') || '')
-        window.history.replaceState(null, '', window.location.pathname)
-        setTokenLoaded(true)
-    }, [])
-
-    async function lockAccount() {
-        if (!token || busy || locked) return
-        setBusy(true)
-        setError(null)
-        try {
-            const response = await fetch(`${config.url.api}/auth/password-reset/lock-account`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token }),
-            })
-            const data = await response.json().catch(() => null)
-            if (!response.ok) return setError(data?.error || 'Unable to lock your account.')
-            setLocked(true)
-        } catch (error) {
-            setError(error instanceof Error ? error.message : 'Unable to lock your account.')
-        } finally {
-            setBusy(false)
-        }
+    function lockAccount() {
+        void submit('/auth/password-reset/lock-account', () => setLocked(true), locked)
     }
 
     return (
