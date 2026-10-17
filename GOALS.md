@@ -1982,3 +1982,24 @@ hand-maintained files / 327,202 lines, all outside the frontend. The full
 frontend lint task remains blocked by 1,297 reported pre-existing errors in
 unrelated files. The frontend 10,000–30,000-line target and API 100,000-line
 reduction remain open; no UI redesign or deployment was made.
+
+At the next working checkpoint (2026-10-17), both TI workbench detail fetch
+paths now share `readSuccessfulCaseDetail`, preserving `no-store`, JSON parsing,
+API error messages, fallback errors, state mapping, and cancellation behavior.
+Six focused tests cover the shared response contract; no UI or data contract
+changed. The frontend total rises by 16 lines because the new contract coverage
+exceeds the removed duplicate handling, and the full 2,383-file frontend scan
+still passes at 155,100 lines with zero files above 200. Frontend typecheck,
+changed-path ESLint, focused tests, independent review, and the cap scan pass.
+
+The 532-line SSH gateway installer is now a 194-line entrypoint plus five
+functional sourced modules, all under 90 lines. Eight moved shell templates
+were byte-compared against the prior version; shell syntax and the VM deletion
+regression test pass. The 519-line DWM lineage smoke was split into a guarded
+28-line entrypoint and four phase/support modules, each at or below 158 lines.
+Its existing phase order, DB guard, outputs, and assertions were reviewed;
+typecheck, scoped ESLint, and entrypoint bundling pass. Neither the installer
+nor the database smoke was executed. The repository cap scan falls from 29 to
+27 violations across 4,452 files / 327,287 lines; every remaining violation
+is outside the frontend. The frontend 10,000–30,000-line objective and API
+100,000-line reduction remain open.
