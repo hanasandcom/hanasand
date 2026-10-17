@@ -11,7 +11,12 @@ export function consoleUsername(name: string) {
 
 export const consoleLoginScript = `set -eu
 name="$1"
-getent passwd "$name" >/dev/null || { echo "VM login account is missing." >&2; exit 1; }
+attempt=0
+while ! getent passwd "$name" >/dev/null; do
+    attempt=$((attempt + 1))
+    if test "$attempt" -ge 60; then echo "VM login account is missing." >&2; exit 1; fi
+    sleep 1
+done
 uid="$(id -u "$name")"
 test "$uid" -ge 1000 && test "$uid" -lt 65534 || exit 1
 exec runuser --login "$name"`

@@ -152,6 +152,7 @@ test('login requires an existing non-system account and never creates a user', a
         await writeFile(join(directory, 'getent'), '#!/bin/sh\nexit "$ACCOUNT_MISSING"\n', { mode: 0o700 })
         await writeFile(join(directory, 'id'), '#!/bin/sh\nprintf "%s" "$ACCOUNT_UID"\n', { mode: 0o700 })
         await writeFile(join(directory, 'runuser'), '#!/bin/sh\nprintf "%s %s" "$1" "$2"\n', { mode: 0o700 })
+        await writeFile(join(directory, 'sleep'), '#!/bin/sh\nexit 0\n', { mode: 0o700 })
         for (const [missing, uid, allowed] of [['0', '1001', true], ['1', '1001', false], ['0', '0', false], ['0', '999', false], ['0', '65534', false]] as const) {
             const process = Bun.spawn(['/bin/sh', '-c', consoleLoginScript, 'hanasand-console', 'cashflow'], {
                 env: { PATH: directory, ACCOUNT_MISSING: missing, ACCOUNT_UID: uid }, stdout: 'pipe', stderr: 'pipe',
@@ -159,6 +160,8 @@ test('login requires an existing non-system account and never creates a user', a
             expect(await process.exited === 0).toBe(allowed)
             const output = await new Response(process.stdout).text()
             expect(output).toBe(allowed ? '--login cashflow' : '')
+            const error = await new Response(process.stderr).text()
+            expect(error.includes('VM login account is missing.')).toBe(missing === '1')
         }
     } finally { await rm(directory, { recursive: true, force: true }) }
 })
