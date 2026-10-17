@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react'
 import SortIndicator from '@/components/dashboard/sort-indicator'
 import { DashboardTable } from '@/components/dashboard/ui'
 import { useWorkspace } from '@/components/organizations/workspaceProvider'
+import { filterRowsByQueryAndStatus } from '@/app/organizations/model/filterRows'
 import { isManagementSearchShortcut } from '@/utils/isManagementSearchShortcut'
 
 type Organization = { id: string, name: string, slug: string, status: string, member_count: number, created_at: string, last_active_at: string | null }
@@ -48,7 +49,13 @@ export default function OrganizationList({ organizations }: { organizations: Org
 
     const query = search.trim().toLowerCase()
     const accessibleOrganizationIds = new Set(accessibleOrganizations.filter(org => org.lifecycleStatus === 'active').map(org => org.id))
-    const rows = organizations.filter(org => `${org.name} ${org.slug} ${org.status}`.toLowerCase().includes(query))
+    const rows = filterRowsByQueryAndStatus(
+        organizations,
+        'all',
+        query,
+        org => org.status,
+        org => `${org.name} ${org.slug} ${org.status}`.toLowerCase(),
+    )
     const sortedRows = [...rows].sort((a, b) => {
         const sign = sort.direction === 'asc' ? 1 : -1
         const comparison = sort.key === 'created'
