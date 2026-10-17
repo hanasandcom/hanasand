@@ -1896,3 +1896,18 @@ files over 200 among 4,423 files / 327,220 lines, all outside the frontend. The
 frontend total rose by 95 lines because the 115-line contract suite outweighs
 the 19-line production reduction; the 10,000–30,000-line target and API
 100,000-line reduction remain open. No UI redesign or deployment was made.
+
+At checkpoint `262715267` (2026-10-17), VM connection and metrics requests share
+an authenticated JSON transport backed by the existing retry helper. The two
+callers keep their encoded endpoints, headers, timeout, retry count, response
+text errors, logging, and distinct `null` / `[]` fallbacks; the production
+change removes 13 lines. Three registered tests exercise both real caller
+functions, request options, payloads, error logging, and fallbacks. Independent
+review, the registered test, frontend typecheck, scoped ESLint, changed-file cap,
+and diff check pass. The frontend inventory is now 2,373 files / 154,917 lines,
+with zero above 200 (112,122 source, 31,524 tests, and 11,271 configuration
+lines). Its total grew by 57 lines because the 69-line contract test and runner
+entry outweighed the production reduction. The repository scan remains at 35
+over-limit files among 4,425 files / 327,277 lines, all outside the frontend.
+The frontend 10,000–30,000-line and API 100,000-line reduction goals remain
+unmet; no UI redesign or deployment was made.
