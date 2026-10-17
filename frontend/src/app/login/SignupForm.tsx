@@ -1,7 +1,6 @@
 import type { FormEvent } from 'react'
 import { ArrowRight } from 'lucide-react'
-import AuthTextField from '@/components/login/authTextField'
-import AuthPasswordField from '@/components/login/authPasswordField'
+import AuthField from '@/components/login/authField'
 import { authGhostButtonClass, authInputClass, authPrimaryButtonClass } from './loginMode'
 import type { useSignupFlow } from './useSignupFlow'
 
@@ -21,7 +20,7 @@ export default function SignupForm({ flow, busy, hydrated, redirectPath, onSubmi
         <form className='flex w-full flex-col gap-2 self-center' action='/api/auth/register' onSubmit={onSubmit} method='post'>
             <input type='hidden' name='redirectPath' value={redirectPath} />
             {flow.sendError && <p role='alert' className='text-sm text-ui-text'>{flow.sendError}</p>}
-            <AuthTextField
+            <AuthField
                 id='login-signup-username'
                 label='Username'
                 disabled={!hydrated}
@@ -35,7 +34,7 @@ export default function SignupForm({ flow, busy, hydrated, redirectPath, onSubmi
                 required
             />
             {flow.usernameIsReserved && <p className='px-1 text-xs font-semibold text-ui-warning'>Reserved username.</p>}
-            <AuthTextField
+            <AuthField
                 id='login-signup-name'
                 label='Name'
                 disabled={!hydrated}
@@ -48,7 +47,7 @@ export default function SignupForm({ flow, busy, hydrated, redirectPath, onSubmi
                 autoComplete='name'
                 required
             />
-            <AuthTextField
+            <AuthField
                 id='login-signup-email'
                 label='Email'
                 disabled={!hydrated}
@@ -62,9 +61,10 @@ export default function SignupForm({ flow, busy, hydrated, redirectPath, onSubmi
                 className={authInputClass}
                 required
             />
-            <AuthPasswordField
+            <AuthField
                 id='login-signup-password'
                 label='Password'
+                type='password'
                 disabled={!hydrated}
                 name='password'
                 value={flow.password}

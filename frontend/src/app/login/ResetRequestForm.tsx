@@ -1,6 +1,6 @@
 import type { FormEvent } from 'react'
 import { ArrowRight } from 'lucide-react'
-import AuthTextField from '@/components/login/authTextField'
+import AuthField from '@/components/login/authField'
 import { authGhostButtonClass, authInputClass, authPrimaryButtonClass } from './loginMode'
 
 type Props = {
@@ -12,7 +12,7 @@ type Props = {
 export default function ResetRequestForm({ busy, onSubmit, onBack }: Props) {
     return (
         <form className='flex w-full flex-col gap-2 self-center' onSubmit={onSubmit} method='post'>
-            <AuthTextField
+            <AuthField
                 id='login-reset-username'
                 label='Username'
                 type='text'

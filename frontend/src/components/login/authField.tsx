@@ -1,16 +1,20 @@
 import { forwardRef, type InputHTMLAttributes } from 'react'
 
 type Props = InputHTMLAttributes<HTMLInputElement> & {
-    label: string
+    label?: string
 }
 
-const AuthTextField = forwardRef<HTMLInputElement, Props>(function AuthTextField({ label, ...inputProps }, ref) {
+const AuthField = forwardRef<HTMLInputElement, Props>(function AuthField({ label, ...inputProps }, ref) {
+    const input = <input {...inputProps} ref={ref} />
+
+    if (!label) return input
+
     return (
         <label className='grid gap-1.5' htmlFor={inputProps.id}>
             <span className='text-xs font-semibold text-ui-muted'>{label}</span>
-            <input {...inputProps} ref={ref} />
+            {input}
         </label>
     )
 })
 
-export default AuthTextField
+export default AuthField
