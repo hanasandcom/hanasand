@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { WebScanCheck, WebScanReport, WebScanRun, WebScanSeverity } from '@/utils/monitoring/types'
 import { ChevronDown } from 'lucide-react'
 import formatUtcDateTime from '@/utils/date/formatUtcDateTime'
+import WebScanCheckMeta from './webScanCheckMeta'
 
 const severities: WebScanSeverity[] = ['critical', 'high', 'medium', 'low', 'info']
 
@@ -25,7 +26,7 @@ export default function WebScanPanel({ initialData, refreshAction, runAction, sc
 function HistoryFindings({ run }: { run: WebScanRun }) {
     const findings = run.targets.flatMap(target => target.checks.filter(check => check.status !== 'pass').map(check => ({ target: target.target, check })))
     const openPorts = run.targets.flatMap(target => target.ports.filter(port => port.open && ![80, 443].includes(port.port)).map(port => ({ target: target.target, port })))
-    return <div className='border-t border-ui-border px-3 pb-3 pt-2'><p className='text-xs font-semibold uppercase tracking-wide text-ui-primary'>Findings and next actions</p><div className='mt-2 grid gap-2'>{findings.map(({ target, check }) => <div key={`${target}-${check.id}`} className='rounded-md border border-ui-border bg-ui-panel p-3'><div className='flex flex-wrap justify-between gap-2 text-sm'><span className='font-medium text-ui-text'>{check.title}</span><span className='text-ui-muted'>{check.severity} · {check.status}</span></div><p className='mt-1 text-xs leading-5 text-ui-muted'>{check.explanation || 'Inspect the observed evidence and apply the recommended control.'}</p><p className='mt-2 text-xs text-ui-text'><span className='font-semibold'>Next action:</span> {recommendedAction(check.id)}</p><p className='mt-1 break-all font-mono text-[11px] text-ui-muted'>Evidence: {formatEvidence(check.evidence)}</p></div>)}{openPorts.map(({ target, port }) => <div key={`${target}-port-${port.port}`} className='rounded-md border border-ui-border bg-ui-panel p-3'><div className='flex justify-between gap-2 text-sm'><span className='font-medium text-ui-text'>Port {port.port} is open</span><span className='text-ui-warning'>medium · warn</span></div><p className='mt-1 text-xs leading-5 text-ui-muted'>A non-standard service port accepted a TCP connection during the scan.</p><p className='mt-2 text-xs text-ui-text'><span className='font-semibold'>Next action:</span> Confirm the service is required, restrict its exposure, or close the port.</p><p className='mt-1 font-mono text-[11px] text-ui-muted'>Evidence: {target} · {port.elapsedMs}ms TCP connect</p></div>)}{!findings.length && !openPorts.length ? <p className='text-xs text-ui-muted'>No failed or warned checks in this run.</p> : null}</div></div>
+    return <div className='border-t border-ui-border px-3 pb-3 pt-2'><p className='text-xs font-semibold uppercase tracking-wide text-ui-primary'>Findings and next actions</p><div className='mt-2 grid gap-2'>{findings.map(({ target, check }) => <div key={`${target}-${check.id}`} className='rounded-md border border-ui-border bg-ui-panel p-3'><WebScanCheckMeta check={check} className='flex flex-wrap justify-between gap-2 text-sm' titleClassName='font-medium text-ui-text' resultClassName='text-ui-muted' /><p className='mt-1 text-xs leading-5 text-ui-muted'>{check.explanation || 'Inspect the observed evidence and apply the recommended control.'}</p><p className='mt-2 text-xs text-ui-text'><span className='font-semibold'>Next action:</span> {recommendedAction(check.id)}</p><p className='mt-1 break-all font-mono text-[11px] text-ui-muted'>Evidence: {formatEvidence(check.evidence)}</p></div>)}{openPorts.map(({ target, port }) => <div key={`${target}-port-${port.port}`} className='rounded-md border border-ui-border bg-ui-panel p-3'><div className='flex justify-between gap-2 text-sm'><span className='font-medium text-ui-text'>Port {port.port} is open</span><span className='text-ui-warning'>medium · warn</span></div><p className='mt-1 text-xs leading-5 text-ui-muted'>A non-standard service port accepted a TCP connection during the scan.</p><p className='mt-2 text-xs text-ui-text'><span className='font-semibold'>Next action:</span> Confirm the service is required, restrict its exposure, or close the port.</p><p className='mt-1 font-mono text-[11px] text-ui-muted'>Evidence: {target} · {port.elapsedMs}ms TCP connect</p></div>)}{!findings.length && !openPorts.length ? <p className='text-xs text-ui-muted'>No failed or warned checks in this run.</p> : null}</div></div>
 }
 
 function recommendedAction(checkId: string) {
@@ -81,10 +82,11 @@ function ScanCheck({ check }: { check: WebScanCheck }) {
     const statusColor = check.status === 'pass' ? 'text-ui-success' : check.status === 'fail' ? 'text-ui-text' : 'text-ui-warning'
     return (
         <article className='grid gap-1 rounded-md border border-ui-border bg-ui-raised p-3 text-sm'>
-            <div className='flex flex-wrap justify-between gap-3'>
-                <span>{check.title}</span>
-                <span className={statusColor}>{check.severity} · {check.status}</span>
-            </div>
+            <WebScanCheckMeta
+                check={check}
+                className='flex flex-wrap justify-between gap-3'
+                resultClassName={statusColor}
+            />
             <p className='text-xs leading-5 text-ui-muted'>
                 {isUsefulExplanation(check.explanation) ? check.explanation : fallbackExplanation(check)}
             </p>

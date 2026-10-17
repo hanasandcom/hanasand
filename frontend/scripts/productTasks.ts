@@ -79,6 +79,7 @@ export const productTasks: TestTask[] = [
     { id: 'share-statistics', title: 'Share line counts and empty statistics', command: [bun, 'test', 'tests/share-statistics.test.tsx'] },
     { id: 'backup-page-render', title: 'Backup page data and operation presentation', command: [bun, 'test', 'tests/backup-page-render.test.tsx'] },
     { id: 'database-query-card', title: 'Database query card raw and highlighted presentation modes', command: [bun, 'test', 'tests/database-query-card.test.tsx'] },
+    { id: 'web-scan-check-meta', title: 'Web scan checklist and finding row presentation', command: [bun, 'test', 'tests/web-scan-check-meta.test.tsx'] },
     { id: 'restore-action-contract', title: 'Live and isolated restore confirmation contracts', command: [bun, 'test', 'tests/restore-action-contract.test.tsx'] },
     { id: 'cookie-settings', title: 'Cookie consent and browser-local storage settings', command: [bun, 'test', 'tests/cookie-settings.test.tsx'] },
     { id: 'safe-cookie-decode', title: 'Encoded cookie value decoding fallback', command: [bun, 'test', 'tests/safe-decode-cookie-value.test.ts'] },
