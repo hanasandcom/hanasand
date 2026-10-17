@@ -11,6 +11,7 @@ import { useState } from 'react'
 import { stopRowSelectionKeys } from '../model/keyboard'
 import { Trash2 } from 'lucide-react'
 import { SelectableSubjectRow } from './selectableSubjectRow'
+import { filterRowsByQueryAndStatus } from '../model/filterRows'
 
 export function MemberPanel({ members, canManage, busy, rowMessages, selectedSubject, onSelectSubject, onRoleChange, onRemove }: { members: OrganizationMember[], canManage: boolean, busy: string, rowMessages: Record<string, RowMessage>, selectedSubject: ActivitySubject, onSelectSubject: (subject: ActivitySubject) => void, onRoleChange: (member: OrganizationMember, role: OrganizationRole) => void, onRemove: (member: OrganizationMember) => void }) {
     const [pendingRoles, setPendingRoles] = useState<Record<string, OrganizationRole>>({})
@@ -18,12 +19,7 @@ export function MemberPanel({ members, canManage, busy, rowMessages, selectedSub
     const [memberRoleFilter, setMemberRoleFilter] = useState('all')
     const busyLabel = memberBusyLabel(busy)
     const normalizedMemberQuery = memberQuery.trim().toLowerCase()
-    const visibleMembers = members.filter(member => {
-        const roleMatches = memberRoleFilter === 'all' || member.role.toLowerCase() === memberRoleFilter
-        if (!roleMatches) return false
-        if (!normalizedMemberQuery) return true
-        return memberSearchText(member).includes(normalizedMemberQuery)
-    })
+    const visibleMembers = filterRowsByQueryAndStatus(members, memberRoleFilter, normalizedMemberQuery, member => member.role, memberSearchText)
     const memberCounts = memberStatusCounts(members)
     const memberRoleCounts = memberRoleStatusCounts(members)
     const updatePendingRole = (memberId: string, role: OrganizationRole) => setPendingRoles(current => ({ ...current, [memberId]: role }))

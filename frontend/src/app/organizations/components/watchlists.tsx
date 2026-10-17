@@ -11,6 +11,7 @@ import { OrganizationFilterStrip } from './filterStrip'
 import { watchlistTemplates, watchlistKinds } from '../constants/options'
 import { useState } from 'react'
 import { Archive, BellRing, RefreshCw } from 'lucide-react'
+import { filterRowsByQueryAndStatus } from '../model/filterRows'
 
 export function WatchlistPanel({ watchlists, activeTerms, members, canManage, canCleanup, busy, draft, setDraft, suggestions, editing, setEditing, onCreate, onSave, onAction, onDelete, organization, alerts, deliveries, onCleanup, onRefreshAlerts, onRequestFreshCollection, onRefreshCollectionStatus, collectionRequest, rowMessages, draftDuplicate, selectedSubject, onSelectSubject }: { watchlists: WatchlistItem[], activeTerms: AlertTerm[], members: OrganizationMember[], canManage: boolean, canCleanup: boolean, busy: string, draft: { kind: WatchlistKind, value: string, notes: string }, setDraft: (next: { kind: WatchlistKind, value: string, notes: string }) => void, suggestions: WatchlistSuggestion[], editing: Record<string, { kind: WatchlistKind, value: string, notes: string }>, setEditing: (next: Record<string, { kind: WatchlistKind, value: string, notes: string }> | ((current: Record<string, { kind: WatchlistKind, value: string, notes: string }>) => Record<string, { kind: WatchlistKind, value: string, notes: string }>)) => void, onCreate: () => void, onSave: (item: WatchlistItem) => void, onAction: (item: WatchlistItem, action: 'pause' | 'resume' | 'archive' | 'restore') => void, onDelete: (item: WatchlistItem) => void, organization: OrganizationSummary, alerts: ScopedAlert[], deliveries: DeliveryRow[], onCleanup: () => void, onRefreshAlerts: () => void, onRequestFreshCollection: () => void, onRefreshCollectionStatus: () => void, collectionRequest: CollectionRequest | null, rowMessages: Record<string, RowMessage>, draftDuplicate: boolean, selectedSubject: ActivitySubject, onSelectSubject: (subject: ActivitySubject) => void }) {
     const [watchlistQuery, setWatchlistQuery] = useState('')
@@ -20,12 +21,7 @@ export function WatchlistPanel({ watchlists, activeTerms, members, canManage, ca
     const archivedCount = watchlists.filter(item => item.status.toLowerCase() === 'archived').length
     const busyLabel = watchlistBusyLabel(busy)
     const normalizedWatchlistQuery = normalizeWatchlistValue(watchlistQuery)
-    const visibleWatchlists = watchlists.filter(item => {
-        const statusMatches = watchlistStatusFilter === 'all' || item.status.toLowerCase() === watchlistStatusFilter
-        if (!statusMatches) return false
-        if (!normalizedWatchlistQuery) return true
-        return watchlistSearchText(item, organization).includes(normalizedWatchlistQuery)
-    })
+    const visibleWatchlists = filterRowsByQueryAndStatus(watchlists, watchlistStatusFilter, normalizedWatchlistQuery, item => item.status, item => watchlistSearchText(item, organization))
     const filtersActive = Boolean(watchlistQuery.trim()) || watchlistStatusFilter !== 'all'
     return (
         <section id='watchlists' className='rounded-lg border border-ui-border bg-ui-panel p-4 shadow-sm dark:border-ui-border dark:bg-ui-panel'>

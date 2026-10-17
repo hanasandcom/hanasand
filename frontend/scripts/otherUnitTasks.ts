@@ -10,6 +10,7 @@ export const otherUnitTasks: TestTask[] = [
     { id: 'system-container-action-group', title: 'System container action presentation', command: [bun, 'test', 'tests/system-container-action-group.test.tsx'] },
     { id: 'system-expired-session-path', title: 'System session expiry return paths', command: [bun, 'test', 'tests/system-expired-session-path.test.ts'] },
     { id: 'organization-filter-strip', title: 'Organization member and invite filter presentation', command: [bun, 'test', 'tests/organization-filter-strip.test.tsx'] },
+    { id: 'organization-row-filtering', title: 'Organization row query and status filtering', command: [bun, 'test', 'tests/organization-row-filtering.test.ts'] },
     { id: 'organization-selectable-subject-row', title: 'Organization selectable subject row presentation', command: [bun, 'test', 'tests/organization-selectable-subject-row.test.tsx'] },
     { id: 'audit-log', title: 'Audit log server rendering', command: [bun, 'test', 'tests/audit-log.test.tsx'] },
     { id: 'audit-acknowledgment-transport', title: 'Audit acknowledgment request contract', command: [bun, 'test', 'tests/audit-acknowledgment.test.ts'] },

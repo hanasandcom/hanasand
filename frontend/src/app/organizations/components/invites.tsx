@@ -11,6 +11,7 @@ import { useState } from 'react'
 import { ChevronDown, Copy, RefreshCw, Trash2, UserPlus } from 'lucide-react'
 import { stopRowSelectionKeys } from '../model/keyboard'
 import { SelectableSubjectRow } from './selectableSubjectRow'
+import { filterRowsByQueryAndStatus } from '../model/filterRows'
 
 export function InvitePanel({ emails, setEmails, role, setRole, invites, members, canManage, busy, rowMessages, selectedSubject, onSelectSubject, onInvite, onInviteAction, onCopyInvite }: { emails: string, setEmails: (value: string) => void, role: OrganizationRole, setRole: (value: OrganizationRole) => void, invites: OrganizationInvite[], members: OrganizationMember[], canManage: boolean, busy: string, rowMessages: Record<string, RowMessage>, selectedSubject: ActivitySubject, onSelectSubject: (subject: ActivitySubject) => void, onInvite: () => void, onInviteAction: (invite: OrganizationInvite, action: 'revoke' | 'resend') => void, onCopyInvite: (invite: OrganizationInvite) => void }) {
     const [inviteQuery, setInviteQuery] = useState('')
@@ -21,12 +22,7 @@ export function InvitePanel({ emails, setEmails, role, setRole, invites, members
     const canSendInvite = canManage && parsedEmails.length > 0 && invalidEmails.length === 0 && inviteConflicts.length === 0 && !busy
     const busyLabel = inviteBusyLabel(busy)
     const normalizedInviteQuery = inviteQuery.trim().toLowerCase()
-    const visibleInvites = invites.filter(invite => {
-        const statusMatches = inviteStatusFilter === 'all' || invite.status.toLowerCase() === inviteStatusFilter
-        if (!statusMatches) return false
-        if (!normalizedInviteQuery) return true
-        return inviteSearchText(invite).includes(normalizedInviteQuery)
-    })
+    const visibleInvites = filterRowsByQueryAndStatus(invites, inviteStatusFilter, normalizedInviteQuery, invite => invite.status, inviteSearchText)
     const inviteFiltersActive = Boolean(inviteQuery.trim()) || inviteStatusFilter !== 'all'
     const inviteCounts = inviteStatusCounts(invites)
     const inviteRoleCounts = inviteRoleStatusCounts(invites)
