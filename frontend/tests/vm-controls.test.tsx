@@ -29,9 +29,9 @@ test('VM actions encode instance names and preserve plain-text API failures', as
         }
 
         assert.equal(await manageVM('folder/test vm', 'start'), 'VM host is temporarily unavailable')
-        assert.match(request?.url || '', /\/vm\/folder%2Ftest%20vm\/start$/)
-        assert.equal(request?.authorization, 'Bearer playwright-token')
-        assert.equal(request?.id, 'playwright-user')
+        assert.match(request?.url || '', /^\/api\/backend\/vm\/folder%2Ftest%20vm\/start$/)
+        assert.equal(request?.authorization, '')
+        assert.equal(request?.id, '')
     } finally {
         globalThis.fetch = originalFetch
         Reflect.deleteProperty(globalThis, 'document')
