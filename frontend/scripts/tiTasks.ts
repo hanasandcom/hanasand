@@ -1,6 +1,7 @@
 import { bun, type TestTask } from './testTask'
 
 export const tiTasks: TestTask[] = [
+    { id: 'ti-manual-run-queries', title: 'TI manual collection target selection', command: [bun, 'test', 'tests/ti-manual-run-queries.test.ts'] },
     { id: 'ti-enrichment-status-pill', title: 'TI status pill rendered class contracts', command: [bun, 'test', 'tests/ti-enrichment-status-pill.test.tsx'] },
     { id: 'ti-selected-panel-header', title: 'TI selected panel shared header markup', command: [bun, 'test', 'tests/ti-selected-panel-header.test.tsx'] },
     { id: 'ti-selected-watch-terms', title: 'TI selected watch term rendering', command: [bun, 'test', 'tests/ti-selected-watch-terms.test.tsx'] },

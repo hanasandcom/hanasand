@@ -16,6 +16,7 @@ import { SystemOverviewControls } from './client/SystemOverviewControls'
 import { SystemTriage } from './client/SystemTriage'
 import { useContainerLogs } from './hooks/useContainerLogs'
 import { useSystemTelemetry } from './hooks/useSystemTelemetry'
+import { systemExpiredSessionPath } from './systemRoutes'
 import type { SystemDashboardProps, SystemSummary } from './client/types'
 import { formatLoad } from './client/presentation'
 
@@ -61,7 +62,7 @@ export default function SystemDashboard({ id, token, systemTelemetry, dockerTele
         setStopAllVmsOpen(false)
         const cookieToken = getCookie('access_token')
         const cookieId = getCookie('id')
-        if (!cookieToken || !cookieId) return router.push('/logout?path=/login%3Fpath%3D/system%26expired=true')
+        if (!cookieToken || !cookieId) return router.push(systemExpiredSessionPath())
         const response = await stopAllVms(cookieToken, cookieId)
         setMessage(response.message)
     }

@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { systemExpiredSessionPath } from '../systemRoutes'
 import config from '@/config'
 import { DashboardPage } from '@/components/dashboard/ui'
 import RateLimitsPageClient from './pageClient'
@@ -10,7 +11,7 @@ export default async function RateLimitsPage() {
     const token = Cookies.get('access_token')?.value || ''
 
     if (!id || !token) {
-        return redirect('/logout?path=/login%3Fpath%3D/system/rates%26expired=true')
+        return redirect(systemExpiredSessionPath('/system/rates'))
     }
 
     const headers = {

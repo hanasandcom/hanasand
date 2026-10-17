@@ -4,6 +4,7 @@ import { ArrowLeft, ExternalLink } from 'lucide-react'
 import { DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
 import { formatTiDate, getTiAdminOverview, sourceCaptures, sourceRuns } from '@/utils/tiAdmin/ops'
 import ManualRunButton from '../../manualRunButton'
+import { manualRunQueries } from '../../manualRunQueries'
 
 export const dynamic = 'force-dynamic'
 
@@ -39,7 +40,7 @@ export default async function TiSourceDetailPage(props: { params: Promise<{ id: 
         <DashboardPage>
             <header className='flex flex-wrap items-center justify-between gap-3'>
                 <div><h1 className='text-xl font-semibold text-ui-text'>{source.name}</h1><p className='mt-1 text-sm text-ui-muted'>{source.family.replaceAll('_', ' ')}</p></div>
-                <ManualRunButton sourceId={source.id} label='Run now' queries={source.domains.filter(domain => !domain.includes('only'))} />
+                <ManualRunButton sourceId={source.id} label='Run now' queries={manualRunQueries([source])} />
             </header>
             <div className='flex flex-wrap items-center gap-4 text-sm'>
                 <Link href='/ti/sources' className='inline-flex items-center gap-2 text-ui-primary'><ArrowLeft className='h-4 w-4' />Sources</Link>

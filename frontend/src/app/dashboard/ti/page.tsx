@@ -2,6 +2,7 @@ import { DashboardHeader, DashboardPage } from '@/components/dashboard/ui'
 import { getTiEnrichmentOverview } from '@/utils/tiAdmin/enrichment'
 import { getTiAdminOverview } from '@/utils/tiAdmin/ops'
 import ManualRunButton from './manualRunButton'
+import { manualRunQueries } from './manualRunQueries'
 import TiDataAvailability from './ti-data-availability'
 import { ActionItemsPanel, buildActionItems } from './actionItemsPanel'
 import { ActorEnrichmentPanel, RecentEvidencePanel } from './evidenceEnrichmentPanels'
@@ -44,9 +45,7 @@ export default async function TiAdminPage() {
         || sameKey(actor.id) === sameKey(activeActorRun.actor_key)
     )) || actorRows[0]
     const latestDiscovery = enrichment.pipeline?.latestDiscoveries[0]
-    const runQueries = [...new Set(
-        sources.flatMap(source => source.domains).filter(domain => !domain.includes('only'))
-    )]
+    const runQueries = manualRunQueries(sources)
     const actionItems = buildActionItems({
         candidateSources,
         staleSources,

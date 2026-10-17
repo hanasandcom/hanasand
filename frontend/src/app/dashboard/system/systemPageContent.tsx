@@ -3,6 +3,7 @@ import { canViewHostMetrics } from '@/utils/vms/hostAccess'
 import DockerStoragePanel from '@/components/system/dockerStorage'
 import { cookies } from 'next/headers'
 import SystemDashboard from './clientPage'
+import { systemExpiredSessionPath } from './systemRoutes'
 import getSystemSnapshot from '@/utils/vms/fetch/getSystemSnapshot'
 import { redirect } from 'next/navigation'
 import { DashboardHeader, DashboardPage } from '@/components/dashboard/ui'
@@ -21,7 +22,7 @@ export default async function SystemPageContent({ section }: { section: SystemSe
     const token = Cookies.get('access_token')?.value || ''
 
     if (!id || !token) {
-        return redirect('/logout?path=/login%3Fpath%3D/system%26expired=true')
+        return redirect(systemExpiredSessionPath())
     }
 
     if (!await canViewHostMetrics()) return <VmPage />

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import config from '@/config'
 import type { RuntimeLog } from '@/utils/logs/getLogs'
+import { systemExpiredSessionPath } from '../systemRoutes'
 
 export function useContainerLogs(id: string, token: string, containerName?: string) {
     const router = useRouter()
@@ -27,7 +28,7 @@ export function useContainerLogs(id: string, token: string, containerName?: stri
                 cache: 'no-store', headers: { id, Authorization: `Bearer ${token}` }, signal: request.signal,
             })
             if (response.status === 401) {
-                router.push('/logout?path=/login%3Fpath%3D/system%26expired=true')
+                router.push(systemExpiredSessionPath())
                 return
             }
             if (!response.ok) throw new Error(await response.text())

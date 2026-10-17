@@ -3,6 +3,7 @@ import { useRouter } from 'next/navigation'
 import config from '@/config'
 import { normalizeDockerTelemetry, normalizeSystemTelemetry } from '../systemPresentation'
 import { responseErrorMessage } from '../client/presentation'
+import { systemExpiredSessionPath } from '../systemRoutes'
 
 export function useSystemTelemetry({ id, token, systemTelemetry, dockerTelemetry: initialDockerTelemetry, onError }: {
     id: string
@@ -27,7 +28,7 @@ export function useSystemTelemetry({ id, token, systemTelemetry, dockerTelemetry
                 fetch(`${config.url.api}/docker`, { cache: 'no-store', headers: { id, Authorization: `Bearer ${token}` } }),
             ])
             if (metricsResponse.status === 401 || dockerResponse.status === 401) {
-                router.push('/logout?path=/login%3Fpath%3D/system%26expired=true')
+                router.push(systemExpiredSessionPath())
                 return
             }
             if (metricsResponse.ok) {

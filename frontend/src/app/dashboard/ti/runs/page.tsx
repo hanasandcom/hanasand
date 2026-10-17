@@ -5,6 +5,7 @@ import { DashboardHeader, DashboardPage, DashboardPanel } from '@/components/das
 import { getTiAdminOverview, getTiCollectionRunsPage } from '@/utils/tiAdmin/ops'
 import TiDataAvailability from '../ti-data-availability'
 import ManualRunButton from '../manualRunButton'
+import { manualRunQueries } from '../manualRunQueries'
 import { RunActivityPanel } from './RunActivityPanel'
 import { RunAttentionPanel } from './RunAttentionPanel'
 import { RunSummary } from './RunSummary'
@@ -21,7 +22,7 @@ export default async function TiRunsPage(props: { searchParams?: Promise<Record<
         getTiAdminOverview(null, { limit: 50, includeSamples: false, includeCandidates: true }),
     ])
     const { sources } = overview
-    const runQueries = [...new Set(sources.flatMap(source => source.domains).filter(domain => !domain.includes('only')))]
+    const runQueries = manualRunQueries(sources)
     const summary = summarizeCollectionRuns(runs, sources)
 
     return <DashboardPage>

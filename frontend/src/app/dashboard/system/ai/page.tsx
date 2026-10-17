@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { systemExpiredSessionPath } from '../systemRoutes'
 import GPT_Page from './pageClient'
 
 export default async function Page() {
@@ -8,7 +9,7 @@ export default async function Page() {
     const token = Cookies.get('access_token')?.value
 
     if (!id || !token) {
-        return redirect('/logout?path=/login%3Fpath%3D/system/ai%26expired=true')
+        return redirect(systemExpiredSessionPath('/system/ai'))
     }
 
     return <GPT_Page />
