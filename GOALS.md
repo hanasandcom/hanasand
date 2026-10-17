@@ -1026,3 +1026,19 @@ frontend size reduction. TS/JS inventory is about 111,974 LOC under `src`,
 across 82 files, and `components/share` is 8,105 LOC across 97 files. These are
 directory counts, not a complete feature-by-feature attribution. The 10,000–
 30,000 frontend target and broader API goal remain unfinished. No push/deploy.
+
+After `1da2a36cc`, `daf335a20`, `0088926d8`, and `a4c2f3af9`, the frontend cap
+scan covers 2,308 hand-maintained source/config files / 153,054 LOC with zero
+files over 200 lines. The UI remains unchanged: container row/detail actions
+share one presentation component, and findings/rules share a small case-
+insensitive search predicate while retaining their distinct trim behavior. TI
+workbench reference-list merging is local to its adapter and preserves existing
+coercion/order semantics. The stale mail E2E task pointing to a deleted test was
+removed. Seven top-level-assertion files now report named Bun tests; independent
+review confirmed their assertions and cleanup remain active. Focused checks,
+scoped ESLint/typecheck, the full frontend test runner, and production build
+passed; all 116 routes generated. These are quality/coverage improvements, not a
+size reduction: the latest total is 218 LOC above the preceding frontend scan,
+largely from new contract tests. The 10,000–30,000 frontend target and broader
+API reduction remain unmet; the current evidence does not support that target
+without feature loss. No push/deploy was performed.
