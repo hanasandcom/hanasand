@@ -1,5 +1,5 @@
 import { expect, mock, test } from 'bun:test'
-import { internalHostAuthorizationCandidates, internalHostWebSocketTarget, pinnedHostLookup, supportedVmHostPath } from '../src/utils/vms/hostTransport.ts'
+import { internalHostAuthorizationCandidates, internalHostRequestHeaders, internalHostWebSocketTarget, pinnedHostLookup, supportedVmHostPath } from '../src/utils/vms/hostTransport.ts'
 
 test('internal host auth preserves the current token and provides a distinct rotation-overlap fallback', () => {
     expect(internalHostAuthorizationCandidates('current token', 'previous token')).toEqual([
@@ -8,6 +8,14 @@ test('internal host auth preserves the current token and provides a distinct rot
     ])
     expect(internalHostAuthorizationCandidates('same token', 'same token')).toEqual(['Bearer same%20token'])
     expect(internalHostAuthorizationCandidates(undefined, 'previous token')).toEqual(['Bearer previous%20token'])
+})
+
+test('internal host requests include the OpenResty internal-route user agent', () => {
+    expect(internalHostRequestHeaders({ 'Content-Type': 'application/json' }, 'Bearer token')).toEqual({
+        'content-type': 'application/json',
+        authorization: 'Bearer token',
+        'user-agent': 'hanasand_internal',
+    })
 })
 
 test('pinned host lookup supports single-address and all-address HTTPS lookup contracts', () => {

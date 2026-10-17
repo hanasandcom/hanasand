@@ -25,6 +25,10 @@ export function internalHostAuthorizationCandidates(current?: string, previous?:
         .map(token => 'Bearer ' + encodeURIComponent(token))
 }
 
+export function internalHostRequestHeaders(headers?: HeadersInit, authorization = 'Bearer ') {
+    return { ...Object.fromEntries(new Headers(headers).entries()), authorization, 'user-agent': 'hanasand_internal' }
+}
+
 export function internalHostWebSocketTarget(host: string, path: string) {
     if (!supportedHost(host) || !isInternalConsolePath(path)) throw new Error('Unsupported container host websocket.')
     const authorizations = internalHostAuthorizationCandidates(config.vm_api_token, process.env.VM_API_TOKEN_PREVIOUS)
@@ -41,7 +45,7 @@ export function internalHostWebSocket(host: string, path: string) {
     const agent = new https.Agent({ lookup: pinnedHostLookup(target.address) })
     const socket = new WebSocket(target.url, {
         agent,
-        headers: { authorization: target.authorization },
+        headers: internalHostRequestHeaders(undefined, target.authorization),
         handshakeTimeout: 10000,
     })
     socket.once('close', () => agent.destroy())
@@ -65,7 +69,7 @@ export async function internalHostFetch(host: string, path: string, options: Req
 
 function requestPinnedHost(url: URL, address: string, options: RequestInit, headers: Record<string, string>, authorization: string) {
     return new Promise<Response>((resolve, reject) => {
-        const requestHeaders = { ...headers, authorization }
+        const requestHeaders = internalHostRequestHeaders(headers, authorization)
         const req = https.request(url, {
             method: options.method || 'GET', headers: requestHeaders, timeout: 120000,
             lookup: pinnedHostLookup(address),
