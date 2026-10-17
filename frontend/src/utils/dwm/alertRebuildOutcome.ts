@@ -1,3 +1,5 @@
+import { isRecord } from '../isRecord'
+
 export type AlertRebuildOutcome = Record<string, unknown> & {
     ok: boolean
     message: string
@@ -28,8 +30,4 @@ export function normalizeAlertRebuildOutcome(value: Record<string, unknown>): Al
                     ? 'Watchlist matched against collected evidence.'
                     : 'No persisted alert matched the saved watchlist.',
     }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 }

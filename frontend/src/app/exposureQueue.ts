@@ -1,3 +1,5 @@
+import { isRecord } from '@/utils/isRecord'
+
 export type ExposureQueueItem = {
     id: string
     actor: string
@@ -147,8 +149,4 @@ export function formatClaimTime(value?: string | null) {
     const minute = String(date.getUTCMinutes()).padStart(2, '0')
     const suffix = hour24 >= 12 ? 'PM' : 'AM'
     return `${month} ${date.getUTCDate()}, ${hour}:${minute} ${suffix} UTC`
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 }

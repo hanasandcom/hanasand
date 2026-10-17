@@ -1,3 +1,5 @@
+import { isRecord } from '../isRecord'
+
 export type ProductDeployProofLedger = {
     schemaVersion: 'product.deploy_proof_ledger.v1'
     generatedAt?: string
@@ -65,9 +67,6 @@ export function parseProductDeployProofLedger(input: unknown): ProductDeployProo
     return hasProof ? ledger : undefined
 }
 
-function isRecord(input: unknown): input is Record<string, unknown> {
-    return Boolean(input && typeof input === 'object' && !Array.isArray(input))
-}
 
 function stringOrUndefined(input: unknown) {
     return typeof input === 'string' && input.trim() ? input.trim() : undefined

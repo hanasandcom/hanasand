@@ -1,5 +1,7 @@
 import { formatClaimSummary } from '@/utils/dwm/display'
 import type { DwmSourceFamily } from '@/utils/dwm/product'
+import { isRecord } from '@/utils/isRecord'
+export { isRecord }
 
 export function durableDeliveryRows(payload: Record<string, unknown>) {
     const deliveries = Array.isArray(payload.deliveries) ? payload.deliveries : []
@@ -56,10 +58,6 @@ export function readNestedString(value: unknown, path: string[]) {
 
 export function readString(value: unknown) {
     return typeof value === 'string' ? value : ''
-}
-
-export function isRecord(value: unknown): value is Record<string, unknown> {
-    return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 }
 
 export function readNumber(value: unknown, key: string) {

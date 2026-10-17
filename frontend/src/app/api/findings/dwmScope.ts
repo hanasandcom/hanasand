@@ -1,3 +1,5 @@
+import { isRecord } from '@/utils/isRecord'
+
 type DwmRequestScope = {
     tenantId: string
     organizationId?: string
@@ -64,8 +66,4 @@ function clean(value: unknown) {
 
 function nestedScopeRecords(body: Record<string, unknown> | undefined) {
     return Array.isArray(body?.items) ? body.items.filter(isRecord) : []
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 }
