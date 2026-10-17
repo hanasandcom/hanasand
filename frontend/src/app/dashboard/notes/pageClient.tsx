@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Check, ChartNoAxesColumnIncreasing, Clock3, FileText, StickyNote, Trash2 } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Check, Trash2 } from 'lucide-react'
 import { createNote, deleteNote, fetchNotes, updateNote } from '@/utils/notes/client'
 import { DashboardPanel } from '@/components/dashboard/ui'
 import { formatNoteDate, NotesSidebar } from './NotesSidebar'
-import NotesPanelIconButton from './NotesPanelIconButton'
+import { NotesAnalyticsPanel } from './NotesAnalyticsPanel'
+import { resolveSelectedNote, saveNoteDraft } from './notesModel'
 
 const emptyDraft = { title: '', content: '' }
 
@@ -24,7 +25,7 @@ export default function NotesClient() {
         if (!needle) return sortedNotes
         return sortedNotes.filter((note) => `${note.title} ${note.content}`.toLowerCase().includes(needle))
     }, [query, sortedNotes])
-    const selected = useMemo(() => sortedNotes.find((note) => note.id === selectedId) || sortedNotes[0] || null, [sortedNotes, selectedId])
+    const selected = useMemo(() => resolveSelectedNote(sortedNotes, selectedId), [sortedNotes, selectedId])
     const wordCount = draft.content.trim() ? draft.content.trim().split(/\s+/).length : 0
     const lastUpdated = selected ? formatNoteDate(selected.updated_at) : 'New note'
 
@@ -64,9 +65,7 @@ export default function NotesClient() {
 
         setBusy(true)
         try {
-            const saved = selected
-                ? await updateNote(selected.id, draft)
-                : await createNote(draft)
+            const saved = await saveNoteDraft(selected, draft, { create: createNote, update: updateNote })
             setNotes((current) => {
                 const rest = current.filter((note) => note.id !== saved.id)
                 return [saved, ...rest]
@@ -148,46 +147,15 @@ export default function NotesClient() {
                 </div>
             </DashboardPanel>
 
-            <DashboardPanel className={`grid content-start gap-3 border-ui-border bg-ui-panel p-3 ${rightCollapsed ? 'xl:px-2' : ''}`}>
-                {rightCollapsed ? (
-                    <NotesPanelIconButton label='Open note analytics' onClick={() => setRightCollapsed(false)}><ChartNoAxesColumnIncreasing className='h-4 w-4' /></NotesPanelIconButton>
-                ) : (
-                    <>
-                        <div className='flex justify-end'>
-                            <button type='button' onClick={() => setRightCollapsed(true)} aria-label='Close note analytics' title='Close note analytics' className='grid h-8 w-8 place-items-center rounded-md text-ui-muted hover:bg-ui-raised hover:text-ui-text'>
-                                <ChartNoAxesColumnIncreasing className='h-4 w-4' />
-                            </button>
-                        </div>
-                        <SideFact icon={<StickyNote className='h-4 w-4' />} label='Notes' value={String(sortedNotes.length)} />
-                        <SideFact icon={<FileText className='h-4 w-4' />} label='Words' value={String(wordCount)} />
-                        <SideFact icon={<Clock3 className='h-4 w-4' />} label='Updated' value={lastUpdated} />
-                        <div className='rounded-md border border-ui-border bg-ui-raised p-3'>
-                            <p className='text-xs font-semibold text-ui-muted'>Recent</p>
-                            <div className='mt-2 grid gap-2'>
-                                {visibleNotes.slice(0, 4).map((note) => (
-                                    <button key={note.id} type='button' onClick={() => setSelectedId(note.id)} className='text-left'>
-                                        <p className='truncate text-sm font-semibold text-ui-text'>{note.title || 'Untitled'}</p>
-                                        <p className='truncate text-xs text-ui-muted'>{formatNoteDate(note.updated_at)}</p>
-                                    </button>
-                                ))}
-                                {Boolean(sortedNotes.length && !visibleNotes.length) && <p className='text-sm text-ui-muted'>Search has no matches.</p>}
-                            </div>
-                        </div>
-                    </>
-                )}
-            </DashboardPanel>
-        </div>
-    )
-}
-
-function SideFact({ icon, label, value }: { icon: ReactNode, label: string, value: string }) {
-    return (
-        <div className='rounded-md border border-ui-border bg-ui-raised p-3'>
-            <div className='flex items-center gap-2 text-ui-muted'>
-                {icon}
-                <span className='text-xs font-semibold'>{label}</span>
-            </div>
-            <p className='mt-1 truncate text-sm font-semibold text-ui-text'>{value}</p>
+            <NotesAnalyticsPanel
+                collapsed={rightCollapsed}
+                noteCount={sortedNotes.length}
+                wordCount={wordCount}
+                lastUpdated={lastUpdated}
+                recentNotes={visibleNotes}
+                onCollapse={setRightCollapsed}
+                onSelectNote={setSelectedId}
+            />
         </div>
     )
 }

@@ -2828,3 +2828,18 @@ with zero above 200, including unrelated uncommitted work. This remains 2,740
 lines above the 153,708 baseline; the 10,000–30,000 frontend reduction target
 is unmet. Some interactive browser/accessibility specs were not run; see the
 specific feature checkpoints above for those limits.
+
+At the 2026-10-17 frontend component pass, the account dropdown and dashboard
+notes analytics panel were extracted into focused components without changing
+their markup, labels, interactions, or data flow. The notes review also found
+and fixed a real New note bug: an empty selection had fallen back to the first
+note, so Save could overwrite it. The empty selection now creates a note, and
+deletion leaves the composer empty; stale nonempty IDs still recover to the
+first note after refresh. Independent review approved both component
+extractions and the notes behavior fix. Two focused notes tests, scoped ESLint,
+nonincremental TypeScript, `git diff --check`, and the full frontend line-cap
+check pass. The latest frontend scan is 2,429 source/config files / 156,530
+working-tree lines, with no file above 200; it includes separate uncommitted TI
+and API work. This is 2,822 lines above the 153,708 baseline. The component
+boundaries add lines for readability, so this pass does not materially reduce
+the frontend total; the 10,000–30,000 line target remains unmet.
