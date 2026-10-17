@@ -1,275 +1,27 @@
-import assert from 'node:assert/strict'
-import { checkStatusFeed } from './status-feed.mjs'
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, readFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { dirname } from 'node:path'
 import { performance } from 'node:perf_hooks'
-
-const baseUrl = trimSlash(process.env.HANASAND_DB_MONITOR_BASE_URL || 'https://hanasand.com')
-const dashboardPath = (process.env.HANASAND_DB_MONITOR_PATH || '/db').replace(/^\/dashboard(?=\/)/, '')
-const serviceKey = process.env.HANASAND_DB_MONITOR_SERVICE_ACCOUNT_KEY || ''
-const apiBaseUrl = trimSlash(process.env.HANASAND_DB_MONITOR_API_BASE_URL || 'https://api.hanasand.com/api')
-const discordMention = process.env.HANASAND_DB_MONITOR_DISCORD_MENTION || '@here'
-const statePath = process.env.HANASAND_DB_MONITOR_STATE || '/home/hanasand/hanasand/ops/monitoring-state/db-dashboard-monitor.json'
-const failureScreenshotPath = process.env.HANASAND_DB_MONITOR_SCREENSHOT || '/home/hanasand/hanasand/ops/monitoring-state/db-dashboard-monitor-failure.png'
-const cdnBaseUrl = trimSlash(process.env.HANASAND_DB_MONITOR_CDN_BASE_URL || 'https://cdn.hanasand.com/api')
-const cdnUploadFolder = trimSlashes(process.env.HANASAND_DB_MONITOR_CDN_FOLDER || 'monitor/db-dashboard')
-const cdnUploadUser = process.env.HANASAND_DB_MONITOR_CDN_USER || ''
-const cdnUploadToken = process.env.HANASAND_DB_MONITOR_CDN_TOKEN || ''
-const timeoutMs = Number(process.env.HANASAND_DB_MONITOR_TIMEOUT_MS || 30_000)
-const failureThreshold = Math.max(Number(process.env.HANASAND_DB_MONITOR_FAILURE_THRESHOLD || 2), 1)
-const backupStatusPath = process.env.HANASAND_TI_BACKUP_STATUS || '/home/hanasand/backups/threat-intel/LATEST-STATUS'
-const backupStatePath = process.env.HANASAND_TI_BACKUP_MONITOR_STATE || '/home/hanasand/hanasand/ops/monitoring-state/threat-intel-backup.json'
-const backupMaxAgeHours = Math.max(Number(process.env.HANASAND_TI_BACKUP_MAX_AGE_HOURS || 30), 1)
-const statusIngestBaseUrl = trimSlash(process.env.HANASAND_STATUS_INGEST_BASE_URL || 'https://api.hanasand.com')
-const statusIngestToken = process.env.HANASAND_STATUS_INGEST_TOKEN || ''
-const now = new Date()
-let serviceAccountId = ''
+import { checkStatusFeed } from './status-feed.mjs'
+import { evaluateThreatIntelBackupStatus } from './backup-status.mjs'
+import { evaluateDashboardText } from './dashboard-signals.mjs'
+import {
+    apiBaseUrl, backupMaxAgeHours, backupStatePath, backupStatusPath,
+    baseUrl, dashboardPath, failureScreenshotPath, serviceKey,
+    statusFeedStatePath, timeoutMs, now,
+} from './monitor-config.mjs'
+import { MonitorFailure, normalizeFailure } from './monitor-errors.mjs'
+import { handleResult } from './monitor-reporting.mjs'
+import { authenticateServiceAccount } from './service-account-auth.mjs'
+import { runSelfTest } from './monitor-self-test.mjs'
 
 async function loadPlaywright() {
     try {
         return await import('playwright')
     } catch {
-        // The monitor is deployed beside the frontend, whose dependency tree
-        // already contains Playwright. Reuse it instead of creating a second
-        // dependency installation for this small host-side check.
+        // Reuse the frontend's Playwright installation for this host-side check.
         const requireFromFrontend = createRequire(new URL('../../frontend/package.json', import.meta.url))
         return requireFromFrontend('playwright')
-    }
-}
-
-class MonitorFailure extends Error {
-    constructor(reason, message, metrics) {
-        super(message)
-        this.reason = reason
-        this.metrics = metrics
-    }
-}
-
-if (process.argv.includes('--self-test')) {
-    runSelfTest()
-    process.exit(0)
-}
-
-await handleResult(await checkStatusFeed(`${baseUrl}/api/status`), {
-    statePath: process.env.HANASAND_STATUS_FEED_MONITOR_STATE || '/home/hanasand/hanasand/ops/monitoring-state/status-feed-monitor.json',
-    service: 'production-monitor', checkName: 'Public status feed', title: 'Public status monitoring', noScreenshot: true,
-})
-
-await monitorThreatIntelBackup()
-
-if (!serviceKey) {
-    await handleResult({
-        ok: false,
-        reason: 'missing_credentials',
-        detail: 'HANASAND_DB_MONITOR_SERVICE_ACCOUNT_KEY is required.',
-        latencyMs: 0,
-        metrics: {},
-    })
-    process.exit(2)
-}
-
-const started = performance.now()
-let browser
-
-try {
-    const { chromium } = await loadPlaywright()
-    browser = await chromium.launch({ headless: true })
-    const context = await browser.newContext({
-        viewport: { width: 1280, height: 760 },
-        ignoreHTTPSErrors: false,
-    })
-    const page = await context.newPage()
-    page.setDefaultTimeout(timeoutMs)
-
-    const identityResponse = await fetch(`${apiBaseUrl}/service-accounts/self`, {
-        headers: { 'X-API-Key': serviceKey }, signal: AbortSignal.timeout(timeoutMs),
-    })
-    if (!identityResponse.ok) throw new MonitorFailure('service_account_auth_failed', `Service account authentication returned ${identityResponse.status}.`, {})
-    const identity = await identityResponse.json()
-    if (typeof identity.id !== 'string' || !identity.pages?.includes('/db')) throw new MonitorFailure('service_account_scope_missing', 'The service account needs GET /api/service-accounts/self and GET /api/db.', {})
-    serviceAccountId = identity.id
-    await context.addCookies([
-        { name: 'id', value: identity.id, url: baseUrl, httpOnly: true, secure: true, sameSite: 'Strict' },
-        { name: 'access_token', value: serviceKey, url: baseUrl, httpOnly: true, secure: true, sameSite: 'Strict' },
-    ])
-
-    await page.goto(`${baseUrl}${dashboardPath}`, { waitUntil: 'domcontentloaded', timeout: timeoutMs })
-    await page.locator('[data-db-monitor-metrics]:visible').waitFor({ state: 'visible', timeout: timeoutMs })
-
-    const bodyText = await page.locator('body').innerText({ timeout: timeoutMs })
-    const inventory = await page.locator('[data-db-monitor-metrics]').evaluate(element => ({
-        clusters: element.getAttribute('data-clusters'),
-        databases: element.getAttribute('data-databases'),
-        storageBytes: element.getAttribute('data-storage-bytes'),
-    }))
-    const signal = evaluateDashboardText(bodyText, inventory)
-    if (!signal.ok) {
-        throw new MonitorFailure(signal.reason, signal.detail, signal.metrics)
-    }
-
-    await handleResult({
-        ok: true,
-        reason: 'db_dashboard_ok',
-        detail: signal.detail,
-        latencyMs: Math.round(performance.now() - started),
-        metrics: signal.metrics,
-    })
-} catch (error) {
-    const failure = normalizeFailure(error)
-    if (!failure.reason.startsWith('ti_backup_')) {
-        try {
-            const pages = browser?.contexts()?.flatMap(context => context.pages()) || []
-            const page = pages[pages.length - 1]
-            if (page) {
-                await mkdir(dirname(failureScreenshotPath), { recursive: true })
-                await page.screenshot({ path: failureScreenshotPath, fullPage: true }).catch(() => {})
-            }
-        } catch {
-            // Best-effort failure evidence only.
-        }
-    }
-
-    await handleResult({
-        ok: false,
-        reason: failure.reason,
-        detail: failure.detail,
-        latencyMs: Math.round(performance.now() - started),
-        metrics: failure.metrics,
-    })
-    process.exit(1)
-} finally {
-    await browser?.close().catch(() => {})
-}
-
-export function evaluateDashboardText(text, inventory = {}) {
-    const lines = linesFromText(text)
-    const fullText = lines.join('\n')
-    const unavailablePattern = /Database telemetry is reconnecting|Database metrics unavailable|Query telemetry unavailable|Inventory stream retrying|Cluster stream retrying|Missing system_admin|Unauthorized/i
-    const unavailableMatch = fullText.match(unavailablePattern)
-    const metrics = {
-        clusters: inventory.clusters == null ? parseIntegerMetric(lines, 'Clusters') : Number(inventory.clusters),
-        databases: inventory.databases == null ? parseIntegerMetric(lines, 'DBs') ?? parseIntegerMetric(lines, 'Databases') : Number(inventory.databases),
-        storageBytes: inventory.storageBytes == null ? parseStorageMetric(lines, 'Storage') : Number(inventory.storageBytes),
-        activeQueries: parseIntegerMetric(lines, 'Active queries'),
-        longRunning: parseIntegerMetric(lines, 'Long-running'),
-    }
-
-    if (unavailableMatch) {
-        return {
-            ok: false,
-            reason: 'db_dashboard_unavailable',
-            detail: `Database dashboard showed unavailable state: ${unavailableMatch[0]}.`,
-            metrics,
-        }
-    }
-
-    if (metrics.clusters === null || metrics.clusters < 1) {
-        return {
-            ok: false,
-            reason: 'db_dashboard_missing_clusters',
-            detail: 'Database dashboard did not show at least one PostgreSQL cluster.',
-            metrics,
-        }
-    }
-
-    if (metrics.databases === null || metrics.databases < 1) {
-        return {
-            ok: false,
-            reason: 'db_dashboard_missing_databases',
-            detail: 'Database dashboard did not show at least one database.',
-            metrics,
-        }
-    }
-
-    if (metrics.storageBytes === null || metrics.storageBytes <= 0) {
-        return {
-            ok: false,
-            reason: 'db_dashboard_missing_storage',
-            detail: 'Database dashboard did not show non-zero PostgreSQL storage.',
-            metrics,
-        }
-    }
-
-    if (!/Long-running query state|No long-running queries right now|Long-running|Longest running query/i.test(fullText)) {
-        return {
-            ok: false,
-            reason: 'db_dashboard_missing_query_state',
-            detail: 'Database dashboard did not show an explicit long-running query state.',
-            metrics,
-        }
-    }
-
-    return {
-        ok: true,
-        reason: 'db_dashboard_ok',
-        detail: `Database dashboard live: ${metrics.clusters} cluster(s), ${metrics.databases} database(s), ${formatBytes(metrics.storageBytes)} storage.`,
-        metrics,
-    }
-}
-
-export function evaluateThreatIntelBackupStatus(text, checkedAt = new Date(), maxAgeHours = 30) {
-    if (!String(text || '').trim()) {
-        return {
-            ok: false,
-            reason: 'ti_backup_missing',
-            detail: `Threat-intelligence backup status is missing at ${backupStatusPath}.`,
-            status: 'missing',
-            finishedAt: null,
-        }
-    }
-    const fields = Object.fromEntries(String(text).trim().split(/\r?\n/).map(line => line.trim()).map(line => {
-        const separator = line.indexOf('=')
-        return separator > 0 ? [line.slice(0, separator), line.slice(separator + 1)] : ['', '']
-    }).filter(([key]) => key))
-    const finishedAt = fields.finished_at || null
-    const finishedMs = Date.parse(finishedAt || '')
-    if (
-        fields.format !== 'hanasand.threat_intel_backup_status.v2'
-        || !Number.isFinite(finishedMs)
-    ) {
-        return {
-            ok: false,
-            reason: 'ti_backup_invalid',
-            detail: 'Threat-intelligence backup status is incomplete or malformed.',
-            status: fields.status || 'invalid',
-            finishedAt,
-        }
-    }
-    if (fields.status !== 'succeeded' || fields.exit_code !== '0' || fields.phase !== 'complete') {
-        return {
-            ok: false,
-            reason: 'ti_backup_failed',
-            detail: `Threat-intelligence backup failed in ${fields.phase || 'unknown'} (${fields.reason || 'unknown'}, exit ${fields.exit_code || 'unknown'}).`,
-            status: fields.status || 'failed',
-            finishedAt,
-        }
-    }
-    if (!fields.archive) {
-        return {
-            ok: false,
-            reason: 'ti_backup_invalid',
-            detail: 'Threat-intelligence backup status is incomplete or malformed.',
-            status: fields.status,
-            finishedAt,
-        }
-    }
-    const ageHours = (checkedAt.getTime() - finishedMs) / 3_600_000
-    if (ageHours < -5 / 60 || ageHours > maxAgeHours) {
-        return {
-            ok: false,
-            reason: 'ti_backup_stale',
-            detail: `Threat-intelligence backup last succeeded ${finishedAt}; expected within ${maxAgeHours} hours.`,
-            status: fields.status,
-            finishedAt,
-        }
-    }
-    return {
-        ok: true,
-        reason: 'ti_backup_ok',
-        detail: `Threat-intelligence backup completed ${finishedAt}.`,
-        status: fields.status,
-        finishedAt,
     }
 }
 
@@ -285,10 +37,7 @@ async function monitorThreatIntelBackup() {
         reason: backup.reason,
         detail: backup.detail,
         latencyMs: Math.round(performance.now() - started),
-        metrics: {
-            backupStatus: backup.status,
-            backupFinishedAt: backup.finishedAt,
-        },
+        metrics: { backupStatus: backup.status, backupFinishedAt: backup.finishedAt },
     }, {
         statePath: backupStatePath,
         service: 'threat-intelligence',
@@ -296,412 +45,92 @@ async function monitorThreatIntelBackup() {
     })
 }
 
-async function handleResult(result, options = {}) {
-    const resultStatePath = options.statePath || statePath
-    const service = options.service || 'database'
-    const checkName = options.checkName || 'Database dashboard'
-    const previous = await readState(resultStatePath)
-    const alertErrors = []
-    const backupFailure = String(result.reason || '').startsWith('ti_backup_')
-    const next = {
-        ...result,
-        checkedAt: now.toISOString(),
-        baseUrl,
-        dashboardPath,
-        serviceAccountId,
-        failureScreenshotPath: result.ok ? undefined : failureScreenshotPath,
-        failureScreenshotUrl: result.failureScreenshotUrl,
-        lastAlertAt: previous.lastAlertAt || null,
-        failureCount: result.ok ? 0 : Number(previous.failureCount || 0) + 1,
-        failureThreshold,
-        alertErrors,
-    }
-    if (!result.ok && !backupFailure && !options.noScreenshot && next.failureCount === failureThreshold) {
-        next.failureScreenshotUrl = await uploadFailureScreenshot().catch(error => {
-            alertErrors.push(error instanceof Error ? error.message : String(error))
-            return ''
+async function runMonitor() {
+    await handleResult(await checkStatusFeed(`${baseUrl}/api/status`), {
+        statePath: statusFeedStatePath,
+        service: 'production-monitor',
+        checkName: 'Public status feed',
+        title: 'Public status monitoring',
+        noScreenshot: true,
+    })
+    await monitorThreatIntelBackup()
+
+    if (!serviceKey) {
+        await handleResult({
+            ok: false,
+            reason: 'missing_credentials',
+            detail: 'HANASAND_DB_MONITOR_SERVICE_ACCOUNT_KEY is required.',
+            latencyMs: 0,
+            metrics: {},
         })
+        process.exit(2)
     }
-    await sendStatusIngest(service, checkName, {
-        ...result,
-        detail: next.failureScreenshotUrl ? `${result.detail} Evidence: ${next.failureScreenshotUrl}` : result.detail,
-    }).catch(error => { alertErrors.push(error instanceof Error ? error.message : String(error)) })
-    await writeState(next, resultStatePath)
-    console.log(JSON.stringify(next))
+
+    await monitorDashboard()
 }
 
-async function sendStatusIngest(service, checkName, result) {
-    if (!statusIngestToken) {
-        throw new Error('HANASAND_STATUS_INGEST_TOKEN is required to persist monitor results and update cases')
-    }
-    const response = await fetch(`${statusIngestBaseUrl}/api/status/ingest`, {
-        method: 'POST',
-        signal: AbortSignal.timeout(timeoutMs),
-        headers: {
-            Authorization: `Bearer ${statusIngestToken}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            service,
-            check_name: checkName,
-            status: result.ok ? 'up' : 'down',
-            latency_ms: result.latencyMs,
-            message: result.detail,
-        }),
-    })
-    if (!response.ok) {
-        const body = await response.text().catch(() => '')
-        throw new Error(`Status ingest failed ${response.status}: ${truncate(body, 240)}`)
-    }
-}
-
-async function uploadFailureScreenshot() {
-    const image = await readFile(failureScreenshotPath)
-    if (!image.length) return ''
-    const timestamp = now.toISOString().replace(/[-:.]/g, '').replace('T', '-').replace('Z', 'Z')
-    const path = `${cdnUploadFolder}/db-dashboard-monitor-failure-${timestamp}.png`
-    const form = new FormData()
-    form.set('name', `db-dashboard-monitor-failure-${timestamp}.png`)
-    form.set('description', 'Database dashboard monitor failure screenshot')
-    form.set('path', path)
-    form.set('type', 'image/png')
-    form.set('file', new Blob([image], { type: 'image/png' }), `db-dashboard-monitor-failure-${timestamp}.png`)
-    const headers = cdnUploadUser && cdnUploadToken
-        ? { Authorization: `Bearer ${cdnUploadToken}`, id: cdnUploadUser }
-        : undefined
-    const response = await fetch(`${cdnBaseUrl}/files`, {
-        method: 'POST',
-        headers,
-        body: form,
-    })
-    if (!response.ok) {
-        const body = await response.text().catch(() => '')
-        throw new Error(`CDN screenshot upload failed ${response.status}: ${truncate(body, 240)}`)
-    }
-    return `${cdnBaseUrl}/files/path/${encodeURIComponent(path)}`
-}
-
-function buildDiscordPayload({ status, color, title, description, fields }) {
-    const fieldMap = new Map((fields || []).map(field => [field.name, field.value]))
-    const cause = fieldMap.get('Cause') || fieldMap.get('What failed') || reasonLabel(status)
-    const action = fieldMap.get('Action') || fieldMap.get('Operator action') || 'Open the monitor evidence and rerun the check.'
-    const evidence = fieldMap.get('Evidence') || fieldMap.get('URL') || `${baseUrl}${dashboardPath}`
-    const screenshotUrl = fieldMap.get('Screenshot') || ''
-    const impact = truncate(cleanSentence(description), 82)
-    const actionText = truncate(cleanSentence(action), 56)
-    const conciseContent = status === 'DOWN'
-        ? `${discordMention} ${title}. ${impact} Next: ${actionText}.${screenshotUrl ? `\n${screenshotUrl}` : ''}`
-        : undefined
-
-    return {
-        content: conciseContent,
-        embeds: [{
-            title,
-            description: truncate(description, 500),
-            color,
-            timestamp: now.toISOString(),
-            fields: [
-                { name: 'Cause', value: truncate(cause, 220), inline: true },
-                { name: 'Impact', value: truncate(description, 300), inline: false },
-                { name: 'Action', value: truncate(action, 260), inline: false },
-                { name: 'Evidence', value: truncate(evidence, 260), inline: false },
-                ...(fields || []).filter(field => !['Cause', 'What failed', 'Action', 'Operator action', 'Evidence', 'URL', 'Screenshot'].includes(field.name)),
-            ],
-        }],
-    }
-}
-
-function resultFields(result) {
-    const metrics = result.metrics || {}
-    const screenshot = result.failureScreenshotUrl || failureScreenshotPath
-    const backupFailure = String(result.reason || '').startsWith('ti_backup_')
-    return [
-        { name: 'Cause', value: reasonLabel(result.reason), inline: true },
-        { name: 'Action', value: operatorAction(result.reason), inline: false },
-        {
-            name: 'Evidence',
-            value: backupFailure
-                ? `${backupStatusPath}\n/home/hanasand/hanasand/ops/monitoring-state/threat-intel-backup.log`
-                : result.ok ? `${baseUrl}${dashboardPath}` : `${baseUrl}${dashboardPath}\nScreenshot: ${screenshot}`,
-            inline: false,
-        },
-        ...(result.ok || !result.failureScreenshotUrl ? [] : [{ name: 'Screenshot', value: result.failureScreenshotUrl, inline: false }]),
-        { name: 'Clusters', value: String(metrics.clusters ?? 'unknown'), inline: true },
-        { name: 'Databases', value: String(metrics.databases ?? 'unknown'), inline: true },
-        { name: 'Storage', value: metrics.storageBytes ? formatBytes(metrics.storageBytes) : 'unknown', inline: true },
-        ...(metrics.backupStatus ? [{ name: 'TI backup', value: `${metrics.backupStatus}${metrics.backupFinishedAt ? ` · ${metrics.backupFinishedAt}` : ''}`, inline: true }] : []),
-        { name: 'Latency', value: `${result.latencyMs}ms`, inline: true },
-        { name: 'Service account', value: serviceAccountId || 'Database UI monitor', inline: true },
-    ]
-}
-
-function reasonLabel(reason) {
-    return String(reason || 'monitor failure')
-        .replace(/^db_dashboard_/, '')
-        .replace(/^ti_backup_/, 'TI backup ')
-        .replace(/_/g, ' ')
-}
-
-function failureImpact(reason) {
-    if (reason === 'ti_backup_missing') return 'No threat-intelligence backup result is available.'
-    if (reason === 'ti_backup_invalid') return 'The threat-intelligence backup result cannot be trusted.'
-    if (reason === 'ti_backup_failed') return 'The latest threat-intelligence backup failed.'
-    if (reason === 'ti_backup_stale') return 'No recent successful threat-intelligence backup is available.'
-    if (reason === 'missing_credentials') return 'The monitor cannot sign in because credentials are not configured.'
-    if (reason === 'db_dashboard_unavailable') return 'The dashboard rendered an unavailable or reconnecting telemetry state.'
-    if (reason === 'db_dashboard_missing_clusters') return 'The dashboard did not show a PostgreSQL cluster.'
-    if (reason === 'db_dashboard_missing_databases') return 'The dashboard did not show a database.'
-    if (reason === 'db_dashboard_missing_storage') return 'The dashboard did not show non-zero storage telemetry.'
-    if (reason === 'db_dashboard_missing_query_state') return 'The dashboard did not show query-health state.'
-    return 'The monitor could not verify the database dashboard.'
-}
-
-function operatorAction(reason) {
-    if (String(reason || '').startsWith('ti_backup_')) return 'Open LATEST-STATUS and the threat-intelligence backup log, repair the failure, then rerun the backup.'
-    if (reason === 'missing_credentials') return 'Restore HANASAND_DB_MONITOR_SERVICE_ACCOUNT_KEY, then run the monitor once.'
-    if (reason === 'db_dashboard_unavailable') return 'Check API auth, PostgreSQL telemetry views, and the dashboard screenshot.'
-    if (reason === 'db_dashboard_missing_clusters' || reason === 'db_dashboard_missing_databases' || reason === 'db_dashboard_missing_storage') return 'Check the database telemetry collector and dashboard API response.'
-    if (reason === 'db_dashboard_missing_query_state') return 'Check the query telemetry block and dashboard render.'
-    return 'Open the failure screenshot and rerun the monitor after the dependency is fixed.'
-}
-
-async function readState(path = statePath) {
+async function monitorDashboard() {
+    const started = performance.now()
+    let browser
+    let serviceAccountId = ''
     try {
-        return JSON.parse(await readFile(path, 'utf8'))
-    } catch {
-        return {}
+        const { chromium } = await loadPlaywright()
+        browser = await chromium.launch({ headless: true })
+        const context = await browser.newContext({ viewport: { width: 1280, height: 760 }, ignoreHTTPSErrors: false })
+        const page = await context.newPage()
+        page.setDefaultTimeout(timeoutMs)
+        await authenticateServiceAccount(context, id => { serviceAccountId = id })
+
+        await page.goto(`${baseUrl}${dashboardPath}`, { waitUntil: 'domcontentloaded', timeout: timeoutMs })
+        await page.locator('[data-db-monitor-metrics]:visible').waitFor({ state: 'visible', timeout: timeoutMs })
+        const bodyText = await page.locator('body').innerText({ timeout: timeoutMs })
+        const inventory = await page.locator('[data-db-monitor-metrics]').evaluate(element => ({
+            clusters: element.getAttribute('data-clusters'),
+            databases: element.getAttribute('data-databases'),
+            storageBytes: element.getAttribute('data-storage-bytes'),
+        }))
+        const signal = evaluateDashboardText(bodyText, inventory)
+        if (!signal.ok) throw new MonitorFailure(signal.reason, signal.detail, signal.metrics)
+
+        await handleResult({
+            ok: true,
+            reason: 'db_dashboard_ok',
+            detail: signal.detail,
+            latencyMs: Math.round(performance.now() - started),
+            metrics: signal.metrics,
+        }, {}, serviceAccountId)
+    } catch (error) {
+        const failure = normalizeFailure(error)
+        await captureFailureScreenshot(browser, failure.reason)
+        await handleResult({
+            ok: false,
+            reason: failure.reason,
+            detail: failure.detail,
+            latencyMs: Math.round(performance.now() - started),
+            metrics: failure.metrics,
+        }, {}, serviceAccountId)
+        process.exit(1)
+    } finally {
+        await browser?.close().catch(() => {})
     }
 }
 
-async function writeState(state, path = statePath) {
-    await mkdir(dirname(path), { recursive: true })
-    await writeFile(path, `${JSON.stringify(state, null, 2)}\n`)
-}
-
-function normalizeFailure(error) {
-    if (error instanceof MonitorFailure) {
-        return {
-            reason: error.reason,
-            detail: error.message,
-            metrics: error.metrics,
+async function captureFailureScreenshot(browser, reason) {
+    if (reason.startsWith('ti_backup_')) return
+    try {
+        const pages = browser?.contexts()?.flatMap(context => context.pages()) || []
+        const page = pages[pages.length - 1]
+        if (page) {
+            await mkdir(dirname(failureScreenshotPath), { recursive: true })
+            await page.screenshot({ path: failureScreenshotPath, fullPage: true }).catch(() => {})
         }
-    }
-    return {
-        reason: 'db_dashboard_failed',
-        detail: error instanceof Error ? error.message : String(error),
-        metrics: {},
+    } catch {
+        // Failure evidence is best-effort and must not mask the original result.
     }
 }
 
-function linesFromText(text) {
-    return String(text || '')
-        .split(/\r?\n/)
-        .map(line => line.trim())
-        .filter(Boolean)
-}
-
-function parseIntegerMetric(lines, label) {
-    const value = metricValue(lines, label) || (label === 'Databases' ? metricValue(lines, 'DBs') : null)
-    if (!value) return null
-    const parsed = Number(value.replace(/,/g, ''))
-    return Number.isFinite(parsed) ? parsed : null
-}
-
-function parseStorageMetric(lines, label) {
-    const value = metricValue(lines, label)
-    if (!value) return null
-    const match = value.match(/^([\d.]+)\s*(B|KB|MB|GB|TB)$/i)
-    if (!match) return null
-    const amount = Number(match[1])
-    const unit = match[2].toUpperCase()
-    const multiplier = { B: 1, KB: 1024, MB: 1024 ** 2, GB: 1024 ** 3, TB: 1024 ** 4 }[unit]
-    return Number.isFinite(amount) ? amount * multiplier : null
-}
-
-function metricValue(lines, label) {
-    const index = lines.findIndex(line => line.toLowerCase() === label.toLowerCase())
-    if (index === -1) return null
-    return lines[index + 1] || null
-}
-
-function minutesSince(value) {
-    if (!value) return Number.POSITIVE_INFINITY
-    const then = new Date(value).getTime()
-    if (!Number.isFinite(then)) return Number.POSITIVE_INFINITY
-    return (Date.now() - then) / 60_000
-}
-
-function trimSlash(value) {
-    return value.replace(/\/$/, '')
-}
-
-function trimSlashes(value) {
-    return String(value || '').replace(/^\/+|\/+$/g, '')
-}
-
-function truncate(value, max) {
-    const text = String(value || '')
-    return text.length > max ? `${text.slice(0, max - 1)}...` : text
-}
-
-function cleanSentence(value) {
-    return String(value || '').replace(/\s+/g, ' ').replace(/[.\s]+$/g, '')
-}
-
-function formatBytes(bytes) {
-    if (!Number.isFinite(bytes) || bytes <= 0) return '0 B'
-    const units = ['B', 'KB', 'MB', 'GB', 'TB']
-    let value = bytes
-    let index = 0
-    while (value >= 1024 && index < units.length - 1) {
-        value /= 1024
-        index++
-    }
-    return `${value.toFixed(index === 0 ? 0 : 2)} ${units[index]}`
-}
-
-function runSelfTest() {
-    const healthy = evaluateDashboardText(`
-        Operations
-        Database
-        Live
-        Database metrics loaded from the live PostgreSQL telemetry views.
-        Query watcher
-        0 active
-        No long-running queries right now
-        Clusters
-        1
-        Databases
-        2
-        Storage
-        108.00 MB
-        Active queries
-        0
-        Long-running
-        0
-    `)
-    assert.equal(healthy.ok, true)
-    assert.equal(healthy.metrics.clusters, 1)
-    assert.equal(healthy.metrics.databases, 2)
-    assert.ok(healthy.metrics.storageBytes > 0)
-
-    const abbreviated = evaluateDashboardText(`
-        Operations
-        Database
-        Live
-        Clusters
-        1
-        DBs
-        2
-        Storage
-        108.00 MB
-        Active queries
-        0
-        Long-running
-        0
-    `)
-    assert.equal(abbreviated.ok, true)
-    assert.equal(abbreviated.metrics.databases, 2)
-
-    const unavailable = evaluateDashboardText(`
-        Operations
-        Database
-        Unavailable
-        Database metrics unavailable: the internal API cannot authenticate to PostgreSQL.
-        Clusters
-        Connecting
-        Databases
-        Connecting
-        Storage
-        Metering
-    `)
-    assert.equal(unavailable.ok, false)
-    assert.equal(unavailable.reason, 'db_dashboard_unavailable')
-
-    const discordPayload = buildDiscordPayload({
-        status: 'DOWN',
-        color: 0xef4444,
-        title: `Database dashboard unavailable: ${reasonLabel(unavailable.reason)}`,
-        description: `${failureImpact(unavailable.reason)} ${unavailable.detail}`,
-        fields: resultFields({ ...unavailable, latencyMs: 123, failureScreenshotUrl: 'https://cdn.hanasand.com/api/files/path/monitor%2Fdb-dashboard%2Fdb-dashboard-monitor-failure-20260708-120000000Z.png' }),
-    })
-    assert.match(discordPayload.content, /Database dashboard unavailable: unavailable/)
-    assert.match(discordPayload.content, /unavailable or reconnecting telemetry state/)
-    assert.match(discordPayload.content, /\nhttps:\/\/cdn\.hanasand\.com\/api\/files\/path\//)
-    assert.doesNotMatch(discordPayload.content, /check failed/i)
-    assert.ok(discordPayload.content.length < 340)
-    assert.ok(discordPayload.embeds[0].fields.some(field => field.name === 'Action' && /API auth|PostgreSQL telemetry/.test(field.value)))
-    assert.ok(discordPayload.embeds[0].fields.some(field => field.name === 'Evidence' && /https:\/\/cdn\.hanasand\.com\/api\/files\/path\//.test(field.value)))
-    assert.ok(!discordPayload.embeds[0].fields.some(field => field.name === 'Screenshot'))
-
-    const shell = evaluateDashboardText(`
-        Operations
-        Database
-        Clusters
-        0
-        Databases
-        0
-        Storage
-        0 B
-        Active queries
-        0
-        Long-running
-        0
-    `)
-    assert.equal(shell.ok, false)
-    assert.equal(shell.reason, 'db_dashboard_missing_clusters')
-
-    const previousUiCopy = evaluateDashboardText(`
-        Operations
-        Database
-        Clusters
-        1
-        Databases
-        2
-        Storage
-        108.00 MB
-        Active queries
-        0
-        Longest running query
-        No active query details available.
-    `)
-    assert.equal(previousUiCopy.ok, true)
-
-    const backupCheckedAt = new Date('2026-07-24T12:00:00.000Z')
-    const healthyBackup = evaluateThreatIntelBackupStatus(`
-        format=hanasand.threat_intel_backup_status.v2
-        status=succeeded
-        exit_code=0
-        phase=complete
-        reason=none
-        finished_at=2026-07-24T11:00:00Z
-        archive=/home/hanasand/backups/threat-intel/20260724T105900Z
-    `, backupCheckedAt)
-    assert.equal(healthyBackup.ok, true)
-
-    const failedBackup = evaluateThreatIntelBackupStatus(`
-        format=hanasand.threat_intel_backup_status.v2
-        status=failed
-        exit_code=1
-        phase=backup
-        reason=command_failed
-        finished_at=2026-07-24T11:00:00Z
-        archive=/home/hanasand/backups/threat-intel/20260724T105900Z
-    `, backupCheckedAt)
-    assert.equal(failedBackup.ok, false)
-    assert.equal(failedBackup.reason, 'ti_backup_failed')
-
-    const staleBackup = evaluateThreatIntelBackupStatus(`
-        format=hanasand.threat_intel_backup_status.v2
-        status=succeeded
-        exit_code=0
-        phase=complete
-        reason=none
-        finished_at=2026-07-22T11:00:00Z
-        archive=/home/hanasand/backups/threat-intel/20260722T105900Z
-    `, backupCheckedAt)
-    assert.equal(staleBackup.ok, false)
-    assert.equal(staleBackup.reason, 'ti_backup_stale')
-
-    console.log('Database dashboard monitor self-test passed.')
+if (process.argv.includes('--self-test')) {
+    runSelfTest()
+} else {
+    await runMonitor()
 }
