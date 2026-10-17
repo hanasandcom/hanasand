@@ -1,4 +1,4 @@
-import type { buildDwmWebhookDeliveryHistory } from '../webhooks.ts'
+import type { buildDwmWebhookDeliveryHistory } from './implementation/webhook-visibility-decision.ts'
 import { makeWebhookBlocker, uniqueWebhookBlockers } from '../webhookValueUtils.ts'
 
 type DeliveryHistory = ReturnType<typeof buildDwmWebhookDeliveryHistory>

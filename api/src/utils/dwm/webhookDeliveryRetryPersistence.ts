@@ -1,4 +1,4 @@
-import type { DwmWebhookDestinationPublic, DwmWebhookDeliveryEvidenceFilters } from './webhooks.ts'
+import type { DwmWebhookDestinationPublic, DwmWebhookDeliveryEvidenceFilters } from './webhooks/sharedTypes.ts'
 import { dedupeFromIdempotencyKey, idempotencyCoverage } from './webhookDeliveryUtilities.ts'
 import { buildDwmWebhookDeliveryLedgerFromEvidence } from './webhookDeliveryLedger.ts'
 import { buildDwmWebhookAuditEventContractsFromLedger } from './webhookAuditContracts.ts'

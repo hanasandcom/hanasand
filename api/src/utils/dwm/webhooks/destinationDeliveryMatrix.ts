@@ -1,8 +1,6 @@
-import type {
-    buildDwmWebhookDeliveryOperations,
-    buildDwmWebhookDeliveryRetryQueue,
-    buildDwmWebhookDestinationHealth,
-} from '../webhooks.ts'
+import type { buildDwmWebhookDeliveryOperations } from '../webhookDeliveryOperations.ts'
+import type { buildDwmWebhookDeliveryRetryQueue } from './implementation/delivery-retry-queue.ts'
+import type { buildDwmWebhookDestinationHealth } from './implementation/destination-health.ts'
 import type { buildDwmWebhookAuditEventContracts } from '../webhookAuditContracts.ts'
 import type { toDwmWebhookDestination } from '../webhookDestinationModels.ts'
 import { redactDeliveryEvidenceText } from '../webhookDeliveryUtilities.ts'

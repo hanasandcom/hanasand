@@ -1,4 +1,4 @@
-import type { buildDwmWebhookDeliveryRetryWorkOrders } from '../webhooks.ts'
+import type { buildDwmWebhookDeliveryRetryWorkOrders } from './implementation/delivery-retry-work-orders.ts'
 import type { normalizeWebhookEvidenceFilters } from '../webhookDeliveryEvidence.ts'
 import type { buildDwmWebhookAuditEventContracts } from '../webhookAuditContracts.ts'
 import type { DwmAlertEventType } from '../webhookDestinationTypes.ts'

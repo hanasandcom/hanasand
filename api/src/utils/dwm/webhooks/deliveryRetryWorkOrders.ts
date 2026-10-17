@@ -1,4 +1,4 @@
-import type { buildDwmWebhookDeliveryRetryRequestContract } from '../webhooks.ts'
+import type { buildDwmWebhookDeliveryRetryRequestContract } from './implementation/delivery-retry-request-contract.ts'
 import { dedupeFromIdempotencyKey } from '../webhookDeliveryUtilities.ts'
 
 type RetryRequest = ReturnType<typeof buildDwmWebhookDeliveryRetryRequestContract>

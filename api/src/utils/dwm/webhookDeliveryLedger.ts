@@ -1,4 +1,4 @@
-import type { DwmWebhookDeliveryEvidenceFilters } from './webhooks.ts'
+import type { DwmWebhookDeliveryEvidenceFilters } from './webhooks/sharedTypes.ts'
 import { toDwmWebhookAuditEvent, toDwmWebhookDelivery } from './webhookDestinationModels.ts'
 import { buildDwmWebhookDeliveryEvidenceProjection } from './webhookDeliveryEvidence.ts'
 import { deliveryAttemptState } from './webhookDeliveryUtilities.ts'

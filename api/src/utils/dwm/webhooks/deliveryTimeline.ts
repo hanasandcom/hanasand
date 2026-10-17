@@ -1,4 +1,4 @@
-import type { buildDwmWebhookDeliveryReceipts } from '../webhooks.ts'
+import type { buildDwmWebhookDeliveryReceipts } from './implementation/delivery-receipts.ts'
 import { uniqueWebhookBlockers } from '../webhookValueUtils.ts'
 
 type DeliveryReceipts = ReturnType<typeof buildDwmWebhookDeliveryReceipts>

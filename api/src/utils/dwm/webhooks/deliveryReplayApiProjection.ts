@@ -1,7 +1,5 @@
-import type {
-    buildDwmWebhookDeliveryAttemptPersistenceReadModel,
-    buildDwmWebhookDeliveryReplayGuard,
-} from '../webhooks.ts'
+import type { buildDwmWebhookDeliveryAttemptPersistenceReadModel } from './implementation/delivery-attempt-persistence-read-model.ts'
+import type { buildDwmWebhookDeliveryReplayGuard } from './implementation/delivery-replay-guard.ts'
 import { makeWebhookBlocker, uniqueWebhookBlockers } from '../webhookValueUtils.ts'
 
 type DeliveryReadModel = ReturnType<typeof buildDwmWebhookDeliveryAttemptPersistenceReadModel>

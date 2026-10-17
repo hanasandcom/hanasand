@@ -1,7 +1,5 @@
-import type {
-    buildDwmWebhookDestinationAdminProof,
-    buildDwmWebhookDestinationDeliveryMatrix,
-} from '../webhooks.ts'
+import type { buildDwmWebhookDestinationAdminProof } from './implementation/destination-admin-proof.ts'
+import type { buildDwmWebhookDestinationDeliveryMatrix } from './implementation/delivery-retry-work-orders.ts'
 
 type Matrix = ReturnType<typeof buildDwmWebhookDestinationDeliveryMatrix>
 type AdminProof = ReturnType<typeof buildDwmWebhookDestinationAdminProof>

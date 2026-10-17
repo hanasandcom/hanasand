@@ -1,4 +1,4 @@
-import type { buildDwmWebhookDeliveryHistoryConsumerProof } from '../webhooks.ts'
+import type { buildDwmWebhookDeliveryHistoryConsumerProof } from './implementation/delivery-history-consumer-proof.ts'
 import { makeWebhookBlocker, uniqueWebhookBlockers } from '../webhookValueUtils.ts'
 
 type DeliveryHistory = ReturnType<typeof buildDwmWebhookDeliveryHistoryConsumerProof>
