@@ -1437,3 +1437,16 @@ preserved. Its registered focused test passes (2 tests / 10 expectations), as
 do API typecheck, targeted ESLint, and diff check. The global scan still
 reports 69 other over-cap files. The API and frontend LOC reduction targets
 remain outstanding; no deployment was performed.
+
+Share search and symbol-reference panels now use one workspace-file indexing
+hook. The panels retain separate filtering, result projection, debounce timing,
+and component-local caches; their prior effects shrink by 4 net production LOC.
+A regression test covers ambiguous filter-key separators, and the Playwright
+scenario now persists mocked PUT results before checking symbols after
+replace-all (3 references / 1 definition). Independent review approved the
+hook and fixture. The full registered frontend suite, focused search tests (8),
+typecheck, targeted ESLint, both frontend cap scans, and diff check pass; all
+2,324 frontend files total 154,040 lines with zero over 200. Playwright could
+not start the API because its database hostname failed DNS resolution, so no
+browser-run result is claimed. The 10,000–30,000-line frontend and API LOC
+reduction goals remain outstanding. No UI change or deployment was made.

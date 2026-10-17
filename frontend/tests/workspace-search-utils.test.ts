@@ -10,6 +10,7 @@ import {
     type WorkspaceSearchOptions,
 } from '@/components/share/workspaceSearchUtils'
 import { searchIndexedFilesWithSymbolResolver } from '@/components/share/workspaceSearch/matching'
+import { workspaceSearchRefreshKey } from '@/components/share/workspaceSearch/useWorkspaceFileIndex'
 import { countTreeItems, findPath, findTreeFileId, listTreePaths } from '@/components/share/workspaceTree'
 
 const defaults: WorkspaceSearchOptions = {
@@ -113,4 +114,10 @@ test('symbol helpers retain identifier selection and definition contracts', () =
     expect(definitions.map(({ line, column, endColumn, preview }) => ({ line, column, endColumn, preview }))).toEqual([
         { line: 1, column: 17, endColumn: 22, preview: 'export function findMe() {}' },
     ])
+})
+
+test('workspace search refresh keys distinguish filters containing separators', () => {
+    const common = { caseSensitive: false, wholeWord: false, regex: false }
+    expect(workspaceSearchRefreshKey({ ...common, include: 'a:b', exclude: 'c' }))
+        .not.toBe(workspaceSearchRefreshKey({ ...common, include: 'a', exclude: 'b:c' }))
 })

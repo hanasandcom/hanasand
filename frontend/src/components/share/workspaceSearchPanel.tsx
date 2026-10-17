@@ -1,16 +1,14 @@
 'use client'
 
-import { Dispatch, SetStateAction, useEffect, useMemo, useRef, useState } from 'react'
+import { Dispatch, SetStateAction, useState } from 'react'
 import { updateShare } from '@/utils/share/put'
 import {
     WorkspaceFileMatches,
     countMatches,
-    flattenWorkspaceTree,
-    loadWorkspaceFiles,
     replaceInContent,
     searchIndexedFiles,
-    type IndexedWorkspaceFile,
 } from './workspaceSearchUtils'
+import { useWorkspaceFileIndex, workspaceSearchRefreshKey } from './workspaceSearch/useWorkspaceFileIndex'
 import { WorkspaceSearchControls } from './workspaceSearch/WorkspaceSearchControls'
 import { WorkspaceSearchResults } from './workspaceSearch/WorkspaceSearchResults'
 
@@ -38,60 +36,32 @@ export default function WorkspaceSearchPanel({
     const [caseSensitive, setCaseSensitive] = useState(false)
     const [wholeWord, setWholeWord] = useState(false)
     const [regex, setRegex] = useState(false)
-    const [loading, setLoading] = useState(false)
     const [replacing, setReplacing] = useState(false)
     const [results, setResults] = useState<WorkspaceFileMatches[]>([])
     const [expanded, setExpanded] = useState<Set<string>>(new Set())
-    const cacheRef = useRef(new Map<string, IndexedWorkspaceFile>())
-    const files = useMemo(() => flattenWorkspaceTree(tree), [tree])
     const resultCount = countMatches(results)
 
-    useEffect(() => {
-        const search = query.trim()
-        if (!search || !files.length) {
-            setResults([])
-            return
-        }
-
-        let cancelled = false
-        const timeout = window.setTimeout(async () => {
-            setLoading(true)
-            try {
-                const indexed = await loadWorkspaceFiles({
-                    files,
-                    activeShare: share,
-                    activeContent: editingContent,
-                    cache: cacheRef.current,
-                })
-                const nextResults = searchIndexedFiles(indexed, search, {
-                    caseSensitive,
-                    wholeWord,
-                    regex,
-                    include,
-                    exclude,
-                })
-
-                if (!cancelled) {
-                    setResults(nextResults)
-                    setExpanded(new Set(nextResults.slice(0, 8).map(group => group.file.id)))
-                }
-            } catch (error) {
-                console.error(error)
-                if (!cancelled) {
-                    setError('Search failed. Check the query or regex syntax.')
-                }
-            } finally {
-                if (!cancelled) {
-                    setLoading(false)
-                }
-            }
-        }, 220)
-
-        return () => {
-            cancelled = true
-            window.clearTimeout(timeout)
-        }
-    }, [caseSensitive, editingContent, exclude, files, include, query, regex, setError, share, wholeWord])
+    const { files, loading, cache } = useWorkspaceFileIndex({
+        tree,
+        share,
+        editingContent,
+        query,
+        refreshKey: workspaceSearchRefreshKey({ caseSensitive, wholeWord, regex, include, exclude }),
+        delay: 220,
+        onClear: () => setResults([]),
+        onLoaded: indexed => {
+            const nextResults = searchIndexedFiles(indexed, query.trim(), {
+                caseSensitive,
+                wholeWord,
+                regex,
+                include,
+                exclude,
+            })
+            setResults(nextResults)
+            setExpanded(new Set(nextResults.slice(0, 8).map(group => group.file.id)))
+        },
+        onError: () => setError('Search failed. Check the query or regex syntax.'),
+    })
 
     async function replaceAll() {
         if (!query.trim() || !resultCount) {
@@ -102,7 +72,7 @@ export default function WorkspaceSearchPanel({
         try {
             let changedFiles = 0
             for (const group of results) {
-                const cached = cacheRef.current.get(group.file.id)
+                const cached = cache.get(group.file.id)
                 if (!cached) {
                     continue
                 }
@@ -127,7 +97,7 @@ export default function WorkspaceSearchPanel({
 
                 changedFiles += 1
                 const nextCached = { ...cached, content: nextContent }
-                cacheRef.current.set(group.file.id, nextCached)
+                cache.set(group.file.id, nextCached)
                 if (share?.id === group.file.id) {
                     setShare(updated)
                     setEditorPatch({ value: nextContent, nonce: Date.now() })

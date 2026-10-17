@@ -1,18 +1,16 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ArrowLeft, Braces, ChevronDown, Loader2, SearchCode, X } from 'lucide-react'
 import {
     WorkspaceFileMatches,
     extractClickedToken,
     findSymbolDefinitions,
-    flattenWorkspaceTree,
-    loadWorkspaceFiles,
     searchIndexedFiles,
-    type IndexedWorkspaceFile,
     type WorkspaceMatch,
 } from './workspaceSearchUtils'
 import { WorkspaceMatchLink } from './workspaceSearch/WorkspaceMatchLink'
+import { useWorkspaceFileIndex } from './workspaceSearch/useWorkspaceFileIndex'
 
 type ReferencePanelProps = {
     tree: Tree | null
@@ -31,60 +29,36 @@ export default function ReferencePanel({
 }: ReferencePanelProps) {
     const token = extractClickedToken(clickedWord)
     const [query, setQuery] = useState(token)
-    const [loading, setLoading] = useState(false)
     const [definitions, setDefinitions] = useState<WorkspaceMatch[]>([])
     const [references, setReferences] = useState<WorkspaceFileMatches[]>([])
-    const cacheRef = useRef(new Map<string, IndexedWorkspaceFile>())
-    const files = useMemo(() => flattenWorkspaceTree(tree), [tree])
     const referenceCount = references.reduce((count, group) => count + group.matches.length, 0)
 
     useEffect(() => {
         setQuery(token)
     }, [token])
 
-    useEffect(() => {
-        const cleanQuery = query.trim()
-        if (!cleanQuery || !files.length) {
+    const { loading } = useWorkspaceFileIndex({
+        tree,
+        share,
+        editingContent,
+        query,
+        delay: 180,
+        onClear: () => {
             setDefinitions([])
             setReferences([])
-            return
-        }
-
-        let cancelled = false
-        const timeout = window.setTimeout(async () => {
-            setLoading(true)
-            try {
-                const indexed = await loadWorkspaceFiles({
-                    files,
-                    activeShare: share,
-                    activeContent: editingContent,
-                    cache: cacheRef.current,
-                })
-
-                if (!cancelled) {
-                    setDefinitions(findSymbolDefinitions(indexed, cleanQuery).slice(0, 24))
-                    setReferences(searchIndexedFiles(indexed, cleanQuery, {
-                        caseSensitive: true,
-                        wholeWord: true,
-                        regex: false,
-                        include: '',
-                        exclude: 'node_modules,.next,dist,build',
-                    }))
-                }
-            } catch (error) {
-                console.error(error)
-            } finally {
-                if (!cancelled) {
-                    setLoading(false)
-                }
-            }
-        }, 180)
-
-        return () => {
-            cancelled = true
-            window.clearTimeout(timeout)
-        }
-    }, [editingContent, files, query, share])
+        },
+        onLoaded: indexed => {
+            const cleanQuery = query.trim()
+            setDefinitions(findSymbolDefinitions(indexed, cleanQuery).slice(0, 24))
+            setReferences(searchIndexedFiles(indexed, cleanQuery, {
+                caseSensitive: true,
+                wholeWord: true,
+                regex: false,
+                include: '',
+                exclude: 'node_modules,.next,dist,build',
+            }))
+        },
+    })
 
     return (
         <section className='overflow-hidden rounded-xl border border-ui-border bg-ui-panel shadow-lg backdrop-blur-md'>
