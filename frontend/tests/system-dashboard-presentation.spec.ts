@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test'
 import {
     containerCpuMetric,
     containerMemoryMetric,
+    formatDateTime,
     isFresh,
     normalizeDockerTelemetry,
     normalizeSystemTelemetry,
@@ -19,6 +20,15 @@ test('system dashboard normalizes legacy and enriched Docker telemetry', () => {
     })
     expect(enriched.containers[0].name).toBe('worker')
     expect(enriched.generated_at).toBe('2026-07-02T08:00:00.000Z')
+
+    const wrapped = normalizeDockerTelemetry({
+        data: {
+            containers: [{ id: 'ghi789', name: 'scheduler', status: 'running' }],
+            source: 'docker_engine',
+        },
+    })
+    expect(wrapped.containers[0].name).toBe('scheduler')
+    expect(wrapped.source).toBe('docker_engine')
 })
 
 test('system dashboard preserves Docker telemetry unavailable reasons', () => {
@@ -45,6 +55,8 @@ test('system dashboard preserves host telemetry unavailable reasons', () => {
     expect(telemetry.system).toBeNull()
     expect(telemetry.unavailable_reason).toBe('System telemetry is unavailable.')
     expect(telemetry.generated_at).toBe('2026-07-02T08:00:00.000Z')
+
+    expect(normalizeSystemTelemetry({ data: { system: null, unavailable_reason: 'Wrapped reason.' } }).unavailable_reason).toBe('Wrapped reason.')
 })
 
 test('system dashboard explains unavailable container CPU and memory metrics', () => {
@@ -81,4 +93,11 @@ test('system dashboard formats real container resource stats', () => {
 test('system dashboard freshness marks stale generated timestamps', () => {
     expect(isFresh(new Date().toISOString(), 30_000)).toBe(true)
     expect(isFresh('2020-01-01T00:00:00.000Z', 30_000)).toBe(false)
+})
+
+test('system dashboard date formatting shares local formatting and keeps missing values readable', () => {
+    const date = '2026-07-02T08:00:00.000Z'
+    expect(formatDateTime(date)).toBe(new Date(date).toLocaleString())
+    expect(formatDateTime('invalid date')).toBe('invalid date')
+    expect(formatDateTime()).toBe('Listening')
 })

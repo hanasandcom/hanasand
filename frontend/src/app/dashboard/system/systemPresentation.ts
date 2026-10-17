@@ -1,3 +1,5 @@
+import { formatLocalDateTime } from '@/utils/date/formatLocalDateTime'
+
 export type MetricState = {
     label: string
     value: string
@@ -58,9 +60,7 @@ export function formatDuration(seconds: number | null | undefined): string {
 
 export function formatDateTime(value?: string | null): string {
     if (!value) return 'Listening'
-    const date = new Date(value)
-    if (Number.isNaN(date.getTime())) return value
-    return date.toLocaleString()
+    return formatLocalDateTime(value)
 }
 
 export function normalizeDockerTelemetry(raw: unknown, fallbackGeneratedAt = new Date().toISOString()): DockerTelemetryResponse {
@@ -89,9 +89,7 @@ export function normalizeDockerTelemetry(raw: unknown, fallbackGeneratedAt = new
         unavailable_reason?: unknown
         generated_at?: unknown
     }
-    const nested = body.data && typeof body.data === 'object' && !Array.isArray(body.data)
-        ? body.data as typeof body
-        : body
+    const nested = telemetryEnvelope(body)
     const containers = Array.isArray(nested.containers)
         ? nested.containers
         : Array.isArray(body.data)
@@ -122,9 +120,7 @@ export function normalizeSystemTelemetry(raw: unknown, fallbackGeneratedAt = new
         unavailable_reason?: unknown
         generated_at?: unknown
     }
-    const nested = body.data && typeof body.data === 'object' && !Array.isArray(body.data)
-        ? body.data as typeof body
-        : body
+    const nested = telemetryEnvelope(body)
 
     return {
         system: nested.system && typeof nested.system === 'object' ? nested.system as SystemSnapshot : null,
@@ -179,6 +175,11 @@ export function isFresh(value?: string | null, maxAgeMs = 30_000): boolean {
     if (!value) return false
     const time = new Date(value).getTime()
     return Number.isFinite(time) && Date.now() - time <= maxAgeMs
+}
+
+function telemetryEnvelope(body: Record<string, unknown>) {
+    const data = body.data
+    return data && typeof data === 'object' && !Array.isArray(data) ? data as Record<string, unknown> : body
 }
 
 function unavailableMetric(label: string, reason: string): MetricState {
