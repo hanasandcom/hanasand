@@ -52,6 +52,16 @@ export function dedupeScans(scans: Test[]) {
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 }
 
+export function loadTestStatusCounts(scans: Test[]) {
+    return scans.reduce((counts, scan) => {
+        const status = scan.status.toLowerCase()
+        if (status === 'queued') counts.queued++
+        if (status === 'running') counts.running++
+        if (status === 'failed' || status === 'error') counts.failed++
+        return counts
+    }, { queued: 0, running: 0, failed: 0 })
+}
+
 export function latestP95(scan?: Test) {
     const value = scan?.latest_run_summary?.duration?.p95 ?? scan?.summary?.duration?.p95
     return typeof value === 'number' && Number.isFinite(value) ? Math.round(value) : null

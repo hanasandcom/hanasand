@@ -8,7 +8,7 @@ import { postTest } from '@/utils/test/postTest'
 import { ActiveLoadTests } from './ActiveLoadTests'
 import { LoadTestHistory } from './LoadTestHistory'
 import { LoadTestingLaunch } from './LoadTestingLaunch'
-import { dedupeScans, isValidServiceUrl, scenarioPresets } from './loadTestingScenarios'
+import { dedupeScans, isValidServiceUrl, loadTestStatusCounts, scenarioPresets } from './loadTestingScenarios'
 
 export default function LoadTestingOperations() {
     const router = useRouter()
@@ -40,9 +40,7 @@ export default function LoadTestingOperations() {
 
     const allScans = useMemo(() => dedupeScans([...myScans, ...recentScans]), [myScans, recentScans])
     const activeScans = allScans.filter(scan => !['done', 'failed', 'error'].includes(scan.status.toLowerCase()))
-    const queuedCount = allScans.filter(scan => scan.status.toLowerCase() === 'queued').length
-    const runningCount = allScans.filter(scan => scan.status.toLowerCase() === 'running').length
-    const failedCount = allScans.filter(scan => ['failed', 'error'].includes(scan.status.toLowerCase())).length
+    const { queued: queuedCount, running: runningCount, failed: failedCount } = loadTestStatusCounts(allScans)
 
     async function startCheck(event: SyntheticEvent<HTMLFormElement>) {
         event.preventDefault()

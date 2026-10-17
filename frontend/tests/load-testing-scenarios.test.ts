@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { dedupeScans, isValidServiceUrl, latestP95 } from '../src/app/dashboard/load-testing/loadTestingScenarios'
+import { dedupeScans, isValidServiceUrl, latestP95, loadTestStatusCounts } from '../src/app/dashboard/load-testing/loadTestingScenarios'
 
 describe('load testing scan helpers', () => {
     test('accepts only dotted HTTP and HTTPS service URLs', () => {
@@ -21,6 +21,13 @@ describe('load testing scan helpers', () => {
         expect(latestP95(scan('latest', '2026-07-03T09:00:00.000Z', 183.7))).toBe(184)
         expect(latestP95(scan('fallback', '2026-07-03T09:00:00.000Z', undefined, 94.5))).toBe(95)
         expect(latestP95(scan('missing', '2026-07-03T09:00:00.000Z'))).toBeNull()
+    })
+
+    test('counts queued, running, and failed scans using case-insensitive status values', () => {
+        const scans = ['QUEUED', 'running', 'Failed', 'ERROR', 'done'].map((status, index) => ({
+            ...scan(String(index), `2026-07-03T09:0${index}:00.000Z`), status,
+        }))
+        expect(loadTestStatusCounts(scans)).toEqual({ queued: 1, running: 1, failed: 2 })
     })
 })
 

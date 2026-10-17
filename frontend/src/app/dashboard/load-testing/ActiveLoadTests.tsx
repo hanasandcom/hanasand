@@ -2,11 +2,10 @@ import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { DashboardTablePanel } from '@/components/dashboard/ui'
 import type { Scenario } from './loadTestingScenarios'
-import { latestP95 } from './loadTestingScenarios'
+import { latestP95, loadTestStatusCounts } from './loadTestingScenarios'
 
 export function ActiveLoadTests({ scans, scenario }: { scans: Test[], scenario: Scenario }) {
-    const queued = scans.filter(scan => scan.status.toLowerCase() === 'queued').length
-    const running = scans.filter(scan => scan.status.toLowerCase() === 'running').length
+    const { queued, running } = loadTestStatusCounts(scans)
 
     return <DashboardTablePanel
         panelClassName='overflow-hidden rounded-lg border-ui-border bg-ui-panel p-0 shadow-sm'
