@@ -1,9 +1,9 @@
 'use client'
 
 import { Search, X } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { isReservedPlaceholder } from '@/utils/users/isReservedPlaceholder'
-import { isManagementSearchShortcut } from '@/utils/isManagementSearchShortcut'
+import { useManagementSearchShortcut } from '@/hooks/useManagementSearchShortcut'
 import DashboardUser from './dashboardUser'
 
 export default function UsersList({ users, accessibleOrganizationIds }: { users: User[], accessibleOrganizationIds: string[] }) {
@@ -18,16 +18,10 @@ export default function UsersList({ users, accessibleOrganizationIds }: { users:
         requestAnimationFrame(() => searchButton.current?.focus())
     }
 
-    useEffect(() => {
-        function onKeyDown(event: KeyboardEvent) {
-            if (!isManagementSearchShortcut(event)) return
-            event.preventDefault()
-            if (searchOpen) closeSearch()
-            else setSearchOpen(true)
-        }
-        window.addEventListener('keydown', onKeyDown)
-        return () => window.removeEventListener('keydown', onKeyDown)
-    }, [searchOpen])
+    useManagementSearchShortcut(() => {
+        if (searchOpen) closeSearch()
+        else setSearchOpen(true)
+    })
 
     const reservedCount = users.filter(isReservedPlaceholder).length
     const visibleUsers = (showReserved

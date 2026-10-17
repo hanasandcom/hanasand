@@ -1,6 +1,7 @@
 // @ts-expect-error Bun provides this module when running tests.
 import { describe, expect, test } from 'bun:test'
 import { isManagementSearchShortcut } from '../src/utils/isManagementSearchShortcut'
+import { dispatchManagementSearchShortcut } from '../src/hooks/useManagementSearchShortcut'
 
 describe('management search shortcut', () => {
     const event = (overrides: Partial<KeyboardEvent> = {}) => ({
@@ -24,5 +25,29 @@ describe('management search shortcut', () => {
         expect(isManagementSearchShortcut(event({ ctrlKey: true, repeat: true }))).toBe(false)
         expect(isManagementSearchShortcut(event({ metaKey: true, altKey: true }))).toBe(false)
         expect(isManagementSearchShortcut(event({ ctrlKey: true, shiftKey: true }))).toBe(false)
+    })
+
+    test('dispatches accepted shortcuts and prevents their browser default', () => {
+        const users = { open: false, focused: false }
+        const prevented: boolean[] = []
+        const dispatch = (keyEvent: Partial<KeyboardEvent>, onShortcut: () => void) => dispatchManagementSearchShortcut({
+            ...event(keyEvent),
+            preventDefault: () => prevented.push(true),
+        } as KeyboardEvent, onShortcut)
+
+        expect(dispatch({ metaKey: true }, () => { users.open = !users.open })).toBe(true)
+        expect(users.open).toBe(true)
+        expect(dispatch({ ctrlKey: true, key: 'J' }, () => { users.focused = true })).toBe(true)
+        expect(users.focused).toBe(true)
+        expect(prevented).toHaveLength(2)
+
+        for (const ignored of [
+            event(), event({ metaKey: true, key: 'k' }), event({ ctrlKey: true, repeat: true }),
+            event({ metaKey: true, altKey: true }), event({ ctrlKey: true, shiftKey: true }),
+        ]) {
+            expect(dispatch(ignored, () => { users.open = false })).toBe(false)
+        }
+        expect(users.open).toBe(true)
+        expect(prevented).toHaveLength(2)
     })
 })

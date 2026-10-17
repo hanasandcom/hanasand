@@ -2,12 +2,12 @@
 
 import Link from 'next/link'
 import { ArrowLeftRight, Search, X } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import SortIndicator from '@/components/dashboard/sort-indicator'
 import { DashboardTable } from '@/components/dashboard/ui'
 import { useWorkspace } from '@/components/organizations/workspaceProvider'
 import { filterRowsByQueryAndStatus } from '@/app/organizations/model/filterRows'
-import { isManagementSearchShortcut } from '@/utils/isManagementSearchShortcut'
+import { useManagementSearchShortcut } from '@/hooks/useManagementSearchShortcut'
 
 type Organization = { id: string, name: string, slug: string, status: string, member_count: number, created_at: string, last_active_at: string | null }
 type SortKey = 'created' | 'lastActive' | 'members' | 'name' | 'slug' | 'status'
@@ -34,18 +34,12 @@ export default function OrganizationList({ organizations }: { organizations: Org
         requestAnimationFrame(() => searchButton.current?.focus())
     }
 
-    useEffect(() => {
-        function onKeyDown(event: KeyboardEvent) {
-            if (!isManagementSearchShortcut(event)) return
-            event.preventDefault()
-            if (searchOpen) {
-                searchInput.current?.focus()
-                searchInput.current?.select()
-            } else openSearch()
-        }
-        window.addEventListener('keydown', onKeyDown)
-        return () => window.removeEventListener('keydown', onKeyDown)
-    }, [searchOpen])
+    useManagementSearchShortcut(() => {
+        if (searchOpen) {
+            searchInput.current?.focus()
+            searchInput.current?.select()
+        } else openSearch()
+    })
 
     const query = search.trim().toLowerCase()
     const accessibleOrganizationIds = new Set(accessibleOrganizations.filter(org => org.lifecycleStatus === 'active').map(org => org.id))
