@@ -1,5 +1,6 @@
 import type { AdminAuditEvent, AuditSearchParams } from './audit'
 import { param } from './audit'
+export { formatLocalDateTime as formatAuditTime } from '@/utils/date/formatLocalDateTime'
 
 export const auditFieldClass = 'h-9 min-w-0 rounded-lg border border-ui-border bg-ui-raised px-3 text-sm text-ui-text outline-none transition placeholder:text-ui-muted focus:border-ui-primary focus:ring-2 focus:ring-ui-primary/20'
 export const auditSelectClass = `${auditFieldClass} appearance-none`
@@ -10,11 +11,6 @@ export const auditLimits = ['50', '100', '200', '500']
 
 export function auditDisplayText(value: string, kind = 'account') {
     return value.replace(/\b(?:Hanasand )?Commercial Acceptance\b/gi, kind === 'organization' ? 'Test organization' : 'Test account')
-}
-
-export function formatAuditTime(value: string) {
-    const date = new Date(value)
-    return Number.isFinite(date.getTime()) ? date.toLocaleString() : value
 }
 
 export function auditTargetName(event: AdminAuditEvent) {

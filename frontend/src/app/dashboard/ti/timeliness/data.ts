@@ -1,5 +1,7 @@
 import type { QueueStatus } from './types'
 
+export { formatLocalDateTime as date } from '@/utils/date/formatLocalDateTime'
+
 export type TimelinessFilters = { scope: 'tenant' | 'global', tenantId: string, status: '' | QueueStatus, query: string }
 
 export function buildReadUrl({ scope, tenantId, status, query }: TimelinessFilters) {
@@ -18,11 +20,6 @@ export function buildWriteUrl(scope: TimelinessFilters['scope'], tenantId: strin
 
 export function label(value: string) {
     return value.replace(/([a-z])([A-Z])/g, '$1 $2').replaceAll('_', ' ').replace(/\b\w/g, character => character.toUpperCase())
-}
-
-export function date(value: string) {
-    const parsed = new Date(value)
-    return Number.isFinite(parsed.getTime()) ? parsed.toLocaleString() : value
 }
 
 export function duration(value?: number | null) {
