@@ -7,8 +7,9 @@ contracts match, and maintainable tests while preserving existing product
 behavior and features. Reduce duplicated and ineffective code; keep measuring
 source, tests, generated output, and configuration separately against the
 recorded baseline. The API source reduction target remains at least 100,000 lines without
-feature loss. The frontend is also in scope: reduce its current 153,708
-hand-maintained lines to no more than 30,000, aiming for 10,000–30,000 where
+feature loss. The frontend is also in scope: reduce its 153,708-line baseline
+inventory of hand-maintained code to no more than 30,000 lines, aiming for
+10,000–30,000 where
 that preserves clear ownership and complete functionality. Keep rendered UI,
 interactions, accessibility behavior, and page data contracts stable. Prefer
 shared React components and behavior when real consumers share the same
@@ -1644,3 +1645,20 @@ goal remains unmet. The repository-wide scan finds 63 over-limit files among
 4,320 files / 325,837 lines, all outside frontend. Full frontend ESLint still
 reports 1,306 existing errors outside the changed paths; changed-file ESLint
 passes. No UI redesign or deployment was made.
+
+At frontend checkpoint `5f46c992d`, reviewed cleanups extract shared case
+resolution labels and rule request transport, reuse TI source layout and VM
+panel components, consolidate audit failure counting, database query
+transitions, log refresh callbacks, automation filter fields, share-tree state
+wiring, and organization filter counts. Behavior and rendered UI contracts are
+covered by focused tests; independent reviews approved the changes. The full
+registered frontend suite and production build pass, with all 116 pages
+generated. Scoped ESLint, typecheck, and the 200-line cap pass. The frontend
+inventory is 2,368 files / 154,873 lines, with no over-limit file. Since
+`0c81a77b4`, frontend source grew by 44 lines and tests/scripts by 129, a net
+increase of 173 lines; this batch improves reuse and readability but does not
+deliver the requested line reduction. The repository scan finds 63 over-limit
+files among 4,326 files / 326,010 lines, all outside the frontend. Browser
+Playwright checks could not start because the configured local API server
+exits during startup. The broader API and frontend reduction objectives remain
+open; no UI redesign or deployment was made.
