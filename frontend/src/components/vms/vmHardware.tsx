@@ -10,7 +10,7 @@ export default function VMHardware({ vm }: VMDetailsProps) {
         <VmPanel title='Hardware'>
             <Field title='CPU' value={vm.limits_cpu} />
             <Field title='Memory' value={vm.limits_memory} />
-            <Field title='Disk' value='Not reported' />
+            <Field title='Disk' value={null} />
         </VmPanel>
     )
 }
