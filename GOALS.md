@@ -808,3 +808,13 @@ The API events handler was split along route, catalog, finding, storage, normali
 The generated frontend search-route catalog now emits one route object per line (130 lines total) and remains exactly equivalent to the previous 127-route catalog. The 200-line checker now includes the generated catalog, and a generator-side guard rejects oversized output before cleanup or writes. Tests cover catalog aliases, exclusions, ordering, uniqueness, and line-cap rejection. Independent review found no actionable issue. Focused frontend tests (6), typecheck, targeted ESLint, deterministic regeneration, and frontend line-cap checks passed. The frontend cap scan now covers 2,269 files / 152,024 lines with zero over 200; its total includes the previously exempt generated file. The frontend remains far above the 10,000–30,000 LOC target.
 
 After these checkpoints, the repository-wide line-cap scan reports 122 oversized handwritten files among 3,738 files / 320,187 LOC. The events handler no longer exceeds 200 lines, but the remaining repository-wide cap debt is substantial. The API 100,000-line reduction and frontend 10,000–30,000 LOC targets remain unmet.
+
+At the current 2026-10-17 working-tree snapshot, the frontend-only scope contains
+2,260 hand-maintained source/config files and 151,549 lines, with zero files
+over 200 lines. This count excludes generated route/article catalogs and
+dependency/build output. The strict frontend file cap is currently satisfied;
+the much larger 10,000–30,000-line target remains unmet. Continue prioritizing
+verified reuse and removal of truly duplicated or unreferenced implementation,
+while preserving rendered UI, accessibility, routes, and every page's expected
+data contract. The integrated API work is still in progress, so repository-wide
+counts and the overall cap remain provisional.
