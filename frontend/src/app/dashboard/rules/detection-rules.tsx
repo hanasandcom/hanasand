@@ -7,6 +7,7 @@ import { ruleCategories, type RuleCategory } from './rule-categories'
 import { DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
 import RulePageActions from './rule-page-actions'
 import RuleLibrary from './rule-library'
+import { requestJson } from './ruleRequest'
 
 export type Rule = { id: string, hitCount?: number | null, previousHitCount?: number, detectionLogic?: string, recordId?: string, rule_id?: string, version: string, name: string, family: string, severity: string, explanation: string, evidence: string[], enabled?: boolean, source?: 'hanasand' | 'owned' | 'open_source', sourceReference?: string, definition?: { stage?: 'analyze' | 'match' | 'detect', action?: 'drop' | 'keep', storeScope?: 'all' | 'custom_drop', match?: 'all', parameters?: Record<string, number>, protection?: Record<string, unknown>, failureConditions?: Array<{ path: string, operator: string, value: string, caseSensitive?: boolean }>, conditions?: Array<{ path: string, operator: string, value: string, caseSensitive?: boolean }> } }
 
@@ -172,5 +173,4 @@ export default function DetectionRules({ category, initial }: { category: RuleCa
     )
 }
 
-export async function requestJson<T>(url: string, init: RequestInit = {}) { const response = await fetch(url, { ...init, headers: { 'Content-Type': 'application/json', ...(init.headers || {}) } }); const payload = await response.json().catch(() => ({})); if (!response.ok) throw new Error(payload?.error?.message || payload?.error || `Request failed (${response.status})`); return payload as T }
 function errorMessage(error: unknown) { return error instanceof Error ? error.message : 'Event could not load this workspace.' }

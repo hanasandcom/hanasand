@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
-import { requestJson } from './detection-rules'
+import { requestJson } from './ruleRequest'
 import type { Condition } from './condition-builder'
 
 type Event = { id: string, timestamp: string, normalized: Record<string, unknown>, rank: number }

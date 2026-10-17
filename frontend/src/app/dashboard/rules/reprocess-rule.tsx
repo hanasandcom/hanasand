@@ -1,6 +1,7 @@
 'use client'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { requestJson, type Rule } from './detection-rules'
+import { requestJson } from './ruleRequest'
+import type { Rule } from './detection-rules'
 import RulePreview from './rule-preview'
 import { formatRuleStorageBytes } from './ruleStorageFormatting'
 
