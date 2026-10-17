@@ -18,7 +18,6 @@ export type SavedSearch = { query: string, savedAt: string }
 export * from './pageConstants'
 export * from './pageEffects'
 export * from './actorReferences'
-export * from './useMediaQuery'
 export * from './secondaryViews'
 export * from './freshnessReviewPayload'
 export * from './provenanceArtifactPayload'

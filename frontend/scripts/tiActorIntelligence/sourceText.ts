@@ -2,7 +2,7 @@ import { readFileSync, readdirSync } from 'node:fs'
 
 const pageClientModules = [
     'pageClientShared.ts', 'pageModel.ts', 'pageConstants.ts', 'pageEffects.ts',
-    'actorReferences.ts', 'useMediaQuery.ts', 'secondaryViews.ts',
+    'actorReferences.ts', 'secondaryViews.ts',
     'freshnessReviewPayload.ts', 'provenanceArtifactPayload.ts', 'actorEvidencePayloads.ts',
     'analystWorkItems.ts', 'relatedRecordPayloads.ts', 'consumerReadiness.ts',
     'sourcePresentation.ts', 'sourceCollectionPayloads.ts', 'caseReviewPresentation.ts',
