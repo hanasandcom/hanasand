@@ -2646,5 +2646,5 @@ with no checked hand-maintained file above 200 lines. This cap does not represen
 aggregate frontend cleanup: the 10,000–30,000-line frontend target and 100,000-
 line API reduction remain unachieved. VM start/stop/restart are routed to the
 configured primary host, but remote VM creation, console/terminal behavior, and
-live cross-host lifecycle acceptance remain unverified. The firewall test and
-this checkpoint are local and uncommitted pending integrated candidate checks.
+live cross-host lifecycle acceptance remain unverified. The candidate remains
+local and unpushed pending final integrated checks.
