@@ -5,6 +5,7 @@ import run, { withTransaction } from '#db'
 import { eventProtectionRuleId, eventProtectionRule, eventProtectionDefinition, normalizeEventProtection } from '#utils/events/eventProtection.ts'
 import { PreviewRegexTimeout } from '#utils/events/rulePreview.ts'
 import { reprocessRuleItems } from '#utils/events/ruleReprocess.ts'
+import { deleteSelfIngestionReportingRows } from './drop-self-ingestion-reporting-cleanup.ts'
 
 const organizationId = process.argv[2]
 if (!organizationId || !(await run('SELECT id FROM organizations WHERE id=$1 AND status=\'active\'', [organizationId])).rows.length) throw new Error('An active organization ID is required.')
@@ -74,8 +75,10 @@ for (let offset=0;offset<unique.length;offset+=1000) {
         const result=await reprocessRuleItems(items,{organization_id:organizationId},currentRule,async (sql,values)=>{
             // Bulk-remove the reporting rows before the FK cascade so their
             // statement-level count trigger runs once, rather than once per event.
-            if(sql.startsWith('DELETE FROM events WHERE organization_id=')) await query(`DELETE FROM log_dimensions d
-                USING events e WHERE d.event_id=e.id AND e.organization_id=$1 AND e.id=ANY($2::text[])`,values)
+            if(sql.startsWith('DELETE FROM events WHERE organization_id=')) {
+                const [organizationId, eventIds] = values as [string, string[]]
+                await deleteSelfIngestionReportingRows(query, organizationId, eventIds)
+            }
             return query(sql,values)
         })
         return result

@@ -1,7 +1,23 @@
 import { expect, mock, test } from 'bun:test'
-import { readFileSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import pg from 'pg'
+import { deleteSelfIngestionReportingRows } from '../scripts/drop-self-ingestion-reporting-cleanup.ts'
+import type { queryOnce } from '#db'
+
+test('reporting cleanup binds one organization and its event IDs', async () => {
+    let call: { sql: string, values?: Parameters<typeof queryOnce>[1] } | undefined
+    const query = (async (sql: string, values?: Parameters<typeof queryOnce>[1]) => {
+        call = { sql, values }
+        return {} as Awaited<ReturnType<typeof queryOnce>>
+    }) as typeof queryOnce
+
+    await deleteSelfIngestionReportingRows(query, 'org', ['remove', 'other'])
+
+    expect(call).toEqual({
+        sql: 'DELETE FROM log_dimensions d\n        USING events e WHERE d.event_id=e.id AND e.organization_id=$1 AND e.id=ANY($2::text[])',
+        values: ['org', ['remove', 'other']],
+    })
+})
 
 test.skipIf(!process.env.POSTGRES_FILTER_TEST_PORT)('self-ingestion replay removes only unprotected canonical events', async () => {
     const client = new pg.Client({host:'127.0.0.1',port:Number(process.env.POSTGRES_FILTER_TEST_PORT),database:'postgres_filter_test'})
@@ -59,11 +75,10 @@ test.skipIf(!process.env.POSTGRES_FILTER_TEST_PORT)('bulk replay reporting clean
         await client.query('CREATE TABLE events(id text PRIMARY KEY,organization_id text); CREATE TABLE log_dimensions(event_id text PRIMARY KEY REFERENCES events(id) ON DELETE CASCADE,organization_id text,event_timestamp timestamptz,severity text,service text,log_type text)')
         const {logCountsSchema}=await import('../src/utils/db/logCountsSchema.ts')
         for(const sql of logCountsSchema) await client.query(sql)
-        await client.query('INSERT INTO events VALUES(\'remove\',\'org\'),(\'keep\',\'org\'),(\'other\',\'other\'); INSERT INTO log_dimensions SELECT id,organization_id,\'2026-09-24T10:00Z\',\'low\',\'test\',\'HttpLogs\' FROM events')
-        const source=readFileSync(new URL('../scripts/drop-self-ingestion-responses.ts',import.meta.url),'utf8')
-        const remove=source.match(/`(DELETE FROM log_dimensions d[\s\S]*?ANY\(\$2::text\[\]\))`/)![1]
-        await client.query(remove,['org',['remove','other']])
-        await client.query('DELETE FROM events WHERE organization_id=$1 AND id=ANY($2::text[])',['org',['remove','other']])
+        await client.query('INSERT INTO events VALUES(\'remove\',\'org\'),(\'remove-again\',\'org\'),(\'keep\',\'org\'),(\'other\',\'other\'); INSERT INTO log_dimensions SELECT id,organization_id,\'2026-09-24T10:00Z\',\'low\',\'test\',\'HttpLogs\' FROM events')
+        const query = (sql: string, values?: Parameters<typeof queryOnce>[1]) => client.query(sql, values)
+        await deleteSelfIngestionReportingRows(query, 'org', ['remove','remove-again','other'])
+        await client.query('DELETE FROM events WHERE organization_id=$1 AND id=ANY($2::text[])',['org',['remove','remove-again','other']])
         expect((await client.query('SELECT event_id FROM log_dimensions ORDER BY event_id')).rows.map(row=>row.event_id)).toEqual(['keep','other'])
         expect((await client.query('SELECT event_count FROM log_counts ORDER BY bucket_seconds,organization_id')).rows.map(row=>Number(row.event_count))).toEqual([1,1,1,1,1,1])
     } finally { await client.query('ROLLBACK'); await client.end() }
