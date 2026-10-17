@@ -18,6 +18,8 @@ export interface OrganizationSmokeJourney {
     pendingOpsInvite?: Row
     bulkInviteWorkflow?: Row
     staleDeactivatedInvite?: Row
+    staleRemovedViewerInvite?: Row
+    viewerPendingInviteBeforeRemoval?: Row
     unknownUserInvite?: Row
     expiredInvite?: Row
     ownerWatchlistItem?: Row
