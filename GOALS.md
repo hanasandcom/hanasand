@@ -2375,3 +2375,14 @@ concurrent worktree scan is 2,419 frontend files / 156,211 lines and 4,562
 repository files / 328,893 lines, with no file above 200. Aggregate reduction
 targets remain open. A pre-existing custom-save dirty-state issue was observed
 in the article Editor and remains a separate follow-up.
+
+At the 2026-10-17 public status test checkpoint, the page source scan was
+replaced with SSR of the real `StatusOverview` and `ServiceCheckRow`. The test
+checks stale/unverified presentation, the monitoring-unavailable state, no
+fabricated uptime, and the link to a specific incident ID. Independent review
+approved the coverage; the registered focused task passes (2 tests / 12
+assertions), and line-cap, ESLint, and diff checks pass. The footer source
+contract remains unchanged. This test-only change adds 43 net lines. The
+concurrent worktree scan is 2,419 frontend files / 156,212 lines and 4,562
+repository files / 328,894 lines, with no file above 200. Aggregate reduction
+targets remain open.

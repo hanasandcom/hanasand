@@ -34,6 +34,7 @@ export const otherUnitTasks: TestTask[] = [
     { id: 'health-route', title: 'Frontend health route status mapping', command: [bun, 'test', 'tests/health-route.test.ts'] },
     { id: 'load-testing-scenarios', title: 'Load testing scenario validation', command: [bun, 'test', 'tests/load-testing-scenarios.test.ts'] },
     { id: 'public-status-cache', title: 'Public status cache freshness', command: [bun, 'test', 'tests/public-status-cache.test.ts'] },
+    { id: 'status-public-page-contract', title: 'Public status page unverified rendering', command: [bun, 'test', 'tests/status-public-page-contract.test.tsx'] },
     { id: 'rule-categories', title: 'Rule category mapping', command: [bun, 'test', 'tests/rule-categories.test.ts'] },
     { id: 'share-code-socket-protocol', title: 'Share code socket message protocol', command: [bun, 'test', 'tests/share-code-socket-protocol.test.ts'] },
     { id: 'site-search-truthfulness', title: 'Site search result truthfulness', command: [bun, 'test', 'tests/site-search-truthfulness.test.ts'] },
