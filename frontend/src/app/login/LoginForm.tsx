@@ -1,5 +1,6 @@
 import type { FormEvent, RefObject } from 'react'
 import { ArrowRight, Fingerprint, KeyRound } from 'lucide-react'
+import AuthPasswordField from '@/components/login/authPasswordField'
 import SocialSignIn from '@/components/login/socialSignIn'
 import { authGhostButtonClass, authInputClass, authPrimaryButtonClass } from './loginMode'
 
@@ -35,18 +36,15 @@ export default function LoginForm({ redirectPath, initialUsername, usernameRef, 
                         required
                     />
                 </label>
-                <label className='grid gap-1.5' htmlFor='login-password'>
-                    <span className='text-xs font-semibold text-ui-muted'>Password</span>
-                    <input
-                        id='login-password'
-                        type='password'
-                        name='password'
-                        placeholder='Enter your password'
-                        className={authInputClass}
-                        autoComplete='current-password'
-                        required
-                    />
-                </label>
+                <AuthPasswordField
+                    id='login-password'
+                    label='Password'
+                    name='password'
+                    placeholder='Enter your password'
+                    className={authInputClass}
+                    autoComplete='current-password'
+                    required
+                />
                 <div className='mt-1 flex items-center gap-3'>
                     <button type='submit' disabled={!hydrated || busy} className={`${authPrimaryButtonClass} min-w-24`}>
                         {busy ? 'Logging in' : 'Log in'}

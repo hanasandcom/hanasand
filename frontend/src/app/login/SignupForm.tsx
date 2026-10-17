@@ -1,5 +1,6 @@
 import type { FormEvent } from 'react'
 import { ArrowRight } from 'lucide-react'
+import AuthPasswordField from '@/components/login/authPasswordField'
 import { authGhostButtonClass, authInputClass, authPrimaryButtonClass } from './loginMode'
 import type { useSignupFlow } from './useSignupFlow'
 
@@ -66,21 +67,18 @@ export default function SignupForm({ flow, busy, hydrated, redirectPath, onSubmi
                     required
                 />
             </label>
-            <label className='grid gap-1.5' htmlFor='login-signup-password'>
-                <span className='text-xs font-semibold text-ui-muted'>Password</span>
-                <input
-                    id='login-signup-password'
-                    disabled={!hydrated}
-                    type='password'
-                    name='password'
-                    value={flow.password}
-                    onChange={event => flow.setPassword(event.target.value)}
-                    placeholder='Create a strong password'
-                    className={authInputClass}
-                    autoComplete='new-password'
-                    required
-                />
-            </label>
+            <AuthPasswordField
+                id='login-signup-password'
+                label='Password'
+                disabled={!hydrated}
+                name='password'
+                value={flow.password}
+                onChange={event => flow.setPassword(event.target.value)}
+                placeholder='Create a strong password'
+                className={authInputClass}
+                autoComplete='new-password'
+                required
+            />
             {flow.password && !flow.passwordIsValid ? (
                 <p className='px-1 text-xs leading-5 text-ui-muted'>
                     {flow.passwordRequirementMessage}

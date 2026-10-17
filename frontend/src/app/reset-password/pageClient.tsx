@@ -1,6 +1,7 @@
 'use client'
 import ErrorNotice from '@/components/error/errorNotice'
 import AuthActionLayout from '@/components/login/authActionLayout'
+import AuthPasswordField from '@/components/login/authPasswordField'
 import config from '@/config'
 import useClearStateAfter from '@/hooks/useClearStateAfter'
 import { ArrowLeft, ArrowRight, KeyRound } from 'lucide-react'
@@ -94,8 +95,7 @@ export default function ResetPasswordPage({ userId, initialResetToken = '', rest
                 </div>
             ) : (
                 <form className='flex w-full flex-col gap-3 self-center' onSubmit={handleSubmit}>
-                    <input
-                        type='password'
+                    <AuthPasswordField
                         name='password'
                         aria-label='New password'
                         autoComplete='new-password'
@@ -103,8 +103,7 @@ export default function ResetPasswordPage({ userId, initialResetToken = '', rest
                         className={authInputClass}
                         required
                     />
-                    <input
-                        type='password'
+                    <AuthPasswordField
                         name='confirmPassword'
                         aria-label='Confirm password'
                         autoComplete='new-password'
