@@ -6,6 +6,7 @@ import DecisionStatus from './decision-status'
 import CopyPayloadButton from './copy-payload-button'
 import SelectedPanelHeader from './selected-panel-header'
 import SelectedWatchTerms from './selected-watch-terms'
+import RequirementWarning from './requirement-warning'
 
 export default function SelectedAlertActionPlanPanel({ plan }: { plan: SelectedAlertActionPlan }) {
     const status = plan.ready ? 'ready' : plan.state === 'review' ? 'review' : 'blocked'
@@ -42,9 +43,7 @@ export default function SelectedAlertActionPlanPanel({ plan }: { plan: SelectedA
                             <p className='mt-1 wrap-break-word text-[11px] leading-5 text-ui-muted dark:text-ui-muted'>
                                 {row.route ? 'Source action available.' : 'Source action pending.'}
                             </p>
-                            {row.blockers.length ? (
-                                <p className='mt-1 wrap-break-word text-[11px] leading-5 text-ui-warning dark:text-ui-warning'>{displayRequirementList(row.blockers.slice(0, 3))}</p>
-                            ) : null}
+                            <RequirementWarning items={row.blockers} limit={3} />
                         </div>
                     ))}
                 </div>
@@ -59,7 +58,7 @@ export default function SelectedAlertActionPlanPanel({ plan }: { plan: SelectedA
                 </div>
             ) : null}
             {plan.blockers.length ? (
-                <p className='mt-2 wrap-break-word text-[11px] leading-5 text-ui-warning dark:text-ui-warning'>{displayRequirementList(plan.blockers.slice(0, 3).map(blocker => blocker.detail))}</p>
+                <RequirementWarning items={plan.blockers.map(blocker => blocker.detail)} limit={3} spacing='mt-2' />
             ) : (
                 <p className='mt-2 text-[11px] leading-5 text-ui-success dark:text-ui-success'>Alert rebuild has the required watchlist and sources.</p>
             )}

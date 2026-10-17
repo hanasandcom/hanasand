@@ -2,9 +2,10 @@
 
 import { sourceHealthChipClass, stagedReadinessChips } from '../pageClientShared'
 import { ClipboardList } from 'lucide-react'
-import { decisionStepStatusClass, displayRequirementList, formatLabel, relevanceLabelForStaged, type StagedHandoff } from '../pageModel'
+import { decisionStepStatusClass, formatLabel, relevanceLabelForStaged, type StagedHandoff } from '../pageModel'
 import CopyPayloadButton from './copy-payload-button'
 import Panel from './panel'
+import RequirementWarning from './requirement-warning'
 
 export default function StagedHandoffQueuePanel({ items, onClear }: { items: StagedHandoff[]; onClear: () => void }) {
     const readyCount = items.filter(item => item.ready).length
@@ -56,9 +57,7 @@ export default function StagedHandoffQueuePanel({ items, onClear }: { items: Sta
                                         <span key={chip.label} className={sourceHealthChipClass(chip.ready ? 'ready' : 'blocked')}>{chip.label}: {chip.value}</span>
                                     ))}
                                 </div>
-                                {item.blockers.length ? (
-                                    <p className='mt-1 wrap-break-word text-[11px] leading-5 text-ui-warning dark:text-ui-warning'>{displayRequirementList(item.blockers.slice(0, 2))}</p>
-                                ) : null}
+                                <RequirementWarning items={item.blockers} limit={2} />
                             </div>
                         ))}
                     </div>

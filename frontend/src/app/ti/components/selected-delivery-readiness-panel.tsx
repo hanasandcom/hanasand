@@ -1,10 +1,11 @@
 'use client'
 
 import { sourceHealthChipClass } from '../pageClientShared'
-import { displayRequirementList, displayRequirementText, formatLabel, type SelectedDeliveryReadinessPlan } from '../pageModel'
+import { displayRequirementText, formatLabel, type SelectedDeliveryReadinessPlan } from '../pageModel'
 import DecisionStatus from './decision-status'
 import CopyPayloadButton from './copy-payload-button'
 import SelectedPanelHeader from './selected-panel-header'
+import RequirementWarning from './requirement-warning'
 
 export default function SelectedDeliveryReadinessPanel({ plan }: { plan: SelectedDeliveryReadinessPlan }) {
     return (
@@ -34,9 +35,7 @@ export default function SelectedDeliveryReadinessPanel({ plan }: { plan: Selecte
                             {alert.destinationIds.length ? ` · ${alert.destinationIds.length} destination${alert.destinationIds.length === 1 ? '' : 's'}` : ' · destination needed'}
                             {alert.casePath ? ` · ${displayRequirementText(alert.casePath)}` : ' · case link pending'}
                         </p>
-                        {alert.blockers.length ? (
-                            <p className='mt-1 wrap-break-word text-[11px] leading-5 text-ui-warning dark:text-ui-warning'>{displayRequirementList(alert.blockers.slice(0, 3))}</p>
-                        ) : null}
+                        <RequirementWarning items={alert.blockers} limit={3} />
                     </div>
                 ))}
                 {!plan.alerts.length ? (
@@ -50,7 +49,7 @@ export default function SelectedDeliveryReadinessPanel({ plan }: { plan: Selecte
                 {plan.handoff.request ? <span className={sourceHealthChipClass(plan.handoff.ready ? 'ready' : 'blocked')}>{plan.handoff.request}</span> : null}
             </div>
             {plan.blockers.length ? (
-                <p className='mt-2 wrap-break-word text-[11px] leading-5 text-ui-warning dark:text-ui-warning'>{displayRequirementList(plan.blockers.slice(0, 4))}</p>
+                <RequirementWarning items={plan.blockers} limit={4} spacing='mt-2' />
             ) : (
                 <p className='mt-2 text-[11px] leading-5 text-ui-success dark:text-ui-success'>Alert, capture, destination, and case link refs are ready for authenticated dry-run delivery.</p>
             )}

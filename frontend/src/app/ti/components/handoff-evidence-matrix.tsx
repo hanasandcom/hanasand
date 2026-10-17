@@ -1,9 +1,10 @@
 'use client'
 
 import { countLinkedLabel } from '../pageClientShared'
-import { decisionStepStatusClass, displayRequirementList, displayRequirementText, readinessOwnerLabel } from '../pageModel'
+import { decisionStepStatusClass, displayRequirementText, readinessOwnerLabel } from '../pageModel'
 import { type TiActionabilityModel } from '@/utils/ti/actionability'
 import { useState } from 'react'
+import RequirementWarning from './requirement-warning'
 
 export default function HandoffEvidenceMatrix({ actionability }: { actionability: TiActionabilityModel }) {
     const [showReviewPaths, setShowReviewPaths] = useState(false)
@@ -112,7 +113,7 @@ export default function HandoffEvidenceMatrix({ actionability }: { actionability
                             {row.blocker ? (
                                 <p className='mt-2 wrap-break-word text-[11px] leading-5 text-ui-warning dark:text-ui-warning'>{readinessOwnerLabel(row.blocker.ownerLane)}: {displayRequirementText(row.blocker.handoff)}</p>
                             ) : row.missing.length ? (
-                                <p className='mt-2 wrap-break-word text-[11px] leading-5 text-ui-warning dark:text-ui-warning'>{displayRequirementList(row.missing.slice(0, 2))}</p>
+                                <RequirementWarning items={row.missing} limit={2} spacing='mt-2' />
                             ) : (
                                 <p className='mt-2 text-[11px] leading-5 text-ui-success dark:text-ui-success'>Required links and source details are present.</p>
                             )}

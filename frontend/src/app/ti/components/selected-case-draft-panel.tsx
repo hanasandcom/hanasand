@@ -1,10 +1,11 @@
 'use client'
 
 import { compactSourceReferenceLabel, handoffMissingLabel, sourceHealthChipClass } from '../pageClientShared'
-import { decisionStepStatusClass, displayRequirementList, displayRequirementText, formatLabel, sourceBasisLabel, type SelectedCaseDraft } from '../pageModel'
+import { decisionStepStatusClass, displayRequirementText, formatLabel, sourceBasisLabel, type SelectedCaseDraft } from '../pageModel'
 import CopyPayloadButton from './copy-payload-button'
 import SelectedPanelHeader from './selected-panel-header'
 import SelectedWatchTerms from './selected-watch-terms'
+import RequirementWarning from './requirement-warning'
 
 export default function SelectedCaseDraftPanel({ draft }: { draft: SelectedCaseDraft }) {
     return (
@@ -36,7 +37,7 @@ export default function SelectedCaseDraftPanel({ draft }: { draft: SelectedCaseD
             ) : null}
             <SelectedWatchTerms terms={draft.watchTerms} previewCount={3} />
             {draft.missing.length ? (
-                <p className='mt-2 wrap-break-word text-[11px] leading-5 text-ui-warning dark:text-ui-warning'>{displayRequirementList(draft.missing.slice(0, 3))}</p>
+                <RequirementWarning items={draft.missing} limit={3} spacing='mt-2' />
             ) : (
                 <p className='mt-2 text-[11px] leading-5 text-ui-success dark:text-ui-success'>Required case identifiers and evidence context are present.</p>
             )}

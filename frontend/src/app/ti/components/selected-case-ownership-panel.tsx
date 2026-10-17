@@ -1,10 +1,11 @@
 'use client'
 
 import { caseReviewReferenceSummary, recommendedActionLabel, sourceHealthChipClass } from '../pageClientShared'
-import { decisionStepStatusClass, displayRequirementList, displayRequirementText, formatLabel, publicStateLabel, type SelectedCaseOwnershipPlan } from '../pageModel'
+import { decisionStepStatusClass, displayRequirementText, formatLabel, publicStateLabel, type SelectedCaseOwnershipPlan } from '../pageModel'
 import CopyPayloadButton from './copy-payload-button'
 import DecisionStatus from './decision-status'
 import SelectedPanelHeader from './selected-panel-header'
+import RequirementWarning from './requirement-warning'
 
 export default function SelectedCaseOwnershipPanel({ plan }: { plan: SelectedCaseOwnershipPlan }) {
     return (
@@ -41,9 +42,7 @@ export default function SelectedCaseOwnershipPanel({ plan }: { plan: SelectedCas
                         <p className='mt-1 wrap-break-word text-[11px] leading-5 text-ui-muted dark:text-ui-muted'>
                             {caseReviewReferenceSummary(item)}
                         </p>
-                        {item.blockers.length ? (
-                            <p className='mt-1 wrap-break-word text-[11px] leading-5 text-ui-warning dark:text-ui-warning'>{displayRequirementList(item.blockers.slice(0, 3))}</p>
-                        ) : null}
+                        <RequirementWarning items={item.blockers} limit={3} />
                     </div>
                 ))}
             </div>
@@ -57,7 +56,7 @@ export default function SelectedCaseOwnershipPanel({ plan }: { plan: SelectedCas
                 </div>
             ) : null}
             {plan.blockers.length ? (
-                <p className='mt-2 wrap-break-word text-[11px] leading-5 text-ui-warning dark:text-ui-warning'>{displayRequirementList(plan.blockers.slice(0, 4))}</p>
+                <RequirementWarning items={plan.blockers} limit={4} spacing='mt-2' />
             ) : (
                 <p className='mt-2 text-[11px] leading-5 text-ui-success dark:text-ui-success'>Case link, alert, capture, and source references are ready for authenticated review.</p>
             )}

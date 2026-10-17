@@ -1,10 +1,11 @@
 'use client'
 
 import { TI_SELECTED_CONTEXT_ROWS, compactSourceReferenceLabel, formatDate, sourceEvidenceRequestPayloadFor } from '../pageClientShared'
-import { decisionStepStatusClass, displayRequirementList, displayRequirementText, readinessOwnerLabel, sourceBasisLabel, sourceRequestRouteLabel, type DecisionStep, type SelectedSourceDrilldown } from '../pageModel'
+import { decisionStepStatusClass, displayRequirementText, readinessOwnerLabel, sourceBasisLabel, sourceRequestRouteLabel, type DecisionStep, type SelectedSourceDrilldown } from '../pageModel'
 import { ExternalLink } from 'lucide-react'
 import CopyPayloadButton from './copy-payload-button'
 import SourceDrilldownHandoff from './source-drilldown-handoff'
+import RequirementWarning from './requirement-warning'
 
 export default function SelectedSourceDrilldownPanel({ drilldown }: { drilldown: SelectedSourceDrilldown }) {
     const readyRows = drilldown.rows.filter(row => row.state === 'ready').length
@@ -55,9 +56,7 @@ export default function SelectedSourceDrilldownPanel({ drilldown }: { drilldown:
                                 </a>
                             ) : null}
                         </div>
-                        {row.missing.length ? (
-                            <p className='mt-2 wrap-break-word text-[11px] leading-5 text-ui-warning dark:text-ui-warning'>{displayRequirementList(row.missing.slice(0, 2))}</p>
-                        ) : null}
+                        <RequirementWarning items={row.missing} limit={2} spacing='mt-2' />
                     </div>
                 )) : (
                     <div className='rounded-lg border border-ui-warning/35 bg-ui-warning/10 p-3 text-xs leading-5 text-ui-warning dark:border-ui-warning/35 dark:bg-ui-warning/10 dark:text-ui-warning'>
@@ -70,9 +69,7 @@ export default function SelectedSourceDrilldownPanel({ drilldown }: { drilldown:
                 <SourceDrilldownHandoff label='alert delivery' ready={drilldown.alertHandoff.ready} endpoint={drilldown.alertHandoff.route || drilldown.alertHandoff.endpoint} missing={drilldown.alertHandoff.missing} />
                 <SourceDrilldownHandoff label='case delivery' ready={drilldown.caseHandoff.ready} endpoint={drilldown.caseHandoff.route || drilldown.caseHandoff.endpoint} missing={drilldown.caseHandoff.missing} />
             </div>
-            {drilldown.blockers.length ? (
-                <p className='mt-3 wrap-break-word text-[11px] leading-5 text-ui-warning dark:text-ui-warning'>{displayRequirementList(drilldown.blockers.slice(0, 3))}</p>
-            ) : null}
+            <RequirementWarning items={drilldown.blockers} limit={3} spacing='mt-3' />
         </div>
     )
 }

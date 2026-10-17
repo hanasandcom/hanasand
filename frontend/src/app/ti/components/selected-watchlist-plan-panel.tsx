@@ -1,10 +1,11 @@
 'use client'
 
 import { compactSourceReferenceLabel, formatDate, sourceHealthChipClass } from '../pageClientShared'
-import { displayRequirementList, displayRequirementText, formatLabel, readinessOwnerLabel, type DecisionStep, type SelectedWatchlistPlan } from '../pageModel'
+import { displayRequirementText, formatLabel, readinessOwnerLabel, type DecisionStep, type SelectedWatchlistPlan } from '../pageModel'
 import DecisionStatus from './decision-status'
 import CopyPayloadButton from './copy-payload-button'
 import SelectedPanelHeader from './selected-panel-header'
+import RequirementWarning from './requirement-warning'
 
 export default function SelectedWatchlistPlanPanel({ plan }: { plan: SelectedWatchlistPlan }) {
     const status: DecisionStep['status'] = plan.ready ? 'ready' : plan.blockers.length || plan.state === 'missing_terms' ? 'blocked' : 'review'
@@ -79,9 +80,7 @@ export default function SelectedWatchlistPlanPanel({ plan }: { plan: SelectedWat
                                     ))}
                                 </div>
                             ) : null}
-                            {row.blockers.length ? (
-                                <p className='mt-1 wrap-break-word text-[11px] leading-5 text-ui-warning dark:text-ui-warning'>{displayRequirementList(row.blockers.slice(0, 3))}</p>
-                            ) : null}
+                            <RequirementWarning items={row.blockers} limit={3} />
                         </div>
                     ))}
                 </div>

@@ -1,8 +1,9 @@
 'use client'
 
 import { eventProvenanceSummary, formatDate } from '../pageClientShared'
-import { decisionStepStatusClass, displayRequirementList, displayRequirementText, publicStateLabel, type CaseActionTrailPayload } from '../pageModel'
+import { decisionStepStatusClass, displayRequirementText, publicStateLabel, type CaseActionTrailPayload } from '../pageModel'
 import CopyPayloadButton from './copy-payload-button'
+import RequirementWarning from './requirement-warning'
 
 export default function CaseActionTrailPanel({ trail }: { trail: CaseActionTrailPayload }) {
     return (
@@ -35,9 +36,7 @@ export default function CaseActionTrailPanel({ trail }: { trail: CaseActionTrail
                         <p className='mt-1 wrap-break-word text-[11px] leading-5 text-ui-muted dark:text-ui-muted'>
                             {eventProvenanceSummary(event.provenance)}
                         </p>
-                        {event.blockers.length ? (
-                            <p className='mt-1 wrap-break-word text-[11px] leading-5 text-ui-warning dark:text-ui-warning'>{displayRequirementList(event.blockers.slice(0, 3))}</p>
-                        ) : null}
+                        <RequirementWarning items={event.blockers} limit={3} />
                     </div>
                 ))}
             </div>

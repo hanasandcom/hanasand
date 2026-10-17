@@ -2,7 +2,7 @@
 
 import { formatDate } from '../pageClientShared'
 import { BellRing, CheckCircle2, ClipboardList, Database, Eye, Send, ShieldAlert, UserPlus, XCircle } from 'lucide-react'
-import { decisionLabel, decisionStepStatusClass, displayRequirementList, relevanceLabel, type CaseActionTrailPayload, type LocalDecision, type LocalRelevanceMark, type SelectedAlertActionPlan, type SelectedCaseCreateRequest, type SelectedCaseDraft, type SelectedCaseOwnershipPlan, type SelectedDeliveryReadinessPlan, type SelectedEnrichmentTriage, type SelectedReviewHandoff, type SelectedWatchlistPlan } from '../pageModel'
+import { decisionLabel, decisionStepStatusClass, relevanceLabel, type CaseActionTrailPayload, type LocalDecision, type LocalRelevanceMark, type SelectedAlertActionPlan, type SelectedCaseCreateRequest, type SelectedCaseDraft, type SelectedCaseOwnershipPlan, type SelectedDeliveryReadinessPlan, type SelectedEnrichmentTriage, type SelectedReviewHandoff, type SelectedWatchlistPlan } from '../pageModel'
 import { useState } from 'react'
 import ActionButton from './action-button'
 import CaseActionTrailPanel from './case-action-trail-panel'
@@ -15,6 +15,7 @@ import SelectedCaseOwnershipPanel from './selected-case-ownership-panel'
 import SelectedDeliveryReadinessPanel from './selected-delivery-readiness-panel'
 import SelectedEnrichmentTriagePanel from './selected-enrichment-triage-panel'
 import SelectedWatchlistPlanPanel from './selected-watchlist-plan-panel'
+import RequirementWarning from './requirement-warning'
 
 export default function ActionPanel({ note, decision, relevance, reviewHandoff, caseDraft, caseActionTrail, caseOwnership, caseCreateRequest, watchlistPlan, alertPlan, deliveryPlan, enrichmentTriage, onNoteChange, onDecision, onRelevance, onStage }: {
     note: string
@@ -135,9 +136,7 @@ export default function ActionPanel({ note, decision, relevance, reviewHandoff, 
                                         {reviewHandoff.evidenceBasis.length} evidence item{reviewHandoff.evidenceBasis.length === 1 ? '' : 's'}
                                     </span>
                                 </div>
-                                {reviewHandoff.blockers.length ? (
-                                    <p className='mt-2 wrap-break-word text-[11px] leading-5 text-ui-warning dark:text-ui-warning'>{displayRequirementList(reviewHandoff.blockers.slice(0, 2))}</p>
-                                ) : null}
+                                <RequirementWarning items={reviewHandoff.blockers} limit={2} spacing='mt-2' />
                             </div>
                         ) : null}
                     </>

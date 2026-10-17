@@ -1,8 +1,9 @@
 'use client'
 
 import { compactSourceReferenceLabel, formatDate, handoffMissingLabel, sourceHealthChipClass } from '../pageClientShared'
-import { consumerRequestPathLabel, decisionStepStatusClass, displayRequirementList, displayRequirementText, formatLabel, publicDecisionStatusLabel, readinessOwnerLabel, sourceBasisLabel, sourceRequestRouteLabel, type SelectedCaseCreateRequest } from '../pageModel'
+import { consumerRequestPathLabel, decisionStepStatusClass, displayRequirementText, formatLabel, publicDecisionStatusLabel, readinessOwnerLabel, sourceBasisLabel, sourceRequestRouteLabel, type SelectedCaseCreateRequest } from '../pageModel'
 import CopyPayloadButton from './copy-payload-button'
+import RequirementWarning from './requirement-warning'
 import EvidenceMetric from './evidence-metric'
 import DecisionStatus from './decision-status'
 import SelectedPanelHeader from './selected-panel-header'
@@ -74,9 +75,7 @@ export default function SelectedCaseCreateRequestPanel({ request }: { request: S
                         </span>
                     ))}
                 </div>
-                {request.watchlistBasis.blockers.length ? (
-                    <p className='mt-1 wrap-break-word text-[11px] leading-5 text-ui-warning dark:text-ui-warning'>{displayRequirementList(request.watchlistBasis.blockers.slice(0, 3))}</p>
-                ) : null}
+                <RequirementWarning items={request.watchlistBasis.blockers} limit={3} />
             </div>
             {request.sourceRows.length ? (
                 <div className='mt-2 grid gap-2'>
@@ -136,15 +135,13 @@ export default function SelectedCaseCreateRequestPanel({ request }: { request: S
                             {row.reasons.length ? (
                                 <p className='mt-1 wrap-break-word text-[11px] leading-5 text-ui-muted dark:text-ui-muted'>{row.reasons.slice(0, 2).join(' ')}</p>
                             ) : null}
-                            {row.blockers.length ? (
-                                <p className='mt-1 wrap-break-word text-[11px] leading-5 text-ui-warning dark:text-ui-warning'>{displayRequirementList(row.blockers.slice(0, 3))}</p>
-                            ) : null}
+                            <RequirementWarning items={row.blockers} limit={3} />
                         </div>
                     ))}
                 </div>
             ) : null}
             {request.blockers.length ? (
-                <p className='mt-2 wrap-break-word text-[11px] leading-5 text-ui-warning dark:text-ui-warning'>{displayRequirementList(request.blockers.slice(0, 4))}</p>
+                <RequirementWarning items={request.blockers} limit={4} spacing='mt-2' />
             ) : (
                 <p className='mt-2 text-[11px] leading-5 text-ui-success dark:text-ui-success'>Case creation has the selected evidence, alert, capture, source, and watchlist refs required for authenticated review.</p>
             )}
