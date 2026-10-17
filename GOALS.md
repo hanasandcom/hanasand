@@ -2578,3 +2578,17 @@ features or useful coverage. The current scan is 2,414 frontend files / 156,240
 lines and 4,559 repository files / 328,961 lines, with no file above 200. These
 working-tree counts include concurrent uncommitted TI and API test edits and
 are provisional. The API and frontend aggregate reduction goals remain open.
+
+At `63b49cb37`, three admin-support event readers now reuse one identical
+18-column SQL projection, preserving each caller's filters, ordering, limits,
+and parameters. At `b90f7824f`, dashboard delivery ordering moved from a React
+panel into a pure shared helper used by findings and case detail, and repeated
+organization Playwright auth/cookie setup moved into one fixture. Independent
+review approved both changes. The delivery suites pass (12 tests), as do
+frontend typecheck, scoped ESLint, and the frontend cap. The organization
+Playwright scenarios could not run because the managed server and Chromium
+failed to start in this environment. The current frontend scan is 2,417
+source/config files / 156,245 lines, with no file above 200; these two frontend
+checkpoints add five net lines. The commits are local only while the integrated
+refactor remains in progress. The frontend 10,000–30,000-line target and API
+100,000-line reduction target remain unmet.
