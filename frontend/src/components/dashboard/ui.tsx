@@ -34,6 +34,24 @@ export function DashboardPanel({ children, className = '', id }: DashboardPanelP
     return <section id={id} className={`${dashboardPanelClass} ${className}`.trim()}>{children}</section>
 }
 
+export function DashboardTablePanel({ header, columnHeaders, children }: {
+    header: ReactNode
+    columnHeaders: ReactNode
+    children: ReactNode
+}) {
+    return <DashboardPanel className='overflow-hidden border-ui-border bg-ui-panel p-0'>
+        {header}
+        <div className='overflow-x-auto'>
+            <table className='min-w-full divide-y divide-ui-border text-sm'>
+                <thead className='bg-ui-canvas text-left text-xs font-semibold uppercase text-ui-muted'>
+                    <tr>{columnHeaders}</tr>
+                </thead>
+                <tbody className='divide-y divide-ui-border bg-ui-panel'>{children}</tbody>
+            </table>
+        </div>
+    </DashboardPanel>
+}
+
 export function DashboardDataFallback({ label }: { label: string }) {
     return <div role='status' aria-busy='true' aria-label={`Loading ${label}`} className='grid min-h-48 content-start gap-3 rounded-xl border border-ui-border bg-ui-panel p-4'>
         <span className='h-5 w-40 animate-pulse rounded bg-ui-raised' />

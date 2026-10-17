@@ -6,6 +6,7 @@ import type { TiAdminOverview } from '../src/utils/tiAdmin/ops'
 import type { TiEnrichmentOverview } from '../src/utils/tiAdmin/enrichment'
 import { SourcesPanel } from '../src/app/dashboard/ti/sourceDeliveryPanels'
 import { ActorEnrichmentPanel, RecentEvidencePanel } from '../src/app/dashboard/ti/evidenceEnrichmentPanels'
+import { ActionItemsPanel } from '../src/app/dashboard/ti/actionItemsPanel'
 
 const source = {
     id: 'feed-1', name: 'Threat feed', family: 'dark_web', status: 'active', nextRunAt: '2026-10-16T11:00:00Z',
@@ -47,4 +48,43 @@ test('TI admin tables keep shared shell, headers, routes and body-specific empty
     expect(actors).toContain('colSpan="6"')
     expect(actors).toContain('Actor profiles are updating. New profile changes appear here.')
     expect(actorRow).toContain('Example actor')
+})
+
+test('action items retain all five columns, statuses, badges, and their destination', () => {
+    const html = render(createElement(ActionItemsPanel, {
+        items: [
+            { kind: 'run', priority: 'critical', tone: 'bad', title: 'run-42', reason: 'Source returned an error.', state: 'Started just now', href: '/ti/runs' },
+            { kind: 'source', priority: 'stale', tone: 'watch', title: 'source-1', reason: 'Collection is late.', state: 'Last hour', href: '/ti/sources/source-1' },
+        ],
+        queuedCount: 2, latestRunStatus: 'blocked', latestRunTone: 'watch', actorUpdates: 4,
+    }))
+
+    expect(html).toContain('overflow-hidden border-ui-border bg-ui-panel p-0')
+    expect(html).toContain('min-w-full divide-y divide-ui-border text-sm')
+    expect((html.match(/<th\b/g) || [])).toHaveLength(5)
+    for (const heading of ['Signal', 'Item', 'Details', 'State', 'Open']) expect(html).toContain(`>${heading}</th>`)
+    expect(html).toContain('2 running/queued')
+    expect(html).toContain('latest syncing')
+    expect(html).toContain('4 actor updates 1h')
+    expect(html).toContain('critical')
+    expect(html).toContain('run-42')
+    expect(html).toContain('Source returned an error.')
+    expect(html).toContain('Started just now')
+    expect(html).toContain('href="/ti/runs"')
+    expect(html).toContain('href="/ti/sources/source-1"')
+    expect(html).toContain('Open')
+    expect(html.indexOf('run-42')).toBeLessThan(html.indexOf('source-1'))
+})
+
+test('action items retain the clear monitoring empty state and badges', () => {
+    const html = render(createElement(ActionItemsPanel, {
+        items: [], queuedCount: 0, latestRunStatus: 'ok', latestRunTone: 'ok', actorUpdates: 0,
+    }))
+
+    expect((html.match(/<th\b/g) || [])).toHaveLength(5)
+    expect(html).toContain('overflow-x-auto')
+    expect(html).toContain('Automated monitoring is clear; new signals are recorded automatically.')
+    expect(html).toContain('0 running/queued')
+    expect(html).toContain('latest ok')
+    expect(html).toContain('0 actor updates 1h')
 })
