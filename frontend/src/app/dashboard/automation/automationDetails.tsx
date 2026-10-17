@@ -9,6 +9,7 @@ import ExternalSender from './externalSender'
 import useAutomationHistory from './useAutomationHistory'
 import { HealthCheckStatusPill } from './healthCheckStatusPill'
 import { automationInputClass, formatAutomationDate, formatAutomationInterval } from './automationDraft'
+import AutomationField from './automationField'
 
 type Props = {
     automation: AgentAutomation
@@ -101,8 +102,12 @@ function RecentChecks({ runs, history, historyFrom, historyTo, onHistoryFromChan
             </div>
         </div>
         {showHistoryFilters && <div className='mb-2 grid gap-2 sm:grid-cols-2'>
-            <label className='grid gap-1 text-xs text-ui-muted'><span>From</span><input type='datetime-local' value={historyFrom} onChange={event => onHistoryFromChange(event.target.value)} className={automationInputClass} /></label>
-            <label className='grid gap-1 text-xs text-ui-muted'><span>To</span><input type='datetime-local' value={historyTo} onChange={event => onHistoryToChange(event.target.value)} className={automationInputClass} /></label>
+            <AutomationField label='From' fieldClassName='grid gap-1 text-xs text-ui-muted' labelClassName='text-xs text-ui-muted'>
+                <input type='datetime-local' value={historyFrom} onChange={event => onHistoryFromChange(event.target.value)} className={automationInputClass} />
+            </AutomationField>
+            <AutomationField label='To' fieldClassName='grid gap-1 text-xs text-ui-muted' labelClassName='text-xs text-ui-muted'>
+                <input type='datetime-local' value={historyTo} onChange={event => onHistoryToChange(event.target.value)} className={automationInputClass} />
+            </AutomationField>
         </div>}
         <div className='grid max-h-[32rem] gap-2 overflow-y-auto pr-1'>
             {runs.map(run => <div key={run.id} className='rounded-lg border border-ui-border bg-ui-raised p-3'>
