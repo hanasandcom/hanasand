@@ -60,6 +60,9 @@ export function ApiKeyCard({
         [apiKey.description, apiKey.expiresAt, apiKey.name, apiKey.ownerId, apiKey.tier]
     )
     const tierPreset = tierPresetMap[apiKey.tier] || tierPresetMap.custom || fallbackTierPresets[fallbackTierPresets.length - 1]
+    const updateCurrentKey = (update: (entry: ApiKeySummary) => ApiKeySummary) => {
+        setApiKeys((previous) => previous.map((entry) => entry.id === apiKey.id ? update(entry) : entry))
+    }
 
     return (
         <div className='rounded-lg border border-ui-border bg-ui-panel p-4'>
@@ -84,7 +87,7 @@ export function ApiKeyCard({
                         <input
                             type='checkbox'
                             checked={apiKey.enabled}
-                            onChange={(event) => setApiKeys((prev) => prev.map((entry) => entry.id === apiKey.id ? { ...entry, enabled: event.target.checked } : entry))}
+                            onChange={(event) => updateCurrentKey((entry) => ({ ...entry, enabled: event.target.checked }))}
                             className='h-4 w-4 accent-ui-primary'
                         />
                         Enabled
@@ -115,7 +118,7 @@ export function ApiKeyCard({
                     <span className='text-xs font-medium text-ui-muted'>{tierPreset.label} · {apiKey.expiresAt ? 'expires' : 'no expiry'}</span>
                 </summary>
                 <div className='grid gap-3 border-t border-ui-border p-4 md:grid-cols-2 xl:grid-cols-4'>
-                    <TextField label='Name' value={apiKey.name} onChange={(value) => setApiKeys((prev) => prev.map((entry) => entry.id === apiKey.id ? { ...entry, name: value } : entry))} />
+                    <TextField label='Name' value={apiKey.name} onChange={(value) => updateCurrentKey((entry) => ({ ...entry, name: value }))} />
                     <SelectField
                         label='Tier'
                         value={apiKey.tier}
@@ -128,12 +131,12 @@ export function ApiKeyCard({
                         users={ownerUsers}
                         loading={ownerUsersLoading}
                         error={ownerUsersError}
-                        onChange={(value) => setApiKeys((prev) => prev.map((entry) => entry.id === apiKey.id ? { ...entry, ownerId: value } : entry))}
+                        onChange={(value) => updateCurrentKey((entry) => ({ ...entry, ownerId: value }))}
                         onRefresh={reloadOwnerUsers}
                     />
-                    <DateField label='Expires at' value={apiKey.expiresAt || ''} onChange={(value) => setApiKeys((prev) => prev.map((entry) => entry.id === apiKey.id ? { ...entry, expiresAt: value || null } : entry))} />
+                    <DateField label='Expires at' value={apiKey.expiresAt || ''} onChange={(value) => updateCurrentKey((entry) => ({ ...entry, expiresAt: value || null }))} />
                     <div className='md:col-span-2 xl:col-span-4'>
-                        <TextField label='Description' value={apiKey.description || ''} onChange={(value) => setApiKeys((prev) => prev.map((entry) => entry.id === apiKey.id ? { ...entry, description: value || null } : entry))} />
+                        <TextField label='Description' value={apiKey.description || ''} onChange={(value) => updateCurrentKey((entry) => ({ ...entry, description: value || null }))} />
                     </div>
                     <p className='text-xs leading-5 text-ui-muted md:col-span-2 xl:col-span-4'>
                         {tierPreset.description}
@@ -163,10 +166,10 @@ export function ApiKeyCard({
                             scope={scope}
                             routeOptions={routeOptions}
                             title={`Route ${index + 1}`}
-                            onChange={(nextScope) => setApiKeys((prev) => prev.map((entry) => entry.id === apiKey.id ? {
+                            onChange={(nextScope) => updateCurrentKey((entry) => ({
                                 ...entry,
                                 scopes: entry.scopes.map((currentScope) => currentScope.id === nextScope.id ? nextScope : currentScope),
-                            } : entry))}
+                            }))}
                             onRemove={() => removeKeyScope(apiKey.id, scope.id)}
                         />
                     )) : (
