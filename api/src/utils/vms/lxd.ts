@@ -3,6 +3,7 @@ import { requestLxdJson, type LxdRequestOptions, type LxdResponse } from './lxdT
 import { mapLxdDetails, type LxdInstance, type LxdState } from './lxdDetails.ts'
 import { waitForInstanceOperations, waitForLxdOperation as waitForOperation } from './lxdOperations.ts'
 import { writeVmDetails, type VmDetails } from './vmDetails.ts'
+import { vmLoginUserData } from './vmLoginUserData.ts'
 
 type LxdRequest = <T>(path: string, options?: LxdRequestOptions) => Promise<LxdResponse<T>>
 type VmDetailsWriter = (details: VmDetails) => Promise<unknown>
@@ -45,6 +46,7 @@ export async function provisionLocalLxdInstance(name: string) {
                 config: {
                     'limits.cpu': '1',
                     'limits.memory': '1GiB',
+                    'cloud-init.user-data': vmLoginUserData(name),
                 },
                 source: {
                     type: 'image',

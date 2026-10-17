@@ -1,5 +1,6 @@
 import { afterAll, beforeEach, expect, mock, test } from 'bun:test'
 import Fastify from 'fastify'
+import { vmLoginUserData } from '../src/utils/vms/vmLoginUserData.ts'
 
 let authorized = false
 let host = 'ovhcloud'
@@ -38,6 +39,12 @@ beforeEach(() => {
 })
 
 afterAll(async () => { await app.close() })
+
+test('VM login user data creates a locked shell account and rejects unsafe names', () => {
+    expect(vmLoginUserData('codexvm')).toBe('#cloud-config\nusers:\n  - name: codexvm\n    shell: /bin/bash\n    lock_passwd: true\n')
+    expect(() => vmLoginUserData('root')).toThrow('Invalid VM login account.')
+    expect(() => vmLoginUserData('bad name')).toThrow('Invalid VM login account.')
+})
 
 test('rejects requests without the internal token before reading or provisioning a VM', async () => {
     const response = await app.inject({ method: 'POST', url: '/vms/internal/fixture-vm/provision' })
