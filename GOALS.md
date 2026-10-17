@@ -750,3 +750,13 @@ frontend suite, typecheck, line-cap scan, diff check, and Next production build
 pass with all 116 routes generated. Inventory: 2,268 files / 152,042 LOC / zero
 over 200. The 10,000–30,000 LOC frontend and 100,000-line API goals remain
 unmet.
+
+The VM cleanup removes six unreferenced frontend fetch wrappers (286 LOC) whose
+current pages use separate snapshot, telemetry, and user-scoped data paths. The
+two agent-target API endpoints remain in the backend; only their unused
+frontend wrappers and 35 lines of stale Playwright route mocks were removed.
+The full default frontend suite, typecheck, focused ESLint, line-cap scan, diff
+check, and Next production build pass with all 116 routes generated. The
+separately gated Playwright project-flow journey was not run in this checkpoint.
+Inventory: 2,262 files / 151,721 LOC / zero over 200. The 10,000–30,000 LOC
+frontend and 100,000-line API goals remain unmet.

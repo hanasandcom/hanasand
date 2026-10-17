@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { isShareCreateUrl, mockProjectAgentTarget, shareCreateUrl } from './project-flow-helpers'
+import { isShareCreateUrl, shareCreateUrl } from './project-flow-helpers'
 
 test.describe.configure({ mode: 'serial' })
 
@@ -28,8 +28,6 @@ test('the /s entry automatically opens a saved workspace', async ({ page, contex
             }),
         })
     })
-    await mockProjectAgentTarget(page, 'hanasand-project')
-
     const shareResponse = page.waitForResponse(response => isShareCreateUrl(response.url()))
     await page.goto('/s')
     await expect(page.getByRole('button', { name: 'Create share' })).toHaveCount(0)
@@ -71,8 +69,6 @@ test('authenticated users trigger share provisioning by opening /s', async ({ pa
             }),
         })
     })
-    await mockProjectAgentTarget(page, 'project')
-
     const shareResponse = page.waitForResponse(response => isShareCreateUrl(response.url()))
     await page.goto('/s')
     await shareResponse
