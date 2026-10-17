@@ -2131,3 +2131,31 @@ tests, frontend typecheck, scoped ESLint, and the frontend cap pass. Commits
 `ad8aff02f`, `a480111fa`, `1de36d496`, and `4e7483071` are pushed to Forgejo and
 GitHub. The 100,000-line API reduction and frontend aggregate reduction remain
 open.
+
+At pushed checkpoint `38ffeddf7` (2026-10-17), the frontend cap scan covers
+2,403 hand-maintained source/config files and 155,652 lines, with zero over
+200. The global scan covers 4,538 hand-maintained files / 328,268 lines and
+reports seven remaining over-limit files, all under `api/`; the 232-line login
+UI monitor was split into four responsibilities and now removes 15 lines in
+aggregate. The frontend reuses the same logs field-style export at its final
+errors control (no net LOC change; its Playwright task could not run because
+the sandbox blocked report-file writes and Chromium startup). The share-tree
+delete confirmation now has one file/folder-aware component and registered
+render tests; this exact shared flow adds 22 production lines and 66 total
+frontend lines including tests/registration. VM reconnect notices also share a
+small component with their original copy and classes intact. Focused tests,
+frontend typecheck/lint/cap checks, the offline monitor self-test, and
+independent reviews passed for these checkpoints. No live login/browser check
+was run. Aggregate frontend reduction to 10,000–30,000 lines and API reduction
+by 100,000 lines remain unachieved; the current frontend total is 75 lines
+above the `4e7483071` inventory.
+
+At pushed checkpoint `cfbfdae75` (2026-10-17), the API docs example test imports
+the endpoint catalog used by the page instead of scraping endpoint strings
+from TSX, and it renders the page's unavailable state on HTTP 503. Knut reviewed
+the exact checkout and approved; the registered test (54 endpoint examples),
+scoped lint, non-incremental frontend typecheck, diff check, and frontend cap
+pass. The frontend inventory is 2,403 files / 155,654 lines, with zero over
+200. The repository scan is 4,538 files / 328,270 lines, with seven over 200,
+all under `api/`. This test improvement adds two frontend lines. Aggregate
+frontend and API reduction goals remain open.
