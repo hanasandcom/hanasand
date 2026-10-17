@@ -9,13 +9,11 @@ import {
     type TrafficCountryPoint,
     type ViewBox,
 } from '@/utils/monitoring/liveTrafficMap'
-import type { TrafficMetrics, TrafficRecord, TrafficRecords } from '@/utils/monitoring/types'
+import type { TrafficMetrics, TrafficRecord } from '@/utils/monitoring/types'
+import { fetchTrafficSnapshot, type TrafficSnapshot } from './trafficSnapshotRefresh'
 import { useEffect, useRef, useState } from 'react'
 
-export type TrafficSnapshotPayload = {
-    records?: TrafficRecords | null
-    metrics?: TrafficMetrics | null
-}
+export type TrafficSnapshotPayload = TrafficSnapshot
 
 type Options = {
     initialMetrics: TrafficMetrics | null
@@ -123,9 +121,7 @@ export function useTrafficMapStream({ initialMetrics, initialRecords, selectedDo
 
         async function pollSnapshot() {
             try {
-                const response = await fetch('/api/live-traffic?' + new URLSearchParams({ mode: 'snapshot', ...(selectedDomain ? { domain: selectedDomain } : {}) }), { cache: 'no-store' })
-                if (!response.ok) throw new Error(`Snapshot returned ${response.status}`)
-                const payload = await response.json() as TrafficSnapshotPayload
+                const payload = await fetchTrafficSnapshot(selectedDomain, undefined, 'Snapshot')
                 const records = Array.isArray(payload.records?.result) ? payload.records.result : []
                 if (!stopped) {
                     if (payload.records) {

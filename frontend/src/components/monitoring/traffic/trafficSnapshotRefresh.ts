@@ -5,6 +5,17 @@ export type TrafficSnapshot = {
     records?: TrafficRecords | null
 }
 
+export async function fetchTrafficSnapshot(selectedDomain?: string, recordLimit?: number, errorLabel = 'Traffic request') {
+    const params = new URLSearchParams({
+        mode: 'snapshot',
+        ...(recordLimit ? { limit: String(recordLimit) } : {}),
+        ...(selectedDomain ? { domain: selectedDomain } : {}),
+    })
+    const response = await fetch(`/api/live-traffic?${params}`, { cache: 'no-store' })
+    if (!response.ok) throw new Error(`${errorLabel} returned ${response.status}`)
+    return await response.json() as TrafficSnapshot
+}
+
 export function startTrafficSnapshotRefresh(
     selectedDomain: string | undefined,
     onSnapshot: (snapshot: TrafficSnapshot) => void,
@@ -15,14 +26,7 @@ export function startTrafficSnapshotRefresh(
 
     async function refresh() {
         try {
-            const params = new URLSearchParams({
-                mode: 'snapshot',
-                ...(recordLimit ? { limit: String(recordLimit) } : {}),
-                ...(selectedDomain ? { domain: selectedDomain } : {}),
-            })
-            const response = await fetch(`/api/live-traffic?${params}`, { cache: 'no-store' })
-            if (!response.ok) throw new Error(`Traffic request returned ${response.status}`)
-            const snapshot = await response.json() as TrafficSnapshot
+            const snapshot = await fetchTrafficSnapshot(selectedDomain, recordLimit)
             if (!stopped) onSnapshot(snapshot)
         } catch {
             // Keep the last successful traffic snapshot visible until a later refresh succeeds.

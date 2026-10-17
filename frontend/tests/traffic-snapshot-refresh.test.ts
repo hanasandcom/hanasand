@@ -1,9 +1,9 @@
 // @ts-expect-error Bun supplies this module when running tests.
 import { expect, test } from 'bun:test'
-import { startTrafficSnapshotRefresh } from '../src/components/monitoring/traffic/trafficSnapshotRefresh'
+import { fetchTrafficSnapshot, startTrafficSnapshotRefresh } from '../src/components/monitoring/traffic/trafficSnapshotRefresh'
 
-function response(ok: boolean, body: unknown): Response {
-    return { ok, json: async () => body } as Response
+function response(ok: boolean, body: unknown, status = ok ? 200 : 503): Response {
+    return { ok, status, json: async () => body } as Response
 }
 
 function installFakes() {
@@ -57,6 +57,20 @@ test('traffic snapshot polling retries a failed request without replacing last-g
         expect(applied).toEqual([{ records: { result: [], total: 0 } }])
         expect(fake.delays).toEqual([30_000, 30_000, 30_000])
         stop()
+    } finally {
+        fake.restore()
+    }
+})
+
+test('shared snapshot requests preserve domain, cache, and failure contracts', async () => {
+    const fake = installFakes()
+    try {
+        fake.setResponse(response(true, { metrics: { total_requests: 1 } }))
+        expect(await fetchTrafficSnapshot('example.test')).toEqual({ metrics: { total_requests: 1 } })
+        expect(fake.requests).toEqual([{ url: '/api/live-traffic?mode=snapshot&domain=example.test', cache: 'no-store' }])
+
+        fake.setResponse(response(false, { error: 'offline' }))
+        await expect(fetchTrafficSnapshot(undefined, undefined, 'Snapshot')).rejects.toThrow('Snapshot returned 503')
     } finally {
         fake.restore()
     }
