@@ -9,10 +9,11 @@ import { useEffect, useState } from 'react'
 import { duplicateTreeItem } from './duplicateTreeItem'
 import { FileNodeView } from './fileNodeView'
 import { FolderNodeView } from './folderNodeView'
-import type { FileNodeProps, FileNodeViewActions, FileNodeViewContext, FileNodeViewState } from './fileNodeTypes'
+import { useFileTreeState, type FileNodeProps, type FileNodeViewActions, type FileNodeViewContext, type FileNodeViewState } from './fileNodeTypes'
 
 export default function FileNode(props: FileNodeProps) {
-    const { tree, file, selectedFolder, setSelectedFolder, rootTree, share, onTreeRefresh } = props
+    const { tree, file, rootTree, share } = props
+    const { isCreatingNewFile, setIsCreatingNewFile, selectedFolder, setSelectedFolder, onTreeRefresh } = useFileTreeState()
     const { isOpen, toggleFolder } = useFolderState()
     const [isRenaming, setIsRenaming] = useState(false)
     const [renameValue, setRenameValue] = useState(file.name)
@@ -38,7 +39,7 @@ export default function FileNode(props: FileNodeProps) {
         } else {
             setSelectedFolder(file.parent || '')
         }
-        props.setIsCreatingNewFile(type)
+        setIsCreatingNewFile(type)
     }
 
     async function handleRename() {
@@ -93,10 +94,10 @@ export default function FileNode(props: FileNodeProps) {
 
     useEffect(() => {
         const shouldDisplayNewFile = selectedFolder === file.id
-        if (file.type === 'folder' && !open && props.isCreatingNewFile && shouldDisplayNewFile) {
+        if (file.type === 'folder' && !open && isCreatingNewFile && shouldDisplayNewFile) {
             handleFolderClick()
         }
-    }, [open, props.isCreatingNewFile, selectedFolder, file])
+    }, [open, isCreatingNewFile, selectedFolder, file])
 
     const context: FileNodeViewContext = props
     const state: FileNodeViewState = {

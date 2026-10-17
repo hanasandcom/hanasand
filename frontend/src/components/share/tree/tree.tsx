@@ -1,57 +1,39 @@
 'use client'
 
-import { Dispatch, SetStateAction } from 'react'
+import { FileTreeStateContext, type FileTreeState } from './fileNodeTypes'
+import { useContext } from 'react'
 import FileNode from './fileNode'
 
 type TreeProps = {
     tree: Tree
-    newFileName: string
-    setNewFileName: Dispatch<SetStateAction<string>>
-    isCreatingNewFile: 'file' | 'folder' | null
-    setIsCreatingNewFile: Dispatch<SetStateAction<'file' | 'folder' | null>>
-    selectedFolder: string
-    setSelectedFolder: Dispatch<SetStateAction<string>>
-    setTree: Dispatch<SetStateAction<Tree | null>>
-    setShare: Dispatch<SetStateAction<Share | null>>
     rootTree: Tree
     share: Share
-    onTreeRefresh: () => Promise<Tree | null>
+    state?: FileTreeState
 }
 
 export default function Tree({
     tree,
-    setTree,
-    newFileName,
-    setNewFileName,
-    isCreatingNewFile,
-    selectedFolder,
-    setSelectedFolder,
-    setIsCreatingNewFile,
-    setShare,
     rootTree,
     share,
-    onTreeRefresh,
+    state,
 }: TreeProps) {
+    const inheritedState = useContext(FileTreeStateContext)
+    const treeState = state || inheritedState
+    if (!treeState) throw new Error('File tree requires a tree state provider.')
+
     return (
-        <ul onClick={() => setSelectedFolder('')} className='group space-y-1 h-[86%]'>
-            {tree.map((file) => (
-                <FileNode
-                    tree={tree}
-                    key={file.id}
-                    file={file}
-                    newFileName={newFileName}
-                    setNewFileName={setNewFileName}
-                    isCreatingNewFile={isCreatingNewFile}
-                    setIsCreatingNewFile={setIsCreatingNewFile}
-                    selectedFolder={selectedFolder}
-                    setSelectedFolder={setSelectedFolder}
-                    setTree={setTree}
-                    setShare={setShare}
-                    rootTree={rootTree}
-                    share={share}
-                    onTreeRefresh={onTreeRefresh}
-                />
-            ))}
-        </ul>
+        <FileTreeStateContext.Provider value={treeState}>
+            <ul onClick={() => treeState.setSelectedFolder('')} className='group space-y-1 h-[86%]'>
+                {tree.map((file) => (
+                    <FileNode
+                        tree={tree}
+                        key={file.id}
+                        file={file}
+                        rootTree={rootTree}
+                        share={share}
+                    />
+                ))}
+            </ul>
+        </FileTreeStateContext.Provider>
     )
 }

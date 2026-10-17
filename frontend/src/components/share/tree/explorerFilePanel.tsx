@@ -88,17 +88,19 @@ export function ExplorerFilePanel({
                     ) : null}
                     <Tree
                         tree={filteredTree || []}
-                        newFileName={newFileName}
-                        setNewFileName={setNewFileName}
-                        isCreatingNewFile={isCreatingNewFile}
-                        setIsCreatingNewFile={setIsCreatingNewFile}
-                        selectedFolder={selectedFolder}
-                        setSelectedFolder={setSelectedFolder}
-                        setTree={setTree}
-                        setShare={setShare}
                         rootTree={visibleTree}
                         share={share}
-                        onTreeRefresh={() => onRecoverTree(share.id)}
+                        state={{
+                            newFileName,
+                            setNewFileName,
+                            isCreatingNewFile,
+                            setIsCreatingNewFile,
+                            selectedFolder,
+                            setSelectedFolder,
+                            setTree,
+                            setShare,
+                            onTreeRefresh: () => onRecoverTree(share.id),
+                        }}
                     />
                 </OpenFoldersProvider>
             )}

@@ -3,7 +3,7 @@ import { File } from 'lucide-react'
 import Link from 'next/link'
 import NewFile from './newFile'
 import { FileNodeActions, RenameInput } from './fileNodeControls'
-import type { FileNodeViewActions, FileNodeViewContext, FileNodeViewState } from './fileNodeTypes'
+import { useFileTreeState, type FileNodeViewActions, type FileNodeViewContext, type FileNodeViewState } from './fileNodeTypes'
 
 export function FileNodeView({ context, state, actions, isFirstFileInFolder, shouldDisplay }: {
     context: FileNodeViewContext
@@ -12,7 +12,8 @@ export function FileNodeView({ context, state, actions, isFirstFileInFolder, sho
     isFirstFileInFolder: boolean
     shouldDisplay: boolean
 }) {
-    const { file, tree, newFileName, setNewFileName, isCreatingNewFile, setIsCreatingNewFile, setTree, setShare } = context
+    const { file, tree } = context
+    const { newFileName, setNewFileName, isCreatingNewFile, setIsCreatingNewFile, setTree, setShare } = useFileTreeState()
     const { isRenaming, renameValue, setRenameValue, busy, isActive, deleteOpen, setDeleteOpen } = state
 
     return (

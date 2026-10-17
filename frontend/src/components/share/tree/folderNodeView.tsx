@@ -3,7 +3,7 @@ import { Folder, FolderOpen } from 'lucide-react'
 import NewFile from './newFile'
 import Tree from './tree'
 import { FileNodeActions, RenameInput } from './fileNodeControls'
-import type { FileNodeViewActions, FileNodeViewContext, FileNodeViewState } from './fileNodeTypes'
+import { useFileTreeState, type FileNodeViewActions, type FileNodeViewContext, type FileNodeViewState } from './fileNodeTypes'
 
 export function FolderNodeView({ context, state, actions, file }: {
     context: FileNodeViewContext
@@ -11,8 +11,8 @@ export function FolderNodeView({ context, state, actions, file }: {
     actions: FileNodeViewActions
     file: Extract<FileItem, { type: 'folder' }>
 }) {
-    const { tree, newFileName, setNewFileName, isCreatingNewFile, setIsCreatingNewFile,
-        selectedFolder, setSelectedFolder, setTree, setShare, rootTree, share, onTreeRefresh } = context
+    const { tree, rootTree, share } = context
+    const { newFileName, setNewFileName, isCreatingNewFile, setIsCreatingNewFile, setTree, setShare } = useFileTreeState()
     const { isRenaming, renameValue, setRenameValue, busy, deleteOpen, setDeleteOpen, isFolderActive, open } = state
     const hasChildren = Boolean(file.children?.filter(child => child.type === 'file').length)
 
@@ -60,17 +60,8 @@ export function FolderNodeView({ context, state, actions, file }: {
             {open && file.children && <div className='ml-3.5'>
                 <Tree
                     tree={file.children}
-                    newFileName={newFileName}
-                    setNewFileName={setNewFileName}
-                    isCreatingNewFile={isCreatingNewFile}
-                    setIsCreatingNewFile={setIsCreatingNewFile}
-                    selectedFolder={selectedFolder}
-                    setSelectedFolder={setSelectedFolder}
-                    setTree={setTree}
-                    setShare={setShare}
                     rootTree={rootTree}
                     share={share}
-                    onTreeRefresh={onTreeRefresh}
                 />
             </div>}
         </li>
