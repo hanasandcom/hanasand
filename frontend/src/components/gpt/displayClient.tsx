@@ -7,7 +7,7 @@ import Button from '../misc/button'
 import GPU from './gpu'
 import Metric, { SensorMetric } from './metric'
 import Lane from './displayClientLanes'
-import { operationalStateLabel } from './operationalStateLabel'
+import operationalStateLabel from '@/utils/status/operationalStateLabel'
 
 export default function DisplayClient({
     client,

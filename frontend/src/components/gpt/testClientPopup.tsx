@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Bot, Send, X } from 'lucide-react'
 import Button from '../misc/button'
 import ErrorNotice from '@/components/error/errorNotice'
-import { operationalStateLabel } from './operationalStateLabel'
+import operationalStateLabel from '@/utils/status/operationalStateLabel'
 
 type TestClientPopupProps = {
     client: GPT_Client

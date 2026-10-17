@@ -1,6 +1,6 @@
 import { expect, mock, test } from 'bun:test'
 import { eventProtectionDefinition } from '../src/utils/events/eventProtection.ts'
-import { exactCaseSensitiveMessage, finiteRegexAlternatives, hasPostgresRegexCandidate, messageCandidatePredicate } from '../src/utils/events/previewPredicate.ts'
+import { exactCaseSensitiveMessage, finiteRegexAlternatives, hasIndexedProcessExecutableSelector, hasPostgresRegexCandidate, messageCandidatePredicate, processExecutableCandidatePredicate } from '../src/utils/events/previewPredicate.ts'
 mock.module('#db', () => ({ default: async () => ({ rows: [] }) }))
 const { matchRulePage, scanRulePreview: scan, validPreviewWindow } = await import('../src/utils/events/rulePreview.ts')
 const { matchesRule } = await import('../src/utils/events/conditions.ts')
@@ -16,6 +16,22 @@ test('finite anchored regexes produce safe index candidates', () => {
         .toEqual(['http-traffic', 'cdn', 'hanasand-api', 'hanasand_api', 'api', 'hanasand-api-1', 'hanasand-api-2', 'hanasand-api-3', 'hanasand-api-4'])
     expect(finiteRegexAlternatives('^service-[1-3]$')).toEqual(['service-1', 'service-2', 'service-3'])
     expect(finiteRegexAlternatives('^service-.*$')).toBeNull()
+})
+test('process executable regex candidates are limited to anchored literal paths', () => {
+    const executable = { path: 'process.executable', operator: 'regex' as const, value: '^(?:/usr/bin/curl|/usr/bin/wget)$' }
+    const unsupported = { ...executable, value: '(?=curl)curl' }
+    const params: string[] = []
+    const predicate = processExecutableCandidatePredicate([executable], value => {
+        params.push(value)
+        return `$${params.length}`
+    })
+
+    expect(hasIndexedProcessExecutableSelector([executable])).toBe(true)
+    expect(hasIndexedProcessExecutableSelector([unsupported])).toBe(false)
+    expect(predicate).toContain('normalized#>>')
+    expect(predicate).toContain('LIKE $1 ESCAPE')
+    expect(params).toEqual(['lruc/nib/rsu/%', 'tegw/nib/rsu/%'])
+    expect(processExecutableCandidatePredicate([unsupported], () => '$1')).toBeNull()
 })
 test('the preview fast path uses the same dotted object paths as the rule matcher', async () => {
     const conditions = [{ path: 'source.product', operator: 'regex' as const, value: '^api$' }]

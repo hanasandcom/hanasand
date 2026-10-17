@@ -1,49 +1,14 @@
-import { isIPv4 } from 'node:net'
 import config from '#constants'
 import { requestLxdJson, type LxdRequestOptions, type LxdResponse } from './lxdTransport.ts'
+import { mapLxdDetails, type LxdInstance, type LxdState } from './lxdDetails.ts'
+import { waitForInstanceOperations, waitForLxdOperation as waitForOperation } from './lxdOperations.ts'
 import { writeVmDetails, type VmDetails } from './vmDetails.ts'
 
-type LxdInstance = {
-    name: string
-    status?: string
-    type?: string
-    architecture?: string
-    created_at?: string
-    last_used_at?: string
-    config?: Record<string, string>
-    devices?: Record<string, Record<string, string>>
-    expanded_devices?: Record<string, Record<string, string>>
-    profiles?: string[]
-    description?: string
-    ephemeral?: boolean
-    stateful?: boolean
-}
-
-type LxdState = {
-    status?: string
-    network?: Record<string, {
-        hwaddr?: string
-        addresses?: Array<{ family?: string, address?: string, scope?: string }>
-    }>
-}
-
-type LxdOperation = {
-    id?: string
-    status?: string
-    description?: string
-    resources?: Record<string, string[]>
-}
-
-type LxdOperations = {
-    pending?: LxdOperation[]
-    running?: LxdOperation[]
-}
-
 type LxdRequest = <T>(path: string, options?: LxdRequestOptions) => Promise<LxdResponse<T>>
-type VmDetailsWriter = (details: VmDetails) => Promise<void>
+type VmDetailsWriter = (details: VmDetails) => Promise<unknown>
 
 let lxdRequestImpl: LxdRequest = defaultLxdRequest
-let vmDetailsWriter: VmDetailsWriter = writeVmDetailsToDb
+let vmDetailsWriter: VmDetailsWriter = writeVmDetails
 
 export function setLxdRequestForTest(request: LxdRequest) {
     lxdRequestImpl = request
@@ -55,7 +20,7 @@ export function setLxdRequestForTest(request: LxdRequest) {
 export function setVmDetailsWriterForTest(writer: VmDetailsWriter) {
     vmDetailsWriter = writer
     return () => {
-        vmDetailsWriter = writeVmDetailsToDb
+        vmDetailsWriter = writeVmDetails
     }
 }
 
@@ -115,7 +80,7 @@ export async function setLocalLxdInstanceState(name: string, action: 'start' | '
         return refreshLocalLxdDetails(name)
     }
 
-    await waitForInstanceOperations(name, 120)
+    await waitForInstanceOperations(lxdRequest, name, 120)
 
     const response = await requestStateTransition(name, action)
     await waitForLxdOperation(response.operation, 90)
@@ -128,59 +93,13 @@ export async function refreshLocalLxdDetails(name: string, requireState = false)
         if (requireState) throw error
         return null
     })
-    const details = mapDetails(instance, state)
-    await upsertVmDetails(details)
+    const details = mapLxdDetails(instance, state)
+    await vmDetailsWriter(details)
     return details
 }
 
 export async function waitForLxdOperation<T = unknown>(operation: string | undefined, timeoutSeconds: number) {
-    if (!operation) return
-    const isOperationUrl = operation.includes('/1.0/operations/')
-    const id = isOperationUrl ? operation.split('/').pop() : operation
-    if (!id) return
-    const encodedId = isOperationUrl ? id : encodeURIComponent(id)
-    return lxdRequest<T>(`/1.0/operations/${encodedId}/wait?timeout=${timeoutSeconds}`)
-}
-
-async function waitForInstanceOperations(name: string, timeoutSeconds: number) {
-    const deadline = Date.now() + timeoutSeconds * 1000
-
-    while (Date.now() < deadline) {
-        const operations = await lxdRequest<LxdOperations>('/1.0/operations?recursion=1')
-            .then(response => response.metadata)
-            .catch(() => null)
-        const matches = getInstanceOperations(name, operations)
-        if (matches.length === 0) {
-            return
-        }
-
-        for (const operation of matches) {
-            const remaining = Math.max(1, Math.ceil((deadline - Date.now()) / 1000))
-            await waitForLxdOperation(operation.id, remaining)
-        }
-        await sleep(250)
-    }
-
-    throw new Error(`Timed out waiting for LXD operations to finish for ${name}.`)
-}
-
-function getInstanceOperations(name: string, operations: LxdOperations | null) {
-    const allOperations = [
-        ...(operations?.pending || []),
-        ...(operations?.running || []),
-    ]
-
-    return allOperations.filter(operation => {
-        const description = (operation.description || '').toLowerCase()
-        const isCreateLike = /creat|copy|clon|snapshot|restore/.test(description)
-        const instanceResources = operation.resources?.instances || []
-        const matchesInstance = instanceResources.some(resource => {
-            const resourceName = decodeURIComponent(resource.split('/').pop() || '')
-            return resourceName === name
-        })
-
-        return matchesInstance && isCreateLike
-    })
+    return waitForOperation<T>(lxdRequest, operation, timeoutSeconds)
 }
 
 async function requestStateTransition(name: string, action: 'start' | 'stop') {
@@ -202,7 +121,7 @@ async function requestStateTransition(name: string, action: 'start' | 'stop') {
                 throw error
             }
 
-            await waitForInstanceOperations(name, 120)
+            await waitForInstanceOperations(lxdRequest, name, 120)
             await sleep(750)
         }
     }
@@ -216,71 +135,6 @@ function isBusyCreateOperation(error: unknown) {
 
 function sleep(ms: number) {
     return new Promise(resolve => setTimeout(resolve, ms))
-}
-
-function mapDetails(instance: LxdInstance, state: LxdState | null) {
-    const configValues = instance.config || {}
-    const eth0 = instance.expanded_devices?.eth0 || instance.devices?.eth0 || {}
-    const currentStatus = state?.status || instance.status || ''
-    // VM guests may rename eth0 (for example to enp5s0). Match the attached
-    // NIC by name, MAC or its configured IP, never the first guest bridge.
-    const mac = configValues['volatile.eth0.hwaddr']?.toLowerCase()
-    const primaryNetwork = Object.entries(state?.network || {}).find(([name, network]) =>
-        name === (eth0.name || 'eth0')
-        || Boolean(mac && network.hwaddr?.toLowerCase() === mac)
-        || Boolean(eth0['ipv4.address'] && network.addresses?.some(address => address.address === eth0['ipv4.address']))
-    )
-    // The guest agent can report no interfaces during startup. The NIC's
-    // assigned static address is still valid; never reuse old telemetry.
-    const assignedIpv4 = eth0['ipv4.address'] || ''
-    const ipv4 = primaryNetwork?.[1].addresses
-        ?.find(address => address.family === 'inet' && address.scope !== 'link' && address.scope !== 'local')?.address
-        || (isIPv4(assignedIpv4) ? assignedIpv4 : '')
-    const now = new Date().toISOString()
-
-    return {
-        name: instance.name,
-        status: currentStatus || 'unknown',
-        type: instance.type || 'container',
-        architecture: instance.architecture || '',
-        created: instance.created_at || '',
-        last_used: instance.last_used_at || '',
-        config_architecture: configValues['image.architecture'] || instance.architecture || '',
-        config_image_architecture: configValues['image.architecture'] || '',
-        config_image_description: configValues['image.description'] || config.lxd_image_alias,
-        config_image_label: configValues['image.label'] || '',
-        config_image_os: configValues['image.os'] || 'ubuntu',
-        config_image_release: configValues['image.release'] || config.lxd_image_alias.replace(/^.*?(\d+\.\d+).*$/, '$1'),
-        config_image_serial: configValues['image.serial'] || '',
-        config_image_type: configValues['image.type'] || instance.type || 'container',
-        config_image_version: configValues['image.version'] || configValues['image.release'] || '',
-        limits_cpu: configValues['limits.cpu'] || '1',
-        limits_memory: configValues['limits.memory'] || '1GiB',
-        volatile_base_image: configValues['volatile.base_image'] || '',
-        volatile_cloud_init_instance_id: configValues['volatile.cloud-init.instance-id'] || '',
-        volatile_eth0_hwaddr: configValues['volatile.eth0.hwaddr'] || '',
-        volatile_last_state_power: currentStatus.toUpperCase(),
-        volatile_uuid: configValues['volatile.uuid'] || '',
-        volatile_uuid_generation: configValues['volatile.uuid.generation'] || '',
-        volatile_vsock_id: configValues['volatile.vsock_id'] || '',
-        device_eth0_ipv4_address: ipv4,
-        device_eth0_name: primaryNetwork?.[0] || eth0.name || 'eth0',
-        device_eth0_network: eth0.network || '',
-        device_eth0_type: eth0.type || 'nic',
-        ephemeral: Boolean(instance.ephemeral),
-        stateful: Boolean(instance.stateful),
-        description: instance.description || '',
-        profiles: instance.profiles || [],
-        last_checked: now,
-    }
-}
-
-async function upsertVmDetails(details: ReturnType<typeof mapDetails>) {
-    await vmDetailsWriter(details)
-}
-
-async function writeVmDetailsToDb(details: VmDetails) {
-    await writeVmDetails(details)
 }
 
 export async function lxdRequest<T>(path: string, options: LxdRequestOptions = {}) {

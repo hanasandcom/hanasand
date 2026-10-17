@@ -1748,3 +1748,23 @@ and diff checks pass. The default API runner is blocked in this sandbox by
 local port binding failures in smoke tests; focused admin-support and GPT
 tests pass. The frontend 10,000–30,000-line objective and API 100,000-line
 reduction remain outstanding. No UI redesign or deployment was made.
+
+At checkpoint `d89b02059` plus this verified working batch, frontend map pan
+and wheel zoom now share one pure interaction implementation while retaining
+traffic-map DOM sizing, TI fixed map dimensions, pointer anchoring, clamp
+behavior, and wheel factors. GPT status labels reuse the existing operational
+state utility. The frontend inventory is 2,374 hand-maintained files / 155,058
+lines, all at or below 200; it has grown by 22 lines since `d89b02059`, so the
+larger frontend reduction target remains unmet. API LXD polling and detail
+mapping, system-event bridge projection/redaction, and preview-regex parsing
+are separated into focused modules with their existing import facades
+preserved. These splits put every changed file under 200 lines; the three API
+slices together add about three production lines while making the modules
+smaller. Independent reviews approved each extraction. The registered
+frontend suite, focused API suites, frontend and API typechecks, scoped ESLint,
+frontend line-cap check, and production build pass (116 pages generated). The
+default full API runner remains blocked by sandbox local-port binding errors
+in unrelated smoke checks. The global cap scan now finds 55 over-limit files
+among 4,348 hand-maintained files / 326,382 lines, all outside frontend. The
+frontend 10,000–30,000-line target and API 100,000-line reduction remain
+outstanding. No UI redesign or deployment was made.

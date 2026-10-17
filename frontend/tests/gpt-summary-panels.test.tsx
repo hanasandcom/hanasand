@@ -28,6 +28,7 @@ test('GPT summary cards preserve their shared markup and card-specific readings'
     expect(html).toContain('86 W')
     expect(html).toContain('1.25 kWh recorded this month · GPU power')
     expect(html).toContain('Live telemetry')
+    expect(html).toContain('Status</div><div class="mt-1 text-sm font-semibold text-ui-text/90">idle</div>')
 
     const sensor = renderToStaticMarkup(<SensorMetric name='CPU Core 0' load={0.25} />)
     expect(sensor).toContain('<h1 class="text-sm text-ui-muted">CPU Core 0</h1>')

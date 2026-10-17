@@ -2,7 +2,7 @@
 
 import { countryCodeForMapFeature } from '../pageClientShared'
 import { actorGeoProfile } from '@/utils/ti/actorProfile'
-import { clampViewBox, getCountryFocusView, INITIAL_VIEWBOX, MAP_HEIGHT, MAP_WIDTH, project, type ViewBox, zoomViewBox } from '@/utils/monitoring/liveTrafficMap'
+import { getCountryFocusView, INITIAL_VIEWBOX, MAP_HEIGHT, MAP_WIDTH, panViewBox, project, type ViewBox, zoomViewBox, zoomViewBoxAtPointer } from '@/utils/monitoring/liveTrafficMap'
 import { countryCentroids } from '@/utils/monitoring/geo'
 import { humanizeSlug } from '../../seo'
 import { Move } from 'lucide-react'
@@ -106,22 +106,14 @@ export default function ThreatActorMap({ actor, result, onSelectCountry, compact
                             }}
                             onMouseMove={(event) => {
                                 if (!dragRef.current) return
-                                const scaleX = dragRef.current.viewBox.width / MAP_WIDTH
-                                const scaleY = dragRef.current.viewBox.height / MAP_HEIGHT
-                                setViewBox(clampViewBox({
-                                    ...dragRef.current.viewBox,
-                                    x: dragRef.current.viewBox.x - ((event.clientX - dragRef.current.x) * scaleX),
-                                    y: dragRef.current.viewBox.y - ((event.clientY - dragRef.current.y) * scaleY),
-                                }))
+                                setViewBox(panViewBox(dragRef.current, { x: event.clientX, y: event.clientY }, { width: MAP_WIDTH, height: MAP_HEIGHT }))
                             }}
                             onMouseUp={() => { dragRef.current = null }}
                             onMouseLeave={() => { dragRef.current = null }}
                             onWheel={(event) => {
                                 event.preventDefault()
                                 const rect = event.currentTarget.getBoundingClientRect()
-                                const px = ((event.clientX - rect.left) / rect.width) * viewBox.width + viewBox.x
-                                const py = ((event.clientY - rect.top) / rect.height) * viewBox.height + viewBox.y
-                                setViewBox((current) => zoomViewBox(current, event.deltaY > 0 ? 1.12 : 0.88, px, py))
+                                setViewBox(current => zoomViewBoxAtPointer(current, viewBox, { x: event.clientX, y: event.clientY }, rect, event.deltaY))
                             }}
                         >
                             <rect x='0' y='0' width={MAP_WIDTH} height={MAP_HEIGHT} className='fill-ui-panel dark:fill-ui-canvas' />

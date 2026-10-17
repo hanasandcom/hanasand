@@ -1,7 +1,7 @@
 import { countryCentroids } from '@/utils/monitoring/geo'
 import {
-    CAPITAL_MARKERS, clampViewBox, INITIAL_VIEWBOX, MAP_HEIGHT, MAP_WIDTH,
-    NORWAY, PING_LIFETIME_MS, project, zoomViewBox, type LivePing, type TrafficCountryPoint, type ViewBox,
+    CAPITAL_MARKERS, INITIAL_VIEWBOX, MAP_HEIGHT, MAP_WIDTH,
+    NORWAY, panViewBox, PING_LIFETIME_MS, project, zoomViewBox, zoomViewBoxAtPointer, type LivePing, type TrafficCountryPoint, type ViewBox,
 } from '@/utils/monitoring/liveTrafficMap'
 import { Move } from 'lucide-react'
 import { ZoomButton } from './liveMapPrimitives'
@@ -56,23 +56,14 @@ export default function TrafficMapCanvas({ viewBox, setViewBox, dragRef, selecte
                 onMouseMove={(event) => {
                     if (!dragRef.current) return
                     const rect = event.currentTarget.getBoundingClientRect()
-                    const scaleX = dragRef.current.viewBox.width / rect.width
-                    const scaleY = dragRef.current.viewBox.height / rect.height
-                    setViewBox(clampViewBox({
-                        ...dragRef.current.viewBox,
-                        x: dragRef.current.viewBox.x - ((event.clientX - dragRef.current.x) * scaleX),
-                        y: dragRef.current.viewBox.y - ((event.clientY - dragRef.current.y) * scaleY),
-                    }))
+                    setViewBox(panViewBox(dragRef.current, { x: event.clientX, y: event.clientY }, rect))
                 }}
                 onMouseUp={() => { dragRef.current = null }}
                 onMouseLeave={() => { dragRef.current = null }}
                 onWheel={(event) => {
                     event.preventDefault()
                     const rect = event.currentTarget.getBoundingClientRect()
-                    const px = ((event.clientX - rect.left) / rect.width) * viewBox.width + viewBox.x
-                    const py = ((event.clientY - rect.top) / rect.height) * viewBox.height + viewBox.y
-                    const factor = event.deltaY > 0 ? 1.12 : 0.88
-                    setViewBox((current) => zoomViewBox(current, factor, px, py))
+                    setViewBox(current => zoomViewBoxAtPointer(current, viewBox, { x: event.clientX, y: event.clientY }, rect, event.deltaY))
                 }}
             >
                 <g className='opacity-90'>{worldMapPaths}</g>

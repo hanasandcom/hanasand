@@ -167,6 +167,22 @@ export function zoomViewBox(current: ViewBox, factor: number, centerX: number, c
     })
 }
 
+export function panViewBox(drag: { x: number, y: number, viewBox: ViewBox }, pointer: { x: number, y: number }, dimensions: { width: number, height: number }) {
+    const scaleX = drag.viewBox.width / dimensions.width
+    const scaleY = drag.viewBox.height / dimensions.height
+    return clampViewBox({
+        ...drag.viewBox,
+        x: drag.viewBox.x - ((pointer.x - drag.x) * scaleX),
+        y: drag.viewBox.y - ((pointer.y - drag.y) * scaleY),
+    })
+}
+
+export function zoomViewBoxAtPointer(current: ViewBox, viewBox: ViewBox, pointer: { x: number, y: number }, bounds: { left: number, top: number, width: number, height: number }, deltaY: number) {
+    const centerX = ((pointer.x - bounds.left) / bounds.width) * viewBox.width + viewBox.x
+    const centerY = ((pointer.y - bounds.top) / bounds.height) * viewBox.height + viewBox.y
+    return zoomViewBox(current, deltaY > 0 ? 1.12 : 0.88, centerX, centerY)
+}
+
 function clamp(value: number, min: number, max: number) {
     return Math.min(Math.max(value, min), max)
 }
