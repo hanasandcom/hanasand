@@ -1,6 +1,27 @@
 import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
+import { generatedSearchRoutes } from '../src/utils/routes/generatedSearchRoutes'
 import { actorItems, caseItem, directThreatItem, watchlistItems } from '../src/components/header/siteSearch/searchData'
+
+test('generated route catalog is unique, ordered, canonical, and within the source cap', async () => {
+    const hrefs = generatedSearchRoutes.map(route => route.href)
+    const ids = generatedSearchRoutes.map(route => route.id)
+    const generatedSource = await readFile(new URL('../src/utils/routes/generatedSearchRoutes.ts', import.meta.url), 'utf8')
+    assert.ok(generatedSource.trimEnd().split(/\r?\n/).length <= 200)
+    assert.equal(new Set(hrefs).size, hrefs.length)
+    assert.equal(new Set(ids).size, ids.length)
+    assert.deepEqual(hrefs, [...hrefs].sort((first, second) => first.localeCompare(second)))
+    for (const route of generatedSearchRoutes) {
+        assert.equal(route.id, `route:${route.href}`)
+        assert.ok(route.title.length > 0)
+        assert.ok(route.detail.length > 0)
+    }
+    for (const href of ['/dashboard/cases', '/dashboard/findings/cases', '/watchlists', '/ti/profiles']) assert.ok(hrefs.includes(href))
+    for (const href of ['/cases', '/dashboard/findings/watchlists', '/dashboard/ti/enrichment', '/browser', '/browser/report', '/browser-sandbox', '/sandbox/report', '/dashboard/system/ssh-keys']) {
+        assert.ok(!hrefs.includes(href), `${href} should not appear as a search route`)
+    }
+})
 
 test('header search does not invent an actor result for unavailable or empty TI responses', () => {
     assert.deepEqual(actorItems({ query: 'APT29', status: 'unavailable', mode: 'unavailable' }), [])

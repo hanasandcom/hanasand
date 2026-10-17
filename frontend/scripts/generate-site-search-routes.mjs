@@ -1,4 +1,4 @@
-import { readFile, readdir, writeFile } from 'node:fs/promises'
+import { readFile, readdir, rm, rmdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -6,6 +6,8 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url))
 const frontendDir = path.resolve(scriptDir, '..')
 const appDir = path.join(frontendDir, 'src/app')
 const outputPath = path.join(frontendDir, 'src/utils/routes/generatedSearchRoutes.ts')
+const chunksDir = path.join(frontendDir, 'src/utils/routes/generatedSearchRoutes')
+const generatedMarker = '// Generated from static App Router page files by scripts/generate-site-search-routes.mjs.'
 const appRoutes = JSON.parse(await readFile(path.join(frontendDir, 'src/utils/routes/appRoutes.json'), 'utf8'))
 
 async function pageRoutes(directory, segments = []) {
@@ -50,12 +52,28 @@ const watchlistsPagePath = appRoutes.find(([legacy]) => legacy === '/dashboard/f
 const routes = [...new Set((await pageRoutes(appDir))
     .filter(route => !nonSearchableRoutes.has(route))
     .map(route => route === profilePagePath ? '/ti/profiles' : route === watchlistsPagePath ? '/watchlists' : route))].sort((a, b) => a.localeCompare(b))
-const items = routes.map(href => `{
-        id: ${quote(`route:${href}`)},
-        title: ${quote(labelFor(href))},
-        detail: ${quote(href === '/' ? 'Overview and product entry point' : `Page · ${href}`)},
-        href: ${quote(href)},
-    }`)
-const content = `// Generated from static App Router page files by scripts/generate-site-search-routes.mjs.\nexport const generatedSearchRoutes = [\n    ${items.join(',\n    ')}\n] as const\n`
+const items = routes.map(href => `    { id: ${quote(`route:${href}`)}, title: ${quote(labelFor(href))}, detail: ${quote(href === '/' ? 'Overview and product entry point' : `Page · ${href}`)}, href: ${quote(href)} },`)
+const content = `${generatedMarker}\nexport const generatedSearchRoutes = [\n${items.join('\n')}\n] as const\n`
+
+await removeGeneratedChunks()
 
 await writeFile(outputPath, content)
+
+async function removeGeneratedChunks() {
+    let names
+    try {
+        names = await readdir(chunksDir)
+    } catch (error) {
+        if (error.code === 'ENOENT') return
+        throw error
+    }
+
+    for (const name of names) {
+        if (!/^routeChunk-\d{3}\.ts$/.test(name)) continue
+        const chunkPath = path.join(chunksDir, name)
+        const chunk = await readFile(chunkPath, 'utf8')
+        if (chunk.startsWith(generatedMarker)) await rm(chunkPath)
+    }
+
+    if ((await readdir(chunksDir)).length === 0) await rmdir(chunksDir)
+}

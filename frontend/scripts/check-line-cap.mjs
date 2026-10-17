@@ -20,7 +20,6 @@ const excludedDirectories = new Set(['node_modules', '.next', 'coverage', 'playw
 const generatedFiles = new Set([
     'bun.lock',
     'src/utils/articles/staticArticles.json',
-    'src/utils/routes/generatedSearchRoutes.ts',
 ])
 
 const changedOnly = process.argv.includes('--changed')
