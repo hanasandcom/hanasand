@@ -2467,3 +2467,15 @@ with scoped ESLint, frontend typecheck, diff, and line-cap checks passing. This
 adds 13 test/runner lines and no production code. Current inventory is 2,420
 frontend files / 156,236 lines and 4,564 repository files / 328,920 lines,
 with no file above 200. Aggregate reduction targets remain open.
+
+At commits `cc381244a` and `524b02bd0`, the admin-support invite test now
+drives the production availability lookup and checks the organization scope,
+while the auth forms share one submit button component with rendered coverage
+for login, signup, and reset requests. The API focused suite passes (4 tests /
+23 assertions); the frontend auth suite passes (3 tests / 23 assertions), with
+independent review, scoped lint/typecheck, and frontend/repository cap checks
+passing. The shared button improves consistency but adds 11 net production
+lines. Both checkpoints are pushed to Forgejo and GitHub. The current inventory
+is 2,421 frontend files / 156,262 lines and 4,565 repository files / 328,948
+lines, with no hand-maintained file above 200. The frontend 10,000–30,000-line
+target and API 100,000-line reduction target remain unmet.
