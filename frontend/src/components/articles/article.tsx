@@ -24,13 +24,7 @@ export default async function Article({ id }: { id: string }) {
     return (
         <article className='mx-auto grid min-h-app-viewport w-full max-w-4xl gap-6 bg-ui-canvas px-4 py-12 text-ui-text md:px-10 md:py-16 lg:px-0'>
             <div className='grid gap-5 rounded-lg border border-ui-border bg-ui-panel p-5 shadow-sm shadow-ui-canvas/20 md:p-7'>
-                <Link
-                    href='/articles'
-                    className='inline-flex w-fit items-center gap-2 rounded-lg border border-ui-border bg-ui-raised px-3 py-2 text-sm font-semibold text-ui-text transition hover:bg-ui-raised'
-                >
-                    <ArrowLeft className='h-4 w-4' />
-                    Articles
-                </Link>
+                <ArticleIndexLink label='Articles' />
                 <div className='grid gap-3'>
                     <h1 className='text-3xl font-semibold leading-tight tracking-normal text-ui-text md:text-5xl'>{article.title}</h1>
                     {article.metadata.description ? (
@@ -60,13 +54,19 @@ export default async function Article({ id }: { id: string }) {
                 <MarkdownRender MDstr={body} />
             </div>
 
-            <Link
-                href='/articles'
-                className='inline-flex w-fit items-center gap-2 rounded-lg border border-ui-border bg-ui-raised px-3 py-2 text-sm font-semibold text-ui-text transition hover:bg-ui-raised'
-            >
-                <ArrowLeft className='h-4 w-4' />
-                Browse other articles
-            </Link>
+            <ArticleIndexLink label='Browse other articles' />
         </article>
+    )
+}
+
+function ArticleIndexLink({ label }: { label: string }) {
+    return (
+        <Link
+            href='/articles'
+            className='inline-flex w-fit items-center gap-2 rounded-lg border border-ui-border bg-ui-raised px-3 py-2 text-sm font-semibold text-ui-text transition hover:bg-ui-raised'
+        >
+            <ArrowLeft className='h-4 w-4' />
+            {label}
+        </Link>
     )
 }

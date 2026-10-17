@@ -1569,3 +1569,17 @@ the changed-file cap check. The frontend now has 2,333 hand-maintained files /
 63 of 4,300 files over 200 lines / 325,393 total lines, outside the frontend.
 The broad frontend and API reduction goals remain open. No UI, page-data, or
 deployment change was made.
+
+Three more frontend areas received reviewed cleanups: TI alert/case panels now
+share watch-term tags while retaining their four- and three-term previews;
+article details reuse the same two index links and no longer declare unused
+error props; share file shortcuts use one route-aware keyboard listener with
+cleanup instead of duplicate listeners. The article and TI rendering checks
+and shortcut contract are registered and pass; article navigation, full TI
+payloads, and Option+W/Ω handling remain intact. These production changes add
+one net line; the new focused tests and runner entries add coverage. Independent
+reviews approved all three slices. Targeted ESLint, frontend typecheck, diff
+check, and changed-file line-cap pass. The frontend has 2,337 hand-maintained
+files / 153,930 lines, maximum 200. The repository-wide scan still reports 63
+files over 200, all outside the frontend. The reduction goals remain open; no
+UI or deployment change was made.

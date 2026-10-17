@@ -17,8 +17,6 @@ type ArticlesProps = {
     max?: number
     includeRecentTitle?: boolean
     backfill?: boolean
-    error?: string
-    errorPath?: string
 }
 
 type ArticleGroupProps = {

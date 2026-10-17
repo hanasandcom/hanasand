@@ -5,6 +5,7 @@ import { displayRequirementList, displayRequirementText, formatLabel, publicDeci
 import DecisionStatus from './decision-status'
 import CopyPayloadButton from './copy-payload-button'
 import SelectedPanelHeader from './selected-panel-header'
+import SelectedWatchTerms from './selected-watch-terms'
 
 export default function SelectedAlertActionPlanPanel({ plan }: { plan: SelectedAlertActionPlan }) {
     const status = plan.ready ? 'ready' : plan.state === 'review' ? 'review' : 'blocked'
@@ -18,12 +19,7 @@ export default function SelectedAlertActionPlanPanel({ plan }: { plan: SelectedA
                 {plan.handoff.route || plan.route ? 'Console action available.' : 'Console action pending.'}
             </p>
             <p className='mt-2 wrap-break-word text-[11px] leading-5 text-ui-muted dark:text-ui-muted'>{displayRequirementText(plan.nextAction)}</p>
-            <div className='mt-2 flex min-w-0 flex-wrap gap-1.5'>
-                {plan.watchlist.terms.slice(0, 4).map(term => (
-                    <span key={term} className='max-w-full wrap-break-word rounded-md border border-ui-border bg-ui-panel px-2 py-1 text-[11px] font-semibold text-ui-text dark:border-ui-border dark:bg-ui-panel dark:text-ui-text'>{term}</span>
-                ))}
-                {!plan.watchlist.terms.length ? <span className='text-[11px] text-ui-muted dark:text-ui-muted'>Add watch term.</span> : null}
-            </div>
+            <SelectedWatchTerms terms={plan.watchlist.terms} previewCount={4} />
             {plan.evidenceRows.length ? (
                 <div data-ti-selected-alert-evidence='true' className='mt-2 grid gap-2'>
                     {plan.evidenceRows.slice(0, 3).map(row => (

@@ -1,4 +1,3 @@
-import useKeyPress from '@/hooks/keyPressed'
 import { setCookie } from '@/utils/cookies/cookies'
 import { X } from 'lucide-react'
 import Link from 'next/link'
@@ -17,7 +16,6 @@ type FileProps = {
 }
 
 export default function OpenFiles({ openFiles, setOpenFiles }: OpenFilesProps) {
-    const keys = useKeyPress(['Ω'])
     const pathname = usePathname()
 
     useEffect(() => {
@@ -25,18 +23,15 @@ export default function OpenFiles({ openFiles, setOpenFiles }: OpenFilesProps) {
     }, [openFiles])
 
     useEffect(() => {
-        if (keys['Ω'] || (keys['alt'] && keys['w'])) {
-            setOpenFiles(prev => prev.filter(file => !pathname.includes(`/${file.id}`)))
-        }
-
         function downHandler(e: KeyboardEvent) {
-            if (e.key === 'Ω' || (e.key === 'w' && e.altKey)) {
+            if (isOpenFilesCloseShortcut(e)) {
                 setOpenFiles(prev => prev.filter(file => !pathname.includes(`/${file.id}`)))
             }
         }
 
         window.addEventListener('keydown', downHandler)
-    }, [])
+        return () => window.removeEventListener('keydown', downHandler)
+    }, [pathname, setOpenFiles])
 
     if (!openFiles.length) {
         return
@@ -52,6 +47,11 @@ export default function OpenFiles({ openFiles, setOpenFiles }: OpenFilesProps) {
             />)}
         </div>
     )
+}
+
+export function isOpenFilesCloseShortcut(event: Pick<KeyboardEvent, 'key' | 'altKey'>) {
+    const key = event.key.toLowerCase()
+    return key === 'ω' || (key === 'w' && event.altKey)
 }
 
 function File({ file, pathname, setOpenFiles }: FileProps) {

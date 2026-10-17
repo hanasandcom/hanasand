@@ -4,6 +4,7 @@ import { compactSourceReferenceLabel, handoffMissingLabel, sourceHealthChipClass
 import { decisionStepStatusClass, displayRequirementList, displayRequirementText, formatLabel, sourceBasisLabel, type SelectedCaseDraft } from '../pageModel'
 import CopyPayloadButton from './copy-payload-button'
 import SelectedPanelHeader from './selected-panel-header'
+import SelectedWatchTerms from './selected-watch-terms'
 
 export default function SelectedCaseDraftPanel({ draft }: { draft: SelectedCaseDraft }) {
     return (
@@ -33,12 +34,7 @@ export default function SelectedCaseDraftPanel({ draft }: { draft: SelectedCaseD
                     ))}
                 </div>
             ) : null}
-            <div className='mt-2 flex min-w-0 flex-wrap gap-1.5'>
-                {draft.watchTerms.slice(0, 3).map(term => (
-                    <span key={term} className='max-w-full wrap-break-word rounded-md border border-ui-border bg-ui-panel px-2 py-1 text-[11px] font-semibold text-ui-text dark:border-ui-border dark:bg-ui-panel dark:text-ui-text'>{term}</span>
-                ))}
-                {!draft.watchTerms.length ? <span className='text-[11px] text-ui-muted dark:text-ui-muted'>Add watch term.</span> : null}
-            </div>
+            <SelectedWatchTerms terms={draft.watchTerms} previewCount={3} />
             {draft.missing.length ? (
                 <p className='mt-2 wrap-break-word text-[11px] leading-5 text-ui-warning dark:text-ui-warning'>{displayRequirementList(draft.missing.slice(0, 3))}</p>
             ) : (
