@@ -88,9 +88,15 @@ export function attachCasesToAlerts(alerts: DwmAlert[], cases: WorkbenchDwmCaseL
 
 export function attachDeliveriesToAlerts(alerts: DwmAlert[], deliveries: WorkbenchDwmDelivery[]): DwmAlert[] {
     if (!deliveries.length) return alerts
+    const deliveriesByAlert = new Map<string, WorkbenchDwmDelivery[]>()
+    for (const delivery of deliveries) {
+        const rows = deliveriesByAlert.get(delivery.alertId) || []
+        rows.push(delivery)
+        deliveriesByAlert.set(delivery.alertId, rows)
+    }
     return alerts.map(alert => ({
         ...alert,
-        deliveries: deliveries.filter(delivery => delivery.alertId === alert.id),
+        deliveries: [...(deliveriesByAlert.get(alert.id) || [])],
     }))
 }
 

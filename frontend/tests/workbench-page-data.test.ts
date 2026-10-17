@@ -1,6 +1,8 @@
 import { afterEach, test } from 'node:test'
 import { strict as assert } from 'node:assert'
-import { loadDwmAlerts, loadDwmCases, loadDwmDeliveries, WORKBENCH_FETCH_TIMEOUT_MS } from '../src/app/dashboard/ti/workbench/pageData'
+import { attachDeliveriesToAlerts, loadDwmAlerts, loadDwmCases, loadDwmDeliveries, WORKBENCH_FETCH_TIMEOUT_MS } from '../src/app/dashboard/ti/workbench/pageData'
+import type { DwmAlert } from '../src/utils/dwm/product'
+import type { WorkbenchDwmDelivery } from '../src/app/dashboard/ti/workbench/pageTypes'
 
 const originalBase = process.env.TI_SCRAPER_API_BASE
 const originalFetch = globalThis.fetch
@@ -102,4 +104,21 @@ test('workbench alert loader excludes null rows before page adapters consume the
     globalThis.fetch = (async () => Response.json({ alerts: [null, alert, 'invalid'] })) as typeof fetch
 
     assert.deepEqual(await loadDwmAlerts(), [alert])
+})
+
+test('workbench attaches deliveries in input order without sharing per-alert arrays', () => {
+    const alerts = [{ id: 'alert-1' }, { id: 'alert-2' }] as DwmAlert[]
+    const deliveries = [
+        { id: 'delivery-1', alertId: 'alert-1' },
+        { id: 'delivery-2', alertId: 'alert-2' },
+        { id: 'delivery-3', alertId: 'alert-1' },
+    ] as WorkbenchDwmDelivery[]
+
+    const attached = attachDeliveriesToAlerts(alerts, deliveries)
+
+    assert.deepEqual(attached.map(alert => alert.deliveries?.map(delivery => delivery.id)), [
+        ['delivery-1', 'delivery-3'], ['delivery-2'],
+    ])
+    assert.notEqual(attached[0].deliveries, attached[1].deliveries)
+    assert.equal(attachDeliveriesToAlerts(alerts, []), alerts)
 })
