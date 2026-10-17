@@ -1,234 +1,16 @@
-import { EventEmitter } from 'node:events'
-import { afterEach, expect, mock, test } from 'bun:test'
-
-class FakePage extends EventEmitter {
-    closed = false
-    currentUrl = 'about:blank'
-    editableSelections = 0
-    readonly mouse = {
-        clicks: [] as Array<{ x: number; y: number }>,
-        moves: [] as Array<{ x: number; y: number }>,
-        wheels: [] as Array<{ deltaX: number; deltaY: number }>,
-        async click(x: number, y: number) { this.clicks.push({ x, y }) },
-        async move(x: number, y: number) { this.moves.push({ x, y }) },
-        async wheel(deltaX: number, deltaY: number) { this.wheels.push({ deltaX, deltaY }) },
-        async down() {},
-        async up() {},
-    }
-    readonly keyboard = {
-        pressed: [] as string[],
-        async press(key: string) { this.pressed.push(key) },
-        async insertText(text: string) { void text },
-    }
-
-    async goto(url: string) {
-        this.currentUrl = url
-        return null
-    }
-
-    url() { return this.currentUrl }
-    title() { return this.currentUrl }
-    mainFrame() { return this }
-    viewportSize() { return { width: 1365, height: 768 } }
-    isClosed() { return this.closed }
-    setDefaultTimeout() {}
-    async screenshot() { throw new Error('screenshot unavailable in restart test') }
-    async evaluate<T>(callback: () => T): Promise<T> {
-        const source = callback.toString()
-        if (source.includes('active.select()')) {
-            this.editableSelections++
-            return true as T
-        }
-        if (source.includes('selectionStart')) return '' as T
-        if (source.includes('return active.value')) return 'prior run form value' as T
-        if (source.includes('navigator.clipboard')) return '' as T
-        throw new Error('page evaluation unavailable in restart test')
-    }
-    async bringToFront() {}
-    async waitForTimeout() {}
-    async close() {
-        if (this.closed) return
-        this.closed = true
-        this.emit('close')
-    }
-}
-
-class FakeContext {
-    readonly pages: FakePage[] = []
-
-    async exposeBinding() {}
-    async addInitScript() {}
-    async route() {}
-    async newCDPSession() {
-        return { send: async () => ({ windowId: 1 }), detach: async () => undefined }
-    }
-    async newPage() {
-        const page = new FakePage()
-        this.pages.push(page)
-        return page
-    }
-    async close() {
-        await Promise.all(this.pages.map(page => page.close()))
-    }
-}
-
-class FakeBrowser extends EventEmitter {
-    readonly contexts: FakeContext[] = []
-
-    async newContext() {
-        const context = new FakeContext()
-        this.contexts.push(context)
-        return context
-    }
-    async close() {}
-}
-
-class ControlledSocket extends EventEmitter {
-    readonly OPEN = 1
-    readyState = this.OPEN
-    readonly messages: Record<string, any>[] = []
-
-    send(message: string) {
-        const payload = JSON.parse(message)
-        this.messages.push(payload)
-        this.emit('payload', payload)
-    }
-    close(code = 1000, reason = '') {
-        if (this.readyState !== this.OPEN) return
-        this.readyState = 3
-        this.emit('close', code, Buffer.from(reason))
-    }
-    receive(payload: Record<string, unknown>) {
-        this.emit('message', Buffer.from(JSON.stringify(payload)))
-    }
-}
-
-class FakeDownload {
-    deleteCount = 0
-    cancelCount = 0
-    pathCount = 0
-
-    constructor(readonly fileUrl: string, readonly getPath: () => Promise<string | null>) {}
-    url() { return this.fileUrl }
-    suggestedFilename() { return 'sample.bin' }
-    path() {
-        this.pathCount++
-        return this.getPath()
-    }
-    async cancel() { this.cancelCount++ }
-    async delete() { this.deleteCount++ }
-}
-
-const originalEnvironment = new Map([
-    'BROWSER_SANDBOX_WORKER_ONLY', 'BROWSER_SANDBOX_POOL_TOKEN', 'BROWSER_SANDBOX_PREWARM',
-    'BROWSER_SANDBOX_SKIP_RUN_DB', 'BROWSER_SANDBOX_MAX_SESSIONS', 'ONION_SESSION_PROXY', 'NODE_ENV',
-].map(key => [key, process.env[key]]))
-
-let browser: FakeBrowser
-mock.module('playwright', () => ({ chromium: { launch: async () => browser } }))
-mock.module('../src/handlers/onionSession/analysis.ts', () => ({
-    extractIndicators: () => ({ domains: [], ips: [], urls: [] }),
-    extractThreatAssociations: () => [],
-    inspectScript: () => ({}),
-    isActionableObfuscatedScript: () => false,
-    sandboxUrlSafety: () => ({ ok: true }),
-    summarizeDeobfuscationTask: () => ({}),
-}))
-mock.module('../src/handlers/onionSession/webcrack.ts', () => ({
-    watchWebCrackOutput: async () => undefined,
-    readWebCrackOutput: async () => ({}),
-    submitWebCrackSample: async () => ({}),
-}))
-mock.module('../src/handlers/onionSession/providerCapture.ts', () => ({ providerCaptureMessage: () => ({}) }))
-mock.module('../src/handlers/browserSandboxRuns.ts', () => ({
-    browserPaidExtensionAllowed: async () => false,
-    refreshBrowserRunLease: async () => undefined,
-    finishBrowserRun: async () => undefined,
-    prepareBrowserRun: async (input: { userId?: string; sessionToken?: string; clientId?: string }) => {
-        const clientId = typeof input.clientId === 'string' ? input.clientId.trim() : ''
-        return /^[a-zA-Z0-9_.:-]{8,160}$/.test(clientId)
-            ? { allowed: true, run: null, quota: null }
-            : { allowed: false, quota: null, reason: 'identity_required' }
-    },
-    updateBrowserRunProviderResult: async () => undefined,
-    persistBrowserRunEvidence: async () => undefined,
-}))
-
-afterEach(() => {
-    for (const [key, value] of originalEnvironment) {
-        if (value === undefined) delete process.env[key]
-        else process.env[key] = value
-    }
-})
-
-function configureTestEnvironment() {
-    process.env.NODE_ENV = 'test'
-    process.env.BROWSER_SANDBOX_WORKER_ONLY = '0'
-    delete process.env.BROWSER_SANDBOX_POOL_TOKEN
-    process.env.BROWSER_SANDBOX_PREWARM = '0'
-    process.env.BROWSER_SANDBOX_SKIP_RUN_DB = '1'
-    process.env.BROWSER_SANDBOX_MAX_SESSIONS = '4'
-    delete process.env.ONION_SESSION_PROXY
-}
-
-async function waitFor<T>(read: () => T | undefined, description: string): Promise<T> {
-    const deadline = Date.now() + 2_000
-    while (Date.now() < deadline) {
-        const value = read()
-        if (value !== undefined) return value
-        await new Promise(resolve => setTimeout(resolve, 5))
-    }
-    throw new Error(`Timed out waiting for ${description}`)
-}
-
-async function startRun(socket: ControlledSocket, target: string) {
-    const readyCount = socket.messages.filter(message => message.type === 'ready').length
-    socket.receive({ type: 'start', target, network: 'tor', clientId: 'restart-test-client' })
-    await waitFor(() => {
-        const ready = socket.messages.filter(message => message.type === 'ready')
-        return ready.length > readyCount ? ready.at(-1) : undefined
-    }, 'browser run readiness')
-}
-
-async function endSession(socket: ControlledSocket) {
-    const ended = new Promise<void>((resolve, reject) => {
-        const timeout = setTimeout(() => reject(new Error('Onion session did not end')), 2_000)
-        socket.on('payload', payload => {
-            if (payload.type !== 'ended') return
-            clearTimeout(timeout)
-            resolve()
-        })
-    })
-    socket.receive({ type: 'end' })
-    await ended
-    await waitFor(() => socket.readyState === 3 ? true : undefined, 'websocket close')
-}
-
-test('onion pointer and wheel inputs clamp coordinates and deltas to browser bounds', async () => {
-    configureTestEnvironment()
-    browser = new FakeBrowser()
-    const { handleOnionSessionSocket } = await import('../src/handlers/onionSession/ws.ts')
-    const socket = new ControlledSocket()
-    handleOnionSessionSocket(socket as never, 'bounded-pointer-input', 'regular')
-
-    try {
-        await startRun(socket, 'https://8.8.8.8/input')
-        const page = browser.contexts[0].pages[0]
-        socket.receive({ type: 'click', x: 3000, y: -100 })
-        socket.receive({ type: 'wheel', x: -100, y: 2000, deltaX: -2000, deltaY: 2000 })
-        await waitFor(() => page.mouse.wheels.length === 1 ? true : undefined, 'bounded wheel input')
-
-        expect(page.mouse.clicks).toEqual([{ x: 2400, y: 0 }])
-        expect(page.mouse.moves).toEqual([{ x: 0, y: 1600 }])
-        expect(page.mouse.wheels).toEqual([{ deltaX: -1600, deltaY: 1600 }])
-    } finally {
-        await endSession(socket)
-    }
-})
+import { expect, test } from 'bun:test'
+import {
+    configureTestEnvironment,
+    ControlledSocket,
+    endSession,
+    FakeDownload,
+    FakePage,
+    startRun,
+    waitFor,
+} from './onion-session-websocket-harness.ts'
 
 test('restarting an onion session resets per-run download limits and summaries', async () => {
-    configureTestEnvironment()
-    browser = new FakeBrowser()
+    const browser = configureTestEnvironment()
     const { handleOnionSessionSocket } = await import('../src/handlers/onionSession/ws.ts')
     const socket = new ControlledSocket()
     handleOnionSessionSocket(socket as never, 'restart-download-reset', 'regular')
@@ -258,8 +40,7 @@ test('restarting an onion session resets per-run download limits and summaries',
 })
 
 test('restarting and ending an onion session close the retired and current pages', async () => {
-    configureTestEnvironment()
-    browser = new FakeBrowser()
+    const browser = configureTestEnvironment()
     const { handleOnionSessionSocket } = await import('../src/handlers/onionSession/ws.ts')
     const socket = new ControlledSocket()
     handleOnionSessionSocket(socket as never, 'restart-page-cleanup', 'regular')
@@ -268,10 +49,8 @@ test('restarting and ending an onion session close the retired and current pages
     try {
         await startRun(socket, 'https://8.8.8.8/first')
         const retiredPage = browser.contexts[0].pages[0]
-
         await startRun(socket, 'https://8.8.8.8/second')
         currentPage = browser.contexts[1].pages[0]
-
         expect(retiredPage.isClosed()).toBe(true)
     } finally {
         await endSession(socket)
@@ -281,8 +60,7 @@ test('restarting and ending an onion session close the retired and current pages
 })
 
 test('a prior run download cannot release a later run transfer slot', async () => {
-    configureTestEnvironment()
-    browser = new FakeBrowser()
+    const browser = configureTestEnvironment()
     const { handleOnionSessionSocket } = await import('../src/handlers/onionSession/ws.ts')
     const socket = new ControlledSocket()
     handleOnionSessionSocket(socket as never, 'restart-download-race', 'regular')
@@ -296,7 +74,6 @@ test('a prior run download cannot release a later run transfer slot', async () =
         const firstPage = browser.contexts[0].pages[0]
         const oldDownload = new FakeDownload('https://files.example/old', () => oldPath)
         firstPage.emit('download', oldDownload)
-
         await startRun(socket, 'https://8.8.8.8/second')
         const secondPage = browser.contexts[1].pages[0]
         activeDownloads.push(...[0, 1].map(index => new FakeDownload(
@@ -305,7 +82,6 @@ test('a prior run download cannot release a later run transfer slot', async () =
         )))
         activeDownloads.forEach(download => secondPage.emit('download', download))
         await waitFor(() => activeDownloads.every(download => download.pathCount === 1) ? true : undefined, 'active second-run downloads')
-
         resolveOldPath(null)
         await waitFor(() => oldDownload.deleteCount === 1 ? true : undefined, 'retired download cleanup')
 
@@ -324,8 +100,7 @@ test('a prior run download cannot release a later run transfer slot', async () =
 })
 
 test('restarting clears editable select-all state before a later copy', async () => {
-    configureTestEnvironment()
-    browser = new FakeBrowser()
+    const browser = configureTestEnvironment()
     const { handleOnionSessionSocket } = await import('../src/handlers/onionSession/ws.ts')
     const socket = new ControlledSocket()
     handleOnionSessionSocket(socket as never, 'restart-editable-select-all', 'regular')
@@ -335,7 +110,6 @@ test('restarting clears editable select-all state before a later copy', async ()
         const firstPage = browser.contexts[0].pages[0]
         socket.receive({ type: 'key', key: 'a', ctrlKey: true })
         await waitFor(() => firstPage.editableSelections === 1 ? true : undefined, 'first-run editable select-all')
-
         await startRun(socket, 'https://8.8.8.8/second')
         const secondPage = browser.contexts[1].pages[0]
         socket.receive({ type: 'key', key: 'c', ctrlKey: true })
@@ -343,7 +117,6 @@ test('restarting clears editable select-all state before a later copy', async ()
         socket.receive({ type: 'clipboard', direction: 'remote-to-browser' })
         const clipboard = await waitFor(() => socket.messages.find(message =>
             message.type === 'clipboard' && message.direction === 'remote-to-browser'), 'second-run clipboard response')
-
         expect(clipboard.text).toBe('')
     } finally {
         await endSession(socket)
@@ -351,8 +124,7 @@ test('restarting clears editable select-all state before a later copy', async ()
 })
 
 test('a late response from a prior run cannot enter the next run summary', async () => {
-    configureTestEnvironment()
-    browser = new FakeBrowser()
+    const browser = configureTestEnvironment()
     const { handleOnionSessionSocket } = await import('../src/handlers/onionSession/ws.ts')
     const socket = new ControlledSocket()
     handleOnionSessionSocket(socket as never, 'restart-response-race', 'regular')
@@ -377,7 +149,6 @@ test('a late response from a prior run cannot enter the next run summary', async
             url: () => 'https://old-run.example/image.png',
             headers: () => ({ 'content-type': 'image/png' }),
         })
-
         await startRun(socket, 'https://8.8.8.8/second')
         resolveServerAddress(null)
         await new Promise(resolve => setImmediate(resolve))
@@ -386,7 +157,6 @@ test('a late response from a prior run cannot enter the next run summary', async
         const download = new FakeDownload('https://files.example/current', async () => null)
         secondPage.emit('download', download)
         await waitFor(() => download.deleteCount === 1 ? true : undefined, 'second-run network summary')
-
         const summary = socket.messages.filter(message => message.type === 'downloads').at(-1)?.networkSummary
         expect(summary.responseCount).toBe(0)
         expect(summary.domains).not.toContain('old-run.example')
