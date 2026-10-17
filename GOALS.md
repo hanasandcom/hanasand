@@ -1676,3 +1676,19 @@ for a net reduction of 10 lines. This is verified code reduction, but the
 finds 63 over-limit files among 4,326 files / 326,000 lines, all outside the
 frontend. Browser end-to-end tests remain blocked where the configured local
 API server exits during startup; no UI redesign or deployment was made.
+
+At checkpoint `0f349c036`, native log collection is split into four focused
+modules: the former 346-line source file is now a 34-line facade plus 80-,
+122-, and 45-line source modules, reducing production code by 65 lines while
+preserving the public exports and collection behavior. Admin-support runtime
+coverage now checks mixed action/scope grants and their routes. The public TI
+search loading test now renders the real component and checks visible and
+accessibility behavior instead of matching source text. Independent reviews
+approved all three changes. The full default API suite passes (37
+database-required suites remain excluded by the runner), API typecheck and
+scoped ESLint pass, and the focused frontend test passes. The frontend cap
+scan covers 2,359 hand-maintained files / 154,479 lines with zero files over
+200. The repository-wide checker reports 62 over-cap files among 4,329
+hand-maintained files / 326,043 lines, all outside the frontend. The frontend
+10,000–30,000-line target and API 100,000-line reduction goal remain open; no
+UI redesign or deployment was made.
