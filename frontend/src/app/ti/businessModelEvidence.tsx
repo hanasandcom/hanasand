@@ -1,5 +1,6 @@
 import type { TiActorCaseStudyCatalog, TiBusinessModelAssessment, TiBusinessModelObservation, TiSearchResponse } from '@/utils/ti/search'
 import { ActorCaseStudyIndex, formatDate } from './businessModelCaseStudies'
+import { safePublicTiUrl } from './publicResultUrls'
 
 type EvidenceState = 'loading' | 'error' | 'ready'
 
@@ -109,7 +110,7 @@ function BusinessEvidenceRow({ row, sourceById }: {
             </div>
             {evidence.map((item, index) => {
                 const source = sourceById.get(item.sourceId)
-                const href = safeHref(item.url || source?.url)
+                const href = safePublicTiUrl(item.url || source?.url)
                 return (
                     <blockquote key={`${item.captureId}:${index}`} className='mt-2 min-w-0 border-l-2 border-ui-primary/45 pl-3'>
                         <p className='wrap-break-word text-xs leading-5 text-ui-text dark:text-ui-text'>&quot;{item.excerpt}&quot;</p>
@@ -148,18 +149,4 @@ function evidenceKindLabel(value: string) {
 
 function reviewStateLabel(value: string) {
     return value === 'needs_review' ? 'Needs review' : value.replaceAll('_', ' ')
-}
-
-function safeHref(value?: string) {
-    if (!value) return undefined
-    try {
-        const parsed = new URL(value)
-        const host = parsed.hostname.toLowerCase()
-        if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password) return undefined
-        if (host === 'localhost' || host.endsWith('.local') || /^(?:127\.|10\.|192\.168\.|169\.254\.|172\.(?:1[6-9]|2\d|3[01])\.)/.test(host)) return undefined
-        if (['t.me', 'telegram.me', 'telegram.dog'].includes(host)) return undefined
-        return parsed.toString()
-    } catch {
-        return undefined
-    }
 }

@@ -118,6 +118,18 @@ test('public TI business-model evidence preserves reviewed case presentation saf
     assert.match(error, /role="alert"/)
 })
 
+test('business-model evidence suppresses source URLs with embedded API credentials', () => {
+    const unsafeUrl = 'https://data.ransomware.live/groups.json?api_key=private'
+    const model = {
+        ...result.actorIntelligence!.businessModel!,
+        pricingClaims: [observation('Pricing', 'Reported ransom demand.', unsafeUrl)],
+    }
+    const html = renderToStaticMarkup(<ActorBusinessModelEvidence model={model} sources={result.sources} />)
+
+    assert.doesNotMatch(html, /href="[^"]*api_key/)
+    assert.match(html, /Ransomware\.live/)
+})
+
 function observation(value: string, excerpt: string, url = 'http://127.0.0.1/private') {
     return {
         value,
