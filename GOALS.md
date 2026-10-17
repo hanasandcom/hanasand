@@ -1042,3 +1042,12 @@ size reduction: the latest total is 218 LOC above the preceding frontend scan,
 largely from new contract tests. The 10,000–30,000 frontend target and broader
 API reduction remain unmet; the current evidence does not support that target
 without feature loss. No push/deploy was performed.
+
+After `a3cd240ef`, service-account API calls reuse the existing backend auth
+header builder; the old endpoint, method/body forwarding, forced no-store cache,
+header replacement, and missing-cookie values are covered by the existing
+registered request-contract test. Peer review found no behavior change. The
+full frontend suite, production build/typecheck and all 116 route generations
+pass. The latest frontend cap scan covers 2,308 files / 153,097 LOC / zero over
+200. The new contract test outweighs the two production lines removed, so this
+checkpoint is not a net frontend size reduction. No push/deploy was performed.
