@@ -2159,3 +2159,13 @@ pass. The frontend inventory is 2,403 files / 155,654 lines, with zero over
 200. The repository scan is 4,538 files / 328,270 lines, with seven over 200,
 all under `api/`. This test improvement adds two frontend lines. Aggregate
 frontend and API reduction goals remain open.
+
+At pushed checkpoint `eab110ae5` (2026-10-17), the four repeated collapsed
+Notes panel controls use one `NotesPanelIconButton`; labels, classes, icons,
+and click handlers remain the same. Production code falls by one line and the
+rendered contract test adds 16 lines. The registered suite passes (3 tests / 19
+expectations), as do scoped ESLint, non-incremental frontend typecheck,
+independent review, diff check, and the frontend cap. The frontend inventory is
+2,404 files / 155,669 lines, with zero above 200. The repository scan reports
+4,539 files / 328,285 lines and seven above 200, all under `api/`. The
+aggregate frontend and API reduction targets remain open.
