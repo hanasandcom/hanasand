@@ -2510,6 +2510,23 @@ Chromium due to a MachPort permission error. These two changes add 81 net
 hand-maintained lines. The frontend 10,000–30,000-line target and API
 100,000-line reduction target remain unmet.
 
+At `ae51ef65e`, the shared DWM webhook retry fixture now fails on unrecognized
+SQL instead of silently returning empty rows; the few intentional unmodeled
+operations have exact explicit handlers. The test covers the fail-fast path.
+All 32 webhook/DWM suites pass (95 tests / 553 expectations), with API lint,
+typecheck, repository cap, and diff checks passing. At `552ae8785`, the thesis
+body-length contract moved to a client/server-neutral constant, and cron/load
+dashboard tests reuse the exact render-proof session fixture. Validation,
+messages, cookie scope, and UI are unchanged. The frontend production build,
+typecheck, scoped lint, thesis tests (15 / 27 assertions), delivery tests (12),
+frontend/repository cap, and diff checks pass. The relevant Playwright tests
+could not run because the local test database at `127.0.0.1:8503` refused the
+connection. The frontend scan is 2,418 files / 156,234 lines; the repository
+scan is 4,564 files / 328,992 lines, with no file above 200. The frontend
+checkpoints net-reduce 11 lines. Five verified commits remain local while the
+integrated refactor is unfinished; the aggregate frontend/API reduction goals
+remain unmet.
+
 At `035708964`, the database dashboard's source-text scan was replaced with a
 registered SSR test of rendered storage telemetry, query disclosure, ordering,
 and backup/restore links. At `2724592f6`, unused organization state
