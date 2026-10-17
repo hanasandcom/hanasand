@@ -2493,3 +2493,19 @@ focused checks, independent reviews, and repository cap pass. These changes
 add 30 net hand-maintained lines overall; the current scan is 2,421 frontend
 files / 156,264 lines and 4,566 repository files / 328,978 lines, with no file
 above 200. The reduction targets remain unmet.
+
+At `1e8ed8fe2` and `4e9440d60`, the request builder's identical header and
+variable row controls now use `KeyValueRowsEditor`, and the thesis table's row
+and column resize separators now use `TableResizeHandle`. Rendered labels,
+styles, callbacks, axis math, pointer behavior, keyboard resizing, and ARIA
+attributes are preserved. Independent review approved both extractions; the
+request editor test invokes the real change, remove, and add handlers for both
+uses, and the thesis Playwright test now checks the row's accessible size after
+ArrowDown. The focused box suite passes (6 tests), five focused thesis suites
+pass (15 tests), frontend ESLint and typecheck pass, and the line-cap check
+passes for 2,423 frontend files / 156,345 lines and 4,568 repo files / 329,059
+lines. The thesis Playwright test could not run in this environment: the
+managed server exits during startup and the serverless retry cannot launch
+Chromium due to a MachPort permission error. These two changes add 81 net
+hand-maintained lines. The frontend 10,000–30,000-line target and API
+100,000-line reduction target remain unmet.
