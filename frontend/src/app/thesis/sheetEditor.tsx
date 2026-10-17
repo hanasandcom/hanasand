@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { marked } from 'marked'
-import { reshape, tables, writeTable, type TableData } from './workspace'
+import { replaceTableAt, reshape, tables, writeTable, type TableData } from './workspace'
 import InlineMarkdown from './inlineMarkdown'
 import InlineTable from './InlineTable'
 import RenderMarkdown from './RenderMarkdown'
@@ -83,7 +83,7 @@ export default function SheetEditor({ sheet, canEdit, onChange, actions, trailin
         }
         setPending(null)
         const target = parsed[index]
-        onChange('body', sheet.body.slice(0, target.start) + writeTable(data) + sheet.body.slice(target.end), group)
+        onChange('body', replaceTableAt(sheet.body, target, data), group)
     }
     function changeShape(axis: 'row' | 'column', remove: boolean, direction: -1 | 1 = 1) {
         if (!cell || !table) return

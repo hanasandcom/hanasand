@@ -4,7 +4,7 @@ import { Fragment, useEffect, useId, useRef, useState } from 'react'
 import { ChevronDown, ChevronRight, ClipboardPlus, Download, Pencil, Trash2, X } from 'lucide-react'
 import SheetEditor, { type SheetEditorProps } from './sheetEditor'
 import { sheetButton } from './sheetEditorStyles'
-import { tables, writeTable } from './workspace'
+import { replaceTableAt, tables } from './workspace'
 import { navigateArrowCell } from './tableNavigation'
 import { activityError, expectedHoursText, hoursText, initialTimetableYear, isTimetable, isoWeek, timetable, type Activity, type ActivityLog, type Week } from './timetableData'
 import './timetable.css'
@@ -69,7 +69,7 @@ export default function TimetableSheet({ onActivityLogChange, ...props }: SheetE
         }
         const summary = cells.find(row => /^(?:total(?:\s|$)|\d+\s+weeks$)/i.test(row[0].trim()))
         if (summary) summary[0] = `${model.plannedWeeks + (week?.sourceRow !== undefined ? -1 : 1)} weeks`
-        props.onChange('body', sheet.body.slice(0, table.start) + writeTable({ ...table.data, cells, heights: [] }) + sheet.body.slice(table.end))
+        props.onChange('body', replaceTableAt(sheet.body, table, { ...table.data, cells, heights: [] }))
         setMessage('')
     }
     function addWeekNear(row: number, direction: -1 | 1 = 1) {
@@ -134,7 +134,7 @@ export default function TimetableSheet({ onActivityLogChange, ...props }: SheetE
             for (const row of cells.slice(1)) row.splice(insertAt, 0, '')
             const widths = [...table.data.widths]
             widths.splice(insertAt, 0, 180)
-            props.onChange('body', sheet.body.slice(0, table.start) + writeTable({ ...table.data, cells, widths }) + sheet.body.slice(table.end))
+            props.onChange('body', replaceTableAt(sheet.body, table, { ...table.data, cells, widths }))
         },
         extendRow: direction => addWeekNear(direction < 0 ? 1 : model.weeks.length, direction),
     } : undefined} titleAside={model && <details className='thesis-hours-progress'><summary aria-label='Hours spent and expected'><strong>{model.totals.at(-1)} / {expectedHoursText(model.expectedHours)} h</strong><span>spent / expected</span></summary><div>12 hours per week before Christmas; 7.5 hours per weekday from January. Before Christmas, each public holiday deducts 2.4 hours. Weeks 51–53 and Norwegian weekday public holidays are excluded. Work logged on days off still counts as spent.</div></details>} actions={<>

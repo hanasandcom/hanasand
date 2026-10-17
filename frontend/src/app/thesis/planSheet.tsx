@@ -4,7 +4,7 @@ import { Fragment, useState } from 'react'
 import { ChevronDown, ChevronRight, LayoutGrid, Rows3 } from 'lucide-react'
 import SheetEditor, { type CustomTableControls, type SheetEditorProps, type TableInteraction } from './sheetEditor'
 import { sheetButton } from './sheetEditorStyles'
-import { columnName, tables, writeTable } from './workspace'
+import { columnName, replaceTableAt, tables } from './workspace'
 import { navigateArrowCell } from './tableNavigation'
 import './plan.css'
 
@@ -43,7 +43,7 @@ export default function PlanSheet(props: SheetEditorProps) {
     function save(next: string[][]) {
         if (!canEdit || index < 0) return
         const table = parsed[index]
-        props.onChange('body', sheet.body.slice(0, table.start) + writeTable({ ...source, cells: next }) + sheet.body.slice(table.end))
+        props.onChange('body', replaceTableAt(sheet.body, table, { ...source, cells: next }))
     }
     function update(row: number, col: number, value: string) {
         const next = cells.map(line => [...line])

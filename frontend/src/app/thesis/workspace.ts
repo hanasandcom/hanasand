@@ -64,11 +64,12 @@ export function writeSheets(sheets: Sheet[]) {
 }
 
 export type TableData = { cells: string[][], widths: number[], heights: number[] }
+export type TableRange = { start: number, end: number, data: TableData }
 const decode = (value: string) => value.replace(/<br\s*\/?\s*>/gi, '\n').replace(/\\\|/g, '|').replace(/&#(\d+);/g, (_, n) => Number(n) <= 0x10ffff ? String.fromCodePoint(Number(n)) : '\uFFFD').replace(/&amp;/g, '&')
 const encode = (value: string) => value.replace(/&/g, '&amp;').replace(/\\/g, '&#92;').replace(/\|/g, '&#124;').replace(/</g, '&#60;').replace(/>/g, '&#62;').replace(/\n/g, '<br>').replace(/^\s+|\s+$|\t|\r/gu, whitespace => [...whitespace].map(character => `&#${character.codePointAt(0)};`).join(''))
 
-export function tables(body: string) {
-    const result: { start: number, end: number, data: TableData }[] = []
+export function tables(body: string): TableRange[] {
+    const result: TableRange[] = []
     let offset = 0
     for (const token of marked.lexer(body)) {
         const start = body.indexOf(token.raw, offset)
@@ -90,6 +91,10 @@ export function writeTable(data: TableData) {
     const rows = data.cells.map(row => `| ${row.map(encode).join(' | ')} |`)
     rows.splice(1, 0, `| ${data.cells[0].map(() => '---').join(' | ')} |`)
     return rows.join('\n') + `\n<!-- thesis-table:${JSON.stringify({ widths: data.widths, heights: data.heights })} -->\n`
+}
+
+export function replaceTableAt(body: string, table: Pick<TableRange, 'start' | 'end'>, data: TableData) {
+    return body.slice(0, table.start) + writeTable(data) + body.slice(table.end)
 }
 
 export function tableEditorRows(value: string) {

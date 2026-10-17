@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert'
 import { test } from 'node:test'
-import { readSheets, writeSheets, identifiedSheets, sheetChanges, tables, writeTable, cellValue, reshape, columnName, tableEditorRows } from '../src/app/thesis/workspace'
+import { readSheets, writeSheets, identifiedSheets, sheetChanges, tables, writeTable, replaceTableAt, cellValue, reshape, columnName, tableEditorRows } from '../src/app/thesis/workspace'
 
 test('sheets preserve existing markdown and round-trip titles, prose, tables and sizes', () => {
     const sheets = readSheets('# Existing **thesis**', '## Existing content\n\nKeep this.\n')
@@ -18,6 +18,8 @@ test('sheets preserve existing markdown and round-trip titles, prose, tables and
     assert.equal(parsed.length, 1)
     assert.deepEqual(parsed[0].data, data)
     assert.equal(md.slice(parsed[0].end), '\nAfter')
+    const updated = { ...data, cells: [['Task', 'Hours'], ['Updated', '3']] }
+    assert.equal(replaceTableAt(md, parsed[0], updated), 'Before\n\n' + writeTable(updated) + '\nAfter')
     const resized = tables(writeTable({ ...data, heights: [48, 78] }))[0].data
     assert.deepEqual(resized.heights, [48, 78])
     assert.equal(tables('| A |\n| --- |\n| 1 |\n<!-- thesis-table:{"heights":[null,78]} -->\n')[0].data.heights[0], 48)
