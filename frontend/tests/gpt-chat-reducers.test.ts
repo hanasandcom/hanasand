@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'bun:test'
+import { createAssistantMessage, createUserMessage, toRequestMessages } from '../src/components/gpt/chatMessages'
 import { applyPromptEvent } from '../src/components/gpt/chatReducers'
 import defaultModelMetrics from '../src/components/gpt/defaultModelMetrics'
 
@@ -15,6 +16,22 @@ function session(): ChatSession {
         ],
     }
 }
+
+test('shared chat message helpers preserve pending state and request projection', () => {
+    const user = createUserMessage('hello')
+    const pending = createAssistantMessage('conversation-a')
+
+    assert.match(user.id, /^[0-9a-f-]{36}$/i)
+    assert.deepEqual(pending, { id: 'conversation-a-assistant', role: 'assistant', content: '', pending: true })
+    assert.deepEqual(toRequestMessages([
+        user,
+        pending,
+        { id: 'system', role: 'system', content: 'internal prompt' },
+    ]), [
+        { role: 'user', content: 'hello' },
+        { role: 'assistant', content: '' },
+    ])
+})
 
 test('shared prompt reducer preserves streamed delta and completion behavior', () => {
     const streaming = applyPromptEvent(session(), {

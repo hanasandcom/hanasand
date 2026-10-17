@@ -2,11 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import defaultModelMetrics from './defaultModelMetrics'
 import normalizeClient from './normalizeClient'
 import { applyPromptEvent } from './chatReducers'
+import { createAssistantMessage, createUserMessage, toRequestMessages } from './chatMessages'
 import config from '@/config'
-
-function createPendingAssistantMessage(conversationId: string): GPT_ChatMessage {
-    return { id: `${conversationId}-assistant`, role: 'assistant', content: '', pending: true }
-}
 
 export default function useGptPageState() {
     const [clients, setClients] = useState<GPT_Client[]>([])
@@ -65,16 +62,14 @@ export default function useGptPageState() {
             return
         }
 
-        const userMessage: GPT_ChatMessage = { id: crypto.randomUUID(), role: 'user', content }
-        const requestMessages = [...chatSession.messages, userMessage]
-            .filter(message => message.role === 'user' || message.role === 'assistant')
-            .map(message => ({ role: message.role, content: message.content }))
+        const userMessage = createUserMessage(content)
+        const requestMessages = toRequestMessages([...chatSession.messages, userMessage])
 
         setChatSession((prev) => prev
             ? {
                 ...prev,
                 isSending: true,
-                messages: [...prev.messages, userMessage, createPendingAssistantMessage(prev.conversationId)],
+                messages: [...prev.messages, userMessage, createAssistantMessage(prev.conversationId)],
             }
             : prev)
 
