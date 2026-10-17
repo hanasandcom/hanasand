@@ -8,6 +8,7 @@ import { normalizeWatchlistValue, watchlistSearchText } from '../model/watchlist
 import { SectionTitle, InlineBusy, RowStatus, SelectField, Field, OrganizationMetadataBadge } from './shared'
 import { secondaryButtonClass, primaryButtonClass, inputClass } from '../constants/styles'
 import { OrganizationFilterStrip } from './filterStrip'
+import { OrganizationCountBadges } from './organizationCountBadges'
 import { watchlistTemplates, watchlistKinds } from '../constants/options'
 import { useState } from 'react'
 import { Archive, BellRing, RefreshCw } from 'lucide-react'
@@ -43,11 +44,7 @@ export function WatchlistPanel({ watchlists, activeTerms, members, canManage, ca
                 </div>
             </div>
             {watchlists.length > 0 && (
-                <div className='mt-3 flex flex-wrap gap-2' data-org-watchlist-status-counts='true'>
-                    <OrganizationMetadataBadge>Active: {activeCount}</OrganizationMetadataBadge>
-                    <OrganizationMetadataBadge>Paused: {pausedCount}</OrganizationMetadataBadge>
-                    <OrganizationMetadataBadge>Archived: {archivedCount}</OrganizationMetadataBadge>
-                </div>
+                <OrganizationCountBadges counts={[{ label: 'Active', count: activeCount }, { label: 'Paused', count: pausedCount }, { label: 'Archived', count: archivedCount }]} className='mt-3 flex flex-wrap gap-2' marker='data-org-watchlist-status-counts' />
             )}
             {busyLabel && <InlineBusy label={busyLabel} marker='data-org-watchlist-busy' />}
             <p className='text-xs leading-5 text-ui-muted'>Refresh checks the latest retained captures for these terms; it does not claim a new source collection run.</p>

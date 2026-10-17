@@ -1,6 +1,9 @@
 import { expect, test } from 'bun:test'
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 import type { OrganizationInvite, OrganizationMember } from '../src/app/organizations/types/organization'
 import { inviteRoleStatusCounts, inviteStatusCounts, memberRoleStatusCounts, memberStatusCounts } from '../src/app/organizations/model/forms'
+import { OrganizationCountBadges } from '../src/app/organizations/components/organizationCountBadges'
 
 const invites: OrganizationInvite[] = [
     { id: '1', email: 'one@example.test', role: 'admin', status: 'PENDING' },
@@ -41,4 +44,35 @@ test('member filter counts preserve the owner option and status ordering', () =>
         { role: 'editor', label: 'Editor', count: 0 },
         { role: 'reader', label: 'Reader', count: 1 },
     ])
+})
+
+test('member and invite count rows keep page markers, zero-count policy, and labels', () => {
+    const inviteHtml = renderToStaticMarkup(createElement(OrganizationCountBadges, {
+        counts: [...inviteStatusCounts(invites), ...inviteRoleStatusCounts(invites)],
+        className: 'mt-3 flex flex-wrap gap-2',
+        marker: 'data-org-invite-status-counts',
+    }))
+    const memberHtml = renderToStaticMarkup(createElement(OrganizationCountBadges, {
+        counts: [...memberStatusCounts(members), ...memberRoleStatusCounts(members)],
+        className: 'mb-3 flex flex-wrap gap-2',
+        marker: 'data-org-member-status-counts',
+        hideZero: true,
+    }))
+
+    expect(inviteHtml).toContain('data-org-invite-status-counts="true"')
+    expect(inviteHtml).toContain('mt-3 flex flex-wrap gap-2')
+    expect(inviteHtml).toContain('Accepted: 0')
+    expect(inviteHtml).toContain('Admin: 2')
+    expect(memberHtml).toContain('data-org-member-status-counts="true"')
+    expect(memberHtml).toContain('mb-3 flex flex-wrap gap-2')
+    expect(memberHtml).toContain('Active: 2')
+    expect(memberHtml).not.toContain('Inactive: 0')
+
+    const watchlistHtml = renderToStaticMarkup(createElement(OrganizationCountBadges, {
+        counts: [{ label: 'Active', count: 2 }, { label: 'Paused', count: 0 }, { label: 'Archived', count: 1 }],
+        className: 'mt-3 flex flex-wrap gap-2',
+        marker: 'data-org-watchlist-status-counts',
+    }))
+    expect(watchlistHtml).toContain('data-org-watchlist-status-counts="true"')
+    expect(watchlistHtml).toContain('Paused: 0')
 })

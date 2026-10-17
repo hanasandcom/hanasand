@@ -5,6 +5,7 @@ import { inviteBusyLabel } from '../model/labels'
 import { inviteSearchText } from '../model/organization'
 import { DisclosureSummary, InlineBusy, SelectField, RowStatus, EmptyLine, RoleBadge, StatusPill, ConfirmActionButton, OrganizationMetadataBadge } from './shared'
 import { OrganizationFilterStrip } from './filterStrip'
+import { OrganizationCountBadges } from './organizationCountBadges'
 import { inputClass, primaryButtonClass, iconButtonClass } from '../constants/styles'
 import { roleOptions } from '../constants/options'
 import { useState } from 'react'
@@ -41,18 +42,7 @@ export function InvitePanel({ emails, setEmails, role, setRole, invites, members
             <div className='grid gap-3 border-t border-ui-border p-4 dark:border-ui-border'>
                 {busyLabel && <InlineBusy label={busyLabel} marker='data-org-invite-busy' />}
                 {invites.length > 0 && (
-                    <div className='mt-3 flex flex-wrap gap-2' data-org-invite-status-counts='true'>
-                        {inviteCounts.map(item => (
-                            <OrganizationMetadataBadge key={item.status}>
-                                {item.label}: {item.count}
-                            </OrganizationMetadataBadge>
-                        ))}
-                        {inviteRoleCounts.map(item => (
-                            <OrganizationMetadataBadge key={item.role}>
-                                {item.label}: {item.count}
-                            </OrganizationMetadataBadge>
-                        ))}
-                    </div>
+                    <OrganizationCountBadges counts={[...inviteCounts, ...inviteRoleCounts]} className='mt-3 flex flex-wrap gap-2' marker='data-org-invite-status-counts' />
                 )}
                 <div className='mt-4 grid gap-3'>
                     <label className='grid gap-1 text-sm font-medium text-ui-text dark:text-ui-muted'>

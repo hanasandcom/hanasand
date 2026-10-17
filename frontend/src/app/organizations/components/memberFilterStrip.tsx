@@ -1,7 +1,7 @@
 import { OrganizationFilterStrip } from './filterStrip'
 import { roleOptions } from '../constants/options'
 import type { OrganizationRole } from '../types/organization'
-import { OrganizationMetadataBadge } from './shared'
+import { OrganizationCountBadges } from './organizationCountBadges'
 
 type StatusCount = { status: string, label: string, count: number }
 type RoleCount = { role: OrganizationRole, label: string, count: number }
@@ -20,13 +20,7 @@ export function MemberFilterStrip({ memberCounts, roleCounts, query, roleFilter,
 }) {
     return (
         <>
-            <div className='mb-3 flex flex-wrap gap-2' data-org-member-status-counts='true'>
-                {[...memberCounts, ...roleCounts].filter(item => item.count > 0).map(item => (
-                    <OrganizationMetadataBadge key={'status' in item ? item.status : item.role}>
-                        {item.label}: {item.count}
-                    </OrganizationMetadataBadge>
-                ))}
-            </div>
+            <OrganizationCountBadges counts={[...memberCounts, ...roleCounts]} className='mb-3 flex flex-wrap gap-2' marker='data-org-member-status-counts' hideZero />
             <OrganizationFilterStrip
                 scope='member'
                 className='mb-3'
