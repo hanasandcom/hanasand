@@ -6,6 +6,7 @@ import { MonitoringCaseComments } from './MonitoringCaseComments'
 import { MonitoringCaseOverview } from './MonitoringCaseOverview'
 import { MonitoringCaseSecondaryPanels } from './MonitoringCaseSecondaryPanels'
 import { caseEndpoint, caseTabs, mergeCaseEvents, type CaseTab, type MonitoringCase } from './monitoringCaseTypes'
+import { requiresHumanReview } from './caseResolution'
 
 export type { MonitoringCase } from './monitoringCaseTypes'
 
@@ -138,7 +139,7 @@ function CaseControls({ item, busy, save, setTab, setResolving }: {
             <button className={headerControl} disabled={busy || item.canManage === false} onClick={() => void save({ status: item.status === 'in_progress' ? 'open' : 'in_progress' })}>{item.status === 'in_progress' ? 'Set as open' : 'Start progress'}</button>
             <button className={headerControl} disabled={busy || item.canManage === false} onClick={() => { setTab('overview'); setResolving(true) }}>Resolve case</button>
         </>}
-        {item.resolution?.id && ['ai', 'automation'].includes(item.resolution.type) && !item.resolution.confirmedAt && ['resolved', 'closed'].includes(item.status) && <button className={headerControl} disabled={busy || item.canManage === false} onClick={() => void save({ confirmResolutionId: item.resolution!.id })}>Confirm resolution</button>}
+        {item.resolution?.id && requiresHumanReview(item.resolution) && ['resolved', 'closed'].includes(item.status) && <button className={headerControl} disabled={busy || item.canManage === false} onClick={() => void save({ confirmResolutionId: item.resolution!.id })}>Confirm resolution</button>}
     </div>
 }
 

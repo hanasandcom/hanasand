@@ -7,6 +7,7 @@ import { Filter, Loader2, RefreshCw } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { caseDetailHref } from './caseRoutes'
 import { date } from './caseDate'
+import { humanReviewLabel, requiresHumanReview } from './caseResolution'
 
 export type CaseResolution = { id?: string, type: 'human' | 'ai' | 'automation' | 'unknown', actor?: string, at?: string, note?: string, confirmedBy?: string, confirmedAt?: string }
 
@@ -93,7 +94,7 @@ export default function CasesClient({ organizationId }: { organizationId?: strin
         if (owner !== 'all' && (row.assignedOwner || 'unassigned') !== owner) return false
         if (resolutionType !== 'all' && row.resolution?.type !== resolutionType) return false
         if (review === 'confirmed' && !row.resolution?.confirmedAt) return false
-        if (review === 'pending' && (!['ai', 'automation'].includes(row.resolution?.type || '') || row.resolution?.confirmedAt)) return false
+        if (review === 'pending' && !requiresHumanReview(row.resolution)) return false
         return [row.id, row.title, row.summary, row.actor, row.victimName, row.company, row.source, row.assignedOwner].filter(Boolean).join(' ').toLowerCase().includes(query.trim().toLowerCase())
     })
     return <section className='flex h-full min-h-0 min-w-0 flex-col rounded-lg border border-ui-border bg-ui-panel'>
@@ -129,11 +130,14 @@ export default function CasesClient({ organizationId }: { organizationId?: strin
                 headClassName='sticky top-0 z-10 border-y border-ui-border bg-ui-raised text-ui-muted'
                 bodyClassName='divide-y divide-ui-border'
                 columnHeaders={['Case', 'Severity', 'Status', 'Owner', 'Updated'].map(label => <th key={label} scope='col' className='p-4'>{label}</th>)}
-            >{visible.map(row => <tr key={row.caseId || row.id} className='text-ui-text'>
-                    <td className='p-4'><Link className='font-semibold text-ui-primary hover:underline' href={caseDetailHref(row.caseId || row.id, undefined, row.organizationId || organizationId)}>{row.title || row.id}</Link>{[row.actor, row.victimName || row.company].filter(Boolean).map(value => <p className='mt-1 text-xs text-ui-muted' key={value}>{value}</p>)}{row.summary && <p className='mt-1 max-w-xl wrap-break-word text-xs text-ui-muted'>{row.summary}</p>}</td>
-                    <td className='p-4'>{row.severity || row.priority || '—'}</td>
-                    <td className='p-4'>{row.status.replaceAll('_', ' ')}{row.resolution && <p className='mt-1 text-xs text-ui-muted'>{row.resolution.type === 'ai' ? 'AI resolved' : row.resolution.type === 'automation' ? 'Automatically recovered' : row.resolution.type === 'unknown' ? 'Resolver not recorded' : `Resolved by ${row.resolution.actor || 'human'}`}{['ai', 'automation'].includes(row.resolution.type) && (row.resolution.confirmedAt ? ' · Human confirmed' : ' · Needs human review')}</p>}</td><td className='p-4'>{row.assignedOwner || 'Unassigned'}</td><td className='p-4'>{date(row.updatedAt || row.createdAt)}</td>
-                </tr>)}</DashboardTable>
+            >{visible.map(row => {
+                    const reviewLabel = humanReviewLabel(row.resolution)
+                    return <tr key={row.caseId || row.id} className='text-ui-text'>
+                        <td className='p-4'><Link className='font-semibold text-ui-primary hover:underline' href={caseDetailHref(row.caseId || row.id, undefined, row.organizationId || organizationId)}>{row.title || row.id}</Link>{[row.actor, row.victimName || row.company].filter(Boolean).map(value => <p className='mt-1 text-xs text-ui-muted' key={value}>{value}</p>)}{row.summary && <p className='mt-1 max-w-xl wrap-break-word text-xs text-ui-muted'>{row.summary}</p>}</td>
+                        <td className='p-4'>{row.severity || row.priority || '—'}</td>
+                        <td className='p-4'>{row.status.replaceAll('_', ' ')}{row.resolution && <p className='mt-1 text-xs text-ui-muted'>{row.resolution.type === 'ai' ? 'AI resolved' : row.resolution.type === 'automation' ? 'Automatically recovered' : row.resolution.type === 'unknown' ? 'Resolver not recorded' : `Resolved by ${row.resolution.actor || 'human'}`}{reviewLabel && ` · ${reviewLabel}`}</p>}</td><td className='p-4'>{row.assignedOwner || 'Unassigned'}</td><td className='p-4'>{date(row.updatedAt || row.createdAt)}</td>
+                    </tr>
+                })}</DashboardTable>
             {nextCursor && <button disabled={loading} className='p-4 text-ui-primary disabled:opacity-50' onClick={() => { if (!loadingMore.current) { loadingMore.current = true; setCursor(nextCursor); setPage(current => current + 1) } }}>Load more cases</button>}
             <div ref={loadMoreSentinel} aria-hidden='true' className='h-px' />
             {!loading && !nextCursor && rows.length > 0 && <p className='px-4 py-2 text-xs text-ui-muted/70'>No more cases</p>}

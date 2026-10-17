@@ -3,6 +3,7 @@ import { CheckFields } from './case-events'
 import { CaseDevelopment } from './case-development'
 import type { MonitoringCase } from './monitoringCaseTypes'
 import { date, formatDirectorySize } from './monitoringCaseText'
+import { requiresHumanReview } from './caseResolution'
 
 const control = 'rounded-lg border border-ui-border bg-ui-canvas px-3 py-2 text-sm text-ui-text disabled:cursor-not-allowed disabled:opacity-50'
 
@@ -42,7 +43,7 @@ export function MonitoringCaseOverview({ item, caseId, organizationId, resolving
                     <dd className='mt-1 whitespace-pre-wrap text-sm'>{check.message}</dd>
                 </div>)}</dl>
             </div> : <p className='whitespace-pre-wrap text-sm'>{item.resolution.note}</p>}
-            {item.resolution.confirmedAt ? <p className='text-sm text-ui-success'>Confirmed by {item.resolution.confirmedBy} · {date(item.resolution.confirmedAt)}</p> : ['ai', 'automation'].includes(item.resolution.type) && <p className='text-sm text-ui-muted'>Awaiting human confirmation.</p>}
+            {item.resolution.confirmedAt ? <p className='text-sm text-ui-success'>Confirmed by {item.resolution.confirmedBy} · {date(item.resolution.confirmedAt)}</p> : requiresHumanReview(item.resolution) && <p className='text-sm text-ui-muted'>Awaiting human confirmation.</p>}
         </section>}
         <section aria-labelledby='case-summary' className='min-w-0 grid gap-3 border-b border-ui-border p-5 sm:p-6'>
             <h2 id='case-summary' className='text-lg font-semibold'>Summary</h2>
