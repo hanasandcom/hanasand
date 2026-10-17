@@ -1,5 +1,5 @@
 import ensureRuleHitCountSchema from './ruleHitCountSchema.ts'
-import { queryOnce, withSchemaLockTimeout, withTransaction } from '#db'
+import { queryOnce, withDatabaseAdvisoryLock, withSchemaLockTimeout, withTransaction } from '#db'
 import { ensureIdentityDataBoundary } from './identityDataBoundary.ts'
 import ensurePlatformSchema from './platformSchema.ts'
 import ensureLoadTestSchema from './loadTestSchema.ts'
@@ -28,6 +28,8 @@ import ensureEventLogSchema from './eventLogSchema.ts'
 import ensureRulesFindingsSchema from './rulesFindingsSchema.ts'
 import ensureMailSchema from './mailSchema.ts'
 import ensureOrganizationAdaptersSchema from './organizationAdaptersSchema.ts'
+import { applyTrackedSchemaRelease, vmHostMigrationReleaseMarker } from './schemaReleasePolicy.ts'
+import { backfillVmHostAssignments } from './vmHostBackfill.ts'
 
 export default async function ensureSchema() {
     // This migration removes the legacy global receipt-write advisory lock.
@@ -36,27 +38,27 @@ export default async function ensureSchema() {
     await ensureExistingRuleHitCountSchema()
     const release = process.env.HANASAND_RELEASE_COMMIT
     const trackedRelease = release && /^[a-f0-9]{40}$/.test(release) ? release : undefined
+    const hostMigrationRelease = vmHostMigrationReleaseMarker(trackedRelease, process.env.VM_HOST_ID)
     const deploymentCandidate = process.env.DEPLOYMENT_CANDIDATE_ONLY === '1'
     if (trackedRelease) {
-        try {
-            const result = await queryOnce('SELECT 1 FROM app_schema_releases WHERE release = $1', [trackedRelease])
-            if (result.rowCount) {
-                scheduleLegacyEventConstraintCleanup()
-                if (!deploymentCandidate) await ensureIdentityDataBoundaryWithRetry()
-                return
-            }
-        } catch (error) {
-            if ((error as { code?: string })?.code !== '42P01') throw error
-        }
+        const result = await applyTrackedSchemaRelease(trackedRelease, hostMigrationRelease, withDatabaseAdvisoryLock,
+            () => applySchemaWithRetry(deploymentCandidate),
+            () => retrySchemaLockTimeout(
+                () => withSchemaLockTimeout(() => backfillVmHostAssignments(process.env.VM_HOST_ID, queryOnce)),
+                'VM host assignment migration deferred because it exceeded its lock or execution limit',
+            ))
+        if (result !== 'schema-applied' && !deploymentCandidate) await ensureIdentityDataBoundaryWithRetry()
+        scheduleLegacyEventConstraintCleanup()
+        return
     }
+    await applySchemaWithRetry(deploymentCandidate)
+    scheduleLegacyEventConstraintCleanup()
+}
+
+async function applySchemaWithRetry(deploymentCandidate: boolean) {
     await retrySchemaLockTimeout(async() => {
         await withSchemaLockTimeout(applySchema)
         if (!deploymentCandidate) await ensureIdentityDataBoundaryWithRetry()
-        if (trackedRelease) await withSchemaLockTimeout(async () => {
-            await queryOnce('CREATE TABLE IF NOT EXISTS app_schema_releases (release TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW())')
-            await queryOnce('INSERT INTO app_schema_releases (release) VALUES ($1) ON CONFLICT DO NOTHING', [trackedRelease])
-        })
-        scheduleLegacyEventConstraintCleanup()
     }, 'Schema update deferred because it exceeded its lock or execution limit')
 }
 
