@@ -2731,3 +2731,12 @@ not start because its configured local server exited. The 10,000–30,000-line
 frontend target and 100,000-line API reduction remain unachieved. Keep the
 frontend UI and data contracts unchanged while pursuing larger, evidence-based
 component reuse and dead-code reductions.
+
+After the findings-route and Box-redaction reuse commits (`7aee8a6f9`,
+`45692184f`), the 2026-10-17 frontend cap scan is 2,417 files / 156,035 lines,
+still with no file above 200. That is 260 lines below the 156,295 checkpoint and
+2,327 above the original baseline. Focused findings and Box suites, scoped lint,
+and a no-incremental frontend typecheck pass; independent reviews confirmed both
+helpers preserve the prior encoding/redaction behavior. These narrow changes do
+not validate a 100,000-line reduction. The latest TI profile and API test edits
+remain in the working tree and are deliberately not included in these commits.
