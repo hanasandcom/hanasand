@@ -1,19 +1,14 @@
 import Field from './field'
 import ErrorNotice from '@/components/error/errorNotice'
+import { VmPanel } from './vmPanel'
 
 type VMDetailsProps = {
-    boxStyle: string
-    boxTitleStyle: string
-    vm: VM
     details: VMDetails | null
 }
 
-export default function VMNetwork({ boxStyle, boxTitleStyle, vm, details }: VMDetailsProps) {
-    void vm
-
+export default function VMNetwork({ details }: VMDetailsProps) {
     return (
-        <div className={boxStyle}>
-            <h1 className={boxTitleStyle}>Network</h1>
+        <VmPanel title='Network'>
             {details ? <div>
                 <Field title='IP' value={details.device_eth0_ipv4_address} />
                 <Field title='Interface' value={details.device_eth0_name} />
@@ -30,7 +25,7 @@ export default function VMNetwork({ boxStyle, boxTitleStyle, vm, details }: VMDe
                 title='Network telemetry reconnecting'
                 message='Refresh the VM to reload IP, interface, and profile details.'
             />}
-        </div>
+        </VmPanel>
     )
 }
 

@@ -1,18 +1,16 @@
 import Field from './field'
+import { VmPanel } from './vmPanel'
 
 type VMDetailsProps = {
-    boxStyle: string
-    boxTitleStyle: string
     vm: VM
 }
 
-export default function VMHardware({ boxStyle, boxTitleStyle, vm }: VMDetailsProps) {
+export default function VMHardware({ vm }: VMDetailsProps) {
     return (
-        <div className={boxStyle}>
-            <h1 className={boxTitleStyle}>Hardware</h1>
+        <VmPanel title='Hardware'>
             <Field title='CPU' value={vm.limits_cpu} />
             <Field title='Memory' value={vm.limits_memory} />
             <Field title='Disk' value='Not reported' />
-        </div>
+        </VmPanel>
     )
 }

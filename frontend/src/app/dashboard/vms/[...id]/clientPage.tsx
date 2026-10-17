@@ -40,7 +40,6 @@ export default function VMClient({ vm: serverVM, details: serverDetails, metrics
     const router = useRouter()
     const boxStyle = 'w-full rounded-lg border border-ui-border bg-ui-panel p-4 shadow-sm'
     const boxTitleStyle = 'text-base font-medium text-ui-text'
-
     async function handleRefresh() {
         if (refreshing) return
         const token = getCookie('access_token')
@@ -94,17 +93,17 @@ export default function VMClient({ vm: serverVM, details: serverDetails, metrics
             </div>
             {refreshError && <ErrorNotice message={refreshError} actionLabel='Retry' onAction={() => void handleRefresh()} />}
             <div className='grid gap-3 md:grid-cols-2 xl:grid-cols-4'>
-                <VMOverview boxStyle={boxStyle} boxTitleStyle={boxTitleStyle} vm={vm} details={details} />
-                <VMHardware boxStyle={boxStyle} boxTitleStyle={boxTitleStyle} vm={vm} />
-                <VMNetwork boxStyle={boxStyle} boxTitleStyle={boxTitleStyle} vm={vm} details={details} />
-                <VMDetails boxStyle={boxStyle} boxTitleStyle={boxTitleStyle} vm={vm} details={details} />
+                <VMOverview vm={vm} details={details} />
+                <VMHardware vm={vm} />
+                <VMNetwork details={details} />
+                <VMDetails vm={vm} details={details} />
             </div>
             <div className='grid gap-3'>
                 <VMHostOptions boxStyle={boxStyle} boxTitleStyle={boxTitleStyle} vm={vm} onUpdate={setVM} />
                 <VMAccess boxStyle={boxStyle} boxTitleStyle={boxTitleStyle} connection={connection} error={connectionError} />
             </div>
             <div className='grid gap-3'>
-                <VMMetrics boxStyle={boxStyle} boxTitleStyle={boxTitleStyle} vm={vm} metrics={metrics} error={metricsError} />
+                <VMMetrics metrics={metrics} error={metricsError} />
             </div>
         </div>
     )

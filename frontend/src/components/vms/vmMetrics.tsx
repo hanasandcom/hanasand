@@ -1,15 +1,13 @@
 import { useEffect, useState } from 'react'
 import Field from './field'
+import { VmPanel } from './vmPanel'
 
 type VMMetricsProps = {
-    boxStyle: string
-    boxTitleStyle: string
-    vm: VM
     metrics: VMMetrics[] | null
     error?: string
 }
 
-export default function VMMetrics({ boxStyle, boxTitleStyle, metrics, error }: VMMetricsProps) {
+export default function VMMetrics({ metrics, error }: VMMetricsProps) {
     const [now, setNow] = useState<number | null>(null)
     useEffect(() => {
         setNow(Date.now())
@@ -21,8 +19,7 @@ export default function VMMetrics({ boxStyle, boxTitleStyle, metrics, error }: V
         : null
 
     return (
-        <div className={boxStyle}>
-            <h1 className={boxTitleStyle}>Metrics</h1>
+        <VmPanel title='Metrics'>
             {latest ? (
                 <div>
                     {(now ?? new Date(latest.created_at).getTime()) - new Date(latest.created_at).getTime() > 180_000 && <p className='mb-3 text-sm text-ui-muted'>Metrics have not updated recently.</p>}
@@ -40,7 +37,7 @@ export default function VMMetrics({ boxStyle, boxTitleStyle, metrics, error }: V
             ) : (
                 <p className='text-sm text-ui-muted'>{error || 'Metrics are unavailable.'}</p>
             )}
-        </div>
+        </VmPanel>
     )
 }
 

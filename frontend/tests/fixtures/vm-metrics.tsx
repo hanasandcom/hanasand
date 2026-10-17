@@ -5,7 +5,7 @@ import useVMMetrics from '../../src/components/vms/useVMMetrics'
 const empty: VMMetrics[] = []
 function Metrics({ name }: { name: string }) {
     const { metrics, error } = useVMMetrics(name, empty)
-    return <VMMetrics boxStyle='' boxTitleStyle='' vm={{ name } as VM} metrics={metrics} error={error} />
+    return <VMMetrics metrics={metrics} error={error} />
 }
 function Fixture() {
     const [name, setName] = useState('first-vm')

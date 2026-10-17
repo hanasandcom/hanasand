@@ -1,22 +1,20 @@
 import Field from './field'
 import ErrorNotice from '@/components/error/errorNotice'
 import operationalStateLabel from '@/utils/status/operationalStateLabel'
+import { VmPanel } from './vmPanel'
 
 type VMDetailsProps = {
-    boxStyle: string
-    boxTitleStyle: string
     vm: VM
     details: VMDetails | null
 }
 
-export default function VMDetails({ boxStyle, boxTitleStyle, vm, details }: VMDetailsProps) {
+export default function VMDetails({ vm, details }: VMDetailsProps) {
     const uniquePowerState = vm.status !== details?.volatile_last_state_power
     const uniqueGeneration = details?.volatile_uuid !== details?.volatile_uuid_generation
     const uniqueArchitecture = details?.architecture !== details?.config_architecture
 
     return (
-        <div className={boxStyle}>
-            <h1 className={boxTitleStyle}>Details</h1>
+        <VmPanel title='Details'>
             {details ? <div>
                 <Field title='Status' value={operationalStateLabel(vm.status)} />
                 {uniquePowerState && <Field title='Last power state' value={details.volatile_last_state_power} />}
@@ -41,6 +39,6 @@ export default function VMDetails({ boxStyle, boxTitleStyle, vm, details }: VMDe
                 title='Machine details reconnecting'
                 message='Refresh the VM to reload image, power state, and architecture details.'
             />}
-        </div>
+        </VmPanel>
     )
 }
