@@ -1,7 +1,7 @@
 import ContainerHostPlans from '@/components/vms/containerHostPlans'
 import Link from 'next/link'
 import { CheckCircle2 } from 'lucide-react'
-import { DashboardHeader, DashboardPage } from '@/components/dashboard/ui'
+import { DashboardPage } from '@/components/dashboard/ui'
 import { commercialAccessPlans } from '@/utils/commercialAccess'
 import SubscriptionStatus from './subscriptionStatus'
 
@@ -10,12 +10,6 @@ export const dynamic = 'force-dynamic'
 export default function SubscriptionPage() {
     return (
         <DashboardPage>
-            <DashboardHeader
-                eyebrow='Plans'
-                title='Choose what you need'
-                description='Simple monthly plans with clear quotas. Start immediately and change plans whenever you need.'
-            />
-
             <SubscriptionStatus />
 
             <section className='grid gap-3 md:grid-cols-2 xl:grid-cols-4' aria-label='Available plans'>

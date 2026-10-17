@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { DashboardHeader, DashboardPage } from '@/components/dashboard/ui'
+import { DashboardPage } from '@/components/dashboard/ui'
 import NotesClient from './pageClient'
 
 export const dynamic = 'force-dynamic'
@@ -15,11 +15,6 @@ export default async function Page() {
 
     return (
         <DashboardPage>
-            <DashboardHeader
-                eyebrow='Content'
-                title='Notes'
-                description='Capture working notes and keep the latest context visible.'
-            />
             <NotesClient />
         </DashboardPage>
     )

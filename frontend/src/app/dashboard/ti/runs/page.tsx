@@ -1,11 +1,9 @@
 import { pageNumber } from '@/utils/pagination'
 import Link from 'next/link'
 import { ArrowRight, PlayCircle } from 'lucide-react'
-import { DashboardHeader, DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
 import { getTiAdminOverview, getTiCollectionRunsPage } from '@/utils/tiAdmin/ops'
 import TiDataAvailability from '../ti-data-availability'
-import ManualRunButton from '../manualRunButton'
-import { manualRunQueries } from '../manualRunQueries'
 import { RunActivityPanel } from './RunActivityPanel'
 import { RunAttentionPanel } from './RunAttentionPanel'
 import { RunSummary } from './RunSummary'
@@ -22,16 +20,9 @@ export default async function TiRunsPage(props: { searchParams?: Promise<Record<
         getTiAdminOverview(null, { limit: 50, includeSamples: false, includeCandidates: true }),
     ])
     const { sources } = overview
-    const runQueries = manualRunQueries(sources)
     const summary = summarizeCollectionRuns(runs, sources)
 
     return <DashboardPage>
-        <DashboardHeader
-            eyebrow='Threat intelligence'
-            title='Collection'
-            description='Watch collectors run, publish evidence, and surface stale sources.'
-            actions={<ManualRunButton label='Start manual run' queries={runQueries} />}
-        />
         <TiDataAvailability availability={overview.availability} />
         <RunSummary summary={summary} />
 

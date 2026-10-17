@@ -1,6 +1,4 @@
-import Link from 'next/link'
-import { ArrowUpRight, Inbox, Radar } from 'lucide-react'
-import { DashboardHeader, DashboardPage } from '@/components/dashboard/ui'
+import { DashboardPage } from '@/components/dashboard/ui'
 import { decodePublicTiHandoffPayload, PUBLIC_TI_HANDOFF_SOURCE } from '@/utils/ti/actorWorkbench'
 import { buildPublicTiHandoffCase, type OperatorScope } from '../../operatorConsoleModel'
 import AnalystWorkbenchClient from './workbenchClient'
@@ -39,25 +37,6 @@ export default async function TiAnalystWorkbenchPage({
 
     return (
         <DashboardPage>
-            <DashboardHeader
-                eyebrow='Attack review'
-                title='Attacks'
-                description='Triage active exposure cases, inspect evidence, assign owners, and send findings when they are ready.'
-                actions={(
-                    <div className='flex flex-wrap gap-2'>
-                        <Link href='/findings' className='inline-flex h-10 items-center gap-2 rounded-lg border border-ui-border bg-ui-raised px-3 text-sm font-semibold text-ui-text transition hover:border-ui-primary hover:bg-ui-panel'>
-                            <Radar className='h-4 w-4' />
-                            Dark web cases
-                        </Link>
-                        <Link href='/ti/sources' className='inline-flex h-10 items-center gap-2 rounded-lg bg-ui-primary px-3 text-sm font-semibold text-ui-on-primary transition hover:opacity-90'>
-                            <Inbox className='h-4 w-4' />
-                            Sources
-                            <ArrowUpRight className='h-4 w-4' />
-                        </Link>
-                    </div>
-                )}
-            />
-
             <AnalystWorkbenchClient initialCases={cases} initialSelectedId={initialSelectedId} />
         </DashboardPage>
     )

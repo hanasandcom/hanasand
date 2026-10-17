@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { Activity, AlertTriangle, CheckCircle2, Clock3, Radio } from 'lucide-react'
-import { DashboardHeader, DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
 import { pageNumber } from '@/utils/pagination'
 import { actorProfileHref } from '@/utils/ti/actorProfileRoute'
 import { getTiEnrichmentOverview, type TiActivityEvent } from '@/utils/tiAdmin/enrichment'
@@ -33,11 +33,6 @@ export default async function TiActivityPage({ searchParams }: { searchParams?: 
 
     return (
         <DashboardPage>
-            <DashboardHeader
-                eyebrow='Threat intelligence'
-                title='Latest activity'
-                description='Automated collection and profile updates observed by Hanasand.'
-            />
             <form method='get' action='/ti/activity' className='flex gap-2'>
                 <input
                     name='q'

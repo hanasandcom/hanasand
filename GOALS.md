@@ -1950,3 +1950,35 @@ direct transport suite. Typecheck, scoped ESLint, independent review, and cap
 checks pass. The repository scan finds 31 over-limit files among 4,438 files /
 327,314 lines; the frontend remains at 2,383 files / 155,310 lines, with none
 over 200. The aggregate reduction goals remain open.
+
+At the next working checkpoint (2026-10-17), k6 summary parsing is extracted
+from `follow.ts` into a 33-line helper, reducing `follow.ts` from 215 to 183
+lines; a registered three-test suite covers nested and flat metrics, defaults,
+malformed or missing summaries, and cleanup. A shared loopback capability probe
+lets listener-dependent tests skip only when the current environment cannot
+bind loopback. The selected API runner passes all 21 tests / 114 expectations
+in the integration shell; a separate restricted runner passes its non-listener
+tests and reports three environment-only skips. API typecheck, scoped ESLint,
+independent review, and `git diff --check` pass. The repository scan now finds
+30 over-limit files among 4,441 hand-maintained files / 327,421 lines, all
+outside the frontend. The full frontend cap check passes at 2,383 files /
+155,310 lines with zero over 200. The frontend 10,000–30,000-line target and
+API 100,000-line reduction remain open. A frontend reuse review is in progress;
+no UI changes have been made in this checkpoint.
+
+At the current integrated working checkpoint (2026-10-17), the dashboard's
+`DashboardHeader` wrapper and its 42 call sites were removed after confirming
+the component had returned `null` since its removal commit. The shared loading
+skeleton no longer accepts header-only props. Rendered elements, page data
+loaders, API calls, response types, and accessibility output are unchanged.
+The frontend drops 226 lines across 44 files and remains under the 200-line
+limit: 2,383 checked files / 155,084 lines, zero over cap. Frontend typecheck,
+changed-file ESLint, independent review, line-cap scan, and diff check pass. The
+combined API runner passes all 49 selected tests / 255 expectations, covering
+the k6 parser, loopback-dependent behavior, public monitoring, TI boundaries,
+and admin-support invite behavior; API typecheck, scoped ESLint, and independent
+review pass. A fresh repository scan finds 29 over-limit files among 4,443
+hand-maintained files / 327,202 lines, all outside the frontend. The full
+frontend lint task remains blocked by 1,297 reported pre-existing errors in
+unrelated files. The frontend 10,000–30,000-line target and API 100,000-line
+reduction remain open; no UI redesign or deployment was made.

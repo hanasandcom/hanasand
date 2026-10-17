@@ -2,7 +2,7 @@ import DomainSelector from '@/components/monitoring/traffic/domainSelector'
 import TrafficMap from '@/components/monitoring/traffic/trafficMap'
 import { Suspense } from 'react'
 import { getTrafficDashboardData } from '@/utils/monitoring/data'
-import { DashboardHeader, DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
 import { TrafficPageState } from '../TrafficPageState'
 
 export const dynamic = 'force-dynamic'
@@ -15,7 +15,6 @@ export default async function Page({ searchParams }: {
 
     return (
         <DashboardPage>
-            <DashboardHeader eyebrow='Traffic' title='Live map' description='Watch recent request locations and live traffic pulses.' />
             <Suspense key={selectedDomain || 'all'} fallback={<TrafficPageState kind='loading' message='Loading live traffic map…' />}>
                 <LiveTrafficMap selectedDomain={selectedDomain} />
             </Suspense>

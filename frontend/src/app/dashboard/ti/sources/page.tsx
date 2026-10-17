@@ -2,9 +2,8 @@ import { pageNumber } from '@/utils/pagination'
 import PageNavigation from '@/components/dashboard/page-navigation'
 import Link from 'next/link'
 import { Plus, RefreshCcw } from 'lucide-react'
-import { DashboardHeader, DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
 import { getTiAdminOverview } from '@/utils/tiAdmin/ops'
-import ManualRunButton from '../manualRunButton'
 import SourceRow from './sourceRow'
 import SourceFilters from './sourceFilters'
 import { sourceGridColumns } from './sourceTableLayout'
@@ -30,10 +29,7 @@ export default async function TiSourcesPage(props: { searchParams?: Promise<Reco
     const unavailable = overview.availability.failedResources.includes('source-operations')
     const rows = overview.sources
     const filters = { q: query, family, lifecycle, access, health, output, matches }
-    const executable = rows.filter(source => source.status === 'active')
-
     return <DashboardPage>
-        <DashboardHeader eyebrow='Threat intelligence' title='Feeds' description='The feeds Hanasand can collect, their current health, and the customer value they produce.' actions={executable.length ? <ManualRunButton label='Run active feeds' /> : undefined} />
         <DashboardPanel className='flex flex-wrap items-center justify-between gap-3 border-ui-border bg-ui-panel p-4'>
             <div className='text-sm text-ui-muted'>{overview.sourcePage.total} sources · {overview.sourceTotals.executable} executable</div>
         </DashboardPanel>

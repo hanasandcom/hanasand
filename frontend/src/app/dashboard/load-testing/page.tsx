@@ -1,6 +1,5 @@
 import Link from 'next/link'
-import { Flame } from 'lucide-react'
-import { DashboardHeader, DashboardPage, DashboardPanel, DashboardTable } from '@/components/dashboard/ui'
+import { DashboardPage, DashboardPanel, DashboardTable } from '@/components/dashboard/ui'
 import LoadTestingOperations from './pageClient'
 
 export const dynamic = 'force-dynamic'
@@ -13,18 +12,6 @@ const allowances = [
 export default function LoadTestingPage() {
     return (
         <DashboardPage>
-            <DashboardHeader
-                eyebrow='Service checks'
-                title='Load testing and endpoint evidence'
-                description='Run permitted HTTP checks, inspect latency and failure evidence, and reopen every result from one operations view.'
-                actions={(
-                    <Link href='/test' className='inline-flex h-10 items-center gap-2 rounded-lg bg-ui-primary px-4 text-sm font-semibold text-ui-on-primary transition hover:opacity-90'>
-                        <Flame className='h-4 w-4' />
-                        Start a check
-                    </Link>
-                )}
-            />
-
             <LoadTestingOperations />
 
             <DashboardPanel className='overflow-hidden p-0'>

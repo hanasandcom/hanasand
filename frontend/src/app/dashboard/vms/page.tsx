@@ -1,6 +1,6 @@
 import { Suspense } from 'react'
 import VMs from '@/components/profile/vms'
-import { DashboardDataFallback, DashboardHeader, DashboardPage } from '@/components/dashboard/ui'
+import { DashboardDataFallback, DashboardPage } from '@/components/dashboard/ui'
 import getVMs from '@/utils/vms/fetch/getVMs'
 import { cookies, headers } from 'next/headers'
 import { redirect } from 'next/navigation'
@@ -22,11 +22,6 @@ export default async function Page() {
     const effectiveId = impersonatingId || id
     return (
         <DashboardPage>
-            <DashboardHeader
-                eyebrow='Virtual machines'
-                title='Virtual Machines'
-                description='Start, stop, restart, and inspect your virtual machines.'
-            />
             <div className='max-w-5xl'>
                 <Suspense fallback={<DashboardDataFallback label='virtual machines' />}>
                     <VMData effectiveId={effectiveId} token={token} id={id} impersonationToken={impersonationToken} />

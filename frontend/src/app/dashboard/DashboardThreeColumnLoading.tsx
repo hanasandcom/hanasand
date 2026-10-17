@@ -1,9 +1,6 @@
-import { DashboardHeader, DashboardPage } from '@/components/dashboard/ui'
+import { DashboardPage } from '@/components/dashboard/ui'
 
 type Props = {
-    eyebrow: string
-    title: string
-    description: string
     tabs: string[]
     listItemHeight: string
     detailPanelHeight: string
@@ -17,9 +14,6 @@ function skeletonCards(count: number, className: string) {
 }
 
 export default function DashboardThreeColumnLoading({
-    eyebrow,
-    title,
-    description,
     tabs,
     listItemHeight,
     detailPanelHeight,
@@ -27,7 +21,6 @@ export default function DashboardThreeColumnLoading({
 }: Props) {
     return (
         <DashboardPage>
-            <DashboardHeader eyebrow={eyebrow} title={title} description={description} />
             <section className='overflow-hidden rounded-lg border border-ui-border bg-ui-panel'>
                 <div className='border-b border-ui-border bg-ui-raised px-4 py-3'>
                     <div className='flex flex-wrap gap-2'>

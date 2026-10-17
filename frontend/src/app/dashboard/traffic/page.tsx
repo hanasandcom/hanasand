@@ -1,7 +1,7 @@
 import TrafficOverviewClient from '@/components/monitoring/traffic/trafficOverview'
 import { Suspense } from 'react'
 import { getTrafficDashboardData } from '@/utils/monitoring/data'
-import { DashboardHeader, DashboardPage } from '@/components/dashboard/ui'
+import { DashboardPage } from '@/components/dashboard/ui'
 import { TrafficPageState } from './TrafficPageState'
 
 export const dynamic = 'force-dynamic'
@@ -16,7 +16,6 @@ export default async function Page({
 
     return (
         <DashboardPage>
-            <DashboardHeader eyebrow='Operations' title='Traffic overview' description='Request volume, response times, routes, and errors.' />
             <Suspense key={selectedDomain || 'all'} fallback={<TrafficPageState kind='loading' message='Loading traffic statistics…' />}>
                 <TrafficOverview selectedDomain={selectedDomain} />
             </Suspense>

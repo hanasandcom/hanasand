@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { ArrowRight, ChevronDown, ExternalLink, Radio, Users } from 'lucide-react'
-import { DashboardHeader, DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
 import { getTiEnrichmentOverview, type TiActivityEvent, type TiEnrichedActor, type TiProfileUpdate } from '@/utils/tiAdmin/enrichment'
 import { formatTiDate } from '@/utils/tiAdmin/ops'
 import { actorProfileHref } from '@/utils/ti/actorProfileRoute'
@@ -15,12 +15,6 @@ export default async function TiEnrichmentPage() {
 
     return (
         <DashboardPage>
-            <DashboardHeader
-                eyebrow='Threat intelligence'
-                title='Actor profiles'
-                description='Threat actors and groups observed in retained public intelligence.'
-            />
-
             <DashboardPanel className='border-ui-border bg-ui-panel p-4'>
                 <div className='flex flex-wrap items-start justify-between gap-4'>
                     <div>

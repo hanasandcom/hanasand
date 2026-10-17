@@ -3,7 +3,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Braces, Code2, ExternalLink, LockKeyhole } from 'lucide-react'
 import { authApiUrl } from '@/utils/auth/authApiUrl'
-import { DashboardHeader, DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
 import ApiDocsSearch from './apiDocsSearch'
 import { responseExamples } from './responseExamples'
 
@@ -80,7 +80,7 @@ const applicationEndpoints: ApplicationEndpoint[] = [
 
 export default async function ApiDocsPage() {
     const contract = await loadContract()
-    if (!contract) return <DashboardPage><DashboardHeader eyebrow='Developer tools' title='API docs' description='The API contract could not be loaded.' /><DashboardPanel className='p-4 text-sm text-ui-text'>The live API contract is temporarily unavailable. Try again shortly.</DashboardPanel></DashboardPage>
+    if (!contract) return <DashboardPage><DashboardPanel className='p-4 text-sm text-ui-text'>The live API contract is temporarily unavailable. Try again shortly.</DashboardPanel></DashboardPage>
 
     const server = contract.servers?.[0]?.url || 'https://api.hanasand.com/api/v1'
     const operations = Object.entries(contract.paths).flatMap(([path, methods]) => Object.entries(methods).map(([method, operation]) => ({ path, method: method.toUpperCase(), operation: operation as Operation }))).sort((a, b) => a.path.localeCompare(b.path) || a.method.localeCompare(b.method))
@@ -88,12 +88,6 @@ export default async function ApiDocsPage() {
 
     return (
         <DashboardPage>
-            <DashboardHeader
-                eyebrow='Developer tools'
-                title={contract.info.title}
-                description={contract.info.description || 'Use the production API with documented paths, authentication, request shapes, and response codes.'}
-            />
-
             <div className='flex flex-wrap items-center gap-2'><ApiDocsSearch /><Link href='/api/openapi' className='inline-flex h-9 items-center gap-2 rounded-md border border-ui-border bg-ui-raised px-3 text-xs font-semibold text-ui-text transition hover:border-ui-primary'>OpenAPI JSON</Link><Link href='/developers' target='_blank' rel='noopener noreferrer' className='inline-flex h-9 items-center gap-2 rounded-md border border-ui-border bg-ui-raised px-3 text-xs font-semibold text-ui-text transition hover:border-ui-primary'>Public guide <ExternalLink className='h-3.5 w-3.5' /></Link></div>
 
             <DashboardPanel className='grid gap-3 p-4 sm:grid-cols-3'>

@@ -3,7 +3,7 @@
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { AlertTriangle, ClipboardList, Clock3 } from 'lucide-react'
-import { DashboardHeader, DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
 import { param, type AuditPage, type AuditSearchParams } from './data'
 import useAuditTimeline from './useAuditTimeline'
 import useAuditAcknowledgment from './useAuditAcknowledgment'
@@ -22,11 +22,6 @@ export default function AuditTimeline({ initialAudit, filters }: { initialAudit:
 
     return <DashboardPage>
         <div className={model.fullscreen ? 'hidden' : 'contents'}>
-            <DashboardHeader
-                eyebrow='Management'
-                title='Audit log'
-                description='Audit events across all services, including account access, infrastructure, and threat intelligence.'
-            />
             {!model.queryResult && model.analyticsOpen ? <div className='grid gap-2 sm:grid-cols-3'>
                 <Metric title='Events' value={`${model.sortedEvents.length}/${model.audit.total ?? '—'}`} icon={<ClipboardList className='h-4 w-4' />} />
                 <Metric title='Failures' value={`${model.failedCount}`} tone={model.failedCount ? 'bad' : 'ok'} icon={<AlertTriangle className='h-4 w-4' />} />

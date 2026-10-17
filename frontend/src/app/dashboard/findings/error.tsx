@@ -1,16 +1,11 @@
 'use client'
 
 import { AlertTriangle, RefreshCcw } from 'lucide-react'
-import { DashboardHeader, DashboardPage } from '@/components/dashboard/ui'
+import { DashboardPage } from '@/components/dashboard/ui'
 
 export default function DashboardDwmError({ error, reset }: { error: Error & { digest?: string }, reset: () => void }) {
     return (
         <DashboardPage>
-            <DashboardHeader
-                eyebrow='Dark web monitoring'
-                title='Dark web cases'
-                description='The page could not show the current attacks and evidence.'
-            />
             <section className='rounded-lg border border-ui-danger/30 bg-ui-raised/10 p-5'>
                 <div className='flex flex-col gap-4 md:flex-row md:items-start md:justify-between'>
                     <div className='flex gap-3'>

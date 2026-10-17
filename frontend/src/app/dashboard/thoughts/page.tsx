@@ -2,7 +2,7 @@ import DashboardThought from '@/components/thoughts/dashboardThought'
 import { DashboardContentQueue } from '@/components/dashboard/dashboardContentQueue'
 import DashboardMetricCard from '@/components/dashboard/dashboardMetricCard'
 import { DashboardPublishingEmptyState } from '@/components/dashboard/dashboardPublishingEmptyState'
-import { DashboardHeader, DashboardPage } from '@/components/dashboard/ui'
+import { DashboardPage } from '@/components/dashboard/ui'
 import fetchWorkspaceContent from '@/utils/organizations/fetchWorkspaceContent'
 import dateSortValue from '@/utils/date/dateSortValue'
 import formatCompactDateTime from '@/utils/date/formatCompactDateTime'
@@ -18,18 +18,6 @@ export default async function Page() {
 
     return (
         <DashboardPage>
-            <DashboardHeader
-                eyebrow='Publishing'
-                title='Thoughts'
-                description='Short philosophical questions for the public site.'
-                actions={
-                    <Link href='/content/thoughts/create' className='flex h-9 items-center gap-2 rounded-lg bg-ui-primary px-3.5 text-sm font-medium text-ui-on-primary transition hover:opacity-90'>
-                        <Plus className='h-4 w-4' />
-                        <span>Create</span>
-                    </Link>
-                }
-            />
-
             {!thoughts.length ? <DashboardPublishingEmptyState
                 icon={<BrainCircuit className='h-6 w-6' />}
                 title='Create your first thought'

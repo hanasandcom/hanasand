@@ -6,15 +6,9 @@ import SystemDashboard from './clientPage'
 import { systemExpiredSessionPath } from './systemRoutes'
 import getSystemSnapshot from '@/utils/vms/fetch/getSystemSnapshot'
 import { redirect } from 'next/navigation'
-import { DashboardHeader, DashboardPage } from '@/components/dashboard/ui'
+import { DashboardPage } from '@/components/dashboard/ui'
 
 type SystemSection = 'overview' | 'virtual-machines' | 'containers'
-
-const sectionDescriptions: Record<SystemSection, string> = {
-    overview: 'Host health and storage.',
-    'virtual-machines': 'Review virtual machines and their current status.',
-    containers: 'Inspect Docker containers and their live details.',
-}
 
 export default async function SystemPageContent({ section }: { section: SystemSection }) {
     const Cookies = await cookies()
@@ -31,7 +25,6 @@ export default async function SystemPageContent({ section }: { section: SystemSe
 
     return (
         <DashboardPage className='h-full min-w-0 grid-cols-[minmax(0,1fr)] max-xl:[overflow-wrap:anywhere] max-xl:[&_*]:min-w-0'>
-            <DashboardHeader title='System' description={sectionDescriptions[section]} />
             {section === 'overview' ? <>
                 <div id='system-overview-statistics-target' className='min-w-0 [&:empty]:hidden' />
                 <DockerStoragePanel />

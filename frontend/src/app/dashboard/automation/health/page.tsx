@@ -1,5 +1,5 @@
 import { Suspense } from 'react'
-import { DashboardDataFallback, DashboardHeader, DashboardPage } from '@/components/dashboard/ui'
+import { DashboardDataFallback, DashboardPage } from '@/components/dashboard/ui'
 import AutomationsClient from '../simplePageClient'
 import { loadAutomations } from '@/utils/automations/server'
 import type { Metadata } from 'next'
@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 }
 
 export default function Page({ searchParams }: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
-    return <DashboardPage><DashboardHeader eyebrow={null} title='Automation' /><Suspense fallback={<DashboardDataFallback label='health checks' />}><HealthChecks searchParams={searchParams} /></Suspense></DashboardPage>
+    return <DashboardPage><Suspense fallback={<DashboardDataFallback label='health checks' />}><HealthChecks searchParams={searchParams} /></Suspense></DashboardPage>
 }
 
 async function HealthChecks({ searchParams }: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {

@@ -2,7 +2,7 @@ import DashboardArticle from '@/components/articles/dashboardArticle'
 import { DashboardContentQueue } from '@/components/dashboard/dashboardContentQueue'
 import DashboardMetricCard from '@/components/dashboard/dashboardMetricCard'
 import { DashboardPublishingEmptyState } from '@/components/dashboard/dashboardPublishingEmptyState'
-import { DashboardHeader, DashboardPage } from '@/components/dashboard/ui'
+import { DashboardPage } from '@/components/dashboard/ui'
 import fetchWorkspaceContent from '@/utils/organizations/fetchWorkspaceContent'
 import dateSortValue from '@/utils/date/dateSortValue'
 import { Clock3, FileText, Plus, Radio, Timer } from 'lucide-react'
@@ -16,18 +16,6 @@ export default async function Page() {
 
     return (
         <DashboardPage>
-            <DashboardHeader
-                eyebrow='Publishing'
-                title='Articles'
-                description='Editorial queue, latest movement, and published research rows.'
-                actions={
-                    <Link href='/content/articles/create' className='inline-flex h-10 items-center gap-2 rounded-lg bg-ui-primary px-4 text-sm font-semibold text-ui-on-primary transition hover:opacity-90'>
-                        <Plus className='h-4 w-4' />
-                        Create article
-                    </Link>
-                }
-            />
-
             {!articles.length ? <DashboardPublishingEmptyState
                 icon={<FileText className='h-6 w-6' />}
                 title='Publish your first article'

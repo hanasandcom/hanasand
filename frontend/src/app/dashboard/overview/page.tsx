@@ -10,7 +10,7 @@ import { Radio } from 'lucide-react'
 import getStatus from '@/utils/status/getStatus'
 import tokenIsValid from '@/utils/proxy/tokenIsValid'
 import { toPublicServiceStatus } from '@/utils/status/publicStatus'
-import { DashboardHeader, DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
 import DwmOverviewPanel, { OpenCasesMetric } from './overviewPanel'
 import { loadOpenCases, loadOverview } from './loadOverview'
 
@@ -42,11 +42,6 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Re
 
     return (
         <DashboardPage>
-            <DashboardHeader
-                title='Overview'
-                description='A focused view of monitoring, alerts, cases, and service health that matter now.'
-            />
-
             {accessDenied ? (
                 <div role='alert'>
                     <DashboardPanel className='border-ui-warning/40 bg-ui-warning/10 p-4'>

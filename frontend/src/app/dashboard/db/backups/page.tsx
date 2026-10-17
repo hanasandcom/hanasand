@@ -1,16 +1,11 @@
 import { Suspense } from 'react'
-import { DashboardDataFallback, DashboardHeader, DashboardPage } from '@/components/dashboard/ui'
+import { DashboardDataFallback, DashboardPage } from '@/components/dashboard/ui'
 import BackupPage from './backupPage'
 import { getBackupDashboard } from '@/utils/db/internal'
 
 export default function DatabaseBackupsPage() {
     return (
         <DashboardPage>
-            <DashboardHeader
-                eyebrow='Operations'
-                title='Database Backups'
-                description='Backup health, restore lanes, schedule, and storage context for the production database.'
-            />
             <Suspense fallback={<DashboardDataFallback label='backup status' />}>
                 <BackupData />
             </Suspense>

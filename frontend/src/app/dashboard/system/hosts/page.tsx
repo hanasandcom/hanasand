@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { systemExpiredSessionPath } from '../systemRoutes'
-import { DashboardHeader, DashboardPage } from '@/components/dashboard/ui'
+import { DashboardPage } from '@/components/dashboard/ui'
 import HostsOverview from './pageClient'
 
 export default async function Page() {
@@ -10,7 +10,6 @@ export default async function Page() {
         return redirect(systemExpiredSessionPath('/system/hosts'))
     }
     return <DashboardPage>
-        <DashboardHeader title='Hosts' description='Inspur and OVH' />
         <HostsOverview />
     </DashboardPage>
 }

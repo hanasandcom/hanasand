@@ -1,4 +1,4 @@
-import { DashboardHeader, DashboardPage } from '@/components/dashboard/ui'
+import { DashboardPage } from '@/components/dashboard/ui'
 import PageClient from './pageClient'
 import { refreshVulnerabilityData, runVulnerabilityScanAction } from './actions'
 import { getVulnerabilities } from '@/utils/monitoring/data'
@@ -17,11 +17,6 @@ export default async function Page({
 
     return (
         <DashboardPage>
-            <DashboardHeader
-                title='Vulnerabilities'
-                eyebrow='Security'
-                description='Monitor container images and package vulnerabilities.'
-            />
             <PageClient
                 initialData={data}
                 initialQuery={query}

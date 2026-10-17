@@ -1,8 +1,8 @@
 import { cookies } from 'next/headers'
-import { DashboardHeader, DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
 import ErrorNotice from '@/components/error/errorNotice'
 import { getDatabaseOverview } from '@/utils/db/internal'
-import { DatabaseActions, DatabaseDashboard } from './databaseDashboard'
+import { DatabaseDashboard } from './databaseDashboard'
 
 export default async function DatabasePage() {
     const id = (await cookies()).get('id')?.value || ''
@@ -12,7 +12,6 @@ export default async function DatabasePage() {
     if (typeof overview === 'string') {
         return (
             <DashboardPage>
-                <DashboardHeader eyebrow='Operations' title='Database' actions={<DatabaseActions />} />
                 <DashboardPanel className='p-5'>
                     <ErrorNotice message={operatorFetchError(overview)} />
                 </DashboardPanel>

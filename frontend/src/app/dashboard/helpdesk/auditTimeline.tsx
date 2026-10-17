@@ -1,13 +1,12 @@
 'use client'
 
 import { useCallback, useRef, useState } from 'react'
-import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { DashboardHeader, DashboardPage } from '@/components/dashboard/ui'
+import { DashboardPage } from '@/components/dashboard/ui'
 import { useAuditAcknowledgment } from '../audit/useAuditAcknowledgment'
 import type { AuditAcknowledgment } from '../audit/acknowledgment'
 import { helpdeskAcknowledgmentFields, type AdminAuditEvent, type AuditSearchParams } from './audit'
-import { activeFilterEntries, auditQuietButtonClass, selectedAuditEvent } from './auditPresentation'
+import { activeFilterEntries, selectedAuditEvent } from './auditPresentation'
 import AuditFilterPanel from './auditFilterPanel'
 import AuditEventList from './auditEventList'
 
@@ -42,11 +41,6 @@ export default function AuditTimeline({ events: initialEvents, params, responseE
     }
 
     return <DashboardPage className='gap-3'>
-        <DashboardHeader eyebrow='Support' title='Helpdesk operations' actions={(
-            <div className='flex flex-wrap gap-2'>
-                <Link className={auditQuietButtonClass} href='/dashboard'>Dashboard</Link>
-            </div>
-        )} />
         <section className='grid gap-3'>
             <div className='grid min-w-0 content-start gap-3'>
                 <AuditFilterPanel

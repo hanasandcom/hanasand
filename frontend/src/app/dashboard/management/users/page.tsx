@@ -2,7 +2,7 @@ import Users from '@/components/users/users'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import fetchUsers from '@/utils/users/fetchUsers'
-import { DashboardHeader, DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
 import { UserRound, UsersRound } from 'lucide-react'
 import { isReservedPlaceholder } from '@/utils/users/isReservedPlaceholder'
 import type { ReactNode } from 'react'
@@ -24,11 +24,6 @@ export default async function Page() {
 
     return (
         <DashboardPage>
-            <DashboardHeader
-                eyebrow='Admin'
-                title='User management'
-                description='User accounts and support controls.'
-            />
             <section className='grid gap-3 md:grid-cols-2'>
                 <AdminMetric icon={<UsersRound className='h-4 w-4' />} label='Users' value={String(users.length)} detail='Registered accounts' />
                 <AdminMetric icon={<UserRound className='h-4 w-4' />} label='Reserved' value={String(reservedCount)} detail='Reserved accounts' />

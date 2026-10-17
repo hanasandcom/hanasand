@@ -2,16 +2,11 @@
 
 import { AlertTriangle, ArrowLeft, Home, RefreshCcw } from 'lucide-react'
 import Link from 'next/link'
-import { DashboardHeader, DashboardPage } from '@/components/dashboard/ui'
+import { DashboardPage } from '@/components/dashboard/ui'
 
 export default function ImpersonationError({ reset }: { error: Error & { digest?: string }, reset: () => void }) {
     return (
         <DashboardPage>
-            <DashboardHeader
-                eyebrow='Support'
-                title='Helpdesk operations'
-                description='The Helpdesk could not be loaded.'
-            />
             <section className='rounded-lg border border-ui-danger/30 bg-ui-raised/10 p-5'>
                 <div className='flex flex-col gap-4 md:flex-row md:items-start md:justify-between'>
                     <div className='flex gap-3'>

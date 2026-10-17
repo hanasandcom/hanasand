@@ -1,4 +1,4 @@
-import { DashboardHeader, DashboardPage } from '@/components/dashboard/ui'
+import { DashboardPage } from '@/components/dashboard/ui'
 import RestoreClient from './restoreClient'
 import LiveRestoreClient from './liveRestoreClient'
 import { getBackupFiles, getBackupServices } from '@/utils/db/internal'
@@ -14,7 +14,6 @@ export default async function DatabaseRestorePage({
 
     return (
         <DashboardPage>
-            <DashboardHeader eyebrow='Operations' title='Restore Backup' />
             {params.mode === 'live'
                 ? <LiveRestoreClient backups={typeof backups === 'string' ? [] : backups} service={typeof services === 'string' ? undefined : services[0]} file={params.file || ''} loadError={errors} />
                 : <RestoreClient backups={typeof backups === 'string' ? [] : backups} service={typeof services === 'string' ? undefined : services[0]} loadError={errors} />}

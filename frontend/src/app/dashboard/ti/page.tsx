@@ -1,8 +1,6 @@
-import { DashboardHeader, DashboardPage } from '@/components/dashboard/ui'
+import { DashboardPage } from '@/components/dashboard/ui'
 import { getTiEnrichmentOverview } from '@/utils/tiAdmin/enrichment'
 import { getTiAdminOverview } from '@/utils/tiAdmin/ops'
-import ManualRunButton from './manualRunButton'
-import { manualRunQueries } from './manualRunQueries'
 import TiDataAvailability from './ti-data-availability'
 import { ActionItemsPanel, buildActionItems } from './actionItemsPanel'
 import { ActorEnrichmentPanel, RecentEvidencePanel } from './evidenceEnrichmentPanels'
@@ -45,7 +43,6 @@ export default async function TiAdminPage() {
         || sameKey(actor.id) === sameKey(activeActorRun.actor_key)
     )) || actorRows[0]
     const latestDiscovery = enrichment.pipeline?.latestDiscoveries[0]
-    const runQueries = manualRunQueries(sources)
     const actionItems = buildActionItems({
         candidateSources,
         staleSources,
@@ -55,12 +52,6 @@ export default async function TiAdminPage() {
 
     return (
         <DashboardPage>
-            <DashboardHeader
-                eyebrow='Threat intelligence'
-                title='Latest activity'
-                description='Watch collection, enrichment, evidence, and delivery work move in one place.'
-                actions={<ManualRunButton label='Run collection' queries={runQueries} />}
-            />
             <TiDataAvailability availability={overview.availability} />
             <LiveOperations
                 overview={overview}
