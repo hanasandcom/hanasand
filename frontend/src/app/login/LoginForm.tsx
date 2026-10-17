@@ -1,6 +1,7 @@
 import type { FormEvent, RefObject } from 'react'
-import { ArrowRight, Fingerprint, KeyRound } from 'lucide-react'
+import { Fingerprint, KeyRound } from 'lucide-react'
 import AuthField from '@/components/login/authField'
+import AuthSubmitButton from '@/components/login/authSubmitButton'
 import SocialSignIn from '@/components/login/socialSignIn'
 import { authGhostButtonClass, authInputClass, authPrimaryButtonClass } from './loginMode'
 
@@ -45,10 +46,7 @@ export default function LoginForm({ redirectPath, initialUsername, usernameRef, 
                     required
                 />
                 <div className='mt-1 flex items-center gap-3'>
-                    <button type='submit' disabled={!hydrated || busy} className={`${authPrimaryButtonClass} min-w-24`}>
-                        {busy ? 'Logging in' : 'Log in'}
-                        <ArrowRight className='h-4 w-4 transition group-hover:translate-x-0.5' />
-                    </button>
+                    <AuthSubmitButton busy={busy} disabled={!hydrated || busy} pendingLabel='Logging in' className={`${authPrimaryButtonClass} min-w-24`}>Log in</AuthSubmitButton>
                     <button type='button' disabled={!hydrated} onClick={() => onChangeMode('signup')} className={authGhostButtonClass}>Sign up</button>
                     <button
                         type='button'

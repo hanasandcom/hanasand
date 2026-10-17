@@ -1,6 +1,6 @@
 import type { FormEvent } from 'react'
-import { ArrowRight } from 'lucide-react'
 import AuthField from '@/components/login/authField'
+import AuthSubmitButton from '@/components/login/authSubmitButton'
 import { authGhostButtonClass, authInputClass, authPrimaryButtonClass } from './loginMode'
 import type { useSignupFlow } from './useSignupFlow'
 
@@ -80,10 +80,7 @@ export default function SignupForm({ flow, busy, hydrated, redirectPath, onSubmi
                 </p>
             ) : null}
             <div className='mt-1 flex items-center gap-3'>
-                <button type='submit' disabled={!hydrated || busy || !flow.canCreateAccount} className={`${authPrimaryButtonClass} min-w-36`}>
-                    {busy ? 'Sending code' : 'Create account'}
-                    <ArrowRight className='h-4 w-4 transition group-hover:translate-x-0.5' />
-                </button>
+                <AuthSubmitButton busy={busy} disabled={!hydrated || busy || !flow.canCreateAccount} pendingLabel='Sending code' className={`${authPrimaryButtonClass} min-w-36`}>Create account</AuthSubmitButton>
                 <button type='button' onClick={onBackToLogin} className={authGhostButtonClass}>Log in</button>
             </div>
         </form>

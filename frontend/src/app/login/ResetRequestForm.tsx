@@ -1,6 +1,6 @@
 import type { FormEvent } from 'react'
-import { ArrowRight } from 'lucide-react'
 import AuthField from '@/components/login/authField'
+import AuthSubmitButton from '@/components/login/authSubmitButton'
 import { authGhostButtonClass, authInputClass, authPrimaryButtonClass } from './loginMode'
 
 type Props = {
@@ -23,10 +23,7 @@ export default function ResetRequestForm({ busy, onSubmit, onBack }: Props) {
                 required
             />
             <div className='mt-1 flex items-center gap-3'>
-                <button type='submit' disabled={busy} className={`${authPrimaryButtonClass} min-w-28`}>
-                    {busy ? 'Sending' : 'Send code'}
-                    <ArrowRight className='h-4 w-4 transition group-hover:translate-x-0.5' />
-                </button>
+                <AuthSubmitButton busy={busy} disabled={busy} pendingLabel='Sending' className={`${authPrimaryButtonClass} min-w-28`}>Send code</AuthSubmitButton>
                 <button type='button' onClick={onBack} className={authGhostButtonClass}>Back</button>
             </div>
         </form>

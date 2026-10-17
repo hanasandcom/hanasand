@@ -3,6 +3,7 @@ import { expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import LoginForm from '../src/app/login/LoginForm'
+import ResetRequestForm from '../src/app/login/ResetRequestForm'
 import SignupForm from '../src/app/login/SignupForm'
 
 test('login inputs keep their labels, browser autocomplete, and hydration submit gate', () => {
@@ -26,6 +27,20 @@ test('login inputs keep their labels, browser autocomplete, and hydration submit
     expect(html).toContain('name="password"')
     expect(html).toContain('autoComplete="current-password"')
     expect(html).toContain('type="submit" disabled=""')
+    expect(html).toContain('Log in')
+})
+
+test('reset request shares the auth submit loading and disabled presentation', () => {
+    const html = renderToStaticMarkup(createElement(ResetRequestForm, {
+        busy: true,
+        onSubmit: () => {},
+        onBack: () => {},
+    }))
+
+    expect(html).toContain('type="submit" disabled=""')
+    expect(html).toContain('Sending')
+    expect(html).not.toContain('Send code')
+    expect(html).toContain('Back')
 })
 
 test('signup reports validation errors and disables unavailable account submission', () => {
