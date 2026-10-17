@@ -4,7 +4,7 @@ import { getDeliverySummary } from './ti/delivery.ts'
 import { createHash } from 'node:crypto'
 import { publicMonitoringRequest } from './publicMonitoringRequest.ts'
 import run, { withTransaction } from '#db'
-import { certificateTarget, checkCertificate } from './automations.ts'
+import { certificateTarget, checkCertificate } from './automationNetwork.ts'
 import getStats from './refresh/queries/stats.ts'
 import { MonitoringResponseError } from './monitoringResponseError.ts'
 
