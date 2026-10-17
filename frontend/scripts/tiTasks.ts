@@ -1,6 +1,7 @@
 import { bun, type TestTask } from './testTask'
 
 export const tiTasks: TestTask[] = [
+    { id: 'ti-shared-public-language', title: 'TI public wording rewrites and route distinctions', command: [bun, 'test', 'tests/ti-shared-public-language.test.ts'] },
     { id: 'ti-requirement-warning', title: 'TI requirement warning rendering', command: [bun, 'test', 'tests/ti-requirement-warning.test.tsx'] },
     { id: 'ti-manual-run-queries', title: 'TI manual collection target selection', command: [bun, 'test', 'tests/ti-manual-run-queries.test.ts'] },
     { id: 'ti-enrichment-status-pill', title: 'TI status pill rendered class contracts', command: [bun, 'test', 'tests/ti-enrichment-status-pill.test.tsx'] },

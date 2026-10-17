@@ -1,7 +1,8 @@
 import { unique } from './evidenceValues'
+import { rewriteSharedPublicLanguage } from '../sharedPublicLanguage'
 
 export function displayRequirementText(value: string) {
-    return value
+    const domainText = value
         .replace(
             /\bAPT49 is an ambiguous label in open reporting\. Some sources map it to Tropic Trooper, a long-running Asia-Pacific espionage actor\. Malpedia and Cyberint map BlueHornet\/AgainstTheWest\/APT49 to a hacktivist and leak-focused persona\. The profile is split into both tracks until source-specific reporting makes the context clear\./gi,
             'APT49 is used for two tracks in open reporting: Tropic Trooper espionage reporting and BlueHornet/AgainstTheWest leak-claim reporting. Keep the tracks separate when reviewing attribution or company exposure.',
@@ -52,19 +53,7 @@ export function displayRequirementText(value: string) {
         .replace(/actorIntelligence\./gi, 'actor intelligence ')
         .replace(/handoffs\./gi, '')
         .replace(/relatedAlerts\[\]/gi, 'related alerts')
-        .replace(/\bproof\b/gi, 'evidence')
-        .replace(/\breadiness\b/gi, 'status')
-        .replace(/\bactionability\b/gi, 'action status')
-        .replace(/\breceipt\b/gi, 'record')
-        .replace(new RegExp('\\bcon' + 'tract\\b', 'gi'), 'schema')
-        .replace(/\bnamed\s+examples\b/gi, 'reported activity')
-        .replace(/\btarget\s+signal(s)?\b/gi, 'targeting indicator$1')
-        .replace(/\bsignal(s)?\b/gi, 'indicator$1')
-        .replace(/\bcontrol\s+room\b/gi, 'console')
-        .replace(/\bdashboard\s+slop\b/gi, 'low-value summary')
-        .replace(/\bacceptance\s+criteria\b/gi, 'requirements')
-        .replace(/\bteasers\b/gi, 'summaries')
-        .replace(/\bteaser\b/gi, 'summary')
+    return rewriteSharedPublicLanguage(domainText, 'action status')
 }
 
 export function displayRequirementList(values: string[]) {

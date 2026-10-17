@@ -1,7 +1,8 @@
 import { PUBLIC_URL_FIELDS, safePublicTiUrl } from './publicResultUrls'
+import { rewriteSharedPublicLanguage } from './sharedPublicLanguage'
 
 export function publicTiText(value: string) {
-    return publicEvidenceText(publicBackendCopyText(value)
+    const routeText = publicBackendCopyText(value)
         .replace(/GET\s+\/api\/organizations\/[^/\s]+\/alert-readiness/gi, 'Check organization alert state')
         .replace(/GET\s+\/api\/organizations\/[^/\s]+\/alert-status/gi, 'Check organization alert state')
         .replace(/\/api\/organizations\/[^/\s]+\/alert-readiness/gi, 'organization alert state')
@@ -17,19 +18,8 @@ export function publicTiText(value: string) {
         .replace(/\/v1\/findings\/watchlists/gi, 'watchlist update')
         .replace(/\/v1\/findings\/webhooks\/deliver/gi, 'webhook delivery')
         .replace(/\/v1\/cases/gi, 'case records')
-        .replace(/\bproof\b/gi, 'evidence')
-        .replace(/\breadiness\b/gi, 'status')
-        .replace(/\bactionability\b/gi, 'next-step status')
-        .replace(/\breceipt\b/gi, 'record')
-        .replace(new RegExp('\\bcon' + 'tract\\b', 'gi'), 'schema')
-        .replace(/\bnamed\s+examples\b/gi, 'reported activity')
-        .replace(/\btarget\s+signal(s)?\b/gi, 'targeting indicator$1')
-        .replace(/\bsignal(s)?\b/gi, 'indicator$1')
-        .replace(/\bcontrol\s+room\b/gi, 'console')
-        .replace(/\bdashboard\s+slop\b/gi, 'low-value summary')
-        .replace(/\bacceptance\s+criteria\b/gi, 'requirements')
-        .replace(/\bteasers\b/gi, 'summaries')
-        .replace(/\bteaser\b/gi, 'summary')
+    const languageText = rewriteSharedPublicLanguage(routeText, 'next-step status')
+    return publicEvidenceText(languageText
         .replace(/\bprovenance\b/gi, 'source context')
         .replace(/\bmetadata capture\b/gi, 'watched source monitoring')
         .replace(/\bmetadata-first\b/gi, 'company-first')
