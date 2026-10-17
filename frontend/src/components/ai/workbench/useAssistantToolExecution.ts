@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { parseToolCalls } from './toolTags'
+import { updateConversationState } from './conversationModel'
 import type { WorkbenchState } from './useWorkbenchState'
 
 export function useAssistantToolExecution(
@@ -34,13 +35,9 @@ export function useAssistantToolExecution(
                         ...(result.artifacts ? { artifacts: result.artifacts } : {}),
                     },
                 }
-                setConversations((prev) => {
-                    const next = prev.map((entry) => entry.id === conversation.id
-                        ? { ...entry, updatedAt: new Date().toISOString(), messages: [...entry.messages, toolMessage] }
-                        : entry)
-                    conversationsRef.current = next
-                    return next
-                })
+                updateConversationState(conversationsRef, setConversations, (prev) => prev.map((entry) => entry.id === conversation.id
+                    ? { ...entry, updatedAt: new Date().toISOString(), messages: [...entry.messages, toolMessage] }
+                    : entry))
                 void persistMessage(conversation.id, toolMessage)
             }
         }

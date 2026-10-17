@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import normalizeClient from '@/components/gpt/normalizeClient'
-import { appendError, findLatestAssistantIndex } from './conversationModel'
+import { appendError, findLatestAssistantIndex, updateConversationState } from './conversationModel'
 import type { WorkbenchState } from './useWorkbenchState'
 
 export function useSocketMessageHandler(
@@ -38,31 +38,27 @@ export function useSocketMessageHandler(
             }
             if (!message.conversationId) return
 
-            setConversations((prev) => {
-                const nextConversations = prev.map((conversation) => {
-                    if (conversation.id !== message.conversationId) return conversation
-                    if (message.type === 'prompt_started') {
-                        return {
-                            ...conversation,
-                            activeModel: message.clientName || conversation.activeModel,
-                            updatedAt: new Date().toISOString(),
-                            metrics: message.metrics || conversation.metrics,
-                        }
+            updateConversationState(conversationsRef, setConversations, (prev) => prev.map((conversation) => {
+                if (conversation.id !== message.conversationId) return conversation
+                if (message.type === 'prompt_started') {
+                    return {
+                        ...conversation,
+                        activeModel: message.clientName || conversation.activeModel,
+                        updatedAt: new Date().toISOString(),
+                        metrics: message.metrics || conversation.metrics,
                     }
-                    if (message.type === 'prompt_tool' && message.toolId && message.toolLabel) {
-                        return applyToolProgress(conversation, message)
-                    }
-                    if (message.type === 'prompt_delta' || message.type === 'prompt_complete') {
-                        return applyAssistantProgress(conversation, message)
-                    }
-                    if (message.type === 'prompt_error') {
-                        return appendError(conversation, message.error || 'The model failed to answer this prompt.', message.metrics, message.clientName || conversation.activeModel)
-                    }
-                    return conversation
-                })
-                conversationsRef.current = nextConversations
-                return nextConversations
-            })
+                }
+                if (message.type === 'prompt_tool' && message.toolId && message.toolLabel) {
+                    return applyToolProgress(conversation, message)
+                }
+                if (message.type === 'prompt_delta' || message.type === 'prompt_complete') {
+                    return applyAssistantProgress(conversation, message)
+                }
+                if (message.type === 'prompt_error') {
+                    return appendError(conversation, message.error || 'The model failed to answer this prompt.', message.metrics, message.clientName || conversation.activeModel)
+                }
+                return conversation
+            }))
             if (message.type === 'prompt_complete' || message.type === 'prompt_error') {
                 setTimeout(() => void persistAssistantMessageFromEvent(message), 0)
             }

@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
 import { stripToolTags } from './toolTags'
-import { findLatestAssistantIndex } from './conversationModel'
+import { findLatestAssistantIndex, updateConversationState } from './conversationModel'
 import type { WorkbenchState } from './useWorkbenchState'
 
 export function useAssistantMessagePersistence(
@@ -32,17 +32,13 @@ export function useAssistantMessagePersistence(
                 artifacts: message.artifacts || (lastMessage.metadata?.artifacts as AIArtifact[] | undefined) || [],
             },
         }
-        setConversations((prev) => {
-            const nextConversations = prev.map((entry) => {
-                if (entry.id !== message.conversationId) return entry
-                const messages = [...entry.messages]
-                const index = messages.findIndex((item) => item.id === assistantMessage.id)
-                if (index >= 0) messages[index] = assistantMessage
-                return { ...entry, updatedAt: new Date().toISOString(), messages }
-            })
-            conversationsRef.current = nextConversations
-            return nextConversations
-        })
+        updateConversationState(conversationsRef, setConversations, (prev) => prev.map((entry) => {
+            if (entry.id !== message.conversationId) return entry
+            const messages = [...entry.messages]
+            const index = messages.findIndex((item) => item.id === assistantMessage.id)
+            if (index >= 0) messages[index] = assistantMessage
+            return { ...entry, updatedAt: new Date().toISOString(), messages }
+        }))
         if (message.type === 'prompt_complete') {
             void executeAssistantToolsRef.current(conversation, { ...assistantMessage, content: rawContent }).catch(() => {
                 setStatusNotice('The model answered, but the local tool run could not be started.')

@@ -87,3 +87,15 @@ export function findLatestAssistantIndex(messages: AIConversationMessage[]) {
     }
     return -1
 }
+
+export function updateConversationState(
+    conversationsRef: { current: AIConversation[] },
+    setConversations: React.Dispatch<React.SetStateAction<AIConversation[]>>,
+    update: (conversations: AIConversation[]) => AIConversation[],
+) {
+    setConversations((current) => {
+        const next = update(current)
+        conversationsRef.current = next
+        return next
+    })
+}

@@ -46,6 +46,7 @@ export const productTasks: TestTask[] = [
     { id: 'ai-tool-completion-text', title: 'AI tool completion messages stay consistent across browser flows', command: [bun, 'test', 'tests/ai-project-tools/toolCompletionText.test.ts'] },
     { id: 'ai-conversation-title', title: 'Shared AI conversation title normalization', command: [bun, 'test', 'tests/ai-conversation-title.test.ts'] },
     { id: 'ai-runtime-state', title: 'AI runtime state selects the newest matching message', command: [bun, 'test', 'tests/ai-runtime-state.test.ts'] },
+    { id: 'ai-conversation-state-sync', title: 'AI conversation state and live ref remain synchronized', command: [bun, 'test', 'tests/ai-conversation-state-sync.test.ts'] },
     { id: 'ai-workspace-page-contract', title: 'AI workspace server routes preserve initial data and selection', command: [bun, 'test', 'tests/ai-workspace-page-contract.test.tsx'] },
     { id: 'oslo-short-datetime', title: 'Shared audit and TI timestamp formatting', command: [bun, 'test', 'tests/oslo-short-datetime.test.ts'] },
     { id: 'test-content-render', title: 'Test result metrics and evidence rendering', command: [bun, 'test', 'tests/test-content-render.test.tsx'] },

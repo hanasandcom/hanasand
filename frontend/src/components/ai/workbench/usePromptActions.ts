@@ -1,5 +1,6 @@
 import { useCallback } from 'react'
 import { appendError, buildSystemPrompt, buildWorkspaceContext, resolveModelName } from './helpers'
+import { updateConversationState } from './conversationModel'
 import type { WorkbenchState } from './useWorkbenchState'
 
 export function usePromptActions(
@@ -78,14 +79,10 @@ export function usePromptActions(
         conversationsRef.current = conversationsRef.current.map((conversation) => (
             conversation.id === activeConversation.id ? optimisticConversation : conversation
         ))
-        setConversations((prev) => {
-            const next = prev.map((conversation) => conversation.id === activeConversation.id
-                ? { ...conversation, activeModel: resolvedModel, title: conversation.messages.length ? conversation.title : prompt.slice(0, 72),
-                    updatedAt: optimisticUpdatedAt, messages: [...conversation.messages, userMessage, assistantMessage] }
-                : conversation)
-            conversationsRef.current = next
-            return next
-        })
+        updateConversationState(conversationsRef, setConversations, (prev) => prev.map((conversation) => conversation.id === activeConversation.id
+            ? { ...conversation, activeModel: resolvedModel, title: conversation.messages.length ? conversation.title : prompt.slice(0, 72),
+                updatedAt: optimisticUpdatedAt, messages: [...conversation.messages, userMessage, assistantMessage] }
+            : conversation))
         setComposer('')
         socket.send(JSON.stringify({
             type: 'prompt_request',
