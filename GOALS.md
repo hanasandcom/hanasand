@@ -2254,3 +2254,16 @@ check. The inventory is 2,400 frontend files / 155,578 lines / zero over 200,
 and 4,551 repository files / 328,631 lines / zero over 200. This test-only
 slice adds 22 frontend lines and changes no production code; the 10,000–30,000
 frontend target and 100,000-line API reduction remain unachieved.
+
+At the findings cases checkpoint after `e24a8d96a` (2026-10-17), a brittle
+four-file source inspection is replaced by rendered `FindingsView` coverage and
+a direct `refreshCases` contract for organization/tenant query scope,
+uncached requests, loading-row preservation, result mapping, and authorization
+errors. The existing rendered case-row test now asserts its actual
+`organizationId` link contract. Independent review approved; the focused test
+(4/4), full frontend suite, scoped ESLint, non-incremental typecheck, diff
+check, and repository cap pass. The 88-line test file is 25 lines larger than
+before and no production code changed. Current inventory: 2,400 frontend files
+/ 155,603 lines, zero over 200; 4,551 repository files / 328,656 lines, zero
+over 200. The frontend 10,000–30,000 line and API 100,000-line reduction
+targets remain open.
