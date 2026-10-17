@@ -2743,3 +2743,8 @@ remain in the working tree and are deliberately not included in these commits.
 The subsequent case-timeline cleanup at `09ba960b6` removes a redundant branch;
 the current cap scan is 2,417 files / 156,033 lines, still 2,325 above baseline
 and with no file over 200 lines.
+After the GPT message-helper reuse and direct payload contract test
+(`869b93a41`), the checked tree is 2,417 files / 156,045 lines with the cap
+still passing. The small production-code reduction is outweighed in aggregate by
+the added effective test assertions; the frontend remains 2,337 lines above its
+original baseline.
