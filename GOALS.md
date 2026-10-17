@@ -1627,3 +1627,20 @@ large LOC reduction target. The full frontend cap passes across 2,356 files /
 typecheck pass. Browser Playwright execution remains blocked by the current
 sandbox's Chromium startup permission error. No UI redesign or deployment was
 made.
+
+At frontend checkpoint `0c81a77b4`, authenticated rate-limit requests share one
+transport helper, management organization search reuses the existing row
+filter, and TI workbench delivery enrichment indexes deliveries once instead
+of rescanning them for every alert. The vulnerability dashboard also reuses a
+check-title/status row while preserving both rendered class contracts. The
+service-check guard now verifies the shared failure-count data flow and visible
+status instead of a stale inline expression. Independent review approved the
+code changes and UI contracts. The full registered frontend suite, scoped
+ESLint, typecheck through the production build, and Next production build pass;
+all 116 pages generated. The frontend cap passes for 2,362 files / 154,700
+lines, zero over 200. Relative to `58af3bddc`, frontend source is down 54 lines
+while tests/scripts add 243, for a net increase of 189; the major LOC reduction
+goal remains unmet. The repository-wide scan finds 63 over-limit files among
+4,320 files / 325,837 lines, all outside frontend. Full frontend ESLint still
+reports 1,306 existing errors outside the changed paths; changed-file ESLint
+passes. No UI redesign or deployment was made.
