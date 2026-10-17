@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { addLocalAuthCookies, mockShareApi, openWorkspaceBuildPrompt } from './helpers'
 import { browserRetryStories, runSummaryStories } from './fixtures/browserOutcomes'
+import { browserTaskResult } from './fixtures/browserTaskResult'
 
 test.describe.configure({ mode: 'serial' })
 test.setTimeout(300_000)
@@ -16,22 +17,15 @@ test('share page AI shows a bounded last-run receipt for ambiguous user requests
         await route.fulfill({
             status: 200,
             contentType: 'application/json',
-            body: JSON.stringify({
+            body: JSON.stringify(browserTaskResult({
                 url: body.url,
                 title: 'Run Summary Proof',
                 textExcerpt: 'The last-run receipt shows duration, edit count, browser proof count, and token cap.',
-                structure: {
-                    headings: ['Run summary proof', 'Bounded progress'],
-                    links: [{ text: 'Checked page', href: body.url }],
-                    buttons: ['Review'],
-                    inputs: [],
-                    forms: [],
-                    hasViewportMeta: true,
-                },
+                headings: ['Run summary proof', 'Bounded progress'],
+                links: [{ text: 'Checked page', href: body.url }],
+                buttons: ['Review'],
                 screenshotPath: null,
-                consoleMessages: ['Fetched browser target without executing client-side JavaScript.'],
-                pageErrors: [],
-            }),
+            })),
         })
     })
 

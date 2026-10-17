@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { addLocalAuthCookies, mockShareApi, openWorkspaceBuildPrompt } from './helpers'
 import { shareBrowserEvidenceStories, shareEvidenceTargetStories } from './fixtures/browserTargets'
+import { browserTaskResult } from './fixtures/browserTaskResult'
 
 test.describe.configure({ mode: 'serial' })
 test.setTimeout(300_000)
@@ -15,25 +16,20 @@ test('share page AI shows browser proof in the website UI for ambiguous build st
         await route.fulfill({
             status: 200,
             contentType: 'application/json',
-            body: JSON.stringify({
+            body: JSON.stringify(browserTaskResult({
                 url: body.url || 'https://example.com',
                 title: 'Share Preview OK',
                 textExcerpt: 'Visible preview with hero, pricing, contact, booking caveat, and next step.',
-                structure: {
-                    headings: ['Visible preview', 'Pricing', 'Contact'],
-                    links: [
-                        { text: 'Contact support', href: '/contact' },
-                        { text: 'Pricing', href: '/pricing' },
-                    ],
-                    buttons: ['Start review', 'Book demo'],
-                    inputs: ['Email address / email'],
-                    forms: ['Email address / email | Start review'],
-                    hasViewportMeta: true,
-                },
+                headings: ['Visible preview', 'Pricing', 'Contact'],
+                links: [
+                    { text: 'Contact support', href: '/contact' },
+                    { text: 'Pricing', href: '/pricing' },
+                ],
+                buttons: ['Start review', 'Book demo'],
+                inputs: ['Email address / email'],
+                forms: ['Email address / email | Start review'],
                 screenshotPath: null,
-                consoleMessages: ['Fetched browser target without executing client-side JavaScript.'],
-                pageErrors: [],
-            }),
+            })),
         })
     })
 
@@ -112,22 +108,15 @@ test('share page AI uses the current share URL for browser evidence instead of g
         await route.fulfill({
             status: 200,
             contentType: 'application/json',
-            body: JSON.stringify({
+            body: JSON.stringify(browserTaskResult({
                 url: body.url,
                 title: 'Current Share Evidence',
                 textExcerpt: 'Current share proof with visible navigation and no generic sample target.',
-                structure: {
-                    headings: ['Current share proof', 'Visible next step'],
-                    links: [{ text: 'Open share', href: body.url }],
-                    buttons: ['Apply after review'],
-                    inputs: [],
-                    forms: [],
-                    hasViewportMeta: true,
-                },
+                headings: ['Current share proof', 'Visible next step'],
+                links: [{ text: 'Open share', href: body.url }],
+                buttons: ['Apply after review'],
                 screenshotPath: null,
-                consoleMessages: ['Fetched browser target without executing client-side JavaScript.'],
-                pageErrors: [],
-            }),
+            })),
         })
     })
 

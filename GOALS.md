@@ -1911,3 +1911,20 @@ entry outweighed the production reduction. The repository scan remains at 35
 over-limit files among 4,425 files / 327,277 lines, all outside the frontend.
 The frontend 10,000–30,000-line and API 100,000-line reduction goals remain
 unmet; no UI redesign or deployment was made.
+
+At checkpoint `039355e66` (2026-10-17), the API log recorder was divided into
+preparation/orchestration, persistence, and shared type modules. The former
+216-line `recordLog.ts` is now 150 lines; its two supporting files are 62 and 23
+lines. Analyzer ordering, transaction flow, exports, and the SQL text are
+unchanged. API typecheck, scoped ESLint, independent review, and five focused
+test files pass (28 tests); the database-backed ingestion test skips because
+`DATABASE_URL` and `POSTGRES_FILTER_TEST_PORT` are unavailable. A frontend
+browser-result fixture now centralizes repeated response defaults across four
+share-chat specs, removing 34 lines from those specs and adding a 37-line
+helper. Frontend typecheck, scoped ESLint, and its full line-cap scan pass at
+2,383 files / 155,310 lines, with none over 200. The four Playwright specs did
+not run because the configured API `start:local` server exited before test
+discovery. The repository cap scan covers 4,428 files / 327,299 lines and finds
+34 over-limit files, all outside the frontend. The frontend 10,000–30,000-line
+target and API 100,000-line reduction remain unmet; no UI redesign or deployment
+was made.

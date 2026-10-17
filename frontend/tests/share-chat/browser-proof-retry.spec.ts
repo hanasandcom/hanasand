@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { addLocalAuthCookies, mockShareApi, openWorkspaceBuildPrompt } from './helpers'
 import { proofGateStories, proofRecoveryStories } from './fixtures/browserOutcomes'
+import { browserTaskResult } from './fixtures/browserTaskResult'
 
 test.describe.configure({ mode: 'serial' })
 test.setTimeout(300_000)
@@ -105,21 +106,15 @@ test('share page AI lets users retry failed browser proof without rerunning the 
         await route.fulfill({
             status: 200,
             contentType: 'application/json',
-            body: JSON.stringify({
+            body: JSON.stringify(browserTaskResult({
                 url,
                 title: 'Recovered preview',
                 screenshotPath: `/browser-proof/${url.split('-').pop()}.png`,
-                structure: {
-                    headings: ['Recovered proof'],
-                    links: [{ text: 'Open page', href: url }],
-                    buttons: ['Apply'],
-                    inputs: [],
-                    forms: [],
-                    hasViewportMeta: true,
-                },
+                headings: ['Recovered proof'],
+                links: [{ text: 'Open page', href: url }],
+                buttons: ['Apply'],
                 consoleMessages: [],
-                pageErrors: [],
-            }),
+            })),
         })
     })
 

@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { addLocalAuthCookies, mockShareApi, openWorkspaceBuildPrompt } from './helpers'
 import { evidenceSummaryStories, visibleProofTargetStories } from './fixtures/browserTargets'
+import { browserTaskResult } from './fixtures/browserTaskResult'
 
 test.describe.configure({ mode: 'serial' })
 test.setTimeout(300_000)
@@ -16,22 +17,15 @@ test('share page AI shows the browser proof target before users send ambiguous p
         await route.fulfill({
             status: 200,
             contentType: 'application/json',
-            body: JSON.stringify({
+            body: JSON.stringify(browserTaskResult({
                 url: body.url,
                 title: 'Visible Target Evidence',
                 textExcerpt: 'The proof target is visible before the user sends.',
-                structure: {
-                    headings: ['Visible proof target', 'Trustworthy evidence'],
-                    links: [{ text: 'Current target', href: body.url }],
-                    buttons: ['Review'],
-                    inputs: [],
-                    forms: [],
-                    hasViewportMeta: true,
-                },
+                headings: ['Visible proof target', 'Trustworthy evidence'],
+                links: [{ text: 'Current target', href: body.url }],
+                buttons: ['Review'],
                 screenshotPath: null,
-                consoleMessages: ['Fetched browser target without executing client-side JavaScript.'],
-                pageErrors: [],
-            }),
+            })),
         })
     })
 
@@ -102,22 +96,16 @@ test('share page AI summarizes browser evidence in the chat status strip for fas
         await route.fulfill({
             status: 200,
             contentType: 'application/json',
-            body: JSON.stringify({
+            body: JSON.stringify(browserTaskResult({
                 url: body.url,
                 title: `Proof Strip ${storyId}`,
                 textExcerpt: 'Compact proof strip with title, URL, issue count, and screenshot state.',
-                structure: {
-                    headings: [`Proof strip ${storyId}`, 'Fast handoff'],
-                    links: [{ text: 'Open checked page', href: body.url }],
-                    buttons: ['Review proof'],
-                    inputs: [],
-                    forms: [],
-                    hasViewportMeta: true,
-                },
+                headings: [`Proof strip ${storyId}`, 'Fast handoff'],
+                links: [{ text: 'Open checked page', href: body.url }],
+                buttons: ['Review proof'],
                 screenshotPath: hasScreenshot ? `/screenshots/proof-strip-${storyId}.png` : null,
-                consoleMessages: ['Fetched browser target without executing client-side JavaScript.'],
                 pageErrors: hasIssue ? ['Visible issue found in proof strip test'] : [],
-            }),
+            })),
         })
     })
 
