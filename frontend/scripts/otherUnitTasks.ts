@@ -10,6 +10,7 @@ export const otherUnitTasks: TestTask[] = [
     { id: 'app-surface', title: 'App surface route classification', command: [bun, 'test', 'tests/app-surface.test.ts'] },
     { id: 'activity-model', title: 'Exposure activity model', command: [bun, 'test', 'tests/activity-model.test.ts'] },
     { id: 'dashboard-row-deletion', title: 'Dashboard row deletion lifecycle', command: [bun, 'test', 'tests/dashboard-row-deletion.test.ts'] },
+    { id: 'database-overview-ux', title: 'Database overview telemetry rendering', command: [bun, 'test', 'tests/database-overview-ux.test.tsx'] },
     { id: 'system-container-action-group', title: 'System container action presentation', command: [bun, 'test', 'tests/system-container-action-group.test.tsx'] },
     { id: 'system-expired-session-path', title: 'System session expiry return paths', command: [bun, 'test', 'tests/system-expired-session-path.test.ts'] },
     { id: 'organization-filter-strip', title: 'Organization member and invite filter presentation', command: [bun, 'test', 'tests/organization-filter-strip.test.tsx'] },
