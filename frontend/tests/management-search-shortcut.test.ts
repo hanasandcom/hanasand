@@ -30,10 +30,10 @@ describe('management search shortcut', () => {
     test('dispatches accepted shortcuts and prevents their browser default', () => {
         const users = { open: false, focused: false }
         const prevented: boolean[] = []
-        const dispatch = (keyEvent: Partial<KeyboardEvent>, onShortcut: () => void) => dispatchManagementSearchShortcut({
+        const dispatch = (keyEvent: Partial<KeyboardEvent>, onShortcut: () => void, canHandle?: () => boolean) => dispatchManagementSearchShortcut({
             ...event(keyEvent),
             preventDefault: () => prevented.push(true),
-        } as KeyboardEvent, onShortcut)
+        } as KeyboardEvent, onShortcut, canHandle)
 
         expect(dispatch({ metaKey: true }, () => { users.open = !users.open })).toBe(true)
         expect(users.open).toBe(true)
@@ -48,6 +48,11 @@ describe('management search shortcut', () => {
             expect(dispatch(ignored, () => { users.open = false })).toBe(false)
         }
         expect(users.open).toBe(true)
+        expect(prevented).toHaveLength(2)
+
+        let modalSearchCount = 0
+        expect(dispatch({ metaKey: true }, () => { modalSearchCount += 1 }, () => false)).toBe(false)
+        expect(modalSearchCount).toBe(0)
         expect(prevented).toHaveLength(2)
     })
 })

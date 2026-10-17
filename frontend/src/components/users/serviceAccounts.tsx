@@ -8,7 +8,7 @@ import DeleteAccountButton from './deleteAccountButton'
 import AccountDate from './accountDate'
 import ServiceAccountDescription from './serviceAccountDescription'
 import EditServiceAccountButton from './editServiceAccountButton'
-import { isManagementSearchShortcut } from '@/utils/isManagementSearchShortcut'
+import { useManagementSearchShortcut } from '@/hooks/useManagementSearchShortcut'
 
 type Endpoint = { method: string, route: string, label: string }
 type Account = { id: string, name: string, description?: string, active: boolean, created_at: string | null, keys: { lastUsedAt: string | null, scopes: Endpoint[] }[] }
@@ -45,16 +45,10 @@ export default function ServiceAccounts() {
         setReady(true)
     }, [])
     useEffect(() => { void load().catch(error => setError(error.message)) }, [load])
-    useEffect(() => {
-        function onKeyDown(event: KeyboardEvent) {
-            if (!isManagementSearchShortcut(event) || document.querySelector('dialog[open]')) return
-            event.preventDefault()
-            searchInput.current?.focus()
-            searchInput.current?.select()
-        }
-        window.addEventListener('keydown', onKeyDown)
-        return () => window.removeEventListener('keydown', onKeyDown)
-    }, [])
+    useManagementSearchShortcut(() => {
+        searchInput.current?.focus()
+        searchInput.current?.select()
+    }, () => !document.querySelector('dialog[open]'))
 
     const activeAccounts = accounts.filter(account => account.active)
     const query = search.trim().toLowerCase()
