@@ -2076,3 +2076,24 @@ commits are pushed to both remotes. The latest repository scan finds 18
 over-limit files among 4,485 hand-maintained files / 327,564 lines, all outside
 the frontend. The frontend scan passes at 2,385 files / 155,110 lines with no
 file over 200. Aggregate API/frontend reduction targets remain unmet.
+
+At pushed checkpoint `6f444a417`, `d28b4507e`, `5aa5a0589`, `6d313ea5d`,
+`534920eff`, and `609847fc2`, the onion proxy smoke's local SOCKS fixture was
+separated into a second module, Compose API services moved to a root-level
+included file, and frontend reuse was improved across AI release panels,
+dashboard navigation, login/signup/reset forms, and shared Header/RouteFrame
+route classification. Compose resolves to the same default and
+`deployment-candidates` models as before; healthcheck preflight covers 4 and 6
+services, respectively. Raw Compose consumers and the scheduled-job file
+scanner were updated and reviewed. The vulnerability-scanner smoke was not
+run because its controls change scanner state. Frontend refactors preserve
+existing labels, classes, route predicates, callback/state behavior and data
+props; focused route, auth, and navigation tests pass (4, 9, and 8 tests), as
+do frontend typecheck, scoped ESLint, independent reviews, and cap checks. The
+onion proxy refactor passes syntax, lint, review and diff checks; live proxy
+execution was not run. Both remotes are at `609847fc2`. The current frontend
+scan passes at 2,387 files / 155,182 lines with zero files over 200. A
+repository scan finds 13 over-limit files among 4,493 hand-maintained files /
+327,651 lines, all outside the frontend. These component/helper extractions
+have not materially reduced the frontend total; the 10,000–30,000-line
+frontend objective and 100,000-line API reduction remain open.
