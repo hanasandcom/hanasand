@@ -138,7 +138,7 @@ test('lifecycle projections use one clock snapshot at an expiry boundary', async
         session_expires_at: new Date(expiry).toISOString(),
     })
     let clockReads = 0
-    Date.now = () => ++clockReads === 3 ? expiry + 1 : expiry - 1
+    Date.now = () => ++clockReads === 2 ? expiry + 1 : expiry - 1
 
     try {
         const response = await app.inject('/impersonation/events')
