@@ -8,7 +8,10 @@ import { authRedirect, parseAuthBody, parseJson, redirectTo, safeRedirectPath } 
 const LOGIN_AUTH_TIMEOUT_MS = 15_000
 
 export async function POST(req: NextRequest) {
-    const { body, redirectPath, wantsRedirect } = await parseAuthBody(req)
+    const { body, redirectPath, wantsRedirect } = await parseAuthBody(req, form => ({
+        id: String(form.get('username') || form.get('id') || ''),
+        password: String(form.get('password') || ''),
+    }))
     const id = body?.id?.trim()
     const password = body?.password
 

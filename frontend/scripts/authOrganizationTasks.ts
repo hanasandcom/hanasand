@@ -2,6 +2,7 @@ import { bun, type TestTask } from './testTask'
 
 export const authOrganizationTasks: TestTask[] = [
     { id: 'auth-register-flow', title: 'Registration and verification flow', command: [bun, 'test', 'tests/register-flow.test.ts'] },
+    { id: 'auth-request-body', title: 'Shared login and registration body parsing', command: [bun, 'test', 'tests/auth-request-body.test.ts'] },
     { id: 'auth-passkey-ui', title: 'Passkey authentication UI contracts', command: [bun, 'test', 'tests/passkey-auth-ui.test.ts'] },
     { id: 'auth-sso-redirects', title: 'SSO public and internal redirect policy', command: [bun, 'test', 'tests/sso-redirects.test.ts'] },
     { id: 'auth-passkey-proxy', title: 'Passkey route forwarding contracts', command: [bun, 'test', 'tests/passkey-proxy-routes.test.ts'] },

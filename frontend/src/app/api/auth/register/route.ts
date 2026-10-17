@@ -4,9 +4,17 @@ import { reservedUsernames } from '@/utils/auth/reservedUsernames'
 import { setAuthCookies } from '../_authCookies'
 import { authApiUrl, identityApiUrl } from '@/utils/auth/authApiUrl'
 import { safeRedirectPath } from '@/utils/auth/safeRedirectPath'
+import { parseAuthRequest, parseAuthJson } from '@/utils/auth/requestBody'
 
 export async function POST(req: NextRequest) {
-    const { body, redirectPath, wantsRedirect } = await parseAuthBody(req)
+    const { body, redirectPath, wantsRedirect } = await parseAuthRequest(req, form => ({
+        name: String(form.get('name') || ''),
+        id: String(form.get('username') || form.get('id') || ''),
+        password: String(form.get('password') || ''),
+        email: String(form.get('email') || ''),
+        challengeId: String(form.get('challengeId') || ''),
+        code: String(form.get('code') || ''),
+    }))
     const name = typeof body?.name === 'string' ? body.name.trim() : ''
     const id = typeof body?.id === 'string' ? body.id.trim() : ''
     const password = body?.password
@@ -38,7 +46,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Authentication service is unavailable.' }, { status: 502 })
     }
     const responseText = await upstream.text()
-    const data = parseJson(responseText)
+    const data = parseAuthJson(responseText)
 
     if (!upstream.ok) {
         if (wantsRedirect) {
@@ -80,39 +88,6 @@ export async function POST(req: NextRequest) {
     return response
 }
 
-async function parseAuthBody(req: NextRequest) {
-    const contentType = req.headers.get('content-type') || ''
-    if (contentType.includes('application/x-www-form-urlencoded') || contentType.includes('multipart/form-data')) {
-        const form = await req.formData()
-        return {
-            body: {
-                name: String(form.get('name') || ''),
-                id: String(form.get('username') || form.get('id') || ''),
-                password: String(form.get('password') || ''),
-                email: String(form.get('email') || ''),
-                challengeId: String(form.get('challengeId') || ''),
-                code: String(form.get('code') || ''),
-            },
-            redirectPath: String(form.get('redirectPath') || '/dashboard'),
-            wantsRedirect: true,
-        }
-    }
-
-    return {
-        body: await req.json().catch(() => null) as { name?: string, id?: string, password?: string, email?: string, challengeId?: string, code?: string } | null,
-        redirectPath: '/dashboard',
-        wantsRedirect: false,
-    }
-}
-
-function parseJson(text: string) {
-    try {
-        return JSON.parse(text)
-    } catch {
-        return null
-    }
-}
-
 async function createLoginSession(req: NextRequest, id: string, password: string) {
     const upstream = await fetch(`${identityApiUrl()}/auth/login/${encodeURIComponent(id)}`, {
         method: 'POST',
@@ -125,7 +100,7 @@ async function createLoginSession(req: NextRequest, id: string, password: string
         return null
     }
 
-    return parseJson(await upstream.text())
+    return parseAuthJson(await upstream.text())
 }
 
 function authRedirect(redirectPath: string, path: string, error: string) {
