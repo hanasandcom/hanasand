@@ -72,6 +72,7 @@ export const {
     getSystemEvents,
     getSystemEvent,
     getSupportAccessRecoveryApprovals,
+    getSupportAccessRecoveryApproval,
     getSupportInspection,
     getSupportReadiness,
     getSupportOrganization,

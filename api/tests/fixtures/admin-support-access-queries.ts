@@ -1,6 +1,14 @@
 import { hasSqlFragments, state } from './admin-support-routes-state.ts'
 
 export async function runSupportAccessQueries(sql: string, normalizedSql: string) {
+    if (hasSqlFragments(normalizedSql, [
+        'SELECT event.id',
+        'FROM system_events event',
+        'LEFT JOIN users actor ON actor.id = event.actor_id',
+        'LEFT JOIN users target_user ON target_user.id = event.object_id',
+        'LEFT JOIN organizations organization ON organization.id = event.organization_id',
+        'WHERE event.request_id = $1 OR event.subject_id = $2',
+    ])) return { rows: state.eventRows }
     if (normalizedSql.includes('SELECT status FROM organization_invites WHERE id = $1 AND organization_id = $2 LIMIT 1')) {
         return { rows: state.supportRecoveryInviteStatus ? [{ status: state.supportRecoveryInviteStatus }] : [] }
     }
