@@ -42,17 +42,15 @@ export default function DatabaseWorkbench({ overview, serviceAccount = false, ch
     const [mode, setMode] = useState<'rows' | 'sql'>('rows')
 
     function inspectRows() {
-        startTransition(async () => {
-            const response = await databaseRowsAction(schema, table, limit)
-            applyResponse(response)
-        })
+        runQuery(() => databaseRowsAction(schema, table, limit))
     }
 
     function runSql() {
-        startTransition(async () => {
-            const response = await databaseSqlAction(sql)
-            applyResponse(response)
-        })
+        runQuery(() => databaseSqlAction(sql))
+    }
+
+    function runQuery(action: () => Promise<DatabaseQueryResult | string>) {
+        startTransition(async () => applyResponse(await action()))
     }
 
     function applyResponse(response: DatabaseQueryResult | string) {
