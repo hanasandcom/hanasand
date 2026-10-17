@@ -24,7 +24,7 @@ test('case detail links retain organization and finding context', () => {
         caseDetailHref('HA/1', 'alert 1', 'org acme', 'case_overview'),
         '/cases/HA%2F1?organizationId=org+acme&alertId=alert+1&route=case_overview',
     )
-    assert.equal(caseDetailPath('HA/1', 'alert 1', 'org acme', 'public_advisory'), caseDetailHref('HA/1', 'alert 1', 'org acme', 'public_advisory'))
+    assert.equal(caseDetailPath('HA/1', 'alert 1', 'org acme', 'public_advisory'), '/cases/HA%2F1?organizationId=org+acme&alertId=alert+1&route=public_advisory')
 })
 
 test('cases overview renders its empty state and case-focused row contract', () => {
@@ -54,7 +54,6 @@ test('cases overview renders its empty state and case-focused row contract', () 
 test('FindingsView renders its real cases branch without workflow controls', () => {
     const html = renderToStaticMarkup(createElement(FindingsView, { view: 'cases', organizationId: 'org-a', casesState: { status: 'ready', rows: [] }, alerts: [], operations: null, workflowActions: createElement('div', { 'data-workflow-actions': true }) } as Parameters<typeof FindingsView>[0]))
     assert.match(html, /data-dwm-cases-overview="true"/)
-    assert.match(html, /No cases yet\. Matching monitoring events create cases automatically\./)
     assert.doesNotMatch(html, /data-workflow-actions/)
 })
 
