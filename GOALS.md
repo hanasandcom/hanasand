@@ -1161,3 +1161,22 @@ generated; its cap scan covers 2,309 source/config files / 153,185 LOC / zero
 over 200. The repository-wide scan finds 88 of 4,170 files over 200 lines and
 323,940 LOC total. The API 100,000-line and frontend 10,000–30,000-line targets
 remain unachieved. No deployment was performed.
+
+At the next integration checkpoint, three API production modules were reduced
+below 200 lines through reviewed responsibility boundaries: browser-task
+analysis (content extraction and quality diagnostics), commercial-contact
+persistence/notifications, and profile SSH-key reads/projection. Independent
+reviews found public exports, SQL/query order, limits, authorization, rollback,
+cache invalidation, audit, and response contracts preserved. Focused tests and
+API lint/typecheck passed; the full default API runner also passed, while its 37
+database-required suites remain excluded. The frontend TI action-items table
+now reuses the existing dashboard panel/table frame; its row/data mapping,
+sort/order, caps, links, badges and empty-state copy stay in feature code. An
+independent render review approved unchanged markup and contracts; its focused
+render suite, full frontend suite, typecheck, and production build passed, with
+116 routes generated. The frontend cap scan now covers 2,309 files / 153,229
+LOC / zero over 200. The repository scan reports 85 of 4,174 files over 200
+lines and 323,995 LOC total: three API violations were resolved, while module
+and test boundaries added about 55 aggregate lines. The API 100,000-line and
+frontend 10,000–30,000-line size goals remain outstanding. No deployment was
+performed.
