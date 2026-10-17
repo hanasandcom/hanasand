@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { formatTiDate, type TiAdminSource } from '@/utils/tiAdmin/ops'
 import ManualRunButton from '../manualRunButton'
+import { sourceGridColumns } from './sourceTableLayout'
 
 export default function SourceRow({ source: initialSource, scope }: { source: TiAdminSource, scope: string }) {
     const router = useRouter()
@@ -34,7 +35,7 @@ export default function SourceRow({ source: initialSource, scope }: { source: Ti
         } finally { setBusy(false) }
     }
     const darkweb = /dark|tor|onion/i.test(`${source.family} ${source.accessMethod} ${source.url}`)
-    return <div className='grid grid-cols-[1.55fr_0.8fr_0.85fr_0.85fr_0.8fr_0.8fr_1.35fr] gap-3 border-b border-ui-border px-4 py-3 text-sm last:border-b-0 hover:bg-ui-panel'>
+    return <div className={`grid ${sourceGridColumns} gap-3 border-b border-ui-border px-4 py-3 text-sm last:border-b-0 hover:bg-ui-panel`}>
         <div className='min-w-0'><Link href={`/ti/sources/${source.id}?scope=${scope}`} className='font-semibold text-ui-text hover:text-ui-primary'>{source.name}</Link><p className='mt-1 truncate text-xs text-ui-muted'>{source.family.replaceAll('_', ' ')} · {source.owner}</p></div>
         <div><p className='font-semibold text-ui-text'>{darkweb ? 'Dark web' : source.accessMethod || 'Clearweb'}</p></div>
         <Status source={source} />
