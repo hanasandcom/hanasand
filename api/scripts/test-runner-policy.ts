@@ -65,7 +65,7 @@ const unitTestFiles = [
     'verified-client-ip-flow.test.ts', 'vm-agent-target-handlers.test.ts', 'vm-agent-target-request.test.ts', 'vm-agent-target-sync-access.test.ts', 'vm-always-running.test.ts',
     'vm-certificate-sync.test.ts', 'vm-connection.test.ts', 'vm-console-restart.test.ts', 'vm-console.test.ts', 'vm-deletion.test.ts',
     'vm-details-mapping.test.ts', 'vm-details-refresh.test.ts', 'vm-details-upsert.test.ts', 'vm-member-access.test.ts', 'vm-metrics-handlers.test.ts',
-    'vm-metrics.test.ts', 'vm-organization.test.ts', 'vm-share-management.test.ts', 'web-scanner.test.ts',
+    'vm-metrics.test.ts', 'vm-organization.test.ts', 'vm-share-management.test.ts', 'vm-action-host-routing.test.ts', 'web-scanner.test.ts',
     'webhook-readiness-contract.test.ts', 'webhook-support-history-bridge.test.ts',
 ]
 
