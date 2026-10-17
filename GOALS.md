@@ -1250,3 +1250,20 @@ and `git diff --check` passed. Repository cap scan is now 74 of 4,208 files over
 200 lines / 323,851 LOC total. Frontend remains at 2,312 files / 153,363 LOC
 with zero over the 200-line cap. The frontend size target and broader API LOC
 reduction goal remain outstanding. No deployment was performed.
+
+Frontend reuse checkpoint: the load-testing table now uses the existing
+`DashboardTablePanel`; optional class overrides preserve its exact previous
+server-rendered markup and classes. The feature file drops 7 lines while the
+shared primitive gains 8, for +1 LOC. Findings and TI webhook delivery now share
+a focused POST/JSON/error helper, and the unused Findings parser was removed;
+feature-specific tenant scoping, endpoints, action bodies, refreshes, and result
+messages remain in their hooks. Independent review found no regression. The
+helper plus focused tests and runner registration add 46 net lines; this is a
+cohesion improvement, not a size reduction. Frontend full tests, typecheck,
+production build (116 routes), targeted ESLint, and line-cap check pass. Full
+frontend ESLint still reports 1,612 errors across existing unrelated files.
+Frontend inventory: 2,314 files / 153,410 LOC / zero over 200. Repository cap
+scan: 74 of 4,210 files over 200 / 323,898 LOC total. The 100,000-line API
+reduction and 10,000–30,000-line frontend target remain outstanding. No
+production UI or data contract changes were intended, and no deployment was
+performed.
