@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { cellValue, columnName, tableEditorRows, type TableData } from './workspace'
 import RenderMarkdown from './RenderMarkdown'
+import TableResizeHandle from './TableResizeHandle'
 import type { Cell } from './sheetEditorTypes'
 
 type Props = {
@@ -18,7 +19,6 @@ export default function InlineTable({ data, index, active, onSelect, onNavigate,
     const [completionCell, setCompletionCell] = useState('')
     const [dismissedCompletion, setDismissedCompletion] = useState('')
     const composing = useRef(false)
-    const resize = useRef<{ axis: 'row' | 'column', index: number, start: number, size: number, value: number } | null>(null)
     useEffect(() => {
         const element = tableScroll.current
         if (!element) return
@@ -30,45 +30,6 @@ export default function InlineTable({ data, index, active, onSelect, onNavigate,
     }, [])
     const naturalWidth = data.cells[0].reduce((sum, _, col) => sum + (data.widths[col] || 180), 0)
     const scale = availableWidth > 0 ? availableWidth / naturalWidth : 1
-    function resizeHandle(axis: 'row' | 'column', index: number) {
-        const size = (axis === 'row' ? data.heights[index] : data.widths[index]) || (axis === 'row' ? 48 : 180)
-        const dimension = axis === 'row' ? 'heights' : 'widths'
-        return <span
-            role='separator' tabIndex={0}
-            aria-label={`Resize ${axis} ${axis === 'row' ? index + 1 : columnName(index)}`}
-            aria-orientation={axis === 'row' ? 'horizontal' : 'vertical'}
-            aria-valuenow={size} aria-valuemin={40} aria-valuemax={1200}
-            data-table-tools className={`thesis-resize thesis-resize-${axis}`}
-            onKeyDown={event => {
-                if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return
-                event.preventDefault()
-                const values = [...(axis === 'row' ? data.heights : data.widths)]
-                values[index] = Math.max(40, Math.min(1200, size + (['ArrowLeft', 'ArrowUp'].includes(event.key) ? -10 : 10)))
-                onChange?.({ ...data, [dimension]: values })
-            }}
-            onPointerDown={event => {
-                event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId)
-                resize.current = { axis, index, start: axis === 'row' ? event.clientY : event.clientX, size, value: size }
-            }}
-            onPointerMove={event => {
-                if (!resize.current) return
-                const state = resize.current
-                state.value = Math.max(40, Math.min(1200, state.size + ((axis === 'row' ? event.clientY : event.clientX) - state.start) / (axis === 'row' ? 1 : scale)))
-                event.currentTarget.setAttribute('aria-valuenow', String(state.value))
-                const table = event.currentTarget.closest('table')!
-                if (axis === 'row') (table.rows[index] as HTMLElement).style.height = `${state.value}px`
-                else (table.querySelectorAll('col')[index] as HTMLElement).style.width = `${state.value * scale}px`
-            }}
-            onPointerUp={() => {
-                if (!resize.current) return
-                const values = [...(axis === 'row' ? data.heights : data.widths)]
-                values[index] = resize.current.value; resize.current = null
-                onChange?.({ ...data, [dimension]: values })
-            }}
-            onPointerCancel={() => { resize.current = null }}
-        />
-    }
-
     function updateCell(raw: string, row: number, col: number, address: string, cursorAtEnd: boolean) {
         const next = data.cells.map(line => [...line])
         next[row][col] = raw
@@ -186,8 +147,8 @@ export default function InlineTable({ data, index, active, onSelect, onNavigate,
                                         {onChange && suggestion ? (
                                             <span className='thesis-formula-suggestion' aria-hidden='true'><span className='invisible'>{raw}</span>{suggestion}</span>
                                         ) : null}
-                                        {onChange && row === 0 ? resizeHandle('column', col) : null}
-                                        {onChange && col === 0 ? resizeHandle('row', row) : null}
+                                        {onChange && row === 0 ? <TableResizeHandle data={data} scale={scale} axis='column' index={col} onChange={onChange} /> : null}
+                                        {onChange && col === 0 ? <TableResizeHandle data={data} scale={scale} axis='row' index={row} onChange={onChange} /> : null}
                                     </CellElement>
                                 )
                             })}

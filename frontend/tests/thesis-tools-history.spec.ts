@@ -77,7 +77,10 @@ test('arrows create temporary edges, clean up empty cells, and save entered text
         await expect(cell('B4')).toBeFocused()
         await expect.poll(count).toBe(12)
     }
-    await page.getByRole('separator', { name: 'Resize row 4', exact: true }).press('ArrowDown')
+    const rowResize = page.getByRole('separator', { name: 'Resize row 4', exact: true })
+    const initialRowHeight = Number(await rowResize.getAttribute('aria-valuenow'))
+    await rowResize.press('ArrowDown')
+    await expect(rowResize).toHaveAttribute('aria-valuenow', String(initialRowHeight + 10))
     await page.getByRole('heading', { name: 'Timetable', exact: true }).click()
     await expect.poll(count).toBe(9)
     expect((await (await context.request.get(baseURL + '/api/thesis')).json()).body).toBe(saved.body)
