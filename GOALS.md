@@ -2854,3 +2854,15 @@ and the frontend cap scan (2,429 source/config files / 156,546 working-tree
 lines, zero above 200). The scan includes separate uncommitted TI and API work;
 the total is 2,838 lines above the 153,708 baseline and the aggregate reduction
 target remains unmet.
+
+The Developers reference now reuses the existing no-store OpenAPI upstream
+request shared with the API documentation proxy, and its contract test checks
+that integration instead of requiring the URL construction to remain inline.
+The copy control's existing shared clipboard helper is likewise asserted at
+the call site; no clipboard implementation or user-facing behavior changed.
+Independent review confirmed the same endpoint, cache policy, response
+validation, and fallback. The focused Developers browser spec, scoped ESLint,
+nonincremental TypeScript, full frontend line cap, and diff checks pass. This
+reuse adds no meaningful aggregate reduction; the frontend remains about
+156,546 working-tree lines with no file above 200, including separate
+uncommitted TI/API edits, and the overall reduction target remains open.

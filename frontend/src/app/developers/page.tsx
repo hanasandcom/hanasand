@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Braces, FileJson, KeyRound, ShieldCheck } from 'lucide-react'
 import { buildRouteMetadata } from '../seo'
-import { authApiUrl } from '@/utils/auth/authApiUrl'
+import { requestOpenApiDocument } from '@/app/api/openapi/upstream'
 import CopyCodeButton from './copyCodeButton'
 import ApiKeyOnboarding from './apiKeyOnboarding'
 
@@ -118,7 +118,7 @@ function operationAccessLabel(security: OpenApiOperation['security']) {
 
 async function loadContract(): Promise<OpenApiDocument | null> {
     try {
-        const response = await fetch(`${authApiUrl().replace(/\/$/, '')}/v1/openapi.json`, { cache: 'no-store' })
+        const response = await requestOpenApiDocument()
         if (!response.ok) return null
         const contract = await response.json() as OpenApiDocument
         return contract.info && contract.paths ? contract : null
