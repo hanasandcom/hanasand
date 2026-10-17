@@ -2716,3 +2716,18 @@ meets nor narrows it, and further reduction needs stronger evidence for dead or
 duplicated behavior that can be removed without losing features.
 VM create/console/metrics host-routing and live lifecycle acceptance also remain
 open; the deployed revision still contains the previously documented gaps.
+
+At the 2026-10-17 follow-up checkpoint (`474730650`), the frontend cap scan
+passes for 2,417 hand-maintained source/config files / 156,043 lines, with no
+file above 200 lines. Since the prior 156,295-line checkpoint, the count is down
+252 lines; compared with the original 153,708-line baseline, it is still up
+2,335 lines. Recent committed frontend changes share telemetry-envelope and
+date-format behavior and remove unreachable traffic styles and VM field options;
+these are small verified cleanups, not substantial aggregate reduction. The
+current TI profile and API inspection test working-tree changes are preserved
+and not included in a commit. Focused checks and independent reviews passed for
+the committed frontend changes; the focused traffic Playwright theme spec could
+not start because its configured local server exited. The 10,000–30,000-line
+frontend target and 100,000-line API reduction remain unachieved. Keep the
+frontend UI and data contracts unchanged while pursuing larger, evidence-based
+component reuse and dead-code reductions.
