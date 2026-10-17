@@ -5,8 +5,9 @@ import { Clock3, Plus, PanelRightClose, PanelRightOpen } from 'lucide-react'
 import type { AgentAutomation } from '@/utils/automations/client'
 import SortIndicator from '@/components/dashboard/sort-indicator'
 import CertificateStatus from './certificateStatus'
+import { HealthCheckStatusPill } from './healthCheckStatusPill'
 import { automationInputClass, formatAutomationDate } from './automationDraft'
-import { healthCheckStatus, healthCheckTag, sortHealthChecks, type HealthSortKey } from './healthCheckSorting'
+import { healthCheckTag, sortHealthChecks, type HealthSortKey } from './healthCheckSorting'
 
 type Props = {
     automations: AgentAutomation[]
@@ -130,14 +131,10 @@ export function WelcomeState({ onCreate, compact = false }: { onCreate: () => vo
 }
 
 export function AutomationRow({ automation, selected, onClick }: { automation: AgentAutomation, selected: boolean, onClick: () => void }) {
-    const missingUrl = automation.actionType === 'agent_prompt' && !automation.targetUrl
-    const failed = Boolean(automation.consecutiveFailures || automation.lastStatus === 'failed' || missingUrl)
-    const warning = automation.lastStatus === 'warning'
-    const state = healthCheckStatus(automation)
     return <div data-health-check={automation.id} className={`relative grid [&>span]:pointer-events-none w-full grid-cols-2 items-center gap-3 border-t border-ui-border px-4 py-3 text-left transition hover:bg-ui-raised md:grid-cols-[minmax(9rem,1.3fr)_minmax(7rem,0.8fr)_minmax(6rem,0.7fr)_minmax(8rem,1fr)_minmax(5rem,0.6fr)_minmax(5rem,0.6fr)] ${selected ? 'bg-ui-primary/5' : ''}`}>
         <button type='button' onClick={onClick} aria-label={automation.name} className='absolute inset-0 rounded focus-visible:outline-2 focus-visible:outline-ui-primary' />
         <span className='min-w-0 truncate text-sm font-semibold text-ui-text'>{automation.name}</span>
-        <span className={`w-fit rounded-full px-2 py-1 text-xs font-semibold ${failed ? 'bg-ui-raised/10 text-ui-text' : warning ? 'bg-ui-warning/10 text-ui-warning' : automation.status === 'active' && (automation.monitoringType !== 'push' || automation.lastStatus) ? 'bg-ui-success/10 text-ui-success' : 'bg-ui-raised text-ui-muted'}`}>{state}</span>
+        <HealthCheckStatusPill automation={automation} variant='row' />
         <CertificateStatus automation={automation} />
         <span className='flex items-center gap-1' aria-label='History'>{historyBars(automation)}</span>
         <span className='text-xs text-ui-muted'>{automation.uptime == null ? '—' : `${automation.uptime}%`}</span>

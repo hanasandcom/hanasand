@@ -96,6 +96,7 @@ export const productTasks: TestTask[] = [
     { id: 'session-details', title: 'Login session device and forwarding details', command: [bun, 'scripts/check-session-details.ts'] },
     { id: 'social-proxy', title: 'Google and Apple callback boundaries', command: [bun, 'scripts/check-social-proxy.ts'] },
     { id: 'health-check-sorting', title: 'Health check column sorting', command: [bun, 'test', 'tests/health-check-sorting.test.ts'] },
+    { id: 'automation-status-pill', title: 'Automation status pill rendering contract', command: [bun, 'test', 'tests/automation-status-pill.test.tsx'] },
     { id: 'terminal-viewer-output', title: 'Shared terminal output normalization', command: [bun, 'test', 'tests/terminal-viewer-output.test.ts'] },
     { id: 'status-history', title: 'Public status history evidence and incident links', command: [bun, 'test', 'tests/status-history.test.ts'] },
     { id: 'public-status-copy', title: 'Public status label and incident copy', command: [bun, 'test', 'tests/public-status-copy.test.ts'] },

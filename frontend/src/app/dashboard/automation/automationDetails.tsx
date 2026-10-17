@@ -7,8 +7,8 @@ import ErrorNotice from '@/components/error/errorNotice'
 import CertificateStatus from './certificateStatus'
 import ExternalSender from './externalSender'
 import useAutomationHistory from './useAutomationHistory'
+import { HealthCheckStatusPill } from './healthCheckStatusPill'
 import { automationInputClass, formatAutomationDate, formatAutomationInterval } from './automationDraft'
-import { healthCheckStatus } from './healthCheckSorting'
 
 type Props = {
     automation: AgentAutomation
@@ -30,9 +30,6 @@ type Props = {
 
 export function AutomationDetails({ automation, runs, history, historyFrom, historyTo, onHistoryFromChange, onHistoryToChange, showHistoryFilters, onShowHistoryFiltersChange, busy, message, onRun, onEdit, onDelete, onRefresh }: Props) {
     const missingUrl = automation.actionType === 'agent_prompt' && !automation.targetUrl
-    const failed = Boolean(automation.consecutiveFailures || automation.lastStatus === 'failed' || missingUrl)
-    const warning = automation.lastStatus === 'warning'
-    const state = healthCheckStatus(automation)
     const bottom = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
@@ -48,7 +45,7 @@ export function AutomationDetails({ automation, runs, history, historyFrom, hist
         <div className='flex flex-wrap items-start justify-between gap-3'>
             <div>
                 <h2 className='text-xl font-semibold text-ui-text'>{automation.name}</h2>
-                <p className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${failed ? 'bg-ui-raised/10 text-ui-text' : warning ? 'bg-ui-warning/10 text-ui-warning' : automation.status === 'active' && (automation.monitoringType !== 'push' || automation.lastStatus) ? 'bg-ui-success/10 text-ui-success' : 'bg-ui-raised text-ui-muted'}`}>{state}</p>
+                <HealthCheckStatusPill automation={automation} variant='details' />
             </div>
             <div className='flex gap-2'>
                 <button type='button' onClick={onRun} disabled={busy === 'run' || missingUrl} className='inline-flex h-9 items-center gap-2 rounded-lg bg-ui-primary px-3 text-sm font-semibold text-ui-on-primary hover:opacity-90 disabled:opacity-50' title={missingUrl ? 'Add a URL before checking' : undefined}><Play className='h-4 w-4' />Check now</button>
