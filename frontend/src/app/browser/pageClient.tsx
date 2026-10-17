@@ -121,6 +121,7 @@ export default function BrowserPageClient({ initialData, resultId, resultRunId }
     const { refreshRunStats, deleteHistory, shareFinding } = useBrowserHistoryActions({ initialStats: initialData.stats, history, setHistory, setHistoryReady, setQuota, setRunStats })
 
     const runIsActive = sessionState === 'queued' || sessionState === 'connecting' || sessionState === 'live'
+    const clockIsActive = Boolean((runStartedAt && runIsActive) || (runTiming && sessionState === 'live'))
     const metricEvent = sessionState === 'ended' ? stoppedRunRef.current ? 'Stopped' : 'Completed' : sessionState === 'failed' ? 'Failed' : compactBrowserEvent(events[0] || sessionStateLabel(sessionState))
     const runMetrics = { ...streamStats, capacity, event: metricEvent }
     const { exportReport, saveReport } = useBrowserReportActions({ target: normalizedTarget, activeUrl, sessionState, socketState, selectedProfile, summary, captures, events, consoleEvents, providerConsoleEvents, capacity, streamStats, metricEvent, currentRunId, setHistory, setShareStatus, setShareUrl, setShareError, stoppedEarlyRef })
@@ -140,18 +141,11 @@ export default function BrowserPageClient({ initialData, resultId, resultRunId }
     }, [])
 
     useEffect(() => {
-        if (!runStartedAt || !runIsActive) return
-        setClockNow(Date.now())
-        const timer = window.setInterval(() => setClockNow(Date.now()), 1_000)
-        return () => window.clearInterval(timer)
-    }, [runIsActive, runStartedAt])
-
-    useEffect(() => {
-        if (!runTiming || sessionState !== 'live') return
+        if (!clockIsActive) return
         setClockNow(Date.now())
         const timer = window.setInterval(() => setClockNow(Date.now()), 1000)
         return () => window.clearInterval(timer)
-    }, [runTiming, sessionState])
+    }, [runIsActive, runStartedAt, runTiming, sessionState])
 
     const pushEvent = useCallback((event: string) => {
         setEvents(current => [event, ...current].slice(0, 8))
