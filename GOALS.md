@@ -2287,3 +2287,13 @@ removed-system-route fallback check. The route guard and full registered
 frontend suite pass. No production code changed. The repository scan is 4,551
 hand-maintained files / 328,651 lines, with zero files over 200, including the
 frontend. Both aggregate reduction targets remain open.
+
+At checkpoint `93e6e2043` (2026-10-17), management user summary cards reuse the
+shared dashboard metric component's compact presentation. A full-markup render
+assertion confirms the former card classes and structure; user, reserved-count,
+route, access, and data behavior remain unchanged. Focused rendering tests,
+nonincremental TypeScript, scoped ESLint, diff check, and the repository line
+cap pass. Production code is one line shorter; the test adds nine lines. The
+frontend inventory is 2,400 hand-maintained files / 155,606 lines, with zero
+over 200. The repository inventory is 4,551 files / 328,659 lines, with zero
+over 200. Aggregate frontend and API reduction targets remain open.
