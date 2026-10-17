@@ -1,12 +1,10 @@
 import { hasVmAccess } from '#utils/vms/access.ts'
 import { vmLifecycleLock } from '#utils/vms/lifecycleLock.ts'
-import config from '#constants'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import hasHanasandInternalRouteAccess from '#utils/auth/organizationPageAccess.ts'
 import sanitize from '#utils/sanitize.ts'
 import run from '#db'
 import type { FastifyReply, FastifyRequest } from 'fastify'
-import { canUseLocalLxd, setLocalLxdInstanceState } from '#utils/vms/lxd.ts'
 import { internalHostFetch } from '#utils/vms/hostTransport.ts'
 import { recordSystemEvent } from '#utils/systemEvent.ts'
 
@@ -39,24 +37,6 @@ export default async function vmAction(req: FastifyRequest, res: FastifyReply) {
             }
 
             if (vm.deleted_at) return res.status(409).send({ error: 'This VM is scheduled for deletion. Restore it before starting.' })
-
-            if (vm.primary_host === config.vm_host_id && await canUseLocalLxd()) {
-                const details = await setLocalLxdInstanceState(vm.name, action as 'start' | 'stop' | 'restart', { tolerateAlready: true })
-                await recordSystemEvent(req, {
-                    actionType: `vm.${action}`,
-                    actorId: userId,
-                    targetType: 'vm',
-                    targetId: vm.name,
-                    context: { status: details.status, execution: 'local_lxd' },
-                })
-                return res.send({
-                    ok: true,
-                    name: vm.name,
-                    action,
-                    status: details.status,
-                    message: `VM ${vm.name} ${action} command completed.`,
-                })
-            }
 
             const internalRes = await internalHostFetch(vm.primary_host, `/vm/${encodeURIComponent(vm.name)}/${action}`, {
                 method: 'POST',

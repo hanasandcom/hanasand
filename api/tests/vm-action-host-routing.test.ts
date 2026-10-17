@@ -17,9 +17,9 @@ mock.module('../src/utils/db.ts', () => ({
             : [],
     }),
 }))
-mock.module('../src/constants.ts', () => ({ default: { vm_host_id: 'inspur' } }))
+mock.module('../src/constants.ts', () => ({ default: { vm_host_id: 'ovhcloud' } }))
 mock.module('../src/utils/vms/lxd.ts', () => ({
-    canUseLocalLxd: async () => false,
+    canUseLocalLxd: async () => true,
     setLocalLxdInstanceState: async () => { throw new Error('Unexpected local action') },
 }))
 mock.module('../src/utils/vms/hostTransport.ts', () => ({
@@ -37,7 +37,7 @@ app.post('/vm/:id/:action', vmAction)
 beforeEach(() => { calls.length = 0 })
 afterAll(async () => { await app.close() })
 
-test('start, stop and restart target the VM primary host when local LXD is unavailable', async () => {
+test('start, stop and restart target the VM host even when local LXD is available', async () => {
     for (const action of ['start', 'stop', 'restart']) {
         const response = await app.inject({
             method: 'POST',
