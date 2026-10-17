@@ -2748,3 +2748,11 @@ After the GPT message-helper reuse and direct payload contract test
 still passing. The small production-code reduction is outweighed in aggregate by
 the added effective test assertions; the frontend remains 2,337 lines above its
 original baseline.
+At `0a1ba2669`, the frontend inventory has risen to 2,420 checked files /
+156,261 lines (+216 lines over the previous checkpoint). The increase comes
+from replacing brittle source scraping in the Share Git suite with runtime
+coverage for imports, persistence ordering, parent panel selection, explorer
+refresh wiring, and tree controls. That coverage passes 14/14 and every added
+file stays under 200 lines; it improves test quality but does not shrink the
+aggregate codebase. The frontend remains 2,553 lines above its original
+baseline.
