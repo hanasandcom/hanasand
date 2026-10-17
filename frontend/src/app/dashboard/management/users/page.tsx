@@ -2,10 +2,10 @@ import Users from '@/components/users/users'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import fetchUsers from '@/utils/users/fetchUsers'
-import { DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPage } from '@/components/dashboard/ui'
+import DashboardMetricCard from '@/components/dashboard/dashboardMetricCard'
 import { UserRound, UsersRound } from 'lucide-react'
 import { isReservedPlaceholder } from '@/utils/users/isReservedPlaceholder'
-import type { ReactNode } from 'react'
 
 export default async function Page() {
     const Cookies = await cookies()
@@ -25,23 +25,10 @@ export default async function Page() {
     return (
         <DashboardPage>
             <section className='grid gap-3 md:grid-cols-2'>
-                <AdminMetric icon={<UsersRound className='h-4 w-4' />} label='Users' value={String(users.length)} detail='Registered accounts' />
-                <AdminMetric icon={<UserRound className='h-4 w-4' />} label='Reserved' value={String(reservedCount)} detail='Reserved accounts' />
+                <DashboardMetricCard density='compact' tone='neutral' icon={<UsersRound className='h-4 w-4' />} label='Users' value={String(users.length)} detail='Registered accounts' />
+                <DashboardMetricCard density='compact' tone='neutral' icon={<UserRound className='h-4 w-4' />} label='Reserved' value={String(reservedCount)} detail='Reserved accounts' />
             </section>
             <Users users={users} accessibleOrganizationIds={accessibleOrganizationIds} />
         </DashboardPage>
-    )
-}
-
-function AdminMetric({ icon, label, value, detail }: { icon: ReactNode, label: string, value: string, detail: string }) {
-    return (
-        <DashboardPanel className='border-ui-border bg-ui-panel p-3'>
-            <div className='flex items-center justify-between gap-3'>
-                <span className='text-sm text-ui-muted'>{label}</span>
-                <span className='text-ui-muted'>{icon}</span>
-            </div>
-            <div className='mt-1 text-xl font-medium text-ui-text'>{value}</div>
-            <p className='mt-1 text-xs text-ui-muted'>{detail}</p>
-        </DashboardPanel>
     )
 }
