@@ -2674,3 +2674,32 @@ pass locally, as do repository/frontend line-cap checks (4,564 files / 328,973
 lines; 2,417 frontend files / 156,180 lines) and diff checks. The next canonical
 Docker build remains required because it exposed different lint results from
 the pre-existing local dependency install. No deployment cutover has happened.
+
+At the 2026-10-17 frontend checkpoint, five reviewed refactors were committed and
+deployed at `f25041661838a1632093cc021c4782b0123c95a9`: a shared AI workspace
+status badge, response filter, dashboard publishing shell, browser history
+action row, and reuse of the share-tree path walker. They preserve existing
+labels, classes, routes, actions, page data shaping, and empty/populated
+rendering. The share traversal removes six production lines; the other
+component extractions improve shared ownership but add code. Overall the
+15-file frontend diff is +244/-101 lines (+143 net), so this checkpoint does
+not reduce aggregate frontend LOC. The clean production candidate's frontend
+cap scan passes for 2,419 source/config files / 156,295 lines, with no file
+above 200 lines. Local full frontend tests, ESLint, guardrail lint, nonincremental
+TypeScript, and production build pass; Next generated 116 static pages. The
+canonical release script completed, and live API/frontend health both report
+`f25041661838a1632093cc021c4782b0123c95a9`; browser page preloads and service
+health checks passed. Both GitHub and Forgejo `main` were pushed to this commit.
+
+Read-only frontend audits found 31,511 test lines and only one clearly weak
+assertion; most test pairs cover distinct algorithm and browser/UI behavior.
+Import-graph review surfaced only two small possible orphans (39 and 18 lines),
+which are not deleted without external-consumer confirmation. These audits do
+not evidence a safe 100,000-line frontend cut: the larger organization and
+thesis areas already share their main editors, controls, and data helpers, while
+remaining overlaps have distinct UI or data contracts. The frontend target of
+10,000–30,000 lines remains a hard, unachieved goal; this checkpoint neither
+meets nor narrows it, and further reduction needs stronger evidence for dead or
+duplicated behavior that can be removed without losing features.
+VM create/console/metrics host-routing and live lifecycle acceptance also remain
+open; the deployed revision still contains the previously documented gaps.
