@@ -2,17 +2,10 @@ import { processLiveLogs, processStoredLogs } from '#utils/events/processLogs.ts
 import { processRuleReprocessJob } from '#utils/events/ruleReprocess.ts'
 import { LIVE_LOG_PROCESSOR_JOB_ID, RULE_REPROCESSOR_JOB_ID, startLogProcessor, STORED_LOG_PROCESSOR_JOB_ID } from '#utils/events/processor.ts'
 import { startBackgroundAnalytics } from './utils/backgroundAnalytics.ts'
-import { recoveryRequestAllowed, recoveryReadOnly } from './utils/recovery.ts'
-import { queryOnce, closeDatabase, withEventDatabase, isTransientDatabaseError, warmDatabasePools } from './utils/db.ts'
+import { recoveryRequestAllowed } from './utils/recovery.ts'
+import { queryOnce, closeDatabase, withEventDatabase, warmDatabasePools } from './utils/db.ts'
 import Fastify from 'fastify'
-import apiRoutes from './routes.ts'
-import cors from '@fastify/cors'
-import websocketPlugin from '@fastify/websocket'
-import IndexHandler from './handlers/index.ts'
 import cron from './utils/cron.ts'
-import ws from './plugins/ws.ts'
-import rateLimit from './plugins/rateLimit.ts'
-import fp from '#utils/refresh/fp.ts'
 import ensureRepositoryUpToDate from '#utils/git/ensureRepositoryUpToDate.ts'
 import ensureSchema from '#utils/db/ensureSchema.ts'
 import ensureLogSearchIndexes from './utils/db/logSearchIndexes.ts'
@@ -23,14 +16,10 @@ import { startIngestAccessCounterRefresh } from './utils/events/analyzeIngestAcc
 import { startDropRateAlertRefresh } from './utils/events/dropRateAlert.ts'
 import { startDatabaseOverviewRefresh, warmDatabaseOverview } from './utils/db/overview.ts'
 import recordLog from '#utils/logs/recordLog.ts'
-import recordTraffic from '#utils/traffic/recordTraffic.ts'
-import { recordHttpErrorResponse } from '#utils/logs/httpErrors.ts'
 import { provisionExistingMailAccounts } from '#utils/mail/accounts.ts'
-import { isAllowedApiOrigin, TRUSTED_API_PROXIES } from '#utils/http/publicBoundary.ts'
-import publicTiApi from './handlers/ti/publicApi.ts'
-import tiInternalApi from './handlers/ti/internal.ts'
+import { TRUSTED_API_PROXIES } from '#utils/http/publicBoundary.ts'
 import { randomUUID } from 'node:crypto'
-import { ingestEvent } from './handlers/events.ts'
+import { registerHttpSurface } from './registerHttpSurface.ts'
 
 process.on('uncaughtException', error => {
     if (isBunWebSocketErrorEvent(error)) {
@@ -88,92 +77,7 @@ fastify.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, b
 })
 fastify.addContentTypeParser('application/octet-stream', { parseAs: 'string' }, (_req, body, done) => done(null, Buffer.isBuffer(body) ? body.toString('utf8') : body))
 
-fastify.register(websocketPlugin)
-fastify.register(cors, {
-    origin: (origin, callback) => callback(null, isAllowedApiOrigin(origin)),
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD']
-})
-
-if (!browserWorkerOnly && !httpWorkerOnly && process.env.RECOVERY_ESSENTIAL_ONLY !== '1') fastify.register(fp)
-fastify.register(ws)
-if (!browserWorkerOnly) {
-    fastify.register(rateLimit)
-    fastify.addHook('onSend', async (req, res, payload) => {
-        if (!recoveryReadOnly() && process.env.RECOVERY_ESSENTIAL_ONLY !== '1') await recordHttpErrorResponse(req, res, payload)
-        return payload
-    })
-    fastify.addHook('onResponse', async (req, res) => {
-        await recordTraffic(req, res, !recoveryReadOnly() && process.env.RECOVERY_ESSENTIAL_ONLY !== '1')
-    })
-    fastify.register(publicTiApi, { prefix: '/api/v1' })
-    fastify.register(tiInternalApi, { prefix: '/api/internal/ti' })
-    fastify.register(apiRoutes, { prefix: '/api' })
-    fastify.post('/mill', ingestEvent)
-}
-if (browserWorkerOnly) {
-    fastify.get('/', async () => ({ ok: true, service: 'browsers' }))
-} else {
-    fastify.get('/', IndexHandler)
-}
-if (!browserWorkerOnly) {
-    fastify.addHook('onResponse', async (req, res) => {
-        if (recoveryReadOnly() || process.env.RECOVERY_ESSENTIAL_ONLY === '1' || res.statusCode < 400) {
-            return
-        }
-        if (res.statusCode === 401 || res.statusCode === 403) {
-            return
-        }
-
-        const referer = req.headers.referer || req.headers.referrer || ''
-        const refererText = Array.isArray(referer) ? referer.join(', ') : referer
-        const isSharePageRequest = /\/(?:s|p)\//.test(refererText)
-        const isVmRequest = req.url.startsWith('/api/vms')
-        const category = isSharePageRequest
-            ? 'share_page_http'
-            : isVmRequest && /(?:connection|agent-target|sync-access)/.test(req.url)
-                ? 'terminal_failure'
-                : isVmRequest
-                    ? 'vm_provisioning_error'
-                    : null
-
-        if (!category) {
-            return
-        }
-
-        await recordLog({
-            service: category === 'share_page_http' ? 'hanasand-frontend' : 'hanasand-api',
-            level: res.statusCode >= 500 ? 'error' : 'warn',
-            message: `${req.method} ${req.url} returned ${res.statusCode}`,
-            metadata: {
-                category,
-                method: req.method,
-                url: req.url,
-                statusCode: res.statusCode,
-                referer: refererText,
-            },
-        }).catch(error => fastify.log.error(error, 'Failed to persist production monitor signal'))
-    })
-    fastify.addHook('onError', async (req, res, error) => {
-        if (!res.sent && ((error as { code?: string }).code === 'DB_QUEUE_FULL' || isTransientDatabaseError(error))) {
-            const preview = req.url.split('?')[0] === '/api/rules/preview'
-            const message = preview
-                ? 'Preview is temporarily busy. Try again shortly.'
-                : 'Database is temporarily busy. Try again shortly.'
-            res.header('retry-after', '1').status(503).send({ error: message })
-            return
-        }
-        if (recoveryReadOnly() || process.env.RECOVERY_ESSENTIAL_ONLY === '1') return
-        await recordLog({
-            level: 'error',
-            message: error.message,
-            metadata: {
-                method: req.method,
-                url: req.url,
-                stack: error.stack,
-            },
-        }).catch(logError => fastify.log.error(logError, 'Failed to persist request error log'))
-    })
-}
+registerHttpSurface(fastify, { browserWorkerOnly, httpWorkerOnly })
 
 process.on('unhandledRejection', reason => {
     void recordLog({
