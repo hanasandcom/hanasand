@@ -1,10 +1,11 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
-import { getWorkspaceBundle, requireAiUser } from './shared.ts'
+import { requireAiUser } from './shared.ts'
+import { getAiRuntimeSnapshot } from './runtimeSnapshot.ts'
 
 export default async function getAiRuntime(req: FastifyRequest, res: FastifyReply) {
     const userId = await requireAiUser(req, res)
     if (!userId) return
 
-    const workspace = await getWorkspaceBundle(userId)
-    return res.send({ runtimeState: workspace.runtimeState })
+    const runtimeState = await getAiRuntimeSnapshot(userId)
+    return res.send({ runtimeState })
 }
