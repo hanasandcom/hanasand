@@ -4,6 +4,7 @@ import { requireAdminSupport } from '../auth.ts'
 import { normalizeApprovalStatus, normalizeOption, supportText as text } from '#utils/support/adminSupportInput.ts'
 import { toAccessRecoveryDecision } from '../cases/accessRecoveryApprovalMapping.ts'
 import { supportAccessRecoveryApprovalTimeline } from '../cases/accessRecoveryApprovalTimeline.ts'
+import { supportAccessRecoveryApprovalSelect } from './approvalQuery.ts'
 import type { AccessRecoveryApprovalRow } from '../supportTypes.ts'
 
 type AccessRecoveryApprovalQuery = {
@@ -63,28 +64,7 @@ export async function getSupportAccessRecoveryApprovals(
     if (from && !Number.isNaN(Date.parse(from))) where.push(`approval.created_at >= ${add(new Date(from).toISOString())}`)
     if (to && !Number.isNaN(Date.parse(to))) where.push(`approval.created_at <= ${add(new Date(to).toISOString())}`)
 
-    const result = await run(`
-        SELECT
-            approval.*,
-            invite.email,
-            invite.role,
-            invite.status AS invite_status,
-            organization.name AS organization_name,
-            COALESCE((
-                SELECT jsonb_agg(jsonb_build_object(
-                    'id', event.id,
-                    'actionType', event.event_type,
-                    'outcome', event.outcome,
-                    'severity', event.severity,
-                    'createdAt', event.created_at
-                ) ORDER BY event.created_at ASC)
-                FROM system_events event
-                WHERE event.request_id = approval.request_id
-                  AND event.event_type ILIKE 'support.organization.access_recovery%'
-            ), '[]'::jsonb) AS audit_events
-        FROM admin_access_recovery_approvals approval
-        JOIN organization_invites invite ON invite.id = approval.invite_id
-        LEFT JOIN organizations organization ON organization.id = approval.organization_id
+    const result = await run(`${supportAccessRecoveryApprovalSelect(true)}
         ${where.length ? `WHERE ${where.join('\n          AND ')}` : ''}
         ORDER BY approval.updated_at DESC, approval.created_at DESC
         LIMIT ${add(limit)}

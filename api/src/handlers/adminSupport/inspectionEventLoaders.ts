@@ -1,5 +1,6 @@
 import run from '#db'
 import { appendSharedAuditFilter, supportSqlFilters } from './inspectionFilterSql.ts'
+import { supportAccessRecoveryApprovalSelect } from './accessRecovery/approvalQuery.ts'
 import type { AccessRecoveryApprovalRow } from './supportTypes.ts'
 
 export async function loadInspectionApprovals(input: { q?: string, org: string, user: string, email: string, request: string, outcome: string, limit: number }) {
@@ -21,28 +22,7 @@ export async function loadInspectionApprovals(input: { q?: string, org: string, 
     if (input.outcome) where.push(`approval.outcome = ${add(input.outcome)}`)
     if (!where.length) return []
 
-    const result = await run(`
-        SELECT
-            approval.*,
-            invite.email,
-            invite.role,
-            invite.status AS invite_status,
-            organization.name AS organization_name,
-            COALESCE((
-                SELECT jsonb_agg(jsonb_build_object(
-                    'id', event.id,
-                    'actionType', event.event_type,
-                    'outcome', event.outcome,
-                    'severity', event.severity,
-                    'createdAt', event.created_at
-                ) ORDER BY event.created_at ASC)
-                FROM system_events event
-                WHERE event.request_id = approval.request_id
-                  AND event.event_type ILIKE 'support.organization.access_recovery%'
-            ), '[]'::jsonb) AS audit_events
-        FROM admin_access_recovery_approvals approval
-        JOIN organization_invites invite ON invite.id = approval.invite_id
-        LEFT JOIN organizations organization ON organization.id = approval.organization_id
+    const result = await run(`${supportAccessRecoveryApprovalSelect(true)}
         WHERE ${where.join('\n           AND ')}
         ORDER BY approval.updated_at DESC, approval.created_at DESC
         LIMIT ${add(input.limit)}

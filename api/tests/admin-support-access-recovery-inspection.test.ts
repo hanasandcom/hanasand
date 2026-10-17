@@ -17,6 +17,10 @@ test('access recovery inspection joins audit actors and returns its event timeli
 
     expect(result.statusCode).toBe(200)
     expect(result.body.accessRecoveryInspection.auditEventIds).toEqual([77])
+    const approvalQuery = state.queries.find(({ sql }) => sql.includes('FROM admin_access_recovery_approvals approval'))
+    expect(approvalQuery?.sql).toContain('invite.status AS invite_status')
+    expect(approvalQuery?.sql).toContain('organization.name AS organization_name')
+    expect(approvalQuery?.sql).not.toContain('audit_events')
     const query = state.queries.find(({ sql }) => sql.includes('FROM system_events event'))
     expect(query?.sql).toContain('LEFT JOIN users actor ON actor.id = event.actor_id')
 })

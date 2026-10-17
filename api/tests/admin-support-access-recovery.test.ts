@@ -109,6 +109,10 @@ test('access recovery approval commits the shared invite transition with its dec
     expect(result.statusCode).toBe(200)
     expect(result.body.decision.status).toBe('approved')
     expect(result.body.decision.invite.status).toBe('pending')
+    const lockedApprovalQuery = state.queries.find(({ sql }) => sql.includes('FROM admin_access_recovery_approvals approval') && sql.includes('FOR UPDATE OF approval'))
+    expect(lockedApprovalQuery?.sql).toContain('invite.status AS invite_status')
+    expect(lockedApprovalQuery?.sql).toContain('organization.name AS organization_name')
+    expect(lockedApprovalQuery?.sql).not.toContain('audit_events')
     expect(state.inviteActionInputs.at(-1)).toMatchObject({
         organizationId: 'org-1', inviteId: 'invite-1', action: 'resend', expiresAt: '2026-11-01T00:00:00.000Z',
     })
@@ -163,4 +167,3 @@ test('access recovery approval rejects an expired invite without changing its pe
         context: { error: 'access_recovery_invite_expired', mutation: 'none' },
     })
 })
-

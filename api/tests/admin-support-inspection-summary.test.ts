@@ -18,6 +18,9 @@ test('support inspection keeps organization member and pending-invite counts in 
     const response = await request(getSupportInspection, { query: { org: 'org-1' } })
 
     expect(response.statusCode).toBe(200)
+    const approvalQuery = state.queries.find(({ sql }) => sql.includes('FROM admin_access_recovery_approvals approval'))
+    expect(approvalQuery?.sql).toContain('invite.status AS invite_status')
+    expect(approvalQuery?.sql).toContain('AS audit_events')
     expect(response.body.inspection.organizations).toHaveLength(1)
     expect(response.body.inspection.organizations[0]).toMatchObject({
         id: 'org-1',

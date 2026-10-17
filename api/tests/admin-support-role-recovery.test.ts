@@ -188,5 +188,8 @@ test('access recovery search applies requester, approver, status, outcome, organ
     expect(state.queries[0].sql).toContain('approval.requested_by ILIKE')
     expect(state.queries[0].sql).toContain('approval.approved_by ILIKE')
     expect(state.queries[0].sql).toContain('approval.denied_by ILIKE')
+    expect(state.queries[0].sql).toContain('invite.status AS invite_status')
+    expect(state.queries[0].sql).toContain('organization.name AS organization_name')
+    expect(state.queries[0].sql).toContain('AS audit_events')
     expect(state.queries[0].values).toEqual(['%recovery-1%', '%org-1%', 'pending', 'success', '%admin-one%', '%admin-two%', 20])
 })
