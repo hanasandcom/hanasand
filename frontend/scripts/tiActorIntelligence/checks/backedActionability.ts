@@ -47,7 +47,9 @@ const webhookStage = backed.consumerReadiness.stages.find(stage => stage.id === 
 if (!webhookStage?.request) throw new Error('Backed webhook consumer stage should include a request.')
 const readyIdempotency = consumerRequestFields(webhookStage).find(field => field.label === 'Idempotency')
 assert(readyIdempotency?.state === 'ready', 'Webhook consumer readiness should mark a present idempotency key ready.')
-const { idempotencyKey: _idempotencyKey, ...requestBodyWithoutKey } = webhookStage.request.body
+const requestBodyWithoutKey = Object.fromEntries(
+    Object.entries(webhookStage.request.body).filter(([key]) => key !== 'idempotencyKey'),
+)
 const missingKeyStage = {
     ...webhookStage,
     request: { ...webhookStage.request, body: requestBodyWithoutKey },

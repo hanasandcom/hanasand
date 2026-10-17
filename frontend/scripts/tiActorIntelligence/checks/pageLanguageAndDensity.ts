@@ -76,7 +76,7 @@ assert(pageClientSource.includes('const visibleLabel = feedback || (showLabel ? 
 assert(!pageClientSource.includes('showLabel ? label : \'Copy\''), 'Public TI copy payload actions should not render visible Copy text on every row.')
 assert(pageClientSource.includes('org alert state'), 'Public TI consumer route labels should avoid raw internal endpoint wording.')
 assert(pageClientSource.includes('{stage.payload.provenance.length} source reference'), 'Public TI consumer readiness should show stage source-reference counts.')
-assert(consumerReadinessSource.includes("{ key: 'idempotencyKey', label: 'Idempotency', required: true }"), 'Webhook readiness should require an idempotency key in consumerReadiness.')
+assert(consumerReadinessSource.includes('{ key: \'idempotencyKey\', label: \'Idempotency\', required: true }'), 'Webhook readiness should require an idempotency key in consumerReadiness.')
 assert(pageClientSource.includes('watchlistItemIds'), 'Public TI alert readiness should show persisted watchlist item readiness.')
 assert(pageClientSource.includes('data-ti-handoff-evidence-matrix'), 'Public TI page should expose handoff evidence for backed action review.')
 assert(pageClientSource.includes('Review evidence'), 'Public TI page should label backed action evidence in analyst language.')

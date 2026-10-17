@@ -1,5 +1,3 @@
-import type { WorkbenchProductReadinessItem } from './ti/workbench/workbenchClient'
-
 export type OperatorScope = {
     tenantId: string
     organizationId?: string
@@ -128,4 +126,3 @@ export type DashboardViewerIdentity = {
     actor?: string
     source: 'session' | 'org_member_match' | 'single_active_org_member' | 'anonymous'
 }
-

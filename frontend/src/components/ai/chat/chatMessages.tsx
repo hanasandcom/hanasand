@@ -150,8 +150,3 @@ function extractBrowserSection(content: string, label: string) {
 
     return rawSection.split('\n').map((line) => line.trim()).filter(Boolean)
 }
-
-function toolLabel(message: AIConversationMessage) {
-    const [firstLine] = message.content.split('\n')
-    return firstLine || 'tool'
-}

@@ -1,10 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, type Dispatch, type SetStateAction, type MutableRefObject } from 'react'
-import type { BrowserRunHistory, Capture, SandboxProfile, SessionState, SocketState, StreamStats, RunTiming, SandboxCapacity } from '../types'
+import type { Capture, SandboxProfile, SessionState, SocketState, StreamStats, RunTiming, SandboxCapacity } from '../types'
 import type { BrowserControlSocket } from '../controlSocket'
 import { providerTabStatus, selectToolCapture } from '../browserProviderData'
-import { scrollRouteFrameToTop } from '../browserSetup'
 import { hasParsedProviderResult } from '../browserProviderData'
 
 type BrowserSessionActionsOptions = {
@@ -12,72 +11,72 @@ type BrowserSessionActionsOptions = {
 }
 
 export function useBrowserSessionActions(options: BrowserSessionActionsOptions) {
-    const { runIsActive, selectedProfile, toolCaptures, normalizedTarget, activeSandboxTab, setActiveSandboxTab, setReportOpen, socketRef, setSessionState, setSocketState, setStreamUrl, setStreamHasFrame, setCaptures, setRunBlocker, setActiveImage, setStreamStats, setRunTiming, setRunStartedAt, setActiveUrl, setCapacity, pushEvent, quickRun, setQuickRun, stoppedRunRef, stoppedEarlyRef, runStartedAt, replacementRef, setShowStoredResult } = options
-const selectSandboxTab = useCallback((tabId: string) => {
-    const tool = selectedProfile.tools.find(item => item.id === tabId)
-    if (tool && providerTabStatus(selectToolCapture(toolCaptures, tool, normalizedTarget), selectToolCapture(toolCaptures, tool, normalizedTarget)?.toolAnalysis) === 'no obfuscated code') return
-    setActiveSandboxTab(tabId)
-    if (!runIsActive) setReportOpen(true)
-    const socket = socketRef.current
-    if (socket?.readyState === WebSocket.OPEN && tool?.id !== 'webcrack') socket.send(JSON.stringify({ type: 'select_tab', tabId }))
-}, [runIsActive, selectedProfile.tools, toolCaptures, normalizedTarget])
+    const { runIsActive, selectedProfile, toolCaptures, normalizedTarget, activeSandboxTab, setActiveSandboxTab, setReportOpen, socketRef, setSessionState, setSocketState, setStreamUrl, setStreamHasFrame, setCaptures, setRunBlocker, setActiveImage, setStreamStats, setRunTiming, setRunStartedAt, setActiveUrl, setCapacity, pushEvent, quickRun, stoppedRunRef, stoppedEarlyRef, runStartedAt, replacementRef, setShowStoredResult } = options
+    const selectSandboxTab = useCallback((tabId: string) => {
+        const tool = selectedProfile.tools.find(item => item.id === tabId)
+        if (tool && providerTabStatus(selectToolCapture(toolCaptures, tool, normalizedTarget), selectToolCapture(toolCaptures, tool, normalizedTarget)?.toolAnalysis) === 'no obfuscated code') return
+        setActiveSandboxTab(tabId)
+        if (!runIsActive) setReportOpen(true)
+        const socket = socketRef.current
+        if (socket?.readyState === WebSocket.OPEN && tool?.id !== 'webcrack') socket.send(JSON.stringify({ type: 'select_tab', tabId }))
+    }, [runIsActive, selectedProfile.tools, toolCaptures, normalizedTarget])
 
-useEffect(() => {
-    const tool = selectedProfile.tools.find(item => item.id === activeSandboxTab)
-    const capture = tool && selectToolCapture(toolCaptures, tool, normalizedTarget)
-    if (capture && providerTabStatus(capture, capture.toolAnalysis) === 'no obfuscated code') selectSandboxTab('browser')
-}, [activeSandboxTab, normalizedTarget, selectSandboxTab, selectedProfile.tools, toolCaptures])
+    useEffect(() => {
+        const tool = selectedProfile.tools.find(item => item.id === activeSandboxTab)
+        const capture = tool && selectToolCapture(toolCaptures, tool, normalizedTarget)
+        if (capture && providerTabStatus(capture, capture.toolAnalysis) === 'no obfuscated code') selectSandboxTab('browser')
+    }, [activeSandboxTab, normalizedTarget, selectSandboxTab, selectedProfile.tools, toolCaptures])
 
-const extendRun = useCallback((extension: 'free' | 'paid') => {
-    const socket = socketRef.current
-    if (socket?.readyState !== WebSocket.OPEN) return
-    socket.send(JSON.stringify({ type: 'extend', extension }))
-}, [])
+    const extendRun = useCallback((extension: 'free' | 'paid') => {
+        const socket = socketRef.current
+        if (socket?.readyState !== WebSocket.OPEN) return
+        socket.send(JSON.stringify({ type: 'extend', extension }))
+    }, [])
 
-const stopRun = useCallback(() => {
-    const socket = socketRef.current
-    stoppedRunRef.current = true
-    stoppedEarlyRef.current = runStartedAt === null || Date.now() - runStartedAt < 30_000
-    if (replacementRef.current) clearTimeout(replacementRef.current)
-    replacementRef.current = null
-    setStreamUrl('')
-    setStreamHasFrame(false)
-    socket?.send(JSON.stringify({ type: 'end' }))
-    setSessionState('ended')
-    pushEvent('Sandbox stopped.')
-}, [pushEvent, runStartedAt])
+    const stopRun = useCallback(() => {
+        const socket = socketRef.current
+        stoppedRunRef.current = true
+        stoppedEarlyRef.current = runStartedAt === null || Date.now() - runStartedAt < 30_000
+        if (replacementRef.current) clearTimeout(replacementRef.current)
+        replacementRef.current = null
+        setStreamUrl('')
+        setStreamHasFrame(false)
+        socket?.send(JSON.stringify({ type: 'end' }))
+        setSessionState('ended')
+        pushEvent('Sandbox stopped.')
+    }, [pushEvent, runStartedAt])
 
-useEffect(() => {
-    if (!quickRun || !runIsActive || stoppedRunRef.current) return
-    const ready = ['virustotal', 'urlquery'].every(kind => toolCaptures.some(capture =>
-        capture.toolAnalysis?.toolKind === kind && !capture.error && hasParsedProviderResult(capture.toolAnalysis)))
-    if (!ready) return
-    stopRun()
-    // Successful quick runs are complete even when they take less than 30 seconds.
-    stoppedEarlyRef.current = false
-}, [quickRun, runIsActive, stopRun, toolCaptures])
+    useEffect(() => {
+        if (!quickRun || !runIsActive || stoppedRunRef.current) return
+        const ready = ['virustotal', 'urlquery'].every(kind => toolCaptures.some(capture =>
+            capture.toolAnalysis?.toolKind === kind && !capture.error && hasParsedProviderResult(capture.toolAnalysis)))
+        if (!ready) return
+        stopRun()
+        // Successful quick runs are complete even when they take less than 30 seconds.
+        stoppedEarlyRef.current = false
+    }, [quickRun, runIsActive, stopRun, toolCaptures])
 
-const resetRun = useCallback(() => {
-    stoppedRunRef.current = true
-    if (runIsActive) socketRef.current?.send(JSON.stringify({ type: 'end' }))
-    window.history.replaceState(null, '', '/sandbox')
-    setShowStoredResult(false)
-    if (replacementRef.current) clearTimeout(replacementRef.current)
-    replacementRef.current = null
-    socketRef.current?.close()
-    socketRef.current = null
-    setSessionState('prompt')
-    setSocketState('closed')
-    setCaptures([])
-    setRunBlocker('')
-    setActiveImage(null)
-    setStreamUrl('')
-    setStreamStats({})
-    setRunTiming(null)
-    setRunStartedAt(null)
-    setActiveUrl('')
-    setCapacity(null)
-    pushEvent('Sandbox reset.')
-}, [pushEvent, runIsActive])
+    const resetRun = useCallback(() => {
+        stoppedRunRef.current = true
+        if (runIsActive) socketRef.current?.send(JSON.stringify({ type: 'end' }))
+        window.history.replaceState(null, '', '/sandbox')
+        setShowStoredResult(false)
+        if (replacementRef.current) clearTimeout(replacementRef.current)
+        replacementRef.current = null
+        socketRef.current?.close()
+        socketRef.current = null
+        setSessionState('prompt')
+        setSocketState('closed')
+        setCaptures([])
+        setRunBlocker('')
+        setActiveImage(null)
+        setStreamUrl('')
+        setStreamStats({})
+        setRunTiming(null)
+        setRunStartedAt(null)
+        setActiveUrl('')
+        setCapacity(null)
+        pushEvent('Sandbox reset.')
+    }, [pushEvent, runIsActive])
     return { selectSandboxTab, extendRun, stopRun, resetRun }
 }

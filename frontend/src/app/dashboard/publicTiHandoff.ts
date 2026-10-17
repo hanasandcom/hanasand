@@ -1,5 +1,5 @@
 import type { PublicTiHandoffDecodeResult } from '@/utils/ti/actorWorkbench'
-import type { WorkbenchCase, WorkbenchEvidence, WorkbenchHandoffAction, WorkbenchPublicTiHandoff } from './ti/workbench/workbenchClient'
+import type { WorkbenchCase, WorkbenchHandoffAction, WorkbenchPublicTiHandoff } from './ti/workbench/workbenchClient'
 import type { DwmOperationsSnapshot, DwmOrganizationState, DwmWatchlistSummary, OperatorScope } from './operatorConsoleTypes'
 import { publicTiHandoffCase, publicTiEvidence, nextPublicTiTasks, actionLabel } from './publicTiHandoffSupport'
 
@@ -142,4 +142,3 @@ export function buildPublicTiHandoffCase(input: {
         ],
     })]
 }
-

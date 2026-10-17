@@ -2663,3 +2663,14 @@ typecheck, diff, and line-cap checks pass. The current frontend inventory is
 2,417 source/config files / 156,190 lines, with no checked file above 200. The
 corrected candidate still needs publication and a successful canonical deploy;
 VM create, console/terminal and live cross-host acceptance remain open.
+
+The first canonical deployment of `77f63b422` passed the production-mode
+frontend suite but stopped at full frontend lint: 1,081 errors across 24 files
+(872 indentation, 208 unused values, one quote rule). The lint debt was resolved
+across those files with formatting-only edits and removal of unused imports,
+bindings, and helper code; no UI/data behavior was intentionally changed.
+Full frontend lint/typecheck and the complete production-mode frontend suite
+pass locally, as do repository/frontend line-cap checks (4,564 files / 328,973
+lines; 2,417 frontend files / 156,180 lines) and diff checks. The next canonical
+Docker build remains required because it exposed different lint results from
+the pre-existing local dependency install. No deployment cutover has happened.

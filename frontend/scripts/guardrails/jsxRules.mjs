@@ -1,7 +1,6 @@
 import ts from 'typescript'
 import { errors } from './context.mjs'
 import { getCanonicalClassSuggestion } from './canonicalClasses.mjs'
-import { validateBannedPublicCopy } from './contentRules.mjs'
 import { formatLocation, getJsxAttributeText } from './sourceUtils.mjs'
 
 export function validateAnchor(filePath, source, node) {

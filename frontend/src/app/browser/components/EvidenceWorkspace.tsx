@@ -1,13 +1,12 @@
 'use client'
 
-import type { Capture, SandboxEvidence, SandboxNetworkSummary, SandboxProfile } from '../types'
+import type { Capture, SandboxProfile } from '../types'
 import BrowserRunMetrics, { type RunMetrics } from '../BrowserRunMetrics'
 import { networkPeerSummary } from '../browserAnalystSummary'
 import { networkPeerLabel, downloadEvidenceLine } from '../browserRunData'
 import { selectToolCapture, providerStatus, virusTotalVendorLabel } from '../browserProviderData'
 import { buildAnalystSummary } from '../browserAnalystSummary'
-import { StatusPill, ProviderReportDetails, EvidencePanel, DownloadsPanel, EvidenceFact, SourceCodeDisclosure } from './EvidencePrimitives'
-import { meaningfulReasons } from './AnalystMetadata'
+import { ProviderReportDetails, EvidencePanel, EvidenceFact, SourceCodeDisclosure } from './EvidencePrimitives'
 
 export function EvidenceWorkspace({
     metrics,

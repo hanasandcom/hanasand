@@ -20,7 +20,7 @@ import { buildPublicTiActionPayloads } from './actionPayloads'
 export function buildTiActionability(result: TiSearchResponse, actor: TiActorIntelligenceProfile, victimObservations: VictimObservation[]): TiActionabilityModel {
     const {
         contract, candidates, matches, relatedAlerts, relatedCases, sourceProvenance, enrichmentGaps,
-        geographyHandoffs, sourceClusters, firstAlert, watchlistPayloads, watchlistEndpoint,
+        geographyHandoffs, sourceClusters, watchlistPayloads, watchlistEndpoint,
         alertRebuildEndpoint, caseEndpoint, webhookDeliveryEndpoint, watchlistBlockers, casePayload,
         caseBlockers, alertDisposition, shouldAlert,
     } = actionabilityBaseStateFor(result, actor, victimObservations)
