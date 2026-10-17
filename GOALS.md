@@ -2279,3 +2279,11 @@ start because its configured local API `start:local` process exited with code
 net frontend lines. The inventory is 2,400 frontend files / 155,601 lines and
 4,551 repository files / 328,654 lines, with zero files over 200. Aggregate
 frontend/API line reduction goals remain open.
+
+At checkpoint `3b82c5f08` (2026-10-17), the automation route guard drops three
+duplicate source assertions while retaining direct client-render checks, the
+monitoring route's shared metadata re-export, legacy route absence, and the
+removed-system-route fallback check. The route guard and full registered
+frontend suite pass. No production code changed. The repository scan is 4,551
+hand-maintained files / 328,651 lines, with zero files over 200, including the
+frontend. Both aggregate reduction targets remain open.
