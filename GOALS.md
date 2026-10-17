@@ -1318,3 +1318,21 @@ dashboard render proof could not connect to its configured local server at
 frontend ESLint still reports 1,612 existing errors across unrelated files.
 The 100,000-line API and 10,000–30,000-line frontend reduction targets remain
 unmet. No deployment was performed.
+
+The subsequent frontend components reuse the organization filter strip for
+watchlists, share table wrappers between VM/container inventory and cases/DWM
+delivery views, reuse the shared TI `StatusPill` for enrichment, and collapse
+duplicate Recent/All article grids into one private `ArticleGroup`. Watchlist
+filters preserve labels, markers, counts, disabled state, status values and
+clear behavior; article sections preserve their headings, slicing and order.
+Independent reviews approved exact SSR output for the dashboard tables, TI
+status pills and article sections. Production code across commits `f23f149fd`
+and `e88ad9326` is down 18 lines; new tests add 67 net lines. The frontend full
+test runner passed and the production build generated all 116 routes. Targeted
+ESLint, typecheck and the 200-line scan passed; frontend inventory is 2,315
+files / 153,598 LOC / zero over 200. The repository scan remains 73 of 4,219
+files over 200 / 324,173 LOC. Both commits were pushed to the configured
+remotes. A separate visual dashboard render proof could not connect to its
+local server, so no visual-runtime pass is claimed. The full frontend ESLint
+baseline remains 1,612 errors across unrelated files. The API and frontend LOC
+reduction targets remain outstanding; no deployment was performed.
