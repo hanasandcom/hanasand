@@ -9,6 +9,7 @@ import { ArrowLeft, Activity, LoaderCircle, SlidersHorizontal } from 'lucide-rea
 import SignatureEditor from './signature-editor'
 import ReprocessRule from '../reprocess-rule'
 import { getRuleCategory, ruleCategories } from '../rule-categories'
+import { getRuleSourceLabel } from '../rule-sort'
 import { useSmoothedCount } from '../use-smoothed-count'
 import RuleAuditHistory, { type RuleAuditEntry } from './RuleAuditHistory'
 import { formatRuleEstimateDate, formatRuleStorageBytes } from '../ruleStorageFormatting'
@@ -138,7 +139,7 @@ export default function RuleDetails({ id, organizationId }: { id: string, organi
                             <span className={`rounded-full px-2 py-0.5 ${data.rule.enabled === false ? 'bg-ui-raised text-ui-muted' : 'bg-ui-success/10 text-ui-success'}`}>{data.rule.enabled === false ? 'Disabled' : 'Enabled'}</span>
                         </div>
                         <div className='mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ui-muted'>
-                            <span className='break-all font-mono'>{draft.id.replace(/\.v\d+$/, '')}</span>{data.isHistorical && <span>Version {draft.version} · Historical</span>}<span className='h-3 border-l border-ui-border' aria-hidden='true' /><span>{draft.source === 'hanasand' ? 'Hanasand rule' : draft.source === 'open_source' ? 'Imported rule' : 'Custom rule'}</span>
+                            <span className='break-all font-mono'>{draft.id.replace(/\.v\d+$/, '')}</span>{data.isHistorical && <span>Version {draft.version} · Historical</span>}<span className='h-3 border-l border-ui-border' aria-hidden='true' /><span>{getRuleSourceLabel(draft, { unknownSource: 'custom' })}</span>
                         </div>
                     </div>
                     <div className='flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-ui-border pt-2 sm:border-t-0 sm:py-1'>

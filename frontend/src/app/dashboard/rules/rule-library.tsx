@@ -7,7 +7,7 @@ import Button from '@/components/misc/button'
 import SortIndicator from '@/components/dashboard/sort-indicator'
 import { matchesSearchQuery } from '../searchText'
 import { useSmoothedCount } from './use-smoothed-count'
-import { compareRules, defaultRuleSortDirection, getRuleSourceLabel, type RuleSortColumn, type RuleSortDirection } from './rule-sort'
+import { compareRules, defaultRuleSortDirection, getRuleActionLabel, getRuleSourceLabel, type RuleSortColumn, type RuleSortDirection } from './rule-sort'
 import { getRuleCategory, ruleCategories, type RuleCategory } from './rule-categories'
 import type { Rule } from './detection-rules'
 
@@ -104,7 +104,7 @@ export default function RuleLibrary({ category, rules, loading, canManageRules, 
                             <td className='px-3 py-2 text-xs'>{rule.enabled === false ? 'Disabled' : 'Enabled'}</td>
                             <td className='px-3 py-2 text-xs text-ui-muted'>{getRuleSourceLabel(rule)}</td>
                             <td className='px-3 py-2 text-xs tabular-nums'><AnimatedHits value={rule.hitCount} previousSample={rule.previousHitCount} /></td>
-                            {category === 'analysis' && <td className='px-3 py-2 text-xs'>{rule.definition?.action === 'drop' ? 'Drop' : 'Store'}</td>}
+                            {category === 'analysis' && <td className='px-3 py-2 text-xs'>{getRuleActionLabel(rule)}</td>}
                             <td className='px-2 py-2'><Button text={rule.enabled === false ? 'Enable' : 'Disable'} aria-label={`${rule.enabled === false ? 'Enable' : 'Disable'} ${rule.name}`} variant='outline' size='sm' className='rounded-md' disabled={!canManageRules} onClick={() => onToggleRule(rule)} /></td>
                         </tr>)}
                         {!filteredRules.length && <tr><td colSpan={category === 'analysis' ? 9 : 8} className='px-3 py-6 text-center text-sm text-ui-muted'>{loading ? 'Loading rules…' : hasFilters ? 'No rules in this category match these filters.' : 'No rules in this category.'}</td></tr>}

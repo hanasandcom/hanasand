@@ -34,6 +34,7 @@ for (const category of ['match', 'analysis', 'detection']) test(`${category} sor
     const titles = page.locator('tbody tr th span:first-child')
     await expect(titles).toHaveText(['Alpha', 'Zulu', 'Beta', 'Unknown'])
     await expect(page.locator('tbody tr td:nth-child(6)')).toHaveText(['Custom rule', 'Imported rule', 'Hanasand rule', 'Hanasand rule'])
+    if (category === 'analysis') await expect(page.locator('tbody tr td:nth-child(8)')).toHaveText(['Drop', 'Drop', 'Drop', 'Drop'])
     const hits = page.getByRole('columnheader', { name: 'Hits', exact: true })
     await expect(hits).toHaveAttribute('aria-sort', 'descending')
     const headings = page.getByRole('columnheader')

@@ -42,6 +42,7 @@ export const otherUnitTasks: TestTask[] = [
     { id: 'public-status-persistence', title: 'Public status snapshot compaction and verified retention', command: [bun, 'test', 'tests/status-public-persistence.test.ts'] },
     { id: 'status-public-page-contract', title: 'Public status page unverified rendering', command: [bun, 'test', 'tests/status-public-page-contract.test.tsx'] },
     { id: 'rule-categories', title: 'Rule category mapping', command: [bun, 'test', 'tests/rule-categories.test.ts'] },
+    { id: 'rule-sorting', title: 'Rule display labels and action sorting', command: [bun, 'test', 'tests/rule-sorting.test.ts'] },
     { id: 'share-code-socket-protocol', title: 'Share code socket message protocol', command: [bun, 'test', 'tests/share-code-socket-protocol.test.ts'] },
     { id: 'site-search-truthfulness', title: 'Site search result truthfulness', command: [bun, 'test', 'tests/site-search-truthfulness.test.ts'] },
     { id: 'source-coverage-truthfulness', title: 'Source coverage readiness truthfulness', command: [bun, 'test', 'tests/source-coverage-truthfulness.test.ts'] },
