@@ -1,4 +1,5 @@
 import { Dispatch, SetStateAction } from 'react'
+import { copyTextToClipboard } from './copyTextToClipboard'
 
 type CopyProps = {
     text: string
@@ -7,12 +8,11 @@ type CopyProps = {
 }
 
 export default function copy({ type, text, setDidCopy }: CopyProps) {
-    navigator.clipboard.writeText(text)
-        .then(() => {
-            setDidCopy(type || true)
-        })
-        .catch((error) => {
+    const errorState = `error${type ? `-${type}` : ''}`
+    void copyTextToClipboard(text)
+        .then(copied => setDidCopy(copied ? type || true : errorState))
+        .catch(error => {
             console.log(error)
-            setDidCopy(`error${type ? `-${type}` : '' }`)
+            setDidCopy(errorState)
         })
 }

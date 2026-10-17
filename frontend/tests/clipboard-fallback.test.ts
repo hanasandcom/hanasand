@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
+import type { Dispatch, SetStateAction } from 'react'
 import { copyTextToClipboard } from '../src/utils/copyTextToClipboard'
+import copy from '../src/utils/copy'
 
 function replaceGlobal(name: string, value: unknown) {
     const previous = Object.getOwnPropertyDescriptor(globalThis, name)
@@ -74,6 +76,58 @@ test('clipboard fallback returns false and removes its textarea when execCommand
         assert.equal(await copyTextToClipboard('fallback payload'), false)
         assert.equal(removed, true)
     } finally {
+        restoreDocument()
+        restoreNavigator()
+    }
+})
+
+test('shared copy wrapper maps fallback success and failure to caller feedback states', async () => {
+    const states: Array<boolean | string | null> = []
+    const setDidCopy: Dispatch<SetStateAction<boolean | string | null>> = state => states.push(typeof state === 'function' ? state(null) : state)
+    const textarea = { value: '', style: {} as Record<string, string>, select: () => {}, remove: () => {} }
+    const restoreNavigator = replaceGlobal('navigator', { clipboard: { writeText: async () => { throw new Error('unavailable') } } })
+    const restoreDocument = replaceGlobal('document', {
+        createElement: () => textarea,
+        body: { appendChild: () => {} },
+        execCommand: () => true,
+    })
+    try {
+        copy({ type: 'link', text: 'https://example.test', setDidCopy })
+        await new Promise(resolve => setTimeout(resolve, 0))
+        assert.deepEqual(states, ['link'])
+
+        states.length = 0
+        const restoreFailedFallback = replaceGlobal('document', {
+            createElement: () => textarea,
+            body: { appendChild: () => {} },
+            execCommand: () => false,
+        })
+        try {
+            copy({ type: 'alias', text: 'https://alias.example.test', setDidCopy })
+            await new Promise(resolve => setTimeout(resolve, 0))
+            assert.deepEqual(states, ['error-alias'])
+        } finally {
+            restoreFailedFallback()
+        }
+    } finally {
+        restoreDocument()
+        restoreNavigator()
+    }
+})
+
+test('shared copy wrapper maps unexpected fallback rejection to caller error feedback', async () => {
+    const states: Array<boolean | string | null> = []
+    const setDidCopy: Dispatch<SetStateAction<boolean | string | null>> = state => states.push(typeof state === 'function' ? state(null) : state)
+    const restoreNavigator = replaceGlobal('navigator', { clipboard: { writeText: async () => { throw new Error('unavailable') } } })
+    const restoreDocument = replaceGlobal('document', { createElement: () => { throw new Error('document unavailable') } })
+    const originalLog = console.log
+    console.log = () => {}
+    try {
+        copy({ type: 'alias', text: 'https://alias.example.test', setDidCopy })
+        await new Promise(resolve => setTimeout(resolve, 0))
+        assert.deepEqual(states, ['error-alias'])
+    } finally {
+        console.log = originalLog
         restoreDocument()
         restoreNavigator()
     }

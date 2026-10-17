@@ -2935,3 +2935,14 @@ because the configured API server exited during startup. The current frontend sc
 files / 156,910 lines, with no file above 200; this is 3,202 lines above the
 153,708 baseline. These are focused reuse wins, not a material reduction toward
 the 10,000–30,000-line frontend target.
+
+The remaining shared `copy` wrapper now uses the existing clipboard helper,
+so six screens share the same Clipboard API and textarea fallback. Caller
+feedback remains compatible for typed link/alias controls and boolean-success
+controls, including helper rejection. Independent review approved the wrapper
+and its success, failure, and rejection tests. The full frontend test suite,
+lint/typecheck, frontend and repository line caps, and `git diff --check` pass.
+The frontend scan is 2,433 source/config files / 156,964 lines; the repository
+scan is 4,588 maintained files / 330,468 lines, with no file above 200. The
+frontend remains 3,256 lines above its 153,708 baseline, and the broader
+reduction goal remains open.
