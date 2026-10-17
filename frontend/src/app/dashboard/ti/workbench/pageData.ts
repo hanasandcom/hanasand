@@ -51,10 +51,15 @@ async function loadDwmCollection<Key extends keyof DwmCollectionPayload>(
         if (!response.ok) return []
         const payload = await response.json() as Partial<DwmCollectionPayload>
         const rows = payload[key]
-        return transform((Array.isArray(rows) ? rows : []) as DwmCollectionPayload[Key])
+        const records = Array.isArray(rows) ? rows.filter(isRecord) : []
+        return transform(records as DwmCollectionPayload[Key])
     } catch {
         return []
     }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 export function attachCasesToAlerts(alerts: DwmAlert[], cases: WorkbenchDwmCaseListItem[]): DwmAlert[] {

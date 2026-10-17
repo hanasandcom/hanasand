@@ -83,15 +83,23 @@ test('workbench case and delivery loaders ignore truthy non-array collection val
     assert.deepEqual(await loadDwmDeliveries(), [])
 })
 
-test('workbench case and delivery loaders return empty arrays when sorting encounters null rows', async () => {
+test('workbench loaders skip non-record rows and preserve valid collection data', async () => {
     process.env.TI_SCRAPER_API_BASE = 'https://scraper.example'
     globalThis.fetch = (async input => {
         const path = new URL(String(input)).pathname
         return path === '/v1/cases'
-            ? Response.json({ cases: [null, { id: 'case', updatedAt: '2026-02-01' }] })
-            : Response.json({ deliveries: [null, { id: 'delivery', attemptedAt: '2026-02-01' }] })
+            ? Response.json({ cases: [null, { id: 'case', updatedAt: '2026-02-01' }, 'invalid'] })
+            : Response.json({ deliveries: [null, { id: 'delivery', attemptedAt: '2026-02-01' }, 'invalid'] })
     }) as typeof fetch
 
-    assert.deepEqual(await loadDwmCases(), [])
-    assert.deepEqual(await loadDwmDeliveries(), [])
+    assert.deepEqual((await loadDwmCases()).map(item => item.id), ['case'])
+    assert.deepEqual((await loadDwmDeliveries()).map(item => item.id), ['delivery'])
+})
+
+test('workbench alert loader excludes null rows before page adapters consume them', async () => {
+    process.env.TI_SCRAPER_API_BASE = 'https://scraper.example'
+    const alert = { id: 'alert-1', severity: 'high' }
+    globalThis.fetch = (async () => Response.json({ alerts: [null, alert, 'invalid'] })) as typeof fetch
+
+    assert.deepEqual(await loadDwmAlerts(), [alert])
 })
