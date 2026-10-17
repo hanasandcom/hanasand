@@ -14,7 +14,9 @@ export default async function manageVM(id: string, action: 'start' | 'stop' | 'r
             return 'Please log in to manage VMs.'
         }
 
-        const response = await fetchWithRetry(`${config.url.api}/vm/${encodeURIComponent(id)}/${action}`, {
+        const browserProxy = typeof window !== 'undefined'
+        const apiBase = browserProxy ? '/api/backend' : config.url.api
+        const response = await fetchWithRetry(`${apiBase}/vm/${encodeURIComponent(id)}/${action}`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,

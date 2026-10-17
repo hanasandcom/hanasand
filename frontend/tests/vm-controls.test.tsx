@@ -38,6 +38,40 @@ test('VM actions encode instance names and preserve plain-text API failures', as
     }
 })
 
+test('browser VM actions use the same-origin authenticated backend proxy', async () => {
+    Object.defineProperty(globalThis, 'document', {
+        configurable: true,
+        value: { cookie: 'access_token=browser-token; id=browser-user' },
+    })
+    Object.defineProperty(globalThis, 'window', {
+        configurable: true,
+        value: {},
+    })
+
+    const originalFetch = globalThis.fetch
+    let request: { url: string, authorization: string, id: string } | undefined
+    try {
+        globalThis.fetch = async (input, init) => {
+            const headers = new Headers(init?.headers)
+            request = {
+                url: String(input),
+                authorization: headers.get('authorization') || '',
+                id: headers.get('id') || '',
+            }
+            return Response.json({ message: 'VM started' })
+        }
+
+        assert.equal(await manageVM('browser vm', 'start'), 'VM started')
+        assert.equal(request?.url, '/api/backend/vm/browser%20vm/start')
+        assert.equal(request?.authorization, 'Bearer browser-token')
+        assert.equal(request?.id, 'browser-user')
+    } finally {
+        globalThis.fetch = originalFetch
+        Reflect.deleteProperty(globalThis, 'window')
+        Reflect.deleteProperty(globalThis, 'document')
+    }
+})
+
 test('VM detail cards share their shell and preserve titles and placeholders', () => {
     const vm = { name: 'test', status: 'stopped' } as VM
     const html = renderToStaticMarkup(<>
