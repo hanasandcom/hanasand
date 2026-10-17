@@ -1,12 +1,63 @@
 import assert from 'node:assert/strict'
 import { test } from 'bun:test'
+import { Children, createElement, type ReactElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+import KeyValueRowsEditor from '../src/components/box/KeyValueRowsEditor'
 import { parseCurlCommand } from '../src/components/box/curlImport'
+import RequestEditor from '../src/components/box/RequestEditor'
 import { buildRequestHeaders, buildVariablePlan, findMissingVariables, normalizeHeaderRows, normalizeVariableRows, resolveTemplate } from '../src/components/box/requestTemplates'
 import { formatJsonTree, formatPrettyResponseBody, formatRawResponseBody } from '../src/components/box/responseFormatting'
 import { getImagePreviewUrl } from '../src/components/box/responsePreview'
 import { redactSensitiveText, sanitizeToolResponse } from '../src/components/box/responseSafety'
 import { loadScopedRequestHistory, loadScopedRequestVariables, shareRequestHistoryKey, shareRequestVariablesKey } from '../src/components/box/storage'
 import type { ToolResponse } from '../src/components/box/types'
+
+test('request editor reuses key-value controls for headers and scoped variables', () => {
+    const callbacks = {
+        onHeaderChange: () => {}, onHeaderDelete: () => {}, onHeaderAdd: () => {}, onBodyChange: () => {},
+        onVariableChange: () => {}, onVariableDelete: () => {}, onVariableAdd: () => {}, onAiPromptChange: () => {}, onAskAi: () => {},
+    }
+    const render = (tab: 'headers' | 'vars') => renderToStaticMarkup(createElement(RequestEditor, {
+        ...callbacks, tab, headers: [{ key: 'Accept', value: 'application/json' }], variables: [{ key: 'baseUrl', value: 'https://api.example.com' }],
+        body: '', aiPrompt: '', aiResponse: '', aiLoading: false, templateWarnings: [], headerWarnings: [],
+    }))
+    const headers = render('headers')
+    const variables = render('vars')
+
+    assert.match(headers, /placeholder="Header"/)
+    assert.match(headers, /placeholder="Value"/)
+    assert.match(headers, /aria-label="Remove header"/)
+    assert.match(headers, /Add header/)
+    assert.match(variables, /placeholder="baseUrl"/)
+    assert.match(variables, /placeholder="https:\/\/api\.example\.com"/)
+    assert.match(variables, /aria-label="Remove variable"/)
+    assert.match(variables, /Add variable/)
+    assert.match(variables, /Use variables as/)
+})
+
+test('key-value row editor forwards input, remove, and add events with the selected row', () => {
+    for (const itemLabel of ['header', 'variable']) {
+        const calls: unknown[][] = []
+        const tree = KeyValueRowsEditor({
+            rows: [{ key: 'first', value: 'one' }, { key: 'second', value: 'two' }],
+            keyPlaceholder: itemLabel, valuePlaceholder: 'value', addLabel: `Add ${itemLabel}`, itemLabel,
+            onChange: (index, field, value) => calls.push(['change', index, field, value]),
+            onDelete: index => calls.push(['delete', index]), onAdd: () => calls.push(['add']),
+        })
+        const [firstRow, selectedRow, addButton] = Children.toArray(tree.props.children) as ReactElement[]
+        assert.ok(firstRow)
+        assert.ok(selectedRow)
+        assert.ok(addButton)
+        const [keyInput, valueInput, removeButton] = Children.toArray(selectedRow.props.children) as ReactElement[]
+        ;(keyInput as ReactElement<{ onChange: (event: { target: { value: string } }) => void }>).props.onChange({ target: { value: 'updated-key' } })
+        ;(valueInput as ReactElement<{ onChange: (event: { target: { value: string } }) => void }>).props.onChange({ target: { value: 'updated-value' } })
+        ;(removeButton as ReactElement<{ onClick: () => void }>).props.onClick()
+        ;(addButton as ReactElement<{ onClick: () => void }>).props.onClick()
+        assert.deepEqual(calls, [
+            ['change', 1, 'key', 'updated-key'], ['change', 1, 'value', 'updated-value'], ['delete', 1], ['add'],
+        ])
+    }
+})
 
 test('normalizes request rows and resolves valid scoped variables', () => {
     assert.deepEqual(normalizeHeaderRows([{ key: 'Accept' }, null, { key: 3 }]), [{ key: 'Accept', value: '' }])

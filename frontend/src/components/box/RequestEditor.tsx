@@ -1,7 +1,8 @@
-import { Bot, Plus, Trash2 } from 'lucide-react'
+import { Bot } from 'lucide-react'
 import type { HeaderRow, VariableRow } from './types'
 import type { RequestEditorTab } from './newRequestTypes'
 import { uniqueWarnings } from './requestPresentation'
+import KeyValueRowsEditor from './KeyValueRowsEditor'
 
 type RequestEditorProps = {
     tab: RequestEditorTab
@@ -29,22 +30,12 @@ export default function RequestEditor(props: RequestEditorProps) {
     return (
         <section className='grid min-h-0 gap-2 rounded-lg border border-ui-border bg-ui-canvas/12 p-2'>
             {tab === 'headers' && <div className='grid min-h-0 content-start gap-2'>
-                {headers.map((header, index) => <div key={index} className='grid gap-2 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)_36px]'>
-                    <input value={header.key} onChange={(e) => props.onHeaderChange(index, 'key', e.target.value)} placeholder='Header' className='min-w-0 rounded-lg border border-ui-border bg-ui-panel/[0.025] px-3 py-2 text-sm outline-none' />
-                    <input value={header.value} onChange={(e) => props.onHeaderChange(index, 'value', e.target.value)} placeholder='Value' className='min-w-0 rounded-lg border border-ui-border bg-ui-panel/[0.025] px-3 py-2 text-sm outline-none' />
-                    <button type='button' onClick={() => props.onHeaderDelete(index)} className='grid cursor-pointer place-items-center rounded-lg text-ui-text/70 hover:bg-ui-raised/10 hover:text-ui-text'><Trash2 className='h-4 w-4' /></button>
-                </div>)}
-                <button type='button' onClick={props.onHeaderAdd} className='flex w-fit cursor-pointer items-center gap-2 rounded-full px-3 py-1.5 text-[11px] text-ui-text/60 hover:bg-ui-panel/8 hover:text-ui-text/80'><Plus className='h-3.5 w-3.5' />{' '}Add header</button>
+                <KeyValueRowsEditor rows={headers} keyPlaceholder='Header' valuePlaceholder='Value' addLabel='Add header' itemLabel='header' onChange={props.onHeaderChange} onDelete={props.onHeaderDelete} onAdd={props.onHeaderAdd} />
                 {props.templateWarnings.length || props.headerWarnings.length ? <div className='rounded-lg border border-ui-warning/12 bg-ui-warning/8 px-3 py-2 text-[11px] leading-4 text-ui-warning/72'>{uniqueWarnings([...props.templateWarnings, ...props.headerWarnings]).join(' ')}</div> : null}
             </div>}
             {tab === 'body' && <textarea value={body} onChange={(e) => props.onBodyChange(e.target.value)} placeholder='JSON, text or form body' className='min-h-32 rounded-lg border border-ui-border bg-ui-panel/[0.025] p-3 font-mono text-sm text-ui-text outline-none' />}
             {tab === 'vars' && <div className='grid min-h-0 content-start gap-2'>
-                {variables.map((variable, index) => <div key={index} className='grid gap-2 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)_36px]'>
-                    <input value={variable.key} onChange={(e) => props.onVariableChange(index, 'key', e.target.value)} placeholder='baseUrl' className='min-w-0 rounded-lg border border-ui-border bg-ui-panel/[0.025] px-3 py-2 text-sm outline-none' />
-                    <input value={variable.value} onChange={(e) => props.onVariableChange(index, 'value', e.target.value)} placeholder='https://api.example.com' className='min-w-0 rounded-lg border border-ui-border bg-ui-panel/[0.025] px-3 py-2 text-sm outline-none' />
-                    <button type='button' onClick={() => props.onVariableDelete(index)} className='grid cursor-pointer place-items-center rounded-lg text-ui-text/70 hover:bg-ui-raised/10 hover:text-ui-text'><Trash2 className='h-4 w-4' /></button>
-                </div>)}
-                <button type='button' onClick={props.onVariableAdd} className='flex w-fit cursor-pointer items-center gap-2 rounded-full px-3 py-1.5 text-[11px] text-ui-text/60 hover:bg-ui-panel/8 hover:text-ui-text/80'><Plus className='h-3.5 w-3.5' />{' '}Add variable</button>
+                <KeyValueRowsEditor rows={variables} keyPlaceholder='baseUrl' valuePlaceholder='https://api.example.com' addLabel='Add variable' itemLabel='variable' onChange={props.onVariableChange} onDelete={props.onVariableDelete} onAdd={props.onVariableAdd} />
                 <div className='rounded-lg border border-ui-border bg-ui-canvas/14 px-3 py-2 text-[11px] leading-4 text-ui-text/48'>Use variables as {'{{baseUrl}}'} in URLs, headers, and bodies. They stay scoped to this share.</div>
             </div>}
             {tab === 'ai' && <div className='grid min-h-0 gap-3 lg:grid-rows-[auto_auto_minmax(0,1fr)]'>
