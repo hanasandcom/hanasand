@@ -1,24 +1,9 @@
-import { expect, mock, test } from 'bun:test'
+import { expect, test } from 'bun:test'
 import type { FastifyRequest } from 'fastify'
-import { resetAdminSupportDatabaseFixture, run, state } from './fixtures/admin-support-routes-db.ts'
+// Share route mocks so Bun's wildcard run observes the same fixture spies everywhere.
+import * as support from './fixtures/admin-support-routes-harness.ts'
 
-const systemEventUtils = await import('../src/utils/systemEvent.ts')
-
-mock.module('../src/utils/db.ts', () => ({ default: run, queryOnce: run, identityQueryOnce: run, withTransaction: async (work: (query: typeof run) => Promise<unknown>) => work(run), closeDatabase: async () => {} }))
-mock.module('../src/utils/auth/tokenWrapper.ts', () => ({ default: async () => state.actor }))
-mock.module('../src/utils/systemEvent.ts', () => ({
-    ...systemEventUtils,
-    actorHasHanasandInternalAccess: async () => state.internalAccess,
-    recordSystemEvent: async (_req: unknown, event: Record<string, unknown>) => { state.recordedEvents.push(event) },
-}))
-mock.module('../src/utils/db/identityDataWrites.ts', () => ({
-    touchOrganization: async () => {},
-    upsertAdminAccessRecoveryApproval: async () => { state.supportRecoveryApprovalWrites += 1 },
-    upsertOrganizationInvite: async () => state.supportRecoveryInviteUpsert,
-    updateOrganizationInviteAction: async () => state.supportRecoveryInviteResult,
-    updateActiveOrganizationMemberRole: async () => ({ organization_id: 'org-1', user_id: 'member-1', role: 'reader', status: 'active' }),
-}))
-
+const { state, resetAdminSupportDatabaseFixture } = support
 const {
     postSupportOrganizationInvite,
     postSupportOrganizationInviteAction,
@@ -32,22 +17,11 @@ function request(headers: Record<string, string | string[] | undefined> = {}) {
     return { headers } as unknown as FastifyRequest
 }
 
-function reply() {
-    return {
-        statusCode: 200,
-        body: undefined as any,
-        status(code: number) { this.statusCode = code; return this },
-        send(body: unknown) { this.body = body; return this },
-    }
-}
-
 async function invoke(handler: (req: any, res: any) => unknown, input: {
     params?: Record<string, string>
     body?: Record<string, unknown>
 } = {}) {
-    const result = reply()
-    await handler({ params: input.params ?? {}, headers: {}, body: input.body ?? {} } as FastifyRequest, result)
-    return result
+    return support.request(handler, input)
 }
 
 test('support executor controls share header precedence and normalization', () => {
