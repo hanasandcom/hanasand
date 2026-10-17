@@ -1,5 +1,6 @@
 import type { WorkbenchCase } from './types'
 import type { WorkbenchDwmCaseListItem } from './pageTypes'
+import { pluralize, severityPriority } from './adapterUtils'
 
 export function dwmCaseToWorkbenchCase(row: WorkbenchDwmCaseListItem): WorkbenchCase {
     const caseId = String(row.caseId || row.id || 'case')
@@ -111,20 +112,9 @@ export function caseDashboardHref(row: WorkbenchDwmCaseListItem) {
     return `/cases/${encodeURIComponent(caseId || 'case')}${query ? `?${query}` : ''}`
 }
 
-export function severityPriority(severity: WorkbenchCase['severity']) {
-    if (severity === 'critical') return 400
-    if (severity === 'high') return 300
-    if (severity === 'medium') return 200
-    return 100
-}
-
 export function normalizeWorkbenchSeverity(value: string | undefined): WorkbenchCase['severity'] {
     if (value === 'critical' || value === 'high' || value === 'medium' || value === 'low') return value
     if (value === 'urgent' || value === 'p1') return 'critical'
     if (value === 'review' || value === 'p2') return 'high'
     return 'medium'
-}
-
-export function pluralize(word: string, count: number) {
-    return count === 1 ? word : `${word}s`
 }

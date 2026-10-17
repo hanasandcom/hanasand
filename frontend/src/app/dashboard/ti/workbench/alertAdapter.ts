@@ -3,6 +3,7 @@ import { customerAlertSummary } from '@/utils/dwm/display'
 import type { WorkbenchCase } from './types'
 import type { RuntimeDwmAlert } from './runtimeAlert'
 import { buildAlertActions, buildAlertTimeline, buildWorkbenchEvidence, deliveryDetail, nextAlertTasks } from './alertModel'
+import { pluralize, severityPriority } from './adapterUtils'
 
 export function dwmAlertToWorkbenchCase(input: DwmAlert): WorkbenchCase {
     const alert = input as RuntimeDwmAlert
@@ -166,17 +167,6 @@ function caseIdFromPath(path?: string) {
 
 function normalizeSeverity(severity: DwmSeverity): WorkbenchCase['severity'] {
     return severity
-}
-
-function severityPriority(severity: WorkbenchCase['severity']) {
-    if (severity === 'critical') return 400
-    if (severity === 'high') return 300
-    if (severity === 'medium') return 200
-    return 100
-}
-
-function pluralize(word: string, count: number) {
-    return count === 1 ? word : `${word}s`
 }
 
 function uniqueStrings(values: Array<string | undefined>) {
