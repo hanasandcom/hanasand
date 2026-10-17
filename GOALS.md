@@ -2919,3 +2919,19 @@ same output path.” The current frontend scan is 2,432 source/config files /
 156,903 lines, with no file above 200; that is 3,195 lines above the 153,708
 baseline. This reuse is a small cleanup and does not meet the 10,000–30,000-line
 reduction goal.
+
+Three dashboard passes reused existing structure where contracts matched:
+case disk diagnostics now uses `DashboardTable` while the accessible case
+history table remains native; actors, delivery, and watchlists share one small
+route adapter that preserves search params and each fixed panel; system
+container copying now uses the shared clipboard fallback with its prior
+messages. Independent reviews approved the table, route, and copy changes. The
+integrated frontend test suite and full lint/typecheck passed; focused case,
+findings, telemetry, and clipboard tests passed; the production build generated
+all 116 static pages; and the repository/frontend line-cap and diff checks
+passed. The system dashboard's source-contract Playwright check passed with
+managed servers disabled; interactive browser checks were not executable
+because the configured API server exited during startup. The current frontend scan is 2,433 source/config
+files / 156,910 lines, with no file above 200; this is 3,202 lines above the
+153,708 baseline. These are focused reuse wins, not a material reduction toward
+the 10,000–30,000-line frontend target.

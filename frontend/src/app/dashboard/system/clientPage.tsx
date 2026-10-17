@@ -20,6 +20,7 @@ import { useSystemTelemetry } from './hooks/useSystemTelemetry'
 import { systemExpiredSessionPath } from './systemRoutes'
 import type { SystemDashboardProps, SystemSummary } from './client/types'
 import { formatLoad } from './client/presentation'
+import { copyTextToClipboard } from '@/utils/copyTextToClipboard'
 
 export default function SystemDashboard({ id, token, systemTelemetry, dockerTelemetry: initialDockerTelemetry, vms, vmMetrics, section }: SystemDashboardProps) {
     const router = useRouter()
@@ -70,8 +71,8 @@ export default function SystemDashboard({ id, token, systemTelemetry, dockerTele
 
     async function copyContainer(container: DockerContainer) {
         try {
-            await navigator.clipboard.writeText(container.name)
-            setMessage(`Copied ${container.name}.`)
+            const copied = await copyTextToClipboard(container.name)
+            setMessage(copied ? `Copied ${container.name}.` : 'Clipboard access is unavailable in this browser context.')
         } catch {
             setMessage('Clipboard access is unavailable in this browser context.')
         }

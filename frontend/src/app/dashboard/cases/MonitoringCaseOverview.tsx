@@ -1,4 +1,5 @@
 import Link from '@/components/organizations/workspaceLink'
+import { DashboardTable } from '@/components/dashboard/ui'
 import { CheckFields } from './case-events'
 import { CaseDevelopment } from './case-development'
 import type { MonitoringCase } from './monitoringCaseTypes'
@@ -84,13 +85,15 @@ function DiskDiagnostics({ diagnostics }: { diagnostics: NonNullable<MonitoringC
         {diagnostics.filesystems.map(filesystem => <div key={filesystem.path} className='grid gap-2'>
             <h4 className='text-sm font-medium'>{filesystem.path} · {filesystem.usedPercent}% used</h4>
             {!filesystem.complete && <p className='text-sm text-ui-warning'>Partial scan. Some directories could not be measured before the time limit or were inaccessible.</p>}
-            <div className='overflow-x-auto'><table className='w-full text-left text-sm'>
-                <thead className='border-b border-ui-border text-ui-muted'><tr><th className='py-2 pr-4'>Directory</th><th className='py-2 text-right'>Size</th></tr></thead>
-                <tbody>{filesystem.directories.map(directory => <tr key={directory.path} className='border-b border-ui-border/50'>
+            <div className='overflow-x-auto'><DashboardTable
+                className='w-full text-left text-sm'
+                headClassName='border-b border-ui-border text-ui-muted'
+                bodyClassName={null}
+                columnHeaders={<><th className='py-2 pr-4'>Directory</th><th className='py-2 text-right'>Size</th></>}
+            >{filesystem.directories.map(directory => <tr key={directory.path} className='border-b border-ui-border/50'>
                     <td className='break-all py-2 pr-4 font-mono'>{directory.path}</td>
                     <td className='whitespace-nowrap py-2 text-right tabular-nums' title={`${directory.sizeBytes.toLocaleString()} bytes`}>{formatDirectorySize(directory.sizeBytes)}</td>
-                </tr>)}</tbody>
-            </table></div>
+                </tr>)}</DashboardTable></div>
         </div>)}
     </section>
 }
