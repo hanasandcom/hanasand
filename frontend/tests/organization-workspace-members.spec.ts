@@ -31,3 +31,20 @@ test('organization workspace member filtering role changes and removal', async (
     expect(state.memberRemovals).toContain('analyst_acme')
     await expect(page.locator('#audit')).toContainText('Acme Analyst removed.')
 })
+
+test('mobile member role changes stay disabled until edited and after apply', async ({ context, page, baseURL }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    const state = await setupOrganizationWorkspace(context, page, baseURL)
+    const analyst = page.locator('[data-org-member-mobile-row]').filter({ hasText: 'analyst@acme.test' })
+    const role = analyst.getByRole('combobox')
+    const apply = analyst.getByRole('button', { name: 'Apply' })
+
+    await expect(page.locator('[data-org-member-mobile-list]')).toBeVisible()
+    await expect(analyst).toBeVisible()
+    await expect(apply).toBeDisabled()
+    await role.selectOption('admin')
+    await expect(apply).toBeEnabled()
+    await apply.click()
+    await expect.poll(() => state.memberRoleChanges).toContainEqual({ userId: 'analyst_acme', role: 'admin' })
+    await expect(apply).toBeDisabled()
+})

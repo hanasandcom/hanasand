@@ -3,9 +3,9 @@ import type { RowMessage, ActivitySubject } from '../types/activity'
 import { memberBusyLabel } from '../model/labels'
 import { memberSearchText } from '../model/organization'
 import { memberStatusCounts, memberRoleStatusCounts, memberCanMutate, memberMutationDisabledReason } from '../model/forms'
-import { InlineBusy, EmptyLine, StatusPill, RoleBadge, ConfirmActionButton, RowStatus } from './shared'
+import { InlineBusy, EmptyLine, StatusPill, ConfirmActionButton, RowStatus } from './shared'
 import { MemberFilterStrip } from './memberFilterStrip'
-import { MemberRoleEditor } from './memberRoleEditor'
+import { MemberRoleControl } from './memberRoleControl'
 import { sanitizeOrganizationDisplayCopy } from '../model/textSafety'
 import { useState } from 'react'
 import { stopRowSelectionKeys } from '../model/keyboard'
@@ -25,6 +25,15 @@ export function MemberPanel({ members, canManage, busy, rowMessages, selectedSub
     })
     const memberCounts = memberStatusCounts(members)
     const memberRoleCounts = memberRoleStatusCounts(members)
+    const updatePendingRole = (memberId: string, role: OrganizationRole) => setPendingRoles(current => ({ ...current, [memberId]: role }))
+    const applyPendingRole = (member: OrganizationMember, role: OrganizationRole) => {
+        onRoleChange(member, role)
+        setPendingRoles(current => {
+            const next = { ...current }
+            delete next[member.userId]
+            return next
+        })
+    }
     return (
         <section id='members' className='overflow-hidden rounded-lg border border-ui-border bg-ui-panel shadow-sm dark:border-ui-border dark:bg-ui-panel' data-org-members-panel>
             <div className='overflow-x-auto p-4'>
@@ -54,8 +63,6 @@ export function MemberPanel({ members, canManage, busy, rowMessages, selectedSub
                         )}
                         <div className='grid gap-2 md:hidden' data-org-member-mobile-list='true'>
                             {visibleMembers.map(member => {
-                                const selectedRole = pendingRoles[member.userId] || member.role
-                                const roleChanged = selectedRole !== member.role
                                 const canMutateMember = canManage && memberCanMutate(member)
                                 const memberMutationReason = memberMutationDisabledReason(canManage, member)
                                 const selected = selectedSubject.type === 'member' && selectedSubject.id === member.userId
@@ -83,22 +90,15 @@ export function MemberPanel({ members, canManage, busy, rowMessages, selectedSub
                                             <StatusPill status={member.status} />
                                         </div>
                                         <div className='grid gap-2' onClick={event => event.stopPropagation()} onKeyDown={stopRowSelectionKeys}>
-                                            {canMutateMember ? <MemberRoleEditor
-                                                memberId={member.userId}
-                                                role={selectedRole}
-                                                changed={roleChanged}
+                                            <MemberRoleControl
+                                                member={member}
+                                                pendingRole={pendingRoles[member.userId]}
+                                                canEdit={canMutateMember}
                                                 busy={Boolean(busy)}
                                                 layout='mobile'
-                                                onChange={role => setPendingRoles(current => ({ ...current, [member.userId]: role }))}
-                                                onApply={() => {
-                                                    onRoleChange(member, selectedRole)
-                                                    setPendingRoles(current => {
-                                                        const next = { ...current }
-                                                        delete next[member.userId]
-                                                        return next
-                                                    })
-                                                }}
-                                            /> : <RoleBadge role={member.role} />}
+                                                onChange={updatePendingRole}
+                                                onApply={applyPendingRole}
+                                            />
                                             <ConfirmActionButton ariaLabel='Remove member' title={memberMutationReason || 'Remove member'} disabled={!canMutateMember || Boolean(busy)} onConfirm={() => onRemove(member)} icon={<Trash2 className='h-4 w-4' />} />
                                             <RowStatus message={rowMessages[`member-${member.userId}`]} />
                                         </div>
@@ -117,8 +117,6 @@ export function MemberPanel({ members, canManage, busy, rowMessages, selectedSub
                             </thead>
                             <tbody>
                                 {visibleMembers.map(member => {
-                                    const selectedRole = pendingRoles[member.userId] || member.role
-                                    const roleChanged = selectedRole !== member.role
                                     const canMutateMember = canManage && memberCanMutate(member)
                                     const memberMutationReason = memberMutationDisabledReason(canManage, member)
                                     const selected = selectedSubject.type === 'member' && selectedSubject.id === member.userId
@@ -143,22 +141,15 @@ export function MemberPanel({ members, canManage, busy, rowMessages, selectedSub
                                                 <p className='truncate text-xs text-ui-muted dark:text-ui-muted'>{sanitizeOrganizationDisplayCopy(member.email && member.email !== member.userId ? member.email : member.userId)}</p>
                                             </td>
                                             <td className='border-b border-ui-border px-3 py-2 dark:border-ui-border'>
-                                                {canMutateMember ? <MemberRoleEditor
-                                                    memberId={member.userId}
-                                                    role={selectedRole}
-                                                    changed={roleChanged}
+                                                <MemberRoleControl
+                                                    member={member}
+                                                    pendingRole={pendingRoles[member.userId]}
+                                                    canEdit={canMutateMember}
                                                     busy={Boolean(busy)}
                                                     layout='desktop'
-                                                    onChange={role => setPendingRoles(current => ({ ...current, [member.userId]: role }))}
-                                                    onApply={() => {
-                                                        onRoleChange(member, selectedRole)
-                                                        setPendingRoles(current => {
-                                                            const next = { ...current }
-                                                            delete next[member.userId]
-                                                            return next
-                                                        })
-                                                    }}
-                                                /> : <RoleBadge role={member.role} />}
+                                                    onChange={updatePendingRole}
+                                                    onApply={applyPendingRole}
+                                                />
                                             </td>
                                             <td className='border-b border-ui-border px-3 py-2 dark:border-ui-border'>
                                                 <div className='grid gap-1'>
