@@ -2547,3 +2547,14 @@ inventory is 2,424 frontend source/config files / 156,500 lines and 4,569
 repository hand-maintained files / 329,214 lines, with no file above 200. The
 frontend 10,000–30,000-line target and API 100,000-line reduction target remain
 unmet.
+
+At `4f91bf3d9`, the traffic dashboard's source contract dropped six assertions
+that targeted the wrong modules or duplicated runtime-tested contracts.
+Rendered tests now check the actual “Traffic overview” and “Recent traffic”
+headings. The remaining static traffic assertions still protect page wiring
+and pagination behavior that lacks direct interaction coverage. The source
+spec passes with managed servers disabled; related runtime tests pass (12
+tests / 52 assertions across the source and five focused suites). The frontend
+cap passes for 2,424 files / 156,497 lines, and the repository cap passes for
+4,569 files / 329,211 lines, with no file above 200. Frontend and API aggregate
+reduction targets remain unmet.
