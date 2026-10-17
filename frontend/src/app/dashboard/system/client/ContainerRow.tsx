@@ -1,6 +1,7 @@
-import { Copy, ExternalLink, RefreshCcw } from 'lucide-react'
+import { ExternalLink } from 'lucide-react'
 import { containerCpuMetric, containerDisplayName, containerHealth, containerMemoryMetric } from '../systemPresentation'
-import { HealthPill, IconButton, MetricText, PortList } from './SystemUi'
+import { HealthPill, MetricText, PortList } from './SystemUi'
+import { ContainerActionGroup } from './ContainerActionGroup'
 
 export function ContainerRow({ container, selected, globalReason, onSelect, onCopy, onRestart }: {
     container: DockerContainer
@@ -26,10 +27,8 @@ export function ContainerRow({ container, selected, globalReason, onSelect, onCo
         <td className='px-3 py-3'><MetricText metric={cpu} /></td>
         <td className='px-3 py-3'><MetricText metric={memory} /></td>
         <td className='px-3 py-3'><PortList ports={container.ports} /></td>
-        <td className='py-3 pl-3'><div className='flex justify-end gap-1'>
-            <IconButton label={`Inspect ${displayName}`} onClick={onSelect}><ExternalLink className='h-4 w-4' /></IconButton>
-            <IconButton label={`Copy ${displayName}`} onClick={onCopy}><Copy className='h-4 w-4' /></IconButton>
-            <IconButton label={`Restart ${displayName}`} onClick={onRestart}><RefreshCcw className='h-4 w-4' /></IconButton>
-        </div></td>
+        <td className='py-3 pl-3'><ContainerActionGroup variant='compact' displayName={displayName}
+            leading={{ label: `Inspect ${displayName}`, icon: <ExternalLink className='h-4 w-4' />, onClick: onSelect }}
+            onCopy={onCopy} onRestart={onRestart} /></td>
     </tr>
 }

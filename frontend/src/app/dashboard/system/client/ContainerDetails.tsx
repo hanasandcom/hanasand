@@ -1,10 +1,11 @@
 import Link from 'next/link'
-import { Copy, ExternalLink, RefreshCcw } from 'lucide-react'
+import { ExternalLink, RefreshCcw } from 'lucide-react'
 import type { RuntimeLog } from '@/utils/logs/getLogs'
 import { DashboardPanel } from '@/components/dashboard/ui'
 import { containerCpuMetric, containerDisplayName, containerHealth, containerMemoryMetric, formatDateTime, formatDuration } from '../systemPresentation'
 import { formatLogTime, logLevelClass } from './presentation'
 import { EmptyState, Fact, HealthPill, PortList } from './SystemUi'
+import { ContainerActionGroup } from './ContainerActionGroup'
 
 export function ContainerDetails({ container, globalReason, logs, logsReason, logsLoading, onRefreshLogs, onCopy, onRestart }: {
     container: DockerContainer | null
@@ -43,11 +44,7 @@ export function ContainerDetails({ container, globalReason, logs, logsReason, lo
         <div className='mt-3 rounded-md border border-ui-border bg-ui-raised p-3 text-sm text-ui-muted'>
             <p className='font-semibold text-ui-text'>Ports</p><PortList ports={container.ports} className='mt-1' />
         </div>
-        <div className='mt-3 flex flex-wrap gap-2'>
-            <button type='button' onClick={onRefreshLogs} className='inline-flex h-9 items-center gap-2 rounded-md border border-ui-border bg-ui-panel px-3 text-sm font-semibold text-ui-text shadow-sm hover:bg-ui-raised'><RefreshCcw className={`h-4 w-4 ${logsLoading ? 'animate-spin' : ''}`} />Logs</button>
-            <button type='button' onClick={onCopy} className='inline-flex h-9 items-center gap-2 rounded-md border border-ui-border bg-ui-panel px-3 text-sm font-semibold text-ui-text shadow-sm hover:bg-ui-raised'><Copy className='h-4 w-4' />Copy</button>
-            <button type='button' onClick={onRestart} className='inline-flex h-9 items-center gap-2 rounded-md border border-ui-warning/35 bg-ui-warning/10 px-3 text-sm font-semibold text-ui-warning shadow-sm hover:bg-ui-warning/15'><RefreshCcw className='h-4 w-4' />Restart</button>
-        </div>
+        <ContainerActionGroup variant='full' leading={{ label: 'Logs', icon: <RefreshCcw className={`h-4 w-4 ${logsLoading ? 'animate-spin' : ''}`} />, onClick: onRefreshLogs }} onCopy={onCopy} onRestart={onRestart} />
         <div className='mt-4 overflow-hidden rounded-md border border-ui-border bg-ui-canvas' data-system-container-logs-disclosure>
             <div className='flex items-center justify-between gap-2 px-3 py-2 text-sm font-semibold text-ui-text'>
                 <span>Recent logs</span>

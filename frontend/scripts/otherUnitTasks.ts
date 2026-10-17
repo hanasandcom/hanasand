@@ -1,8 +1,10 @@
 import { bun, type TestTask } from './testTask'
 
 export const otherUnitTasks: TestTask[] = [
+    { id: 'dashboard-search-text', title: 'Dashboard search text matching', command: [bun, 'test', 'tests/dashboard-search-text.test.ts'] },
     { id: 'activity-model', title: 'Exposure activity model', command: [bun, 'test', 'tests/activity-model.test.ts'] },
     { id: 'dashboard-row-deletion', title: 'Dashboard row deletion lifecycle', command: [bun, 'test', 'tests/dashboard-row-deletion.test.ts'] },
+    { id: 'system-container-action-group', title: 'System container action presentation', command: [bun, 'test', 'tests/system-container-action-group.test.tsx'] },
     { id: 'organization-filter-strip', title: 'Organization member and invite filter presentation', command: [bun, 'test', 'tests/organization-filter-strip.test.tsx'] },
     { id: 'audit-log', title: 'Audit log server rendering', command: [bun, 'test', 'tests/audit-log.test.tsx'] },
     { id: 'audit-acknowledgment-transport', title: 'Audit acknowledgment request contract', command: [bun, 'test', 'tests/audit-acknowledgment.test.ts'] },

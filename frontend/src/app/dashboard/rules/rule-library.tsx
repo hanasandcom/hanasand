@@ -5,6 +5,7 @@ import Link from '@/components/organizations/workspaceLink'
 import { DashboardPanel } from '@/components/dashboard/ui'
 import Button from '@/components/misc/button'
 import SortIndicator from '@/components/dashboard/sort-indicator'
+import { matchesSearchQuery } from '../searchText'
 import { useSmoothedCount } from './use-smoothed-count'
 import { compareRules, defaultRuleSortDirection, type RuleSortColumn, type RuleSortDirection } from './rule-sort'
 import { getRuleCategory, ruleCategories, type RuleCategory } from './rule-categories'
@@ -38,8 +39,8 @@ export default function RuleLibrary({ category, rules, loading, canManageRules, 
     const textQuery = textFilter.trim().toLowerCase()
     const categoryRules = rules.filter(rule => getRuleCategory(rule) === category)
     const filteredRules = categoryRules.filter(rule =>
-        rule.name.toLowerCase().includes(titleQuery)
-        && (!textQuery || [rule.name, rule.id, rule.rule_id, rule.explanation, rule.family, rule.severity, rule.source].join(' ').toLowerCase().includes(textQuery))
+        matchesSearchQuery(rule.name, titleQuery)
+        && (!textQuery || matchesSearchQuery([rule.name, rule.id, rule.rule_id, rule.explanation, rule.family, rule.severity, rule.source].join(' '), textQuery))
         && (showDisabled || enabledFilter === 'disabled' || rule.enabled !== false)
         && (enabledFilter === 'all' || (rule.enabled !== false) === (enabledFilter === 'enabled'))
         && (severityFilter === 'all' || rule.severity.toLowerCase() === severityFilter)

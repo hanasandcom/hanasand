@@ -6,6 +6,7 @@ import Link from '@/components/organizations/workspaceLink'
 import type { DwmActorOverview } from '@/utils/dwm/product'
 import { customerAlertSummary, safeEvidenceExcerpt } from '@/utils/dwm/display'
 import { actorProfileHref } from '@/utils/ti/actorProfileRoute'
+import { matchesSearchQuery } from '../searchText'
 import type { DwmDataHealth, PortalAlert } from './findings'
 
 const panel = 'min-w-0 rounded-lg border border-ui-border bg-ui-panel'
@@ -48,7 +49,7 @@ export function MonitoringOverview({ alerts, dataHealth, organizationId, initial
     const [filter, setFilter] = useState('all')
     const [query, setQuery] = useState('')
     const [page, setPage] = useState(0)
-    const rows = alerts.filter(alert => (filter === 'all' || needsReview(alert)) && [alert.company, alert.actor, alert.matchedTerm.value].some(value => value?.toLowerCase().includes(query.toLowerCase())))
+    const rows = alerts.filter(alert => (filter === 'all' || needsReview(alert)) && [alert.company, alert.actor, alert.matchedTerm.value].some(value => matchesSearchQuery(value, query)))
         .sort((a, b) => (Date.parse(b.lastSeenAt || b.firstSeenAt) || 0) - (Date.parse(a.lastSeenAt || a.firstSeenAt) || 0))
     const currentPage = Math.min(page, Math.max(0, Math.ceil(rows.length / pageSize) - 1))
     const scopedHref = (path: string) => organizationId ? `${path}?organizationId=${encodeURIComponent(organizationId)}` : path
@@ -124,7 +125,7 @@ export function MonitoringOverview({ alerts, dataHealth, organizationId, initial
 
 export function ActorDirectory({ actors, state, onRetry, query = '' }: { actors: DwmActorOverview[], state: string, onRetry: () => void, query?: string }) {
     const [page, setPage] = useState(0)
-    const rows = actors.filter(actor => [actor.actor, ...actor.aliases].some(name => name.toLowerCase().includes(query.toLowerCase())))
+    const rows = actors.filter(actor => [actor.actor, ...actor.aliases].some(name => matchesSearchQuery(name, query)))
     const currentPage = Math.min(page, Math.max(0, Math.ceil(rows.length / pageSize) - 1))
     return <section>
         <LoadState state={state} subject='Actor profiles' onRetry={onRetry} />
