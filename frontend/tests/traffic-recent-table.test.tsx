@@ -24,6 +24,7 @@ test('recent traffic rows retain the accessible table and load states', () => {
     })
 
     expect(html).toContain('aria-label="Recent traffic requests"')
+    expect(html).toContain('<h2 class="text-lg font-semibold text-ui-text">Recent traffic</h2>')
     expect(html).toContain('<th class="px-4 py-3">Path</th>')
     expect(html).toContain('example.test')
     expect(html).toContain('/health')

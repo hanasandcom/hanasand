@@ -29,7 +29,9 @@ test('audit and TI views share the existing Oslo timestamp presentation', () => 
 test('traffic and vulnerability views keep the same winter and summer date output', () => {
     for (const value of ['2026-01-15T12:34:00Z', '2026-07-15T12:34:00Z']) {
         const expected = previousFormat.format(new Date(value))
-        expect(renderTraffic(value)).toContain(expected)
+        const trafficHtml = renderTraffic(value)
+        expect(trafficHtml).toContain('Traffic overview')
+        expect(trafficHtml).toContain(expected)
         expect(renderVulnerabilityHeader(value)).toContain(expected)
     }
 })
