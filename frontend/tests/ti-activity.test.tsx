@@ -52,6 +52,7 @@ test('TI activity renders populated, empty, paginated and recovered states', asy
         let html = renderToStaticMarkup(await TiActivityPage({}))
         assert.ok(html.includes('Latest observations'))
         assert.ok(html.includes('min-w-full divide-y divide-ui-border text-sm'))
+        assert.ok(html.includes('<span class="rounded-full px-2 py-1 text-xs font-semibold border border-ui-warning bg-ui-raised text-ui-warning">idle</span>'))
         assert.ok(html.includes('<span class="rounded-full px-2 py-1 text-xs font-semibold border border-ui-success bg-ui-raised text-ui-success">observed</span>'))
         assert.ok(html.includes('text-ui-text'))
         assert.ok(html.includes('Example actor'))

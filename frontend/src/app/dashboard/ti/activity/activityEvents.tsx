@@ -4,7 +4,7 @@ import { ExternalLink } from 'lucide-react'
 import Link from 'next/link'
 import { actorProfileHref } from '@/utils/ti/actorProfileRoute'
 import { formatTiDate } from '@/utils/tiAdmin/ops'
-import { operationalStateLabel, shortTime, StatusPill } from '../dashboardPresentation'
+import { operationalStateLabel, shortTime, StatusPill, workerStatusTone } from '../dashboardPresentation'
 import type { TiActivityEvent, TiEnrichmentOverview } from '@/utils/tiAdmin/enrichment'
 import { relativeAge } from './activityPresentation'
 
@@ -29,7 +29,7 @@ export function ActivityEvents({ events, total, page, query, worker, updatedActo
                     <div className='flex flex-wrap gap-2 text-xs font-semibold'>
                         <StatusPill variant='activity'
                             label={operationalStateLabel(worker.state)}
-                            tone={worker.state === 'unavailable' ? 'bad' : worker.state === 'active' ? 'ok' : 'watch'}
+                            tone={workerStatusTone(worker.state)}
                         />
                         <span className='rounded-full border border-ui-border bg-ui-panel px-2 py-1 text-ui-muted'>
                             last sweep {worker.lastSweepFinishedAt ? shortTime(worker.lastSweepFinishedAt) : 'not recorded'}

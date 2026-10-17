@@ -1,5 +1,5 @@
 import { AlertTriangle, Camera, Clock3, DatabaseZap, PlayCircle, Radar } from 'lucide-react'
-import { LiveLane, Metric, operationalStateLabel, shortTime } from './dashboardPresentation'
+import { LiveLane, Metric, operationalStateLabel, shortTime, workerStatusTone } from './dashboardPresentation'
 import type { TiAdminOverview } from '@/utils/tiAdmin/ops'
 import type { TiEnrichmentOverview } from '@/utils/tiAdmin/enrichment'
 
@@ -23,9 +23,6 @@ export function LiveOperations({ overview, enrichment, latestRun, nextRun, lates
     const collectionTone = latestRun?.status === 'failed'
         ? 'bad'
         : latestRun?.status === 'running' || latestRun?.status === 'queued' ? 'watch' : 'ok'
-    const actorTone = enrichment.worker.state === 'active'
-        ? 'ok'
-        : enrichment.worker.state === 'unavailable' ? 'bad' : 'watch'
     const actorSummary = latestDiscovery
         ? latestDiscovery.title
         : `${enrichment.stats.updatedLastHour} profile updates in the last hour`
@@ -52,7 +49,7 @@ export function LiveOperations({ overview, enrichment, latestRun, nextRun, lates
                 href='/ti/profiles'
                 icon={<Radar className='h-4 w-4' />}
                 state={operationalStateLabel(enrichment.worker.state)}
-                stateTone={actorTone}
+                stateTone={workerStatusTone(enrichment.worker.state)}
                 primary={currentActor?.name || activeActorRun?.actor_name || 'Selecting actor'}
                 secondary={actorSummary}
                 footer={actorFooter}
@@ -81,8 +78,6 @@ export function OverviewMetrics({ overview, enrichment, candidateCount, staleCou
     nextRun?: Source
 }) {
     const signals = reviewCount + candidateCount + failedCount
-    const workerState = enrichment.worker.state
-    const workerTone = workerState === 'active' ? 'ok' : workerState === 'unavailable' ? 'bad' : 'watch'
 
     return (
         <div className='grid gap-4 sm:grid-cols-2 xl:grid-cols-6'>
@@ -110,8 +105,8 @@ export function OverviewMetrics({ overview, enrichment, candidateCount, staleCou
             />
             <Metric
                 title='Actor worker'
-                value={operationalStateLabel(workerState)}
-                tone={workerTone}
+                value={operationalStateLabel(enrichment.worker.state)}
+                tone={workerStatusTone(enrichment.worker.state)}
                 icon={<Radar className='h-4 w-4' />}
             />
             <Metric

@@ -6,6 +6,8 @@ import { formatOsloShortDateTime } from '@/utils/date/formatOsloShortDateTime'
 
 export type StatusTone = 'neutral' | 'ok' | 'watch' | 'bad'
 
+export const workerStatusTone = (state: string): StatusTone => state === 'active' ? 'ok' : state === 'unavailable' ? 'bad' : 'watch'
+
 export function StatusPill({ label, tone, compact = false, variant = 'default' }: {
     label: string
     tone: StatusTone

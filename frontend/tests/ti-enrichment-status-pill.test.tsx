@@ -1,6 +1,15 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'bun:test'
-import { StatusPill } from '../src/app/dashboard/ti/dashboardPresentation'
+import { StatusPill, workerStatusTone } from '../src/app/dashboard/ti/dashboardPresentation'
+
+describe('TI worker state tone', () => {
+    it('maps active, unavailable, and all other states consistently', () => {
+        expect(workerStatusTone('active')).toBe('ok')
+        expect(workerStatusTone('unavailable')).toBe('bad')
+        expect(workerStatusTone('idle')).toBe('watch')
+        expect(workerStatusTone('queued')).toBe('watch')
+    })
+})
 
 describe('compact TI status pill', () => {
     it('matches the enrichment pill markup for healthy and unavailable worker states', () => {
