@@ -1,9 +1,8 @@
 import { expect, test } from '@playwright/test'
+import { setupOrganizationWorkspaceSession } from './organization-workspace-session'
 
 test('organization workspace empty state renders create path', async ({ context, page, baseURL }) => {
-    const origin = baseURL || 'http://127.0.0.1:3000'
-    const localUser = `dashboard-render-${'pr' + 'oof'}-user`
-    const localToken = `local-dashboard-render-${'pr' + 'oof'}-token`
+    const { userId: localUser } = await setupOrganizationWorkspaceSession(context, baseURL)
     const createdOrganization = {
         id: 'org_new',
         slug: 'new-security',
@@ -16,15 +15,6 @@ test('organization workspace empty state renders create path', async ({ context,
     const createdOrganizations: Array<{ name?: string }> = []
     const createdWatchlists: Array<{ kind?: string, value?: string, notes?: string }> = []
     const createdInvites: Array<{ emails?: string[], role?: string }> = []
-    await context.setExtraHTTPHeaders({ [`x-hanasand-render-${'pr' + 'oof'}-auth`]: `local-dashboard-render-${'pr' + 'oof'}` })
-    await context.addCookies([
-        { name: 'id', value: localUser, url: origin },
-        { name: 'access_token', value: localToken, url: origin },
-        { name: 'id', value: localUser, domain: 'localhost', path: '/' },
-        { name: 'access_token', value: localToken, domain: 'localhost', path: '/' },
-        { name: 'id', value: localUser, domain: '127.0.0.1', path: '/' },
-        { name: 'access_token', value: localToken, domain: '127.0.0.1', path: '/' },
-    ])
     await page.route(url => new URL(url).pathname === '/api/organizations', async route => {
         if (route.request().method() === 'POST') {
             const body = await route.request().postDataJSON() as { name?: string }
@@ -112,9 +102,7 @@ test('organization workspace empty state renders create path', async ({ context,
 })
 
 test('organization setup keeps new workspace open when first term fails', async ({ context, page, baseURL }) => {
-    const origin = baseURL || 'http://127.0.0.1:3000'
-    const localUser = `dashboard-render-${'pr' + 'oof'}-user`
-    const localToken = `local-dashboard-render-${'pr' + 'oof'}-token`
+    const { userId: localUser } = await setupOrganizationWorkspaceSession(context, baseURL)
     const createdOrganization = {
         id: 'org_warn',
         slug: 'warning-security',
@@ -125,15 +113,6 @@ test('organization setup keeps new workspace open when first term fails', async 
         memberCount: 1,
     }
     let created = false
-    await context.setExtraHTTPHeaders({ [`x-hanasand-render-${'pr' + 'oof'}-auth`]: `local-dashboard-render-${'pr' + 'oof'}` })
-    await context.addCookies([
-        { name: 'id', value: localUser, url: origin },
-        { name: 'access_token', value: localToken, url: origin },
-        { name: 'id', value: localUser, domain: 'localhost', path: '/' },
-        { name: 'access_token', value: localToken, domain: 'localhost', path: '/' },
-        { name: 'id', value: localUser, domain: '127.0.0.1', path: '/' },
-        { name: 'access_token', value: localToken, domain: '127.0.0.1', path: '/' },
-    ])
     await page.route(url => new URL(url).pathname === '/api/organizations', async route => {
         if (route.request().method() === 'POST') {
             created = true
@@ -186,4 +165,3 @@ test('organization setup keeps new workspace open when first term fails', async 
     await expect(page.getByRole('button', { name: /Warning Security owner/ })).toBeVisible()
     await expect(page.getByRole('status').filter({ hasText: 'Organization created, shared term failed: Action unavailable.' })).toBeVisible()
 })
-

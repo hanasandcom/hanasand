@@ -1,8 +1,9 @@
 import type { CaseDetail } from './contracts'
 import type { DeliveryRow, ReceiverReceipt, WebhookDestination } from './evidenceTypes'
+import { orderDeliveries } from '@/app/dashboard/deliveryOrdering'
 
 export function orderCaseDeliveries(rows: DeliveryRow[]) {
-    return [...rows].sort((first, second) => String(second.attemptedAt || '').localeCompare(String(first.attemptedAt || '')))
+    return orderDeliveries(rows)
 }
 
 export function deliveryRowsFromApi(payload: Record<string, unknown>): DeliveryRow[] {

@@ -4,6 +4,7 @@ import { safeEvidenceExcerpt } from '@/utils/dwm/display'
 import type { PortalAlert, DeliveryItem } from './types'
 import { caseDetailHref, deliveryClass, relativeTimeLabel, retryStateLabel, stateLabel } from './case-format'
 import { alertOrganizationId } from './portal-data'
+import { orderDeliveries } from '../deliveryOrdering'
 
 const DWM_DELIVERY_PREVIEW_ROWS = 3
 
@@ -123,10 +124,6 @@ export function DeliveryPanel({ organizationId, alert, deliveries, busyAction, o
             </div>
         </section>
     )
-}
-
-export function orderDeliveries(rows: DeliveryItem[]) {
-    return [...rows].sort((first, second) => String(second.attemptedAt || '').localeCompare(String(first.attemptedAt || '')))
 }
 
 function DeliveryFact({ label, value, tone = 'neutral' }: { label: string, value: string, tone?: 'neutral' | 'good' | 'warn' | 'bad' }) {

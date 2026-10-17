@@ -1,8 +1,8 @@
 import type { BrowserContext, Page } from '@playwright/test'
 import { fixtureOrganization, fixtureViewerOrganization, fixtureMembers, fixtureInvites, fixtureWatchlists, fixtureContosoWatchlists, fixtureDestinations, fixtureAlerts, fixtureCases, fixtureDeliveries } from './organization-workspace-fixtures'
+import { setupOrganizationWorkspaceSession } from './organization-workspace-session'
 
 export async function setupOrganizationWorkspace(context: BrowserContext, page: Page, baseURL?: string, viewerRole: 'viewer' | 'support' = 'viewer') {
-    const origin = baseURL || 'http://127.0.0.1:3000'
     const readOnlyOrganization = { ...fixtureViewerOrganization, role: viewerRole }
     const inviteCreates: Array<{ emails?: string[], role?: string }> = []
     const inviteActions: Array<{ inviteId: string, action: string }> = []
@@ -15,15 +15,7 @@ export async function setupOrganizationWorkspace(context: BrowserContext, page: 
     const deliveryReplays: Array<{ destinationId?: string, alertId?: string, caseId?: string, watchlistId?: string, replay?: boolean }> = []
     const settingsUpdates: Array<{ name?: string }> = []
     const state = { inviteCreates, inviteActions, memberRoleChanges, memberRemovals, watchlistUpdates, watchlistArchives, destinationTests, watchlistDestinationTests, deliveryReplays, settingsUpdates }
-    await context.setExtraHTTPHeaders({ 'x-hanasand-render-proof-auth': 'local-dashboard-render-proof' })
-    await context.addCookies([
-        { name: 'id', value: 'dashboard-render-proof-user', url: origin },
-        { name: 'access_token', value: 'local-dashboard-render-proof-token', url: origin },
-        { name: 'id', value: 'dashboard-render-proof-user', domain: 'localhost', path: '/' },
-        { name: 'access_token', value: 'local-dashboard-render-proof-token', domain: 'localhost', path: '/' },
-        { name: 'id', value: 'dashboard-render-proof-user', domain: '127.0.0.1', path: '/' },
-        { name: 'access_token', value: 'local-dashboard-render-proof-token', domain: '127.0.0.1', path: '/' },
-    ])
+    await setupOrganizationWorkspaceSession(context, baseURL)
     await page.addInitScript(() => {
         Object.defineProperty(navigator, 'clipboard', {
             configurable: true,

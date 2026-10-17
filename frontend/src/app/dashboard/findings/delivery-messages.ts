@@ -1,7 +1,7 @@
 import { safeEvidenceExcerpt } from '@/utils/dwm/display'
 import type { DeliveryItem } from './types'
-import { orderDeliveries } from './delivery-panel'
 import { relativeTimeLabel, stateLabel } from './case-format'
+import { orderDeliveries } from '../deliveryOrdering'
 
 export function mergeDeliveries(incoming: DeliveryItem[], current: DeliveryItem[]) {
     const rows = [...incoming, ...current]
