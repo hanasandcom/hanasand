@@ -8,14 +8,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { caseDetailHref } from './caseRoutes'
 import { date } from './caseDate'
 import { humanReviewLabel, requiresHumanReview } from './caseResolution'
-
-export type CaseResolution = { id?: string, type: 'human' | 'ai' | 'automation' | 'unknown', actor?: string, at?: string, note?: string, confirmedBy?: string, confirmedAt?: string }
-
-export type CaseRow = {
-    id: string, caseId?: string, title: string, summary?: string, status: string,
-    actor?: string, victimName?: string, company?: string, reviewState?: string, source?: string, severity?: string, priority?: string, assignedOwner?: string,
-    resolution?: CaseResolution, organizationId?: string, updatedAt?: string, createdAt?: string,
-}
+import type { CaseRow } from './caseTypes'
 
 export default function CasesClient({ organizationId }: { organizationId?: string }) {
     const [collections, setCollections] = useState<{ intelligence: CaseRow[], monitoring: CaseRow[] }>({ intelligence: [], monitoring: [] })

@@ -1,5 +1,5 @@
 import type { CaseEvent, CheckDetails } from './case-events'
-import type { CaseRow } from './cases-client'
+import type { CaseRow } from './caseTypes'
 
 export type MonitoringCase = CaseRow & {
     diskDiagnostics?: { sampledAt: string, host: string, filesystems: Array<{ path: string, usedPercent: number, complete: boolean, directories: Array<{ path: string, sizeBytes: number }> }> },

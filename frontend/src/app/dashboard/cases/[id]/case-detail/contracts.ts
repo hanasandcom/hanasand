@@ -1,4 +1,4 @@
-import type { CaseResolution } from '../../cases-client'
+import type { CaseResolution } from '../../caseTypes'
 import type { DeliveryRow, EvidenceRow, ReceiverReceipt, TimelineRow, WebhookDestination } from './evidenceTypes'
 
 export type CaseDetail = {
