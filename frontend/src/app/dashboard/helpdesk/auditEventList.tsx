@@ -1,11 +1,11 @@
 import type { RefObject } from 'react'
 import Link from 'next/link'
 import { DashboardPanel } from '@/components/dashboard/ui'
-import type { AdminAuditEvent } from './audit'
+import type { HelpdeskAuditEvent } from './audit'
 import { auditDetailRows, auditQuietButtonClass, auditTargetName, auditDisplayText, formatAuditTime, outcomeClass, severityClass } from './auditPresentation'
 
 export default function AuditEventList({ events, selectedEventId, filterCount, responseError, timeline, pendingEvent, acknowledgmentError, onSelectEvent, onAcknowledge }: {
-    events: AdminAuditEvent[]
+    events: HelpdeskAuditEvent[]
     selectedEventId?: number
     filterCount: number
     responseError: string
@@ -13,7 +13,7 @@ export default function AuditEventList({ events, selectedEventId, filterCount, r
     pendingEvent: number | null
     acknowledgmentError: { id: number, message: string } | null
     onSelectEvent: (id: number) => void
-    onAcknowledge: (event: AdminAuditEvent) => void
+    onAcknowledge: (event: HelpdeskAuditEvent) => void
 }) {
     return <>
         {responseError ? <DashboardPanel className='border-ui-warning/35 bg-ui-warning/10 p-4 text-sm text-ui-warning'>
@@ -46,7 +46,7 @@ export default function AuditEventList({ events, selectedEventId, filterCount, r
 }
 
 function AuditEventRow({ event, focused, pending, saving, acknowledgmentError, onSelect, onAcknowledge }: {
-    event: AdminAuditEvent
+    event: HelpdeskAuditEvent
     focused: boolean
     pending: boolean
     saving: boolean

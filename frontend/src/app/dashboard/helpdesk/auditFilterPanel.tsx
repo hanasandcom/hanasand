@@ -2,14 +2,14 @@ import type { RefObject } from 'react'
 import Link from 'next/link'
 import { Bell } from 'lucide-react'
 import { DashboardPanel } from '@/components/dashboard/ui'
-import { param, type AdminAuditEvent, type AuditSearchParams } from './audit'
+import { param, type HelpdeskAuditEvent, type AuditSearchParams } from './audit'
 import { activeFilterEntries, auditDisplayText, auditFieldClass, auditLimits, auditOutcomes, auditQuietButtonClass, auditSelectClass, auditSeverities, auditTargetName } from './auditPresentation'
 
 type FilterEntry = ReturnType<typeof activeFilterEntries>[number]
 
 export default function AuditFilterPanel({ params, events, responseError, notificationPanel, onSelectEvent }: {
     params: AuditSearchParams
-    events: AdminAuditEvent[]
+    events: HelpdeskAuditEvent[]
     responseError: string
     notificationPanel: RefObject<HTMLDetailsElement | null>
     onSelectEvent: (id: number, reveal?: boolean) => void

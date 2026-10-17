@@ -5,17 +5,17 @@ import { useSearchParams } from 'next/navigation'
 import { DashboardPage } from '@/components/dashboard/ui'
 import { useAuditAcknowledgment } from '../audit/useAuditAcknowledgment'
 import type { AuditAcknowledgment } from '../audit/acknowledgment'
-import { helpdeskAcknowledgmentFields, type AdminAuditEvent, type AuditSearchParams } from './audit'
+import { helpdeskAcknowledgmentFields, type HelpdeskAuditEvent, type AuditSearchParams } from './audit'
 import { activeFilterEntries, selectedAuditEvent } from './auditPresentation'
 import AuditFilterPanel from './auditFilterPanel'
 import AuditEventList from './auditEventList'
 
 export default function AuditTimeline({ events: initialEvents, params, responseError }: {
-    events: AdminAuditEvent[]
+    events: HelpdeskAuditEvent[]
     params: AuditSearchParams
     responseError: string
 }) {
-    const [acknowledgments, setAcknowledgments] = useState<Record<number, Partial<AdminAuditEvent>>>({})
+    const [acknowledgments, setAcknowledgments] = useState<Record<number, Partial<HelpdeskAuditEvent>>>({})
     const events = initialEvents.map(event => ({ ...event, ...acknowledgments[event.id] }))
     const searchParams = useSearchParams()
     const selectedEvent = selectedAuditEvent(events, { ...params, event: searchParams?.get('event') || undefined })

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'bun:test'
-import { buildApiQuery, helpdeskEvent, type AdminAuditEvent } from '../src/app/dashboard/helpdesk/audit'
+import { buildApiQuery, helpdeskEvent, type SystemAuditEvent } from '../src/app/dashboard/helpdesk/audit'
 import { auditQuery } from '../src/app/dashboard/management/audit/data'
 import { fetchSystemEvents } from '../src/app/dashboard/management/audit/request'
 
@@ -55,7 +55,7 @@ test('shared event transport preserves auth, request options, and error response
 })
 
 test('Helpdesk projection removes unapproved event and context fields', () => {
-    const event: AdminAuditEvent & { detail: { report: string } } = {
+    const event: SystemAuditEvent & { detail: { report: string } } = {
         id: 1, event_type: 'admin.login', severity: 'notice', source: 'admin', service: 'api',
         actor_id: 'operator', actor_name: 'Operator', object_type: 'user', object_id: 'target-1',
         target_name: 'Target', organization_id: 'org-1', organization_name: 'Example',
@@ -67,7 +67,7 @@ test('Helpdesk projection removes unapproved event and context fields', () => {
     const projected = helpdeskEvent(event)
 
     assert.deepEqual(projected.context, { name: 'Allowed name', targetId: 'target-1' })
-    assert.equal(projected.user_agent, '')
+    assert.equal('user_agent' in projected, false)
     assert.equal('detail' in projected, false)
     assert.equal(JSON.stringify(projected).includes('private'), false)
     assert.equal(JSON.stringify(projected).includes('arbitrary'), false)

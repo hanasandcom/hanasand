@@ -1,7 +1,7 @@
 import type { AuditAcknowledgment } from '../audit/acknowledgment'
 import { queryParamValue } from '@/utils/pagination'
 
-export type AdminAuditEvent = {
+export type SystemAuditEvent = {
     id: number
     event_type: string
     severity: 'info' | 'notice' | 'warning' | 'critical'
@@ -27,7 +27,13 @@ export type AdminAuditEvent = {
     created_at: string
 }
 
-export function helpdeskAcknowledgmentFields(result: AuditAcknowledgment): Partial<AdminAuditEvent> {
+type HelpdeskEventContext = Partial<Record<'name' | 'targetName' | 'targetId' | 'targetSource', string>>
+
+export type HelpdeskAuditEvent = Omit<SystemAuditEvent, 'user_agent' | 'context'> & {
+    context: HelpdeskEventContext
+}
+
+export function helpdeskAcknowledgmentFields(result: AuditAcknowledgment): Partial<HelpdeskAuditEvent> {
     return {
         acknowledged_at: result.acknowledgedAt,
         acknowledged_by: result.acknowledgedBy,
@@ -69,7 +75,11 @@ export function buildApiQuery(params: AuditSearchParams) {
 
 
 // Keep API report fields out of the client payload, even if the endpoint adds them later.
-export function helpdeskEvent(event: AdminAuditEvent): AdminAuditEvent {
+export function helpdeskEvent(event: SystemAuditEvent): HelpdeskAuditEvent {
+    const context = Object.fromEntries(['name', 'targetName', 'targetId', 'targetSource']
+        .filter((key): key is keyof HelpdeskEventContext => typeof event.context?.[key] === 'string')
+        .map(key => [key, event.context?.[key]])) as HelpdeskEventContext
+
     return {
         id: event.id, event_type: event.event_type, severity: event.severity,
         source: event.source, service: event.service,
@@ -80,9 +90,6 @@ export function helpdeskEvent(event: AdminAuditEvent): AdminAuditEvent {
         outcome: event.outcome, reason: event.reason, ip: event.ip, created_at: event.created_at,
         acknowledged_at: event.acknowledged_at, acknowledged_by: event.acknowledged_by,
         acknowledged_by_name: event.acknowledged_by_name,
-        user_agent: '',
-        context: Object.fromEntries(['name', 'targetName', 'targetId', 'targetSource']
-            .filter(key => typeof event.context?.[key] === 'string')
-            .map(key => [key, event.context![key]])),
+        context,
     }
 }

@@ -2,7 +2,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import config from '@/config'
 import AuditTimeline from './auditTimeline'
-import { buildApiQuery, helpdeskEvent, type AdminAuditEvent, type AuditSearchParams } from './audit'
+import { buildApiQuery, helpdeskEvent, type SystemAuditEvent, type AuditSearchParams } from './audit'
 import { fetchSystemEvents } from '../management/audit/request'
 
 function decodeAccessToken(value: string) {
@@ -30,7 +30,7 @@ export default async function HelpdeskPage({
     const query = buildApiQuery(params)
     const response = await fetchSystemEvents(config.url.api, query, decodeAccessToken(token), id, { cache: 'no-store' }).catch(() => null)
     const payload = response?.ok ? await response.json().catch(() => null) : null
-    const events = Array.isArray(payload?.events) ? payload.events as AdminAuditEvent[] : []
+    const events = Array.isArray(payload?.events) ? payload.events as SystemAuditEvent[] : []
     const responseError = response && !response.ok
         ? `Audit service reported ${response.status}.`
         : !response
