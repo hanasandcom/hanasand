@@ -1061,3 +1061,20 @@ not yet exercise row selection disappearing during a mounted session. The
 frontend scan now covers 2,308 files / 153,090 LOC with zero files over 200.
 This exact reuse removes seven production lines, but the 10,000–30,000 LOC
 frontend target remains unmet. No push/deploy was performed.
+
+The API deployment route now delegates access/repository lookup, execution,
+retry, and release persistence to cohesive modules; independent review found
+validation and authorization order, bridge/event ordering, SQL values, and
+response contracts unchanged. Its five files stay below 200 lines. The 504-line
+rule-editing suite is now six registered suites plus one fixture, preserving 32
+tests / 206 runtime expectations; the 466-line verification-jobs suite is now
+177 lines with cancellation/database/state fixtures, preserving 15 tests / 77
+expectations and the held-fetch cancellation guarantees. Independent reviews
+approved both test splits. Organization privacy state reads now live in a
+separate query/read-model module; its focused tests and API typecheck pass, and
+the TI client/export call paths were left in place. The repository-wide scan
+now reports 101 / 4,109 files over 200 lines and 323,714 LOC; three oversized
+files were resolved, but module/test boundaries increased aggregate LOC by
+about 110 from the preceding scan. Frontend remains at 2,308 files / 153,090
+LOC / zero over cap. The API 100,000-line reduction and 10,000–30,000 frontend
+target remain unachieved. No push/deploy was performed.
