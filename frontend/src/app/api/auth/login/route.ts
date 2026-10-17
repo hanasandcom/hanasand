@@ -1,9 +1,9 @@
 import { clientHeaders } from '@/utils/auth/clientHeaders'
 import { NextRequest, NextResponse } from 'next/server'
-import { setAuthCookies } from '../_authCookies'
+import { authenticatedSessionResponse } from '../_authCookies'
 import { identityApiUrl } from '@/utils/auth/authApiUrl'
 import { normalizeErrorCode, normalizeMessage, recordFrontendAuthFailure, requestIdFor } from './failureLogging'
-import { authRedirect, parseAuthBody, parseJson, redirectTo, safeRedirectPath } from './requestHelpers'
+import { authRedirect, parseAuthBody, parseJson } from './requestHelpers'
 
 const LOGIN_AUTH_TIMEOUT_MS = 15_000
 
@@ -88,18 +88,5 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Login succeeded, but the session could not be created.' }, { status: 502 })
     }
 
-    if (wantsRedirect) {
-        const response = redirectTo(safeRedirectPath(redirectPath))
-        setAuthCookies(req, response, data)
-        return response
-    }
-
-    const response = NextResponse.json({
-        name: data.name,
-        id: data.id,
-        avatar: data.avatar ?? null,
-        expires_at: data.expires_at ?? null,
-    })
-    setAuthCookies(req, response, data)
-    return response
+    return authenticatedSessionResponse(req, data, wantsRedirect, redirectPath)
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { authCookieOptions, setAuthCookie } from '@/utils/proxy/authResponses'
+import { safeRedirectPath } from '@/utils/auth/safeRedirectPath'
 
 type AuthPayload = {
     name?: string
@@ -38,6 +39,19 @@ export function setAuthCookies(req: NextRequest, response: NextResponse, data: A
         setAuthCookie(response, 'session_expires_at', data.expires_at, cookieOptions, sharedDomain)
     }
     setAuthCookie(response, 'auth_checked_at', new Date().toISOString(), cookieOptions, sharedDomain)
+}
+
+export function authenticatedSessionResponse(req: NextRequest, data: AuthPayload, wantsRedirect: boolean, redirectPath: string) {
+    const response = wantsRedirect
+        ? new NextResponse(null, { status: 303, headers: { Location: safeRedirectPath(redirectPath) } })
+        : NextResponse.json({
+            name: data.name,
+            id: data.id,
+            avatar: data.avatar ?? null,
+            expires_at: data.expires_at ?? null,
+        })
+    setAuthCookies(req, response, data)
+    return response
 }
 
 export function clearAuthCookies(req: NextRequest, response: NextResponse) {

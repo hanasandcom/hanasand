@@ -1,7 +1,7 @@
 import { clientHeaders } from '@/utils/auth/clientHeaders'
 import { NextRequest, NextResponse } from 'next/server'
 import { reservedUsernames } from '@/utils/auth/reservedUsernames'
-import { setAuthCookies } from '../_authCookies'
+import { authenticatedSessionResponse } from '../_authCookies'
 import { authApiUrl, identityApiUrl } from '@/utils/auth/authApiUrl'
 import { safeRedirectPath } from '@/utils/auth/safeRedirectPath'
 import { parseAuthRequest, parseAuthJson } from '@/utils/auth/requestBody'
@@ -72,20 +72,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ accountCreated: true, error: 'Your account was created. Please log in to continue.' }, { status: 502 })
     }
 
-    if (wantsRedirect) {
-        const response = redirectTo(safeRedirectPath(redirectPath))
-        setAuthCookies(req, response, loginData)
-        return response
-    }
-
-    const response = NextResponse.json({
-        name: loginData.name,
-        id: loginData.id,
-        avatar: loginData.avatar ?? null,
-        expires_at: loginData.expires_at ?? null,
-    })
-    setAuthCookies(req, response, loginData)
-    return response
+    return authenticatedSessionResponse(req, loginData, wantsRedirect, redirectPath)
 }
 
 async function createLoginSession(req: NextRequest, id: string, password: string) {
