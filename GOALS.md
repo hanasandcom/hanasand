@@ -1835,3 +1835,28 @@ files / 155,210 lines with zero over 200. The repository inventory grew by two
 lines since the preceding checkpoint due to test separation; the API and
 frontend aggregate reduction goals remain open. No UI redesign or deployment
 was made.
+
+At checkpoint `5964e20b1` (2026-10-17), API HTTP plugin, route, root-handler,
+and monitoring-hook registration lives in `registerHttpSurface.ts`; startup
+remains 190 lines and the extraction removes five production lines while
+preserving registration order. Its route contract and TI public-boundary checks
+pass (17 tests / 64 assertions), along with API typecheck and targeted lint.
+Frontend authenticated passkey proxies now share cookie-header, request, and
+response handling; login and registration also share their successful session
+response and cookie path. Those frontend changes remove 55 production lines
+and add 13 test lines overall. Focused route/auth tests, frontend typecheck,
+ESLint, and the frontend cap pass; the current frontend inventory is 2,378
+files / 155,168 lines with zero over 200. A profile/account reuse audit found
+no shared row or dialog contract that would reduce code without branching.
+The database dashboard monitor is split into eight responsibility modules;
+its entrypoint is 136 lines and its folder shrank from 912 to 855 lines, with
+no file above 137 lines. Its self-test, stubbed integration test,
+cookie-failure regression, status-feed tests, syntax checks, and independent
+review pass. The repository cap scan now finds 45 over-limit files among 4,378
+hand-maintained files / 326,713 lines, all outside the frontend. The frontend
+10,000–30,000-line target and API
+100,000-line reduction remain unmet; these changes preserve existing
+behavior but make only incremental progress toward those aggregate goals. The
+commits through this checkpoint are pushed to both `origin/main` and
+`github/main`. No UI redesign, live production monitor run, or deployment was
+made.
