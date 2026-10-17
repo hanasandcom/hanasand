@@ -3,10 +3,6 @@ import type { DeliveryItem } from './types'
 import { orderDeliveries } from './delivery-panel'
 import { relativeTimeLabel, stateLabel } from './case-format'
 
-export async function readPayload(response: Response): Promise<{ error?: { message?: string }, attemptedCount?: number, case?: { id?: string }, alertCaseHandoff?: { caseId?: string }, delivery?: DeliveryItem, deliveries?: DeliveryItem[] }> {
-    return await response.json().catch(() => ({}))
-}
-
 export function mergeDeliveries(incoming: DeliveryItem[], current: DeliveryItem[]) {
     const rows = [...incoming, ...current]
     const seen = new Set<string>()

@@ -6,6 +6,7 @@ import { mapDwmDecision } from './modules/watchlistHelpers'
 import { readJson } from './modules/payloadParsing'
 import { label } from './modules/presentation'
 import type { WorkbenchPersistentAction } from './useWorkbenchActionState'
+import { postWebhookJson } from '../../webhookDeliveryTransport'
 
 export function useAlertWorkflowActions(input: {
     orgContext?: WorkbenchOrgContext
@@ -66,12 +67,10 @@ export function useAlertWorkflowActions(input: {
         if (disabledReason) { setMessage({ ok: false, text: disabledReason }); return }
         await runPersistentAction(`send:${item.id}`, async () => {
             const action = sendDeliveryActionFor(item)
-            const response = await fetch(action?.href || '/api/findings/webhooks/deliver', {
-                method: 'POST', headers: { 'content-type': 'application/json' },
-                body: JSON.stringify(scopedDeliveryActionBody(action?.body || { alertId: item.id, limit: 1 }, orgContext)),
-            })
-            const payload = await readJson(response)
-            if (!response.ok) throw new Error(payload.error?.message || response.statusText)
+            const payload = await postWebhookJson<WorkbenchApiPayload>(
+                action?.href || '/api/findings/webhooks/deliver',
+                scopedDeliveryActionBody(action?.body || { alertId: item.id, limit: 1 }, orgContext),
+            )
             await refreshBackedSelection(item, payload, action)
             return webhookDeliveryResultMessage(payload)
         })

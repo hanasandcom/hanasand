@@ -4,6 +4,7 @@ export const dwmProductProgressTasks: TestTask[] = [
     { id: 'dwm-case-detail-source', title: 'DWM case detail source contract', command: [bun, 'test', 'tests/dwm-case-detail-source.test.ts'] },
     { id: 'dwm-cases-overview', title: 'DWM cases overview mapping', command: [bun, 'test', 'tests/dwm-cases-overview.test.ts'] },
     { id: 'dwm-delivery-truthfulness', title: 'DWM delivery status truthfulness', command: [bun, 'test', 'tests/dwm-delivery-truthfulness.test.ts'] },
+    { id: 'webhook-delivery-transport', title: 'Shared webhook delivery request transport', command: [bun, 'test', 'tests/webhook-delivery-transport.test.ts'] },
     { id: 'dwm-report-delivery-route', title: 'DWM report delivery validation', command: [bun, 'test', 'tests/dwm-report-delivery-route.test.ts'] },
     { id: 'dwm-scraper-api-base', title: 'DWM scraper API base selection', command: [bun, 'test', 'tests/dwm-scraper-api-base.test.ts'] },
     { id: 'dwm-webhook-receiver-route', title: 'DWM webhook receiver acknowledgement and failure handling', command: [bun, 'test', 'tests/dwm-webhook-receiver-route.test.ts'] },
