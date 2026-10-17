@@ -2060,3 +2060,19 @@ split adds 55). Both commits are pushed to Forgejo and GitHub. The current scan
 reports 20 over-limit files among 4,481 hand-maintained files / 327,610 lines;
 the frontend has 2,385 files / 155,109 lines and zero over 200. Aggregate API
 and frontend reduction goals remain open.
+
+At `334f52d56`, the rate-limit smoke was divided into an 18-line guarded
+entrypoint, a 97-line fixture module, and a 115-line scenario flow, preserving
+its DB password gate, setup/cleanup order, API assertions, and output while
+removing 50 lines. Independent review and static checks passed; live API/DB
+execution was skipped. At `c3ed275f9`, the onion websocket lifecycle suite was
+split into lifecycle and malformed-message suites with a shared harness; all
+four original cases / 15 expectations remain, and direct and registered runner
+checks, API typecheck, scoped ESLint, and independent review passed. At
+`3548de142`, restore history reused the existing local date formatter, with
+invalid and missing timestamp coverage; the focused suite passed 7 tests / 36
+expectations, along with typecheck, scoped ESLint, and cap checks. These three
+commits are pushed to both remotes. The latest repository scan finds 18
+over-limit files among 4,485 hand-maintained files / 327,564 lines, all outside
+the frontend. The frontend scan passes at 2,385 files / 155,110 lines with no
+file over 200. Aggregate API/frontend reduction targets remain unmet.
