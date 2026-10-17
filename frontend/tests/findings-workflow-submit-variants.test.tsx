@@ -2,7 +2,9 @@
 import { expect, test } from 'bun:test'
 import { createRef } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { Send } from 'lucide-react'
 import { PublicEvidenceForm, TelegramSourceForm } from '../src/app/dashboard/findings/workflow-intake-forms'
+import { WorkflowSubmitButton } from '../src/app/dashboard/findings/workflow-controls'
 import { WorkflowWatchlistForm } from '../src/app/dashboard/findings/workflow-watchlist-form'
 
 const standardClass = 'inline-flex h-10 items-center gap-2 rounded-lg bg-ui-primary px-4 text-sm font-semibold text-ui-on-primary transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60'
@@ -13,6 +15,9 @@ function submitButton(markup: string) {
 }
 
 test('findings workflow forms preserve each submit button variant and state contract', () => {
+    const enabledWithReason = renderToStaticMarkup(<WorkflowSubmitButton
+        busy={false} disabled={false} disabledReason='Connect a source' icon={<Send className='h-4 w-4' />}
+    >Submit source</WorkflowSubmitButton>)
     const publicReady = submitButton(renderToStaticMarkup(<PublicEvidenceForm
         actor='' onActor={() => {}} company='' onCompany={() => {}} data='' onData={() => {}} url='' onUrl={() => {}}
         busy={false} saving={false} disabledReason='' onSubmit={() => {}} onOpenCase={() => {}} openingCase={false}
@@ -56,6 +61,10 @@ test('findings workflow forms preserve each submit button variant and state cont
         terms='' hasTerms onTermsChange={() => {}} inputRef={createRef<HTMLTextAreaElement>()} onSave={() => {}}
         busy saving disabledReason='Add terms first'
     />))
+
+    expect(enabledWithReason).toContain('title="Connect a source"')
+    expect(enabledWithReason).not.toContain('disabled=""')
+    expect(enabledWithReason).toContain('Submit source</button>')
 
     expect(publicReady).toContain(`class="${standardClass}"`)
     expect(publicReady).toContain('lucide-plus h-4 w-4')
