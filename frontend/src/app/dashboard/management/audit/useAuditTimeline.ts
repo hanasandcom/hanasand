@@ -3,6 +3,7 @@ import { isManagementSearchShortcut } from '@/utils/isManagementSearchShortcut'
 import { getCookie } from '@/utils/cookies/cookies'
 import config from '@/config'
 import { auditQuery, param, readAuditPage, summarizeAuditFailures, type AuditPage, type AuditSearchParams } from './data'
+import { fetchSystemEvents } from './request'
 
 type AuditUiState = {
     searchOpen?: boolean
@@ -82,9 +83,7 @@ export default function useAuditTimeline(initialAudit: AuditPage, filters: Audit
             const token = getCookie('access_token')
             const id = getCookie('id')
             if (!token || !id) throw new Error('Authentication required')
-            const response = await fetch(`${config.url.api}/system/events?${auditQuery(nextFilters, cursor)}`, {
-                headers: { Authorization: `Bearer ${token}`, id }, signal: abort.signal,
-            })
+            const response = await fetchSystemEvents(config.url.api, auditQuery(nextFilters, cursor), token, id, { signal: abort.signal })
             const payload = await response.json()
             if (!response.ok) throw new Error(typeof payload.error === 'string' ? payload.error : 'Unable to load events')
             const result = readAuditPage(payload)

@@ -2,6 +2,7 @@ import { cookies } from 'next/headers'
 import config from '@/config'
 import AuditTimeline from './timeline'
 import { auditQuery, readAuditPage, type AuditPage, type AuditSearchParams } from './data'
+import { fetchSystemEvents } from './request'
 export const dynamic = 'force-dynamic'
 export default async function AuditLogPage({ searchParams }: { searchParams?: Promise<AuditSearchParams> }) {
     const filters = { ...await searchParams }
@@ -17,10 +18,7 @@ async function getAuditPage(params: AuditSearchParams): Promise<AuditPage> {
     const id = cookieStore.get('id')?.value
     if (!token || !id) return unavailable
     try {
-        const response = await fetch(`${config.url.api}/system/events?${auditQuery(params)}`, {
-            headers: { Authorization: `Bearer ${decodeURIComponent(token)}`, id },
-            cache: 'no-store',
-        })
+        const response = await fetchSystemEvents(config.url.api, auditQuery(params), decodeURIComponent(token), id, { cache: 'no-store' })
         const payload = await response.json()
         if (!response.ok) return { ...unavailable, error: typeof payload.error === 'string' ? payload.error : 'Unable to load audit events.' }
         return readAuditPage(payload)
