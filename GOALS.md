@@ -1415,3 +1415,15 @@ registration adds one. Focused tests, targeted ESLint, typecheck, line-cap scan,
 and `git diff --check` pass. Frontend inventory is 2,323 files / 154,028 lines
 with zero over 200. The 10,000–30,000-line frontend goal and API reduction goal
 remain outstanding. No UI change or deployment was made.
+
+The repository-wide 200-line cap work now addresses two API over-cap files. The
+317-line support-session presentation module is split into five cohesive
+modules totaling 311 lines (-6), with the original exports preserved. The
+351-line TI scraper control test is split into auth/access, dashboard-read, and
+control-action suites plus a shared fixture; independent review confirms its
+assertions and cleanup contracts remain intact. Focused tests pass (16 tests /
+69 expectations), the three runner registrations and runner-policy tests pass
+(8 tests / 77 expectations), and API typecheck, targeted ESLint, and diff check
+pass. Every changed file is under 200 lines. Other global cap violations and
+the API/frontend LOC reduction goals remain outstanding. No deployment was
+performed.
