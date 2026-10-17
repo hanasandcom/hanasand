@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { DashboardTable } from '@/components/dashboard/ui'
 import Link from '@/components/organizations/workspaceLink'
 import type { PortalAlert, OperationsSnapshot, CasesState } from './types'
 import { caseDateLabel, caseDetailHref, relativeTimeLabel, reviewStateClass, severityClass, stateLabel } from './case-format'
@@ -41,47 +42,45 @@ export function CaseOverview({ organizationId, state, alerts, operations, isAdmi
                 {state.status === 'ready' && state.rows.length > 0 && filteredRows.length === 0 && <div className='px-4 py-10 text-center text-sm text-ui-muted'>No cases match the current filters.</div>}
                 {state.status === 'ready' && filteredRows.length > 0 && (
                     <div className='overflow-x-auto' data-dwm-cases-table='true'>
-                        <table className='min-w-full border-collapse text-left text-sm'>
-                            <thead className='border-b border-ui-border bg-ui-raised text-xs font-semibold text-ui-muted'>
-                                <tr>
-                                    <th className='px-4 py-3'>Title / actor</th>
-                                    <th className='px-4 py-3'>Severity / status</th>
-                                    <th className='px-4 py-3'>Owner</th>
-                                    <th className='px-4 py-3'>Updated</th>
-                                </tr>
-                            </thead>
-                            <tbody className='divide-y divide-ui-border'>
-                                {filteredRows.map(row => {
-                                    const alert = row.alertId ? alertsById.get(row.alertId) : undefined
-                                    const caseId = row.caseId || row.id
-                                    const severity = alert?.severity || row.severity || row.priority || '—'
-                                    const status = row.status || '—'
-                                    const reviewState = alert?.reviewState || row.reviewState
-                                    return (
-                                        <tr key={caseId} className='align-top text-ui-text' data-dwm-case-row='true'>
+                        <DashboardTable
+                            className='min-w-full border-collapse text-left text-sm'
+                            headClassName='border-b border-ui-border bg-ui-raised text-xs font-semibold text-ui-muted'
+                            bodyClassName='divide-y divide-ui-border'
+                            columnHeaders={<>
+                                <th className='px-4 py-3'>Title / actor</th>
+                                <th className='px-4 py-3'>Severity / status</th>
+                                <th className='px-4 py-3'>Owner</th>
+                                <th className='px-4 py-3'>Updated</th>
+                            </>}
+                        >{filteredRows.map(row => {
+                                const alert = row.alertId ? alertsById.get(row.alertId) : undefined
+                                const caseId = row.caseId || row.id
+                                const severity = alert?.severity || row.severity || row.priority || '—'
+                                const status = row.status || '—'
+                                const reviewState = alert?.reviewState || row.reviewState
+                                return (
+                                    <tr key={caseId} className='align-top text-ui-text' data-dwm-case-row='true'>
 
-                                            <td className='px-4 py-3'>
-                                                <Link href={caseDetailHref(caseId, row.alertId, row.organizationId || organizationId, 'case_overview')} className='font-semibold text-ui-primary underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-ui-primary/30'>
-                                                    {row.title}
-                                                </Link>
-                                                <p className='mt-1 wrap-break-word text-xs text-ui-muted'>{alert?.actor || row.actor || '—'}</p>
-                                            </td>
-                                            <td className='px-4 py-3'>
-                                                <div className='flex flex-wrap items-center gap-2'>
-                                                    <span className={severity === '—' ? 'text-ui-muted' : severityClass(severity)}>{stateLabel(severity)}</span>
-                                                    <span className='wrap-break-word text-xs text-ui-muted'>{stateLabel(status)}</span>
-                                                </div>
-                                            </td>
-                                            <td className='px-4 py-3 text-xs text-ui-muted'>{row.assignedOwner || 'Unassigned'}</td>
-                                            <td className='px-4 py-3 text-xs text-ui-muted'>
-                                                <p>{caseDateLabel(row.updatedAt || alert?.firstSeenAt || row.firstSeenAt || row.createdAt)}</p>
-                                                {reviewState ? <p className='mt-1'><span className={reviewStateClass(reviewState)}>{stateLabel(reviewState)}</span></p> : null}
-                                            </td>
-                                        </tr>
-                                    )
-                                })}
-                            </tbody>
-                        </table>
+                                        <td className='px-4 py-3'>
+                                            <Link href={caseDetailHref(caseId, row.alertId, row.organizationId || organizationId, 'case_overview')} className='font-semibold text-ui-primary underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-ui-primary/30'>
+                                                {row.title}
+                                            </Link>
+                                            <p className='mt-1 wrap-break-word text-xs text-ui-muted'>{alert?.actor || row.actor || '—'}</p>
+                                        </td>
+                                        <td className='px-4 py-3'>
+                                            <div className='flex flex-wrap items-center gap-2'>
+                                                <span className={severity === '—' ? 'text-ui-muted' : severityClass(severity)}>{stateLabel(severity)}</span>
+                                                <span className='wrap-break-word text-xs text-ui-muted'>{stateLabel(status)}</span>
+                                            </div>
+                                        </td>
+                                        <td className='px-4 py-3 text-xs text-ui-muted'>{row.assignedOwner || 'Unassigned'}</td>
+                                        <td className='px-4 py-3 text-xs text-ui-muted'>
+                                            <p>{caseDateLabel(row.updatedAt || alert?.firstSeenAt || row.firstSeenAt || row.createdAt)}</p>
+                                            {reviewState ? <p className='mt-1'><span className={reviewStateClass(reviewState)}>{stateLabel(reviewState)}</span></p> : null}
+                                        </td>
+                                    </tr>
+                                )
+                            })}</DashboardTable>
                     </div>
                 )}
             </section>

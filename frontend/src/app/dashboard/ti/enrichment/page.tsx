@@ -4,6 +4,7 @@ import { DashboardHeader, DashboardPage, DashboardPanel } from '@/components/das
 import { getTiEnrichmentOverview, type TiActivityEvent, type TiEnrichedActor, type TiProfileUpdate } from '@/utils/tiAdmin/enrichment'
 import { formatTiDate } from '@/utils/tiAdmin/ops'
 import { actorProfileHref } from '@/utils/ti/actorProfileRoute'
+import { StatusPill } from '../dashboardPresentation'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,7 +27,7 @@ export default async function TiEnrichmentPage() {
                         <div className='flex items-center gap-2'>
                             <Radio className='h-5 w-5 text-ui-success' />
                             <h2 className='text-lg font-semibold text-ui-text'>Automated enrichment</h2>
-                            <StatusPill label={`worker ${worker.state}`} tone={worker.state === 'unavailable' ? 'bad' : 'ok'} />
+                            <StatusPill compact label={`worker ${worker.state}`} tone={worker.state === 'unavailable' ? 'bad' : 'ok'} />
                         </div>
                         <p className='mt-2 text-xs text-ui-muted'>{worker.state === 'unavailable' ? worker.lastError || 'The enrichment status service could not be reached.' : worker.lastSuccessfulRunAt ? `Last successful run ${formatTiDate(worker.lastSuccessfulRunAt)}${worker.snapshotFresh === false ? ' · snapshot is stale' : ''}.` : 'Waiting for the first GPU enrichment result.'}</p>
                     </div>
@@ -139,8 +140,4 @@ function PanelHeader({ title, subtitle }: { title: string, subtitle?: string }) 
 
 function Metric({ label, value }: { label: string, value: string }) {
     return <div className='rounded-md border border-ui-border bg-ui-canvas px-3 py-2'><p className='text-[10px] font-semibold uppercase text-ui-muted'>{label}</p><p className='mt-1 text-lg font-semibold text-ui-text'>{value}</p></div>
-}
-
-function StatusPill({ label, tone }: { label: string, tone: 'ok' | 'bad' }) {
-    return <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${tone === 'ok' ? 'border-ui-success/35 bg-ui-success/10 text-ui-success' : 'border-ui-danger/35 bg-ui-raised/10 text-ui-text'}`}>{label}</span>
 }

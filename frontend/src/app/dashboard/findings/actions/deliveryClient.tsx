@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { LoaderCircle, Plus, Search, Send, X } from 'lucide-react'
+import { DashboardTable } from '@/components/dashboard/ui'
 
 type Destination = {
     id: string
@@ -121,26 +122,28 @@ export default function DeliveryClient({ scopeId }: { scopeId: string }) {
         </div>
         {loadError ? <div role='alert' className='flex flex-wrap items-center gap-3 p-4 text-sm text-ui-text'>{loadError}<button className={button} onClick={() => setVersion(value => value + 1)}>Retry</button></div> : <>
             <div className='overflow-x-auto' aria-busy={loading}>
-                <table className='w-full min-w-[44rem] text-left text-sm'>
-                    <thead className='bg-ui-raised text-xs text-ui-muted'><tr>{['Name', 'Type', 'Destination', 'Status', 'Last test', 'Actions'].map(label => <th key={label} scope='col' className='px-4 py-3 font-semibold'>{label}</th>)}</tr></thead>
-                    <tbody className='divide-y divide-ui-border'>
-                        {visible.map(destination => <tr key={destination.id}>
-                            <th scope='row' className='px-4 py-3 font-semibold'>{destination.name}</th>
-                            <td className='px-4 py-3'>{destination.kind === 'discord' ? 'Discord' : 'Webhook'}</td>
-                            <td className='max-w-64 truncate px-4 py-3 text-ui-muted' title={destination.endpointHint}>{destination.endpointHint}</td>
-                            <td className='px-4 py-3 capitalize'>{destination.status}</td>
-                            <td className='px-4 py-3'><span>{testLabel(destination.lastTestStatus)}</span>{destination.lastTestedAt && <time dateTime={destination.lastTestedAt} className='mt-1 block whitespace-nowrap text-xs text-ui-muted'>{new Date(destination.lastTestedAt).toLocaleString()}</time>}</td>
-                            <td className='px-4 py-3'>
-                                <div className='flex gap-2'>
-                                    <button type='button' className={button} disabled={!canManage || Boolean(busy) || destination.status !== 'active'} aria-label={`Test ${destination.name}`} title='Send an example message' onClick={() => void test(destination)}>{busy === destination.id ? <LoaderCircle aria-hidden='true' className='h-4 w-4 animate-spin' /> : <Send aria-hidden='true' className='h-4 w-4' />}Test</button>
-                                    {canManage && <><button type='button' className={button} disabled={Boolean(busy)} aria-label={`Edit ${destination.name}`} onClick={() => openForm(destination)}>Edit</button><button type='button' className={button} disabled={Boolean(busy)} aria-label={`Remove ${destination.name}`} onClick={() => void remove(destination)}>Remove</button></>}
-                                </div>
-                                {results[destination.id] && <p role={results[destination.id].ok ? 'status' : 'alert'} className={`mt-2 max-w-sm text-xs ${results[destination.id].ok ? 'text-ui-success' : 'text-ui-text'}`}>{results[destination.id].message}</p>}
-                            </td>
-                        </tr>)}
-                        {!visible.length && <tr><td colSpan={6} className='px-4 py-10 text-center text-ui-muted'>{loading ? 'Loading destinations…' : destinations.length ? 'No destinations match these filters.' : 'No delivery destinations yet.'}</td></tr>}
-                    </tbody>
-                </table>
+                <DashboardTable
+                    className='w-full min-w-[44rem] text-left text-sm'
+                    headClassName='bg-ui-raised text-xs text-ui-muted'
+                    bodyClassName='divide-y divide-ui-border'
+                    columnHeaders={['Name', 'Type', 'Destination', 'Status', 'Last test', 'Actions'].map(label => <th key={label} scope='col' className='px-4 py-3 font-semibold'>{label}</th>)}
+                >
+                    {visible.map(destination => <tr key={destination.id}>
+                        <th scope='row' className='px-4 py-3 font-semibold'>{destination.name}</th>
+                        <td className='px-4 py-3'>{destination.kind === 'discord' ? 'Discord' : 'Webhook'}</td>
+                        <td className='max-w-64 truncate px-4 py-3 text-ui-muted' title={destination.endpointHint}>{destination.endpointHint}</td>
+                        <td className='px-4 py-3 capitalize'>{destination.status}</td>
+                        <td className='px-4 py-3'><span>{testLabel(destination.lastTestStatus)}</span>{destination.lastTestedAt && <time dateTime={destination.lastTestedAt} className='mt-1 block whitespace-nowrap text-xs text-ui-muted'>{new Date(destination.lastTestedAt).toLocaleString()}</time>}</td>
+                        <td className='px-4 py-3'>
+                            <div className='flex gap-2'>
+                                <button type='button' className={button} disabled={!canManage || Boolean(busy) || destination.status !== 'active'} aria-label={`Test ${destination.name}`} title='Send an example message' onClick={() => void test(destination)}>{busy === destination.id ? <LoaderCircle aria-hidden='true' className='h-4 w-4 animate-spin' /> : <Send aria-hidden='true' className='h-4 w-4' />}Test</button>
+                                {canManage && <><button type='button' className={button} disabled={Boolean(busy)} aria-label={`Edit ${destination.name}`} onClick={() => openForm(destination)}>Edit</button><button type='button' className={button} disabled={Boolean(busy)} aria-label={`Remove ${destination.name}`} onClick={() => void remove(destination)}>Remove</button></>}
+                            </div>
+                            {results[destination.id] && <p role={results[destination.id].ok ? 'status' : 'alert'} className={`mt-2 max-w-sm text-xs ${results[destination.id].ok ? 'text-ui-success' : 'text-ui-text'}`}>{results[destination.id].message}</p>}
+                        </td>
+                    </tr>)}
+                    {!visible.length && <tr><td colSpan={6} className='px-4 py-10 text-center text-ui-muted'>{loading ? 'Loading destinations…' : destinations.length ? 'No destinations match these filters.' : 'No delivery destinations yet.'}</td></tr>}
+                </DashboardTable>
             </div>
             {!loading && !canManage && <p className='border-t border-ui-border px-4 py-3 text-sm text-ui-muted'>Only workspace owners and admins can add or test destinations.</p>}
         </>}

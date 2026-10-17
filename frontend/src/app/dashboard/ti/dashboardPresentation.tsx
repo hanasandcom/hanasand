@@ -6,10 +6,13 @@ import { formatOsloShortDateTime } from '@/utils/date/formatOsloShortDateTime'
 
 export type StatusTone = 'neutral' | 'ok' | 'watch' | 'bad'
 
-export function StatusPill({ label, tone }: { label: string, tone: StatusTone }) {
+export function StatusPill({ label, tone, compact = false }: { label: string, tone: StatusTone, compact?: boolean }) {
     const classes = toneClass(tone)
+    const sizeClass = compact
+        ? `rounded-full border px-2 py-0.5 text-xs font-semibold ${classes.compactBg}`
+        : `whitespace-nowrap rounded-full px-2 py-1 text-xs font-semibold ${classes.bg}`
     return (
-        <span className={`whitespace-nowrap rounded-full px-2 py-1 text-xs font-semibold ${classes.bg} ${classes.text}`}>
+        <span className={`${sizeClass} ${classes.text}`}>
             {label}
         </span>
     )
@@ -91,10 +94,10 @@ export function PanelTitle({ title, actionHref, actionLabel }: { title: string, 
 }
 
 export function toneClass(tone: StatusTone) {
-    if (tone === 'ok') return { bg: 'bg-ui-success/10 border border-ui-success/35', text: 'text-ui-success' }
-    if (tone === 'watch') return { bg: 'bg-ui-warning/10 border border-ui-warning/35', text: 'text-ui-warning' }
-    if (tone === 'bad') return { bg: 'bg-ui-raised/10 border border-ui-danger/35', text: 'text-ui-text' }
-    return { bg: 'bg-ui-panel border border-ui-border', text: 'text-ui-primary' }
+    if (tone === 'ok') return { bg: 'bg-ui-success/10 border border-ui-success/35', compactBg: 'border-ui-success/35 bg-ui-success/10', text: 'text-ui-success' }
+    if (tone === 'watch') return { bg: 'bg-ui-warning/10 border border-ui-warning/35', compactBg: 'border-ui-warning/35 bg-ui-warning/10', text: 'text-ui-warning' }
+    if (tone === 'bad') return { bg: 'bg-ui-raised/10 border border-ui-danger/35', compactBg: 'border-ui-danger/35 bg-ui-raised/10', text: 'text-ui-text' }
+    return { bg: 'bg-ui-panel border border-ui-border', compactBg: 'border-ui-border bg-ui-panel', text: 'text-ui-primary' }
 }
 
 export function operationalStateLabel(value: string) {

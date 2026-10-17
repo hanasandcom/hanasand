@@ -21,8 +21,9 @@ type ArticlesProps = {
     errorPath?: string
 }
 
-type RecentProps = {
-    recent: Article[]
+type ArticleGroupProps = {
+    articles: Article[]
+    title: string
     max?: number
     includeTitle?: boolean
 }
@@ -57,34 +58,18 @@ export default async function Articles({
                     Insights on internet security, performance, and reliability.
                 </p>
             </div>
-            {recentArticles.length > 0 && <Recent recent={recentArticles} max={max} includeTitle={includeRecentTitle} />}
-            {recent && displayed.length > 0 && <All recent={displayed} max={max} includeTitle={includeRecentTitle} />}
+            {recentArticles.length > 0 && <ArticleGroup articles={recentArticles} title='Recently published' max={max} includeTitle={includeRecentTitle} />}
+            {recent && displayed.length > 0 && <ArticleGroup articles={displayed} title='All articles' max={max} includeTitle={includeRecentTitle} />}
         </section>
     )
 }
 
-function Recent({ recent, max, includeTitle = true }: RecentProps) {
-    const displayed = max ? recent.slice(0, max) : recent
+function ArticleGroup({ articles, title, max, includeTitle = true }: ArticleGroupProps) {
+    const displayed = max ? articles.slice(0, max) : articles
 
     return (
         <div className='grid gap-3'>
-            {includeTitle && <h2 className='text-xs font-semibold uppercase text-ui-primary'>Recently published</h2>}
-            <div className='grid gap-3 md:grid-cols-2 xl:grid-cols-3'>
-                {displayed.map((article) => <Article
-                    key={article.title}
-                    article={article}
-                />)}
-            </div>
-        </div>
-    )
-}
-
-function All({ recent, max, includeTitle = true }: RecentProps) {
-    const displayed = max ? recent.slice(0, max) : recent
-
-    return (
-        <div className='grid gap-3'>
-            {includeTitle && <h2 className='text-xs font-semibold uppercase text-ui-primary'>All articles</h2>}
+            {includeTitle && <h2 className='text-xs font-semibold uppercase text-ui-primary'>{title}</h2>}
             <div className='grid gap-3 md:grid-cols-2 xl:grid-cols-3'>
                 {displayed.map((article) => <Article
                     key={article.title}

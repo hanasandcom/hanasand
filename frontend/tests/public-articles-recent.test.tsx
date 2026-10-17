@@ -33,6 +33,12 @@ assert(html.includes('Recently published'))
 assert(html.includes('recent article'))
 assert(html.includes('All articles'))
 
+articles.splice(0, articles.length, makeArticle('recent article', 1), makeArticle('older article', 30), makeArticle('oldest article', 45))
+html = renderToStaticMarkup(await Articles({ recent: true, backfill: false, max: 1 }))
+assert(html.indexOf('recent article') < html.indexOf('All articles'))
+assert(html.indexOf('oldest article') > html.indexOf('All articles'))
+assert(!html.includes('older article'))
+
 articles.splice(0, articles.length)
 html = renderToStaticMarkup(await Articles({ recent: true, backfill: false }))
 assert(!html.includes('Recently published'))
@@ -40,4 +46,3 @@ assert(!html.includes('No recent articles right now.'))
 assert(!html.includes('No articles published.'))
 
 console.log('Public articles omit the recent section when its list is empty.')
-
