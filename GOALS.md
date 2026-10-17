@@ -1242,3 +1242,11 @@ with all 116 routes generated, and its 2,312-file / 153,363-LOC cap scan has
 zero over-limit files. Repository scan: 75 of 4,208 hand-maintained files over
 200 lines, 324,593 LOC total. No deployment was performed; API 100,000-line
 and frontend 10,000–30,000-line size targets remain outstanding.
+
+A hand-maintained Chromium seccomp profile was reformatted into readable,
+compact syscall rules without changing its parsed JSON. The current profile is
+142 lines (previously 884); parsed equality against `HEAD`, consumer loading,
+and `git diff --check` passed. Repository cap scan is now 74 of 4,208 files over
+200 lines / 323,851 LOC total. Frontend remains at 2,312 files / 153,363 LOC
+with zero over the 200-line cap. The frontend size target and broader API LOC
+reduction goal remain outstanding. No deployment was performed.
