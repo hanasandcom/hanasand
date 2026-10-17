@@ -2297,3 +2297,13 @@ cap pass. Production code is one line shorter; the test adds nine lines. The
 frontend inventory is 2,400 hand-maintained files / 155,606 lines, with zero
 over 200. The repository inventory is 4,551 files / 328,659 lines, with zero
 over 200. Aggregate frontend and API reduction targets remain open.
+
+At pushed checkpoint `6d82f9993` (2026-10-17), the TI live-operations test
+replaces source-string checks for upstream requests with exact runtime endpoint
+and tenant-scope assertions. It also verifies invalid collection-run timestamps
+are omitted and retains the narrow source/capture-to-case architecture guard.
+The focused Playwright spec passes (3/3), with scoped ESLint, diff, and line-cap
+checks. No production code changed; the test gains three net lines. The current
+frontend inventory is 2,400 files / 155,609 lines, with zero over 200. The
+repository line-cap check reports zero oversized files; aggregate reduction
+targets remain open.
