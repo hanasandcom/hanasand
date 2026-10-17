@@ -15,34 +15,14 @@ import { AIPageNotices } from './AIPageNotices'
 type AIPageMode = 'landing' | 'workspace' | 'compact'
 
 export default function AIPageClient({
-    initialConversations,
-    initialRepositories,
-    initialDeployments,
-    initialReleases,
-    initialDeployQuota,
-    initialOwnershipSummary,
-    initialShares,
-    initialRuntimeState,
-    isAuthenticated,
     mode = 'landing',
-    initialConversationId = null,
+    ...initialData
 }: AIWorkbenchInitialData & {
     mode?: AIPageMode
 }) {
     const router = useRouter()
     const pathname = usePathname()
-    const ai = useAiWorkbench({
-        initialConversations,
-        initialRepositories,
-        initialDeployments,
-        initialReleases,
-        initialDeployQuota,
-        initialOwnershipSummary,
-        initialShares,
-        initialRuntimeState,
-        isAuthenticated,
-        initialConversationId,
-    })
+    const ai = useAiWorkbench(initialData)
     const [detailsOpen, setDetailsOpen] = useState(mode !== 'landing')
     const showWorkspaceRail = mode !== 'landing'
     const showHeader = mode === 'workspace'
@@ -102,7 +82,7 @@ export default function AIPageClient({
                         clients={ai.clients}
                         composer={ai.composer}
                         isConnected={ai.isConnected}
-                        isAuthenticated={isAuthenticated}
+                        isAuthenticated={initialData.isAuthenticated}
                         participants={ai.participants}
                         readOnly={ai.activeConversation?.collaboration?.role === 'reviewer'}
                         onComposerChange={ai.setComposer}

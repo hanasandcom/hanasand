@@ -189,3 +189,11 @@ test('shared workspace file buttons keep selected and changed file labels', () =
     expect(changed).toContain('bg-ui-raised text-ui-muted')
     expect(selectedPaths).toEqual([base.path])
 })
+
+test('AI client forwards its typed initial data and preserves the missing conversation default', async () => {
+    const [page, hook, state] = await Promise.all(['../src/app/ai/pageClient.tsx', '../src/components/ai/useAiWorkbench.ts', '../src/components/ai/workbench/useWorkbenchState.ts'].map(path => Bun.file(new URL(path, import.meta.url)).text()))
+    expect(page).toContain('mode = \'landing\',\n    ...initialData')
+    expect(page).toContain('useAiWorkbench(initialData)')
+    expect(hook).toContain('useWorkbenchState(initialData)')
+    expect(state).toContain('initialConversationId = null')
+})

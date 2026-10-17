@@ -22,30 +22,8 @@ import { useWorkbenchPolling } from './workbench/useWorkbenchPolling'
 import { useConversationStartup } from './workbench/useConversationStartup'
 import { useWorkspaceHydration } from './workbench/useWorkspaceHydration'
 
-export default function useAiWorkbench({
-    initialConversations,
-    initialRepositories,
-    initialDeployments,
-    initialReleases,
-    initialDeployQuota,
-    initialOwnershipSummary,
-    initialShares,
-    initialRuntimeState,
-    isAuthenticated,
-    initialConversationId = null,
-}: AIWorkbenchInitialData) {
-    const state = useWorkbenchState({
-        initialConversations,
-        initialRepositories,
-        initialDeployments,
-        initialReleases,
-        initialDeployQuota,
-        initialOwnershipSummary,
-        initialShares,
-        initialRuntimeState,
-        isAuthenticated,
-        initialConversationId,
-    })
+export default function useAiWorkbench(initialData: AIWorkbenchInitialData) {
+    const state = useWorkbenchState(initialData)
 
 
     const markUnauthorized = useWorkbenchApiAccess(state)
