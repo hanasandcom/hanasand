@@ -34,7 +34,7 @@ export function useOrganizationWorkspaceData(options: WorkspaceDataOptions) {
         requestedFocus, requestedInviteId, requestedMemberId, requestedWatchlistId, requestedDestinationId,
         requestedDeliveryId, requestedAlertId, requestedCaseId, switchOrganization } = options
     const { organizations, setOrganizations, selectedId, setSelectedId, bundleLoadRef, organizationLoadRef,
-        bundle, setBundle, loading, setLoading, setError, setBusy, settingsDraft, setSettingsDraft,
+        setBundle, setLoading, setError, setBusy, setSettingsDraft,
         selectedActivitySubject, setSelectedActivitySubject, organizationSwitchFocusRef, workspaceFocusRef, mountedRef } = state
     const selectedOrganization = useMemo(
         () => organizations.find(item => item.id === selectedId) || organizations[0], [organizations, selectedId],
