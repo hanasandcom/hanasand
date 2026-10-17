@@ -1,6 +1,7 @@
 import run from '#db'
 import type { OrganizationRow } from '#utils/organizations.ts'
 import { supportMemberInspectionColumns, supportOrganizationSummaryColumns } from '../inspectionEntityLoaders.ts'
+import { supportAuditEventSelect } from '../supportAuditEventSelect.ts'
 
 export async function loadOrganizationSupportDetail(organizationId: string) {
     const result = await run(`
@@ -34,30 +35,7 @@ export async function loadSupportOrganizationEntityAuditRows(input: {
     const targetPredicates = input.kind === 'invite'
         ? 'event.context->>\'inviteId\' = $2 OR event.context->\'inviteIds\' ? $2'
         : 'event.context->>\'targetUserId\' = $2 OR event.context->>\'memberId\' = $2'
-    const result = await run(`
-        SELECT
-            event.id,
-            event.event_type,
-            event.severity,
-            event.source,
-            event.service,
-            event.actor_id,
-            actor.name AS actor_name,
-            event.object_type,
-            event.object_id,
-            target_user.name AS target_name,
-            event.organization_id,
-            organization.name AS organization_name,
-            event.subject_id,
-            event.request_id,
-            event.outcome,
-            event.reason,
-            event.context,
-            event.created_at
-        FROM system_events event
-        LEFT JOIN users actor ON actor.id = event.actor_id
-        LEFT JOIN users target_user ON target_user.id = event.object_id
-        LEFT JOIN organizations organization ON organization.id = event.organization_id
+    const result = await run(`${supportAuditEventSelect}
         WHERE event.organization_id = $1
           AND (
               event.subject_id = $2

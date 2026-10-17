@@ -15,6 +15,7 @@ import { supportTimelineFilter } from '../inspection/timelineFilter.ts'
 import { buildSupportInspectionAuthorization } from '../inspection/authorization.ts'
 import { buildRecoveryEligibility } from '../subjectMapping.ts'
 import { buildSupportAccessRecoveryPlan } from '../accessRecoveryPlan.ts'
+import { supportAuditEventSelect } from '../../supportAuditEventSelect.ts'
 import type { AccessRecoveryApprovalRow } from '../../supportTypes.ts'
 
 export async function sendSupportAccessRecoveryInspection(input: {
@@ -26,30 +27,7 @@ export async function sendSupportAccessRecoveryInspection(input: {
 }) {
     const { req, res, actorId, approval, inspectionRequestId } = input
     const detail = toAccessRecoveryDecision(approval)
-    const auditRows = await run(`
-        SELECT
-            event.id,
-            event.event_type,
-            event.severity,
-            event.source,
-            event.service,
-            event.actor_id,
-            actor.name AS actor_name,
-            event.object_type,
-            event.object_id,
-            target_user.name AS target_name,
-            event.organization_id,
-            organization.name AS organization_name,
-            event.subject_id,
-            event.request_id,
-            event.outcome,
-            event.reason,
-            event.context,
-            event.created_at
-        FROM system_events event
-        LEFT JOIN users actor ON actor.id = event.actor_id
-        LEFT JOIN users target_user ON target_user.id = event.object_id
-        LEFT JOIN organizations organization ON organization.id = event.organization_id
+    const auditRows = await run(`${supportAuditEventSelect}
         WHERE event.request_id = $1
            OR event.subject_id = $2
         ORDER BY event.created_at DESC

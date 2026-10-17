@@ -1,6 +1,7 @@
 import run from '#db'
 import { appendSharedAuditFilter, supportSqlFilters } from './inspectionFilterSql.ts'
 import { supportAccessRecoveryApprovalSelect } from './accessRecovery/approvalQuery.ts'
+import { supportAuditEventSelect } from './supportAuditEventSelect.ts'
 import type { AccessRecoveryApprovalRow } from './supportTypes.ts'
 
 export async function loadInspectionApprovals(input: { q?: string, org: string, user: string, email: string, request: string, outcome: string, limit: number }) {
@@ -79,30 +80,7 @@ export async function loadInspectionAuditEvents(input: { q: string, org: string,
     if (input.to && !Number.isNaN(Date.parse(input.to))) appendSharedAuditFilter(where, add, 'event', 'to', input.to)
     if (!where.length) return []
 
-    const result = await run(`
-        SELECT
-            event.id,
-            event.event_type,
-            event.severity,
-            event.source,
-            event.service,
-            event.actor_id,
-            actor.name AS actor_name,
-            event.object_type,
-            event.object_id,
-            target_user.name AS target_name,
-            event.organization_id,
-            organization.name AS organization_name,
-            event.subject_id,
-            event.request_id,
-            event.outcome,
-            event.reason,
-            event.context,
-            event.created_at
-        FROM system_events event
-        LEFT JOIN users actor ON actor.id = event.actor_id
-        LEFT JOIN users target_user ON target_user.id = event.object_id
-        LEFT JOIN organizations organization ON organization.id = event.organization_id
+    const result = await run(`${supportAuditEventSelect}
         WHERE ${where.join('\n           AND ')}
         ORDER BY event.created_at DESC
         LIMIT ${add(input.limit)}
