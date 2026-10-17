@@ -1,7 +1,8 @@
-import { readFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import os from 'node:os'
 import path from 'node:path'
 import { expect, test } from 'bun:test'
-import { checkScheduledJobRegistry, findUnregisteredCandidates, isScheduledCodeCandidate } from '../scripts/check-scheduled-job-registry.ts'
+import { checkScheduledJobRegistry, collectCandidates, findUnregisteredCandidates, isScheduledCodeCandidate, scheduledJobScanRoots } from '../scripts/check-scheduled-job-registry.ts'
 import { scheduledJobRegistryGuardrailEntries } from '../src/utils/systemCron.ts'
 
 const repositoryRoot = path.resolve(import.meta.dir, '..', '..')
@@ -69,4 +70,17 @@ test('fails on an unregistered candidate without an opt-in environment setting',
     await expect(checkScheduledJobRegistry([unregisteredSource])).rejects.toThrow(
         'api/src/utils/unregisteredRecurringWorker.ts',
     )
+})
+
+test('scans a directly configured Compose file for recurring work', async() => {
+    expect(scheduledJobScanRoots).toContain('docker-compose.api.yml')
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'scheduled-job-registry-'))
+    const composeFile = path.join(directory, 'docker-compose.api.yml')
+    await writeFile(composeFile, 'services:\n  api:\n    command: schedule("* * * * *")\n')
+
+    try {
+        expect(await collectCandidates([composeFile])).toEqual([composeFile])
+    } finally {
+        await rm(directory, { recursive: true, force: true })
+    }
 })

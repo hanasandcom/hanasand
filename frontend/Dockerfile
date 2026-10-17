@@ -25,6 +25,7 @@ ENV NEXT_PUBLIC_HANASAND_RELEASE_COMMIT=$HANASAND_RELEASE_COMMIT
 COPY frontend ./
 COPY api /workspace/api
 COPY docker-compose.yml /workspace/docker-compose.yml
+COPY docker-compose.api.yml /workspace/docker-compose.api.yml
 COPY . /repository
 RUN bun scripts/code-inventory.mjs /repository /workspace/frontend/code-inventory.json
 RUN bun run test

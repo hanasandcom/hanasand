@@ -17,7 +17,7 @@ const apiCore = await source('../../api/src/utils/db/backups.ts')
 const backupWorkerClient = await source('../../api/src/utils/db/backupWorkerClient.ts')
 const apiCron = await source('../../api/src/utils/cron.ts')
 const systemCronProjections = await source('../../api/src/utils/systemCron/jobProjections.ts')
-const compose = await source('../../docker-compose.yml')
+const compose = [await source('../../docker-compose.yml'), await source('../../docker-compose.api.yml')].join('\n')
 
 assert.match(backupRoute, /getBackupDashboard\(\)/, 'backup route must use the single authenticated dashboard request')
 assert.match(backupPage, /Last attempt/)

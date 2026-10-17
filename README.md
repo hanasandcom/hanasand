@@ -28,7 +28,7 @@ Hanasand combines threat intelligence, AI development tools, and infrastructure 
 | Operations integrations | [Ops repository](https://github.com/hanasandcom/ops) | OVH host metrics tunnel and related host integrations; deployed separately |
 | Application operations | `ops/`, `scripts/` | Hanasand application deployment, maintenance and service checks |
 
-`docker-compose.yml` defines service connections, ports, volumes and health checks. OpenResty terminates public HTTPS outside this Compose project. The root API forwards authentication routes to Identity over a private network, while the existing PostgreSQL records and public API paths stay in place. The API also integrates with external VM hosts, password lookup and other configured services.
+`docker-compose.yml` includes `docker-compose.api.yml` and defines the service connections, ports, volumes and health checks. Use Docker Compose 2.33.1 or later. OpenResty terminates public HTTPS outside this Compose project. The root API forwards authentication routes to Identity over a private network, while the existing PostgreSQL records and public API paths stay in place. The API also integrates with external VM hosts, password lookup and other configured services.
 
 PgBouncer, Onion, browser workers, TURN, and the Discord bot run from independent Compose projects on the established Hanasand networks. The root release checks the infrastructure services it depends on but does not build or recreate those services.
 

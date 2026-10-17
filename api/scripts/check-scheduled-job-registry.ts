@@ -1,19 +1,14 @@
-import { readFile, readdir } from 'node:fs/promises'
+import { readFile, readdir, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { scheduledJobRegistryGuardrailEntries } from '../src/utils/systemCron.ts'
 
 const repoRoot = path.resolve(import.meta.dir, '..', '..')
-const scanRoots = ['api/src', 'docker-compose.yml']
+export const scheduledJobScanRoots = ['api/src', 'docker-compose.yml', 'docker-compose.api.yml']
 const schedulerPattern = /\b(schedule\(|setInterval\(|startCanaryCollectionLoop\b)/i
 const ignoredPattern = /(^|\/)(tests?|fixtures?|docs?|node_modules)(\/|$)/
 
 export async function checkScheduledJobRegistry(candidateFiles?: string[]) {
-    const candidates = candidateFiles ?? []
-    if (!candidateFiles) {
-        for (const root of scanRoots) {
-            await collect(path.join(repoRoot, root), candidates)
-        }
-    }
+    const candidates = candidateFiles ?? await collectCandidates(scheduledJobScanRoots.map(root => path.join(repoRoot, root)))
 
     const registeredSources = new Set(scheduledJobRegistryGuardrailEntries().map(entry => normalize(entry.source)))
     const unregistered = findUnregisteredCandidates(candidates, registeredSources)
@@ -31,6 +26,12 @@ export async function checkScheduledJobRegistry(candidateFiles?: string[]) {
     return unregistered
 }
 
+export async function collectCandidates(targets: string[]) {
+    const candidates: string[] = []
+    for (const target of targets) await collect(target, candidates)
+    return candidates
+}
+
 export function findUnregisteredCandidates(candidates: string[], registeredSources: Set<string>) {
     return candidates
         .map(file => normalize(path.relative(repoRoot, file)))
@@ -45,10 +46,12 @@ export function isScheduledCodeCandidate(contents: string) {
 
 async function collect(target: string, output: string[]) {
     if (ignoredPattern.test(normalize(path.relative(repoRoot, target)))) return
-    if (target.endsWith('docker-compose.yml')) {
+    const fileInfo = await stat(target).catch(() => null)
+    if (fileInfo?.isFile()) {
         await addIfCandidate(target, output)
         return
     }
+    if (!fileInfo?.isDirectory()) return
 
     const entries = await readdir(target, { withFileTypes: true }).catch(() => [])
     for (const entry of entries) {

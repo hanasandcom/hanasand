@@ -18,6 +18,7 @@ const ws = [
 const rateLimit = readFileSync(new URL('../src/plugins/rateLimit.ts', import.meta.url), 'utf8')
 const rateLimitPolicy = readFileSync(new URL('../src/plugins/rateLimitPolicy.ts', import.meta.url), 'utf8')
 const index = readFileSync(new URL('../src/index.ts', import.meta.url), 'utf8')
+const httpSurface = readFileSync(new URL('../src/registerHttpSurface.ts', import.meta.url), 'utf8')
 const onionWs = [
     'ws.ts',
     'browserRuntime.ts',
@@ -30,6 +31,7 @@ const appRuntimeStage = /FROM oven\/bun:1\.3\.13-alpine AS app-runtime-base\n([\
 const handoff = readOptional(new URL('../../agents/scripts/handoff-context.mjs', import.meta.url))
 const runbook = readOptional(new URL('../../agents/HANDOFF_RUNBOOK.md', import.meta.url))
 const composeUrl = new URL('../../docker-compose.yml', import.meta.url)
+const apiComposeUrl = new URL('../../docker-compose.api.yml', import.meta.url)
 
 assert.match(ws, /BROWSER_SANDBOX_ALLOW_SHARED_WORKER !== 'development'/, 'browser proxy should require per-session workers unless an explicit development override is set')
 assert.doesNotMatch(ws, /BROWSER_SANDBOX_PER_SESSION_WORKER !== '0'/, 'browser proxy should not expose a production-safe switch back to shared workers')
@@ -38,7 +40,8 @@ assert.match(ws, /function registerBrowserSessionRoutes/, 'browser routes should
 assert.doesNotMatch(ws, /#constants/, 'browser websocket plugin should not import the full app constants module in browser-worker-only processes')
 assert.doesNotMatch(ws, /import \{ handleMessage \}/, 'browser websocket plugin should not import share DB handlers before worker-only route narrowing')
 assert.doesNotMatch(ws, /import \{ enqueueLoadTestRun, startLoadTestQueue \}/, 'browser websocket plugin should not import load-test DB handlers before worker-only route narrowing')
-assert.match(index, /browserWorkerOnly[\s\S]*service: 'browsers'[\s\S]*IndexHandler/, 'browser-only root endpoint should be a small health response instead of exposing the API route table')
+assert.match(index, /registerHttpSurface\(fastify, \{ browserWorkerOnly, httpWorkerOnly \}\)/, 'the main API should pass browser worker mode into the HTTP surface')
+assert.match(httpSurface, /fastify\.get\('\/', browserWorkerOnly\s*\? async \(\) => \(\{ ok: true, service: 'browsers' \}\)\s*: IndexHandler\)/, 'browser-only root endpoint should be a small health response instead of exposing the API route table')
 assert.match(onionWs, /process\.env\.NODE_ENV !== 'production' && process\.env\.BROWSER_SANDBOX_ALLOW_LOCAL_TARGETS === '1'/, 'local target override should be unavailable in production')
 assert.match(ws, /createRuntimeContainer/, 'browser proxy should create an isolated worker container')
 assert.match(ws, /randomUUID\(\)\.slice\(0, 8\)/, 'browser session worker container names should stay fresh even if a session id is reused')
@@ -87,7 +90,7 @@ assert.match(rateLimitPolicy, /path\.startsWith\('\/api\/browser-stream\/'\)/, '
 assert.doesNotMatch(appRuntimeStage, /\b(chromium|xvfb)\b/, 'main API image should not install Chromium or Xvfb')
 assert.doesNotMatch(`${handoff}\n${runbook}`, /docker compose[^\n]*build[^\n]*browsers/, 'site handoff instructions should not rebuild browser workers')
 if (existsSync(composeUrl)) {
-    const compose = readFileSync(composeUrl, 'utf8')
+    const compose = [composeUrl, apiComposeUrl].filter(existsSync).map(url => readFileSync(url, 'utf8')).join('\n')
     const serviceBlock = (name: string) => new RegExp(`\\n {2}${name}:\\n([\\s\\S]*?)(?=\\n {2}[a-zA-Z0-9_-]+:\\n|\\nvolumes:)`).exec(compose)?.[1] || ''
     assert.doesNotMatch(compose, /BROWSER_SANDBOX_PER_SESSION_WORKER/, 'compose should not expose a production switch back to shared browser workers')
     assert.match(compose, /BROWSER_SANDBOX_WORKER_NETWORK:\s*\$\{BROWSER_SANDBOX_WORKER_NETWORK:-hanasand_browsernet\}/, 'ephemeral browser workers should not join the app network by default')

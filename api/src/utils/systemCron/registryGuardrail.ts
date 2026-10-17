@@ -6,6 +6,7 @@ export function scheduledJobRegistryGuardrailEntries() {
         ...managedCronDefinitions.map(job => ({ id: job.id, source: 'api/src/utils/systemCron.ts' })),
         ...apiBackgroundJobDefinitions.map(job => ({ id: job.id, source: job.source })),
         { id: 'deployment-compose-schedules', source: 'docker-compose.yml' },
+        { id: 'deployment-api-compose-schedules', source: 'docker-compose.api.yml' },
         { id: 'ti-public-canary-collection', source: 'scraper/src/ops/canaryCollection.ts' },
         { id: 'ti-restricted-metadata-collection', source: 'scraper/src/ops/restrictedMetadataCollection.ts' },
         { id: 'ti-exposure-queue-collection', source: 'scraper/src/api/exposureQueueRoutes.ts' },
