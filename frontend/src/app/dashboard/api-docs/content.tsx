@@ -33,7 +33,7 @@ type Contract = {
 
 type ApplicationEndpoint = { path: string, method: string, summary: string, requestBody?: Operation['requestBody'] }
 
-const applicationEndpoints: ApplicationEndpoint[] = [
+export const applicationEndpoints: ApplicationEndpoint[] = [
     { method: 'GET', path: '/share/:id', summary: 'Read a shared file' },
     { method: 'GET', path: '/share/tree/:id', summary: 'Read a share file tree' },
     { method: 'GET', path: '/share/user/:id', summary: 'List the current user’s shares' },

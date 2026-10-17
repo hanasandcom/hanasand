@@ -3,7 +3,6 @@ import { currentOpenApi } from '../src/utils/api/currentOpenApi'
 // @ts-expect-error Bun supplies this module for focused checks.
 import { mock } from 'bun:test'
 import { hasAppSidebar } from '../src/utils/routes/appRoutes'
-import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { renderToReadableStream } from 'react-dom/server'
 import { publicTiOpenApi } from '../../api/src/contracts/publicTiOpenApi'
@@ -22,11 +21,6 @@ for (const { key, operation } of publicOperations) {
     const validate = ajv.compile({ components: { schemas: publicTiOpenApi.components.schemas }, ...schema as object })
     assert(validate(sample.body), `${key}: ${JSON.stringify(validate.errors)}`)
 }
-const source = readFileSync('src/app/dashboard/api-docs/content.tsx', 'utf8')
-const applicationKeys = [...source.matchAll(/method: '([A-Z]+)', path: '([^']+)'/g)].map(match => `${match[1]} ${match[2]}`)
-const keys = [...publicOperations.map(item => item.key), ...applicationKeys]
-assert.equal(keys.length, 54)
-assert.deepEqual(Object.keys(responseExamples).sort(), [...keys].sort(), 'Every documented endpoint needs exactly one example')
 for (const sample of Object.values(responseExamples)) {
     const strings = (value: unknown): string[] => typeof value === 'string' ? [value] : value && typeof value === 'object' ? Object.values(value).flatMap(strings) : []
     for (const value of strings(sample.body)) {
@@ -56,7 +50,11 @@ assert.deepEqual(currentOpenApi(fixture), { paths: { '/test': { post: { response
 const originalFetch = globalThis.fetch
 globalThis.fetch = (async () => Response.json(publicTiOpenApi)) as typeof fetch
 try {
-    const { default: Page } = await import('../src/app/dashboard/api-docs/content')
+    const { default: Page, applicationEndpoints } = await import('../src/app/dashboard/api-docs/content')
+    const applicationKeys = applicationEndpoints.map(endpoint => `${endpoint.method} ${endpoint.path}`)
+    const keys = [...publicOperations.map(item => item.key), ...applicationKeys]
+    assert.equal(keys.length, 54)
+    assert.deepEqual(Object.keys(responseExamples).sort(), [...keys].sort(), 'Every documented endpoint needs exactly one example')
     const html = await new Response(await renderToReadableStream(await Page())).text()
     for (const key of keys) assert(html.includes(`data-api-response-example="${key}"`), `Example not rendered: ${key}`)
     assert(html.includes('Fictional example'))
@@ -69,6 +67,10 @@ try {
     assert(html.includes('Missing or invalid credentials'), 'Resolve OpenAPI response references to descriptions')
     assert(!html.includes('#/components/responses/Unauthorized'))
     assert(!html.includes('href="/api/openapi" target="_blank"'), 'Browsing the spec must stay in the same tab')
+    globalThis.fetch = (async () => new Response('', { status: 503 })) as typeof fetch
+    const unavailableDocs = await new Response(await renderToReadableStream(await Page())).text()
+    assert(unavailableDocs.includes('The live API contract is temporarily unavailable. Try again shortly.'))
+    globalThis.fetch = (async () => Response.json(publicTiOpenApi)) as typeof fetch
     mock.module('next/headers', () => ({ cookies: async () => ({ get: () => ({ value: 'docs-test' }) }) }))
     const { default: Preview } = await import('../src/app/api/openapi/page')
     const preview = await new Response(await renderToReadableStream(await Preview())).text()
