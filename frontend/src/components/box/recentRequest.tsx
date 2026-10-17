@@ -1,4 +1,5 @@
 import { Play, Trash2 } from 'lucide-react'
+import type { KeyboardEvent } from 'react'
 import requestColor from './requestColor'
 import { shortUrlLabel } from './requestPresentation'
 import { RequestHistoryEntry } from './types'
@@ -24,12 +25,7 @@ export default function RecentRequest({ req, active, onClick, onRun, onDelete }:
             role='button'
             tabIndex={0}
             onClick={onClick}
-            onKeyDown={(event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault()
-                    onClick()
-                }
-            }}
+            onKeyDown={(event) => activateOnKeyboard(event, onClick)}
             className={`group flex h-8 w-[min(18rem,72vw)] shrink-0 items-center gap-2 rounded-full border px-2 text-left transition ${active ? 'border-ui-primary/35 bg-ui-primary/10' : 'border-ui-border bg-ui-panel hover:bg-ui-raised'}`}
             title={`${req.method} ${req.url}`}
         >
@@ -46,13 +42,7 @@ export default function RecentRequest({ req, active, onClick, onRun, onDelete }:
                         event.stopPropagation()
                         onRun()
                     }}
-                    onKeyDown={(event) => {
-                        if (event.key === 'Enter' || event.key === ' ') {
-                            event.preventDefault()
-                            event.stopPropagation()
-                            onRun()
-                        }
-                    }}
+                    onKeyDown={(event) => activateOnKeyboard(event, onRun, true)}
                     className='grid h-6 w-6 place-items-center rounded-full text-ui-muted hover:bg-ui-raised hover:text-ui-text'
                     aria-label={`Resend ${req.method} ${req.url}`}
                 >
@@ -65,13 +55,7 @@ export default function RecentRequest({ req, active, onClick, onRun, onDelete }:
                         event.stopPropagation()
                         onDelete()
                     }}
-                    onKeyDown={(event) => {
-                        if (event.key === 'Enter' || event.key === ' ') {
-                            event.preventDefault()
-                            event.stopPropagation()
-                            onDelete()
-                        }
-                    }}
+                    onKeyDown={(event) => activateOnKeyboard(event, onDelete, true)}
                     className='grid h-6 w-6 place-items-center rounded-full text-ui-muted hover:bg-ui-raised/10 hover:text-ui-text'
                     aria-label={`Delete ${req.method} ${req.url}`}
                 >
@@ -80,4 +64,11 @@ export default function RecentRequest({ req, active, onClick, onRun, onDelete }:
             </div>
         </div>
     )
+}
+
+function activateOnKeyboard(event: KeyboardEvent, action: () => void, stopPropagation = false) {
+    if (event.key !== 'Enter' && event.key !== ' ') return
+    event.preventDefault()
+    if (stopPropagation) event.stopPropagation()
+    action()
 }

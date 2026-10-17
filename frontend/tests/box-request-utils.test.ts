@@ -3,6 +3,7 @@ import { test } from 'bun:test'
 import { Children, createElement, type ReactElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import KeyValueRowsEditor from '../src/components/box/KeyValueRowsEditor'
+import RecentRequest from '../src/components/box/recentRequest'
 import { parseCurlCommand } from '../src/components/box/curlImport'
 import RequestEditor from '../src/components/box/RequestEditor'
 import ResponsePanel from '../src/components/box/ResponsePanel'
@@ -73,6 +74,29 @@ test('key-value row editor forwards input, remove, and add events with the selec
             ['change', 1, 'key', 'updated-key'], ['change', 1, 'value', 'updated-value'], ['delete', 1], ['add'],
         ])
     }
+})
+
+test('recent request keyboard actions preserve parent and nested activation behavior', () => {
+    const calls: string[] = []
+    const tree = RecentRequest({
+        req: { id: 'request-1', method: 'GET', url: '/health', headers: [], body: '', createdAt: '' },
+        active: true,
+        onClick: () => calls.push('select'),
+        onRun: () => calls.push('run'),
+        onDelete: () => calls.push('delete'),
+    }) as ReactElement<{ onKeyDown: (event: unknown) => void }>
+    const children = Children.toArray(tree.props.children) as ReactElement[]
+    const actions = Children.toArray(children[3].props.children) as ReactElement[]
+    const invoke = (handler: (event: unknown) => void, key: string) => {
+        const event = { key, preventDefault: () => calls.push('prevent'), stopPropagation: () => calls.push('stop') }
+        handler(event)
+    }
+
+    invoke(tree.props.onKeyDown, 'Enter')
+    invoke(actions[0].props.onKeyDown as (event: unknown) => void, ' ')
+    invoke(actions[1].props.onKeyDown as (event: unknown) => void, 'Escape')
+
+    assert.deepEqual(calls, ['prevent', 'select', 'prevent', 'stop', 'run'])
 })
 
 test('normalizes request rows and resolves valid scoped variables', () => {
