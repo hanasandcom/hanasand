@@ -2033,3 +2033,16 @@ repository scan now reports 23 remaining over-limit files among 4,468
 hand-maintained files / 327,462 lines. The frontend remains at 2,384 files /
 155,089 lines with zero over 200; no frontend files changed in this checkpoint.
 The aggregate line-reduction targets remain open.
+
+At the next working checkpoint (2026-10-17), scheduled-job registry smoke
+assertions and fixtures are split from its entrypoint. Its three files are
+under 110 lines and total 16 fewer lines than before; all original assertions
+and API request order remain covered and registered. The DWM webhook smoke is
+split into a 27-line entrypoint and seven scenario/support modules, all under
+120 lines; it adds 89 lines of module overhead while retaining delivery order,
+exact case-path evidence, cleanup, summary fields and the live-delivery-off
+guard. Independent reviews, API typecheck, scoped ESLint, and diff checks pass;
+no database or live-service smoke was executed. The repository cap scan now
+reports 21 remaining over-limit files among 4,477 hand-maintained files /
+327,535 lines. The frontend remains at 2,384 files / 155,089 lines with zero
+over 200. The aggregate API and frontend reduction goals remain open.
