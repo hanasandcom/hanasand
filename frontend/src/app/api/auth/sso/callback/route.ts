@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { identityApiUrl } from '@/utils/auth/authApiUrl'
 import { setAuthCookies } from '../../_authCookies'
 import { safeRedirectPath } from '@/utils/auth/safeRedirectPath'
+import { loginRedirect, publicUrl } from '../redirects'
 
 export async function GET(req: NextRequest) {
     const code = req.nextUrl.searchParams.get('code')
@@ -29,24 +30,4 @@ export async function GET(req: NextRequest) {
     const response = NextResponse.redirect(publicUrl(req, safeRedirectPath(data.redirectPath)))
     setAuthCookies(req, response, data)
     return response
-}
-
-function loginRedirect(req: NextRequest, error: string) {
-    const target = publicUrl(req, '/login')
-    target.searchParams.set('error', error)
-    return NextResponse.redirect(target)
-}
-
-function publicUrl(req: NextRequest, path: string) {
-    const forwardedHost = req.headers.get('x-forwarded-host')?.split(',')[0]?.trim()
-    const host = forwardedHost || req.headers.get('host') || req.nextUrl.host
-    const forwardedProto = req.headers.get('x-forwarded-proto')?.split(',')[0]?.trim()
-    const protocol = forwardedProto || (host.endsWith('hanasand.com') ? 'https' : req.nextUrl.protocol.replace(':', ''))
-    if (isInternalHost(host) && process.env.NODE_ENV === 'production') return new URL(path, 'https://hanasand.com')
-    return new URL(path, `${protocol}://${host}`)
-}
-
-function isInternalHost(host: string) {
-    const hostname = host.split(':')[0]
-    return hostname === '0.0.0.0' || hostname === 'api' || hostname === 'frontend'
 }
