@@ -6,6 +6,7 @@ const availableActions = new Set<string>()
 const queries: Array<{ sql: string, params?: unknown[] }> = []
 const revokedUsers: string[] = []
 let accountLocked = false
+let sessionRevocation: number | null = 0
 
 mock.module('#db', () => ({
     default: async (sql: string, params?: unknown[]) => {
@@ -15,32 +16,40 @@ mock.module('#db', () => ({
         }
         return { rows: [] }
     },
-    withTransaction: async (work: (query: (sql: string, params?: unknown[]) => Promise<{ rows: Array<Record<string, unknown>> }>) => Promise<unknown>) => work(async (sql, params) => {
-        queries.push({ sql, params })
-        if (sql.includes('UPDATE password_reset_security_actions')) {
-            const action = sql.includes('action = \'lock_account\'') ? 'lock_account' : 'reset_password'
-            const tokenHash = String(params?.[0] || '')
-            if (!availableActions.has(`${action}:${tokenHash}`)) return { rows: [] }
-            availableActions.delete(`${action}:${tokenHash}`)
-            return { rows: [{ user_id: 'reset-user' }] }
-        }
-        if (sql.includes('SELECT id FROM users')) return { rows: [{ id: 'reset-user' }] }
-        if (sql.includes('UPDATE users SET password_reset_locked_at')) {
-            accountLocked = true
-            return { rows: [{ id: 'reset-user' }] }
-        }
-        return { rows: [] }
-    }),
+    withTransaction: async (work: (query: (sql: string, params?: unknown[]) => Promise<{ rows: Array<Record<string, unknown>> }>) => Promise<unknown>) => {
+        const stagedActions = new Set(availableActions)
+        let stagedAccountLocked = accountLocked
+        const result = await work(async (sql, params) => {
+            queries.push({ sql, params })
+            if (sql.includes('UPDATE password_reset_security_actions')) {
+                const action = sql.includes('action = \'lock_account\'') ? 'lock_account' : 'reset_password'
+                const tokenHash = String(params?.[0] || '')
+                if (!stagedActions.has(`${action}:${tokenHash}`)) return { rows: [] }
+                stagedActions.delete(`${action}:${tokenHash}`)
+                return { rows: [{ user_id: 'reset-user' }] }
+            }
+            if (sql.includes('SELECT id FROM users')) return { rows: [{ id: 'reset-user' }] }
+            if (sql.includes('UPDATE users SET password_reset_locked_at')) {
+                stagedAccountLocked = true
+                return { rows: [{ id: 'reset-user' }] }
+            }
+            return { rows: [] }
+        })
+        availableActions.clear()
+        stagedActions.forEach(action => availableActions.add(action))
+        accountLocked = stagedAccountLocked
+        return result
+    },
 }))
 mock.module('../src/utils/auth/session.ts', () => ({
     issueToken: async () => null,
     validateSession: async () => ({ valid: false }),
-    revokeAllTokens: async ({ userId }: { userId: string }) => { revokedUsers.push(userId) },
+    revokeAllTokens: async ({ userId }: { userId: string }) => { revokedUsers.push(userId); return sessionRevocation },
 }))
 mock.module('#utils/auth/session.ts', () => ({
     issueToken: async () => null,
     validateSession: async () => ({ valid: false }),
-    revokeAllTokens: async ({ userId }: { userId: string }) => { revokedUsers.push(userId) },
+    revokeAllTokens: async ({ userId }: { userId: string }) => { revokedUsers.push(userId); return sessionRevocation },
 }))
 
 const { lockAccountFromPasswordReset, startPasswordResetAgain } = await import('../src/handlers/auth/passwordReset.ts')
@@ -66,6 +75,24 @@ test('locking from the email revokes all sessions and consumes the action token'
     expect(accountLocked).toBe(true)
     expect(revokedUsers).toEqual(['reset-user'])
     expect((await app.inject({ method: 'POST', url: '/lock', payload: { token } })).statusCode).toBe(400)
+})
+
+test('account lock rolls back and keeps its action token when session revocation is unconfirmed', async () => {
+    const token = 'U'.repeat(43)
+    const action = `lock_account:${tokenHash(token)}`
+    availableActions.add(action)
+    accountLocked = false
+    sessionRevocation = null
+
+    const response = await app.inject({ method: 'POST', url: '/lock', payload: { token } })
+
+    expect(response.statusCode).toBe(500)
+    expect(accountLocked).toBe(false)
+    expect(availableActions.has(action)).toBe(true)
+    sessionRevocation = 0
+    expect((await app.inject({ method: 'POST', url: '/lock', payload: { token } })).statusCode).toBe(200)
+    expect(accountLocked).toBe(true)
+    expect(availableActions.has(action)).toBe(false)
 })
 
 test('the email reset action starts a fresh verified reset session once', async () => {

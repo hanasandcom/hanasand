@@ -35,7 +35,8 @@ export async function lockAccountFromPasswordReset(req: FastifyRequest, res: Fas
         const updated = await query('UPDATE users SET password_reset_locked_at = NOW() WHERE id = $1 AND active IS TRUE RETURNING id', [userId])
         if (!updated.rows.length) return false
 
-        await revokeAllTokens({ userId, revokedBy: 'password_reset_security_lock' })
+        const revoked = await revokeAllTokens({ userId, revokedBy: 'password_reset_security_lock' })
+        if (revoked === null) throw new Error('Identity did not confirm session revocation.')
         return true
     })
     if (!locked) return res.status(400).send({ error: 'This security link is invalid or expired.' })

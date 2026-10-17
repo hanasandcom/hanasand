@@ -30,7 +30,8 @@ async function purgeDeletedAccountWithLock(userId: string) {
     if (initialBlocker) return false
 
     const mailAccount = (await run('SELECT mail_username FROM mail_accounts WHERE user_id = $1', [userId])).rows[0] as { mail_username?: string } | undefined
-    await revokeAllTokens({ userId, revokedBy: userId })
+    const sessionRevocation = await revokeAllTokens({ userId, revokedBy: userId })
+    if (sessionRevocation === null) throw new Error('Account sessions could not be revoked; account deletion cleanup will retry.')
     await identityQueryOnce('DELETE FROM tokens WHERE id = $1', [userId])
     await purgeUserSshKeys(userId)
     if (typeof mailAccount?.mail_username === 'string' && mailAccount.mail_username) {

@@ -3,6 +3,7 @@ import Fastify from 'fastify'
 
 let consumeSucceeds = true
 let failMail = false
+let sessionRevocation: number | null = 0
 const sentMail: Array<{ to: string, subject: string, textBody: string, htmlBody?: string }> = []
 const executedSql: string[] = []
 const transactionSql: string[] = []
@@ -17,13 +18,18 @@ mock.module('#db', () => ({
         }
         return { rows: [] }
     },
-    withTransaction: async (work: (query: (sql: string) => Promise<{ rows: Array<{ id: string }> }>) => Promise<unknown>) => work(async sql => {
-        transactionSql.push(sql)
-        if (sql.includes('RETURNING id')) return { rows: consumeSucceeds ? [{ id: 'reset-code' }] : [] }
-        return { rows: [] }
-    }),
+    withTransaction: async (work: (query: (sql: string) => Promise<{ rows: Array<{ id: string }> }>) => Promise<unknown>) => {
+        const pendingSql: string[] = []
+        const result = await work(async sql => {
+            pendingSql.push(sql)
+            if (sql.includes('RETURNING id')) return { rows: consumeSucceeds ? [{ id: 'reset-code' }] : [] }
+            return { rows: [] }
+        })
+        transactionSql.push(...pendingSql)
+        return result
+    },
 }))
-mock.module('../src/utils/auth/session.ts', () => ({ issueToken: async () => null, validateSession: async () => ({ valid: false }), revokeAllTokens: async () => {} }))
+mock.module('../src/utils/auth/session.ts', () => ({ issueToken: async () => null, validateSession: async () => ({ valid: false }), revokeAllTokens: async () => sessionRevocation }))
 mock.module('../src/utils/auth/password.ts', () => ({ validatePassword: async () => ({ valid: true }) }))
 mock.module('../src/utils/mail/accounts.ts', () => ({ syncMailPasswordForUser: async () => {} }))
 mock.module('../src/utils/mail/system.ts', () => ({
@@ -69,6 +75,26 @@ test('an unconsumed reset session sends no security email', async () => {
 
     expect(response.statusCode).toBe(400)
     expect(sentMail).toHaveLength(0)
+})
+
+test('a password reset rolls back when the identity service does not confirm session revocation', async () => {
+    consumeSucceeds = true
+    sessionRevocation = null
+    sentMail.length = 0
+    transactionSql.length = 0
+
+    const response = await app.inject({ method: 'POST', url: '/reset', payload: { id: 'reset-user', resetToken: 'valid-reset-token', password: 'Strong-test-password-1935!' } })
+
+    expect(response.statusCode).toBe(500)
+    expect(transactionSql).toEqual([])
+    expect(sentMail).toHaveLength(0)
+    sessionRevocation = 0
+
+    const retry = await app.inject({ method: 'POST', url: '/reset', payload: { id: 'reset-user', resetToken: 'valid-reset-token', password: 'Strong-test-password-1935!' } })
+
+    expect(retry.statusCode, retry.body).toBe(200)
+    expect(transactionSql.some(sql => sql.includes('password_reset_locked_at = NULL'))).toBe(true)
+    expect(sentMail).toHaveLength(1)
 })
 
 test('a notification delivery failure does not undo a successful password reset', async () => {

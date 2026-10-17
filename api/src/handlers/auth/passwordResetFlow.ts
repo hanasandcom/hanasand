@@ -125,7 +125,8 @@ export async function completePasswordReset(req: FastifyRequest, res: FastifyRep
         await query('UPDATE users SET password = $2, password_reset_locked_at = NULL WHERE id = $1', [userId, hashedPassword])
         await consumePendingPasswordResetCodes(userId, query)
         await query('DELETE FROM attempts WHERE id = $1', [userId])
-        await revokeAllTokens({ userId, revokedBy: 'password_reset' })
+        const revoked = await revokeAllTokens({ userId, revokedBy: 'password_reset' })
+        if (revoked === null) throw new Error('Identity did not confirm session revocation.')
         return true
     })
     if (!updated) return res.status(400).send({ error: 'The reset session is invalid or expired.' })

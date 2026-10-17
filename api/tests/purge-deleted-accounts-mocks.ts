@@ -64,7 +64,10 @@ mock.module('#db', () => ({
     withDatabaseAdvisoryLock: async (key: string, work: () => unknown) => runLocked(key, work),
     tryWithDatabaseAdvisoryLock: async (key: string, work: () => unknown) => tryRunLocked(key, work),
 }))
-mock.module('../src/utils/auth/session.ts', () => ({ revokeAllTokens: async ({ userId }: { userId: string }) => { state.revokedUsers.push(userId); return 1 } }))
+mock.module('../src/utils/auth/session.ts', () => ({ revokeAllTokens: async ({ userId }: { userId: string }) => {
+    state.revokedUsers.push(userId)
+    return state.failSessionRevocation ? null : state.revokedSessionCount
+} }))
 mock.module('../src/utils/mail/stalwartAdmin.ts', () => ({ deleteMailPrincipal: deleteMailPrincipal }))
 mock.module('../src/utils/auth/purgeUserSshKeys.ts', () => ({ purgeUserSshKeys: async (userId: string) => { state.purgedSshUsers.push(userId); return 0 } }))
 mock.module('../src/utils/auth/login.ts', () => ({ default: async () => ({ token: 'restored-session', expires_at: '2030-01-01T00:00:00.000Z' }) }))

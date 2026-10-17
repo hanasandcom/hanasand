@@ -19,6 +19,8 @@ export const state = {
     mailUsername: 'ada' as string | null,
     organizationBlocker: false,
     failMailDeletion: false,
+    failSessionRevocation: false,
+    revokedSessionCount: 1,
     waitForMailDeletion: false,
     mailDeletionStarted: Promise.resolve(),
     markMailDeletionStarted: () => {},
@@ -55,6 +57,8 @@ export function resetState() {
     state.mailUsername = 'ada'
     state.organizationBlocker = false
     state.failMailDeletion = false
+    state.failSessionRevocation = false
+    state.revokedSessionCount = 1
     state.waitForMailDeletion = false
     const mailDeletion = deferred()
     state.mailDeletionStarted = new Promise(resolve => { state.markMailDeletionStarted = resolve })

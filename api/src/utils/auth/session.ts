@@ -41,7 +41,9 @@ export type SessionListRow = {
     current: boolean
 }
 
-async function requestSessionOperation<T>(operation: string, body: Record<string, unknown>): Promise<T | null> {
+const IDENTITY_SESSION_UNAUTHORIZED = Symbol('identity-session-unauthorized')
+
+async function requestSessionOperation<T>(operation: string, body: Record<string, unknown>): Promise<T | typeof IDENTITY_SESSION_UNAUTHORIZED> {
     const serviceToken = process.env.HANASAND_IDENTITY_SERVICE_TOKEN
     if (!serviceToken) throw new Error('Identity service credentials are not configured.')
 
@@ -55,30 +57,39 @@ async function requestSessionOperation<T>(operation: string, body: Record<string
         signal: AbortSignal.timeout(5000),
     })
 
-    if (response.status === 401) return null
+    if (response.status === 401) return IDENTITY_SESSION_UNAUTHORIZED
     if (!response.ok) throw new Error(`Identity session operation failed (${response.status}).`)
     return await response.json() as T
 }
 
 export async function issueToken({ id, ip, userAgent = '' }: { id: string, ip: string, userAgent?: string }) {
-    return requestSessionOperation<{ token: string; expires_at: string }>('issue', { id, ip, userAgent })
+    const result = await requestSessionOperation<{ token: string; expires_at: string }>('issue', { id, ip, userAgent })
+    return result === IDENTITY_SESSION_UNAUTHORIZED ? null : result
 }
 
 export async function validateSession({ id, token, organizationSlug }: { id?: string, token: string, organizationSlug?: string }): Promise<SessionValidation | null> {
     if (!token) return null
-    return requestSessionOperation<SessionValidation>('validate', { id, token, organizationSlug })
+    const result = await requestSessionOperation<SessionValidation>('validate', { id, token, organizationSlug })
+    return result === IDENTITY_SESSION_UNAUTHORIZED ? null : result
 }
 
 export async function revokeToken({ tokenId, userId, revokedBy }: { tokenId: number, userId: string, revokedBy: string }) {
     const result = await requestSessionOperation<{ revoked: boolean }>('revoke', { tokenId, id: userId, revokedBy })
+    if (result === IDENTITY_SESSION_UNAUTHORIZED) return false
     return result?.revoked === true
 }
 
 export async function revokeAllTokens({ userId, revokedBy, exceptToken }: { userId: string, revokedBy: string, exceptToken?: string }) {
     const result = await requestSessionOperation<{ revoked: number }>('revoke-all', { id: userId, revokedBy, exceptToken })
-    return result?.revoked ?? 0
+    if (result === IDENTITY_SESSION_UNAUTHORIZED) return null
+    const revoked = result && typeof result === 'object' ? (result as { revoked?: unknown }).revoked : undefined
+    if (typeof revoked !== 'number' || !Number.isSafeInteger(revoked) || revoked < 0) {
+        throw new Error('Identity session operation returned an invalid revocation count.')
+    }
+    return revoked
 }
 
 export async function listSessions(userId: string, currentToken?: string) {
-    return await requestSessionOperation<SessionListRow[]>('list', { id: userId, token: currentToken }) || []
+    const result = await requestSessionOperation<SessionListRow[]>('list', { id: userId, token: currentToken })
+    return result === IDENTITY_SESSION_UNAUTHORIZED ? [] : result || []
 }

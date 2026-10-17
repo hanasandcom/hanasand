@@ -5,6 +5,7 @@ type SessionResult = {
     user: { id: string }
     session: { token: string }
     refreshed: { token: string, expires_at: string }
+    revoked?: unknown
 }
 const originalFetch = globalThis.fetch
 const originalServiceToken = process.env.HANASAND_IDENTITY_SERVICE_TOKEN
@@ -18,7 +19,7 @@ const mockFetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     return Response.json(result, { status: responseStatus })
 }) as typeof fetch
 
-const { validateSession } = await import('../src/utils/auth/session.ts')
+const { revokeAllTokens, validateSession } = await import('../src/utils/auth/session.ts')
 
 beforeEach(() => {
     globalThis.fetch = mockFetch
@@ -81,4 +82,34 @@ test('Identity service failures propagate instead of becoming unauthenticated se
         .rejects.toThrow('Identity session operation failed (503).')
 
     expect(calls).toHaveLength(1)
+})
+
+test('account-wide revocation preserves the difference between no sessions and unauthorized', async () => {
+    result = { ...result!, revoked: 0 }
+    expect(await revokeAllTokens({ userId: 'member', revokedBy: 'member' })).toBe(0)
+
+    calls = []
+    responseStatus = 401
+    result = null
+    expect(await revokeAllTokens({ userId: 'member', revokedBy: 'member' })).toBeNull()
+    expect(calls).toHaveLength(1)
+})
+
+test('account-wide revocation rejects malformed success counts', async () => {
+    const validResponse = result!
+    for (const revoked of [-1, 1.5, Number.MAX_SAFE_INTEGER + 1, '1']) {
+        calls = []
+        result = { ...validResponse, revoked }
+        await expect(revokeAllTokens({ userId: 'member', revokedBy: 'member' }))
+            .rejects.toThrow('invalid revocation count')
+    }
+
+    calls = []
+    result = { ...validResponse }
+    await expect(revokeAllTokens({ userId: 'member', revokedBy: 'member' }))
+        .rejects.toThrow('invalid revocation count')
+
+    result = null
+    await expect(revokeAllTokens({ userId: 'member', revokedBy: 'member' }))
+        .rejects.toThrow('invalid revocation count')
 })

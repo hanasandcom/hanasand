@@ -94,6 +94,28 @@ test('retries failed external mailbox cleanup without hard-deleting the account'
     expect(dueQuery).toContain('cohort_position <= $3')
 })
 
+test('retries instead of deleting when the identity service does not confirm session revocation', async () => {
+    state.failSessionRevocation = true
+
+    await expect(purgeDeletedAccounts()).rejects.toThrow('1 due account deletion cleanup(s) failed')
+    expect(state.account).not.toBeNull()
+    expect(state.sqlCalls.some(sql => sql.startsWith('DELETE FROM tokens'))).toBe(false)
+    expect(state.purgedSshUsers).toEqual([])
+    expect(state.deletedPrincipals).toEqual([])
+    expect(state.sqlCalls.some(sql => sql.startsWith('DELETE FROM users'))).toBe(false)
+    expect(state.sqlCalls.some(sql => sql.startsWith('INSERT INTO account_deletion_purge_attempts'))).toBe(true)
+})
+
+test('purges when the identity service confirms that there are no sessions to revoke', async () => {
+    state.revokedSessionCount = 0
+
+    const result = await purgeDeletedAccounts()
+
+    expect(result).toMatchObject({ scanned: 1, purged: 1, failed: 0 })
+    expect(state.account).toBeNull()
+    expect(state.revokedUsers).toEqual(['deleted-user'])
+})
+
 test('serializes a direct per-account purge with the scheduled batch for the same account', async () => {
     state.waitForMailDeletion = true
     const loginPurge = purgeDeletedAccount('deleted-user')
