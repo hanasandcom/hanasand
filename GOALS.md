@@ -2783,3 +2783,17 @@ with a fresh non-incremental typecheck, scoped ESLint, and line-cap scan. The
 current working-tree scan is 2,422 files / 156,300 lines, zero above 200; it
 includes separate pre-existing user-owned edits. The frontend is 2,592 lines
 above the 153,708 baseline, so the 10,000–30,000-line target remains unmet.
+
+The next dashboard pass reused the API-key card's immutable current-record
+update path across its editable fields, and centralized rules' source/action
+labels across list, detail and sorting views. The rules helper preserves each
+view's historical missing-source fallback; independent review caught and
+verified that edge case before integration. The automation area needed no
+changes: existing field, draft and health-check helpers already own shared
+behavior. Focused rate-limit tests (4), rules label/sort tests (2), non-
+incremental typecheck, scoped ESLint, and `git diff --check` pass. The rules
+Playwright UI spec could not launch Chromium because macOS denied its bootstrap
+registration, before test assertions. The latest full frontend scan is 2,423
+files / 156,338 lines with zero files above 200, including separate user-owned
+working-tree changes. This is 2,630 lines above the 153,708 baseline; the
+10,000–30,000 frontend target remains unmet.
