@@ -2115,3 +2115,19 @@ lines / zero over 200. The repository scan reports nine over-limit files among
 10,000–30,000-line frontend goal and 100,000-line API reduction remain
 unachieved; the current frontend changes improve reuse and structure but do
 not yet provide significant aggregate code reduction.
+
+At pushed checkpoint `4e7483071` (2026-10-17), the frontend line-cap scan covers
+2,400 hand-maintained source/config files and 155,577 lines, with zero files
+over 200. The repository-wide scan covers 4,532 hand-maintained files and
+328,208 lines; eight files remain over the cap, all in API/ops paths. The Box
+request builder now shares header-row validation between the live editor and
+storage while keeping credential redaction storage-only; that change removes
+53 production lines and adds 34 test lines. The database refresh test now
+invokes the polling hook and checks idle behavior, the default and explicit
+cadences, refresh calls, cleanup, and page wiring. These two changes add 47
+frontend lines together because the runtime test is more complete; they do not
+reduce the aggregate frontend toward 10,000–30,000 lines. Focused registered
+tests, frontend typecheck, scoped ESLint, and the frontend cap pass. Commits
+`ad8aff02f`, `a480111fa`, `1de36d496`, and `4e7483071` are pushed to Forgejo and
+GitHub. The 100,000-line API reduction and frontend aggregate reduction remain
+open.
