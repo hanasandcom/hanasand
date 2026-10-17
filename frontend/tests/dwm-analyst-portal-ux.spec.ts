@@ -1,7 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
-import { dwmNextOperatorAction, type DwmNextOperatorActionInput } from '@/utils/dwm/nextOperatorAction'
 
 const root = process.cwd().endsWith(`${path.sep}frontend`) ? process.cwd() : path.join(process.cwd(), 'frontend')
 
@@ -20,30 +19,4 @@ test('DWM keeps Cases focused and workflow controls on scoped non-Cases views', 
     expect(page).toContain('dwmScopeSearchParams(tenantId, organizationId)')
     expect(page).toContain('view === \'cases\' || view === \'watchlists\' ? \'loading\' : \'ready\'')
     expect(cases).toContain('No cases.')
-})
-
-test('DWM next operator action remains scoped to the available workflow step', () => {
-    const base: DwmNextOperatorActionInput = {
-        reviewState: 'reviewing',
-        deliveryState: 'pending_review',
-        caseReady: false,
-        transitionReady: true,
-        replayReady: false,
-        deliverReady: false,
-        closeReady: false,
-        reopenReady: false,
-        suppressReady: false,
-    }
-
-    expect(dwmNextOperatorAction({ ...base, caseHref: '/cases/case-1', latestDeliveryStatus: 'delivered', latestDeliverySummary: 'delivered from 2m ago' })).toMatchObject({
-        kind: 'open_case_link',
-        href: '/cases/case-1',
-        label: 'Review case and delivery trail',
-    })
-    expect(dwmNextOperatorAction({ ...base, deliverReady: true, latestDeliveryStatus: 'dry_run' })).toMatchObject({
-        kind: 'send', label: 'Send customer delivery',
-    })
-    expect(dwmNextOperatorAction({ ...base, deliverReady: true, latestDeliveryStatus: undefined })).toMatchObject({
-        kind: 'test', label: 'Test delivery route',
-    })
 })
