@@ -1095,6 +1095,20 @@ LOC; the frontend remains 2,308 files / 153,090 LOC / zero over cap. No API
 100,000-line or frontend 10,000–30,000-line reduction has been demonstrated.
 No push/deploy was performed.
 
+Reviewed follow-on splits now put share routes, automation routes, and the
+security web scanner under the 200-line cap while retaining their public
+exports. Peer reviews found the auth/owner/tree/mutation contracts, automation
+quota/run/history behavior, and HTTPS/redirect/lock/persistence behavior
+unchanged. Focused checks passed: share 11 tests / 88 assertions, automation
+persistence 13 / 50, web scanner 10 / 32. Automation history integration could
+not reach its `monitor-test-db` hostname; the default full API runner excludes
+that database-dependent suite. After these changes, full API lint/typecheck and
+the default registered API test runner pass. The global line-cap report is 93 /
+4,145 files over 200 lines and 323,749 LOC, 34 lines above the previous scan
+from module overhead. Frontend remains 2,308 files / 153,090 LOC with no files
+over the cap; its full test suite and production build already pass. The large
+API and frontend reduction targets remain unmet. No push/deploy was performed.
+
 Three more API handlers now meet the cap through reviewed responsibility
 boundaries: AI tools (prompt flow, transport, policy, model/retry and accounting),
 public TI (auth, collections, projections and errors), and browser sandbox runs
