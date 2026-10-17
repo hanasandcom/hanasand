@@ -30,7 +30,12 @@ cat > "$base/bin/docker" <<'MOCK_DOCKER'
 printf '%s\n' "$*" >> "$DOCKER_LOG"
 case "$*" in
     "inspect -f {{.Image}} hanasand_api") echo sha256:api ;;
-    "image inspect -f {{index .Config.Labels \"org.opencontainers.image.revision\"}} sha256:api") cat "$IMAGE_RELEASE" ;;
+    "image inspect -f {{index .Config.Labels \"org.opencontainers.image.revision\"}} sha256:api")
+        if test "${IMAGE_MISSING:-0}" = 1 && ! test -f "$IMAGE_INSPECTED"; then touch "$IMAGE_INSPECTED"; exit 1; fi
+        cat "$IMAGE_RELEASE" ;;
+    "image ls -q --filter label=org.opencontainers.image.revision=$OLD_RELEASE")
+        test "${IMAGE_MISSING:-0}" = 1 && echo sha256:recovered ;;
+    "image inspect -f {{index .Config.Labels \"org.opencontainers.image.revision\"}} sha256:recovered") echo "$OLD_RELEASE" ;;
     "inspect -f {{range .Config.Env}}{{println .}}{{end}} hanasand_api") echo "HANASAND_RELEASE_COMMIT=$(cat "$API_RELEASE")" ;;
     "inspect -f {{.State.Status}} hanasand_api") cat "$API_STATE" ;;
     "inspect -f {{if .State.Health}}{{.State.Health.Status}}{{end}} hanasand_api") cat "$API_HEALTH" ;;
@@ -71,7 +76,7 @@ chmod +x "$base/bin/"*
 old_release=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 target_release=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
 run_case() {
-    name=$1 marker=$2 ddl=$3 fail=$4 fail_label=$5
+    name=$1 marker=$2 ddl=$3 fail=$4 fail_label=$5 image_missing=${6:-0}
     case_root="$base/$name"
     mkdir -p "$case_root/scripts/deploy-all"
     sed -e "s#\"/home/hanasand/hanasand\"#\"$case_root\"#" \
@@ -82,12 +87,14 @@ run_case() {
     api_state="$base/$name.state" api_health="$base/$name.health" api_release="$base/$name.release"
     db_log="$base/$name.db" tag_log="$base/$name.tag" docker_log="$base/$name.docker"
     image_release="$base/$name.image"
+    image_inspected="$base/$name.image-inspected"
     : > "$db_log"; : > "$tag_log"; : > "$docker_log"
     echo running > "$api_state"; echo healthy > "$api_health"; echo "$old_release" > "$api_release"
     echo "$old_release" > "$image_release"
     export CASE_ROOT="$case_root" OLD_RELEASE="$old_release" TARGET_RELEASE="$target_release"
-    export TEST_MARKER="$marker" TEST_DDL="$ddl" FAIL_NEW="$fail" FAIL_LABEL="$fail_label"
+    export TEST_MARKER="$marker" TEST_DDL="$ddl" FAIL_NEW="$fail" FAIL_LABEL="$fail_label" IMAGE_MISSING="$image_missing"
     export API_STATE="$api_state" API_HEALTH="$api_health" API_RELEASE="$api_release" IMAGE_RELEASE="$image_release"
+    export IMAGE_INSPECTED="$image_inspected"
     export DB_LOG="$db_log" TAG_LOG="$tag_log" DOCKER_LOG="$docker_log"
     set +e
     PATH="$base/bin:$PATH" /bin/sh "$case_root/scripts/deploy-api.sh" > "$base/$name.out" 2>&1
@@ -95,6 +102,10 @@ run_case() {
     set -e
     case "$name" in
         success) test "$status" -eq 0 && grep -q inserted "$db_log" ;;
+        missing_image)
+            test "$status" -eq 0
+            grep -q "Recovered the rollback image for release $old_release" "$base/$name.out"
+            grep -q 'image tag sha256:recovered hanasand_api:rollback-' "$docker_log" ;;
         missing_marker|ddl)
             test "$status" -eq 0 && test ! -s "$db_log"
             ! grep -q 'Reused the applied database schema marker' "$base/$name.out" ;;
@@ -111,4 +122,5 @@ run_case missing_marker 0 0 0 0
 run_case ddl 1 1 0 0
 run_case rollback 1 0 1 0
 run_case bad_image_label 1 0 0 1
-echo 'API deployment mock checks passed: schema marker gates, API-only replacement, image identity, and rollback.'
+run_case missing_image 1 0 0 0 1
+echo 'API deployment mock checks passed: schema marker gates, API-only replacement, image identity, rollback, and exact-release recovery.'

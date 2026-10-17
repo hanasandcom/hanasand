@@ -99,6 +99,30 @@ if test "$rollback_release" = "$release"; then
     }
 fi
 
+# A frontend deploy can prune an API image that is still referenced by a stopped
+# or running container. Recover only an image whose OCI revision label exactly
+# matches the healthy API's release, so rollback remains tied to the code we are
+# replacing.
+previous_image_release=$(docker image inspect -f '{{index .Config.Labels "org.opencontainers.image.revision"}}' \
+    "$previous_image" 2>/dev/null || true)
+if test "$previous_image_release" != "$rollback_release"; then
+    recovered_image=
+    for candidate in $(docker image ls -q --filter "label=org.opencontainers.image.revision=$rollback_release" 2>/dev/null | sort -u); do
+        candidate_release=$(docker image inspect -f '{{index .Config.Labels "org.opencontainers.image.revision"}}' \
+            "$candidate" 2>/dev/null || true)
+        if test "$candidate_release" = "$rollback_release"; then
+            recovered_image=$candidate
+            break
+        fi
+    done
+    if test -z "$recovered_image"; then
+        echo "No available API image matches the healthy rollback release $rollback_release; refusing to deploy." >&2
+        exit 1
+    fi
+    previous_image=$recovered_image
+    echo "Recovered the rollback image for release $rollback_release from its OCI revision label."
+fi
+
 schema_changes_required=1
 reuse_schema_marker_for_code_only_release
 if test "$schema_changes_required" = 1; then

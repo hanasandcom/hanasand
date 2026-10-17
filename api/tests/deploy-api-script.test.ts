@@ -8,5 +8,5 @@ test('API-only deployment verifies release identity and rolls back a mismatched 
 
     expect(result.error).toBeUndefined()
     expect(result.status).toBe(0)
-    expect(result.stdout).toContain('schema marker gates, API-only replacement, image identity, and rollback')
+    expect(result.stdout).toContain('schema marker gates, API-only replacement, image identity, rollback, and exact-release recovery')
 }, 20_000)
