@@ -2169,3 +2169,21 @@ independent review, diff check, and the frontend cap. The frontend inventory is
 2,404 files / 155,669 lines, with zero above 200. The repository scan reports
 4,539 files / 328,285 lines and seven above 200, all under `api/`. The
 aggregate frontend and API reduction targets remain open.
+
+At pushed frontend checkpoints `229e03adf`, `10789bc5e`, and `20a3a0019`
+(2026-10-17), the share-chat tests share one prompt-fallback synchronization
+helper, reducing test code by 14 lines without removing assertions. The pricing
+and subscription pages now share a `CommercialPlanCard` with explicit visual
+variants; rendered checks preserve both class sets, plan data, feature markup,
+and checkout links, reducing production code by 10 lines. The Rules suite now
+checks its actual browser request uses `/api/backend/rules`; this replaces a
+source-string test and skips unnecessary API/Next server startup. Focused
+Playwright for commercial access passes 3/3, and lint, typecheck, independent
+reviews, and cap checks pass. The share-chat browser tests could not start
+because the configured API server exited; the Rules browser run reached
+Chromium, which the sandbox blocks at Mach bootstrap. Their static checks pass.
+The frontend inventory is 2,404 files / 155,690 lines, with zero over 200; the
+repository scan is 4,539 files / 328,306 lines, with seven over 200, all in
+`api/`. Net frontend lines have risen 21 since `0bc5f3b23` due to stronger
+rendered tests; production code in these slices fell by 11 lines. Aggregate
+frontend and API reduction targets remain open.
