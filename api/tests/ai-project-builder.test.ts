@@ -61,16 +61,19 @@ test('different prompts with the same project name do not share an incomplete ca
 
 test('shared project setup keeps generated output unchanged across project types', () => {
     const cases = [
-        ['Build a small website called "Moon Archive" with Docker', '6ce31ecf943c3d1dbfb6067526d4a3c97ea62c1b3039c5d4d538226ff6a18c3a'],
-        ['Build a Fastify API called "Orbit Ledger"', '1c8df11bd335bf94e81b272c804effda0f0071e34c31bf61d633104a2659c46d'],
-        ['Build a Discord bot called "Signal Keeper"', '070f7dd20dddaaee76a0aace5949263fcb242a93940ec884a8ca550269772861'],
-        ['Build a background worker queue called "Media Runner"', '26923e5ee3e89d54ad14985ec8cb69c8762541b3d6a4ab846a5bd50affe6e83c'],
+        ['Build a small website called "Moon Archive" with Docker', '6ce31ecf943c3d1dbfb6067526d4a3c97ea62c1b3039c5d4d538226ff6a18c3a', 'src/app/page.tsx'],
+        ['Build a Fastify API called "Orbit Ledger"', '1c8df11bd335bf94e81b272c804effda0f0071e34c31bf61d633104a2659c46d', 'src/index.ts'],
+        ['Build a Discord bot called "Signal Keeper"', '070f7dd20dddaaee76a0aace5949263fcb242a93940ec884a8ca550269772861', 'src/index.ts'],
+        ['Build a background worker queue called "Media Runner"', '26923e5ee3e89d54ad14985ec8cb69c8762541b3d6a4ab846a5bd50affe6e83c', 'src/queue.ts'],
     ] as const
 
-    for (const [prompt, expectedHash] of cases) {
+    for (const [prompt, expectedHash, requiredPath] of cases) {
         const response = buildShareProjectResponse(prompt)!
+        const files = generatedFiles(response.message)
         const actualHash = createHash('sha256').update(response.message).digest('hex')
         expect(actualHash, prompt).toBe(expectedHash)
+        expect(files.map(file => file.path), prompt).toContain(requiredPath)
+        expect(files.every(file => file.action === 'upsert_share'), prompt).toBe(true)
     }
 })
 
@@ -96,6 +99,7 @@ test('ordered section rules preserve overlaps and matcher boundaries', () => {
     const cases = [
         ['Build a website for a municipal permit residents angry about a municipal service portal', '04ea746b2e51afd310c1fd35a515ff60a8e78a2636793b6442481c356f3edb10', 'Permit categories'],
         ['Build a website for a healthcare clinic pharmacy recall', '92c2b4815ff64599e7e68e417e0f9c837bc39e1c3c38fa60d7ae10bed6f1de92', 'Recall checklist'],
+        ['Build a website for a data quality dashboard', '7efa6ad8f26a126f86d3d872a66daee3bf2df0aef2870f03ebccd423cce07cab', 'Pipeline sections'],
         ['Build a website for restaurant allergy recall reservations', '055121110b1a5c568917ea0f7c86c6998faa92e1cadc2f7ff288afd90455bffb', 'Mobile release'],
         ['Build a website for storm repair dispatch accessibility', '10b0fe826baff93d87a3395cabb9c80fe34df923438b17306a54a522f2056d2e', 'Mobile release'],
         ['Build a website for rural internet outage signup', '16e3f8d449c150da0caa2553d77162e622ad7deb67b3a2267d2febb0ec633885', 'Mobile release'],
