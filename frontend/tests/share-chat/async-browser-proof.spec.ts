@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { addLocalAuthCookies, mockShareApi, openWorkspaceBuildPrompt } from './helpers'
+import { addLocalAuthCookies, mockShareApi, openWorkspaceBuildPrompt, syncShareChatPromptFallback } from './helpers'
 
 test.describe.configure({ mode: 'serial' })
 test.setTimeout(300_000)
@@ -138,10 +138,7 @@ test('share page AI queues browser proof asynchronously before apply gating', as
     await page.goto('/s/app-async-proof?new=1&chat=1')
     const promptBox = await openWorkspaceBuildPrompt(page)
     await promptBox.fill('verify public page without blocking the chat')
-    await page.locator('input[name="shareChatPromptFallback"]').evaluate((element) => {
-        (element as HTMLInputElement).value = 'verify public page without blocking the chat'
-    })
-    await promptBox.dispatchEvent('input')
+    await syncShareChatPromptFallback(page, promptBox, 'verify public page without blocking the chat')
     await page.getByRole('button', { name: 'Send message' }).click({ force: true })
 
     await expect(page.getByText('Prepared async proof change.')).toBeVisible({ timeout: 2500 })

@@ -1,4 +1,4 @@
-import { expect, type BrowserContext, type Page } from '@playwright/test'
+import { expect, type BrowserContext, type Locator, type Page } from '@playwright/test'
 
 type ShareApiOptions = { fallbackId: string; initialContent?: string }
 
@@ -31,6 +31,13 @@ export async function openWorkspaceBuildPrompt(page: Page) {
     }
     await expect(promptBox).toBeVisible({ timeout: 5000 })
     return promptBox
+}
+
+export async function syncShareChatPromptFallback(page: Page, promptBox: Locator, prompt: string) {
+    await page.locator('input[name="shareChatPromptFallback"]').evaluate((element, value) => {
+        (element as HTMLInputElement).value = value
+    }, prompt)
+    await promptBox.dispatchEvent('input')
 }
 
 export async function mockShareApi(page: Page, { fallbackId, initialContent = '' }: ShareApiOptions) {

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { addLocalAuthCookies, mockShareApi, openWorkspaceBuildPrompt } from './helpers'
+import { addLocalAuthCookies, mockShareApi, openWorkspaceBuildPrompt, syncShareChatPromptFallback } from './helpers'
 import { regressionAccountabilityStories, sandboxSafetyStories } from './fixtures/agentSafety'
 
 test.describe.configure({ mode: 'serial' })
@@ -42,10 +42,7 @@ test('share page AI preserves invariants and real verification for regression co
         await page.goto(`/s/app-regression-${story.id}-${runSlug}?new=1&chat=1`)
         const promptBox = await openWorkspaceBuildPrompt(page)
         await promptBox.fill(story.prompt)
-        await page.locator('input[name="shareChatPromptFallback"]').evaluate((element, value) => {
-            (element as HTMLInputElement).value = value
-        }, story.prompt)
-        await promptBox.dispatchEvent('input')
+        await syncShareChatPromptFallback(page, promptBox, story.prompt)
         await page.getByRole('button', { name: 'Send message' }).click({ force: true })
 
         await expect(page.getByText(`Ready: ${story.expected}.`)).toBeVisible({ timeout: 2500 })
@@ -92,10 +89,7 @@ test('share page AI protects secrets and sandbox boundaries for real permission 
         await page.goto(`/s/app-sandbox-${story.id}-${runSlug}?new=1&chat=1`)
         const promptBox = await openWorkspaceBuildPrompt(page)
         await promptBox.fill(story.prompt)
-        await page.locator('input[name="shareChatPromptFallback"]').evaluate((element, value) => {
-            (element as HTMLInputElement).value = value
-        }, story.prompt)
-        await promptBox.dispatchEvent('input')
+        await syncShareChatPromptFallback(page, promptBox, story.prompt)
         await page.getByRole('button', { name: 'Send message' }).click({ force: true })
 
         await expect(page.getByText(`Ready: ${story.expected}.`)).toBeVisible({ timeout: 2500 })

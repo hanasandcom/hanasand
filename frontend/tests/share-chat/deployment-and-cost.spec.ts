@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { addLocalAuthCookies, mockShareApi, openWorkspaceBuildPrompt } from './helpers'
+import { addLocalAuthCookies, mockShareApi, openWorkspaceBuildPrompt, syncShareChatPromptFallback } from './helpers'
 import { costControlStories, deploymentDiagnosticStories } from './fixtures/changeReview'
 
 test.describe.configure({ mode: 'serial' })
@@ -44,10 +44,7 @@ test('share page AI switches to deployment diagnostics for real hosting failures
         await page.goto(`/s/app-deploy-diagnostic-${story.id}-${runSlug}?new=1&chat=1`)
         const promptBox = await openWorkspaceBuildPrompt(page)
         await promptBox.fill(story.prompt)
-        await page.locator('input[name="shareChatPromptFallback"]').evaluate((element, value) => {
-            (element as HTMLInputElement).value = value
-        }, story.prompt)
-        await promptBox.dispatchEvent('input')
+        await syncShareChatPromptFallback(page, promptBox, story.prompt)
         const startedAt = Date.now()
         await page.getByRole('button', { name: 'Send message' }).click({ force: true })
 
@@ -103,10 +100,7 @@ test('share page AI protects budget and scope for real product-regression prompt
         await page.goto(`/s/app-cost-control-${story.id}-${runSlug}?new=1&chat=1`)
         const promptBox = await openWorkspaceBuildPrompt(page)
         await promptBox.fill(story.prompt)
-        await page.locator('input[name="shareChatPromptFallback"]').evaluate((element, value) => {
-            (element as HTMLInputElement).value = value
-        }, story.prompt)
-        await promptBox.dispatchEvent('input')
+        await syncShareChatPromptFallback(page, promptBox, story.prompt)
         const startedAt = Date.now()
         await page.getByRole('button', { name: 'Send message' }).click({ force: true })
 
