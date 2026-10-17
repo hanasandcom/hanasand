@@ -1051,3 +1051,13 @@ full frontend suite, production build/typecheck and all 116 route generations
 pass. The latest frontend cap scan covers 2,308 files / 153,097 LOC / zero over
 200. The new contract test outweighs the two production lines removed, so this
 checkpoint is not a net frontend size reduction. No push/deploy was performed.
+
+The four TI workbenches that used the same selected-row initialization, stale
+selection reset, and row fallback now share `useSelectedWorkbenchRow`. An
+independent review confirmed the hook and each consumer preserve selection,
+callbacks, markup, keyboard behavior, and data fallbacks. Focused workbench
+tests, scoped lint, typecheck, and the frontend cap pass; the focused tests do
+not yet exercise row selection disappearing during a mounted session. The
+frontend scan now covers 2,308 files / 153,090 LOC with zero files over 200.
+This exact reuse removes seven production lines, but the 10,000–30,000 LOC
+frontend target remains unmet. No push/deploy was performed.

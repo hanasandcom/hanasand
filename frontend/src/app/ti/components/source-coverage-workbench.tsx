@@ -6,10 +6,10 @@ import { displayRequirementText, formatLabel, publicStateLabel, sourceConfidence
 import { TiSearchResponse } from '@/utils/ti/search'
 import { type TiActionabilityModel } from '@/utils/ti/actionability'
 import { type TiActorIntelligenceProfile } from '@/utils/ti/actorIntelligence'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import CopyPayloadButton from './copy-payload-button'
 import StripActionButton from './strip-action-button'
-import { CompactRowsToggle, useSelectedPreviewRows } from './selectedPreviewList'
+import { CompactRowsToggle, useSelectedPreviewRows, useSelectedWorkbenchRow } from './selectedPreviewList'
 
 export default function SourceCoverageWorkbench({
     actor,
@@ -37,12 +37,7 @@ export default function SourceCoverageWorkbench({
     onReview: () => void
 }) {
     const rows = useMemo(() => sourceCoverageWorkbenchRowsFor({ actor, actionability, sources, sourcePosture, workItems, sourceOptions }), [actor, actionability, sources, sourcePosture, workItems, sourceOptions])
-    const [selectedRowId, setSelectedRowId] = useState(rows[0]?.id ?? '')
-    useEffect(() => {
-        if (!rows.length) return
-        if (!rows.some(row => row.id === selectedRowId)) setSelectedRowId(rows[0]?.id ?? '')
-    }, [rows, selectedRowId])
-    const selectedRow = rows.find(row => row.id === selectedRowId) ?? rows[0]
+    const { selectedRow, setSelectedRowId } = useSelectedWorkbenchRow(rows)
     const readyCount = rows.filter(row => row.state === 'ready').length
     const reviewCount = rows.filter(row => row.state === 'review').length
     const blockedCount = rows.filter(row => row.state === 'blocked').length

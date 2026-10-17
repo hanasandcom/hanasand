@@ -5,9 +5,9 @@ import { ClipboardList, ExternalLink } from 'lucide-react'
 import { displayRequirementList, displayRequirementText, formatLabel, publicStateLabel, sourceConfidenceLabel, watchlistWorkbenchRowsFor, type AnalystWorkItem, type WatchlistRelevance } from '../pageModel'
 import { type ActorArtifact } from '@/utils/ti/actorWorkbench'
 import { type TiActionabilityModel } from '@/utils/ti/actionability'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import CopyPayloadButton from './copy-payload-button'
-import { CompactRowsToggle, useSelectedPreviewRows } from './selectedPreviewList'
+import { CompactRowsToggle, useSelectedPreviewRows, useSelectedWorkbenchRow } from './selectedPreviewList'
 
 export default function WatchlistRelevanceWorkbench({
     watchlist,
@@ -33,12 +33,7 @@ export default function WatchlistRelevanceWorkbench({
     onMarkRelevant: () => void
 }) {
     const rows = useMemo(() => watchlistWorkbenchRowsFor({ watchlist, actionability, query, workItems, artifacts }), [watchlist, actionability, query, workItems, artifacts])
-    const [selectedRowId, setSelectedRowId] = useState(rows[0]?.id ?? '')
-    useEffect(() => {
-        if (!rows.length) return
-        if (!rows.some(row => row.id === selectedRowId)) setSelectedRowId(rows[0]?.id ?? '')
-    }, [rows, selectedRowId])
-    const selectedRow = rows.find(row => row.id === selectedRowId) ?? rows[0]
+    const { selectedRow, setSelectedRowId } = useSelectedWorkbenchRow(rows)
     const readyCount = rows.filter(row => row.state === 'ready').length
     const blockedCount = rows.filter(row => row.state === 'blocked').length
     const selectedArtifact = selectedRow?.artifactIds.find(id => id === selectedArtifactId) ?? selectedRow?.artifactIds[0]

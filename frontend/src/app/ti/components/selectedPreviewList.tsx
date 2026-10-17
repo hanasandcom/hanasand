@@ -1,8 +1,21 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 type IdentifiedRow = { id: string }
+
+export function useSelectedWorkbenchRow<T extends IdentifiedRow>(rows: T[]) {
+    const [selectedRowId, setSelectedRowId] = useState(rows[0]?.id ?? '')
+    useEffect(() => {
+        if (rows.length && !rows.some(row => row.id === selectedRowId)) setSelectedRowId(rows[0]?.id ?? '')
+    }, [rows, selectedRowId])
+
+    return {
+        selectedRowId,
+        setSelectedRowId,
+        selectedRow: rows.find(row => row.id === selectedRowId) ?? rows[0],
+    }
+}
 
 export function previewRowsForSelection<T extends IdentifiedRow>(input: {
     rows: T[]

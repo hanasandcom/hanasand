@@ -7,10 +7,10 @@ import { TiSearchResponse } from '@/utils/ti/search'
 import { type ActorArtifact } from '@/utils/ti/actorWorkbench'
 import { type TiActionabilityModel } from '@/utils/ti/actionability'
 import { type TiActorIntelligenceProfile } from '@/utils/ti/actorIntelligence'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import CopyPayloadButton from './copy-payload-button'
 import Panel from './panel'
-import { CompactRowsToggle, useSelectedPreviewRows } from './selectedPreviewList'
+import { CompactRowsToggle, useSelectedPreviewRows, useSelectedWorkbenchRow } from './selectedPreviewList'
 
 export default function EnrichmentGapWorkbench({
     tasks,
@@ -40,12 +40,7 @@ export default function EnrichmentGapWorkbench({
     onEscalate: () => void
 }) {
     const rows = useMemo(() => enrichmentGapWorkbenchRowsFor({ tasks, result, actor, actionability, workItems, artifacts }), [tasks, result, actor, actionability, workItems, artifacts])
-    const [selectedRowId, setSelectedRowId] = useState(rows[0]?.id ?? '')
-    useEffect(() => {
-        if (!rows.length) return
-        if (!rows.some(row => row.id === selectedRowId)) setSelectedRowId(rows[0]?.id ?? '')
-    }, [rows, selectedRowId])
-    const selectedRow = rows.find(row => row.id === selectedRowId) ?? rows[0]
+    const { selectedRow, setSelectedRowId } = useSelectedWorkbenchRow(rows)
     const selectedEvidence = selectedRow?.evidenceItems.find(item => item.id === selectedId) ?? selectedRow?.evidenceItems[0]
     const selectedArtifact = selectedRow?.artifactIds.find(id => id === selectedArtifactId) ?? selectedRow?.artifactIds[0]
     const blockedCount = rows.filter(row => row.state === 'blocked').length

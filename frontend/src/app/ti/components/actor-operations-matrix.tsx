@@ -6,11 +6,11 @@ import { Eye, Send } from 'lucide-react'
 import { TiSearchResponse } from '@/utils/ti/search'
 import { type ActorArtifactKind } from '@/utils/ti/actorWorkbench'
 import { type TiActorIntelligenceProfile } from '@/utils/ti/actorIntelligence'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { victimObservationsFor } from '@/utils/ti/actorProfile'
 import CopyPayloadButton from './copy-payload-button'
 import StripActionButton from './strip-action-button'
-import { CompactRowsToggle, useSelectedPreviewRows } from './selectedPreviewList'
+import { CompactRowsToggle, useSelectedPreviewRows, useSelectedWorkbenchRow } from './selectedPreviewList'
 
 export default function ActorOperationsMatrix({
     result,
@@ -30,12 +30,7 @@ export default function ActorOperationsMatrix({
     onReview: () => void
 }) {
     const rows = useMemo(() => actorOperationsRowsFor(result, actor, victimObservations), [actor, result, victimObservations])
-    const [selectedRowId, setSelectedRowId] = useState(rows[0]?.id ?? '')
-    useEffect(() => {
-        if (!rows.length) return
-        if (!rows.some(row => row.id === selectedRowId)) setSelectedRowId(rows[0]?.id ?? '')
-    }, [rows, selectedRowId])
-    const selectedRow = rows.find(row => row.id === selectedRowId) ?? rows[0]
+    const { selectedRow, setSelectedRowId } = useSelectedWorkbenchRow(rows)
     const preview = useSelectedPreviewRows(rows, selectedRow, TI_WORKBENCH_PREVIEW_ROWS)
 
     return (
