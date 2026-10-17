@@ -10,6 +10,7 @@ import { roleOptions } from '../constants/options'
 import { useState } from 'react'
 import { ChevronDown, Copy, RefreshCw, Trash2, UserPlus } from 'lucide-react'
 import { stopRowSelectionKeys } from '../model/keyboard'
+import { SelectableSubjectRow } from './selectableSubjectRow'
 
 export function InvitePanel({ emails, setEmails, role, setRole, invites, members, canManage, busy, rowMessages, selectedSubject, onSelectSubject, onInvite, onInviteAction, onCopyInvite }: { emails: string, setEmails: (value: string) => void, role: OrganizationRole, setRole: (value: OrganizationRole) => void, invites: OrganizationInvite[], members: OrganizationMember[], canManage: boolean, busy: string, rowMessages: Record<string, RowMessage>, selectedSubject: ActivitySubject, onSelectSubject: (subject: ActivitySubject) => void, onInvite: () => void, onInviteAction: (invite: OrganizationInvite, action: 'revoke' | 'resend') => void, onCopyInvite: (invite: OrganizationInvite) => void }) {
     const [inviteQuery, setInviteQuery] = useState('')
@@ -107,20 +108,12 @@ export function InvitePanel({ emails, setEmails, role, setRole, invites, members
                                 const linkState = !canManage ? 'restricted' : linkAvailable ? 'available' : 'closed'
                                 const selected = selectedSubject.type === 'invite' && selectedSubject.id === invite.id
                                 return (
-                                    <div
-                                        role='button'
-                                        tabIndex={0}
-                                        aria-pressed={selected}
+                                    <SelectableSubjectRow
+                                        selected={selected}
                                         id={`invite-${encodeURIComponent(invite.id)}`}
                                         key={invite.id}
                                         className={`grid min-w-0 gap-3 rounded-lg border border-ui-border p-3 text-left transition dark:border-ui-border ${selected ? 'bg-ui-primary/10 dark:bg-ui-raised' : 'hover:bg-ui-raised dark:hover:bg-ui-panel'}`}
-                                        onClick={() => onSelectSubject({ type: 'invite', id: invite.id })}
-                                        onKeyDown={event => {
-                                            if (event.key === 'Enter' || event.key === ' ') {
-                                                event.preventDefault()
-                                                onSelectSubject({ type: 'invite', id: invite.id })
-                                            }
-                                        }}
+                                        onSelect={() => onSelectSubject({ type: 'invite', id: invite.id })}
                                     >
                                         <span className='grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start'>
                                             <span className='min-w-0'>
@@ -140,7 +133,7 @@ export function InvitePanel({ emails, setEmails, role, setRole, invites, members
                                                 <ConfirmActionButton ariaLabel='Revoke invite' title={revokeReason || 'Revoke invite'} disabled={!canRevoke} onConfirm={() => onInviteAction(invite, 'revoke')} icon={<Trash2 className='h-4 w-4' />} />
                                             </span>
                                         </span>
-                                    </div>
+                                    </SelectableSubjectRow>
                                 )
                             })}
                         </>

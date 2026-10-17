@@ -10,6 +10,7 @@ import { sanitizeOrganizationDisplayCopy } from '../model/textSafety'
 import { useState } from 'react'
 import { stopRowSelectionKeys } from '../model/keyboard'
 import { Trash2 } from 'lucide-react'
+import { SelectableSubjectRow } from './selectableSubjectRow'
 
 export function MemberPanel({ members, canManage, busy, rowMessages, selectedSubject, onSelectSubject, onRoleChange, onRemove }: { members: OrganizationMember[], canManage: boolean, busy: string, rowMessages: Record<string, RowMessage>, selectedSubject: ActivitySubject, onSelectSubject: (subject: ActivitySubject) => void, onRoleChange: (member: OrganizationMember, role: OrganizationRole) => void, onRemove: (member: OrganizationMember) => void }) {
     const [pendingRoles, setPendingRoles] = useState<Record<string, OrganizationRole>>({})
@@ -67,20 +68,13 @@ export function MemberPanel({ members, canManage, busy, rowMessages, selectedSub
                                 const memberMutationReason = memberMutationDisabledReason(canManage, member)
                                 const selected = selectedSubject.type === 'member' && selectedSubject.id === member.userId
                                 return (
-                                    <article
+                                    <SelectableSubjectRow
                                         key={member.userId}
-                                        role='button'
-                                        tabIndex={0}
-                                        aria-pressed={selected}
+                                        as='article'
+                                        selected={selected}
                                         className={`grid gap-3 rounded-lg border p-3 transition ${selected ? 'border-ui-primary/35 bg-ui-primary/10 dark:border-ui-primary/35 dark:bg-ui-raised' : 'border-ui-border bg-ui-panel hover:bg-ui-raised dark:border-ui-border dark:bg-ui-canvas dark:hover:bg-ui-panel'}`}
-                                        data-org-member-mobile-row='true'
-                                        onClick={() => onSelectSubject({ type: 'member', id: member.userId })}
-                                        onKeyDown={event => {
-                                            if (event.key === 'Enter' || event.key === ' ') {
-                                                event.preventDefault()
-                                                onSelectSubject({ type: 'member', id: member.userId })
-                                            }
-                                        }}
+                                        dataAttributes={{ 'data-org-member-mobile-row': 'true' }}
+                                        onSelect={() => onSelectSubject({ type: 'member', id: member.userId })}
                                     >
                                         <div className='flex min-w-0 items-start justify-between gap-3'>
                                             <div className='min-w-0'>
@@ -102,7 +96,7 @@ export function MemberPanel({ members, canManage, busy, rowMessages, selectedSub
                                             <ConfirmActionButton ariaLabel='Remove member' title={memberMutationReason || 'Remove member'} disabled={!canMutateMember || Boolean(busy)} onConfirm={() => onRemove(member)} icon={<Trash2 className='h-4 w-4' />} />
                                             <RowStatus message={rowMessages[`member-${member.userId}`]} />
                                         </div>
-                                    </article>
+                                    </SelectableSubjectRow>
                                 )
                             })}
                         </div>
@@ -121,20 +115,13 @@ export function MemberPanel({ members, canManage, busy, rowMessages, selectedSub
                                     const memberMutationReason = memberMutationDisabledReason(canManage, member)
                                     const selected = selectedSubject.type === 'member' && selectedSubject.id === member.userId
                                     return (
-                                        <tr
+                                        <SelectableSubjectRow
+                                            as='tr'
                                             key={member.userId}
                                             id={`member-${encodeURIComponent(member.userId)}`}
-                                            role='button'
-                                            tabIndex={0}
-                                            aria-pressed={selected}
+                                            selected={selected}
                                             className={`scroll-mt-24 cursor-pointer align-middle transition ${selected ? 'bg-ui-primary/10 dark:bg-ui-raised' : 'hover:bg-ui-raised dark:hover:bg-ui-panel'}`}
-                                            onClick={() => onSelectSubject({ type: 'member', id: member.userId })}
-                                            onKeyDown={event => {
-                                                if (event.key === 'Enter' || event.key === ' ') {
-                                                    event.preventDefault()
-                                                    onSelectSubject({ type: 'member', id: member.userId })
-                                                }
-                                            }}
+                                            onSelect={() => onSelectSubject({ type: 'member', id: member.userId })}
                                         >
                                             <td className='max-w-44 border-b border-ui-border py-2 pr-3 dark:border-ui-border'>
                                                 <p className='truncate font-semibold text-ui-text dark:text-ui-text'>{sanitizeOrganizationDisplayCopy(member.name || member.email || member.userId)}</p>
@@ -162,7 +149,7 @@ export function MemberPanel({ members, canManage, busy, rowMessages, selectedSub
                                                     <ConfirmActionButton ariaLabel='Remove member' title={memberMutationReason || 'Remove member'} disabled={!canMutateMember || Boolean(busy)} onConfirm={() => onRemove(member)} icon={<Trash2 className='h-4 w-4' />} />
                                                 </div>
                                             </td>
-                                        </tr>
+                                        </SelectableSubjectRow>
                                     )
                                 })}
                             </tbody>

@@ -1541,3 +1541,17 @@ metric, loading, empty, error, confirmation, and list renderers had distinct
 presentation or accessibility contracts, so this checkpoint adds no new
 frontend abstraction. The frontend's 10,000–30,000-line target and API's
 100,000-line reduction goal remain outstanding. No deployment was performed.
+
+Organization activity, invite, member, and watchlist rows now share one
+selectable-row component for their existing button semantics and keyboard
+selection. It preserves each consumer's host element, styling, IDs, data
+markers, callbacks, and nested action handling. The extraction reduces these
+production components by 15 net lines; the registered SSR contract test adds
+30 test lines and covers div/article/tr rendering and accessibility state.
+Independent review approved the behavior preservation. The focused registered
+test, frontend typecheck, lint, diff check, and repository line-cap scan pass.
+The frontend scan finds 2,333 hand-maintained files / 153,853 lines with no
+file over 200 lines. Across the repository, 63 of 4,300 files / 325,385 lines
+remain over the cap, all outside the frontend. The frontend 10,000–30,000-line
+target and API 100,000-line reduction remain outstanding. No UI, page data, or
+deployment change was made.

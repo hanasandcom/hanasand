@@ -13,6 +13,7 @@ import { formatDate } from '../model/labels'
 import { secondaryButtonClass } from '../constants/styles'
 import { CheckCircle2, CircleAlert, Copy, ExternalLink } from 'lucide-react'
 import { useState } from 'react'
+import { SelectableSubjectRow } from './selectableSubjectRow'
 
 export function ActivityPanel({ organization, bundle, activity, selectedSubject, onSelectSubject }: { organization: OrganizationSummary, bundle: OrgBundle, activity: ActivityItem[], selectedSubject: ActivitySubject, onSelectSubject: (subject: ActivitySubject) => void }) {
     const [copyStatus, setCopyStatus] = useState<RowMessage | undefined>()
@@ -92,20 +93,12 @@ export function ActivityPanel({ organization, bundle, activity, selectedSubject,
                     const itemSubject = activitySubjectFromItem(item, organization.id)
                     const selected = itemSubject?.type === selectedSubject.type && itemSubject.id === selectedSubject.id
                     return (
-                        <div
+                        <SelectableSubjectRow
                             key={item.id}
-                            role='button'
-                            tabIndex={0}
-                            aria-pressed={selected}
+                            selected={selected}
                             className={`rounded-lg border p-3 text-left transition ${selected ? 'border-ui-primary/35 bg-ui-primary/10 dark:border-ui-primary/35 dark:bg-ui-panel' : 'border-ui-border hover:bg-ui-raised dark:border-ui-border dark:hover:bg-ui-panel'}`}
-                            onClick={() => itemSubject && onSelectSubject(itemSubject)}
-                            onKeyDown={event => {
-                                if (event.key === 'Enter' || event.key === ' ') {
-                                    event.preventDefault()
-                                    if (itemSubject) onSelectSubject(itemSubject)
-                                }
-                            }}
-                            data-org-activity-row='true'
+                            onSelect={() => { if (itemSubject) onSelectSubject(itemSubject) }}
+                            dataAttributes={{ 'data-org-activity-row': 'true' }}
                         >
                             <div className='flex items-start gap-2'>
                                 {item.ok ? <CheckCircle2 className='mt-0.5 h-4 w-4 shrink-0 text-ui-success' /> : <CircleAlert className='mt-0.5 h-4 w-4 shrink-0 text-ui-text' />}
@@ -124,7 +117,7 @@ export function ActivityPanel({ organization, bundle, activity, selectedSubject,
                                     <p className='mt-2 text-xs text-ui-muted dark:text-ui-muted'>{formatDate(item.at)}</p>
                                 </div>
                             </div>
-                        </div>
+                        </SelectableSubjectRow>
                     )
                 })}
                 {totalRows > ORG_ACTIVITY_PREVIEW_ROWS && (

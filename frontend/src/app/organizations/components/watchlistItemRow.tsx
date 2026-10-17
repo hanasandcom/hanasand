@@ -11,6 +11,7 @@ import { iconButtonClass, inputClass, primaryButtonClass, secondaryButtonClass }
 import { watchlistKinds } from '../constants/options'
 import { stopRowSelectionKeys } from '../model/keyboard'
 import { WatchlistDestinationSummary } from './watchlistDestinationSummary'
+import { SelectableSubjectRow } from './selectableSubjectRow'
 import { Archive, CheckCircle2, Pause, Pencil, Play, Trash2 } from 'lucide-react'
 
 type WatchlistDraft = { kind: WatchlistKind, value: string, notes: string }
@@ -44,20 +45,12 @@ export function WatchlistItemRow({ item, watchlists, activeTerms, members, canMa
     const alertTermLabel = activeAlertTerm ? 'Event term active' : status === 'active' ? 'Event term pending' : 'Event term excluded'
     const selected = selectedSubject.type === 'watchlist' && selectedSubject.id === item.id
     return (
-        <div
+        <SelectableSubjectRow
             key={item.id}
-            role='button'
-            tabIndex={0}
-            aria-pressed={selected}
+            selected={selected}
             id={`watchlist-${encodeURIComponent(item.id)}`}
             className={`rounded-lg border p-3 transition ${selected ? 'border-ui-primary/35 bg-ui-primary/10 dark:border-ui-primary/35 dark:bg-ui-panel' : 'border-ui-border dark:border-ui-border'}`}
-            onClick={() => onSelectSubject({ type: 'watchlist', id: item.id })}
-            onKeyDown={event => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault()
-                    onSelectSubject({ type: 'watchlist', id: item.id })
-                }
-            }}
+            onSelect={() => onSelectSubject({ type: 'watchlist', id: item.id })}
         >
             {edit ? (
                 <div className='grid gap-3 md:grid-cols-[9rem_1fr]' onClick={event => event.stopPropagation()} onKeyDown={stopRowSelectionKeys}>
@@ -128,6 +121,6 @@ export function WatchlistItemRow({ item, watchlists, activeTerms, members, canMa
                     <RowStatus message={rowMessages[`watchlist-${item.id}`]} />
                 </div>
             )}
-        </div>
+        </SelectableSubjectRow>
     )
 }

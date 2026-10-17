@@ -9,6 +9,7 @@ export const otherUnitTasks: TestTask[] = [
     { id: 'dashboard-row-deletion', title: 'Dashboard row deletion lifecycle', command: [bun, 'test', 'tests/dashboard-row-deletion.test.ts'] },
     { id: 'system-container-action-group', title: 'System container action presentation', command: [bun, 'test', 'tests/system-container-action-group.test.tsx'] },
     { id: 'organization-filter-strip', title: 'Organization member and invite filter presentation', command: [bun, 'test', 'tests/organization-filter-strip.test.tsx'] },
+    { id: 'organization-selectable-subject-row', title: 'Organization selectable subject row presentation', command: [bun, 'test', 'tests/organization-selectable-subject-row.test.tsx'] },
     { id: 'audit-log', title: 'Audit log server rendering', command: [bun, 'test', 'tests/audit-log.test.tsx'] },
     { id: 'audit-acknowledgment-transport', title: 'Audit acknowledgment request contract', command: [bun, 'test', 'tests/audit-acknowledgment.test.ts'] },
     { id: 'audit-acknowledgment-lifecycle', title: 'Shared audit acknowledgment lifecycle and screen updates', command: [bun, 'test', 'tests/audit-acknowledgment-lifecycle.test.ts'] },
