@@ -843,3 +843,28 @@ malformed non-record rows while preserving valid neighbors, preventing a null
 alert from crashing the page. Six focused loader tests, typecheck, changed-file
 lint, independent review, and the Next production build pass; all 116 routes
 generate. Current integrated counts are provisional during continued refactors.
+
+After commits `9caa494ae`, `c732c7ed4`, `f5b5dff1a`, `207127567`, and
+`67fbb83a8`, the frontend cap scan covers 2,274 files / 152,066 LOC / zero over
+200. The full frontend suite and production build pass; all 116 routes generate.
+The browser source-contract aggregation follows the extracted WS and onion
+session modules. Restore feedback reuse and traffic response validation preserve
+the existing UI and data behavior. The frontend inventory is 43 lines above the
+preceding 152,023-line scan, so the 10,000–30,000 LOC target remains unmet.
+
+The WS plugin is now a 106-line facade with 13 responsibility modules, all at
+or below 197 lines. Their combined implementation is 66 lines larger than the
+former 1,277-line file. Independent review and 18 focused tests / 56 assertions
+passed, along with API typecheck/lint and both source-contract smokes. The admin
+support access-recovery approval readers now share a query projection, removing
+23 production lines while retaining `FOR UPDATE` only on the locked query and
+excluding its audit projection. Its 17 focused tests / 153 expectations,
+typecheck, lint, and independent review pass. Traffic records now validate
+integer totals on initial, paginated, and live-snapshot reads before mutating
+page state; focused guard tests and independent review pass.
+
+The current repository-wide scanner reports 3,996 hand-maintained files /
+322,310 LOC, with 111 files over 200 lines, all outside the frontend. The
+frontend cap is satisfied, but the API 100,000-line reduction and frontend
+10,000–30,000-line targets remain unachieved. These commits are local and
+unpublished; remote publication is still pending authorization.
