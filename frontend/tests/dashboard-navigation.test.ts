@@ -5,6 +5,14 @@ import { organizationNavigationPages } from '../src/utils/organizations/pages'
 import { canViewHanasandInternalPages, HANASAND_ORGANIZATION_ID } from '../src/utils/organizations/internalPageAccess'
 import { thesisNavigationFromDocument } from '../src/utils/layout/thesisNavigationData'
 import { writeSheets } from '../src/app/thesis/workspace'
+import { isActiveDashboardNavigationPath } from '../src/components/dashboard/dashboardNavigationPath'
+
+test('dashboard active paths include exact and slash-delimited descendants only', () => {
+    assert.equal(isActiveDashboardNavigationPath('Logs/Rules', 'Logs/Rules'), true)
+    assert.equal(isActiveDashboardNavigationPath('Logs/Rules/Editor', 'Logs/Rules'), true)
+    assert.equal(isActiveDashboardNavigationPath('Logs/Ruleset', 'Logs/Rules'), false)
+    assert.equal(isActiveDashboardNavigationPath('Logs/Other', 'Logs/Rules'), false)
+})
 
 test('organization pages and standalone watchlists remain reachable after regrouping', () => {
     const links = navigationLinks(getDashboardNavigation({ id: 'member' }))

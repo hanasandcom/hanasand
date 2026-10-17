@@ -6,6 +6,7 @@ import type { NavigationItem } from '@/utils/layout/dashboardNavigation'
 import type { SidebarActiveItem } from './useDashboardSidebarNavigation'
 import { PendingBadge, pendingLabelForHref } from './dashboardSidebarMenu'
 import type { NavigationPreferences } from '@/utils/layout/navigationPreferences'
+import { isActiveDashboardNavigationPath } from './dashboardNavigationPath'
 
 export type SidebarPreview = { section: NavigationItem; anchorTop: number; top: number; maxHeight: number }
 
@@ -101,7 +102,7 @@ function DashboardSidebarPreviewItems({ items, ancestors, domId, active, hasUnre
         const path = [...ancestors, item.label]
         const key = path.join('/')
         if (item.items) {
-            const expanded = path.join('/') === (active?.ancestors || []).join('/') || active?.ancestors?.join('/').startsWith(`${key}/`) || preferences.expanded[key] === true
+            const expanded = isActiveDashboardNavigationPath((active?.ancestors || []).join('/'), key) || preferences.expanded[key] === true
             const controls = `${domId}-preview-${encodeURIComponent(key)}`
             return <div key={key} className='py-0.5'>
                 <button type='button' aria-expanded={expanded} aria-controls={controls} onClick={() => onToggle(key)}

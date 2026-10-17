@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { getCookie, setCookie } from '@/utils/cookies/cookies'
 import { NAVIGATION_COOKIE, readNavigationPreferences, type NavigationPreferences } from '@/utils/layout/navigationPreferences'
 import { navigationLinks, pinnedNavigation, type NavigationItem } from '@/utils/layout/dashboardNavigation'
+import { isActiveDashboardNavigationPath } from './dashboardNavigationPath'
 
 export function useDashboardSidebarPreferences({ userId, storageKey, pathname, activePath, initialPreferences, sections, links }: {
     userId: string
@@ -36,7 +37,7 @@ export function useDashboardSidebarPreferences({ userId, storageKey, pathname, a
     }, [storageKey, pathname, activePath, save, userId])
 
     function isExpanded(key: string) {
-        return activePath === key || activePath.startsWith(`${key}/`) || preferences.expanded[key] === true
+        return isActiveDashboardNavigationPath(activePath, key) || preferences.expanded[key] === true
     }
 
     function toggle(key: string) {

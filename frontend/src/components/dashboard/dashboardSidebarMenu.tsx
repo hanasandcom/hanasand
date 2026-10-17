@@ -3,6 +3,7 @@ import { ChevronDown, FolderKanban, Pin, type LucideIcon, ShieldCheck, ListFilte
 import type { NavigationItem } from '@/utils/layout/dashboardNavigation'
 import type { SidebarActiveItem } from './useDashboardSidebarNavigation'
 import type { NavigationPreferences } from '@/utils/layout/navigationPreferences'
+import { isActiveDashboardNavigationPath } from './dashboardNavigationPath'
 
 export const sectionIcons: Record<string, LucideIcon> = {
     'Security & intelligence': ShieldCheck,
@@ -68,7 +69,7 @@ export function DashboardSidebarGroup({ item, ancestors = [], domId, activePath,
 }) {
     const path = [...ancestors, item.label]
     const key = path.join('/')
-    const containsActive = activePath === key || activePath.startsWith(`${key}/`)
+    const containsActive = isActiveDashboardNavigationPath(activePath, key)
     const expanded = containsActive || preferences.expanded[key] === true
     const Icon = sectionIcons[item.label] || FolderKanban
     const controls = `${domId}-${encodeURIComponent(key)}`
