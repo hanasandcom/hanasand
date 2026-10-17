@@ -7,6 +7,7 @@ import sanitize from '#utils/sanitize.ts'
 import run from '#db'
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import { canUseLocalLxd, setLocalLxdInstanceState } from '#utils/vms/lxd.ts'
+import { internalHostFetch } from '#utils/vms/hostTransport.ts'
 import { recordSystemEvent } from '#utils/systemEvent.ts'
 
 const allowedActions = new Set(['start', 'stop', 'restart'])
@@ -57,10 +58,9 @@ export default async function vmAction(req: FastifyRequest, res: FastifyReply) {
                 })
             }
 
-            const internalRes = await fetch(`${config.internal_api}/vm/${encodeURIComponent(id)}/${action}`, {
+            const internalRes = await internalHostFetch(vm.primary_host, `/vm/${encodeURIComponent(vm.name)}/${action}`, {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${encodeURIComponent(config.vm_api_token || '')}`,
                     'User-Agent': 'hanasand_internal',
                 },
             })
