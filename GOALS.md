@@ -2509,3 +2509,17 @@ managed server exits during startup and the serverless retry cannot launch
 Chromium due to a MachPort permission error. These two changes add 81 net
 hand-maintained lines. The frontend 10,000–30,000-line target and API
 100,000-line reduction target remain unmet.
+
+At `035708964`, the database dashboard's source-text scan was replaced with a
+registered SSR test of rendered storage telemetry, query disclosure, ordering,
+and backup/restore links. At `2724592f6`, unused organization state
+destructuring was removed. At `21ab45a06`, repository and share workspace cards
+reuse one selected/idle presentation component; an item-specific SSR test
+replaces a source-reading assertion and verifies both states on both panels.
+Independent reviews approved the changes. Focused SSR tests, scoped ESLint,
+frontend typecheck, and the frontend cap pass. Current inventory is 2,424
+frontend source/config files / 156,447 lines and 4,569 repository hand-maintained
+files / 329,161 lines, with no file above 200. These checkpoints add 101 net
+frontend lines, mostly effective rendered coverage; they do not materially
+reduce frontend size. The 10,000–30,000-line frontend target and API
+100,000-line reduction target remain unmet.
