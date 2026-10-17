@@ -1,12 +1,13 @@
 import { afterAll, beforeEach, expect, mock, test } from 'bun:test'
 import Fastify from 'fastify'
+import { resolveVmHostId } from '../src/utils/vms/hostConfig.ts'
 
 const calls: Array<{ host: string; path: string; method?: string }> = []
 let existingVm: Record<string, unknown> | undefined
 mock.module('../src/utils/auth/tokenWrapper.ts', () => ({ default: async (req: any) => ({ valid: Boolean(req.headers.id), id: req.headers.id }) }))
 mock.module('../src/utils/auth/organizationPageAccess.ts', () => ({ default: async (req: any) => ({ valid: req.headers.id === 'admin' }) }))
 mock.module('../src/utils/auth/internalToken.ts', () => ({ default: () => false }))
-mock.module('../src/constants.ts', () => ({ default: { vm_host_id: 'ovhcloud' } }))
+mock.module('../src/constants.ts', () => ({ default: { vm_host_id: 'inspur' } }))
 mock.module('../src/utils/db.ts', () => ({
     withDatabaseAdvisoryLock: async (_key: string, work: () => Promise<unknown>) => work(),
     default: async (sql: string, params: unknown[] = []) => ({
@@ -39,11 +40,16 @@ app.post('/vm', postVM)
 beforeEach(() => { calls.length = 0; existingVm = undefined })
 afterAll(async () => { await app.close() })
 
+test('VM host defaults to Inspur and preserves an explicit host setting', () => {
+    expect(resolveVmHostId(undefined)).toBe('inspur')
+    expect(resolveVmHostId('ovhcloud')).toBe('ovhcloud')
+})
+
 test('VM creation provisions through the configured primary host, not the central API socket', async () => {
     const response = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'member' }, payload: { name: 'remote-vm' } })
 
     expect(response.statusCode).toBe(201)
-    expect(calls).toEqual([{ host: 'ovhcloud', path: '/vms/internal/remote-vm/provision', method: 'POST' }])
+    expect(calls).toEqual([{ host: 'inspur', path: '/vms/internal/remote-vm/provision', method: 'POST' }])
 })
 
 test('metadata-only VM creation skips host provisioning when explicitly requested', async () => {

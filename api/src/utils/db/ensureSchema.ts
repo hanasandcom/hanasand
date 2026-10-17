@@ -30,6 +30,7 @@ import ensureMailSchema from './mailSchema.ts'
 import ensureOrganizationAdaptersSchema from './organizationAdaptersSchema.ts'
 import { applyTrackedSchemaRelease, vmHostMigrationReleaseMarker } from './schemaReleasePolicy.ts'
 import { backfillVmHostAssignments } from './vmHostBackfill.ts'
+import { resolveVmHostId } from '../vms/hostConfig.ts'
 
 export default async function ensureSchema() {
     // This migration removes the legacy global receipt-write advisory lock.
@@ -38,13 +39,14 @@ export default async function ensureSchema() {
     await ensureExistingRuleHitCountSchema()
     const release = process.env.HANASAND_RELEASE_COMMIT
     const trackedRelease = release && /^[a-f0-9]{40}$/.test(release) ? release : undefined
-    const hostMigrationRelease = vmHostMigrationReleaseMarker(trackedRelease, process.env.VM_HOST_ID)
+    const vmHostId = resolveVmHostId()
+    const hostMigrationRelease = vmHostMigrationReleaseMarker(trackedRelease, vmHostId)
     const deploymentCandidate = process.env.DEPLOYMENT_CANDIDATE_ONLY === '1'
     if (trackedRelease) {
         const result = await applyTrackedSchemaRelease(trackedRelease, hostMigrationRelease, withDatabaseAdvisoryLock,
             () => applySchemaWithRetry(deploymentCandidate),
             () => retrySchemaLockTimeout(
-                () => withSchemaLockTimeout(() => backfillVmHostAssignments(process.env.VM_HOST_ID, queryOnce)),
+                () => withSchemaLockTimeout(() => backfillVmHostAssignments(vmHostId, queryOnce)),
                 'VM host assignment migration deferred because it exceeded its lock or execution limit',
             ))
         if (result !== 'schema-applied' && !deploymentCandidate) await ensureIdentityDataBoundaryWithRetry()

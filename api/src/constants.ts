@@ -1,4 +1,5 @@
 import dotenv from 'dotenv'
+import { resolveVmHostId } from './utils/vms/hostConfig.ts'
 
 dotenv.config({ path: '../.env' })
 
@@ -37,7 +38,7 @@ const config = {
     CACHE_TTL_HOT: 5000,
     CACHE_TTL_COLD: 300000,
     vm_api_token: process.env.VM_API_TOKEN,
-    vm_host_id: process.env.VM_HOST_ID || 'ovhcloud',
+    vm_host_id: resolveVmHostId(),
     lxd_socket_path: process.env.LXD_SOCKET_PATH || '/var/snap/lxd/common/lxd/unix.socket',
     lxd_image_alias: process.env.LXD_IMAGE_ALIAS || '24.04',
     lxd_image_server: process.env.LXD_IMAGE_SERVER || 'https://cloud-images.ubuntu.com/releases',
