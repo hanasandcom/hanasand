@@ -12,5 +12,11 @@ export function isTrafficMetrics(value: unknown): value is TrafficMetrics {
 }
 
 export function isTrafficRecords(value: unknown): value is TrafficRecords {
-    return Boolean(value && typeof value === 'object' && Array.isArray((value as TrafficRecords).result))
+    if (!value || typeof value !== 'object') return false
+    const records = value as Partial<TrafficRecords>
+    return Array.isArray(records.result)
+        && typeof records.total === 'number'
+        && Number.isFinite(records.total)
+        && Number.isInteger(records.total)
+        && records.total >= 0
 }

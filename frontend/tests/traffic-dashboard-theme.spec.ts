@@ -41,6 +41,8 @@ test('traffic routes separate overview, recent requests, map, and blocklist', as
     expect(recentClient).toContain('mode: \'snapshot\'')
     expect(recentClient).toContain('const LOAD_MORE_COUNT = 10')
     expect(recentClient).toContain('getTrafficRecords(selectedDomain, LOAD_MORE_COUNT, page)')
+    expect(recentClient).toContain('isTrafficRecords(result)')
+    expect(recentClient).toContain('isTrafficRecords(snapshot.records)')
     expect(recentClient).toContain('limit: String(INITIAL_VISIBLE_COUNT)')
     expect(trafficApi).toContain('Math.min(requestedLimit, 200)')
     expect(recentClient).toContain('const PREFETCH_AHEAD_COUNT = LOAD_MORE_COUNT * 2')

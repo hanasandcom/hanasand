@@ -47,6 +47,14 @@ test('rejects malformed upstream domains, metrics, and records', async () => {
 test('shared traffic response guards accept only the expected list envelopes', () => {
     expect(isTrafficDomains({ domains: [] })).toBe(true)
     expect(isTrafficDomains({ items: [] })).toBe(false)
-    expect(isTrafficRecords({ result: [] })).toBe(true)
+    expect(isTrafficRecords({ result: [], total: 0 })).toBe(true)
     expect(isTrafficRecords({ items: [] })).toBe(false)
+})
+
+test('traffic records require a finite nonnegative numeric total', () => {
+    expect(isTrafficRecords({ result: [] })).toBe(false)
+    expect(isTrafficRecords({ result: [], total: '0' })).toBe(false)
+    expect(isTrafficRecords({ result: [], total: Number.NaN })).toBe(false)
+    expect(isTrafficRecords({ result: [], total: -1 })).toBe(false)
+    expect(isTrafficRecords({ result: [], total: 1.5 })).toBe(false)
 })

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type UIEvent } from 'react'
 import { RecentTrafficTable } from '@/components/monitoring/traffic/traffic'
 import { getTrafficRecords } from '@/utils/monitoring/data'
+import { isTrafficRecords } from '@/utils/monitoring/trafficValidation'
 import type { TrafficRecords } from '@/utils/monitoring/types'
 
 const INITIAL_VISIBLE_COUNT = 100
@@ -36,6 +37,7 @@ export default function TrafficRecentClient({ initialRecords, selectedDomain }: 
         const page = Math.floor(offset / LOAD_MORE_COUNT) + 1
         const request = getTrafficRecords(selectedDomain, LOAD_MORE_COUNT, page).then(result => {
             if (typeof result === 'string') throw new Error(result)
+            if (!isTrafficRecords(result)) throw new Error('Traffic records response is invalid')
             if (!mountedRef.current) return 0
 
             totalRef.current = result.total
@@ -113,7 +115,7 @@ export default function TrafficRecentClient({ initialRecords, selectedDomain }: 
                 const response = await fetch(`/api/live-traffic?${params}`, { cache: 'no-store' })
                 if (!response.ok) throw new Error(`Traffic request returned ${response.status}`)
                 const snapshot = await response.json() as { records?: TrafficRecords | null }
-                if (!stopped && snapshot.records && Array.isArray(snapshot.records.result)) {
+                if (!stopped && isTrafficRecords(snapshot.records)) {
                     const latest = snapshot.records.result.slice(0, INITIAL_VISIBLE_COUNT)
                     totalRef.current = snapshot.records.total
                     setTotal(snapshot.records.total)
