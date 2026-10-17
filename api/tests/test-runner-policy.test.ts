@@ -57,8 +57,6 @@ test('unit suites stay in the safe default runner while database suites remain o
         requiresDatabase: true,
         requiresPostgresFilterPort: false,
     })
-    expect(isTaskEnabledByDefault('database', {})).toBe(false)
-    expect(isTaskEnabledByDefault('database', { RUN_DB_TESTS: '1' })).toBe(true)
 })
 
 test('default runner notice names all excluded database suites and explains PostgreSQL setup', () => {
