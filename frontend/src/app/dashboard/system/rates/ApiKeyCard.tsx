@@ -8,6 +8,25 @@ import { DateField, EmptyState, SelectField, TextField } from './RateLimitFields
 import { OwnerUserPicker } from './OwnerUserPicker'
 import { validateKeyFields, validateScopeSet, type OwnerUserOption } from './model'
 
+export type ApiKeyCardProps = {
+    apiKey: ApiKeySummary
+    tierPresetMap: Record<string, ApiKeyTierDefinition>
+    fallbackTierPresets: ApiKeyTierDefinition[]
+    routeOptions: string[]
+    tierPresetIds: string[]
+    saving: boolean
+    ownerUsers: OwnerUserOption[]
+    ownerUsersLoading: boolean
+    ownerUsersError: string | null
+    reloadOwnerUsers: () => Promise<void>
+    setApiKeys: Dispatch<SetStateAction<ApiKeySummary[]>>
+    applyKeyTierPreset: (keyId: string, tier: string) => void
+    updateKey: (apiKey: ApiKeySummary) => Promise<void>
+    deleteKey: (idToDelete: string) => Promise<void>
+    addScopeToKey: (keyId: string) => void
+    removeKeyScope: (keyId: string, scopeId: string) => void
+}
+
 export function ApiKeyCard({
     apiKey,
     tierPresetMap,
@@ -25,24 +44,7 @@ export function ApiKeyCard({
     deleteKey,
     addScopeToKey,
     removeKeyScope,
-}: {
-    apiKey: ApiKeySummary
-    tierPresetMap: Record<string, ApiKeyTierDefinition>
-    fallbackTierPresets: ApiKeyTierDefinition[]
-    routeOptions: string[]
-    tierPresetIds: string[]
-    saving: boolean
-    ownerUsers: OwnerUserOption[]
-    ownerUsersLoading: boolean
-    ownerUsersError: string | null
-    reloadOwnerUsers: () => Promise<void>
-    setApiKeys: Dispatch<SetStateAction<ApiKeySummary[]>>
-    applyKeyTierPreset: (keyId: string, tier: string) => void
-    updateKey: (apiKey: ApiKeySummary) => Promise<void>
-    deleteKey: (idToDelete: string) => Promise<void>
-    addScopeToKey: (keyId: string) => void
-    removeKeyScope: (keyId: string, scopeId: string) => void
-}) {
+}: ApiKeyCardProps) {
     const scopeValidation = useMemo(
         () => validateScopeSet(apiKey.scopes),
         [apiKey.scopes]
