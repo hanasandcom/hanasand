@@ -43,8 +43,7 @@ export async function getDatabaseBackups(req: FastifyRequest, res: FastifyReply)
     try {
         return res.send(await collectDatabaseBackupServices())
     } catch (error) {
-        req.log.error(error)
-        return res.status(503).send({ message: sanitizeBackupError(error) })
+        return sendBackupFailure(req, res, error, 503)
     }
 }
 
@@ -83,9 +82,7 @@ export async function postDatabaseBackup(req: FastifyRequest, res: FastifyReply)
             operation,
         })
     } catch (error) {
-        req.log.error(error)
-        const statusCode = error instanceof BackupOperationError ? error.statusCode : (error as { statusCode?: number })?.statusCode || 503
-        return res.status(statusCode).send({ message: sanitizeBackupError(error) })
+        return sendBackupFailure(req, res, error)
     }
 }
 
@@ -95,8 +92,7 @@ export async function getDatabaseBackupFiles(req: FastifyRequest<{ Querystring: 
     try {
         return res.send(await listDatabaseBackupFiles(req.query.service, req.query.date))
     } catch (error) {
-        req.log.error(error)
-        return res.status(503).send({ message: sanitizeBackupError(error) })
+        return sendBackupFailure(req, res, error, 503)
     }
 }
 
@@ -111,9 +107,7 @@ export async function postDatabaseBackupVerify(req: FastifyRequest<{ Body: Verif
         const operation = await verifyDatabaseBackupFile(req.body.file, actorId)
         return res.send({ message: `Backup verified: ${operation.file}.`, operation })
     } catch (error) {
-        req.log.error(error)
-        const statusCode = error instanceof BackupOperationError ? error.statusCode : (error as { statusCode?: number })?.statusCode || 503
-        return res.status(statusCode).send({ message: sanitizeBackupError(error) })
+        return sendBackupFailure(req, res, error)
     }
 }
 
@@ -128,9 +122,7 @@ export async function postDatabaseBackupDelete(req: FastifyRequest<{ Body: Delet
         const operation = await deleteDatabaseBackupFile(req.body.file, actorId)
         return res.send({ message: `Backup deleted: ${operation.file}.`, operation })
     } catch (error) {
-        req.log.error(error)
-        const statusCode = error instanceof BackupOperationError ? error.statusCode : (error as { statusCode?: number })?.statusCode || 503
-        return res.status(statusCode).send({ message: sanitizeBackupError(error) })
+        return sendBackupFailure(req, res, error)
     }
 }
 
@@ -154,9 +146,7 @@ export async function postDatabaseBackupRestore(req: FastifyRequest<{ Body: Rest
             operation,
         })
     } catch (error) {
-        req.log.error(error)
-        const statusCode = error instanceof BackupOperationError ? error.statusCode : (error as { statusCode?: number })?.statusCode || 503
-        return res.status(statusCode).send({ message: sanitizeBackupError(error) })
+        return sendBackupFailure(req, res, error)
     }
 }
 
@@ -179,9 +169,7 @@ export async function postDatabaseBackupRestoreLive(req: FastifyRequest<{ Body: 
             operation,
         })
     } catch (error) {
-        req.log.error(error)
-        const statusCode = error instanceof BackupOperationError ? error.statusCode : (error as { statusCode?: number })?.statusCode || 503
-        return res.status(statusCode).send({ message: sanitizeBackupError(error) })
+        return sendBackupFailure(req, res, error)
     }
 }
 
@@ -201,4 +189,9 @@ async function requireBackupAccess(req: FastifyRequest, res: FastifyReply) {
 
     const id = auth.authenticatedId || auth.id || req.headers.id
     return Array.isArray(id) ? id[0] || null : id || null
+}
+
+function sendBackupFailure(req: FastifyRequest, res: FastifyReply, error: unknown, statusCode = error instanceof BackupOperationError ? error.statusCode : (error as { statusCode?: number })?.statusCode || 503) {
+    req.log.error(error)
+    return res.status(statusCode).send({ message: sanitizeBackupError(error) })
 }
