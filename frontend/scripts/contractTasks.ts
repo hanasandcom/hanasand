@@ -33,6 +33,11 @@ export const contractTasks: TestTask[] = [
         command: [bun, 'test', 'tests/gpt-chat-reducers.test.ts'],
     },
     {
+        id: 'gpt-summary-panels',
+        title: 'GPT summary card rendering contract',
+        command: [bun, 'test', 'tests/gpt-summary-panels.test.tsx'],
+    },
+    {
         id: 'dashboard-navigation-structure',
         title: 'Navigation grouping and organization destinations',
         command: [bun, 'test', 'tests/dashboard-navigation.test.ts'],

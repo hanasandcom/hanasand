@@ -75,11 +75,7 @@ export default function GPT_Content({
 
 function SummaryCard({ title, icon, metric }: { title: string, icon: ReactNode, metric: number }) {
     return (
-        <div className='rounded-lg bg-ui-panel p-4 border border-ui-border'>
-            <div className='flex items-center justify-between text-ui-muted'>
-                <span className='text-xs font-medium uppercase tracking-[0.18em]'>{title}</span>
-                {icon}
-            </div>
+        <SummaryPanel title={title} icon={icon}>
             <div className='mt-3 flex items-end justify-between gap-4'>
                 <Metric metric={metric} size='lg' />
                 <div className='h-2 flex-1 rounded-full bg-ui-border'>
@@ -89,53 +85,53 @@ function SummaryCard({ title, icon, metric }: { title: string, icon: ReactNode, 
                     />
                 </div>
             </div>
-        </div>
+        </SummaryPanel>
     )
 }
 
 function ThroughputCard({ tps }: { tps: number }) {
     return (
-        <div className='rounded-lg bg-ui-panel p-4 border border-ui-border'>
-            <div className='flex items-center justify-between text-ui-muted'>
-                <span className='text-xs font-medium uppercase tracking-[0.18em]'>Throughput</span>
-                <Gauge className='h-4 w-4' />
-            </div>
+        <SummaryPanel title='Throughput' icon={<Gauge className='h-4 w-4' />}>
             <div className='mt-3 flex items-end justify-between gap-4'>
                 <span className='text-2xl font-semibold text-ui-text'>{tps.toFixed(1)} TPS</span>
                 <div className='text-right text-xs uppercase tracking-[0.18em] text-ui-muted'>
                     Live generation
                 </div>
             </div>
-        </div>
+        </SummaryPanel>
     )
 }
 
 function CapacityCard({ active, available, max, lanes }: { active: number, available: number, max: number, lanes: number }) {
     return (
-        <div className='rounded-lg bg-ui-panel p-4 border border-ui-border'>
-            <div className='flex items-center justify-between text-ui-muted'>
-                <span className='text-xs font-medium uppercase tracking-[0.18em]'>Lane capacity</span>
-                <Gauge className='h-4 w-4' />
-            </div>
+        <SummaryPanel title='Lane capacity' icon={<Gauge className='h-4 w-4' />}>
             <div className='mt-3 text-2xl font-semibold text-ui-text'>{available}/{max}</div>
             <div className='mt-1 text-xs uppercase tracking-[0.18em] text-ui-muted'>
                 {active} active across {lanes} lanes
             </div>
-        </div>
+        </SummaryPanel>
     )
 }
 
 function PowerCard({ watts, monthlyKwh }: { watts: number | null, monthlyKwh: number | null }) {
     return (
-        <div className='rounded-lg bg-ui-panel p-4 border border-ui-border'>
-            <div className='flex items-center justify-between text-ui-muted'>
-                <span className='text-xs font-medium uppercase tracking-[0.18em]'>Power</span>
-                <Zap className='h-4 w-4' />
-            </div>
+        <SummaryPanel title='Power' icon={<Zap className='h-4 w-4' />}>
             <div className='mt-3 text-2xl font-semibold text-ui-text'>{watts === null ? 'Unavailable' : `${watts.toFixed(0)} W`}</div>
             <div className='mt-1 text-xs uppercase tracking-[0.18em] text-ui-muted'>
                 {monthlyKwh === null ? 'Waiting for power readings' : `${monthlyKwh.toFixed(2)} kWh recorded this month · GPU power`}
             </div>
+        </SummaryPanel>
+    )
+}
+
+function SummaryPanel({ title, icon, children }: { title: string, icon: ReactNode, children: ReactNode }) {
+    return (
+        <div className='rounded-lg bg-ui-panel p-4 border border-ui-border'>
+            <div className='flex items-center justify-between text-ui-muted'>
+                <span className='text-xs font-medium uppercase tracking-[0.18em]'>{title}</span>
+                {icon}
+            </div>
+            {children}
         </div>
     )
 }

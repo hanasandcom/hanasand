@@ -4,10 +4,8 @@ import type { ReactNode } from 'react'
 import { useState } from 'react'
 import { ChevronDown, ChevronUp, Cpu, Gauge, HardDrive, MemoryStick, MessageSquareText, Zap } from 'lucide-react'
 import Button from '../misc/button'
-import CPU from './cpu'
 import GPU from './gpu'
-import RAM from './ram'
-import Metric from './metric'
+import Metric, { SensorMetric } from './metric'
 import Lane from './displayClientLanes'
 import { operationalStateLabel } from './operationalStateLabel'
 
@@ -89,13 +87,13 @@ export default function DisplayClient({
                         />
                     </div>
                 </div>
-                {open ? <Open client={client} /> : null}
+                {open ? <DisplayClientDetails client={client} /> : null}
             </div>
         </div>
     )
 }
 
-function Open({ client }: { client: GPT_Client }) {
+export function DisplayClientDetails({ client }: { client: GPT_Client }) {
     return (
         <div className='space-y-4 border-t border-ui-border pt-4'>
             {(client.lanes || []).length ? (
@@ -109,12 +107,12 @@ function Open({ client }: { client: GPT_Client }) {
                 <MetricSection
                     title='RAM'
                     icon={<MemoryStick className='h-4 w-4' />}
-                    items={client.ram.map((ram, id) => <RAM key={`${ram.name}-${id}`} ram={ram} />)}
+                    items={client.ram.map((ram, id) => <SensorMetric key={`${ram.name}-${id}`} name={ram.name} load={ram.load} />)}
                 />
                 <MetricSection
                     title='CPU'
                     icon={<Cpu className='h-4 w-4' />}
-                    items={client.cpu.map((cpu, id) => <CPU key={`${cpu.name}-${id}`} cpu={cpu} />)}
+                    items={client.cpu.map((cpu, id) => <SensorMetric key={`${cpu.name}-${id}`} name={cpu.name} load={cpu.load} />)}
                 />
                 <MetricSection
                     title='GPU'
