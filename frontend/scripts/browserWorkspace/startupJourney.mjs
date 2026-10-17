@@ -11,7 +11,7 @@ export async function runStartupJourney(context) {
         assert(await history.evaluate(element => element.getBoundingClientRect().bottom <= innerHeight), 'History remains inside viewport')
     }
     await page.setViewportSize({ width: 1440, height: 900 })
-    await page.getByRole('button', { name: 'Browser metadata' }).click()
+    await page.locator('summary[aria-label="Browser metadata"]').click()
     const width = page.getByLabel('Viewport width', { exact: true })
     const height = page.getByLabel('Viewport height', { exact: true })
     const locale = page.getByLabel('Locale', { exact: true })

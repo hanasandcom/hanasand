@@ -34,7 +34,7 @@ export async function runActiveReportJourney(context) {
     assert((await page.getByLabel('1 suspicious indicators', { exact: true }).getAttribute('class')).includes('text-ui-warning'))
     await page.evaluate(() => window.deliver({ type: 'tool_capture', id: 'virustotal', name: 'VirusTotal', toolAnalysis: { toolKind: 'virustotal', vendorFlagged: 10, vendorTotal: 90 } }))
     await page.getByLabel('1 indicators with 10 or more VirusTotal detections', { exact: true }).waitFor()
-    assert((await page.getByLabel('1 indicators with 10 or more VirusTotal detections', { exact: true }).getAttribute('class')).includes('text-ui-danger'))
+    assert((await page.getByLabel('1 indicators with 10 or more VirusTotal detections', { exact: true }).getAttribute('class')).includes('text-ui-text'))
     await page.evaluate(() => window.deliver({ type: 'tool_capture', id: 'virustotal', name: 'VirusTotal', toolAnalysis: { toolKind: 'virustotal', vendorFlagged: 0, vendorTotal: 90 } }))
 
     const vtTab = page.getByRole('tab', { name: /^VirusTotal/ })

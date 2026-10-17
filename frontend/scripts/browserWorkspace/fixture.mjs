@@ -9,6 +9,7 @@ export async function createBrowserWorkspaceFixture() {
     let savedReport = null
     let shareRequests = 0
     let historyRequests = 0
+    let recentRuns = []
     const css = (await postcss([tailwind()]).process(await readFile('src/app/globals.css', 'utf8'), { from: 'src/app/globals.css' })).css
     const server = Bun.serve({ port: 0, fetch(request) {
         const url = new URL(request.url)
@@ -44,6 +45,9 @@ export async function createBrowserWorkspaceFixture() {
             }))
             return Response.json({ runs, nextOffset: offset ? null : 50 })
         }
+        if (url.pathname === '/api/backend/browser/runs' && url.searchParams.get('history') !== 'all') {
+            return Response.json({ runs: recentRuns, quota: null })
+        }
         if (url.pathname.startsWith('/api/')) return Response.json({ runs: [], profiles: [] })
         if (url.pathname === '/stream/index.html') {
             streamLoads++
@@ -54,6 +58,7 @@ export async function createBrowserWorkspaceFixture() {
         }
         return new Response(
             '<html class="dark"><head><link rel="stylesheet" href="/app.css"><style>html,body,#root{height:100%;margin:0}</style></head><body><div id="root"></div><script type="module" src="/app.js"></script></body></html>',
+            { headers: { 'content-type': 'text/html' } },
         )
     } })
     const build = await Bun.build({
@@ -79,6 +84,7 @@ export async function createBrowserWorkspaceFixture() {
         browser,
         server,
         setSavedReport(report) { savedReport = report },
+        setRecentRuns(runs) { recentRuns = runs },
         get streamLoads() { return streamLoads },
         get historyRequests() { return historyRequests },
         async close() {

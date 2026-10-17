@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 export async function runHistoryJourney(context) {
     const { page, server, fixture, loading } = context
     const storedRun = { id: 'recent-run', resultId: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', target: 'https://example.com', network: 'regular', status: 'completed', startedAt: '2026-01-01T00:00:00Z' }
-    await page.evaluate(run => localStorage.setItem('hanasand:browser:history:v1', JSON.stringify([run])), storedRun)
+    fixture.setRecentRuns([storedRun])
     await page.goto(server.url.toString())
     assert.equal(await page.getByRole('button', { name: 'Run again', exact: true }).count(), 0, 'History has no rerun button')
     const historyRow = page.getByRole('link', { name: /https:\/\/example.com/ })
@@ -37,16 +37,15 @@ export async function runHistoryJourney(context) {
     assert.equal(fixture.historyRequests, 0, 'Full history loads only on demand')
     await page.getByRole('button', { name: 'History', exact: true }).click()
     const historyDialog = page.getByRole('dialog', { name: 'History', exact: true })
-    await historyDialog.getByRole('button', { name: 'Load more', exact: true }).waitFor()
+    await page.waitForFunction(() => document.querySelectorAll('dialog a').length === 50)
     assert.equal(await historyDialog.getByRole('link').count(), 50)
     await page.setViewportSize({ width: 390, height: 844 })
     assert(await historyDialog.evaluate(element => element.getBoundingClientRect().right <= innerWidth), 'History fits mobile')
-    await historyDialog.getByRole('button', { name: 'Load more', exact: true }).click()
+    await historyDialog.evaluate(element => element.scrollTo({ top: element.scrollHeight, behavior: 'instant' }))
     await page.waitForFunction(() => document.querySelectorAll('dialog a').length === 51)
     await page.keyboard.press('Escape')
     assert.equal(await historyDialog.isVisible(), false)
     await page.getByRole('button', { name: 'History', exact: true }).click()
-    await historyDialog.getByRole('button', { name: 'Load more', exact: true }).click()
     await historyDialog.locator('a[href$="run=older-run"]').click()
     await page.getByRole('heading', { name: 'https://example.com', exact: true }).waitFor()
     assert.equal(await page.getByLabel('Saved run', { exact: true }).inputValue(), 'older-run')
