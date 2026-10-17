@@ -43,7 +43,7 @@ const unitTestFiles = [
     'organization-membership-owner-count.test.ts',
     'organization-page-session-cache.test.ts', 'organization-privacy-state.test.ts', 'organization-role-permissions.test.ts', 'organization-role-route-access.test.ts', 'organization-route-registration.test.ts', 'organization-watchlist-alert-blockers.test.ts', 'organization-watchlist-alert-export.test.ts', 'organization-watchlist-delivery-blockers.test.ts',
     'organization-watchlist-export-lifecycle.test.ts', 'organization-watchlist-export.test.ts', 'organization-watchlist-query-filters.test.ts', 'organizations-watchlist-status-projection.test.ts', 'passkey-auth-challenge-binding.test.ts', 'password-changed-mail.test.ts',
-    'password-policy.test.ts', 'password-reset-notification.test.ts', 'password-reset-security-actions.test.ts', 'postmaster-migration.test.ts', 'process-queue.test.ts',
+    'password-policy.test.ts', 'password-reset-code-flow.test.ts', 'password-reset-notification.test.ts', 'password-reset-security-actions.test.ts', 'postmaster-migration.test.ts', 'process-queue.test.ts',
     'profile-ssh-keys.test.ts', 'public-api-contract-guard.test.ts', 'public-monitoring-request.test.ts',
     'public-ti-v1-batch-client.test.ts', 'public-ti-v1-collections.test.ts', 'public-ti-v1-contract.test.ts',
     'public-ti-v1-incident-metrics.test.ts', 'public-ti-v1-incidents.test.ts', 'public-ti-v1-search.test.ts',
