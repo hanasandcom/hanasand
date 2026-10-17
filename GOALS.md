@@ -991,3 +991,20 @@ files / 152,553 LOC / zero over 200 lines. That is 130 LOC above the preceding
 152,423 scan, so these structural changes improve reuse and testability but do
 not demonstrate net size reduction. Repository-wide ESLint debt and the wider
 frontend/API size goals remain outstanding; no push or deployment was performed.
+
+The next frontend reuse slice now shares organization member/invite filter
+controls and their responsive layout while leaving each page's filtering,
+options, counts, clear-state logic, and data intact. Helpdesk and Management
+share acknowledgment pending/error/request lifecycle; their distinct event field
+mappings and copy remain in their own adapters. The previously unregistered
+audit acknowledgment transport test and the new lifecycle/render tests are now
+in the default runner. Independent reviews found no UI/data behavior regressions;
+the acknowledgment unit tests cover state transitions and field updates but do
+not mount the React hook to exercise its in-flight guard. The registered full
+frontend suite passes, production build/typecheck pass, and all 116 routes
+generate. Scoped ESLint and the 200-line scan pass: 2,299 files / 152,769 LOC /
+zero violations. That is 216 LOC above the preceding 152,553 scan, primarily
+because the characterization and lifecycle tests were added; this is verified
+reuse work, not net size reduction. The organization browser E2E attempt stopped
+before test startup because the configured local API server exited with code 1.
+Do not claim those browser interactions were verified here. No push or deploy.

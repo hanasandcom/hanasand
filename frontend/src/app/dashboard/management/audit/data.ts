@@ -1,3 +1,5 @@
+import type { AuditAcknowledgment } from '../../audit/acknowledgment'
+
 export type AuditSearchParams = Record<string, string | string[] | undefined>
 
 export type AuditEvent = {
@@ -69,5 +71,16 @@ export function readAuditPage(payload: { events: Array<Record<string, unknown>>,
         nextCursor: payload.pagination.nextCursor || null,
         total: payload.pagination.total ?? null,
         queryResult: payload.queryResult,
+    }
+}
+
+export function updateAuditAcknowledgment(page: AuditPage, eventId: number, result: AuditAcknowledgment): AuditPage {
+    return {
+        ...page,
+        events: page.events.map(event => event.id === eventId ? {
+            ...event,
+            acknowledgedAt: result.acknowledgedAt,
+            acknowledgedBy: result.acknowledgedBy,
+        } : event),
     }
 }

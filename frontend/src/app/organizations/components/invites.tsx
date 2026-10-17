@@ -4,7 +4,8 @@ import { parseInviteEmails, invalidInviteEmails, inviteEmailConflicts, inviteSta
 import { inviteBusyLabel } from '../model/labels'
 import { inviteSearchText } from '../model/organization'
 import { DisclosureSummary, InlineBusy, SelectField, RowStatus, EmptyLine, RoleBadge, StatusPill, ConfirmActionButton } from './shared'
-import { inputClass, primaryButtonClass, secondaryButtonClass, iconButtonClass } from '../constants/styles'
+import { OrganizationFilterStrip } from './filterStrip'
+import { inputClass, primaryButtonClass, iconButtonClass } from '../constants/styles'
 import { roleOptions } from '../constants/options'
 import { useState } from 'react'
 import { ChevronDown, Copy, RefreshCw, Trash2, UserPlus } from 'lucide-react'
@@ -75,41 +76,25 @@ export function InvitePanel({ emails, setEmails, role, setRole, invites, members
                     {invites.length === 0 && <EmptyLine text='Send invites from the form above. Pending access requests appear here with copy, resend, and revoke actions.' />}
                     {invites.length > 0 && (
                         <>
-                            <div className='grid gap-2 rounded-lg border border-ui-border bg-ui-raised p-3 dark:border-ui-border dark:bg-ui-canvas md:grid-cols-[minmax(0,1fr)_9rem_auto]' data-org-invite-filter-strip='true'>
-                                <label className='grid min-w-0 gap-1 text-sm font-medium text-ui-text dark:text-ui-muted'>
-                                    Find invite
-                                    <input
-                                        value={inviteQuery}
-                                        disabled={Boolean(busy)}
-                                        onChange={event => setInviteQuery(event.target.value)}
-                                        className={inputClass}
-                                        placeholder='Email, role, status'
-                                    />
-                                </label>
-                                <SelectField
-                                    label='Status'
-                                    value={inviteStatusFilter}
-                                    options={['all', 'pending', 'accepted', 'revoked', 'expired']}
-                                    disabled={Boolean(busy)}
-                                    onChange={setInviteStatusFilter}
-                                />
-                                <div className='grid content-end gap-1'>
-                                    <span className='rounded-md border border-ui-border bg-ui-panel px-2 py-2 text-center text-xs font-semibold text-ui-muted dark:border-ui-border dark:bg-ui-panel dark:text-ui-muted' data-org-invite-filter-count='true'>
-                                        {visibleInvites.length}/{invites.length} shown
-                                    </span>
-                                    <button
-                                        type='button'
-                                        className={secondaryButtonClass}
-                                        disabled={!inviteFiltersActive || Boolean(busy)}
-                                        onClick={() => {
-                                            setInviteQuery('')
-                                            setInviteStatusFilter('all')
-                                        }}
-                                    >
-                                        Clear
-                                    </button>
-                                </div>
-                            </div>
+                            <OrganizationFilterStrip
+                                scope='invite'
+                                searchLabel='Find invite'
+                                query={inviteQuery}
+                                placeholder='Email, role, status'
+                                onQueryChange={setInviteQuery}
+                                selectLabel='Status'
+                                selectedOption={inviteStatusFilter}
+                                options={['all', 'pending', 'accepted', 'revoked', 'expired']}
+                                onSelectChange={setInviteStatusFilter}
+                                visibleCount={visibleInvites.length}
+                                totalCount={invites.length}
+                                disabled={Boolean(busy)}
+                                canClear={inviteFiltersActive}
+                                onClear={() => {
+                                    setInviteQuery('')
+                                    setInviteStatusFilter('all')
+                                }}
+                            />
                             {visibleInvites.length === 0 && <EmptyLine text='Adjust filters to see pending access requests.' />}
                             {visibleInvites.map(invite => {
                                 const linkAvailable = Boolean(inviteLink(invite)) && inviteActionAllowed(invite, 'copy')

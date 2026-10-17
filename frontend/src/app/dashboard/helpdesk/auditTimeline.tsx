@@ -1,11 +1,12 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { DashboardHeader, DashboardPage } from '@/components/dashboard/ui'
-import { saveAuditAcknowledgment } from '../audit/acknowledgment'
-import type { AdminAuditEvent, AuditSearchParams } from './audit'
+import { useAuditAcknowledgment } from '../audit/useAuditAcknowledgment'
+import type { AuditAcknowledgment } from '../audit/acknowledgment'
+import { helpdeskAcknowledgmentFields, type AdminAuditEvent, type AuditSearchParams } from './audit'
 import { activeFilterEntries, auditQuietButtonClass, selectedAuditEvent } from './auditPresentation'
 import AuditFilterPanel from './auditFilterPanel'
 import AuditEventList from './auditEventList'
@@ -16,31 +17,16 @@ export default function AuditTimeline({ events: initialEvents, params, responseE
     responseError: string
 }) {
     const [acknowledgments, setAcknowledgments] = useState<Record<number, Partial<AdminAuditEvent>>>({})
-    const [pendingEvent, setPendingEvent] = useState<number | null>(null)
-    const [acknowledgmentError, setAcknowledgmentError] = useState<{ id: number, message: string } | null>(null)
     const events = initialEvents.map(event => ({ ...event, ...acknowledgments[event.id] }))
     const searchParams = useSearchParams()
     const selectedEvent = selectedAuditEvent(events, { ...params, event: searchParams?.get('event') || undefined })
     const notificationPanel = useRef<HTMLDetailsElement>(null)
     const timeline = useRef<HTMLDivElement>(null)
 
-    async function acknowledge(event: AdminAuditEvent) {
-        if (pendingEvent !== null) return
-        setPendingEvent(event.id)
-        setAcknowledgmentError(null)
-        try {
-            const result = await saveAuditAcknowledgment(event.id, Boolean(event.acknowledged_at), 'Could not save acknowledgment.')
-            setAcknowledgments(current => ({ ...current, [event.id]: {
-                acknowledged_at: result.acknowledgedAt,
-                acknowledged_by: result.acknowledgedBy,
-                acknowledged_by_name: null,
-            } }))
-        } catch (error) {
-            setAcknowledgmentError({ id: event.id, message: error instanceof Error ? error.message : 'Could not save acknowledgment. Try again.' })
-        } finally {
-            setPendingEvent(null)
-        }
-    }
+    const onAcknowledgmentSaved = useCallback((eventId: number, result: AuditAcknowledgment) => {
+        setAcknowledgments(current => ({ ...current, [eventId]: helpdeskAcknowledgmentFields(result) }))
+    }, [])
+    const { pendingEvent, acknowledgmentError, acknowledge } = useAuditAcknowledgment(onAcknowledgmentSaved, 'Could not save acknowledgment. Try again.')
 
     function selectEvent(id: number, reveal = false) {
         const url = new URL(window.location.href)
@@ -79,7 +65,7 @@ export default function AuditTimeline({ events: initialEvents, params, responseE
                     pendingEvent={pendingEvent}
                     acknowledgmentError={acknowledgmentError}
                     onSelectEvent={id => selectEvent(id)}
-                    onAcknowledge={event => void acknowledge(event)}
+                    onAcknowledge={event => void acknowledge(event.id, Boolean(event.acknowledged_at))}
                 />
             </div>
         </section>

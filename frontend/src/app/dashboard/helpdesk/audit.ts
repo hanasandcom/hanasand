@@ -1,3 +1,5 @@
+import type { AuditAcknowledgment } from '../audit/acknowledgment'
+
 export type AdminAuditEvent = {
     id: number
     event_type: string
@@ -22,6 +24,14 @@ export type AdminAuditEvent = {
     acknowledged_by?: string | null
     acknowledged_by_name?: string | null
     created_at: string
+}
+
+export function helpdeskAcknowledgmentFields(result: AuditAcknowledgment): Partial<AdminAuditEvent> {
+    return {
+        acknowledged_at: result.acknowledgedAt,
+        acknowledged_by: result.acknowledgedBy,
+        acknowledged_by_name: null,
+    }
 }
 
 export type AuditSearchParams = {

@@ -3,7 +3,10 @@ import { bun, type TestTask } from './testTask'
 export const otherUnitTasks: TestTask[] = [
     { id: 'activity-model', title: 'Exposure activity model', command: [bun, 'test', 'tests/activity-model.test.ts'] },
     { id: 'dashboard-row-deletion', title: 'Dashboard row deletion lifecycle', command: [bun, 'test', 'tests/dashboard-row-deletion.test.ts'] },
+    { id: 'organization-filter-strip', title: 'Organization member and invite filter presentation', command: [bun, 'test', 'tests/organization-filter-strip.test.tsx'] },
     { id: 'audit-log', title: 'Audit log server rendering', command: [bun, 'test', 'tests/audit-log.test.tsx'] },
+    { id: 'audit-acknowledgment-transport', title: 'Audit acknowledgment request contract', command: [bun, 'test', 'tests/audit-acknowledgment.test.ts'] },
+    { id: 'audit-acknowledgment-lifecycle', title: 'Shared audit acknowledgment lifecycle and screen updates', command: [bun, 'test', 'tests/audit-acknowledgment-lifecycle.test.ts'] },
     { id: 'box-request-utils', title: 'Box request and response helpers', command: [bun, 'test', 'tests/box-request-utils.test.ts'] },
     { id: 'browser-sandbox-broker', title: 'Browser sandbox broker contract', command: [bun, 'test', 'tests/browser-sandbox-broker.test.ts'] },
     { id: 'browser-sandbox-evidence', title: 'Browser sandbox evidence contract', command: [bun, 'test', 'tests/browser-sandbox-evidence.test.ts'] },
