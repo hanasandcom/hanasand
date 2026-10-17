@@ -1294,3 +1294,27 @@ Full frontend ESLint still reports 1,612 existing errors across the repository;
 all files changed in this checkpoint passed targeted ESLint. No deployment was
 performed. The 100,000-line API and 10,000–30,000-line frontend targets remain
 outstanding.
+
+The organization alert-readiness smoke journey was split from its 803-line
+entrypoint into a 70-line orchestrator and eight assertion/context modules. The
+new modules preserve the original request and assertion order, all 691 assert
+calls and 19 tenant identity checks; independent review found no behavior gap.
+The organization smoke, API lint/typecheck and repository cap scan passed. The
+split adds 87 lines for clearer responsibility boundaries; it is not an LOC
+reduction. Commit `6433722f4` was pushed to both configured remotes.
+
+The latest frontend reuse checkpoint centralizes recursive Share workspace-tree
+walking and removes the duplicate AI walker, while preserving search root
+stripping, tree counts and the old empty-folder path behavior. Nested path/count
+regressions are covered. Two TI timeliness tables now use the shared
+`DashboardTable` while retaining their exact rendered DOM, including an absent
+`tbody` class. Independent review approved the frontend changes. Focused Share
+tests (11 tests), changed-file ESLint, typecheck, and the frontend cap pass. The
+frontend diff is +2 net lines including new tests; inventory is 2,313 files /
+153,549 LOC / zero over 200. The repository scan is 73 of 4,217 files over 200
+/ 324,124 LOC total. Commit `3058d9a1c` was pushed to both remotes. A broad
+dashboard render proof could not connect to its configured local server at
+`127.0.0.1:3010`; exact server-rendered table comparison passed separately. Full
+frontend ESLint still reports 1,612 existing errors across unrelated files.
+The 100,000-line API and 10,000–30,000-line frontend reduction targets remain
+unmet. No deployment was performed.
