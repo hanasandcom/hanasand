@@ -1,0 +1,1 @@
+export const MAX_THESIS_BODY_LENGTH = 1_000_000

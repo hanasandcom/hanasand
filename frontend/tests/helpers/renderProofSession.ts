@@ -3,7 +3,7 @@ import type { BrowserContext } from '@playwright/test'
 const renderProofUser = 'dashboard-render-proof-user'
 const renderProofToken = 'local-dashboard-render-proof-token'
 
-export async function setupOrganizationWorkspaceSession(context: BrowserContext, baseURL?: string) {
+export async function setupRenderProofSession(context: BrowserContext, baseURL?: string) {
     const origin = baseURL || 'http://127.0.0.1:3000'
     await context.setExtraHTTPHeaders({ 'x-hanasand-render-proof-auth': 'local-dashboard-render-proof' })
     await context.addCookies([

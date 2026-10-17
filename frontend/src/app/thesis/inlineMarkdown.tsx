@@ -5,6 +5,7 @@ import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { marked } from 'marked'
 import type { Root } from 'mdast'
+import { MAX_THESIS_BODY_LENGTH } from '@/utils/thesisLimits'
 import markdownSpacing from './markdownSpacing'
 import { thesisMarkdownComponents } from './markdownComponents'
 import { resizeTextareaToContent } from '../../components/editor/resizeTextareaToContent'
@@ -125,7 +126,7 @@ export default function InlineMarkdown({ text, displayText = text, label, single
     return <div className='thesis-inline-document'>
         {render(before, 0, 'before', line ?? lines.length)}
         {line !== null && <textarea ref={input} aria-label={label} rows={1} className='thesis-inline-input' style={editStyle} value={value} placeholder={!singleLine && showEmptyHint ? 'Write here…' : undefined}
-            maxLength={singleLine ? 500 : 1_000_000} spellCheck
+            maxLength={singleLine ? 500 : MAX_THESIS_BODY_LENGTH} spellCheck
             onBlur={() => setActive(null)}
             onSelect={event => onSelection?.(start + event.currentTarget.selectionStart, start + event.currentTarget.selectionEnd)}
             onChange={event => {

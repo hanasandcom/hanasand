@@ -1,5 +1,6 @@
 import config from '@/config'
 import tokenIsValid from '@/utils/proxy/tokenIsValid'
+import { MAX_THESIS_BODY_LENGTH } from '@/utils/thesisLimits'
 import { cache } from 'react'
 
 export type ThesisDocument = { title: string, body: string, revision: number }
@@ -19,7 +20,7 @@ export function validThesis(value: unknown): value is ThesisDocument {
     const document = value as ThesisDocument
     return typeof document.title === 'string' && document.title.trim().length > 0
         && document.title.length <= 500 && !/[\r\n]/.test(document.title)
-        && typeof document.body === 'string' && document.body.length <= 1_000_000
+        && typeof document.body === 'string' && document.body.length <= MAX_THESIS_BODY_LENGTH
         && Number.isSafeInteger(document.revision) && document.revision >= 0
 }
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react'
 import { Copy, Menu } from 'lucide-react'
+import { MAX_THESIS_BODY_LENGTH } from '@/utils/thesisLimits'
 import type { Sheet } from './workspace'
 import { writeSheets } from './workspace'
 import { sheetButton } from './sheetEditorStyles'
@@ -75,7 +76,7 @@ export default function SheetPageManager({ sheets, activeSheet, canEdit, ready, 
             }
             const id = crypto.randomUUID()
             const body = writeSheets([...sheets, { id, name, title: `# ${name}`, body: '' }])
-            if (body.length > 1_000_000) {
+            if (body.length > MAX_THESIS_BODY_LENGTH) {
                 setDialogError('The workspace is full.')
                 return
             }

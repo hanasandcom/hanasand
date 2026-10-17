@@ -12,6 +12,7 @@ import type { ActivityLog } from './timetableData'
 import CodeReview from './codeReview'
 import type { Sheet, SheetSettings } from './workspace'
 import { identifiedSheets, writeSheets } from './workspace'
+import { MAX_THESIS_BODY_LENGTH } from '@/utils/thesisLimits'
 import type { ThesisDocument } from '@/utils/thesis'
 import { setThesisNavigation } from '@/utils/layout/thesisNavigation'
 import useThesis from './useThesis'
@@ -85,7 +86,7 @@ export default function ThesisClient({ initialDocument, canEdit }: { initialDocu
         if (!canEdit) return
         const next = sheets.map((sheet, index) => index === active ? { ...sheet, settings: { ...sheet.settings, [key]: value } } : sheet)
         const body = writeSheets(next)
-        if (body.length > 1_000_000) { setValidationError('The workspace is full.'); return }
+        if (body.length > MAX_THESIS_BODY_LENGTH) { setValidationError('The workspace is full.'); return }
         thesis.update('body', body)
         if (key === 'history' && !value) versionHistory.close()
     }
@@ -93,7 +94,7 @@ export default function ThesisClient({ initialDocument, canEdit }: { initialDocu
     function updateActivityLog(activityLog: ActivityLog) {
         if (!canEdit) return false
         const body = writeSheets(sheets.map((sheet, index) => index === active ? { ...sheet, activityLog } : sheet))
-        if (body.length > 1_000_000) { setValidationError('The workspace is full.'); return false }
+        if (body.length > MAX_THESIS_BODY_LENGTH) { setValidationError('The workspace is full.'); return false }
         setValidationError('')
         thesis.update('body', body)
         return true
@@ -102,7 +103,7 @@ export default function ThesisClient({ initialDocument, canEdit }: { initialDocu
         const next = sheets.map((sheet, index) => index === active ? { ...sheet, [field]: value } : sheet)
         if (field === 'title' && (!value.trim() || value.length > 500)) { setValidationError('Enter a title of 1–500 characters.'); return }
         const body = writeSheets(next)
-        if (body.length > 1_000_000) { setValidationError('The workspace is full. Shorten the content before adding more.'); return }
+        if (body.length > MAX_THESIS_BODY_LENGTH) { setValidationError('The workspace is full. Shorten the content before adding more.'); return }
         setValidationError('')
         thesis.update('body', body, group ? `${sheets[active].id}:${group}` : undefined)
     }

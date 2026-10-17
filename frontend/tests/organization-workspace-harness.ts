@@ -1,6 +1,6 @@
 import type { BrowserContext, Page } from '@playwright/test'
 import { fixtureOrganization, fixtureViewerOrganization, fixtureMembers, fixtureInvites, fixtureWatchlists, fixtureContosoWatchlists, fixtureDestinations, fixtureAlerts, fixtureCases, fixtureDeliveries } from './organization-workspace-fixtures'
-import { setupOrganizationWorkspaceSession } from './organization-workspace-session'
+import { setupRenderProofSession } from './helpers/renderProofSession'
 
 export async function setupOrganizationWorkspace(context: BrowserContext, page: Page, baseURL?: string, viewerRole: 'viewer' | 'support' = 'viewer') {
     const readOnlyOrganization = { ...fixtureViewerOrganization, role: viewerRole }
@@ -15,7 +15,7 @@ export async function setupOrganizationWorkspace(context: BrowserContext, page: 
     const deliveryReplays: Array<{ destinationId?: string, alertId?: string, caseId?: string, watchlistId?: string, replay?: boolean }> = []
     const settingsUpdates: Array<{ name?: string }> = []
     const state = { inviteCreates, inviteActions, memberRoleChanges, memberRemovals, watchlistUpdates, watchlistArchives, destinationTests, watchlistDestinationTests, deliveryReplays, settingsUpdates }
-    await setupOrganizationWorkspaceSession(context, baseURL)
+    await setupRenderProofSession(context, baseURL)
     await page.addInitScript(() => {
         Object.defineProperty(navigator, 'clipboard', {
             configurable: true,

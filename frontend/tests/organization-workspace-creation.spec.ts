@@ -1,8 +1,8 @@
 import { expect, test } from '@playwright/test'
-import { setupOrganizationWorkspaceSession } from './organization-workspace-session'
+import { setupRenderProofSession } from './helpers/renderProofSession'
 
 test('organization workspace empty state renders create path', async ({ context, page, baseURL }) => {
-    const { userId: localUser } = await setupOrganizationWorkspaceSession(context, baseURL)
+    const { userId: localUser } = await setupRenderProofSession(context, baseURL)
     const createdOrganization = {
         id: 'org_new',
         slug: 'new-security',
@@ -102,7 +102,7 @@ test('organization workspace empty state renders create path', async ({ context,
 })
 
 test('organization setup keeps new workspace open when first term fails', async ({ context, page, baseURL }) => {
-    const { userId: localUser } = await setupOrganizationWorkspaceSession(context, baseURL)
+    const { userId: localUser } = await setupRenderProofSession(context, baseURL)
     const createdOrganization = {
         id: 'org_warn',
         slug: 'warning-security',

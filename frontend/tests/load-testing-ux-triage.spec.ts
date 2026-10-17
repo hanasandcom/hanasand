@@ -1,15 +1,7 @@
 import { expect, test } from '@playwright/test'
+import { setupRenderProofSession } from './helpers/renderProofSession'
 test('load testing dashboard renders one primary launch flow and switchable history', async ({ context, page, baseURL }) => {
-    const origin = baseURL || 'http://127.0.0.1:3000'
-    await context.setExtraHTTPHeaders({ 'x-hanasand-render-proof-auth': 'local-dashboard-render-proof' })
-    await context.addCookies([
-        { name: 'id', value: 'dashboard-render-proof-user', url: origin },
-        { name: 'access_token', value: 'local-dashboard-render-proof-token', url: origin },
-        { name: 'id', value: 'dashboard-render-proof-user', domain: 'localhost', path: '/' },
-        { name: 'access_token', value: 'local-dashboard-render-proof-token', domain: 'localhost', path: '/' },
-        { name: 'id', value: 'dashboard-render-proof-user', domain: '127.0.0.1', path: '/' },
-        { name: 'access_token', value: 'local-dashboard-render-proof-token', domain: '127.0.0.1', path: '/' },
-    ])
+    await setupRenderProofSession(context, baseURL)
 
     const startedChecks: unknown[] = []
     await page.route('**/api/tests/mine**', async route => {
