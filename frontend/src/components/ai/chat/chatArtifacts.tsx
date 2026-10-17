@@ -2,6 +2,16 @@ import { useState } from 'react'
 import Image from 'next/image'
 import { ExternalLink, X } from 'lucide-react'
 
+const artifactKindLabels: Record<AIArtifact['kind'], { singular: string, group: string }> = {
+    screenshot: { singular: 'Screenshot', group: 'Screenshots' },
+    command: { singular: 'Command', group: 'Command output' },
+    http: { singular: 'HTTP', group: 'HTTP checks' },
+    log: { singular: 'Log', group: 'Logs' },
+    file: { singular: 'File', group: 'Files' },
+    link: { singular: 'Link', group: 'Links' },
+    diff: { singular: 'Diff', group: 'Diffs' },
+}
+
 export function ArtifactList({
     artifacts,
     forceExpanded = false,
@@ -137,42 +147,16 @@ function DiffArtifact({ content }: { content: string }) {
 
 export function groupArtifacts(artifacts: AIArtifact[]) {
     const order: AIArtifact['kind'][] = ['screenshot', 'command', 'http', 'log', 'file', 'link', 'diff']
-    const labels: Record<AIArtifact['kind'], string> = {
-        screenshot: 'Screenshots',
-        command: 'Command output',
-        http: 'HTTP checks',
-        log: 'Logs',
-        file: 'Files',
-        link: 'Links',
-        diff: 'Diffs',
-    }
 
     return order
         .map((kind) => ({
             kind,
-            label: labels[kind],
+            label: artifactKindLabels[kind].group,
             artifacts: artifacts.filter((artifact) => artifact.kind === kind),
         }))
         .filter((group) => group.artifacts.length > 0)
 }
 
 function artifactKindLabel(kind: AIArtifact['kind']) {
-    switch (kind) {
-        case 'screenshot':
-            return 'Screenshot'
-        case 'command':
-            return 'Command'
-        case 'http':
-            return 'HTTP'
-        case 'log':
-            return 'Log'
-        case 'file':
-            return 'File'
-        case 'link':
-            return 'Link'
-        case 'diff':
-            return 'Diff'
-        default:
-            return kind
-    }
+    return artifactKindLabels[kind]?.singular || kind
 }

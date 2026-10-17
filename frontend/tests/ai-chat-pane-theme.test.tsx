@@ -2,7 +2,7 @@
 import { expect, test } from 'bun:test'
 import { renderToStaticMarkup } from 'react-dom/server'
 import ChatPane from '../src/components/ai/chatPane'
-import { ArtifactList } from '../src/components/ai/chat/chatArtifacts'
+import { ArtifactList, groupArtifacts } from '../src/components/ai/chat/chatArtifacts'
 import { ChatComposer } from '../src/components/ai/chat/chatComposer'
 import { ChatHeader } from '../src/components/ai/chat/chatHeader'
 import { ChatTranscript } from '../src/components/ai/chat/chatTranscript'
@@ -75,10 +75,34 @@ test('artifact list preserves themed summaries, newest and safe external links',
     expect(html).toContain('outline outline-ui-border')
     expect(html).toContain('<details')
     expect(html).toContain('<summary')
+    expect(html).toContain('Log')
+    expect(html).toContain('Screenshot')
     expect(html).toContain('Verification')
     expect(html).toContain('Newest')
     expect(html).toContain('target="_blank" rel="noopener noreferrer"')
     expect(html).not.toMatch(/#[\da-f]{3,8}/i)
+})
+
+test('artifact groups keep their display labels and stable kind order', () => {
+    const groups = groupArtifacts([
+        { kind: 'diff', title: 'Changes' },
+        { kind: 'link', title: 'Reference' },
+        { kind: 'file', title: 'Report' },
+        { kind: 'log', title: 'Build log' },
+        { kind: 'http', title: 'Health check' },
+        { kind: 'command', title: 'Build output' },
+        { kind: 'screenshot', title: 'Preview' },
+    ])
+
+    expect(groups.map(({ kind, label }) => [kind, label])).toEqual([
+        ['screenshot', 'Screenshots'],
+        ['command', 'Command output'],
+        ['http', 'HTTP checks'],
+        ['log', 'Logs'],
+        ['file', 'Files'],
+        ['link', 'Links'],
+        ['diff', 'Diffs'],
+    ])
 })
 
 test('browser verification renders success and issue tones with bounded diagnostics', () => {
