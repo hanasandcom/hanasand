@@ -2203,3 +2203,14 @@ over 200. All four commits are pushed to Forgejo and GitHub. The 10,000–30,000
 frontend line target and 100,000-line API reduction remain unmet; continue
 prioritizing repeated production behavior that can be consolidated without
 changing UI or data contracts.
+
+At pushed checkpoint `21d080f9a` (2026-10-17), helpdesk and management audit
+filters share first-value query parsing, while each retains its existing
+whitespace behavior. Empty repeated-value arrays now resolve safely in the
+management filter. The registered audit lifecycle suite passes (7 tests / 33
+assertions), along with frontend typecheck, scoped ESLint, changed-file cap, and
+diff check; an independent review approved the change. The focused frontend
+inventory is 2,399 hand-maintained files / 155,495 lines / zero over 200; the
+repository scan is 4,550 files / 328,548 lines / zero over 200. This slice adds
+17 test lines and does not reduce production LOC. Both remotes are current at
+`21d080f9a`; the aggregate frontend and API reduction goals remain open.
