@@ -8,6 +8,18 @@ export function arrowCellTarget(row: number, col: number, key: string) {
     return null
 }
 
+export function navigateArrowCell(event: Pick<KeyboardEvent, 'metaKey' | 'ctrlKey' | 'altKey' | 'key' | 'preventDefault'>, table: number, row: number, col: number, onNavigate: (cell: { table: number, row: number, col: number }, extend: boolean) => void, bounds?: { rows: number, columns: number }) {
+    if (event.metaKey || event.ctrlKey || event.altKey) return
+    const target = arrowCellTarget(row, col, event.key)
+    if (!target) return
+    event.preventDefault()
+    onNavigate({
+        table,
+        row: bounds ? Math.max(0, Math.min(target.row, bounds.rows - 1)) : target.row,
+        col: bounds ? Math.max(0, Math.min(target.col, bounds.columns - 1)) : target.col,
+    }, true)
+}
+
 // Only arrow-created edges are provisional; existing empty rows and columns are never removed.
 export type PendingTable = { data: TableData, row?: number, col?: number }
 

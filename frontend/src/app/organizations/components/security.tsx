@@ -8,6 +8,7 @@ import { slugifyOrganizationName } from '../model/organization'
 import { webhookPolicies, alertPolicies, lifecycleStatuses } from '../constants/options'
 import { useState, type ReactNode } from 'react'
 import { Archive, Copy, KeyRound, Loader2, RefreshCw, Settings, ShieldCheck, Trash2 } from 'lucide-react'
+import { useClipboardStatus } from './useClipboardStatus'
 
 export function ActionAnchor({ href, icon, label, disabled, disabledReason }: { href: string, icon: ReactNode, label: string, disabled?: boolean, disabledReason?: string }) {
     const classes = disabled
@@ -23,17 +24,10 @@ export function EventApiKeyPanel({ apiKeys, secret, canManage, busy, rowMessage,
     const activeKeys = apiKeys.filter(key => key.enabled !== false)
     const revokedKeys = apiKeys.filter(key => key.enabled === false)
     const [keyName, setKeyName] = useState('')
-    const [copyStatus, setCopyStatus] = useState<RowMessage | undefined>()
+    const { status: copyStatus, copy } = useClipboardStatus()
     const creating = busy === 'create-event-api-key'
     const revoking = busy === 'revoke-event-api-key'
-    const copySecret = async () => {
-        try {
-            await navigator.clipboard.writeText(secret)
-            setCopyStatus({ ok: true, text: 'Secret copied.' })
-        } catch {
-            setCopyStatus({ ok: false, text: 'Copy failed. Select the secret and copy it manually.' })
-        }
-    }
+    const copySecret = () => copy(secret, 'Secret copied.', 'Copy failed. Select the secret and copy it manually.')
     return (
         <details id='event-api-key' open className='overflow-hidden rounded-lg border border-ui-border bg-ui-panel shadow-sm dark:border-ui-border dark:bg-ui-panel' data-org-event-api-key>
             <DisclosureSummary

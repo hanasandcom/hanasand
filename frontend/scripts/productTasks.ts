@@ -65,6 +65,8 @@ export const productTasks: TestTask[] = [
     { id: 'findings-portal-data', title: 'Findings resource loaders preserve response, error, and abort contracts', command: [bun, 'test', 'tests/findings-portal-data.test.ts'] },
     { id: 'dwm-readiness-proxy-routes', title: 'DWM readiness and exposure routes preserve authoritative proxy data', command: [bun, 'test', 'tests/dwm-readiness-proxy-routes.test.ts'] },
     { id: 'thesis-editor-model', title: 'Thesis editor recovery, undo and transport behavior', command: [bun, 'test', 'tests/thesis-editor-model.test.ts'] },
+    { id: 'thesis-table-navigation', title: 'Thesis plan clamped and timetable extending arrow navigation', command: [bun, 'test', 'tests/thesis-table-navigation.test.ts'] },
+    { id: 'organization-workspace-copy', title: 'Organization workspace clipboard success and failure', command: [bun, 'x', 'playwright', 'test', 'tests/organization-workspace-copy.spec.ts'], requires: 'playwright' },
     { id: 'scaffold-workspace-template', title: 'AI project starter template contract', command: [bun, 'test', 'tests/scaffold-workspace-template.test.ts'] },
     { id: 'repository-share-folder-workflows', title: 'Repository workspace folder reuse across scaffold, sync and import', command: [bun, 'test', 'tests/repository-share-folder-workflows.test.ts'] },
     { id: 'share-workspace-search', title: 'Share workspace search and replace', command: [bun, 'x', 'playwright', 'test', 'tests/share-workspace-search.spec.ts'], requires: 'playwright' },

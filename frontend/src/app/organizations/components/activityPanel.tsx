@@ -1,4 +1,4 @@
-import type { ActivityItem, ActivitySubject, RowMessage } from '../types/activity'
+import type { ActivityItem, ActivitySubject } from '../types/activity'
 import type { OrganizationSummary } from '../types/organization'
 import { activitySubjectTypeLabel, activitySourceLabel } from '../model/activityLabels'
 import { SectionTitle, RowStatus, EmptyLine } from './shared'
@@ -14,9 +14,10 @@ import { secondaryButtonClass } from '../constants/styles'
 import { CheckCircle2, CircleAlert, Copy, ExternalLink } from 'lucide-react'
 import { useState } from 'react'
 import { SelectableSubjectRow } from './selectableSubjectRow'
+import { useClipboardStatus } from './useClipboardStatus'
 
 export function ActivityPanel({ organization, bundle, activity, selectedSubject, onSelectSubject }: { organization: OrganizationSummary, bundle: OrgBundle, activity: ActivityItem[], selectedSubject: ActivitySubject, onSelectSubject: (subject: ActivitySubject) => void }) {
-    const [copyStatus, setCopyStatus] = useState<RowMessage | undefined>()
+    const { status: copyStatus, copy } = useClipboardStatus()
     const [showAll, setShowAll] = useState(false)
     const selectedRows = activityRowsForSubject(activity, selectedSubject)
     const contextRows = selectedContextRows(selectedSubject, organization, bundle)
@@ -29,23 +30,13 @@ export function ActivityPanel({ organization, bundle, activity, selectedSubject,
     const contextActions = selectedSubjectActions(selectedSubject, organization, bundle)
     const subjectTypeLabel = activitySubjectTypeLabel(selectedSubject.type)
     const copySelectedActivity = async () => {
-        try {
-            const heading = `${organizationDisplayName(organization)} · ${subjectTypeLabel}`
-            const context = contextRows.map(row => `${row.label}: ${sanitizeOrganizationDisplayCopy(row.value) || 'redacted'}`)
-            const rows = visibleRows.slice(0, 8).map(item => `${formatDate(item.at)} · ${activitySourceLabel(item)} · ${sanitizeOrganizationDisplayCopy(item.title) || 'Activity'} · ${sanitizeOrganizationDisplayCopy(item.detail) || 'redacted'}`)
-            await navigator.clipboard.writeText([heading, ...context, ...rows].filter(Boolean).join('\n'))
-            setCopyStatus({ ok: true, text: 'Activity copied.' })
-        } catch {
-            setCopyStatus({ ok: false, text: 'Copy failed.' })
-        }
+        const heading = `${organizationDisplayName(organization)} · ${subjectTypeLabel}`
+        const context = contextRows.map(row => `${row.label}: ${sanitizeOrganizationDisplayCopy(row.value) || 'redacted'}`)
+        const rows = visibleRows.slice(0, 8).map(item => `${formatDate(item.at)} · ${activitySourceLabel(item)} · ${sanitizeOrganizationDisplayCopy(item.title) || 'Activity'} · ${sanitizeOrganizationDisplayCopy(item.detail) || 'redacted'}`)
+        await copy([heading, ...context, ...rows].filter(Boolean).join('\n'), 'Activity copied.')
     }
     const copySelectedLink = async () => {
-        try {
-            await navigator.clipboard.writeText(organizationWorkspaceSelectionHref(organization.id, selectedSubject) || window.location.href)
-            setCopyStatus({ ok: true, text: 'Link copied.' })
-        } catch {
-            setCopyStatus({ ok: false, text: 'Copy failed.' })
-        }
+        await copy(organizationWorkspaceSelectionHref(organization.id, selectedSubject) || window.location.href, 'Link copied.')
     }
     return (
         <section id='audit' className='rounded-lg border border-ui-border bg-ui-panel p-4 shadow-sm dark:border-ui-border dark:bg-ui-panel'>

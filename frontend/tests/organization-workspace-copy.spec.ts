@@ -30,4 +30,11 @@ test('copies an organization-scoped records link from event records', async ({ c
     await records.getByRole('button', { name: 'Copy Events records link' }).click()
     await expect.poll(() => page.evaluate(() => (window as Window & { __copiedText?: string }).__copiedText)).toContain('/api/findings/alerts?organizationId=org_acme&org=org_acme')
     await expect(records).toContainText('Records link copied.')
+
+    await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: { writeText: async () => { throw new Error('Clipboard unavailable') } },
+    }))
+    await records.getByRole('button', { name: 'Copy Events records link' }).click()
+    await expect(records).toContainText('Copy failed.')
 })
