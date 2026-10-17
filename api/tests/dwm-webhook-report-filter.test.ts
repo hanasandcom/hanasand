@@ -1,7 +1,13 @@
 import { expect, test } from 'bun:test'
 import './fixtures/dwm-webhook-report-retry-setup.ts'
-import { queries } from './fixtures/dwm-webhook-report-retry-state.ts'
+import { databaseRun, queries } from './fixtures/dwm-webhook-report-retry-state.ts'
 import { failedDeliveryFixture } from './fixtures/dwm-webhook-report-retry-data.ts'
+
+test('retry database fixture rejects unmatched SQL instead of returning empty rows', async () => {
+    await expect(databaseRun('SELECT unexpected_dwm_webhook_test_query')).rejects.toThrow(
+        'Unexpected DWM webhook test SQL query:\nSELECT unexpected_dwm_webhook_test_query',
+    )
+})
 
 test('builds exact report filters into the delivery query before its row limit', async () => {
     const { listDwmWebhookDeliveries } = await import('../src/utils/dwm/webhooks.ts')
