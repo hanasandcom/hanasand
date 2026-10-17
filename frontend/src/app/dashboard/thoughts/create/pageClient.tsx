@@ -1,11 +1,10 @@
 'use client'
 
-import Editor from '@/components/editor/editor'
-import ErrorNotice from '@/components/error/errorNotice'
+import CreateContentEditor from '@/app/dashboard/CreateContentEditor'
 import useClearStateAfter from '@/hooks/useClearStateAfter'
 import fetchThoughtByTitle from '@/utils/thoughts/fetchThoughtByTitle'
 import { postThought } from '@/utils/thoughts/postThought'
-import { BrainCircuit, Plus } from 'lucide-react'
+import { BrainCircuit } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
@@ -47,37 +46,18 @@ export default function CreateClient() {
     }, [title])
 
     return (
-        <div className={`relative grid gap-4 ${editing ? '' : 'px-4 md:px-[18vw]'}`}>
-            <div className='flex items-center justify-between gap-3'>
-                <div>
-                    <div className='flex items-center gap-2 text-ui-primary'>
-                        <BrainCircuit className='h-4 w-4' />
-                        <p className='text-xs font-semibold uppercase text-ui-primary'>Thought editor</p>
-                    </div>
-                    <h1 className='mt-2 text-xl font-medium text-ui-text'>{text}</h1>
-                </div>
-                <button
-                    type='button'
-                    onClick={handleCreate}
-                    className='ui-button ui-button-primary h-9 px-3.5 text-sm'
-                >
-                    <Plus className='h-4 w-4' />
-                    Create
-                </button>
-            </div>
-            <ErrorNotice compact message={error as string | null} />
-            <div className='grid w-full gap-5'>
-                <Editor
-                    editing={editing}
-                    setEditing={setEditing}
-                    customSaveLogic={true}
-                    hideSaveButton
-                    className='rounded-lg border border-ui-border bg-ui-raised p-2 shadow-sm shadow-ui-canvas/20'
-                    id={title || ''}
-                    content={title.split('\n')}
-                    onChange={setTitle}
-                />
-            </div>
-        </div>
+        <CreateContentEditor
+            icon={BrainCircuit}
+            label='Thought editor'
+            title={text}
+            error={error as string | null}
+            editing={editing}
+            setEditing={setEditing}
+            id={title || ''}
+            content={title.split('\n')}
+            onChange={setTitle}
+            onCreate={handleCreate}
+            editorGap='gap-5'
+        />
     )
 }

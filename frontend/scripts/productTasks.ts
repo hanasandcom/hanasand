@@ -3,6 +3,8 @@ import { bun, type TestTask } from './testTask'
 export const productTasks: TestTask[] = [
     { id: 'solution-feature-card', title: 'Solution feature card content and presentation', command: [bun, 'test', 'tests/solution-feature-card.test.tsx'] },
     { id: 'content-editor-header', title: 'Article and thought editor header rendering', command: [bun, 'test', 'tests/content-editor-header.test.tsx'] },
+    { id: 'content-create-presentation', title: 'Article and thought create editor presentation', command: [bun, 'test', 'tests/content-create-presentation.test.tsx'] },
+    { id: 'share-route-preferences', title: 'Project and share route preference data contracts', command: [bun, 'test', 'tests/share-route-preferences.test.tsx'] },
     { id: 'dashboard-three-column-loading', title: 'Findings and TI dashboard loading layouts', command: [bun, 'test', 'tests/dashboard-three-column-loading.test.tsx'] },
     { id: 'dashboard-content-item', title: 'Article and thought dashboard row behavior', command: [bun, 'test', 'tests/dashboard-content-item.test.tsx'] },
     { id: 'profile-link-card', title: 'Shared profile navigation card rendering', command: [bun, 'test', 'tests/profile-link-card.test.tsx'] },

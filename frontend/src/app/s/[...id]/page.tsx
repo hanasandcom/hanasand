@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { getTree } from '@/utils/share/getTree'
 import { getShare } from '@/utils/share/get'
 import getProject from '@/utils/projects/getProject'
+import { readShareRoutePreferences } from '@/utils/share/routePreferences'
 
 export default async function Page(props: {
     params: Promise<{ id: string[] }>
@@ -15,14 +16,9 @@ export default async function Page(props: {
     const isNewWorkspace = searchParams.new === '1'
     const initialChatOpen = searchParams.chat === '1'
     const Cookies = await cookies()
-    const openFoldersCookie = Cookies.get('openFolders')
-    const openFilesCookie = Cookies.get('openFiles')
     const userId = Cookies.get('id')?.value
     const token = Cookies.get('access_token')?.value
-    const sharePageWidth = Number(Cookies.get('sharePageWidth')?.value) || 0
-    const shareTerminalHeight = Number(Cookies.get('shareTerminalHeight')?.value) || 0
-    const openFolders = parseCookieJson<string[]>(openFoldersCookie?.value, [])
-    const openFiles = parseCookieJson<OpenFile[]>(openFilesCookie?.value, [])
+    const { openFolders, openFiles, sharePageWidth, shareTerminalHeight } = readShareRoutePreferences(Cookies, 'share')
     const [fetchedTree, fetchedShare] = isNewWorkspace
         ? [createOptimisticTree(id), createOptimisticShare(id)] as const
         : await Promise.all([
@@ -95,17 +91,4 @@ function flattenTree(tree: Tree): FileItem[] {
     return tree.flatMap((item) => item.type === 'folder'
         ? [item, ...flattenTree(item.children)]
         : [item])
-}
-
-function parseCookieJson<T>(value: string | undefined, fallback: T): T {
-    if (!value) {
-        return fallback
-    }
-
-    try {
-        return JSON.parse(value) as T
-    } catch (error) {
-        console.warn(`Failed to parse share route cookie JSON: ${error}`)
-        return fallback
-    }
 }
