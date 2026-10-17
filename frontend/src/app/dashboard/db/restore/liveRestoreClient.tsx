@@ -2,12 +2,13 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState, useTransition } from 'react'
+import { useState, useTransition } from 'react'
 import { DatabaseZap, TriangleAlert } from 'lucide-react'
 import type { BackupFile, BackupOperation, BackupService } from '@/utils/db/internal'
 import formatUtcDateTime from '@/utils/date/formatUtcDateTime'
 import { stageLabel } from '../backups/backupPresentation'
 import { restoreLiveBackupAction } from '../actions'
+import { useBackupOperationRefresh } from './useBackupOperationRefresh'
 
 export default function LiveRestoreClient({ backups, service, file, loadError = '' }: { backups: BackupFile[], service?: BackupService, file: string, loadError?: string }) {
     const router = useRouter()
@@ -22,11 +23,7 @@ export default function LiveRestoreClient({ backups, service, file, loadError = 
     const targetDatabase = service?.database || ''
     const requiredConfirmation = targetDatabase ? `RESTORE ${targetDatabase}` : ''
 
-    useEffect(() => {
-        if (!isPending && !activeOperation) return
-        const timer = window.setInterval(() => router.refresh(), 1500)
-        return () => window.clearInterval(timer)
-    }, [activeOperation, isPending, router])
+    useBackupOperationRefresh(isPending, activeOperation)
 
     function runRestore() {
         if (!selected) return

@@ -2,11 +2,12 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useMemo, useState, useTransition } from 'react'
+import { useMemo, useState, useTransition } from 'react'
 import { DatabaseZap, ShieldCheck, TriangleAlert } from 'lucide-react'
 import type { BackupFile, BackupOperation, BackupService } from '@/utils/db/internal'
 import { stageLabel } from '../backups/backupPresentation'
 import { restoreBackupAction } from '../actions'
+import { useBackupOperationRefresh } from './useBackupOperationRefresh'
 
 export default function RestoreClient({ backups, service, loadError = '' }: { backups: BackupFile[], service?: BackupService, loadError?: string }) {
     const router = useRouter()
@@ -21,11 +22,7 @@ export default function RestoreClient({ backups, service, loadError = '' }: { ba
     const activeDrill = service?.currentOperation?.kind === 'restore_drill' ? service.currentOperation : null
     const drillHistory = useMemo(() => (service?.operations || []).filter(operation => operation.kind === 'restore_drill'), [service?.operations])
 
-    useEffect(() => {
-        if (!isPending && !activeDrill) return
-        const timer = window.setInterval(() => router.refresh(), 1500)
-        return () => window.clearInterval(timer)
-    }, [activeDrill, isPending, router])
+    useBackupOperationRefresh(isPending, activeDrill)
 
     function runDrill() {
         setMessage('')
