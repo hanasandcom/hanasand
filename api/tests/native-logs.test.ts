@@ -4,9 +4,11 @@ import { promisify } from 'node:util'
 const requests: Array<{ url: string, init?: RequestInit }> = []
 const timeoutCalls: number[] = []
 const timeoutSignal = new AbortController().signal
+const fileContents = new Map<string, string>()
 let fetchCalls = 0
+let journalOutput = ''
 const mockExecFile = Object.assign(() => undefined, {
-    [promisify.custom]: async () => ({ stdout: '', stderr: '' }),
+    [promisify.custom]: async () => ({ stdout: journalOutput, stderr: '' }),
 })
 
 mock.module('#constants', () => ({
@@ -15,7 +17,22 @@ mock.module('#constants', () => ({
         vm_api_token: 'service token',
     },
 }))
-mock.module('node:fs', () => ({ existsSync: () => false, promises: {} }))
+mock.module('node:fs', () => ({
+    existsSync: (path: string) => fileContents.has(path),
+    promises: {
+        open: async (path: string) => {
+            const content = Buffer.from(fileContents.get(path) || '')
+            return {
+                stat: async () => ({ size: content.length }),
+                read: async (buffer: Buffer, offset: number, length: number, position: number) => {
+                    const bytesRead = content.copy(buffer, offset, position, position + length)
+                    return { bytesRead, buffer }
+                },
+                close: async () => undefined,
+            }
+        },
+    },
+}))
 mock.module('node:child_process', () => ({ execFile: mockExecFile }))
 
 const { listNativeLogs, listNativeLogServices } = await import('../src/utils/logs/native.ts')
@@ -26,6 +43,8 @@ const originalTimeoutDescriptor = Object.getOwnPropertyDescriptor(AbortSignal, '
 beforeEach(() => {
     requests.length = 0
     timeoutCalls.length = 0
+    fileContents.clear()
+    journalOutput = ''
     fetchCalls = 0
     Object.defineProperty(AbortSignal, 'timeout', {
         configurable: true,
@@ -101,6 +120,41 @@ test('remote native endpoints return empty results for non-OK and failed request
     globalThis.fetch = (async () => { fetchCalls++; throw new Error('upstream unavailable') }) as typeof fetch
     expect(await listNativeLogServices(4)).toEqual([])
     expect(fetchCalls).toBe(2)
+})
+
+test('local files and journal rows normalize into the same native log contract', async () => {
+    const logPath = '/var/log/auth.log'
+    fileContents.set(logPath, 'Oct 15 10:00:00 host sshd[12]: authentication failure\n')
+    const logYear = new Date().getFullYear()
+    const journalTimestamp = new Date(`${logYear}-10-15T12:00:00.000Z`).toISOString()
+    const syslogTimestamp = new Date(`${logYear} Oct 15 10:00:00`).toISOString()
+    const journalTime = new Date(journalTimestamp).getTime() * 1000
+    journalOutput = JSON.stringify({
+        MESSAGE: 'Watch reload',
+        _SYSTEMD_UNIT: 'nginx.service',
+        _HOSTNAME: 'server-1',
+        __REALTIME_TIMESTAMP: String(journalTime),
+        PRIORITY: '4',
+        _PID: '42',
+    })
+    globalThis.fetch = (async () => Response.json({ logs: [] })) as typeof fetch
+
+    const logs = await listNativeLogs({ limit: 5 })
+
+    expect(logs).toEqual([
+        {
+            id: `nginx:${journalTimestamp}:Watch reload`,
+            service: 'nginx', host: 'server-1', level: 'warn', message: 'Watch reload',
+            metadata: { native_source: 'journalctl', unit: 'nginx.service', identifier: undefined, pid: '42' },
+            created_at: journalTimestamp, source: 'native',
+        },
+        {
+            id: `ssh:${syslogTimestamp}:authentication failure`,
+            service: 'ssh', host: 'host', level: 'error', message: 'authentication failure',
+            metadata: { native_source: 'file', file_path: logPath, identifier: 'sshd[12]' },
+            created_at: syslogTimestamp, source: 'native',
+        },
+    ])
 })
 
 test('native and stored service summaries add counts, keep the latest timestamp, and sort by service', () => {
