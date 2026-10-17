@@ -11,8 +11,28 @@ export async function runStartupJourney(context) {
         assert(await history.evaluate(element => element.getBoundingClientRect().bottom <= innerHeight), 'History remains inside viewport')
     }
     await page.setViewportSize({ width: 1440, height: 900 })
+    await page.getByRole('button', { name: 'Browser metadata' }).click()
+    const width = page.getByLabel('Viewport width', { exact: true })
+    const height = page.getByLabel('Viewport height', { exact: true })
+    const locale = page.getByLabel('Locale', { exact: true })
+    const timezone = page.getByLabel('Timezone', { exact: true })
+    const platform = page.getByLabel('Platform', { exact: true })
+    assert.equal(await width.getAttribute('inputmode'), 'numeric')
+    assert.equal(await height.getAttribute('inputmode'), 'numeric')
+    await width.fill('1280')
+    await height.fill('720')
+    await locale.fill('fr-FR')
+    await timezone.fill('Europe/Oslo')
+    await platform.fill('Linux x86_64')
     await page.getByPlaceholder('URL to investigate').fill('https://example.com')
     await page.getByRole('button', { name: 'Start', exact: true }).click()
+    await page.waitForFunction(() => window.browserMessages.some(message => message.type === 'start'))
+    const startMessage = await page.evaluate(() => window.browserMessages.find(message => message.type === 'start'))
+    assert.deepEqual(
+        [startMessage.width, startMessage.height, startMessage.locale, startMessage.timezoneId, startMessage.platform],
+        [1280, 720, 'fr-FR', 'Europe/Oslo', 'Linux x86_64'],
+        'Metadata controls must pass their edited values into the browser session request',
+    )
     const viewport = page.locator('[data-browser-viewport]')
     const loading = page.locator('[data-browser-loading]')
     const workspace = page.locator('[data-browser-workspace]')

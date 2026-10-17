@@ -37,14 +37,7 @@ export function FileNodeView({ context, state, actions, isFirstFileInFolder, sho
                         <span className={`truncate text-sm ${isActive ? 'font-semibold text-ui-text' : 'text-ui-muted'}`}>{file.name}</span>
                     </Link>
                 )}
-                {!isRenaming && <FileNodeActions
-                    busy={busy}
-                    onCreateFile={() => actions.onStartCreate('file')}
-                    onCreateFolder={() => actions.onStartCreate('folder')}
-                    onRename={actions.onStartRename}
-                    onDuplicate={actions.onDuplicate}
-                    onDelete={() => setDeleteOpen(true)}
-                />}
+                {!isRenaming && <FileNodeActions busy={busy} actions={actions} onDelete={() => setDeleteOpen(true)} />}
             </div>
         </>
     )

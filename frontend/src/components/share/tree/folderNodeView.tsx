@@ -32,14 +32,7 @@ export function FolderNodeView({ context, state, actions, file }: {
                 {isRenaming ? (
                     <RenameInput value={renameValue} setValue={setRenameValue} onCancel={actions.onCancelRename} onSave={actions.onSaveRename} />
                 ) : <span className='min-w-0 flex-1 truncate'>{file.name}</span>}
-                {!isRenaming && <FileNodeActions
-                    busy={busy}
-                    onCreateFile={() => actions.onStartCreate('file')}
-                    onCreateFolder={() => actions.onStartCreate('folder')}
-                    onRename={actions.onStartRename}
-                    onDuplicate={actions.onDuplicate}
-                    onDelete={() => setDeleteOpen(true)}
-                />}
+                {!isRenaming && <FileNodeActions busy={busy} actions={actions} onDelete={() => setDeleteOpen(true)} />}
             </div>
             {!hasChildren && <div className='ml-3.5 rounded-md group-hover:bg-ui-raised'>
                 <TreeNewFile display={isFolderActive} file={file} tree={tree} />

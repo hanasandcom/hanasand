@@ -9,6 +9,7 @@ import { isDefaultProfile, profileSyncLabel } from '../browserProfiles'
 import BrowserHistory from '../BrowserHistory'
 import { HistoryPanel } from './RunHistoryPanel'
 import { ProfilePicker, ProfileToolEditor } from './ProfileControls'
+import { BrowserMetadataField } from './BrowserMetadataField'
 
 type BrowserLandingProps = {
     formReady: boolean; target: string; setTarget: Dispatch<SetStateAction<string>>; normalizedTarget: string; startRun: () => void
@@ -79,27 +80,12 @@ export function BrowserLanding(props: BrowserLandingProps) {
                                         ))}
                                     </div>
                                     <div className='grid gap-2 sm:grid-cols-2'>
-                                        <label className='flex h-10 items-center gap-2 rounded-md border border-ui-border bg-ui-canvas px-3 text-sm focus-within:border-ui-primary'>
-                                            <span className='shrink-0 text-xs font-semibold uppercase text-ui-muted'>Width</span>
-                                            <input value={customViewportWidth} onChange={event => setCustomViewportWidth(event.target.value)} inputMode='numeric' aria-label='Viewport width' className='min-w-0 flex-1 bg-transparent text-ui-text outline-none' />
-                                        </label>
-                                        <label className='flex h-10 items-center gap-2 rounded-md border border-ui-border bg-ui-canvas px-3 text-sm focus-within:border-ui-primary'>
-                                            <span className='shrink-0 text-xs font-semibold uppercase text-ui-muted'>Height</span>
-                                            <input value={customViewportHeight} onChange={event => setCustomViewportHeight(event.target.value)} inputMode='numeric' aria-label='Viewport height' className='min-w-0 flex-1 bg-transparent text-ui-text outline-none' />
-                                        </label>
-                                        <label className='flex h-10 items-center gap-2 rounded-md border border-ui-border bg-ui-canvas px-3 text-sm focus-within:border-ui-primary'>
-                                            <span className='shrink-0 text-xs font-semibold uppercase text-ui-muted'>Locale</span>
-                                            <input value={customLocale} onChange={event => setCustomLocale(event.target.value)} aria-label='Locale' className='min-w-0 flex-1 bg-transparent text-ui-text outline-none' />
-                                        </label>
-                                        <label className='flex h-10 items-center gap-2 rounded-md border border-ui-border bg-ui-canvas px-3 text-sm focus-within:border-ui-primary'>
-                                            <span className='shrink-0 text-xs font-semibold uppercase text-ui-muted'>Timezone</span>
-                                            <input value={customTimezoneId} onChange={event => setCustomTimezoneId(event.target.value)} aria-label='Timezone' className='min-w-0 flex-1 bg-transparent text-ui-text outline-none' />
-                                        </label>
+                                        <BrowserMetadataField label='Width' ariaLabel='Viewport width' value={customViewportWidth} onChange={setCustomViewportWidth} inputMode='numeric' />
+                                        <BrowserMetadataField label='Height' ariaLabel='Viewport height' value={customViewportHeight} onChange={setCustomViewportHeight} inputMode='numeric' />
+                                        <BrowserMetadataField label='Locale' ariaLabel='Locale' value={customLocale} onChange={setCustomLocale} />
+                                        <BrowserMetadataField label='Timezone' ariaLabel='Timezone' value={customTimezoneId} onChange={setCustomTimezoneId} />
                                     </div>
-                                    <label className='flex h-10 items-center gap-2 rounded-md border border-ui-border bg-ui-canvas px-3 text-sm focus-within:border-ui-primary'>
-                                        <span className='shrink-0 text-xs font-semibold uppercase text-ui-muted'>Platform</span>
-                                        <input value={customPlatform} onChange={event => setCustomPlatform(event.target.value)} aria-label='Platform' className='min-w-0 flex-1 bg-transparent text-ui-text outline-none' />
-                                    </label>
+                                    <BrowserMetadataField label='Platform' ariaLabel='Platform' value={customPlatform} onChange={setCustomPlatform} />
                                     <label className='grid gap-1 rounded-md border border-ui-border bg-ui-canvas px-3 py-2 focus-within:border-ui-primary'>
                                         <span className='flex items-center justify-between gap-2 text-xs font-semibold uppercase text-ui-muted'><span>User agent</span><span className='normal-case font-medium text-ui-primary'>{activeUserAgentLabel}</span></span>
                                         <textarea value={customUserAgent} onChange={event => setCustomUserAgent(event.target.value)} aria-label='User agent' rows={3} className='min-h-16 resize-y bg-transparent font-mono text-xs text-ui-text outline-none' />
