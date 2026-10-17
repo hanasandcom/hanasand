@@ -1,5 +1,6 @@
 import { ChevronDown } from 'lucide-react'
 import { useState } from 'react'
+import { DashboardTable } from '@/components/dashboard/ui'
 import type { BackupOperation } from '@/utils/db/internal'
 import formatUtcDateTime from '@/utils/date/formatUtcDateTime'
 import { backupErrorMessage, BackupStatus, formatDuration, operationLabel, stageLabel } from './backupPresentation'
@@ -23,37 +24,36 @@ export function BackupOperationHistory({ operations }: { operations: BackupOpera
                 </button>
             </h2>
             <div id='backup-history-content' hidden={!expanded} className='overflow-x-auto'>
-                <table className='min-w-[760px] w-full text-left text-sm'>
-                    <thead className='bg-ui-raised text-xs uppercase text-ui-muted'>
-                        <tr>
-                            <th className='px-4 py-3'>Started</th>
-                            <th className='px-4 py-3'>Operation</th>
-                            <th className='px-4 py-3'>Status</th>
-                            <th className='px-4 py-3'>Duration</th>
-                            <th className='px-4 py-3'>Evidence</th>
+                <DashboardTable
+                    className='min-w-[760px] w-full text-left text-sm'
+                    headClassName='bg-ui-raised text-xs uppercase text-ui-muted'
+                    bodyClassName='divide-y divide-ui-border'
+                    columnHeaders={<>
+                        <th className='px-4 py-3'>Started</th>
+                        <th className='px-4 py-3'>Operation</th>
+                        <th className='px-4 py-3'>Status</th>
+                        <th className='px-4 py-3'>Duration</th>
+                        <th className='px-4 py-3'>Evidence</th>
+                    </>}
+                >{operations.map(operation => (
+                        <tr key={operation.id} className='text-ui-text'>
+                            <td className='px-4 py-3'>{formatUtcDateTime(operation.startedAt, 'Unknown')}</td>
+                            <td className='px-4 py-3'>{operationLabel(operation)}</td>
+                            <td className='px-4 py-3'><BackupStatus value={operation.status} /></td>
+                            <td className='px-4 py-3'>{formatDuration(operation.durationMs)}</td>
+                            <td className='max-w-md px-4 py-3 text-ui-muted'>
+                                {backupErrorMessage(operation.error) || operation.file || stageLabel(operation.stage)}
+                            </td>
                         </tr>
-                    </thead>
-                    <tbody className='divide-y divide-ui-border'>
-                        {operations.map(operation => (
-                            <tr key={operation.id} className='text-ui-text'>
-                                <td className='px-4 py-3'>{formatUtcDateTime(operation.startedAt, 'Unknown')}</td>
-                                <td className='px-4 py-3'>{operationLabel(operation)}</td>
-                                <td className='px-4 py-3'><BackupStatus value={operation.status} /></td>
-                                <td className='px-4 py-3'>{formatDuration(operation.durationMs)}</td>
-                                <td className='max-w-md px-4 py-3 text-ui-muted'>
-                                    {backupErrorMessage(operation.error) || operation.file || stageLabel(operation.stage)}
-                                </td>
-                            </tr>
-                        ))}
-                        {!operations.length && (
-                            <tr>
-                                <td colSpan={5} className='px-4 py-8 text-center text-ui-muted'>
-                                    No operation has been attempted yet.
-                                </td>
-                            </tr>
-                        )}
-                    </tbody>
-                </table>
+                    ))}
+                    {!operations.length && (
+                        <tr>
+                            <td colSpan={5} className='px-4 py-8 text-center text-ui-muted'>
+                                No operation has been attempted yet.
+                            </td>
+                        </tr>
+                    )}
+                </DashboardTable>
             </div>
         </section>
     )

@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { Flame } from 'lucide-react'
-import { DashboardHeader, DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardHeader, DashboardPage, DashboardPanel, DashboardTable } from '@/components/dashboard/ui'
 import LoadTestingOperations from './pageClient'
 
 export const dynamic = 'force-dynamic'
@@ -34,32 +34,28 @@ export default function LoadTestingPage() {
                         <span className='text-xs font-medium text-ui-muted'>Current evaluation and managed provisioning</span>
                     </summary>
                     <div className='overflow-x-auto'>
-                        <table className='min-w-full divide-y divide-ui-border text-sm'>
-                            <thead className='bg-ui-panel text-left text-xs font-semibold uppercase text-ui-muted'>
-                                <tr>
-                                    <th className='px-4 py-3'>Access</th>
-                                    <th className='px-4 py-3'>Availability</th>
-                                    <th className='px-4 py-3'>Allowance</th>
-                                    <th className='px-4 py-3'>Operation</th>
-                                    <th className='px-4 py-3 text-right'>Action</th>
+                        <DashboardTable
+                            headClassName='bg-ui-panel text-left text-xs font-semibold uppercase text-ui-muted'
+                            columnHeaders={<>
+                                <th className='px-4 py-3'>Access</th>
+                                <th className='px-4 py-3'>Availability</th>
+                                <th className='px-4 py-3'>Allowance</th>
+                                <th className='px-4 py-3'>Operation</th>
+                                <th className='px-4 py-3 text-right'>Action</th>
+                            </>}
+                        >{allowances.map((allowance) => (
+                                <tr key={allowance.name} className='hover:bg-ui-raised'>
+                                    <td className='px-4 py-4 font-semibold text-ui-text'>{allowance.name}</td>
+                                    <td className='px-4 py-4 text-ui-muted'>{allowance.availability}</td>
+                                    <td className='px-4 py-4 font-semibold text-ui-primary'>{allowance.checks}</td>
+                                    <td className='px-4 py-4 text-ui-muted'>{allowance.operation}</td>
+                                    <td className='px-4 py-4 text-right'>
+                                        <Link href={allowance.href} className='inline-flex h-9 items-center justify-center rounded-lg border border-ui-border bg-ui-raised px-3 text-xs font-semibold text-ui-text transition hover:border-ui-primary'>
+                                            {allowance.cta}
+                                        </Link>
+                                    </td>
                                 </tr>
-                            </thead>
-                            <tbody className='divide-y divide-ui-border bg-ui-panel'>
-                                {allowances.map((allowance) => (
-                                    <tr key={allowance.name} className='hover:bg-ui-raised'>
-                                        <td className='px-4 py-4 font-semibold text-ui-text'>{allowance.name}</td>
-                                        <td className='px-4 py-4 text-ui-muted'>{allowance.availability}</td>
-                                        <td className='px-4 py-4 font-semibold text-ui-primary'>{allowance.checks}</td>
-                                        <td className='px-4 py-4 text-ui-muted'>{allowance.operation}</td>
-                                        <td className='px-4 py-4 text-right'>
-                                            <Link href={allowance.href} className='inline-flex h-9 items-center justify-center rounded-lg border border-ui-border bg-ui-raised px-3 text-xs font-semibold text-ui-text transition hover:border-ui-primary'>
-                                                {allowance.cta}
-                                            </Link>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                            ))}</DashboardTable>
                     </div>
                 </details>
             </DashboardPanel>

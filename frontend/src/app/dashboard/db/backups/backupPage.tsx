@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState, useTransition } from 'react'
 import { RefreshCw, ShieldCheck, Trash2 } from 'lucide-react'
+import { DashboardTable } from '@/components/dashboard/ui'
 import type { BackupFile, BackupService } from '@/utils/db/internal'
 import formatUtcDateTime from '@/utils/date/formatUtcDateTime'
 import { deleteBackupAction, triggerBackupAction } from '../actions'
@@ -124,56 +125,55 @@ export default function BackupPage({ backups, files, loadError = '' }: BackupPag
                     <Link href='/db/restore' className='text-sm font-semibold text-ui-primary hover:underline'>Restore drill</Link>
                 </div>
                 <div className='overflow-x-auto'>
-                    <table className='min-w-[760px] w-full text-left text-sm'>
-                        <thead className='bg-ui-raised text-xs uppercase text-ui-muted'>
-                            <tr>
-                                <th className='px-4 py-3'>Archive</th>
-                                <th className='px-4 py-3'>Created</th>
-                                <th className='px-4 py-3'>Size</th>
-                                <th className='px-4 py-3'>Verification</th>
-                                <th className='px-4 py-3 text-right'>Action</th>
+                    <DashboardTable
+                        className='min-w-[760px] w-full text-left text-sm'
+                        headClassName='bg-ui-raised text-xs uppercase text-ui-muted'
+                        bodyClassName='divide-y divide-ui-border'
+                        columnHeaders={<>
+                            <th className='px-4 py-3'>Archive</th>
+                            <th className='px-4 py-3'>Created</th>
+                            <th className='px-4 py-3'>Size</th>
+                            <th className='px-4 py-3'>Verification</th>
+                            <th className='px-4 py-3 text-right'>Action</th>
+                        </>}
+                    >{files.map(file => (
+                            <tr key={file.file} className='text-ui-text'>
+                                <td className='px-4 py-3 font-mono text-xs'>{file.file}</td>
+                                <td className='px-4 py-3'>{formatUtcDateTime(file.mtime, 'Unknown')}</td>
+                                <td className='px-4 py-3'>{file.size || '—'}</td>
+                                <td className='px-4 py-3'>
+                                    {file.verified ? (
+                                        <span className='inline-flex items-center gap-1 text-ui-success'>
+                                            <ShieldCheck className='h-4 w-4' /> {shortHash(file.checksumSha256)}
+                                        </span>
+                                    ) : <span className='text-ui-warning'>Unverified</span>}
+                                </td>
+                                <td className='px-4 py-3 text-right'>
+                                    <div className='flex justify-end gap-2'>
+                                        <button
+                                            type='button'
+                                            disabled={busy}
+                                            onClick={() => restore(file.file)}
+                                            className='min-h-9 rounded-md border border-ui-border px-3 font-semibold hover:bg-ui-raised disabled:opacity-50'
+                                        >
+                                            Restore
+                                        </button>
+                                        <button
+                                            type='button'
+                                            disabled={busy}
+                                            onClick={() => remove(file.file)}
+                                            aria-label={deleting === file.file ? `Deleting backup ${file.file}` : `Delete backup ${file.file}`}
+                                            title='Delete backup'
+                                            className='inline-flex h-9 w-9 items-center justify-center rounded-md border border-ui-danger/40 text-ui-danger hover:bg-ui-danger/10 disabled:opacity-50'
+                                        >
+                                            <Trash2 className='h-4 w-4' aria-hidden='true' />
+                                        </button>
+                                    </div>
+                                </td>
                             </tr>
-                        </thead>
-                        <tbody className='divide-y divide-ui-border'>
-                            {files.map(file => (
-                                <tr key={file.file} className='text-ui-text'>
-                                    <td className='px-4 py-3 font-mono text-xs'>{file.file}</td>
-                                    <td className='px-4 py-3'>{formatUtcDateTime(file.mtime, 'Unknown')}</td>
-                                    <td className='px-4 py-3'>{file.size || '—'}</td>
-                                    <td className='px-4 py-3'>
-                                        {file.verified ? (
-                                            <span className='inline-flex items-center gap-1 text-ui-success'>
-                                                <ShieldCheck className='h-4 w-4' /> {shortHash(file.checksumSha256)}
-                                            </span>
-                                        ) : <span className='text-ui-warning'>Unverified</span>}
-                                    </td>
-                                    <td className='px-4 py-3 text-right'>
-                                        <div className='flex justify-end gap-2'>
-                                            <button
-                                                type='button'
-                                                disabled={busy}
-                                                onClick={() => restore(file.file)}
-                                                className='min-h-9 rounded-md border border-ui-border px-3 font-semibold hover:bg-ui-raised disabled:opacity-50'
-                                            >
-                                                Restore
-                                            </button>
-                                            <button
-                                                type='button'
-                                                disabled={busy}
-                                                onClick={() => remove(file.file)}
-                                                aria-label={deleting === file.file ? `Deleting backup ${file.file}` : `Delete backup ${file.file}`}
-                                                title='Delete backup'
-                                                className='inline-flex h-9 w-9 items-center justify-center rounded-md border border-ui-danger/40 text-ui-danger hover:bg-ui-danger/10 disabled:opacity-50'
-                                            >
-                                                <Trash2 className='h-4 w-4' aria-hidden='true' />
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                            {!files.length && <tr><td colSpan={5} className='px-4 py-8 text-center text-ui-muted'>No archive exists. Run the first verified backup.</td></tr>}
-                        </tbody>
-                    </table>
+                        ))}
+                        {!files.length && <tr><td colSpan={5} className='px-4 py-8 text-center text-ui-muted'>No archive exists. Run the first verified backup.</td></tr>}
+                    </DashboardTable>
                 </div>
             </section>
 

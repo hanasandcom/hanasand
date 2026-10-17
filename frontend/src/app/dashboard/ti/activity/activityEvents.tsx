@@ -1,5 +1,5 @@
 import PageNavigation from '@/components/dashboard/page-navigation'
-import { DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPanel, DashboardTable } from '@/components/dashboard/ui'
 import { ExternalLink } from 'lucide-react'
 import Link from 'next/link'
 import { actorProfileHref } from '@/utils/ti/actorProfileRoute'
@@ -41,29 +41,27 @@ export function ActivityEvents({ events, total, page, query, worker, updatedActo
                 </div>
             </div>
             <div className='overflow-x-auto'>
-                <table className='min-w-full divide-y divide-ui-border text-sm'>
-                    <thead className='bg-ui-raised text-left text-[11px] font-semibold uppercase text-ui-muted'>
+                <DashboardTable
+                    headClassName='bg-ui-raised text-left text-[11px] font-semibold uppercase text-ui-muted'
+                    columnHeaders={<>
+                        <th className='px-4 py-2'>Time</th>
+                        <th className='px-4 py-2'>Actor</th>
+                        <th className='px-4 py-2'>Change</th>
+                        <th className='px-4 py-2'>Age</th>
+                        <th className='px-4 py-2'>Feed</th>
+                        <th className='px-4 py-2'>State</th>
+                        <th className='px-4 py-2 text-right'>Action</th>
+                    </>}
+                >
+                    {events.map(event => <ActivityRow key={event.id} event={event} />)}
+                    {!total && (
                         <tr>
-                            <th className='px-4 py-2'>Time</th>
-                            <th className='px-4 py-2'>Actor</th>
-                            <th className='px-4 py-2'>Change</th>
-                            <th className='px-4 py-2'>Age</th>
-                            <th className='px-4 py-2'>Feed</th>
-                            <th className='px-4 py-2'>State</th>
-                            <th className='px-4 py-2 text-right'>Action</th>
+                            <td colSpan={7} className='px-4 py-8 text-center text-sm text-ui-muted'>
+                                No observations recorded yet for these actor profiles.
+                            </td>
                         </tr>
-                    </thead>
-                    <tbody className='divide-y divide-ui-border bg-ui-panel'>
-                        {events.map(event => <ActivityRow key={event.id} event={event} />)}
-                        {!total && (
-                            <tr>
-                                <td colSpan={7} className='px-4 py-8 text-center text-sm text-ui-muted'>
-                                    No observations recorded yet for these actor profiles.
-                                </td>
-                            </tr>
-                        )}
-                    </tbody>
-                </table>
+                    )}
+                </DashboardTable>
             </div>
             <PageNavigation
                 page={page}
