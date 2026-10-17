@@ -2445,3 +2445,14 @@ and runner registration add 23 lines. The current shared-worktree inventory
 is 2,423 frontend files / 156,370 lines and 4,567 repository files / 329,054
 lines, with no file above 200. Aggregate frontend and API reduction targets
 remain open.
+
+At the 2026-10-17 frontend dead-code checkpoint, three modules with no
+production, route, test, script, or static dynamic-import consumers were
+removed: the unused UI Bee controls, legacy login helper, and recent-upload
+storage helper. The committed `AccessCodePanel` remains in use and was
+excluded because concurrent prompt work removed its only current worktree
+reference. Typecheck and frontend/repository line-cap checks pass; full
+integration build and test suite remain part of final verification. This
+removes 147 authored lines. The current shared-worktree inventory is 2,420
+frontend files / 156,223 lines and 4,564 repository files / 328,907 lines,
+with no file above 200. Aggregate reduction targets remain open.
