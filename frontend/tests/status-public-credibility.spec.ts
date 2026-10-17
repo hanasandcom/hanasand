@@ -86,36 +86,7 @@ test('public status is operational only when every buyer-facing monitor is fresh
     expect(status.checks.find(check => check.check_name === 'Source Collection')?.status).toBe('up')
 })
 
-test('public status cannot hide fresh processing or source-collection failures', () => {
-    const now = Date.parse('2026-08-09T11:00:00.000Z')
-    const checkedAt = new Date(now).toISOString()
-    const status = toPublicServiceStatus({
-        overall: 'up',
-        generated_at: checkedAt,
-        checks: [
-            serviceCheck('core', 'API health', checkedAt),
-            serviceCheck('website', 'Public website', checkedAt),
-            serviceCheck('threat-intelligence', 'Public search', checkedAt),
-            { ...serviceCheck('threat-intelligence', 'Processing backlog', checkedAt), status: 'down', message: '5263 stale reviews (oldest 1848 minutes).' },
-            { ...serviceCheck('threat-intelligence', 'Source collection', checkedAt), status: 'degraded', message: 'Source operations returned 76 sources; 1 failed.' },
-            serviceCheck('browser-sandbox', 'Browser workspace', checkedAt),
-            serviceCheck('dark-web-monitoring', 'Monitoring workspace', checkedAt),
-            serviceCheck('dark-web-monitoring', 'Latest activity', checkedAt),
-        ],
-        history: [],
-        incidents: [],
-    }, now)
-
-    expect(status.overall).toBe('down')
-    expect(status.checks.find(check => check.check_name === 'Processing Backlog')).toMatchObject({
-        status: 'down',
-        message: 'Threat intelligence processing is delayed.',
-    })
-    expect(status.checks.find(check => check.check_name === 'Processing Backlog')?.message).not.toContain('5263')
-    expect(status.checks.find(check => check.check_name === 'Source Collection')).toMatchObject({ status: 'degraded' })
-})
-
-test('public status preserves degraded source-collection evidence', () => {
+test('public status reports fresh processing and source-collection failures without raw details', () => {
     const now = Date.parse('2026-08-09T11:00:00.000Z')
     const checkedAt = new Date(now).toISOString()
     const status = toPublicServiceStatus({

@@ -6,10 +6,12 @@ const client = read('dashboard/cases/[id]/case-detail-client.tsx')
 const data = read('dashboard/cases/[id]/case-detail/useCaseDetailData.ts')
 const actions = read('dashboard/cases/[id]/case-detail/useCaseDetailActions.ts')
 const model = read('dashboard/cases/[id]/case-detail/model.ts')
+const constants = read('dashboard/cases/[id]/case-detail/constants.ts')
 const ui = [
     read('dashboard/cases/[id]/case-detail/CaseEvidenceTimeline.tsx'),
     read('dashboard/cases/[id]/case-detail/CaseDeliveryPanels.tsx'),
     read('dashboard/cases/[id]/case-detail/CaseActionPanel.tsx'),
+    read('dashboard/cases/[id]/case-detail/CaseDetailWorkspace.tsx'),
     read('dashboard/cases/[id]/case-detail/CaseHeader.tsx'),
     read('dashboard/cases/[id]/case-detail/presentation.tsx'),
 ].join('\n')
@@ -33,7 +35,14 @@ test('DWM case detail preserves scoped data, evidence selection, and receiver tr
     assert.match(ui, /data-dwm-case-evidence-mobile-list='true'/)
     assert.match(ui, /data-dwm-case-evidence-mobile-row='true'/)
     assert.match(ui, /data-dwm-case-evidence-desktop-table='true'/)
+    assert.match(ui, /id='dwm-case-actions' data-dwm-case-action-dock/)
+    assert.match(ui, /notifyCustomer=\{workflowControls\.notifyCustomer\}/)
+    assert.match(actions, /async function notifyCustomer\(\)/)
+    assert.match(constants, /DWM_CASE_EVIDENCE_PREVIEW_ROWS = 6/)
+    assert.match(ui, /evidence\.slice\(0, DWM_CASE_EVIDENCE_PREVIEW_ROWS\)/)
     assert.match(ui, /Select all/)
+    assert.match(ui, /Analyst actions/)
+    assert.match(ui, /Case and evidence report/)
     assert.match(ui, /Hanasand receiver receipt/)
     assert.match(client, /receipt\.idempotencyKey === latestDelivery\?\.idempotencyKey/)
     assert.match(client, /receipt\.destinationId === \(latestDelivery\?\.webhookDestinationId \|\| latestDelivery\?\.destinationId\)/)
@@ -43,6 +52,8 @@ test('DWM case detail preserves scoped data, evidence selection, and receiver tr
     assert.match(model, /Webhook delivery needs a linked alert before it can be tested or sent\./)
     assert.match(ui, /Manage destination/)
     assert.match(ui, /Delivery history/)
+    assert.match(ui, /Test STIX report/)
+    assert.match(ui, /Retry exact report/)
 })
 
 test('DWM case actions keep durable payload and report delivery contracts', () => {
