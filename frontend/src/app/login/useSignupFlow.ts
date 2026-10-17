@@ -3,6 +3,7 @@ import type { Dispatch, FormEvent, SetStateAction } from 'react'
 import { passwordMeetsRequirements, passwordRequirementMessage } from '@/utils/auth/password'
 import { reservedUsernames } from '@/utils/auth/reservedUsernames'
 import type { LoginMode } from './loginMode'
+import { postAuthJson } from './postAuthJson'
 
 type Props = {
     busy: boolean
@@ -37,16 +38,12 @@ export function useSignupFlow({ busy, setBusy, setError, changeMode, setMode, re
         }
         setBusy(true)
         try {
-            const response = await fetch('/api/auth/register', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    id: username,
-                    name,
-                    email,
-                    password,
-                    ...(!resend && challenge ? { challengeId: challenge, code: verificationCode } : {}),
-                }),
+            const response = await postAuthJson('/api/auth/register', {
+                id: username,
+                name,
+                email,
+                password,
+                ...(!resend && challenge ? { challengeId: challenge, code: verificationCode } : {}),
             })
             const data = await response.json()
             if (!response.ok) {

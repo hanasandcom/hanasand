@@ -1,6 +1,7 @@
 import type { Dispatch, RefObject, SetStateAction } from 'react'
 import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime'
 import { decodePasskeyRequestOptions, passkeyCredentialToJSON } from '@/utils/auth/passkeys'
+import { postAuthJson } from './postAuthJson'
 
 type Props = {
     usernameRef: RefObject<HTMLInputElement | null>
@@ -33,13 +34,9 @@ export function usePasskeyLogin({ usernameRef, setBusy, setError, redirectPath, 
             }) as PublicKeyCredential | null
             if (!credential) return setError('No passkey was selected.')
 
-            const verifyResponse = await fetch('/api/auth/passkeys/authenticate/verify', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    challengeId: options.challengeId,
-                    credential: passkeyCredentialToJSON(credential),
-                }),
+            const verifyResponse = await postAuthJson('/api/auth/passkeys/authenticate/verify', {
+                challengeId: options.challengeId,
+                credential: passkeyCredentialToJSON(credential),
             })
             const data = await verifyResponse.json().catch(() => null)
             if (!verifyResponse.ok) return setError(data?.error || 'Passkey login failed.')

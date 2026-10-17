@@ -4,6 +4,7 @@ import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.
 import config from '@/config'
 import { storePasswordResetSession } from '@/utils/auth/passwordResetSession'
 import type { LoginMode } from './loginMode'
+import { postAuthJson } from './postAuthJson'
 
 type Props = {
     busy: boolean
@@ -25,11 +26,7 @@ export function usePasswordResetFlow({ busy, setBusy, setError, changeMode, setM
         const formData = new FormData(event.currentTarget)
         const id = String(formData.get('resetUserId') || '').trim()
         try {
-            const response = await fetch(`${config.url.api}/auth/password-reset/request`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id }),
-            })
+            const response = await postAuthJson(`${config.url.api}/auth/password-reset/request`, { id })
             const data = await response.json().catch(() => null)
             if (!response.ok) return setError(data?.error || 'Unable to send reset code.')
             setUserId(id)
@@ -46,10 +43,9 @@ export function usePasswordResetFlow({ busy, setBusy, setError, changeMode, setM
         setBusy(true)
         setError(null)
         try {
-            const response = await fetch(`${config.url.api}/auth/password-reset/verify`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: userId, code: resetCode }),
+            const response = await postAuthJson(`${config.url.api}/auth/password-reset/verify`, {
+                id: userId,
+                code: resetCode,
             })
             const data = await response.json().catch(() => null)
             if (!response.ok) return setError(data?.error || 'Invalid reset code.')
