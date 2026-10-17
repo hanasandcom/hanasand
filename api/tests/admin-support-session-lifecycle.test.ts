@@ -68,6 +68,55 @@ test('support session can be created, inspected, then revoked through its audit 
     expect(state.recordedEvents.filter(event => ['support.session.create', 'support.session.revoke'].includes(String(event.actionType)))).toHaveLength(3)
 })
 
+test('support session workflow routes respect the action and scope grants', async () => {
+    const created = await request(postSupportSession, {
+        body: {
+            organizationId: 'org-1',
+            reason: 'Investigate a reported account issue',
+            requestId: 'session-workflows-1',
+            allowedActions: ['access_recovery', 'impersonation', 'invite_resend'],
+            scope: ['recovery:deny', 'read_profile', 'invite:resend'],
+        },
+    })
+
+    expect(created.statusCode).toBe(201)
+    const session = created.body.supportSession
+    const routes = session.lifecycleReceipt.actionRoutes
+    expect(routes).toEqual({
+        detail: `/api/admin/support/sessions/${session.id}`,
+        revoke: `/api/admin/support/sessions/${session.id}/revoke`,
+        audit: `/api/admin/audit-events?supportSession=${encodeURIComponent(session.id)}&source=system&service=hanasand-api`,
+        inviteAssistance: null,
+        inviteResend: '/api/admin/support/organizations/org-1/invites/:inviteId/actions',
+        inviteRevoke: null,
+        accessRecovery: null,
+        accessRecoveryApproval: '/api/admin/support/access-recovery/:requestId/:decision',
+        memberRoleRecovery: null,
+        impersonation: '/api/impersonation/start',
+    })
+    const nextActions = session.lifecycleReceipt.nextActions as Array<{
+        name: string
+        route: string | null
+        available: boolean
+        requiredScope: string[]
+    }>
+    expect(nextActions.find(action => action.name === 'Resend invite')).toMatchObject({
+        route: routes.inviteResend,
+        available: true,
+        requiredScope: ['invite:resend'],
+    })
+    expect(nextActions.find(action => action.name === 'Open access recovery')).toMatchObject({
+        route: null,
+        available: false,
+        requiredScope: ['recovery:invite'],
+    })
+    expect(nextActions.find(action => action.name === 'Start scoped impersonation')).toMatchObject({
+        route: routes.impersonation,
+        available: true,
+        requiredScope: ['read_profile'],
+    })
+})
+
 test('support session inspection uses the latest successful revoke and retains ordered audit IDs', async () => {
     const sessionId = 'support_session_multiple_revokes'
     const expiresAt = '2099-01-01T00:00:00.000Z'
@@ -139,4 +188,3 @@ test('expired support session revoke uses the lifecycle status and records a den
     })
     expect(state.supportSessionEvents.filter(event => event.subject_id === sessionId && event.event_type === 'support.session.revoke' && event.outcome === 'success')).toHaveLength(0)
 })
-
