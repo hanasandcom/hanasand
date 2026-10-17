@@ -1,4 +1,5 @@
-import { Panel, Stat, Empty, PreviewLink, TrustItem, formatActivityTime, formatUsageKind, PathBadge, ChecklistItem } from './workbenchPaneDisplay'
+import { Panel, Empty } from './workbenchPaneDisplay'
+import { WorkspaceFileButton } from './workspaceFileButton'
 import { FolderGit2, Share2, TerminalSquare } from 'lucide-react'
 
 export function WorkspaceSharePanels({ activeConversation, initialShares, activeTreePaths, selectedPath, recentPaths, lastChangedPath, selectedContent, onAttachShare, onSelectShareFile }: { activeConversation: AIConversation | null, initialShares: Share[], activeTreePaths: string[], selectedPath: string | null, recentPaths: string[], lastChangedPath: string | null, selectedContent: string | null, onAttachShare: (id: string) => void | Promise<void>, onSelectShareFile: (path: string) => void | Promise<void> }) {
@@ -33,17 +34,7 @@ export function WorkspaceSharePanels({ activeConversation, initialShares, active
                 >
                     <div className='max-h-40 space-y-1 overflow-y-auto pr-1'>
                         {activeTreePaths.slice(0, 120).map((path) => (
-                            <button
-                                key={path}
-                                type='button'
-                                onClick={() => void onSelectShareFile(path)}
-                                className={`block w-full rounded-lg px-2 py-1.5 text-left text-xs outline ${selectedPath === path ? 'bg-ui-primary/12 text-ui-on-primary outline-ui-primary/18' : 'bg-ui-raised text-ui-muted outline-transparent hover:outline-ui-border'}`}
-                            >
-                                <div className='flex items-center justify-between gap-3'>
-                                    <span className='truncate'>{path}</span>
-                                    <PathBadge path={path} selected={selectedPath === path} recentPaths={recentPaths} lastChangedPath={lastChangedPath} />
-                                </div>
-                            </button>
+                            <WorkspaceFileButton key={path} path={path} selected={selectedPath === path} recentPaths={recentPaths} lastChangedPath={lastChangedPath} onSelect={onSelectShareFile} />
                         ))}
                     </div>
                 </Panel>

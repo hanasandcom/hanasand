@@ -1729,3 +1729,22 @@ frontend typecheck, scoped ESLint, focused tests, and the production build
 files among 4,337 hand-maintained files / 326,150 lines, all outside frontend.
 The frontend 10,000–30,000-line target and API 100,000-line reduction goal
 remain open. Browser end-to-end specs and deployment remain outstanding.
+
+At the next frontend checkpoint, the findings dashboard routes share a
+first-search-parameter helper, and the AI repository/share panels share one
+file-row component for selection styling and Open/Changed/Recent badges. The
+shared file control adds 10 production lines overall but gives two consumers
+one behavior owner; its rendered labels and selection callback are covered.
+The API admin-support validators and GPT websocket prompt flow are split into
+focused modules, reducing API production code by about 35 lines while keeping
+the previous imports and public event behavior. Independent review approved
+the websocket extraction and the frontend component contract. The frontend
+cap passes for 2,375 hand-maintained files / 155,036 lines, with zero files
+over 200. The repository-wide checker reports 58 over-cap files among 4,343
+hand-maintained files / 326,229 lines, all outside frontend. The registered
+non-browser frontend suite passes and the production build generated all 116
+pages. Frontend typecheck, API typecheck, focused tests, changed helper lint,
+and diff checks pass. The default API runner is blocked in this sandbox by
+local port binding failures in smoke tests; focused admin-support and GPT
+tests pass. The frontend 10,000–30,000-line objective and API 100,000-line
+reduction remain outstanding. No UI redesign or deployment was made.

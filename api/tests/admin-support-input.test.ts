@@ -4,13 +4,6 @@ import {
     headerText,
     normalizeApprovalStatus,
     normalizeOption,
-    normalizeSupportPreparationDuration,
-    normalizeSupportPreparationExpiry,
-    normalizeSupportPreparationScope,
-    normalizeSupportSessionActions,
-    normalizeSupportSessionDuration,
-    normalizeSupportSessionExpiry,
-    normalizeSupportSessionScope,
     supportError,
     supportInspectionAuditContext,
     supportInspectionAuditMetadata,
@@ -20,6 +13,15 @@ import {
     supportSessionIdFromAuditEvent,
     supportText,
 } from '../src/utils/support/adminSupportInput.ts'
+import {
+    normalizeSupportPreparationDuration,
+    normalizeSupportPreparationExpiry,
+    normalizeSupportPreparationScope,
+    normalizeSupportSessionActions,
+    normalizeSupportSessionDuration,
+    normalizeSupportSessionExpiry,
+    normalizeSupportSessionScope,
+} from '../src/utils/support/adminSupportSessionInput.ts'
 import type { FastifyRequest } from 'fastify'
 
 function request(input: { id?: string, headers?: Record<string, string | string[] | undefined>, query?: Record<string, unknown> } = {}) {

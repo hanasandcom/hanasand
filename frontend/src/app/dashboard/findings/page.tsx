@@ -6,6 +6,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import tokenIsValid from '@/utils/proxy/tokenIsValid'
 import { Findings, type FindingsView } from './findings'
+import { firstSearchParam } from './searchParams'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,28 +19,28 @@ export default async function DashboardDwmPage({
     const identityId = cookieStore.get('id')?.value
     const token = cookieStore.get('access_token')?.value
     if (!identityId || !token) {
-        const returnPath = firstParam(params?.panel) === 'watchlists' ? '/watchlists' : '/findings'
+        const returnPath = firstSearchParam(params?.panel) === 'watchlists' ? '/watchlists' : '/findings'
         redirect(`/login?path=${encodeURIComponent(returnPath)}`)
     }
 
-    if (firstParam(params?.panel) === 'actions') {
-        const sharedOrg = firstParam(params?.org) || firstParam(params?.organizationId) || firstParam(params?.orgId)
+    if (firstSearchParam(params?.panel) === 'actions') {
+        const sharedOrg = firstSearchParam(params?.org) || firstSearchParam(params?.organizationId) || firstSearchParam(params?.orgId)
         redirect(sharedOrg ? `/findings/actions?org=${encodeURIComponent(sharedOrg)}` : '/findings/actions')
     }
 
-    const organizationId = firstParam(params?.org) || firstParam(params?.organizationId) || firstParam(params?.orgId) || await activeOrganizationId()
-    const view = normalizeDwmView(firstParam(params?.panel))
-    if (firstParam(params?.panel) === 'alerts') {
-        const sharedOrg = firstParam(params?.org) || firstParam(params?.organizationId) || firstParam(params?.orgId)
+    const organizationId = firstSearchParam(params?.org) || firstSearchParam(params?.organizationId) || firstSearchParam(params?.orgId) || await activeOrganizationId()
+    const view = normalizeDwmView(firstSearchParam(params?.panel))
+    if (firstSearchParam(params?.panel) === 'alerts') {
+        const sharedOrg = firstSearchParam(params?.org) || firstSearchParam(params?.organizationId) || firstSearchParam(params?.orgId)
         redirect(sharedOrg ? `/cases?org=${encodeURIComponent(sharedOrg)}` : '/cases')
     }
     const tenantId = organizationId || identityId
     // This view has no internal-page controls, so it does not need the extra admin-access lookup.
     const session = view === 'watchlists' ? null : await tokenIsValid(token, identityId, cookieStore.get('impersonation_token')?.value)
     const isAdmin = session?.valid === true && session.canViewInternalPages === true
-    const initialAlertId = firstParam(params?.alert)
-    const publicTiHandoff = firstParam(params?.handoff) === PUBLIC_TI_HANDOFF_SOURCE
-        ? decodePublicTiHandoffPayload(firstParam(params?.payload), firstParam(params?.intent))
+    const initialAlertId = firstSearchParam(params?.alert)
+    const publicTiHandoff = firstSearchParam(params?.handoff) === PUBLIC_TI_HANDOFF_SOURCE
+        ? decodePublicTiHandoffPayload(firstSearchParam(params?.payload), firstSearchParam(params?.intent))
         : null
 
     return (
@@ -92,9 +93,4 @@ function loadingDataHealth() {
 
 function normalizeDwmView(value: string | undefined): FindingsView {
     return value === 'watchlists' || value === 'sources' || value === 'delivery' || value === 'actors' || value === 'actions' ? value : 'overview'
-}
-
-function firstParam(value: string | string[] | undefined) {
-    if (Array.isArray(value)) return value[0] || undefined
-    return value
 }

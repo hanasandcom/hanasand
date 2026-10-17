@@ -1,6 +1,7 @@
 import type { FastifyRequest } from 'fastify'
 import { supportActionIdempotencyKey } from './cases/inspection/inspectionActionPreparation.ts'
-import { headerText, normalizeSupportPreparationScope, supportSessionIdFromRequest, supportText as text } from '#utils/support/adminSupportInput.ts'
+import { normalizeSupportPreparationScope } from '#utils/support/adminSupportSessionInput.ts'
+import { headerText, supportSessionIdFromRequest, supportText as text } from '#utils/support/adminSupportInput.ts'
 import { recordSystemEvent } from '#utils/systemEvent.ts'
 
 export type SupportExecutorControlsBody = {

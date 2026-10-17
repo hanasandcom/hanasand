@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { DashboardPage } from '@/components/dashboard/ui'
 import { activeOrganizationId } from '@/utils/organizations/serverWorkspace'
 import DeliveryClient from './deliveryClient'
+import { firstSearchParam } from '../searchParams'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,11 +11,7 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Re
     const [store, params] = await Promise.all([cookies(), searchParams])
     const identityId = store.get('impersonating_id')?.value || store.get('id')?.value
     if (!identityId || !store.get('access_token')?.value) redirect('/login?path=%2Ffindings%2Factions')
-    const requestedOrganizationId = firstParam(params?.org) || firstParam(params?.organizationId) || firstParam(params?.orgId)
+    const requestedOrganizationId = firstSearchParam(params?.org) || firstSearchParam(params?.organizationId) || firstSearchParam(params?.orgId)
     const scopeId = requestedOrganizationId || await activeOrganizationId() || identityId
     return <DashboardPage><DeliveryClient key={scopeId} scopeId={scopeId} /></DashboardPage>
-}
-
-function firstParam(value: string | string[] | undefined) {
-    return Array.isArray(value) ? value[0] || undefined : value
 }

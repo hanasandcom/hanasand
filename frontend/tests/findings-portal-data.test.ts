@@ -1,12 +1,20 @@
 import { afterAll, expect, test } from 'bun:test'
 import type { Dispatch, SetStateAction } from 'react'
 import { refreshDwmAlerts, refreshDwmDeliveries, refreshDwmOperations, refreshDwmProduct } from '../src/app/dashboard/findings/portal-data'
+import { firstSearchParam } from '../src/app/dashboard/findings/searchParams'
 import type { DwmProductSnapshot } from '../src/utils/dwm/product'
 import type { DataHealthItem, DwmDataHealth } from '../src/app/dashboard/findings/view-types'
 import type { DeliveryItem, OperationsSnapshot, PortalAlert } from '../src/app/dashboard/findings/types'
 
 const originalFetch = globalThis.fetch
 afterAll(() => { globalThis.fetch = originalFetch })
+
+test('findings routes use the first search parameter value and ignore empty repeats', () => {
+    expect(firstSearchParam('watchlists')).toBe('watchlists')
+    expect(firstSearchParam(['actions', 'ignored'])).toBe('actions')
+    expect(firstSearchParam(['', 'ignored'])).toBeUndefined()
+    expect(firstSearchParam(undefined)).toBeUndefined()
+})
 
 function state<T>(initial: T) {
     let value = initial

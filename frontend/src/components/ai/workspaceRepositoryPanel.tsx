@@ -1,4 +1,5 @@
-import { Panel, Stat, Empty, PreviewLink, TrustItem, formatActivityTime, formatUsageKind, PathBadge, ChecklistItem } from './workbenchPaneDisplay'
+import { Panel, Empty, formatActivityTime } from './workbenchPaneDisplay'
+import { WorkspaceFileButton } from './workspaceFileButton'
 import { FolderGit2, RefreshCcw } from 'lucide-react'
 
 export function WorkspaceRepositoryPanel({ importedRepos, activeRepoId, syncingRepoId, selectedRepoFilePath, recentPaths, lastChangedPath, onAttachRepo, onRevokeRepoCredential, onRefreshRepo, onSelectRepoFile }: { importedRepos: AIImportedRepo[], activeRepoId: string | null, syncingRepoId: string | null, selectedRepoFilePath: string | null, recentPaths: string[], lastChangedPath: string | null, onAttachRepo: (id: string) => void | Promise<void>, onRevokeRepoCredential: (id: string) => void | Promise<void>, onRefreshRepo: (id: string) => void | Promise<void>, onSelectRepoFile: (path: string) => void | Promise<void> }) {
@@ -48,12 +49,7 @@ export function WorkspaceRepositoryPanel({ importedRepos, activeRepoId, syncingR
                         {repo.id === activeRepoId && repo.files.length ? (
                             <div className='mt-3 max-h-36 space-y-1 overflow-y-auto pr-1'>
                                 {repo.files.slice(0, 80).map((file) => (
-                                    <button key={file.path} type='button' onClick={() => void onSelectRepoFile(file.path)} className={`block w-full rounded-lg px-2 py-1.5 text-left text-xs outline ${selectedRepoFilePath === file.path ? 'bg-ui-primary/12 text-ui-on-primary outline-ui-primary/18' : 'bg-ui-raised text-ui-muted outline-transparent hover:outline-ui-border'}`}>
-                                        <div className='flex items-center justify-between gap-3'>
-                                            <span className='truncate'>{file.path}</span>
-                                            <PathBadge path={file.path} selected={selectedRepoFilePath === file.path} recentPaths={recentPaths} lastChangedPath={lastChangedPath} />
-                                        </div>
-                                    </button>
+                                    <WorkspaceFileButton key={file.path} path={file.path} selected={selectedRepoFilePath === file.path} recentPaths={recentPaths} lastChangedPath={lastChangedPath} onSelect={onSelectRepoFile} />
                                 ))}
                             </div>
                         ) : null}

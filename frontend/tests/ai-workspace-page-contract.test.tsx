@@ -52,6 +52,7 @@ const { default: AIWindowPage } = await import('../src/app/ai/window/page')
 const { default: AIConversationPage } = await import('../src/app/ai/[id]/page')
 const { default: WorkspacePane } = await import('../src/components/ai/workspacePane')
 const { WorkspaceImportPanel } = await import('../src/components/ai/workspaceImportPanel')
+const { WorkspaceFileButton } = await import('../src/components/ai/workspaceFileButton')
 
 function renderWorkspacePane() {
     const noop = () => {}
@@ -170,4 +171,21 @@ test('workspace pane actions render with shared theme tokens and expected labels
     expect(html).not.toContain('dark:text-ui-canvas')
     expect(html).not.toMatch(/\b(?:bg|text|border)-\[#/)
     expect(html).not.toMatch(/rounded-(?:xl|2xl|3xl)/)
+})
+
+test('shared workspace file buttons keep selected and changed file labels', () => {
+    const base = { path: 'src/app.ts', recentPaths: [], lastChangedPath: null, onSelect() {} }
+    const selected = renderToStaticMarkup(createElement(WorkspaceFileButton, { ...base, selected: true }))
+    const changed = renderToStaticMarkup(createElement(WorkspaceFileButton, { ...base, selected: false, lastChangedPath: base.path }))
+    const recent = renderToStaticMarkup(createElement(WorkspaceFileButton, { ...base, selected: false, recentPaths: [base.path] }))
+    const selectedPaths: string[] = []
+    const button = WorkspaceFileButton({ ...base, selected: false, onSelect: path => selectedPaths.push(path) })
+    button.props.onClick?.()
+    expect(selected).toContain('src/app.ts')
+    expect(selected).toContain('>Open</span>')
+    expect(changed).toContain('>Changed</span>')
+    expect(recent).toContain('>Recent</span>')
+    expect(selected).toContain('bg-ui-primary/12 text-ui-on-primary')
+    expect(changed).toContain('bg-ui-raised text-ui-muted')
+    expect(selectedPaths).toEqual([base.path])
 })
