@@ -1204,8 +1204,12 @@ tests passed. On the frontend, four TI workbench panels now share their
 responsive frame and selected-preview layout while retaining their own row,
 detail and action logic. Independent render/interaction review approved the
 unchanged UI contracts. The shell improves reuse but adds 25 production lines;
-its expanded tests add 26 lines. Full frontend verification is pending for the
-combined follow-up work. Frontend cap scan: 2,312 files / 153,363 LOC / zero
-over 200. Repository scan: 84 of 4,182 hand-maintained files over 200 lines,
-324,284 LOC total. The API 100,000-line and frontend 10,000–30,000-line targets
-remain outstanding. No deployment was performed.
+its expanded tests add 26 lines. The full frontend suite, typecheck, and
+production build pass, with all 116 routes generated. Frontend cap scan: 2,312
+files / 153,363 LOC / zero over 200. The Git input parser and workspace
+helpers are also split from their route modules; the two original modules
+shrank by 340 lines and the two helpers add 345, for five net lines, while
+resolving two over-cap files. Their focused tests, API lint/typecheck, and
+independent review pass. Repository scan: 82 of 4,184 hand-maintained files
+over 200 lines, 324,289 LOC total. The API 100,000-line and frontend
+10,000–30,000-line targets remain outstanding. No deployment was performed.
