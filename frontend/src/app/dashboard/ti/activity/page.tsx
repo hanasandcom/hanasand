@@ -5,9 +5,9 @@ import { pageNumber } from '@/utils/pagination'
 import { actorProfileHref } from '@/utils/ti/actorProfileRoute'
 import { getTiEnrichmentOverview, type TiActivityEvent } from '@/utils/tiAdmin/enrichment'
 import { formatTiDate } from '@/utils/tiAdmin/ops'
-import { Metric, operationalStateLabel, shortTime } from '../dashboardPresentation'
+import { Metric, operationalStateLabel, shortTime, StatusPill } from '../dashboardPresentation'
 import { ActivityEvents } from './activityEvents'
-import { ActivityStatusPill, relativeAge } from './activityPresentation'
+import { relativeAge } from './activityPresentation'
 
 export const dynamic = 'force-dynamic'
 
@@ -99,7 +99,7 @@ export default async function TiActivityPage({ searchParams }: { searchParams?: 
                                         <p className='font-semibold text-ui-text'>{actor.name}</p>
                                         <p className='mt-1 text-xs text-ui-muted'>{actor.sourceLinks.length} sources · {actor.refreshCount ?? 0} refreshes</p>
                                     </div>
-                                    <ActivityStatusPill
+                                    <StatusPill variant='activity'
                                         label={operationalStateLabel(actor.status)}
                                         tone={actor.status === 'review' ? 'watch' : 'ok'}
                                     />
@@ -126,7 +126,7 @@ function AttentionRow({ event }: { event: TiActivityEvent }) {
                     <p className='text-xs font-semibold uppercase text-ui-muted'>{event.actorName}</p>
                     <p className='mt-1 font-semibold text-ui-text'>{event.title}</p>
                 </div>
-                <ActivityStatusPill label={event.tone === 'bad' ? 'attention' : 'watching'} tone={event.tone} />
+                <StatusPill variant='activity' label={event.tone === 'bad' ? 'attention' : 'watching'} tone={event.tone} />
             </div>
             <p className='mt-2 text-sm text-ui-muted'>{event.detail}</p>
             <div className='mt-2 grid gap-1.5 text-xs text-ui-muted sm:grid-cols-2'>

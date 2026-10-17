@@ -69,6 +69,13 @@ function renderRestoreDrill(active: BackupOperation) {
     }))
 }
 
+function renderRestoreSelection() {
+    return renderToStaticMarkup(createElement(RestoreClient, {
+        backups: [{ service: 'primary', file: 'backup.sql.gz', verified: true, size: '1 KiB', checksumSha256: 'abc123', releaseCommit: 'release123' }],
+        service: backupService(),
+    }))
+}
+
 function renderLiveRestore(active: BackupOperation) {
     return renderToStaticMarkup(createElement(LiveRestoreClient, {
         backups: [{ service: 'primary', file: active.file || 'backup.sql.gz', verified: true }],
@@ -117,6 +124,9 @@ test('backup dashboard renders service, archive, verification, retention, and op
     expect(html).toContain('123456789abc')
     expect(html).toContain('Backup · schedule')
     expect(html).toContain('2s')
+    expect(html).toContain('<div class="min-w-0"><dt class="text-xs font-semibold uppercase text-ui-muted">Last attempt</dt><dd class="mt-1 wrap-break-word font-medium text-ui-text ">')
+    expect(html).toContain('<dt class="text-xs font-semibold uppercase text-ui-muted">Last failure</dt>')
+    expect(html).toContain('<dd class="mt-1 wrap-break-word text-xs text-ui-muted">')
 })
 
 test('active backup operation disables conflicting controls and exposes its current stage', () => {
@@ -156,6 +166,12 @@ test('restore drill preserves its progress panel stages, accessibility, and succ
     expect(html).toContain('4 schemas, 12 tables, source match passed Target removed: yes.')
 })
 
+test('restore drill keeps metadata evidence text layout', () => {
+    const html = renderRestoreSelection()
+    expect(html).toContain('<dt class="text-xs font-semibold uppercase text-ui-muted">Measured file</dt><dd class="mt-1 break-all text-ui-text ">1 KiB</dd>')
+    expect(html).toContain('<dt class="text-xs font-semibold uppercase text-ui-muted">Checksum</dt><dd class="mt-1 break-all text-ui-text font-mono text-xs">abc123</dd>')
+})
+
 test('live restore preserves its progress panel stages, breakpoints, and success copy', () => {
     const html = renderLiveRestore(operation({
         kind: 'restore_live', status: 'succeeded', stage: 'checking_integrity', targetDatabase: 'appdb',
@@ -170,6 +186,7 @@ test('live restore preserves its progress panel stages, breakpoints, and success
     ])
     expect(progressStages(html)[3].className).toContain('border-ui-primary bg-ui-primary/10 text-ui-primary')
     expect(html).toContain('4 schemas and 12 tables restored into appdb.')
+    expect(html).toContain('<div class="min-w-0"><dt class="text-xs font-semibold uppercase text-ui-muted">Database</dt><dd class="mt-1 break-all text-ui-text ">')
 })
 
 test('both restore progress panels retain operation error text', () => {

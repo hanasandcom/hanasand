@@ -7,6 +7,7 @@ import { RefreshCw, ShieldCheck, Trash2 } from 'lucide-react'
 import { DashboardTable } from '@/components/dashboard/ui'
 import type { BackupFile, BackupService } from '@/utils/db/internal'
 import formatUtcDateTime from '@/utils/date/formatUtcDateTime'
+import DatabaseEvidence from '../DatabaseEvidence'
 import { deleteBackupAction, triggerBackupAction } from '../actions'
 import { BackupOperationHistory } from './BackupOperationHistory'
 import { backupErrorMessage, BackupStatus, retentionLabel, shortHash, stageLabel } from './backupPresentation'
@@ -99,18 +100,20 @@ export default function BackupPage({ backups, files, loadError = '' }: BackupPag
                     </p>
                 )}
                 <dl className='mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2 xl:grid-cols-4'>
-                    <Evidence label='Last attempt' value={formatUtcDateTime(service?.lastAttempt, 'Never')} />
-                    <Evidence label='Last success' value={formatUtcDateTime(service?.lastSuccess, 'Never')} />
-                    <Evidence label='Last failure' value={formatUtcDateTime(service?.lastFailure, 'Never')} detail={backupErrorMessage(service?.lastError)} />
-                    <Evidence
+                    <DatabaseEvidence layout='summary' className='min-w-0' label='Last attempt' value={formatUtcDateTime(service?.lastAttempt, 'Never')} />
+                    <DatabaseEvidence layout='summary' className='min-w-0' label='Last success' value={formatUtcDateTime(service?.lastSuccess, 'Never')} />
+                    <DatabaseEvidence layout='summary' className='min-w-0' label='Last failure' value={formatUtcDateTime(service?.lastFailure, 'Never')} detail={backupErrorMessage(service?.lastError)} />
+                    <DatabaseEvidence
+                        layout='summary'
+                        className='min-w-0'
                         label='Next automatic run'
                         value={service?.scheduleEnabled ? formatUtcDateTime(service.nextBackup, 'Never') : 'Paused'}
                         detail={service?.schedule ? `${service.schedule} ${service.scheduleTimezone || 'UTC'}` : undefined}
                     />
-                    <Evidence label='Storage target' value={service?.storageTarget || 'Not reported'} mono />
-                    <Evidence label='Retention' value={service?.retention || 'Not reported'} detail={retentionLabel(service)} />
-                    <Evidence label='Latest checksum' value={shortHash(service?.latestChecksum)} detail={service?.latestVerifiedAt ? `Verified ${formatUtcDateTime(service.latestVerifiedAt)}` : 'No verification metadata'} mono />
-                    <Evidence label='Release commit' value={shortHash(service?.releaseCommit)} mono />
+                    <DatabaseEvidence layout='summary' className='min-w-0' label='Storage target' value={service?.storageTarget || 'Not reported'} mono />
+                    <DatabaseEvidence layout='summary' className='min-w-0' label='Retention' value={service?.retention || 'Not reported'} detail={retentionLabel(service)} />
+                    <DatabaseEvidence layout='summary' className='min-w-0' label='Latest checksum' value={shortHash(service?.latestChecksum)} detail={service?.latestVerifiedAt ? `Verified ${formatUtcDateTime(service.latestVerifiedAt)}` : 'No verification metadata'} mono />
+                    <DatabaseEvidence layout='summary' className='min-w-0' label='Release commit' value={shortHash(service?.releaseCommit)} mono />
                 </dl>
             </section>
 
@@ -179,17 +182,5 @@ export default function BackupPage({ backups, files, loadError = '' }: BackupPag
 
             <BackupOperationHistory operations={service?.operations || []} />
         </main>
-    )
-}
-
-function Evidence({ label, value, detail, mono = false }: { label: string, value: string, detail?: string, mono?: boolean }) {
-    return (
-        <div className='min-w-0'>
-            <dt className='text-xs font-semibold uppercase text-ui-muted'>{label}</dt>
-            <dd className={`mt-1 wrap-break-word font-medium text-ui-text ${mono ? 'font-mono text-xs' : ''}`}>
-                {value}
-            </dd>
-            {detail && <dd className='mt-1 wrap-break-word text-xs text-ui-muted'>{detail}</dd>}
-        </div>
     )
 }

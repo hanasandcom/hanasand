@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { ArrowLeftRight, Search, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import SortIndicator from '@/components/dashboard/sort-indicator'
+import { DashboardTable } from '@/components/dashboard/ui'
 import { useWorkspace } from '@/components/organizations/workspaceProvider'
 import { isManagementSearchShortcut } from '@/utils/isManagementSearchShortcut'
 
@@ -82,12 +83,15 @@ export default function OrganizationList({ organizations }: { organizations: Org
             </button>}
         </div>
         <div className='overflow-x-auto'>
-            <table className='w-full text-left text-sm'>
-                <thead className='border-b border-ui-border text-ui-muted'><tr>{[
+            <DashboardTable
+                className='w-full text-left text-sm'
+                headClassName='border-b border-ui-border text-ui-muted'
+                bodyClassName={null}
+                columnHeaders={[
                     sortHeading('Organization', 'name'), sortHeading('Slug', 'slug'), sortHeading('Status', 'status'), sortHeading('Members', 'members'),
                     sortHeading('Created', 'created'), sortHeading('Last active (UTC)', 'lastActive'), <th key='switch' scope='col' className='w-12 px-3 py-3'><span className='sr-only'>Open organization</span></th>,
-                ]}</tr></thead>
-                <tbody>{sortedRows.map(org => <tr key={org.id} className='border-b border-ui-border text-ui-text'>
+                ]}
+            >{sortedRows.map(org => <tr key={org.id} className='border-b border-ui-border text-ui-text'>
                     <td className='px-3 py-3 font-medium'>{org.name}</td>
                     <td className='px-3 py-3 text-ui-muted'>{org.slug}</td>
                     <td className='px-3 py-3 capitalize'>{org.status}</td>
@@ -97,8 +101,7 @@ export default function OrganizationList({ organizations }: { organizations: Org
                     <td className='px-3 py-2 text-right'>{org.id === organizationId ? <span aria-current='true' className='whitespace-nowrap rounded-md border border-ui-border px-2 py-1 text-xs font-medium text-ui-muted'>Current</span> : canSwitchOrganization && org.status === 'active' && accessibleOrganizationIds.has(org.id) ? <Link href={`/organizations?org=${encodeURIComponent(org.id)}`} aria-label={`Switch to ${org.name}`} title={`Switch to ${org.name}`} className='ml-auto grid h-8 w-8 place-items-center rounded-lg text-ui-muted transition hover:bg-ui-raised hover:text-ui-text'>
                         <ArrowLeftRight className='h-4 w-4' />
                     </Link> : null}</td>
-                </tr>)}</tbody>
-            </table>
+                </tr>)}</DashboardTable>
             {!sortedRows.length && <p className='py-8 text-center text-ui-muted'>{organizations.length ? 'No organizations match your search.' : 'No organizations found.'}</p>}
         </div>
     </div>

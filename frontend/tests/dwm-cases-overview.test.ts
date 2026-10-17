@@ -3,6 +3,15 @@ import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 // @ts-expect-error Bun provides this module when running focused tests.
 import { test } from 'bun:test'
+import { caseDetailHref } from '../src/app/dashboard/cases/caseRoutes'
+
+test('case detail links retain organization and finding context', () => {
+    assert.equal(caseDetailHref('HA/1'), '/cases/HA%2F1')
+    assert.equal(
+        caseDetailHref('HA/1', 'alert 1', 'org acme', 'case_overview'),
+        '/cases/HA%2F1?organizationId=org+acme&alertId=alert+1&route=case_overview',
+    )
+})
 
 test('the cases view uses the shared cases route without mounting workflow actions', async () => {
     const frontendRoot = process.cwd().endsWith(`${path.sep}frontend`) ? process.cwd() : path.join(process.cwd(), 'frontend')

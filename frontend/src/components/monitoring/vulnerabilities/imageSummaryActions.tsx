@@ -16,7 +16,7 @@ export default function ImageSummaryActions({
     return (
         <div className='flex shrink-0 items-center gap-1.5 overflow-x-auto'>
             <MiniStat label='Total' value={String(image.totalVulnerabilities)} compact />
-            {severityOrder.filter(severity => image.severity[severity] > 0).map((severity) => (
+            {severityOrder.map((severity) => (
                 <SeverityBadge key={`${image.image}-${severity}`} severity={severity} count={image.severity[severity]} compact />
             ))}
             {image.totalVulnerabilities === 0 ? (

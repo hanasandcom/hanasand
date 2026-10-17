@@ -1,13 +1,5 @@
 import type { DeliveryItem } from './types'
-
-export function caseDetailHref(caseId: string, alertId?: string, organizationId?: string, route?: string) {
-    const params = new URLSearchParams()
-    if (organizationId) params.set('organizationId', organizationId)
-    if (alertId) params.set('alertId', alertId)
-    if (route) params.set('route', route)
-    const query = params.toString()
-    return `/cases/${encodeURIComponent(caseId)}${query ? `?${query}` : ''}`
-}
+export { caseDetailHref } from '../cases/caseRoutes'
 
 export function severityClass(severity: string) {
     if (severity === 'critical') return 'rounded-full bg-ui-raised/10 px-2 py-0.5 text-xs font-semibold text-ui-text'

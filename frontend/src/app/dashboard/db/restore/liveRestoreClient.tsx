@@ -6,6 +6,7 @@ import { useState, useTransition } from 'react'
 import { DatabaseZap, TriangleAlert } from 'lucide-react'
 import type { BackupFile, BackupOperation, BackupService } from '@/utils/db/internal'
 import formatUtcDateTime from '@/utils/date/formatUtcDateTime'
+import DatabaseEvidence from '../DatabaseEvidence'
 import { stageLabel } from '../backups/backupPresentation'
 import { restoreLiveBackupAction } from '../actions'
 import { RestoreFeedback } from './RestoreFeedback'
@@ -68,11 +69,11 @@ export default function LiveRestoreClient({ backups, service, file, loadError = 
                 </div>
                 {selected ? (
                     <dl className='mt-4 grid gap-3 rounded-lg border border-ui-border bg-ui-raised p-3 text-sm sm:grid-cols-2'>
-                        <Evidence label='Database' value={targetDatabase || 'Unavailable'} />
-                        <Evidence label='Backup archive' value={selected.file} mono />
-                        <Evidence label='Created' value={formatUtcDateTime(selected.mtime, 'Unknown')} />
-                        <Evidence label='Size' value={selected.size || 'Not reported'} />
-                        <Evidence label='Checksum' value={selected.checksumSha256 || (selected.verified ? 'Verified' : 'Verified during restore')} mono />
+                        <DatabaseEvidence layout='metadata' className='min-w-0' label='Database' value={targetDatabase || 'Unavailable'} />
+                        <DatabaseEvidence layout='metadata' className='min-w-0' label='Backup archive' value={selected.file} mono />
+                        <DatabaseEvidence layout='metadata' className='min-w-0' label='Created' value={formatUtcDateTime(selected.mtime, 'Unknown')} />
+                        <DatabaseEvidence layout='metadata' className='min-w-0' label='Size' value={selected.size || 'Not reported'} />
+                        <DatabaseEvidence layout='metadata' className='min-w-0' label='Checksum' value={selected.checksumSha256 || (selected.verified ? 'Verified' : 'Verified during restore')} mono />
                     </dl>
                 ) : (
                     <p role='alert' className='mt-4 rounded-lg border border-ui-danger/30 bg-ui-raised/10 p-3 text-sm text-ui-text'>This backup archive is unavailable. Return to the backup list and select an available archive.</p>
@@ -99,8 +100,4 @@ export default function LiveRestoreClient({ backups, service, file, loadError = 
             />}
         </main>
     )
-}
-
-function Evidence({ label, value, mono = false }: { label: string, value: string, mono?: boolean }) {
-    return <div className='min-w-0'><dt className='text-xs font-semibold uppercase text-ui-muted'>{label}</dt><dd className={`mt-1 break-all text-ui-text ${mono ? 'font-mono text-xs' : ''}`}>{value}</dd></div>
 }

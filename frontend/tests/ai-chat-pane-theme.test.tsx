@@ -6,6 +6,7 @@ import { ChatComposer } from '../src/components/ai/chat/chatComposer'
 import { ChatHeader } from '../src/components/ai/chat/chatHeader'
 import { ChatTranscript } from '../src/components/ai/chat/chatTranscript'
 import { ToolMessage } from '../src/components/ai/chat/chatMessages'
+import { WorkspacePrimaryAction } from '../src/components/ai/workbenchPaneDisplay'
 
 const noPreview = () => {}
 
@@ -29,6 +30,16 @@ test('chat header keeps shared hover and primary state tokens', () => {
     expect(html).toContain('hover:bg-ui-raised hover:text-ui-text')
     expect(html).toContain('bg-ui-primary/10 text-ui-primary')
     expect(html).not.toMatch(/(?:bg|text)-white|#[\da-f]{3,8}/i)
+})
+
+test('workspace primary action preserves import, starter, and deploy button variants', () => {
+    const importAction = renderToStaticMarkup(<WorkspacePrimaryAction onClick={() => {}} disabled>Importing</WorkspacePrimaryAction>)
+    const starterAction = renderToStaticMarkup(<WorkspacePrimaryAction onClick={() => {}} hover>Create workspace</WorkspacePrimaryAction>)
+    const deployAction = renderToStaticMarkup(<WorkspacePrimaryAction onClick={() => {}} hover disabled>Checking launch target...</WorkspacePrimaryAction>)
+
+    expect(importAction).toContain('<button type="button" disabled="" class="rounded-lg bg-ui-primary px-3 py-2 text-sm font-semibold text-ui-on-primary transition-opacity disabled:opacity-60">Importing</button>')
+    expect(starterAction).toContain('<button type="button" class="rounded-lg bg-ui-primary px-3 py-2 text-sm font-semibold text-ui-on-primary transition-opacity hover:opacity-90">Create workspace</button>')
+    expect(deployAction).toContain('<button type="button" disabled="" class="rounded-lg bg-ui-primary px-3 py-2 text-sm font-semibold text-ui-on-primary transition-opacity hover:opacity-90 disabled:opacity-60">Checking launch target...</button>')
 })
 
 test('artifact list preserves themed summaries, newest and safe external links', () => {

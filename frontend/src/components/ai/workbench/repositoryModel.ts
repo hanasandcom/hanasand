@@ -48,3 +48,7 @@ export function withWorkspaceActivity(
         workspaceSource: update.source || workspaceMeta.workspaceSource || null,
     }
 }
+
+export function withFocusedWorkspaceFile(workspaceMeta: Record<string, unknown>, path: string, action: string) {
+    return withWorkspaceActivity({ ...workspaceMeta, selectedFilePath: path }, { action, path })
+}

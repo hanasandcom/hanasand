@@ -4,9 +4,9 @@ import { ExternalLink } from 'lucide-react'
 import Link from 'next/link'
 import { actorProfileHref } from '@/utils/ti/actorProfileRoute'
 import { formatTiDate } from '@/utils/tiAdmin/ops'
-import { operationalStateLabel, shortTime } from '../dashboardPresentation'
+import { operationalStateLabel, shortTime, StatusPill } from '../dashboardPresentation'
 import type { TiActivityEvent, TiEnrichmentOverview } from '@/utils/tiAdmin/enrichment'
-import { ActivityStatusPill, relativeAge } from './activityPresentation'
+import { relativeAge } from './activityPresentation'
 
 type EventsProps = {
     events: TiActivityEvent[]
@@ -27,7 +27,7 @@ export function ActivityEvents({ events, total, page, query, worker, updatedActo
                         <p className='mt-1 text-sm text-ui-muted'>Newest automated observations with linked sources first.</p>
                     </div>
                     <div className='flex flex-wrap gap-2 text-xs font-semibold'>
-                        <ActivityStatusPill
+                        <StatusPill variant='activity'
                             label={operationalStateLabel(worker.state)}
                             tone={worker.state === 'unavailable' ? 'bad' : worker.state === 'active' ? 'ok' : 'watch'}
                         />
@@ -89,7 +89,7 @@ function ActivityRow({ event }: { event: TiActivityEvent }) {
             <td className='whitespace-nowrap px-4 py-2.5 text-ui-muted'>{relativeAge(event.happenedAt)}</td>
             <td className='px-4 py-2.5 text-ui-muted'>{event.source}</td>
             <td className='px-4 py-2.5'>
-                <ActivityStatusPill label={stateLabel} tone={event.tone} />
+                <StatusPill variant='activity' label={stateLabel} tone={event.tone} />
             </td>
             <td className='px-4 py-2.5 text-right'>
                 <Link

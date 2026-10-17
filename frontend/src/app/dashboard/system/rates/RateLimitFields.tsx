@@ -1,5 +1,6 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { Trash2 } from 'lucide-react'
 import { dateInputToIso, isoToDateInput } from './model'
 
@@ -13,21 +14,11 @@ export function StatChip({ label, value }: { label: string, value: string }) {
 }
 
 export function TextField({ label, value, onChange }: { label: string, value: string, onChange: (value: string) => void }) {
-    return (
-        <label className='grid gap-1.5 text-sm text-ui-muted'>
-            <span>{label}</span>
-            <input value={value} onChange={(event) => onChange(event.target.value)} className={inputStyle} />
-        </label>
-    )
+    return <LabeledField label={label}><input value={value} onChange={(event) => onChange(event.target.value)} className={inputStyle} /></LabeledField>
 }
 
 export function DateField({ label, value, onChange }: { label: string, value: string, onChange: (value: string) => void }) {
-    return (
-        <label className='grid gap-1.5 text-sm text-ui-muted'>
-            <span>{label}</span>
-            <input type='date' value={isoToDateInput(value)} onChange={(event) => onChange(dateInputToIso(event.target.value))} className={inputStyle} />
-        </label>
-    )
+    return <LabeledField label={label}><input type='date' value={isoToDateInput(value)} onChange={(event) => onChange(dateInputToIso(event.target.value))} className={inputStyle} /></LabeledField>
 }
 
 export function NumberField({
@@ -41,12 +32,7 @@ export function NumberField({
     min: number
     onChange: (value: number) => void
 }) {
-    return (
-        <label className='grid gap-1.5 text-sm text-ui-muted'>
-            <span>{label}</span>
-            <input type='number' min={min} value={value} onChange={(event) => onChange(Number(event.target.value || 0))} className={inputStyle} />
-        </label>
-    )
+    return <LabeledField label={label}><input type='number' min={min} value={value} onChange={(event) => onChange(Number(event.target.value || 0))} className={inputStyle} /></LabeledField>
 }
 
 export function SelectField({
@@ -60,14 +46,9 @@ export function SelectField({
     options: string[]
     onChange: (value: string) => void
 }) {
-    return (
-        <label className='grid gap-1.5 text-sm text-ui-muted'>
-            <span>{label}</span>
-            <select value={value} onChange={(event) => onChange(event.target.value)} className={inputStyle}>
-                {options.map((option) => <option key={option} value={option}>{option}</option>)}
-            </select>
-        </label>
-    )
+    return <LabeledField label={label}><select value={value} onChange={(event) => onChange(event.target.value)} className={inputStyle}>
+        {options.map((option) => <option key={option} value={option}>{option}</option>)}
+    </select></LabeledField>
 }
 
 export function RouteChooser({
@@ -81,12 +62,11 @@ export function RouteChooser({
     value: string
     onChange: (value: string) => void
 }) {
-    return (
-        <label className='grid gap-1.5 text-sm text-ui-muted'>
-            <span>{label}</span>
-            <input list='rate-limit-routes' value={value} onChange={(event) => onChange(event.target.value)} placeholder={routeOptions[0] || 'GET /api/'} className={inputStyle} />
-        </label>
-    )
+    return <LabeledField label={label}><input list='rate-limit-routes' value={value} onChange={(event) => onChange(event.target.value)} placeholder={routeOptions[0] || 'GET /api/'} className={inputStyle} /></LabeledField>
+}
+
+function LabeledField({ label, children }: { label: string, children: ReactNode }) {
+    return <label className='grid gap-1.5 text-sm text-ui-muted'><span>{label}</span>{children}</label>
 }
 
 export function RemoveButton({ onClick }: { onClick: () => void }) {

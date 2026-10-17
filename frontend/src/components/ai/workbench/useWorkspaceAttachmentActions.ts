@@ -2,7 +2,7 @@ import { useCallback } from 'react'
 import { getCookie } from '@/utils/cookies/cookies'
 import { getTree } from '@/utils/share/getTree'
 import { listTreePaths } from '@/components/share/workspaceTree'
-import { withWorkspaceActivity } from './repositoryModel'
+import { withFocusedWorkspaceFile, withWorkspaceActivity } from './repositoryModel'
 import type { WorkbenchState } from './useWorkbenchState'
 
 export function useWorkspaceAttachmentActions(
@@ -72,13 +72,7 @@ export function useWorkspaceAttachmentActions(
         if (!activeConversation || typeof activeConversation.workspaceMeta?.repositoryId !== 'string' || !activeConversation.workspaceId) return
         await hydrateShareFileRef.current(activeConversation.workspaceId, path)
         await patchConversation(activeConversation.id, {
-            workspaceMeta: withWorkspaceActivity({
-                ...activeConversation.workspaceMeta,
-                selectedFilePath: path,
-            }, {
-                action: 'Focused repository file',
-                path,
-            }),
+            workspaceMeta: withFocusedWorkspaceFile(activeConversation.workspaceMeta, path, 'Focused repository file'),
         })
     }, [activeConversation, patchConversation, hydrateShareFileRef])
 
@@ -86,13 +80,7 @@ export function useWorkspaceAttachmentActions(
         if (!activeConversation || !activeConversation.workspaceId) return
         await hydrateShareFileRef.current(activeConversation.workspaceId, path)
         await patchConversation(activeConversation.id, {
-            workspaceMeta: withWorkspaceActivity({
-                ...activeConversation.workspaceMeta,
-                selectedFilePath: path,
-            }, {
-                action: 'Focused share file',
-                path,
-            }),
+            workspaceMeta: withFocusedWorkspaceFile(activeConversation.workspaceMeta, path, 'Focused share file'),
         })
     }, [activeConversation, patchConversation, hydrateShareFileRef])
 

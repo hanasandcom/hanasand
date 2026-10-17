@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useMemo, useState, useTransition } from 'react'
 import { DatabaseZap, ShieldCheck, TriangleAlert } from 'lucide-react'
 import type { BackupFile, BackupOperation, BackupService } from '@/utils/db/internal'
+import DatabaseEvidence from '../DatabaseEvidence'
 import { stageLabel } from '../backups/backupPresentation'
 import { restoreBackupAction } from '../actions'
 import { RestoreFeedback } from './RestoreFeedback'
@@ -85,9 +86,9 @@ export default function RestoreClient({ backups, service, loadError = '' }: { ba
 
                 {selected && (
                     <dl className='mt-4 grid gap-3 rounded-lg border border-ui-border bg-ui-raised p-3 text-sm sm:grid-cols-3'>
-                        <Evidence label='Measured file' value={selected.size || 'Not reported'} />
-                        <Evidence label='Checksum' value={selected.checksumSha256?.slice(0, 16) || 'Verified during drill'} mono />
-                        <Evidence label='Release commit' value={selected.releaseCommit?.slice(0, 12) || 'Not reported'} mono />
+                        <DatabaseEvidence layout='metadata' label='Measured file' value={selected.size || 'Not reported'} />
+                        <DatabaseEvidence layout='metadata' label='Checksum' value={selected.checksumSha256?.slice(0, 16) || 'Verified during drill'} mono />
+                        <DatabaseEvidence layout='metadata' label='Release commit' value={selected.releaseCommit?.slice(0, 12) || 'Not reported'} mono />
                     </dl>
                 )}
 
@@ -121,10 +122,6 @@ export default function RestoreClient({ backups, service, loadError = '' }: { ba
             </section>
         </main>
     )
-}
-
-function Evidence({ label, value, mono = false }: { label: string, value: string, mono?: boolean }) {
-    return <div><dt className='text-xs font-semibold uppercase text-ui-muted'>{label}</dt><dd className={`mt-1 break-all text-ui-text ${mono ? 'font-mono text-xs' : ''}`}>{value}</dd></div>
 }
 
 function defaultTarget() {

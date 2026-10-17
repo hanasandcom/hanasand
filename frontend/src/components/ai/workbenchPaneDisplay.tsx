@@ -29,6 +29,24 @@ export function Panel({
     )
 }
 
+export function WorkspacePrimaryAction({ children, onClick, disabled = false, hover = false }: {
+    children: React.ReactNode
+    onClick: () => void | Promise<void>
+    disabled?: boolean
+    hover?: boolean
+}) {
+    return (
+        <button
+            type='button'
+            onClick={() => void onClick()}
+            disabled={disabled}
+            className={`rounded-lg bg-ui-primary px-3 py-2 text-sm font-semibold text-ui-on-primary transition-opacity${hover ? ' hover:opacity-90' : ''}${disabled ? ' disabled:opacity-60' : ''}`}
+        >
+            {children}
+        </button>
+    )
+}
+
 export function Stat({ label, value }: { label: string, value: string }) {
     return (
         <div className='rounded-lg bg-ui-raised px-3 py-2 outline outline-ui-border'>

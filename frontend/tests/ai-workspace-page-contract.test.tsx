@@ -1,6 +1,6 @@
 // @ts-expect-error Bun provides this module when running tests.
 import { mock, test, expect } from 'bun:test'
-import { createElement } from 'react'
+import { createElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 
 let cookieValues: Record<string, string | undefined> = {}
@@ -15,6 +15,10 @@ mock.module('next/headers', () => ({
         if (pendingCookies) await pendingCookies
         return { get: (name: string) => ({ value: cookieValues[name] }) }
     },
+}))
+mock.module('next/link', () => ({
+    default: ({ href, children, className }: { href: string, children: ReactNode, className?: string }) =>
+        createElement('a', { href, className }, children),
 }))
 mock.module('@/utils/share/getUserShares', () => ({
     getUserShares: async (input: unknown) => {
@@ -46,6 +50,51 @@ mock.module('../src/app/ai/pageClient', () => ({
 const { default: AIPage } = await import('../src/app/ai/page')
 const { default: AIWindowPage } = await import('../src/app/ai/window/page')
 const { default: AIConversationPage } = await import('../src/app/ai/[id]/page')
+const { default: WorkspacePane } = await import('../src/components/ai/workspacePane')
+const { WorkspaceImportPanel } = await import('../src/components/ai/workspaceImportPanel')
+
+function renderWorkspacePane() {
+    const noop = () => {}
+    const props = {
+        activeConversation: null,
+        importedRepos: [],
+        importInput: '',
+        githubToken: '',
+        importError: null,
+        importPending: false,
+        collaborationError: null,
+        initialShares: [],
+        syncingRepoId: null,
+        activeShareTree: null,
+        selectedRepoFilePath: null,
+        selectedShareFileContent: null,
+        selectedShareContent: null,
+        deployments: [],
+        releases: [],
+        deployQuota: null,
+        ownershipSummary: null,
+        availableVmTargets: [],
+        deployPending: false,
+        collaboratorPending: false,
+        currentUserId: null,
+        rollbackPendingId: null,
+        onAttachRepo: noop,
+        onAttachShare: noop,
+        onImportInputChange: noop,
+        onGitHubTokenChange: noop,
+        onImportRepo: noop,
+        onRefreshRepo: noop,
+        onRevokeRepoCredential: noop,
+        onScaffoldStarter: noop,
+        onStartDeployment: noop,
+        onInviteCollaborator: noop,
+        onRollbackRelease: noop,
+        onRemoveCollaborator: noop,
+        onSelectRepoFile: noop,
+        onSelectShareFile: noop,
+    } as Parameters<typeof WorkspacePane>[0]
+    return renderToStaticMarkup(createElement(WorkspacePane, props))
+}
 
 function resetState() {
     cookieValues = { id: 'user-1', access_token: 'token-1' }
@@ -105,4 +154,19 @@ test('conversation params and cookies resolve in parallel; missing auth skips sh
     expect(currentProps().isAuthenticated).toBe(false)
     expect(currentProps().initialShares).toEqual([])
     expect(currentProps().initialConversationId).toBe('conversation-3')
+})
+
+test('workspace pane actions render with shared theme tokens and expected labels', () => {
+    const html = renderWorkspacePane()
+    const importHtml = renderToStaticMarkup(createElement(WorkspaceImportPanel, {
+        importInput: '', githubToken: '', importPending: false, importError: null,
+        onImportInputChange() {}, onGitHubTokenChange() {}, onImportRepo() {},
+    }))
+    expect(importHtml).toContain('<button type="button" class="rounded-lg bg-ui-primary px-3 py-2 text-sm font-semibold text-ui-on-primary transition-opacity">Import</button>')
+    expect(html).toContain('<button type="button" class="rounded-lg bg-ui-primary px-3 py-2 text-sm font-semibold text-ui-on-primary transition-opacity hover:opacity-90">Create workspace</button>')
+    expect(html).toContain('<button type="button" class="rounded-lg bg-ui-primary px-3 py-2 text-sm font-semibold text-ui-on-primary transition-opacity hover:opacity-90">Run launch check</button>')
+    expect(html).not.toContain('text-white')
+    expect(html).not.toContain('dark:text-ui-canvas')
+    expect(html).not.toMatch(/\b(?:bg|text|border)-\[#/)
+    expect(html).not.toMatch(/rounded-(?:xl|2xl|3xl)/)
 })

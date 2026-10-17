@@ -16,15 +16,9 @@ export function createWorkspaceOperations(context: GitOperationContext) {
             fallbackError: 'Failed to load Git status.',
             action: () => getRepositoryGitStatus(repositoryId, context.share?.id || context.shareRouteId),
             onSuccess: nextStatus => {
-                const { shareRouteId, setGitStatus, setSelectedPaths, stored, autoPullMinutes, setStored } = context
-                setGitStatus(nextStatus)
-                setSelectedPaths(new Set(nextStatus.files.map(file => file.path)))
-                if (stored) {
-                    const nextStored = { ...stored, updatedAt: new Date().toISOString(), autoPullMinutes }
-                    rememberGitWorkspace(shareRouteId, nextStored)
-                    setStored(nextStored)
-                }
-                context.setStatus(nextStatus.files.length ? `${nextStatus.files.length} changed file${nextStatus.files.length === 1 ? '' : 's'} ready to stage.` : 'No Git changes in the editor.')
+                applyGitStatus(context, nextStatus, status => status.files.length
+                    ? `${status.files.length} changed file${status.files.length === 1 ? '' : 's'} ready to stage.`
+                    : 'No Git changes in the editor.', 'status')
             },
         })
     }
@@ -36,13 +30,7 @@ export function createWorkspaceOperations(context: GitOperationContext) {
             startingMessage: 'Pulling the cached Git worktree...',
             fallbackError: 'Failed to pull Git worktree.',
             action: () => pullRepositoryWorkspace(context.shareRouteId),
-            onSuccess: nextStatus => {
-                const { shareRouteId, setGitStatus, setSelectedPaths, stored, autoPullMinutes, setStored } = context
-                setGitStatus(nextStatus)
-                setSelectedPaths(new Set(nextStatus.files.map(file => file.path)))
-                if (stored) updateSyncTime(shareRouteId, stored, autoPullMinutes, setStored)
-                context.setStatus('Remote changes pulled into the Git worktree.')
-            },
+            onSuccess: nextStatus => applyGitStatus(context, nextStatus, 'Remote changes pulled into the Git worktree.', 'sync'),
         })
     }
 
@@ -74,13 +62,7 @@ export function createWorkspaceOperations(context: GitOperationContext) {
             startingMessage: 'Pushing commits...',
             fallbackError: 'Failed to push repository.',
             action: () => pushRepositoryWorkspace(context.shareRouteId),
-            onSuccess: nextStatus => {
-                const { shareRouteId, setGitStatus, setSelectedPaths, stored, autoPullMinutes, setStored } = context
-                setGitStatus(nextStatus)
-                setSelectedPaths(new Set(nextStatus.files.map(file => file.path)))
-                if (stored) updateSyncTime(shareRouteId, stored, autoPullMinutes, setStored)
-                context.setStatus('Pushed to the remote repository.')
-            },
+            onSuccess: nextStatus => applyGitStatus(context, nextStatus, 'Pushed to the remote repository.', 'sync'),
         })
     }
 
@@ -104,6 +86,20 @@ export function createWorkspaceOperations(context: GitOperationContext) {
 }
 
 type GitOperation = Exclude<Parameters<GitOperationContext['setPending']>[0], null>
+
+export function applyGitStatus(
+    context: GitOperationContext,
+    status: AIGitStatus,
+    message: string | ((status: AIGitStatus) => string),
+    storedTimestamp: 'status' | 'sync' | false = false,
+) {
+    context.setGitStatus(status)
+    context.setSelectedPaths(new Set(status.files.map(file => file.path)))
+    if (storedTimestamp && context.stored) {
+        updateStoredWorkspaceTime(context.shareRouteId, context.stored, context.autoPullMinutes, context.setStored, storedTimestamp === 'sync')
+    }
+    context.setStatus(typeof message === 'function' ? message(status) : message)
+}
 
 async function runGitOperation<T>(context: GitOperationContext, operation: {
     pending: GitOperation
@@ -134,14 +130,20 @@ async function runGitOperation<T>(context: GitOperationContext, operation: {
     }
 }
 
-function updateSyncTime(
+function updateStoredWorkspaceTime(
     shareRouteId: string,
     stored: NonNullable<GitOperationContext['stored']>,
     autoPullMinutes: number,
     setStored: GitOperationContext['setStored'],
+    updateLastSyncedAt = true,
 ) {
     const timestamp = new Date().toISOString()
-    const nextStored = { ...stored, updatedAt: timestamp, lastSyncedAt: timestamp, autoPullMinutes }
+    const nextStored = {
+        ...stored,
+        updatedAt: timestamp,
+        ...(updateLastSyncedAt ? { lastSyncedAt: timestamp } : {}),
+        autoPullMinutes,
+    }
     rememberGitWorkspace(shareRouteId, nextStored)
     setStored(nextStored)
 }

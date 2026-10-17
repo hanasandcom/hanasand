@@ -16,6 +16,11 @@ test('organization table retains creation dates and shows recorded activity with
         { id: 'one', name: 'Hanasand', slug: 'hanasand', status: 'active', member_count: 2, created_at: '2026-09-14T14:42:50Z', last_active_at: '2026-09-19T10:30:00Z' },
         { id: 'two', name: 'Cashflow', slug: 'cashflow', status: 'active', member_count: 1, created_at: '2026-09-14T14:42:50Z', last_active_at: null },
     ]} />)
+    expect(html).toContain('<table class="w-full text-left text-sm"><thead class="border-b border-ui-border text-ui-muted"><tr>')
+    expect(html).toContain('aria-sort="ascending"')
+    expect(html).toContain('aria-label="Sort by Organization, ascending"')
+    expect(html).toContain('</thead><tbody><tr class="border-b border-ui-border text-ui-text">')
+    expect(html).not.toContain('<tbody class=')
     expect(html).toContain('Created')
     expect(html).toContain('14/09/2026')
     expect(html).toContain('Last active (UTC)')

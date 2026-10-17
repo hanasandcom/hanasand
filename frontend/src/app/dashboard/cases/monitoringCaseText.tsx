@@ -1,7 +1,7 @@
 import Markdown from 'react-markdown'
 
-export function date(value?: string) {
-    return value ? new Date(value).toLocaleString() : '—'
+export function date(value?: string, empty = '—') {
+    return value ? new Date(value).toLocaleString() : empty
 }
 
 export function notificationText(text: string) {

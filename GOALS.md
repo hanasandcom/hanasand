@@ -1348,3 +1348,23 @@ and `git diff --check` passed. Frontend inventory is 2,315 files / 153,659 LOC
 with zero files over 200 lines. The broader API 100,000-line reduction and
 frontend 10,000–30,000-line targets remain outstanding. No UI change or
 deployment was made.
+
+The latest frontend checkpoint consolidates shared AI workspace primary
+actions, case-detail URL construction, backup/restore evidence rows, TI status
+pills, case timestamps, rate-limit field labels, and AI workspace file-selection
+metadata. Runtime tests cover rendered variants, URL query serialization,
+evidence layouts, timestamps, rate-limit controls, and selected-file metadata.
+The stale unregistered AI workspace theme source scan was replaced by rendered
+SSR assertions; a failed Import assertion was corrected to render the actual
+`WorkspaceImportPanel`. The full frontend test runner, typecheck, targeted ESLint
+for all changed files, line-cap scan, diff check, and production build pass; the
+build generated all 116 routes. All 2,319 frontend source/config files fit the
+200-line cap at 153,863 total lines. Production code is down 34 lines, while
+tests and scripts add 143, for a net increase of 109 lines in this batch; the
+frontend is 204 lines above the prior 153,659-line snapshot. This is a reuse and
+test-quality checkpoint, not progress toward the 10,000–30,000-line target.
+The repository-wide scan reports 73 of 4,223 hand-maintained files above 200
+lines and 324,438 total lines. The API 100,000-line and frontend
+10,000–30,000-line reduction goals remain unmet. Existing full-frontend ESLint
+baseline errors outside this changed-file check remain. No deployment was
+performed.
