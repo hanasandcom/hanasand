@@ -2,10 +2,12 @@ import { expect, mock, test } from 'bun:test'
 import Fastify from 'fastify'
 
 const queries: string[] = []
+const queryParameters: unknown[][] = []
 
 mock.module('#db', () => ({
-    default: async (sql: string) => {
+    default: async (sql: string, values: unknown[] = []) => {
         queries.push(sql)
+        queryParameters.push(values)
         if (sql.includes('AS failed_platform_discount_nok')) {
             return { rows: [{ event_count: 24, estimated_cost_nok: 12, failed_platform_discount_nok: 37.5 }] }
         }
@@ -50,6 +52,7 @@ const { getAiEconomics } = await import('../src/handlers/ai/economics.ts')
 
 test('platform failure discount covers the full usage window, independent of recent-run limit', async () => {
     queries.length = 0
+    queryParameters.length = 0
     const app = Fastify()
     app.get('/ai/economics', getAiEconomics)
 
@@ -58,6 +61,12 @@ test('platform failure discount covers the full usage window, independent of rec
 
         expect(response.statusCode).toBe(200)
         expect(response.json().summary.failedPlatformDiscountNok).toBe(37.5)
+        expect(response.json().commercialReadiness.items.map((item: { id: string }) => item.id)).toEqual([
+            'durable_async_verification', 'deployment_ownership', 'safety_enforcement',
+            'verified_outcome_economics', 'non_developer_ux', 'design_quality',
+            'tiered_pricing', 'model_routing_after_measurement',
+        ])
+        expect(response.json().commercialReadiness.totalCount).toBe(8)
         expect(response.json().reliability.failedProofCategories).toEqual([
             { category: 'timeout', kind: 'build', count: 2 },
         ])
@@ -76,6 +85,28 @@ test('platform failure discount covers the full usage window, independent of rec
         )
         expect(queries.some((sql) => sql.includes('SUM(CASE WHEN outcome = \'platform_error\' THEN estimated_cost_nok ELSE 0 END)'))).toBe(true)
         expect(queries.some((sql) => sql.includes('LIMIT 20'))).toBe(true)
+    } finally {
+        await app.close()
+    }
+})
+
+test('clamps economics windows and scopes every query to the authenticated owner', async () => {
+    const app = Fastify()
+    app.get('/ai/economics', getAiEconomics)
+
+    try {
+        for (const [days, expected] of [[1, 7], [120, 90]]) {
+            const firstQuery = queryParameters.length
+            const response = await app.inject({ method: 'GET', url: `/ai/economics?days=${days}` })
+            expect(response.statusCode).toBe(200)
+            expect(response.json().windowDays).toBe(expected)
+
+            const calls = queryParameters.slice(firstQuery)
+            expect(calls.length).toBeGreaterThan(0)
+            expect(calls.every(([ownerId]) => ownerId === 'user-1')).toBe(true)
+            const windowedQueries = calls.filter((parameters) => parameters.length > 1)
+            expect(windowedQueries.every(([, window]) => window === `${expected} days`)).toBe(true)
+        }
     } finally {
         await app.close()
     }
