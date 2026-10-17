@@ -64,36 +64,33 @@ export function inviteEmailConflicts(emails: string[], invites: OrganizationInvi
 }
 
 export function inviteStatusCounts(invites: OrganizationInvite[]) {
-    return ['pending', 'accepted', 'revoked', 'expired'].map(status => ({
-        status,
-        label: sentenceCase(status),
-        count: invites.filter(invite => invite.status.toLowerCase() === status).length,
-    }))
+    return countOptions(invites, ['pending', 'accepted', 'revoked', 'expired'], invite => invite.status)
+        .map(({ value: status, ...count }) => ({ status, ...count }))
 }
 
 export function inviteRoleStatusCounts(invites: OrganizationInvite[]) {
-    return roleOptions.map(role => ({
-        role,
-        label: sentenceCase(role),
-        count: invites.filter(invite => invite.role.toLowerCase() === role).length,
-    }))
+    return countOptions(invites, roleOptions, invite => invite.role)
+        .map(({ value: role, ...count }) => ({ role, ...count }))
 }
 
 export function memberStatusCounts(members: OrganizationMember[]) {
-    return ['active', 'removed', 'revoked', 'inactive'].map(status => ({
-        status,
-        label: sentenceCase(status),
-        count: members.filter(member => member.status.toLowerCase() === status).length,
-    }))
+    return countOptions(members, ['active', 'removed', 'revoked', 'inactive'], member => member.status)
+        .map(({ value: status, ...count }) => ({ status, ...count }))
 }
 
 export function memberRoleStatusCounts(members: OrganizationMember[]) {
     const roles: OrganizationRole[] = ['owner', 'admin', 'editor', 'reader']
-    return roles.map(role => ({
-        role,
-        label: sentenceCase(role),
-        count: members.filter(member => member.role.toLowerCase() === role).length,
-    }))
+    return countOptions(members, roles, member => member.role)
+        .map(({ value: role, ...count }) => ({ role, ...count }))
+}
+
+function countOptions<T, Value extends string>(rows: T[], values: Value[], getValue: (row: T) => string) {
+    const counts = new Map<string, number>()
+    for (const row of rows) {
+        const value = getValue(row).toLowerCase()
+        counts.set(value, (counts.get(value) || 0) + 1)
+    }
+    return values.map(value => ({ value, label: sentenceCase(value), count: counts.get(value) || 0 }))
 }
 
 export function isEmailLike(value: string | undefined): value is string {
