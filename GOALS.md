@@ -2882,3 +2882,15 @@ Chromium exited with a macOS Mach-port permission error, and a direct unit test
 covers the recovery policy. The latest frontend scan is 2,431 hand-maintained
 files / 156,731 lines with no file above 200, 3,023 lines above the 153,708
 baseline. The frontend's 10,000–30,000-line reduction target remains unmet.
+
+The browser-history follow-up now shares a small typed API boundary while
+preserving distinct contracts: paged history keeps all runs and validates
+offsets, while recent history retains quota metadata and passes through the
+existing storage sanitizer. Request encoding, credentials, cache policy,
+malformed rows, and pagination are covered by focused contract tests. Independent
+review approved the change. The browser-history test, scoped ESLint,
+nonincremental TypeScript, full frontend and repository line-cap checks, and
+`git diff --check` pass. The frontend scan is now 2,432 source/config files /
+156,843 lines, with no file above 200; that is 3,135 lines above the 153,708
+baseline. This contract extraction and test coverage add lines, so they do not
+advance the aggregate reduction target, which remains unmet.

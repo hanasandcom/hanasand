@@ -7,25 +7,15 @@ import { ProviderBadges } from './components/ProviderBadges'
 import { RunHistoryActions } from './components/RunHistoryPanel'
 import { shareSavedFinding } from './shareSavedFinding'
 import { deleteBrowserHistory } from './historyDeletion'
-import type { ProviderRunResult } from './types/history'
+import { fetchPagedBrowserHistory, type PagedBrowserHistoryRun } from './historyApi'
 
-type HistoryRun = {
-    id: string
-    resultId: string
-    target: string
-    network: 'regular' | 'tor'
-    startedAt: string
-    status: string
-    providerResults?: Record<string, ProviderRunResult>
-}
-
-export default function BrowserHistory({ clientId, onShare }: { clientId: string; onShare?: (run: HistoryRun) => Promise<string> }) {
+export default function BrowserHistory({ clientId, onShare }: { clientId: string; onShare?: (run: PagedBrowserHistoryRun) => Promise<string> }) {
     const dialog = useRef<HTMLDialogElement>(null)
     const loadMoreTarget = useRef<HTMLDivElement>(null)
     const request = useRef<AbortController | null>(null)
     const loadingRef = useRef(false)
     const lastLoadedAt = useRef(0)
-    const [runs, setRuns] = useState<HistoryRun[]>([])
+    const [runs, setRuns] = useState<PagedBrowserHistoryRun[]>([])
     const [nextOffset, setNextOffset] = useState<number | null>(null)
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
@@ -43,9 +33,7 @@ export default function BrowserHistory({ clientId, onShare }: { clientId: string
         setLoading(true)
         setError('')
         try {
-            const response = await fetch(`/api/backend/browser/runs?history=all&offset=${offset}&clientId=${encodeURIComponent(clientId)}`, { credentials: 'include', signal: controller.signal })
-            if (!response.ok) throw new Error('Could not load history.')
-            const data = await response.json() as { runs: HistoryRun[]; nextOffset?: number | null }
+            const data = await fetchPagedBrowserHistory(clientId, offset, controller.signal)
             setRuns(current => offset === 0 ? data.runs : [...current, ...data.runs.filter(run => !current.some(item => item.id === run.id))])
             setNextOffset(data.nextOffset ?? null)
             if (offset === 0) lastLoadedAt.current = Date.now()
@@ -69,12 +57,12 @@ export default function BrowserHistory({ clientId, onShare }: { clientId: string
         return () => observer.disconnect()
     }, [error, load, loading, nextOffset])
 
-    const share = async (run: HistoryRun) => {
+    const share = async (run: PagedBrowserHistoryRun) => {
         if (onShare) return onShare(run)
         return shareSavedFinding(run)
     }
 
-    const deleteRun = async (run: HistoryRun) => {
+    const deleteRun = async (run: PagedBrowserHistoryRun) => {
         setBusyId(run.id)
         setMessage('')
         setError('')
@@ -90,7 +78,7 @@ export default function BrowserHistory({ clientId, onShare }: { clientId: string
         }
     }
 
-    const shareRun = async (run: HistoryRun) => {
+    const shareRun = async (run: PagedBrowserHistoryRun) => {
         setBusyId(run.id)
         setMessage('')
         setError('')

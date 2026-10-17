@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, type Dispatch, type SetStateAction } from 'react'
 import type { BrowserQuota, BrowserRunHistory, BrowserRunStats } from '../types'
-import { historyApiPath, historyStorageKey, statsStorageKey } from '../browserSetup'
+import { historyStorageKey, statsStorageKey } from '../browserSetup'
 import { getOrCreateBrowserClientId } from '../browserClientId'
 import { deleteBrowserHistory } from '../historyDeletion'
 import { persistHistory, sanitizeHistory } from '../historyData'
 import { quotaValue } from '../browserValues'
 import { shareSavedFinding } from '../shareSavedFinding'
+import { fetchRecentBrowserHistory } from '../historyApi'
 
 type BrowserHistoryActionsOptions = {
     initialStats: BrowserRunStats | null; history: BrowserRunHistory[]; setHistory: Dispatch<SetStateAction<BrowserRunHistory[]>>; setHistoryReady: Dispatch<SetStateAction<boolean>>; setQuota: Dispatch<SetStateAction<BrowserQuota | null>>; setRunStats: Dispatch<SetStateAction<BrowserRunStats | null>>
@@ -16,9 +17,7 @@ type BrowserHistoryActionsOptions = {
 export function useBrowserHistoryActions({ initialStats, history, setHistory, setHistoryReady, setQuota, setRunStats }: BrowserHistoryActionsOptions) {
     const refreshHistory = useCallback(async () => {
         const clientId = getOrCreateBrowserClientId()
-        const response = await fetch(`${historyApiPath}?clientId=${encodeURIComponent(clientId)}`, { credentials: 'include', cache: 'no-store' })
-        if (!response.ok) throw new Error('Could not refresh browser history.')
-        const payload = await response.json() as { runs?: unknown[]; quota?: unknown }
+        const payload = await fetchRecentBrowserHistory(clientId)
         setHistory(persistHistory(sanitizeHistory(payload.runs)))
         setQuota(quotaValue(payload.quota))
     }, [])
