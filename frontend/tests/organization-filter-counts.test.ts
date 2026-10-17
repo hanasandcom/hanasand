@@ -3,7 +3,9 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import type { OrganizationInvite, OrganizationMember } from '../src/app/organizations/types/organization'
 import { inviteRoleStatusCounts, inviteStatusCounts, memberRoleStatusCounts, memberStatusCounts } from '../src/app/organizations/model/forms'
+import { watchlistStatusCounts } from '../src/app/organizations/model/watchlists'
 import { OrganizationCountBadges } from '../src/app/organizations/components/organizationCountBadges'
+import type { WatchlistItem } from '../src/app/organizations/types/watchlists'
 
 const invites: OrganizationInvite[] = [
     { id: '1', email: 'one@example.test', role: 'admin', status: 'PENDING' },
@@ -16,6 +18,17 @@ const members: OrganizationMember[] = [
     { userId: '2', role: 'admin', status: 'active' },
     { userId: '3', role: 'reader', status: 'removed' },
 ]
+
+const watchlists: WatchlistItem[] = [
+    { id: '1', kind: 'domain', value: 'example.test', status: 'ACTIVE' },
+    { id: '2', kind: 'company', value: 'Example', status: 'paused' },
+    { id: '3', kind: 'actor', value: 'Actor', status: 'ARCHIVED' },
+    { id: '4', kind: 'keyword', value: 'ignored', status: 'unknown' },
+]
+
+test('watchlist status counts preserve known statuses and ignore unknown values', () => {
+    expect(watchlistStatusCounts(watchlists)).toEqual({ active: 1, paused: 1, archived: 1 })
+})
 
 test('invite filter counts preserve option order, labels, and case-insensitive values', () => {
     expect(inviteStatusCounts(invites)).toEqual([

@@ -5,6 +5,17 @@ import type { OrganizationSummary } from '../types/organization'
 import type { ScopedAlert } from '../types/activity'
 import { deliveryTime } from './deliveries'
 
+export function watchlistStatusCounts(watchlists: WatchlistItem[]) {
+    const counts = { active: 0, paused: 0, archived: 0 }
+    for (const item of watchlists) {
+        const status = item.status.toLowerCase()
+        if (status === 'active') counts.active++
+        else if (status === 'paused') counts.paused++
+        else if (status === 'archived') counts.archived++
+    }
+    return counts
+}
+
 export function destinationConfigured(item: WatchlistItem) {
     return Boolean(item.webhookUrlConfigured || item.webhookDestinationId || item.webhookEndpointHash || item.webhookEndpointHint)
 }

@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { useWorkspace } from '@/components/organizations/workspaceProvider'
 import { organizationPageForFocus, type OrganizationPage } from '@/utils/organizations/pages'
 import { organizationActivityRows } from './model/activityFeed'
-import { organizationConfiguredDestinationCount, isDuplicateWatchlistTerm } from './model/watchlists'
+import { organizationConfiguredDestinationCount, isDuplicateWatchlistTerm, watchlistStatusCounts } from './model/watchlists'
 import { settingsEqual, parseInviteEmails, invalidInviteEmails } from './model/forms'
 import { normalizeOrganizationName, organizationNameInUse, organizationSearchText } from './model/organization'
 import { starterWatchlistSuggestions } from './model/organizationSuggestions'
@@ -52,8 +52,7 @@ export default function OrganizationWorkspaceClient({ page = 'overview' }: { pag
     const canEdit = canManage || selectedOrganization?.role?.toLowerCase() === 'editor'
     const requireManage = () => { if (!canManage) throw new Error('Owner or admin required.') }
     const requireEdit = () => { if (!canEdit) throw new Error('Editor access required.') }
-    const activeWatchlistCount = state.bundle.watchlists.filter(item => item.status.toLowerCase() === 'active').length
-    const pausedWatchlistCount = state.bundle.watchlists.filter(item => item.status.toLowerCase() === 'paused').length
+    const { active: activeWatchlistCount, paused: pausedWatchlistCount } = watchlistStatusCounts(state.bundle.watchlists)
     const activeMemberCount = state.bundle.members.filter(item => item.status.toLowerCase() === 'active').length
     const pendingInviteCount = state.bundle.invites.filter(item => item.status.toLowerCase() === 'pending').length
     const configuredDestinationCount = organizationConfiguredDestinationCount(state.bundle)
