@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Check, Copy, KeyRound, Plus, Search, X } from 'lucide-react'
 import config from '@/config'
-import { getCookie } from '@/utils/cookies/cookies'
+import { backendRequestHeaders } from '@/utils/auth/backendRequestHeaders'
 import DeleteAccountButton from './deleteAccountButton'
 import AccountDate from './accountDate'
 import ServiceAccountDescription from './serviceAccountDescription'
@@ -13,10 +13,8 @@ import { isManagementSearchShortcut } from '@/utils/isManagementSearchShortcut'
 type Endpoint = { method: string, route: string, label: string }
 type Account = { id: string, name: string, description?: string, active: boolean, created_at: string | null, keys: { lastUsedAt: string | null, scopes: Endpoint[] }[] }
 
-async function request(path = '', options: RequestInit = {}) {
-    const response = await fetch(`${config.url.api}/service-accounts${path}`, { ...options, cache: 'no-store', headers: {
-        'Content-Type': 'application/json', Authorization: `Bearer ${getCookie('access_token') || ''}`, id: getCookie('id') || '',
-    } })
+export async function requestServiceAccounts(path = '', options: RequestInit = {}) {
+    const response = await fetch(`${config.url.api}/service-accounts${path}`, { ...options, cache: 'no-store', headers: backendRequestHeaders() })
     const body = await response.json()
     if (!response.ok) throw new Error(body.error || 'Unable to update service accounts.')
     return body
@@ -41,7 +39,7 @@ export default function ServiceAccounts() {
     const nameInput = useRef<HTMLInputElement>(null)
     const dialog = useRef<HTMLDialogElement>(null)
     const load = useCallback(async () => {
-        const data = await request()
+        const data = await requestServiceAccounts()
         setAccounts(data.accounts)
         setEndpoints(data.endpoints)
         setReady(true)
@@ -90,7 +88,7 @@ export default function ServiceAccounts() {
                     if (pending || !name.trim() || !selected.length) return
                     setPending(true); setCreateError('')
                     try {
-                        const result = await request('', { method: 'POST', body: JSON.stringify({ name: name.trim(), description: description.trim(), scopes: endpoints.filter(endpoint => selected.includes(`${endpoint.method} ${endpoint.route}`)).map(({ method, route }) => ({ method, route })) }) })
+                        const result = await requestServiceAccounts('', { method: 'POST', body: JSON.stringify({ name: name.trim(), description: description.trim(), scopes: endpoints.filter(endpoint => selected.includes(`${endpoint.method} ${endpoint.route}`)).map(({ method, route }) => ({ method, route })) }) })
                         setSecret(result.secret); setName(''); setDescription(''); setSelected([]); setCopied(false); setCopyError(''); setError('')
                         dialog.current?.close()
                         await load().catch(error => setError(error.message))
@@ -132,9 +130,9 @@ export default function ServiceAccounts() {
             </section>}
             <div className='overflow-x-auto'><table className='w-full text-left text-sm'><thead><tr><th className='p-2'>Name</th><th className='p-2'>Description</th><th className='p-2'>Endpoints</th><th className='p-2'>Created</th><th className='p-2'>Last used</th><th className='p-2'><span className='sr-only'>Actions</span></th></tr></thead><tbody>
                 {visibleAccounts.map(account => <tr key={account.id} className='border-t border-ui-border'><td className='p-2'>{account.name}</td><td className='p-2'><ServiceAccountDescription name={account.name} description={account.description || ''} /></td><td className='p-2'>{account.keys.flatMap(key => key.scopes).map(scope => <div key={`${scope.method} ${scope.route}`}><code className='text-xs'>{scope.method} {scope.route}</code></div>)}</td><td className='p-2 whitespace-nowrap'><AccountDate value={account.created_at} /></td><td className='p-2 whitespace-nowrap'><AccountDate value={account.keys.map(key => key.lastUsedAt).filter((value): value is string => Boolean(value)).sort().at(-1)} empty='Never' /></td><td className='p-2'><div className='flex items-center justify-end gap-1'><EditServiceAccountButton name={account.name} description={account.description || ''} onSave={async details => {
-                    const saved = await request(`/${encodeURIComponent(account.id)}`, { method: 'PATCH', body: JSON.stringify(details) })
+                    const saved = await requestServiceAccounts(`/${encodeURIComponent(account.id)}`, { method: 'PATCH', body: JSON.stringify(details) })
                     setAccounts(current => current.map(item => item.id === account.id ? { ...item, name: saved.name, description: saved.description } : item))
-                }} /><DeleteAccountButton alwaysConfirm name={account.name} onDelete={async () => { await request(`/${encodeURIComponent(account.id)}`, { method: 'DELETE' }); await load() }} /></div></td></tr>)}
+                }} /><DeleteAccountButton alwaysConfirm name={account.name} onDelete={async () => { await requestServiceAccounts(`/${encodeURIComponent(account.id)}`, { method: 'DELETE' }); await load() }} /></div></td></tr>)}
             </tbody></table></div>
             {!visibleAccounts.length && <p className='text-sm text-ui-muted'>{activeAccounts.length ? 'No service accounts match your search.' : 'No service accounts yet.'}</p>}
         </>}
