@@ -4,7 +4,6 @@ import { ChangeEvent, Dispatch, SetStateAction, useEffect, useMemo, useRef, useS
 import '@styles/github.css'
 import './editor.css'
 import { postArticle } from '@/utils/articles/postArticle'
-import { configureMarkdownRenderer } from './markdownRenderer'
 import { EditorWithoutLogic } from './editorPresentation'
 export { EditorWithoutLogic, Markdown } from './editorPresentation'
 
@@ -21,8 +20,6 @@ type EditorProps = {
     editing: boolean
     setEditing?: Dispatch<SetStateAction<boolean>>
 }
-
-configureMarkdownRenderer()
 
 export default function Editor({
     id,
