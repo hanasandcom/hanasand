@@ -96,7 +96,7 @@ test('combined history and persistence contracts preserve populated delivery evi
                 deliveryKeys: [{
                     idempotencyKey: 'dwm.alert.updated:org_1:destination_1:case_1',
                     status: 'retry_scheduled',
-                    retry: { retryable: true, nextRetryAt: '2026-10-01T10:01:00.000Z' },
+                    retry: { retryable: true },
                     audit: { auditEventIds: ['audit_1'] },
                 }],
             },

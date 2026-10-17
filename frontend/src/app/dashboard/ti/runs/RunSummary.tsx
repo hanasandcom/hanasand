@@ -1,7 +1,8 @@
 import { AlertTriangle, CheckCircle2, ChevronDown, Clock3, PlayCircle, Rows3 } from 'lucide-react'
 import { DashboardPanel } from '@/components/dashboard/ui'
 import type { TiAdminOverview } from '@/utils/tiAdmin/ops'
-import { durationLabel, isOverdue, relativeUntil, statusClass } from './runPresentation'
+import { StatusPill } from '../dashboardPresentation'
+import { durationLabel, isOverdue, relativeUntil, runStatusTone } from './runPresentation'
 import type { CollectionRunSummary } from './runSummaryModel'
 
 export function RunSummary({ summary }: {
@@ -48,7 +49,7 @@ function LiveRunCard({ run, sourceName }: { run?: TiAdminOverview['runs'][number
     return <DashboardPanel className='overflow-hidden border-ui-border bg-ui-panel p-0'>
         <div className='flex items-center justify-between gap-3 border-b border-ui-border bg-ui-panel px-4 py-3'>
             <div className='flex items-center gap-2 text-sm font-semibold text-ui-text'><PlayCircle className='h-4 w-4 text-ui-primary' />Collector now</div>
-            {run ? <span className={statusClass(run.status)}>{run.status}</span> : null}
+            {run ? <StatusPill compact label={run.status} tone={runStatusTone(run.status)} className='inline-flex w-fit self-start whitespace-nowrap capitalize leading-5' /> : null}
         </div>
         <div className='p-4'>
             <p className='line-clamp-1 text-lg font-semibold text-ui-text'>{sourceName || (run ? 'Unknown source' : 'No active collection')}</p>

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { formatDatabaseBytes as bytes } from '@/utils/db/formatDatabaseBytes'
 import DatabaseSortButton from './DatabaseSortButton'
 import DatabaseRowPreview from './DatabaseRowPreview'
-import { compare, fetchPage } from './databaseInventoryHelpers'
+import { compare, fetchPage, nextSort } from './databaseInventoryHelpers'
 import type { Database, Instance, Item, ItemSort, Sort } from './databaseInventoryTypes'
 
 export default function DatabaseContents({ instance, database }: { instance: Instance, database: Database }) {
@@ -62,7 +62,7 @@ export default function DatabaseContents({ instance, database }: { instance: Ins
     return <div className='min-w-0 space-y-3 [contain:inline-size]'>
         {manyTables && <input ref={searchInput} type='search' value={search} onChange={event => setSearch(event.target.value)} placeholder='Search tables…' aria-label='Search tables' aria-keyshortcuts='Meta+X' className='w-full max-w-xs rounded border border-ui-border bg-ui-canvas px-3 py-1.5 text-sm' />}
         <div className='flex flex-wrap gap-4 px-3 sm:grid sm:grid-cols-[minmax(0,1fr)_12rem_7rem] sm:gap-2' aria-label='Sort database contents'>
-            {([['name', 'Name'], ['write', 'Last write'], ['size', 'Size']] as const).map(([key, label]) => <DatabaseSortButton key={key} label={label} active={sort.key === key} descending={sort.descending} onClick={() => setSort({ key, descending: sort.key === key ? !sort.descending : false })} />)}
+            {([['name', 'Name'], ['write', 'Last write'], ['size', 'Size']] as const).map(([key, label]) => <DatabaseSortButton key={key} label={label} active={sort.key === key} descending={sort.descending} onClick={() => setSort(current => nextSort(current, key))} />)}
         </div>
         {cursor && <p className='text-xs text-ui-muted'>Sorting loaded keys</p>}
         <div ref={list} className='min-w-0 space-y-3 overflow-y-auto' style={{ maxHeight: manyTables ? listHeight : undefined }}>

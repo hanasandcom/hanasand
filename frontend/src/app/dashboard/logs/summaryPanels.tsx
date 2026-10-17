@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { memo, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { dashboardPanelClass } from '@/components/dashboard/ui'
+import { formatLogCount } from './logPresentation'
 
 type Severity = 'low' | 'medium' | 'high' | 'critical'
 type ScopeSummary = { services: Array<{ service: string, count: number }>, severities: Record<Severity, number> }
@@ -25,7 +26,7 @@ export const MostActiveServicesPanel = memo(function MostActiveServicesPanel({ s
             </div>
         </header>
         <div id='most-active-services' hidden={!open} className='p-4'>
-            {services?.length ? <dl className='grid gap-2'>{services.map(item => <div key={item.service} className='flex justify-between gap-3 text-sm'><dt>{item.service}</dt><dd>{item.count.toLocaleString('en-US')}</dd></div>)}</dl> : services ? <p className='text-sm text-ui-muted'>No services in this period.</p> : <p role='status' className='text-sm text-ui-muted'>{loaded ? 'Service counts are temporarily unavailable.' : 'Loading service counts…'}</p>}
+            {services?.length ? <dl className='grid gap-2'>{services.map(item => <div key={item.service} className='flex justify-between gap-3 text-sm'><dt>{item.service}</dt><dd>{formatLogCount(item.count)}</dd></div>)}</dl> : services ? <p className='text-sm text-ui-muted'>No services in this period.</p> : <p role='status' className='text-sm text-ui-muted'>{loaded ? 'Service counts are temporarily unavailable.' : 'Loading service counts…'}</p>}
         </div>
     </section>
 })
@@ -42,6 +43,6 @@ export const LogMetricCard = memo(function LogMetricCard({ label, count24h, coun
                 <span aria-hidden className={`absolute left-1 h-3.5 w-3.5 rounded-full bg-ui-primary transition-transform ${total ? 'translate-x-9' : ''}`} />
             </button>
         </div>
-        <p className='mt-1.5 text-xl font-semibold tabular-nums sm:mt-2 sm:text-2xl'>{count === undefined ? '—' : count.toLocaleString('en-US')}</p>
+        <p className='mt-1.5 text-xl font-semibold tabular-nums sm:mt-2 sm:text-2xl'>{count === undefined ? '—' : formatLogCount(count)}</p>
     </article>
 })

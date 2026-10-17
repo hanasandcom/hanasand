@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { isManagementSearchShortcut } from '@/utils/isManagementSearchShortcut'
+import { useManagementSearchShortcut } from '@/hooks/useManagementSearchShortcut'
 import { getCookie } from '@/utils/cookies/cookies'
 import config from '@/config'
 import { auditQuery, param, readAuditPage, summarizeAuditFailures, type AuditPage, type AuditSearchParams } from './data'
@@ -158,6 +158,11 @@ export default function useAuditTimeline(initialAudit: AuditPage, filters: Audit
         document.body.style.overflow = 'hidden'
         return () => { document.body.style.overflow = overflow }
     }, [fullscreen])
+    useManagementSearchShortcut(() => {
+        setSearchOpen(true)
+        requestAnimationFrame(() => searchInput.current?.focus())
+    })
+
     useEffect(() => {
         const onKeyDown = (event: KeyboardEvent) => {
             if (event.key === 'Escape' && fullscreen && !event.isComposing) {
@@ -166,10 +171,6 @@ export default function useAuditTimeline(initialAudit: AuditPage, filters: Audit
                 setFullscreen(false)
                 return
             }
-            if (!isManagementSearchShortcut(event)) return
-            event.preventDefault()
-            setSearchOpen(true)
-            requestAnimationFrame(() => searchInput.current?.focus())
         }
         window.addEventListener('keydown', onKeyDown)
         return () => window.removeEventListener('keydown', onKeyDown)

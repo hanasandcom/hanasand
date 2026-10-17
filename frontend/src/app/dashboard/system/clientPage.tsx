@@ -14,6 +14,7 @@ import { ContainersSection } from './client/ContainersSection'
 import { VirtualMachinesSection } from './client/VirtualMachinesSection'
 import { SystemOverviewControls } from './client/SystemOverviewControls'
 import { SystemTriage } from './client/SystemTriage'
+import { TelemetryWarning } from './client/SystemUi'
 import { useContainerLogs } from './hooks/useContainerLogs'
 import { useSystemTelemetry } from './hooks/useSystemTelemetry'
 import { systemExpiredSessionPath } from './systemRoutes'
@@ -86,8 +87,8 @@ export default function SystemDashboard({ id, token, systemTelemetry, dockerTele
         <AppConfirmDialog open={stopAllVmsOpen} title='Stop all virtual machines?' body='This can interrupt active VM sessions.' confirmLabel='Stop VMs' tone='danger'
             onCancel={() => setStopAllVmsOpen(false)} onConfirm={() => void handleStopAll()} />
         {section === 'overview' ? <div id='system-telemetry' className='space-y-2'>
-            {telemetry.dockerTelemetry.unavailable_reason && <p className='rounded-md border border-ui-warning/35 bg-ui-warning/10 px-3 py-2 text-sm text-ui-warning'>Docker telemetry degraded: {telemetry.dockerTelemetry.unavailable_reason}</p>}
-            {telemetry.systemUnavailableReason && <p className='rounded-md border border-ui-warning/35 bg-ui-warning/10 px-3 py-2 text-sm text-ui-warning'>Host telemetry degraded: {telemetry.systemUnavailableReason}</p>}
+            {telemetry.dockerTelemetry.unavailable_reason && <TelemetryWarning source='Docker' reason={telemetry.dockerTelemetry.unavailable_reason} />}
+            {telemetry.systemUnavailableReason && <TelemetryWarning source='Host' reason={telemetry.systemUnavailableReason} />}
         </div> : null}
         {section === 'virtual-machines' ? <SystemTriage runningContainers={runningContainers} containerCount={containers.length} runningVms={runningVms} {...triage} /> : null}
         {section === 'containers' ? <ContainersSection containers={containers} selectedContainer={selectedContainer}

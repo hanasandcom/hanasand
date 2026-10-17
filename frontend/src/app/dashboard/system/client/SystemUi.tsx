@@ -35,6 +35,12 @@ export function Fact({ label, value, reason }: { label: string, value: string, r
     </div>
 }
 
+export function TelemetryWarning({ source, reason }: { source: string, reason: string }) {
+    return <p className='rounded-md border border-ui-warning/35 bg-ui-warning/10 px-3 py-2 text-sm text-ui-warning'>
+        {source} telemetry degraded: {reason}
+    </p>
+}
+
 export function HealthPill({ health }: { health: ReturnType<typeof containerHealth> }) {
     const tone = health.tone === 'ok' ? 'border-ui-success/35 bg-ui-success/10 text-ui-success' : health.tone === 'warn' ? 'border-ui-warning/35 bg-ui-warning/10 text-ui-warning' : health.tone === 'bad' ? 'border-ui-danger/35 bg-ui-raised/10 text-ui-text' : 'border-ui-border bg-ui-raised text-ui-text'
     const Icon = health.tone === 'ok' ? CheckCircle2 : health.tone === 'bad' ? AlertTriangle : Clock3

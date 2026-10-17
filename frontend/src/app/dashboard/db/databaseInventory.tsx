@@ -4,7 +4,7 @@ import { Fragment, useContext, useEffect, useRef, useState } from 'react'
 import { formatDatabaseBytes as bytes } from '@/utils/db/formatDatabaseBytes'
 import DatabaseSortButton from './DatabaseSortButton'
 import DatabaseContents from './DatabaseContents'
-import { compare } from './databaseInventoryHelpers'
+import { compare, nextSort } from './databaseInventoryHelpers'
 import type { DatabaseSort, Instance, Sort } from './databaseInventoryTypes'
 import { DatabaseFullscreenContext } from './databaseStoragePanel'
 
@@ -32,7 +32,7 @@ export default function DatabaseInventory({ instances, stale }: { instances: Ins
     const columns: [DatabaseSort, string][] = [['name', 'Database'], ['instance', 'Instance'], ['health', 'Health'], ['count', 'Tables / keys'], ['connections', 'Connections'], ['size', 'Size']]
     const maxHeight = fullscreen ? 'calc(100dvh - 6rem)' : rows.length > 6 ? height === undefined ? undefined : height * (expanded ? 2 : 1) : undefined
     return <div ref={viewport} className='overflow-auto' style={{ maxHeight }} tabIndex={0} aria-label='Databases'><table className='w-full text-left text-sm'>
-        <thead className='sticky top-0 z-10 bg-ui-raised text-xs text-ui-muted'><tr>{columns.map(([key, label]) => <th key={key} aria-sort={sort.key === key ? sort.descending ? 'descending' : 'ascending' : 'none'} className='px-5 py-2 font-medium'><DatabaseSortButton label={label} active={sort.key === key} descending={sort.descending} onClick={() => setSort({ key, descending: sort.key === key ? !sort.descending : false })} /></th>)}</tr></thead>
+        <thead className='sticky top-0 z-10 bg-ui-raised text-xs text-ui-muted'><tr>{columns.map(([key, label]) => <th key={key} aria-sort={sort.key === key ? sort.descending ? 'descending' : 'ascending' : 'none'} className='px-5 py-2 font-medium'><DatabaseSortButton label={label} active={sort.key === key} descending={sort.descending} onClick={() => setSort(current => nextSort(current, key))} /></th>)}</tr></thead>
         <tbody>
             {rows.map(({ instance, database }) => {
                 const key = `${instance.id}/${database.name}`, open = expanded === key

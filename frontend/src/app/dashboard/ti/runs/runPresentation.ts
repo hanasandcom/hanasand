@@ -1,10 +1,10 @@
 export { shortTime as shortDate } from '../dashboardPresentation'
+import type { StatusTone } from '../dashboardPresentation'
 
-export function statusClass(status: string) {
-    const base = 'inline-flex w-fit self-start whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-semibold capitalize leading-5'
-    if (status === 'completed') return `${base} border-ui-success/35 bg-ui-success/10 text-ui-success`
-    if (status === 'failed') return `${base} border-ui-danger/35 bg-ui-raised/10 text-ui-text`
-    return `${base} border-ui-border bg-ui-panel text-ui-primary`
+export function runStatusTone(status: string): StatusTone {
+    if (status === 'completed') return 'ok'
+    if (status === 'failed') return 'bad'
+    return 'neutral'
 }
 
 export function durationLabel(startedAt: string, finishedAt?: string) {

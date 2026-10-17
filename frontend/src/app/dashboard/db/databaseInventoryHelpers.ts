@@ -1,4 +1,8 @@
-import type { Page } from './databaseInventoryTypes'
+import type { Page, Sort } from './databaseInventoryTypes'
+
+export function nextSort<K extends string>(sort: Sort<K>, key: K): Sort<K> {
+    return { key, descending: sort.key === key ? !sort.descending : false }
+}
 
 export function compare(a: string | number | null | undefined, b: string | number | null | undefined, descending: boolean) {
     if (a == null) return b == null ? 0 : 1

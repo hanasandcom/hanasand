@@ -1,5 +1,11 @@
 import type { LogEvent } from '@/utils/logs/search'
 
+const logCountFormatter = new Intl.NumberFormat('en-US')
+
+export function formatLogCount(value: number) {
+    return logCountFormatter.format(value)
+}
+
 export const logFieldClass = 'rounded-lg border border-ui-border bg-ui-panel px-3 py-2 text-sm text-ui-text'
 
 export const logSeverityClasses: Record<string, string> = {

@@ -1,12 +1,7 @@
-import { displayRequirementText, formatLabel, sourceHealthFieldLabel, unique, type DecisionStep, type SourceHealthRow } from './pageModel'
+import { displayRequirementText, formatLabel, sourceHealthFieldLabel, unique, type SourceHealthRow } from './pageModel'
 import type { ActorArtifactHandoffs } from '@/utils/ti/actorWorkbench'
 import { humanizeSlug } from '../seo'
 
-export function consumerFieldClass(state: DecisionStep['status']) {
-    if (state === 'ready') return 'max-w-full wrap-break-word rounded-md border border-ui-success/35 bg-ui-success/10 px-2 py-1 text-[11px] font-semibold text-ui-success dark:border-ui-success/35 dark:bg-ui-success/10 dark:text-ui-success'
-    if (state === 'review') return 'max-w-full wrap-break-word rounded-md border border-ui-border bg-ui-panel px-2 py-1 text-[11px] font-semibold text-ui-text dark:border-ui-border dark:bg-ui-panel dark:text-ui-text'
-    return 'max-w-full wrap-break-word rounded-md border border-ui-warning/35 bg-ui-warning/10 px-2 py-1 text-[11px] font-semibold text-ui-warning dark:border-ui-warning/35 dark:bg-ui-warning/10 dark:text-ui-warning'
-}
 export function sourceHealthChipClass(state: SourceHealthRow['state']) {
     if (state === 'ready') return 'max-w-full wrap-break-word rounded-md border border-ui-success/35 bg-ui-success/10 px-2 py-1 text-[11px] font-semibold text-ui-success dark:border-ui-success/35 dark:bg-ui-success/10 dark:text-ui-success'
     if (state === 'review') return 'max-w-full wrap-break-word rounded-md border border-ui-border bg-ui-panel px-2 py-1 text-[11px] font-semibold text-ui-text dark:border-ui-border dark:bg-ui-panel dark:text-ui-text'

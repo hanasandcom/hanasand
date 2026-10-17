@@ -8,11 +8,12 @@ export type StatusTone = 'neutral' | 'ok' | 'watch' | 'bad'
 
 export const workerStatusTone = (state: string): StatusTone => state === 'active' ? 'ok' : state === 'unavailable' ? 'bad' : 'watch'
 
-export function StatusPill({ label, tone, compact = false, variant = 'default' }: {
+export function StatusPill({ label, tone, compact = false, variant = 'default', className = '' }: {
     label: string
     tone: StatusTone
     compact?: boolean
     variant?: 'default' | 'activity'
+    className?: string
 }) {
     const classes = toneClass(tone)
     const sizeClass = variant === 'activity'
@@ -21,7 +22,7 @@ export function StatusPill({ label, tone, compact = false, variant = 'default' }
             ? `rounded-full border px-2 py-0.5 text-xs font-semibold ${classes.compactBg}`
             : `whitespace-nowrap rounded-full px-2 py-1 text-xs font-semibold ${classes.bg}`
     return (
-        <span className={`${sizeClass} ${variant === 'activity' ? classes.activityBg : classes.text}`}>
+        <span className={`${sizeClass} ${variant === 'activity' ? classes.activityBg : classes.text} ${className}`.trim()}>
             {label}
         </span>
     )

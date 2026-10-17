@@ -3,7 +3,8 @@ import { ArrowRight, Rows3 } from 'lucide-react'
 import PageNavigation from '@/components/dashboard/page-navigation'
 import { DashboardPanel } from '@/components/dashboard/ui'
 import type { TiAdminOverview } from '@/utils/tiAdmin/ops'
-import { durationLabel, shortDate, statusClass } from './runPresentation'
+import { StatusPill } from '../dashboardPresentation'
+import { durationLabel, shortDate, runStatusTone } from './runPresentation'
 import type { CollectionRunSummary } from './runSummaryModel'
 
 export function RunActivityPanel({ summary, sources, page, total }: {
@@ -39,7 +40,7 @@ export function RunActivityPanel({ summary, sources, page, total }: {
                             {run.message ? <p className='mt-1 line-clamp-1 text-xs text-ui-muted'>{run.message}</p> : null}
                         </div>
                         <SourceCell run={run} />
-                        <span className={statusClass(run.status)}>{run.status}</span>
+                        <StatusPill compact label={run.status} tone={runStatusTone(run.status)} className='inline-flex w-fit self-start whitespace-nowrap capitalize leading-5' />
                         <span className='text-ui-muted'>{shortDate(run.startedAt)}</span>
                         <span className='font-semibold text-ui-text'>{durationLabel(run.startedAt, run.finishedAt)}</span>
                         <span className='text-ui-primary'>{run.captures} cap · {run.screenshots} shots · {run.rows} rows</span>

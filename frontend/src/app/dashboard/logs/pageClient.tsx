@@ -11,7 +11,7 @@ import { LogMetricCard, MostActiveServicesPanel, type LogsDashboardSummary } fro
 import { LogResultsPanel } from './LogResultsPanel'
 import { useLogSearch } from './useLogSearch'
 import { LogsToolbar } from './LogsToolbar'
-import { logFieldClass } from './logPresentation'
+import { formatLogCount, logFieldClass } from './logPresentation'
 
 export default function LogsPageClient({ initialServices = [], initialErrors, initialServiceFilter = 'all', initialData = null, initialError = '', initialMetrics = null }: { initialServices?: LogService[], initialErrors?: ErrorEventsResponse, initialServiceFilter?: string, initialData?: Result | null, initialError?: string, initialMetrics?: Metrics | null }) {
     const pathname = usePathname()
@@ -115,7 +115,7 @@ export default function LogsPageClient({ initialServices = [], initialErrors, in
     const resultCount = data?.rows.length || 0
     const showRealtimeCount = view === 'realtime' && !advanced && !data?.summarize
     const resultLabel = view === 'realtime'
-        ? showRealtimeCount ? `${resultCount.toLocaleString('en-US')}/${data?.total_events?.toLocaleString('en-US') ?? '—'}` : `${resultCount} events`
+        ? showRealtimeCount ? `${formatLogCount(resultCount)}/${data?.total_events === undefined ? '—' : formatLogCount(data.total_events)}` : `${resultCount} events`
         : `${resultCount} results${data && resultCount === data.limit && (view !== 'search' || advanced) ? ` · limited to ${data.limit}; narrow your search or use take up to 500` : ''}`
     return <div className={`${view === 'realtime' ? 'flex h-full min-h-0 flex-col gap-3 sm:gap-4' : 'grid gap-3 sm:gap-4'} min-w-0`}>
         <LogsToolbar
@@ -159,7 +159,7 @@ export default function LogsPageClient({ initialServices = [], initialErrors, in
             {processingError && <p role='alert' className='text-sm text-ui-text'>Event processing is delayed: {processingError}</p>}
             {view === 'dashboard' && analyticsOpen && <ThroughputMetrics initialMetrics={initialMetrics} />}
             {view === 'dashboard' && <LogCatchupProgress progress={data?.processing?.catchup} now={data?.generated_at || new Date().toISOString()} stalled={!!processingError} />}
-            {!!data?.processing?.skipped_events && <p role='status' className='text-sm text-ui-warning'>{data.processing.skipped_events.toLocaleString('en-US')} events remain excluded from detection.</p>}
+            {!!data?.processing?.skipped_events && <p role='status' className='text-sm text-ui-warning'>{formatLogCount(data.processing.skipped_events)} events remain excluded from detection.</p>}
             {view !== 'realtime' && data && !data.processing && !busy && <p role='status' className='text-sm text-ui-warning'>Waiting for the log processor to check in.</p>}
             {view === 'dashboard' ? <>
                 <section className='grid grid-cols-2 gap-2.5 min-[380px]:gap-3 md:grid-cols-3 xl:grid-cols-5' aria-label='Events by severity' data-logs-metrics>

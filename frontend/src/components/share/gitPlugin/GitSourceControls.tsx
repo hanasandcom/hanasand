@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { GitBranch, GitPullRequestArrow, LoaderCircle, LockKeyhole } from 'lucide-react'
 import { autoPullOptions } from './storage'
 import type { GitPluginState } from './types'
+import { GitPluginPanel } from './GitPluginPanel'
 
 type Props = Pick<GitPluginState, 'input' | 'setInput' | 'githubToken' | 'setGitHubToken' | 'isSignedIn' | 'pending' | 'currentInput' | 'syncRepository' | 'autoPullMinutes' | 'setAutoPullMinutes'>
 
@@ -48,7 +49,7 @@ export function GitSourceControls({ input, setInput, githubToken, setGitHubToken
                 </button>
             </div>
 
-            <div className='rounded-lg border border-ui-border bg-ui-raised p-2.5'>
+            <GitPluginPanel>
                 <div className='flex items-center justify-between gap-2'>
                     <div>
                         <div className='text-[11px] font-semibold text-ui-text'>Auto pull</div>
@@ -58,7 +59,7 @@ export function GitSourceControls({ input, setInput, githubToken, setGitHubToken
                         {autoPullOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
                     </select>
                 </div>
-            </div>
+            </GitPluginPanel>
         </>
     )
 }

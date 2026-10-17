@@ -1,11 +1,12 @@
 import { Check, LoaderCircle, RotateCcw } from 'lucide-react'
 import type { GitPluginState } from './types'
+import { GitPluginPanel } from './GitPluginPanel'
 
 type Props = Pick<GitPluginState, 'isSignedIn' | 'pending' | 'loadGitStatus' | 'gitStatus' | 'selectedPaths' | 'stageAll' | 'togglePath' | 'stored'>
 
 export function GitChangesPanel({ isSignedIn, pending, loadGitStatus, gitStatus, selectedPaths, stageAll, togglePath, stored }: Props) {
     return (
-        <div className='rounded-lg border border-ui-border bg-ui-raised p-2.5'>
+        <GitPluginPanel>
             <div className='flex items-center justify-between gap-2'>
                 <div className='min-w-0'>
                     <div className='text-[11px] font-semibold text-ui-text'>Changes</div>
@@ -41,6 +42,6 @@ export function GitChangesPanel({ isSignedIn, pending, loadGitStatus, gitStatus,
             ) : gitStatus ? (
                 <div className='mt-2 rounded-lg border border-ui-border bg-ui-panel px-2 py-2 text-[11px] text-ui-muted'>No changed files.</div>
             ) : null}
-        </div>
+        </GitPluginPanel>
     )
 }

@@ -1,11 +1,12 @@
 import { GitCommitHorizontal, GitPullRequestArrow, LoaderCircle, SendHorizontal } from 'lucide-react'
 import type { GitPluginState } from './types'
+import { GitPluginPanel } from './GitPluginPanel'
 
 type Props = Pick<GitPluginState, 'isSignedIn' | 'pending' | 'pullGitWorkspace' | 'commitSelectedFiles' | 'pushGitWorkspace' | 'selectedPaths' | 'commitMessage' | 'setCommitMessage'>
 
 export function GitCommitPanel({ isSignedIn, pending, pullGitWorkspace, commitSelectedFiles, pushGitWorkspace, selectedPaths, commitMessage, setCommitMessage }: Props) {
     return (
-        <div className='rounded-lg border border-ui-border bg-ui-raised p-2.5'>
+        <GitPluginPanel>
             <div className='text-[11px] font-semibold text-ui-text'>Commit and push</div>
             <input value={commitMessage} onChange={event => setCommitMessage(event.target.value)} placeholder='Commit message' className='mt-2 min-w-0 rounded-lg border border-ui-border bg-ui-panel px-2.5 py-2 text-xs text-ui-text outline-none placeholder:text-ui-muted focus:border-ui-primary' />
             <div className='mt-2 grid grid-cols-3 gap-2'>
@@ -22,6 +23,6 @@ export function GitCommitPanel({ isSignedIn, pending, pullGitWorkspace, commitSe
                     Push
                 </button>
             </div>
-        </div>
+        </GitPluginPanel>
     )
 }

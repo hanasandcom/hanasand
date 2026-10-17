@@ -1,6 +1,6 @@
 'use client'
 
-import { consumerFieldClass, consumerRequestFields } from '../pageClientShared'
+import { sourceHealthChipClass, consumerRequestFields } from '../pageClientShared'
 import { consumerRequestActionLabel, decisionStepStatusClass, displayRequirementList, displayRequirementText, publicStateLabel } from '../pageModel'
 import { ExternalLink } from 'lucide-react'
 import { type TiActionabilityModel } from '@/utils/ti/actionability'
@@ -51,7 +51,7 @@ export default function ConsumerReadinessPanel({ actionability }: { actionabilit
                                     </div>
                                     <div data-ti-consumer-field-readiness='true' className='mt-2 flex min-w-0 flex-wrap gap-1.5'>
                                         {consumerRequestFields(stage).map(field => (
-                                            <span key={`${stage.id}-${field.label}`} className={consumerFieldClass(field.state)}>
+                                            <span key={`${stage.id}-${field.label}`} className={sourceHealthChipClass(field.state)}>
                                                 {field.label}: {displayRequirementText(field.value)}
                                             </span>
                                         ))}

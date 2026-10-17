@@ -2337,3 +2337,18 @@ this checkpoint improves reuse but does not advance the aggregate line-reduction
 target. Current scans report 2,413 frontend files / 155,957 lines and 4,555
 repository files / 328,652 lines, with no file above 200. The 10,000–30,000
 frontend target and 100,000-line API reduction remain open.
+
+At the 2026-10-17 frontend behavior-reuse checkpoint, database inventory sorting,
+log count formatting, system telemetry warnings, TI run status, and Git plugin
+panel shells use shared helpers/components with their existing markup and
+behavior preserved. The organization workspace source scan was replaced with
+runtime and behavior-level assertions; DWM read-model tests drop one duplicate
+timestamp expectation. Independent reviews approved the implementation slices.
+The full registered frontend suite and production build (116 routes) pass, as
+do the focused API read-model tests (5 tests / 12 assertions), diff check, and
+both line-cap scans. The current worktree inventory, which includes unrelated
+concurrent prompt-auth edits, is 2,418 frontend files / 156,141 lines and 4,560
+repository files / 328,836 lines; every hand-maintained file is at most 200
+lines. The frontend 10,000–30,000-line and API 100,000-line reduction targets
+remain open; this batch establishes behavior reuse and test quality without a
+material aggregate LOC reduction.

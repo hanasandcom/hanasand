@@ -1,16 +1,17 @@
 import { Clock3 } from 'lucide-react'
 import { formatEta } from './storage'
 import type { LanguageStat } from './types'
+import { GitPluginPanel } from './GitPluginPanel'
 
 type Props = { progress: AISyncProgress | null, startedAt: number | null, languages: LanguageStat[] }
 
 export function GitSyncSummary({ progress, startedAt, languages }: Props) {
     if (!progress && !languages.length) return null
     return (
-        <div className='rounded-lg border border-ui-border bg-ui-raised p-2.5'>
+        <GitPluginPanel>
             {progress ? <SyncProgressMeter progress={progress} startedAt={startedAt} /> : null}
             {languages.length ? <LanguageOverview stats={languages} /> : null}
-        </div>
+        </GitPluginPanel>
     )
 }
 

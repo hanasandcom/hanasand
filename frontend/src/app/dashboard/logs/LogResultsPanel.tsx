@@ -3,7 +3,7 @@ import { Copy, RefreshCw } from 'lucide-react'
 import type { LogEvent as Event, LogSearchResult as Result } from '@/utils/logs/search'
 import { dashboardPanelClass } from '@/components/dashboard/ui'
 import EventFeed from './eventFeed'
-import { logFieldClass, logSeverityClasses, projectedLogFields } from './logPresentation'
+import { formatLogCount, logFieldClass, logSeverityClasses, projectedLogFields } from './logPresentation'
 import EventDisclosureTrigger from './EventDisclosure'
 
 type LogsView = 'dashboard' | 'realtime' | 'search' | 'errors'
@@ -47,7 +47,7 @@ export function LogResultsPanel({
 }) {
     return <section className={`${dashboardPanelClass} min-w-0 overflow-hidden ${view === 'realtime' ? 'flex min-h-0 flex-1 flex-col' : ''}`} aria-label='Log events'>
         <div className='flex flex-wrap items-center justify-between gap-2 border-b border-ui-border p-3 text-xs text-ui-muted'>
-            <span>{showRealtimeCount ? <><span aria-hidden>{resultLabel}</span><span className='sr-only'>{resultCount.toLocaleString('en-US')} of {data?.total_events?.toLocaleString('en-US') ?? 'an unknown number of'} high and critical events</span></> : resultLabel}</span>
+            <span>{showRealtimeCount ? <><span aria-hidden>{resultLabel}</span><span className='sr-only'>{formatLogCount(resultCount)} of {data?.total_events === undefined ? 'an unknown number of' : formatLogCount(data.total_events)} high and critical events</span></> : resultLabel}</span>
             <div className='inline-flex items-center gap-2'>
                 {(busy || copied || view !== 'realtime') && <span role='status'>{busy ? 'Searching…' : view === 'realtime' ? '' : 'Results'}{copied ? ' · Event copied' : ''}</span>}
                 {view === 'realtime' && <button type='button' onClick={onRefresh} disabled={busy} aria-label='Refresh events' title='Refresh events · automatically every 10 seconds' className='inline-flex items-center gap-1 rounded-md px-1 py-0.5 hover:text-ui-primary disabled:opacity-50'><RefreshCw size={14} aria-hidden /><span>10s</span></button>}
