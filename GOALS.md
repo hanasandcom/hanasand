@@ -1213,3 +1213,18 @@ resolving two over-cap files. Their focused tests, API lint/typecheck, and
 independent review pass. Repository scan: 82 of 4,184 hand-maintained files
 over 200 lines, 324,289 LOC total. The API 100,000-line and frontend
 10,000–30,000-line targets remain outstanding. No deployment was performed.
+
+The next checkpoint decomposes passkey handlers into registration,
+authentication, and support modules; password-reset handlers into code-flow,
+security-action, and support modules; and AI workspace orchestration into auth,
+queries, projections, and bundle modules. Existing route/export names and handler
+behavior were preserved and independently reviewed. The new password-reset
+code-flow test verifies that the emailed code equals the plaintext passed to
+hashing, in addition to checking the stored hash and verification-token
+exchange. The full default API runner passed all 329 registered suites (37
+database-required suites are excluded); the updated password-reset focused test
+also passed. API lint/typecheck and focused passkey/AI suites passed. All new
+modules are under 200 lines. Repository cap scan is now 79 of 4,195
+hand-maintained files over 200 lines / 324,479 LOC; frontend remains at 2,312
+files / 153,363 LOC / zero over 200. The 100,000-line API and 10,000–30,000-line
+frontend goals remain outstanding. No deployment was performed.
