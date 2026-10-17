@@ -4,12 +4,9 @@ import { AuthSession, fetchSessions, revokeOtherSessions, revokeSession } from '
 import { removeCookies } from '@/utils/cookies/cookies'
 import { sessionDevice } from '@/utils/auth/sessionDevice'
 import { DashboardPanel } from '@/components/dashboard/ui'
+import { formatAccountDateTime } from './formatAccountDateTime'
 import { Laptop, LogOut, Server, Smartphone } from 'lucide-react'
 import { useEffect, useState } from 'react'
-
-function formatDate(value: string) {
-    return new Intl.DateTimeFormat('en', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
-}
 
 export default function SessionsPanel({ isSelf, initialSessions }: { isSelf: boolean, initialSessions?: AuthSession[] }) {
     const [sessions, setSessions] = useState<AuthSession[]>(initialSessions || [])
@@ -82,7 +79,7 @@ export default function SessionsPanel({ isSelf, initialSessions }: { isSelf: boo
                                 <p className='mt-1 wrap-break-word text-xs text-ui-muted'>{session.ip ? `Public IP ${session.ip}` : session.private_ip ? `Private IP ${session.private_ip}` : 'Public IP was not captured for this login'}</p>
                                 <p className='mt-1 text-xs text-ui-muted'>ISP / network: {session.private_ip ? 'NTNU' : session.network?.provider || 'Unavailable'}</p>
                                 <p className='mt-1 text-xs text-ui-muted'>Approximate location: {session.private_ip ? 'Trondheim' : location || 'Unavailable'}</p>
-                                <p className='mt-1 text-xs text-ui-muted'>Signed in {formatDate(session.created_at)} · Last active {formatDate(session.last_seen_at)}</p>
+                                <p className='mt-1 text-xs text-ui-muted'>Signed in {formatAccountDateTime(session.created_at)} · Last active {formatAccountDateTime(session.last_seen_at)}</p>
                             </div>
                             <button disabled={busy} onClick={() => revoke(session.token_id)} aria-label={`Revoke ${device.label} session`} className='h-8 cursor-pointer rounded-lg border border-ui-danger/40 bg-ui-raised/10 px-3 text-xs font-semibold text-ui-text hover:bg-ui-raised/15 disabled:opacity-50'>
                                 <LogOut className='mr-2 inline h-4 w-4' />Revoke

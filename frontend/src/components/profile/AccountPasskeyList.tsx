@@ -1,5 +1,6 @@
 import { Check, Pencil, X } from 'lucide-react'
 import type { PasskeyRow } from './useAccountPasskeys'
+import { formatAccountDateTime } from './formatAccountDateTime'
 
 type Props = {
     passkeys: PasskeyRow[]
@@ -74,8 +75,8 @@ export function AccountPasskeyList({
                             )}
                             <p className='mt-1 text-xs text-ui-muted'>
                                 {passkey.algorithm} · {passkey.lastUsedAt
-                                    ? `Last used ${formatDate(passkey.lastUsedAt)}`
-                                    : `Added ${formatDate(passkey.createdAt)}`}
+                                    ? `Last used ${formatAccountDateTime(passkey.lastUsedAt)}`
+                                    : `Added ${formatAccountDateTime(passkey.createdAt)}`}
                             </p>
                         </div>
                         <div className='flex shrink-0 flex-wrap gap-2'>
@@ -105,8 +106,4 @@ export function AccountPasskeyList({
             </div>
         </>
     )
-}
-
-function formatDate(value: string) {
-    return new Intl.DateTimeFormat('en', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
 }

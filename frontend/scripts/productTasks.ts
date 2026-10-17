@@ -9,6 +9,7 @@ export const productTasks: TestTask[] = [
     { id: 'dashboard-three-column-loading', title: 'Findings and TI dashboard loading layouts', command: [bun, 'test', 'tests/dashboard-three-column-loading.test.tsx'] },
     { id: 'dashboard-content-item', title: 'Article and thought dashboard row behavior', command: [bun, 'test', 'tests/dashboard-content-item.test.tsx'] },
     { id: 'profile-link-card', title: 'Shared profile navigation card rendering', command: [bun, 'test', 'tests/profile-link-card.test.tsx'] },
+    { id: 'profile-account-date-time', title: 'Shared session and passkey date presentation', command: [bun, 'test', 'tests/profile-account-date-time.test.ts'] },
     { id: 'marquee-render', title: 'Shared and heading marquee rendering contracts', command: [bun, 'test', 'tests/marquee-render.test.tsx'] },
     { id: 'shortcut-input-render', title: 'Shared shortcut creator and lookup field contract', command: [bun, 'test', 'tests/shortcut-input-render.test.tsx'] },
     { id: 'browser-reconnect', title: 'Browser control reconnect lifecycle', command: [bun, 'test', 'tests/browser-control-reconnect.test.ts'] },
