@@ -1,125 +1,14 @@
-import { beforeEach, expect, mock, test } from 'bun:test'
+import { beforeEach, expect, test } from 'bun:test'
+import {
+    ACCOUNT_DELETION_PURGE_JOB_ID, accountExists, canRunApiCronJobNow, databaseBackupPolls,
+    deletionAuditEvents, deletedFromUsers, failoverJobId,
+    failoverRuns, getBackgroundJobRuntime, listBackgroundJobRuntime, mockNow,
+    purgeJobId, resetAccountDeletionSchedulerState, scheduledJobRegistryGuardrailEntries,
+    setFailoverPaused, setMockNow, setPurgePaused,
+    scheduledTick, scheduleExpression, sqlCalls, startCron, tokenRevocations, deleteSelf,
+} from './account-deletion-scheduler-fixture.ts'
 
-let accountExists = true
-let deletionScheduledAt: number | null = null
-let mockNow = Date.now()
-let scheduledTick: (() => Promise<void>) | undefined
-let scheduleExpression = ''
-const purgeJobId = 'api-user-account-deletion'
-const tokenRevocations: Array<{ userId: string, revokedBy: string }> = []
-const deletedFromUsers: string[] = []
-const deletionAuditEvents: Array<Record<string, unknown>> = []
-const sqlCalls: string[] = []
-let databaseBackupPolls = 0
-let purgePaused = false
-const failoverJobId = 'api-vm-failover'
-let failoverPaused = true
-let failoverRuns = 0
-
-async function query(sql: string, params: unknown[] = []) {
-    const normalized = sql.replace(/\s+/g, ' ').trim()
-    sqlCalls.push(normalized)
-    if (normalized.startsWith('SELECT status FROM scheduled_job_controls')) {
-        const enabled = (params[0] === purgeJobId && !purgePaused) || (params[0] === failoverJobId && !failoverPaused)
-        return { rows: [{ status: enabled ? 'enabled' : 'paused' }] }
-    }
-    if (normalized.startsWith('SELECT id FROM users WHERE id = $1 FOR UPDATE')) return { rows: accountExists ? [{ id: 'expired-user' }] : [] }
-    if (normalized.startsWith('UPDATE users') && normalized.includes('deletion_scheduled_at = NOW() + INTERVAL \'30 days\'')) {
-        deletionScheduledAt = mockNow + 30 * 24 * 60 * 60 * 1000
-        return { rows: accountExists ? [{ id: 'expired-user', name: 'Expired User', avatar: null, active: true,
-            deletion_requested_at: new Date(mockNow).toISOString(), deletion_scheduled_at: new Date(deletionScheduledAt).toISOString() }] : [] }
-    }
-    if (normalized.includes('COALESCE(NULLIF(u.email')) return { rows: [{ email: 'expired@example.test' }] }
-    if (normalized.startsWith('SELECT COUNT(DISTINCT user_account.id)')) return { rows: [{ count: 0 }] }
-    if (normalized.startsWith('WITH eligible_accounts') && normalized.includes('FROM users user_account')) {
-        return { rows: accountIsDue() ? [{ id: 'expired-user' }] : [] }
-    }
-    if (normalized.startsWith('SELECT id, name, email FROM users')) {
-        return { rows: accountIsDue() && params[0] === 'expired-user' ? [{ id: 'expired-user', name: 'Expired User', email: 'expired@example.test' }] : [] }
-    }
-    if (normalized.startsWith('DELETE FROM users')) {
-        if (accountIsDue() && params[0] === 'expired-user') {
-            accountExists = false
-            deletedFromUsers.push(String(params[0]))
-            return { rows: [{ id: 'expired-user' }] }
-        }
-    }
-    return { rows: [] }
-}
-
-function accountIsDue() {
-    return accountExists && deletionScheduledAt !== null && deletionScheduledAt <= mockNow
-}
-
-mock.module('node-cron', () => ({ schedule: (expression: string, callback: () => Promise<void>) => {
-    scheduleExpression = expression
-    scheduledTick = callback
-    return {}
-} }))
-mock.module('#db', () => ({
-    default: query,
-    queryOnce: query,
-    identityQueryOnce: async () => ({ rows: [] }),
-    withDatabaseAdvisoryLock: async (_key: string, work: (transactionQuery: typeof query) => Promise<unknown>) => work(query),
-    tryWithDatabaseAdvisoryLock: async (_key: string, work: () => Promise<unknown>) => ({ acquired: true, result: await work() }),
-    withTransaction: async (work: (transactionQuery: typeof query) => Promise<unknown>) => work(query),
-}))
-mock.module('../src/utils/events/rawLogRetention.ts', () => ({ RAW_LOG_RETENTION_JOB_ID: 'api-raw-log-retention', retainRawLogs: async () => 0, retainTrafficLogs: async () => 0 }))
-mock.module('../src/utils/caseDelivery.ts', () => ({ CASE_DELIVERY_JOB_ID: 'api-case-delivery', deliverCases: async () => ({ sent: 0 }) }))
-mock.module('../src/utils/vms/deletion.ts', () => ({ maintainDeletedVms: async () => 0 }))
-mock.module('../src/utils/vms/collectMetrics.ts', () => ({ default: async () => 0, VM_METRICS_JOB_ID: 'api-vm-metrics' }))
-mock.module('../src/utils/mail/accounts.ts', () => ({ provisionExistingMailAccounts: async () => 0 }))
-mock.module('../src/utils/mail/config.ts', () => ({ mailConfig: { adminPassword: '' } }))
-mock.module('../src/utils/vms/ensureAlwaysRunning.ts', () => ({ default: async () => 0 }))
-mock.module('../src/utils/automations.ts', () => ({ runDueAutomations: async () => 0 }))
-mock.module('../src/utils/db/backups.ts', () => ({
-    DATABASE_BACKUP_JOB_ID: 'api-database-backup',
-    collectDatabaseBackupServices: async () => [],
-    createDatabaseBackup: async () => null,
-    runDueDatabaseBackup: async () => { databaseBackupPolls += 1; return 0 },
-    setDatabaseBackupSchedulePaused: async () => {},
-}))
-mock.module('../src/utils/organizationPrivacy.ts', () => ({ ORGANIZATION_RETENTION_JOB_ID: 'api-organization-retention', runOrganizationRetentionWorker: async () => ({ failed: 0 }) }))
-mock.module('../src/utils/aptUpdates.ts', () => ({ persistHostUpdateStatus: async () => {}, readHostUpdateStatus: async () => ({}), updateHosts: [] }))
-mock.module('../src/utils/events/ruleStorageEstimateWorker.ts', () => ({ RULE_STORAGE_ESTIMATE_JOB_ID: 'api-rule-storage-estimate', runRuleStorageEstimateWorker: async () => 0 }))
-mock.module('../src/utils/systemCronMonitor.ts', () => ({ monitorSystemCronJobs: async () => ({ jobs: [] }) }))
-mock.module('../src/utils/auth/session.ts', () => ({ revokeAllTokens: async (input: { userId: string, revokedBy: string }) => { tokenRevocations.push(input); return 1 } }))
-mock.module('../src/utils/mail/stalwartAdmin.ts', () => ({ deleteMailPrincipal: async () => {} }))
-mock.module('../src/utils/auth/purgeUserSshKeys.ts', () => ({ purgeUserSshKeys: async () => 0 }))
-mock.module('../src/utils/vms/failover.ts', () => ({
-    VM_FAILOVER_JOB_ID: failoverJobId,
-    maintainVmFailover: async() => { failoverRuns++; return { processed: 1 } },
-}))
-mock.module('../src/utils/auth/tokenWrapper.ts', () => ({ default: async () => ({ valid: true, id: 'expired-user', authenticatedId: 'expired-user', impersonating: false }) }))
-mock.module('../src/utils/auth/accountDeletionMail.ts', () => ({ accountDeletionMail: () => ({ subject: 'Scheduled', textBody: 'Scheduled', htmlBody: 'Scheduled' }), deletionRequestLocation: async () => ({}) }))
-mock.module('../src/utils/mail/system.ts', () => ({ sendSystemMail: async () => {} }))
-mock.module('../src/utils/mail/helpers.ts', () => ({ addressForUser: () => 'expired@example.test' }))
-mock.module('../src/utils/systemEvent.ts', () => ({
-    recordSystemEvent: async (_req: unknown, event: Record<string, unknown>) => { deletionAuditEvents.push(event) },
-    userHasHanasandInternalAccess: async () => false,
-}))
-
-const { default: startCron, canRunApiCronJobNow } = await import('../src/utils/cron.ts')
-const { getBackgroundJobRuntime, listBackgroundJobRuntime } = await import('../src/utils/backgroundJobRuntime.ts')
-const { ACCOUNT_DELETION_PURGE_JOB_ID } = await import('../src/utils/auth/purgeDeletedAccounts.ts')
-const { scheduledJobRegistryGuardrailEntries } = await import('../src/utils/systemCron.ts')
-const { default: deleteSelf } = await import('../src/handlers/user/deleteSelf.ts')
-
-beforeEach(() => {
-    accountExists = true
-    deletionScheduledAt = null
-    mockNow = Date.now()
-    scheduledTick = undefined
-    scheduleExpression = ''
-    tokenRevocations.length = 0
-    deletedFromUsers.length = 0
-    deletionAuditEvents.length = 0
-    sqlCalls.length = 0
-    databaseBackupPolls = 0
-    purgePaused = false
-    failoverPaused = true
-    failoverRuns = 0
-})
+beforeEach(resetAccountDeletionSchedulerState)
 
 test('the minute scheduler purges accounts without login or external backup polling', async () => {
     expect(canRunApiCronJobNow(ACCOUNT_DELETION_PURGE_JOB_ID)).toBe(true)
@@ -158,14 +47,14 @@ test('the minute scheduler purges accounts without login or external backup poll
     expect(deletedFromUsers).toEqual([])
     expect(databaseBackupPolls).toBe(0)
 
-    mockNow = scheduledAt
-    purgePaused = true
+    setMockNow(scheduledAt)
+    setPurgePaused(true)
     await scheduledTick!()
     expect(accountExists).toBe(true)
     expect(deletedFromUsers).toEqual([])
     expect(getBackgroundJobRuntime(purgeJobId).runCount).toBe(1)
 
-    purgePaused = false
+    setPurgePaused(false)
     await scheduledTick!()
 
     expect(accountExists).toBe(false)
@@ -195,7 +84,7 @@ test('the minute cron dispatches VM failover maintenance and records worker runt
     await scheduledTick!()
     expect(failoverRuns).toBe(0)
 
-    failoverPaused = false
+    setFailoverPaused(false)
     await scheduledTick!()
 
     expect(failoverRuns).toBe(1)
