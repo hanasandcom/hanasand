@@ -5,6 +5,8 @@ import { createDeliveryActions } from '../src/app/dashboard/findings/workflow-de
 import { createEvidenceActions } from '../src/app/dashboard/findings/workflow-evidence-actions'
 import { DeliveryPanel } from '../src/app/dashboard/findings/delivery-panel'
 import { deliverySummaryLabel, stateLabel, webhookReady } from '../src/app/dashboard/findings/case-format'
+import { findingsActionsHref } from '../src/app/dashboard/findings/findings-routes'
+import { deliverySetupHref } from '../src/app/dashboard/findings/workflow-route-summary'
 import { webhookDeliveryResultMessage } from '../src/app/dashboard/ti/workbench/modules/actionMessages'
 import { DeliveryEvidenceRows } from '../src/app/dashboard/ti/workbench/modules/alertEvidence'
 import type { DeliveryItem } from '../src/app/dashboard/findings/types'
@@ -29,6 +31,14 @@ test('delivery summaries count only non-dry-run delivered rows as successful', (
     assert.equal(webhookReady('1 delivered'), true)
     assert.equal(webhookReady('1 tested'), true)
     assert.equal(webhookReady('1 attempted'), false)
+})
+
+test('findings action links preserve organization scope and setup fallback', () => {
+    assert.equal(findingsActionsHref(), '/findings/actions')
+    assert.equal(findingsActionsHref('org-1'), '/findings/actions?org=org-1')
+    assert.equal(findingsActionsHref('org & 1'), '/findings/actions?org=org%20%26%201')
+    assert.equal(deliverySetupHref('org-1'), '/findings/actions?org=org-1')
+    assert.equal(deliverySetupHref(), '#dwm-inline-webhook')
 })
 
 test('delivery panel does not show a dry run as the last successful delivery', () => {

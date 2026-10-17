@@ -5,6 +5,7 @@ import type { PortalAlert, DeliveryItem } from './types'
 import { caseDetailHref, deliveryClass, relativeTimeLabel, retryStateLabel, stateLabel } from './case-format'
 import { alertOrganizationId } from './portal-data'
 import { orderDeliveries } from '../deliveryOrdering'
+import { findingsActionsHref } from './findings-routes'
 
 const DWM_DELIVERY_PREVIEW_ROWS = 3
 
@@ -16,7 +17,7 @@ export function DeliveryPanel({ organizationId, alert, deliveries, busyAction, o
     const latestDelivery = visible[0]
     const lastFailedDelivery = visible.find(delivery => delivery.status === 'failed')
     const lastSuccessfulDelivery = visible.find(delivery => delivery.status === 'delivered' && delivery.dryRun !== true)
-    const orgHref = organizationDeliveryWorkspaceHref({ organizationId: orgId })
+    const orgHref = findingsActionsHref(orgId)
     const testBusy = alert ? busyAction === `test:${alert.id}` : false
     const sendBusy = alert ? busyAction === `send:${alert.id}` : false
     if (!orgId) {
@@ -82,7 +83,7 @@ export function DeliveryPanel({ organizationId, alert, deliveries, busyAction, o
                     </div>
                 </div>
                 {visible.slice(0, DWM_DELIVERY_PREVIEW_ROWS).map(delivery => {
-                    const deliveryOrgHref = organizationDeliveryWorkspaceHref({ organizationId: orgId })
+                    const deliveryOrgHref = orgHref
                     return (
                         <div key={delivery.id} className='grid gap-2 rounded-lg border border-ui-border bg-ui-raised p-3'>
                             <div className='flex flex-wrap items-center justify-between gap-2'>
@@ -153,10 +154,4 @@ function organizationScopeLabel(value?: string | null) {
 
 function caseLinkLabel(value?: string | null) {
     return value ? 'Case linked' : 'Case pending'
-}
-
-export function organizationDeliveryWorkspaceHref(input: { organizationId?: string }) {
-    return input.organizationId
-        ? `/findings/actions?org=${encodeURIComponent(input.organizationId)}`
-        : '/findings/actions'
 }

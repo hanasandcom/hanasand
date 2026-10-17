@@ -1,8 +1,9 @@
 import Link from '@/components/organizations/workspaceLink'
 import type { WorkflowRouteSummary as WorkflowRouteSummaryData } from './workflow-types'
+import { findingsActionsHref } from './findings-routes'
 
 export function deliverySetupHref(organizationId?: string) {
-    return organizationId ? `/findings/actions?org=${encodeURIComponent(organizationId)}` : '#dwm-inline-webhook'
+    return organizationId ? findingsActionsHref(organizationId) : '#dwm-inline-webhook'
 }
 
 export function deliveryLogHref(organizationId: string, alertId?: string) {

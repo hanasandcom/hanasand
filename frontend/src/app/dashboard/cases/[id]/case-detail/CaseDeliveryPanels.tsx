@@ -3,6 +3,7 @@ import type { CaseDetailLoadState, CaseExport } from './contracts'
 import type { DeliveryRow, ReceiverReceipt } from './evidenceTypes'
 import { deliveryDestinationState, queryString, relativeTime, stateLabel } from './model'
 import { CollapsiblePanel, CommandLink, EmptyLine, KeyValue } from './presentation'
+import { findingsActionsHref } from '../../../findings/findings-routes'
 
 export function CaseDeliveryPanel({ organizationId, alertId, state, latestDelivery, latestReceiverReceipt, selectedDestinationId, setSelectedDestinationId, readOnly, busy, webhookBlockedReason, onSendWebhook }: {
     organizationId?: string
@@ -48,7 +49,7 @@ export function CaseDeliveryPanel({ organizationId, alertId, state, latestDelive
                 {latestDelivery.error ? <p className='rounded-lg border border-ui-danger/30 bg-ui-raised/10 p-2 text-ui-text'>{latestDelivery.error}</p> : null}
             </div> : <EmptyLine text='No webhook delivery attempt is attached to this case.' />}
             <div className='mt-3 grid gap-2 sm:grid-cols-2'>
-                <CommandLink href={`/findings/actions${queryString({ org: organizationId })}`}>Manage destination</CommandLink>
+                <CommandLink href={findingsActionsHref(organizationId)}>Manage destination</CommandLink>
                 <CommandLink href={`/findings/delivery${queryString({ org: organizationId, alert: alertId })}`}>Delivery history</CommandLink>
             </div>
             <div className='mt-3 grid gap-2 sm:grid-cols-2'>

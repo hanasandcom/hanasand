@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs'
 import { renderToStaticMarkup } from 'react-dom/server'
 import test from 'node:test'
 import { CaseActionPanel } from '../src/app/dashboard/cases/[id]/case-detail/CaseActionPanel'
+import { findingsActionsHref } from '../src/app/dashboard/findings/findings-routes'
 import type { CaseAction, CaseDetail } from '../src/app/dashboard/cases/[id]/case-detail/contracts'
 
 const client = read('dashboard/cases/[id]/case-detail-client.tsx')
@@ -53,10 +54,15 @@ test('DWM case detail preserves scoped data, evidence selection, and receiver tr
     assert.match(model, /Exact report retry is available at/)
     assert.match(ui, /data-dwm-webhook-action-blocker='true'/)
     assert.match(model, /Webhook delivery needs a linked alert before it can be tested or sent\./)
-    assert.match(ui, /Manage destination/)
+    assert.match(ui, /href=\{findingsActionsHref\(organizationId\)\}>Manage destination/)
     assert.match(ui, /Delivery history/)
     assert.match(ui, /Test STIX report/)
     assert.match(ui, /Retry exact report/)
+})
+
+test('case delivery destination link shares findings route encoding and empty-scope behavior', () => {
+    assert.equal(findingsActionsHref('org ?#&'), '/findings/actions?org=org%20%3F%23%26')
+    assert.equal(findingsActionsHref(''), '/findings/actions')
 })
 
 test('case action controls render and forward owner, rationale, resolution, action, and notification callbacks', () => {
