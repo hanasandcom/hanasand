@@ -1,4 +1,7 @@
 import type { TiActorCaseStudyCatalog } from '@/utils/ti/search'
+import { formatIsoDate } from '@/utils/date/formatIsoDate'
+
+export const formatDate = (value: string) => formatIsoDate(value)
 
 export function ActorCaseStudyIndex({ catalog }: { catalog: TiActorCaseStudyCatalog }) {
     const currentCase = catalog.cases[0]
@@ -50,9 +53,4 @@ function caseCategoryLabel(value: string) {
         pricing: 'Pricing',
         publicity: 'Publicity',
     } as Record<string, string>)[value] ?? value.replaceAll('_', ' ')
-}
-
-export function formatDate(value: string) {
-    const parsed = new Date(value)
-    return Number.isNaN(parsed.getTime()) ? value : parsed.toISOString().slice(0, 10)
 }

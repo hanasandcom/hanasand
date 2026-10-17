@@ -1,4 +1,5 @@
 import { displayRequirementText } from './pageModel'
+import { formatIsoDate } from '@/utils/date/formatIsoDate'
 import type { TiSearchResponse } from '@/utils/ti/search'
 import { countryFromValue } from '@/utils/ti/actorProfile'
 import type { actorGeoProfile } from '@/utils/ti/actorProfile'
@@ -12,12 +13,7 @@ export function classifyPublicTiQuery(query: string): NonNullable<TiSearchRespon
     if (/^(?:apt\d+|lockbit|akira|cozy bear|midnight blizzard)$/i.test(clean)) return 'actor'
     return clean.includes(' ') ? 'organization' : 'free_text'
 }
-export function formatDate(value: string) {
-    if (!value) return 'Date unavailable'
-    const parsed = new Date(value)
-    if (Number.isNaN(parsed.getTime())) return value
-    return parsed.toISOString().slice(0, 10)
-}
+export const formatDate = (value: string) => formatIsoDate(value, 'Date unavailable')
 export function techniqueDescription(attackId: string, name: string, tactic: string, detail: string) {
     const descriptions: Record<string, string> = {
         'T1005': 'Data from Local System: collecting files or data from a compromised computer before staging, exfiltration, or further use.',

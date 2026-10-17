@@ -1,5 +1,6 @@
 import type { TiActionabilityModel } from './actionability'
 import type { TiActorIntelligenceProfile } from './actorIntelligence'
+import { formatIsoDate } from '../date/formatIsoDate'
 import type { TiSearchResponse } from './search'
 import type { ActorArtifact, ActorArtifactKind, ActorArtifactReadiness } from './actorWorkbenchTypes'
 import { uniqueTrimmedStrings as unique } from './stringValues'
@@ -84,12 +85,6 @@ function isStale(value: string, generatedAt: string) {
     return generated - freshness > 180 * 24 * 60 * 60 * 1000
 }
 
-export function formatDate(value: string) {
-    const parsed = new Date(value)
-    if (Number.isNaN(parsed.getTime())) return value
-    return parsed.toISOString().slice(0, 10)
-}
-
 export function recordSourceDetails(actor: TiActorIntelligenceProfile, actionability: TiActionabilityModel) {
     return unique([
         ...actionability.sourceProvenance.map(source => source.provenance),
@@ -105,6 +100,8 @@ export function matchingActivity(result: TiSearchResponse, value: string) {
         .map(item => `${item.firstReportedAt || item.date}: ${item.title}; ${item.detail}`)
         .slice(0, 4)
 }
+
+export const formatDate = (value: string) => formatIsoDate(value)
 
 export function matchingTechnique(result: TiSearchResponse, value: string) {
     const lower = value.toLowerCase()

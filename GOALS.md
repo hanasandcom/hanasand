@@ -1801,3 +1801,19 @@ zero over 200. The repository scan is 4,357 files / 326,704 lines with 51
 files over 200, down from 53. The frontend 10,000–30,000-line and API
 100,000-line reduction goals remain open; no UI redesign or deployment was
 made.
+
+At the next TI checkpoint, API search orchestration, response contracts, and
+scraper transport are in separate modules under 200 lines. Existing exports
+remain available, and the scraper adapter retains authentication, query and
+entity mapping, independent preflight/search timeouts, validation, and fallback
+behavior. The split adds 17 production lines to meet the cap. Frontend TI pages
+now share ISO date conversion while retaining each page's empty-value behavior;
+this removes four production lines. The timeout contract test now follows the
+scraper adapter after the extraction. The full registered frontend suite passes,
+as do frontend typecheck, scoped ESLint, the TI date test, API typecheck, the
+TI timeout/classification suites (12 tests / 54 assertions), and the frontend
+cap scan (2,378 files / 155,210 lines, zero over 200). The repository scan is
+4,361 files / 326,744 lines with 50 files over 200, down from 51. This batch
+adds 40 total inventory lines; it does not materially advance the aggregate
+line-reduction targets. The frontend 10,000–30,000-line objective and API
+100,000-line reduction remain open. No UI redesign or deployment was made.

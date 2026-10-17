@@ -6,8 +6,8 @@ const route = readFileSync(new URL('../src/app/api/ti/search/route.ts', import.m
 
 test('public TI search has a bounded unavailable boundary', () => {
     const outer = Number(route.match(/PUBLIC_TI_SEARCH_TIMEOUT_MS = ([\d_]+)/)?.[1].replaceAll('_', ''))
-    const backend = readFileSync(new URL('../../api/src/utils/ti/search.ts', import.meta.url), 'utf8')
-    const inner = Number(backend.match(/signal: AbortSignal\.timeout\(([\d_]+)\)/)?.[1].replaceAll('_', ''))
+    const scraper = readFileSync(new URL('../../api/src/utils/ti/scraperSearch.ts', import.meta.url), 'utf8')
+    const inner = Number(scraper.match(/signal: AbortSignal\.timeout\(([\d_]+)\)/)?.[1].replaceAll('_', ''))
     assert(outer > inner && outer <= 15_000, 'The browser proxy must allow the bounded upstream lookup to finish')
     assert.match(route, /AbortSignal\.timeout\(PUBLIC_TI_SEARCH_TIMEOUT_MS\)/)
     assert.match(route, /status: 502/)
