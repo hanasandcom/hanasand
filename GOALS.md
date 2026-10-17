@@ -905,3 +905,18 @@ and its full test suite and production build (116 routes) passed. The repository
 scan is 4,055 files / 322,580 LOC with 105 over 200, four fewer than the earlier
 109-file scan; all frontend files pass. Branch is 36 commits ahead of
 `github/main`; changes remain local and unpublished.
+
+At `39d3382c9`, the two traffic screens now share the same delayed snapshot
+polling lifecycle, including retry, cache policy, and stop-during-request
+behavior. Screen-specific response validation and state updates remain in each
+consumer. The two consumers shrink from 285 to 252 lines; the shared helper is
+39 lines, so production code totals 6 lines more across these three modules. A
+focused 83-line test covers polling success,
+failure/retry, preservation of last-good data, and cleanup. The full frontend
+suite passed, and the production build compiled and generated all 116 routes.
+The frontend hard-cap scan reports 2,278 hand-maintained files / 152,193 LOC / 0
+over 200 lines. This is a structural reuse improvement, not a meaningful net LOC
+reduction: frontend size remains above the 10,000–30,000 goal, and the API
+100,000-line reduction remains unmet. Continue prioritizing measured duplicate
+removal alongside natural component reuse; retain UI, accessibility, routes,
+and page data contracts.
