@@ -10,7 +10,7 @@ mock.module('next/navigation', () => ({ useRouter: () => ({ refresh() {} }) }))
 const { DatabaseDashboard } = await import('../src/app/dashboard/db/databaseDashboard.tsx')
 
 const frontendApi = await readFile(new URL('../src/utils/db/internal.ts', import.meta.url), 'utf8')
-const apiRoutes = await readFile(new URL('../../api/src/routes.ts', import.meta.url), 'utf8')
+const apiRoutes = await readFile(new URL('../../api/src/routes/platformOperations.ts', import.meta.url), 'utf8')
 
 const healthyOverview: DatabaseOverview = {
     status: 'healthy',

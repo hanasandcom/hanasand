@@ -13,6 +13,11 @@ const readTypeScriptTree = (relativePath: string) => readdirSync(path.join(root,
             : [])
     .join('\n')
 const clientSource = readBrowserClientSource(root)
+const browserRunSources = readdirSync(path.join(root, '../api/src/handlers'))
+    .filter(file => /^browserSandboxRun.*\.ts$/.test(file))
+    .sort()
+    .map(file => readSource(`../api/src/handlers/${file}`))
+    .join('\n')
 const wsSource = [
     readSource('../api/src/plugins/ws.ts'),
     readTypeScriptTree('../api/src/plugins/ws'),
@@ -32,8 +37,8 @@ export const browserSandboxRouteSources = {
     networkTelemetrySource: readSource('../api/src/handlers/onionSession/networkTelemetry.ts'),
     downloadsSource: readSource('../api/src/handlers/onionSession/downloads.ts'),
     admissionSource: readSource('../api/src/utils/ws/browserAdmission.ts'),
-    runsSource: readSource('../api/src/handlers/browserSandboxRuns.ts'),
-    routesSource: readSource('../api/src/routes.ts'),
+    runsSource: browserRunSources,
+    routesSource: readSource('../api/src/routes/userContent.ts'),
     browserProfileRoutesSource: readSource('../api/src/routes/browserSandboxProfiles.ts'),
     analysisSource: [
         readSource('../api/src/handlers/onionSession/analysis.ts'),
