@@ -33,7 +33,7 @@ export default async function Page() {
                 <AdminMetric icon={<UsersRound className='h-4 w-4' />} label='Users' value={String(users.length)} detail='Registered accounts' />
                 <AdminMetric icon={<UserRound className='h-4 w-4' />} label='Reserved' value={String(reservedCount)} detail='Reserved accounts' />
             </section>
-            <Users initialUsers={users} accessibleOrganizationIds={accessibleOrganizationIds} />
+            <Users users={users} accessibleOrganizationIds={accessibleOrganizationIds} />
         </DashboardPage>
     )
 }
