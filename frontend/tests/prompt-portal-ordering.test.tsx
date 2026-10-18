@@ -18,6 +18,9 @@ process.env.PROMPT_PORTAL_WORKER_TOKEN = 'worker-test-token'
 mock.module('../src/utils/proxy/requireApiSession', () => ({
     default: async () => ({ identity: { id: 'user-1', token: 'session-token' } }),
 }))
+mock.module('../src/utils/organizations/hanasandMembership', () => ({
+    isHanasandOrganizationMember: async () => true,
+}))
 
 const { POST } = await import('../src/app/api/prompt/route')
 const { GET: workerGet } = await import('../src/app/api/prompt/worker/route')

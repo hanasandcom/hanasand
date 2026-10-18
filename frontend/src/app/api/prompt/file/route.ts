@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import requireApiSession from '@/utils/proxy/requireApiSession'
 import { readPromptPortalFile, readPromptPortalState, verifyWorkerToken } from '@/utils/promptPortal/store'
+import requirePromptPortalSession from '@/utils/promptPortal/sessionAccess'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -8,7 +8,7 @@ export const runtime = 'nodejs'
 export async function GET(request: NextRequest) {
     const worker = verifyWorkerToken(request.nextUrl.searchParams.get('token'))
     if (!worker) {
-        const access = await requireApiSession(request)
+        const access = await requirePromptPortalSession(request)
         if ('response' in access) return access.response
     }
 

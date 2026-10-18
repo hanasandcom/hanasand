@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { comparePromptItems } from '@/utils/promptPortal/ordering'
-import requireApiSession from '@/utils/proxy/requireApiSession'
+import requirePromptPortalSession from '@/utils/promptPortal/sessionAccess'
 import {
     publicPromptPortalState,
     readPromptPortalState,
@@ -16,14 +16,14 @@ const MAX_PROMPT_LENGTH = 6000
 const MAX_FILES = 3
 
 export async function GET(request: NextRequest) {
-    const access = await requireApiSession(request)
+    const access = await requirePromptPortalSession(request)
     if ('response' in access) return access.response
     const state = await readPromptPortalState()
     return NextResponse.json(publicPromptPortalState(state), { headers: { 'Cache-Control': 'private, no-store', Vary: 'Cookie' } })
 }
 
 export async function POST(request: NextRequest) {
-    const access = await requireApiSession(request)
+    const access = await requirePromptPortalSession(request)
     if ('response' in access) return access.response
     const contentType = request.headers.get('content-type') || ''
     if (contentType.includes('multipart/form-data')) return enqueuePrompt(request)
