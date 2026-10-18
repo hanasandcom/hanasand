@@ -2,7 +2,9 @@ import { assertDarkThemeSurface } from './darkThemeSurfaceAssertions.mjs'
 
 export function checkDarkThemeShareComponents(sources, violations) {
     const { testContent, gitPlugin, workspaceSearchPanel, metadataPanel, referencePanel, terminalPanel, homepageActivityFeed, dwmWorkflowActions, recentScans } = sources
-    assertDarkThemeSurface(testContent, [
+    assertDarkThemeSurface({
+        source: testContent,
+        requiredClasses: [
             'bg-ui-panel',
             'bg-ui-raised',
             'border-ui-border',
@@ -16,12 +18,15 @@ export function checkDarkThemeShareComponents(sources, violations) {
             'var(--ui-primary)',
             'var(--ui-success)',
             'var(--ui-warning)',
-        ], 'test results content should use shared palette token ',
-        /#[0-9a-fA-F]{3,6}|\b(?:bg|text|border|ring|outline)-\[#|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue)\b|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue)\//g,
-        'test results content should not use one-off Tailwind or chart hex colors after palette migration', violations,
-    )
+        ],
+        missingClassPrefix: 'test results content should use shared palette token ',
+        bannedColorPattern: /#[0-9a-fA-F]{3,6}|\b(?:bg|text|border|ring|outline)-\[#|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue)\b|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue)\//g,
+        bannedColorMessage: 'test results content should not use one-off Tailwind or chart hex colors after palette migration',
+    }, violations)
 
-    assertDarkThemeSurface(gitPlugin, [
+    assertDarkThemeSurface({
+        source: gitPlugin,
+        requiredClasses: [
             'bg-ui-panel',
             'bg-ui-raised',
             'border-ui-border',
@@ -30,24 +35,30 @@ export function checkDarkThemeShareComponents(sources, violations) {
             'text-ui-primary',
             'text-ui-success',
             'text-ui-warning',
-        ], 'share git plugin should use shared palette class ',
-        /#[0-9a-fA-F]{3,6}|\b(?:bg|text|border|ring|outline)-\[#|\b(?:bg|text|border|ring|outline)-(?:dark|bright|white|black|red|orange|amber|yellow|green|emerald|blue)\b|\b(?:bg|text|border|ring|outline)-(?:dark|bright|white|black|red|orange|amber|yellow|green|emerald|blue)\//g,
-        'share git plugin should not use one-off Git/share color utilities after palette migration', violations,
-    )
+        ],
+        missingClassPrefix: 'share git plugin should use shared palette class ',
+        bannedColorPattern: /#[0-9a-fA-F]{3,6}|\b(?:bg|text|border|ring|outline)-\[#|\b(?:bg|text|border|ring|outline)-(?:dark|bright|white|black|red|orange|amber|yellow|green|emerald|blue)\b|\b(?:bg|text|border|ring|outline)-(?:dark|bright|white|black|red|orange|amber|yellow|green|emerald|blue)\//g,
+        bannedColorMessage: 'share git plugin should not use one-off Git/share color utilities after palette migration',
+    }, violations)
 
-    assertDarkThemeSurface(workspaceSearchPanel, [
+    assertDarkThemeSurface({
+        source: workspaceSearchPanel,
+        requiredClasses: [
             'bg-ui-panel',
             'bg-ui-raised',
             'border-ui-border',
             'text-ui-text',
             'text-ui-muted',
             'text-ui-primary',
-        ], 'workspace search panel should use shared palette class ',
-        /#[0-9a-fA-F]{3,6}|\b(?:bg|text|border|ring|outline)-\[#|\b(?:bg|text|border|ring|outline)-(?:dark|bright|white|black|red|orange|amber|yellow|green|emerald|blue)\b|\b(?:bg|text|border|ring|outline)-(?:dark|bright|white|black|red|orange|amber|yellow|green|emerald|blue)\//g,
-        'workspace search panel should not use one-off share color utilities after palette migration', violations,
-    )
+        ],
+        missingClassPrefix: 'workspace search panel should use shared palette class ',
+        bannedColorPattern: /#[0-9a-fA-F]{3,6}|\b(?:bg|text|border|ring|outline)-\[#|\b(?:bg|text|border|ring|outline)-(?:dark|bright|white|black|red|orange|amber|yellow|green|emerald|blue)\b|\b(?:bg|text|border|ring|outline)-(?:dark|bright|white|black|red|orange|amber|yellow|green|emerald|blue)\//g,
+        bannedColorMessage: 'workspace search panel should not use one-off share color utilities after palette migration',
+    }, violations)
 
-    assertDarkThemeSurface(metadataPanel, [
+    assertDarkThemeSurface({
+        source: metadataPanel,
+        requiredClasses: [
             'bg-ui-panel',
             'bg-ui-raised',
             'border-ui-border',
@@ -55,24 +66,30 @@ export function checkDarkThemeShareComponents(sources, violations) {
             'text-ui-muted',
             'text-ui-primary',
             'text-ui-success',
-        ], 'share metadata panel should use shared palette class ',
-        /#[0-9a-fA-F]{3,6}|\b(?:bg|text|border|ring|outline|stroke)-\[#|\b(?:bg|text|border|ring|outline|stroke)-(?:dark|bright|white|black|red|orange|amber|yellow|green|emerald|blue|rgb|light|extralight|background)\b|\b(?:bg|text|border|ring|outline|stroke)-(?:dark|bright|white|black|red|orange|amber|yellow|green|emerald|blue|rgb|light|extralight|background)\//g,
-        'share metadata panel should not use one-off share color utilities after palette migration', violations,
-    )
+        ],
+        missingClassPrefix: 'share metadata panel should use shared palette class ',
+        bannedColorPattern: /#[0-9a-fA-F]{3,6}|\b(?:bg|text|border|ring|outline|stroke)-\[#|\b(?:bg|text|border|ring|outline|stroke)-(?:dark|bright|white|black|red|orange|amber|yellow|green|emerald|blue|rgb|light|extralight|background)\b|\b(?:bg|text|border|ring|outline|stroke)-(?:dark|bright|white|black|red|orange|amber|yellow|green|emerald|blue|rgb|light|extralight|background)\//g,
+        bannedColorMessage: 'share metadata panel should not use one-off share color utilities after palette migration',
+    }, violations)
 
-    assertDarkThemeSurface(referencePanel, [
+    assertDarkThemeSurface({
+        source: referencePanel,
+        requiredClasses: [
             'bg-ui-panel',
             'bg-ui-raised',
             'border-ui-border',
             'text-ui-text',
             'text-ui-muted',
             'text-ui-primary',
-        ], 'share reference panel should use shared palette class ',
-        /#[0-9a-fA-F]{3,6}|\b(?:bg|text|border|ring|outline|shadow)-\[#|\b(?:bg|text|border|ring|outline|shadow)-(?:dark|bright|white|black|red|orange|amber|yellow|green|emerald|blue|background)\b|\b(?:bg|text|border|ring|outline|shadow)-(?:dark|bright|white|black|red|orange|amber|yellow|green|emerald|blue|background)\//g,
-        'share reference panel should not use one-off share color utilities after palette migration', violations,
-    )
+        ],
+        missingClassPrefix: 'share reference panel should use shared palette class ',
+        bannedColorPattern: /#[0-9a-fA-F]{3,6}|\b(?:bg|text|border|ring|outline|shadow)-\[#|\b(?:bg|text|border|ring|outline|shadow)-(?:dark|bright|white|black|red|orange|amber|yellow|green|emerald|blue|background)\b|\b(?:bg|text|border|ring|outline|shadow)-(?:dark|bright|white|black|red|orange|amber|yellow|green|emerald|blue|background)\//g,
+        bannedColorMessage: 'share reference panel should not use one-off share color utilities after palette migration',
+    }, violations)
 
-    assertDarkThemeSurface(terminalPanel, [
+    assertDarkThemeSurface({
+        source: terminalPanel,
+        requiredClasses: [
             'bg-ui-canvas',
             'bg-ui-panel',
             'bg-ui-raised',
@@ -82,24 +99,30 @@ export function checkDarkThemeShareComponents(sources, violations) {
             'text-ui-primary',
             'text-ui-success',
             'text-ui-warning',
-        ], 'share terminal panel should use shared palette class ',
-        /#[0-9a-fA-F]{3,6}|rgba\(|\b(?:bg|text|border|ring|outline|shadow|stroke)-\[#|\b(?:bg|text|border|ring|outline|shadow|stroke)-(?:dark|bright|white|black|red|orange|amber|yellow|green|emerald|blue|gray|light|extralight|background)\b|\b(?:bg|text|border|ring|outline|shadow|stroke)-(?:dark|bright|white|black|red|orange|amber|yellow|green|emerald|blue|gray|light|extralight|background)\//g,
-        'share terminal panel should not use one-off share color utilities after palette migration', violations,
-    )
+        ],
+        missingClassPrefix: 'share terminal panel should use shared palette class ',
+        bannedColorPattern: /#[0-9a-fA-F]{3,6}|rgba\(|\b(?:bg|text|border|ring|outline|shadow|stroke)-\[#|\b(?:bg|text|border|ring|outline|shadow|stroke)-(?:dark|bright|white|black|red|orange|amber|yellow|green|emerald|blue|gray|light|extralight|background)\b|\b(?:bg|text|border|ring|outline|shadow|stroke)-(?:dark|bright|white|black|red|orange|amber|yellow|green|emerald|blue|gray|light|extralight|background)\//g,
+        bannedColorMessage: 'share terminal panel should not use one-off share color utilities after palette migration',
+    }, violations)
 
-    assertDarkThemeSurface(homepageActivityFeed, [
+    assertDarkThemeSurface({
+        source: homepageActivityFeed,
+        requiredClasses: [
             'bg-ui-panel',
             'bg-ui-raised',
             'border-ui-border',
             'text-ui-text',
             'text-ui-muted',
             'text-ui-primary',
-        ], 'home latest activity panel should use shared palette class ',
-        /#[0-9a-fA-F]{3,8}|\b(?:bg|text|border|ring|outline)-\[#|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue)\b|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue)\//g,
-        'home latest activity panel should not use one-off public homepage color utilities after palette migration', violations,
-    )
+        ],
+        missingClassPrefix: 'home latest activity panel should use shared palette class ',
+        bannedColorPattern: /#[0-9a-fA-F]{3,8}|\b(?:bg|text|border|ring|outline)-\[#|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue)\b|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue)\//g,
+        bannedColorMessage: 'home latest activity panel should not use one-off public homepage color utilities after palette migration',
+    }, violations)
 
-    assertDarkThemeSurface(dwmWorkflowActions, [
+    assertDarkThemeSurface({
+        source: dwmWorkflowActions,
+        requiredClasses: [
             'bg-ui-panel',
             'bg-ui-raised',
             'border-ui-border',
@@ -109,12 +132,15 @@ export function checkDarkThemeShareComponents(sources, violations) {
             'text-ui-success',
             'text-ui-warning',
             'text-ui-danger',
-        ], 'DWM workflow actions should use shared palette class ',
-        /#[0-9a-fA-F]{3,8}|\b(?:bg|text|border|ring|outline)-\[#|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|slate|zinc|neutral|gray)\b|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|slate|zinc|neutral|gray)\//g,
-        'DWM workflow actions should not use one-off dark dashboard color utilities after palette migration', violations,
-    )
+        ],
+        missingClassPrefix: 'DWM workflow actions should use shared palette class ',
+        bannedColorPattern: /#[0-9a-fA-F]{3,8}|\b(?:bg|text|border|ring|outline)-\[#|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|slate|zinc|neutral|gray)\b|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|slate|zinc|neutral|gray)\//g,
+        bannedColorMessage: 'DWM workflow actions should not use one-off dark dashboard color utilities after palette migration',
+    }, violations)
 
-    assertDarkThemeSurface(recentScans, [
+    assertDarkThemeSurface({
+        source: recentScans,
+        requiredClasses: [
             'bg-ui-panel',
             'bg-ui-raised',
             'border-ui-border',
@@ -123,8 +149,9 @@ export function checkDarkThemeShareComponents(sources, violations) {
             'text-ui-primary',
             'text-ui-success',
             'text-ui-warning',
-        ], 'recent scans component should use shared palette class ',
-        /#[0-9a-fA-F]{3,8}|\b(?:bg|text|border|ring|outline)-\[#|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|slate|zinc|neutral|gray)\b|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|slate|zinc|neutral|gray)\//g,
-        'recent scans component should not use one-off test dashboard color utilities after palette migration', violations,
-    )
+        ],
+        missingClassPrefix: 'recent scans component should use shared palette class ',
+        bannedColorPattern: /#[0-9a-fA-F]{3,8}|\b(?:bg|text|border|ring|outline)-\[#|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|slate|zinc|neutral|gray)\b|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|slate|zinc|neutral|gray)\//g,
+        bannedColorMessage: 'recent scans component should not use one-off test dashboard color utilities after palette migration',
+    }, violations)
 }

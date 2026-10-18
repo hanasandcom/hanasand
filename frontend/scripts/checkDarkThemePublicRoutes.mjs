@@ -15,7 +15,9 @@ export function checkDarkThemePublicRoutes(sources, violations) {
         }
     }
 
-    assertDarkThemeSurface(loginPageClient, [
+    assertDarkThemeSurface({
+        source: loginPageClient,
+        requiredClasses: [
             'bg-ui-canvas',
             'bg-ui-panel',
             'bg-ui-raised',
@@ -24,36 +26,45 @@ export function checkDarkThemePublicRoutes(sources, violations) {
             'text-ui-muted',
             'text-ui-primary',
             'text-ui-warning',
-        ], 'login page should use shared palette class ',
-        /#[0-9a-fA-F]{3,8}|rgba\(|\b(?:bg|text|border|ring|outline|shadow)-\[#|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|rose|bright)\b|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|rose|bright)\//g,
-        'login page should not use one-off public page color utilities after palette migration', violations,
-    )
+        ],
+        missingClassPrefix: 'login page should use shared palette class ',
+        bannedColorPattern: /#[0-9a-fA-F]{3,8}|rgba\(|\b(?:bg|text|border|ring|outline|shadow)-\[#|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|rose|bright)\b|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|rose|bright)\//g,
+        bannedColorMessage: 'login page should not use one-off public page color utilities after palette migration',
+    }, violations)
 
 
-    assertDarkThemeSurface(publicFooter, [
+    assertDarkThemeSurface({
+        source: publicFooter,
+        requiredClasses: [
             'bg-ui-canvas',
             'border-ui-border',
             'text-ui-text',
             'text-ui-muted',
             'text-ui-danger',
-        ], 'public footer should use shared palette class ',
-        /#[0-9a-fA-F]{3,8}|rgba\(|\b(?:bg|text|border|ring|outline|shadow)-\[#|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|rose|bright)\b|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|rose|bright)\//g,
-        'public footer should not use one-off public page color utilities after palette migration', violations,
-    )
+        ],
+        missingClassPrefix: 'public footer should use shared palette class ',
+        bannedColorPattern: /#[0-9a-fA-F]{3,8}|rgba\(|\b(?:bg|text|border|ring|outline|shadow)-\[#|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|rose|bright)\b|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|rose|bright)\//g,
+        bannedColorMessage: 'public footer should not use one-off public page color utilities after palette migration',
+    }, violations)
 
-    assertDarkThemeSurface(uploadPreview, [
+    assertDarkThemeSurface({
+        source: uploadPreview,
+        requiredClasses: [
             'bg-ui-panel',
             'bg-ui-raised',
             'border-ui-border',
             'text-ui-text',
             'text-ui-muted',
             'text-ui-primary',
-        ], 'upload preview should use shared palette class ',
-        /#[0-9a-fA-F]{3,8}|rgba\(|\b(?:bg|text|border|ring|outline|shadow)-\[#|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|rose|bright|background)\b|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|rose|bright|background)\//g,
-        'upload preview should not use one-off upload form color utilities after palette migration', violations,
-    )
+        ],
+        missingClassPrefix: 'upload preview should use shared palette class ',
+        bannedColorPattern: /#[0-9a-fA-F]{3,8}|rgba\(|\b(?:bg|text|border|ring|outline|shadow)-\[#|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|rose|bright|background)\b|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|rose|bright|background)\//g,
+        bannedColorMessage: 'upload preview should not use one-off upload form color utilities after palette migration',
+    }, violations)
 
-    assertDarkThemeSurface(contactPage, [
+    assertDarkThemeSurface({
+        source: contactPage,
+        requiredClasses: [
             'bg-ui-canvas',
             'bg-ui-panel',
             'bg-ui-raised',
@@ -62,12 +73,15 @@ export function checkDarkThemePublicRoutes(sources, violations) {
             'text-ui-muted',
             'text-ui-primary',
             'text-ui-success',
-        ], 'contact page should use shared palette class ',
-        /#[0-9a-fA-F]{3,8}|rgba\(|\b(?:bg|text|border|ring|outline|shadow)-\[#|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|rose|bright|background)\b|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|rose|bright|background)\//g,
-        'contact page should not use one-off public page color utilities after palette migration', violations,
-    )
+        ],
+        missingClassPrefix: 'contact page should use shared palette class ',
+        bannedColorPattern: /#[0-9a-fA-F]{3,8}|rgba\(|\b(?:bg|text|border|ring|outline|shadow)-\[#|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|rose|bright|background)\b|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|rose|bright|background)\//g,
+        bannedColorMessage: 'contact page should not use one-off public page color utilities after palette migration',
+    }, violations)
 
-    assertDarkThemeSurface(sharePublicClient, [
+    assertDarkThemeSurface({
+        source: sharePublicClient,
+        requiredClasses: [
             'bg-ui-panel',
             'bg-ui-raised',
             'border-ui-border',
@@ -77,12 +91,15 @@ export function checkDarkThemePublicRoutes(sources, violations) {
             'text-ui-success',
             'text-ui-warning',
             'text-ui-canvas',
-        ], 'public share client should use shared palette class ',
-        /#[0-9a-fA-F]{3,8}|rgba\(|\b(?:bg|text|border|ring|outline|shadow)-\[#|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|rose|bright|background)\b|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|rose|bright|background)\//g,
-        'public share client should not use one-off share chrome color utilities after palette migration', violations,
-    )
+        ],
+        missingClassPrefix: 'public share client should use shared palette class ',
+        bannedColorPattern: /#[0-9a-fA-F]{3,8}|rgba\(|\b(?:bg|text|border|ring|outline|shadow)-\[#|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|rose|bright|background)\b|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|rose|bright|background)\//g,
+        bannedColorMessage: 'public share client should not use one-off share chrome color utilities after palette migration',
+    }, violations)
 
-    assertDarkThemeSurface(shareRenderSite, [
+    assertDarkThemeSurface({
+        source: shareRenderSite,
+        requiredClasses: [
             'bg-ui-panel',
             'bg-ui-raised',
             'border-ui-border',
@@ -90,8 +107,9 @@ export function checkDarkThemePublicRoutes(sources, violations) {
             'text-ui-muted',
             'bg-ui-border',
             'bg-ui-primary',
-        ], 'share renderer should use shared palette class ',
-        /#[0-9a-fA-F]{3,8}|rgba\(|\b(?:bg|text|border|ring|outline|shadow)-\[#|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|rose|bright|background)\b|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|rose|bright|background)\//g,
-        'share renderer should not use one-off color utilities after palette migration', violations,
-    )
+        ],
+        missingClassPrefix: 'share renderer should use shared palette class ',
+        bannedColorPattern: /#[0-9a-fA-F]{3,8}|rgba\(|\b(?:bg|text|border|ring|outline|shadow)-\[#|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|rose|bright|background)\b|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|rose|bright|background)\//g,
+        bannedColorMessage: 'share renderer should not use one-off color utilities after palette migration',
+    }, violations)
 }

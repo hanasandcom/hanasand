@@ -4,7 +4,9 @@ import { joinPwnedSources } from './darkThemeSources.mjs'
 export function checkDarkThemeProductRoutes(sources, violations) {
     const { pricingPage, testPageClient, cronPageClient, dashboardPage, galleryPageClient, trafficMap, trafficMapPrimitives } = sources
 
-    assertDarkThemeSurface(pricingPage, [
+    assertDarkThemeSurface({
+        source: pricingPage,
+        requiredClasses: [
             'bg-ui-canvas',
             'bg-ui-panel',
             'bg-ui-raised',
@@ -13,12 +15,15 @@ export function checkDarkThemeProductRoutes(sources, violations) {
             'text-ui-muted',
             'text-ui-primary',
             'text-ui-success',
-        ], 'pricing page should use shared palette class ',
-        /#[0-9a-fA-F]{3,8}|rgba\(|\b(?:bg|text|border|ring|outline|shadow)-\[#|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|slate|zinc|neutral|gray)\b|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|slate|zinc|neutral|gray)\//g,
-        'pricing page should not use one-off public-page color utilities after palette migration', violations,
-    )
+        ],
+        missingClassPrefix: 'pricing page should use shared palette class ',
+        bannedColorPattern: /#[0-9a-fA-F]{3,8}|rgba\(|\b(?:bg|text|border|ring|outline|shadow)-\[#|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|slate|zinc|neutral|gray)\b|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|slate|zinc|neutral|gray)\//g,
+        bannedColorMessage: 'pricing page should not use one-off public-page color utilities after palette migration',
+    }, violations)
 
-    assertDarkThemeSurface(testPageClient, [
+    assertDarkThemeSurface({
+        source: testPageClient,
+        requiredClasses: [
             'bg-ui-panel',
             'bg-ui-raised',
             'border-ui-border',
@@ -28,47 +33,59 @@ export function checkDarkThemeProductRoutes(sources, violations) {
             'stroke-ui-success',
             'stroke-ui-danger',
             'text-ui-canvas',
-        ], 'test launcher page should use shared palette class ',
-        /#[0-9a-fA-F]{3,8}|rgba\(|\b(?:bg|text|border|ring|outline|shadow|stroke)-\[#|\b(?:bg|text|border|ring|outline|stroke)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|slate|zinc|neutral|gray)\b|\b(?:bg|text|border|ring|outline|stroke)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|slate|zinc|neutral|gray)\//g,
-        'test launcher page should not use one-off public test color utilities after palette migration', violations,
-    )
+        ],
+        missingClassPrefix: 'test launcher page should use shared palette class ',
+        bannedColorPattern: /#[0-9a-fA-F]{3,8}|rgba\(|\b(?:bg|text|border|ring|outline|shadow|stroke)-\[#|\b(?:bg|text|border|ring|outline|stroke)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|slate|zinc|neutral|gray)\b|\b(?:bg|text|border|ring|outline|stroke)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|slate|zinc|neutral|gray)\//g,
+        bannedColorMessage: 'test launcher page should not use one-off public test color utilities after palette migration',
+    }, violations)
 
-    assertDarkThemeSurface(cronPageClient, [
+    assertDarkThemeSurface({
+        source: cronPageClient,
+        requiredClasses: [
             'bg-ui-raised',
             'border-ui-border',
             'text-ui-text',
             'text-ui-muted',
             'text-ui-primary',
             'text-ui-success',
-        ], 'cron jobs dashboard page should use shared palette class ',
-        /#[0-9a-fA-F]{3,8}|rgba\(|\b(?:bg|text|border|ring|outline|shadow)-\[#|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|bright)\b|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|bright)\//g,
-        'cron jobs dashboard page should not use one-off dashboard color utilities after palette migration', violations,
-    )
+        ],
+        missingClassPrefix: 'cron jobs dashboard page should use shared palette class ',
+        bannedColorPattern: /#[0-9a-fA-F]{3,8}|rgba\(|\b(?:bg|text|border|ring|outline|shadow)-\[#|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|bright)\b|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|bright)\//g,
+        bannedColorMessage: 'cron jobs dashboard page should not use one-off dashboard color utilities after palette migration',
+    }, violations)
 
-    assertDarkThemeSurface(dashboardPage, [
+    assertDarkThemeSurface({
+        source: dashboardPage,
+        requiredClasses: [
             'bg-ui-panel',
             'bg-ui-raised',
             'border-ui-border',
             'text-ui-text',
             'text-ui-muted',
             'text-ui-success',
-        ], 'dashboard root page should use shared palette class ',
-        /#[0-9a-fA-F]{3,8}|rgba\(|\b(?:bg|text|border|ring|outline|shadow)-\[#|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|bright)\b|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|bright)\//g,
-        'dashboard root page should not use one-off dashboard color utilities after palette migration', violations,
-    )
+        ],
+        missingClassPrefix: 'dashboard root page should use shared palette class ',
+        bannedColorPattern: /#[0-9a-fA-F]{3,8}|rgba\(|\b(?:bg|text|border|ring|outline|shadow)-\[#|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|bright)\b|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|bright)\//g,
+        bannedColorMessage: 'dashboard root page should not use one-off dashboard color utilities after palette migration',
+    }, violations)
 
-    assertDarkThemeSurface(galleryPageClient, [
+    assertDarkThemeSurface({
+        source: galleryPageClient,
+        requiredClasses: [
             'bg-ui-panel',
             'bg-ui-raised',
             'border-ui-border',
             'text-ui-text',
             'text-ui-muted',
-        ], 'gallery page should use shared palette class ',
-        /#[0-9a-fA-F]{3,8}|rgba\(|\b(?:bg|text|border|ring|outline|shadow)-\[#|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|bright)\b|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|bright)\//g,
-        'gallery page should not use one-off public page color utilities after palette migration', violations,
-    )
+        ],
+        missingClassPrefix: 'gallery page should use shared palette class ',
+        bannedColorPattern: /#[0-9a-fA-F]{3,8}|rgba\(|\b(?:bg|text|border|ring|outline|shadow)-\[#|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|bright)\b|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|bright)\//g,
+        bannedColorMessage: 'gallery page should not use one-off public page color utilities after palette migration',
+    }, violations)
 
-    assertDarkThemeSurface(`${trafficMap}\n${trafficMapPrimitives}`, [
+    assertDarkThemeSurface({
+        source: `${trafficMap}\n${trafficMapPrimitives}`,
+        requiredClasses: [
             'bg-ui-canvas',
             'bg-ui-panel',
             'bg-ui-raised',
@@ -81,14 +98,17 @@ export function checkDarkThemeProductRoutes(sources, violations) {
             'fill-ui-text',
             'fill-ui-warning',
             'stroke-ui-border',
-        ], 'traffic map surface should use shared palette class ',
-        /#[0-9a-fA-F]{3,8}|rgba\(|\b(?:bg|text|border|ring|outline|shadow|fill|stroke)-\[#|\b(?:bg|text|border|ring|outline|fill|stroke)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|rose|bright)\b|\b(?:bg|text|border|ring|outline|fill|stroke)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|rose|bright)\//g,
-        'traffic map surface should not use one-off map color utilities after palette migration', violations,
-        [trafficMap, trafficMapPrimitives],
-    )
+        ],
+        missingClassPrefix: 'traffic map surface should use shared palette class ',
+        bannedColorPattern: /#[0-9a-fA-F]{3,8}|rgba\(|\b(?:bg|text|border|ring|outline|shadow|fill|stroke)-\[#|\b(?:bg|text|border|ring|outline|fill|stroke)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|rose|bright)\b|\b(?:bg|text|border|ring|outline|fill|stroke)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|rose|bright)\//g,
+        bannedColorMessage: 'traffic map surface should not use one-off map color utilities after palette migration',
+        requiredSources: [trafficMap, trafficMapPrimitives],
+    }, violations)
 
     const pwnedRouteCluster = joinPwnedSources(sources)
-    assertDarkThemeSurface(pwnedRouteCluster, [
+    assertDarkThemeSurface({
+        source: pwnedRouteCluster,
+        requiredClasses: [
             'bg-ui-canvas',
             'bg-ui-panel',
             'bg-ui-raised',
@@ -97,10 +117,11 @@ export function checkDarkThemeProductRoutes(sources, violations) {
             'text-ui-muted',
             'text-ui-primary',
             'text-ui-success',
-        ], 'pwned password check surface should use shared palette class ',
-        /#[0-9a-fA-F]{3,8}|rgba\(|\b(?:bg|text|border|ring|outline|shadow)-\[#|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|rose|bright)\b|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|rose|bright)\//g,
-        'pwned password check surface should not use one-off public page color utilities after palette migration', violations,
-    )
+        ],
+        missingClassPrefix: 'pwned password check surface should use shared palette class ',
+        bannedColorPattern: /#[0-9a-fA-F]{3,8}|rgba\(|\b(?:bg|text|border|ring|outline|shadow)-\[#|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|rose|bright)\b|\b(?:bg|text|border|ring|outline)-(?:white|black|red|orange|amber|yellow|green|emerald|blue|sky|slate|zinc|neutral|gray|rose|bright)\//g,
+        bannedColorMessage: 'pwned password check surface should not use one-off public page color utilities after palette migration',
+    }, violations)
 
     for (const rawSecretPattern of [
         /body:\s*JSON\.stringify\(\{\s*password\s*\}\)/,

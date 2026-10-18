@@ -1,12 +1,11 @@
-export function assertDarkThemeSurface(
+export function assertDarkThemeSurface({
     source,
     requiredClasses,
     missingClassPrefix,
     bannedColorPattern,
     bannedColorMessage,
-    violations,
     requiredSources = [source],
-) {
+}, violations) {
     for (const required of requiredClasses) {
         if (!requiredSources.some(requiredSource => requiredSource.includes(required))) {
             violations.push(`${missingClassPrefix}${required}`)
