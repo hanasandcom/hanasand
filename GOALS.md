@@ -3046,3 +3046,28 @@ that shared tables, notices, fallbacks, and accessible form labels already
 use common components; the remaining workbench tables differ in selection,
 keyboard, and action behavior, so a generic table abstraction would obscure
 those contracts for only a small line reduction.
+
+Two further frontend checkpoints are `16d88cdc0` and `5960a3aba`. The first
+removes 11 more TI panels (1,019 LOC) with no runtime imports or dynamic
+loaders, and drops 51 scanner assertions that were only passing because the
+guard concatenated every component file. The selected-plan and organization
+models and their tests remain. The second centralizes the repeated ShareChat
+AI mock response envelope in a typed test helper across 25 callsites, reducing
+that cluster by 76 LOC while preserving every message string and separator.
+Independent review accepted both changes. TI guards, safe-output and
+organization-actionability tests, frontend typecheck, scoped ESLint, fixture
+helper parity check, and both line caps pass. Full Playwright execution was
+not run; this clone lacks the complete Playwright/browser dependencies. The
+current frontend scan is 2,396 files / 153,304 lines; the repository scan is
+4,568 maintained files / 327,784 lines. No maintained file exceeds 200 lines.
+Relative to base `94609c99b`, reductions are 3,855 frontend lines and 3,869
+repository lines. The 10,000–30,000-line frontend target and larger API
+reduction goal remain open.
+
+A fresh API scan counted 164,284 TypeScript/JavaScript-family LOC across
+source, tests, and scripts. Admin-support handlers account for 14,542 LOC in
+155 files. The audit found no additional safe shared-service extraction with
+worthwhile savings: the support workflows intentionally retain separate
+authorization, audit, idempotency, redaction, and transaction rules. The
+existing organization-scoped invite lookup reuse remains the confirmed
+cross-flow extraction (`341f1a274`, net −14 LOC).
