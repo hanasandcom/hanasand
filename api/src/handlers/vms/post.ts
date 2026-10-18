@@ -8,6 +8,7 @@ import hasInternalToken from '#utils/auth/internalToken.ts'
 import syncUserCertificatesToVm from '#utils/vms/syncUserCertificatesToVm.ts'
 import config from '#constants'
 import { internalHostFetch } from '#utils/vms/hostTransport.ts'
+import provisionVmOnHost from '#utils/vms/provisionOnHost.ts'
 import recordLog from '#utils/logs/recordLog.ts'
 import { recordSystemEvent } from '#utils/systemEvent.ts'
 
@@ -175,14 +176,7 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
 }
 
 async function provisionOnPrimaryHost(name: string, host: string, shouldProvision: boolean) {
-    if (!shouldProvision) {
-        return
-    }
-
-    const response = await internalHostFetch(host, `/vms/internal/${encodeURIComponent(name)}/provision`, { method: 'POST' })
-    if (response.ok) return
-    const payload = await response.json().catch(() => ({})) as { error?: unknown }
-    throw new Error(typeof payload.error === 'string' ? payload.error : `VM host provisioning failed with status ${response.status}.`)
+    if (shouldProvision) await provisionVmOnHost(host, name, internalHostFetch)
 }
 
 async function recordVmProvisioningError(vmName: string, error: unknown, phase: string) {

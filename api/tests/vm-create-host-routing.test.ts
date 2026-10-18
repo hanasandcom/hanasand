@@ -5,6 +5,8 @@ import { resolveVmHostId } from '../src/utils/vms/hostConfig.ts'
 const calls: Array<{ host: string; path: string; method?: string }> = []
 let existingVm: Record<string, unknown> | undefined
 let failedProvisionRequests = 0
+let queuedProvisionResponses: Response[] = []
+let queuedStatusResponses: Response[] = []
 mock.module('../src/utils/auth/tokenWrapper.ts', () => ({ default: async (req: any) => ({ valid: Boolean(req.headers.id), id: req.headers.id }) }))
 mock.module('../src/utils/auth/organizationPageAccess.ts', () => ({ default: async (req: any) => ({ valid: req.headers.id === 'admin' }) }))
 mock.module('../src/utils/auth/internalToken.ts', () => ({ default: () => false }))
@@ -30,6 +32,8 @@ mock.module('../src/utils/vms/hostTransport.ts', () => ({
             failedProvisionRequests--
             return Response.json({ error: 'Temporary host failure.' }, { status: 502 })
         }
+        if (path.endsWith('/status')) return queuedStatusResponses.shift() ?? Response.json({ status: 'Running' })
+        if (path.endsWith('/provision')) return queuedProvisionResponses.shift() ?? Response.json({ name: 'remote-vm', provisioned: true })
         return Response.json({ name: 'remote-vm', provisioned: true })
     },
 }))
@@ -44,7 +48,7 @@ mock.module('../src/utils/systemEvent.ts', () => ({ recordSystemEvent: async () 
 const { default: postVM } = await import('../src/handlers/vms/post.ts')
 const app = Fastify()
 app.post('/vm', postVM)
-beforeEach(() => { calls.length = 0; existingVm = undefined; failedProvisionRequests = 0 })
+beforeEach(() => { calls.length = 0; existingVm = undefined; failedProvisionRequests = 0; queuedProvisionResponses = []; queuedStatusResponses = [] })
 afterAll(async () => { await app.close() })
 
 test('VM host defaults to Inspur and preserves an explicit host setting', () => {
@@ -58,6 +62,35 @@ test('VM creation provisions through the configured primary host, not the centra
     expect(response.statusCode).toBe(201)
     expect(response.json().primary_host).toBe('inspur')
     expect(calls).toEqual([{ host: 'inspur', path: '/vms/internal/remote-vm/provision', method: 'POST' }])
+})
+
+test('VM creation waits for an accepted host provision job to report Running', async () => {
+    queuedProvisionResponses = [Response.json({ name: 'remote-vm', status: 'Provisioning' }, { status: 202 })]
+    queuedStatusResponses = [
+        Response.json({ error: 'VM not yet visible on host.' }, { status: 404 }),
+        Response.json({ status: 'Stopped' }),
+        Response.json({ status: 'Running' }),
+    ]
+
+    const response = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'member' }, payload: { name: 'remote-vm' } })
+
+    expect(response.statusCode).toBe(201)
+    expect(calls.map(call => call.path)).toEqual([
+        '/vms/internal/remote-vm/provision',
+        '/vms/internal/remote-vm/status',
+        '/vms/internal/remote-vm/status',
+        '/vms/internal/remote-vm/status',
+    ])
+})
+
+test('VM creation does not report success when an accepted host provision job fails', async () => {
+    queuedProvisionResponses = [Response.json({ name: 'remote-vm', status: 'Provisioning' }, { status: 202 })]
+    queuedStatusResponses = [Response.json({ status: 'Error' })]
+
+    const response = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'member' }, payload: { name: 'remote-vm' } })
+
+    expect(response.statusCode).toBe(500)
+    expect(response.json()).toEqual({ error: 'Internal server error' })
 })
 
 test('metadata-only VM creation skips host provisioning when explicitly requested', async () => {
