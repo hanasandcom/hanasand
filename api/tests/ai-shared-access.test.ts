@@ -89,7 +89,7 @@ test('conversation lookup and workspace list share owner and collaborator access
     expect(listQuery?.params).toEqual(['viewer-1'])
     expect(listQuery?.sql).toContain('ORDER BY updated_at DESC, created_at DESC')
     expect(listQuery?.sql).toContain('WHEN ai_conversations.owner_id = $1 THEN \'owner\'')
-    expect(listQuery?.sql).toContain('ai_conversations.owner_id = $1\n            OR collaborators.user_id = $1')
+    expect(listQuery?.sql).toContain('WHERE (ai_conversations.owner_id = $1 OR collaborators.user_id = $1)')
 
     const conversation = await getConversationForUser('conversation-shared', 'viewer-1')
 
@@ -98,8 +98,7 @@ test('conversation lookup and workspace list share owner and collaborator access
     expect(lookupQuery?.params).toEqual(['viewer-1', 'conversation-shared'])
     expect(lookupQuery?.sql).toContain('AND ai_conversations.id = $2')
     expect(lookupQuery?.sql).toContain('WHEN ai_conversations.owner_id = $1 THEN \'owner\'')
-    expect(lookupQuery?.sql).toContain('ai_conversations.owner_id = $1\n            OR collaborators.user_id = $1')
-    expect(lookupQuery?.sql).toContain('WHERE (\n            ai_conversations.owner_id = $1\n            OR collaborators.user_id = $1\n        )\n        AND ai_conversations.id = $2')
+    expect(lookupQuery?.sql).toContain('WHERE (ai_conversations.owner_id = $1 OR collaborators.user_id = $1)\n        AND ai_conversations.id = $2')
 })
 
 test('conversation mutation projection matches the workspace response with conversation-scoped queries', async () => {
@@ -119,12 +118,14 @@ test('conversation mutation projection matches the workspace response with conve
     const collaboratorQuery = databaseCalls.find((call) => call.sql.includes('SELECT collaborators.*, users.name AS user_name'))
     expect(conversationQuery?.sql).toContain('ai_conversations.owner_id = $1')
     expect(conversationQuery?.sql).toContain('collaborators.user_id = $1')
+    expect(conversationQuery?.sql).toContain('WHERE (ai_conversations.owner_id = $1 OR collaborators.user_id = $1)')
     expect(messageQuery?.sql).toContain('ai_conversations.owner_id = $1')
     expect(messageQuery?.sql).toContain('collaborators.user_id = $1')
-    expect(messageQuery?.sql).toContain('AND ai_conversations.id = $2')
+    expect(messageQuery?.sql).toContain('WHERE (ai_conversations.owner_id = $1 OR collaborators.user_id = $1)\n        AND ai_conversations.id = $2')
     expect(messageQuery?.sql).toContain('ORDER BY ai_messages.created_at ASC')
     expect(collaboratorQuery?.sql).toContain('ai_conversations.owner_id = $1')
     expect(collaboratorQuery?.sql).toContain('own_access.user_id = $1')
+    expect(collaboratorQuery?.sql).toContain('WHERE (ai_conversations.owner_id = $1 OR own_access.user_id = $1)')
     expect(collaboratorQuery?.sql).toContain('AND collaborators.conversation_id = $2')
 
     databaseCalls.length = 0

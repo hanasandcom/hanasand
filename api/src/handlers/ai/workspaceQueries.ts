@@ -23,6 +23,10 @@ const accessibleRepositoryIdsCte = `
     )
 `
 
+function conversationReadAccessPredicate(conversationAlias: string, collaboratorAlias: string) {
+    return `(${conversationAlias}.owner_id = $1 OR ${collaboratorAlias}.user_id = $1)`
+}
+
 export function queryAccessibleConversations(ownerId: string, conversationId?: string) {
     const conversationFilter = conversationId === undefined ? '' : 'AND ai_conversations.id = $2'
     const ordering = conversationId === undefined ? 'ORDER BY updated_at DESC, created_at DESC' : ''
@@ -37,10 +41,7 @@ export function queryAccessibleConversations(ownerId: string, conversationId?: s
         LEFT JOIN ai_conversation_collaborators AS collaborators
           ON collaborators.conversation_id = ai_conversations.id
          AND collaborators.user_id = $1
-        WHERE (
-            ai_conversations.owner_id = $1
-            OR collaborators.user_id = $1
-        )
+        WHERE ${conversationReadAccessPredicate('ai_conversations', 'collaborators')}
         ${conversationFilter}
         ${ordering}
     `, params)
@@ -57,10 +58,7 @@ export function queryAccessibleMessages(ownerId: string, conversationId?: string
         LEFT JOIN ai_conversation_collaborators AS collaborators
           ON collaborators.conversation_id = ai_conversations.id
          AND collaborators.user_id = $1
-        WHERE (
-            ai_conversations.owner_id = $1
-            OR collaborators.user_id = $1
-        )
+        WHERE ${conversationReadAccessPredicate('ai_conversations', 'collaborators')}
         ${conversationFilter}
         ORDER BY ai_messages.created_at ASC
     `, params)
@@ -128,8 +126,7 @@ export function queryAccessibleCollaborators(ownerId: string, conversationId?: s
             LEFT JOIN ai_conversation_collaborators AS own_access
               ON own_access.conversation_id = ai_conversations.id
              AND own_access.user_id = $1
-            WHERE ai_conversations.owner_id = $1
-               OR own_access.user_id = $1
+            WHERE ${conversationReadAccessPredicate('ai_conversations', 'own_access')}
         )
         ${conversationFilter}
         ORDER BY collaborators.created_at ASC
