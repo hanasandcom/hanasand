@@ -20,11 +20,11 @@ function failureContext(events: string[]) {
     } as never
 }
 
-function installErrorResponse(message: string, onRequest?: (path: string) => void) {
+function installErrorResponse(message: string, onRequest?: (path: string) => void, accepted?: number) {
     const previousFetch = globalThis.fetch
     globalThis.fetch = (async(input: RequestInfo | URL) => {
         onRequest?.(String(input))
-        return { ok: false, statusText: 'Rejected', json: async() => ({ error: { message } }) } as Response
+        return { ok: false, statusText: 'Rejected', json: async() => ({ ...(accepted === undefined ? {} : { accepted }), error: { message } }) } as Response
     }) as typeof fetch
     return () => { globalThis.fetch = previousFetch }
 }
@@ -167,6 +167,22 @@ test('failed evidence intake records its error and clears busy state before watc
         assert.deepEqual(events, [
             'busy:claim', 'result:clear', 'result:{"ok":false,"message":"evidence rejected"}', 'busy:null',
         ])
+    } finally {
+        restoreFetch()
+    }
+})
+
+test('both public evidence actions reject a failed intake even when its payload reports accepted evidence', async() => {
+    const requestedPaths: string[] = []
+    const restoreFetch = installErrorResponse('Intake rejected', path => requestedPaths.push(path), 1)
+    try {
+        for (const actionName of ['ingestPublicAdvisory', 'openCaseFromPublicAdvisory'] as const) {
+            const events: string[] = []
+            const actions = createEvidenceActions(failureContext(events), async() => { events.push('save-watchlist'); return { ok: true, message: 'saved' } })
+            await (actionName === 'ingestPublicAdvisory' ? actions.ingestPublicAdvisory({ preventDefault() {} } as never) : actions.openCaseFromPublicAdvisory())
+            assert.deepEqual(events, [`busy:${actionName === 'ingestPublicAdvisory' ? 'claim' : 'claim-case'}`, 'result:clear', 'result:{"ok":false,"message":"Intake rejected"}', 'busy:null'])
+        }
+        assert.deepEqual(requestedPaths, Array(2).fill('/api/findings/exposure-claims/ingest'))
     } finally {
         restoreFetch()
     }

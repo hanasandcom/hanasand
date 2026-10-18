@@ -19,18 +19,27 @@ export function createEvidenceActions(context: WorkflowActionContext, saveWatchl
         return false
     }
 
+    async function preparePublicEvidence() {
+        const claim = readClaim()
+        if (!validateClaim(claim)) return null
+
+        const nextTerms = ensureTerm(terms, claim.company)
+        const ingest = await ingestPublicEvidence(claim, scope)
+        if (!ingest.ok) throw new Error(ingest.message)
+        const accepted = typeof ingest.accepted === 'number' ? ingest.accepted : 0
+        if (!accepted) throw new Error('The source was not accepted. It must name the subject, describe a cyber incident, and publish a supported original timestamp.')
+
+        const watchlist = await saveWatchlistTerms(nextTerms)
+        if (!watchlist.ok) throw new Error(watchlist.message)
+        return { claim, nextTerms, accepted, watchlist }
+    }
+
     async function ingestPublicAdvisory(event: SyntheticEvent<HTMLFormElement>) {
         event.preventDefault()
         await runWorkflowAction(context, 'claim', async () => {
-            const claim = readClaim()
-            if (!validateClaim(claim)) return
-            const nextTerms = ensureTerm(terms, claim.company)
-            const ingest = await ingestPublicEvidence(claim, scope)
-            if (!ingest.ok) throw new Error(ingest.message)
-            const accepted = typeof ingest.accepted === 'number' ? ingest.accepted : 0
-            if (!accepted) throw new Error('The source was not accepted. It must name the subject, describe a cyber incident, and publish a supported original timestamp.')
-            const watchlist = await saveWatchlistTerms(nextTerms)
-            if (!watchlist.ok) throw new Error(watchlist.message)
+            const prepared = await preparePublicEvidence()
+            if (!prepared) return
+            const { nextTerms, accepted, watchlist } = prepared
             const rebuild = await alertRebuildFromWatchlistOrRequest(watchlist, scope)
             const savedAlertCount = typeof rebuild.savedAlertCount === 'number' ? rebuild.savedAlertCount : 0
             setTerms(nextTerms)
@@ -43,14 +52,9 @@ export function createEvidenceActions(context: WorkflowActionContext, saveWatchl
 
     async function openCaseFromPublicAdvisory() {
         await runWorkflowAction(context, 'claim-case', async () => {
-            const claim = readClaim()
-            if (!validateClaim(claim)) return
-            const nextTerms = ensureTerm(terms, claim.company)
-            const ingest = await ingestPublicEvidence(claim, scope)
-            const accepted = typeof ingest.accepted === 'number' ? ingest.accepted : 0
-            if (!accepted) throw new Error('The source was not accepted. It must name the subject, describe a cyber incident, and publish a supported original timestamp.')
-            const watchlist = await saveWatchlistTerms(nextTerms)
-            if (!watchlist.ok) throw new Error(watchlist.message)
+            const prepared = await preparePublicEvidence()
+            if (!prepared) return
+            const { claim, nextTerms, accepted } = prepared
             const rebuild = await postJson('/api/findings/alerts/rebuild', scope)
             if (!rebuild.ok) throw new Error(rebuild.message)
             const alert = selectRebuiltAlert(rebuild, claim.company, nextTerms)
