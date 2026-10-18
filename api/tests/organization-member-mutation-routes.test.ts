@@ -97,3 +97,71 @@ test('member role changes revalidate the actor membership after locking', async 
     expect(state.statements.some(statement => statement.sql.startsWith('SELECT id FROM users WHERE id = ANY($1::text[]) ORDER BY id FOR UPDATE'))).toBe(true)
     expect(state.writes).toHaveLength(0)
 })
+
+test('member mutation permission denials preserve preflight audit context', async () => {
+    state.role = 'member'
+    const roleResponse = await app.inject({
+        method: 'PATCH',
+        url: '/org/org/members/teammate/role',
+        payload: { role: 'editor', requestId: 'role-request', reason: 'Denied promotion.' },
+    })
+    expect(roleResponse.statusCode).toBe(403)
+    expect(roleResponse.json()).toMatchObject({
+        error: 'Only organization owners and admins can update member roles.',
+        memberMutationDenial: {
+            actorRole: 'member', targetRole: 'reader', requestedRole: 'editor',
+            action: 'change_member_role', requestId: 'role-request', reason: 'Denied promotion.',
+        },
+    })
+    expect(state.serviceLogs.at(-1)?.metadata).toMatchObject({
+        requestId: 'role-request', targetUserId: 'teammate', actorRole: 'member',
+        targetRole: 'reader', action: 'change_member_role', requestedRole: 'editor', reason: 'Denied promotion.',
+    })
+
+    state.serviceLogs.length = 0
+    const removalResponse = await app.inject({
+        method: 'DELETE',
+        url: '/org/org/members/teammate',
+        headers: { 'x-request-id': 'remove-request' },
+    })
+    expect(removalResponse.statusCode).toBe(403)
+    expect(removalResponse.json()).toMatchObject({
+        error: 'Only organization owners and admins can remove members.',
+        memberMutationDenial: {
+            actorRole: 'member', targetRole: 'reader', action: 'remove_member', requestId: 'remove-request',
+        },
+    })
+    expect(state.serviceLogs.at(-1)?.metadata).toMatchObject({
+        requestId: 'remove-request', targetUserId: 'teammate', actorRole: 'member',
+        targetRole: 'reader', action: 'remove_member',
+    })
+})
+
+test('member mutation permission denials after locking use locked roles and do not emit preflight audit events', async () => {
+    state.role = 'owner'
+    state.changeActorRoleAfterMemberLock = true
+    const roleResponse = await app.inject({
+        method: 'PATCH',
+        url: '/org/org/members/teammate/role',
+        payload: { role: 'editor', requestId: 'locked-role-request', reason: 'Denied promotion.' },
+    })
+    expect(roleResponse.statusCode).toBe(403)
+    expect(roleResponse.json().memberMutationDenial).toMatchObject({
+        actorRole: 'member', targetRole: 'reader', requestedRole: 'editor',
+        action: 'change_member_role', requestId: 'locked-role-request',
+    })
+    expect(state.serviceLogs).toHaveLength(0)
+
+    state.role = 'owner'
+    state.changeActorRoleAfterMemberLock = true
+    const removalResponse = await app.inject({
+        method: 'DELETE',
+        url: '/org/org/members/teammate',
+        headers: { 'x-request-id': 'locked-remove-request' },
+    })
+    expect(removalResponse.statusCode).toBe(403)
+    expect(removalResponse.json().memberMutationDenial).toMatchObject({
+        actorRole: 'member', targetRole: 'reader', action: 'remove_member', requestId: 'locked-remove-request',
+    })
+    expect(state.serviceLogs).toHaveLength(0)
+})

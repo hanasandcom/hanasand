@@ -5,7 +5,6 @@ import { activeOrganizationOwnerCount as activeOwnerCount } from '#utils/organiz
 import { recordSystemEvent } from '#utils/systemEvent.ts'
 import {
     normalizeMemberRoleInput,
-    organizationMemberMutationDenial,
     toMember,
     toOrganization,
     type OrganizationMemberRoleInput,
@@ -17,7 +16,7 @@ import { loadActiveOrganizationMemberMutationRequest, loadLockedOrganizationMemb
 import { loadOrganizationForMember } from '../requestContext.ts'
 import { buildOrganizationMemberRoleChangeReceipt } from './roleReceipt.ts'
 import { roleUpdatePermissionError } from './permissions.ts'
-import { sendOrganizationLastOwnerGuard } from './denials.ts'
+import { sendOrganizationLastOwnerGuard, sendOrganizationMemberMutationDenial } from './denials.ts'
 
 type OrganizationMemberParams = { id: string; userId: string }
 
@@ -35,7 +34,7 @@ export async function patchOrganizationMemberRole(req: FastifyRequest<{ Params: 
 
     const permissionError = roleUpdatePermissionError(organization.role, target.role, input.role)
     if (permissionError) {
-        const denial = organizationMemberMutationDenial({
+        return sendOrganizationMemberMutationDenial(req, res, {
             organizationId: req.params.id,
             actorId: userId,
             actorRole: organization.role,
@@ -46,18 +45,8 @@ export async function patchOrganizationMemberRole(req: FastifyRequest<{ Params: 
             reason: input.reason,
             requestId: input.requestId,
             message: permissionError,
+            logEvent: true,
         })
-        logOrganizationEvent(req, denial.serviceLogAction, req.params.id, userId, {
-            requestId: denial.requestId,
-            targetUserId: req.params.userId,
-            targetRole: target.role,
-            actorRole: organization.role,
-            action: denial.action,
-            requestedRole: input.role,
-            denialReason: denial.denialReason,
-            reason: input.reason,
-        })
-        return res.status(403).send({ error: permissionError, memberMutationDenial: denial })
     }
 
     const mutation = await withTransaction(async query => {
@@ -94,7 +83,7 @@ export async function patchOrganizationMemberRole(req: FastifyRequest<{ Params: 
         return sendOrganizationLifecycleBlocker(req, res, mutation.lifecycleBlocker, userId, mutation.organization.role)
     }
     if (mutation.error === 'organization_role_forbidden') {
-        const denial = organizationMemberMutationDenial({
+        return sendOrganizationMemberMutationDenial(req, res, {
             organizationId: req.params.id,
             actorId: userId,
             actorRole: mutation.organization.role,
@@ -106,7 +95,6 @@ export async function patchOrganizationMemberRole(req: FastifyRequest<{ Params: 
             requestId: input.requestId,
             message: mutation.permissionError,
         })
-        return res.status(403).send({ error: mutation.permissionError, memberMutationDenial: denial })
     }
     if (mutation.error === 'organization_owner_required') {
         return sendOrganizationLastOwnerGuard(req, res, {

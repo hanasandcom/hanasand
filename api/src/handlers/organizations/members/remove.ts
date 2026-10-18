@@ -4,7 +4,6 @@ import { touchOrganization } from '#utils/db/identityDataWrites.ts'
 import { activeOrganizationOwnerCount as activeOwnerCount } from '#utils/organizationMemberships.ts'
 import { recordSystemEvent } from '#utils/systemEvent.ts'
 import {
-    organizationMemberMutationDenial,
     toMember,
     toOrganization,
     type OrganizationInviteRow,
@@ -16,7 +15,7 @@ import { loadActiveOrganizationMemberMutationRequest, loadLockedOrganizationMemb
 import { loadOrganizationForMember } from '../requestContext.ts'
 import { buildOrganizationMemberRemovalCleanup } from './removalReceipt.ts'
 import { removalPermissionError } from './permissions.ts'
-import { sendOrganizationLastOwnerGuard } from './denials.ts'
+import { sendOrganizationLastOwnerGuard, sendOrganizationMemberMutationDenial } from './denials.ts'
 
 type OrganizationMemberParams = { id: string; userId: string }
 
@@ -27,7 +26,7 @@ export async function deleteOrganizationMember(req: FastifyRequest<{ Params: Org
 
     const permissionError = removalPermissionError(organization.role, target.role)
     if (permissionError) {
-        const denial = organizationMemberMutationDenial({
+        return sendOrganizationMemberMutationDenial(req, res, {
             organizationId: req.params.id,
             actorId: userId,
             actorRole: organization.role,
@@ -36,16 +35,8 @@ export async function deleteOrganizationMember(req: FastifyRequest<{ Params: Org
             action: 'remove_member',
             requestId: req.headers['x-request-id'] ? String(req.headers['x-request-id']) : null,
             message: permissionError,
+            logEvent: true,
         })
-        logOrganizationEvent(req, denial.serviceLogAction, req.params.id, userId, {
-            requestId: denial.requestId,
-            targetUserId: req.params.userId,
-            targetRole: target.role,
-            actorRole: organization.role,
-            action: denial.action,
-            denialReason: denial.denialReason,
-        })
-        return res.status(403).send({ error: permissionError, memberMutationDenial: denial })
     }
 
     const mutation = await withTransaction(async query => {
@@ -100,7 +91,7 @@ export async function deleteOrganizationMember(req: FastifyRequest<{ Params: Org
         return sendOrganizationLifecycleBlocker(req, res, mutation.lifecycleBlocker, userId, mutation.organization.role)
     }
     if (mutation.error === 'organization_role_forbidden') {
-        const denial = organizationMemberMutationDenial({
+        return sendOrganizationMemberMutationDenial(req, res, {
             organizationId: req.params.id,
             actorId: userId,
             actorRole: mutation.organization.role,
@@ -110,7 +101,6 @@ export async function deleteOrganizationMember(req: FastifyRequest<{ Params: Org
             requestId: req.headers['x-request-id'] ? String(req.headers['x-request-id']) : null,
             message: mutation.permissionError,
         })
-        return res.status(403).send({ error: mutation.permissionError, memberMutationDenial: denial })
     }
     if (mutation.error === 'organization_owner_required') {
         return sendOrganizationLastOwnerGuard(req, res, {

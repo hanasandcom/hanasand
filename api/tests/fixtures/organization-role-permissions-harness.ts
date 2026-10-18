@@ -5,6 +5,7 @@ import * as webhooks from '../../src/utils/dwm/webhooks.ts'
 
 export const state = {
     role: 'reader' as OrganizationRole,
+    changeActorRoleAfterMemberLock: false,
     active: true,
     actorMembershipStatus: 'active' as 'active' | 'removed',
     authenticated: true,
@@ -36,6 +37,10 @@ const query = async (sql: string, params: unknown[] = []) => {
     if (state.removeActorMembershipAfterMemberLock && statement.startsWith('SELECT id FROM users WHERE id = ANY($1::text[]) ORDER BY id FOR UPDATE')) {
         state.actorMembershipStatus = 'removed'
         state.removeActorMembershipAfterMemberLock = false
+    }
+    if (state.changeActorRoleAfterMemberLock && statement.startsWith('SELECT id FROM users WHERE id = ANY($1::text[]) ORDER BY id FOR UPDATE')) {
+        state.role = 'member'
+        state.changeActorRoleAfterMemberLock = false
     }
     if (statement.includes('COUNT(*)::int AS owner_count')) return { rows: [{ owner_count: 1 }] }
     if (statement.startsWith('SELECT * FROM organization_invites')) {
@@ -105,6 +110,7 @@ app.delete('/org/:id/members/:userId', org.deleteOrganizationMember)
 export function resetOrganizationRolePermissionsFixture() {
     Object.assign(state, {
         role: 'reader', active: true, actorMembershipStatus: 'active', authenticated: true,
+        changeActorRoleAfterMemberLock: false,
         archived: false, queryCalls: 0, inviteAcceptanceWinsRace: false, inviteReads: 0,
         removeActorMembershipAfterMemberLock: false,
     })
