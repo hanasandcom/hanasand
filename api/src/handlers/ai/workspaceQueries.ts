@@ -46,7 +46,9 @@ export function queryAccessibleConversations(ownerId: string, conversationId?: s
     `, params)
 }
 
-export function queryAccessibleMessages(ownerId: string) {
+export function queryAccessibleMessages(ownerId: string, conversationId?: string) {
+    const conversationFilter = conversationId === undefined ? '' : 'AND ai_conversations.id = $2'
+    const params = conversationId === undefined ? [ownerId] : [ownerId, conversationId]
     return run(`
         SELECT ai_messages.*
         FROM ai_messages
@@ -55,10 +57,13 @@ export function queryAccessibleMessages(ownerId: string) {
         LEFT JOIN ai_conversation_collaborators AS collaborators
           ON collaborators.conversation_id = ai_conversations.id
          AND collaborators.user_id = $1
-        WHERE ai_conversations.owner_id = $1
-           OR collaborators.user_id = $1
+        WHERE (
+            ai_conversations.owner_id = $1
+            OR collaborators.user_id = $1
+        )
+        ${conversationFilter}
         ORDER BY ai_messages.created_at ASC
-    `, [ownerId])
+    `, params)
 }
 
 export function queryAccessibleRepositories(ownerId: string) {
@@ -109,7 +114,9 @@ export function queryAccessibleDeployments(ownerId: string) {
     `, [ownerId])
 }
 
-export function queryAccessibleCollaborators(ownerId: string) {
+export function queryAccessibleCollaborators(ownerId: string, conversationId?: string) {
+    const conversationFilter = conversationId === undefined ? '' : 'AND collaborators.conversation_id = $2'
+    const params = conversationId === undefined ? [ownerId] : [ownerId, conversationId]
     return run(`
         SELECT collaborators.*, users.name AS user_name, users.avatar AS user_avatar
         FROM ai_conversation_collaborators AS collaborators
@@ -124,8 +131,9 @@ export function queryAccessibleCollaborators(ownerId: string) {
             WHERE ai_conversations.owner_id = $1
                OR own_access.user_id = $1
         )
+        ${conversationFilter}
         ORDER BY collaborators.created_at ASC
-    `, [ownerId])
+    `, params)
 }
 
 export function queryAccessibleReleases(ownerId: string) {

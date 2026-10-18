@@ -1,6 +1,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import run from '#db'
-import { getConversationForUser, getWorkspaceBundle, requireAiUser } from './shared.ts'
+import { getConversationBundleForUser, getConversationForUser, requireAiUser } from './shared.ts'
 import { recordAiUsageEvent } from '#utils/ai/usage.ts'
 
 type CollaboratorBody = {
@@ -83,8 +83,7 @@ export async function postAiConversationCollaborator(req: FastifyRequest, res: F
         },
     })
 
-    const workspace = await getWorkspaceBundle(userId)
-    const updated = workspace.conversations.find((entry) => entry.id === id) || null
+    const updated = await getConversationBundleForUser(userId, id)
     return res.status(201).send({ conversation: updated })
 }
 
@@ -125,7 +124,6 @@ export async function deleteAiConversationCollaborator(req: FastifyRequest, res:
         return res.send({ ok: true, conversationId: id, userId: targetUserId, conversation: null })
     }
 
-    const workspace = await getWorkspaceBundle(userId)
-    const updated = workspace.conversations.find((entry) => entry.id === id) || null
+    const updated = await getConversationBundleForUser(userId, id)
     return res.send({ ok: true, conversationId: id, userId: targetUserId, conversation: updated })
 }

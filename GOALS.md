@@ -3071,3 +3071,27 @@ worthwhile savings: the support workflows intentionally retain separate
 authorization, audit, idempotency, redaction, and transaction rules. The
 existing organization-scoped invite lookup reuse remains the confirmed
 cross-flow extraction (`341f1a274`, net −14 LOC).
+
+## Production baseline and resumed candidate — 2026-10-18
+
+The c70a54fbea00e06b59eb011677c3d608b73eb7a1 release is deployed to both the
+frontend and API. The API and frontend report that release, the production
+checkout is clean, both Git remotes point to it, and `verify-stack-release.sh`
+passes. The full-stack deployment delivered the shared Hanasand session and
+active-organization gate for `/prompt`; the live unauthenticated route redirects
+to the normal login, and its API returns the shared 401 authentication response.
+
+The refactor has resumed from that deployed main baseline. A scoped AI
+collaborator response change replaces full-workspace reloads with three
+conversation-scoped queries while retaining access predicates and response
+projection parity. Its focused suite passes 2/2 in direct and canonical runner
+execution; API lint/typecheck and both line-cap scans pass. The change adds 65
+net repository lines including regression coverage, so it is a runtime query
+reduction rather than a line-count reduction. The larger API/frontend size
+targets remain open.
+
+The `cashflow` VM remains in LXD `ERROR` (status code 112). LXD lists no
+`qemu.log`, snapshots, or backups; the SSH account cannot read the privileged
+journal or verify the reported pre-recovery disk backup. Do not start, stop,
+restart, or alter its disk until an authorized operator provides the missing
+read-only log and backup integrity evidence.

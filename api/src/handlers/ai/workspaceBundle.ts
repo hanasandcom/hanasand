@@ -31,6 +31,22 @@ export async function getConversationForUser(conversationId: string, ownerId: st
     return (result.rows as AiConversationRow[])[0] || null
 }
 
+export async function getConversationBundleForUser(ownerId: string, conversationId: string) {
+    const [conversationResult, messageResult, collaboratorResult] = await Promise.all([
+        queryAccessibleConversations(ownerId, conversationId),
+        queryAccessibleMessages(ownerId, conversationId),
+        queryAccessibleCollaborators(ownerId, conversationId),
+    ])
+    const conversation = (conversationResult.rows as AiConversationRow[])[0]
+    if (!conversation) return null
+
+    return toAiConversation(
+        conversation,
+        messageResult.rows as AiMessageRow[],
+        collaboratorResult.rows as CollaborationRow[],
+    )
+}
+
 export async function getWorkspaceBundle(ownerId: string) {
     const [conversationResult, messageResult, repositoryResult, fileResult, deploymentResult, collaborationResult, releaseResult, usageResult] = await Promise.all([
         queryAccessibleConversations(ownerId),
