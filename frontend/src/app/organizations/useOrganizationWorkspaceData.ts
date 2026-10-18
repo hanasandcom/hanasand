@@ -1,12 +1,11 @@
 'use client'
 
 import { useCallback, useEffect, useMemo } from 'react'
-import type { OrganizationLoadError } from './types/organization'
 import type { OrganizationPage } from '@/utils/organizations/pages'
 import type { OrganizationSummary } from './types/organization'
 import type { useOrganizationWorkspaceState } from './useOrganizationWorkspaceState'
 import { endpointErrorMessage, errorMessage, isServerUnavailable } from './model/labels'
-import { initialOrganizationBundle, mergeOrganizationPayload, organizationBundleKeysByPage } from './model/organizationBundle'
+import { createInitialOrganizationBundle, mergeOrganizationPayload, organizationBundleKeysByPage } from './model/organizationBundle'
 import { requestJson } from './model/workspaceApi'
 import { focusForSubjectType, currentOrganizationFocus, replaceOrganizationWorkspaceSelectionUrl, requestedSubjectFromSearch } from './model/activityNavigation'
 import type { ActivitySubject as WorkspaceSubject } from './types/activity'
@@ -56,13 +55,13 @@ export function useOrganizationWorkspaceData(options: WorkspaceDataOptions) {
             const preferred = nextSelectedId || requestedOrganizationId || selectedId
             const nextSelected = nextOrganizations.find(item => item.id === preferred)?.id || ''
             setSelectedId(nextSelected)
-            if (!nextSelected) setBundle(initialOrganizationBundle)
+            if (!nextSelected) setBundle(createInitialOrganizationBundle())
         } catch (error) {
             if (!mountedRef.current || organizationLoadRef.current !== requestId) return
             setError(errorMessage(error))
             setOrganizations([])
             setSelectedId('')
-            setBundle(initialOrganizationBundle)
+            setBundle(createInitialOrganizationBundle())
         } finally {
             if (mountedRef.current && organizationLoadRef.current === requestId) setLoading(false)
         }
@@ -87,7 +86,7 @@ export function useOrganizationWorkspaceData(options: WorkspaceDataOptions) {
         const allowed = endpoints.filter(([key]) => required.has(key) && (mayManage || !['apiKeys', 'invites'].includes(key)))
         const results = await Promise.allSettled(allowed.map(([, url]) => requestJson<Record<string, unknown>>(url)))
         if (!mountedRef.current || bundleLoadRef.current !== requestId) return
-        const nextBundle = { ...initialOrganizationBundle, loadErrors: [] as OrganizationLoadError[] }
+        const nextBundle = createInitialOrganizationBundle()
         results.forEach((result, index) => {
             const [key] = allowed[index]
             if (result.status === 'rejected') {

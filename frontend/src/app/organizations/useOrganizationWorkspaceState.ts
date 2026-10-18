@@ -5,6 +5,7 @@ import type { ActivityItem, ActivitySubject, CollectionRequest, RowMessage } fro
 import type { OrganizationRole, OrganizationSettings, OrganizationSummary } from './types/organization'
 import type { OrgBundle } from './types/bundle'
 import type { WatchlistKind } from './types/watchlists'
+import { createInitialOrganizationBundle } from './model/organizationBundle'
 
 export function useOrganizationWorkspaceState({
     organizations: initialOrganizations,
@@ -13,11 +14,7 @@ export function useOrganizationWorkspaceState({
 }: { organizations: OrganizationSummary[], loading: boolean, requestedOrganizationId: string }) {
     const [organizations, setOrganizations] = useState(initialOrganizations)
     const [selectedId, setSelectedId] = useState(requestedOrganizationId)
-    const [bundle, setBundle] = useState<OrgBundle>({
-        settings: null, privacy: null, members: [], invites: [], watchlists: [], alertTerms: [],
-        alerts: [], cases: [], webhooks: [], deliveries: [], alertCaseVisibility: null,
-        apiKeys: [], loadErrors: [],
-    })
+    const [bundle, setBundle] = useState<OrgBundle>(createInitialOrganizationBundle)
     const [loading, setLoading] = useState(initialLoading)
     const [busy, setBusy] = useState('')
     const [error, setError] = useState('')

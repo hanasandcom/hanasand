@@ -7,11 +7,15 @@ import type { WebhookDestination } from '../types/delivery'
 import { arrayValue, cleanString, normalizeAlertGenerationRecords, objectValue } from './labels'
 import { normalizedDeliveryRows } from './deliveries'
 
-export const initialOrganizationBundle: OrgBundle = {
-    settings: null, privacy: null, members: [], invites: [], watchlists: [], alertTerms: [],
-    alerts: [], cases: [], webhooks: [], deliveries: [], alertCaseVisibility: null,
-    apiKeys: [], loadErrors: [],
+export function createInitialOrganizationBundle(): OrgBundle {
+    return {
+        settings: null, privacy: null, members: [], invites: [], watchlists: [], alertTerms: [],
+        alerts: [], cases: [], webhooks: [], deliveries: [], alertCaseVisibility: null,
+        apiKeys: [], loadErrors: [],
+    }
 }
+
+export const initialOrganizationBundle = createInitialOrganizationBundle()
 
 export type OrganizationBundleKey =
     | 'settings' | 'apiKeys' | 'privacy' | 'members' | 'invites' | 'watchlists'
