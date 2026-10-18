@@ -5,6 +5,7 @@ let fail = false
 let probes = 0
 let host = 'inspur'
 let snapshot = { name: 'cashflow', last_checked: '2026-07-22T15:34:00Z', limits_memory: '2GB' }
+const statusInputs: Array<Record<string, unknown>> = []
 mock.module('../src/constants.ts', () => ({ default: { vm_host_id: 'inspur' } }))
 mock.module('../src/utils/auth/tokenWrapper.ts', () => ({ default: async () => ({ valid: true }) }))
 mock.module('../src/utils/vms/access.ts', () => ({ requireVmAccess: async (_req: unknown, reply: { code: (n: number) => { send: (v: unknown) => void } }) => {
@@ -12,8 +13,8 @@ mock.module('../src/utils/vms/access.ts', () => ({ requireVmAccess: async (_req:
     reply.code(404).send({ error: 'VM not found.' })
     return null
 } }))
-mock.module('../src/utils/vms/status.ts', () => ({ withLiveVmStatus: async (row: unknown) => row }))
-mock.module('../src/utils/db.ts', () => ({ default: async (sql: string) => ({ rows: [sql.includes('primary_host') ? { primary_host: host } : snapshot] }) }))
+mock.module('../src/utils/vms/status.ts', () => ({ withLiveVmStatus: async (row: Record<string, unknown>) => { statusInputs.push(row); return row } }))
+mock.module('../src/utils/db.ts', () => ({ default: async (sql: string) => ({ rows: [sql.includes('FROM vm_details details') ? { ...snapshot, primary_host: host } : { primary_host: host }] }) }))
 mock.module('../src/utils/vms/lxd.ts', () => ({ refreshLocalLxdDetails: async (_name: string, strict: boolean) => {
     probes++
     expect(strict).toBe(true)
@@ -28,6 +29,10 @@ test('explicit refresh persists and returns new host details, while failures and
     try {
         expect((await app.inject('/details/cashflow')).json().last_checked).toBe('2026-07-22T15:34:00Z')
         expect(probes).toBe(0)
+        host = 'ovhcloud'
+        expect((await app.inject('/details/cashflow')).json().primary_host).toBe('ovhcloud')
+        expect(statusInputs.at(-1)?.primary_host).toBe('ovhcloud')
+        host = 'inspur'
         const updated = await app.inject('/details/cashflow?refresh=1')
         expect(updated.statusCode).toBe(200)
         expect(updated.headers['cache-control']).toBe('no-store')

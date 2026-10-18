@@ -1,4 +1,13 @@
-import { afterEach, expect, test } from 'bun:test'
+import { afterEach, expect, mock, test } from 'bun:test'
+
+const remoteRequests: Array<{ host: string; path: string }> = []
+mock.module('../src/utils/vms/hostTransport.ts', () => ({
+    internalHostFetch: async (host: string, path: string) => {
+        remoteRequests.push({ host, path })
+        return Response.json({ status: 'Running' })
+    },
+}))
+
 import { invalidateLiveVmStatus, withLiveVmStatus } from '../src/utils/vms/status.ts'
 
 const name = 'status-cache-regression-vm'
@@ -11,6 +20,7 @@ afterEach(() => {
     invalidateLiveVmStatus(name)
     hostStatus = 'Stopped'
     requests = 0
+    remoteRequests.length = 0
 })
 
 test('lifecycle status invalidation makes the next page refresh see the host state', async () => {
@@ -39,4 +49,14 @@ test('live status probes the VM primary host rather than the API host', async ()
     })
     expect(result.status).toBe('RUNNING')
     expect(probed).toEqual([{ name: 'remote-status-vm', host: 'ovhcloud' }])
+})
+
+test('default remote status probe requests the assigned host receiver path', async () => {
+    const result = await withLiveVmStatus({ name: 'remote-transport-status-vm', primary_host: 'ovhcloud' })
+
+    expect(result.status).toBe('RUNNING')
+    expect(remoteRequests).toEqual([{
+        host: 'ovhcloud',
+        path: '/vms/internal/remote-transport-status-vm/status',
+    }])
 })

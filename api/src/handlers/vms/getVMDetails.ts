@@ -20,7 +20,13 @@ export default async function getVMDetails(req: FastifyRequest, res: FastifyRepl
             }
             await refreshLocalLxdDetails(viewer.name, true)
         }
-        const result = await run('SELECT * FROM vm_details WHERE name = $1;', [viewer.name])
+        const result = await run(`
+            SELECT details.*, vm.primary_host
+            FROM vm_details details
+            JOIN vms vm ON LOWER(vm.name) = LOWER(details.name)
+            WHERE LOWER(details.name) = LOWER($1)
+            LIMIT 1
+        `, [viewer.name])
         if (result.rows.length === 0) {
             return res.status(200).send([])
         }
