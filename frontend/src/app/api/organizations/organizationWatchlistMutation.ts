@@ -1,20 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { authApiUrl } from '@/utils/auth/authApiUrl'
-import { bearerToken, parseJsonObject } from './watchlistDwmValues'
+import { proxyOrganizationApiRequest } from './_organizationApiProxy'
+import { parseJsonObject } from './watchlistDwmValues'
 import { mirrorOrganizationWatchlistToDwm } from './watchlistDwmSync'
 
 type MutationMethod = 'POST' | 'PUT' | 'DELETE'
 
 export async function proxyOrganizationWatchlistMutation(request: NextRequest, path: string, input: { method: MutationMethod, organizationId: string }) {
-    const bodyText = await request.text()
-    const organizationResult = await forwardOrganizationMutation(request, path, input.method, bodyText)
-    if (organizationResult.status < 200 || organizationResult.status >= 300) {
-        return NextResponse.json(organizationResult.payload, { status: organizationResult.status, headers: { 'cache-control': 'no-store' } })
+    const response = await proxyOrganizationApiRequest(request, path, {
+        method: input.method,
+        forwardImpersonation: false,
+    })
+    const organizationPayload = parseJsonObject(await response.text())
+    if (!response.ok) {
+        return NextResponse.json(organizationPayload, { status: response.status, headers: { 'cache-control': 'no-store' } })
     }
 
-    const dwmAlertBridge = await mirrorOrganizationWatchlistToDwm(request, input.organizationId, organizationResult.payload)
-    const result = buildOrganizationWatchlistResponse(organizationResult.payload, organizationResult.status, dwmAlertBridge)
+    const dwmAlertBridge = await mirrorOrganizationWatchlistToDwm(request, input.organizationId, organizationPayload)
+    const result = buildOrganizationWatchlistResponse(organizationPayload, response.status, dwmAlertBridge)
     return NextResponse.json(result.body, { status: result.status, headers: { 'cache-control': 'no-store' } })
 }
 
@@ -43,31 +45,5 @@ export function buildOrganizationWatchlistResponse(organizationPayload: Record<s
             dwmAlertBridge,
         },
         status: completedEmpty ? organizationStatus : pending ? 202 : 502,
-    }
-}
-
-async function forwardOrganizationMutation(request: NextRequest, path: string, method: MutationMethod, bodyText: string) {
-    try {
-        const cookieStore = await cookies()
-        const token = cookieStore.get('access_token')?.value || bearerToken(request.headers.get('authorization')) || ''
-        const id = cookieStore.get('id')?.value || request.headers.get('id') || ''
-        const target = new URL(`${authApiUrl().replace(/\/$/, '')}${path.startsWith('/') ? path : `/${path}`}`)
-        for (const [key, value] of request.nextUrl.searchParams.entries()) target.searchParams.set(key, value)
-        const response = await fetch(target, {
-            method, cache: 'no-store',
-            headers: {
-                'content-type': 'application/json',
-                'x-tenant-id': request.headers.get('x-tenant-id') || 'default',
-                ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                ...(id ? { id } : {}),
-            },
-            body: bodyText, signal: AbortSignal.timeout(12000),
-        })
-        return { payload: parseJsonObject(await response.text()), status: response.status }
-    } catch (error) {
-        return {
-            status: 502,
-            payload: { error: { code: 'organization_proxy_failed', message: error instanceof Error ? error.message : String(error) } },
-        }
     }
 }
