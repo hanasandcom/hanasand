@@ -4,6 +4,7 @@ import { deliveryLedgerHref } from './caseRoutes'
 import { workflowStatusClass, label, relativeTime } from './presentation'
 import Link from 'next/link'
 import { safeWorkbenchDetail, sanitizeWorkbenchCopy } from './copy'
+import { EvidencePanel } from './EvidencePanel'
 
 export function DeliveryEvidenceRows({ deliveries, selected, orgContext }: { deliveries: Array<WorkbenchDeliveryEvidence | CaseDelivery>, selected: WorkbenchCase, orgContext?: WorkbenchOrgContext }) {
     if (!deliveries.length) {
@@ -17,7 +18,7 @@ export function DeliveryEvidenceRows({ deliveries, selected, orgContext }: { del
     }
 
     return (
-        <div className='rounded-lg border border-ui-border bg-ui-raised p-3'>
+        <EvidencePanel>
             <h4 className='text-sm font-semibold text-ui-text'>Webhook delivery evidence</h4>
             <div className='mt-3 grid gap-2'>
                 {deliveries.map(delivery => {
@@ -46,13 +47,13 @@ export function DeliveryEvidenceRows({ deliveries, selected, orgContext }: { del
                     )
                 })}
             </div>
-        </div>
+        </EvidencePanel>
     )
 }
 
 export function TimelineRows({ title, rows }: { title: string, rows: CaseTimelineItem[] }) {
     return (
-        <div className='rounded-lg border border-ui-border bg-ui-raised p-3'>
+        <EvidencePanel>
             <h4 className='text-sm font-semibold text-ui-text'>{title}</h4>
             <div className='mt-3 grid gap-3'>
                 {rows.map(row => (
@@ -67,7 +68,7 @@ export function TimelineRows({ title, rows }: { title: string, rows: CaseTimelin
                 ))}
                 {!rows.length && <p className='text-xs text-ui-muted'>Timeline updates with the next case event.</p>}
             </div>
-        </div>
+        </EvidencePanel>
     )
 }
 
@@ -76,7 +77,7 @@ export function AlertDetailSummary({ alert, fallback }: { alert: NonNullable<Ale
     const webhookContext = alert.webhookContext
     const caseId = alert.caseId || alert.caseIdCandidate || workflowContext?.caseIdCandidate
     return (
-        <div className='rounded-lg border border-ui-border bg-ui-raised p-3'>
+        <EvidencePanel>
             <div className='flex flex-wrap items-center gap-2'>
                 <span className='text-sm font-semibold text-ui-text'>{alert.id || fallback.id}</span>
                 <span className={workflowStatusClass(alert.deliveryState === 'delivered' ? 'ready' : alert.deliveryState ? 'needs_action' : 'blocked')}>{label(alert.deliveryState || 'delivery pending')}</span>
@@ -94,7 +95,7 @@ export function AlertDetailSummary({ alert, fallback }: { alert: NonNullable<Ale
                 <p className='break-all'><span className='font-semibold text-ui-muted'>Watchlists:</span> {(workflowContext?.watchlistIds || []).join(', ') || 'syncing'}</p>
                 <p className='break-all'><span className='font-semibold text-ui-muted'>Destinations:</span> {(webhookContext?.webhookDestinationIds || workflowContext?.webhookDestinationIds || []).join(', ') || (webhookContext?.hasWebhookRoute ? 'delivery available' : 'syncing')}</p>
             </div>
-        </div>
+        </EvidencePanel>
     )
 }
 
@@ -105,7 +106,7 @@ export function AlertWorkflowReadiness({ detail }: { detail: AlertDetailPayload 
     const blockerCodes = [...(readiness?.blockerCodes || []), ...(downstream?.blockerCodes || [])]
         .filter((code, index, source) => source.indexOf(code) === index)
     return (
-        <div className='rounded-lg border border-ui-border bg-ui-raised p-3'>
+        <EvidencePanel>
             <div className='flex flex-wrap items-center gap-2'>
                 <h4 className='text-sm font-semibold text-ui-text'>Workflow guard</h4>
                 <span className={workflowStatusClass(readiness?.ready === false || blockerCodes.length ? 'blocked' : 'ready')}>{readiness?.ready === false || blockerCodes.length ? 'syncing' : 'ready'}</span>
@@ -132,7 +133,7 @@ export function AlertWorkflowReadiness({ detail }: { detail: AlertDetailPayload 
                     ))}
                 </div>
             ) : null}
-        </div>
+        </EvidencePanel>
     )
 }
 
@@ -145,7 +146,7 @@ export function AlertOperationalReadiness({ detail }: { detail: AlertDetailPaylo
     const blockerCodes = [...(delivery?.blockerCodes || []), ...(customerStatus?.blockerCodes || [])]
         .filter((code, index, source) => source.indexOf(code) === index)
     return (
-        <div className='rounded-lg border border-ui-border bg-ui-raised p-3'>
+        <EvidencePanel>
             <div className='flex flex-wrap items-center gap-2'>
                 <h4 className='text-sm font-semibold text-ui-text'>Delivery lane</h4>
                 <span className={workflowStatusClass(delivery?.ready || customerStatus?.ready ? 'ready' : blockerCodes.length ? 'blocked' : 'needs_action')}>{delivery?.ready || customerStatus?.ready ? 'ready' : blockerCodes.length ? 'syncing' : 'review'}</span>
@@ -163,6 +164,6 @@ export function AlertOperationalReadiness({ detail }: { detail: AlertDetailPaylo
                 {blockerCodes.map(code => <span key={code} className={workflowStatusClass('blocked')}>{label(code)}</span>)}
                 {!blockerCodes.length && <span className='text-xs text-ui-muted'>Delivery and customer lanes are clear.</span>}
             </div>
-        </div>
+        </EvidencePanel>
     )
 }

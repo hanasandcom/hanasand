@@ -3,11 +3,9 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { History, Redo2, Settings2, Undo2 } from 'lucide-react'
-import SheetEditor from './sheetEditor'
+import SheetView from './SheetView'
 import { sheetButton } from './sheetEditorStyles'
 import SheetPageManager from './SheetPageManager'
-import TimetableSheet from './timetableSheet'
-import PlanSheet from './planSheet'
 import type { ActivityLog } from './timetableData'
 import CodeReview from './codeReview'
 import type { Sheet, SheetSettings } from './workspace'
@@ -90,7 +88,6 @@ export default function ThesisClient({ initialDocument, canEdit }: { initialDocu
         thesis.update('body', body)
         if (key === 'history' && !value) versionHistory.close()
     }
-    const Editor = sheets[active].id === 'Timetable' || sheets[active].name.toLowerCase() === 'timetable' ? TimetableSheet : sheets[active].id === 'Plan' || sheets[active].name.toLowerCase() === 'plan' ? PlanSheet : SheetEditor
     function updateActivityLog(activityLog: ActivityLog) {
         if (!canEdit) return false
         const body = writeSheets(sheets.map((sheet, index) => index === active ? { ...sheet, activityLog } : sheet))
@@ -127,7 +124,7 @@ export default function ThesisClient({ initialDocument, canEdit }: { initialDocu
                 if (!(event.target as HTMLElement).closest('dialog, .code-workspace, .code-access, .thesis-timetable, .thesis-timetable-controls') && (event.target as HTMLElement).closest('button, [role=button]')) event.preventDefault()
             }}>
             <div role='tabpanel' id={`sheet-${active}`} aria-labelledby={`tab-${active}`}>
-                <Editor onActivityLogChange={updateActivityLog} contentOnly={codeEnabled} key={sheets[active].id} sheet={sheets[active]} canEdit={canEdit && ready} onChange={updateSheet} showInsertTable={settings.insertTable !== false}
+                <SheetView onActivityLogChange={updateActivityLog} contentOnly={codeEnabled} key={sheets[active].id} sheet={sheets[active]} canEdit={canEdit && ready} onChange={updateSheet} showInsertTable={settings.insertTable !== false}
                     trailingActions={canEdit && <SheetSettingsMenu key={sheets[active].id}>
                         <strong>Features on this sheet</strong>
                         <label><input type='checkbox' checked={settings.insertTable !== false} onChange={event => updateSettings('insertTable', event.target.checked)} />Insert table</label>

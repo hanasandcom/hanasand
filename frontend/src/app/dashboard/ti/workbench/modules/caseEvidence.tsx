@@ -4,10 +4,11 @@ import Link from 'next/link'
 import { ExternalLink } from 'lucide-react'
 import { safeWorkbenchDetail } from './copy'
 import { relativeTime, customerOperationalText, workflowStatusClass, label } from './presentation'
+import { EvidencePanel } from './EvidencePanel'
 
 export function AlertEvidenceRows({ evidence }: { evidence: NonNullable<NonNullable<AlertDetailPayload['alert']>['evidence']> }) {
     return (
-        <div className='rounded-lg border border-ui-border bg-ui-raised p-3'>
+        <EvidencePanel>
             <h4 className='text-sm font-semibold text-ui-text'>Alert evidence</h4>
             <div className='mt-3 grid gap-2'>
                 {evidence.map((item, index) => {
@@ -38,13 +39,13 @@ export function AlertEvidenceRows({ evidence }: { evidence: NonNullable<NonNulla
                     )
                 })}
             </div>
-        </div>
+        </EvidencePanel>
     )
 }
 
 export function CaseEvidenceRows({ evidence }: { evidence: CaseEvidence[] }) {
     return (
-        <div className='rounded-lg border border-ui-border bg-ui-raised p-3'>
+        <EvidencePanel>
             <h4 className='text-sm font-semibold text-ui-text'>Case evidence</h4>
             <div className='mt-3 grid gap-2'>
                 {evidence.map(item => (
@@ -59,13 +60,13 @@ export function CaseEvidenceRows({ evidence }: { evidence: CaseEvidence[] }) {
                 ))}
                 {!evidence.length && <p className='text-xs text-ui-muted'>Evidence stream updates with the next normalized capture.</p>}
             </div>
-        </div>
+        </EvidencePanel>
     )
 }
 
 export function CaseWatchlistRows({ watchlists, orgContext }: { watchlists: CaseWatchlist[], orgContext?: WorkbenchOrgContext }) {
     return (
-        <div className='rounded-lg border border-ui-border bg-ui-raised p-3'>
+        <EvidencePanel>
             <div className='flex flex-wrap items-start justify-between gap-2 sm:items-center'>
                 <h4 className='text-sm font-semibold text-ui-text'>Watchlist routing</h4>
                 <Link href={watchlistLedgerHref(orgContext)} className='inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-ui-border bg-ui-panel px-2.5 py-1 text-xs font-semibold text-ui-text transition hover:bg-ui-raised focus:outline-none focus:ring-2 focus:ring-ui-primary/35'>
@@ -90,6 +91,6 @@ export function CaseWatchlistRows({ watchlists, orgContext }: { watchlists: Case
                 ))}
                 {!watchlists.length && <p className='text-xs leading-5 text-ui-muted'>Watchlist routing appears here when the case is tied to customer terms.</p>}
             </div>
-        </div>
+        </EvidencePanel>
     )
 }

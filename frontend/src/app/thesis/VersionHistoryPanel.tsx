@@ -1,8 +1,6 @@
 import { Info } from 'lucide-react'
 import type { ThesisDocument } from '@/utils/thesis'
-import SheetEditor from './sheetEditor'
-import TimetableSheet from './timetableSheet'
-import PlanSheet from './planSheet'
+import SheetView from './SheetView'
 import type { HistoryItem } from './useThesisHistory'
 import type { Sheet } from './workspace'
 import { identifiedSheets, sheetChanges } from './workspace'
@@ -23,10 +21,7 @@ type Props = {
 }
 
 function ReadOnlySheet({ sheet }: { sheet: Sheet }) {
-    const Component = sheet.id === 'Timetable' || sheet.name?.toLowerCase() === 'timetable'
-        ? TimetableSheet
-        : sheet.id === 'Plan' || sheet.name?.toLowerCase() === 'plan' ? PlanSheet : SheetEditor
-    return <Component sheet={sheet} canEdit={false} onChange={() => {}} />
+    return <SheetView sheet={sheet} canEdit={false} onChange={() => {}} />
 }
 
 export default function VersionHistoryPanel({ history, preview, historyError, historyHelp, busy, conflict, more, sheets, onToggleHelp, onShowVersion, onRestore, onLoadMore }: Props) {
