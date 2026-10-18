@@ -3,7 +3,6 @@ import run from '#db'
 import { touchOrganization } from '#utils/db/identityDataWrites.ts'
 import {
     normalizeWatchlistCleanupInput,
-    normalizeWatchlistRequestId,
     roleCanManageOrganization,
     toWatchlistItem,
     type OrganizationWatchlistRow,
@@ -11,6 +10,7 @@ import {
 } from '#utils/organizations.ts'
 import { logOrganizationEvent } from '../audit.ts'
 import { sendWatchlistMutationDenial } from './mutationDenial.ts'
+import { watchlistMutationDenialContext } from './denialContext.ts'
 import { privacyDeletionMutationBlocker, sendOrganizationLifecycleBlocker } from '../lifecycle.ts'
 import { loadRequiredOrganizationMemberRequest } from '../requestContext.ts'
 
@@ -27,8 +27,7 @@ export async function postOrganizationWatchlistCleanup(req: FastifyRequest<{ Par
     if (!roleCanManageOrganization(organization.role)) {
         return sendWatchlistMutationDenial(req, res, organization, userId, {
             action: 'cleanup_watchlists',
-            requestId: normalizeWatchlistRequestId(req.body?.requestId ?? req.body?.request_id),
-            reason: typeof req.body?.reason === 'string' ? req.body.reason.trim().slice(0, 1000) : null,
+            ...watchlistMutationDenialContext(req.body),
             message: 'Only organization owners and admins can clean up watchlists.',
         })
     }

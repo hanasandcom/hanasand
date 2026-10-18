@@ -6,6 +6,7 @@ import { normalizeWatchlistRequestId, roleCanWriteWatchlist, toWatchlistItem, ty
 import { logOrganizationEvent } from '../audit.ts'
 import { sendWatchlistLookupDenial } from './lookupDenial.ts'
 import { sendWatchlistMutationDenial } from './mutationDenial.ts'
+import { watchlistMutationDenialContext } from './denialContext.ts'
 import { organizationWatchlistOperation } from './operation.ts'
 import { privacyDeletionMutationBlocker, sendOrganizationLifecycleBlocker } from '../lifecycle.ts'
 import { loadRequiredOrganizationMemberRequest } from '../requestContext.ts'
@@ -23,8 +24,7 @@ export async function deleteOrganizationWatchlist(req: FastifyRequest<{ Params: 
         return sendWatchlistMutationDenial(req, res, organization, userId, {
             action: 'archive_watchlist',
             itemId: req.params.itemId,
-            requestId: normalizeWatchlistRequestId(req.body?.requestId ?? req.body?.request_id ?? req.query?.requestId ?? req.query?.request_id),
-            reason: typeof req.body?.reason === 'string' ? req.body.reason.trim().slice(0, 1000) : null,
+            ...watchlistMutationDenialContext(req.body, req.query),
             message: 'Only organization owners, admins, and editors can update watchlists.',
         })
     }

@@ -2,10 +2,11 @@ import type { FastifyReply, FastifyRequest } from 'fastify'
 import run from '#db'
 import { touchOrganization } from '#utils/db/identityDataWrites.ts'
 import { recordSystemEvent } from '#utils/systemEvent.ts'
-import { normalizeWatchlistActionInput, normalizeWatchlistRequestId, roleCanWriteWatchlist, toWatchlistItem, type WatchlistActionInput, type OrganizationWatchlistRow } from '#utils/organizations.ts'
+import { normalizeWatchlistActionInput, roleCanWriteWatchlist, toWatchlistItem, type WatchlistActionInput, type OrganizationWatchlistRow } from '#utils/organizations.ts'
 import { logOrganizationEvent } from '../audit.ts'
 import { sendWatchlistLookupDenial } from './lookupDenial.ts'
 import { sendWatchlistMutationDenial } from './mutationDenial.ts'
+import { watchlistMutationDenialContext } from './denialContext.ts'
 import { organizationWatchlistOperation } from './operation.ts'
 import { inactiveOrganizationMutationBlocker, privacyDeletionMutationBlocker, sendOrganizationLifecycleBlocker } from '../lifecycle.ts'
 import { loadRequiredOrganizationMemberRequest } from '../requestContext.ts'
@@ -23,8 +24,7 @@ export async function postOrganizationWatchlistAction(req: FastifyRequest<{ Para
         return sendWatchlistMutationDenial(req, res, organization, userId, {
             action: 'watchlist_lifecycle_action',
             itemId: req.params.itemId,
-            requestId: normalizeWatchlistRequestId(req.body?.requestId ?? req.body?.request_id),
-            reason: typeof req.body?.reason === 'string' ? req.body.reason.trim().slice(0, 1000) : null,
+            ...watchlistMutationDenialContext(req.body),
             message: 'Only organization owners, admins, and editors can update watchlists.',
         })
     }
