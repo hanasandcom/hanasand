@@ -9,6 +9,7 @@ import {
     unavailableDwmProduct, unavailableEntitlementReadiness, unavailableOrgAlertExport,
     unavailablePublicTi, unavailableWebhookHealth,
 } from '../src/utils/productProgress/readinessFallbacks.ts'
+import { normalizeEntitlementReadiness } from '../src/utils/productProgress/readinessNormalizeSecondary.ts'
 
 const checkedAt = '2026-10-17T10:00:00.000Z'
 const source = '/api/product-progress'
@@ -88,4 +89,19 @@ test('webhook projection keeps delivery counts and its dynamic proof timestamp',
     assert.equal(result.proofTimestamp, deliveredAt)
     assert.equal(result.destinationCount, undefined)
     assert.equal(result.activeDestinationCount, undefined)
+})
+
+test('entitlement normalizers share data defaults and retain path-specific wording', () => {
+    const input = { schemaVersion: 'dwm.entitlement.readiness.v1', status: 'needs_action' as const, allowed: false, blockers: ['Review membership.'] }
+    const summary = entitlementReadiness(input, source, checkedAt)
+    const external = normalizeEntitlementReadiness(input, source, checkedAt)
+
+    assert.equal(summary.status, 'blocked')
+    assert.deepEqual(summary.blockers, ['DWM entitlement policy does not allow this workflow.', 'Review membership.'])
+    assert.deepEqual(external.blockers, ['DWM entitlement policy blocks this organization or role.', 'Review membership.'])
+    assert.equal(summary.source, external.source)
+    assert.equal(summary.checkedAt, external.checkedAt)
+    assert.equal(summary.staleAfterSeconds, external.staleAfterSeconds)
+    assert.ok(summary.integrationProbeHint?.endsWith('/status must return policy, checked role, allowed action, and blockers.'))
+    assert.ok(external.integrationProbeHint?.endsWith('/readiness must return policy, checked role, allowed action, and blockers.'))
 })

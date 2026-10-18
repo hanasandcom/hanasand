@@ -2,6 +2,7 @@ import type { ReadinessStatus, DashboardAlertEvidenceReadiness, EntitlementReadi
 import { visibleChecks } from './readinessLabels'
 import { unavailableEntitlementReadiness, unavailableDwmProduct, unavailableAlertGenerationReadiness } from './readinessFallbacks'
 import { entitlementDetail, dwmProductDetail } from './readinessDetails'
+import { normalizeEntitlementReadinessInput } from './readinessEntitlement'
 
 export function dashboardEvidenceUnavailableReason(input: DashboardAlertEvidenceReadiness, sourceGrowthReady: boolean) {
     if (!input.visibleInDashboard) return 'missing_dashboard_alert'
@@ -13,26 +14,11 @@ export function dashboardEvidenceUnavailableReason(input: DashboardAlertEvidence
 
 export function normalizeEntitlementReadiness(input: EntitlementReadiness | undefined, source: string, checkedAt: string): EntitlementReadiness {
     if (!input) return unavailableEntitlementReadiness(source, checkedAt)
-    const blockers = [
-        input.allowed ? '' : 'DWM entitlement policy blocks this organization or role.',
-        ...(input.blockers || []),
-    ].filter(Boolean)
-    return {
-        ...input,
-        status: blockers.length ? 'blocked' : input.status === 'ready' ? 'ready' : 'needs_action',
-        checkedAt: input.checkedAt || checkedAt,
-        source: input.source || source,
-        href: input.href || '/findings',
-        blockers,
-        ownerLane: input.ownerLane || 'org',
-        unavailableReason: blockers.length ? input.unavailableReason || 'missing_dwm_entitlement_readiness_api' : undefined,
-        staleAfterSeconds: input.staleAfterSeconds ?? 900,
-        proofTimestamp: input.proofTimestamp || input.checkedAt || checkedAt,
-        expectedDashboardRowId: input.expectedDashboardRowId || 'entitlement_readiness',
-        integrationProbeHint: input.integrationProbeHint || 'GET /api/findings/entitlements/readiness must return policy, checked role, allowed action, and blockers.',
-        backendProofContractVersion: input.backendProofContractVersion || input.schemaVersion || 'dwm.entitlement.readiness.v1',
-        detail: input.detail || (blockers.length ? visibleChecks(blockers) : entitlementDetail(input)),
-    }
+    return normalizeEntitlementReadinessInput(input, source, checkedAt, {
+        blocker: 'DWM entitlement policy blocks this organization or role.',
+        integrationProbeHint: 'GET /api/findings/entitlements/readiness must return policy, checked role, allowed action, and blockers.',
+        detail: (value, blockers) => blockers.length ? visibleChecks(blockers) : entitlementDetail(value),
+    })
 }
 
 export function normalizeDwmProductReadiness(input: DwmProductSnapshotReadiness | undefined, source: string, checkedAt: string): DwmProductSnapshotReadiness {
@@ -89,4 +75,3 @@ export function normalizeAlertGenerationReadiness(input: DwmAlertGenerationReadi
         detail: input.detail || (blockers.length ? visibleChecks(blockers) : `${candidateCount} alert generation candidate${candidateCount === 1 ? '' : 's'} backed by ${captureCount} capture reference${captureCount === 1 ? '' : 's'}.`),
     }
 }
-

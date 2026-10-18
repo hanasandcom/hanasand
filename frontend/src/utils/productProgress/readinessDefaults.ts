@@ -2,6 +2,7 @@ import type { PublicTiProvenanceReadiness, OrganizationAlertExportReadiness, Dwm
 import type { DeliveryProofRow } from './readinessInputTypes'
 import { isDurableDelivered } from './readinessSelection'
 import { readinessSnapshot, readinessSnapshotSpecs } from './readinessSnapshot'
+import { normalizeEntitlementReadinessInput } from './readinessEntitlement'
 
 export function currentCommit() {
     return process.env.NEXT_PUBLIC_COMMIT_SHA || process.env.VERCEL_GIT_COMMIT_SHA || process.env.COMMIT_SHA || process.env.GIT_SHA || undefined
@@ -40,27 +41,11 @@ export function entitlementReadiness(input: EntitlementReadiness | undefined, so
         })
     }
 
-    const blockers = [
-        input.allowed ? '' : 'DWM entitlement policy does not allow this workflow.',
-        ...(input.blockers || []),
-    ].filter(Boolean)
-
-    return {
-        ...input,
-        status: blockers.length ? 'blocked' : input.status === 'ready' ? 'ready' : 'needs_action',
-        checkedAt: input.checkedAt || checkedAt,
-        source: input.source || source,
-        href: input.href || '/findings',
-        blockers,
-        ownerLane: input.ownerLane || 'org',
-        unavailableReason: blockers.length ? input.unavailableReason || 'missing_dwm_entitlement_readiness_api' : undefined,
-        staleAfterSeconds: input.staleAfterSeconds ?? 900,
-        proofTimestamp: input.proofTimestamp || input.checkedAt || checkedAt,
-        expectedDashboardRowId: input.expectedDashboardRowId || 'entitlement_readiness',
-        integrationProbeHint: input.integrationProbeHint || 'GET /api/findings/entitlements/status must return policy, checked role, allowed action, and blockers.',
-        backendProofContractVersion: input.backendProofContractVersion || input.schemaVersion || 'dwm.entitlement.readiness.v1',
-        detail: input.detail || (blockers.length ? blockers.join('; ') : 'DWM entitlement policy allows alert operations.'),
-    }
+    return normalizeEntitlementReadinessInput(input, source, checkedAt, {
+        blocker: 'DWM entitlement policy does not allow this workflow.',
+        integrationProbeHint: 'GET /api/findings/entitlements/status must return policy, checked role, allowed action, and blockers.',
+        detail: (_input, blockers) => blockers.length ? blockers.join('; ') : 'DWM entitlement policy allows alert operations.',
+    })
 }
 
 export function webhookHealthFromDeliveries(source: string, checkedAt: string, deliveries: DeliveryProofRow[]): WebhookHealthReadiness {
