@@ -21,6 +21,7 @@ import getVMDetails from '@/utils/vms/fetch/metrics/getVMDetails'
 import useVMMetrics from '@/components/vms/useVMMetrics'
 import VMMetrics from '@/components/vms/vmMetrics'
 import VMHostOptions from '@/components/vms/vmHostOptions'
+import { latestVMMetrics } from '@/utils/vms/metricPresentation'
 
 type VMClientProps = {
     vm: VM
@@ -36,6 +37,7 @@ export default function VMClient({ vm: serverVM, details: serverDetails, metrics
     const [refreshing, setRefreshing] = useState(false)
     const [refreshError, setRefreshError] = useState<string | null>(null)
     const { metrics, error: metricsError, refresh: refreshMetrics } = useVMMetrics(serverVM.name, serverMetrics)
+    const latestMetrics = latestVMMetrics(metrics)
     const { connection, error: connectionError, refresh: refreshConnection } = useVMConnection(serverVM.name, serverConnection)
     const router = useRouter()
     const boxStyle = 'w-full rounded-lg border border-ui-border bg-ui-panel p-4 shadow-sm'
@@ -94,7 +96,7 @@ export default function VMClient({ vm: serverVM, details: serverDetails, metrics
             {refreshError && <ErrorNotice message={refreshError} actionLabel='Retry' onAction={() => void handleRefresh()} />}
             <div className='grid gap-3 md:grid-cols-2 xl:grid-cols-4'>
                 <VMOverview vm={vm} details={details} />
-                <VMHardware vm={vm} />
+                <VMHardware vm={vm} diskTotalMb={latestMetrics?.disk_total_mb ?? null} />
                 <VMNetwork details={details} />
                 <VMDetails vm={vm} details={details} />
             </div>

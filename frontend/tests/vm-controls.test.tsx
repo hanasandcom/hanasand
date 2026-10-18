@@ -8,6 +8,7 @@ import VMNetwork from '../src/components/vms/vmNetwork'
 import VMOverview from '../src/components/vms/vmOverview'
 import VMAccess from '../src/components/vms/vmAccess'
 import manageVM from '../src/utils/vms/fetch/manage/manage'
+import { latestVMMetrics } from '../src/utils/vms/metricPresentation'
 
 test('VM actions encode instance names and preserve plain-text API failures', async () => {
     Object.defineProperty(globalThis, 'document', {
@@ -100,4 +101,29 @@ test('VM detail cards share their shell and preserve titles and placeholders', (
     assert(accessError.includes('Access details unavailable'))
     assert(accessError.includes('You do not have permission to view access details.'))
     assert(!html.includes('missing'))
+})
+
+test('VM hardware shows root disk capacity from the latest metric', () => {
+    const vm = { name: 'test', limits_cpu: '1', limits_memory: '1GiB' } as VM
+    const html = renderToStaticMarkup(<VMHardware vm={vm} diskTotalMb={4096} />)
+    assert.match(html, /<h1 class="text-xs text-ui-primary">Disk<\/h1><h1 class="text-sm text-ui-text">4\.0 GB<\/h1>/)
+})
+
+test('VM metric selection uses the newest timestamp without mutating input', () => {
+    const metrics = [
+        { created_at: '2026-10-18T10:00:00Z', disk_total_mb: 2048 },
+        { created_at: '2026-10-18T10:05:00Z', disk_total_mb: 4096 },
+    ] as VMMetrics[]
+    const originalOrder = [...metrics]
+
+    assert.equal(latestVMMetrics(metrics)?.disk_total_mb, 4096)
+    assert.deepEqual(metrics, originalOrder)
+    assert.equal(latestVMMetrics([]), null)
+})
+
+test('VM hardware preserves its placeholder when the latest metric has no disk capacity', () => {
+    const vm = { name: 'test', limits_cpu: '1', limits_memory: '1GiB' } as VM
+    const html = renderToStaticMarkup(<VMHardware vm={vm} diskTotalMb={latestVMMetrics([{ created_at: '2026-10-18T10:05:00Z', disk_total_mb: null } as VMMetrics])?.disk_total_mb} />)
+
+    assert.match(html, /<h1 class="text-xs text-ui-primary">Disk<\/h1><h1 class="text-sm text-ui-text">Not reported<\/h1>/)
 })
