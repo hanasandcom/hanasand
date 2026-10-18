@@ -4,6 +4,7 @@ import { useId, useState } from 'react'
 import { Pencil } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { setCookie } from '@/utils/cookies/cookies'
+import FormField from '@/components/forms/formField'
 
 export default function ProfileIdentity({ displayName, username }: { displayName: string, username: string }) {
     const router = useRouter()
@@ -53,12 +54,12 @@ export default function ProfileIdentity({ displayName, username }: { displayName
         </button>
         <form id={formId} hidden={!editing} onSubmit={save} className={editing ? 'mt-4 grid max-w-xl gap-3' : 'hidden'}>
             <div className='grid gap-3 sm:grid-cols-2'>
-                <label className='grid gap-1 text-sm'>Display name
+                <FormField label='Display name' className='grid gap-1 text-sm'>
                     <input aria-label='Display name' autoComplete='name' className={input} value={name} onChange={event => setName(event.target.value)} required maxLength={100} disabled={busy} />
-                </label>
-                <label className='grid gap-1 text-sm'>Username
+                </FormField>
+                <FormField label='Username' className='grid gap-1 text-sm'>
                     <input aria-label='Username' autoComplete='username' className={input} value={handle} onChange={event => setHandle(event.target.value)} required minLength={3} maxLength={40} disabled={busy} />
-                </label>
+                </FormField>
             </div>
             <button type='submit' disabled={busy || (name === displayName && handle === username)} className='w-fit rounded-lg bg-ui-primary px-3 py-2 text-sm font-semibold text-ui-on-primary disabled:opacity-50'>{busy ? 'Saving…' : 'Save profile'}</button>
             {error && <p role='alert' className='text-sm text-ui-text'>{error}</p>}

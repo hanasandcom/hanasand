@@ -9,6 +9,7 @@ import AccountDate from './accountDate'
 import ServiceAccountDescription from './serviceAccountDescription'
 import EditServiceAccountButton from './editServiceAccountButton'
 import { useManagementSearchShortcut } from '@/hooks/useManagementSearchShortcut'
+import FormField from '@/components/forms/formField'
 
 type Endpoint = { method: string, route: string, label: string }
 type Account = { id: string, name: string, description?: string, active: boolean, created_at: string | null, keys: { lastUsedAt: string | null, scopes: Endpoint[] }[] }
@@ -89,8 +90,8 @@ export default function ServiceAccounts() {
                     } catch (error) { setCreateError(error instanceof Error ? error.message : 'Unable to create service account.') }
                     finally { setPending(false) }
                 }}>
-                    <label className='grid gap-1 text-sm'>Name<input ref={nameInput} disabled={pending} required maxLength={100} value={name} onChange={event => setName(event.target.value)} placeholder='Production health monitor' className='rounded-lg border border-ui-border bg-ui-raised px-3 py-2' /></label>
-                    <label className='grid gap-1 text-sm'>Description (optional)<textarea disabled={pending} maxLength={2000} rows={3} value={description} onChange={event => setDescription(event.target.value)} placeholder='What does this account do?' className='resize-y rounded-lg border border-ui-border bg-ui-raised px-3 py-2' /></label>
+                    <FormField label='Name' className='grid gap-1 text-sm'><input ref={nameInput} disabled={pending} required maxLength={100} value={name} onChange={event => setName(event.target.value)} placeholder='Production health monitor' className='rounded-lg border border-ui-border bg-ui-raised px-3 py-2' /></FormField>
+                    <FormField label='Description (optional)' className='grid gap-1 text-sm'><textarea disabled={pending} maxLength={2000} rows={3} value={description} onChange={event => setDescription(event.target.value)} placeholder='What does this account do?' className='resize-y rounded-lg border border-ui-border bg-ui-raised px-3 py-2' /></FormField>
                     <fieldset disabled={pending} className='grid gap-1 rounded-lg border border-ui-border p-3'><legend className='px-1 text-sm font-semibold'>Allowed endpoints</legend>
                         {endpoints.map(endpoint => { const id = `${endpoint.method} ${endpoint.route}`; return <label key={id} className='flex items-start gap-3 rounded-md px-2 py-2 text-sm transition hover:bg-ui-primary/5'><input className='mt-0.5 accent-ui-primary' type='checkbox' checked={selected.includes(id)} onChange={event => setSelected(current => event.target.checked ? [...current, id] : current.filter(value => value !== id))} /><span className='grid min-w-0 gap-0.5 sm:flex sm:flex-wrap sm:items-baseline sm:gap-x-2'>{endpoint.label} <code className='break-all text-xs text-ui-muted'>{endpoint.method} {endpoint.route}</code></span></label> })}
                     </fieldset>
