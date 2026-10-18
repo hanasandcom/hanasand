@@ -3,6 +3,7 @@ import type { DwmOrganizationSummary, DwmOrganizationWebhookDestination, Operato
 import { caseReadinessMutationActions } from './productReadinessCaseActions'
 import { alertsHref, deliveryLedgerHref, sourceInventoryHref, watchlistCoverageHref, watchlistsHref } from './readinessCaseLinks'
 import { actionScope } from './operatorContextUtils'
+import { canaryCollectionAction, rebuildAlertsAction } from './readinessActionDescriptors'
 
 export function withProductReadinessActions(item: WorkbenchProductReadinessItem, context: {
     scope: OperatorScope
@@ -50,24 +51,13 @@ function productReadinessActions(item: WorkbenchProductReadinessItem, context: {
         case 'org_alert_export':
             actions.push({ id: 'inspect_watchlist_coverage', label: 'Inspect coverage', method: 'GET', href: watchlistCoverageHref(context.scope, organization) })
             actions.push({ id: 'open_watchlists_api', label: 'Watchlists API', method: 'GET', href: watchlistsHref(context.scope) })
-            if (context.activeWatchlistCount && context.termCount) actions.push({ id: 'rebuild_alerts', label: 'Rebuild alerts', method: 'POST', href: '/api/findings/alerts/rebuild', body: actionScope(context.scope) })
+            if (context.activeWatchlistCount && context.termCount) actions.push(rebuildAlertsAction(context.scope))
             break
         case 'source_coverage':
         case 'source_inventory_probe':
         case 'end_to_end_workflow':
             actions.push({ id: 'inspect_source_inventory', label: 'Inspect inventory', method: 'GET', href: sourceInventoryHref(context.scope) })
-            actions.push({
-                id: 'run_canary_collection',
-                label: 'Run canary',
-                method: 'POST',
-                href: '/api/findings/canary/run',
-                body: {
-                    operatorApproval: true,
-                    approvedBy: 'dashboard',
-                    maxSources: 12,
-                    maxTasks: 24,
-                },
-            })
+            actions.push(canaryCollectionAction())
             if (item.id === 'end_to_end_workflow') {
                 actions.push({ id: 'open_watchlists_api', label: 'Watchlists API', method: 'GET', href: watchlistsHref(context.scope) })
                 actions.push({ id: 'open_alert_queue', label: 'Open alerts', method: 'GET', href: alertsHref(context.scope) })
@@ -80,14 +70,10 @@ function productReadinessActions(item: WorkbenchProductReadinessItem, context: {
         case 'dwm_product_snapshot':
             actions.push({ id: 'open_alert_queue', label: 'Open alerts', method: 'GET', href: alertsHref(context.scope) })
             actions.push({ id: 'open_alert_generation_readiness', label: 'Generation status', method: 'GET', href: '/api/findings/alerts/generation-readiness' })
-            actions.push({
-                id: 'rebuild_alerts',
-                label: 'Rebuild alerts',
-                method: 'POST',
-                href: '/api/findings/alerts/rebuild',
-                body: actionScope(context.scope),
-                disabledReason: context.activeWatchlistCount && context.sourceCoverage?.activeSourceCount ? undefined : 'Rebuild requires active watchlist terms and source coverage.',
-            })
+            const disabledReason = context.activeWatchlistCount && context.sourceCoverage?.activeSourceCount
+                ? undefined
+                : 'Rebuild requires active watchlist terms and source coverage.'
+            actions.push(rebuildAlertsAction(context.scope, disabledReason, true))
             break
         case 'webhook_delivery':
         case 'webhook_health':

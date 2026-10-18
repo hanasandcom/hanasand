@@ -2,7 +2,7 @@ import type { WorkbenchCase } from './ti/workbench/workbenchClient'
 import type { ReadinessCaseContext } from './readinessCaseContext'
 import { readinessCase } from './readinessCaseFactory'
 import { watchlistCoverageHref, watchlistsHref } from './readinessCaseLinks'
-import { actionScope } from './operatorContextUtils'
+import { rebuildAlertsAction } from './readinessActionDescriptors'
 
 export function buildWatchlistTermsCase(context: ReadinessCaseContext): WorkbenchCase {
     const { input, now, organization, activeWatchlists, watchlistTerms, path } = context
@@ -42,13 +42,7 @@ export function buildWatchlistTermsCase(context: ReadinessCaseContext): Workbenc
                 method: 'GET',
                 href: watchlistCoverageHref(input.scope, organization),
             },
-            ...(activeWatchlists.length ? [{
-                id: 'rebuild_alerts',
-                label: 'Rebuild alerts',
-                method: 'POST' as const,
-                href: '/api/findings/alerts/rebuild',
-                body: actionScope(input.scope),
-            }] : []),
+            ...(activeWatchlists.length ? [rebuildAlertsAction(input.scope)] : []),
         ],
     })
 }

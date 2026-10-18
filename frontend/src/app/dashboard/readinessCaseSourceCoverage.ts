@@ -3,6 +3,7 @@ import type { ReadinessCaseContext } from './readinessCaseContext'
 import { readinessCase } from './readinessCaseFactory'
 import { sourceInventoryHref } from './readinessCaseLinks'
 import { derivedWatchlistMatchCount } from './operatorContextUtils'
+import { canaryCollectionAction } from './readinessActionDescriptors'
 
 export function buildSourceCoverageCase(context: ReadinessCaseContext): WorkbenchCase {
     const { input, now, activeSources, sourceCount, path } = context
@@ -40,18 +41,7 @@ export function buildSourceCoverageCase(context: ReadinessCaseContext): Workbenc
                 method: 'GET',
                 href: sourceInventoryHref(input.scope),
             },
-            {
-                id: 'run_canary_collection',
-                label: 'Run canary',
-                method: 'POST',
-                href: '/api/findings/canary/run',
-                body: {
-                    operatorApproval: true,
-                    approvedBy: 'dashboard',
-                    maxSources: 12,
-                    maxTasks: 24,
-                },
-            },
+            canaryCollectionAction(),
         ],
     })
 }

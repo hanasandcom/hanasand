@@ -4,7 +4,7 @@ import type { ReadinessCaseContext } from './readinessCaseContext'
 import { sanitizeVisibleOperatorCopy, visibleChecks } from '@/utils/productProgress/readinessLabels'
 import { readinessCase } from './readinessCaseFactory'
 import { alertsHref } from './readinessCaseLinks'
-import { actionScope } from './operatorContextUtils'
+import { rebuildAlertsAction } from './readinessActionDescriptors'
 
 export function buildAlertGenerationCase(context: ReadinessCaseContext): WorkbenchCase {
     const { input, activeWatchlists, alertVisibilityBlocked, alertAccessMessage, alertGenerationProof, alertGenerationDashboardBlockers, alertGenerationProofReady, alertGenerationProofCheckedAt, path } = context
@@ -61,13 +61,7 @@ export function buildAlertGenerationCase(context: ReadinessCaseContext): Workben
             }] : []),
             { id: 'open_alert_queue', label: alertVisibilityBlocked ? 'Retry organization alerts' : 'Open alerts', method: 'GET', href: alertsHref(input.scope) },
             ...(!alertVisibilityBlocked ? [{ id: 'open_alert_generation_readiness', label: 'Open generation status', method: 'GET' as const, href: '/api/findings/alerts/generation-readiness' }] : []),
-            ...(!alertVisibilityBlocked && activeWatchlists.length ? [{
-                id: 'rebuild_alerts',
-                label: 'Rebuild alerts',
-                method: 'POST' as const,
-                href: '/api/findings/alerts/rebuild',
-                body: actionScope(input.scope),
-            }] : []),
+            ...(!alertVisibilityBlocked && activeWatchlists.length ? [rebuildAlertsAction(input.scope)] : []),
         ],
     })
 }

@@ -34,9 +34,21 @@ test('product readiness actions retain scope and expose operational workflows', 
     const rows = buildProductReadiness(productInput())
     const action = (id: string, actionId: string) => rows.find(row => row.id === id)?.actions?.find(item => item.id === actionId)
     assert.equal(action('org_members', 'inspect_org_members')?.href, `/api/organizations/${organization.id}/members`)
-    assert.equal(action('shared_watchlists', 'rebuild_alerts')?.body?.organizationId, organization.id)
-    assert.equal(action('source_coverage', 'run_canary_collection')?.href, '/api/findings/canary/run')
+    assert.deepEqual(action('shared_watchlists', 'rebuild_alerts'), {
+        id: 'rebuild_alerts', label: 'Rebuild alerts', method: 'POST', href: '/api/findings/alerts/rebuild', body: { organizationId: organization.id },
+    })
+    assert.deepEqual(action('source_coverage', 'run_canary_collection'), {
+        id: 'run_canary_collection', label: 'Run canary', method: 'POST', href: '/api/findings/canary/run',
+        body: { operatorApproval: true, approvedBy: 'dashboard', maxSources: 12, maxTasks: 24 },
+    })
+    const enabledRebuild = action('dashboard_alert', 'rebuild_alerts')!
+    assert.equal(Object.hasOwn(enabledRebuild, 'disabledReason'), true)
+    assert.equal(enabledRebuild.disabledReason, undefined)
     assert.equal(action('dashboard_alert', 'open_alert_queue')?.href, `/api/findings/alerts?organizationId=${organization.id}`)
     assert.equal(action('webhook_health', 'test_org_webhook')?.body?.webhookDestinationId, 'webhook-1')
     assert.equal(action('analyst_workflow', 'record_customer_notification')?.href, undefined)
+    const blockedRebuild = buildProductReadiness(productInput({ activeWatchlistCount: 0, sourceCoverage: { sourceCount: 3, activeSourceCount: 0, captureCount: 0, watchlistMatchCount: 0 } }))
+    assert.equal(blockedRebuild.find(row => row.id === 'dashboard_alert')?.actions?.find(item => item.id === 'rebuild_alerts')?.disabledReason, 'Rebuild requires active watchlist terms and source coverage.')
+    const tenantRebuild = buildProductReadiness(productInput({ scope: { tenantId: organization.tenantId } }))
+    assert.deepEqual(tenantRebuild.find(row => row.id === 'shared_watchlists')?.actions?.find(item => item.id === 'rebuild_alerts')?.body, { tenantId: organization.tenantId })
 })
