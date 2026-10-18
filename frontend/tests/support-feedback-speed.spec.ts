@@ -1,20 +1,22 @@
 import { expect, test } from '@playwright/test'
-import { execFileSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { registerFixtureBundle } from './fixtureBundle'
+import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import postcss from 'postcss'
 import tailwind from '@tailwindcss/postcss'
 import { mockSupportLive } from './support-fixture'
 
-let directory: string, bundle: string, css: string
+const fixture = registerFixtureBundle({
+    entrypoint: 'tests/fixtures/support-feedback.tsx',
+    directoryPrefix: 'feedback-speed-',
+    define: 'process.env={"NODE_ENV":"production"}',
+    outputFilename: 'support-feedback.js'
+})
+
+let css: string
 test.beforeAll(async () => {
-    directory = mkdtempSync(path.join(tmpdir(), 'feedback-speed-'))
-    execFileSync('bun', ['build', 'tests/fixtures/support-feedback.tsx', '--target=browser', '--define', 'process.env={"NODE_ENV":"production"}', '--outdir', directory])
-    bundle = readFileSync(path.join(directory, 'support-feedback.js'), 'utf8')
     css = (await postcss([tailwind()]).process(readFileSync('src/app/globals.css', 'utf8'), { from: path.resolve('src/app/globals.css') })).css
 })
-test.afterAll(() => rmSync(directory, { recursive: true, force: true }))
 
 for (const guest of [true, false]) test(`${guest ? 'guest' : 'account'} feedback responds under 20ms, restores failures and saves without reloading chat`, async ({ page }) => {
     await page.clock.install()
@@ -24,7 +26,7 @@ for (const guest of [true, false]) test(`${guest ? 'guest' : 'account'} feedback
     let finish!: () => void
     await page.route('http://feedback.test/**', async route => {
         const url = new URL(route.request().url())
-        if (url.pathname === '/fixture.js') return route.fulfill({ contentType: 'application/javascript', body: bundle })
+        if (url.pathname === '/fixture.js') return route.fulfill({ contentType: 'application/javascript', body: fixture.bundle })
         if (url.pathname.startsWith('/api/')) {
             const body = route.request().method() === 'POST' ? route.request().postDataJSON() : null
             if (body?.action === 'feedback' || url.pathname.endsWith('/feedback')) {

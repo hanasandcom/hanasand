@@ -1,24 +1,18 @@
 import { expect, test } from '@playwright/test'
-import { execFileSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import path from 'node:path'
+import { registerFixtureBundle } from './fixtureBundle'
 
-let output: string
-let bundle: string
-test.beforeAll(() => {
-    output = mkdtempSync(path.join(tmpdir(), 'host-updates-'))
-    execFileSync('bun', ['build', 'tests/fixtures/host-updates.tsx', '--target=browser', '--define', 'process.env.NODE_ENV="production"', '--outfile', path.join(output, 'fixture.js')])
-    bundle = readFileSync(path.join(output, 'fixture.js'), 'utf8')
+const fixture = registerFixtureBundle({
+    entrypoint: 'tests/fixtures/host-updates.tsx',
+    directoryPrefix: 'host-updates-',
+    define: 'process.env.NODE_ENV="production"'
 })
-test.afterAll(() => rmSync(output, { recursive: true, force: true }))
 
 test('host switch and refresh isolate data; scheduled waits are informational and failures stay visible', async ({ page }) => {
     page.on('pageerror', error => { throw error })
     const requests: string[] = []
     let failOvh = false
     let security = false
-    await page.route('https://updates.test/fixture.js', route => route.fulfill({ contentType: 'application/javascript', body: bundle }))
+    await page.route('https://updates.test/fixture.js', route => route.fulfill({ contentType: 'application/javascript', body: fixture.bundle }))
     await page.route('https://updates.test/', route => route.fulfill({ contentType: 'text/html', body: '<meta charset="utf-8"><div id="root"></div><script src="/fixture.js"></script>' }))
     await page.route('**/api/backend/system/updates?**', route => {
         const host = new URL(route.request().url()).searchParams.get('host')!
@@ -54,7 +48,7 @@ test('host switch and refresh isolate data; scheduled waits are informational an
 test('a slow previous host cannot overwrite the selected host', async ({ page }) => {
     let release: () => void = () => {}
     const wait = new Promise<void>(resolve => { release = resolve })
-    await page.route('https://updates.test/fixture.js', route => route.fulfill({ contentType: 'application/javascript', body: bundle }))
+    await page.route('https://updates.test/fixture.js', route => route.fulfill({ contentType: 'application/javascript', body: fixture.bundle }))
     await page.route('https://updates.test/', route => route.fulfill({ contentType: 'text/html', body: '<meta charset="utf-8"><div id="root"></div><script src="/fixture.js"></script>' }))
     await page.route('**/api/backend/system/updates?**', async route => {
         const host = new URL(route.request().url()).searchParams.get('host')!
@@ -70,7 +64,7 @@ test('a slow previous host cannot overwrite the selected host', async ({ page })
 })
 
 test('empty updates use the compact controls and omit the empty package panel', async ({ page }) => {
-    await page.route('https://updates.test/fixture.js', route => route.fulfill({ contentType: 'application/javascript', body: bundle }))
+    await page.route('https://updates.test/fixture.js', route => route.fulfill({ contentType: 'application/javascript', body: fixture.bundle }))
     await page.route('https://updates.test/', route => route.fulfill({ contentType: 'text/html', body: '<meta charset="utf-8"><div id="root"></div><script src="/fixture.js"></script>' }))
     await page.route('**/api/backend/system/updates?**', route => route.fulfill({ json: { status: { status: 'ok', checked_at: new Date(Date.now() - 5 * 3600000).toISOString(), pending_updates: [] }, history: [] } }))
     await page.goto('https://updates.test/')
@@ -83,7 +77,7 @@ test('empty updates use the compact controls and omit the empty package panel', 
 
 test('merged update summary keeps failed and unreported host states visible', async ({ page }) => {
     let status = 'failed'
-    await page.route('https://updates.test/fixture.js', route => route.fulfill({ contentType: 'application/javascript', body: bundle }))
+    await page.route('https://updates.test/fixture.js', route => route.fulfill({ contentType: 'application/javascript', body: fixture.bundle }))
     await page.route('https://updates.test/', route => route.fulfill({ contentType: 'text/html', body: '<meta charset="utf-8"><div id="root"></div><script src="/fixture.js"></script>' }))
     await page.route('**/api/backend/system/updates?**', route => route.fulfill({ json: { status: { status, pending_updates: [] }, history: [] } }))
     await page.goto('https://updates.test/')
@@ -98,7 +92,7 @@ test('merged update summary keeps failed and unreported host states visible', as
 })
 
 test('daily history shows package versions without hiding installation details behind errors', async ({ page }) => {
-    await page.route('https://updates.test/fixture.js', route => route.fulfill({ contentType: 'application/javascript', body: bundle }))
+    await page.route('https://updates.test/fixture.js', route => route.fulfill({ contentType: 'application/javascript', body: fixture.bundle }))
     await page.route('https://updates.test/', route => route.fulfill({ contentType: 'text/html', body: '<meta charset="utf-8"><div id="root"></div><script src="/fixture.js"></script>' }))
     await page.route('**/api/backend/system/updates?**', route => route.fulfill({ json: { status: { status: 'ok' }, history: [
         { run_id: '2026-09-17', occurred_at: '2026-09-17', status: 'failed', packages: ['libsqlite3-0 v3.45.1', 'libaom3 v3.8.2'], error: 'A security update failed' },
@@ -114,7 +108,7 @@ test('daily history shows package versions without hiding installation details b
 test('Today shows the packages installed so far or an empty-day message', async ({ page }) => {
     let installed = false
     let fail = false
-    await page.route('https://updates.test/fixture.js', route => route.fulfill({ contentType: 'application/javascript', body: bundle }))
+    await page.route('https://updates.test/fixture.js', route => route.fulfill({ contentType: 'application/javascript', body: fixture.bundle }))
     await page.route('https://updates.test/', route => route.fulfill({ contentType: 'text/html', body: '<meta charset="utf-8"><div id="root"></div><script src="/fixture.js"></script>' }))
     await page.route('**/api/backend/system/updates?**', route => fail ? route.fulfill({ status: 503, json: { error: 'Host unavailable' } }) : route.fulfill({ json: { status: { status: 'ok' }, history: [
         { run_id: '2026-09-20', occurred_at: '2026-09-20', is_today: true, status: installed ? 'ok' : 'unknown', packages: installed ? ['libsqlite3-0 v3.45.1', 'libaom3 v3.8.2'] : [], error: null },

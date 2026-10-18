@@ -1,22 +1,24 @@
 import { expect, test } from '@playwright/test'
-import { execFileSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { registerFixtureBundle } from './fixtureBundle'
+import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import postcss from 'postcss'
 import tailwind from '@tailwindcss/postcss'
-let output: string, bundle: string, css: string
+
+const fixture = registerFixtureBundle({
+    entrypoint: 'tests/fixtures/rule-editor.tsx',
+    directoryPrefix: 'event-editor-',
+    define: 'process.env={"NODE_ENV":"production"}',
+    outputFilename: 'event-editor.js'
+})
 const definition = { match: 'all', parameters: { windowMinutes: 15, minimumCount: 3 }, conditions: [], failureConditions: [] }
 const initial = { id: 'auth.brute_force_success.v1', version: '1', source: 'hanasand', name: 'Brute-force success', family: 'Authentication', severity: 'high', explanation: 'Multiple failed logins followed by a successful login for the same user.', evidence: [], enabled: true, definition }
+let css: string
 test.beforeAll(async () => {
-    output = mkdtempSync(path.join(tmpdir(), 'event-editor-'))
-    execFileSync('bun', ['build', 'tests/fixtures/event-editor.tsx', '--target=browser', '--define', 'process.env={"NODE_ENV":"production"}', '--outdir', output])
-    bundle = readFileSync(path.join(output, 'event-editor.js'), 'utf8')
     css = (await postcss([tailwind()]).process(readFileSync('src/app/globals.css', 'utf8'), { from: path.resolve('src/app/globals.css') })).css
 })
-test.afterAll(() => rmSync(output, { recursive: true, force: true }))
 test.beforeEach(async ({ page }) => {
-    await page.route('http://event-editor.test/fixture.js', route => route.fulfill({ contentType: 'application/javascript', body: bundle }))
+    await page.route('http://event-editor.test/fixture.js', route => route.fulfill({ contentType: 'application/javascript', body: fixture.bundle }))
     await page.route('http://event-editor.test/rules/*', route => route.fulfill({ contentType: 'text/html', body: `<html class="dark"><head><style>${css}</style></head><body><div id="root"></div><script type="module" src="/fixture.js"></script></body></html>` }))
 })
 test('edits executable selectors, persists on reload, canonicalizes current links and fits mobile', async ({ page }) => {

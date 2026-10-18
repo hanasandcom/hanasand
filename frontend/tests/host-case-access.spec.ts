@@ -1,24 +1,24 @@
 import { expect, test } from '@playwright/test'
-import { execFileSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { registerFixtureBundle } from './fixtureBundle'
+import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import postcss from 'postcss'
 import tailwind from '@tailwindcss/postcss'
 
-let output: string
-let bundle: string
+const fixture = registerFixtureBundle({
+    entrypoint: 'tests/fixtures/host-case.tsx',
+    directoryPrefix: 'host-case-test-',
+    define: 'process.env={"NODE_ENV":"production"}',
+    outputFilename: 'host-case.js'
+})
+
 let css: string
 test.beforeAll(async () => {
-    output = mkdtempSync(path.join(tmpdir(), 'host-case-test-'))
-    execFileSync('bun', ['build', 'tests/fixtures/host-case.tsx', '--target=browser', '--define', 'process.env={"NODE_ENV":"production"}', '--outdir', output])
-    bundle = readFileSync(path.join(output, 'host-case.js'), 'utf8')
     css = (await postcss([tailwind()]).process(readFileSync('src/app/globals.css', 'utf8'), { from: path.resolve('src/app/globals.css') })).css
 })
-test.afterAll(() => rmSync(output, { recursive: true, force: true }))
 test.beforeEach(async ({ page }) => {
     await page.clock.install()
-    await page.route('http://host-case.test/fixture.js', route => route.fulfill({ contentType: 'application/javascript', body: bundle }))
+    await page.route('http://host-case.test/fixture.js', route => route.fulfill({ contentType: 'application/javascript', body: fixture.bundle }))
     await page.route('http://host-case.test/', route => route.fulfill({ contentType: 'text/html; charset=utf-8', body: `<html class="dark"><head><meta name="viewport" content="width=device-width, initial-scale=1"><style>${css}</style></head><body><div id="root"></div><script type="module" src="/fixture.js"></script></body></html>` }))
 })
 test('host readers can inspect cases while management controls stay unavailable', async ({ page }) => {

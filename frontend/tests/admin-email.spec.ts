@@ -1,18 +1,13 @@
 import { test, expect } from '@playwright/test'
-import { readFileSync, mkdtempSync, rmSync } from 'node:fs'
-import { execFileSync } from 'node:child_process'
-import { tmpdir } from 'node:os'
-import path from 'node:path'
-let output: string
-let bundle: string
-test.beforeAll(() => {
-    output = mkdtempSync(path.join(tmpdir(), 'admin-email-test-'))
-    execFileSync(process.env.BUN_BIN || 'bun', ['build', 'tests/fixtures/admin-email.tsx', '--target=browser', '--define', 'process.env={"NODE_ENV":"production"}', '--outfile', path.join(output, 'fixture.js')])
-    bundle = readFileSync(path.join(output, 'fixture.js'), 'utf8')
+import { registerFixtureBundle } from './fixtureBundle'
+const fixture = registerFixtureBundle({
+    entrypoint: 'tests/fixtures/admin-email.tsx',
+    directoryPrefix: 'admin-email-test-',
+    define: 'process.env={"NODE_ENV":"production"}',
+    executableEnvironment: 'BUN_BIN'
 })
-test.afterAll(() => rmSync(output, { recursive: true, force: true }))
 test('organization profiles preserve email visibility and user search', async ({ page }) => {
-    await page.route('http://email.test/fixture.js', route => route.fulfill({ contentType: 'application/javascript', body: bundle }))
+    await page.route('http://email.test/fixture.js', route => route.fulfill({ contentType: 'application/javascript', body: fixture.bundle }))
     await page.route('http://email.test/', route => route.fulfill({ contentType: 'text/html', body: '<div id="root"></div><script type="module" src="/fixture.js"></script>' }))
     await page.goto('http://email.test/')
     await expect(page.getByTestId('admin-profile')).toContainText('Email: support@example.com')
@@ -34,7 +29,7 @@ test('organization profiles preserve email visibility and user search', async ({
 })
 
 test('organization profile copy feedback reflects clipboard fallback success and failure', async ({ page }) => {
-    await page.route('http://email.test/fixture.js', route => route.fulfill({ contentType: 'application/javascript', body: bundle }))
+    await page.route('http://email.test/fixture.js', route => route.fulfill({ contentType: 'application/javascript', body: fixture.bundle }))
     await page.route('http://email.test/', route => route.fulfill({ contentType: 'text/html', body: '<div id="root"></div><script type="module" src="/fixture.js"></script>' }))
     await page.goto('http://email.test/')
     const profile = page.getByTestId('organization-profile')

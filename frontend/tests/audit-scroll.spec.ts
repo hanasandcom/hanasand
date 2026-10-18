@@ -1,19 +1,14 @@
 import { test, expect, type Page } from '@playwright/test'
-import { readFileSync, mkdtempSync, rmSync } from 'node:fs'
-import { execFileSync } from 'node:child_process'
-import { tmpdir } from 'node:os'
-import path from 'node:path'
-let output: string
-let bundle: string
-test.beforeAll(() => {
-    output = mkdtempSync(path.join(tmpdir(), 'audit-scroll-test-'))
-    execFileSync(process.env.BUN_BIN || 'bun', ['build', 'tests/fixtures/audit-scroll.tsx', '--target=browser', '--define', 'process.env={"NODE_ENV":"production"}', '--outfile', path.join(output, 'fixture.js')])
-    bundle = readFileSync(path.join(output, 'fixture.js'), 'utf8')
+import { registerFixtureBundle } from './fixtureBundle'
+const fixture = registerFixtureBundle({
+    entrypoint: 'tests/fixtures/audit-scroll.tsx',
+    directoryPrefix: 'audit-scroll-test-',
+    define: 'process.env={"NODE_ENV":"production"}',
+    executableEnvironment: 'BUN_BIN'
 })
-test.afterAll(() => rmSync(output, { recursive: true, force: true }))
 test('scroll appends 50, preserves filters and rows on failure, retries and stops at the total', async ({ page }) => {
     let calls = 0
-    await page.route('http://audit.test/fixture.js', route => route.fulfill({ contentType: 'application/javascript', body: bundle }))
+    await page.route('http://audit.test/fixture.js', route => route.fulfill({ contentType: 'application/javascript', body: fixture.bundle }))
     await page.route('http://audit.test/', route => route.fulfill({ contentType: 'text/html', body: '<style>[data-testid="audit-scroll"]{height:300px;overflow:auto}td{height:35px}</style><div id="root"></div><script type="module" src="/fixture.js"></script>' }))
     await page.route('**/system/events?*', async route => {
         calls++
@@ -61,7 +56,7 @@ test('scroll appends 50, preserves filters and rows on failure, retries and stop
 })
 
 async function openAudit(page: Page) {
-    await page.route('http://audit.test/fixture.js', route => route.fulfill({ contentType: 'application/javascript', body: bundle }))
+    await page.route('http://audit.test/fixture.js', route => route.fulfill({ contentType: 'application/javascript', body: fixture.bundle }))
     await page.route('http://audit.test/', route => route.fulfill({ contentType: 'text/html', body: '<style>.hidden{display:none}[data-testid="audit-scroll"]{height:300px;overflow:auto}td{height:35px}dialog{position:fixed;inset:0;margin:0;padding:0;border:0;width:100vw;height:100dvh;max-width:none;max-height:none}dialog>section{height:100%;display:flex;flex-direction:column}dialog [data-testid="audit-scroll"]{flex:1;min-height:0}</style><div id="root"></div><script type="module" src="/fixture.js"></script>' }))
     await page.goto('http://audit.test/')
 }

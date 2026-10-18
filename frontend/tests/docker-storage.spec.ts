@@ -1,22 +1,17 @@
 import { expect, test } from '@playwright/test'
-import { execFileSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import path from 'node:path'
-let output: string
-let bundle: string
+import { registerFixtureBundle } from './fixtureBundle'
 const state = { cacheBytes: 295e9, reclaimableCacheBytes: 275e9, cacheBudgetBytes: 50e9, checkedAt: '2026-09-19T18:00:00Z',
     running: false, queued: false, stale: false, schedule: '03:00', timezone: 'Europe/Oslo',
     unusedImages: [{ id: 'old', names: ['app:old'], sizeBytes: 2e9, eligible: true, retainedReason: null },
         { id: 'rollback', names: ['app:previous'], sizeBytes: 1e9, eligible: false, retainedReason: 'Rollback image' }] }
-test.beforeAll(() => {
-    output = mkdtempSync(path.join(tmpdir(), 'docker-storage-test-'))
-    execFileSync(process.env.BUN_BINARY || 'bun', ['build', 'tests/fixtures/docker-storage.tsx', '--target=browser', '--define', 'process.env={"NODE_ENV":"production"}', '--outfile', path.join(output, 'fixture.js')])
-    bundle = readFileSync(path.join(output, 'fixture.js'), 'utf8')
+const fixture = registerFixtureBundle({
+    entrypoint: 'tests/fixtures/docker-storage.tsx',
+    directoryPrefix: 'docker-storage-test-',
+    define: 'process.env={"NODE_ENV":"production"}',
+    executableEnvironment: 'BUN_BINARY'
 })
-test.afterAll(() => rmSync(output, { recursive: true, force: true }))
 test.beforeEach(async ({ page }) => {
-    await page.route('http://docker-storage.test/fixture.js', route => route.fulfill({ contentType: 'application/javascript', body: bundle }))
+    await page.route('http://docker-storage.test/fixture.js', route => route.fulfill({ contentType: 'application/javascript', body: fixture.bundle }))
     await page.route('http://docker-storage.test/', route => route.fulfill({ contentType: 'text/html', body: '<meta charset="utf-8"><div id="root"></div><script src="/fixture.js"></script>' }))
 })
 test('shows measured sizes and posts cleanup without claiming immediate success', async ({ page }) => {

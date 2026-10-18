@@ -1,17 +1,11 @@
 import { expect, test } from '@playwright/test'
-import { execFileSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import path from 'node:path'
+import { registerFixtureBundle } from './fixtureBundle'
 
-let output: string
-let bundle: string
-test.beforeAll(() => {
-    output = mkdtempSync(path.join(tmpdir(), 'vm-refresh-'))
-    execFileSync('bun', ['build', 'tests/fixtures/vm-refresh.tsx', '--target=browser', '--define', 'process.env.NODE_ENV="production"', '--outfile', path.join(output, 'fixture.js')])
-    bundle = readFileSync(path.join(output, 'fixture.js'), 'utf8')
+const fixture = registerFixtureBundle({
+    entrypoint: 'tests/fixtures/vm-refresh.tsx',
+    directoryPrefix: 'vm-refresh-',
+    define: 'process.env.NODE_ENV="production"'
 })
-test.afterAll(() => rmSync(output, { recursive: true, force: true }))
 test('refresh updates every card and timestamp; failed refresh retains the snapshot and offers retry', async ({ page }) => {
     page.on('pageerror', error => { throw error })
     let fail = false
@@ -23,7 +17,7 @@ test('refresh updates every card and timestamp; failed refresh retains the snaps
         await pending
         await route.fulfill(fail ? { status: 503, json: { error: 'VM host unavailable. Please retry.' } } : { json: fresh })
     })
-    await page.route('http://vm-refresh.test/fixture.js', route => route.fulfill({ contentType: 'application/javascript', body: bundle }))
+    await page.route('http://vm-refresh.test/fixture.js', route => route.fulfill({ contentType: 'application/javascript', body: fixture.bundle }))
     await page.route('http://vm-refresh.test/', route => route.fulfill({ contentType: 'text/html', body: '<div id="root"></div><script>window.process={env:{}}</script><script src="/fixture.js"></script>' }))
     await page.goto('http://vm-refresh.test/')
     const button = page.getByRole('button', { name: 'Refresh VM details' })

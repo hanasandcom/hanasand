@@ -1,20 +1,15 @@
 import { expect, test } from '@playwright/test'
-import { execFileSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import path from 'node:path'
+import { registerFixtureBundle } from './fixtureBundle'
 
-let output: string
-let bundle: string
-test.beforeAll(() => {
-    output = mkdtempSync(path.join(tmpdir(), 'content-library-test-'))
-    execFileSync(process.env.BUN_BINARY || 'bun', ['build', 'tests/fixtures/content-library.tsx', '--target=browser', '--define', 'process.env={"NODE_ENV":"production"}', '--outfile', path.join(output, 'fixture.js')])
-    bundle = readFileSync(path.join(output, 'fixture.js'), 'utf8')
+const fixture = registerFixtureBundle({
+    entrypoint: 'tests/fixtures/content-library.tsx',
+    directoryPrefix: 'content-library-test-',
+    define: 'process.env={"NODE_ENV":"production"}',
+    executableEnvironment: 'BUN_BINARY'
 })
-test.afterAll(() => rmSync(output, { recursive: true, force: true }))
 test.beforeEach(async ({ page, context }) => {
     await context.addCookies([{name:'id',value:'owner',url:'http://library.test'},{name:'access_token',value:'fixture-token',url:'http://library.test'}])
-    await page.route('http://library.test/fixture.js', route => route.fulfill({contentType:'application/javascript',body:bundle}))
+    await page.route('http://library.test/fixture.js', route => route.fulfill({contentType:'application/javascript',body:fixture.bundle}))
     await page.route('http://library.test/', route => route.fulfill({contentType:'text/html',body:'<div id="root"></div><script src="/fixture.js"></script>'}))
 })
 test('library loads owned files, paginates, and exposes upload and file links', async ({page}) => {

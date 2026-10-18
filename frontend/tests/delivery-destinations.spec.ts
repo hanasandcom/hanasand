@@ -1,24 +1,24 @@
 import { expect, test } from '@playwright/test'
-import { execFileSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { registerFixtureBundle } from './fixtureBundle'
+import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import postcss from 'postcss'
 import tailwind from '@tailwindcss/postcss'
-let output: string
-let bundle: string
+
+const fixture = registerFixtureBundle({
+    entrypoint: 'tests/fixtures/delivery-destinations.tsx',
+    directoryPrefix: 'delivery-test-',
+    define: 'process.env={"NODE_ENV":"production"}',
+    outputFilename: 'fixture.js'
+})
 let css: string
 const destination = { id: 'discord-1', name: 'Team Discord', kind: 'discord', endpointHint: 'discord.com/api/webhooks/…', status: 'active', lastTestStatus: null }
 test.beforeAll(async () => {
-    output = mkdtempSync(path.join(tmpdir(), 'delivery-test-'))
-    execFileSync('bun', ['build', 'tests/fixtures/delivery-destinations.tsx', '--target=browser', '--define', 'process.env={"NODE_ENV":"production"}', '--outfile', path.join(output, 'fixture.js')])
-    bundle = readFileSync(path.join(output, 'fixture.js'), 'utf8')
     const cssPath = path.resolve('src/app/globals.css')
     css = (await postcss([tailwind()]).process(readFileSync(cssPath, 'utf8'), { from: cssPath })).css
 })
-test.afterAll(() => rmSync(output, { recursive: true, force: true }))
 test.beforeEach(async ({ page }) => {
-    await page.route('http://delivery.test/fixture.js', route => route.fulfill({ contentType: 'application/javascript', body: bundle }))
+    await page.route('http://delivery.test/fixture.js', route => route.fulfill({ contentType: 'application/javascript', body: fixture.bundle }))
     await page.route('http://delivery.test/fixture.css', route => route.fulfill({ contentType: 'text/css', body: css }))
     await page.route('http://delivery.test/', route => route.fulfill({ contentType: 'text/html', body: '<html class="dark"><head><link rel="stylesheet" href="/fixture.css"></head><body><main class="p-4"><div id="root"></div></main><script src="/fixture.js"></script></body></html>' }))
 })

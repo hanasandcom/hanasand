@@ -1,17 +1,11 @@
 import { expect, test } from '@playwright/test'
-import { execFileSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import path from 'node:path'
+import { registerFixtureBundle } from './fixtureBundle'
 
-let output: string
-let bundle: string
-test.beforeAll(() => {
-    output = mkdtempSync(path.join(tmpdir(), 'ai-model-connection-'))
-    execFileSync('bun', ['build', 'tests/fixtures/ai-model-connection.tsx', '--target=browser', '--define', 'process.env.NODE_ENV="production"', '--outfile', path.join(output, 'fixture.js')])
-    bundle = readFileSync(path.join(output, 'fixture.js'), 'utf8')
+const fixture = registerFixtureBundle({
+    entrypoint: 'tests/fixtures/ai-model-connection.tsx',
+    directoryPrefix: 'ai-model-connection-',
+    define: 'process.env.NODE_ENV="production"'
 })
-test.afterAll(() => rmSync(output, { recursive: true, force: true }))
 test('initial model snapshot is displayed, failed connections keep retrying, and prompts work after recovery', async ({ page }) => {
     page.on('pageerror', error => { throw error })
     let attempts = 0
@@ -36,7 +30,7 @@ test('initial model snapshot is displayed, failed connections keep retrying, and
             })), 250)
         })
     })
-    await page.route('https://ai-model.test/fixture.js', route => route.fulfill({ contentType: 'application/javascript', body: bundle }))
+    await page.route('https://ai-model.test/fixture.js', route => route.fulfill({ contentType: 'application/javascript', body: fixture.bundle }))
     await page.route('https://ai-model.test/', route => route.fulfill({ contentType: 'text/html', body: '<div id="root"></div><script>window.process={env:{}}</script><script src="/fixture.js"></script>' }))
     await page.goto('https://ai-model.test/')
     await expect(page.getByText('Inspur GPU models', { exact: true })).toBeVisible({ timeout: 12000 })

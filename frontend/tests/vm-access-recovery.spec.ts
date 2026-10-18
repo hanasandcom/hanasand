@@ -1,20 +1,14 @@
 import { expect, test } from '@playwright/test'
-import { execFileSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import path from 'node:path'
+import { registerFixtureBundle } from './fixtureBundle'
 
-let output: string
-let bundle: string
-test.beforeAll(() => {
-    output = mkdtempSync(path.join(tmpdir(), 'vm-access-test-'))
-    execFileSync('bun', ['build', 'tests/fixtures/vm-access.tsx', '--target=browser', '--define', 'process.env.NODE_ENV="production"', '--outfile', path.join(output, 'fixture.js')])
-    bundle = readFileSync(path.join(output, 'fixture.js'), 'utf8')
+const fixture = registerFixtureBundle({
+    entrypoint: 'tests/fixtures/vm-access.tsx',
+    directoryPrefix: 'vm-access-test-',
+    define: 'process.env.NODE_ENV="production"'
 })
-test.afterAll(() => rmSync(output, { recursive: true, force: true }))
 test.beforeEach(async ({ page }) => {
     await page.clock.install()
-    await page.route('http://vm-access.test/fixture.js', route => route.fulfill({ contentType: 'application/javascript', body: bundle }))
+    await page.route('http://vm-access.test/fixture.js', route => route.fulfill({ contentType: 'application/javascript', body: fixture.bundle }))
     await page.route('http://vm-access.test/', route => route.fulfill({ contentType: 'text/html; charset=utf-8', body: '<div id="root"></div><script src="/fixture.js"></script>' }))
 })
 const connection = (name = 'first-vm', ip = '192.0.2.10') => ({ vmName: name, username: 'ubuntu', vmIp: ip, sshCommand: `ssh ubuntu@${ip}`, certificateCount: 2, certificates: [] })

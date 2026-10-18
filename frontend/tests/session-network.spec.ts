@@ -1,20 +1,15 @@
 import { test, expect } from '@playwright/test'
-import { readFileSync, mkdtempSync, rmSync } from 'node:fs'
-import { execFileSync } from 'node:child_process'
-import { tmpdir } from 'node:os'
-import path from 'node:path'
+import { registerFixtureBundle } from './fixtureBundle'
 
-let output: string
-let bundle: string
-test.beforeAll(() => {
-    output = mkdtempSync(path.join(tmpdir(), 'session-network-test-'))
-    execFileSync(process.env.BUN_BIN || 'bun', ['build', 'tests/fixtures/session-network.tsx', '--target=browser', '--define', 'process.env={"NODE_ENV":"production"}', '--outfile', path.join(output, 'fixture.js')])
-    bundle = readFileSync(path.join(output, 'fixture.js'), 'utf8')
+const fixture = registerFixtureBundle({
+    entrypoint: 'tests/fixtures/session-network.tsx',
+    directoryPrefix: 'session-network-test-',
+    define: 'process.env={"NODE_ENV":"production"}',
+    executableEnvironment: 'BUN_BIN'
 })
-test.afterAll(() => rmSync(output, { recursive: true, force: true }))
 for (const kind of ['private', 'public', 'missing'] as const) {
     test(`session network distinguishes ${kind} addresses`, async ({ page }) => {
-        await page.route('http://session-network.test/fixture.js', route => route.fulfill({ contentType: 'application/javascript', body: bundle }))
+        await page.route('http://session-network.test/fixture.js', route => route.fulfill({ contentType: 'application/javascript', body: fixture.bundle }))
         await page.route('http://session-network.test/', route => route.fulfill({ contentType: 'text/html', body: '<div id="root"></div><script type="module" src="/fixture.js"></script>' }))
         await page.route('**/auth/sessions', route => route.fulfill({ json: { sessions: [{
             token_id: 1, id: 'session-fixture', ip: kind === 'public' ? '8.8.8.8' : null,

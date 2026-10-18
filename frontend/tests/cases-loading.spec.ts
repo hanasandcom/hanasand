@@ -1,20 +1,15 @@
 import { expect, test } from '@playwright/test'
-import { execFileSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import path from 'node:path'
+import { registerFixtureBundle } from './fixtureBundle'
 
-let output: string
-let bundle: string
-test.beforeAll(() => {
-    output = mkdtempSync(path.join(tmpdir(), 'cases-loading-'))
-    execFileSync('bun', ['build', 'tests/fixtures/cases-loading.tsx', '--target=browser', '--define', 'process.env={"NODE_ENV":"production"}', '--outdir', output])
-    bundle = readFileSync(path.join(output, 'cases-loading.js'), 'utf8')
+const fixture = registerFixtureBundle({
+    entrypoint: 'tests/fixtures/cases-loading.tsx',
+    directoryPrefix: 'cases-loading-',
+    define: 'process.env={"NODE_ENV":"production"}',
+    outputFilename: 'cases-loading.js'
 })
-test.afterAll(() => rmSync(output, { recursive: true, force: true }))
 test.beforeEach(async ({ page }) => {
     page.on('pageerror', error => { throw error })
-    await page.route('http://cases.test/fixture.js', route => route.fulfill({ contentType: 'application/javascript', body: bundle }))
+    await page.route('http://cases.test/fixture.js', route => route.fulfill({ contentType: 'application/javascript', body: fixture.bundle }))
     await page.route('http://cases.test/', route => route.fulfill({ contentType: 'text/html', body: '<div id="root"></div><script type="module" src="/fixture.js"></script>' }))
 })
 const monitor = { id: 'HA-1', title: 'Monitor case', status: 'open', source: 'monitoring' }

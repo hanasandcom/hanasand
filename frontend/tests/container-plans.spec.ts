@@ -1,18 +1,13 @@
 import { expect, test } from '@playwright/test'
-import { execFileSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import path from 'node:path'
-let output: string
-let bundle: string
-test.beforeAll(() => {
-    output = mkdtempSync(path.join(tmpdir(), 'container-plans-test-'))
-    execFileSync(process.env.BUN_BINARY || 'bun', ['build', 'tests/fixtures/container-plans.tsx', '--target=browser', '--define', 'process.env={"NODE_ENV":"production"}', '--outfile', path.join(output, 'fixture.js')])
-    bundle = readFileSync(path.join(output, 'fixture.js'), 'utf8')
+import { registerFixtureBundle } from './fixtureBundle'
+const fixture = registerFixtureBundle({
+    entrypoint: 'tests/fixtures/container-plans.tsx',
+    directoryPrefix: 'container-plans-test-',
+    define: 'process.env={"NODE_ENV":"production"}',
+    executableEnvironment: 'BUN_BINARY'
 })
-test.afterAll(() => rmSync(output, { recursive: true, force: true }))
 test.beforeEach(async ({ page }) => {
-    await page.route('http://container-plans.test/fixture.js', route => route.fulfill({ contentType: 'application/javascript', body: bundle }))
+    await page.route('http://container-plans.test/fixture.js', route => route.fulfill({ contentType: 'application/javascript', body: fixture.bundle }))
     await page.route('http://container-plans.test/', route => route.fulfill({ contentType: 'text/html', body: '<div id="root"></div><script src="/fixture.js"></script>' }))
 })
 test('selects one container and offers only paid failover at 49 NOK per month', async ({ page }) => {
