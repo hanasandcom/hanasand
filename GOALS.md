@@ -2982,3 +2982,24 @@ focused changes improve specific behavior and reuse but the aggregate line
 reduction target remains far from met. This candidate excludes six unrelated
 uncommitted files in the original Desktop checkout; those files were left
 untouched. The local commits have not been pushed or deployed.
+
+On 2026-10-18, the next reviewed checkpoints are `341f1a274` (reuse the
+organization-scoped invite lookup in admin support, −14 lines), `3ee98d8e2`
+(share readiness action descriptors, −4 lines), `afc18311e` (share the
+accessible field wrapper across profile/service-account forms, +19 lines),
+`47d3c8d42` and `6599dfa66` (consolidate dark-theme assertion mechanics and
+name the options at call sites, −47 lines overall). The readiness tests pass
+2/2; the dark-theme helper tests pass 2/2; focused API tests pass 13/13 (56
+assertions); API and frontend typechecks pass. API scoped ESLint passes. The
+frontend ESLint config cannot load in this clone because `utilbee` is missing.
+Browser assertions for the new shared field wrapper were not run here. The
+dark-theme entrypoint still reports 51 missing-palette-token findings, and
+its output is byte-for-byte identical before and after this consolidation.
+
+Using the same line-cap checker against base `94609c99b` and the current
+candidate, frontend size is 157,159 -> 157,127 lines (−32), across 2,435 ->
+2,439 files. Repository size is 331,653 -> 331,607 lines (−46), across 4,607
+-> 4,611 maintained files. Both checks pass with no file above 200 lines.
+These small deduplication wins do not approach the requested frontend
+10,000–30,000-line reduction or the API reduction goal; those goals remain
+open. The candidate is local only and is not published or deployed.
