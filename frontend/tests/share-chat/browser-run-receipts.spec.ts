@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { fulfillAiReply } from './fulfillAiReply'
 import { addLocalAuthCookies, mockShareApi, openWorkspaceBuildPrompt } from './helpers'
 import { browserRetryStories, runSummaryStories } from './fixtures/browserOutcomes'
 import { browserTaskResult } from './fixtures/browserTaskResult'
@@ -42,25 +43,21 @@ test('share page AI shows a bounded last-run receipt for ambiguous user requests
         expect(body.context?.length || 0).toBeLessThan(9_500)
         handledPrompts.push(matchingStory!.prompt)
 
-        await route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({
-                message: [
-                    `Ready: ${matchingStory!.expected}. Run receipt is visible without terminal logs.`,
-                    `<hanasand-tool>${JSON.stringify({
-                        action: 'browser_task',
-                        url: expectedUrl,
-                        captureScreenshot: true,
-                        timeoutMs: 16000,
-                    })}</hanasand-tool>`,
-                    `<hanasand-tool>${JSON.stringify({
-                        action: 'upsert_share',
-                        path: 'app/page.tsx',
-                        content: `export default function Page() { return <main><h1>${matchingStory!.expected}</h1><p>Bounded last run, browser proof, and manual apply.</p></main> }`,
-                    })}</hanasand-tool>`,
-                ].join('\n\n'),
-            }),
+        await fulfillAiReply(route, {
+            message: [
+                `Ready: ${matchingStory!.expected}. Run receipt is visible without terminal logs.`,
+                `<hanasand-tool>${JSON.stringify({
+                    action: 'browser_task',
+                    url: expectedUrl,
+                    captureScreenshot: true,
+                    timeoutMs: 16000,
+                })}</hanasand-tool>`,
+                `<hanasand-tool>${JSON.stringify({
+                    action: 'upsert_share',
+                    path: 'app/page.tsx',
+                    content: `export default function Page() { return <main><h1>${matchingStory!.expected}</h1><p>Bounded last run, browser proof, and manual apply.</p></main> }`,
+                })}</hanasand-tool>`,
+            ].join('\n\n'),
         })
     })
 
@@ -115,25 +112,21 @@ test('share page AI marks the last run as needing retry when browser proof fails
         expect(body.context).toContain(expectedUrl)
         handledPrompts.push(matchingStory!.prompt)
 
-        await route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({
-                message: [
-                    `Ready: ${matchingStory!.expected}. Browser proof must show retry if it fails.`,
-                    `<hanasand-tool>${JSON.stringify({
-                        action: 'browser_task',
-                        url: expectedUrl,
-                        captureScreenshot: true,
-                        timeoutMs: 16000,
-                    })}</hanasand-tool>`,
-                    `<hanasand-tool>${JSON.stringify({
-                        action: 'upsert_share',
-                        path: 'app/page.tsx',
-                        content: `export default function Page() { return <main><h1>${matchingStory!.expected}</h1><p>Do not claim browser proof succeeded when it failed.</p></main> }`,
-                    })}</hanasand-tool>`,
-                ].join('\n\n'),
-            }),
+        await fulfillAiReply(route, {
+            message: [
+                `Ready: ${matchingStory!.expected}. Browser proof must show retry if it fails.`,
+                `<hanasand-tool>${JSON.stringify({
+                    action: 'browser_task',
+                    url: expectedUrl,
+                    captureScreenshot: true,
+                    timeoutMs: 16000,
+                })}</hanasand-tool>`,
+                `<hanasand-tool>${JSON.stringify({
+                    action: 'upsert_share',
+                    path: 'app/page.tsx',
+                    content: `export default function Page() { return <main><h1>${matchingStory!.expected}</h1><p>Do not claim browser proof succeeded when it failed.</p></main> }`,
+                })}</hanasand-tool>`,
+            ].join('\n\n'),
         })
     })
 

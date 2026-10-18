@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { fulfillAiReply } from './fulfillAiReply'
 import { addLocalAuthCookies, mockShareApi, openWorkspaceBuildPrompt, syncShareChatPromptFallback } from './helpers'
 import { maintainabilityStories, progressGovernanceStories } from './fixtures/agentSafety'
 
@@ -25,15 +26,11 @@ test('share page AI flags maintainability and ownership risks from real AI-build
         expect(body.context).toContain('"maintainabilityMode":true')
         handledPrompts.push(matchingStory!.prompt)
 
-        await route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({
-                message: [
-                    `Ready: ${matchingStory!.expected}.`,
-                    'Maintainability guard: keep owned code, small dependencies, editable content, and no generated bloat.',
-                ].join('\n'),
-            }),
+        await fulfillAiReply(route, {
+            message: [
+                `Ready: ${matchingStory!.expected}.`,
+                'Maintainability guard: keep owned code, small dependencies, editable content, and no generated bloat.',
+            ].join('\n'),
         })
     })
 
@@ -72,15 +69,11 @@ test('share page AI makes progress, blockers, and approvals observable for real 
         expect(body.context).toContain('"progressGovernanceMode":true')
         handledPrompts.push(matchingStory!.prompt)
 
-        await route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({
-                message: [
-                    `Ready: ${matchingStory!.expected}.`,
-                    'Progress guard: exact blocker, observable evidence, meaningful approval scope, and smallest reversible next step.',
-                ].join('\n'),
-            }),
+        await fulfillAiReply(route, {
+            message: [
+                `Ready: ${matchingStory!.expected}.`,
+                'Progress guard: exact blocker, observable evidence, meaningful approval scope, and smallest reversible next step.',
+            ].join('\n'),
         })
     })
 

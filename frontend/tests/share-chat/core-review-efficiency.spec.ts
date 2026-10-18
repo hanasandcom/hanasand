@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { fulfillAiReply } from './fulfillAiReply'
 import { addLocalAuthCookies, mockShareApi, openWorkspaceBuildPrompt } from './helpers'
 import { contextBudgetStories, speedReviewStories, toolFrictionStories } from './fixtures/core'
 
@@ -17,24 +18,20 @@ test('share chat reaches concise two-file review quickly for speed-review storie
         expect(matchingStory).toBeTruthy()
         handledPrompts.push(matchingStory!.prompt)
 
-        await route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({
-                message: [
-                    `Done: ${matchingStory!.expected}. Review the two files before applying.`,
-                    `<hanasand-tool>${JSON.stringify({
-                        action: 'upsert_share',
-                        path: 'app/page.tsx',
-                        content: `export default function Page() { return <main><h1>${matchingStory!.expected}</h1><p>Useful, careful, and scoped. No fake portals, guarantees, uploads, or payments.</p></main> }`,
-                    })}</hanasand-tool>`,
-                    `<hanasand-tool>${JSON.stringify({
-                        action: 'upsert_share',
-                        path: 'app/brief.tsx',
-                        content: `export const brief = { topic: '${matchingStory!.expected}', review: 'Manual apply only', scope: 'Two small files' }`,
-                    })}</hanasand-tool>`,
-                ].join('\n\n'),
-            }),
+        await fulfillAiReply(route, {
+            message: [
+                `Done: ${matchingStory!.expected}. Review the two files before applying.`,
+                `<hanasand-tool>${JSON.stringify({
+                    action: 'upsert_share',
+                    path: 'app/page.tsx',
+                    content: `export default function Page() { return <main><h1>${matchingStory!.expected}</h1><p>Useful, careful, and scoped. No fake portals, guarantees, uploads, or payments.</p></main> }`,
+                })}</hanasand-tool>`,
+                `<hanasand-tool>${JSON.stringify({
+                    action: 'upsert_share',
+                    path: 'app/brief.tsx',
+                    content: `export const brief = { topic: '${matchingStory!.expected}', review: 'Manual apply only', scope: 'Two small files' }`,
+                })}</hanasand-tool>`,
+            ].join('\n\n'),
         })
     })
 
@@ -74,24 +71,20 @@ test('share chat avoids bloat and exposes review controls for tool-friction stor
         expect(body.context?.length || 0).toBeLessThan(12_000)
         handledPrompts.push(matchingStory!.prompt)
 
-        await route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({
-                message: [
-                    `Ready: ${matchingStory!.expected}. Two scoped files are waiting for review.`,
-                    `<hanasand-tool>${JSON.stringify({
-                        action: 'upsert_share',
-                        path: 'app/page.tsx',
-                        content: `export default function Page() { return <main><h1>${matchingStory!.expected}</h1><p>Clear next step, careful claims, and no fake backend promises.</p></main> }`,
-                    })}</hanasand-tool>`,
-                    `<hanasand-tool>${JSON.stringify({
-                        action: 'upsert_share',
-                        path: 'app/review-notes.ts',
-                        content: 'export const reviewNotes = [\'Manual review before apply\', \'No fake payments, portals, uploads, guarantees, or hidden background work\']',
-                    })}</hanasand-tool>`,
-                ].join('\n\n'),
-            }),
+        await fulfillAiReply(route, {
+            message: [
+                `Ready: ${matchingStory!.expected}. Two scoped files are waiting for review.`,
+                `<hanasand-tool>${JSON.stringify({
+                    action: 'upsert_share',
+                    path: 'app/page.tsx',
+                    content: `export default function Page() { return <main><h1>${matchingStory!.expected}</h1><p>Clear next step, careful claims, and no fake backend promises.</p></main> }`,
+                })}</hanasand-tool>`,
+                `<hanasand-tool>${JSON.stringify({
+                    action: 'upsert_share',
+                    path: 'app/review-notes.ts',
+                    content: 'export const reviewNotes = [\'Manual review before apply\', \'No fake payments, portals, uploads, guarantees, or hidden background work\']',
+                })}</hanasand-tool>`,
+            ].join('\n\n'),
         })
     })
 
@@ -132,24 +125,20 @@ test('share chat keeps context lean while resolving context-budget stories', asy
         expect(body.context?.length || 0).toBeLessThan(9_000)
         handledPrompts.push(matchingStory!.prompt)
 
-        await route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({
-                message: [
-                    `Ready: ${matchingStory!.expected}. Review the files, then apply.`,
-                    `<hanasand-tool>${JSON.stringify({
-                        action: 'upsert_share',
-                        path: 'app/page.tsx',
-                        content: `export default function Page() { return <main><h1>${matchingStory!.expected}</h1><p>Plain next step, careful scope, and no invented system behind it.</p></main> }`,
-                    })}</hanasand-tool>`,
-                    `<hanasand-tool>${JSON.stringify({
-                        action: 'upsert_share',
-                        path: 'app/decision.ts',
-                        content: `export const decision = { changed: '${matchingStory!.expected}', mode: 'lean context', apply: 'manual' }`,
-                    })}</hanasand-tool>`,
-                ].join('\n\n'),
-            }),
+        await fulfillAiReply(route, {
+            message: [
+                `Ready: ${matchingStory!.expected}. Review the files, then apply.`,
+                `<hanasand-tool>${JSON.stringify({
+                    action: 'upsert_share',
+                    path: 'app/page.tsx',
+                    content: `export default function Page() { return <main><h1>${matchingStory!.expected}</h1><p>Plain next step, careful scope, and no invented system behind it.</p></main> }`,
+                })}</hanasand-tool>`,
+                `<hanasand-tool>${JSON.stringify({
+                    action: 'upsert_share',
+                    path: 'app/decision.ts',
+                    content: `export const decision = { changed: '${matchingStory!.expected}', mode: 'lean context', apply: 'manual' }`,
+                })}</hanasand-tool>`,
+            ].join('\n\n'),
         })
     })
 

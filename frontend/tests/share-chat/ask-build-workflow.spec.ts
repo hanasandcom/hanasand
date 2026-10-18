@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { fulfillAiReply } from './fulfillAiReply'
 import { addLocalAuthCookies, mockShareApi, openWorkspaceChat } from './helpers'
 
 test.describe.configure({ mode: 'serial' })
@@ -23,22 +24,18 @@ test('share chat keeps Ask read-only and Build reviewable without showing raw co
             return
         }
 
-        await route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({
-                message: [
-                    '```tsx',
-                    'export default function Page() { return <main className="raw-code">Hidden</main> }',
-                    '```',
-                    'Prepared a cleaner landing page.',
-                    `<hanasand-tool>${JSON.stringify({
-                        action: 'upsert_share',
-                        path: 'app/page.tsx',
-                        content: 'export default function Page() { return <main><h1>Cleaner landing page</h1></main> }',
-                    })}</hanasand-tool>`,
-                ].join('\n'),
-            }),
+        await fulfillAiReply(route, {
+            message: [
+                '```tsx',
+                'export default function Page() { return <main className="raw-code">Hidden</main> }',
+                '```',
+                'Prepared a cleaner landing page.',
+                `<hanasand-tool>${JSON.stringify({
+                    action: 'upsert_share',
+                    path: 'app/page.tsx',
+                    content: 'export default function Page() { return <main><h1>Cleaner landing page</h1></main> }',
+                })}</hanasand-tool>`,
+            ].join('\n'),
         })
     })
 
@@ -100,24 +97,20 @@ test('share chat flags generic AI-looking design and remembers brand style cues'
             '</main> }',
         ].join('\n')
 
-        await route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({
-                message: [
-                    run === 1 ? 'Prepared visual direction.' : 'Refined the studio brand direction.',
-                    `<hanasand-tool>${JSON.stringify({
-                        action: 'upsert_share',
-                        path: 'app/page.tsx',
-                        content: run === 1 ? genericContent : distinctContent,
-                    })}</hanasand-tool>`,
-                    run === 1 ? '' : `<hanasand-tool>${JSON.stringify({
-                        action: 'upsert_share',
-                        path: 'docs/brand-kit.md',
-                        content: 'Brand kit: premium studio palette, warm atelier photo direction, quiet copper icons, and theme tokens for future edits.',
-                    })}</hanasand-tool>`,
-                ].join('\n'),
-            }),
+        await fulfillAiReply(route, {
+            message: [
+                run === 1 ? 'Prepared visual direction.' : 'Refined the studio brand direction.',
+                `<hanasand-tool>${JSON.stringify({
+                    action: 'upsert_share',
+                    path: 'app/page.tsx',
+                    content: run === 1 ? genericContent : distinctContent,
+                })}</hanasand-tool>`,
+                run === 1 ? '' : `<hanasand-tool>${JSON.stringify({
+                    action: 'upsert_share',
+                    path: 'docs/brand-kit.md',
+                    content: 'Brand kit: premium studio palette, warm atelier photo direction, quiet copper icons, and theme tokens for future edits.',
+                })}</hanasand-tool>`,
+            ].join('\n'),
         })
     })
 

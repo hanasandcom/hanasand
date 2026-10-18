@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { fulfillAiReply } from './fulfillAiReply'
 import { addLocalAuthCookies, mockShareApi, openWorkspaceBuildPrompt, syncShareChatPromptFallback } from './helpers'
 
 test.describe.configure({ mode: 'serial' })
@@ -11,16 +12,12 @@ test('share page AI queues browser proof asynchronously before apply gating', as
     await mockShareApi(page, { fallbackId: 'app-async-proof', initialContent: 'export default function Page() { return <main><h1>Before</h1></main> }' })
 
     await page.route('**/api/backend/tools/ai', async (route) => {
-        await route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({
-                message: [
-                    'Prepared async proof change.',
-                    '<hanasand-tool>{"action":"browser_task","url":"https://hanasand.com/s/app-async-proof","captureScreenshot":true,"timeoutMs":16000}</hanasand-tool>',
-                    '<hanasand-tool>{"action":"upsert_share","path":"src/app/page.tsx","content":"export default function Page() { return <main><h1>After async proof</h1></main> }"}</hanasand-tool>',
-                ].join('\n'),
-            }),
+        await fulfillAiReply(route, {
+            message: [
+                'Prepared async proof change.',
+                '<hanasand-tool>{"action":"browser_task","url":"https://hanasand.com/s/app-async-proof","captureScreenshot":true,"timeoutMs":16000}</hanasand-tool>',
+                '<hanasand-tool>{"action":"upsert_share","path":"src/app/page.tsx","content":"export default function Page() { return <main><h1>After async proof</h1></main> }"}</hanasand-tool>',
+            ].join('\n'),
         })
     })
 

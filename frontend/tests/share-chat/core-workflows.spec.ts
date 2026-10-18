@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { fulfillAiReply } from './fulfillAiReply'
 import { addLocalAuthCookies, mockShareApi, openWorkspaceBuildPrompt } from './helpers'
 import { stories, transparencyStories } from './fixtures/core'
 
@@ -17,19 +18,15 @@ test('share chat surfaces progress, context, and review gates for ambiguous app 
         expect(matchingStory).toBeTruthy()
         handledPrompts.push(matchingStory!.prompt)
 
-        await route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({
-                message: [
-                    `Prepared a focused ${matchingStory!.expected} page with narrow scope and reviewable changes.`,
-                    `<hanasand-tool>${JSON.stringify({
-                        action: 'upsert_share',
-                        path: 'app/page.tsx',
-                        content: `export default function Page() { return <main><h1>${matchingStory!.expected}</h1><p>No fake portals, payments, or sensitive data collection.</p></main> }`,
-                    })}</hanasand-tool>`,
-                ].join('\n\n'),
-            }),
+        await fulfillAiReply(route, {
+            message: [
+                `Prepared a focused ${matchingStory!.expected} page with narrow scope and reviewable changes.`,
+                `<hanasand-tool>${JSON.stringify({
+                    action: 'upsert_share',
+                    path: 'app/page.tsx',
+                    content: `export default function Page() { return <main><h1>${matchingStory!.expected}</h1><p>No fake portals, payments, or sensitive data collection.</p></main> }`,
+                })}</hanasand-tool>`,
+            ].join('\n\n'),
         })
     })
 
@@ -78,19 +75,15 @@ test('share chat makes no-auto-apply and pending-file state explicit for transpa
         expect(matchingStory).toBeTruthy()
         handledPrompts.push(matchingStory!.prompt)
 
-        await route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({
-                message: [
-                    `Prepared ${matchingStory!.expected} changes for manual review.`,
-                    `<hanasand-tool>${JSON.stringify({
-                        action: 'upsert_share',
-                        path: 'app/page.tsx',
-                        content: `export default function Page() { return <main><h1>${matchingStory!.expected}</h1><p>Manual review required before apply.</p></main> }`,
-                    })}</hanasand-tool>`,
-                ].join('\n\n'),
-            }),
+        await fulfillAiReply(route, {
+            message: [
+                `Prepared ${matchingStory!.expected} changes for manual review.`,
+                `<hanasand-tool>${JSON.stringify({
+                    action: 'upsert_share',
+                    path: 'app/page.tsx',
+                    content: `export default function Page() { return <main><h1>${matchingStory!.expected}</h1><p>Manual review required before apply.</p></main> }`,
+                })}</hanasand-tool>`,
+            ].join('\n\n'),
         })
     })
 

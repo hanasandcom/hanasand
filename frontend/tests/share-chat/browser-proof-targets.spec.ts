@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { fulfillAiReply } from './fulfillAiReply'
 import { addLocalAuthCookies, mockShareApi, openWorkspaceBuildPrompt } from './helpers'
 import { evidenceSummaryStories, visibleProofTargetStories } from './fixtures/browserTargets'
 import { browserTaskResult } from './fixtures/browserTaskResult'
@@ -39,25 +40,21 @@ test('share page AI shows the browser proof target before users send ambiguous p
         expect(body.context).toContain(expectedUrl)
         handledPrompts.push(matchingStory!.prompt)
 
-        await route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({
-                message: [
-                    `Ready: ${matchingStory!.expected}. The proof target was visible before the check.`,
-                    `<hanasand-tool>${JSON.stringify({
-                        action: 'browser_task',
-                        url: expectedUrl,
-                        captureScreenshot: true,
-                        timeoutMs: 16000,
-                    })}</hanasand-tool>`,
-                    `<hanasand-tool>${JSON.stringify({
-                        action: 'upsert_share',
-                        path: 'app/page.tsx',
-                        content: `export default function Page() { return <main><h1>${matchingStory!.expected}</h1><p>Visible proof target, compact response, manual apply.</p></main> }`,
-                    })}</hanasand-tool>`,
-                ].join('\n\n'),
-            }),
+        await fulfillAiReply(route, {
+            message: [
+                `Ready: ${matchingStory!.expected}. The proof target was visible before the check.`,
+                `<hanasand-tool>${JSON.stringify({
+                    action: 'browser_task',
+                    url: expectedUrl,
+                    captureScreenshot: true,
+                    timeoutMs: 16000,
+                })}</hanasand-tool>`,
+                `<hanasand-tool>${JSON.stringify({
+                    action: 'upsert_share',
+                    path: 'app/page.tsx',
+                    content: `export default function Page() { return <main><h1>${matchingStory!.expected}</h1><p>Visible proof target, compact response, manual apply.</p></main> }`,
+                })}</hanasand-tool>`,
+            ].join('\n\n'),
         })
     })
 
@@ -121,25 +118,21 @@ test('share page AI summarizes browser evidence in the chat status strip for fas
         expect(body.context?.length || 0).toBeLessThan(9_500)
         handledPrompts.push(matchingStory!.prompt)
 
-        await route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({
-                message: [
-                    `Ready: ${matchingStory!.expected}. Proof summary is visible in the chat strip.`,
-                    `<hanasand-tool>${JSON.stringify({
-                        action: 'browser_task',
-                        url: expectedUrl,
-                        captureScreenshot: true,
-                        timeoutMs: 16000,
-                    })}</hanasand-tool>`,
-                    `<hanasand-tool>${JSON.stringify({
-                        action: 'upsert_share',
-                        path: 'app/page.tsx',
-                        content: `export default function Page() { return <main><h1>${matchingStory!.expected}</h1><p>Fast proof summary, no terminal scrollback, manual apply.</p></main> }`,
-                    })}</hanasand-tool>`,
-                ].join('\n\n'),
-            }),
+        await fulfillAiReply(route, {
+            message: [
+                `Ready: ${matchingStory!.expected}. Proof summary is visible in the chat strip.`,
+                `<hanasand-tool>${JSON.stringify({
+                    action: 'browser_task',
+                    url: expectedUrl,
+                    captureScreenshot: true,
+                    timeoutMs: 16000,
+                })}</hanasand-tool>`,
+                `<hanasand-tool>${JSON.stringify({
+                    action: 'upsert_share',
+                    path: 'app/page.tsx',
+                    content: `export default function Page() { return <main><h1>${matchingStory!.expected}</h1><p>Fast proof summary, no terminal scrollback, manual apply.</p></main> }`,
+                })}</hanasand-tool>`,
+            ].join('\n\n'),
         })
     })
 

@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { fulfillAiReply } from './fulfillAiReply'
 import { addLocalAuthCookies, mockShareApi, openWorkspaceBuildPrompt, syncShareChatPromptFallback } from './helpers'
 import { costControlStories, deploymentDiagnosticStories } from './fixtures/changeReview'
 
@@ -26,16 +27,12 @@ test('share page AI switches to deployment diagnostics for real hosting failures
         expect(body.context).toContain(expectedUrl)
         handledPrompts.push(matchingStory!.prompt)
 
-        await route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({
-                message: [
-                    `Ready: ${matchingStory!.expected}.`,
-                    'Diagnostic checklist: target URL, environment scope, last changed config/package files, exact build/runtime log evidence, and the smallest safe next check.',
-                    'No edit yet; missing deploy evidence would make this a guess.',
-                ].join('\n'),
-            }),
+        await fulfillAiReply(route, {
+            message: [
+                `Ready: ${matchingStory!.expected}.`,
+                'Diagnostic checklist: target URL, environment scope, last changed config/package files, exact build/runtime log evidence, and the smallest safe next check.',
+                'No edit yet; missing deploy evidence would make this a guess.',
+            ].join('\n'),
         })
     })
 
@@ -82,16 +79,12 @@ test('share page AI protects budget and scope for real product-regression prompt
         expect(body.context).toContain(expectedUrl)
         handledPrompts.push(matchingStory!.prompt)
 
-        await route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({
-                message: [
-                    `Ready: ${matchingStory!.expected}.`,
-                    'Scope guard: preserve existing layout, touch only the named file, and avoid a rewrite.',
-                    '<hanasand-tool>{"action":"upsert_share","path":"src/app/page.tsx","content":"export default function Page() { return <main>Small safe fix</main> }"}</hanasand-tool>',
-                ].join('\n'),
-            }),
+        await fulfillAiReply(route, {
+            message: [
+                `Ready: ${matchingStory!.expected}.`,
+                'Scope guard: preserve existing layout, touch only the named file, and avoid a rewrite.',
+                '<hanasand-tool>{"action":"upsert_share","path":"src/app/page.tsx","content":"export default function Page() { return <main>Small safe fix</main> }"}</hanasand-tool>',
+            ].join('\n'),
         })
     })
 

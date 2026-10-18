@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { fulfillAiReply } from './fulfillAiReply'
 import { addLocalAuthCookies, mockShareApi, openWorkspaceBuildPrompt } from './helpers'
 import { shareBrowserEvidenceStories, shareEvidenceTargetStories } from './fixtures/browserTargets'
 import { browserTaskResult } from './fixtures/browserTaskResult'
@@ -43,30 +44,26 @@ test('share page AI shows browser proof in the website UI for ambiguous build st
         expect(body.context?.length || 0).toBeLessThan(9_000)
         handledPrompts.push(matchingStory!.prompt)
 
-        await route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({
-                message: [
-                    `Ready: ${matchingStory!.expected}. Browser proof is visible before apply.`,
-                    `<hanasand-tool>${JSON.stringify({
-                        action: 'browser_task',
-                        url: 'https://example.com',
-                        captureScreenshot: true,
-                        timeoutMs: 16000,
-                    })}</hanasand-tool>`,
-                    `<hanasand-tool>${JSON.stringify({
-                        action: 'upsert_share',
-                        path: 'app/page.tsx',
-                        content: `export default function Page() { return <main><h1>${matchingStory!.expected}</h1><p>Visible proof first, careful claims, no fake backend promises.</p></main> }`,
-                    })}</hanasand-tool>`,
-                    `<hanasand-tool>${JSON.stringify({
-                        action: 'upsert_share',
-                        path: 'app/proof.ts',
-                        content: `export const proof = { browser: true, apply: 'manual', topic: '${matchingStory!.expected}' }`,
-                    })}</hanasand-tool>`,
-                ].join('\n\n'),
-            }),
+        await fulfillAiReply(route, {
+            message: [
+                `Ready: ${matchingStory!.expected}. Browser proof is visible before apply.`,
+                `<hanasand-tool>${JSON.stringify({
+                    action: 'browser_task',
+                    url: 'https://example.com',
+                    captureScreenshot: true,
+                    timeoutMs: 16000,
+                })}</hanasand-tool>`,
+                `<hanasand-tool>${JSON.stringify({
+                    action: 'upsert_share',
+                    path: 'app/page.tsx',
+                    content: `export default function Page() { return <main><h1>${matchingStory!.expected}</h1><p>Visible proof first, careful claims, no fake backend promises.</p></main> }`,
+                })}</hanasand-tool>`,
+                `<hanasand-tool>${JSON.stringify({
+                    action: 'upsert_share',
+                    path: 'app/proof.ts',
+                    content: `export const proof = { browser: true, apply: 'manual', topic: '${matchingStory!.expected}' }`,
+                })}</hanasand-tool>`,
+            ].join('\n\n'),
         })
     })
 
@@ -134,25 +131,21 @@ test('share page AI uses the current share URL for browser evidence instead of g
         expect(body.context?.length || 0).toBeLessThan(9_500)
         handledPrompts.push(matchingStory!.prompt)
 
-        await route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({
-                message: [
-                    `Ready: ${matchingStory!.expected}. I checked the current share URL, not a sample page.`,
-                    `<hanasand-tool>${JSON.stringify({
-                        action: 'browser_task',
-                        url: expectedUrl,
-                        captureScreenshot: true,
-                        timeoutMs: 16000,
-                    })}</hanasand-tool>`,
-                    `<hanasand-tool>${JSON.stringify({
-                        action: 'upsert_share',
-                        path: 'app/page.tsx',
-                        content: `export default function Page() { return <main><h1>${matchingStory!.expected}</h1><p>Current-share evidence first, then manual apply.</p></main> }`,
-                    })}</hanasand-tool>`,
-                ].join('\n\n'),
-            }),
+        await fulfillAiReply(route, {
+            message: [
+                `Ready: ${matchingStory!.expected}. I checked the current share URL, not a sample page.`,
+                `<hanasand-tool>${JSON.stringify({
+                    action: 'browser_task',
+                    url: expectedUrl,
+                    captureScreenshot: true,
+                    timeoutMs: 16000,
+                })}</hanasand-tool>`,
+                `<hanasand-tool>${JSON.stringify({
+                    action: 'upsert_share',
+                    path: 'app/page.tsx',
+                    content: `export default function Page() { return <main><h1>${matchingStory!.expected}</h1><p>Current-share evidence first, then manual apply.</p></main> }`,
+                })}</hanasand-tool>`,
+            ].join('\n\n'),
         })
     })
 

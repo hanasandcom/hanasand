@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { fulfillAiReply } from './fulfillAiReply'
 import { addLocalAuthCookies, mockShareApi, openWorkspaceChat } from './helpers'
 
 test.describe.configure({ mode: 'serial' })
@@ -22,37 +23,33 @@ test('share chat sends niche design briefs and expects brand kit asset guidance'
         expect(contextPayload.designBrief?.tokenPlan?.join(' ')).toContain('appetite')
         expect(contextPayload.designBrief?.templateCaveat).toContain('not a fixed template')
 
-        await route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({
-                message: [
-                    'Prepared a restaurant direction with assets.',
-                    `<hanasand-tool>${JSON.stringify({
-                        action: 'upsert_share',
-                        path: 'app/page.tsx',
-                        content: [
-                            'export const tokens = { "--restaurant-paper": "#fff8ed", "--restaurant-ink": "#23160f", "--restaurant-tomato": "#b73f2e" }',
-                            'export default function Page() {',
-                            'return <main style={tokens} className="mx-auto grid max-w-5xl gap-7 px-5 py-8 text-[var(--restaurant-ink)]">',
-                            '<section className="grid gap-3 border-l-4 border-[var(--restaurant-tomato)] pl-5"><h1>Neighborhood bistro menu with honest allergy notes</h1><p>Hours, menu highlights, location, and dietary caveats stay visible before any inquiry.</p></section>',
-                            '<img src="/restaurant-counter.jpg" alt="Restaurant counter with seasonal plates" />',
-                            '</main> }',
-                        ].join('\n'),
-                    })}</hanasand-tool>`,
-                    `<hanasand-tool>${JSON.stringify({
-                        action: 'upsert_share',
-                        path: 'docs/brand-kit.md',
-                        content: [
-                            '# Brand kit',
-                            'Theme tokens: restaurant-paper, restaurant-ink, restaurant-tomato.',
-                            'Asset pipeline: real food and interior photos, dietary icons, no fake ordering or booking.',
-                            'Image direction: warm counter photography, menu detail shots, staff-approved captions.',
-                            'Template note: this is a starting direction, not a locked restaurant template.',
-                        ].join('\n'),
-                    })}</hanasand-tool>`,
-                ].join('\n'),
-            }),
+        await fulfillAiReply(route, {
+            message: [
+                'Prepared a restaurant direction with assets.',
+                `<hanasand-tool>${JSON.stringify({
+                    action: 'upsert_share',
+                    path: 'app/page.tsx',
+                    content: [
+                        'export const tokens = { "--restaurant-paper": "#fff8ed", "--restaurant-ink": "#23160f", "--restaurant-tomato": "#b73f2e" }',
+                        'export default function Page() {',
+                        'return <main style={tokens} className="mx-auto grid max-w-5xl gap-7 px-5 py-8 text-[var(--restaurant-ink)]">',
+                        '<section className="grid gap-3 border-l-4 border-[var(--restaurant-tomato)] pl-5"><h1>Neighborhood bistro menu with honest allergy notes</h1><p>Hours, menu highlights, location, and dietary caveats stay visible before any inquiry.</p></section>',
+                        '<img src="/restaurant-counter.jpg" alt="Restaurant counter with seasonal plates" />',
+                        '</main> }',
+                    ].join('\n'),
+                })}</hanasand-tool>`,
+                `<hanasand-tool>${JSON.stringify({
+                    action: 'upsert_share',
+                    path: 'docs/brand-kit.md',
+                    content: [
+                        '# Brand kit',
+                        'Theme tokens: restaurant-paper, restaurant-ink, restaurant-tomato.',
+                        'Asset pipeline: real food and interior photos, dietary icons, no fake ordering or booking.',
+                        'Image direction: warm counter photography, menu detail shots, staff-approved captions.',
+                        'Template note: this is a starting direction, not a locked restaurant template.',
+                    ].join('\n'),
+                })}</hanasand-tool>`,
+            ].join('\n'),
         })
     })
 

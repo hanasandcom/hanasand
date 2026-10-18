@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { fulfillAiReply } from './fulfillAiReply'
 import { addLocalAuthCookies, mockShareApi, openWorkspaceBuildPrompt } from './helpers'
 import { pendingCheckpointStories, pendingSummaryStories } from './fixtures/changeReview'
 
@@ -23,19 +24,15 @@ test('share page AI treats unapplied edits as a checkpoint before another run', 
         expect(body.context).toContain(expectedUrl)
         handledPrompts.push(matchingStory!.prompt)
 
-        await route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({
-                message: [
-                    `Ready: ${matchingStory!.expected}. Pending work must be resolved before the next run.`,
-                    `<hanasand-tool>${JSON.stringify({
-                        action: 'upsert_share',
-                        path: 'app/page.tsx',
-                        content: `export default function Page() { return <main><h1>${matchingStory!.expected}</h1><p>Pending checkpoint protects this draft.</p></main> }`,
-                    })}</hanasand-tool>`,
-                ].join('\n\n'),
-            }),
+        await fulfillAiReply(route, {
+            message: [
+                `Ready: ${matchingStory!.expected}. Pending work must be resolved before the next run.`,
+                `<hanasand-tool>${JSON.stringify({
+                    action: 'upsert_share',
+                    path: 'app/page.tsx',
+                    content: `export default function Page() { return <main><h1>${matchingStory!.expected}</h1><p>Pending checkpoint protects this draft.</p></main> }`,
+                })}</hanasand-tool>`,
+            ].join('\n\n'),
         })
     })
 
@@ -86,23 +83,19 @@ test('share page AI shows compact pending change summaries before raw diffs', as
         expect(body.context).toContain(expectedUrl)
         handledPrompts.push(matchingStory!.prompt)
 
-        await route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({
-                message: [
-                    `Ready: ${matchingStory!.expected}. Change summary should be visible before the raw diff.`,
-                    `<hanasand-tool>${JSON.stringify({
-                        action: 'upsert_share',
-                        path: 'app/page.tsx',
-                        content: [
-                            'export default function Page() {',
-                            `  return <main><h1>${matchingStory!.expected}</h1><p>Compact change summary before code.</p></main>`,
-                            '}',
-                        ].join('\n'),
-                    })}</hanasand-tool>`,
-                ].join('\n\n'),
-            }),
+        await fulfillAiReply(route, {
+            message: [
+                `Ready: ${matchingStory!.expected}. Change summary should be visible before the raw diff.`,
+                `<hanasand-tool>${JSON.stringify({
+                    action: 'upsert_share',
+                    path: 'app/page.tsx',
+                    content: [
+                        'export default function Page() {',
+                        `  return <main><h1>${matchingStory!.expected}</h1><p>Compact change summary before code.</p></main>`,
+                        '}',
+                    ].join('\n'),
+                })}</hanasand-tool>`,
+            ].join('\n\n'),
         })
     })
 

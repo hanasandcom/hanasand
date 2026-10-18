@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { fulfillAiReply } from './fulfillAiReply'
 import { addLocalAuthCookies, mockShareApi, openWorkspaceBuildPrompt } from './helpers'
 import { proofGateStories, proofRecoveryStories } from './fixtures/browserOutcomes'
 import { browserTaskResult } from './fixtures/browserTaskResult'
@@ -33,25 +34,21 @@ test('share page AI blocks applying pending edits when browser proof needs retry
         expect(body.context).toContain(expectedUrl)
         handledPrompts.push(matchingStory!.prompt)
 
-        await route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({
-                message: [
-                    `Ready: ${matchingStory!.expected}. Apply must stay blocked until browser proof succeeds.`,
-                    `<hanasand-tool>${JSON.stringify({
-                        action: 'browser_task',
-                        url: expectedUrl,
-                        captureScreenshot: true,
-                        timeoutMs: 16000,
-                    })}</hanasand-tool>`,
-                    `<hanasand-tool>${JSON.stringify({
-                        action: 'upsert_share',
-                        path: 'app/page.tsx',
-                        content: `export default function Page() { return <main><h1>${matchingStory!.expected}</h1><p>Apply stays blocked while proof needs retry.</p></main> }`,
-                    })}</hanasand-tool>`,
-                ].join('\n\n'),
-            }),
+        await fulfillAiReply(route, {
+            message: [
+                `Ready: ${matchingStory!.expected}. Apply must stay blocked until browser proof succeeds.`,
+                `<hanasand-tool>${JSON.stringify({
+                    action: 'browser_task',
+                    url: expectedUrl,
+                    captureScreenshot: true,
+                    timeoutMs: 16000,
+                })}</hanasand-tool>`,
+                `<hanasand-tool>${JSON.stringify({
+                    action: 'upsert_share',
+                    path: 'app/page.tsx',
+                    content: `export default function Page() { return <main><h1>${matchingStory!.expected}</h1><p>Apply stays blocked while proof needs retry.</p></main> }`,
+                })}</hanasand-tool>`,
+            ].join('\n\n'),
         })
     })
 
@@ -129,25 +126,21 @@ test('share page AI lets users retry failed browser proof without rerunning the 
         expect(body.context).toContain(expectedUrl)
         handledPrompts.push(matchingStory!.prompt)
 
-        await route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({
-                message: [
-                    `Ready: ${matchingStory!.expected}. Retry proof should recover without rerunning the prompt.`,
-                    `<hanasand-tool>${JSON.stringify({
-                        action: 'browser_task',
-                        url: expectedUrl,
-                        captureScreenshot: true,
-                        timeoutMs: 16000,
-                    })}</hanasand-tool>`,
-                    `<hanasand-tool>${JSON.stringify({
-                        action: 'upsert_share',
-                        path: 'app/page.tsx',
-                        content: `export default function Page() { return <main><h1>${matchingStory!.expected}</h1><p>Retry proof unlocks apply after browser evidence succeeds.</p></main> }`,
-                    })}</hanasand-tool>`,
-                ].join('\n\n'),
-            }),
+        await fulfillAiReply(route, {
+            message: [
+                `Ready: ${matchingStory!.expected}. Retry proof should recover without rerunning the prompt.`,
+                `<hanasand-tool>${JSON.stringify({
+                    action: 'browser_task',
+                    url: expectedUrl,
+                    captureScreenshot: true,
+                    timeoutMs: 16000,
+                })}</hanasand-tool>`,
+                `<hanasand-tool>${JSON.stringify({
+                    action: 'upsert_share',
+                    path: 'app/page.tsx',
+                    content: `export default function Page() { return <main><h1>${matchingStory!.expected}</h1><p>Retry proof unlocks apply after browser evidence succeeds.</p></main> }`,
+                })}</hanasand-tool>`,
+            ].join('\n\n'),
         })
     })
 

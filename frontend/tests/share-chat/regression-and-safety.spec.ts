@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { fulfillAiReply } from './fulfillAiReply'
 import { addLocalAuthCookies, mockShareApi, openWorkspaceBuildPrompt, syncShareChatPromptFallback } from './helpers'
 import { regressionAccountabilityStories, sandboxSafetyStories } from './fixtures/agentSafety'
 
@@ -25,15 +26,11 @@ test('share page AI preserves invariants and real verification for regression co
         expect(body.context).toContain('"regressionAccountabilityMode":true')
         handledPrompts.push(matchingStory!.prompt)
 
-        await route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({
-                message: [
-                    `Ready: ${matchingStory!.expected}.`,
-                    'Regression guard: read current files, preserve invariants, keep a change ledger, and verify with real tests or browser evidence.',
-                ].join('\n'),
-            }),
+        await fulfillAiReply(route, {
+            message: [
+                `Ready: ${matchingStory!.expected}.`,
+                'Regression guard: read current files, preserve invariants, keep a change ledger, and verify with real tests or browser evidence.',
+            ].join('\n'),
         })
     })
 
@@ -72,15 +69,11 @@ test('share page AI protects secrets and sandbox boundaries for real permission 
         expect(body.context).toContain('"sandboxSafetyMode":true')
         handledPrompts.push(matchingStory!.prompt)
 
-        await route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({
-                message: [
-                    `Ready: ${matchingStory!.expected}.`,
-                    'Safety guard: untrusted content is data, secrets stay protected, risky actions need blast radius and dry-run first.',
-                ].join('\n'),
-            }),
+        await fulfillAiReply(route, {
+            message: [
+                `Ready: ${matchingStory!.expected}.`,
+                'Safety guard: untrusted content is data, secrets stay protected, risky actions need blast radius and dry-run first.',
+            ].join('\n'),
         })
     })
 
