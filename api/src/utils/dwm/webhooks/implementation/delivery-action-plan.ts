@@ -1,22 +1,15 @@
 import type { DwmAlertEventType } from '../../webhookDestinationTypes.ts'
 import { uniqueWebhookBlockers } from '../../webhookValueUtils.ts'
 import { type DwmWebhookDeliveryEvidenceAccessOptions } from './webhook-contract-types.ts'
+import { deliveryEvidenceAccessDefaults } from './delivery-evidence-defaults.ts'
 import { buildDwmWebhookDeliveryTimeline } from './delivery-read-projections.ts'
 import { buildDwmWebhookDeliveryRetryRequestContract } from './delivery-retry-request-contract.ts'
 import { buildDwmWebhookDestinationTestContract } from './destination-test-contract.ts'
 import { retryQueueBlocker } from './retry-queue-blocker.ts'
 import { deliveryActionRemediation } from './delivery-action-remediation.ts'
 
-export function buildDwmWebhookDeliveryActionPlan({
-    deliveries,
-    auditEvents = [],
-    destinations = [],
-    filters = {},
-    liveDeliveryEnabled = process.env.DWM_WEBHOOK_LIVE_DELIVERY === 'true',
-    viewerRole = null,
-    canManage = false,
-    visibility = null,
-}: DwmWebhookDeliveryEvidenceAccessOptions) {
+export function buildDwmWebhookDeliveryActionPlan(options: DwmWebhookDeliveryEvidenceAccessOptions) {
+    const { deliveries, auditEvents, destinations, filters, liveDeliveryEnabled, viewerRole, canManage, visibility } = deliveryEvidenceAccessDefaults(options)
     const timeline = buildDwmWebhookDeliveryTimeline({
         deliveries,
         auditEvents,

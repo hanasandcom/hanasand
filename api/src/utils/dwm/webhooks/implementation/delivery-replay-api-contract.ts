@@ -8,6 +8,7 @@ import { WEBHOOK_KINDS } from '../../webhookDestinationInput.ts'
 import { buildIdempotencyKey } from '../../webhookDeliveryUtilities.ts'
 import { withDatabaseAdvisoryLock } from '#db'
 import { type DwmWebhookDeliveryEvidenceAccessOptions, type DwmWebhookDestinationPublic } from './webhook-contract-types.ts'
+import { deliveryEvidenceAccessDefaults } from './delivery-evidence-defaults.ts'
 import { buildDwmWebhookDeliveryAttemptPersistenceReadModel } from './delivery-attempt-persistence-read-model.ts'
 import { buildDwmWebhookDeliveryReplayGuard } from './delivery-replay-guard.ts'
 import { deliverDwmAlertNotification } from './test-destination.ts'
@@ -15,16 +16,8 @@ import { findDeliveredDwmWebhookDelivery } from './dwm-webhook-delivery-audit-me
 import { recordSkippedDuplicateDwmWebhookDelivery } from './send-dwm-webhook-payload.ts'
 import { deliverToDwmWebhookDestination } from './deliver-dwm-webhook-destination.ts'
 
-export function buildDwmWebhookDeliveryReplayApiContract({
-    deliveries,
-    auditEvents = [],
-    destinations = [],
-    filters = {},
-    liveDeliveryEnabled = process.env.DWM_WEBHOOK_LIVE_DELIVERY === 'true',
-    viewerRole = null,
-    canManage = false,
-    visibility = null,
-}: DwmWebhookDeliveryEvidenceAccessOptions) {
+export function buildDwmWebhookDeliveryReplayApiContract(options: DwmWebhookDeliveryEvidenceAccessOptions) {
+    const { deliveries, auditEvents, destinations, filters, liveDeliveryEnabled, viewerRole, canManage, visibility } = deliveryEvidenceAccessDefaults(options)
     const readModel = buildDwmWebhookDeliveryAttemptPersistenceReadModel({
         deliveries,
         auditEvents,

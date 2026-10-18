@@ -2,21 +2,14 @@ import { uniqueWebhookBlockers } from '../../webhookValueUtils.ts'
 import { dedupeFromIdempotencyKey } from '../../webhookDeliveryUtilities.ts'
 import { normalizeWebhookEvidenceFilters } from '../../webhookDeliveryEvidence.ts'
 import { type DwmWebhookDeliveryEvidenceAccessOptions } from './webhook-contract-types.ts'
+import { deliveryEvidenceAccessDefaults } from './delivery-evidence-defaults.ts'
 import { webhookVisibilityDecision, webhookAccess } from './webhook-visibility-decision.ts'
 import { retryQueueBlocker } from './retry-queue-blocker.ts'
 import { buildDwmWebhookDeliveryRetryPersistence } from './delivery-read-projections.ts'
 import { buildDwmWebhookDeliveryReceipts } from './delivery-receipts.ts'
 
-export function buildDwmWebhookDeliveryReplayGuard({
-    deliveries,
-    auditEvents = [],
-    destinations = [],
-    filters = {},
-    liveDeliveryEnabled = process.env.DWM_WEBHOOK_LIVE_DELIVERY === 'true',
-    viewerRole = null,
-    canManage = false,
-    visibility = null,
-}: DwmWebhookDeliveryEvidenceAccessOptions) {
+export function buildDwmWebhookDeliveryReplayGuard(options: DwmWebhookDeliveryEvidenceAccessOptions) {
+    const { deliveries, auditEvents, destinations, filters, liveDeliveryEnabled, viewerRole, canManage, visibility } = deliveryEvidenceAccessDefaults(options)
     const decision = webhookVisibilityDecision(visibility)
     const access = webhookAccess(decision, viewerRole, canManage, ['canManage', 'canReplay'] as const)
     const normalizedFilters = normalizeWebhookEvidenceFilters(filters)

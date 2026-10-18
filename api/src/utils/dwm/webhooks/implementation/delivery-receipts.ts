@@ -1,22 +1,15 @@
 import { uniqueWebhookBlockers } from '../../webhookValueUtils.ts'
 import { normalizeWebhookEvidenceFilters } from '../../webhookDeliveryEvidence.ts'
 import { type DwmWebhookDeliveryEvidenceAccessOptions } from './webhook-contract-types.ts'
+import { deliveryEvidenceAccessDefaults } from './delivery-evidence-defaults.ts'
 import { webhookDeliveryVisibilityAccess } from './webhook-visibility-decision.ts'
 import { retryQueueBlocker } from './retry-queue-blocker.ts'
 import { buildDwmWebhookReceiptHistoryFilters } from './receipt-history-filters.ts'
 import { buildDwmWebhookDeliveryHistoryWithRetryPersistence } from './delivery-history-with-retry-persistence.ts'
 import { buildDwmWebhookDeliveryTransitionReceipt } from './delivery-transition-receipt.ts'
 
-export function buildDwmWebhookDeliveryReceipts({
-    deliveries,
-    auditEvents = [],
-    destinations = [],
-    filters = {},
-    liveDeliveryEnabled = process.env.DWM_WEBHOOK_LIVE_DELIVERY === 'true',
-    viewerRole = null,
-    canManage = false,
-    visibility = null,
-}: DwmWebhookDeliveryEvidenceAccessOptions) {
+export function buildDwmWebhookDeliveryReceipts(options: DwmWebhookDeliveryEvidenceAccessOptions) {
+    const { deliveries, auditEvents, destinations, filters, liveDeliveryEnabled, viewerRole, canManage, visibility } = deliveryEvidenceAccessDefaults(options)
     const { decision, access } = webhookDeliveryVisibilityAccess(visibility, viewerRole, canManage)
     const normalizedFilters = normalizeWebhookEvidenceFilters(filters)
     const permissionBlocker = retryQueueBlocker('permission_denied', 'Webhook delivery receipts are not visible for this organization membership.', normalizedFilters.destinationId, true)
