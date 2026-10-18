@@ -2,22 +2,13 @@ import type { FastifyReply } from 'fastify'
 import {
     buildDwmOrgAlertWebhookDeliveryContract,
     buildDwmWebhookAuditEventContracts,
-    buildDwmWebhookDeliveryActionPlan,
-    buildDwmWebhookDeliveryAuditTrail,
     buildDwmWebhookDeliveryAttemptContract,
     buildDwmWebhookDeliveryAttemptPersistenceProof,
     buildDwmWebhookDashboardReadinessAdapter,
     buildDwmWebhookDeliveryHistoryAndPersistenceReadModels,
     buildDwmWebhookDeliveryOperations,
     buildDwmWebhookDeliveryReadinessConsumerProof,
-    buildDwmWebhookDeliveryReceipts,
-    buildDwmWebhookDeliveryReplayGuard,
     buildDwmWebhookDeliveryRetryContract,
-    buildDwmWebhookDeliveryRetryQueue,
-    buildDwmWebhookDeliveryRetryRequestContract,
-    buildDwmWebhookDeliveryRetryWorkOrders,
-    buildDwmWebhookDeliveryTimeline,
-    buildDwmWebhookDestinationDeliveryMatrix,
     buildDwmWebhookDestinationReadModels,
     listDwmWebhookAuditEvents,
     listDwmWebhookDeliveries,
@@ -27,6 +18,7 @@ import {
     type DwmAlertNotificationInput,
 } from '#utils/dwm/webhooks.ts'
 import { deliveryResponseOutcome } from './webhookResponses.ts'
+import { buildDwmWebhookDeliveryEvidenceModels, buildDwmWebhookDeliveryRetryModels } from './webhookDeliveryModels.ts'
 
 export async function sendDwmWebhookDeliveryResult(res: FastifyReply, userId: string, orgId: string, input: DwmAlertNotificationInput, deliveries: Awaited<ReturnType<typeof triggerDwmAlertWebhookNotification>>) {
     const destinations = await listDwmWebhookDestinations(userId, orgId)
@@ -86,28 +78,7 @@ export async function sendDwmWebhookDeliveryResult(res: FastifyReply, userId: st
             deliveries: ledgerDeliveries,
             auditEvents,
         }),
-        deliveryReceipts: buildDwmWebhookDeliveryReceipts({
-            deliveries: ledgerDeliveries,
-            auditEvents,
-            destinations,
-            filters,
-            ...deliveryAccess,
-        }),
-        deliveryTimeline: buildDwmWebhookDeliveryTimeline({
-            deliveries: ledgerDeliveries,
-            auditEvents,
-            destinations,
-            filters,
-            ...deliveryAccess,
-        }),
-        deliveryActionPlan: buildDwmWebhookDeliveryActionPlan({
-            deliveries: ledgerDeliveries,
-            auditEvents,
-            destinations,
-            filters,
-            ...deliveryAccess,
-        }),
-        deliveryReplayGuard: buildDwmWebhookDeliveryReplayGuard({
+        ...buildDwmWebhookDeliveryEvidenceModels({
             deliveries: ledgerDeliveries,
             auditEvents,
             destinations,
@@ -123,34 +94,7 @@ export async function sendDwmWebhookDeliveryResult(res: FastifyReply, userId: st
             canManage: true,
         }),
         deliveryRetryPersistence: deliveryHistoryReadModels.retryPersistence,
-        deliveryRetryQueue: buildDwmWebhookDeliveryRetryQueue({
-            deliveries: ledgerDeliveries,
-            auditEvents,
-            destinations,
-            filters,
-            ...deliveryAccess,
-        }),
-        deliveryRetryRequest: buildDwmWebhookDeliveryRetryRequestContract({
-            deliveries: ledgerDeliveries,
-            auditEvents,
-            destinations,
-            filters,
-            ...deliveryAccess,
-        }),
-        deliveryRetryWorkOrders: buildDwmWebhookDeliveryRetryWorkOrders({
-            deliveries: ledgerDeliveries,
-            auditEvents,
-            destinations,
-            filters,
-            ...deliveryAccess,
-        }),
-        destinationDeliveryMatrix: buildDwmWebhookDestinationDeliveryMatrix({
-            deliveries: ledgerDeliveries,
-            auditEvents,
-            destinations,
-            ...deliveryAccess,
-        }),
-        deliveryAuditTrail: buildDwmWebhookDeliveryAuditTrail({
+        ...buildDwmWebhookDeliveryRetryModels({
             deliveries: ledgerDeliveries,
             auditEvents,
             destinations,

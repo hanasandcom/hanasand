@@ -1,20 +1,11 @@
 import {
     buildDwmWebhookAuditEventContracts,
-    buildDwmWebhookDeliveryActionPlan,
-    buildDwmWebhookDeliveryAuditTrail,
     buildDwmWebhookDeliveryAttemptPersistenceReadModel,
     buildDwmWebhookDashboardReadinessAdapter,
     buildDwmWebhookDeliveryOperations,
     buildDwmWebhookDeliveryReadiness,
     buildDwmWebhookDeliveryReadinessConsumerProof,
-    buildDwmWebhookDeliveryReceipts,
     buildDwmWebhookDeliveryReplayApiContract,
-    buildDwmWebhookDeliveryReplayGuard,
-    buildDwmWebhookDeliveryRetryQueue,
-    buildDwmWebhookDeliveryRetryRequestContract,
-    buildDwmWebhookDeliveryRetryWorkOrders,
-    buildDwmWebhookDeliveryTimeline,
-    buildDwmWebhookDestinationDeliveryMatrix,
     buildDwmWebhookDeliveryEvidenceAndLedger,
     buildDwmWebhookDeliveryHistoryAndPersistenceReadModels,
     buildDwmWebhookDeliveryHistoryConsumerProof,
@@ -26,6 +17,7 @@ import {
     type DwmWebhookDeliveryEvidenceFilters,
 } from '#utils/dwm/webhooks.ts'
 import type { destinationLifecycleAccess, webhookOrganizationVisibilityContext } from './webhookRouteOrganizations.ts'
+import { buildDwmWebhookDeliveryEvidenceModels, buildDwmWebhookDeliveryRetryModels } from './webhookDeliveryModels.ts'
 
 type Deliveries = Awaited<ReturnType<typeof listDwmWebhookDeliveries>>
 type AuditEvents = Awaited<ReturnType<typeof listDwmWebhookAuditEvents>>
@@ -86,25 +78,7 @@ export function buildDwmWebhookDeliveryReadPayload({
         }),
         deliveryPersistenceProof: deliveryHistoryReadModels.persistenceProof,
         deliveryAttemptPersistence: buildDwmWebhookDeliveryAttemptPersistenceReadModel({ ...visibleRecords, filters: deliveryFilters }),
-        deliveryReceipts: buildDwmWebhookDeliveryReceipts({
-            ...visibleRecords,
-            filters: deliveryFilters,
-            ...lifecycleAccess,
-            visibility: visibilityContext,
-        }),
-        deliveryTimeline: buildDwmWebhookDeliveryTimeline({
-            ...visibleRecords,
-            filters: deliveryFilters,
-            ...lifecycleAccess,
-            visibility: visibilityContext,
-        }),
-        deliveryActionPlan: buildDwmWebhookDeliveryActionPlan({
-            ...visibleRecords,
-            filters: deliveryFilters,
-            ...lifecycleAccess,
-            visibility: visibilityContext,
-        }),
-        deliveryReplayGuard: buildDwmWebhookDeliveryReplayGuard({
+        ...buildDwmWebhookDeliveryEvidenceModels({
             ...visibleRecords,
             filters: deliveryFilters,
             ...lifecycleAccess,
@@ -117,30 +91,7 @@ export function buildDwmWebhookDeliveryReadPayload({
             visibility: visibilityContext,
         }),
         deliveryRetryPersistence: deliveryHistoryReadModels.retryPersistence,
-        deliveryRetryQueue: buildDwmWebhookDeliveryRetryQueue({
-            ...visibleRecords,
-            filters: deliveryFilters,
-            ...lifecycleAccess,
-            visibility: visibilityContext,
-        }),
-        deliveryRetryRequest: buildDwmWebhookDeliveryRetryRequestContract({
-            ...visibleRecords,
-            filters: deliveryFilters,
-            ...lifecycleAccess,
-            visibility: visibilityContext,
-        }),
-        deliveryRetryWorkOrders: buildDwmWebhookDeliveryRetryWorkOrders({
-            ...visibleRecords,
-            filters: deliveryFilters,
-            ...lifecycleAccess,
-            visibility: visibilityContext,
-        }),
-        destinationDeliveryMatrix: buildDwmWebhookDestinationDeliveryMatrix({
-            ...visibleRecords,
-            ...lifecycleAccess,
-            visibility: visibilityContext,
-        }),
-        deliveryAuditTrail: buildDwmWebhookDeliveryAuditTrail({
+        ...buildDwmWebhookDeliveryRetryModels({
             ...visibleRecords,
             filters: deliveryFilters,
             ...lifecycleAccess,

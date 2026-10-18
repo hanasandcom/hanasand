@@ -10,6 +10,34 @@ import {
     buildDwmWebhookDestinationDeliveryMatrix,
 } from '../src/utils/dwm/webhooks.ts'
 import { priorAttempt } from './fixtures/dwm-webhook-delivery-attempt.ts'
+import { buildDwmWebhookDeliveryEvidenceModels, buildDwmWebhookDeliveryRetryModels } from '../src/handlers/dwm/webhookDeliveryModels.ts'
+
+test('shared delivery model composition preserves tenant visibility across receipt and retry views', () => {
+    const input = {
+        destinations: [],
+        deliveries: [],
+        auditEvents: [],
+        filters: { orgId: 'org_1' },
+        viewerRole: 'reader',
+        canManage: false,
+        visibility: { role: 'reader' as const, status: 'active' as const, userActive: true as const, alertVisibilityPolicy: 'admins' as const },
+    }
+
+    const evidence = buildDwmWebhookDeliveryEvidenceModels(input)
+    const retry = buildDwmWebhookDeliveryRetryModels(input)
+
+    expect(evidence.deliveryReplayGuard.access).toEqual({
+        role: 'reader', canRead: false, canManage: false, canReplay: false, memberSafe: false,
+    })
+    expect(retry.deliveryRetryQueue.access).toEqual({
+        role: 'reader', canRead: false, canManage: false, canRetry: false, memberSafe: false,
+    })
+    expect(retry.deliveryRetryQueue.entries).toEqual([])
+    expect(retry.deliveryRetryRequest.access).toEqual(retry.deliveryRetryQueue.access)
+    expect(retry.deliveryRetryWorkOrders.workOrders).toEqual([])
+    expect(retry.destinationDeliveryMatrix.access.canRead).toBe(false)
+    expect(retry.deliveryAuditTrail.access.canRead).toBe(false)
+})
 
 function deliveryAccess(visibility: { role: 'reader' | 'admin', status: 'active', userActive: true, alertVisibilityPolicy: 'admins' | 'members' }, viewerRole: string, canManage: boolean) {
     const input = {
