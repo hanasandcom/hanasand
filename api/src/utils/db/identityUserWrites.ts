@@ -1,5 +1,6 @@
 import run from '#db'
 import type { IdentityQuery } from './identityQueryTypes.ts'
+import { updateThenInsert } from './updateThenInsert.ts'
 
 export async function insertIdentityUserIfAbsent(input: {
     id: string
@@ -29,15 +30,7 @@ export async function incrementIdentityLoginAttempt(userId: string, ip: string, 
          WHERE id = $1
         RETURNING id
     `, [userId, ip])
-    const updated = await update()
-    if (updated.rowCount) return
-    try {
-        await query('INSERT INTO attempts (id, attempts, ip) VALUES ($1, 1, $2)', [userId, ip])
-    } catch (error) {
-        if ((error as { code?: string })?.code !== '23505') throw error
-        const retried = await update()
-        if (!retried.rowCount) throw error
-    }
+    await updateThenInsert(update, () => query('INSERT INTO attempts (id, attempts, ip) VALUES ($1, 1, $2)', [userId, ip]))
 }
 
 export async function upsertIdentityPasskey(input: {
@@ -58,16 +51,8 @@ export async function upsertIdentityPasskey(input: {
          WHERE credential_id = $1
         RETURNING credential_id
     `, values)
-    const updated = await update()
-    if (updated.rowCount) return
-    try {
-        await query(`
+    await updateThenInsert(update, () => query(`
             INSERT INTO user_passkeys (credential_id, user_id, public_key_cose, sign_count, alg, aaguid, label, last_used_at)
             VALUES ($1, $2, $3, $4, $5, $6, $7, NULL)
-        `, values)
-    } catch (error) {
-        if ((error as { code?: string })?.code !== '23505') throw error
-        const retried = await update()
-        if (!retried.rowCount) throw error
-    }
+        `, values))
 }

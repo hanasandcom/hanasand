@@ -1,5 +1,6 @@
 import run from '#db'
 import type { IdentityQuery } from './identityQueryTypes.ts'
+import { updateThenInsert } from './updateThenInsert.ts'
 
 export async function upsertAdminAccessRecoveryApproval(input: {
     requestId: string
@@ -38,18 +39,10 @@ export async function upsertAdminAccessRecoveryApproval(input: {
         RETURNING request_id
     `, values)
 
-    const updated = await update()
-    if (updated.rowCount) return
-    try {
-        await query(`
+    await updateThenInsert(update, () => query(`
             INSERT INTO admin_access_recovery_approvals (
                 request_id, organization_id, invite_id, target_user_id, requested_by,
                 requested_reason, request_context, approval_required, status, outcome, expires_at
             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'success', $10)
-        `, values)
-    } catch (error) {
-        if ((error as { code?: string })?.code !== '23505') throw error
-        const retried = await update()
-        if (!retried.rowCount) throw error
-    }
+        `, values))
 }

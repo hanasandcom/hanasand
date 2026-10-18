@@ -1,5 +1,6 @@
 import run from '#db'
 import type { IdentityQuery } from './identityQueryTypes.ts'
+import { updateThenInsert } from './updateThenInsert.ts'
 
 export function touchOrganization(organizationId: string, query: IdentityQuery = run) {
     return query('UPDATE organizations SET updated_at = NOW() WHERE id = $1', [organizationId])
@@ -29,21 +30,12 @@ export async function upsertOrganizationMember(input: {
         RETURNING *
     `, [input.organizationId, input.userId, input.role, input.status ?? 'active', input.invitedBy, input.joinedAt ?? null])
 
-    const updated = await update()
-    if (updated.rowCount) return updated.rows[0]
-    try {
-        const inserted = await query(`
+    const result = await updateThenInsert(update, () => query(`
             INSERT INTO organization_members (organization_id, user_id, role, status, invited_by, joined_at)
             VALUES ($1, $2, $3, $4, $5, COALESCE($6::timestamptz, NOW()))
             RETURNING *
-        `, [input.organizationId, input.userId, input.role, input.status ?? 'active', input.invitedBy, input.joinedAt ?? null])
-        return inserted.rows[0]
-    } catch (error) {
-        if ((error as { code?: string })?.code !== '23505') throw error
-        const retried = await update()
-        if (!retried.rowCount) throw error
-        return retried.rows[0]
-    }
+        `, [input.organizationId, input.userId, input.role, input.status ?? 'active', input.invitedBy, input.joinedAt ?? null]))
+    return result.rows[0]
 }
 
 export async function updateActiveOrganizationMemberRole(input: {
@@ -88,21 +80,12 @@ export async function upsertOrganizationInvite(input: {
         RETURNING *
     `, [input.organizationId, input.email, input.role, input.invitedBy, input.expiresAt])
 
-    const updated = await update()
-    if (updated.rowCount) return updated.rows[0]
-    try {
-        const inserted = await query(`
+    const result = await updateThenInsert(update, () => query(`
             INSERT INTO organization_invites (id, organization_id, email, role, invited_by, status, expires_at)
             VALUES ($1, $2, $3, $4, $5, 'pending', $6)
             RETURNING *
-        `, [input.id, input.organizationId, input.email, input.role, input.invitedBy, input.expiresAt])
-        return inserted.rows[0]
-    } catch (error) {
-        if ((error as { code?: string })?.code !== '23505') throw error
-        const retried = await update()
-        if (!retried.rowCount) throw error
-        return retried.rows[0]
-    }
+        `, [input.id, input.organizationId, input.email, input.role, input.invitedBy, input.expiresAt]))
+    return result.rows[0]
 }
 
 export async function updateOrganizationInviteAction(input: {

@@ -1,5 +1,6 @@
 import run from '#db'
 import type { IdentityQuery } from './identityQueryTypes.ts'
+import { updateThenInsert } from './updateThenInsert.ts'
 
 export async function upsertMailAccount(input: {
     userId: string
@@ -19,16 +20,8 @@ export async function upsertMailAccount(input: {
         RETURNING user_id
     `, [input.userId, input.username, input.address, input.encryptedPassword, input.principalId])
 
-    const updated = await update()
-    if (updated.rowCount) return
-    try {
-        await query(`
+    await updateThenInsert(update, () => query(`
             INSERT INTO mail_accounts (user_id, mail_username, mail_address, mail_password_encrypted, principal_id)
             VALUES ($1, $2, $3, $4, $5)
-        `, [input.userId, input.username, input.address, input.encryptedPassword, input.principalId])
-    } catch (error) {
-        if ((error as { code?: string })?.code !== '23505') throw error
-        const retried = await update()
-        if (!retried.rowCount) throw error
-    }
+        `, [input.userId, input.username, input.address, input.encryptedPassword, input.principalId]))
 }
