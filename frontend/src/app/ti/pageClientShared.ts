@@ -4,11 +4,8 @@ export const TI_WORKBENCH_PREVIEW_ROWS = 1
 export const TI_EVIDENCE_QUEUE_PREVIEW_ROWS = 2
 export const TI_SELECTED_CONTINUITY_REF_ROWS = 2
 export const TI_ACTIVITY_TIMELINE_ROWS = 3
-export const TI_SAVED_SEARCHES_KEY = 'hanasand:ti:saved-searches'
-export const TI_SAVED_SEARCH_LIMIT = 8
-export type SavedSearch = { query: string, savedAt: string }
-
 export * from './pageConstants'
+export * from './savedSearches'
 export * from './pageEffects'
 export * from './actorReferences'
 export * from './secondaryViews'

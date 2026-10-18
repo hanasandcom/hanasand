@@ -1,6 +1,7 @@
 'use client'
 
-import { type SavedSearch, TI_SAVED_SEARCHES_KEY, TI_SAVED_SEARCH_LIMIT, usePublicTiPageEffects } from '../pageClientShared'
+import { usePublicTiPageEffects } from '../pageClientShared'
+import { addSavedSearch, parseSavedSearches, persistSavedSearches, removeSavedSearch, TI_SAVED_SEARCHES_KEY, type SavedSearch } from '../savedSearches'
 import { getCookie } from '@/utils/cookies/cookies'
 import { rememberSearch } from '@/components/ti/searchSuggestions'
 import { SyntheticEvent, useEffect, useRef, useState } from 'react'
@@ -33,7 +34,7 @@ export default function TiPageClient({ initialQuery, initialResult }: { initialQ
             fetch('/api/backend/ti/saved-searches', { headers: { Authorization: `Bearer ${token}`, id }, cache: 'no-store' })
                 .then(response => response.ok ? response.json() : null)
                 .then(payload => {
-                    if (Array.isArray(payload?.savedSearches)) setSavedSearches(payload.savedSearches.slice(0, TI_SAVED_SEARCH_LIMIT))
+                    if (Array.isArray(payload?.savedSearches)) setSavedSearches(parseSavedSearches(payload.savedSearches, true))
                     else setSavedSearchError('Account-saved searches are temporarily unavailable.')
                 })
                 .catch(() => setSavedSearchError('Account-saved searches are temporarily unavailable.'))
@@ -41,9 +42,7 @@ export default function TiPageClient({ initialQuery, initialResult }: { initialQ
         }
         try {
             const stored = JSON.parse(window.localStorage.getItem(TI_SAVED_SEARCHES_KEY) || '[]')
-            if (Array.isArray(stored)) {
-                setSavedSearches(stored.filter((item): item is SavedSearch => Boolean(item && typeof item.query === 'string' && typeof item.savedAt === 'string')).slice(0, TI_SAVED_SEARCH_LIMIT))
-            }
+            setSavedSearches(parseSavedSearches(stored))
         } catch {
             setSavedSearches([])
         }
@@ -85,7 +84,7 @@ export default function TiPageClient({ initialQuery, initialResult }: { initialQ
         if (!clean) return
         setSavedSearchError('')
         const previous = savedSearches
-        const next = [{ query: clean, savedAt: new Date().toISOString() }, ...savedSearches.filter(item => item.query.toLowerCase() !== clean.toLowerCase())].slice(0, TI_SAVED_SEARCH_LIMIT)
+        const next = addSavedSearch(savedSearches, clean, new Date().toISOString())
         setSavedSearches(next)
         const token = getCookie('access_token')
         const id = getCookie('id')
@@ -98,14 +97,14 @@ export default function TiPageClient({ initialQuery, initialResult }: { initialQ
                 setSavedSearchError('Could not save this search to your account. Try again.')
             }
         } else {
-            window.localStorage.setItem(TI_SAVED_SEARCHES_KEY, JSON.stringify(next))
+            persistSavedSearches(window.localStorage, next)
         }
     }
 
-    async function removeSavedSearch(queryToRemove: string) {
+    async function handleRemoveSavedSearch(queryToRemove: string) {
         setSavedSearchError('')
         const previous = savedSearches
-        const next = savedSearches.filter(item => item.query !== queryToRemove)
+        const next = removeSavedSearch(savedSearches, queryToRemove)
         setSavedSearches(next)
         const token = getCookie('access_token')
         const id = getCookie('id')
@@ -119,7 +118,7 @@ export default function TiPageClient({ initialQuery, initialResult }: { initialQ
                 setSavedSearchError('Could not remove this search from your account. Try again.')
             }
         } else {
-            window.localStorage.setItem(TI_SAVED_SEARCHES_KEY, JSON.stringify(next))
+            persistSavedSearches(window.localStorage, next)
         }
     }
 
@@ -159,7 +158,7 @@ export default function TiPageClient({ initialQuery, initialResult }: { initialQ
                 onQueryChange={handleQueryChange}
                 onSearch={value => void executeSearch(value)}
                 onSave={saveCurrentSearch}
-                onRemoveSavedSearch={removeSavedSearch}
+                onRemoveSavedSearch={handleRemoveSavedSearch}
             />
 
             {busy ? <SearchLoading query={query} /> : visible ? <Results result={visible} error={error} /> : <EmptyState />}
