@@ -26,7 +26,8 @@ mock.module('../src/utils/loadSQL.ts', () => ({ loadSQL: async (file: string) =>
 mock.module('../src/utils/db.ts', () => ({ withDatabaseAdvisoryLock: async (_key: string, work: () => Promise<unknown>) => work(), default: async (sql: string, params: unknown[] = []) => {
     queries.push({ sql, params })
     if (/SELECT vm_user_(has_access|can_manage)/.test(sql)) return { rows: [{ allowed: Boolean(existing && (existing.owner === params[1] || existing.created_by === params[1] || existing.access_users.includes(String(params[1])))) }] }
-    if (/SELECT name, owner, created_by, access_users, (?:primary_host, )?deleted_at\s+FROM vms/.test(sql)) return { rows: existing ? [existing] : [] }
+    if (/SELECT name, owner, created_by, access_users, (?:primary_host, )?deleted_at/.test(sql)) return { rows: existing ? [existing] : [] }
+    if (/UPDATE vms SET primary_host/.test(sql)) return { rows: [{ name: params[0], owner: 'member', created_by: 'member', primary_host: params[1] }] }
     return { rows: /INSERT INTO vms/.test(sql) ? [{ name: params[0], owner: params[1] }] : [] }
 } }))
 const { default: getVM } = await import('../src/handlers/vms/get.ts')

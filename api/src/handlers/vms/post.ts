@@ -62,7 +62,8 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
         `, [name])
 
             const existingResult = await run(`
-            SELECT name, owner, created_by, access_users, primary_host, deleted_at
+            SELECT name, owner, created_by, access_users, primary_host, deleted_at,
+                   EXISTS (SELECT 1 FROM vm_details d WHERE d.name = vms.name) AS has_vm_details
             FROM vms
             WHERE LOWER(name) = LOWER($1)
             ORDER BY
@@ -77,11 +78,18 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
                 access_users: string[]
                 primary_host: string
                 deleted_at?: string | null
+                has_vm_details: boolean
             } | undefined
 
             if (existing?.deleted_at) return res.status(409).send({ error: 'This VM is scheduled for deletion. Restore it before making changes.' })
 
-            if (existing && !canAssignOwner) return res.status(409).send({ error: 'VM already exists.' })
+            if (existing && !canAssignOwner) {
+                if (existing.owner !== actorId || existing.has_vm_details || body.provision_local === false) return res.status(409).send({ error: 'VM already exists.' })
+                await provisionOnPrimaryHost(name, existing.primary_host, true)
+                await syncUserCertificatesToVm({ vmName: name, userIds: [existing.owner, existing.created_by, ...(existing.access_users ?? [])] })
+                    .catch(error => void recordVmProvisioningError(name, error, 'certificate_sync'))
+                return res.status(201).send(existing)
+            }
 
             if (existing) {
                 const nextOwner = owner === 'ownerless' ? existing.owner : owner
@@ -133,7 +141,8 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
                 return res.status(409).send({ error: 'VM already exists' })
             }
 
-            await run('UPDATE vms SET primary_host = $2 WHERE name = $1', [name, config.vm_host_id])
+            const assignedVm = await run('UPDATE vms SET primary_host = $2 WHERE name = $1 RETURNING *', [name, config.vm_host_id])
+            if (!assignedVm.rows[0]) throw new Error('VM primary host assignment did not update the new VM.')
             await provisionOnPrimaryHost(name, config.vm_host_id, body.provision_local !== false)
 
             await syncUserCertificatesToVm({
@@ -156,7 +165,7 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
                 },
             })
 
-            return res.status(201).send(result.rows[0])
+            return res.status(201).send(assignedVm.rows[0])
         })
     } catch (error) {
         req.log.error({ err: error, vmName: name }, 'Unable to create or provision VM.')

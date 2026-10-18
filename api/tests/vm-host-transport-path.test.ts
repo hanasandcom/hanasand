@@ -56,6 +56,7 @@ test('host transport permits existing VM calls and dedicated internal VM routes'
     expect(supportedVmHostPath('/vm/remote-vm/recovery')).toBe(true)
     expect(supportedVmHostPath('/vms/internal/remote-vm/provision')).toBe(true)
     expect(supportedVmHostPath('/vms/internal/remote-vm/console')).toBe(true)
+    expect(supportedVmHostPath('/vms/internal/remote-vm/status')).toBe(true)
 })
 
 test('host transport rejects paths outside its VM route allowlist', () => {
@@ -65,4 +66,6 @@ test('host transport rejects paths outside its VM route allowlist', () => {
     expect(supportedVmHostPath('/vms/internal/remote-vm/delete')).toBe(false)
     expect(supportedVmHostPath('/vms/internal/remote-vm/console/extra')).toBe(false)
     expect(supportedVmHostPath('/vms/internal/a%2Fadmin/console')).toBe(false)
+    expect(supportedVmHostPath('/vms/internal/a%2Fadmin/status')).toBe(false)
+    expect(supportedVmHostPath('/vms/internal/remote-vm/status/extra')).toBe(false)
 })

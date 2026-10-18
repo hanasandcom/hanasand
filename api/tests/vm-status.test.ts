@@ -30,3 +30,13 @@ test('lifecycle status invalidation makes the next page refresh see the host sta
     expect((await withLiveVmStatus(vm)).status).toBe('RUNNING')
     expect(requests).toBe(2)
 })
+
+test('live status probes the VM primary host rather than the API host', async () => {
+    const probed: Array<{ name: string; host?: string }> = []
+    const result = await withLiveVmStatus({ name: 'remote-status-vm', primary_host: 'ovhcloud' }, async (name, host) => {
+        probed.push({ name, host })
+        return { status: 'Running' }
+    })
+    expect(result.status).toBe('RUNNING')
+    expect(probed).toEqual([{ name: 'remote-status-vm', host: 'ovhcloud' }])
+})
