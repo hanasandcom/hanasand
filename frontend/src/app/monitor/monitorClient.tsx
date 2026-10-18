@@ -3,21 +3,7 @@
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { ArrowRight, Filter, Search } from 'lucide-react'
-
-export type MonitorRow = {
-    domain: string
-    customer: string
-    status: string
-    monitoredSince: string
-    lastSeenAt: string
-    breachMentions: number
-    matchedTerms: string[]
-    sources: string[]
-    requestsToday: number
-    requestsThisWeek: number
-    requestsThisMonth: number
-    requestsTotal: number
-}
+import type { MonitorRow } from './model'
 
 type SortKey = 'customer' | 'domain' | 'monitored' | 'breaches'
 

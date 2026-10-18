@@ -131,6 +131,7 @@ export const productTasks: TestTask[] = [
     { id: 'traffic-locations', title: 'Recorded traffic locations', command: [bun, 'tests/traffic-locations.test.ts'] },
     { id: 'traffic-metric-bars', title: 'Shared traffic metric bar presentation', command: [bun, 'test', 'tests/traffic-metric-bars.test.tsx'] },
     { id: 'traffic-dashboard-data', title: 'Shared traffic dashboard snapshot data', command: [bun, 'test', 'tests/traffic-dashboard-data.test.ts'] },
+    { id: 'monitor-row-model', title: 'Monitor domain row normalization', command: [bun, 'test', 'tests/monitor-row-model.test.ts'] },
     { id: 'traffic-snapshot-refresh', title: 'Shared traffic snapshot polling behavior', command: [bun, 'test', 'tests/traffic-snapshot-refresh.test.ts'] },
     { id: 'traffic-page-state', title: 'Traffic route loading and unavailable state markup', command: [bun, 'test', 'tests/traffic-page-state.test.tsx'] },
     { id: 'traffic-stream-proxy', title: 'Traffic live stream proxy', command: [bun, 'tests/traffic-stream-proxy.test.ts'] },
