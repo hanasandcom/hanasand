@@ -4,6 +4,10 @@ type Vm = { name: string; deleted_at?: string | Date | null; status?: string; la
 type State = { status: string }
 const checks = new Map<string, { expires: number; result: Promise<State> }>()
 
+export function invalidateLiveVmStatus(name: string) {
+    checks.delete(name)
+}
+
 async function probe(name: string): Promise<State> {
     const cached = checks.get(name)
     if (cached && cached.expires > Date.now()) return cached.result

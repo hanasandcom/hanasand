@@ -6,6 +6,7 @@ import sanitize from '#utils/sanitize.ts'
 import run from '#db'
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import { internalHostFetch } from '#utils/vms/hostTransport.ts'
+import { invalidateLiveVmStatus } from '#utils/vms/status.ts'
 import { recordSystemEvent } from '#utils/systemEvent.ts'
 
 const allowedActions = new Set(['start', 'stop', 'restart'])
@@ -55,6 +56,7 @@ export default async function vmAction(req: FastifyRequest, res: FastifyReply) {
                 })
             }
 
+            invalidateLiveVmStatus(vm.name)
             const nextStatus = action === 'stop' ? 'stopped' : 'running'
             await run(`
             UPDATE vm_details
