@@ -7,7 +7,7 @@ import config from '#constants'
 const addresses: Record<string,string> = { inspur: '128.39.142.218', ovhcloud: '192.99.32.185' }
 export const supportedHost = (host: string) => Object.hasOwn(addresses, host)
 export const otherHost = (host: string) => host === 'inspur' ? 'ovhcloud' : host === 'ovhcloud' ? 'inspur' : null
-export const supportedVmHostPath = (path: string) => path.startsWith('/vm/') && !path.includes('..') || isInternalProvisionPath(path) || isInternalConsolePath(path) || isInternalStatusPath(path) || isInternalActionPath(path)
+export const supportedVmHostPath = (path: string) => path.startsWith('/vm/') && !path.includes('..') || isInternalProvisionPath(path) || isInternalConsolePath(path) || isInternalStatusPath(path)
 
 export function pinnedHostLookup(address: string): LookupFunction {
     return (_hostname, options, callback) => {
@@ -119,16 +119,6 @@ function isInternalConsolePath(path: string) {
 
 function isInternalStatusPath(path: string) {
     const match = /^\/vms\/internal\/([^/]+)\/status$/.exec(path)
-    if (!match) return false
-    try {
-        return /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,62}$/.test(decodeURIComponent(match[1]))
-    } catch {
-        return false
-    }
-}
-
-function isInternalActionPath(path: string) {
-    const match = /^\/vms\/internal\/([^/]+)\/(start|stop|restart)$/.exec(path)
     if (!match) return false
     try {
         return /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,62}$/.test(decodeURIComponent(match[1]))

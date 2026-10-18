@@ -39,7 +39,7 @@ export default async function vmAction(req: FastifyRequest, res: FastifyReply) {
 
             if (vm.deleted_at) return res.status(409).send({ error: 'This VM is scheduled for deletion. Restore it before starting.' })
 
-            const internalRes = await internalHostFetch(vm.primary_host, `/vms/internal/${encodeURIComponent(vm.name)}/${action}`, {
+            const internalRes = await internalHostFetch(vm.primary_host, `/vm/${encodeURIComponent(vm.name)}/${action}`, {
                 method: 'POST',
                 headers: {
                     'User-Agent': 'hanasand_internal',
