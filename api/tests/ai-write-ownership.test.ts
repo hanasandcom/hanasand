@@ -8,6 +8,18 @@ const repositoryQueries: Array<{ sql: string; params: unknown[] }> = []
 const messageQueries: Array<{ sql: string; params: unknown[] }> = []
 
 const normalizeSql = (sql: string) => sql.replace(/\s+/g, ' ').trim()
+const editorWriteScope = normalizeSql(`
+    AND (
+        owner_id = $2
+        OR EXISTS (
+            SELECT 1
+            FROM ai_conversation_collaborators
+            WHERE conversation_id = ai_conversations.id
+              AND user_id = $2
+              AND role = 'editor'
+        )
+    )
+`)
 
 const repositoryQuery = async (sql: string, params: unknown[] = []) => {
     const normalized = normalizeSql(sql)
@@ -53,6 +65,7 @@ mock.module('#db', () => ({
 }))
 mock.module('../src/handlers/ai/shared.ts', () => ({
     requireAiUser: async () => 'user-1',
+    toAiConversation: (conversation: unknown) => conversation,
     getConversationForUser: async (conversationId: string) => ({
         id: conversationId,
         owner_id: 'user-1',
@@ -65,10 +78,12 @@ mock.module('#utils/ai/usage.ts', () => ({ recordAiUsageEvent: async () => {} })
 
 const { default: postAiRepository } = await import('../src/handlers/ai/postRepository.ts')
 const { default: upsertAiMessage } = await import('../src/handlers/ai/upsertMessage.ts')
+const { default: putAiConversation } = await import('../src/handlers/ai/putConversation.ts')
 
 const app = Fastify()
 app.post('/repositories', postAiRepository)
 app.put('/conversations/:id/messages', upsertAiMessage)
+app.put('/conversations/:id', putAiConversation)
 
 beforeEach(() => {
     repositoryOwner = null
@@ -135,5 +150,20 @@ test('message can be updated within its existing conversation', async () => {
     })
 
     expect(response.statusCode).toBe(201)
-    expect(messageQueries.some(query => query.sql.startsWith('UPDATE ai_conversations'))).toBe(true)
+    const update = messageQueries.find(query => query.sql.startsWith('UPDATE ai_conversations'))
+    expect(update?.sql).toContain(editorWriteScope)
+    expect(update?.params.slice(0, 2)).toEqual(['conversation-1', 'user-1'])
+})
+
+test('conversation updates use the same owner-or-editor write guard as message updates', async () => {
+    const response = await app.inject({
+        method: 'PUT',
+        url: '/conversations/conversation-1',
+        payload: { title: 'Updated title' },
+    })
+
+    expect(response.statusCode).toBe(200)
+    const update = messageQueries.find(query => query.sql.startsWith('UPDATE ai_conversations'))
+    expect(update?.sql).toContain(editorWriteScope)
+    expect(update?.params.slice(0, 2)).toEqual(['conversation-1', 'user-1'])
 })

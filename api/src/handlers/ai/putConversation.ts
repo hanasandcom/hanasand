@@ -1,6 +1,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import run from '#db'
 import { getConversationForUser, requireAiUser, toAiConversation } from './shared.ts'
+import { conversationEditorWriteScope } from './workspaceQueries.ts'
 
 export default async function putAiConversation(req: FastifyRequest, res: FastifyReply) {
     const userId = await requireAiUser(req, res)
@@ -51,16 +52,7 @@ export default async function putAiConversation(req: FastifyRequest, res: Fastif
             archived_at = CASE WHEN $17::boolean THEN $18 ELSE archived_at END,
             updated_at = NOW()
         WHERE id = $1
-          AND (
-              owner_id = $2
-              OR EXISTS (
-                  SELECT 1
-                  FROM ai_conversation_collaborators
-                  WHERE conversation_id = ai_conversations.id
-                    AND user_id = $2
-                    AND role = 'editor'
-              )
-          )
+          ${conversationEditorWriteScope}
     `, [
         id,
         userId,

@@ -1,6 +1,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import run from '#db'
 import { getConversationForUser, requireAiUser } from './shared.ts'
+import { conversationEditorWriteScope } from './workspaceQueries.ts'
 import { recordAiUsageEvent } from '#utils/ai/usage.ts'
 
 export default async function upsertAiMessage(req: FastifyRequest, res: FastifyReply) {
@@ -90,16 +91,7 @@ export default async function upsertAiMessage(req: FastifyRequest, res: FastifyR
             active_model = COALESCE($5, active_model),
             updated_at = NOW()
         WHERE id = $1
-          AND (
-              owner_id = $2
-              OR EXISTS (
-                  SELECT 1
-                  FROM ai_conversation_collaborators
-                  WHERE conversation_id = ai_conversations.id
-                    AND user_id = $2
-                    AND role = 'editor'
-              )
-          )
+          ${conversationEditorWriteScope}
     `, [id, userId, role, content, modelName])
 
     if (inserted) {

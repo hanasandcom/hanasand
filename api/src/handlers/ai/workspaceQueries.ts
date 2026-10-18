@@ -27,6 +27,17 @@ function conversationReadAccessPredicate(conversationAlias: string, collaborator
     return `(${conversationAlias}.owner_id = $1 OR ${collaboratorAlias}.user_id = $1)`
 }
 
+export const conversationEditorWriteScope = `AND (
+    owner_id = $2
+    OR EXISTS (
+        SELECT 1
+        FROM ai_conversation_collaborators
+        WHERE conversation_id = ai_conversations.id
+          AND user_id = $2
+          AND role = 'editor'
+    )
+)`
+
 export function queryAccessibleConversations(ownerId: string, conversationId?: string) {
     const conversationFilter = conversationId === undefined ? '' : 'AND ai_conversations.id = $2'
     const ordering = conversationId === undefined ? 'ORDER BY updated_at DESC, created_at DESC' : ''
