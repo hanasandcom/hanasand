@@ -23,7 +23,7 @@ export default function VMDetailClient({ vm, metrics }: VMDetailClientProps) {
                         <p>CPU: {latestMetrics.cpu_usage_percent}% ({latestMetrics.cpu_cores} cores)</p>
                         <p>RAM: {latestMetrics.ram_used_mb}/{latestMetrics.ram_total_mb} MB</p>
                         <p>GPU: {latestMetrics.gpu_usage_percent}% ({latestMetrics.gpu_memory_used_mb}/{latestMetrics.gpu_memory_total_mb} MB)</p>
-                        <p>Disk: {latestMetrics.disk_used_mb}/{latestMetrics.disk_total_mb} MB</p>
+                        <p>Disk: {latestMetrics.disk_used_mb ?? '—'}/{latestMetrics.disk_total_mb ?? '—'} MB</p>
                     </div>
                     <div>
                         <p>System Temp: {latestMetrics.system_temperature}°C</p>
