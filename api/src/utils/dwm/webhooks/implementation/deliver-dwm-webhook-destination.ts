@@ -1,14 +1,14 @@
 import crypto from 'node:crypto'
 import { buildDwmAlertDeliveryPayload } from '../alertDeliveryPayload.ts'
 import type { DwmAlertEventType, DwmWebhookDeliveryRow, DwmWebhookDestinationRow } from '../../webhookDestinationTypes.ts'
-import { bindDwmWebhookReceiverReceipt } from '../../webhookReceiverReceipts.ts'
+import { bindExactDwmWebhookReceiverReceipt } from '../../webhookReceiverReceipts.ts'
 import { toDwmWebhookDelivery } from '../../webhookDestinationModels.ts'
 import { recordDwmWebhookAudit } from '../../webhookAuditStore.ts'
 import { buildIdempotencyKey } from '../../webhookDeliveryUtilities.ts'
 import { classifyDeliveryError, MAX_DWM_WEBHOOK_DELIVERY_ATTEMPTS, planDwmWebhookDeliveryRetry } from '../../webhookDeliveryRetryPolicy.ts'
 import { deliveryAuditActionForEvent } from '../../webhookAuditContracts.ts'
 import { canonicalJson } from '../../customerOutputSafety.ts'
-import { controlledReceiverEndpointHashes, postPublicWebhook, hashValue as hashWebhookValue } from '../../webhookTransport.ts'
+import { postPublicWebhook, hashValue as hashWebhookValue } from '../../webhookTransport.ts'
 import run, { withTransaction } from '#db'
 import { countDwmWebhookDeliveryAttempts, dwmWebhookDeliveryAuditMetadata } from './dwm-webhook-delivery-audit-metadata.ts'
 import { sendDwmWebhookPayload } from './send-dwm-webhook-payload.ts'
@@ -99,12 +99,7 @@ export async function deliverToDwmWebhookDestination({
             deliveredAt,
         ])
         const persisted = result.rows[0] as DwmWebhookDeliveryRow
-        const receiptBound = await bindDwmWebhookReceiverReceipt(persisted, query)
-        if (status === 'delivered'
-            && controlledReceiverEndpointHashes().includes(persisted.endpoint_hash)
-            && !receiptBound) {
-            throw new Error('Controlled receiver accepted delivery without an exact durable receipt.')
-        }
+        await bindExactDwmWebhookReceiverReceipt(persisted, query)
         return persisted
     })
 

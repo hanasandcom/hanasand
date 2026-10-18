@@ -190,3 +190,10 @@ export async function bindDwmWebhookReceiverReceipt(delivery: ReceiverDeliveryRo
     ])
     return Boolean(result.rows[0])
 }
+
+export async function bindExactDwmWebhookReceiverReceipt(delivery: ReceiverDeliveryRow, query: typeof run = run) {
+    const bound = await bindDwmWebhookReceiverReceipt(delivery, query)
+    if (delivery.status === 'delivered' && controlledReceiverEndpointHashes().includes(delivery.endpoint_hash) && !bound) {
+        throw new Error('Controlled receiver accepted delivery without an exact durable receipt.')
+    }
+}

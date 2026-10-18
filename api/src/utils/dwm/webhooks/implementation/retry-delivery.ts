@@ -1,11 +1,11 @@
 import crypto from 'node:crypto'
 import type { DwmWebhookDeliveryRow } from '../../webhookDestinationTypes.ts'
-import { bindDwmWebhookReceiverReceipt } from '../../webhookReceiverReceipts.ts'
+import { bindExactDwmWebhookReceiverReceipt } from '../../webhookReceiverReceipts.ts'
 import { toDwmWebhookDelivery } from '../../webhookDestinationModels.ts'
 import { loadDwmWebhookDestination } from '../../webhookDestinationReads.ts'
 import { recordDwmWebhookAudit } from '../../webhookAuditStore.ts'
 import { MAX_DWM_WEBHOOK_DELIVERY_ATTEMPTS, planDwmWebhookDeliveryRetry } from '../../webhookDeliveryRetryPolicy.ts'
-import { controlledReceiverEndpointHashes, postPublicWebhook } from '../../webhookTransport.ts'
+import { postPublicWebhook } from '../../webhookTransport.ts'
 import run, { withDatabaseAdvisoryLock, withTransaction } from '#db'
 import { loadLatestDwmWebhookDeliveryAttempt, countDwmWebhookDeliveryAttempts, findDeliveredDwmWebhookDelivery } from './dwm-webhook-delivery-audit-metadata.ts'
 import { validatePersistedDwmWebhookRetryPayload } from './validate-persisted-dwm-webhook-retry-payload.ts'
@@ -127,12 +127,7 @@ export async function retryDwmWebhookDelivery(
                 status === 'delivered' ? completedAt : null,
             ])
             const persisted = result.rows[0] as DwmWebhookDeliveryRow
-            const receiptBound = await bindDwmWebhookReceiverReceipt(persisted, query)
-            if (status === 'delivered'
-                && controlledReceiverEndpointHashes().includes(persisted.endpoint_hash)
-                && !receiptBound) {
-                throw new Error('Controlled receiver accepted delivery without an exact durable receipt.')
-            }
+            await bindExactDwmWebhookReceiverReceipt(persisted, query)
             return persisted
         })
         if (status === 'delivered') {

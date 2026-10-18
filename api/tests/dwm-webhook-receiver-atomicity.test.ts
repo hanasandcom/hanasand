@@ -94,6 +94,13 @@ test('moves a durable lost-ack receipt from the failed attempt to its exact deli
         expect(failedRow).toBeDefined()
         failedRow!.next_retry_at = '2020-07-23T10:01:00.000Z'
 
+        state.failReceiptBind = true
+        await expect(retryDwmWebhookDelivery('member_2', 'org_1', failed.id, sender))
+            .rejects.toThrow('simulated receipt bind failure')
+        expect(ledger).toHaveLength(1)
+        expect(receiverAudits[0]?.delivery_id).toBe(failed.id)
+        state.failReceiptBind = false
+
         const retried = await retryDwmWebhookDelivery('member_2', 'org_1', failed.id, sender)
         expect(retried).toMatchObject({ ok: true, delivery: {
             status: 'delivered',
@@ -102,7 +109,7 @@ test('moves a durable lost-ack receipt from the failed attempt to its exact deli
             responseBody: null,
             error: null,
         } })
-        expect(networkAttempts).toBe(2)
+        expect(networkAttempts).toBe(3)
         expect(receiverAudits).toHaveLength(1)
         expect(receiverAudits[0]?.delivery_id).toBe(retried.ok ? retried.delivery.id : '')
         expect(receiverAudits[0]?.metadata.deliveryId).toBe(failed.id)
