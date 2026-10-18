@@ -87,7 +87,7 @@ async function collect() {
     const response = await (await lxd('/1.0/instances?recursion=2')).json() as { metadata?: Instance[] }
     if (!Array.isArray(response.metadata)) throw new Error('VM metrics: host did not return its instances.')
     const registered = new Set<string>((await run(
-        'SELECT name FROM vms WHERE LOWER(primary_host) = LOWER($1)',
+        'SELECT name FROM vms WHERE LOWER(primary_host) = LOWER($1) AND deleted_at IS NULL',
         [config.vm_host_id],
     )).rows.map(row => row.name))
     const instances = response.metadata.filter(instance => registered.has(instance.name))
