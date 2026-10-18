@@ -3013,3 +3013,18 @@ search. The same line-cap checker now reports frontend 157,061 lines and
 repository 331,541 lines, both with no file above 200. Relative to base
 `94609c99b`, the verified reductions are 98 frontend lines and 112 repository
 lines. This is still far from the large reduction targets.
+
+The next TI cleanup checkpoint, `49004f32f`, removes 25 more unreferenced
+panels plus payload/model helpers whose only consumers were those panels. It
+also removes source-text assertions that treated dead component text as proof
+of runtime behavior; checks for active evidence, source health, triage,
+actionability, and handoffs remain. Independent review found no live imports or
+dynamic loaders for the removed code. TI actor-intelligence and theme-copy
+guards, safe-output and undated-provenance tests, frontend typecheck, both line
+caps, and `git diff --check` pass. The selectable-workbenches test could not
+load because React is unavailable in this clone. The frontend now scans at
+2,406 files / 154,469 lines; the repository scans at 4,578 maintained files /
+328,949 lines, with no file above 200. Relative to base `94609c99b`, the
+reductions are 2,690 frontend lines and 2,704 repository lines. The user's
+larger reduction targets remain outstanding; this checkpoint is a verified
+dead-code reduction, not a broad component rewrite.
