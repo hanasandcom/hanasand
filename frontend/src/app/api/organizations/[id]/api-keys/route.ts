@@ -1,14 +1,7 @@
-import { NextRequest } from 'next/server'
-import { proxyOrganizationApiRequest } from '@/app/api/organizations/_organizationApiProxy'
+import { organizationIdProxyHandler } from '@/app/api/organizations/_organizationApiProxy'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
-    const { id } = await context.params
-    return proxyOrganizationApiRequest(request, `/organizations/${encodeURIComponent(id)}/api-keys`, { method: 'GET' })
-}
+export const GET = organizationIdProxyHandler('/api-keys', { method: 'GET' })
 
-export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
-    const { id } = await context.params
-    return proxyOrganizationApiRequest(request, `/organizations/${encodeURIComponent(id)}/api-keys`, { method: 'POST' })
-}
+export const POST = organizationIdProxyHandler('/api-keys', { method: 'POST' })

@@ -11,6 +11,17 @@ type ProxyOptions = {
     forwardImpersonation?: boolean
 }
 
+export function organizationIdProxyHandler<Params extends { id: string }>(
+    pathSuffix: string | ((params: Params) => string),
+    options: ProxyOptions = {},
+) {
+    return async (request: NextRequest, context: { params: Promise<Params> }) => {
+        const params = await context.params
+        const suffix = typeof pathSuffix === 'function' ? pathSuffix(params) : pathSuffix
+        return proxyOrganizationApiRequest(request, `/organizations/${encodeURIComponent(params.id)}${suffix}`, options)
+    }
+}
+
 export async function proxyOrganizationApiRequest(request: NextRequest, path: string, options: ProxyOptions = {}) {
     try {
         const cookieStore = await cookies()
