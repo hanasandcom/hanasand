@@ -1,10 +1,10 @@
 import type { FastifyReply } from 'fastify'
 import { touchOrganization, updateOrganizationInviteAction } from '#utils/db/identityDataWrites.ts'
+import { loadInviteById } from '../../organizations/invites/shared.ts'
 import { organizationMembershipAvailability } from '#utils/organizationMemberships.ts'
 import { normalizeInviteInput, toInvite, toOrganization, type OrganizationInviteRow } from '#utils/organizations.ts'
 import { cleanContext } from '#utils/support/adminSupportInput.ts'
 import { loadSystemEventIds, recordSystemEvent } from '#utils/systemEvent.ts'
-import run from '#db'
 import { inviteSnapshot } from '../cases/subjectMapping.ts'
 import { sendAcceptedSupportInviteActionDenial } from './acceptedInviteDenial.ts'
 import { sendInviteActionDenial } from './denialResponse.ts'
@@ -46,13 +46,7 @@ export async function executeSupportInviteAction(context: SupportInviteActionCon
         expiresAt: context.action === 'resend' ? expiresAt : undefined,
     }) as OrganizationInviteRow | null
     if (!updatedInvite) {
-        const current = await run(`
-            SELECT *
-            FROM organization_invites
-            WHERE id = $1 AND organization_id = $2
-            LIMIT 1
-        `, [context.invite.id, context.organization.id])
-        const acceptedInvite = current.rows[0] as OrganizationInviteRow | undefined
+        const acceptedInvite = await loadInviteById(context.organization.id, context.invite.id)
         if (acceptedInvite?.status === 'accepted') {
             return sendAcceptedSupportInviteActionDenial(context.req, res, {
                 actor: context.actor,

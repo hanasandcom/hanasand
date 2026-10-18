@@ -1,8 +1,7 @@
 import type { FastifyReply } from 'fastify'
-import run from '#db'
+import { loadInviteById } from '../../organizations/invites/shared.ts'
 import { normalizeOption, supportRequestId, supportText as text } from '#utils/support/adminSupportInput.ts'
 import { requireAuditReason } from '#utils/systemEvent.ts'
-import type { OrganizationInviteRow } from '#utils/organizations.ts'
 import { requireAdminSupport } from '../auth.ts'
 import { requireWritableSupportOrganization, validateSupportSessionForAction, loadSupportSuccessfulIdempotencyReceipt } from '../actionAccess.ts'
 import { supportInviteActionExecutorControls } from './controls.ts'
@@ -44,14 +43,7 @@ export async function prepareSupportInviteAction(req: SupportInviteActionRequest
         return
     }
 
-    const existing = await run(`
-        SELECT *
-        FROM organization_invites
-        WHERE id = $1
-          AND organization_id = $2
-        LIMIT 1
-    `, [req.params.inviteId, organization.id])
-    const invite = existing.rows[0] as OrganizationInviteRow | undefined
+    const invite = await loadInviteById(organization.id, req.params.inviteId)
     if (!invite) {
         res.status(404).send({ error: 'Invite not found for organization.' })
         return
