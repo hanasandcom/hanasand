@@ -146,6 +146,7 @@ export const productTasks: TestTask[] = [
     { id: 'automation-draft', title: 'Automation draft defaults and validation', command: [bun, 'test', 'tests/automation-draft.test.ts'] },
     { id: 'vm-member-access', title: 'Member VM creation and host telemetry permissions', command: [bun, 'scripts/check-vm-member-access.mjs'], requires: 'playwright' },
     { id: 'vm-fetch-contract', title: 'VM connection and metrics request contracts', command: [bun, 'test', 'tests/vm-fetch-contract.test.ts'] },
+    { id: 'vm-inventory-reader', title: 'VM inventory authentication and bounded response reading', command: [bun, 'test', 'tests/vm-inventory-reader.test.ts'] },
     { id: 'password-policy', title: 'Password requirements', command: [bun, 'test', 'tests/password-policy.test.ts'] },
     { id: 'timetable', title: 'Dated timetable activity totals and persistence', command: [bun, 'test', 'tests/timetable.test.ts'] },
     { id: 'code-access', title: 'Code access sessions and login limits', command: [bun, 'test', 'tests/code-access.test.ts'] },

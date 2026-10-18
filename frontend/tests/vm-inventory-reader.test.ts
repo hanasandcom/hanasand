@@ -1,0 +1,56 @@
+import assert from 'node:assert/strict'
+// @ts-expect-error Bun provides the mocking module for focused tests.
+import { mock, test } from 'bun:test'
+import config from '../src/config'
+
+type RequestOptions = RequestInit & { timeoutMs?: number, retries?: number }
+const requests: { input: string | URL | Request, options?: RequestOptions }[] = []
+let responseFactory = () => Response.json([])
+
+mock.module('@/utils/fetchWithRetry', () => ({
+    default: async (input: string | URL | Request, options?: RequestOptions) => {
+        requests.push({ input, options })
+        return responseFactory()
+    },
+}))
+
+const { default: getVMs } = await import('../src/utils/vms/fetch/getVMs')
+
+test('VM inventory uses the authenticated request and cancels a stalled response body', async () => {
+    requests.length = 0
+    const inventory = [{ id: 'vm-1', status: 'Running' }]
+    responseFactory = () => Response.json(inventory)
+
+    assert.deepEqual(await getVMs('organization-one', 'token%20value', 'user-1', 'impersonation'), inventory)
+    assert.equal(String(requests[0]?.input), `${config.url.api}/vms/organization-one`)
+    assert.deepEqual(requests[0]?.options, {
+        headers: {
+            Authorization: 'Bearer token value',
+            id: 'user-1',
+            'x-impersonation-token': 'impersonation',
+        },
+        next: { revalidate: 5 },
+        timeoutMs: config.abortTimeout,
+        retries: 2,
+    })
+    const previousTimeout = config.abortTimeout
+    config.abortTimeout = 20
+    let canceled = false
+    responseFactory = () => new Response(new ReadableStream({
+        start(controller) {
+            controller.enqueue(new TextEncoder().encode('['))
+        },
+        cancel() {
+            canceled = true
+        },
+    }))
+
+    const startedAt = Date.now()
+    try {
+        assert.deepEqual(await getVMs('organization-one', 'token', 'user-1'), [])
+        assert.equal(canceled, true)
+        assert.ok(Date.now() - startedAt < 1000)
+    } finally {
+        config.abortTimeout = previousTimeout
+    }
+})
