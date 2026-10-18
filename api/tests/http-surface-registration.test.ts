@@ -17,6 +17,7 @@ test('registers canonical public, internal, and application routes on the API su
         await app.ready()
         expect(app.hasRoute({ method: 'POST', url: '/api/v1/ti/search/batch' })).toBe(true)
         expect(app.hasRoute({ method: 'GET', url: '/api/internal/ti/organization-context/:id' })).toBe(true)
+        expect(app.hasRoute({ method: 'POST', url: '/api/vms/internal/:name/:action' })).toBe(true)
         expect(app.hasRoute({ method: 'GET', url: '/api/app' })).toBe(true)
         expect(app.hasRoute({ method: 'POST', url: '/mill' })).toBe(true)
         expect(app.hasRoute({ method: 'GET', url: '/' })).toBe(true)

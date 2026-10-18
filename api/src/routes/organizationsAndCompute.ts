@@ -10,6 +10,7 @@ import getVM from '../handlers/vms/get.ts'
 import postVM from '../handlers/vms/post.ts'
 import provisionVmInternal from '../handlers/vms/provisionInternal.ts'
 import getInternalVmStatus from '../handlers/vms/statusInternal.ts'
+import vmActionInternal from '../handlers/vms/actionInternal.ts'
 import getAccessibleVMs from '../handlers/vms/getAccessibleVMs.ts'
 import deleteVM, { restoreVM } from '../handlers/vms/delete.ts'
 import getVMMetrics from '../handlers/vms/metrics/get.ts'
@@ -140,6 +141,7 @@ export function registerOrganizationsAndComputeRoutes(fastify: FastifyInstance) 
     fastify.post('/vm', postVM)
     fastify.post('/vms/internal/:name/provision', provisionVmInternal)
     fastify.get('/vms/internal/:name/status', getInternalVmStatus)
+    fastify.post('/vms/internal/:name/:action', vmActionInternal)
     fastify.post('/vm/:id/:action', vmAction)
     fastify.post('/vm/details', postVMDetails)
     fastify.post('/vms/shutdown', shutdownVMs)

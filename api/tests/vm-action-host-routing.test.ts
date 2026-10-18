@@ -47,7 +47,7 @@ test('start, stop and restart target the VM host even when local LXD is availabl
 
         expect(response.statusCode).toBe(200)
         expect(calls.at(-1)?.host).toBe('ovhcloud')
-        expect(calls.at(-1)?.path).toBe(`/vm/remote-vm/${action}`)
+        expect(calls.at(-1)?.path).toBe(`/vms/internal/remote-vm/${action}`)
         expect(calls.at(-1)?.options?.headers).toEqual({ 'User-Agent': 'hanasand_internal' })
     }
 })
