@@ -43,6 +43,16 @@ test('watchlist delivery projections share ordered blocker results', () => {
     const receipt = result.webhookDestinationAccessDecision.deliveryConsumerReceipt
     const match = receipt.watchlistMatches[0]
 
+    expect(result.webhookDestinationAccessDecision.roleGates.automaticDelivery).toEqual(['owner', 'admin', 'editor'])
+    expect(result.webhookDestinationAccessDecision.roleGates.configureDestination).toEqual(['owner', 'admin', 'editor'])
+    expect(result.webhookDestinationAccessDecision.roleGates.readDeliverySummary).toEqual(['owner', 'admin', 'editor', 'reader', 'member', 'viewer'])
+    expect(result.webhookDestinationAccessDecision.dryRunReceipt.allowedRoles).toEqual(['owner', 'admin', 'editor'])
+    expect(result.webhookDestinationAccessDecision.dryRunReceipt.summaryVisibleRoles).toEqual(['owner', 'admin', 'editor', 'reader', 'member', 'viewer'])
+    expect(readiness.roleGates.automaticDelivery).toEqual(['owner', 'admin', 'editor'])
+    expect(readiness.roleGates.readDeliverySummary).toEqual(['owner', 'admin', 'editor', 'reader', 'member', 'viewer'])
+    expect(receipt.roleGates.automaticDelivery).toEqual(['owner', 'admin', 'editor'])
+    expect(receipt.roleGates.readDeliverySummary).toEqual(['owner', 'admin', 'editor', 'reader', 'member', 'viewer'])
+
     expect(receipt.blockerCodes).toEqual(['manual_webhook_selection_required'])
     expect(readiness.blockerCodes).toEqual(receipt.blockerCodes)
     expect(readiness.blockerCodes).not.toBe(receipt.blockerCodes)

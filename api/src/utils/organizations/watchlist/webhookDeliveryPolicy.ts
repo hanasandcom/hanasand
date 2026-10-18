@@ -2,6 +2,7 @@ import { organizationTenantIdentity } from '../identity.ts'
 import type { OrganizationRole } from '../../organizationRoles.ts'
 import type { OrganizationWatchlistAlertTermsExport } from '../types.ts'
 import type { OrganizationWebhookDestinationAccessDecision } from '../contracts/webhookDestinationAccess.ts'
+import { organizationRolesFor } from '../authorization/roleActions.ts'
 import { organizationWebhookRequiredAlertFields, organizationWebhookRequiredDestinationFields } from './webhookDeliveryFields.ts'
 
 
@@ -25,10 +26,10 @@ export function buildWebhookDeliveryPolicy(input: {
             readDeliverySummary: true,
         },
         roleGates: {
-            automaticDelivery: ['owner', 'admin', 'editor'],
+            automaticDelivery: organizationRolesFor('watchlistEditors'),
             manualTrigger: webhookDestinationOwnership.roleGates.manualTriggerAllowedRoles,
-            configureDestination: ['owner', 'admin', 'editor'],
-            readDeliverySummary: ['owner', 'admin', 'editor', 'reader', 'member', 'viewer'],
+            configureDestination: organizationRolesFor('watchlistEditors'),
+            readDeliverySummary: organizationRolesFor('sharedWatchlistReaders'),
         },
         denialReason: webhookDestinationOwnership.roleGates.denialReason ?? (canManageWebhookDestinations ? null : 'role_not_allowed'),
         blockerCodes: Array.from(new Set([
@@ -68,8 +69,8 @@ export function buildWebhookDeliveryPolicy(input: {
             eventType: webhookDestinationOwnership.eventType,
             actor: activeMemberActor(),
             allowed: canManageWebhookDestinations,
-            allowedRoles: ['owner', 'admin', 'editor'],
-            summaryVisibleRoles: ['owner', 'admin', 'editor', 'reader', 'member', 'viewer'],
+            allowedRoles: organizationRolesFor('watchlistEditors'),
+            summaryVisibleRoles: organizationRolesFor('sharedWatchlistReaders'),
             deniedRoles: ['reader', 'member', 'viewer'],
             denialReason: canManageWebhookDestinations
                 ? (webhookDestinationOwnership.blockerCodes.includes('manual_webhook_selection_required') ? 'manual_webhook_selection_required' : null)

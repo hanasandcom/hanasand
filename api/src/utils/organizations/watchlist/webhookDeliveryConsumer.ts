@@ -2,6 +2,7 @@ import { organizationTenantIdentity } from '../identity.ts'
 import type { OrganizationRole } from '../../organizationRoles.ts'
 import type { OrganizationWatchlistAlertTermsExport, OrganizationWatchlistAlertGenerationContract } from '../types.ts'
 import type { OrganizationWebhookDestinationAccessDecision } from '../contracts/webhookDestinationAccess.ts'
+import { organizationRolesFor } from '../authorization/roleActions.ts'
 import type { buildOrganizationActiveWatchlistTerms } from './exportProjections.ts'
 import { organizationWebhookRequiredAlertFields, organizationWebhookRequiredDestinationFields } from './webhookDeliveryFields.ts'
 
@@ -55,9 +56,9 @@ export function buildWebhookDeliveryConsumer(input: {
                 idempotencyKeyFields: webhookDestinationOwnership.idempotency.keyFields,
             },
             roleGates: {
-                automaticDelivery: ['owner', 'admin', 'editor'],
+                automaticDelivery: organizationRolesFor('watchlistEditors'),
                 manualTrigger: webhookDestinationOwnership.roleGates.manualTriggerAllowedRoles,
-                readDeliverySummary: ['owner', 'admin', 'editor', 'reader', 'member', 'viewer'],
+                readDeliverySummary: organizationRolesFor('sharedWatchlistReaders'),
             },
             blockerCodes: [...deliveryBlockerCodes],
             noLeakFields: [
@@ -82,9 +83,9 @@ export function buildWebhookDeliveryConsumer(input: {
             dryRunReady: canManageWebhookDestinations,
             blockerReason: deliveryBlockerCodes[0] ?? null,
             roleGates: {
-                automaticDelivery: ['owner', 'admin', 'editor'],
+                automaticDelivery: organizationRolesFor('watchlistEditors'),
                 manualTrigger: webhookDestinationOwnership.roleGates.manualTriggerAllowedRoles,
-                readDeliverySummary: ['owner', 'admin', 'editor', 'reader', 'member', 'viewer'],
+                readDeliverySummary: organizationRolesFor('sharedWatchlistReaders'),
             },
             destinationScope: {
                 selectedDestinationOrgField: webhookDestinationOwnership.selectedDestinationOrgField,
