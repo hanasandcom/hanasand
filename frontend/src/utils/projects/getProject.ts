@@ -1,5 +1,6 @@
 import config from '@/config'
 import getShareHeaders from '@/utils/share/getHeaders'
+import withAbortTimeout from '@/utils/share/withAbortTimeout'
 
 type GetProjectProps = {
     alias: string
@@ -13,16 +14,11 @@ type ProjectWorkspace = {
 }
 
 export default async function getProject({ alias, token, userId }: GetProjectProps): Promise<ProjectWorkspace | null> {
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), Math.max(config.abortTimeout, 10000))
-
     try {
-        const response = await fetch(`${config.url.api}/project/${alias}`, {
+        const response = await withAbortTimeout(Math.max(config.abortTimeout, 10000), signal => fetch(`${config.url.api}/project/${alias}`, {
             headers: getShareHeaders(token, userId),
-            signal: controller.signal,
-        })
-
-        clearTimeout(timeout)
+            signal,
+        }))
         if (!response.ok) {
             return null
         }
