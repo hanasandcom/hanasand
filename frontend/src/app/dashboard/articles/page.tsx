@@ -5,6 +5,7 @@ import { DashboardPublishingEmptyState } from '@/components/dashboard/dashboardP
 import { DashboardPublishingPage } from '@/components/dashboard/dashboardPublishingPage'
 import fetchWorkspaceContent from '@/utils/organizations/fetchWorkspaceContent'
 import dateSortValue from '@/utils/date/dateSortValue'
+import countWords from '@/utils/text/countWords'
 import { Clock3, FileText, Plus, Radio, Timer } from 'lucide-react'
 import Link from 'next/link'
 
@@ -41,10 +42,6 @@ export default async function Page() {
             </DashboardContentQueue>
         </>}
     />
-}
-
-function countWords(value: string) {
-    return value.trim() ? value.trim().split(/\s+/).length : 0
 }
 
 function shortDate(value: string) {

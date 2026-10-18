@@ -109,6 +109,7 @@ export const productTasks: TestTask[] = [
     { id: 'safe-redirect-path', title: 'Safe auth return path validation', command: [bun, 'test', 'tests/safe-redirect-path.test.ts'] },
     { id: 'telemetry-response-error', title: 'Telemetry upstream error messages', command: [bun, 'test', 'tests/telemetry-response-error.test.ts'] },
     { id: 'content-pages', title: 'Article dates and thoughts copy', command: [bun, 'tests/content-pages.test.tsx'] },
+    { id: 'count-words', title: 'Shared article and note word counting', command: [bun, 'test', 'tests/count-words.test.ts'] },
     { id: 'public-articles-recent', title: 'Public articles hide empty recent sections', command: [bun, 'tests/public-articles-recent.test.tsx'] },
     { id: 'article-detail-links', title: 'Article detail index navigation links', command: [bun, 'test', 'tests/article-detail-links.test.tsx'] },
     { id: 'workspace-organization-browser', title: 'Global organization switcher and shared links', command: [bun, 'scripts/check-workspace-organization.mjs'], requires: 'playwright' },

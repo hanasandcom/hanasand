@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Check, Trash2 } from 'lucide-react'
 import { createNote, deleteNote, fetchNotes, updateNote } from '@/utils/notes/client'
 import { DashboardPanel } from 'hanasand/dashboard'
+import countWords from '@/utils/text/countWords'
 import { formatNoteDate, NotesSidebar } from './NotesSidebar'
 import { NotesAnalyticsPanel } from './NotesAnalyticsPanel'
 import { resolveSelectedNote, saveNoteDraft } from './notesModel'
@@ -26,7 +27,7 @@ export default function NotesClient() {
         return sortedNotes.filter((note) => `${note.title} ${note.content}`.toLowerCase().includes(needle))
     }, [query, sortedNotes])
     const selected = useMemo(() => resolveSelectedNote(sortedNotes, selectedId), [sortedNotes, selectedId])
-    const wordCount = draft.content.trim() ? draft.content.trim().split(/\s+/).length : 0
+    const wordCount = countWords(draft.content)
     const lastUpdated = selected ? formatNoteDate(selected.updated_at) : 'New note'
 
     useEffect(() => {
