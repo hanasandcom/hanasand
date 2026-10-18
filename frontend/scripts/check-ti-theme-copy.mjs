@@ -29,10 +29,12 @@ for (const token of requiredSemanticChipTokens) {
     assert.ok(tiPage.includes(token), `Public TI semantic dark-mode chip token is missing: ${token}`)
 }
 
-const suggestionLink = suggestionState.match(/<Link key=\{item\.href\} href=\{item\.href\} className='([^']+)'/)
+const suggestionLink = suggestionState.match(/<Link key=\{item\.href\} href=\{item\.href\} className=\{launchItemClassName\}/)
 assert.ok(suggestionLink, 'Public TI starter suggestions must render as links')
-assert.match(suggestionLink[1], /\bbg-ui-panel\b.*\btext-ui-text\b.*\bdark:bg-ui-panel\b.*\bdark:text-ui-text\b/)
-assert.doesNotMatch(suggestionLink[1], /text-ui-on-primary/)
+const suggestionLinkClasses = suggestionState.match(/const launchItemClassName = '([^']+)'/)
+assert.ok(suggestionLinkClasses, 'Public TI starter suggestions must use their shared launch-item classes')
+assert.match(suggestionLinkClasses[1], /\bbg-ui-panel\b.*\btext-ui-text\b.*\bdark:bg-ui-panel\b.*\bdark:text-ui-text\b/)
+assert.doesNotMatch(suggestionLinkClasses[1], /text-ui-on-primary/)
 
 assert.equal(tiPage.includes('divide-[#eef1f5]'), false, 'Public TI should use shared divider tokens instead of bespoke light dividers')
 assert.equal(tiPage.includes('dark:divide-[#273244]'), false, 'Public TI should use shared divider tokens instead of bespoke dark dividers')

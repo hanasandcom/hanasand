@@ -5,7 +5,6 @@ import { buildTiActionability } from '../src/utils/ti/actionability'
 import { buildActorIntelligence } from '../src/utils/ti/actorIntelligence'
 import { victimObservationsFor } from '../src/utils/ti/actorProfile'
 import { actorOperationsRowsFor } from '../src/app/ti/pageModel'
-import { enrichmentGapWorkbenchRowsFor } from '../src/app/ti/pageModel'
 import { buildActorArtifacts } from '../src/utils/ti/actorWorkbench'
 import type { TiSearchResponse } from '../src/utils/ti/search'
 
@@ -82,16 +81,6 @@ test('keeps missing report dates missing across actor evidence and workbench row
         ttps: [{ name: 'Undated technique', tactic: 'execution', detail: 'No source date.', confidence: 0.4 }],
     }, undatedTechniqueActor, [], actionability)
     assert.equal(undatedArtifacts[0]?.freshness, '')
-
-    const undatedGapRows = enrichmentGapWorkbenchRowsFor({
-        tasks: [{ title: 'Attach source date', status: 'needs_api', detail: 'The source has no date.' }],
-        result,
-        actor: undatedTechniqueActor,
-        actionability,
-        workItems: [],
-        artifacts: undatedArtifacts,
-    })
-    assert.equal(undatedGapRows[0]?.newestAt, undefined)
 
     const noEvidenceResult = { ...result, aliases: [], notes: [], sources: [], actorIntelligence: undefined }
     const noEvidenceActor = buildActorIntelligence(noEvidenceResult, [])

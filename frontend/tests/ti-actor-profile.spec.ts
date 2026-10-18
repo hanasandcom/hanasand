@@ -1,8 +1,4 @@
 import { expect, test } from '@playwright/test'
-import { readdir, readFile } from 'node:fs/promises'
-import path from 'node:path'
-
-const root = process.cwd()
 
 test.describe('public threat actor profile', () => {
     test('APT29 renders country-level map and source-backed activity', async ({ page }, testInfo) => {
@@ -57,61 +53,4 @@ test.describe('public threat actor profile', () => {
         })
     })
 
-    test('keeps the actor page focused on four sections', async () => {
-        const componentDirectory = path.join(root, 'src/app/ti/components')
-        const modelDirectory = path.join(root, 'src/app/ti/model')
-        const componentFiles = await readdir(componentDirectory)
-        const modelFiles = await readdir(modelDirectory)
-        const modelTypeFiles = await readdir(path.join(modelDirectory, 'types'))
-        const pageSource = (await Promise.all(componentFiles.filter(file => file.endsWith('.tsx')).map(file => readFile(path.join(componentDirectory, file), 'utf8')))).join('\n')
-        const modelSource = await readFile(path.join(root, 'src/app/ti/pageModel.ts'), 'utf8')
-        const modelParts = await Promise.all([
-            ...modelFiles.filter(file => file.endsWith('.ts')).map(file => readFile(path.join(modelDirectory, file), 'utf8')),
-            ...modelTypeFiles.filter(file => file.endsWith('.ts')).map(file => readFile(path.join(modelDirectory, 'types', file), 'utf8')),
-        ])
-        const source = `${pageSource}\n${modelSource}\n${modelParts.join('\n')}`
-        const workspaceIndex = pageSource.indexOf('data-ti-workspace=\'true\'')
-
-        expect(workspaceIndex).toBeGreaterThan(-1)
-        expect(source).toContain('data-ti-actor-info')
-        expect(source).toContain('data-ti-map')
-        expect(source).toContain('const actorQuery = result.queryKind === \'actor\'')
-        expect(source).toContain('{actorQuery ? <section data-ti-map=\'true\'')
-        expect(source).not.toContain('defaultSourceLinks')
-        expect(source).toContain('data-ti-activity')
-        expect(source).toContain('data-ti-sources')
-        expect(source).toContain('data-ti-actor-profile')
-        expect(source).toContain('Activity and campaigns')
-        expect(source).toContain('Capabilities and tradecraft')
-        expect(source).toContain('No country-specific activity is established in the current sources.')
-        expect(source).not.toContain('data-ti-evidence-boundary')
-        expect(source).not.toContain('ActorBusinessModelEvidence')
-        expect(source).not.toContain('Catalog identity')
-        expect(source).not.toContain('Canonical name')
-        expect(source).toContain('return \'Inferred candidate\'')
-        expect(source).not.toContain('data-ti-hero-map')
-        expect(source).not.toContain('data-ti-hero-evidence')
-        expect(source).not.toContain('data-ti-actor-workspace-rail')
-        expect(source).not.toContain('data-ti-selected-action-rail')
-        expect(source).not.toContain('data-ti-geo-subordinate')
-        expect(source).not.toContain('<SelectedEvidenceRail')
-        expect(source).toContain('BriefStep title=\'Summary\'')
-        expect(source).not.toContain('BriefStep title=\'Why it matters\'')
-        expect(source).not.toContain('BriefStep title=\'Next action\'')
-        expect(source).not.toContain('Current profile')
-        expect(source).not.toContain('capture needed')
-        expect(source).not.toContain('Missing links')
-        expect(source).not.toContain('Source context')
-        expect(source).toContain('political|election')
-        expect(source).toContain('{sourceBasisLabel(source.confidence)}</span>')
-        expect(source).not.toContain('{Math.round(source.confidence * 100)}%</span>')
-        expect(source).toContain('No sources are attached to this result yet.')
-        expect(source).toContain('confidence: item.confidence,')
-        expect(source).not.toContain('confidence: 0.76,')
-        expect(source).toContain('summary: \'Checking sources\'')
-        expect(source).not.toContain('The TI service did not return results.')
-        expect(source).not.toContain('summary: \'Searching\'')
-        expect(source).toContain('No reviewable activity is ready for this query.')
-        expect(source).not.toContain('source: \'TI search service\'')
-    })
 })

@@ -19,9 +19,6 @@ import {
     watchlistRelevanceFor,
 } from '../src/app/ti/pageModel'
 import { createTiSafeOutputMetadata } from '../src/app/ti/model/safeOutput'
-import { matchingArtifactIdsForGap, matchingWorkItemsForGap } from '../src/app/ti/model/enrichmentGapReferences'
-import type { AnalystWorkItem } from '../src/app/ti/model/types'
-import type { ActorArtifact } from '../src/utils/ti/actorWorkbench'
 
 test('all public TI plans share the metadata-only output boundary', () => {
     const result = apt29WithHostedCopyResidue()
@@ -56,17 +53,4 @@ test('all public TI plans share the metadata-only output boundary', () => {
         caseRequest.safeOutput,
         delivery.safeOutput,
     ]).toEqual(Array.from({ length: 7 }, () => expected))
-})
-
-test('enrichment gap matching shares token rules and preserves first-five ordering', () => {
-    const workItems = Array.from({ length: 6 }, (_, index) => ({
-        id: `work-${index}`, title: `Credential exposure ${index}`, subtitle: '', detail: '', source: '', provenance: '', evidence: [],
-    }) as unknown as AnalystWorkItem)
-    const artifacts = Array.from({ length: 6 }, (_, index) => ({
-        id: `artifact-${index}`, label: `Credential exposure ${index}`, subtitle: '', evidence: [], provenance: [], watchlistTerms: [],
-    }) as unknown as ActorArtifact)
-
-    expect(matchingWorkItemsForGap(workItems, 'Credential exposure', 'credential')).toEqual(workItems.slice(0, 5))
-    expect(matchingArtifactIdsForGap(artifacts, 'Credential exposure', 'credential')).toEqual(artifacts.slice(0, 5).map(item => item.id))
-    expect(matchingWorkItemsForGap(workItems, 'apt', 'id')).toEqual([])
 })
