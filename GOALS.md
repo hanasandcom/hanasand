@@ -3003,3 +3003,13 @@ candidate, frontend size is 157,159 -> 157,127 lines (−32), across 2,435 ->
 These small deduplication wins do not approach the requested frontend
 10,000–30,000-line reduction or the API reduction goal; those goals remain
 open. The candidate is local only and is not published or deployed.
+
+The 2026-10-18 TI component audit found three unreferenced components with no
+imports, barrels, dynamic paths, tests, fixtures, or script references:
+`profile-stat.tsx`, `evidence-box.tsx`, and `dossier-list.tsx`. They were removed
+in `1c9dbe538` (66 lines). The TI actor-intelligence guard and frontend
+typecheck pass; independent review accepted the repository-wide reference
+search. The same line-cap checker now reports frontend 157,061 lines and
+repository 331,541 lines, both with no file above 200. Relative to base
+`94609c99b`, the verified reductions are 98 frontend lines and 112 repository
+lines. This is still far from the large reduction targets.
