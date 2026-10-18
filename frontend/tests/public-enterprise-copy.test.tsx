@@ -34,7 +34,7 @@ test('pricing and developer pages render their public buyer copy', async () => {
         expect(pricing).toContain('Search threats. Watch your exposure. Scan your attack surface. Investigate what you find.')
         for (const plan of ['Threat Intelligence', 'Dark Web Monitoring', 'Security Scanner', 'Browser']) expect(pricing).toContain(plan)
         expect(pricing).toContain('Container host options')
-        expect(pricing).toContain('Failover')
+        expect(pricing).toContain('Automatic failover')
         expect(pricing).not.toContain('Always running')
         const planSectionIndex = pricingMarkup.indexOf('aria-label="Available plans"')
         const containerOptionsIndex = pricingMarkup.indexOf('Container host options')
