@@ -2961,3 +2961,24 @@ frontend cap is 2,434 files / 157,011 lines; the repository cap is 4,589
 maintained files / 330,515 lines, with no file above 200. The frontend remains
 3,303 lines above its 153,708 baseline, so the requested large reduction is
 still outstanding.
+
+On 2026-10-18, the writable candidate based on `a380b57aa` has three local
+checkpoints: `fec000a88` treats zero LXD root-disk usage as unavailable and
+falls back to configured root-device capacity; `e561c5b37` consolidates the
+fixture bundle build/cleanup used by 19 Playwright specs and fixes the stale
+Rule Editor fixture path; `12bd810bd` routes watchlist writes through the
+existing organization proxy while retaining the no-impersonation-header and
+object-only JSON contracts. The focused API metrics tests pass 9/9, host
+routing passes 1/1, API typecheck passes, and focused watchlist tests pass
+10/10 with frontend typecheck and scoped ESLint passing. All 19 browser fixture
+bundles compiled, but Chromium could not launch under this environment's
+`bootstrap_check_in` permission failure, so those browser assertions remain
+unverified. The independent test-helper review accepted the change. The full
+repository checker passes for 4,607 maintained files / 331,653 lines, with no
+file above 200. The frontend checker-compatible inventory is 2,427 files /
+156,775 lines: `src` 112,978, tests 32,436, and scripts 10,407, plus configs
+and public assets. This is 3,067 lines above the 153,708 baseline. These
+focused changes improve specific behavior and reuse but the aggregate line
+reduction target remains far from met. This candidate excludes six unrelated
+uncommitted files in the original Desktop checkout; those files were left
+untouched. The local commits have not been pushed or deployed.
