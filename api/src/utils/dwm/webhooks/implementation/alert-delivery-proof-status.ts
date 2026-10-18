@@ -13,23 +13,15 @@ export function buildAlertDeliveryProofStatuses({
 }: Pick<ProofInput, 'customerSetup' | 'alertDestinationReadiness'> & Pick<BlockerSummary,
     'recordedDeliveryCount' | 'blockingCodes' | 'alertScopedBlockingCodes'
 >) {
-    const status = customerSetup.status === 'permission_denied'
-        ? 'permission_denied'
-        : blockingCodes.length > 0
-            ? 'blocked'
-            : recordedDeliveryCount > 0
-                ? 'recorded'
-                : alertDestinationReadiness.ready
-                    ? 'ready'
-                    : 'needs_setup'
-    const alertScopedStatus = customerSetup.status === 'permission_denied'
-        ? 'permission_denied'
-        : alertScopedBlockingCodes.length > 0
-            ? 'blocked'
-            : recordedDeliveryCount > 0
-                ? 'recorded'
-                : alertDestinationReadiness.ready
-                    ? 'ready'
-                    : 'needs_setup'
-    return { status, alertScopedStatus }
+    const statusFor = (codes: typeof blockingCodes) => {
+        if (customerSetup.status === 'permission_denied') return 'permission_denied'
+        if (codes.length > 0) return 'blocked'
+        if (recordedDeliveryCount > 0) return 'recorded'
+        return alertDestinationReadiness.ready ? 'ready' : 'needs_setup'
+    }
+
+    return {
+        status: statusFor(blockingCodes),
+        alertScopedStatus: statusFor(alertScopedBlockingCodes),
+    }
 }
