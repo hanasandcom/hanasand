@@ -3028,3 +3028,21 @@ load because React is unavailable in this clone. The frontend now scans at
 reductions are 2,690 frontend lines and 2,704 repository lines. The user's
 larger reduction targets remain outstanding; this checkpoint is a verified
 dead-code reduction, not a broad component rewrite.
+
+The frontend workflow reliability spec was then reduced by 19 lines in
+`0ef595421`: redundant or stale Pwned and contact source-string assertions
+were removed, while registration, prefix validation, raw-secret warning,
+contact policy, and legacy socket-retirement checks remain. An independent
+review verified equivalent active Playwright/API smoke coverage for the
+removed Pwned behavior and overlapping commercial-access checks for contact
+idempotency. The changed-file parse, full frontend line cap, and diff check
+pass. API and Playwright test commands could not load in this clone because
+Fastify, PostgreSQL, and Playwright packages are unavailable. The frontend
+now scans at 2,406 files / 154,450 lines; the repository scans at 4,578
+maintained files / 328,930 lines, with no file above 200. Relative to base
+`94609c99b`, the reductions are 2,709 frontend lines and 2,723 repository
+lines. Large reduction goals remain open. A review of current components found
+that shared tables, notices, fallbacks, and accessible form labels already
+use common components; the remaining workbench tables differ in selection,
+keyboard, and action behavior, so a generic table abstraction would obscure
+those contracts for only a small line reduction.
