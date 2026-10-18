@@ -67,7 +67,7 @@ function productReadinessActions(item: WorkbenchProductReadinessItem, context: {
         case 'dashboard_alert':
         case 'dashboard_evidence':
         case 'alert_generation':
-        case 'dwm_product_snapshot':
+        case 'dwm_product_snapshot': {
             actions.push({ id: 'open_alert_queue', label: 'Open alerts', method: 'GET', href: alertsHref(context.scope) })
             actions.push({ id: 'open_alert_generation_readiness', label: 'Generation status', method: 'GET', href: '/api/findings/alerts/generation-readiness' })
             const disabledReason = context.activeWatchlistCount && context.sourceCoverage?.activeSourceCount
@@ -75,6 +75,7 @@ function productReadinessActions(item: WorkbenchProductReadinessItem, context: {
                 : 'Rebuild requires active watchlist terms and source coverage.'
             actions.push(rebuildAlertsAction(context.scope, disabledReason, true))
             break
+        }
         case 'webhook_delivery':
         case 'webhook_health':
             actions.push({ id: 'open_delivery_history', label: 'Delivery history', method: 'GET', href: deliveryLedgerHref(context.scope, context.dashboardAlertDelivery || context.latestDelivery) })
