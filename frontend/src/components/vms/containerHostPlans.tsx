@@ -34,7 +34,7 @@ export default function ContainerHostPlans() {
     const container = containers.find(vm => vm.name === selected)
     return <section id='container-host-options' className='grid gap-4 rounded-lg border border-ui-border bg-ui-panel p-5' aria-label='Container host options'>
         <div><h2 className='text-xl font-semibold text-ui-text'>Container host options</h2>
-            <p className='mt-1 text-sm text-ui-muted'>Monthly options for one container. Choose a container before buying.</p></div>
+            <p className='mt-1 text-sm text-ui-muted'>VM creation is free. Automatic failover is an optional upgrade.</p></div>
         {signedOut ? <Link href='/login?next=/subscription' className='text-sm font-semibold text-ui-primary'>Sign in to choose a container</Link>
             : loading ? <p className='text-sm text-ui-muted'>Loading your containers…</p>
                 : containers.length ? <label className='grid max-w-sm gap-2 text-sm text-ui-text'>Container
@@ -45,12 +45,12 @@ export default function ContainerHostPlans() {
         <div className='grid gap-4 md:grid-cols-2'>{containerAccessPlans.map(plan => {
             const active = container?.failover_premium
             return <article key={plan.id} className='grid gap-3 rounded-lg border border-ui-border p-4'>
-                <h3 className='font-semibold text-ui-text'>{plan.name}</h3>
+                <h3 className='font-semibold text-ui-text'>Automatic failover</h3>
                 <p className='text-sm text-ui-muted'>{plan.summary}</p>
                 <p className='text-xl font-semibold text-ui-text'>{plan.priceNok} NOK <span className='text-sm font-normal text-ui-muted'>/ month per container</span></p>
                 <button type='button' disabled={!selected || !!buying || active} onClick={() => buy(plan.id)}
                     className='h-10 rounded-md bg-ui-primary px-4 text-sm font-semibold text-ui-on-primary disabled:opacity-50'>
-                    {active ? 'Already purchased' : buying === plan.id ? 'Opening checkout…' : 'Buy for ' + (selected || 'a container')}
+                    {active ? 'Already purchased' : buying === plan.id ? 'Opening checkout…' : 'Buy optional failover for ' + (selected || 'a container')}
                 </button>
             </article>
         })}</div>

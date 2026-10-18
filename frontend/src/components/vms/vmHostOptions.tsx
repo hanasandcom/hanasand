@@ -65,7 +65,7 @@ export default function VMHostOptions({ boxStyle, boxTitleStyle, vm, onUpdate }:
                 <Server className='h-4 w-4 text-ui-muted' />
             </div>
             <FeatureToggle
-                title='Failover'
+                title='Automatic failover'
                 priceNok={containerAccessPlans[0].priceNok}
                 description='Keep a standby copy so the host can move between OVHcloud and Inspur.'
                 icon={<ArrowLeftRight className='h-4 w-4' />}
@@ -113,7 +113,7 @@ function FeatureToggle({
             type='button'
             onClick={onClick}
             disabled={loading}
-            aria-label={premium ? title : `Buy ${title} for ${priceNok} NOK per month`}
+            aria-label={premium ? title : `Buy optional ${title.toLowerCase()} for ${priceNok} NOK per month`}
             role={premium ? 'switch' : undefined}
             aria-checked={premium ? enabled : undefined}
             className='grid min-h-16 grid-cols-[auto_1fr_auto] items-center gap-3 rounded-lg border border-ui-border bg-ui-raised p-3 text-left transition hover:bg-ui-panel disabled:cursor-not-allowed disabled:opacity-60'
@@ -124,7 +124,7 @@ function FeatureToggle({
                     {title}
                     {!premium && <Crown className='h-3.5 w-3.5 text-ui-warning' />}
                 </span>
-                <span className='mt-0.5 block text-xs leading-5 text-ui-muted'>{premium ? description : `${priceNok} NOK / month for this container`}</span>
+                <span className='mt-0.5 block text-xs leading-5 text-ui-muted'>{premium ? description : `Optional upgrade · ${priceNok} NOK / month per VM`}</span>
             </span>
             {premium ? <span className={`h-5 w-9 rounded-full p-0.5 transition ${enabled ? 'bg-ui-success/70' : 'bg-ui-border'}`}>
                 <span className={`block h-4 w-4 rounded-full bg-ui-panel transition ${enabled ? 'translate-x-4' : ''}`} />

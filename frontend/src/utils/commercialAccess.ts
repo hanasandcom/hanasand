@@ -34,5 +34,5 @@ export const commercialAccessPlans = [
 ] as const
 
 export const containerAccessPlans = [
-    { id: 'failover', name: 'Failover', priceNok: 49, summary: 'Keep a copy on the other host and switch hosts with a verified container transfer.' },
+    { id: 'failover', name: 'Automatic failover', priceNok: 49, summary: 'Optional upgrade: keep a standby copy on the other host and switch hosts with a verified container transfer.' },
 ] as const
