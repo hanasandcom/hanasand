@@ -1,4 +1,4 @@
-import { withLiveVmStatus } from '#utils/vms/status.ts'
+import { withLiveVmStatuses } from '#utils/vms/status.ts'
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import run from '#db'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
@@ -27,8 +27,9 @@ export default async function getAgentTargets(req: FastifyRequest, res: FastifyR
                 ORDER BY v.name ASC
             `, [id])
 
-        const targets = await Promise.all(result.rows.map(async (row) => buildAgentTarget({
-            vm: await withLiveVmStatus(row as AgentTargetVmRow),
+        const liveVms = await withLiveVmStatuses(result.rows as AgentTargetVmRow[])
+        const targets = await Promise.all(liveVms.map(async (vm) => buildAgentTarget({
+            vm,
             currentUserId: id,
             canManage: isAdmin,
         })))

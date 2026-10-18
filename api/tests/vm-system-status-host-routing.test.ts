@@ -9,9 +9,9 @@ mock.module('#db', () => ({ default: async (query: string) => {
         : [{ name: 'cashflow', cpu_usage_percent: 9 }] }
 } }))
 mock.module('#utils/loadSQL.ts', () => ({ loadSQL: async (name: string) => name }))
-mock.module('#utils/vms/status.ts', () => ({ withLiveVmStatus: async (vm: Record<string, unknown>) => {
-    statusInputs.push(vm)
-    return { ...vm, status: 'RUNNING' }
+mock.module('#utils/vms/status.ts', () => ({ withLiveVmStatuses: async (vms: Array<Record<string, unknown>>) => {
+    statusInputs.push(...vms)
+    return vms.map(vm => ({ ...vm, status: 'RUNNING' }))
 } }))
 
 const systemVms = (await import('../src/utils/refresh/queries/systemVms.ts')).default

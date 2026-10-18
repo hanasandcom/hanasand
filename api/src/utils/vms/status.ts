@@ -4,9 +4,11 @@ import { internalHostFetch } from './hostTransport.ts'
 type Vm = { name: string; primary_host?: string | null; deleted_at?: string | Date | null; status?: string; last_checked?: string | Date | null }
 type State = { status: string }
 const checks = new Map<string, { expires: number; result: Promise<State> }>()
+let localInventory: { expires: number; result: Promise<Map<string, State>> } | undefined
 
 export function invalidateLiveVmStatus(name: string) {
     for (const key of checks.keys()) if (key.endsWith(':' + name)) checks.delete(key)
+    localInventory = undefined
 }
 
 export async function localVmStatus(name: string): Promise<State> {
@@ -45,4 +47,39 @@ export async function withLiveVmStatus<T extends Vm>(vm: T, check: (name: string
     } catch {
         return { ...vm, status: 'OFFLINE', status_reason: 'Cannot reach this VM on its host.', status_checked_at }
     }
+}
+
+export async function withLiveVmStatuses<T extends Vm>(vms: T[]) {
+    const localHost = String(config.vm_host_id).toLowerCase()
+    const hasLocalVms = vms.some(vm => !vm.deleted_at && String(vm.primary_host || localHost).toLowerCase() === localHost)
+    let states: Map<string, State> | undefined
+    if (hasLocalVms) {
+        try { states = await localVmStatusInventory() } catch { /* Each local VM receives the same unavailable status below. */ }
+    }
+
+    return Promise.all(vms.map(vm => {
+        const targetHost = String(vm.primary_host || localHost).toLowerCase()
+        if (vm.deleted_at || targetHost !== localHost) return withLiveVmStatus(vm)
+        return withLiveVmStatus(vm, async name => {
+            const state = states?.get(name.toLowerCase())
+            if (!state) throw new Error('VM host is not responding.')
+            return state
+        })
+    }))
+}
+
+function localVmStatusInventory() {
+    if (localInventory && localInventory.expires > Date.now()) return localInventory.result
+    const result = (async () => {
+        const options: RequestInit & { unix: string } = { unix: config.lxd_socket_path, signal: AbortSignal.timeout(1500) }
+        const response = await fetch('http://localhost/1.0/instances?recursion=1', options)
+        if (!response.ok) throw new Error('VM host is not responding.')
+        const body = await response.json() as { metadata?: Array<{ name?: string; status?: string }> }
+        if (!Array.isArray(body.metadata)) throw new Error('VM host did not return its instances.')
+        return new Map(body.metadata
+            .filter((instance): instance is { name: string; status: string } => Boolean(instance.name && instance.status))
+            .map(instance => [instance.name.toLowerCase(), { status: instance.status }]))
+    })()
+    localInventory = { expires: Date.now() + 5000, result }
+    return result
 }

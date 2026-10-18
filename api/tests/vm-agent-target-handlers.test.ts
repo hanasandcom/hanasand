@@ -42,6 +42,7 @@ mock.module('../src/utils/db.ts', () => ({
 }))
 mock.module('../src/utils/vms/status.ts', () => ({
     withLiveVmStatus: async (vm: AgentTargetVmRow) => vm,
+    withLiveVmStatuses: async (rows: AgentTargetVmRow[]) => rows,
 }))
 mock.module('../src/utils/logs/recordLog.ts', () => ({ default: async () => {} }))
 

@@ -8,7 +8,7 @@ mock.module('../src/utils/vms/hostTransport.ts', () => ({
     },
 }))
 
-import { invalidateLiveVmStatus, withLiveVmStatus } from '../src/utils/vms/status.ts'
+import { invalidateLiveVmStatus, withLiveVmStatus, withLiveVmStatuses } from '../src/utils/vms/status.ts'
 
 const name = 'status-cache-regression-vm'
 const originalFetch = globalThis.fetch
@@ -59,4 +59,25 @@ test('default remote status probe requests the assigned host receiver path', asy
         host: 'ovhcloud',
         path: '/vms/internal/remote-transport-status-vm/status',
     }])
+})
+
+test('batched VM list status reads local LXD once and keeps remote probes on assigned hosts', async () => {
+    let localRequests = 0
+    globalThis.fetch = (async () => {
+        localRequests++
+        return Response.json({ metadata: [
+            { name: 'local-inventory-one', status: 'Running' },
+            { name: 'local-inventory-two', status: 'Stopped' },
+        ] })
+    }) as typeof fetch
+
+    const result = await withLiveVmStatuses([
+        { name: 'local-inventory-one', primary_host: 'inspur' },
+        { name: 'local-inventory-two', primary_host: 'inspur' },
+        { name: 'remote-inventory-vm', primary_host: 'ovhcloud' },
+    ])
+
+    expect(localRequests).toBe(1)
+    expect(result.map(vm => vm.status)).toEqual(['RUNNING', 'STOPPED', 'RUNNING'])
+    expect(remoteRequests.at(-1)).toEqual({ host: 'ovhcloud', path: '/vms/internal/remote-inventory-vm/status' })
 })

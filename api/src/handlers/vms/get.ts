@@ -1,5 +1,5 @@
 import { withShareManagement } from '#utils/vms/shareManagement.ts'
-import { withLiveVmStatus } from '#utils/vms/status.ts'
+import { withLiveVmStatus, withLiveVmStatuses } from '#utils/vms/status.ts'
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import run from '#db'
 import { loadSQL } from '#utils/loadSQL.ts'
@@ -32,7 +32,10 @@ export default async function getVM(req: FastifyRequest, res: FastifyReply) {
             return res.status(200).send([])
         }
 
-        return res.send(await Promise.all((await withShareManagement(result.rows)).map(row => withLiveVmStatus({ ...row, can_assign_organization: !row.organization_id && !row.deleted_at && (viewer.admin || row.owner === viewer.id) }))))
+        const rows = (await withShareManagement(result.rows)).map(row => ({ ...row, can_assign_organization: !row.organization_id && !row.deleted_at && (viewer.admin || row.owner === viewer.id) }))
+        return res.send(id
+            ? [await withLiveVmStatus(rows[0])]
+            : await withLiveVmStatuses(rows))
     } catch (error) {
         console.log(error)
         return res.status(500).send({ error: 'Internal server error' })

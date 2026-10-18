@@ -1,4 +1,4 @@
-import { withLiveVmStatus } from '#utils/vms/status.ts'
+import { withLiveVmStatuses } from '#utils/vms/status.ts'
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import run from '#db'
 import { vmViewer } from '#utils/vms/access.ts'
@@ -25,7 +25,7 @@ export default async function getAccessibleVMs(req: FastifyRequest, res: Fastify
             return res.status(200).send([])
         }
 
-        return res.send(await Promise.all(result.rows.map(row => withLiveVmStatus(row))))
+        return res.send(await withLiveVmStatuses(result.rows))
     } catch (error) {
         console.log(error)
         return res.status(500).send({ error: 'Internal server error' })
