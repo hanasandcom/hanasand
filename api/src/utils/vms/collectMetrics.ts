@@ -1,16 +1,18 @@
 import config from '#constants'
 import run from '#db'
+import { guestRootDiskUsage } from './guestDiskUsage.ts'
 
 export const VM_METRICS_JOB_ID = 'api-vm-metrics'
 type Network = { host_name?: string, counters?: { bytes_received?: number, bytes_sent?: number } }
 export type Instance = {
-    name: string, status: string, last_used_at?: string,
+    name: string, status: string, type?: string, last_used_at?: string,
     expanded_config?: Record<string, string>, expanded_devices?: Record<string, Record<string, string>>,
     state?: { cpu?: { usage?: number }, memory?: { usage?: number, total?: number }, network?: Record<string, Network>, disk?: Record<string, { usage?: number, total?: number }> }
 }
 type Counter = { at: number, cpu: number | null, received: number | null, sent: number | null, boot?: string }
 const previous = new Map<string, Counter>()
 let active: Promise<unknown> | undefined
+let diskUsageReader = guestRootDiskUsage
 const finite = (value: unknown): number | null => typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null
 const mb = (value: number | null) => value === null ? null : Math.round(value / 1_048_576)
 
@@ -35,7 +37,13 @@ export function memoryBytes(value?: string): number | null {
     return Number(match[1]) * (match[3]?.toLowerCase() === 'ib' ? 1024 : 1000) ** exponent
 }
 
-export function metricSample(instance: Instance, at: number, history: Map<string, Counter>) {
+export function setGuestDiskUsageReaderForTest(reader: typeof guestRootDiskUsage) {
+    const previousReader = diskUsageReader
+    diskUsageReader = reader
+    return () => { diskUsageReader = previousReader }
+}
+
+export function metricSample(instance: Instance, at: number, history: Map<string, Counter>, guestDiskUsage?: number | null) {
     const running = instance.status === 'Running'
     const state = instance.state
     const cores = cpuCount(instance.expanded_config?.['limits.cpu'])
@@ -54,7 +62,8 @@ export function metricSample(instance: Instance, at: number, history: Map<string
     }
     const cpu = cores ? delta('cpu', 100 / 1e9 / cores) : null
     const boot = Date.parse(instance.last_used_at ?? '')
-    const diskUsage = finite(state?.disk?.root?.usage)
+    const reportedDiskUsage = finite(state?.disk?.root?.usage)
+    const diskUsage = reportedDiskUsage !== null && reportedDiskUsage > 0 ? reportedDiskUsage : finite(guestDiskUsage)
     const reportedDiskTotal = finite(state?.disk?.root?.total)
     const rootDevice = instance.expanded_devices?.root
     const configuredDiskTotal = rootDevice?.type === 'disk' && rootDevice.path === '/'
@@ -65,8 +74,8 @@ export function metricSample(instance: Instance, at: number, history: Map<string
         name: instance.name,
         cpu_usage_percent: cpu === null ? null : Math.min(100, Math.round(cpu * 100) / 100), cpu_cores: cores,
         ram_used_mb: instance.status === 'Stopped' ? 0 : mb(finite(state?.memory?.usage)), ram_total_mb: mb(finite(state?.memory?.total) || memoryBytes(instance.expanded_config?.['limits.memory'])),
-        // Treat zero usage as unavailable; root-device size can still give capacity.
-        disk_used_mb: diskTotal !== null && diskTotal > 0 && diskUsage !== null && diskUsage > 0 && diskUsage <= diskTotal ? mb(diskUsage) : null,
+        // Prefer LXD's positive host sample, then the guest agent's filesystem sample.
+        disk_used_mb: diskTotal !== null && diskTotal > 0 && diskUsage !== null && diskUsage <= diskTotal ? mb(diskUsage) : null,
         disk_total_mb: diskTotal !== null && diskTotal > 0 ? mb(diskTotal) : null,
         net_in_kbps: delta('received', 8 / 1000) === null ? null : Math.round(delta('received', 8 / 1000)!),
         net_out_kbps: delta('sent', 8 / 1000) === null ? null : Math.round(delta('sent', 8 / 1000)!),
@@ -92,7 +101,7 @@ async function collect() {
     )).rows.map(row => row.name))
     const instances = response.metadata.filter(instance => registered.has(instance.name))
     const missing = [...registered].filter(name => !instances.some(instance => instance.name === name))
-    const samples = instances.map(instance => metricSample(instance, Date.now(), previous))
+    const samples = await sampleInstances(instances, Date.now())
     for (const name of previous.keys()) if (!instances.some(instance => instance.name === name)) previous.delete(name)
     if (samples.length) await run(`
         INSERT INTO vm_metrics (name, cpu_usage_percent, cpu_cores, ram_used_mb, ram_total_mb, disk_used_mb, disk_total_mb, net_in_kbps, net_out_kbps, power_state, powered_on_at, uptime_seconds, created_at)
@@ -102,6 +111,20 @@ async function collect() {
     `, [JSON.stringify(samples)])
     if (missing.length) throw new Error(`VM metrics: ${missing.length} registered instances are missing from the host.`)
     return { sampled: samples.length }
+}
+
+async function sampleInstances(instances: Instance[], at: number) {
+    const samples = []
+    for (let index = 0; index < instances.length; index += 4) {
+        const batch = await Promise.all(instances.slice(index, index + 4).map(async instance => {
+            const reportedUsage = finite(instance.state?.disk?.root?.usage)
+            const needsGuestUsage = instance.type === 'virtual-machine' && instance.status === 'Running' && (reportedUsage === null || reportedUsage === 0)
+            const guestUsage = needsGuestUsage ? await diskUsageReader(instance.name).catch(() => null) : null
+            return metricSample(instance, at, previous, guestUsage)
+        }))
+        samples.push(...batch)
+    }
+    return samples
 }
 
 export default function collectVmMetrics() {

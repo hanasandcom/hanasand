@@ -28,7 +28,7 @@ const unitTestFiles = [
     'dwm-webhook-report-filter.test.ts', 'dwm-webhook-report-retry-contract.test.ts', 'dwm-webhook-schema.test.ts', 'dwm-webhook-security-canonical-report.test.ts', 'dwm-webhook-security-payload.test.ts',
     'dwm-webhook-security-receiver.test.ts', 'dwm-webhook-security-transport.test.ts', 'dwm-webhook-test-response-context.test.ts', 'dwm-webhook-test-response.test.ts',
     'dwm-webhook-transport.test.ts', 'dwm-webhook-visibility-access.test.ts', 'ensure-schema-tables.test.ts', 'event-privacy.test.ts', 'event-processing.test.ts', 'git-workspace-credentials.test.ts', 'gpt-prompt-messages.test.ts',
-    'host-check-message.test.ts', 'http-errors.test.ts', 'http-surface-registration.test.ts', 'impersonation-start-auth-denials.test.ts', 'impersonation-start-request-denials.test.ts', 'impersonation-timeline-state.test.ts', 'impersonation-token-wrapper.test.ts', 'import-repository.test.ts',
+    'guest-disk-usage.test.ts', 'host-check-message.test.ts', 'http-errors.test.ts', 'http-surface-registration.test.ts', 'impersonation-start-auth-denials.test.ts', 'impersonation-start-request-denials.test.ts', 'impersonation-timeline-state.test.ts', 'impersonation-token-wrapper.test.ts', 'import-repository.test.ts',
     'ingestion-protection-exception.test.ts', 'internal-token-rotation.test.ts', 'json-monitoring-retries.test.ts', 'json-monitoring.test.ts', 'legacy-rule-hit-migration.test.ts',
     'load-test-summary.test.ts', 'load-test-websocket-rerun.test.ts', 'log-catchup-limit.test.ts', 'log-catchup-progress.test.ts', 'log-counts-schema.test.ts', 'log-dimensions.test.ts',
     'log-event.test.ts', 'log-ingest-boundary.test.ts', 'log-ingest.test.ts', 'log-kql.test.ts', 'log-metrics.test.ts',

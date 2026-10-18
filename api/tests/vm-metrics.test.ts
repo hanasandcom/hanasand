@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { cpuCount, memoryBytes, metricSample, type Instance } from '../src/utils/vms/collectMetrics.ts'
+import { parseGuestRootDiskUsage } from '../src/utils/vms/guestDiskUsage.ts'
 const at = Date.parse('2026-09-12T20:00:00Z')
 const vm: Instance = { name: 'cashflow', status: 'Running', last_used_at: new Date(at - 3600_000).toISOString(), expanded_config: { 'limits.cpu': '2' }, state: { cpu: { usage: 1e9 }, memory: { usage: 512 * 1048576, total: 1024 * 1048576 }, network: { eth0: { host_name: 'tap1', counters: { bytes_received: 1000, bytes_sent: 2000 } }, docker0: { counters: { bytes_received: 1e9, bytes_sent: 1e9 } } } } }
 describe('VM metrics', () => {
@@ -28,6 +29,19 @@ describe('VM metrics', () => {
         expect(configuredCapacityWithUsage).toMatchObject({ disk_used_mb: 1024, disk_total_mb: 4096 })
         const unavailable = metricSample({ ...vm, state: { ...vm.state, disk: { root: { usage: 0, total: 0 } } } }, at, new Map())
         expect(unavailable).toMatchObject({ disk_used_mb: null, disk_total_mb: null })
+    })
+    test('uses the guest root filesystem measurement when LXD reports zero usage', () => {
+        const instance = {
+            ...vm,
+            type: 'virtual-machine',
+            expanded_devices: { root: { type: 'disk', path: '/', size: '4GiB' } },
+            state: { ...vm.state, disk: { root: { usage: 0, total: 0 } } },
+        }
+        expect(metricSample(instance, at, new Map(), 1_836_478_464)).toMatchObject({ disk_used_mb: 1751, disk_total_mb: 4096 })
+        expect(metricSample(instance, at, new Map(), 0).disk_used_mb).toBe(0)
+        expect(parseGuestRootDiskUsage('Filesystem 1-blocks Used Available Capacity Mounted on\n/dev/sda1 3045871616 1836478464 1192615936 61% /')).toBe(1_836_478_464)
+        expect(parseGuestRootDiskUsage('Filesystem 1-blocks Used Available Capacity Mounted on\n/dev/sda1 3045871616 0 3045871616 0% /')).toBe(0)
+        expect(parseGuestRootDiskUsage('Filesystem 1-blocks Used Available Capacity Mounted on\n/dev/sda1 100 120 0 120% /')).toBeNull()
     })
     test('calculates per-core CPU and external NIC rates between collections', () => {
         const history = new Map()
