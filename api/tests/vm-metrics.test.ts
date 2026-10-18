@@ -12,6 +12,20 @@ describe('VM metrics', () => {
     test('uses only positive per-instance root disk measurements', () => {
         const row = metricSample({ ...vm, state: { ...vm.state, disk: { root: { usage: 60 * 1048576, total: 100 * 1048576 } } } }, at, new Map())
         expect(row).toMatchObject({ disk_used_mb: 60, disk_total_mb: 100 })
+        const unavailableUsage = metricSample({ ...vm, state: { ...vm.state, disk: { root: { usage: 0, total: 4 * 1024 ** 3 } } } }, at, new Map())
+        expect(unavailableUsage).toMatchObject({ disk_used_mb: null, disk_total_mb: 4096 })
+        const configuredCapacity = metricSample({
+            ...vm,
+            expanded_devices: { root: { type: 'disk', path: '/', size: '4GiB' } },
+            state: { ...vm.state, disk: { root: { usage: 0, total: 0 } } },
+        }, at, new Map())
+        expect(configuredCapacity).toMatchObject({ disk_used_mb: null, disk_total_mb: 4096 })
+        const configuredCapacityWithUsage = metricSample({
+            ...vm,
+            expanded_devices: { root: { type: 'disk', path: '/', size: '4GiB' } },
+            state: { ...vm.state, disk: { root: { usage: 1024 ** 3, total: 0 } } },
+        }, at, new Map())
+        expect(configuredCapacityWithUsage).toMatchObject({ disk_used_mb: 1024, disk_total_mb: 4096 })
         const unavailable = metricSample({ ...vm, state: { ...vm.state, disk: { root: { usage: 0, total: 0 } } } }, at, new Map())
         expect(unavailable).toMatchObject({ disk_used_mb: null, disk_total_mb: null })
     })

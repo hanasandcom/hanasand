@@ -55,15 +55,18 @@ export function metricSample(instance: Instance, at: number, history: Map<string
     const cpu = cores ? delta('cpu', 100 / 1e9 / cores) : null
     const boot = Date.parse(instance.last_used_at ?? '')
     const diskUsage = finite(state?.disk?.root?.usage)
-    const diskTotal = finite(state?.disk?.root?.total)
+    const reportedDiskTotal = finite(state?.disk?.root?.total)
+    const rootDevice = instance.expanded_devices?.root
+    const configuredDiskTotal = rootDevice?.type === 'disk' && rootDevice.path === '/'
+        ? memoryBytes(rootDevice.size)
+        : null
+    const diskTotal = reportedDiskTotal && reportedDiskTotal > 0 ? reportedDiskTotal : configuredDiskTotal
     return {
         name: instance.name,
         cpu_usage_percent: cpu === null ? null : Math.min(100, Math.round(cpu * 100) / 100), cpu_cores: cores,
         ram_used_mb: instance.status === 'Stopped' ? 0 : mb(finite(state?.memory?.usage)), ram_total_mb: mb(finite(state?.memory?.total) || memoryBytes(instance.expanded_config?.['limits.memory'])),
-        // LXD's host-wide filesystem metrics describe the storage pool, not an
-        // individual instance. Only report disk usage when the instance state
-        // contains a positive per-instance root measurement.
-        disk_used_mb: diskTotal !== null && diskTotal > 0 && diskUsage !== null && diskUsage <= diskTotal ? mb(diskUsage) : null,
+        // Treat zero usage as unavailable; root-device size can still give capacity.
+        disk_used_mb: diskTotal !== null && diskTotal > 0 && diskUsage !== null && diskUsage > 0 && diskUsage <= diskTotal ? mb(diskUsage) : null,
         disk_total_mb: diskTotal !== null && diskTotal > 0 ? mb(diskTotal) : null,
         net_in_kbps: delta('received', 8 / 1000) === null ? null : Math.round(delta('received', 8 / 1000)!),
         net_out_kbps: delta('sent', 8 / 1000) === null ? null : Math.round(delta('sent', 8 / 1000)!),
