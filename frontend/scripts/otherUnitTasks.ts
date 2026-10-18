@@ -10,6 +10,7 @@ export const otherUnitTasks: TestTask[] = [
     { id: 'ai-workbench-file-selection', title: 'AI workbench file selection metadata', command: [bun, 'test', 'tests/ai-workbench-file-selection.test.ts'] },
     { id: 'ai-chat-pane-theme', title: 'AI chat theme and accessibility rendering', command: [bun, 'test', 'tests/ai-chat-pane-theme.test.tsx'] },
     { id: 'system-rate-limit-fields', title: 'System rate-limit form field rendering', command: [bun, 'test', 'tests/system-rate-limit-fields.test.tsx'] },
+    { id: 'system-rate-limit-scope-rows', title: 'System rate-limit scope row editing and removal', command: [bun, 'test', 'tests/system-rate-limit-scope-rows.test.tsx'] },
     { id: 'system-rate-limit-request', title: 'System rate-limit authenticated request contracts', command: [bun, 'test', 'tests/system-rate-limit-request.test.ts'] },
     { id: 'dashboard-search-text', title: 'Dashboard search text matching', command: [bun, 'test', 'tests/dashboard-search-text.test.ts'] },
     { id: 'dashboard-delivery-ordering', title: 'Dashboard delivery ordering', command: [bun, 'test', 'tests/dashboard-delivery-ordering.test.ts'] },

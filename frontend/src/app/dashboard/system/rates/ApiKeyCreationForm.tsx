@@ -2,7 +2,7 @@
 
 import type { Dispatch, SetStateAction } from 'react'
 import { Copy, Plus, Save } from 'lucide-react'
-import { ApiKeyScopeEditor } from './ApiKeyScopeEditor'
+import { ApiKeyScopeRows } from './ApiKeyScopeRows'
 import { DateField, SelectField, TextField } from './RateLimitFields'
 import { OwnerUserPicker } from './OwnerUserPicker'
 import type { DraftApiKey, OwnerUserOption } from './model'
@@ -78,9 +78,12 @@ export function ApiKeyCreationForm({
                     <button type='button' onClick={addScope} className='ui-button ui-button-ghost px-3 py-2 text-sm'><Plus className='h-4 w-4' />Add route</button>
                 </div>
                 <div className='mt-3 grid gap-3'>
-                    {draft.scopes.length ? draft.scopes.map((scope, index) => (
-                        <ApiKeyScopeEditor key={scope.id} scope={scope} routeOptions={routeOptions} title={`Route ${index + 1}`} onChange={(next) => setDraft((prev) => ({ ...prev, scopes: prev.scopes.map((entry) => entry.id === next.id ? next : entry) }))} onRemove={() => removeScope(scope.id)} />
-                    )) : (
+                    {draft.scopes.length ? <ApiKeyScopeRows
+                        scopes={draft.scopes}
+                        routeOptions={routeOptions}
+                        onChange={(next) => setDraft((prev) => ({ ...prev, scopes: prev.scopes.map((entry) => entry.id === next.id ? next : entry) }))}
+                        onRemove={removeScope}
+                    /> : (
                         <div className='rounded-lg border border-dashed border-ui-border bg-ui-raised px-4 py-5'>
                             <p className='text-sm font-medium text-ui-text'>No route added yet.</p>
                             <p className='mt-1 text-sm leading-6 text-ui-muted'>Add at least one allowed route before creating this key.</p>

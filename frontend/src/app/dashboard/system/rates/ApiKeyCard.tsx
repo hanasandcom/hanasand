@@ -3,7 +3,7 @@
 import type { Dispatch, SetStateAction } from 'react'
 import { useMemo } from 'react'
 import { Plus, Save, Trash2 } from 'lucide-react'
-import { ApiKeyScopeEditor } from './ApiKeyScopeEditor'
+import { ApiKeyScopeRows } from './ApiKeyScopeRows'
 import { DateField, EmptyState, SelectField, TextField } from './RateLimitFields'
 import { OwnerUserPicker } from './OwnerUserPicker'
 import { validateKeyFields, validateScopeSet, type OwnerUserOption } from './model'
@@ -160,19 +160,15 @@ export function ApiKeyCard({
                             Add route
                         </button>
                     </div>
-                    {apiKey.scopes.length ? apiKey.scopes.map((scope, index) => (
-                        <ApiKeyScopeEditor
-                            key={scope.id}
-                            scope={scope}
-                            routeOptions={routeOptions}
-                            title={`Route ${index + 1}`}
-                            onChange={(nextScope) => updateCurrentKey((entry) => ({
-                                ...entry,
-                                scopes: entry.scopes.map((currentScope) => currentScope.id === nextScope.id ? nextScope : currentScope),
-                            }))}
-                            onRemove={() => removeKeyScope(apiKey.id, scope.id)}
-                        />
-                    )) : (
+                    {apiKey.scopes.length ? <ApiKeyScopeRows
+                        scopes={apiKey.scopes}
+                        routeOptions={routeOptions}
+                        onChange={(nextScope) => updateCurrentKey((entry) => ({
+                            ...entry,
+                            scopes: entry.scopes.map((currentScope) => currentScope.id === nextScope.id ? nextScope : currentScope),
+                        }))}
+                        onRemove={(scopeId) => removeKeyScope(apiKey.id, scopeId)}
+                    /> : (
                         <EmptyState message='Add a route to set its request limits.' />
                     )}
                 </div>
