@@ -40,15 +40,6 @@ export type PublicTiProvenanceReadiness = ProductReadinessSnapshotBase & {
     latestArtifactAt?: string
 }
 
-export type HelpdeskAuditReadiness = ProductReadinessSnapshotBase & {
-    schemaVersion: 'support.audit.readiness.v1' | string
-    auditedActions?: number
-    openRecoveryRequests?: number
-    impersonationSessions?: number
-    supportQueueDepth?: number
-    latestAuditEventAt?: string
-}
-
 export type DeployProbeReadiness = ProductReadinessSnapshotBase & {
     schemaVersion: 'product.deploy_probe.readiness.v1' | string
     deployedCommit?: string

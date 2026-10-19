@@ -20,7 +20,6 @@ export type OrganizationSharedWatchlistConsumerReadiness = {
         caseList: 'GET /v1/cases'
         caseOpen: 'POST /v1/cases'
         webhookDeliver: 'POST /v1/dwm/webhooks/deliver'
-        supportInspection: 'GET /api/admin/support/organizations/:id'
         dashboardReadiness: 'GET /api/organizations/:id/alert-readiness'
     }
     watchlists: {
@@ -37,7 +36,6 @@ export type OrganizationSharedWatchlistConsumerReadiness = {
         alertQueueReady: boolean
         caseWorkflowReady: boolean
         webhookDeliveryReady: boolean
-        supportRedactedReadReady: boolean
         dashboardReadinessReady: boolean
     }
     roleGates: {

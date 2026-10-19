@@ -111,14 +111,6 @@ export function productReadinessBlockerMetadata(item: WorkbenchProductReadinessI
                     : 'Review, escalation, suppression, close, and replay unlock after a readable case is linked.',
                 evidenceProvenance,
             }
-        case 'helpdesk_audit':
-            return {
-                workflowBlocker: 'Support audit',
-                customerImpact: item.status === 'ready'
-                    ? 'Support actions have audit history for customer-facing recovery work.'
-                    : 'Support recovery needs audit history before it is enterprise-ready.',
-                evidenceProvenance,
-            }
         case 'public_ti_provenance':
             return {
                 workflowBlocker: 'Actor evidence bridge',

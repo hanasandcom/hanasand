@@ -66,7 +66,6 @@ export function buildOrganizationAlertCaseVisibilityDenial(input: {
                 link_case: { allowed: false, denialReason: reason },
                 replay_alert: { allowed: false, denialReason: reason },
                 deliver_webhook: { allowed: false, denialReason: reason },
-                open_audit_timeline: { allowed: false, denialReason: reason },
             },
             redactedFields,
             nonmemberEnumeration: false,

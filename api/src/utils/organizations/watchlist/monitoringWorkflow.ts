@@ -1,4 +1,4 @@
-import type { OrganizationAlertCaseAction, OrganizationSharedWatchlistAuditEventAction } from '../inputTypes.ts'
+import type { OrganizationAlertCaseAction } from '../inputTypes.ts'
 import type { OrganizationRole } from '../../organizationRoles.ts'
 import type { OrganizationSharedWatchlistDownstreamProof } from '../contracts/downstreamProof.ts'
 import { organizationTenantIdentity } from '../identity.ts'
@@ -15,15 +15,12 @@ export function organizationSharedWatchlistMonitoringWorkflow(input: {
     alertBlockers: string[]
     caseBlockers: string[]
     webhookBlockers: string[]
-    auditEventActions: OrganizationSharedWatchlistAuditEventAction[]
 }): OrganizationSharedWatchlistDownstreamProof['monitoringWorkflow'] {
     const activeScopeReady = input.activeWatchlistItemIds.length > 0 && input.alertGeneratorKeys.length > 0
     const watchlistExportReady = activeScopeReady && input.alertBlockers.length === 0
     const alertUpsertReady = watchlistExportReady && input.alertReadAllowed
     const caseLinkReady = input.caseReadAllowed && input.allowedActions.includes('link_case') && input.caseBlockers.length === 0
     const webhookReady = input.webhookManualAllowed && input.webhookBlockers.length === 0
-    const auditReady = input.auditEventActions.includes('organization_watchlist_alert_terms_exported')
-        && input.auditEventActions.includes('organization_watchlist_alert_terms_export_denied')
     const workflowBlockers = Array.from(new Set([
         ...input.alertBlockers,
         ...input.caseBlockers,
@@ -103,18 +100,6 @@ export function organizationSharedWatchlistMonitoringWorkflow(input: {
                 state: webhookReady ? 'ready' : 'blocked',
                 blockerCodes: webhookReady ? [] : Array.from(new Set(input.webhookBlockers.length ? input.webhookBlockers : ['manual_webhook_selection_required'])).sort(),
                 redactedFields: ['activeTerms[].term', 'destination.secret'],
-            },
-            {
-                id: 'audit_timeline',
-                ownerLane: 'support_audit',
-                route: 'GET /api/admin/support/audit',
-                storageModule: 'api/src/handlers/adminSupport.ts',
-                requiredPayloadFields: ['organizationId', 'action', 'metadata.requestId', 'actor.userId', 'audit.eventBridge.eventDescriptors'],
-                requiredAuditActions: ['organization_watchlist_alert_terms_exported', 'organization_watchlist_alert_terms_export_denied', 'organization_lifecycle_mutation_blocked'],
-                allowedRoles: ['owner', 'admin', 'support'],
-                state: auditReady ? 'ready' : 'blocked',
-                blockerCodes: auditReady ? [] : ['missing_required_action'],
-                redactedFields: ['activeTerms[].term', 'activeTerms[].value', 'member.userId'],
             },
         ],
         operatorActions: {

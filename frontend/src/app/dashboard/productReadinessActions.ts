@@ -110,10 +110,6 @@ function productReadinessActions(item: WorkbenchProductReadinessItem, context: {
             if (item.caseDetailHref) actions.push({ id: 'open_case_detail', label: 'Case detail', method: 'GET', href: item.caseDetailHref })
             actions.push(...caseReadinessMutationActions(item))
             break
-        case 'helpdesk_audit':
-            actions.push({ id: 'inspect_support_recovery', label: 'Recovery queue', method: 'GET', href: '/api/backend/admin/support/access-recovery' })
-            actions.push({ id: 'inspect_admin_audit', label: 'Audit events', method: 'GET', href: '/api/backend/admin/audit-events?limit=50' })
-            break
         case 'public_ti_provenance':
             actions.push({ id: 'open_public_ti', label: 'Open public TI', method: 'GET', href: item.href || '/ti' })
             break

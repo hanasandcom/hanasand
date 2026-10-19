@@ -54,13 +54,6 @@ export function webhookProofSections(context: ReadinessProofContext) {
             memberConfigureAllowed: false,
             manualTriggerAllowedRoles: ['owner', 'admin', 'editor'],
             automaticDeliveryAllowed: input.downstreamAuthorization.downstream.webhook.canUseDefaultDestinations,
-            supportInspection: {
-                route: '/api/admin/support/organizations/:id',
-                mode: 'redacted_destination_summary',
-                requiredSupportContract: 'admin_support',
-                endpointRedacted: true,
-                secretRedacted: true,
-            },
             lifecycleBlockers: [
                 ...proofOrganizationLifecycleBlockerPrefix(),
                 'manual_webhook_selection_required',

@@ -33,13 +33,6 @@ export type OrganizationSharedWatchlistDownstreamProofAnalystProvenance = {
             auditEventActions: OrganizationSharedWatchlistAuditEventAction[]
             blockerCodes: string[]
         }>
-        timelineContract: {
-            route: 'GET /api/admin/support/audit'
-            source: 'events'
-            requiredEventBridge: 'organization.shared_watchlist_audit_event_bridge.v1'
-            eventActions: OrganizationSharedWatchlistAuditEventAction[]
-            redactedFields: Array<'metadata.value' | 'metadata.email' | 'activeTerms[].term' | 'alertBridge.alertGeneratorKeys'>
-        }
         roleGate: {
             actorRole: OrganizationRole
             readAlertsAllowed: boolean

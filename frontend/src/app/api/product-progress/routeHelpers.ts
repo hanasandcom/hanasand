@@ -36,7 +36,6 @@ export function productProgressRoutes(query: string) {
     return {
         productProgress: '/api/product-progress',
         publicTiProvenance: query ? `/api/ti/search?q=${encoded}&limit=10` : undefined,
-        helpdeskAudit: '/api/backend/admin/support/access-recovery',
         deployProbe: '/api/status',
         sourceProxy: `/api/ti/scraper/control?q=${encoded}`,
         entitlement: '/api/findings/entitlements/readiness',
@@ -52,8 +51,6 @@ export function productProgressRoutes(query: string) {
         dwmProduct: '/api/findings/product',
         deliveries: '/api/findings/webhooks/deliveries',
         organizationWebhooks: '/api/organizations/:id/webhooks',
-        supportRecovery: '/api/backend/admin/support/access-recovery',
-        adminAuditEvents: '/api/backend/admin/audit-events?limit=50',
     }
 }
 

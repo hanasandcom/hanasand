@@ -101,29 +101,6 @@ export function readinessRows(selected: WorkbenchCase, orgContext?: WorkbenchOrg
             })
         }
     }
-    if (selected.kind === 'support_readiness') {
-        rows.push({
-            id: 'open_helpdesk_workbench',
-            label: 'Open helpdesk',
-            detail: selected.missingDependency || 'Review recovery requests and admin audit export from the support workbench.',
-            tone: selected.missingDependency ? 'needs_action' : 'ready',
-            href: '/helpdesk',
-        })
-        rows.push({
-            id: 'support_recovery_api',
-            label: 'Recovery requests',
-            detail: 'Support recovery requests with actor, target, and outcome rows.',
-            tone: 'ready',
-            href: '/api/backend/admin/support/access-recovery',
-        })
-        rows.push({
-            id: 'admin_audit_api',
-            label: 'Admin audit',
-            detail: 'Admin audit stream with support and impersonation events.',
-            tone: 'ready',
-            href: '/api/backend/admin/audit-events?limit=50',
-        })
-    }
     if (selected.kind === 'alert_readiness') {
         rows.push({
             id: 'open_alert_generation_readiness',

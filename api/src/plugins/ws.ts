@@ -1,7 +1,6 @@
 import fp from 'fastify-plugin'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 import WebSocket from 'ws'
-import registerSupportProxyStream from '../handlers/supportProxyStream.ts'
 import registerSystemStream from '../handlers/metrics/systemStream.ts'
 import registerVmConsole from '../handlers/vms/console.ts'
 import registerInternalVmConsole from '../handlers/vms/consoleInternal.ts'
@@ -10,10 +9,8 @@ import { subscribeThesis } from '#utils/thesis.ts'
 import { thesisCredentials, thesisMember } from '#utils/thesisAccess.ts'
 import { registerClient } from '#utils/ws/registerClient.ts'
 import { removeClient } from '#utils/ws/removeClient.ts'
-import { countGptViewers, gpt, handleGptMessage, sendGptSnapshot, unregisterGptSocket } from '#utils/ws/handleGptMessage.ts'
 import { listRuntimeContainers, removeRuntimeContainer } from '#utils/docker/engine.ts'
 import { BROWSER_WARM_MAX_AGE_MS } from '#utils/ws/browserWarmPool.ts'
-import { proxyModelSocket } from '#utils/ws/proxyModelSocket.ts'
 import { browserWarmPool } from './ws/browserWarmPool.ts'
 import { registerBrowserSessionRoutes } from './ws/sessionRoutes.ts'
 import { registerBrowserStreamRoute, proxyBrowserStreamSocket } from './ws/browserStream.ts'
@@ -33,7 +30,6 @@ export default fp(async function wsPlugin(fastify: FastifyInstance) {
     registerInternalVmConsole(fastify)
     registerHostConsole(fastify)
     registerSystemStream(fastify)
-    registerSupportProxyStream(fastify)
 
     fastify.get('/api/ws/thesis', { websocket: true }, (socket, request) => {
         const credentials = thesisCredentials(request)
@@ -89,19 +85,6 @@ export default fp(async function wsPlugin(fastify: FastifyInstance) {
             })
         })
         connection.on('error', error => { void recordWebsocketFailure('share-terminal-client', `${alias}:${session}`, error) })
-    })
-
-    fastify.get<{ Params: { id: string } }>('/api/client/ws/:id', { websocket: true }, (connection: WebSocket, req: FastifyRequest<{ Params: { id: string } }>) => {
-        const id = (req.params as { id: string }).id
-        if (proxyModelSocket(connection, id, Boolean(req.headers['x-ai-models-forwarded']))) return
-        registerClient(id, connection, gpt, countGptViewers)
-        sendGptSnapshot(id, connection)
-        connection.on('message', message => handleGptMessage(id, connection, message))
-        connection.on('close', () => {
-            unregisterGptSocket(id, connection)
-            removeClient(id, connection, gpt)
-        })
-        connection.on('error', error => { void recordWebsocketFailure('gpt-client', id, error) })
     })
 
     registerBrowserSessionRoutes(fastify)

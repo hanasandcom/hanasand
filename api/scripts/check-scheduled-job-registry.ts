@@ -89,9 +89,7 @@ function isAllowedIncidentalSchedulerFile(file: string) {
         'api/src/handlers/onionSession/navigationService.ts', // Navigation heartbeat owned by one active navigation.
         'api/src/utils/db/browse.ts', // Expires idle database-browser clients; it does not run business work.
         'api/src/utils/db/browseConnection.ts', // Expires cached idle browser connections; no business work is scheduled.
-        'api/src/utils/support/transport.ts',
         'api/src/handlers/traffic/legacyLive.ts',
-        'api/src/utils/ws/proxyModelSocket.ts',
         'api/src/utils/ws/resumableWorker.ts',
         // The remaining candidates are internal caches or derived-data maintenance without separate job controls.
         'api/src/handlers/logs/metrics.ts', // 5-second throughput cache refresh.

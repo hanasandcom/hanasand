@@ -1,6 +1,5 @@
 import { getServiceAccounts, postServiceAccount, patchServiceAccount, deleteServiceAccount, serviceAccountSelf } from '../handlers/serviceAccounts.ts'
 import { getProfileSshKeys, postProfileSshKey, deleteProfileSshKey } from '../handlers/profileSshKeys.ts'
-import proxyIdentityRequest from '../utils/identityProxy.ts'
 import getUser from '../handlers/user/get.ts'
 import { getProfileStats } from '../handlers/profileStats.ts'
 import postPwned from '../handlers/pwned/post.ts'
@@ -45,9 +44,7 @@ import {
 } from '../handlers/dwm/webhooks.ts'
 import browserSandboxProfileRoutes from './browserSandboxProfiles.ts'
 import { deleteBrowserRuns, getBrowserResult, getBrowserRunReport, getBrowserRuns, getBrowserRunStats, maxBrowserReportBytes, postBrowserRunReport } from '../handlers/browserSandboxRuns.ts'
-import { postInternalModelCompletion } from '../handlers/internal/modelCompletion.ts'
 
-import { forwardSupportRequest, supportServiceConfigured } from '../utils/support/transport.ts'
 import type { FastifyInstance } from 'fastify'
 
 export async function registerUserContentRoutes(fastify: FastifyInstance) {
@@ -61,7 +58,6 @@ export async function registerUserContentRoutes(fastify: FastifyInstance) {
     fastify.get('/user/:id/profile-stats', getProfileStats)
     fastify.get('/user/:id', getUser)
     fastify.get('/user/full/:id', authorizedUserHandler)
-    fastify.post('/user', proxyIdentityRequest)
     fastify.put('/user/:id', putUser)
     fastify.put('/user/:id/active', deactivateUser)
     fastify.put('/user/self', putSelf)
@@ -94,11 +90,6 @@ export async function registerUserContentRoutes(fastify: FastifyInstance) {
     fastify.get('/browser/results/:id', getBrowserResult)
     fastify.get('/browser/runs/:id/report', getBrowserRunReport)
     fastify.post('/browser/runs/:id/report', { bodyLimit: maxBrowserReportBytes + 4096 }, postBrowserRunReport)
-    fastify.all('/support/*', async (req, res) => {
-        if (await forwardSupportRequest(req, res)) return
-        return res.code(supportServiceConfigured() ? 503 : 404).send({ error: 'Support is temporarily unavailable.' })
-    })
-    fastify.post('/internal/model/completions', postInternalModelCompletion)
 
     // Article handlers
     fastify.get('/articles', getArticles)

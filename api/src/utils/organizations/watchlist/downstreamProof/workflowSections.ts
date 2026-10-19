@@ -5,7 +5,7 @@ import { organizationSharedWatchlistAnalystPortalWorkflow } from '../analystPort
 import { organizationSharedWatchlistEnrichmentProvenance } from '../enrichmentProvenance.ts'
 
 export function workflowSections(context: DownstreamProofContext): Pick<OrganizationSharedWatchlistDownstreamProof, 'monitoringWorkflow' | 'analystPortalWorkflow' | 'enrichmentProvenance' | 'integration' | 'blockers'> {
-    const { organization, member, downstreamAuthorization, activeTerms, alertGeneratorKeys, alertBlockers, caseBlockers, alertReadAllowed, caseReadAllowed, webhookBlockers, webhookDeliveryAllowedByRole, auditEventActions } = context
+    const { organization, member, downstreamAuthorization, activeTerms, alertGeneratorKeys, alertBlockers, caseBlockers, alertReadAllowed, caseReadAllowed, webhookBlockers, webhookDeliveryAllowedByRole } = context
     return {
         monitoringWorkflow: organizationSharedWatchlistMonitoringWorkflow({
             organizationId: organization.id,
@@ -19,7 +19,6 @@ export function workflowSections(context: DownstreamProofContext): Pick<Organiza
             alertBlockers,
             caseBlockers,
             webhookBlockers,
-            auditEventActions,
         }),
         analystPortalWorkflow: organizationSharedWatchlistAnalystPortalWorkflow({
             organizationId: organization.id,
@@ -31,7 +30,6 @@ export function workflowSections(context: DownstreamProofContext): Pick<Organiza
             alertBlockers,
             caseBlockers,
             webhookBlockers,
-            auditEventActions,
         }),
         enrichmentProvenance: organizationSharedWatchlistEnrichmentProvenance({
             organizationId: organization.id,

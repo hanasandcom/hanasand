@@ -1,4 +1,4 @@
-import type { PublicTiProvenanceReadiness, HelpdeskAuditReadiness, DeployProbeReadiness, DwmProductSnapshotReadiness, OrganizationAlertExportReadiness, WebhookHealthReadiness, DashboardAlertEvidenceReadiness, AnalystWorkflowReadiness, EntitlementReadiness, DwmAlertGenerationReadiness } from './readinessTypes'
+import type { PublicTiProvenanceReadiness, DeployProbeReadiness, DwmProductSnapshotReadiness, OrganizationAlertExportReadiness, WebhookHealthReadiness, DashboardAlertEvidenceReadiness, AnalystWorkflowReadiness, EntitlementReadiness, DwmAlertGenerationReadiness } from './readinessTypes'
 import { readinessSnapshot, readinessSnapshotSpecs } from './readinessSnapshot'
 
 export function unavailablePublicTi(source: string, checkedAt: string): PublicTiProvenanceReadiness {
@@ -6,14 +6,6 @@ export function unavailablePublicTi(source: string, checkedAt: string): PublicTi
         detail: 'Public TI provenance state is updating for source, evidence, and freshness status.',
         blockers: ['Public TI provenance needs a live readiness snapshot.'],
         integrationProbeHint: 'GET /api/public-ti/provenance/readiness must return source, evidence, and freshness status.',
-    })
-}
-
-export function unavailableHelpdesk(source: string, checkedAt: string): HelpdeskAuditReadiness {
-    return readinessSnapshot(readinessSnapshotSpecs.helpdesk, 'unavailable', source, checkedAt, {
-        detail: 'Helpdesk and structured audit state is updating for recovery and audit status.',
-        blockers: ['Helpdesk and audit needs a live readiness snapshot.'],
-        integrationProbeHint: 'GET /api/admin/support/readiness must return structured audit and recovery queue status.',
     })
 }
 

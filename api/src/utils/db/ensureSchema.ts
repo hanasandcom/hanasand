@@ -10,19 +10,18 @@ import ensureAccountDeletionSchema from './accountDeletionSchema.ts'
 import ensureVmLifecycleSchema from './vmLifecycleSchema.ts'
 import ensureReservedAccountSchema from './reservedAccountSchema.ts'
 import ensureAuthenticationSchema from './authenticationSchema.ts'
-import ensureImpersonationSchema from './impersonationSchema.ts'
 import ensureShareSchema from './shareSchema.ts'
 import ensurePasswordResetSchema from './passwordResetSchema.ts'
 import ensureOperationsMonitoringSchema from './operationsMonitoringSchema.ts'
 import ensureWebScanSchema from './webScanSchema.ts'
 import ensureTrafficDesktopSchema from './trafficDesktopSchema.ts'
-import ensureAiWorkspaceSchema from './aiWorkspaceSchema.ts'
 import ensureAgentAutomationSchema from './agentAutomationSchema.ts'
-import ensureAiDeploymentSchema from './aiDeploymentSchema.ts'
+import ensureCaseDevelopmentSchema from './caseDevelopmentSchema.ts'
+import ensureMonitoringIssuesSchema from './monitoringIssuesSchema.ts'
+import ensureNotesSchema from './notesSchema.ts'
 import ensureOrganizationSchema from './organizationSchema.ts'
 import ensureOrganizationPrivacySchema from './organizationPrivacySchema.ts'
 import ensureSystemAuditSchema from './systemAuditSchema.ts'
-import ensureAiUsageSchema from './aiUsageSchema.ts'
 import ensureApiAccessSchema from './apiAccessSchema.ts'
 import ensureEventLogSchema from './eventLogSchema.ts'
 import ensureRulesFindingsSchema from './rulesFindingsSchema.ts'
@@ -135,19 +134,18 @@ async function applySchema() {
     await ensureVmLifecycleSchema()
     await ensureReservedAccountSchema()
     await ensureAuthenticationSchema()
-    await ensureImpersonationSchema()
     await ensureShareSchema()
     await ensurePasswordResetSchema()
     await ensureOperationsMonitoringSchema()
     await ensureWebScanSchema()
     await ensureTrafficDesktopSchema()
-    await ensureAiWorkspaceSchema()
     await ensureAgentAutomationSchema()
-    await ensureAiDeploymentSchema()
+    await ensureCaseDevelopmentSchema()
+    await ensureMonitoringIssuesSchema()
+    await ensureNotesSchema()
     await ensureOrganizationSchema()
     await ensureOrganizationPrivacySchema()
     await ensureSystemAuditSchema()
-    await ensureAiUsageSchema()
     await ensureApiAccessSchema()
     await ensureEventLogSchema()
     await ensureRulesFindingsSchema()

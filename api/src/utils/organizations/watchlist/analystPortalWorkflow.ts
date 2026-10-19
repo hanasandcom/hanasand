@@ -14,7 +14,6 @@ export function organizationSharedWatchlistAnalystPortalWorkflow(input: {
     alertBlockers: string[]
     caseBlockers: string[]
     webhookBlockers: string[]
-    auditEventActions: OrganizationSharedWatchlistAuditEventAction[]
 }): OrganizationSharedWatchlistDownstreamProof['analystPortalWorkflow'] {
     const canAcknowledge = input.alertReadAllowed && input.allowedActions.includes('acknowledge_alert')
     const canAssignCase = input.caseReadAllowed && input.allowedActions.includes('assign_case')
@@ -32,12 +31,6 @@ export function organizationSharedWatchlistAnalystPortalWorkflow(input: {
         'organization_watchlist_alert_terms_export_denied',
         'organization_lifecycle_mutation_blocked',
     ] as OrganizationSharedWatchlistAuditEventAction[]
-    const redactedTimelineFields: OrganizationSharedWatchlistDownstreamProof['analystPortalWorkflow']['timelineContract']['redactedFields'] = [
-        'metadata.value',
-        'metadata.email',
-        'activeTerms[].term',
-        'alertBridge.alertGeneratorKeys',
-    ]
 
     return {
         schemaVersion: 'organization.shared_watchlist_analyst_portal_workflow.v1',
@@ -120,24 +113,7 @@ export function organizationSharedWatchlistAnalystPortalWorkflow(input: {
                 auditEventActions: ['organization_watchlist_alert_terms_exported'],
                 blockerCodes: canDeliverWebhook ? [] : Array.from(new Set(input.webhookBlockers.length ? input.webhookBlockers : ['manual_webhook_selection_required'])).sort(),
             },
-            {
-                action: 'open_audit_timeline',
-                route: 'GET /api/admin/support/audit',
-                method: 'GET',
-                requiredRoles: ['owner', 'admin', 'support'],
-                allowed: input.auditEventActions.includes('organization_watchlist_alert_terms_exported'),
-                requiredPayloadFields: ['organizationId', 'requestId'],
-                auditEventActions: eventActions,
-                blockerCodes: input.auditEventActions.includes('organization_watchlist_alert_terms_exported') ? [] : ['missing_required_action'],
-            },
         ],
-        timelineContract: {
-            route: 'GET /api/admin/support/audit',
-            source: 'events',
-            requiredEventBridge: 'organization.shared_watchlist_audit_event_bridge.v1',
-            eventActions,
-            redactedFields: redactedTimelineFields,
-        },
         roleGate: {
             actorRole: input.actorRole,
             readAlertsAllowed: input.alertReadAllowed,

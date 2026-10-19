@@ -1,4 +1,3 @@
-import { shouldProxySupport } from '#utils/support/config.ts'
 import { hasLogIngestToken } from '#utils/auth/logIngestToken.ts'
 import { recoveryReadOnly } from '#utils/recovery.ts'
 import fp from 'fastify-plugin'
@@ -12,10 +11,9 @@ import {
     resetSharedRateLimitBuckets,
 } from '#utils/rateLimit/config.ts'
 import hasInternalToken from '#utils/auth/internalToken.ts'
-import { hasTrustedSupportServiceKey } from '#utils/auth/supportServiceKey.ts'
 import { isTransientDatabaseError } from '#db'
 import { normalizeRequestPath, resolveRateLimitActor, type RateLimitActor } from './rateLimitActor.ts'
-import { isBrowserStreamPath, isInfrastructureWebSocketPath, isTrustedStatusIngest, internalTokenRoutes, resolveRouteRule, supportAuthPaths } from './rateLimitPolicy.ts'
+import { isBrowserStreamPath, isInfrastructureWebSocketPath, isTrustedStatusIngest, internalTokenRoutes, resolveRouteRule } from './rateLimitPolicy.ts'
 import { applyCredentialLimitHeaders, consumeCredentialPeriodBudgets, credentialPeriodLimits } from './credentialRateLimits.ts'
 import { applyRateLimitHeaders, sendBoundaryError, sendRateLimitExceeded } from './rateLimitResponses.ts'
 
@@ -65,8 +63,6 @@ export default fp(async function rateLimitPlugin(fastify: FastifyInstance) {
 
 async function enforceRateLimit(req: FastifyRequest, res: FastifyReply, databaseReadOnly = false) {
     let path = normalizeRequestPath(req)
-    // The private support service enforces authentication and durable quotas in its own store.
-    if (shouldProxySupport(req.url)) return true
     if (
         req.headers.upgrade?.toLowerCase() === 'websocket'
         || isInfrastructureWebSocketPath(path)
@@ -74,27 +70,19 @@ async function enforceRateLimit(req: FastifyRequest, res: FastifyReply, database
         || !path.startsWith('/api')
         || isTrustedStatusIngest(req, path)
     ) return true
-    // Identity is the sole rate-limit owner for routes forwarded to its service.
-    // Trusted support-service authorization is the exception: it has its own
-    // bounded internal bucket below rather than bypassing this boundary.
-    const supportAuthEndpoint = req.method === 'POST'
-        && supportAuthPaths.has(path)
-    if ((path.startsWith('/api/auth/') && !supportAuthEndpoint) || req.method === 'POST' && path === '/api/user') return true
+    // Authentication and identity routes are served by the standalone Identity API.
 
     let phaseStarted = performance.now()
-    if (path === '/api/system/events') req.auditBoundaryTiming = []
     if (path === '/api/cases/monitoring' || path === '/api/cases/monitoring/:id') req.caseBoundaryTiming = []
     const measure = (name: string) => {
         const now = performance.now()
-        req.auditBoundaryTiming?.push(`${name};dur=${(now - phaseStarted).toFixed(2)}`)
         req.caseBoundaryTiming?.push(`${name};dur=${(now - phaseStarted).toFixed(2)}`)
         phaseStarted = now
     }
     const logIngest = req.method === 'POST' && path === '/api/logs/ingest' && (hasLogIngestToken(req) || hasInternalToken(req))
     const internalTokenRoute = internalTokenRoutes.get(`${req.method} ${path}`)
     let actor: RateLimitActor
-    if (supportAuthEndpoint && hasTrustedSupportServiceKey(req.headers)) actor = { scope: 'internal', identifier: 'service:support-auth' }
-    else if (logIngest) actor = { scope: 'internal', identifier: 'service:log-ingest' }
+    if (logIngest) actor = { scope: 'internal', identifier: 'service:log-ingest' }
     else if (internalTokenRoute && hasInternalToken(req)) actor = { scope: 'internal', identifier: internalTokenRoute }
     else if (req.method === 'GET' && path === '/api/thesis/code-reviews' && hasInternalToken(req)) actor = { scope: 'internal', identifier: 'service:code-review' }
     else actor = await resolveRateLimitActor(req)

@@ -3,7 +3,6 @@ import { createReadinessCaseContext, type ReadinessCasesInput } from './readines
 import { buildSetupOrganizationCase } from './readinessCaseSetupOrganization'
 import { buildWatchlistTermsCase } from './readinessCaseWatchlistTerms'
 import { buildDeliveryRouteCase } from './readinessCaseDeliveryRoute'
-import { buildSupportAdminReadinessCase } from './readinessCaseSupportAdminReadiness'
 import { buildCaseWorkflowReadinessCase } from './readinessCaseCaseWorkflowReadiness'
 import { buildSourceWorkerReadinessCase } from './readinessCaseSourceWorkerReadiness'
 import { buildSourceCoverageCase } from './readinessCaseSourceCoverage'
@@ -15,7 +14,6 @@ export function buildReadinessCases(input: ReadinessCasesInput): WorkbenchCase[]
         buildSetupOrganizationCase(context),
         buildWatchlistTermsCase(context),
         buildDeliveryRouteCase(context),
-        buildSupportAdminReadinessCase(context),
         ...(context.analystWorkflow ? [buildCaseWorkflowReadinessCase(context)] : []),
         ...(context.sourceGrowth ? [buildSourceWorkerReadinessCase(context)] : []),
         buildSourceCoverageCase(context),

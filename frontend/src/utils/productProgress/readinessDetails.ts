@@ -1,4 +1,4 @@
-import type { PublicTiProvenanceReadiness, HelpdeskAuditReadiness, DeployProbeReadiness, OrganizationAlertExportReadiness, WebhookHealthReadiness, DwmAlertGenerationReadiness, DashboardAlertEvidenceReadiness, AnalystWorkflowReadiness, EntitlementReadiness, DwmProductSnapshotReadiness } from './readinessTypes'
+import type { PublicTiProvenanceReadiness, DeployProbeReadiness, OrganizationAlertExportReadiness, WebhookHealthReadiness, DwmAlertGenerationReadiness, DashboardAlertEvidenceReadiness, AnalystWorkflowReadiness, EntitlementReadiness, DwmProductSnapshotReadiness } from './readinessTypes'
 import type { SourceGrowthReadiness } from './sourceGrowthTypes'
 import { sanitizeVisibleOperatorCopy, visibleChecks } from './readinessLabels'
 
@@ -18,17 +18,6 @@ export function publicTiProvenanceDetail(input: PublicTiProvenanceReadiness) {
         typeof input.handoffRouteCount === 'number' ? `${input.handoffRouteCount} handoff route${input.handoffRouteCount === 1 ? '' : 's'}` : '',
     ].filter(Boolean)
     return counts.length ? `${query}${counts.join(', ')}.` : `${query}Public sources are active.`
-}
-
-export function helpdeskAuditDetail(input: HelpdeskAuditReadiness) {
-    if (input.blockers?.length) return visibleChecks(input.blockers)
-    const counts = [
-        typeof input.auditedActions === 'number' ? `${input.auditedActions} audited action${input.auditedActions === 1 ? '' : 's'}` : '',
-        typeof input.openRecoveryRequests === 'number' ? `${input.openRecoveryRequests} open recovery request${input.openRecoveryRequests === 1 ? '' : 's'}` : '',
-        typeof input.impersonationSessions === 'number' ? `${input.impersonationSessions} impersonation session${input.impersonationSessions === 1 ? '' : 's'}` : '',
-        typeof input.supportQueueDepth === 'number' ? `${input.supportQueueDepth} support request${input.supportQueueDepth === 1 ? '' : 's'}` : '',
-    ].filter(Boolean)
-    return counts.length ? counts.join(', ') + '.' : 'Helpdesk and audit lanes are active.'
 }
 
 export function deployProbeDetail(input: DeployProbeReadiness) {

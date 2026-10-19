@@ -112,15 +112,15 @@ function organizationSharedWatchlistAuditMetadataFields(action: OrganizationShar
 
 function organizationSharedWatchlistAuditConsumers(action: OrganizationSharedWatchlistAuditEventAction): OrganizationSharedWatchlistAuditConsumer[] {
     if (action === 'organization_watchlist_alert_terms_exported') {
-        return ['alert_queue', 'case_workflow', 'webhook_delivery', 'support_timeline', 'dashboard_readiness']
+        return ['alert_queue', 'case_workflow', 'webhook_delivery', 'dashboard_readiness']
     }
     if (action === 'organization_watchlist_alert_terms_export_denied') {
-        return ['alert_queue', 'support_timeline', 'dashboard_readiness']
+        return ['alert_queue', 'dashboard_readiness']
     }
     if (action.startsWith('organization_watchlist')) {
-        return ['alert_queue', 'support_timeline', 'dashboard_readiness']
+        return ['alert_queue', 'dashboard_readiness']
     }
-    return ['support_timeline', 'dashboard_readiness']
+    return ['dashboard_readiness']
 }
 
 function organizationSharedWatchlistAuditIsIdempotent(action: OrganizationSharedWatchlistAuditEventAction): boolean {
@@ -129,4 +129,3 @@ function organizationSharedWatchlistAuditIsIdempotent(action: OrganizationShared
         || action === 'organization_watchlist_cleanup_archived'
         || action === 'organization_watchlist_alert_terms_exported'
 }
-

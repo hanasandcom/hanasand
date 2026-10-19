@@ -3,7 +3,6 @@ export const HANASAND_ORGANIZATION_ID = '3e735e7b-4d7f-444d-9806-231fa26cfcec'
 // API namespaces used by internal dashboard pages. Keep this explicit so an
 // organization role cannot become a blanket grant on unrelated API routes.
 const internalPageRoutes = [
-    '/admin/audit-events',
     '/article',
     '/articles',
     '/automations',

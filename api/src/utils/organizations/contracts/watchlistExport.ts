@@ -4,7 +4,6 @@ import type { OrganizationRole } from '../../organizationRoles.ts'
 import type { OrganizationSharedWatchlistAlertQueueVisibility } from './alertQueueVisibility.ts'
 import type { OrganizationSharedWatchlistDownstreamProof } from './downstreamProof.ts'
 import type { OrganizationSharedWatchlistIntegrationGuardrails } from './integrationGuardrails.ts'
-import type { OrganizationSharedWatchlistSupportInspection } from './supportInspection.ts'
 import type { OrganizationWatchlistAlertBridgeContract } from './alertBridge.ts'
 import type { OrganizationWatchlistAlertGenerationRef, OrganizationWatchlistTerm } from './alertGeneration.ts'
 import type { OrganizationWebhookDestinationAccessDecision } from './webhookDestinationAccess.ts'
@@ -35,7 +34,6 @@ export type OrganizationWatchlistAlertTermsExport = {
     downstreamAuthorization: OrganizationDownstreamAuthorizationExport
     sharedWatchlistDownstreamProof: OrganizationSharedWatchlistDownstreamProof
     sharedWatchlistIntegrationGuardrails: OrganizationSharedWatchlistIntegrationGuardrails
-    sharedWatchlistSupportInspection: OrganizationSharedWatchlistSupportInspection
     sharedWatchlistAlertQueueVisibility: OrganizationSharedWatchlistAlertQueueVisibility
     webhookDestinationOwnership: OrganizationWebhookDestinationOwnershipContract
     webhookDestinationAccessDecision: OrganizationWebhookDestinationAccessDecision

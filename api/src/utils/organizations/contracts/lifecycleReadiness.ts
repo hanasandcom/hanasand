@@ -10,7 +10,6 @@ export type OrganizationLifecycleReadinessBlockerCode =
     | 'invite_expired'
     | 'watchlist_setup_required'
     | 'alert_export_unavailable'
-    | 'support_redaction_required'
     | 'cleanup_required'
 
 export type OrganizationLifecycleReadiness = {
@@ -31,7 +30,6 @@ export type OrganizationLifecycleReadiness = {
         ownerCanMutate: boolean
         adminCanMutate: boolean
         memberCanReadAndExport: boolean
-        supportReadMode: 'redacted_support_contract_only'
         nonmemberEnumeration: false
         revokedMemberDenial: 'member_revoked'
         expiredInviteDenial: 'invite_expired'
@@ -58,11 +56,6 @@ export type OrganizationLifecycleReadiness = {
         route: 'POST /api/organizations/:id/watchlists/cleanup'
         cleanupRequiredBlocker: 'cleanup_required'
     }
-    supportVisibility: {
-        mode: 'redacted_summary_only'
-        contract: 'admin_support'
-        redactionBlocker: 'support_redaction_required'
-    }
     downstreamLifecycleReceipt: {
         schemaVersion: 'organization.lifecycle_downstream_receipt.v1'
         organizationId: string
@@ -75,7 +68,6 @@ export type OrganizationLifecycleReadiness = {
         alertExportAllowed: boolean
         caseVisibilityAllowed: boolean
         webhookDeliveryAllowed: boolean
-        supportRedactedReadAllowed: true
         blockedRoutes: string[]
         downstreamRefs: {
             alertGenerationConsumer: 'organization.watchlist_alert_generation_consumer.v1'
@@ -119,11 +111,6 @@ export type OrganizationLifecycleReadiness = {
             canReadSharedWatchlists: true
             canReadAlertReadiness: true
         }
-        supportInspection: {
-            mode: 'redacted_summary_only'
-            contract: 'admin_support'
-            route: '/api/admin/support/organizations/:id'
-        }
         lifecycleMutationAllowed: boolean
         blockedWhenInactive: Array<
             | 'PUT /api/organizations/:id/settings'
@@ -141,4 +128,3 @@ export type OrganizationLifecycleReadiness = {
     blockerCatalog: OrganizationLifecycleReadinessBlockerCode[]
     readyForOnboarding: boolean
 }
-

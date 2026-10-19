@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { MessageCircle, Send } from 'lucide-react'
 import type { RefObject, FormEvent } from 'react'
 import SupportFeedback, { SupportStars } from './supportFeedback'
+import { SupportAccountActions } from './supportAccountActions'
 import { supportFieldClass } from './supportChatStyles'
 import type { Message, Ticket } from './supportChatTypes'
 
@@ -46,6 +47,7 @@ export function SupportConversation({
                 </div>
                 {isSupport && selected ? <div className='flex shrink-0 items-center gap-2'>{statusChange?.id === selectedId ? <span role='status' className='text-xs text-ui-muted'>Saving…</span> : null}<button type='button' disabled={updatingStatus || sending} onClick={() => updateStatus(selected.status === 'closed' ? 'open' : 'closed')} className='shrink-0 rounded-lg border border-ui-border bg-ui-panel px-3 py-2 text-xs font-medium text-ui-text hover:bg-ui-raised disabled:opacity-50'>{selected.status === 'closed' ? 'Reopen chat' : 'Resolve'}</button></div> : null}
             </header>
+            {isSupport && selected?.user_id ? <SupportAccountActions key={selectedId} ticketId={selectedId} /> : null}
             <div ref={log} role='log' aria-label='Messages' className='min-h-0 overflow-y-auto p-4'>
                 {isSupport && selected?.feedback_rating ? <section aria-label='Customer feedback' className='mb-4 grid gap-2 rounded-lg border border-ui-border bg-ui-raised p-3'><h3 className='text-xs font-semibold text-ui-text'>Customer feedback</h3><SupportStars rating={selected.feedback_rating} />{selected.feedback_comment ? <p className='whitespace-pre-wrap text-sm text-ui-text [overflow-wrap:anywhere]'>{selected.feedback_comment}</p> : null}</section> : null}
                 {messages.length ? <div className='grid gap-3'>{messages.map(message => message.sender_kind === 'system' ? <p key={message.id} className='px-3 py-1 text-center text-xs leading-5 text-ui-muted'>{message.body}</p> : <div key={message.id} className={`min-w-0 max-w-[90%] rounded-lg px-3 py-2 text-sm text-ui-text ${message.sender_id === userId ? 'justify-self-end bg-ui-primary/10' : 'justify-self-start bg-ui-raised'}`}><p className='text-xs font-semibold text-ui-muted'>{message.sender_name}</p><p className='mt-1 whitespace-pre-wrap [overflow-wrap:anywhere]'>{message.body}</p></div>)}</div> : <div className='grid h-full content-center justify-items-center gap-3 text-center text-sm text-ui-muted'><MessageCircle aria-hidden='true' className='h-8 w-8 text-ui-muted' /><p>{isSupport ? 'Select a customer chat to read and reply.' : 'Your conversation starts here.'}</p></div>}

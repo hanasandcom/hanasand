@@ -15,7 +15,6 @@ import ingestStatus from '../handlers/status/ingest.ts'
 import httpRequestTool from '../handlers/tools/httpRequest.ts'
 import browserTaskTool from '../handlers/tools/browserTask.ts'
 import getExecutionTargets from '../handlers/tools/getExecutionTargets.ts'
-import aiTool from '../handlers/tools/ai.ts'
 import { cancelVerificationJob, getVerificationJob, getVerificationJobs, postVerificationJob } from '../handlers/tools/verificationJobs.ts'
 import {
     getLegacyBlocklistOverview,
@@ -119,7 +118,6 @@ export function registerPlatformOperationsRoutes(fastify: FastifyInstance) {
     fastify.post('/tools/verification-jobs', postVerificationJob)
     fastify.get('/tools/verification-jobs/:id', getVerificationJob)
     fastify.post('/tools/verification-jobs/:id/cancel', cancelVerificationJob)
-    fastify.post('/tools/ai', aiTool)
 
     // Agent automations
     fastify.get('/cases/monitoring', getMonitoringCases)

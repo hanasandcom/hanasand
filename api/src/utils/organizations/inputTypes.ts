@@ -40,7 +40,6 @@ export type OrganizationSharedWatchlistAuditConsumer =
     | 'alert_queue'
     | 'case_workflow'
     | 'webhook_delivery'
-    | 'support_timeline'
     | 'dashboard_readiness'
 export type OrganizationSharedWatchlistMonitoringWorkflowStep =
     | 'watchlist_export'
@@ -48,7 +47,6 @@ export type OrganizationSharedWatchlistMonitoringWorkflowStep =
     | 'alert_queue_visibility'
     | 'case_link'
     | 'webhook_delivery'
-    | 'audit_timeline'
 export type OrganizationSharedWatchlistAnalystPortalAction =
     | 'review_alert'
     | 'acknowledge_alert'
@@ -56,7 +54,6 @@ export type OrganizationSharedWatchlistAnalystPortalAction =
     | 'link_case'
     | 'replay_alert'
     | 'deliver_webhook'
-    | 'open_audit_timeline'
 export type OrganizationSharedWatchlistProvenanceSourceFamily =
     | 'organization_watchlist'
     | 'darkweb_metadata'

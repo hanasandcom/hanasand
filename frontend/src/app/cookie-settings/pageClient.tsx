@@ -111,7 +111,7 @@ export default function CookieSettingsClient() {
                         </div>
                         <div className='mt-4 grid gap-2'>
                             <StatusRow label='Session token' present={snapshot.sessionToken} />
-                            <StatusRow label='Support session token' present={snapshot.impersonationToken} />
+                            <StatusRow label='Impersonation token' present={snapshot.impersonationToken} />
                         </div>
                         <Link
                             href='/logout'

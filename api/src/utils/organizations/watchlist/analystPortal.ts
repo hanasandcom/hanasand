@@ -61,12 +61,6 @@ export function organizationAnalystPortalVisibilityAdapter(
                 ?? null,
             blockerCodes: webhookBlockers,
         },
-        open_audit_timeline: {
-            allowed: downstreamAuthorization.visibility.allowed,
-            allowedRoles: organizationRolesFor('supportTimelineReaders'),
-            denialReason: visibilityDenied,
-            blockerCodes: downstreamAuthorization.visibility.allowed ? [] : [visibilityDenied ?? 'role_not_allowed'],
-        },
     }
     const allowedActions = Object.entries(actionMatrix)
         .filter(([, gate]) => gate.allowed)

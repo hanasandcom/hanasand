@@ -12,10 +12,6 @@ export const internalTokenRoutes = new Map<string, string>([
     ['POST /api/status/ingest', 'service:status-ingest'],
 ])
 
-export const supportAuthPaths = new Set([
-    '/auth/support/authorize',
-    '/api/auth/support/authorize',
-])
 
 export function isInfrastructureWebSocketPath(path: string) {
     return path.startsWith('/api/client/ws/')

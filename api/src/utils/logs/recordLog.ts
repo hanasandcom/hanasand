@@ -42,8 +42,6 @@ function isOrganizationRequest(metadata: Record<string, unknown>) {
         }
         return path === '/api/organizations'
             || path.startsWith('/api/organizations/')
-            || path === '/api/admin/support/organizations'
-            || path.startsWith('/api/admin/support/organizations/')
     })
 }
 

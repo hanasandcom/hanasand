@@ -1,6 +1,6 @@
 import type {
     AnalystWorkflowReadiness, DashboardAlertEvidenceReadiness, DeployProbeReadiness, DwmAlertGenerationReadiness,
-    DwmProductSnapshotReadiness, EntitlementReadiness, HelpdeskAuditReadiness, OrganizationAlertExportReadiness,
+    DwmProductSnapshotReadiness, EntitlementReadiness, OrganizationAlertExportReadiness,
     PublicTiProvenanceReadiness, ReadinessStatus, ProductReadinessSnapshotBase, WebhookHealthReadiness,
 } from './readinessTypes'
 
@@ -87,7 +87,6 @@ export type SourcePackWorkerReadinessSnapshot = {
 
 export type ProductReadinessExternalState = {
     publicTiProvenance?: PublicTiProvenanceReadiness
-    helpdeskAudit?: HelpdeskAuditReadiness
     deployProbe?: DeployProbeReadiness
     sourceGrowth?: SourceGrowthReadiness
     orgAlertExport?: OrganizationAlertExportReadiness

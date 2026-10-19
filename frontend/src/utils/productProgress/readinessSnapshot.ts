@@ -18,11 +18,6 @@ export const readinessSnapshotSpecs = {
         unavailableReason: 'missing_public_ti_provenance_readiness_api', staleAfterSeconds: 3600,
         expectedDashboardRowId: 'public_ti_provenance', backendProofContractVersion: 'ti.public_provenance.readiness.v1',
     },
-    helpdesk: {
-        schemaVersion: 'support.audit.readiness.v1', href: '/helpdesk', ownerLane: 'helpdesk',
-        unavailableReason: 'missing_helpdesk_audit_readiness_api', staleAfterSeconds: 3600,
-        expectedDashboardRowId: 'helpdesk_audit', backendProofContractVersion: 'support.audit.readiness.v1',
-    },
     orgAlertExport: {
         schemaVersion: 'organization.watchlist_alert_terms_export.v1', href: '/findings', ownerLane: 'org',
         unavailableReason: 'missing_org_alert_export_readiness_api', staleAfterSeconds: 900,

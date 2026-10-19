@@ -88,7 +88,6 @@ export function buildOrganizationInviteActionReceipt({
                 caseVisibilityReady: false,
                 webhookDeliveryReady: false,
                 dashboardReadinessReady: false,
-                supportRedactedReadReady: true,
             },
             downstreamRoutes: { ...organizationAccessDownstreamRoutes },
             downstreamContracts: [

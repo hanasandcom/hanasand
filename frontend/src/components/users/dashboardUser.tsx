@@ -5,14 +5,12 @@ import DeleteAccountButton from './deleteAccountButton'
 import AccountDate from './accountDate'
 import deleteUser from '@/utils/users/deleteUser'
 import { startImpersonating } from '@/utils/impersonation/client'
-import { normalizeImpersonationReason } from '@/utils/impersonation/normalizeReason'
 import setUserActive from '@/utils/users/setUserActive'
 import { Ban, CheckCircle2, MoreHorizontal, UserRound } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useId, useRef, useState } from 'react'
 import ErrorNotice from '../error/errorNotice'
 import DashboardUserOrganizations from './dashboardUserOrganizations'
-import ImpersonationReasonPrompt from './impersonationReasonPrompt'
 import './usersList.css'
 
 export default function DashboardUser({ user, accessibleOrganizationIds }: { user: User, accessibleOrganizationIds: string[] }) {
@@ -23,9 +21,6 @@ export default function DashboardUser({ user, accessibleOrganizationIds }: { use
     const [actionsOpen, setActionsOpen] = useState(false)
     const { condition: error, setCondition: setError } = useClearStateAfter()
     const [impersonationPending, setImpersonationPending] = useState(false)
-    const [impersonationPromptOpen, setImpersonationPromptOpen] = useState(false)
-    const [impersonationReason, setImpersonationReason] = useState('')
-    const [impersonationReasonError, setImpersonationReasonError] = useState('')
 
     async function handleActive(e: React.MouseEvent<HTMLButtonElement, MouseEvent>) {
         e.stopPropagation()
@@ -43,35 +38,12 @@ export default function DashboardUser({ user, accessibleOrganizationIds }: { use
         e.stopPropagation()
         e.preventDefault()
         actions.current?.hidePopover()
-        setImpersonationPromptOpen(true)
-        setImpersonationReasonError('')
-    }
-
-    async function handleCancelImpersonation(e: React.MouseEvent<HTMLButtonElement, MouseEvent>) {
-        e.stopPropagation()
-        e.preventDefault()
-        setImpersonationPromptOpen(false)
-        setImpersonationReason('')
-        setImpersonationReasonError('')
-    }
-
-    async function handleConfirmImpersonation(e: React.SyntheticEvent<HTMLFormElement>) {
-        e.stopPropagation()
-        e.preventDefault()
-        const auditReason = normalizeImpersonationReason(impersonationReason)
-        if (auditReason.length < 10) {
-            setImpersonationReasonError('Enter at least 10 characters so the audit trail explains why this session is needed.')
-            return
-        }
         setImpersonationPending(true)
-        setImpersonationReasonError('')
         try {
-            await startImpersonating(user.id, auditReason)
-            setImpersonationPromptOpen(false)
-            setImpersonationReason('')
+            await startImpersonating(user.id)
             router.refresh()
         } catch (error) {
-            setImpersonationReasonError(error instanceof Error ? error.message : 'Unable to start impersonation.')
+            setError(error instanceof Error ? error.message : 'Unable to start impersonation.')
         } finally {
             setImpersonationPending(false)
         }
@@ -130,19 +102,6 @@ export default function DashboardUser({ user, accessibleOrganizationIds }: { use
                     <DeleteAccountButton name={user.id} onDelete={handleDelete} label='Delete user' />
                 </div>
             </div>
-            {impersonationPromptOpen ? <ImpersonationReasonPrompt
-                userId={user.id}
-                userName={user.name || user.id}
-                reason={impersonationReason}
-                reasonError={impersonationReasonError}
-                pending={impersonationPending}
-                onReasonChange={value => {
-                    setImpersonationReason(value)
-                    if (impersonationReasonError) setImpersonationReasonError('')
-                }}
-                onCancel={handleCancelImpersonation}
-                onSubmit={handleConfirmImpersonation}
-            /> : null}
             {deleted ? <ErrorNotice compact variant='success' className='absolute right-2 top-12 z-[100] w-60' message={`Deleted user ${user.id}.`} /> : null}
             {error ? <ErrorNotice compact className='absolute right-2 top-12 z-[100] w-60' message={String(error)} /> : null}
         </div>

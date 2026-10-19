@@ -25,8 +25,6 @@ export function productReadinessWorkflow(item: WorkbenchProductReadinessItem): {
             return { ownerLane: 'Delivery ops', operatorAction: item.status === 'ready' ? 'Review delivery history' : 'Open delivery setup' }
         case 'org_alert_export':
             return { ownerLane: 'Org admin', operatorAction: item.status === 'ready' ? 'Review alert terms' : 'Open watchlist export' }
-        case 'helpdesk_audit':
-            return { ownerLane: 'Support ops', operatorAction: item.status === 'ready' ? 'Review support audit' : 'Open helpdesk workbench' }
         case 'deploy_probe':
             return { ownerLane: 'Release owner', operatorAction: item.status === 'ready' ? 'Review live probe' : 'Open deploy status' }
         case 'public_ti_provenance':
@@ -140,13 +138,6 @@ export function productReadinessProofMetadata(item: WorkbenchProductReadinessIte
                 integrationProbeHint: 'GET /api/public-ti/provenance/readiness must return source, evidence, and freshness status.',
                 staleAfterSeconds: 3600,
                 unavailableReason: 'missing_public_ti_provenance_readiness_api',
-            }
-        case 'helpdesk_audit':
-            return {
-                backendProofContractVersion: 'support.audit.readiness.v1',
-                integrationProbeHint: 'GET /api/admin/support/readiness must return structured audit and recovery queue status.',
-                staleAfterSeconds: 3600,
-                unavailableReason: 'missing_helpdesk_audit_readiness_api',
             }
         case 'deploy_probe':
             return {

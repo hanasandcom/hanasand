@@ -10,7 +10,6 @@ import { alertGenerationReadiness } from './alertGenerationReadiness'
 import { deployProbeReadiness } from './deployReadiness'
 import { entitlementReadinessFromOrganizationProof, orgAlertExportReadiness, organizationReadinessProof } from './organizationReadiness'
 import { webhookHealthReadiness, webhookProductProgressProof } from './webhookReadiness'
-import { helpdeskAuditReadiness } from './helpdeskReadiness'
 import { dwmProductReadiness } from './dwmReadiness'
 
 type ResponseDependencies = {
@@ -24,7 +23,7 @@ export async function getProductProgressPayload(request: ProductProgressRequest,
     const fetchRoute = dependencies.fetchJson || fetchJson
     const query = request.nextUrl.searchParams.get('q')?.trim() || ''
     const routes = productProgressRoutes(query)
-    const [sourceProxy, dwmProduct, publicTi, alerts, alertGeneration, cases, deliveries, organizations, watchlists, supportRecovery, auditEvents, deployStatus] = await Promise.all([
+    const [sourceProxy, dwmProduct, publicTi, alerts, alertGeneration, cases, deliveries, organizations, watchlists, deployStatus] = await Promise.all([
         fetchRoute(request, routes.sourceProxy || '/api/ti/scraper/control'),
         fetchRoute(request, routes.dwmProduct || '/api/findings/product'),
         query ? fetchRoute(request, routes.publicTiProvenance || '/api/ti/search') : Promise.resolve({ ok: false, status: 400, error: 'No public intelligence query was supplied.' }),
@@ -34,8 +33,6 @@ export async function getProductProgressPayload(request: ProductProgressRequest,
         fetchRoute(request, routes.deliveries || '/api/findings/webhooks/deliveries'),
         fetchRoute(request, routes.organizations || '/api/organizations'),
         fetchRoute(request, routes.watchlists || '/api/findings/watchlists'),
-        fetchRoute(request, routes.supportRecovery || '/api/backend/admin/support/access-recovery'),
-        fetchRoute(request, routes.adminAuditEvents || '/api/backend/admin/audit-events?limit=50'),
         fetchRoute(request, routes.deployProbe || '/api/status'),
     ])
     const watchlistRows = rows((watchlists.json as { watchlists?: unknown[] } | undefined)?.watchlists) as DwmWatchlistSummary[]
@@ -59,14 +56,6 @@ export async function getProductProgressPayload(request: ProductProgressRequest,
         : { ok: false, status: 0, error: 'No selected analyst case was available for case detail readiness.' }
     const selectedCaseProof = analystCaseDetailProof(selectedCaseDetail, selectedCaseDetailRoute || '/api/cases/:id')
     const normalizedSourceProxy = normalizeSourceProxy(sourceProxy, query, generatedAt)
-    const supportAudit = helpdeskAuditReadiness({
-        generatedAt,
-        recoveryRoute: routes.supportRecovery || '/api/backend/admin/support/access-recovery',
-        auditRoute: routes.adminAuditEvents || '/api/backend/admin/audit-events?limit=50',
-        recovery: supportRecovery,
-        audit: auditEvents,
-    })
-
     return buildProductProgressPayload({
         generatedAt, checkedAt: generatedAt, query, routes,
         publicTiProvenance: publicTiProvenanceReadiness({ generatedAt, query, route: routes.publicTiProvenance || '/api/ti/search', fetch: publicTi }),
@@ -93,7 +82,6 @@ export async function getProductProgressPayload(request: ProductProgressRequest,
             deliveries: deliveryRows, fetchOk: organizationWebhooks.ok || webhookRows.length > 0,
             fetchStatus: organizationWebhooks.status, fetchError: organizationWebhooks.error,
         }),
-        helpdeskAudit: supportAudit,
         deploy: deployProbeReadiness({ generatedAt, route: routes.deployProbe || '/api/status', fetch: deployStatus, sourceProxyOk: sourceProxyReady(normalizedSourceProxy) }),
     })
 }

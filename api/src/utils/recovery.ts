@@ -18,19 +18,9 @@ export function recoveryState(): RecoveryState {
     return cached
 }
 export function recoveryReadOnly() { return recoveryState().readOnly === true }
-export function supportFailoverActive() {
-    if (process.env.RECOVERY_ESSENTIAL_ONLY !== '1') return false
-    const state = recoveryState()
-    const site = process.env.RECOVERY_SITE
-    const writableSupport = state.readOnly === false || Boolean(process.env.SUPPORT_SERVICE_BASE && process.env.SUPPORT_SERVICE_KEY)
-    return Boolean(site && state.site === site && typeof state.readOnly === 'boolean' && writableSupport && Array.isArray(state.services) && state.services.some(service =>
-        ['api', 'frontend'].includes(service.id || '') && service.activeSite === site && ['up', 'failed_over'].includes(service.status || '')))
-}
 export function recoveryRequestAllowed(method: string, path: string) {
-    if (process.env.SUPPORT_INTERNAL_SERVICE === '1' && /^\/api\/(support(?:\/|$)|ws\/support$)/.test(path)) return true
     const publicRead = ['GET', 'HEAD'].includes(method) && ['/api/system/updates', '/api/status'].includes(path)
-    const activeSupport = /^\/api\/(support(?:\/|$)|ws\/support$)/.test(path) && supportFailoverActive()
-    if (process.env.RECOVERY_ESSENTIAL_ONLY === '1' && !publicRead && !activeSupport && !/^\/(health$|ready$|api\/(health$|auth\/|user(?:\/|$)|organizations(?:\/|$)))/.test(path)) return false
-    if (activeSupport || !recoveryReadOnly()) return true
+    if (process.env.RECOVERY_ESSENTIAL_ONLY === '1' && !publicRead && !/^\/(health$|ready$|api\/(health$|auth\/|user(?:\/|$)|organizations(?:\/|$)))/.test(path)) return false
+    if (!recoveryReadOnly()) return true
     return ['GET', 'HEAD', 'OPTIONS'].includes(method) && !/\/auth\/logout\/|\/restart\//.test(path)
 }

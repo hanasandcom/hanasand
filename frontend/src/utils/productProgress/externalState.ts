@@ -3,7 +3,7 @@ import type { ProductReadinessExternalState } from './sourceGrowthTypes'
 import { PRODUCT_PROGRESS_SCHEMA_VERSION } from './readinessLabels'
 import { sourceGrowthReady } from './readinessDetails'
 import { buildSourceProofReadinessFromProxy } from './sourceProof'
-import { unavailablePublicTi, unavailableHelpdesk, unavailableDeployProbe, unavailableDwmProduct, unavailableOrgAlertExport, unavailableWebhookHealth, unavailableDashboardEvidence, unavailableAnalystWorkflow, unavailableEntitlementReadiness, unavailableAlertGenerationReadiness } from './readinessFallbacks'
+import { unavailablePublicTi, unavailableDeployProbe, unavailableDwmProduct, unavailableOrgAlertExport, unavailableWebhookHealth, unavailableDashboardEvidence, unavailableAnalystWorkflow, unavailableEntitlementReadiness, unavailableAlertGenerationReadiness } from './readinessFallbacks'
 import { normalizeDashboardEvidenceReadiness, normalizeAnalystWorkflowReadiness, normalizeDeployProbeReadiness, normalizeOrgAlertExportReadiness, normalizeWebhookHealthReadiness } from './readinessNormalizePrimary'
 import { normalizeEntitlementReadiness, normalizeDwmProductReadiness, normalizeAlertGenerationReadiness } from './readinessNormalizeSecondary'
 
@@ -24,7 +24,6 @@ export function buildProductProgressExternalState(input: ProductProgressReadines
     if (!input) {
         return {
             publicTiProvenance: unavailablePublicTi(route, options.checkedAt),
-            helpdeskAudit: unavailableHelpdesk(route, options.checkedAt),
             deployProbe: unavailableDeployProbe(route, options.checkedAt),
             sourceGrowth: buildSourceProofReadinessFromProxy(null, {
                 route: routes?.sourceProxy || '/api/ti/scraper/control',
@@ -59,7 +58,6 @@ export function buildProductProgressExternalState(input: ProductProgressReadines
 
     return {
         publicTiProvenance: input.publicTiProvenance || unavailablePublicTi(input.routes?.publicTiProvenance || route, options.checkedAt),
-        helpdeskAudit: input.helpdeskAudit || unavailableHelpdesk(input.routes?.helpdeskAudit || route, options.checkedAt),
         deployProbe,
         sourceGrowth,
         orgAlertExport: normalizeOrgAlertExportReadiness(input.orgAlertExport, input.routes?.orgAlertExport || route, options.checkedAt),
@@ -75,4 +73,3 @@ export function buildProductProgressExternalState(input: ProductProgressReadines
         alertGeneration: normalizeAlertGenerationReadiness(input.alertGeneration, input.routes?.alertGenerationReadiness || route, options.checkedAt),
     }
 }
-

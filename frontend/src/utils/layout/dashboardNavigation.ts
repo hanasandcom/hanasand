@@ -150,7 +150,6 @@ export function getDashboardNavigation(access: NavigationAccess): NavigationItem
         group('Administration', [
             link('Organizations', '/management/organizations', canManageOrganizations),
             link('Users', '/management/users', isAdmin),
-            link('Audit Log', '/management/audit', isAdmin),
         ]),
         group('Resources', [link('API Docs', '/api'), link('OpenAPI JSON', '/api/openapi')]),
         group('Account', [

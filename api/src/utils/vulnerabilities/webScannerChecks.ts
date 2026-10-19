@@ -1,7 +1,7 @@
 import { lookup } from 'node:dns/promises'
 import { connect } from 'node:net'
 import { connect as tlsConnect } from 'node:tls'
-import { requestGptCompletion } from '#utils/ws/handleGptMessage.ts'
+import { requestAiCompletion } from '#utils/ai/client.ts'
 import { fallbackExplanation, isUsefulExplanation, type WebScanCheck, type WebScanSeverity } from './webScannerModel.ts'
 
 export function headerChecks(headers: Record<string, string>, https: boolean): WebScanCheck[] {
@@ -66,8 +66,8 @@ export async function tlsCertificateCheck(host: string): Promise<WebScanCheck> {
 export async function explainChecks(checks: WebScanCheck[]): Promise<WebScanCheck[]> {
     const fallback = new Map(checks.map(check => [check.id, fallbackExplanation(check)]))
     try {
-        const completion = await requestGptCompletion('gpt', { conversationId: `web-scan-${crypto.randomUUID()}`, maxTokens: 700, temperature: 0, messages: [{ role: 'system', content: 'Explain each web security check in one concise sentence. Return only a JSON object keyed by check id. Use only supplied evidence.' }, { role: 'user', content: JSON.stringify(checks.map(check => ({ id: check.id, status: check.status, severity: check.severity, title: check.title, evidence: check.evidence }))) }] }, 15_000)
-        const generated = parseExplanationObject(completion.content || '')
+        const content = await requestAiCompletion([{ role: 'system', content: 'Explain each web security check in one concise sentence. Return only a JSON object keyed by check id. Use only supplied evidence.' }, { role: 'user', content: JSON.stringify(checks.map(check => ({ id: check.id, status: check.status, severity: check.severity, title: check.title, evidence: check.evidence }))) }], 15_000)
+        const generated = parseExplanationObject(content)
         return checks.map(check => ({ ...check, explanation: isUsefulExplanation(generated[check.id]) ? generated[check.id] : fallback.get(check.id) }))
     } catch {
         return checks.map(check => ({ ...check, explanation: fallback.get(check.id) }))

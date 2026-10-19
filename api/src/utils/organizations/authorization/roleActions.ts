@@ -6,7 +6,6 @@ const organizationRoleGates = {
     watchlistEditors: ['owner', 'admin', 'editor'],
     sharedWatchlistReaders: ['owner', 'admin', 'editor', 'reader', 'member', 'viewer'],
     alertCaseActors: ['owner', 'admin', 'editor', 'analyst'],
-    supportTimelineReaders: ['owner', 'admin', 'support'],
     adminAssignableRoles: ['editor', 'reader'],
 } as const
 

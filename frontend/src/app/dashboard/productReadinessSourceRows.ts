@@ -1,9 +1,9 @@
 import type { ProductReadinessContext } from './productReadinessContext'
 import type { WorkbenchProductReadinessItem } from './ti/workbench/workbenchClient'
-import { publicTiProvenanceDetail, helpdeskAuditDetail, deployProbeDetail } from '@/utils/productProgress/readinessDetails'
+import { publicTiProvenanceDetail, deployProbeDetail } from '@/utils/productProgress/readinessDetails'
 
 export function buildSourceProductReadinessRows(context: ProductReadinessContext): WorkbenchProductReadinessItem[] {
-    const { publicTiProvenance, helpdeskAudit, deployProbe, sourceGrowth } = context
+    const { publicTiProvenance, deployProbe, sourceGrowth } = context
     return [
         {
             id: 'end_to_end_workflow',
@@ -40,23 +40,6 @@ export function buildSourceProductReadinessRows(context: ProductReadinessContext
             expectedDashboardRowId: publicTiProvenance?.expectedDashboardRowId,
             integrationProbeHint: publicTiProvenance?.integrationProbeHint,
             backendProofContractVersion: publicTiProvenance?.backendProofContractVersion || publicTiProvenance?.schemaVersion,
-        },
-        {
-            id: 'helpdesk_audit',
-            label: 'Helpdesk and audit',
-            status: helpdeskAudit?.status || 'unavailable',
-            detail: helpdeskAudit
-                ? helpdeskAudit.detail || helpdeskAuditDetail(helpdeskAudit)
-                : 'Support and audit state is loading to the dashboard.',
-            source: helpdeskAudit?.source || 'dashboard support',
-            href: '/helpdesk',
-            checkedAt: helpdeskAudit?.checkedAt || helpdeskAudit?.latestAuditEventAt,
-            staleAfterSeconds: helpdeskAudit?.staleAfterSeconds,
-            proofTimestamp: helpdeskAudit?.proofTimestamp,
-            unavailableReason: helpdeskAudit?.unavailableReason,
-            expectedDashboardRowId: helpdeskAudit?.expectedDashboardRowId,
-            integrationProbeHint: helpdeskAudit?.integrationProbeHint,
-            backendProofContractVersion: helpdeskAudit?.backendProofContractVersion || helpdeskAudit?.schemaVersion,
         },
         {
             id: 'deploy_probe',

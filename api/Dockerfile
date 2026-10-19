@@ -10,20 +10,6 @@ WORKDIR /app
 COPY api/package.json api/bun.lock* api/bunfig.toml ./
 RUN bun install
 
-FROM deps AS auth-runtime-base
-ARG HANASAND_RELEASE_COMMIT=unknown
-LABEL org.opencontainers.image.revision=$HANASAND_RELEASE_COMMIT
-COPY --chown=bun:bun api/ .
-
-FROM auth-runtime-base AS auth-review
-RUN DB_PASSWORD=build-test DB_HOST=localhost VM_API_TOKEN=build-test bun run test --only=auth-service,auth-boundary,social-oidc,social-auth
-RUN bun run lint
-
-FROM auth-runtime-base AS auth-runtime
-ENV NODE_ENV=production AUTH_SERVICE_ONLY=1
-USER bun
-CMD ["bun", "src/authServer.ts"]
-
 FROM oven/bun:1.3.13-alpine AS app-runtime-base
 
 ARG HANASAND_RELEASE_COMMIT=unknown

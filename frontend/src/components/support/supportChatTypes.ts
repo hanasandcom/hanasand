@@ -4,6 +4,7 @@ export type Ticket = Feedback & {
     id: string
     subject: string
     status: string
+    user_id?: string | null
     user_name?: string
     last_message?: string
     created_at?: string

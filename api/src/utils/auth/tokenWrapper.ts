@@ -1,14 +1,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import { validateSession } from './session.ts'
 import { isTransientDatabaseError } from '#db'
-import {
-    auditImpersonationRequest,
-    auditImpersonationScopeDenied,
-    getImpersonationSession,
-    isImpersonationScopeAllowed,
-    isSensitiveImpersonatedRequest,
-    type ImpersonationSession,
-} from './impersonationAuthorization.ts'
+import { auditImpersonatedRequest, loadImpersonationTarget, impersonationTargetId } from './impersonationAuthorization.ts'
 
 type Valid = {
     valid: boolean
@@ -53,8 +46,14 @@ export default async function tokenWrapper(req: FastifyRequest, res: FastifyRepl
             ownerId: string
         }
     }).apiKeyAuth
+    const requestState = req as FastifyRequest & { impersonationAuth?: { token: string, result: Valid } }
+
+    if (impersonationToken && requestState.impersonationAuth?.token === impersonationToken) {
+        return requestState.impersonationAuth.result
+    }
 
     if (apiKeyAuth?.ownerId) {
+        if (impersonationToken) return { valid: false, id: apiKeyAuth.ownerId, error: 'Service accounts cannot impersonate users.' }
         req.headers.id = apiKeyAuth.ownerId
         return {
             valid: true,
@@ -86,45 +85,21 @@ export default async function tokenWrapper(req: FastifyRequest, res: FastifyRepl
 
         let effectiveId = session.user.id
         let target: ImpersonationTarget | null = null
-        let impersonationSessionId: string | undefined
         let impersonating = false
-        let activeImpersonationSession: ImpersonationSession | null = null
         if (impersonationToken) {
-            const serverSession = await getImpersonationSession(impersonationToken, session.user.id)
-            if (!serverSession) {
+            const targetId = impersonationTargetId(impersonationToken)
+            const loadedTarget = await loadImpersonationTarget(session.user.id, impersonationToken)
+            if (!targetId || !loadedTarget) {
                 return {
                     valid: false,
                     id: session.user.id,
                     authenticatedId: session.user.id,
-                    error: 'Impersonation session expired.'
+                    error: 'Impersonation is not authorized.'
                 }
             }
-            effectiveId = serverSession.object_id
-            target = { id: serverSession.object_id, name: serverSession.target_name }
-            impersonationSessionId = serverSession.id
-            activeImpersonationSession = serverSession
+            effectiveId = loadedTarget.id
+            target = loadedTarget
             impersonating = true
-        }
-
-        if (impersonating && isSensitiveImpersonatedRequest(req)) {
-            return {
-                valid: false,
-                id: effectiveId,
-                authenticatedId: session.user.id,
-                impersonating: true,
-                error: 'Return to own view before changing account, security, or system settings.'
-            }
-        }
-
-        if (impersonating && activeImpersonationSession && !isImpersonationScopeAllowed(req, activeImpersonationSession)) {
-            void auditImpersonationScopeDenied(req, activeImpersonationSession)
-            return {
-                valid: false,
-                id: effectiveId,
-                authenticatedId: session.user.id,
-                impersonating: true,
-                error: 'Impersonation scope does not allow this request.'
-            }
         }
 
         req.headers.id = effectiveId
@@ -139,12 +114,11 @@ export default async function tokenWrapper(req: FastifyRequest, res: FastifyRepl
                 res.header('x-impersonating-name', target.name)
             }
             res.header('x-authenticated-id', session.user.id)
-            if (impersonationSessionId) {
-                res.header('x-impersonation-session-id', impersonationSessionId)
-            }
-            void auditImpersonationRequest(req, session.user.id, effectiveId, impersonationSessionId)
+            await auditImpersonatedRequest(req, { id: session.user.id, name: session.user.name }, target!)
         }
-        return { valid: true, id: effectiveId, authenticatedId: session.user.id, impersonating }
+        const result = { valid: true, id: effectiveId, authenticatedId: session.user.id, impersonating }
+        if (impersonating) requestState.impersonationAuth = { token: impersonationToken!, result }
+        return result
     } catch (error) {
         res.log.error(error)
         const code = (error as { code?: string }).code

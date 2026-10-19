@@ -45,7 +45,6 @@ export function createProductReadinessContext(input: ProductReadinessInput) {
     const readinessCheckedAt = new Date().toISOString()
 
     const publicTiProvenance = input.externalReadiness?.publicTiProvenance
-    const helpdeskAudit = input.externalReadiness?.helpdeskAudit
     const deployProbe = input.externalReadiness?.deployProbe
     const sourceGrowth = input.externalReadiness?.sourceGrowth
     const dwmProduct = input.externalReadiness?.dwmProduct
@@ -59,7 +58,7 @@ export function createProductReadinessContext(input: ProductReadinessInput) {
         ? 'ready'
         : sourceGrowth ? sourceGrowth.status === 'blocked' ? 'blocked' : 'needs_action' : 'unavailable'
 
-    return { input, organizationStatus, watchlistStatus, sourceStatus, alertStatus, deliveryStatus, readinessCheckedAt, publicTiProvenance, helpdeskAudit, deployProbe, sourceGrowth, dwmProduct, orgAlertExport, webhookHealth, dashboardEvidence, analystWorkflow, alertGeneration, entitlement, sourceGrowthStatus }
+    return { input, organizationStatus, watchlistStatus, sourceStatus, alertStatus, deliveryStatus, readinessCheckedAt, publicTiProvenance, deployProbe, sourceGrowth, dwmProduct, orgAlertExport, webhookHealth, dashboardEvidence, analystWorkflow, alertGeneration, entitlement, sourceGrowthStatus }
 }
 
 export type ProductReadinessContext = ReturnType<typeof createProductReadinessContext>

@@ -38,7 +38,6 @@ export function cleanupWorkspaceProofSections(context: ReadinessProofContext) {
                 'organization.case_visibility_consumer.v1',
                 'organization.webhook_destination_access_decision.v1',
                 'organization.shared_watchlist_readiness_export.v1',
-                'organization.audit_timeline_readiness.v1',
             ],
             requiredAuditActions: [
                 'organization_invite_revoked',

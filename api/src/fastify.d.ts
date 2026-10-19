@@ -3,7 +3,6 @@ import 'fastify'
 
 declare module 'fastify' {
     interface FastifyRequest {
-        auditBoundaryTiming?: string[]
         caseBoundaryTiming?: string[]
     }
     interface FastifyInstance {

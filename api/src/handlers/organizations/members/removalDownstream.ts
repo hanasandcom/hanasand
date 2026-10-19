@@ -21,7 +21,6 @@ export function buildMemberDownstreamReadinessRevocation({ organizationId, targe
             caseVisibilityReady: false,
             webhookDeliveryReady: false,
             dashboardReadinessReady: false,
-            supportRedactedReadReady: true,
         },
         requiredDownstreamFields: [
             'organizationId',

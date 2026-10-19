@@ -1,7 +1,7 @@
 import type { ProductProgressReadinessPayload } from './payloadTypes'
 import type { ProductProgressEndpointInput } from './readinessInputTypes'
 import { chooseDashboardAlert, chooseDeliveryForAlert, sourceProxyHealth, sourceProxyHasFreshWorker } from './readinessSelection'
-import { currentCommit, actionNeededPublicTi, actionNeededHelpdesk, actionNeededOrgAlertExport, actionNeededDwmProduct, entitlementReadiness, webhookHealthFromDeliveries } from './readinessDefaults'
+import { currentCommit, actionNeededPublicTi, actionNeededOrgAlertExport, actionNeededDwmProduct, entitlementReadiness, webhookHealthFromDeliveries } from './readinessDefaults'
 import { dashboardEvidenceFromRows, analystWorkflowFromRows } from './readinessEvidence'
 
 export { isDurableDelivered } from './readinessSelection'
@@ -25,7 +25,6 @@ export function buildProductProgressPayload(input: ProductProgressEndpointInput)
         checkedAt,
         routes: input.routes,
         publicTiProvenance: input.publicTiProvenance || actionNeededPublicTi(input.routes.publicTiProvenance || input.routes.productProgress || '/api/product-progress', checkedAt),
-        helpdeskAudit: input.helpdeskAudit || actionNeededHelpdesk(input.routes.helpdeskAudit || input.routes.productProgress || '/api/product-progress', checkedAt),
         deployProbe: {
             schemaVersion: 'product.deploy_probe.readiness.v1',
             status: input.deploy?.status === 'ready' && deployProbeFresh ? 'ready' : 'needs_action',

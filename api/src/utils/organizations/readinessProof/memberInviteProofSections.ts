@@ -1,5 +1,4 @@
 import type { ReadinessProofContext } from './context.ts'
-import { buildOrganizationSupportHistoryBridge } from '../../organizationSupportHistoryBridge.ts'
 import { organizationMembershipBlockedDownstreamRoutes } from '../lifecycleRoutes.ts'
 
 export function memberInviteProofSections(context: ReadinessProofContext) {
@@ -69,25 +68,6 @@ export function memberInviteProofSections(context: ReadinessProofContext) {
                     'GET /api/organizations/:id/alert-case-visibility',
                     'GET /api/organizations/:id/alert-readiness',
                 ],
-                supportActionHistoryBridge: buildOrganizationSupportHistoryBridge({
-                    replayFilters: {
-                        organizationId: 'org',
-                        targetUserId: 'target',
-                        requestId: 'request',
-                        action: 'action',
-                    },
-                }),
-                supportAssistedRecoveryReceipt: {
-                    schemaVersion: 'organization.member_support_assisted_recovery_receipt.v1',
-                    supportActionHistoryBridge: 'organization.member_recovery_support_history_bridge.v1',
-                    allowedOutcome: 'invite_required',
-                    directMembershipMutationAllowed: false,
-                    ownerlessRecoveryMutationAllowed: false,
-                    requiresAcceptedInvite: true,
-                    requiredAuditFields: ['organizationId', 'targetUserId', 'requestId', 'supportSessionId', 'reason', 'outcome'],
-                    blockedRoutesUntilAcceptedMembership: [...organizationMembershipBlockedDownstreamRoutes],
-                    nonmemberEnumeration: false,
-                },
             },
             nonmemberEnumeration: false,
         },

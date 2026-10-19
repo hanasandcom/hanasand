@@ -56,7 +56,6 @@ export function organizationLifecycleReadiness(row: OrganizationRow): Organizati
             ownerCanMutate: actorRole === 'owner',
             adminCanMutate: actorRole === 'owner' || actorRole === 'admin',
             memberCanReadAndExport: allowedOrganizationVisibilityRoles('members').includes(actorRole),
-            supportReadMode: 'redacted_support_contract_only',
             nonmemberEnumeration: false,
             revokedMemberDenial: 'member_revoked',
             expiredInviteDenial: 'invite_expired',
@@ -83,11 +82,6 @@ export function organizationLifecycleReadiness(row: OrganizationRow): Organizati
             route: 'POST /api/organizations/:id/watchlists/cleanup',
             cleanupRequiredBlocker: 'cleanup_required',
         },
-        supportVisibility: {
-            mode: 'redacted_summary_only',
-            contract: 'admin_support',
-            redactionBlocker: 'support_redaction_required',
-        },
         downstreamLifecycleReceipt: {
             schemaVersion: 'organization.lifecycle_downstream_receipt.v1',
             ...organizationTenantIdentity(row.id, row.id),
@@ -99,7 +93,6 @@ export function organizationLifecycleReadiness(row: OrganizationRow): Organizati
             alertExportAllowed: lifecycleAllowsDownstream && sharedWatchlistCount > 0 && activeAdminCount > 0,
             caseVisibilityAllowed: lifecycleAllowsDownstream,
             webhookDeliveryAllowed: lifecycleAllowsDownstream,
-            supportRedactedReadAllowed: true,
             blockedRoutes: lifecycleAllowsDownstream ? [] : [
                 'POST /api/organizations/:id/invites',
                 'POST /api/organizations/:id/watchlists',
@@ -140,7 +133,6 @@ export function organizationLifecycleReadiness(row: OrganizationRow): Organizati
             'watchlistReadiness',
             'alertExportReadiness',
             'cleanupReadiness',
-            'supportVisibility',
             'downstreamLifecycleReceipt',
             'workspaceBoundaryProof',
             'typedBlockers',
@@ -155,10 +147,8 @@ export function organizationLifecycleReadiness(row: OrganizationRow): Organizati
             'invite_expired',
             'watchlist_setup_required',
             'alert_export_unavailable',
-            'support_redaction_required',
             'cleanup_required',
         ],
         readyForOnboarding: typedBlockers.length === 0,
     }
 }
-

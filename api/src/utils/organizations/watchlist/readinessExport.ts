@@ -45,7 +45,6 @@ export function buildOrganizationReadinessExport(input: ReadinessExportInput): O
             casePersistenceReady: alertCasePersistenceReceipt.blockerCodes.length === 0,
             caseVisibilityReady: consumerReadiness.readiness.caseWorkflowReady,
             webhookDestinationReady: webhookDestinationAccessDecision.blockerCodes.length === 0,
-            supportRedactedReadReady: consumerReadiness.readiness.supportRedactedReadReady,
             dashboardReadinessReady: consumerReadiness.readiness.dashboardReadinessReady,
         },
         watchlistScope: {

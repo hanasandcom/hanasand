@@ -98,7 +98,6 @@ export type OrganizationWatchlistReadinessExport = {
         casePersistenceReady: boolean
         caseVisibilityReady: boolean
         webhookDestinationReady: boolean
-        supportRedactedReadReady: boolean
         dashboardReadinessReady: boolean
     }
     watchlistScope: {

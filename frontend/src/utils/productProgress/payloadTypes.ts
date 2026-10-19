@@ -1,4 +1,4 @@
-import type { PublicTiProvenanceReadiness, HelpdeskAuditReadiness, DeployProbeReadiness, OrganizationAlertExportReadiness, WebhookHealthReadiness, DashboardAlertEvidenceReadiness, AnalystWorkflowReadiness, EntitlementReadiness, DwmProductSnapshotReadiness, DwmAlertGenerationReadiness } from './readinessTypes'
+import type { PublicTiProvenanceReadiness, DeployProbeReadiness, OrganizationAlertExportReadiness, WebhookHealthReadiness, DashboardAlertEvidenceReadiness, AnalystWorkflowReadiness, EntitlementReadiness, DwmProductSnapshotReadiness, DwmAlertGenerationReadiness } from './readinessTypes'
 import type { SourcePackWorkerReadinessSnapshot } from './sourceGrowthTypes'
 import type { ProductReadinessEndToEndWorkflowReadiness } from './sourceGrowthTypes'
 import { PRODUCT_PROGRESS_SCHEMA_VERSION } from './readinessLabels'
@@ -138,7 +138,6 @@ export type ProductProgressReadinessPayload = {
     routes?: {
         productProgress?: string
         publicTiProvenance?: string
-        helpdeskAudit?: string
         deployProbe?: string
         sourceProxy?: string
         orgAlertExport?: string
@@ -154,11 +153,8 @@ export type ProductProgressReadinessPayload = {
         dwmProduct?: string
         deliveries?: string
         organizationWebhooks?: string
-        supportRecovery?: string
-        adminAuditEvents?: string
     }
     publicTiProvenance?: PublicTiProvenanceReadiness
-    helpdeskAudit?: HelpdeskAuditReadiness
     deployProbe?: DeployProbeReadiness
     sourceProxy?: DashboardSourceProofProxyPayload
     orgAlertExport?: OrganizationAlertExportReadiness

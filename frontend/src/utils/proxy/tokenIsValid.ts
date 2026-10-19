@@ -67,7 +67,7 @@ async function validateToken(token: string, id: string, impersonationToken: stri
 
         const data = await response.json()
         const internalPageAccess = includeInternalAccess
-            ? await checkHanasandInternalPageAccess(token, id, impersonationToken)
+            ? await checkHanasandInternalPageAccess(token, id)
             : null
         return {
             valid: true,

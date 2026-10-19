@@ -1,10 +1,10 @@
 export const PRODUCT_PROGRESS_SCHEMA_VERSION = 'product.progress.readiness.v1'
 
-export const PRODUCT_READINESS_FULL_CHAIN_GATE_IDS = ['org_members', 'shared_watchlists', 'entitlement_readiness', 'source_coverage', 'source_inventory_probe', 'end_to_end_workflow', 'dwm_product_snapshot', 'dashboard_alert', 'webhook_delivery', 'org_alert_export', 'webhook_health', 'dashboard_evidence', 'analyst_workflow', 'helpdesk_audit', 'deploy_probe'] as const
+export const PRODUCT_READINESS_FULL_CHAIN_GATE_IDS = ['org_members', 'shared_watchlists', 'entitlement_readiness', 'source_coverage', 'source_inventory_probe', 'end_to_end_workflow', 'dwm_product_snapshot', 'dashboard_alert', 'webhook_delivery', 'org_alert_export', 'webhook_health', 'dashboard_evidence', 'analyst_workflow', 'deploy_probe'] as const
 
-export const PRODUCT_READINESS_PROOF_ROW_IDS = ['dashboard_evidence', 'analyst_workflow', 'source_inventory_probe', 'end_to_end_workflow', 'dwm_product_snapshot', 'entitlement_readiness', 'org_alert_export', 'webhook_health', 'helpdesk_audit', 'deploy_probe'] as const
+export const PRODUCT_READINESS_PROOF_ROW_IDS = ['dashboard_evidence', 'analyst_workflow', 'source_inventory_probe', 'end_to_end_workflow', 'dwm_product_snapshot', 'entitlement_readiness', 'org_alert_export', 'webhook_health', 'deploy_probe'] as const
 
-export const PRODUCT_READINESS_OPERATOR_WORKFLOW_ROW_IDS = ['dashboard_evidence', 'analyst_workflow', 'source_inventory_probe', 'end_to_end_workflow', 'dwm_product_snapshot', 'webhook_delivery', 'entitlement_readiness', 'org_alert_export', 'webhook_health', 'helpdesk_audit', 'deploy_probe', 'public_ti_provenance'] as const
+export const PRODUCT_READINESS_OPERATOR_WORKFLOW_ROW_IDS = ['dashboard_evidence', 'analyst_workflow', 'source_inventory_probe', 'end_to_end_workflow', 'dwm_product_snapshot', 'webhook_delivery', 'entitlement_readiness', 'org_alert_export', 'webhook_health', 'deploy_probe', 'public_ti_provenance'] as const
 
 export function sanitizeVisibleOperatorCopy(value: string | undefined) {
     if (!value) return value
@@ -51,4 +51,3 @@ export function visibleChecks(items: Array<string | undefined> | undefined) {
     const joined = items?.filter(Boolean).join('; ')
     return sanitizeVisibleOperatorCopy(joined) || joined || ''
 }
-

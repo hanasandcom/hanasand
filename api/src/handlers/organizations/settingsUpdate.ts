@@ -142,7 +142,6 @@ export async function putOrganizationSettings(req: FastifyRequest<{ Params: Orga
                 caseVisibilityReady: updated.status === 'active',
                 webhookDeliveryReady: updated.status === 'active',
                 dashboardReadinessReady: updated.status === 'active',
-                supportRedactedReadReady: true,
             },
             downstreamRoutes: {
                 invites: 'POST /api/organizations/:id/invites',

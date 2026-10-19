@@ -93,7 +93,6 @@ export function supportTimelineAuditBridgeEvent(input: SupportTimelineAuditBridg
                     source: cleanAuditDimension(input.source) || workflow,
                     service: cleanAuditDimension(input.service) || 'hanasand-api',
                 },
-                detailRouteTemplate: '/api/admin/audit-events/:id',
                 redactionRequired: true,
             },
             redactionRequired: true,

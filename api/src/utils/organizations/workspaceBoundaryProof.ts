@@ -46,11 +46,6 @@ export function buildWorkspaceBoundaryProof(input: {
             canReadSharedWatchlists: true,
             canReadAlertReadiness: true,
         },
-        supportInspection: {
-            mode: 'redacted_summary_only',
-            contract: 'admin_support',
-            route: '/api/admin/support/organizations/:id',
-        },
         lifecycleMutationAllowed: input.lifecycleAllowsDownstream,
         blockedWhenInactive: input.lifecycleAllowsDownstream ? [] : [
             'PUT /api/organizations/:id/settings',
@@ -69,4 +64,3 @@ export function buildWorkspaceBoundaryProof(input: {
         ],
     }
 }
-

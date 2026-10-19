@@ -1,4 +1,4 @@
-import type { PublicTiProvenanceReadiness, HelpdeskAuditReadiness, OrganizationAlertExportReadiness, DwmProductSnapshotReadiness, EntitlementReadiness, WebhookHealthReadiness } from './readinessTypes'
+import type { PublicTiProvenanceReadiness, OrganizationAlertExportReadiness, DwmProductSnapshotReadiness, EntitlementReadiness, WebhookHealthReadiness } from './readinessTypes'
 import type { DeliveryProofRow } from './readinessInputTypes'
 import { isDurableDelivered } from './readinessSelection'
 import { readinessSnapshot, readinessSnapshotSpecs } from './readinessSnapshot'
@@ -12,14 +12,6 @@ export function actionNeededPublicTi(source: string, checkedAt: string): PublicT
         detail: 'Public TI source details need to be connected to this console summary.',
         blockers: ['Attach source, evidence, confidence, and freshness from public TI before using this row for customer routing.'],
         integrationProbeHint: 'GET /api/public-ti/provenance/status must return source, evidence, confidence, and freshness status.',
-    })
-}
-
-export function actionNeededHelpdesk(source: string, checkedAt: string): HelpdeskAuditReadiness {
-    return readinessSnapshot(readinessSnapshotSpecs.helpdesk, 'needs_action', source, checkedAt, {
-        detail: 'Support action and audit history need to be connected to this console summary.',
-        blockers: ['Connect support action history and recovery queue audit data before treating this as enterprise-ready.'],
-        integrationProbeHint: 'GET /api/admin/support/status must return structured audit and recovery queue status.',
     })
 }
 

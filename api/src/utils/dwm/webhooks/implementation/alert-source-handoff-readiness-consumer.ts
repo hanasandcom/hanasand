@@ -1,5 +1,4 @@
 import { buildWebhookDestinationReadinessBridge } from '../../../webhookDestinationReadinessBridge.ts'
-import { buildOrganizationSupportHistoryBridge } from '../../../organizationSupportHistoryBridge.ts'
 import { type buildDwmWebhookDeliveryHistory } from './webhook-visibility-decision.ts'
 import { type retryQueueBlocker, deliveryReceiptContext } from './retry-queue-blocker.ts'
 
@@ -25,7 +24,6 @@ export function buildDwmWebhookAlertSourceHandoffReadinessConsumer({
         : !sourceReady
             ? 'source_provenance_gap'
             : 'delivery_handoff_gap'
-    const supportRecoveryNeeded = blockers.some(blocker => blocker.code === 'permission_denied')
 
     return {
         schemaVersion: 'dwm.webhook.alert_source_handoff_readiness_consumer.v1',
@@ -39,13 +37,6 @@ export function buildDwmWebhookAlertSourceHandoffReadinessConsumer({
                 route: '/v1/dwm/alerts',
                 requiredQuery: ['organizationId', 'alertId'],
                 expectedSchemaVersion: 'dwm.alert_source_handoff_readiness.v1',
-                noNetwork: true,
-            },
-            supportHistory: {
-                method: 'GET' as const,
-                route: '/api/admin/support/inspect',
-                requiredQuery: ['organizationId', 'targetUserId', 'requestId', 'action'],
-                expectedSchemaVersion: 'organization.member_recovery_support_history_bridge.v1',
                 noNetwork: true,
             },
         },
@@ -91,15 +82,6 @@ export function buildDwmWebhookAlertSourceHandoffReadinessConsumer({
             idempotencyKey: entry.deliveryProof.idempotencyKey,
             blockerCodes: [],
         },
-        supportRecoveryBridge: buildOrganizationSupportHistoryBridge({
-            required: supportRecoveryNeeded,
-            replayFilters: {
-                organizationId: entry.orgId,
-                targetUserId: '<target_user_id>',
-                requestId: entry.requestId,
-                action: 'support.organization.access_recovery',
-            },
-        }),
         orgDestinationReadinessBridge: buildWebhookDestinationReadinessBridge({
             defaultWebhookPolicy: 'manual_selection',
             canUseDefaultDestinations: false,
@@ -147,7 +129,6 @@ export function buildDwmWebhookAlertSourceHandoffReadinessConsumer({
             'state',
             'alert.provenanceGapCodes',
             'webhookConsumer.blockerCodes',
-            'supportRecoveryBridge.required',
             'orgDestinationReadinessBridge.blockerCodes',
         ],
         redaction: {

@@ -13,7 +13,7 @@ import { buildWebhookDeliveryPolicy } from './webhookDeliveryPolicy.ts'
 import { buildWebhookDeliveryConsumer } from './webhookDeliveryConsumer.ts'
 import { buildOrganizationActiveWatchlistTerms, buildOrganizationTermLifecycle } from './exportProjections.ts'
 import { buildOrganizationAlertGenerationConsumer } from './alertGenerationConsumer.ts'
-import { buildOrganizationSupportReadinessExport } from './supportReadinessExport.ts'
+import { buildOrganizationConsumerReadiness } from './supportReadinessExport.ts'
 import { buildOrganizationReadinessExport } from './readinessExport.ts'
 import { organizationSharedWatchlistIntegrationGuardrails } from './integrationGuardrails.ts'
 import { buildOrganizationAlertTermsReceipts } from './alertTermsReceipts.ts'
@@ -106,22 +106,14 @@ export function organizationWatchlistAlertTermsExport(
         ],
         proofCommand: 'cd api && bun scripts/smoke-organizations-api.ts',
     }
-    const supportAndReadiness = buildOrganizationSupportReadinessExport({
+    const consumerReadiness = buildOrganizationConsumerReadiness({
         organizationId: organization.id,
         member,
-        activeTermCount: activeTerms.length,
-        pausedCount,
-        archivedCount,
-        cleanupRequired,
-        alertGeneration,
         downstreamProof: sharedWatchlistDownstreamProof,
         integrationGuardrails: sharedWatchlistIntegrationGuardrails,
         alertQueueVisibility: sharedWatchlistAlertQueueVisibility,
         webhookDestinationOwnership,
     })
-    const { supportAccess, supportVisibility, redactedSummary } = supportAndReadiness
-    const sharedWatchlistSupportInspection = supportAndReadiness.supportInspection
-    const consumerReadiness = supportAndReadiness.consumerReadiness
     const alertGenerationConsumer = buildOrganizationAlertGenerationConsumer({
         organization,
         member,
@@ -160,9 +152,6 @@ export function organizationWatchlistAlertTermsExport(
             organizationId: organization.id,
             member,
             alertGeneration,
-            supportAccess,
-            supportVisibility,
-            redactedSummary,
             lifecycleTypedBlockers,
             activeTerms,
             activeAdminCount,
@@ -175,7 +164,6 @@ export function organizationWatchlistAlertTermsExport(
         activeTerms,
         sharedWatchlistDownstreamProof,
         sharedWatchlistIntegrationGuardrails,
-        sharedWatchlistSupportInspection,
         sharedWatchlistAlertQueueVisibility,
         webhookDestinationOwnership,
         webhookDestinationAccessDecision,

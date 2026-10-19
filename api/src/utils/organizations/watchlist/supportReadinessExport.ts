@@ -2,74 +2,20 @@ import type { OrganizationRole } from '../../organizationRoles.ts'
 import type { OrganizationSharedWatchlistConsumerReadiness } from '../contracts/consumerAdapters.ts'
 import type { OrganizationSharedWatchlistDownstreamProof } from '../contracts/downstreamProof.ts'
 import type { OrganizationSharedWatchlistIntegrationGuardrails } from '../contracts/integrationGuardrails.ts'
-import type { OrganizationSharedWatchlistSupportInspection } from '../contracts/supportInspection.ts'
-import type { OrganizationWatchlistAlertBridgeContract } from '../contracts/alertBridge.ts'
-import type { OrganizationWatchlistAlertGenerationContract } from '../contracts/alertGeneration.ts'
 import type { OrganizationSharedWatchlistAlertQueueVisibility } from '../contracts/alertQueueVisibility.ts'
 import { organizationAlertCaseWorkflowState } from './caseWorkflowState.ts'
 import { organizationTenantIdentity } from '../identity.ts'
-import { organizationSharedWatchlistSupportInspection } from './supportInspection.ts'
 
-type SupportReadinessExportInput = {
+type ConsumerReadinessInput = {
     organizationId: string
     member: { userId: string, role: OrganizationRole }
-    activeTermCount: number
-    pausedCount: number
-    archivedCount: number
-    cleanupRequired: boolean
-    alertGeneration: OrganizationWatchlistAlertGenerationContract
     downstreamProof: OrganizationSharedWatchlistDownstreamProof
     integrationGuardrails: OrganizationSharedWatchlistIntegrationGuardrails
     alertQueueVisibility: OrganizationSharedWatchlistAlertQueueVisibility
     webhookDestinationOwnership: ReturnType<typeof organizationAlertCaseWorkflowState>['webhookDestinationOwnership']
 }
 
-export function buildOrganizationSupportReadinessExport(input: SupportReadinessExportInput): {
-    supportAccess: OrganizationWatchlistAlertBridgeContract['supportAccess']
-    supportVisibility: OrganizationWatchlistAlertBridgeContract['supportVisibility']
-    redactedSummary: OrganizationWatchlistAlertBridgeContract['redactedSummary']
-    supportInspection: OrganizationSharedWatchlistSupportInspection
-    consumerReadiness: OrganizationSharedWatchlistConsumerReadiness
-} {
-    const supportAccess: OrganizationWatchlistAlertBridgeContract['supportAccess'] = {
-        mode: 'support_contract_only',
-        blockerCode: 'support_only_access',
-        message: 'Support users must inspect org watchlist alert exports through the admin support contract, not member-scoped org routes.',
-    }
-    const supportVisibility: OrganizationWatchlistAlertBridgeContract['supportVisibility'] = {
-        mode: 'redacted_summary_only',
-        contract: 'admin_support',
-        safeFields: [
-            'organizationId', 'tenantId', 'activeTermCount', 'termFamilies',
-            'pausedCount', 'archivedCount', 'visibilityPolicy', 'allowedViewerRoles',
-        ],
-        redactedFields: [
-            'member.userId', 'activeTerms[].term', 'activeTerms[].value', 'activeTerms[].terms',
-            'activeTerms[].alertGenerationRef.term',
-            'activeTerms[].alertGenerationRef.lifecycle.createdBy',
-            'activeTerms[].alertGenerationRef.lifecycle.updatedBy',
-        ],
-        message: 'Support/admin consumers should use this summary unless an approved support action contract grants scoped member-visible inspection.',
-    }
-    const redactedSummary: OrganizationWatchlistAlertBridgeContract['redactedSummary'] = {
-        schemaVersion: 'organization.watchlist_alert_bridge_redacted_summary.v1',
-        ...organizationTenantIdentity(input.organizationId, input.organizationId),
-        activeTermCount: input.activeTermCount,
-        termFamilies: input.alertGeneration.termFamilies,
-        pausedCount: input.pausedCount,
-        archivedCount: input.archivedCount,
-        cleanupRequired: input.cleanupRequired,
-        visibilityPolicy: input.alertGeneration.visibilityPolicy,
-        allowedViewerRoles: input.alertGeneration.allowedViewerRoles,
-        containsRawTerms: false,
-    }
-    const supportInspection = organizationSharedWatchlistSupportInspection({
-        ...organizationTenantIdentity(input.organizationId, input.organizationId),
-        redactedSummary,
-        supportVisibility,
-        supportAccess,
-        audit: input.downstreamProof.audit,
-    })
+export function buildOrganizationConsumerReadiness(input: ConsumerReadinessInput): OrganizationSharedWatchlistConsumerReadiness {
     const webhook = input.webhookDestinationOwnership
     const visibility = input.alertQueueVisibility
     const consumerReadinessBlockers = Array.from(new Set([
@@ -91,7 +37,6 @@ export function buildOrganizationSupportReadinessExport(input: SupportReadinessE
             caseList: input.downstreamProof.caseBridge.caseWorkflowContract.routes.list,
             caseOpen: input.downstreamProof.caseBridge.caseWorkflowContract.routes.open,
             webhookDeliver: webhook.route,
-            supportInspection: supportInspection.route,
             dashboardReadiness: 'GET /api/organizations/:id/alert-readiness',
         },
         watchlists: {
@@ -108,7 +53,6 @@ export function buildOrganizationSupportReadinessExport(input: SupportReadinessE
             alertQueueReady: visibility.visibility.allowed && visibility.blockerCodes.length === 0,
             caseWorkflowReady: input.integrationGuardrails.caseSafety.ok,
             webhookDeliveryReady: webhook.blockerCodes.length === 0,
-            supportRedactedReadReady: supportInspection.guardrails.ok,
             dashboardReadinessReady: true,
         },
         roleGates: {
@@ -124,5 +68,5 @@ export function buildOrganizationSupportReadinessExport(input: SupportReadinessE
         ],
         proofCommand: 'cd api && bun scripts/smoke-organizations-api.ts',
     }
-    return { supportAccess, supportVisibility, redactedSummary, supportInspection, consumerReadiness }
+    return consumerReadiness
 }

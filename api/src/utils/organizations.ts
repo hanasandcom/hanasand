@@ -1,5 +1,4 @@
 export { organizationSharedWatchlistAlertQueueVisibility } from './organizations/watchlist/alertQueueVisibility.ts'
-export { organizationSharedWatchlistSupportInspection } from './organizations/watchlist/supportInspection.ts'
 export { organizationLifecycleReadiness } from './organizations/lifecycleReadiness.ts'
 export { organizationSharedWatchlistDownstreamProof } from './organizations/watchlist/downstreamProof.ts'
 export { organizationSharedWatchlistProjection } from './organizations/watchlist/sharedWatchlistProjection.ts'

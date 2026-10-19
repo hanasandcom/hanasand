@@ -1,4 +1,4 @@
-import type { DeployProbeReadiness, DwmAlertGenerationReadiness, DwmProductSnapshotReadiness, EntitlementReadiness, HelpdeskAuditReadiness, OrganizationAlertExportReadiness, PublicTiProvenanceReadiness, WebhookHealthReadiness } from './readinessTypes'
+import type { DeployProbeReadiness, DwmAlertGenerationReadiness, DwmProductSnapshotReadiness, EntitlementReadiness, OrganizationAlertExportReadiness, PublicTiProvenanceReadiness, WebhookHealthReadiness } from './readinessTypes'
 import type { DashboardSourceProofProxyPayload, ProductProgressReadinessPayload } from './payloadTypes'
 
 export type AlertProofRow = {
@@ -57,7 +57,6 @@ export type ProductProgressEndpointInput = {
     deploy?: Partial<DeployProbeReadiness>
     entitlement?: EntitlementReadiness
     publicTiProvenance?: PublicTiProvenanceReadiness
-    helpdeskAudit?: HelpdeskAuditReadiness
     orgAlertExport?: OrganizationAlertExportReadiness
     webhookHealth?: WebhookHealthReadiness
     dwmProduct?: DwmProductSnapshotReadiness

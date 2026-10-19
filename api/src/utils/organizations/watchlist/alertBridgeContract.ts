@@ -8,9 +8,6 @@ type Input = {
     organizationId: string
     member: { userId: string, role: OrganizationRole }
     alertGeneration: OrganizationWatchlistAlertGenerationContract
-    supportAccess: OrganizationWatchlistAlertTermsExport['alertBridgeContract']['supportAccess']
-    supportVisibility: OrganizationWatchlistAlertTermsExport['alertBridgeContract']['supportVisibility']
-    redactedSummary: OrganizationWatchlistAlertTermsExport['alertBridgeContract']['redactedSummary']
     lifecycleTypedBlockers: OrganizationWatchlistAlertBridgeBlocker[]
     activeTerms: OrganizationWatchlistAlertGenerationContract['activeWatchlistTerms']
     activeAdminCount: number
@@ -32,8 +29,6 @@ export function buildOrganizationAlertBridgeContract(input: Input): Organization
         schemaVersion: 'organization.watchlist_alert_bridge_contract.v1',
         recommendedDownstreamRoute: 'organization_watchlist',
         memberProvenance: activeMemberActor,
-        supportAccess: input.supportAccess,
-        supportVisibility: input.supportVisibility,
         deniedAccess: {
             nonmember: 'nonmember_denied',
             revokedMember: 'revoked_member_denied',
@@ -44,7 +39,6 @@ export function buildOrganizationAlertBridgeContract(input: Input): Organization
             queryFields: ['organizationId', 'watchlistItemId'],
             blockerCode: 'no_case_route',
         },
-        redactedSummary: input.redactedSummary,
         lifecycleReadiness: {
             schemaVersion: 'organization.watchlist_lifecycle_readiness.v1',
             organization: {
@@ -104,13 +98,6 @@ export function buildOrganizationAlertBridgeContract(input: Input): Organization
                 'allowedViewerRoles',
                 'caseRouteExpectation.pathTemplate',
             ],
-            expectedSupportFields: [
-                'redactedSummary',
-                'supportVisibility.mode',
-                'supportVisibility.safeFields',
-                'supportVisibility.redactedFields',
-                'supportAccess.blockerCode',
-            ],
             memberVisibility: {
                 mode: 'member_scoped_export',
                 ...activeMemberActor,
@@ -118,11 +105,6 @@ export function buildOrganizationAlertBridgeContract(input: Input): Organization
                 revokedMemberDenial: 'member_revoked',
             },
             roleActionContract: organizationAlertCaseRoleActionContract(member),
-            supportRedaction: {
-                mode: 'redacted_summary_only',
-                required: true,
-                blockerCode: 'support_redaction_required',
-            },
             cleanupLifecycle: {
                 cleanupRequired: input.cleanupRequired,
                 cleanupIdempotent: true,
@@ -148,7 +130,6 @@ export function buildOrganizationAlertBridgeContract(input: Input): Organization
             'activeTerms[].ownerContext',
             'activeTerms[].alertGeneratorKey',
             'alertBridgeContract.caseRouteExpectation.pathTemplate',
-            'alertBridgeContract.redactedSummary',
             'alertBridgeContract.lifecycleReadiness',
             'alertBridgeContract.alertCaseProof',
         ],
@@ -169,7 +150,6 @@ export function buildOrganizationAlertBridgeContract(input: Input): Organization
             'alert_bridge_unavailable',
             'alert_export_unavailable',
             'case_route_unavailable',
-            'support_redaction_required',
             'no_active_watchlist_terms',
             'paused_watchlist_excluded',
             'archived_watchlist_excluded',
@@ -177,7 +157,6 @@ export function buildOrganizationAlertBridgeContract(input: Input): Organization
             'revoked_member_denied',
             'no_alert_ref',
             'no_case_route',
-            'support_only_access',
             'nonmember_denied',
             'role_not_allowed',
         ],
