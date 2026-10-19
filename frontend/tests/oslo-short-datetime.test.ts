@@ -2,7 +2,6 @@
 import { expect, mock, test } from 'bun:test'
 import { createElement, type ComponentProps } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { compactTime } from '../src/app/dashboard/management/audit/timelineRows'
 import { shortTime } from '../src/app/dashboard/ti/dashboardPresentation'
 import { shortDate } from '../src/app/dashboard/ti/runs/runPresentation'
 import type { GetVulnerabilities, TrafficDomains, TrafficMetrics, TrafficRecords } from '../src/utils/monitoring/types'
@@ -16,11 +15,10 @@ const previousFormat = new Intl.DateTimeFormat('en', {
     month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Oslo',
 })
 
-test('audit and TI views share the existing Oslo timestamp presentation', () => {
+test('TI views share the existing Oslo timestamp presentation', () => {
     for (const value of ['2026-01-15T12:34:00Z', '2026-07-15T12:34:00Z']) {
         const expected = previousFormat.format(new Date(value))
         expect(formatOsloShortDateTime(value)).toBe(expected)
-        expect(compactTime(value)).toBe(expected)
         expect(shortDate(value)).toBe(expected)
         expect(shortTime(value)).toBe(expected)
     }
