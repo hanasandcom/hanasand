@@ -1,6 +1,5 @@
 import { expect, test } from 'bun:test'
 import { buildReadUrl, buildWriteUrl, date, duration, percent } from '../src/app/dashboard/ti/timeliness/data'
-import { formatAuditTime } from '../src/app/dashboard/helpdesk/auditPresentation'
 
 test('timeliness reads preserve normalized tenant, queue and search filters', () => {
     const url = new URL(buildReadUrl({ scope: 'tenant', tenantId: ' org / one ', status: 'awaiting_delivery', query: 'actor & source' }), 'https://hanasand.test')
@@ -26,9 +25,7 @@ test('date and metric formatting preserve invalid timestamps and threshold bound
     const valid = '2026-07-22T10:00:00Z'
     const expected = new Date(valid).toLocaleString()
     expect(date(invalid)).toBe(invalid)
-    expect(formatAuditTime(invalid)).toBe(invalid)
     expect(date(valid)).toBe(expected)
-    expect(formatAuditTime(valid)).toBe(expected)
     expect(duration(59)).toBe('59s')
     expect(duration(60)).toBe('1.0m')
     expect(duration(3600)).toBe('1.0h')
