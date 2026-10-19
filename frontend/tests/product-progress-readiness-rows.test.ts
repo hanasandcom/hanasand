@@ -7,7 +7,7 @@ import { organization, productInput } from './helpers/productReadinessFixtures.t
 const readinessRowIds = [
     'org_members', 'shared_watchlists', 'entitlement_readiness', 'source_coverage', 'dashboard_alert',
     'dwm_product_snapshot', 'webhook_delivery', 'org_alert_export', 'webhook_health', 'dashboard_evidence',
-    'analyst_workflow', 'source_inventory_probe', 'end_to_end_workflow', 'public_ti_provenance', 'helpdesk_audit', 'deploy_probe',
+    'analyst_workflow', 'source_inventory_probe', 'end_to_end_workflow', 'public_ti_provenance', 'deploy_probe',
 ]
 
 test('product readiness builds every row with proof metadata and a deep link', () => {

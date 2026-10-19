@@ -2,11 +2,11 @@ import assert from 'node:assert/strict'
 // @ts-expect-error Bun provides this module when running focused tests.
 import { test } from 'bun:test'
 import {
-    actionNeededDwmProduct, actionNeededHelpdesk, actionNeededOrgAlertExport, actionNeededPublicTi,
+    actionNeededDwmProduct, actionNeededOrgAlertExport, actionNeededPublicTi,
     entitlementReadiness, webhookHealthFromDeliveries,
 } from '../src/utils/productProgress/readinessDefaults.ts'
 import {
-    unavailableDwmProduct, unavailableEntitlementReadiness, unavailableHelpdesk, unavailableOrgAlertExport,
+    unavailableDwmProduct, unavailableEntitlementReadiness, unavailableOrgAlertExport,
     unavailablePublicTi, unavailableWebhookHealth,
 } from '../src/utils/productProgress/readinessFallbacks.ts'
 
@@ -20,13 +20,6 @@ const lanes = [
         unavailableReason: 'missing_public_ti_provenance_readiness_api', backendProofContractVersion: 'ti.public_provenance.readiness.v1',
         defaultText: ['Public TI source details need', 'Attach source, evidence'], fallbackText: ['Public TI provenance state is updating', 'Public TI provenance needs a live'],
         defaultHint: '/api/public-ti/provenance/status', fallbackHint: '/api/public-ti/provenance/readiness',
-    },
-    {
-        name: 'helpdesk', defaults: () => actionNeededHelpdesk(source, checkedAt), fallback: () => unavailableHelpdesk(source, checkedAt),
-        schema: 'support.audit.readiness.v1', href: '/helpdesk', staleAfterSeconds: 3600, rowId: 'helpdesk_audit', ownerLane: 'helpdesk',
-        unavailableReason: 'missing_helpdesk_audit_readiness_api', backendProofContractVersion: 'support.audit.readiness.v1',
-        defaultText: ['Support action and audit history need', 'Connect support action history'], fallbackText: ['Helpdesk and structured audit state is updating', 'Helpdesk and audit needs a live'],
-        defaultHint: '/api/admin/support/status', fallbackHint: '/api/admin/support/readiness',
     },
     {
         name: 'organization alert export', defaults: () => actionNeededOrgAlertExport(source, checkedAt), fallback: () => unavailableOrgAlertExport(source, checkedAt),

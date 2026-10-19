@@ -25,8 +25,6 @@ function responseFor(path: string, omitOrganizationProof = false) {
         '/api/findings/webhooks/deliveries': { deliveries: [{ id: 'delivery-1', alertId: 'alert-1', watchlistId: 'watchlist-1', endpointHash: 'endpoint', attemptedAt: checkedAt, payloadHash: 'payload', status: 'delivered' }] },
         '/api/organizations': { organizations: [organization] },
         '/api/findings/watchlists': { watchlists: [{ id: 'watchlist-1', organizationId: 'org-1', tenantId: 'tenant-1', status: 'active', terms: [{ value: 'credential leak' }] }] },
-        '/api/backend/admin/support/access-recovery': { approvals: [] },
-        '/api/backend/admin/audit-events': { events: [{ id: 'event-1', createdAt: checkedAt }], detail: { exportProof: { schemaVersion: 'support.audit.export_proof.v1', eventCount: 1, generatedAt: checkedAt } } },
         '/api/status': { overall: 'up', generated_at: checkedAt, checks: [{ service: 'website', status: 'up', checked_at: checkedAt }, { service: 'api', status: 'up', checked_at: checkedAt }] },
         '/api/organizations/org-1/webhooks': { destinations: [{ id: 'webhook-1', organizationId: 'org-1', tenantId: 'tenant-1', name: 'North', kind: 'generic', status: 'active', updatedAt: checkedAt }], destinationAdminProof: { productProgress: { schemaVersion: 'dwm.webhook.destination_admin_product_progress.v1', status: 'ready', destinationCount: 1, activeDestinationCount: 1, deliveryReadyCount: 1 } } },
         '/api/organizations/org-1/alert-readiness': { alertReadiness: { readinessProof: { schemaVersion: 'organization.worker3_ui_readiness_proof.v1', organizationId: 'org-1', actor: { role: 'analyst', canExportActiveTerms: true }, counts: { activeWatchlistTermCount: 1 }, readiness: { organizationCanGenerateAlerts: true, actorCanExportActiveTerms: true } } } },
@@ -61,8 +59,6 @@ test('product-progress response forwards query and scope, then assembles selecte
         assert.equal(payload.orgAlertExport?.organizationId, 'org-1')
         assert.equal(payload.publicTiProvenance.status, 'ready')
         assert.equal(payload.publicTiProvenance.artifactCount, 1)
-        assert.equal(payload.helpdeskAudit.status, 'ready')
-        assert.equal(payload.helpdeskAudit.auditedActions, 1)
         assert.equal(calls.find(({ url }) => url.pathname === '/api/ti/search')?.url.searchParams.get('q'), 'LockBit Ransomware')
         assert.ok(calls.some(({ url }) => url.pathname === '/api/organizations/org-1/alert-readiness'))
         assert.ok(calls.some(({ url }) => url.pathname === '/api/cases/case-1'))

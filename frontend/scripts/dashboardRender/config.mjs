@@ -8,7 +8,6 @@ export const expectedRows = {
     org_alert_export: '/findings',
     webhook_health: '/automation?setup=dwm',
     organization_webhook_settings: '/organizations',
-    helpdesk_audit: '/system/impersonation',
     deploy_probe: '/status',
     public_ti_provenance: '/ti',
 }

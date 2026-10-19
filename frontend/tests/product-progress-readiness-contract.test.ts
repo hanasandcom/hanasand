@@ -8,7 +8,7 @@ const checkedAt = '2026-10-16T10:00:00.000Z'
 const routes = {
     productProgress: '/api/product-progress', deployProbe: '/api/status', sourceProxy: '/api/ti/scraper/control',
     dashboardAlerts: '/api/findings/alerts', cases: '/api/cases', publicTiProvenance: '/api/ti/search',
-    helpdeskAudit: '/api/backend/admin/audit-events', orgAlertExport: '/api/organizations/org-1/alert-readiness',
+    orgAlertExport: '/api/organizations/org-1/alert-readiness',
     webhookHealth: '/api/organizations/org-1/webhooks', entitlement: '/api/organizations/org-1/alert-readiness',
     dwmProduct: '/api/findings/product',
 }

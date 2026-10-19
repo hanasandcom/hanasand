@@ -1,19 +1,9 @@
 import assert from 'node:assert/strict'
 import { test } from 'bun:test'
-import { helpdeskAuditReadiness } from '../src/app/api/product-progress/helpdeskReadiness.ts'
 import { publicTiProvenanceReadiness } from '../src/app/api/product-progress/publicTiReadiness.ts'
 
-test('live helpdesk and public TI responses produce readiness from their evidence', () => {
+test('public TI responses produce readiness from their evidence', () => {
     const generatedAt = '2026-10-16T10:00:00.000Z'
-    const helpdesk = helpdeskAuditReadiness({
-        generatedAt, recoveryRoute: '/api/backend/admin/support/access-recovery', auditRoute: '/api/backend/admin/audit-events?limit=50',
-        recovery: { ok: true, status: 200, json: { approvals: [{ id: 'request-1', status: 'pending' }] } },
-        audit: { ok: true, status: 200, json: { events: [{ id: 'event-1', createdAt: generatedAt }], detail: { exportProof: { schemaVersion: 'support.audit.export_proof.v1', eventCount: 1, generatedAt } } } },
-    })
-    assert.equal(helpdesk.status, 'ready')
-    assert.equal(helpdesk.auditedActions, 1)
-    assert.equal(helpdesk.openRecoveryRequests, 1)
-
     const publicTi = publicTiProvenanceReadiness({
         generatedAt, query: 'LockBit', route: '/api/ti/search?q=LockBit',
         fetch: { ok: true, status: 200, json: {

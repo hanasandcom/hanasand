@@ -21,7 +21,6 @@ export const delivered: DwmDeliveryItem = {
 
 export const externalReadiness: ProductReadinessExternalState = {
     publicTiProvenance: { schemaVersion: 'ti.public_provenance.readiness.v1', status: 'ready', checkedAt, artifactCount: 1 },
-    helpdeskAudit: { schemaVersion: 'support.audit.readiness.v1', status: 'ready', checkedAt, auditedActions: 1 },
     deployProbe: { schemaVersion: 'product.deploy_probe.readiness.v1', status: 'ready', checkedAt, frontendHealthy: true, apiHealthy: true },
     sourceGrowth: {
         schemaVersion: 'dwm.source_inventory.v1', status: 'ready', checkedAt, proxyExposed: true, workerStatus: 'ready',

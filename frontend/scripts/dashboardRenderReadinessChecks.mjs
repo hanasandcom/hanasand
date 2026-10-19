@@ -15,7 +15,6 @@ export const readinessRows = {
     webhook_delivery: { href: '/automation?setup=dwm', backendProbe: 'GET /api/findings/webhooks/deliveries', commits: ['14210040', '03d8d1ec'] },
     org_alert_export: { href: '/findings', backendProbe: 'GET /api/organizations/:id/alert-readiness readinessProof', commits: ['414c72a4', 'd0f53e04'] },
     webhook_health: { href: '/automation?setup=dwm', backendProbe: 'GET /api/organizations/:id/webhooks destinationAdminProof.productProgress', commits: ['b3600c7e', 'adbe584b'] },
-    helpdesk_audit: { href: '/system/impersonation', backendProbe: 'GET /api/backend/admin/support/access-recovery + GET /api/backend/admin/audit-events', commits: ['016a8ef7', '9e25b6ad', '5b7d9357'] },
     deploy_probe: { href: '/status', backendProbe: 'GET /api/product-progress .deployProbe', commits: ['89d9547e'] },
     public_ti_provenance: { href: '/ti', backendProbe: 'GET /api/ti/search publicTiAnswer + actionability + source family coverage matrix', commits: ['def920a7', '929f3416'] },
 }
