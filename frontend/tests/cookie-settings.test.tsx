@@ -65,7 +65,7 @@ test('settings page renders consent choices, protected-token summary, and sign-o
     expect(html).toContain('Essential only')
     expect(html).toContain('Reset choice')
     expect(html).toContain('Session token')
-    expect(html).toContain('Support session token')
+    expect(html).toContain('Impersonation token')
     expect(html).toContain('href="/logout"')
     expect(html).toContain('Clear local tokens')
 })
