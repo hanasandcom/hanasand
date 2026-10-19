@@ -112,7 +112,7 @@ export const productTasks: TestTask[] = [
     { id: 'incident-updates', title: 'Meaningful incident timeline updates', command: [bun, 'test', 'scripts/check-incident-updates.test.mjs'] },
     { id: 'logs-server', title: 'Log dashboard server preload', command: [bun, 'test', 'tests/logs-server.test.tsx'] },
     { id: 'logs-error-events', title: 'Error dashboard fallback state', command: [bun, 'test', 'tests/logs-error-events.test.ts'] },
-    { id: 'dashboard-user-parts', title: 'User organization access and impersonation prompts', command: [bun, 'test', 'tests/dashboard-user-parts.test.tsx'] },
+    { id: 'dashboard-user-parts', title: 'User organization access visibility', command: [bun, 'test', 'tests/dashboard-user-parts.test.tsx'] },
     { id: 'management-users-organization-access', title: 'Management user organization access loader contract', command: [bun, 'test', 'tests/management-users-organization-access.test.tsx'] },
     { id: 'dashboard-overview-server', title: 'Dashboard monitoring server rendering', command: [bun, 'test', 'tests/dashboard-overview-server.test.ts'] },
     { id: 'service-account-boundary', title: 'Scoped service account browser access', command: [bun, 'tests/service-account-boundary.test.ts'] },
