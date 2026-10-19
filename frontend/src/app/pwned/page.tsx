@@ -7,10 +7,10 @@ import CopyCodeButton from '../developers/copyCodeButton'
 const hashCommand = 'printf %s \'superman123\' | shasum'
 
 export const metadata: Metadata = buildRouteMetadata({
-    title: 'Bloom Hash Exposure Lookup',
-    description: 'Check Bloom-index exposure using a SHA-1 hash and prefix-only range lookup.',
+    title: 'Check Password',
+    description: 'Check a password hash against leaked-password records. Only a short hash prefix is sent.',
     path: '/pwned',
-    keywords: ['bloom hash lookup', 'sha-1 hash prefix', 'exposure lookup'],
+    keywords: ['password check', 'SHA-1 hash', 'leaked password check'],
 })
 
 export default async function Page() {
@@ -18,10 +18,9 @@ export default async function Page() {
         <main className='grid min-h-app-viewport w-full place-items-center bg-ui-canvas px-4 py-10 text-ui-text md:px-10'>
             <div className='grid w-full max-w-5xl gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center'>
                 <div className='grid gap-4'>
-                    <p className='text-sm font-semibold uppercase text-ui-primary'>Bloom exposure lookup</p>
                     <h1 className='text-4xl font-semibold tracking-normal md:text-5xl'>Has your password been leaked?</h1>
                     <p className='max-w-xl text-base leading-7 text-ui-muted'>
-                        Paste a SHA-1 hash. We check it against leaked passwords.
+                        Hash your password and check it.
                     </p>
                 </div>
                 <PwnedPageClient />
@@ -36,7 +35,7 @@ export default async function Page() {
                         </div>
                         <CopyCodeButton value={hashCommand} />
                     </div>
-                    <pre className='overflow-x-auto border-t border-ui-primary/20 bg-ui-primary/10 p-4 text-sm leading-6 text-ui-on-primary md:p-5'><code>{hashCommand}</code></pre>
+                    <pre className='overflow-x-auto border-t border-ui-primary/20 bg-ui-primary/10 p-4 text-sm leading-6 text-ui-text md:p-5'><code>{hashCommand}</code></pre>
                 </section>
             </div>
         </main>

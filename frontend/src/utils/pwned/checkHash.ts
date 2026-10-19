@@ -15,15 +15,15 @@ export default async function postBloomHashLookup(hashInput: string): Promise<Br
         })
         if (!response.ok) {
             const data = await response.json().catch(() => ({})) as { error?: string }
-            throw new Error(data.error || 'Unable to check the Bloom exposure dataset right now.')
+            throw new Error(data.error || 'Unable to check leaked-password records right now.')
         }
         const { count, files } = await parseCompactRange(await response.arrayBuffer(), hash)
         return {
             ok: count === 0,
             count,
             message: count === 0
-                ? 'No exact match was found in the checked Bloom range.'
-                : `This exact hash appears ${count} ${count === 1 ? 'time' : 'times'} in the Bloom exposure index.`,
+                ? 'No match was found in the checked records.'
+                : `This hash appears ${count} ${count === 1 ? 'time' : 'times'} in the leaked-password records.`,
             files,
             source: 'compact-inventory',
             checkedPrefix: prefix,

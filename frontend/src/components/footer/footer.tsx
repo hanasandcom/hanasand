@@ -33,7 +33,7 @@ const footerGroups = [
             { label: 'Support', href: '/support', icon: ArrowUpRight },
             { label: 'Status', href: '/status', icon: Activity },
             { label: 'Service Checks', href: '/test', icon: Gauge },
-            { label: 'Hash lookup', href: '/pwned', icon: LockKeyhole },
+            { label: 'Check Password', href: '/pwned', icon: LockKeyhole },
         ],
     },
     {

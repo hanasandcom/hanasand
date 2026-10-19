@@ -26,11 +26,11 @@ export async function POST(request: NextRequest) {
             signal: AbortSignal.timeout(PWNED_PROXY_TIMEOUT_MS),
         })
     } catch {
-        return NextResponse.json({ error: 'Unable to check the Bloom exposure dataset right now.' }, { status: 503 })
+        return NextResponse.json({ error: 'Unable to check leaked-password records right now.' }, { status: 503 })
     }
 
     if (!response.ok || response.headers.get('content-type') !== 'application/vnd.hanasand.pwned-prefix') {
-        return NextResponse.json({ error: 'Unable to check the Bloom exposure dataset right now.' }, { status: 503 })
+        return NextResponse.json({ error: 'Unable to check leaked-password records right now.' }, { status: 503 })
     }
 
     return new NextResponse(response.body, {

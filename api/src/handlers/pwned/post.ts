@@ -18,7 +18,7 @@ export default async function postPwned(req: FastifyRequest, res: FastifyReply) 
             .status(200)
             .send(Buffer.from(range))
     } catch (error) {
-        req.log.warn({ error }, 'Unable to check Bloom hash exposure range')
-        return res.status(503).send({ error: 'Unable to check the Bloom exposure dataset right now.' })
+        req.log.warn({ error }, 'Unable to check leaked-password records')
+        return res.status(503).send({ error: 'Unable to check leaked-password records right now.' })
     }
 }

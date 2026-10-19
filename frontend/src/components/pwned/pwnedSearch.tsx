@@ -45,7 +45,7 @@ export default function PwnedSearch({ breached, breachCount, files = [] }: Pwned
                     <CheckCircle2 className='mt-0.5 h-4 w-4 shrink-0' />
                     <div className='grid gap-1'>
                         <p className='font-semibold'>No exact match found</p>
-                        <p className='leading-6'>The exact hash was not present in the checked Bloom range. Keep using unique values because this is not a guarantee of secrecy.</p>
+                        <p className='leading-6'>No exact match was found in the checked records. Keep using unique passwords; a clean result does not guarantee your password is safe.</p>
                     </div>
                 </div>
             )}

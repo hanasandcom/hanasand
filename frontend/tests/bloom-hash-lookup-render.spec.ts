@@ -19,7 +19,7 @@ for (const signedIn of [false, true]) {
         }
         await expect(header.getByRole('link', { name: 'API docs', exact: true })).toHaveCount(0)
         await header.getByRole('button', { name: 'Resources', exact: true }).hover()
-        await expect(header.getByRole('link', { name: /Hash Exposure Lookup/ })).toBeVisible()
+        await expect(header.getByRole('link', { name: /Check Password/ })).toBeVisible()
         if (signedIn) {
             await header.getByLabel('Account and workspace').click()
             await expect(header.getByRole('combobox', { name: 'Org', exact: true })).toBeVisible()
@@ -28,7 +28,7 @@ for (const signedIn of [false, true]) {
     })
 }
 
-test('Bloom hash lookup checks exposure without collecting a raw password', async ({ page }) => {
+test('password hash check does not collect a raw password', async ({ page }) => {
     let count = 23
     await page.route('**/api/pwned', async (route) => {
         const body = route.request().postDataJSON() as { prefix?: string }
@@ -43,27 +43,28 @@ test('Bloom hash lookup checks exposure without collecting a raw password', asyn
 
     await page.goto('/pwned')
 
+    await expect(page).toHaveTitle(/Check Password \| Hanasand/)
     await expect(page.getByRole('heading', { name: 'Has your password been leaked?' })).toBeVisible()
     await expect(page.getByText('Check password', { exact: true }).filter({ visible: true })).toBeVisible()
-    await expect(page.getByText('Check Bloom hash exposure', { exact: true })).toHaveCount(0)
+    await expect(page.getByText('Check Password', { exact: true }).filter({ visible: true })).toBeVisible()
     await expect(page.locator('input[type="password"]')).toHaveCount(0)
-    await expect(page.getByText('Paste a SHA-1 hash. We check it against leaked passwords.').filter({ visible: true })).toBeVisible()
+    await expect(page.getByText('Hash your password and check it.').filter({ visible: true })).toBeVisible()
+    await expect(page.getByText('Only the first five characters are sent so no one can recreate your password.').filter({ visible: true })).toBeVisible()
     await expect(page.getByText('printf %s \'superman123\' | shasum').filter({ visible: true })).toBeVisible()
-    await expect(page.getByText('Bloom prefix boundary')).toHaveCount(0)
     await expect(page.getByText('Exact matches only.', { exact: false })).toHaveCount(0)
 
     const command = page.getByRole('region', { name: 'Create a hash locally' })
-    const formBox = await page.getByRole('button', { name: 'Run Bloom lookup' }).boundingBox()
+    const formBox = await page.getByRole('button', { name: 'Check', exact: true }).boundingBox()
     const commandBox = await command.boundingBox()
     expect(commandBox!.y).toBeGreaterThan(formBox!.y + formBox!.height)
 
     await page.getByLabel('SHA-1 hash').filter({ visible: true }).fill('5baa61e4c9b93f3f0682250b6cf8331b7ee68fd8')
-    await page.getByRole('button', { name: 'Run Bloom lookup' }).click()
+    await page.getByRole('button', { name: 'Check', exact: true }).click()
 
     await expect(page.getByText('Match found', { exact: true })).toBeVisible()
     await expect(page.getByText('Exact match found', { exact: true })).toHaveCount(0)
     await expect(page.getByText('Result', { exact: true })).toBeVisible()
-    await expect(page.getByText('Hash matched leaked password.')).toBeVisible()
+    await expect(page.getByText('This hash appears in the leaked-password records.')).toBeVisible()
     await expect(page.getByText('This password has been breached 23 times.')).toBeVisible()
     await expect(page.getByText('Found in 2 files')).toBeVisible()
     await expect(page.getByText('one.txt', { exact: true })).toBeVisible()
@@ -76,7 +77,7 @@ test('Bloom hash lookup checks exposure without collecting a raw password', asyn
     await expect(page.getByLabel('SHA-1 hash').filter({ visible: true })).toHaveValue('')
     count = 0
     await page.getByLabel('SHA-1 hash').filter({ visible: true }).fill('5baa61e4c9b93f3f0682250b6cf8331b7ee68fd8')
-    await page.getByRole('button', { name: 'Run Bloom lookup' }).click()
+    await page.getByRole('button', { name: 'Check', exact: true }).click()
     await expect(page.getByText('No exact match found', { exact: true })).toBeVisible()
     await expect(page.getByText(/This password has been breached|Privacy check:|Next action:/)).toHaveCount(0)
 })
@@ -97,9 +98,12 @@ test('local hash command is distinct and copyable on mobile', async ({ page }) =
     const colors = await command.evaluate(element => ({
         panel: getComputedStyle(element).backgroundColor,
         code: getComputedStyle(element.querySelector('pre')!).backgroundColor,
+        text: getComputedStyle(element.querySelector('pre')!).color,
         fits: element.scrollWidth <= element.clientWidth,
     }))
     expect(colors.code).not.toBe(colors.panel)
+    expect(colors.text).not.toBe('rgb(0, 0, 0)')
+    expect(colors.text).not.toBe(colors.code)
     expect(colors.fits).toBe(true)
 })
 
@@ -112,7 +116,7 @@ test('hash lookup combines master and overlay provenance locally', async ({ page
     })
     await page.goto('/pwned')
     await page.getByLabel('SHA-1 hash').filter({ visible: true }).fill('5baa61e4c9b93f3f0682250b6cf8331b7ee68fd8')
-    await page.getByRole('button', { name: 'Run Bloom lookup' }).click()
+    await page.getByRole('button', { name: 'Check', exact: true }).click()
     await expect(page.getByText('This password has been breached 6 times.')).toBeVisible()
     await expect(page.getByText('Found in 4 files')).toBeVisible()
     for (const file of ['one.txt', 'two.txt', 'three.txt', 'four.txt']) {

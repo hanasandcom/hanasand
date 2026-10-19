@@ -32,7 +32,7 @@ const focus = [
     'Recent ransomware attacks and leak-site changes',
     'Company, domain, brand, subsidiary, and supplier watchlists',
     'Group overviews shaped for UI navigation and analyst review',
-    'Bloom filters to keep your passwords strong',
+    'Password checks that send only a short hash prefix',
 ]
 
 export default function AboutPage() {

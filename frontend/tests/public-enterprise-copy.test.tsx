@@ -45,7 +45,7 @@ test('pricing and developer pages render their public buyer copy', async () => {
         const pwned = renderToStaticMarkup(await PwnedPage())
         const pwnedCopy = visibleText(pwned)
         expect(pwnedCopy).toContain('SHA-1 hash')
-        expect(pwnedCopy).toContain('Only the first five characters leave this page.')
+        expect(pwnedCopy).toContain('Hash your password and check it.')
         expect(pwned).toContain('placeholder="40-character SHA-1 hash"')
         expect(sitemap().some(route => route.url === 'https://hanasand.com/pwned')).toBe(true)
 
@@ -74,12 +74,12 @@ test('public header navigation and footer render the buyer destinations', () => 
     const header = visibleText(headerMarkup)
     const footer = renderToStaticMarkup(createElement(Footer))
 
-    expect(header).toContain('Hash lookup')
+    expect(header).toContain('Check Password')
     expect(headerMarkup).toContain('href="/pwned"')
     expect(header).toContain('Pricing')
     expect(headerMarkup).toContain('href="/developers"')
     expect(footer).toContain('aria-label="Footer"')
-    expect(footer).toContain('Hash lookup')
+    expect(footer).toContain('Check Password')
     expect(footer).toContain('href="/pwned"')
     for (const label of ['About', 'Contact', 'Pricing']) expect(footer).toContain(label)
     expect(footer).not.toContain('Eirik')

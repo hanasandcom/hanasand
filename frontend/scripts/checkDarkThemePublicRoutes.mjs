@@ -8,7 +8,7 @@ export function checkDarkThemePublicRoutes(sources, violations) {
     for (const requiredPrivacyToken of [
         'checkedPrefix',
         'const prefix = hash.slice(0, 5)',
-        'Only the first five characters leave this page.',
+        'Only the first five characters are sent so no one can recreate your password.',
     ]) {
         if (!pwnedRouteCluster.includes(requiredPrivacyToken)) {
             violations.push(`pwned password check should disclose hash-prefix privacy behavior: ${requiredPrivacyToken}`)

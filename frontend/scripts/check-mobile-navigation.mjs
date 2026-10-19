@@ -77,8 +77,8 @@ try {
                 await page.getByRole('button', { name: label, exact: true }).click()
                 const publicMenu = header.getByRole('navigation', { name: 'Mobile main navigation' })
                 await publicMenu.locator('summary').filter({ hasText: 'Resources' }).click()
-                await publicMenu.getByRole('link', { name: /^Hash Exposure Lookup/ }).click()
-                assert(!await header.getByRole('navigation', { name: 'Mobile main navigation' }).getByRole('link', { name: /^Hash Exposure Lookup/ }).isVisible())
+                await publicMenu.getByRole('link', { name: /^Check Password/ }).click()
+                assert(!await header.getByRole('navigation', { name: 'Mobile main navigation' }).getByRole('link', { name: /^Check Password/ }).isVisible())
             }
             if (width === 1440 || width === 390) await page.screenshot({ path: `/tmp/shared-header-${token ? 'signed-in' : 'public'}-${width}.png` })
         }

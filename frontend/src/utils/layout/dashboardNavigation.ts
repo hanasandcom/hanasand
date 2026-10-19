@@ -55,7 +55,7 @@ export function getDashboardNavigation(access: NavigationAccess): NavigationItem
             ]),
             group('Security tools', [
                 link('Security Scanner', canManageSystem ? '/scanner' : '/solutions/scanner'),
-                link('Exposure Lookup', '/pwned'),
+                link('Check Password', '/pwned'),
                 link('Endpoint Checks', '/test'),
             ]),
         ]),

@@ -59,8 +59,8 @@ export default function PwnedPageClient() {
                         </div>
                         <p className='text-sm leading-6 text-ui-muted'>
                             {didSearch
-                                ? breached ? 'Hash matched leaked password.' : 'No exact hash match was found in the checked Bloom range.'
-                                : 'Submit a SHA-1 hash. Only the first five characters leave this page.'}
+                                ? breached ? 'This hash appears in the leaked-password records.' : 'No match was found in the checked records.'
+                                : 'Only the first five characters are sent so no one can recreate your password.'}
                         </p>
                     </div>
                     {didSearch ? (
@@ -97,7 +97,7 @@ export default function PwnedPageClient() {
                             className='inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-ui-primary px-4 text-sm font-semibold text-ui-on-primary transition hover:bg-ui-primary/90 disabled:cursor-not-allowed disabled:border disabled:border-ui-border disabled:bg-ui-raised disabled:text-ui-muted'
                         >
                             <Search className='h-4 w-4' />
-                            {busy ? 'Checking...' : 'Run Bloom lookup'}
+                            {busy ? 'Checking...' : 'Check'}
                         </button>
                     </form>
                 )}
