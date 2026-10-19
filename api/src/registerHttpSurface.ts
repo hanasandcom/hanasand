@@ -6,8 +6,6 @@ import ws from './plugins/ws.ts'
 import rateLimit from './plugins/rateLimit.ts'
 import fp from '#utils/refresh/fp.ts'
 import apiRoutes from './routes.ts'
-import publicTiApi from './handlers/ti/publicApi.ts'
-import tiInternalApi from './handlers/ti/internal.ts'
 import { ingestEvent } from './handlers/events.ts'
 import { isAllowedApiOrigin } from './utils/http/publicBoundary.ts'
 import { recoveryReadOnly } from './utils/recovery.ts'
@@ -35,8 +33,6 @@ export function registerHttpSurface(fastify: FastifyInstance, options: { browser
         fastify.addHook('onResponse', async (req, res) => {
             await recordTraffic(req, res, !recoveryReadOnly() && process.env.RECOVERY_ESSENTIAL_ONLY !== '1')
         })
-        fastify.register(publicTiApi, { prefix: '/api/v1' })
-        fastify.register(tiInternalApi, { prefix: '/api/internal/ti' })
         fastify.register(apiRoutes, { prefix: '/api' })
         fastify.post('/mill', ingestEvent)
     }

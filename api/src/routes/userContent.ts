@@ -32,9 +32,6 @@ import deactivateUser from '../handlers/user/deactivateUser.ts'
 import { deleteNote, getNote, getNotes, postNote, putNote } from '../handlers/notes.ts'
 import { getCodeReviews, postCodeReview } from '../handlers/codeReviews.ts'
 import { getThesis, putThesis, getThesisHistory } from '../handlers/thesis.ts'
-import postTiSearch from '../handlers/ti/search.ts'
-import { getTiScraperControl, postTiScraperControl } from '../handlers/ti/scraperControl.ts'
-import { getTiEnrichment, postTiEnrichmentRun } from '../handlers/ti/enrichment.ts'
 import {
     deleteDwmWebhookDestination,
     getDwmWebhookDeliveries,
@@ -49,7 +46,6 @@ import {
 import browserSandboxProfileRoutes from './browserSandboxProfiles.ts'
 import { deleteBrowserRuns, getBrowserResult, getBrowserRunReport, getBrowserRuns, getBrowserRunStats, maxBrowserReportBytes, postBrowserRunReport } from '../handlers/browserSandboxRuns.ts'
 import { postInternalModelCompletion } from '../handlers/internal/modelCompletion.ts'
-import { deleteSavedSearch, getSavedSearches, postSavedSearch } from '../handlers/ti/savedSearches.ts'
 
 import { forwardSupportRequest, supportServiceConfigured } from '../utils/support/transport.ts'
 import type { FastifyInstance } from 'fastify'
@@ -78,13 +74,6 @@ export async function registerUserContentRoutes(fastify: FastifyInstance) {
 
     // Pwned handler
     fastify.post('/pwned', postPwned)
-
-    // Threat intelligence
-    fastify.post('/ti/search', postTiSearch)
-    fastify.get('/ti/scraper/control', getTiScraperControl)
-    fastify.post('/ti/scraper/control', postTiScraperControl)
-    fastify.get('/ti/enrichment', getTiEnrichment)
-    fastify.post('/ti/enrichment/run', postTiEnrichmentRun)
 
     // DWM customer notifications
     fastify.get('/dwm/webhook-destinations', getDwmWebhookDestinations)
@@ -150,10 +139,5 @@ export async function registerUserContentRoutes(fastify: FastifyInstance) {
     fastify.post('/notes', postNote)
     fastify.put('/notes/:id', putNote)
     fastify.delete('/notes/:id', deleteNote)
-
-    // Threat intelligence saved searches
-    fastify.get('/ti/saved-searches', getSavedSearches)
-    fastify.post('/ti/saved-searches', postSavedSearch)
-    fastify.delete('/ti/saved-searches', deleteSavedSearch)
 
 }

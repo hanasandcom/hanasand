@@ -1,11 +1,7 @@
 import type { FastifyReply } from 'fastify'
-import { matchApiKeyScope, organizationPublicApiScopes } from '#utils/auth/apiKeys.ts'
+import { matchApiKeyScope } from '#utils/auth/apiKeys.ts'
 import { consumeSharedRateLimitBucket } from '#utils/rateLimit/config.ts'
 import { withTransaction } from '#db'
-
-const sessionBatchScope = organizationPublicApiScopes().find(scope =>
-    scope.method === 'POST' && scope.route === '/api/v1/ti/search/batch'
-)
 
 export function credentialPeriodLimits({
     actorIdentifier,
@@ -19,11 +15,6 @@ export function credentialPeriodLimits({
     route: string
 }) {
     if (apiKeyScope) return apiKeyScope.limits
-    if (
-        actorIdentifier.startsWith('user:')
-        && method.toUpperCase() === 'POST'
-        && route === '/api/v1/ti/search/batch'
-    ) return sessionBatchScope?.limits ?? null
     return null
 }
 

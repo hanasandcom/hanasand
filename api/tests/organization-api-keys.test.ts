@@ -43,13 +43,8 @@ describe('organization API key onboarding', () => {
         expect(created.secret).toMatch(/^hsk_[a-f0-9]{12}_[a-f0-9]{48}$/)
         expect(created.apiKey).toMatchObject({ organizationId: 'org-a', name: 'Production integration', tier: 'starter', enabled: true })
         expect(second.apiKey).toMatchObject({ organizationId: 'org-a', name: 'Development integration', tier: 'starter', enabled: true })
-        expect(created.apiKey.scopes).toHaveLength(13)
-        expect(created.apiKey.scopes.find(scope => scope.route === '/api/v1/ti/search/batch')?.limits).toEqual({
-            perSecond: 1,
-            perMinute: 12,
-            perHour: 120,
-            perDay: 1_000,
-        })
+        expect(created.apiKey.scopes).toHaveLength(1)
+        expect(created.apiKey.scopes.some(scope => scope.route.startsWith('/api/v1/'))).toBe(false)
         expect(JSON.stringify(created.apiKey)).not.toContain(created.secret)
         const wrongSecret = `${created.secret.slice(0, -1)}${created.secret.endsWith('0') ? '1' : '0'}`
         expect(await validateApiKey(wrongSecret, fakeRun as any)).toBeNull()

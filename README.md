@@ -9,7 +9,7 @@ Hanasand combines threat intelligence, AI development tools, and infrastructure 
 | Frontend | `frontend/` | Public pages, dashboard, AI editor, shared projects, articles, notes and thesis |
 | API | `api/` | Authorization, organizations, permissions, billing, AI requests, project storage, infrastructure and public API |
 | Identity | [Identity repository](https://github.com/hanasandcom/identity) | Login, sessions, password reset, passkeys, social/SSO and signup; separate workers, using the existing account database through PgBouncer |
-| Threat intelligence | [TI repository](https://github.com/eirikhanasand/ti) | Source collection, evidence, search, alerts and investigation cases; runs with a dedicated database |
+| Threat intelligence | [TI repository](https://github.com/hanasandcom/ti) | Standalone web application and API; source collection, evidence, search, alerts and investigation cases run with a dedicated database and scraper |
 | AI model client | [AI repository](https://github.com/hanasandcom/ai) | Connects the Inspur inference server to the API over WebSockets; deployed separately |
 | Parser | [Parser repository](https://github.com/hanasandcom/parser) | AI parsing HTTP service; deployed separately |
 | Scraper | [Scraper repository](https://github.com/hanasandcom/scraper) | Threat-intelligence collection service; deployed separately |

@@ -52,10 +52,8 @@ const nextConfig = {
     },
     // The canonical Findings route maps to the dashboard/findings page folder via appRoutes.json.
     async rewrites() {
-        const tiApiBase = (process.env.FRONTEND_INTERNAL_API || process.env.FRONTEND_AUTH_API || process.env.NEXT_PUBLIC_API || 'https://api.hanasand.com/api').replace(/\/$/, '')
         return {
             beforeFiles: [
-                { source: '/api/ti/scraper/control', destination: `${tiApiBase}/ti/scraper/control` },
                 { source: '/api/dwm', destination: '/api/findings' },
                 { source: '/api/dwm/:path*', destination: '/api/findings/:path*' },
                 ...appRoutes
@@ -70,9 +68,13 @@ const nextConfig = {
             { source: '/.well-known/security.txt', destination: '/security.txt', permanent: true },
             { source: '/.well-known', destination: '/security.txt', permanent: true },
             { source: '/findings/watchlists', destination: '/watchlists', permanent: true },
-            { source: '/ti/enrichment', destination: '/ti/profiles', permanent: true },
-            { source: '/ti/domains/:path*', destination: '/ti/sources', permanent: true },
-            { source: '/dashboard/ti/domains/:path*', destination: '/ti/sources', permanent: true },
+            { source: '/ti/enrichment', destination: 'https://ti.hanasand.com/dashboard/ti/enrichment', permanent: true },
+            { source: '/ti/profiles', destination: 'https://ti.hanasand.com/dashboard/ti/enrichment', permanent: true },
+            { source: '/ti/domains/:path*', destination: 'https://ti.hanasand.com/dashboard/ti/sources', permanent: true },
+            { source: '/dashboard/ti/domains/:path*', destination: 'https://ti.hanasand.com/dashboard/ti/sources', permanent: true },
+            { source: '/ti/:path*', destination: 'https://ti.hanasand.com/ti/:path*', permanent: true },
+            { source: '/dashboard/ti/:path*', destination: 'https://ti.hanasand.com/dashboard/ti/:path*', permanent: true },
+            { source: '/api/openapi/ti', destination: 'https://ti.hanasand.com/api/openapi/ti', permanent: true },
             { source: '/cases/MON-:number', destination: '/cases/HA-:number', permanent: true },
             { source: '/dashboard/cases/MON-:number', destination: '/cases/HA-:number', permanent: true },
             { source: '/dwm/cases/:path*', destination: '/cases/:path*', permanent: true },

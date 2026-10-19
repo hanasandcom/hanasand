@@ -8,7 +8,7 @@ import { applyRefreshedAuthCookies, authCookieOptions, authServiceUnavailable, i
 
 export async function proxy(req: NextRequest) {
     const recoveryAllowedPost = req.method === 'POST' && req.nextUrl.pathname === '/api/pwned'
-    if (!recoveryAllowedPost && !['GET', 'HEAD', 'OPTIONS'].includes(req.method) && !(req.method === 'POST' && req.nextUrl.pathname === '/api/ti/search') && recoveryReadOnly()) {
+    if (!recoveryAllowedPost && !['GET', 'HEAD', 'OPTIONS'].includes(req.method) && recoveryReadOnly()) {
         return NextResponse.json({ error: { code: 'recovery_read_only', message: 'Changes are paused during database recovery. Existing records remain available for viewing.' } }, { status: 503, headers: { 'retry-after': '30', 'cache-control': 'no-store' } })
     }
     const tokenCookie = req.cookies.get('access_token')
@@ -51,10 +51,6 @@ export async function proxy(req: NextRequest) {
 
     requestHeaders.set('x-theme', theme)
     requestHeaders.set('x-current-path', visiblePath)
-    if (canonicalPath === '/api/ti/scraper/control' && tokenCookie?.value && idCookie?.value) {
-        requestHeaders.set('authorization', `Bearer ${tokenCookie.value}`)
-        requestHeaders.set('id', idCookie.value)
-    }
     if (impersonationToken) {
         requestHeaders.set('x-impersonation-token', impersonationToken)
     }

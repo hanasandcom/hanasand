@@ -20,10 +20,6 @@ export function normalizeApiKeyTier(value: unknown): ApiKeyTierPreset {
 export function organizationPublicApiScopes(): ApiKeyScopeRule[] {
     const routes = [
         ['POST', '/mill'],
-        ['POST', '/api/v1/ti/search'],
-        ['POST', '/api/v1/ti/search/batch'],
-        ...['actors', 'aliases', 'incidents', 'findings', 'evidence', 'sources', 'validations', 'alerts', 'evaluation', 'timeliness']
-            .map(route => ['GET', `/api/v1/${route}`]),
     ]
     return routes.map(([method, route], index) => ({
         id: `organization-public-api-${index}`,
