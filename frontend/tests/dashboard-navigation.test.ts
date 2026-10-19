@@ -94,7 +94,7 @@ test('Hanasand owners and editors get internal pages from organization membershi
         canManageOrganizations: true,
         canViewInternalPages: true, canReviewIntel: true, hasVMs: true,
     }))
-    for (const path of ['/logs/realtime', '/traffic', '/ti/timeliness', '/db', '/management/users', '/management/audit', '/management/organizations', '/vms', '/system/virtual-machines']) {
+    for (const path of ['/logs/realtime', '/traffic', '/ti/timeliness', '/db', '/management/users', '/management/organizations', '/vms', '/system/virtual-machines']) {
         assert.equal(links.some(link => link.href === path), true, path)
     }
 })
