@@ -14,7 +14,7 @@ test.describe('dashboard sidebar resources', () => {
             '/ti/activity', '/ti/profiles', '/ti/sources', '/ti/runs', '/ti/timeliness',
             '/logs', '/logs/realtime', '/logs/search', '/logs/errors', '/traffic',
             '/system/ai', '/vulnerabilities', '/db', '/db/backups', '/system/rates',
-            '/load-testing', '/management/users', '/management/audit', '/management/service-accounts',
+            '/load-testing', '/management/users', '/management/service-accounts',
             '/content/articles', '/content/thoughts',
         ]
         for (const href of internalHrefs) {

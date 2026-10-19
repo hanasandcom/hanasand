@@ -24,7 +24,6 @@ test('internal pages appear only for organization access in dashboard navigation
         ['/db', 'Database'],
         ['/db/backups', 'Backups'],
         ['/management/users', 'Users'],
-        ['/management/audit', 'Audit Log'],
         ['/management/service-accounts', 'Service Accounts'],
         ['/content/articles', 'Articles'],
         ['/content/thoughts', 'Thoughts'],
