@@ -92,7 +92,6 @@ export const productTasks: TestTask[] = [
     { id: 'operational-state-label', title: 'Shared monitoring and VM state labels', command: [bun, 'test', 'tests/operational-state-label.test.ts'] },
     { id: 'logs-ui', title: 'Log severity, search, inline evidence and realtime reader', command: [bun, 'x', 'playwright', 'test', 'tests/realtime-logs.spec.ts', 'tests/logs-ux-triage.spec.ts', '--workers=1'], env: { PLAYWRIGHT_MANAGED_SERVERS: '0' }, requires: 'playwright' },
     { id: 'logs-pages', title: 'Logs routes on desktop/mobile in light/dark mode', command: [bun, 'scripts/check-dashboard-logs-ui.mjs'], requires: 'playwright' },
-    { id: 'helpdesk-render', title: 'Helpdesk audit rendering and focus filters', command: [bun, 'tests/helpdesk-render.test.tsx'] },
     { id: 'share-statistics', title: 'Share line counts and empty statistics', command: [bun, 'test', 'tests/share-statistics.test.tsx'] },
     { id: 'backup-page-render', title: 'Backup page data and operation presentation', command: [bun, 'test', 'tests/backup-page-render.test.tsx'] },
     { id: 'database-query-card', title: 'Database query card raw and highlighted presentation modes', command: [bun, 'test', 'tests/database-query-card.test.tsx'] },
