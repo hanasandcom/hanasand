@@ -3095,3 +3095,189 @@ The `cashflow` VM remains in LXD `ERROR` (status code 112). LXD lists no
 journal or verify the reported pre-recovery disk backup. Do not start, stop,
 restart, or alter its disk until an authorized operator provides the missing
 read-only log and backup integrity evidence.
+Active Codex goal checkpoint: the live pricing page and billing API tests confirm
+that VM creation is free and only optional automatic failover costs NOK 49/month;
+no pricing code change was needed. The acceptance VM `codexvm-ui-check-20261018`
+was created through the website UI, reported host metrics, and its browser
+terminal previously returned a test echo. Live UI stop and start commands
+completed; a page refresh showed STOPPED and then RUNNING. Restart also completed
+and the UI still showed RUNNING, but the post-restart browser console now shows
+“error: prohibited by secure boot policy” and a GRUB prompt, with no shell. The
+overview still reports RUNNING after 7m, but CPU is 0%, memory is 0 MB / 1.0
+GB, and disk usage is unavailable. Direct read-only LXD state on Inspur confirms
+zero guest memory, zero disk usage, and a RUNNING host process; the website
+console is at the GRUB prompt after Secure Boot rejection. Guest, metrics, and
+terminal health therefore fail acceptance. The refactor owner was
+directly asked to diagnose this against deployed baseline
+`2370db054e2f2b6c38b7ae858aec9742af21920e`, prioritize VM reliability, and
+report branch, diagnosis, fix, tests, and checkpoint. Keep the goal active; do
+not accept a broad unverified rewrite as a release candidate. VM API/frontend
+focused tests pass on deployed candidate `2370db054`. `cashflow` remains LXD
+`ERROR`; its 37.25 GiB block volume exists, but no privileged failure log or
+backup integrity evidence is available, so do not alter its disk or lifecycle
+until that evidence exists. Fresh non-privileged LXD checks still show no
+cashflow QEMU log and no journal entries for its failure; `sudo` is required to
+read the protected per-VM log directory, but targeted rotated `/var/log/syslog`
+entries are readable. On Sep 29 LXD logged failed vsock-agent advertisement
+and repeated exec websocket EOFs for cashflow; on Oct 18 it logged vsock-agent
+advertisement failures and exec websocket closures for the acceptance VM,
+including a connection reset. These correlate with broken agent/console access
+but do not identify the boot failure cause. Do not alter either VM lifecycle or
+disk pending diagnosis.
+The refactor owner checkout remains 56 commits ahead of its remote baseline and
+its latest edits are unrelated to VMs. It has been asked to preserve them and
+start a clean candidate from deployed `2370db054`. Keep the goal active and
+verify its acknowledgment before taking or deploying a candidate.
+After the clean candidate is deployed and its VM acceptance checks pass,
+explicitly restart the refactor owner thread and resume the refactor; this is a
+required final follow-up, not an optional reminder. A separate concrete defect
+was found in `personal/internal` at `775905a`: website Stop and Restart invoke
+`lxc ... --force`, cutting guest power. The local fix uses LXD's graceful
+`--timeout 60` behavior and has three focused command tests passing; coordinate
+its integration and deployment with the production candidate before treating VM
+acceptance as complete.
+
+Live VM acceptance update (2026-10-18): deployed internal commit `408b669`
+changes website Stop/Restart to LXD's graceful 60-second lifecycle commands;
+the three focused command tests passed. A fresh free VM,
+`codexvm-graceful-20261018`, completed cloning and reached RUNNING. Website Stop
+completed in about six seconds and the list showed STOPPED; website Start
+completed and the list showed RUNNING; website Restart completed and the list
+still showed RUNNING. The web terminal reconnected after restart and returned
+`POST_RESTART_ACCEPTANCE` plus `uptime`. Before and after restart, however, the
+list showed IP, image, CPU, memory, and telemetry as pending, so metrics do not
+pass acceptance. The VM details route also fails with the generic error page.
+Guest diagnosis through the browser terminal confirmed the VM is networked
+(`enp5s0` UP at `10.119.85.76/24`) and its root filesystem reports 2.9 GiB,
+1.2 GiB used, and 1.8 GiB available, while `systemctl is-active
+qemu-guest-agent` returns `inactive` and the package is absent. This is not
+confirmed as the cause: the website terminal works via LXD exec, and the
+existing metrics fallback also uses LXD exec. The visible IP, image, CPU, and
+memory fields come from `vm_details`; verify that row and the list response,
+separately from time-series samples in `vm_metrics`.
+Clone took several minutes; host storage was 91% full and the copy process was
+in uninterruptible I/O wait, which is evidence of a host-side delay but not a
+confirmed root cause. The VM remains running for further diagnosis. Do not mark
+VM acceptance complete until displayed metrics and details-page behavior are
+resolved and verified. The refactor owner has the fresh evidence and is being
+pressed for a clean candidate and explicit VM diagnosis. Once production
+acceptance is complete, restart/resume the refactor owner thread as a required
+follow-up.
+
+Production sync diagnosis (2026-10-18): the scheduled `post_or_shutdown_vms`
+job runs every five minutes and its filtered log showed two HTTP 401 responses
+for `codexvm-graceful-20261018`. The running `internal_cron` container had
+stale `VM_API_TOKEN` and `VM_TOKEN` values; neither matched the API's current
+token, and the API had no previous token configured. Effective Compose
+configuration already had a cron token matching the API's current token, so
+only `internal_cron` was recreated via Compose at 05:43 UTC. It is running;
+the next scheduled detail sync returned 201. The website VM list now shows the
+acceptance VM's IP, Ubuntu 24.04 image, 1 CPU, and 1 GiB memory; its details page
+loads and shows network/hardware/config data. The Metrics section now shows
+power, CPU, memory, disk, network, and uptime, updated 35 seconds before the
+check. Creation remained free; the page labels automatic failover as an
+optional 49 NOK/month upgrade. Do not weaken internal API auth.
+
+Prompt Portal auth verification (2026-10-18): production `/prompt` renders in
+the regular signed-in Hanasand site shell with the Hanasand organization
+selected and no separate code/login gate. Deployed API history contains
+`e4f3196c0` and `c37795599`; `bun test
+tests/prompt-portal-organization-access.test.ts` passes all four cases for
+active membership, nonmember denial, fail-closed lookup, and preservation of
+the shared session's 401 response.
+
+Cashflow read-only diagnosis (2026-10-18): LXD reports `cashflow` as a
+virtual-machine in `ERROR`, with last use 2026-09-29 19:17 UTC and no
+`qemu.log` at the expected path (so `lxc info --show-log` cannot read it).
+The QEMU process (PID 586055) is still alive from 2026-09-29 and holds its
+`qemu.log` descriptor to a deleted file; `volatile.last_state.power` is
+`RUNNING`, while `volatile.last_state.ready` is `false`. The `default` storage
+pool is CREATED, and LXD reports the cashflow volume as 37.25 GiB; its
+`root.img` still exists at 40,000,004,096 bytes with a 2026-10-01 mtime. No
+stop/start/kill or disk operation has been attempted. Preserve the disk while
+the refactor owner diagnoses why LXD lost the log path and how to reconcile
+the live QEMU process with LXD state. A read-only LXD state query returns
+`status=Error`, `status_code=112`; QEMU's monitor socket is listening with a
+nonzero pending-connection queue, and a read-only QMP status query failed with
+`BlockingIOError`. QEMU itself is sleeping in `do_poll`; the evidence does not
+establish whether the guest is responsive or safe to stop. Both the instance
+snapshot and volume snapshot APIs return empty lists. A separate pre-recovery
+copy exists at `/var/backups/hanasand/cashflow-pre-recovery-20261018/root.img`;
+it is a distinct inode with link count 1 and the same 40,000,004,096-byte size
+as the live root image. Its birth time is 2026-10-18 01:45 UTC, ctime 01:52,
+and preserved mtime 2026-10-01. Neither file has been hashed, mounted, or
+restored; treat this as a baseline copy, not verified content identity or
+application consistency. Read-only `fdisk -l` reports the same 37.25 GiB size,
+GPT disk GUID, partition extents, and EFI/Linux partition layout in both files;
+this validates the headers/partition tables only, not filesystem integrity.
+The current kernel ring buffer has no cashflow-specific, OOM, or block-I/O
+error entries; this does not explain the LXD/QEMU state mismatch.
+Read-only ext4 superblock reads at the root partition offset in both files
+report magic `0xef53`, clean state `0x1` with no error bit, and the same
+filesystem UUID. This is metadata-only evidence, not a full-image hash/fsck or
+proof of application consistency; neither image has been mounted or changed.
+QEMU PID 586055 also has the live `root.img` open twice with `O_RDWR` file
+descriptors. Treat the original disk as actively attached: do not copy over,
+truncate, remount, stop, kill, or restart it until the backup is fully verified
+and a graceful LXD/QMP recovery path is established.
+
+Cashflow QMP evidence correction (2026-10-18): the nonzero pending connection
+queue was observed only after the read-only probe failed and may include that
+probe itself. It does not establish that the monitor queue was saturated before
+the probe; keep the guest responsiveness and safe-recovery conclusions open.
+
+Current live checkpoint (2026-10-18 06:09 UTC; directly checked): production
+`/home/hanasand/hanasand` is clean at `2370db054e2f` and tracks `origin/main`;
+`/api/health` returns `ok:true`. Frontend and API Compose services are healthy.
+The separately deployed `internal` service at `408b669` and `internal_cron` are
+healthy. LXD still reports `cashflow` as ERROR; `codexvm-graceful-20261018` is
+RUNNING at `10.119.85.76`. No cashflow repair was attempted.
+
+The refactor owner thread remains active and its latest update reports more
+broad UI/database/automation audits, with the 10–30k frontend reduction still
+unmet. The inspected refactor checkout is clean at `332d20117`, 86 commits ahead
+of `origin/main`; it is not yet a reviewed release candidate. The primary
+Desktop checkout remains at `9de4e5797` with six unrelated dirty files plus this
+GOALS.md change; preserve them. The owner has been directly asked to stop general
+audits and return an exact VM-focused candidate, checks/review, cashflow recovery
+decision, and deployment path; acknowledgment is pending. Keep the goal active.
+After production acceptance, explicitly restart/resume the owner thread as a
+required follow-up.
+
+Production-base and verification correction (2026-10-18 06:17 UTC): fetching
+`origin/main` resolved the earlier checkout mismatch. Both configured remotes and
+the live server advertise `2370db054e2f`; that revision is the deployed base.
+`a380b57aa` (VM status/console host routing) is an ancestor of it. The primary
+Desktop `main` at `9de4e5797` is 16 commits behind the production tip, so it is
+not a release candidate and must not be pushed. The refactor checkout is 86
+commits ahead of its stale/local `a380b57aa` base, while production `main` has 29
+later commits on its line; it is not a fast-forward candidate.
+
+On a detached, isolated checkout of `origin/main` at `2370db054e2f`, API and
+frontend default test suites passed, as did API and frontend lint/typecheck.
+The API default runner excludes 38 database-required suites, and the separate
+PostgreSQL-filter group also needs a disposable database. The API test runner
+needed the approved local ephemeral-port permission for its generated-project
+check. Live checks at the same revision: API health is OK; API/frontend and the
+internal/internal-cron services are healthy; `codexvm-graceful-20261018` remains
+RUNNING at `10.119.85.76`; `cashflow` remains LXD ERROR. Owner acknowledgment
+and a current-base release candidate are still pending. Keep the goal active.
+
+Latest owner/cashflow follow-up (2026-10-18 06:20 UTC): refactor checkout was
+rechecked at clean `5edfd4101`, 88 commits ahead of `a380b57aa`; the latest
+owner update was another support-projection audit, with no acknowledgment or
+current-production-based release candidate. I sent the owner the verified
+production/refactor ancestry, test results, and a request to stop broad slices
+and report a focused candidate or explicitly state no release is justified.
+Cashflow still returns LXD `Error`/112 and `--show-log` still reports missing
+`qemu.log`. Unprivileged `journalctl` has no cashflow entries; sudo requires an
+interactive password unavailable to this session. A recent cron-log SSH check
+was denied by the sandbox, so the earlier healthy/sync evidence remains the
+latest successful cron evidence. No cashflow process or disk was changed.
+
+Refactor working-tree refresh (2026-10-18 06:21 UTC): HEAD remains `5edfd4101`
+(88 commits ahead of `a380b57aa`), but the checkout is no longer clean. It now
+has four modified and two untracked files under `api/src/handlers/adminSupport/
+cases/readiness/` and a matching test; these are unrelated to VMs. Do not stage,
+overwrite, or publish them as the VM release candidate. Production remains
+`2370db054e2f` and healthy.

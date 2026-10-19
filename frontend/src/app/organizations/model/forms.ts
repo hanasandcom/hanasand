@@ -104,14 +104,20 @@ export function inviteActionAllowed(invite: OrganizationInvite, action: 'copy' |
     return status === 'pending'
 }
 
+function memberMutationRestriction(member: OrganizationMember) {
+    if (member.role.toLowerCase() === 'owner') return 'owner'
+    if (['removed', 'revoked', 'inactive'].includes(member.status.toLowerCase())) return 'closed'
+    return ''
+}
+
 export function memberCanMutate(member: OrganizationMember) {
-    const status = member.status.toLowerCase()
-    return member.role.toLowerCase() !== 'owner' && status !== 'removed' && status !== 'revoked' && status !== 'inactive'
+    return memberMutationRestriction(member) === ''
 }
 
 export function memberMutationDisabledReason(canManage: boolean, member: OrganizationMember) {
     if (!canManage) return 'Owner or admin required'
-    if (member.role.toLowerCase() === 'owner') return 'Owner role cannot be changed here'
-    if (['removed', 'revoked', 'inactive'].includes(member.status.toLowerCase())) return 'Access is closed'
-    return ''
+    const restriction = memberMutationRestriction(member)
+    if (restriction === 'owner') return 'Owner role cannot be changed here'
+    if (restriction === 'closed') return 'Access is closed'
+    return restriction
 }

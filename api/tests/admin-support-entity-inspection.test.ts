@@ -157,4 +157,3 @@ test('support invite and member inspection audit missing organizations and targe
     expect(state.queries).toHaveLength(2)
     expect(state.queries[1].values).toEqual(['org-1', 'missing-member'])
 })
-

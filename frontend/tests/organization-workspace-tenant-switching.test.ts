@@ -5,7 +5,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { NextRequest } from 'next/server'
 import { initialOrganizationBundle } from '../src/app/organizations/model/organizationBundle'
 import { organizationWorkspaceSelectionHref, requestedSubjectFromSearch } from '../src/app/organizations/model/activityNavigation'
-import { inviteEmailConflicts, memberCanMutate } from '../src/app/organizations/model/forms'
+import { inviteEmailConflicts, memberCanMutate, memberMutationDisabledReason } from '../src/app/organizations/model/forms'
 import { isDuplicateWatchlistTerm } from '../src/app/organizations/model/watchlists'
 import { watchlistMutationMessage } from '../src/app/organizations/model/workspaceApi'
 import { WatchlistPanel } from '../src/app/organizations/components/watchlists'
@@ -125,11 +125,18 @@ test('invite conflicts and closed member states do not allow repeated access cha
         'PENDING@example.test', 'active@example.test', 'revoked@example.test', 'expired@example.test',
         'removed@example.test', 'inactive@example.test', 'revoked-member@example.test',
     ], invites, members), ['PENDING@example.test', 'active@example.test'])
-    assert.equal(memberCanMutate({ userId: 'owner', role: 'owner', status: 'active' }), false)
+    const owner = { userId: 'owner', role: 'owner' as const, status: 'active' }
+    assert.equal(memberCanMutate(owner), false)
+    assert.equal(memberMutationDisabledReason(true, owner), 'Owner role cannot be changed here')
     for (const status of ['removed', 'revoked', 'inactive']) {
-        assert.equal(memberCanMutate({ userId: status, role: 'reader', status }), false)
+        const member = { userId: status, role: 'reader' as const, status }
+        assert.equal(memberCanMutate(member), false)
+        assert.equal(memberMutationDisabledReason(true, member), 'Access is closed')
     }
-    assert.equal(memberCanMutate({ userId: 'active', role: 'reader', status: 'active' }), true)
+    const active = { userId: 'active', role: 'reader' as const, status: 'active' }
+    assert.equal(memberCanMutate(active), true)
+    assert.equal(memberMutationDisabledReason(true, active), '')
+    assert.equal(memberMutationDisabledReason(false, active), 'Owner or admin required')
 })
 
 test('watchlist creation disables blank and duplicate terms', () => {

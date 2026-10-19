@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ArrowLeft, ExternalLink } from 'lucide-react'
-import { DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
+import { DashboardPage, DashboardPanel, DashboardTable } from '@/components/dashboard/ui'
 import { formatTiDate, getTiAdminOverview, sourceCaptures, sourceRuns } from '@/utils/tiAdmin/ops'
 import ManualRunButton from '../../manualRunButton'
 import { manualRunQueries } from '../../manualRunQueries'
@@ -64,16 +64,18 @@ export default async function TiSourceDetailPage(props: { params: Promise<{ id: 
             </DashboardPanel>}
             <DashboardPanel className='min-w-0 overflow-hidden p-0'>
                 <h2 className='border-b border-ui-border p-4 font-semibold text-ui-text'>Recent runs</h2>
-                {runs.length ? <div className='overflow-x-auto'><table className='w-full text-left text-sm'>
-                    <thead className='text-ui-muted'><tr>{['Started', 'Status', 'Duration', 'Hits', 'Message'].map(title => <th key={title} className='px-4 py-3 font-medium'>{title}</th>)}</tr></thead>
-                    <tbody>{runs.map(run => <tr key={run.id} className='border-t border-ui-border'>
+                {runs.length ? <div className='overflow-x-auto'><DashboardTable
+                    className='w-full text-left text-sm'
+                    headClassName='text-ui-muted'
+                    bodyClassName={null}
+                    columnHeaders={['Started', 'Status', 'Duration', 'Hits', 'Message'].map(title => <th key={title} className='px-4 py-3 font-medium'>{title}</th>)}
+                >{runs.map(run => <tr key={run.id} className='border-t border-ui-border'>
                         <td className='whitespace-nowrap px-4 py-3'>{formatTiDate(run.startedAt)}</td>
                         <td className='px-4 py-3'>{label(run.status)}</td>
                         <td className='whitespace-nowrap px-4 py-3'>{duration(run.startedAt, run.finishedAt)}</td>
                         <td className='px-4 py-3'>{run.captures}</td>
                         <td className='min-w-48 px-4 py-3 text-ui-muted'>{run.message || '—'}</td>
-                    </tr>)}</tbody>
-                </table></div> : <p className='p-4 text-sm text-ui-muted'>{failed.includes('collection-runs') ? 'Run history unavailable.' : 'No runs recorded yet.'}</p>}
+                    </tr>)}</DashboardTable></div> : <p className='p-4 text-sm text-ui-muted'>{failed.includes('collection-runs') ? 'Run history unavailable.' : 'No runs recorded yet.'}</p>}
             </DashboardPanel>
             <DashboardPanel className='min-w-0 p-4'>
                 <h2 className='font-semibold text-ui-text'>Recent evidence</h2>

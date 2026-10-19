@@ -57,7 +57,9 @@
     ".next/dev/types/**/*.ts",
     "next.config.js",
     ".next/organization-pages/types/**/*.ts",
-    ".next/organization-pages/dev/types/**/*.ts"
+    ".next/organization-pages/dev/types/**/*.ts",
+    ".next/vm-access-check/types/**/*.ts",
+    ".next/vm-access-check/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",
