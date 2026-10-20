@@ -5,10 +5,11 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import config from '@/config'
 import { getCookie } from '@/utils/cookies/cookies'
+import type { NotifyVmAction } from './vmActionFeedback'
 
 type Organization = { id: string; name: string; role: string; status?: string }
 
-export default function AddToOrganization({ vm, onAdded }: { vm: VM; onAdded?: () => void | Promise<void> }) {
+export default function AddToOrganization({ vm, onAdded, onFeedback }: { vm: VM; onAdded?: () => void | Promise<void>; onFeedback?: NotifyVmAction }) {
     const router = useRouter()
     const [open, setOpen] = useState(false)
     const [organizations, setOrganizations] = useState<Organization[]>([])
@@ -36,8 +37,14 @@ export default function AddToOrganization({ vm, onAdded }: { vm: VM; onAdded?: (
             })
             const body = await response.json()
             if (!response.ok) throw new Error(body.error || 'Unable to add VM.')
-            setOpen(false); await onAdded?.(); router.refresh(); window.dispatchEvent(new Event('vms-updated'))
-        } catch (cause) { setError(cause instanceof Error ? cause.message : 'Unable to add VM.') }
+            setOpen(false)
+            onFeedback?.(`${vm.name} was added to the organization.`, 'success', `vm-${vm.name}-organization`)
+            await onAdded?.(); router.refresh(); window.dispatchEvent(new Event('vms-updated'))
+        } catch (cause) {
+            const message = cause instanceof Error ? cause.message : 'Unable to add VM.'
+            setError(message)
+            onFeedback?.(message, 'error', `vm-${vm.name}-organization`)
+        }
         finally { setBusy(false) }
     }
     return <div>

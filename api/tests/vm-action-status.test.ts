@@ -2,6 +2,7 @@ import { expect, mock, test } from 'bun:test'
 
 let hostStatus = 'Stopped'
 const responseStatus = 'Running'
+let hostTransportError: Error | undefined
 mock.module('../src/constants.ts', () => ({ default: { vm_host_id: 'inspur', lxd_socket_path: '/tmp/lxd.sock' } }))
 mock.module('../src/utils/auth/tokenWrapper.ts', () => ({ default: async () => ({ valid: true, id: 'owner' }) }))
 mock.module('../src/utils/auth/organizationPageAccess.ts', () => ({ default: async () => ({ valid: false }) }))
@@ -12,6 +13,7 @@ mock.module('../src/utils/db.ts', () => ({ default: async (sql: string) => ({ ro
     name: 'status-cache-regression-vm', owner: 'owner', created_by: 'owner', access_users: [], primary_host: 'inspur', deleted_at: null,
 }] : [] }) }))
 mock.module('../src/utils/vms/hostTransport.ts', () => ({ internalHostFetch: async () => {
+    if (hostTransportError) throw hostTransportError
     hostStatus = responseStatus
     return Response.json({ message: 'start command completed' })
 } }))
@@ -38,5 +40,25 @@ test('successful lifecycle actions invalidate cached host status before the next
         expect((await withLiveVmStatus(vm)).status).toBe('RUNNING')
     } finally {
         globalThis.fetch = originalFetch
+    }
+})
+
+test('lifecycle transport timeouts return an actionable gateway timeout', async () => {
+    hostTransportError = new Error('Request timed out')
+    const reply = {
+        statusCode: 200,
+        body: undefined as unknown,
+        status(code: number) { this.statusCode = code; return this },
+        send(body: unknown) { this.body = body; return this },
+    }
+    try {
+        await vmAction({
+            params: { id: 'status-cache-regression-vm', action: 'restart' },
+            log: { error: () => undefined },
+        } as never, reply as never)
+        expect(reply.statusCode).toBe(504)
+        expect(reply.body).toEqual({ error: 'The restart request timed out. The VM may still be processing it; check its status before trying again.' })
+    } finally {
+        hostTransportError = undefined
     }
 })

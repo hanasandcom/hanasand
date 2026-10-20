@@ -80,6 +80,11 @@ export default async function vmAction(req: FastifyRequest, res: FastifyReply) {
         })
     } catch (error) {
         req.log.error(error)
+        if (error instanceof Error && /timeout|timed out/i.test(error.message)) {
+            return res.status(504).send({
+                error: `The ${action} request timed out. The VM may still be processing it; check its status before trying again.`,
+            })
+        }
         return res.status(500).send({ error: 'Unable to contact internal VM API.' })
     }
 }

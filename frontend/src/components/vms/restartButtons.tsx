@@ -1,16 +1,14 @@
 'use client'
 
-import useClearStateAfter from '@/hooks/useClearStateAfter'
 import manageVM from '@/utils/vms/fetch/manage/manage'
 import { LoaderCircle, Play, RefreshCcw, StopCircle } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import ErrorNotice from '../error/errorNotice'
 import { vmActionStyle } from './actionStyle'
+import type { NotifyVmAction } from './vmActionFeedback'
 
-export default function RestartButtons({ vm, onUpdated, showLabels = false }: { vm: VM, onUpdated?: () => void, showLabels?: boolean }) {
+export default function RestartButtons({ vm, onUpdated, onFeedback, showLabels = false }: { vm: VM, onUpdated?: () => void, onFeedback?: NotifyVmAction, showLabels?: boolean }) {
     const router = useRouter()
-    const { condition: message, setCondition: setMessage } = useClearStateAfter()
     const [loading, setLoading] = useState<'start' | 'stop' | 'restart' | null>(null)
     const [pendingAction, setPendingAction] = useState<'start' | 'stop' | null>(null)
     const [hydrated, setHydrated] = useState(false)
@@ -43,21 +41,25 @@ export default function RestartButtons({ vm, onUpdated, showLabels = false }: { 
     }
 
     async function handleAction(action: 'start' | 'stop' | 'restart') {
+        const feedbackKey = `vm-${vm.name}-${action}`
         if (!canManage) {
-            setMessage('This virtual machine is missing its instance name.')
+            onFeedback?.('This virtual machine is missing its instance name.', 'error', feedbackKey)
             return
         }
         setLoading(action)
-        setMessage(null)
+        onFeedback?.(`${action === 'start' ? 'Starting' : action === 'stop' ? 'Stopping' : 'Restarting'} ${vm.name}…`, 'progress', feedbackKey)
         try {
             const response = await manageVM(vm.name, action)
             if (response.ok) {
                 if (action === 'start' || action === 'stop') setPendingAction(action)
+                onFeedback?.(`${action === 'start' ? 'Start' : action === 'stop' ? 'Stop' : 'Restart'} requested for ${vm.name}.`, 'success', feedbackKey)
                 router.refresh()
                 onUpdated?.()
             } else {
-                setMessage(response.message)
+                onFeedback?.(response.message, 'error', feedbackKey)
             }
+        } catch {
+            onFeedback?.(`Unable to ${action} ${vm.name}. Check its status before trying again.`, 'error', feedbackKey)
         } finally {
             setLoading(null)
         }
@@ -77,7 +79,6 @@ export default function RestartButtons({ vm, onUpdated, showLabels = false }: { 
                 </button>}
             </div>
             <span className='sr-only' role='status' aria-live='polite'>{loading ? `${loading === 'start' ? 'Starting' : loading === 'stop' ? 'Stopping' : 'Restarting'} ${vm.name}` : isStarting ? `Starting ${vm.name}` : pendingAction ? `${pendingAction === 'start' ? 'Starting' : 'Stopping'} ${vm.name}` : ''}</span>
-            <ErrorNotice compact variant='error' className='max-w-sm text-left' message={message as string | null} />
         </div>
     )
 }

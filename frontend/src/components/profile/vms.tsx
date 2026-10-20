@@ -9,6 +9,9 @@ import { getCookie } from '@/utils/cookies/cookies'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { DashboardPanel } from '../dashboard/ui'
+import VmFiltersButton from './vmFilters'
+import { defaultVmFilters, filterVms, type VmFilters } from '@/utils/vms/filterVms'
+import { useVmActionFeedback, VmActionFeedback } from '@/components/vms/vmActionFeedback'
 
 export default function VMs({ vms: serverVMs, initialNow }: { vms: VM[], initialNow: number }) {
     const [vms, setVms] = useState<VM[]>(serverVMs || [])
@@ -19,15 +22,24 @@ export default function VMs({ vms: serverVMs, initialNow }: { vms: VM[], initial
     const nameInput = useRef<HTMLInputElement>(null)
     const [name, setName] = useState('')
     const [creating, setCreating] = useState(false)
-    const [message, setMessage] = useState('')
+    const [filters, setFilters] = useState<VmFilters>(defaultVmFilters)
+    const { items, notify, dismiss } = useVmActionFeedback()
+    const visibleVms = filterVms(vms, filters)
+    const editorOptions = Array.from(new Set(vms.flatMap(vm => vm.access_users || []))).sort((a, b) => a.localeCompare(b))
 
     async function create(event: React.FormEvent) {
         event.preventDefault()
         setCreating(true)
+        notify('Creating virtual machine…', 'progress', 'vm-create')
         try {
             const result = await postVM({ name: name.trim() })
-            setMessage(result.message)
-            if (result.status === 201) { setName(''); await update() }
+            if (result.status === 201) {
+                notify(`Created ${name.trim()}.`, 'success', 'vm-create')
+                setName('')
+                void update().catch(() => notify('The VM was created, but the list could not be refreshed.', 'info', 'vm-create-refresh'))
+            } else notify(result.message, 'error', 'vm-create')
+        } catch {
+            notify('Unable to create the virtual machine. Please try again.', 'error', 'vm-create')
         } finally { setCreating(false) }
     }
 
@@ -66,9 +78,10 @@ export default function VMs({ vms: serverVMs, initialNow }: { vms: VM[], initial
             <div className='mb-1 flex items-center justify-between gap-3'>
                 <div>
                     <h2 className='text-base font-semibold text-ui-text'>Virtual machines</h2>
-                    <p className='mt-1 text-sm text-ui-muted'>{vms.length} virtual machine{vms.length === 1 ? '' : 's'}</p>
+                    <p className='mt-1 text-sm text-ui-muted'>{visibleVms.length === vms.length ? `${vms.length} virtual machine${vms.length === 1 ? '' : 's'}` : `${visibleVms.length} of ${vms.length} virtual machines`}</p>
                 </div>
                 <div className='flex shrink-0 items-center gap-2'>
+                    <VmFiltersButton filters={filters} onChange={setFilters} editors={editorOptions} />
                     <button
                         type='button'
                         aria-label={showCreate ? 'Close VM creation controls' : 'Create VM'}
@@ -86,11 +99,13 @@ export default function VMs({ vms: serverVMs, initialNow }: { vms: VM[], initial
             <form id={createFormId} onSubmit={create} className={showCreate ? 'flex flex-wrap items-end gap-2' : 'hidden'}>
                 <label className='grid gap-1 text-sm text-ui-muted'>VM name<input ref={nameInput} value={name} onChange={event => setName(event.target.value)} required pattern='[a-z][a-z0-9-]{0,61}[a-z0-9]' minLength={2} maxLength={63} title='2–63 lowercase letters, numbers or hyphens, starting with a letter' disabled={creating} className='h-10 rounded-lg border border-ui-border bg-ui-raised px-3 text-ui-text' /></label>
                 <button disabled={creating} className='h-10 rounded-lg bg-ui-primary px-4 text-sm font-semibold text-ui-on-primary disabled:opacity-50'>{creating ? 'Creating VM…' : 'Create VM'}</button>
-                {message && <p role='status' className='w-full text-sm text-ui-muted'>{message}</p>}
             </form>
             {vms.length > 0 ? (
-                <div className='grid gap-2'>
-                    {vms.map(vm => <VMRow update={update} key={vm.name} vm={vm} now={now} />)}
+                visibleVms.length > 0 ? <div className='grid gap-2'>
+                    {visibleVms.map(vm => <VMRow update={update} key={vm.name} vm={vm} now={now} onFeedback={notify} />)}
+                </div> : <div className='rounded-xl border border-dashed border-ui-border bg-ui-canvas/50 px-4 py-8 text-center'>
+                    <p className='text-sm font-medium text-ui-text'>No virtual machines match these filters.</p>
+                    <button type='button' onClick={() => setFilters(defaultVmFilters)} className='mt-2 text-sm font-medium text-ui-primary hover:underline'>Clear filters</button>
                 </div>
             ) : (
                 <div className='flex flex-wrap gap-x-1 text-sm text-ui-muted'>
@@ -99,6 +114,7 @@ export default function VMs({ vms: serverVMs, initialNow }: { vms: VM[], initial
                     <span>to provision one.</span>
                 </div>
             )}
+            <VmActionFeedback items={items} dismiss={dismiss} />
         </DashboardPanel>
     )
 }

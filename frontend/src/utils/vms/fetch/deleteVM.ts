@@ -19,8 +19,8 @@ export default async function deleteVM(vmId: string, confirmation: string): Prom
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${token}`, id, 'Content-Type': 'application/json' },
             body: JSON.stringify({ confirmation }),
-            timeoutMs: config.abortTimeout,
-            retries: 2,
+            timeoutMs: 180000,
+            retries: 0,
         })
 
         const payload = await response.json().catch(() => ({}))
@@ -28,10 +28,11 @@ export default async function deleteVM(vmId: string, confirmation: string): Prom
 
         return { status: response.status, message: typeof payload.message === 'string' ? payload.message : 'VM deletion scheduled.' }
     } catch (error) {
-        console.log(error)
         return {
             status: 500,
-            message: `Failed to delete vm ${vmId}.`
+            message: error instanceof Error && /aborted|timed out/i.test(error.message)
+                ? `The delete request timed out. Check ${vmId}'s status before trying again.`
+                : `Unable to schedule ${vmId} for deletion. Please try again.`
         }
     }
 }

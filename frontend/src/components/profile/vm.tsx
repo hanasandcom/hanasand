@@ -6,10 +6,8 @@ import Link from 'next/link'
 import { useState } from 'react'
 import DeleteVmDialog from '../vms/deleteVmDialog'
 import restoreVM from '@/utils/vms/fetch/restoreVM'
-import useClearStateAfter from '@/hooks/useClearStateAfter'
 import deleteVM from '@/utils/vms/fetch/deleteVM'
 import { ArrowRight, Cpu, Ellipsis, HardDrive, Network, TerminalSquare, Trash2 } from 'lucide-react'
-import Notify from '../notify/notify'
 import formatUtcDateTime from '@/utils/date/formatUtcDateTime'
 import formatDescription from '@/utils/vms/formatDescription'
 import formatStatus from '@/utils/vms/formatStatus'
@@ -17,8 +15,9 @@ import { useRouter } from 'next/navigation'
 import RestartButtons from '../vms/restartButtons'
 import { vmActionStyle } from '../vms/actionStyle'
 import VMSudoPassword from '../vms/vmSudoPassword'
+import type { NotifyVmAction } from '../vms/vmActionFeedback'
 
-export default function VMRow({ vm, update, now }: { vm: VM, update: () => void, now: number }) {
+export default function VMRow({ vm, update, now, onFeedback }: { vm: VM, update: () => void, now: number, onFeedback?: NotifyVmAction }) {
     const router = useRouter()
     const [confirmingDelete, setConfirmingDelete] = useState(false)
     const [busy, setBusy] = useState(false)
@@ -26,7 +25,6 @@ export default function VMRow({ vm, update, now }: { vm: VM, update: () => void,
     const deleted = Boolean(vm.deleted_at)
     const expired = Boolean(vm.delete_after && new Date(vm.delete_after).getTime() <= now)
     const instanceMissing = vm.deletion_restore?.instanceMissing === true
-    const { condition: message, setCondition: setMessage } = useClearStateAfter()
     const name = vm.name || 'Unnamed virtual machine'
     const ip = vm.device_eth0_ipv4_address || 'IP pending'
     const status = deleted ? 'Scheduled for deletion' : formatStatus(vm.status) || 'Syncing'
@@ -39,7 +37,7 @@ export default function VMRow({ vm, update, now }: { vm: VM, update: () => void,
 
     function openDetails() {
         if (!vm.name) {
-            setMessage('This virtual machine is missing its instance name.')
+            onFeedback?.('This virtual machine is missing its instance name.', 'error')
             return
         }
         router.push(`/vm/${vm.name}`)
@@ -49,21 +47,36 @@ export default function VMRow({ vm, update, now }: { vm: VM, update: () => void,
         if (!vm.name || busy) return
         setBusy(true)
         setDeleteError('')
+        onFeedback?.(`Scheduling ${vm.name} for deletion…`, 'progress', `vm-${vm.name}-delete`)
         try {
             const result = await deleteVM(vm.name, confirmation)
-            if (result.status === 200) { setConfirmingDelete(false); setMessage(result.message) }
-            else { setDeleteError(result.message); setMessage(result.message) }
+            if (result.status === 200) {
+                setConfirmingDelete(false)
+                onFeedback?.(`${vm.name} is scheduled for deletion.`, 'success', `vm-${vm.name}-delete`)
+            } else {
+                setDeleteError(result.message)
+                onFeedback?.(result.message, 'error', `vm-${vm.name}-delete`)
+            }
             update()
+        } catch {
+            const message = 'Unable to schedule this VM for deletion. Check its current status and try again.'
+            setDeleteError(message)
+            onFeedback?.(message, 'error', `vm-${vm.name}-delete`)
         } finally { setBusy(false) }
     }
 
     async function handleRestore() {
         if (busy) return
         setBusy(true)
+        onFeedback?.(`Restoring ${name}…`, 'progress', `vm-${name}-restore`)
         try {
             const result = await restoreVM(name)
-            setMessage(result.message)
-            update()
+            if (result.status >= 200 && result.status < 300) {
+                onFeedback?.(`${name} was restored.`, 'success', `vm-${name}-restore`)
+                update()
+            } else onFeedback?.(result.message, 'error', `vm-${name}-restore`)
+        } catch {
+            onFeedback?.(`Unable to restore ${name}. Please try again.`, 'error', `vm-${name}-restore`)
         } finally { setBusy(false) }
     }
 
@@ -87,7 +100,7 @@ export default function VMRow({ vm, update, now }: { vm: VM, update: () => void,
                     </div>
                     <div className='flex w-full max-w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap sm:justify-end'>
                         {!deleted && <>
-                            <RestartButtons vm={vm} showLabels />
+                            <RestartButtons vm={vm} onFeedback={onFeedback} showLabels />
                             <Link href={`/vms/${encodeURIComponent(name)}/console`} aria-label={`Open ${name} console`} title='Open console' className={`${vmActionStyle} w-auto px-2.5 text-ui-primary`}>
                                 <TerminalSquare className='h-4 w-4' /> <span>Console</span>
                             </Link>
@@ -99,7 +112,7 @@ export default function VMRow({ vm, update, now }: { vm: VM, update: () => void,
                                     <Ellipsis className='h-5 w-5' />
                                 </summary>
                                 <div className='absolute right-0 top-11 z-20 grid min-w-56 gap-2 rounded-lg border border-ui-border bg-ui-panel p-2 shadow-lg'>
-                                    <AddToOrganization vm={vm} onAdded={update} />
+                                    <AddToOrganization vm={vm} onAdded={update} onFeedback={onFeedback} />
                                     {vm.name && <VMSudoPassword vmName={vm.name} compact triggerClassName={`${vmActionStyle} w-full justify-start px-3 text-ui-primary`} />}
                                     <button type='button' onClick={() => { setDeleteError(''); setConfirmingDelete(true) }} className={`${vmActionStyle} justify-start px-3 text-ui-danger`}>
                                         <Trash2 className='h-4 w-4' /> Delete VM
@@ -136,9 +149,6 @@ export default function VMRow({ vm, update, now }: { vm: VM, update: () => void,
                 </div>}
             </article>
             {confirmingDelete && <DeleteVmDialog name={name} busy={busy} error={deleteError} onCancel={() => setConfirmingDelete(false)} onConfirm={confirmation => void handleDelete(confirmation)} />}
-            <div className='absolute top-2 right-2 z-1200'>
-                <Notify className='px-4' message={message} />
-            </div>
         </>
     )
 }

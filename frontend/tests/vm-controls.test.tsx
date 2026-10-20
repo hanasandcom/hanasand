@@ -17,9 +17,11 @@ test('VM actions encode instance names and preserve plain-text API failures', as
     })
 
     const originalFetch = globalThis.fetch
+    let attempts = 0
     let request: { url: string, authorization: string, id: string } | undefined
     try {
         globalThis.fetch = async (input, init) => {
+            attempts++
             const headers = new Headers(init?.headers)
             request = {
                 url: String(input),
@@ -33,6 +35,7 @@ test('VM actions encode instance names and preserve plain-text API failures', as
         assert.match(request?.url || '', /\/vm\/folder%2Ftest%20vm\/start$/)
         assert.equal(request?.authorization, 'Bearer playwright%2Ftoken')
         assert.equal(request?.id, 'playwright-user')
+        assert.equal(attempts, 1, 'a lifecycle POST must not be automatically replayed')
     } finally {
         globalThis.fetch = originalFetch
         Reflect.deleteProperty(globalThis, 'document')

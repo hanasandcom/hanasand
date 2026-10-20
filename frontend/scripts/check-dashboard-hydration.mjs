@@ -1,13 +1,14 @@
 import assert from 'node:assert/strict'
 import { cp, mkdir } from 'node:fs/promises'
 import { chromium } from '@playwright/test'
+import { checkVmInventoryUx } from './checkVmInventoryUx.mjs'
 
 const base = 'http://127.0.0.1:3019'
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
 const date = '2026-09-30T00:30:00.000Z'
 const nextDate = '2026-10-01T00:00:00.000Z'
 const vm = {
-    name: 'hydration-vm', owner: 'test', created_by: 'test', access_users: [], always_running_premium: false,
+    name: 'hydration-vm', owner: 'test', created_by: 'test', access_users: ['ada'], always_running_premium: false,
     always_running_enabled: false, failover_premium: false, failover_enabled: false, primary_host: 'host', failover_host: null,
     status: 'Running', type: 'container', architecture: 'x86_64', created: date, last_used: date, config_image_description: 'Ubuntu',
     config_image_os: 'Ubuntu', config_image_version: '24.04', limits_cpu: '2', limits_memory: '2 GB',
@@ -136,6 +137,9 @@ try {
     }).map(([name, value]) => ({ name, value, url: base })))
     await context.route('**/api/backend/**', route => {
         const path = new URL(route.request().url()).pathname
+        if (route.request().method() === 'POST' && path.endsWith('/vm/hydration-vm/restart')) {
+            return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ message: 'restart accepted' }) })
+        }
         const body = path.endsWith('/logs/tuning') ? tuning
             : path.includes('/vms/') ? vms
                 : path.endsWith('/automations') ? { automations: [automation] } : automationDetail
@@ -149,11 +153,15 @@ try {
         if (message.type() === 'error' && /hydration|didn't match|error #418/i.test(message.text())) errors.push(message.text())
     })
 
-    for (const route of routes) {
-        await page.goto(base + route.path, { waitUntil: 'load' })
-        await page.getByRole('heading', { name: route.heading, exact: true }).waitFor()
-        await page.waitForTimeout(250)
+    if (process.env.VM_INVENTORY_UX_ONLY !== '1') {
+        for (const route of routes) {
+            await page.goto(base + route.path, { waitUntil: 'load' })
+            await page.getByRole('heading', { name: route.heading, exact: true }).waitFor()
+            await page.waitForTimeout(250)
+        }
     }
+
+    await checkVmInventoryUx(page, base)
 
     assert.deepEqual(errors, [])
     console.log(`Dashboard hydration passed in UTC server and America/Los_Angeles browser timezones${measureResponseTime ? ' with first-byte timing under 20ms' : ''}.`)

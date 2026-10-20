@@ -48,9 +48,16 @@ export default async function postVM(vm: Partial<VM>): Promise<{ status: number,
             }
         }
 
+        if (error.name === 'AbortError' || /aborted|timed out/i.test(error.message || '')) {
+            return {
+                status: 408,
+                message: `The create request timed out. ${vm.name} may still be provisioning; refresh the list before trying again.`
+            }
+        }
+
         return {
             status: 500,
-            message: `Failed to create VM ${vm.name}.`
+            message: `Unable to create VM ${vm.name}. Please try again.`
         }
     }
 }

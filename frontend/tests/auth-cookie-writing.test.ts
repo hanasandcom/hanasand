@@ -116,3 +116,27 @@ test('backend refresh cookie uses the response expiry through the shared route w
         globalThis.fetch = previousFetch
     }
 })
+
+test('backend proxy keeps VM lifecycle requests open for the host operation', async () => {
+    const previousFetch = globalThis.fetch
+    const previousTimeout = AbortSignal.timeout
+    let timeoutMs = 0
+    Object.defineProperty(AbortSignal, 'timeout', {
+        configurable: true,
+        value: (milliseconds: number) => {
+            timeoutMs = milliseconds
+            return previousTimeout(milliseconds)
+        },
+    })
+    globalThis.fetch = (async () => new Response('{}')) as typeof fetch
+
+    try {
+        const request = new NextRequest('http://internal.test/api/backend/vm/slow-vm/restart', { method: 'POST' })
+        const response = await GET(request, { params: Promise.resolve({ path: ['vm', 'slow-vm', 'restart'] }) })
+        expect(response.status).toBe(200)
+        expect(timeoutMs).toBeGreaterThanOrEqual(150_000)
+    } finally {
+        globalThis.fetch = previousFetch
+        Object.defineProperty(AbortSignal, 'timeout', { configurable: true, value: previousTimeout })
+    }
+})
