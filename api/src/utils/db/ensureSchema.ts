@@ -8,6 +8,7 @@ import ensureBrowserRunSchema from './browserRunSchema.ts'
 import ensureSupportSchema from './supportSchema.ts'
 import ensureAccountDeletionSchema from './accountDeletionSchema.ts'
 import ensureVmLifecycleSchema from './vmLifecycleSchema.ts'
+import ensureVmPublicPortsSchema from './vmPublicPortsSchema.ts'
 import ensureReservedAccountSchema from './reservedAccountSchema.ts'
 import ensureAuthenticationSchema from './authenticationSchema.ts'
 import ensureShareSchema from './shareSchema.ts'
@@ -132,6 +133,7 @@ async function applySchema() {
     await ensureSupportSchema()
     await ensureAccountDeletionSchema()
     await ensureVmLifecycleSchema()
+    await ensureVmPublicPortsSchema()
     await ensureReservedAccountSchema()
     await ensureAuthenticationSchema()
     await ensureShareSchema()

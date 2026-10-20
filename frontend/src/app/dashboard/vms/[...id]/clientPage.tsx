@@ -23,6 +23,7 @@ import VMMetrics from '@/components/vms/vmMetrics'
 import VMHostOptions from '@/components/vms/vmHostOptions'
 import { latestVMMetrics } from '@/utils/vms/metricPresentation'
 import { useVmActionFeedback, VmActionFeedback } from '@/components/vms/vmActionFeedback'
+import VmPublicServices from '@/components/vms/vmPublicServices'
 
 type VMClientProps = {
     vm: VM
@@ -106,6 +107,7 @@ export default function VMClient({ vm: serverVM, details: serverDetails, metrics
                 <div className='grid gap-3'>
                     <VMHostOptions boxStyle={boxStyle} boxTitleStyle={boxTitleStyle} vm={vm} onUpdate={setVM} />
                     <VMAccess vmName={vm.name} connection={connection} error={connectionError} />
+                    <VmPublicServices vmName={vm.name} />
                 </div>
                 <div className='grid gap-3'>
                     <VMMetrics metrics={metrics} error={metricsError} />
