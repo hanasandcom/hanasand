@@ -50,7 +50,7 @@ export default async function getVmConnection(req: FastifyRequest, res: FastifyR
             vmName,
             vmIp,
             username,
-            sshCommand: vmIp ? `ssh ${username}@${publicSshHost}` : null,
+            sshCommand: vmIp ? `ssh -p 443 ${username}@${publicSshHost}` : null,
             certificateCount: certificatesResult.rows.length,
             certificates: certificatesResult.rows,
         })

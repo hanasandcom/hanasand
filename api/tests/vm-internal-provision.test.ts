@@ -41,7 +41,7 @@ beforeEach(() => {
 afterAll(async () => { await app.close() })
 
 test('VM login user data creates a locked shell account and rejects unsafe names', () => {
-    expect(vmLoginUserData('codexvm')).toBe('#cloud-config\nhostname: codexvm\nmanage_etc_hosts: true\nusers:\n  - name: codexvm\n    shell: /bin/bash\n    lock_passwd: true\n')
+    expect(vmLoginUserData('codexvm')).toBe('#cloud-config\nhostname: codexvm\nmanage_etc_hosts: true\nusers:\n  - name: codexvm\n    shell: /bin/bash\n    lock_passwd: true\nruncmd:\n  - [sh, -lc, \'grep -Eq "^127\\.0\\.1\\.1[[:space:]]+.*[[:space:]]codexvm([[:space:]]|$)|^127\\.0\\.1\\.1[[:space:]]+codexvm([[:space:]]|$)" /etc/hosts || printf "127.0.1.1 codexvm\\n" >> /etc/hosts\']\n')
     expect(() => vmLoginUserData('root')).toThrow('Invalid VM login account.')
     expect(() => vmLoginUserData('bad name')).toThrow('Invalid VM login account.')
 })

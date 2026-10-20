@@ -53,10 +53,50 @@ esac
                     expect(invoked).not.toContain('start cashflow')
                     expect(invoked).not.toContain('exec cashflow')
                 } else {
-                    expect(result.status).toBe(0)
+                    expect(result.status, result.stderr).toBe(0)
                 }
             }
         }
+    } finally {
+        rmSync(directory, { recursive: true, force: true })
+    }
+})
+
+test('SSH repairs the VM hostname mapping before sudo starts the user shell', () => {
+    const match = source.match(/cat >\/usr\/local\/sbin\/hanasand-vm-ssh-dispatch-root <<'SH'\n([\s\S]*?)\nSH/)
+    expect(match).toBeTruthy()
+    const directory = mkdtempSync(join(tmpdir(), 'vm-ssh-hostname-'))
+    try {
+        const calls = join(directory, 'calls')
+        const repair = join(directory, 'repair')
+        const logger = join(directory, 'logger')
+        writeFileSync(logger, '#!/bin/sh\nexit 0\n')
+        chmodSync(logger, 0o700)
+        const mock = join(directory, 'lxc')
+        writeFileSync(mock, String.raw`#!/bin/sh
+printf '%s\n' "$*" >> "$PROBE_CALLS"
+case "$*" in *'127.0.1.1'*) printf 'hostname repair script received\n' > "$PROBE_REPAIR";; esac
+case "$*" in
+ 'config get hei user.hanasand.delete_after') exit 0;;
+ 'info hei') printf 'Status: RUNNING\n';;
+ 'exec hei -- true'|'exec hei -- id hei'|'exec hei -- sh -c '*|'exec hei -- sudo -Hiu hei') exit 0;;
+esac
+`)
+        chmodSync(mock, 0o700)
+        const script = join(directory, 'dispatch')
+        writeFileSync(script, match![1])
+        chmodSync(script, 0o700)
+        const result = spawnSync('bash', [script], {
+            encoding: 'utf8',
+            env: { ...process.env, PATH: `${directory}:${process.env.PATH}`, LXC_BIN: mock, PROBE_CALLS: calls, PROBE_REPAIR: repair, HANASAND_GATEWAY_USER: 'hei' },
+        })
+        expect(result.status).toBe(0)
+        const invoked = readFileSync(calls, 'utf8').split('\n')
+        const repairIndex = invoked.findIndex((call) => call.startsWith('exec hei -- sh -c '))
+        const sudoIndex = invoked.findIndex((call) => call.startsWith('exec hei -- sudo -Hiu hei'))
+        expect(repairIndex).toBeGreaterThan(-1)
+        expect(readFileSync(repair, 'utf8')).toContain('hostname repair script received')
+        expect(sudoIndex).toBeGreaterThan(repairIndex)
     } finally {
         rmSync(directory, { recursive: true, force: true })
     }

@@ -34,6 +34,15 @@ wait_ready() {
     done
     return 1
 }
+ensure_hostname_resolves() {
+    "${LXC_BIN}" exec "$1" -- sh -c '
+        host=$(hostname)
+        case "$host" in ""|*[!A-Za-z0-9._-]*) exit 0 ;; esac
+        if ! grep -Eq "^127\\.0\\.1\\.1[[:space:]]+([^[:space:]]+[[:space:]]+)*${host}([[:space:]]|$)" /etc/hosts; then
+            printf "127.0.1.1 %s\\n" "$host" >> /etc/hosts
+        fi
+    '
+}
 info=$("${LXC_BIN}" info "$vm")
 state=$(awk '/^Status:/ {print tolower($2); exit}' <<<"$info")
 if [ "$state" != "running" ]; then
@@ -44,6 +53,7 @@ wait_ready "$vm" || {
     echo "VM '$vm' did not become ready." >&2
     exit 1
 }
+ensure_hostname_resolves "$vm"
 if ! "${LXC_BIN}" exec "$vm" -- id "$vm" >/dev/null 2>&1; then
     echo "User '$vm' is missing inside VM '$vm'." >&2
     exit 1

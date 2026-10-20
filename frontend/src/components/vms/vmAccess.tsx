@@ -1,6 +1,7 @@
 import { VmPanel } from './vmPanel'
 import { VmReconnectNotice } from './vmReconnectNotice'
 import VMSudoPassword from './vmSudoPassword'
+import { VMConnectInstructions } from './vmConnectInstructions'
 
 type VMAccessProps = {
     vmName: string
@@ -19,11 +20,7 @@ export default function VMAccess({ vmName, connection, error }: VMAccessProps) {
                         <p><span className='font-semibold text-ui-text/70'>Host:</span> {connection.vmIp || 'IP attaching'}</p>
                         <p><span className='font-semibold text-ui-text/70'>Profile SSH keys:</span> {connection.certificateCount}</p>
                     </div>
-                    {connection.sshCommand && (
-                        <div className='rounded-md border border-ui-border/10 bg-ui-canvas/20 px-3 py-2 text-xs text-ui-text/84'>
-                            {connection.sshCommand}
-                        </div>
-                    )}
+                    <VMConnectInstructions command={connection.sshCommand} />
                     {!connection.certificateCount && (
                         <p className='text-xs text-ui-warning/80'>
                             Add a certificate on your profile to enable passwordless terminal access from your own machine.

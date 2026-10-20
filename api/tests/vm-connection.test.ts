@@ -15,7 +15,8 @@ test('valid website session loads access metadata even if internal certificate s
     const response = await app.inject({ url: '/vm/cashflow/connection', headers: { id: 'member' } })
     expect(response.statusCode).toBe(200)
     expect(response.json()).toMatchObject({ vmName: 'cashflow', username: 'cashflow', vmIp: '192.0.2.10', certificateCount: 1 })
-    expect(response.json().sshCommand).toContain('ssh cashflow@')
+    const publicSshHost = process.env.VM_PUBLIC_SSH_HOST || process.env.VM_PUBLIC_HOST || 'hanasand.com'
+    expect(response.json().sshCommand).toBe(`ssh -p 443 cashflow@${publicSshHost}`)
 })
 test('only website authentication failure returns 401', async () => {
     expect((await app.inject('/vm/cashflow/connection')).statusCode).toBe(401)
