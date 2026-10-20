@@ -1,5 +1,5 @@
 import run from '#db'
-import { ensureColumn } from './existingSchema.ts'
+import { ensureColumn, ensureColumnNullable } from './existingSchema.ts'
 import { ensureTrafficHistorySchema } from '../traffic/history.ts'
 
 export default async function ensureTrafficDesktopSchema() {
@@ -34,6 +34,8 @@ export default async function ensureTrafficDesktopSchema() {
                 PRIMARY KEY (owner_id, device_id)
             )
         `)
+    await ensureColumn(run, 'public.desktop_agent_presence', 'tls_certificate_sha256', 'ALTER TABLE desktop_agent_presence ADD COLUMN tls_certificate_sha256 TEXT')
+    await ensureColumnNullable(run, 'public.desktop_agent_presence', 'tls_certificate_sha256', 'ALTER TABLE desktop_agent_presence ALTER COLUMN tls_certificate_sha256 DROP NOT NULL')
     await run('ALTER TABLE desktop_agent_presence ALTER COLUMN agent_token SET DEFAULT \'\'')
     await run('CREATE INDEX IF NOT EXISTS idx_desktop_agent_presence_owner_updated ON desktop_agent_presence(owner_id, updated_at DESC)')
     await run('CREATE INDEX IF NOT EXISTS idx_desktop_agent_presence_expires ON desktop_agent_presence(expires_at)')

@@ -6,10 +6,17 @@ type PresenceBody = {
     deviceId?: string
     deviceName?: string
     endpoints?: string[]
+    tlsCertificateSha256?: string
 }
 
 function clean(value: unknown) {
     return typeof value === 'string' ? value.trim() : ''
+}
+
+function cleanTlsCertificateSha256(value: unknown): string | null | undefined {
+    if (value === undefined) return undefined
+    if (typeof value !== 'string' || !/^[0-9a-f]{64}$/.test(value)) return null
+    return value
 }
 
 function isPrivateNetworkHost(hostname: string) {
@@ -32,7 +39,7 @@ function cleanEndpoints(value: unknown) {
             const url = new URL(endpoint)
             if ((url.protocol !== 'http:' && url.protocol !== 'https:') || !url.hostname || !url.port) continue
             if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') continue
-            if (url.protocol === 'http:' && !isPrivateNetworkHost(url.hostname)) continue
+            if (!isPrivateNetworkHost(url.hostname)) continue
             seen.add(url.origin)
             endpoints.push(url.origin)
         } catch {
@@ -49,6 +56,7 @@ function presenceRow(row: Record<string, unknown>) {
         deviceId: row.device_id,
         deviceName: row.device_name,
         endpoints,
+        tlsCertificateSha256: typeof row.tls_certificate_sha256 === 'string' ? row.tls_certificate_sha256 : null,
         updatedAt: row.updated_at,
         expiresAt: row.expires_at,
     }
@@ -62,7 +70,7 @@ export async function getDesktopAgentPresence(req: FastifyRequest, res: FastifyR
 
     try {
         const result = await run(
-            `SELECT device_id, device_name, endpoints, updated_at, expires_at
+            `SELECT device_id, device_name, endpoints, tls_certificate_sha256, updated_at, expires_at
              FROM desktop_agent_presence
              WHERE owner_id = $1 AND expires_at > NOW()
              ORDER BY updated_at DESC
@@ -86,6 +94,11 @@ export async function postDesktopAgentPresence(req: FastifyRequest<{ Body: Prese
     const deviceId = clean(req.body?.deviceId)
     const deviceName = clean(req.body?.deviceName) || 'Mac'
     const endpoints = cleanEndpoints(req.body?.endpoints)
+    const tlsCertificateSha256 = cleanTlsCertificateSha256(req.body?.tlsCertificateSha256)
+
+    if (tlsCertificateSha256 === null) {
+        return res.status(400).send({ error: 'Desktop agent TLS certificate fingerprint must be 64 lowercase hexadecimal characters.' })
+    }
 
     if (!deviceId || !endpoints.length) {
         return res.status(400).send({ error: 'Desktop agent presence needs a device id and at least one LAN endpoint.' })
@@ -93,17 +106,18 @@ export async function postDesktopAgentPresence(req: FastifyRequest<{ Body: Prese
 
     try {
         const result = await run(
-            `INSERT INTO desktop_agent_presence (owner_id, device_id, device_name, endpoints, agent_token, expires_at)
-             VALUES ($1, $2, $3, $4, '', NOW() + INTERVAL '5 minutes')
+            `INSERT INTO desktop_agent_presence (owner_id, device_id, device_name, endpoints, tls_certificate_sha256, agent_token, expires_at)
+             VALUES ($1, $2, $3, $4, $5, '', NOW() + INTERVAL '5 minutes')
              ON CONFLICT (owner_id, device_id)
              DO UPDATE SET
                 device_name = EXCLUDED.device_name,
                 endpoints = EXCLUDED.endpoints,
+                tls_certificate_sha256 = EXCLUDED.tls_certificate_sha256,
                 agent_token = '',
                 updated_at = NOW(),
                 expires_at = EXCLUDED.expires_at
-             RETURNING device_id, device_name, endpoints, updated_at, expires_at`,
-            [id, deviceId, deviceName.slice(0, 120), endpoints]
+             RETURNING device_id, device_name, endpoints, tls_certificate_sha256, updated_at, expires_at`,
+            [id, deviceId, deviceName.slice(0, 120), endpoints, tlsCertificateSha256 ?? null]
         )
 
         return res.send({ agent: presenceRow(result.rows[0]) })
