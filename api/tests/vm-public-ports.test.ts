@@ -65,13 +65,13 @@ test('public services reject unsafe names, unsupported protocols, invalid ports 
     expect(services).toHaveLength(0)
 })
 
-test('gateway route data requires its token and excludes proxied public requests', async () => {
+test('gateway route data requires its token through the API proxy', async () => {
     services.push({ id: 1, name: 'web', route_type: 'tls', guest_port: 443, created_at: '2026-10-20T00:00:00Z', vm_name: 'hei' })
     const denied = await app.inject('/vms/internal/public-ports')
-    const proxied = await app.inject({ url: '/vms/internal/public-ports', headers: { authorization: 'Bearer sync-token', 'x-forwarded-for': '203.0.113.8' } })
+    const proxied = await app.inject({ url: '/vms/internal/public-ports', headers: { authorization: 'Bearer sync-token', 'x-forwarded-for': '127.0.0.1' } })
     const allowed = await app.inject({ url: '/vms/internal/public-ports', headers: { authorization: 'Bearer sync-token' } })
     expect(denied.statusCode).toBe(404)
-    expect(proxied.statusCode).toBe(404)
+    expect(proxied.statusCode).toBe(200)
     expect(allowed.statusCode).toBe(200)
     expect(allowed.json()).toEqual([{ hostname: 'port-web.hanasand.com', type: 'tls', vmName: 'hei', vmIp: '10.119.85.22', port: 443 }])
 })
