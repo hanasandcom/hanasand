@@ -1,5 +1,6 @@
 import type { FastifyRequest } from 'fastify'
 import hasInternalToken from '#utils/auth/internalToken.ts'
+import hasVmPortRouteToken from '#utils/auth/vmPortRouteToken.ts'
 
 export const internalTokenRoutes = new Map<string, string>([
     ['GET /api/vms/names', 'service:vm-sync'],
@@ -9,8 +10,14 @@ export const internalTokenRoutes = new Map<string, string>([
     ['DELETE /api/vms', 'service:vm-sync'],
     ['POST /api/vms/internal/:name/provision', 'service:vm-provision'],
     ['GET /api/vms/internal/:name/status', 'service:vm-status'],
+    ['GET /api/vms/internal/public-ports', 'service:vm-port-routes'],
     ['POST /api/status/ingest', 'service:status-ingest'],
 ])
+
+export function matchesInternalTokenRoute(req: FastifyRequest, service: string) {
+    if (service === 'service:vm-port-routes') return hasVmPortRouteToken(req)
+    return hasInternalToken(req)
+}
 
 
 export function isInfrastructureWebSocketPath(path: string) {

@@ -2,7 +2,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify'
 import run from '#db'
 import { hasVmAccess, requireVmAccess } from '#utils/vms/access.ts'
 import config from '#constants'
-import { timingSafeEqual } from 'node:crypto'
+import hasVmPortRouteToken from '#utils/auth/vmPortRouteToken.ts'
 
 const maxPortsPerVm = 5
 const routeTypes = ['minecraft-java', 'tls'] as const
@@ -60,9 +60,7 @@ export async function deleteVmPublicPort(req: FastifyRequest, res: FastifyReply)
 }
 
 export async function getInternalVmPublicPorts(req: FastifyRequest, res: FastifyReply) {
-    const token = req.headers.authorization?.replace(/^Bearer /, '') || ''
-    const expected = config.vm_port_route_token || ''
-    if (req.headers['x-forwarded-for'] || !expected || token.length !== expected.length || !timingSafeEqual(Buffer.from(token), Buffer.from(expected))) return res.code(404).send({ error: 'Not found.' })
+    if (req.headers['x-forwarded-for'] || !hasVmPortRouteToken(req)) return res.code(404).send({ error: 'Not found.' })
     const result = await run(`SELECT p.name, p.route_type, p.guest_port, v.name AS vm_name, d.device_eth0_ipv4_address AS vm_ip
         FROM vm_public_ports p JOIN vms v ON v.name = p.vm_name
         JOIN vm_details d ON d.name = v.name

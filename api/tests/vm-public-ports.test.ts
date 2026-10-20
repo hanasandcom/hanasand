@@ -33,6 +33,7 @@ mock.module('#utils/vms/access.ts', () => ({
 mock.module('#constants', () => ({ default: { vm_host_id: 'inspur', vm_port_route_token: 'sync-token' } }))
 
 const { deleteVmPublicPort, getInternalVmPublicPorts, getVmPublicPorts, postVmPublicPort } = await import('../src/handlers/vms/publicPorts.ts')
+const { internalTokenRoutes, matchesInternalTokenRoute } = await import('../src/plugins/rateLimitPolicy.ts')
 const app = Fastify()
 app.get('/vm/:id/public-services', getVmPublicPorts)
 app.post('/vm/:id/public-services', postVmPublicPort)
@@ -73,4 +74,11 @@ test('gateway route data requires its token and excludes proxied public requests
     expect(proxied.statusCode).toBe(404)
     expect(allowed.statusCode).toBe(200)
     expect(allowed.json()).toEqual([{ hostname: 'port-web.hanasand.com', type: 'tls', vmName: 'hei', vmIp: '10.119.85.22', port: 443 }])
+})
+
+test('route sync token is recognized by the global API rate-limit prehandler', () => {
+    const route = internalTokenRoutes.get('GET /api/vms/internal/public-ports')
+    expect(route).toBe('service:vm-port-routes')
+    expect(matchesInternalTokenRoute({ headers: { authorization: 'Bearer sync-token' } } as never, route!)).toBe(true)
+    expect(matchesInternalTokenRoute({ headers: { authorization: 'Bearer wrong-token' } } as never, route!)).toBe(false)
 })

@@ -13,7 +13,7 @@ import {
 import hasInternalToken from '#utils/auth/internalToken.ts'
 import { isTransientDatabaseError } from '#db'
 import { normalizeRequestPath, resolveRateLimitActor, type RateLimitActor } from './rateLimitActor.ts'
-import { isBrowserStreamPath, isInfrastructureWebSocketPath, isTrustedStatusIngest, internalTokenRoutes, resolveRouteRule } from './rateLimitPolicy.ts'
+import { isBrowserStreamPath, isInfrastructureWebSocketPath, isTrustedStatusIngest, internalTokenRoutes, matchesInternalTokenRoute, resolveRouteRule } from './rateLimitPolicy.ts'
 import { applyCredentialLimitHeaders, consumeCredentialPeriodBudgets, credentialPeriodLimits } from './credentialRateLimits.ts'
 import { applyRateLimitHeaders, sendBoundaryError, sendRateLimitExceeded } from './rateLimitResponses.ts'
 
@@ -83,7 +83,7 @@ async function enforceRateLimit(req: FastifyRequest, res: FastifyReply, database
     const internalTokenRoute = internalTokenRoutes.get(`${req.method} ${path}`)
     let actor: RateLimitActor
     if (logIngest) actor = { scope: 'internal', identifier: 'service:log-ingest' }
-    else if (internalTokenRoute && hasInternalToken(req)) actor = { scope: 'internal', identifier: internalTokenRoute }
+    else if (internalTokenRoute && matchesInternalTokenRoute(req, internalTokenRoute)) actor = { scope: 'internal', identifier: internalTokenRoute }
     else if (req.method === 'GET' && path === '/api/thesis/code-reviews' && hasInternalToken(req)) actor = { scope: 'internal', identifier: 'service:code-review' }
     else actor = await resolveRateLimitActor(req)
     measure('session')
