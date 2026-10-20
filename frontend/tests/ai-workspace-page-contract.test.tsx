@@ -125,6 +125,7 @@ test('all workspace routes pass the same server data and preserve route selectio
         initialShares: [{ id: 'share-1' }],
         initialRuntimeState: { state: 'ready' },
         isAuthenticated: true,
+        canUseChatGPT: false,
         mode: 'workspace',
     })
 
