@@ -19,7 +19,7 @@ export async function checkCompactRangeForHash(hashInput: string, fetcher: Fetch
 
 export async function fetchPwnedRange(prefixInput: string, fetcher: Fetcher, lookupApi?: string): Promise<Uint8Array> {
     const prefix = normalizeSha1Prefix(prefixInput)
-    const base = process.env.COMPACT_PWNED_RANGE_API || 'http://pwned-index:8099/range'
+    const base = process.env.COMPACT_PWNED_RANGE_API || 'http://pwned:8099/range'
     // Only password validation on the remote host uses the public API. The API
     // handler always reads its local index, so failover cannot recurse into itself.
     const response = await fetcher(lookupApi || `${base}/${prefix}`, {

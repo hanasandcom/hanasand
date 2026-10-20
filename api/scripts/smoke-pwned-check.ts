@@ -12,7 +12,7 @@ const headers = { 'content-type': PWNED_CONTENT_TYPE }
 const bundle = compactBundleFixture()
 const response = () => new Response(bundle, { headers })
 const result = await checkCompactRangeForHash(hash, async (input) => {
-    assert.equal(String(input), 'http://pwned-index:8099/range/5BAA6')
+    assert.equal(String(input), 'http://pwned:8099/range/5BAA6')
     assert.ok(!String(input).includes(hash))
     return response()
 })
