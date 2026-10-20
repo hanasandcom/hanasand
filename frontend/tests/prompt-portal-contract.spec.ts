@@ -5,7 +5,8 @@ import path from 'node:path'
 const root = process.cwd()
 
 test('prompt portal uses the shared organization session and keeps its worker queue', async () => {
-    const page = await readFile(path.join(root, 'src/app/prompt/page.tsx'), 'utf8')
+    const nextConfig = await readFile(path.join(root, 'next.config.js'), 'utf8')
+    const searchRoutes = await readFile(path.join(root, 'src/utils/routes/generatedSearchRoutes.ts'), 'utf8')
     const aiPage = await readFile(path.join(root, 'src/app/ai/AIWorkspacePage.tsx'), 'utf8')
     const client = await readFile(path.join(root, 'src/app/ai/pageClient.tsx'), 'utf8')
     const chatPane = await readFile(path.join(root, 'src/components/ai/chatPane.tsx'), 'utf8')
@@ -17,7 +18,8 @@ test('prompt portal uses the shared organization session and keeps its worker qu
     const store = await readFile(path.join(root, 'src/utils/promptPortal/store.ts'), 'utf8')
     const policy = await readFile(path.join(root, '../api/src/utils/auth/organizationPagePolicy.ts'), 'utf8')
 
-    expect(page).toContain('redirect(\'/ai\')')
+    expect(nextConfig).toContain('{ source: \'/prompt\', destination: \'/ai\', permanent: false }')
+    expect(searchRoutes).not.toContain('\'/prompt\'')
     expect(aiPage).toContain('isHanasandOrganizationMember')
     expect(aiPage).toContain('canUseChatGPT={canUseChatGPT}')
     expect(client).toContain('usePromptPortal')

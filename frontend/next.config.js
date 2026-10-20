@@ -65,6 +65,7 @@ const nextConfig = {
     },
     async redirects() {
         return [
+            { source: '/prompt', destination: '/ai', permanent: false },
             { source: '/.well-known/security.txt', destination: '/security.txt', permanent: true },
             { source: '/.well-known', destination: '/security.txt', permanent: true },
             { source: '/findings/watchlists', destination: '/watchlists', permanent: true },
