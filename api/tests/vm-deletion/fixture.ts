@@ -13,6 +13,7 @@ export const state = {
     waitResult: null as any,
     waitCalls: [] as Array<[string | undefined, number]>,
     pendingPatch: null as any,
+    sentEmails: [] as Array<{ to: string, subject: string }>,
     waitGate: undefined as Promise<void> | undefined,
     onWaitStarted: undefined as (() => void) | undefined,
 }
@@ -88,6 +89,12 @@ mock.module('../../src/utils/vms/access.ts', () => ({ vmViewer: async (req: any,
     return { id: req.headers.id, admin: req.headers.id === 'admin' }
 } }))
 mock.module('../../src/utils/systemEvent.ts', () => ({ recordSystemEvent: async () => {} }))
+mock.module('../../src/utils/auth/sessionNetwork.ts', () => ({ sessionNetwork: async () => ({ ip: '203.0.113.4', network: { city: 'Oslo', region: 'Oslo', country: 'Norway' }, private_ip: null }) }))
+mock.module('../../src/utils/mail/system.ts', () => ({ sendSystemMail: async (message: { to: string, subject: string }) => { state.sentEmails.push({ to: message.to, subject: message.subject }) } }))
+mock.module('../../src/utils/vms/deletionMail.ts', () => ({
+    vmDeletionNotificationRecipients: async () => [{ email: 'owner@example.test' }, { email: 'admin@example.test' }],
+    vmDeletionScheduledMail: ({ vmName }: { vmName: string }) => ({ subject: `VM ${vmName} scheduled`, textBody: '', htmlBody: '' }),
+}))
 const { scheduleVmDeletion, restoreVm, maintainDeletedVms, deletionMarker } = await import('../../src/utils/vms/deletion.ts')
 const { default: deleteVM, restoreVM } = await import('../../src/handlers/vms/delete.ts')
 export const operations = { scheduleVmDeletion, restoreVm, maintainDeletedVms, deletionMarker }
@@ -99,6 +106,7 @@ beforeEach(() => {
     state.now = Date.parse('2026-09-12T12:00:00Z'); state.removed = 0; state.starts = 0; state.failAt = ''
     state.operationId = ''; state.waitResult = { metadata: { status_code: 200 } }; state.waitCalls = []; state.pendingPatch = null
     state.waitGate = undefined; state.onWaitStarted = undefined
-    state.vm = { name: 'cashflow', primary_host: 'inspur', deleted_at: null, delete_after: null, deletion_restore: null, deletion_error: null }
+    state.sentEmails = []
+    state.vm = { name: 'cashflow', owner: 'owner', organization_id: 'org-1', primary_host: 'inspur', deleted_at: null, delete_after: null, deletion_restore: null, deletion_error: null }
     state.instance = { name: 'cashflow', status: 'Running', ephemeral: true, config: { 'boot.autostart': 'true', 'limits.cpu': '2' } }
 })

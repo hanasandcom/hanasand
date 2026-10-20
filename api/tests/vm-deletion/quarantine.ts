@@ -10,6 +10,18 @@ test('requires an administrator and the exact typed VM name before changing anyt
     expect((await app.inject({ method: 'DELETE', url: '/vm/cashflow', headers: { id: 'admin' }, payload: { confirmation: 'cashflow' } })).statusCode).toBe(200)
 })
 
+test('emails the VM owner and organization administrators once when deletion is scheduled', async () => {
+    const response = await app.inject({ method: 'DELETE', url: '/vm/cashflow', headers: { id: 'admin' }, payload: { confirmation: 'cashflow' } })
+    expect(response.statusCode).toBe(200)
+    expect(state.sentEmails).toEqual([
+        { to: 'owner@example.test', subject: 'VM cashflow scheduled' },
+        { to: 'admin@example.test', subject: 'VM cashflow scheduled' },
+    ])
+
+    await app.inject({ method: 'DELETE', url: '/vm/cashflow', headers: { id: 'admin' }, payload: { confirmation: 'cashflow' } })
+    expect(state.sentEmails).toHaveLength(2)
+})
+
 test('preserves the disk, disables startup, and retries without extending the 30-day deadline', async () => {
     await operations.scheduleVmDeletion('cashflow', 'cashflow')
     const deadline = state.vm.delete_after

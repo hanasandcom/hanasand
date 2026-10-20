@@ -8,8 +8,9 @@ export const missingInstanceMessage = 'The VM instance was already absent from i
 const fail = (message: string, statusCode = 409): never => { throw Object.assign(new Error(message), { statusCode }) }
 
 type DeletedVm = {
-    name: string; primary_host: string; deleted_at: string | null; delete_after: string | null
+    name: string; owner: string; organization_id: string | null; primary_host: string; deleted_at: string | null; delete_after: string | null
     deletion_restore: { running: boolean; autostart: string | null; ephemeral: boolean; instanceMissing?: boolean } | null
+    deletion_notification_pending?: boolean
 }
 
 async function load(name: string) {
@@ -61,17 +62,19 @@ export async function scheduleVmDeletion(name: string, confirmation: unknown) {
     if (confirmation !== name) return fail('Type the exact VM name to confirm deletion.', 400)
     return vmLifecycleLock(name, async () => {
         let vm = await load(name)
+        let newlyScheduled = false
         if (!vm.deleted_at) {
             const instance = await getLocalInstanceIfPresent(name)
             const saved = instance
                 ? { running: instance.status?.toLowerCase() === 'running', autostart: instance.config?.['boot.autostart'] ?? null, ephemeral: instance.ephemeral ?? false }
                 : { running: false, autostart: null, ephemeral: false, instanceMissing: true }
             vm = (await run('UPDATE vms SET deleted_at = NOW(), delete_after = NOW() + INTERVAL \'30 days\', deletion_restore = $2::jsonb, deletion_error = $3 WHERE name = $1 RETURNING *', [name, JSON.stringify(saved), instance ? null : missingInstanceMessage])).rows[0]
+            newlyScheduled = true
         }
         try {
             const present = await quarantine(vm)
             const error = present ? null : missingInstanceMessage
-            return (await run('UPDATE vms SET deletion_error = $2 WHERE name = $1 RETURNING *', [name, error])).rows[0]
+            return { ...(await run('UPDATE vms SET deletion_error = $2 WHERE name = $1 RETURNING *', [name, error])).rows[0], deletion_notification_pending: newlyScheduled }
         } catch (error) { await recordFailure(name, error); throw error }
     })
 }
