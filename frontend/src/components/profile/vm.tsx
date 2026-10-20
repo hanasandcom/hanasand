@@ -132,7 +132,7 @@ export default function VMRow({ vm, update, now }: { vm: VM, update: () => void,
                             ? 'Dashboard access is blocked. The host is retrying the shutdown.'
                             : 'The VM is disabled while scheduled for deletion.'}</p>
                     {vm.deletion_error && !instanceMissing && <p role='alert' className='mt-2 text-ui-text'>The host operation failed: {vm.deletion_error}</p>}
-                    {!instanceMissing && <button type='button' disabled={busy || expired} onClick={() => void handleRestore()} className={`${vmActionStyle} mt-3 px-3 text-ui-primary`}>{busy ? 'Restoring…' : 'Restore VM'}</button>}
+                    {!instanceMissing && <button type='button' disabled={busy || expired} onClick={() => void handleRestore()} className={`${vmActionStyle} mt-3 bg-ui-raised px-3 text-ui-text hover:bg-ui-canvas`}>{busy ? 'Restoring…' : 'Restore VM'}</button>}
                 </div>}
             </article>
             {confirmingDelete && <DeleteVmDialog name={name} busy={busy} error={deleteError} onCancel={() => setConfirmingDelete(false)} onConfirm={confirmation => void handleDelete(confirmation)} />}
