@@ -7,6 +7,7 @@ export function supportSnapshot(messages: { sender_kind: string; sender_name: st
 }
 export async function mockSupportLive(page: Page) {
     const sockets = new Set<WebSocketRoute>()
+    await page.route('**/api/support/session', route => route.fulfill({ status: 204 }))
     await page.route('**/api/support/chat*', async route => {
         if (route.request().method() === 'POST' && route.request().postDataJSON().action === 'connect') await route.fulfill({ json: { ticket: 'a'.repeat(64) } })
         else await route.fallback()

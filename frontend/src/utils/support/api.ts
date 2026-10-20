@@ -3,18 +3,18 @@
 import config from '@/config'
 import { getCookie } from '@/utils/cookies/cookies'
 
-let guestSession: Promise<void> | undefined
+let supportSession: Promise<void> | undefined
 
-async function ensureGuestSession() {
-    if (typeof window === 'undefined' || getCookie('access_token')) return
-    guestSession ||= fetch('/api/support/session', { credentials: 'same-origin', cache: 'no-store' })
+async function ensureSupportSession() {
+    if (typeof window === 'undefined') return
+    supportSession ||= fetch('/api/support/session', { credentials: 'same-origin', cache: 'no-store' })
         .then(response => { if (!response.ok) throw new Error('Support session could not be started') })
-        .catch(error => { guestSession = undefined; throw error })
-    await guestSession
+        .catch(error => { supportSession = undefined; throw error })
+    await supportSession
 }
 
 export async function supportFetch(path: string, init: RequestInit = {}) {
-    await ensureGuestSession()
+    await ensureSupportSession()
     const headers = new Headers(init.headers)
     const token = getCookie('access_token')
     const id = getCookie('id')

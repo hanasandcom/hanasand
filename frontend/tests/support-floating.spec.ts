@@ -41,7 +41,7 @@ test('slow drops snap to an edge, corners are preferred, and reset restores the 
     await expect.poll(async () => (await dialog.boundingBox())!.y).toBeCloseTo(16, 0)
     const reset = page.getByRole('button', { name: 'Reset support position' })
     await expect(reset).toBeVisible()
-    await expect(reset.locator('svg circle')).toHaveAttribute('class', 'fill-blue-600')
+    await expect(reset.locator('svg circle')).toHaveAttribute('class', 'fill-ui-danger')
     await page.screenshot({ path: '/tmp/support-reset-control.png' })
     await page.setViewportSize({ width: 390, height: 650 })
     await expect.poll(async () => Math.min(...await edgeDistances(dialog, 390, 650))).toBeCloseTo(16, 0)

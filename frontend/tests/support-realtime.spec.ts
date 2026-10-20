@@ -24,7 +24,7 @@ test('multiple chats keep history, drafts and unread replies while another chat 
     await expect(dialog.getByText('Waiting for support.', { exact: true })).toBeVisible()
     await dialog.getByLabel('Message', { exact: true }).fill('Unsent billing draft')
     await dialog.getByRole('button', { name: 'New chat', exact: true }).click()
-    await expect(dialog.getByRole('heading', { name: 'How can we help?' })).toBeVisible()
+    await expect(dialog.getByRole('heading', { name: 'What can we help with?' })).toBeVisible()
     await dialog.getByLabel('Message', { exact: true }).fill('Another question')
     await dialog.getByLabel('Send message', { exact: true }).click()
     await expect(dialog.getByRole('log')).toContainText('Another question')

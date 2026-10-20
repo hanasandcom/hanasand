@@ -23,7 +23,7 @@ for (const width of [390, 1440]) {
         if (width === 390) await page.getByRole('button', { name: 'Switch to dark mode' }).click()
         await page.getByLabel('Open support assistant').click()
         const dialog = page.getByRole('dialog', { name: 'Support assistant' })
-        await expect(dialog.getByRole('heading', { name: 'How can we help?' })).toBeVisible()
+        await expect(dialog.getByRole('heading', { name: 'What can we help with?' })).toBeVisible()
         await expect(dialog.getByRole('link', { name: 'Sign in to support' })).toHaveCount(0)
         const checkLayout = async () => {
             expect(await dialog.evaluate(el => el.scrollHeight <= el.clientHeight && el.scrollWidth <= el.clientWidth)).toBe(true)
@@ -113,7 +113,7 @@ for (const expiredSession of [false, true]) {
         })
         await mockSupportLive(page)
         await page.goto('/support')
-        await expect(page.getByRole('heading', { name: 'How can we help?' })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'What can we help with?' })).toBeVisible()
         await expect(page.getByRole('link', { name: 'Sign in to support' })).toHaveCount(0)
         await page.getByRole('button', { name: 'Talk to a human', exact: true }).click()
         await expect(page.getByText('Waiting for support.')).toBeVisible()

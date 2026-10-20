@@ -97,3 +97,12 @@
   --color-ui-scrim: var(--ui-scrim);
 }
 
+@media (max-width: 639px) {
+  .support-assistant-dialog[role='dialog']:not(.hidden) {
+    position: fixed;
+    inset: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+    width: auto;
+    height: auto;
+    border-radius: 1rem;
+  }
+}
