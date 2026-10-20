@@ -87,7 +87,7 @@ mock.module('next/headers', () => ({
 }))
 mock.module('@/config', () => ({ default: { url: { api: 'https://api.example.test/api' } } }))
 mock.module('@/utils/organizations/serverWorkspace', () => ({ activeOrganizationId: async () => null }))
-const { GET } = await import('../src/app/api/backend/[...path]/route')
+const { GET, POST } = await import('../src/app/api/backend/[...path]/route')
 
 test('backend refresh cookie uses the response expiry through the shared route writer', async () => {
     const previousFetch = globalThis.fetch
@@ -138,5 +138,33 @@ test('backend proxy keeps VM lifecycle requests open for the host operation', as
     } finally {
         globalThis.fetch = previousFetch
         Object.defineProperty(AbortSignal, 'timeout', { configurable: true, value: previousTimeout })
+    }
+})
+
+test('backend proxy prefers the current request credentials over stale cookies', async () => {
+    const previousFetch = globalThis.fetch
+    let forwardedHeaders: Headers | null = null
+    globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+        forwardedHeaders = new Headers(init?.headers)
+        return new Response('ok')
+    }) as typeof fetch
+
+    try {
+        const request = new NextRequest('http://internal.test/api/backend/ai/conversations', {
+            method: 'POST',
+            headers: {
+                authorization: 'Bearer fresh-token',
+                id: 'fresh-user',
+                'content-type': 'application/json',
+            },
+            body: '{}',
+        })
+        const response = await POST(request, { params: Promise.resolve({ path: ['ai', 'conversations'] }) })
+
+        expect(response.status).toBe(200)
+        expect(forwardedHeaders?.get('authorization')).toBe('Bearer fresh-token')
+        expect(forwardedHeaders?.get('id')).toBe('fresh-user')
+    } finally {
+        globalThis.fetch = previousFetch
     }
 })

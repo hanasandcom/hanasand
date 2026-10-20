@@ -27,8 +27,11 @@ const BACKEND_PROXY_TIMEOUT_MS = Number(process.env.BACKEND_PROXY_TIMEOUT_MS || 
 
 async function handler(req: NextRequest, context: Context) {
     const cookieStore = await cookies()
-    const token = cookieStore.get('access_token')?.value || bearerToken(req.headers.get('authorization')) || ''
-    const id = cookieStore.get('id')?.value || req.headers.get('id') || ''
+    // Prefer credentials explicitly sent for this request. Client-side AI calls
+    // keep refreshed credentials in document.cookie and send them as headers;
+    // a duplicate or older cookie must not override that current session.
+    const token = bearerToken(req.headers.get('authorization')) || cookieStore.get('access_token')?.value || ''
+    const id = req.headers.get('id') || cookieStore.get('id')?.value || ''
 
     const params = await context.params
     const pathSegments = params.path || []
