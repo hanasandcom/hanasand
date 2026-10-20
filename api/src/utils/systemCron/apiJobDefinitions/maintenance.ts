@@ -129,7 +129,7 @@ export const maintenanceJobDefinitions: ApiBackgroundJobDefinition[] = [
         category: 'Backup/Database',
         schedule: 'Persisted daily UTC schedule (checked every minute)',
         cadenceSeconds: null,
-        source: 'https://github.com/hanasandcom/ops/tree/main/database-backup',
+        source: 'https://github.com/hanasandcom/ops/tree/main/backup',
         controls: ['pause', 'resume', 'run_now'],
     },
     {
