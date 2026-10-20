@@ -27,6 +27,7 @@ test('upload accepts files and the remote media proxy restricts network access',
     expect(uploadPage).not.toContain('Do not upload private or confidential content.')
     expect(uploadForm).toContain('Browse files')
     expect(uploadForm).toContain('Choose a file or paste a URL.')
+    expect(uploadForm).not.toContain('id=\'fileInputDesktop\'\n                        type=\'file\'\n                        accept=')
     expect(uploadBehavior).toContain('MAX_UPLOAD_BYTES')
     expect(uploadBehavior).toContain('validateUploadFile(file)')
     expect(uploadBehavior).toContain('validateRemoteMediaFile(file)')

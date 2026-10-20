@@ -39,7 +39,6 @@ export default function Upload({ url, setUrl, setFile, preview, setPreview }: Up
                     <input
                         id='fileInputDesktop'
                         type='file'
-                        accept='image/*,video/*'
                         className='hidden'
                         onChange={handleFileChange}
                     />
