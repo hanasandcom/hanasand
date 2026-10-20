@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { LoaderCircle, Maximize2, Minimize2, RefreshCw } from 'lucide-react'
 import { useConsoleViewport } from './useConsoleViewport'
 import { useVmConsoleSession } from './useVmConsoleSession'
+import VMSudoPassword from './vmSudoPassword'
 
 type VmConsoleProps = {
     name?: string
@@ -32,7 +33,8 @@ export default function VmConsole({ name, host, onHostChange }: VmConsoleProps) 
                         {session.status}{session.username ? ` · ${session.username}` : ''}
                     </p>
                 </div>
-                <div className='flex items-center gap-3'>
+                <div className='flex flex-wrap items-center gap-2'>
+                    {name && <VMSudoPassword vmName={name} compact />}
                     {host && onHostChange && (
                         <label className='flex items-center gap-2 text-sm text-ui-muted'>
                             Host

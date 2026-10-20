@@ -1,22 +1,34 @@
 'use client'
 
 import { Eye, EyeOff, KeyRound } from 'lucide-react'
+import { createPortal } from 'react-dom'
 import { useEffect, useId, useRef, useState } from 'react'
 import config from '@/config'
 import { getCookie } from '@/utils/cookies/cookies'
 
 const PASSWORD_VISIBLE_MS = 30_000
 
-export default function VMSudoPassword({ vmName }: { vmName: string }) {
+type VMSudoPasswordProps = {
+    vmName: string
+    compact?: boolean
+    triggerClassName?: string
+}
+
+export default function VMSudoPassword({ vmName, compact = false, triggerClassName }: VMSudoPasswordProps) {
     const dialog = useRef<HTMLDialogElement>(null)
     const request = useRef<AbortController | null>(null)
     const titleId = useId()
     const descriptionId = useId()
     const [open, setOpen] = useState(false)
+    const [mounted, setMounted] = useState(false)
     const [currentPassword, setCurrentPassword] = useState('')
     const [sudoPassword, setSudoPassword] = useState<string | null>(null)
     const [busy, setBusy] = useState(false)
     const [error, setError] = useState('')
+
+    useEffect(() => {
+        setMounted(true)
+    }, [])
 
     useEffect(() => {
         const element = dialog.current
@@ -78,15 +90,22 @@ export default function VMSudoPassword({ vmName }: { vmName: string }) {
         }
     }
 
-    return <div className='grid gap-2 border-t border-ui-border pt-3'>
-        <div>
-            <h3 className='text-sm font-semibold text-ui-text'>VM sudo password</h3>
-            <p className='mt-1 text-xs leading-5 text-ui-muted'>Reauthenticate to view it. Each successful view is recorded and emailed to the VM owner.</p>
-        </div>
-        <button type='button' onClick={() => { setError(''); setSudoPassword(null); setCurrentPassword(''); setOpen(true) }} className='inline-flex h-9 w-fit items-center gap-2 rounded-lg border border-ui-border px-3 text-sm font-medium text-ui-primary transition hover:bg-ui-canvas'>
-            <KeyRound className='h-4 w-4' /> Show sudo password
-        </button>
-        <dialog ref={dialog} aria-labelledby={titleId} aria-describedby={descriptionId} onCancel={event => { event.preventDefault(); if (!busy) closeDialog() }} className='m-auto w-[calc(100%_-_2rem)] max-w-md rounded-xl border border-ui-border bg-ui-panel p-5 text-ui-text shadow-xl backdrop:bg-ui-backdrop'>
+    const trigger = <button type='button' onClick={event => {
+        event.currentTarget.closest('details')?.removeAttribute('open')
+        setError(''); setSudoPassword(null); setCurrentPassword(''); setOpen(true)
+    }} className={triggerClassName || 'inline-flex h-9 w-fit items-center gap-2 rounded-lg border border-ui-border px-3 text-sm font-medium text-ui-primary transition hover:bg-ui-canvas'}>
+        <KeyRound className='h-4 w-4' /> Show sudo password
+    </button>
+
+    return <>
+        {compact ? trigger : <div className='grid gap-2 border-t border-ui-border pt-3'>
+            <div>
+                <h3 className='text-sm font-semibold text-ui-text'>VM sudo password</h3>
+                <p className='mt-1 text-xs leading-5 text-ui-muted'>Reauthenticate to view it. Each successful view is recorded and emailed to the VM owner.</p>
+            </div>
+            {trigger}
+        </div>}
+        {mounted && createPortal(<dialog ref={dialog} aria-labelledby={titleId} aria-describedby={descriptionId} onCancel={event => { event.preventDefault(); if (!busy) closeDialog() }} className='m-auto w-[calc(100%_-_2rem)] max-w-md rounded-xl border border-ui-border bg-ui-panel p-5 text-ui-text shadow-xl backdrop:bg-ui-backdrop'>
             <h2 id={titleId} className='text-lg font-semibold'>Show {vmName} sudo password</h2>
             <p id={descriptionId} className='mt-2 text-sm leading-6 text-ui-muted'>Enter your Hanasand account password to reauthenticate. The successful view is audit logged and emailed to the VM owner.</p>
             {sudoPassword ? <div className='mt-4 grid gap-3'>
@@ -107,6 +126,6 @@ export default function VMSudoPassword({ vmName }: { vmName: string }) {
                     </button>
                 </div>
             </form>}
-        </dialog>
-    </div>
+        </dialog>, document.body)}
+    </>
 }

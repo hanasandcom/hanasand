@@ -16,6 +16,7 @@ import formatStatus from '@/utils/vms/formatStatus'
 import { useRouter } from 'next/navigation'
 import RestartButtons from '../vms/restartButtons'
 import { vmActionStyle } from '../vms/actionStyle'
+import VMSudoPassword from '../vms/vmSudoPassword'
 
 export default function VMRow({ vm, update, now }: { vm: VM, update: () => void, now: number }) {
     const router = useRouter()
@@ -99,6 +100,7 @@ export default function VMRow({ vm, update, now }: { vm: VM, update: () => void,
                                 </summary>
                                 <div className='absolute right-0 top-11 z-20 grid min-w-56 gap-2 rounded-lg border border-ui-border bg-ui-panel p-2 shadow-lg'>
                                     <AddToOrganization vm={vm} onAdded={update} />
+                                    {vm.name && <VMSudoPassword vmName={vm.name} compact triggerClassName={`${vmActionStyle} w-full justify-start px-3 text-ui-primary`} />}
                                     <button type='button' onClick={() => { setDeleteError(''); setConfirmingDelete(true) }} className={`${vmActionStyle} justify-start px-3 text-ui-danger`}>
                                         <Trash2 className='h-4 w-4' /> Delete VM
                                     </button>
