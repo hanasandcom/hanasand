@@ -2,7 +2,7 @@ import { createHash, generateKeyPairSync, sign } from 'node:crypto'
 import { readinessArguments, readinessCanonical, readinessChainPayload, readinessWrapperArguments, type ReadinessExecutionProof } from '../src/utils/events/analyzeReadinessAudit.ts'
 import type { CollectorLog } from '../src/utils/events/analyzeCollector.ts'
 
-const keys = generateKeyPairSync('ed25519')
+export const keys = generateKeyPairSync('ed25519')
 const quote = (value: string) => /^[\w@%+=:,./-]+$/.test(value) ? value : '\'' + value.replaceAll('\'', '\'"\'"\'') + '\''
 
 export function fixture(serial = 0): { logs: CollectorLog[], fact: ReadinessExecutionProof } {
