@@ -1,5 +1,6 @@
 import { strict as assert } from 'node:assert'
 import test from 'node:test'
+import { inferNetwork } from '../src/app/browser/browserValues'
 import { browserSandboxRouteSources } from './helpers/browser-sandbox-route-sources'
 
 test('canonical browser sandbox routes and starter profile contracts are wired', () => {
@@ -28,4 +29,11 @@ test('canonical browser sandbox routes and starter profile contracts are wired',
     assert(browserSandboxRouteSources.clientSource.includes('Profiles synced to account'), 'client should surface account profile sync state.')
     assert(browserSandboxRouteSources.clientSource.includes('credentials:') && browserSandboxRouteSources.clientSource.includes('include'), 'client profile sync should include account cookies.')
     assert(browserSandboxRouteSources.clientSource.includes('Copyable indicators'), 'client should expose copyable indicator output.')
+})
+
+test('onion URLs with query strings and fragments use Tor', () => {
+    assert.equal(inferNetwork('https://service.onion?view=latest'), 'tor')
+    assert.equal(inferNetwork('http://service.onion:8080/#status'), 'tor')
+    assert.equal(inferNetwork('https://example.com/?next=service.onion'), 'regular')
+    assert.equal(inferNetwork('not a URL'), 'regular')
 })

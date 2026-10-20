@@ -58,6 +58,11 @@ const coreTasks: TestTask[] = [
         ...scriptTask('browser-sandbox-broker', 'Browser sandbox broker runtime contract', 'smoke-browser-sandbox-broker.ts'),
         requires: 'playwright',
     },
+    {
+        ...scriptTask('onion-session-proxy', 'Onion hostname routing through the SOCKS proxy', 'smoke-onion-session-proxy.ts'),
+        requires: 'playwright',
+        env: { BROWSER_SANDBOX_SKIP_RUN_DB: '1', BROWSER_SANDBOX_PREWARM: '0' },
+    },
 ]
 
 const environmentTasks: TestTask[] = [

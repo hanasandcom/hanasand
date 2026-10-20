@@ -58,6 +58,7 @@ export function createSessionLifecycleService({ state, connection, sessionId, se
         state.closeTimer = null
         const runId = state.currentRunId
         state.currentRunId = null
+        state.network = null
         if (runId) {
             const title = state.page ? await state.page.title().catch(() => '') : ''
             await finishBrowserRun(runId, runStatus, title).catch(() => undefined)

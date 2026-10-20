@@ -32,6 +32,7 @@ export type SessionState = {
     cancelAdmissionWait: (() => void) | null
     releaseAdmission: (() => void) | null
     currentRunId: string | null
+    network: 'tor' | 'regular' | null
     runLeaseTimer: NodeJS.Timeout | null
     terminalRunStatus: 'ended' | 'failed' | 'unreachable'
     closed: boolean
@@ -77,6 +78,7 @@ export function createSessionState(): SessionState {
         cancelAdmissionWait: null,
         releaseAdmission: null,
         currentRunId: null,
+        network: null,
         runLeaseTimer: null,
         terminalRunStatus: 'ended',
         closed: false,

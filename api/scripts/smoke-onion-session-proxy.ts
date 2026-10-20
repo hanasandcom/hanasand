@@ -13,7 +13,7 @@ type BrokerPayload = {
     target?: string
 }
 
-const targetHost = 'proxy-smoke.test'
+const targetHost = 'p53lf57qbcph367w7g4i57ctv7hlfssgmqb6e6g3m7654g6wb27w36yd.onion'
 const proxyTargetBody = '<!doctype html><title>Proxy smoke target</title><main>Loaded through ONION_SESSION_PROXY</main>'
 const socksConnects: SocksConnect[] = []
 const socksServer = createSocksServer(targetHost, proxyTargetBody, socksConnects)
@@ -46,7 +46,8 @@ client.on('message', (message) => {
 await onceOpen(client)
 client.send(JSON.stringify({
     type: 'start',
-    target: `http://${targetHost}/`,
+    target: `http://${targetHost}/?probe=onion-socks-routing`,
+    network: 'tor',
     durationMinutes: 1,
     width: 900,
     height: 540,

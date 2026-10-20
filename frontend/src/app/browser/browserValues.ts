@@ -80,7 +80,11 @@ export function safeToolKey(value: string) {
 }
 
 export function inferNetwork(target: string): BrowserNetwork {
-    return /\.onion(?::\d+)?(?:\/|$)/i.test(target) ? 'tor' : 'regular'
+    try {
+        return new URL(target).hostname.toLowerCase().replace(/\.$/, '').endsWith('.onion') ? 'tor' : 'regular'
+    } catch {
+        return 'regular'
+    }
 }
 
 export function finiteNumber(value: unknown) {

@@ -27,7 +27,7 @@ export function createNavigationService({ state, sessionId, defaultNetwork, send
                 category: 'browser_run_unreachable',
                 sessionId,
                 target,
-                network: defaultNetwork,
+                network: state.network || defaultNetwork,
                 runId: state.currentRunId,
                 workerMessage: message,
                 runStatus: 'unreachable',
@@ -38,7 +38,7 @@ export function createNavigationService({ state, sessionId, defaultNetwork, send
     async function navigate(value: string, generation = state.runGeneration) {
         if (!state.page) return
         const target = normalizeTarget(value)
-        const safety = await sandboxRequestSafety(target)
+        const safety = await sandboxRequestSafety(target, state.network || defaultNetwork)
         if (!isCurrentRun(generation)) return
         if (!safety.ok) {
             send({ type: 'navigation_error', target, message: `Blocked unsafe sandbox target: ${safety.reason}.` })

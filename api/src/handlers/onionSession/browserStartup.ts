@@ -48,6 +48,7 @@ export async function prepareBrowserAdmission(message: BrokerMessage, deps: {
         : Number(message.durationMinutes) > 0 ? Number(message.durationMinutes) * 60_000 : DEFAULT_DURATION_MS
     const durationMs = Math.min(MAX_DURATION_MS, Math.max(60_000, requestedDurationMs))
     state.currentRunId = browserRun.run?.id || null
+    state.network = network
     if (state.currentRunId) {
         const runId = state.currentRunId
         state.runLeaseTimer = setInterval(() => {
@@ -130,7 +131,7 @@ export async function launchBrowserContext(input: {
         }
         document.addEventListener('visibilitychange', reportVisibleTab)
     })
-    await installSandboxRequestGuard({ context: state.context, generation, isCurrentRun, trackNetwork, send })
+    await installSandboxRequestGuard({ context: state.context, generation, network, isCurrentRun, trackNetwork, send })
     state.page = await state.context.newPage()
     trace('page_created')
 }

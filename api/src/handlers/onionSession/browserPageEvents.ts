@@ -74,15 +74,16 @@ export async function attachBrowserPageEvents(deps: BrowserPageEventDependencies
 export async function installSandboxRequestGuard(deps: {
     context: BrowserContext
     generation: number
+    network: 'tor' | 'regular'
     isCurrentRun: (generation: number) => boolean
     trackNetwork: (event: SandboxNetworkEvent) => void
     send: (payload: Record<string, unknown>) => void
 }) {
-    const { context, generation, isCurrentRun, trackNetwork, send } = deps
+    const { context, generation, network, isCurrentRun, trackNetwork, send } = deps
     await context.route('**/*', async route => {
         const request = route.request()
         const requestUrl = request.url()
-        const safety = await sandboxRequestSafety(requestUrl)
+        const safety = await sandboxRequestSafety(requestUrl, network)
         if (!isCurrentRun(generation)) return void await route.abort('aborted').catch(() => undefined)
         if (!safety.ok) {
             trackNetwork({ kind: 'failed', url: requestUrl, method: request.method(), resourceType: request.resourceType(), failure: `blocked unsafe sandbox request: ${safety.reason}`, at: new Date().toISOString() })
