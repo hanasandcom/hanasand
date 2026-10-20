@@ -8,5 +8,6 @@ export type AIWorkbenchInitialData = {
     initialShares: Share[]
     initialRuntimeState: AIRuntimeState | null
     isAuthenticated: boolean
+    initialWorkspaceUnavailable?: boolean
     initialConversationId?: string | null
 }

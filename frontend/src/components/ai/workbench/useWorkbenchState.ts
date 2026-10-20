@@ -13,6 +13,7 @@ export function useWorkbenchState({
     initialOwnershipSummary,
     initialShares,
     initialRuntimeState,
+    initialWorkspaceUnavailable = false,
     isAuthenticated,
     initialConversationId = null,
 }: AIWorkbenchInitialData) {
@@ -31,7 +32,9 @@ export function useWorkbenchState({
     const [clients, setClients] = useState<GPT_Client[]>([])
     const [participants, setParticipants] = useState(initialRuntimeState?.connectedClientCount || 0)
     const [isConnected, setIsConnected] = useState(Boolean(initialRuntimeState?.connectedClientCount))
-    const [statusNotice, setStatusNotice] = useState<string | null>(initialRuntimeState?.lastFailure?.message || null)
+    const [statusNotice, setStatusNotice] = useState<string | null>(initialWorkspaceUnavailable
+        ? 'Couldn’t load your chats. Refresh to try again.'
+        : initialRuntimeState?.lastFailure?.message || null)
     const [runtimeSnapshot, setRuntimeSnapshot] = useState<AIRuntimeState | null>(initialRuntimeState)
     const [aiApiAvailable, setAiApiAvailable] = useState(isAuthenticated)
     const [conversations, setConversations] = useState<AIConversation[]>(initialConversations)
@@ -75,6 +78,7 @@ export function useWorkbenchState({
         setReleases, deployQuota, setDeployQuota, ownershipSummary, rollbackPendingId,
         setRollbackPendingId, availableVmTargets, setAvailableVmTargets, resumeNotice, setResumeNotice,
         currentUserId, isAuthenticated, initialRuntimeState, initialConversationId,
+        initialWorkspaceUnavailable,
         ...shareState,
     }
 }

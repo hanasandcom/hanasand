@@ -3,6 +3,7 @@ import AIPageClient from './pageClient'
 import { getUserShares } from '@/utils/share/getUserShares'
 import { getAiWorkspace } from '@/utils/ai/getWorkspace'
 import { isHanasandOrganizationMember } from '@/utils/organizations/hanasandMembership'
+import { redirect } from 'next/navigation'
 
 type AIWorkspaceRouteParams = Promise<{ id: string }>
 
@@ -19,6 +20,11 @@ export default async function AIWorkspacePage({ params }: { params?: AIWorkspace
         id && token ? isHanasandOrganizationMember(token, id).catch(() => false) : Promise.resolve(false),
     ])
 
+    if (workspace.authStatus === 'unauthorized' && id && token) {
+        const returnPath = routeParams ? `/ai/${routeParams.id}` : '/ai'
+        redirect(`/login?path=${encodeURIComponent(returnPath)}&expired=true`)
+    }
+
     return (
         <AIPageClient
             initialConversations={workspace.conversations}
@@ -30,6 +36,7 @@ export default async function AIWorkspacePage({ params }: { params?: AIWorkspace
             initialShares={Array.isArray(shares) ? shares : []}
             initialRuntimeState={workspace.runtimeState}
             isAuthenticated={Boolean(id && token)}
+            initialWorkspaceUnavailable={workspace.authStatus === 'unavailable'}
             canUseChatGPT={canUseChatGPT}
             {...(routeParams ? { initialConversationId: routeParams.id } : {})}
             mode='workspace'

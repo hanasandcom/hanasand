@@ -6,6 +6,7 @@ import type { WorkbenchState } from './useWorkbenchState'
 export function useConversationStartup(state: WorkbenchState) {
     const {
         conversations, clients, isAuthenticated, initialConversationId, initialRuntimeState,
+        initialWorkspaceUnavailable = false,
         conversationsRef, createNewConversationRef, bootstrappedRef, setConversations,
         setActiveConversationId, activeConversationId, setStatusNotice, setResumeNotice,
     } = state
@@ -52,11 +53,11 @@ export function useConversationStartup(state: WorkbenchState) {
         }
     }, [clients, createNewConversationRef, isAuthenticated, setActiveConversationId, setConversations, setStatusNotice])
     useEffect(() => {
-        if (bootstrappedRef.current || conversations.some((conversation) => !conversation.archivedAt)) return
+        if (bootstrappedRef.current || initialWorkspaceUnavailable || conversations.some((conversation) => !conversation.archivedAt)) return
         bootstrappedRef.current = true
         const timer = setTimeout(() => void createNewConversationRef.current(), 0)
         return () => clearTimeout(timer)
-    }, [bootstrappedRef, conversations, createNewConversationRef])
+    }, [bootstrappedRef, conversations, createNewConversationRef, initialWorkspaceUnavailable])
 
     return () => createNewConversationRef.current()
 }

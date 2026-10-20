@@ -8,24 +8,29 @@ export async function getAiWorkspace({
     token?: string
 }): Promise<AIWorkspaceBundle> {
     if (!id || !token) {
-        return { conversations: [], repositories: [], deployments: [], releases: [], deployQuota: null, ownershipSummary: null, runtimeState: null }
+        return { authStatus: 'unauthenticated', conversations: [], repositories: [], deployments: [], releases: [], deployQuota: null, ownershipSummary: null, runtimeState: null }
     }
-    const normalizedToken = decodeURIComponent(token)
-
-    const response = await fetch(`${config.url.api}/ai/workspace`, {
-        headers: {
-            Authorization: `Bearer ${normalizedToken}`,
-            id,
-        },
-        cache: 'no-store',
-    })
-
-    if (!response.ok) {
-        return { conversations: [], repositories: [], deployments: [], releases: [], deployQuota: null, ownershipSummary: null, runtimeState: null }
+    let response: Response
+    try {
+        const normalizedToken = decodeURIComponent(token)
+        response = await fetch(`${config.url.api}/ai/workspace`, {
+            headers: {
+                Authorization: `Bearer ${normalizedToken}`,
+                id,
+            },
+            cache: 'no-store',
+        })
+    } catch {
+        return emptyWorkspace('unavailable')
     }
+
+    if (response.status === 401) return emptyWorkspace('unauthorized')
+    if (!response.ok) return emptyWorkspace('unavailable')
 
     const data = await response.json().catch(() => null)
+    if (!data || !Array.isArray(data.conversations)) return emptyWorkspace('unavailable')
     return {
+        authStatus: 'ready',
         conversations: Array.isArray(data?.conversations) ? data.conversations : [],
         repositories: Array.isArray(data?.repositories)
             ? data.repositories.map((repository: AIImportedRepo) => ({
@@ -55,5 +60,18 @@ export async function getAiWorkspace({
         deployQuota: data?.deployQuota && typeof data.deployQuota === 'object' ? data.deployQuota as AIDeployQuota : null,
         ownershipSummary: data?.ownershipSummary && typeof data.ownershipSummary === 'object' ? data.ownershipSummary as AIOwnershipSummary : null,
         runtimeState: data?.runtimeState && typeof data.runtimeState === 'object' ? data.runtimeState as AIRuntimeState : null,
+    }
+}
+
+function emptyWorkspace(authStatus: 'unauthorized' | 'unavailable'): AIWorkspaceBundle {
+    return {
+        authStatus,
+        conversations: [],
+        repositories: [],
+        deployments: [],
+        releases: [],
+        deployQuota: null,
+        ownershipSummary: null,
+        runtimeState: null,
     }
 }

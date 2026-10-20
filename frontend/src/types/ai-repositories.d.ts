@@ -1,4 +1,5 @@
 type AIWorkspaceBundle = {
+    authStatus: 'ready' | 'unauthenticated' | 'unauthorized' | 'unavailable'
     conversations: AIConversation[]
     repositories: AIImportedRepo[]
     deployments: AIDeployment[]

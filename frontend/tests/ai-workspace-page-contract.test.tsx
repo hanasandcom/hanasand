@@ -30,6 +30,7 @@ mock.module('@/utils/ai/getWorkspace', () => ({
     getAiWorkspace: async (input: unknown) => {
         calls.push({ name: 'workspace', value: input })
         return {
+            authStatus: 'ready',
             conversations: [{ id: 'conversation-1' }],
             repositories: [{ id: 'repository-1' }],
             deployments: [{ id: 'deployment-1' }],
@@ -125,6 +126,7 @@ test('all workspace routes pass the same server data and preserve route selectio
         initialShares: [{ id: 'share-1' }],
         initialRuntimeState: { state: 'ready' },
         isAuthenticated: true,
+        initialWorkspaceUnavailable: false,
         canUseChatGPT: false,
         mode: 'workspace',
     })
