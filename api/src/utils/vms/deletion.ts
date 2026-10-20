@@ -4,11 +4,12 @@ import { vmLifecycleLock } from './lifecycleLock.ts'
 import { getLocalLxdInstance, lxdRequest, setLocalLxdInstanceState, waitForLxdOperation } from './lxd.ts'
 
 export const deletionMarker = 'user.hanasand.delete_after'
+export const missingInstanceMessage = 'The VM instance was already absent from its host. Its disk cannot be restored.'
 const fail = (message: string, statusCode = 409): never => { throw Object.assign(new Error(message), { statusCode }) }
 
 type DeletedVm = {
     name: string; primary_host: string; deleted_at: string | null; delete_after: string | null
-    deletion_restore: { running: boolean; autostart: string | null; ephemeral: boolean } | null
+    deletion_restore: { running: boolean; autostart: string | null; ephemeral: boolean; instanceMissing?: boolean } | null
 }
 
 async function load(name: string) {
@@ -26,7 +27,8 @@ async function finish(operation?: string) {
 }
 
 async function quarantine(vm: DeletedVm) {
-    const instance = await getLocalLxdInstance(vm.name)
+    const instance = await getLocalInstanceIfPresent(vm.name)
+    if (!instance) return false
     // An ephemeral instance would otherwise destroy its disk as soon as it stops.
     if (instance.ephemeral || instance.config?.['boot.autostart'] !== 'false' || instance.config?.[deletionMarker] !== String(vm.delete_after)) {
         const result = await lxdRequest(`/1.0/instances/${encodeURIComponent(vm.name)}`, {
@@ -36,6 +38,19 @@ async function quarantine(vm: DeletedVm) {
     }
     await setLocalLxdInstanceState(vm.name, 'stop', { tolerateAlready: true })
     if ((await getLocalLxdInstance(vm.name)).status?.toLowerCase() !== 'stopped') throw new Error('VM has not stopped yet.')
+    return true
+}
+
+async function getLocalInstanceIfPresent(name: string) {
+    try {
+        return await getLocalLxdInstance(name)
+    } catch (error) {
+        // An individual GET can fail because of a transient host problem. Confirm absence
+        // against LXD's instance list before treating the VM as an already-missing disk.
+        const instances = await lxdRequest<Array<{ name?: string }>>('/1.0/instances?recursion=1')
+        if (instances.metadata.some(instance => instance.name === name)) throw error
+        return null
+    }
 }
 
 async function recordFailure(name: string, error: unknown) {
@@ -47,13 +62,16 @@ export async function scheduleVmDeletion(name: string, confirmation: unknown) {
     return vmLifecycleLock(name, async () => {
         let vm = await load(name)
         if (!vm.deleted_at) {
-            const instance = await getLocalLxdInstance(name)
-            const saved = { running: instance.status?.toLowerCase() === 'running', autostart: instance.config?.['boot.autostart'] ?? null, ephemeral: instance.ephemeral ?? false }
-            vm = (await run('UPDATE vms SET deleted_at = NOW(), delete_after = NOW() + INTERVAL \'30 days\', deletion_restore = $2::jsonb, deletion_error = NULL WHERE name = $1 RETURNING *', [name, JSON.stringify(saved)])).rows[0]
+            const instance = await getLocalInstanceIfPresent(name)
+            const saved = instance
+                ? { running: instance.status?.toLowerCase() === 'running', autostart: instance.config?.['boot.autostart'] ?? null, ephemeral: instance.ephemeral ?? false }
+                : { running: false, autostart: null, ephemeral: false, instanceMissing: true }
+            vm = (await run('UPDATE vms SET deleted_at = NOW(), delete_after = NOW() + INTERVAL \'30 days\', deletion_restore = $2::jsonb, deletion_error = $3 WHERE name = $1 RETURNING *', [name, JSON.stringify(saved), instance ? null : missingInstanceMessage])).rows[0]
         }
         try {
-            await quarantine(vm)
-            return (await run('UPDATE vms SET deletion_error = NULL WHERE name = $1 RETURNING *', [name])).rows[0]
+            const present = await quarantine(vm)
+            const error = present ? null : missingInstanceMessage
+            return (await run('UPDATE vms SET deletion_error = $2 WHERE name = $1 RETURNING *', [name, error])).rows[0]
         } catch (error) { await recordFailure(name, error); throw error }
     })
 }
@@ -65,8 +83,10 @@ export async function restoreVm(name: string) {
         const eligible = await run('SELECT name FROM vms WHERE name = $1 AND delete_after > NOW()', [name])
         if (!eligible.rows.length) return fail('The 30-day recovery period has ended.', 410)
         if (!vm.deletion_restore) return fail('The saved VM configuration is missing.')
+        if (vm.deletion_restore.instanceMissing) return fail(missingInstanceMessage, 410)
+        const instance = await getLocalInstanceIfPresent(name)
+        if (!instance) return fail(missingInstanceMessage, 410)
         try {
-            const instance = await getLocalLxdInstance(name)
             const config = { ...instance.config, 'boot.autostart': vm.deletion_restore.autostart ?? '', [deletionMarker]: '' }
             await finish((await lxdRequest(`/1.0/instances/${encodeURIComponent(name)}`, { method: 'PATCH', body: { config } })).operation)
             if (vm.deletion_restore.running) await setLocalLxdInstanceState(name, 'start', { tolerateAlready: true })
@@ -89,7 +109,11 @@ export async function maintainDeletedVms() {
                 const vm = await load(name)
                 if (!vm.deleted_at) return
                 const expired = await run('SELECT name FROM vms WHERE name = $1 AND delete_after <= NOW()', [name])
-                if (!expired.rows.length) { await quarantine(vm); await run('UPDATE vms SET deletion_error = NULL WHERE name = $1', [name]); return }
+                if (!expired.rows.length) {
+                    const present = await quarantine(vm)
+                    await run('UPDATE vms SET deletion_error = $2 WHERE name = $1', [name, present ? null : missingInstanceMessage])
+                    return
+                }
                 // Listing distinguishes an already-purged instance from a host/network failure.
                 const instances = await lxdRequest<Array<{ name: string }>>('/1.0/instances?recursion=1')
                 if (instances.metadata.some(instance => instance.name === name)) {

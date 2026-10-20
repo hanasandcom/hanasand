@@ -35,7 +35,7 @@ mock.module('../../src/utils/db.ts', () => ({
             const eligible = state.vm && (sql.includes('delete_after <=') ? Date.parse(state.vm.delete_after) <= state.now : sql.includes('delete_after >') ? Date.parse(state.vm.delete_after) > state.now : state.vm.deleted_at)
             return { rows: eligible ? [{ name: state.vm.name }] : [] }
         }
-        if (sql.includes('SET deleted_at = NOW()')) Object.assign(state.vm, { deleted_at: new Date(state.now).toISOString(), delete_after: new Date(state.now + 30 * day).toISOString(), deletion_restore: JSON.parse(params[1]), deletion_error: null })
+        if (sql.includes('SET deleted_at = NOW()')) Object.assign(state.vm, { deleted_at: new Date(state.now).toISOString(), delete_after: new Date(state.now + 30 * day).toISOString(), deletion_restore: JSON.parse(params[1]), deletion_error: params[2] ?? null })
         else if (sql.includes('SET deleted_at = NULL')) {
             if (state.failAt === 'restore-db') throw new Error('Database write failed')
             Object.assign(state.vm, { deleted_at: null, delete_after: null, deletion_restore: null, deletion_error: null })
@@ -99,6 +99,6 @@ beforeEach(() => {
     state.now = Date.parse('2026-09-12T12:00:00Z'); state.removed = 0; state.starts = 0; state.failAt = ''
     state.operationId = ''; state.waitResult = { metadata: { status_code: 200 } }; state.waitCalls = []; state.pendingPatch = null
     state.waitGate = undefined; state.onWaitStarted = undefined
-    state.vm = { name: 'cashflow', primary_host: 'inspur', deleted_at: null, delete_after: null, deletion_restore: null }
+    state.vm = { name: 'cashflow', primary_host: 'inspur', deleted_at: null, delete_after: null, deletion_restore: null, deletion_error: null }
     state.instance = { name: 'cashflow', status: 'Running', ephemeral: true, config: { 'boot.autostart': 'true', 'limits.cpu': '2' } }
 })

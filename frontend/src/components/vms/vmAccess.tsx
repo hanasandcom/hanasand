@@ -1,12 +1,14 @@
 import { VmPanel } from './vmPanel'
 import { VmReconnectNotice } from './vmReconnectNotice'
+import VMSudoPassword from './vmSudoPassword'
 
 type VMAccessProps = {
+    vmName: string
     connection: VMConnectionDetails | null
     error?: string
 }
 
-export default function VMAccess({ connection, error }: VMAccessProps) {
+export default function VMAccess({ vmName, connection, error }: VMAccessProps) {
     return (
         <VmPanel title='Access'>
             {connection ? (
@@ -34,6 +36,7 @@ export default function VMAccess({ connection, error }: VMAccessProps) {
                     message={error || 'Reloading SSH user, host, and certificate information automatically…'}
                 />
             )}
+            <VMSudoPassword vmName={vmName} />
         </VmPanel>
     )
 }

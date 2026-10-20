@@ -24,7 +24,7 @@ export default function DeleteVmDialog({ name, busy, error, onCancel, onConfirm 
             {error && <p role='alert' className='mt-3 text-sm text-ui-text'>{error}</p>}
             <div className='mt-5 flex justify-end gap-2'>
                 <button type='button' disabled={busy} onClick={onCancel} className='rounded-lg border border-ui-border px-3 py-2 disabled:opacity-50'>Cancel</button>
-                <button type='submit' disabled={busy || confirmation !== name} className='rounded-lg border border-ui-danger/35 bg-ui-raised/10 px-3 py-2 font-semibold text-ui-text disabled:cursor-not-allowed disabled:opacity-50'>{busy ? 'Stopping VM…' : 'Delete VM'}</button>
+                <button type='submit' disabled={busy || confirmation !== name} className='rounded-lg border border-ui-danger/35 bg-ui-danger/10 px-3 py-2 font-semibold text-ui-danger disabled:cursor-not-allowed disabled:opacity-50'>{busy ? 'Deleting VM…' : 'Delete VM'}</button>
             </div>
         </form>
     </dialog>

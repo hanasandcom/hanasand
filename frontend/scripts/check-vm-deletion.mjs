@@ -46,7 +46,8 @@ try {
     page.on('pageerror', error => errors.push(error.message))
     page.on('dialog', dialog => { nativeDialogs.push(dialog.type()); void dialog.dismiss() })
     await page.goto(server.url.toString())
-    await page.getByText('Danger actions', { exact: true }).click()
+    const moreActions = () => page.getByRole('button', { name: 'More actions for cashflow' })
+    await moreActions().click()
     const open = () => page.getByRole('button', { name: 'Delete VM', exact: true }).click()
     await open()
     const modal = page.getByRole('dialog')
@@ -68,7 +69,7 @@ try {
     assert.equal(await modal.count(), 0)
     assert(deletions.every(body => body.confirmation === 'cashflow'))
     assert.equal(await page.getByRole('link', { name: 'Open cashflow console' }).count(), 0)
-    assert.equal(await page.getByText('Danger actions', { exact: true }).count(), 0)
+    assert.equal(await moreActions().count(), 0)
     failRestore = true
     await page.getByRole('button', { name: 'Restore VM', exact: true }).click()
     await page.getByText('Could not restore. Try again.', { exact: true }).waitFor()
@@ -78,12 +79,12 @@ try {
     assert.equal(restores, 2)
     for (const width of [390, 1200]) {
         await page.setViewportSize({ width, height: 800 })
-        await page.getByText('Danger actions', { exact: true }).click()
+        await moreActions().click()
         await open()
         assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
         const box = await modal.boundingBox(); assert(box.width <= width && box.x >= 0)
         await modal.getByRole('button', { name: 'Cancel', exact: true }).click()
-        await page.getByText('Danger actions', { exact: true }).click()
+        await moreActions().click()
     }
     assert.deepEqual(errors, []); assert.deepEqual(nativeDialogs, [])
     console.log('VM deletion UI: typed confirmation, accessible modal, retry, one-click restore and responsive layout passed.')

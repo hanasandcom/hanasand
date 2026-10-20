@@ -26,10 +26,7 @@ export default async function deleteVM(vmId: string, confirmation: string): Prom
         const payload = await response.json().catch(() => ({}))
         if (!response.ok) return { status: response.status, message: payload.error || 'Unable to stop the VM. Try again.' }
 
-        return {
-            status: response.status,
-            message: 'VM stopped. You can restore it for 30 days.'
-        }
+        return { status: response.status, message: typeof payload.message === 'string' ? payload.message : 'VM deletion scheduled.' }
     } catch (error) {
         console.log(error)
         return {

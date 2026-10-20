@@ -22,7 +22,7 @@ export default async function Page() {
     const effectiveId = impersonatingId || id
     return (
         <DashboardPage>
-            <div className='max-w-5xl'>
+            <div className='w-full min-w-0'>
                 <Suspense fallback={<DashboardDataFallback label='virtual machines' />}>
                     <VMData effectiveId={effectiveId} token={token} id={id} impersonationToken={impersonationToken} />
                 </Suspense>

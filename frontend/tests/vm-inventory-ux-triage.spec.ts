@@ -10,12 +10,13 @@ test('vm inventory exposes explicit safe and destructive actions', async () => {
     expect(vmRow).toContain('data-vm-primary-action')
     expect(vmRow).toContain('Open details')
     expect(vmRow).toContain('router.push(`/vm/${vm.name}`)')
-    expect(vmRow).toContain('<RestartButtons vm={vm} />')
+    expect(vmRow).toContain('<RestartButtons vm={vm} showLabels />')
 
-    expect(vmRow).toContain('data-vm-danger-actions')
-    expect(vmRow).toContain('Danger actions')
+    expect(vmRow).toContain('data-vm-actions')
+    expect(vmRow).toContain('More actions')
+    expect(vmRow).toContain('<AddToOrganization vm={vm} onAdded={update} />')
     expect(vmRow).toContain('Delete VM')
-    expect(vmRow).toContain('deleteVM(vm.name)')
+    expect(vmRow).toContain('deleteVM(vm.name, confirmation)')
     expect(vmRow.indexOf('data-vm-danger-actions')).toBeLessThan(vmRow.indexOf('Delete VM'))
 
     expect(vmRow).not.toContain('useKeyPress')

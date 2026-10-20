@@ -74,6 +74,7 @@ type VM = {
     deleted_at?: string | null
     delete_after?: string | null
     deletion_error?: string | null
+    deletion_restore?: { instanceMissing?: boolean } | null
     name: string
     owner: string
     created_by: string

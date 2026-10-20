@@ -22,6 +22,7 @@ import deleteVMs from '../handlers/vms/deleteVMs.ts'
 import shutdownVMs from '../handlers/vms/shutdown.ts'
 import getVMDetails from '../handlers/vms/getVMDetails.ts'
 import getVmConnection from '../handlers/vms/getConnection.ts'
+import postVmSudoPassword from '../handlers/vms/postSudoPassword.ts'
 import getAgentTarget from '../handlers/vms/getAgentTarget.ts'
 import getAgentTargets from '../handlers/vms/getAgentTargets.ts'
 import postAgentTargetSyncAccess from '../handlers/vms/postAgentTargetSyncAccess.ts'
@@ -128,6 +129,7 @@ export function registerOrganizationsAndComputeRoutes(fastify: FastifyInstance) 
     fastify.post('/vm/:id/request', postAgentTargetRequest)
     fastify.get('/vm/:id', getVM)
     fastify.get('/vm/:id/connection', getVmConnection)
+    fastify.post('/vm/:id/sudo-password', postVmSudoPassword)
     fastify.put('/vm/:id/host-features', putVmHostFeatures)
     fastify.post('/vm/:id/failover', postVmFailover)
     fastify.get('/vm/details/:name', getVMDetails)

@@ -25,6 +25,26 @@ test('preserves the disk, disables startup, and retries without extending the 30
     expect(state.removed).toBe(0)
 })
 
+test('records an already-missing instance accurately and keeps its tombstone until retention expires', async () => {
+    state.instance = null
+    const response = await app.inject({ method: 'DELETE', url: '/vm/cashflow', headers: { id: 'admin' }, payload: { confirmation: 'cashflow' } })
+    expect(response.statusCode).toBe(200)
+    expect(response.json().message).toContain('Its record is retained for 30 days.')
+    expect(state.vm.deleted_at).not.toBeNull()
+    expect(state.vm.deletion_restore).toMatchObject({ instanceMissing: true })
+    expect(state.vm.deletion_error).toContain('disk cannot be restored')
+
+    const restore = await app.inject({ method: 'POST', url: '/vm/cashflow/restore', headers: { id: 'admin' } })
+    expect(restore.statusCode).toBe(410)
+    expect(restore.json().error).toContain('disk cannot be restored')
+
+    await operations.maintainDeletedVms()
+    expect(state.vm).not.toBeNull()
+    state.now += 30 * day
+    await operations.maintainDeletedVms()
+    expect(state.vm).toBeNull()
+})
+
 test('waits for the LXD configuration operation before stopping the VM', async () => {
     state.operationId = 'quarantine-config'
     let completeWait!: () => void
