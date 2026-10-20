@@ -15,6 +15,7 @@ export type PromptPortalFile = {
 
 export type PromptPortalItem = {
     id: string
+    conversationId?: string
     prompt: string
     priority: 'now' | 'next'
     status: 'queued' | 'running' | 'done' | 'error'

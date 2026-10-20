@@ -4,23 +4,23 @@ import remarkGfm from 'remark-gfm'
 import { AlertTriangle, Bot, CheckCircle2, LoaderCircle, Sparkles } from 'lucide-react'
 
 export function MarkdownBlock({ content }: { content: string }) {
-    return <div className='prose max-w-none wrap-break-word text-sm leading-6 text-ui-muted prose-p:my-3 prose-pre:overflow-auto prose-pre:rounded-lg prose-pre:bg-ui-raised prose-pre:p-3 prose-code:text-[0.9em] prose-a:text-ui-primary'><ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown></div>
+    return <div className='prose max-w-none wrap-break-word text-base leading-7 text-ui-muted prose-p:my-3 prose-pre:overflow-auto prose-pre:rounded-lg prose-pre:bg-ui-raised prose-pre:p-3 prose-code:text-[0.9em] prose-a:text-ui-primary'><ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown></div>
 }
 
 export function EmptyComposerState({ tooltip, hasReadyModel, isAuthenticated }: { tooltip: string, hasReadyModel: boolean, isAuthenticated: boolean }) {
     return (
         <div className='flex h-full min-h-[28rem] items-center justify-center'>
             <div className='max-w-xl text-center'>
-                <div className='mx-auto grid h-14 w-14 place-items-center rounded-lg border border-ui-border bg-ui-panel text-ui-primary'>
+                <div className='mx-auto grid h-12 w-12 place-items-center rounded-full text-ui-muted'>
                     <Bot className='h-6 w-6' />
                 </div>
-                <h2 className='mt-7 text-2xl font-semibold tracking-normal text-ui-text'>
-                    Review context, then ship when it is ready.
+                <h2 className='mt-5 text-2xl font-medium tracking-tight text-ui-text sm:text-3xl'>
+                    What should I work on?
                 </h2>
                 <p className='mt-3 text-sm leading-6 text-ui-muted'>
                     {hasReadyModel
                         ? tooltip
-                        : 'Attach context or open a shared workspace. Files, launch state, and notes stay visible while review is paused.'}
+                        : 'Open a shared workspace or sign in to start a conversation.'}
                 </p>
                 {!hasReadyModel ? (
                     <div className='mt-5 flex flex-wrap justify-center gap-2 text-xs text-ui-muted'>

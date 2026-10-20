@@ -95,7 +95,6 @@ export const generatedSearchRoutes = [
     { id: 'route:/pricing', title: 'Pricing', detail: 'Page · /pricing', href: '/pricing' },
     { id: 'route:/privacy', title: 'Privacy', detail: 'Page · /privacy', href: '/privacy' },
     { id: 'route:/profile', title: 'Profile', detail: 'Page · /profile', href: '/profile' },
-    { id: 'route:/prompt', title: 'Prompt', detail: 'Page · /prompt', href: '/prompt' },
     { id: 'route:/pwned', title: 'Pwned', detail: 'Page · /pwned', href: '/pwned' },
     { id: 'route:/register', title: 'Register', detail: 'Page · /register', href: '/register' },
     { id: 'route:/reserved-usernames', title: 'Reserved Usernames', detail: 'Page · /reserved-usernames', href: '/reserved-usernames' },

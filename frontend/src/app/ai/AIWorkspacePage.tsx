@@ -2,6 +2,7 @@ import { cookies } from 'next/headers'
 import AIPageClient from './pageClient'
 import { getUserShares } from '@/utils/share/getUserShares'
 import { getAiWorkspace } from '@/utils/ai/getWorkspace'
+import { isHanasandOrganizationMember } from '@/utils/organizations/hanasandMembership'
 
 type AIWorkspaceRouteParams = Promise<{ id: string }>
 
@@ -12,9 +13,10 @@ export default async function AIWorkspacePage({ params }: { params?: AIWorkspace
     ])
     const id = cookieStore.get('id')?.value
     const token = cookieStore.get('access_token')?.value
-    const [shares, workspace] = await Promise.all([
+    const [shares, workspace, canUseChatGPT] = await Promise.all([
         id && token ? getUserShares({ id, token }) : Promise.resolve([]),
         getAiWorkspace({ id, token }),
+        id && token ? isHanasandOrganizationMember(token, id).catch(() => false) : Promise.resolve(false),
     ])
 
     return (
@@ -28,6 +30,7 @@ export default async function AIWorkspacePage({ params }: { params?: AIWorkspace
             initialShares={Array.isArray(shares) ? shares : []}
             initialRuntimeState={workspace.runtimeState}
             isAuthenticated={Boolean(id && token)}
+            canUseChatGPT={canUseChatGPT}
             {...(routeParams ? { initialConversationId: routeParams.id } : {})}
             mode='workspace'
         />

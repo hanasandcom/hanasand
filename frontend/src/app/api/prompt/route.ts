@@ -19,7 +19,8 @@ export async function GET(request: NextRequest) {
     const access = await requirePromptPortalSession(request)
     if ('response' in access) return access.response
     const state = await readPromptPortalState()
-    return NextResponse.json(publicPromptPortalState(state), { headers: { 'Cache-Control': 'private, no-store', Vary: 'Cookie' } })
+    const conversationId = request.nextUrl.searchParams.get('conversationId') || 'default'
+    return NextResponse.json(publicPromptPortalState({ ...state, items: state.items.filter(item => !item.conversationId || item.conversationId === conversationId) }), { headers: { 'Cache-Control': 'private, no-store', Vary: 'Cookie' } })
 }
 
 export async function POST(request: NextRequest) {
@@ -38,6 +39,8 @@ export async function POST(request: NextRequest) {
 async function enqueuePrompt(request: NextRequest) {
     const state = await readPromptPortalState()
     const form = await request.formData()
+    const conversationId = String(form.get('conversationId') || '').trim()
+    if (!/^[a-z0-9-]{1,100}$/i.test(conversationId)) return NextResponse.json({ ok: false, error: 'Choose a valid conversation.' }, { status: 400 })
     const prompt = String(form.get('prompt') || '').trim().slice(0, MAX_PROMPT_LENGTH)
     if (!prompt) {
         return NextResponse.json({ ok: false, error: 'Prompt is required.' }, { status: 400 })
@@ -50,6 +53,7 @@ async function enqueuePrompt(request: NextRequest) {
 
     state.items.push({
         id: randomBytes(10).toString('hex'),
+        conversationId,
         prompt,
         files,
         priority: form.get('priority') === 'now' ? 'now' : 'next',
@@ -57,13 +61,16 @@ async function enqueuePrompt(request: NextRequest) {
         createdAt: new Date().toISOString(),
     })
     await writePromptPortalState(state)
-    return NextResponse.json({ ok: true, ...publicPromptPortalState(state) }, { headers: { 'Cache-Control': 'private, no-store', Vary: 'Cookie' } })
+    return NextResponse.json({ ok: true, ...publicPromptPortalState({ ...state, items: state.items.filter(item => item.conversationId === conversationId) }) }, { headers: { 'Cache-Control': 'private, no-store', Vary: 'Cookie' } })
 }
 
 async function mutateQueuedPrompt(body: Record<string, unknown>, action: 'edit' | 'delete' | 'reorder') {
     const state = await readPromptPortalState()
-    const item = state.items.find(candidate => candidate.id === body.id && candidate.status === 'queued')
+    const conversationId = String(body.conversationId || '').trim()
+    if (!/^[a-z0-9-]{1,100}$/i.test(conversationId)) return NextResponse.json({ ok: false, error: 'Choose a valid conversation.' }, { status: 400 })
+    const item = state.items.find(candidate => candidate.id === body.id && (!candidate.conversationId || candidate.conversationId === conversationId) && candidate.status === 'queued')
     if (!item) return NextResponse.json({ ok: false, error: 'Queued instruction not found.' }, { status: 404 })
+    item.conversationId = conversationId
 
     if (action === 'edit') {
         const prompt = String(body.prompt || '').trim().slice(0, MAX_PROMPT_LENGTH)
@@ -86,5 +93,5 @@ async function mutateQueuedPrompt(body: Record<string, unknown>, action: 'edit' 
     }
 
     await writePromptPortalState(state)
-    return NextResponse.json({ ok: true, ...publicPromptPortalState(state) }, { headers: { 'Cache-Control': 'private, no-store', Vary: 'Cookie' } })
+    return NextResponse.json({ ok: true, ...publicPromptPortalState({ ...state, items: state.items.filter(candidate => candidate.conversationId === conversationId) }) }, { headers: { 'Cache-Control': 'private, no-store', Vary: 'Cookie' } })
 }

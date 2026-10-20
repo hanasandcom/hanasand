@@ -2,13 +2,9 @@ import { afterAll, expect, mock, test } from 'bun:test'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { createElement } from 'react'
-import { renderToStaticMarkup } from 'react-dom/server'
 import { NextRequest } from 'next/server'
 import type { PromptPortalItem, PromptPortalState } from '../src/utils/promptPortal/store'
 import { comparePromptItems } from '../src/utils/promptPortal/ordering'
-import { PromptQueue } from '../src/app/prompt/PromptQueue'
-import PromptPortalClient from '../src/app/prompt/promptPortalClient'
 
 const previousStateDir = process.env.PROMPT_PORTAL_STATE_DIR
 const previousWorkerToken = process.env.PROMPT_PORTAL_WORKER_TOKEN
@@ -46,49 +42,15 @@ test('prompt queue ordering is priority-first and FIFO within priority', () => {
     expect([...items].sort(comparePromptItems).map(entry => entry.id)).toEqual(['now-old', 'now-new', 'next-new'])
 })
 
-test('queue UI keeps labels and limits reorder controls to queued items', () => {
-    const queued = [
-        item('now', 'urgent instruction', 'now', '2026-01-01T00:00:00Z'),
-        item('next', 'following instruction', 'next', '2026-01-02T00:00:00Z'),
-    ]
-    const running = { ...item('running', 'in progress', 'next', '2026-01-03T00:00:00Z'), status: 'running' as const }
-    const html = renderToStaticMarkup(createElement(PromptQueue, {
-        title: 'Input queue',
-        items: [...queued, running],
-        empty: 'No queued instructions.',
-        onMove: () => {},
-        onEdit: () => {},
-        onDelete: () => {},
-    }))
-
-    expect(html).toContain('Input queue')
-    expect(html.indexOf('urgent instruction')).toBeLessThan(html.indexOf('following instruction'))
-    expect(html).toContain('Now · queued')
-    expect(html).toContain('#2 · queued')
-    expect(html).toContain('Running · running')
-    expect((html.match(/title="Move up"/g) || [])).toHaveLength(2)
-    expect(html).toMatch(/<button[^>]*title="Move up"[^>]*disabled=""[^>]*>/)
-    expect(html).toMatch(/<button[^>]*title="Move down"[^>]*disabled=""[^>]*>/)
-
-    const firstNext = renderToStaticMarkup(createElement(PromptQueue, {
-        title: 'Input queue', items: [queued[1]], empty: 'No queued instructions.',
-    }))
-    expect(firstNext).toContain('Next · queued')
-    expect(firstNext).not.toContain('title="Edit"')
-})
-
-test('portal renders the queue for authenticated organization members', () => {
-    const locked = renderToStaticMarkup(createElement(PromptPortalClient))
-    expect(locked).toContain('<h1 class="mt-2 text-3xl font-semibold tracking-normal">Prompt</h1>')
-    expect(locked).toContain('Input queue')
-
-    const populated = renderToStaticMarkup(createElement(PromptPortalClient, {
-        initialState: {
-            items: [item('queued', 'Existing instruction', 'next', '2026-01-01T00:00:00Z')],
-        },
-    }))
-    expect(populated).toContain('Input queue')
-    expect(populated).toContain('Existing instruction')
+test('shared ChatGPT conversation UI keeps attachments, priority, and queued request actions', async () => {
+    const composer = await readFile(new URL('../src/components/ai/chat/chatComposer.tsx', import.meta.url), 'utf8')
+    const transcript = await readFile(new URL('../src/components/ai/chat/chatTranscript.tsx', import.meta.url), 'utf8')
+    expect(composer).toContain('provider === \'chatgpt\'')
+    expect(composer).toContain('accept=\'image/*\' multiple')
+    expect(composer).toContain('onPromptPriorityChange(\'now\')')
+    expect(transcript).toContain('onEditPrompt')
+    expect(transcript).toContain('onDeletePrompt')
+    expect(transcript).toContain('onMovePrompt')
 })
 
 test('reorder API and worker consume the same priority and FIFO order', async () => {
@@ -104,7 +66,7 @@ test('reorder API and worker consume the same priority and FIFO order', async ()
     const reorder = await POST(new NextRequest('https://app.test/api/prompt', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ action: 'reorder', id: 'first', direction: 'down' }),
+        body: JSON.stringify({ action: 'reorder', id: 'first', conversationId: 'conversation-1', direction: 'down' }),
     }))
     expect(reorder.status).toBe(200)
 

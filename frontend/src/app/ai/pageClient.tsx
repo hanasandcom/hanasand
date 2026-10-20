@@ -1,31 +1,49 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { PanelRight, SquareArrowOutUpRight } from 'lucide-react'
 import ChatPane from '@/components/ai/chatPane'
 import ChatSidebar from '@/components/ai/chatSidebar'
 import WorkspacePane from '@/components/ai/workspacePane'
 import useAiWorkbench from '@/components/ai/useAiWorkbench'
 import type { AIWorkbenchInitialData } from '@/components/ai/workbench/initialData'
-import conversationTitle from '@/utils/ai/conversationTitle'
 import { AIPageNotices } from './AIPageNotices'
+import { usePromptPortal } from '@/components/ai/workbench/usePromptPortal'
 
 type AIPageMode = 'landing' | 'workspace' | 'compact'
 
 export default function AIPageClient({
     mode = 'landing',
+    canUseChatGPT = false,
     ...initialData
 }: AIWorkbenchInitialData & {
     mode?: AIPageMode
+    canUseChatGPT?: boolean
 }) {
     const router = useRouter()
     const pathname = usePathname()
     const ai = useAiWorkbench(initialData)
-    const [detailsOpen, setDetailsOpen] = useState(mode !== 'landing')
+    const [provider, setProvider] = useState<'hanasand' | 'chatgpt'>('hanasand')
+    const portal = usePromptPortal(canUseChatGPT, ai.activeConversation)
+    const [detailsOpen, setDetailsOpen] = useState(false)
     const showWorkspaceRail = mode !== 'landing'
-    const showHeader = mode === 'workspace'
+    const usingChatGPT = canUseChatGPT && provider === 'chatgpt'
+    const visibleConversation = usingChatGPT ? portal.chatGPTConversation : ai.activeConversation
+
+    async function sendPrompt() {
+        if (!usingChatGPT) return ai.sendPrompt()
+        if (await portal.submit(ai.composer.trim())) ai.setComposer('')
+    }
+
+    function changeProvider(value: 'hanasand' | 'chatgpt') {
+        setProvider(value)
+        if (value === 'hanasand') portal.setFiles(null)
+    }
+
+    function mutatePrompt(action: 'edit' | 'delete' | 'reorder', id: string, extra: Record<string, unknown> = {}) {
+        const item = portal.items.find(candidate => candidate.id === id)
+        if (item) void portal.mutate(action, item, extra)
+    }
 
     function selectConversation(id: string) {
         ai.selectConversation(id)
@@ -37,30 +55,6 @@ export default function AIPageClient({
     return (
         <div className='h-full enterprise-console relative w-full overflow-hidden bg-ui-canvas text-ui-text'>
             <div className='flex h-full min-h-0 flex-col'>
-                {showHeader ? (
-                    <div className='flex h-14 items-center justify-between border-b border-ui-border bg-ui-panel px-5'>
-                        <div className='min-w-0'>
-                            <p className='truncate text-sm font-semibold text-ui-text'>
-                                {conversationTitle(ai.activeConversation?.title)}
-                            </p>
-                        </div>
-                        <div className='flex items-center gap-2'>
-                            <button
-                                type='button'
-                                onClick={() => setDetailsOpen((prev) => !prev)}
-                                aria-label={detailsOpen ? 'Hide workspace details' : 'Show workspace details'}
-                                className={`grid h-9 w-9 place-items-center rounded-lg transition-colors ${detailsOpen ? 'bg-ui-primary/10 text-ui-primary' : 'text-ui-muted hover:bg-ui-raised hover:text-ui-text'}`}
-                            >
-                                <PanelRight className='h-4 w-4' />
-                            </button>
-                            <Link href={ai.activeConversation?.workspaceId ? `/s/${ai.activeConversation.workspaceId}` : '/s'} className='inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-ui-muted transition-colors hover:bg-ui-raised hover:text-ui-text'>
-                                Context
-                                <SquareArrowOutUpRight className='h-4 w-4' />
-                            </Link>
-                        </div>
-                    </div>
-                ) : null}
-
                 <div className={`grid min-h-0 w-full max-w-full flex-1 grid-cols-[minmax(0,1fr)] overflow-hidden ${showWorkspaceRail && detailsOpen ? 'xl:grid-cols-[15rem_minmax(0,1fr)] 2xl:grid-cols-[16rem_minmax(0,1fr)_22rem]' : 'xl:grid-cols-[16rem_minmax(0,1fr)]'}`}>
                     <div className='hidden min-h-0 md:block'>
                         <ChatSidebar
@@ -78,17 +72,33 @@ export default function AIPageClient({
                     </div>
 
                     <ChatPane
-                        activeConversation={ai.activeConversation}
+                        activeConversation={visibleConversation}
                         clients={ai.clients}
                         composer={ai.composer}
                         isConnected={ai.isConnected}
                         isAuthenticated={initialData.isAuthenticated}
                         participants={ai.participants}
                         readOnly={ai.activeConversation?.collaboration?.role === 'reviewer'}
+                        provider={provider}
+                        canUseChatGPT={canUseChatGPT}
+                        promptPriority={portal.priority}
+                        promptFiles={portal.files}
+                        promptBusy={portal.busy}
+                        promptError={usingChatGPT ? portal.error : ''}
+                        showWorkspaceDetails={showWorkspaceRail}
+                        workspaceDetailsOpen={detailsOpen}
+                        onToggleWorkspaceDetails={() => setDetailsOpen(previous => !previous)}
+                        onProviderChange={changeProvider}
+                        onPromptPriorityChange={portal.setPriority}
+                        onPromptFilesChange={portal.setFiles}
+                        onRefreshPrompts={portal.refresh}
+                        onEditPrompt={id => { const item = portal.items.find(candidate => candidate.id === id); if (item) portal.edit(item) }}
+                        onDeletePrompt={id => mutatePrompt('delete', id)}
+                        onMovePrompt={(id, direction) => mutatePrompt('reorder', id, { direction })}
                         onComposerChange={ai.setComposer}
                         onModelStrategyChange={ai.setModelStrategy}
                         onPreferredModelChange={ai.setPreferredModel}
-                        onSend={ai.sendPrompt}
+                        onSend={sendPrompt}
                     />
 
                     {showWorkspaceRail && detailsOpen ? (
@@ -135,12 +145,12 @@ export default function AIPageClient({
                     ) : null}
                 </div>
 
-                <AIPageNotices
+                {usingChatGPT ? null : <AIPageNotices
                     statusNotice={ai.statusNotice}
                     resumeNotice={ai.resumeNotice}
                     runtimeState={ai.runtimeState}
                     onDismissResumeNotice={() => ai.setResumeNotice(null)}
-                />
+                />}
 
             </div>
         </div>
