@@ -33,6 +33,8 @@ export default function Header({ token, id, username, path: serverPath }: { toke
         setRecentUsers(readRecentUsers())
     }, [id, token])
 
+    if (pathname === '/status') return null
+
     if (isAiWorkbench) {
         return (
             <header data-site-header className='site-chrome fixed left-0 top-0 z-1000 w-full border-b border-ui-border bg-ui-panel text-ui-text px-4 sm:px-6'>

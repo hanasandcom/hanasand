@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import StatusOverview from '../src/app/status/statusDashboard/StatusOverview'
+import StatusPageMirror from '../src/app/status/StatusPageMirror'
 import type { ServiceStatus } from '../src/utils/status/getStatus'
 
 const root = process.cwd()
@@ -66,6 +67,21 @@ test('public status page renders stale and unverified results without fake uptim
     expect(markup).toContain('href="/status/incidents"')
     expect(markup).toContain('href="/status/incidents/incident-42"')
     expect(markup).not.toMatch(/aria-label="API Health \d+(?:\.\d+)?% uptime"/)
+})
+
+test('Hanasand status route embeds the canonical status page as the complete page', () => {
+    const markup = renderToStaticMarkup(createElement(StatusPageMirror))
+
+    expect(markup).toContain('title="Hanasand service status"')
+    expect(markup).toContain('src="https://status.hanasand.com/"')
+    expect(markup).toContain('fixed inset-0')
+})
+
+test('public status route uses the canonical mirror without a second status transformation', async () => {
+    const route = await readFile(path.join(root, 'src/app/status/page.tsx'), 'utf8')
+
+    expect(route).toContain('<StatusPageMirror />')
+    expect(route).not.toContain('getPublicStatus')
 })
 
 test('public footer does not hardcode operational status', async () => {

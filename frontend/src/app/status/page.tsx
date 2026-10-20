@@ -1,9 +1,6 @@
-import StatusDashboard from './pageClient'
+import StatusPageMirror from './StatusPageMirror'
 import type { Metadata } from 'next'
-import getPublicStatus from '@/utils/status/getPublicStatus'
 import { buildRouteMetadata } from '../seo'
-
-export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = buildRouteMetadata({
     title: 'System Status',
@@ -12,12 +9,4 @@ export const metadata: Metadata = buildRouteMetadata({
     keywords: ['hanasand status', 'api status', 'platform status'],
 })
 
-export default async function page() {
-    const serviceStatus = await getPublicStatus({ dashboard: true })
-
-    return (
-        <div className='min-h-app-viewport bg-ui-canvas px-4 py-6 text-ui-text md:px-8'>
-            <StatusDashboard serviceStatus={serviceStatus} />
-        </div>
-    )
-}
+export default function page() { return <StatusPageMirror /> }
