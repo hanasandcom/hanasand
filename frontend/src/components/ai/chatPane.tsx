@@ -35,9 +35,10 @@ type ChatPaneProps = {
     showWorkspaceDetails: boolean
     workspaceDetailsOpen: boolean
     onToggleWorkspaceDetails: () => void
+    onToggleMobileChats: () => void
 }
 
-export default function ChatPane({ activeConversation, clients, composer, isConnected, isAuthenticated, readOnly = false, provider, canUseChatGPT, promptPriority, promptFiles, promptBusy, promptError, showWorkspaceDetails, workspaceDetailsOpen, onToggleWorkspaceDetails, onProviderChange, onPromptPriorityChange, onPromptFilesChange, onRefreshPrompts, onEditPrompt, onDeletePrompt, onMovePrompt, onModelStrategyChange, onPreferredModelChange, onComposerChange, onSend }: ChatPaneProps) {
+export default function ChatPane({ activeConversation, clients, composer, isConnected, isAuthenticated, readOnly = false, provider, canUseChatGPT, promptPriority, promptFiles, promptBusy, promptError, showWorkspaceDetails, workspaceDetailsOpen, onToggleWorkspaceDetails, onToggleMobileChats, onProviderChange, onPromptPriorityChange, onPromptFilesChange, onRefreshPrompts, onEditPrompt, onDeletePrompt, onMovePrompt, onModelStrategyChange, onPreferredModelChange, onComposerChange, onSend }: ChatPaneProps) {
     const scrollRef = useRef<HTMLDivElement | null>(null)
     const [showArtifacts, setShowArtifacts] = useState(false)
     const [previewArtifact, setPreviewArtifact] = useState<AIArtifact | null>(null)
@@ -72,7 +73,7 @@ export default function ChatPane({ activeConversation, clients, composer, isConn
 
     return <Fragment>
         <section className='relative flex min-h-0 w-full max-w-full min-w-0 flex-1 flex-col overflow-hidden'>
-            <ChatHeader conversation={activeConversation} clients={clients} isThinking={isThinking} provider={provider} canUseChatGPT={canUseChatGPT} onProviderChange={onProviderChange} showWorkspaceDetails={showWorkspaceDetails} workspaceDetailsOpen={workspaceDetailsOpen} onToggleWorkspaceDetails={onToggleWorkspaceDetails} showArtifacts={showArtifacts} latestArtifacts={latestArtifacts} onToggleArtifacts={() => setShowArtifacts(previous => !previous)} onModelStrategyChange={onModelStrategyChange} onPreferredModelChange={onPreferredModelChange} />
+            <ChatHeader conversation={activeConversation} clients={clients} isThinking={isThinking} provider={provider} canUseChatGPT={canUseChatGPT} onProviderChange={onProviderChange} showWorkspaceDetails={showWorkspaceDetails} workspaceDetailsOpen={workspaceDetailsOpen} onToggleWorkspaceDetails={onToggleWorkspaceDetails} onToggleMobileChats={onToggleMobileChats} showArtifacts={showArtifacts} latestArtifacts={latestArtifacts} onToggleArtifacts={() => setShowArtifacts(previous => !previous)} onModelStrategyChange={onModelStrategyChange} onPreferredModelChange={onPreferredModelChange} />
             <div className={`grid min-h-0 w-full max-w-full flex-1 ${showArtifacts ? 'grid-cols-1 xl:grid-cols-[minmax(0,1fr)_22rem]' : 'grid-cols-1'}`}>
                 <ChatTranscript conversation={activeConversation} scrollRef={scrollRef} hasReadyModel={hasReadyModel} isAuthenticated={isAuthenticated} onEditPrompt={onEditPrompt} onDeletePrompt={onDeletePrompt} onMovePrompt={onMovePrompt} onPreview={setPreviewArtifact} />
                 {showArtifacts ? <ArtifactSidebar groups={groupedArtifacts} onPreview={setPreviewArtifact} /> : null}

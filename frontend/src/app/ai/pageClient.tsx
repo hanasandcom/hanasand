@@ -24,6 +24,7 @@ export default function AIPageClient({
     const pathname = usePathname()
     const ai = useAiWorkbench(initialData)
     const [provider, setProvider] = useState<'hanasand' | 'chatgpt'>('hanasand')
+    const [mobileChatsOpen, setMobileChatsOpen] = useState(false)
     const portal = usePromptPortal(canUseChatGPT, ai.activeConversation)
     const [detailsOpen, setDetailsOpen] = useState(false)
     const showWorkspaceRail = mode !== 'landing'
@@ -65,9 +66,9 @@ export default function AIPageClient({
                             setSearch={ai.setSearch}
                             onArchiveConversation={ai.archiveConversation}
                             onDeleteConversation={ai.deleteConversation}
-                            onNewConversation={ai.createNewConversation}
+                            onNewConversation={() => { void ai.createNewConversation(); setMobileChatsOpen(false) }}
                             onRenameConversation={ai.renameConversation}
-                            onSelectConversation={selectConversation}
+                            onSelectConversation={id => { selectConversation(id); setMobileChatsOpen(false) }}
                         />
                     </div>
 
@@ -88,6 +89,7 @@ export default function AIPageClient({
                         showWorkspaceDetails={showWorkspaceRail}
                         workspaceDetailsOpen={detailsOpen}
                         onToggleWorkspaceDetails={() => setDetailsOpen(previous => !previous)}
+                        onToggleMobileChats={() => setMobileChatsOpen(previous => !previous)}
                         onProviderChange={changeProvider}
                         onPromptPriorityChange={portal.setPriority}
                         onPromptFilesChange={portal.setFiles}
@@ -144,6 +146,24 @@ export default function AIPageClient({
                         </div>
                     ) : null}
                 </div>
+
+                {mobileChatsOpen ? <div className='absolute inset-0 z-40 md:hidden'>
+                    <button type='button' aria-label='Close chats' onClick={() => setMobileChatsOpen(false)} className='absolute inset-0 bg-ui-scrim/60' />
+                    <div className='absolute inset-y-0 left-0 w-[min(19rem,85vw)] shadow-2xl'>
+                        <ChatSidebar
+                            activeConversationId={ai.activeConversationId}
+                            archivedConversations={ai.archivedConversations}
+                            conversations={ai.filteredConversations}
+                            search={ai.search}
+                            setSearch={ai.setSearch}
+                            onArchiveConversation={ai.archiveConversation}
+                            onDeleteConversation={ai.deleteConversation}
+                            onNewConversation={() => { void ai.createNewConversation(); setMobileChatsOpen(false) }}
+                            onRenameConversation={ai.renameConversation}
+                            onSelectConversation={id => { selectConversation(id); setMobileChatsOpen(false) }}
+                        />
+                    </div>
+                </div> : null}
 
                 {usingChatGPT ? null : <AIPageNotices
                     statusNotice={ai.statusNotice}

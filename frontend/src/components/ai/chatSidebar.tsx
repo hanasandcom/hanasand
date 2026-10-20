@@ -34,7 +34,7 @@ export default function ChatSidebar(props: ChatSidebarProps) {
     const [showArchived, setShowArchived] = useState(false)
     const [searchOpen, setSearchOpen] = useState(false)
     return (
-        <aside className='flex min-h-0 flex-col border-r border-ui-border bg-ui-panel p-4 text-ui-text'>
+        <aside className='flex h-full min-h-0 flex-col border-r border-ui-border bg-ui-panel p-4 text-ui-text'>
             <div className='flex items-center justify-between gap-2 pb-4'>
                 <button type='button' onClick={onNewConversation} className='inline-flex h-9 items-center gap-2 rounded-lg bg-ui-text px-3 text-sm font-semibold text-ui-canvas transition-opacity hover:opacity-90'>
                     <MessageSquarePlus className='h-4 w-4' />

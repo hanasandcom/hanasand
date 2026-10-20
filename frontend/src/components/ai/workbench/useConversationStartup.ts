@@ -45,9 +45,9 @@ export function useConversationStartup(state: WorkbenchState) {
                     method: 'POST',
                     body: JSON.stringify(toConversationPayload(conversation)),
                 })
-                if (!response.ok) throw new Error('Unable to create a new conversation.')
+                if (!response.ok) throw new Error('Couldn’t start a chat.')
             } catch (error) {
-                setStatusNotice(error instanceof Error ? error.message : 'Unable to create a new conversation.')
+                setStatusNotice(error instanceof Error ? error.message : 'Couldn’t start a chat.')
             }
         }
     }, [clients, createNewConversationRef, isAuthenticated, setActiveConversationId, setConversations, setStatusNotice])
