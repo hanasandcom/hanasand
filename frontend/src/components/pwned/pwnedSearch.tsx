@@ -27,11 +27,11 @@ export default function PwnedSearch({ breached, breachCount, files = [] }: Pwned
                             <p className='font-semibold'>Found in {files.length.toLocaleString()} {files.length === 1 ? 'file' : 'files'}</p>
                             {/* Eight full 3.75rem rows, eight gaps, and half of the next row. */}
                             <ul aria-label='Matching files' tabIndex={0} className='grid max-h-[min(35.875rem,40dvh)] auto-rows-max gap-2 overflow-y-auto overscroll-contain rounded-md focus-visible:outline-2 focus-visible:outline-ui-danger'>
-                                {files.map(({ file, count: occurrences, lineRanges }) => (
+                                {files.map(({ file, lineRanges }) => (
                                     <li key={file} className='rounded-md bg-ui-panel p-3 text-ui-text'>
                                         <p className='break-all font-mono text-xs'>{file}</p>
                                         <p className='mt-1 text-xs text-ui-muted'>
-                                            {occurrences.toLocaleString()} {occurrences === 1 ? 'match' : 'matches'} · {occurrences === 1 ? 'Line' : 'Lines'}{' '}
+                                            {lineRanges.length === 1 && lineRanges[0][0] === lineRanges[0][1] ? 'Line' : 'Lines'}{' '}
                                             {lineRanges.map(([first, last]) => first === last ? first.toLocaleString() : `${first.toLocaleString()}–${last.toLocaleString()}`).join(', ')}
                                         </p>
                                     </li>

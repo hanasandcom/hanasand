@@ -32,8 +32,9 @@ const provenance = renderToStaticMarkup(React.createElement(PwnedSearch, {
 assert.match(provenance, /Found in 2 files/)
 assert.match(provenance, /one\.txt/)
 assert.match(provenance, /two\.txt/)
-assert.match(provenance, /12–13/)
-assert.match(provenance, /12,010,103,436/)
+assert.match(provenance, /Lines 12–13/)
+assert.match(provenance, /Line 12,010,103,436/)
+assert.doesNotMatch(provenance, /\b\d+ matches? ·/)
 
 const noMatchMarkup = renderToStaticMarkup(React.createElement(PwnedSearch, {
     breached: false,

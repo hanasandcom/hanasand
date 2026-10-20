@@ -69,16 +69,21 @@ test('password hash check does not collect a raw password', async ({ page }) => 
     await expect(page.getByText('Found in 2 files')).toBeVisible()
     await expect(page.getByText('one.txt', { exact: true })).toBeVisible()
     await expect(page.getByText('two.txt', { exact: true })).toBeVisible()
+    await expect(page.getByText(/^Lines 12–33$/)).toBeVisible()
+    await expect(page.getByText(/^Line 12,010,103,436$/)).toBeVisible()
+    await expect(page.getByText(/^\d+ matches? ·/)).toHaveCount(0)
     await expect(page.getByText(/12,010,103,436/)).toBeVisible()
     await expect(page.getByText(/Privacy check:|Next action:|Rotate the underlying secret/)).toHaveCount(0)
-    await expect(command).toBeVisible()
+    await expect(command).toHaveCount(0)
 
     await page.getByRole('button', { name: 'Check another hash' }).click()
+    await expect(command).toBeVisible()
     await expect(page.getByLabel('SHA-1 hash').filter({ visible: true })).toHaveValue('')
     count = 0
     await page.getByLabel('SHA-1 hash').filter({ visible: true }).fill('5baa61e4c9b93f3f0682250b6cf8331b7ee68fd8')
     await page.getByRole('button', { name: 'Check', exact: true }).click()
     await expect(page.getByText('No exact match found', { exact: true })).toBeVisible()
+    await expect(command).toHaveCount(0)
     await expect(page.getByText(/This password has been breached|Privacy check:|Next action:/)).toHaveCount(0)
 })
 

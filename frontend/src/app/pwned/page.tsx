@@ -1,10 +1,6 @@
 import PwnedPageClient from './pageClient'
 import type { Metadata } from 'next'
 import { buildRouteMetadata } from '../seo'
-import { Terminal } from 'lucide-react'
-import CopyCodeButton from '../developers/copyCodeButton'
-
-const hashCommand = 'printf %s \'superman123\' | shasum'
 
 export const metadata: Metadata = buildRouteMetadata({
     title: 'Check Password',
@@ -24,19 +20,6 @@ export default async function Page() {
                     </p>
                 </div>
                 <PwnedPageClient />
-                <section aria-labelledby='hash-command-title' className='min-w-0 overflow-hidden rounded-xl border border-ui-primary/25 bg-ui-panel lg:col-span-2'>
-                    <div className='flex items-center justify-between gap-3 px-4 py-3 md:px-5'>
-                        <div className='flex items-center gap-3'>
-                            <Terminal className='h-5 w-5 shrink-0 text-ui-primary' aria-hidden='true' />
-                            <div>
-                                <h2 id='hash-command-title' className='text-sm font-semibold'>Create a hash locally</h2>
-                                <p className='text-xs text-ui-muted'>macOS / Linux</p>
-                            </div>
-                        </div>
-                        <CopyCodeButton value={hashCommand} />
-                    </div>
-                    <pre className='overflow-x-auto border-t border-ui-primary/20 bg-ui-primary/10 p-4 text-sm leading-6 text-ui-text md:p-5'><code>{hashCommand}</code></pre>
-                </section>
             </div>
         </main>
     )
