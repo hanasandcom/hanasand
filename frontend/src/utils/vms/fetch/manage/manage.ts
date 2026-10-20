@@ -2,16 +2,18 @@ import config from '@/config'
 import fetchWithRetry from '@/utils/fetchWithRetry'
 import { getCookie } from '@/utils/cookies/cookies'
 
-export default async function manageVM(id: string, action: 'start' | 'stop' | 'restart'): Promise<string | null> {
+export type VMActionResult = { ok: true, message: string } | { ok: false, message: string }
+
+export default async function manageVM(id: string, action: 'start' | 'stop' | 'restart'): Promise<VMActionResult> {
     try {
         if (!id.trim()) {
-            return 'This virtual machine is missing its instance name.'
+            return { ok: false, message: 'This virtual machine is missing its instance name.' }
         }
 
         const token = getCookie('access_token')
         const userId = getCookie('id')
         if (!token || !userId) {
-            return 'Please log in to manage VMs.'
+            return { ok: false, message: 'Please log in to manage VMs.' }
         }
 
         const browserProxy = typeof window !== 'undefined'
@@ -32,9 +34,9 @@ export default async function manageVM(id: string, action: 'start' | 'stop' | 'r
             throw new Error(data?.error || data?.message || `Unable to ${action} ${id}.`)
         }
 
-        return data?.message || data?.status || `${action} completed for ${id}.`
+        return { ok: true, message: data?.message || data?.status || `${action} completed for ${id}.` }
     } catch (error) {
-        return error instanceof Error ? error.message : `Failed to ${action} vm.`
+        return { ok: false, message: error instanceof Error ? error.message : `Failed to ${action} vm.` }
     }
 }
 

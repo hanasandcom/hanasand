@@ -29,7 +29,7 @@ test('VM actions encode instance names and preserve plain-text API failures', as
             return new Response('VM host is temporarily unavailable', { status: 503 })
         }
 
-        assert.equal(await manageVM('folder/test vm', 'start'), 'VM host is temporarily unavailable')
+        assert.deepEqual(await manageVM('folder/test vm', 'start'), { ok: false, message: 'VM host is temporarily unavailable' })
         assert.match(request?.url || '', /\/vm\/folder%2Ftest%20vm\/start$/)
         assert.equal(request?.authorization, 'Bearer playwright%2Ftoken')
         assert.equal(request?.id, 'playwright-user')
@@ -62,7 +62,7 @@ test('browser VM actions use the same-origin authenticated backend proxy', async
             return Response.json({ message: 'VM started' })
         }
 
-        assert.equal(await manageVM('browser vm', 'start'), 'VM started')
+        assert.deepEqual(await manageVM('browser vm', 'start'), { ok: true, message: 'VM started' })
         assert.equal(request?.url, '/api/backend/vm/browser%20vm/start')
         assert.equal(request?.authorization, 'Bearer browser-token')
         assert.equal(request?.id, 'browser-user')

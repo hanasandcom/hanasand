@@ -2,7 +2,7 @@
 
 import useClearStateAfter from '@/hooks/useClearStateAfter'
 import manageVM from '@/utils/vms/fetch/manage/manage'
-import { Play, RefreshCcw, StopCircle } from 'lucide-react'
+import { LoaderCircle, Play, RefreshCcw, StopCircle } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import ErrorNotice from '../error/errorNotice'
@@ -11,12 +11,27 @@ import { vmActionStyle } from './actionStyle'
 export default function RestartButtons({ vm, onUpdated, showLabels = false }: { vm: VM, onUpdated?: () => void, showLabels?: boolean }) {
     const router = useRouter()
     const { condition: message, setCondition: setMessage } = useClearStateAfter()
-    const [loading, setLoading] = useState(false)
+    const [loading, setLoading] = useState<'start' | 'stop' | 'restart' | null>(null)
+    const [pendingAction, setPendingAction] = useState<'start' | 'stop' | null>(null)
     const [hydrated, setHydrated] = useState(false)
     const status = (vm.status || '').toLowerCase()
-    const isRunning = status === 'running' || status === 'frozen'
+    const isRunning = ['running', 'frozen', 'stopping'].includes(status)
+    const isStarting = status === 'starting'
     const canManage = Boolean(vm.name)
-    const disabled = loading || !hydrated || Boolean(vm.deleted_at)
+    const disabled = Boolean(loading || pendingAction || isStarting) || !hydrated || Boolean(vm.deleted_at)
+
+    useEffect(() => {
+        if (!pendingAction) return
+        const reachedState = pendingAction === 'start'
+            ? ['starting', 'running', 'frozen'].includes(status)
+            : ['stopped', 'shut off'].includes(status)
+        if (reachedState) {
+            setPendingAction(null)
+            return
+        }
+        const timeout = window.setTimeout(() => setPendingAction(null), 12000)
+        return () => window.clearTimeout(timeout)
+    }, [pendingAction, status])
 
     useEffect(() => {
         setHydrated(true)
@@ -32,33 +47,37 @@ export default function RestartButtons({ vm, onUpdated, showLabels = false }: { 
             setMessage('This virtual machine is missing its instance name.')
             return
         }
-        setLoading(true)
+        setLoading(action)
+        setMessage(null)
         try {
             const response = await manageVM(vm.name, action)
-            setMessage(response)
-            if (response && !response.toLowerCase().includes('failed') && !response.toLowerCase().includes('error')) {
+            if (response.ok) {
+                if (action === 'start' || action === 'stop') setPendingAction(action)
                 router.refresh()
                 onUpdated?.()
+            } else {
+                setMessage(response.message)
             }
         } finally {
-            setLoading(false)
+            setLoading(null)
         }
     }
 
     return (
         <div onClick={handleClick} className='flex min-w-0 flex-col items-end gap-2 rounded-md'>
             <div className='flex h-9 items-center justify-end gap-2'>
-                {!isRunning && <button type='button' aria-label={`Start ${vm.name}`} title='Start VM' onClick={() => void handleAction('start')} disabled={disabled} className={`${vmActionStyle} ${showLabels ? 'w-auto px-2.5' : 'w-9'} text-ui-success`}>
-                    <Play className='w-4 h-4' />{showLabels && <span>Start</span>}
+                {!isRunning && <button type='button' aria-label={`${loading === 'start' || pendingAction === 'start' || isStarting ? 'Starting' : 'Start'} ${vm.name}`} title={loading === 'start' || pendingAction === 'start' || isStarting ? 'Start requested' : 'Start VM'} onClick={() => void handleAction('start')} disabled={disabled} className={`${vmActionStyle} ${showLabels ? 'w-auto px-2.5' : 'w-9'} text-ui-success`}>
+                    {loading === 'start' || pendingAction === 'start' || isStarting ? <LoaderCircle aria-hidden='true' className='h-4 w-4 animate-spin' /> : <Play aria-hidden='true' className='h-4 w-4' />}{showLabels && <span>Start</span>}
                 </button>}
-                {isRunning && <button type='button' aria-label={`Restart ${vm.name}`} title='Restart VM' onClick={() => void handleAction('restart')} disabled={disabled} className={`${vmActionStyle} ${showLabels ? 'w-auto px-2.5' : 'w-9'} text-ui-primary`}>
-                    <RefreshCcw className='w-4 h-4' />{showLabels && <span>Restart</span>}
+                {isRunning && <button type='button' aria-label={`${loading === 'restart' ? 'Restarting' : 'Restart'} ${vm.name}`} title='Restart VM' onClick={() => void handleAction('restart')} disabled={disabled} className={`${vmActionStyle} ${showLabels ? 'w-auto px-2.5' : 'w-9'} text-ui-primary`}>
+                    {loading === 'restart' ? <LoaderCircle aria-hidden='true' className='h-4 w-4 animate-spin' /> : <RefreshCcw aria-hidden='true' className='h-4 w-4' />}{showLabels && <span>Restart</span>}
                 </button>}
-                {isRunning && <button type='button' aria-label={`Stop ${vm.name}`} title='Stop VM' onClick={() => void handleAction('stop')} disabled={disabled} className={`${vmActionStyle} ${showLabels ? 'w-auto px-2.5' : 'w-9'} text-ui-text`}>
-                    <StopCircle className='w-4 h-4' />{showLabels && <span>Stop</span>}
+                {isRunning && <button type='button' aria-label={`${loading === 'stop' || pendingAction === 'stop' ? 'Stopping' : 'Stop'} ${vm.name}`} title='Stop VM' onClick={() => void handleAction('stop')} disabled={disabled} className={`${vmActionStyle} ${showLabels ? 'w-auto px-2.5' : 'w-9'} text-ui-text`}>
+                    {loading === 'stop' || pendingAction === 'stop' ? <LoaderCircle aria-hidden='true' className='h-4 w-4 animate-spin' /> : <StopCircle aria-hidden='true' className='h-4 w-4' />}{showLabels && <span>Stop</span>}
                 </button>}
             </div>
-            <ErrorNotice compact variant='info' className='max-w-sm text-left' message={message as string | null} />
+            <span className='sr-only' role='status' aria-live='polite'>{loading ? `${loading === 'start' ? 'Starting' : loading === 'stop' ? 'Stopping' : 'Restarting'} ${vm.name}` : isStarting ? `Starting ${vm.name}` : pendingAction ? `${pendingAction === 'start' ? 'Starting' : 'Stopping'} ${vm.name}` : ''}</span>
+            <ErrorNotice compact variant='error' className='max-w-sm text-left' message={message as string | null} />
         </div>
     )
 }
