@@ -5,7 +5,7 @@ import { isIP } from 'node:net'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import tokenIsValid from '@/utils/proxy/tokenIsValid'
-import isPublicIpv4 from '@/utils/proxy/isPublicIpv4'
+import isPublicIp from '@/utils/proxy/isPublicIp'
 
 export const runtime = 'nodejs'
 
@@ -49,14 +49,16 @@ async function fetchPublicMedia(url: URL, redirects = 0): Promise<{ body: Buffer
     if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || !url.hostname) {
         throw new ProxyError('Use a public HTTP or HTTPS media URL.', 400)
     }
-    if (isIP(url.hostname)) {
-        if (isIP(url.hostname) !== 4 || !isPublicIpv4(url.hostname)) throw new ProxyError('URL must point to a public media host.', 400)
-    }
-    const addresses = isIP(url.hostname) ? [{ address: url.hostname, family: 4 }] : await lookup(url.hostname, { all: true, family: 4 })
-    const address = addresses.find(item => item.family === 4 && isPublicIpv4(item.address))
+    const hostname = url.hostname.replace(/^\[|\]$/g, '')
+    const literalFamily = isIP(hostname)
+    if (literalFamily && !isPublicIp(hostname)) throw new ProxyError('URL must point to a public media host.', 400)
+    const addresses = literalFamily
+        ? [{ address: hostname, family: literalFamily }]
+        : await lookup(hostname, { all: true })
+    const address = addresses.find(item => isPublicIp(item.address))
     if (!address) throw new ProxyError('URL must point to a public media host.', 400)
 
-    const response = await requestPinned(url, address.address)
+    const response = await requestPinned(url, address.address, address.family)
     if ([301, 302, 303, 307, 308].includes(response.statusCode || 0)) {
         response.resume()
         const location = response.headers.location
@@ -93,10 +95,10 @@ async function fetchPublicMedia(url: URL, redirects = 0): Promise<{ body: Buffer
     return { body: Buffer.concat(chunks, size), type }
 }
 
-function requestPinned(url: URL, address: string) {
+function requestPinned(url: URL, address: string, family: number) {
     return new Promise<import('node:http').IncomingMessage>((resolve, reject) => {
         const request = (url.protocol === 'https:' ? httpsRequest : httpRequest)(url, {
-            lookup: (_hostname, _options, callback) => callback(null, address, 4),
+            lookup: (_hostname, _options, callback) => callback(null, address, family),
             headers: { Accept: [...MEDIA_TYPES].join(', ') },
         }, resolve)
         request.setTimeout(10_000, () => request.destroy(new Error('Remote media request timed out.')))
