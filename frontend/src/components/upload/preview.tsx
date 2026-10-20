@@ -6,7 +6,7 @@ import config from '@/config'
 import { postFile } from '@/utils/files/post'
 import useClearStateAfter from '@/hooks/useClearStateAfter'
 import ErrorNotice from '@/components/error/errorNotice'
-import { RotateCcw, UploadCloud } from 'lucide-react'
+import { FileIcon, RotateCcw, UploadCloud } from 'lucide-react'
 
 type PreviewProps = {
     url: string
@@ -103,7 +103,9 @@ export default function Preview({ url, file, setFile, setPreview, setUrl }: Prev
             <div className='grid min-h-[360px] place-items-center border-b border-ui-border bg-ui-raised p-4 lg:border-b-0 lg:border-r'>
                 {file.type.startsWith('image/')
                     ? <MediaPreview kind='image' src={url} alt='Preview' className='max-h-[520px] w-auto max-w-full rounded-lg object-contain shadow-[0_18px_60px_var(--ui-shadow)]' />
-                    : <MediaPreview kind='video' src={url} className='max-h-[520px] w-auto max-w-full rounded-lg shadow-[0_18px_60px_var(--ui-shadow)]' />}
+                    : file.type.startsWith('video/')
+                        ? <MediaPreview kind='video' src={url} className='max-h-[520px] w-auto max-w-full rounded-lg shadow-[0_18px_60px_var(--ui-shadow)]' />
+                        : <div className='grid justify-items-center gap-3 text-ui-muted'><FileIcon className='h-16 w-16' /><span className='max-w-full break-all text-sm'>{file.name}</span></div>}
             </div>
             <div className='grid gap-4 p-4 sm:p-6'>
                 <div className='grid gap-1'>

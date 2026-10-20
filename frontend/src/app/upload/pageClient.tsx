@@ -70,10 +70,9 @@ export default function UploadPageClient() {
         <section className='grid min-h-app-viewport w-full place-items-center bg-ui-canvas px-4 py-10 text-ui-text md:px-10'>
             <div className='w-full max-w-4xl'>
                 <div className='mb-6 grid gap-2'>
-                    <p className='text-sm font-semibold uppercase text-ui-primary'>Content</p>
-                    <h1 className='text-3xl font-semibold tracking-normal md:text-4xl'>Upload files</h1>
-                    <p className='max-w-2xl text-sm leading-6 text-ui-muted' data-upload-safety-boundary='true'>
-                        Upload images and video. Do not upload private or confidential content.
+                    <h1 className='text-3xl font-semibold tracking-normal md:text-4xl'>Upload media</h1>
+                    <p className='max-w-2xl text-sm leading-6 text-ui-muted' data-upload-intro='true'>
+                        Upload images, videos or files.
                     </p>
                 </div>
                 <Upload

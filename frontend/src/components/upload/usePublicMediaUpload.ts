@@ -3,7 +3,7 @@ import { useCallback, useState } from 'react'
 import type { ChangeEvent, Dispatch, DragEvent, SetStateAction } from 'react'
 import getFetchableUrl from './getFetchAbleUrl'
 
-const MAX_PUBLIC_MEDIA_BYTES = 20 * 1024 * 1024
+const MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 
 type PublicMediaUploadOptions = {
     setUrl: Dispatch<SetStateAction<string>>
@@ -18,7 +18,7 @@ export function usePublicMediaUpload({ setUrl, setFile, setPreview }: PublicMedi
 
     const handleFile = useCallback((file: File) => {
         setMessage(null)
-        const validationError = validatePublicMediaFile(file)
+        const validationError = validateUploadFile(file)
         if (validationError) {
             setFile(null)
             setPreview(null)
@@ -62,7 +62,7 @@ export function usePublicMediaUpload({ setUrl, setFile, setPreview }: PublicMedi
             setIsFetching(true)
             handleFile(await fetchImageAsFile(value, fileName))
         } catch (error) {
-            setMessage(error instanceof Error ? error.message : 'Paste a direct image or video URL, or choose a local file.')
+            setMessage(error instanceof Error ? error.message : 'Paste a direct image or video URL, or choose a file.')
         } finally {
             setIsFetching(false)
         }
@@ -100,21 +100,24 @@ async function fetchImageAsFile(url: string, fileName: string) {
     }
 
     const blob = await response.blob()
-    const type = blob.type || 'image/png'
+    const type = blob.type
     const file = new File([blob], fileName, { type })
-    const validationError = validatePublicMediaFile(file)
+    const validationError = validateRemoteMediaFile(file)
     if (validationError) throw new Error(validationError)
     return file
 }
 
-function validatePublicMediaFile(file: File) {
-    if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
-        return 'Only public image or video files can be uploaded here.'
-    }
-
-    if (file.size > MAX_PUBLIC_MEDIA_BYTES) {
-        return 'Public media must be 20 MB or smaller.'
+function validateUploadFile(file: File) {
+    if (file.size > MAX_UPLOAD_BYTES) {
+        return 'Files must be 20 MB or smaller.'
     }
 
     return null
+}
+
+function validateRemoteMediaFile(file: File) {
+    if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
+        return 'Paste a direct image or video URL, or choose a file.'
+    }
+    return validateUploadFile(file)
 }

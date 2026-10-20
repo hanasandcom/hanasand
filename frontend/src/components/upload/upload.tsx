@@ -46,10 +46,7 @@ export default function Upload({ url, setUrl, setFile, preview, setPreview }: Up
                 </label>
             </div>
             <div className='grid gap-5 p-4 sm:p-6'>
-                <div className='grid gap-1'>
-                    <h2 className='text-lg font-semibold text-ui-text'>Upload shareable media</h2>
-                    <p className='text-sm leading-6 text-ui-muted'>Choose a file or paste a image/video URL.</p>
-                </div>
+                <p className='text-sm leading-6 text-ui-muted'>Choose a file or paste a URL.</p>
 
                 <div className='grid gap-3'>
                     <label
@@ -57,11 +54,10 @@ export default function Upload({ url, setUrl, setFile, preview, setPreview }: Up
                         className='flex h-11 cursor-pointer items-center justify-center gap-2 rounded-lg bg-ui-text px-4 text-sm font-semibold text-ui-canvas transition hover:opacity-90'
                     >
                         <ImageIcon className='h-4 w-4' />
-                        Choose public photo or video
+                        Browse files
                         <input
                             id='fileInputMobile'
                             type='file'
-                            accept='image/*,video/*'
                             className='hidden'
                             onChange={handleFileChange}
                         />

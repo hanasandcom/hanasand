@@ -1,138 +1,106 @@
+import { lookup } from 'node:dns/promises'
+import { request as httpRequest } from 'node:http'
+import { request as httpsRequest } from 'node:https'
+import { isIP } from 'node:net'
+import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
+import tokenIsValid from '@/utils/proxy/tokenIsValid'
+import isPublicIpv4 from '@/utils/proxy/isPublicIpv4'
+
+export const runtime = 'nodejs'
 
 const MAX_PROXY_BYTES = 20 * 1024 * 1024
-const PRIVATE_IPV4_RANGES = [
-    /^0\./,
-    /^10\./,
-    /^127\./,
-    /^169\.254\./,
-    /^172\.(1[6-9]|2\d|3[01])\./,
-    /^192\.168\./,
-]
-
-class MediaProxyError extends Error {
-    constructor(message: string, readonly status: number) {
-        super(message)
-    }
-}
-
+const MAX_REDIRECTS = 3
+const MEDIA_TYPES = new Set([
+    'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/avif',
+    'video/mp4', 'video/webm', 'video/ogg',
+])
 export async function GET(req: Request) {
-    const { searchParams } = new URL(req.url)
-    let url = searchParams.get('url')
-    if (!url) {
-        return NextResponse.json({ error: 'Missing URL' }, { status: 400 })
+    const cookieStore = await cookies()
+    const id = cookieStore.get('id')?.value || ''
+    const token = cookieStore.get('access_token')?.value || ''
+    if (!id || !token) return NextResponse.json({ error: 'Sign in to upload files.' }, { status: 401 })
+    const session = await tokenIsValid(token, id, undefined, { includeInternalAccess: false })
+    if (!session.valid) {
+        const status = session.state === 'unavailable' ? 503 : 401
+        return NextResponse.json({ error: status === 401 ? 'Sign in to upload files.' : 'Sign-in service is unavailable.' }, { status })
     }
 
-    if (url.toString().includes('https://')) {
-        const parts = url.toString().split('https://')
-        if (parts.length > 2) {
-            url = `https://${parts[1]}`
-        }
-    }
+    const value = new URL(req.url).searchParams.get('url')
+    if (!value) return NextResponse.json({ error: 'Missing URL' }, { status: 400 })
+    if (value.length > 2048) return NextResponse.json({ error: 'URL is too long.' }, { status: 400 })
 
     try {
-        const parsedUrl = new URL(url)
-        if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
-            return NextResponse.json({ error: 'URL must use http or https' }, { status: 400 })
-        }
-        if (isBlockedHostname(parsedUrl.hostname)) {
-            return NextResponse.json({ error: 'URL must point to a public media host.' }, { status: 400 })
-        }
-        url = parsedUrl.toString()
-    } catch {
-        return NextResponse.json({ error: 'Invalid URL' }, { status: 400 })
-    }
-
-    try {
-        let buffer: ArrayBuffer
-        let contentType: string
-
-        if (url.includes('tenor.com')) {
-            const result = await fetchTenorDirectMedia(url)
-            buffer = result.buffer
-            contentType = result.contentType
-        } else {
-            const response = await fetch(url)
-            if (!response.ok) {
-                throw new Error('Failed to fetch URL')
-            }
-
-            contentType = response.headers.get('content-type') || 'application/octet-stream'
-            assertMediaResponse(response, contentType)
-            buffer = await response.arrayBuffer()
-        }
-
-        assertMediaSize(buffer.byteLength)
-
-        return new NextResponse(Buffer.from(buffer), {
-            headers: {
-                'Content-Type': contentType,
-                'cache-control': 'no-store',
-            },
+        const result = await fetchPublicMedia(new URL(value))
+        return new NextResponse(new Uint8Array(result.body), {
+            headers: { 'Content-Type': result.type, 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'no-store' },
         })
     } catch (error) {
-        const status = error instanceof MediaProxyError ? error.status : 500
-        return NextResponse.json({ error: (error as Error).message }, { status })
+        const status = error instanceof ProxyError ? error.status : 400
+        return NextResponse.json({ error: error instanceof Error ? error.message : 'URL could not be fetched.' }, { status })
     }
 }
 
-async function fetchTenorDirectMedia(url: string) {
-    try {
-        let response = await fetch(url)
-        if (!response.ok) {
-            throw new Error(`Failed to fetch URL: ${response.status}`)
+class ProxyError extends Error {
+    constructor(message: string, readonly status: number) { super(message) }
+}
+
+async function fetchPublicMedia(url: URL, redirects = 0): Promise<{ body: Buffer, type: string }> {
+    if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || !url.hostname) {
+        throw new ProxyError('Use a public HTTP or HTTPS media URL.', 400)
+    }
+    if (isIP(url.hostname)) {
+        if (isIP(url.hostname) !== 4 || !isPublicIpv4(url.hostname)) throw new ProxyError('URL must point to a public media host.', 400)
+    }
+    const addresses = isIP(url.hostname) ? [{ address: url.hostname, family: 4 }] : await lookup(url.hostname, { all: true, family: 4 })
+    const address = addresses.find(item => item.family === 4 && isPublicIpv4(item.address))
+    if (!address) throw new ProxyError('URL must point to a public media host.', 400)
+
+    const response = await requestPinned(url, address.address)
+    if ([301, 302, 303, 307, 308].includes(response.statusCode || 0)) {
+        response.resume()
+        const location = response.headers.location
+        if (!location || redirects >= MAX_REDIRECTS) throw new ProxyError('Too many redirects.', 400)
+        return fetchPublicMedia(new URL(location, url), redirects + 1)
+    }
+    if ((response.statusCode || 0) < 200 || (response.statusCode || 0) >= 300) {
+        response.resume()
+        throw new ProxyError('Remote media could not be fetched.', 400)
+    }
+
+    const type = String(response.headers['content-type'] || '').split(';')[0].trim().toLowerCase()
+    if (!MEDIA_TYPES.has(type)) {
+        response.resume()
+        throw new ProxyError('URL must return a supported image or video.', 400)
+    }
+    const length = Number(response.headers['content-length'])
+    if (Number.isFinite(length) && length > MAX_PROXY_BYTES) {
+        response.destroy()
+        throw new ProxyError('Media file is too large.', 413)
+    }
+    const chunks: Buffer[] = []
+    let size = 0
+    for await (const chunk of response) {
+        const buffer = Buffer.from(chunk)
+        size += buffer.length
+        if (size > MAX_PROXY_BYTES) {
+            response.destroy()
+            throw new ProxyError('Media file is too large.', 413)
         }
-
-        let contentType = response.headers.get('content-type') || ''
-        if (url.includes('tenor.com') && contentType.includes('text/html')) {
-            const html = await response.text()
-            const matches = Array.from(html.matchAll(/https:\/\/[^/]+\/[^\s'']+\.(gif|mp4|webm)/g))
-            if (!matches.length) {
-                throw new Error('No media URLs found')
-            }
-
-            const mediaUrl = matches[0][0].replace('/m/', '/').replace(/^https:\/\/[^/]+/, 'https://c.tenor.com')
-            response = await fetch(mediaUrl)
-
-            if (!response.ok) {
-                throw new Error('Failed to fetch media URL')
-            }
-
-            contentType = response.headers.get('content-type') || 'application/octet-stream'
-            assertMediaResponse(response, contentType)
-            return { buffer: await response.arrayBuffer(), contentType }
-        }
-
-        assertMediaResponse(response, contentType)
-        return { buffer: await response.arrayBuffer(), contentType }
-    } catch (error) {
-        console.error(`Error fetching Tenor media: ${error}`)
-        throw error
+        chunks.push(buffer)
     }
+    if (size === 0) throw new ProxyError('Remote media is empty.', 400)
+    return { body: Buffer.concat(chunks, size), type }
 }
 
-function assertMediaResponse(response: Response, contentType: string) {
-    if (!contentType.startsWith('image/') && !contentType.startsWith('video/')) {
-        throw new MediaProxyError('URL must return an image or video.', 400)
-    }
-
-    const contentLength = Number(response.headers.get('content-length') || 0)
-    assertMediaSize(contentLength)
-}
-
-function assertMediaSize(byteLength: number) {
-    if (Number.isFinite(byteLength) && byteLength > MAX_PROXY_BYTES) {
-        throw new MediaProxyError('Media file is too large.', 413)
-    }
-}
-
-function isBlockedHostname(hostname: string) {
-    const normalized = hostname.toLowerCase().replace(/^\[|\]$/g, '')
-    if (normalized === 'localhost' || normalized.endsWith('.localhost')) return true
-    if (normalized.includes(':')) {
-        if (normalized === '::1' || normalized.startsWith('fc') || normalized.startsWith('fd') || normalized.startsWith('fe80:')) return true
-        const mappedIpv4 = normalized.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/)?.[1]
-        return mappedIpv4 ? PRIVATE_IPV4_RANGES.some(pattern => pattern.test(mappedIpv4)) : false
-    }
-    return PRIVATE_IPV4_RANGES.some(pattern => pattern.test(normalized))
+function requestPinned(url: URL, address: string) {
+    return new Promise<import('node:http').IncomingMessage>((resolve, reject) => {
+        const request = (url.protocol === 'https:' ? httpsRequest : httpRequest)(url, {
+            lookup: (_hostname, _options, callback) => callback(null, address, 4),
+            headers: { Accept: [...MEDIA_TYPES].join(', ') },
+        }, resolve)
+        request.setTimeout(10_000, () => request.destroy(new Error('Remote media request timed out.')))
+        request.on('error', reject)
+        request.end()
+    })
 }

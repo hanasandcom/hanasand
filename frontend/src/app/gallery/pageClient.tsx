@@ -22,7 +22,15 @@ export default function GalleryPageClient() {
         setError('')
         getUserFiles(pageSize + 1, (page - 1) * pageSize)
             .then(data => { if (current) setFiles(data) })
-            .catch(reason => { if (current) setError(reason.message || 'Your files could not be loaded.') })
+            .catch(reason => {
+                if (!current) return
+                const message = reason instanceof Error ? reason.message : ''
+                if (message === 'Sign in to see your library.') {
+                    window.location.replace('/login?path=%2Fgallery')
+                    return
+                }
+                setError(message || 'Your files could not be loaded.')
+            })
             .finally(() => { if (current) setLoading(false) })
         return () => { current = false }
     }, [page, retry])
