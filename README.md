@@ -16,17 +16,16 @@ Hanasand combines threat intelligence, AI development tools, and infrastructure 
 | Model runtime | [GPT repository](https://github.com/hanasandcom/gpt) | GPU model server and its independent startup service |
 | Browser workers | [Browser repository](https://github.com/hanasandcom/browsers) | Browser worker image and its independent Compose service |
 | Browser TURN | [Browser TURN Compose](https://github.com/hanasandcom/browsers/blob/main/turn/compose.yml) | Coturn relay with an independent Compose deployment |
-| Browser host firewall | `ops/browser-worker/` | Host egress rules for isolated browser sessions |
+| Browser host firewall | [Ops repository](https://github.com/hanasandcom/ops/tree/main/browser-worker) | Host egress rules for isolated browser sessions |
 | Discord bot | [Discord bot repository](https://github.com/hanasandcom/bot) | Support tickets and chat bridge; deployed from its own Compose project |
 | Onion proxy | [Onion repository](https://github.com/hanasandcom/onion) | Tor and Privoxy endpoint for browser and application traffic; deployed separately |
 | PgBouncer | [PgBouncer repository](https://github.com/hanasandcom/pgbouncer) | Primary and rolling-release PostgreSQL connection pools; deployed separately |
 | Database | `db/`, `api/src/utils/db/` | Initial schema and application schema updates |
-| Mail service and SMTP relay | [Stalwart repository](https://github.com/hanasandcom/stalwart) | Stalwart and host-specific SMTP relay containers, deployed through an independent Compose stack |
+| Mail service and SMTP relay | [Mail server repository](https://github.com/hanasandcom/mail-server) | Stalwart and host-specific SMTP relay containers, deployed through an independent Compose stack |
 | Database backup worker | [Ops database-backup module](https://github.com/hanasandcom/ops/tree/main/backup) | PostgreSQL backups, retention and restore workflows; runs separately from API releases |
-| Mail client | [Mail repository](https://github.com/hanasandcom/mail) | Standalone webmail at `mail.hanasand.com`; mailbox data stays in the Hanasand API |
+| Mail client | [Mail web repository](https://github.com/hanasandcom/mail-web) | Standalone webmail at `mail.hanasand.com`; mailbox data stays in the Hanasand API |
 | Client apps | [Hanasand app repository](https://github.com/hanasandcom/app) | Mobile and desktop clients; see [desktop setup](https://github.com/hanasandcom/app/blob/main/desktop/README.md) |
-| Operations integrations | [Ops repository](https://github.com/hanasandcom/ops) | OVH host metrics tunnel and related host integrations; deployed separately |
-| Application operations | `ops/`, `scripts/` | Hanasand application deployment, maintenance and service checks |
+| Operations | [Ops repository](https://github.com/hanasandcom/ops) | Application deployment, host monitoring, maintenance, health checks and infrastructure integrations |
 
 `docker-compose.yml` includes `docker-compose.api.yml` and defines the service connections, ports, volumes and health checks. Use Docker Compose 2.33.1 or later. OpenResty terminates public HTTPS outside this Compose project. The root API forwards authentication routes to Identity over a private network, while the existing PostgreSQL records and public API paths stay in place. The API also integrates with external VM hosts, password lookup and other configured services.
 
@@ -91,7 +90,7 @@ Generated projects include source, a README, environment examples, build command
 
 ### Host and JSON monitoring
 
-`GET https://api.hanasand.com/api/metrics` requires an authenticated session and includes numeric host telemetry under `host`. The host collector (`scripts/host-metrics.ts`) samples every 15 seconds and writes an atomic file shared read-only with API workers. Install or update it on Inspur with `sudo sh scripts/install-host-metrics.sh`. After the API schema is ready, run `bun scripts/setup-host-monitoring.ts` in the API worker to add the six checks with the existing Discord destination. Re-running setup preserves configured checks. Snapshots older than 90 seconds are unavailable, never treated as healthy.
+`GET https://api.hanasand.com/api/metrics` requires an authenticated session and includes numeric host telemetry under `host`. The host collector (`../ops/scripts/hanasand/host-metrics.ts`) samples every 15 seconds and writes an atomic file shared read-only with API workers. Install or update it on Inspur with `sudo sh ../ops/scripts/hanasand/install-host-metrics.sh`. After the API schema is ready, run `bun scripts/setup-host-monitoring.ts` in the API worker to add the six checks with the existing Discord destination. Re-running setup preserves configured checks. Snapshots older than 90 seconds are unavailable, never treated as healthy.
 
 Health checks support JSON fields, comparisons and maximum/minimum/average/first-value aggregation. Dot paths support array wildcards, for example `host.storage.*.usedPercent`. Checks for the same owner, URL and request options share one response per minute, including errors. PostgreSQL locking prevents duplicate fetches across workers. Responses are limited to 1 MiB; obsolete cache entries expire. The administrator-only `system:metrics` source reads the same host payload locally, without storing a session credential.
 
@@ -135,19 +134,19 @@ The collector has its own `bun run test` and `bun run check` commands in the TI 
 
 ## Production deployment
 
-Host TypeScript utilities require Bun 1.3.13; install it for the host account with `scripts/install-typescript-runtime.sh` before enabling their systemd units.
+Host TypeScript utilities require Bun 1.3.13; install it for the host account with `../ops/scripts/hanasand/install-typescript-runtime.sh` before enabling their systemd units.
 
 Use `ssh inspur` and work from `/home/hanasand/hanasand`. Deploy only the changed component.
 
 ```sh
 # Frontend: build, check, switch traffic, then remove the old container.
-./scripts/deploy.sh
-# Equivalent: make deploy
+../ops/scripts/hanasand/deploy.sh
+# Or run: make -f ../ops/Makefile deploy
 # Use an already tested image tagged hanasand:
-./scripts/deploy.sh --no-build
+../ops/scripts/hanasand/deploy.sh --no-build
 
 # API: fast-forward main, retain the prior image, then replace and verify only API.
-sh scripts/deploy-api.sh
+sh ../ops/scripts/hanasand/deploy-api.sh
 ```
 
 Do not use a stack-wide `docker compose up --build`. Do not replace the frontend directly through Compose; use the script to avoid a gap in service. API replacement can briefly interrupt requests and WebSockets.
@@ -176,4 +175,4 @@ Follow [AGENTS.md](AGENTS.md) and [copy style](docs/copy-style.md). Keep changes
 
 ### Authentication releases
 
-Authentication is deployed as part of the canonical full-stack release. Standalone recovery/auth replacement commands are intentionally removed; use `scripts/deploy-all.sh` so the API, frontend, and supporting services stay on one main revision.
+Authentication is deployed as part of the canonical full-stack release. Standalone recovery/auth replacement commands are intentionally removed; use `../ops/scripts/hanasand/deploy-all.sh` so the API, frontend, and supporting services stay on one main revision.

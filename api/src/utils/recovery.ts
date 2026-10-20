@@ -20,7 +20,8 @@ export function recoveryState(): RecoveryState {
 export function recoveryReadOnly() { return recoveryState().readOnly === true }
 export function recoveryRequestAllowed(method: string, path: string) {
     const publicRead = ['GET', 'HEAD'].includes(method) && ['/api/system/updates', '/api/status'].includes(path)
+    const readOnlySearch = method === 'POST' && path === '/api/ti/search'
     if (process.env.RECOVERY_ESSENTIAL_ONLY === '1' && !publicRead && !/^\/(health$|ready$|api\/(health$|auth\/|user(?:\/|$)|organizations(?:\/|$)))/.test(path)) return false
     if (!recoveryReadOnly()) return true
-    return ['GET', 'HEAD', 'OPTIONS'].includes(method) && !/\/auth\/logout\/|\/restart\//.test(path)
+    return (['GET', 'HEAD', 'OPTIONS'].includes(method) || readOnlySearch) && !/\/auth\/logout\/|\/restart\//.test(path)
 }

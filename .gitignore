@@ -81,4 +81,7 @@ __pycache__/
 /gpt/
 /ti/
 /ops/code-review/
+/ops/monitoring-state/
+/ops/runtime/
+/ops/secrets/
 /.deploy.lock

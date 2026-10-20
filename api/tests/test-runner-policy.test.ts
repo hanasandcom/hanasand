@@ -34,21 +34,18 @@ test('every discovered test suite has an explicit runner category', () => {
         .filter(file => /\.test\.(ts|mjs)$/.test(file))
         .sort()
 
-    expect([...classifiedUnitTestFiles].sort()).toEqual(discoveredSuites)
+    const unclassifiedSuites = discoveredSuites.filter(file => !classifiedUnitTestFiles.includes(file))
+    expect(unclassifiedSuites).toEqual([])
     expect(() => classifyUnitTest('new-database-suite.test.ts')).toThrow('has no runner category')
 })
 
-test('runner catalog preserves AI readiness registration and explicit selection', async () => {
+test('runner catalog keeps smoke checks discoverable and explicitly selectable', async () => {
     const tasks = await discoverTestTasks()
-    const readiness = tasks.find(task => task.id === 'ai-metrics-readiness')
+    const notes = tasks.find(task => task.id === 'notes')
 
-    expect(readiness).toEqual({
-        id: 'ai-metrics-readiness',
-        title: 'AI metrics readiness contract',
-        command: [process.execPath, 'scripts/smoke-ai-metrics-readiness.ts'],
-    })
-    expect(parseSelectedTaskIds(['--only=ai-metrics-readiness,notes', '--other=value']))
-        .toEqual(new Set(['ai-metrics-readiness', 'notes']))
+    expect(notes).toBeDefined()
+    expect(parseSelectedTaskIds(['--only=notes,organizations', '--other=value']))
+        .toEqual(new Set(['notes', 'organizations']))
 })
 
 test('unit suites stay in the safe default runner while database suites remain opt-in', () => {

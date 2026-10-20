@@ -15,7 +15,7 @@ export function SupportAccountActions({ ticketId }: { ticketId: string }) {
         setBusy(true)
         setMessage('')
         try {
-            const response = await supportFetch(`/api/support/tickets/${encodeURIComponent(ticketId)}/account/${field}`, {
+            const response = await supportFetch(`/support/tickets/${encodeURIComponent(ticketId)}/account/${field}`, {
                 method: field === 'password' ? 'POST' : 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ [field]: field === 'password' ? password : email }),

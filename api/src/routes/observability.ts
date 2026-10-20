@@ -6,6 +6,7 @@ import { getMostActiveServices } from '../handlers/logs/mostActive.ts'
 import { getErrorEvents } from '../handlers/logs/errors.ts'
 import ingestLog from '../handlers/logs/ingest.ts'
 import getMailOverview from '../handlers/mail/getOverview.ts'
+import getMailSearch from '../handlers/mail/getSearch.ts'
 import relayHealth from '../handlers/mail/relayHealth.ts'
 import postSendMail from '../handlers/mail/postSend.ts'
 import postMailAction from '../handlers/mail/postAction.ts'
@@ -21,6 +22,7 @@ import type { FastifyInstance } from 'fastify'
 export function registerObservabilityRoutes(fastify: FastifyInstance) {
     // Mail
     fastify.get('/mail/overview', getMailOverview)
+    fastify.get('/mail/search', getMailSearch)
     fastify.get('/mail-relay/:site/health', relayHealth)
     fastify.post('/mail/send', postSendMail)
     fastify.post('/mail/mailboxes', postMailbox)

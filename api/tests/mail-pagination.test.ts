@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from 'bun:test'
-import { listMessagePage } from '../src/utils/mail/jmap'
+import { listMessagePage, searchMessagePage } from '../src/utils/mail/jmap'
 const originalFetch = globalThis.fetch
 afterEach(() => { globalThis.fetch = originalFetch })
 test('mail pages use a stable anchor, preserve query order and expose an end cursor', async () => {
@@ -26,4 +26,26 @@ test('a missing anchor is an error, not a false empty mailbox', async () => {
         ? Response.json({ apiUrl: 'http://localhost/jmap', primaryAccounts: { 'urn:ietf:params:jmap:mail': 'account' } })
         : Response.json({ methodResponses: [['error', { type: 'anchorNotFound' }, 'q']] })) as typeof fetch
     await expect(listMessagePage('user', 'secret', 'inbox', 'deleted')).rejects.toThrow('Mail request failed')
+})
+
+test('mail search scopes JMAP text search to the selected mailbox and paginates', async () => {
+    let queryArgs: Record<string, unknown> | undefined
+    globalThis.fetch = (async (_url, init) => {
+        if (!init?.body) return Response.json({ apiUrl: 'http://localhost/jmap', primaryAccounts: { 'urn:ietf:params:jmap:mail': 'account' } })
+        const [method, args] = JSON.parse(String(init.body)).methodCalls[0]
+        if (method === 'Email/query') {
+            queryArgs = args
+            return Response.json({ methodResponses: [[method, { ids: ['first', 'second'] }, 'q']] })
+        }
+        return Response.json({ methodResponses: [[method, { list: args.ids.map((id: string) => ({ id })) }, 'get']] })
+    }) as typeof fetch
+    const page = await searchMessagePage('user', 'secret', 'inbox', 'invoice', 'first', 1)
+    expect(queryArgs).toMatchObject({
+        filter: { inMailbox: 'inbox', text: 'invoice' },
+        anchor: 'first',
+        anchorOffset: 1,
+        limit: 2,
+    })
+    expect(page.messages.map(message => message.id)).toEqual(['first'])
+    expect(page.nextCursor).toBe('first')
 })

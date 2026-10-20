@@ -55,7 +55,7 @@ function warmWorkerRequest(worker: WarmWorker, body?: { sessionId?: string; reti
 
 export function assertBrowserWorkerEgress() {
     if (process.env.NODE_ENV === 'production' && process.env.BROWSER_SANDBOX_EGRESS_FIREWALL_READY !== '1') {
-        throw new Error('Browser sandbox egress firewall is not marked ready. Run ops/browser-worker/install-egress-firewall.sh before enabling production browser sessions.')
+        throw new Error('Browser sandbox egress firewall is not marked ready. Run browser-worker/install-egress-firewall.sh from the ops repository before enabling production browser sessions.')
     }
 }
 

@@ -1,6 +1,6 @@
 export { getMailSession, jmapCall } from './jmapSession.ts'
 export { getMailboxList, createMailbox, ensureMailbox } from './jmapMailbox.ts'
-export { listMessages, listMessagePage, getMessage, moveMessage, patchMessageKeywords, listInboxMessagesForFiltering } from './jmapMessages.ts'
+export { listMessages, listMessagePage, searchMessagePage, getMessage, moveMessage, patchMessageKeywords, listInboxMessagesForFiltering } from './jmapMessages.ts'
 export { uploadAttachment, downloadBlob } from './jmapAttachments.ts'
 export { storeSentMessage } from './jmapSent.ts'
 

@@ -54,6 +54,7 @@ test('remote console target rejects unknown hosts and unsafe paths', () => {
 test('host transport permits existing VM calls and dedicated internal VM routes', () => {
     expect(supportedVmHostPath('/vm/remote-vm/start')).toBe(true)
     expect(supportedVmHostPath('/vm/remote-vm/recovery')).toBe(true)
+    expect(supportedVmHostPath('/vm/remote-vm/sudo-password')).toBe(true)
     expect(supportedVmHostPath('/vms/internal/remote-vm/provision')).toBe(true)
     expect(supportedVmHostPath('/vms/internal/remote-vm/console')).toBe(true)
     expect(supportedVmHostPath('/vms/internal/remote-vm/status')).toBe(true)

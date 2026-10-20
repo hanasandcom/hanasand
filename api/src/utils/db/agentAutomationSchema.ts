@@ -51,4 +51,23 @@ export default async function ensureAgentAutomationSchema() {
     await run('ALTER TABLE agent_automations ADD COLUMN IF NOT EXISTS notification_destinations TEXT[] NOT NULL DEFAULT \'{}\'')
     await run('ALTER TABLE agent_automations ADD COLUMN IF NOT EXISTS monitoring_type TEXT NOT NULL DEFAULT \'fetch\'')
     await run('ALTER TABLE agent_automations ADD COLUMN IF NOT EXISTS follow_redirects BOOLEAN NOT NULL DEFAULT TRUE')
+    await run(`CREATE TABLE IF NOT EXISTS agent_automation_runs (
+        id TEXT PRIMARY KEY,
+        automation_id TEXT NOT NULL REFERENCES agent_automations(id) ON DELETE CASCADE,
+        owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        status TEXT NOT NULL CHECK (status IN ('running', 'completed', 'failed')),
+        warning BOOLEAN NOT NULL DEFAULT FALSE,
+        result TEXT,
+        error TEXT,
+        provider TEXT,
+        model TEXT,
+        artifacts JSONB NOT NULL DEFAULT '[]'::jsonb,
+        started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        completed_at TIMESTAMPTZ,
+        duration_ms INT
+    )`)
+    await run('ALTER TABLE agent_automation_runs ADD COLUMN IF NOT EXISTS artifacts JSONB NOT NULL DEFAULT \'[]\'::jsonb')
+    await run('ALTER TABLE agent_automation_runs ADD COLUMN IF NOT EXISTS warning BOOLEAN NOT NULL DEFAULT FALSE')
+    await run('CREATE INDEX IF NOT EXISTS idx_agent_automation_runs_automation_started ON agent_automation_runs(automation_id, started_at DESC)')
+    await run('CREATE INDEX IF NOT EXISTS idx_agent_automation_runs_owner_started ON agent_automation_runs(owner_id, started_at DESC)')
 }

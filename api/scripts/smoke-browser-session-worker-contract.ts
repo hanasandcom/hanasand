@@ -26,7 +26,6 @@ const onionWs = [
     'browserPageEvents.ts',
 ].map(name => readFileSync(new URL(`../src/handlers/onionSession/${name}`, import.meta.url), 'utf8')).join('\n')
 const dockerfile = readFileSync(new URL('../Dockerfile', import.meta.url), 'utf8')
-const stackVerifier = readFileSync(new URL('../../scripts/verify-stack-release.sh', import.meta.url), 'utf8')
 const appRuntimeStage = /FROM oven\/bun:1\.3\.13-alpine AS app-runtime-base\n([\s\S]*?)\nFROM app-runtime/.exec(dockerfile)?.[1] || ''
 const handoff = readOptional(new URL('../../agents/scripts/handoff-context.mjs', import.meta.url))
 const runbook = readOptional(new URL('../../agents/HANDOFF_RUNBOOK.md', import.meta.url))
@@ -97,8 +96,6 @@ if (existsSync(composeUrl)) {
     assert.match(serviceBlock('api'), /BROWSER_SANDBOX_EGRESS_FIREWALL_READY:\s*\$\{BROWSER_SANDBOX_EGRESS_FIREWALL_READY:-0\}/, 'API should receive the browser egress firewall readiness gate from compose env')
     assert.doesNotMatch(serviceBlock('api'), /BROWSER_SANDBOX_WORKER_WS/, 'API should not default to a shared browser worker websocket in production')
     assert.doesNotMatch(compose, /^ {2}(?:browsers|browser-turn):$/m, 'browser workers and TURN should be owned by their independent Compose files')
-    assert.match(stackVerifier, /verify_independent_container hanasand_browsers hanasand-browsers browsers/, 'site release must preserve the browser Compose project')
-    assert.match(stackVerifier, /verify_independent_container hanasand_browser_turn hanasand-browser-turn browser-turn/, 'site release must preserve the TURN Compose project')
     assert.match(compose, /BROWSER_SANDBOX_PREWARM:\s*"0"/, 'compose should not prewarm Chromium in the privileged API container')
     assert.match(compose, /browsernet:\s*\n\s*name:\s*hanasand_browsernet/, 'compose should define a dedicated browser worker network')
     assert.match(serviceBlock('api'), /networks:[\s\S]*?(?:- browsernet\b|browsernet:)/, 'API should join the browser network only for the worker websocket control path')

@@ -9,9 +9,17 @@ export async function listMessages(username: string, password: string, mailboxId
 }
 
 export async function listMessagePage(username: string, password: string, mailboxId: string, after?: string, limit = 50) {
+    return queryMessagePage(username, password, mailboxId, { inMailbox: mailboxId }, after, limit)
+}
+
+export async function searchMessagePage(username: string, password: string, mailboxId: string, text: string, after?: string, limit = 50) {
+    return queryMessagePage(username, password, mailboxId, { inMailbox: mailboxId, text }, after, limit)
+}
+
+async function queryMessagePage(username: string, password: string, mailboxId: string, filter: Record<string, string>, after?: string, limit = 50) {
     const { session, accountId } = await getMailSession(username, password)
     const query = await jmapCall<{ ids?: string[] }>(username, password, session, [
-        ['Email/query', { accountId, filter: { inMailbox: mailboxId }, sort: [{ property: 'receivedAt', isAscending: false }], limit: limit + 1,
+        ['Email/query', { accountId, filter, sort: [{ property: 'receivedAt', isAscending: false }], limit: limit + 1,
             ...(after ? { anchor: after, anchorOffset: 1 } : {}) }, 'query']
     ])
     const ids = query.ids || []
