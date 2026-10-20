@@ -3,9 +3,10 @@ import assert from 'node:assert/strict'
 import { test } from 'bun:test'
 import conversationTitle from '../src/utils/ai/conversationTitle'
 
-test('generated and blank conversation titles use the assistant label', () => {
-    for (const value of [undefined, null, '', '   ', 'New chat', 'New workspace review', 'Workspace review']) {
-        assert.equal(conversationTitle(value), 'Review assistant')
+test('blank conversation titles use a short, natural label', () => {
+    for (const value of [undefined, null, '', '   ', 'New workspace review', 'Workspace review']) {
+        assert.equal(conversationTitle(value), 'New chat')
     }
+    assert.equal(conversationTitle('New chat'), 'New chat')
     assert.equal(conversationTitle('  Incident analysis  '), 'Incident analysis')
 })

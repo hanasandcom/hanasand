@@ -64,8 +64,8 @@ export function AIPageNotices({
 
 function runtimeStateSummary(runtimeState: AIRuntimeState) {
     if (runtimeState.connectedClientCount > 0) {
-        return `${runtimeState.connectedClientCount} review connection${runtimeState.connectedClientCount === 1 ? '' : 's'} ready`
+        return `${runtimeState.connectedClientCount} connection${runtimeState.connectedClientCount === 1 ? '' : 's'} online`
     }
 
-    return 'Review assistant paused'
+    return 'Hanasand GPT is unavailable'
 }

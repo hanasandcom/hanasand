@@ -76,7 +76,7 @@ export function useConversationActions({
     }, [isAuthenticated, setStatusNotice, updateLocalConversation])
 
     const renameConversation = useCallback(async (id: string, title: string) => {
-        const nextTitle = title.trim() || 'Review assistant'
+        const nextTitle = title.trim() || 'New chat'
         await patchConversation(id, { title: nextTitle })
     }, [patchConversation])
 
@@ -145,10 +145,10 @@ export function useConversationActions({
                 }),
             })
             if (!response.ok) {
-                throw new Error('Unable to persist the latest message.')
+                throw new Error('Couldn’t save chat history.')
             }
         } catch (error) {
-            setStatusNotice(error instanceof Error ? error.message : 'Unable to persist the latest message.')
+            setStatusNotice(error instanceof Error ? error.message : 'Couldn’t save chat history.')
         }
     }, [isAuthenticated, setStatusNotice])
 

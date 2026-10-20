@@ -20,6 +20,7 @@ export default function Header({ token, id, username, path: serverPath }: { toke
     const mobile = useMobileNavigation()
     const pathname = usePathname() || serverPath
     const [recentUsers, setRecentUsers] = useState<RecentUser[]>([])
+    const isAiWorkbench = pathname.startsWith('/ai') && pathname !== '/ai/window'
     const isAppSurface = isAppSurfacePath(pathname, {
         sidebarVisible: Boolean(token && hasAppSidebar(pathname)),
         loggedInTi: token && (pathname === '/ti' || pathname.startsWith('/ti/')),
@@ -31,6 +32,20 @@ export default function Header({ token, id, username, path: serverPath }: { toke
         if (token && id) rememberCurrentUser()
         setRecentUsers(readRecentUsers())
     }, [id, token])
+
+    if (isAiWorkbench) {
+        return (
+            <header data-site-header className='site-chrome fixed left-0 top-0 z-1000 w-full border-b border-ui-border bg-ui-panel text-ui-text px-4 sm:px-6'>
+                <div className='mx-auto flex h-14 w-full items-center justify-between gap-3'>
+                    <BrandLogo compact={token} className='shrink-0' />
+                    <div className='flex min-w-0 items-center gap-2'>
+                        {token && <OrganizationSwitcher />}
+                        <AccountMenu token={token} id={id} username={username} pathname={pathname} recentUsers={recentUsers} />
+                    </div>
+                </div>
+            </header>
+        )
+    }
 
     return (
         <header data-site-header className='site-chrome fixed left-0 top-0 z-1000 w-full border-b border-ui-border bg-ui-panel text-ui-text px-3 sm:px-5 md:px-10 lg:px-16'>

@@ -37,17 +37,10 @@ type ChatPaneProps = {
     onToggleWorkspaceDetails: () => void
 }
 
-const EMPTY_CHAT_TOOLTIPS = [
-    'Attach the relevant context, then ask for a focused review, code change, or release check.',
-    'Start from a bug, repo, screenshot, or customer note and keep the important context visible.',
-    'Ask for a plan, implementation pass, browser check, or customer-ready summary.',
-]
-
 export default function ChatPane({ activeConversation, clients, composer, isConnected, isAuthenticated, readOnly = false, provider, canUseChatGPT, promptPriority, promptFiles, promptBusy, promptError, showWorkspaceDetails, workspaceDetailsOpen, onToggleWorkspaceDetails, onProviderChange, onPromptPriorityChange, onPromptFilesChange, onRefreshPrompts, onEditPrompt, onDeletePrompt, onMovePrompt, onModelStrategyChange, onPreferredModelChange, onComposerChange, onSend }: ChatPaneProps) {
     const scrollRef = useRef<HTMLDivElement | null>(null)
     const [showArtifacts, setShowArtifacts] = useState(false)
     const [previewArtifact, setPreviewArtifact] = useState<AIArtifact | null>(null)
-    const emptyTooltip = useMemo(() => pickTooltip(EMPTY_CHAT_TOOLTIPS) || EMPTY_CHAT_TOOLTIPS[0], [])
     const isThinking = provider === 'chatgpt'
         ? Boolean(activeConversation?.messages.some(message => message.pending))
         : Boolean(activeConversation?.messages.at(-1)?.pending)
@@ -56,8 +49,8 @@ export default function ChatPane({ activeConversation, clients, composer, isConn
     const awaitingResponse = Boolean(activeConversation?.messages.at(-1)?.pending)
     const hasReadyModel = provider === 'chatgpt' || isConnected && clients.length > 0
     const unavailableModelReason = isAuthenticated
-        ? 'Review is paused. You can still open context, attach files, and continue from this page.'
-        : 'Review is paused. Sign in to continue, or open shared context first.'
+        ? 'Hanasand GPT is unavailable right now.'
+        : 'Sign in to send a message.'
     const blockedReason = readOnly
         ? 'Reviewer mode: you can inspect this workspace but cannot send prompts.'
         : provider === 'chatgpt' && !activeConversation ? 'Preparing conversation…'
@@ -79,17 +72,13 @@ export default function ChatPane({ activeConversation, clients, composer, isConn
 
     return <Fragment>
         <section className='relative flex min-h-0 w-full max-w-full min-w-0 flex-1 flex-col overflow-hidden'>
-            <ChatHeader conversation={activeConversation} clients={clients} isConnected={isConnected} isThinking={isThinking} hasReadyModel={hasReadyModel} provider={provider} canUseChatGPT={canUseChatGPT} onProviderChange={onProviderChange} showWorkspaceDetails={showWorkspaceDetails} workspaceDetailsOpen={workspaceDetailsOpen} onToggleWorkspaceDetails={onToggleWorkspaceDetails} showArtifacts={showArtifacts} latestArtifacts={latestArtifacts} onToggleArtifacts={() => setShowArtifacts(previous => !previous)} onModelStrategyChange={onModelStrategyChange} onPreferredModelChange={onPreferredModelChange} />
+            <ChatHeader conversation={activeConversation} clients={clients} isThinking={isThinking} provider={provider} canUseChatGPT={canUseChatGPT} onProviderChange={onProviderChange} showWorkspaceDetails={showWorkspaceDetails} workspaceDetailsOpen={workspaceDetailsOpen} onToggleWorkspaceDetails={onToggleWorkspaceDetails} showArtifacts={showArtifacts} latestArtifacts={latestArtifacts} onToggleArtifacts={() => setShowArtifacts(previous => !previous)} onModelStrategyChange={onModelStrategyChange} onPreferredModelChange={onPreferredModelChange} />
             <div className={`grid min-h-0 w-full max-w-full flex-1 ${showArtifacts ? 'grid-cols-1 xl:grid-cols-[minmax(0,1fr)_22rem]' : 'grid-cols-1'}`}>
-                <ChatTranscript conversation={activeConversation} scrollRef={scrollRef} emptyTooltip={emptyTooltip} hasReadyModel={hasReadyModel} isAuthenticated={isAuthenticated} onEditPrompt={onEditPrompt} onDeletePrompt={onDeletePrompt} onMovePrompt={onMovePrompt} onPreview={setPreviewArtifact} />
+                <ChatTranscript conversation={activeConversation} scrollRef={scrollRef} hasReadyModel={hasReadyModel} isAuthenticated={isAuthenticated} onEditPrompt={onEditPrompt} onDeletePrompt={onDeletePrompt} onMovePrompt={onMovePrompt} onPreview={setPreviewArtifact} />
                 {showArtifacts ? <ArtifactSidebar groups={groupedArtifacts} onPreview={setPreviewArtifact} /> : null}
             </div>
             <ChatComposer value={composer} blockedReason={blockedReason} awaitingResponse={provider === 'chatgpt' ? false : awaitingResponse} readOnly={readOnly} provider={provider} promptPriority={promptPriority} promptFiles={promptFiles} promptBusy={promptBusy} promptError={promptError} onPromptPriorityChange={onPromptPriorityChange} onPromptFilesChange={onPromptFilesChange} onRefreshPrompts={onRefreshPrompts} onChange={onComposerChange} onSend={onSend} />
         </section>
         <ArtifactPreviewOverlay artifact={previewArtifact} onClose={() => setPreviewArtifact(null)} />
     </Fragment>
-}
-
-function pickTooltip(tooltips: readonly string[]) {
-    return tooltips[Math.floor(Math.random() * tooltips.length)] || ''
 }

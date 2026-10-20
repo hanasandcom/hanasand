@@ -38,7 +38,7 @@ export default function ChatSidebar(props: ChatSidebarProps) {
             <div className='flex items-center justify-between gap-2 pb-4'>
                 <button type='button' onClick={onNewConversation} className='inline-flex h-9 items-center gap-2 rounded-lg bg-ui-text px-3 text-sm font-semibold text-ui-canvas transition-opacity hover:opacity-90'>
                     <MessageSquarePlus className='h-4 w-4' />
-                    New session
+                    New chat
                 </button>
                 <div className='flex items-center gap-1'>
                     <button type='button' aria-label='Search sessions' aria-pressed={searchOpen} onClick={() => setSearchOpen((prev) => !prev)} className={`grid h-9 w-9 place-items-center rounded-lg transition-colors hover:bg-ui-raised hover:text-ui-text ${searchOpen ? 'bg-ui-primary/10 text-ui-primary' : 'text-ui-muted'}`}>
@@ -62,9 +62,8 @@ export default function ChatSidebar(props: ChatSidebarProps) {
                 </label>
             ) : null}
 
-            <div className='mb-3 flex items-center justify-between px-1 text-[11px] font-semibold uppercase text-ui-muted'>
-                <span>Sessions</span>
-                <span>{conversations.length}</span>
+            <div className='mb-2 px-1 text-xs font-medium text-ui-muted'>
+                Chats
             </div>
 
             <ConversationList
@@ -79,7 +78,6 @@ export default function ChatSidebar(props: ChatSidebarProps) {
             <div className='mt-5 border-t border-ui-border pt-4'>
                 <button type='button' onClick={() => setShowArchived((prev) => !prev)} className='flex min-h-8 w-full items-center justify-between rounded-lg px-1 text-[11px] font-semibold uppercase text-ui-muted transition-colors hover:bg-ui-raised hover:text-ui-text'>
                     <span>Archived</span>
-                    <span>{archivedConversations.length}</span>
                 </button>
                 {showArchived ? (
                     <div className='mt-3'>

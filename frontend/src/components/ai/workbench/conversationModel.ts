@@ -8,7 +8,7 @@ export function createConversation(clientName: string | null = null): AIConversa
     return {
         id: crypto.randomUUID(),
         ownerId: getCookie('id') || '',
-        title: 'Review assistant',
+        title: 'New chat',
         preferredModel: clientName,
         activeModel: clientName,
         modelStrategy: 'auto',

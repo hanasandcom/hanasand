@@ -11,7 +11,7 @@ import { WorkspacePrimaryAction } from '../src/components/ai/workbenchPaneDispla
 
 const noPreview = () => {}
 
-test('empty chat selects a curated review prompt when a model is ready', () => {
+test('empty chat keeps the prompt short and the composer primary', () => {
     const html = renderToStaticMarkup(<ChatPane
         activeConversation={null}
         clients={[{ name: 'review-model', ram: [], cpu: [], gpu: [], model: {} as GPT_ModelMetrics }]}
@@ -24,13 +24,11 @@ test('empty chat selects a curated review prompt when a model is ready', () => {
         onPreferredModelChange={() => {}}
         onSend={() => {}}
     />)
-    const prompts = [
-        'Attach the relevant context, then ask for a focused review, code change, or release check.',
-        'Start from a bug, repo, screenshot, or customer note and keep the important context visible.',
-        'Ask for a plan, implementation pass, browser check, or customer-ready summary.',
-    ]
-
-    expect(prompts.some(prompt => html.includes(prompt))).toBe(true)
+    expect(html).toContain('What can I help with?')
+    expect(html).toContain('placeholder="Message…"')
+    expect(html).not.toContain('Review assistant')
+    expect(html).not.toContain('Ask Hanasand to inspect context')
+    expect(html).not.toContain('Attach the relevant context')
 })
 
 test('chat composer renders themed, accessible blocked and ready states', () => {
@@ -48,10 +46,12 @@ test('chat composer renders themed, accessible blocked and ready states', () => 
 })
 
 test('chat header keeps shared hover and primary state tokens', () => {
-    const html = renderToStaticMarkup(<ChatHeader conversation={null} clients={[]} isConnected={false} isThinking showArtifacts={false} latestArtifacts={[]} hasReadyModel={false} onToggleArtifacts={() => {}} onModelStrategyChange={() => {}} onPreferredModelChange={() => {}} />)
+    const html = renderToStaticMarkup(<ChatHeader conversation={null} clients={[]} isThinking showArtifacts={false} latestArtifacts={[]} onToggleArtifacts={() => {}} onModelStrategyChange={() => {}} onPreferredModelChange={() => {}} />)
 
-    expect(html).toContain('hover:bg-ui-raised hover:text-ui-text')
-    expect(html).toContain('bg-ui-primary/10 text-ui-primary')
+    expect(html).toContain('Hanasand GPT')
+    expect(html).not.toContain('Review ready')
+    expect(html).not.toContain('Paused')
+    expect(html).toContain('hover:text-ui-text')
     expect(html).not.toMatch(/(?:bg|text)-white|#[\da-f]{3,8}/i)
 })
 
@@ -133,8 +133,8 @@ test('transcript keeps errored messages on the danger theme', () => {
         messages: [{ id: 'error-1', role: 'assistant', content: 'Request failed', error: true, createdAt: '2026-10-17T00:00:00Z' }],
         collaboration: { role: 'owner', canInvite: true, seatLimit: 1, seatCount: 1, remainingSeats: 0, collaborators: [] },
         metrics: {} as GPT_ModelMetrics, createdAt: '2026-10-17T00:00:00Z', updatedAt: '2026-10-17T00:00:00Z',
-    }} scrollRef={{ current: null }} emptyTooltip='' hasReadyModel={false} isAuthenticated={false} onPreview={noPreview} />)
+    }} scrollRef={{ current: null }} hasReadyModel={false} isAuthenticated={false} onPreview={noPreview} />)
 
-    expect(html).toContain('border-ui-danger/30 bg-ui-raised/10 text-ui-text')
+    expect(html).toContain('rounded-xl border border-ui-danger/30')
     expect(html).toContain('Request failed')
 })

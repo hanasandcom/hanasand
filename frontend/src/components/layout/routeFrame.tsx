@@ -29,7 +29,7 @@ export default function RouteFrame({ children, serverPath, token, sidebar, banne
     const frameOverflow = isThesisPage || isBrowserLanding || isAiWorkbench || isShare || showSidebar ? 'overflow-hidden overscroll-none' : 'overflow-auto'
 
     return (
-        <div data-route-frame className={`enterprise-theme relative z-10 mt-18 h-[calc(100dvh-4.5rem)] w-full bg-ui-canvas grid grid-cols-[minmax(0,1fr)] ${frameRows} ${frameOverflow}`}>
+        <div data-route-frame className={`enterprise-theme relative z-10 ${isAiWorkbench ? 'mt-14 h-[calc(100dvh-3.5rem)]' : 'mt-18 h-[calc(100dvh-4.5rem)]'} w-full bg-ui-canvas grid grid-cols-[minmax(0,1fr)] ${frameRows} ${frameOverflow}`}>
             <div className='min-w-0'>{banner}</div>
             <main className={`${showFooter && !thesisScroll ? 'min-h-max' : 'min-h-0'} min-w-0 w-full ${isAppSurface || isBrowserLanding || isAiWorkbench || thesisScroll ? 'h-full' : 'pt-3 md:pt-0'} ${thesisScroll ? 'overflow-y-auto overscroll-contain' : ''}`}>
                 {showSidebar ? (

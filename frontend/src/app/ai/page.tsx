@@ -3,10 +3,10 @@ import type { Metadata } from 'next'
 import { buildRouteMetadata } from '../seo'
 
 export const metadata: Metadata = buildRouteMetadata({
-    title: 'Review Assistant',
-    description: 'Review projects, workspaces, and shared reports in the Hanasand assistant console.',
+    title: 'Hanasand GPT',
+    description: 'Chat with Hanasand GPT.',
     path: '/ai',
-    keywords: ['hanasand assistant', 'workspace review', 'project review'],
+    keywords: ['hanasand gpt', 'chat'],
 })
 
 export default async function page() {

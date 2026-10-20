@@ -18,7 +18,7 @@ export function useWorkbenchConnection(state: WorkbenchState) {
                 setIsConnected(false)
                 socketRef.current = null
                 if (!shouldReconnectRef.current) return
-                setStatusNotice('Connection lost. Reconnecting review assistant...')
+                setStatusNotice('Connection lost. Reconnecting…')
                 reconnectTimerRef.current = setTimeout(connect, 2000)
             }
             ws.onerror = () => setIsConnected(false)
