@@ -9,7 +9,7 @@ import {
 import { parseCymruAsn } from '../src/handlers/onionSession/networkEvidence.ts'
 import { parseUrlQueryScores, parseVirusTotalStats, providerHttpAccessIssue, virusTotalUrlResponse, urlQueryTargetMatches, urlQueryReportMatchesTarget } from '../src/handlers/onionSession/providerUrlResponses.ts'
 import { providerStartUrl } from '../src/handlers/onionSession/providerNavigation.ts'
-import { providerCommunityComments, providerSummaryText } from '../src/handlers/onionSession/providerText.ts'
+import { providerAccessIssue, providerCommunityComments, providerResponseUrl, providerSummaryText } from '../src/handlers/onionSession/providerText.ts'
 import { sandboxResolvedAddressSafety } from '../src/handlers/onionSession/sandboxSafety.ts'
 
 assert.deepEqual(sandboxUrlSafety('https://example.com/path'), { ok: true })
@@ -67,7 +67,7 @@ assert.deepEqual(providerCommunityComments(JSON.stringify({ data: [
 
 console.log('Browser sandbox analysis helpers passed.')
 
-assert.equal(providerStartUrl({ id: 'urlquery' }, 'https://urlquery.net/search?q=x', 'https://example.com/'), 'https://urlquery.net/search?q=https%3A%2F%2Fexample.com%2F', 'urlquery must open its public search UI, not a 204 HTML fragment')
+assert.equal(providerStartUrl({ id: 'urlquery' }, 'https://urlquery.net/search?q=x', 'https://example.com/'), 'https://urlquery.net/search/reports?q=https%3A%2F%2Fexample.com%2F', 'urlquery opens its current public reports search')
 assert.equal(parseUrlQueryScores('Search: 0 hits'), null, 'missing reports are not a clean verdict')
 assert.equal(parseUrlQueryScores('Search: 5 hits'), null, 'a result count alone is not an alert verdict')
 assert.deepEqual(parseUrlQueryScores('<td>0 - 0 - 0</td>'), { alerts: 0 })
@@ -75,6 +75,16 @@ assert.deepEqual(parseUrlQueryScores('<td>0 - 0 - 0</td>'), { alerts: 0 })
 const report = 'Report Overview Visited public 2026-09-15 07:19:14 URL vg.no Finishing URL www.vg.no/ IP / ASN 3.174.2.5 Title VG Detections urlquery 0 Network Intrusion Detection 0 Threat Detection Systems 0 Host Summary Related reports UQ 8 IDS 1 TDS 2'
 assert.deepEqual(parseUrlQueryScores(report), { alerts: 0 }, 'reads current report format, excluding related report counts')
 assert.deepEqual(parseUrlQueryScores(report.replace('urlquery 0 Network', 'urlquery 3 Network') + ' No alerts detected'), { alerts: 3 }, 'a clean subsection cannot override detections')
+const currentReport = 'WEBSITE ANALYSIS REPORT Submitted URL http://2gzyxa5ihm7nsggfxnu52rck2vv4rvmdlkiu3zzui5du4xyclen53wid.onion/ Detections URLQuery 0 detections IDS 0 detections Threat Detection System 2 detections Related reports UQ 8 IDS 1 TDS 2'
+assert.deepEqual(parseUrlQueryScores(currentReport), { alerts: 2 }, 'reads current urlquery detector labels without counting related reports')
+assert.deepEqual(parseUrlQueryScores('2 urlquery alerts were found. Existing urlquery report: 2026-08-11T04:05Z.'), { alerts: 2 }, 'retains the parsed score in the provider summary sent to the UI')
+assert.equal(urlQueryReportMatchesTarget(currentReport, 'http://2gzyxa5ihm7nsggfxnu52rck2vv4rvmdlkiu3zzui5du4xyclen53wid.onion/'), true, 'matches the current report’s submitted URL')
+assert.equal(urlQueryReportMatchesTarget(currentReport.replace('2gzyxa5ihm7nsggfxnu52rck2vv4rvmdlkiu3zzui5du4xyclen53wid', 'otheronion'), 'http://2gzyxa5ihm7nsggfxnu52rck2vv4rvmdlkiu3zzui5du4xyclen53wid.onion/'), false, 'does not match a different onion URL')
+assert.match(providerHttpAccessIssue('VirusTotal', 404), /no existing report.*No verdict/)
+assert.equal(providerAccessIssue({ id: 'virustotal' }, 'Item not found', 'https://www.virustotal.com/gui/url/abc123'), 'VirusTotal has no existing report for this URL. No verdict was returned.')
+assert.equal(providerResponseUrl('VirusTotal', 'https://www.virustotal.com/api/v3/urls/abc123'), true, 'captures VirusTotal v3 URL report responses')
+assert.equal(providerResponseUrl('VirusTotal', 'https://www.virustotal.com/ui/urls/abc123/comments?limit=8'), true, 'captures VirusTotal GUI report responses')
+assert.equal(providerResponseUrl('VirusTotal', 'https://www.virustotal.com/api/v3/domains/example.com'), false, 'does not treat domain results as URL reports')
 assert.equal(urlQueryReportMatchesTarget(report, 'https://vg.no/'), true)
 assert.equal(urlQueryReportMatchesTarget(report, 'https://vg.no/news'), false)
 assert.equal(urlQueryReportMatchesTarget(report.replace('URL vg.no Finishing', 'URL evil.test Finishing'), 'https://vg.no/'), false, 'contacted domains are not the report target')

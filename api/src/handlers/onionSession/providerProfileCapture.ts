@@ -1,7 +1,7 @@
 import type { SandboxDeobfuscationTask, WebCrackLoadResult } from './providerTypes.ts'
 import { watchWebCrackOutput, readWebCrackOutput } from './webcrack.ts'
 import { providerCaptureMessage, type ProviderCaptureDetails, type ProviderProfileCaptureDependencies } from './providerCapture.ts'
-import { isWebCrackTool, providerStartUrl, interactWithProvider, officialProviderKind } from './providerNavigation.ts'
+import { isWebCrackTool, providerStartUrl, officialProviderKind } from './providerNavigation.ts'
 import { collectProviderResponses } from './providerUrlResponses.ts'
 import { waitForProviderData, providerTimeoutMs, providerScreenshotTimeoutMs, waitForProviderVisual, hasParsedProviderData, providerAccessIssue, fetchProviderCommunityComments, enrichProviderEvidence } from './providerText.ts'
 import { analyzeToolEvidence, providerPendingEvidence, safeToolId } from './providerAnalysis.ts'
@@ -83,8 +83,6 @@ export function createProviderProfileCaptureService({ sessionId, isCurrentRun, s
                 )
                 await toolPage.waitForLoadState('domcontentloaded', { timeout: providerTimeoutMs(tool) }).catch(() => undefined)
                 await withTimeout(dismissCookieOverlays(toolPage), 1200, undefined).catch(() => undefined)
-                const actionError = await interactWithProvider(toolPage, tool, target)
-                navigationError ||= actionError
                 const openedScreenshotTimeout = providerScreenshotTimeoutMs(tool, 800)
                 const openedImage = webcrackTool ? null : await withTimeout(toolPage.screenshot({ type: 'jpeg', quality: 56, animations: 'disabled', timeout: openedScreenshotTimeout }), openedScreenshotTimeout, null)
                 const openedEvidence = providerPendingEvidence(toolPage.url() || preparedUrl, tool.name || toolUrl, target)

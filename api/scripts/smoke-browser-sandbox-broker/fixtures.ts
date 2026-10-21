@@ -30,9 +30,6 @@ export function createFixtureServer() {
         ['/virustotal', `<!doctype html>
 <html><head><title>VirusTotal fixture</title></head>
 <body><a href="/unexpected-provider-navigation" style="position:fixed;left:0;top:0;width:18px;height:18px">Home</a><main><h1>VirusTotal</h1><p>12/94 security vendors flagged this URL as malicious.</p><p>3 community comments</p></main><script>console.warn('Provider diagnostic only')</script></body></html>`],
-        ['/urlquery', `<!doctype html>
-<html><head><title>urlquery fixture</title></head>
-<body><main><h1>urlquery.net</h1><p>4 alerts were raised for malicious requests.</p><!-- <div class="relative mx-auto"><table><tr><th>Date</th></tr></table></div> --></main></body></html>`],
         ['/webcrack', `<!doctype html>
 <html><head><title>WebCrack fixture</title></head>
 <body><main><h1>WebCrack</h1><textarea aria-label="source"></textarea><button>Run</button><pre id="out"></pre></main>
@@ -54,7 +51,9 @@ document.querySelector('button').addEventListener('click', () => {
             response.end(downloadBody)
             return
         }
-        const body = pages.get(url.pathname) || pages.get('/start') || ''
+        const target = (url.searchParams.get('q') || '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
+        const urlQueryReport = `<!doctype html><html><head><title>urlquery fixture</title></head><body><main><h1>WEBSITE ANALYSIS REPORT</h1><dl><dt>Submitted URL</dt><dd>${target}</dd></dl><h2>Detections</h2><p>URLQuery 1 detections</p><p>IDS 0 detections</p><p>Threat Detection System 3 detections</p></main></body></html>`
+        const body = url.pathname === '/urlquery' ? urlQueryReport : pages.get(url.pathname) || pages.get('/start') || ''
         response.writeHead(200, {
             'content-type': 'text/html; charset=utf-8',
             'cache-control': 'no-store',

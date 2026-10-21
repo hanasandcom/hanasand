@@ -22,7 +22,8 @@ export function urlQueryTargetMatches(value: string, target: string) {
 }
 
 export function urlQueryReportMatchesTarget(reportText: string, target: string) {
-    const reported = reportText.match(/\bURL\s+(\S+)\s+Finishing URL\b/i)?.[1]
+    const reported = reportText.match(/\bSubmitted URL\s+(\S+)/i)?.[1]
+        || reportText.match(/\bURL\s+(\S+)\s+Finishing URL\b/i)?.[1]
     return Boolean(reported && urlQueryTargetMatches(reported, target))
 }
 
@@ -77,6 +78,7 @@ export function collectProviderResponses(page: Page, toolName: string, target: s
 }
 
 export function providerHttpAccessIssue(provider: string, status: number) {
+    if (status === 404 && /virustotal/i.test(provider)) return 'VirusTotal has no existing report for this URL. No verdict was returned.'
     if (status === 403) return `${provider} denied browser access to this report (HTTP 403). No verdict was returned.`
     if (status === 429) return `${provider} rate-limited the lookup. No verdict was returned.`
     return ''
@@ -108,9 +110,19 @@ function numberFromJsonField(text: string, field: string) {
 }
 
 export function parseUrlQueryScores(text: string) {
+    const summary = text.match(/\b(\d{1,3})\s+urlquery\s+alerts?\b/i)
+    if (summary) return { alerts: Number(summary[1]) }
     // Parse the report's own complete detector summary before related-report rows.
     const report = text.match(/Detections\s+urlquery\s+(\d+)\s+Network Intrusion Detection\s+(\d+)\s+Threat Detection Systems\s+(\d+)/i)
     if (report) return { alerts: Number(report[1]) + Number(report[2]) + Number(report[3]) }
+    const signals = new Map<string, number>()
+    for (const match of text.matchAll(/\b(URLQuery|IDS|TDS|Threat Detection Systems?)\s*:?\s*(\d+)\s+(?:detections?|signals?)\b/gi)) {
+        const label = /^(?:tds|threat detection systems?)$/i.test(match[1]) ? 'tds' : match[1].toLowerCase()
+        signals.set(label, Number(match[2]))
+    }
+    if (signals.has('urlquery') && signals.has('ids') && signals.has('tds')) {
+        return { alerts: [...signals.values()].reduce((sum, count) => sum + count, 0) }
+    }
     const rows = Array.from(text.matchAll(/\b(\d{1,3})\s*-\s*(\d{1,3})\s*-\s*(\d{1,3})\b/g))
     if (!rows.length) return null
     const alerts = rows.reduce((max, row) => Math.max(max, Number(row[1]) + Number(row[2]) + Number(row[3])), 0)

@@ -50,7 +50,6 @@ export function assertProviderCaptures(payloads: BrokerPayload[], ready?: Broker
     const webcrack = payloads.find(payload => payload.type === 'tool_capture' && payload.toolAnalysis?.toolKind === 'webcrack' && payload.webcrackLoad?.loaded === true)
     assert.equal(webcrack?.webcrackLoad?.loaded, true)
     assert((webcrack?.webcrackLoad?.sampleBytes || 0) > 40, 'loads extracted obfuscated sample into WebCrack fixture')
-    assert((webcrack?.image || '').length > 1000, 'WebCrack capture includes a screenshot')
     for (const capture of [vt, urlquery, webcrack]) {
         assert(capture?.receivedAt && ready?.receivedAt && capture.receivedAt - ready.receivedAt <= 25_000, `${capture?.toolAnalysis?.toolKind || 'provider'} loaded within the provider smoke budget after browser ready`)
     }

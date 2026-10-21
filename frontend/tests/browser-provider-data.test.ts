@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert'
 import test from 'node:test'
-import { selectToolCapture } from '../src/app/browser/browserProviderData'
+import { providerDetail, providerStatus, providerTabStatus, selectToolCapture } from '../src/app/browser/browserProviderData'
 import type { Capture, SandboxTool } from '../src/app/browser/types'
 
 const tool: SandboxTool = { id: 'virustotal', name: 'VirusTotal', url: 'https://virustotal.com/{url}' }
@@ -37,4 +37,19 @@ test('tool capture selection filters by target host and retains the first pendin
     const pending = capture('pending-only', { error: 'provider_navigation_pending' })
 
     assert.equal(selectToolCapture([otherTarget, pending], tool, 'https://example.com/path'), pending)
+})
+
+test('provider tabs distinguish missing reports from access failures or unavailable results', () => {
+    const missing = capture('missing', { error: 'No matching urlquery report was available for the submitted URL. No clean verdict was inferred.' })
+    assert.equal(providerStatus(missing), 'No report')
+    assert.equal(providerTabStatus(missing), 'no report')
+    assert.equal(providerDetail(undefined, missing), 'No existing report was found. No verdict was returned.')
+
+    const noVirusTotalReport = capture('vt-missing', { error: 'VirusTotal has no existing report for this URL. No verdict was returned.' })
+    assert.equal(providerStatus(noVirusTotalReport), 'No report')
+    assert.equal(providerTabStatus(noVirusTotalReport), 'no report')
+
+    const denied = capture('denied', { error: 'urlquery denied browser access to this report (HTTP 403). No verdict was returned.' })
+    assert.equal(providerStatus(denied), 'Blocked')
+    assert.equal(providerTabStatus(denied), 'blocked')
 })

@@ -47,6 +47,8 @@ export function hostWithoutWww(value: string) {
 export function providerStatus(capture?: Capture, analysis?: SandboxToolAnalysis) {
     if (!capture) return 'Unavailable'
     if (capture.error === 'provider_navigation_pending') return 'Loading'
+    if (noProviderReport(capture.error)) return 'No report'
+    if (providerBlocked(capture.error)) return 'Blocked'
     if (analysis?.toolKind === 'webcrack' && capture.error) return 'Provider error'
     if (analysis?.toolKind === 'webcrack' && analysis.webcrackLoaded === false && /no obfuscated (?:script sample|code)/i.test(analysis.webcrackLoadReason || '')) return 'No obfuscated code'
     if (hasParsedProviderResult(analysis)) return 'Results'
@@ -56,12 +58,13 @@ export function providerStatus(capture?: Capture, analysis?: SandboxToolAnalysis
 
 export function providerTabStatus(capture?: Capture, analysis?: SandboxToolAnalysis) {
     if (!capture) return 'waiting'
+    if (noProviderReport(capture.error)) return 'no report'
     if (analysis?.vendorFlagged !== undefined) return `${virusTotalVendorLabel(analysis)} vendors`
     if (analysis?.alertCount !== undefined) return `${analysis.alertCount} alerts`
     if (analysis?.toolKind === 'webcrack' && analysis.webcrackLoaded === true) return 'code loaded'
     if (analysis?.toolKind === 'webcrack' && analysis.webcrackLoaded === false) return /no obfuscated (?:script sample|code)/i.test(analysis.webcrackLoadReason || '') ? 'no obfuscated code' : 'not loaded'
     if (capture.error === 'provider_navigation_pending') return 'loading'
-    if (capture.error) return /captcha|access denied|forbidden|blocked/i.test(capture.error) ? 'blocked' : /pending|still running/i.test(capture.error) ? 'loading' : /timeout|timed out/i.test(capture.error) ? 'timed out' : 'unavailable'
+    if (capture.error) return providerBlocked(capture.error) ? 'blocked' : /pending|still running/i.test(capture.error) ? 'loading' : /timeout|timed out/i.test(capture.error) ? 'timed out' : 'unavailable'
     return analysis?.verdict && analysis.verdict !== 'unknown' ? analysis.verdict : 'unavailable'
 }
 
@@ -71,9 +74,18 @@ export function providerDetail(analysis?: SandboxToolAnalysis, capture?: Capture
     if (analysis?.toolKind === 'webcrack' && analysis.webcrackLoaded === false && /no obfuscated (?:script sample|code)/i.test(analysis.webcrackLoadReason || '')) return 'No obfuscated code was found on this page.'
     if (analysis?.extractedSignals?.length) return analysis.extractedSignals.slice(0, 2).join(' · ')
     if (capture?.error === 'provider_navigation_pending') return 'Provider tab is open and loading in the sandbox.'
+    if (noProviderReport(capture?.error)) return 'No existing report was found. No verdict was returned.'
     if (capture?.error) return providerErrorText(capture.error)
     if (capture) return 'Provider tab captured, but no parsed verdict was returned.'
     return 'Provider tab has not returned a capture yet.'
+}
+
+function noProviderReport(error?: string) {
+    return Boolean(error && /no (?:matching |existing )?(?:urlquery )?report|no existing (?:url )?analysis|item not found/i.test(error))
+}
+
+function providerBlocked(error?: string) {
+    return Boolean(error && /captcha|access denied|denied browser access|forbidden|blocked/i.test(error))
 }
 
 export function providerErrorText(error?: string) {

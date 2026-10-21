@@ -6,7 +6,8 @@ import { isVirusTotalTool, isUrlQueryTool, virusTotalUrlId } from './providerNav
 import type { collectPageEvidence } from './pageEvidence.ts'
 
 export function providerResponseUrl(toolName: string, url: string) {
-    return /virustotal/i.test(toolName) && /^https:\/\/www\.virustotal\.com\/ui\/urls\/[^/?]+(?:\/comments)?(?:\?|$)/i.test(url)
+    return /virustotal/i.test(toolName)
+        && /^https:\/\/www\.virustotal\.com\/(?:ui\/urls|api\/v3\/urls)\/[^/?]+(?:\/comments)?(?:\?|$)/i.test(url)
 }
 
 export function enrichProviderEvidence<T extends Awaited<ReturnType<typeof collectPageEvidence>>>(evidence: T, providerText: string, providerHint = '', communityComments: string[] = []): T {
@@ -99,6 +100,7 @@ export async function waitForProviderData(tool: { id?: string; name?: string; ur
         const accessIssue = providerAccessIssue(tool, text, page.url())
         if (accessIssue) return accessIssue
         if (isUrlQueryTool(tool)) {
+            if (/no reports matched this query/i.test(text)) return 'No matching urlquery report was available for the submitted URL. No clean verdict was inferred.'
             if (!reportOpened) {
                 const reportUrl = await firstUrlQueryReportUrl(page, target)
                 if (reportUrl) {
@@ -107,11 +109,10 @@ export async function waitForProviderData(tool: { id?: string; name?: string; ur
                     continue
                 }
             } else if (urlQueryReportMatchesTarget(text, target)) {
-                const summary = text.match(/Detections\s+urlquery\s+\d+\s+Network Intrusion Detection\s+\d+\s+Threat Detection Systems\s+\d+/i)?.[0] || ''
-                const score = parseUrlQueryScores(summary)
+                const score = parseUrlQueryScores(text)
                 if (score) {
                     const visited = text.match(/\bVisited\s+(?:public\s+)?(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}(?::\d{2})?)/i)?.[1]
-                    return `${score.alerts} urlquery alerts were found.\n${summary}\nExisting urlquery report${visited ? `: ${visited}` : ''}.`
+                    return `${score.alerts} urlquery alerts were found.\nExisting urlquery report${visited ? `: ${visited}` : ''}.`
                 }
             }
         }
@@ -147,6 +148,7 @@ export function hasParsedProviderData(tool: { id?: string; name?: string; url?: 
 
 export function providerAccessIssue(tool: { id?: string; name?: string; url?: string }, text: string, currentUrl = '') {
     if (/recaptcharequired|recaptcha validation failed|captcha/i.test(text)) return 'Provider blocked automated capture with a reCAPTCHA challenge.'
+    if (isVirusTotalTool(tool, currentUrl) && /\bitem not found\b|no existing (?:url )?analysis/i.test(text)) return 'VirusTotal has no existing report for this URL. No verdict was returned.'
     if (isVirusTotalTool(tool, currentUrl) && /\/gui\/home\/(?:upload|search)/i.test(currentUrl)) return 'VirusTotal did not open a URL report; provider redirected to its upload/search home.'
     return ''
 }
