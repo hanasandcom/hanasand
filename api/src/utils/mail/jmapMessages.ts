@@ -12,12 +12,20 @@ export async function listMessagePage(username: string, password: string, mailbo
     return queryMessagePage(username, password, mailboxId, { inMailbox: mailboxId }, after, limit)
 }
 
+export async function listMessagePageWithSession(username: string, password: string, session: JmapSession, accountId: string, mailboxId: string, after?: string, limit = 50) {
+    return queryMessagePageWithSession(username, password, session, accountId, mailboxId, { inMailbox: mailboxId }, after, limit)
+}
+
 export async function searchMessagePage(username: string, password: string, mailboxId: string, text: string, after?: string, limit = 50) {
     return queryMessagePage(username, password, mailboxId, { inMailbox: mailboxId, text }, after, limit)
 }
 
 async function queryMessagePage(username: string, password: string, mailboxId: string, filter: Record<string, string>, after?: string, limit = 50) {
     const { session, accountId } = await getMailSession(username, password)
+    return queryMessagePageWithSession(username, password, session, accountId, mailboxId, filter, after, limit)
+}
+
+async function queryMessagePageWithSession(username: string, password: string, session: JmapSession, accountId: string, mailboxId: string, filter: Record<string, string>, after?: string, limit = 50) {
     const query = await jmapCall<{ ids?: string[] }>(username, password, session, [
         ['Email/query', { accountId, filter, sort: [{ property: 'receivedAt', isAscending: false }], limit: limit + 1,
             ...(after ? { anchor: after, anchorOffset: 1 } : {}) }, 'query']
@@ -42,6 +50,10 @@ async function queryMessagePage(username: string, password: string, mailboxId: s
 
 export async function getMessage(username: string, password: string, messageId: string) {
     const { session, accountId } = await getMailSession(username, password)
+    return getMessageWithSession(username, password, session, accountId, messageId)
+}
+
+export async function getMessageWithSession(username: string, password: string, session: JmapSession, accountId: string, messageId: string) {
     const messages = await getEmailsByIds(username, password, session, accountId, [messageId])
     return messages[0] ? toMessage(messages[0]) : null
 }
