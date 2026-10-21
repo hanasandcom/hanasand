@@ -1,7 +1,7 @@
 'use client'
 
 import config from '@/config'
-import { getCookie, setCookieWithExpiresAt } from 'hanasand/cookies'
+import { getCookie, setCookieWithExpiresAt } from '@/utils/cookies/cookies'
 import type { MailOverview } from './types'
 
 const apiBase = config.url.api.replace(/\/+$/, '')
