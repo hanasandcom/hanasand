@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test'
 import { providerCaptureMessage } from '../src/handlers/onionSession/providerCapture.ts'
+import { providerStartUrl } from '../src/handlers/onionSession/providerNavigation.ts'
 import { parseUrlQueryScores, urlQueryReportMatchesTarget } from '../src/handlers/onionSession/providerUrlResponses.ts'
 
 test('current URLQuery report pages expose their detector counts in the submitted URL section', () => {
@@ -8,6 +9,16 @@ test('current URLQuery report pages expose their detector counts in the submitte
 
     expect(urlQueryReportMatchesTarget(report, target)).toBe(true)
     expect(parseUrlQueryScores(report)).toEqual({ alerts: 2 })
+})
+
+test('URLQuery searches preserve the onion URL scheme used by the submitted URL', () => {
+    const http = 'http://2gzyxa5ihm7nsggfxnu52rck2vv4rvmdlkiu3zzui5du4xyclen53wid.onion/'
+    const https = 'https://p53lf57qbcph367w7g4i57ctv7hlfssgmqb6e6g3m7654g6wb27w36yd.onion/'
+
+    expect(providerStartUrl({ name: 'urlquery' }, 'https://urlquery.net/', http))
+        .toBe(`https://urlquery.net/search/reports?q=${encodeURIComponent(http)}`)
+    expect(providerStartUrl({ name: 'urlquery' }, 'https://urlquery.net/', https))
+        .toBe(`https://urlquery.net/search/reports?q=${encodeURIComponent(https)}`)
 })
 
 test('provider captures share the websocket envelope while preserving stage-specific fields', () => {

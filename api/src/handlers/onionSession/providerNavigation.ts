@@ -29,7 +29,8 @@ export function providerStartUrl(tool: { id?: string; name?: string; url?: strin
 function urlQuerySearchTarget(target: string) {
     try {
         const url = new URL(target)
-        if (url.hostname.endsWith('.onion')) url.protocol = 'https:'
+        // URLQuery indexes the submitted URL, including its scheme. Do not
+        // rewrite HTTP onion targets to HTTPS: that misses their existing reports.
         return url.href
     } catch { return target }
 }
