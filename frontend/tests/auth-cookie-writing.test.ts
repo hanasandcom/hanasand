@@ -2,7 +2,7 @@
 import { expect, mock, test } from 'bun:test'
 import { NextRequest, NextResponse } from 'next/server'
 import { clearAuthCookies, setAuthCookies } from '../src/app/api/auth/_authCookies'
-import { authCookieOptions, setAuthCookie } from '../src/utils/proxy/authResponses'
+import { applyRefreshedAuthCookies, authCookieOptions, setAuthCookie } from '../src/utils/proxy/authResponses'
 
 const expiresAt = new Date('2030-01-02T03:04:05.000Z')
 
@@ -53,6 +53,23 @@ test('shared writer honors host-derived options for backend token refreshes', ()
         name: 'access_token', value: 'refreshed-token', sameSite: 'lax',
         path: '/', secure: false, expires: expiresAt,
     }])
+})
+
+test('refreshed shared sessions extend the account ID cookie with the token expiry', () => {
+    const request = new NextRequest('https://cdn.hanasand.com/gallery')
+    const response = new NextResponse(null)
+
+    applyRefreshedAuthCookies(response, authCookieOptions(request), {
+        id: 'user-1',
+        token: 'refreshed-token',
+        expires_at: expiresAt.toISOString(),
+    })
+
+    const idCookies = response.headers.getSetCookie().filter(cookie => cookie.startsWith('id='))
+    expect(idCookies).toHaveLength(1)
+    expect(idCookies[0]).toContain('id=user-1')
+    expect(idCookies[0]).toContain('Expires=Wed, 02 Jan 2030 03:04:05 GMT')
+    expect(idCookies[0]).toContain('Domain=.hanasand.com')
 })
 
 test('clearing auth expires local and legacy cookies with shared-domain scope', () => {

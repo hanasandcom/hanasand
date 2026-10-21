@@ -97,6 +97,7 @@ export async function proxy(req: NextRequest) {
             if (auth.token) {
                 refreshedAuth = {
                     ...(refreshedAuth ?? {}),
+                    id,
                     token: auth.token,
                     expires_at: auth.expires_at,
                     checked_at: new Date().toISOString(),

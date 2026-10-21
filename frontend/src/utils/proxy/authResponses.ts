@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 export type TokenRefreshCookies = {
+    id?: string
     token?: string
     name?: string
     avatar?: string
@@ -31,6 +32,9 @@ export function applyRefreshedAuthCookies(
         expires: auth.expires_at ? new Date(auth.expires_at) : undefined,
     }
 
+    if (auth.id) {
+        setAuthCookie(response, 'id', auth.id, cookieOptions, options.sharedDomain)
+    }
     if (auth.token) {
         setAuthCookie(response, 'access_token', auth.token, cookieOptions, options.sharedDomain)
     }
