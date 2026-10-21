@@ -1,5 +1,7 @@
 // @ts-expect-error Bun supplies this test module at runtime.
 import { expect, test } from 'bun:test'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import type { MailOverview } from '../src/utils/mail/types'
 import { needsSelectedMessageRequest, resolveMailboxPage } from '../src/components/mail/mailWorkspacePage'
 
@@ -25,4 +27,9 @@ test('empty mailbox response does not trigger another overview request', () => {
 test('initial overview message detail is reused instead of fetched again', () => {
     expect(needsSelectedMessageRequest({ selectedMessage: { id: 'message-1' } } as MailOverview, 'message-1')).toBe(false)
     expect(needsSelectedMessageRequest({ selectedMessage: null } as MailOverview, 'message-1')).toBe(true)
+})
+
+test('compose stays enabled while a loaded mailbox refreshes', () => {
+    const source = readFileSync(join(process.cwd(), 'src/components/mail/mailWorkspace.tsx'), 'utf8')
+    expect(source).toContain('disabled={!mail.overview || mail.overview.actor.canSend === false}')
 })

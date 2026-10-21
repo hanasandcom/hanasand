@@ -62,7 +62,7 @@ export default function MailWorkspace({ mailboxUser }: { mailboxUser?: string | 
             <button type='button' onClick={() => void mail.load()} aria-label='Refresh mail' className='inline-flex h-8 items-center gap-1.5 rounded-lg border border-ui-border bg-ui-raised px-2.5 text-xs text-ui-text hover:bg-ui-panel'><RefreshCw className={`h-3.5 w-3.5 ${mail.loading ? 'animate-spin' : ''}`} />Refresh</button>
             <button
                 type='button'
-                disabled={!mail.overview || mail.loading || mail.overview.actor.canSend === false}
+                disabled={!mail.overview || mail.overview.actor.canSend === false}
                 onClick={() => mail.setDraft({ to: '', cc: '', bcc: '', subject: '', textBody: '', attachments: [] })}
                 className='inline-flex h-8 items-center gap-1.5 rounded-lg bg-ui-primary px-3 text-xs font-semibold text-ui-on-primary disabled:cursor-not-allowed disabled:opacity-50'
             >
