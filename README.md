@@ -6,7 +6,7 @@ Hanasand combines threat intelligence, AI development tools, and infrastructure 
 
 | Component | Source | Responsibility |
 | --- | --- | --- |
-| Frontend | `frontend/` | Public pages, dashboard, AI editor, shared projects, articles, notes and thesis |
+| Frontend | `frontend/` | Public pages, dashboard including native mail at `/mail`, AI editor, shared projects, articles, notes and thesis |
 | API | `api/` | Authorization, organizations, permissions, billing, AI requests, project storage, infrastructure and public API |
 | Identity | [Identity repository](https://github.com/hanasandcom/identity) | Login, sessions, password reset, passkeys, social/SSO and signup; separate workers, using the existing account database through PgBouncer |
 | Threat intelligence | [TI repository](https://github.com/hanasandcom/ti) | Standalone web application and API; source collection, evidence, search, alerts and investigation cases run with a dedicated database and scraper |
@@ -23,7 +23,7 @@ Hanasand combines threat intelligence, AI development tools, and infrastructure 
 | Database | `db/`, `api/src/utils/db/` | Initial schema and application schema updates |
 | Mail service and SMTP relay | [Mail server repository](https://github.com/hanasandcom/mail-server) | Stalwart and host-specific SMTP relay containers, deployed through an independent Compose stack |
 | Database backup worker | [Ops database-backup module](https://github.com/hanasandcom/ops/tree/main/backup) | PostgreSQL backups, retention and restore workflows; runs separately from API releases |
-| Mail client | [Mail web repository](https://github.com/hanasandcom/mail-web) | Standalone webmail at `mail.hanasand.com`; mailbox data stays in the Hanasand API |
+| Standalone mail client | [Mail web repository](https://github.com/hanasandcom/mail-web) | Standalone webmail at `mail.hanasand.com`; mailbox data stays in the Hanasand API. Dashboard `/mail` uses the native frontend and calls the same API directly. |
 | Client apps | [Hanasand app repository](https://github.com/hanasandcom/app) | Mobile and desktop clients; see [desktop setup](https://github.com/hanasandcom/app/blob/main/desktop/README.md) |
 | Operations | [Ops repository](https://github.com/hanasandcom/ops) | Application deployment, host monitoring, maintenance, health checks and infrastructure integrations |
 
