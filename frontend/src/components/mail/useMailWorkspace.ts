@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { fetchMailOverview, messageAction, searchMail, sendMail, type DraftAttachment } from '@/utils/mail/client'
 import type { MailMessage, MailMessageSummary, MailOverview } from '@/utils/mail/types'
+import { resolveMailboxPage } from './mailWorkspacePage'
 
 export type ComposeDraft = { to: string, cc: string, bcc: string, subject: string, textBody: string, attachments: DraftAttachment[] }
 type Location = { user: string, folder: string, message: string }
@@ -33,9 +34,8 @@ export function useMailWorkspace(initialMailboxUser?: string | null) {
         setError('')
         try {
             const first = await fetchMailOverview({ mailboxUser: user || undefined, mailboxId: folder || null })
-            const inbox = first.mailboxes.find(item => item.role === 'inbox' || item.name.toLowerCase() === 'inbox')
-            const selectedFolder = folder || inbox?.id || first.selectedMailboxId || ''
-            const page = selectedFolder === folder ? first : await fetchMailOverview({ mailboxUser: user || first.mailboxUser, mailboxId: selectedFolder || null })
+            const { selectedFolder, useFirstPage } = resolveMailboxPage(first, folder)
+            const page = useFirstPage ? first : await fetchMailOverview({ mailboxUser: user || first.mailboxUser, mailboxId: selectedFolder || null })
             if (currentVersion !== version.current) return
             const selected = requestedMessage || page.messages[0]?.id || ''
             const nextUser = user || first.mailboxUser
