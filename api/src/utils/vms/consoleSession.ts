@@ -43,7 +43,15 @@ export function startConsoleSession(name: string, send: (message: object) => voi
         if (connecting) { retry(); return }
         connecting = true
         try {
-            const state = await dependencies.state(name)
+            let state: string
+            try {
+                state = await dependencies.state(name)
+            } catch {
+                if (closed) return
+                report('Waiting for the VM host to prepare this VM…')
+                retry()
+                return
+            }
             if (closed) return
             if (state !== 'Running') {
                 report(restarting ? `VM is restarting… (${state.toLowerCase()})` : `VM is ${state.toLowerCase()}. Waiting for it to start…`)

@@ -2,7 +2,7 @@ import config from '#constants'
 import { internalHostFetch } from './hostTransport.ts'
 
 type Vm = { name: string; primary_host?: string | null; deleted_at?: string | Date | null; status?: string; last_checked?: string | Date | null }
-type State = { status: string }
+type State = { status: string; status_reason?: string }
 const checks = new Map<string, { expires: number; result: Promise<State> }>()
 let localInventory: { expires: number; result: Promise<Map<string, State>> } | undefined
 
@@ -26,12 +26,24 @@ async function probe(name: string, host = config.vm_host_id): Promise<State> {
     const cached = checks.get(key)
     if (cached && cached.expires > Date.now()) return cached.result
     const result = (async () => {
-        if (targetHost === String(config.vm_host_id).toLowerCase()) return localVmStatus(name)
+        if (targetHost === String(config.vm_host_id).toLowerCase()) {
+            try { return await localVmStatus(name) }
+            catch {
+                // LXD cannot report an instance that is still being allocated. Ask the host
+                // worker for its queued state so the inventory can show provisioning instead
+                // of incorrectly labelling a newly created VM offline.
+                const response = await internalHostFetch(targetHost, `/vms/internal/${encodeURIComponent(name)}/status`, { signal: AbortSignal.timeout(5000) })
+                if (!response.ok) throw new Error('VM host is not responding.')
+                const body = await response.json() as { status?: string; status_reason?: string }
+                if (!body.status) throw new Error('VM host did not report a state.')
+                return { status: body.status, status_reason: body.status_reason }
+            }
+        }
         const response = await internalHostFetch(targetHost, `/vms/internal/${encodeURIComponent(name)}/status`, { signal: AbortSignal.timeout(5000) })
         if (!response.ok) throw new Error('VM host is not responding.')
-        const body = await response.json() as { status?: string }
+        const body = await response.json() as { status?: string; status_reason?: string }
         if (!body.status) throw new Error('VM host did not report a state.')
-        return { status: body.status }
+        return { status: body.status, status_reason: body.status_reason }
     })()
     if (checks.size >= 512) checks.delete(checks.keys().next().value!)
     checks.set(key, { expires: Date.now() + 5000, result })
@@ -43,7 +55,7 @@ export async function withLiveVmStatus<T extends Vm>(vm: T, check: (name: string
     const status_checked_at = new Date().toISOString()
     try {
         const state = await check(vm.name, vm.primary_host || config.vm_host_id)
-        return { ...vm, status: state.status.toUpperCase(), status_reason: state.status === 'Running' ? '' : `VM is ${state.status.toLowerCase()}.`, status_checked_at }
+        return { ...vm, status: state.status.toUpperCase(), status_reason: state.status_reason || (state.status === 'Running' ? '' : `VM is ${state.status.toLowerCase()}.`), status_checked_at }
     } catch {
         return { ...vm, status: 'OFFLINE', status_reason: 'Cannot reach this VM on its host.', status_checked_at }
     }
@@ -62,7 +74,7 @@ export async function withLiveVmStatuses<T extends Vm>(vms: T[]) {
         if (vm.deleted_at || targetHost !== localHost) return withLiveVmStatus(vm)
         return withLiveVmStatus(vm, async name => {
             const state = states?.get(name.toLowerCase())
-            if (!state) throw new Error('VM host is not responding.')
+            if (!state) return probe(name, targetHost)
             return state
         })
     }))

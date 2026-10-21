@@ -2,11 +2,13 @@ import { afterAll, beforeEach, expect, mock, test } from 'bun:test'
 import Fastify from 'fastify'
 import { resolveVmHostId } from '../src/utils/vms/hostConfig.ts'
 
-const calls: Array<{ host: string; path: string; method?: string }> = []
+const calls: Array<{ host: string; path: string; method?: string; body?: BodyInit | null }> = []
 let existingVm: Record<string, unknown> | undefined
 let failedProvisionRequests = 0
 let queuedProvisionResponses: Response[] = []
 let queuedStatusResponses: Response[] = []
+let deferProvisionResponse = false
+let releaseProvisionResponse: (() => void) | undefined
 mock.module('../src/utils/auth/tokenWrapper.ts', () => ({ default: async (req: any) => ({ valid: Boolean(req.headers.id), id: req.headers.id }) }))
 mock.module('../src/utils/auth/organizationPageAccess.ts', () => ({ default: async (req: any) => ({ valid: req.headers.id === 'admin' }) }))
 mock.module('../src/utils/auth/internalToken.ts', () => ({ default: () => false }))
@@ -27,13 +29,17 @@ mock.module('../src/utils/db.ts', () => ({
 }))
 mock.module('../src/utils/vms/hostTransport.ts', () => ({
     internalHostFetch: async (host: string, path: string, options?: RequestInit) => {
-        calls.push({ host, path, method: options?.method })
+        calls.push({ host, path, method: options?.method, body: options?.body })
         if (failedProvisionRequests > 0) {
             failedProvisionRequests--
             return Response.json({ error: 'Temporary host failure.' }, { status: 502 })
         }
         if (path.endsWith('/status')) return queuedStatusResponses.shift() ?? Response.json({ status: 'Running' })
-        if (path.endsWith('/provision')) return queuedProvisionResponses.shift() ?? Response.json({ name: 'remote-vm', provisioned: true })
+        if (path.endsWith('/provision')) {
+            const response = queuedProvisionResponses.shift() ?? Response.json({ name: 'remote-vm', provisioned: true })
+            if (deferProvisionResponse) await new Promise<void>(resolve => { releaseProvisionResponse = resolve })
+            return response
+        }
         return Response.json({ name: 'remote-vm', provisioned: true })
     },
 }))
@@ -48,8 +54,12 @@ mock.module('../src/utils/systemEvent.ts', () => ({ recordSystemEvent: async () 
 const { default: postVM } = await import('../src/handlers/vms/post.ts')
 const app = Fastify()
 app.post('/vm', postVM)
-beforeEach(() => { calls.length = 0; existingVm = undefined; failedProvisionRequests = 0; queuedProvisionResponses = []; queuedStatusResponses = [] })
+beforeEach(() => { calls.length = 0; existingVm = undefined; failedProvisionRequests = 0; queuedProvisionResponses = []; queuedStatusResponses = []; deferProvisionResponse = false; releaseProvisionResponse = undefined })
 afterAll(async () => { await app.close() })
+async function waitFor(check: () => boolean) {
+    for (let attempt = 0; attempt < 100 && !check(); attempt++) await Bun.sleep(2)
+    expect(check()).toBe(true)
+}
 
 test('VM host defaults to Inspur and preserves an explicit host setting', () => {
     expect(resolveVmHostId(undefined)).toBe('inspur')
@@ -61,36 +71,43 @@ test('VM creation provisions through the configured primary host, not the centra
 
     expect(response.statusCode).toBe(201)
     expect(response.json().primary_host).toBe('inspur')
-    expect(calls).toEqual([{ host: 'inspur', path: '/vms/internal/remote-vm/provision', method: 'POST' }])
+    expect(calls).toEqual([{ host: 'inspur', path: '/vms/internal/remote-vm/provision', method: 'POST', body: JSON.stringify({ os: 'ubuntu-24.04', services: [] }) }])
 })
 
-test('VM creation waits for an accepted host provision job to report Running', async () => {
+test('VM creation forwards the selected OS and services to its assigned host', async () => {
+    const response = await app.inject({
+        method: 'POST', url: '/vm', headers: { id: 'member' },
+        payload: { name: 'remote-vm', os: 'ubuntu-22.04', services: ['nodejs', 'redis'] },
+    })
+    expect(response.statusCode).toBe(201)
+    expect(calls[0]).toMatchObject({
+        host: 'inspur', path: '/vms/internal/remote-vm/provision', method: 'POST',
+        body: JSON.stringify({ os: 'ubuntu-22.04', services: ['nodejs', 'redis'] }),
+    })
+})
+
+test('VM creation returns while the accepted host provision job is still running', async () => {
     queuedProvisionResponses = [Response.json({ name: 'remote-vm', status: 'Provisioning' }, { status: 202 })]
-    queuedStatusResponses = [
-        Response.json({ error: 'VM not yet visible on host.' }, { status: 404 }),
-        Response.json({ status: 'Stopped' }),
-        Response.json({ status: 'Running' }),
-    ]
+    queuedStatusResponses = [Response.json({ status: 'Running' })]
+    deferProvisionResponse = true
 
     const response = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'member' }, payload: { name: 'remote-vm' } })
 
     expect(response.statusCode).toBe(201)
-    expect(calls.map(call => call.path)).toEqual([
-        '/vms/internal/remote-vm/provision',
-        '/vms/internal/remote-vm/status',
-        '/vms/internal/remote-vm/status',
-        '/vms/internal/remote-vm/status',
-    ])
+    expect(calls.map(call => call.path)).toEqual(['/vms/internal/remote-vm/provision'])
+    releaseProvisionResponse?.()
+    await waitFor(() => calls.some(call => call.path.endsWith('/status')))
+    expect(calls.map(call => call.path)).toEqual(['/vms/internal/remote-vm/provision', '/vms/internal/remote-vm/status'])
 })
 
-test('VM creation does not report success when an accepted host provision job fails', async () => {
+test('VM creation remains accepted when the host rejects its background provisioning request', async () => {
     queuedProvisionResponses = [Response.json({ name: 'remote-vm', status: 'Provisioning' }, { status: 202 })]
     queuedStatusResponses = [Response.json({ status: 'Error' })]
 
     const response = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'member' }, payload: { name: 'remote-vm' } })
 
-    expect(response.statusCode).toBe(500)
-    expect(response.json()).toEqual({ error: 'Internal server error' })
+    expect(response.statusCode).toBe(201)
+    expect(response.json()).toMatchObject({ name: 'remote-vm' })
 })
 
 test('metadata-only VM creation skips host provisioning when explicitly requested', async () => {
@@ -103,7 +120,7 @@ test('metadata-only VM creation skips host provisioning when explicitly requeste
 test('owner can retry provisioning after a failed first create without duplicating the VM row', async () => {
     failedProvisionRequests = 1
     const first = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'member' }, payload: { name: 'remote-vm' } })
-    expect(first.statusCode).toBe(500)
+    expect(first.statusCode).toBe(201)
     expect(existingVm).toMatchObject({ name: 'remote-vm', owner: 'member', primary_host: 'inspur', has_vm_details: false })
 
     const retry = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'member' }, payload: { name: 'remote-vm' } })
@@ -123,5 +140,5 @@ test('admin metadata updates preserve the VM primary host and route provisioning
 
     expect(response.statusCode).toBe(201)
     expect(response.json().primary_host).toBe('inspur')
-    expect(calls).toEqual([{ host: 'inspur', path: '/vms/internal/prior-vm/provision', method: 'POST' }])
+    expect(calls).toEqual([{ host: 'inspur', path: '/vms/internal/prior-vm/provision', method: 'POST', body: JSON.stringify({ os: 'ubuntu-24.04', services: [] }) }])
 })

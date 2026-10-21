@@ -89,6 +89,8 @@ type VM = {
     primary_host: string
     failover_host: string | null
     status: string
+    status_reason?: string
+    status_checked_at?: string
     type: string
     architecture: string
     created: string

@@ -73,3 +73,20 @@ test('closing during connection closes late channels and stops all further outpu
     await Bun.sleep(20)
     expect(calls).toBe(0)
 })
+
+test('reports a provisioning wait while the VM has not appeared on its host', async () => {
+    const statuses: string[] = []
+    let calls = 0
+    const session = startConsoleSession('new-vm', message => {
+        const value = message as { type: string; message?: string }
+        if (value.type === 'status' && value.message) statuses.push(value.message)
+    }, {
+        state: async () => { calls++; throw new Error('Instance not found') },
+        boot: async () => { throw new Error('Boot console must wait for the VM') },
+        shell: async () => { throw new Error('Shell must wait for the VM') },
+    }, 5)
+    try {
+        await waitFor(() => statuses.some(status => status.includes('prepare this VM')))
+        expect(calls).toBeGreaterThan(0)
+    } finally { session.close() }
+})

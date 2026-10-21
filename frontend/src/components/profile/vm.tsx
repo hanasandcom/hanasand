@@ -32,7 +32,7 @@ export default function VMRow({ vm, update, now, onFeedback }: { vm: VM, update:
     const image = os || formatDescription(vm.config_image_description)
     const lastUsed = vm.last_used ? formatUtcDateTime(vm.last_used) : vm.last_checked ? `Checked ${formatUtcDateTime(vm.last_checked)}` : 'Telemetry pending'
     const rawStatusNote = (vm as VM & { status_reason?: string }).status_reason || ''
-    const statusNote = status === 'Stopped' && /^VM is stopped\.?$/i.test(rawStatusNote.trim()) ? '' : rawStatusNote
+    const statusNote = status === 'Provisioning' || status === 'Stopped' && /^VM is stopped\.?$/i.test(rawStatusNote.trim()) ? '' : rawStatusNote
     const editors = vm.access_users?.length || 0
 
     function openDetails() {
@@ -128,7 +128,8 @@ export default function VMRow({ vm, update, now, onFeedback }: { vm: VM, update:
                     <div className='min-w-0'><p className='text-xs font-medium text-ui-muted'>{vm.organization_id ? 'Access' : 'Editors'}</p><p className='mt-1 wrap-break-word text-ui-text'>{vm.organization_id ? 'Organization members' : `${editors} editor${editors === 1 ? '' : 's'}`}</p></div>
                 </div>
                 <div className='flex min-w-0 flex-wrap gap-2 text-xs text-ui-muted'>
-                    <span className='inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-md border border-ui-border bg-ui-canvas px-2.5 py-1.5'><HardDrive className='h-3.5 w-3.5 shrink-0' /><span title='Virtual machine' className='rounded border border-ui-border bg-ui-raised px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wide text-ui-muted'>VM</span><span className='wrap-break-word'>{image}</span></span>
+                    <span title='Virtual machine' className='inline-flex items-center rounded border border-ui-border bg-ui-raised px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wide text-ui-muted'>VM</span>
+                    <span className='inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-md border border-ui-border bg-ui-canvas px-2.5 py-1.5'><HardDrive className='h-3.5 w-3.5 shrink-0' /><span className='wrap-break-word'>{image}</span></span>
                     <span className='inline-flex items-center gap-1.5 rounded-md border border-ui-border bg-ui-canvas px-2.5 py-1.5'><Cpu className='h-3.5 w-3.5' /><span>{vm.limits_cpu ? `${vm.limits_cpu} CPU` : 'CPU pending'}</span></span>
                     <span className='inline-flex items-center gap-1.5 rounded-md border border-ui-border bg-ui-canvas px-2.5 py-1.5'><Network className='h-3.5 w-3.5' /><span>{vm.limits_memory || 'Memory pending'}</span></span>
                 </div>

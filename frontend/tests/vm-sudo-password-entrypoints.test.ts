@@ -32,10 +32,10 @@ test('unavailable password support link opens a prefilled ticket that can be cre
         readFile(sources.supportChat, 'utf8'), readFile(sources.supportConversation, 'utf8'),
     ])
     expect(dialog).toContain('Unavailable. Contact Support if the problem persists.')
-    expect(dialog).toContain("newTicket: 'vm-sudo-password'")
+    expect(dialog).toContain('newTicket: \'vm-sudo-password\'')
     expect(dialog).toContain('Contact Support')
     expect(supportPage).toContain('Sudo password unavailable for ${vmName}')
     expect(supportPage).toContain('newTicketPrefill={newTicketPrefill}')
     expect(supportChat).toContain('newTicketPrefill?.message')
-    expect(supportConversation).toContain("selectedId ? 'Send' : 'Create ticket'")
+    expect(supportConversation).toContain('selectedId ? \'Send\' : \'Create ticket\'')
 })

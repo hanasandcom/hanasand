@@ -8,7 +8,7 @@ import hasInternalToken from '#utils/auth/internalToken.ts'
 import syncUserCertificatesToVm from '#utils/vms/syncUserCertificatesToVm.ts'
 import config from '#constants'
 import { internalHostFetch } from '#utils/vms/hostTransport.ts'
-import provisionVmOnHost from '#utils/vms/provisionOnHost.ts'
+import provisionVmOnHost, { type VmProvisionOptions } from '#utils/vms/provisionOnHost.ts'
 import recordLog from '#utils/logs/recordLog.ts'
 import { recordSystemEvent } from '#utils/systemEvent.ts'
 
@@ -19,8 +19,12 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
         created_by?: string
         access_users?: string[]
         provision_local?: boolean
+        os?: VmProvisionOptions['os']
+        services?: VmProvisionOptions['services']
     } ?? {}
     const { name, access_users } = body
+    const provisionOptions = normalizeProvisionOptions(body.os, body.services)
+    if (!provisionOptions) return res.status(400).send({ error: 'Choose a supported operating system and services.' })
     let owner = body.owner
     let created_by = body.created_by
 
@@ -86,9 +90,7 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
 
             if (existing && !canAssignOwner) {
                 if (existing.owner !== actorId || existing.has_vm_details || body.provision_local === false) return res.status(409).send({ error: 'VM already exists.' })
-                await provisionOnPrimaryHost(name, existing.primary_host, true)
-                await syncUserCertificatesToVm({ vmName: name, userIds: [existing.owner, existing.created_by, ...(existing.access_users ?? [])] })
-                    .catch(error => void recordVmProvisioningError(name, error, 'certificate_sync'))
+                queueUserProvision(name, existing.primary_host, provisionOptions, [existing.owner, existing.created_by, ...(existing.access_users ?? [])])
                 return res.status(201).send(existing)
             }
 
@@ -108,7 +110,11 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
                 RETURNING *
             `, [name, nextOwner, nextCreatedBy, JSON.stringify(nextAccessUsers ?? []), existing.name, existing.primary_host])
 
-                await provisionOnPrimaryHost(name, existing.primary_host, body.provision_local !== false)
+                if (canAssignOwner) {
+                    await provisionOnPrimaryHost(name, existing.primary_host, body.provision_local !== false, provisionOptions)
+                    if (body.provision_local !== false) await syncCertificates(name, [nextOwner, nextCreatedBy, ...(nextAccessUsers ?? [])])
+                }
+                else if (body.provision_local !== false) queueUserProvision(name, existing.primary_host, provisionOptions, [nextOwner, nextCreatedBy, ...(nextAccessUsers ?? [])])
 
                 await recordSystemEvent(req, {
                     actionType: 'vm.access.updated',
@@ -144,15 +150,11 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
 
             const assignedVm = await run('UPDATE vms SET primary_host = $2 WHERE name = $1 RETURNING *', [name, config.vm_host_id])
             if (!assignedVm.rows[0]) throw new Error('VM primary host assignment did not update the new VM.')
-            await provisionOnPrimaryHost(name, config.vm_host_id, body.provision_local !== false)
-
-            await syncUserCertificatesToVm({
-                vmName: name,
-                userIds: [owner, created_by, ...(access_users ?? [])]
-            }).catch((error) => {
-                req.log.warn({ err: error, vmName: name }, 'Unable to synchronize user certificates to the VM after creation.')
-                void recordVmProvisioningError(name, error, 'certificate_sync')
-            })
+            if (canAssignOwner) {
+                await provisionOnPrimaryHost(name, config.vm_host_id, body.provision_local !== false, provisionOptions)
+                if (body.provision_local !== false) await syncCertificates(name, [owner, created_by, ...(access_users ?? [])])
+            }
+            else if (body.provision_local !== false) queueUserProvision(name, config.vm_host_id, provisionOptions, [owner, created_by, ...(access_users ?? [])])
 
             await recordSystemEvent(req, {
                 actionType: 'vm.created',
@@ -175,8 +177,33 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
     }
 }
 
-async function provisionOnPrimaryHost(name: string, host: string, shouldProvision: boolean) {
-    if (shouldProvision) await provisionVmOnHost(host, name, internalHostFetch)
+async function provisionOnPrimaryHost(name: string, host: string, shouldProvision: boolean, options?: VmProvisionOptions) {
+    if (shouldProvision) await provisionVmOnHost(host, name, internalHostFetch, options)
+}
+
+function queueUserProvision(name: string, host: string, options: VmProvisionOptions, userIds: string[]) {
+    void provisionOnPrimaryHost(name, host, true, options).then(async () => {
+        await syncUserCertificatesToVm({ vmName: name, userIds }).catch(error => {
+            void recordVmProvisioningError(name, error, 'certificate_sync')
+        })
+    }).catch(error => void recordVmProvisioningError(name, error, 'create_or_provision'))
+}
+
+async function syncCertificates(vmName: string, userIds: string[]) {
+    await syncUserCertificatesToVm({ vmName, userIds }).catch(error => {
+        void recordVmProvisioningError(vmName, error, 'certificate_sync')
+    })
+}
+
+function normalizeProvisionOptions(os: unknown, services: unknown): VmProvisionOptions | null {
+    const supportedOs = new Set(['ubuntu-24.04', 'ubuntu-22.04'])
+    const supportedServices = new Set(['nodejs', 'postgresql', 'redis', 'python'])
+    if (os !== undefined && (typeof os !== 'string' || !supportedOs.has(os))) return null
+    if (services !== undefined && (!Array.isArray(services) || services.length > 4 || services.some(service => typeof service !== 'string' || !supportedServices.has(service)))) return null
+    return {
+        os: (os || 'ubuntu-24.04') as VmProvisionOptions['os'],
+        services: [...new Set((services || []) as NonNullable<VmProvisionOptions['services']>)],
+    }
 }
 
 async function recordVmProvisioningError(vmName: string, error: unknown, phase: string) {

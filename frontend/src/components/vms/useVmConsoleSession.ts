@@ -3,6 +3,7 @@ import config from '@/config'
 import { getCookie } from '@/utils/cookies/cookies'
 import { prepareVmConsole } from '@/utils/vms/prepareConsole'
 import { useVmConsoleBootLog } from './useVmConsoleBootLog'
+import { useVmProvisioningStatus } from './useVmProvisioningStatus'
 
 export function useVmConsoleSession(name?: string, host?: 'inspur' | 'ovh') {
     const container = useRef<HTMLDivElement>(null)
@@ -11,6 +12,7 @@ export function useVmConsoleSession(name?: string, host?: 'inspur' | 'ovh') {
     const [status, setStatus] = useState('Connecting…')
     const [username, setUsername] = useState('')
     const [opening, setOpening] = useState(true)
+    useVmProvisioningStatus(name, setStatus)
 
     useEffect(() => {
         let disposed = false
@@ -22,10 +24,10 @@ export function useVmConsoleSession(name?: string, host?: 'inspur' | 'ovh') {
         setOpening(true)
         setUsername('')
         boot.reset()
-
         void (async () => {
             try {
-                if (!host) {
+                const provisioning = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('provisioning') === '1'
+                if (!host && !provisioning) {
                     if (!name) throw new Error('Select a virtual machine to open its console.')
                     await prepareVmConsole(
                         name,
@@ -122,7 +124,6 @@ export function useVmConsoleSession(name?: string, host?: 'inspur' | 'ovh') {
                 scroll.dispose()
                 terminal.dispose()
             }
-
             const connect = () => {
                 if (disposed) return
                 clearTimeout(retry)
@@ -185,7 +186,6 @@ export function useVmConsoleSession(name?: string, host?: 'inspur' | 'ovh') {
             reconnect.current = connect
             connect()
         })().catch(() => { if (!disposed) setStatus('Unable to load the console. Try again.') })
-
         return () => {
             disposed = true
             controller.abort()

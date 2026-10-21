@@ -4,7 +4,9 @@ import config from '@/config'
 import fetchWithRetry from '@/utils/fetchWithRetry'
 import { getCookie } from '../../cookies/cookies'
 
-export default async function postVM(vm: Partial<VM>): Promise<{ status: number, message: string }> {
+export type CreateVmRequest = Pick<VM, 'name'> & { os?: string, services?: string[] }
+
+export default async function postVM(vm: CreateVmRequest): Promise<{ status: number, message: string, vm?: VM }> {
     try {
         const token = getCookie('access_token')
         const id = getCookie('id')
@@ -35,9 +37,11 @@ export default async function postVM(vm: Partial<VM>): Promise<{ status: number,
             throw new Error(await response.text())
         }
 
+        const createdVm = await response.json().catch(() => undefined) as VM | undefined
         return {
             status: response.status,
-            message: `Created VM ${vm.name}.`
+            message: `Created VM ${vm.name}.`,
+            vm: createdVm,
         }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {

@@ -2,14 +2,19 @@ import { setTimeout as delay } from 'node:timers/promises'
 
 type HostFetch = (host: string, path: string, options?: RequestInit) => Promise<Response>
 type StatusResponse = { status?: unknown; error?: unknown; status_reason?: unknown }
+export type VmProvisionOptions = { os?: 'ubuntu-24.04' | 'ubuntu-22.04'; services?: Array<'nodejs' | 'postgresql' | 'redis' | 'python'> }
 
 const provisionTimeoutMs = 150_000
 const statusPollIntervalMs = 2_000
 const retryableStatusCodes = new Set([404, 408, 425, 429, 500, 502, 503, 504])
 
-export default async function provisionVmOnHost(host: string, name: string, request: HostFetch) {
+export default async function provisionVmOnHost(host: string, name: string, request: HostFetch, options?: VmProvisionOptions) {
     const encodedName = encodeURIComponent(name)
-    const provision = await request(host, `/vms/internal/${encodedName}/provision`, { method: 'POST' })
+    const provision = await request(host, `/vms/internal/${encodedName}/provision`, {
+        method: 'POST',
+        headers: options ? { 'content-type': 'application/json' } : undefined,
+        body: options ? JSON.stringify(options) : undefined,
+    })
     if (!provision.ok) throw await hostError(provision, 'VM host provisioning failed')
     if (provision.status !== 202) return
     await provision.body?.cancel().catch(() => {})
