@@ -1,6 +1,7 @@
 'use client'
 
-import { ChevronDown } from 'lucide-react'
+import { Check, ChevronDown } from 'lucide-react'
+import { useEffect, useId, useRef, useState } from 'react'
 
 export type MailSelectOption = { id: string; label: string }
 
@@ -21,16 +22,140 @@ export function MailSelect({
     className?: string
     compact?: boolean
 }) {
-    return <div className={`relative min-w-0 ${className}`}>
-        <select
+    const generatedId = useId().replace(/:/g, '')
+    const listboxId = `${id || `mail-select-${generatedId}`}-options`
+    const rootRef = useRef<HTMLDivElement>(null)
+    const triggerRef = useRef<HTMLDivElement>(null)
+    const typeaheadRef = useRef('')
+    const typeaheadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const [open, setOpen] = useState(false)
+    const [activeIndex, setActiveIndex] = useState(Math.max(0, options.findIndex(option => option.id === value)))
+    const selectedOption = options.find(option => option.id === value)
+    const activeOption = options[activeIndex]
+
+    useEffect(() => {
+        if (!open) return
+        const closeOnOutsidePointer = (event: PointerEvent) => {
+            if (event.target instanceof Node && !rootRef.current?.contains(event.target)) setOpen(false)
+        }
+        const closeOnEscape = (event: KeyboardEvent) => {
+            if (event.key !== 'Escape') return
+            event.preventDefault()
+            setOpen(false)
+            triggerRef.current?.focus()
+        }
+        document.addEventListener('pointerdown', closeOnOutsidePointer)
+        document.addEventListener('keydown', closeOnEscape)
+        return () => {
+            document.removeEventListener('pointerdown', closeOnOutsidePointer)
+            document.removeEventListener('keydown', closeOnEscape)
+        }
+    }, [open])
+
+    useEffect(() => {
+        if (open) setActiveIndex(Math.max(0, options.findIndex(option => option.id === value)))
+    }, [open, options, value])
+
+    useEffect(() => {
+        if (open) document.getElementById(`${listboxId}-${activeIndex}`)?.scrollIntoView({ block: 'nearest' })
+    }, [activeIndex, listboxId, open])
+
+    const selectActiveOption = () => {
+        if (!activeOption) return
+        onChange(activeOption.id)
+        setOpen(false)
+    }
+
+    const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+        if (event.key === 'ArrowDown') {
+            event.preventDefault()
+            if (!options.length) return
+            if (!open) setOpen(true)
+            else setActiveIndex(index => Math.min(index + 1, options.length - 1))
+        } else if (event.key === 'ArrowUp') {
+            event.preventDefault()
+            if (!options.length) return
+            if (!open) setOpen(true)
+            else setActiveIndex(index => Math.max(index - 1, 0))
+        } else if (event.key === 'Home' && open) {
+            event.preventDefault()
+            setActiveIndex(0)
+        } else if (event.key === 'End' && open) {
+            event.preventDefault()
+            setActiveIndex(options.length - 1)
+        } else if ((event.key === 'Enter' || event.key === ' ') && open) {
+            event.preventDefault()
+            selectActiveOption()
+        } else if ((event.key === 'Enter' || event.key === ' ') && !open) {
+            event.preventDefault()
+            setActiveIndex(Math.max(0, options.findIndex(option => option.id === value)))
+            setOpen(true)
+        } else if (event.key.length === 1 && event.key !== ' ' && !event.ctrlKey && !event.metaKey && !event.altKey) {
+            const query = `${typeaheadRef.current}${event.key}`.toLocaleLowerCase()
+            typeaheadRef.current = query
+            if (typeaheadTimerRef.current) clearTimeout(typeaheadTimerRef.current)
+            typeaheadTimerRef.current = setTimeout(() => { typeaheadRef.current = '' }, 700)
+            const start = open ? activeIndex + 1 : 0
+            const match = options.findIndex((option, index) => index >= start && option.label.toLocaleLowerCase().startsWith(query))
+            const wrappedMatch = match === -1 ? options.findIndex(option => option.label.toLocaleLowerCase().startsWith(query)) : match
+            if (wrappedMatch !== -1) {
+                setActiveIndex(wrappedMatch)
+                setOpen(true)
+            }
+        }
+    }
+
+    return <div ref={rootRef} className={`relative min-w-0 ${className}`}>
+        <div
+            ref={triggerRef}
             id={id}
+            role='combobox'
             aria-label={label}
-            value={value}
-            onChange={event => onChange(event.target.value)}
-            className={`block w-full min-w-0 appearance-none truncate rounded-lg border border-ui-border bg-ui-raised text-ui-text shadow-sm shadow-ui-canvas/10 outline-none transition-colors hover:border-ui-primary/50 focus-visible:border-ui-primary focus-visible:ring-2 focus-visible:ring-ui-primary/20 ${compact ? 'h-9 pl-2.5 pr-9 text-xs' : 'h-10 pl-3 pr-10 text-sm'}`}
+            aria-expanded={open}
+            aria-haspopup='listbox'
+            aria-controls={listboxId}
+            aria-activedescendant={open && activeOption ? `${listboxId}-${activeIndex}` : undefined}
+            aria-autocomplete='none'
+            tabIndex={0}
+            onClick={() => {
+                if (!open) setActiveIndex(Math.max(0, options.findIndex(option => option.id === value)))
+                setOpen(current => !current)
+            }}
+            onKeyDown={handleKeyDown}
+            onBlur={event => {
+                if (!rootRef.current?.contains(event.relatedTarget as Node | null)) setOpen(false)
+            }}
+            className={`flex w-full cursor-pointer select-none items-center justify-between gap-2 rounded-lg border border-ui-border bg-ui-raised text-ui-text shadow-sm shadow-ui-canvas/10 outline-none transition-colors hover:border-ui-primary/50 focus-visible:border-ui-primary focus-visible:ring-2 focus-visible:ring-ui-primary/20 ${compact ? 'h-9 pl-2.5 pr-2.5 text-xs' : 'h-10 pl-3 pr-3 text-sm'}`}
         >
-            {options.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
-        </select>
-        <ChevronDown aria-hidden='true' className={`pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-ui-muted ${compact ? 'h-3.5 w-3.5' : 'h-4 w-4'}`} />
+            <span className='min-w-0 flex-1 truncate text-left'>{selectedOption?.label ?? ''}</span>
+            <ChevronDown aria-hidden='true' className={`shrink-0 text-ui-muted transition-transform duration-200 ${compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} ${open ? 'rotate-180' : ''}`} />
+        </div>
+        {open ? <div
+            id={listboxId}
+            role='listbox'
+            aria-label={label}
+            className='absolute left-0 top-[calc(100%+0.5rem)] z-[70] max-h-72 w-[min(18rem,calc(100vw-1.5rem))] overflow-y-auto overscroll-contain rounded-xl border border-ui-border bg-ui-raised p-1.5 text-ui-text shadow-xl shadow-black/25 ring-1 ring-black/5'
+        >
+            {options.map((option, index) => {
+                const selected = option.id === value
+                const active = index === activeIndex
+                return <div
+                    key={option.id}
+                    id={`${listboxId}-${index}`}
+                    role='option'
+                    aria-selected={selected}
+                    onMouseEnter={() => setActiveIndex(index)}
+                    onClick={() => {
+                        onChange(option.id)
+                        setOpen(false)
+                        triggerRef.current?.focus()
+                    }}
+                    className={`flex min-h-10 cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors ${active ? 'bg-ui-primary/10 text-ui-text' : 'text-ui-muted hover:bg-ui-primary/5 hover:text-ui-text'} ${selected ? 'font-medium' : ''}`}
+                >
+                    <span className='min-w-0 flex-1 truncate'>{option.label}</span>
+                    {selected ? <Check aria-hidden='true' className='h-4 w-4 shrink-0 text-ui-primary' /> : null}
+                </div>
+            })}
+        </div> : null}
     </div>
 }

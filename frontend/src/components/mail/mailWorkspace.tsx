@@ -21,7 +21,7 @@ export default function MailWorkspace({ mailboxUser }: { mailboxUser?: string | 
     const selectedSummary = mail.messages.find(message => message.id === mail.selectedMessageId) || null
     const choose = (message: MailMessageSummary) => { setMobileReader(true); void mail.selectMessage(message) }
 
-    return <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column' }} className='@container !gap-3 !px-3 !py-3 text-ui-text'>
+    return <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column' }} className='@container !gap-3 !px-1 !py-3 text-ui-text'>
         <h1 className='sr-only'>Mail</h1>
         <section className={`${panelClass} flex flex-wrap items-center gap-2 p-2.5 sm:p-3`}>
             <div className='min-w-36 flex-1 sm:min-w-48'><p className='text-[10px] text-ui-muted'>Mailbox</p><p className='truncate text-xs font-medium text-ui-text'>{mail.overview?.mailboxAddress || 'Loading mailbox…'}</p></div>
