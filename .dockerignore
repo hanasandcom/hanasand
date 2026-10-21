@@ -157,6 +157,8 @@ ops/runtime/source/**
 **/node_modules/**
 **/.artifacts
 **/.next
+**/.next-*/
+**/.next-*/**
 **/.git
 !.git/
 .git/*

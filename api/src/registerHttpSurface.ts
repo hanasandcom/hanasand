@@ -52,7 +52,7 @@ function registerFailureLogging(fastify: FastifyInstance) {
         const referer = req.headers.referer || req.headers.referrer || ''
         const refererText = Array.isArray(referer) ? referer.join(', ') : referer
         const isSharePageRequest = /\/(?:s|p)\//.test(refererText)
-        const isVmRequest = req.url.startsWith('/api/vms')
+        const isVmRequest = /^\/api\/vms?(?:\/|$)/.test(req.url)
         const category = isSharePageRequest
             ? 'share_page_http'
             : isVmRequest && /(?:connection|agent-target|sync-access)/.test(req.url)

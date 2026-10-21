@@ -99,7 +99,7 @@ test('VM creation forwards Ubuntu 26.04 LTS', async () => {
 })
 
 test('VM creation accepts and forwards every listed service', async () => {
-    const services = ['nodejs', 'bun', 'python', 'java', 'docker', 'postgresql', 'redis', 'nginx', 'website', 'minecraft-java']
+    const services = ['nodejs', 'bun', 'python', 'java', 'go', 'php', 'docker', 'postgresql', 'mysql', 'sqlite', 'redis', 'nginx', 'website', 'minecraft-java']
     const response = await app.inject({
         method: 'POST', url: '/vm', headers: { id: 'member' },
         payload: { name: 'remote-vm', resources: { cpu: '2', memory: '4GiB' }, services, minecraft_eula_accepted: true, minecraft_server_type: 'NEOFORGE' },
@@ -144,6 +144,22 @@ test('AI website content is escaped before it crosses the authenticated host bou
         payload: { name: 'remote-vm', services: ['website'], website: { title: 'x'.repeat(121), tagline: '', sections: [] } },
     })
     expect(invalid.statusCode).toBe(400)
+})
+
+test('Minecraft setup creates its port-443 public route with the guest server port', async () => {
+    const response = await app.inject({
+        method: 'POST', url: '/vm', headers: { id: 'member' },
+        payload: {
+            name: 'survival', organization_id: null,
+            resources: { cpu: '2', memory: '4GiB' },
+            services: ['minecraft-java'], minecraft_eula_accepted: true,
+        },
+    })
+
+    expect(response.statusCode).toBe(201)
+    const routeInsert = databaseCalls.find(call => call.sql.includes('INSERT INTO vm_public_ports'))
+    expect(routeInsert?.params).toEqual(['survival', expect.stringMatching(/^mc-[a-f0-9]{16}$/), 'minecraft-java', 25565, 'member'])
+    expect(calls[0]?.body).toContain('"minecraftServerType":"PAPER"')
 })
 
 test('VM creation rejects unsupported resource limits and forwards an allowed size', async () => {

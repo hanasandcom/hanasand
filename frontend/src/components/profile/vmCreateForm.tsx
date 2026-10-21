@@ -120,14 +120,14 @@ export default function VmCreateForm({ id, visible, organizationId, notify, onCr
             </div>
             {setupSuggestion && <p role='status' className='text-sm text-ui-muted'>{setupSuggestion}</p>}
         </div>
-        <div className='flex flex-wrap items-end gap-3'>
-            <label className='grid gap-1 text-sm text-ui-muted'>VM name<input ref={nameInput} value={name} onChange={event => setName(event.target.value)} required pattern='[a-z][a-z0-9-]{0,61}[a-z0-9]' minLength={2} maxLength={63} title='2–63 lowercase letters, numbers or hyphens, starting with a letter' disabled={creating} className='h-10 rounded-lg border border-ui-border bg-ui-raised px-3 text-ui-text' /></label>
-            <div ref={osPicker} className='relative grid gap-1 text-sm text-ui-muted'>
+        <div className='grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-3'>
+            <label className='grid min-w-0 gap-1 text-sm text-ui-muted'>VM name<input ref={nameInput} value={name} onChange={event => setName(event.target.value)} required pattern='[a-z][a-z0-9-]{0,61}[a-z0-9]' minLength={2} maxLength={63} title='2–63 lowercase letters, numbers or hyphens, starting with a letter' disabled={creating} className='h-10 w-full min-w-0 rounded-lg border border-ui-border bg-ui-raised px-3 text-ui-text' /></label>
+            <div ref={osPicker} className='relative grid min-w-0 gap-1 text-sm text-ui-muted'>
                 <span>Operating system</span>
                 <button ref={osPickerTrigger} type='button' role='combobox' aria-label='Operating system' aria-haspopup='listbox' aria-expanded={osPickerOpen} aria-controls={osPickerId} disabled={creating} onClick={() => setOsPickerOpen(open => !open)} onKeyDown={event => {
                     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); setOsPickerOpen(true) }
                     else if (event.key === 'Escape') setOsPickerOpen(false)
-                }} className='flex h-10 min-w-56 items-center justify-between gap-6 rounded-lg border border-ui-border bg-ui-raised px-4 text-left text-sm text-ui-text outline-none transition hover:border-ui-primary/40 focus-visible:border-ui-primary focus-visible:ring-2 focus-visible:ring-ui-primary/15 disabled:opacity-50'>
+                }} className='flex h-10 w-full min-w-0 items-center justify-between gap-3 rounded-lg border border-ui-border bg-ui-raised px-3 text-left text-sm text-ui-text outline-none transition hover:border-ui-primary/40 focus-visible:border-ui-primary focus-visible:ring-2 focus-visible:ring-ui-primary/15 disabled:opacity-50'>
                     <span>{vmOperatingSystems.find(os => os.id === operatingSystem)?.label}</span>
                     <ChevronDown aria-hidden='true' className={`h-4 w-4 shrink-0 text-ui-muted transition-transform ${osPickerOpen ? 'rotate-180' : ''}`} />
                 </button>
@@ -138,7 +138,7 @@ export default function VmCreateForm({ id, visible, organizationId, notify, onCr
                     </button>)}
                 </div>}
             </div>
-            <label className='grid gap-1 text-sm text-ui-muted'>Resources<select value={resourcePlan} onChange={event => setResourcePlan(event.target.value)} disabled={creating} className='h-10 rounded-lg border border-ui-border bg-ui-raised px-3 text-sm text-ui-text outline-none focus-visible:ring-2 focus-visible:ring-ui-primary/20'>{availableResources.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}</select></label>
+            <label className='grid min-w-0 gap-1 text-sm text-ui-muted'>Resources<select value={resourcePlan} onChange={event => setResourcePlan(event.target.value)} disabled={creating} className='h-10 w-full min-w-0 rounded-lg border border-ui-border bg-ui-raised px-3 text-sm text-ui-text outline-none focus-visible:ring-2 focus-visible:ring-ui-primary/20'>{availableResources.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}</select></label>
         </div>
         <fieldset disabled={creating} className='grid gap-2'>
             <legend className='mb-1 text-sm font-medium text-ui-text'>Install services</legend>

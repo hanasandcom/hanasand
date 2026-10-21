@@ -98,7 +98,7 @@ function classifySurface(path: string) {
     if (path.startsWith('/api/traffic')) return 'traffic'
     if (path.startsWith('/api/db')) return 'database'
     if (path.startsWith('/api/ai')) return 'ai'
-    if (path.startsWith('/api/vms')) return 'workspace_runtime'
+    if (/^\/api\/vms?(?:\/|$)/.test(path)) return 'workspace_runtime'
     return 'api'
 }
 

@@ -64,7 +64,7 @@ async function allFiles(directory) {
     for (const entry of entries) {
         const file = path.join(directory, entry.name)
         if (entry.isDirectory()) {
-            if (!excludedDirectories.has(entry.name)) files.push(...await allFiles(file))
+            if (!excludedDirectories.has(entry.name) && !entry.name.startsWith('.next-')) files.push(...await allFiles(file))
         } else if (entry.isFile()) {
             files.push(file)
         }

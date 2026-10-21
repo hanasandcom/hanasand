@@ -10,7 +10,7 @@ const progressHook = new URL('../src/components/vms/useVmProvisioningStatus.ts',
 test('the VM create form offers locally bundled operating systems and installable services', async () => {
     const source = await readFile(createForm, 'utf8')
     expect(vmOperatingSystems.map(os => os.id)).toEqual(['ubuntu-24.04', 'ubuntu-26.04', 'ubuntu-22.04'])
-    expect(vmServices.map(service => service.id)).toEqual(['nodejs', 'bun', 'python', 'java', 'docker', 'postgresql', 'redis', 'nginx', 'website', 'minecraft-java'])
+    expect(vmServices.map(service => service.id)).toEqual(['nodejs', 'bun', 'python', 'java', 'go', 'php', 'docker', 'postgresql', 'mysql', 'redis', 'sqlite', 'nginx', 'website', 'minecraft-java'])
     expect(vmResourceOptions.map(option => `${option.cpu}:${option.memory}`)).toEqual(['1:2GiB', '2:4GiB', '4:8GiB'])
     expect(vmMinecraftServerTypes.map(server => server.id)).toEqual(['PAPER', 'VANILLA', 'FABRIC', 'QUILT', 'NEOFORGE', 'PURPUR', 'FOLIA'])
     expect(source).toContain('Operating system')
