@@ -60,8 +60,8 @@ export default function PublicSupportChat(props: PublicSupportChatOptions) {
     </section>
     return (
         <section aria-label='Support chat' className='grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)_auto]'>
-            {!legacy ? <div className='flex min-w-0 items-center justify-between gap-3 border-b border-ui-border bg-ui-raised px-5 py-3'>
-                <h1 className='text-sm font-semibold text-ui-text'>Support</h1>
+            {!legacy ? props.hideNewChatButton && !conversation.id ? null : <div className='flex min-w-0 items-center justify-between gap-3 border-b border-ui-border bg-ui-raised px-5 py-3'>
+                {!props.hideNewChatButton ? <h1 className='text-sm font-semibold text-ui-text'>Support</h1> : null}
                 <div className='flex shrink-0 items-center gap-2'>
                     {!props.hideNewChatButton ? <button type='button' onClick={startNewChat} className='rounded-lg border border-ui-border bg-ui-panel px-3.5 py-2 text-xs font-semibold text-ui-text transition-colors hover:bg-ui-canvas'>New chat</button> : null}
                     {conversation.id ? <button type='button' disabled={closing || sending || transferring} onClick={() => void endConversation()} className='rounded-lg border border-ui-border bg-ui-panel px-3.5 py-2 text-xs font-semibold text-ui-text transition-colors hover:bg-ui-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-primary disabled:opacity-50'>{closing ? <span className='inline-flex items-center gap-1.5'><LoaderCircle className='h-3.5 w-3.5 animate-spin' aria-hidden='true' />Closing…</span> : 'Close conversation'}</button> : null}

@@ -31,6 +31,7 @@ test('Enter and Shift+Enter send support messages', async ({ page }) => {
     await page.getByLabel('Open support assistant').click()
     const dialog = page.getByRole('dialog', { name: 'Support assistant' })
     await expect(dialog).toBeVisible()
+    await expect(dialog.getByText('Support', { exact: true })).toHaveCount(1)
     const widgetTitle = dialog.getByRole('button', { name: 'Move support window' })
     await expect(widgetTitle.getByText('Speaking with Hanasand AI')).toBeVisible()
     const newChat = dialog.getByRole('button', { name: 'Start a new support chat' })
