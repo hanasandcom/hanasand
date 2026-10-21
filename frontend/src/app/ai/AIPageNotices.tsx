@@ -1,5 +1,8 @@
+'use client'
+
 import Link from 'next/link'
 import { RotateCcw, SquareArrowOutUpRight, X } from 'lucide-react'
+import { useEffect, useRef } from 'react'
 
 type ResumeNotice = {
     message: string
@@ -17,7 +20,20 @@ export function AIPageNotices({
     runtimeState: AIRuntimeState
     onDismissResumeNotice: () => void
 }) {
+    const dismissResumeNoticeRef = useRef(onDismissResumeNotice)
     const hasRuntimeNotice = !statusNotice && (runtimeState.lastFailure || runtimeState.lastToolRun)
+
+    useEffect(() => {
+        dismissResumeNoticeRef.current = onDismissResumeNotice
+    }, [onDismissResumeNotice])
+
+    useEffect(() => {
+        if (!resumeNotice) return
+
+        const timeout = window.setTimeout(() => dismissResumeNoticeRef.current(), 3000)
+        return () => window.clearTimeout(timeout)
+    }, [resumeNotice])
+
     if (!statusNotice && !resumeNotice && !hasRuntimeNotice) return null
 
     return (
