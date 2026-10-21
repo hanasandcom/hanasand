@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { applyContactSender } from '../src/utils/mail/contactSender.ts'
+import { applyContactSender, contactTicketId } from '../src/utils/mail/contactSender.ts'
 
 const contact = { ticket_id: 'HS-20260820-0D198785', name: 'Christopher Hughes', email: 'christopher@example.com', subject: 'Monitoring reports' }
 function message() {
@@ -12,6 +12,12 @@ function message() {
     }
 }
 describe('contact notification attribution', () => {
+    test('only system contact notifications are eligible for full sender attribution', () => {
+        expect(contactTicketId(message())).toBe(contact.ticket_id)
+        expect(contactTicketId({ ...message(), from: [{ email: 'attacker@example.net' }] })).toBeNull()
+        expect(contactTicketId({ ...message(), subject: 'Unrelated' })).toBeNull()
+    })
+
     test('shows the persisted external submitter and replies to them without changing stored mail', () => {
         const mail = message()
         applyContactSender(mail, contact)

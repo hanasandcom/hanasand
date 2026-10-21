@@ -1,6 +1,6 @@
 import type { MailAttachment, MailMessage, MailMessageSummary } from './types.ts'
 import type { EmailRecord, JmapSession } from './jmapTypes.ts'
-import { attributeContactSenders } from './contactSender.ts'
+import { attributeContactSenders, contactTicketId } from './contactSender.ts'
 import { normalizeMessageText, stripHtml } from './helpers.ts'
 import { getMailSession, jmapCall } from './jmapSession.ts'
 
@@ -24,10 +24,18 @@ async function queryMessagePage(username: string, password: string, mailboxId: s
     ])
     const ids = query.ids || []
     const pageIds = ids.slice(0, limit)
-    const messages = pageIds.length ? await getEmailsByIds(username, password, session, accountId, pageIds) : []
+    const messages = pageIds.length ? await getEmailsByIds(username, password, session, accountId, pageIds, false) : []
     const byId = new Map(messages.map(message => [message.id, message]))
+    const contactCandidates = messages.filter(message => contactTicketId(message))
+    const contactDetails = contactCandidates.length
+        ? await getEmailsByIds(username, password, session, accountId, contactCandidates.map(message => message.id))
+        : []
+    const contactById = new Map(contactDetails.map(message => [message.id, message]))
     return {
-        messages: pageIds.flatMap(id => byId.has(id) ? [toSummary(byId.get(id)!)] : []),
+        messages: pageIds.flatMap(id => {
+            const message = contactById.get(id) || byId.get(id)
+            return message ? [toSummary(message)] : []
+        }),
         nextCursor: ids.length > limit ? pageIds.at(-1)! : null,
     }
 }
@@ -56,18 +64,20 @@ export async function listInboxMessagesForFiltering(username: string, password: 
     return listMessages(username, password, mailboxId, 100)
 }
 
-async function getEmailsByIds(username: string, password: string, session: JmapSession, accountId: string, ids: string[]) {
+async function getEmailsByIds(username: string, password: string, session: JmapSession, accountId: string, ids: string[], includeBody = true) {
     const response = await jmapCall<{ list?: EmailRecord[] }>(username, password, session, [
         ['Email/get', {
             accountId,
             ids,
-            properties: ['id', 'threadId', 'mailboxIds', 'keywords', 'subject', 'preview', 'receivedAt', 'sentAt', 'from', 'to', 'cc', 'bcc', 'replyTo', 'hasAttachment', 'attachments', 'textBody', 'htmlBody', 'bodyValues'],
-            fetchAllBodyValues: true,
+            properties: includeBody
+                ? ['id', 'threadId', 'mailboxIds', 'keywords', 'subject', 'preview', 'receivedAt', 'sentAt', 'from', 'to', 'cc', 'bcc', 'replyTo', 'hasAttachment', 'attachments', 'textBody', 'htmlBody', 'bodyValues']
+                : ['id', 'threadId', 'mailboxIds', 'keywords', 'subject', 'preview', 'receivedAt', 'sentAt', 'from', 'to', 'cc', 'hasAttachment'],
+            ...(includeBody ? { fetchAllBodyValues: true } : {}),
         }, 'emails']
     ])
 
     const messages = response.list || []
-    await attributeContactSenders(messages)
+    if (includeBody) await attributeContactSenders(messages)
     return messages
 }
 

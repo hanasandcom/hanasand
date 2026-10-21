@@ -19,6 +19,12 @@ type ContactMessage = {
 
 type Contact = { ticket_id: string, name: string, email: string, subject: string }
 
+export function contactTicketId(message: ContactMessage) {
+    const ticketId = message.subject?.match(/^\[(HS-\d{8}-[A-F0-9]{8})\] /)?.[1]
+    const fromSystem = message.from?.some(address => address.email.toLowerCase() === `${mailConfig.systemSenderLocalPart}@${mailConfig.domain}`.toLowerCase())
+    return ticketId && fromSystem ? ticketId : null
+}
+
 export function applyContactSender(message: ContactMessage, contact: Contact) {
     const text = message.textBody?.map(part => message.bodyValues?.[part.partId || '']?.value || '').join('\n').replace(/\r\n/g, '\n') || ''
     // Attribute only our persisted contact notifications, never arbitrary Reply-To
@@ -35,8 +41,8 @@ export function applyContactSender(message: ContactMessage, contact: Contact) {
 
 export async function attributeContactSenders(messages: ContactMessage[]) {
     const tickets = messages.flatMap(message => {
-        const match = message.subject?.match(/^\[(HS-\d{8}-[A-F0-9]{8})\] /)
-        return match && message.from?.some(address => address.email.toLowerCase() === `${mailConfig.systemSenderLocalPart}@${mailConfig.domain}`.toLowerCase()) ? [match[1]] : []
+        const ticketId = contactTicketId(message)
+        return ticketId ? [ticketId] : []
     })
     if (!tickets.length) return
     const result = await run('SELECT ticket_id, name, email, subject FROM commercial_contact_requests WHERE ticket_id = ANY($1::text[])', [tickets])
