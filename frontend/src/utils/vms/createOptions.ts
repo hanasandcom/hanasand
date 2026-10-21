@@ -1,7 +1,7 @@
 export const vmOperatingSystems = [
-    { id: 'ubuntu-24.04', label: 'Ubuntu 24.04 LTS' },
-    { id: 'ubuntu-26.04', label: 'Ubuntu 26.04 LTS' },
-    { id: 'ubuntu-22.04', label: 'Ubuntu 22.04 LTS' },
+    { id: 'ubuntu-24.04', label: 'Ubuntu 24.04 LTS', description: 'Stable choice for most projects' },
+    { id: 'ubuntu-26.04', label: 'Ubuntu 26.04 LTS', description: 'Latest long-term support release' },
+    { id: 'ubuntu-22.04', label: 'Ubuntu 22.04 LTS', description: 'For older software requirements' },
 ] as const
 
 export const vmResourceOptions = [

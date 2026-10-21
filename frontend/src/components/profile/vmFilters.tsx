@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useId, useRef, useState } from 'react'
-import { RotateCcw, SlidersHorizontal } from 'lucide-react'
+import { RotateCcw } from 'lucide-react'
 import { defaultVmFilters, type VmFilters } from '@/utils/vms/filterVms'
 import { createPortal } from 'react-dom'
 
@@ -54,8 +54,13 @@ export default function VmFiltersButton({ filters, onChange, editors }: { filter
 
     return <>
         <div className='relative' ref={root}>
-            <button ref={trigger} type='button' title='Filters' aria-label={activeCount ? `Filters, ${activeCount} active` : 'Filters'} aria-expanded={open} aria-controls={panelId} onClick={togglePanel} className={`relative inline-flex h-9 w-9 items-center justify-center rounded-lg border transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-primary ${open || activeCount ? 'border-ui-primary/40 bg-ui-primary/10 text-ui-primary' : 'border-ui-border bg-ui-panel text-ui-muted hover:bg-ui-raised hover:text-ui-text'}`}>
-                <SlidersHorizontal className='h-[18px] w-[18px]' aria-hidden='true' />
+            <button ref={trigger} type='button' aria-label={activeCount ? `Filters, ${activeCount} active` : 'Filters'} aria-expanded={open} aria-controls={panelId} onClick={togglePanel} className={`relative inline-flex h-9 w-9 items-center justify-center rounded-lg border transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-primary ${open || activeCount ? 'border-ui-primary/40 bg-ui-primary/10 text-ui-primary' : 'border-ui-border bg-ui-panel text-ui-muted hover:bg-ui-raised hover:text-ui-text'}`}>
+                <svg aria-hidden='true' viewBox='0 0 20 20' className='h-[18px] w-[18px]' fill='none' stroke='currentColor' strokeWidth='1.5' strokeLinecap='round'>
+                    <path d='M2.5 4.5h15M2.5 10h15M2.5 15.5h15' />
+                    <circle cx='6' cy='4.5' r='1.6' fill='var(--ui-panel)' />
+                    <circle cx='13.5' cy='10' r='1.6' fill='var(--ui-panel)' />
+                    <circle cx='8.5' cy='15.5' r='1.6' fill='var(--ui-panel)' />
+                </svg>
                 {activeCount > 0 && <span aria-hidden='true' className='absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full border border-ui-panel bg-ui-primary px-1 text-[10px] font-semibold leading-none text-ui-on-primary'>{activeCount}</span>}
             </button>
         </div>

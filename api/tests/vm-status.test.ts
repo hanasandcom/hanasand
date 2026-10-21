@@ -1,10 +1,11 @@
 import { afterEach, expect, mock, test } from 'bun:test'
 
 const remoteRequests: Array<{ host: string; path: string }> = []
+let hostWorkerStatus: { status: string; status_reason?: string } = { status: 'Running' }
 mock.module('../src/utils/vms/hostTransport.ts', () => ({
     internalHostFetch: async (host: string, path: string) => {
         remoteRequests.push({ host, path })
-        return Response.json({ status: 'Running' })
+        return Response.json(hostWorkerStatus)
     },
 }))
 
@@ -21,6 +22,7 @@ afterEach(() => {
     hostStatus = 'Stopped'
     requests = 0
     remoteRequests.length = 0
+    hostWorkerStatus = { status: 'Running' }
 })
 
 test('lifecycle status invalidation makes the next page refresh see the host state', async () => {
@@ -59,6 +61,17 @@ test('default remote status probe requests the assigned host receiver path', asy
         host: 'ovhcloud',
         path: '/vms/internal/remote-transport-status-vm/status',
     }])
+})
+
+test('local status keeps reporting service setup while the guest is already running', async () => {
+    globalThis.fetch = (async () => Response.json({ metadata: { status: 'Running' } })) as typeof fetch
+    hostWorkerStatus = { status: 'Provisioning', status_reason: 'Installing nodejs, postgresql…' }
+
+    const result = await withLiveVmStatus({ name: 'local-provisioning-vm' })
+
+    expect(result.status).toBe('PROVISIONING')
+    expect(result.status_reason).toBe('Installing nodejs, postgresql…')
+    expect(remoteRequests).toHaveLength(1)
 })
 
 test('batched VM list status reads local LXD once and keeps remote probes on assigned hosts', async () => {

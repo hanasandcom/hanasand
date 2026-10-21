@@ -2,7 +2,7 @@
 
 import postVM from '@/utils/vms/fetch/postVM'
 import suggestVmSetup from '@/utils/vms/fetch/suggestVmSetup'
-import { ChevronDown } from 'lucide-react'
+import { Check, ChevronDown } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
 import { vmOperatingSystems, vmResourceOptions, vmServiceGroups, vmServices } from '@/utils/vms/createOptions'
 import type { NotifyVmAction } from '@/components/vms/vmActionFeedback'
@@ -119,12 +119,15 @@ export default function VmCreateForm({ id, visible, organizationId, notify, onCr
                 <button ref={osPickerTrigger} type='button' role='combobox' aria-label='Operating system' aria-haspopup='listbox' aria-expanded={osPickerOpen} aria-controls={osPickerId} disabled={creating} onClick={() => setOsPickerOpen(open => !open)} onKeyDown={event => {
                     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); setOsPickerOpen(true) }
                     else if (event.key === 'Escape') setOsPickerOpen(false)
-                }} className='flex h-10 min-w-56 items-center justify-between gap-4 rounded-lg border border-ui-border bg-ui-raised px-3 text-left text-sm text-ui-text outline-none transition hover:border-ui-primary/40 focus-visible:border-ui-primary focus-visible:ring-2 focus-visible:ring-ui-primary/15 disabled:opacity-50'>
+                }} className='flex h-10 min-w-56 items-center justify-between gap-6 rounded-lg border border-ui-border bg-ui-raised px-4 text-left text-sm text-ui-text outline-none transition hover:border-ui-primary/40 focus-visible:border-ui-primary focus-visible:ring-2 focus-visible:ring-ui-primary/15 disabled:opacity-50'>
                     <span>{vmOperatingSystems.find(os => os.id === operatingSystem)?.label}</span>
                     <ChevronDown aria-hidden='true' className={`h-4 w-4 shrink-0 text-ui-muted transition-transform ${osPickerOpen ? 'rotate-180' : ''}`} />
                 </button>
-                {osPickerOpen && <div id={osPickerId} role='listbox' aria-label='Operating systems' className='absolute left-0 right-0 top-full z-30 mt-1 grid max-h-64 overflow-auto rounded-lg border border-ui-border bg-ui-panel p-1 shadow-xl shadow-black/25'>
-                    {vmOperatingSystems.map((os, index) => <button key={os.id} ref={element => { osOptions.current[index] = element }} type='button' role='option' aria-selected={operatingSystem === os.id} tabIndex={-1} onClick={() => { setOperatingSystem(os.id); setOsPickerOpen(false); osPickerTrigger.current?.focus() }} onKeyDown={event => handleOsOptionKeyDown(event, index)} className={`flex h-9 items-center rounded-md px-2 text-left text-sm transition ${operatingSystem === os.id ? 'bg-ui-primary/10 font-medium text-ui-primary' : 'text-ui-text hover:bg-ui-raised focus-visible:bg-ui-raised'}`}>{os.label}</button>)}
+                {osPickerOpen && <div id={osPickerId} role='listbox' aria-label='Operating systems' className='absolute left-0 right-0 top-full z-30 mt-2 grid max-h-64 overflow-auto rounded-xl border border-ui-border bg-ui-panel p-1.5 shadow-2xl shadow-black/30 ring-1 ring-white/5'>
+                    {vmOperatingSystems.map((os, index) => <button key={os.id} ref={element => { osOptions.current[index] = element }} type='button' role='option' aria-selected={operatingSystem === os.id} tabIndex={-1} onClick={() => { setOperatingSystem(os.id); setOsPickerOpen(false); osPickerTrigger.current?.focus() }} onKeyDown={event => handleOsOptionKeyDown(event, index)} className={`flex min-h-12 items-center justify-between gap-3 rounded-lg px-3 py-2 text-left transition ${operatingSystem === os.id ? 'bg-ui-primary/10 text-ui-primary' : 'text-ui-text hover:bg-ui-raised focus-visible:bg-ui-raised'}`}>
+                        <span className='grid gap-0.5'><span className='text-sm font-medium'>{os.label}</span><span className='text-xs text-ui-muted'>{os.description}</span></span>
+                        {operatingSystem === os.id && <Check aria-hidden='true' className='h-4 w-4 shrink-0' />}
+                    </button>)}
                 </div>}
             </div>
             <label className='grid gap-1 text-sm text-ui-muted'>Resources<select value={resourcePlan} onChange={event => setResourcePlan(event.target.value)} disabled={creating} className='h-10 rounded-lg border border-ui-border bg-ui-raised px-3 text-sm text-ui-text outline-none focus-visible:ring-2 focus-visible:ring-ui-primary/20'>{vmResourceOptions.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}</select></label>

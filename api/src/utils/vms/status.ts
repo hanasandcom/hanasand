@@ -27,7 +27,22 @@ async function probe(name: string, host = config.vm_host_id): Promise<State> {
     if (cached && cached.expires > Date.now()) return cached.result
     const result = (async () => {
         if (targetHost === String(config.vm_host_id).toLowerCase()) {
-            try { return await localVmStatus(name) }
+            try {
+                const state = await localVmStatus(name)
+                // A VM becomes "Running" as soon as the guest has booted, but the host
+                // may still be installing the services selected during creation. Read the
+                // host worker's queued state so the console can keep showing that progress.
+                if (state.status.toLowerCase() === 'running') {
+                    try {
+                        const response = await internalHostFetch(targetHost, `/vms/internal/${encodeURIComponent(name)}/status`, { signal: AbortSignal.timeout(2000) })
+                        if (response.ok) {
+                            const provision = await response.json() as State
+                            if (['provisioning', 'error'].includes(String(provision.status || '').toLowerCase())) return provision
+                        }
+                    } catch { /* Keep the live LXD state when the worker status is unavailable. */ }
+                }
+                return state
+            }
             catch {
                 // LXD cannot report an instance that is still being allocated. Ask the host
                 // worker for its queued state so the inventory can show provisioning instead
