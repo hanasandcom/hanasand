@@ -148,7 +148,11 @@ export function hasParsedProviderData(tool: { id?: string; name?: string; url?: 
 
 export function providerAccessIssue(tool: { id?: string; name?: string; url?: string }, text: string, currentUrl = '') {
     if (/recaptcharequired|recaptcha validation failed|captcha/i.test(text)) return 'Provider blocked automated capture with a reCAPTCHA challenge.'
-    if (/(?:error:\s*)?forbidden|does not have permission to get url|denied browser access/i.test(text)) {
+    // A provider report can quote the target page's own 403 response (for
+    // example, URLQuery may title the captured page "403: FORBIDDEN"). Only
+    // recognize an explicit provider-side permission error here. HTTP status
+    // codes for provider navigation/API requests are handled from responses.
+    if (/does not have permission to get url|denied browser access/i.test(text)) {
         if (isVirusTotalTool(tool, currentUrl) || isUrlQueryTool(tool, currentUrl)) {
             const provider = isVirusTotalTool(tool, currentUrl) ? 'VirusTotal' : 'urlquery'
             return `${provider} denied browser access to this report (HTTP 403). No verdict was returned.`

@@ -68,7 +68,7 @@ assert.deepEqual(providerCommunityComments(JSON.stringify({ data: [
 console.log('Browser sandbox analysis helpers passed.')
 
 assert.equal(providerStartUrl({ id: 'urlquery' }, 'https://urlquery.net/search?q=x', 'https://example.com/'), 'https://urlquery.net/search/reports?q=https%3A%2F%2Fexample.com%2F', 'urlquery opens its current public reports search')
-assert.equal(providerStartUrl({ id: 'urlquery' }, 'https://urlquery.net/search?q=x', 'http://2gzyxa5ihm7nsggfxnu52rck2vv4rvmdlkiu3zzui5du4xyclen53wid.onion/'), 'https://urlquery.net/search/reports?q=https%3A%2F%2F2gzyxa5ihm7nsggfxnu52rck2vv4rvmdlkiu3zzui5du4xyclen53wid.onion%2F', 'urlquery searches the canonical HTTPS form for onion reports')
+assert.equal(providerStartUrl({ id: 'urlquery' }, 'https://urlquery.net/search?q=x', 'http://2gzyxa5ihm7nsggfxnu52rck2vv4rvmdlkiu3zzui5du4xyclen53wid.onion/'), 'https://urlquery.net/search/reports?q=http%3A%2F%2F2gzyxa5ihm7nsggfxnu52rck2vv4rvmdlkiu3zzui5du4xyclen53wid.onion%2F', 'urlquery preserves the submitted onion scheme to match indexed reports')
 assert.equal(parseUrlQueryScores('Search: 0 hits'), null, 'missing reports are not a clean verdict')
 assert.equal(parseUrlQueryScores('Search: 5 hits'), null, 'a result count alone is not an alert verdict')
 assert.deepEqual(parseUrlQueryScores('<td>0 - 0 - 0</td>'), { alerts: 0 })
@@ -84,7 +84,8 @@ assert.equal(urlQueryReportMatchesTarget(currentReport.replace('2gzyxa5ihm7nsggf
 assert.match(providerHttpAccessIssue('VirusTotal', 404), /no existing report.*No verdict/)
 assert.equal(providerAccessIssue({ id: 'virustotal' }, 'Item not found', 'https://www.virustotal.com/gui/url/abc123'), 'VirusTotal has no existing report for this URL. No verdict was returned.')
 assert.match(providerAccessIssue({ id: 'virustotal', name: 'VirusTotal' }, 'Error: Forbidden. Your client does not have permission to get URL /gui/url/abc123', 'https://www.virustotal.com/gui/url/abc123'), /VirusTotal denied browser access.*No verdict/)
-assert.match(providerAccessIssue({ id: 'urlquery', name: 'urlquery' }, 'Forbidden', 'https://urlquery.net/search/reports?q=x'), /urlquery denied browser access.*No verdict/)
+assert.equal(providerAccessIssue({ id: 'urlquery', name: 'urlquery' }, '403: FORBIDDEN', 'https://urlquery.net/report/abc123'), '', 'does not mistake a target-side 403 title inside a report for provider denial')
+assert.match(providerHttpAccessIssue('urlquery', 403), /urlquery denied browser access.*HTTP 403.*No verdict/, 'classifies an actual provider navigation 403 from its HTTP status')
 assert.equal(providerResponseUrl('VirusTotal', 'https://www.virustotal.com/api/v3/urls/abc123'), true, 'captures VirusTotal v3 URL report responses')
 assert.equal(providerResponseUrl('VirusTotal', 'https://www.virustotal.com/ui/urls/abc123/comments?limit=8'), true, 'captures VirusTotal GUI report responses')
 assert.equal(providerResponseUrl('VirusTotal', 'https://www.virustotal.com/api/v3/domains/example.com'), false, 'does not treat domain results as URL reports')
