@@ -2,7 +2,7 @@
 
 import { Archive, File, Inbox, Send, ShieldAlert, Trash2 } from 'lucide-react'
 import type { MailOverview } from '@/utils/mail/types'
-import { MailSelect } from './mailSelect'
+import { MailPicker, mailAccountPickerOptions } from './mailPicker'
 
 const icons = { inbox: Inbox, sent: Send, drafts: File, archive: Archive, junk: ShieldAlert, trash: Trash2 }
 
@@ -18,10 +18,11 @@ export function MailSidebar({ overview, mailboxUser, mailboxId, onAccount, onFol
     return <aside className='hidden min-h-0 flex-col gap-4 rounded-xl border border-ui-border bg-ui-panel p-3 lg:flex'>
         <div className='grid gap-1.5'>
             <span className='text-[10px] font-semibold uppercase tracking-[0.12em] text-ui-muted'>Account</span>
-            <MailSelect
+            <MailPicker
                 label='Mail account'
+                menuTitle='Choose mailbox'
                 value={mailboxUser || overview?.mailboxUser || ''}
-                options={accounts.map(account => ({ id: account.id, label: account.address || account.name }))}
+                options={mailAccountPickerOptions(accounts)}
                 onChange={onAccount}
             />
         </div>
