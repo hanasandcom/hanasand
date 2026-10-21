@@ -9,6 +9,7 @@ class FakeSocket extends EventEmitter {
     readonly CLOSED = WebSocket.CLOSED
     readyState: number
     readonly sent: string[] = []
+    pingCount = 0
     closeCode: number | undefined
     closeReason = ''
 
@@ -30,7 +31,7 @@ class FakeSocket extends EventEmitter {
         this.emit('close', code, Buffer.from(reason))
     }
 
-    ping() {}
+    ping() { this.pingCount++ }
 
     receive(message: string) {
         this.emit('message', Buffer.from(message))
@@ -59,6 +60,16 @@ test('browser stream proxy forwards queued messages in order when its upstream o
     } finally {
         client.close()
     }
+})
+
+test('browser stream proxy keeps both signaling sockets alive before idle timeouts', async () => {
+    const { client, upstream } = connectProxy(new FakeSocket(WebSocket.OPEN), new FakeSocket(WebSocket.OPEN))
+
+    try {
+        await new Promise(resolve => setTimeout(resolve, 5_100))
+        expect(client.pingCount).toBeGreaterThanOrEqual(1)
+        expect(upstream.pingCount).toBeGreaterThanOrEqual(1)
+    } finally { client.close() }
 })
 
 test('browser stream proxy closes an overloaded client when the upstream is stalled', () => {

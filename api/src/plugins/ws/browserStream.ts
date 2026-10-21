@@ -74,10 +74,11 @@ export function proxyBrowserStreamSocket(connection: WebSocket, upstream: WebSoc
     const pending: string[] = []
     let pendingBytes = 0
     let closed = false
+    // Some upstream signaling proxies close otherwise-idle WebSockets after 15s.
     const keepAliveTimer = setInterval(() => {
         if (connection.readyState === WebSocket.OPEN) connection.ping()
         if (upstream.readyState === WebSocket.OPEN) upstream.ping()
-    }, 20_000)
+    }, 5_000)
     keepAliveTimer.unref()
     const closeBoth = (errorMessage?: string, closeCode = 1000, closeReason = '') => {
         if (closed) return
