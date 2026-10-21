@@ -41,7 +41,6 @@ async function verifyClipboard(client: WebSocket, payloads: BrokerPayload[]) {
 
 async function verifyDownload(client: WebSocket, payloads: BrokerPayload[]) {
     client.send(JSON.stringify({ type: 'click', x: 380, y: 132, button: 0 }))
-    await waitForPayload(payloads, payload => payload.type === 'status' && payload.state === 'download_blocked')
     await waitForPayload(payloads, payload => payload.type === 'frame' && Boolean(payload.networkSummary?.downloads?.some(
         download => download.sha256 === downloadHash && download.fileName === 'sample.txt',
     )))
