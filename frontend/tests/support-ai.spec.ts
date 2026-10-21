@@ -2,6 +2,40 @@ import { expect, test } from '@playwright/test'
 import { mockSupportLive, supportSnapshot } from './support-fixture'
 
 type Message = { id: string; sender_kind: string; sender_name: string; body: string; request_id?: string }
+
+test('Enter and Shift+Enter send support messages', async ({ page }) => {
+    const messages: Message[] = []
+    await mockSupportLive(page)
+    await page.route('**/api/support/chat*', async route => {
+        if (route.request().method() === 'POST') {
+            const body = route.request().postDataJSON()
+            if (body.action === 'connect') return route.fulfill({ json: { ticket: 'a'.repeat(64) } })
+            messages.push({ id: body.requestId, request_id: body.requestId, sender_kind: 'user', sender_name: 'You', body: body.message })
+            messages.push({ id: `reply-${messages.length}`, sender_kind: 'assistant', sender_name: 'Hanasand AI', body: `Received: ${body.message}` })
+        }
+        await route.fulfill({ json: { ...supportSnapshot(messages), accepted: true } })
+    })
+    await page.goto('/contact')
+    await page.getByLabel('Open support assistant').click()
+    const dialog = page.getByRole('dialog', { name: 'Support assistant' })
+    await expect(dialog.getByText('Speaking with Hanasand AI')).toBeVisible()
+    const newChat = dialog.getByRole('button', { name: 'Start a new support chat' })
+    const close = dialog.getByLabel('Close support assistant')
+    const newChatBox = (await newChat.boundingBox())!
+    const closeBox = (await close.boundingBox())!
+    expect(Math.abs(newChatBox.y - closeBox.y)).toBeLessThan(2)
+    expect(newChatBox.x + newChatBox.width).toBeLessThanOrEqual(closeBox.x)
+    const input = dialog.getByLabel('Message', { exact: true })
+    await input.fill('Send with Enter')
+    await expect(dialog.getByRole('button', { name: 'Send message' })).toBeEnabled()
+    await input.press('Enter')
+    await expect(dialog.getByRole('log')).toContainText('Received: Send with Enter')
+    await input.fill('Send with Shift+Enter')
+    await input.press('Shift+Enter')
+    await expect(dialog.getByRole('log')).toContainText('Received: Send with Shift+Enter')
+    expect(messages.filter(message => message.sender_kind === 'user').map(message => message.body)).toEqual(['Send with Enter', 'Send with Shift+Enter'])
+})
+
 for (const width of [390, 1440]) {
     test(`guest AI chat and human handoff fit at ${width}px`, async ({ page }) => {
         await page.setViewportSize({ width, height: 844 })
