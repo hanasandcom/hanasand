@@ -1,18 +1,23 @@
-import { Panel, Stat, formatActivityTime, formatUsageKind } from './workbenchPaneDisplay'
+import { Panel, Stat, WorkspacePrimaryAction, formatActivityTime, formatUsageKind } from './workbenchPaneDisplay'
 import { RefreshCcw, Share2, TerminalSquare } from 'lucide-react'
 
-export function WorkspaceOverviewPanels({ activeConversation, activeRepo, activeShare, workspaceSource, selectedPath, lastWorkspaceAction, lastWorkspaceActionAt, lastChangedPath, recentPaths, ownershipSummary }: { activeConversation: AIConversation | null, activeRepo: AIImportedRepo | null, activeShare: Share | null, workspaceSource: string | null, selectedPath: string | null, lastWorkspaceAction: string | null, lastWorkspaceActionAt: string | null, lastChangedPath: string | null, recentPaths: string[], ownershipSummary: AIOwnershipSummary | null }) {
+export function WorkspaceOverviewPanels({ activeConversation, activeRepo, activeShare, workspaceSource, selectedPath, lastWorkspaceAction, lastWorkspaceActionAt, lastChangedPath, recentPaths, ownershipSummary, onConnectRepository }: { activeConversation: AIConversation | null, activeRepo: AIImportedRepo | null, activeShare: Share | null, workspaceSource: string | null, selectedPath: string | null, lastWorkspaceAction: string | null, lastWorkspaceActionAt: string | null, lastChangedPath: string | null, recentPaths: string[], ownershipSummary: AIOwnershipSummary | null, onConnectRepository: () => void }) {
+    const hasWorkspace = Boolean(activeRepo || activeShare || activeConversation?.workspaceKind)
     return (<>
         <Panel
             icon={<TerminalSquare className='h-4 w-4' />}
             title='Workspace'
-            subtitle={activeRepo?.fullName || activeShare?.alias || activeShare?.path || 'No workspace attached'}
+            subtitle={activeRepo?.fullName || activeShare?.alias || activeShare?.path || (hasWorkspace ? 'Workspace attached' : 'Connect a repo to work with your code.')}
         >
-            <Stat label='Mode' value={activeConversation?.workspaceKind === 'repo' ? 'Repository' : activeConversation?.workspaceKind === 'share' ? 'Share' : 'Idle'} />
-            <Stat label='Source' value={workspaceSource === 'scaffold' ? 'Scaffolded starter' : workspaceSource === 'repository-sync' ? 'Repository mirror' : workspaceSource === 'share' ? 'Existing share' : 'Unknown'} />
-            <Stat label='Focus' value={selectedPath || 'No file selected'} />
-            <Stat label='Shares' value={`${activeConversation?.shareIds?.length || 0} attached`} />
-            {activeRepo ? <Stat label='Stack' value={activeRepo.stackType === 'unknown' ? (activeRepo.stackReason || 'Unsupported stack') : activeRepo.stackType.replaceAll('_', ' ')} /> : null}
+            {hasWorkspace ? <>
+                <Stat label='Mode' value={activeConversation?.workspaceKind === 'repo' ? 'Repository' : activeConversation?.workspaceKind === 'share' ? 'Share' : 'Workspace'} />
+                <Stat label='Source' value={workspaceSource === 'scaffold' ? 'Scaffolded starter' : workspaceSource === 'repository-sync' ? 'Repository mirror' : workspaceSource === 'share' ? 'Existing share' : 'Workspace'} />
+                {selectedPath ? <Stat label='Focus' value={selectedPath} /> : null}
+                {activeConversation?.shareIds?.length ? <Stat label='Shares' value={`${activeConversation.shareIds.length} attached`} /> : null}
+                {activeRepo ? <Stat label='Stack' value={activeRepo.stackType === 'unknown' ? (activeRepo.stackReason || 'Unsupported stack') : activeRepo.stackType.replaceAll('_', ' ')} /> : null}
+            </> : <div>
+                <WorkspacePrimaryAction onClick={onConnectRepository}>Attach workspace</WorkspacePrimaryAction>
+            </div>}
         </Panel>
 
         {lastWorkspaceAction ? (

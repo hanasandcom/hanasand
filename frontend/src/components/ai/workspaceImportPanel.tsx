@@ -10,7 +10,7 @@ export function WorkspaceImportPanel({ importInput, githubToken, importPending, 
             subtitle='Import a public or private repository.'
         >
             <div className='flex gap-2'>
-                <input value={importInput} onChange={(event) => onImportInputChange(event.target.value)} placeholder='owner/repo, URL, or repo#branch:path' className='min-w-0 flex-1 rounded-lg bg-ui-panel px-3 py-2 text-sm text-ui-text outline outline-ui-border placeholder:text-ui-muted' />
+                <input id='workspace-repository-url' value={importInput} onChange={(event) => onImportInputChange(event.target.value)} placeholder='owner/repo, URL, or repo#branch:path' className='min-w-0 flex-1 rounded-lg bg-ui-panel px-3 py-2 text-sm text-ui-text outline outline-ui-border placeholder:text-ui-muted' />
                 <WorkspacePrimaryAction onClick={onImportRepo} disabled={importPending}>
                     {importPending ? 'Importing' : 'Import'}
                 </WorkspacePrimaryAction>

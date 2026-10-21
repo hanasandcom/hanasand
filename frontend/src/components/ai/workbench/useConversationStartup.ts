@@ -5,7 +5,7 @@ import type { WorkbenchState } from './useWorkbenchState'
 
 export function useConversationStartup(state: WorkbenchState) {
     const {
-        conversations, clients, isAuthenticated, initialConversationId, initialRuntimeState,
+        conversations, isAuthenticated, initialConversationId, initialRuntimeState,
         initialWorkspaceUnavailable = false,
         conversationsRef, createNewConversationRef, bootstrappedRef, setConversations,
         setActiveConversationId, activeConversationId, setStatusNotice, setResumeNotice,
@@ -36,7 +36,7 @@ export function useConversationStartup(state: WorkbenchState) {
     }, [activeConversationId])
     useEffect(() => {
         createNewConversationRef.current = async () => {
-            const conversation = createConversation(clients[0]?.name || null)
+            const conversation = createConversation()
             setConversations((prev) => [conversation, ...prev])
             setActiveConversationId(conversation.id)
             setStatusNotice(null)
@@ -51,7 +51,7 @@ export function useConversationStartup(state: WorkbenchState) {
                 setStatusNotice(error instanceof Error ? error.message : 'Couldn’t start a chat.')
             }
         }
-    }, [clients, createNewConversationRef, isAuthenticated, setActiveConversationId, setConversations, setStatusNotice])
+    }, [createNewConversationRef, isAuthenticated, setActiveConversationId, setConversations, setStatusNotice])
     useEffect(() => {
         if (bootstrappedRef.current || initialWorkspaceUnavailable || conversations.some((conversation) => !conversation.archivedAt)) return
         bootstrappedRef.current = true

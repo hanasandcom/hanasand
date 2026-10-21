@@ -104,11 +104,16 @@ export default function WorkspacePane(props: WorkspacePaneProps) {
     const trustRelease = releases.find((release) => release.status === 'current') || latestRelease
     const trust = trustRelease?.trust || buildFallbackTrust(trustRelease)
     const launchReport = trust?.launchReport || []
+    const focusRepositoryImport = () => {
+        const input = document.getElementById('workspace-repository-url')
+        input?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+        input?.focus({ preventScroll: true })
+    }
 
 
     return (
-        <aside className='flex h-full min-h-0 w-full max-w-full min-w-0 flex-col gap-3 overflow-hidden rounded-lg bg-ui-raised p-3 outline outline-ui-border'>
-            <WorkspaceOverviewPanels activeConversation={activeConversation} activeRepo={activeRepo} activeShare={activeShare} workspaceSource={workspaceSource} selectedPath={selectedPath} lastWorkspaceAction={lastWorkspaceAction} lastWorkspaceActionAt={lastWorkspaceActionAt} lastChangedPath={lastChangedPath} recentPaths={recentPaths} ownershipSummary={ownershipSummary} />
+        <aside className='flex h-full min-h-0 w-full max-w-full min-w-0 flex-col gap-3 overflow-x-hidden overflow-y-auto overscroll-contain rounded-lg bg-ui-raised p-3 outline outline-ui-border'>
+            <WorkspaceOverviewPanels activeConversation={activeConversation} activeRepo={activeRepo} activeShare={activeShare} workspaceSource={workspaceSource} selectedPath={selectedPath} lastWorkspaceAction={lastWorkspaceAction} lastWorkspaceActionAt={lastWorkspaceActionAt} lastChangedPath={lastChangedPath} recentPaths={recentPaths} ownershipSummary={ownershipSummary} onConnectRepository={focusRepositoryImport} />
             <WorkspaceCollaborationPanel activeConversation={activeConversation} currentUserId={currentUserId} collaboratorPending={collaboratorPending} collaborationError={collaborationError} onInviteCollaborator={onInviteCollaborator} onRemoveCollaborator={onRemoveCollaborator} />
             <WorkspaceAccessSummary activeConversation={activeConversation} launchOwners={launchOwners} reportOwners={reportOwners} ownershipSummary={ownershipSummary} latestRelease={latestRelease} />
             <WorkspaceReleasePanels trustRelease={trustRelease} trust={trust} launchReport={launchReport} releases={releases} rollbackPendingId={rollbackPendingId} onRollbackRelease={onRollbackRelease} />

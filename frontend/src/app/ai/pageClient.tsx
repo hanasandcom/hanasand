@@ -98,13 +98,11 @@ export default function AIPageClient({
                         onDeletePrompt={id => mutatePrompt('delete', id)}
                         onMovePrompt={(id, direction) => mutatePrompt('reorder', id, { direction })}
                         onComposerChange={ai.setComposer}
-                        onModelStrategyChange={ai.setModelStrategy}
-                        onPreferredModelChange={ai.setPreferredModel}
                         onSend={sendPrompt}
                     />
 
                     {showWorkspaceRail && detailsOpen ? (
-                        <div className='min-h-0 xl:col-span-2 2xl:col-span-1'>
+                        <div className='h-full min-h-0 overflow-hidden xl:col-span-2 2xl:col-span-1'>
                             <WorkspacePane
                                 activeConversation={ai.activeConversation}
                                 importedRepos={ai.importedRepos}
