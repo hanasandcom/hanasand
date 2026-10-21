@@ -2,6 +2,7 @@
 
 import { Archive, File, Inbox, Send, ShieldAlert, Trash2 } from 'lucide-react'
 import type { MailOverview } from '@/utils/mail/types'
+import { MailSelect } from './mailSelect'
 
 const icons = { inbox: Inbox, sent: Send, drafts: File, archive: Archive, junk: ShieldAlert, trash: Trash2 }
 
@@ -15,11 +16,15 @@ export function MailSidebar({ overview, mailboxUser, mailboxId, onAccount, onFol
     const accounts = overview?.accessibleAccounts || []
     const folders = overview?.mailboxes || []
     return <aside className='hidden min-h-0 flex-col gap-4 rounded-xl border border-ui-border bg-ui-panel p-3 lg:flex'>
-        <label className='grid gap-1 text-xs font-medium text-ui-muted'>Account
-            <select value={mailboxUser || overview?.mailboxUser || ''} onChange={event => onAccount(event.target.value)} className='h-9 min-w-0 rounded-lg border border-ui-border bg-ui-raised px-2 text-sm text-ui-text'>
-                {accounts.map(account => <option key={account.id} value={account.id}>{account.address || account.name}</option>)}
-            </select>
-        </label>
+        <div className='grid gap-1.5'>
+            <span className='text-[10px] font-semibold uppercase tracking-[0.12em] text-ui-muted'>Account</span>
+            <MailSelect
+                label='Mail account'
+                value={mailboxUser || overview?.mailboxUser || ''}
+                options={accounts.map(account => ({ id: account.id, label: account.address || account.name }))}
+                onChange={onAccount}
+            />
+        </div>
         <nav aria-label='Mail folders' className='grid gap-1'>
             {folders.map(folder => {
                 const key = (folder.role || folder.name).toLowerCase()

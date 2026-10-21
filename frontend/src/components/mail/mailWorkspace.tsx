@@ -6,6 +6,7 @@ import type { MailMessageSummary } from '@/utils/mail/types'
 import { MailComposer } from './mailComposer'
 import { MailMessageList } from './mailMessageList'
 import { MailReader } from './mailReader'
+import { MailSelect } from './mailSelect'
 import { MailSidebar } from './mailSidebar'
 import { useMailWorkspace } from './useMailWorkspace'
 
@@ -20,14 +21,12 @@ export default function MailWorkspace({ mailboxUser }: { mailboxUser?: string | 
     const selectedSummary = mail.messages.find(message => message.id === mail.selectedMessageId) || null
     const choose = (message: MailMessageSummary) => { setMobileReader(true); void mail.selectMessage(message) }
 
-    return <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column' }} className='@container !gap-3 !px-2 !py-3 text-ui-text sm:!px-4'>
+    return <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column' }} className='@container !gap-3 !px-3 !py-3 text-ui-text'>
         <h1 className='sr-only'>Mail</h1>
         <section className={`${panelClass} flex flex-wrap items-center gap-2 p-2.5 sm:p-3`}>
             <div className='min-w-36 flex-1 sm:min-w-48'><p className='text-[10px] text-ui-muted'>Mailbox</p><p className='truncate text-xs font-medium text-ui-text'>{mail.overview?.mailboxAddress || 'Loading mailbox…'}</p></div>
-            {mail.overview?.accessibleAccounts.length ? <label className='sr-only' htmlFor='mail-account-mobile'>Mail account</label> : null}
-            {mail.overview?.accessibleAccounts.length ? <select id='mail-account-mobile' value={mail.mailboxUser} onChange={event => mail.switchAccount(event.target.value)} className='h-8 max-w-36 rounded-lg border border-ui-border bg-ui-raised px-2 text-xs text-ui-text lg:hidden'>{mail.overview.accessibleAccounts.map(account => <option key={account.id} value={account.id}>{account.address || account.name}</option>)}</select> : null}
-            {mail.overview?.mailboxes.length ? <label className='sr-only' htmlFor='mail-folder-mobile'>Mail folder</label> : null}
-            {mail.overview?.mailboxes.length ? <select id='mail-folder-mobile' value={mail.mailboxId} onChange={event => mail.selectFolder(event.target.value)} className='h-8 max-w-32 rounded-lg border border-ui-border bg-ui-raised px-2 text-xs text-ui-text lg:hidden'>{mail.overview.mailboxes.map(folder => <option key={folder.id} value={folder.id}>{folder.name}</option>)}</select> : null}
+            {mail.overview?.accessibleAccounts.length ? <MailSelect id='mail-account-mobile' label='Mail account' value={mail.mailboxUser} onChange={mail.switchAccount} options={mail.overview.accessibleAccounts.map(account => ({ id: account.id, label: account.address || account.name }))} compact className='w-40 lg:hidden' /> : null}
+            {mail.overview?.mailboxes.length ? <MailSelect id='mail-folder-mobile' label='Mail folder' value={mail.mailboxId} onChange={mail.selectFolder} options={mail.overview.mailboxes.map(folder => ({ id: folder.id, label: folder.name }))} compact className='w-32 lg:hidden' /> : null}
             <label className='sr-only' htmlFor='mail-search'>Search messages</label>
             <div className='relative min-w-36 flex-1 sm:max-w-xs'><Search className='absolute left-2.5 top-2 h-4 w-4 text-ui-muted' /><input id='mail-search' value={mail.searchText} onChange={event => mail.setSearchText(event.target.value)} placeholder='Search mail' className='h-8 w-full rounded-lg border border-ui-border bg-ui-raised pl-8 pr-8 text-xs text-ui-text outline-none focus:border-ui-primary' />{mail.searchText && <button type='button' aria-label='Clear search' onClick={() => mail.setSearchText('')} className='absolute right-2 top-2 text-ui-muted'><X className='h-4 w-4' /></button>}</div>
             <button type='button' onClick={() => void mail.load()} aria-label='Refresh mail' className='inline-flex h-8 items-center gap-1.5 rounded-lg border border-ui-border bg-ui-raised px-2.5 text-xs text-ui-text hover:bg-ui-panel'><RefreshCw className={`h-3.5 w-3.5 ${mail.loading ? 'animate-spin' : ''}`} />Refresh</button>
