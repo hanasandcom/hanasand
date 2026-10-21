@@ -10,6 +10,7 @@ export async function handleMessage(
     socket: WS,
     rawMessage: RawData,
     clients: Map<string, Set<WS>>,
+    deviceProofUrl = '',
 ) {
     let validEdit = false
     try {
@@ -21,7 +22,7 @@ export async function handleMessage(
 
         const share = await run('SELECT organization_id FROM share WHERE id = $1', [id])
         if (!share.rows.length) throw new Error('Share no longer exists')
-        const authorization = await getShareEditAuthorization(msg, share.rows[0].organization_id)
+        const authorization = await getShareEditAuthorization(msg, share.rows[0].organization_id, deviceProofUrl)
         if (!authorization.allowed) {
             socket.send(JSON.stringify({ type: 'error', error: 'You do not have permission to edit this organization’s share.' }))
             return
@@ -35,11 +36,15 @@ export async function handleMessage(
     }
 }
 
-async function getShareEditAuthorization(msg: any, organizationId: string | null) {
+async function getShareEditAuthorization(msg: any, organizationId: string | null, deviceProofUrl: string) {
     if (!organizationId) return { allowed: true, userId: null }
 
     const session = typeof msg.userId === 'string' && typeof msg.token === 'string'
-        ? await validateSession({ id: msg.userId, token: msg.token }).catch(() => null) : null
+        ? await validateSession({
+            id: msg.userId,
+            token: msg.token,
+            deviceProof: { proof: typeof msg.dpop === 'string' ? msg.dpop : undefined, method: 'GET', url: deviceProofUrl },
+        }).catch(() => null) : null
     const userId = session?.user.id || null
     const allowed = Boolean(userId && await contentOrganizationAccess(organizationId, userId, true))
     return { allowed, userId }

@@ -3,6 +3,7 @@ import { withDatabaseAdvisoryLock, withTransaction } from '#db'
 import { accountDeletionPurgeLockKey, createAccountRestoreToken, hashAccountRestoreToken } from '#utils/auth/accountDeletion.ts'
 import login from '#utils/auth/login.ts'
 import { consumePendingPasswordResetCodes } from '#utils/auth/passwordReset.ts'
+import { devicePublicJwkFromRequest } from '#utils/auth/deviceProofRequest.ts'
 
 export default async function restoreSelf(req: FastifyRequest, res: FastifyReply) {
     const { id, restoreToken } = req.body as { id?: string, restoreToken?: string } ?? {}
@@ -46,7 +47,7 @@ export default async function restoreSelf(req: FastifyRequest, res: FastifyReply
         return res.status(400).send({ error: 'This account can no longer be restored from this link.' })
     }
 
-    const session = await login({ id: userId, ip: req.ip, userAgent: String(req.headers['user-agent'] || '') })
+    const session = await login({ id: userId, ip: req.ip, userAgent: String(req.headers['user-agent'] || ''), devicePublicJwk: devicePublicJwkFromRequest(req) })
     return res.send({
         ...result.rows[0],
         message: 'Account restored.',

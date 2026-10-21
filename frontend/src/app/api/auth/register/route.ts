@@ -35,7 +35,10 @@ export async function POST(req: NextRequest) {
 
     const upstream = await fetch(`${authApiUrl()}/user`, {
         method: 'POST',
-        headers: { ...clientHeaders(req.headers), 'Content-Type': 'application/json' },
+        headers: {
+            ...clientHeaders(req), 'Content-Type': 'application/json',
+            ...(req.headers.get('x-device-public-jwk') ? { 'x-device-public-jwk': req.headers.get('x-device-public-jwk')! } : {}),
+        },
         body: JSON.stringify({ name, id, password, email, challengeId: body?.challengeId, code: body?.code }),
         cache: 'no-store',
     }).catch(() => null)
@@ -78,7 +81,10 @@ export async function POST(req: NextRequest) {
 async function createLoginSession(req: NextRequest, id: string, password: string) {
     const upstream = await fetch(`${identityApiUrl()}/auth/login/${encodeURIComponent(id)}`, {
         method: 'POST',
-        headers: { ...clientHeaders(req.headers), 'Content-Type': 'application/json' },
+        headers: {
+            ...clientHeaders(req), 'Content-Type': 'application/json',
+            ...(req.headers.get('x-device-public-jwk') ? { 'x-device-public-jwk': req.headers.get('x-device-public-jwk')! } : {}),
+        },
         body: JSON.stringify({ password }),
         cache: 'no-store',
     }).catch(() => null)

@@ -5,12 +5,14 @@ import registerVmConsole from '../handlers/vms/console.ts'
 import registerInternalVmConsole from '../handlers/vms/consoleInternal.ts'
 import registerHostConsole from '../handlers/hostConsole.ts'
 import { subscribeThesis } from '#utils/thesis.ts'
-import { thesisCredentials, thesisMember } from '#utils/thesisAccess.ts'
+import { thesisMember } from '#utils/thesisAccess.ts'
 import { registerClient } from '#utils/ws/registerClient.ts'
 import { removeClient } from '#utils/ws/removeClient.ts'
 import { createShareTerminal, handleShareTerminalMessage, sendTerminalUpdate } from './ws/shareTerminal.ts'
 import { recordWebsocketFailure } from './ws/protocol.ts'
 import { testClients, shareClients, pendingUpdates } from './ws/state.ts'
+import { deviceProofFromRequest } from '#utils/auth/deviceProofRequest.ts'
+import { deviceProofFromWebSocket } from '#utils/auth/deviceProofRequest.ts'
 
 export { testClients, shareClients, pendingUpdates }
 
@@ -21,11 +23,35 @@ export default fp(async function wsPlugin(fastify: FastifyInstance) {
     registerSystemStream(fastify)
 
     fastify.get('/api/ws/thesis', { websocket: true }, (socket, request) => {
-        const credentials = thesisCredentials(request)
-        void thesisMember(credentials.id, credentials.token).then(member => {
-            if (!member) socket.close(1008, 'Hanasand organization membership is required.')
-            else subscribeThesis(socket)
-        }).catch(() => socket.close(1011))
+        let authenticating = false
+        let authenticated = false
+        const origin = request.headers.origin
+        if (origin && origin !== 'https://hanasand.com' && origin !== 'https://www.hanasand.com') {
+            socket.close(1008)
+            return
+        }
+        const deadline = setTimeout(() => socket.close(1008), 10000)
+        socket.on('close', () => clearTimeout(deadline))
+        socket.on('message', raw => {
+            if (authenticating || authenticated) return socket.close(1008)
+            authenticating = true
+            void (async () => {
+                try {
+                    if (Buffer.byteLength(raw.toString()) > 4096) throw new Error('Invalid authentication')
+                    const auth = JSON.parse(raw.toString())
+                    const proof = deviceProofFromWebSocket(request, auth?.dpop)
+                    if (auth?.type !== 'auth' || typeof auth.id !== 'string' || typeof auth.token !== 'string'
+                        || auth.id.length > 200 || auth.token.length > 512
+                        || !await thesisMember(auth.id, auth.token, proof)) throw new Error('Unauthorized')
+                    if (socket.readyState !== WebSocket.OPEN) return
+                    authenticated = true
+                    clearTimeout(deadline)
+                    subscribeThesis(socket)
+                } catch {
+                    socket.close(1008, 'Hanasand organization membership is required.')
+                }
+            })()
+        })
     })
 
     fastify.get('/api/ws/test/:id', { websocket: true }, (connection, req: FastifyRequest) => {
@@ -38,9 +64,10 @@ export default fp(async function wsPlugin(fastify: FastifyInstance) {
 
     fastify.get<{ Params: { id: string } }>('/api/ws/share/:id', { websocket: true }, (connection, req) => {
         const id = req.params.id
+        const proofUrl = deviceProofFromRequest(req).url
         registerClient(id, connection, shareClients)
         connection.on('message', message => {
-            void import('#utils/ws/handleMessage.ts').then(({ handleMessage }) => handleMessage(id, connection, message, shareClients))
+            void import('#utils/ws/handleMessage.ts').then(({ handleMessage }) => handleMessage(id, connection, message, shareClients, proofUrl))
         })
         connection.on('error', error => { void recordWebsocketFailure('share-client', id, error) })
         connection.on('close', () => removeClient(id, connection, shareClients))

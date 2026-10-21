@@ -1,11 +1,13 @@
 import config from '@/config'
 import { cookies } from 'next/headers'
 import { activeOrganizationId } from './serverWorkspace'
+import serverDeviceProofHeaders from '@/utils/auth/serverDeviceProofHeaders'
 
 export default async function fetchWorkspaceContent<T>(kind: 'articles' | 'thoughts'): Promise<T[]> {
     const store = await cookies()
     const organizationId = await activeOrganizationId()
     const headers: Record<string, string> = {
+        ...await serverDeviceProofHeaders(),
         Authorization: `Bearer ${store.get('access_token')?.value || ''}`,
         id: store.get('id')?.value || '',
     }

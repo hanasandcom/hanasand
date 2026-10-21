@@ -2,6 +2,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify'
 import { validateSession } from '#utils/auth/session.ts'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import run from '#db'
+import { deviceProofFromRequest } from '#utils/auth/deviceProofRequest.ts'
 
 /**
  * Fetches internal info for a user based on `id`
@@ -28,7 +29,7 @@ export default async function authorizedUserHandler(req: FastifyRequest, res: Fa
     const token = authHeader.split(' ')[1]
 
     try {
-        const session = await validateSession({ id, token })
+        const session = await validateSession({ id, token, deviceProof: deviceProofFromRequest(req) })
         if (!session) {
             const auth = await tokenWrapper(req, res)
             if (!auth.valid || auth.id !== id) {

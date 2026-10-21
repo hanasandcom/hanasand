@@ -4,9 +4,10 @@ import { validateSession } from '#utils/auth/session.ts'
 import { hasHanasandInternalPageAccess } from '#utils/auth/organizationPageAccess.ts'
 import { listRuntimeContainersWithStats } from '#utils/docker/engine.ts'
 import getStats from '#utils/refresh/queries/stats.ts'
+import { deviceProofFromWebSocket } from '#utils/auth/deviceProofRequest.ts'
 
-export async function canViewSystem(id: string, token: string) {
-    const session = await validateSession({ id, token })
+export async function canViewSystem(id: string, token: string, deviceProof?: { proof?: string, method: string, url: string }, trustedInternal = false) {
+    const session = await validateSession({ id, token, deviceProof, trustedInternal })
     if (!session) return false
     return hasHanasandInternalPageAccess(session.user.id)
 }
@@ -50,7 +51,7 @@ export default function registerSystemStream(fastify: FastifyInstance) {
             try {
                 if (Buffer.byteLength(raw.toString()) > 4096) throw new Error('Invalid authentication')
                 const auth = JSON.parse(raw.toString())
-                if (auth.type !== 'auth' || typeof auth.id !== 'string' || typeof auth.token !== 'string' || auth.id.length > 200 || auth.token.length > 512 || !await canViewSystem(auth.id, auth.token)) throw new Error('Unauthorized')
+                if (auth.type !== 'auth' || typeof auth.id !== 'string' || typeof auth.token !== 'string' || auth.id.length > 200 || auth.token.length > 512 || !await canViewSystem(auth.id, auth.token, deviceProofFromWebSocket(request, auth.dpop))) throw new Error('Unauthorized')
                 if (socket.readyState !== WebSocket.OPEN) return
                 credentials = { id: auth.id, token: auth.token }
                 clearTimeout(deadline)
@@ -60,7 +61,7 @@ export default function registerSystemStream(fastify: FastifyInstance) {
                 recheck = setInterval(async () => {
                     if (checking || !credentials) return
                     checking = true
-                    try { if (!await canViewSystem(credentials.id, credentials.token)) socket.close(1008) } catch { socket.close(1008) } finally { checking = false }
+                    try { if (!await canViewSystem(credentials.id, credentials.token, undefined, true)) socket.close(1008) } catch { socket.close(1008) } finally { checking = false }
                 }, 30000)
             } catch { socket.close(1008) }
         })

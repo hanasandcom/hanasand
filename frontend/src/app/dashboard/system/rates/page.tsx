@@ -4,6 +4,7 @@ import { systemExpiredSessionPath } from '../systemRoutes'
 import config from '@/config'
 import { DashboardPage } from 'hanasand/dashboard'
 import RateLimitsPageClient from './pageClient'
+import serverDeviceProofHeaders from '@/utils/auth/serverDeviceProofHeaders'
 
 export default async function RateLimitsPage() {
     const Cookies = await cookies()
@@ -15,6 +16,7 @@ export default async function RateLimitsPage() {
     }
 
     const headers = {
+        ...await serverDeviceProofHeaders(),
         Authorization: `Bearer ${decodeURIComponent(token)}`,
         id,
     }

@@ -1,5 +1,6 @@
 import 'server-only'
 import type { ProfileSshKey } from '@/utils/sshKeys'
+import serverDeviceProofHeaders from '@/utils/auth/serverDeviceProofHeaders'
 
 const IDENTITY_REQUEST_TIMEOUT_MS = 3000
 
@@ -8,7 +9,7 @@ export async function getProfileSshKeysFromIdentity(id: string, token: string): 
     try {
         const response = await fetch(`${identityApi}/user/self/ssh-keys`, {
             cache: 'no-store',
-            headers: { Authorization: `Bearer ${decodeToken(token)}`, id },
+            headers: { ...await serverDeviceProofHeaders(), Authorization: `Bearer ${decodeToken(token)}`, id },
             signal: AbortSignal.timeout(IDENTITY_REQUEST_TIMEOUT_MS),
         })
         if (!response.ok) return null

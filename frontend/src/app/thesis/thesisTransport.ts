@@ -1,6 +1,7 @@
 import config from '@/config'
 import type { ThesisDocument } from '@/utils/thesis'
 import { sameThesis } from './thesisRecovery'
+import { getCookie } from '@/utils/cookies/cookies'
 
 type ThesisTransportOptions = {
     canEdit: boolean
@@ -79,9 +80,7 @@ export function createThesisTransport(options: ThesisTransportOptions) {
         if (!canEdit || hasConflict() || !isDirty()) return
         keepDraft()
         const body = JSON.stringify({ ...getDraft(), revision: getBase().revision })
-        // Browsers cap keepalive/beacon payloads at about 64 KiB. Larger drafts remain recoverable locally.
         const payload = new Blob([body], { type: 'application/json' })
-        if (payload.size <= 60000 && navigator.sendBeacon('/api/thesis', payload)) return
         void fetch('/api/thesis', {
             method: 'PUT', headers: { 'Content-Type': 'application/json' }, body,
             keepalive: payload.size <= 60000,
@@ -90,7 +89,10 @@ export function createThesisTransport(options: ThesisTransportOptions) {
 
     function connect() {
         socket = new WebSocket(`${config.url.api_wss}/thesis`)
-        socket.onopen = () => { retryDelay = 1000 }
+        socket.onopen = () => {
+            retryDelay = 1000
+            socket?.send(JSON.stringify({ type: 'auth', id: getCookie('id') || '', token: getCookie('access_token') || '' }))
+        }
         socket.onmessage = event => {
             try { receive(JSON.parse(event.data)) } catch { /* Ignore malformed transport messages. */ }
         }

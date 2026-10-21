@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { identityApiUrl } from '@/utils/auth/authApiUrl'
+import { clientHeaders } from '@/utils/auth/clientHeaders'
 
 export async function POST(req: NextRequest) {
     const cookieStore = await cookies()
@@ -13,7 +14,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({})) as { target_id?: string, targetId?: string }
     const response = await fetch(`${identityApiUrl().replace(/\/+$/, '')}/impersonation/start`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}`, id: actorId },
+        headers: { ...clientHeaders(req), 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}`, id: actorId },
         body: JSON.stringify({ targetId: body.targetId || body.target_id }),
         cache: 'no-store',
     })

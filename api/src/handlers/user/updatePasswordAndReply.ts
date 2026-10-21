@@ -1,6 +1,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import { validatePassword } from '#utils/auth/password.ts'
 import updateUserPassword from './updateUserPassword.ts'
+import { devicePublicJwkFromRequest } from '#utils/auth/deviceProofRequest.ts'
 
 export default async function updatePasswordAndReply(
     req: FastifyRequest,
@@ -19,6 +20,7 @@ export default async function updatePasswordAndReply(
             password,
             ip: req.ip,
             userAgent: String(req.headers['user-agent'] || ''),
+            devicePublicJwk: devicePublicJwkFromRequest(req),
         })
         if (!session.userFound) {
             return res.status(400).send({ error: 'User not found.' })

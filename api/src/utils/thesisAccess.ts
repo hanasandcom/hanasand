@@ -1,11 +1,12 @@
 import type { FastifyRequest } from 'fastify'
 import { performance } from 'node:perf_hooks'
 import { validateSession } from '#utils/auth/session.ts'
+import { deviceProofFromRequest } from '#utils/auth/deviceProofRequest.ts'
 import { hasHanasandInternalPageAccess } from '#utils/auth/organizationPageAccess.ts'
 
-export async function thesisAccess(id: string, token: string) {
+export async function thesisAccess(id: string, token: string, deviceProof?: { proof?: string, method: string, url: string }) {
     const authorizationStarted = performance.now()
-    const session = await validateSession({ id, token, organizationSlug: 'hanasand' })
+    const session = await validateSession({ id, token, organizationSlug: 'hanasand', deviceProof })
     return {
         session,
         member: session?.organizationMember === true,
@@ -14,8 +15,8 @@ export async function thesisAccess(id: string, token: string) {
     }
 }
 
-export async function thesisMember(id: string, token: string) {
-    const access = await thesisAccess(id, token)
+export async function thesisMember(id: string, token: string, deviceProof?: { proof?: string, method: string, url: string }) {
+    const access = await thesisAccess(id, token, deviceProof)
     return Boolean(access.session && access.member)
 }
 
@@ -24,5 +25,5 @@ export function thesisCredentials(req: FastifyRequest) {
     const cookies = Object.fromEntries((req.headers.cookie || '').split(';').map(item => item.trim().split(/=(.*)/s, 2)).filter(item => item.length === 2))
     const token = authorization.startsWith('Bearer ') ? authorization.slice(7) : cookies.access_token || ''
     const id = (typeof req.headers.id === 'string' ? req.headers.id : cookies.id) || ''
-    return { id, token }
+    return { id, token, deviceProof: deviceProofFromRequest(req) }
 }

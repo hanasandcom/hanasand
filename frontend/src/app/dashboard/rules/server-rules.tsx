@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { activeOrganizationId } from '@/utils/organizations/serverWorkspace'
 import DetectionRules, { type InitialRules } from './detection-rules'
 import type { RuleCategory } from './rule-categories'
+import serverDeviceProofHeaders from '@/utils/auth/serverDeviceProofHeaders'
 
 export default async function ServerRules({ category }: { category: RuleCategory }) {
     const [store, organizationId] = await Promise.all([cookies(), activeOrganizationId()])
@@ -13,7 +14,7 @@ export default async function ServerRules({ category }: { category: RuleCategory
         if (!token || !id) initial.error = 'Sign in to load rules.'
         else {
             try {
-                const headers = new Headers({ Authorization: `Bearer ${token}`, id })
+                const headers = new Headers({ ...await serverDeviceProofHeaders(), Authorization: `Bearer ${token}`, id })
                 const impersonation = store.get('impersonation_token')?.value
                 if (impersonation) headers.set('x-impersonation-token', impersonation)
                 const query = new URLSearchParams({ organizationId, view: 'list', category })

@@ -35,6 +35,11 @@ export async function proxy(req: NextRequest) {
         })
     }
     const requestHeaders = new Headers(req.headers)
+    for (const header of [
+        'x-hanasand-session-validated', 'x-hanasand-session-id', 'x-hanasand-session-token',
+        'x-hanasand-session-can-view-internal', 'x-hanasand-session-can-edit-internal',
+        'x-hanasand-session-name', 'x-hanasand-session-avatar', 'x-hanasand-session-expires-at',
+    ]) requestHeaders.delete(header)
     const theme = req.cookies.get('theme')?.value || 'dark'
     const impersonationToken = req.cookies.get('impersonation_token')?.value || ''
     const impersonatingId = req.cookies.get('impersonating_id')?.value || ''
@@ -57,7 +62,7 @@ export async function proxy(req: NextRequest) {
 
     // Page aliases are relative rewrites in next.config.js. Middleware URLs can
     // normalize a loopback host and accidentally turn them into external HTTPS requests.
-    const response = NextResponse.next({ request: { headers: requestHeaders } })
+    let response: NextResponse | undefined
     const refreshedCookieOptions = authCookieOptions(req)
     let refreshedAuth: TokenRefreshCookies | null = null
 
@@ -72,6 +77,11 @@ export async function proxy(req: NextRequest) {
         if (!canViewOrganizationInternalPages) {
             const auth = await tokenIsValid(token, id, impersonationToken || undefined, {
                 includeInternalAccess: Boolean(strictPath),
+                deviceProof: {
+                    proof: req.headers.get('dpop') || undefined,
+                    method: req.headers.get('x-device-proof-method') || req.method,
+                    url: req.headers.get('x-device-proof-url') || req.url,
+                },
             })
 
             if (auth.state === 'unavailable') {
@@ -81,6 +91,7 @@ export async function proxy(req: NextRequest) {
             }
 
             if (auth.servicePages) {
+                response = NextResponse.next({ request: { headers: requestHeaders } })
                 const canLoadDatabaseQueries = canonicalPath === '/api/db/queries'
                     && req.method === 'GET'
                     && auth.servicePages.includes('/db')
@@ -89,6 +100,19 @@ export async function proxy(req: NextRequest) {
                 }
                 return response
             }
+
+            // Proxy has verified this request's one-use device proof. Pass the
+            // verified session details to the server components for this same
+            // request so they do not replay the proof to Identity.
+            requestHeaders.set('x-hanasand-session-validated', '1')
+            requestHeaders.set('x-hanasand-session-id', id)
+            requestHeaders.set('x-hanasand-session-token', token)
+            requestHeaders.set('x-hanasand-session-can-view-internal', auth.canViewInternalPages === true ? '1' : '0')
+            requestHeaders.set('x-hanasand-session-can-edit-internal', auth.canEditInternalPages === true ? '1' : '0')
+            requestHeaders.set('x-hanasand-session-name', auth.name || '')
+            requestHeaders.set('x-hanasand-session-avatar', auth.avatar || '')
+            requestHeaders.set('x-hanasand-session-expires-at', auth.expires_at || '')
+            response = NextResponse.next({ request: { headers: requestHeaders } })
 
             if (auth.token) {
                 refreshedAuth = {
@@ -136,6 +160,7 @@ export async function proxy(req: NextRequest) {
         }
     }
 
+    response ??= NextResponse.next({ request: { headers: requestHeaders } })
     response.headers.set('x-theme', theme)
     response.headers.set('x-current-path', visiblePath)
     if (requestHeaders.get('x-auth-state')) {

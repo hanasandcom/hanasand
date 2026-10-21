@@ -1,5 +1,5 @@
 import { issueToken } from './session.ts'
 
-export default async function login({ id, ip, userAgent = '' }: { id: string, ip: string, userAgent?: string }) {
-    return issueToken({ id, ip, userAgent })
+export default async function login({ id, ip, userAgent = '', devicePublicJwk }: { id: string, ip: string, userAgent?: string, devicePublicJwk?: unknown }) {
+    return issueToken({ id, ip, userAgent, devicePublicJwk })
 }

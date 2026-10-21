@@ -2,6 +2,7 @@ import config from '@/config'
 import tokenIsValid from '@/utils/proxy/tokenIsValid'
 import { MAX_THESIS_BODY_LENGTH } from '@/utils/thesisLimits'
 import { cache } from 'react'
+import serverDeviceProofHeaders from '@/utils/auth/serverDeviceProofHeaders'
 
 export type ThesisDocument = { title: string, body: string, revision: number }
 export type ThesisRenderResult =
@@ -25,7 +26,7 @@ export function validThesis(value: unknown): value is ThesisDocument {
 }
 
 export async function readThesis(token: string, id: string): Promise<ThesisDocument> {
-    const response = await fetch(`${config.url.api}/thesis`, { headers: { Authorization: `Bearer ${token}`, id }, cache: 'no-store', signal: AbortSignal.timeout(10000) })
+    const response = await fetch(`${config.url.api}/thesis`, { headers: { ...await serverDeviceProofHeaders(), Authorization: `Bearer ${token}`, id }, cache: 'no-store', signal: AbortSignal.timeout(10000) })
     if (!response.ok) throw new Error('The thesis could not be loaded.')
     const document = await response.json()
     if (!validThesis(document)) throw new Error('Invalid saved thesis')
@@ -34,7 +35,7 @@ export async function readThesis(token: string, id: string): Promise<ThesisDocum
 
 export const loadThesisForRender = cache(async (token: string, id: string): Promise<ThesisRenderResult> => {
     const response = await fetch(`${config.url.api}/thesis`, {
-        headers: { Authorization: `Bearer ${token}`, id },
+        headers: { ...await serverDeviceProofHeaders(), Authorization: `Bearer ${token}`, id },
         cache: 'no-store',
         signal: AbortSignal.timeout(10000),
     })
@@ -48,7 +49,7 @@ export const loadThesisForRender = cache(async (token: string, id: string): Prom
 export async function writeThesis(document: ThesisDocument, token: string, id: string) {
     return fetch(`${config.url.api}/thesis`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, id },
+        headers: { ...await serverDeviceProofHeaders(), 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, id },
         body: JSON.stringify(document),
         cache: 'no-store',
         signal: AbortSignal.timeout(10000),

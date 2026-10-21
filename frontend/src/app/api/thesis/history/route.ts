@@ -3,6 +3,7 @@ import { canEditThesis } from '@/utils/thesis'
 import config from '@/config'
 import requireApiSession from '@/utils/proxy/requireApiSession'
 import { isHanasandOrganizationMember } from '@/utils/organizations/hanasandMembership'
+import serverDeviceProofHeaders from '@/utils/auth/serverDeviceProofHeaders'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,7 +19,7 @@ export async function GET(request: NextRequest) {
     const suffix = revision !== null ? `/${revision}` : before !== null ? `?before=${before}` : ''
     try {
         const response = await fetch(`${config.url.api}/thesis/history${suffix}`, {
-            headers: { Authorization: `Bearer ${token}`, id: id! },
+            headers: { ...await serverDeviceProofHeaders(), Authorization: `Bearer ${token}`, id: id! },
             cache: 'no-store',
             signal: AbortSignal.timeout(10000),
         })

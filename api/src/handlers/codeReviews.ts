@@ -3,6 +3,7 @@ import { queryOnce } from '#db'
 import { hasHanasandInternalPageAccess } from '#utils/auth/organizationPageAccess.ts'
 import hasInternalToken from '#utils/auth/internalToken.ts'
 import { thesisMember } from '#utils/thesisAccess.ts'
+import { deviceProofFromRequest } from '#utils/auth/deviceProofRequest.ts'
 
 let schema: Promise<unknown> | undefined
 async function prepare() {
@@ -27,7 +28,7 @@ export async function getCodeReviews(req: FastifyRequest, res: FastifyReply) {
         if (!internal) {
             const id = typeof req.headers.id === 'string' ? req.headers.id : ''
             const token = req.headers.authorization?.startsWith('Bearer ') ? req.headers.authorization.slice(7) : ''
-            if (!await thesisMember(id, token)) return res.status(403).send({ error: 'Hanasand organization membership is required.' })
+            if (!await thesisMember(id, token, deviceProofFromRequest(req))) return res.status(403).send({ error: 'Hanasand organization membership is required.' })
             if (!await owner(req)) return res.status(403).send({ error: 'Code access is required to read reviews.' })
         }
         const { id, before } = req.query as { id?: string, before?: string }
@@ -45,7 +46,7 @@ export async function postCodeReview(req: FastifyRequest, res: FastifyReply) {
     try {
         const id = typeof req.headers.id === 'string' ? req.headers.id : ''
         const token = req.headers.authorization?.startsWith('Bearer ') ? req.headers.authorization.slice(7) : ''
-        if (!await thesisMember(id, token)) return res.status(403).send({ error: 'Hanasand organization membership is required.' })
+        if (!await thesisMember(id, token, deviceProofFromRequest(req))) return res.status(403).send({ error: 'Hanasand organization membership is required.' })
         if (!await owner(req)) return res.status(403).send({ error: 'Hanasand organization owners and editors can approve source code.' })
         const input = req.body as Record<string, unknown> | null
         if (!input || typeof input.id !== 'string' || !input.id || input.id.length > 2000 || typeof input.approved !== 'boolean' ||

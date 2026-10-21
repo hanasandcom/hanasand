@@ -1,6 +1,7 @@
 import { cache } from 'react'
 import { cookies } from 'next/headers'
 import { identityApiUrl } from '@/utils/auth/authApiUrl'
+import serverDeviceProofHeaders from '@/utils/auth/serverDeviceProofHeaders'
 
 export const fetchManagementOrganizations = cache(async (accessOnly = false) => {
     const jar = await cookies()
@@ -9,7 +10,7 @@ export const fetchManagementOrganizations = cache(async (accessOnly = false) => 
     if (!token || !id) return new Response(null, { status: 401 })
     return fetch(`${identityApiUrl().replace(/\/$/, '')}/management/organizations${accessOnly ? '?access=1' : ''}`, {
         cache: 'no-store',
-        headers: { Authorization: `Bearer ${token}`, id, ...(jar.get('impersonation_token')?.value ? { 'x-impersonation-token': jar.get('impersonation_token')!.value } : {}) },
+        headers: { ...await serverDeviceProofHeaders(), Authorization: `Bearer ${token}`, id, ...(jar.get('impersonation_token')?.value ? { 'x-impersonation-token': jar.get('impersonation_token')!.value } : {}) },
         signal: AbortSignal.timeout(10000),
     })
 })

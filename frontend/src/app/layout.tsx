@@ -13,6 +13,7 @@ import DetachedBoxHost from '@/components/box/detachedBoxHost'
 import RouteFrame from '@/components/layout/routeFrame'
 import MobileNavigation from '@/components/layout/mobileNavigation'
 import fetchUser from '@/utils/users/fetchUser'
+import Script from 'next/script'
 export { default as metadata } from './metadata'
 export { viewport } from './metadata'
 
@@ -42,6 +43,7 @@ export default async function layout({ children }: { children: ReactNode }) {
     return (
         <html lang='en' className={theme}>
             <body className='h-full w-full max-h-screen max-w-screen overflow-hidden'>
+                <Script src='https://api.hanasand.com/api/auth/device-proof-client.js' strategy='beforeInteractive' />
                 <div className='site-atmosphere' />
                 <WorkspaceProvider initial={readWorkspace(Cookies.get(WORKSPACE_COOKIE)?.value, impersonatingId || id)} enabled={token} serviceAccount={id.startsWith('svc_')}>
                     <MobileNavigation enabled={Boolean(id && token)}>

@@ -1,4 +1,5 @@
 import config from '@/config'
+import serverDeviceProofHeaders from '@/utils/auth/serverDeviceProofHeaders'
 
 export default async function fetchUser(id: string, viewer: { id: string, token: string }): Promise<User | null> {
     try {
@@ -6,7 +7,7 @@ export default async function fetchUser(id: string, viewer: { id: string, token:
         const timeout = setTimeout(() => controller.abort(), config.abortTimeout)
         const response = await fetch(`${config.url.api}/user/${encodeURIComponent(id)}`, {
             signal: controller.signal, cache: 'no-store',
-            headers: { id: viewer.id, Authorization: `Bearer ${decodeURIComponent(viewer.token)}` }
+            headers: { ...await serverDeviceProofHeaders(), id: viewer.id, Authorization: `Bearer ${decodeURIComponent(viewer.token)}` }
         })
 
         clearTimeout(timeout)

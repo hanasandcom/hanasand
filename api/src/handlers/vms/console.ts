@@ -8,9 +8,10 @@ import { hasHanasandInternalPageAccess } from '#utils/auth/organizationPageAcces
 import { recoveryReadOnly } from '#utils/recovery.ts'
 import { startConsoleSession } from '#utils/vms/consoleSession.ts'
 import { internalHostWebSocket, supportedHost } from '#utils/vms/hostTransport.ts'
+import { deviceProofFromWebSocket } from '#utils/auth/deviceProofRequest.ts'
 
-export async function consoleHost(name: string, id: string, token: string): Promise<string | false> {
-    const session = await validateSession({ id, token })
+export async function consoleHost(name: string, id: string, token: string, deviceProof?: { proof?: string, method: string, url: string }, trustedInternal = false): Promise<string | false> {
+    const session = await validateSession({ id, token, deviceProof, trustedInternal })
     if (!session) return false
     const result = await run('SELECT primary_host, deleted_at FROM vms WHERE name = $1', [name])
     const vm = result.rows[0]
@@ -77,7 +78,7 @@ export default function registerVmConsole(fastify: FastifyInstance) {
                     authenticationDeadline = undefined
                     connectionDeadline = setTimeout(() => fail('Unable to open the console. Check that the VM and its host are running.'), 30000)
                     if (recoveryReadOnly()) return fail('Console access is paused during recovery.')
-                    const host = await consoleHost(request.params.name, credentials.id, credentials.token)
+                    const host = await consoleHost(request.params.name, credentials.id, credentials.token, deviceProofFromWebSocket(request, message.dpop))
                     if (!host) return fail('You do not have access to this VM.')
                     if (socket.readyState !== WebSocket.OPEN) return
                     if (host.toLowerCase() !== String(config.vm_host_id).toLowerCase()) {
@@ -112,7 +113,7 @@ export default function registerVmConsole(fastify: FastifyInstance) {
                         if (checking || !credentials) return
                         checking = true
                         try {
-                            const currentHost = await consoleHost(request.params.name, credentials.id, credentials.token)
+                            const currentHost = await consoleHost(request.params.name, credentials.id, credentials.token, undefined, true)
                             if (recoveryReadOnly() || !currentHost || currentHost !== (remoteHost || String(config.vm_host_id).toLowerCase())) fail('Your console access has ended. Sign in again or check your VM access.')
                         } catch { fail('Unable to verify console access.') } finally { checking = false }
                     }, 30000)

@@ -2,6 +2,7 @@ import 'server-only'
 import { cookies } from 'next/headers'
 import config from '@/config'
 import type { AgentAutomation, AgentAutomationRun, MonitoringIssue } from './client'
+import serverDeviceProofHeaders from '@/utils/auth/serverDeviceProofHeaders'
 
 export type InitialAutomationData = {
     canManageSystem?: boolean
@@ -16,7 +17,7 @@ export async function loadAutomations(selectedId?: string, scope?: 'personal'): 
     const token = store.get('access_token')?.value
     const id = store.get('id')?.value
     if (!token || !id) return { automations: [], error: 'Sign in to view your automations.' }
-    const headers: Record<string, string> = { Authorization: `Bearer ${token}`, id }
+    const headers: Record<string, string> = { ...await serverDeviceProofHeaders(), Authorization: `Bearer ${token}`, id }
     const impersonation = store.get('impersonation_token')?.value
     if (impersonation) headers['x-impersonation-token'] = impersonation
     async function request<T>(path: string): Promise<T> {

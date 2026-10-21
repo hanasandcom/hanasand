@@ -1,6 +1,7 @@
 import type { FastifyRequest } from 'fastify'
 import run from '#db'
 import { validateSession } from '#utils/auth/session.ts'
+import { deviceProofFromRequest } from '#utils/auth/deviceProofRequest.ts'
 
 export type ShareRow = {
     id: string
@@ -43,7 +44,7 @@ export async function authenticatedUser(req: FastifyRequest) {
     const token = headerValue(req.headers.authorization)?.replace(/^Bearer\s+/i, '')
     const id = headerValue(req.headers.id)
     if (!token || !id) return null
-    const session = await validateSession({ id, token }).catch(() => null)
+    const session = await validateSession({ id, token, deviceProof: deviceProofFromRequest(req) }).catch(() => null)
     return session?.user.id || null
 }
 

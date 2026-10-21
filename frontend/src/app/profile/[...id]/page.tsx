@@ -14,6 +14,7 @@ import config from '@/config'
 import type { AuthSession } from '@/utils/auth/sessions'
 import { Suspense } from 'react'
 import { getProfileSshKeysFromIdentity } from '@/utils/profileSshKeysServer'
+import serverDeviceProofHeaders from '@/utils/auth/serverDeviceProofHeaders'
 
 export default async function Page(props: { params: Promise<{ id: string[] }> }) {
     const params = await props.params
@@ -85,7 +86,7 @@ function SshKeysLoading() {
 async function loadSessionsForRender(id: string, token: string): Promise<AuthSession[] | null> {
     try {
         const response = await fetch(`${config.url.api}/auth/sessions`, {
-            headers: { id, Authorization: `Bearer ${decodeURIComponent(token)}` },
+            headers: { ...await serverDeviceProofHeaders(), id, Authorization: `Bearer ${decodeURIComponent(token)}` },
             cache: 'no-store',
             signal: AbortSignal.timeout(config.abortTimeout),
         })

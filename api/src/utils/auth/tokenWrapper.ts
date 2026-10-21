@@ -1,5 +1,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import { validateSession } from './session.ts'
+import { deviceProofFromRequest } from './deviceProofRequest.ts'
 import { isTransientDatabaseError } from '#db'
 import { auditImpersonatedRequest, loadImpersonationTarget, impersonationTargetId } from './impersonationAuthorization.ts'
 
@@ -37,9 +38,6 @@ export default async function tokenWrapper(req: FastifyRequest, res: FastifyRepl
     const impersonationToken = headerValue(req.headers['x-impersonation-token'])
     const cachedSession = (req as FastifyRequest & {
         rateLimitSession?: Awaited<ReturnType<typeof validateSession>>
-        apiKeyAuth?: {
-            ownerId: string
-        }
     }).rateLimitSession
     const apiKeyAuth = (req as FastifyRequest & {
         apiKeyAuth?: {
@@ -72,9 +70,9 @@ export default async function tokenWrapper(req: FastifyRequest, res: FastifyRepl
     const token = authHeader.split(' ')[1]
 
     try {
-        const session = cachedSession && cachedSession.user.id === id
+        const session = cachedSession && cachedSession.user.id === id && cachedSession.session.token === token
             ? cachedSession
-            : await validate({ id, token })
+            : await validate({ id, token, deviceProof: deviceProofFromRequest(req) })
         if (!session) {
             return {
                 valid: false,

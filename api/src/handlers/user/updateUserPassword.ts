@@ -8,9 +8,10 @@ type UpdateUserPasswordOptions = {
     password: string
     ip: string
     userAgent: string
+    devicePublicJwk?: unknown
 }
 
-export default async function updateUserPassword({ userId, password, ip, userAgent }: UpdateUserPasswordOptions) {
+export default async function updateUserPassword({ userId, password, ip, userAgent, devicePublicJwk }: UpdateUserPasswordOptions) {
     const hashedPassword = await bcrypt.hash(password, 10)
     const updated = await run(
         `UPDATE users
@@ -26,5 +27,5 @@ export default async function updateUserPassword({ userId, password, ip, userAge
     const displayName = String(userResult.rows[0]?.name || userId)
     await syncMailPasswordForUser(userId, displayName, password)
 
-    return { userFound: true as const, session: await login({ id: userId, ip, userAgent }) }
+    return { userFound: true as const, session: await login({ id: userId, ip, userAgent, devicePublicJwk }) }
 }

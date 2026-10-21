@@ -6,6 +6,7 @@ import config from '@/config'
 import SupportChat from '@/components/support/supportChat'
 import type { InitialChat, Message, Ticket } from '@/components/support/supportChatTypes'
 import { buildRouteMetadata } from '../seo'
+import serverDeviceProofHeaders from '@/utils/auth/serverDeviceProofHeaders'
 
 export const metadata: Metadata = buildRouteMetadata({
     title: 'Support',
@@ -19,7 +20,7 @@ async function loadSupportChat(): Promise<InitialChat | undefined> {
     const token = cookieStore.get('access_token')?.value
     const id = cookieStore.get('id')?.value
     if (!token || !id) return undefined
-    const headers = new Headers({ Authorization: `Bearer ${token}`, id })
+    const headers = new Headers({ ...await serverDeviceProofHeaders(), Authorization: `Bearer ${token}`, id })
     const impersonationToken = cookieStore.get('impersonation_token')?.value
     if (impersonationToken) headers.set('x-impersonation-token', impersonationToken)
     try {

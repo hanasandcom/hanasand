@@ -70,6 +70,11 @@ async function handler(req: NextRequest, context: Context) {
             headers.set(key, value)
         }
     })
+    // The device proof is signed for the browser-facing Next route. Preserve
+    // that request target when forwarding it to the API service, whose URL is
+    // different behind this proxy.
+    headers.set('x-device-proof-url', `${req.nextUrl.origin}${req.nextUrl.pathname}`)
+    headers.set('x-device-proof-method', req.method)
     if (token) headers.set('Authorization', `Bearer ${token}`)
     if (id) headers.set('id', id)
     if (['notes', 'share', 'article', 'articles', 'thought', 'thoughts'].includes(pathSegments[0])) {

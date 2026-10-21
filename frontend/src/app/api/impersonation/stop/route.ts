@@ -1,8 +1,9 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { identityApiUrl } from '@/utils/auth/authApiUrl'
+import { clientHeaders } from '@/utils/auth/clientHeaders'
 
-export async function POST() {
+export async function POST(req: NextRequest) {
     const cookieStore = await cookies()
     const actorId = cookieStore.get('id')?.value || ''
     const accessToken = cookieStore.get('access_token')?.value || ''
@@ -10,7 +11,7 @@ export async function POST() {
     if (actorId && accessToken && impersonationToken) {
         const response = await fetch(`${identityApiUrl().replace(/\/+$/, '')}/impersonation/stop`, {
             method: 'POST',
-            headers: { Authorization: `Bearer ${accessToken}`, id: actorId, 'x-impersonation-token': impersonationToken },
+            headers: { ...clientHeaders(req), Authorization: `Bearer ${accessToken}`, id: actorId, 'x-impersonation-token': impersonationToken },
             cache: 'no-store',
         }).catch(() => null)
         if (response && !response.ok) {

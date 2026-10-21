@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { commercialAccessPlans } from '@/utils/commercialAccess'
 import { authApiUrl } from '@/utils/auth/authApiUrl'
 import tokenIsValid from '@/utils/proxy/tokenIsValid'
+import serverDeviceProofHeaders from '@/utils/auth/serverDeviceProofHeaders'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,7 +23,7 @@ export async function GET(request: Request) {
     if (!session.valid) return NextResponse.redirect(new URL('/login?next=/subscription', siteUrl))
 
     const billingResponse = await fetch(`${authApiUrl().replace(/\/$/, '')}/billing/subscription`, {
-        headers: { Authorization: `Bearer ${token}`, id },
+        headers: { ...await serverDeviceProofHeaders(), Authorization: `Bearer ${token}`, id },
         cache: 'no-store',
         signal: AbortSignal.timeout(10000),
     })

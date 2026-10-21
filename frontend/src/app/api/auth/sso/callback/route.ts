@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
 
     const upstream = await fetch(`${identityApiUrl().replace(/\/$/, '')}/auth/sso/callback`, {
         method: 'POST',
-        headers: { ...clientHeaders(req.headers), 'Content-Type': 'application/json' },
+        headers: { ...clientHeaders(req), 'Content-Type': 'application/json' },
         body: JSON.stringify({ code, state, binding: req.cookies.get('hanasand_auth_binding')?.value }),
         cache: 'no-store',
     }).catch(() => null)

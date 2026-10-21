@@ -29,7 +29,12 @@ export async function POST(req: NextRequest) {
     try {
         upstream = await fetch(`${identityApiUrl()}/auth/login/${encodeURIComponent(id)}`, {
             method: 'POST',
-            headers: { ...clientHeaders(req.headers), 'Content-Type': 'application/json', 'x-request-id': requestId },
+            headers: {
+                ...clientHeaders(req),
+                'Content-Type': 'application/json',
+                'x-request-id': requestId,
+                ...(req.headers.get('x-device-public-jwk') ? { 'x-device-public-jwk': req.headers.get('x-device-public-jwk')! } : {}),
+            },
             body: JSON.stringify({ password }),
             cache: 'no-store',
             signal: timeoutSignal,

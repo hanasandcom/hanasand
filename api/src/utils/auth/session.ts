@@ -62,14 +62,20 @@ async function requestSessionOperation<T>(operation: string, body: Record<string
     return await response.json() as T
 }
 
-export async function issueToken({ id, ip, userAgent = '' }: { id: string, ip: string, userAgent?: string }) {
-    const result = await requestSessionOperation<{ token: string; expires_at: string }>('issue', { id, ip, userAgent })
+export async function issueToken({ id, ip, userAgent = '', devicePublicJwk }: { id: string, ip: string, userAgent?: string, devicePublicJwk?: unknown }) {
+    const result = await requestSessionOperation<{ token: string; expires_at: string }>('issue', { id, ip, userAgent, devicePublicJwk })
     return result === IDENTITY_SESSION_UNAUTHORIZED ? null : result
 }
 
-export async function validateSession({ id, token, organizationSlug }: { id?: string, token: string, organizationSlug?: string }): Promise<SessionValidation | null> {
+export async function validateSession({ id, token, organizationSlug, deviceProof, trustedInternal }: {
+    id?: string
+    token: string
+    organizationSlug?: string
+    deviceProof?: { proof?: string, method: string, url: string }
+    trustedInternal?: boolean
+}): Promise<SessionValidation | null> {
     if (!token) return null
-    const result = await requestSessionOperation<SessionValidation>('validate', { id, token, organizationSlug })
+    const result = await requestSessionOperation<SessionValidation>('validate', { id, token, organizationSlug, deviceProof, trustedInternal })
     return result === IDENTITY_SESSION_UNAUTHORIZED ? null : result
 }
 

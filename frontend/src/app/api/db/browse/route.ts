@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import config from '@/config'
+import serverDeviceProofHeaders from '@/utils/auth/serverDeviceProofHeaders'
 
 export const dynamic = 'force-dynamic'
 
@@ -9,7 +10,7 @@ export async function GET(request: NextRequest) {
     if (!token || !id) return NextResponse.json({ message: 'Sign in to browse databases.' }, { status: 401 })
     try {
         const response = await fetch(`${config.url.internal}/db/browse?${request.nextUrl.searchParams}`, {
-            cache: 'no-store', headers: { Authorization: `Bearer ${token}`, id }, signal: AbortSignal.timeout(5000),
+            cache: 'no-store', headers: { ...await serverDeviceProofHeaders(), Authorization: `Bearer ${token}`, id }, signal: AbortSignal.timeout(5000),
         })
         return NextResponse.json(await response.json(), { status: response.status, headers: { 'Cache-Control': 'no-store' } })
     } catch {

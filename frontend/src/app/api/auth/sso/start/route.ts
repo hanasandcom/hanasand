@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
     }
     const binding = randomBytes(32).toString('base64url')
     const upstream = await fetch(`${identityApiUrl().replace(/\/$/, '')}/auth/sso/start`, {
-        method: 'POST', headers: { ...clientHeaders(req.headers), 'Content-Type': 'application/json' },
+        method: 'POST', headers: { ...clientHeaders(req), 'Content-Type': 'application/json' },
         body: JSON.stringify({ binding, redirectPath }), cache: 'no-store', redirect: 'error',
     }).catch(() => null)
     if (!upstream) return loginRedirect(req, 'Authentication service is unavailable.')

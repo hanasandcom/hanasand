@@ -5,9 +5,10 @@ import { validateSession } from '#utils/auth/session.ts'
 import { hasHanasandInternalPageAccess } from '#utils/auth/organizationPageAccess.ts'
 import { recoveryReadOnly } from '#utils/recovery.ts'
 import { applyManagedHostSshKeys, hostConsoleNames, normalizeHostPublicKey, startHostConsole, type HostConsoleName } from '#utils/hostSsh.ts'
+import { deviceProofFromWebSocket } from '#utils/auth/deviceProofRequest.ts'
 
-async function canOpenHostConsole(id: string, token: string) {
-    const session = await validateSession({ id, token })
+async function canOpenHostConsole(id: string, token: string, deviceProof?: { proof?: string, method: string, url: string }, trustedInternal = false) {
+    const session = await validateSession({ id, token, deviceProof, trustedInternal })
     if (!session) return false
     return hasHanasandInternalPageAccess(session.user.id)
 }
@@ -79,7 +80,7 @@ export default function registerHostConsole(fastify: FastifyInstance) {
                     starting = true
                     credentials = { id: message.id, token: message.token }
                     if (recoveryReadOnly()) return fail('Console access is paused during recovery.')
-                    if (!await canOpenHostConsole(credentials.id, credentials.token)) return fail('Active Hanasand organization owner or editor access is required.')
+                    if (!await canOpenHostConsole(credentials.id, credentials.token, deviceProofFromWebSocket(request, message.dpop))) return fail('Active Hanasand organization owner or editor access is required.')
                     if (socket.readyState !== WebSocket.OPEN) return
                     clearTimeout(deadline)
                     authenticated = true
@@ -90,7 +91,7 @@ export default function registerHostConsole(fastify: FastifyInstance) {
                         if (checking || !credentials) return
                         checking = true
                         try {
-                            if (recoveryReadOnly() || !await canOpenHostConsole(credentials.id, credentials.token)) fail('Your console access has ended. Sign in again.')
+                            if (recoveryReadOnly() || !await canOpenHostConsole(credentials.id, credentials.token, undefined, true)) fail('Your console access has ended. Sign in again.')
                         } catch { fail('Unable to verify console access.') } finally { checking = false }
                     }, 30000)
                     return

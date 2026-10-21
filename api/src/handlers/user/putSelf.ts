@@ -4,6 +4,7 @@ import { AccountIdentityError, usernameError } from '#utils/auth/accountIdentity
 import login from '#utils/auth/login.ts'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import updatePasswordAndReply from './updatePasswordAndReply.ts'
+import { devicePublicJwkFromRequest } from '#utils/auth/deviceProofRequest.ts'
 
 type GetUserBodyProps = {
     id: string
@@ -82,7 +83,7 @@ export default async function putSelf(req: FastifyRequest, res: FastifyReply) {
         }
 
         const updatedUser = response.rows[0]
-        const session = await login({ id: updatedUser.id, ip, userAgent: String(req.headers['user-agent'] || '') })
+        const session = await login({ id: updatedUser.id, ip, userAgent: String(req.headers['user-agent'] || ''), devicePublicJwk: devicePublicJwkFromRequest(req) })
 
         return res.status(200).send({
             ...updatedUser,

@@ -6,6 +6,7 @@ import requireApiSession from '@/utils/proxy/requireApiSession'
 import { isHanasandOrganizationMember } from '@/utils/organizations/hanasandMembership'
 import type { CodeInventory, ReviewEvent } from '@/utils/codeReviewTypes'
 import config from '@/config'
+import serverDeviceProofHeaders from '@/utils/auth/serverDeviceProofHeaders'
 
 export const dynamic = 'force-dynamic'
 let source: Promise<CodeInventory> | undefined
@@ -37,7 +38,7 @@ async function reviews(identity: { id: string, token: string }, suffix = '', bod
     if (internal && !process.env.VM_API_TOKEN) throw new Error('Review access is not configured.')
     const token = internal ? process.env.VM_API_TOKEN! : identity.token
     const response = await fetch(`${config.url.api}/thesis/code-reviews${suffix}`, {
-        method: body ? 'POST' : 'GET', headers: { Authorization: `Bearer ${token}`, id: internal ? '' : identity.id, 'Content-Type': 'application/json' },
+        method: body ? 'POST' : 'GET', headers: { ...await serverDeviceProofHeaders(), Authorization: `Bearer ${token}`, id: internal ? '' : identity.id, 'Content-Type': 'application/json' },
         body: body ? JSON.stringify(body) : undefined, cache: 'no-store', signal: AbortSignal.timeout(15000),
     })
     if (!response.ok) throw new Error('Review storage is unavailable. Please retry.')

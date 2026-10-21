@@ -5,6 +5,7 @@ import { hasHanasandInternalPageAccess, HANASAND_ORGANIZATION_ID } from '#utils/
 import { canEditHanasandInternalPages } from '#utils/auth/organizationPagePolicy.ts'
 import { verifiedClientIp } from '#utils/http/publicBoundary.ts'
 import { withReadDatabase } from '#db'
+import { deviceProofFromRequest } from '#utils/auth/deviceProofRequest.ts'
 
 export type RateLimitActor = {
     scope: RateLimitScope
@@ -42,6 +43,7 @@ export async function resolveRateLimitActor(
         const session = await withReadDatabase(() => validateUserSession({
             id: typeof headerId === 'string' ? headerId : undefined,
             token,
+            deviceProof: deviceProofFromRequest(req),
             ...(organizationSlug ? { organizationSlug } : {}),
         }))
 
