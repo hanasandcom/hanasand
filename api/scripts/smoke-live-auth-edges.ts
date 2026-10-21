@@ -14,7 +14,7 @@ if (process.argv.includes('--help') || process.argv.includes('-h')) {
         '  AUTH_LIVE_ACTOR_ID=user_id',
         '',
         'Checks:',
-        '  - API /auth/sso/start returns an OIDC redirect with state.',
+        '  - API refuses to start SSO without browser-binding proof.',
         '  - API /auth/passkeys/authenticate/options returns a WebAuthn challenge.',
         '  - Optional frontend auth proxy routes return redirect/challenge-compatible responses.',
         '  - Optional authenticated passkey register options return a register challenge.',
@@ -29,11 +29,7 @@ const authorization = env('AUTH_LIVE_AUTHORIZATION')
 const actorId = env('AUTH_LIVE_ACTOR_ID')
 const startedAt = new Date().toISOString()
 
-const apiSso = await checkSsoStart({
-    label: 'api',
-    url: `${apiBaseUrl}/auth/sso/start?redirectPath=${encodeURIComponent('/dashboard')}`,
-    expectIdpRedirect: true,
-})
+const apiSso = await checkApiSsoRejectsUnbound(`${apiBaseUrl}/auth/sso/start`)
 const apiPasskey = await checkPasskeyAuthenticateOptions({
     label: 'api',
     url: passkeyUsername
@@ -47,7 +43,7 @@ if (frontendBaseUrl) {
     frontendSso = await checkSsoStart({
         label: 'frontend',
         url: `${frontendBaseUrl}/api/auth/sso/start?redirectPath=${encodeURIComponent('/dashboard')}`,
-        expectIdpRedirect: false,
+        expectIdpRedirect: true,
     })
     frontendPasskey = await checkPasskeyAuthenticateOptions({
         label: 'frontend',
@@ -106,9 +102,9 @@ async function checkSsoStart(input: { label: string, url: string, expectIdpRedir
         assert.ok(parsed.searchParams.get('client_id'), `${input.label} SSO IdP redirect is missing client_id.`)
         assert.ok(parsed.searchParams.get('redirect_uri'), `${input.label} SSO IdP redirect is missing redirect_uri.`)
         assert.equal(parsed.searchParams.get('response_type'), 'code')
-    } else {
-        assert.match(parsed.pathname, /\/auth\/sso\/start$/, `${input.label} SSO proxy must redirect to API SSO start.`)
-        assert.equal(parsed.searchParams.get('redirectPath'), '/dashboard')
+        if (input.label === 'frontend') {
+            assert.match(response.headers.get('set-cookie') || '', /__Host-sso-oidc=/, 'Frontend SSO start must set the browser-binding cookie.')
+        }
     }
     return {
         label: input.label,
@@ -117,6 +113,15 @@ async function checkSsoStart(input: { label: string, url: string, expectIdpRedir
         locationHost: parsed.host,
         locationPath: parsed.pathname,
     }
+}
+
+async function checkApiSsoRejectsUnbound(url: string): Promise<EdgeCheck> {
+    const response = await fetch(url, {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ redirectPath: '/dashboard' }),
+        redirect: 'manual',
+    })
+    assert.ok([400, 503].includes(response.status), `API SSO start must reject missing browser binding; received ${response.status} ${await safeBody(response)}`)
+    return { label: 'api-unbound', status: response.status, ready: true }
 }
 
 async function checkPasskeyAuthenticateOptions(input: { label: string, url: string }): Promise<EdgeCheck> {

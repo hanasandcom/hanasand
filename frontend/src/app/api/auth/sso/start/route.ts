@@ -1,24 +1,25 @@
+import { randomBytes } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
+import { clientHeaders } from '@/utils/auth/clientHeaders'
 import { identityApiUrl } from '@/utils/auth/authApiUrl'
 import { safeRedirectPath } from '@/utils/auth/safeRedirectPath'
 import { loginRedirect } from '../redirects'
 
 export async function GET(req: NextRequest) {
     const redirectPath = safeRedirectPath(req.nextUrl.searchParams.get('redirectPath') || req.nextUrl.searchParams.get('path'))
-    const upstreamUrl = new URL(`${identityApiUrl().replace(/\/$/, '')}/auth/sso/start`)
-    upstreamUrl.searchParams.set('redirectPath', redirectPath)
-
-    const upstream = await fetch(upstreamUrl, { cache: 'no-store', redirect: 'manual' }).catch(() => null)
+    const binding = randomBytes(32).toString('base64url')
+    const upstream = await fetch(`${identityApiUrl().replace(/\/$/, '')}/auth/sso/start`, {
+        method: 'POST', headers: { ...clientHeaders(req.headers), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ binding, redirectPath }), cache: 'no-store', redirect: 'error',
+    }).catch(() => null)
     if (!upstream) return loginRedirect(req, 'Authentication service is unavailable.')
-
-    if (upstream.status >= 300 && upstream.status < 400) {
-        const location = upstream.headers.get('location')
-        if (location && safeProviderRedirect(location)) return NextResponse.redirect(location)
-        return loginRedirect(req, 'SSO provider did not return a login URL.')
-    }
-
     const data = await upstream.json().catch(() => null)
-    return loginRedirect(req, data?.error || 'SSO login is unavailable.')
+    if (!upstream.ok || !data?.url || !safeProviderRedirect(data.url)) return loginRedirect(req, data?.error || 'SSO login is unavailable.')
+    const response = NextResponse.redirect(data.url, 303)
+    response.cookies.set('__Host-sso-oidc', binding, { httpOnly: true, secure: true, sameSite: 'lax', path: '/', maxAge: 600 })
+    response.headers.set('Cache-Control', 'no-store')
+    response.headers.set('Referrer-Policy', 'no-referrer')
+    return response
 }
 
 function safeProviderRedirect(location: string) {
