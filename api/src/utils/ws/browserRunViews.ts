@@ -86,7 +86,7 @@ export function buildStoredBrowserReport(selected: Record<string, any>, saved: a
     const providerReports = [...providerCaptures.values()].filter(event => event.id !== 'webcrack' || event.deobfuscatedCode).map(event => ({
         tool: event.name || event.id,
         url: event.url,
-        status: event.error ? 'Unavailable' : 'Results',
+        status: providerReportStatus(event.error),
         ...event.toolAnalysis,
         deobfuscatedCode: event.deobfuscatedCode,
         signals: event.toolAnalysis?.extractedSignals || [],
@@ -113,4 +113,13 @@ export function buildStoredBrowserReport(selected: Record<string, any>, saved: a
         runId: selected.id,
         runs: versions.map(row => ({ id: row.id, startedAt: row.created_at, status: row.status })),
     }
+}
+
+export function providerReportStatus(error?: unknown) {
+    if (!error) return 'Results'
+    const message = String(error)
+    if (/no (?:matching |existing )?(?:urlquery )?report|no existing (?:url )?analysis|item not found/i.test(message)) return 'No report'
+    if (/captcha|access denied|denied browser access|forbidden|blocked/i.test(message)) return 'Access restricted'
+    if (/pending|still running/i.test(message)) return 'Loading'
+    return 'Provider error'
 }
