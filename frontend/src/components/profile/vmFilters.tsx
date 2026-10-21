@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useId, useRef, useState } from 'react'
-import { ListFilter, RotateCcw } from 'lucide-react'
+import { RotateCcw, SlidersHorizontal } from 'lucide-react'
 import { defaultVmFilters, type VmFilters } from '@/utils/vms/filterVms'
 import { createPortal } from 'react-dom'
 
@@ -54,13 +54,12 @@ export default function VmFiltersButton({ filters, onChange, editors }: { filter
 
     return <>
         <div className='relative' ref={root}>
-            <button ref={trigger} type='button' aria-label={activeCount ? `Filters, ${activeCount} active` : 'Filters'} aria-expanded={open} aria-controls={panelId} onClick={togglePanel} className={`relative inline-flex h-9 items-center justify-center gap-2 rounded-lg border px-3 text-sm font-medium transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-primary ${open || activeCount ? 'border-ui-primary/40 bg-ui-primary/10 text-ui-primary' : 'border-ui-border bg-ui-panel text-ui-muted hover:bg-ui-raised hover:text-ui-text'}`}>
-                <ListFilter className='h-4 w-4' aria-hidden='true' />
-                <span>Filters</span>
-                {activeCount > 0 && <span aria-hidden='true' className='flex h-5 min-w-5 items-center justify-center rounded-full bg-ui-primary/15 px-1.5 text-[10px] font-semibold text-ui-primary'>{activeCount}</span>}
+            <button ref={trigger} type='button' title='Filters' aria-label={activeCount ? `Filters, ${activeCount} active` : 'Filters'} aria-expanded={open} aria-controls={panelId} onClick={togglePanel} className={`relative inline-flex h-9 w-9 items-center justify-center rounded-lg border transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-primary ${open || activeCount ? 'border-ui-primary/40 bg-ui-primary/10 text-ui-primary' : 'border-ui-border bg-ui-panel text-ui-muted hover:bg-ui-raised hover:text-ui-text'}`}>
+                <SlidersHorizontal className='h-[18px] w-[18px]' aria-hidden='true' />
+                {activeCount > 0 && <span aria-hidden='true' className='absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full border border-ui-panel bg-ui-primary px-1 text-[10px] font-semibold leading-none text-ui-on-primary'>{activeCount}</span>}
             </button>
         </div>
-        {open && position && typeof document !== 'undefined' && createPortal(<section ref={panel} id={panelId} aria-label='Filter virtual machines' className='fixed z-[1100] grid w-auto gap-4 overflow-y-auto rounded-2xl border border-ui-border bg-ui-panel p-4 text-ui-text shadow-2xl shadow-black/25 ring-1 ring-white/5' style={{ top: position.top, left: position.mobile ? 12 : undefined, right: position.right, width: position.mobile ? undefined : '22rem', maxHeight: position.maxHeight }}>
+        {open && position && typeof document !== 'undefined' && createPortal(<section ref={panel} id={panelId} aria-label='Filter virtual machines' className='fixed z-[1100] grid w-auto gap-4 overflow-y-auto rounded-2xl border border-ui-border bg-ui-panel px-2 py-4 text-ui-text shadow-2xl shadow-black/25 ring-1 ring-white/5' style={{ top: position.top, left: position.mobile ? 12 : undefined, right: position.right, width: position.mobile ? undefined : '22rem', maxHeight: position.maxHeight }}>
             <div className='flex items-start justify-between gap-3'>
                 <h3 className='text-sm font-semibold'>Filter</h3>
                 {activeCount > 0 && <button type='button' onClick={() => onChange(defaultVmFilters)} className='inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-ui-muted transition hover:bg-ui-raised hover:text-ui-text'><RotateCcw className='h-3.5 w-3.5' />Clear</button>}

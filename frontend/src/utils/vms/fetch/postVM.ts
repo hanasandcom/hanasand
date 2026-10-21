@@ -4,7 +4,7 @@ import config from '@/config'
 import fetchWithRetry from '@/utils/fetchWithRetry'
 import { getCookie } from '../../cookies/cookies'
 
-export type CreateVmRequest = Pick<VM, 'name'> & { os?: string, services?: string[] }
+export type CreateVmRequest = Pick<VM, 'name'> & { os?: string, resources?: { cpu: string, memory: string }, services?: string[], minecraft_eula_accepted?: boolean, organization_id?: string | null }
 
 export default async function postVM(vm: CreateVmRequest): Promise<{ status: number, message: string, vm?: VM }> {
     try {
@@ -29,12 +29,15 @@ export default async function postVM(vm: CreateVmRequest): Promise<{ status: num
             retries: 0,
         })
 
-        if (response.status === 409) {
-            throw new Error('conflict')
-        }
-
         if (!response.ok) {
-            throw new Error(await response.text())
+            if (response.status === 409) {
+                return { status: 409, message: `A VM with the name ${vm.name} already exists.` }
+            }
+            const body = await response.json().catch(() => null) as { error?: unknown } | null
+            return {
+                status: response.status,
+                message: typeof body?.error === 'string' ? body.error : `Unable to create VM ${vm.name}. Please try again.`,
+            }
         }
 
         const createdVm = await response.json().catch(() => undefined) as VM | undefined
@@ -43,19 +46,13 @@ export default async function postVM(vm: CreateVmRequest): Promise<{ status: num
             message: `Created VM ${vm.name}.`,
             vm: createdVm,
         }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
-        if (error.message === 'conflict') {
-            return {
-                status: 409,
-                message: `A VM with the name ${vm.name} already exists.`
-            }
-        }
-
-        if (error.name === 'AbortError' || /aborted|timed out/i.test(error.message || '')) {
+    } catch (error) {
+        const reason = error instanceof Error ? error.message : ''
+        const name = error instanceof Error ? error.name : ''
+        if (name === 'AbortError' || /aborted|timed out/i.test(reason)) {
             return {
                 status: 408,
-                message: `The create request timed out. ${vm.name} may still be provisioning; refresh the list before trying again.`
+                message: `The create request timed out. ${vm.name} may still be provisioning; refresh the list before trying again.`,
             }
         }
 

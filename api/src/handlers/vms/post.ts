@@ -19,11 +19,14 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
         created_by?: string
         access_users?: string[]
         provision_local?: boolean
+        organization_id?: string | null
         os?: VmProvisionOptions['os']
+        resources?: VmProvisionOptions['resources']
         services?: VmProvisionOptions['services']
+        minecraft_eula_accepted?: boolean
     } ?? {}
     const { name, access_users } = body
-    const provisionOptions = normalizeProvisionOptions(body.os, body.services)
+    const provisionOptions = normalizeProvisionOptions(body.os, body.resources, body.services, body.minecraft_eula_accepted)
     if (!provisionOptions) return res.status(400).send({ error: 'Choose a supported operating system and services.' })
     let owner = body.owner
     let created_by = body.created_by
@@ -48,6 +51,24 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
         return res.status(400).send({ error: 'Missing required fields' })
     }
 
+    if (body.organization_id !== undefined && body.organization_id !== null
+        && (typeof body.organization_id !== 'string' || !body.organization_id.trim())) {
+        return res.status(400).send({ error: 'Choose a valid organization.' })
+    }
+    const organizationId = typeof body.organization_id === 'string' ? body.organization_id.trim() : null
+    if (organizationId) {
+        if (!actorId) return res.status(400).send({ error: 'Organization assignment requires an authenticated user.' })
+        const organization = await run(`
+            SELECT o.id
+            FROM organizations o
+            JOIN organization_members m ON m.organization_id = o.id
+            WHERE o.id = $1 AND o.status = 'active'
+              AND m.user_id = $2 AND m.status = 'active' AND m.role IN ('owner', 'admin')
+            LIMIT 1
+        `, [organizationId, actorId])
+        if (!organization.rows[0]) return res.status(403).send({ error: 'An organization owner or admin must create VMs.' })
+    }
+
     if (!canAssignOwner && !/^[a-z][a-z0-9-]{0,61}[a-z0-9]$/.test(name)) return res.status(400).send({ error: 'Use 2–63 lowercase letters, numbers or hyphens, starting with a letter.' })
 
     try {
@@ -67,7 +88,7 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
         `, [name])
 
             const existingResult = await run(`
-            SELECT name, owner, created_by, access_users, primary_host, deleted_at,
+            SELECT name, owner, created_by, access_users, primary_host, organization_id, deleted_at,
                    EXISTS (SELECT 1 FROM vm_details d WHERE d.name = vms.name) AS has_vm_details
             FROM vms
             WHERE LOWER(name) = LOWER($1)
@@ -82,15 +103,17 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
                 created_by: string
                 access_users: string[]
                 primary_host: string
+                organization_id?: string | null
                 deleted_at?: string | null
                 has_vm_details: boolean
             } | undefined
 
             if (existing?.deleted_at) return res.status(409).send({ error: 'This VM is scheduled for deletion. Restore it before making changes.' })
+            if (existing && (existing.organization_id ?? null) !== organizationId) return res.status(409).send({ error: 'A VM with the name already exists in another workspace.' })
 
             if (existing && !canAssignOwner) {
                 if (existing.owner !== actorId || existing.has_vm_details || body.provision_local === false) return res.status(409).send({ error: 'VM already exists.' })
-                queueUserProvision(name, existing.primary_host, provisionOptions, [existing.owner, existing.created_by, ...(existing.access_users ?? [])])
+                queueVmProvision(name, existing.primary_host, provisionOptions, [existing.owner, existing.created_by, ...(existing.access_users ?? [])])
                 return res.status(201).send(existing)
             }
 
@@ -110,17 +133,14 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
                 RETURNING *
             `, [name, nextOwner, nextCreatedBy, JSON.stringify(nextAccessUsers ?? []), existing.name, existing.primary_host])
 
-                if (canAssignOwner) {
-                    await provisionOnPrimaryHost(name, existing.primary_host, body.provision_local !== false, provisionOptions)
-                    if (body.provision_local !== false) await syncCertificates(name, [nextOwner, nextCreatedBy, ...(nextAccessUsers ?? [])])
-                }
-                else if (body.provision_local !== false) queueUserProvision(name, existing.primary_host, provisionOptions, [nextOwner, nextCreatedBy, ...(nextAccessUsers ?? [])])
+                if (body.provision_local !== false) queueVmProvision(name, existing.primary_host, provisionOptions, [nextOwner, nextCreatedBy, ...(nextAccessUsers ?? [])])
 
                 await recordSystemEvent(req, {
                     actionType: 'vm.access.updated',
                     actorId,
                     targetType: 'vm',
                     targetId: name,
+                    organizationId,
                     context: {
                         owner: nextOwner,
                         creator: nextCreatedBy,
@@ -142,29 +162,55 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
               AND NOT EXISTS (SELECT 1 FROM vms WHERE name = $1)
         `, [name])
 
-            const query = canAssignOwner ? await loadSQL('insertVM.sql') : 'INSERT INTO vms (name, owner, created_by, access_users) VALUES ($1, $2, $3, $4) ON CONFLICT (name) DO NOTHING RETURNING *'
-            const result = await run(query, [name, owner, created_by, JSON.stringify(access_users ?? [])])
+            const query = organizationId
+                ? `INSERT INTO vms (name, owner, created_by, access_users, organization_id)
+                   SELECT $1, $2, $3, $4, $5
+                   WHERE EXISTS (
+                       SELECT 1 FROM organization_members
+                       WHERE organization_id = $5 AND user_id = $2 AND status = 'active' AND role IN ('owner', 'admin')
+                   )
+                   ON CONFLICT (name) DO NOTHING RETURNING *`
+                : canAssignOwner
+                    ? await loadSQL('insertVM.sql')
+                    : 'INSERT INTO vms (name, owner, created_by, access_users) VALUES ($1, $2, $3, $4) ON CONFLICT (name) DO NOTHING RETURNING *'
+            const result = await run(query, organizationId
+                ? [name, owner, created_by, JSON.stringify(access_users ?? []), organizationId]
+                : [name, owner, created_by, JSON.stringify(access_users ?? [])])
             if (!result.rows.length) {
+                if (organizationId) {
+                    const organizationAccess = await run(`
+                        SELECT 1 FROM organizations o
+                        JOIN organization_members m ON m.organization_id = o.id
+                        WHERE o.id = $1 AND o.status = 'active' AND m.user_id = $2
+                          AND m.status = 'active' AND m.role IN ('owner', 'admin')
+                        LIMIT 1
+                    `, [organizationId, actorId])
+                    if (!organizationAccess.rows[0]) return res.status(403).send({ error: 'An organization owner or admin must create VMs.' })
+                }
                 return res.status(409).send({ error: 'VM already exists' })
             }
 
             const assignedVm = await run('UPDATE vms SET primary_host = $2 WHERE name = $1 RETURNING *', [name, config.vm_host_id])
             if (!assignedVm.rows[0]) throw new Error('VM primary host assignment did not update the new VM.')
-            if (canAssignOwner) {
-                await provisionOnPrimaryHost(name, config.vm_host_id, body.provision_local !== false, provisionOptions)
-                if (body.provision_local !== false) await syncCertificates(name, [owner, created_by, ...(access_users ?? [])])
-            }
-            else if (body.provision_local !== false) queueUserProvision(name, config.vm_host_id, provisionOptions, [owner, created_by, ...(access_users ?? [])])
+            if (body.provision_local !== false) queueVmProvision(name, config.vm_host_id, provisionOptions, [owner, created_by, ...(access_users ?? [])])
 
             await recordSystemEvent(req, {
                 actionType: 'vm.created',
                 actorId,
                 targetType: 'vm',
                 targetId: name,
+                organizationId,
                 context: {
                     owner,
                     creator: created_by,
                     accessUsers: access_users ?? [],
+                    setup: {
+                        operatingSystem: provisionOptions.os,
+                        resources: provisionOptions.resources,
+                        services: provisionOptions.services,
+                        minecraftEulaAccepted: provisionOptions.minecraftEulaAccepted,
+                    },
+                    ...(organizationId ? { organizationId } : {}),
                 },
             })
 
@@ -177,32 +223,30 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
     }
 }
 
-async function provisionOnPrimaryHost(name: string, host: string, shouldProvision: boolean, options?: VmProvisionOptions) {
-    if (shouldProvision) await provisionVmOnHost(host, name, internalHostFetch, options)
-}
-
-function queueUserProvision(name: string, host: string, options: VmProvisionOptions, userIds: string[]) {
-    void provisionOnPrimaryHost(name, host, true, options).then(async () => {
+function queueVmProvision(name: string, host: string, options: VmProvisionOptions, userIds: string[]) {
+    void provisionVmOnHost(host, name, internalHostFetch, options).then(async () => {
         await syncUserCertificatesToVm({ vmName: name, userIds }).catch(error => {
             void recordVmProvisioningError(name, error, 'certificate_sync')
         })
     }).catch(error => void recordVmProvisioningError(name, error, 'create_or_provision'))
 }
 
-async function syncCertificates(vmName: string, userIds: string[]) {
-    await syncUserCertificatesToVm({ vmName, userIds }).catch(error => {
-        void recordVmProvisioningError(vmName, error, 'certificate_sync')
-    })
-}
-
-function normalizeProvisionOptions(os: unknown, services: unknown): VmProvisionOptions | null {
-    const supportedOs = new Set(['ubuntu-24.04', 'ubuntu-22.04'])
-    const supportedServices = new Set(['nodejs', 'postgresql', 'redis', 'python'])
+function normalizeProvisionOptions(os: unknown, resources: unknown, services: unknown, minecraftEulaAccepted: unknown): VmProvisionOptions | null {
+    const supportedOs = new Set(['ubuntu-24.04', 'ubuntu-26.04', 'ubuntu-22.04'])
+    const supportedServices = new Set(['nodejs', 'postgresql', 'redis', 'python', 'bun', 'docker', 'java', 'nginx', 'website', 'minecraft-java'])
     if (os !== undefined && (typeof os !== 'string' || !supportedOs.has(os))) return null
-    if (services !== undefined && (!Array.isArray(services) || services.length > 4 || services.some(service => typeof service !== 'string' || !supportedServices.has(service)))) return null
+    const resourceOptions = new Set(['1:2GiB', '2:4GiB', '4:8GiB'])
+    if (resources !== undefined && (!resources || typeof resources !== 'object' || !('cpu' in resources) || !('memory' in resources)
+        || typeof resources.cpu !== 'string' || typeof resources.memory !== 'string' || !resourceOptions.has(`${resources.cpu}:${resources.memory}`))) return null
+    if (services !== undefined && (!Array.isArray(services) || services.length > supportedServices.size || services.some(service => typeof service !== 'string' || !supportedServices.has(service)))) return null
+    const selectedServices = [...new Set((services || []) as NonNullable<VmProvisionOptions['services']>)]
+    if (selectedServices.includes('minecraft-java') !== (minecraftEulaAccepted === true)) return null
+    const selectedOs = (os || 'ubuntu-24.04') as VmProvisionOptions['os']
     return {
-        os: (os || 'ubuntu-24.04') as VmProvisionOptions['os'],
-        services: [...new Set((services || []) as NonNullable<VmProvisionOptions['services']>)],
+        os: selectedOs,
+        resources: (resources || { cpu: '1', memory: '2GiB' }) as VmProvisionOptions['resources'],
+        services: selectedServices,
+        minecraftEulaAccepted: minecraftEulaAccepted === true,
     }
 }
 
