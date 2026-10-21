@@ -18,11 +18,11 @@ test('login inputs keep their labels, browser autocomplete, and hydration submit
         onPasskeyLogin: () => {},
     }))
 
-    expect(html).toContain('<label class="grid gap-1.5" for="login-username">')
+    expect(html).toContain('<label class="grid gap-2" for="login-username">')
     expect(html).toContain('type="text" placeholder="Username"')
     expect(html).toContain('name="username"')
     expect(html).toContain('autoComplete="username"')
-    expect(html).toContain('<label class="grid gap-1.5" for="login-password">')
+    expect(html).toContain('<label class="grid gap-2" for="login-password">')
     expect(html).toContain('type="password"')
     expect(html).toContain('name="password"')
     expect(html).toContain('autoComplete="current-password"')
