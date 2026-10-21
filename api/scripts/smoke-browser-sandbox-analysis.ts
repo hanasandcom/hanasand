@@ -68,6 +68,7 @@ assert.deepEqual(providerCommunityComments(JSON.stringify({ data: [
 console.log('Browser sandbox analysis helpers passed.')
 
 assert.equal(providerStartUrl({ id: 'urlquery' }, 'https://urlquery.net/search?q=x', 'https://example.com/'), 'https://urlquery.net/search/reports?q=https%3A%2F%2Fexample.com%2F', 'urlquery opens its current public reports search')
+assert.equal(providerStartUrl({ id: 'urlquery' }, 'https://urlquery.net/search?q=x', 'http://2gzyxa5ihm7nsggfxnu52rck2vv4rvmdlkiu3zzui5du4xyclen53wid.onion/'), 'https://urlquery.net/search/reports?q=https%3A%2F%2F2gzyxa5ihm7nsggfxnu52rck2vv4rvmdlkiu3zzui5du4xyclen53wid.onion%2F', 'urlquery searches the canonical HTTPS form for onion reports')
 assert.equal(parseUrlQueryScores('Search: 0 hits'), null, 'missing reports are not a clean verdict')
 assert.equal(parseUrlQueryScores('Search: 5 hits'), null, 'a result count alone is not an alert verdict')
 assert.deepEqual(parseUrlQueryScores('<td>0 - 0 - 0</td>'), { alerts: 0 })
