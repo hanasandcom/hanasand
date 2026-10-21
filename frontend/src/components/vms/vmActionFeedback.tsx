@@ -17,11 +17,11 @@ export function useVmActionFeedback() {
         const timeout = timers.current.get(id)
         if (timeout) clearTimeout(timeout)
         setItems(current => [...current.filter(item => item.id !== id), { id, message, tone }].slice(-3))
-        if (tone !== 'progress') {
+        if (tone === 'success' || tone === 'info') {
             timers.current.set(id, setTimeout(() => {
                 setItems(current => current.filter(item => item.id !== id))
                 timers.current.delete(id)
-            }, tone === 'error' ? 10000 : 6000))
+            }, 6000))
         }
     }, [])
 

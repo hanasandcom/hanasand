@@ -3,7 +3,7 @@ import test from 'node:test'
 import manageVM from '../src/utils/vms/fetch/manage/manage'
 import postVM from '../src/utils/vms/fetch/postVM'
 import suggestVmSetup from '../src/utils/vms/fetch/suggestVmSetup'
-import { vmLifecycleProxyTimeoutMs, vmSetupPlanProxyTimeoutMs } from '../src/utils/vms/proxyTimeout'
+import { vmCreateProxyTimeoutMs, vmCreateTimeoutMs, vmLifecycleProxyTimeoutMs, vmSetupPlanProxyTimeoutMs } from '../src/utils/vms/proxyTimeout'
 
 function setSessionCookie() {
     Object.defineProperty(globalThis, 'document', {
@@ -31,6 +31,13 @@ test('VM setup planning gets enough proxy time for its model request', () => {
     assert.equal(vmSetupPlanProxyTimeoutMs('GET', ['vm', 'setup-plan'], 12000), null)
     assert.equal(vmSetupPlanProxyTimeoutMs('POST', ['vm', 'other'], 12000), null)
     assert.equal(vmSetupPlanProxyTimeoutMs('POST', ['vm', 'setup-plan'], 40000), 40000)
+})
+
+test('VM creation proxy and browser request use a matching long timeout', () => {
+    assert.equal(vmCreateProxyTimeoutMs('POST', ['vm'], 12000), vmCreateTimeoutMs)
+    assert.equal(vmCreateProxyTimeoutMs('POST', ['vm'], 200000), 200000)
+    assert.equal(vmCreateProxyTimeoutMs('GET', ['vm'], 12000), null)
+    assert.equal(vmCreateProxyTimeoutMs('POST', ['vm', 'example', 'restart'], 12000), null)
 })
 
 test('browser request aborts say the host may still be processing the VM action', async () => {
