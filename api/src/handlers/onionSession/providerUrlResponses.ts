@@ -16,7 +16,12 @@ export function urlQueryTargetMatches(value: string, target: string) {
         } catch { return '' }
     }
     try {
-        if (/^https?:\/\//i.test(value) && new URL(value).protocol !== new URL(target).protocol) return false
+        if (/^https?:\/\//i.test(value)) {
+            const submitted = new URL(value)
+            const requested = new URL(target)
+            const sameOnion = submitted.hostname.endsWith('.onion') && submitted.hostname === requested.hostname
+            if (submitted.protocol !== requested.protocol && !sameOnion) return false
+        }
     } catch { return false }
     return Boolean(value && target && normalize(value) && normalize(value) === normalize(target))
 }

@@ -148,6 +148,12 @@ export function hasParsedProviderData(tool: { id?: string; name?: string; url?: 
 
 export function providerAccessIssue(tool: { id?: string; name?: string; url?: string }, text: string, currentUrl = '') {
     if (/recaptcharequired|recaptcha validation failed|captcha/i.test(text)) return 'Provider blocked automated capture with a reCAPTCHA challenge.'
+    if (/(?:error:\s*)?forbidden|does not have permission to get url|denied browser access/i.test(text)) {
+        if (isVirusTotalTool(tool, currentUrl) || isUrlQueryTool(tool, currentUrl)) {
+            const provider = isVirusTotalTool(tool, currentUrl) ? 'VirusTotal' : 'urlquery'
+            return `${provider} denied browser access to this report (HTTP 403). No verdict was returned.`
+        }
+    }
     if (isVirusTotalTool(tool, currentUrl) && /\bitem not found\b|no existing (?:url )?analysis/i.test(text)) return 'VirusTotal has no existing report for this URL. No verdict was returned.'
     if (isVirusTotalTool(tool, currentUrl) && /\/gui\/home\/(?:upload|search)/i.test(currentUrl)) return 'VirusTotal did not open a URL report; provider redirected to its upload/search home.'
     return ''
