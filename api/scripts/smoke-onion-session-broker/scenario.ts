@@ -4,7 +4,10 @@ import { downloadHash } from './localTarget.ts'
 import { type BrokerPayload, waitForPayload } from './payload.ts'
 
 export async function runBrokerScenario(client: WebSocket, target: string, payloads: BrokerPayload[]) {
-    client.send(JSON.stringify({ type: 'start', target, durationMinutes: 1, width: 900, height: 540 }))
+    client.send(JSON.stringify({
+        type: 'start', target, durationMinutes: 1, width: 900, height: 540,
+        profileTools: [{ id: 'smoke-provider', name: 'Sandbox provider smoke', url: new URL('provider', target).href }],
+    }))
 
     await waitForPayload(payloads, payload => payload.type === 'ready')
     const firstFrame = await waitForPayload(payloads, payload => payload.type === 'frame' && Boolean(payload.image))
@@ -19,6 +22,10 @@ export async function runBrokerScenario(client: WebSocket, target: string, paylo
     await waitForPayload(payloads, payload => payload.type === 'console' && payload.text === 'button-clicked')
     client.send(JSON.stringify({ type: 'wheel', x: 420, y: 260, deltaY: 280 }))
     await waitForPayload(payloads, payload => payload.type === 'console' && /^wheel:\d+/.test(payload.text || ''))
+
+    const providerCapture = await waitForPayload(payloads, payload => payload.type === 'tool_capture' && payload.id === 'smoke-provider' && Boolean(payload.image))
+    assert(providerCapture.image, 'expected the isolated provider browser to return a screenshot in the existing capture event')
+    assert(!payloads.some(payload => payload.type === 'status' && ['tab_selected', 'tab_navigated'].includes(payload.state || '')), 'provider capture must not change the target browser tab')
 
     await verifyClipboard(client, payloads)
     await verifyDownload(client, payloads)

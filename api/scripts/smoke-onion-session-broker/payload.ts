@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 
 export type BrokerPayload = {
     type?: string
+    id?: string
     state?: string
     text?: string
     image?: string
