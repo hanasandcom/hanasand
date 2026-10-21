@@ -5,20 +5,34 @@ type Message = { id: string; sender_kind: string; sender_name: string; body: str
 
 test('Enter and Shift+Enter send support messages', async ({ page }) => {
     const messages: Message[] = []
+    let channel = 'ai'
+    let conversationId = '11111111-1111-4111-8111-111111111111'
     await mockSupportLive(page)
     await page.route('**/api/support/chat*', async route => {
         if (route.request().method() === 'POST') {
             const body = route.request().postDataJSON()
             if (body.action === 'connect') return route.fulfill({ json: { ticket: 'a'.repeat(64) } })
+            if (body.conversationId) conversationId = body.conversationId
             messages.push({ id: body.requestId, request_id: body.requestId, sender_kind: 'user', sender_name: 'You', body: body.message })
-            messages.push({ id: `reply-${messages.length}`, sender_kind: 'assistant', sender_name: 'Hanasand AI', body: `Received: ${body.message}` })
+            const humanReply = messages.filter(message => message.sender_kind === 'user').length === 2
+            if (humanReply) channel = 'human'
+            messages.push({ id: `reply-${messages.length}`, sender_kind: humanReply ? 'support' : 'assistant', sender_name: humanReply ? 'Eirik' : 'Hanasand AI', body: `Received: ${body.message}` })
+        } else {
+            const requestedId = new URL(route.request().url()).searchParams.get('conversationId')
+            if (requestedId && requestedId !== conversationId) {
+                conversationId = requestedId
+                channel = 'ai'
+                messages.length = 0
+            }
         }
-        await route.fulfill({ json: { ...supportSnapshot(messages), accepted: true } })
+        await route.fulfill({ json: { ...supportSnapshot(messages, channel), id: conversationId, agent_name: channel === 'human' ? 'Eirik' : undefined, accepted: true } })
     })
     await page.goto('/contact')
     await page.getByLabel('Open support assistant').click()
     const dialog = page.getByRole('dialog', { name: 'Support assistant' })
-    await expect(dialog.getByText('Speaking with Hanasand AI')).toBeVisible()
+    await expect(dialog).toBeVisible()
+    const widgetTitle = dialog.getByRole('button', { name: 'Move support window' })
+    await expect(widgetTitle.getByText('Speaking with Hanasand AI')).toBeVisible()
     const newChat = dialog.getByRole('button', { name: 'Start a new support chat' })
     const close = dialog.getByLabel('Close support assistant')
     const newChatBox = (await newChat.boundingBox())!
@@ -33,7 +47,11 @@ test('Enter and Shift+Enter send support messages', async ({ page }) => {
     await input.fill('Send with Shift+Enter')
     await input.press('Shift+Enter')
     await expect(dialog.getByRole('log')).toContainText('Received: Send with Shift+Enter')
+    await expect(widgetTitle.getByText('Speaking with Eirik')).toBeVisible()
     expect(messages.filter(message => message.sender_kind === 'user').map(message => message.body)).toEqual(['Send with Enter', 'Send with Shift+Enter'])
+    await newChat.click()
+    await expect(dialog.getByRole('heading', { name: 'What can we help with?' })).toBeVisible()
+    await expect(widgetTitle.getByText('Speaking with Hanasand AI')).toBeVisible()
 })
 
 for (const width of [390, 1440]) {

@@ -19,7 +19,7 @@ export default function SupportAssistant({ force = false, internal = false }: { 
     const newChatAction = useRef<(() => void) | null>(null)
     const registerNewChatAction = useCallback((action: (() => void) | null) => { newChatAction.current = action }, [])
     const updateChatSubtitle = useCallback((human: boolean, agentName?: string) => {
-        setChatSubtitle(human ? `Speaking with ${agentName || 'Support'}` : 'Speaking with Hanasand AI')
+        setChatSubtitle(human ? agentName ? `Speaking with ${agentName}` : 'Waiting for support' : 'Speaking with Hanasand AI')
     }, [])
     const open = openPath !== null && openPath === pathname
     useEffect(() => {
@@ -49,7 +49,7 @@ export default function SupportAssistant({ force = false, internal = false }: { 
                     </button>
                 </header>
 
-                <PublicSupportChat active={open} onUnreadChange={setUnread} onAssistantStateChange={updateChatSubtitle} registerNewChatAction={registerNewChatAction} hideNewChatButton />
+                <PublicSupportChat active={open} onUnreadChange={setUnread} onAssistantStateChange={updateChatSubtitle} registerNewChatAction={registerNewChatAction} hideNewChatButton hideAgentStatus />
             </section>
             {!open ? (
                 <button

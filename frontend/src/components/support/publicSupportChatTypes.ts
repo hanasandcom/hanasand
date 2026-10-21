@@ -31,6 +31,7 @@ export type PublicSupportChatOptions = {
     onAssistantStateChange?: (human: boolean, agentName?: string) => void
     registerNewChatAction?: (action: (() => void) | null) => void
     hideNewChatButton?: boolean
+    hideAgentStatus?: boolean
     initialConversation?: PublicSupportConversation
     initialSelectedId?: string
 }

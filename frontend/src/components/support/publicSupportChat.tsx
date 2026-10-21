@@ -100,7 +100,7 @@ export default function PublicSupportChat(props: PublicSupportChatOptions) {
                     <textarea aria-label='Message' rows={Math.min(6, Math.max(1, input.split('\n').length))} maxLength={4000} value={input} onChange={event => setInput(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.nativeEvent.isComposing) { event.preventDefault(); if (!loading && !busy) send(event) } }} placeholder={human ? 'Message the support team…' : 'Ask a question…'} className='min-h-9 min-w-0 flex-1 resize-none bg-transparent px-2 py-1 text-sm leading-5 text-ui-text outline-none placeholder:text-ui-muted' />
                     <button type='submit' disabled={loading || busy || !input.trim()} aria-label='Send message' className='grid h-8 w-8 shrink-0 place-items-center rounded-full bg-ui-primary text-ui-on-primary transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-primary disabled:opacity-40'>{sending ? <LoaderCircle className='h-4 w-4 animate-spin' /> : <ArrowUp className='h-4 w-4' />}</button>
                 </form>
-                {human ? <div className='mt-3 flex min-h-7 items-center justify-center'><p className='flex items-center gap-1.5 text-xs text-ui-muted'><UserRound className='h-3.5 w-3.5' />{agentName ? `Speaking with ${agentName}` : 'Waiting for support.'}</p></div> : null}
+                {human && !props.hideAgentStatus ? <div className='mt-3 flex min-h-7 items-center justify-center'><p className='flex items-center gap-1.5 text-xs text-ui-muted'><UserRound className='h-3.5 w-3.5' />{agentName ? `Speaking with ${agentName}` : 'Waiting for support.'}</p></div> : null}
             </div>
         </section>
     )
