@@ -50,6 +50,6 @@ test('provider tabs distinguish missing reports from access failures or unavaila
     assert.equal(providerTabStatus(noVirusTotalReport), 'no report')
 
     const denied = capture('denied', { error: 'urlquery denied browser access to this report (HTTP 403). No verdict was returned.' })
-    assert.equal(providerStatus(denied), 'Blocked')
+    assert.equal(providerStatus(denied), 'Access restricted')
     assert.equal(providerTabStatus(denied), 'blocked')
 })

@@ -48,7 +48,7 @@ export function providerStatus(capture?: Capture, analysis?: SandboxToolAnalysis
     if (!capture) return 'Unavailable'
     if (capture.error === 'provider_navigation_pending') return 'Loading'
     if (noProviderReport(capture.error)) return 'No report'
-    if (providerBlocked(capture.error)) return 'Blocked'
+    if (providerBlocked(capture.error)) return 'Access restricted'
     if (analysis?.toolKind === 'webcrack' && capture.error) return 'Provider error'
     if (analysis?.toolKind === 'webcrack' && analysis.webcrackLoaded === false && /no obfuscated (?:script sample|code)/i.test(analysis.webcrackLoadReason || '')) return 'No obfuscated code'
     if (hasParsedProviderResult(analysis)) return 'Results'
