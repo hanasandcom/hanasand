@@ -85,8 +85,9 @@ test('clearing auth expires local and legacy cookies with shared-domain scope', 
 mock.module('next/headers', () => ({
     cookies: async () => ({ get: (name: string) => ({ value: name === 'id' ? 'user-1' : 'session-token' }) }),
 }))
-mock.module('@/config', () => ({ default: { url: { api: 'https://api.example.test/api' } } }))
-mock.module('@/utils/organizations/serverWorkspace', () => ({ activeOrganizationId: async () => null }))
+mock.module('@/config', () => ({ default: { url: { api: 'https://api.example.test/api', ai: 'http://ai.example.test/api' } } }))
+let activeOrganizationId: string | null = null
+mock.module('@/utils/organizations/serverWorkspace', () => ({ activeOrganizationId: async () => activeOrganizationId }))
 const { GET, POST } = await import('../src/app/api/backend/[...path]/route')
 
 test('backend refresh cookie uses the response expiry through the shared route writer', async () => {
@@ -144,7 +145,9 @@ test('backend proxy keeps VM lifecycle requests open for the host operation', as
 test('backend proxy prefers the current request credentials over stale cookies', async () => {
     const previousFetch = globalThis.fetch
     let forwardedHeaders: Headers | null = null
-    globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    let forwardedUrl = ''
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+        forwardedUrl = String(input)
         forwardedHeaders = new Headers(init?.headers)
         return new Response('ok')
     }) as typeof fetch
@@ -162,9 +165,33 @@ test('backend proxy prefers the current request credentials over stale cookies',
         const response = await POST(request, { params: Promise.resolve({ path: ['ai', 'conversations'] }) })
 
         expect(response.status).toBe(200)
+        expect(forwardedUrl).toBe('http://ai.example.test/api/ai/conversations')
         expect(forwardedHeaders?.get('authorization')).toBe('Bearer fresh-token')
         expect(forwardedHeaders?.get('id')).toBe('fresh-user')
     } finally {
+        globalThis.fetch = previousFetch
+    }
+})
+
+test('backend VM requests use the active organization instead of a client-supplied organization', async () => {
+    const previousFetch = globalThis.fetch
+    let forwardedHeaders: Headers | null = null
+    activeOrganizationId = 'cashflow'
+    globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+        forwardedHeaders = new Headers(init?.headers)
+        return new Response('[]')
+    }) as typeof fetch
+
+    try {
+        const request = new NextRequest('http://internal.test/api/backend/vms/user-1', {
+            headers: { 'x-organization-id': 'hanasand' },
+        })
+        const response = await GET(request, { params: Promise.resolve({ path: ['vms', 'user-1'] }) })
+
+        expect(response.status).toBe(200)
+        expect(forwardedHeaders?.get('x-organization-id')).toBe('cashflow')
+    } finally {
+        activeOrganizationId = null
         globalThis.fetch = previousFetch
     }
 })

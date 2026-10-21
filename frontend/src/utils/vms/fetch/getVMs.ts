@@ -2,7 +2,7 @@ import config from '@/config'
 import fetchWithRetry from '@/utils/fetchWithRetry'
 import { getCookie } from '../../cookies/cookies'
 
-export default async function getVMs(id: string, tokenOverride?: string, userIdOverride?: string, impersonationToken?: string): Promise<VM[]> {
+export default async function getVMs(id: string, tokenOverride?: string, userIdOverride?: string, impersonationToken?: string, organizationId?: string): Promise<VM[]> {
     try {
         const token = decodeURIComponent(tokenOverride ?? getCookie('access_token') ?? '')
         const userId = userIdOverride ?? getCookie('id')
@@ -13,6 +13,7 @@ export default async function getVMs(id: string, tokenOverride?: string, userIdO
                     'Authorization': `Bearer ${token}`,
                     id: userId || '',
                     ...(impersonationToken ? { 'x-impersonation-token': impersonationToken } : {}),
+                    ...(organizationId ? { 'x-organization-id': organizationId } : {}),
                 }),
             },
             next: { revalidate: 5 },

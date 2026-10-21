@@ -4,6 +4,7 @@ import { DashboardDataFallback, DashboardPage } from '@/components/dashboard/ui'
 import getVMs from '@/utils/vms/fetch/getVMs'
 import { cookies, headers } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { activeOrganizationId } from '@/utils/organizations/serverWorkspace'
 
 export const dynamic = 'force-dynamic'
 
@@ -32,6 +33,7 @@ export default async function Page() {
 }
 
 async function VMData({ effectiveId, token, id, impersonationToken }: { effectiveId: string, token: string, id: string, impersonationToken: string }) {
-    const vms = await getVMs(effectiveId, token, id, impersonationToken)
+    const organizationId = await activeOrganizationId()
+    const vms = await getVMs(effectiveId, token, id, impersonationToken, organizationId)
     return <VMs vms={vms} initialNow={Date.now()} />
 }

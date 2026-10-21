@@ -8,6 +8,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, RefreshCcw } from 'lucide-react'
 import { DashboardPage, DashboardPanel } from '@/components/dashboard/ui'
+import { activeOrganizationId } from '@/utils/organizations/serverWorkspace'
 
 export default async function Page(props: { params: Promise<{ id: string[] }> }) {
     const params = await props.params
@@ -19,11 +20,12 @@ export default async function Page(props: { params: Promise<{ id: string[] }> })
         return redirect(`/logout?path=/login%3Fpath%3D/vms/${id}%26expired=true`)
     }
 
+    const organizationId = await activeOrganizationId()
     const [vmResponse, details, metrics, connection] = await Promise.all([
-        getVM(id, token, userId),
-        getVMDetails(id, token, userId),
-        getVMMetrics(id, token, userId),
-        getVMConnection(id, token, userId),
+        getVM(id, token, userId, organizationId),
+        getVMDetails(id, token, userId, false, organizationId),
+        getVMMetrics(id, token, userId, organizationId),
+        getVMConnection(id, token, userId, organizationId),
     ])
     const vm = Array.isArray(vmResponse) && vmResponse.length ? vmResponse[0] : null
     if (!vm) {

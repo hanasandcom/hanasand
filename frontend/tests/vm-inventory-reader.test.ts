@@ -21,13 +21,14 @@ test('VM inventory uses the authenticated request and cancels a stalled response
     const inventory = [{ id: 'vm-1', status: 'Running' }]
     responseFactory = () => Response.json(inventory)
 
-    assert.deepEqual(await getVMs('organization-one', 'token%20value', 'user-1', 'impersonation'), inventory)
+    assert.deepEqual(await getVMs('organization-one', 'token%20value', 'user-1', 'impersonation', 'cashflow'), inventory)
     assert.equal(String(requests[0]?.input), `${config.url.api}/vms/organization-one`)
     assert.deepEqual(requests[0]?.options, {
         headers: {
             Authorization: 'Bearer token value',
             id: 'user-1',
             'x-impersonation-token': 'impersonation',
+            'x-organization-id': 'cashflow',
         },
         next: { revalidate: 5 },
         timeoutMs: config.abortTimeout,

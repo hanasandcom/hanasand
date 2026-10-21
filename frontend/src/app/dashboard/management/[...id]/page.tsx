@@ -4,6 +4,7 @@ import getVMMetrics from '@/utils/vms/fetch/metrics/getVMMetrics'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { DashboardPage } from '@/components/dashboard/ui'
+import { activeOrganizationId } from '@/utils/organizations/serverWorkspace'
 
 export default async function Page(props: { params: Promise<{ id: string[] }> }) {
     const params = await props.params
@@ -15,9 +16,10 @@ export default async function Page(props: { params: Promise<{ id: string[] }> })
         return redirect(`/logout?path=/login%3Fpath%3D/management/${id}%26expired=true`)
     }
 
+    const organizationId = await activeOrganizationId()
     const [vmResponse, metrics] = await Promise.all([
-        getVM(id, token, userId),
-        getVMMetrics(id, token, userId),
+        getVM(id, token, userId, organizationId),
+        getVMMetrics(id, token, userId, organizationId),
     ])
     const vm = Array.isArray(vmResponse) && vmResponse.length ? vmResponse[0] : null
 

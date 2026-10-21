@@ -41,7 +41,8 @@ async function handler(req: NextRequest, context: Context) {
     }
 
     const path = pathSegments.map(segment => encodeURIComponent(segment)).join('/')
-    const target = new URL(`${config.url.api}/${path}`)
+    const targetBase = pathSegments[0] === 'ai' ? config.url.ai : config.url.api
+    const target = new URL(`${targetBase}/${path}`)
     target.search = req.nextUrl.search
     const longLogSearch = pathSegments[0] === 'logs' && pathSegments[1] === 'search'
         && (target.searchParams.get('search')?.trim().length || 0) >= 12
@@ -62,6 +63,11 @@ async function handler(req: NextRequest, context: Context) {
     if (token) headers.set('Authorization', `Bearer ${token}`)
     if (id) headers.set('id', id)
     if (['notes', 'share', 'article', 'articles', 'thought', 'thoughts'].includes(pathSegments[0])) {
+        headers.delete('x-organization-id')
+        const organizationId = await activeOrganizationId()
+        if (organizationId) headers.set('x-organization-id', organizationId)
+    }
+    if (pathSegments[0] === 'vm' || pathSegments[0] === 'vms') {
         headers.delete('x-organization-id')
         const organizationId = await activeOrganizationId()
         if (organizationId) headers.set('x-organization-id', organizationId)

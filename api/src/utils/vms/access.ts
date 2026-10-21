@@ -2,6 +2,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify'
 import run from '#db'
 import tokenWrapper from '#utils/auth/tokenWrapper.ts'
 import hasHanasandInternalRouteAccess from '#utils/auth/organizationPageAccess.ts'
+import { contentOrganizationAccess, requestedContentOrganization } from '#utils/contentOrganization.ts'
 
 export async function vmViewer(req: FastifyRequest, res: FastifyReply) {
     const { valid, id } = await tokenWrapper(req, res)
@@ -17,6 +18,16 @@ export async function requireVmAccess(req: FastifyRequest, res: FastifyReply, na
     const vm = result.rows[0]
     if (!vm) {
         res.status(404).send({ error: 'VM not found.' }); return null
+    }
+    const organizationId = requestedContentOrganization(req)
+    if (organizationId) {
+        if (!await contentOrganizationAccess(organizationId, viewer.id)) {
+            res.status(403).send({ error: 'You do not have access to this organization’s content.' }); return null
+        }
+        const organization = await run('SELECT organization_id FROM vms WHERE LOWER(name) = LOWER($1) LIMIT 1', [name])
+        if (organization.rows[0]?.organization_id !== organizationId) {
+            res.status(404).send({ error: 'VM not found.' }); return null
+        }
     }
     const canAccess = await canAccessVm(vm.name, viewer.id, { isAdmin: viewer.admin, manage })
     if (!canAccess) {

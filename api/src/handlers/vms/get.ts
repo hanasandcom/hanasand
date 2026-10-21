@@ -4,6 +4,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify'
 import run from '#db'
 import { loadSQL } from '#utils/loadSQL.ts'
 import { vmViewer, requireVmAccess } from '#utils/vms/access.ts'
+import { contentOrganizationAccess, requestedContentOrganization } from '#utils/contentOrganization.ts'
 
 export default async function getVM(req: FastifyRequest, res: FastifyReply) {
     const { id, user } = req.params as { id?: string; user?: string }
@@ -11,11 +12,19 @@ export default async function getVM(req: FastifyRequest, res: FastifyReply) {
     if (!viewer) return
     if (user && !viewer.admin && user !== viewer.id) return res.status(403).send({ error: 'Forbidden.' })
 
+    const organizationId = requestedContentOrganization(req)
+    if (!id && organizationId && !await contentOrganizationAccess(organizationId, viewer.id)) {
+        return res.status(403).send({ error: 'You do not have access to this organization’s content.' })
+    }
+
     try {
         let result
         if (id) {
-            const query = await loadSQL('getVmById.sql')
-            result = await run(query, [id])
+            const query = await loadSQL(organizationId ? 'getVmByIdInOrganization.sql' : 'getVmById.sql')
+            result = await run(query, organizationId ? [id, organizationId] : [id])
+        } else if (organizationId) {
+            const query = await loadSQL('getVmsByOrganization.sql')
+            result = await run(query, [organizationId, viewer.id])
         } else if (user || !viewer.admin) {
             const query = await loadSQL('getVmsByUser.sql')
             result = await run(query, [user || viewer.id])
