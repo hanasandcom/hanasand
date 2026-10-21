@@ -1,5 +1,4 @@
 import type { SandboxDeobfuscationTask, WebCrackLoadResult } from './providerTypes.ts'
-import type { BrowserContext } from 'playwright'
 import { watchWebCrackOutput, readWebCrackOutput } from './webcrack.ts'
 import { providerCaptureMessage, type ProviderCaptureDetails, type ProviderProfileCaptureDependencies } from './providerCapture.ts'
 import { isWebCrackTool, providerStartUrl, interactWithProvider, officialProviderKind } from './providerNavigation.ts'
@@ -10,9 +9,8 @@ import { withTimeout } from './asyncOperations.ts'
 import { dismissCookieOverlays } from './dismissCookieOverlays.ts'
 import { loadWebCrackSample, collectFastRenderedText, collectPageEvidence } from './pageEvidence.ts'
 
-export function createProviderProfileCaptureService({ state, sessionId, isCurrentRun, send, trace, cleanRemoteTabId, webCrackTasks, newBackgroundPage, watchConsole, focusRemoteTab, maybeExtendSuspiciousRun, persistProviderRunResult }: ProviderProfileCaptureDependencies) {
+export function createProviderProfileCaptureService({ sessionId, isCurrentRun, send, webCrackTasks, newProviderPage, watchConsole, maybeExtendSuspiciousRun, persistProviderRunResult }: ProviderProfileCaptureDependencies) {
     async function captureProfileTools(
-        context: BrowserContext,
         tools: Array<{ id?: string; name?: string; url?: string }>,
         target: string,
         deobfuscationTasks: SandboxDeobfuscationTask[] = [],
@@ -25,7 +23,7 @@ export function createProviderProfileCaptureService({ state, sessionId, isCurren
             const startedAt = new Date().toISOString()
             const toolUrl = tool.url!.replaceAll('{url}', encodeURIComponent(target)).replaceAll('{rawUrl}', target)
             const webcrackTool = isWebCrackTool(tool, toolUrl)
-            const toolId = cleanRemoteTabId(tool.id || safeToolId(tool.name || toolUrl))
+            const toolId = tool.id || safeToolId(tool.name || toolUrl)
             const sendToolCapture = (
                 url: string,
                 details: ProviderCaptureDetails,
@@ -48,29 +46,18 @@ export function createProviderProfileCaptureService({ state, sessionId, isCurren
                 sendToolCapture(toolUrl, { evidence, webcrackLoad, toolAnalysis: analyzeToolEvidence(tool.name || toolUrl, evidence, webcrackLoad) }, toolId)
                 return
             }
-            const toolPage = await newBackgroundPage(context, generation).catch(() => null)
-            if (!toolPage || !isCurrentRun(generation)) {
-                await toolPage?.close().catch(() => undefined)
+            const providerSession = await newProviderPage(generation).catch(() => null)
+            const toolPage = providerSession?.page
+            if (!toolPage || !providerSession || !isCurrentRun(generation)) {
+                await providerSession?.close().catch(() => undefined)
                 return
             }
             if (webcrackTool) await watchWebCrackOutput(toolPage)
             if (!isCurrentRun(generation)) {
-                await toolPage.close().catch(() => undefined)
+                await providerSession.close().catch(() => undefined)
                 return
             }
-            state.toolPages.set(toolId, toolPage)
-            toolPage.on('close', () => {
-                if (state.toolPages.get(toolId) === toolPage) state.toolPages.delete(toolId)
-            })
             watchConsole(toolPage, generation, toolId, tool.name || toolId)
-            toolPage.on('framenavigated', frame => {
-                if (!isCurrentRun(generation)) return
-                if (frame !== toolPage.mainFrame()) return
-                trace('provider_tab_navigated', { tabId: toolId, url: toolPage.url(), activeRemoteTabId: state.activeRemoteTabId })
-                if (state.activeRemoteTabId === toolId) send({ type: 'status', state: 'tab_navigated', tabId: toolId, url: toolPage.url(), message: `${tool.name || toolId} navigated.` })
-            })
-            await focusRemoteTab(false, generation)
-            if (!isCurrentRun(generation)) return
             const providerBodies = collectProviderResponses(toolPage, tool.name || toolUrl, target)
             try {
                 toolPage.setDefaultTimeout(providerTimeoutMs(tool))
@@ -192,7 +179,7 @@ export function createProviderProfileCaptureService({ state, sessionId, isCurren
             } catch (error) {
                 sendToolCapture(toolUrl, { error: error instanceof Error ? error.message : String(error) })
             } finally {
-                await focusRemoteTab(false, generation)
+                await providerSession.close().catch(() => undefined)
             }
         }))
     }

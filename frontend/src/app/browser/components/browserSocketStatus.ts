@@ -3,7 +3,7 @@ import { cleanConsoleEvent, isDegradedNavigationError } from '../browserRunData'
 import type { BrowserSocketMessageContext } from './browserSocketMessageTypes'
 
 export function handleBrowserStatusMessage(context: BrowserSocketMessageContext) {
-    const { payload, socket, runState, override, replaceSandbox, pushEvent, pushConsoleEvent, setStartupStage, setActiveSandboxTab, setRemoteTabUrls, setActiveUrl, setCapacity, setQuota, setSessionState, setRunBlocker } = context
+    const { payload, socket, runState, override, replaceSandbox, pushEvent, pushConsoleEvent, setStartupStage, setActiveUrl, setCapacity, setQuota, setSessionState, setRunBlocker } = context
 
     if (payload.type === 'status') {
         const statusState = stringValue(payload.state)
@@ -11,13 +11,6 @@ export function handleBrowserStatusMessage(context: BrowserSocketMessageContext)
             : ['navigating', 'navigated'].includes(statusState) ? 2
                 : ['domcontentloaded', 'loaded'].includes(statusState) ? 3 : 0
         setStartupStage(current => Math.max(current, stage))
-        const remoteTabId = stringValue(payload.tabId)
-        const remoteTabUrl = stringValue(payload.url)
-        if ((statusState === 'tab_selected' || statusState === 'tab_navigated') && remoteTabId) {
-            setActiveSandboxTab(remoteTabId)
-            if (remoteTabUrl) setRemoteTabUrls(current => ({ ...current, [remoteTabId]: remoteTabUrl }))
-            if (remoteTabId === 'browser' && remoteTabUrl) setActiveUrl(remoteTabUrl)
-        }
         const nextCapacity = capacityValue(payload.capacity)
         if (nextCapacity) setCapacity(nextCapacity)
         const nextQuota = quotaValue(payload.quota)
@@ -36,7 +29,7 @@ export function handleBrowserStatusMessage(context: BrowserSocketMessageContext)
             replaceSandbox()
             return
         }
-        if (payload.url && statusState !== 'tab_selected' && statusState !== 'tab_navigated') setActiveUrl(String(payload.url))
+        if (payload.url && payload.source !== 'provider') setActiveUrl(String(payload.url))
         pushEvent(String(payload.message || payload.state || 'Browser status updated.'))
         return
     }

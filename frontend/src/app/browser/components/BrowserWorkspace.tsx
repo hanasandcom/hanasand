@@ -120,15 +120,17 @@ export function BrowserWorkspace(props: BrowserWorkspaceProps) {
                                                 key={streamAttempt}
                                                 ref={streamRef}
                                                 src={streamUrl}
-                                                style={{ pointerEvents: streamHasFrame || streamNeedsGesture ? 'auto' : 'none' }}
-                                                tabIndex={(streamHasFrame || streamNeedsGesture) && activeTool?.id !== 'webcrack' ? 0 : -1}
+                                                style={{ pointerEvents: activeTool ? 'none' : streamHasFrame || streamNeedsGesture ? 'auto' : 'none' }}
+                                                tabIndex={!activeTool && (streamHasFrame || streamNeedsGesture) ? 0 : -1}
                                                 title='Live WebRTC browser sandbox'
                                                 className='absolute inset-0 h-full w-full border-0 bg-ui-canvas'
                                                 allow='autoplay; clipboard-read; clipboard-write; fullscreen'
                                                 sandbox='allow-scripts allow-same-origin allow-forms allow-pointer-lock allow-popups allow-downloads'
                                             />
                                             {activeTool?.id === 'webcrack' && activeToolCapture ? <div className='absolute inset-0 z-10 overflow-auto bg-ui-canvas p-4'><ProviderReportDetails tool={activeTool} capture={activeToolCapture} /></div> : null}
-                                            {!streamHasFrame ? <div className='pointer-events-none absolute inset-0 bg-ui-canvas'>
+                                            {activeTool && activeTool.id !== 'webcrack' && activeToolCapture ? <div className='absolute inset-0 z-10 overflow-auto bg-ui-canvas'><ProviderViewportEvidence tool={activeTool} capture={activeToolCapture} /></div> : null}
+                                            {activeTool && !activeToolCapture ? <div role='status' className='absolute inset-0 z-10 grid place-items-center bg-ui-canvas p-5'><div className='grid justify-items-center gap-2 text-center'><LoaderCircle className='size-8 animate-spin text-ui-loader' /><p className='text-sm text-ui-muted'>{activeTool.name} check is starting…</p></div></div> : null}
+                                            {!streamHasFrame && !activeTool ? <div className='pointer-events-none absolute inset-0 bg-ui-canvas'>
                                                 {activeViewportImage ? <img src={activeViewportImage} alt='Live browser sandbox frame' className='absolute inset-0 h-full w-full object-contain' /> : null}
                                                 <div role='status' aria-label={streamNeedsGesture ? 'Tap to resume browser stream' : 'Connecting browser stream'} className='absolute inset-0 grid place-content-center justify-items-center gap-2'>
                                                     <LoaderCircle className='size-8 animate-spin text-ui-loader' />

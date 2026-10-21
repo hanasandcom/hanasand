@@ -76,19 +76,17 @@ function chromiumHeadless() {
     return process.platform === 'linux' && !process.env.DISPLAY
 }
 
-export function chromiumLaunchOptions(proxy?: string) {
+export function chromiumLaunchOptions(proxy?: string, headless = chromiumHeadless()) {
     const args = [
         '--disable-dev-shm-usage',
         '--no-first-run',
         '--no-default-browser-check',
         '--disable-blink-features=AutomationControlled',
-        '--kiosk',
-        '--window-position=0,0',
-        `--window-size=${DEFAULT_WIDTH},${DEFAULT_HEIGHT}`,
+        ...(headless ? [] : ['--kiosk', '--window-position=0,0', `--window-size=${DEFAULT_WIDTH},${DEFAULT_HEIGHT}`]),
     ]
     if (process.env.BROWSER_SANDBOX_CHROMIUM_SANDBOX !== '1') args.unshift('--no-sandbox')
     return {
-        headless: chromiumHeadless(),
+        headless,
         executablePath: process.env.CHROMIUM_BIN || '/usr/bin/chromium',
         chromiumSandbox: process.env.BROWSER_SANDBOX_CHROMIUM_SANDBOX === '1',
         proxy: proxy ? { server: proxy } : undefined,
@@ -118,4 +116,3 @@ export function assertProductionBrowserWorker() {
 if (process.env.NODE_ENV !== 'production' && process.env.BROWSER_SANDBOX_PREWARM !== '0') {
     setTimeout(() => void regularBrowser().catch(() => undefined), 1000).unref()
 }
-

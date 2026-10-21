@@ -12,8 +12,6 @@ type SessionMessageHandlerDependencies = {
     send: (payload: Record<string, unknown>) => void
     startBrowser: (message: BrokerMessage) => Promise<void>
     cleanup: () => Promise<void>
-    cleanRemoteTabId: (value: unknown) => string
-    focusRemoteTab: (report?: boolean) => Promise<void>
     extendRun: (extension: BrokerMessage['extension'], paidAuthorized: boolean) => void
     navigate: (value: string) => Promise<void>
     sendFrame: (force: boolean, reason?: string) => Promise<void>
@@ -24,7 +22,7 @@ type SessionMessageHandlerDependencies = {
     readRemoteClipboard: () => Promise<string>
 }
 
-export function createSessionMessageHandler({ state, connection, sessionId, send, startBrowser, cleanup, cleanRemoteTabId, focusRemoteTab, extendRun, navigate, sendFrame, scheduleInteractionFrame, handlePointer, handleWheel, handleKey, readRemoteClipboard }: SessionMessageHandlerDependencies) {
+export function createSessionMessageHandler({ state, connection, sessionId, send, startBrowser, cleanup, extendRun, navigate, sendFrame, scheduleInteractionFrame, handlePointer, handleWheel, handleKey, readRemoteClipboard }: SessionMessageHandlerDependencies) {
     async function handleMessage(message: BrokerMessage & { type: string }) {
         if (message.type === 'start') {
             await startBrowser(message)
@@ -35,12 +33,6 @@ export function createSessionMessageHandler({ state, connection, sessionId, send
             send({ type: 'ended', sessionId })
             await cleanup()
             connection.close()
-            return
-        }
-
-        if (message.type === 'select_tab') {
-            state.activeRemoteTabId = cleanRemoteTabId(message.tabId)
-            await focusRemoteTab(true)
             return
         }
 

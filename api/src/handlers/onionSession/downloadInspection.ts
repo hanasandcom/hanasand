@@ -10,14 +10,13 @@ interface DownloadInspectionDependencies {
     state: SessionState
     send: (payload: Record<string, unknown>) => void
     isCurrentRun: (generation: number) => boolean
-    newBackgroundPage: (context: NonNullable<SessionState['context']>, generation: number) => Promise<Page>
+    newProviderPage: (generation: number) => Promise<{ page: Page; close: () => Promise<void> }>
     watchConsole: (page: Page, generation: number, category?: string, label?: string) => void
-    focusRemoteTab: (visible?: boolean, generation?: number) => Promise<void>
     publishDownloads: () => void
 }
 
 export function createDownloadInspectionService(deps: DownloadInspectionDependencies) {
-    const { state, send, isCurrentRun, newBackgroundPage, watchConsole, focusRemoteTab, publishDownloads } = deps
+    const { state, send, isCurrentRun, newProviderPage, watchConsole, publishDownloads } = deps
 
     function watchDownloads(page: Page, generation: number) {
         page.on('download', download => { void captureDownload(download, generation) })
@@ -25,16 +24,15 @@ export function createDownloadInspectionService(deps: DownloadInspectionDependen
     }
 
     async function lookupFile(sha256: string, generation: number): Promise<FileReputation> {
-        if (!isCurrentRun(generation) || !state.context) return { status: 'interrupted', detail: 'Run ended before the hash lookup finished' }
-        const lookupPage = await newBackgroundPage(state.context, generation)
+        if (!isCurrentRun(generation)) return { status: 'interrupted', detail: 'Run ended before the hash lookup finished' }
+        const providerSession = await newProviderPage(generation)
+        const lookupPage = providerSession.page
         if (!isCurrentRun(generation)) {
-            await lookupPage.close().catch(() => undefined)
+            await providerSession.close().catch(() => undefined)
             return { status: 'interrupted', detail: 'Run ended before the hash lookup finished' }
         }
         watchConsole(lookupPage, generation, 'virustotal-file', 'VirusTotal file')
         try {
-            await focusRemoteTab(false, generation)
-            if (!isCurrentRun(generation)) return { status: 'interrupted', detail: 'Run ended before the hash lookup finished' }
             const bodies: string[] = []
             lookupPage.on('response', response => {
                 const url = new URL(response.url())
@@ -44,7 +42,6 @@ export function createDownloadInspectionService(deps: DownloadInspectionDependen
             })
             await lookupPage.goto(`https://www.virustotal.com/gui/file/${sha256}`, { waitUntil: 'domcontentloaded', timeout: 15_000 })
             if (!isCurrentRun(generation)) return { status: 'interrupted', detail: 'Run ended before the hash lookup finished' }
-            await focusRemoteTab(false, generation)
             const deadline = Date.now() + 20_000
             let result: FileReputation = fileReputation('', sha256)
             while (isCurrentRun(generation) && Date.now() < deadline) {
@@ -58,8 +55,7 @@ export function createDownloadInspectionService(deps: DownloadInspectionDependen
             const interrupted = !isCurrentRun(generation)
             return { status: interrupted ? 'interrupted' : 'unavailable', detail: interrupted ? 'Run ended before the hash lookup finished' : 'VirusTotal file lookup failed — no verdict' }
         } finally {
-            await lookupPage.close().catch(() => undefined)
-            if (isCurrentRun(generation)) await focusRemoteTab(false, generation)
+            await providerSession.close().catch(() => undefined)
         }
     }
 

@@ -94,7 +94,7 @@ export async function waitForProviderData(tool: { id?: string; name?: string; ur
     const deadline = Date.now() + providerDataTimeoutMs(tool)
     let reportOpened = /\/report\//i.test(page.url())
     while (Date.now() < deadline) {
-        if (isVirusTotalTool(tool) && providerText()) return providerText()
+        if (providerText()) return providerText()
         const text = await page.locator('body').innerText({ timeout: 1000 }).catch(() => '')
         const accessIssue = providerAccessIssue(tool, text, page.url())
         if (accessIssue) return accessIssue
@@ -150,4 +150,3 @@ export function providerAccessIssue(tool: { id?: string; name?: string; url?: st
     if (isVirusTotalTool(tool, currentUrl) && /\/gui\/home\/(?:upload|search)/i.test(currentUrl)) return 'VirusTotal did not open a URL report; provider redirected to its upload/search home.'
     return ''
 }
-

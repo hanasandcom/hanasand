@@ -17,10 +17,10 @@ export type FrameQuality = {
 
 export type SessionState = {
     browser: Browser | null
+    providerBrowser: Browser | null
+    providerBrowserPromise: Promise<Browser> | null
     context: BrowserContext | null
     page: Page | null
-    toolPages: Map<string, Page>
-    activeRemoteTabId: string
     ownsBrowser: boolean
     closeTimer: NodeJS.Timeout | null
     runStartedAt: number
@@ -56,17 +56,16 @@ export type SessionState = {
     firstFrameAttemptedAt: number
     fastFrameInFlight: boolean
     interactionFrameTimer: NodeJS.Timeout | null
-    openingBackgroundTabs: number
     documentEvidencePromises: Promise<void>[]
 }
 
 export function createSessionState(): SessionState {
     return {
         browser: null,
+        providerBrowser: null,
+        providerBrowserPromise: null,
         context: null,
         page: null,
-        toolPages: new Map(),
-        activeRemoteTabId: 'browser',
         ownsBrowser: false,
         closeTimer: null,
         runStartedAt: 0,
@@ -102,7 +101,6 @@ export function createSessionState(): SessionState {
         firstFrameAttemptedAt: 0,
         fastFrameInFlight: false,
         interactionFrameTimer: null,
-        openingBackgroundTabs: 0,
         documentEvidencePromises: [],
     }
 }

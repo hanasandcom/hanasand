@@ -45,12 +45,17 @@ export function collectProviderResponses(page: Page, toolName: string, target: s
     let verifiedResult = ''
     page.on('response', response => {
         const url = response.url()
+        const request = response.request()
+        if (request.isNavigationRequest() && request.frame() === page.mainFrame() && !response.ok()) {
+            verifiedResult = providerHttpAccessIssue(toolName, response.status())
+            return
+        }
         if (!providerResponseUrl(toolName, url)) return
         if (!response.ok()) {
             if (!verifiedResult && !/\/comments(?:\?|$)/.test(url)) {
                 if (response.status() === 404) verifiedResult = 'VirusTotal has no existing analysis for the submitted URL.'
                 else if (response.status() === 429) verifiedResult = 'VirusTotal rate-limited the lookup. No verdict was returned.'
-                else if (response.status() === 403) verifiedResult = 'VirusTotal denied access to the URL report. No verdict was returned.'
+                else if (response.status() === 403 || response.status() === 429) verifiedResult = providerHttpAccessIssue(toolName, response.status())
             }
             return
         }
@@ -69,6 +74,12 @@ export function collectProviderResponses(page: Page, toolName: string, target: s
         text: () => verifiedResult,
         comments: () => uniqueStrings(bodies.flatMap(providerCommunityComments)).slice(0, 8),
     }
+}
+
+export function providerHttpAccessIssue(provider: string, status: number) {
+    if (status === 403) return `${provider} denied browser access to this report (HTTP 403). No verdict was returned.`
+    if (status === 429) return `${provider} rate-limited the lookup. No verdict was returned.`
+    return ''
 }
 
 

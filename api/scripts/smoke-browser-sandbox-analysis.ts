@@ -7,7 +7,7 @@ import {
     summarizeDeobfuscationTask,
 } from '../src/handlers/onionSession/analysis.ts'
 import { parseCymruAsn } from '../src/handlers/onionSession/networkEvidence.ts'
-import { parseUrlQueryScores, parseVirusTotalStats, virusTotalUrlResponse, urlQueryTargetMatches, urlQueryReportMatchesTarget } from '../src/handlers/onionSession/providerUrlResponses.ts'
+import { parseUrlQueryScores, parseVirusTotalStats, providerHttpAccessIssue, virusTotalUrlResponse, urlQueryTargetMatches, urlQueryReportMatchesTarget } from '../src/handlers/onionSession/providerUrlResponses.ts'
 import { providerStartUrl } from '../src/handlers/onionSession/providerNavigation.ts'
 import { providerCommunityComments, providerSummaryText } from '../src/handlers/onionSession/providerText.ts'
 import { sandboxResolvedAddressSafety } from '../src/handlers/onionSession/sandboxSafety.ts'
@@ -87,6 +87,9 @@ assert.equal(urlQueryTargetMatches('https://', 'https://vg.no/'), false)
 assert.equal(parseVirusTotalStats('0/0 security vendors'), null)
 assert.equal(parseVirusTotalStats('95/90 security vendors'), null)
 assert.equal(parseVirusTotalStats('clean undetected'), null)
+assert.match(providerHttpAccessIssue('VirusTotal', 403), /HTTP 403.*No verdict was returned/)
+assert.match(providerHttpAccessIssue('urlquery', 403), /urlquery denied browser access/)
+assert.match(providerHttpAccessIssue('urlquery', 429), /rate-limited.*No verdict/)
 const vtResponse = { data: { type: 'url', attributes: { url: 'https://vg.no/', padding: 'x'.repeat(90_000), last_analysis_stats: { malicious: 2, suspicious: 1, harmless: 80, undetected: 12, timeout: 0 }, last_analysis_date: 1_789_000_000 } } }
 assert.match(virusTotalUrlResponse(JSON.stringify(vtResponse), 'https://vg.no'), /3\/95 security vendors/)
 assert.match(virusTotalUrlResponse(JSON.stringify(vtResponse), 'https://vg.no'), /Existing VirusTotal analysis:/)

@@ -92,13 +92,12 @@ export async function launchBrowserContext(input: {
     network: 'tor' | 'regular'
     proxy: string
     slot: { release: () => void; status: BrowserAdmissionStatus }
-    syncVisibleRemoteTab: (page: import('playwright').Page, generation: number) => void
     isCurrentRun: (generation: number) => boolean
     trackNetwork: (event: import('./networkTelemetry.ts').SandboxNetworkEvent) => void
     send: (payload: Record<string, unknown>) => void
     trace: (event: string, detail?: Record<string, unknown>) => void
 }) {
-    const { state, message, sessionId, generation, target, network, proxy, slot, syncVisibleRemoteTab, isCurrentRun, trackNetwork, send, trace } = input
+    const { state, message, sessionId, generation, target, network, proxy, slot, isCurrentRun, trackNetwork, send, trace } = input
     send({
         type: 'status', state: 'launching', sessionId, network, torProxyConfigured: Boolean(proxy), capacity: slot?.status,
         message: network === 'regular'
@@ -116,21 +115,10 @@ export async function launchBrowserContext(input: {
     trace('chromium_launched')
     state.context = await state.browser.newContext({ ...profile.options, serviceWorkers: 'block' })
     trace('context_created')
-    await state.context.exposeBinding('__hanasandRemoteTabSelected', ({ page }) => {
-        if (isCurrentRun(generation)) return syncVisibleRemoteTab(page, generation)
-    })
     await state.context.addInitScript((platform) => {
         Object.defineProperty(navigator, 'webdriver', { get: () => undefined })
         if (platform) Object.defineProperty(navigator, 'platform', { get: () => platform })
     }, profile.platform)
-    await state.context.addInitScript(() => {
-        const reportVisibleTab = () => {
-            if (document.visibilityState !== 'visible') return
-            const notify = (window as unknown as { __hanasandRemoteTabSelected?: () => Promise<void> }).__hanasandRemoteTabSelected
-            void notify?.()
-        }
-        document.addEventListener('visibilitychange', reportVisibleTab)
-    })
     await installSandboxRequestGuard({ context: state.context, generation, network, isCurrentRun, trackNetwork, send })
     state.page = await state.context.newPage()
     trace('page_created')

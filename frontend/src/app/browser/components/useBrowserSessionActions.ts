@@ -17,8 +17,6 @@ export function useBrowserSessionActions(options: BrowserSessionActionsOptions) 
         if (tool && providerTabStatus(selectToolCapture(toolCaptures, tool, normalizedTarget), selectToolCapture(toolCaptures, tool, normalizedTarget)?.toolAnalysis) === 'no obfuscated code') return
         setActiveSandboxTab(tabId)
         if (!runIsActive) setReportOpen(true)
-        const socket = socketRef.current
-        if (socket?.readyState === WebSocket.OPEN && tool?.id !== 'webcrack') socket.send(JSON.stringify({ type: 'select_tab', tabId }))
     }, [runIsActive, selectedProfile.tools, toolCaptures, normalizedTarget])
 
     useEffect(() => {

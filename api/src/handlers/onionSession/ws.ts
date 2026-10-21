@@ -5,7 +5,7 @@ import { providerRunResult } from './providerAnalysis.ts'
 import type { SandboxToolAnalysis } from './providerTypes.ts'
 import recordLog from '#utils/logs/recordLog.ts'
 import { createSessionState } from './sessionState.ts'
-import { createBrowserTabService } from './browserTabs.ts'
+import { createBrowserSupportService } from './browserSupport.ts'
 import { createSessionLifecycleService } from './sessionLifecycle.ts'
 import { createInputService } from './inputHandlers.ts'
 import { createFrameCaptureService } from './frameCapture.ts'
@@ -51,25 +51,25 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
 
     const frameCaptureRef: { current: ReturnType<typeof createFrameCaptureService> | null } = { current: null }
     const sendFrame = (force: boolean, reason = 'interval', generation = state.runGeneration) => frameCaptureRef.current!.sendFrame(force, reason, generation)
-    const tabs = createBrowserTabService({ state, send, trace, isCurrentRun, sendFrame })
-    const { cleanRemoteTabId, syncVisibleRemoteTab, newBackgroundPage, watchConsole, scheduleInteractionFrame, focusRemoteTab } = tabs
-    const downloads = createDownloadInspectionService({ state, send, isCurrentRun, newBackgroundPage, watchConsole, focusRemoteTab, publishDownloads })
+    const browserSupport = createBrowserSupportService({ state, send, isCurrentRun, sendFrame })
+    const { newProviderPage, watchConsole, scheduleInteractionFrame } = browserSupport
+    const downloads = createDownloadInspectionService({ state, send, isCurrentRun, newProviderPage, watchConsole, publishDownloads })
     const { watchDownloads } = downloads
 
     const lifecycle = createSessionLifecycleService({ state, connection, sessionId, send, trace, isCurrentRun, publishDownloads })
     const { cleanup, scheduleCloseTimer, extendRun, maybeExtendSuspiciousRun } = lifecycle
     const documentEvidence = createDocumentEvidenceService({ state, isCurrentRun, maybeExtendSuspiciousRun })
     const { rememberDeobfuscationTasks, queueDocumentEvidence, webCrackTasks } = documentEvidence
-    const frameCapture = createFrameCaptureService({ state, connection, sessionId, send, networkSummary, trace, isCurrentRun, scheduleInteractionFrame: tabs.scheduleInteractionFrame, maybeExtendSuspiciousRun: lifecycle.maybeExtendSuspiciousRun, rememberDeobfuscationTasks })
+    const frameCapture = createFrameCaptureService({ state, connection, sessionId, send, networkSummary, trace, isCurrentRun, scheduleInteractionFrame: browserSupport.scheduleInteractionFrame, maybeExtendSuspiciousRun: lifecycle.maybeExtendSuspiciousRun, rememberDeobfuscationTasks })
     frameCaptureRef.current = frameCapture
     const navigation = createNavigationService({ state, sessionId, defaultNetwork, send, isCurrentRun, sendFrame, queueDocumentEvidence })
     const { navigate } = navigation
-    const captureProfileTools = createProviderProfileCaptureService({ state, sessionId, isCurrentRun, send, trace, cleanRemoteTabId, webCrackTasks, newBackgroundPage, watchConsole, focusRemoteTab, maybeExtendSuspiciousRun, persistProviderRunResult })
+    const captureProfileTools = createProviderProfileCaptureService({ sessionId, isCurrentRun, send, webCrackTasks, newProviderPage, watchConsole, maybeExtendSuspiciousRun, persistProviderRunResult })
 
     const input = createInputService(state)
     const messageHandler = createSessionMessageHandler({
-        state, connection, sessionId, send, startBrowser, cleanup, cleanRemoteTabId,
-        focusRemoteTab, extendRun, navigate, sendFrame, scheduleInteractionFrame,
+        state, connection, sessionId, send, startBrowser, cleanup,
+        extendRun, navigate, sendFrame, scheduleInteractionFrame,
         handlePointer: input.handlePointer, handleWheel: input.handleWheel,
         handleKey: input.handleKey, readRemoteClipboard: input.readRemoteClipboard,
     })
@@ -87,7 +87,7 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
         try {
             const slot = await acquireBrowserAdmission(state, sessionId, send)
             if (!slot) return
-            await launchBrowserContext({ state, message, sessionId, generation, target, network, proxy, slot, syncVisibleRemoteTab, isCurrentRun, trackNetwork, send, trace })
+            await launchBrowserContext({ state, message, sessionId, generation, target, network, proxy, slot, isCurrentRun, trackNetwork, send, trace })
             await attachBrowserPageEvents({ state, context: state.context!, page: state.page!, network, generation, sessionId, isCurrentRun, trackNetwork, send, sendFrame, watchConsole, watchDownloads, queueDocumentEvidence })
 
             state.runStartedAt = Date.now()
@@ -107,7 +107,6 @@ export function handleOnionSessionSocket(connection: WebSocket, sessionId: strin
             maybeExtendSuspiciousRun(initialEvidence, null, generation)
             rememberDeobfuscationTasks(initialEvidence)
             void captureProfileTools(
-                state.context!,
                 message.profileTools || [],
                 target,
                 initialEvidence?.deobfuscationTasks?.length ? initialEvidence.deobfuscationTasks : state.cachedDeobfuscationTasks,

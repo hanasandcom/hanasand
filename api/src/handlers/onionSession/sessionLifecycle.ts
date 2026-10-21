@@ -35,7 +35,6 @@ export function createSessionLifecycleService({ state, connection, sessionId, se
         state.cachedIndicators = null
         state.cachedFrameQuality = null
         state.cachedPageEvidence = null
-        state.openingBackgroundTabs = 0
     }
 
     async function cleanup(runStatus: 'ended' | 'failed' | 'unreachable' = state.terminalRunStatus) {
@@ -64,14 +63,15 @@ export function createSessionLifecycleService({ state, connection, sessionId, se
             await finishBrowserRun(runId, runStatus, title).catch(() => undefined)
         }
         state.terminalRunStatus = 'ended'
-        state.toolPages.clear()
         await state.context?.close().catch(() => undefined)
+        await state.providerBrowser?.close().catch(() => undefined)
         if (state.ownsBrowser) await state.browser?.close().catch(() => undefined)
         resetRunTelemetry()
         state.context = null
         state.browser = null
+        state.providerBrowser = null
+        state.providerBrowserPromise = null
         state.page = null
-        state.activeRemoteTabId = 'browser'
         state.runStartedAt = 0
         state.runExpiresAt = 0
         state.suspiciousExtensionApplied = false
