@@ -2,10 +2,10 @@
 
 import postVM from '@/utils/vms/fetch/postVM'
 import suggestVmSetup, { type VmWebsitePlan } from '@/utils/vms/fetch/suggestVmSetup'
-import { Check, ChevronDown } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
 import { vmMinecraftServerTypes, vmOperatingSystems, vmResourceOptions, vmServiceGroups, vmServices } from '@/utils/vms/createOptions'
 import type { NotifyVmAction } from '@/components/vms/vmActionFeedback'
+import VmOperatingSystemPicker from './vmOperatingSystemPicker'
 
 const starterWebsitePlan: VmWebsitePlan = {
     title: 'Make this space yours.',
@@ -22,15 +22,10 @@ export default function VmCreateForm({ id, visible, organizationId, notify, onCr
     onCreated: (vm: VM | undefined, name: string) => void
 }) {
     const nameInput = useRef<HTMLInputElement>(null)
-    const osPicker = useRef<HTMLDivElement>(null)
-    const osPickerTrigger = useRef<HTMLButtonElement>(null)
-    const osOptions = useRef<Array<HTMLButtonElement | null>>([])
     const promptId = useId()
-    const osPickerId = useId()
     const [name, setName] = useState('')
     const [operatingSystem, setOperatingSystem] = useState<string>(vmOperatingSystems[0].id)
     const [resourcePlan, setResourcePlan] = useState<string>(vmResourceOptions[0].id)
-    const [osPickerOpen, setOsPickerOpen] = useState(false)
     const [selectedServices, setSelectedServices] = useState<string[]>([])
     const [minecraftEulaAccepted, setMinecraftEulaAccepted] = useState(false)
     const [minecraftServerType, setMinecraftServerType] = useState<typeof vmMinecraftServerTypes[number]['id']>('PAPER')
@@ -42,19 +37,6 @@ export default function VmCreateForm({ id, visible, organizationId, notify, onCr
     const availableResources = vmResourceOptions.filter(option => !selectedServices.includes('minecraft-java') || option.memory !== '2GiB')
 
     useEffect(() => { if (visible) nameInput.current?.focus() }, [visible])
-
-    useEffect(() => {
-        if (!osPickerOpen) return
-        const closeOutside = (event: PointerEvent) => {
-            if (!osPicker.current?.contains(event.target as Node)) setOsPickerOpen(false)
-        }
-        document.addEventListener('pointerdown', closeOutside)
-        return () => document.removeEventListener('pointerdown', closeOutside)
-    }, [osPickerOpen])
-
-    useEffect(() => {
-        if (osPickerOpen) osOptions.current[vmOperatingSystems.findIndex(os => os.id === operatingSystem)]?.focus()
-    }, [osPickerOpen, operatingSystem])
 
     async function create(event: React.FormEvent) {
         event.preventDefault()
@@ -100,22 +82,6 @@ export default function VmCreateForm({ id, visible, organizationId, notify, onCr
         } finally { setSuggestingSetup(false) }
     }
 
-    function handleOsOptionKeyDown(event: React.KeyboardEvent<HTMLButtonElement>, index: number) {
-        let nextIndex: number | undefined
-        if (event.key === 'ArrowDown') nextIndex = (index + 1) % vmOperatingSystems.length
-        else if (event.key === 'ArrowUp') nextIndex = (index - 1 + vmOperatingSystems.length) % vmOperatingSystems.length
-        else if (event.key === 'Home') nextIndex = 0
-        else if (event.key === 'End') nextIndex = vmOperatingSystems.length - 1
-        else if (event.key === 'Escape') {
-            setOsPickerOpen(false)
-            osPickerTrigger.current?.focus()
-        }
-        if (nextIndex !== undefined) {
-            event.preventDefault()
-            osOptions.current[nextIndex]?.focus()
-        }
-    }
-
     return <form id={id} onSubmit={create} className={visible ? 'grid gap-4 rounded-xl border border-ui-border bg-ui-canvas/50 p-4' : 'hidden'}>
         <div className='grid gap-2 rounded-lg border border-ui-border bg-ui-panel p-3'>
             <label htmlFor={promptId} className='text-sm font-medium text-ui-text'>Describe what you want to build</label>
@@ -127,22 +93,7 @@ export default function VmCreateForm({ id, visible, organizationId, notify, onCr
         </div>
         <div className='grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-3'>
             <label className='grid min-w-0 gap-1 text-sm text-ui-muted'>VM name<input ref={nameInput} value={name} onChange={event => setName(event.target.value)} required pattern='[a-z][a-z0-9-]{0,61}[a-z0-9]' minLength={2} maxLength={63} title='2–63 lowercase letters, numbers or hyphens, starting with a letter' disabled={creating} className='h-10 w-full min-w-0 rounded-lg border border-ui-border bg-ui-raised px-3 text-ui-text' /></label>
-            <div ref={osPicker} className='relative grid min-w-0 gap-1 text-sm text-ui-muted'>
-                <span>Operating system</span>
-                <button ref={osPickerTrigger} type='button' role='combobox' aria-label='Operating system' aria-haspopup='listbox' aria-expanded={osPickerOpen} aria-controls={osPickerId} disabled={creating} onClick={() => setOsPickerOpen(open => !open)} onKeyDown={event => {
-                    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); setOsPickerOpen(true) }
-                    else if (event.key === 'Escape') setOsPickerOpen(false)
-                }} className='flex h-10 w-full min-w-0 items-center justify-between gap-3 rounded-lg border border-ui-border bg-ui-raised px-3 text-left text-sm text-ui-text outline-none transition hover:border-ui-primary/40 focus-visible:border-ui-primary focus-visible:ring-2 focus-visible:ring-ui-primary/15 disabled:opacity-50'>
-                    <span>{vmOperatingSystems.find(os => os.id === operatingSystem)?.label}</span>
-                    <ChevronDown aria-hidden='true' className={`h-4 w-4 shrink-0 text-ui-muted transition-transform ${osPickerOpen ? 'rotate-180' : ''}`} />
-                </button>
-                {osPickerOpen && <div id={osPickerId} role='listbox' aria-label='Operating systems' className='absolute left-0 right-0 top-full z-30 mt-2 grid max-h-64 overflow-auto rounded-xl border border-ui-border bg-ui-panel p-1.5 shadow-2xl shadow-black/30 ring-1 ring-white/5'>
-                    {vmOperatingSystems.map((os, index) => <button key={os.id} ref={element => { osOptions.current[index] = element }} type='button' role='option' aria-selected={operatingSystem === os.id} tabIndex={-1} onClick={() => { setOperatingSystem(os.id); setOsPickerOpen(false); osPickerTrigger.current?.focus() }} onKeyDown={event => handleOsOptionKeyDown(event, index)} className={`flex min-h-12 items-center justify-between gap-3 rounded-lg px-3 py-2 text-left transition ${operatingSystem === os.id ? 'bg-ui-primary/10 text-ui-primary' : 'text-ui-text hover:bg-ui-raised focus-visible:bg-ui-raised'}`}>
-                        <span className='grid gap-0.5'><span className='text-sm font-medium'>{os.label}</span><span className='text-xs text-ui-muted'>{os.description}</span></span>
-                        {operatingSystem === os.id && <Check aria-hidden='true' className='h-4 w-4 shrink-0' />}
-                    </button>)}
-                </div>}
-            </div>
+            <VmOperatingSystemPicker value={operatingSystem} onChange={setOperatingSystem} disabled={creating} />
             <label className='grid min-w-0 gap-1 text-sm text-ui-muted'>Resources<select value={resourcePlan} onChange={event => setResourcePlan(event.target.value)} disabled={creating} className='h-10 w-full min-w-0 rounded-lg border border-ui-border bg-ui-raised px-3 text-sm text-ui-text outline-none focus-visible:ring-2 focus-visible:ring-ui-primary/20'>{availableResources.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}</select></label>
         </div>
         <fieldset disabled={creating} className='grid gap-2'>
