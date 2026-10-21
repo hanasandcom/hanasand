@@ -19,7 +19,7 @@ const variants = {
         shell: 'border-ui-border bg-ui-panel text-ui-text',
         title: 'text-ui-text',
         body: 'text-ui-text',
-        button: 'border-ui-danger bg-ui-raised text-ui-text hover:bg-ui-panel',
+        button: 'border-ui-border bg-ui-raised text-ui-text hover:bg-ui-panel',
         secondary: 'text-ui-text hover:bg-ui-raised',
     },
     info: {

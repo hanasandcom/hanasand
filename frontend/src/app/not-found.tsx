@@ -52,7 +52,7 @@ export default function NotFound() {
                     <div className='flex flex-wrap gap-3'>
                         <Link href='/ti' className='inline-flex h-11 items-center gap-2 rounded-lg border border-ui-border bg-ui-panel px-4 text-sm font-semibold text-ui-text transition hover:border-ui-primary'>
                             Search threat intelligence
-                            <ArrowRight className='h-4 w-4 text-ui-danger' />
+                            <ArrowRight className='h-4 w-4 text-ui-muted' />
                         </Link>
                         <Link href='/contact' className='inline-flex h-11 items-center gap-2 rounded-lg border border-ui-border bg-ui-panel px-4 text-sm font-semibold text-ui-text transition hover:border-ui-primary'>
                             Contact
@@ -71,7 +71,7 @@ export default function NotFound() {
                                 <span className='grid gap-2'>
                                     <span className='flex items-center justify-between gap-3 text-base font-semibold text-ui-text'>
                                         {item.title}
-                                        <ArrowRight className='h-4 w-4 shrink-0 text-ui-danger transition' />
+                                        <ArrowRight className='h-4 w-4 shrink-0 text-ui-muted transition' />
                                     </span>
                                     <span className='text-sm leading-6 text-ui-muted'>{item.body}</span>
                                 </span>
