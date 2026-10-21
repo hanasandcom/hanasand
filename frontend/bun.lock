@@ -5,6 +5,7 @@
     "": {
       "name": "hanasand",
       "dependencies": {
+        "@hanasand/mail-ui": "file:packages/mail-ui",
         "@tailwindcss/postcss": "^4.2.4",
         "@xterm/addon-fit": "^0.11.0",
         "@xterm/xterm": "^6.0.0",
@@ -112,6 +113,8 @@
     "@eslint/object-schema": ["@eslint/object-schema@3.0.5", "", {}, "sha512-vqTaUEgxzm+YDSdElad6PiRoX4t8VGDjCtt05zn4nU810UIx/uNEV7/lZJ6KwFThKZOzOxzXy48da+No7HZaMw=="],
 
     "@eslint/plugin-kit": ["@eslint/plugin-kit@0.7.1", "", { "dependencies": { "@eslint/core": "^1.2.1", "levn": "^0.4.1" } }, "sha512-rZAP3aVgB9ds9KOeUSL+zZ21hPmo8dh6fnIFwRQj5EAZl9gzR7wxYbYXYysAM8CTqGmUGyp2S4kUdV17MnGuWQ=="],
+
+    "@hanasand/mail-ui": ["@hanasand/mail-ui@file:packages/mail-ui", { "peerDependencies": { "@types/react": ">=19 <20", "fflate": ">=0.8 <1", "lucide-react": ">=1", "next": ">=15 <17", "react": ">=19 <20", "react-dom": ">=19 <20" } }],
 
     "@humanfs/core": ["@humanfs/core@0.19.1", "", {}, "sha512-5DyQ4+1JEUzejeK1JGICcideyfUbGixgS9jNgex5nqkW+cY7WZhxBigmieN5Qnw9ZosSNVC9KQKyb+GUaGyKUA=="],
 

@@ -23,7 +23,7 @@ Hanasand combines threat intelligence, AI development tools, and infrastructure 
 | Database | `db/`, `api/src/utils/db/` | Initial schema and application schema updates |
 | Mail service and SMTP relay | [Mail server repository](https://github.com/hanasandcom/mail-server) | Stalwart and host-specific SMTP relay containers, deployed through an independent Compose stack |
 | Database backup worker | [Ops database-backup module](https://github.com/hanasandcom/ops/tree/main/backup) | PostgreSQL backups, retention and restore workflows; runs separately from API releases |
-| Standalone mail client | [Mail web repository](https://github.com/hanasandcom/mail-web) | Standalone webmail at `mail.hanasand.com`; mailbox data stays in the Hanasand API. Dashboard `/mail` uses the native frontend and calls the same API directly. |
+| Mail web and API | [Mail web repository](https://github.com/hanasandcom/mail-web) | Standalone webmail at `mail.hanasand.com` and its dedicated browser API. Dashboard `/mail` uses the shared UI package and calls that API directly. The Mail API validates sessions with Identity and reads existing mail data from PostgreSQL; browser requests do not pass through the Hanasand frontend or general API. |
 | Client apps | [Hanasand app repository](https://github.com/hanasandcom/app) | Mobile and desktop clients; see [desktop setup](https://github.com/hanasandcom/app/blob/main/desktop/README.md) |
 | Operations | [Ops repository](https://github.com/hanasandcom/ops) | Application deployment, host monitoring, maintenance, health checks and infrastructure integrations |
 
