@@ -97,6 +97,28 @@
   --color-ui-scrim: var(--ui-scrim);
 }
 
+/* Keep browser focus and autofill surfaces aligned with the active theme. */
+html.dark { color-scheme: dark; }
+html.light { color-scheme: light; }
+html.dark :is(input, textarea, select):focus {
+  background-color: var(--ui-panel);
+  color: var(--ui-text);
+}
+html.dark :is(input, textarea, select):-webkit-autofill,
+html.light :is(input, textarea, select):-webkit-autofill {
+  -webkit-text-fill-color: var(--ui-text);
+  caret-color: var(--ui-text);
+  -webkit-box-shadow: 0 0 0 1000px var(--ui-panel) inset;
+  box-shadow: 0 0 0 1000px var(--ui-panel) inset;
+}
+html.dark :is(input, textarea, select):autofill,
+html.light :is(input, textarea, select):autofill {
+  -webkit-text-fill-color: var(--ui-text);
+  caret-color: var(--ui-text);
+  -webkit-box-shadow: 0 0 0 1000px var(--ui-panel) inset;
+  box-shadow: 0 0 0 1000px var(--ui-panel) inset;
+}
+
 @media (max-width: 639px) {
   .support-assistant-dialog[role='dialog']:not(.hidden) {
     position: fixed;
