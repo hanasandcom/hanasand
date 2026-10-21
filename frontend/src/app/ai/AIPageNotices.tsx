@@ -45,7 +45,7 @@ export function AIPageNotices({
             ) : null}
 
             {resumeNotice ? (
-                <div className='pointer-events-auto flex items-start justify-between gap-3 rounded-lg border border-ui-success/30 bg-ui-panel/95 px-4 py-3 text-sm text-ui-text shadow-md backdrop-blur-xl'>
+                <div role='status' aria-live='polite' aria-atomic='true' className='pointer-events-auto flex items-start justify-between gap-3 rounded-lg border border-ui-success/30 bg-ui-panel/95 px-4 py-3 text-sm text-ui-text shadow-md backdrop-blur-xl'>
                     <div className='flex min-w-0 items-start gap-3'>
                         <RotateCcw className='mt-0.5 h-4 w-4 shrink-0 text-ui-success' />
                         <div className='min-w-0'>
