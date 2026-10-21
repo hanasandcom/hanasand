@@ -46,7 +46,6 @@ export const productTasks: TestTask[] = [
     { id: 'support-session', title: 'Anonymous support session cookie security', command: [bun, 'test', 'tests/support-session.test.ts'] },
     { id: 'request-hostname', title: 'Shared request hostname and auth cookie scope', command: [bun, 'test', 'tests/request-hostname.test.ts'] },
     { id: 'auth-cookie-writing', title: 'Auth cookie write scope and options', command: [bun, 'test', 'tests/auth-cookie-writing.test.ts'] },
-    { id: 'backend-proxy-auth', title: 'Backend proxy authentication and request timeout behavior', command: [bun, 'test', 'tests/backend-proxy-auth.test.ts'] },
     { id: 'auth-proxy', title: 'Backend proxy credentials, refresh cookies and timeout', command: [bun, 'test', 'tests/auth-proxy.test.ts'] },
     { id: 'backend-request-headers', title: 'Shared backend client authentication headers', command: [bun, 'test', 'tests/backend-request-headers.test.ts'] },
     { id: 'dashboard-content-queue', title: 'Article and thought dashboard queue rendering', command: [bun, 'test', 'tests/dashboard-content-queue.test.tsx'] },
