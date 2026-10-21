@@ -1,6 +1,6 @@
 import { chromium, type Page } from 'playwright'
 import type { SessionState } from './sessionState.ts'
-import { chromiumLaunchOptions } from './browserRuntime.ts'
+import { providerChromiumLaunchOptions } from './browserRuntime.ts'
 import { installSandboxRequestGuard } from './browserPageEvents.ts'
 import type { SandboxNetworkEvent } from './networkTelemetry.ts'
 
@@ -14,7 +14,8 @@ type BrowserTabServiceDependencies = {
 export function createBrowserSupportService({ state, send, isCurrentRun, sendFrame }: BrowserTabServiceDependencies) {
     async function newProviderPage(generation: number) {
         if (!state.providerBrowserPromise) {
-            const launch = chromium.launch(chromiumLaunchOptions(undefined, true))
+            // Keep provider pages in their own headed display, off the live stream.
+            const launch = chromium.launch(providerChromiumLaunchOptions())
                 .then(browser => {
                     if (!isCurrentRun(generation)) {
                         void browser.close()

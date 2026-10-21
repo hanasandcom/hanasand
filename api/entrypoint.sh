@@ -26,4 +26,8 @@ varnishd -a :8080 -f /etc/varnish/default.vcl -s malloc,512m &
 # Starts API. Chromium sandboxes are headed; Xvfb gives them a real display in Docker.
 export DISPLAY="${DISPLAY:-:99}"
 Xvfb "$DISPLAY" -screen 0 1920x1080x24 >/tmp/xvfb.log 2>&1 &
+export BROWSER_SANDBOX_PROVIDER_DISPLAY="${BROWSER_SANDBOX_PROVIDER_DISPLAY:-:100}"
+if [ "$BROWSER_SANDBOX_PROVIDER_DISPLAY" != "$DISPLAY" ]; then
+    Xvfb "$BROWSER_SANDBOX_PROVIDER_DISPLAY" -screen 0 1920x1080x24 >/tmp/xvfb-provider.log 2>&1 &
+fi
 bun start

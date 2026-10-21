@@ -94,6 +94,11 @@ export function chromiumLaunchOptions(proxy?: string, headless = chromiumHeadles
     }
 }
 
+export function providerChromiumLaunchOptions(display = process.env.BROWSER_SANDBOX_PROVIDER_DISPLAY) {
+    const options = chromiumLaunchOptions(undefined, !display)
+    return display ? { ...options, env: { ...process.env, DISPLAY: display } } : options
+}
+
 export function regularBrowser() {
     warmRegularBrowser ||= chromium.launch(chromiumLaunchOptions()).then(browser => {
         browser.on('disconnected', () => {

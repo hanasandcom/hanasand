@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test'
 import { browserProfileForMessage, browserViewportForMessage } from '../src/handlers/onionSession/browserProfile.ts'
+import { providerChromiumLaunchOptions } from '../src/handlers/onionSession/browserRuntime.ts'
 
 test('browser profile applies bounded defaults and Tor clipboard permissions', () => {
     const profile = browserProfileForMessage({ width: 9000, height: 'bad' }, 'tor')
@@ -48,4 +49,18 @@ test('browser profile trims accepted client hints and removes clipboard permissi
 test('viewport resizing retains width-relative height and clamps both dimensions', () => {
     expect(browserViewportForMessage({ width: 640 })).toEqual({ width: 640, height: 360 })
     expect(browserViewportForMessage({ width: 200, height: 9000 })).toEqual({ width: 320, height: 2160 })
+})
+
+test('provider browser uses a separate headed display when configured', () => {
+    const options = providerChromiumLaunchOptions(':100')
+
+    expect(options.headless).toBe(false)
+    expect(options.env?.DISPLAY).toBe(':100')
+})
+
+test('provider browser stays headless when no isolated display is configured', () => {
+    const options = providerChromiumLaunchOptions('')
+
+    expect(options.headless).toBe(true)
+    expect(options.env).toBeUndefined()
 })
