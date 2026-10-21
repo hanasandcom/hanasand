@@ -11,6 +11,7 @@ import { internalHostFetch } from '#utils/vms/hostTransport.ts'
 import provisionVmOnHost, { type VmProvisionOptions } from '#utils/vms/provisionOnHost.ts'
 import recordLog from '#utils/logs/recordLog.ts'
 import { recordSystemEvent } from '#utils/systemEvent.ts'
+import { isSupportedSetupService, supportedSetupServices, type SupportedVmSetupService } from '#utils/vms/supportedSetupServices.ts'
 
 export default async function postVM(req: FastifyRequest, res: FastifyReply) {
     const body = req.body as {
@@ -115,7 +116,7 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
 
             if (existing && !canAssignOwner) {
                 if (existing.owner !== actorId || existing.has_vm_details || body.provision_local === false) return res.status(409).send({ error: 'VM already exists.' })
-                if (provisionOptions.services?.includes('website')) await ensureWebsitePublicRoute(name, actorId)
+                await ensureSetupPublicRoutes(name, actorId, provisionOptions.services || [])
                 queueVmProvision(name, existing.primary_host, provisionOptions, [existing.owner, existing.created_by, ...(existing.access_users ?? [])])
                 return res.status(201).send(existing)
             }
@@ -136,7 +137,7 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
                 RETURNING *
             `, [name, nextOwner, nextCreatedBy, JSON.stringify(nextAccessUsers ?? []), existing.name, existing.primary_host])
 
-                if (body.provision_local !== false && provisionOptions.services?.includes('website')) await ensureWebsitePublicRoute(name, actorId || nextCreatedBy)
+                if (body.provision_local !== false) await ensureSetupPublicRoutes(name, actorId || nextCreatedBy, provisionOptions.services || [])
                 if (body.provision_local !== false) queueVmProvision(name, existing.primary_host, provisionOptions, [nextOwner, nextCreatedBy, ...(nextAccessUsers ?? [])])
 
                 await recordSystemEvent(req, {
@@ -196,7 +197,7 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
 
             const assignedVm = await run('UPDATE vms SET primary_host = $2 WHERE name = $1 RETURNING *', [name, config.vm_host_id])
             if (!assignedVm.rows[0]) throw new Error('VM primary host assignment did not update the new VM.')
-            if (body.provision_local !== false && provisionOptions.services?.includes('website')) await ensureWebsitePublicRoute(name, actorId || created_by)
+            if (body.provision_local !== false) await ensureSetupPublicRoutes(name, actorId || created_by, provisionOptions.services || [])
             if (body.provision_local !== false) queueVmProvision(name, config.vm_host_id, provisionOptions, [owner, created_by, ...(access_users ?? [])])
 
             await recordSystemEvent(req, {
@@ -229,11 +230,17 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
     }
 }
 
-async function ensureWebsitePublicRoute(vmName: string, createdBy: string) {
-    const existing = await run('SELECT 1 FROM vm_public_ports WHERE vm_name = $1 AND route_type = $2 LIMIT 1', [vmName, 'http'])
-    if (existing.rows.length) return
-    const routeName = `site-${crypto.randomUUID().replaceAll('-', '').slice(0, 16)}`
-    await run('INSERT INTO vm_public_ports (vm_name, name, route_type, guest_port, created_by) VALUES ($1, $2, $3, $4, $5)', [vmName, routeName, 'http', 80, createdBy])
+async function ensureSetupPublicRoutes(vmName: string, createdBy: string, services: SupportedVmSetupService[]) {
+    const defaults = [
+        ...(services.includes('website') ? [{ type: 'http', port: 80, prefix: 'site' }] : []),
+        ...(services.includes('minecraft-java') ? [{ type: 'minecraft-java', port: 25565, prefix: 'mc' }] : []),
+    ]
+    for (const route of defaults) {
+        const existing = await run('SELECT 1 FROM vm_public_ports WHERE vm_name = $1 AND route_type = $2 LIMIT 1', [vmName, route.type])
+        if (existing.rows.length) continue
+        const routeName = `${route.prefix}-${crypto.randomUUID().replaceAll('-', '').slice(0, 16)}`
+        await run('INSERT INTO vm_public_ports (vm_name, name, route_type, guest_port, created_by) VALUES ($1, $2, $3, $4, $5)', [vmName, routeName, route.type, route.port, createdBy])
+    }
 }
 
 function queueVmProvision(name: string, host: string, options: VmProvisionOptions, userIds: string[]) {
@@ -246,12 +253,11 @@ function queueVmProvision(name: string, host: string, options: VmProvisionOption
 
 function normalizeProvisionOptions(os: unknown, resources: unknown, services: unknown, minecraftEulaAccepted: unknown, minecraftServerType: unknown, website: unknown): VmProvisionOptions | null {
     const supportedOs = new Set(['ubuntu-24.04', 'ubuntu-26.04', 'ubuntu-22.04'])
-    const supportedServices = new Set(['nodejs', 'postgresql', 'redis', 'python', 'bun', 'docker', 'java', 'nginx', 'website', 'minecraft-java'])
     if (os !== undefined && (typeof os !== 'string' || !supportedOs.has(os))) return null
     const resourceOptions = new Set(['1:2GiB', '2:4GiB', '4:8GiB'])
     if (resources !== undefined && (!resources || typeof resources !== 'object' || !('cpu' in resources) || !('memory' in resources)
         || typeof resources.cpu !== 'string' || typeof resources.memory !== 'string' || !resourceOptions.has(`${resources.cpu}:${resources.memory}`))) return null
-    if (services !== undefined && (!Array.isArray(services) || services.length > supportedServices.size || services.some(service => typeof service !== 'string' || !supportedServices.has(service)))) return null
+    if (services !== undefined && (!Array.isArray(services) || services.length > supportedSetupServices.length || services.some(service => !isSupportedSetupService(service)))) return null
     const selectedServices = [...new Set((services || []) as NonNullable<VmProvisionOptions['services']>)]
     if (selectedServices.includes('minecraft-java') !== (minecraftEulaAccepted === true)) return null
     const selectedResources = (resources || { cpu: '1', memory: '2GiB' }) as NonNullable<VmProvisionOptions['resources']>

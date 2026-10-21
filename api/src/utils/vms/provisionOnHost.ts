@@ -1,8 +1,9 @@
 import { setTimeout as delay } from 'node:timers/promises'
+import type { SupportedVmSetupService } from './supportedSetupServices.ts'
 
 type HostFetch = (host: string, path: string, options?: RequestInit) => Promise<Response>
 type StatusResponse = { status?: unknown; error?: unknown; status_reason?: unknown }
-export type VmProvisionOptions = { os?: 'ubuntu-24.04' | 'ubuntu-26.04' | 'ubuntu-22.04'; resources?: { cpu: '1' | '2' | '4'; memory: '2GiB' | '4GiB' | '8GiB' }; services?: Array<'nodejs' | 'postgresql' | 'redis' | 'python' | 'bun' | 'docker' | 'java' | 'nginx' | 'website' | 'minecraft-java'>; minecraftEulaAccepted?: boolean; minecraftServerType?: 'PAPER' | 'VANILLA' | 'FABRIC' | 'QUILT' | 'NEOFORGE' | 'PURPUR' | 'FOLIA'; websiteHtml?: string }
+export type VmProvisionOptions = { os?: 'ubuntu-24.04' | 'ubuntu-26.04' | 'ubuntu-22.04'; resources?: { cpu: '1' | '2' | '4'; memory: '2GiB' | '4GiB' | '8GiB' }; services?: SupportedVmSetupService[]; minecraftEulaAccepted?: boolean; minecraftServerType?: 'PAPER' | 'VANILLA' | 'FABRIC' | 'QUILT' | 'NEOFORGE' | 'PURPUR' | 'FOLIA'; websiteHtml?: string }
 
 const provisionTimeoutMs = 150_000
 const statusPollIntervalMs = 2_000

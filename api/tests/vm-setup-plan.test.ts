@@ -22,6 +22,11 @@ test('VM setup suggestions return only allowlisted services', async () => {
     expect(result.statusCode).toBe(200)
     expect(result.json()).toEqual({ summary: 'A Node site with a database', services: ['nodejs', 'postgresql'], website: null, minecraftServerType: null })
 
+    completion = JSON.stringify({ summary: 'Go API with PHP tools and data stores', services: ['go', 'php', 'mysql', 'sqlite'], website: null, minecraftServerType: null })
+    const commonServices = await app.inject({ method: 'POST', url: '/vm/setup-plan', headers: { id: 'user' }, payload: { prompt: 'A Go API with PHP tools and data stores' } })
+    expect(commonServices.statusCode).toBe(200)
+    expect(commonServices.json().services).toEqual(['go', 'php', 'mysql', 'sqlite'])
+
     completion = JSON.stringify({ summary: 'A small bakery website', services: ['website', 'nginx'], website: { title: '<script>alert(1)</script>', tagline: 'Fresh bread daily', sections: [{ heading: 'Visit us', body: 'Open every day.' }] }, minecraftServerType: null })
     const website = await app.inject({ method: 'POST', url: '/vm/setup-plan', headers: { id: 'user' }, payload: { prompt: 'A bakery website' } })
     expect(website.statusCode).toBe(200)

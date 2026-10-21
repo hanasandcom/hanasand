@@ -15,7 +15,7 @@ VMs currently sit behind a private network and do not have individual public IPv
 
 Subdomains cannot identify arbitrary plain TCP or UDP traffic by themselves. The TLS option needs a client that sends SNI; Minecraft Java has its own hostname field. UDP services such as Bedrock need a public UDP route, which this feature does not create.
 
-For a Minecraft Java server, install and start the server on the VM, allow its guest port in the VM firewall, then add a **Minecraft Java** service using that port (usually `25565`). Share the generated hostname with `:443`, for example `port-survival.hanasand.com:443`.
+When you select **Minecraft Java** in the VM creation form, Hanasand adds a Minecraft Java route to guest port `25565`. Choose the server software there; setup starts with the VM and the route appears in **Public services**. Share its hostname with `:443` after setup completes. For an existing server on another port, add a **Minecraft Java** service manually and enter that guest port.
 
 ## Gateway setup
 
