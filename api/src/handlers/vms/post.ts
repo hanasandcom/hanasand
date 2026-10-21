@@ -24,9 +24,11 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
         resources?: VmProvisionOptions['resources']
         services?: VmProvisionOptions['services']
         minecraft_eula_accepted?: boolean
+        minecraft_server_type?: VmProvisionOptions['minecraftServerType']
+        website?: unknown
     } ?? {}
     const { name, access_users } = body
-    const provisionOptions = normalizeProvisionOptions(body.os, body.resources, body.services, body.minecraft_eula_accepted)
+    const provisionOptions = normalizeProvisionOptions(body.os, body.resources, body.services, body.minecraft_eula_accepted, body.minecraft_server_type, body.website)
     if (!provisionOptions) return res.status(400).send({ error: 'Choose a supported operating system and services.' })
     let owner = body.owner
     let created_by = body.created_by
@@ -113,6 +115,7 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
 
             if (existing && !canAssignOwner) {
                 if (existing.owner !== actorId || existing.has_vm_details || body.provision_local === false) return res.status(409).send({ error: 'VM already exists.' })
+                if (provisionOptions.services?.includes('website')) await ensureWebsitePublicRoute(name, actorId)
                 queueVmProvision(name, existing.primary_host, provisionOptions, [existing.owner, existing.created_by, ...(existing.access_users ?? [])])
                 return res.status(201).send(existing)
             }
@@ -133,6 +136,7 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
                 RETURNING *
             `, [name, nextOwner, nextCreatedBy, JSON.stringify(nextAccessUsers ?? []), existing.name, existing.primary_host])
 
+                if (body.provision_local !== false && provisionOptions.services?.includes('website')) await ensureWebsitePublicRoute(name, actorId || nextCreatedBy)
                 if (body.provision_local !== false) queueVmProvision(name, existing.primary_host, provisionOptions, [nextOwner, nextCreatedBy, ...(nextAccessUsers ?? [])])
 
                 await recordSystemEvent(req, {
@@ -192,6 +196,7 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
 
             const assignedVm = await run('UPDATE vms SET primary_host = $2 WHERE name = $1 RETURNING *', [name, config.vm_host_id])
             if (!assignedVm.rows[0]) throw new Error('VM primary host assignment did not update the new VM.')
+            if (body.provision_local !== false && provisionOptions.services?.includes('website')) await ensureWebsitePublicRoute(name, actorId || created_by)
             if (body.provision_local !== false) queueVmProvision(name, config.vm_host_id, provisionOptions, [owner, created_by, ...(access_users ?? [])])
 
             await recordSystemEvent(req, {
@@ -208,6 +213,7 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
                         operatingSystem: provisionOptions.os,
                         resources: provisionOptions.resources,
                         services: provisionOptions.services,
+                        ...(provisionOptions.minecraftServerType ? { minecraftServerType: provisionOptions.minecraftServerType } : {}),
                         minecraftEulaAccepted: provisionOptions.minecraftEulaAccepted,
                     },
                     ...(organizationId ? { organizationId } : {}),
@@ -223,6 +229,13 @@ export default async function postVM(req: FastifyRequest, res: FastifyReply) {
     }
 }
 
+async function ensureWebsitePublicRoute(vmName: string, createdBy: string) {
+    const existing = await run('SELECT 1 FROM vm_public_ports WHERE vm_name = $1 AND route_type = $2 LIMIT 1', [vmName, 'http'])
+    if (existing.rows.length) return
+    const routeName = `site-${crypto.randomUUID().replaceAll('-', '').slice(0, 16)}`
+    await run('INSERT INTO vm_public_ports (vm_name, name, route_type, guest_port, created_by) VALUES ($1, $2, $3, $4, $5)', [vmName, routeName, 'http', 80, createdBy])
+}
+
 function queueVmProvision(name: string, host: string, options: VmProvisionOptions, userIds: string[]) {
     void provisionVmOnHost(host, name, internalHostFetch, options).then(async () => {
         await syncUserCertificatesToVm({ vmName: name, userIds }).catch(error => {
@@ -231,7 +244,7 @@ function queueVmProvision(name: string, host: string, options: VmProvisionOption
     }).catch(error => void recordVmProvisioningError(name, error, 'create_or_provision'))
 }
 
-function normalizeProvisionOptions(os: unknown, resources: unknown, services: unknown, minecraftEulaAccepted: unknown): VmProvisionOptions | null {
+function normalizeProvisionOptions(os: unknown, resources: unknown, services: unknown, minecraftEulaAccepted: unknown, minecraftServerType: unknown, website: unknown): VmProvisionOptions | null {
     const supportedOs = new Set(['ubuntu-24.04', 'ubuntu-26.04', 'ubuntu-22.04'])
     const supportedServices = new Set(['nodejs', 'postgresql', 'redis', 'python', 'bun', 'docker', 'java', 'nginx', 'website', 'minecraft-java'])
     if (os !== undefined && (typeof os !== 'string' || !supportedOs.has(os))) return null
@@ -241,13 +254,70 @@ function normalizeProvisionOptions(os: unknown, resources: unknown, services: un
     if (services !== undefined && (!Array.isArray(services) || services.length > supportedServices.size || services.some(service => typeof service !== 'string' || !supportedServices.has(service)))) return null
     const selectedServices = [...new Set((services || []) as NonNullable<VmProvisionOptions['services']>)]
     if (selectedServices.includes('minecraft-java') !== (minecraftEulaAccepted === true)) return null
+    const selectedResources = (resources || { cpu: '1', memory: '2GiB' }) as NonNullable<VmProvisionOptions['resources']>
+    if (selectedServices.includes('minecraft-java') && selectedResources.memory === '2GiB') return null
+    const supportedMinecraftTypes = new Set(['PAPER', 'VANILLA', 'FABRIC', 'QUILT', 'NEOFORGE', 'PURPUR', 'FOLIA'])
+    if (minecraftServerType !== undefined && (typeof minecraftServerType !== 'string' || !supportedMinecraftTypes.has(minecraftServerType))) return null
+    if (minecraftServerType !== undefined && !selectedServices.includes('minecraft-java')) return null
+    if (website !== undefined && website !== null && !isWebsitePlan(website)) return null
+    if (website && !selectedServices.includes('website')) return null
     const selectedOs = (os || 'ubuntu-24.04') as VmProvisionOptions['os']
     return {
         os: selectedOs,
-        resources: (resources || { cpu: '1', memory: '2GiB' }) as VmProvisionOptions['resources'],
+        resources: selectedResources,
         services: selectedServices,
         minecraftEulaAccepted: minecraftEulaAccepted === true,
+        ...(selectedServices.includes('minecraft-java') ? { minecraftServerType: (minecraftServerType || 'PAPER') as NonNullable<VmProvisionOptions['minecraftServerType']> } : {}),
+        ...(website ? { websiteHtml: renderWebsite(website) } : {}),
     }
+}
+
+function isWebsitePlan(value: unknown): value is { title: string, tagline: string, sections: Array<{ heading: string, body: string }> } {
+    if (!value || typeof value !== 'object') return false
+    const plan = value as Record<string, unknown>
+    return typeof plan.title === 'string' && plan.title.trim().length > 0 && plan.title.length <= 120
+        && typeof plan.tagline === 'string' && plan.tagline.length <= 120
+        && Array.isArray(plan.sections) && plan.sections.length <= 5
+        && plan.sections.every(section => Boolean(section) && typeof section === 'object'
+            && typeof (section as Record<string, unknown>).heading === 'string'
+            && ((section as Record<string, unknown>).heading as string).length <= 100
+            && typeof (section as Record<string, unknown>).body === 'string'
+            && ((section as Record<string, unknown>).body as string).length <= 500)
+}
+
+function escapeHtml(value: string) {
+    const entities: Record<string, string> = {
+        '&': '&amp;', '<': '&lt;', '>': '&gt;',
+        [String.fromCharCode(34)]: '&quot;', [String.fromCharCode(39)]: '&#39;',
+    }
+    return value.replace(/[&<>"']/g, character => entities[character])
+}
+
+function renderWebsite(plan: { title: string, tagline: string, sections: Array<{ heading: string, body: string }> }) {
+    const sections = plan.sections.map(section => `<section><h2>${escapeHtml(section.heading)}</h2><p>${escapeHtml(section.body)}</p></section>`).join('\n')
+    return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="${escapeHtml(plan.tagline)}">
+  <title>${escapeHtml(plan.title)}</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #f7f5f0; color: #20241f; font: 16px/1.65 system-ui, sans-serif; }
+    main { width: min(calc(100% - 40px), 900px); margin: clamp(48px, 12vh, 120px) auto; }
+    header { padding: clamp(24px, 7vw, 64px); border-radius: 28px; background: #e9e6dc; }
+    h1 { max-width: 15ch; margin: 0; font-size: clamp(2.5rem, 9vw, 6rem); line-height: .98; letter-spacing: -.06em; }
+    header p { max-width: 52ch; color: #62685f; font-size: 1.12rem; }
+    section { padding: 28px 8px; border-bottom: 1px solid #d8d7cf; }
+    h2 { margin: 0 0 8px; font-size: 1.3rem; letter-spacing: -.02em; }
+    section p { max-width: 68ch; margin: 0; color: #555c56; }
+  </style>
+</head>
+<body><main><header><h1>${escapeHtml(plan.title)}</h1><p>${escapeHtml(plan.tagline)}</p></header>
+${sections}
+</main></body>
+</html>`
 }
 
 async function recordVmProvisioningError(vmName: string, error: unknown, phase: string) {

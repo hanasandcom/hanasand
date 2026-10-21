@@ -4,7 +4,10 @@ import config from '@/config'
 import fetchWithRetry from '@/utils/fetchWithRetry'
 import { getCookie } from '../../cookies/cookies'
 
-export type CreateVmRequest = Pick<VM, 'name'> & { os?: string, resources?: { cpu: string, memory: string }, services?: string[], minecraft_eula_accepted?: boolean, organization_id?: string | null }
+import type { VmMinecraftServerType } from '../createOptions'
+import type { VmWebsitePlan } from './suggestVmSetup'
+
+export type CreateVmRequest = Pick<VM, 'name'> & { os?: string, resources?: { cpu: string, memory: string }, services?: string[], minecraft_eula_accepted?: boolean, minecraft_server_type?: VmMinecraftServerType, website?: VmWebsitePlan | null, organization_id?: string | null }
 
 export default async function postVM(vm: CreateVmRequest): Promise<{ status: number, message: string, vm?: VM }> {
     try {

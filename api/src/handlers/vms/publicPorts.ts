@@ -5,7 +5,7 @@ import config from '#constants'
 import hasVmPortRouteToken from '#utils/auth/vmPortRouteToken.ts'
 
 const maxPortsPerVm = 1000
-const routeTypes = ['minecraft-java', 'tls'] as const
+const routeTypes = ['minecraft-java', 'tls', 'http'] as const
 
 type RouteBody = { name?: unknown, type?: unknown, port?: unknown }
 
@@ -30,7 +30,7 @@ export async function postVmPublicPort(req: FastifyRequest<{ Body: RouteBody }>,
     const type = req.body?.type
     const port = req.body?.port
     if (!/^[a-z0-9](?:[a-z0-9-]{0,39}[a-z0-9])?$/.test(name) || !routeTypes.includes(type as typeof routeTypes[number]) || typeof port !== 'number' || !Number.isInteger(port) || port < 1 || port > 65535) {
-        return res.code(400).send({ error: 'Use a short service name, choose Minecraft Java or TLS, and enter a guest port from 1 to 65535.' })
+        return res.code(400).send({ error: 'Use a short service name, choose a supported service type, and enter a guest port from 1 to 65535.' })
     }
     const routeType = type as typeof routeTypes[number]
     const hostnameCollision = await run('SELECT 1 FROM vms WHERE LOWER(name) = $1 LIMIT 1', [`port-${name}`])

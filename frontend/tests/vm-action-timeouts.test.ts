@@ -71,3 +71,17 @@ test('VM creation timeouts tell users to refresh before submitting a possible du
         Reflect.deleteProperty(globalThis, 'document')
     }
 })
+
+test('VM creation preserves the organization permission response', async () => {
+    setSessionCookie()
+    const originalFetch = globalThis.fetch
+    try {
+        globalThis.fetch = async () => Response.json({ error: 'An organization owner or admin must create VMs.' }, { status: 403 })
+        const result = await postVM({ name: 'cashflow-vm', organization_id: 'cashflow' })
+        assert.equal(result.status, 403)
+        assert.equal(result.message, 'An organization owner or admin must create VMs.')
+    } finally {
+        globalThis.fetch = originalFetch
+        Reflect.deleteProperty(globalThis, 'document')
+    }
+})

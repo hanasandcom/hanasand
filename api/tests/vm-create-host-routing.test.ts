@@ -102,10 +102,10 @@ test('VM creation accepts and forwards every listed service', async () => {
     const services = ['nodejs', 'bun', 'python', 'java', 'docker', 'postgresql', 'redis', 'nginx', 'website', 'minecraft-java']
     const response = await app.inject({
         method: 'POST', url: '/vm', headers: { id: 'member' },
-        payload: { name: 'remote-vm', services, minecraft_eula_accepted: true },
+        payload: { name: 'remote-vm', resources: { cpu: '2', memory: '4GiB' }, services, minecraft_eula_accepted: true, minecraft_server_type: 'NEOFORGE' },
     })
     expect(response.statusCode).toBe(201)
-    expect(calls[0]?.body).toBe(JSON.stringify({ os: 'ubuntu-24.04', resources: { cpu: '1', memory: '2GiB' }, services, minecraftEulaAccepted: true }))
+    expect(calls[0]?.body).toBe(JSON.stringify({ os: 'ubuntu-24.04', resources: { cpu: '2', memory: '4GiB' }, services, minecraftEulaAccepted: true, minecraftServerType: 'NEOFORGE' }))
 
     const invalid = await app.inject({
         method: 'POST', url: '/vm', headers: { id: 'member' },
@@ -115,6 +115,35 @@ test('VM creation accepts and forwards every listed service', async () => {
 
     const missingEula = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'member' }, payload: { name: 'remote-vm', services: ['minecraft-java'] } })
     expect(missingEula.statusCode).toBe(400)
+    const unsupportedMinecraftType = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'member' }, payload: { name: 'remote-vm', services: ['minecraft-java'], minecraft_eula_accepted: true, minecraft_server_type: 'CUSTOM' } })
+    expect(unsupportedMinecraftType.statusCode).toBe(400)
+    const undersizedMinecraftVm = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'member' }, payload: { name: 'remote-vm', resources: { cpu: '1', memory: '2GiB' }, services: ['minecraft-java'], minecraft_eula_accepted: true } })
+    expect(undersizedMinecraftVm.statusCode).toBe(400)
+})
+
+test('AI website content is escaped before it crosses the authenticated host boundary', async () => {
+    const response = await app.inject({
+        method: 'POST', url: '/vm', headers: { id: 'member' },
+        payload: {
+            name: 'remote-vm', services: ['website'],
+            website: { title: '<script>alert(1)</script>', tagline: 'A & B', sections: [{ heading: 'Hello', body: 'Safe <b>text</b>' }] },
+        },
+    })
+    expect(response.statusCode).toBe(201)
+    const forwarded = JSON.parse(String(calls[0]?.body))
+    expect(forwarded.websiteHtml).toContain('&lt;script&gt;alert(1)&lt;/script&gt;')
+    expect(forwarded.websiteHtml).toContain('A &amp; B')
+    expect(forwarded.websiteHtml).not.toContain('<script>')
+    const routeInsert = databaseCalls.find(call => call.sql.includes('INSERT INTO vm_public_ports'))
+    expect(routeInsert?.params[0]).toBe('remote-vm')
+    expect(String(routeInsert?.params[1])).toMatch(/^site-[a-f0-9]{16}$/)
+    expect(routeInsert?.params.slice(2)).toEqual(['http', 80, 'member'])
+
+    const invalid = await app.inject({
+        method: 'POST', url: '/vm', headers: { id: 'member' },
+        payload: { name: 'remote-vm', services: ['website'], website: { title: 'x'.repeat(121), tagline: '', sections: [] } },
+    })
+    expect(invalid.statusCode).toBe(400)
 })
 
 test('VM creation rejects unsupported resource limits and forwards an allowed size', async () => {

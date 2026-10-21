@@ -53,6 +53,15 @@ test('VM managers can add, list and remove a Minecraft service by hostname', asy
     expect(services).toHaveLength(0)
 })
 
+test('VM managers can publish an HTTP website through the HTTPS gateway', async () => {
+    const created = await app.inject({ method: 'POST', url: '/vm/hei/public-services', payload: { name: 'site', type: 'http', port: 80 } })
+    expect(created.statusCode).toBe(201)
+    expect(created.json()).toMatchObject({ hostname: 'port-site.hanasand.com', port: 80, type: 'http' })
+
+    const synced = await app.inject({ url: '/vms/internal/public-ports', headers: { authorization: 'Bearer sync-token' } })
+    expect(synced.json()).toContainEqual({ hostname: 'port-site.hanasand.com', type: 'http', vmName: 'hei', vmIp: '10.119.85.22', port: 80 })
+})
+
 test('public services reject unsafe names, unsupported protocols, invalid ports and hostname conflicts', async () => {
     const malformed = [
         { name: 'unsafe.example', type: 'tls', port: 443 },

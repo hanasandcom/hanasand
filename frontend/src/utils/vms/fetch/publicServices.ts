@@ -1,7 +1,7 @@
 import config from '@/config'
 import { getCookie } from '@/utils/cookies/cookies'
 
-export type VmPublicService = { id: string, name: string, type: 'minecraft-java' | 'tls', port: number, hostname: string, createdAt: string }
+export type VmPublicService = { id: string, name: string, type: 'minecraft-java' | 'tls' | 'http', port: number, hostname: string, createdAt: string }
 export type VmPublicServicesResponse = { services: VmPublicService[], canManage: boolean }
 
 export async function requestVmPublicServices(vmName: string, method: 'GET' | 'POST' | 'DELETE', data?: unknown) {

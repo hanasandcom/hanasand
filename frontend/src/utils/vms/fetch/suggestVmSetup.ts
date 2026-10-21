@@ -1,7 +1,9 @@
 import config from '@/config'
 import { getCookie } from '@/utils/cookies/cookies'
+import { vmMinecraftServerTypes, type VmMinecraftServerType } from '../createOptions'
 
-export type VmSetupPlan = { summary: string, services: string[] }
+export type VmWebsitePlan = { title: string, tagline: string, sections: Array<{ heading: string, body: string }> }
+export type VmSetupPlan = { summary: string, services: string[], website: VmWebsitePlan | null, minecraftServerType: VmMinecraftServerType | null }
 
 export default async function suggestVmSetup(prompt: string): Promise<VmSetupPlan> {
     const token = getCookie('access_token')
@@ -17,5 +19,10 @@ export default async function suggestVmSetup(prompt: string): Promise<VmSetupPla
     if (!response.ok || typeof result.summary !== 'string' || !Array.isArray(result.services)) {
         throw new Error(typeof result.error === 'string' ? result.error : 'Unable to suggest a VM setup.')
     }
-    return { summary: result.summary, services: result.services.filter((service): service is string => typeof service === 'string') }
+    return {
+        summary: result.summary,
+        services: result.services.filter((service): service is string => typeof service === 'string'),
+        website: result.website && typeof result.website === 'object' ? result.website as VmWebsitePlan : null,
+        minecraftServerType: vmMinecraftServerTypes.some(server => server.id === result.minecraftServerType) ? result.minecraftServerType as VmMinecraftServerType : null,
+    }
 }

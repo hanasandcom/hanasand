@@ -19,11 +19,22 @@ export const vmServices = [
     { id: 'postgresql', group: 'Data', label: 'PostgreSQL', description: 'PostgreSQL database server' },
     { id: 'redis', group: 'Data', label: 'Redis', description: 'Redis in-memory data store' },
     { id: 'nginx', group: 'Web', label: 'Nginx', description: 'Web server for sites and apps' },
-    { id: 'website', group: 'Web', label: 'Website starter', description: 'A starter HTML page served by Nginx' },
-    { id: 'minecraft-java', group: 'Game servers', label: 'Minecraft Java', description: 'Paper server on port 25565, ready for the port 443 gateway' },
+    { id: 'website', group: 'Web', label: 'Website', description: 'A responsive site generated from your description or a ready-to-edit starter' },
+    { id: 'minecraft-java', group: 'Game servers', label: 'Minecraft Java', description: 'Paper, Vanilla, Fabric, Quilt, NeoForge, Purpur or Folia · 4 GB minimum · port 443 access' },
 ] as const
 
 export const vmServiceGroups = ['Development', 'Data', 'Web', 'Game servers'] as const
+export const vmMinecraftServerTypes = [
+    { id: 'PAPER', label: 'Paper', description: 'Fast server with plugin support' },
+    { id: 'VANILLA', label: 'Vanilla', description: 'The official unmodified server' },
+    { id: 'FABRIC', label: 'Fabric', description: 'Lightweight mod support' },
+    { id: 'QUILT', label: 'Quilt', description: 'Community mod loader compatible with many Fabric mods' },
+    { id: 'NEOFORGE', label: 'NeoForge', description: 'Modded servers for modern Minecraft versions' },
+    { id: 'PURPUR', label: 'Purpur', description: 'Paper-compatible server with more configuration options' },
+    { id: 'FOLIA', label: 'Folia', description: 'Region-threaded Paper server for larger worlds' },
+] as const
+
+export type VmMinecraftServerType = typeof vmMinecraftServerTypes[number]['id']
 
 export type VmOperatingSystem = typeof vmOperatingSystems[number]['id']
 export type VmService = typeof vmServices[number]['id']
