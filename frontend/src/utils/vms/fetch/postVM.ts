@@ -3,6 +3,7 @@
 import config from '@/config'
 import fetchWithRetry from '@/utils/fetchWithRetry'
 import { getCookie } from '../../cookies/cookies'
+import { vmCreateTimeoutMs } from '../proxyTimeout'
 
 import type { VmMinecraftServerType } from '../createOptions'
 import type { VmWebsitePlan } from './suggestVmSetup'
@@ -29,7 +30,7 @@ export default async function postVM(vm: CreateVmRequest): Promise<{ status: num
                 id
             },
             body: JSON.stringify({ ...vm }),
-            timeoutMs: Math.max(config.abortTimeout, 180000),
+            timeoutMs: Math.max(config.abortTimeout, vmCreateTimeoutMs),
             retries: 0,
         })
 

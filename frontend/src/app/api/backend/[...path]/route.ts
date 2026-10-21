@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import config from '@/config'
 import { authCookieOptions, setAuthCookie } from '@/utils/proxy/authResponses'
-import { vmLifecycleProxyTimeoutMs, vmSetupPlanProxyTimeoutMs } from '@/utils/vms/proxyTimeout'
+import { vmCreateProxyTimeoutMs, vmCreateTimeoutMessage, vmLifecycleProxyTimeoutMs, vmSetupPlanProxyTimeoutMs } from '@/utils/vms/proxyTimeout'
 
 type Context = {
     params: Promise<{ path?: string[] }>
@@ -49,6 +49,7 @@ async function handler(req: NextRequest, context: Context) {
     const rulePreview = req.method === 'POST' && pathSegments[0] === 'rules' && pathSegments[1] === 'preview'
     const vmLifecycleTimeout = vmLifecycleProxyTimeoutMs(req.method, pathSegments, BACKEND_PROXY_TIMEOUT_MS)
     const vmSetupPlanTimeout = vmSetupPlanProxyTimeoutMs(req.method, pathSegments, BACKEND_PROXY_TIMEOUT_MS)
+    const vmCreateTimeout = vmCreateProxyTimeoutMs(req.method, pathSegments, BACKEND_PROXY_TIMEOUT_MS)
     if (['events', 'rules'].includes(pathSegments[0]) && !target.searchParams.has('organizationId')) {
         const organizationId = await activeOrganizationId()
         if (organizationId) target.searchParams.set('organizationId', organizationId)
@@ -93,13 +94,14 @@ async function handler(req: NextRequest, context: Context) {
                 longLogSearch || rulePreview ? 120_000 : 0,
                 vmLifecycleTimeout || 0,
                 vmSetupPlanTimeout || 0,
+                vmCreateTimeout || 0,
             )),
         } as RequestInit & { duplex: 'half' })
     } catch (error) {
         const isTimeout = error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError')
         return NextResponse.json({
             error: isTimeout
-                ? 'The backend service did not respond in time. Try again shortly; the dashboard is still available.'
+                ? vmCreateTimeout ? vmCreateTimeoutMessage : 'The backend service did not respond in time. Try again shortly; the dashboard is still available.'
                 : 'The backend service is unavailable right now. Try again shortly.',
         }, { status: 503 })
     }
