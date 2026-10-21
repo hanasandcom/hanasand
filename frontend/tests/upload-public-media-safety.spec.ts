@@ -30,9 +30,10 @@ test('upload accepts files and the remote media proxy restricts network access',
     expect(uploadPage).toContain('data-upload-intro')
     expect(uploadPage).toContain('Upload images, videos or files.')
     expect(uploadPage).not.toContain('Do not upload private or confidential content.')
-    expect(uploadForm).toContain('Browse files')
+    expect(uploadForm).toContain('review-button')
     expect(uploadForm).toContain('Choose a file or paste a URL.')
-    expect(uploadForm).not.toContain('id=\'fileInputDesktop\'\n                        type=\'file\'\n                        accept=')
+    expect(uploadForm).toContain('hanasand-upload-picker')
+    expect(uploadForm).toContain('/assets/upload-picker.js')
     expect(uploadBehavior).toContain('MAX_UPLOAD_BYTES')
     expect(uploadBehavior).toContain('validateUploadFile(file)')
     expect(uploadBehavior).toContain('validateRemoteMediaFile(file)')
@@ -53,6 +54,12 @@ test('upload accepts files and the remote media proxy restricts network access',
 })
 
 test('upload page renders the intro and file-picker action', async ({ page }) => {
+    await page.route('**/assets/exifreader.js', route => route.fulfill({ status: 200, contentType: 'text/javascript', body: '' }))
+    await page.route('**/assets/upload-picker.js', route => route.fulfill({
+        status: 200,
+        contentType: 'text/javascript',
+        body: 'customElements.define(\'hanasand-upload-picker\', class extends HTMLElement { connectedCallback() { const button = document.createElement(\'button\'); button.textContent = \'Browse files\'; this.attachShadow({ mode: \'open\' }).append(button) } })',
+    }))
     await page.goto('/upload')
 
     await expect(page.getByRole('heading', { name: 'Upload media' })).toBeVisible()

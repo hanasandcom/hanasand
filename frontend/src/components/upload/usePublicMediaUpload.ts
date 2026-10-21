@@ -1,6 +1,6 @@
 import config from '@/config'
 import { useCallback, useState } from 'react'
-import type { ChangeEvent, Dispatch, DragEvent, SetStateAction } from 'react'
+import type { Dispatch, SetStateAction } from 'react'
 import getFetchableUrl from './getFetchAbleUrl'
 
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024
@@ -12,40 +12,27 @@ type PublicMediaUploadOptions = {
 }
 
 export function usePublicMediaUpload({ setUrl, setFile, setPreview }: PublicMediaUploadOptions) {
-    const [isDragging, setIsDragging] = useState(false)
     const [isFetching, setIsFetching] = useState(false)
     const [message, setMessage] = useState<string | null>(null)
 
-    const handleFile = useCallback((file: File) => {
+    const selectFile = useCallback((file: File) => {
         setMessage(null)
         const validationError = validateUploadFile(file)
         if (validationError) {
             setFile(null)
             setPreview(null)
             setMessage(validationError)
-            return
+            return false
         }
 
         setFile(file)
-        setPreview(URL.createObjectURL(file))
+        setPreview(null)
+        return true
     }, [setFile, setPreview])
 
-    function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
-        const selectedFile = event.target.files?.[0]
-        if (selectedFile) handleFile(selectedFile)
-    }
-
-    function handleDrop(event: DragEvent<HTMLDivElement>) {
-        event.preventDefault()
-        setIsDragging(false)
-        const droppedFile = event.dataTransfer.files?.[0]
-        if (droppedFile) handleFile(droppedFile)
-    }
-
-    function handleDragOver(event: DragEvent<HTMLDivElement>) {
-        event.preventDefault()
-        setIsDragging(true)
-    }
+    const handleFile = useCallback((file: File) => {
+        if (selectFile(file)) setPreview(URL.createObjectURL(file))
+    }, [selectFile, setPreview])
 
     function handlePasteOrChange(value: string) {
         setUrl(value)
@@ -69,13 +56,10 @@ export function usePublicMediaUpload({ setUrl, setFile, setPreview }: PublicMedi
     }
 
     return {
-        isDragging,
         isFetching,
         message,
-        handleFileChange,
-        handleDrop,
-        handleDragOver,
-        handleDragLeave: () => setIsDragging(false),
+        selectFile,
+        handleFile,
         handlePasteOrChange,
     }
 }
