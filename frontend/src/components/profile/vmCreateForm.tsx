@@ -138,13 +138,13 @@ export default function VmCreateForm({ id, visible, organizationId, notify, onCr
                 <section aria-label='Website preview' className='min-w-0 overflow-hidden rounded-xl border border-ui-border bg-[#f7f5f0] p-3 text-[#20241f] sm:p-5'>
                     <div className='mx-auto grid min-h-48 max-w-xl content-start gap-3 rounded-xl bg-[#e9e6dc] p-5 sm:p-7'>
                         <p className='text-[10px] font-semibold uppercase tracking-[0.16em] text-[#62685f]'>Preview</p>
-                        <h2 className='break-words text-3xl font-semibold leading-tight tracking-tight sm:text-4xl'>{websitePlan.title || 'Your page title'}</h2>
-                        {websitePlan.tagline && <p className='whitespace-pre-wrap break-words text-sm leading-relaxed text-[#555c56]'>{websitePlan.tagline}</p>}
+                        <h2 className='wrap-break-word text-3xl font-semibold leading-tight tracking-tight sm:text-4xl'>{websitePlan.title || 'Your page title'}</h2>
+                        {websitePlan.tagline && <p className='whitespace-pre-wrap wrap-break-word text-sm leading-relaxed text-[#555c56]'>{websitePlan.tagline}</p>}
                     </div>
                     <div className='mx-auto grid max-w-xl'>
                         {websitePlan.sections.length ? websitePlan.sections.map((section, index) => <article key={index} className='grid gap-1 border-b border-[#d8d7cf] px-1 py-4'>
-                            <h3 className='break-words text-base font-semibold'>{section.heading || 'Section heading'}</h3>
-                            {section.body && <p className='whitespace-pre-wrap break-words text-sm leading-relaxed text-[#555c56]'>{section.body}</p>}
+                            <h3 className='wrap-break-word text-base font-semibold'>{section.heading || 'Section heading'}</h3>
+                            {section.body && <p className='whitespace-pre-wrap wrap-break-word text-sm leading-relaxed text-[#555c56]'>{section.body}</p>}
                         </article>) : <p className='px-1 py-4 text-sm text-[#62685f]'>Add a section to build out your page.</p>}
                     </div>
                 </section>
