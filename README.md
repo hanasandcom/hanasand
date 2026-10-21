@@ -10,7 +10,7 @@ Hanasand combines threat intelligence, AI development tools, and infrastructure 
 | API | `api/` | Authorization, organizations, permissions, billing, AI requests, project storage, infrastructure and public API |
 | Identity | [Identity repository](https://github.com/hanasandcom/identity) | Login, sessions, password reset, passkeys, social/SSO and signup; separate workers, using the existing account database through PgBouncer |
 | Threat intelligence | [TI repository](https://github.com/hanasandcom/ti) | Standalone web application and API; source collection, evidence, search, alerts and investigation cases run with a dedicated database and scraper |
-| AI model client | [AI repository](https://github.com/hanasandcom/ai) | Connects the Inspur inference server to the API over WebSockets; deployed separately |
+| AI API and model client | [AI repository](https://github.com/hanasandcom/ai) | Stores AI chats, serves AI routes and connects the Inspur inference server over WebSockets; deployed separately |
 | Parser | [Parser repository](https://github.com/hanasandcom/parser) | AI parsing HTTP service; deployed separately |
 | Scraper | [Scraper repository](https://github.com/hanasandcom/scraper) | Threat-intelligence collection service; deployed separately |
 | Model runtime | [GPT repository](https://github.com/hanasandcom/gpt) | GPU model server and its independent startup service |
@@ -28,6 +28,8 @@ Hanasand combines threat intelligence, AI development tools, and infrastructure 
 | Operations | [Ops repository](https://github.com/hanasandcom/ops) | Application deployment, host monitoring, maintenance, health checks and infrastructure integrations |
 
 `docker-compose.yml` includes `docker-compose.api.yml` and defines the service connections, ports, volumes and health checks. Use Docker Compose 2.33.1 or later. OpenResty terminates public HTTPS outside this Compose project. The root API forwards authentication routes to Identity over a private network, while the existing PostgreSQL records and public API paths stay in place. The API also integrates with external VM hosts, password lookup and other configured services. VM owners and editors can publish up to five TCP services per VM through the shared port-443 gateway; see [VM public services](docs/vm-public-services.md).
+
+The frontend sends AI workspace requests to the separate AI API. On the shared Docker network, its server-side URL defaults to `http://ai:19182/api`; set `FRONTEND_INTERNAL_AI_API` when a deployment uses another address.
 
 PgBouncer, Onion, browser workers, TURN, and the Discord bot run from independent Compose projects on the established Hanasand networks. The root release checks the infrastructure services it depends on but does not build or recreate those services.
 

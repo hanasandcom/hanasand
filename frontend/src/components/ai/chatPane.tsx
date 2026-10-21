@@ -54,7 +54,7 @@ export default function ChatPane({ activeConversation, clients, composer, isConn
         : 'Sign in to send a message.'
     const blockedReason = readOnly
         ? 'Reviewer mode: you can inspect this workspace but cannot send prompts.'
-        : provider === 'chatgpt' && !activeConversation ? 'Preparing conversation…'
+        : !activeConversation ? provider === 'chatgpt' ? 'Preparing conversation…' : 'Starting a chat…'
             : awaitingResponse && provider !== 'chatgpt'
                 ? 'Waiting for the current agent turn to finish.'
                 : !hasReadyModel ? unavailableModelReason : null

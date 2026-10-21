@@ -26,6 +26,8 @@ test('empty chat keeps the prompt short and the composer primary', () => {
     />)
     expect(html).toContain('What can I help with?')
     expect(html).toContain('placeholder="Message…"')
+    expect(html).toContain('Starting a chat…')
+    expect(html).toMatch(/aria-label="Send"[^>]*disabled=""/)
     expect(html).not.toContain('Review assistant')
     expect(html).not.toContain('Ask Hanasand to inspect context')
     expect(html).not.toContain('Attach the relevant context')

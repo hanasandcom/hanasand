@@ -28,7 +28,7 @@ export function ChatComposer({ value, blockedReason, awaitingResponse, readOnly,
             {blockedReason ? <p id='ai-composer-blocked-reason' className='mb-2 px-3 text-xs text-ui-muted'>{blockedReason}</p> : null}
             <div className='rounded-3xl border border-ui-border bg-ui-panel shadow-lg shadow-black/10 transition focus-within:border-ui-primary/60 focus-within:ring-2 focus-within:ring-ui-primary/15'>
                 <textarea value={value} onChange={event => onChange(event.target.value)} onKeyDown={event => {
-                    if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); onSend() }
+                    if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); onSend() }
                 }} placeholder='Message…' readOnly={readOnly} rows={2} aria-label='Message' className='block max-h-48 min-h-16 w-full resize-y bg-transparent px-5 pt-4 text-[15px] leading-6 text-ui-text outline-none placeholder:text-ui-muted' />
                 <div className='flex flex-wrap items-center gap-1.5 px-3 pb-2 pt-1'>
                     {provider === 'chatgpt' ? <>

@@ -13,7 +13,7 @@ export async function getAiWorkspace({
     let response: Response
     try {
         const normalizedToken = decodeURIComponent(token)
-        response = await fetch(`${config.url.api}/ai/workspace`, {
+        response = await fetch(`${config.url.ai}/ai/workspace`, {
             headers: {
                 Authorization: `Bearer ${normalizedToken}`,
                 id,

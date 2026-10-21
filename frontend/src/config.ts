@@ -11,6 +11,8 @@ const internalApiUrl =
     process.env.FRONTEND_INTERNAL_API ||
     process.env.INTERNAL_API ||
     publicApiUrl
+const internalAiApiUrl = process.env.FRONTEND_INTERNAL_AI_API ||
+    (process.env.NODE_ENV === 'production' ? 'http://ai:19182/api' : publicApiUrl)
 const internalCdnUrl =
     process.env.FRONTEND_INTERNAL_CDN ||
     process.env.INTERNAL_CDN ||
@@ -19,6 +21,7 @@ const internalCdnUrl =
 const config = {
     url: {
         api: resolveApiUrl(),
+        ai: typeof window === 'undefined' ? internalAiApiUrl : publicApiUrl,
         support: process.env.NEXT_PUBLIC_SUPPORT_API || defaultSupportApiUrl,
         support_wss: toWsUrl(process.env.NEXT_PUBLIC_SUPPORT_API || defaultSupportApiUrl).replace(/^http/, 'ws'),
         auth: process.env.FRONTEND_AUTH_API || internalApiUrl,
