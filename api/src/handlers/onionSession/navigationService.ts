@@ -49,7 +49,10 @@ export function createNavigationService({ state, sessionId, defaultNetwork, send
         const heartbeat = setInterval(() => {
             if (isCurrentRun(generation)) send({ type: 'status', state: 'navigating', target, message: 'Navigation is still pending.' })
         }, 5_000)
-        const response = await state.page.goto(target, { waitUntil: 'domcontentloaded', timeout: 25_000 })
+        // Tor sites often render useful content without firing DOMContentLoaded.
+        // Treat the response commit as navigation success and let frames/evidence
+        // continue arriving while the page finishes rendering.
+        const response = await state.page.goto(target, { waitUntil: 'commit', timeout: 25_000 })
             .catch((error) => {
                 if (!isCurrentRun(generation)) return null
                 const message = error instanceof Error ? error.message : String(error)

@@ -1,6 +1,15 @@
 import { expect, test } from 'bun:test'
 import { browserResultId } from '../../src/utils/ws/browserResultIdentity.ts'
-import { rowToBrowserRunRecord } from '../../src/utils/ws/browserRunViews.ts'
+import { providerReportStatus, rowToBrowserRunRecord } from '../../src/utils/ws/browserRunViews.ts'
+
+test('provider reports distinguish missing reports and denied access from errors', () => {
+    expect(providerReportStatus()).toBe('Results')
+    expect(providerReportStatus('No matching urlquery report was available. No clean verdict was inferred.')).toBe('No report')
+    expect(providerReportStatus('VirusTotal has no existing report for this URL.')).toBe('No report')
+    expect(providerReportStatus('urlquery denied browser access (HTTP 403).')).toBe('Access restricted')
+    expect(providerReportStatus('Provider tab opened; verdict parsing is still running.')).toBe('Loading')
+    expect(providerReportStatus('No verified report returned within the provider time limit.')).toBe('Provider error')
+})
 
 test('equivalent URLs have one stable identity; paths and queries remain distinct', () => {
     expect(browserResultId('https://vg.no/')).toBe('979b6683-b76b-87fc-95e8-02baa94ae619')

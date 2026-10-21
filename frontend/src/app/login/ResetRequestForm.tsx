@@ -11,7 +11,7 @@ type Props = {
 
 export default function ResetRequestForm({ busy, onSubmit, onBack }: Props) {
     return (
-        <form className='flex w-full flex-col gap-2 self-center' onSubmit={onSubmit} method='post'>
+        <form className='flex w-full flex-col gap-4 self-center' onSubmit={onSubmit} method='post'>
             <AuthField
                 id='login-reset-username'
                 label='Username'

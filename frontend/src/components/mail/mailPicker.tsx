@@ -1,13 +1,27 @@
 'use client'
 
-import { Check, ChevronDown } from 'lucide-react'
+import { ChevronDown, Mail } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
+import { MailPickerMenu } from './mailPickerMenu'
 
-export type MailSelectOption = { id: string; label: string }
+export type MailPickerOption = { id: string; label: string; description?: string; badge?: string }
 
-export function MailSelect({
+export function mailAccountPickerOptions(accounts: Array<{ id: string; name: string; address: string; shared?: boolean }>): MailPickerOption[] {
+    return accounts.map(({ id, name, address, shared }) => {
+        const hasDistinctName = Boolean(name && name.toLocaleLowerCase() !== address.toLocaleLowerCase())
+        return {
+            id,
+            label: hasDistinctName ? name : address || name,
+            description: hasDistinctName ? address : undefined,
+            badge: shared ? 'Shared' : 'Personal',
+        }
+    })
+}
+
+export function MailPicker({
     id,
     label,
+    menuTitle,
     value,
     options,
     onChange,
@@ -16,16 +30,17 @@ export function MailSelect({
 }: {
     id?: string
     label: string
+    menuTitle: string
     value: string
-    options: MailSelectOption[]
+    options: MailPickerOption[]
     onChange: (value: string) => void
     className?: string
     compact?: boolean
 }) {
     const generatedId = useId().replace(/:/g, '')
-    const listboxId = `${id || `mail-select-${generatedId}`}-options`
+    const listboxId = `${id || `mail-picker-${generatedId}`}-options`
     const rootRef = useRef<HTMLDivElement>(null)
-    const triggerRef = useRef<HTMLDivElement>(null)
+    const triggerRef = useRef<HTMLButtonElement>(null)
     const typeaheadRef = useRef('')
     const typeaheadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const [open, setOpen] = useState(false)
@@ -60,13 +75,17 @@ export function MailSelect({
         if (open) document.getElementById(`${listboxId}-${activeIndex}`)?.scrollIntoView({ block: 'nearest' })
     }, [activeIndex, listboxId, open])
 
+    useEffect(() => () => {
+        if (typeaheadTimerRef.current) clearTimeout(typeaheadTimerRef.current)
+    }, [])
+
     const selectActiveOption = () => {
         if (!activeOption) return
         onChange(activeOption.id)
         setOpen(false)
     }
 
-    const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const handleKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
         if (event.key === 'ArrowDown') {
             event.preventDefault()
             if (!options.length) return
@@ -96,7 +115,9 @@ export function MailSelect({
             if (typeaheadTimerRef.current) clearTimeout(typeaheadTimerRef.current)
             typeaheadTimerRef.current = setTimeout(() => { typeaheadRef.current = '' }, 700)
             const start = open ? activeIndex + 1 : 0
-            const match = options.findIndex((option, index) => index >= start && option.label.toLocaleLowerCase().startsWith(query))
+            const match = options.findIndex((option, index) =>
+                index >= start && option.label.toLocaleLowerCase().startsWith(query)
+            )
             const wrappedMatch = match === -1 ? options.findIndex(option => option.label.toLocaleLowerCase().startsWith(query)) : match
             if (wrappedMatch !== -1) {
                 setActiveIndex(wrappedMatch)
@@ -106,7 +127,8 @@ export function MailSelect({
     }
 
     return <div ref={rootRef} className={`relative min-w-0 ${className}`}>
-        <div
+        <button
+            type='button'
             ref={triggerRef}
             id={id}
             role='combobox'
@@ -125,39 +147,39 @@ export function MailSelect({
             onBlur={event => {
                 if (!rootRef.current?.contains(event.relatedTarget as Node | null)) setOpen(false)
             }}
-            className={`group flex w-full cursor-pointer select-none items-center gap-2 rounded-lg border border-ui-border bg-ui-raised text-ui-text shadow-sm shadow-ui-canvas/10 outline-none transition-[border-color,background-color,box-shadow] hover:border-ui-primary/50 hover:bg-ui-panel focus-visible:border-ui-primary focus-visible:ring-2 focus-visible:ring-ui-primary/20 ${compact ? 'h-9 p-1.5 text-xs' : 'h-10 p-2 text-sm'}`}
+            className={[
+                'group flex w-full min-w-0 items-center gap-2.5 rounded-xl border border-ui-border/80',
+                'bg-gradient-to-br from-ui-panel to-ui-raised text-ui-text shadow-sm shadow-black/10',
+                'outline-none transition-[border-color,background-color,box-shadow] hover:border-ui-primary/45',
+                'hover:shadow-md hover:shadow-black/15 focus-visible:border-ui-primary',
+                'focus-visible:ring-2 focus-visible:ring-ui-primary/25',
+                compact ? 'h-11 p-2 text-xs' : 'h-11 p-2.5 text-sm',
+            ].join(' ')}
         >
-            <span className='min-w-0 flex-1 truncate text-left'>{selectedOption?.label ?? ''}</span>
-            <span aria-hidden='true' className='inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-ui-panel/80 text-ui-muted transition-colors group-hover:text-ui-primary'>
-                <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+            <span aria-hidden='true' className={`inline-flex shrink-0 items-center justify-center rounded-lg bg-ui-primary/10 text-ui-primary ring-1 ring-ui-primary/10 ${compact ? 'h-6 w-6' : 'h-7 w-7'}`}>
+                <Mail className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} />
             </span>
-        </div>
-        {open ? <div
+            <span className='min-w-0 flex-1 text-left'>
+                <span className='block truncate font-medium leading-5'>{selectedOption?.label ?? 'Select mailbox'}</span>
+                {!compact && selectedOption?.description ? <span className='block truncate text-[11px] leading-4 text-ui-muted'>{selectedOption.description}</span> : null}
+            </span>
+            <span aria-hidden='true' className={`inline-flex shrink-0 items-center justify-center rounded-lg bg-ui-canvas/80 text-ui-muted transition-colors group-hover:bg-ui-primary/10 group-hover:text-ui-primary ${compact ? 'h-6 w-6' : 'h-7 w-7'}`}>
+                <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+            </span>
+        </button>
+        {open ? <MailPickerMenu
             id={listboxId}
-            role='listbox'
-            aria-label={label}
-            className='absolute left-0 top-[calc(100%+0.5rem)] z-[70] max-h-72 w-[min(18rem,calc(100vw-1.5rem))] overflow-y-auto overscroll-contain rounded-xl border border-ui-border bg-ui-raised p-1.5 text-ui-text shadow-xl shadow-black/25 ring-1 ring-black/5'
-        >
-            {options.map((option, index) => {
-                const selected = option.id === value
-                const active = index === activeIndex
-                return <div
-                    key={option.id}
-                    id={`${listboxId}-${index}`}
-                    role='option'
-                    aria-selected={selected}
-                    onMouseEnter={() => setActiveIndex(index)}
-                    onClick={() => {
-                        onChange(option.id)
-                        setOpen(false)
-                        triggerRef.current?.focus()
-                    }}
-                    className={`flex min-h-11 cursor-pointer items-center gap-2 rounded-lg p-2 text-sm transition-colors ${active ? 'bg-ui-primary/10 text-ui-text' : 'text-ui-muted hover:bg-ui-primary/5 hover:text-ui-text'} ${selected ? 'font-medium' : ''}`}
-                >
-                    <span className='min-w-0 flex-1 truncate'>{option.label}</span>
-                    {selected ? <Check aria-hidden='true' className='h-4 w-4 shrink-0 text-ui-primary' /> : null}
-                </div>
-            })}
-        </div> : null}
+            label={label}
+            title={menuTitle}
+            value={value}
+            options={options}
+            activeIndex={activeIndex}
+            onActiveIndexChange={setActiveIndex}
+            onSelect={optionId => {
+                onChange(optionId)
+                setOpen(false)
+                triggerRef.current?.focus()
+            }}
+        /> : null}
     </div>
 }

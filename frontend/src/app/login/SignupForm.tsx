@@ -17,7 +17,7 @@ type Props = {
 
 export default function SignupForm({ flow, busy, hydrated, redirectPath, onSubmit, onBackToLogin }: Props) {
     return (
-        <form className='flex w-full flex-col gap-2 self-center' action='/api/auth/register' onSubmit={onSubmit} method='post'>
+        <form className='flex w-full flex-col gap-4 self-center' action='/api/auth/register' onSubmit={onSubmit} method='post'>
             <input type='hidden' name='redirectPath' value={redirectPath} />
             {flow.sendError && <p role='alert' className='text-sm text-ui-text'>{flow.sendError}</p>}
             <AuthField

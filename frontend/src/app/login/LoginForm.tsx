@@ -21,7 +21,7 @@ type Props = {
 export default function LoginForm({ redirectPath, initialUsername, usernameRef, hydrated, busy, socialError, ssoHref, onSubmit, onChangeMode, onPasskeyLogin }: Props) {
     return (
         <div className='grid gap-3'>
-            <form className='flex w-full flex-col gap-2 self-center' action='/api/auth/login' onSubmit={onSubmit} method='post'>
+            <form className='flex w-full flex-col gap-4 self-center' action='/api/auth/login' onSubmit={onSubmit} method='post'>
                 <input type='hidden' name='redirectPath' value={redirectPath} />
                 <AuthField
                     id='login-username'
