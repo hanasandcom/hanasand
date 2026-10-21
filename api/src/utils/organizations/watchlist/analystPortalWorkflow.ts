@@ -1,4 +1,4 @@
-import type { OrganizationAlertCaseAction, OrganizationSharedWatchlistAuditEventAction } from '../inputTypes.ts'
+import type { OrganizationAlertCaseAction } from '../inputTypes.ts'
 import type { OrganizationRole } from '../../organizationRoles.ts'
 import type { OrganizationSharedWatchlistDownstreamProof } from '../contracts/downstreamProof.ts'
 import { roleCanEditOrganization } from '../../organizationRoles.ts'
@@ -26,12 +26,6 @@ export function organizationSharedWatchlistAnalystPortalWorkflow(input: {
         ...input.caseBlockers,
         ...input.webhookBlockers,
     ])).sort()
-    const eventActions = [
-        'organization_watchlist_alert_terms_exported',
-        'organization_watchlist_alert_terms_export_denied',
-        'organization_lifecycle_mutation_blocked',
-    ] as OrganizationSharedWatchlistAuditEventAction[]
-
     return {
         schemaVersion: 'organization.shared_watchlist_analyst_portal_workflow.v1',
         ...organizationTenantIdentity(input.organizationId, input.organizationId),

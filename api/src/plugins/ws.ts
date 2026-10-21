@@ -1,6 +1,5 @@
 import fp from 'fastify-plugin'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
-import WebSocket from 'ws'
 import registerSystemStream from '../handlers/metrics/systemStream.ts'
 import registerVmConsole from '../handlers/vms/console.ts'
 import registerInternalVmConsole from '../handlers/vms/consoleInternal.ts'

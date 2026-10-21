@@ -1,8 +1,7 @@
 import type { ReadinessProofContext } from './context.ts'
-import { organizationTenantIdentity } from '../identity.ts'
 
 export function customerAuditProofSections(context: ReadinessProofContext) {
-    const { input, blockers, proofOrganizationLifecycleBlockerPrefix } = context
+    const { input, blockers } = context
     return {
         customerWorkflowProof: {
             schemaVersion: 'organization.customer_workflow_proof.v1',
