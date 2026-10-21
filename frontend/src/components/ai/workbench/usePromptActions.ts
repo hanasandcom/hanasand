@@ -57,8 +57,12 @@ export function usePromptActions(
         const workspaceContext = await buildWorkspaceContext(
             activeConversation, importedRepos, shareContents, shareTrees, shareFileContents
         )
+        const currentPage = typeof window === 'undefined' ? null : {
+            hostname: window.location.hostname,
+            url: `${window.location.origin}${window.location.pathname}`,
+        }
         const messages = [
-            { role: 'system' as const, content: buildSystemPrompt({ conversation: activeConversation, workspaceContext }) },
+            { role: 'system' as const, content: buildSystemPrompt({ conversation: activeConversation, workspaceContext, currentPage }) },
             ...activeConversation.messages
                 .filter((message) => message.role === 'user' || message.role === 'assistant' || message.role === 'tool')
                 .map((message) => ({

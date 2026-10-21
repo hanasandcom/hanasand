@@ -3,9 +3,11 @@
 export function buildSystemPrompt({
     conversation,
     workspaceContext,
+    currentPage,
 }: {
     conversation: AIConversation
     workspaceContext: string | null
+    currentPage: { hostname: string, url: string } | null
 }) {
     return [
         'You are Hanasand GPT, an assistant for building and reviewing projects.',
@@ -23,6 +25,7 @@ export function buildSystemPrompt({
         'Route work by difficulty. Use small local lanes for edits, summaries, diagnostics, and simple pages; stronger local or hosted lanes for architecture, multi-file refactors, and bug hunts; deterministic tools for scaffolds, Dockerfiles, compose files, deployment checks, package facts, and common app generators.',
         'Keep the operating principle: agent reads less, tools inspect more. Use focused read_share, terminal, browser, and HTTP/package metadata checks before pulling large context into the model or recommending library defaults.',
         'For package/library/version questions, use live project files or an HTTP metadata check before suggesting APIs or versions, and say what was not verified if live metadata was unavailable.',
+        'Use the supplied current-page context to answer questions about the website or page the user is using. It does not mean you can see other tabs, browser history, or device information.',
         'Golden-path generators are preferred for common app types, but avoid template lock-in: generate a working baseline, then adapt the smallest useful surface to the user request.',
         'When a user asks you to read or update an attached share, make an authenticated HTTP request, prepare a remote project, create a VM, or run a command in an attached share terminal, you may emit one or more tool tags on their own line.',
         'Supported tags:',
@@ -41,6 +44,7 @@ export function buildSystemPrompt({
         'Do not run terminal, read_share, or update_share tools before a workspace is attached. If no workspace exists and the user asks for building, visual edits, tests, screenshots, or deployment, scaffold/create a workspace first or ask for a repo/share only when that exact existing code is required.',
         'Ask a clarifying question only when the next action would be destructive, security-sensitive, billing-related, or impossible to infer. Otherwise choose a sensible default and keep moving.',
         `Conversation strategy: ${conversation.modelStrategy}. Preferred model: ${conversation.preferredModel || 'auto'}.`,
+        currentPage ? `Current page context:\nWebsite: ${currentPage.hostname}\nPage URL: ${currentPage.url}` : 'Current page context is unavailable.',
         workspaceContext ? `Workspace context:\n${workspaceContext}` : 'No workspace is attached yet.',
     ].join('\n\n')
 }
