@@ -1,6 +1,13 @@
 import { expect, test } from 'bun:test'
 import { virusTotalVendorLabel } from '../src/app/browser/browserProviderData'
+import { isDegradedNavigationError } from '../src/app/browser/browserRunData'
 import { hasSuspiciousFindings, reportMarkdown } from '../src/app/browser/report/presentation'
+
+test('Tor proxy navigation failures preserve provider checks instead of failing the run', () => {
+    expect(isDegradedNavigationError('goto: net::ERR_SOCKS_CONNECTION_FAILED')).toBe(true)
+    expect(isDegradedNavigationError('goto: net::ERR_PROXY_CONNECTION_FAILED')).toBe(true)
+    expect(isDegradedNavigationError('Blocked unsafe sandbox target.')).toBe(false)
+})
 
 test('provider vendor labels handle zero, totals, and missing totals consistently', () => {
     expect(virusTotalVendorLabel({ vendorFlagged: 0, vendorTotal: 72 })).toBe('0/72')

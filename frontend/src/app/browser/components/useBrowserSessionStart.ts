@@ -41,7 +41,7 @@ export function useBrowserSessionStart(options: BrowserSessionStartOptions) {
         if (override?.target) setTarget(override.target)
         socketRef.current?.close()
         socketRef.current = socket
-        const runState = { receivedEnd: false, lastPageUrl: url, replacing: false }
+        const runState = { receivedEnd: false, lastPageUrl: url, replacing: false, navigationFailed: false }
         if (!override?.recovery) receivedEvidenceRef.current = false
         stoppedRunRef.current = false
         stoppedEarlyRef.current = false

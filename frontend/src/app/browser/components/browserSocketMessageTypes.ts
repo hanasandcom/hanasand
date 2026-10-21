@@ -16,7 +16,7 @@ import type { BrowserRunOverride } from './BrowserWorkspaceTypes'
 export type BrowserSocketMessageContext = {
     payload: Record<string, unknown>
     socket: BrowserControlSocket
-    runState: { receivedEnd: boolean; lastPageUrl: string; replacing: boolean }
+    runState: { receivedEnd: boolean; lastPageUrl: string; replacing: boolean; navigationFailed: boolean }
     override?: BrowserRunOverride
     id: string
     url: string

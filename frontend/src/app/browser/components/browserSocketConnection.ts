@@ -61,7 +61,7 @@ export function handleBrowserConnectionMessage(context: BrowserSocketMessageCont
             }).catch(() => undefined)
         const nextQuota = quotaValue(payload.quota)
         if (nextQuota) setQuota(nextQuota)
-        setSessionState('live')
+        setSessionState(runState.navigationFailed ? 'unreachable' : 'live')
         pushEvent('Browser is live.')
         return
     }

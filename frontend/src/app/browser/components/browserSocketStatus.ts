@@ -46,6 +46,7 @@ export function handleBrowserStatusMessage(context: BrowserSocketMessageContext)
         if (payload.type === 'error' && /worker|connection|browser startup|browser session tracking/i.test(stringValue(payload.message)) && !/not allowed|unsafe|private (?:address|network)|quota|permission/i.test(stringValue(payload.message))) { replaceSandbox(); return }
         if (payload.type === 'navigation_error' && isDegradedNavigationError(stringValue(payload.message))) {
             runState.receivedEnd = true
+            runState.navigationFailed = true
             setSessionState('unreachable')
             setRunBlocker(String(payload.message || 'Target navigation did not complete; showing captured browser/provider evidence.'))
             pushEvent(String(payload.message || 'Target navigation did not complete; showing captured browser/provider evidence.'))
