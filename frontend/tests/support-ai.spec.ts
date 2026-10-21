@@ -55,6 +55,30 @@ test('Enter and Shift+Enter send support messages', async ({ page }) => {
     await expect(widgetTitle.getByText('Speaking with Hanasand AI')).toBeVisible()
 })
 
+test('floating support composer stays compact and centered', async ({ page }) => {
+    await page.setViewportSize({ width: 395, height: 546 })
+    await mockSupportLive(page)
+    await page.route('**/api/support/chat*', async route => {
+        if (route.request().method() === 'POST' && route.request().postDataJSON().action === 'connect') return route.fulfill({ json: { ticket: 'a'.repeat(64) } })
+        await route.fulfill({ json: { ...supportSnapshot([], 'ai'), id: '', accepted: true } })
+    })
+    await page.goto('/contact')
+    await page.getByLabel('Open support assistant').click()
+    const dialog = page.getByRole('dialog', { name: 'Support assistant' })
+    await expect(dialog.getByText('Tell us what you need help with.')).toBeVisible()
+
+    const supportPanel = (await dialog.getByRole('region', { name: 'Support chat' }).boundingBox())!
+    const form = dialog.locator('form')
+    const composerPanel = (await form.locator('..').boundingBox())!
+    const textarea = (await dialog.getByLabel('Message', { exact: true }).boundingBox())!
+    const send = (await dialog.getByRole('button', { name: 'Send message' }).boundingBox())!
+    expect(await form.locator('..').evaluate(el => getComputedStyle(el).padding)).toBe('4px')
+    expect(composerPanel.height).toBeLessThan(120)
+    expect(composerPanel.y + composerPanel.height).toBeCloseTo(supportPanel.y + supportPanel.height, 0)
+    expect(Math.abs((textarea.y + textarea.height / 2) - (send.y + send.height / 2))).toBeLessThan(1)
+    await page.screenshot({ path: '/tmp/support-widget-layout.png' })
+})
+
 for (const width of [390, 1440]) {
     test(`guest AI chat and human handoff fit at ${width}px`, async ({ page }) => {
         await page.setViewportSize({ width, height: 844 })
@@ -77,11 +101,19 @@ for (const width of [390, 1440]) {
         await page.getByLabel('Open support assistant').click()
         const dialog = page.getByRole('dialog', { name: 'Support assistant' })
         await expect(dialog.getByRole('heading', { name: 'What can we help with?' })).toBeVisible()
+        await expect(dialog.getByText('Tell us what you need help with.')).toBeVisible()
         await expect(dialog.getByRole('link', { name: 'Sign in to support' })).toHaveCount(0)
         const checkLayout = async () => {
             expect(await dialog.evaluate(el => el.scrollHeight <= el.clientHeight && el.scrollWidth <= el.clientWidth)).toBe(true)
             const box = (await dialog.boundingBox())!
             const composer = (await dialog.getByLabel('Message', { exact: true }).boundingBox())!
+            const send = (await dialog.getByRole('button', { name: 'Send message' }).boundingBox())!
+            const supportPanel = (await dialog.getByRole('region', { name: 'Support chat' }).boundingBox())!
+            const composerPanel = (await dialog.locator('form').locator('..').boundingBox())!
+            expect(await dialog.locator('form').locator('..').evaluate(el => getComputedStyle(el).padding)).toBe('4px')
+            expect(composerPanel.height).toBeLessThan(120)
+            expect(composerPanel.y + composerPanel.height).toBeCloseTo(supportPanel.y + supportPanel.height, 0)
+            expect(Math.abs((composer.y + composer.height / 2) - (send.y + send.height / 2))).toBeLessThan(1)
             expect(box.x).toBeGreaterThanOrEqual(0)
             expect(box.y).toBeGreaterThanOrEqual(0)
             expect(box.x + box.width).toBeLessThanOrEqual(width)

@@ -60,7 +60,7 @@ export default function PublicSupportChat(props: PublicSupportChatOptions) {
     </section>
     return (
         <section aria-label='Support chat' className='grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)_auto]'>
-            {!legacy ? props.hideNewChatButton && !conversation.id ? null : <div className='flex min-w-0 items-center justify-between gap-3 border-b border-ui-border bg-ui-raised px-5 py-3'>
+            {!legacy ? props.hideNewChatButton && !conversation.id ? <div aria-hidden='true' /> : <div className='flex min-w-0 items-center justify-between gap-3 border-b border-ui-border bg-ui-raised px-5 py-3'>
                 {!props.hideNewChatButton ? <h1 className='text-sm font-semibold text-ui-text'>Support</h1> : null}
                 <div className='flex shrink-0 items-center gap-2'>
                     {!props.hideNewChatButton ? <button type='button' onClick={startNewChat} className='rounded-lg border border-ui-border bg-ui-panel px-3.5 py-2 text-xs font-semibold text-ui-text transition-colors hover:bg-ui-canvas'>New chat</button> : null}
@@ -70,12 +70,12 @@ export default function PublicSupportChat(props: PublicSupportChatOptions) {
             <div ref={log} role='log' aria-label='Messages' className='min-h-0 overflow-y-auto overscroll-contain px-5 py-5'>
                 {!visibleMessages.length ? <div className='flex min-h-full flex-col items-center justify-center pb-3 text-center'>
                     <h2 className='text-xl font-semibold tracking-tight text-ui-text'>What can we help with?</h2>
-                    <p className='mt-2 max-w-sm text-sm leading-6 text-ui-muted'>Describe your question and we’ll point you in the right direction.</p>
+                    <p className='mt-2 max-w-sm text-sm leading-6 text-ui-muted'>Tell us what you need help with.</p>
                     <div className='mt-6 flex flex-wrap justify-center gap-2'>{['Account help', 'Billing question', 'Using Hanasand'].map(topic => <button key={topic} type='button' disabled={loading || sending} onClick={() => setInput(topic)} className='rounded-full border border-ui-border px-3 py-2 text-xs text-ui-text transition hover:border-ui-primary hover:bg-ui-primary/5 disabled:opacity-50'>{topic}</button>)}</div>
                 </div> : <div className='grid gap-4'><ConversationMessages messages={visibleMessages} /></div>}
                 {busy && !human ? <p role='status' className='mt-4 flex items-center gap-2 text-xs text-ui-muted'><LoaderCircle className='h-3.5 w-3.5 animate-spin' aria-hidden='true' />Hanasand AI is thinking…</p> : null}
             </div>
-            <div className='min-w-0 border-t border-ui-border bg-ui-raised px-4 pb-3 pt-3'>
+            <div className='min-w-0 border-t border-ui-border bg-ui-raised p-1'>
                 {error || retryable ? <div role={error ? 'alert' : 'status'} className='mb-3 text-xs leading-5 text-ui-text'>
                     {error || 'No answer yet.'}
                     {retryable ? <div className='mt-2 flex flex-wrap gap-2'>
@@ -96,7 +96,7 @@ export default function PublicSupportChat(props: PublicSupportChatOptions) {
                     </div> : null}
                 </div> : null}
                 {!error && connection === 'reconnecting' ? <p role='status' className='mb-2 text-xs text-ui-muted'>{refreshError || 'Reconnecting…'}</p> : null}
-                <form onSubmit={send} className='flex min-w-0 items-end gap-2 rounded-2xl border border-ui-border bg-ui-panel p-2 focus-within:border-ui-primary focus-within:ring-2 focus-within:ring-ui-primary/10'>
+                <form onSubmit={send} className='flex min-w-0 items-center gap-2 rounded-2xl border border-ui-border bg-ui-panel p-2 focus-within:border-ui-primary focus-within:ring-2 focus-within:ring-ui-primary/10'>
                     <textarea aria-label='Message' rows={Math.min(6, Math.max(1, input.split('\n').length))} maxLength={4000} value={input} onChange={event => setInput(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.nativeEvent.isComposing) { event.preventDefault(); if (!loading && !busy) send(event) } }} placeholder={human ? 'Message the support team…' : 'Ask a question…'} className='min-h-9 min-w-0 flex-1 resize-none bg-transparent px-2 py-1 text-sm leading-5 text-ui-text outline-none placeholder:text-ui-muted' />
                     <button type='submit' disabled={loading || busy || !input.trim()} aria-label='Send message' className='grid h-8 w-8 shrink-0 place-items-center rounded-full bg-ui-primary text-ui-on-primary transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-primary disabled:opacity-40'>{sending ? <LoaderCircle className='h-4 w-4 animate-spin' /> : <ArrowUp className='h-4 w-4' />}</button>
                 </form>
