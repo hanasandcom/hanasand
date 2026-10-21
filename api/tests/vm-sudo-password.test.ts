@@ -10,6 +10,7 @@ let auditFails = false
 let mailFails = false
 let organizationAdmin = false
 let locationAvailable = true
+let hostFailure = false
 let hostCalls: Array<{ host: string, name: string, suffix: string, body: unknown }> = []
 
 mock.module('bcrypt', () => ({ default: { compare: async (candidate: string) => passwordValid && candidate === 'account-password-fixture' } }))
@@ -34,6 +35,7 @@ mock.module('#utils/systemEvent.ts', () => ({ recordSystemEvent: async (_req: un
 } }))
 mock.module('#utils/vms/hostTransport.ts', () => ({ hostJson: async (host: string, name: string, suffix: string, body: unknown) => {
     hostCalls.push({ host, name, suffix, body })
+    if (hostFailure) throw Object.assign(new Error('private transport detail'), { statusCode: 404 })
     return { password: 'vm-password-fixture' }
 } }))
 mock.module('#utils/mail/helpers.ts', () => ({ addressForUser: (id: string) => `${id}@example.test` }))
@@ -42,7 +44,7 @@ mock.module('#db', () => ({
         ? { rows: [{ password: 'hash-fixture', name: 'Owner Name' }] }
         : { rows: [{ email: 'owner@example.test' }] },
     default: async (sql: string, params: unknown[] = []) => {
-        if (sql.includes('FROM vms')) return { rows: vm ? [{ ...vm, name: params[0] === 'my-vm' ? 'my-vm' : vm.name }] : [] }
+        if (sql.includes('FROM vms')) return { rows: vm && String(params[0]).toLowerCase() === String(vm.name).toLowerCase() ? [{ ...vm }] : [] }
         if (sql.includes('FROM organization_members')) return { rows: organizationAdmin ? [{}] : [] }
         return { rows: [] }
     },
@@ -63,15 +65,16 @@ beforeEach(() => {
     mailFails = false
     organizationAdmin = false
     locationAvailable = true
+    hostFailure = false
 })
 
 afterAll(async () => { await app.close() })
 
-function request(headers: Record<string, string> = {}, currentPassword: string | undefined = 'account-password-fixture') {
+function request(headers: Record<string, string> = {}, currentPassword: string | undefined = 'account-password-fixture', vmName = 'my-vm', payloadExtra: Record<string, unknown> = {}) {
     return app.inject({
-        method: 'POST', url: '/vm/my-vm/sudo-password',
+        method: 'POST', url: `/vm/${encodeURIComponent(vmName)}/sudo-password`,
         headers: { id: 'owner', ...headers },
-        payload: currentPassword === undefined ? {} : { currentPassword },
+        payload: currentPassword === undefined ? payloadExtra : { currentPassword, ...payloadExtra },
     })
 }
 
@@ -128,6 +131,30 @@ test('platform administrators can reveal for an owner and the email goes to the 
     expect(events[0]?.actorId).toBe('platform-admin')
     expect(mails[0]?.to).toBe('owner@example.test')
     expect(mails[0]?.textBody).toContain('User: Owner Name (@platform-admin)')
+})
+
+test('changing the VM name cannot cross the database ownership boundary or choose a host', async () => {
+    vm = { name: 'other-vm', owner: 'someone-else', organization_id: null, deleted_at: null, primary_host: 'ovhcloud' }
+    const denied = await request({}, 'account-password-fixture', 'other-vm', { host: 'inspur', primaryHost: 'inspur' })
+    expect(denied.statusCode).toBe(404)
+    expect(hostCalls).toHaveLength(0)
+
+    const missing = await request({}, 'account-password-fixture', 'not-a-vm')
+    expect(missing.statusCode).toBe(404)
+    expect(hostCalls).toHaveLength(0)
+
+    vm = { name: 'my-vm', owner: 'owner', organization_id: null, deleted_at: null, primary_host: 'ovhcloud' }
+    const allowed = await request({}, 'account-password-fixture', 'MY-VM', { host: 'inspur', primaryHost: 'inspur' })
+    expect(allowed.statusCode).toBe(200)
+    expect(hostCalls).toEqual([{ host: 'ovhcloud', name: 'my-vm', suffix: '/sudo-password', body: {} }])
+})
+
+test('maps a missing or unreachable host credential to a safe unavailable response', async () => {
+    hostFailure = true
+    const result = await request()
+    expect(result.statusCode).toBe(503)
+    expect(result.json()).toEqual({ code: 'SUDO_PASSWORD_UNAVAILABLE', error: 'Unavailable. Contact Support if the problem persists.' })
+    expect(result.body).not.toContain('private transport detail')
 })
 
 test('marks audit location as approximate and explicitly unavailable when GeoIP has no result', async () => {

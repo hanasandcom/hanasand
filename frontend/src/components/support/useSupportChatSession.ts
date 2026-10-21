@@ -7,9 +7,9 @@ import useSupportUnread from './useSupportUnread'
 import { matchesStatusFilter } from './supportTicketFilters'
 import type { InitialChat, Message, Ticket, TicketFilters } from './supportChatTypes'
 
-export function useSupportChatSession(initialChat: InitialChat | undefined, filters: MutableRefObject<TicketFilters>) {
+export function useSupportChatSession(initialChat: InitialChat | undefined, filters: MutableRefObject<TicketFilters>, startNewTicket = false, initialMessage = '') {
     const [tickets, setTickets] = useState<Ticket[]>(initialChat?.tickets || [])
-    const initialSelectedId = initialChat?.isSupport
+    const initialSelectedId = startNewTicket ? '' : initialChat?.isSupport
         ? initialChat.tickets.find(ticket => ticket.id === initialChat.selectedId && ticket.status !== 'closed')?.id || initialChat.tickets.find(ticket => ticket.status !== 'closed')?.id || ''
         : initialChat?.selectedId || ''
     const [selectedId, setSelectedId] = useState(initialSelectedId)
@@ -24,7 +24,7 @@ export function useSupportChatSession(initialChat: InitialChat | undefined, filt
     const initialMessagesLoaded = useRef(false)
     const [messages, setMessages] = useState<Message[]>(initialChat?.messages || [])
     const [readSelectedId, setReadSelectedId] = useState('')
-    const [input, setInput] = useState('')
+    const [input, setInput] = useState(initialMessage)
     const [isSupport, setIsSupport] = useState(initialChat?.isSupport === true)
     const isSupportRef = useRef(initialChat?.isSupport === true)
     const [error, setError] = useState('')
@@ -61,11 +61,12 @@ export function useSupportChatSession(initialChat: InitialChat | undefined, filt
         setIsSupport(supportQueue)
         setSelectedId(current => {
             if (creating.current) return current
+            if (startNewTicket && !current) return ''
             const currentVisible = updatedTickets.some(ticket => ticket.id === current && matchesStatusFilter(ticket, controls.status))
             return currentVisible ? current : updatedTickets.find(ticket => matchesStatusFilter(ticket, controls.status))?.id || ''
         })
         return payload.tickets || []
-    }, [filters])
+    }, [filters, startNewTicket])
 
     const loadMessages = useCallback(async (id: string, signal?: AbortSignal) => {
         if (!id) return

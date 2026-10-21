@@ -11,9 +11,9 @@ import { useSupportChatOperations } from './useSupportChatOperations'
 import { useSupportChatSession } from './useSupportChatSession'
 import type { InitialChat, TicketFilters } from './supportChatTypes'
 
-export default function SupportChat({ embedded = false, initialChat }: { embedded?: boolean; initialChat?: InitialChat }) {
+export default function SupportChat({ embedded = false, initialChat, newTicketPrefill }: { embedded?: boolean; initialChat?: InitialChat; newTicketPrefill?: { subject: string; message: string } }) {
     const filterControlsRef = useRef<TicketFilters>({ search: '', status: 'open', stars: 'all', feedback: 'all', from: '', to: '' })
-    const session = useSupportChatSession(initialChat, filterControlsRef)
+    const session = useSupportChatSession(initialChat, filterControlsRef, Boolean(newTicketPrefill), newTicketPrefill?.message)
     const filters = useSupportChatFilters({
         isSupport: session.isSupport,
         initialSupport: initialChat?.isSupport === true,
@@ -21,7 +21,7 @@ export default function SupportChat({ embedded = false, initialChat }: { embedde
         setError: session.setError,
         filterControlsRef,
     })
-    const [subject, setSubject] = useState('')
+    const [subject, setSubject] = useState(newTicketPrefill?.subject || '')
     const operations = useSupportChatOperations(session, subject)
     const {
         tickets, selectedId, messages, input, setInput, isSupport, error, loading, signedOut,

@@ -43,10 +43,18 @@ async function loadSupportChat(): Promise<InitialChat | undefined> {
     }
 }
 
-export default async function SupportPage() {
+export default async function SupportPage({ searchParams }: { searchParams: Promise<{ newTicket?: string; vm?: string }> }) {
+    const query = await searchParams
     const cookieStore = await cookies()
     const hasSession = Boolean(cookieStore.get('access_token')?.value && cookieStore.get('id')?.value)
     const initialChat = hasSession ? await loadSupportChat() : undefined
+    const vmName = query.newTicket === 'vm-sudo-password' && typeof query.vm === 'string'
+        ? query.vm.replace(/[^a-zA-Z0-9._-]/g, '').slice(0, 100)
+        : ''
+    const newTicketPrefill = vmName ? {
+        subject: `Sudo password unavailable for ${vmName}`,
+        message: `I could not display the sudo password for VM ${vmName}. The page reported: “Unavailable. Contact Support if the problem persists.”\n\nTime: ${new Date().toISOString()}\nPage: /vms`,
+    } : undefined
     const supportSession = cookieStore.get('hanasand_support_render_session')?.value
     const selectedId = cookieStore.get('hanasand_support_render_conversation')?.value || ''
     let initialConversation: PublicSupportConversation | undefined
@@ -59,7 +67,7 @@ export default async function SupportPage() {
     }
     return (
         <DashboardPage className='support-page'>
-            {hasSession ? <SupportChat embedded initialChat={initialChat} /> : <PublicSupportPanel initialConversation={initialConversation} initialSelectedId={selectedId} />}
+            {hasSession ? <SupportChat embedded initialChat={initialChat} newTicketPrefill={newTicketPrefill} /> : <PublicSupportPanel initialConversation={initialConversation} initialSelectedId={selectedId} />}
         </DashboardPage>
     )
 }

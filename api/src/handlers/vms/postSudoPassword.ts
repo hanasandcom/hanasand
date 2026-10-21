@@ -56,11 +56,16 @@ export default async function postVmSudoPassword(req: FastifyRequest, res: Fasti
     try {
         const result = await hostJson<HostPassword>(vm.primary_host, vm.name, '/sudo-password', {})
         if (typeof result.password !== 'string' || !validVmPassword(result.password)) {
-            return res.status(503).send({ error: 'The VM host could not provide a valid sudo password.' })
+            req.log.warn({ vmName: vm.name, host: vm.primary_host }, 'VM host returned no usable sudo credential.')
+            return res.status(503).send({ code: 'SUDO_PASSWORD_UNAVAILABLE', error: 'Unavailable. Contact Support if the problem persists.' })
         }
         password = result.password
-    } catch {
-        return res.status(503).send({ error: 'The VM host could not provide the sudo password. Try again later.' })
+    } catch (error) {
+        const statusCode = error && typeof error === 'object' && 'statusCode' in error
+            ? Number((error as { statusCode?: unknown }).statusCode)
+            : undefined
+        req.log.warn({ vmName: vm.name, host: vm.primary_host, hostStatusCode: Number.isInteger(statusCode) ? statusCode : undefined }, 'VM host could not provide a sudo credential.')
+        return res.status(503).send({ code: 'SUDO_PASSWORD_UNAVAILABLE', error: 'Unavailable. Contact Support if the problem persists.' })
     }
 
     const viewedAt = new Date().toISOString()
