@@ -2,10 +2,11 @@ import { afterEach, expect, mock, test } from 'bun:test'
 
 const remoteRequests: Array<{ host: string; path: string }> = []
 let hostWorkerStatus: { status: string; status_reason?: string } = { status: 'Running' }
+const hostWorkerStatuses = new Map<string, { status: string; status_reason?: string }>()
 mock.module('../src/utils/vms/hostTransport.ts', () => ({
     internalHostFetch: async (host: string, path: string) => {
         remoteRequests.push({ host, path })
-        return Response.json(hostWorkerStatus)
+        return Response.json(hostWorkerStatuses.get(path) || hostWorkerStatus)
     },
 }))
 
@@ -22,6 +23,7 @@ afterEach(() => {
     hostStatus = 'Stopped'
     requests = 0
     remoteRequests.length = 0
+    hostWorkerStatuses.clear()
     hostWorkerStatus = { status: 'Running' }
 })
 
@@ -93,4 +95,30 @@ test('batched VM list status reads local LXD once and keeps remote probes on ass
     expect(localRequests).toBe(1)
     expect(result.map(vm => vm.status)).toEqual(['RUNNING', 'STOPPED', 'RUNNING'])
     expect(remoteRequests.at(-1)).toEqual({ host: 'ovhcloud', path: '/vms/internal/remote-inventory-vm/status' })
+})
+
+test('batched VM inventory keeps persisted provisioning and failure feedback', async () => {
+    globalThis.fetch = (async () => Response.json({ metadata: [
+        { name: 'local-provisioning-inventory', status: 'Running', config: { 'user.hanasand.provisioning_state': JSON.stringify({ status: 'Provisioning', message: 'Installing nodejs, postgresql…' }) } },
+        { name: 'local-failed-inventory', status: 'Running', config: { 'user.hanasand.provisioning_state': JSON.stringify({ status: 'Error', message: 'Service installation failed.' }) } },
+        { name: 'local-ready-inventory', status: 'Running', config: {} },
+    ] })) as typeof fetch
+    hostWorkerStatuses.set('/vms/internal/local-provisioning-inventory/status', { status: 'Provisioning', status_reason: 'Installing nodejs, postgresql…' })
+    hostWorkerStatuses.set('/vms/internal/local-failed-inventory/status', { status: 'Error', status_reason: 'Service installation failed.' })
+
+    const result = await withLiveVmStatuses([
+        { name: 'local-provisioning-inventory', primary_host: 'inspur' },
+        { name: 'local-failed-inventory', primary_host: 'inspur' },
+        { name: 'local-ready-inventory', primary_host: 'inspur' },
+    ])
+
+    expect(result.map(vm => [vm.status, vm.status_reason])).toEqual([
+        ['PROVISIONING', 'Installing nodejs, postgresql…'],
+        ['ERROR', 'Service installation failed.'],
+        ['RUNNING', ''],
+    ])
+    expect(remoteRequests.map(request => request.path)).toEqual([
+        '/vms/internal/local-provisioning-inventory/status',
+        '/vms/internal/local-failed-inventory/status',
+    ])
 })

@@ -3,8 +3,10 @@ import { internalHostFetch } from './hostTransport.ts'
 
 type Vm = { name: string; primary_host?: string | null; deleted_at?: string | Date | null; status?: string; last_checked?: string | Date | null }
 type State = { status: string; status_reason?: string }
+type LocalInstance = { name?: string; status?: string; config?: Record<string, string> }
 const checks = new Map<string, { expires: number; result: Promise<State> }>()
 let localInventory: { expires: number; result: Promise<Map<string, State>> } | undefined
+const provisioningConfigKey = 'user.hanasand.provisioning_state'
 
 export function invalidateLiveVmStatus(name: string) {
     for (const key of checks.keys()) if (key.endsWith(':' + name)) checks.delete(key)
@@ -89,6 +91,11 @@ export async function withLiveVmStatuses<T extends Vm>(vms: T[]) {
         if (vm.deleted_at || targetHost !== localHost) return withLiveVmStatus(vm)
         return withLiveVmStatus(vm, async name => {
             const state = states?.get(name.toLowerCase())
+            if (state && state.status_reason && ['provisioning', 'error'].includes(state.status.toLowerCase())) {
+                // The persisted LXD marker can outlive the host worker. Ask the worker
+                // whether setup is active; it converts an abandoned marker to Error.
+                return probe(name, targetHost).catch(() => state)
+            }
             if (!state) return probe(name, targetHost)
             return state
         })
@@ -101,12 +108,24 @@ function localVmStatusInventory() {
         const options: RequestInit & { unix: string } = { unix: config.lxd_socket_path, signal: AbortSignal.timeout(1500) }
         const response = await fetch('http://localhost/1.0/instances?recursion=1', options)
         if (!response.ok) throw new Error('VM host is not responding.')
-        const body = await response.json() as { metadata?: Array<{ name?: string; status?: string }> }
+        const body = await response.json() as { metadata?: LocalInstance[] }
         if (!Array.isArray(body.metadata)) throw new Error('VM host did not return its instances.')
         return new Map(body.metadata
-            .filter((instance): instance is { name: string; status: string } => Boolean(instance.name && instance.status))
-            .map(instance => [instance.name.toLowerCase(), { status: instance.status }]))
+            .filter((instance): instance is LocalInstance & { name: string; status: string } => Boolean(instance.name && instance.status))
+            .map(instance => [instance.name.toLowerCase(), provisioningState(instance) || { status: instance.status }]))
     })()
     localInventory = { expires: Date.now() + 5000, result }
     return result
+}
+
+function provisioningState(instance: LocalInstance): State | undefined {
+    const raw = instance.config?.[provisioningConfigKey]
+    if (!raw) return undefined
+    try {
+        const value = JSON.parse(raw) as { status?: unknown; message?: unknown }
+        if ((value.status !== 'Provisioning' && value.status !== 'Error') || typeof value.message !== 'string') return undefined
+        return { status: value.status, status_reason: value.message.slice(0, 300) }
+    } catch {
+        return undefined
+    }
 }
