@@ -1,5 +1,6 @@
 const vmLifecycleActions = new Set(['start', 'stop', 'restart', 'restore'])
 export const vmCreateTimeoutMs = 180_000
+export const vmCreateTimeoutMessage = 'The create request timed out. The VM may still be provisioning; refresh the list before trying again.'
 
 export function vmLifecycleProxyTimeoutMs(method: string, path: string[], defaultTimeout: number) {
     const lifecycleAction = method === 'POST'

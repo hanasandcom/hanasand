@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import config from '@/config'
 import { authCookieOptions, setAuthCookie } from '@/utils/proxy/authResponses'
-import { vmCreateProxyTimeoutMs, vmLifecycleProxyTimeoutMs, vmSetupPlanProxyTimeoutMs } from '@/utils/vms/proxyTimeout'
+import { vmCreateProxyTimeoutMs, vmCreateTimeoutMessage, vmLifecycleProxyTimeoutMs, vmSetupPlanProxyTimeoutMs } from '@/utils/vms/proxyTimeout'
 
 type Context = {
     params: Promise<{ path?: string[] }>
@@ -101,7 +101,7 @@ async function handler(req: NextRequest, context: Context) {
         const isTimeout = error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError')
         return NextResponse.json({
             error: isTimeout
-                ? 'The backend service did not respond in time. Try again shortly; the dashboard is still available.'
+                ? vmCreateTimeout ? vmCreateTimeoutMessage : 'The backend service did not respond in time. Try again shortly; the dashboard is still available.'
                 : 'The backend service is unavailable right now. Try again shortly.',
         }, { status: 503 })
     }
