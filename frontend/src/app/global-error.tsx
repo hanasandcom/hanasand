@@ -16,11 +16,10 @@ export default function GlobalError({ reset }: { error: Error & { digest?: strin
                     <div className='mx-auto flex min-h-[calc(100vh-2.5rem)] max-w-5xl flex-col sm:min-h-[calc(100vh-3.5rem)]'>
                         <BrandLogo />
                         <section className='my-8 grid gap-6 py-4 md:grid-cols-[auto_minmax(0,1fr)] md:items-center md:gap-10 md:py-8'>
-                            <div className='grid h-20 w-20 place-items-center rounded-2xl border border-ui-primary/30 bg-ui-primary/10 text-ui-primary'>
-                                <AlertTriangle className='h-9 w-9' />
+                            <div className='grid h-20 w-20 place-items-center text-ui-muted'>
+                                <AlertTriangle className='h-9 w-9' aria-hidden='true' />
                             </div>
                             <div className='max-w-2xl'>
-                                <p className='text-sm font-semibold uppercase tracking-[0.16em] text-ui-primary'>Hanasand workspace</p>
                                 <h1 className='mt-3 text-4xl font-semibold tracking-tight md:text-6xl'>Something went wrong.</h1>
                                 <p className='mt-4 text-base leading-7 text-ui-primary dark:text-ui-muted md:text-lg'>
                                     This page hit an unexpected problem. Try again, or use one of the links below to continue working in Hanasand.
