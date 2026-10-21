@@ -65,6 +65,17 @@ test('public services reject unsafe names, unsupported protocols, invalid ports 
     expect(services).toHaveLength(0)
 })
 
+test('a VM can add 1,000 public service mappings but not a 1,001st', async () => {
+    for (let index = 0; index < 1000; index++) {
+        const response = await app.inject({ method: 'POST', url: '/vm/hei/public-services', payload: { name: `port-${index}`, type: 'tls', port: 443 } })
+        expect(response.statusCode).toBe(201)
+    }
+    const overLimit = await app.inject({ method: 'POST', url: '/vm/hei/public-services', payload: { name: 'one-too-many', type: 'tls', port: 443 } })
+    expect(overLimit.statusCode).toBe(409)
+    expect(overLimit.json().error).toContain('1000')
+    expect(services).toHaveLength(1000)
+})
+
 test('gateway route data requires its token through the API proxy', async () => {
     services.push({ id: 1, name: 'web', route_type: 'tls', guest_port: 443, created_at: '2026-10-20T00:00:00Z', vm_name: 'hei' })
     const denied = await app.inject('/vms/internal/public-ports')

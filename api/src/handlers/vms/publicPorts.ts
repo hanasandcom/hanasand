@@ -4,7 +4,7 @@ import { hasVmAccess, requireVmAccess } from '#utils/vms/access.ts'
 import config from '#constants'
 import hasVmPortRouteToken from '#utils/auth/vmPortRouteToken.ts'
 
-const maxPortsPerVm = 5
+const maxPortsPerVm = 1000
 const routeTypes = ['minecraft-java', 'tls'] as const
 
 type RouteBody = { name?: unknown, type?: unknown, port?: unknown }

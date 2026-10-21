@@ -2,6 +2,8 @@
 
 Open a VM detail page and add a service under **Public services**. Choose a short name, service type and guest port. Hanasand gives it the address `port-<name>.hanasand.com:443`; copy that address into the client people will use. The gateway refreshes route changes within a few seconds.
 
+Each VM can have up to 1,000 public service mappings.
+
 VMs currently sit behind a private network and do not have individual public IPv6 addresses. This shared 443 gateway is the supported way to publish the service.
 
 ## Supported services

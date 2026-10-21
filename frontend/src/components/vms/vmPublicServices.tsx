@@ -5,6 +5,8 @@ import { Copy, LoaderCircle, Plus, Trash2 } from 'lucide-react'
 import { VmPanel } from './vmPanel'
 import { requestVmPublicServices, type VmPublicService, type VmPublicServicesResponse } from '@/utils/vms/fetch/publicServices'
 
+const maxPublicServicesPerVm = 1000
+
 export default function VmPublicServices({ vmName }: { vmName: string }) {
     const [services, setServices] = useState<VmPublicService[]>([])
     const [canManage, setCanManage] = useState(false)
@@ -62,7 +64,7 @@ export default function VmPublicServices({ vmName }: { vmName: string }) {
             <label className='grid gap-1 text-xs font-medium text-ui-muted'>Guest port
                 <input type='number' inputMode='numeric' min='1' max='65535' value={port} onChange={event => setPort(event.target.value)} required className='h-10 rounded-md border border-ui-border bg-ui-panel px-2 text-sm text-ui-text' />
             </label>
-            <button type='submit' disabled={saving || services.length >= 5} className='inline-flex h-10 items-center justify-center gap-2 rounded-md border border-ui-primary/40 bg-ui-primary/10 px-3 text-sm font-semibold text-ui-primary disabled:opacity-50'>{saving ? <LoaderCircle className='h-4 w-4 animate-spin' /> : <Plus className='h-4 w-4' />}Add</button>
+            <button type='submit' disabled={saving || services.length >= maxPublicServicesPerVm} className='inline-flex h-10 items-center justify-center gap-2 rounded-md border border-ui-primary/40 bg-ui-primary/10 px-3 text-sm font-semibold text-ui-primary disabled:opacity-50'>{saving ? <LoaderCircle className='h-4 w-4 animate-spin' /> : <Plus className='h-4 w-4' />}Add</button>
         </form>}
         <p className='mt-2 text-xs leading-5 text-ui-muted'>For SSH, use the connection command above. Other plain TCP or UDP protocols need their own port or a protocol-specific proxy; a hostname alone cannot identify them on 443.</p>
         {error && <p role='alert' className='mt-3 text-sm text-ui-danger'>{error}</p>}{notice && <p role='status' className='mt-3 text-sm text-ui-muted'>{notice}</p>}

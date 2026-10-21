@@ -87,7 +87,6 @@ export default function VMRow({ vm, update, now, onFeedback }: { vm: VM, update:
                     <div className='min-w-0'>
                         <div className='flex min-w-0 flex-wrap items-center gap-2'>
                             <h3 className='min-w-0 break-all text-base font-semibold text-ui-text'>{name}</h3>
-                            <span className='rounded-md border border-ui-border bg-ui-canvas px-2 py-0.5 text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-ui-muted'>Virtual machine</span>
                             {vm.managed === true && <span title='Provisioned through a share' className='rounded-md border border-ui-border bg-ui-canvas px-2 py-0.5 text-[0.68rem] font-semibold text-ui-muted'>Managed</span>}
                             <span className={`rounded-md px-2 py-0.5 text-[0.68rem] font-semibold uppercase tracking-[0.08em] ${status === 'Running'
                                 ? 'border border-ui-success/30 bg-ui-success/10 text-ui-success'
@@ -129,7 +128,7 @@ export default function VMRow({ vm, update, now, onFeedback }: { vm: VM, update:
                     <div className='min-w-0'><p className='text-xs font-medium text-ui-muted'>{vm.organization_id ? 'Access' : 'Editors'}</p><p className='mt-1 wrap-break-word text-ui-text'>{vm.organization_id ? 'Organization members' : `${editors} editor${editors === 1 ? '' : 's'}`}</p></div>
                 </div>
                 <div className='flex min-w-0 flex-wrap gap-2 text-xs text-ui-muted'>
-                    <span className='inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-md border border-ui-border bg-ui-canvas px-2.5 py-1.5'><HardDrive className='h-3.5 w-3.5 shrink-0' /><span className='wrap-break-word'>{image}</span></span>
+                    <span className='inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-md border border-ui-border bg-ui-canvas px-2.5 py-1.5'><HardDrive className='h-3.5 w-3.5 shrink-0' /><span title='Virtual machine' className='rounded border border-ui-border bg-ui-raised px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wide text-ui-muted'>VM</span><span className='wrap-break-word'>{image}</span></span>
                     <span className='inline-flex items-center gap-1.5 rounded-md border border-ui-border bg-ui-canvas px-2.5 py-1.5'><Cpu className='h-3.5 w-3.5' /><span>{vm.limits_cpu ? `${vm.limits_cpu} CPU` : 'CPU pending'}</span></span>
                     <span className='inline-flex items-center gap-1.5 rounded-md border border-ui-border bg-ui-canvas px-2.5 py-1.5'><Network className='h-3.5 w-3.5' /><span>{vm.limits_memory || 'Memory pending'}</span></span>
                 </div>
