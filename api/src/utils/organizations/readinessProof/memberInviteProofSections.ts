@@ -1,5 +1,4 @@
 import type { ReadinessProofContext } from './context.ts'
-import { organizationMembershipBlockedDownstreamRoutes } from '../lifecycleRoutes.ts'
 
 export function memberInviteProofSections(context: ReadinessProofContext) {
     const { input } = context

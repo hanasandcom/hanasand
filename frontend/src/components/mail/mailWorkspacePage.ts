@@ -8,3 +8,7 @@ export function resolveMailboxPage(first: MailOverview, requestedFolder: string)
         useFirstPage: selectedFolder === (first.selectedMailboxId || ''),
     }
 }
+
+export function needsSelectedMessageRequest(page: MailOverview, selectedMessageId: string) {
+    return Boolean(selectedMessageId && page.selectedMessage?.id !== selectedMessageId)
+}

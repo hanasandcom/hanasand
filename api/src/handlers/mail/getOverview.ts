@@ -6,6 +6,7 @@ import { getMailHealth } from '#utils/mail/health.ts'
 import { getMailboxList, listMessagePage } from '#utils/mail/jmap.ts'
 import { listRecentRecipients } from '#utils/mail/recentRecipients.ts'
 import { addressForUser } from '#utils/mail/helpers.ts'
+import { withDatabaseRetryBudget } from '#db'
 import { loadMailboxOverviewData, settingsFor } from './overviewData.ts'
 
 const MAIL_OVERVIEW_TIMEOUT_MS = Number(process.env.MAIL_OVERVIEW_TIMEOUT_MS || 6500)
@@ -17,57 +18,73 @@ export default async function getMailOverview(req: FastifyRequest, res: FastifyR
     }
 
     try {
-        const query = req.query as { mailboxUser?: string, mailboxId?: string, messageId?: string, after?: string, unreadOnly?: string }
-        const access = await getMailAccess(id, query.mailboxUser)
-        if (query.after) {
-            if (typeof query.after !== 'string' || query.after.length > 1024 || typeof query.mailboxId !== 'string') {
-                return res.status(400).send({ error: 'A mailbox and valid message cursor are required.' })
+        return await withDatabaseRetryBudget(8500, async () => {
+            const query = req.query as { mailboxUser?: string, mailboxId?: string, messageId?: string, after?: string, unreadOnly?: string }
+            const access = await getMailAccess(id, query.mailboxUser)
+            if (query.after) {
+                if (typeof query.after !== 'string' || query.after.length > 1024 || typeof query.mailboxId !== 'string') {
+                    return res.status(400).send({ error: 'A mailbox and valid message cursor are required.' })
+                }
+                return res.send(await listMessagePage(access.username, access.password, query.mailboxId, query.after))
             }
-            return res.send(await listMessagePage(access.username, access.password, query.mailboxId, query.after))
-        }
-        const accessibleAccounts = await listAccessibleMailAccounts(id)
-        if (query.unreadOnly === 'true') {
+            const accessibleAccountsPromise = withDeadline(listAccessibleMailAccounts(id), 2500, []).catch(() => [])
+            if (query.unreadOnly === 'true') {
+                return res
+                    .header('Cache-Control', 'no-store, private, max-age=0, must-revalidate')
+                    .send({ accessibleAccounts: await loadAccountCounts(id, await accessibleAccountsPromise, access.targetUser) })
+            }
+            const recentRecipientsPromise = withDeadline(listRecentRecipients(id, access.targetUser), 2500, []).catch(() => [])
+            const healthPromise = withDeadline(getMailHealth(), 3500, null).catch(error => {
+                req.log.warn({ error }, 'Failed to collect mail health checks')
+                return null
+            })
+            const overviewDataPromise = withDeadline(loadMailboxOverviewData({
+                actorId: id,
+                access,
+                query,
+                health: null,
+                accessibleAccounts: [],
+                recentRecipients: [],
+                onRepair: error => req.log.warn({ error, userId: access.targetUser }, 'Stored mail credentials failed; rotating mailbox secret'),
+                onRulesError: error => req.log.warn({ error }, 'Failed to apply mail rules'),
+            }), MAIL_OVERVIEW_TIMEOUT_MS, null)
+            const accountCountsPromise = accessibleAccountsPromise.then(accounts => withDeadline(
+                loadAccountCounts(id, accounts, access.targetUser),
+                1000,
+                accounts.map(account => ({ ...account, unreadCount: null })),
+            )).catch(() => [])
+            const [accessibleAccounts, recentRecipients, health, overviewData, accountCounts] = await Promise.all([
+                accessibleAccountsPromise,
+                recentRecipientsPromise,
+                healthPromise,
+                overviewDataPromise,
+                accountCountsPromise,
+            ])
+
+            if (!overviewData) {
+                req.log.warn({ userId: access.targetUser, timeoutMs: MAIL_OVERVIEW_TIMEOUT_MS }, 'Mail overview timed out; returning degraded payload')
+                return res
+                    .header('Cache-Control', 'no-store, private, max-age=0, must-revalidate')
+                    .send(degradedMailOverview({
+                        id,
+                        targetUser: access.targetUser,
+                        address: access.address,
+                        canAccessAnyMailbox: access.canAccessAnyMailbox,
+                        canSend: access.canSend,
+                        accessibleAccounts,
+                        recentRecipients,
+                        health,
+                        detail: `Mailbox service did not respond within ${MAIL_OVERVIEW_TIMEOUT_MS}ms. Message and folder actions are temporarily paused.`,
+                    }))
+            }
+
+            overviewData.accessibleAccounts = accountCounts
+            overviewData.recentRecipients = recentRecipients
+            overviewData.health = health
             return res
                 .header('Cache-Control', 'no-store, private, max-age=0, must-revalidate')
-                .send({ accessibleAccounts: await loadAccountCounts(id, accessibleAccounts, access.targetUser) })
-        }
-        const accountCounts = loadAccountCounts(id, accessibleAccounts, access.targetUser)
-        const recentRecipients = await listRecentRecipients(id, access.targetUser)
-        const health = await withDeadline(getMailHealth(), 3500, null).catch(error => {
-            req.log.warn({ error }, 'Failed to collect mail health checks')
-            return null
+                .send(overviewData)
         })
-        const overviewData = await withDeadline(loadMailboxOverviewData({
-            actorId: id,
-            access,
-            query,
-            health,
-            accessibleAccounts,
-            recentRecipients,
-            onRepair: error => req.log.warn({ error, userId: access.targetUser }, 'Stored mail credentials failed; rotating mailbox secret'),
-            onRulesError: error => req.log.warn({ error }, 'Failed to apply mail rules'),
-        }), MAIL_OVERVIEW_TIMEOUT_MS, null)
-
-        if (!overviewData) {
-            req.log.warn({ userId: access.targetUser, timeoutMs: MAIL_OVERVIEW_TIMEOUT_MS }, 'Mail overview timed out; returning degraded payload')
-            return res
-                .header('Cache-Control', 'no-store, private, max-age=0, must-revalidate')
-                .send(degradedMailOverview({
-                    id,
-                    targetUser: access.targetUser,
-                    address: access.address,
-                    canAccessAnyMailbox: access.canAccessAnyMailbox,
-                    accessibleAccounts,
-                    recentRecipients,
-                    health,
-                    detail: `Mailbox service did not respond within ${MAIL_OVERVIEW_TIMEOUT_MS}ms. Message and folder actions are temporarily paused.`,
-                }))
-        }
-
-        overviewData.accessibleAccounts = await accountCounts
-        return res
-            .header('Cache-Control', 'no-store, private, max-age=0, must-revalidate')
-            .send(overviewData)
     } catch (error) {
         if (error instanceof MailAccessDenied) return res.status(403).send({ error: error.message })
         const query = req.query as { mailboxUser?: string }
@@ -81,6 +98,7 @@ export default async function getMailOverview(req: FastifyRequest, res: FastifyR
                     targetUser,
                     address,
                     canAccessAnyMailbox: false,
+                    canSend: false,
                     accessibleAccounts: [{ id: targetUser, name: targetUser, address, shared: false }],
                     recentRecipients: [],
                     health: null,
@@ -106,6 +124,7 @@ export function degradedMailOverview({
     targetUser,
     address,
     canAccessAnyMailbox,
+    canSend,
     accessibleAccounts,
     recentRecipients,
     health,
@@ -117,6 +136,7 @@ export function degradedMailOverview({
     targetUser: string
     address: string
     canAccessAnyMailbox: boolean
+    canSend: boolean
     accessibleAccounts: Awaited<ReturnType<typeof listAccessibleMailAccounts>>
     recentRecipients: Awaited<ReturnType<typeof listRecentRecipients>>
     health: Awaited<ReturnType<typeof getMailHealth>> | null
@@ -125,7 +145,7 @@ export function degradedMailOverview({
     healthLabel?: string
 }) {
     return {
-        actor: { id, canAccessAnyMailbox, canSend: false },
+        actor: { id, canAccessAnyMailbox, canSend },
         mailboxUser: targetUser,
         mailboxAddress: address,
         accessibleAccounts,

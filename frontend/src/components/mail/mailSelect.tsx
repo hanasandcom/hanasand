@@ -125,10 +125,12 @@ export function MailSelect({
             onBlur={event => {
                 if (!rootRef.current?.contains(event.relatedTarget as Node | null)) setOpen(false)
             }}
-            className={`flex w-full cursor-pointer select-none items-center justify-between gap-2 rounded-lg border border-ui-border bg-ui-raised text-ui-text shadow-sm shadow-ui-canvas/10 outline-none transition-colors hover:border-ui-primary/50 focus-visible:border-ui-primary focus-visible:ring-2 focus-visible:ring-ui-primary/20 ${compact ? 'h-9 pl-2.5 pr-2.5 text-xs' : 'h-10 pl-3 pr-3 text-sm'}`}
+            className={`group flex w-full cursor-pointer select-none items-center gap-2 rounded-lg border border-ui-border bg-ui-raised text-ui-text shadow-sm shadow-ui-canvas/10 outline-none transition-[border-color,background-color,box-shadow] hover:border-ui-primary/50 hover:bg-ui-panel focus-visible:border-ui-primary focus-visible:ring-2 focus-visible:ring-ui-primary/20 ${compact ? 'h-9 p-1.5 text-xs' : 'h-10 p-2 text-sm'}`}
         >
             <span className='min-w-0 flex-1 truncate text-left'>{selectedOption?.label ?? ''}</span>
-            <ChevronDown aria-hidden='true' className={`shrink-0 text-ui-muted transition-transform duration-200 ${compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} ${open ? 'rotate-180' : ''}`} />
+            <span aria-hidden='true' className='inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-ui-panel/80 text-ui-muted transition-colors group-hover:text-ui-primary'>
+                <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+            </span>
         </div>
         {open ? <div
             id={listboxId}
@@ -150,7 +152,7 @@ export function MailSelect({
                         setOpen(false)
                         triggerRef.current?.focus()
                     }}
-                    className={`flex min-h-10 cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors ${active ? 'bg-ui-primary/10 text-ui-text' : 'text-ui-muted hover:bg-ui-primary/5 hover:text-ui-text'} ${selected ? 'font-medium' : ''}`}
+                    className={`flex min-h-11 cursor-pointer items-center gap-2 rounded-lg p-2 text-sm transition-colors ${active ? 'bg-ui-primary/10 text-ui-text' : 'text-ui-muted hover:bg-ui-primary/5 hover:text-ui-text'} ${selected ? 'font-medium' : ''}`}
                 >
                     <span className='min-w-0 flex-1 truncate'>{option.label}</span>
                     {selected ? <Check aria-hidden='true' className='h-4 w-4 shrink-0 text-ui-primary' /> : null}

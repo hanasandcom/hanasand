@@ -1,4 +1,4 @@
-export { default, isDatabaseLowLoad, isTransientDatabaseError, queryOnce } from './db/databaseQuery.ts'
+export { default, isDatabaseLowLoad, isTransientDatabaseError, queryOnce, withDatabaseRetryBudget } from './db/databaseQuery.ts'
 export { withSchemaLockTimeout } from './db/runtimePools.ts'
 export { closeDatabase, warmDatabasePools, withEventDatabase, withPriorityEventDatabase, withReadDatabase } from './db/runtimePoolAccess.ts'
 export { identityQueryOnce, tryWithDatabaseAdvisoryLock, withDatabaseAdvisoryLock, withIdentityAdvisoryLock, withIdentityTransaction, withTransaction } from './db/databaseTransactions.ts'

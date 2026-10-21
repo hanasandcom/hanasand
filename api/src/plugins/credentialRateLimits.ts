@@ -3,19 +3,13 @@ import { matchApiKeyScope } from '#utils/auth/apiKeys.ts'
 import { consumeSharedRateLimitBucket } from '#utils/rateLimit/config.ts'
 import { withTransaction } from '#db'
 
-export function credentialPeriodLimits({
-    actorIdentifier,
-    apiKeyScope,
-    method,
-    route,
-}: {
+export function credentialPeriodLimits(input: {
     actorIdentifier: string
     apiKeyScope: ReturnType<typeof matchApiKeyScope>
     method: string
     route: string
 }) {
-    if (apiKeyScope) return apiKeyScope.limits
-    return null
+    return input.apiKeyScope?.limits ?? null
 }
 
 export async function consumeCredentialPeriodBudgets({

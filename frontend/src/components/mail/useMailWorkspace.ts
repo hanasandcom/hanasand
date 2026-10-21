@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { fetchMailOverview, messageAction, searchMail, sendMail, type DraftAttachment } from '@/utils/mail/client'
 import type { MailMessage, MailMessageSummary, MailOverview } from '@/utils/mail/types'
-import { resolveMailboxPage } from './mailWorkspacePage'
+import { needsSelectedMessageRequest, resolveMailboxPage } from './mailWorkspacePage'
 
 export type ComposeDraft = { to: string, cc: string, bcc: string, subject: string, textBody: string, attachments: DraftAttachment[] }
 type Location = { user: string, folder: string, message: string }
@@ -41,9 +41,15 @@ export function useMailWorkspace(initialMailboxUser?: string | null) {
             const nextUser = user || first.mailboxUser
             position.current = { user: nextUser, folder: selectedFolder, message: selected }
             setMailboxUser(nextUser); setMailboxId(selectedFolder); setSelectedMessageId(selected)
-            setOverview(current => ({ ...page, selectedMailboxId: selectedFolder || null, selectedMessage: options.background && current?.selectedMessage?.id === selected ? current.selectedMessage : null }))
+            setOverview(current => ({
+                ...page,
+                selectedMailboxId: selectedFolder || null,
+                selectedMessage: page.selectedMessage?.id === selected
+                    ? page.selectedMessage
+                    : options.background && current?.selectedMessage?.id === selected ? current.selectedMessage : null,
+            }))
             hasLoaded.current = true
-            if (selected) void fetchMailOverview({ mailboxUser: nextUser, mailboxId: selectedFolder, messageId: selected }).then(detail => {
+            if (needsSelectedMessageRequest(page, selected)) void fetchMailOverview({ mailboxUser: nextUser, mailboxId: selectedFolder, messageId: selected }).then(detail => {
                 if (currentVersion === version.current) setOverview(value => value ? { ...value, selectedMessage: detail.selectedMessage } : value)
             }).catch(() => {})
         } catch (cause) {
