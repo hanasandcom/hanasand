@@ -48,8 +48,9 @@ export async function loadMailboxOverviewData({
         || null
     const page = selectedMailboxId ? await listMessagePage(repairedAccess.username, repairedAccess.password, selectedMailboxId, query.after) : { messages: [], nextCursor: null }
     const messages = page.messages
-    const selectedMessageId = query.messageId || messages[0]?.id
-    const selectedMessage = selectedMessageId ? await getMessage(repairedAccess.username, repairedAccess.password, selectedMessageId) : null
+    const selectedMessage = query.messageId
+        ? await getMessage(repairedAccess.username, repairedAccess.password, query.messageId)
+        : null
     const filters = await listMailRules(repairedAccess.targetUser)
 
     return {
