@@ -11,6 +11,7 @@ const overview = degradedMailOverview({
     targetUser: 'operator',
     address: 'operator@hanasand.com',
     canAccessAnyMailbox: false,
+    canSend: true,
     accessibleAccounts: [{ id: 'operator', name: 'Operator', address: 'operator@hanasand.com' }],
     recentRecipients: [],
     health: null,
@@ -18,6 +19,7 @@ const overview = degradedMailOverview({
 })
 
 assert.equal(overview.actor.id, 'operator')
+assert.equal(overview.actor.canSend, true)
 assert.equal(overview.mailboxUser, 'operator')
 assert.equal(overview.mailboxes.length, 0)
 assert.equal(overview.messages.length, 0)

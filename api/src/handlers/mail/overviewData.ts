@@ -1,5 +1,5 @@
 import { getMailAccess, rotateMailPasswordForUser } from '#utils/mail/accounts.ts'
-import { applyMailRules, listMailRules } from '#utils/mail/filters.ts'
+import { listMailRules, scheduleMailRules } from '#utils/mail/filters.ts'
 import type { getMailHealth } from '#utils/mail/health.ts'
 import { getMailboxList, getMessage, listMessagePage } from '#utils/mail/jmap.ts'
 import { mailConfig } from '#utils/mail/config.ts'
@@ -33,19 +33,18 @@ export async function loadMailboxOverviewData({
         return emptyMailboxOverview(actorId, access, repairedAccess, accessibleAccounts, recentRecipients, health)
     }
 
-    await applyMailRules({
+    scheduleMailRules({
         userId: repairedAccess.targetUser,
         username: repairedAccess.username,
         password: repairedAccess.password,
         inboxMailboxId: inboxMailbox.id,
         junkMailboxId: mailboxData.mailboxes.find(mailbox => mailbox.role === 'junk')?.id || null,
         mailboxAddress: repairedAccess.address,
-    }).catch(onRulesError)
+    }, onRulesError)
 
-    const refreshedMailboxData = await getMailboxList(repairedAccess.username, repairedAccess.password)
     const selectedMailboxId = query.mailboxId
-        || refreshedMailboxData.mailboxes.find(mailbox => mailbox.role === (access.targetUser === 'shared:noreply' ? 'sent' : 'inbox'))?.id
-        || refreshedMailboxData.mailboxes[0]?.id
+        || mailboxData.mailboxes.find(mailbox => mailbox.role === (access.targetUser === 'shared:noreply' ? 'sent' : 'inbox'))?.id
+        || mailboxData.mailboxes[0]?.id
         || null
     const page = selectedMailboxId ? await listMessagePage(repairedAccess.username, repairedAccess.password, selectedMailboxId, query.after) : { messages: [], nextCursor: null }
     const messages = page.messages
@@ -58,7 +57,7 @@ export async function loadMailboxOverviewData({
         mailboxUser: repairedAccess.targetUser,
         mailboxAddress: repairedAccess.address,
         accessibleAccounts,
-        mailboxes: refreshedMailboxData.mailboxes,
+        mailboxes: mailboxData.mailboxes,
         selectedMailboxId,
         messages,
         nextCursor: page.nextCursor,

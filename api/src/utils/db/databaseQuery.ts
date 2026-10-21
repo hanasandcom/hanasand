@@ -1,4 +1,5 @@
 import config from '#constants'
+import { AsyncLocalStorage } from 'node:async_hooks'
 import pg from 'pg'
 import { pool, eventPool, priorityEventPool, readPool, directPool, schemaWork, schemaLockTimeout } from './runtimePools.ts'
 import { activePool, connectDatabase, withReadDatabase } from './runtimePoolAccess.ts'
@@ -6,6 +7,11 @@ import { normalizeIdentitySchemaQuery } from './identitySchemaQuery.ts'
 import type { SQLParamType } from './runtimePools.ts'
 
 type PgError = Error & { code?: string }
+const queryRetryDeadline = new AsyncLocalStorage<number>()
+
+export function withDatabaseRetryBudget<T>(budgetMs: number, work: () => Promise<T>) {
+    return queryRetryDeadline.run(Date.now() + Math.max(0, budgetMs), work)
+}
 
 export async function isDatabaseLowLoad(maxActiveQueries = 8) {
     const pools = [...new Set([pool, eventPool, priorityEventPool, readPool, directPool])]
@@ -32,6 +38,9 @@ export default async function run(query: string, params?: SQLParamType, name?: s
             if (!isTransientDatabaseError(error)) {
                 throw error
             }
+
+            const deadline = queryRetryDeadline.getStore()
+            if (deadline !== undefined && deadline - Date.now() <= config.CACHE_TTL_HOT + 3000) throw error
 
             console.log(`Pool currently unavailable, retrying in ${config.CACHE_TTL_HOT / 1000}s...`)
             console.log(error)

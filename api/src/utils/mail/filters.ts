@@ -67,6 +67,28 @@ export async function applyMailRules(params: {
     }
 }
 
+type MailRuleRun = Parameters<typeof applyMailRules>[0]
+
+export function createMailRuleScheduler(
+    runRules: (params: MailRuleRun) => Promise<void>,
+    intervalMs = 30_000,
+    now: () => number = Date.now,
+) {
+    const scheduled = new Map<string, { startedAt: number, running: boolean }>()
+
+    return (params: MailRuleRun, onError: (error: Error) => void) => {
+        const currentTime = now()
+        const previous = scheduled.get(params.userId)
+        if (previous?.running || (previous && currentTime - previous.startedAt < intervalMs)) return
+
+        const state = { startedAt: currentTime, running: true }
+        scheduled.set(params.userId, state)
+        void runRules(params).catch(error => onError(error as Error)).finally(() => { state.running = false })
+    }
+}
+
+export const scheduleMailRules = createMailRuleScheduler(applyMailRules)
+
 async function promoteTrustedInternalMail(params: {
     username: string
     password: string
