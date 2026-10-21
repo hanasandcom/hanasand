@@ -1,23 +1,27 @@
 import { expect, test } from 'bun:test'
 import { readFile } from 'node:fs/promises'
-import { vmOperatingSystems, vmServices } from '../src/utils/vms/createOptions'
+import { vmOperatingSystems, vmResourceOptions, vmServices } from '../src/utils/vms/createOptions'
 
 const components = new URL('../src/components/profile/vms.tsx', import.meta.url)
+const createForm = new URL('../src/components/profile/vmCreateForm.tsx', import.meta.url)
 const consoleSession = new URL('../src/components/vms/useVmConsoleSession.ts', import.meta.url)
 const progressHook = new URL('../src/components/vms/useVmProvisioningStatus.ts', import.meta.url)
 
 test('the VM create form offers locally bundled operating systems and installable services', async () => {
-    const source = await readFile(components, 'utf8')
-    expect(vmOperatingSystems.map(os => os.id)).toEqual(['ubuntu-24.04', 'ubuntu-22.04'])
-    expect(vmServices.map(service => service.id)).toEqual(['nodejs', 'postgresql', 'redis', 'python'])
+    const source = await readFile(createForm, 'utf8')
+    expect(vmOperatingSystems.map(os => os.id)).toEqual(['ubuntu-24.04', 'ubuntu-26.04', 'ubuntu-22.04'])
+    expect(vmServices.map(service => service.id)).toEqual(['nodejs', 'bun', 'python', 'java', 'docker', 'postgresql', 'redis', 'nginx', 'website', 'minecraft-java'])
+    expect(vmResourceOptions.map(option => `${option.cpu}:${option.memory}`)).toEqual(['1:2GiB', '2:4GiB', '4:8GiB'])
     expect(source).toContain('Operating system')
     expect(source).toContain('Install services')
     expect(source).toContain('selectedServices')
+    expect(source).toContain('resources: { cpu: resources.cpu, memory: resources.memory }')
+    expect(source).toContain('minecraft_eula_accepted: minecraftEulaAccepted')
 })
 
 test('successful creation opens the terminal without waiting for a VM status fetch', async () => {
-    const [source, session, progress] = await Promise.all([readFile(components, 'utf8'), readFile(consoleSession, 'utf8'), readFile(progressHook, 'utf8')])
-    expect(source).toContain('Follow setup in its terminal')
+    const [source, create, session, progress] = await Promise.all([readFile(components, 'utf8'), readFile(createForm, 'utf8'), readFile(consoleSession, 'utf8'), readFile(progressHook, 'utf8')])
+    expect(create).toContain('Follow setup in its terminal')
     expect(source).toContain('provisioning=1')
     expect(session).toContain('get(\'provisioning\') === \'1\'')
     expect(session).toContain('if (!host && !provisioning)')

@@ -3,6 +3,7 @@ import Fastify from 'fastify'
 import { resolveVmHostId } from '../src/utils/vms/hostConfig.ts'
 
 const calls: Array<{ host: string; path: string; method?: string; body?: BodyInit | null }> = []
+const databaseCalls: Array<{ sql: string; params: unknown[] }> = []
 let existingVm: Record<string, unknown> | undefined
 let failedProvisionRequests = 0
 let queuedProvisionResponses: Response[] = []
@@ -15,17 +16,22 @@ mock.module('../src/utils/auth/internalToken.ts', () => ({ default: () => false 
 mock.module('../src/constants.ts', () => ({ default: { vm_host_id: 'inspur' } }))
 mock.module('../src/utils/db.ts', () => ({
     withDatabaseAdvisoryLock: async (_key: string, work: () => Promise<unknown>) => work(),
-    default: async (sql: string, params: unknown[] = []) => ({
-        rows: /SELECT name, owner, created_by, access_users, primary_host, deleted_at/.test(sql)
-            ? (existingVm ? [existingVm] : [])
-            : /UPDATE vms\s+SET name/.test(sql)
-                ? [{ ...existingVm, name: params[0], owner: params[1], created_by: params[2], access_users: [], primary_host: params[5] }]
-                : /UPDATE vms SET primary_host/.test(sql)
-                    ? [existingVm = { ...existingVm, name: params[0], primary_host: params[1] }]
-                    : /INSERT INTO vms/.test(sql)
-                        ? [existingVm = { name: params[0], owner: params[1], created_by: params[2], access_users: [], primary_host: 'ovhcloud', has_vm_details: false }]
-                        : [],
-    }),
+    default: async (sql: string, params: unknown[] = []) => {
+        databaseCalls.push({ sql, params })
+        return {
+            rows: /SELECT name, owner, created_by, access_users, primary_host, organization_id, deleted_at/.test(sql)
+                ? (existingVm ? [existingVm] : [])
+                : /SELECT o\.id\s+FROM organizations/.test(sql)
+                    ? (params[0] === 'approved-org' ? [{ id: params[0] }] : [])
+                    : /UPDATE vms\s+SET name/.test(sql)
+                        ? [{ ...existingVm, name: params[0], owner: params[1], created_by: params[2], access_users: [], primary_host: params[5] }]
+                        : /UPDATE vms SET primary_host/.test(sql)
+                            ? [existingVm = { ...existingVm, name: params[0], primary_host: params[1] }]
+                            : /INSERT INTO vms/.test(sql)
+                                ? [existingVm = { name: params[0], owner: params[1], created_by: params[2], access_users: [], ...(params[4] ? { organization_id: params[4] } : {}), primary_host: 'ovhcloud', has_vm_details: false }]
+                                : [],
+        }
+    },
 }))
 mock.module('../src/utils/vms/hostTransport.ts', () => ({
     internalHostFetch: async (host: string, path: string, options?: RequestInit) => {
@@ -54,7 +60,7 @@ mock.module('../src/utils/systemEvent.ts', () => ({ recordSystemEvent: async () 
 const { default: postVM } = await import('../src/handlers/vms/post.ts')
 const app = Fastify()
 app.post('/vm', postVM)
-beforeEach(() => { calls.length = 0; existingVm = undefined; failedProvisionRequests = 0; queuedProvisionResponses = []; queuedStatusResponses = []; deferProvisionResponse = false; releaseProvisionResponse = undefined })
+beforeEach(() => { calls.length = 0; databaseCalls.length = 0; existingVm = undefined; failedProvisionRequests = 0; queuedProvisionResponses = []; queuedStatusResponses = []; deferProvisionResponse = false; releaseProvisionResponse = undefined })
 afterAll(async () => { await app.close() })
 async function waitFor(check: () => boolean) {
     for (let attempt = 0; attempt < 100 && !check(); attempt++) await Bun.sleep(2)
@@ -71,19 +77,54 @@ test('VM creation provisions through the configured primary host, not the centra
 
     expect(response.statusCode).toBe(201)
     expect(response.json().primary_host).toBe('inspur')
-    expect(calls).toEqual([{ host: 'inspur', path: '/vms/internal/remote-vm/provision', method: 'POST', body: JSON.stringify({ os: 'ubuntu-24.04', services: [] }) }])
+    expect(calls).toEqual([{ host: 'inspur', path: '/vms/internal/remote-vm/provision', method: 'POST', body: JSON.stringify({ os: 'ubuntu-24.04', resources: { cpu: '1', memory: '2GiB' }, services: [], minecraftEulaAccepted: false }) }])
 })
 
 test('VM creation forwards the selected OS and services to its assigned host', async () => {
     const response = await app.inject({
         method: 'POST', url: '/vm', headers: { id: 'member' },
-        payload: { name: 'remote-vm', os: 'ubuntu-22.04', services: ['nodejs', 'redis'] },
+        payload: { name: 'remote-vm', os: 'ubuntu-22.04', resources: { cpu: '2', memory: '4GiB' }, services: ['nodejs', 'redis'] },
     })
     expect(response.statusCode).toBe(201)
     expect(calls[0]).toMatchObject({
         host: 'inspur', path: '/vms/internal/remote-vm/provision', method: 'POST',
-        body: JSON.stringify({ os: 'ubuntu-22.04', services: ['nodejs', 'redis'] }),
+        body: JSON.stringify({ os: 'ubuntu-22.04', resources: { cpu: '2', memory: '4GiB' }, services: ['nodejs', 'redis'], minecraftEulaAccepted: false }),
     })
+})
+
+test('VM creation forwards Ubuntu 26.04 LTS', async () => {
+    const response = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'member' }, payload: { name: 'remote-vm', os: 'ubuntu-26.04' } })
+    expect(response.statusCode).toBe(201)
+    expect(calls[0]?.body).toBe(JSON.stringify({ os: 'ubuntu-26.04', resources: { cpu: '1', memory: '2GiB' }, services: [], minecraftEulaAccepted: false }))
+})
+
+test('VM creation accepts and forwards every listed service', async () => {
+    const services = ['nodejs', 'bun', 'python', 'java', 'docker', 'postgresql', 'redis', 'nginx', 'website', 'minecraft-java']
+    const response = await app.inject({
+        method: 'POST', url: '/vm', headers: { id: 'member' },
+        payload: { name: 'remote-vm', services, minecraft_eula_accepted: true },
+    })
+    expect(response.statusCode).toBe(201)
+    expect(calls[0]?.body).toBe(JSON.stringify({ os: 'ubuntu-24.04', resources: { cpu: '1', memory: '2GiB' }, services, minecraftEulaAccepted: true }))
+
+    const invalid = await app.inject({
+        method: 'POST', url: '/vm', headers: { id: 'member' },
+        payload: { name: 'remote-vm', services: [...services, 'unknown'] },
+    })
+    expect(invalid.statusCode).toBe(400)
+
+    const missingEula = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'member' }, payload: { name: 'remote-vm', services: ['minecraft-java'] } })
+    expect(missingEula.statusCode).toBe(400)
+})
+
+test('VM creation rejects unsupported resource limits and forwards an allowed size', async () => {
+    const invalid = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'member' }, payload: { name: 'remote-vm', resources: { cpu: '96', memory: '1TiB' } } })
+    expect(invalid.statusCode).toBe(400)
+    expect(calls).toHaveLength(0)
+
+    const accepted = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'member' }, payload: { name: 'remote-vm', resources: { cpu: '4', memory: '8GiB' } } })
+    expect(accepted.statusCode).toBe(201)
+    expect(calls[0]?.body).toBe(JSON.stringify({ os: 'ubuntu-24.04', resources: { cpu: '4', memory: '8GiB' }, services: [], minecraftEulaAccepted: false }))
 })
 
 test('VM creation returns while the accepted host provision job is still running', async () => {
@@ -98,6 +139,30 @@ test('VM creation returns while the accepted host provision job is still running
     releaseProvisionResponse?.()
     await waitFor(() => calls.some(call => call.path.endsWith('/status')))
     expect(calls.map(call => call.path)).toEqual(['/vms/internal/remote-vm/provision', '/vms/internal/remote-vm/status'])
+})
+
+test('administrator creation returns while host provisioning is still pending', async () => {
+    queuedProvisionResponses = [Response.json({ name: 'remote-vm', status: 'Provisioning' }, { status: 202 })]
+    deferProvisionResponse = true
+
+    const response = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'admin' }, payload: { name: 'remote-vm' } })
+
+    expect(response.statusCode).toBe(201)
+    expect(calls.map(call => call.path)).toEqual(['/vms/internal/remote-vm/provision'])
+    releaseProvisionResponse?.()
+})
+
+test('organization VM creation checks owner or admin membership and saves the selected organization', async () => {
+    const denied = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'member' }, payload: { name: 'org-vm', organization_id: 'other-org' } })
+    expect(denied.statusCode).toBe(403)
+    expect(databaseCalls.every(call => !/INSERT INTO vms/.test(call.sql))).toBe(true)
+
+    databaseCalls.length = 0
+    const accepted = await app.inject({ method: 'POST', url: '/vm', headers: { id: 'member' }, payload: { name: 'org-vm', organization_id: 'approved-org' } })
+    expect(accepted.statusCode).toBe(201)
+    expect(accepted.json().organization_id).toBe('approved-org')
+    expect(databaseCalls.find(call => /INSERT INTO vms/.test(call.sql))?.sql).toContain('organization_id')
+    expect(databaseCalls.find(call => /INSERT INTO vms/.test(call.sql))?.params).toEqual(['org-vm', 'member', 'member', '[]', 'approved-org'])
 })
 
 test('VM creation remains accepted when the host rejects its background provisioning request', async () => {
@@ -140,5 +205,5 @@ test('admin metadata updates preserve the VM primary host and route provisioning
 
     expect(response.statusCode).toBe(201)
     expect(response.json().primary_host).toBe('inspur')
-    expect(calls).toEqual([{ host: 'inspur', path: '/vms/internal/prior-vm/provision', method: 'POST', body: JSON.stringify({ os: 'ubuntu-24.04', services: [] }) }])
+    expect(calls).toEqual([{ host: 'inspur', path: '/vms/internal/prior-vm/provision', method: 'POST', body: JSON.stringify({ os: 'ubuntu-24.04', resources: { cpu: '1', memory: '2GiB' }, services: [], minecraftEulaAccepted: false }) }])
 })
