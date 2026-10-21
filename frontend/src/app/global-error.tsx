@@ -1,6 +1,6 @@
 'use client'
 
-import { AlertTriangle, ArrowLeft, Home, RefreshCcw, Search } from 'lucide-react'
+import { ArrowLeft, Home, RefreshCcw, Search } from 'lucide-react'
 import Link from 'next/link'
 import BrandLogo from '@/components/brand/brandLogo'
 import './globals.css'
@@ -15,10 +15,7 @@ export default function GlobalError({ reset }: { error: Error & { digest?: strin
                 <main className='min-h-screen px-4 py-5 sm:px-8 sm:py-7'>
                     <div className='mx-auto flex min-h-[calc(100vh-2.5rem)] max-w-5xl flex-col sm:min-h-[calc(100vh-3.5rem)]'>
                         <BrandLogo />
-                        <section className='my-8 grid gap-6 py-4 md:grid-cols-[auto_minmax(0,1fr)] md:items-center md:gap-10 md:py-8'>
-                            <div className='grid h-20 w-20 place-items-center text-ui-muted'>
-                                <AlertTriangle className='h-9 w-9' aria-hidden='true' />
-                            </div>
+                        <section className='my-8 grid gap-6 py-4 md:py-8'>
                             <div className='max-w-2xl'>
                                 <h1 className='mt-3 text-4xl font-semibold tracking-tight md:text-6xl'>Something went wrong.</h1>
                                 <p className='mt-4 text-base leading-7 text-ui-primary dark:text-ui-muted md:text-lg'>
