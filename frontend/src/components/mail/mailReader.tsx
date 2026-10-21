@@ -51,7 +51,7 @@ export function MailReader({ message, summary, mailboxUser, loading, working, on
         </div>
         <div className='min-h-0 flex-1 overflow-y-auto p-4 sm:p-6'>
             {downloadError && <p role='alert' className='mb-3 text-sm text-ui-danger'>{downloadError}</p>}
-            <h1 className='break-words text-xl font-semibold text-ui-text'>{message.subject || '(No subject)'}</h1>
+            <h1 className='wrap-break-word text-xl font-semibold text-ui-text'>{message.subject || '(No subject)'}</h1>
             <div className='mt-4 grid gap-1 text-sm text-ui-muted'>
                 <p><span className='text-ui-text'>From </span>{message.from.map(item => item.name ? `${item.name} <${item.email}>` : item.email).join(', ')}</p>
                 <p><span className='text-ui-text'>To </span>{message.to.map(item => item.email).join(', ')}</p>
@@ -63,7 +63,7 @@ export function MailReader({ message, summary, mailboxUser, loading, working, on
                     <Download className='h-4 w-4' />{downloading === file.blobId ? 'Downloading…' : `${file.name} · ${Math.max(1, Math.round(file.size / 1024))} KB`}
                 </button>)}
             </div>}
-            <div className='mt-6 whitespace-pre-wrap break-words border-t border-ui-border pt-5 text-sm leading-6 text-ui-text'>{message.textBody || plainText(message.htmlBody) || summaryMessage.preview || 'This message has no readable text.'}</div>
+            <div className='mt-6 whitespace-pre-wrap wrap-break-word border-t border-ui-border pt-5 text-sm leading-6 text-ui-text'>{message.textBody || plainText(message.htmlBody) || summaryMessage.preview || 'This message has no readable text.'}</div>
         </div>
     </article>
 }
