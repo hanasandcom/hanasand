@@ -10,7 +10,7 @@ const AuthField = forwardRef<HTMLInputElement, Props>(function AuthField({ label
     if (!label) return input
 
     return (
-        <label className='grid gap-2' htmlFor={inputProps.id}>
+        <label className='grid gap-3' htmlFor={inputProps.id}>
             <span className='text-xs font-semibold text-ui-muted'>{label}</span>
             {input}
         </label>
