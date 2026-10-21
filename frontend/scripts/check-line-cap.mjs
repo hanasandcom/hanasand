@@ -19,6 +19,7 @@ const includedNames = new Set([
 const excludedDirectories = new Set(['node_modules', '.next', 'coverage', 'playwright-report', 'test-results', 'dist', 'build'])
 const generatedFiles = new Set([
     'bun.lock',
+    'package-lock.json',
     'src/utils/articles/staticArticles.json',
 ])
 

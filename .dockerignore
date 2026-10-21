@@ -163,6 +163,7 @@ ops/runtime/source/**
 !.git/
 .git/*
 !.git/HEAD
+**/package-lock.json
 !api/tests/fixtures/
 !api/tests/fixtures/monitoring-tls/
 !api/tests/fixtures/monitoring-tls/cert.pem
