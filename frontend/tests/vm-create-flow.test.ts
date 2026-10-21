@@ -27,6 +27,8 @@ test('the VM create form offers locally bundled operating systems and installabl
     expect(source).toContain('This creates a simple static page.')
     expect(source).toContain('Generate setup')
     expect(source).toContain('option.memory !== \'2GiB\'')
+    expect(source).toContain("setCreationError(result.message)")
+    expect(source).toContain("role='alert' className='rounded-lg border border-ui-danger/25")
 })
 
 test('successful creation opens the terminal without waiting for a VM status fetch', async () => {
@@ -42,8 +44,9 @@ test('successful creation opens the terminal without waiting for a VM status fet
 
 test('VM filter popover uses the standard inset and slider-knob icon', async () => {
     const source = await readFile(filters, 'utf8')
-    expect(source).toContain('left: position.mobile ? 16 : undefined')
-    expect(source).toContain('right = mobile ? 16 :')
+    expect(source).toContain('left: position.mobile ? 8 : undefined')
+    expect(source).toContain('right = mobile ? 8 :')
+    expect(source).toContain("width: position.mobile ? 'calc(100vw - 16px)'")
     expect(source).toContain('aria-label={activeCount ? `Filters, ${activeCount} active` : \'Filters\'}')
     expect(source).toContain('<path d=\'M2.5 4.5h15M2.5 10h15M2.5 15.5h15\' />')
     expect(source.match(/<circle cx=/g)).toHaveLength(3)

@@ -34,12 +34,14 @@ export default function VmCreateForm({ id, visible, organizationId, notify, onCr
     const [websitePlan, setWebsitePlan] = useState<VmWebsitePlan>(starterWebsitePlan)
     const [suggestingSetup, setSuggestingSetup] = useState(false)
     const [creating, setCreating] = useState(false)
+    const [creationError, setCreationError] = useState('')
     const availableResources = vmResourceOptions.filter(option => !selectedServices.includes('minecraft-java') || option.memory !== '2GiB')
 
     useEffect(() => { if (visible) nameInput.current?.focus() }, [visible])
 
     async function create(event: React.FormEvent) {
         event.preventDefault()
+        setCreationError('')
         setCreating(true)
         onCreating(true)
         notify('Creating virtual machine…', 'progress', 'vm-create')
@@ -48,11 +50,13 @@ export default function VmCreateForm({ id, visible, organizationId, notify, onCr
             const resources = vmResourceOptions.find(option => option.id === resourcePlan) || vmResourceOptions[0]
             const result = await postVM({ name: vmName, os: operatingSystem, resources: { cpu: resources.cpu, memory: resources.memory }, services: selectedServices, minecraft_eula_accepted: minecraftEulaAccepted, minecraft_server_type: selectedServices.includes('minecraft-java') ? minecraftServerType : undefined, website: selectedServices.includes('website') ? websitePlan : null, organization_id: organizationId || null })
             if (result.status !== 201) {
+                setCreationError(result.message)
                 notify(result.message, 'error', 'vm-create')
                 return
             }
             notify(`${vmName} is queued. Follow setup in its terminal.`, 'success', 'vm-create')
             setName('')
+            setCreationError('')
             setSelectedServices([])
             setMinecraftEulaAccepted(false)
             setMinecraftServerType('PAPER')
@@ -61,6 +65,7 @@ export default function VmCreateForm({ id, visible, organizationId, notify, onCr
             setWebsitePlan(starterWebsitePlan)
             onCreated(result.vm, vmName)
         } catch {
+            setCreationError('Unable to create the virtual machine. Please try again.')
             notify('Unable to create the virtual machine. Please try again.', 'error', 'vm-create')
         } finally {
             setCreating(false)
@@ -147,5 +152,6 @@ export default function VmCreateForm({ id, visible, organizationId, notify, onCr
         </fieldset>}
         {selectedServices.includes('minecraft-java') && <label className='grid gap-1 text-sm text-ui-muted'>Server software<select value={minecraftServerType} onChange={event => setMinecraftServerType(event.target.value as typeof vmMinecraftServerTypes[number]['id'])} disabled={creating} className='h-10 max-w-sm rounded-lg border border-ui-border bg-ui-raised px-3 text-sm text-ui-text outline-none focus-visible:ring-2 focus-visible:ring-ui-primary/20'>{vmMinecraftServerTypes.map(type => <option key={type.id} value={type.id}>{type.label} · {type.description}</option>)}</select></label>}
         <button disabled={creating} className='h-10 rounded-lg bg-ui-primary px-4 text-sm font-semibold text-ui-on-primary disabled:opacity-50'>{creating ? 'Creating VM…' : 'Create VM'}</button>
+        {creationError && <p role='alert' className='rounded-lg border border-ui-danger/25 bg-ui-danger/5 px-3 py-2.5 text-sm leading-5 text-ui-danger'>{creationError}</p>}
     </form>
 }
