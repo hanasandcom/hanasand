@@ -52,4 +52,8 @@ test('provider tabs distinguish missing reports from access failures or unavaila
     const denied = capture('denied', { error: 'urlquery denied browser access to this report (HTTP 403). No verdict was returned.' })
     assert.equal(providerStatus(denied), 'Access restricted')
     assert.equal(providerTabStatus(denied), 'blocked')
+
+    const unverified = capture('unverified', { error: 'No verified report returned for the submitted URL within the provider time limit.' })
+    assert.equal(providerStatus(unverified), 'No verified report')
+    assert.equal(providerTabStatus(unverified), 'no verified report')
 })

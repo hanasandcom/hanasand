@@ -121,5 +121,6 @@ export function providerReportStatus(error?: unknown) {
     if (/no (?:matching |existing )?(?:urlquery )?report|no existing (?:url )?analysis|item not found/i.test(message)) return 'No report'
     if (/captcha|access denied|denied browser access|forbidden|blocked/i.test(message)) return 'Access restricted'
     if (/pending|still running/i.test(message)) return 'Loading'
+    if (/no verified report returned/i.test(message)) return 'No verified report'
     return 'Provider error'
 }

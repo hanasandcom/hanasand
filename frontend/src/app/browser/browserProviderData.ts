@@ -48,6 +48,7 @@ export function providerStatus(capture?: Capture, analysis?: SandboxToolAnalysis
     if (!capture) return 'Unavailable'
     if (capture.error === 'provider_navigation_pending') return 'Loading'
     if (noProviderReport(capture.error)) return 'No report'
+    if (noVerifiedProviderReport(capture.error)) return 'No verified report'
     if (providerBlocked(capture.error)) return 'Access restricted'
     if (analysis?.toolKind === 'webcrack' && capture.error) return 'Provider error'
     if (analysis?.toolKind === 'webcrack' && analysis.webcrackLoaded === false && /no obfuscated (?:script sample|code)/i.test(analysis.webcrackLoadReason || '')) return 'No obfuscated code'
@@ -59,6 +60,7 @@ export function providerStatus(capture?: Capture, analysis?: SandboxToolAnalysis
 export function providerTabStatus(capture?: Capture, analysis?: SandboxToolAnalysis) {
     if (!capture) return 'waiting'
     if (noProviderReport(capture.error)) return 'no report'
+    if (noVerifiedProviderReport(capture.error)) return 'no verified report'
     if (analysis?.vendorFlagged !== undefined) return `${virusTotalVendorLabel(analysis)} vendors`
     if (analysis?.alertCount !== undefined) return `${analysis.alertCount} alerts`
     if (analysis?.toolKind === 'webcrack' && analysis.webcrackLoaded === true) return 'code loaded'
@@ -82,6 +84,10 @@ export function providerDetail(analysis?: SandboxToolAnalysis, capture?: Capture
 
 function noProviderReport(error?: string) {
     return Boolean(error && /no (?:matching |existing )?(?:urlquery )?report|no existing (?:url )?analysis|item not found/i.test(error))
+}
+
+function noVerifiedProviderReport(error?: string) {
+    return Boolean(error && /no verified report returned/i.test(error))
 }
 
 function providerBlocked(error?: string) {

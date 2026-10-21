@@ -8,7 +8,7 @@ test('provider reports distinguish missing reports and denied access from errors
     expect(providerReportStatus('VirusTotal has no existing report for this URL.')).toBe('No report')
     expect(providerReportStatus('urlquery denied browser access (HTTP 403).')).toBe('Access restricted')
     expect(providerReportStatus('Provider tab opened; verdict parsing is still running.')).toBe('Loading')
-    expect(providerReportStatus('No verified report returned within the provider time limit.')).toBe('Provider error')
+    expect(providerReportStatus('No verified report returned within the provider time limit.')).toBe('No verified report')
 })
 
 test('equivalent URLs have one stable identity; paths and queries remain distinct', () => {

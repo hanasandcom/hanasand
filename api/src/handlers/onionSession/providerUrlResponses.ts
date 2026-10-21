@@ -117,6 +117,8 @@ function numberFromJsonField(text: string, field: string) {
 export function parseUrlQueryScores(text: string) {
     const summary = text.match(/\b(\d{1,3})\s+urlquery\s+alerts?\b/i)
     if (summary) return { alerts: Number(summary[1]) }
+    const currentReport = text.match(/\bURLQuery\s*:?\s*(\d+)\s+IDS\s*:?\s*(\d+)\s+TDS\s*:?\s*(\d+)\b/i)
+    if (currentReport) return { alerts: Number(currentReport[1]) + Number(currentReport[2]) + Number(currentReport[3]) }
     // Parse the report's own complete detector summary before related-report rows.
     const report = text.match(/Detections\s+urlquery\s+(\d+)\s+Network Intrusion Detection\s+(\d+)\s+Threat Detection Systems\s+(\d+)/i)
     if (report) return { alerts: Number(report[1]) + Number(report[2]) + Number(report[3]) }
