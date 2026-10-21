@@ -14,6 +14,7 @@ import postMailbox from '../handlers/mail/postMailbox.ts'
 import postMailFilter from '../handlers/mail/postFilter.ts'
 import deleteMailFilter from '../handlers/mail/deleteFilter.ts'
 import getMailBlob from '../handlers/mail/getBlob.ts'
+import getMailMessageReputation from '../handlers/mail/getMessageReputation.ts'
 import { postRulePreview, getEvents, getRule, putRule, getRules, getRuleHitCounts, getRuleHitCount, getRuleStorageEstimate, postEventAction, postRule, postRuleAction, postRulePack, postEventSigmaPack } from '../handlers/events.ts'
 import { getRuleReprocess, postRuleReprocess } from '../handlers/ruleReprocess.ts'
 
@@ -27,6 +28,7 @@ export function registerObservabilityRoutes(fastify: FastifyInstance) {
     fastify.post('/mail/send', postSendMail)
     fastify.post('/mail/mailboxes', postMailbox)
     fastify.post('/mail/message/:id/action', postMailAction)
+    fastify.get('/mail/message/:id/reputation', getMailMessageReputation)
     fastify.post('/mail/filters', postMailFilter)
     fastify.delete('/mail/filters/:id', deleteMailFilter)
     fastify.get('/mail/blob/:mailboxUser/:blobId/:name', getMailBlob)

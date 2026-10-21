@@ -37,3 +37,27 @@ test('browser worker mode keeps its health root and omits application routes', a
         await app.close()
     }
 })
+
+test('permits the mail site to call the public API and read refreshed session headers', async () => {
+    const app = Fastify({ logger: false })
+    try {
+        registerHttpSurface(app, { browserWorkerOnly: false, httpWorkerOnly: true })
+        await app.ready()
+        const response = await app.inject({
+            method: 'OPTIONS',
+            url: '/api/mail/overview',
+            headers: {
+                origin: 'https://mail.hanasand.com',
+                'access-control-request-method': 'GET',
+                'access-control-request-headers': 'authorization,id',
+            },
+        })
+        expect(response.statusCode).toBe(204)
+        expect(response.headers['access-control-allow-origin']).toBe('https://mail.hanasand.com')
+        expect(response.headers['access-control-allow-headers']).toContain('authorization')
+        expect(response.headers['access-control-expose-headers']).toContain('x-access-token')
+        expect(response.headers['access-control-expose-headers']).toContain('x-access-token-expires-at')
+    } finally {
+        await app.close()
+    }
+})

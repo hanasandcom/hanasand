@@ -45,4 +45,43 @@ export default async function ensureMailSchema() {
             )
         `)
     await run('CREATE INDEX IF NOT EXISTS idx_mail_recent_recipients_lookup ON mail_recent_recipients(owner_user_id, mailbox_user, last_used_at DESC)')
+    await run(`
+            CREATE TABLE IF NOT EXISTS mail_reputation_cache (
+                resource_hash CHAR(64) NOT NULL,
+                resource_type TEXT NOT NULL CHECK (resource_type IN ('url', 'file')),
+                status TEXT NOT NULL CHECK (status IN ('known', 'unknown')),
+                flagged INT,
+                total INT,
+                report_url TEXT NOT NULL,
+                checked_at TIMESTAMPTZ NOT NULL,
+                expires_at TIMESTAMPTZ NOT NULL,
+                PRIMARY KEY (resource_type, resource_hash)
+            )
+        `)
+    await run('CREATE INDEX IF NOT EXISTS idx_mail_reputation_expiry ON mail_reputation_cache(expires_at)')
+    await run(`
+            CREATE TABLE IF NOT EXISTS mail_attachment_hash_cache (
+                mailbox_user TEXT NOT NULL,
+                blob_id TEXT NOT NULL,
+                sha256 CHAR(64) NOT NULL,
+                checked_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                PRIMARY KEY (mailbox_user, blob_id)
+            )
+        `)
+    await run(`
+            CREATE TABLE IF NOT EXISTS mail_send_idempotency (
+                actor_user_id TEXT NOT NULL,
+                mailbox_user TEXT NOT NULL,
+                idempotency_key TEXT NOT NULL,
+                payload_hash CHAR(64) NOT NULL,
+                status TEXT NOT NULL CHECK (status IN ('processing', 'sent', 'failed', 'uncertain')),
+                response_status INT,
+                response_body JSONB,
+                error_message TEXT,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                PRIMARY KEY (actor_user_id, mailbox_user, idempotency_key)
+            )
+        `)
+    await run('CREATE INDEX IF NOT EXISTS idx_mail_send_idempotency_created ON mail_send_idempotency(created_at)')
 }

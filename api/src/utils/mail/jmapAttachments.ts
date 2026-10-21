@@ -22,6 +22,10 @@ export async function uploadAttachment(username: string, password: string, filen
 
 export async function downloadBlob(username: string, password: string, blobId: string, name: string) {
     const { session, accountId } = await getMailSession(username, password)
+    return downloadBlobWithSession(username, password, session, accountId, blobId, name)
+}
+
+export async function downloadBlobWithSession(username: string, password: string, session: Awaited<ReturnType<typeof getMailSession>>['session'], accountId: string, blobId: string, name: string) {
     const url = session.downloadUrl
         .replace('{accountId}', accountId)
         .replace('{blobId}', encodeURIComponent(blobId))

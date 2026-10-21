@@ -20,6 +20,7 @@ export function registerHttpSurface(fastify: FastifyInstance, options: { browser
     fastify.register(cors, {
         origin: (origin, callback) => callback(null, isAllowedApiOrigin(origin)),
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD'],
+        exposedHeaders: ['x-access-token', 'x-access-token-expires-at'],
     })
 
     if (!browserWorkerOnly && !httpWorkerOnly && process.env.RECOVERY_ESSENTIAL_ONLY !== '1') fastify.register(fp)

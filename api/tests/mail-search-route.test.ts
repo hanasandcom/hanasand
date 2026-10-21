@@ -26,7 +26,7 @@ function reply() {
 
 test('search authorizes the mailbox owner, forwards query and cursor, and disables caching', async () => {
     const { response, state } = reply()
-    await getMailSearch({ query: { mailboxUser: 'owner', mailboxId: 'inbox', query: ' invoice ', after: 'cursor' } } as never, response as never)
+    await getMailSearch({ query: { mailboxUser: 'owner', mailboxId: 'inbox', query: ' invoice ', after: 'cursor' }, log: { info() {} } } as never, response as never)
     expect(calls).toEqual([['mail-user', 'secret', 'inbox', 'invoice', 'cursor']])
     expect(state.body).toBe(page)
     expect(state.headers['Cache-Control']).toContain('no-store')

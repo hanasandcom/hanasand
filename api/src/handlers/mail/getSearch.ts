@@ -20,9 +20,11 @@ export default async function getMailSearch(req: FastifyRequest, res: FastifyRep
         return res.status(400).send({ error: 'A valid message cursor is required.' })
     }
 
+    const searchStartedAt = performance.now()
     try {
         const access = await getMailAccess(id, query.mailboxUser)
         const page = await searchMessagePage(access.username, access.password, query.mailboxId, text, query.after)
+        req.log.info({ mailSearchDurationMs: Number((performance.now() - searchStartedAt).toFixed(2)) }, 'Mailbox search completed')
         return res.header('Cache-Control', 'no-store, private, max-age=0, must-revalidate').send(page)
     } catch (error) {
         if (error instanceof MailAccessDenied) return res.status(403).send({ error: error.message })
