@@ -1,7 +1,8 @@
 import type { RefObject } from 'react'
 import { ArrowDown, ArrowUp, Pencil, Trash2 } from 'lucide-react'
 import { ArtifactList } from './chatArtifacts'
-import { EmptyComposerState, MarkdownBlock, ToolMessage } from './chatMessages'
+import { EmptyComposerState, ToolMessage } from './chatMessages'
+import { MarkdownBlock } from './chatMarkdown'
 
 export function ChatTranscript({ conversation, scrollRef, hasReadyModel, isAuthenticated, onEditPrompt, onDeletePrompt, onMovePrompt, onPreview }: {
     conversation: AIConversation | null
