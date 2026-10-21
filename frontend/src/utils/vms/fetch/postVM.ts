@@ -13,6 +13,7 @@ export default async function postVM(vm: CreateVmRequest): Promise<{ status: num
     try {
         const token = getCookie('access_token')
         const id = getCookie('id')
+        const browserProxy = typeof window !== 'undefined'
         if (!token || !id) {
             return {
                 status: 401,
@@ -20,7 +21,7 @@ export default async function postVM(vm: CreateVmRequest): Promise<{ status: num
             }
         }
 
-        const response = await fetchWithRetry(`${config.url.api}/vm`, {
+        const response = await fetchWithRetry(browserProxy ? '/api/backend/vm' : `${config.url.api}/vm`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -39,7 +40,7 @@ export default async function postVM(vm: CreateVmRequest): Promise<{ status: num
             const body = await response.json().catch(() => null) as { error?: unknown } | null
             return {
                 status: response.status,
-                message: typeof body?.error === 'string' ? body.error : `Unable to create VM ${vm.name}. Please try again.`,
+                message: typeof body?.error === 'string' ? body.error : `The VM service returned an error (${response.status}). Please try again.`,
             }
         }
 
@@ -56,6 +57,13 @@ export default async function postVM(vm: CreateVmRequest): Promise<{ status: num
             return {
                 status: 408,
                 message: `The create request timed out. ${vm.name} may still be provisioning; refresh the list before trying again.`,
+            }
+        }
+
+        if (name === 'TypeError' || /failed to fetch|networkerror|load failed/i.test(reason)) {
+            return {
+                status: 503,
+                message: 'Couldn’t reach the VM service. Check your connection and try again.',
             }
         }
 

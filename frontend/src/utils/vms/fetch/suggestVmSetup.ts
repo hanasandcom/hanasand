@@ -1,4 +1,3 @@
-import config from '@/config'
 import { getCookie } from '@/utils/cookies/cookies'
 import { vmMinecraftServerTypes, type VmMinecraftServerType } from '../createOptions'
 
@@ -9,7 +8,7 @@ export default async function suggestVmSetup(prompt: string): Promise<VmSetupPla
     const token = getCookie('access_token')
     const id = getCookie('id')
     if (!token || !id) throw new Error('Sign in again to ask for a setup suggestion.')
-    const response = await fetch(`${config.url.api}/vm/setup-plan`, {
+    const response = await fetch('/api/backend/vm/setup-plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, id },
         body: JSON.stringify({ prompt }),

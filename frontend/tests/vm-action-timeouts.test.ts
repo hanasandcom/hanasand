@@ -2,13 +2,18 @@ import { strict as assert } from 'node:assert'
 import test from 'node:test'
 import manageVM from '../src/utils/vms/fetch/manage/manage'
 import postVM from '../src/utils/vms/fetch/postVM'
-import { vmLifecycleProxyTimeoutMs } from '../src/utils/vms/proxyTimeout'
+import suggestVmSetup from '../src/utils/vms/fetch/suggestVmSetup'
+import { vmLifecycleProxyTimeoutMs, vmSetupPlanProxyTimeoutMs } from '../src/utils/vms/proxyTimeout'
 
 function setSessionCookie() {
     Object.defineProperty(globalThis, 'document', {
         configurable: true,
         value: { cookie: 'access_token=playwright-token; id=playwright-user' },
     })
+}
+
+function setBrowserWindow() {
+    Object.defineProperty(globalThis, 'window', { configurable: true, value: {} })
 }
 
 test('VM lifecycle mutations get enough proxy time for the host operation', () => {
@@ -19,6 +24,13 @@ test('VM lifecycle mutations get enough proxy time for the host operation', () =
     assert.equal(vmLifecycleProxyTimeoutMs('GET', ['vm', 'example', 'metrics'], 12000), null)
     assert.equal(vmLifecycleProxyTimeoutMs('POST', ['organizations', 'example'], 12000), null)
     assert.equal(vmLifecycleProxyTimeoutMs('POST', ['vm', 'example', 'restart'], 200000), 200000)
+})
+
+test('VM setup planning gets enough proxy time for its model request', () => {
+    assert.equal(vmSetupPlanProxyTimeoutMs('POST', ['vm', 'setup-plan'], 12000), 30000)
+    assert.equal(vmSetupPlanProxyTimeoutMs('GET', ['vm', 'setup-plan'], 12000), null)
+    assert.equal(vmSetupPlanProxyTimeoutMs('POST', ['vm', 'other'], 12000), null)
+    assert.equal(vmSetupPlanProxyTimeoutMs('POST', ['vm', 'setup-plan'], 40000), 40000)
 })
 
 test('browser request aborts say the host may still be processing the VM action', async () => {
@@ -69,6 +81,75 @@ test('VM creation timeouts tell users to refresh before submitting a possible du
     } finally {
         globalThis.fetch = originalFetch
         Reflect.deleteProperty(globalThis, 'document')
+    }
+})
+
+test('VM creation reports a browser network failure as unreachable VM service', async () => {
+    setSessionCookie()
+    const originalFetch = globalThis.fetch
+    try {
+        globalThis.fetch = async () => { throw new TypeError('Failed to fetch') }
+        const result = await postVM({ name: 'hei' })
+        assert.equal(result.status, 503)
+        assert.match(result.message, /couldn’t reach the VM service/i)
+    } finally {
+        globalThis.fetch = originalFetch
+        Reflect.deleteProperty(globalThis, 'document')
+    }
+})
+
+test('VM creation reports the status when an edge returns a non-JSON error', async () => {
+    setSessionCookie()
+    const originalFetch = globalThis.fetch
+    try {
+        globalThis.fetch = async () => new Response('<html>gateway failure</html>', { status: 502, headers: { 'content-type': 'text/html' } })
+        const result = await postVM({ name: 'hei' })
+        assert.equal(result.status, 502)
+        assert.match(result.message, /error \(502\)/)
+        assert.doesNotMatch(result.message, /gateway failure/i)
+    } finally {
+        globalThis.fetch = originalFetch
+        Reflect.deleteProperty(globalThis, 'document')
+    }
+})
+
+test('browser VM creation uses the same-origin backend proxy', async () => {
+    setSessionCookie()
+    setBrowserWindow()
+    const originalFetch = globalThis.fetch
+    let requestUrl = ''
+    try {
+        globalThis.fetch = async (input) => {
+            requestUrl = String(input)
+            return Response.json({ name: 'hei' }, { status: 201 })
+        }
+        const result = await postVM({ name: 'hei' })
+        assert.equal(result.status, 201)
+        assert.equal(requestUrl, '/api/backend/vm')
+    } finally {
+        globalThis.fetch = originalFetch
+        Reflect.deleteProperty(globalThis, 'document')
+        Reflect.deleteProperty(globalThis, 'window')
+    }
+})
+
+test('setup suggestions use the same-origin backend proxy', async () => {
+    setSessionCookie()
+    setBrowserWindow()
+    const originalFetch = globalThis.fetch
+    let requestUrl = ''
+    try {
+        globalThis.fetch = async (input) => {
+            requestUrl = String(input)
+            return Response.json({ summary: 'Node.js with PostgreSQL', services: ['nodejs', 'postgresql'], website: null, minecraftServerType: null })
+        }
+        const result = await suggestVmSetup('Node.js and PostgreSQL')
+        assert.equal(requestUrl, '/api/backend/vm/setup-plan')
+        assert.deepEqual(result.services, ['nodejs', 'postgresql'])
+    } finally {
+        globalThis.fetch = originalFetch
+        Reflect.deleteProperty(globalThis, 'document')
+        Reflect.deleteProperty(globalThis, 'window')
     }
 })
 

@@ -105,6 +105,16 @@ test('records normalized payload, path, surface, and joined request headers', as
     }])
 })
 
+test('classifies singular and plural VM routes under workspace runtime', async () => {
+    for (const url of ['/api/vm', '/api/vm/hei/connection', '/api/vms', '/api/vms/internal/hei/status']) {
+        const { req, res } = fixtures({ url, statusCode: 500 })
+        await recordHttpErrorResponse(req, res, JSON.stringify({ error: 'Internal server error' }))
+    }
+
+    expect((records as Array<{ metadata: Record<string, unknown> }>).map(entry => entry.metadata.surface))
+        .toEqual(['workspace_runtime', 'workspace_runtime', 'workspace_runtime', 'workspace_runtime'])
+})
+
 test('uses status fallback for malformed and oversized payloads', async () => {
     for (const payload of ['{not-json', 'x'.repeat(20_001)]) {
         const { req, res } = fixtures({ url: '/api/auth/session?next=%2Fhome', statusCode: 400 })
