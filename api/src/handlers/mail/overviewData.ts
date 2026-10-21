@@ -1,7 +1,7 @@
 import { getMailAccess, rotateMailPasswordForUser } from '#utils/mail/accounts.ts'
 import { listMailRules, scheduleMailRules } from '#utils/mail/filters.ts'
 import type { getMailHealth } from '#utils/mail/health.ts'
-import { getMailboxList, getMessage, listMessagePage } from '#utils/mail/jmap.ts'
+import { getMailboxList, getMessageWithSession, listMessagePageWithSession } from '#utils/mail/jmap.ts'
 import { mailConfig } from '#utils/mail/config.ts'
 import { listAccessibleMailAccounts } from '#utils/mail/accounts.ts'
 import { listRecentRecipients } from '#utils/mail/recentRecipients.ts'
@@ -46,10 +46,12 @@ export async function loadMailboxOverviewData({
         || mailboxData.mailboxes.find(mailbox => mailbox.role === (access.targetUser === 'shared:noreply' ? 'sent' : 'inbox'))?.id
         || mailboxData.mailboxes[0]?.id
         || null
-    const page = selectedMailboxId ? await listMessagePage(repairedAccess.username, repairedAccess.password, selectedMailboxId, query.after) : { messages: [], nextCursor: null }
+    const page = selectedMailboxId
+        ? await listMessagePageWithSession(repairedAccess.username, repairedAccess.password, mailboxData.session, mailboxData.accountId, selectedMailboxId, query.after)
+        : { messages: [], nextCursor: null }
     const messages = page.messages
     const selectedMessage = query.messageId
-        ? await getMessage(repairedAccess.username, repairedAccess.password, query.messageId)
+        ? await getMessageWithSession(repairedAccess.username, repairedAccess.password, mailboxData.session, mailboxData.accountId, query.messageId)
         : null
     const filters = await listMailRules(repairedAccess.targetUser)
 

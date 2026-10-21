@@ -3,11 +3,15 @@ import { getMailSession, jmapCall } from './jmapSession.ts'
 
 export async function getMailboxList(username: string, password: string) {
     const { session, accountId } = await getMailSession(username, password)
+    const mailboxes = await getMailboxListWithSession(username, password, session, accountId)
+    return { accountId, session, mailboxes }
+}
+
+export async function getMailboxListWithSession(username: string, password: string, session: Awaited<ReturnType<typeof getMailSession>>['session'], accountId: string) {
     const result = await jmapCall<{ list?: MailboxRecord[] }>(username, password, session, [
         ['Mailbox/get', { accountId, properties: ['id', 'name', 'role', 'parentId', 'sortOrder', 'totalEmails', 'unreadEmails', 'myRights'] }, 'mailboxes']
     ])
-
-    return { accountId, session, mailboxes: (result.list || []).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0) || a.name.localeCompare(b.name)) }
+    return (result.list || []).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0) || a.name.localeCompare(b.name))
 }
 
 export async function createMailbox(username: string, password: string, name: string, parentId?: string | null) {

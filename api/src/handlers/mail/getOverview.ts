@@ -9,9 +9,10 @@ import { addressForUser } from '#utils/mail/helpers.ts'
 import { withDatabaseRetryBudget } from '#db'
 import { loadMailboxOverviewData, settingsFor } from './overviewData.ts'
 
-const MAIL_OVERVIEW_TIMEOUT_MS = Number(process.env.MAIL_OVERVIEW_TIMEOUT_MS || 6500)
+const MAIL_OVERVIEW_TIMEOUT_MS = Number(process.env.MAIL_OVERVIEW_TIMEOUT_MS || 12_000)
 
 export default async function getMailOverview(req: FastifyRequest, res: FastifyReply) {
+    const requestStartedAt = Date.now()
     const { valid, id } = await tokenWrapper(req, res)
     if (!valid || !id) {
         return res.status(401).send({ error: 'Unauthorized.' })
@@ -20,7 +21,9 @@ export default async function getMailOverview(req: FastifyRequest, res: FastifyR
     try {
         return await withDatabaseRetryBudget(8500, async () => {
             const query = req.query as { mailboxUser?: string, mailboxId?: string, messageId?: string, after?: string, unreadOnly?: string }
+            const accessStartedAt = Date.now()
             const access = await getMailAccess(id, query.mailboxUser)
+            req.log.info({ durationMs: Date.now() - accessStartedAt }, 'Mail overview access loaded')
             if (query.after) {
                 if (typeof query.after !== 'string' || query.after.length > 1024 || typeof query.mailboxId !== 'string') {
                     return res.status(400).send({ error: 'A mailbox and valid message cursor are required.' })
@@ -34,10 +37,8 @@ export default async function getMailOverview(req: FastifyRequest, res: FastifyR
                     .send({ accessibleAccounts: await loadAccountCounts(id, await accessibleAccountsPromise, access.targetUser) })
             }
             const recentRecipientsPromise = withDeadline(listRecentRecipients(id, access.targetUser), 2500, []).catch(() => [])
-            const healthPromise = withDeadline(getMailHealth(), 3500, null).catch(error => {
-                req.log.warn({ error }, 'Failed to collect mail health checks')
-                return null
-            })
+            const health = getCachedMailHealth(req)
+            const overviewStartedAt = Date.now()
             const overviewDataPromise = withDeadline(loadMailboxOverviewData({
                 actorId: id,
                 access,
@@ -47,22 +48,30 @@ export default async function getMailOverview(req: FastifyRequest, res: FastifyR
                 recentRecipients: [],
                 onRepair: error => req.log.warn({ error, userId: access.targetUser }, 'Stored mail credentials failed; rotating mailbox secret'),
                 onRulesError: error => req.log.warn({ error }, 'Failed to apply mail rules'),
-            }), MAIL_OVERVIEW_TIMEOUT_MS, null)
-            const accountCountsPromise = accessibleAccountsPromise.then(accounts => withDeadline(
-                loadAccountCounts(id, accounts, access.targetUser),
-                1000,
-                accounts.map(account => ({ ...account, unreadCount: null })),
-            )).catch(() => [])
-            const [accessibleAccounts, recentRecipients, health, overviewData, accountCounts] = await Promise.all([
+            }), MAIL_OVERVIEW_TIMEOUT_MS, null).then(data => {
+                req.log.info({ durationMs: Date.now() - overviewStartedAt }, 'Mail overview mailbox data loaded')
+                return data
+            })
+            const accountCountsPromise = Promise.all([accessibleAccountsPromise, overviewDataPromise]).then(([accounts, data]) => {
+                if (!data) return accounts.map(account => ({ ...account, unreadCount: null }))
+                const selectedInboxUnreadCount = data.mailboxes
+                    .filter(mailbox => mailbox.role === 'inbox')
+                    .reduce((sum, mailbox) => sum + (mailbox.unreadEmails || 0), 0)
+                return withDeadline(
+                    loadAccountCounts(id, accounts, access.targetUser, selectedInboxUnreadCount),
+                    1000,
+                    accounts.map(account => ({ ...account, unreadCount: null })),
+                )
+            }).catch(() => [])
+            const [accessibleAccounts, recentRecipients, overviewData, accountCounts] = await Promise.all([
                 accessibleAccountsPromise,
                 recentRecipientsPromise,
-                healthPromise,
                 overviewDataPromise,
                 accountCountsPromise,
             ])
 
             if (!overviewData) {
-                req.log.warn({ userId: access.targetUser, timeoutMs: MAIL_OVERVIEW_TIMEOUT_MS }, 'Mail overview timed out; returning degraded payload')
+                req.log.warn({ timeoutMs: MAIL_OVERVIEW_TIMEOUT_MS, durationMs: Date.now() - requestStartedAt }, 'Mail overview timed out; returning degraded payload')
                 return res
                     .header('Cache-Control', 'no-store, private, max-age=0, must-revalidate')
                     .send(degradedMailOverview({
@@ -78,9 +87,10 @@ export default async function getMailOverview(req: FastifyRequest, res: FastifyR
                     }))
             }
 
-            overviewData.accessibleAccounts = accountCounts
             overviewData.recentRecipients = recentRecipients
             overviewData.health = health
+            overviewData.accessibleAccounts = accountCounts
+            req.log.info({ durationMs: Date.now() - requestStartedAt }, 'Mail overview response ready')
             return res
                 .header('Cache-Control', 'no-store, private, max-age=0, must-revalidate')
                 .send(overviewData)
@@ -179,19 +189,48 @@ function isMailSetupUnavailable(error: unknown) {
 }
 
 const unreadCache = new Map<string, { at: number, count: number }>()
-async function loadAccountCounts(actorId: string, accounts: Awaited<ReturnType<typeof listAccessibleMailAccounts>>, selected: string) {
+const unreadInFlight = new Map<string, Promise<number | null>>()
+async function loadAccountCounts(actorId: string, accounts: Awaited<ReturnType<typeof listAccessibleMailAccounts>>, selected: string, selectedUnreadCount?: number) {
     return Promise.all(accounts.map(async account => {
         if (!account.shared && account.id !== actorId && account.id !== selected) return { ...account, unreadCount: null }
+        if (account.id === selected && selectedUnreadCount !== undefined) {
+            unreadCache.set(account.id, { at: Date.now(), count: selectedUnreadCount })
+            return { ...account, unreadCount: selectedUnreadCount }
+        }
         const cached = unreadCache.get(account.id)
-        if (cached && Date.now() - cached.at < 10_000) return { ...account, unreadCount: cached.count }
-        const unreadCount = await withDeadline((async () => {
-            const access = await getMailAccess(actorId, account.id)
-            const { mailboxes } = await getMailboxList(access.username, access.password)
-            const count = mailboxes.filter(mailbox => mailbox.role === 'inbox').reduce((sum, mailbox) => sum + (mailbox.unreadEmails || 0), 0)
-            if (unreadCache.size > 500) unreadCache.clear()
-            unreadCache.set(account.id, { at: Date.now(), count })
-            return count
-        })().catch(() => null), 3000, null)
+        if (cached && Date.now() - cached.at < 60_000) return { ...account, unreadCount: cached.count }
+        let work = unreadInFlight.get(account.id)
+        if (!work) {
+            work = (async () => {
+                const access = await getMailAccess(actorId, account.id)
+                const { mailboxes } = await getMailboxList(access.username, access.password)
+                const count = mailboxes.filter(mailbox => mailbox.role === 'inbox').reduce((sum, mailbox) => sum + (mailbox.unreadEmails || 0), 0)
+                if (unreadCache.size > 500) unreadCache.clear()
+                unreadCache.set(account.id, { at: Date.now(), count })
+                return count
+            })().catch(() => null).finally(() => unreadInFlight.delete(account.id))
+            unreadInFlight.set(account.id, work)
+        }
+        const unreadCount = await withDeadline(work, 3000, null)
         return { ...account, unreadCount }
     }))
+}
+
+type MailHealthSnapshot = Awaited<ReturnType<typeof getMailHealth>>
+let mailHealthCache: { at: number, value: MailHealthSnapshot } | null = null
+let mailHealthInFlight: Promise<void> | null = null
+function getCachedMailHealth(req: FastifyRequest): MailHealthSnapshot | null {
+    if (!mailHealthCache || Date.now() - mailHealthCache.at >= 60_000) {
+        if (!mailHealthInFlight) {
+            mailHealthInFlight = getMailHealth()
+                .then(value => {
+                    mailHealthCache = { at: Date.now(), value }
+                })
+                .catch(error => {
+                    req.log.warn({ error }, 'Failed to collect mail health checks')
+                })
+                .finally(() => { mailHealthInFlight = null })
+        }
+    }
+    return mailHealthCache?.value ?? null
 }
