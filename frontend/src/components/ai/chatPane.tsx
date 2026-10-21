@@ -54,7 +54,7 @@ export default function ChatPane({ activeConversation, clients, composer, isConn
         ? 'Reviewer mode: you can inspect this workspace but cannot send prompts.'
         : !activeConversation ? provider === 'chatgpt' ? 'Preparing conversation…' : 'Starting a chat…'
             : awaitingResponse && provider !== 'chatgpt'
-                ? 'Waiting for the current agent turn to finish.'
+                ? 'Hanasand is working on your reply.'
                 : !hasReadyModel ? unavailableModelReason : null
     const lastMessage = activeConversation?.messages.at(-1)
     const lastMessageKey = `${lastMessage?.id || 'empty'}:${lastMessage?.content.length || 0}:${lastMessage?.pending ? 'pending' : 'done'}`
