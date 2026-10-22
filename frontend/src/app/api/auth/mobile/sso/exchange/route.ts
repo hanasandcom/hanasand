@@ -9,9 +9,13 @@ export async function POST(req: NextRequest) {
         body: await req.text(),
         cache: 'no-store',
     }).catch(() => null)
-    if (!upstream) return NextResponse.json({ error: 'Authentication service is unavailable.' }, { status: 502 })
+    if (!upstream) return noStore(NextResponse.json({ error: 'Authentication service is unavailable.' }, { status: 502 }))
     const data = await upstream.json().catch(() => null)
     const response = NextResponse.json(data || { error: 'SSO sign-in failed.' }, { status: upstream.status })
+    return noStore(response)
+}
+
+function noStore(response: NextResponse) {
     response.headers.set('Cache-Control', 'no-store')
     response.headers.set('Pragma', 'no-cache')
     response.headers.set('Referrer-Policy', 'no-referrer')

@@ -6,7 +6,7 @@ import { identityApiUrl } from '@/utils/auth/authApiUrl'
 export async function GET(req: NextRequest) {
     const codeChallenge = req.nextUrl.searchParams.get('code_challenge')
     if (!codeChallenge || !/^[A-Za-z0-9_-]{43}$/.test(codeChallenge)) {
-        return NextResponse.json({ error: 'Mobile sign-in could not be started.' }, { status: 400 })
+        return noStore(NextResponse.json({ error: 'Mobile sign-in could not be started.' }, { status: 400 }))
     }
 
     const binding = randomBytes(32).toString('base64url')
@@ -17,11 +17,11 @@ export async function GET(req: NextRequest) {
         cache: 'no-store',
         redirect: 'error',
     }).catch(() => null)
-    if (!upstream) return NextResponse.json({ error: 'Authentication service is unavailable.' }, { status: 502 })
+    if (!upstream) return noStore(NextResponse.json({ error: 'Authentication service is unavailable.' }, { status: 502 }))
 
     const data = await upstream.json().catch(() => null)
     if (!upstream.ok || typeof data?.url !== 'string' || !safeProviderRedirect(data.url)) {
-        return NextResponse.json({ error: data?.error || 'SSO login is unavailable.' }, { status: upstream.status || 502 })
+        return noStore(NextResponse.json({ error: data?.error || 'SSO login is unavailable.' }, { status: upstream.status || 502 }))
     }
 
     const response = NextResponse.redirect(data.url, 303)
@@ -33,6 +33,10 @@ export async function GET(req: NextRequest) {
         path: '/',
         maxAge: 600,
     })
+    return noStore(response)
+}
+
+function noStore(response: NextResponse) {
     response.headers.set('Cache-Control', 'no-store')
     response.headers.set('Referrer-Policy', 'no-referrer')
     return response
