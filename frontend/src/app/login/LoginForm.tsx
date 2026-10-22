@@ -1,9 +1,7 @@
-import type { FormEvent, RefObject } from 'react'
+import { createElement, useEffect, useRef, type FormEvent, type RefObject } from 'react'
 import { Fingerprint, KeyRound } from 'lucide-react'
-import AuthField from '@/components/login/authField'
-import AuthSubmitButton from '@/components/login/authSubmitButton'
 import SocialSignIn from '@/components/login/socialSignIn'
-import { authGhostButtonClass, authInputClass, authPrimaryButtonClass } from './loginMode'
+import { authGhostButtonClass } from './loginMode'
 
 type Props = {
     redirectPath: string
@@ -19,34 +17,33 @@ type Props = {
 }
 
 export default function LoginForm({ redirectPath, initialUsername, usernameRef, hydrated, busy, socialError, ssoHref, onSubmit, onChangeMode, onPasskeyLogin }: Props) {
+    const sharedFormRef = useRef<HTMLElement | null>(null)
+
+    useEffect(() => {
+        void customElements.whenDefined('hanasand-login-form').then(() => {
+            const input = sharedFormRef.current?.querySelector<HTMLInputElement>('input[name="username"]')
+            if (input) usernameRef.current = input
+        })
+    }, [usernameRef])
+
+    function submit(event: FormEvent<HTMLFormElement>) {
+        const sharedForm = sharedFormRef.current as (HTMLElement & { setBusy(busy: boolean): void }) | null
+        sharedForm?.setBusy(true)
+        onSubmit(event)
+    }
+
     return (
         <div className='grid gap-3'>
-            <form className='flex w-full flex-col gap-4 self-center' action='/api/auth/login' onSubmit={onSubmit} method='post'>
+            <form className='flex w-full flex-col gap-4 self-center' action='/api/auth/login' onSubmit={submit} method='post'>
                 <input type='hidden' name='redirectPath' value={redirectPath} />
-                <AuthField
-                    id='login-username'
-                    label='Username'
-                    ref={usernameRef}
-                    type='text'
-                    name='username'
-                    placeholder='Username'
-                    defaultValue={initialUsername}
-                    className={authInputClass}
-                    autoComplete='username'
-                    required
-                />
-                <AuthField
-                    id='login-password'
-                    label='Password'
-                    type='password'
-                    name='password'
-                    placeholder='Enter your password'
-                    className={authInputClass}
-                    autoComplete='current-password'
-                    required
-                />
+                {createElement('hanasand-login-form', {
+                    ref: sharedFormRef,
+                    'identifier-label': 'Username',
+                    'identifier-placeholder': 'Username',
+                    'identifier-value': initialUsername || '',
+                    'submit-label': 'Log in',
+                })}
                 <div className='mt-1 flex items-center gap-3'>
-                    <AuthSubmitButton busy={busy} disabled={!hydrated || busy} pendingLabel='Logging in' className={`${authPrimaryButtonClass} min-w-24`}>Log in</AuthSubmitButton>
                     <button type='button' disabled={!hydrated} onClick={() => onChangeMode('signup')} className={authGhostButtonClass}>Sign up</button>
                     <button
                         type='button'

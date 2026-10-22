@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import Script from 'next/script'
 import { usePathname, useRouter } from 'next/navigation'
 import ErrorNotice from '@/components/error/errorNotice'
 import Notify from '@/components/notify/notify'
@@ -73,11 +74,12 @@ export default function LoginPage({
 
     return (
         <section className='grid min-h-app-viewport w-full place-items-center bg-ui-canvas px-4 py-10 text-ui-text md:px-10'>
-            <div className='grid w-full max-w-sm gap-5'>
+            <Script src='https://api.hanasand.com/api/auth/login-form.js' strategy='afterInteractive' />
+            <div className='grid w-full max-w-md gap-5'>
                 <div className='grid justify-items-center gap-2 pb-3 text-center'>
                     <h1 className='text-[42px] font-semibold leading-none tracking-normal text-ui-primary'>Hanasand</h1>
                 </div>
-                <div className='grid w-full gap-3 rounded-lg border border-ui-border bg-ui-panel p-4 shadow-lg'>
+                <div className='grid w-full gap-3 rounded-2xl border border-ui-border bg-ui-panel p-6 shadow-2xl shadow-black/20 sm:p-8'>
                     {expired && path ? (
                         <ErrorNotice
                             variant='info'
