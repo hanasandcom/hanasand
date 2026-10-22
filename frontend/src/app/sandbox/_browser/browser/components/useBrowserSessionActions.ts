@@ -11,7 +11,7 @@ type BrowserSessionActionsOptions = {
 }
 
 export function useBrowserSessionActions(options: BrowserSessionActionsOptions) {
-    const { runIsActive, selectedProfile, toolCaptures, normalizedTarget, activeSandboxTab, setActiveSandboxTab, setReportOpen, socketRef, setSessionState, setSocketState, setStreamUrl, setStreamHasFrame, setCaptures, setRunBlocker, setActiveImage, setStreamStats, setRunTiming, setRunStartedAt, setActiveUrl, setCapacity, pushEvent, quickRun, stoppedRunRef, stoppedEarlyRef, runStartedAt, replacementRef, setShowStoredResult } = options
+    const { runIsActive, selectedProfile, toolCaptures, normalizedTarget, setActiveSandboxTab, setReportOpen, socketRef, setSessionState, setSocketState, setStreamUrl, setStreamHasFrame, setCaptures, setRunBlocker, setActiveImage, setStreamStats, setRunTiming, setRunStartedAt, setActiveUrl, setCapacity, pushEvent, quickRun, stoppedRunRef, stoppedEarlyRef, runStartedAt, replacementRef, setShowStoredResult } = options
     const selectSandboxTab = useCallback((tabId: string) => {
         const tool = selectedProfile.tools.find(item => item.id === tabId)
         if (tool && providerTabStatus(selectToolCapture(toolCaptures, tool, normalizedTarget), selectToolCapture(toolCaptures, tool, normalizedTarget)?.toolAnalysis) === 'no obfuscated code') return
