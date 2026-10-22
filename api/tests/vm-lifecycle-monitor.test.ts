@@ -11,7 +11,7 @@ mock.module('#db', () => ({
     withTransaction: async (callback: (query: typeof fakeDatabaseQuery) => unknown) => callback(fakeDatabaseQuery),
 }))
 mock.module('../src/utils/monitoringIssues.ts', () => ({ recordMonitoringOutcome: async () => {} }))
-const { exerciseDisposableInstance, runVmLifecycleCheck } = await import('../src/utils/vms/lifecycleMonitor.ts')
+const { exerciseDisposableInstance, runVmLifecycleCheck, vmLifecycleMonitorIsConfigured } = await import('../src/utils/vms/lifecycleMonitor.ts')
 
 const safeSettings = {
     enabled: true,
@@ -20,6 +20,24 @@ const safeSettings = {
     imageServer: 'https://images.example.test/releases',
     imageAlias: '24.04',
 }
+
+test('lifecycle monitor requires explicit isolated staging configuration', () => {
+    expect(vmLifecycleMonitorIsConfigured({})).toBe(false)
+    expect(vmLifecycleMonitorIsConfigured({
+        VM_LIFECYCLE_MONITOR_ENABLED: 'true',
+        VM_LIFECYCLE_MONITOR_TARGET: 'production',
+        VM_LIFECYCLE_MONITOR_SOCKET_PATH: '/run/lxd-prod/unix.socket',
+        VM_LIFECYCLE_MONITOR_IMAGE_SERVER: 'https://images.example.test/releases',
+        VM_LIFECYCLE_MONITOR_IMAGE_ALIAS: '24.04',
+    })).toBe(false)
+    expect(vmLifecycleMonitorIsConfigured({
+        VM_LIFECYCLE_MONITOR_ENABLED: 'true',
+        VM_LIFECYCLE_MONITOR_TARGET: 'isolated-staging',
+        VM_LIFECYCLE_MONITOR_SOCKET_PATH: '/run/lxd-staging/unix.socket',
+        VM_LIFECYCLE_MONITOR_IMAGE_SERVER: 'https://images.example.test/releases',
+        VM_LIFECYCLE_MONITOR_IMAGE_ALIAS: '24.04',
+    })).toBe(true)
+})
 
 type Instance = { name?: string, type?: string, status?: string, config?: Record<string, string> }
 

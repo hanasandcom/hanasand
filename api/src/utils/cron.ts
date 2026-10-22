@@ -15,7 +15,7 @@ import { RULE_STORAGE_ESTIMATE_JOB_ID, runRuleStorageEstimateWorker } from './ev
 import { getBackgroundJobRuntime } from './backgroundJobRuntime.ts'
 import purgeDeletedAccounts, { ACCOUNT_DELETION_PURGE_JOB_ID } from './auth/purgeDeletedAccounts.ts'
 import { maintainVmFailover, VM_FAILOVER_JOB_ID } from './vms/failover.ts'
-import { monitorVmLifecycle, VM_LIFECYCLE_MONITOR_JOB_ID } from './vms/lifecycleMonitor.ts'
+import { monitorVmLifecycle, vmLifecycleMonitorIsConfigured, VM_LIFECYCLE_MONITOR_JOB_ID } from './vms/lifecycleMonitor.ts'
 
 export const HOST_UPDATE_MONITOR_JOB_ID = 'api-host-update-monitor'
 export const WEB_SCAN_JOB_ID = 'api-web-security-scanner'
@@ -52,7 +52,9 @@ const apiMinuteCronRunners: Record<string, () => Promise<unknown> | unknown> = {
 }
 
 export function canRunApiCronJobNow(id: string) {
-    return Boolean(apiMinuteCronRunners[id]) && (id !== 'api-mail-account-provisioning' || Boolean(mailConfig.adminPassword))
+    return Boolean(apiMinuteCronRunners[id])
+        && (id !== 'api-mail-account-provisioning' || Boolean(mailConfig.adminPassword))
+        && (id !== VM_LIFECYCLE_MONITOR_JOB_ID || vmLifecycleMonitorIsConfigured())
 }
 
 export function runApiCronJobNow(id: string, options: { force?: boolean } = {}) {

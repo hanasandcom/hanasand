@@ -92,6 +92,10 @@ function isSafeTarget(settings: MonitorConfig) {
         && Boolean(settings.socketPath && settings.imageServer && settings.imageAlias)
 }
 
+export function vmLifecycleMonitorIsConfigured(env: NodeJS.ProcessEnv = process.env) {
+    return isSafeTarget(vmLifecycleMonitorConfig(env))
+}
+
 export async function exerciseDisposableInstance(settings: MonitorConfig, request: LxdRequest = requestLxdJson) {
     if (!isSafeTarget(settings) || !settings.socketPath || !settings.imageServer || !settings.imageAlias) {
         throw new Error('Lifecycle probes require an explicitly enabled isolated staging LXD target.')

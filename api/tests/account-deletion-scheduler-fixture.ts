@@ -71,6 +71,13 @@ mock.module('../src/utils/vms/collectMetrics.ts', () => ({ default: async () => 
 mock.module('../src/utils/mail/accounts.ts', () => ({ provisionExistingMailAccounts: async () => 0 }))
 mock.module('../src/utils/mail/config.ts', () => ({ mailConfig: { adminPassword: '' } }))
 mock.module('../src/utils/vms/ensureAlwaysRunning.ts', () => ({ default: async () => 0 }))
+mock.module('../src/utils/vms/lifecycleMonitor.ts', () => ({
+    monitorVmLifecycle: async () => null,
+    vmLifecycleMonitorIsConfigured: () => process.env.VM_LIFECYCLE_MONITOR_ENABLED === 'true'
+        && process.env.VM_LIFECYCLE_MONITOR_TARGET === 'isolated-staging'
+        && Boolean(process.env.VM_LIFECYCLE_MONITOR_SOCKET_PATH && process.env.VM_LIFECYCLE_MONITOR_IMAGE_SERVER && process.env.VM_LIFECYCLE_MONITOR_IMAGE_ALIAS),
+    VM_LIFECYCLE_MONITOR_JOB_ID: 'api-vm-lifecycle-monitor',
+}))
 mock.module('../src/utils/automations.ts', () => ({ runDueAutomations: async () => 0 }))
 mock.module('../src/utils/db/backups.ts', () => ({
     DATABASE_BACKUP_JOB_ID: 'api-database-backup',

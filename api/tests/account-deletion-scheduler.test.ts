@@ -96,3 +96,32 @@ test('the minute cron dispatches VM failover maintenance and records worker runt
         lastSuccessAt: expect.any(String),
     })
 })
+
+test('the VM lifecycle monitor cron is unavailable without isolated staging settings', () => {
+    const VM_LIFECYCLE_MONITOR_JOB_ID = 'api-vm-lifecycle-monitor'
+    const keys = [
+        'VM_LIFECYCLE_MONITOR_ENABLED',
+        'VM_LIFECYCLE_MONITOR_TARGET',
+        'VM_LIFECYCLE_MONITOR_SOCKET_PATH',
+        'VM_LIFECYCLE_MONITOR_IMAGE_SERVER',
+        'VM_LIFECYCLE_MONITOR_IMAGE_ALIAS',
+    ] as const
+    const previous = Object.fromEntries(keys.map(key => [key, process.env[key]]))
+    try {
+        keys.forEach(key => { delete process.env[key] })
+        expect(canRunApiCronJobNow(VM_LIFECYCLE_MONITOR_JOB_ID)).toBe(false)
+        process.env.VM_LIFECYCLE_MONITOR_ENABLED = 'true'
+        process.env.VM_LIFECYCLE_MONITOR_TARGET = 'production'
+        process.env.VM_LIFECYCLE_MONITOR_SOCKET_PATH = '/run/lxd-prod/unix.socket'
+        process.env.VM_LIFECYCLE_MONITOR_IMAGE_SERVER = 'https://images.example.test/releases'
+        process.env.VM_LIFECYCLE_MONITOR_IMAGE_ALIAS = '24.04'
+        expect(canRunApiCronJobNow(VM_LIFECYCLE_MONITOR_JOB_ID)).toBe(false)
+        process.env.VM_LIFECYCLE_MONITOR_TARGET = 'isolated-staging'
+        expect(canRunApiCronJobNow(VM_LIFECYCLE_MONITOR_JOB_ID)).toBe(true)
+    } finally {
+        keys.forEach(key => {
+            if (previous[key] === undefined) delete process.env[key]
+            else process.env[key] = previous[key]
+        })
+    }
+})
