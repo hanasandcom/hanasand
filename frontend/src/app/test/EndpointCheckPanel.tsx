@@ -48,7 +48,7 @@ export default function EndpointCheckPanel({
             <div className='grid gap-4'>
                 <h1 className='text-4xl font-semibold tracking-normal md:text-5xl'>Check a service before users do.</h1>
                 <p className='max-w-xl text-base leading-7 text-ui-muted'>
-                    Test how much your endpoint can handle.
+                    Run an owned HTTP endpoint through a measured scenario with latency, failure-rate, logs, and a shareable result link.
                 </p>
             </div>
 

@@ -29,7 +29,7 @@ function renderPanel(overrides: Partial<Parameters<typeof EndpointCheckPanel>[0]
 test('endpoint panel renders endpoint guidance, quota, and form labels', () => {
     const html = renderPanel()
     expect(html).toContain('Check a service before users do.')
-    expect(html).toContain('Test how much your endpoint can handle.')
+    expect(html).toContain('Run an owned HTTP endpoint through a measured scenario with latency, failure-rate, logs, and a shareable result link.')
     expect(html).toContain('Enter the endpoint to check.')
     expect(html).toContain('3 free runs remaining')
     expect(html).toContain('value="https://api.example.com/health"')
