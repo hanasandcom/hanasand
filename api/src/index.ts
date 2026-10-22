@@ -16,7 +16,7 @@ import { startIngestAccessCounterRefresh } from './utils/events/analyzeIngestAcc
 import { startDropRateAlertRefresh } from './utils/events/dropRateAlert.ts'
 import { startDatabaseOverviewRefresh, warmDatabaseOverview } from './utils/db/overview.ts'
 import recordLog from '#utils/logs/recordLog.ts'
-import { startLogsOutboxDelivery } from '#utils/logs/logOutbox.ts'
+import { assertRemoteLogsConfiguration, logsOutboxEnabled, shouldRunLegacyLogProcessing, startLogsOutboxDelivery } from '#utils/logs/logOutbox.ts'
 import { provisionExistingMailAccounts } from '#utils/mail/accounts.ts'
 import { TRUSTED_API_PROXIES } from '#utils/http/publicBoundary.ts'
 import { randomUUID } from 'node:crypto'
@@ -44,6 +44,7 @@ const fastify = Fastify({
 const port = Number(process.env.PORT) || 8081
 const httpWorkerOnly = process.env.API_HTTP_ONLY === '1'
 const deploymentCandidateOnly = process.env.DEPLOYMENT_CANDIDATE_ONLY === '1'
+const runLegacyLogProcessing = shouldRunLegacyLogProcessing()
 fastify.addHook('onRequest', async (req, reply) => {
     if (!recoveryRequestAllowed(req.method, req.url.split('?')[0])) {
         return reply.code(503).header('Retry-After', '30').send({ code: 'recovery_read_only', error: 'Recovery mode: viewing existing cases, alerts and intelligence is available. Changes and new processing are temporarily paused.' })
@@ -89,11 +90,12 @@ process.on('unhandledRejection', reason => {
 
 async function start() {
     try {
+        assertRemoteLogsConfiguration()
         // A cutover candidate must prepare the release schema before it can
         // serve traffic, while API_HTTP_ONLY keeps it from running duplicate
         // production workers beside the active API.
         if ((!httpWorkerOnly || deploymentCandidateOnly)) await ensureSchema()
-        if (!httpWorkerOnly) await ensureLogSearchIndexes()
+        if (!httpWorkerOnly && runLegacyLogProcessing) await ensureLogSearchIndexes()
         if (!httpWorkerOnly && process.env.SKIP_MAIL_PROVISIONING !== '1') {
             await provisionExistingMailAccounts().catch(error => {
                 if (isMailAdminConfigError(error)) {
@@ -114,27 +116,30 @@ async function start() {
             const stopDatabaseOverviewRefresh = startDatabaseOverviewRefresh(error => fastify.log.warn({ error }, 'Failed to refresh cached database overview'))
             fastify.addHook('onClose', async () => { stopDatabaseOverviewRefresh() })
         }
-        if (process.env.AUTH_SERVICE_ONLY !== '1') {
+        if (!runLegacyLogProcessing && process.env.AUTH_SERVICE_ONLY !== '1') {
+            fastify.log.info('Legacy Hanasand log processing is disabled; the Logs service owns log analysis and storage')
+        }
+        if (runLegacyLogProcessing && process.env.AUTH_SERVICE_ONLY !== '1') {
             const stopIngestAccessCounterRefresh = startIngestAccessCounterRefresh(fastify.log)
             fastify.addHook('onClose', async () => { await stopIngestAccessCounterRefresh() })
             const stopDropRateAlertRefresh = startDropRateAlertRefresh(fastify.log)
             fastify.addHook('onClose', async () => { stopDropRateAlertRefresh() })
         }
-        if (!httpWorkerOnly && process.env.AUTH_SERVICE_ONLY !== '1') {
+        if (!httpWorkerOnly && runLegacyLogProcessing && process.env.AUTH_SERVICE_ONLY !== '1') {
             void loadCachedLogMetrics().catch(error => fastify.log.warn({ error }, 'Failed to warm log throughput metrics cache; background refresh will retry'))
             const stopMetricsRefresh = startLogMetricsRefresh()
             fastify.addHook('onClose', async () => { stopMetricsRefresh() })
         }
-        if (process.env.AUTH_SERVICE_ONLY !== '1') {
+        if (runLegacyLogProcessing && process.env.AUTH_SERVICE_ONLY !== '1') {
             void loadCachedMostActiveServices().catch(error => fastify.log.warn({ error }, 'Failed to warm most active services cache; background refresh will retry'))
             const stopMostActiveRefresh = startMostActiveServicesRefresh()
             fastify.addHook('onClose', async () => { stopMostActiveRefresh() })
         }
-        if (!httpWorkerOnly && process.env.AUTH_SERVICE_ONLY !== '1') {
+        if (!httpWorkerOnly && logsOutboxEnabled()) {
             const stopLogsOutbox = startLogsOutboxDelivery(error => fastify.log.error({ error }, 'Logs service outbox delivery failed; it will retry'))
             fastify.addHook('onClose', async () => { stopLogsOutbox() })
         }
-        if (!httpWorkerOnly && process.env.AUTH_SERVICE_ONLY !== '1') {
+        if (!httpWorkerOnly && runLegacyLogProcessing && process.env.AUTH_SERVICE_ONLY !== '1') {
             const stopProcessing = process.env.LOG_CATCHUP_WORKER_DISABLED === '1'
                 ? async () => {}
                 : startLogProcessor(() => withEventDatabase(processStoredLogs), error => fastify.log.error({ error }, 'Event log processing failed; will retry'), undefined, undefined, undefined, STORED_LOG_PROCESSOR_JOB_ID)
@@ -145,10 +150,10 @@ async function start() {
             fastify.addHook('onClose', async () => { await Promise.all([stopProcessing(), stopLiveProcessing(), stopReprocessing()]) })
         }
         if (!httpWorkerOnly) {
-            const stopAnalytics = await startBackgroundAnalytics(fastify.log)
+            const stopAnalytics = await startBackgroundAnalytics(fastify.log, { includeLogAnalytics: runLegacyLogProcessing })
             fastify.addHook('onClose', async () => { stopAnalytics() })
         }
-        if (!httpWorkerOnly && process.env.AUTH_SERVICE_ONLY !== '1') {
+        if (!httpWorkerOnly && runLegacyLogProcessing && process.env.AUTH_SERVICE_ONLY !== '1') {
             const stopLogTuningRefresh = startLogTuningSnapshotRefresh(fastify.log)
             fastify.addHook('onClose', async () => { stopLogTuningRefresh() })
         }

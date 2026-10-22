@@ -2,6 +2,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { DashboardPage } from 'hanasand/dashboard'
 import config from '@/config'
+import { backendTargetBase } from '@/utils/proxy/backendTarget'
 import LogsPageClient from './pageClient'
 import type { Metrics } from './throughputMetrics'
 
@@ -22,7 +23,8 @@ export default async function LogsPage({ searchParams, loadThroughputMetrics = f
     let initialMetrics: Metrics | null = null
     if (loadThroughputMetrics) {
         try {
-            const response = await fetch(`${config.url.api}/logs/metrics/public`, { next: { revalidate: 5 }, signal: AbortSignal.timeout(1500) })
+            const target = backendTargetBase(['logs', 'metrics', 'public'], config.url.api, config.url.ai, process.env.FRONTEND_LOGS_API_URL).url
+            const response = await fetch(`${target.replace(/\/+$/, '')}/logs/metrics/public`, { next: { revalidate: 5 }, signal: AbortSignal.timeout(1500) })
             if (response.ok) initialMetrics = await response.json() as Metrics
         } catch {
             // The dashboard can render while the shared metrics snapshot is being recovered.

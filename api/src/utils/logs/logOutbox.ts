@@ -1,4 +1,9 @@
-export { logsOutboxEnabled } from './logOutboxConfig.ts'
+export {
+    assertRemoteLogsConfiguration,
+    logsOutboxEnabled,
+    logsOutboxRemoteOnly,
+    shouldRunLegacyLogProcessing,
+} from './logOutboxConfig.ts'
 export { ensureLogsOutboxSchema } from './logOutboxSchema.ts'
 export { refreshLogsOrganizationSnapshotBatch } from './logOutboxSnapshots.ts'
 export { enqueueLogsForIndependentService } from './logOutboxProducer.ts'

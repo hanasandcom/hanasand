@@ -18,7 +18,13 @@ import { recordProfileSshKeyUsageFromEvents } from '../sshKeyUsage.ts'
 import { createHash, randomUUID } from 'node:crypto'
 import { eventRow, insertEvents } from './recordLogPersistence.ts'
 import type { LogRecordEntry, PreparedLog } from './recordLogTypes.ts'
-import { enqueueLogsForIndependentService } from './logOutbox.ts'
+import { enqueueLogsForIndependentService, logsOutboxEnabled, logsOutboxRemoteOnly } from './logOutbox.ts'
+
+function requireRemoteLogsOutbox() {
+    if (logsOutboxRemoteOnly() && !logsOutboxEnabled()) {
+        throw new Error('LOGS_OUTBOX_REMOTE_ONLY requires LOGS_OUTBOX_ENABLED=1; refusing to lose application logs.')
+    }
+}
 
 function preserveUnrecognizedFields(entry: LogRecordEntry) {
     const fields = Object.fromEntries(Object.entries(entry).filter(([key]) => !['service', 'host', 'level', 'message', 'metadata', 'sourceEventId', 'timestamp'].includes(key)))
@@ -110,7 +116,12 @@ export default async function recordLog(entry: LogRecordEntry, query: typeof run
         return recordLog(entry, tx)
     })
     const original = { ...preserveUnrecognizedFields(entry), sourceEventId: entry.sourceEventId || randomUUID() }
+    requireRemoteLogsOutbox()
     await enqueueLogsForIndependentService([original], query)
+    // The Logs API and worker own filtering and persistence in remote-only mode.
+    // The Hanasand outbox remains a temporary durable transfer queue until the
+    // production pipeline is verified and historical rows have been migrated.
+    if (logsOutboxRemoteOnly()) return original.sourceEventId
     const values = await prepareLog(original, query)
     if (!values) return
     const row = eventRow(values)!
@@ -125,7 +136,11 @@ export async function recordLogBatch(entries: LogRecordEntry[], query: typeof ru
     const retention = new Map<string, Awaited<ReturnType<typeof loadLogRetentionRules>>>()
     const originals = entries.map(entry => ({ ...preserveUnrecognizedFields(entry),
         service: entry.service ?? process.env.SERVICE_NAME ?? 'hanasand-api', sourceEventId: entry.sourceEventId || randomUUID() }))
+    requireRemoteLogsOutbox()
     await enqueueLogsForIndependentService(originals, query)
+    // Avoid retaining a second processed copy in Hanasand while the durable
+    // transfer outbox moves each batch to the independent Logs database.
+    if (logsOutboxRemoteOnly()) return
     for (const entry of await analyzeRoutineGroupBatch(await analyzePostgresBatch(await analyzeReadinessAuditBatch(originals, query), query), query)) {
         const values = await prepareLog(entry, query, retention)
         const row = eventRow(values)

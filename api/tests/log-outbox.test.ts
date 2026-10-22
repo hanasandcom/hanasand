@@ -6,6 +6,7 @@ const previous = {
     ingest: process.env.LOGS_SERVICE_INGEST_TOKEN,
     sync: process.env.LOGS_SERVICE_SYNC_TOKEN,
     platform: process.env.PLATFORM_LOG_ORGANIZATION_ID,
+    remoteOnly: process.env.LOGS_OUTBOX_REMOTE_ONLY,
 }
 
 const statements: Array<{ sql: string; params: unknown[] }> = []
@@ -26,10 +27,13 @@ const query = async (sql: string, params: unknown[] = []) => {
 
 mock.module('#db', () => ({
     default: query,
+    identityQueryOnce: query,
+    isTransientDatabaseError: () => false,
     withTransaction: async (work: (tx: typeof query) => unknown) => work(query),
 }))
 
-const { enqueueLogsForIndependentService, refreshLogsOrganizationSnapshotBatch } = await import('../src/utils/logs/logOutbox.ts')
+const { assertRemoteLogsConfiguration, enqueueLogsForIndependentService, refreshLogsOrganizationSnapshotBatch, shouldRunLegacyLogProcessing } = await import('../src/utils/logs/logOutbox.ts')
+const { default: recordLog, recordLogBatch } = await import('../src/utils/logs/recordLog.ts')
 
 beforeEach(() => {
     statements.length = 0
@@ -38,6 +42,7 @@ beforeEach(() => {
     process.env.LOGS_SERVICE_INGEST_TOKEN = 'i'.repeat(40)
     process.env.LOGS_SERVICE_SYNC_TOKEN = 's'.repeat(40)
     process.env.PLATFORM_LOG_ORGANIZATION_ID = 'platform'
+    delete process.env.LOGS_OUTBOX_REMOTE_ONLY
 })
 
 afterAll(() => {
@@ -45,6 +50,7 @@ afterAll(() => {
         ['LOGS_OUTBOX_ENABLED', previous.enabled], ['LOGS_SERVICE_URL', previous.url],
         ['LOGS_SERVICE_INGEST_TOKEN', previous.ingest], ['LOGS_SERVICE_SYNC_TOKEN', previous.sync],
         ['PLATFORM_LOG_ORGANIZATION_ID', previous.platform],
+        ['LOGS_OUTBOX_REMOTE_ONLY', previous.remoteOnly],
     ] as const
     for (const [key, value] of values) {
         if (value === undefined) delete process.env[key]
@@ -60,10 +66,11 @@ test('keeps an active tenant event scoped to that tenant', async () => {
 
     const eventInsert = statements.find(item => item.sql.includes('INSERT INTO log_delivery_outbox'))
     expect(eventInsert).toBeDefined()
-    const entries = JSON.parse((eventInsert!.params[0] as string)) as Array<{ organization_id: string; payload: { message: string; metadata: Record<string, unknown> } }>
+    const entries = JSON.parse((eventInsert!.params[0] as string)) as Array<{ organization_id: string; payload: { message: string; metadata: Record<string, unknown>; sourceEventId: string } }>
     expect(entries[0]?.organization_id).toBe('tenant-a')
     expect(entries[0]?.payload.metadata.organizationId).toBe('tenant-a')
     expect(entries[0]?.payload.message).toBe('tenant event')
+    expect(entries[0]?.payload.sourceEventId).toBe('stable-event-id')
 })
 
 test('sanitizes events whose tenant scope cannot be resolved instead of attributing their content to the platform', async () => {
@@ -101,4 +108,48 @@ test('periodically snapshots organizations and rules even when no events were em
     expect(statements.some(item => item.sql.includes('FROM organizations, cursor'))).toBe(true)
     expect(statements.some(item => item.sql.includes('INSERT INTO log_organization_sync_outbox'))).toBe(true)
     expect(statements.some(item => item.sql.includes('INSERT INTO log_organization_sync_cursor'))).toBe(true)
+})
+
+test('remote-only mode durably queues application events without retaining a Hanasand events copy', async () => {
+    process.env.LOGS_OUTBOX_REMOTE_ONLY = '1'
+    const one = { service: 'hanasand-api', level: 'info' as const, message: 'single event', sourceEventId: 'single-event' }
+    const batch = { service: 'hanasand-api', level: 'warn' as const, message: 'batch event', sourceEventId: 'batch-event' }
+    const transactionQuery = async (sql: string, params: unknown[] = []) => query(sql, params)
+
+    expect(await recordLog(one, transactionQuery as never)).toBe('single-event')
+    await recordLogBatch([batch], transactionQuery as never)
+
+    expect(statements.filter(item => item.sql.includes('INSERT INTO log_delivery_outbox'))).toHaveLength(2)
+    expect(statements.some(item => item.sql.includes('INSERT INTO events'))).toBe(false)
+})
+
+test('remote-only mode fails closed when the durable Logs outbox is disabled', async () => {
+    process.env.LOGS_OUTBOX_REMOTE_ONLY = '1'
+    process.env.LOGS_OUTBOX_ENABLED = '0'
+    const transactionQuery = async (sql: string, params: unknown[] = []) => query(sql, params)
+
+    await expect(recordLog({ service: 'hanasand-api', level: 'error', message: 'event' }, transactionQuery as never))
+        .rejects.toThrow('requires LOGS_OUTBOX_ENABLED=1')
+    expect(statements).toHaveLength(0)
+})
+
+test('remote-only mode disables legacy processing while the outbox remains available', () => {
+    process.env.LOGS_OUTBOX_ENABLED = '1'
+    expect(shouldRunLegacyLogProcessing()).toBe(true)
+    process.env.LOGS_OUTBOX_REMOTE_ONLY = '1'
+    expect(shouldRunLegacyLogProcessing()).toBe(false)
+    expect(process.env.LOGS_OUTBOX_ENABLED).toBe('1')
+})
+
+test('remote-only mode refuses to start without its durable outbox and credentials', () => {
+    process.env.LOGS_OUTBOX_REMOTE_ONLY = '1'
+    process.env.LOGS_OUTBOX_ENABLED = '0'
+    expect(() => assertRemoteLogsConfiguration()).toThrow('LOGS_OUTBOX_ENABLED=1')
+
+    process.env.LOGS_OUTBOX_ENABLED = '1'
+    delete process.env.LOGS_SERVICE_INGEST_TOKEN
+    expect(() => assertRemoteLogsConfiguration()).toThrow('Logs URL and valid ingest and sync tokens')
+
+    process.env.LOGS_SERVICE_INGEST_TOKEN = 'i'.repeat(40)
+    expect(() => assertRemoteLogsConfiguration()).not.toThrow()
 })
