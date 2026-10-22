@@ -13,7 +13,7 @@ try {
     assert.equal(await page.getByText('Awaiting provider setup', { exact: true }).count(), 1)
     assert.equal(await page.getByRole('button', { name: 'Log in', exact: true }).isEnabled(), true)
     await page.getByRole('button', { name: 'Sign in with passkey', exact: true }).waitFor()
-    await page.getByRole('link', { name: 'Continue with SSO', exact: true }).waitFor()
+    await page.getByRole('link', { name: 'Continue with Google', exact: true }).waitFor()
     await page.screenshot({ path: '/tmp/social-login-desktop.png', fullPage: true })
     await page.route('**/api/auth/social/providers', route => route.fulfill({ json: { providers: [{ provider: 'google', configured: true }, { provider: 'apple', configured: true }] } }))
     await page.reload({ waitUntil: 'domcontentloaded' })
