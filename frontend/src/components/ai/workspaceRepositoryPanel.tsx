@@ -24,7 +24,7 @@ export function WorkspaceRepositoryPanel({ importedRepos, initialShares, activeC
     onImportInputChange: (value: string) => void
     onGitHubTokenChange: (value: string) => void
     onImportRepo: () => void | Promise<void>
-    onCreateRepository: (name: string) => void | Promise<void>
+    onCreateRepository: (name: string) => unknown | Promise<unknown>
     onRevokeRepoCredential: (id: string) => void | Promise<void>
     onRefreshRepo: (id: string) => void | Promise<void>
     onSelectRepoFile: (path: string) => void | Promise<void>

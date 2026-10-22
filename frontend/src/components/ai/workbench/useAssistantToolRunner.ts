@@ -6,7 +6,7 @@ import type { WorkbenchState } from './useWorkbenchState'
 
 export function useAssistantToolRunner(
     state: WorkbenchState,
-    scaffoldStarter: (template: 'nextjs_docker', projectName?: string | null, targetShareId?: string | null) => Promise<void>,
+    scaffoldStarter: (template: 'nextjs_docker', projectName?: string | null, targetShareId?: string | null, projectFiles?: Array<{ path: string, content: string }>) => Promise<{ files: Array<{ path: string, content: string }> } | void>,
     runTerminalCommand: (shareId: string, command: string, timeoutMs?: number) => Promise<{ ok: boolean, output: string }>
 ) {
     const { runToolCallRef, hydrateShareRef, setShareContents, setStatusNotice } = state

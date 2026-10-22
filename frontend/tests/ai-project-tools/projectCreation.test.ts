@@ -7,6 +7,11 @@ function userMessage(content: string): AIConversationMessage[] {
     return [{ id: 'user-1', role: 'user', content, createdAt: '2026-01-01T00:00:00.000Z' }]
 }
 
+const projectFiles = [
+    { path: 'package.json', content: JSON.stringify({ scripts: { build: 'next build', start: 'next start --hostname 0.0.0.0 --port 3000' }, dependencies: { next: '16.2.3', react: '19.2.5', 'react-dom': '19.2.5' } }) },
+    { path: 'app/page.tsx', content: 'export default function Page() { return <main>Hello</main> }' },
+]
+
 test('executes only direct Next.js app creation requests when the model omitted tool tags', () => {
     const conversation = (content: string, workspaceId: string | null = null, shareIds: string[] = []) => ({
         messages: userMessage(content), workspaceId, shareIds,
@@ -21,7 +26,7 @@ test('executes only direct Next.js app creation requests when the model omitted 
         .toEqual([{ action: 'scaffold_nextjs_docker' }])
 })
 
-test('creates the repository and requests an Ubuntu VM with Node.js and Docker', async () => {
+test('creates the repository and runs a Next.js app in an Ubuntu VM', async () => {
     const scaffoldCalls: unknown[][] = []
     const vmCalls: unknown[] = []
     const statusCalls: string[] = []
@@ -33,26 +38,32 @@ test('creates the repository and requests an Ubuntu VM with Node.js and Docker',
     }, { action: 'create_project' }, {
         hydrateShare: async () => null,
         setShareContents: (() => {}) as React.Dispatch<React.SetStateAction<Record<string, string>>>,
-        scaffoldStarter: async (...args) => { scaffoldCalls.push(args) },
+        scaffoldStarter: async (...args) => {
+            scaffoldCalls.push(args)
+            return { files: projectFiles }
+        },
         runTerminalCommand: async () => ({ ok: true, output: '' }),
         createVm: async (request) => {
             vmCalls.push(request)
             return { status: 201, message: 'Created VM demo-app.' }
         },
         setStatusNotice: (message) => statusCalls.push(message),
+        getProjectStatus: async () => ({ status: 'running' }),
+        getProjectPreview: async () => 'port-demo-app.hanasand.com',
     })
 
     expect(result?.ok).toBe(true)
-    expect(scaffoldCalls).toEqual([['nextjs_docker', 'Demo App', null]])
+    expect(scaffoldCalls).toEqual([['nextjs_docker', 'Demo App', null, undefined]])
     expect(vmCalls).toEqual([{
         name: 'demo-app',
         os: 'ubuntu-24.04',
-        resources: { cpu: '1', memory: '2GiB', disk: '10GiB' },
-        services: ['nodejs', 'docker'],
+        resources: { cpu: '2', memory: '4GiB', disk: '20GiB' },
+        services: ['nodejs'],
+        project_files: projectFiles,
     }])
-    expect(statusCalls).toEqual(['Provisioning demo-app with Node.js and Docker...'])
-    expect(result?.message).toContain('installing Node.js and Docker in the background')
-    expect(result?.message).toContain('repository files are not copied to the VM yet')
+    expect(statusCalls).toEqual(['Creating demo-app, installing dependencies, building the app, and starting the preview...'])
+    expect(result?.message).toContain('confirmed the app responds on the VM')
+    expect(result?.message).toContain('https://port-demo-app.hanasand.com')
 })
 
 test('does not report a pre-existing VM as newly provisioned', async () => {
@@ -64,7 +75,7 @@ test('does not report a pre-existing VM as newly provisioned', async () => {
     }, { action: 'create_project' }, {
         hydrateShare: async () => null,
         setShareContents: (() => {}) as React.Dispatch<React.SetStateAction<Record<string, string>>>,
-        scaffoldStarter: async () => {},
+        scaffoldStarter: async () => ({ files: projectFiles }),
         runTerminalCommand: async () => ({ ok: true, output: '' }),
         createVm: async () => ({ status: 409, message: 'VM already exists.' }),
         setStatusNotice: () => {},
@@ -84,7 +95,7 @@ test('reports unsupported terminal commands as failed checks', async () => {
     }, { action: 'run_terminal_command', command: 'npm install' }, {
         hydrateShare: async () => null,
         setShareContents: (() => {}) as React.Dispatch<React.SetStateAction<Record<string, string>>>,
-        scaffoldStarter: async () => {},
+        scaffoldStarter: async () => ({ files: projectFiles }),
         runTerminalCommand: async () => ({ ok: true, output: 'npm: command is not available in this browser terminal' }),
         createVm: async () => ({ status: 201, message: 'Created VM demo-app.' }),
         setStatusNotice: () => {},
@@ -103,7 +114,7 @@ test('reports VM failures without claiming the VM is ready', async () => {
     }, { action: 'create_project' }, {
         hydrateShare: async () => null,
         setShareContents: (() => {}) as React.Dispatch<React.SetStateAction<Record<string, string>>>,
-        scaffoldStarter: async () => {},
+        scaffoldStarter: async () => ({ files: projectFiles }),
         runTerminalCommand: async () => ({ ok: true, output: '' }),
         createVm: async () => ({ status: 503, message: 'VM service unavailable.' }),
         setStatusNotice: () => {},

@@ -14,4 +14,5 @@ export type AiToolCall = {
     command?: string
     timeoutMs?: number
     captureScreenshot?: boolean
+    projectFiles?: Array<{ path: string, content: string }>
 }

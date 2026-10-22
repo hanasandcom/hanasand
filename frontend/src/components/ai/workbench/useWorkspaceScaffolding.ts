@@ -12,7 +12,7 @@ export function useWorkspaceScaffolding(
     patchConversation: (id: string, patch: Partial<AIConversation>) => Promise<void>
 ) {
     const { setShares, resetShareWorkspaceCache, setStatusNotice } = state
-    return useCallback(async (template: 'nextjs_docker', projectName?: string | null, targetShareId?: string | null) => {
+    return useCallback(async (template: 'nextjs_docker', projectName?: string | null, targetShareId?: string | null, projectFiles?: Array<{ path: string, content: string }>) => {
         if (!activeConversation) return
         if (template !== 'nextjs_docker') {
             setStatusNotice(`Unsupported starter template: ${template}`)
@@ -32,6 +32,7 @@ export function useWorkspaceScaffolding(
                 shareId: targetShareId || (activeConversation.workspaceKind === 'share' ? activeConversation.workspaceId : null),
                 token,
                 userId,
+                projectFiles,
             })
             setShares((prev) => {
                 const existing = prev.find((share) => share.id === scaffold.rootId)
@@ -69,6 +70,7 @@ export function useWorkspaceScaffolding(
                 }),
             })
             setStatusNotice(`Next.js + Docker workspace ready: ${scaffold.rootName}. Created ${scaffold.fileCount} files.`)
+            return scaffold
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Failed to scaffold the Next.js workspace.'
             setStatusNotice(message)

@@ -1,6 +1,7 @@
 import type { VmProvisionOptions } from './provisionOnHost.ts'
 import { validateVmLoginName } from './vmLoginUserData.ts'
 import { normalizeUbuntuAptPackages } from './ubuntuAptPackages.ts'
+import { normalizeNextjsProjectFiles } from './nextjsProject.ts'
 
 const setupStatePath = '/var/lib/hanasand-vm-setup/status'
 
@@ -14,7 +15,22 @@ export function vmSetupUserData(name: string, options: VmProvisionOptions) {
     const website = options.websiteHtml ? Buffer.from(options.websiteHtml).toString('base64') : ''
     const memoryGb = Number.parseInt(options.resources?.memory || '2', 10)
     const minecraftMemoryGb = Math.max(1, Math.floor(memoryGb * 0.75))
-    const script = createSetupScript(name, services, options.minecraftServerType || 'PAPER', website, minecraftMemoryGb, aptPackages)
+    const normalizedNextjsFiles = options.nextjsProjectFiles === undefined
+        ? []
+        : normalizeNextjsProjectFiles(options.nextjsProjectFiles)
+    if (!normalizedNextjsFiles || (normalizedNextjsFiles.length > 0 && !services.includes('nodejs'))) {
+        throw new Error('Next.js projects require a valid bounded project manifest and the Node.js service.')
+    }
+    const nextjsFiles = normalizedNextjsFiles
+    const nextjs = nextjsFiles.length ? nextjsProjectSetup(name) : ''
+    const projectFiles = nextjsFiles.map(file => ({
+        path: `/home/${name}/project/${file.path}`,
+        permissions: '0644',
+        owner: `${name}:${name}`,
+        encoding: 'b64',
+        content: Buffer.from(file.content, 'utf8').toString('base64'),
+    }))
+    const script = createSetupScript(name, services, options.minecraftServerType || 'PAPER', website, minecraftMemoryGb, aptPackages, nextjs)
     const config = {
         hostname: name,
         manage_etc_hosts: true,
@@ -24,7 +40,12 @@ export function vmSetupUserData(name: string, options: VmProvisionOptions) {
             permissions: '0755',
             owner: 'root:root',
             content: script,
-        }],
+        }, ...(projectFiles.length ? [{
+            path: '/etc/systemd/system/hanasand-nextjs.service',
+            permissions: '0644',
+            owner: 'root:root',
+            content: nextjsService(name),
+        }, ...projectFiles] : [])],
         runcmd: [
             ['sh', '-lc', `grep -Eq "^127\\.0\\.1\\.1[[:space:]]+.*[[:space:]]${name}([[:space:]]|$)|^127\\.0\\.1\\.1[[:space:]]+${name}([[:space:]]|$)" /etc/hosts || printf "127.0.1.1 ${name}\\n" >> /etc/hosts`],
             ['/usr/local/sbin/hanasand-vm-setup'],
@@ -38,7 +59,7 @@ function yamlObject(value: Record<string, unknown>) {
     return JSON.stringify(value, null, 2)
 }
 
-function createSetupScript(name: string, services: string[], minecraftType: string, websiteBase64: string, minecraftMemoryGb: number, customAptPackages: string[]) {
+function createSetupScript(name: string, services: string[], minecraftType: string, websiteBase64: string, minecraftMemoryGb: number, customAptPackages: string[], nextjs: string) {
     const selected = JSON.stringify(services)
     const selectedBase64 = Buffer.from(selected).toString('base64')
     const minecraft = services.includes('minecraft-java')
@@ -158,8 +179,38 @@ if printf '%s' "$services" | grep -q '"website"'; then
   curl -fsS http://127.0.0.1/ >/dev/null
 fi
 ${minecraft}
-write_state Running 'Setup complete'
+${nextjs}
+${nextjs ? 'write_state Running \'Next.js app built and serving on port 3000\'' : 'write_state Running \'Setup complete\''}
 `
+}
+
+function nextjsProjectSetup(name: string) {
+    return `set_stage 'Installing Next.js project dependencies'
+project_dir='/home/${name}/project'
+install -d -o '${name}' -g '${name}' "$project_dir"
+chown -R '${name}:${name}' "$project_dir"
+if ! runuser --user '${name}' -- bash -lc 'cd /home/${name}/project && /usr/bin/npm install --ignore-scripts --no-audit --no-fund' > /var/log/hanasand-nextjs-install.log 2>&1; then
+  tail -n 20 /var/log/hanasand-nextjs-install.log >&2 || true
+  false
+fi
+set_stage 'Building Next.js application'
+if ! runuser --user '${name}' -- bash -lc 'cd /home/${name}/project && /usr/bin/npm run build' > /var/log/hanasand-nextjs-build.log 2>&1; then
+  tail -n 20 /var/log/hanasand-nextjs-build.log >&2 || true
+  false
+fi
+set_stage 'Starting Next.js application'
+systemctl daemon-reload
+systemctl enable --now hanasand-nextjs.service
+for attempt in {1..60}; do
+  if curl -fsS -o /dev/null http://127.0.0.1:3000/; then break; fi
+  sleep 2
+done
+curl -fsS -o /dev/null http://127.0.0.1:3000/
+`
+}
+
+function nextjsService(name: string) {
+    return `[Unit]\nDescription=Hanasand Next.js project\nAfter=network-online.target\nWants=network-online.target\n\n[Service]\nType=simple\nUser=${name}\nWorkingDirectory=/home/${name}/project\nEnvironment=NODE_ENV=production\nEnvironment=HOSTNAME=0.0.0.0\nEnvironment=PORT=3000\nExecStart=/usr/bin/npm run start\nRestart=on-failure\nRestartSec=5\n\n[Install]\nWantedBy=multi-user.target\n`
 }
 
 /* eslint-disable @stylistic/quotes -- generated bash keeps its shell quoting inside template literals. */

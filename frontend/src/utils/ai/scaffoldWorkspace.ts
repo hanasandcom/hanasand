@@ -9,6 +9,7 @@ type ScaffoldNextjsDockerWorkspaceProps = {
     shareId?: string | null
     token: string
     userId: string
+    projectFiles?: Array<{ path: string, content: string }>
 }
 
 export type ScaffoldedWorkspace = {
@@ -17,6 +18,7 @@ export type ScaffoldedWorkspace = {
     rootPath: string
     selectedFilePath: string
     fileCount: number
+    files: Array<{ path: string, content: string }>
 }
 
 export async function scaffoldNextjsDockerWorkspace({
@@ -24,8 +26,21 @@ export async function scaffoldNextjsDockerWorkspace({
     shareId,
     token,
     userId,
+    projectFiles,
 }: ScaffoldNextjsDockerWorkspaceProps): Promise<ScaffoldedWorkspace> {
     const template = buildNextjsDockerTemplate(projectName)
+    if (projectFiles?.length) {
+        const overrides = new Map(projectFiles.map((file) => [file.path, file.content]))
+        const files = template.files.map((file) => ({ ...file, content: overrides.get(file.path) ?? file.content }))
+        const knownPaths = new Set(files.map((file) => file.path))
+        for (const file of projectFiles) {
+            if (!knownPaths.has(file.path)) {
+                files.push(file)
+                knownPaths.add(file.path)
+            }
+        }
+        template.files = files
+    }
     const rootId = shareId || randomId(12)
 
     await ensureWorkspaceRoot({
@@ -43,5 +58,6 @@ export async function scaffoldNextjsDockerWorkspace({
         rootPath: template.rootPath,
         selectedFilePath: 'README.md',
         fileCount: template.files.length,
+        files: template.files,
     }
 }
