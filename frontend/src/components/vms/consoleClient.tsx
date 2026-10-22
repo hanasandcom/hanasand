@@ -1,10 +1,11 @@
 'use client'
 
 import Link from 'next/link'
-import { AlertCircle, CheckCircle2, LoaderCircle, Maximize2, Minimize2, RefreshCw } from 'lucide-react'
+import { AlertCircle, CheckCircle2, LoaderCircle, Maximize2, Menu, Minimize2, RefreshCw } from 'lucide-react'
 import { useConsoleViewport } from './useConsoleViewport'
 import { useVmConsoleSession } from './useVmConsoleSession'
 import VMSudoPassword from './vmSudoPassword'
+import VMConnectLocally from './vmConnectLocally'
 
 type VmConsoleProps = {
     name?: string
@@ -34,7 +35,17 @@ export default function VmConsole({ name, host, onHostChange }: VmConsoleProps) 
                     </p>
                 </div>
                 <div className='flex flex-wrap items-center gap-2'>
-                    {name && <VMSudoPassword vmName={name} compact />}
+                    {name && <VMConnectLocally vmName={name} className='hidden h-9 items-center gap-2 rounded-lg border border-ui-border bg-ui-panel px-3 text-sm font-medium text-ui-text transition hover:bg-ui-raised sm:inline-flex' />}
+                    {name && <VMSudoPassword vmName={name} compact triggerClassName='hidden h-9 items-center gap-2 rounded-lg border border-ui-border bg-ui-panel px-3 text-sm font-medium text-ui-primary transition hover:bg-ui-raised sm:inline-flex' />}
+                    {name && <details className='relative sm:hidden'>
+                        <summary aria-label='VM access actions' title='VM access actions' className='flex h-9 w-9 cursor-pointer list-none items-center justify-center rounded-lg border border-ui-border bg-ui-panel text-ui-text [&::-webkit-details-marker]:hidden'>
+                            <Menu aria-hidden='true' className='h-4 w-4' />
+                        </summary>
+                        <div className='absolute right-0 top-11 z-20 grid min-w-52 gap-2 rounded-lg border border-ui-border bg-ui-panel p-2 shadow-lg'>
+                            <VMConnectLocally vmName={name} className='flex h-9 w-full items-center justify-start gap-2 rounded-lg border border-ui-border px-3 text-sm font-medium text-ui-text hover:bg-ui-raised' />
+                            <VMSudoPassword vmName={name} compact triggerClassName='flex h-9 w-full items-center justify-start gap-2 rounded-lg border border-ui-border px-3 text-sm font-medium text-ui-primary hover:bg-ui-raised' />
+                        </div>
+                    </details>}
                     {host && onHostChange && (
                         <label className='flex items-center gap-2 text-sm text-ui-muted'>
                             Host

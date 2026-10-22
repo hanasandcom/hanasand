@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { expect, test } from 'bun:test'
@@ -17,7 +17,9 @@ test('generated cloud-init installs each catalog service and reports setup state
     const script = config.write_files.find(file => file.path === '/usr/local/sbin/hanasand-vm-setup')?.content
 
     expect(config.users[0]?.name).toBe('builder-vm')
-    expect(script).toContain('nodesource.com/setup_24.x')
+    expect(script).toContain('https://nodejs.org/dist/')
+    expect(script).toContain('SHASUMS256.txt')
+    expect(script).not.toContain('nodesource')
     expect(script).toContain('bun.sh/install')
     expect(script).toContain('postgresql postgresql-contrib')
     expect(script).toContain('mysql-server')
@@ -27,7 +29,19 @@ test('generated cloud-init installs each catalog service and reports setup state
     expect(script).toContain('apt_packages+=(build-essential)')
     expect(script).toContain('rustc --version; cargo --version')
     expect(script).toContain('ruby --version; gem --version')
-    expect(script.indexOf('install -y --no-install-recommends ca-certificates curl gnupg unzip')).toBeLessThan(script.indexOf('nodesource.com/setup_24.x'))
+    expect(script).toContain('apt_packages+=(ca-certificates curl unzip)')
+    expect(script).toContain('Installing Node.js 24 LTS')
+    expect(script).toContain('The downloaded Node.js archive failed its checksum check.')
+    expect(script).toContain('tarfile.open(archive, mode="r:xz")')
+    expect(script).toContain('The Node.js archive contains an unsafe path.')
+    expect(script).toContain('docker.asc')
+    expect(script).toContain('fetch_apt_key https://download.docker.com/linux/ubuntu/gpg /etc/apt/keyrings/docker.asc')
+    expect(script).toContain('urlopen(sys.argv[1], timeout=30)')
+    expect(script).toContain('run_bounded 120 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -qq')
+    expect(script).toContain('Dpkg::Progress-Fd=3 install -y --no-install-recommends')
+    expect(script).toContain('set_stage "Installing ${apt_progress}"')
+    expect(script).toContain('while kill -0 "$apt_install_pid"')
+    expect(script).toContain('command timeout --signal=TERM --kill-after=10s 190s curl --connect-timeout 15 --max-time 180')
     expect(script).toContain('write_state Running \'Setup complete\'')
     expect(config.runcmd.at(-1)).toEqual(['/usr/local/sbin/hanasand-vm-setup'])
     execFileSync('bash', ['-n'], { input: script })
@@ -74,8 +88,8 @@ test('cloud-init copies a validated Next.js project into the guest and builds it
     expect(Buffer.from(page?.content || '', 'base64').toString()).toBe(files[1]?.content)
     expect(unit?.content).toContain('User=builder-vm')
     expect(unit?.content).toContain('WorkingDirectory=/home/builder-vm/project')
-    expect(script).toContain('cd /home/builder-vm/project && /usr/bin/npm install --ignore-scripts --no-audit --no-fund')
-    expect(script).toContain('cd /home/builder-vm/project && /usr/bin/npm run build')
+    expect(script).toContain('timeout --signal=TERM --kill-after=15s 600s runuser --user \'builder-vm\' -- bash -lc \'cd /home/builder-vm/project && /usr/local/bin/npm install --ignore-scripts --no-audit --no-fund\'')
+    expect(script).toContain('timeout --signal=TERM --kill-after=15s 600s runuser --user \'builder-vm\' -- bash -lc \'cd /home/builder-vm/project && /usr/local/bin/npm run build\'')
     expect(script).toContain('systemctl enable --now hanasand-nextjs.service')
     expect(script).toContain('curl -fsS -o /dev/null http://127.0.0.1:3000/')
     expect(script).toContain('write_state Running \'Next.js app built and serving on port 3000\'')
@@ -115,11 +129,53 @@ test('Node.js and PostgreSQL setup waits for databases after startup', () => {
     const script = config.write_files[0]?.content || ''
 
     expect(script.indexOf('systemctl enable --now postgresql')).toBeLessThan(script.indexOf('pg_isready'))
-    expect(script).toContain('apt_packages+=(nodejs)')
-    expect(script).toContain('if ! printf \'%s\' "$services" | grep -q \'"nodejs"\' || printf \'%s\' "$services" | grep -q \'"docker"\'; then')
-    const nodeInstall = script.slice(script.indexOf('if printf \'%s\' "$services" | grep -q \'"nodejs"\'; then'), script.indexOf('if printf \'%s\' "$services" | grep -q \'"docker"\'; then'))
-    expect(nodeInstall).not.toContain('apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -qq')
+    expect(script).toContain('Installing Node.js 24 LTS')
+    expect(script).not.toContain('apt_packages+=(nodejs)')
+    expect(script).not.toContain('apt_packages+=(xz-utils)')
+    expect(script).toContain('grep -Eq \'"(bun|docker|minecraft-java)"\'')
+    expect(script).toContain('apt_packages+=(ca-certificates)')
+    expect(script).toContain('systemctl enable --now postgresql')
+    expect(script).toContain('node --version; npm --version')
+    expect(script.match(/run_bounded 120 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -qq/g)).toHaveLength(1)
+    expect(script.match(/run_bounded 480 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Dpkg::Progress-Fd=3 install -y --no-install-recommends "\$\{apt_packages\[@\]\}"/g)).toHaveLength(1)
+    expect(script).not.toContain('nodesource.com/setup_24.x')
     execFileSync('bash', ['-n'], { input: script })
+})
+
+test('apt package installation writes meaningful progress to the VM status file', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'vm-setup-progress-'))
+    try {
+        const bin = join(directory, 'bin')
+        const statusPath = join(directory, 'status')
+        const progressLog = join(directory, 'progress.log')
+        mkdirSync(bin)
+        const fakeAptGet = join(bin, 'apt-get')
+        writeFileSync(fakeAptGet, [
+            '#!/usr/bin/env bash',
+            'if [[ " $* " == *" install "* ]]; then',
+            '  printf \'pmstatus:ripgrep:40.0000:Unpacking\\n\' >&3',
+            '  sleep 0.3',
+            '  printf \'pmstatus:ripgrep:100.0000:Unpacking\\n\' >&3',
+            'fi',
+        ].join('\n'))
+        chmodSync(fakeAptGet, 0o755)
+
+        const cloudInit = vmSetupUserData('progress-vm', { aptPackages: ['ripgrep'] })
+        const config = parse(cloudInit.slice('#cloud-config\n'.length)) as { write_files: Array<{ content: string }> }
+        const script = config.write_files[0]?.content
+            .replace('state_file=\'/var/lib/hanasand-vm-setup/status\'', `state_file='${statusPath}'`)
+            .replace('install -d -m 0755 /var/lib/hanasand-vm-setup', `install -d -m 0755 '${directory}'`)
+            .replace('mktemp /run/hanasand-apt-progress.XXXXXX', `mktemp '${directory}/apt-progress.XXXXXX'`)
+            .replace('    sleep 2\n  done\n  update_apt_progress', '    sleep 0.1\n  done\n  update_apt_progress')
+            .replace('set_stage() { setup_stage=$1; write_state Provisioning "$1"; }', `set_stage() { setup_stage=$1; write_state Provisioning "$1"; printf '%s\\n' "$1" >> '${progressLog}'; }`)
+
+        const result = spawnSync('bash', ['-c', script || ''], { encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } })
+        if (result.status !== 0) throw new Error(`${result.stderr}\n${result.stdout}`)
+        expect(readFileSync(progressLog, 'utf8')).toContain('Installing ripgrep 40%')
+        expect(readFileSync(progressLog, 'utf8')).toContain('Installing ripgrep 100%')
+    } finally {
+        rmSync(directory, { recursive: true, force: true })
+    }
 })
 
 test('AI-selected Ubuntu packages are installed as package names, never shell commands', () => {
@@ -128,8 +184,8 @@ test('AI-selected Ubuntu packages are installed as package names, never shell co
     const script = config.write_files[0]?.content || ''
 
     expect(script).toContain('apt_packages+=( \'ripgrep\' \'ruby-full\' )')
-    expect(script).toContain('set_stage \'Refreshing package index\'')
-    expect(script).toContain('apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y --no-install-recommends "${apt_packages[@]}"')
+    expect(script).toContain('run_bounded 120 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -qq')
+    expect(script).toContain('Dpkg::Progress-Fd=3 install -y --no-install-recommends "${apt_packages[@]}"')
     expect(() => vmSetupUserData('custom-vm', { services: [], aptPackages: ['curl;touch /tmp/pwned'] })).toThrow('valid Debian package identifiers')
     execFileSync('bash', ['-n'], { input: script })
 })
@@ -158,6 +214,27 @@ test('setup failures persist the stage and line for VM status feedback', () => {
         const [state, message] = readFileSync(join(directory, 'status'), 'utf8').trim().split('\t')
         expect(state).toBe('Error')
         expect(message).toMatch(/^Service setup failed during Preparing selected services\. Check VM logs for details \(line \d+\)\.$/)
+    } finally {
+        rmSync(directory, { recursive: true, force: true })
+    }
+})
+
+test('a stalled package install hits its deadline and reports a visible setup error', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'vm-setup-timeout-'))
+    try {
+        const cloudInit = vmSetupUserData('hei', { services: ['postgresql'] })
+        const config = parse(cloudInit.slice('#cloud-config\n'.length)) as { write_files: Array<{ content: string }> }
+        const script = config.write_files[0]?.content
+            .replace('state_file=\'/var/lib/hanasand-vm-setup/status\'', `state_file='${directory}/status'`)
+            .replace('install -d -m 0755 /var/lib/hanasand-vm-setup', `install -d -m 0755 '${directory}'`)
+            .replace('run_bounded 120 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -qq', 'run_bounded 1 sleep 0')
+            .replace('run_bounded 480 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Dpkg::Progress-Fd=3 install -y --no-install-recommends "${apt_packages[@]}" 3>"$apt_progress_file" &', 'run_bounded 1 sleep 3 &')
+
+        const result = spawnSync('bash', ['-c', script || ''], { encoding: 'utf8' })
+        expect(result.status).not.toBe(0)
+        const [state, message] = readFileSync(join(directory, 'status'), 'utf8').trim().split('\t')
+        expect(state).toBe('Error')
+        expect(message).toMatch(/^Service setup failed during Installing selected packages\./)
     } finally {
         rmSync(directory, { recursive: true, force: true })
     }

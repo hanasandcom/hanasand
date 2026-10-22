@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hanasand VM staging</title>
+<body>
+<main>
+  <h1>Local VM staging</h1>
+  <p>This local-only session is isolated from Hanasand production accounts and data.</p>
+  <button id="login" type="button">Open staging</button>
+</main>
+<script>
+document.querySelector('#login').addEventListener('click', () => {
+  document.cookie = 'id=vm-stage-user; Path=/; SameSite=Lax'
+  document.cookie = 'access_token=vm-stage-token-only; Path=/; SameSite=Lax'
+  location.href = 'http://127.0.0.1:3388/vms'
+})
+</script>
+</body>
+</html>

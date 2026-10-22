@@ -62,7 +62,7 @@ export default function VMs({ vms: serverVMs, initialNow }: { vms: VM[], initial
     }, [update])
 
     return (
-        <DashboardPanel className='grid min-h-42 content-start gap-3 p-2 lg:p-4'>
+        <DashboardPanel className='grid min-h-42 content-start gap-3 p-2'>
             <div className='mb-1 flex items-center justify-between gap-3'>
                 <div>
                     <h2 className='text-base font-semibold text-ui-text'>Virtual machines</h2>

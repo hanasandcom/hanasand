@@ -6,12 +6,14 @@ let created: Record<string, unknown> | undefined
 mock.module('../src/constants.ts', () => ({ default: { lxd_image_server: 'https://images.example', lxd_image_alias: '24.04', lxd_socket_path: '/tmp/lxd.sock' } }))
 mock.module('../src/utils/db.ts', () => ({ default: async () => ({ rows: [] }) }))
 
-const { provisionLocalLxdInstance, setLxdRequestForTest, setVmDetailsWriterForTest } = await import('../src/utils/vms/lxd.ts')
+const { lxdProjectPath, provisionLocalLxdInstance, setLxdRequestForTest, setVmDetailsWriterForTest } = await import('../src/utils/vms/lxd.ts')
+const { waitForLxdOperation } = await import('../src/utils/vms/lxdOperations.ts')
 const resetRequest = setLxdRequestForTest(async (path, options) => {
     calls.push({ path, options })
     if (path.startsWith('/1.0/instances/') && path.endsWith('/state') && options?.method === 'PUT') {
         return { status_code: 200, status: 'Success', metadata: {}, operation: '/1.0/operations/start' }
     }
+    if (path === '/1.0/profiles/default') return { status_code: 200, status: 'Success', metadata: { devices: { root: { type: 'disk', path: '/', pool: 'test-pool' } } } }
     if (path.startsWith('/1.0/instances/') && path.endsWith('/state')) {
         return { status_code: 200, status: 'Success', metadata: { status: 'Running' } }
     }
@@ -31,6 +33,21 @@ const resetWriter = setVmDetailsWriterForTest(async () => {})
 beforeEach(() => { calls.length = 0; created = undefined })
 afterAll(() => { resetRequest(); resetWriter() })
 
+test('LXD project scoping preserves other query parameters and replaces stale project values', () => {
+    expect(lxdProjectPath('/1.0/instances?recursion=1', 'hanasand-vm-stage')).toBe('/1.0/instances?recursion=1&project=hanasand-vm-stage')
+    expect(lxdProjectPath('/1.0/instances/foo?project=default', 'hanasand-vm-stage')).toBe('/1.0/instances/foo?project=hanasand-vm-stage')
+    expect(lxdProjectPath('/1.0/instances/foo', '')).toBe('/1.0/instances/foo')
+})
+
+test('LXD project scoping is retained when waiting on an operation URL', async () => {
+    let requestedPath = ''
+    await waitForLxdOperation(async path => {
+        requestedPath = path
+        return { status_code: 200, status: 'Success', metadata: {} }
+    }, '/1.0/operations/example?project=hanasand-vm-stage', 30)
+    expect(requestedPath).toBe('/1.0/operations/example/wait?project=hanasand-vm-stage&timeout=30')
+})
+
 test.serial('LXD receives the selected Ubuntu release, CPU and memory, nested Docker option, and cloud-init setup', async () => {
     await provisionLocalLxdInstance('configured-vm', {
         os: 'ubuntu-26.04',
@@ -40,17 +57,19 @@ test.serial('LXD receives the selected Ubuntu release, CPU and memory, nested Do
     })
 
     const create = calls.find(call => call.path === '/1.0/instances' && call.options?.method === 'POST')
-    const body = create?.options?.body as { config: Record<string, string>; devices: Record<string, { size: string }>; source: { alias: string } }
+    const body = create?.options?.body as { config: Record<string, string>; devices: Record<string, { pool: string; size: string }>; source: { alias: string } }
     expect(body.source.alias).toBe('26.04')
     expect(body.config['limits.cpu']).toBe('4')
     expect(body.config['limits.memory']).toBe('8GiB')
     expect(body.devices.root.size).toBe('40GiB')
+    expect(body.devices.root.pool).toBe('test-pool')
     expect(body.config['security.nesting']).toBe('true')
     expect(body.config['security.syscalls.intercept.mknod']).toBe('true')
     expect(body.config['security.syscalls.intercept.setxattr']).toBe('true')
     expect(body.config['user.hanasand.setup_plan']).toMatch(/^[a-f0-9]{64}$/)
     expect(body.config['user.hanasand.setup_plan']).toBe(createHash('sha256').update(JSON.stringify({ os: 'ubuntu-26.04', resources: { cpu: '4', memory: '8GiB', disk: '40GiB' }, services: ['docker', 'nodejs'], aptPackages: ['ripgrep'] })).digest('hex'))
-    expect(body.config['cloud-init.user-data']).toContain('nodesource.com/setup_24.x')
+    expect(body.config['cloud-init.user-data']).toContain('https://nodejs.org/dist/')
+    expect(body.config['cloud-init.user-data']).toContain('SHASUMS256.txt')
     expect(body.config['cloud-init.user-data']).toContain('apt_packages+=( \'ripgrep\' )')
 })
 

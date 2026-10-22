@@ -4,6 +4,7 @@ const maxProjectFiles = 96
 const maxProjectBytes = 120 * 1024
 const maxProjectFileBytes = 48 * 1024
 const projectPathPattern = /^[A-Za-z0-9_.@/-]+$/
+const generatedAppPathPattern = /^(?:src\/app|src\/lib|public)\/[A-Za-z0-9_.@/-]+\.(?:js|jsx|css|json)$/
 
 export function normalizeNextjsProjectFiles(value: unknown): NextjsProjectFile[] | null {
     if (!Array.isArray(value) || value.length === 0 || value.length > maxProjectFiles) return null
@@ -49,6 +50,33 @@ export function normalizeNextjsProjectFiles(value: unknown): NextjsProjectFile[]
         || Object.hasOwn(scripts, 'prestart') || Object.hasOwn(scripts, 'poststart')) return null
 
     return files
+}
+
+export function normalizeGeneratedNextjsProjectFiles(value: unknown): NextjsProjectFile[] | null {
+    if (!Array.isArray(value) || value.some(item => !item || typeof item !== 'object'
+        || typeof (item as Record<string, unknown>).path !== 'string'
+        || !generatedAppPathPattern.test((item as Record<string, unknown>).path as string))) return null
+
+    const paths = new Set(value.map(item => (item as Record<string, string>).path))
+    if (paths.has('package.json') || !paths.has('src/app/page.jsx') || !paths.has('src/app/layout.jsx')) return null
+
+    const packageJson = JSON.stringify({
+        name: 'hanasand-generated-app',
+        version: '1.0.0',
+        private: true,
+        scripts: {
+            build: 'next build',
+            start: 'next start --hostname 0.0.0.0 --port 3000',
+        },
+        dependencies: {
+            next: '16.2.4',
+            react: '19.2.5',
+            'react-dom': '19.2.5',
+        },
+    })
+    const normalized = normalizeNextjsProjectFiles([...value, { path: 'package.json', content: packageJson }])
+    if (!normalized) return null
+    return normalized
 }
 
 function asRecord(value: unknown): Record<string, unknown> {

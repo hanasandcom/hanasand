@@ -1,6 +1,7 @@
 import config from '#constants'
 import run from '#db'
 import { guestRootDiskUsage } from './guestDiskUsage.ts'
+import { lxdProjectPath } from './lxd.ts'
 
 export const VM_METRICS_JOB_ID = 'api-vm-metrics'
 type Network = { host_name?: string, counters?: { bytes_received?: number, bytes_sent?: number } }
@@ -87,7 +88,8 @@ export function metricSample(instance: Instance, at: number, history: Map<string
 }
 
 async function lxd(path: string) {
-    const response = await fetch(`http://localhost${path}`, { unix: config.lxd_socket_path, signal: AbortSignal.timeout(10_000) } as RequestInit & { unix: string })
+    const scopedPath = lxdProjectPath(path, config.lxd_project)
+    const response = await fetch(`http://localhost${scopedPath}`, { unix: config.lxd_socket_path, signal: AbortSignal.timeout(10_000) } as RequestInit & { unix: string })
     if (!response.ok) throw new Error(`VM metrics: host returned ${response.status}.`)
     return response
 }
