@@ -54,10 +54,10 @@ if (oversized.length) {
     for (const item of oversized.sort((left, right) => right.lineCount - left.lineCount)) {
         console.error(`${item.lineCount} lines (limit ${limit}): ${item.relative}`)
     }
-    console.error(`${oversized.length} of ${checked} hand-maintained files (${totalLines} lines total) exceed the cap.`)
+    console.error(`${oversized.length} of ${checked} files (${totalLines} lines total) exceed the cap.`)
     process.exitCode = 1
 } else {
-    console.log(`Line cap passed for all ${checked} hand-maintained files (${totalLines} lines total).`)
+    console.log(`Line cap passed for all ${checked} files (${totalLines} lines total).`)
 }
 if (missing.length) console.log(`Skipped ${missing.length} tracked paths absent from the working tree.`)
 
