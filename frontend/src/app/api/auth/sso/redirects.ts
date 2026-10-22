@@ -1,5 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+const ssoReturnHosts = new Set(['hanasand.com', 'www.hanasand.com', 'mail.hanasand.com', 'cdn.hanasand.com'])
+
+export function safeSsoReturnTo(value: unknown) {
+    if (typeof value !== 'string' || value.length > 2048) return null
+    try {
+        const target = new URL(value)
+        if (target.protocol !== 'https:' || target.port || target.username || target.password || target.hash || !ssoReturnHosts.has(target.hostname)) return null
+        return target.toString()
+    } catch {
+        return null
+    }
+}
+
 export function loginRedirect(req: NextRequest, error: string) {
     const target = publicUrl(req, '/login')
     target.searchParams.set('error', error)

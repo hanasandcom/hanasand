@@ -3,11 +3,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { identityApiUrl } from '@/utils/auth/authApiUrl'
 import { setAuthCookies } from '../../_authCookies'
 import { safeRedirectPath } from '@/utils/auth/safeRedirectPath'
-import { loginRedirect, publicUrl } from '../redirects'
+import { loginRedirect, publicUrl, safeSsoReturnTo } from '../redirects'
 
 function failure(req: NextRequest, message: string) {
     const response = loginRedirect(req, message)
     response.cookies.set('hanasand_auth_binding', '', { httpOnly: true, secure: true, sameSite: 'none', domain: '.hanasand.com', path: '/', maxAge: 0 })
+    response.cookies.set('__Host-sso-return-to', '', { httpOnly: true, secure: true, sameSite: 'lax', path: '/', maxAge: 0 })
     response.headers.set('Cache-Control', 'no-store')
     response.headers.set('Referrer-Policy', 'no-referrer')
     return response
@@ -35,9 +36,11 @@ export async function GET(req: NextRequest) {
         return failure(req, data?.error || 'SSO login failed.')
     }
 
-    const response = NextResponse.redirect(publicUrl(req, safeRedirectPath(data.redirectPath)))
+    const returnTo = safeSsoReturnTo(req.cookies.get('__Host-sso-return-to')?.value)
+    const response = NextResponse.redirect(returnTo || publicUrl(req, safeRedirectPath(data.redirectPath)))
     setAuthCookies(req, response, data)
     response.cookies.set('hanasand_auth_binding', '', { httpOnly: true, secure: true, sameSite: 'none', domain: '.hanasand.com', path: '/', maxAge: 0 })
+    response.cookies.set('__Host-sso-return-to', '', { httpOnly: true, secure: true, sameSite: 'lax', path: '/', maxAge: 0 })
     response.headers.set('Cache-Control', 'no-store')
     response.headers.set('Referrer-Policy', 'no-referrer')
     return response
