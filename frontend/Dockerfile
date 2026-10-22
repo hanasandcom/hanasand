@@ -8,7 +8,7 @@ WORKDIR /workspace/frontend
 COPY frontend/package.json frontend/bun.lock* frontend/bunfig.toml ./
 COPY frontend/packages/hanasand ./packages/hanasand
 RUN bun install
-RUN bun run --cwd packages/hanasand build
+RUN bun run --cwd packages/hanasand build && cp -R packages/hanasand/dist node_modules/hanasand/dist
 
 FROM deps AS builder
 
